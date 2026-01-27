@@ -331,28 +331,28 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
 
   const allLocked = rows.length > 0 && rows.every(r => r.locked)
 
-  if (!node) return <div className="p-4 text-sm text-gray-500">Select a node to edit its details</div>
+  if (!node) return <div className="p-4 text-sm text-slate-500">Select a node to edit its details</div>
 
   const currentType = (node.type || 'decision') as NodeType
   const metadata = NODE_REGISTRY[currentType] || NODE_REGISTRY.decision
 
   return (
-    <div className="p-4 border-t border-gray-200" onKeyDown={handleKeyDown} role="region" aria-label="Node properties">
+    <div className="p-4 border-t border-slate-200" onKeyDown={handleKeyDown} role="region" aria-label="Node properties">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
           {renderIcon(metadata.icon, 18) ?? <span aria-hidden="true">•</span>}
           <h3 className="text-sm font-semibold">{metadata.label}</h3>
         </div>
-        <button onClick={onClose} className="text-gray-400 hover:text-gray-600" aria-label="Close">×</button>
+        <button onClick={onClose} className="text-slate-400 hover:text-slate-600" aria-label="Close">×</button>
       </div>
 
       <div className="mb-4">
-        <label htmlFor="node-type" className="block text-xs font-medium text-gray-700 mb-1">Type</label>
+        <label htmlFor="node-type" className="block text-xs font-medium text-slate-700 mb-1">Type</label>
         <select
           id="node-type"
           value={currentType}
           onChange={(e) => handleTypeChange(e.target.value as NodeType)}
-          className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 bg-white"
+          className="w-full text-sm border border-slate-300 rounded px-2 py-1.5 bg-white"
           data-testid="select-node-type"
         >
           {(Object.keys(NODE_REGISTRY) as NodeType[]).map((type) => (
@@ -366,7 +366,7 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
       {/* v1.2 Node Metadata (optional) */}
       {node.data?.kind && (
         <div className="mb-4">
-          <label className="block text-xs font-medium text-gray-700 mb-1">Kind</label>
+          <label className="block text-xs font-medium text-slate-700 mb-1">Kind</label>
           <div className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium bg-info-50 border border-info-200 text-info-700">
             {node.data.kind}
           </div>
@@ -375,11 +375,11 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
 
       {node.data?.prior !== undefined && (
         <div className="mb-4">
-          <label className="block text-xs font-medium text-gray-700 mb-1">
-            Prior <span className="text-gray-500">(belief before evidence)</span>
+          <label className="block text-xs font-medium text-slate-700 mb-1">
+            Prior <span className="text-slate-500">(belief before evidence)</span>
           </label>
           <div className="flex items-center gap-2">
-            <div className="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
+            <div className="flex-1 h-2 bg-slate-200 rounded-full overflow-hidden">
               <div
                 className="h-full bg-info-500 rounded-full transition-all"
                 style={{ width: `${node.data.prior * 100}%` }}
@@ -390,7 +390,7 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
                 aria-valuetext={`${(node.data.prior * 100).toFixed(0)}%`}
               />
             </div>
-            <span className="text-xs font-medium text-gray-700 tabular-nums w-10 text-right">
+            <span className="text-xs font-medium text-slate-700 tabular-nums w-10 text-right">
               {(node.data.prior * 100).toFixed(0)}%
             </span>
           </div>
@@ -399,13 +399,13 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
 
       {node.data?.utility !== undefined && (
         <div className="mb-4">
-          <label className="block text-xs font-medium text-gray-700 mb-1">
-            Utility <span className="text-gray-500">(value from -1 to +1)</span>
+          <label className="block text-xs font-medium text-slate-700 mb-1">
+            Utility <span className="text-slate-500">(value from -1 to +1)</span>
           </label>
           <div className="flex items-center gap-2">
-            <div className="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden relative">
+            <div className="flex-1 h-2 bg-slate-200 rounded-full overflow-hidden relative">
               {/* Center line marker */}
-              <div className="absolute inset-y-0 left-1/2 w-px bg-gray-400" />
+              <div className="absolute inset-y-0 left-1/2 w-px bg-slate-400" />
               {/* Utility bar - centered at 50%, extends left (negative) or right (positive) */}
               <div
                 className={`absolute inset-y-0 transition-all ${
@@ -422,7 +422,7 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
                 aria-valuetext={node.data.utility.toFixed(2)}
               />
             </div>
-            <span className="text-xs font-medium text-gray-700 tabular-nums w-10 text-right">
+            <span className="text-xs font-medium text-slate-700 tabular-nums w-10 text-right">
               {node.data.utility >= 0 ? '+' : ''}{node.data.utility.toFixed(2)}
             </span>
           </div>
@@ -430,7 +430,7 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
       )}
 
       <div className="mb-4">
-        <label htmlFor="node-title" className="block text-xs font-medium text-gray-700 mb-1">Title</label>
+        <label htmlFor="node-title" className="block text-xs font-medium text-slate-700 mb-1">Title</label>
         <input
           ref={labelRef}
           id="node-title"
@@ -439,13 +439,13 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
           value={label}
           onChange={(e) => setLabel(e.target.value)}
           onBlur={handleLabelBlur}
-          className="w-full text-sm border border-gray-300 rounded px-2 py-1"
+          className="w-full text-sm border border-slate-300 rounded px-2 py-1"
         />
       </div>
 
       <div className="mb-4">
-        <label htmlFor="node-description" className="block text-xs font-medium text-gray-700 mb-1">
-          Note <span className="text-gray-400">(optional)</span>
+        <label htmlFor="node-description" className="block text-xs font-medium text-slate-700 mb-1">
+          Note <span className="text-slate-400">(optional)</span>
         </label>
         <textarea
           id="node-description"
@@ -454,23 +454,23 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
           onChange={(e) => setDescription(e.target.value)}
           onBlur={handleDescriptionBlur}
           rows={3}
-          className="w-full text-sm border border-gray-300 rounded px-2 py-1"
+          className="w-full text-sm border border-slate-300 rounded px-2 py-1"
           placeholder="Add a note..."
         />
       </div>
 
       {/* Brief v2.2: Factor Value Editor */}
       {isFactorNode && (
-        <div className="mb-4 pb-4 border-b border-gray-200">
+        <div className="mb-4 pb-4 border-b border-slate-200">
           <Tooltip content="Set the current and baseline values for this factor" position="right">
-            <h4 className="text-xs font-medium text-gray-700 mb-2">
-              Observed Value <span className="text-gray-400">(optional)</span>
+            <h4 className="text-xs font-medium text-slate-700 mb-2">
+              Observed Value <span className="text-slate-400">(optional)</span>
             </h4>
           </Tooltip>
 
           <div className="flex gap-2 mb-2">
             <div className="w-16">
-              <label htmlFor="factor-unit" className="block text-xs text-gray-500 mb-1">Unit</label>
+              <label htmlFor="factor-unit" className="block text-xs text-slate-500 mb-1">Unit</label>
               <input
                 id="factor-unit"
                 type="text"
@@ -478,12 +478,12 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
                 onChange={(e) => setFactorUnit(e.target.value)}
                 onBlur={handleFactorValueUpdate}
                 placeholder="£, %, etc."
-                className="w-full text-sm border border-gray-300 rounded px-2 py-1"
+                className="w-full text-sm border border-slate-300 rounded px-2 py-1"
                 maxLength={10}
               />
             </div>
             <div className="flex-1">
-              <label htmlFor="factor-value" className="block text-xs text-gray-500 mb-1">Current</label>
+              <label htmlFor="factor-value" className="block text-xs text-slate-500 mb-1">Current</label>
               <input
                 id="factor-value"
                 type="number"
@@ -491,15 +491,15 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
                 onChange={(e) => setFactorValue(e.target.value)}
                 onBlur={handleFactorValueUpdate}
                 placeholder="59"
-                className="w-full text-sm border border-gray-300 rounded px-2 py-1"
+                className="w-full text-sm border border-slate-300 rounded px-2 py-1"
                 step="any"
               />
             </div>
           </div>
 
           <div>
-            <label htmlFor="factor-baseline" className="block text-xs text-gray-500 mb-1">
-              Baseline <span className="text-gray-400">(previous value)</span>
+            <label htmlFor="factor-baseline" className="block text-xs text-slate-500 mb-1">
+              Baseline <span className="text-slate-400">(previous value)</span>
             </label>
             <input
               id="factor-baseline"
@@ -508,12 +508,12 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
               onChange={(e) => setFactorBaseline(e.target.value)}
               onBlur={handleFactorValueUpdate}
               placeholder="49"
-              className="w-full text-sm border border-gray-300 rounded px-2 py-1"
+              className="w-full text-sm border border-slate-300 rounded px-2 py-1"
               step="any"
             />
           </div>
 
-          <p className="text-xs text-gray-500 mt-2">
+          <p className="text-xs text-slate-500 mt-2">
             Used for parameter uncertainty in analysis.
           </p>
         </div>
@@ -521,9 +521,9 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
 
       {/* P0-UI-7/8: Intervention Editor for Option Nodes */}
       {isOptionNode && optionAsUIOption && (
-        <div className="mb-4 pb-4 border-b border-gray-200">
+        <div className="mb-4 pb-4 border-b border-slate-200">
           <Tooltip content="Define what causal changes this option makes" position="right">
-            <h4 className="text-xs font-medium text-gray-700 mb-2">
+            <h4 className="text-xs font-medium text-slate-700 mb-2">
               Interventions
             </h4>
           </Tooltip>
@@ -560,7 +560,7 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
       )}
 
       {/* Outcome Node Selector */}
-      <div className="mb-4 pb-4 border-b border-gray-200">
+      <div className="mb-4 pb-4 border-b border-slate-200">
         <Tooltip content="Mark this node as the target outcome for analysis" position="right">
           <label htmlFor="outcome-toggle" className="flex items-center gap-2 cursor-pointer">
             <input
@@ -570,20 +570,20 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
               onChange={(e) => {
                 setOutcomeNode(e.target.checked ? nodeId : null)
               }}
-              className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+              className="w-4 h-4 text-info-600 border-slate-300 rounded focus:ring-info-500"
               data-testid="toggle-outcome-node"
             />
-            <span className="text-xs font-medium text-gray-700">
+            <span className="text-xs font-medium text-slate-700">
               Use as Outcome Node
             </span>
             {outcomeNodeId === nodeId && (
-              <span className="ml-auto px-2 py-0.5 text-xs font-medium rounded-full bg-blue-100 text-blue-700">
+              <span className="ml-auto px-2 py-0.5 text-xs rounded-full bg-info-100 text-info-700">
                 Target
               </span>
             )}
           </label>
         </Tooltip>
-        <p className="text-xs text-gray-500 mt-1.5 ml-6">
+        <p className="text-xs text-slate-500 mt-1.5 ml-6">
           When set, analysis will focus on this node as the target outcome.
         </p>
       </div>
@@ -592,17 +592,17 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
       {outgoingEdges.length > 0 && !isInfluenceNetwork && (
         <section
           ref={probabilitiesRef}
-          className="mb-4 pt-4 border-t border-gray-200"
+          className="mb-4 pt-4 border-t border-slate-200"
           aria-labelledby="probabilities-heading"
         >
           <Tooltip content="% likelihood each connector is taken (must total 100%)" position="right">
-            <h4 id="probabilities-heading" className="text-xs font-medium text-gray-700 mb-2">
+            <h4 id="probabilities-heading" className="text-xs font-medium text-slate-700 mb-2">
               Probabilities
             </h4>
           </Tooltip>
 
           {/* Helper Text */}
-          <p className="text-xs text-gray-600 mb-3 leading-snug">
+          <p className="text-xs text-slate-600 mb-3 leading-snug">
             Auto-balance keeps your ratios, rounds to nice numbers, and totals 100%. Equal split divides the remaining (unlocked) options evenly.
           </p>
 
@@ -617,8 +617,8 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
                   <button
                     type="button"
                     onClick={() => toggleLock(row.edgeId)}
-                    className={`flex-shrink-0 p-1 rounded hover:bg-gray-100 transition-colors ${
-                      row.locked ? 'text-info-600' : 'text-gray-400'
+                    className={`flex-shrink-0 p-1 rounded hover:bg-slate-100 transition-colors ${
+                      row.locked ? 'text-info-600' : 'text-slate-400'
                     }`}
                     aria-label={row.locked ? `Unlock ${row.targetLabel}` : `Lock ${row.targetLabel}`}
                     aria-pressed={row.locked}
@@ -628,7 +628,7 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
                   </button>
 
                   {/* Target label */}
-                  <span className="text-xs text-gray-700 w-14 flex-shrink-0 truncate" title={row.targetLabel}>
+                  <span className="text-xs text-slate-700 w-14 flex-shrink-0 truncate" title={row.targetLabel}>
                     {row.targetLabel}
                   </span>
 
@@ -664,10 +664,10 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
                         updatePercent(row.edgeId, Math.max(0, Math.min(100, val)))
                       }
                     }}
-                    className={`w-10 text-xs border border-gray-300 rounded px-1 py-0.5 text-right flex-shrink-0 ${row.locked ? 'opacity-50' : 'opacity-100'}`}
+                    className={`w-10 text-xs border border-slate-300 rounded px-1 py-0.5 text-right flex-shrink-0 ${row.locked ? 'opacity-50' : 'opacity-100'}`}
                     aria-label={`${row.targetLabel} percentage`}
                   />
-                  <span className="text-xs text-gray-500 flex-shrink-0">%</span>
+                  <span className="text-xs text-slate-500 flex-shrink-0">%</span>
                 </div>
               )
             })}
@@ -680,7 +680,7 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
               : 'bg-warning-50 border-warning-500'
           }`}>
             <span className="font-medium">Total: {validation.sum}%</span>
-            {!validation.valid && <span className="text-gray-600"> (must be 100% ±1%)</span>}
+            {!validation.valid && <span className="text-slate-600"> (must be 100% ±1%)</span>}
           </div>
 
           {/* Balance Error Banner */}
@@ -700,10 +700,10 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
                 type="button"
                 onClick={handleAutoBalance}
                 disabled={allLocked}
-                className={`px-3 py-1.5 text-xs font-medium rounded border border-gray-300 transition-colors ${
+                className={`px-3 py-1.5 text-xs font-medium rounded border border-slate-300 transition-colors ${
                   allLocked
-                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                    : 'bg-white text-gray-700 hover:bg-gray-50 cursor-pointer'
+                    ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                    : 'bg-white text-slate-700 hover:bg-slate-50 cursor-pointer'
                 }`}
                 title={allLocked ? "Unlock at least one row" : undefined}
               >
@@ -716,10 +716,10 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
                 type="button"
                 onClick={handleEqualSplit}
                 disabled={allLocked}
-                className={`px-3 py-1.5 text-xs font-medium rounded border border-gray-300 transition-colors ${
+                className={`px-3 py-1.5 text-xs font-medium rounded border border-slate-300 transition-colors ${
                   allLocked
-                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                    : 'bg-white text-gray-700 hover:bg-gray-50 cursor-pointer'
+                    ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                    : 'bg-white text-slate-700 hover:bg-slate-50 cursor-pointer'
                 }`}
                 title={allLocked ? "Unlock at least one row" : undefined}
               >
@@ -731,10 +731,10 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
               type="button"
               onClick={handleReset}
               disabled={!hasChanges}
-              className={`px-3 py-1.5 text-xs font-medium rounded border border-gray-300 transition-colors ${
+              className={`px-3 py-1.5 text-xs font-medium rounded border border-slate-300 transition-colors ${
                 hasChanges
-                  ? 'bg-white text-gray-700 hover:bg-gray-50 cursor-pointer'
-                  : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                  ? 'bg-white text-slate-700 hover:bg-slate-50 cursor-pointer'
+                  : 'bg-slate-100 text-slate-400 cursor-not-allowed'
               }`}
             >
               Reset
@@ -748,7 +748,7 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
               disabled={!validation.valid || !hasChanges || !!balanceError}
               className={`px-4 py-1.5 text-xs font-medium rounded transition-colors text-white ${
                 (!validation.valid || !hasChanges || !!balanceError)
-                  ? 'bg-gray-300 cursor-not-allowed'
+                  ? 'bg-slate-300 cursor-not-allowed'
                   : 'bg-info-500 hover:bg-info-600 cursor-pointer'
               }`}
               title={
@@ -769,8 +769,8 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
 
       {/* Empty state for probabilities */}
       {outgoingEdges.length === 0 && (
-        <div className="mb-4 pt-4 border-t border-gray-200">
-          <p className="text-xs text-gray-500 italic">
+        <div className="mb-4 pt-4 border-t border-slate-200">
+          <p className="text-xs text-slate-500 italic">
             Add connectors from this decision to set probabilities.
           </p>
         </div>

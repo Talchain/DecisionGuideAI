@@ -14,13 +14,13 @@ export const OutcomeNode = memo((props: NodeProps) => {
     <BaseNode {...props} nodeType="outcome" icon={metadata.icon}>
       {/* Decision Graph Display v2 Task 8: Achievement probability */}
       {displayMetadata.achievementProbability !== null && (
-        <div style={{ fontSize: '12px', fontWeight: 600, marginBottom: '4px', color: '#059669' }}>
+        <div className="text-xs font-semibold mb-1 text-success-600">
           {Math.round(displayMetadata.achievementProbability * 100)}% chance
         </div>
       )}
 
       {props.data?.description && (
-        <div style={{ fontSize: '11px', opacity: 0.7 }}>
+        <div className="text-xs opacity-70">
           {props.data.description}
         </div>
       )}

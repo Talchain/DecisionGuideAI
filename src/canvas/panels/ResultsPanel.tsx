@@ -301,14 +301,14 @@ import { trackCompareOpened } from '../utils/sandboxTelemetry'
   // Status chip
   const statusChip = (() => {
     let text = 'Idle'
-    let className = 'bg-gray-100 text-gray-600'
+    let className = 'bg-slate-100 text-slate-600'
 
     if (status === 'preparing' || status === 'connecting' || status === 'streaming') {
       text = status === 'preparing' ? 'Preparing' : status === 'connecting' ? 'Connecting' : 'Analysing'
-      className = 'bg-blue-100 text-blue-600'
+      className = 'bg-info-100 text-info-600'
     } else if (status === 'complete') {
       text = 'Complete'
-      className = 'bg-green-100 text-green-600'
+      className = 'bg-success-100 text-success-600'
     } else if (status === 'error') {
       text = 'Error'
       className = 'bg-danger-100 text-danger-600'
@@ -326,7 +326,7 @@ import { trackCompareOpened } from '../utils/sandboxTelemetry'
 
   // Tabs component
   const tabs = (
-    <div className="flex border-b border-gray-200">
+    <div className="flex border-b border-slate-200">
       <TabButton
         active={activeTab === 'latest'}
         onClick={() => setActiveTab('latest')}
@@ -354,7 +354,7 @@ import { trackCompareOpened } from '../utils/sandboxTelemetry'
     <>
       <button
         onClick={handleRunAgain}
-        className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+        className="flex-1 px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors"
         type="button"
       >
         Analyse again
@@ -362,7 +362,7 @@ import { trackCompareOpened } from '../utils/sandboxTelemetry'
       <Tooltip content={hash ? 'Share this analysis' : 'Share requires a completed analysis'}>
         <button
           onClick={handleShare}
-          className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className="px-4 py-2 text-sm font-medium text-white bg-info-600 rounded-lg hover:bg-info-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           type="button"
           disabled={!hash}
         >
@@ -371,7 +371,7 @@ import { trackCompareOpened } from '../utils/sandboxTelemetry'
       </Tooltip>
       <button
         onClick={() => setActiveTab('history')}
-        className="px-3 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+        className="px-3 py-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors"
         type="button"
         aria-label="Compare runs"
       >
@@ -465,7 +465,7 @@ import { trackCompareOpened } from '../utils/sandboxTelemetry'
                         unitSymbol={resultUnitSymbol}
                       />
                       <div className="space-y-2">
-                        <div className="text-xs text-gray-500 font-medium">Range</div>
+                        <div className="text-xs text-slate-500 font-medium">Range</div>
                         <RangeChips
                           conservative={conservativeValue}
                           likely={mostLikelyValue}
@@ -490,7 +490,7 @@ import { trackCompareOpened } from '../utils/sandboxTelemetry'
 
                   {/* Decision story */}
                   <PanelSection title="Decision story">
-                    <div className="space-y-2 text-sm text-gray-700">
+                    <div className="space-y-2 text-sm text-slate-700">
                       <p>
                         {framing && (framing.title || framing.goal || framing.timeline) ? (
                           <>
@@ -498,7 +498,7 @@ import { trackCompareOpened } from '../utils/sandboxTelemetry'
                             {framing.title ? (
                               <>
                                 {': '}
-                                <span className="font-medium text-gray-900">{framing.title}</span>
+                                <span className="font-medium text-slate-900">{framing.title}</span>
                               </>
                             ) : (
                               ' on this decision context'
@@ -506,13 +506,13 @@ import { trackCompareOpened } from '../utils/sandboxTelemetry'
                             {framing.goal && (
                               <>
                                 {'. Primary goal: '}
-                                <span className="font-medium text-gray-900">{framing.goal}</span>
+                                <span className="font-medium text-slate-900">{framing.goal}</span>
                               </>
                             )}
                             {framing.timeline && (
                               <>
                                 {'. Time horizon: '}
-                                <span className="font-medium text-gray-900">{framing.timeline}</span>
+                                <span className="font-medium text-slate-900">{framing.timeline}</span>
                               </>
                             )}
                           </>
@@ -524,7 +524,7 @@ import { trackCompareOpened } from '../utils/sandboxTelemetry'
                         {limitsStatusForStory ? (
                           <>
                             Limits:{' '}
-                            <span className="font-medium text-gray-900">{limitsStatusForStory.zoneLabel}</span>.{' '}
+                            <span className="font-medium text-slate-900">{limitsStatusForStory.zoneLabel}</span>.{' '}
                             {limitsStatusForStory.message}
                           </>
                         ) : (
@@ -532,8 +532,8 @@ import { trackCompareOpened } from '../utils/sandboxTelemetry'
                         )}
                       </p>
                       <p>
-                        <span className="font-medium text-gray-900">{healthView.label}</span>{' '}
-                        <span className="text-gray-700">{healthView.detail}</span>
+                        <span className="font-medium text-slate-900">{healthView.label}</span>{' '}
+                        <span className="text-slate-700">{healthView.detail}</span>
                       </p>
                       {graphHealth && (
                         <>
@@ -541,12 +541,12 @@ import { trackCompareOpened } from '../utils/sandboxTelemetry'
                             <button
                               type="button"
                               onClick={() => setShowIssuesPanel(true)}
-                              className="inline-flex items-center px-2 py-1 rounded border border-blue-200 text-blue-700 text-xs font-medium hover:bg-blue-50"
+                              className="inline-flex items-center px-2 py-1 rounded border border-info-200 text-info-700 text-xs font-medium hover:bg-info-50"
                             >
                               Open graph issues
                             </button>
                           </p>
-                          <p className="text-[11px] text-gray-500">
+                          <p className="text-[11px] text-slate-500">
                             See Graph Issues panel for fixable problems detected here.
                           </p>
                         </>
@@ -582,21 +582,21 @@ import { trackCompareOpened } from '../utils/sandboxTelemetry'
                   <h3 className="text-base font-semibold text-danger-700 mb-2">
                     {error.code}
                   </h3>
-                  <p className="text-sm text-gray-700 mb-3">
+                  <p className="text-sm text-slate-700 mb-3">
                     {error.message}
                   </p>
                   {error.retryAfter && (
-                    <p className="text-xs text-gray-500 mb-2">
+                    <p className="text-xs text-slate-500 mb-2">
                       Retry after {error.retryAfter} seconds
                     </p>
                   )}
                   {error.request_id && (
-                    <p className="text-xs text-gray-600 font-mono mb-2">
+                    <p className="text-xs text-slate-600 font-mono mb-2">
                       PLoT Request ID: {error.request_id}
                     </p>
                   )}
                   {(runMeta.correlationIdHeader || runMeta.diagnostics?.correlation_id) && (
-                    <p className="text-xs text-gray-600 font-mono mb-2">
+                    <p className="text-xs text-slate-600 font-mono mb-2">
                       Correlation ID: {runMeta.correlationIdHeader || runMeta.diagnostics?.correlation_id}
                     </p>
                   )}
@@ -644,14 +644,14 @@ import { trackCompareOpened } from '../utils/sandboxTelemetry'
 
                   <div className="text-center py-12">
                     <div className="flex justify-center mb-4">
-                      <div className="w-16 h-16 rounded-full bg-blue-100 flex items-center justify-center">
-                        <Play className="w-8 h-8 text-blue-600" />
+                      <div className="w-16 h-16 rounded-full bg-info-100 flex items-center justify-center">
+                        <Play className="w-8 h-8 text-info-600" />
                       </div>
                     </div>
-                    <h3 className="text-lg font-semibold text-gray-900 mb-3">
+                    <h3 className="text-lg font-semibold text-slate-900 mb-3">
                       Ready to analyse
                     </h3>
-                    <p className="text-sm mb-6 text-gray-400">
+                    <p className="text-sm mb-6 text-slate-400">
                       {nodes.length === 0
                         ? 'Add nodes to your canvas to get started.'
                         : !outcomeNodeId
@@ -758,25 +758,25 @@ function ResultsTrustFooter({ seed, hash, showToast }: ResultsTrustFooterProps) 
   }
 
   return (
-    <div className="mt-6 border-t border-gray-200 pt-3 text-xs text-gray-600" aria-label="Trust and reproducibility details">
+    <div className="mt-6 border-t border-slate-200 pt-3 text-xs text-slate-600" aria-label="Trust and reproducibility details">
       <div className="flex flex-col gap-2">
         <div className="flex items-center justify-between">
-          <span className="text-gray-500">Seed</span>
-          <span className="font-mono text-[11px] bg-gray-50 px-2 py-0.5 rounded text-gray-800">
+          <span className="text-slate-500">Seed</span>
+          <span className="font-mono text-[11px] bg-slate-50 px-2 py-0.5 rounded text-slate-800">
             {seedValue}
           </span>
         </div>
         <div className="flex items-center justify-between gap-2">
-          <span className="text-gray-500">Response</span>
+          <span className="text-slate-500">Response</span>
           <div className="flex items-center gap-2">
-            <span className="font-mono text-[11px] bg-gray-50 px-2 py-0.5 rounded text-gray-800">
+            <span className="font-mono text-[11px] bg-slate-50 px-2 py-0.5 rounded text-slate-800">
               {hashPreview}
             </span>
             {hasHash && (
               <button
                 type="button"
                 onClick={handleCopyHash}
-                className="px-2 py-0.5 text-[11px] font-medium text-blue-600 bg-blue-50 rounded hover:bg-blue-100 transition-colors"
+                className="px-2 py-0.5 text-[11px] font-medium text-info-600 bg-info-50 rounded hover:bg-info-100 transition-colors"
               >
                 Copy full hash
               </button>
@@ -784,8 +784,8 @@ function ResultsTrustFooter({ seed, hash, showToast }: ResultsTrustFooterProps) 
           </div>
         </div>
         <div className="flex items-center justify-between">
-          <span className="text-gray-500">Engine</span>
-          <span className="text-[11px] text-gray-800">{engineLabel}</span>
+          <span className="text-slate-500">Engine</span>
+          <span className="text-[11px] text-slate-800">{engineLabel}</span>
         </div>
       </div>
     </div>
@@ -812,7 +812,7 @@ function TabButton({ active, onClick, label, icon, disabled = false, badge }: Ta
       disabled={disabled}
       className={`
         flex-1 px-4 py-2 text-sm font-medium transition-colors
-        ${active ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50' : 'text-gray-600 border-b-2 border-transparent hover:text-gray-900 hover:bg-gray-50'}
+        ${active ? 'text-info-600 border-b-2 border-info-600 bg-info-50' : 'text-slate-600 border-b-2 border-transparent hover:text-slate-900 hover:bg-slate-50'}
         ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
       `}
       type="button"
@@ -821,7 +821,7 @@ function TabButton({ active, onClick, label, icon, disabled = false, badge }: Ta
         {icon}
         {label}
         {badge && (
-          <span className="px-1.5 py-0.5 text-xs font-semibold text-white bg-blue-600 rounded-full">
+          <span className="px-1.5 py-0.5 text-xs font-semibold text-white bg-info-600 rounded-full">
             {badge}
           </span>
         )}

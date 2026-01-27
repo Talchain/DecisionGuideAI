@@ -91,14 +91,14 @@ export function PanelShell({
       <header className="shrink-0 flex items-center justify-between px-4 py-3 border-b border-sand-200 bg-paper-50 rounded-tl-2xl">
         <div className="flex items-center gap-2">
           {icon && <span className="text-ink-900/70">{icon}</span>}
-          <h3 className="text-[15px] font-semibold text-ink-900">{title}</h3>
+          <h3 className="text-base font-semibold text-ink-900">{title}</h3>
           {chips}
         </div>
         {onClose && (
           <button
             aria-label="Close panel"
             onClick={onClose}
-            className="flex items-center justify-center size-8 rounded-xl hover:bg-gray-100 transition-colors text-gray-500 hover:text-gray-700"
+            className="flex items-center justify-center size-8 rounded-xl hover:bg-slate-100 transition-colors text-slate-500 hover:text-slate-700"
             type="button"
           >
             <svg

@@ -94,26 +94,26 @@ export const EdgeInspectorCompact = memo(({ edgeId, onClose, onExpandToFull }: E
 
   return (
     <div
-      className="p-3 bg-white rounded-lg shadow-lg border border-gray-200 w-64"
+      className="p-3 bg-white rounded-lg shadow-lg border border-slate-200 w-64"
       onKeyDown={handleKeyDown}
       role="dialog"
       aria-label="Edge properties"
       aria-labelledby="compact-edge-inspector-title"
     >
       {/* Header */}
-      <div className="flex items-center justify-between mb-3 pb-2 border-b border-gray-100">
+      <div className="flex items-center justify-between mb-3 pb-2 border-b border-slate-100">
         <div
           id="compact-edge-inspector-title"
-          className="flex items-center gap-1 text-xs text-gray-600 min-w-0"
+          className="flex items-center gap-1 text-xs text-slate-600 min-w-0"
         >
           <span className="truncate max-w-[80px]" title={String(sourceLabel)}>{sourceLabel}</span>
-          <span className="text-gray-400">→</span>
+          <span className="text-slate-400">→</span>
           <span className="truncate max-w-[80px]" title={String(targetLabel)}>{targetLabel}</span>
         </div>
         <div className="flex items-center gap-1 flex-shrink-0">
           <button
             onClick={onExpandToFull}
-            className="p-1 text-gray-400 hover:text-gray-600 rounded"
+            className="p-1 text-slate-400 hover:text-slate-600 rounded"
             aria-label="Expand to full inspector"
             title="Expand"
           >
@@ -121,7 +121,7 @@ export const EdgeInspectorCompact = memo(({ edgeId, onClose, onExpandToFull }: E
           </button>
           <button
             onClick={onClose}
-            className="p-1 text-gray-400 hover:text-gray-600 rounded text-lg leading-none"
+            className="p-1 text-slate-400 hover:text-slate-600 rounded text-lg leading-none"
             aria-label="Close"
           >
             ×
@@ -132,10 +132,10 @@ export const EdgeInspectorCompact = memo(({ edgeId, onClose, onExpandToFull }: E
       {/* Weight */}
       <div className="mb-3">
         <div className="flex items-center justify-between mb-1">
-          <label htmlFor="compact-edge-weight" className="text-xs font-medium text-gray-700">
+          <label htmlFor="compact-edge-weight" className="text-xs font-medium text-slate-700">
             Weight
           </label>
-          <span className="text-xs text-gray-500 tabular-nums">{weight.toFixed(2)}</span>
+          <span className="text-xs text-slate-500 tabular-nums">{weight.toFixed(2)}</span>
         </div>
         <input
           id="compact-edge-weight"
@@ -152,10 +152,10 @@ export const EdgeInspectorCompact = memo(({ edgeId, onClose, onExpandToFull }: E
       {/* Belief */}
       <div className="mb-3">
         <div className="flex items-center justify-between mb-1">
-          <label htmlFor="compact-edge-belief" className="text-xs font-medium text-gray-700">
+          <label htmlFor="compact-edge-belief" className="text-xs font-medium text-slate-700">
             Belief
           </label>
-          <span className="text-xs text-gray-500 tabular-nums">{Math.round(belief * 100)}%</span>
+          <span className="text-xs text-slate-500 tabular-nums">{Math.round(belief * 100)}%</span>
         </div>
         <input
           id="compact-edge-belief"
@@ -171,7 +171,7 @@ export const EdgeInspectorCompact = memo(({ edgeId, onClose, onExpandToFull }: E
 
       {/* Label */}
       <div className="mb-3">
-        <label htmlFor="compact-edge-label" className="block text-xs font-medium text-gray-700 mb-1">
+        <label htmlFor="compact-edge-label" className="block text-xs font-medium text-slate-700 mb-1">
           Label
         </label>
         <input
@@ -182,13 +182,13 @@ export const EdgeInspectorCompact = memo(({ edgeId, onClose, onExpandToFull }: E
           onChange={(e) => setLabel(e.target.value)}
           onBlur={handleLabelBlur}
           placeholder="Optional..."
-          className="w-full text-sm border border-gray-300 rounded px-2 py-1"
+          className="w-full text-sm border border-slate-300 rounded px-2 py-1"
         />
       </div>
 
       {/* Style */}
       <div>
-        <label className="block text-xs font-medium text-gray-700 mb-1">Style</label>
+        <label className="block text-xs font-medium text-slate-700 mb-1">Style</label>
         <div className="flex gap-1" role="radiogroup" aria-label="Edge style">
           {(['solid', 'dashed', 'dotted'] as const).map((s) => (
             <button
@@ -197,7 +197,7 @@ export const EdgeInspectorCompact = memo(({ edgeId, onClose, onExpandToFull }: E
               className={`flex-1 px-2 py-1 text-xs font-medium rounded border transition-colors ${
                 style === s
                   ? 'bg-info-50 border-info-500 text-info-700'
-                  : 'bg-white border-gray-300 text-gray-600 hover:bg-gray-50'
+                  : 'bg-white border-slate-300 text-slate-600 hover:bg-slate-50'
               }`}
               role="radio"
               aria-checked={style === s}

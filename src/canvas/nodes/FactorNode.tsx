@@ -40,62 +40,25 @@ export const FactorNode = memo((props: NodeProps) => {
     <div style={{ position: 'relative' }}>
       {isAffectedByHover && (
         <div
-          style={{
-            position: 'absolute',
-            inset: '-4px',
-            borderRadius: '12px',
-            border: '2px solid #3b82f6',
-            boxShadow: '0 0 12px rgba(59, 130, 246, 0.5)',
-            pointerEvents: 'none',
-            zIndex: -1,
-          }}
+          className="absolute -inset-1 rounded-xl border-2 border-info-500 pointer-events-none -z-10"
+          style={{ boxShadow: '0 0 12px var(--info-500)' }}
         />
       )}
       <BaseNode {...props} nodeType="factor" icon={metadata.icon}>
       {/* Decision Graph Display v2 Task 11: Show intervention value when option hovered */}
       {isAffectedByHover && (
-        <div
-          style={{
-            fontSize: '12px',
-            fontWeight: 600,
-            color: '#3b82f6',
-            marginBottom: '4px',
-            backgroundColor: '#eff6ff',
-            padding: '2px 6px',
-            borderRadius: '4px',
-            border: '1px solid #bfdbfe',
-          }}
-        >
+        <div className="text-xs font-semibold text-info-600 mb-1 bg-info-50 px-1.5 py-0.5 rounded border border-info-200">
           Intervention: {interventionValue}
         </div>
       )}
       {/* Brief v2.2: Display observed value if present */}
       {observedState && typeof observedState.value === 'number' && (
-        <div
-          className="factor-node-value"
-          style={{
-            fontSize: '11px',
-            marginTop: '4px',
-            display: 'flex',
-            alignItems: 'baseline',
-            gap: '4px',
-          }}
-        >
-          <span
-            style={{
-              fontWeight: 600,
-              color: '#2563eb', // Blue for current value
-            }}
-          >
+        <div className="factor-node-value text-xs mt-1 flex items-baseline gap-1">
+          <span className="font-semibold text-info-600">
             {observedState.unit ?? ''}{observedState.value}
           </span>
           {observedState.baseline !== undefined && observedState.baseline !== observedState.value && (
-            <span
-              style={{
-                color: '#9ca3af', // Gray for baseline
-                fontSize: '10px',
-              }}
-            >
+            <span className="text-slate-400 text-[10px]">
               (was {observedState.unit ?? ''}{observedState.baseline})
             </span>
           )}
@@ -103,7 +66,7 @@ export const FactorNode = memo((props: NodeProps) => {
       )}
       {/* Description (existing) */}
       {props.data?.description && (
-        <div style={{ fontSize: '11px', opacity: 0.7, marginTop: observedState ? '2px' : '0' }}>
+        <div className={`text-xs opacity-70 ${observedState ? 'mt-0.5' : ''}`}>
           {props.data.description}
         </div>
       )}

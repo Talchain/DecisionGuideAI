@@ -29,7 +29,7 @@ export function PanelSection({
   return (
     <section className={`border border-sand-200 rounded-xl p-3 bg-paper-50 ${className}`}>
       <div className="flex items-center justify-between mb-2">
-        <h4 className="text-[12px] font-medium text-ink-900/70 uppercase tracking-wide">
+        <h4 className="text-xs font-medium text-ink-900/70 uppercase tracking-wide">
           {title}
         </h4>
         {help}

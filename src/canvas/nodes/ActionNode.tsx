@@ -9,7 +9,7 @@ export const ActionNode = memo((props: NodeProps) => {
   return (
     <BaseNode {...props} nodeType="action" icon={metadata.icon}>
       {props.data?.description && (
-        <div style={{ fontSize: '11px', opacity: 0.7 }}>
+        <div className="text-xs opacity-70">
           {props.data.description}
         </div>
       )}

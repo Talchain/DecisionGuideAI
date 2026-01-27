@@ -188,7 +188,7 @@ export function InspectorPanel({ isOpen, onClose }: InspectorPanelProps): JSX.El
         <span className="inline-block">
           <button
             onClick={handleReset}
-            className="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-4 py-2 text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             type="button"
             disabled={!hasChanges}
           >
@@ -208,7 +208,7 @@ export function InspectorPanel({ isOpen, onClose }: InspectorPanelProps): JSX.El
         <span className="inline-block flex-1">
           <button
             onClick={handleApply}
-            className="w-full px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full px-4 py-2 text-sm font-medium text-white bg-info-600 rounded-lg hover:bg-info-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             type="button"
             disabled={!hasChanges || validationErrors.length > 0}
           >
@@ -272,20 +272,20 @@ export function InspectorPanel({ isOpen, onClose }: InspectorPanelProps): JSX.El
               <PanelSection title="Edge Details">
                 <div className="space-y-2 text-sm">
                   <div className="flex items-center justify-between">
-                    <span className="text-gray-500">ID</span>
-                    <code className="font-mono text-xs bg-gray-100 px-2 py-1 rounded">{selectedEdge.id}</code>
+                    <span className="text-slate-500">ID</span>
+                    <code className="font-mono text-xs bg-slate-100 px-2 py-1 rounded">{selectedEdge.id}</code>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-gray-500">From</span>
-                    <code className="font-mono text-xs bg-gray-100 px-2 py-1 rounded">{selectedEdge.source}</code>
+                    <span className="text-slate-500">From</span>
+                    <code className="font-mono text-xs bg-slate-100 px-2 py-1 rounded">{selectedEdge.source}</code>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-gray-500">To</span>
-                    <code className="font-mono text-xs bg-gray-100 px-2 py-1 rounded">{selectedEdge.target}</code>
+                    <span className="text-slate-500">To</span>
+                    <code className="font-mono text-xs bg-slate-100 px-2 py-1 rounded">{selectedEdge.target}</code>
                   </div>
                   {selectedEdge.label && (
                     <div className="flex items-center justify-between">
-                      <span className="text-gray-500">Label</span>
+                      <span className="text-slate-500">Label</span>
                       <span className="text-xs">{selectedEdge.label}</span>
                     </div>
                   )}
@@ -311,7 +311,7 @@ export function InspectorPanel({ isOpen, onClose }: InspectorPanelProps): JSX.El
                         const next = parseFloat(e.target.value)
                         setBelief(Number.isFinite(next) ? next : 0)
                       }}
-                      className="w-24 px-2 py-1 text-sm text-right border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-600"
+                      className="w-24 px-2 py-1 text-sm text-right border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-info-600"
                       min={0}
                       max={1}
                       step={0.01}
@@ -319,7 +319,7 @@ export function InspectorPanel({ isOpen, onClose }: InspectorPanelProps): JSX.El
                   </div>
 
                   <div className="space-y-2">
-                    <div className="flex items-center justify-between text-xs text-gray-500">
+                    <div className="flex items-center justify-between text-xs text-slate-500">
                       <span>Confidence</span>
                       <span>{formatConfidencePercent(beliefToConfidencePercent(belief))}</span>
                     </div>
@@ -337,7 +337,7 @@ export function InspectorPanel({ isOpen, onClose }: InspectorPanelProps): JSX.El
                       max={1}
                       step={0.01}
                     />
-                    <div className="flex justify-between text-xs text-gray-500">
+                    <div className="flex justify-between text-xs text-slate-500">
                       <span>0 (Very uncertain)</span>
                       <span>1 (Very certain)</span>
                     </div>
@@ -359,7 +359,7 @@ export function InspectorPanel({ isOpen, onClose }: InspectorPanelProps): JSX.El
                       type="number"
                       value={weight.toFixed(1)}
                       onChange={(e) => setWeight(parseFloat(e.target.value) || 1)}
-                      className="w-20 px-2 py-1 text-sm text-right border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-600"
+                      className="w-20 px-2 py-1 text-sm text-right border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-info-600"
                       min={EDGE_CONSTRAINTS.weight.min}
                       max={EDGE_CONSTRAINTS.weight.max}
                       step={EDGE_CONSTRAINTS.weight.step}
@@ -392,13 +392,13 @@ export function InspectorPanel({ isOpen, onClose }: InspectorPanelProps): JSX.El
                     value={provenance}
                     onChange={(e) => setProvenance(e.target.value)}
                     placeholder="Source or rationale for this connection..."
-                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 resize-none"
+                    className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-info-600 resize-none"
                     rows={3}
                     maxLength={EDGE_CONSTRAINTS.provenance.maxLength}
                   />
                   <div className="flex justify-between text-xs">
-                    <span className="text-gray-500">Source/rationale</span>
-                    <span className={provenance.length > EDGE_CONSTRAINTS.provenance.maxLength * 0.9 ? 'text-amber-600 font-medium' : 'text-gray-500'}>
+                    <span className="text-slate-500">Source/rationale</span>
+                    <span className={provenance.length > EDGE_CONSTRAINTS.provenance.maxLength * 0.9 ? 'text-amber-600 font-medium' : 'text-slate-500'}>
                       {provenance.length}/{EDGE_CONSTRAINTS.provenance.maxLength}
                     </span>
                   </div>

@@ -14,19 +14,19 @@ export const GoalNode = memo((props: NodeProps) => {
     <BaseNode {...props} nodeType="goal" icon={metadata.icon}>
       {/* Decision Graph Display v2 Task 10 + Task B: Achievement probability with fallback */}
       {displayMetadata.achievementProbability !== null && (
-        <div style={{ fontSize: '12px', fontWeight: 600, marginBottom: '4px', color: '#059669' }}>
+        <div className="text-xs font-semibold mb-1 text-success-600">
           {Math.round(displayMetadata.achievementProbability * 100)}% chance
         </div>
       )}
       {/* Task B + Fix 5: Fallback to recommendation stability when probability unavailable */}
       {displayMetadata.achievementProbability === null && displayMetadata.stabilityPercentage !== null && (
-        <div style={{ fontSize: '12px', fontWeight: 600, marginBottom: '4px', color: '#3b82f6' }}>
+        <div className="text-xs font-semibold mb-1 text-info-500">
           Recommended in {Math.round(displayMetadata.stabilityPercentage * 100)}% of scenarios
         </div>
       )}
 
       {props.data?.description && (
-        <div style={{ fontSize: '11px', opacity: 0.7 }}>
+        <div className="text-xs opacity-70">
           {props.data.description}
         </div>
       )}

@@ -155,19 +155,19 @@ export const NodeInspectorCompact = memo(({ nodeId, onClose, onExpandToFull }: N
 
   return (
     <div
-      className="p-3 bg-white rounded-lg shadow-lg border border-gray-200"
+      className="p-3 bg-white rounded-lg shadow-lg border border-slate-200"
       onKeyDown={handleKeyDown}
       role="dialog"
       aria-label="Node properties"
       aria-labelledby="compact-node-inspector-title"
     >
       {/* Header */}
-      <div className="flex items-center justify-between mb-3 pb-2 border-b border-gray-100">
+      <div className="flex items-center justify-between mb-3 pb-2 border-b border-slate-100">
         <div className="flex items-center gap-2">
           {renderIcon(metadata.icon, 16) ?? <span aria-hidden="true">•</span>}
           <span
             id="compact-node-inspector-title"
-            className="text-xs font-medium text-gray-700"
+            className="text-xs font-medium text-slate-700"
           >
             {metadata.label}
           </span>
@@ -175,7 +175,7 @@ export const NodeInspectorCompact = memo(({ nodeId, onClose, onExpandToFull }: N
         <div className="flex items-center gap-1">
           <button
             onClick={onExpandToFull}
-            className="p-1 text-gray-400 hover:text-gray-600 rounded"
+            className="p-1 text-slate-400 hover:text-slate-600 rounded"
             aria-label="Expand to full inspector"
             title="Expand"
           >
@@ -183,7 +183,7 @@ export const NodeInspectorCompact = memo(({ nodeId, onClose, onExpandToFull }: N
           </button>
           <button
             onClick={onClose}
-            className="p-1 text-gray-400 hover:text-gray-600 rounded"
+            className="p-1 text-slate-400 hover:text-slate-600 rounded"
             aria-label="Close"
           >
             ×
@@ -193,7 +193,7 @@ export const NodeInspectorCompact = memo(({ nodeId, onClose, onExpandToFull }: N
 
       {/* Title */}
       <div className="mb-3">
-        <label htmlFor="compact-node-title" className="block text-xs font-medium text-gray-700 mb-1">
+        <label htmlFor="compact-node-title" className="block text-xs font-medium text-slate-700 mb-1">
           Title
         </label>
         <input
@@ -204,20 +204,20 @@ export const NodeInspectorCompact = memo(({ nodeId, onClose, onExpandToFull }: N
           value={label}
           onChange={(e) => setLabel(e.target.value)}
           onBlur={handleLabelBlur}
-          className="w-full text-sm border border-gray-300 rounded px-2 py-1"
+          className="w-full text-sm border border-slate-300 rounded px-2 py-1"
         />
       </div>
 
       {/* Type */}
       <div className="mb-3">
-        <label htmlFor="compact-node-type" className="block text-xs font-medium text-gray-700 mb-1">
+        <label htmlFor="compact-node-type" className="block text-xs font-medium text-slate-700 mb-1">
           Type
         </label>
         <select
           id="compact-node-type"
           value={currentType}
           onChange={(e) => handleTypeChange(e.target.value as NodeType)}
-          className="w-full text-sm border border-gray-300 rounded px-2 py-1 bg-white"
+          className="w-full text-sm border border-slate-300 rounded px-2 py-1 bg-white"
         >
           {(Object.keys(NODE_REGISTRY) as NodeType[]).map((type) => (
             <option key={type} value={type}>
@@ -229,8 +229,8 @@ export const NodeInspectorCompact = memo(({ nodeId, onClose, onExpandToFull }: N
 
       {/* Inline Probabilities (only for decision-probability edges) */}
       {outgoingEdges.length > 0 && !isInfluenceNetwork && (
-        <div className="pt-2 border-t border-gray-100">
-          <h4 className="text-xs font-medium text-gray-700 mb-2">Probabilities</h4>
+        <div className="pt-2 border-t border-slate-100">
+          <h4 className="text-xs font-medium text-slate-700 mb-2">Probabilities</h4>
 
           {/* Compact probability rows */}
           <div className="space-y-1.5 mb-2">
@@ -240,13 +240,13 @@ export const NodeInspectorCompact = memo(({ nodeId, onClose, onExpandToFull }: N
                   type="button"
                   onClick={() => toggleLock(row.edgeId)}
                   className={`flex-shrink-0 p-0.5 rounded ${
-                    row.locked ? 'text-info-600' : 'text-gray-400'
+                    row.locked ? 'text-info-600' : 'text-slate-400'
                   }`}
                   aria-label={row.locked ? `Unlock ${row.targetLabel}` : `Lock ${row.targetLabel}`}
                 >
                   {row.locked ? <Lock size={10} /> : <Unlock size={10} />}
                 </button>
-                <span className="text-xs text-gray-600 flex-1 min-w-0 truncate" title={row.targetLabel}>
+                <span className="text-xs text-slate-600 flex-1 min-w-0 truncate" title={row.targetLabel}>
                   {row.targetLabel}
                 </span>
                 <div className="flex items-center gap-1 flex-shrink-0">
@@ -258,11 +258,11 @@ export const NodeInspectorCompact = memo(({ nodeId, onClose, onExpandToFull }: N
                     value={row.percent}
                     disabled={row.locked}
                     onChange={(e) => updatePercent(row.edgeId, parseInt(e.target.value, 10) || 0)}
-                    className={`w-12 text-xs border border-gray-300 rounded px-1 py-0.5 text-right ${
+                    className={`w-12 text-xs border border-slate-300 rounded px-1 py-0.5 text-right ${
                       row.locked ? 'opacity-50' : ''
                     }`}
                   />
-                  <span className="text-xs text-gray-500">%</span>
+                  <span className="text-xs text-slate-500">%</span>
                 </div>
               </div>
             ))}
@@ -282,7 +282,7 @@ export const NodeInspectorCompact = memo(({ nodeId, onClose, onExpandToFull }: N
               className={`px-2 py-1 text-xs font-medium rounded ${
                 validation.valid
                   ? 'bg-info-500 text-white hover:bg-info-600'
-                  : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                  : 'bg-slate-200 text-slate-400 cursor-not-allowed'
               }`}
             >
               Apply

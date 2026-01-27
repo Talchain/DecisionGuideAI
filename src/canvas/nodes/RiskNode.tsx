@@ -31,7 +31,7 @@ export const RiskNode = memo((props: NodeProps) => {
       )}
 
       {props.data?.description && (
-        <div style={{ fontSize: '11px', opacity: 0.7 }}>
+        <div className="text-xs opacity-70">
           {props.data.description}
         </div>
       )}

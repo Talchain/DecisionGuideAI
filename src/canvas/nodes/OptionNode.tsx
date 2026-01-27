@@ -54,14 +54,14 @@ export const OptionNode = memo((props: NodeProps) => {
       <BaseNode {...props} nodeType="option" icon={metadata.icon}>
       {/* Decision Graph Display v2 Task 7 (partial): Win rate */}
       {displayMetadata.winRate !== null && (
-        <div style={{ fontSize: '12px', fontWeight: 600, marginBottom: '4px', color: '#2563eb' }}>
+        <div className="text-xs font-semibold mb-1 text-info-600">
           Wins {Math.round(displayMetadata.winRate * 100)}% of scenarios
         </div>
       )}
 
       {/* Decision Graph Display v2 Task 7 + Task E: Intervention deltas with unit formatting */}
       {interventionDeltas.length > 0 && (
-        <div style={{ fontSize: '11px', color: '#6b7280', marginTop: '4px' }}>
+        <div className="text-xs text-slate-500 mt-1">
           {interventionDeltas.map((delta, idx) => {
             // Task E + Fix 6: Format value based on unit (with space between value and unit)
             let formattedValue: string
@@ -82,9 +82,9 @@ export const OptionNode = memo((props: NodeProps) => {
               : delta.factorLabel
 
             return (
-              <div key={idx} style={{ marginBottom: '2px' }}>
-                <span style={{ fontWeight: 500 }}>{truncatedLabel}:</span>{' '}
-                <span style={{ color: '#059669' }}>
+              <div key={idx} className="mb-0.5">
+                <span className="font-medium">{truncatedLabel}:</span>{' '}
+                <span className="text-success-600">
                   {formattedValue}
                 </span>
               </div>
@@ -94,7 +94,7 @@ export const OptionNode = memo((props: NodeProps) => {
       )}
 
       {props.data?.description && (
-        <div style={{ fontSize: '11px', opacity: 0.7 }}>
+        <div className="text-xs opacity-70">
           {props.data.description}
         </div>
       )}

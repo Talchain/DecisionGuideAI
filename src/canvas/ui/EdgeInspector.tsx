@@ -208,7 +208,7 @@ export const EdgeInspector = memo(({ edgeId, onClose }: EdgeInspectorProps) => {
   
   if (!edge) {
     return (
-      <div className="p-4 text-sm text-gray-500">
+      <div className="p-4 text-sm text-slate-500">
         No edge selected
       </div>
     )
@@ -216,7 +216,7 @@ export const EdgeInspector = memo(({ edgeId, onClose }: EdgeInspectorProps) => {
   
   return (
     <div 
-      className="p-4 border-t border-gray-200" 
+      className="p-4 border-t border-slate-200" 
       role="region" 
       aria-label="Edge properties"
       data-testid="panel-edge-properties"
@@ -233,10 +233,10 @@ export const EdgeInspector = memo(({ edgeId, onClose }: EdgeInspectorProps) => {
       </div>
       
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-sm font-semibold text-gray-900">Edge Properties</h3>
+        <h3 className="text-sm font-semibold text-slate-900">Edge Properties</h3>
         <button
           onClick={onClose}
-          className="text-gray-400 hover:text-gray-600 text-xl leading-none"
+          className="text-slate-400 hover:text-slate-600 text-xl leading-none"
           aria-label="Close inspector"
         >
           ×
@@ -260,9 +260,9 @@ export const EdgeInspector = memo(({ edgeId, onClose }: EdgeInspectorProps) => {
                 </span>
                 <span className={`
                   text-[10px] px-1.5 py-0.5 rounded font-medium
-                  ${weightSuggestion.confidence === 'high' ? 'bg-mint-100 text-mint-700' : ''}
-                  ${weightSuggestion.confidence === 'medium' ? 'bg-sun-100 text-sun-700' : ''}
-                  ${weightSuggestion.confidence === 'low' ? 'bg-gray-100 text-gray-600' : ''}
+                  ${weightSuggestion.confidence === 'high' ? 'bg-success-100 text-success-700' : ''}
+                  ${weightSuggestion.confidence === 'medium' ? 'bg-warning-100 text-warning-700' : ''}
+                  ${weightSuggestion.confidence === 'low' ? 'bg-slate-100 text-slate-600' : ''}
                 `}>
                   {weightSuggestion.confidence} confidence
                 </span>
@@ -286,11 +286,11 @@ export const EdgeInspector = memo(({ edgeId, onClose }: EdgeInspectorProps) => {
       {/* Weight control */}
       <div className="mb-4">
         <Tooltip content="Strength of this connection (0 = no influence, 1 = strong influence)" position="right">
-          <label htmlFor="edge-weight" className="block text-xs font-medium text-gray-700 mb-1">
+          <label htmlFor="edge-weight" className="block text-xs font-medium text-slate-700 mb-1">
             Weight
           </label>
         </Tooltip>
-        <p className="text-[10px] text-gray-500 mb-1.5">0 = no influence, 1 = strong influence</p>
+        <p className="text-[10px] text-slate-500 mb-1.5">0 = no influence, 1 = strong influence</p>
         <div className="flex items-center gap-2">
           <input
             id="edge-weight"
@@ -313,7 +313,7 @@ export const EdgeInspector = memo(({ edgeId, onClose }: EdgeInspectorProps) => {
             step={EDGE_CONSTRAINTS.weight.step}
             value={weight.toFixed(2)}
             onChange={(e) => handleWeightChange(Math.max(EDGE_CONSTRAINTS.weight.min, Math.min(EDGE_CONSTRAINTS.weight.max, parseFloat(e.target.value) || EDGE_CONSTRAINTS.weight.default)))}
-            className="w-16 text-xs border border-gray-300 rounded px-2 py-1"
+            className="w-16 text-xs border border-slate-300 rounded px-2 py-1"
             aria-label="Weight value"
           />
         </div>
@@ -341,11 +341,11 @@ export const EdgeInspector = memo(({ edgeId, onClose }: EdgeInspectorProps) => {
       {/* v1.2: Belief control (epistemic certainty) */}
       <div className="mb-4">
         <Tooltip content="Your certainty about this connection (0% = uncertain, 100% = certain)" position="right">
-          <label htmlFor="edge-belief" className="block text-xs font-medium text-gray-700 mb-1">
+          <label htmlFor="edge-belief" className="block text-xs font-medium text-slate-700 mb-1">
             Belief (epistemic certainty)
           </label>
         </Tooltip>
-        <p className="text-[10px] text-gray-500 mb-1.5">0% = uncertain, 100% = certain</p>
+        <p className="text-[10px] text-slate-500 mb-1.5">0% = uncertain, 100% = certain</p>
         <div className="flex items-center gap-2">
           <input
             id="edge-belief"
@@ -361,7 +361,7 @@ export const EdgeInspector = memo(({ edgeId, onClose }: EdgeInspectorProps) => {
             aria-valuenow={belief ?? EDGE_CONSTRAINTS.belief.default}
             aria-valuetext={`${Math.round((belief ?? EDGE_CONSTRAINTS.belief.default) * 100)}%`}
           />
-          <span className="w-14 text-xs font-medium text-gray-900 tabular-nums text-right">
+          <span className="w-14 text-xs font-medium text-slate-900 tabular-nums text-right">
             {Math.round((belief ?? EDGE_CONSTRAINTS.belief.default) * 100)}%
           </span>
         </div>
@@ -370,21 +370,21 @@ export const EdgeInspector = memo(({ edgeId, onClose }: EdgeInspectorProps) => {
       {/* v1.2: Provenance display (source tracking) */}
       {provenance && (
         <div className="mb-4">
-          <label className="block text-xs font-medium text-gray-700 mb-1.5">
+          <label className="block text-xs font-medium text-slate-700 mb-1.5">
             Provenance
           </label>
           <div className="flex items-center gap-2">
             <span className={`
               inline-flex items-center px-2 py-1 rounded text-xs font-medium
               ${provenance === 'template' ? 'bg-info-100 text-info-700 border border-info-200' : ''}
-              ${provenance === 'user' ? 'bg-carrot-100 text-carrot-700 border border-carrot-200' : ''}
-              ${provenance === 'inferred' ? 'bg-gray-100 text-gray-700 border border-gray-200' : ''}
-              ${!['template', 'user', 'inferred'].includes(provenance) ? 'bg-gray-100 text-gray-700 border border-gray-200' : ''}
+              ${provenance === 'user' ? 'bg-danger-100 text-danger-700 border border-danger-200' : ''}
+              ${provenance === 'inferred' ? 'bg-slate-100 text-slate-700 border border-slate-200' : ''}
+              ${!['template', 'user', 'inferred'].includes(provenance) ? 'bg-slate-100 text-slate-700 border border-slate-200' : ''}
             `}>
               {provenance}
             </span>
           </div>
-          <p className="text-[10px] text-gray-500 mt-1">
+          <p className="text-[10px] text-slate-500 mt-1">
             {provenance === 'template' && 'Inherited from template'}
             {provenance === 'user' && 'Manually edited'}
             {provenance === 'inferred' && 'System inferred'}
@@ -395,7 +395,7 @@ export const EdgeInspector = memo(({ edgeId, onClose }: EdgeInspectorProps) => {
 
       {/* Style control */}
       <div className="mb-4">
-        <label className="block text-xs font-medium text-gray-700 mb-1">
+        <label className="block text-xs font-medium text-slate-700 mb-1">
           Style
         </label>
         <div className="flex gap-2" role="radiogroup" aria-label="Edge style">
@@ -407,7 +407,7 @@ export const EdgeInspector = memo(({ edgeId, onClose }: EdgeInspectorProps) => {
                 flex-1 px-3 py-2 text-xs font-medium rounded border transition-colors
                 ${style === s
                   ? 'bg-info-50 border-info-500 text-info-700'
-                  : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
+                  : 'bg-white border-slate-300 text-slate-700 hover:bg-slate-50'
                 }
               `}
               role="radio"
@@ -422,7 +422,7 @@ export const EdgeInspector = memo(({ edgeId, onClose }: EdgeInspectorProps) => {
       {/* Path type control */}
       <div className="mb-4">
         <Tooltip content="Choose how the connector line is drawn between nodes" position="right">
-          <label className="block text-xs font-medium text-gray-700 mb-1">
+          <label className="block text-xs font-medium text-slate-700 mb-1">
             Path Type
           </label>
         </Tooltip>
@@ -439,7 +439,7 @@ export const EdgeInspector = memo(({ edgeId, onClose }: EdgeInspectorProps) => {
                 flex-1 px-3 py-2 text-xs font-medium rounded border transition-colors
                 ${pathType === value
                   ? 'bg-info-50 border-info-500 text-info-700'
-                  : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
+                  : 'bg-white border-slate-300 text-slate-700 hover:bg-slate-50'
                 }
               `}
               role="radio"
@@ -457,7 +457,7 @@ export const EdgeInspector = memo(({ edgeId, onClose }: EdgeInspectorProps) => {
       {pathType === 'smoothstep' && (
         <div className="mb-4">
           <Tooltip content="Corner roundness for step paths (0 = sharp corners, max = rounded)" position="right">
-            <label htmlFor="edge-curvature" className="block text-xs font-medium text-gray-700 mb-1">
+            <label htmlFor="edge-curvature" className="block text-xs font-medium text-slate-700 mb-1">
               Corner Radius
             </label>
           </Tooltip>
@@ -480,7 +480,7 @@ export const EdgeInspector = memo(({ edgeId, onClose }: EdgeInspectorProps) => {
       
       {/* Label control */}
       <div className="mb-4">
-        <label htmlFor="edge-label" className="block text-xs font-medium text-gray-700 mb-1">
+        <label htmlFor="edge-label" className="block text-xs font-medium text-slate-700 mb-1">
           Label (optional)
         </label>
         <input
@@ -491,20 +491,20 @@ export const EdgeInspector = memo(({ edgeId, onClose }: EdgeInspectorProps) => {
           onChange={(e) => setLabel(e.target.value)}
           onBlur={handleLabelBlur}
           placeholder="Add a label..."
-          className="w-full text-xs border border-gray-300 rounded px-2 py-1"
+          className="w-full text-xs border border-slate-300 rounded px-2 py-1"
         />
       </div>
       
       {/* Probability - CTA to parent decision */}
       <div className="mb-4">
         <Tooltip content="% likelihood this connector is taken (all from the same step must total 100%)" position="right">
-          <label className="block text-xs font-medium text-gray-700 mb-1">
+          <label className="block text-xs font-medium text-slate-700 mb-1">
             Probability
           </label>
         </Tooltip>
         <div className="p-3 rounded bg-info-50 border border-info-200">
-          <p className="text-xs text-gray-600 mb-2">
-            Edit probabilities in this decision (or press <kbd className="px-1 py-0.5 text-xs font-semibold bg-gray-100 border border-gray-300 rounded">P</kbd> after selecting)
+          <p className="text-xs text-slate-600 mb-2">
+            Edit probabilities in this decision (or press <kbd className="px-1 py-0.5 text-xs font-semibold bg-slate-100 border border-slate-300 rounded">P</kbd> after selecting)
           </p>
           <button
             type="button"
@@ -523,13 +523,13 @@ export const EdgeInspector = memo(({ edgeId, onClose }: EdgeInspectorProps) => {
       </div>
       
       {/* Connection endpoints */}
-      <div className="mb-4 pb-4 border-t border-gray-200 pt-4">
-        <label className="block text-xs font-medium text-gray-700 mb-2">
+      <div className="mb-4 pb-4 border-t border-slate-200 pt-4">
+        <label className="block text-xs font-medium text-slate-700 mb-2">
           Connection
         </label>
         <div className="space-y-2">
           <div className="flex items-center justify-between">
-            <span className="text-xs text-gray-600">Source:</span>
+            <span className="text-xs text-slate-600">Source:</span>
             <div className="flex items-center gap-2">
               <span className="text-xs font-medium">
                 {nodes.find(n => n.id === edge.source)?.data?.label || edge.source}
@@ -544,7 +544,7 @@ export const EdgeInspector = memo(({ edgeId, onClose }: EdgeInspectorProps) => {
             </div>
           </div>
           <div className="flex items-center justify-between">
-            <span className="text-xs text-gray-600">Target:</span>
+            <span className="text-xs text-slate-600">Target:</span>
             <div className="flex items-center gap-2">
               <span className="text-xs font-medium">
                 {nodes.find(n => n.id === edge.target)?.data?.label || edge.target}
@@ -563,10 +563,10 @@ export const EdgeInspector = memo(({ edgeId, onClose }: EdgeInspectorProps) => {
       
       {/* v1.2: Reset button (show if edge has been modified or has template) */}
       {(edge?.data?.templateId || weight !== EDGE_CONSTRAINTS.weight.default || belief !== EDGE_CONSTRAINTS.belief.default) && (
-        <div className="mb-2 pt-2 border-t border-gray-200">
+        <div className="mb-2 pt-2 border-t border-slate-200">
           <button
             onClick={handleReset}
-            className="w-full px-3 py-2 text-sm font-medium text-gray-700 rounded bg-gray-100 hover:bg-gray-200 transition-colors"
+            className="w-full px-3 py-2 text-sm font-medium text-slate-700 rounded bg-slate-100 hover:bg-slate-200 transition-colors"
             data-testid="btn-edge-reset"
           >
             Reset to Defaults
@@ -575,7 +575,7 @@ export const EdgeInspector = memo(({ edgeId, onClose }: EdgeInspectorProps) => {
       )}
 
       {/* Delete button */}
-      <div className={edge?.data?.templateId || weight !== EDGE_CONSTRAINTS.weight.default || belief !== EDGE_CONSTRAINTS.belief.default ? 'pt-0' : 'pt-2 border-t border-gray-200'}>
+      <div className={edge?.data?.templateId || weight !== EDGE_CONSTRAINTS.weight.default || belief !== EDGE_CONSTRAINTS.belief.default ? 'pt-0' : 'pt-2 border-t border-slate-200'}>
         <button
           onClick={handleDelete}
           className="w-full px-3 py-2 text-sm font-medium text-white rounded bg-danger-500 hover:bg-danger-600 transition-colors"
