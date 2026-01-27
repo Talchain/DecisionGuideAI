@@ -448,12 +448,21 @@ export function mapV2ResponseToReportV1(
   // Get elapsed time from meta if available
   const elapsedMs = meta.elapsed_ms ?? v2Response.meta?.latency_ms ?? 0
 
+  // P0 Fix: Extract n_samples and computed_at from V2 response meta for TopBar chips
+  // The V2 response may include these fields even if not in TypeScript types
+  const v2Meta = v2Response.meta as Record<string, unknown> | undefined
+  const nSamples = typeof v2Meta?.n_samples === 'number' ? v2Meta.n_samples : undefined
+  const computedAt = typeof v2Meta?.computed_at === 'string' ? v2Meta.computed_at : undefined
+
   return {
     schema: 'report.v1',
     meta: {
       seed: meta.seed,
       response_id: v2Response.response_hash,
       elapsed_ms: elapsedMs,
+      // P0 Fix: Pass through n_samples and computed_at for TopBar metadata chips
+      n_samples: nSamples,
+      computed_at: computedAt,
     },
     model_card: {
       response_hash: v2Response.response_hash,
@@ -487,12 +496,21 @@ export function mapV2ResponseToReportV1(
     robustness: v2Response.robustness ? (() => {
       const fragile = safeArrayWithMeta(v2Response.robustness!.fragile_edges)
       const robust = safeArrayWithMeta(v2Response.robustness!.robust_edges)
+      // P0 Fix: Extract is_robust for TopBar stability chip (may exist in response but not in TS type)
+      const robustnessRaw = v2Response.robustness as Record<string, unknown>
+      const isRobust = typeof robustnessRaw?.is_robust === 'boolean' ? robustnessRaw.is_robust : undefined
+      const level = typeof robustnessRaw?.level === 'string' ? robustnessRaw.level : undefined
+      const recommendedOptionId = typeof robustnessRaw?.recommended_option_id === 'string' ? robustnessRaw.recommended_option_id : undefined
       return {
         fragile_edges: fragile.items,
         robust_edges: robust.items,
         ranking_stability: v2Response.robustness!.ranking_stability,
         // P0 Fix: Extract recommendation_stability for stability chip in Results Panel
         recommendation_stability: v2Response.robustness!.recommendation_stability,
+        // P0 Fix: Pass through is_robust, level, and recommended_option_id for TopBar chips
+        is_robust: isRobust,
+        level,
+        recommended_option_id: recommendedOptionId,
         // P2 Fix: Include truncation metadata so UI can display "50 of 500 edges"
         _truncation: {
           fragile_truncated: fragile.truncated,
