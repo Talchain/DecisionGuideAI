@@ -1333,7 +1333,7 @@ describe('RecommendationSection', () => {
       expect(screen.getByText('-15% vs baseline')).toBeInTheDocument()
     })
 
-    it('shows "same as baseline" for zero delta (Issue #3 fix)', () => {
+    it('shows "Same as baseline" for zero delta (Issue #3 fix)', () => {
       const zeroDeltaData: RecommendationSectionData = {
         ...mockData,
         allOptions: [
@@ -1368,8 +1368,89 @@ describe('RecommendationSection', () => {
 
       render(<RecommendationSection data={zeroDeltaData} />)
 
-      // Should show "same as baseline" instead of hiding
-      expect(screen.getByText('same as baseline')).toBeInTheDocument()
+      // Should show "Same as baseline" instead of hiding
+      expect(screen.getByText('Same as baseline')).toBeInTheDocument()
+    })
+
+    it('shows "Same as baseline" for near-zero delta (Bug 3 fix)', () => {
+      const nearZeroDeltaData: RecommendationSectionData = {
+        ...mockData,
+        allOptions: [
+          {
+            id: 'option-1',
+            label: 'Status Quo',
+            expected: 50,
+            outcome: { mean: 50, p10: 30, p50: 50, p90: 70 },
+            p10: 30,
+            p50: 50,
+            p90: 70,
+            isRecommended: true,
+            isBaseline: true,
+            deltaFromBaseline: null,
+          },
+          {
+            id: 'option-2',
+            label: 'Nearly Equal Option',
+            expected: 50.01, // Near-baseline
+            outcome: { mean: 50.01, p10: 25, p50: 50.01, p90: 75 },
+            p10: 25,
+            p50: 50.01,
+            p90: 75,
+            isRecommended: false,
+            deltaFromBaseline: 0.01, // Within epsilon (0.05)
+          },
+        ],
+        baselineId: 'option-1',
+        baselineOutcome: 50,
+        isSingleOption: false,
+      }
+
+      render(<RecommendationSection data={nearZeroDeltaData} />)
+
+      // Should show "Same as baseline" instead of "+0.0%"
+      expect(screen.getByText('Same as baseline')).toBeInTheDocument()
+      // Should NOT show "+0.0" or similar
+      expect(screen.queryByText(/\+0\.0/)).not.toBeInTheDocument()
+      expect(screen.queryByText(/-0\.0/)).not.toBeInTheDocument()
+    })
+
+    it('shows negative near-zero delta as "Same as baseline" (Bug 3 fix)', () => {
+      const negativeNearZeroDeltaData: RecommendationSectionData = {
+        ...mockData,
+        allOptions: [
+          {
+            id: 'option-1',
+            label: 'Status Quo',
+            expected: 50,
+            outcome: { mean: 50, p10: 30, p50: 50, p90: 70 },
+            p10: 30,
+            p50: 50,
+            p90: 70,
+            isRecommended: true,
+            isBaseline: true,
+            deltaFromBaseline: null,
+          },
+          {
+            id: 'option-2',
+            label: 'Slightly Lower Option',
+            expected: 49.98,
+            outcome: { mean: 49.98, p10: 25, p50: 49.98, p90: 75 },
+            p10: 25,
+            p50: 49.98,
+            p90: 75,
+            isRecommended: false,
+            deltaFromBaseline: -0.02, // Within epsilon (0.05)
+          },
+        ],
+        baselineId: 'option-1',
+        baselineOutcome: 50,
+        isSingleOption: false,
+      }
+
+      render(<RecommendationSection data={negativeNearZeroDeltaData} />)
+
+      // Should show "Same as baseline" instead of "-0.0%"
+      expect(screen.getByText('Same as baseline')).toBeInTheDocument()
     })
   })
 })

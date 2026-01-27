@@ -18,6 +18,7 @@ import type { ConfidenceSectionData, UncertaintyItem, ImprovementItem, CritiqueS
 import { focusNodeById } from '../../canvas/utils/focusHelpers'
 import { EMPTY_STATES } from './emptyStates'
 import { typography } from '../../styles/typography'
+import { MIN_STABLE_RECOMMENDATION_STABILITY, isStableRobustnessLevel } from './constants'
 
 interface ConfidenceSectionProps {
   data: ConfidenceSectionData
@@ -214,6 +215,9 @@ export function ConfidenceSection({
     topImprovements,
     filteredFragileEdges,
     analysisStatus,
+    robustnessStatus,
+    robustnessLevel,
+    rankingStability,
   } = data
 
   const config = TIER_CONFIG[tier.tier]
@@ -225,8 +229,24 @@ export function ConfidenceSection({
   // Always show uncertainties section header with empty state if needed
   const showUncertainties = true
 
-  // Determine if model is fully ready (strong tier, no improvements, no uncertainties)
+  // Bug 2 fix: "Good foundation" requires both high/moderate robustness AND stability >= 0.6
+  // When robustnessLevel is undefined (old API), we don't apply the robustness check
+  const hasNoFragileEdges = uncertainties.length === 0
+  const hasStableRobustness = robustnessLevel === undefined || isStableRobustnessLevel(robustnessLevel)
+  const hasLowRobustness = robustnessLevel !== undefined && !isStableRobustnessLevel(robustnessLevel)
+  const hasHighStability = (rankingStability ?? 1) >= MIN_STABLE_RECOMMENDATION_STABILITY
+
+  // Determine if model is fully ready:
+  // - Strong tier, no improvements, no uncertainties
+  // - AND (robustness undefined OR high/moderate) AND stability >= 0.6
   const isFullyReady = tier.tier === 'strong' && improvements.length === 0 && uncertainties.length === 0
+    && hasStableRobustness && hasHighStability
+
+  // Bug 2 fix: Low robustness warning only when robustnessLevel is explicitly low/very_low
+  // OR when stability is below threshold with explicit robustness data
+  const showLowRobustnessWarning = hasNoFragileEdges
+    && (hasLowRobustness || (robustnessLevel !== undefined && !hasHighStability))
+
   // Show tier warning only for non-strong tiers
   const showTierWarning = tier.tier !== 'strong'
   // Determine if there are items to address below (for dynamic description)
@@ -236,6 +256,7 @@ export function ConfidenceSection({
   return (
     <div className="space-y-4">
       {/* CASE 1: Model is fully ready - show positive message ONLY */}
+      {/* Bug 2 fix: Only show when robustness is high/moderate AND stability >= 0.6 */}
       {isFullyReady && (
         <div className="p-4 bg-success-50 border border-success-200 rounded-lg">
           <div className="flex items-center gap-2 mb-2">
@@ -246,6 +267,21 @@ export function ConfidenceSection({
           </div>
           <p className="text-sm text-success-700">
             Your model looks good. You're ready to decide.
+          </p>
+        </div>
+      )}
+
+      {/* CASE 1b: Bug 2 fix - No fragile edges but low robustness/stability */}
+      {showLowRobustnessWarning && !showTierWarning && (
+        <div className="p-4 bg-warning-50 border border-warning-200 rounded-lg">
+          <div className="flex items-center gap-2 mb-2">
+            <span className="text-lg">⚠</span>
+            <span className="text-sm font-semibold text-warning-800">
+              Low confidence
+            </span>
+          </div>
+          <p className="text-sm text-warning-700">
+            No fragile edges, but overall confidence is low. Consider strengthening key assumptions.
           </p>
         </div>
       )}
@@ -266,7 +302,8 @@ export function ConfidenceSection({
       )}
 
       {/* CASE 3: Strong tier but has items to address - show compact header */}
-      {tier.tier === 'strong' && !isFullyReady && (
+      {/* Note: Only show if not showing low robustness warning */}
+      {tier.tier === 'strong' && !isFullyReady && !showLowRobustnessWarning && (
         <div className="p-3 bg-success-50 border border-success-200 rounded-lg">
           <div className="flex items-center gap-2">
             <span className="text-success-600">✓</span>
@@ -298,10 +335,12 @@ export function ConfidenceSection({
             <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg">
               <p className="text-sm text-slate-600 flex items-start gap-2">
                 <span aria-hidden="true">ℹ️</span>
-                {/* Task 9: Different message when analysis completed but all edges below threshold */}
-                {filteredFragileEdges && filteredFragileEdges.filteredCount > 0
-                  ? `No high-sensitivity assumptions found — all edges changed the best option in <${Math.round(filteredFragileEdges.threshold * 100)}% of scenarios tested.`
-                  : EMPTY_STATES.robustness}
+                {/* Bug 4 fix: Different message based on robustness status */}
+                {robustnessStatus !== 'computed'
+                  ? EMPTY_STATES.robustness
+                  : filteredFragileEdges && filteredFragileEdges.filteredCount > 0
+                    ? `No high-sensitivity assumptions found. ${filteredFragileEdges.filteredCount} assumption${filteredFragileEdges.filteredCount === 1 ? '' : 's'} changed the best option in <${Math.round(filteredFragileEdges.threshold * 100)}% of scenarios.`
+                    : 'No sensitive assumptions identified at the current threshold.'}
               </p>
             </div>
           ) : (

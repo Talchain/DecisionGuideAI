@@ -18,6 +18,7 @@ import { focusNodeById } from '../../canvas/utils/focusHelpers'
 import { EMPTY_STATES } from './emptyStates'
 import { formatOutcomeValue, type OutcomeUnits } from '../../lib/format'
 import { typography } from '../../styles/typography'
+import { BASELINE_DELTA_EPSILON } from './constants'
 
 interface RecommendationSectionProps {
   data: RecommendationSectionData
@@ -389,7 +390,8 @@ function RangeBar({
 /**
  * Task 2.2: Format delta from baseline as "+X" or "-X" with "vs baseline" suffix.
  * Uses absolute point delta (not percent-of-baseline).
- * Issue #3 fix: Show "same as baseline" for zero delta instead of hiding.
+ * Bug 3 fix: Show "Same as baseline" for near-zero deltas (|delta| < EPSILON).
+ * Prevents display of "+0.0" or "-0.0".
  */
 function formatDelta(
   delta: number | null | undefined,
@@ -397,7 +399,8 @@ function formatDelta(
   symbol?: string
 ): string | null {
   if (delta == null) return null
-  if (delta === 0) return 'same as baseline'
+  // Bug 3 fix: Use epsilon for near-zero comparison
+  if (Math.abs(delta) < BASELINE_DELTA_EPSILON) return 'Same as baseline'
   const sign = delta >= 0 ? '+' : ''
   return `${sign}${formatOutcome(delta, unit, symbol)} vs baseline`
 }

@@ -232,6 +232,8 @@ export interface ConfidenceSectionData {
   topUncertainties: UncertaintyItem[] // Top 3
   /** Ranking stability from robustness (0-1) */
   rankingStability?: number
+  /** Robustness level from PLoT (high/medium/low/very_low) */
+  robustnessLevel?: RobustnessLevel
   /** Evidence coverage from graph readiness */
   evidenceCoverage?: EvidenceCoverage
   /** Merged and deduplicated improvements */

@@ -1549,12 +1549,16 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       description: `${filteredFragileEdgesCount} additional ${filteredFragileEdgesCount === 1 ? 'edge' : 'edges'} changed the best option in <${Math.round(FRAGILE_EDGE_THRESHOLD * 100)}% of scenarios tested`,
     } : undefined
 
+    // Bug 2 fix: Extract robustness level for "Good foundation" logic
+    const robustnessLevel = (report as any)?.robustness?.level as RobustnessLevel | undefined
+
     return {
       tier: tierInfo,
       qualityScore,
       uncertainties,
       topUncertainties: uncertainties.slice(0, 3),
       rankingStability: (report as any)?.robustness?.ranking_stability,
+      robustnessLevel,
       evidenceCoverage,
       improvements,
       topImprovements: improvements.slice(0, 2),

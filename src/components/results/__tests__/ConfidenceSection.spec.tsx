@@ -277,4 +277,131 @@ describe('ConfidenceSection', () => {
 
     expect(screen.getByText('~15 min')).toBeInTheDocument()
   })
+
+  // =============================================================================
+  // Bug 2: "Good foundation" logic with robustness/stability checks
+  // =============================================================================
+
+  describe('Bug 2: Good foundation with robustness checks', () => {
+    it('shows "Good foundation" when high robustness and high stability', () => {
+      const highConfidenceData: ConfidenceSectionData = {
+        tier: {
+          tier: 'strong',
+          icon: '✓',
+          label: 'Good foundation',
+          description: 'Your model captures this decision well.',
+        },
+        qualityScore: 90,
+        uncertainties: [],
+        topUncertainties: [],
+        improvements: [],
+        topImprovements: [],
+        rankingStability: 0.85,
+        robustnessLevel: 'high',
+        robustnessStatus: 'computed',
+      }
+
+      render(<ConfidenceSection data={highConfidenceData} />)
+
+      expect(screen.getByText(/Good foundation/)).toBeInTheDocument()
+      expect(screen.getByText(/Your model looks good/)).toBeInTheDocument()
+    })
+
+    it('shows low confidence warning when low robustness with empty fragile edges', () => {
+      const lowRobustnessData: ConfidenceSectionData = {
+        tier: {
+          tier: 'strong',
+          icon: '✓',
+          label: 'Good foundation',
+          description: 'Your model captures this decision well.',
+        },
+        qualityScore: 75,
+        uncertainties: [],
+        topUncertainties: [],
+        improvements: [],
+        topImprovements: [],
+        rankingStability: 0.387, // Below 0.6 threshold
+        robustnessLevel: 'very_low',
+        robustnessStatus: 'computed',
+      }
+
+      render(<ConfidenceSection data={lowRobustnessData} />)
+
+      expect(screen.getByText(/Low confidence/)).toBeInTheDocument()
+      expect(screen.getByText(/No fragile edges, but overall confidence is low/)).toBeInTheDocument()
+    })
+
+    it('shows low confidence warning when stability below threshold', () => {
+      const lowStabilityData: ConfidenceSectionData = {
+        tier: {
+          tier: 'strong',
+          icon: '✓',
+          label: 'Good foundation',
+          description: 'Your model captures this decision well.',
+        },
+        qualityScore: 75,
+        uncertainties: [],
+        topUncertainties: [],
+        improvements: [],
+        topImprovements: [],
+        rankingStability: 0.45, // Below 0.6 threshold
+        robustnessLevel: 'low',
+        robustnessStatus: 'computed',
+      }
+
+      render(<ConfidenceSection data={lowStabilityData} />)
+
+      expect(screen.getByText(/Low confidence/)).toBeInTheDocument()
+    })
+  })
+
+  // =============================================================================
+  // Bug 4: UNCERTAINTIES empty state logic
+  // =============================================================================
+
+  describe('Bug 4: Uncertainties empty state', () => {
+    it('shows pre-run message when robustness not computed', () => {
+      const preRunData: ConfidenceSectionData = {
+        ...mockData,
+        uncertainties: [],
+        topUncertainties: [],
+        robustnessStatus: 'pending',
+      }
+
+      render(<ConfidenceSection data={preRunData} />)
+
+      expect(screen.getByText(/Analysis will identify sensitive assumptions/)).toBeInTheDocument()
+    })
+
+    it('shows post-run message when robustness computed with no uncertainties', () => {
+      const postRunData: ConfidenceSectionData = {
+        ...mockData,
+        uncertainties: [],
+        topUncertainties: [],
+        robustnessStatus: 'computed',
+      }
+
+      render(<ConfidenceSection data={postRunData} />)
+
+      expect(screen.getByText(/No sensitive assumptions identified/)).toBeInTheDocument()
+    })
+
+    it('shows filtered message when edges below threshold', () => {
+      const filteredData: ConfidenceSectionData = {
+        ...mockData,
+        uncertainties: [],
+        topUncertainties: [],
+        robustnessStatus: 'computed',
+        filteredFragileEdges: {
+          filteredCount: 3,
+          threshold: 0.3,
+          description: '3 additional edges changed the best option in <30% of scenarios tested',
+        },
+      }
+
+      render(<ConfidenceSection data={filteredData} />)
+
+      expect(screen.getByText(/No high-sensitivity assumptions found/)).toBeInTheDocument()
+    })
+  })
 })
