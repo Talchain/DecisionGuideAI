@@ -872,6 +872,67 @@ describe('robustness passthrough to report (P0 Fix)', () => {
     // P0 Fix: recommendation_stability should be passed through for stability chip
     expect((report as any).robustness.recommendation_stability).toBe(0.9765)
   })
+
+  it('includes is_robust, level, and recommended_option_id when present (P0 TopBar chips fix)', () => {
+    const v2Response = makeSuccessResponse({
+      robustness: {
+        fragile_edges: ['edge1'],
+        robust_edges: ['edge2', 'edge3'],
+        is_robust: false,
+        level: 'low',
+        recommended_option_id: 'opt_hire_developer',
+        recommendation_stability: 0.553,
+      } as any,
+      robustness_status: 'computed',
+    })
+
+    const report = mapV2ResponseToReportV1(v2Response, { seed: 42 })
+
+    // P0 Fix: These fields are needed by useAnalysisMetadata for TopBar chips
+    expect((report as any).robustness.is_robust).toBe(false)
+    expect((report as any).robustness.level).toBe('low')
+    expect((report as any).robustness.recommended_option_id).toBe('opt_hire_developer')
+  })
+})
+
+// ============================================================================
+// P0 Fix: Meta fields passthrough for TopBar chips
+// ============================================================================
+
+describe('meta passthrough for TopBar chips (P0 Fix)', () => {
+  it('includes n_samples and computed_at when present in V2 response', () => {
+    const v2Response = makeSuccessResponse({
+      meta: {
+        seed_used: '42',
+        n_samples: 1000,
+        detail_level: 'deep',
+        latency_ms: 100,
+        computed_at: '2026-01-27T14:04:36.561Z',
+      } as any,
+    })
+
+    const report = mapV2ResponseToReportV1(v2Response, { seed: 42 })
+
+    // P0 Fix: These fields are needed by useAnalysisMetadata for TopBar chips
+    expect((report as any).meta.n_samples).toBe(1000)
+    expect((report as any).meta.computed_at).toBe('2026-01-27T14:04:36.561Z')
+  })
+
+  it('sets n_samples and computed_at to undefined when not present', () => {
+    const v2Response = makeSuccessResponse({
+      meta: {
+        seed_used: '42',
+        detail_level: 'deep',
+        latency_ms: 100,
+        // n_samples and computed_at intentionally omitted
+      } as any,
+    })
+
+    const report = mapV2ResponseToReportV1(v2Response, { seed: 42 })
+
+    expect((report as any).meta.n_samples).toBeUndefined()
+    expect((report as any).meta.computed_at).toBeUndefined()
+  })
 })
 
 describe('createEnrichmentFromV2Response - P0 Fix: Robustness with empty edge_sensitivity', () => {
