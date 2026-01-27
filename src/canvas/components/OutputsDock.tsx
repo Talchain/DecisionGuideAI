@@ -81,6 +81,7 @@ import { useResultsSectionData } from '../../components/results/useResultsSectio
 import { RecommendationSection } from '../../components/results/RecommendationSection'
 import { DriversSection } from '../../components/results/DriversSection'
 import { ConfidenceSection } from '../../components/results/ConfidenceSection'
+import { Accordion } from '../../components/results/Accordion'
 import { executeAutoFix, determineFixType, type AutoFixParams } from '../utils/autoFix'
 import { getStrengthCorrections, type StrengthCorrection } from '../../adapters/plot/v2/adapter'
 import { computeCTA, type CTAConfig } from '../../lib/ctaStateMachine'
@@ -1174,30 +1175,32 @@ export function OutputsDock() {
                 {/* OLD VerdictCard and DecisionSummary REMOVED - Replaced by RecommendationSection below */}
 
                 {/* ======================================================================
-                    Results Panel Redesign: New Section Components
+                    Results Panel Redesign: Accordion Layout (Phase 3)
+                    Three collapsible sections: Analysis, Confidence, Next Steps
                     "Coaching over gates" approach with semantic labels and dynamic normalisation
                     ====================================================================== */}
                 {!isPreRun && hasInlineSummary && resultsSectionData && (
-                  <div className="space-y-4" data-testid="outputs-results-redesign">
-                    {/* Objective Section - FIRST section showing the goal */}
-                    <section
-                      className="border border-sand-200 rounded-lg overflow-hidden"
-                      data-testid="panel-objective"
-                      aria-labelledby="panel-objective-heading"
+                  <div className="space-y-2" data-testid="outputs-results-redesign">
+                    {/* ============================================================
+                        ANALYSIS ACCORDION (expanded by default)
+                        Contents: Objective + Recommendation card
+                        ============================================================ */}
+                    <Accordion
+                      title="Analysis"
+                      defaultExpanded={true}
+                      testId="accordion-analysis"
                     >
-                      <header className="px-3 py-2 bg-sand-50 border-b border-sand-200">
-                        <h3
-                          id="panel-objective-heading"
-                          className={`${typography.code} font-medium text-ink-500 uppercase tracking-wider text-xs`}
-                        >
-                          Your Objective
-                        </h3>
-                      </header>
-                      <div className="p-3">
+                      {/* Objective */}
+                      <div className="mb-4">
                         <div className="flex items-center justify-between">
-                          <p className={`${typography.body} font-medium text-ink-900`}>
-                            {resultsSectionData.goalLabel}
-                          </p>
+                          <div>
+                            <span className={`${typography.caption} text-ink-500 uppercase tracking-wider`}>
+                              Your Objective
+                            </span>
+                            <p className={`${typography.body} font-medium text-ink-900 mt-0.5`}>
+                              {resultsSectionData.goalLabel}
+                            </p>
+                          </div>
                           <button
                             onClick={() => {
                               if (resultsSectionData.goalNodeId) {
@@ -1218,85 +1221,68 @@ export function OutputsDock() {
                           </button>
                         </div>
                       </div>
-                    </section>
 
-                    {/* Recommendation Section - "What should I do?" */}
-                    <section
-                      className="border border-sand-200 rounded-lg overflow-hidden"
-                      data-testid="panel-recommendation-redesign"
-                      aria-labelledby="panel-recommendation-heading"
-                    >
-                      <header className="px-3 py-2 bg-sand-50 border-b border-sand-200">
-                        <h3
-                          id="panel-recommendation-heading"
-                          className={`${typography.label} font-medium text-ink-800`}
-                        >
-                          Recommendation
-                        </h3>
-                      </header>
-                      <div className="p-3">
-                        <RecommendationSection
-                          data={resultsSectionData.recommendation}
-                          onFocusNode={(nodeId) => {
-                            setHighlightedNodes([nodeId])
-                            focusNodeById(nodeId)
-                            setTimeout(() => setHighlightedNodes([]), 3000)
-                          }}
-                        />
-                      </div>
-                    </section>
+                      {/* Recommendation */}
+                      <RecommendationSection
+                        data={resultsSectionData.recommendation}
+                        onFocusNode={(nodeId) => {
+                          setHighlightedNodes([nodeId])
+                          focusNodeById(nodeId)
+                          setTimeout(() => setHighlightedNodes([]), 3000)
+                        }}
+                      />
+                    </Accordion>
 
-                    {/* Drivers Section - "Why?" with semantic labels */}
-                    <section
-                      className="border border-sand-200 rounded-lg overflow-hidden"
-                      data-testid="panel-drivers-redesign"
-                      aria-labelledby="panel-drivers-redesign-heading"
+                    {/* ============================================================
+                        CONFIDENCE ACCORDION (collapsed by default)
+                        Contents: Drivers (factor sensitivity) + tier badge
+                        ============================================================ */}
+                    <Accordion
+                      title="What's Influencing This"
+                      defaultExpanded={false}
+                      testId="accordion-confidence"
+                      badgeCount={resultsSectionData.drivers.totalCount}
                     >
-                      <header className="px-3 py-2 bg-sand-50 border-b border-sand-200">
-                        <h3
-                          id="panel-drivers-redesign-heading"
-                          className={`${typography.label} font-medium text-ink-800`}
-                        >
-                          What's Influencing This
-                        </h3>
-                      </header>
-                      <div className="p-3">
-                        <DriversSection
-                          data={resultsSectionData.drivers}
-                          onFocusNode={(nodeId) => {
-                            setHighlightedNodes([nodeId])
-                            focusNodeById(nodeId)
-                            setTimeout(() => setHighlightedNodes([]), 3000)
-                          }}
-                        />
-                      </div>
-                    </section>
+                      <DriversSection
+                        data={resultsSectionData.drivers}
+                        onFocusNode={(nodeId) => {
+                          setHighlightedNodes([nodeId])
+                          focusNodeById(nodeId)
+                          setTimeout(() => setHighlightedNodes([]), 3000)
+                        }}
+                        goalLabel={resultsSectionData.goalLabel}
+                      />
+                    </Accordion>
 
-                    {/* Confidence Section - "What needs attention" */}
-                    <section
-                      className="border border-sand-200 rounded-lg overflow-hidden"
-                      data-testid="panel-confidence-redesign"
-                      aria-labelledby="panel-confidence-heading"
+                    {/* ============================================================
+                        NEXT STEPS ACCORDION (collapsed by default)
+                        Contents: Uncertainties + improvements + filtered edges disclosure
+                        ============================================================ */}
+                    <Accordion
+                      title="What Needs Attention"
+                      defaultExpanded={false}
+                      testId="accordion-next-steps"
+                      badgeCount={
+                        resultsSectionData.confidence.uncertainties.length +
+                        resultsSectionData.confidence.improvements.length
+                      }
+                      badgeVariant={
+                        resultsSectionData.confidence.tier.tier === 'needs_work'
+                          ? 'critical'
+                          : resultsSectionData.confidence.tier.tier === 'fair'
+                          ? 'warning'
+                          : 'default'
+                      }
                     >
-                      <header className="px-3 py-2 bg-sand-50 border-b border-sand-200">
-                        <h3
-                          id="panel-confidence-heading"
-                          className={`${typography.label} font-medium text-ink-800`}
-                        >
-                          What Needs Attention
-                        </h3>
-                      </header>
-                      <div className="p-3">
-                        <ConfidenceSection
-                          data={resultsSectionData.confidence}
-                          onFocusNode={(nodeId) => {
-                            setHighlightedNodes([nodeId])
-                            focusNodeById(nodeId)
-                            setTimeout(() => setHighlightedNodes([]), 3000)
-                          }}
-                        />
-                      </div>
-                    </section>
+                      <ConfidenceSection
+                        data={resultsSectionData.confidence}
+                        onFocusNode={(nodeId) => {
+                          setHighlightedNodes([nodeId])
+                          focusNodeById(nodeId)
+                          setTimeout(() => setHighlightedNodes([]), 3000)
+                        }}
+                      />
+                    </Accordion>
 
                     {/* Adjustments Made: Show any strength corrections applied during this run */}
                     {(() => {

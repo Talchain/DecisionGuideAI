@@ -1364,8 +1364,9 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
         return bProb - aProb
       })
       .slice(0, 3)
-    const cleanId = (id: string | undefined) =>
-      id?.replace(/^(fac_|out_|goal_|risk_|opt_)/, '').replace(/_/g, ' ')
+    // Phase 3 Task 3.3: Label enrichment with "Unknown: {id}" fallback
+    const formatUnknownId = (id: string | undefined) =>
+      id ? `Unknown: ${id}` : undefined
     const nonEmptyLabel = (value: unknown) =>
       typeof value === 'string' && value.trim().length > 0 ? value : undefined
     const getNodeLabel = (id: string | undefined) => (id ? nodeLabelMap.get(id) : undefined)
@@ -1402,15 +1403,18 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       const toId = (typeof fe === 'string' ? undefined : (fe.to_id ?? fe.toId ?? fe.target)) ?? parsed.toId
 
       const isEdgeObject = typeof fe === 'object' && fe !== null
-      console.log('[UNCERTAINTY_DEBUG]', {
-        rawEdge: fe,
-        hasFromLabel: isEdgeObject && 'from_label' in fe,
-        hasToLabel: isEdgeObject && 'to_label' in fe,
-        hasAltLabel: isEdgeObject && 'alternative_winner_label' in fe,
-        fromLabelValue: isEdgeObject ? fe.from_label : undefined,
-        toLabelValue: isEdgeObject ? fe.to_label : undefined,
-        altLabelValue: isEdgeObject ? fe.alternative_winner_label : undefined,
-      })
+
+      if (import.meta.env.DEV && typeof window !== 'undefined' && (window as any).__OLUMI_DEBUG) {
+        console.log('[UNCERTAINTY_DEBUG]', {
+          rawEdge: fe,
+          hasFromLabel: isEdgeObject && 'from_label' in fe,
+          hasToLabel: isEdgeObject && 'to_label' in fe,
+          hasAltLabel: isEdgeObject && 'alternative_winner_label' in fe,
+          fromLabelValue: isEdgeObject ? fe.from_label : undefined,
+          toLabelValue: isEdgeObject ? fe.to_label : undefined,
+          altLabelValue: isEdgeObject ? fe.alternative_winner_label : undefined,
+        })
+      }
 
       if (typeof window !== 'undefined' && (window as any).__OLUMI_DEBUG) {
         console.log('[FragileEdge:RAW]', {
@@ -1434,22 +1438,23 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
         })
       }
 
-      // Schema v2.6: Use from_label/to_label with fallback to cleaned IDs
+      // Phase 3 Task 3.3: Label enrichment with fallback chain
+      // Priority: PLoT label → canvas node lookup → "Unknown: {id}"
       const sourceName =
         nonEmptyLabel(fe.from_label) ??
         nonEmptyLabel(fe.fromLabel) ??
         getNodeLabel(fromId) ??
-        cleanId(fromId) ??
-        'this factor'
+        formatUnknownId(fromId) ??
+        'Unknown factor'
       const targetName =
         nonEmptyLabel(fe.to_label) ??
         nonEmptyLabel(fe.toLabel) ??
         getNodeLabel(toId) ??
-        cleanId(toId) ??
-        'the outcome'
+        formatUnknownId(toId) ??
+        'Unknown target'
 
-      // Schema v2.6: Use alternative_winner_label directly
-      // Fallback chain: PLoT enrichment → canvas node → report option_comparison → cleaned ID → default
+      // Phase 3 Task 3.3: Alternative winner label enrichment
+      // Fallback chain: PLoT enrichment → canvas node → report option_comparison → "Unknown: {id}"
       const altWinnerId = fe.alternative_winner_id ?? fe.alternativeWinnerId
       const alternativeWinnerLabel =
         nonEmptyLabel(fe.alternative_winner_label) ??
@@ -1457,7 +1462,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
         nonEmptyLabel(fe.alternativeWinner) ??
         getNodeLabel(altWinnerId) ??
         getOptionLabel(altWinnerId) ??
-        cleanId(altWinnerId) ??
+        formatUnknownId(altWinnerId) ??
         'another option'
 
       if (typeof window !== 'undefined' && (window as any).__OLUMI_DEBUG) {

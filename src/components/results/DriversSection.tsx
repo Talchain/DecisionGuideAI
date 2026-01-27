@@ -23,6 +23,8 @@ interface DriversSectionProps {
   data: DriversSectionData
   onFocusNode?: (nodeId: string) => void
   onRetry?: () => void
+  /** Goal label for direction-based interpretation fallback (Task 3.5) */
+  goalLabel?: string
 }
 
 // Bar colors (hex values as specified)
@@ -85,9 +87,12 @@ function ProgressBar({
 function ExpandedDetails({
   driver,
   onFocus,
+  goalLabel,
 }: {
   driver: DriverItem
   onFocus?: (nodeId: string) => void
+  /** Goal label for direction-based interpretation fallback (Task 3.5) */
+  goalLabel?: string
 }) {
   const handleFocusClick = useCallback(() => {
     if (driver.canFocus) {
@@ -103,6 +108,16 @@ function ExpandedDetails({
   // Generate contextual insight copy only when we have real magnitude data
   const elasticityInsight = driver.rawElasticity > 0.001
     ? `A 10% change here shifts your goal by ~${Math.round(driver.rawElasticity * 10)}%`
+    : null
+
+  // Task 3.5: Direction-based interpretation fallback when no elasticity data
+  // Priority: elasticity insight → direction-based interpretation → null
+  const directionInterpretation = !elasticityInsight && goalLabel && driver.direction
+    ? driver.direction === 'positive'
+      ? `Increases ${goalLabel}`
+      : driver.direction === 'negative'
+        ? `Decreases ${goalLabel}`
+        : null
     : null
 
   const alternativeWinnerLabel = driver.fragileEdgeInfo?.alternativeWinnerLabel
@@ -142,6 +157,8 @@ function ExpandedDetails({
   return (
     <div className="px-4 pb-3 pt-1 border-t border-slate-100 bg-slate-50/50 text-xs text-slate-600 space-y-1.5">
       {elasticityInsight && <p>{elasticityInsight}</p>}
+      {/* Task 3.5: Direction-based fallback when no elasticity data */}
+      {directionInterpretation && <p className="text-slate-500">{directionInterpretation}</p>}
       {decisionChangeRisk && <p>{decisionChangeRisk}</p>}
       {showQualityHint && (
         <p className="text-xs text-slate-500 flex items-center gap-1">
@@ -175,11 +192,14 @@ function DriverRow({
   isExpanded,
   onToggleExpand,
   onFocus,
+  goalLabel,
 }: {
   driver: DriverItem
   isExpanded: boolean
   onToggleExpand: () => void
   onFocus?: (nodeId: string) => void
+  /** Goal label for direction-based interpretation fallback (Task 3.5) */
+  goalLabel?: string
 }) {
   // Direction styling - arrow color matches bar color
   // P0 Fix: Single arrow serves as both direction indicator AND expand trigger
@@ -261,6 +281,7 @@ function DriverRow({
         <ExpandedDetails
           driver={driver}
           onFocus={onFocus}
+          goalLabel={goalLabel}
         />
       )}
     </div>
@@ -291,6 +312,7 @@ export function DriversSection({
   data,
   onFocusNode,
   onRetry,
+  goalLabel,
 }: DriversSectionProps) {
   const [showAll, setShowAll] = useState(false)
   const [expandedKeys, setExpandedKeys] = useState<Set<string>>(new Set())
@@ -405,6 +427,7 @@ export function DriversSection({
             isExpanded={expandedKeys.has(driver.factorKey)}
             onToggleExpand={() => toggleExpand(driver.factorKey)}
             onFocus={onFocusNode}
+            goalLabel={goalLabel}
           />
         ))}
       </div>
