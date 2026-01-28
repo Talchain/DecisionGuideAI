@@ -255,6 +255,11 @@ export function OutputsDock() {
   const isPreRun = !hasCompletedFirstRun
   // Empty state: hide panel when canvas has no nodes
   const hasGraphContent = nodes.length > 0
+
+  // DEBUG: Log node count on every render to diagnose empty state issue
+  if (import.meta.env.DEV) {
+    console.log('[OutputsDock] nodes.length:', nodes.length, 'hasGraphContent:', hasGraphContent)
+  }
   const resultsStatus = useCanvasStore(selectResultsStatus)
   const report = useCanvasStore(selectReport)
   const error = useCanvasStore(selectError)
@@ -768,25 +773,9 @@ export function OutputsDock() {
   }
 
   // Empty state: hide panel completely when canvas has no nodes
-  // Use CSS opacity/pointer-events for smooth transition without unmounting
+  // Return null to completely unmount - no DOM element, no visual footprint
   if (!hasGraphContent) {
-    return (
-      <aside
-        className={`${transitionClass} flex flex-col`}
-        style={{
-          position: 'fixed',
-          width: 'var(--dock-right-collapsed, 2.5rem)',
-          right: 12,
-          top: 'calc(var(--topbar-h) + 1rem)',
-          bottom: 'calc(var(--bottombar-h) + 1rem)',
-          opacity: 0,
-          pointerEvents: 'none',
-          zIndex: 900,
-        }}
-        aria-hidden="true"
-        data-testid="outputs-dock"
-      />
-    )
+    return null
   }
 
   return (

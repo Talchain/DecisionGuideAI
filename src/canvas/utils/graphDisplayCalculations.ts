@@ -323,10 +323,12 @@ export function formatDisplayValue(
 
   if (isCurrency) {
     // Use locale currency formatting with 2 decimals
-    return value.toLocaleString('en-US', {
+    const formatted = value.toLocaleString('en-US', {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     })
+    // P1 Fix: Strip .00 for whole numbers (e.g., £100,000.00 → £100,000)
+    return formatted.endsWith('.00') ? formatted.slice(0, -3) : formatted
   }
 
   // UI Polish Task 1: Handle percentage formatting

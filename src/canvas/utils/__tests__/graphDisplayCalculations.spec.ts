@@ -562,6 +562,23 @@ describe('graphDisplayCalculations', () => {
       expect(formatDisplayValue(1234.5, '€')).toBe('1,234.50')
     })
 
+    // P1 Fix: Strip .00 for whole number currency values
+    it('strips .00 for whole number currency (100000 → 100,000)', () => {
+      expect(formatDisplayValue(100000, 'currency')).toBe('100,000')
+    })
+
+    it('strips .00 for whole number £ values', () => {
+      expect(formatDisplayValue(100000, '£')).toBe('100,000')
+    })
+
+    it('keeps decimals for currency when meaningful (49.99)', () => {
+      expect(formatDisplayValue(49.99, '£')).toBe('49.99')
+    })
+
+    it('strips .00 for 50.00 currency', () => {
+      expect(formatDisplayValue(50, '$')).toBe('50')
+    })
+
     // UI Polish Task 1: Percentage formatting tests
     it('formats 0-1 scale value as percentage (0.2 → 20%)', () => {
       expect(formatDisplayValue(0.2, '%')).toBe('20%')

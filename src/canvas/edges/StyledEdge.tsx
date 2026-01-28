@@ -62,15 +62,25 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
   const report = useCanvasStore(state => state.results.report)
 
   // Check if this edge is fragile (switch_probability > 0.3)
+  // P0 Fix: Match by from_id/to_id (source/target) OR edge_id
+  // API returns from_id/to_id pairs, not edge_id in most cases
   const isFragileEdge = useMemo(() => {
     if (!isResultsMode || !report?.robustness) return false
     const fragileEdges = report.robustness.fragile_edges || []
     return fragileEdges.some((fe: any) => {
-      const edgeId = fe.edge_id || fe.edgeId
       const switchProb = fe.switch_probability ?? fe.switchProbability ?? fe.marginal_switch_probability ?? fe.marginalSwitchProbability
-      return edgeId === id && (typeof switchProb === 'number' && switchProb > 0.3)
+      if (typeof switchProb !== 'number' || switchProb <= 0.3) return false
+
+      // Try matching by edge_id first
+      const edgeId = fe.edge_id || fe.edgeId
+      if (edgeId === id) return true
+
+      // P0 Fix: Match by from_id/to_id (source/target) - primary matching method
+      const fromId = fe.from_id ?? fe.fromId ?? fe.source
+      const toId = fe.to_id ?? fe.toId ?? fe.target
+      return fromId === source && toId === target
     })
-  }, [isResultsMode, report, id])
+  }, [isResultsMode, report, id, source, target])
 
   // Extract edge data with defaults
   const edgeData = data as EdgeData | undefined
@@ -280,17 +290,26 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
       />
       
       {/* Decision Graph Display v2 Task 3 + Task D: Direction sign indicator (single, near target) */}
+      {/* P2 Fix: Improved legibility - larger font, background pill, consistent offset */}
       {direction && (
         <EdgeLabelRenderer>
           <div
             style={{
               position: 'absolute',
-              transform: `translate(-50%, -50%) translate(${targetX - 15}px,${targetY - 15}px)`,
+              transform: `translate(-50%, -50%) translate(${targetX - 18}px,${targetY - 18}px)`,
               pointerEvents: 'none',
-              fontSize: '14px',
-              fontWeight: 'bold',
-              color: direction === 'positive' ? '#10b981' : '#ef4444',
-              textShadow: '0 0 2px white, 0 0 4px white',
+              fontSize: '16px',
+              fontWeight: 700,
+              color: direction === 'positive' ? '#059669' : '#dc2626', // Darker for better contrast
+              // P2 Fix: Background pill for legibility
+              backgroundColor: 'rgba(255, 255, 255, 0.9)',
+              borderRadius: '50%',
+              width: '20px',
+              height: '20px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              boxShadow: '0 1px 2px rgba(0,0,0,0.1)',
             }}
             aria-label={`Effect direction: ${direction}`}
           >

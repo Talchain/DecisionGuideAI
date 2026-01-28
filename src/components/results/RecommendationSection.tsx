@@ -651,10 +651,18 @@ export function RecommendationSection({
 
         {/* Near-tie warning callout */}
         {/* Priority: nearTie.is_tie when available, fallback to stability-based heuristic */}
+        {/* Task 2: When near-tie shown, suppress legacy "Could go either way" messaging */}
         {(() => {
+          // Determine if near-tie should be shown
+          // Priority: Use nearTie.isTie when present, else fall back to stability heuristic
           const isNearTie = nearTie?.isTie ?? (recommendationStability !== undefined && recommendationStability < THRESHOLDS.STABILITY_MODERATE)
 
           if (!isNearTie) return null
+
+          // DEBUG: Log near-tie data to diagnose gap issue
+          if (import.meta.env.DEV) {
+            console.log('[RecommendationSection] nearTie:', nearTie)
+          }
 
           // Build tied options labels from allOptions lookup
           const optionLabels = new Map(allOptions.map(opt => [opt.id, opt.label]))
@@ -662,16 +670,21 @@ export function RecommendationSection({
             .map(id => optionLabels.get(id))
             .filter((label): label is string => Boolean(label))
 
-          // Near-tie message: use gap if available, otherwise generic message
-          const gapPercent = nearTie?.gap !== undefined ? Math.round(nearTie.gap * 100) : 0
-          const nearTieMessage = nearTie?.gap !== undefined && nearTie.gap > 0
+          // Task 1: Near-tie message with gap percentage
+          // Show percentage when gap > 0, otherwise generic message
+          const hasGap = typeof nearTie?.gap === 'number' && nearTie.gap > 0
+          const gapPercent = hasGap ? Math.round(nearTie!.gap * 100) : 0
+          const nearTieMessage = hasGap
             ? COPY.NEAR_TIE_WITH_GAP(gapPercent)
             : COPY.NEAR_TIE_MESSAGE
 
-          // Tied options message: only show if we have 2+ labels
+          // Task 3: Tied options message with fallback
+          // Show specific labels if we have 2+, otherwise show generic fallback when near-tie detected
           const tiedOptionsMessage = tiedLabels.length >= 2
             ? COPY.TIED_OPTIONS_TEMPLATE(tiedLabels[0], tiedLabels[1])
-            : null
+            : nearTie?.isTie
+              ? 'The top two options are effectively tied within the model\'s uncertainty.'
+              : null
 
           return (
             <div className="mt-3 p-3 bg-warning-50 border border-warning-200 rounded-lg">
@@ -689,7 +702,8 @@ export function RecommendationSection({
         })()}
 
         {/* Natural language description */}
-        {outcomeDescription && (
+        {/* Task 2: Suppress when near-tie callout is shown to avoid duplicate messaging */}
+        {outcomeDescription && !nearTie?.isTie && (
           <p className="text-sm text-success-700">
             {outcomeDescription}
           </p>
