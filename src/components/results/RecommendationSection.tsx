@@ -205,35 +205,51 @@ function RobustnessBadge({
 
 /**
  * Task 1.3: Format outcome description in natural language.
- * Note: Values are in probability form (e.g., 0.5 = 50%, 0.93 = 93%).
- * FIX: Convert to percentage for threshold comparison.
- * Uses polarity-correct language: positive = improvement, negative = decline.
- * Updated rules to handle wide/zero-crossing ranges accurately.
+ * Data-bound copy based on actual worse/better bounds.
+ *
+ * Logic for crossing-zero ranges (worse < 0, better > 0):
+ * - If better <= 0: outcomes are consistently negative
+ * - If better is small positive (< 10% of |expected|): near break-even
+ * - If better is meaningfully positive: strong improvement possible
+ *
+ * Logic for all-positive ranges:
+ * - Uses percentage thresholds (50% = strong, 20% = moderate)
+ * - Handles probability form (0.5) vs percentage form (50) via heuristic
  */
-function formatOutcomeDescription(p10: number, expectedMean: number, p90: number): string {
-  // Convert from probability form (0-2 range) to percentage form for comparison
-  // Values like 0.93 become 93, values like 1.8 become 180
-  const p10Pct = Math.abs(p10) <= 2 ? p10 * 100 : p10
-  const expectedPct = Math.abs(expectedMean) <= 2 ? expectedMean * 100 : expectedMean
-  const p90Pct = Math.abs(p90) <= 2 ? p90 * 100 : p90
+function formatOutcomeDescription(worse: number, expected: number, better: number): string {
+  // Heuristic to convert from probability form (0-2 range) to percentage form
+  // Values like 0.93 become 93, values like 1.8 become 180, values like 35 stay 35
+  const toPercentage = (v: number): number => Math.abs(v) <= 2 ? v * 100 : v
 
-  // Calculate range width
-  const rangeWidth = Math.abs(p90Pct - p10Pct)
+  const worsePct = toPercentage(worse)
+  const expectedPct = toPercentage(expected)
+  const betterPct = toPercentage(better)
 
-  // Check if range crosses zero
-  const crossesZero = p10Pct < 0 && p90Pct > 0
+  // Check if range crosses zero (worse negative, better positive)
+  const crossesZero = worsePct < 0 && betterPct > 0
 
-  // Task 1.3: Apply new rules for range interpretation
-  if (crossesZero && rangeWidth > 100) {
-    return 'Could go either way — from significant decline to strong improvement. Consider strengthening key assumptions.'
+  // Case 1: Best case is negative - consistently bad outcomes
+  if (betterPct <= 0) {
+    return COPY.OUTCOME_RANGE_NEGATIVE
   }
 
-  if (crossesZero && rangeWidth <= 100) {
-    return 'Could go either way — outcomes range from decline to improvement.'
+  // Case 2: Range crosses zero - data-bound logic based on better bound
+  if (crossesZero) {
+    // Calculate threshold: "small" = better is < 10% of |expected| magnitude
+    const expectedMagnitude = Math.abs(expectedPct)
+    const smallThreshold = expectedMagnitude * 0.1
+
+    // Small positive upside (< 10% of expected magnitude) = near break-even
+    if (betterPct < smallThreshold) {
+      return COPY.OUTCOME_RANGE_NEAR_BREAKEVEN
+    }
+    // Meaningful positive upside = could go either way with strong improvement
+    return COPY.OUTCOME_RANGE_WIDE
   }
 
-  // All positive outcomes
-  if (p10Pct >= 0) {
+  // Case 3: All positive outcomes (worse >= 0)
+  if (worsePct >= 0) {
+    const rangeWidth = Math.abs(betterPct - worsePct)
     if (rangeWidth > 50) {
       return 'Likely positive, but with wide uncertainty.'
     }
@@ -246,13 +262,8 @@ function formatOutcomeDescription(p10: number, expectedMean: number, p90: number
     return 'Likely a small positive outcome'
   }
 
-  // All negative outcomes
-  if (p90Pct <= 0) {
-    return 'Likely negative outcome under current assumptions.'
-  }
-
   // Fallback for edge cases
-  return 'Outcome uncertain — review key assumptions.'
+  return COPY.OUTCOME_RANGE_FALLBACK
 }
 
 /**
@@ -737,10 +748,15 @@ export function RecommendationSection({
             ))}
           </div>
 
-          {/* Task 5: Near-tie explanatory text */}
+          {/* Task 5: Similar outcomes explanation with win probability */}
           {showTieExplanation && (
             <p className="text-xs text-slate-500 mt-2 italic">
-              Expected outcomes are similar. The recommendation is based on which option wins more consistently across scenarios tested.
+              {recommendedOption?.winProbability != null && recommendedOption?.label
+                ? COPY.SIMILAR_OUTCOMES_WITH_WINNER(
+                    recommendedOption.label,
+                    Math.round(recommendedOption.winProbability * 100)
+                  )
+                : 'Expected outcomes are similar. The recommendation is based on which option wins more consistently across scenarios tested.'}
             </p>
           )}
         </div>

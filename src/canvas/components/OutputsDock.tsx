@@ -75,7 +75,7 @@ import { DecisionQuality } from './DecisionQuality'
 import { AdvancedSettingsPanel } from './AdvancedSettingsPanel'
 import { mapConfidenceToReadiness } from '../utils/mapConfidenceToReadiness'
 import { useV2Run } from '../hooks/useV2Run'
-import { focusNodeById } from '../utils/focusHelpers'
+import { focusNodeById, focusEdgeById } from '../utils/focusHelpers'
 // Results Panel Redesign: New section components
 import { useResultsSectionData } from '../../components/results/useResultsSectionData'
 import { RecommendationSection } from '../../components/results/RecommendationSection'
@@ -1384,6 +1384,8 @@ export function OutputsDock() {
                 correlationIdHeader={correlationIdHeader}
                 nodes={nodes}
                 edges={edges}
+                robustness={robustnessData ?? null}
+                robustnessSynthesis={ceeReviewV1?.robustness_synthesis ?? null}
               />
             )}
           </div>
@@ -1448,6 +1450,8 @@ function DiagnosticsTabBody({
   correlationIdHeader,
   nodes,
   edges,
+  robustness,
+  robustnessSynthesis,
 }: {
   healthView: { label: string; detail: string }
   graphHealth: GraphHealth | null
@@ -1461,7 +1465,20 @@ function DiagnosticsTabBody({
   correlationIdHeader: string | null | undefined
   nodes: Node[]
   edges: Edge[]
+  robustness: { fragileEdges?: Array<{ edgeId: string }>; robustEdges?: string[] } | null
+  robustnessSynthesis: { headline?: string } | null
 }) {
+  // Build fragile and robust edge ID sets for badges
+  const fragileEdgeIds = useMemo(() => {
+    if (!robustness?.fragileEdges) return new Set<string>()
+    return new Set(robustness.fragileEdges.map(fe => fe.edgeId))
+  }, [robustness?.fragileEdges])
+
+  const robustEdgeIds = useMemo(() => {
+    if (!robustness?.robustEdges) return new Set<string>()
+    return new Set(robustness.robustEdges)
+  }, [robustness?.robustEdges])
+
   return (
     <div className="space-y-3" data-testid="diagnostics-tab">
       {/* Graph Structure Text View - hierarchical view with search and click-to-focus */}
@@ -1471,12 +1488,30 @@ function DiagnosticsTabBody({
           nodes={nodes}
           edges={edges}
           onNodeClick={focusNodeById}
+          onEdgeClick={focusEdgeById}
+          fragileEdgeIds={fragileEdgeIds}
+          robustEdgeIds={robustEdgeIds}
         />
       </div>
 
-      {/* ISL Validation Suggestions - AI-powered graph quality feedback */}
+      {/* Robustness Closure Section */}
+      {robustnessSynthesis?.headline && (
+        <div className="border-t border-sand-200 pt-3" data-testid="closure-section">
+          <div className={`${typography.label} text-ink-900 mb-2`}>What this decision hinges on</div>
+          <p className={`${typography.body} text-ink-700`}>
+            {robustnessSynthesis.headline}
+          </p>
+        </div>
+      )}
+
+      {/* ISL Validation Suggestions - temporarily disabled due to missing endpoint */}
       <div className="border-t border-sand-200 pt-3" data-testid="isl-validation-section">
-        <ValidationSuggestionsSection />
+        <div className="p-4">
+          <h3 className={typography.h4}>Validation</h3>
+          <p className={`${typography.body} text-ink-500 mt-2`}>
+            Validation suggestions not available in this environment
+          </p>
+        </div>
       </div>
 
       {/* Phase 1A.5: Streaming Diagnostics - Hidden by default, Shift+D to show */}

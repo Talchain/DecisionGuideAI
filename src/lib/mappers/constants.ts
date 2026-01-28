@@ -149,4 +149,33 @@ export const COPY = {
    */
   TIED_OPTIONS_TEMPLATE: (option1: string, option2: string): string =>
     `${option1} and ${option2} are effectively tied within the model's uncertainty.`,
+
+  // ==========================================================================
+  // Outcome Range Messages (Task 1 - data-bound copy)
+  // ==========================================================================
+
+  /** Message when best case (better bound) is negative */
+  OUTCOME_RANGE_NEGATIVE: 'Outcomes are consistently negative in this model. Consider reviewing your assumptions.',
+
+  /** Message when best case is barely positive (near break-even) */
+  OUTCOME_RANGE_NEAR_BREAKEVEN: 'High uncertainty — outcomes range from significant decline to near break-even.',
+
+  /** Message when range is wide with meaningful positive upside */
+  OUTCOME_RANGE_WIDE: 'Could go either way — from significant decline to strong improvement. Consider strengthening key assumptions.',
+
+  /** Generic fallback for outcome range */
+  OUTCOME_RANGE_FALLBACK: 'Consider strengthening key assumptions to reduce uncertainty.',
+
+  // ==========================================================================
+  // Similar Outcomes Messages (Task 2 - win probability explanation)
+  // ==========================================================================
+
+  /**
+   * Message when outcomes are similar but one option wins more consistently.
+   * @param optionLabel - Label of the winning option
+   * @param winPct - Win percentage as integer (e.g., 63 for 63%)
+   * @returns Formatted message explaining win probability
+   */
+  SIMILAR_OUTCOMES_WITH_WINNER: (optionLabel: string, winPct: number): string =>
+    `Expected outcomes are similar, but ${optionLabel} wins in ${winPct}% of scenarios — it performs better across more plausible conditions.`,
 } as const

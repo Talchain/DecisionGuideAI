@@ -41,6 +41,9 @@ interface GraphTextViewProps {
   nodes: Node[]
   edges: Edge[]
   onNodeClick: (nodeId: string) => void
+  onEdgeClick?: (edgeId: string) => void
+  fragileEdgeIds?: Set<string>
+  robustEdgeIds?: Set<string>
 }
 
 interface GroupedNodes {
@@ -121,16 +124,75 @@ function countOrphans(nodes: Node[], edges: Edge[]): number {
 }
 
 /**
- * Format edge weight for display
+ * Format edge belief and effect for display
+ * Uses beliefStrength for effect magnitude and beliefExists for belief percentage
+ * DO NOT display weight - it's visual, not causal
  */
-function formatEdgeWeight(edge: Edge): string {
-  const weight = edge.data?.weight
-  if (weight === undefined || weight === null) return ''
-  const sign = weight >= 0 ? '+' : ''
-  return `weight: ${sign}${weight}`
+/**
+ * Format edge belief and effect for display
+ * Uses beliefStrength for effect magnitude and beliefExists for belief percentage
+ * DO NOT display weight - it's visual, not causal
+ */
+function formatEdgeInfo(edge: Edge): { effect: string; belief: string; strengthStd: string | null } {
+  const data = edge.data as any
+
+  // Effect: beliefStrength (magnitude, 0-1)
+  const beliefStrength = data?.beliefStrength
+  const direction = data?.direction
+  let effect = ''
+  if (typeof beliefStrength === 'number') {
+    const sign = direction === 'negative' ? '-' : '+'
+    effect = `effect: ${sign}${beliefStrength.toFixed(1)}`
+  }
+
+  // Belief: beliefExists (probability edge exists, 0-1)
+  const beliefExists = data?.beliefExists
+  let belief = ''
+  if (typeof beliefExists === 'number') {
+    belief = `belief: ${Math.round(beliefExists * 100)}%`
+  }
+
+  // Uncertainty: strengthStd (for tooltip only)
+  const strengthStd = data?.strengthStd
+  const strengthStdStr = typeof strengthStd === 'number' ? `Uncertainty: ±${strengthStd.toFixed(2)}` : null
+
+  return { effect, belief, strengthStd: strengthStdStr }
 }
 
-export function GraphTextView({ nodes, edges, onNodeClick }: GraphTextViewProps) {
+/**
+ * Get observed state info for factor nodes
+ */
+function getObservedStateInfo(node: Node): { value: string | null; unit: string | null; source: string | null } {
+  const data = node.data as any
+  const observedState = data?.observedState ?? data?.observed_state
+
+  if (!observedState) {
+    return { value: null, unit: null, source: null }
+  }
+
+  const value = typeof observedState.value === 'number' ? observedState.value.toString() : null
+  const unit = typeof observedState.unit === 'string' ? observedState.unit : null
+  const source = typeof observedState.source === 'string' ? observedState.source : null
+
+  return { value, unit, source }
+}
+
+/**
+ * Get body/description for a node
+ */
+function getNodeBody(node: Node): string | null {
+  const data = node.data as any
+  return typeof data?.body === 'string' && data.body.trim() ? data.body : null
+}
+
+export function GraphTextView({
+  nodes,
+  edges,
+  onNodeClick,
+  onEdgeClick,
+  fragileEdgeIds,
+  robustEdgeIds,
+}: GraphTextViewProps) {
   const [searchQuery, setSearchQuery] = useState('')
   const [expandedSections, setExpandedSections] = useState<Set<NodeType>>(
     new Set(['goal', 'decision', 'option', 'factor', 'risk', 'outcome'])
