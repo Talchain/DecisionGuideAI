@@ -1550,12 +1550,13 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
 
       // P2 Fix: Derive severity from flip probability
       // Use switch_probability as primary (direct flip probability from ISL)
-      // > 0.7 = very likely to flip = blocker; > 0.5 = likely = error; > 0.3 = possible = warning
-      let severity: 'blocker' | 'error' | 'warning' = 'warning'
+      // > 0.7 = critical assumption (high risk of flipping); > 0.5 = error; > 0.3 = warning
+      // Note: 'blocker' is reserved for genuine pre-run validation blockers (blocks_analysis: true)
+      let severity: 'critical' | 'error' | 'warning' = 'warning'
       const flipProbability = fe.switch_probability ?? fe.marginal_switch_probability
       if (typeof flipProbability === 'number') {
         if (flipProbability > 0.7) {
-          severity = 'blocker'
+          severity = 'critical'  // Task 4: Use 'critical' instead of 'blocker' for fragile edges
         } else if (flipProbability > 0.5) {
           severity = 'error'
         }

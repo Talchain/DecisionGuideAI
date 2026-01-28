@@ -189,7 +189,12 @@ export interface DriversSectionData {
 // =============================================================================
 
 /** Severity levels for critiques/uncertainties */
-export type CritiqueSeverity = 'blocker' | 'error' | 'warning' | 'info'
+// 'blocker' = genuine pre-run validation blocker (blocks_analysis: true)
+// 'critical' = high-severity fragile edge (flip probability > 0.7) - doesn't block, but critical assumption
+// 'error' = medium-severity fragile edge (flip probability > 0.5)
+// 'warning' = lower-severity items
+// 'info' = informational
+export type CritiqueSeverity = 'blocker' | 'critical' | 'error' | 'warning' | 'info'
 
 export interface UncertaintyItem {
   code: string

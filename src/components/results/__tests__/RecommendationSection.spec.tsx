@@ -1568,7 +1568,7 @@ describe('RecommendationSection', () => {
       expect(screen.queryByText(/Too close to call/)).not.toBeInTheDocument()
     })
 
-    it('skips tied options message when only one valid label found', () => {
+    it('shows generic fallback when only one valid label found', () => {
       const partialLabelsData: RecommendationSectionData = {
         ...mockData,
         allOptions: [
@@ -1586,9 +1586,9 @@ describe('RecommendationSection', () => {
 
       render(<RecommendationSection data={partialLabelsData} />)
 
-      // Should show near-tie warning but NOT tied options message
+      // Should show near-tie warning with generic fallback (per brief: show fallback when tiedOptionIds can't be fully resolved)
       expect(screen.getByText(/Too close to call/)).toBeInTheDocument()
-      expect(screen.queryByText(/are effectively tied/)).not.toBeInTheDocument()
+      expect(screen.getByText(/effectively tied within the model's uncertainty/)).toBeInTheDocument()
     })
   })
 })

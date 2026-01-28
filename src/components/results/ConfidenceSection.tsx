@@ -37,7 +37,14 @@ const SEVERITY_CONFIG: Record<CritiqueSeverity, {
     bgColor: 'bg-danger-50',
     borderColor: 'border-danger-300',
     textColor: 'text-danger-800',
-    label: 'Blocks analysis',
+    label: 'Blocks analysis',  // Reserved for genuine pre-run validation blockers
+  },
+  critical: {
+    icon: '⚠',
+    bgColor: 'bg-danger-50',
+    borderColor: 'border-danger-200',
+    textColor: 'text-danger-700',
+    label: 'Critical assumption',  // For high-severity fragile edges
   },
   error: {
     icon: '✕',
