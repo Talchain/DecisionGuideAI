@@ -264,8 +264,12 @@ export function GraphTextView({
         for (const edge of outgoing) {
           const targetNode = nodes.find(n => n.id === edge.target)
           const targetLabel = targetNode ? getNodeLabel(targetNode) : edge.target
-          const weight = formatEdgeWeight(edge)
-          lines.push(`    → ${targetLabel}${weight ? ` (${weight})` : ''}`)
+          const edgeInfo = formatEdgeInfo(edge)
+          const displayParts: string[] = []
+          if (edgeInfo.effect) displayParts.push(edgeInfo.effect)
+          if (edgeInfo.belief) displayParts.push(edgeInfo.belief)
+          const displayStr = displayParts.join(' | ')
+          lines.push(`    → ${targetLabel}${displayStr ? ` (${displayStr})` : ''}`)
         }
       }
       lines.push('')
@@ -481,6 +485,9 @@ export function GraphTextView({
                   {nodeList.map(node => {
                     const label = getNodeLabel(node)
                     const outgoing = getOutgoingEdges(node.id, edges)
+                    const nodeType = getNodeType(node)
+                    const observedInfo = nodeType === 'factor' ? getObservedStateInfo(node) : null
+                    const nodeBody = getNodeBody(node)
 
                     return (
                       <div key={node.id} className="py-1">
@@ -489,11 +496,22 @@ export function GraphTextView({
                           type="button"
                           onClick={() => handleNodeClick(node.id)}
                           className="text-sky-600 hover:text-sky-700 hover:underline cursor-pointer focus:outline-none focus:ring-2 focus:ring-sky-500 rounded px-1 -mx-1"
-                          title={`Focus "${label}" on canvas`}
+                          title={nodeBody ? `Focus "${label}" on canvas. ${nodeBody}` : `Focus "${label}" on canvas`}
                           data-testid={`graph-text-view-node-${node.id}`}
                         >
                           {label}
                         </button>
+
+                        {/* Factor observed state (value, unit, source) */}
+                        {observedInfo && observedInfo.value && (
+                          <div className={`ml-4 ${typography.caption} text-ink-500`}>
+                            <span className="text-ink-600">Value: {observedInfo.value}</span>
+                            {observedInfo.unit && <span className="ml-1">({observedInfo.unit})</span>}
+                            {observedInfo.source && (
+                              <span className="ml-2 text-ink-400">• Source: {observedInfo.source}</span>
+                            )}
+                          </div>
+                        )}
 
                         {/* Outgoing connections */}
                         {outgoing.length > 0 && (
@@ -501,21 +519,54 @@ export function GraphTextView({
                             {outgoing.map(edge => {
                               const targetNode = nodes.find(n => n.id === edge.target)
                               const targetLabel = targetNode ? getNodeLabel(targetNode) : edge.target
-                              const weight = formatEdgeWeight(edge)
+                              const edgeInfo = formatEdgeInfo(edge)
+                              const isFragile = fragileEdgeIds?.has(edge.id)
+                              const isRobust = robustEdgeIds?.has(edge.id)
+
+                              // Build display string: effect | belief
+                              const displayParts: string[] = []
+                              if (edgeInfo.effect) displayParts.push(edgeInfo.effect)
+                              if (edgeInfo.belief) displayParts.push(edgeInfo.belief)
+                              const displayStr = displayParts.join(' | ')
 
                               return (
-                                <div key={edge.id} className="flex items-center gap-1 py-0.5">
+                                <div key={edge.id} className="flex items-center gap-1 py-0.5 flex-wrap">
                                   <span className="text-sand-400">→</span>
                                   <button
                                     type="button"
-                                    onClick={() => targetNode && handleNodeClick(targetNode.id)}
+                                    onClick={() => {
+                                      if (onEdgeClick) {
+                                        onEdgeClick(edge.id)
+                                      } else if (targetNode) {
+                                        handleNodeClick(targetNode.id)
+                                      }
+                                    }}
                                     className="text-sky-500 hover:text-sky-600 hover:underline cursor-pointer focus:outline-none focus:ring-2 focus:ring-sky-500 rounded"
-                                    title={`Focus "${targetLabel}" on canvas`}
+                                    title={edgeInfo.strengthStd ? `Focus edge on canvas. ${edgeInfo.strengthStd}` : 'Focus edge on canvas'}
                                   >
                                     {targetLabel}
                                   </button>
-                                  {weight && (
-                                    <span className={`text-ink-400 ${typography.caption}`}>({weight})</span>
+                                  {displayStr && (
+                                    <span className={`text-ink-400 ${typography.caption}`}>({displayStr})</span>
+                                  )}
+                                  {/* Fragile badge */}
+                                  {isFragile && (
+                                    <span
+                                      className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-700 border border-amber-200`}
+                                      title="This edge is fragile - changes here could affect the recommendation"
+                                    >
+                                      <AlertTriangle className="w-3 h-3" aria-hidden="true" />
+                                      Fragile
+                                    </span>
+                                  )}
+                                  {/* Robust badge */}
+                                  {isRobust && !isFragile && (
+                                    <span
+                                      className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-xs font-medium bg-emerald-100 text-emerald-700 border border-emerald-200`}
+                                      title="This edge is robust - stable under uncertainty"
+                                    >
+                                      ✓ Robust
+                                    </span>
                                   )}
                                 </div>
                               )
