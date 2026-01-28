@@ -175,10 +175,13 @@ const BADGE_CONFIG: Record<string, { dotColor: string; text: string; bgColor: st
 
 function RobustnessBadge({
   level,
-  label
+  label,
+  stability,
 }: {
   level?: RobustnessLevel
   label?: RobustnessLabel
+  /** Optional stability percentage to display inline (0-1) */
+  stability?: number
 }) {
   // Normalise: level takes precedence, then label as fallback
   // Handle uppercase, trim whitespace, replace hyphens with underscores
@@ -191,6 +194,7 @@ function RobustnessBadge({
   if (!config) return null
 
   const { dotColor, text, bgColor, textColor } = config
+  const stabilityPct = stability != null ? Math.round(stability * 100) : null
 
   return (
     <span
@@ -199,6 +203,10 @@ function RobustnessBadge({
     >
       <span className={`w-2 h-2 rounded-full ${dotColor}`} aria-hidden="true" />
       {text}
+      {/* Inline stability percentage */}
+      {stabilityPct != null && (
+        <span className="opacity-75 ml-1">{stabilityPct}% stable</span>
+      )}
     </span>
   )
 }
@@ -624,15 +632,24 @@ export function RecommendationSection({
                   : EMPTY_STATES.rangeData}
             </span>
           </div>
-          {/* Task 1.5: Robustness badge */}
-          <RobustnessBadge level={robustnessLevel} label={robustnessLabel} />
+          {/* Task 1.5: Robustness badge with inline stability */}
+          <RobustnessBadge
+            level={robustnessLevel}
+            label={robustnessLabel}
+            stability={recommendationStability}
+          />
+          {/* Fallback: show stability alone when badge is missing but stability exists */}
+          {!robustnessLevel && !robustnessLabel && recommendationStability != null && (
+            <span
+              className={`${typography.caption} inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-slate-100 text-slate-600`}
+              title="How stable the recommendation is under uncertainty"
+            >
+              {Math.round(recommendationStability * 100)}% stable
+            </span>
+          )}
         </div>
 
-        {/* Task 3: Conditional Stability/Win Display
-            - Always show stability line if hasStability
-            - Only show win line if showWinSeparately (both exist AND differ by > 0.05)
-            - If only hasWin (no stability), show win line alone
-            CRITICAL: No fake defaults (?? 0) */}
+        {/* Win probability - only show when significantly different from stability */}
         {(() => {
           const hasStability = recommendationStability != null
           const hasWin = winProbability != null
@@ -641,23 +658,15 @@ export function RecommendationSection({
             Math.abs((recommendationStability as number) - (winProbability as number)) > 0.05
           const showWinAlone = hasWin && !hasStability
 
-          return (
-            <>
-              {/* Always show stability if available */}
-              {hasStability && (
-                <div className="mt-2">
-                  <StabilityChip stability={recommendationStability as number} />
-                </div>
-              )}
-              {/* Show win probability only when different from stability OR when stability missing */}
-              {/* FIX: Use formatPercent for consistency and to avoid "0%" for small non-zero values */}
-              {(showWinSeparately || showWinAlone) && (winProbability as number) > 0 && (
-                <p className="text-sm text-success-700 mt-2">
-                  Wins in {formatPercent(winProbability as number)} of scenarios tested
-                </p>
-              )}
-            </>
-          )
+          // Only show win probability when different from stability OR when stability missing
+          if ((showWinSeparately || showWinAlone) && (winProbability as number) > 0) {
+            return (
+              <p className="text-sm text-success-700 mt-2">
+                Wins in {formatPercent(winProbability as number)} of scenarios tested
+              </p>
+            )
+          }
+          return null
         })()}
 
         {/* Near-tie warning callout */}

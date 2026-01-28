@@ -490,59 +490,64 @@ describe('RecommendationSection', () => {
   // =========================================================================
 
   describe('Recommendation Stability', () => {
-    it('shows "Stays best in 85% of scenarios tested" for stability 0.85', () => {
+    it('shows inline stability "85% stable" for stability 0.85', () => {
       const stabilityData: RecommendationSectionData = {
         ...mockData,
         recommendationStability: 0.85,
+        robustnessLevel: 'high',  // Required for inline stability display
       }
 
       render(<RecommendationSection data={stabilityData} />)
 
-      expect(screen.getByText(/Stays best in 85% of scenarios tested/)).toBeInTheDocument()
+      expect(screen.getByText(/85% stable/)).toBeInTheDocument()
     })
 
-    it('shows "Stays best in 92% of scenarios tested" for high stability', () => {
+    it('shows inline stability "92% stable" for high stability', () => {
       const highStabilityData: RecommendationSectionData = {
         ...mockData,
         recommendationStability: 0.92,
+        robustnessLevel: 'high',
       }
 
       render(<RecommendationSection data={highStabilityData} />)
 
-      expect(screen.getByText(/Stays best in 92% of scenarios tested/)).toBeInTheDocument()
+      expect(screen.getByText(/92% stable/)).toBeInTheDocument()
     })
 
-    it('shows "Stays best in 65% of scenarios tested" for medium stability', () => {
+    it('shows inline stability "65% stable" for medium stability', () => {
       const mediumStabilityData: RecommendationSectionData = {
         ...mockData,
         recommendationStability: 0.65,
+        robustnessLevel: 'moderate',
       }
 
       render(<RecommendationSection data={mediumStabilityData} />)
 
-      expect(screen.getByText(/Stays best in 65% of scenarios tested/)).toBeInTheDocument()
+      expect(screen.getByText(/65% stable/)).toBeInTheDocument()
     })
 
-    it('shows "Stays best in 35% of scenarios tested" for low stability', () => {
+    it('shows inline stability "35% stable" for low stability', () => {
       const lowStabilityData: RecommendationSectionData = {
         ...mockData,
         recommendationStability: 0.35,
+        robustnessLevel: 'low',
       }
 
       render(<RecommendationSection data={lowStabilityData} />)
 
-      expect(screen.getByText(/Stays best in 35% of scenarios tested/)).toBeInTheDocument()
+      expect(screen.getByText(/35% stable/)).toBeInTheDocument()
     })
 
-    it('does not show stability chip when recommendationStability is undefined', () => {
+    it('does not show inline stability when recommendationStability is undefined', () => {
       const noStabilityData: RecommendationSectionData = {
         ...mockData,
         recommendationStability: undefined,
+        robustnessLevel: 'moderate',  // Badge shows, but no stability
       }
 
       render(<RecommendationSection data={noStabilityData} />)
 
-      expect(screen.queryByText(/Stays best in/i)).not.toBeInTheDocument()
+      expect(screen.queryByText(/% stable/i)).not.toBeInTheDocument()
     })
   })
 
@@ -905,32 +910,34 @@ describe('RecommendationSection', () => {
   // =========================================================================
 
   describe('Conditional Stability/Win Display', () => {
-    it('shows only stability when stability = 0.60 and win = 0.60 (same value)', () => {
+    it('shows only inline stability when stability = 0.60 and win = 0.60 (same value)', () => {
       const sameValueData: RecommendationSectionData = {
         ...mockData,
         recommendationStability: 0.60,
         winProbability: 0.60,
+        robustnessLevel: 'moderate',  // Required for inline stability
       }
 
       render(<RecommendationSection data={sameValueData} />)
 
-      // Stability should show
-      expect(screen.getByText(/Stays best in 60% of scenarios tested/)).toBeInTheDocument()
+      // Stability should show inline
+      expect(screen.getByText(/60% stable/)).toBeInTheDocument()
       // Win probability should NOT show (difference <= 0.05)
       expect(screen.queryByText(/Wins in 60% of scenarios tested/)).not.toBeInTheDocument()
     })
 
-    it('shows both stability and win when they differ by > 0.05', () => {
+    it('shows both inline stability and win when they differ by > 0.05', () => {
       const differentValueData: RecommendationSectionData = {
         ...mockData,
         recommendationStability: 0.70,
         winProbability: 0.55,
+        robustnessLevel: 'moderate',
       }
 
       render(<RecommendationSection data={differentValueData} />)
 
       // Both should show
-      expect(screen.getByText(/Stays best in 70% of scenarios tested/)).toBeInTheDocument()
+      expect(screen.getByText(/70% stable/)).toBeInTheDocument()
       expect(screen.getByText(/Wins in 55% of scenarios tested/)).toBeInTheDocument()
     })
 
@@ -939,6 +946,7 @@ describe('RecommendationSection', () => {
         ...mockData,
         recommendationStability: undefined,
         winProbability: 0.60,
+        robustnessLevel: 'moderate',  // Badge shows but no stability
       }
 
       render(<RecommendationSection data={onlyWinData} />)
@@ -946,20 +954,21 @@ describe('RecommendationSection', () => {
       // Win should show alone
       expect(screen.getByText(/Wins in 60% of scenarios tested/)).toBeInTheDocument()
       // Stability should not show
-      expect(screen.queryByText(/Stays best/)).not.toBeInTheDocument()
+      expect(screen.queryByText(/% stable/)).not.toBeInTheDocument()
     })
 
-    it('shows only stability when win probability is null', () => {
+    it('shows only inline stability when win probability is null', () => {
       const onlyStabilityData: RecommendationSectionData = {
         ...mockData,
         recommendationStability: 0.75,
         winProbability: undefined,
+        robustnessLevel: 'high',
       }
 
       render(<RecommendationSection data={onlyStabilityData} />)
 
-      // Stability should show
-      expect(screen.getByText(/Stays best in 75% of scenarios tested/)).toBeInTheDocument()
+      // Stability should show inline
+      expect(screen.getByText(/75% stable/)).toBeInTheDocument()
       // Win should not show
       expect(screen.queryByText(/Wins in/)).not.toBeInTheDocument()
     })

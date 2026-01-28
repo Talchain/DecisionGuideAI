@@ -76,7 +76,8 @@ import { AdvancedSettingsPanel } from './AdvancedSettingsPanel'
 import { mapConfidenceToReadiness } from '../utils/mapConfidenceToReadiness'
 import { useV2Run } from '../hooks/useV2Run'
 import { focusNodeById, focusEdgeById } from '../utils/focusHelpers'
-import { buildFragileEdgeIdSet, buildRobustEdgeIdSet } from '../utils/edgeIdentity'
+import { buildFragileEdgeIdSet, buildRobustEdgeIdSet, getDisplayEdgeId } from '../utils/edgeIdentity'
+import { LensContainer } from './LensContainer'
 // Results Panel Redesign: New section components
 import { useResultsSectionData } from '../../components/results/useResultsSectionData'
 import { RecommendationSection } from '../../components/results/RecommendationSection'
@@ -1466,8 +1467,15 @@ function DiagnosticsTabBody({
   correlationIdHeader: string | null | undefined
   nodes: Node[]
   edges: Edge[]
-  robustness: { fragileEdges?: Array<{ edgeId: string }>; robustEdges?: string[] } | null
-  robustnessSynthesis: { headline?: string } | null
+  robustness: {
+    fragileEdges?: Array<{ edgeId: string; fromLabel?: string; toLabel?: string }>
+    robustEdges?: string[]
+  } | null
+  robustnessSynthesis: {
+    headline?: string
+    assumption_explanations?: Array<{ node_id: string; label: string; explanation: string }>
+    investigation_suggestions?: string[]
+  } | null
 }) {
   // Build fragile and robust edge ID sets for badges using adapter
   const fragileEdgeIds = useMemo(() => {
@@ -1480,11 +1488,153 @@ function DiagnosticsTabBody({
     return buildRobustEdgeIdSet(robustness.robustEdges)
   }, [robustness?.robustEdges])
 
+  // Determine analysis state for banner
+  const hasRobustnessData = robustness?.fragileEdges?.length || robustness?.robustEdges?.length
+  const hasSynthesis = robustnessSynthesis?.headline
+  const hasPartialData = hasRobustnessData && !hasSynthesis
+  const needsAnalysis = !hasRobustnessData && !hasSynthesis
+
+  // Find edges without provenance for evidence gaps
+  const edgesWithoutProvenance = useMemo(() => {
+    return edges.filter(edge => {
+      const data = edge.data as any
+      return !data?.provenance && !data?.source
+    })
+  }, [edges])
+
   return (
-    <div className="space-y-3" data-testid="diagnostics-tab">
-      {/* Graph Structure Text View - hierarchical view with search and click-to-focus */}
-      <div className="space-y-1" data-testid="graph-structure-section">
-        <div className={`${typography.label} text-ink-900`}>Graph structure</div>
+    <div className="space-y-0" data-testid="diagnostics-tab">
+      {/* ===== LENS 1: CAUSAL LOGIC (default OPEN) ===== */}
+      <LensContainer title="Causal Logic" defaultOpen={true} testId="lens-causal-logic">
+        {/* A. Analysis State Banner */}
+        {needsAnalysis && (
+          <div className="mb-4 p-3 bg-sand-50 border border-sand-200 rounded-lg">
+            <p className={`${typography.body} text-ink-600`}>
+              Run analysis to see causal explanations.
+            </p>
+          </div>
+        )}
+        {hasPartialData && (
+          <div className="mb-4 p-3 bg-sun-50 border border-sun-200 rounded-lg">
+            <p className={`${typography.body} text-sun-800`}>
+              Analysis incomplete — some insights unavailable.
+            </p>
+          </div>
+        )}
+
+        {/* B. Key Assumptions - Fragile edges with explanations */}
+        {robustness?.fragileEdges && robustness.fragileEdges.length > 0 && (
+          <div className="mb-4" data-testid="key-assumptions-section">
+            <div className={`${typography.label} text-ink-700 mb-2`}>Key Assumptions</div>
+            <div className="space-y-2">
+              {robustness.fragileEdges.map((fragileEdge, idx) => {
+                const edgeId = fragileEdge.edgeId
+                const edgeLabel = fragileEdge.fromLabel && fragileEdge.toLabel
+                  ? `${fragileEdge.fromLabel} → ${fragileEdge.toLabel}`
+                  : edgeId
+                // Find matching assumption explanation if available
+                const explanation = robustnessSynthesis?.assumption_explanations?.find(
+                  ae => ae.node_id === edgeId || ae.label === edgeLabel
+                )
+
+                return (
+                  <div key={edgeId || idx} className="p-2 bg-amber-50 border border-amber-200 rounded">
+                    <button
+                      type="button"
+                      onClick={() => focusEdgeById(edgeId)}
+                      className="flex items-center gap-2 text-left w-full hover:bg-amber-100 rounded p-1 -m-1 transition-colors"
+                    >
+                      <span className="text-amber-600">⚠️</span>
+                      <span className={`${typography.body} text-amber-800 flex-1`}>
+                        {edgeLabel}
+                      </span>
+                      <span className={`${typography.caption} text-amber-600`}>click to focus</span>
+                    </button>
+                    {explanation && (
+                      <p className={`${typography.caption} text-amber-700 mt-1 pl-6`}>
+                        {explanation.explanation}
+                      </p>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Robust edges */}
+        {robustness?.robustEdges && robustness.robustEdges.length > 0 && (
+          <div className="mb-4" data-testid="robust-edges-section">
+            <div className={`${typography.label} text-ink-700 mb-2`}>Stable Assumptions</div>
+            <div className="space-y-1">
+              {robustness.robustEdges.slice(0, 5).map((edgeId, idx) => {
+                // Try to find the edge to get labels
+                const edge = edges.find(e => getDisplayEdgeId(e) === edgeId)
+                const sourceNode = edge ? nodes.find(n => n.id === edge.source) : null
+                const targetNode = edge ? nodes.find(n => n.id === edge.target) : null
+                const edgeLabel = sourceNode && targetNode
+                  ? `${(sourceNode.data as any)?.label || sourceNode.id} → ${(targetNode.data as any)?.label || targetNode.id}`
+                  : edgeId
+
+                return (
+                  <button
+                    key={edgeId || idx}
+                    type="button"
+                    onClick={() => focusEdgeById(edgeId)}
+                    className="flex items-center gap-2 p-2 bg-emerald-50 border border-emerald-200 rounded w-full text-left hover:bg-emerald-100 transition-colors"
+                  >
+                    <span className="text-emerald-600">✓</span>
+                    <span className={`${typography.body} text-emerald-800 flex-1`}>
+                      {edgeLabel}
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* C. Investigation Suggestions */}
+        {robustnessSynthesis?.investigation_suggestions && robustnessSynthesis.investigation_suggestions.length > 0 && (
+          <div className="mb-4" data-testid="investigation-suggestions-section">
+            <div className={`${typography.label} text-ink-700 mb-2`}>Suggested Next Steps</div>
+            <div className="space-y-1">
+              {robustnessSynthesis.investigation_suggestions.map((suggestion, idx) => (
+                <div key={idx} className="flex items-start gap-2">
+                  <span className="text-sky-500 mt-0.5">→</span>
+                  <p className={`${typography.body} text-ink-700`}>{suggestion}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* D. Closure - What this decision hinges on */}
+        <div data-testid="closure-section">
+          <div className={`${typography.label} text-ink-700 mb-2`}>What this decision hinges on</div>
+          {robustnessSynthesis?.headline ? (
+            <p className={`${typography.body} text-ink-700`}>
+              {robustnessSynthesis.headline}
+            </p>
+          ) : (
+            <p className={`${typography.body} text-ink-500`}>
+              Run analysis to generate a summary of what matters most.
+            </p>
+          )}
+        </div>
+      </LensContainer>
+
+      {/* ===== LENS 2: MODEL STRUCTURE (default COLLAPSED) ===== */}
+      <LensContainer title="Model Structure" defaultOpen={false} testId="lens-model-structure">
+        {/* Group headers with microcopy */}
+        <div className="mb-3">
+          <div className={`${typography.label} text-ink-700 mb-1`}>Organizational Structure</div>
+          <p className={`${typography.caption} text-ink-500 mb-2`}>
+            Decisions and options organize alternatives; factors and edges drive inference.
+          </p>
+        </div>
+
+        {/* Full GraphTextView with all P1 functionality */}
         <GraphTextView
           nodes={nodes}
           edges={edges}
@@ -1493,31 +1643,55 @@ function DiagnosticsTabBody({
           fragileEdgeIds={fragileEdgeIds}
           robustEdgeIds={robustEdgeIds}
         />
-      </div>
+      </LensContainer>
 
-      {/* Robustness Closure Section */}
-      <div className="border-t border-sand-200 pt-3" data-testid="closure-section">
-        <div className={`${typography.label} text-ink-900 mb-2`}>What this decision hinges on</div>
-        {robustnessSynthesis?.headline ? (
-          <p className={`${typography.body} text-ink-700`}>
-            {robustnessSynthesis.headline}
-          </p>
-        ) : (
-          <p className={`${typography.body} text-ink-500`}>
-            Run analysis to generate a summary of what matters most.
-          </p>
+      {/* ===== LENS 3: IMPROVEMENTS (default COLLAPSED) ===== */}
+      <LensContainer title="Improvements" defaultOpen={false} testId="lens-improvements">
+        {/* A. Evidence Gaps */}
+        {edgesWithoutProvenance.length > 0 && (
+          <div className="mb-4" data-testid="evidence-gaps-section">
+            <div className={`${typography.label} text-ink-700 mb-2`}>Strengthen Your Model</div>
+            <div className="space-y-1">
+              {edgesWithoutProvenance.slice(0, 5).map(edge => {
+                const edgeId = getDisplayEdgeId(edge)
+                const sourceNode = nodes.find(n => n.id === edge.source)
+                const targetNode = nodes.find(n => n.id === edge.target)
+                const edgeLabel = sourceNode && targetNode
+                  ? `${(sourceNode.data as any)?.label || sourceNode.id} → ${(targetNode.data as any)?.label || targetNode.id}`
+                  : edgeId
+
+                return (
+                  <button
+                    key={edgeId}
+                    type="button"
+                    onClick={() => focusEdgeById(edgeId)}
+                    className="flex items-center gap-2 p-2 bg-paper-50 border border-sand-200 rounded w-full text-left hover:bg-sand-50 transition-colors"
+                  >
+                    <span className="text-sand-500">◐</span>
+                    <span className={`${typography.body} text-ink-700 flex-1`}>
+                      {edgeLabel}
+                    </span>
+                    <span className={`${typography.caption} text-ink-500`}>Add evidence to increase confidence</span>
+                  </button>
+                )
+              })}
+              {edgesWithoutProvenance.length > 5 && (
+                <p className={`${typography.caption} text-ink-500 pl-6`}>
+                  +{edgesWithoutProvenance.length - 5} more edges without evidence
+                </p>
+              )}
+            </div>
+          </div>
         )}
-      </div>
 
-      {/* ISL Validation Suggestions - temporarily disabled due to missing endpoint */}
-      <div className="border-t border-sand-200 pt-3" data-testid="isl-validation-section">
-        <div className="p-4">
-          <h3 className={typography.h4}>Validation</h3>
-          <p className={`${typography.body} text-ink-500 mt-2`}>
+        {/* B. Gated Validation */}
+        <div data-testid="isl-validation-section">
+          <div className={`${typography.label} text-ink-700 mb-2`}>Validation</div>
+          <p className={`${typography.body} text-ink-500`}>
             Validation suggestions not available in this environment
           </p>
         </div>
-      </div>
+      </LensContainer>
 
       {/* Phase 1A.5: Streaming Diagnostics - Hidden by default, Shift+D to show */}
       {showDebug && (

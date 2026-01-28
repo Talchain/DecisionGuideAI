@@ -113,6 +113,11 @@ const TIER_CONFIG: Record<ConfidenceTier, {
   },
 }
 
+/**
+ * Compact uncertainty card - 2-line structure
+ * Line 1: Icon + edge relationship title (from → to)
+ * Line 2: Consequence + inline CTA
+ */
 function UncertaintyRow({
   item,
   onFocus,
@@ -132,50 +137,107 @@ function UncertaintyRow({
   const severity = item.severity || 'warning'
   const severityConfig = SEVERITY_CONFIG[severity]
 
-  // Format threshold message if present
+  // Extract edge relationship from message for compact title
+  // Pattern: If "X → Y" changes... or similar
+  const edgeMatch = item.message.match(/[""]([^""]+)\s*→\s*([^""]+)[""]/)
+  const hasEdgeTitle = edgeMatch && edgeMatch[1] && edgeMatch[2]
+
+  // Truncate labels to max 25 chars for compact display
+  const truncate = (s: string, max: number) => s.length > max ? s.slice(0, max - 1) + '…' : s
+  const edgeTitle = hasEdgeTitle
+    ? `${truncate(edgeMatch[1].trim(), 25)} → ${truncate(edgeMatch[2].trim(), 25)}`
+    : null
+
+  // Format compact consequence
   const alternativeOption = item.threshold?.alternativeOption
   const hasSpecificAlternative = typeof alternativeOption === 'string'
     && alternativeOption.trim().length > 0
     && alternativeOption !== 'another option'
-  const thresholdMessage = item.threshold && hasSpecificAlternative
-    ? `If ${item.threshold.variable} ${item.threshold.direction === 'positive' ? 'drops below' : 'rises above'} ${item.threshold.value.toFixed(1)}, "${alternativeOption}" becomes the better choice`
-    : null
+  const consequence = hasSpecificAlternative
+    ? `If wrong, ${alternativeOption} could win`
+    : 'Could flip recommendation'
+
+  // Determine if we use compact or full format
+  const useCompactFormat = hasEdgeTitle && (hasSpecificAlternative || item.code === 'SENSITIVE_ASSUMPTION')
 
   return (
     <div className={`p-3 ${severityConfig.bgColor} border ${severityConfig.borderColor} rounded-lg`}>
-      <div className="flex items-start gap-2">
-        <span className={`${severityConfig.textColor} text-sm flex-shrink-0`}>{severityConfig.icon}</span>
-        <div className="flex-1 min-w-0">
-          {severityConfig.label && (
-            <span className={`text-xs ${severityConfig.textColor} block mb-1`}>
-              {severityConfig.label}
+      {useCompactFormat ? (
+        // Compact 2-line format
+        <>
+          {/* Line 1: Icon + edge title + optional severity label */}
+          <div className="flex items-center gap-2">
+            <span className={`${severityConfig.textColor} text-sm flex-shrink-0`}>{severityConfig.icon}</span>
+            <span className={`text-sm font-medium ${severityConfig.textColor} truncate`}>
+              {edgeTitle}
             </span>
+            {severityConfig.label && (
+              <span className={`text-xs ${severityConfig.textColor} opacity-75 flex-shrink-0`}>
+                • {severityConfig.label}
+              </span>
+            )}
+          </div>
+          {/* Line 2: Consequence + inline CTA */}
+          <div className="flex items-center justify-between gap-2 mt-1 ml-6">
+            <span className={`text-xs ${severityConfig.textColor} opacity-90`}>
+              {consequence}
+            </span>
+            {item.affectedNodes && item.affectedNodes.length > 0 && (
+              <button
+                onClick={() => handleNodeClick(item.affectedNodes![0])}
+                className="text-xs px-2 py-0.5 bg-white/50 hover:bg-white/80 rounded transition-colors flex-shrink-0"
+                style={{ minHeight: '28px' }}
+              >
+                Validate
+              </button>
+            )}
+          </div>
+        </>
+      ) : (
+        // Full format for non-edge uncertainties
+        <>
+          <div className="flex items-start gap-2">
+            <span className={`${severityConfig.textColor} text-sm flex-shrink-0`}>{severityConfig.icon}</span>
+            <div className="flex-1 min-w-0">
+              {severityConfig.label && (
+                <span className={`text-xs ${severityConfig.textColor} block mb-1`}>
+                  {severityConfig.label}
+                </span>
+              )}
+              <p className={`text-sm ${severityConfig.textColor}`}>{item.message}</p>
+              {/* Threshold details if available */}
+              {item.threshold && (
+                <div className={`text-xs ${severityConfig.textColor} mt-1 opacity-90`}>
+                  {item.threshold.variable && (
+                    <p>
+                      If {item.threshold.variable}{' '}
+                      {item.threshold.direction === 'positive' ? 'drops below' : 'rises above'}{' '}
+                      {item.threshold.value}
+                    </p>
+                  )}
+                  {item.threshold.alternativeOption && (
+                    <p>{item.threshold.alternativeOption} becomes the better choice</p>
+                  )}
+                </div>
+              )}
+              {/* Suggestion as text when no action nodes */}
+              {item.suggestion && !(item.affectedNodes && item.affectedNodes.length > 0) && (
+                <p className={`text-xs ${severityConfig.textColor} mt-1 opacity-75`}>{item.suggestion}</p>
+              )}
+            </div>
+          </div>
+          {item.affectedNodes && item.affectedNodes.length > 0 && (
+            <div className="flex justify-end mt-2">
+              <button
+                onClick={() => handleNodeClick(item.affectedNodes![0])}
+                className="text-xs px-2 py-1 bg-white/50 hover:bg-white/80 rounded transition-colors"
+                style={{ minHeight: '28px' }}
+              >
+                {item.suggestion || 'Validate'}
+              </button>
+            </div>
           )}
-          <p className={`text-sm ${severityConfig.textColor}`}>{item.message}</p>
-        </div>
-      </div>
-      {thresholdMessage && (
-        <p className="text-xs text-warning-700 mt-1 bg-warning-50 px-2 py-1 rounded">
-          {thresholdMessage}
-        </p>
-      )}
-      {/* Show suggestion as text only if no actionable button */}
-      {item.suggestion && (!item.affectedNodes || item.affectedNodes.length === 0) && (
-        <p className="text-xs text-slate-500 mt-1">
-          {item.suggestion}
-        </p>
-      )}
-      {/* Show single button for first affected node (not per-node to avoid duplicates) */}
-      {item.affectedNodes && item.affectedNodes.length > 0 && (
-        <div className="flex flex-wrap gap-1 mt-2">
-          <button
-            onClick={() => handleNodeClick(item.affectedNodes![0])}
-            className="text-xs px-2 py-0.5 bg-info-100 text-info-700 rounded hover:bg-info-200 transition-colors"
-            title={`Focus on canvas`}
-          >
-            {item.suggestion || 'Validate this assumption'}
-          </button>
-        </div>
+        </>
       )}
     </div>
   )
@@ -196,7 +258,7 @@ function ImprovementRow({
             <p className="text-xs text-slate-500 mt-1">{item.reason}</p>
           )}
           {item.effortMinutes && (
-            <span className="text-xs text-slate-400 mt-1 inline-block">
+            <span className="text-xs text-slate-500 mt-1 inline-block">
               ~{item.effortMinutes} min
             </span>
           )}
@@ -375,14 +437,14 @@ export function ConfidenceSection({
 
           {/* Task 1: Hidden high-risk edges disclosure (above threshold but cut by display limit) */}
           {hiddenHighRiskCount !== undefined && hiddenHighRiskCount > 0 && (
-            <p className="text-xs text-slate-400 mt-2">
+            <p className="text-xs text-slate-500 mt-2">
               {hiddenHighRiskCount} more assumption{hiddenHighRiskCount === 1 ? '' : 's'} above threshold not shown
             </p>
           )}
 
           {/* Filtered items disclosure (below threshold) */}
           {filteredFragileEdges && filteredFragileEdges.filteredCount > 0 && (
-            <p className="text-xs text-slate-400 mt-2">
+            <p className="text-xs text-slate-500 mt-2">
               {filteredFragileEdges.description}
             </p>
           )}

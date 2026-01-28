@@ -13,12 +13,13 @@
  * - ISL unavailable error state with retry
  */
 
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import type { DriversSectionData, DriverItem } from './types'
 import { focusNodeById } from '../../canvas/utils/focusHelpers'
 import { EMPTY_STATES } from './emptyStates'
 import { formatFlipRiskMessage } from './utils/formatScenarioRatio'
 import { FactorInsights, hasEnrichmentContent } from './FactorInsights'
+import { Info, ExternalLink } from 'lucide-react'
 
 interface DriversSectionProps {
   data: DriversSectionData
@@ -45,6 +46,64 @@ const ZERO_REASON_MESSAGES: Record<string, string> = {
   intervention_override: 'Directly controlled by your options',
   disconnected: 'No causal path to goal',
   zero_outcome_diff: "Changes don't affect outcome",
+}
+
+// Tooltip component for secondary information
+function FactorTooltip({
+  content,
+  isOpen,
+  onClose,
+  triggerRef,
+  id,
+}: {
+  content: React.ReactNode
+  isOpen: boolean
+  onClose: () => void
+  triggerRef: React.RefObject<HTMLButtonElement>
+  id: string
+}) {
+  const tooltipRef = useRef<HTMLDivElement>(null)
+
+  // Close on click outside and Escape key
+  useEffect(() => {
+    if (!isOpen) return
+    function handleClickOutside(e: MouseEvent) {
+      if (
+        tooltipRef.current &&
+        !tooltipRef.current.contains(e.target as Node) &&
+        triggerRef.current &&
+        !triggerRef.current.contains(e.target as Node)
+      ) {
+        onClose()
+      }
+    }
+    function handleEscape(e: KeyboardEvent) {
+      if (e.key === 'Escape') {
+        onClose()
+        // Return focus to trigger button
+        triggerRef.current?.focus()
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    document.addEventListener('keydown', handleEscape)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+      document.removeEventListener('keydown', handleEscape)
+    }
+  }, [isOpen, onClose, triggerRef])
+
+  if (!isOpen) return null
+
+  return (
+    <div
+      ref={tooltipRef}
+      id={id}
+      className="absolute z-50 left-0 right-0 mt-1 p-3 bg-white border border-slate-200 rounded-lg shadow-lg text-xs text-slate-600 space-y-1.5"
+      role="tooltip"
+    >
+      {content}
+    </div>
+  )
 }
 
 // Progress bar component with inline styles for precise colors
@@ -192,24 +251,21 @@ function ExpandedDetails({
   )
 }
 
-// Individual driver row
+// Individual driver row - Compact 2-line structure
 function DriverRow({
   driver,
-  isExpanded,
-  onToggleExpand,
   onFocus,
   goalLabel,
 }: {
   driver: DriverItem
-  isExpanded: boolean
-  onToggleExpand: () => void
   onFocus?: (nodeId: string) => void
   /** Goal label for direction-based interpretation fallback (Task 3.5) */
   goalLabel?: string
 }) {
+  const [isTooltipOpen, setIsTooltipOpen] = useState(false)
+  const infoButtonRef = useRef<HTMLButtonElement>(null)
+
   // Direction styling - arrow color matches bar color
-  // P0 Fix: Single arrow serves as both direction indicator AND expand trigger
-  // When expanded, arrow rotates to show expanded state
   const directionIcon = driver.direction === 'positive' ? '↗' : driver.direction === 'negative' ? '↘' : '•'
   const directionColor = driver.direction === 'positive'
     ? BAR_COLORS.green
@@ -223,73 +279,168 @@ function DriverRow({
       : 'neutral'
 
   // Use ISL influence_score (0-1) directly for Sensitivity column
-  // Fallback to normalisedInfluence if influence_score not available
   const sensitivityValue = driver.influenceScore ?? driver.normalisedInfluence
   const hasSensitivityData = sensitivityValue != null && sensitivityValue >= 0
 
-  // Confidence value (0-1) - clamped in useResultsSectionData
+  // Confidence value (0-1)
   const confidenceValue = typeof driver.confidence === 'number'
     ? Math.max(0, Math.min(1, driver.confidence))
     : null
 
+  // Compact impact copy for second line
+  const impactShift = driver.rawElasticity > 0.001
+    ? Math.round(driver.rawElasticity * 10)
+    : null
+  const compactImpact = impactShift !== null
+    ? `10% change → ~${impactShift}% shift`
+    : driver.direction && goalLabel
+      ? driver.direction === 'positive' ? `↗ ${goalLabel}` : `↘ ${goalLabel}`
+      : null
+
+  // Determine if we have secondary content for tooltip
+  const alternativeWinnerLabel = driver.fragileEdgeInfo?.alternativeWinnerLabel
+  const decisionChangeRisk = driver.flipRiskCategory === 'isolated'
+    ? formatFlipRiskMessage(driver.fragileEdgeInfo?.switchProbability, alternativeWinnerLabel)
+    : driver.flipRiskCategory === 'correlated'
+      ? 'In some scenarios tested, this factor can change which option is best'
+      : driver.flipRiskCategory !== 'negligible'
+        ? formatFlipRiskMessage(driver.fragileEdgeInfo?.switchProbability, alternativeWinnerLabel)
+        : null
+  const showQualityHint = typeof driver.valueOfInformation === 'number' && driver.valueOfInformation > 0.05
+  const hasEnrichment = driver.enrichment && hasEnrichmentContent(driver.enrichment)
+  const hasZeroReason = driver.zeroReason && ZERO_REASON_MESSAGES[driver.zeroReason]
+  const hasTooltipContent = decisionChangeRisk || showQualityHint || hasEnrichment || hasZeroReason
+
+  const handleFocusClick = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (driver.canFocus) {
+      const nodeId = driver.matchedNodeId ?? driver.factorKey
+      if (onFocus) {
+        onFocus(nodeId)
+      } else {
+        focusNodeById(nodeId)
+      }
+    }
+  }, [driver.canFocus, driver.matchedNodeId, driver.factorKey, onFocus])
+
+  const toggleTooltip = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation()
+    setIsTooltipOpen(prev => !prev)
+  }, [])
+
+  // Tooltip content
+  const tooltipContent = (
+    <>
+      {/* Full elasticity insight */}
+      {driver.rawElasticity > 0.001 && (
+        <p>A 10% change here shifts your goal by ~{Math.round(driver.rawElasticity * 10)}%</p>
+      )}
+      {/* Decision change risk */}
+      {decisionChangeRisk && <p>{decisionChangeRisk}</p>}
+      {/* Quality hint */}
+      {showQualityHint && (
+        <p className="flex items-center gap-1">
+          <span aria-hidden="true">⚠️</span>
+          Could benefit from more evidence
+        </p>
+      )}
+      {/* Zero reason */}
+      {hasZeroReason && (
+        <p className="flex items-center gap-1">
+          <span aria-hidden="true">ℹ️</span>
+          {ZERO_REASON_MESSAGES[driver.zeroReason!]}
+        </p>
+      )}
+      {/* CEE-generated insights */}
+      {hasEnrichment && <FactorInsights enrichment={driver.enrichment!} />}
+    </>
+  )
+
   return (
-    <div className="rounded-lg border border-slate-200 overflow-hidden bg-white">
-      <button
-        onClick={onToggleExpand}
-        className="w-full text-left hover:bg-slate-50 transition-colors"
-        aria-expanded={isExpanded}
-      >
-        {/* Grid layout: Factor name (flexible min-140px) | Sensitivity bar (100px) | Confidence bar (100px) */}
-        <div className={`grid ${GRID_COLS} gap-3 items-center p-3`}>
-          {/* Factor name with single direction arrow (serves as expand trigger) */}
-          <div className="flex items-start gap-1.5 min-w-0">
-            {/* P0 Fix: Single arrow - direction indicator that also implies expand capability
-                When expanded, arrow subtly changes (opacity) to indicate active state */}
-            <span
-              className={`text-sm flex-shrink-0 mt-0.5 transition-opacity ${isExpanded ? 'opacity-60' : ''}`}
-              style={{ color: directionColor }}
-              aria-hidden="true"
+    <div className="rounded-lg border border-slate-200 overflow-hidden bg-white relative">
+      {/* Line 1: Factor name + bars */}
+      <div className={`grid ${GRID_COLS} gap-3 items-center p-3 pb-1`}>
+        {/* Factor name with direction arrow */}
+        <div className="flex items-start gap-1.5 min-w-0">
+          <span
+            className="text-sm flex-shrink-0 mt-0.5"
+            style={{ color: directionColor }}
+            aria-hidden="true"
+          >
+            {directionIcon}
+          </span>
+          <span className="text-sm text-slate-800 break-words leading-snug">
+            {driver.factorLabel}
+          </span>
+        </div>
+
+        {/* Sensitivity bar */}
+        {hasSensitivityData ? (
+          <ProgressBar
+            value={sensitivityValue}
+            color={barColor}
+            aria-label={`${driver.factorLabel} sensitivity: ${Math.round(sensitivityValue * 100)}%`}
+          />
+        ) : (
+          <div className="text-xs font-mono text-slate-400 w-9 text-right">—</div>
+        )}
+
+        {/* Confidence bar */}
+        {confidenceValue !== null ? (
+          <ProgressBar
+            value={confidenceValue}
+            color="blue"
+            aria-label={`${driver.factorLabel} confidence: ${Math.round(confidenceValue * 100)}%`}
+          />
+        ) : (
+          <div className="text-xs font-mono text-slate-400 w-9 text-right">—</div>
+        )}
+      </div>
+
+      {/* Line 2: Compact impact + icons */}
+      <div className="px-3 pb-2 flex items-center justify-between gap-2">
+        <span className="text-xs text-slate-500 truncate">
+          {compactImpact || '\u00A0'}
+        </span>
+        <div className="flex items-center gap-1 flex-shrink-0">
+          {/* Info icon - reveals tooltip */}
+          {hasTooltipContent && (
+            <button
+              ref={infoButtonRef}
+              onClick={toggleTooltip}
+              onMouseEnter={() => setIsTooltipOpen(true)}
+              onMouseLeave={() => setIsTooltipOpen(false)}
+              className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded transition-colors"
+              style={{ minWidth: '44px', minHeight: '44px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+              aria-label="More information"
+              aria-expanded={isTooltipOpen}
+              aria-describedby={isTooltipOpen ? `tooltip-${driver.factorKey}` : undefined}
             >
-              {directionIcon}
-            </span>
-            {/* Label - can wrap to multiple lines */}
-            <span className="text-sm text-slate-800 break-words leading-snug">
-              {driver.factorLabel}
-            </span>
-          </div>
-
-          {/* Task 4: Sensitivity bar - uses ISL influence_score (0-1) directly */}
-          {hasSensitivityData ? (
-            <ProgressBar
-              value={sensitivityValue}
-              color={barColor}
-              aria-label={`${driver.factorLabel} sensitivity: ${Math.round(sensitivityValue * 100)}%`}
-            />
-          ) : (
-            <div className="text-xs font-mono text-slate-400 w-9 text-right">—</div>
+              <Info className="w-4 h-4" />
+            </button>
           )}
-
-          {/* Confidence bar - always blue */}
-          {confidenceValue !== null ? (
-            <ProgressBar
-              value={confidenceValue}
-              color="blue"
-              aria-label={`${driver.factorLabel} confidence: ${Math.round(confidenceValue * 100)}%`}
-            />
-          ) : (
-            <div className="text-xs font-mono text-slate-400 w-9 text-right">—</div>
+          {/* Focus icon - focuses on canvas */}
+          {driver.canFocus && (
+            <button
+              onClick={handleFocusClick}
+              className="p-1.5 text-sky-500 hover:text-sky-600 hover:bg-sky-50 rounded transition-colors"
+              style={{ minWidth: '44px', minHeight: '44px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+              aria-label={`Focus ${driver.factorLabel} on canvas`}
+            >
+              <ExternalLink className="w-4 h-4" />
+            </button>
           )}
         </div>
-      </button>
+      </div>
 
-      {/* Expanded details */}
-      {isExpanded && (
-        <ExpandedDetails
-          driver={driver}
-          onFocus={onFocus}
-          goalLabel={goalLabel}
-        />
-      )}
+      {/* Tooltip */}
+      <FactorTooltip
+        content={tooltipContent}
+        isOpen={isTooltipOpen}
+        onClose={() => setIsTooltipOpen(false)}
+        triggerRef={infoButtonRef}
+        id={`tooltip-${driver.factorKey}`}
+      />
     </div>
   )
 }
@@ -321,11 +472,9 @@ export function DriversSection({
   goalLabel,
 }: DriversSectionProps) {
   const [showAll, setShowAll] = useState(false)
-  const [expandedKeys, setExpandedKeys] = useState<Set<string>>(new Set())
   const { drivers, driversStatus, topDrivers, hasMagnitudeData, islError, hiddenZeroImpactCount } = data
 
-  // Diagnostic logging for data issues
-  // Fix 3: Guard window access for SSR, Fix 5: Gate behind debug toggle
+  // Diagnostic logging for data issues (debug mode only)
   useEffect(() => {
     if (typeof window !== 'undefined' && (window as any).__OLUMI_DEBUG && drivers.length > 0) {
       console.log('[DriversSection] Data diagnostic:', {
@@ -333,42 +482,9 @@ export function DriversSection({
         driversStatus,
         hasMagnitudeData,
         islError,
-        drivers: drivers.map(d => ({
-          label: d.factorLabel,
-          rawElasticity: d.rawElasticity,
-          normalisedInfluence: d.normalisedInfluence,
-          confidence: d.confidence,
-          direction: d.direction,
-        })),
       })
-
-      // Check for data issues
-      const driversWithZeroInfluence = drivers.filter(d => d.normalisedInfluence === 0)
-      const driversWithDefaultConfidence = drivers.filter(d => d.confidence === undefined)
-
-      if (driversWithZeroInfluence.length > 0) {
-        console.warn('[DriversSection] Drivers with 0% influence:', driversWithZeroInfluence.map(d => d.factorLabel))
-        console.warn('[DriversSection] Check if factor_sensitivity.elasticity is being returned from PLoT')
-      }
-
-      if (driversWithDefaultConfidence.length > 0) {
-        console.warn('[DriversSection] Drivers missing confidence:', driversWithDefaultConfidence.map(d => d.factorLabel))
-        console.warn('[DriversSection] Check if edge beliefExists is set for factor->goal edges')
-      }
     }
   }, [drivers, driversStatus, hasMagnitudeData, islError])
-
-  const toggleExpand = useCallback((key: string) => {
-    setExpandedKeys(prev => {
-      const next = new Set(prev)
-      if (next.has(key)) {
-        next.delete(key)
-      } else {
-        next.add(key)
-      }
-      return next
-    })
-  }, [])
 
   // ISL error state - no mock data, clear error message
   if (islError) {
@@ -403,7 +519,7 @@ export function DriversSection({
   const hiddenCount = drivers.length - topDrivers.length
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       {/* Column headers - right-aligned above bars only */}
       {/* NOTE: Panel title rendered by parent (OutputsDock section header) */}
       <div className={`grid ${GRID_COLS} gap-3 px-3`}>
@@ -430,8 +546,6 @@ export function DriversSection({
           <DriverRow
             key={driver.factorKey}
             driver={driver}
-            isExpanded={expandedKeys.has(driver.factorKey)}
-            onToggleExpand={() => toggleExpand(driver.factorKey)}
             onFocus={onFocusNode}
             goalLabel={goalLabel}
           />
@@ -450,7 +564,7 @@ export function DriversSection({
 
       {/* Zero-impact disclosure - only show when collapsed and there are hidden zero-impact factors */}
       {!showAll && hiddenZeroImpactCount !== undefined && hiddenZeroImpactCount > 0 && (
-        <p className="text-xs text-slate-400 mt-1">
+        <p className="text-xs text-slate-500 mt-1">
           {hiddenZeroImpactCount} zero-impact factor{hiddenZeroImpactCount === 1 ? '' : 's'} hidden by default
         </p>
       )}
