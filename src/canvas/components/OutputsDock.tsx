@@ -1496,14 +1496,18 @@ function DiagnosticsTabBody({
       </div>
 
       {/* Robustness Closure Section */}
-      {robustnessSynthesis?.headline && (
-        <div className="border-t border-sand-200 pt-3" data-testid="closure-section">
-          <div className={`${typography.label} text-ink-900 mb-2`}>What this decision hinges on</div>
+      <div className="border-t border-sand-200 pt-3" data-testid="closure-section">
+        <div className={`${typography.label} text-ink-900 mb-2`}>What this decision hinges on</div>
+        {robustnessSynthesis?.headline ? (
           <p className={`${typography.body} text-ink-700`}>
             {robustnessSynthesis.headline}
           </p>
-        </div>
-      )}
+        ) : (
+          <p className={`${typography.body} text-ink-500`}>
+            Run analysis to generate a summary of what matters most.
+          </p>
+        )}
+      </div>
 
       {/* ISL Validation Suggestions - temporarily disabled due to missing endpoint */}
       <div className="border-t border-sand-200 pt-3" data-testid="isl-validation-section">

@@ -558,7 +558,12 @@ export function GraphTextView({
                                     {targetLabel}
                                   </button>
                                   {displayStr && (
-                                    <span className={`text-ink-400 ${typography.caption}`}>({displayStr})</span>
+                                    <span
+                                      className={`text-ink-400 ${typography.caption} cursor-help`}
+                                      title="Effect is an estimate of impact size; belief is probability the relationship exists."
+                                    >
+                                      ({displayStr})
+                                    </span>
                                   )}
                                   {/* Fragile badge */}
                                   {isFragile && (
