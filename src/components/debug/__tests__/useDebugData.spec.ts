@@ -207,7 +207,9 @@ describe('useDebugData', () => {
       expect(result.current.services.isl).toBeNull()
     })
 
-    it('prefers direct ISL payload over extracted from PLoT', () => {
+    it('prefers downstream_calls ISL over direct capture (reflects actual orchestration)', () => {
+      // downstream_calls ISL reflects the actual ISL call made during PLoT orchestration
+      // This is the correct data source for debugging the analysis flow
       const plotPayload = {
         id: 'req-plot',
         service: 'PLoT',
@@ -247,9 +249,55 @@ describe('useDebugData', () => {
 
       const { result } = renderHook(() => useDebugData())
 
-      // Should use direct ISL payload, not extracted from PLoT
+      // Should prefer downstream_calls ISL as it reflects the actual analysis ISL call
+      expect(result.current.services.isl?.endpoint).toBe('/api/isl/from-plot')
+      expect(result.current.services.isl?.duration_ms).toBe(300)
+    })
+
+    it('falls back to direct ISL when downstream_calls ISL failed', () => {
+      const plotPayload = {
+        id: 'req-plot',
+        service: 'PLoT',
+        endpoint: '/v2/run',
+        status: 200,
+        completed: true,
+        duration: 1500,
+        request: { body: {} },
+        response: {
+          body: {
+            downstream_calls: {
+              isl: {
+                endpoint: '/api/isl/from-plot',
+                latency_ms: 300,
+                status_code: 500,
+                success: false,
+                error: 'ISL failed',
+              },
+            },
+          },
+        },
+      }
+
+      const islPayload = {
+        id: 'req-isl-direct',
+        service: 'ISL',
+        endpoint: '/api/isl/direct',
+        status: 200,
+        completed: true,
+        duration: 500,
+        request: { body: { direct: true } },
+        response: { body: { direct_response: true } },
+      }
+
+      vi.mocked(usePayloadTraceStore).mockImplementation((selector) =>
+        selector({ payloads: [plotPayload, islPayload] })
+      )
+
+      const { result } = renderHook(() => useDebugData())
+
+      // When downstream_calls ISL failed but direct ISL succeeded, prefer direct
       expect(result.current.services.isl?.endpoint).toBe('/api/isl/direct')
-      expect(result.current.services.isl?.duration_ms).toBe(500)
+      expect(result.current.services.isl?.success).toBe(true)
     })
   })
 

@@ -5,7 +5,20 @@
  * Creates a structured bundle containing all payloads and diagnostic info.
  */
 
-import type { DebugData, BuildVersions, DiagnosticChecks, LlmRawData, ValidationIssue, ValidationSummary } from '../hooks/useDebugData'
+import type {
+  DebugData,
+  BuildVersions,
+  DiagnosticChecks,
+  LlmRawData,
+  ValidationIssue,
+  ValidationSummary,
+  OrchestratorStatus,
+  V12_4Checks,
+  RequestIdChain,
+  FeatureFlagsAtRequest,
+  ServiceTiming,
+  SchemaVersions,
+} from '../hooks/useDebugData'
 import { getVersionInfo, getClientBuild } from '../../../lib/version-cache'
 import { getBufferedLogs, type BufferedLog } from '../../../utils/debugLogBuffer'
 
@@ -24,7 +37,7 @@ interface DiagnosticInfo {
 interface DebugBundle {
   /** Bundle metadata */
   meta: {
-    version: '1.3'
+    version: '1.4'
     created_at: string
     request_id: string | null
     client_build: string | null
@@ -103,6 +116,26 @@ interface DebugBundle {
     edges: Array<{ id: string; source: string; target: string; label?: string; strength?: number }>
     options: Array<{ id: string; label: string; type: string; description?: string }>
   }
+
+  // Enhancement sections (Debug Panel V2.1)
+
+  /** Orchestrator status from CEE pipeline */
+  orchestrator?: OrchestratorStatus | null
+
+  /** V12.4 category field presence check for factors */
+  v12_4_checks?: V12_4Checks | null
+
+  /** Request ID chain for tracking ID propagation across services */
+  request_id_chain?: RequestIdChain | null
+
+  /** Feature flags at the time of request */
+  feature_flags_at_request?: FeatureFlagsAtRequest | null
+
+  /** Timestamps per service for timing analysis */
+  timing?: ServiceTiming | null
+
+  /** Schema version consistency check */
+  schema_versions?: SchemaVersions | null
 }
 
 // =============================================================================
@@ -321,7 +354,7 @@ export function buildDebugBundle(data: DebugData, options: ExportOptions = {}): 
 
   return {
     meta: {
-      version: '1.3',
+      version: '1.4',
       created_at: timestamp,
       request_id: data.overall.request_id,
       client_build: clientBuild,
@@ -413,6 +446,14 @@ export function buildDebugBundle(data: DebugData, options: ExportOptions = {}): 
     diagnostic_checks: data.diagnostics,
     readme: generateReadme(data),
     ...(fullGraph && { full_graph: fullGraph }),
+
+    // Enhancement sections (Debug Panel V2.1)
+    orchestrator: data.orchestrator,
+    v12_4_checks: data.v12_4_checks,
+    request_id_chain: data.request_id_chain,
+    feature_flags_at_request: data.feature_flags_at_request,
+    timing: data.timing,
+    schema_versions: data.schema_versions,
   }
 }
 

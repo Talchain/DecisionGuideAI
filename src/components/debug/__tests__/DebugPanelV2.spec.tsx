@@ -76,7 +76,28 @@ const defaultMockData = {
   },
   payloads: {},
   gates: [],
+  validation: {
+    summary: { errors: 0, warnings: 0, info: 0 },
+    issues: [],
+  },
+  winningOption: null,
+  robustness: {
+    status: 'unavailable' as const,
+    stability: null,
+    context_label: 'N/A',
+    description: 'Robustness check not available',
+  },
+  corrections: [],
+  correctionsSummary: null,
   hasData: true,
+
+  // Enhancement fields (Debug Panel V2.1)
+  orchestrator: null,
+  v12_4_checks: null,
+  request_id_chain: null,
+  feature_flags_at_request: null,
+  timing: null,
+  schema_versions: null,
 }
 
 // Mock the export utils
@@ -235,9 +256,12 @@ describe('DebugPanelV2 with error state', () => {
       diagnostics: {
         plot_has_downstream_calls: false,
         downstream_calls_path_found: null,
+        downstream_calls_paths_checked: [],
         isl_data_source: 'none' as const,
         cee_trace_present: false,
         cee_degraded: false,
+        llm_raw_available: false,
+        llm_raw_path_found: null,
       },
       ceeTrace: null,
       pipeline: {
@@ -253,7 +277,26 @@ describe('DebugPanelV2 with error state', () => {
       },
       payloads: {},
       gates: [],
+      validation: {
+        summary: { errors: 0, warnings: 0, info: 0 },
+        issues: [],
+      },
+      winningOption: null,
+      robustness: {
+        status: 'unavailable' as const,
+        stability: null,
+        context_label: 'N/A',
+        description: 'Robustness check not available',
+      },
+      corrections: [],
+      correctionsSummary: null,
       hasData: true,
+      orchestrator: null,
+      v12_4_checks: null,
+      request_id_chain: null,
+      feature_flags_at_request: null,
+      timing: null,
+      schema_versions: null,
     })
   })
 
@@ -292,9 +335,12 @@ describe('DebugPanelV2 with pending state', () => {
       diagnostics: {
         plot_has_downstream_calls: false,
         downstream_calls_path_found: null,
+        downstream_calls_paths_checked: [],
         isl_data_source: 'none' as const,
         cee_trace_present: false,
         cee_degraded: false,
+        llm_raw_available: false,
+        llm_raw_path_found: null,
       },
       ceeTrace: null,
       pipeline: {
@@ -310,7 +356,26 @@ describe('DebugPanelV2 with pending state', () => {
       },
       payloads: {},
       gates: [],
+      validation: {
+        summary: { errors: 0, warnings: 0, info: 0 },
+        issues: [],
+      },
+      winningOption: null,
+      robustness: {
+        status: 'unavailable' as const,
+        stability: null,
+        context_label: 'N/A',
+        description: 'Robustness check not available',
+      },
+      corrections: [],
+      correctionsSummary: null,
       hasData: false,
+      orchestrator: null,
+      v12_4_checks: null,
+      request_id_chain: null,
+      feature_flags_at_request: null,
+      timing: null,
+      schema_versions: null,
     })
   })
 
