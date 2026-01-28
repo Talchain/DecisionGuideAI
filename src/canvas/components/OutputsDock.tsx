@@ -76,6 +76,7 @@ import { AdvancedSettingsPanel } from './AdvancedSettingsPanel'
 import { mapConfidenceToReadiness } from '../utils/mapConfidenceToReadiness'
 import { useV2Run } from '../hooks/useV2Run'
 import { focusNodeById, focusEdgeById } from '../utils/focusHelpers'
+import { buildFragileEdgeIdSet, buildRobustEdgeIdSet } from '../utils/edgeIdentity'
 // Results Panel Redesign: New section components
 import { useResultsSectionData } from '../../components/results/useResultsSectionData'
 import { RecommendationSection } from '../../components/results/RecommendationSection'
@@ -1468,15 +1469,15 @@ function DiagnosticsTabBody({
   robustness: { fragileEdges?: Array<{ edgeId: string }>; robustEdges?: string[] } | null
   robustnessSynthesis: { headline?: string } | null
 }) {
-  // Build fragile and robust edge ID sets for badges
+  // Build fragile and robust edge ID sets for badges using adapter
   const fragileEdgeIds = useMemo(() => {
     if (!robustness?.fragileEdges) return new Set<string>()
-    return new Set(robustness.fragileEdges.map(fe => fe.edgeId))
+    return buildFragileEdgeIdSet(robustness.fragileEdges as any)
   }, [robustness?.fragileEdges])
 
   const robustEdgeIds = useMemo(() => {
     if (!robustness?.robustEdges) return new Set<string>()
-    return new Set(robustness.robustEdges)
+    return buildRobustEdgeIdSet(robustness.robustEdges)
   }, [robustness?.robustEdges])
 
   return (

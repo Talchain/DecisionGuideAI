@@ -10,11 +10,16 @@ const createMockNode = (id: string, type: string, label: string): Node => ({
   data: { label },
 })
 
-const createMockEdge = (id: string, source: string, target: string, weight?: number): Edge => ({
+const createMockEdge = (
+  id: string,
+  source: string,
+  target: string,
+  edgeData?: { beliefExists?: number; beliefStrength?: number; direction?: string }
+): Edge => ({
   id,
   source,
   target,
-  data: weight !== undefined ? { weight } : undefined,
+  data: edgeData,
 })
 
 describe('GraphTextView', () => {
@@ -31,9 +36,9 @@ describe('GraphTextView', () => {
   const mockEdges: Edge[] = [
     createMockEdge('e1', 'decision-1', 'option-1'),
     createMockEdge('e2', 'decision-1', 'option-2'),
-    createMockEdge('e3', 'option-1', 'outcome-1', 0.7),
-    createMockEdge('e4', 'factor-1', 'outcome-1', 0.5),
-    createMockEdge('e5', 'risk-1', 'outcome-1', -0.3),
+    createMockEdge('e3', 'option-1', 'outcome-1', { beliefExists: 0.8, beliefStrength: 0.7, direction: 'positive' }),
+    createMockEdge('e4', 'factor-1', 'outcome-1', { beliefExists: 0.9, beliefStrength: 0.5 }),
+    createMockEdge('e5', 'risk-1', 'outcome-1', { beliefExists: 0.7, beliefStrength: 0.3, direction: 'negative' }),
   ]
 
   it('renders empty state when no nodes', () => {
@@ -122,14 +127,15 @@ describe('GraphTextView', () => {
     expect(screen.getByTestId('graph-text-view-node-goal-1')).toBeInTheDocument()
   })
 
-  it('displays outgoing connections with edge weights', () => {
+  it('displays outgoing connections with edge belief and effect', () => {
     const onNodeClick = vi.fn()
     render(<GraphTextView nodes={mockNodes} edges={mockEdges} onNodeClick={onNodeClick} />)
 
-    // Option-1 has an edge to outcome-1 with weight 0.7
+    // Option-1 has an edge to outcome-1 with beliefStrength 0.7 and beliefExists 0.8
     const optionSection = screen.getByTestId('graph-text-view-section-option')
     expect(optionSection).toHaveTextContent('Expected Profit')
-    expect(optionSection).toHaveTextContent('weight: +0.7')
+    expect(optionSection).toHaveTextContent('effect: +0.7')
+    expect(optionSection).toHaveTextContent('belief: 80%')
   })
 
   it('copy button copies structure to clipboard', async () => {
@@ -191,5 +197,109 @@ describe('GraphTextView', () => {
     const toggleButton = goalsSection.querySelector('button[aria-expanded]')
     expect(toggleButton).toHaveAttribute('aria-expanded', 'true')
     expect(toggleButton).toHaveAttribute('aria-controls', 'graph-section-goal')
+  })
+
+  it('calls onEdgeClick when edge target is clicked', () => {
+    const onNodeClick = vi.fn()
+    const onEdgeClick = vi.fn()
+    render(
+      <GraphTextView
+        nodes={mockNodes}
+        edges={mockEdges}
+        onNodeClick={onNodeClick}
+        onEdgeClick={onEdgeClick}
+      />
+    )
+
+    // Find the option section which has an edge to outcome
+    const optionSection = screen.getByTestId('graph-text-view-section-option')
+    const edgeButton = optionSection.querySelector('button[title*="Focus edge"]')
+    expect(edgeButton).toBeInTheDocument()
+
+    fireEvent.click(edgeButton!)
+    expect(onEdgeClick).toHaveBeenCalledWith('e3')
+  })
+
+  it('displays fragile badge for fragile edges', () => {
+    const onNodeClick = vi.fn()
+    const fragileEdgeIds = new Set(['e3'])
+
+    render(
+      <GraphTextView
+        nodes={mockNodes}
+        edges={mockEdges}
+        onNodeClick={onNodeClick}
+        fragileEdgeIds={fragileEdgeIds}
+      />
+    )
+
+    // Fragile badge should be visible
+    expect(screen.getByText('Fragile')).toBeInTheDocument()
+  })
+
+  it('displays robust badge for robust edges', () => {
+    const onNodeClick = vi.fn()
+    const robustEdgeIds = new Set(['e4'])
+
+    render(
+      <GraphTextView
+        nodes={mockNodes}
+        edges={mockEdges}
+        onNodeClick={onNodeClick}
+        robustEdgeIds={robustEdgeIds}
+      />
+    )
+
+    // Robust badge should be visible
+    expect(screen.getByText('✓ Robust')).toBeInTheDocument()
+  })
+
+  it('displays factor observed state with value, unit, and source', () => {
+    const onNodeClick = vi.fn()
+    const factorWithObservedState: Node = {
+      id: 'factor-observed',
+      type: 'factor',
+      position: { x: 0, y: 0 },
+      data: {
+        label: 'Market Share',
+        observedState: {
+          value: 42,
+          unit: '%',
+          source: 'Market research',
+        },
+      },
+    }
+
+    render(
+      <GraphTextView
+        nodes={[factorWithObservedState]}
+        edges={[]}
+        onNodeClick={onNodeClick}
+      />
+    )
+
+    expect(screen.getByText('Market Share')).toBeInTheDocument()
+    expect(screen.getByText('Value: 42')).toBeInTheDocument()
+    expect(screen.getByText('(%)')).toBeInTheDocument()
+    expect(screen.getByText(/Source: Market research/)).toBeInTheDocument()
+  })
+
+  it('displays ± for effect when direction is unknown', () => {
+    const onNodeClick = vi.fn()
+    // e4 has no direction specified
+    render(<GraphTextView nodes={mockNodes} edges={mockEdges} onNodeClick={onNodeClick} />)
+
+    // Factor section has edge e4 with no direction - should show ±
+    const factorSection = screen.getByTestId('graph-text-view-section-factor')
+    expect(factorSection).toHaveTextContent('effect: ±0.5')
+  })
+
+  it('displays negative effect for edges with negative direction', () => {
+    const onNodeClick = vi.fn()
+    render(<GraphTextView nodes={mockNodes} edges={mockEdges} onNodeClick={onNodeClick} />)
+
+    // Risk section has edge e5 with negative direction
+    const riskSection = screen.getByTestId('graph-text-view-section-risk')
+    expect(riskSection).toHaveTextContent('effect: -0.3')
   })
 })

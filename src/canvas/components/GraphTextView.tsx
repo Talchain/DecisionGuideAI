@@ -36,6 +36,7 @@ import type { Node, Edge } from '@xyflow/react'
 import { typography } from '../../styles/typography'
 import type { NodeType } from '../domain/nodes'
 import { countEdgesWithEvidence } from '../utils/evidenceCoverage'
+import { getDisplayEdgeId } from '../utils/edgeIdentity'
 
 interface GraphTextViewProps {
   nodes: Node[]
@@ -141,7 +142,8 @@ function formatEdgeInfo(edge: Edge): { effect: string; belief: string; strengthS
   const direction = data?.direction
   let effect = ''
   if (typeof beliefStrength === 'number') {
-    const sign = direction === 'negative' ? '-' : '+'
+    // Use ± when direction is unknown/missing to avoid misleading display
+    const sign = direction === 'negative' ? '-' : direction === 'positive' ? '+' : '±'
     effect = `effect: ${sign}${beliefStrength.toFixed(1)}`
   }
 
@@ -161,6 +163,7 @@ function formatEdgeInfo(edge: Edge): { effect: string; belief: string; strengthS
 
 /**
  * Get observed state info for factor nodes
+ * Supports both numeric and string values
  */
 function getObservedStateInfo(node: Node): { value: string | null; unit: string | null; source: string | null } {
   const data = node.data as any
@@ -170,7 +173,14 @@ function getObservedStateInfo(node: Node): { value: string | null; unit: string 
     return { value: null, unit: null, source: null }
   }
 
-  const value = typeof observedState.value === 'number' ? observedState.value.toString() : null
+  // Support both numeric and string values
+  let value: string | null = null
+  if (typeof observedState.value === 'number') {
+    value = observedState.value.toString()
+  } else if (typeof observedState.value === 'string' && observedState.value.trim()) {
+    value = observedState.value
+  }
+
   const unit = typeof observedState.unit === 'string' ? observedState.unit : null
   const source = typeof observedState.source === 'string' ? observedState.source : null
 
@@ -520,8 +530,9 @@ export function GraphTextView({
                               const targetNode = nodes.find(n => n.id === edge.target)
                               const targetLabel = targetNode ? getNodeLabel(targetNode) : edge.target
                               const edgeInfo = formatEdgeInfo(edge)
-                              const isFragile = fragileEdgeIds?.has(edge.id)
-                              const isRobust = robustEdgeIds?.has(edge.id)
+                              const edgeId = getDisplayEdgeId(edge)
+                              const isFragile = fragileEdgeIds?.has(edgeId)
+                              const isRobust = robustEdgeIds?.has(edgeId)
 
                               // Build display string: effect | belief
                               const displayParts: string[] = []
@@ -530,13 +541,13 @@ export function GraphTextView({
                               const displayStr = displayParts.join(' | ')
 
                               return (
-                                <div key={edge.id} className="flex items-center gap-1 py-0.5 flex-wrap">
+                                <div key={edgeId} className="flex items-center gap-1 py-0.5 flex-wrap">
                                   <span className="text-sand-400">→</span>
                                   <button
                                     type="button"
                                     onClick={() => {
                                       if (onEdgeClick) {
-                                        onEdgeClick(edge.id)
+                                        onEdgeClick(edgeId)
                                       } else if (targetNode) {
                                         handleNodeClick(targetNode.id)
                                       }
