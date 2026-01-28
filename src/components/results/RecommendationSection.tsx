@@ -751,12 +751,18 @@ export function RecommendationSection({
           {/* Task 5: Similar outcomes explanation with win probability */}
           {showTieExplanation && (
             <p className="text-xs text-slate-500 mt-2 italic">
-              {recommendedOption?.winProbability != null && recommendedOption?.label
-                ? COPY.SIMILAR_OUTCOMES_WITH_WINNER(
+              {(() => {
+                // Guard: only show win probability message if value is valid (0-1 range)
+                const wp = recommendedOption?.winProbability
+                const isValidWinProb = typeof wp === 'number' && wp >= 0 && wp <= 1
+                if (isValidWinProb && recommendedOption?.label) {
+                  return COPY.SIMILAR_OUTCOMES_WITH_WINNER(
                     recommendedOption.label,
-                    Math.round(recommendedOption.winProbability * 100)
+                    Math.round(wp * 100)
                   )
-                : 'Expected outcomes are similar. The recommendation is based on which option wins more consistently across scenarios tested.'}
+                }
+                return 'Expected outcomes are similar. The recommendation is based on which option wins more consistently across scenarios tested.'
+              })()}
             </p>
           )}
         </div>
