@@ -267,6 +267,17 @@ describe('graphDisplayCalculations', () => {
       const style = getControllabilityBorderStyle(undefined)
       expect(style).toBe('border-solid')
     })
+
+    // CEE V12.4: New category values
+    it('returns "border-dashed" for observable', () => {
+      const style = getControllabilityBorderStyle('observable')
+      expect(style).toBe('border-dashed')
+    })
+
+    it('returns "border-dotted" for external', () => {
+      const style = getControllabilityBorderStyle('external')
+      expect(style).toBe('border-dotted')
+    })
   })
 
   describe('deriveControllability', () => {
@@ -386,6 +397,112 @@ describe('graphDisplayCalculations', () => {
       const result = deriveControllability('factor-8', mockOptions, edgesWithCycle)
       expect(result).toBe('partial')
     })
+
+    // CEE V12.4: Category parameter tests
+    describe('with explicit category parameter', () => {
+      it('returns "controllable" when category is "controllable"', () => {
+        const result = deriveControllability('factor-unknown', mockOptions, mockEdges, 'controllable')
+        expect(result).toBe('controllable')
+      })
+
+      it('returns "observable" when category is "observable"', () => {
+        const result = deriveControllability('factor-unknown', mockOptions, mockEdges, 'observable')
+        expect(result).toBe('observable')
+      })
+
+      it('returns "external" when category is "external"', () => {
+        const result = deriveControllability('factor-unknown', mockOptions, mockEdges, 'external')
+        expect(result).toBe('external')
+      })
+
+      it('category takes precedence over BFS derivation', () => {
+        // factor-1 would be "controllable" via BFS, but category overrides to "external"
+        const result = deriveControllability('factor-1', mockOptions, mockEdges, 'external')
+        expect(result).toBe('external')
+      })
+
+      it('category takes precedence even with undefined options', () => {
+        // Without category, undefined options returns "unknown"
+        // With category, it should return the category value
+        const result = deriveControllability('factor-1', undefined, undefined, 'observable')
+        expect(result).toBe('observable')
+      })
+
+      it('falls back to BFS when category is undefined', () => {
+        // factor-1 is directly in interventions
+        const result = deriveControllability('factor-1', mockOptions, mockEdges, undefined)
+        expect(result).toBe('controllable')
+      })
+
+      it('falls back to BFS when category is invalid string', () => {
+        // Invalid category should fall back to BFS derivation
+        const result = deriveControllability('factor-1', mockOptions, mockEdges, 'invalid-category')
+        expect(result).toBe('controllable')
+      })
+
+      it('falls back to BFS when category is empty string', () => {
+        const result = deriveControllability('factor-1', mockOptions, mockEdges, '')
+        expect(result).toBe('controllable')
+      })
+
+      // P1 Hotfix: Category normalization tests
+      describe('category normalization', () => {
+        it('normalizes "External" to "external" → dotted border', () => {
+          const result = deriveControllability('factor-unknown', mockOptions, mockEdges, 'External')
+          expect(result).toBe('external')
+        })
+
+        it('normalizes "external " (trailing space) to "external"', () => {
+          const result = deriveControllability('factor-unknown', mockOptions, mockEdges, 'external ')
+          expect(result).toBe('external')
+        })
+
+        it('normalizes " external" (leading space) to "external"', () => {
+          const result = deriveControllability('factor-unknown', mockOptions, mockEdges, ' external')
+          expect(result).toBe('external')
+        })
+
+        it('normalizes "OBSERVABLE" to "observable" → dashed border', () => {
+          const result = deriveControllability('factor-unknown', mockOptions, mockEdges, 'OBSERVABLE')
+          expect(result).toBe('observable')
+        })
+
+        it('normalizes "CONTROLLABLE" to "controllable" → solid border', () => {
+          const result = deriveControllability('factor-unknown', mockOptions, mockEdges, 'CONTROLLABLE')
+          expect(result).toBe('controllable')
+        })
+
+        it('normalizes " Observable " (whitespace) to "observable"', () => {
+          const result = deriveControllability('factor-unknown', mockOptions, mockEdges, ' Observable ')
+          expect(result).toBe('observable')
+        })
+
+        it('falls back to BFS for invalid normalized value "foo"', () => {
+          // factor-unknown is not in interventions or reachable, so returns "unknown"
+          const result = deriveControllability('factor-unknown', mockOptions, mockEdges, 'foo')
+          expect(result).toBe('unknown')
+        })
+
+        it('falls back to BFS for whitespace-only category', () => {
+          const result = deriveControllability('factor-1', mockOptions, mockEdges, '   ')
+          expect(result).toBe('controllable') // factor-1 is directly controlled
+        })
+      })
+
+      // Verify fallback never produces observable/external
+      describe('fallback logic constraints', () => {
+        it('BFS fallback only returns controllable, partial, or unknown', () => {
+          // Directly controlled → controllable
+          expect(deriveControllability('factor-1', mockOptions, mockEdges)).toBe('controllable')
+          // Reachable from controlled → partial
+          expect(deriveControllability('factor-3', mockOptions, mockEdges)).toBe('partial')
+          // Not reachable → unknown
+          expect(deriveControllability('factor-6', mockOptions, mockEdges)).toBe('unknown')
+          // No options → unknown
+          expect(deriveControllability('factor-1', undefined, mockEdges)).toBe('unknown')
+        })
+      })
+    })
   })
 
   describe('formatDisplayValue', () => {
@@ -443,6 +560,36 @@ describe('graphDisplayCalculations', () => {
 
     it('formats € prefixed unit as currency', () => {
       expect(formatDisplayValue(1234.5, '€')).toBe('1,234.50')
+    })
+
+    // UI Polish Task 1: Percentage formatting tests
+    it('formats 0-1 scale value as percentage (0.2 → 20%)', () => {
+      expect(formatDisplayValue(0.2, '%')).toBe('20%')
+    })
+
+    it('formats 0 as 0%', () => {
+      expect(formatDisplayValue(0, '%')).toBe('0%')
+    })
+
+    it('formats 1 as 100%', () => {
+      expect(formatDisplayValue(1, '%')).toBe('100%')
+    })
+
+    it('formats already-percentage value correctly (50 → 50%)', () => {
+      expect(formatDisplayValue(50, '%')).toBe('50%')
+    })
+
+    it('formats negative 0-1 scale value as percentage (-0.2 → -20%)', () => {
+      // Fix: Negative values in [-1,0) should multiply by 100
+      expect(formatDisplayValue(-0.2, '%')).toBe('-20%')
+    })
+
+    it('formats -1 as -100%', () => {
+      expect(formatDisplayValue(-1, '%')).toBe('-100%')
+    })
+
+    it('formats negative already-percentage value correctly (-50 → -50%)', () => {
+      expect(formatDisplayValue(-50, '%')).toBe('-50%')
     })
 
     it('handles very small values with precision', () => {

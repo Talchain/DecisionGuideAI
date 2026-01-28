@@ -7,6 +7,8 @@
  * "Coaching over gates" philosophy - users see clear decision guidance.
  */
 
+import type { FactorEnrichment, NearTieInfo } from '../../lib/mappers/types'
+
 // =============================================================================
 // Confidence Tier Types
 // =============================================================================
@@ -106,6 +108,8 @@ export interface RecommendationSectionData {
   baselineId?: string | null
   /** Task 2.1: Baseline outcome for delta calculations */
   baselineOutcome?: number | null
+  /** Near-tie detection: when top options are too close to call */
+  nearTie?: NearTieInfo
 }
 
 // =============================================================================
@@ -163,17 +167,21 @@ export interface DriverItem {
   }
   /** PLoT flip_risk_category - how this factor contributes to decision uncertainty */
   flipRiskCategory?: FlipRiskCategory
+  /** CEE-generated enrichment (observations, perspectives, confidence question) */
+  enrichment?: FactorEnrichment
 }
 
 export interface DriversSectionData {
   drivers: DriverItem[]
   driversStatus: 'computed' | 'unavailable' | 'skipped' | 'error'
-  topDrivers: DriverItem[] // Top 3
+  topDrivers: DriverItem[] // Top 3 (excluding zero-impact factors)
   totalCount: number
   /** True if any factor has real elasticity data (>0.001). When false, show direction-only view. */
   hasMagnitudeData: boolean
   /** ISL service error message if unavailable */
   islError?: string
+  /** Task 2: Count of zero-impact factors hidden from default view */
+  hiddenZeroImpactCount?: number
 }
 
 // =============================================================================
@@ -230,6 +238,8 @@ export interface ConfidenceSectionData {
   /** Merged uncertainties from critiques and sensitivity analysis */
   uncertainties: UncertaintyItem[]
   topUncertainties: UncertaintyItem[] // Top 3
+  /** Task 1: Total high-risk edges (above threshold) before display limit */
+  totalHighRiskEdges?: number
   /** Ranking stability from robustness (0-1) */
   rankingStability?: number
   /** Robustness level from PLoT (high/medium/low/very_low) */
@@ -245,6 +255,8 @@ export interface ConfidenceSectionData {
   robustnessStatus?: string
   /** Disclosure when fragile edges are filtered below threshold */
   filteredFragileEdges?: FilteredItemsDisclosure
+  /** Task 1: Count of high-risk edges hidden by display limit (above threshold but not shown) */
+  hiddenHighRiskCount?: number
 }
 
 // =============================================================================

@@ -3,7 +3,7 @@ import type { NodeProps } from '@xyflow/react'
 import { BaseNode } from './BaseNode'
 import { NODE_REGISTRY } from '../domain/nodes'
 import type { RiskImpact } from '../domain/nodes'
-import { calculateRiskSeverity, getRiskSeverityColors } from '../utils/graphDisplayCalculations'
+import { calculateRiskSeverity, getRiskSeverityColors, cleanDisplayLabel } from '../utils/graphDisplayCalculations'
 
 export const RiskNode = memo((props: NodeProps) => {
   const metadata = NODE_REGISTRY.risk
@@ -14,8 +14,12 @@ export const RiskNode = memo((props: NodeProps) => {
   const severity = calculateRiskSeverity(probability, impact)
   const severityColors = getRiskSeverityColors(severity)
 
+  // UI Polish Task 4: Clean technical annotations from label
+  const cleanedLabel = cleanDisplayLabel(props.data?.label as string | undefined)
+  const cleanedData = { ...props.data, label: cleanedLabel || props.data?.label }
+
   return (
-    <BaseNode {...props} nodeType="risk" icon={metadata.icon}>
+    <BaseNode {...props} data={cleanedData} nodeType="risk" icon={metadata.icon}>
       {/* Decision Graph Display v2 Task 9 + Task C: Risk severity heat + label */}
       {/* Task 1 Fix: Only show badge when severity is present, not "Not rated" placeholder */}
       {severity && (

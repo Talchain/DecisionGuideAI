@@ -1453,4 +1453,142 @@ describe('RecommendationSection', () => {
       expect(screen.getByText('Same as baseline')).toBeInTheDocument()
     })
   })
+
+  // =========================================================================
+  // Near-Tie Detection Tests
+  // =========================================================================
+
+  describe('Near-Tie Detection', () => {
+    it('shows near-tie callout when nearTie.isTie is true with gap', () => {
+      const nearTieData: RecommendationSectionData = {
+        ...mockData,
+        nearTie: {
+          isTie: true,
+          topOptionId: 'option-1',
+          secondOptionId: 'option-2',
+          tiedOptionIds: ['option-1', 'option-2'],
+          gap: 0.04,
+          threshold: 0.10,
+        },
+      }
+
+      render(<RecommendationSection data={nearTieData} />)
+
+      // Should show near-tie warning with gap percentage
+      expect(screen.getByText(/Too close to call/)).toBeInTheDocument()
+      expect(screen.getByText(/Only 4% separates the top options/)).toBeInTheDocument()
+    })
+
+    it('shows generic message when nearTie.isTie is true with zero gap', () => {
+      const nearTieZeroGapData: RecommendationSectionData = {
+        ...mockData,
+        nearTie: {
+          isTie: true,
+          topOptionId: 'option-1',
+          secondOptionId: 'option-2',
+          tiedOptionIds: ['option-1', 'option-2'],
+          gap: 0,
+          threshold: 0.10,
+        },
+      }
+
+      render(<RecommendationSection data={nearTieZeroGapData} />)
+
+      // Should show generic near-tie message
+      expect(screen.getByText(/Too close to call/)).toBeInTheDocument()
+      expect(screen.getByText(/Small changes in your assumptions could shift the recommendation/)).toBeInTheDocument()
+    })
+
+    it('shows tied options when tiedOptionIds has valid labels', () => {
+      const nearTieWithLabelsData: RecommendationSectionData = {
+        ...mockData,
+        allOptions: [
+          { ...mockData.allOptions[0], id: 'option-1', label: 'Hire Tech Lead' },
+          { ...mockData.allOptions[1], id: 'option-2', label: 'Hire 2 Developers' },
+        ],
+        nearTie: {
+          isTie: true,
+          topOptionId: 'option-1',
+          secondOptionId: 'option-2',
+          tiedOptionIds: ['option-1', 'option-2'],
+          gap: 0.05,
+          threshold: 0.10,
+        },
+      }
+
+      render(<RecommendationSection data={nearTieWithLabelsData} />)
+
+      // Should show tied options message
+      expect(screen.getByText(/Hire Tech Lead and Hire 2 Developers are effectively tied/)).toBeInTheDocument()
+    })
+
+    it('does not show near-tie callout when nearTie.isTie is false', () => {
+      const noNearTieData: RecommendationSectionData = {
+        ...mockData,
+        nearTie: {
+          isTie: false,
+          topOptionId: 'option-1',
+          secondOptionId: 'option-2',
+          tiedOptionIds: [],
+          gap: 0.25,
+          threshold: 0.10,
+        },
+      }
+
+      render(<RecommendationSection data={noNearTieData} />)
+
+      // Should NOT show near-tie warning
+      expect(screen.queryByText(/Too close to call/)).not.toBeInTheDocument()
+    })
+
+    it('falls back to stability-based near-tie when nearTie is undefined', () => {
+      // Low stability (< 0.6) should trigger near-tie display
+      const lowStabilityData: RecommendationSectionData = {
+        ...mockData,
+        nearTie: undefined,
+        recommendationStability: 0.45,  // Below THRESHOLDS.STABILITY_MODERATE (0.6)
+      }
+
+      render(<RecommendationSection data={lowStabilityData} />)
+
+      // Should show near-tie warning based on stability fallback
+      expect(screen.getByText(/Too close to call/)).toBeInTheDocument()
+    })
+
+    it('does not show near-tie when nearTie undefined and stability is high', () => {
+      const highStabilityData: RecommendationSectionData = {
+        ...mockData,
+        nearTie: undefined,
+        recommendationStability: 0.85,  // Above threshold
+      }
+
+      render(<RecommendationSection data={highStabilityData} />)
+
+      // Should NOT show near-tie warning
+      expect(screen.queryByText(/Too close to call/)).not.toBeInTheDocument()
+    })
+
+    it('skips tied options message when only one valid label found', () => {
+      const partialLabelsData: RecommendationSectionData = {
+        ...mockData,
+        allOptions: [
+          { ...mockData.allOptions[0], id: 'option-1', label: 'Hire Tech Lead' },
+        ],
+        nearTie: {
+          isTie: true,
+          topOptionId: 'option-1',
+          secondOptionId: 'option-unknown',  // Not in allOptions
+          tiedOptionIds: ['option-1', 'option-unknown'],
+          gap: 0.04,
+          threshold: 0.10,
+        },
+      }
+
+      render(<RecommendationSection data={partialLabelsData} />)
+
+      // Should show near-tie warning but NOT tied options message
+      expect(screen.getByText(/Too close to call/)).toBeInTheDocument()
+      expect(screen.queryByText(/are effectively tied/)).not.toBeInTheDocument()
+    })
+  })
 })

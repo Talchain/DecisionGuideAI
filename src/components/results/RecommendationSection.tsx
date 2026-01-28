@@ -14,11 +14,13 @@
 
 import { useCallback } from 'react'
 import type { RecommendationSectionData, OptionResult, OutcomeUnitType, StabilityLevel, WinnerDeterminedBy, RobustnessLevel, RobustnessLabel } from './types'
+import type { NearTieInfo } from '../../lib/mappers/types'
 import { focusNodeById } from '../../canvas/utils/focusHelpers'
 import { EMPTY_STATES } from './emptyStates'
 import { formatOutcomeValue, type OutcomeUnits } from '../../lib/format'
 import { typography } from '../../styles/typography'
 import { BASELINE_DELTA_EPSILON } from './constants'
+import { COPY, THRESHOLDS } from '../../lib/mappers/constants'
 
 interface RecommendationSectionProps {
   data: RecommendationSectionData
@@ -511,6 +513,8 @@ export function RecommendationSection({
     robustnessLabel,
     // Task 1.7: Goal text
     goalText,
+    // Near-tie detection
+    nearTie,
   } = data
 
   // Error state
@@ -642,6 +646,45 @@ export function RecommendationSection({
                 </p>
               )}
             </>
+          )
+        })()}
+
+        {/* Near-tie warning callout */}
+        {/* Priority: nearTie.is_tie when available, fallback to stability-based heuristic */}
+        {(() => {
+          const isNearTie = nearTie?.isTie ?? (recommendationStability !== undefined && recommendationStability < THRESHOLDS.STABILITY_MODERATE)
+
+          if (!isNearTie) return null
+
+          // Build tied options labels from allOptions lookup
+          const optionLabels = new Map(allOptions.map(opt => [opt.id, opt.label]))
+          const tiedLabels = (nearTie?.tiedOptionIds ?? [])
+            .map(id => optionLabels.get(id))
+            .filter((label): label is string => Boolean(label))
+
+          // Near-tie message: use gap if available, otherwise generic message
+          const gapPercent = nearTie?.gap !== undefined ? Math.round(nearTie.gap * 100) : 0
+          const nearTieMessage = nearTie?.gap !== undefined && nearTie.gap > 0
+            ? COPY.NEAR_TIE_WITH_GAP(gapPercent)
+            : COPY.NEAR_TIE_MESSAGE
+
+          // Tied options message: only show if we have 2+ labels
+          const tiedOptionsMessage = tiedLabels.length >= 2
+            ? COPY.TIED_OPTIONS_TEMPLATE(tiedLabels[0], tiedLabels[1])
+            : null
+
+          return (
+            <div className="mt-3 p-3 bg-warning-50 border border-warning-200 rounded-lg">
+              <p className="text-sm text-warning-800">
+                <span className="font-medium">⚠️ Too close to call:</span>{' '}
+                {nearTieMessage}
+              </p>
+              {tiedOptionsMessage && (
+                <p className="text-xs text-warning-700 mt-1">
+                  {tiedOptionsMessage}
+                </p>
+              )}
+            </div>
           )
         })()}
 

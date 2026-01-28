@@ -62,11 +62,22 @@ export const OptionNodeDataSchema = NodeDataSchema.extend({
 /**
  * Controllability type for factors
  * Decision Graph Display v2: Task 6
- * P1 Hotfix: Changed 'external' to 'unknown' — we can't claim a factor is external
- * when we simply don't have controllability data for it
+ * CEE V12.4: Added 'observable' and 'external' from explicit category field
+ * - controllable: Options directly set this (solid border)
+ * - observable: Known baseline, not changed by options (dashed border)
+ * - external: Outside user control - market, regulations (dotted border)
+ * - partial: Legacy - indirectly affected by interventions (dashed border)
+ * - unknown: No controllability data available (solid border)
  */
-export const ControllabilityEnum = z.enum(['controllable', 'partial', 'unknown'])
+export const ControllabilityEnum = z.enum(['controllable', 'observable', 'external', 'partial', 'unknown'])
 export type Controllability = z.infer<typeof ControllabilityEnum>
+
+/**
+ * CEE factor category (maps to controllability for display)
+ * CEE V12.4: Explicit category field from CEE analysis
+ */
+export const FactorCategoryEnum = z.enum(['controllable', 'observable', 'external'])
+export type FactorCategory = z.infer<typeof FactorCategoryEnum>
 
 /**
  * Factor node: represents intermediate variable or driver
@@ -75,6 +86,8 @@ export const FactorNodeDataSchema = NodeDataSchema.extend({
   type: z.literal('factor'),
   /** Controllability level for visual border style (Decision Graph Display v2) */
   controllability: ControllabilityEnum.optional(),
+  /** CEE V12.4: Explicit category from CEE analysis (takes precedence over derived controllability) */
+  category: FactorCategoryEnum.optional(),
 })
 
 /**

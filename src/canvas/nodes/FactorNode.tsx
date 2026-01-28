@@ -31,12 +31,14 @@ export const FactorNode = memo((props: NodeProps) => {
   const ceeAnalysisReady = useCanvasStore(state => state.ceeAnalysisReady)
   const resultsStatus = useCanvasStore(state => state.results.status)
 
-  // Task 2: Derive controllability from graph structure
+  // Task 2: Derive controllability from graph structure or CEE category
+  // CEE V12.4: Use explicit category field if provided, fall back to BFS derivation
+  const nodeCategory = props.data?.category as string | undefined
   const controllability = useMemo(() => {
     // Only derive controllability when analysis is complete (Results mode)
     if (resultsStatus !== 'complete') return undefined
-    return deriveControllability(props.id, ceeAnalysisReady?.options, edges)
-  }, [props.id, ceeAnalysisReady?.options, edges, resultsStatus])
+    return deriveControllability(props.id, ceeAnalysisReady?.options, edges, nodeCategory)
+  }, [props.id, ceeAnalysisReady?.options, edges, resultsStatus, nodeCategory])
 
   // Task 3: Get influence and confidence from analysis results
   const displayMetadata = useNodeDisplayMetadata(props.id, 'factor')
@@ -72,34 +74,39 @@ export const FactorNode = memo((props: NodeProps) => {
         </div>
       )}
       {/* Task 3: Influence & Confidence bars (only in Results mode) */}
-      {displayMetadata.isResultsMode && (displayMetadata.influence !== null || displayMetadata.confidence !== null) && (
-        <div className="mt-1 mb-1 space-y-1">
-          {/* Influence bar - teal/info color */}
-          {displayMetadata.influence !== null && (
+      {/* UI Polish Task 2: Only show bars when value > 0.001 (hide zero bars) */}
+      {/* UI Polish Task 3: Added spacing (mt-2 mb-2, space-y-1.5) */}
+      {displayMetadata.isResultsMode && (
+        (displayMetadata.influence !== null && displayMetadata.influence > 0.001) ||
+        (displayMetadata.confidence !== null && displayMetadata.confidence > 0.001)
+      ) && (
+        <div className="mt-2 mb-2 space-y-1.5">
+          {/* Influence bar - teal/info color (only show if > 0) */}
+          {displayMetadata.influence !== null && displayMetadata.influence > 0.001 && (
             <div className="flex items-center gap-1.5">
-              <span className="text-[10px] text-slate-500 w-12 shrink-0">Influence</span>
-              <div className="flex-1 h-1.5 bg-slate-200 rounded-full overflow-hidden">
+              <span className="text-[10px] text-slate-500 w-14 shrink-0 truncate" title="Influence">Influence</span>
+              <div className="flex-1 h-1.5 bg-slate-200 rounded-full overflow-hidden max-w-[60px]">
                 <div
                   className="h-full bg-info-500 rounded-full transition-all duration-300"
                   style={{ width: `${Math.round(displayMetadata.influence * 100)}%` }}
                 />
               </div>
-              <span className="text-[10px] text-slate-500 w-6 text-right">
+              <span className="text-[10px] text-slate-500 w-8 text-right shrink-0">
                 {Math.round(displayMetadata.influence * 100)}%
               </span>
             </div>
           )}
-          {/* Confidence bar - slate/muted color */}
-          {displayMetadata.confidence !== null && (
+          {/* Confidence bar - slate/muted color (only show if > 0) */}
+          {displayMetadata.confidence !== null && displayMetadata.confidence > 0.001 && (
             <div className="flex items-center gap-1.5">
-              <span className="text-[10px] text-slate-500 w-12 shrink-0">Confidence</span>
-              <div className="flex-1 h-1.5 bg-slate-200 rounded-full overflow-hidden">
+              <span className="text-[10px] text-slate-500 w-14 shrink-0 truncate" title="Confidence">Confidence</span>
+              <div className="flex-1 h-1.5 bg-slate-200 rounded-full overflow-hidden max-w-[60px]">
                 <div
                   className="h-full bg-slate-400 rounded-full transition-all duration-300"
                   style={{ width: `${Math.round(displayMetadata.confidence * 100)}%` }}
                 />
               </div>
-              <span className="text-[10px] text-slate-500 w-6 text-right">
+              <span className="text-[10px] text-slate-500 w-8 text-right shrink-0">
                 {Math.round(displayMetadata.confidence * 100)}%
               </span>
             </div>
@@ -108,14 +115,20 @@ export const FactorNode = memo((props: NodeProps) => {
       )}
       {/* Brief v2.2: Display observed value if present */}
       {/* Task 4: Better value display formatting */}
+      {/* UI Polish Task 1 & 3: Fixed unit position (after number for %) and added spacing */}
       {observedState && typeof observedState.value === 'number' && (
-        <div className="factor-node-value text-xs mt-1 flex items-baseline gap-1">
+        <div className="factor-node-value text-xs mt-2 flex items-baseline gap-1">
           <span className="font-semibold text-info-600">
-            {observedState.unit ?? ''}{formatDisplayValue(observedState.value, observedState.unit)}
+            {/* UI Polish: formatDisplayValue handles % internally, so don't prepend unit for % */}
+            {observedState.unit === '%'
+              ? formatDisplayValue(observedState.value, observedState.unit)
+              : `${observedState.unit ?? ''}${formatDisplayValue(observedState.value, observedState.unit)}`}
           </span>
           {observedState.baseline !== undefined && observedState.baseline !== observedState.value && (
             <span className="text-slate-400 text-[10px]">
-              (was {observedState.unit ?? ''}{formatDisplayValue(observedState.baseline, observedState.unit)})
+              (was {observedState.unit === '%'
+                ? formatDisplayValue(observedState.baseline, observedState.unit)
+                : `${observedState.unit ?? ''}${formatDisplayValue(observedState.baseline, observedState.unit)}`})
             </span>
           )}
         </div>

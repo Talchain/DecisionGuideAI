@@ -23,6 +23,19 @@ export const THRESHOLDS = {
   STABILITY_MODERATE: 0.6,
   /** Epsilon for baseline delta display (|delta| < 0.05 = "Same as baseline") */
   BASELINE_DELTA_EPSILON: 0.05,
+  /** Task 2: Below this value = effectively zero impact */
+  FACTOR_ZERO_IMPACT: 0.01,
+} as const
+
+// =============================================================================
+// Display Limits
+// =============================================================================
+
+export const LIMITS = {
+  /** Maximum fragile edges to display before "show more" */
+  FRAGILE_EDGES_DISPLAY: 3,
+  /** Maximum top drivers to show by default */
+  TOP_DRIVERS_DISPLAY: 3,
 } as const
 
 // =============================================================================
@@ -73,12 +86,20 @@ export const ROBUSTNESS_LEVEL_DISPLAY: Record<string, RobustnessDisplayConfig> =
  */
 export const COPY = {
   /**
-   * Message for filtered fragile edges disclosure.
+   * Message for filtered fragile edges disclosure (below threshold).
    * @param count - Number of filtered assumptions
    * @returns Formatted message with correct singular/plural
    */
   FILTERED_EDGES_TEMPLATE: (count: number): string =>
     `${count} additional assumption${count === 1 ? '' : 's'} changed the best option in <30% of scenarios tested`,
+
+  /**
+   * Task 1: Message for hidden high-risk edges (above threshold but cut by display limit).
+   * @param count - Number of hidden high-risk assumptions
+   * @returns Formatted message with correct singular/plural
+   */
+  HIDDEN_HIGH_RISK_TEMPLATE: (count: number): string =>
+    `${count} more assumption${count === 1 ? '' : 's'} above threshold not shown`,
 
   /**
    * Message for individual fragile edge description.
@@ -98,4 +119,34 @@ export const COPY = {
   /** Message when all assumptions below threshold */
   ALL_BELOW_THRESHOLD: (count: number, threshold: number): string =>
     `No high-sensitivity assumptions found. ${count} assumption${count === 1 ? '' : 's'} changed the best option in <${Math.round(threshold * 100)}% of scenarios.`,
+
+  /** Task 3: Empty improvements message when model is in good state */
+  IMPROVEMENTS_EMPTY_READY: 'No improvements identified — your model structure is sound.',
+
+  /** Task 3: Empty improvements message when model needs attention */
+  IMPROVEMENTS_EMPTY_PARTIAL: 'No structural issues detected. Focus on the assumptions above.',
+
+  // ==========================================================================
+  // Near-Tie Messages
+  // ==========================================================================
+
+  /** Generic near-tie message when gap is zero or unavailable */
+  NEAR_TIE_MESSAGE: 'The top options are too close to call. Small changes in your assumptions could shift the recommendation.',
+
+  /**
+   * Near-tie message with gap percentage.
+   * @param gapPercent - Gap as integer percentage (e.g., 4 for 4%)
+   * @returns Formatted message with gap
+   */
+  NEAR_TIE_WITH_GAP: (gapPercent: number): string =>
+    `Only ${gapPercent}% separates the top options — practically tied at this resolution.`,
+
+  /**
+   * Tied options message with option labels.
+   * @param option1 - First option label
+   * @param option2 - Second option label
+   * @returns Formatted message with option names
+   */
+  TIED_OPTIONS_TEMPLATE: (option1: string, option2: string): string =>
+    `${option1} and ${option2} are effectively tied within the model's uncertainty.`,
 } as const

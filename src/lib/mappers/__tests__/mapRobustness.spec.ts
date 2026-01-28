@@ -317,6 +317,132 @@ describe('mapRobustness', () => {
     })
   })
 
+  // ===========================================================================
+  // Near-Tie Mapping Tests
+  // ===========================================================================
+
+  describe('near-tie detection', () => {
+    it('maps near_tie with is_tie true and gap', () => {
+      const robustness: RawRobustness = {
+        near_tie: {
+          is_tie: true,
+          top_option_id: 'opt_a',
+          second_option_id: 'opt_b',
+          tied_option_ids: ['opt_a', 'opt_b'],
+          gap: 0.04,
+          threshold: 0.10,
+        },
+      }
+
+      const result = mapRobustness(robustness, defaultOptions)
+
+      expect(result.nearTie).toBeDefined()
+      expect(result.nearTie?.isTie).toBe(true)
+      expect(result.nearTie?.topOptionId).toBe('opt_a')
+      expect(result.nearTie?.secondOptionId).toBe('opt_b')
+      expect(result.nearTie?.tiedOptionIds).toEqual(['opt_a', 'opt_b'])
+      expect(result.nearTie?.gap).toBe(0.04)
+      expect(result.nearTie?.threshold).toBe(0.10)
+    })
+
+    it('maps near_tie with is_tie false', () => {
+      const robustness: RawRobustness = {
+        near_tie: {
+          is_tie: false,
+          top_option_id: 'opt_a',
+          second_option_id: 'opt_b',
+          tied_option_ids: [],
+          gap: 0.25,
+          threshold: 0.10,
+        },
+      }
+
+      const result = mapRobustness(robustness, defaultOptions)
+
+      expect(result.nearTie).toBeDefined()
+      expect(result.nearTie?.isTie).toBe(false)
+      expect(result.nearTie?.gap).toBe(0.25)
+    })
+
+    it('maps near_tie with zero gap', () => {
+      const robustness: RawRobustness = {
+        near_tie: {
+          is_tie: true,
+          top_option_id: 'opt_a',
+          second_option_id: null,
+          tied_option_ids: ['opt_a', 'opt_b', 'opt_c'],
+          gap: 0,
+          threshold: 0.10,
+        },
+      }
+
+      const result = mapRobustness(robustness, defaultOptions)
+
+      expect(result.nearTie?.isTie).toBe(true)
+      expect(result.nearTie?.gap).toBe(0)
+      expect(result.nearTie?.tiedOptionIds).toEqual(['opt_a', 'opt_b', 'opt_c'])
+    })
+
+    it('returns undefined nearTie when near_tie absent', () => {
+      const robustness: RawRobustness = {
+        level: 'high',
+      }
+
+      const result = mapRobustness(robustness, defaultOptions)
+
+      expect(result.nearTie).toBeUndefined()
+    })
+
+    it('handles camelCase nearTie alias', () => {
+      const robustness: RawRobustness = {
+        nearTie: {
+          isTie: true,
+          topOptionId: 'opt_a',
+          secondOptionId: 'opt_b',
+          tiedOptionIds: ['opt_a', 'opt_b'],
+          gap: 0.08,
+          threshold: 0.10,
+        },
+      }
+
+      const result = mapRobustness(robustness, defaultOptions)
+
+      expect(result.nearTie?.isTie).toBe(true)
+      expect(result.nearTie?.gap).toBe(0.08)
+    })
+
+    it('defaults threshold to 0.10 when missing', () => {
+      const robustness: RawRobustness = {
+        near_tie: {
+          is_tie: true,
+          top_option_id: 'opt_a',
+          tied_option_ids: ['opt_a', 'opt_b'],
+          gap: 0.05,
+          // threshold missing
+        },
+      }
+
+      const result = mapRobustness(robustness, defaultOptions)
+
+      expect(result.nearTie?.threshold).toBe(0.10)
+    })
+
+    it('returns undefined nearTie when is_tie field missing', () => {
+      const robustness: RawRobustness = {
+        near_tie: {
+          top_option_id: 'opt_a',
+          gap: 0.05,
+          // is_tie missing - invalid near_tie
+        } as any,
+      }
+
+      const result = mapRobustness(robustness, defaultOptions)
+
+      // Should return undefined because is_tie is required
+      expect(result.nearTie).toBeUndefined()
+    })
+  })
+
   describe('undefined input', () => {
     it('returns empty structure when robustness is undefined', () => {
       const result = mapRobustness(undefined, defaultOptions)

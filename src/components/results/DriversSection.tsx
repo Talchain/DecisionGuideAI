@@ -18,6 +18,7 @@ import type { DriversSectionData, DriverItem } from './types'
 import { focusNodeById } from '../../canvas/utils/focusHelpers'
 import { EMPTY_STATES } from './emptyStates'
 import { formatFlipRiskMessage } from './utils/formatScenarioRatio'
+import { FactorInsights, hasEnrichmentContent } from './FactorInsights'
 
 interface DriversSectionProps {
   data: DriversSectionData
@@ -182,6 +183,11 @@ function ExpandedDetails({
           Focus on canvas <span aria-hidden="true">→</span>
         </button>
       )}
+
+      {/* CEE-generated insights (observations, perspectives, confidence question) */}
+      {driver.enrichment && hasEnrichmentContent(driver.enrichment) && (
+        <FactorInsights enrichment={driver.enrichment} />
+      )}
     </div>
   )
 }
@@ -316,7 +322,7 @@ export function DriversSection({
 }: DriversSectionProps) {
   const [showAll, setShowAll] = useState(false)
   const [expandedKeys, setExpandedKeys] = useState<Set<string>>(new Set())
-  const { drivers, driversStatus, topDrivers, hasMagnitudeData, islError } = data
+  const { drivers, driversStatus, topDrivers, hasMagnitudeData, islError, hiddenZeroImpactCount } = data
 
   // Diagnostic logging for data issues
   // Fix 3: Guard window access for SSR, Fix 5: Gate behind debug toggle
@@ -440,6 +446,13 @@ export function DriversSection({
         >
           {showAll ? 'Show fewer factors' : `See all factors (+${hiddenCount} more)`}
         </button>
+      )}
+
+      {/* Zero-impact disclosure - only show when collapsed and there are hidden zero-impact factors */}
+      {!showAll && hiddenZeroImpactCount !== undefined && hiddenZeroImpactCount > 0 && (
+        <p className="text-xs text-slate-400 mt-1">
+          {hiddenZeroImpactCount} zero-impact factor{hiddenZeroImpactCount === 1 ? '' : 's'} hidden by default
+        </p>
       )}
     </div>
   )

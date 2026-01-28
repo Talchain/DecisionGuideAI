@@ -253,6 +253,8 @@ export function OutputsDock() {
 
   const healthView = buildHealthStrings(graphHealth ?? null)
   const isPreRun = !hasCompletedFirstRun
+  // Empty state: hide panel when canvas has no nodes
+  const hasGraphContent = nodes.length > 0
   const resultsStatus = useCanvasStore(selectResultsStatus)
   const report = useCanvasStore(selectReport)
   const error = useCanvasStore(selectError)
@@ -688,7 +690,7 @@ export function OutputsDock() {
       root.style.setProperty('--dock-right-expanded', `${clamped}px`)
     } catch {}
   }, [])
-  const transitionClass = prefersReducedMotion ? '' : 'transition-[width] duration-200 ease-in-out'
+  const transitionClass = prefersReducedMotion ? '' : 'transition-[width,opacity] duration-200 ease-in-out'
 
   const toggleOpen = () => {
     setState(prev => {
@@ -763,6 +765,28 @@ export function OutputsDock() {
 
     window.addEventListener('mousemove', handleMove)
     window.addEventListener('mouseup', handleUp)
+  }
+
+  // Empty state: hide panel completely when canvas has no nodes
+  // Use CSS opacity/pointer-events for smooth transition without unmounting
+  if (!hasGraphContent) {
+    return (
+      <aside
+        className={`${transitionClass} flex flex-col`}
+        style={{
+          position: 'fixed',
+          width: 'var(--dock-right-collapsed, 2.5rem)',
+          right: 12,
+          top: 'calc(var(--topbar-h) + 1rem)',
+          bottom: 'calc(var(--bottombar-h) + 1rem)',
+          opacity: 0,
+          pointerEvents: 'none',
+          zIndex: 900,
+        }}
+        aria-hidden="true"
+        data-testid="outputs-dock"
+      />
+    )
   }
 
   return (
@@ -873,7 +897,7 @@ export function OutputsDock() {
       )}
 
       {state.isOpen && (
-        <div className={`flex-1 px-3 py-3 ${typography.caption} text-ink-900/70 space-y-4 overflow-y-auto`} data-testid="outputs-dock-body">
+        <div className={`flex-1 min-h-0 px-3 py-3 ${typography.caption} text-ink-900/70 space-y-4 overflow-y-auto`} data-testid="outputs-dock-body">
             {state.activeTab === 'results' && (
               <div className="space-y-6">
                 {/* P0.6: User-friendly error display */}

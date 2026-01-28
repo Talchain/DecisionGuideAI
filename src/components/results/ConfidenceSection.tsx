@@ -218,6 +218,8 @@ export function ConfidenceSection({
     robustnessStatus,
     robustnessLevel,
     rankingStability,
+    // Task 1: Hidden high-risk edges disclosure
+    hiddenHighRiskCount,
   } = data
 
   const config = TIER_CONFIG[tier.tier]
@@ -364,7 +366,14 @@ export function ConfidenceSection({
             </button>
           )}
 
-          {/* Filtered items disclosure */}
+          {/* Task 1: Hidden high-risk edges disclosure (above threshold but cut by display limit) */}
+          {hiddenHighRiskCount !== undefined && hiddenHighRiskCount > 0 && (
+            <p className="text-xs text-slate-400 mt-2">
+              {hiddenHighRiskCount} more assumption{hiddenHighRiskCount === 1 ? '' : 's'} above threshold not shown
+            </p>
+          )}
+
+          {/* Filtered items disclosure (below threshold) */}
           {filteredFragileEdges && filteredFragileEdges.filteredCount > 0 && (
             <p className="text-xs text-slate-400 mt-2">
               {filteredFragileEdges.description}
@@ -382,9 +391,11 @@ export function ConfidenceSection({
           <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg">
             <p className="text-sm text-slate-600 flex items-start gap-2">
               <span aria-hidden="true">ℹ️</span>
-              {/* Show different message when analysis completed with no improvements */}
+              {/* Task 3: Show context-appropriate message when no improvements */}
               {analysisStatus === 'computed' || analysisStatus === 'partial'
-                ? 'No improvements identified — your model structure is sound.'
+                ? (tier.tier === 'strong' || robustnessLevel === 'high' || robustnessLevel === 'moderate'
+                    ? 'No improvements identified — your model structure is sound.'
+                    : 'No structural issues detected. Focus on the assumptions above.')
                 : EMPTY_STATES.improvements}
             </p>
           </div>

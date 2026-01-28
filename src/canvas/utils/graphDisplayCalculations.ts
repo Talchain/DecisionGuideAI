@@ -183,8 +183,12 @@ export function getControllabilityBorderStyle(
   switch (controllability) {
     case 'controllable':
       return 'border-solid'
+    case 'observable':
+      return 'border-dashed' // Known baseline, not changed by options
+    case 'external':
+      return 'border-dotted' // Outside user control (market, regulations)
     case 'partial':
-      return 'border-dashed'
+      return 'border-dashed' // Legacy: indirectly affected by interventions
     case 'unknown':
       return 'border-solid' // P1 Hotfix: Don't visually distinguish unknown
     default:
@@ -193,11 +197,20 @@ export function getControllabilityBorderStyle(
 }
 
 /**
- * Controllability type for factor nodes
- * P1 Hotfix: Changed 'external' to 'unknown' — we can't claim a factor is external
- * when we simply don't have controllability data for it
+ * Controllability/category type for factor nodes
+ * CEE V12.4: Now supports explicit category field from CEE
+ * - controllable: Options directly set this factor (solid border)
+ * - observable: Known baseline, not changed by options (dashed border)
+ * - external: Outside user control - market, regulations (dotted border)
+ * - partial: Legacy - indirectly affected by interventions (dashed border)
+ * - unknown: No controllability data available (solid border, no visual distinction)
  */
-export type Controllability = 'controllable' | 'partial' | 'unknown'
+export type Controllability = 'controllable' | 'observable' | 'external' | 'partial' | 'unknown'
+
+/**
+ * CEE factor category values (maps to Controllability)
+ */
+export type FactorCategory = 'controllable' | 'observable' | 'external'
 
 /**
  * Option with interventions for controllability derivation
@@ -282,20 +295,24 @@ function buildReachableSet(
 /**
  * Format a numeric value for display
  * Task 4: Better value display formatting
+ * UI Polish: Percentage formatting fix
  *
  * Rules:
  * - Max 2 decimal places for non-currency values
  * - Thousands separator (comma) for large numbers
  * - Handles negative numbers correctly
  * - Returns original value if not a valid number
+ * - Percentage: If unit is '%' and value is in [0,1], multiply by 100 and append '%'
  *
  * @param value - The numeric value to format
  * @param unit - Optional unit (if 'currency' or starts with '$', uses locale currency formatting)
- * @returns Formatted string
+ * @param label - Optional label to help detect 0-1 scale (e.g., "proportion", "fraction")
+ * @returns Formatted string (includes unit suffix for %)
  */
 export function formatDisplayValue(
   value: number | undefined | null,
-  unit?: string
+  unit?: string,
+  label?: string
 ): string {
   if (value === undefined || value === null || !Number.isFinite(value)) {
     return '—'
@@ -310,6 +327,17 @@ export function formatDisplayValue(
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     })
+  }
+
+  // UI Polish Task 1: Handle percentage formatting
+  // If unit is '%' and value appears to be in 0-1 scale, multiply by 100
+  if (unit === '%') {
+    // Value in [-1,1] range → assume 0-1 scale, multiply by 100
+    // |value| > 1 → assume already a percentage, don't multiply
+    // Fix: Handle negative values (e.g., -0.2 → -20%)
+    const isZeroOneScale = Math.abs(value) <= 1
+    const displayValue = isZeroOneScale ? Math.round(value * 100) : Math.round(value)
+    return `${displayValue}%`
   }
 
   // Non-currency: max 2 decimal places, thousands separator
@@ -329,11 +357,44 @@ export function formatDisplayValue(
   return value.toLocaleString('en-US')
 }
 
+/**
+ * UI Polish Task 4: Strip technical annotations from labels
+ * Removes common technical suffixes that shouldn't be user-facing.
+ *
+ * @param label - The raw label string
+ * @returns Cleaned label without technical annotations
+ */
+export function cleanDisplayLabel(label: string | undefined): string {
+  if (!label) return ''
+
+  // Strip common technical annotations
+  return label
+    .replace(/\s*\(higher\s*=\s*worse\)/gi, '')
+    .replace(/\s*\(lower\s*=\s*worse\)/gi, '')
+    .replace(/\s*\(higher\s*=\s*better\)/gi, '')
+    .replace(/\s*\(lower\s*=\s*better\)/gi, '')
+    .trim()
+}
+
 export function deriveControllability(
   nodeId: string,
   options: OptionWithInterventions[] | undefined,
-  edges: EdgeForControllability[] | undefined
+  edges: EdgeForControllability[] | undefined,
+  category?: FactorCategory | string
 ): Controllability {
+  // CEE V12.4: If explicit category is provided, use it directly
+  // This takes precedence over BFS derivation
+  // P1 Hotfix: Normalize category to handle LLM output inconsistencies
+  // (e.g., "External", "external ", "CONTROLLABLE")
+  if (category) {
+    const normalizedCategory = category.trim().toLowerCase()
+    const validCategories: FactorCategory[] = ['controllable', 'observable', 'external']
+    if (validCategories.includes(normalizedCategory as FactorCategory)) {
+      return normalizedCategory as Controllability
+    }
+  }
+
+  // Fallback: BFS-based derivation for backward compatibility
   if (!options || options.length === 0) {
     return 'unknown'
   }

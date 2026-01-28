@@ -27,6 +27,27 @@ export interface DataSourceResult<T> {
 }
 
 // =============================================================================
+// Factor Enrichment Types (CEE-generated insights)
+// =============================================================================
+
+/**
+ * Factor enrichment from CEE /assist/v1/review
+ * Attached to factors via factor_id matching (never by label)
+ */
+export interface FactorEnrichment {
+  /** Factor identifier - used for matching */
+  factor_id: string
+  /** Factor label (informational, not for matching) */
+  factor_label: string
+  /** Observational insights (1-2 items typically) */
+  observations: string[]
+  /** Alternative perspectives (1-2 items typically) */
+  perspectives: string[]
+  /** Confidence-probing question (only for rank 1-3 factors) */
+  confidence_question?: string
+}
+
+// =============================================================================
 // Factor Sensitivity Types
 // =============================================================================
 
@@ -45,6 +66,8 @@ export interface MappedFactor {
   importanceRank: number
   /** Value of information raw score (0-1), undefined if missing */
   valueOfInformation: number | undefined
+  /** CEE-generated enrichment (observations, perspectives, confidence question) */
+  enrichment?: FactorEnrichment
 }
 
 export interface FactorSensitivityResult {
@@ -82,6 +105,25 @@ export interface MappedFragileEdge {
   alternativeWinnerLabel: string | undefined
 }
 
+/**
+ * Near-tie detection from PLoT robustness.near_tie
+ * Indicates when top options are too close to call
+ */
+export interface NearTieInfo {
+  /** Whether the top options are effectively tied */
+  isTie: boolean
+  /** Top option ID */
+  topOptionId: string
+  /** Second-place option ID (null if only one option) */
+  secondOptionId: string | null
+  /** All tied option IDs */
+  tiedOptionIds: string[]
+  /** Probability gap between top options (0-1, NOT percentage) */
+  gap: number
+  /** Detection threshold used (typically 0.10) */
+  threshold: number
+}
+
 export interface MappedRobustness {
   /** Overall robustness level */
   level: 'high' | 'moderate' | 'low' | 'very_low' | undefined
@@ -99,6 +141,8 @@ export interface MappedRobustness {
   recommendedOptionId: string | undefined
   /** Recommended option label */
   recommendedOptionLabel: string | undefined
+  /** Near-tie detection (when top options are too close to call) */
+  nearTie: NearTieInfo | undefined
 }
 
 export interface RobustnessResult {
@@ -209,6 +253,22 @@ export interface RawFragileEdge {
 }
 
 /**
+ * Raw near-tie object from PLoT robustness.near_tie
+ */
+export interface RawNearTie {
+  is_tie?: boolean
+  isTie?: boolean
+  top_option_id?: string
+  topOptionId?: string
+  second_option_id?: string | null
+  secondOptionId?: string | null
+  tied_option_ids?: string[]
+  tiedOptionIds?: string[]
+  gap?: number
+  threshold?: number
+}
+
+/**
  * Raw robustness object from response
  */
 export interface RawRobustness {
@@ -227,6 +287,8 @@ export interface RawRobustness {
   recommendedOptionId?: string
   recommended_option_label?: string
   recommendedOptionLabel?: string
+  near_tie?: RawNearTie
+  nearTie?: RawNearTie
 }
 
 /**

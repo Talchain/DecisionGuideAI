@@ -15,6 +15,7 @@
 import { useMemo } from 'react'
 import { safeArray } from '../../lib/array-utils'
 import { useCanvasStore } from '../../canvas/store'
+import { THRESHOLDS, LIMITS } from '../../lib/mappers/constants'
 import { useShallow } from 'zustand/react/shallow'
 import { findNodeMatches, type Driver } from '../../canvas/utils/driverMatching'
 import type { Node } from '@xyflow/react'
@@ -39,6 +40,7 @@ import type {
   RobustnessLevel,
   RobustnessLabel,
 } from './types'
+import type { FactorEnrichment, NearTieInfo } from '../../lib/mappers/types'
 
 // =============================================================================
 // Winner Selection Helper
@@ -944,6 +946,18 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
         ? rawRobustnessLabel
         : deriveLabelFromLevel(robustnessLevel)
 
+    // Extract near-tie detection from robustness
+    // Keep as undefined when absent (not null) — consistent with existing patterns
+    const rawNearTie = robustness?.near_tie ?? robustness?.nearTie
+    const nearTie: NearTieInfo | undefined = rawNearTie ? {
+      isTie: rawNearTie.is_tie ?? rawNearTie.isTie ?? false,
+      topOptionId: rawNearTie.top_option_id ?? rawNearTie.topOptionId ?? '',
+      secondOptionId: rawNearTie.second_option_id ?? rawNearTie.secondOptionId ?? null,
+      tiedOptionIds: safeArray(rawNearTie.tied_option_ids ?? rawNearTie.tiedOptionIds),
+      gap: rawNearTie.gap ?? 0,
+      threshold: rawNearTie.threshold ?? 0.10,
+    } : undefined
+
     // Task 1.7: Get goal text from framing
     const goalText = currentScenarioFraming?.goal || undefined
 
@@ -970,6 +984,8 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       // Task 2.1: Baseline tracking
       baselineId,
       baselineOutcome,
+      // Near-tie detection: when top options are too close to call
+      nearTie,
     }
   }, [hasCompletedFirstRun, report, nodes, goalLabel, goalNodeId, outcomeUnit, outcomeUnitSymbol, currentScenarioFraming])
 
@@ -1125,6 +1141,23 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       }
     })
 
+    // Step 4c: Build enrichments lookup (CEE-generated insights)
+    // Matching rule: Use factor_id only (never match by label)
+    const factorEnrichmentsRaw = safeArray((report as any)?.factor_enrichments)
+    const enrichmentsByFactorId = new Map<string, FactorEnrichment>()
+    factorEnrichmentsRaw.forEach((e: any) => {
+      const factorId = e.factor_id
+      if (factorId && typeof factorId === 'string') {
+        enrichmentsByFactorId.set(factorId, {
+          factor_id: factorId,
+          factor_label: e.factor_label ?? '',
+          observations: safeArray(e.observations),
+          perspectives: safeArray(e.perspectives),
+          confidence_question: typeof e.confidence_question === 'string' ? e.confidence_question : undefined,
+        })
+      }
+    })
+
     // Step 5: Build driver items with all presentation fields
     // Keep all factors - even those with zero elasticity (they came from the model, show them)
     // Only filter out if we have many factors AND they have zero influence
@@ -1198,6 +1231,10 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
           alternativeWinnerLabel: fragileInfo.alternativeWinnerLabel,
         } : undefined
 
+        // Get CEE enrichment using ONLY the canonical factor ID
+        // Matching rule: Use factorKey only (never match by label or try multiple IDs)
+        const enrichment = enrichmentsByFactorId.get(f.key)
+
         return {
           factorKey: f.key,
           factorLabel: displayLabel,
@@ -1218,12 +1255,30 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
           fragileEdgeInfo,
           // PLoT flip_risk_category - how this factor contributes to decision uncertainty
           flipRiskCategory: f.raw.flipRiskCategory,
+          // CEE-generated enrichment (observations, perspectives, confidence question)
+          enrichment,
         }
       })
       .sort((a, b) => a.rank - b.rank) // Sort by rank
 
-    // Top 3 drivers
-    const topDrivers = driverItems.slice(0, 3)
+    // Task 2: Identify zero-impact factors (influence ≈ 0 AND confidence ≈ 0 or missing)
+    // These are filtered from default view but included in "See all factors"
+    const ZERO_IMPACT_THRESHOLD = 0.01
+    const isZeroImpact = (d: DriverItem) => {
+      const influence = d.influenceScore ?? d.normalisedInfluence
+      const confidence = d.confidence
+      // Bug fix: Handle undefined influence - treat as zero if missing
+      const effectiveInfluence = typeof influence === 'number' ? influence : 0
+      // Zero impact = both influence and confidence are effectively zero or missing
+      return effectiveInfluence < ZERO_IMPACT_THRESHOLD && (confidence === undefined || confidence < ZERO_IMPACT_THRESHOLD)
+    }
+
+    // Filter non-zero-impact factors for default display
+    const nonZeroImpactDrivers = driverItems.filter(d => !isZeroImpact(d))
+    const zeroImpactCount = driverItems.length - nonZeroImpactDrivers.length
+
+    // Top 3 drivers (excluding zero-impact factors)
+    const topDrivers = nonZeroImpactDrivers.slice(0, 3)
 
     // Fix 1: Only set islError when we have NO driver items to show
     // If we have data, prefer showing it even if drivers_status indicates error
@@ -1241,6 +1296,8 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       totalCount: driverItems.length,
       hasMagnitudeData,
       islError: islErrorMessage,
+      // Task 2: Track hidden zero-impact factors
+      hiddenZeroImpactCount: zeroImpactCount > 0 ? zeroImpactCount : undefined,
     }
   }, [report, nodes, edges, goalNodeId, outcomeNodeIds])
 
@@ -1326,7 +1383,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     }
 
     // Dedupe fragile edges by unique key (edge_id + alternative_winner_id)
-    const FRAGILE_EDGE_THRESHOLD = 0.3
+    const FRAGILE_EDGE_THRESHOLD = THRESHOLDS.FRAGILE_EDGE_FILTER
     const dedupedFragileEdges = Array.from(
       new Map(
         fragileEdgesRaw.map((fe: any) => [
@@ -1356,14 +1413,23 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       return typeof flipProb === 'number' && flipProb <= FRAGILE_EDGE_THRESHOLD
     }).length
 
+    // Task 1: Track total high-risk edges before display limit
+    const totalHighRiskEdges = highRiskFragileEdges.length
+    const FRAGILE_EDGES_DISPLAY_LIMIT = LIMITS.FRAGILE_EDGES_DISPLAY
+
     // Sort by risk and take top 3
-    const sensitiveAssumptions = highRiskFragileEdges
+    const sortedHighRiskEdges = highRiskFragileEdges
       .sort((a: any, b: any) => {
         const bProb = b.switch_probability ?? b.marginal_switch_probability ?? -Infinity
         const aProb = a.switch_probability ?? a.marginal_switch_probability ?? -Infinity
         return bProb - aProb
       })
-      .slice(0, 3)
+    const sensitiveAssumptions = sortedHighRiskEdges.slice(0, FRAGILE_EDGES_DISPLAY_LIMIT)
+
+    // Task 1: Count high-risk edges hidden by display limit
+    const hiddenHighRiskCount = totalHighRiskEdges > FRAGILE_EDGES_DISPLAY_LIMIT
+      ? totalHighRiskEdges - FRAGILE_EDGES_DISPLAY_LIMIT
+      : 0
     // Phase 3 Task 3.3: Label enrichment with "Unknown: {id}" fallback
     const formatUnknownId = (id: string | undefined) =>
       id ? `Unknown: ${id}` : undefined
@@ -1558,6 +1624,8 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       qualityScore,
       uncertainties,
       topUncertainties: uncertainties.slice(0, 3),
+      // Task 1: Track total high-risk edges for disclosure
+      totalHighRiskEdges,
       rankingStability: (report as any)?.robustness?.ranking_stability,
       robustnessLevel,
       evidenceCoverage,
@@ -1567,6 +1635,8 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       driversStatus,
       robustnessStatus,
       filteredFragileEdges,
+      // Task 1: Track hidden high-risk edges for disclosure
+      hiddenHighRiskCount: hiddenHighRiskCount > 0 ? hiddenHighRiskCount : undefined,
     }
   }, [report])
 

@@ -14,7 +14,9 @@ import type {
   DataSourcePath,
   MappedFragileEdge,
   MappedRobustness,
+  NearTieInfo,
   RawFragileEdge,
+  RawNearTie,
   RawRobustness,
   RobustnessLevel,
 } from './types'
@@ -110,6 +112,58 @@ function mapFragileEdge(edge: RawFragileEdge): MappedFragileEdge {
 }
 
 // =============================================================================
+// Near-Tie Mapping
+// =============================================================================
+
+/**
+ * Map raw near-tie data to typed NearTieInfo.
+ *
+ * Returns undefined if near_tie is absent or invalid.
+ * Handles multiple field name aliases (snake_case and camelCase).
+ */
+function mapNearTie(nearTie: RawNearTie | undefined): NearTieInfo | undefined {
+  if (!nearTie) return undefined
+
+  // Extract is_tie (required for valid near-tie)
+  const isTie = firstDefined(
+    asOptionalBoolean(nearTie.is_tie),
+    asOptionalBoolean(nearTie.isTie)
+  )
+
+  // If is_tie is undefined, we don't have valid near-tie data
+  if (isTie === undefined) return undefined
+
+  // Extract option IDs
+  const topOptionId = firstDefined(
+    asOptionalString(nearTie.top_option_id),
+    asOptionalString(nearTie.topOptionId)
+  ) ?? ''
+
+  const secondOptionId = firstDefined(
+    asOptionalString(nearTie.second_option_id),
+    asOptionalString(nearTie.secondOptionId)
+  ) ?? null
+
+  // Extract tied option IDs array
+  const tiedOptionIds = asArray<string>(
+    nearTie.tied_option_ids ?? nearTie.tiedOptionIds
+  ).filter((id): id is string => typeof id === 'string')
+
+  // Extract gap and threshold (default threshold to 0.10)
+  const gap = asOptionalNumber(nearTie.gap) ?? 0
+  const threshold = asOptionalNumber(nearTie.threshold) ?? 0.10
+
+  return {
+    isTie,
+    topOptionId,
+    secondOptionId,
+    tiedOptionIds,
+    gap,
+    threshold,
+  }
+}
+
+// =============================================================================
 // Main Mapper Function
 // =============================================================================
 
@@ -189,6 +243,9 @@ export function mapRobustness(
     )
   )
 
+  // Map near-tie detection
+  const nearTie = mapNearTie(robustness.near_tie ?? robustness.nearTie)
+
   return {
     level,
     recommendationStability,
@@ -198,6 +255,7 @@ export function mapRobustness(
     robustEdges,
     recommendedOptionId,
     recommendedOptionLabel,
+    nearTie,
   }
 }
 

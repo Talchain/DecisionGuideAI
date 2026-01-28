@@ -1,0 +1,116 @@
+/**
+ * FactorInsights Component
+ *
+ * Displays CEE-generated enrichments for factor cards:
+ * - Observations (bullet list)
+ * - Perspectives (bullet list)
+ * - Confidence question (callout, for rank 1-3 factors)
+ *
+ * Features:
+ * - Collapsible disclosure with "Insights" label
+ * - Collapsed by default
+ * - Independent toggles (not accordion)
+ * - Accessible: button with aria-expanded, aria-controls
+ */
+
+import { useState, useId } from 'react'
+import { ChevronRight, ChevronDown, Lightbulb } from 'lucide-react'
+import type { FactorEnrichment } from '../../lib/mappers/types'
+
+interface FactorInsightsProps {
+  enrichment: FactorEnrichment
+}
+
+/**
+ * Check if enrichment has any displayable content
+ * Includes observations, perspectives, OR confidence_question
+ */
+export function hasEnrichmentContent(enrichment: FactorEnrichment | undefined): boolean {
+  if (!enrichment) return false
+  return Boolean(
+    enrichment.observations?.length ||
+    enrichment.perspectives?.length ||
+    enrichment.confidence_question?.trim().length
+  )
+}
+
+/**
+ * FactorInsights component - CEE-generated insights disclosure
+ */
+export function FactorInsights({ enrichment }: FactorInsightsProps) {
+  const [isExpanded, setIsExpanded] = useState(false)
+  const contentId = useId()
+
+  // Don't render if no content
+  if (!hasEnrichmentContent(enrichment)) {
+    return null
+  }
+
+  const hasObservations = enrichment.observations?.length > 0
+  const hasPerspectives = enrichment.perspectives?.length > 0
+  const hasConfidenceQuestion =
+    typeof enrichment.confidence_question === 'string' &&
+    enrichment.confidence_question.trim().length > 0
+
+  return (
+    <div className="mt-2 border-t border-sand-200 pt-2">
+      {/* Toggle button */}
+      <button
+        type="button"
+        onClick={() => setIsExpanded(!isExpanded)}
+        aria-expanded={isExpanded}
+        aria-controls={contentId}
+        className="flex items-center gap-1 text-xs text-slate-500 hover:text-slate-700 transition-colors w-full text-left"
+      >
+        {isExpanded ? (
+          <ChevronDown size={14} className="shrink-0" />
+        ) : (
+          <ChevronRight size={14} className="shrink-0" />
+        )}
+        <span className="font-medium">Insights</span>
+      </button>
+
+      {/* Content region */}
+      {isExpanded && (
+        <div
+          id={contentId}
+          className="mt-2 space-y-3 text-xs text-slate-600"
+        >
+          {/* Observations */}
+          {hasObservations && (
+            <div>
+              <div className="font-medium text-slate-500 mb-1">Observations</div>
+              <ul className="list-disc list-inside space-y-0.5 pl-1">
+                {enrichment.observations.map((obs, idx) => (
+                  <li key={idx} className="leading-relaxed">{obs}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* Perspectives */}
+          {hasPerspectives && (
+            <div>
+              <div className="font-medium text-slate-500 mb-1">Perspectives</div>
+              <ul className="list-disc list-inside space-y-0.5 pl-1">
+                {enrichment.perspectives.map((persp, idx) => (
+                  <li key={idx} className="leading-relaxed">{persp}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* Confidence question callout */}
+          {hasConfidenceQuestion && (
+            <div className="bg-info-50 border border-info-200 rounded-md p-2 flex items-start gap-2">
+              <Lightbulb size={14} className="text-info-500 shrink-0 mt-0.5" />
+              <span className="leading-relaxed">{enrichment.confidence_question}</span>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+export default FactorInsights
