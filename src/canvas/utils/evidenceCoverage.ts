@@ -33,8 +33,10 @@ interface EdgeWithProvenance {
  * - 'assumption': User assumption, not external evidence
  * - 'template': Template default, not user-provided evidence
  * - 'ai-suggested': AI weight suggestion, not external evidence
+ *
+ * Exported for consistent use across components (Evidence Gaps, DriverChips, etc.)
  */
-const NON_EVIDENCE_PROVENANCE = ['assumption', 'template', 'ai-suggested']
+export const NON_EVIDENCE_PROVENANCE = ['assumption', 'template', 'ai-suggested']
 
 /**
  * Count edges with evidence (non-empty provenance excluding non-evidence markers)

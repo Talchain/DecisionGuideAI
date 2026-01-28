@@ -21,10 +21,12 @@ interface LensContainerProps {
 export function LensContainer({ title, defaultOpen, children, testId }: LensContainerProps) {
   const [isOpen, setIsOpen] = useState(defaultOpen)
   const regionId = useId()
+  const buttonId = useId()
 
   return (
     <div className="border-t border-sand-200 pt-3" data-testid={testId}>
       <button
+        id={buttonId}
         type="button"
         onClick={() => setIsOpen(!isOpen)}
         className="flex items-center gap-2 w-full text-left py-1 hover:bg-sand-50 rounded px-1 -mx-1 transition-colors"
@@ -42,7 +44,7 @@ export function LensContainer({ title, defaultOpen, children, testId }: LensCont
       </button>
 
       {isOpen && (
-        <div id={regionId} className="mt-2 pl-6">
+        <div id={regionId} role="region" aria-labelledby={buttonId} className="mt-2 pl-6">
           {children}
         </div>
       )}

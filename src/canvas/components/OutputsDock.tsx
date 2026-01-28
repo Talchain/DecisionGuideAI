@@ -77,6 +77,7 @@ import { mapConfidenceToReadiness } from '../utils/mapConfidenceToReadiness'
 import { useV2Run } from '../hooks/useV2Run'
 import { focusNodeById, focusEdgeById } from '../utils/focusHelpers'
 import { buildFragileEdgeIdSet, buildRobustEdgeIdSet, getDisplayEdgeId } from '../utils/edgeIdentity'
+import { NON_EVIDENCE_PROVENANCE } from '../utils/evidenceCoverage'
 import { LensContainer } from './LensContainer'
 // Results Panel Redesign: New section components
 import { useResultsSectionData } from '../../components/results/useResultsSectionData'
@@ -1494,11 +1495,12 @@ function DiagnosticsTabBody({
   const hasPartialData = hasRobustnessData && !hasSynthesis
   const needsAnalysis = !hasRobustnessData && !hasSynthesis
 
-  // Find edges without provenance for evidence gaps
-  const edgesWithoutProvenance = useMemo(() => {
+  // Find edges without real evidence (missing provenance or non-evidence markers)
+  // Uses canonical NON_EVIDENCE_PROVENANCE for consistency with countEdgesWithEvidence
+  const edgesWithoutEvidence = useMemo(() => {
     return edges.filter(edge => {
-      const data = edge.data as any
-      return !data?.provenance && !data?.source
+      const provenance = (edge.data as any)?.provenance
+      return !provenance || NON_EVIDENCE_PROVENANCE.includes(provenance)
     })
   }, [edges])
 
@@ -1628,9 +1630,9 @@ function DiagnosticsTabBody({
       <LensContainer title="Model Structure" defaultOpen={false} testId="lens-model-structure">
         {/* Group headers with microcopy */}
         <div className="mb-3">
-          <div className={`${typography.label} text-ink-700 mb-1`}>Organizational Structure</div>
+          <div className={`${typography.label} text-ink-700 mb-1`}>Organisational Structure</div>
           <p className={`${typography.caption} text-ink-500 mb-2`}>
-            Decisions and options organize alternatives; factors and edges drive inference.
+            Decisions and options organise alternatives; factors and edges drive inference.
           </p>
         </div>
 
@@ -1648,11 +1650,11 @@ function DiagnosticsTabBody({
       {/* ===== LENS 3: IMPROVEMENTS (default COLLAPSED) ===== */}
       <LensContainer title="Improvements" defaultOpen={false} testId="lens-improvements">
         {/* A. Evidence Gaps */}
-        {edgesWithoutProvenance.length > 0 && (
+        {edgesWithoutEvidence.length > 0 && (
           <div className="mb-4" data-testid="evidence-gaps-section">
             <div className={`${typography.label} text-ink-700 mb-2`}>Strengthen Your Model</div>
             <div className="space-y-1">
-              {edgesWithoutProvenance.slice(0, 5).map(edge => {
+              {edgesWithoutEvidence.slice(0, 5).map(edge => {
                 const edgeId = getDisplayEdgeId(edge)
                 const sourceNode = nodes.find(n => n.id === edge.source)
                 const targetNode = nodes.find(n => n.id === edge.target)
@@ -1675,9 +1677,9 @@ function DiagnosticsTabBody({
                   </button>
                 )
               })}
-              {edgesWithoutProvenance.length > 5 && (
+              {edgesWithoutEvidence.length > 5 && (
                 <p className={`${typography.caption} text-ink-500 pl-6`}>
-                  +{edgesWithoutProvenance.length - 5} more edges without evidence
+                  +{edgesWithoutEvidence.length - 5} more edges without evidence
                 </p>
               )}
             </div>

@@ -25,6 +25,7 @@ import { useOptionRanking } from '../canvas/hooks/useOptionRanking'
 import { useComparisonDetection } from '../canvas/hooks/useComparisonDetection'
 import { mapConfidenceToReadiness } from '../canvas/utils/mapConfidenceToReadiness'
 import { computeBaselineComparison } from '../canvas/utils/baselineComparison'
+import { countEdgesWithEvidence } from '../canvas/utils/evidenceCoverage'
 import { getObjectiveText, getGoalDirection } from '../canvas/utils/getObjectiveText'
 import type { OutcomeUnits } from '../lib/format'
 import type { ConfidenceLevel } from '../adapters/plot/types'
@@ -409,11 +410,8 @@ export function useResultsPanelData(): ResultsPanelData {
   // Panel 3: Validate & Improve Data
   // ==========================================================================
   const validate = useMemo<ValidateData>(() => {
-    // Evidence coverage from edges
-    const totalEdges = edges.length
-    const evidencedEdges = edges.filter(
-      e => e.data?.provenance && (e.data.provenance as string).trim() !== ''
-    ).length
+    // Evidence coverage using canonical utility (filters non-evidence markers)
+    const { evidenced: evidencedEdges, total: totalEdges } = countEdgesWithEvidence(edges)
     const percentage = totalEdges > 0 ? Math.round((evidencedEdges / totalEdges) * 100) : 0
 
     // Decision readiness from report or derived from confidence
@@ -525,14 +523,11 @@ export function useResultsPanelData(): ResultsPanelData {
       })
     }
 
-    // 4. Evidence-based recommendations
-    const totalEdges = edges.length
-    const evidencedEdges = edges.filter(
-      e => e.data?.provenance && (e.data.provenance as string).trim() !== ''
-    ).length
-    const coveragePercent = totalEdges > 0 ? Math.round((evidencedEdges / totalEdges) * 100) : 0
+    // 4. Evidence-based recommendations (use canonical utility for consistency)
+    const { evidenced: evidencedEdgesCount, total: totalEdgesCount } = countEdgesWithEvidence(edges)
+    const coveragePercent = totalEdgesCount > 0 ? Math.round((evidencedEdgesCount / totalEdgesCount) * 100) : 0
 
-    if (coveragePercent < 50 && totalEdges > 2) {
+    if (coveragePercent < 50 && totalEdgesCount > 2) {
       actions.push({
         action: 'Add evidence sources to strengthen key relationships',
         rationale: `Only ${coveragePercent}% of your model has supporting evidence.`,

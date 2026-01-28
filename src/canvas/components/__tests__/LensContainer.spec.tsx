@@ -63,7 +63,7 @@ describe('LensContainer', () => {
     expect(button).toHaveAttribute('aria-expanded', 'false')
   })
 
-  it('has aria-controls linked to region id', () => {
+  it('has aria-controls linked to region id with proper a11y attributes', () => {
     render(
       <LensContainer title="Controls Test" defaultOpen={true} testId="controls-lens">
         <div data-testid="region-content">Content</div>
@@ -72,12 +72,18 @@ describe('LensContainer', () => {
 
     const button = screen.getByRole('button', { name: /Controls Test/i })
     const ariaControls = button.getAttribute('aria-controls')
+    const buttonId = button.getAttribute('id')
     expect(ariaControls).toBeTruthy()
+    expect(buttonId).toBeTruthy()
 
-    // The region should have the same ID
+    // The region should have the same ID as aria-controls
     const region = document.getElementById(ariaControls!)
     expect(region).toBeInTheDocument()
     expect(region).toContainElement(screen.getByTestId('region-content'))
+
+    // Region should have role="region" and aria-labelledby pointing to button
+    expect(region).toHaveAttribute('role', 'region')
+    expect(region).toHaveAttribute('aria-labelledby', buttonId)
   })
 
   it('shows correct chevron icon based on state', () => {

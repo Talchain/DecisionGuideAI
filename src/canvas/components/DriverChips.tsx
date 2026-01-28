@@ -35,6 +35,7 @@ import type { LucideIcon } from 'lucide-react'
 import { useCanvasStore } from '../store'
 import { findDriverMatches, type Driver } from '../utils/driverMatching'
 import { focusNodeById, focusEdgeById } from '../utils/focusHelpers'
+import { NON_EVIDENCE_PROVENANCE } from '../utils/evidenceCoverage'
 import { typography } from '../../styles/typography'
 
 // Node icon mapping (matches canvas nodes exactly)
@@ -308,11 +309,12 @@ export function DriverChips({ drivers }: DriverChipsProps) {
   }, [])
 
   // Quick Win #4: Check if a node has evidence on its edges
+  // Uses canonical NON_EVIDENCE_PROVENANCE for consistency
   const checkNodeHasEvidence = useCallback((nodeId: string): boolean => {
     const relevantEdges = edges.filter(e => e.source === nodeId || e.target === nodeId)
     return relevantEdges.some(e => {
       const provenance = e.data?.provenance
-      return provenance && provenance !== 'assumption' && provenance !== 'template'
+      return provenance && !NON_EVIDENCE_PROVENANCE.includes(provenance)
     })
   }, [edges])
 
