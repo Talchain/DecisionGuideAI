@@ -56,6 +56,10 @@ export const BaseNode = memo(({ id, nodeType, icon: Icon, data, selected, childr
   // Set references change on each store update.
   const isHighlighted = useCanvasStore(s => s.highlightedNodes.has(id))
 
+  // Graph Interaction P1: Node dimming for path highlighting
+  // Nodes not on the highlighted path are dimmed (opacity ~0.4)
+  const isDimmed = useCanvasStore(s => s.dimmedNodeIds.has(id))
+
   // Decision Graph Display v2: Get Results-mode display metadata
   const displayMetadata = useNodeDisplayMetadata(id, nodeType)
 
@@ -136,10 +140,11 @@ export const BaseNode = memo(({ id, nodeType, icon: Icon, data, selected, childr
       className={`
         relative rounded-lg border-2 shadow-sm
         ${colors.border} ${borderStyle}
-        transition-all duration-300
+        transition-all duration-200
         cursor-default
         ${selected ? 'ring-2 ring-sky-500 ring-offset-2' : ''}
         ${isHighlighted ? 'ring-4 ring-sun-500 ring-opacity-50' : ''}
+        ${isDimmed ? 'opacity-40' : ''}
       `}
       style={{
         backgroundColor: 'white', // Solid background

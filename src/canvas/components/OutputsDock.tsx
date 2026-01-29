@@ -86,6 +86,7 @@ import { RecommendationSection } from '../../components/results/RecommendationSe
 import { DriversSection } from '../../components/results/DriversSection'
 import { ConfidenceSection } from '../../components/results/ConfidenceSection'
 import { Accordion } from '../../components/results/Accordion'
+import { useCanvasResultsSync } from '../../components/results/useCanvasResultsSync'
 import { executeAutoFix, determineFixType, type AutoFixParams } from '../utils/autoFix'
 import { getStrengthCorrections, type StrengthCorrection } from '../../adapters/plot/v2/adapter'
 import { computeCTA, type CTAConfig } from '../../lib/ctaStateMachine'
@@ -273,6 +274,14 @@ export function OutputsDock() {
 
   // Results Panel Redesign: Section data hook for RecommendationSection, DriversSection, ConfidenceSection
   const resultsSectionData = useResultsSectionData()
+
+  // Graph Interaction P1: Canvas → Results sync for DriversSection accordion
+  const [driversAccordionExpanded, setDriversAccordionExpanded] = useState(false)
+  const { highlightedDriverId, registerDriverRef } = useCanvasResultsSync({
+    drivers: resultsSectionData.drivers.drivers,
+    isAccordionExpanded: driversAccordionExpanded,
+    onExpandAccordion: () => setDriversAccordionExpanded(true),
+  })
 
   // Pre-run blocker state - managed by PreAnalysisGuidance component
   const [hasPreRunBlockers, setHasPreRunBlockers] = useState(false)
@@ -1194,10 +1203,12 @@ export function OutputsDock() {
                     {/* ============================================================
                         CONFIDENCE ACCORDION (collapsed by default)
                         Contents: Drivers (factor sensitivity) + tier badge
+                        Graph Interaction P1: Controlled expansion for Canvas → Results sync
                         ============================================================ */}
                     <Accordion
                       title="What's Influencing This"
-                      defaultExpanded={false}
+                      isExpanded={driversAccordionExpanded}
+                      onExpandChange={setDriversAccordionExpanded}
                       testId="accordion-confidence"
                       badgeCount={resultsSectionData.drivers.totalCount}
                     >
@@ -1209,6 +1220,8 @@ export function OutputsDock() {
                           setTimeout(() => setHighlightedNodes([]), 3000)
                         }}
                         goalLabel={resultsSectionData.goalLabel}
+                        highlightedDriverId={highlightedDriverId}
+                        registerDriverRef={registerDriverRef}
                       />
                     </Accordion>
 

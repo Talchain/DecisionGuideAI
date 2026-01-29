@@ -23,8 +23,12 @@ export interface AccordionProps {
   badgeCount?: number
   /** Badge variant for styling */
   badgeVariant?: 'default' | 'warning' | 'critical'
-  /** Whether section starts expanded */
+  /** Whether section starts expanded (uncontrolled mode) */
   defaultExpanded?: boolean
+  /** Controlled expansion state - when provided, component becomes controlled */
+  isExpanded?: boolean
+  /** Callback when expansion state changes (controlled mode) */
+  onExpandChange?: (expanded: boolean) => void
   /** Content to render when expanded */
   children: ReactNode
   /** Test ID for testing */
@@ -44,11 +48,16 @@ export function Accordion({
   badgeCount,
   badgeVariant = 'default',
   defaultExpanded = false,
+  isExpanded: controlledExpanded,
+  onExpandChange,
   children,
   testId,
   className = '',
 }: AccordionProps) {
-  const [isExpanded, setIsExpanded] = useState(defaultExpanded)
+  // Support both controlled and uncontrolled modes
+  const [internalExpanded, setInternalExpanded] = useState(defaultExpanded)
+  const isControlled = controlledExpanded !== undefined
+  const isExpanded = isControlled ? controlledExpanded : internalExpanded
   const [contentHeight, setContentHeight] = useState<number | undefined>(
     defaultExpanded ? undefined : 0
   )
@@ -83,7 +92,12 @@ export function Accordion({
   }, [isExpanded])
 
   const handleToggle = () => {
-    setIsExpanded(prev => !prev)
+    const newExpanded = !isExpanded
+    if (isControlled) {
+      onExpandChange?.(newExpanded)
+    } else {
+      setInternalExpanded(newExpanded)
+    }
   }
 
   return (

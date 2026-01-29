@@ -45,6 +45,7 @@ const InspectorPanel = lazy(() => import(/* webpackChunkName: "inspector-panel" 
 import { useResultsRun } from './hooks/useResultsRun'
 import { HighlightLayer } from './highlight/HighlightLayer'
 import { registerFocusHelpers, unregisterFocusHelpers } from './utils/focusHelpers'
+import { usePathHighlight } from './hooks/usePathHighlight'
 import { loadRuns, generateGraphHash } from './store/runHistory'
 // HealthStatusBar removed - validation consolidated into OutputsDock panel
 import { DegradedBanner } from './components/DegradedBanner'
@@ -754,6 +755,10 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
     registerFocusHelpers(handleFocusNode, handleFocusEdge)
     return () => unregisterFocusHelpers()
   }, [handleFocusNode, handleFocusEdge])
+
+  // Graph Interaction P1: Enable path highlighting based on node selection
+  // Highlights causal paths from selected factor to goal, dims unrelated nodes
+  usePathHighlight()
 
   // Run simulation handler with shared eligibility gating
   const handleRunSimulation = useCallback(async () => {

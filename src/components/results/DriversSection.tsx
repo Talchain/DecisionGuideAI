@@ -27,6 +27,10 @@ interface DriversSectionProps {
   onRetry?: () => void
   /** Goal label for direction-based interpretation fallback (Task 3.5) */
   goalLabel?: string
+  /** Graph Interaction P1: ID of currently highlighted driver (from canvas selection sync) */
+  highlightedDriverId?: string | null
+  /** Graph Interaction P1: Ref callback to register driver row elements for scroll sync */
+  registerDriverRef?: (factorKey: string, element: HTMLDivElement | null) => void
 }
 
 // Bar colors (hex values as specified)
@@ -256,11 +260,17 @@ function DriverRow({
   driver,
   onFocus,
   goalLabel,
+  isHighlighted,
+  registerRef,
 }: {
   driver: DriverItem
   onFocus?: (nodeId: string) => void
   /** Goal label for direction-based interpretation fallback (Task 3.5) */
   goalLabel?: string
+  /** Graph Interaction P1: Whether this row is highlighted from canvas selection */
+  isHighlighted?: boolean
+  /** Graph Interaction P1: Ref callback to register this row for scroll sync */
+  registerRef?: (element: HTMLDivElement | null) => void
 }) {
   const [isTooltipOpen, setIsTooltipOpen] = useState(false)
   const infoButtonRef = useRef<HTMLButtonElement>(null)
@@ -357,7 +367,14 @@ function DriverRow({
   )
 
   return (
-    <div className="rounded-lg border border-slate-200 overflow-hidden bg-white relative">
+    <div
+      ref={registerRef}
+      className={`rounded-lg border overflow-hidden bg-white relative transition-all duration-200 ${
+        isHighlighted
+          ? 'border-amber-400 ring-2 ring-amber-300 shadow-lg'
+          : 'border-slate-200'
+      }`}
+    >
       {/* Line 1: Factor name + bars */}
       <div className={`grid ${GRID_COLS} gap-3 items-center p-3 pb-1`}>
         {/* Factor name with direction arrow */}
@@ -470,6 +487,8 @@ export function DriversSection({
   onFocusNode,
   onRetry,
   goalLabel,
+  highlightedDriverId,
+  registerDriverRef,
 }: DriversSectionProps) {
   const [showAll, setShowAll] = useState(false)
   const { drivers, driversStatus, topDrivers, hasMagnitudeData, islError, hiddenZeroImpactCount } = data
@@ -548,6 +567,11 @@ export function DriversSection({
             driver={driver}
             onFocus={onFocusNode}
             goalLabel={goalLabel}
+            isHighlighted={highlightedDriverId === driver.factorKey}
+            registerRef={registerDriverRef
+              ? (el) => registerDriverRef(driver.factorKey, el)
+              : undefined
+            }
           />
         ))}
       </div>

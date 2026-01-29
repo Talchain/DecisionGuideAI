@@ -61,6 +61,10 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
   const isResultsMode = resultsStatus === 'complete'
   const report = useCanvasStore(state => state.results.report)
 
+  // Graph Interaction P1: Path highlighting for selected node
+  // React #185 FIX: Use primitive boolean selector to prevent infinite re-renders
+  const isHighlightedEdge = useCanvasStore(state => state.highlightedEdges.has(id))
+
   // Check if this edge is fragile (switch_probability > 0.3)
   // P0 Fix: Match by from_id/to_id (source/target) OR edge_id
   // API returns from_id/to_id pairs, not edge_id in most cases
@@ -279,13 +283,17 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
         id={id}
         path={edgePath}
         style={{
-          strokeWidth: edgeStrokeWidth,
+          // Graph Interaction P1: Highlighted edges get thicker stroke
+          strokeWidth: isHighlightedEdge ? Math.max(edgeStrokeWidth, 3) : edgeStrokeWidth,
           // Fix 1: Use existence certainty for line style, fallback to visual props
           strokeDasharray: dashArray ?? visualProps.strokeDasharray,
+          // Graph Interaction P1: Highlighted edges get brighter color
           // Brief v2.2: Use direction-based colour (always applies - grey for unknown)
-          stroke: directionStroke ?? visualProps.stroke,
+          stroke: isHighlightedEdge ? '#f59e0b' : (directionStroke ?? visualProps.stroke),
           // Performance: use will-change for frequent updates
-          willChange: selected ? 'stroke, stroke-width' : undefined,
+          willChange: selected || isHighlightedEdge ? 'stroke, stroke-width' : undefined,
+          // Graph Interaction P1: Smooth transition for highlighting
+          transition: 'stroke 200ms, stroke-width 200ms',
         }}
       />
       
