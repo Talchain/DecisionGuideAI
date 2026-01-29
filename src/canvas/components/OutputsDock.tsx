@@ -61,6 +61,7 @@ import { ValidationPanel, type CritiqueItem } from './ValidationPanel'
 import { GraphTextView } from './GraphTextView'
 import { PreAnalysisGuidance } from './PreAnalysisGuidance'
 import { PreAnalysisHealth } from './PreAnalysisHealth'
+import { PreAnalysisReadinessPanel } from './PreAnalysisReadinessPanel'
 import { GoalNodeSelector, useGoalNodeActions } from './GoalNodeSelector'
 import { ThresholdInput } from './ThresholdInput'
 import { usePreRunValidation } from '../hooks/usePreRunValidation'
@@ -1032,74 +1033,15 @@ export function OutputsDock() {
                       />
                     )}
 
-                    {/* Graph readiness assessment from CEE - only show when canvas has nodes */}
+                    {/* Pre-Analysis Readiness Panel - consolidated quality, blockers, and coaching */}
                     {nodes.length > 0 && (
-                      <PreAnalysisHealth
+                      <PreAnalysisReadinessPanel
                         onAnalyze={handleRunAnalysis}
                         isAnalyzing={isRunning}
+                        onBlockersChange={setHasPreRunBlockers}
                         onCanRunChange={setReadinessCanRun}
-                        hasBlockers={hasPreRunBlockers || !preRunValidation.canRun}
                       />
                     )}
-
-                    {/* Consolidated pre-analysis guidance (coaching, validation, weights, biases) */}
-                    <PreAnalysisGuidance onBlockersChange={setHasPreRunBlockers} />
-
-                    {/* User questions from CEE - shows when analysis_ready.status is not 'ready' */}
-                    {preRunValidation.userQuestions && preRunValidation.userQuestions.length > 0 && (
-                      <div
-                        className="px-3 py-2 bg-sun-50 border border-sun-200 rounded-lg"
-                        role="alert"
-                        data-testid="user-questions-alert"
-                      >
-                        <div className="flex items-start gap-2">
-                          <AlertTriangle className="w-4 h-4 text-sun-600 flex-shrink-0 mt-0.5" aria-hidden="true" />
-                          <div className="space-y-1">
-                            <p className="text-sm font-medium text-sun-800">Needs Attention</p>
-                            <ul className="space-y-1">
-                              {preRunValidation.userQuestions.map((question, idx) => (
-                                <li key={idx} className="text-xs text-sun-700">
-                                  {question}
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* R3: Run analysis button - CTA state machine driven */}
-                    <button
-                      type="button"
-                      onClick={handleRunAnalysis}
-                      disabled={!ctaConfig.enabled || !preRunValidation.canRun}
-                      title={
-                        !preRunValidation.canRun && preRunValidation.blockers.length > 0
-                          ? preRunValidation.blockers[0].message
-                          : ctaConfig.tooltip
-                      }
-                      className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-medium transition-colors ${
-                        ctaConfig.variant === 'disabled' || !preRunValidation.canRun
-                          ? 'bg-sand-200 text-ink-500 cursor-not-allowed'
-                          : ctaConfig.variant === 'warning'
-                            ? 'bg-sun-500 text-white hover:bg-sun-600'
-                            : ctaConfig.variant === 'secondary'
-                              ? 'bg-sand-300 text-ink-700 cursor-wait'
-                              : 'bg-sky-500 text-white hover:bg-sky-600'
-                      }`}
-                      data-testid="outputs-run-button"
-                    >
-                      {ctaConfig.icon === 'loader' ? (
-                        <RefreshCw className="w-5 h-5 animate-spin" aria-hidden="true" />
-                      ) : ctaConfig.icon === 'refresh' ? (
-                        <RefreshCw className="w-5 h-5" aria-hidden="true" />
-                      ) : ctaConfig.icon === 'alert' ? (
-                        <AlertTriangle className="w-5 h-5" aria-hidden="true" />
-                      ) : (
-                        <PlayCircle className="w-5 h-5" aria-hidden="true" />
-                      )}
-                      {ctaConfig.text}
-                    </button>
                   </div>
                 )}
                 {/* Phase 2 Sprint 1B: Slow-run UX feedback */}
