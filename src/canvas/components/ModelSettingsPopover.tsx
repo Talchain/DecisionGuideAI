@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
-import { Check } from 'lucide-react'
+import { Check, ChevronDown, ChevronUp, Loader2 } from 'lucide-react'
 import { useCanvasStore } from '../store'
-import { AI_MODELS, DEFAULT_MODELS, getModelDisplayName } from '../../config/aiModels'
+import { DEFAULT_MODELS, formatTier, type ModelInfo, type OperationType } from '../../config/aiModels'
+import { useAvailableModels } from '../../hooks/useAvailableModels'
 import { typography } from '../../styles/typography'
 
 interface ModelSettingsPopoverProps {
@@ -18,11 +19,18 @@ interface ModelSettingsPopoverProps {
  * - Repair: Fixes structural issues in the graph
  * - Enrichment: Adds detail and context to nodes/edges
  *
- * Only non-default selections are sent to the API to keep payloads clean.
+ * Features:
+ * - Dynamic model list fetched from CEE API
+ * - Curated models by default with "Show all" toggle
+ * - Only non-default selections are sent to the API
  */
 export function ModelSettingsPopover({ isOpen, onClose, anchorRef }: ModelSettingsPopoverProps) {
   const popoverRef = useRef<HTMLDivElement>(null)
   const [position, setPosition] = useState({ top: 0, right: 0 })
+  const [showAllModels, setShowAllModels] = useState(false)
+
+  // Fetch available models from API
+  const { getCuratedModels, getAllModels, getDefaultModelId, isLoading, isFallback } = useAvailableModels()
 
   // Get model selection state from store
   const selectedGenerationModel = useCanvasStore((s) => s.selectedGenerationModel)
@@ -32,10 +40,23 @@ export function ModelSettingsPopover({ isOpen, onClose, anchorRef }: ModelSettin
   const setSelectedRepairModel = useCanvasStore((s) => s.setSelectedRepairModel)
   const setSelectedEnrichmentModel = useCanvasStore((s) => s.setSelectedEnrichmentModel)
 
+  // Get effective default model IDs from API (fallback to hardcoded)
+  const defaultGeneration = getDefaultModelId('generation') || DEFAULT_MODELS.generation
+  const defaultRepair = getDefaultModelId('repair') || DEFAULT_MODELS.repair
+  const defaultEnrichment = getDefaultModelId('enrichment') || DEFAULT_MODELS.enrichment
+
   // Get effective model IDs (use default if null)
-  const effectiveGenerationModel = selectedGenerationModel ?? DEFAULT_MODELS.generation
-  const effectiveRepairModel = selectedRepairModel ?? DEFAULT_MODELS.repair
-  const effectiveEnrichmentModel = selectedEnrichmentModel ?? DEFAULT_MODELS.enrichment
+  const effectiveGenerationModel = selectedGenerationModel ?? defaultGeneration
+  const effectiveRepairModel = selectedRepairModel ?? defaultRepair
+  const effectiveEnrichmentModel = selectedEnrichmentModel ?? defaultEnrichment
+
+  // Get models to display based on toggle
+  const getModelsForOperation = (operation: OperationType): ModelInfo[] => {
+    if (showAllModels) {
+      return getAllModels()
+    }
+    return getCuratedModels(operation)
+  }
 
   // Calculate popover position based on anchor element
   useEffect(() => {
@@ -116,6 +137,8 @@ export function ModelSettingsPopover({ isOpen, onClose, anchorRef }: ModelSettin
 
   if (!isOpen) return null
 
+  const allModelsCount = getAllModels().length
+
   return (
     <div
       ref={popoverRef}
@@ -130,11 +153,17 @@ export function ModelSettingsPopover({ isOpen, onClose, anchorRef }: ModelSettin
     >
       {/* Header */}
       <div className="px-4 py-3 border-b border-sand-100 flex-shrink-0">
-        <h3 id="model-settings-title" className={`${typography.label} text-ink-900`}>
-          Model Settings
-        </h3>
+        <div className="flex items-center justify-between">
+          <h3 id="model-settings-title" className={`${typography.label} text-ink-900`}>
+            Model Settings
+          </h3>
+          {isLoading && <Loader2 className="w-4 h-4 text-ink-400 animate-spin" />}
+        </div>
         <p className={`${typography.bodySmall} text-ink-500 mt-0.5`}>
           Choose AI models for each operation
+          {isFallback && !isLoading && (
+            <span className="text-carrot-600"> (offline mode)</span>
+          )}
         </p>
       </div>
 
@@ -144,12 +173,13 @@ export function ModelSettingsPopover({ isOpen, onClose, anchorRef }: ModelSettin
         <ModelDropdown
           label="Generation"
           description="Creates the initial draft graph"
+          models={getModelsForOperation('generation')}
           selectedModelId={effectiveGenerationModel}
-          defaultModelId={DEFAULT_MODELS.generation}
+          defaultModelId={defaultGeneration}
           onSelect={(modelId) => {
             // If selecting the default, store null to keep payload clean
             setSelectedGenerationModel(
-              modelId === DEFAULT_MODELS.generation ? null : modelId
+              modelId === defaultGeneration ? null : modelId
             )
           }}
         />
@@ -158,11 +188,12 @@ export function ModelSettingsPopover({ isOpen, onClose, anchorRef }: ModelSettin
         <ModelDropdown
           label="Repair"
           description="Fixes structural issues"
+          models={getModelsForOperation('repair')}
           selectedModelId={effectiveRepairModel}
-          defaultModelId={DEFAULT_MODELS.repair}
+          defaultModelId={defaultRepair}
           onSelect={(modelId) => {
             setSelectedRepairModel(
-              modelId === DEFAULT_MODELS.repair ? null : modelId
+              modelId === defaultRepair ? null : modelId
             )
           }}
         />
@@ -171,18 +202,34 @@ export function ModelSettingsPopover({ isOpen, onClose, anchorRef }: ModelSettin
         <ModelDropdown
           label="Enrichment"
           description="Adds detail and context"
+          models={getModelsForOperation('enrichment')}
           selectedModelId={effectiveEnrichmentModel}
-          defaultModelId={DEFAULT_MODELS.enrichment}
+          defaultModelId={defaultEnrichment}
           onSelect={(modelId) => {
             setSelectedEnrichmentModel(
-              modelId === DEFAULT_MODELS.enrichment ? null : modelId
+              modelId === defaultEnrichment ? null : modelId
             )
           }}
         />
+
+        {/* Show All Models Toggle */}
+        <button
+          onClick={() => setShowAllModels(!showAllModels)}
+          className="w-full flex items-center justify-between px-3 py-2 rounded-lg bg-sand-50 hover:bg-sand-100 text-ink-600 transition-colors"
+        >
+          <span className={typography.bodySmall}>
+            {showAllModels ? 'Show recommended only' : `Show all models (${allModelsCount})`}
+          </span>
+          {showAllModels ? (
+            <ChevronUp className="w-4 h-4" />
+          ) : (
+            <ChevronDown className="w-4 h-4" />
+          )}
+        </button>
       </div>
 
       {/* Footer */}
-      <div className="px-4 py-3 border-t border-sand-100 bg-sand-50 rounded-b-lg flex-shrink-0">
+      <div className="px-4 py-3 border-t border-sand-100 bg-sand-50 rounded-b-[20px] flex-shrink-0">
         <p className={`${typography.bodySmall} text-ink-500`}>
           Only non-default selections are sent to the API
         </p>
@@ -194,6 +241,7 @@ export function ModelSettingsPopover({ isOpen, onClose, anchorRef }: ModelSettin
 interface ModelDropdownProps {
   label: string
   description: string
+  models: ModelInfo[]
   selectedModelId: string
   defaultModelId: string
   onSelect: (modelId: string) => void
@@ -202,44 +250,77 @@ interface ModelDropdownProps {
 function ModelDropdown({
   label,
   description,
+  models,
   selectedModelId,
   defaultModelId,
   onSelect,
 }: ModelDropdownProps) {
+  // Group models by tier
+  const groupedModels = models.reduce((acc, model) => {
+    const tier = model.tier || 'quality'
+    if (!acc[tier]) acc[tier] = []
+    acc[tier].push(model)
+    return acc
+  }, {} as Record<string, ModelInfo[]>)
+
+  // Define tier order
+  const tierOrder = ['premium', 'quality', 'fast']
+  const sortedTiers = Object.keys(groupedModels).sort(
+    (a, b) => tierOrder.indexOf(a) - tierOrder.indexOf(b)
+  )
+
   return (
     <div>
       <label className={`${typography.labelSmall} text-ink-700 block mb-1`}>
         {label}
       </label>
       <p className={`${typography.bodySmall} text-ink-500 mb-2`}>{description}</p>
-      <div className="space-y-1">
-        {AI_MODELS.map((model) => {
-          const isSelected = model.id === selectedModelId
-          const isDefault = model.id === defaultModelId
-
-          return (
-            <button
-              key={model.id}
-              onClick={() => onSelect(model.id)}
-              className={`w-full flex items-center justify-between px-3 py-2 rounded-lg border transition-colors ${
-                isSelected
-                  ? 'bg-sky-50 border-sky-200 text-sky-900'
-                  : 'bg-white border-sand-200 text-ink-700 hover:bg-sand-50'
-              }`}
-            >
-              <div className="flex flex-col items-start">
-                <span className={typography.bodySmall}>
-                  {model.displayName}
-                  {isDefault && (
-                    <span className="ml-1 text-xs text-ink-500">(Default)</span>
-                  )}
-                </span>
-                <span className="text-xs text-ink-400">{model.tier}</span>
+      <div className="space-y-1 max-h-48 overflow-y-auto">
+        {sortedTiers.map((tier) => (
+          <div key={tier}>
+            {/* Show tier header only when showing all models or multiple tiers */}
+            {sortedTiers.length > 1 && (
+              <div className={`${typography.labelSmall} text-ink-400 px-2 py-1 text-xs uppercase tracking-wider`}>
+                {formatTier(tier as 'premium' | 'quality' | 'fast')}
               </div>
-              {isSelected && <Check className="w-4 h-4 text-sky-600" />}
-            </button>
-          )
-        })}
+            )}
+            {groupedModels[tier].map((model) => {
+              const isSelected = model.id === selectedModelId
+              const isDefault = model.id === defaultModelId
+
+              return (
+                <button
+                  key={model.id}
+                  onClick={() => onSelect(model.id)}
+                  className={`w-full flex items-center justify-between px-3 py-2 rounded-lg border transition-colors ${
+                    isSelected
+                      ? 'bg-sky-50 border-sky-200 text-sky-900'
+                      : 'bg-white border-sand-200 text-ink-700 hover:bg-sand-50'
+                  }`}
+                >
+                  <div className="flex flex-col items-start text-left">
+                    <span className={typography.bodySmall}>
+                      {model.displayName}
+                      {isDefault && (
+                        <span className="ml-1 text-xs text-ink-500">(Default)</span>
+                      )}
+                    </span>
+                    <span className="text-xs text-ink-400">
+                      {model.provider} · {formatTier(model.tier)}
+                      {model.isReasoning && ' · Reasoning'}
+                    </span>
+                  </div>
+                  {isSelected && <Check className="w-4 h-4 text-sky-600 flex-shrink-0" />}
+                </button>
+              )
+            })}
+          </div>
+        ))}
+        {models.length === 0 && (
+          <p className={`${typography.bodySmall} text-ink-400 text-center py-4`}>
+            No models available
+          </p>
+        )}
       </div>
     </div>
   )
