@@ -17,6 +17,7 @@ import {
   CheckCircle,
   ChevronDown,
   ChevronRight,
+  HelpCircle,
   Loader2,
   X,
   ExternalLink,
@@ -51,9 +52,9 @@ interface BlockingIssue {
 
 interface PreAnalysisReadinessPanelProps {
   /** Callback when user clicks the primary action button */
-  onAnalyze: () => void
+  onAnalyse: () => void
   /** Whether analysis is currently running */
-  isAnalyzing?: boolean
+  isAnalysing?: boolean
   /** Callback when blocker count changes (for parent run gating) */
   onBlockersChange?: (hasBlockers: boolean) => void
   /** Callback when readiness changes (for parent run gating) */
@@ -229,28 +230,28 @@ function extractPercentage(text: string): string | null {
 function AnalyzeButton({
   totalBlockers,
   isReady,
-  isAnalyzing,
+  isAnalysing,
   onClick,
 }: {
   totalBlockers: number
   isReady: boolean
-  isAnalyzing: boolean
+  isAnalysing: boolean
   onClick: () => void
 }) {
-  const isDisabled = !isReady || isAnalyzing
+  const isDisabled = !isReady || isAnalysing
 
   // Determine button state
   let label: string
   let style: string
 
-  if (isAnalyzing) {
-    label = 'Analyzing...'
+  if (isAnalysing) {
+    label = 'Analysing...'
     style = 'bg-sky-500 text-white cursor-wait'
   } else if (totalBlockers > 0) {
     label = `Fix ${totalBlockers} Issue${totalBlockers !== 1 ? 's' : ''} First`
     style = 'bg-sand-200 text-sand-600 cursor-not-allowed'
   } else {
-    label = 'Analyze Now'
+    label = 'Analyse Now'
     style = 'bg-sky-500 hover:bg-sky-600 text-white'
   }
 
@@ -260,9 +261,9 @@ function AnalyzeButton({
       onClick={onClick}
       disabled={isDisabled}
       className={`${typography.body} font-medium px-4 py-2.5 rounded-lg transition-colors flex items-center gap-2 ${style}`}
-      aria-label={isDisabled ? (isAnalyzing ? 'Analysis in progress' : 'Fix issues before analyzing') : 'Run analysis'}
+      aria-label={isDisabled ? (isAnalysing ? 'Analysis in progress' : 'Fix issues before analysing') : 'Run analysis'}
     >
-      {isAnalyzing && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
+      {isAnalysing && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
       {label}
     </button>
   )
@@ -336,8 +337,8 @@ function QualityBar({
           style={{ width: `${percent}%` }}
         />
       </div>
-      <span className={`${typography.caption} text-ink-500 w-6 text-right`}>
-        {score}
+      <span className={`${typography.caption} text-ink-500 w-10 text-right`}>
+        {score}/10
       </span>
     </div>
   )
@@ -345,8 +346,9 @@ function QualityBar({
 
 /**
  * Task 4: Ready State Option Chip
+ * When all options are configured, omit individual checkmarks (Task 6)
  */
-function OptionChip({ label }: { label: string }) {
+function OptionChip({ label, showCheckmark = true }: { label: string; showCheckmark?: boolean }) {
   const displayLabel = label.length > 15 ? `${label.slice(0, 14)}...` : label
 
   return (
@@ -354,7 +356,7 @@ function OptionChip({ label }: { label: string }) {
       className={`${typography.caption} inline-flex items-center gap-1 px-2 py-1 bg-mint-100 text-mint-700 rounded`}
       title={label}
     >
-      <CheckCircle className="h-3 w-3" />
+      {showCheckmark && <CheckCircle className="h-3 w-3" />}
       {displayLabel}
     </span>
   )
@@ -418,8 +420,8 @@ function CoachingCard({
 // ============================================================================
 
 export function PreAnalysisReadinessPanel({
-  onAnalyze,
-  isAnalyzing = false,
+  onAnalyse,
+  isAnalysing = false,
   onBlockersChange,
   onCanRunChange,
 }: PreAnalysisReadinessPanelProps) {
@@ -551,16 +553,25 @@ export function PreAnalysisReadinessPanel({
 
   return (
     <div className="space-y-4" data-testid="pre-analysis-readiness-panel">
-      {/* Task 3: Quality Header */}
+      {/* Task 3: Quality Header - renamed to Model Readiness */}
       <div className="p-4 bg-paper-50 border border-sand-200 rounded-xl">
         <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            <span className={`${typography.caption} text-ink-500`}>Model Readiness:</span>
             <span className={`${typography.body} font-semibold ${qualityLevel.color}`}>
               {qualityLevel.label}
             </span>
             <span className={`${typography.caption} text-ink-500`}>
               ({qualityScore}%)
             </span>
+            <button
+              type="button"
+              className="text-ink-400 hover:text-ink-600 transition-colors"
+              title="Estimates whether your model is ready to analyse, not which option will win."
+              aria-label="Help: Estimates whether your model is ready to analyse, not which option will win."
+            >
+              <HelpCircle className="h-3.5 w-3.5" />
+            </button>
             {readinessLoading && (
               <Loader2 className="h-3.5 w-3.5 text-sand-400 animate-spin" aria-hidden="true" />
             )}
@@ -569,15 +580,10 @@ export function PreAnalysisReadinessPanel({
           <AnalyzeButton
             totalBlockers={totalBlockers}
             isReady={isReady}
-            isAnalyzing={isAnalyzing}
-            onClick={onAnalyze}
+            isAnalysing={isAnalysing}
+            onClick={onAnalyse}
           />
         </div>
-
-        {/* Summary line */}
-        <p className={`${typography.caption} text-ink-500 mb-3`}>
-          {nodeCount} nodes · {edgeCount} edges · {optionCount} options
-        </p>
 
         {/* Collapsible quality breakdown */}
         <button
@@ -592,13 +598,17 @@ export function PreAnalysisReadinessPanel({
           ) : (
             <ChevronRight className="h-4 w-4" />
           )}
-          <span className={typography.caption}>Quality breakdown</span>
+          <span className={typography.caption}>Estimated breakdown</span>
         </button>
 
         {isBreakdownOpen && (
           <div id="quality-breakdown-content" className="mt-3 space-y-2">
-            {/* Estimated breakdown - derived from overall score (Issue 4: labeled as estimated) */}
-            <p className={`${typography.caption} text-ink-400 italic mb-2`}>Estimated breakdown</p>
+            {/* Node/edge/option count - demoted to breakdown */}
+            <p className={`${typography.caption} text-ink-500 mb-2`}>
+              {nodeCount} nodes · {edgeCount} edges · {optionCount} options
+            </p>
+            {/* Context line */}
+            <p className={`${typography.caption} text-ink-400 italic mb-2`}>Based on graph structure before simulation</p>
             <QualityBar label="Structure" score={Math.round(qualityScore / 10)} />
             <QualityBar label="Coverage" score={Math.round((qualityScore * 0.9) / 10)} />
             <QualityBar label="Causality" score={Math.round((qualityScore * 0.85) / 10)} />
@@ -629,17 +639,18 @@ export function PreAnalysisReadinessPanel({
       )}
 
       {/* Task 4: Ready State Display */}
+      {/* Task 6: When all options ready, remove individual checkmarks from chips */}
       {!hasBlockingIssues && (
         <div className="p-4 bg-mint-50 border border-mint-200 rounded-xl">
           <div className="flex items-center gap-2 mb-3">
             <CheckCircle className="h-5 w-5 text-mint-600" aria-hidden="true" />
             <span className={`${typography.body} font-medium text-mint-800`}>
-              Ready to analyze
+              Ready to analyse
             </span>
           </div>
           <div className="flex flex-wrap gap-2">
             {readyOptions.map((option) => (
-              <OptionChip key={option.label} label={option.label} />
+              <OptionChip key={option.label} label={option.label} showCheckmark={false} />
             ))}
           </div>
           <p className={`${typography.caption} text-mint-700 mt-2`}>

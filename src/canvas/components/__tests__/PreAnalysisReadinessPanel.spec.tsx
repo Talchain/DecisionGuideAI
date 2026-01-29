@@ -76,7 +76,7 @@ vi.mock('../../../canvas/utils/focusHelpers', () => ({
 }))
 
 describe('PreAnalysisReadinessPanel', () => {
-  const mockOnAnalyze = vi.fn()
+  const mockOnAnalyse = vi.fn()
   const mockOnBlockersChange = vi.fn()
   const mockOnCanRunChange = vi.fn()
 
@@ -87,7 +87,7 @@ describe('PreAnalysisReadinessPanel', () => {
   it('renders quality header with score and level', () => {
     render(
       <PreAnalysisReadinessPanel
-        onAnalyze={mockOnAnalyze}
+        onAnalyse={mockOnAnalyse}
         onBlockersChange={mockOnBlockersChange}
         onCanRunChange={mockOnCanRunChange}
       />
@@ -98,14 +98,18 @@ describe('PreAnalysisReadinessPanel', () => {
     expect(screen.getByText('(85%)')).toBeInTheDocument()
   })
 
-  it('shows summary line with node, edge, and option counts', () => {
+  it('shows summary line with node, edge, and option counts in expanded breakdown', () => {
     render(
       <PreAnalysisReadinessPanel
-        onAnalyze={mockOnAnalyze}
+        onAnalyse={mockOnAnalyse}
         onBlockersChange={mockOnBlockersChange}
         onCanRunChange={mockOnCanRunChange}
       />
     )
+
+    // Summary line is now inside the collapsed breakdown - expand it first
+    const toggle = screen.getByText('Estimated breakdown')
+    fireEvent.click(toggle)
 
     // Summary line shows counts for nodes, edges, and options
     expect(screen.getByText(/3 nodes/)).toBeInTheDocument()
@@ -114,10 +118,10 @@ describe('PreAnalysisReadinessPanel', () => {
     expect(screen.getByText(/2 edges · 2 options/)).toBeInTheDocument()
   })
 
-  it('shows "Analyze Now" button when ready', () => {
+  it('shows "Analyse Now" button when ready', () => {
     render(
       <PreAnalysisReadinessPanel
-        onAnalyze={mockOnAnalyze}
+        onAnalyse={mockOnAnalyse}
         onBlockersChange={mockOnBlockersChange}
         onCanRunChange={mockOnCanRunChange}
       />
@@ -126,20 +130,20 @@ describe('PreAnalysisReadinessPanel', () => {
     const button = screen.getByRole('button', { name: /run analysis/i })
     expect(button).toBeInTheDocument()
     expect(button).not.toBeDisabled()
-    expect(screen.getByText('Analyze Now')).toBeInTheDocument()
+    expect(screen.getByText('Analyse Now')).toBeInTheDocument()
   })
 
-  it('shows "Analyzing..." button when isAnalyzing is true', () => {
+  it('shows "Analyzing..." button when isAnalysing is true', () => {
     render(
       <PreAnalysisReadinessPanel
-        onAnalyze={mockOnAnalyze}
-        isAnalyzing={true}
+        onAnalyse={mockOnAnalyse}
+        isAnalysing={true}
         onBlockersChange={mockOnBlockersChange}
         onCanRunChange={mockOnCanRunChange}
       />
     )
 
-    expect(screen.getByText('Analyzing...')).toBeInTheDocument()
+    expect(screen.getByText("Analysing...")).toBeInTheDocument()
     const button = screen.getByRole('button', { name: /analysis in progress/i })
     expect(button).toBeDisabled()
   })
@@ -147,13 +151,13 @@ describe('PreAnalysisReadinessPanel', () => {
   it('toggles quality breakdown when clicked', () => {
     render(
       <PreAnalysisReadinessPanel
-        onAnalyze={mockOnAnalyze}
+        onAnalyse={mockOnAnalyse}
         onBlockersChange={mockOnBlockersChange}
         onCanRunChange={mockOnCanRunChange}
       />
     )
 
-    const toggle = screen.getByText('Quality breakdown')
+    const toggle = screen.getByText('Estimated breakdown')
     fireEvent.click(toggle)
 
     // Should show breakdown bars
@@ -166,13 +170,13 @@ describe('PreAnalysisReadinessPanel', () => {
   it('shows ready state with option chips when no blockers', () => {
     render(
       <PreAnalysisReadinessPanel
-        onAnalyze={mockOnAnalyze}
+        onAnalyse={mockOnAnalyse}
         onBlockersChange={mockOnBlockersChange}
         onCanRunChange={mockOnCanRunChange}
       />
     )
 
-    expect(screen.getByText('Ready to analyze')).toBeInTheDocument()
+    expect(screen.getByText('Ready to analyse')).toBeInTheDocument()
     expect(screen.getByText('Option A')).toBeInTheDocument()
     expect(screen.getByText('Option B')).toBeInTheDocument()
     expect(screen.getByText(/All 2 options configured/)).toBeInTheDocument()
@@ -181,7 +185,7 @@ describe('PreAnalysisReadinessPanel', () => {
   it('shows coaching suggestions accordion', () => {
     render(
       <PreAnalysisReadinessPanel
-        onAnalyze={mockOnAnalyze}
+        onAnalyse={mockOnAnalyse}
         onBlockersChange={mockOnBlockersChange}
         onCanRunChange={mockOnCanRunChange}
       />
@@ -193,10 +197,10 @@ describe('PreAnalysisReadinessPanel', () => {
     expect(screen.getByText(/Refine influence weights/)).toBeInTheDocument()
   })
 
-  it('calls onAnalyze when button is clicked', () => {
+  it('calls onAnalyse when button is clicked', () => {
     render(
       <PreAnalysisReadinessPanel
-        onAnalyze={mockOnAnalyze}
+        onAnalyse={mockOnAnalyse}
         onBlockersChange={mockOnBlockersChange}
         onCanRunChange={mockOnCanRunChange}
       />
@@ -205,13 +209,13 @@ describe('PreAnalysisReadinessPanel', () => {
     const button = screen.getByRole('button', { name: /run analysis/i })
     fireEvent.click(button)
 
-    expect(mockOnAnalyze).toHaveBeenCalledTimes(1)
+    expect(mockOnAnalyse).toHaveBeenCalledTimes(1)
   })
 
   it('calls onCanRunChange with readiness state', () => {
     render(
       <PreAnalysisReadinessPanel
-        onAnalyze={mockOnAnalyze}
+        onAnalyse={mockOnAnalyse}
         onBlockersChange={mockOnBlockersChange}
         onCanRunChange={mockOnCanRunChange}
       />
@@ -223,7 +227,7 @@ describe('PreAnalysisReadinessPanel', () => {
   it('calls onBlockersChange with blocker state', () => {
     render(
       <PreAnalysisReadinessPanel
-        onAnalyze={mockOnAnalyze}
+        onAnalyse={mockOnAnalyse}
         onBlockersChange={mockOnBlockersChange}
         onCanRunChange={mockOnCanRunChange}
       />
@@ -260,11 +264,11 @@ describe('PreAnalysisReadinessPanel with blockers', () => {
   })
 
   it('shows "Fix N Issues First" button when blockers exist', async () => {
-    const mockOnAnalyze = vi.fn()
+    const mockOnAnalyse = vi.fn()
 
     render(
       <PreAnalysisReadinessPanel
-        onAnalyze={mockOnAnalyze}
+        onAnalyse={mockOnAnalyse}
         onBlockersChange={vi.fn()}
         onCanRunChange={vi.fn()}
       />
@@ -279,7 +283,7 @@ describe('PreAnalysisReadinessPanel with blockers', () => {
   it('shows blocking issue cards with human-readable labels', async () => {
     render(
       <PreAnalysisReadinessPanel
-        onAnalyze={vi.fn()}
+        onAnalyse={vi.fn()}
         onBlockersChange={vi.fn()}
         onCanRunChange={vi.fn()}
       />
@@ -306,7 +310,7 @@ describe('PreAnalysisReadinessPanel with blockers', () => {
 
     render(
       <PreAnalysisReadinessPanel
-        onAnalyze={vi.fn()}
+        onAnalyse={vi.fn()}
         onBlockersChange={vi.fn()}
         onCanRunChange={vi.fn()}
       />
@@ -337,7 +341,7 @@ describe('PreAnalysisReadinessPanel empty state', () => {
   it('returns null when canvas is empty', () => {
     const { container } = render(
       <PreAnalysisReadinessPanel
-        onAnalyze={vi.fn()}
+        onAnalyse={vi.fn()}
         onBlockersChange={vi.fn()}
         onCanRunChange={vi.fn()}
       />
@@ -370,7 +374,7 @@ describe('PreAnalysisReadinessPanel readiness states', () => {
 
     render(
       <PreAnalysisReadinessPanel
-        onAnalyze={vi.fn()}
+        onAnalyse={vi.fn()}
         onBlockersChange={vi.fn()}
         onCanRunChange={vi.fn()}
       />
@@ -400,7 +404,7 @@ describe('PreAnalysisReadinessPanel readiness states', () => {
 
     render(
       <PreAnalysisReadinessPanel
-        onAnalyze={vi.fn()}
+        onAnalyse={vi.fn()}
         onBlockersChange={vi.fn()}
         onCanRunChange={mockOnCanRunChange}
       />
@@ -418,7 +422,7 @@ describe('PreAnalysisReadinessPanel coaching accordion', () => {
   it('allows collapsing coaching accordion when expanded', () => {
     render(
       <PreAnalysisReadinessPanel
-        onAnalyze={vi.fn()}
+        onAnalyse={vi.fn()}
         onBlockersChange={vi.fn()}
         onCanRunChange={vi.fn()}
       />
@@ -444,13 +448,13 @@ describe('PreAnalysisReadinessPanel coaching accordion', () => {
   it('has proper ARIA attributes on quality breakdown toggle', () => {
     render(
       <PreAnalysisReadinessPanel
-        onAnalyze={vi.fn()}
+        onAnalyse={vi.fn()}
         onBlockersChange={vi.fn()}
         onCanRunChange={vi.fn()}
       />
     )
 
-    const toggle = screen.getByText('Quality breakdown').closest('button')
+    const toggle = screen.getByText('Estimated breakdown').closest('button')
     expect(toggle).toHaveAttribute('aria-expanded', 'false')
     expect(toggle).toHaveAttribute('aria-controls', 'quality-breakdown-content')
 
