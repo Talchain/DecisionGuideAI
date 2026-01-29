@@ -362,7 +362,7 @@ export function DraftPreview({
               disabled={loading}
               className={`
                 ${typography.button} flex-1 py-2.5 rounded
-                bg-sky-500 text-white hover:bg-sky-600
+                bg-mint-500 text-white hover:bg-mint-600
                 disabled:opacity-50 disabled:cursor-not-allowed
                 transition-colors
               `}
@@ -411,7 +411,7 @@ export function DraftPreview({
               onClick={onAccept}
               className={`
                 ${typography.button} flex-1 py-2.5 rounded
-                bg-sky-500 text-white hover:bg-sky-600
+                bg-mint-500 text-white hover:bg-mint-600
                 transition-colors
               `}
             >

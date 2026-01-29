@@ -37,11 +37,21 @@ export function useCEEDraft() {
         // Brief v2.2: Use schema v2 when feature flag is enabled
         const schemaVersion = isSchemaV2Enabled() ? 'v2' : 'v1'
 
+        // Get model selection from store (null = use default, so not sent to API)
+        const state = useCanvasStore.getState()
+        const selectedGenerationModel = state.selectedGenerationModel
+        const selectedRepairModel = state.selectedRepairModel
+        const selectedEnrichmentModel = state.selectedEnrichmentModel
+
         // Debug: Get raw_output mode from store (bypasses CEE post-processing repairs)
-        const debugRawCeeOutput = useCanvasStore.getState().debugRawCeeOutput
+        const debugRawCeeOutput = state.debugRawCeeOutput
         const data = await client.draftModel(description, {
           schemaVersion,
           raw_output: debugRawCeeOutput || undefined,
+          // Only send model parameters when they differ from defaults (non-null)
+          model: selectedGenerationModel || undefined,
+          repair_model: selectedRepairModel || undefined,
+          enrichment_model: selectedEnrichmentModel || undefined,
         })
 
         if (!data?.nodes || data.nodes.length === 0) {
@@ -66,6 +76,39 @@ export function useCEEDraft() {
           : new CEEError((error as Error).message || 'Draft failed', 500)
 
         const details = ceeError.details as any
+
+        // Handle 400 errors for invalid/unavailable models
+        // Auto-reset affected models to defaults and provide user feedback
+        if (ceeError.status === 400 && details) {
+          const errorMessage = ceeError.message?.toLowerCase() || ''
+          const detailsStr = JSON.stringify(details).toLowerCase()
+
+          // Check if error is related to model availability/validity
+          const isModelError =
+            errorMessage.includes('model') ||
+            detailsStr.includes('model') ||
+            detailsStr.includes('unknown model') ||
+            detailsStr.includes('disabled model') ||
+            detailsStr.includes('blocked model')
+
+          if (isModelError) {
+            const store = useCanvasStore.getState()
+
+            // Reset all non-default models to defaults as we can't determine which specific model failed
+            if (store.selectedGenerationModel !== null) {
+              store.resetModelToDefault('generation')
+            }
+            if (store.selectedRepairModel !== null) {
+              store.resetModelToDefault('repair')
+            }
+            if (store.selectedEnrichmentModel !== null) {
+              store.resetModelToDefault('enrichment')
+            }
+
+            // Update error message to inform user
+            ceeError.message = "That model isn't available. Reverted to recommended default."
+          }
+        }
 
         let guidance: DraftGuidance | null = null
         let retryAfterSeconds: number | null = null

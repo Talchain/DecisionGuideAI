@@ -175,6 +175,13 @@ interface CanvasState {
   showTemplatesPanel: boolean
   templatesPanelInvoker: HTMLElement | null
   showDraftChat: boolean
+  // AI Model Selection (session-only, not persisted to localStorage)
+  // Only non-default models are sent to API to keep payloads clean
+  selectedGenerationModel: string | null  // null = use default (gpt-4o)
+  selectedRepairModel: string | null      // null = use default (claude-sonnet-4-20250514)
+  selectedEnrichmentModel: string | null  // null = use default (claude-sonnet-4-20250514)
+  // Last draft description (persisted to maintain context across panel close/reopen)
+  lastDraftDescription: string
   // CEE V3: analysis_ready payload from last draft
   // Used by useV2Run to build requests with resolved interventions
   ceeAnalysisReady: CEEAnalysisReady | null
@@ -331,6 +338,11 @@ interface CanvasState {
   openTemplatesPanel: (invoker?: HTMLElement) => void
   closeTemplatesPanel: () => void
   setShowDraftChat: (show: boolean) => void
+  setSelectedGenerationModel: (modelId: string | null) => void
+  setSelectedRepairModel: (modelId: string | null) => void
+  setSelectedEnrichmentModel: (modelId: string | null) => void
+  resetModelToDefault: (operation: 'generation' | 'repair' | 'enrichment') => void
+  setLastDraftDescription: (description: string) => void
   setCeeAnalysisReady: (analysisReady: CEEAnalysisReady | null) => void
   setCeePipelineTrace: (trace: CeePipelineTrace | null) => void
   // M4: Graph Health actions
@@ -704,6 +716,11 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     showInspectorPanel: false,
     showTemplatesPanel: false,
     showDraftChat: false,
+    // AI Model Selection (session-only, start with defaults)
+    selectedGenerationModel: null,
+    selectedRepairModel: null,
+    selectedEnrichmentModel: null,
+    lastDraftDescription: '',
     showIssuesPanel: false,
     showProvenanceHub: false,
     showDocumentsDrawer: false,
@@ -1338,6 +1355,10 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       history: { past: [], future: [] },
       selection: { nodeIds: new Set(), edgeIds: new Set(), anchorPosition: null },
       showDraftChat: false,
+      // Reset model selection on import
+      selectedGenerationModel: null,
+      selectedRepairModel: null,
+      selectedEnrichmentModel: null,
     })
     
     return true
@@ -1481,6 +1502,9 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       nextEdgeId: 1,
       // Clear AI assistant and draft state
       showDraftChat: false,
+      selectedGenerationModel: null,
+      selectedRepairModel: null,
+      selectedEnrichmentModel: null,
       // Clear CEE analysis_ready payload and pipeline trace
       ceeAnalysisReady: null,
       ceeAnalysisReadyNodeIds: null,
@@ -1607,6 +1631,10 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       _internal: { lastHistoryHash: historyHash(initialNodes, initialEdges) },
       hasCompletedFirstRun: false,
       showDraftChat: false,
+      // Reset model selection on canvas reset
+      selectedGenerationModel: null,
+      selectedRepairModel: null,
+      selectedEnrichmentModel: null,
     })
   },
 
@@ -2140,6 +2168,35 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   setShowDraftChat: (show: boolean) => {
     set({ showDraftChat: show })
     saveUIPreference('showDraftChat', show)
+  },
+
+  // AI Model Selection setters (session-only, no localStorage persistence)
+  setSelectedGenerationModel: (modelId: string | null) => {
+    set({ selectedGenerationModel: modelId })
+  },
+
+  setSelectedRepairModel: (modelId: string | null) => {
+    set({ selectedRepairModel: modelId })
+  },
+
+  setSelectedEnrichmentModel: (modelId: string | null) => {
+    set({ selectedEnrichmentModel: modelId })
+  },
+
+  // Reset a specific model to default (used for error recovery)
+  resetModelToDefault: (operation: 'generation' | 'repair' | 'enrichment') => {
+    const resetMap = {
+      generation: { selectedGenerationModel: null },
+      repair: { selectedRepairModel: null },
+      enrichment: { selectedEnrichmentModel: null },
+    }
+    set(resetMap[operation])
+  },
+
+  // Store last draft description for persistence across panel close/reopen
+  setLastDraftDescription: (description: string) => {
+    set({ lastDraftDescription: description })
+    saveUIPreference('lastDraftDescription', description)
   },
 
   setCeeAnalysisReady: (analysisReady: CEEAnalysisReady | null) => {

@@ -27,6 +27,7 @@ const COLORS = {
   mintLight: '#E0F5EC',   // mint-100 (derived)
   mint: '#67C89E',        // mint-500
   mintMid: '#62B28F',     // mint-400
+  sun: '#F5C433',         // sun-500
   lilacLight: '#E8E7FB',  // lilac-100 (derived)
   lilac: '#9E9AF1',       // lilac-400
   sun: '#F5C433',         // sun-500
@@ -194,8 +195,7 @@ export function DraftLoadingAnimation() {
       {/* Progress bar */}
       <div className="w-48 h-1.5 bg-sand-200 rounded-full mt-4 overflow-hidden">
         <div
-          className="h-full rounded-full animate-progress-sweep"
-          style={{ background: `linear-gradient(to right, ${COLORS.sky}, ${COLORS.lilac}, ${COLORS.mint})` }}
+          className="h-full rounded-full animate-progress-sweep bg-sun-500"
         />
       </div>
     </div>

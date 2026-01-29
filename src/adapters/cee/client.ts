@@ -420,19 +420,46 @@ export class CEEClient {
    * @param options - Optional parameters
    * @param options.schemaVersion - Schema version (v1, v2, v3)
    * @param options.raw_output - If true, bypass CEE post-processing repairs (debug mode)
+   * @param options.model - Generation model override (only sent if differs from default)
+   * @param options.repair_model - Repair model override (only sent if differs from default)
+   * @param options.enrichment_model - Enrichment model override (only sent if differs from default)
    */
   async draftModel(
     description: string,
-    options?: { schemaVersion?: 'v1' | 'v2' | 'v3'; raw_output?: boolean }
+    options?: {
+      schemaVersion?: 'v1' | 'v2' | 'v3'
+      raw_output?: boolean
+      model?: string
+      repair_model?: string
+      enrichment_model?: string
+    }
   ): Promise<CEEDraftResponse | CEEv2Response | CEEv3Response> {
     // Request V3 schema explicitly to get analysis_ready payload with resolved interventions
     // Defence in depth: explicit version prevents breakage if CEE default changes
     const endpoint = '/draft-graph?schema=v3'
 
-    // Build request body
-    const requestBody: { brief: string; raw_output?: boolean } = { brief: description }
+    // Build request body - only include non-default model parameters to keep payload clean
+    const requestBody: {
+      brief: string
+      raw_output?: boolean
+      model?: string
+      repair_model?: string
+      enrichment_model?: string
+    } = { brief: description }
+
     if (options?.raw_output) {
       requestBody.raw_output = true
+    }
+
+    // Add model parameters only when they differ from defaults (non-null in store)
+    if (options?.model) {
+      requestBody.model = options.model
+    }
+    if (options?.repair_model) {
+      requestBody.repair_model = options.repair_model
+    }
+    if (options?.enrichment_model) {
+      requestBody.enrichment_model = options.enrichment_model
     }
 
     // Debug: Log schema version request
