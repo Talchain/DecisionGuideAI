@@ -1490,8 +1490,10 @@ function DiagnosticsTabBody({
   }, [robustness?.robustEdges])
 
   // Determine analysis state for banner
-  const hasRobustnessData = robustness?.fragileEdges?.length || robustness?.robustEdges?.length
-  const hasSynthesis = robustnessSynthesis?.headline
+  // Check if robustness object exists (analysis completed), not if arrays have content
+  // Empty/undefined arrays are valid (model may be fully robust with no fragile edges)
+  const hasRobustnessData = !!robustness
+  const hasSynthesis = !!robustnessSynthesis?.headline
   const hasPartialData = hasRobustnessData && !hasSynthesis
   const needsAnalysis = !hasRobustnessData && !hasSynthesis
 
