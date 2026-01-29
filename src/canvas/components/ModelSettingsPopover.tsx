@@ -119,7 +119,7 @@ export function ModelSettingsPopover({ isOpen, onClose, anchorRef }: ModelSettin
   return (
     <div
       ref={popoverRef}
-      className="fixed z-50 w-80 max-w-[calc(100vw-2rem)] bg-paper-50 rounded-[20px] shadow-2 border border-sand-200"
+      className="fixed z-50 w-80 max-w-[calc(100vw-2rem)] max-h-[calc(100vh-4rem)] bg-paper-50 rounded-[20px] shadow-2 border border-sand-200 flex flex-col"
       style={{
         top: `${position.top}px`,
         right: `${position.right}px`,
@@ -129,7 +129,7 @@ export function ModelSettingsPopover({ isOpen, onClose, anchorRef }: ModelSettin
       aria-labelledby="model-settings-title"
     >
       {/* Header */}
-      <div className="px-4 py-3 border-b border-sand-100">
+      <div className="px-4 py-3 border-b border-sand-100 flex-shrink-0">
         <h3 id="model-settings-title" className={`${typography.label} text-ink-900`}>
           Model Settings
         </h3>
@@ -139,7 +139,7 @@ export function ModelSettingsPopover({ isOpen, onClose, anchorRef }: ModelSettin
       </div>
 
       {/* Content */}
-      <div className="p-4 space-y-4">
+      <div className="p-4 space-y-4 overflow-y-auto flex-grow">
         {/* Generation Model */}
         <ModelDropdown
           label="Generation"
@@ -182,7 +182,7 @@ export function ModelSettingsPopover({ isOpen, onClose, anchorRef }: ModelSettin
       </div>
 
       {/* Footer */}
-      <div className="px-4 py-3 border-t border-sand-100 bg-sand-50 rounded-b-lg">
+      <div className="px-4 py-3 border-t border-sand-100 bg-sand-50 rounded-b-lg flex-shrink-0">
         <p className={`${typography.bodySmall} text-ink-500`}>
           Only non-default selections are sent to the API
         </p>
