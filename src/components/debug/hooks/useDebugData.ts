@@ -475,6 +475,10 @@ export interface CEEObservabilityData {
   orchestrator: OrchestratorTracking | null
   /** Aggregated totals */
   totals: ObservabilityTotals | null
+  /** Graph quality metrics (15+ indicators) */
+  graph_metrics: GraphQualityMetrics | null
+  /** Graph repair diffs */
+  graph_diffs: GraphDiff[]
   /** Request ID for correlation */
   request_id: string | null
   /** Whether raw I/O is included */
@@ -559,6 +563,34 @@ export interface ObservabilityTotals {
   }
   total_latency_ms: number
   cee_version: string
+}
+
+/**
+ * Graph quality metrics from CEE observability.
+ * Contains 15+ quality indicators for graph analysis.
+ */
+export interface GraphQualityMetrics {
+  node_count: number
+  edge_count: number
+  depth: number
+  max_breadth: number
+  has_cycles: boolean
+  orphan_nodes: number
+  /** Allow additional metrics from CEE */
+  [key: string]: unknown
+}
+
+/**
+ * Graph diff from repair operations.
+ * Tracks individual changes made during graph repair.
+ */
+export interface GraphDiff {
+  operation: 'add_node' | 'remove_node' | 'add_edge' | 'remove_edge' | 'update_node' | 'update_edge'
+  target_id: string
+  before?: Record<string, unknown>
+  after?: Record<string, unknown>
+  reason?: string
+  repair_type?: string
 }
 
 export interface DebugData {
@@ -2231,6 +2263,22 @@ function extractCEEObservability(ceeResponse: unknown): CEEObservabilityData | n
     ? totalsRaw
     : null
 
+  // Extract graph metrics
+  const graphMetricsRaw = obs.graph_metrics
+  const graph_metrics: GraphQualityMetrics | null = graphMetricsRaw && typeof graphMetricsRaw === 'object'
+    ? graphMetricsRaw as GraphQualityMetrics
+    : null
+
+  // Extract graph diffs
+  const graphDiffsRaw = obs.graph_diffs
+  const graph_diffs: GraphDiff[] = Array.isArray(graphDiffsRaw)
+    ? graphDiffsRaw.filter((diff): diff is GraphDiff =>
+        diff && typeof diff === 'object' &&
+        typeof diff.operation === 'string' &&
+        typeof diff.target_id === 'string'
+      )
+    : []
+
   // Extract metadata
   const request_id = typeof obs.request_id === 'string' ? obs.request_id : null
   // SECURITY: Always report false for raw_io_included in production
@@ -2241,6 +2289,8 @@ function extractCEEObservability(ceeResponse: unknown): CEEObservabilityData | n
     validation,
     orchestrator,
     totals,
+    graph_metrics,
+    graph_diffs,
     request_id,
     raw_io_included,
   }

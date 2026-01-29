@@ -7,7 +7,7 @@
 
 import { useState, useMemo, useCallback, CSSProperties } from 'react'
 import { PipelineStage, JsonViewer } from '../components'
-import type { DebugData, LlmRawData, GraphCorrection } from '../hooks/useDebugData'
+import type { DebugData, LlmRawData, GraphCorrection, GraphDiff } from '../hooks/useDebugData'
 import { formatDuration } from '../utils'
 
 // Human-readable explanations for CEE repair types
@@ -446,6 +446,167 @@ function CorrectionItem({ correction }: { correction: GraphCorrection }) {
       </div>
       {/* Reason row */}
       <div style={{ fontSize: 11, color: '#334155' }}>{correction.reason}</div>
+    </div>
+  )
+}
+
+/**
+ * Display a metric card for graph quality metrics
+ */
+function MetricCard({
+  label,
+  value,
+  warn,
+}: {
+  label: string
+  value: unknown
+  warn?: boolean
+}) {
+  const displayValue = typeof value === 'boolean'
+    ? (value ? 'Yes' : 'No')
+    : String(value ?? '—')
+
+  return (
+    <div
+      style={{
+        padding: 8,
+        background: warn ? '#fef2f2' : '#f9fafb',
+        border: `1px solid ${warn ? '#fecaca' : '#e5e7eb'}`,
+        borderRadius: 4,
+        textAlign: 'center',
+      }}
+    >
+      <div style={{ fontSize: 10, color: '#6b7280', marginBottom: 4 }}>
+        {label}
+      </div>
+      <div
+        style={{
+          fontSize: 14,
+          fontWeight: 600,
+          fontFamily: 'monospace',
+          color: warn ? '#dc2626' : '#334155',
+        }}
+      >
+        {displayValue}
+      </div>
+    </div>
+  )
+}
+
+/**
+ * Display a single graph diff item from CEE observability
+ */
+function GraphDiffItem({ diff }: { diff: GraphDiff }) {
+  const operationColors: Record<string, { bg: string; text: string; symbol: string }> = {
+    add_node: { bg: '#dcfce7', text: '#166534', symbol: '+' },
+    add_edge: { bg: '#dcfce7', text: '#166534', symbol: '+' },
+    remove_node: { bg: '#fee2e2', text: '#991b1b', symbol: '-' },
+    remove_edge: { bg: '#fee2e2', text: '#991b1b', symbol: '-' },
+    update_node: { bg: '#fef9c3', text: '#854d0e', symbol: '~' },
+    update_edge: { bg: '#fef9c3', text: '#854d0e', symbol: '~' },
+  }
+
+  const opColor = operationColors[diff.operation] ?? { bg: '#f1f5f9', text: '#64748b', symbol: '?' }
+
+  const operationLabel = {
+    add_node: '+ Node',
+    remove_node: '- Node',
+    add_edge: '+ Edge',
+    remove_edge: '- Edge',
+    update_node: '~ Node',
+    update_edge: '~ Edge',
+  }[diff.operation] ?? diff.operation
+
+  return (
+    <div
+      style={{
+        padding: 10,
+        background: '#fff',
+        border: '1px solid #e5e7eb',
+        borderRadius: 6,
+        fontSize: 11,
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+        <span
+          style={{
+            fontWeight: 600,
+            color: opColor.text,
+            background: opColor.bg,
+            padding: '2px 6px',
+            borderRadius: 3,
+            fontSize: 10,
+          }}
+        >
+          {operationLabel}
+        </span>
+        <span style={{ fontFamily: 'monospace', color: '#6b7280' }}>
+          {diff.target_id}
+        </span>
+        {diff.repair_type && (
+          <span
+            style={{
+              fontSize: 9,
+              padding: '2px 4px',
+              background: '#fef3c7',
+              borderRadius: 2,
+              color: '#92400e',
+            }}
+          >
+            {diff.repair_type}
+          </span>
+        )}
+      </div>
+
+      {diff.reason && (
+        <div style={{ color: '#6b7280', marginBottom: 8 }}>
+          {diff.reason}
+        </div>
+      )}
+
+      {(diff.before || diff.after) && (
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: diff.before && diff.after ? '1fr 1fr' : '1fr',
+            gap: 8,
+            marginTop: 8,
+          }}
+        >
+          {diff.before && (
+            <div
+              style={{
+                padding: 6,
+                background: '#fef2f2',
+                borderRadius: 4,
+                fontFamily: 'monospace',
+                fontSize: 10,
+              }}
+            >
+              <div style={{ color: '#dc2626', fontWeight: 600, marginBottom: 4 }}>Before:</div>
+              <pre style={{ margin: 0, whiteSpace: 'pre-wrap', color: '#6b7280' }}>
+                {JSON.stringify(diff.before, null, 2)}
+              </pre>
+            </div>
+          )}
+          {diff.after && (
+            <div
+              style={{
+                padding: 6,
+                background: '#f0fdf4',
+                borderRadius: 4,
+                fontFamily: 'monospace',
+                fontSize: 10,
+              }}
+            >
+              <div style={{ color: '#16a34a', fontWeight: 600, marginBottom: 4 }}>After:</div>
+              <pre style={{ margin: 0, whiteSpace: 'pre-wrap', color: '#6b7280' }}>
+                {JSON.stringify(diff.after, null, 2)}
+              </pre>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }
@@ -1259,6 +1420,85 @@ export function PipelineTab({ data }: PipelineTabProps) {
                   </div>
                 )}
               </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Graph Quality Metrics (from CEE Observability) */}
+      {data.cee_observability?.graph_metrics && (
+        <div style={sectionStyle}>
+          <div style={sectionTitleStyle}>
+            📊 Graph Quality Metrics
+            {data.cee_observability.graph_metrics.has_cycles && (
+              <span style={{ marginLeft: 8, color: '#dc2626', fontWeight: 400, fontSize: 11 }}>
+                ⚠ Cycles Detected
+              </span>
+            )}
+            {(data.cee_observability.graph_metrics.orphan_nodes as number) > 0 && (
+              <span style={{ marginLeft: 8, color: '#f59e0b', fontWeight: 400, fontSize: 11 }}>
+                ⚠ {data.cee_observability.graph_metrics.orphan_nodes} Orphans
+              </span>
+            )}
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+            <MetricCard label="Nodes" value={data.cee_observability.graph_metrics.node_count} />
+            <MetricCard label="Edges" value={data.cee_observability.graph_metrics.edge_count} />
+            <MetricCard label="Depth" value={data.cee_observability.graph_metrics.depth} />
+            <MetricCard label="Max Breadth" value={data.cee_observability.graph_metrics.max_breadth} />
+            <MetricCard
+              label="Cycles"
+              value={data.cee_observability.graph_metrics.has_cycles ? 'Yes' : 'No'}
+              warn={data.cee_observability.graph_metrics.has_cycles}
+            />
+            <MetricCard
+              label="Orphan Nodes"
+              value={data.cee_observability.graph_metrics.orphan_nodes}
+              warn={(data.cee_observability.graph_metrics.orphan_nodes as number) > 0}
+            />
+          </div>
+
+          {/* Additional metrics if present */}
+          {Object.keys(data.cee_observability.graph_metrics).filter(
+            k => !['node_count', 'edge_count', 'depth', 'max_breadth', 'has_cycles', 'orphan_nodes'].includes(k)
+          ).length > 0 && (
+            <details style={{ marginTop: 12 }}>
+              <summary style={{ fontSize: 11, fontWeight: 600, color: '#64748b', cursor: 'pointer', userSelect: 'none' }}>
+                Additional Metrics
+              </summary>
+              <div style={{ marginTop: 8, display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+                {Object.entries(data.cee_observability.graph_metrics)
+                  .filter(([k]) => !['node_count', 'edge_count', 'depth', 'max_breadth', 'has_cycles', 'orphan_nodes'].includes(k))
+                  .map(([key, value]) => (
+                    <MetricCard
+                      key={key}
+                      label={key.replace(/_/g, ' ')}
+                      value={value}
+                    />
+                  ))}
+              </div>
+            </details>
+          )}
+        </div>
+      )}
+
+      {/* Graph Repair Diffs (from CEE Observability) */}
+      {data.cee_observability?.graph_diffs && data.cee_observability.graph_diffs.length > 0 && (
+        <div
+          style={{
+            ...sectionStyle,
+            background: '#fffbeb',
+            border: '1px solid #fde68a',
+          }}
+        >
+          <div style={{ ...sectionTitleStyle, color: '#92400e' }}>
+            ⚡ Graph Repairs ({data.cee_observability.graph_diffs.length})
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {data.cee_observability.graph_diffs.map((diff, i) => (
+              <GraphDiffItem key={i} diff={diff} />
             ))}
           </div>
         </div>
