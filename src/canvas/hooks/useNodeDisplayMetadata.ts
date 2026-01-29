@@ -19,6 +19,8 @@ interface NodeDisplayMetadata {
   influence: number | null
   /** Factor confidence score (0-1) - Task 3 */
   confidence: number | null
+  /** Whether this factor was found in the sensitivity analysis (false for root nodes like "Value") */
+  inSensitivityAnalysis: boolean
   /** Outcome/Goal achievement probability (0-1) */
   achievementProbability: number | null
   /** Recommendation stability (0-1) - fallback for Goal nodes when probability unavailable */
@@ -52,6 +54,7 @@ export function useNodeDisplayMetadata(
         sensitivityRank: null,
         influence: null,
         confidence: null,
+        inSensitivityAnalysis: false,
         achievementProbability: null,
         stabilityPercentage: null,
         winRate: null,
@@ -63,6 +66,7 @@ export function useNodeDisplayMetadata(
     let sensitivityRank: number | null = null
     let influence: number | null = null
     let confidence: number | null = null
+    let inSensitivityAnalysis = false
     if (nodeType === 'factor') {
       // Get factor_sensitivity array and rank by elasticity
       const factorSensitivity = report.enrichment?.sensitivity_analysis?.factors ||
@@ -94,6 +98,9 @@ export function useNodeDisplayMetadata(
       )
 
       if (factorData) {
+        // Factor found in sensitivity analysis
+        inSensitivityAnalysis = true
+
         // Influence: Use influence_score if available, otherwise normalize elasticity
         const rawInfluence = factorData.influence_score ??
                             factorData.influenceScore ??
@@ -174,6 +181,7 @@ export function useNodeDisplayMetadata(
       sensitivityRank,
       influence,
       confidence,
+      inSensitivityAnalysis,
       achievementProbability,
       stabilityPercentage,
       winRate,

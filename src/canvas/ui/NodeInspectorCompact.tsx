@@ -234,8 +234,6 @@ export const NodeInspectorCompact = memo(({ nodeId, onClose, onExpandToFull }: N
 
       {/* Factor Insights (only for factors in Results mode) */}
       {currentType === 'factor' && displayMetadata.isResultsMode && (
-        displayMetadata.influence !== null || displayMetadata.confidence !== null
-      ) && (
         <div className="mb-3 pt-2 border-t border-slate-100">
           <h4 className="text-xs font-medium text-slate-700 mb-2 flex items-center gap-2">
             Insights
@@ -246,53 +244,65 @@ export const NodeInspectorCompact = memo(({ nodeId, onClose, onExpandToFull }: N
             )}
           </h4>
 
-          {/* Influence bar */}
-          {displayMetadata.influence !== null && (
-            <div className="mb-2">
-              <div className="flex justify-between items-center mb-1">
-                <span className="text-[10px] text-slate-500">Influence</span>
-                <span className="text-[10px] font-medium text-slate-700">
-                  {Math.round(displayMetadata.influence * 100)}%
-                </span>
-              </div>
-              <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-info-500 rounded-full transition-all duration-300"
-                  style={{ width: `${displayMetadata.influence * 100}%` }}
-                />
-              </div>
-            </div>
+          {/* Not in sensitivity analysis (e.g., root "Value" node) */}
+          {!displayMetadata.inSensitivityAnalysis && (
+            <p className="text-[10px] text-slate-400 italic">
+              Insights not available for this factor
+            </p>
           )}
 
-          {/* Confidence bar */}
-          {displayMetadata.confidence !== null && (
-            <div className="mb-2">
-              <div className="flex justify-between items-center mb-1">
-                <span className="text-[10px] text-slate-500">Confidence</span>
-                <span className="text-[10px] font-medium text-slate-700">
-                  {Math.round(displayMetadata.confidence * 100)}%
-                </span>
-              </div>
-              <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                <div
-                  className={`h-full rounded-full transition-all duration-300 ${
-                    displayMetadata.confidence < 0.5 ? 'bg-warning-500' : 'bg-success-500'
-                  }`}
-                  style={{ width: `${displayMetadata.confidence * 100}%` }}
-                />
-              </div>
-            </div>
-          )}
+          {/* In sensitivity analysis - show actual values */}
+          {displayMetadata.inSensitivityAnalysis && (
+            <>
+              {/* Influence bar */}
+              {displayMetadata.influence !== null && (
+                <div className="mb-2">
+                  <div className="flex justify-between items-center mb-1">
+                    <span className="text-[10px] text-slate-500">Influence</span>
+                    <span className="text-[10px] font-medium text-slate-700">
+                      {Math.round(displayMetadata.influence * 100)}%
+                    </span>
+                  </div>
+                  <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-info-500 rounded-full transition-all duration-300"
+                      style={{ width: `${Math.max(displayMetadata.influence * 100, 2)}%` }}
+                    />
+                  </div>
+                </div>
+              )}
 
-          {/* Coaching hint for high-influence low-confidence factors */}
-          {displayMetadata.influence !== null &&
-           displayMetadata.confidence !== null &&
-           displayMetadata.influence >= 0.7 &&
-           displayMetadata.confidence < 0.5 && (
-            <div className="flex items-start gap-1.5 p-2 bg-amber-50 border border-amber-200 rounded text-[10px] text-amber-700">
-              <AlertTriangle size={12} className="flex-shrink-0 mt-0.5" />
-              <span>High influence but low confidence. Consider gathering more data to reduce uncertainty.</span>
-            </div>
+              {/* Confidence bar */}
+              {displayMetadata.confidence !== null && (
+                <div className="mb-2">
+                  <div className="flex justify-between items-center mb-1">
+                    <span className="text-[10px] text-slate-500">Confidence</span>
+                    <span className="text-[10px] font-medium text-slate-700">
+                      {Math.round(displayMetadata.confidence * 100)}%
+                    </span>
+                  </div>
+                  <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                    <div
+                      className={`h-full rounded-full transition-all duration-300 ${
+                        displayMetadata.confidence < 0.5 ? 'bg-warning-500' : 'bg-success-500'
+                      }`}
+                      style={{ width: `${Math.max(displayMetadata.confidence * 100, 2)}%` }}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Coaching hint for high-influence low-confidence factors */}
+              {displayMetadata.influence !== null &&
+               displayMetadata.confidence !== null &&
+               displayMetadata.influence >= 0.7 &&
+               displayMetadata.confidence < 0.5 && (
+                <div className="flex items-start gap-1.5 p-2 bg-amber-50 border border-amber-200 rounded text-[10px] text-amber-700">
+                  <AlertTriangle size={12} className="flex-shrink-0 mt-0.5" />
+                  <span>High influence but low confidence. Consider gathering more data to reduce uncertainty.</span>
+                </div>
+              )}
+            </>
           )}
         </div>
       )}
