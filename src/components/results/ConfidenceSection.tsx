@@ -14,8 +14,9 @@
  */
 
 import { useState, useCallback } from 'react'
-import type { ConfidenceSectionData, UncertaintyItem, ImprovementItem, CritiqueSeverity, ConfidenceTier } from './types'
-import { focusNodeById } from '../../canvas/utils/focusHelpers'
+import type { ConfidenceSectionData, UncertaintyItem, ImprovementItem, CritiqueSeverity, ConfidenceTier, EvidenceGapItem, NextActionItem, AssumptionItem } from './types'
+import { CappedList } from './CappedList'
+import { focusNodeById, focusByTarget, type FocusTargetType } from '../../canvas/utils/focusHelpers'
 import { EMPTY_STATES } from './emptyStates'
 import { typography } from '../../styles/typography'
 import { MIN_STABLE_RECOMMENDATION_STABILITY, isStableRobustnessLevel } from './constants'
@@ -274,6 +275,7 @@ export function ConfidenceSection({
 }: ConfidenceSectionProps) {
   const [showAllUncertainties, setShowAllUncertainties] = useState(false)
   const [showAllImprovements, setShowAllImprovements] = useState(false)
+  const [showAssumptions, setShowAssumptions] = useState(false)
 
   const {
     tier,
@@ -289,6 +291,14 @@ export function ConfidenceSection({
     rankingStability,
     // Task 1: Hidden high-risk edges disclosure
     hiddenHighRiskCount,
+    // Task 4 (M1 Coaching): Evidence gaps
+    evidenceGaps,
+    topEvidenceGaps,
+    // Task 5 (M1 Coaching): Next actions
+    nextActions,
+    topNextActions,
+    // Task 6 (M1 Coaching): Assumptions
+    assumptions,
   } = data
 
   const config = TIER_CONFIG[tier.tier]
@@ -451,6 +461,107 @@ export function ConfidenceSection({
         </div>
       )}
 
+      {/* Task 4 (M1 Coaching): Evidence Gaps - "Where to Investigate" */}
+      {evidenceGaps && evidenceGaps.length > 0 && (
+        <div className="space-y-2">
+          <h4 className="text-xs text-slate-500 uppercase tracking-wide">
+            Where to Investigate
+          </h4>
+          <CappedList<EvidenceGapItem>
+            items={evidenceGaps}
+            maxVisible={3}
+            renderItem={(gap) => (
+              <button
+                onClick={() => {
+                  const nodeId = gap.targetNodeId ?? gap.factorId
+                  if (onFocusNode) {
+                    onFocusNode(nodeId)
+                  } else {
+                    focusNodeById(nodeId)
+                  }
+                }}
+                className="w-full text-left p-3 bg-sky-50 border border-sky-200 rounded-lg hover:bg-sky-100 transition-colors"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-sky-800 font-medium">
+                      {gap.factorLabel}
+                    </p>
+                    {gap.suggestion && (
+                      <p className="text-xs text-sky-600 mt-1">
+                        {gap.suggestion}
+                      </p>
+                    )}
+                  </div>
+                  <span className="text-xs text-sky-500 flex-shrink-0">
+                    Focus →
+                  </span>
+                </div>
+              </button>
+            )}
+            overflowLabel={(n) => `+${n} more`}
+            dedupeFn={(gap) => gap.factorId}
+            sortFn={(a, b) => b.voi - a.voi}
+            emptyMessage="No evidence gaps identified"
+            expandButtonAriaLabel="Show more evidence gaps"
+          />
+        </div>
+      )}
+
+      {/* Task 5 (M1 Coaching): Next Actions - "Recommended Actions" */}
+      {nextActions && nextActions.length > 0 && (
+        <div className="space-y-2">
+          <h4 className="text-xs text-slate-500 uppercase tracking-wide">
+            Recommended Actions
+          </h4>
+          <CappedList<NextActionItem>
+            items={nextActions}
+            maxVisible={3}
+            renderItem={(action) => (
+              <button
+                onClick={() => {
+                  if (action.targetId) {
+                    if (onFocusNode) {
+                      onFocusNode(action.targetId)
+                    } else {
+                      // Use unified focus handler for proper target type resolution
+                      focusByTarget(action.targetId, action.targetType as FocusTargetType)
+                    }
+                  }
+                }}
+                className={`w-full text-left p-3 bg-slate-50 border border-slate-200 rounded-lg transition-colors ${
+                  action.targetId ? 'hover:bg-slate-100 cursor-pointer' : 'cursor-default'
+                }`}
+                disabled={!action.targetId}
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-slate-800">
+                      {action.action}
+                    </p>
+                    {action.rationale && (
+                      <p className="text-xs text-slate-500 mt-1">
+                        {action.rationale}
+                      </p>
+                    )}
+                  </div>
+                  {action.targetId && (
+                    <span className="text-xs text-slate-400 flex-shrink-0">
+                      Focus →
+                    </span>
+                  )}
+                </div>
+              </button>
+            )}
+            overflowLabel={(n) => `+${n} more`}
+            dedupeFn={(action) => `${action.action}::${action.targetId ?? ''}`}
+            sortFn={(a, b) => a.priority - b.priority}
+            emptyMessage="No recommended actions"
+            expandButtonAriaLabel="Show more recommended actions"
+          />
+        </div>
+      )}
+
       {/* Improvements */}
       <div className="space-y-2">
         <h4 className="text-xs text-slate-500 uppercase tracking-wide">
@@ -488,6 +599,60 @@ export function ConfidenceSection({
           </button>
         )}
       </div>
+
+      {/* Task 6 (M1 Coaching): Assumptions transparency link and disclosure */}
+      {assumptions && assumptions.length > 0 && (
+        <div className="space-y-2 pt-2 border-t border-slate-100">
+          <button
+            onClick={() => setShowAssumptions(!showAssumptions)}
+            className="text-xs text-slate-500 hover:text-slate-700 flex items-center gap-1"
+          >
+            <span>{showAssumptions ? '▼' : '▶'}</span>
+            View transparency log ({assumptions.length} assumption{assumptions.length === 1 ? '' : 's'})
+          </button>
+
+          {showAssumptions && (
+            <div className="space-y-2 mt-2">
+              {assumptions.map((assumption, index) => {
+                const severityConfig = {
+                  high: { icon: '⚠', bgColor: 'bg-danger-50', borderColor: 'border-danger-200', textColor: 'text-danger-700' },
+                  medium: { icon: '⚠', bgColor: 'bg-warning-50', borderColor: 'border-warning-200', textColor: 'text-warning-700' },
+                  low: { icon: 'ℹ', bgColor: 'bg-slate-50', borderColor: 'border-slate-200', textColor: 'text-slate-600' },
+                }[assumption.severity] ?? { icon: 'ℹ', bgColor: 'bg-slate-50', borderColor: 'border-slate-200', textColor: 'text-slate-600' }
+
+                return (
+                  <div
+                    key={`assumption-${index}`}
+                    className={`p-2 ${severityConfig.bgColor} border ${severityConfig.borderColor} rounded text-xs`}
+                  >
+                    <div className="flex items-start gap-2">
+                      <span className={severityConfig.textColor}>{severityConfig.icon}</span>
+                      <div className="flex-1">
+                        <p className={severityConfig.textColor}>{assumption.message}</p>
+                        {assumption.target && (
+                          <button
+                            onClick={() => {
+                              if (onFocusNode) {
+                                onFocusNode(assumption.target!)
+                              } else {
+                                // Use focusByTarget for consistency (defaults to node as assumption has no target_type)
+                                focusByTarget(assumption.target!)
+                              }
+                            }}
+                            className="text-sky-600 hover:text-sky-700 mt-1"
+                          >
+                            Focus on canvas →
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }

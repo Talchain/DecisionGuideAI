@@ -60,6 +60,7 @@ import { RadialQuickAddMenu } from './components/RadialQuickAddMenu'
 import { ConnectPrompt } from './components/ConnectPrompt'
 import { ConnectivityChip } from './components/ConnectivityChip'
 import { StatusChips } from './components/StatusChips'
+import { FocusModeChip } from './components/FocusModeChip'
 // EdgeLabelToggle moved to CanvasToolbar for cleaner UI
 import { LimitsPanel } from './components/LimitsPanel'
 import { BottomSheet } from './components/BottomSheet'
@@ -1841,6 +1842,14 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
           onClick={() => setShowLimits(true)}
         />
       </div>
+      {/* Focus Mode Chip - shows when single node selected with path highlighting */}
+      <div
+        className="absolute z-[100] left-1/2 -translate-x-1/2 pointer-events-auto"
+        style={{ top: 'calc(var(--topbar-h, 0px) + 1rem)' }}
+      >
+        <FocusModeChip />
+      </div>
+
       {/* Influence Explainer - shown when triggered from TopBar dropdown */}
       {shouldShowInfluenceExplainer && (
         <div

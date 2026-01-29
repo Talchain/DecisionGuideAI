@@ -11,6 +11,7 @@ import type {
   ImprovementGuidanceV3,
   RationaleV3,
   RobustnessSynthesisV3,
+  M1Coaching,
 } from '../../../types/cee'
 
 // ============================================================================
@@ -282,6 +283,13 @@ export interface V2RunResponse {
     latency_ms: number
     degraded?: boolean
   }
+
+  // ==========================================================================
+  // M1 Coaching Fields (deterministic, computed after ISL)
+  // ==========================================================================
+
+  /** M1 Coaching - deterministic coaching fields (not LLM-generated) */
+  m1_coaching?: M1Coaching
 }
 
 /**

@@ -8,6 +8,10 @@
  */
 
 import type { FactorEnrichment, NearTieInfo } from '../../lib/mappers/types'
+import type { M1CoachingReadiness } from '../../types/cee'
+
+// Re-export M1 coaching type for component use
+export type { M1CoachingReadiness }
 
 // =============================================================================
 // Confidence Tier Types
@@ -110,6 +114,19 @@ export interface RecommendationSectionData {
   baselineOutcome?: number | null
   /** Near-tie detection: when top options are too close to call */
   nearTie?: NearTieInfo
+
+  // ==========================================================================
+  // M1 Coaching Fields (deterministic, not LLM-generated)
+  // ==========================================================================
+
+  /** M1 Coaching headline from executive_summary */
+  coachingHeadline?: string
+  /** M1 Coaching readiness level */
+  coachingReadiness?: M1CoachingReadiness
+  /** M1 Coaching readiness score (0-100) */
+  coachingReadinessScore?: number
+  /** M1 Coaching story headlines: optionId → summary */
+  storyHeadlines?: Record<string, string>
 }
 
 // =============================================================================
@@ -182,6 +199,10 @@ export interface DriversSectionData {
   islError?: string
   /** Task 2: Count of zero-impact factors hidden from default view */
   hiddenZeroImpactCount?: number
+  /** M1 Coaching: dominant factor ID if any factor has >50% influence */
+  dominantFactorId?: string
+  /** M1 Coaching: dominant factor label (looked up from drivers) */
+  dominantFactorLabel?: string
 }
 
 // =============================================================================
@@ -236,6 +257,41 @@ export interface FilteredItemsDisclosure {
   description: string
 }
 
+// =============================================================================
+// M1 Coaching Item Types
+// =============================================================================
+
+/** Evidence gap from M1 Coaching - area where more data would help */
+export interface EvidenceGapItem {
+  factorId: string
+  factorLabel: string
+  /** Confidence (0-100) */
+  confidence: number
+  /** Value of Information (0-1) - higher = more impactful to investigate */
+  voi: number
+  suggestion: string
+  /** Node ID for canvas focus (may differ from factorId) */
+  targetNodeId?: string
+}
+
+/** Next action from M1 Coaching - prioritised recommendation */
+export interface NextActionItem {
+  action: string
+  rationale: string
+  /** Lower = more important */
+  priority: number
+  targetType?: 'node' | 'edge' | 'factor' | 'option'
+  targetId?: string
+  targetLabel?: string
+}
+
+/** Assumption from M1 Coaching ledger */
+export interface AssumptionItem {
+  severity: 'low' | 'medium' | 'high'
+  message: string
+  target?: string
+}
+
 export interface ConfidenceSectionData {
   tier: ConfidenceTierInfo
   /** Quality score 0-100 from graph readiness or fallback */
@@ -262,6 +318,21 @@ export interface ConfidenceSectionData {
   filteredFragileEdges?: FilteredItemsDisclosure
   /** Task 1: Count of high-risk edges hidden by display limit (above threshold but not shown) */
   hiddenHighRiskCount?: number
+
+  // ==========================================================================
+  // M1 Coaching Fields (deterministic, not LLM-generated)
+  // ==========================================================================
+
+  /** M1 Coaching evidence gaps - areas where more data would improve decision confidence */
+  evidenceGaps?: EvidenceGapItem[]
+  /** M1 Coaching top evidence gaps (max 3, sorted by VOI) */
+  topEvidenceGaps?: EvidenceGapItem[]
+  /** M1 Coaching next actions - prioritised recommendations */
+  nextActions?: NextActionItem[]
+  /** M1 Coaching top next actions (max 3, sorted by priority) */
+  topNextActions?: NextActionItem[]
+  /** M1 Coaching assumptions from ledger */
+  assumptions?: AssumptionItem[]
 }
 
 // =============================================================================

@@ -32,7 +32,7 @@ import { trackTypedError } from '../../lib/telemetry'
 import { ApiError, NetworkError, ProcessingError, isApiError } from '../../lib/api-errors'
 import { generateRequestId } from '../../types/requestId'
 import type { CEEAnalysisReady } from '../../adapters/cee/types'
-import type { M1Review } from '../../types/cee'
+import type { M1Review, M1Coaching } from '../../types/cee'
 import { useGateStore, updateRobustnessGate, updateRobustnessGateFromV2 } from '../../lib/gate-state'
 import { buildRawErrorData, hashStackTrace } from '../../utils/payloadRedaction'
 
@@ -59,6 +59,29 @@ function extractM1ReviewFromV2(response: V2RunResponse): M1Review | null {
       latency_ms: response.cee_trace.latency_ms,
       degraded: response.cee_trace.degraded,
     } : undefined,
+  }
+}
+
+/**
+ * Extract M1 Coaching data from V2 response.
+ * Returns null if m1_coaching is not present.
+ * These are deterministic fields computed after ISL, not LLM-generated.
+ */
+function extractM1CoachingFromV2(response: V2RunResponse): M1Coaching | null {
+  const coaching = response.m1_coaching
+  if (!coaching) {
+    return null
+  }
+
+  return {
+    executive_summary: coaching.executive_summary ?? undefined,
+    story_headlines: coaching.story_headlines ?? {},
+    readiness: coaching.readiness ?? undefined,
+    readiness_signals: coaching.readiness_signals ?? undefined,
+    key_drivers: coaching.key_drivers ?? undefined,
+    evidence_gaps: coaching.evidence_gaps ?? [],
+    next_actions: coaching.next_actions ?? [],
+    assumptions_ledger: coaching.assumptions_ledger ?? [],
   }
 }
 
@@ -414,6 +437,9 @@ export function useV2Run(): UseV2RunReturn {
         // Extract M1 Review data (rationale, robustness synthesis, etc.)
         const m1Review = extractM1ReviewFromV2(successResult)
 
+        // Extract M1 Coaching data (deterministic coaching fields)
+        const m1Coaching = extractM1CoachingFromV2(successResult)
+
         if (import.meta.env.DEV) {
           console.log('[useV2Run] Extracted M1 Review:', {
             hasCeeReview: !!ceeReviewV1,
@@ -425,6 +451,15 @@ export function useV2Run(): UseV2RunReturn {
             hasRobustnessSynthesis: !!m1Review?.robustness_synthesis,
             insightsCount: m1Review?.insights?.length ?? 0,
             guidanceCount: m1Review?.improvement_guidance?.length ?? 0,
+          })
+          console.log('[useV2Run] Extracted M1 Coaching:', {
+            hasM1Coaching: !!m1Coaching,
+            hasHeadline: !!m1Coaching?.executive_summary?.headline,
+            readiness: m1Coaching?.readiness,
+            storyHeadlinesCount: Object.keys(m1Coaching?.story_headlines ?? {}).length,
+            evidenceGapsCount: m1Coaching?.evidence_gaps?.length ?? 0,
+            nextActionsCount: m1Coaching?.next_actions?.length ?? 0,
+            dominantFactor: m1Coaching?.key_drivers?.dominant_factor,
           })
         }
 
@@ -473,6 +508,7 @@ export function useV2Run(): UseV2RunReturn {
           ceeTraceV1,
           ceeErrorV1: null, // No error - synthesis succeeded
           m1Review, // M1 Review enrichment (rationale, robustness synthesis, etc.)
+          m1Coaching, // M1 Coaching (deterministic, not LLM-generated)
         })
 
         // Update gates after successful analysis

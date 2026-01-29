@@ -289,7 +289,8 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
           strokeDasharray: dashArray ?? visualProps.strokeDasharray,
           // Graph Interaction P1: Highlighted edges get brighter color
           // Brief v2.2: Use direction-based colour (always applies - grey for unknown)
-          stroke: isHighlightedEdge ? '#f59e0b' : (directionStroke ?? visualProps.stroke),
+          // Use semantic-info token (sky-500) to avoid conflict with fragile edge badges
+          stroke: isHighlightedEdge ? 'var(--semantic-info)' : (directionStroke ?? visualProps.stroke),
           // Performance: use will-change for frequent updates
           willChange: selected || isHighlightedEdge ? 'stroke, stroke-width' : undefined,
           // Graph Interaction P1: Smooth transition for highlighting

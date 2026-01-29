@@ -310,3 +310,99 @@ export interface M1Review {
     degraded?: boolean
   }
 }
+
+// =============================================================================
+// M1 Coaching Types (PLoT /v2/run deterministic coaching fields)
+// =============================================================================
+
+/**
+ * M1 Coaching Readiness - actionability estimate based on evidence and model quality.
+ * Separate from statistical robustness.
+ */
+export type M1CoachingReadiness = 'ready' | 'close_call' | 'needs_evidence' | 'needs_framing'
+
+/**
+ * Executive Summary - headline coaching content from PLoT.
+ */
+export interface M1ExecutiveSummary {
+  headline: string
+  paragraph: string
+  recommendation: string
+  readiness_statement: string
+}
+
+/**
+ * Readiness Signals - quality/readiness scores from PLoT.
+ */
+export interface M1ReadinessSignals {
+  score: number  // 0-100
+  dimensions?: {
+    evidence: number
+    robustness: number
+    clarity: number
+  }
+}
+
+/**
+ * Key Drivers - factor sensitivity with dominant factor detection.
+ */
+export interface M1KeyDrivers {
+  drivers: Array<{
+    factor_id: string
+    factor_label?: string
+    sensitivity_score?: number
+    importance_score?: number
+    direction?: 'positive' | 'negative'
+  }>
+  /** Factor ID if any single factor has >50% influence */
+  dominant_factor?: string
+}
+
+/**
+ * Evidence Gap - area where more data would improve decision confidence.
+ */
+export interface M1EvidenceGap {
+  factor_id: string
+  factor_label: string
+  confidence: number  // 0-100
+  voi: number  // Value of Information (0-1)
+  suggestion: string
+  target_node_id?: string  // For canvas focus
+}
+
+/**
+ * Next Action - prioritised recommendation for improving the decision.
+ */
+export interface M1NextAction {
+  action: string
+  rationale: string
+  priority: number  // Lower = more important
+  target_type?: 'node' | 'edge' | 'factor' | 'option'
+  target_id?: string
+  target_label?: string
+}
+
+/**
+ * Assumption - recorded assumption made during analysis.
+ */
+export interface M1Assumption {
+  severity: 'low' | 'medium' | 'high'
+  message: string
+  target?: string
+}
+
+/**
+ * M1 Coaching - deterministic coaching fields from PLoT /v2/run response.
+ * Computed after ISL returns, not LLM-generated.
+ */
+export interface M1Coaching {
+  executive_summary?: M1ExecutiveSummary
+  /** Option ID → summary headline */
+  story_headlines?: Record<string, string>
+  readiness?: M1CoachingReadiness
+  readiness_signals?: M1ReadinessSignals
+  key_drivers?: M1KeyDrivers
+  evidence_gaps?: M1EvidenceGap[]
+  next_actions?: M1NextAction[]
+  assumptions_ledger?: M1Assumption[]
+}

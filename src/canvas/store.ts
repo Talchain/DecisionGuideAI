@@ -19,7 +19,7 @@ import type { GraphHealth, ValidationIssue, NeedleMover } from './validation/typ
 import type { Document, Citation } from './share/types'
 import type { Snapshot, DecisionRationale, ComparisonResult } from './snapshots/types'
 import type { CeeDecisionReviewPayload, CeeTraceMeta, CeeErrorViewModel } from './decisionReview/types'
-import type { CeeDecisionReviewPayloadV1, CeeTrace, CeeError, M1Review, ErrorDetail } from '../types/cee'
+import type { CeeDecisionReviewPayloadV1, CeeTrace, CeeError, M1Review, M1Coaching, ErrorDetail } from '../types/cee'
 import { sanitizeCeeReviewPayload, sanitizeM1Review } from './utils/ceeDataAdapter'
 import type { CEEAnalysisReady, CeePipelineTrace } from '../adapters/cee/types'
 import type { CeeDebugHeaders } from './utils/ceeDebugHeaders'
@@ -115,6 +115,8 @@ export type RunMetaState = {
   ceeErrorV1?: CeeError | null
   // M1 Review - CEE enrichment from /v2/run (rationale, robustness synthesis, etc.)
   m1Review?: M1Review | null
+  // M1 Coaching - deterministic coaching fields from /v2/run (not LLM-generated)
+  m1Coaching?: M1Coaching | null
   ceeDebugHeaders?: CeeDebugHeaders // Phase 1 Section 4.1: Dev-only debug headers
   // Raw error data for debugging malformed responses
   rawErrorData?: {

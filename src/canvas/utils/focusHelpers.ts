@@ -57,3 +57,47 @@ export function focusEdgeById(edgeId: string): void {
   }
   focusEdgeImpl(edgeId)
 }
+
+/**
+ * M1 Coaching: Target type for deterministic focus resolution
+ */
+export type FocusTargetType = 'node' | 'edge' | 'factor' | 'option'
+
+/**
+ * M1 Coaching: Unified focus handler with deterministic target resolution
+ *
+ * Resolves target based on type:
+ * - node: focusNodeById directly
+ * - edge: focusEdgeById directly
+ * - factor: treats factor_id as node_id (factors are nodes on canvas)
+ * - option: treats option_id as node_id (options are nodes on canvas)
+ *
+ * Falls back to focusNodeById when type is unknown.
+ */
+export function focusByTarget(
+  targetId: string,
+  targetType?: FocusTargetType
+): void {
+  if (!targetId) {
+    console.warn('[focusHelpers] focusByTarget called with empty targetId')
+    return
+  }
+
+  switch (targetType) {
+    case 'edge':
+      focusEdgeById(targetId)
+      break
+    case 'node':
+    case 'factor':
+    case 'option':
+    case undefined:
+      // All non-edge targets are nodes on the canvas
+      focusNodeById(targetId)
+      break
+    default:
+      // Warn about unknown target type but still attempt focus as node
+      console.warn(`[focusHelpers] Unknown targetType "${targetType}", defaulting to node focus`)
+      focusNodeById(targetId)
+      break
+  }
+}

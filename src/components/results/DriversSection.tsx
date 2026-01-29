@@ -19,7 +19,7 @@ import { focusNodeById } from '../../canvas/utils/focusHelpers'
 import { EMPTY_STATES } from './emptyStates'
 import { formatFlipRiskMessage } from './utils/formatScenarioRatio'
 import { FactorInsights, hasEnrichmentContent } from './FactorInsights'
-import { Info, ExternalLink } from 'lucide-react'
+import { Info, ExternalLink, AlertTriangle } from 'lucide-react'
 
 interface DriversSectionProps {
   data: DriversSectionData
@@ -491,7 +491,18 @@ export function DriversSection({
   registerDriverRef,
 }: DriversSectionProps) {
   const [showAll, setShowAll] = useState(false)
-  const { drivers, driversStatus, topDrivers, hasMagnitudeData, islError, hiddenZeroImpactCount } = data
+  const { drivers, driversStatus, topDrivers, hasMagnitudeData, islError, hiddenZeroImpactCount, dominantFactorId, dominantFactorLabel } = data
+
+  // Handle focus on dominant factor
+  const handleDominantFactorFocus = useCallback(() => {
+    if (dominantFactorId) {
+      if (onFocusNode) {
+        onFocusNode(dominantFactorId)
+      } else {
+        focusNodeById(dominantFactorId)
+      }
+    }
+  }, [dominantFactorId, onFocusNode])
 
   // Diagnostic logging for data issues (debug mode only)
   useEffect(() => {
@@ -537,8 +548,37 @@ export function DriversSection({
   const displayDrivers = showAll ? drivers : topDrivers
   const hiddenCount = drivers.length - topDrivers.length
 
+  // Get dominant factor's influence percentage
+  const dominantFactorInfluence = dominantFactorId
+    ? (() => {
+        const driver = drivers.find(d => d.factorKey === dominantFactorId)
+        if (!driver) return null
+        const influence = driver.influenceScore ?? driver.normalisedInfluence
+        return Math.round(influence * 100)
+      })()
+    : null
+
   return (
     <div className="space-y-4">
+      {/* M1 Coaching: Dominant factor warning callout */}
+      {/* Note: dominantFactorInfluence uses !== null to handle edge case of 0% (though detection requires >50%) */}
+      {dominantFactorId && dominantFactorLabel && dominantFactorInfluence !== null && (
+        <div className="p-3 bg-warning-50 border border-warning-200 rounded-lg flex items-start gap-2">
+          <AlertTriangle className="w-4 h-4 text-warning-600 flex-shrink-0 mt-0.5" />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm text-warning-800">
+              <span className="font-medium">{dominantFactorLabel}</span> dominates this decision ({dominantFactorInfluence}% influence). Validate this weight carefully.
+            </p>
+            <button
+              onClick={handleDominantFactorFocus}
+              className="text-xs text-warning-700 hover:text-warning-800 underline mt-1"
+            >
+              Review on canvas
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Column headers - right-aligned above bars only */}
       {/* NOTE: Panel title rendered by parent (OutputsDock section header) */}
       <div className={`grid ${GRID_COLS} gap-3 px-3`}>

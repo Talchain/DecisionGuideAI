@@ -697,6 +697,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     edges,
     hasCompletedFirstRun,
     currentScenarioFraming,
+    m1Coaching,
   } = useCanvasStore(
     useShallow((s) => ({
       results: s.results,
@@ -705,6 +706,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       edges: s.edges,
       hasCompletedFirstRun: s.hasCompletedFirstRun,
       currentScenarioFraming: (s as any).currentScenarioFraming,
+      m1Coaching: (s.runMeta as any)?.m1Coaching ?? null,
     }))
   )
 
@@ -986,8 +988,13 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       baselineOutcome,
       // Near-tie detection: when top options are too close to call
       nearTie,
+      // M1 Coaching fields (Task 2)
+      coachingHeadline: m1Coaching?.executive_summary?.headline,
+      coachingReadiness: m1Coaching?.readiness,
+      coachingReadinessScore: m1Coaching?.readiness_signals?.score,
+      storyHeadlines: m1Coaching?.story_headlines ?? {},
     }
-  }, [hasCompletedFirstRun, report, nodes, goalLabel, goalNodeId, outcomeUnit, outcomeUnitSymbol, currentScenarioFraming])
+  }, [hasCompletedFirstRun, report, nodes, goalLabel, goalNodeId, outcomeUnit, outcomeUnitSymbol, currentScenarioFraming, m1Coaching])
 
   // ==========================================================================
   // Drivers Section Data (with dynamic normalisation)
@@ -1298,6 +1305,24 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       islError: islErrorMessage,
       // Task 2: Track hidden zero-impact factors
       hiddenZeroImpactCount: zeroImpactCount > 0 ? zeroImpactCount : undefined,
+      // Task 3 (M1 Coaching): Detect dominant factor
+      // Trigger: >50% influence AND top 2 ratio > 2:1
+      ...(() => {
+        if (nonZeroImpactDrivers.length < 2) return {}
+        const top1 = nonZeroImpactDrivers[0]
+        const top2 = nonZeroImpactDrivers[1]
+        const top1Influence = top1.influenceScore ?? top1.normalisedInfluence
+        const top2Influence = top2.influenceScore ?? top2.normalisedInfluence
+        // Check >50% influence AND ratio > 2:1
+        const isDominant = top1Influence > 0.5 && (top2Influence > 0 ? top1Influence / top2Influence > 2 : true)
+        if (isDominant) {
+          return {
+            dominantFactorId: top1.factorKey,
+            dominantFactorLabel: top1.factorLabel,
+          }
+        }
+        return {}
+      })(),
     }
   }, [report, nodes, edges, goalNodeId, outcomeNodeIds])
 
@@ -1638,8 +1663,117 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       filteredFragileEdges,
       // Task 1: Track hidden high-risk edges for disclosure
       hiddenHighRiskCount: hiddenHighRiskCount > 0 ? hiddenHighRiskCount : undefined,
+      // Task 4 (M1 Coaching): Evidence gaps - sorted by VOI descending, deduped by factor_id
+      ...(() => {
+        const rawGaps = safeArray(m1Coaching?.evidence_gaps)
+        if (rawGaps.length === 0) return {}
+
+        // Dedupe by factor_id
+        const seenFactors = new Set<string>()
+        const uniqueGaps = rawGaps.filter((gap: any) => {
+          const factorId = gap.factor_id
+          if (!factorId || seenFactors.has(factorId)) return false
+          seenFactors.add(factorId)
+          return true
+        })
+
+        // Sort by VOI descending
+        const sortedGaps = uniqueGaps.sort((a: any, b: any) => {
+          const aVoi = typeof a.voi === 'number' ? a.voi : 0
+          const bVoi = typeof b.voi === 'number' ? b.voi : 0
+          return bVoi - aVoi
+        })
+
+        // Map to UI format
+        const evidenceGaps = sortedGaps.map((gap: any) => ({
+          factorId: gap.factor_id,
+          factorLabel: gap.factor_label ?? gap.factor_id,
+          confidence: gap.confidence ?? 0,
+          voi: gap.voi ?? 0,
+          suggestion: gap.suggestion ?? '',
+          targetNodeId: gap.target_node_id,
+        }))
+
+        return {
+          evidenceGaps,
+          topEvidenceGaps: evidenceGaps.slice(0, 3),
+        }
+      })(),
+      // Task 5 (M1 Coaching): Next actions - sorted by priority, deduped against fragile edges
+      ...(() => {
+        const rawActions = safeArray(m1Coaching?.next_actions)
+        if (rawActions.length === 0) return {}
+
+        // Build a set of fragile edge factor IDs for deduplication
+        const fragileFactorIds = new Set<string>()
+        safeArray((report as any)?.robustness?.fragile_edges).forEach((fe: any) => {
+          const factorId = fe.from_id ?? fe.fromId ?? fe.source
+          if (factorId) fragileFactorIds.add(factorId)
+        })
+
+        // Dedupe by action text + target_id, skip if target_id matches a fragile edge
+        const seenActions = new Set<string>()
+        const uniqueActions = rawActions.filter((action: any) => {
+          const actionText = (action.action ?? '').toLowerCase().trim()
+          const targetId = action.target_id ?? ''
+          const dedupeKey = `${actionText}::${targetId}`
+
+          // Skip if already seen
+          if (seenActions.has(dedupeKey)) return false
+          seenActions.add(dedupeKey)
+
+          // Skip if target_id matches a fragile edge (already shown in uncertainties)
+          if (targetId && fragileFactorIds.has(targetId)) return false
+
+          return true
+        })
+
+        // Sort by priority (lower = higher priority)
+        const sortedActions = uniqueActions.sort((a: any, b: any) => {
+          const aPriority = typeof a.priority === 'number' ? a.priority : 999
+          const bPriority = typeof b.priority === 'number' ? b.priority : 999
+          return aPriority - bPriority
+        })
+
+        // Map to UI format
+        const nextActions = sortedActions.map((action: any) => ({
+          action: action.action ?? '',
+          rationale: action.rationale ?? '',
+          priority: action.priority ?? 999,
+          targetType: action.target_type as 'node' | 'edge' | 'factor' | 'option' | undefined,
+          targetId: action.target_id,
+          targetLabel: action.target_label,
+        }))
+
+        return {
+          nextActions,
+          topNextActions: nextActions.slice(0, 3),
+        }
+      })(),
+      // Task 6 (M1 Coaching): Assumptions ledger - sorted by severity (high → medium → low)
+      ...(() => {
+        const rawAssumptions = safeArray(m1Coaching?.assumptions_ledger)
+        if (rawAssumptions.length === 0) return {}
+
+        // Sort by severity: high → medium → low
+        const severityOrder: Record<string, number> = { high: 0, medium: 1, low: 2 }
+        const sortedAssumptions = rawAssumptions.sort((a: any, b: any) => {
+          const aOrder = severityOrder[a.severity] ?? 3
+          const bOrder = severityOrder[b.severity] ?? 3
+          return aOrder - bOrder
+        })
+
+        // Map to UI format
+        const assumptions = sortedAssumptions.map((assumption: any) => ({
+          severity: (assumption.severity ?? 'low') as 'low' | 'medium' | 'high',
+          message: assumption.message ?? '',
+          target: assumption.target,
+        }))
+
+        return { assumptions }
+      })(),
     }
-  }, [report])
+  }, [report, m1Coaching])
 
   // ==========================================================================
   // Improvements Section Data (Legacy - now merged into confidence)

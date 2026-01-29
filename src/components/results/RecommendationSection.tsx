@@ -13,7 +13,7 @@
  */
 
 import { useCallback } from 'react'
-import type { RecommendationSectionData, OptionResult, OutcomeUnitType, StabilityLevel, WinnerDeterminedBy, RobustnessLevel, RobustnessLabel } from './types'
+import type { RecommendationSectionData, OptionResult, OutcomeUnitType, WinnerDeterminedBy, RobustnessLevel, RobustnessLabel, M1CoachingReadiness } from './types'
 import type { NearTieInfo } from '../../lib/mappers/types'
 import { focusNodeById } from '../../canvas/utils/focusHelpers'
 import { EMPTY_STATES } from './emptyStates'
@@ -96,52 +96,6 @@ function formatOutcome(
 }
 
 /**
- * Derive stability level from recommendation_stability score.
- * High (≥80%), Medium (50-79%), Low (<50%)
- */
-function getStabilityLevel(stability: number): StabilityLevel {
-  if (stability >= 0.8) return 'high'
-  if (stability >= 0.5) return 'medium'
-  return 'low'
-}
-
-/**
- * Task 1.6: Stability chip component showing recommendation stability level.
- * Updated text: "Stays best in X% of scenarios tested"
- */
-function StabilityChip({ stability }: { stability: number }) {
-  const level = getStabilityLevel(stability)
-  const percentage = Math.round(stability * 100)
-
-  const config = {
-    high: {
-      bgColor: 'bg-success-100',
-      textColor: 'text-success-700',
-      borderColor: 'border-success-300',
-    },
-    medium: {
-      bgColor: 'bg-warning-100',
-      textColor: 'text-warning-700',
-      borderColor: 'border-warning-300',
-    },
-    low: {
-      bgColor: 'bg-danger-100',
-      textColor: 'text-danger-700',
-      borderColor: 'border-danger-300',
-    },
-  }[level]
-
-  return (
-    <span
-      className={`${typography.caption} inline-flex items-center px-2 py-0.5 rounded border ${config.bgColor} ${config.textColor} ${config.borderColor}`}
-      title={`How often the recommendation stays winner under uncertainty`}
-    >
-      Stays best in {percentage}% of scenarios tested
-    </span>
-  )
-}
-
-/**
  * Task 1.4: Get winner label based on how the winner was determined.
  * - win_probability present → "MOST LIKELY TO BE BEST"
  * - Only expected/p50 → "HIGHEST EXPECTED OUTCOME"
@@ -156,6 +110,70 @@ function getWinnerLabel(determinedBy: WinnerDeterminedBy | undefined): string {
     default:
       return 'UNABLE TO DETERMINE BEST OPTION'
   }
+}
+
+/**
+ * M1 Coaching: Decision Readiness chip with tooltip.
+ * Maps readiness level to display text and styling.
+ */
+const READINESS_CONFIG: Record<M1CoachingReadiness, {
+  label: string
+  tooltip: string
+  bgColor: string
+  textColor: string
+  borderColor: string
+}> = {
+  ready: {
+    label: 'Decision Ready',
+    tooltip: 'The model provides clear guidance with strong evidence',
+    bgColor: 'bg-success-100',
+    textColor: 'text-success-700',
+    borderColor: 'border-success-300',
+  },
+  close_call: {
+    label: 'Close Call',
+    tooltip: 'Options are similar - consider other factors',
+    bgColor: 'bg-warning-100',
+    textColor: 'text-warning-700',
+    borderColor: 'border-warning-300',
+  },
+  needs_evidence: {
+    label: 'Needs Evidence',
+    tooltip: 'Key assumptions lack supporting data',
+    bgColor: 'bg-orange-100',
+    textColor: 'text-orange-700',
+    borderColor: 'border-orange-300',
+  },
+  needs_framing: {
+    label: 'Needs Framing',
+    tooltip: 'The decision structure may need refinement',
+    bgColor: 'bg-sky-100',
+    textColor: 'text-sky-700',
+    borderColor: 'border-sky-300',
+  },
+}
+
+function DecisionReadinessChip({
+  readiness,
+  score,
+}: {
+  readiness: M1CoachingReadiness
+  score?: number
+}) {
+  const config = READINESS_CONFIG[readiness]
+  if (!config) return null
+
+  return (
+    <span
+      className={`${typography.caption} inline-flex items-center px-2 py-0.5 rounded border ${config.bgColor} ${config.textColor} ${config.borderColor}`}
+      title={config.tooltip}
+    >
+      {config.label}
+      {score != null && (
+        <span className="ml-1 opacity-75">({score}%)</span>
+      )}
+    </span>
+  )
 }
 
 /**
@@ -431,11 +449,14 @@ function OptionRow({
   onFocus,
   outcomeUnit,
   outcomeUnitSymbol,
+  storyHeadline,
 }: {
   option: OptionResult
   onFocus?: (nodeId: string) => void
   outcomeUnit?: OutcomeUnitType
   outcomeUnitSymbol?: string
+  /** M1 Coaching: Story headline for this option */
+  storyHeadline?: string
 }) {
   const handleClick = useCallback(() => {
     if (onFocus) {
@@ -468,23 +489,31 @@ function OptionRow({
       `}
       title={`Click to focus ${option.label} on canvas`}
     >
-      <div className="flex items-center gap-2">
-        <span
-          className={`text-sm ${
-            option.isRecommended ? 'text-success-900' : 'text-slate-700'
-          }`}
-        >
-          {option.label}
-        </span>
-        {option.isRecommended && (
-          <span className="text-xs bg-success-100 text-success-700 px-1.5 py-0.5 rounded">
-            Recommended
+      <div className="flex-1">
+        <div className="flex items-center gap-2">
+          <span
+            className={`text-sm ${
+              option.isRecommended ? 'text-success-900' : 'text-slate-700'
+            }`}
+          >
+            {option.label}
           </span>
-        )}
-        {option.isBaseline && (
-          <span className="text-xs bg-slate-200 text-slate-600 px-1.5 py-0.5 rounded">
-            Baseline
-          </span>
+          {option.isRecommended && (
+            <span className="text-xs bg-success-100 text-success-700 px-1.5 py-0.5 rounded">
+              Recommended
+            </span>
+          )}
+          {option.isBaseline && (
+            <span className="text-xs bg-slate-200 text-slate-600 px-1.5 py-0.5 rounded">
+              Baseline
+            </span>
+          )}
+        </div>
+        {/* M1 Coaching: Story headline as subtitle */}
+        {storyHeadline && (
+          <p className={`${typography.caption} text-slate-500 mt-0.5`}>
+            {storyHeadline}
+          </p>
         )}
       </div>
       <div className="flex flex-col items-end">
@@ -534,6 +563,11 @@ export function RecommendationSection({
     goalText,
     // Near-tie detection
     nearTie,
+    // M1 Coaching fields (Task 2)
+    coachingHeadline,
+    coachingReadiness,
+    coachingReadinessScore,
+    storyHeadlines,
   } = data
 
   // Error state
@@ -613,6 +647,18 @@ export function RecommendationSection({
         </div>
       )}
 
+      {/* M1 Coaching: Headline strip below goal */}
+      {/* Display rules: Show only when coaching.headline exists. Muted styling if near-tie visible */}
+      {coachingHeadline && (
+        <div
+          className={`text-sm ${
+            nearTie?.isTie ? 'text-slate-500 italic' : 'text-slate-700'
+          }`}
+        >
+          {coachingHeadline}
+        </div>
+      )}
+
       {/* Task 1.4: Winner label */}
       <div className="text-xs font-semibold text-slate-500 tracking-wide">
         {winnerLabel}
@@ -632,21 +678,30 @@ export function RecommendationSection({
                   : EMPTY_STATES.rangeData}
             </span>
           </div>
-          {/* Task 1.5: Robustness badge with inline stability */}
-          <RobustnessBadge
-            level={robustnessLevel}
-            label={robustnessLabel}
-            stability={recommendationStability}
-          />
-          {/* Fallback: show stability alone when badge is missing but stability exists */}
-          {!robustnessLevel && !robustnessLabel && recommendationStability != null && (
-            <span
-              className={`${typography.caption} inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-slate-100 text-slate-600`}
-              title="How stable the recommendation is under uncertainty"
-            >
-              {Math.round(recommendationStability * 100)}% stable
-            </span>
-          )}
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* M1 Coaching: Decision Readiness chip */}
+            {coachingReadiness && (
+              <DecisionReadinessChip
+                readiness={coachingReadiness}
+                score={coachingReadinessScore}
+              />
+            )}
+            {/* Task 1.5: Robustness badge with inline stability */}
+            <RobustnessBadge
+              level={robustnessLevel}
+              label={robustnessLabel}
+              stability={recommendationStability}
+            />
+            {/* Fallback: show stability alone when badge is missing but stability exists */}
+            {!robustnessLevel && !robustnessLabel && recommendationStability != null && (
+              <span
+                className={`${typography.caption} inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-slate-100 text-slate-600`}
+                title="How stable the recommendation is under uncertainty"
+              >
+                {Math.round(recommendationStability * 100)}% stable
+              </span>
+            )}
+          </div>
         </div>
 
         {/* Win probability - only show when significantly different from stability */}
@@ -753,6 +808,7 @@ export function RecommendationSection({
                 onFocus={onFocusNode}
                 outcomeUnit={outcomeUnit}
                 outcomeUnitSymbol={outcomeUnitSymbol}
+                storyHeadline={storyHeadlines?.[option.id]}
               />
             ))}
           </div>
