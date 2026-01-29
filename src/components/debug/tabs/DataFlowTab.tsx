@@ -327,7 +327,48 @@ export function DataFlowTab({ data }: DataFlowTabProps) {
           <DiagnosticBadge present={!!data.payloads.cee_request} label="Request captured" />
           <DiagnosticBadge present={!!data.payloads.cee_response} label="Response captured" />
           <DiagnosticBadge present={data.diagnostics.cee_trace_present} label="CEE trace present" />
+          <DiagnosticBadge
+            present={!!data.cee_observability}
+            label={
+              data.cee_observability?.raw_io_included
+                ? 'Observability (raw I/O)'
+                : 'Observability (metadata)'
+            }
+          />
         </div>
+
+        {/* CEE Observability Status */}
+        {data.cee_observability && (
+          <div
+            style={{
+              marginTop: 8,
+              padding: 8,
+              borderRadius: 6,
+              background: '#f0fdf4',
+              border: '1px solid #86efac',
+              fontSize: 11,
+              color: '#166534',
+            }}
+          >
+            <div style={{ fontWeight: 600, marginBottom: 4 }}>
+              ✓ CEE Observability Available
+            </div>
+            <div style={{ color: '#6b7280', fontSize: 10 }}>
+              {data.cee_observability.totals && (
+                <>
+                  {data.cee_observability.totals.total_llm_calls} LLM call{data.cee_observability.totals.total_llm_calls !== 1 ? 's' : ''}
+                  {' • '}
+                  {data.cee_observability.totals.total_tokens.total.toLocaleString()} tokens
+                  {' • '}
+                  {data.cee_observability.raw_io_included && (
+                    <span style={{ color: '#f59e0b' }}> Raw I/O included</span>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+        )}
+
         <RawResponseInspector title="Raw CEE Response Keys" response={data.payloads.cee_response} />
       </BoundaryCard>
 

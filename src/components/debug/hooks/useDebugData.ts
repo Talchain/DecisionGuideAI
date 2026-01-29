@@ -462,6 +462,105 @@ export interface SchemaVersions {
   consistent: boolean
 }
 
+/**
+ * CEE Observability data from _observability object.
+ * Available when CEE_OBSERVABILITY_ENABLED=true or include_debug=true.
+ */
+export interface CEEObservabilityData {
+  /** LLM call records */
+  llm_calls: LLMCallRecord[]
+  /** Validation tracking */
+  validation: ValidationTracking | null
+  /** Orchestrator tracking */
+  orchestrator: OrchestratorTracking | null
+  /** Aggregated totals */
+  totals: ObservabilityTotals | null
+  /** Request ID for correlation */
+  request_id: string | null
+  /** Whether raw I/O is included */
+  raw_io_included: boolean
+}
+
+export interface LLMCallRecord {
+  id: string
+  step: 'draft_graph' | 'repair_graph' | 'suggest_options' | 'clarify_brief' |
+        'critique_graph' | 'explain_diff' | 'factor_extraction' |
+        'constraint_extraction' | 'factor_enrichment' | 'other'
+  model: string
+  provider: 'anthropic' | 'openai'
+  tokens: {
+    input: number
+    output: number
+    total: number
+  }
+  latency_ms: number
+  attempt: number
+  success: boolean
+  error?: string
+  started_at: string
+  completed_at: string
+  prompt_version?: string
+  cache_hit?: boolean
+  prompt_hash?: string
+  response_hash?: string
+  raw_prompt?: string
+  raw_response?: string
+}
+
+export interface ValidationTracking {
+  attempts: number
+  passed: boolean
+  total_rules_checked: number
+  failed_rules: string[]
+  repairs_triggered: boolean
+  repair_types: string[]
+  retry_triggered: boolean
+  attempt_records: ValidationAttemptRecord[]
+  total_latency_ms: number
+}
+
+export interface ValidationAttemptRecord {
+  attempt: number
+  passed: boolean
+  rules_checked: number
+  rules_failed: string[]
+  repairs_triggered: boolean
+  repair_types?: string[]
+  retry_triggered: boolean
+  latency_ms: number
+  timestamp: string
+  validator?: string
+  warnings?: string[]
+}
+
+export interface OrchestratorTracking {
+  enabled: boolean
+  steps_completed: string[]
+  steps_skipped: string[]
+  total_latency_ms: number
+  step_records: OrchestratorStepRecord[]
+}
+
+export interface OrchestratorStepRecord {
+  step: string
+  executed: boolean
+  skip_reason?: string
+  latency_ms: number
+  timestamp: string
+  metadata?: Record<string, unknown>
+}
+
+export interface ObservabilityTotals {
+  total_llm_calls: number
+  total_tokens: {
+    input: number
+    output: number
+    total: number
+  }
+  total_latency_ms: number
+  cee_version: string
+}
+
 export interface DebugData {
   /** Overall analysis status */
   overall: {
@@ -536,6 +635,9 @@ export interface DebugData {
 
   /** Schema version consistency */
   schema_versions: SchemaVersions | null
+
+  /** CEE Observability data from _observability object */
+  cee_observability: CEEObservabilityData | null
 }
 
 // =============================================================================
@@ -1042,14 +1144,24 @@ function extractIslCritiques(plotResponse: unknown): ValidationIssue[] {
 
   if (!Array.isArray(critiques)) return []
 
-  return critiques.map((critique): ValidationIssue => ({
-    id: critique.id ?? `isl_${crypto.randomUUID().slice(0, 8)}`,
-    code: critique.code ?? 'UNKNOWN',
-    severity: critique.severity ?? 'warning',
-    message: critique.message ?? 'Unknown issue',
-    suggestion: critique.suggestion,
-    source: 'isl',
-  }))
+  return critiques.map((critique): ValidationIssue => {
+    // Remap internal ISL codes to semantic UI codes
+    let code = critique.code ?? 'UNKNOWN'
+
+    // INTERNAL_CLAMP_* codes (strength clamping) should display as COEFFICIENT_REPAIRED
+    if (code.startsWith('INTERNAL_CLAMP_')) {
+      code = 'COEFFICIENT_REPAIRED'
+    }
+
+    return {
+      id: critique.id ?? `isl_${crypto.randomUUID().slice(0, 8)}`,
+      code,
+      severity: critique.severity ?? 'warning',
+      message: critique.message ?? 'Unknown issue',
+      suggestion: critique.suggestion,
+      source: 'isl',
+    }
+  })
 }
 
 /**
@@ -1211,11 +1323,30 @@ function extractWinningOption(
 
   const plot = plotResponse as Record<string, unknown>
 
-  // Try multiple paths for ISL options
+  // Try multiple paths for ISL options (in priority order)
   const islOptions =
+    // Path 1: downstream_calls.isl[0].response.options (most common for orchestrated calls)
+    (((plot.downstream_calls as Record<string, unknown>)?.isl as unknown[])?.[0] as Record<string, unknown>)?.response?.options ??
+    // Path 2: response.downstream_calls.isl[0].response.options
+    ((((plot.response as Record<string, unknown>)?.downstream_calls as Record<string, unknown>)?.isl as unknown[])?.[0] as Record<string, unknown>)?.response?.options ??
+    // Path 3: isl.response.options (direct ISL capture)
     ((plot.isl as Record<string, unknown>)?.response as Record<string, unknown>)?.options ??
+    // Path 4: response.options (legacy format)
     (plot.response as Record<string, unknown>)?.options ??
+    // Path 5: top-level options (fallback)
     (plot.options as unknown[])
+
+  // Debug logging (dev/staging only)
+  if (import.meta.env.DEV) {
+    console.log('[Winner Debug] ISL options search:', {
+      path1_downstream_calls: (((plot.downstream_calls as Record<string, unknown>)?.isl as unknown[])?.[0] as Record<string, unknown>)?.response?.options,
+      path2_response_downstream: ((((plot.response as Record<string, unknown>)?.downstream_calls as Record<string, unknown>)?.isl as unknown[])?.[0] as Record<string, unknown>)?.response?.options,
+      path3_isl_response: ((plot.isl as Record<string, unknown>)?.response as Record<string, unknown>)?.options,
+      path4_response: (plot.response as Record<string, unknown>)?.options,
+      path5_top_level: plot.options,
+      found: islOptions,
+    })
+  }
 
   if (!Array.isArray(islOptions) || islOptions.length === 0) return null
 
@@ -1961,6 +2092,160 @@ function extractTraceId(payloads: TracedPayload[]): string | null {
   return payloads[0]?.id ?? null
 }
 
+/**
+ * Runtime validator for LLMCallRecord
+ */
+function isValidLLMCallRecord(obj: unknown): obj is LLMCallRecord {
+  if (!obj || typeof obj !== 'object') return false
+  const record = obj as Record<string, unknown>
+
+  return (
+    typeof record.id === 'string' &&
+    typeof record.step === 'string' &&
+    typeof record.model === 'string' &&
+    typeof record.provider === 'string' &&
+    typeof record.tokens === 'object' &&
+    record.tokens !== null &&
+    typeof (record.tokens as Record<string, unknown>).total === 'number' &&
+    typeof record.latency_ms === 'number' &&
+    typeof record.attempt === 'number' &&
+    typeof record.success === 'boolean' &&
+    typeof record.started_at === 'string' &&
+    typeof record.completed_at === 'string'
+  )
+}
+
+/**
+ * Runtime validator for ValidationTracking
+ */
+function isValidValidationTracking(obj: unknown): obj is ValidationTracking {
+  if (!obj || typeof obj !== 'object') return false
+  const record = obj as Record<string, unknown>
+
+  return (
+    typeof record.attempts === 'number' &&
+    typeof record.passed === 'boolean' &&
+    typeof record.total_rules_checked === 'number' &&
+    Array.isArray(record.failed_rules) &&
+    typeof record.repairs_triggered === 'boolean' &&
+    Array.isArray(record.repair_types) &&
+    typeof record.retry_triggered === 'boolean' &&
+    Array.isArray(record.attempt_records) &&
+    typeof record.total_latency_ms === 'number'
+  )
+}
+
+/**
+ * Runtime validator for OrchestratorTracking
+ */
+function isValidOrchestratorTracking(obj: unknown): obj is OrchestratorTracking {
+  if (!obj || typeof obj !== 'object') return false
+  const record = obj as Record<string, unknown>
+
+  return (
+    typeof record.enabled === 'boolean' &&
+    Array.isArray(record.steps_completed) &&
+    Array.isArray(record.steps_skipped) &&
+    typeof record.total_latency_ms === 'number' &&
+    Array.isArray(record.step_records)
+  )
+}
+
+/**
+ * Runtime validator for ObservabilityTotals
+ */
+function isValidObservabilityTotals(obj: unknown): obj is ObservabilityTotals {
+  if (!obj || typeof obj !== 'object') return false
+  const record = obj as Record<string, unknown>
+
+  return (
+    typeof record.total_llm_calls === 'number' &&
+    typeof record.total_tokens === 'object' &&
+    record.total_tokens !== null &&
+    typeof (record.total_tokens as Record<string, unknown>).total === 'number' &&
+    typeof record.total_latency_ms === 'number' &&
+    typeof record.cee_version === 'string'
+  )
+}
+
+/**
+ * Check if we're in production environment.
+ * SECURITY: Raw LLM I/O must be blocked in production.
+ */
+function isProductionEnvironment(): boolean {
+  return (
+    import.meta.env.PROD ||
+    import.meta.env.MODE === 'production' ||
+    window.location.hostname === 'olumi.netlify.app'
+  )
+}
+
+/**
+ * Extract CEE observability data from _observability object.
+ * Uses runtime validators for defensive extraction.
+ * This data is only present when CEE_OBSERVABILITY_ENABLED=true or include_debug=true.
+ *
+ * SECURITY: Raw I/O (raw_prompt, raw_response) is stripped in production environments.
+ */
+function extractCEEObservability(ceeResponse: unknown): CEEObservabilityData | null {
+  if (!ceeResponse || typeof ceeResponse !== 'object') return null
+
+  const cee = ceeResponse as Record<string, unknown>
+
+  // Check for _observability at top level or in trace
+  const obs = (cee._observability as Record<string, unknown> | undefined)
+    ?? ((cee.trace as Record<string, unknown>)?._observability as Record<string, unknown> | undefined)
+
+  if (!obs) return null
+
+  const isProd = isProductionEnvironment()
+
+  // Extract and validate LLM calls
+  const llmCallsRaw = obs.llm_calls
+  const llm_calls: LLMCallRecord[] = Array.isArray(llmCallsRaw)
+    ? llmCallsRaw.filter(isValidLLMCallRecord).map(call => {
+        // SECURITY: Strip raw I/O in production
+        if (isProd) {
+          const { raw_prompt, raw_response, ...safeCall } = call
+          return safeCall as LLMCallRecord
+        }
+        return call
+      })
+    : []
+
+  // Extract and validate validation tracking
+  const validationRaw = obs.validation
+  const validation = validationRaw && isValidValidationTracking(validationRaw)
+    ? validationRaw
+    : null
+
+  // Extract and validate orchestrator tracking
+  const orchestratorRaw = obs.orchestrator
+  const orchestrator = orchestratorRaw && isValidOrchestratorTracking(orchestratorRaw)
+    ? orchestratorRaw
+    : null
+
+  // Extract and validate totals
+  const totalsRaw = obs.totals
+  const totals = totalsRaw && isValidObservabilityTotals(totalsRaw)
+    ? totalsRaw
+    : null
+
+  // Extract metadata
+  const request_id = typeof obs.request_id === 'string' ? obs.request_id : null
+  // SECURITY: Always report false for raw_io_included in production
+  const raw_io_included = isProd ? false : (typeof obs.raw_io_included === 'boolean' ? obs.raw_io_included : false)
+
+  return {
+    llm_calls,
+    validation,
+    orchestrator,
+    totals,
+    request_id,
+    raw_io_included,
+  }
+}
+
 // =============================================================================
 // Hook
 // =============================================================================
@@ -2146,6 +2431,7 @@ export function useDebugData(): DebugData {
       payloadBundle.plot_request,
       payloadBundle.plot_response
     )
+    const cee_observability = extractCEEObservability(payloadBundle.cee_response)
 
     return {
       overall: {
@@ -2191,6 +2477,7 @@ export function useDebugData(): DebugData {
       feature_flags_at_request,
       timing,
       schema_versions,
+      cee_observability,
     }
   }, [ceePipelineTrace, nodes, edges, runMeta, tracedPayloads, gatesMap])
 }

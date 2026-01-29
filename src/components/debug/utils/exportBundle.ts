@@ -18,6 +18,7 @@ import type {
   FeatureFlagsAtRequest,
   ServiceTiming,
   SchemaVersions,
+  CEEObservabilityData,
 } from '../hooks/useDebugData'
 import { getVersionInfo, getClientBuild } from '../../../lib/version-cache'
 import { getBufferedLogs, type BufferedLog } from '../../../utils/debugLogBuffer'
@@ -101,7 +102,10 @@ interface DebugBundle {
   gates: Array<{ name: string; status: string; message?: string }>
   /** Graph validation issues (ISL critiques + UI-side checks) */
   validation: {
-    summary: ValidationSummary
+    summary: ValidationSummary & {
+      cee_repairs?: number
+      cee_retries?: number
+    }
     issues: ValidationIssue[]
   }
   /** Captured console logs */
@@ -113,7 +117,17 @@ interface DebugBundle {
   /** Full graph data (when explicitly requested) */
   full_graph?: {
     factors: Array<{ id: string; label: string; type: string; description?: string }>
-    edges: Array<{ id: string; source: string; target: string; label?: string; strength?: number }>
+    edges: Array<{
+      id: string
+      source: string
+      target: string
+      label?: string
+      strength?: number
+      strength_mean?: number
+      strength_std?: number
+      belief_exists?: number
+      effect_direction?: string
+    }>
     options: Array<{ id: string; label: string; type: string; description?: string }>
   }
 
@@ -136,6 +150,11 @@ interface DebugBundle {
 
   /** Schema version consistency check */
   schema_versions?: SchemaVersions | null
+
+  /** CEE Observability data (sanitized - raw I/O stripped) */
+  cee_observability?: Omit<CEEObservabilityData, 'llm_calls'> & {
+    llm_calls: Array<Omit<CEEObservabilityData['llm_calls'][number], 'raw_prompt' | 'raw_response'>>
+  } | null
 }
 
 // =============================================================================
@@ -285,6 +304,11 @@ function transformGraphData(graphData: FullGraphData): NonNullable<DebugBundle['
       target: edge.target,
       label: edge.data?.label ?? edge.label,
       strength,
+      // Include additional edge metadata for analysis
+      strength_mean: edge.data?.strength_mean,
+      strength_std: edge.data?.strength_std,
+      belief_exists: edge.data?.belief_exists,
+      effect_direction: edge.data?.effect_direction,
     }
   })
 
@@ -439,7 +463,17 @@ export function buildDebugBundle(data: DebugData, options: ExportOptions = {}): 
       message: g.message,
     })),
     validation: {
-      summary: data.validation.summary,
+      summary: {
+        ...data.validation.summary,
+        ...(data.cee_observability?.validation && {
+          cee_repairs: data.cee_observability.validation.repairs_triggered
+            ? data.cee_observability.validation.repair_types.length
+            : 0,
+          cee_retries: data.cee_observability.validation.retry_triggered
+            ? data.cee_observability.validation.attempts - 1
+            : 0,
+        }),
+      },
       issues: data.validation.issues,
     },
     console_logs: getBufferedLogs(),
@@ -454,6 +488,20 @@ export function buildDebugBundle(data: DebugData, options: ExportOptions = {}): 
     feature_flags_at_request: data.feature_flags_at_request,
     timing: data.timing,
     schema_versions: data.schema_versions,
+
+    // CEE Observability (sanitized - raw I/O always stripped for security)
+    cee_observability: data.cee_observability
+      ? {
+          llm_calls: data.cee_observability.llm_calls.map(
+            ({ raw_prompt, raw_response, ...call }) => call
+          ),
+          validation: data.cee_observability.validation,
+          orchestrator: data.cee_observability.orchestrator,
+          totals: data.cee_observability.totals,
+          request_id: data.cee_observability.request_id,
+          raw_io_included: false, // Always false in exports for security
+        }
+      : null,
   }
 }
 

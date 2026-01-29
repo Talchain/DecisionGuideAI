@@ -16,6 +16,18 @@ export interface RawTabProps {
   data: DebugData
 }
 
+/**
+ * Check if we're in production environment.
+ * CRITICAL: Raw LLM I/O must be blocked in production for security.
+ */
+function isProductionEnvironment(): boolean {
+  return (
+    import.meta.env.PROD ||
+    import.meta.env.MODE === 'production' ||
+    window.location.hostname === 'olumi.netlify.app'
+  )
+}
+
 type PayloadType =
   | 'cee_request'
   | 'cee_response'
@@ -25,6 +37,9 @@ type PayloadType =
   | 'isl_response'
   | 'llm_raw'
   | 'full_bundle'
+  | 'observability_bundle'
+  | `llm_prompt_${number}`
+  | `llm_response_${number}`
 
 interface PayloadOption {
   id: PayloadType
@@ -50,7 +65,7 @@ export function RawTab({ data }: RawTabProps) {
 
   // Build payload options
   const payloadOptions = useMemo((): PayloadOption[] => {
-    return [
+    const options: PayloadOption[] = [
       { id: 'cee_request', label: 'CEE Request', available: data.payloads.cee_request !== undefined },
       { id: 'cee_response', label: 'CEE Response', available: data.payloads.cee_response !== undefined },
       { id: 'plot_request', label: 'PLoT Request', available: data.payloads.plot_request !== undefined },
@@ -60,10 +75,46 @@ export function RawTab({ data }: RawTabProps) {
       { id: 'llm_raw', label: 'LLM Raw', available: data.pipeline.llm_raw !== undefined },
       { id: 'full_bundle', label: 'Full Bundle', available: data.hasData },
     ]
-  }, [data.payloads, data.hasData, data.pipeline.llm_raw])
+
+    // Add observability bundle if available
+    if (data.cee_observability) {
+      options.push({
+        id: 'observability_bundle',
+        label: 'Observability Bundle',
+        available: true,
+      })
+    }
+
+    // CRITICAL: Block raw LLM I/O in production
+    const isProd = isProductionEnvironment()
+    if (!isProd && data.cee_observability?.raw_io_included) {
+      const llmCalls = data.cee_observability.llm_calls
+
+      // Group LLM I/O by step
+      llmCalls.forEach((call, i) => {
+        if (call.raw_prompt) {
+          options.push({
+            id: `llm_prompt_${i}` as PayloadType,
+            label: `LLM Prompt (${call.step})`,
+            available: true,
+          })
+        }
+        if (call.raw_response) {
+          options.push({
+            id: `llm_response_${i}` as PayloadType,
+            label: `LLM Response (${call.step})`,
+            available: true,
+          })
+        }
+      })
+    }
+
+    return options
+  }, [data.payloads, data.hasData, data.pipeline.llm_raw, data.cee_observability])
 
   // Get selected payload data
   const selectedData = useMemo(() => {
+    // Handle standard payloads
     switch (selectedPayload) {
       case 'cee_request':
         return data.payloads.cee_request
@@ -81,10 +132,25 @@ export function RawTab({ data }: RawTabProps) {
         return data.pipeline.llm_raw
       case 'full_bundle':
         return data.payloads
-      default:
-        return undefined
+      case 'observability_bundle':
+        return data.cee_observability
     }
-  }, [selectedPayload, data.payloads, data.pipeline.llm_raw])
+
+    // Handle LLM prompts/responses (only in non-production)
+    if (selectedPayload.startsWith('llm_prompt_')) {
+      const index = parseInt(selectedPayload.split('_')[2])
+      const call = data.cee_observability?.llm_calls[index]
+      return call?.raw_prompt ?? null
+    }
+
+    if (selectedPayload.startsWith('llm_response_')) {
+      const index = parseInt(selectedPayload.split('_')[2])
+      const call = data.cee_observability?.llm_calls[index]
+      return call?.raw_response ?? null
+    }
+
+    return undefined
+  }, [selectedPayload, data.payloads, data.pipeline.llm_raw, data.cee_observability])
 
   // Handle download
   const handleDownload = useCallback(() => {
@@ -173,6 +239,26 @@ export function RawTab({ data }: RawTabProps) {
           ))}
         </div>
       </div>
+
+      {/* Security Warning for Raw LLM I/O (non-production only) */}
+      {(selectedPayload.startsWith('llm_prompt_') || selectedPayload.startsWith('llm_response_')) && (
+        <div style={{
+          padding: 12,
+          background: '#fffbeb',
+          border: '1px solid #fde68a',
+          borderRadius: 6,
+          fontSize: 12,
+          color: '#92400e',
+        }}>
+          <div style={{ fontWeight: 600, marginBottom: 4 }}>
+            ⚠ Security Notice: Raw LLM I/O
+          </div>
+          <div style={{ fontSize: 11, color: '#78716c' }}>
+            Raw prompts and responses may contain sensitive information.
+            This data is only accessible in non-production environments and is blocked in production builds.
+          </div>
+        </div>
+      )}
 
       {/* Toolbar */}
       <div
