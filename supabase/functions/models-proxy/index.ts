@@ -3,13 +3,14 @@
 // Proxy for CEE Admin API models endpoint
 // Returns available AI models for the model selection UI
 
-// SECURITY: Read admin API key from environment (never commit)
-const ASSIST_ADMIN_KEY = Deno.env.get("ASSIST_ADMIN_KEY");
+// SECURITY: Read API keys from environment (never commit)
+// Try ASSIST_ADMIN_KEY first, fall back to ASSIST_API_KEY
+const ASSIST_ADMIN_KEY = Deno.env.get("ASSIST_ADMIN_KEY") || Deno.env.get("ASSIST_API_KEY");
 const ASSIST_API_BASE =
   Deno.env.get("ASSIST_API_BASE") || "https://assistants-api.example.com";
 
 if (!ASSIST_ADMIN_KEY) {
-  throw new Error("ASSIST_ADMIN_KEY environment variable is required");
+  throw new Error("ASSIST_ADMIN_KEY or ASSIST_API_KEY environment variable is required");
 }
 
 // SECURITY: CORS allow-list
@@ -149,7 +150,8 @@ async function fetchModelsFromCEE(): Promise<ModelInfo[]> {
     method: "GET",
     headers: {
       "Content-Type": "application/json",
-      "X-Admin-Key": ASSIST_ADMIN_KEY!,
+      // CEE admin endpoint uses lowercase x-admin-key
+      "x-admin-key": ASSIST_ADMIN_KEY!,
     },
   });
 
@@ -158,10 +160,12 @@ async function fetchModelsFromCEE(): Promise<ModelInfo[]> {
     console.error(
       `[models-proxy] CEE API error: ${response.status} - ${errorText}`
     );
-    throw new Error(`CEE API returned ${response.status}`);
+    throw new Error(`CEE API returned ${response.status}: ${errorText}`);
   }
 
   const data = await response.json();
+  console.log(`[models-proxy] CEE response keys: ${Object.keys(data).join(", ")}`);
+
   const ceeModels: CEEModel[] = data.models || data;
 
   return ceeModels.map(transformModel);
