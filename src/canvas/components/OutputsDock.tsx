@@ -1045,8 +1045,8 @@ export function OutputsDock() {
                     {/* Pre-Analysis Readiness Panel - consolidated quality, blockers, and coaching */}
                     {nodes.length > 0 && (
                       <PreAnalysisReadinessPanel
-                        onAnalyze={handleRunAnalysis}
-                        isAnalyzing={isRunning}
+                        onAnalyse={handleRunAnalysis}
+                        isAnalysing={isRunning}
                         onBlockersChange={setHasPreRunBlockers}
                         onCanRunChange={setReadinessCanRun}
                       />
