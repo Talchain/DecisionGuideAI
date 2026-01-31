@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Check, ChevronDown, ChevronUp, Loader2 } from 'lucide-react'
+import { Check, ChevronDown, ChevronRight, Loader2 } from 'lucide-react'
 import { useCanvasStore } from '../store'
 import { DEFAULT_MODELS, formatTier, type ModelInfo, type OperationType } from '../../config/aiModels'
 import { useAvailableModels } from '../../hooks/useAvailableModels'
@@ -28,6 +28,7 @@ export function ModelSettingsPopover({ isOpen, onClose, anchorRef }: ModelSettin
   const popoverRef = useRef<HTMLDivElement>(null)
   const [position, setPosition] = useState({ top: 0, right: 0 })
   const [showAllModels, setShowAllModels] = useState(false)
+  const [showEnrichment, setShowEnrichment] = useState(false)
 
   // Fetch available models from API
   const { getCuratedModels, getAllModels, getDefaultModelId, isLoading, isFallback } = useAvailableModels()
@@ -184,33 +185,33 @@ export function ModelSettingsPopover({ isOpen, onClose, anchorRef }: ModelSettin
           }}
         />
 
-        {/* Repair Model */}
-        <ModelDropdown
-          label="Repair"
-          description="Fixes structural issues"
-          models={getModelsForOperation('repair')}
-          selectedModelId={effectiveRepairModel}
-          defaultModelId={defaultRepair}
-          onSelect={(modelId) => {
-            setSelectedRepairModel(
-              modelId === defaultRepair ? null : modelId
-            )
-          }}
-        />
-
-        {/* Enrichment Model */}
-        <ModelDropdown
-          label="Enrichment"
-          description="Adds detail and context"
-          models={getModelsForOperation('enrichment')}
-          selectedModelId={effectiveEnrichmentModel}
-          defaultModelId={defaultEnrichment}
-          onSelect={(modelId) => {
-            setSelectedEnrichmentModel(
-              modelId === defaultEnrichment ? null : modelId
-            )
-          }}
-        />
+        {/* Enrichment Model - Collapsible */}
+        <div>
+          <button
+            onClick={() => setShowEnrichment(!showEnrichment)}
+            className="w-full flex items-center gap-2 mb-2"
+          >
+            {showEnrichment ? (
+              <ChevronDown className="w-4 h-4 text-ink-400" />
+            ) : (
+              <ChevronRight className="w-4 h-4 text-ink-400" />
+            )}
+            <span className={`${typography.labelSmall} text-ink-700`}>Enrichment</span>
+            <span className={`${typography.bodySmall} text-ink-400`}>— Adds detail and context</span>
+          </button>
+          {showEnrichment && (
+            <ModelDropdown
+              models={getModelsForOperation('enrichment')}
+              selectedModelId={effectiveEnrichmentModel}
+              defaultModelId={defaultEnrichment}
+              onSelect={(modelId) => {
+                setSelectedEnrichmentModel(
+                  modelId === defaultEnrichment ? null : modelId
+                )
+              }}
+            />
+          )}
+        </div>
 
         {/* Show All Models Toggle */}
         <button
@@ -220,11 +221,7 @@ export function ModelSettingsPopover({ isOpen, onClose, anchorRef }: ModelSettin
           <span className={typography.bodySmall}>
             {showAllModels ? 'Show recommended only' : `Show all models (${allModelsCount})`}
           </span>
-          {showAllModels ? (
-            <ChevronUp className="w-4 h-4" />
-          ) : (
-            <ChevronDown className="w-4 h-4" />
-          )}
+          <ChevronDown className={`w-4 h-4 transition-transform ${showAllModels ? 'rotate-180' : ''}`} />
         </button>
       </div>
 
@@ -239,8 +236,8 @@ export function ModelSettingsPopover({ isOpen, onClose, anchorRef }: ModelSettin
 }
 
 interface ModelDropdownProps {
-  label: string
-  description: string
+  label?: string
+  description?: string
   models: ModelInfo[]
   selectedModelId: string
   defaultModelId: string
@@ -271,11 +268,15 @@ function ModelDropdown({
 
   return (
     <div>
-      <label className={`${typography.labelSmall} text-ink-700 block mb-1`}>
-        {label}
-      </label>
-      <p className={`${typography.bodySmall} text-ink-500 mb-2`}>{description}</p>
-      <div className="space-y-1 max-h-48 overflow-y-auto">
+      {label && (
+        <label className={`${typography.labelSmall} text-ink-700 block mb-1`}>
+          {label}
+        </label>
+      )}
+      {description && (
+        <p className={`${typography.bodySmall} text-ink-500 mb-2`}>{description}</p>
+      )}
+      <div className="space-y-1">
         {sortedTiers.map((tier) => (
           <div key={tier}>
             {/* Show tier header only when showing all models or multiple tiers */}
