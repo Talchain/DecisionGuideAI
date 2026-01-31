@@ -167,7 +167,7 @@ describe('PreAnalysisReadinessPanel', () => {
     expect(button).toBeDisabled()
   })
 
-  it('shows structure list with goal, options, and factors', () => {
+  it('shows Model Snapshot accordion with node and edge counts', () => {
     render(
       <PreAnalysisReadinessPanel
         onAnalyse={mockOnAnalyse}
@@ -176,25 +176,27 @@ describe('PreAnalysisReadinessPanel', () => {
       />
     )
 
-    // Structure list labels
-    expect(screen.getByText('Goal')).toBeInTheDocument()
+    // v2.2: Model Snapshot is now a collapsed accordion
+    expect(screen.getByText('Model Snapshot')).toBeInTheDocument()
+    // Shows node and edge counts in collapsed header
+    expect(screen.getByText(/\d+ node/)).toBeInTheDocument()
+    expect(screen.getByText(/\d+ edge/)).toBeInTheDocument()
+
+    // Expand the Model Snapshot accordion
+    const snapshotButton = screen.getByRole('button', { name: /Model Snapshot/i })
+    fireEvent.click(snapshotButton)
+
+    // v2.2: After expanding, shows category labels with inline items
+    expect(screen.getByText('Target')).toBeInTheDocument()
     expect(screen.getByText('Options')).toBeInTheDocument()
     expect(screen.getByText('Factors')).toBeInTheDocument()
-    expect(screen.getByText('Risks')).toBeInTheDocument()
-    expect(screen.getByText('Outcomes')).toBeInTheDocument()
 
-    // v2.1: Structure rows now show "X configured" with View button instead of inline labels
-    // Multiple sections can show "1 configured" (Goal=1, Factors=1), "2 configured" (Options=2)
-    const configuredTexts = screen.getAllByText(/\d+ configured/)
-    expect(configuredTexts.length).toBeGreaterThanOrEqual(2)
-    // View buttons are present for sections with content
-    expect(screen.getAllByText('View →').length).toBeGreaterThanOrEqual(1)
-    // Option labels still appear in the ready state chips section
+    // Option labels appear in multiple places (Model Snapshot + Ready State chips)
     expect(screen.getAllByText('Option A').length).toBeGreaterThanOrEqual(1)
     expect(screen.getAllByText('Option B').length).toBeGreaterThanOrEqual(1)
   })
 
-  it('shows "None modelled" for empty risks section with Add risk button', () => {
+  it('renders Model Snapshot accordion collapsed by default', () => {
     render(
       <PreAnalysisReadinessPanel
         onAnalyse={mockOnAnalyse}
@@ -203,12 +205,13 @@ describe('PreAnalysisReadinessPanel', () => {
       />
     )
 
-    // Both Risks and Outcomes sections show "None modelled" when empty
-    const noneModelledElements = screen.getAllByText('None modelled')
-    expect(noneModelledElements.length).toBeGreaterThanOrEqual(1)
+    // v2.2: Model Snapshot starts collapsed
+    const snapshotButton = screen.getByRole('button', { name: /Model Snapshot/i })
+    expect(snapshotButton).toHaveAttribute('aria-expanded', 'false')
 
-    // Risks section specifically has "Add risk" button
-    expect(screen.getByText('Add risk')).toBeInTheDocument()
+    // Content is not visible when collapsed
+    expect(screen.queryByText('Target')).not.toBeInTheDocument()
+    expect(screen.queryByText('Structure tab →')).not.toBeInTheDocument()
   })
 
   it('toggles readiness checks when clicked', () => {
@@ -616,6 +619,10 @@ describe('PreAnalysisReadinessPanel Phase 1b - Connectivity blocker', () => {
       />
     )
 
+    // v2.2: Goal Connectivity is now inside Readiness Checks accordion - expand it first
+    const readinessButton = screen.getByText('Readiness Checks')
+    fireEvent.click(readinessButton)
+
     // Should show Goal Connectivity section with blocked status
     expect(screen.getByText('Goal Connectivity')).toBeInTheDocument()
     expect(screen.getByText('Blocked')).toBeInTheDocument()
@@ -684,6 +691,10 @@ describe('PreAnalysisReadinessPanel Phase 1b - Connectivity warning with focus',
         onCanRunChange={vi.fn()}
       />
     )
+
+    // v2.2: Goal Connectivity is now inside Readiness Checks accordion - expand it first
+    const readinessButton = screen.getByText('Readiness Checks')
+    fireEvent.click(readinessButton)
 
     // Should show partial connectivity status
     expect(screen.getByText('Goal Connectivity')).toBeInTheDocument()
@@ -953,6 +964,10 @@ describe('PreAnalysisReadinessPanel Phase 1b - Edge label fallback', () => {
       />
     )
 
+    // v2.2: Goal Connectivity is now inside Readiness Checks accordion - expand it first
+    const readinessButton = screen.getByText('Readiness Checks')
+    fireEvent.click(readinessButton)
+
     // Should show the custom label in the weak path description
     expect(screen.getByText(/Custom Label/)).toBeInTheDocument()
   })
@@ -1000,6 +1015,10 @@ describe('PreAnalysisReadinessPanel Phase 1b - Edge label fallback', () => {
       />
     )
 
+    // v2.2: Goal Connectivity is now inside Readiness Checks accordion - expand it first
+    const readinessButton = screen.getByText('Readiness Checks')
+    fireEvent.click(readinessButton)
+
     // Should show source→target format
     expect(screen.getByText(/Price → Revenue/)).toBeInTheDocument()
   })
@@ -1045,6 +1064,10 @@ describe('PreAnalysisReadinessPanel Phase 1b - Edge label fallback', () => {
         onCanRunChange={vi.fn()}
       />
     )
+
+    // v2.2: Goal Connectivity is now inside Readiness Checks accordion - expand it first
+    const readinessButton = screen.getByText('Readiness Checks')
+    fireEvent.click(readinessButton)
 
     // Should show "Unnamed relationship" fallback
     expect(screen.getByText(/Unnamed relationship/)).toBeInTheDocument()

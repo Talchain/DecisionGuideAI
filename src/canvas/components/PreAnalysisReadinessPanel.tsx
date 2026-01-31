@@ -1,8 +1,16 @@
 /**
- * PreAnalysisReadinessPanel - Pre-Analysis Readiness Display v2.1
+ * PreAnalysisReadinessPanel - Pre-Analysis Readiness Display v2.2
  *
  * Replaces current validation error display with actionable readiness panel
  * using CEE data. Helps users understand what's blocking analysis and how to fix it.
+ *
+ * v2.2 Changes:
+ * - Remove legacy Framing sections when Fix First renders
+ * - Remove debug "Node:" output from Fix First cards
+ * - Relocate Analysis Settings to collapsed accordion at bottom
+ * - Inline Model Snapshot with Lucide icons and focusable items
+ * - Collapse Readiness Checks with labelled summary in header
+ * - Fix First absent when no issues (no placeholder)
  *
  * v2.1 Changes:
  * - Issue normalisation layer (NormalisedIssue)
@@ -11,7 +19,6 @@
  * - Focus precedence: edge-based warnings → edge focus
  * - Controlled CTA labels (never use fix_hint as button text)
  * - Relationship Sources in Details only with natural language
- * - Structure rows: count + View →
  *
  * Data sources:
  * - usePreAnalysisData: Normalised issues from all sources
@@ -33,6 +40,11 @@ import {
   Plus,
   ArrowRight,
   Eye,
+  Target,
+  CircleDot,
+  Lightbulb,
+  Settings,
+  TrendingUp,
 } from 'lucide-react'
 import { useCanvasStore } from '../store'
 import { useShallow } from 'zustand/shallow'
@@ -445,25 +457,20 @@ function FixFirstCard({
           <p className={`${typography.body} font-medium ${display.text}`}>
             {issue.title}
           </p>
-          {/* Why: fix_hint as explanatory text */}
-          <p className={`${typography.caption} text-ink-600 mt-1`}>
+          {/* Why: fix_hint as explanatory text (max 2 lines via line-clamp) */}
+          <p className={`${typography.caption} text-ink-600 mt-1 line-clamp-2`}>
             {issue.why}
           </p>
-          {/* Focus target label (if present) */}
-          {issue.focus && (
-            <p className={`${typography.caption} text-ink-500 mt-1`}>
-              {issue.focus.type === 'edge' ? 'Relationship' : 'Node'}: {issue.focus.label}
-            </p>
-          )}
+          {/* v2.2: Removed debug "Node:" output - focus target informs handler only */}
         </div>
-        {/* Actions */}
-        <div className="flex items-center gap-1 flex-shrink-0">
+        {/* v2.2: Actions right-aligned, allow wrap if needed (max card height ~5 lines) */}
+        <div className="flex flex-wrap items-center justify-end gap-1 flex-shrink-0 max-w-[140px]">
           {/* Focus button shown separately with just "Focus →" */}
           {issue.focus && (
             <button
               type="button"
               onClick={handleFocus}
-              className={`${typography.caption} flex items-center gap-1 px-2 py-1 rounded text-sky-600 hover:bg-sky-50 transition-colors`}
+              className={`${typography.caption} flex items-center gap-1 px-2 py-1 rounded text-sky-600 hover:bg-sky-50 transition-colors whitespace-nowrap`}
             >
               {CTA_LABELS.focus}
             </button>
@@ -476,7 +483,7 @@ function FixFirstCard({
                 key={action.key}
                 type="button"
                 onClick={() => onAction(action)}
-                className={`${typography.caption} flex items-center gap-1 px-2 py-1 rounded text-sky-600 hover:bg-sky-50 transition-colors`}
+                className={`${typography.caption} flex items-center gap-1 px-2 py-1 rounded text-sky-600 hover:bg-sky-50 transition-colors whitespace-nowrap`}
               >
                 {action.label}
               </button>
@@ -1064,6 +1071,299 @@ function StructureList({
 }
 
 // ============================================================================
+// v2.2 Model Snapshot Accordion
+// ============================================================================
+
+/**
+ * Icon configuration for node kinds
+ * v2.2: Lucide stroke icons with design token colours
+ */
+const NODE_KIND_ICONS: Record<string, { icon: React.ElementType; colorClass: string }> = {
+  goal: { icon: Target, colorClass: 'text-sun-500' },
+  decision: { icon: CircleDot, colorClass: 'text-sky-500' },
+  option: { icon: Lightbulb, colorClass: 'text-lavender-500' },
+  factor: { icon: Settings, colorClass: 'text-ink-400' },
+  risk: { icon: AlertTriangle, colorClass: 'text-carrot-500' },
+  outcome: { icon: TrendingUp, colorClass: 'text-mint-500' },
+}
+
+/**
+ * v2.2 Model Snapshot Accordion
+ * Collapsed header: "▸ Model Snapshot    10 nodes · 11 edges"
+ * Expanded: Inline focusable items with Lucide icons
+ */
+function ModelSnapshot({
+  nodes,
+  edges,
+  onFocus,
+}: {
+  nodes: Node[]
+  edges: Array<{ id: string }>
+  onFocus: (nodeId: string) => void
+}) {
+  const [isOpen, setIsOpen] = useState(false)
+  // Track which categories are expanded (for "+N more" functionality)
+  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set())
+
+  // Group nodes by type with structured data
+  const grouped = useMemo(() => {
+    const result: Record<string, StructureItem[]> = {
+      goal: [],
+      decision: [],
+      option: [],
+      factor: [],
+      risk: [],
+      outcome: [],
+    }
+
+    for (const node of nodes) {
+      const label = (node.data as any)?.label || node.id
+      const nodeType = node.type as string
+      if (result[nodeType]) {
+        result[nodeType].push({
+          id: node.id,
+          label,
+          isBaseline: (node.data as any)?.is_baseline,
+        })
+      }
+    }
+
+    return result
+  }, [nodes])
+
+  // Category display order and labels
+  const categories = [
+    { key: 'goal', label: 'Target', singularLabel: 'Goal' },
+    { key: 'decision', label: 'Decision', singularLabel: 'Decision' },
+    { key: 'option', label: 'Options', singularLabel: 'Option' },
+    { key: 'factor', label: 'Factors', singularLabel: 'Factor' },
+    { key: 'risk', label: 'Risks', singularLabel: 'Risk' },
+    { key: 'outcome', label: 'Outcomes', singularLabel: 'Outcome' },
+  ]
+
+  const toggleCategory = useCallback((key: string) => {
+    setExpandedCategories(prev => {
+      const next = new Set(prev)
+      if (next.has(key)) {
+        next.delete(key)
+      } else {
+        next.add(key)
+      }
+      return next
+    })
+  }, [])
+
+  // Render a single category row with inline items
+  const renderCategory = (cat: typeof categories[0]) => {
+    const items = grouped[cat.key]
+    if (!items || items.length === 0) return null
+
+    const iconConfig = NODE_KIND_ICONS[cat.key]
+    const Icon = iconConfig?.icon || HelpCircle
+    const iconColor = iconConfig?.colorClass || 'text-ink-400'
+
+    const maxInline = 3
+    const isExpanded = expandedCategories.has(cat.key)
+    const hasMore = items.length > maxInline
+    const displayItems = isExpanded ? items : items.slice(0, maxInline)
+    const moreCount = items.length - maxInline
+
+    return (
+      <div key={cat.key} className="flex items-start gap-2 py-1">
+        <Icon className={`h-4 w-4 flex-shrink-0 mt-0.5 ${iconColor}`} />
+        <span className={`${typography.caption} text-ink-500 w-16 flex-shrink-0`}>
+          {cat.label}
+        </span>
+        <div className="flex-1 flex flex-wrap items-center gap-x-1">
+          {displayItems.map((item, idx) => (
+            <span key={item.id} className="inline-flex items-center">
+              <button
+                type="button"
+                onClick={() => onFocus(item.id)}
+                className={`${typography.caption} text-ink-700 hover:text-sky-600 hover:underline cursor-pointer transition-colors`}
+              >
+                {item.label}
+                {item.isBaseline && <span className="text-mint-600 ml-0.5">(baseline)</span>}
+              </button>
+              {idx < displayItems.length - 1 && <span className="text-ink-300">, </span>}
+            </span>
+          ))}
+          {hasMore && !isExpanded && (
+            <button
+              type="button"
+              onClick={() => toggleCategory(cat.key)}
+              className={`${typography.caption} text-sky-600 hover:text-sky-700 ml-1`}
+            >
+              (+{moreCount} more)
+            </button>
+          )}
+          {hasMore && isExpanded && (
+            <button
+              type="button"
+              onClick={() => toggleCategory(cat.key)}
+              className={`${typography.caption} text-sky-600 hover:text-sky-700 ml-1`}
+            >
+              (show less)
+            </button>
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="border border-sand-200 rounded-xl overflow-hidden">
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full flex items-center justify-between px-4 py-3 bg-sand-50 hover:bg-sand-100 transition-colors"
+        aria-expanded={isOpen}
+        aria-controls="model-snapshot-content"
+      >
+        <div className="flex items-center gap-2">
+          {isOpen ? (
+            <ChevronDown className="h-4 w-4 text-ink-400" />
+          ) : (
+            <ChevronRight className="h-4 w-4 text-ink-400" />
+          )}
+          <span className={`${typography.body} font-medium text-ink-700`}>Model Snapshot</span>
+        </div>
+        <span className={`${typography.caption} text-ink-500`}>
+          {nodes.length} node{nodes.length !== 1 ? 's' : ''} · {edges.length} edge{edges.length !== 1 ? 's' : ''}
+        </span>
+      </button>
+
+      {isOpen && (
+        <div id="model-snapshot-content" className="px-4 py-3 border-t border-sand-200 space-y-0.5">
+          {categories.map(cat => renderCategory(cat))}
+          {/* Structure tab link at bottom */}
+          <div className="pt-2 mt-2 border-t border-sand-100">
+            <button
+              type="button"
+              onClick={() => {
+                // Navigate to Structure tab - using the canvas store
+                const { setActiveTab } = useCanvasStore.getState() as any
+                if (typeof setActiveTab === 'function') {
+                  setActiveTab('structure')
+                }
+              }}
+              className={`${typography.caption} text-sky-600 hover:text-sky-700 flex items-center gap-1`}
+            >
+              Structure tab →
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ============================================================================
+// v2.2 Analysis Settings Accordion
+// ============================================================================
+
+/**
+ * v2.2 Analysis Settings Accordion
+ * Contains Goal selector (only when >1 goal) and Success threshold
+ * Default state: Collapsed
+ */
+function AnalysisSettingsAccordion({
+  nodes,
+  goalNodeId,
+  onGoalChange,
+}: {
+  nodes: Node[]
+  goalNodeId: string | null
+  onGoalChange?: (goalId: string) => void
+}) {
+  const [isOpen, setIsOpen] = useState(false)
+
+  // Get goal and outcome nodes
+  const goalNodes = useMemo(() => nodes.filter(n => n.type === 'goal'), [nodes])
+  const outcomeNodes = useMemo(() => nodes.filter(n => n.type === 'outcome'), [nodes])
+
+  // Only show if there's something to configure
+  const hasMultipleGoals = goalNodes.length > 1
+  const hasNumericOutcome = outcomeNodes.some(n => {
+    const data = n.data as any
+    return data?.value_type === 'numeric' || typeof data?.value === 'number'
+  })
+
+  // Don't render if nothing to show
+  if (!hasMultipleGoals && !hasNumericOutcome) {
+    return null
+  }
+
+  const selectedGoal = goalNodes.find(n => n.id === goalNodeId) || goalNodes[0]
+  const selectedOutcome = outcomeNodes[0] // For now, use first outcome
+
+  return (
+    <div className="border border-sand-200 rounded-xl overflow-hidden">
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full flex items-center justify-between px-4 py-3 bg-sand-50 hover:bg-sand-100 transition-colors"
+        aria-expanded={isOpen}
+        aria-controls="analysis-settings-content"
+      >
+        <div className="flex items-center gap-2">
+          {isOpen ? (
+            <ChevronDown className="h-4 w-4 text-ink-400" />
+          ) : (
+            <ChevronRight className="h-4 w-4 text-ink-400" />
+          )}
+          <span className={`${typography.body} font-medium text-ink-700`}>Analysis Settings</span>
+        </div>
+      </button>
+
+      {isOpen && (
+        <div id="analysis-settings-content" className="px-4 py-3 border-t border-sand-200 space-y-3">
+          {/* Goal selector - only when >1 goal exists */}
+          {hasMultipleGoals && (
+            <div className="flex items-center gap-3">
+              <label className={`${typography.caption} text-ink-500 w-24 flex-shrink-0`}>
+                Goal
+              </label>
+              <select
+                value={selectedGoal?.id || ''}
+                onChange={(e) => onGoalChange?.(e.target.value)}
+                className={`${typography.caption} flex-1 px-2 py-1.5 border border-sand-200 rounded-lg bg-white text-ink-700 focus:outline-none focus:ring-2 focus:ring-sky-500`}
+              >
+                {goalNodes.map(goal => (
+                  <option key={goal.id} value={goal.id}>
+                    {(goal.data as any)?.label || goal.id}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {/* Success threshold - only when outcome has numeric value type */}
+          {hasNumericOutcome && selectedOutcome && (
+            <div className="flex items-center gap-3">
+              <label className={`${typography.caption} text-ink-500 w-24 flex-shrink-0`}>
+                Success threshold
+              </label>
+              <input
+                type="number"
+                placeholder="Enter target value"
+                defaultValue={(selectedOutcome.data as any)?.success_threshold}
+                className={`${typography.caption} flex-1 px-2 py-1.5 border border-sand-200 rounded-lg bg-white text-ink-700 focus:outline-none focus:ring-2 focus:ring-sky-500`}
+              />
+              {(selectedOutcome.data as any)?.unit && (
+                <span className={`${typography.caption} text-ink-500`}>
+                  {(selectedOutcome.data as any).unit}
+                </span>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ============================================================================
 // Main Component
 // ============================================================================
 
@@ -1531,83 +1831,40 @@ export function PreAnalysisReadinessPanel({
         </div>
       </div>
 
-      {/* Structure List - Decision model overview */}
-      <StructureList
+      {/* v2.2 Render Order: Header → Fix First → Model Snapshot → Readiness Checks → Analysis Settings */}
+
+      {/* 2. Fix First Section - Top 3 issues sorted by category → severity */}
+      {/* v2.2 Task F: Only render when issues exist (no placeholder) */}
+      {fixFirstIssues.length > 0 && (
+        <div className="space-y-2">
+          <h3 className={`${typography.label} text-carrot-700`}>
+            Fix First ({fixFirstIssues.length}{remainingIssueCount > 0 ? ` of ${fixFirstIssues.length + remainingIssueCount}` : ''})
+          </h3>
+          {fixFirstIssues.map((issue) => (
+            <FixFirstCard
+              key={issue.key}
+              issue={issue}
+              onFocusNode={handleFocusNode}
+              onFocusEdge={handleFocusEdge}
+              onAction={handleIssueAction}
+            />
+          ))}
+          {remainingIssueCount > 0 && (
+            <p className={`${typography.caption} text-ink-500`}>
+              {remainingIssueCount} more issue{remainingIssueCount !== 1 ? 's' : ''} — review in Readiness Checks
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* 3. Model Snapshot - Collapsed accordion with inline focusable items */}
+      <ModelSnapshot
         nodes={nodes}
+        edges={edges}
         onFocus={handleFocusNode}
-        onAddRisk={handleAddRisk}
       />
 
-      {/* Phase 1b Task 5: Goal Connectivity Status */}
-      {ceeGoalConnectivity && (
-        <div className="px-4 py-3 border border-sand-200 rounded-xl">
-          <div className="flex items-center gap-2 mb-2">
-            <span className={`${typography.label} text-ink-600`}>Goal Connectivity</span>
-          </div>
-          <GoalConnectivityBadge
-            connectivity={ceeGoalConnectivity}
-            nodes={nodes}
-            edges={edges}
-            onFocusNode={handleFocusNode}
-            onFocusEdge={handleFocusEdge}
-          />
-        </div>
-      )}
-
-      {/* Phase 1b Task 7: Model Quality Factors */}
-      {ceeModelQualityFactors && (
-        <div className="px-4 py-3 border border-sand-200 rounded-xl">
-          <div className="flex items-center gap-2 mb-2">
-            <span className={`${typography.label} text-ink-600`}>Model Confidence</span>
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            {/* Estimate Confidence */}
-            <div className="flex items-center gap-2">
-              <span className={`${typography.caption} text-ink-500`}>Estimates:</span>
-              <span className={`${typography.caption} font-medium ${
-                ceeModelQualityFactors.estimate_confidence >= 0.7 ? 'text-mint-700' :
-                ceeModelQualityFactors.estimate_confidence >= 0.4 ? 'text-banana-700' : 'text-carrot-700'
-              }`}>
-                {Math.round(ceeModelQualityFactors.estimate_confidence * 100)}%
-              </span>
-            </div>
-            {/* Strength Variation */}
-            <div className="flex items-center gap-2">
-              <span className={`${typography.caption} text-ink-500`}>Variation:</span>
-              <span className={`${typography.caption} font-medium ${
-                ceeModelQualityFactors.strength_variation <= 0.3 ? 'text-mint-700' :
-                ceeModelQualityFactors.strength_variation <= 0.6 ? 'text-banana-700' : 'text-carrot-700'
-              }`}>
-                {ceeModelQualityFactors.strength_variation <= 0.3 ? 'Low' :
-                 ceeModelQualityFactors.strength_variation <= 0.6 ? 'Moderate' : 'High'}
-              </span>
-            </div>
-            {/* Range Coverage */}
-            <div className="flex items-center gap-2">
-              <span className={`${typography.caption} text-ink-500`}>Range coverage:</span>
-              <span className={`${typography.caption} font-medium ${
-                ceeModelQualityFactors.range_confidence_coverage >= 0.7 ? 'text-mint-700' :
-                ceeModelQualityFactors.range_confidence_coverage >= 0.4 ? 'text-banana-700' : 'text-carrot-700'
-              }`}>
-                {Math.round(ceeModelQualityFactors.range_confidence_coverage * 100)}%
-              </span>
-            </div>
-            {/* Baseline Option */}
-            <div className="flex items-center gap-2">
-              <span className={`${typography.caption} text-ink-500`}>Baseline:</span>
-              <span className={`${typography.caption} font-medium ${
-                ceeModelQualityFactors.has_baseline_option ? 'text-mint-700' : 'text-banana-700'
-              }`}>
-                {ceeModelQualityFactors.has_baseline_option ? 'Yes' : 'No'}
-              </span>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* v2.1: Relationship Sources moved to Details accordion - see below */}
-
-      {/* Readiness Checks Section (collapsible) - now includes Details */}
+      {/* 4. v2.2: Readiness Checks Section (collapsed by default) with labelled summary in header */}
       <div id="readiness-checks" className="border border-sand-200 rounded-xl overflow-hidden">
         <button
           type="button"
@@ -1616,11 +1873,19 @@ export function PreAnalysisReadinessPanel({
           aria-expanded={isBreakdownOpen}
           aria-controls="quality-breakdown-content"
         >
-          <span className={`${typography.body} font-medium text-ink-700`}>Readiness Checks</span>
-          {isBreakdownOpen ? (
-            <ChevronDown className="h-4 w-4 text-ink-400" />
-          ) : (
-            <ChevronRight className="h-4 w-4 text-ink-400" />
+          <div className="flex items-center gap-2">
+            {isBreakdownOpen ? (
+              <ChevronDown className="h-4 w-4 text-ink-400" />
+            ) : (
+              <ChevronRight className="h-4 w-4 text-ink-400" />
+            )}
+            <span className={`${typography.body} font-medium text-ink-700`}>Readiness Checks</span>
+          </div>
+          {/* v2.2: Labelled summary in collapsed header */}
+          {!isBreakdownOpen && (
+            <span className={`${typography.caption} text-ink-500`}>
+              Structure {ceeQuality?.structure ?? Math.round(qualityScore / 10)}/10 · Coverage {ceeQuality?.coverage ?? Math.round(qualityScore / 10)}/10 · Validation {ceeQuality?.safety ?? Math.round(qualityScore / 10)}/8
+            </span>
           )}
         </button>
 
@@ -1666,9 +1931,72 @@ export function PreAnalysisReadinessPanel({
               } : undefined}
             />
 
+            {/* Goal Connectivity Status (inside Readiness Checks) */}
+            {ceeGoalConnectivity && (
+              <div className="mt-3 pt-3 border-t border-sand-100">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className={`${typography.caption} text-ink-500`}>Goal Connectivity</span>
+                </div>
+                <GoalConnectivityBadge
+                  connectivity={ceeGoalConnectivity}
+                  nodes={nodes}
+                  edges={edges}
+                  onFocusNode={handleFocusNode}
+                  onFocusEdge={handleFocusEdge}
+                />
+              </div>
+            )}
+
+            {/* Model Quality Factors (inside Readiness Checks) */}
+            {ceeModelQualityFactors && (
+              <div className="mt-3 pt-3 border-t border-sand-100">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className={`${typography.caption} text-ink-500`}>Model Confidence</span>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="flex items-center gap-2">
+                    <span className={`${typography.caption} text-ink-500`}>Estimates:</span>
+                    <span className={`${typography.caption} font-medium ${
+                      ceeModelQualityFactors.estimate_confidence >= 0.7 ? 'text-mint-700' :
+                      ceeModelQualityFactors.estimate_confidence >= 0.4 ? 'text-banana-700' : 'text-carrot-700'
+                    }`}>
+                      {Math.round(ceeModelQualityFactors.estimate_confidence * 100)}%
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className={`${typography.caption} text-ink-500`}>Variation:</span>
+                    <span className={`${typography.caption} font-medium ${
+                      ceeModelQualityFactors.strength_variation <= 0.3 ? 'text-mint-700' :
+                      ceeModelQualityFactors.strength_variation <= 0.6 ? 'text-banana-700' : 'text-carrot-700'
+                    }`}>
+                      {ceeModelQualityFactors.strength_variation <= 0.3 ? 'Low' :
+                       ceeModelQualityFactors.strength_variation <= 0.6 ? 'Moderate' : 'High'}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className={`${typography.caption} text-ink-500`}>Range coverage:</span>
+                    <span className={`${typography.caption} font-medium ${
+                      ceeModelQualityFactors.range_confidence_coverage >= 0.7 ? 'text-mint-700' :
+                      ceeModelQualityFactors.range_confidence_coverage >= 0.4 ? 'text-banana-700' : 'text-carrot-700'
+                    }`}>
+                      {Math.round(ceeModelQualityFactors.range_confidence_coverage * 100)}%
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className={`${typography.caption} text-ink-500`}>Baseline:</span>
+                    <span className={`${typography.caption} font-medium ${
+                      ceeModelQualityFactors.has_baseline_option ? 'text-mint-700' : 'text-banana-700'
+                    }`}>
+                      {ceeModelQualityFactors.has_baseline_option ? 'Yes' : 'No'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* v2.1 Task 3: Relationship Sources - natural language in Details only */}
             {preAnalysisData.edgeProvenance && preAnalysisData.edgeProvenance.totalCount > 0 && (
-              <div className="flex items-center gap-3 py-2 mt-2 pt-3 border-t border-sand-100">
+              <div className="flex items-center gap-3 py-2 mt-3 pt-3 border-t border-sand-100">
                 <span className={`${typography.caption} text-ink-500`}>Provenance</span>
                 <span
                   className={`${typography.caption} text-ink-700 cursor-help`}
@@ -1682,28 +2010,7 @@ export function PreAnalysisReadinessPanel({
         )}
       </div>
 
-      {/* v2.1 Task 2: Fix First Section - Top 3 issues sorted by category → severity */}
-      {fixFirstIssues.length > 0 && (
-        <div className="space-y-2">
-          <h3 className={`${typography.label} text-carrot-700`}>
-            Fix First ({fixFirstIssues.length}{remainingIssueCount > 0 ? ` of ${fixFirstIssues.length + remainingIssueCount}` : ''})
-          </h3>
-          {fixFirstIssues.map((issue) => (
-            <FixFirstCard
-              key={issue.key}
-              issue={issue}
-              onFocusNode={handleFocusNode}
-              onFocusEdge={handleFocusEdge}
-              onAction={handleIssueAction}
-            />
-          ))}
-          {remainingIssueCount > 0 && (
-            <p className={`${typography.caption} text-ink-500`}>
-              {remainingIssueCount} more issue{remainingIssueCount !== 1 ? 's' : ''} — review in Details
-            </p>
-          )}
-        </div>
-      )}
+      {/* v2.2: Fix First section moved above - see "2. Fix First Section" */}
 
       {/* Phase 1b Task 3: Extended Validation Warnings Section */}
       {/* Show warnings grouped by dimension when CEE provides extended_warnings */}
@@ -1782,9 +2089,10 @@ export function PreAnalysisReadinessPanel({
         </div>
       )}
 
+      {/* v2.2 Task A: Do NOT render legacy Framing sections when Fix First is present */}
       {/* Phase 1b Task 6: Same lever detection (client-side enhancement) */}
       {/* Renders independently of CEE warnings - purely client-side detection */}
-      {sameLeverInfo && sameLeverInfo.length > 0 && warningsByDimension.Framing.length === 0 && (
+      {fixFirstIssues.length === 0 && sameLeverInfo && sameLeverInfo.length > 0 && warningsByDimension.Framing.length === 0 && (
         <div className="space-y-2">
           <h3 className={`${typography.label} text-banana-700`}>
             Framing (same lever)
@@ -1813,9 +2121,10 @@ export function PreAnalysisReadinessPanel({
         </div>
       )}
 
+      {/* v2.2 Task A: Do NOT render legacy Framing sections when Fix First is present */}
       {/* Phase 1b Task 9: Baseline detection enhancement */}
       {/* Renders independently of CEE warnings - purely client-side detection */}
-      {baselineInfo.needsBaseline && !baselineInfo.hasBaseline && !ceeExtendedWarnings?.some(w => w.code === 'MISSING_BASELINE') && (
+      {fixFirstIssues.length === 0 && baselineInfo.needsBaseline && !baselineInfo.hasBaseline && !ceeExtendedWarnings?.some(w => w.code === 'MISSING_BASELINE') && (
         <div className="space-y-2">
           <h3 className={`${typography.label} text-banana-700`}>
             Framing (no baseline)
@@ -1898,6 +2207,19 @@ export function PreAnalysisReadinessPanel({
           )}
         </div>
       )}
+
+      {/* 5. v2.2: Analysis Settings (Goal selector + Success threshold) - collapsed by default */}
+      <AnalysisSettingsAccordion
+        nodes={nodes}
+        goalNodeId={ceeAnalysisReady?.goal_node_id ?? null}
+        onGoalChange={(goalId) => {
+          // Update the goal node in the store
+          const { setCeeAnalysisReady } = useCanvasStore.getState() as any
+          if (typeof setCeeAnalysisReady === 'function' && ceeAnalysisReady) {
+            setCeeAnalysisReady({ ...ceeAnalysisReady, goal_node_id: goalId })
+          }
+        }}
+      />
     </div>
   )
 }
