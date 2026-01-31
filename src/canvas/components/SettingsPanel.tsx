@@ -1,7 +1,13 @@
+/**
+ * @deprecated This component has been moved to the TopBar dropdown menu.
+ * Settings controls are now integrated into src/components/layout/TopBar.tsx.
+ * This file is kept for reference but is no longer rendered in the application.
+ */
 import { useState } from 'react'
 import { useSettingsStore } from '../settingsStore'
 import { typography } from '../../styles/typography'
 
+/** @deprecated Use TopBar dropdown menu settings instead */
 export function SettingsPanel() {
   const [isOpen, setIsOpen] = useState(false)
   const {

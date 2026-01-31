@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
-import { Save, Share2, MoreVertical, Check, BookOpen, Keyboard, HelpCircle, Activity, Users, Shield, ShieldAlert, Clock } from 'lucide-react'
+import { Save, Share2, MoreVertical, Check, BookOpen, Keyboard, HelpCircle, Activity, Users, Shield, ShieldAlert, Clock, Settings, ChevronRight } from 'lucide-react'
 import Tooltip from '../Tooltip'
 import { Spinner } from '../Spinner'
 import styles from './TopBar.module.css'
 import { useAnalysisMetadata } from '../../canvas/hooks/useAnalysisMetadata'
+import { useSettingsStore } from '../../canvas/settingsStore'
 
 // Custom events for help actions (communicated to ReactFlowGraph)
 export const HELP_EVENTS = {
@@ -34,6 +35,7 @@ export const TopBar = ({
   const [isSaving, setIsSaving] = useState(false)
   const [showSavedConfirmation, setShowSavedConfirmation] = useState(false)
   const [showMenu, setShowMenu] = useState(false)
+  const [settingsExpanded, setSettingsExpanded] = useState(false)
   const menuRef = useRef<HTMLDivElement | null>(null)
 
   // Keep CSS layout variable in sync so docks respect top bar height
@@ -75,6 +77,13 @@ export const TopBar = ({
     }
   }
 
+  // Reset settingsExpanded when menu closes
+  useEffect(() => {
+    if (!showMenu) {
+      setSettingsExpanded(false)
+    }
+  }, [showMenu])
+
   useEffect(() => {
     if (!showMenu) return
 
@@ -85,9 +94,17 @@ export const TopBar = ({
       }
     }
 
+    const handleEscapeKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setShowMenu(false)
+      }
+    }
+
     document.addEventListener('mousedown', handleClickOutside)
+    document.addEventListener('keydown', handleEscapeKey)
     return () => {
       document.removeEventListener('mousedown', handleClickOutside)
+      document.removeEventListener('keydown', handleEscapeKey)
     }
   }, [showMenu])
 
@@ -123,6 +140,20 @@ export const TopBar = ({
 
   // Decision Graph Display v2 Task 13: Analysis metadata
   const analysisMetadata = useAnalysisMetadata()
+
+  // Canvas settings from store
+  const {
+    showGrid,
+    gridSize,
+    snapToGrid,
+    showAlignmentGuides,
+    highContrastMode,
+    setShowGrid,
+    setGridSize,
+    setSnapToGrid,
+    setShowAlignmentGuides,
+    setHighContrastMode,
+  } = useSettingsStore()
 
   return (
     <div className={styles.topBar} role="banner">
@@ -340,14 +371,106 @@ export const TopBar = ({
                 <span>Influence explainer</span>
               </button>
               <hr className={styles.dropdownMenuDivider} />
+              {/* Settings expandable section */}
               <button
                 type="button"
                 role="menuitem"
                 className={styles.dropdownMenuButton}
-                onClick={() => console.log('Settings')}
+                onClick={() => setSettingsExpanded(!settingsExpanded)}
+                aria-expanded={settingsExpanded}
+                aria-controls="canvas-settings-panel"
               >
-                Settings
+                <Settings size={14} aria-hidden="true" />
+                <span>Settings</span>
+                <ChevronRight
+                  size={14}
+                  className={`${styles.settingsChevron} ${settingsExpanded ? styles.settingsChevronExpanded : ''}`}
+                  aria-hidden="true"
+                />
               </button>
+
+              {settingsExpanded && (
+                <div
+                  id="canvas-settings-panel"
+                  role="group"
+                  aria-label="Canvas settings"
+                  className={styles.settingsSection}
+                >
+                  {/* Show Grid */}
+                  <label htmlFor="setting-show-grid" className={styles.settingsRow}>
+                    <span>Show Grid</span>
+                    <input
+                      id="setting-show-grid"
+                      type="checkbox"
+                      checked={showGrid}
+                      onChange={(e) => setShowGrid(e.target.checked)}
+                      className={styles.settingsCheckbox}
+                    />
+                  </label>
+
+                  {/* Grid Size - only when grid is enabled */}
+                  {showGrid && (
+                    <div className={styles.settingsSliderRow}>
+                      <label htmlFor="setting-grid-size">Grid Size: {gridSize}px</label>
+                      <input
+                        id="setting-grid-size"
+                        type="range"
+                        min="8"
+                        max="24"
+                        step="8"
+                        value={gridSize}
+                        onChange={(e) => setGridSize(Number(e.target.value) as 8 | 16 | 24)}
+                        className={styles.settingsSlider}
+                        aria-valuemin={8}
+                        aria-valuemax={24}
+                        aria-valuenow={gridSize}
+                        aria-valuetext={`${gridSize} pixels`}
+                      />
+                      <div className={styles.settingsSliderLabels} aria-hidden="true">
+                        <span>8px</span>
+                        <span>16px</span>
+                        <span>24px</span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Snap to Grid */}
+                  <label htmlFor="setting-snap-to-grid" className={styles.settingsRow}>
+                    <span>Snap to Grid</span>
+                    <input
+                      id="setting-snap-to-grid"
+                      type="checkbox"
+                      checked={snapToGrid}
+                      onChange={(e) => setSnapToGrid(e.target.checked)}
+                      className={styles.settingsCheckbox}
+                    />
+                  </label>
+
+                  {/* Alignment Guides */}
+                  <label htmlFor="setting-alignment-guides" className={styles.settingsRow}>
+                    <span>Alignment Guides</span>
+                    <input
+                      id="setting-alignment-guides"
+                      type="checkbox"
+                      checked={showAlignmentGuides}
+                      onChange={(e) => setShowAlignmentGuides(e.target.checked)}
+                      className={styles.settingsCheckbox}
+                    />
+                  </label>
+
+                  {/* High Contrast Mode */}
+                  <label htmlFor="setting-high-contrast" className={styles.settingsRow}>
+                    <span>High Contrast Mode</span>
+                    <input
+                      id="setting-high-contrast"
+                      type="checkbox"
+                      checked={highContrastMode}
+                      onChange={(e) => setHighContrastMode(e.target.checked)}
+                      className={styles.settingsCheckbox}
+                    />
+                  </label>
+                </div>
+              )}
             </div>
           )}
         </div>

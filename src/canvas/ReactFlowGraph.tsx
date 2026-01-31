@@ -23,7 +23,7 @@ import { CommandPalette } from './components/CommandPalette'
 import { ReconnectBanner } from './components/ReconnectBanner'
 import { KeyboardLegend, useKeyboardLegend } from './help/KeyboardLegend'
 // HelpMenu moved to TopBar dropdown - now using custom events
-import { SettingsPanel } from './components/SettingsPanel'
+// SettingsPanel moved to TopBar dropdown menu
 import { useSettingsStore } from './settingsStore'
 import { CanvasErrorBoundary } from './ErrorBoundary'
 import { ToastProvider, useShowToast } from './ToastContext'
@@ -1872,7 +1872,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
           onClose={() => setShowFullInspector(false)}
         />
       )}
-      <SettingsPanel />
+      {/* SettingsPanel moved to TopBar dropdown menu */}
       {/* ValidationChip removed - consolidated into OutputsDock */}
       <RecoveryBanner />
       <LayoutProgressBanner />
