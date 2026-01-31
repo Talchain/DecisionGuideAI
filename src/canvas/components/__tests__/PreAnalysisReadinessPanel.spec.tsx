@@ -86,6 +86,31 @@ vi.mock('../../../canvas/utils/focusHelpers', () => ({
   focusEdgeById: vi.fn(),
 }))
 
+// v2.1: Mock the usePreAnalysisData hook
+vi.mock('../../../canvas/hooks/usePreAnalysisData', () => ({
+  usePreAnalysisData: vi.fn(() => ({
+    allIssues: [],
+    fixFirstIssues: [],
+    remainingCount: 0,
+    limitingFactor: { label: 'Model quality unknown', hasActiveIssues: false },
+    quality: { structure: 8, coverage: 8, safety: 8 },
+    canRun: true,
+    hasBlockers: false,
+    readyOptionsCount: 2,
+    totalOptionsCount: 2,
+    edgeProvenance: { attributedCount: 2, totalCount: 2 },
+    isLoading: false,
+  })),
+  CTA_LABELS: {
+    focus: 'Focus →',
+    markBaseline: 'Mark baseline →',
+    addOption: 'Add option →',
+    reviewRelationship: 'Review →',
+    strengthenConnection: 'Connect →',
+    view: 'View →',
+  },
+}))
+
 describe('PreAnalysisReadinessPanel', () => {
   const mockOnAnalyse = vi.fn()
   const mockOnBlockersChange = vi.fn()
@@ -158,11 +183,15 @@ describe('PreAnalysisReadinessPanel', () => {
     expect(screen.getByText('Risks')).toBeInTheDocument()
     expect(screen.getByText('Outcomes')).toBeInTheDocument()
 
-    // Node labels (may appear multiple times in structure list and option chips)
-    expect(screen.getByText('Increase Revenue')).toBeInTheDocument()
+    // v2.1: Structure rows now show "X configured" with View button instead of inline labels
+    // Multiple sections can show "1 configured" (Goal=1, Factors=1), "2 configured" (Options=2)
+    const configuredTexts = screen.getAllByText(/\d+ configured/)
+    expect(configuredTexts.length).toBeGreaterThanOrEqual(2)
+    // View buttons are present for sections with content
+    expect(screen.getAllByText('View →').length).toBeGreaterThanOrEqual(1)
+    // Option labels still appear in the ready state chips section
     expect(screen.getAllByText('Option A').length).toBeGreaterThanOrEqual(1)
     expect(screen.getAllByText('Option B').length).toBeGreaterThanOrEqual(1)
-    expect(screen.getByText('Cost Factor')).toBeInTheDocument()
   })
 
   it('shows "None modelled" for empty risks section with Add risk button', () => {
@@ -283,6 +312,42 @@ describe('PreAnalysisReadinessPanel with blockers', () => {
       ],
       warnings: [],
     })
+
+    // v2.1: Also override usePreAnalysisData to report blockers
+    const { usePreAnalysisData } = await import('../../../canvas/hooks/usePreAnalysisData')
+    vi.mocked(usePreAnalysisData).mockReturnValue({
+      allIssues: [
+        {
+          key: 'blocker-1',
+          severity: 'blocker' as const,
+          category: 'validation' as const,
+          title: 'Options reference missing factor',
+          why: 'Option targets missing factor',
+          actions: [],
+          source: 'validation_warning' as const,
+        },
+      ],
+      fixFirstIssues: [
+        {
+          key: 'blocker-1',
+          severity: 'blocker' as const,
+          category: 'validation' as const,
+          title: 'Options reference missing factor',
+          why: 'Option targets missing factor',
+          actions: [],
+          source: 'validation_warning' as const,
+        },
+      ],
+      remainingCount: 0,
+      limitingFactor: { label: 'Validation', hasActiveIssues: true },
+      quality: { structure: 8, coverage: 8, safety: 4 },
+      canRun: false,
+      hasBlockers: true,
+      readyOptionsCount: 0,
+      totalOptionsCount: 2,
+      edgeProvenance: { attributedCount: 0, totalCount: 0 },
+      isLoading: false,
+    })
   })
 
   it('shows blocked status when blockers exist', async () => {
@@ -311,7 +376,7 @@ describe('PreAnalysisReadinessPanel with blockers', () => {
       />
     )
 
-    // Should show human-readable title
+    // Should show human-readable title in Fix First section
     expect(screen.getByText('Options reference missing factor')).toBeInTheDocument()
   })
 })
@@ -484,6 +549,44 @@ describe('PreAnalysisReadinessPanel Phase 1b - Connectivity blocker', () => {
         setInspectorOpen: vi.fn(),
       }
       return selector(mockState)
+    })
+
+    // v2.1: Also override usePreAnalysisData to report connectivity blocker
+    const { usePreAnalysisData } = await import('../../../canvas/hooks/usePreAnalysisData')
+    vi.mocked(usePreAnalysisData).mockReturnValue({
+      allIssues: [
+        {
+          key: 'connectivity-blocker',
+          severity: 'blocker' as const,
+          category: 'connectivity' as const,
+          title: 'Option disconnected from goal',
+          why: 'Option A has no path to the goal',
+          focus: { type: 'node' as const, id: 'opt1', label: 'Option A' },
+          actions: [],
+          source: 'connectivity' as const,
+        },
+      ],
+      fixFirstIssues: [
+        {
+          key: 'connectivity-blocker',
+          severity: 'blocker' as const,
+          category: 'connectivity' as const,
+          title: 'Option disconnected from goal',
+          why: 'Option A has no path to the goal',
+          focus: { type: 'node' as const, id: 'opt1', label: 'Option A' },
+          actions: [],
+          source: 'connectivity' as const,
+        },
+      ],
+      remainingCount: 0,
+      limitingFactor: { label: 'Connectivity', hasActiveIssues: true },
+      quality: { structure: 8, coverage: 8, safety: 8 },
+      canRun: false,
+      hasBlockers: true,
+      readyOptionsCount: 2,
+      totalOptionsCount: 2,
+      edgeProvenance: { attributedCount: 0, totalCount: 0 },
+      isLoading: false,
     })
   })
 
@@ -987,6 +1090,44 @@ describe('PreAnalysisReadinessPanel Phase 1b - Blocker via severity', () => {
       }
       return selector(mockState)
     })
+
+    // v2.1: Also override usePreAnalysisData to report blocker
+    const { usePreAnalysisData } = await import('../../../canvas/hooks/usePreAnalysisData')
+    vi.mocked(usePreAnalysisData).mockReturnValue({
+      allIssues: [
+        {
+          key: 'severity-blocker',
+          severity: 'blocker' as const,
+          category: 'connectivity' as const,
+          title: 'Goal disconnected',
+          why: 'Goal is not connected to any options',
+          focus: { type: 'node' as const, id: 'goal1', label: 'Goal' },
+          actions: [],
+          source: 'draft_warning' as const,
+        },
+      ],
+      fixFirstIssues: [
+        {
+          key: 'severity-blocker',
+          severity: 'blocker' as const,
+          category: 'connectivity' as const,
+          title: 'Goal disconnected',
+          why: 'Goal is not connected to any options',
+          focus: { type: 'node' as const, id: 'goal1', label: 'Goal' },
+          actions: [],
+          source: 'draft_warning' as const,
+        },
+      ],
+      remainingCount: 0,
+      limitingFactor: { label: 'Connectivity', hasActiveIssues: true },
+      quality: { structure: 8, coverage: 8, safety: 8 },
+      canRun: false,
+      hasBlockers: true,
+      readyOptionsCount: 1,
+      totalOptionsCount: 1,
+      edgeProvenance: { attributedCount: 0, totalCount: 0 },
+      isLoading: false,
+    })
   })
 
   it('disables Analyse button when draft_warnings includes severity blocker', () => {
@@ -1099,9 +1240,26 @@ describe('PreAnalysisReadinessPanel Phase 1b - Edge provenance unknown', () => {
       }
       return selector(mockState)
     })
+
+    // v2.1: Override usePreAnalysisData mock to show edge provenance
+    const { usePreAnalysisData } = await import('../../../canvas/hooks/usePreAnalysisData')
+    vi.mocked(usePreAnalysisData).mockReturnValue({
+      allIssues: [],
+      fixFirstIssues: [],
+      remainingCount: 0,
+      limitingFactor: { label: 'Model quality unknown', hasActiveIssues: false },
+      quality: { structure: 8, coverage: 8, safety: 8 },
+      canRun: true,
+      hasBlockers: false,
+      readyOptionsCount: 0,
+      totalOptionsCount: 0,
+      // 3 edges total, 1 has attribution (1 out of 3)
+      edgeProvenance: { attributedCount: 1, totalCount: 3 },
+      isLoading: false,
+    })
   })
 
-  it('counts edges with undefined origin as Unknown, not Default', () => {
+  it('shows provenance info in natural language inside Readiness Checks accordion', () => {
     render(
       <PreAnalysisReadinessPanel
         onAnalyse={vi.fn()}
@@ -1110,19 +1268,14 @@ describe('PreAnalysisReadinessPanel Phase 1b - Edge provenance unknown', () => {
       />
     )
 
-    // Should show Relationship Sources section
-    expect(screen.getByText('Relationship Sources')).toBeInTheDocument()
+    // v2.1: First expand the Readiness Checks accordion
+    const readinessToggle = screen.getByText('Readiness Checks')
+    fireEvent.click(readinessToggle)
 
-    // Default count should be 1 (only e1 has explicit 'default')
-    const defaultLabel = screen.getByText('Default:')
-    const defaultValue = defaultLabel.nextElementSibling
-    expect(defaultValue?.textContent).toBe('1')
-
-    // Unknown count should be 2 (e2 and e3 have no provenance)
-    expect(screen.getByText('Unknown:')).toBeInTheDocument()
-    const unknownLabel = screen.getByText('Unknown:')
-    const unknownValue = unknownLabel.nextElementSibling
-    expect(unknownValue?.textContent).toBe('2')
+    // v2.1: Should show Provenance section with natural language phrasing
+    expect(screen.getByText('Provenance')).toBeInTheDocument()
+    // Should show "Recorded for 1 of 3 relationships" (based on mock data)
+    expect(screen.getByText(/Recorded for 1 of 3 relationships/)).toBeInTheDocument()
   })
 })
 

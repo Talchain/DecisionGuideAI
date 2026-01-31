@@ -4,12 +4,198 @@
  * Centralised mapping of severity strings from various sources
  * (validation, critique, bias, CEE, readiness) to internal priorities.
  *
- * Single source of truth for priority classification.
+ * Single source of truth for priority classification and display.
+ *
+ * v2.1: Added unified SEVERITY_DISPLAY mapping for consistent UI styling
+ * across Pre-Analysis Panel, Results Panel, and coaching surfaces.
  */
 
 export type ActionPriority = 'critical' | 'high' | 'medium' | 'low'
 export type GuidanceSeverity = 'blocker' | 'warning' | 'info'
 export type ActionSource = 'readiness' | 'validation' | 'critique' | 'bias' | 'cee'
+
+// =============================================================================
+// Canonical Severity Types (v2.1)
+// =============================================================================
+
+/**
+ * Canonical severity levels for draft warnings and normalised issues.
+ * Used consistently across CEE warnings, validation, and derived issues.
+ */
+export type DraftWarningSeverity = 'blocker' | 'high' | 'medium' | 'low'
+
+/**
+ * Draft warning type with canonical severity.
+ * This is the standard interface for warnings from CEE and validation.
+ */
+export interface DraftWarning {
+  id: string
+  code?: string
+  severity: DraftWarningSeverity
+  message: string
+  affected_node_ids?: string[]
+  affected_edge_ids?: string[]
+  fix_hint?: string
+}
+
+// =============================================================================
+// Unified Severity Display (v2.1)
+// =============================================================================
+
+/**
+ * Severity display configuration.
+ * Contains all styling and behaviour info for a severity level.
+ */
+export interface SeverityDisplay {
+  /** Human-readable label (e.g., "Blocker", "High", "Medium", "Low") */
+  label: string
+  /** Tailwind background class */
+  bg: string
+  /** Tailwind border class */
+  border: string
+  /** Tailwind text class for title/heading */
+  text: string
+  /** Tailwind text class for icon */
+  icon: string
+  /** Tailwind text class for caption/description */
+  caption: string
+  /** Whether this severity blocks analysis */
+  blocksAnalysis: boolean
+  /** Sort order (lower = higher priority) */
+  sortOrder: number
+}
+
+/**
+ * Unified severity display mapping.
+ * Single source of truth for severity styling across all surfaces.
+ *
+ * Colour scheme:
+ * - blocker/high: carrot (red-orange) - critical issues
+ * - medium: banana (yellow) - warnings
+ * - low: sand (grey) - informational
+ */
+export const SEVERITY_DISPLAY: Record<DraftWarningSeverity, SeverityDisplay> = {
+  blocker: {
+    label: 'Blocker',
+    bg: 'bg-carrot-50',
+    border: 'border-carrot-200',
+    text: 'text-carrot-800',
+    icon: 'text-carrot-600',
+    caption: 'text-carrot-700',
+    blocksAnalysis: true,
+    sortOrder: 0,
+  },
+  high: {
+    label: 'High',
+    bg: 'bg-carrot-50',
+    border: 'border-carrot-200',
+    text: 'text-carrot-800',
+    icon: 'text-carrot-600',
+    caption: 'text-carrot-700',
+    blocksAnalysis: false,
+    sortOrder: 1,
+  },
+  medium: {
+    label: 'Medium',
+    bg: 'bg-banana-50',
+    border: 'border-banana-200',
+    text: 'text-banana-800',
+    icon: 'text-banana-600',
+    caption: 'text-banana-700',
+    blocksAnalysis: false,
+    sortOrder: 2,
+  },
+  low: {
+    label: 'Low',
+    bg: 'bg-sand-50',
+    border: 'border-sand-200',
+    text: 'text-sand-800',
+    icon: 'text-sand-600',
+    caption: 'text-sand-700',
+    blocksAnalysis: false,
+    sortOrder: 3,
+  },
+}
+
+/**
+ * Get display configuration for a severity level.
+ *
+ * @param severity - Severity level (blocker, high, medium, low)
+ * @returns SeverityDisplay with all styling and behaviour info
+ *
+ * @example
+ * const display = getSeverityDisplay('blocker')
+ * // display.label === 'Blocker'
+ * // display.bg === 'bg-carrot-50'
+ * // display.blocksAnalysis === true
+ */
+export function getSeverityDisplay(severity: DraftWarningSeverity): SeverityDisplay {
+  return SEVERITY_DISPLAY[severity] ?? SEVERITY_DISPLAY.low
+}
+
+/**
+ * Get combined container classes for a severity level.
+ * Useful for card/alert styling.
+ *
+ * @param severity - Severity level
+ * @returns Combined bg + border classes
+ */
+export function getSeverityContainerClass(severity: DraftWarningSeverity): string {
+  const display = getSeverityDisplay(severity)
+  return `${display.bg} ${display.border}`
+}
+
+/**
+ * Check if any warnings in the list are blocking.
+ *
+ * @param warnings - Array of warnings with severity
+ * @returns true if any warning has blocksAnalysis = true
+ *
+ * @example
+ * const canAnalyse = !hasBlocker(warnings)
+ */
+export function hasBlocker<T extends { severity: DraftWarningSeverity }>(warnings: T[]): boolean {
+  return warnings.some(w => SEVERITY_DISPLAY[w.severity]?.blocksAnalysis)
+}
+
+/**
+ * Sort warnings by severity (blocker first).
+ *
+ * @param warnings - Array of warnings with severity
+ * @returns Sorted array (original not modified)
+ */
+export function sortBySeverity<T extends { severity: DraftWarningSeverity }>(warnings: T[]): T[] {
+  return [...warnings].sort((a, b) =>
+    (SEVERITY_DISPLAY[a.severity]?.sortOrder ?? 99) - (SEVERITY_DISPLAY[b.severity]?.sortOrder ?? 99)
+  )
+}
+
+/**
+ * Map raw CEE severity to canonical DraftWarningSeverity.
+ * Handles case-insensitivity and unknown values.
+ *
+ * @param rawSeverity - Raw severity string from CEE
+ * @returns Canonical DraftWarningSeverity
+ */
+export function normaliseSeverity(rawSeverity: string | undefined | null): DraftWarningSeverity {
+  const upper = rawSeverity?.toUpperCase() || ''
+
+  switch (upper) {
+    case 'BLOCKER':
+    case 'ERROR':
+    case 'CRITICAL':
+      return 'blocker'
+    case 'HIGH':
+    case 'WARNING':
+      return 'high'
+    case 'MEDIUM':
+      return 'medium'
+    case 'LOW':
+    case 'INFO':
+    default:
+      return 'low'
+  }
+}
 
 /**
  * Priority sort order (lower = higher priority)

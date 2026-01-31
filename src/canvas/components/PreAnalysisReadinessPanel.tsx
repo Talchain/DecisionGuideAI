@@ -1,13 +1,22 @@
 /**
- * PreAnalysisReadinessPanel - Pre-Analysis Readiness Display
+ * PreAnalysisReadinessPanel - Pre-Analysis Readiness Display v2.1
  *
  * Replaces current validation error display with actionable readiness panel
  * using CEE data. Helps users understand what's blocking analysis and how to fix it.
  *
+ * v2.1 Changes:
+ * - Issue normalisation layer (NormalisedIssue)
+ * - Limiting factor: active issues → lowest score
+ * - Fix First: max 3 issues, category → severity sort
+ * - Focus precedence: edge-based warnings → edge focus
+ * - Controlled CTA labels (never use fix_hint as button text)
+ * - Relationship Sources in Details only with natural language
+ * - Structure rows: count + View →
+ *
  * Data sources:
+ * - usePreAnalysisData: Normalised issues from all sources
  * - quality: From useGraphReadiness (overall score, improvements)
  * - analysis_ready: From ceeAnalysisReady store (options, status, goal_node_id)
- * - validation_warnings: From usePreRunValidation (blockers, warnings)
  * - nodes: For label lookups
  */
 
@@ -23,12 +32,15 @@ import {
   ExternalLink,
   Plus,
   ArrowRight,
+  Eye,
 } from 'lucide-react'
 import { useCanvasStore } from '../store'
 import { useShallow } from 'zustand/shallow'
-import { usePreRunValidation, type ValidationBlocker } from '../hooks/usePreRunValidation'
+import { usePreRunValidation } from '../hooks/usePreRunValidation'
 import { useGraphReadiness } from '../hooks/useGraphReadiness'
+import { usePreAnalysisData, type NormalisedIssue, CTA_LABELS } from '../hooks/usePreAnalysisData'
 import { focusNodeById, focusEdgeById } from '../utils/focusHelpers'
+import { getSeverityDisplay, getSeverityContainerClass, type DraftWarningSeverity } from '../utils/severityMapping'
 import { typography } from '../../styles/typography'
 import type {
   CEEOptionV3,
@@ -168,23 +180,13 @@ function calculateModelQuality(ceeQuality: { structure: number; coverage: number
   return Math.round(Math.min(ceeQuality.structure, ceeQuality.coverage, validationNormalized) * 10)
 }
 
-/**
- * Find limiting factor (lowest scoring dimension)
- * Tie-breaker: alphabetical (Coverage < Structure < Validation)
- */
-function getLimitingFactor(ceeQuality: { structure: number; coverage: number; safety: number } | null): { name: string; score: number; max: number } | null {
-  if (!ceeQuality) return null
-  const dimensions = [
-    { name: 'Coverage', score: ceeQuality.coverage, max: 10 },
-    { name: 'Structure', score: ceeQuality.structure, max: 10 },
-    { name: 'Validation', score: ceeQuality.safety, max: 8 },
-  ]
-  return dimensions.reduce((min, d) => d.score < min.score ? d : min, dimensions[0])
-}
-
 // ============================================================================
 // Helper Functions
 // ============================================================================
+
+// Note: getLimitingFactor was removed in v2.1.
+// Limiting factor logic now lives in usePreAnalysisData hook,
+// using issue-first priority (active issues → lowest score).
 
 /**
  * Convert ID to human-readable label.
@@ -362,7 +364,7 @@ function AnalyzeButton({
 }
 
 /**
- * Task 2: Blocking Issue Card
+ * Task 2: Blocking Issue Card (legacy - kept for backwards compatibility)
  */
 function BlockingIssueCard({
   issue,
@@ -399,6 +401,87 @@ function BlockingIssueCard({
             Focus on canvas
           </button>
         )}
+      </div>
+    </div>
+  )
+}
+
+/**
+ * v2.1 Fix First Card - Uses NormalisedIssue structure
+ * - Title: 1-line problem
+ * - Why: fix_hint as explanatory text, NOT button
+ * - Focus: Shows target label in body, "Focus →" button
+ * - Actions: Controlled CTA labels only
+ */
+function FixFirstCard({
+  issue,
+  onFocusNode,
+  onFocusEdge,
+  onAction,
+}: {
+  issue: NormalisedIssue
+  onFocusNode: (nodeId: string) => void
+  onFocusEdge: (edgeId: string) => void
+  onAction: (action: { key: string; kind: string }) => void
+}) {
+  // v2.1: Use central severity display mapping
+  const display = getSeverityDisplay(issue.severity as DraftWarningSeverity)
+
+  const handleFocus = useCallback(() => {
+    if (!issue.focus) return
+    if (issue.focus.type === 'edge') {
+      onFocusEdge(issue.focus.id)
+    } else {
+      onFocusNode(issue.focus.id)
+    }
+  }, [issue.focus, onFocusNode, onFocusEdge])
+
+  return (
+    <div className={`p-3 rounded-lg border ${display.bg} ${display.border}`}>
+      <div className="flex items-start gap-3">
+        <AlertTriangle className={`h-4 w-4 flex-shrink-0 mt-0.5 ${display.icon}`} aria-hidden="true" />
+        <div className="flex-1 min-w-0">
+          {/* Title: 1-line problem */}
+          <p className={`${typography.body} font-medium ${display.text}`}>
+            {issue.title}
+          </p>
+          {/* Why: fix_hint as explanatory text */}
+          <p className={`${typography.caption} text-ink-600 mt-1`}>
+            {issue.why}
+          </p>
+          {/* Focus target label (if present) */}
+          {issue.focus && (
+            <p className={`${typography.caption} text-ink-500 mt-1`}>
+              {issue.focus.type === 'edge' ? 'Relationship' : 'Node'}: {issue.focus.label}
+            </p>
+          )}
+        </div>
+        {/* Actions */}
+        <div className="flex items-center gap-1 flex-shrink-0">
+          {/* Focus button shown separately with just "Focus →" */}
+          {issue.focus && (
+            <button
+              type="button"
+              onClick={handleFocus}
+              className={`${typography.caption} flex items-center gap-1 px-2 py-1 rounded text-sky-600 hover:bg-sky-50 transition-colors`}
+            >
+              {CTA_LABELS.focus}
+            </button>
+          )}
+          {/* Other actions (non-focus) */}
+          {issue.actions
+            .filter(a => a.kind !== 'focus')
+            .map(action => (
+              <button
+                key={action.key}
+                type="button"
+                onClick={() => onAction(action)}
+                className={`${typography.caption} flex items-center gap-1 px-2 py-1 rounded text-sky-600 hover:bg-sky-50 transition-colors`}
+              >
+                {action.label}
+              </button>
+            ))}
+        </div>
       </div>
     </div>
   )
@@ -502,14 +585,8 @@ function ExtendedWarningCard({
   onFocusNode: (nodeId: string) => void
   onFocusEdge: (edgeId: string) => void
 }) {
-  // Get severity color
-  const severityColors: Record<string, string> = {
-    blocker: 'bg-carrot-50 border-carrot-200 text-carrot-700',
-    high: 'bg-carrot-50 border-carrot-200 text-carrot-700',
-    medium: 'bg-banana-50 border-banana-200 text-banana-700',
-    low: 'bg-sand-50 border-sand-200 text-sand-700',
-  }
-  const colors = severityColors[warning.severity] ?? severityColors.low
+  // v2.1: Use central severity display mapping
+  const display = getSeverityDisplay((warning.severity ?? 'low') as DraftWarningSeverity)
 
   // Get affected labels
   const affectedNodeLabels = warning.affected_node_ids
@@ -521,11 +598,11 @@ function ExtendedWarningCard({
   const hasFocusableEdge = warning.affected_edge_ids.length > 0
 
   return (
-    <div className={`p-3 rounded-lg border ${colors.split(' ').slice(0, 2).join(' ')}`}>
+    <div className={`p-3 rounded-lg border ${display.bg} ${display.border}`}>
       <div className="flex items-start gap-3">
-        <AlertTriangle className={`h-4 w-4 flex-shrink-0 mt-0.5 ${colors.split(' ').slice(2).join(' ')}`} />
+        <AlertTriangle className={`h-4 w-4 flex-shrink-0 mt-0.5 ${display.caption}`} />
         <div className="flex-1 min-w-0">
-          <p className={`${typography.body} ${colors.split(' ').slice(2).join(' ')}`}>
+          <p className={`${typography.body} ${display.caption}`}>
             {warning.message}
           </p>
           {warning.fix_hint && (
@@ -746,7 +823,11 @@ interface StructureItem {
 }
 
 /**
- * Structure row component for decision structure display
+ * v2.1 Structure row component - shows count + View → instead of inline lists
+ * Task 4: Don't mix lists inside rows. Use count + individual focus.
+ *
+ * Collapsed: "Options: 2 configured [View →]"
+ * Expanded:  "▾ Options (2)" with individual items below
  */
 function StructureRow({
   rowLabel,
@@ -755,7 +836,6 @@ function StructureRow({
   onFocus,
   onAdd,
   addLabel,
-  maxVisible = 3,
 }: {
   rowLabel: string
   items: StructureItem[]
@@ -763,35 +843,27 @@ function StructureRow({
   onFocus: (id: string) => void
   onAdd?: () => void
   addLabel?: string
-  maxVisible?: number
 }) {
   const [expanded, setExpanded] = useState(false)
 
-  // Separate flagged and healthy items
-  const flaggedItems = items.filter(i => i.flag)
-  const healthyItems = items.filter(i => !i.flag)
+  // Count warnings for badge
+  const warningCount = items.filter(i => i.flag).length
 
-  // Sort: baseline first for options, then alphabetical
-  const sortedItems = [
-    ...items.filter(i => i.isBaseline),
-    ...items.filter(i => !i.isBaseline && i.flag),
-    ...items.filter(i => !i.isBaseline && !i.flag),
-  ].sort((a, b) => {
-    if (a.isBaseline && !b.isBaseline) return -1
-    if (!a.isBaseline && b.isBaseline) return 1
-    if (a.flag && !b.flag) return -1
-    if (!a.flag && b.flag) return 1
-    return a.label.localeCompare(b.label)
-  })
+  // Sort: baseline first for options, then flagged, then alphabetical
+  const sortedItems = useMemo(() => {
+    return [...items].sort((a, b) => {
+      if (a.isBaseline && !b.isBaseline) return -1
+      if (!a.isBaseline && b.isBaseline) return 1
+      if (a.flag && !b.flag) return -1
+      if (!a.flag && b.flag) return 1
+      return a.label.localeCompare(b.label)
+    })
+  }, [items])
 
-  // Always show flagged items, truncate healthy ones
-  const visibleCount = flaggedItems.length + Math.min(healthyItems.length, maxVisible)
-  const visibleItems = expanded ? sortedItems : sortedItems.slice(0, visibleCount)
-  const hiddenCount = sortedItems.length - visibleCount
-
+  // Empty state
   if (items.length === 0) {
     return (
-      <div className="flex items-start gap-4 py-1">
+      <div className="flex items-center gap-4 py-1.5">
         <span className={`${typography.caption} text-ink-500 w-20 flex-shrink-0`}>{rowLabel}</span>
         <div className="flex-1 flex items-center gap-2">
           <span className={`${typography.caption} text-ink-400 italic`}>{emptyMessage || 'None'}</span>
@@ -810,17 +882,65 @@ function StructureRow({
     )
   }
 
+  // Collapsed view: count + View →
+  if (!expanded) {
+    return (
+      <div className="flex items-center gap-4 py-1.5">
+        <span className={`${typography.caption} text-ink-500 w-20 flex-shrink-0`}>{rowLabel}</span>
+        <div className="flex-1 flex items-center gap-2">
+          <span className={`${typography.caption} text-ink-700`}>
+            {items.length} configured
+          </span>
+          {warningCount > 0 && (
+            <span className={`${typography.caption} inline-flex items-center gap-1 px-1.5 py-0.5 bg-banana-100 text-banana-700 rounded`}>
+              <AlertTriangle className="h-3 w-3" />
+              {warningCount}
+            </span>
+          )}
+        </div>
+        <button
+          type="button"
+          onClick={() => setExpanded(true)}
+          className={`${typography.caption} text-sky-600 hover:text-sky-700 flex items-center gap-1`}
+        >
+          {CTA_LABELS.view}
+        </button>
+      </div>
+    )
+  }
+
+  // Expanded view: collapsible header + individual items
   return (
-    <div className="flex items-start gap-4 py-1">
-      <span className={`${typography.caption} text-ink-500 w-20 flex-shrink-0`}>{rowLabel}</span>
-      <div className="flex-1 space-y-1">
-        {visibleItems.map((item) => (
-          <div key={item.id} className="flex items-center gap-2 group">
+    <div className="py-1">
+      {/* Collapsible header */}
+      <button
+        type="button"
+        onClick={() => setExpanded(false)}
+        className="flex items-center gap-2 w-full text-left py-1"
+      >
+        <ChevronDown className="h-3 w-3 text-ink-400" />
+        <span className={`${typography.caption} text-ink-500`}>
+          {rowLabel} ({items.length})
+        </span>
+        {warningCount > 0 && (
+          <span className={`${typography.caption} inline-flex items-center gap-1 px-1.5 py-0.5 bg-banana-100 text-banana-700 rounded`}>
+            <AlertTriangle className="h-3 w-3" />
+            {warningCount}
+          </span>
+        )}
+      </button>
+      {/* Individual items */}
+      <div className="pl-5 space-y-1 mt-1">
+        {sortedItems.map((item) => (
+          <div key={item.id} className="flex items-center gap-2 group py-0.5">
             {item.flag && (
               <AlertTriangle className="h-3 w-3 text-banana-500 flex-shrink-0" />
             )}
-            <span className={`${typography.caption} text-ink-900`}>
+            <span className={`${typography.caption} text-ink-900 flex-1`}>
               {item.label}
+              {item.isBaseline && (
+                <span className="text-mint-600 ml-1">(baseline)</span>
+              )}
               {item.flag === 'ai-inferred' && (
                 <span className="text-banana-600 ml-1">(AI-inferred)</span>
               )}
@@ -838,15 +958,6 @@ function StructureRow({
             </button>
           </div>
         ))}
-        {!expanded && hiddenCount > 0 && (
-          <button
-            type="button"
-            onClick={() => setExpanded(true)}
-            className={`${typography.caption} text-sky-600 hover:text-sky-700`}
-          >
-            +{hiddenCount} more
-          </button>
-        )}
       </div>
     </div>
   )
@@ -933,7 +1044,6 @@ function StructureList({
         rowLabel="Factors"
         items={grouped.factors}
         onFocus={onFocus}
-        maxVisible={3}
       />
       <StructureRow
         rowLabel="Risks"
@@ -965,7 +1075,7 @@ export function PreAnalysisReadinessPanel({
 }: PreAnalysisReadinessPanelProps) {
   // Session-only dismissed coaching IDs
   const [dismissedCoachingIds, setDismissedCoachingIds] = useState<Set<string>>(new Set())
-  // Quality breakdown collapsed state
+  // Quality breakdown collapsed state (now includes Details accordion)
   const [isBreakdownOpen, setIsBreakdownOpen] = useState(false)
   // Coaching accordion state - null means "use auto behavior", boolean means "user explicitly set"
   const [coachingUserOverride, setCoachingUserOverride] = useState<boolean | null>(null)
@@ -993,7 +1103,10 @@ export function PreAnalysisReadinessPanel({
   const preRunValidation = usePreRunValidation()
   const { readiness, loading: readinessLoading } = useGraphReadiness()
 
-  // Aggregate blocking issues
+  // v2.1: Use normalised issue data from the new hook
+  const preAnalysisData = usePreAnalysisData()
+
+  // Legacy: Aggregate blocking issues (kept for backwards compatibility)
   const blockingIssues = useMemo(() => {
     return aggregateBlockingIssues(
       preRunValidation.blockers,
@@ -1002,12 +1115,12 @@ export function PreAnalysisReadinessPanel({
     )
   }, [preRunValidation.blockers, ceeAnalysisReady?.options, nodes])
 
-  // Total count for button (not capped)
-  const totalBlockers = blockingIssues.length
+  // v2.1: Use normalised issue count for blockers
+  const totalBlockers = preAnalysisData.allIssues.filter(i => i.severity === 'blocker' || i.severity === 'high').length
 
-  // Visible issues (max 3)
-  const visibleIssues = blockingIssues.slice(0, MAX_VISIBLE_ISSUES)
-  const hiddenIssueCount = Math.max(0, totalBlockers - MAX_VISIBLE_ISSUES)
+  // v2.1: Fix First issues (top 3 sorted by priority)
+  const fixFirstIssues = preAnalysisData.fixFirstIssues
+  const remainingIssueCount = preAnalysisData.remainingCount
 
   // Phase 1b: CEE blocker detection
   // Only 'blocker' severity or goal_connectivity.status === 'none' disables Analyse
@@ -1017,20 +1130,14 @@ export function PreAnalysisReadinessPanel({
     return false
   }, [ceeGoalConnectivity, ceeExtendedWarnings])
 
-  // Check if analysis is ready (Issue 1 & 2 fix: include totalBlockers and readiness.can_run_analysis)
-  // Phase 1b: Add hasCeeBlocker check
+  // v2.1: Use normalised canRun from hook
   const graphCanRun = readinessLoading ? true : (readiness?.can_run_analysis ?? true)
-  const isReady =
-    preRunValidation.canRun &&
-    totalBlockers === 0 &&
-    !hasCeeBlocker &&
-    graphCanRun &&
-    (ceeAnalysisReady?.status === 'ready' || ceeAnalysisReady?.status === undefined)
+  const isReady = preAnalysisData.canRun
 
   // Notify parent of blocker state changes (Phase 1b: include CEE blockers)
   useEffect(() => {
-    onBlockersChange?.(totalBlockers > 0 || hasCeeBlocker)
-  }, [totalBlockers, hasCeeBlocker, onBlockersChange])
+    onBlockersChange?.(preAnalysisData.hasBlockers)
+  }, [preAnalysisData.hasBlockers, onBlockersChange])
 
   // Notify parent of readiness changes
   useEffect(() => {
@@ -1040,7 +1147,9 @@ export function PreAnalysisReadinessPanel({
   // Model quality: min(Structure, Coverage, Validation) × 10
   const qualityScore = calculateModelQuality(ceeQuality)
   const qualityLevel = getQualityLevel(qualityScore)
-  const limitingFactor = getLimitingFactor(ceeQuality)
+
+  // v2.1: Use new limiting factor logic (active issues → lowest score)
+  const limitingFactorInfo = preAnalysisData.limitingFactor
 
   // Blocked reason precedence:
   // 1. ceeAnalysisReady.reason if present
@@ -1263,6 +1372,62 @@ export function PreAnalysisReadinessPanel({
     []
   )
 
+  /**
+   * v2.1 Task 5: Precedence-aware focus handler
+   * Handles focus based on NormalisedIssue focus target
+   * - Edge focus: highlight edge, pan to midpoint, open inspector
+   * - Node focus: select node, pan to center, open inspector
+   */
+  const handleIssueFocus = useCallback(
+    (focus: NormalisedIssue['focus']) => {
+      if (!focus) return
+
+      if (focus.type === 'edge') {
+        // Edge focus: highlight edge, pan to midpoint
+        focusEdgeById(focus.id)
+        // Open inspector for edge if available
+        const { setInspectorOpen } = useCanvasStore.getState()
+        setInspectorOpen(true)
+      } else {
+        // Node focus: select node, pan to center
+        if (highlightTimeoutRef.current) {
+          clearTimeout(highlightTimeoutRef.current)
+        }
+        setHighlightedNodes([focus.id])
+        focusNodeById(focus.id)
+        // Open inspector for node
+        const { setSelectedNodeId, setInspectorOpen } = useCanvasStore.getState()
+        setSelectedNodeId(focus.id)
+        setInspectorOpen(true)
+        highlightTimeoutRef.current = setTimeout(() => setHighlightedNodes([]), 3000)
+      }
+    },
+    [setHighlightedNodes]
+  )
+
+  /**
+   * v2.1: Handle actions from FixFirstCard
+   */
+  const handleIssueAction = useCallback(
+    (action: { key: string; kind: string }) => {
+      const { setInspectorOpen, setSelectedNodeId } = useCanvasStore.getState()
+      switch (action.key) {
+        case 'mark_baseline':
+          // Navigate to options view or inspector
+          setInspectorOpen(true)
+          break
+        case 'add_option':
+          // Could trigger add option flow
+          setInspectorOpen(true)
+          break
+        default:
+          // Generic navigation
+          setInspectorOpen(true)
+      }
+    },
+    []
+  )
+
   const handleDismissCoaching = useCallback((id: string) => {
     setDismissedCoachingIds((prev) => new Set([...prev, id]))
   }, [])
@@ -1339,6 +1504,7 @@ export function PreAnalysisReadinessPanel({
         </div>
 
         {/* Line 2: Model quality + limiting factor + Review link */}
+        {/* v2.1: Limiting factor uses new logic - active issues first, then lowest score */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span className={`${typography.caption} text-ink-500`}>Model quality:</span>
@@ -1348,9 +1514,9 @@ export function PreAnalysisReadinessPanel({
             <span className={`${typography.caption} text-ink-500`}>
               ({qualityScore}%)
             </span>
-            {limitingFactor && qualityScore < 100 && (
-              <span className={`${typography.caption} text-ink-500`}>
-                — {limitingFactor.name} is limiting factor
+            {qualityScore < 100 && (
+              <span className={`${typography.caption} ${limitingFactorInfo.hasActiveIssues ? 'text-carrot-600' : 'text-ink-500'}`}>
+                — {limitingFactorInfo.label}
               </span>
             )}
           </div>
@@ -1439,64 +1605,9 @@ export function PreAnalysisReadinessPanel({
         </div>
       )}
 
-      {/* Phase 1b Task 8: Edge Provenance Summary */}
-      {edgeProvenanceStats && edgeProvenanceStats.total > 0 && (
-        <div className="px-4 py-3 border border-sand-200 rounded-xl">
-          <div className="flex items-center gap-2 mb-2">
-            <span className={`${typography.label} text-ink-600`}>Relationship Sources</span>
-          </div>
-          <div className="flex flex-wrap gap-3">
-            {/* User-set edges */}
-            <div className="flex items-center gap-1.5">
-              <span className={`${typography.caption} text-ink-500`}>User-set:</span>
-              <span className={`${typography.caption} font-medium ${
-                edgeProvenanceStats.userSet > 0 ? 'text-mint-700' : 'text-ink-400'
-              }`}>
-                {edgeProvenanceStats.userSet}
-              </span>
-            </div>
-            {/* CEE-recommended edges */}
-            <div className="flex items-center gap-1.5">
-              <span className={`${typography.caption} text-ink-500`}>AI:</span>
-              <span className={`${typography.caption} font-medium ${
-                edgeProvenanceStats.ceeRecommended > 0 ? 'text-sky-700' : 'text-ink-400'
-              }`}>
-                {edgeProvenanceStats.ceeRecommended}
-              </span>
-            </div>
-            {/* Default edges */}
-            <div className="flex items-center gap-1.5">
-              <span className={`${typography.caption} text-ink-500`}>Default:</span>
-              <span className={`${typography.caption} font-medium ${
-                edgeProvenanceStats.defaulted > 0 && edgeProvenanceStats.defaulted === edgeProvenanceStats.total
-                  ? 'text-banana-700'
-                  : edgeProvenanceStats.defaulted > 0
-                  ? 'text-ink-600'
-                  : 'text-ink-400'
-              }`}>
-                {edgeProvenanceStats.defaulted}
-              </span>
-            </div>
-            {/* Unknown provenance (legacy edges without explicit provenance) */}
-            {edgeProvenanceStats.unknown > 0 && (
-              <div className="flex items-center gap-1.5">
-                <span className={`${typography.caption} text-ink-500`}>Unknown:</span>
-                <span className={`${typography.caption} font-medium text-ink-400`}>
-                  {edgeProvenanceStats.unknown}
-                </span>
-              </div>
-            )}
-          </div>
-          {/* Warning if all edges are defaulted */}
-          {edgeProvenanceStats.defaulted === edgeProvenanceStats.total && edgeProvenanceStats.total > 1 && (
-            <p className={`${typography.caption} text-banana-600 mt-2`}>
-              All relationships use default values. Consider reviewing edge weights.
-            </p>
-          )}
-        </div>
-      )}
+      {/* v2.1: Relationship Sources moved to Details accordion - see below */}
 
-      {/* Readiness Checks Section (collapsible) */}
+      {/* Readiness Checks Section (collapsible) - now includes Details */}
       <div id="readiness-checks" className="border border-sand-200 rounded-xl overflow-hidden">
         <button
           type="button"
@@ -1554,26 +1665,41 @@ export function PreAnalysisReadinessPanel({
                 }
               } : undefined}
             />
+
+            {/* v2.1 Task 3: Relationship Sources - natural language in Details only */}
+            {preAnalysisData.edgeProvenance && preAnalysisData.edgeProvenance.totalCount > 0 && (
+              <div className="flex items-center gap-3 py-2 mt-2 pt-3 border-t border-sand-100">
+                <span className={`${typography.caption} text-ink-500`}>Provenance</span>
+                <span
+                  className={`${typography.caption} text-ink-700 cursor-help`}
+                  title="These links were generated without recorded provenance. You can still analyse; add provenance where it matters."
+                >
+                  Recorded for {preAnalysisData.edgeProvenance.attributedCount} of {preAnalysisData.edgeProvenance.totalCount} relationships
+                </span>
+              </div>
+            )}
           </div>
         )}
       </div>
 
-      {/* Task 2: Blocking Issues Section */}
-      {hasBlockingIssues && (
+      {/* v2.1 Task 2: Fix First Section - Top 3 issues sorted by category → severity */}
+      {fixFirstIssues.length > 0 && (
         <div className="space-y-2">
           <h3 className={`${typography.label} text-carrot-700`}>
-            Issues to fix ({totalBlockers})
+            Fix First ({fixFirstIssues.length}{remainingIssueCount > 0 ? ` of ${fixFirstIssues.length + remainingIssueCount}` : ''})
           </h3>
-          {visibleIssues.map((issue) => (
-            <BlockingIssueCard
+          {fixFirstIssues.map((issue) => (
+            <FixFirstCard
               key={issue.key}
               issue={issue}
-              onFocus={() => issue.focusNodeId && handleFocusNode(issue.focusNodeId)}
+              onFocusNode={handleFocusNode}
+              onFocusEdge={handleFocusEdge}
+              onAction={handleIssueAction}
             />
           ))}
-          {hiddenIssueCount > 0 && (
+          {remainingIssueCount > 0 && (
             <p className={`${typography.caption} text-ink-500`}>
-              {hiddenIssueCount} more issue{hiddenIssueCount !== 1 ? 's' : ''} not shown
+              {remainingIssueCount} more issue{remainingIssueCount !== 1 ? 's' : ''} — review in Details
             </p>
           )}
         </div>

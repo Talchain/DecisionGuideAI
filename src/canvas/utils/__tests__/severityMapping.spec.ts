@@ -12,6 +12,14 @@ import {
   sortByPriority,
   PRIORITY_ORDER,
   type ActionPriority,
+  // v2.1: New unified display utilities
+  SEVERITY_DISPLAY,
+  getSeverityDisplay,
+  getSeverityContainerClass,
+  hasBlocker,
+  sortBySeverity,
+  normaliseSeverity,
+  type DraftWarningSeverity,
 } from '../severityMapping'
 
 describe('severityMapping', () => {
@@ -340,6 +348,160 @@ describe('severityMapping', () => {
       expect(PRIORITY_ORDER.critical).toBeLessThan(PRIORITY_ORDER.high)
       expect(PRIORITY_ORDER.high).toBeLessThan(PRIORITY_ORDER.medium)
       expect(PRIORITY_ORDER.medium).toBeLessThan(PRIORITY_ORDER.low)
+    })
+  })
+
+  // ==========================================================================
+  // v2.1: Unified Severity Display Tests
+  // ==========================================================================
+
+  describe('SEVERITY_DISPLAY', () => {
+    it('has all four severity levels', () => {
+      expect(SEVERITY_DISPLAY.blocker).toBeDefined()
+      expect(SEVERITY_DISPLAY.high).toBeDefined()
+      expect(SEVERITY_DISPLAY.medium).toBeDefined()
+      expect(SEVERITY_DISPLAY.low).toBeDefined()
+    })
+
+    it('blocker blocks analysis', () => {
+      expect(SEVERITY_DISPLAY.blocker.blocksAnalysis).toBe(true)
+    })
+
+    it('other severities do not block analysis', () => {
+      expect(SEVERITY_DISPLAY.high.blocksAnalysis).toBe(false)
+      expect(SEVERITY_DISPLAY.medium.blocksAnalysis).toBe(false)
+      expect(SEVERITY_DISPLAY.low.blocksAnalysis).toBe(false)
+    })
+
+    it('has correct sort order', () => {
+      expect(SEVERITY_DISPLAY.blocker.sortOrder).toBeLessThan(SEVERITY_DISPLAY.high.sortOrder)
+      expect(SEVERITY_DISPLAY.high.sortOrder).toBeLessThan(SEVERITY_DISPLAY.medium.sortOrder)
+      expect(SEVERITY_DISPLAY.medium.sortOrder).toBeLessThan(SEVERITY_DISPLAY.low.sortOrder)
+    })
+
+    it('has all required styling properties', () => {
+      const severities: DraftWarningSeverity[] = ['blocker', 'high', 'medium', 'low']
+      for (const sev of severities) {
+        const display = SEVERITY_DISPLAY[sev]
+        expect(display.label).toBeTruthy()
+        expect(display.bg).toMatch(/^bg-/)
+        expect(display.border).toMatch(/^border-/)
+        expect(display.text).toMatch(/^text-/)
+        expect(display.icon).toMatch(/^text-/)
+        expect(display.caption).toMatch(/^text-/)
+      }
+    })
+  })
+
+  describe('getSeverityDisplay', () => {
+    it('returns correct display for each severity', () => {
+      expect(getSeverityDisplay('blocker').label).toBe('Blocker')
+      expect(getSeverityDisplay('high').label).toBe('High')
+      expect(getSeverityDisplay('medium').label).toBe('Medium')
+      expect(getSeverityDisplay('low').label).toBe('Low')
+    })
+
+    it('returns low display for unknown severity', () => {
+      // @ts-expect-error Testing invalid input
+      expect(getSeverityDisplay('invalid')).toEqual(SEVERITY_DISPLAY.low)
+    })
+  })
+
+  describe('getSeverityContainerClass', () => {
+    it('returns combined bg and border classes', () => {
+      const classes = getSeverityContainerClass('blocker')
+      expect(classes).toContain('bg-carrot-50')
+      expect(classes).toContain('border-carrot-200')
+    })
+  })
+
+  describe('hasBlocker', () => {
+    it('returns true when blocker severity present', () => {
+      const warnings = [
+        { severity: 'high' as const },
+        { severity: 'blocker' as const },
+        { severity: 'low' as const },
+      ]
+      expect(hasBlocker(warnings)).toBe(true)
+    })
+
+    it('returns false when no blocker severity', () => {
+      const warnings = [
+        { severity: 'high' as const },
+        { severity: 'medium' as const },
+        { severity: 'low' as const },
+      ]
+      expect(hasBlocker(warnings)).toBe(false)
+    })
+
+    it('returns false for empty array', () => {
+      expect(hasBlocker([])).toBe(false)
+    })
+  })
+
+  describe('sortBySeverity', () => {
+    it('sorts warnings by severity order', () => {
+      const warnings = [
+        { severity: 'low' as const, id: '1' },
+        { severity: 'blocker' as const, id: '2' },
+        { severity: 'medium' as const, id: '3' },
+        { severity: 'high' as const, id: '4' },
+      ]
+
+      const sorted = sortBySeverity(warnings)
+
+      expect(sorted[0].severity).toBe('blocker')
+      expect(sorted[1].severity).toBe('high')
+      expect(sorted[2].severity).toBe('medium')
+      expect(sorted[3].severity).toBe('low')
+    })
+
+    it('preserves original array', () => {
+      const warnings = [
+        { severity: 'low' as const },
+        { severity: 'blocker' as const },
+      ]
+
+      sortBySeverity(warnings)
+
+      expect(warnings[0].severity).toBe('low')
+      expect(warnings[1].severity).toBe('blocker')
+    })
+  })
+
+  describe('normaliseSeverity', () => {
+    it('normalises BLOCKER variants to blocker', () => {
+      expect(normaliseSeverity('BLOCKER')).toBe('blocker')
+      expect(normaliseSeverity('blocker')).toBe('blocker')
+      expect(normaliseSeverity('ERROR')).toBe('blocker')
+      expect(normaliseSeverity('CRITICAL')).toBe('blocker')
+    })
+
+    it('normalises HIGH variants to high', () => {
+      expect(normaliseSeverity('HIGH')).toBe('high')
+      expect(normaliseSeverity('high')).toBe('high')
+      expect(normaliseSeverity('WARNING')).toBe('high')
+    })
+
+    it('normalises MEDIUM to medium', () => {
+      expect(normaliseSeverity('MEDIUM')).toBe('medium')
+      expect(normaliseSeverity('medium')).toBe('medium')
+    })
+
+    it('normalises LOW and INFO to low', () => {
+      expect(normaliseSeverity('LOW')).toBe('low')
+      expect(normaliseSeverity('low')).toBe('low')
+      expect(normaliseSeverity('INFO')).toBe('low')
+    })
+
+    it('handles null and undefined', () => {
+      expect(normaliseSeverity(null)).toBe('low')
+      expect(normaliseSeverity(undefined)).toBe('low')
+    })
+
+    it('defaults unknown values to low', () => {
+      expect(normaliseSeverity('unknown')).toBe('low')
+      expect(normaliseSeverity('')).toBe('low')
     })
   })
 })
