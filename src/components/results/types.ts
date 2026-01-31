@@ -127,6 +127,17 @@ export interface RecommendationSectionData {
   coachingReadinessScore?: number
   /** M1 Coaching story headlines: optionId → summary */
   storyHeadlines?: Record<string, string>
+
+  // ==========================================================================
+  // M1 Coaching: Dominant Factor Warning
+  // ==========================================================================
+
+  /** Dominant factor ID if any factor has >50% influence */
+  dominantFactorId?: string
+  /** Dominant factor label for display */
+  dominantFactorLabel?: string
+  /** Whether there are warnings/uncertainties that need attention (for Ready + warnings consistency) */
+  hasWarnings?: boolean
 }
 
 // =============================================================================

@@ -390,6 +390,8 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
   const [showLimits, setShowLimits] = useState(false)
   const [showResetConfirm, setShowResetConfirm] = useState(false)
 
+  // Interaction mode: 'select' for normal selection/drag, 'hand' for pan mode (like Figma V/H)
+  const [interactionMode, setInteractionMode] = useState<'select' | 'hand'>('select')
 
   // M4: Graph Health actions (graphHealth, showIssuesPanel state selected above)
   const setShowIssuesPanel = useCanvasStore(s => s.setShowIssuesPanel)
@@ -1243,7 +1245,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
     }
   }
 
-  useKeyboardShortcuts()
+  useKeyboardShortcuts({ onModeChange: setInteractionMode })
 
   useEffect(() => {
     // Always load visual/settings preferences (grid, snap, etc.)
@@ -1680,11 +1682,10 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
       <div
         style={{
           position: 'absolute',
-          top: 'var(--topbar-h)',
-          bottom: dockLayoutEnabled ? 'var(--bottombar-h)' : 0,
-          // New layout: offset for LeftSidebar (48px). Old layout: offset for InputsDock
-          left: dockLayoutEnabled ? 'var(--dock-left-offset, 0rem)' : 'var(--leftsidebar-w, 48px)',
-          right: dockLayoutEnabled ? 'var(--dock-right-offset, 0rem)' : 0,
+          top: 0,
+          bottom: 0,
+          left: 0,
+          right: 0,
         }}
       >
         {/* M6: Comparison mode - show side-by-side canvases instead of main canvas */}
@@ -1734,6 +1735,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
             defaultEdgeOptions={defaultEdgeOpts}
             snapToGrid={snapToGrid}
             snapGrid={snapGridValue}
+            panOnDrag={interactionMode === 'hand'}
             fitView
             minZoom={0.1}
             maxZoom={4}
@@ -1774,15 +1776,15 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
 
       {!USE_NEW_LAYOUT && <CanvasToolbar />}
       <LeftSidebar
-        onAiClick={() => setShowDraftChat(true)}
+        interactionMode={interactionMode}
+        onModeChange={setInteractionMode}
         onAddNodeClick={handleQuickAddClick}
         onTemplatesClick={handleEmptyStateTemplate}
         onRunClick={handleRunSimulation}
         onCompareClick={handleOpenCompare}
         onEvidenceClick={() => setShowProvenanceHub(true)}
         onFitClick={() => fitViewRef.current({ padding: 0.2, duration: 300 })}
-        onHelpClick={openKeyboardLegend}
-        // Canvas control actions (new)
+        // Canvas control actions
         onUndoClick={undo}
         onRedoClick={redo}
         onResetClick={() => {
@@ -1805,24 +1807,6 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
           }
           applyLayout()
           showToast('Auto-arranged layout.', 'success')
-        }}
-        onExportClick={() => {
-          // Export and download as JSON file
-          const state = useCanvasStore.getState()
-          const json = state.exportLocal()
-
-          // Create blob and trigger download
-          const blob = new Blob([json], { type: 'application/json' })
-          const url = URL.createObjectURL(blob)
-          const a = document.createElement('a')
-          a.href = url
-          a.download = `decision-graph-${new Date().toISOString().slice(0, 10)}.json`
-          document.body.appendChild(a)
-          a.click()
-          document.body.removeChild(a)
-          URL.revokeObjectURL(url)
-
-          showToast('Canvas exported and downloaded.', 'success')
         }}
         canUndo={canUndo()}
         canRedo={canRedo()}

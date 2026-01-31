@@ -72,8 +72,31 @@
   background: var(--info-600);
 }
 
+/* Active state for mode toggle buttons */
+.iconButtonActive {
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  border: 1px solid var(--sky-400);
+  background: var(--sky-100);
+  color: var(--sky-600);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 120ms ease, border-color 120ms ease, transform 80ms ease, box-shadow 120ms ease;
+  pointer-events: auto;
+  box-shadow: 0 0 0 1px var(--sky-200);
+}
+
+.iconButtonActive:hover {
+  background: var(--sky-200);
+  border-color: var(--sky-500);
+}
+
 .iconButton:focus-visible,
-.iconButtonPrimary:focus-visible {
+.iconButtonPrimary:focus-visible,
+.iconButtonActive:focus-visible {
   outline: 2px solid var(--info-500);
   outline-offset: 2px;
 }

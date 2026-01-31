@@ -171,11 +171,14 @@ function DecisionReadinessChip({
   readiness,
   score,
   onNavigateToStructure,
+  hasWarnings,
 }: {
   readiness: M1CoachingReadiness
   score?: number
   /** Callback to navigate to Structure tab (for needs_framing CTA) */
   onNavigateToStructure?: () => void
+  /** Whether there are warnings that need attention (for Ready + warnings consistency) */
+  hasWarnings?: boolean
 }) {
   const config = READINESS_CONFIG[readiness]
   if (!config) return null
@@ -184,15 +187,22 @@ function DecisionReadinessChip({
   // Task 2: Round score to integer for cleaner display
   const displayScore = score != null ? Math.round(score) : null
 
+  // Task 6: Ready + warnings consistency - show modified label when ready but warnings exist
+  const isReadyWithWarnings = readiness === 'ready' && hasWarnings
+  const displayLabel = isReadyWithWarnings ? 'Ready — Needs attention' : config.label
+  const displayTooltip = isReadyWithWarnings
+    ? 'Analysis is ready but there are items that need attention. Review the warnings below.'
+    : config.tooltip
+
   return (
     <div className="inline-flex items-center gap-2">
       <span
         className={`${typography.caption} inline-flex items-center gap-1 px-2 py-0.5 rounded border ${config.bgColor} ${config.textColor} ${config.borderColor}`}
-        title={config.tooltip}
-        aria-label={`Decision readiness: ${config.label}. ${config.tooltip}`}
+        title={displayTooltip}
+        aria-label={`Decision readiness: ${displayLabel}. ${displayTooltip}`}
       >
         <IconComponent className={`h-3.5 w-3.5 ${config.iconColor}`} aria-hidden="true" />
-        {config.label}
+        {displayLabel}
         {displayScore != null && (
           <span className="ml-1 opacity-75">({displayScore}%)</span>
         )}
@@ -603,6 +613,11 @@ export function RecommendationSection({
     coachingReadiness,
     coachingReadinessScore,
     storyHeadlines,
+    // M1 Coaching: Dominant factor warning
+    dominantFactorId,
+    dominantFactorLabel,
+    // Task 6: Ready + warnings consistency
+    hasWarnings,
   } = data
 
   // Task B: All-or-none story headlines guard
@@ -703,6 +718,18 @@ export function RecommendationSection({
         </div>
       )}
 
+      {/* M1 Coaching: Dominant factor warning */}
+      {/* Show when a single factor has >50% influence - this is a concentration risk */}
+      {dominantFactorId && dominantFactorLabel && (
+        <div className="p-3 bg-warning-50 border border-warning-200 rounded-lg">
+          <p className="text-sm text-warning-800">
+            <span className="font-medium">⚠️ Concentration risk:</span>{' '}
+            "{dominantFactorLabel}" accounts for the majority of influence on this decision.
+            Consider validating this assumption or diversifying factors.
+          </p>
+        </div>
+      )}
+
       {/* Task 1.4: Winner label */}
       <div className="text-xs font-semibold text-slate-500 tracking-wide">
         {winnerLabel}
@@ -729,6 +756,7 @@ export function RecommendationSection({
                 readiness={coachingReadiness}
                 score={coachingReadinessScore}
                 onNavigateToStructure={onNavigateToStructure}
+                hasWarnings={hasWarnings}
               />
             )}
             {/* Task 1.5: Robustness badge with inline stability */}

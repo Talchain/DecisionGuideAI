@@ -1,10 +1,18 @@
 // src/canvas/useKeyboardShortcuts.ts
 // Keyboard shortcuts for canvas
 
-import { useEffect } from 'react'
+import { useEffect, useCallback, useRef } from 'react'
 import { useCanvasStore } from './store'
 
-export function useKeyboardShortcuts() {
+interface KeyboardShortcutOptions {
+  /** Callback to set interaction mode (select/hand) for V/H shortcuts */
+  onModeChange?: (mode: 'select' | 'hand') => void
+}
+
+export function useKeyboardShortcuts(options?: KeyboardShortcutOptions) {
+  // Use ref to avoid recreating the handler when options change
+  const optionsRef = useRef(options)
+  optionsRef.current = options
   // Fix: Use getState() inside handler to avoid dependency array issues.
   // Previously, all 12 action functions were in the dependency array, but
   // Zustand selectors return new function references on every render,
@@ -88,6 +96,18 @@ export function useKeyboardShortcuts() {
       if (event.key === 'Delete' || event.key === 'Backspace') {
         event.preventDefault()
         state.deleteSelected()
+        return
+      }
+
+      // V for Select mode (like Figma)
+      if ((event.key === 'v' || event.key === 'V') && !cmdOrCtrl) {
+        optionsRef.current?.onModeChange?.('select')
+        return
+      }
+
+      // H for Hand/Pan mode (like Figma)
+      if ((event.key === 'h' || event.key === 'H') && !cmdOrCtrl) {
+        optionsRef.current?.onModeChange?.('hand')
         return
       }
 

@@ -1,43 +1,43 @@
 import {
-  Sparkles,
   Plus,
   PanelsTopLeft,
   Play,
   BarChart3,
   Layers,
   Maximize2,
-  HelpCircle,
   Undo2,
   Redo2,
   RotateCcw,
   ZoomIn,
   ZoomOut,
   LayoutGrid,
-  Download,
   Type,
   Binary,
+  MousePointer2,
+  Hand,
 } from 'lucide-react'
 import Tooltip from '../Tooltip'
 import styles from './LeftSidebar.module.css'
 import { useEdgeLabelMode } from '../../canvas/store/edgeLabelMode'
 
 interface LeftSidebarProps {
-  onAiClick?: () => void
+  // Interaction mode (select vs hand/pan)
+  interactionMode?: 'select' | 'hand'
+  onModeChange?: (mode: 'select' | 'hand') => void
+  // Node/canvas actions
   onAddNodeClick?: () => void
   onTemplatesClick?: () => void
   onRunClick?: () => void
   onCompareClick?: () => void
   onEvidenceClick?: () => void
   onFitClick?: () => void
-  onHelpClick?: () => void
-  // Canvas control actions (new)
+  // Canvas control actions
   onUndoClick?: () => void
   onRedoClick?: () => void
   onResetClick?: () => void
   onZoomInClick?: () => void
   onZoomOutClick?: () => void
   onAutoArrangeClick?: () => void
-  onExportClick?: () => void
   // Disabled states
   canUndo?: boolean
   canRedo?: boolean
@@ -46,22 +46,21 @@ interface LeftSidebarProps {
 }
 
 export function LeftSidebar({
-  onAiClick,
+  interactionMode = 'select',
+  onModeChange,
   onAddNodeClick,
   onTemplatesClick,
   onRunClick,
   onCompareClick,
   onEvidenceClick,
   onFitClick,
-  onHelpClick,
-  // Canvas controls (new)
+  // Canvas controls
   onUndoClick,
   onRedoClick,
   onResetClick,
   onZoomInClick,
   onZoomOutClick,
   onAutoArrangeClick,
-  onExportClick,
   canUndo = true,
   canRedo = true,
   leftOffset,
@@ -81,16 +80,20 @@ export function LeftSidebar({
       aria-label="Canvas tools"
       style={leftOffset ? { left: leftOffset } : undefined}
     >
-      {/* AI & Creation Group */}
+      {/* Mode Toggle & Creation Group */}
       <div className={styles.group}>
-        <Tooltip content="Quick Draft AI assistant (describe your decision)">
+        <Tooltip content={interactionMode === 'select' ? 'Switch to Hand mode (H)' : 'Switch to Select mode (V)'}>
           <button
             type="button"
             className={styles.iconButton}
-            aria-label="Open Quick Draft assistant"
-            onClick={onAiClick}
+            aria-label={interactionMode === 'select' ? 'Currently in Select mode, click for Hand mode' : 'Currently in Hand mode, click for Select mode'}
+            onClick={() => onModeChange?.(interactionMode === 'select' ? 'hand' : 'select')}
           >
-            <Sparkles className={styles.icon} aria-hidden="true" />
+            {interactionMode === 'select' ? (
+              <MousePointer2 className={styles.icon} aria-hidden="true" />
+            ) : (
+              <Hand className={styles.icon} aria-hidden="true" />
+            )}
           </button>
         </Tooltip>
 
@@ -249,31 +252,6 @@ export function LeftSidebar({
             onClick={onFitClick}
           >
             <Maximize2 className={styles.icon} aria-hidden="true" />
-          </button>
-        </Tooltip>
-
-        <Tooltip content="Export / Download">
-          <button
-            type="button"
-            className={styles.iconButton}
-            aria-label="Export canvas"
-            onClick={onExportClick}
-          >
-            <Download className={styles.icon} aria-hidden="true" />
-          </button>
-        </Tooltip>
-      </div>
-
-      {/* Help Group */}
-      <div className={styles.group}>
-        <Tooltip content="Keyboard shortcuts & help">
-          <button
-            type="button"
-            className={styles.iconButton}
-            aria-label="Open help and keyboard shortcuts"
-            onClick={onHelpClick}
-          >
-            <HelpCircle className={styles.icon} aria-hidden="true" />
           </button>
         </Tooltip>
       </div>

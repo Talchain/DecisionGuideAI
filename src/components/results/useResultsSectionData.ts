@@ -993,8 +993,34 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       coachingReadiness: m1Coaching?.readiness,
       coachingReadinessScore: m1Coaching?.readiness_signals?.score,
       storyHeadlines: m1Coaching?.story_headlines ?? {},
+      // M1 Coaching: Dominant factor from key_drivers (factor with >50% influence)
+      // Use PLoT's computed dominant_factor if available
+      dominantFactorId: m1Coaching?.key_drivers?.dominant_factor,
+      dominantFactorLabel: (() => {
+        const dominantId = m1Coaching?.key_drivers?.dominant_factor
+        if (!dominantId) return undefined
+        // Look up label from key_drivers.drivers
+        const driver = m1Coaching?.key_drivers?.drivers?.find(d => d.factor_id === dominantId)
+        if (driver?.factor_label) return driver.factor_label
+        // Fallback: look up from nodeLabelMap
+        return nodeLabelMap.get(dominantId) ?? dominantId
+      })(),
+      // Task 6: Ready + warnings consistency
+      // Check if there are warnings/uncertainties that need attention
+      hasWarnings: (() => {
+        // Check for warning/blocker critiques
+        const critiques = (report as any)?.run?.critique || []
+        const hasWarningCritiques = critiques.some((c: any) =>
+          c.severity === 'WARNING' || c.severity === 'BLOCKER' ||
+          c.severity === 'warning' || c.severity === 'blocker'
+        )
+        // Check for fragile edges
+        const fragileEdges = safeArray((report as any)?.robustness?.fragile_edges)
+        const hasFragileEdges = fragileEdges.length > 0
+        return hasWarningCritiques || hasFragileEdges
+      })(),
     }
-  }, [hasCompletedFirstRun, report, nodes, goalLabel, goalNodeId, outcomeUnit, outcomeUnitSymbol, currentScenarioFraming, m1Coaching])
+  }, [hasCompletedFirstRun, report, nodes, goalLabel, goalNodeId, outcomeUnit, outcomeUnitSymbol, currentScenarioFraming, m1Coaching, nodeLabelMap])
 
   // ==========================================================================
   // Drivers Section Data (with dynamic normalisation)
@@ -1306,8 +1332,30 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       // Task 2: Track hidden zero-impact factors
       hiddenZeroImpactCount: zeroImpactCount > 0 ? zeroImpactCount : undefined,
       // Task 3 (M1 Coaching): Detect dominant factor
-      // Trigger: >50% influence AND top 2 ratio > 2:1
+      // Priority: Use PLoT's m1Coaching.key_drivers.dominant_factor if available
+      // Fallback: Local heuristic (>50% influence AND top 2 ratio > 2:1)
+      // This ensures consistency with RecommendationSection which also uses m1Coaching
       ...(() => {
+        // First, check if PLoT provided a dominant factor
+        const plotDominantId = m1Coaching?.key_drivers?.dominant_factor
+        if (plotDominantId) {
+          // Look up the driver item to get the label
+          const dominantDriver = nonZeroImpactDrivers.find(d => d.factorKey === plotDominantId)
+          if (dominantDriver) {
+            return {
+              dominantFactorId: plotDominantId,
+              dominantFactorLabel: dominantDriver.factorLabel,
+            }
+          }
+          // Driver not in our list - use PLoT's key_drivers for label
+          const plotDriver = m1Coaching?.key_drivers?.drivers?.find(d => d.factor_id === plotDominantId)
+          return {
+            dominantFactorId: plotDominantId,
+            dominantFactorLabel: plotDriver?.factor_label ?? plotDominantId,
+          }
+        }
+
+        // Fallback: Local heuristic when PLoT doesn't provide dominant_factor
         if (nonZeroImpactDrivers.length < 2) return {}
         const top1 = nonZeroImpactDrivers[0]
         const top2 = nonZeroImpactDrivers[1]
@@ -1455,9 +1503,10 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     const hiddenHighRiskCount = totalHighRiskEdges > FRAGILE_EDGES_DISPLAY_LIMIT
       ? totalHighRiskEdges - FRAGILE_EDGES_DISPLAY_LIMIT
       : 0
-    // Phase 3 Task 3.3: Label enrichment with "Unknown: {id}" fallback
-    const formatUnknownId = (id: string | undefined) =>
-      id ? `Unknown: ${id}` : undefined
+    // Phase 3 Task 3.3: Label enrichment with "Not attributed: {id}" fallback
+    // Changed from "Unknown" to "Not attributed" for clarity about data provenance
+    const formatUnattributedId = (id: string | undefined) =>
+      id ? `Not attributed: ${id}` : undefined
     const nonEmptyLabel = (value: unknown) =>
       typeof value === 'string' && value.trim().length > 0 ? value : undefined
     const getNodeLabel = (id: string | undefined) => (id ? nodeLabelMap.get(id) : undefined)
@@ -1535,13 +1584,13 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
         nonEmptyLabel(fe.from_label) ??
         nonEmptyLabel(fe.fromLabel) ??
         getNodeLabel(fromId) ??
-        formatUnknownId(fromId) ??
+        formatUnattributedId(fromId) ??
         'Unknown factor'
       const targetName =
         nonEmptyLabel(fe.to_label) ??
         nonEmptyLabel(fe.toLabel) ??
         getNodeLabel(toId) ??
-        formatUnknownId(toId) ??
+        formatUnattributedId(toId) ??
         'Unknown target'
 
       // Phase 3 Task 3.3: Alternative winner label enrichment
@@ -1553,7 +1602,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
         nonEmptyLabel(fe.alternativeWinner) ??
         getNodeLabel(altWinnerId) ??
         getOptionLabel(altWinnerId) ??
-        formatUnknownId(altWinnerId) ??
+        formatUnattributedId(altWinnerId) ??
         'another option'
 
       if (typeof window !== 'undefined' && (window as any).__OLUMI_DEBUG) {

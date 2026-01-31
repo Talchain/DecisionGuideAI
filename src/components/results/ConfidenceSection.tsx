@@ -482,41 +482,54 @@ export function ConfidenceSection({
           <CappedList<EvidenceGapItem>
             items={evidenceGaps}
             maxVisible={3}
-            renderItem={(gap) => (
-              <button
-                onClick={() => {
-                  const nodeId = gap.targetNodeId ?? gap.factorId
-                  if (onFocusNode) {
-                    onFocusNode(nodeId)
-                  } else {
-                    focusNodeById(nodeId)
-                  }
-                }}
-                className="w-full text-left p-3 bg-sky-50 border border-sky-200 rounded-lg hover:bg-sky-100 transition-colors"
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm text-sky-800 font-medium">
-                      {gap.factorLabel}
-                    </p>
-                    {gap.suggestion && (
-                      <p className="text-xs text-sky-600 mt-1">
-                        {gap.suggestion}
+            renderItem={(gap) => {
+              // Task 4: Focus fallback - target_node_id → factor_id → hide CTA
+              const focusTarget = gap.targetNodeId ?? gap.factorId ?? null
+              const canFocus = focusTarget !== null
+
+              return (
+                <button
+                  onClick={() => {
+                    if (canFocus) {
+                      if (onFocusNode) {
+                        onFocusNode(focusTarget!)
+                      } else {
+                        focusNodeById(focusTarget!)
+                      }
+                    }
+                  }}
+                  className={`w-full text-left p-3 bg-sky-50 border border-sky-200 rounded-lg transition-colors ${
+                    canFocus ? 'hover:bg-sky-100 cursor-pointer' : 'cursor-default'
+                  }`}
+                  disabled={!canFocus}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm text-sky-800 font-medium">
+                        {gap.factorLabel}
                       </p>
-                    )}
-                    {/* Task C: VOI impact label (only show if VOI is valid) */}
-                    {voiToImpact(gap.voi) && (
-                      <span className="text-xs text-sky-500 mt-1 block">
-                        {voiToImpact(gap.voi)}
+                      {gap.suggestion && (
+                        <p className="text-xs text-sky-600 mt-1">
+                          {gap.suggestion}
+                        </p>
+                      )}
+                      {/* Task C: VOI impact label (only show if VOI is valid) */}
+                      {voiToImpact(gap.voi) && (
+                        <span className="text-xs text-sky-500 mt-1 block">
+                          {voiToImpact(gap.voi)}
+                        </span>
+                      )}
+                    </div>
+                    {/* Task 4: Only show Focus CTA when target exists */}
+                    {canFocus && (
+                      <span className="text-xs text-sky-500 flex-shrink-0">
+                        Focus →
                       </span>
                     )}
                   </div>
-                  <span className="text-xs text-sky-500 flex-shrink-0">
-                    Focus →
-                  </span>
-                </div>
-              </button>
-            )}
+                </button>
+              )
+            }}
             overflowLabel={(n) => `+${n} more`}
             dedupeFn={(gap) => gap.factorId}
             sortFn={(a, b) => b.voi - a.voi}
