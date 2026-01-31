@@ -168,6 +168,66 @@ export interface CEEFramingFeedback {
 }
 
 // =============================================================================
+// Phase 1b Types (extended warnings, connectivity, quality factors)
+// =============================================================================
+
+/**
+ * Extended draft warning (Phase 1b)
+ * CEE now provides richer warning data for actionable UI
+ */
+export interface CEEDraftWarning {
+  id: string
+  severity: 'low' | 'medium' | 'high' | 'blocker'
+  message: string
+  affected_node_ids: string[]  // Always array, never undefined
+  affected_edge_ids: string[]  // Always array, never undefined
+  fix_hint?: string
+  code?: string  // Warning code for dimension mapping
+}
+
+/**
+ * Goal connectivity status (Phase 1b)
+ * Indicates whether options have valid causal paths to the goal
+ */
+export interface CEEGoalConnectivity {
+  status: 'none' | 'partial' | 'full'  // Maps: none=blocked, partial=weak, full=ok
+  disconnected_options: string[]
+  weak_paths: Array<{
+    option_id: string
+    weak_edge_ids: string[]
+    reason: 'low_strength' | 'low_confidence' | 'long_chain'
+  }>
+}
+
+/**
+ * Model quality factors (Phase 1b)
+ * Detailed quality metrics for enhanced dimension calculations
+ */
+export interface CEEModelQualityFactors {
+  estimate_confidence: number
+  strength_variation: number
+  range_confidence_coverage: number
+  has_baseline_option: boolean
+}
+
+/**
+ * Intervention hint for a factor (Phase 1b)
+ * Provides context about intervention values for UI display
+ */
+export interface CEEInterventionHint {
+  unit?: string
+  factor_type?: string
+  extracted_range?: [number, number]
+  source: 'brief_extraction' | 'user_specified' | 'inferred'
+}
+
+/**
+ * Edge origin (Phase 1b)
+ * Indicates how the edge was created
+ */
+export type CEEEdgeOrigin = 'user' | 'ai' | 'default'
+
+// =============================================================================
 // Schema v3 Types (analysis_ready support)
 // =============================================================================
 
@@ -232,9 +292,20 @@ export interface CEEAnalysisReady {
  *
  * analysis_ready is present when CEE has successfully resolved
  * all option interventions and the graph is ready for analysis.
+ *
+ * Phase 1b adds: goal_connectivity, model_quality_factors, intervention_hints,
+ * extended draft_warnings array
  */
 export interface CEEv3Response extends CEEv2Response {
   analysis_ready?: CEEAnalysisReady
+  /** Phase 1b: Extended warnings with dimension codes and Focus CTAs */
+  extended_warnings?: CEEDraftWarning[]
+  /** Phase 1b: Goal connectivity status */
+  goal_connectivity?: CEEGoalConnectivity
+  /** Phase 1b: Model quality factors for enhanced dimension calculations */
+  model_quality_factors?: CEEModelQualityFactors
+  /** Phase 1b: Intervention hints keyed by factor node ID */
+  intervention_hints?: Record<string, CEEInterventionHint>
 }
 
 /**

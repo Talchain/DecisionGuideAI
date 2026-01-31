@@ -48,6 +48,9 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
   const pushHistory = useCanvasStore(s => s.pushHistory)
   const outcomeNodeId = useCanvasStore(s => s.outcomeNodeId)
   const setOutcomeNode = useCanvasStore(s => s.setOutcomeNode)
+  // Task 7: Mode-aware display - check if in Results mode
+  const resultsStatus = useCanvasStore(s => s.results?.status)
+  const isResultsMode = resultsStatus === 'complete'
 
   const node = nodes.find(n => n.id === nodeId)
   const [label, setLabel] = useState<string>(String(node?.data?.label ?? ''))
@@ -528,7 +531,19 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
             </h4>
           </Tooltip>
 
-          {showMappingForm ? (
+          {/* Task 7: Mode-aware display - read-only in Results mode */}
+          {isResultsMode ? (
+            <div className="space-y-2">
+              <InterventionDisplay
+                interventions={optionAsUIOption.interventions}
+                nodes={nodes}
+                compact
+              />
+              <p className="text-xs text-slate-400 italic">
+                Switch to Structure mode to edit interventions
+              </p>
+            </div>
+          ) : showMappingForm ? (
             <UserMappingForm
               option={optionAsUIOption}
               nodes={nodes}

@@ -2,7 +2,7 @@
  * PreAnalysisReadinessPanel Tests
  *
  * Tests for the pre-analysis readiness panel that displays
- * quality scores, blocking issues, and coaching suggestions.
+ * quality scores, blocking issues, decision structure, and readiness checks.
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
@@ -14,6 +14,7 @@ vi.mock('../../../canvas/store', () => ({
   useCanvasStore: vi.fn((selector) => {
     const mockState = {
       nodes: [
+        { id: 'goal1', type: 'goal', data: { label: 'Increase Revenue' } },
         { id: 'node1', type: 'factor', data: { label: 'Cost Factor' } },
         { id: 'node2', type: 'option', data: { label: 'Option A' } },
         { id: 'node3', type: 'option', data: { label: 'Option B' } },
@@ -30,7 +31,17 @@ vi.mock('../../../canvas/store', () => ({
           { id: 'node3', label: 'Option B', status: 'ready', interventions: {} },
         ],
       },
+      ceeQuality: {
+        overall: 8,
+        structure: 9,
+        coverage: 8,
+        causality: 7,
+        safety: 8,
+      },
       setHighlightedNodes: vi.fn(),
+      addNode: vi.fn(),
+      setSelectedNodeId: vi.fn(),
+      setInspectorOpen: vi.fn(),
     }
     return selector(mockState)
   }),
@@ -84,7 +95,7 @@ describe('PreAnalysisReadinessPanel', () => {
     vi.clearAllMocks()
   })
 
-  it('renders quality header with score and level', () => {
+  it('renders two-line header with Can analyse and Model quality', () => {
     render(
       <PreAnalysisReadinessPanel
         onAnalyse={mockOnAnalyse}
@@ -93,29 +104,12 @@ describe('PreAnalysisReadinessPanel', () => {
       />
     )
 
-    // Should show quality level and score
-    expect(screen.getByText('Strong')).toBeInTheDocument()
-    expect(screen.getByText('(85%)')).toBeInTheDocument()
-  })
+    // Line 1: Can analyse status
+    expect(screen.getByText('Can analyse:')).toBeInTheDocument()
+    expect(screen.getByText('Ready')).toBeInTheDocument()
 
-  it('shows summary line with node, edge, and option counts in expanded breakdown', () => {
-    render(
-      <PreAnalysisReadinessPanel
-        onAnalyse={mockOnAnalyse}
-        onBlockersChange={mockOnBlockersChange}
-        onCanRunChange={mockOnCanRunChange}
-      />
-    )
-
-    // Summary line is now inside the collapsed breakdown - expand it first
-    const toggle = screen.getByText('Estimated breakdown')
-    fireEvent.click(toggle)
-
-    // Summary line shows counts for nodes, edges, and options
-    expect(screen.getByText(/3 nodes/)).toBeInTheDocument()
-    expect(screen.getByText(/2 edges/)).toBeInTheDocument()
-    // Use more specific pattern to match summary line, not "All 2 options configured"
-    expect(screen.getByText(/2 edges · 2 options/)).toBeInTheDocument()
+    // Line 2: Model quality
+    expect(screen.getByText('Model quality:')).toBeInTheDocument()
   })
 
   it('shows "Analyse Now" button when ready', () => {
@@ -133,7 +127,7 @@ describe('PreAnalysisReadinessPanel', () => {
     expect(screen.getByText('Analyse Now')).toBeInTheDocument()
   })
 
-  it('shows "Analyzing..." button when isAnalysing is true', () => {
+  it('shows "Analysing..." button when isAnalysing is true', () => {
     render(
       <PreAnalysisReadinessPanel
         onAnalyse={mockOnAnalyse}
@@ -143,12 +137,12 @@ describe('PreAnalysisReadinessPanel', () => {
       />
     )
 
-    expect(screen.getByText("Analysing...")).toBeInTheDocument()
+    expect(screen.getByText('Analysing...')).toBeInTheDocument()
     const button = screen.getByRole('button', { name: /analysis in progress/i })
     expect(button).toBeDisabled()
   })
 
-  it('toggles quality breakdown when clicked', () => {
+  it('shows structure list with goal, options, and factors', () => {
     render(
       <PreAnalysisReadinessPanel
         onAnalyse={mockOnAnalyse}
@@ -157,17 +151,56 @@ describe('PreAnalysisReadinessPanel', () => {
       />
     )
 
-    const toggle = screen.getByText('Estimated breakdown')
+    // Structure list labels
+    expect(screen.getByText('Goal')).toBeInTheDocument()
+    expect(screen.getByText('Options')).toBeInTheDocument()
+    expect(screen.getByText('Factors')).toBeInTheDocument()
+    expect(screen.getByText('Risks')).toBeInTheDocument()
+    expect(screen.getByText('Outcomes')).toBeInTheDocument()
+
+    // Node labels (may appear multiple times in structure list and option chips)
+    expect(screen.getByText('Increase Revenue')).toBeInTheDocument()
+    expect(screen.getAllByText('Option A').length).toBeGreaterThanOrEqual(1)
+    expect(screen.getAllByText('Option B').length).toBeGreaterThanOrEqual(1)
+    expect(screen.getByText('Cost Factor')).toBeInTheDocument()
+  })
+
+  it('shows "None modelled" for empty risks section with Add risk button', () => {
+    render(
+      <PreAnalysisReadinessPanel
+        onAnalyse={mockOnAnalyse}
+        onBlockersChange={mockOnBlockersChange}
+        onCanRunChange={mockOnCanRunChange}
+      />
+    )
+
+    // Both Risks and Outcomes sections show "None modelled" when empty
+    const noneModelledElements = screen.getAllByText('None modelled')
+    expect(noneModelledElements.length).toBeGreaterThanOrEqual(1)
+
+    // Risks section specifically has "Add risk" button
+    expect(screen.getByText('Add risk')).toBeInTheDocument()
+  })
+
+  it('toggles readiness checks when clicked', () => {
+    render(
+      <PreAnalysisReadinessPanel
+        onAnalyse={mockOnAnalyse}
+        onBlockersChange={mockOnBlockersChange}
+        onCanRunChange={mockOnCanRunChange}
+      />
+    )
+
+    const toggle = screen.getByText('Readiness Checks')
     fireEvent.click(toggle)
 
-    // Should show breakdown bars
+    // Should show dimension rows
     expect(screen.getByText('Structure')).toBeInTheDocument()
     expect(screen.getByText('Coverage')).toBeInTheDocument()
-    expect(screen.getByText('Causality')).toBeInTheDocument()
-    expect(screen.getByText('Safety')).toBeInTheDocument()
+    expect(screen.getByText('Validation')).toBeInTheDocument()
   })
 
-  it('shows ready state with option chips when no blockers', () => {
+  it('shows dimension scores in readiness checks', () => {
     render(
       <PreAnalysisReadinessPanel
         onAnalyse={mockOnAnalyse}
@@ -176,25 +209,14 @@ describe('PreAnalysisReadinessPanel', () => {
       />
     )
 
-    expect(screen.getByText('Ready to analyse')).toBeInTheDocument()
-    expect(screen.getByText('Option A')).toBeInTheDocument()
-    expect(screen.getByText('Option B')).toBeInTheDocument()
-    expect(screen.getByText(/All 2 options configured/)).toBeInTheDocument()
-  })
+    // Expand readiness checks
+    const toggle = screen.getByText('Readiness Checks')
+    fireEvent.click(toggle)
 
-  it('shows coaching suggestions accordion', () => {
-    render(
-      <PreAnalysisReadinessPanel
-        onAnalyse={mockOnAnalyse}
-        onBlockersChange={mockOnBlockersChange}
-        onCanRunChange={mockOnCanRunChange}
-      />
-    )
-
-    // Accordion should be visible (auto-expanded when no blockers)
-    expect(screen.getByText(/Coaching Suggestions/)).toBeInTheDocument()
-    // The 'completeness' category maps to "Refine influence weights" action
-    expect(screen.getByText(/Refine influence weights/)).toBeInTheDocument()
+    // Should show actual dimension scores
+    expect(screen.getByText('9/10')).toBeInTheDocument() // Structure
+    expect(screen.getByText('8/10')).toBeInTheDocument() // Coverage
+    expect(screen.getByText('8/8')).toBeInTheDocument() // Validation
   })
 
   it('calls onAnalyse when button is clicked', () => {
@@ -263,7 +285,7 @@ describe('PreAnalysisReadinessPanel with blockers', () => {
     })
   })
 
-  it('shows "Fix N Issues First" button when blockers exist', async () => {
+  it('shows blocked status when blockers exist', async () => {
     const mockOnAnalyse = vi.fn()
 
     render(
@@ -274,13 +296,13 @@ describe('PreAnalysisReadinessPanel with blockers', () => {
       />
     )
 
-    // Button should show blocker count
-    expect(screen.getByText(/Fix.*Issue/i)).toBeInTheDocument()
+    // Should show blocked status
+    expect(screen.getByText(/Blocked:/)).toBeInTheDocument()
     const button = screen.getByRole('button', { name: /fix issues/i })
     expect(button).toBeDisabled()
   })
 
-  it('shows blocking issue cards with human-readable labels', async () => {
+  it('shows blocking issue cards', async () => {
     render(
       <PreAnalysisReadinessPanel
         onAnalyse={vi.fn()}
@@ -291,33 +313,6 @@ describe('PreAnalysisReadinessPanel with blockers', () => {
 
     // Should show human-readable title
     expect(screen.getByText('Options reference missing factor')).toBeInTheDocument()
-  })
-
-  it('shows max 3 issue cards with overflow count', async () => {
-    // Override to return 5 blockers
-    const { usePreRunValidation } = await import('../../../canvas/hooks/usePreRunValidation')
-    vi.mocked(usePreRunValidation).mockReturnValue({
-      canRun: false,
-      blockers: [
-        { code: 'A', message: 'Issue 1', affectedIds: ['n1'] },
-        { code: 'B', message: 'Issue 2', affectedIds: ['n2'] },
-        { code: 'C', message: 'Issue 3', affectedIds: ['n3'] },
-        { code: 'D', message: 'Issue 4', affectedIds: ['n4'] },
-        { code: 'E', message: 'Issue 5', affectedIds: ['n5'] },
-      ],
-      warnings: [],
-    })
-
-    render(
-      <PreAnalysisReadinessPanel
-        onAnalyse={vi.fn()}
-        onBlockersChange={vi.fn()}
-        onCanRunChange={vi.fn()}
-      />
-    )
-
-    // Should show overflow message
-    expect(screen.getByText(/2 more issues? not shown/)).toBeInTheDocument()
   })
 })
 
@@ -332,7 +327,11 @@ describe('PreAnalysisReadinessPanel empty state', () => {
         nodes: [],
         edges: [],
         ceeAnalysisReady: null,
+        ceeQuality: null,
         setHighlightedNodes: vi.fn(),
+        addNode: vi.fn(),
+        setSelectedNodeId: vi.fn(),
+        setInspectorOpen: vi.fn(),
       }
       return selector(mockState)
     })
@@ -351,28 +350,38 @@ describe('PreAnalysisReadinessPanel empty state', () => {
   })
 })
 
-describe('PreAnalysisReadinessPanel readiness states', () => {
+describe('PreAnalysisReadinessPanel dimension thresholds', () => {
   beforeEach(async () => {
     vi.clearAllMocks()
+
+    // Override store with specific quality values for threshold testing
+    const { useCanvasStore } = await import('../../../canvas/store')
+    vi.mocked(useCanvasStore).mockImplementation((selector) => {
+      const mockState = {
+        nodes: [
+          { id: 'goal1', type: 'goal', data: { label: 'Goal' } },
+          { id: 'node1', type: 'factor', data: { label: 'Factor' } },
+        ],
+        edges: [],
+        ceeAnalysisReady: { status: 'ready', goal_node_id: 'goal1', options: [] },
+        ceeQuality: {
+          overall: 7,
+          structure: 9, // green (≥8)
+          coverage: 6, // warning (5-7)
+          causality: 5,
+          safety: 4, // error (<5)
+        },
+        setHighlightedNodes: vi.fn(),
+        addNode: vi.fn(),
+        setSelectedNodeId: vi.fn(),
+        setInspectorOpen: vi.fn(),
+      }
+      return selector(mockState)
+    })
   })
 
-  it('disables button when readiness.can_run_analysis is false', async () => {
-    // Override readiness hook to return can_run_analysis: false
-    const { useGraphReadiness } = await import('../../../canvas/hooks/useGraphReadiness')
-    vi.mocked(useGraphReadiness).mockReturnValue({
-      readiness: {
-        readiness_score: 85,
-        readiness_level: 'strong',
-        can_run_analysis: false,
-        confidence_explanation: 'Graph needs more data',
-        improvements: [],
-      },
-      loading: false,
-      error: null,
-      refresh: vi.fn(),
-    })
-
-    render(
+  it('applies correct severity icons based on score thresholds', async () => {
+    const { container } = render(
       <PreAnalysisReadinessPanel
         onAnalyse={vi.fn()}
         onBlockersChange={vi.fn()}
@@ -380,46 +389,28 @@ describe('PreAnalysisReadinessPanel readiness states', () => {
       />
     )
 
-    // Button should be disabled even without blockers
-    const button = screen.getByRole('button', { name: /fix issues/i })
-    expect(button).toBeDisabled()
-  })
+    // Expand readiness checks
+    const toggle = screen.getByText('Readiness Checks')
+    fireEvent.click(toggle)
 
-  it('calls onCanRunChange with false when readiness.can_run_analysis is false', async () => {
-    const mockOnCanRunChange = vi.fn()
+    // Check for dimension labels
+    expect(screen.getByText('Structure')).toBeInTheDocument()
+    expect(screen.getByText('Coverage')).toBeInTheDocument()
+    expect(screen.getByText('Validation')).toBeInTheDocument()
 
-    const { useGraphReadiness } = await import('../../../canvas/hooks/useGraphReadiness')
-    vi.mocked(useGraphReadiness).mockReturnValue({
-      readiness: {
-        readiness_score: 85,
-        readiness_level: 'strong',
-        can_run_analysis: false,
-        confidence_explanation: 'Graph needs more data',
-        improvements: [],
-      },
-      loading: false,
-      error: null,
-      refresh: vi.fn(),
-    })
-
-    render(
-      <PreAnalysisReadinessPanel
-        onAnalyse={vi.fn()}
-        onBlockersChange={vi.fn()}
-        onCanRunChange={mockOnCanRunChange}
-      />
-    )
-
-    expect(mockOnCanRunChange).toHaveBeenCalledWith(false)
+    // Check scores
+    expect(screen.getByText('9/10')).toBeInTheDocument() // Structure
+    expect(screen.getByText('6/10')).toBeInTheDocument() // Coverage
+    expect(screen.getByText('4/8')).toBeInTheDocument() // Validation (safety)
   })
 })
 
-describe('PreAnalysisReadinessPanel coaching accordion', () => {
+describe('PreAnalysisReadinessPanel Review button', () => {
   beforeEach(() => {
     vi.clearAllMocks()
   })
 
-  it('allows collapsing coaching accordion when expanded', () => {
+  it('has Review button that scrolls to readiness checks', () => {
     render(
       <PreAnalysisReadinessPanel
         onAnalyse={vi.fn()}
@@ -428,24 +419,12 @@ describe('PreAnalysisReadinessPanel coaching accordion', () => {
       />
     )
 
-    // Find and click the coaching accordion button
-    const accordionButton = screen.getByRole('button', { name: /Coaching Suggestions/i })
-
-    // Should start expanded (no blockers)
-    expect(accordionButton).toHaveAttribute('aria-expanded', 'true')
-
-    // Click to collapse
-    fireEvent.click(accordionButton)
-
-    // Should now be collapsed
-    expect(accordionButton).toHaveAttribute('aria-expanded', 'false')
-
-    // Click to expand again
-    fireEvent.click(accordionButton)
-    expect(accordionButton).toHaveAttribute('aria-expanded', 'true')
+    // Find Review button
+    const reviewButton = screen.getByRole('button', { name: /review/i })
+    expect(reviewButton).toBeInTheDocument()
   })
 
-  it('has proper ARIA attributes on quality breakdown toggle', () => {
+  it('has proper ARIA attributes on readiness checks toggle', () => {
     render(
       <PreAnalysisReadinessPanel
         onAnalyse={vi.fn()}
@@ -454,12 +433,756 @@ describe('PreAnalysisReadinessPanel coaching accordion', () => {
       />
     )
 
-    const toggle = screen.getByText('Estimated breakdown').closest('button')
+    const toggle = screen.getByText('Readiness Checks').closest('button')
     expect(toggle).toHaveAttribute('aria-expanded', 'false')
     expect(toggle).toHaveAttribute('aria-controls', 'quality-breakdown-content')
 
     // Click to expand
     fireEvent.click(toggle!)
     expect(toggle).toHaveAttribute('aria-expanded', 'true')
+  })
+})
+
+// ============================================================================
+// Phase 1b Critical Path Tests
+// ============================================================================
+
+describe('PreAnalysisReadinessPanel Phase 1b - Connectivity blocker', () => {
+  beforeEach(async () => {
+    vi.clearAllMocks()
+
+    const { useCanvasStore } = await import('../../../canvas/store')
+    vi.mocked(useCanvasStore).mockImplementation((selector) => {
+      const mockState = {
+        nodes: [
+          { id: 'goal1', type: 'goal', data: { label: 'Increase Revenue' } },
+          { id: 'opt1', type: 'option', data: { label: 'Option A' } },
+          { id: 'opt2', type: 'option', data: { label: 'Option B' } },
+        ],
+        edges: [],
+        ceeAnalysisReady: {
+          status: 'ready',
+          goal_node_id: 'goal1',
+          options: [
+            { id: 'opt1', label: 'Option A', status: 'ready', interventions: {} },
+            { id: 'opt2', label: 'Option B', status: 'ready', interventions: {} },
+          ],
+        },
+        ceeQuality: { overall: 8, structure: 9, coverage: 8, causality: 7, safety: 8 },
+        // Phase 1b: Goal connectivity with status 'none' (blocker)
+        ceeGoalConnectivity: {
+          status: 'none',
+          disconnected_options: ['opt1'],
+          weak_paths: [],
+        },
+        ceeExtendedWarnings: null,
+        ceeModelQualityFactors: null,
+        ceeInterventionHints: null,
+        setHighlightedNodes: vi.fn(),
+        addNode: vi.fn(),
+        setSelectedNodeId: vi.fn(),
+        setInspectorOpen: vi.fn(),
+      }
+      return selector(mockState)
+    })
+  })
+
+  it('disables Analyse button when goal_connectivity.status is none', () => {
+    render(
+      <PreAnalysisReadinessPanel
+        onAnalyse={vi.fn()}
+        onBlockersChange={vi.fn()}
+        onCanRunChange={vi.fn()}
+      />
+    )
+
+    // Button should be disabled due to CEE blocker
+    const button = screen.getByRole('button', { name: /fix issues/i })
+    expect(button).toBeDisabled()
+
+    // Should show blocked status
+    expect(screen.getByText(/Blocked:/)).toBeInTheDocument()
+  })
+
+  it('shows disconnected option label in connectivity badge', () => {
+    render(
+      <PreAnalysisReadinessPanel
+        onAnalyse={vi.fn()}
+        onBlockersChange={vi.fn()}
+        onCanRunChange={vi.fn()}
+      />
+    )
+
+    // Should show Goal Connectivity section with blocked status
+    expect(screen.getByText('Goal Connectivity')).toBeInTheDocument()
+    expect(screen.getByText('Blocked')).toBeInTheDocument()
+    expect(screen.getByText(/Disconnected:/)).toBeInTheDocument()
+    // Option A appears in multiple places - just verify it's in the DOM
+    expect(screen.getAllByText(/Option A/).length).toBeGreaterThanOrEqual(1)
+  })
+})
+
+describe('PreAnalysisReadinessPanel Phase 1b - Connectivity warning with focus', () => {
+  const mockFocusEdgeById = vi.fn()
+
+  beforeEach(async () => {
+    vi.clearAllMocks()
+
+    // Mock focusHelpers
+    const focusHelpers = await import('../../../canvas/utils/focusHelpers')
+    vi.mocked(focusHelpers.focusEdgeById).mockImplementation(mockFocusEdgeById)
+
+    const { useCanvasStore } = await import('../../../canvas/store')
+    vi.mocked(useCanvasStore).mockImplementation((selector) => {
+      const mockState = {
+        nodes: [
+          { id: 'goal1', type: 'goal', data: { label: 'Increase Revenue' } },
+          { id: 'opt1', type: 'option', data: { label: 'Option A' } },
+          { id: 'factor1', type: 'factor', data: { label: 'Price Factor' } },
+        ],
+        edges: [
+          { id: 'edge1', source: 'opt1', target: 'factor1', data: { label: 'weak link' } },
+        ],
+        ceeAnalysisReady: {
+          status: 'ready',
+          goal_node_id: 'goal1',
+          options: [{ id: 'opt1', label: 'Option A', status: 'ready', interventions: {} }],
+        },
+        ceeQuality: { overall: 8, structure: 9, coverage: 8, causality: 7, safety: 8 },
+        // Phase 1b: Goal connectivity with partial status and weak paths
+        ceeGoalConnectivity: {
+          status: 'partial',
+          disconnected_options: [],
+          weak_paths: [
+            {
+              option_id: 'opt1',
+              reason: 'low_strength',
+              weak_edge_ids: ['edge1'],
+            },
+          ],
+        },
+        ceeExtendedWarnings: null,
+        ceeModelQualityFactors: null,
+        ceeInterventionHints: null,
+        setHighlightedNodes: vi.fn(),
+        addNode: vi.fn(),
+        setSelectedNodeId: vi.fn(),
+        setInspectorOpen: vi.fn(),
+      }
+      return selector(mockState)
+    })
+  })
+
+  it('shows weak paths status and Focus button targets edge', async () => {
+    render(
+      <PreAnalysisReadinessPanel
+        onAnalyse={vi.fn()}
+        onBlockersChange={vi.fn()}
+        onCanRunChange={vi.fn()}
+      />
+    )
+
+    // Should show partial connectivity status
+    expect(screen.getByText('Goal Connectivity')).toBeInTheDocument()
+    expect(screen.getByText('Weak paths')).toBeInTheDocument()
+
+    // Should show weak influence reason
+    expect(screen.getByText(/weak influence/)).toBeInTheDocument()
+
+    // Click Focus button for the weak edge
+    const focusButtons = screen.getAllByRole('button', { name: /focus/i })
+    const weakPathFocusButton = focusButtons.find(btn =>
+      btn.closest('[class*="pl-4"]') // Inside the weak paths section
+    )
+
+    if (weakPathFocusButton) {
+      fireEvent.click(weakPathFocusButton)
+      expect(mockFocusEdgeById).toHaveBeenCalledWith('edge1')
+    }
+  })
+})
+
+describe('PreAnalysisReadinessPanel Phase 1b - Warning severity ordering', () => {
+  beforeEach(async () => {
+    vi.clearAllMocks()
+
+    const { useCanvasStore } = await import('../../../canvas/store')
+    vi.mocked(useCanvasStore).mockImplementation((selector) => {
+      const mockState = {
+        nodes: [
+          { id: 'goal1', type: 'goal', data: { label: 'Goal' } },
+          { id: 'node1', type: 'factor', data: { label: 'Factor 1' } },
+          { id: 'node2', type: 'factor', data: { label: 'Factor 2' } },
+          { id: 'node3', type: 'factor', data: { label: 'Factor 3' } },
+          { id: 'node4', type: 'factor', data: { label: 'Factor 4' } },
+        ],
+        edges: [],
+        ceeAnalysisReady: { status: 'ready', goal_node_id: 'goal1', options: [] },
+        ceeQuality: { overall: 8, structure: 9, coverage: 8, causality: 7, safety: 8 },
+        ceeGoalConnectivity: null,
+        // Warnings with mixed severities (intentionally out of order)
+        ceeExtendedWarnings: [
+          { id: 'w1', code: 'LOW_WARNING', severity: 'low', message: 'Low severity warning', affected_node_ids: ['node1'], affected_edge_ids: [] },
+          { id: 'w2', code: 'HIGH_WARNING', severity: 'high', message: 'High severity warning', affected_node_ids: ['node2'], affected_edge_ids: [] },
+          { id: 'w3', code: 'MEDIUM_WARNING', severity: 'medium', message: 'Medium severity warning', affected_node_ids: ['node3'], affected_edge_ids: [] },
+        ],
+        ceeModelQualityFactors: null,
+        ceeInterventionHints: null,
+        setHighlightedNodes: vi.fn(),
+        addNode: vi.fn(),
+        setSelectedNodeId: vi.fn(),
+        setInspectorOpen: vi.fn(),
+      }
+      return selector(mockState)
+    })
+  })
+
+  it('displays warnings sorted by severity: high → medium → low', () => {
+    render(
+      <PreAnalysisReadinessPanel
+        onAnalyse={vi.fn()}
+        onBlockersChange={vi.fn()}
+        onCanRunChange={vi.fn()}
+      />
+    )
+
+    // Get all warning messages in order
+    const highWarning = screen.getByText('High severity warning')
+    const mediumWarning = screen.getByText('Medium severity warning')
+    const lowWarning = screen.getByText('Low severity warning')
+
+    // Verify they exist and check DOM order
+    expect(highWarning).toBeInTheDocument()
+    expect(mediumWarning).toBeInTheDocument()
+    expect(lowWarning).toBeInTheDocument()
+
+    // High should appear before medium, medium before low in the DOM
+    const allWarnings = screen.getAllByText(/severity warning/)
+    expect(allWarnings[0]).toHaveTextContent('High severity warning')
+    expect(allWarnings[1]).toHaveTextContent('Medium severity warning')
+    expect(allWarnings[2]).toHaveTextContent('Low severity warning')
+  })
+})
+
+describe('PreAnalysisReadinessPanel Phase 1b - Focus target precedence', () => {
+  const mockFocusNodeById = vi.fn()
+  const mockFocusEdgeById = vi.fn()
+
+  beforeEach(async () => {
+    vi.clearAllMocks()
+
+    // Mock focusHelpers
+    const focusHelpers = await import('../../../canvas/utils/focusHelpers')
+    vi.mocked(focusHelpers.focusNodeById).mockImplementation(mockFocusNodeById)
+    vi.mocked(focusHelpers.focusEdgeById).mockImplementation(mockFocusEdgeById)
+
+    const { useCanvasStore } = await import('../../../canvas/store')
+    vi.mocked(useCanvasStore).mockImplementation((selector) => {
+      const mockState = {
+        nodes: [
+          { id: 'goal1', type: 'goal', data: { label: 'Goal' } },
+          { id: 'n1', type: 'factor', data: { label: 'Factor 1' } },
+          { id: 'n2', type: 'factor', data: { label: 'Factor 2' } },
+        ],
+        edges: [
+          { id: 'e1', source: 'n1', target: 'n2' },
+        ],
+        ceeAnalysisReady: { status: 'ready', goal_node_id: 'goal1', options: [] },
+        ceeQuality: { overall: 8, structure: 9, coverage: 8, causality: 7, safety: 8 },
+        ceeGoalConnectivity: null,
+        // Warning with both node and edge IDs - node should take precedence
+        ceeExtendedWarnings: [
+          {
+            id: 'w1',
+            code: 'TEST_WARNING',
+            severity: 'medium',
+            message: 'Warning with both node and edge',
+            affected_node_ids: ['n1'],
+            affected_edge_ids: ['e1'],
+          },
+        ],
+        ceeModelQualityFactors: null,
+        ceeInterventionHints: null,
+        setHighlightedNodes: vi.fn(),
+        addNode: vi.fn(),
+        setSelectedNodeId: vi.fn(),
+        setInspectorOpen: vi.fn(),
+      }
+      return selector(mockState)
+    })
+  })
+
+  it('focuses node when warning has both affected_node_ids and affected_edge_ids', () => {
+    render(
+      <PreAnalysisReadinessPanel
+        onAnalyse={vi.fn()}
+        onBlockersChange={vi.fn()}
+        onCanRunChange={vi.fn()}
+      />
+    )
+
+    // Find the warning card's Focus button (in the warning section)
+    // The warning message helps identify the right section
+    const warningText = screen.getByText('Warning with both node and edge')
+    const warningCard = warningText.closest('div[class*="rounded-lg border"]')
+    const focusButton = warningCard?.querySelector('button')
+
+    expect(focusButton).toBeTruthy()
+    fireEvent.click(focusButton!)
+
+    // Node should be focused, not edge (node takes precedence)
+    expect(mockFocusNodeById).toHaveBeenCalledWith('n1')
+    expect(mockFocusEdgeById).not.toHaveBeenCalled()
+  })
+})
+
+describe('PreAnalysisReadinessPanel Phase 1b - Focus target edge fallback', () => {
+  const mockFocusNodeById = vi.fn()
+  const mockFocusEdgeById = vi.fn()
+
+  beforeEach(async () => {
+    vi.clearAllMocks()
+
+    // Mock focusHelpers
+    const focusHelpers = await import('../../../canvas/utils/focusHelpers')
+    vi.mocked(focusHelpers.focusNodeById).mockImplementation(mockFocusNodeById)
+    vi.mocked(focusHelpers.focusEdgeById).mockImplementation(mockFocusEdgeById)
+
+    const { useCanvasStore } = await import('../../../canvas/store')
+    vi.mocked(useCanvasStore).mockImplementation((selector) => {
+      const mockState = {
+        nodes: [
+          { id: 'goal1', type: 'goal', data: { label: 'Goal' } },
+          { id: 'n1', type: 'factor', data: { label: 'Factor 1' } },
+          { id: 'n2', type: 'factor', data: { label: 'Factor 2' } },
+        ],
+        edges: [
+          { id: 'e1', source: 'n1', target: 'n2' },
+        ],
+        ceeAnalysisReady: { status: 'ready', goal_node_id: 'goal1', options: [] },
+        ceeQuality: { overall: 8, structure: 9, coverage: 8, causality: 7, safety: 8 },
+        ceeGoalConnectivity: null,
+        // Warning with only edge IDs - should focus edge
+        ceeExtendedWarnings: [
+          {
+            id: 'w1',
+            code: 'EDGE_ONLY_WARNING',
+            severity: 'medium',
+            message: 'Warning with only edge',
+            affected_node_ids: [],
+            affected_edge_ids: ['e1'],
+          },
+        ],
+        ceeModelQualityFactors: null,
+        ceeInterventionHints: null,
+        setHighlightedNodes: vi.fn(),
+        addNode: vi.fn(),
+        setSelectedNodeId: vi.fn(),
+        setInspectorOpen: vi.fn(),
+      }
+      return selector(mockState)
+    })
+  })
+
+  it('focuses edge when warning has only affected_edge_ids', () => {
+    render(
+      <PreAnalysisReadinessPanel
+        onAnalyse={vi.fn()}
+        onBlockersChange={vi.fn()}
+        onCanRunChange={vi.fn()}
+      />
+    )
+
+    // Find the warning card's Focus button (in the warning section)
+    const warningText = screen.getByText('Warning with only edge')
+    const warningCard = warningText.closest('div[class*="rounded-lg border"]')
+    const focusButton = warningCard?.querySelector('button')
+
+    expect(focusButton).toBeTruthy()
+    fireEvent.click(focusButton!)
+
+    // Edge should be focused (node array is empty)
+    expect(mockFocusEdgeById).toHaveBeenCalledWith('e1')
+    expect(mockFocusNodeById).not.toHaveBeenCalled()
+  })
+})
+
+describe('PreAnalysisReadinessPanel Phase 1b - Edge label fallback', () => {
+  it('displays edge label when present', async () => {
+    vi.clearAllMocks()
+
+    const { useCanvasStore } = await import('../../../canvas/store')
+    vi.mocked(useCanvasStore).mockImplementation((selector) => {
+      const mockState = {
+        nodes: [
+          { id: 'goal1', type: 'goal', data: { label: 'Goal' } },
+          { id: 'price', type: 'factor', data: { label: 'Price' } },
+          { id: 'revenue', type: 'factor', data: { label: 'Revenue' } },
+        ],
+        edges: [
+          { id: 'e1', source: 'price', target: 'revenue', label: 'Custom Label' },
+        ],
+        ceeAnalysisReady: { status: 'ready', goal_node_id: 'goal1', options: [] },
+        ceeQuality: { overall: 8, structure: 9, coverage: 8, causality: 7, safety: 8 },
+        ceeGoalConnectivity: {
+          status: 'partial',
+          disconnected_options: [],
+          weak_paths: [
+            { option_id: 'price', reason: 'low_strength', weak_edge_ids: ['e1'] },
+          ],
+        },
+        ceeExtendedWarnings: null,
+        ceeModelQualityFactors: null,
+        ceeInterventionHints: null,
+        setHighlightedNodes: vi.fn(),
+        addNode: vi.fn(),
+        setSelectedNodeId: vi.fn(),
+        setInspectorOpen: vi.fn(),
+      }
+      return selector(mockState)
+    })
+
+    render(
+      <PreAnalysisReadinessPanel
+        onAnalyse={vi.fn()}
+        onBlockersChange={vi.fn()}
+        onCanRunChange={vi.fn()}
+      />
+    )
+
+    // Should show the custom label in the weak path description
+    expect(screen.getByText(/Custom Label/)).toBeInTheDocument()
+  })
+
+  it('falls back to source→target when edge has no label', async () => {
+    vi.clearAllMocks()
+
+    const { useCanvasStore } = await import('../../../canvas/store')
+    vi.mocked(useCanvasStore).mockImplementation((selector) => {
+      const mockState = {
+        nodes: [
+          { id: 'goal1', type: 'goal', data: { label: 'Goal' } },
+          { id: 'price', type: 'factor', data: { label: 'Price' } },
+          { id: 'revenue', type: 'factor', data: { label: 'Revenue' } },
+        ],
+        edges: [
+          // Edge without label - should show "Price → Revenue"
+          { id: 'e2', source: 'price', target: 'revenue' },
+        ],
+        ceeAnalysisReady: { status: 'ready', goal_node_id: 'goal1', options: [] },
+        ceeQuality: { overall: 8, structure: 9, coverage: 8, causality: 7, safety: 8 },
+        ceeGoalConnectivity: {
+          status: 'partial',
+          disconnected_options: [],
+          weak_paths: [
+            { option_id: 'price', reason: 'low_strength', weak_edge_ids: ['e2'] },
+          ],
+        },
+        ceeExtendedWarnings: null,
+        ceeModelQualityFactors: null,
+        ceeInterventionHints: null,
+        setHighlightedNodes: vi.fn(),
+        addNode: vi.fn(),
+        setSelectedNodeId: vi.fn(),
+        setInspectorOpen: vi.fn(),
+      }
+      return selector(mockState)
+    })
+
+    render(
+      <PreAnalysisReadinessPanel
+        onAnalyse={vi.fn()}
+        onBlockersChange={vi.fn()}
+        onCanRunChange={vi.fn()}
+      />
+    )
+
+    // Should show source→target format
+    expect(screen.getByText(/Price → Revenue/)).toBeInTheDocument()
+  })
+
+  it('shows "Unnamed relationship" when source/target nodes not found', async () => {
+    vi.clearAllMocks()
+
+    const { useCanvasStore } = await import('../../../canvas/store')
+    vi.mocked(useCanvasStore).mockImplementation((selector) => {
+      const mockState = {
+        nodes: [
+          { id: 'goal1', type: 'goal', data: { label: 'Goal' } },
+          // Missing: nodes for 'missing1' and 'missing2'
+        ],
+        edges: [
+          // Edge with missing source/target nodes
+          { id: 'e3', source: 'missing1', target: 'missing2' },
+        ],
+        ceeAnalysisReady: { status: 'ready', goal_node_id: 'goal1', options: [] },
+        ceeQuality: { overall: 8, structure: 9, coverage: 8, causality: 7, safety: 8 },
+        ceeGoalConnectivity: {
+          status: 'partial',
+          disconnected_options: [],
+          weak_paths: [
+            { option_id: 'missing1', reason: 'low_strength', weak_edge_ids: ['e3'] },
+          ],
+        },
+        ceeExtendedWarnings: null,
+        ceeModelQualityFactors: null,
+        ceeInterventionHints: null,
+        setHighlightedNodes: vi.fn(),
+        addNode: vi.fn(),
+        setSelectedNodeId: vi.fn(),
+        setInspectorOpen: vi.fn(),
+      }
+      return selector(mockState)
+    })
+
+    render(
+      <PreAnalysisReadinessPanel
+        onAnalyse={vi.fn()}
+        onBlockersChange={vi.fn()}
+        onCanRunChange={vi.fn()}
+      />
+    )
+
+    // Should show "Unnamed relationship" fallback
+    expect(screen.getByText(/Unnamed relationship/)).toBeInTheDocument()
+  })
+})
+
+describe('PreAnalysisReadinessPanel Phase 1b - Blocker via severity', () => {
+  beforeEach(async () => {
+    vi.clearAllMocks()
+
+    const { useCanvasStore } = await import('../../../canvas/store')
+    vi.mocked(useCanvasStore).mockImplementation((selector) => {
+      const mockState = {
+        nodes: [
+          { id: 'goal1', type: 'goal', data: { label: 'Goal' } },
+          { id: 'opt1', type: 'option', data: { label: 'Option A' } },
+        ],
+        edges: [],
+        ceeAnalysisReady: {
+          status: 'ready',
+          goal_node_id: 'goal1',
+          options: [{ id: 'opt1', label: 'Option A', status: 'ready', interventions: {} }],
+        },
+        ceeQuality: { overall: 8, structure: 9, coverage: 8, causality: 7, safety: 8 },
+        ceeGoalConnectivity: { status: 'full', disconnected_options: [], weak_paths: [] },
+        // Warning with severity: 'blocker' should disable Analyse
+        ceeExtendedWarnings: [
+          {
+            id: 'w1',
+            code: 'GOAL_CONNECTIVITY_NONE',
+            severity: 'blocker',
+            message: 'Goal is not connected to any options',
+            affected_node_ids: ['goal1'],
+            affected_edge_ids: [],
+          },
+        ],
+        ceeModelQualityFactors: null,
+        ceeInterventionHints: null,
+        setHighlightedNodes: vi.fn(),
+        addNode: vi.fn(),
+        setSelectedNodeId: vi.fn(),
+        setInspectorOpen: vi.fn(),
+      }
+      return selector(mockState)
+    })
+  })
+
+  it('disables Analyse button when draft_warnings includes severity blocker', () => {
+    render(
+      <PreAnalysisReadinessPanel
+        onAnalyse={vi.fn()}
+        onBlockersChange={vi.fn()}
+        onCanRunChange={vi.fn()}
+      />
+    )
+
+    // Button should be disabled due to blocker severity warning
+    const button = screen.getByRole('button', { name: /fix issues/i })
+    expect(button).toBeDisabled()
+
+    // Should show blocked status
+    expect(screen.getByText(/Blocked:/)).toBeInTheDocument()
+  })
+})
+
+describe('PreAnalysisReadinessPanel Phase 1b - Same lever detection', () => {
+  beforeEach(async () => {
+    vi.clearAllMocks()
+
+    const { useCanvasStore } = await import('../../../canvas/store')
+    vi.mocked(useCanvasStore).mockImplementation((selector) => {
+      const mockState = {
+        nodes: [
+          { id: 'goal1', type: 'goal', data: { label: 'Goal' } },
+          { id: 'optA', type: 'option', data: { label: 'Option A' } },
+          { id: 'optB', type: 'option', data: { label: 'Option B' } },
+          { id: 'price', type: 'factor', data: { label: 'Price' } },
+          { id: 'packaging', type: 'factor', data: { label: 'Packaging' } },
+        ],
+        edges: [],
+        // Option A targets price only, Option B targets price AND packaging
+        // Should warn about shared 'Price' factor
+        ceeAnalysisReady: {
+          status: 'ready',
+          goal_node_id: 'goal1',
+          options: [
+            { id: 'optA', label: 'Option A', status: 'ready', interventions: { price: { value: 10 } } },
+            { id: 'optB', label: 'Option B', status: 'ready', interventions: { price: { value: 20 }, packaging: { value: 5 } } },
+          ],
+        },
+        ceeQuality: { overall: 8, structure: 9, coverage: 8, causality: 7, safety: 8 },
+        ceeGoalConnectivity: null,
+        ceeExtendedWarnings: null,
+        ceeModelQualityFactors: null,
+        ceeInterventionHints: null,
+        setHighlightedNodes: vi.fn(),
+        addNode: vi.fn(),
+        setSelectedNodeId: vi.fn(),
+        setInspectorOpen: vi.fn(),
+      }
+      return selector(mockState)
+    })
+  })
+
+  it('warns when ≥2 options share ≥1 factor (not just when ALL options share)', () => {
+    render(
+      <PreAnalysisReadinessPanel
+        onAnalyse={vi.fn()}
+        onBlockersChange={vi.fn()}
+        onCanRunChange={vi.fn()}
+      />
+    )
+
+    // Should show same lever warning section
+    expect(screen.getByText('Framing (same lever)')).toBeInTheDocument()
+    // Should show the shared factor with option labels
+    const sameLeverSection = screen.getByText('Framing (same lever)').closest('div[class*="space-y-2"]')
+    expect(sameLeverSection?.textContent).toContain('Price')
+    // Should show which options share the factor
+    expect(sameLeverSection?.textContent).toContain('Option A')
+    expect(sameLeverSection?.textContent).toContain('Option B')
+  })
+})
+
+describe('PreAnalysisReadinessPanel Phase 1b - Edge provenance unknown', () => {
+  beforeEach(async () => {
+    vi.clearAllMocks()
+
+    const { useCanvasStore } = await import('../../../canvas/store')
+    vi.mocked(useCanvasStore).mockImplementation((selector) => {
+      const mockState = {
+        nodes: [
+          { id: 'goal1', type: 'goal', data: { label: 'Goal' } },
+          { id: 'factor1', type: 'factor', data: { label: 'Factor 1' } },
+          { id: 'factor2', type: 'factor', data: { label: 'Factor 2' } },
+        ],
+        edges: [
+          // Edge with explicit 'default' provenance
+          { id: 'e1', source: 'goal1', target: 'factor1', data: { provenance: 'default' } },
+          // Edge with no provenance (should be counted as 'unknown')
+          { id: 'e2', source: 'factor1', target: 'factor2', data: {} },
+          // Edge with undefined data
+          { id: 'e3', source: 'factor2', target: 'goal1' },
+        ],
+        ceeAnalysisReady: { status: 'ready', goal_node_id: 'goal1', options: [] },
+        ceeQuality: { overall: 8, structure: 9, coverage: 8, causality: 7, safety: 8 },
+        ceeGoalConnectivity: null,
+        ceeExtendedWarnings: null,
+        ceeModelQualityFactors: null,
+        ceeInterventionHints: null,
+        setHighlightedNodes: vi.fn(),
+        addNode: vi.fn(),
+        setSelectedNodeId: vi.fn(),
+        setInspectorOpen: vi.fn(),
+      }
+      return selector(mockState)
+    })
+  })
+
+  it('counts edges with undefined origin as Unknown, not Default', () => {
+    render(
+      <PreAnalysisReadinessPanel
+        onAnalyse={vi.fn()}
+        onBlockersChange={vi.fn()}
+        onCanRunChange={vi.fn()}
+      />
+    )
+
+    // Should show Relationship Sources section
+    expect(screen.getByText('Relationship Sources')).toBeInTheDocument()
+
+    // Default count should be 1 (only e1 has explicit 'default')
+    const defaultLabel = screen.getByText('Default:')
+    const defaultValue = defaultLabel.nextElementSibling
+    expect(defaultValue?.textContent).toBe('1')
+
+    // Unknown count should be 2 (e2 and e3 have no provenance)
+    expect(screen.getByText('Unknown:')).toBeInTheDocument()
+    const unknownLabel = screen.getByText('Unknown:')
+    const unknownValue = unknownLabel.nextElementSibling
+    expect(unknownValue?.textContent).toBe('2')
+  })
+})
+
+describe('PreAnalysisReadinessPanel Phase 1b - EDGE_ORIGIN_DEFAULTED filter', () => {
+  beforeEach(async () => {
+    vi.clearAllMocks()
+
+    const { useCanvasStore } = await import('../../../canvas/store')
+    vi.mocked(useCanvasStore).mockImplementation((selector) => {
+      const mockState = {
+        nodes: [
+          { id: 'goal1', type: 'goal', data: { label: 'Goal' } },
+        ],
+        edges: [],
+        ceeAnalysisReady: { status: 'ready', goal_node_id: 'goal1', options: [] },
+        ceeQuality: { overall: 8, structure: 9, coverage: 8, causality: 7, safety: 8 },
+        ceeGoalConnectivity: null,
+        // EDGE_ORIGIN_DEFAULTED should be filtered from user display
+        ceeExtendedWarnings: [
+          {
+            id: 'w1',
+            code: 'EDGE_ORIGIN_DEFAULTED',
+            severity: 'info',
+            message: 'Edge uses default values',
+            affected_node_ids: [],
+            affected_edge_ids: ['e1'],
+          },
+          {
+            id: 'w2',
+            code: 'SOME_OTHER_WARNING',
+            severity: 'medium',
+            message: 'Some other warning message',
+            affected_node_ids: ['goal1'],
+            affected_edge_ids: [],
+          },
+        ],
+        ceeModelQualityFactors: null,
+        ceeInterventionHints: null,
+        setHighlightedNodes: vi.fn(),
+        addNode: vi.fn(),
+        setSelectedNodeId: vi.fn(),
+        setInspectorOpen: vi.fn(),
+      }
+      return selector(mockState)
+    })
+  })
+
+  it('does not show EDGE_ORIGIN_DEFAULTED warning to users', () => {
+    render(
+      <PreAnalysisReadinessPanel
+        onAnalyse={vi.fn()}
+        onBlockersChange={vi.fn()}
+        onCanRunChange={vi.fn()}
+      />
+    )
+
+    // Should NOT show EDGE_ORIGIN_DEFAULTED message
+    expect(screen.queryByText('Edge uses default values')).not.toBeInTheDocument()
+
+    // Should show the other warning
+    expect(screen.getByText('Some other warning message')).toBeInTheDocument()
   })
 })

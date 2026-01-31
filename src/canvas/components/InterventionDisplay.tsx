@@ -33,11 +33,19 @@ interface InterventionDisplayProps {
 
 interface NodeData {
   label?: string
+  // Support both camelCase and snake_case for observed state
   observedState?: {
     value?: number
     baseline?: number
     unit?: string
   }
+  observed_state?: {
+    value?: number
+    baseline?: number
+    unit?: string
+  }
+  // Unit precedence: intervention_unit takes priority
+  intervention_unit?: string
 }
 
 // ============================================================================
@@ -47,10 +55,11 @@ interface NodeData {
 /**
  * Format a value with its unit.
  * Unit comes from the target NODE, not the intervention.
+ * Task 4: "sets to [value]" format when no unit
  */
 function formatValue(value: number, unit?: string): string {
   if (!unit) {
-    return value.toLocaleString(undefined, { maximumFractionDigits: 2 })
+    return `sets to ${value.toLocaleString(undefined, { maximumFractionDigits: 2 })}`
   }
 
   switch (unit.toLowerCase()) {
@@ -143,7 +152,8 @@ export function InterventionDisplay({
         {visibleEntries.map(([nodeId, intervention]) => {
           const nodeData = nodeMap.get(nodeId)
           const label = nodeData?.label ?? nodeId
-          const unit = nodeData?.observedState?.unit
+          // Unit precedence: intervention_unit → observedState.unit → observed_state.unit
+          const unit = nodeData?.intervention_unit ?? nodeData?.observedState?.unit ?? nodeData?.observed_state?.unit
 
           return (
             <span
@@ -184,7 +194,8 @@ export function InterventionDisplay({
         {visibleEntries.map(([nodeId, intervention]) => {
           const nodeData = nodeMap.get(nodeId)
           const label = nodeData?.label ?? nodeId
-          const unit = nodeData?.observedState?.unit
+          // Unit precedence: intervention_unit → observedState.unit → observed_state.unit
+          const unit = nodeData?.intervention_unit ?? nodeData?.observedState?.unit ?? nodeData?.observed_state?.unit
 
           return (
             <div
@@ -267,7 +278,8 @@ export function InterventionSummary({
   const [firstId, firstIntervention] = Object.entries(interventions)[0]
   const nodeData = nodes.find((n) => n.id === firstId)?.data as NodeData | undefined
   const label = nodeData?.label ?? firstId
-  const unit = nodeData?.observedState?.unit
+  // Unit precedence: intervention_unit → observedState.unit → observed_state.unit
+  const unit = nodeData?.intervention_unit ?? nodeData?.observedState?.unit ?? nodeData?.observed_state?.unit
 
   if (count === 1) {
     return (

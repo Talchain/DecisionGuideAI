@@ -577,6 +577,23 @@ export function DraftChat() {
       setCeePipelineTrace(pipelineTrace)
     }
 
+    // Store quality dimensions from CEE response for pre-analysis readiness display
+    // V3 responses include quality object with dimension scores
+    const rawQuality = (draftData as any).quality
+    if (rawQuality && typeof rawQuality.overall === 'number') {
+      const { setCeeQuality } = useCanvasStore.getState()
+      setCeeQuality({
+        overall: rawQuality.overall ?? 5,
+        structure: rawQuality.structure ?? rawQuality.overall ?? 5,
+        coverage: rawQuality.coverage ?? rawQuality.overall ?? 5,
+        causality: rawQuality.causality ?? rawQuality.overall ?? 5,
+        safety: rawQuality.safety ?? rawQuality.overall ?? 5,
+      })
+      if (import.meta.env.DEV) {
+        console.log('[DraftChat] Stored CEE quality dimensions:', rawQuality)
+      }
+    }
+
     return {
       nodeIds: nodes.map((n: any) => n.id),
       edgeIds: edges.map((e: any) => e.id),

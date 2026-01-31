@@ -1,11 +1,11 @@
 /**
  * Compact node inspector for contextual popover
- * Shows only essential fields: Title, Type, and Probabilities
+ * Shows only essential fields: Title, Type, Probabilities (for decisions), and Interventions (for options)
  * British English: visualisation, colour
  */
 
 import { memo, useState, useCallback, useRef, useEffect, useMemo } from 'react'
-import { Lock, Unlock, Maximize2, AlertTriangle } from 'lucide-react'
+import { Lock, Unlock, Maximize2, AlertTriangle, ArrowRight } from 'lucide-react'
 import { useCanvasStore } from '../store'
 import { NODE_REGISTRY } from '../domain/nodes'
 import type { NodeType } from '../domain/nodes'
@@ -26,14 +26,23 @@ interface ProbabilityRow {
   locked: boolean
 }
 
+interface InterventionRow {
+  factorId: string
+  factorLabel: string
+  value: number
+  unit: string
+}
+
 export const NodeInspectorCompact = memo(({ nodeId, onClose, onExpandToFull }: NodeInspectorCompactProps) => {
   const nodes = useCanvasStore(s => s.nodes)
   const edges = useCanvasStore(s => s.edges)
   const updateNode = useCanvasStore(s => s.updateNode)
   const pushHistory = useCanvasStore(s => s.pushHistory)
+  const setHighlightedNodes = useCanvasStore(s => s.setHighlightedNodes)
 
   const node = nodes.find(n => n.id === nodeId)
   const currentType = (node?.type || 'decision') as NodeType
+  const isOptionNode = currentType === 'option'
 
   // Get display metadata for insights section (only meaningful for factors in Results mode)
   const displayMetadata = useNodeDisplayMetadata(nodeId, currentType)
@@ -51,6 +60,24 @@ export const NodeInspectorCompact = memo(({ nodeId, onClose, onExpandToFull }: N
     if (outgoingEdges.length === 0) return false
     return outgoingEdges.some(e => e.data?.kind === 'influence-weight')
   }, [outgoingEdges])
+
+  // Get interventions for option nodes
+  // Unit precedence: intervention_unit → observed_state.unit → null
+  const interventionRows = useMemo<InterventionRow[]>(() => {
+    if (!isOptionNode) return []
+    const interventions = node?.data?.interventions as Record<string, number> | undefined
+    if (!interventions) return []
+
+    return Object.entries(interventions).map(([factorId, value]) => {
+      const factorNode = nodes.find(n => n.id === factorId)
+      const factorLabel = factorNode?.data?.label || factorId
+      // Task 4: Unit precedence - intervention_unit → observed_state.unit → ''
+      const factorData = factorNode?.data as any
+      const observedState = factorData?.observedState ?? factorData?.observed_state
+      const unit = factorData?.intervention_unit ?? observedState?.unit ?? ''
+      return { factorId, factorLabel, value, unit }
+    })
+  }, [isOptionNode, node?.data?.interventions, nodes])
 
   // Initialize probability rows
   const initialRows = useMemo<ProbabilityRow[]>(() => {
@@ -153,6 +180,60 @@ export const NodeInspectorCompact = memo(({ nodeId, onClose, onExpandToFull }: N
       return { edges: updatedEdges, touchedNodeIds }
     })
   }, [rows, edges, validation.valid, pushHistory])
+
+  // Task 6: Debounced hover highlight for intervention rows (50ms delay)
+  const hoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const handleInterventionHover = useCallback((factorId: string | null) => {
+    // Clear any pending timeout
+    if (hoverTimeoutRef.current) {
+      clearTimeout(hoverTimeoutRef.current)
+      hoverTimeoutRef.current = null
+    }
+
+    if (factorId) {
+      // Debounce highlight on enter
+      hoverTimeoutRef.current = setTimeout(() => {
+        setHighlightedNodes([factorId])
+      }, 50)
+    } else {
+      // Clear immediately on leave
+      setHighlightedNodes([])
+    }
+  }, [setHighlightedNodes])
+
+  // Cleanup hover timeout on unmount to prevent stale highlights
+  useEffect(() => {
+    return () => {
+      if (hoverTimeoutRef.current) {
+        clearTimeout(hoverTimeoutRef.current)
+      }
+    }
+  }, [])
+
+  // Format intervention value with unit
+  // Task 4: "sets to [value]" format when no unit
+  const formatInterventionValue = useCallback((value: number, unit: string): string => {
+    if (!unit) {
+      return `sets to ${value.toLocaleString(undefined, { maximumFractionDigits: 2 })}`
+    }
+
+    switch (unit.toLowerCase()) {
+      case 'gbp':
+      case '£':
+        return `£${value.toLocaleString(undefined, { maximumFractionDigits: 0 })}`
+      case 'usd':
+      case '$':
+        return `$${value.toLocaleString(undefined, { maximumFractionDigits: 0 })}`
+      case 'eur':
+      case '€':
+        return `€${value.toLocaleString(undefined, { maximumFractionDigits: 0 })}`
+      case 'percent':
+      case '%':
+        return `${value.toLocaleString(undefined, { maximumFractionDigits: 1 })}%`
+      default:
+        return `${value.toLocaleString(undefined, { maximumFractionDigits: 2 })} ${unit}`
+    }
+  }, [])
 
   if (!node) return null
 
@@ -307,8 +388,43 @@ export const NodeInspectorCompact = memo(({ nodeId, onClose, onExpandToFull }: N
         </div>
       )}
 
-      {/* Inline Probabilities (only for decision-probability edges) */}
-      {outgoingEdges.length > 0 && !isInfluenceNetwork && (
+      {/* Interventions section for Option nodes */}
+      {isOptionNode && (
+        <div className="pt-2 border-t border-slate-100">
+          <h4 className="text-xs font-medium text-slate-700 mb-2">Interventions</h4>
+
+          {/* Task 5: Mode-aware empty state for baseline options */}
+          {interventionRows.length === 0 ? (
+            <p className="text-[10px] text-slate-400 italic">
+              {displayMetadata.isResultsMode
+                ? 'No interventions — this option represents the baseline'
+                : 'No interventions — this option maintains current values'}
+            </p>
+          ) : (
+            <div className="space-y-1.5">
+              {interventionRows.map((row) => (
+                <div
+                  key={row.factorId}
+                  className="flex items-center gap-2 hover:bg-slate-50 rounded px-1 py-0.5 -mx-1 transition-colors cursor-default"
+                  onMouseEnter={() => handleInterventionHover(row.factorId)}
+                  onMouseLeave={() => handleInterventionHover(null)}
+                >
+                  <ArrowRight size={10} className="flex-shrink-0 text-slate-400" aria-hidden="true" />
+                  <span className="text-xs text-slate-600 flex-1 min-w-0 truncate" title={row.factorLabel}>
+                    {row.factorLabel}
+                  </span>
+                  <span className="text-xs font-medium text-slate-700 flex-shrink-0">
+                    {formatInterventionValue(row.value, row.unit)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Inline Probabilities (only for decision-probability edges, not for option nodes) */}
+      {!isOptionNode && outgoingEdges.length > 0 && !isInfluenceNetwork && (
         <div className="pt-2 border-t border-slate-100">
           <h4 className="text-xs font-medium text-slate-700 mb-2">Probabilities</h4>
 

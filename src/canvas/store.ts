@@ -21,7 +21,14 @@ import type { Snapshot, DecisionRationale, ComparisonResult } from './snapshots/
 import type { CeeDecisionReviewPayload, CeeTraceMeta, CeeErrorViewModel } from './decisionReview/types'
 import type { CeeDecisionReviewPayloadV1, CeeTrace, CeeError, M1Review, M1Coaching, ErrorDetail } from '../types/cee'
 import { sanitizeCeeReviewPayload, sanitizeM1Review } from './utils/ceeDataAdapter'
-import type { CEEAnalysisReady, CeePipelineTrace } from '../adapters/cee/types'
+import type {
+  CEEAnalysisReady,
+  CeePipelineTrace,
+  CEEDraftWarning,
+  CEEGoalConnectivity,
+  CEEModelQualityFactors,
+  CEEInterventionHint,
+} from '../adapters/cee/types'
 import type { CeeDebugHeaders } from './utils/ceeDebugHeaders'
 import { loadSearchQuery, loadSortPreferences, saveSearchQuery, saveSortPreferences, __test__ as docsTest } from './store/documents'
 import { loadUIPreferences, saveUIPreference } from './store/uiPreferences'
@@ -71,6 +78,15 @@ function tryRestoreResultsFromHistory(
     console.warn('[canvas] Failed to restore results from history:', e)
   }
   return false
+}
+
+// CEE quality dimensions from draft-graph response
+export interface CeeQualityDimensions {
+  overall: number    // 1-10 scale
+  structure: number  // 1-10 scale
+  coverage: number   // 1-10 scale
+  causality: number  // 1-10 scale
+  safety: number     // 1-10 scale
 }
 
 // Results panel state machine
@@ -192,6 +208,16 @@ interface CanvasState {
   ceeAnalysisReadyNodeIds: string[] | null
   // CEE Pipeline trace from last draft-graph response (for debug panel)
   ceePipelineTrace: CeePipelineTrace | null
+  // CEE quality dimensions from draft-graph response (for pre-analysis readiness display)
+  ceeQuality: CeeQualityDimensions | null
+  // Phase 1b: Extended CEE warnings with dimension codes
+  ceeExtendedWarnings: CEEDraftWarning[] | null
+  // Phase 1b: Goal connectivity status
+  ceeGoalConnectivity: CEEGoalConnectivity | null
+  // Phase 1b: Model quality factors
+  ceeModelQualityFactors: CEEModelQualityFactors | null
+  // Phase 1b: Intervention hints keyed by factor node ID
+  ceeInterventionHints: Record<string, CEEInterventionHint> | null
   // M4: Graph Health & Repair
   graphHealth: GraphHealth | null
   showIssuesPanel: boolean
@@ -348,6 +374,12 @@ interface CanvasState {
   setLastDraftDescription: (description: string) => void
   setCeeAnalysisReady: (analysisReady: CEEAnalysisReady | null) => void
   setCeePipelineTrace: (trace: CeePipelineTrace | null) => void
+  setCeeQuality: (quality: CeeQualityDimensions | null) => void
+  // Phase 1b actions
+  setCeeExtendedWarnings: (warnings: CEEDraftWarning[] | null) => void
+  setCeeGoalConnectivity: (connectivity: CEEGoalConnectivity | null) => void
+  setCeeModelQualityFactors: (factors: CEEModelQualityFactors | null) => void
+  setCeeInterventionHints: (hints: Record<string, CEEInterventionHint> | null) => void
   // M4: Graph Health actions
   validateGraph: () => void
   setShowIssuesPanel: (show: boolean) => void
@@ -545,7 +577,16 @@ function invalidateAnalysisReady(
       console.log('[Canvas] Had options:', ceeAnalysisReady.options?.length)
       console.trace('[Canvas] invalidateAnalysisReady call stack')
     }
-    set(() => ({ ceeAnalysisReady: null, ceeAnalysisReadyNodeIds: null }))
+    set(() => ({
+      ceeAnalysisReady: null,
+      ceeAnalysisReadyNodeIds: null,
+      ceeQuality: null,
+      // Phase 1b: Clear extended CEE data
+      ceeExtendedWarnings: null,
+      ceeGoalConnectivity: null,
+      ceeModelQualityFactors: null,
+      ceeInterventionHints: null,
+    }))
   }
 }
 
@@ -736,6 +777,13 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   ceeAnalysisReadyNodeIds: null,
   // CEE Pipeline trace from last draft
   ceePipelineTrace: null,
+  // CEE quality dimensions from draft-graph response
+  ceeQuality: null,
+  // Phase 1b: Extended CEE data
+  ceeExtendedWarnings: null,
+  ceeGoalConnectivity: null,
+  ceeModelQualityFactors: null,
+  ceeInterventionHints: null,
   // M6: Scenario Comparison Mode
   comparisonMode: {
     active: false,
@@ -1510,10 +1558,16 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       selectedGenerationModel: null,
       selectedRepairModel: null,
       selectedEnrichmentModel: null,
-      // Clear CEE analysis_ready payload and pipeline trace
+      // Clear CEE analysis_ready payload, pipeline trace, and quality
       ceeAnalysisReady: null,
       ceeAnalysisReadyNodeIds: null,
       ceePipelineTrace: null,
+      ceeQuality: null,
+      // Phase 1b: Clear extended CEE data
+      ceeExtendedWarnings: null,
+      ceeGoalConnectivity: null,
+      ceeModelQualityFactors: null,
+      ceeInterventionHints: null,
       // Clear results and analysis state
       results: { status: 'idle', progress: 0 },
       runMeta: {},
@@ -2220,7 +2274,16 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       const nodeIds = nodes.map((n) => n.id)
       set({ ceeAnalysisReady: analysisReady, ceeAnalysisReadyNodeIds: nodeIds })
     } else {
-      set({ ceeAnalysisReady: null, ceeAnalysisReadyNodeIds: null })
+      set({
+        ceeAnalysisReady: null,
+        ceeAnalysisReadyNodeIds: null,
+        ceeQuality: null,
+        // Phase 1b: Clear extended CEE data
+        ceeExtendedWarnings: null,
+        ceeGoalConnectivity: null,
+        ceeModelQualityFactors: null,
+        ceeInterventionHints: null,
+      })
     }
   },
 
@@ -2234,6 +2297,42 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       })
     }
     set({ ceePipelineTrace: trace })
+  },
+
+  setCeeQuality: (quality: CeeQualityDimensions | null) => {
+    if (import.meta.env.DEV && quality) {
+      console.log('[Canvas] setCeeQuality:', quality)
+    }
+    set({ ceeQuality: quality })
+  },
+
+  // Phase 1b actions
+  setCeeExtendedWarnings: (warnings: CEEDraftWarning[] | null) => {
+    if (import.meta.env.DEV && warnings) {
+      console.log('[Canvas] setCeeExtendedWarnings:', warnings.length, 'warnings')
+    }
+    set({ ceeExtendedWarnings: warnings })
+  },
+
+  setCeeGoalConnectivity: (connectivity: CEEGoalConnectivity | null) => {
+    if (import.meta.env.DEV && connectivity) {
+      console.log('[Canvas] setCeeGoalConnectivity:', connectivity.status)
+    }
+    set({ ceeGoalConnectivity: connectivity })
+  },
+
+  setCeeModelQualityFactors: (factors: CEEModelQualityFactors | null) => {
+    if (import.meta.env.DEV && factors) {
+      console.log('[Canvas] setCeeModelQualityFactors:', factors)
+    }
+    set({ ceeModelQualityFactors: factors })
+  },
+
+  setCeeInterventionHints: (hints: Record<string, CEEInterventionHint> | null) => {
+    if (import.meta.env.DEV && hints) {
+      console.log('[Canvas] setCeeInterventionHints:', Object.keys(hints).length, 'hints')
+    }
+    set({ ceeInterventionHints: hints })
   },
 
   // M4: Graph Health actions
