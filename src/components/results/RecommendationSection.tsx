@@ -12,7 +12,9 @@
  * - Click-to-focus on option nodes
  */
 
-import { useCallback } from 'react'
+import { useCallback, useMemo } from 'react'
+import { CheckCircle, Scale, Search, AlertTriangle } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import type { RecommendationSectionData, OptionResult, OutcomeUnitType, WinnerDeterminedBy, RobustnessLevel, RobustnessLabel, M1CoachingReadiness } from './types'
 import type { NearTieInfo } from '../../lib/mappers/types'
 import { focusNodeById } from '../../canvas/utils/focusHelpers'
@@ -25,6 +27,8 @@ import { COPY, THRESHOLDS } from '../../lib/mappers/constants'
 interface RecommendationSectionProps {
   data: RecommendationSectionData
   onFocusNode?: (nodeId: string) => void
+  /** Callback to navigate to Structure tab (for needs_framing CTA) */
+  onNavigateToStructure?: () => void
 }
 
 /**
@@ -122,57 +126,87 @@ const READINESS_CONFIG: Record<M1CoachingReadiness, {
   bgColor: string
   textColor: string
   borderColor: string
+  icon: LucideIcon
+  iconColor: string
 }> = {
   ready: {
     label: 'Decision Ready',
-    tooltip: 'The model provides clear guidance with strong evidence',
+    tooltip: 'Actionability — evidence quality and model structure support confident action',
     bgColor: 'bg-success-100',
     textColor: 'text-success-700',
     borderColor: 'border-success-300',
+    icon: CheckCircle,
+    iconColor: 'text-mint-500',
   },
   close_call: {
     label: 'Close Call',
-    tooltip: 'Options are similar - consider other factors',
+    tooltip: 'Actionability — options are similar, consider other factors',
     bgColor: 'bg-warning-100',
     textColor: 'text-warning-700',
     borderColor: 'border-warning-300',
+    icon: Scale,
+    iconColor: 'text-sun-500',
   },
   needs_evidence: {
     label: 'Needs Evidence',
-    tooltip: 'Key assumptions lack supporting data',
+    tooltip: 'Actionability — key assumptions lack supporting data',
     bgColor: 'bg-orange-100',
     textColor: 'text-orange-700',
     borderColor: 'border-orange-300',
+    icon: Search,
+    iconColor: 'text-carrot-500',
   },
   needs_framing: {
     label: 'Needs Framing',
-    tooltip: 'The decision structure may need refinement',
+    tooltip: 'Actionability — the decision structure may need refinement',
     bgColor: 'bg-sky-100',
     textColor: 'text-sky-700',
     borderColor: 'border-sky-300',
+    icon: AlertTriangle,
+    iconColor: 'text-carrot-500',
   },
 }
 
 function DecisionReadinessChip({
   readiness,
   score,
+  onNavigateToStructure,
 }: {
   readiness: M1CoachingReadiness
   score?: number
+  /** Callback to navigate to Structure tab (for needs_framing CTA) */
+  onNavigateToStructure?: () => void
 }) {
   const config = READINESS_CONFIG[readiness]
   if (!config) return null
 
+  const IconComponent = config.icon
+  // Task 2: Round score to integer for cleaner display
+  const displayScore = score != null ? Math.round(score) : null
+
   return (
-    <span
-      className={`${typography.caption} inline-flex items-center px-2 py-0.5 rounded border ${config.bgColor} ${config.textColor} ${config.borderColor}`}
-      title={config.tooltip}
-    >
-      {config.label}
-      {score != null && (
-        <span className="ml-1 opacity-75">({score}%)</span>
+    <div className="inline-flex items-center gap-2">
+      <span
+        className={`${typography.caption} inline-flex items-center gap-1 px-2 py-0.5 rounded border ${config.bgColor} ${config.textColor} ${config.borderColor}`}
+        title={config.tooltip}
+        aria-label={`Decision readiness: ${config.label}. ${config.tooltip}`}
+      >
+        <IconComponent className={`h-3.5 w-3.5 ${config.iconColor}`} aria-hidden="true" />
+        {config.label}
+        {displayScore != null && (
+          <span className="ml-1 opacity-75">({displayScore}%)</span>
+        )}
+      </span>
+      {/* CTA for needs_framing readiness level */}
+      {readiness === 'needs_framing' && onNavigateToStructure && (
+        <button
+          onClick={onNavigateToStructure}
+          className={`${typography.caption} text-sky-600 hover:text-sky-800 hover:underline`}
+        >
+          Review model framing →
+        </button>
       )}
-    </span>
+    </div>
   )
 }
 
@@ -217,7 +251,7 @@ function RobustnessBadge({
   return (
     <span
       className={`${typography.caption} inline-flex items-center gap-1.5 px-2 py-0.5 rounded ${bgColor} ${textColor}`}
-      title="How stable the recommendation is under uncertainty"
+      title="Statistical stability — how often this option stays best across simulated scenarios"
     >
       <span className={`w-2 h-2 rounded-full ${dotColor}`} aria-hidden="true" />
       {text}
@@ -541,6 +575,7 @@ function OptionRow({
 export function RecommendationSection({
   data,
   onFocusNode,
+  onNavigateToStructure,
 }: RecommendationSectionProps) {
   const {
     recommendedOption,
@@ -569,6 +604,14 @@ export function RecommendationSection({
     coachingReadinessScore,
     storyHeadlines,
   } = data
+
+  // Task B: All-or-none story headlines guard
+  // If any option is missing a headline, show none to avoid inconsistent UI
+  const showStoryHeadlines = useMemo(() => {
+    if (!storyHeadlines || Object.keys(storyHeadlines).length === 0) return false
+    // All-or-none: if any option is missing a headline, show none
+    return allOptions.every(opt => storyHeadlines[opt.id])
+  }, [storyHeadlines, allOptions])
 
   // Error state
   if (analysisStatus === 'failed' || analysisStatus === 'blocked') {
@@ -649,10 +692,11 @@ export function RecommendationSection({
 
       {/* M1 Coaching: Headline strip below goal */}
       {/* Display rules: Show only when coaching.headline exists. Muted styling if near-tie visible */}
+      {/* Max 2 lines with line-clamp-2 per brief spec */}
       {coachingHeadline && (
         <div
-          className={`text-sm ${
-            nearTie?.isTie ? 'text-slate-500 italic' : 'text-slate-700'
+          className={`text-sm line-clamp-2 ${
+            nearTie?.isTie ? 'text-slate-500 italic' : 'text-ink-900'
           }`}
         >
           {coachingHeadline}
@@ -684,6 +728,7 @@ export function RecommendationSection({
               <DecisionReadinessChip
                 readiness={coachingReadiness}
                 score={coachingReadinessScore}
+                onNavigateToStructure={onNavigateToStructure}
               />
             )}
             {/* Task 1.5: Robustness badge with inline stability */}
@@ -808,7 +853,7 @@ export function RecommendationSection({
                 onFocus={onFocusNode}
                 outcomeUnit={outcomeUnit}
                 outcomeUnitSymbol={outcomeUnitSymbol}
-                storyHeadline={storyHeadlines?.[option.id]}
+                storyHeadline={showStoryHeadlines ? storyHeadlines?.[option.id] : undefined}
               />
             ))}
           </div>

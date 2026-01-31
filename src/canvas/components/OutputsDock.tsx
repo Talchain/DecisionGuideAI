@@ -1230,7 +1230,11 @@ export function OutputsDock() {
                         Contents: Uncertainties + improvements + filtered edges disclosure
                         ============================================================ */}
                     <Accordion
-                      title="What Needs Attention"
+                      title={
+                        resultsSectionData.confidence.assumptions?.length
+                          ? `What Needs Attention (${resultsSectionData.confidence.assumptions.length} assumptions)`
+                          : 'What Needs Attention'
+                      }
                       defaultExpanded={false}
                       testId="accordion-next-steps"
                       badgeCount={

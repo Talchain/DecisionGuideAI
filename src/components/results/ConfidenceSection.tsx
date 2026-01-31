@@ -21,6 +21,18 @@ import { EMPTY_STATES } from './emptyStates'
 import { typography } from '../../styles/typography'
 import { MIN_STABLE_RECOMMENDATION_STABILITY, isStableRobustnessLevel } from './constants'
 
+/**
+ * Task C (M1 Coaching): Convert VOI (Value of Information) to impact label.
+ * Thresholds: >= 0.7 high, >= 0.4 medium, < 0.4 lower
+ * Guards against undefined/NaN to avoid misleading "Lower impact" display.
+ */
+function voiToImpact(voi: number | undefined | null): string | null {
+  if (!Number.isFinite(voi)) return null
+  if (voi >= 0.7) return 'High impact if resolved'
+  if (voi >= 0.4) return 'Medium impact if resolved'
+  return 'Lower impact if resolved'
+}
+
 interface ConfidenceSectionProps {
   data: ConfidenceSectionData
   onFocusNode?: (nodeId: string) => void
@@ -492,6 +504,12 @@ export function ConfidenceSection({
                         {gap.suggestion}
                       </p>
                     )}
+                    {/* Task C: VOI impact label (only show if VOI is valid) */}
+                    {voiToImpact(gap.voi) && (
+                      <span className="text-xs text-sky-500 mt-1 block">
+                        {voiToImpact(gap.voi)}
+                      </span>
+                    )}
                   </div>
                   <span className="text-xs text-sky-500 flex-shrink-0">
                     Focus →
@@ -517,7 +535,7 @@ export function ConfidenceSection({
           <CappedList<NextActionItem>
             items={nextActions}
             maxVisible={3}
-            renderItem={(action) => (
+            renderItem={(action, index) => (
               <button
                 onClick={() => {
                   if (action.targetId) {
@@ -536,7 +554,8 @@ export function ConfidenceSection({
               >
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm text-slate-800">
+                    {/* Task D: Bold the first action item for visual weight */}
+                    <p className={`text-sm text-slate-800 ${index === 0 ? 'font-semibold' : ''}`}>
                       {action.action}
                     </p>
                     {action.rationale && (

@@ -3,6 +3,7 @@ import './index.css';
 import { Suspense, lazy, Component, ReactNode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { initVersionCache } from './lib/version-cache';
+import { preloadPrompts } from './lib/prompt-preloader';
 
 declare global {
   interface Window {
@@ -64,7 +65,10 @@ if (ENABLE_DEBUG_PERSISTENCE) {
 
 const log = (m: string, data?: any) => {
   debug.logs.push({ t: Date.now(), m, data });
-  console.log('[main]', m, data ?? '');
+  // Gate console logging behind DEV to avoid production noise
+  if (import.meta.env.DEV) {
+    console.log('[main]', m, data ?? '');
+  }
 };
 
 // Capture unhandled promise rejections to SAFE_DEBUG
@@ -119,16 +123,25 @@ class BootErrorBoundary extends Component<{ children: ReactNode }, { error: Erro
         <div style={{ padding: 12, background: '#fee', color: '#900',
                       fontFamily: 'ui-monospace,monospace', fontSize: 13, borderRadius: 8 }}>
           <strong>Render Error ❌</strong>
-          <pre style={{ whiteSpace: 'pre-wrap', marginTop: 8, fontSize: 12 }}>
-            {this.state.error.message}
-          </pre>
-          {this.state.error.stack && (
-            <details style={{ marginTop: 8 }}>
-              <summary style={{ cursor: 'pointer', opacity: 0.75 }}>Stack trace</summary>
-              <pre style={{ fontSize: 11, opacity: 0.7, marginTop: 4 }}>
-                {this.state.error.stack}
+          {/* Only show error details in DEV to avoid exposing stack traces in production */}
+          {import.meta.env.DEV ? (
+            <>
+              <pre style={{ whiteSpace: 'pre-wrap', marginTop: 8, fontSize: 12 }}>
+                {this.state.error.message}
               </pre>
-            </details>
+              {this.state.error.stack && (
+                <details style={{ marginTop: 8 }}>
+                  <summary style={{ cursor: 'pointer', opacity: 0.75 }}>Stack trace</summary>
+                  <pre style={{ fontSize: 11, opacity: 0.7, marginTop: 4 }}>
+                    {this.state.error.stack}
+                  </pre>
+                </details>
+              )}
+            </>
+          ) : (
+            <p style={{ marginTop: 8 }}>
+              Something went wrong. Please refresh the page or contact support.
+            </p>
           )}
         </div>
       );
@@ -155,6 +168,11 @@ class BootErrorBoundary extends Component<{ children: ReactNode }, { error: Erro
       // Silently ignore - version header is optional
     });
 
+    // Preload LLM prompts from Supabase to eliminate cold-start latency (fire and forget)
+    preloadPrompts().catch(() => {
+      // Silently ignore - server falls back to defaults
+    });
+
     // Phase 2: upgrade to full app (next microtask is enough; avoids extra layout thrash)
     queueMicrotask(() => {
       root.render(
@@ -173,14 +191,22 @@ class BootErrorBoundary extends Component<{ children: ReactNode }, { error: Erro
     });
   } catch (e: any) {
     window.__SAFE_DEBUG__!.fatal = String(e?.stack || e);
-    console.error('[main] boot fatal', e);
+    // Gate console error behind DEV to avoid exposing stack traces in production
+    if (import.meta.env.DEV) {
+      console.error('[main] boot fatal', e);
+    }
     const el = document.getElementById('root');
     if (el) {
-      el.innerHTML =
-        `<div style="padding:12px;background:#fee;color:#900;font:13px ui-monospace,monospace">
-           <strong>Boot Fatal ❌</strong>
-           <pre style="white-space:pre-wrap;margin-top:8px">${String(e?.stack || e)}</pre>
-         </div>`;
+      // Gate stack trace details behind DEV to avoid exposing in production
+      el.innerHTML = import.meta.env.DEV
+        ? `<div style="padding:12px;background:#fee;color:#900;font:13px ui-monospace,monospace">
+             <strong>Boot Fatal ❌</strong>
+             <pre style="white-space:pre-wrap;margin-top:8px">${String(e?.stack || e)}</pre>
+           </div>`
+        : `<div style="padding:12px;background:#fee;color:#900;font:13px ui-monospace,monospace">
+             <strong>Boot Error</strong>
+             <p style="margin-top:8px">Something went wrong. Please refresh the page or contact support.</p>
+           </div>`;
     }
   }
 })();

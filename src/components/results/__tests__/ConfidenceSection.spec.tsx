@@ -404,4 +404,147 @@ describe('ConfidenceSection', () => {
       expect(screen.getByText(/No high-sensitivity assumptions found/)).toBeInTheDocument()
     })
   })
+
+  // =============================================================================
+  // M1 Coaching: Evidence Gaps VOI handling
+  // =============================================================================
+
+  describe('M1 Coaching: Evidence Gaps VOI impact labels', () => {
+    it('renders VOI impact label when VOI is valid', () => {
+      const dataWithEvidenceGaps: ConfidenceSectionData = {
+        ...mockData,
+        evidenceGaps: [
+          {
+            factorId: 'factor-1',
+            factorLabel: 'Market Size',
+            suggestion: 'Research market trends',
+            voi: 0.75,
+          },
+        ],
+        topEvidenceGaps: [
+          {
+            factorId: 'factor-1',
+            factorLabel: 'Market Size',
+            suggestion: 'Research market trends',
+            voi: 0.75,
+          },
+        ],
+      }
+
+      render(<ConfidenceSection data={dataWithEvidenceGaps} />)
+
+      expect(screen.getByText('Market Size')).toBeInTheDocument()
+      expect(screen.getByText('High impact if resolved')).toBeInTheDocument()
+    })
+
+    it('renders medium impact label for VOI >= 0.4', () => {
+      const dataWithMediumVOI: ConfidenceSectionData = {
+        ...mockData,
+        evidenceGaps: [
+          {
+            factorId: 'factor-1',
+            factorLabel: 'Competition',
+            voi: 0.5,
+          },
+        ],
+        topEvidenceGaps: [
+          {
+            factorId: 'factor-1',
+            factorLabel: 'Competition',
+            voi: 0.5,
+          },
+        ],
+      }
+
+      render(<ConfidenceSection data={dataWithMediumVOI} />)
+
+      expect(screen.getByText('Competition')).toBeInTheDocument()
+      expect(screen.getByText('Medium impact if resolved')).toBeInTheDocument()
+    })
+
+    it('renders lower impact label for VOI < 0.4', () => {
+      const dataWithLowVOI: ConfidenceSectionData = {
+        ...mockData,
+        evidenceGaps: [
+          {
+            factorId: 'factor-1',
+            factorLabel: 'Minor Factor',
+            voi: 0.2,
+          },
+        ],
+        topEvidenceGaps: [
+          {
+            factorId: 'factor-1',
+            factorLabel: 'Minor Factor',
+            voi: 0.2,
+          },
+        ],
+      }
+
+      render(<ConfidenceSection data={dataWithLowVOI} />)
+
+      expect(screen.getByText('Minor Factor')).toBeInTheDocument()
+      expect(screen.getByText('Lower impact if resolved')).toBeInTheDocument()
+    })
+
+    it('does not render VOI label when VOI is undefined', () => {
+      const dataWithUndefinedVOI: ConfidenceSectionData = {
+        ...mockData,
+        evidenceGaps: [
+          {
+            factorId: 'factor-1',
+            factorLabel: 'Unknown Factor',
+            suggestion: 'Investigate this',
+            voi: undefined as unknown as number, // Simulating undefined VOI
+          },
+        ],
+        topEvidenceGaps: [
+          {
+            factorId: 'factor-1',
+            factorLabel: 'Unknown Factor',
+            suggestion: 'Investigate this',
+            voi: undefined as unknown as number,
+          },
+        ],
+      }
+
+      render(<ConfidenceSection data={dataWithUndefinedVOI} />)
+
+      // Row should render cleanly
+      expect(screen.getByText('Unknown Factor')).toBeInTheDocument()
+      expect(screen.getByText('Investigate this')).toBeInTheDocument()
+      expect(screen.getByText('Focus →')).toBeInTheDocument()
+
+      // But VOI label should NOT be present
+      expect(screen.queryByText(/impact if resolved/)).not.toBeInTheDocument()
+    })
+
+    it('does not render VOI label when VOI is NaN', () => {
+      const dataWithNaNVOI: ConfidenceSectionData = {
+        ...mockData,
+        evidenceGaps: [
+          {
+            factorId: 'factor-1',
+            factorLabel: 'NaN Factor',
+            voi: NaN,
+          },
+        ],
+        topEvidenceGaps: [
+          {
+            factorId: 'factor-1',
+            factorLabel: 'NaN Factor',
+            voi: NaN,
+          },
+        ],
+      }
+
+      render(<ConfidenceSection data={dataWithNaNVOI} />)
+
+      // Row should render cleanly
+      expect(screen.getByText('NaN Factor')).toBeInTheDocument()
+
+      // But VOI label should NOT be present
+      expect(screen.queryByText(/impact if resolved/)).not.toBeInTheDocument()
+    })
+  })
 })
