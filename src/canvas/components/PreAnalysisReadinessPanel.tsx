@@ -494,6 +494,62 @@ function FixFirstCard({
   )
 }
 
+/**
+ * v2.2 Fix: Remaining Issues Section
+ * Provides inline expandable section to show issues beyond the top 3
+ * Addresses feedback that "remaining issues" were referenced but not accessible
+ */
+function RemainingIssuesSection({
+  issues,
+  onFocusNode,
+  onFocusEdge,
+  onAction,
+}: {
+  issues: NormalisedIssue[]
+  onFocusNode: (nodeId: string) => void
+  onFocusEdge: (edgeId: string) => void
+  onAction: (action: { key: string; kind: string }) => void
+}) {
+  const [isExpanded, setIsExpanded] = useState(false)
+
+  if (issues.length === 0) return null
+
+  return (
+    <div className="mt-2">
+      <button
+        type="button"
+        onClick={() => setIsExpanded(!isExpanded)}
+        className={`${typography.caption} text-sky-600 hover:text-sky-700 flex items-center gap-1`}
+      >
+        {isExpanded ? (
+          <>
+            <ChevronDown className="h-3 w-3" />
+            Hide {issues.length} more issue{issues.length !== 1 ? 's' : ''}
+          </>
+        ) : (
+          <>
+            <ChevronRight className="h-3 w-3" />
+            Show {issues.length} more issue{issues.length !== 1 ? 's' : ''}
+          </>
+        )}
+      </button>
+      {isExpanded && (
+        <div className="mt-2 space-y-2">
+          {issues.map((issue) => (
+            <FixFirstCard
+              key={issue.key}
+              issue={issue}
+              onFocusNode={onFocusNode}
+              onFocusEdge={onFocusEdge}
+              onAction={onAction}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 /** Dimension tooltips explaining each metric (based on CEE scoring logic) */
 const DIMENSION_TOOLTIPS: Record<string, string> = {
   Structure: 'Graph connectivity — more factors and connections improve this score',
@@ -1849,10 +1905,14 @@ export function PreAnalysisReadinessPanel({
               onAction={handleIssueAction}
             />
           ))}
+          {/* v2.2 Fix: Show remaining issues inline when expanded */}
           {remainingIssueCount > 0 && (
-            <p className={`${typography.caption} text-ink-500`}>
-              {remainingIssueCount} more issue{remainingIssueCount !== 1 ? 's' : ''} — review in Readiness Checks
-            </p>
+            <RemainingIssuesSection
+              issues={preAnalysisData.allIssues.slice(MAX_VISIBLE_ISSUES)}
+              onFocusNode={handleFocusNode}
+              onFocusEdge={handleFocusEdge}
+              onAction={handleIssueAction}
+            />
           )}
         </div>
       )}
@@ -1882,9 +1942,10 @@ export function PreAnalysisReadinessPanel({
             <span className={`${typography.body} font-medium text-ink-700`}>Readiness Checks</span>
           </div>
           {/* v2.2: Labelled summary in collapsed header */}
+          {/* v2.2 Fix: Show "—" when ceeQuality unavailable to avoid misleading identical values */}
           {!isBreakdownOpen && (
             <span className={`${typography.caption} text-ink-500`}>
-              Structure {ceeQuality?.structure ?? Math.round(qualityScore / 10)}/10 · Coverage {ceeQuality?.coverage ?? Math.round(qualityScore / 10)}/10 · Validation {ceeQuality?.safety ?? Math.round(qualityScore / 10)}/8
+              Structure {ceeQuality?.structure ?? '—'}/10 · Coverage {ceeQuality?.coverage ?? '—'}/10 · Validation {ceeQuality?.safety ?? '—'}/8
             </span>
           )}
         </button>
@@ -1893,43 +1954,49 @@ export function PreAnalysisReadinessPanel({
           <div id="quality-breakdown-content" className="p-4 space-y-1 border-t border-sand-200">
             {/* Compact dimension display with severity icons */}
             {/* Phase 1b: Add warning counts from extended warnings per dimension */}
-            <DimensionRow
-              label="Structure"
-              score={ceeQuality?.structure ?? Math.round(qualityScore / 10)}
-              warningCount={warningsByDimension.Framing.length}
-              onViewWarnings={warningsByDimension.Framing.length > 0 ? () => {
-                // Focus on first affected node from Framing warnings
-                const firstWarning = warningsByDimension.Framing[0]
-                if (firstWarning?.affected_node_ids?.[0]) {
-                  handleFocusNode(firstWarning.affected_node_ids[0])
-                }
-              } : undefined}
-            />
-            <DimensionRow
-              label="Coverage"
-              score={ceeQuality?.coverage ?? Math.round(qualityScore / 10)}
-              warningCount={warningsByDimension.Estimates.length}
-              onViewWarnings={warningsByDimension.Estimates.length > 0 ? () => {
-                // Focus on first affected node from Estimates warnings
-                const firstWarning = warningsByDimension.Estimates[0]
-                if (firstWarning?.affected_node_ids?.[0]) {
-                  handleFocusNode(firstWarning.affected_node_ids[0])
-                }
-              } : undefined}
-            />
-            <DimensionRow
-              label="Validation"
-              score={ceeQuality?.safety ?? Math.round(qualityScore / 10)}
-              warningCount={totalBlockers + warningsByDimension.Validation.length}
-              onViewWarnings={(totalBlockers > 0 || warningsByDimension.Validation.length > 0) ? () => {
-                // Focus on first blocking issue or validation warning
-                if (blockingIssues[0]?.focusNodeId) {
-                  handleFocusNode(blockingIssues[0].focusNodeId)
-                } else if (warningsByDimension.Validation[0]?.affected_node_ids?.[0]) {
-                  handleFocusNode(warningsByDimension.Validation[0].affected_node_ids[0])
-                }
-              } : undefined}
-            />
+            {/* v2.2 Fix: Only show dimension rows when ceeQuality is available */}
+            {ceeQuality ? (
+              <>
+                <DimensionRow
+                  label="Structure"
+                  score={ceeQuality.structure}
+                  warningCount={warningsByDimension.Framing.length}
+                  onViewWarnings={warningsByDimension.Framing.length > 0 ? () => {
+                    const firstWarning = warningsByDimension.Framing[0]
+                    if (firstWarning?.affected_node_ids?.[0]) {
+                      handleFocusNode(firstWarning.affected_node_ids[0])
+                    }
+                  } : undefined}
+                />
+                <DimensionRow
+                  label="Coverage"
+                  score={ceeQuality.coverage}
+                  warningCount={warningsByDimension.Estimates.length}
+                  onViewWarnings={warningsByDimension.Estimates.length > 0 ? () => {
+                    const firstWarning = warningsByDimension.Estimates[0]
+                    if (firstWarning?.affected_node_ids?.[0]) {
+                      handleFocusNode(firstWarning.affected_node_ids[0])
+                    }
+                  } : undefined}
+                />
+                <DimensionRow
+                  label="Validation"
+                  score={ceeQuality.safety}
+                  warningCount={totalBlockers + warningsByDimension.Validation.length}
+                  onViewWarnings={(totalBlockers > 0 || warningsByDimension.Validation.length > 0) ? () => {
+                    if (blockingIssues[0]?.focusNodeId) {
+                      handleFocusNode(blockingIssues[0].focusNodeId)
+                    } else if (warningsByDimension.Validation[0]?.affected_node_ids?.[0]) {
+                      handleFocusNode(warningsByDimension.Validation[0].affected_node_ids[0])
+                    }
+                  } : undefined}
+                />
+              </>
+            ) : (
+              <p className={`${typography.caption} text-ink-500 py-2`}>
+                Quality scores unavailable — run analysis to calculate
+              </p>
+            )}
 
             {/* Goal Connectivity Status (inside Readiness Checks) */}
             {ceeGoalConnectivity && (
