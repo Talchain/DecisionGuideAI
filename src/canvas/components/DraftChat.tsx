@@ -720,7 +720,7 @@ export function DraftChat() {
       aria-describedby="draft-chat-description"
     >
       {/* Panel container with slide animation */}
-      <div className="flex flex-col max-h-full bg-paper-50 rounded-[20px] border border-sand-200 shadow-2 overflow-hidden relative">
+      <div className="flex flex-col max-h-full rounded-[20px] border border-sand-200 shadow-2 overflow-hidden relative" style={{ backgroundColor: '#FEFEFE' }}>
         {/* Resize handle on right edge */}
         <div
           aria-hidden="true"
@@ -729,9 +729,9 @@ export function DraftChat() {
           title="Drag to resize panel"
         />
         {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-sand-100 bg-paper-50">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-sand-100" style={{ backgroundColor: '#FEFEFE' }}>
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-purple-500 flex items-center justify-center">
+            <div className="w-8 h-8 rounded-lg bg-mint-500 flex items-center justify-center">
               <Sparkles className="w-4 h-4 text-white" />
             </div>
             <div>
