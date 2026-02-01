@@ -10,6 +10,7 @@ import type {
 import { isCEEv2Response, isCEEv3Response, isCeePipelineTrace } from './types'
 import { withObservabilityHeaders, recordBffResponse, recordBffError, recordBffResponsePayload } from '../../lib/observability-headers'
 import { useGateStore } from '../../lib/gate-state'
+import { CEEDraftResponseSchema, warnOnInvalidApiResponse } from '../../lib/api-schemas'
 
 const CEE_BASE_URL = (import.meta as any).env?.VITE_CEE_BFF_BASE || '/bff/cee'
 // CEE Draft Engine base URL
@@ -480,6 +481,9 @@ export class CEEClient {
       method: 'POST',
       body: JSON.stringify(requestBody),
     })
+
+    // Warn if response shape is unexpected (logs warning, continues execution)
+    warnOnInvalidApiResponse(CEEDraftResponseSchema, raw, 'CEE draft')
 
     // Debug: Log response schema details
     if (import.meta.env.DEV) {

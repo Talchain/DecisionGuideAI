@@ -64,12 +64,15 @@ export default function HealthIndicator({ pause = false }: { pause?: boolean }) 
   useEffect(() => {
     void tick() // run immediately on mount
     return () => clearTimer()
+    // REVIEWED: Intentional mount-only effect. tick/clearTimer/schedule use refs for state,
+    // not state variables, so including them would cause infinite loops.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   useEffect(() => {
     // If pause toggled, reschedule next tick
     schedule(backoffRef.current)
+    // REVIEWED: Only re-run when pause changes. schedule uses refs internally.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pause])
 

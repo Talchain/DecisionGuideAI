@@ -24,7 +24,6 @@ import ResetPasswordForm from './components/auth/ResetPasswordForm'
 import ProtectedRoute from './components/auth/ProtectedRoute'
 import LoadingSpinner from './components/LoadingSpinner'
 import AuthNavigationGuard from './components/auth/AuthNavigationGuard'
-import SandboxStreamPanel from './components/SandboxStreamPanel'
 import { DecisionProvider } from './contexts/DecisionContext'
 import { TeamsProvider }  from './contexts/TeamsContext'
 import { TemplatesErrorBoundary } from './routes/templates/TemplatesErrorBoundary'
@@ -96,7 +95,11 @@ export default function App() {
       <ErrorBoundary>
         <div className="min-h-screen bg-white">
           <Routes>
-            <Route path="/sandbox" element={<SandboxStreamPanel />} />
+            <Route path="/sandbox" element={
+              <Suspense fallback={<LoadingSpinner />}>
+                <LazySandboxStreamPanel />
+              </Suspense>
+            } />
             <Route path="*" element={<Navigate to="/sandbox" replace />} />
           </Routes>
         </div>
@@ -110,7 +113,9 @@ export default function App() {
       <ErrorBoundary>
         <div className="min-h-screen bg-white" data-testid="e2e-surface">
           <main className="container mx-auto px-4 py-6">
-            <SandboxStreamPanel />
+            <Suspense fallback={<LoadingSpinner />}>
+              <LazySandboxStreamPanel />
+            </Suspense>
           </main>
         </div>
       </ErrorBoundary>

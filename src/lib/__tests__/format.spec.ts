@@ -49,8 +49,8 @@ describe('formatOutcomeValue', () => {
   describe('percent formatting', () => {
     it('formats values already in percentage form', () => {
       expect(formatOutcomeValue(50, 'percent')).toBe('50.0%')
-      // Brief 33: Values are capped at 99% to avoid unrealistic "100% success"
-      expect(formatOutcomeValue(100, 'percent')).toBe('99.0%')
+      // Already-percentage values (>1) are NOT capped - outcome values can exceed 100% (e.g., "150% improvement")
+      expect(formatOutcomeValue(100, 'percent')).toBe('100.0%')
     })
 
     it('auto-converts 0-1 probability values to percent', () => {
@@ -207,6 +207,12 @@ describe('formatDelta', () => {
   it('rounds to whole numbers', () => {
     expect(formatDelta(25.7)).toBe('+26%')
     expect(formatDelta(-15.3)).toBe('-15%')
+  })
+
+  it('shows no sign for zero', () => {
+    // Zero change has no direction, so no sign prefix
+    expect(formatDelta(0)).toBe('0%')
+    expect(formatDelta(0, false)).toBe('0%')
   })
 })
 

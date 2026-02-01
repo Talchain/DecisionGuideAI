@@ -197,16 +197,31 @@ class BootErrorBoundary extends Component<{ children: ReactNode }, { error: Erro
     }
     const el = document.getElementById('root');
     if (el) {
-      // Gate stack trace details behind DEV to avoid exposing in production
-      el.innerHTML = import.meta.env.DEV
-        ? `<div style="padding:12px;background:#fee;color:#900;font:13px ui-monospace,monospace">
-             <strong>Boot Fatal ❌</strong>
-             <pre style="white-space:pre-wrap;margin-top:8px">${String(e?.stack || e)}</pre>
-           </div>`
-        : `<div style="padding:12px;background:#fee;color:#900;font:13px ui-monospace,monospace">
-             <strong>Boot Error</strong>
-             <p style="margin-top:8px">Something went wrong. Please refresh the page or contact support.</p>
-           </div>`;
+      // Clear any existing content safely
+      el.textContent = '';
+
+      // Build error UI programmatically to prevent XSS from error messages
+      const container = document.createElement('div');
+      container.style.cssText = 'padding:12px;background:#fee;color:#900;font:13px ui-monospace,monospace;border-radius:8px';
+
+      const title = document.createElement('strong');
+      title.textContent = import.meta.env.DEV ? 'Boot Fatal ❌' : 'Boot Error';
+      container.appendChild(title);
+
+      if (import.meta.env.DEV) {
+        // Only show stack trace in DEV mode
+        const pre = document.createElement('pre');
+        pre.style.cssText = 'white-space:pre-wrap;margin-top:8px;font-size:12px';
+        pre.textContent = String(e?.stack || e); // textContent escapes HTML
+        container.appendChild(pre);
+      } else {
+        const msg = document.createElement('p');
+        msg.style.marginTop = '8px';
+        msg.textContent = 'Something went wrong. Please refresh the page or contact support.';
+        container.appendChild(msg);
+      }
+
+      el.appendChild(container);
     }
   }
 })();

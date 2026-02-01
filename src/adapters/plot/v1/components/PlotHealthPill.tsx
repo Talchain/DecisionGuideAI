@@ -58,6 +58,8 @@ export function PlotHealthPill({ pause = false }: PlotHealthPillProps): JSX.Elem
   useEffect(() => {
     void tick() // Run immediately on mount
     return () => clearTimer()
+    // REVIEWED: Intentional mount-only effect. tick/clearTimer/schedule use refs for state,
+    // not state variables, so including them would cause infinite loops.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -67,6 +69,7 @@ export function PlotHealthPill({ pause = false }: PlotHealthPillProps): JSX.Elem
     } else {
       schedule(backoffRef.current)
     }
+    // REVIEWED: Only re-run when pause changes. clearTimer/schedule use refs internally.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pause])
 

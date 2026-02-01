@@ -549,12 +549,14 @@ export function DriversSection({
   const hiddenCount = drivers.length - topDrivers.length
 
   // Get dominant factor's influence percentage
+  // Clamp to [0,1] before converting to percentage to handle out-of-range values
   const dominantFactorInfluence = dominantFactorId
     ? (() => {
         const driver = drivers.find(d => d.factorKey === dominantFactorId)
         if (!driver) return null
-        const influence = driver.influenceScore ?? driver.normalisedInfluence
-        return Math.round(influence * 100)
+        const rawInfluence = driver.influenceScore ?? driver.normalisedInfluence
+        const clampedInfluence = Math.max(0, Math.min(1, rawInfluence))
+        return Math.round(clampedInfluence * 100)
       })()
     : null
 

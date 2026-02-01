@@ -1,6 +1,7 @@
 import js from '@eslint/js'
 import tseslint from '@typescript-eslint/eslint-plugin'
 import parser from '@typescript-eslint/parser'
+import reactHooks from 'eslint-plugin-react-hooks'
 import noRawColors from './eslint-rules/no-raw-colors.js'
 import noPayloadLogging from './eslint-rules/no-payload-logging.js'
 import noDangerousBrowser from './eslint-rules/no-dangerous-browser.js'
@@ -169,22 +170,8 @@ export default [
           'no-old-imports': noOldImports,
         },
       },
-      // Minimal stub for react-hooks plugin so disable comments don't error.
-      // Rule is explicitly turned off below; real enforcement can be wired later.
-      'react-hooks': {
-        rules: {
-          'exhaustive-deps': {
-            meta: {
-              docs: {
-                description: 'Stubbed react-hooks exhaustive-deps rule (disabled by config).',
-                recommended: false,
-              },
-              schema: [],
-            },
-            create: () => ({}),
-          },
-        },
-      },
+      // React Hooks plugin for exhaustive-deps rule
+      'react-hooks': reactHooks,
     },
     rules: {
       // Prefer TypeScript-aware unused checks and keep them as warnings, not errors
@@ -197,8 +184,9 @@ export default [
       // Allow empty catch blocks (logged/handled) as warnings
       'no-empty': ['warn', { allowEmptyCatch: true }],
 
-      // React hooks rule is stubbed and disabled; kept for future enablement.
-      'react-hooks/exhaustive-deps': 'off',
+      // React hooks exhaustive-deps rule enabled as warning to catch stale closures
+      // TODO: Fix existing exhaustive-deps warnings (64 violations as of 2026-01-31)
+      'react-hooks/exhaustive-deps': 'warn',
 
       // Discourage direct console usage - prefer logger utility (src/lib/logger.ts)
       // Warn only to avoid blocking existing code; migrate gradually

@@ -482,6 +482,7 @@ export function ConfidenceSection({
           <CappedList<EvidenceGapItem>
             items={evidenceGaps}
             maxVisible={3}
+            getKey={(gap) => gap.factorId}
             renderItem={(gap) => {
               // Task 4: Focus fallback - target_node_id → factor_id → hide CTA
               const focusTarget = gap.targetNodeId ?? gap.factorId ?? null
@@ -548,6 +549,7 @@ export function ConfidenceSection({
           <CappedList<NextActionItem>
             items={nextActions}
             maxVisible={3}
+            getKey={(action) => `${action.action}::${action.targetId ?? ''}`}
             renderItem={(action, index) => (
               <button
                 onClick={() => {

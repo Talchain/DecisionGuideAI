@@ -477,6 +477,8 @@ export default function SandboxStreamPanel() {
         }
       }
     } catch {}
+  // REVIEWED: Intentional mount-only effect to import scenario from URL hash.
+  // All functions used are stable module-level utilities.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -496,6 +498,8 @@ export default function SandboxStreamPanel() {
         }
       }
     } catch {}
+  // REVIEWED: Intentional mount-only effect to hydrate params from localStorage.
+  // All functions used are stable module-level utilities.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -522,6 +526,7 @@ export default function SandboxStreamPanel() {
         if (decoded) setReadOnlySnap({ seed: decoded.seed, model: decoded.model, data: decoded.data })
       }
     } catch {}
+  // REVIEWED: Intentional mount-only effect to parse snapshot from URL.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 

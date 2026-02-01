@@ -28,6 +28,7 @@ import { validatePayloadSize } from './payloadGuard'
 import { parseCeeDebugHeaders } from '../../../canvas/utils/ceeDebugHeaders' // Phase 1 Section 4.1
 import { withObservabilityHeaders, recordBffResponse, recordBffError, recordBffResponsePayload } from '../../../lib/observability-headers'
 import { useGateStore } from '../../../lib/gate-state'
+import { V1SyncRunResponseSchema, warnOnInvalidApiResponse } from '../../../lib/api-schemas'
 
 const getProxyBase = (): string => {
   return import.meta.env.VITE_PLOT_PROXY_BASE || '/bff/engine'
@@ -429,6 +430,9 @@ async function runSyncOnce(
 
     // Phase 1 Section 4.1: Parse CEE debug headers (dev-only)
     const result: V1SyncRunResponse = await response.json()
+
+    // Warn if response shape is unexpected (logs warning, continues execution)
+    warnOnInvalidApiResponse(V1SyncRunResponseSchema, result, 'PLoT v1/run')
 
     // Record response payload for debug panel inspection
     recordBffResponsePayload(requestId, response, result, startTime)

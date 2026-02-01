@@ -4,6 +4,7 @@
 // All OpenAI calls are proxied through Supabase Edge Function.
 import { generatePromptMessages } from './prompts'
 import { supabase } from './supabase'
+import { fetchWithTimeout, FetchTimeoutError } from '../utils/fetchWithTimeout'
 
 // —————————————————————————————————————————————————————————————————————————————
 // SECURITY: OpenAI proxy endpoint (server-side key, no client exposure)
@@ -23,6 +24,9 @@ if (!OPENAI_ANON_KEY) {
 // This prevents accidental PII leakage through logs, analytics, or persistence
 // —————————————————————————————————————————————————————————————————————————————
 const INCLUDE_DEBUG_DATA = import.meta.env.DEV
+
+// Maximum retry delay to prevent excessively long waits (8 seconds)
+const MAX_RETRY_DELAY_MS = 8000
 
 // —————————————————————————————————————————————————————————————————————————————
 // Helper: create chat completion via server-side proxy (with retries)
@@ -51,15 +55,20 @@ async function createChatCompletion(
   for (let attempt = 0; attempt < retries; attempt++) {
     try {
       // Call server-side proxy instead of OpenAI directly
-      const response = await fetch(OPENAI_PROXY_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${OPENAI_ANON_KEY}`,
-          'apikey': OPENAI_ANON_KEY,
+      // 30s timeout prevents indefinite UI freeze on network issues
+      const response = await fetchWithTimeout(
+        OPENAI_PROXY_URL,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${OPENAI_ANON_KEY}`,
+            'apikey': OPENAI_ANON_KEY,
+          },
+          body: JSON.stringify({ messages, options }),
         },
-        body: JSON.stringify({ messages, options }),
-      })
+        30000
+      )
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({ error: 'Unknown error' }))
@@ -78,10 +87,15 @@ async function createChatCompletion(
         ...(INCLUDE_DEBUG_DATA ? { prompt: messages, rawResponse: data } : {}),
       }
     } catch (err) {
-      lastError = err instanceof Error ? err : new Error('Unknown error occurred')
+      // Convert timeout to user-friendly message
+      if (err instanceof FetchTimeoutError) {
+        lastError = new Error('Request timed out. Please try again.')
+      } else {
+        lastError = err instanceof Error ? err : new Error('Unknown error occurred')
+      }
       if (attempt < retries - 1) {
         await new Promise((r) => setTimeout(r, delay))
-        delay *= 2
+        delay = Math.min(delay * 2, MAX_RETRY_DELAY_MS)
       }
     }
   }

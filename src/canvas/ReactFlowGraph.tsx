@@ -633,6 +633,8 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
     return () => {
       window.removeEventListener('hashchange', handleHashChange)
     }
+    // REVIEWED: handleHashChange is defined inside effect, resolveShareLink is in closure.
+    // Re-run only when URL location changes, not on every render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.hash, location.search])  // Re-run when hash or search params change
 
@@ -650,6 +652,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
         clearTimeout(validationTimerRef.current)
       }
     }
+    // REVIEWED: Intentional mount-only validation. validateGraph is stable store method.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []) // Only run on mount
 

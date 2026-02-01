@@ -54,6 +54,7 @@ import { usePreAnalysisData, type NormalisedIssue, CTA_LABELS } from '../hooks/u
 import { focusNodeById, focusEdgeById } from '../utils/focusHelpers'
 import { getSeverityDisplay, getSeverityContainerClass, type DraftWarningSeverity } from '../utils/severityMapping'
 import { typography } from '../../styles/typography'
+import { CappedList } from '../../components/results/CappedList'
 import type {
   CEEOptionV3,
   CEEDraftWarning,
@@ -510,42 +511,25 @@ function RemainingIssuesSection({
   onFocusEdge: (edgeId: string) => void
   onAction: (action: { key: string; kind: string }) => void
 }) {
-  const [isExpanded, setIsExpanded] = useState(false)
-
   if (issues.length === 0) return null
 
   return (
     <div className="mt-2">
-      <button
-        type="button"
-        onClick={() => setIsExpanded(!isExpanded)}
-        className={`${typography.caption} text-sky-600 hover:text-sky-700 flex items-center gap-1`}
-      >
-        {isExpanded ? (
-          <>
-            <ChevronDown className="h-3 w-3" />
-            Hide {issues.length} more issue{issues.length !== 1 ? 's' : ''}
-          </>
-        ) : (
-          <>
-            <ChevronRight className="h-3 w-3" />
-            Show {issues.length} more issue{issues.length !== 1 ? 's' : ''}
-          </>
+      <CappedList<NormalisedIssue>
+        items={issues}
+        maxVisible={0}
+        getKey={(issue) => issue.key}
+        overflowLabel={(n) => `Show ${n} more issue${n !== 1 ? 's' : ''}`}
+        renderItem={(issue) => (
+          <FixFirstCard
+            issue={issue}
+            onFocusNode={onFocusNode}
+            onFocusEdge={onFocusEdge}
+            onAction={onAction}
+          />
         )}
-      </button>
-      {isExpanded && (
-        <div className="mt-2 space-y-2">
-          {issues.map((issue) => (
-            <FixFirstCard
-              key={issue.key}
-              issue={issue}
-              onFocusNode={onFocusNode}
-              onFocusEdge={onFocusEdge}
-              onAction={onAction}
-            />
-          ))}
-        </div>
-      )}
+        expandButtonAriaLabel="Show remaining issues"
+      />
     </div>
   )
 }

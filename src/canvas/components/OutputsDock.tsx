@@ -418,8 +418,12 @@ export function OutputsDock() {
 
   // P0.2: Compute evidence coverage from local edge provenance for consistency
   // This ensures Results and Diagnostics tabs show the same numbers
+  // Memoized to prevent recomputation on unrelated state changes
   const totalEdges = edges.length
-  const evidencedEdges = edges.filter(e => e.data?.provenance && e.data.provenance.trim() !== '').length
+  const evidencedEdges = useMemo(
+    () => edges.filter(e => e.data?.provenance && e.data.provenance.trim() !== '').length,
+    [edges]
+  )
   const objectiveText = getObjectiveText({ framing, nodes })
   const goalDirection = getGoalDirection(framing, nodes)
   const isError = resultsStatus === 'error'

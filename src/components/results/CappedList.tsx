@@ -22,6 +22,8 @@ export interface CappedListProps<T> {
   maxVisible: number
   /** Render function for each item */
   renderItem: (item: T, index: number) => ReactNode
+  /** Optional key extractor - returns stable key for React reconciliation. Defaults to index if not provided. */
+  getKey?: (item: T, index: number) => string
   /** Optional overflow label (default: "+{n} more") */
   overflowLabel?: (hiddenCount: number) => string
   /** Optional sort function */
@@ -41,6 +43,7 @@ export function CappedList<T>({
   items,
   maxVisible,
   renderItem,
+  getKey,
   overflowLabel = (n) => `+${n} more`,
   sortFn,
   dedupeFn,
@@ -90,7 +93,7 @@ export function CappedList<T>({
   return (
     <div className="space-y-2">
       {visibleItems.map((item, index) => (
-        <div key={index}>{renderItem(item, index)}</div>
+        <div key={getKey ? getKey(item, index) : index}>{renderItem(item, index)}</div>
       ))}
 
       {/* Expand/collapse toggle */}
