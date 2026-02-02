@@ -427,8 +427,8 @@ export function DebugPanel() {
     <div
       style={{
         position: 'fixed',
-        bottom: 24,
-        left: 24,
+        bottom: 12,
+        left: 12,
         zIndex: 99998,
         fontFamily: 'system-ui, -apple-system, sans-serif',
         maxWidth: collapsed ? undefined : panelWidthPx,
@@ -462,7 +462,7 @@ export function DebugPanel() {
           }}
           title="Open Debug Panel"
         >
-          <span>Test Suite</span>
+          <span>Test</span>
         </button>
       ) : (
         /* Debug Panel V2 - 4-tab layout */
