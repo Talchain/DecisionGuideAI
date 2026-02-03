@@ -144,6 +144,9 @@ export function DraftChat() {
     return 360 // default height (20% increase from 300)
   })
 
+  // Track dock offset for dynamic positioning (avoid results panel overlap)
+  const [dockOffset, setDockOffset] = useState(0)
+
   const {
     data: draft,
     loading,
@@ -683,6 +686,40 @@ export function DraftChat() {
     } catch {}
   }, [panelHeight])
 
+  // Watch for dock offset changes to avoid results panel overlap
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+
+    const checkDockOffset = () => {
+      const root = document.documentElement
+      const offsetValue = getComputedStyle(root).getPropertyValue('--dock-right-offset').trim()
+      // Parse rem/px value - if expanded (>= 20rem/320px), apply offset
+      let offsetPx = 0
+      if (offsetValue.endsWith('rem')) {
+        offsetPx = parseFloat(offsetValue) * 16
+      } else if (offsetValue.endsWith('px')) {
+        offsetPx = parseFloat(offsetValue)
+      } else if (offsetValue.startsWith('var(')) {
+        // It's referencing another variable like var(--dock-right-expanded)
+        // In this case, check if dock is expanded (26rem = 416px)
+        const expandedValue = getComputedStyle(root).getPropertyValue('--dock-right-expanded').trim()
+        if (expandedValue.endsWith('rem')) {
+          offsetPx = parseFloat(expandedValue) * 16
+        } else if (expandedValue.endsWith('px')) {
+          offsetPx = parseFloat(expandedValue)
+        }
+      }
+      // Only apply offset if dock is actually expanded (> 100px threshold)
+      setDockOffset(offsetPx > 100 ? offsetPx : 0)
+    }
+
+    // Check immediately and on interval (dock state can change)
+    checkDockOffset()
+    const interval = setInterval(checkDockOffset, 300)
+
+    return () => clearInterval(interval)
+  }, [])
+
   // Don't render if panel is closed
   if (!showDraftChat) {
     return null
@@ -693,12 +730,15 @@ export function DraftChat() {
       ref={panelRef}
       className="fixed z-[2000] flex flex-col transition-all duration-300 ease-out"
       style={{
-        // Simple centering - no complex CSS calculations
-        left: '50%',
+        // Center by default, shift left when results panel is open
+        left: dockOffset > 0 ? `calc(50% - ${dockOffset / 2}px)` : '50%',
         transform: 'translateX(-50%)',
         bottom: 'calc(var(--bottombar-h, 0) + 1rem)',
         width: `${panelWidth * 1.44}px`,
-        maxWidth: 'calc(100vw - 96px)',
+        // Constrain max width when dock is open (112px gap + sidebar)
+        maxWidth: dockOffset > 0
+          ? `calc(100vw - ${dockOffset}px - 112px - 52px - 24px)`
+          : 'calc(100vw - 96px)',
       }}
       role="dialog"
       aria-modal="true"
@@ -713,66 +753,79 @@ export function DraftChat() {
         />
         {isMinimized ? (
           <div
-            className="flex items-center gap-2 rounded-full border border-sand-200 bg-paper-50 px-3 py-2 shadow-2"
+            className="flex flex-col gap-2 rounded-2xl border border-sand-200 bg-paper-50 px-3 py-2 shadow-2"
             data-testid="draft-chat-minimized"
           >
-            <input
-              ref={inputRef}
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && description.trim() && !loading) {
-                  e.preventDefault()
-                  handleDraft()
-                }
-              }}
-              placeholder="Describe your decision..."
-              className={`${typography.body} flex-1 bg-transparent outline-none placeholder:text-ink-400`}
-              aria-label="Describe your decision"
-            />
-            <button
-              onClick={handleDraft}
-              disabled={loading || !description.trim()}
-              className="p-2 rounded-full transition-colors"
-              style={{
-                backgroundColor: (description.trim() && !loading) ? '#63ADCF' : '#E8E5E1',
-                color: (description.trim() && !loading) ? '#FFFFFF' : '#9B9B9B',
-                cursor: (description.trim() && !loading) ? 'pointer' : 'not-allowed'
-              }}
-              aria-label="Generate draft"
-              title="Press Enter to send"
-            >
-              {loading ? (
-                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-              ) : (
-                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              )}
-            </button>
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              className="p-2 rounded-full text-ink-400 hover:text-ink-600 hover:bg-sand-100 transition-colors"
-              aria-label="Attach file"
-            >
-              <Paperclip className="w-4 h-4" />
-            </button>
-            <button
-              ref={settingsButtonRef}
-              onClick={() => setShowSettingsPopover(!showSettingsPopover)}
-              className="p-2 rounded-full text-ink-400 hover:text-ink-600 hover:bg-sand-100 transition-colors"
-              aria-label="Model settings"
-              aria-expanded={showSettingsPopover}
-            >
-              <Settings className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => setIsMinimized(false)}
-              className="p-2 rounded-full text-ink-400 hover:text-ink-600 hover:bg-sand-100 transition-colors"
-              aria-label="Expand panel"
-            >
-              <ChevronUp className="w-4 h-4" />
-            </button>
+            {/* Auto-growing textarea for minimized state */}
+            <div className="flex items-end gap-2">
+              <textarea
+                ref={inputRef as any}
+                value={description}
+                onChange={(e) => {
+                  setDescription(e.target.value)
+                  // Auto-resize textarea
+                  e.target.style.height = 'auto'
+                  e.target.style.height = `${Math.min(e.target.scrollHeight, 120)}px`
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey && description.trim() && !loading) {
+                    e.preventDefault()
+                    handleDraft()
+                  }
+                }}
+                placeholder="Describe your decision..."
+                className={`${typography.body} flex-1 bg-transparent outline-none resize-none placeholder:text-ink-400`}
+                style={{ minHeight: '24px', maxHeight: '120px' }}
+                rows={1}
+                aria-label="Describe your decision"
+              />
+              <button
+                onClick={handleDraft}
+                disabled={loading || !description.trim()}
+                className="p-2 rounded-full transition-colors flex-shrink-0"
+                style={{
+                  backgroundColor: (description.trim() && !loading) ? '#63ADCF' : '#E8E5E1',
+                  color: (description.trim() && !loading) ? '#FFFFFF' : '#9B9B9B',
+                  cursor: (description.trim() && !loading) ? 'pointer' : 'not-allowed'
+                }}
+                aria-label="Generate draft"
+                title="Press Enter to send"
+              >
+                {loading ? (
+                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : (
+                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                )}
+              </button>
+            </div>
+            {/* Action buttons row */}
+            <div className="flex items-center gap-1 justify-end -mt-1">
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                className="p-2 rounded-full text-ink-400 hover:text-ink-600 hover:bg-sand-100 transition-colors"
+                aria-label="Attach file"
+              >
+                <Paperclip className="w-4 h-4" />
+              </button>
+              <button
+                ref={settingsButtonRef}
+                onClick={() => setShowSettingsPopover(!showSettingsPopover)}
+                className="p-2 rounded-full text-ink-400 hover:text-ink-600 hover:bg-sand-100 transition-colors"
+                aria-label="Model settings"
+                aria-expanded={showSettingsPopover}
+              >
+                <Settings className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => setIsMinimized(false)}
+                className="p-2 rounded-full text-ink-400 hover:text-ink-600 hover:bg-sand-100 transition-colors"
+                aria-label="Expand panel"
+              >
+                <ChevronUp className="w-4 h-4" />
+              </button>
+            </div>
           </div>
         ) : (
           <div className="flex flex-col rounded-[20px] border border-sand-200 shadow-2 overflow-hidden relative" style={{ backgroundColor: '#FEFEFE', height: `${panelHeight}px`, maxHeight: '80vh' }}>
@@ -830,9 +883,9 @@ export function DraftChat() {
               anchorRef={settingsButtonRef}
             />
 
-            {/* Scrollable content area */}
+            {/* Scrollable content area - shrinks to make room for input */}
             <div
-              className={`flex-1 overflow-y-auto ${
+              className={`flex-1 min-h-0 overflow-y-auto ${
                 loading || draft || guidance || error || retryAfterSeconds !== null || attachedFiles.length > 0
                   ? 'p-4 space-y-4'
                   : 'p-1'
@@ -947,8 +1000,8 @@ export function DraftChat() {
               )}
             </div>
 
-            {/* Input area - Claude-style */}
-            <div className="border-t border-sand-100 p-3 bg-paper-25">
+            {/* Input area - grows with panel height */}
+            <div className="border-t border-sand-100 p-3 bg-paper-25 flex-shrink-0">
               <div className="relative">
                 <textarea
                   ref={textareaRef}
@@ -962,20 +1015,27 @@ export function DraftChat() {
                   }}
                   placeholder="Describe your decision... e.g., We're deciding whether to expand into the European market. Key factors include regulatory costs, market size, and competition..."
                   className={`
-                    ${typography.body} w-full p-3 pr-14 rounded-xl border border-sand-200
+                    ${typography.body} w-full p-3 pb-12 rounded-xl border border-sand-200
                     focus:border-sand-200 focus:outline-none focus:ring-0 focus:shadow-none
                     resize-none overflow-y-auto
                     placeholder:text-ink-400
                   `}
-                  style={{ minHeight: '144px', maxHeight: '360px', outline: 'none', boxShadow: 'none' }}
-                  rows={4}
+                  style={{
+                    // Height grows with panel: panelHeight minus header(~72px) minus padding(~24px) minus safety(~20px)
+                    height: `${Math.max(120, panelHeight - 116)}px`,
+                    outline: 'none',
+                    boxShadow: 'none'
+                  }}
                 />
 
+                {/* Submit button - positioned inside textarea, equidistant from bottom-right */}
                 <button
                   onClick={handleDraft}
                   disabled={loading || !description.trim()}
-                  className="absolute right-6 bottom-3 p-2 rounded-lg transition-colors"
+                  className="absolute p-2 rounded-lg transition-colors"
                   style={{
+                    right: '12px',
+                    bottom: '12px',
                     backgroundColor: (description.trim() && !loading) ? '#63ADCF' : '#E8E5E1',
                     color: (description.trim() && !loading) ? '#FFFFFF' : '#9B9B9B',
                     cursor: (description.trim() && !loading) ? 'pointer' : 'not-allowed'
