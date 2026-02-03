@@ -18,8 +18,9 @@ import { useShallow } from 'zustand/shallow'
 import type { Node, Edge } from '@xyflow/react'
 import type { UIOption } from '../../types/options'
 import { normaliseOptionFromLegacyNode, type LegacyOptionNode } from '../../types/options'
-import { validateAllEdges, EdgeValidationError, ceeOptionToUIOption } from '../../adapters/plot/v2'
+import { validateAllEdges, ceeOptionToUIOption } from '../../adapters/plot/v2'
 import type { CEEAnalysisReady } from '../../adapters/cee/types'
+import { detectBaseline } from '../utils/baselineDetection'
 
 // ============================================================================
 // Types
@@ -191,7 +192,12 @@ function validateOptions(
     // Only logs when validation result actually changes
 
     // Check for options needing mapping (CEE may return some as needs_user_mapping)
-    const needsMappingOptions = options.filter((o) => o.status === 'needs_user_mapping')
+    const needsMappingOptions = options.filter((o) => {
+      if (o.status !== 'needs_user_mapping') return false
+      const isBaselineEmpty =
+        detectBaseline(o.label).isBaseline && Object.keys(o.interventions).length === 0
+      return !isBaselineEmpty
+    })
     if (needsMappingOptions.length > 0) {
       blockers.push({
         code: 'OPTIONS_NEED_MAPPING',
@@ -206,9 +212,11 @@ function validateOptions(
     }
 
     // Check for options with empty interventions
-    const emptyInterventionOptions = options.filter(
-      (o) => o.status === 'ready' && Object.keys(o.interventions).length === 0
-    )
+    const emptyInterventionOptions = options.filter((o) => {
+      if (o.status !== 'ready') return false
+      if (Object.keys(o.interventions).length !== 0) return false
+      return !detectBaseline(o.label).isBaseline
+    })
     if (emptyInterventionOptions.length > 0) {
       blockers.push({
         code: 'EMPTY_INTERVENTIONS',
@@ -250,7 +258,12 @@ function validateOptions(
 
   // Check for options needing mapping
   // P0: Block analysis until options have interventions configured
-  const needsMappingOptions = options.filter((o) => o.status === 'needs_user_mapping')
+  const needsMappingOptions = options.filter((o) => {
+    if (o.status !== 'needs_user_mapping') return false
+    const isBaselineEmpty =
+      detectBaseline(o.label).isBaseline && Object.keys(o.interventions).length === 0
+    return !isBaselineEmpty
+  })
   if (needsMappingOptions.length > 0) {
     blockers.push({
       code: 'OPTIONS_NEED_MAPPING',
@@ -265,9 +278,11 @@ function validateOptions(
   }
 
   // Check for options with empty interventions (marked ready but no interventions)
-  const emptyInterventionOptions = options.filter(
-    (o) => o.status === 'ready' && Object.keys(o.interventions).length === 0
-  )
+  const emptyInterventionOptions = options.filter((o) => {
+    if (o.status !== 'ready') return false
+    if (Object.keys(o.interventions).length !== 0) return false
+    return !detectBaseline(o.label).isBaseline
+  })
   if (emptyInterventionOptions.length > 0) {
     blockers.push({
       code: 'EMPTY_INTERVENTIONS',
@@ -360,7 +375,7 @@ function validateEdges(
         message: `${missingDirection.length} edge(s) are missing effect direction (positive/negative)`,
         suggestion:
           'Analysis will use default direction. Click edges to set effect direction for better results.',
-        affectedId: missingDirection[0].edgeId ?? `${missingDirection[0].from}->${missingDirection[0].to}`,
+        affectedId: missingDirection[0].edgeId ?? `${missingDirection[0].fromNode}->${missingDirection[0].toNode}`,
       })
     }
 
@@ -370,7 +385,7 @@ function validateEdges(
         message: `${missingWeight.length} edge(s) are missing strength/weight values`,
         suggestion:
           'Analysis will use default strength. Click edges to set strength for better results.',
-        affectedId: missingWeight[0].edgeId ?? `${missingWeight[0].from}->${missingWeight[0].to}`,
+        affectedId: missingWeight[0].edgeId ?? `${missingWeight[0].fromNode}->${missingWeight[0].toNode}`,
       })
     }
   }
@@ -529,7 +544,6 @@ export function usePreRunValidation(): ValidationResult {
   const setOutcomeNode = useCanvasStore((s) => s.setOutcomeNode)
 
   // Track fingerprint to detect actual changes
-  const lastFingerprintRef = useRef<string | null>(null)
   const lastLoggedResultRef = useRef<{ canRun: boolean; blockerCount: number } | null>(null)
 
   // Create fingerprint for current inputs

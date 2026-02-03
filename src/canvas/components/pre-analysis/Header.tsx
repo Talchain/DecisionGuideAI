@@ -1,79 +1,43 @@
 /**
- * Header - Pre-Analysis Panel header section
+ * Header - Pre-Analysis Panel inline status line
  *
- * Left: status icon — CheckCircle in success when ready, XCircle in danger when not
- * Status text: "Ready to analyse" / "Not ready"
- * Evidence quality: "Evidence: {level}" — Low in danger, Medium in warning, High in success
- * Right: improvements count as TextBtn, scrolls to All Improvements accordion on click
+ * Single text line replacing the old header strip:
+ * - Ready: "✓ Ready · {n} improvements" in success color
+ * - Blocked: "⊘ Blocked · {n} issue(s) to fix" in danger color
+ *
+ * 13px, font-weight 600, no background/border/padding beyond panel's own.
+ * This replaces the 'Top actions' section label.
  */
-
-import { CheckCircle, XCircle } from 'lucide-react'
-import { TextBtn } from './primitives'
-import type { EvidenceQualityLevel } from './hooks/usePreAnalysisData'
 
 interface HeaderProps {
   /** Whether analysis can run */
   isReady: boolean
-  /** Evidence quality level */
-  evidenceLevel: EvidenceQualityLevel
   /** Total improvements count */
   totalImprovements: number
-  /** Click handler for improvements count */
-  onImprovementsClick?: () => void
-}
-
-/** Evidence level colour mapping */
-const evidenceLevelStyles: Record<EvidenceQualityLevel, string> = {
-  low: 'text-danger',
-  medium: 'text-warning',
-  high: 'text-success',
-}
-
-/** Evidence level display labels */
-const evidenceLevelLabels: Record<EvidenceQualityLevel, string> = {
-  low: 'Low',
-  medium: 'Medium',
-  high: 'High',
+  /** Number of blocker issues (for blocked state) */
+  blockerCount?: number
 }
 
 export function Header({
   isReady,
-  evidenceLevel,
   totalImprovements,
-  onImprovementsClick,
+  blockerCount = 0,
 }: HeaderProps) {
-  const StatusIcon = isReady ? CheckCircle : XCircle
-  const statusIconColor = isReady ? 'text-success' : 'text-danger'
-  const statusText = isReady ? 'Ready to analyse' : 'Not ready'
+  if (isReady) {
+    // Ready state: "✓ Ready · {n} optional improvements"
+    return (
+      <p className="text-sm font-semibold text-success">
+        ✓ Ready · {totalImprovements} optional improvement{totalImprovements !== 1 ? 's' : ''}
+      </p>
+    )
+  }
 
+  // Blocked state: "⊘ Blocked · {n} issue(s) to fix"
+  const issueText = blockerCount === 1 ? '1 issue' : `${blockerCount} issues`
   return (
-    <div className="flex items-center justify-between py-2">
-      {/* Left: Status + Evidence */}
-      <div className="flex items-center gap-3">
-        {/* Status */}
-        <div className="flex items-center gap-1.5">
-          <StatusIcon className={`w-4 h-4 ${statusIconColor}`} aria-hidden="true" />
-          <span className="text-sm font-medium text-text-body">
-            {statusText}
-          </span>
-        </div>
-
-        {/* Evidence quality */}
-        <span className="text-sm text-text-light">
-          Evidence:{' '}
-          <span className={evidenceLevelStyles[evidenceLevel]}>
-            {evidenceLevelLabels[evidenceLevel]}
-          </span>
-        </span>
-      </div>
-
-      {/* Right: Improvements count */}
-      {totalImprovements > 0 && (
-        <TextBtn onClick={onImprovementsClick}>
-          {totalImprovements} improvement{totalImprovements !== 1 ? 's' : ''}
-        </TextBtn>
-      )}
-    </div>
+    <p className="text-sm font-semibold text-danger">
+      ⊘ Blocked · {issueText} to fix
+    </p>
   )
 }
 

@@ -230,6 +230,10 @@ describe('Interactive Actions Hardening', () => {
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
 
+      // Add Evidence section is collapsed by default - click "View all" to expand
+      const viewAllButton = screen.getByRole('button', { name: /view all/i })
+      fireEvent.click(viewAllButton)
+
       // Click the Add button to show evidence input
       const addButton = screen.getByRole('button', { name: /add/i })
       fireEvent.click(addButton)
@@ -258,6 +262,10 @@ describe('Interactive Actions Hardening', () => {
       }))
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
+
+      // Add Evidence section is collapsed by default - click "View all" to expand
+      const viewAllButton = screen.getByRole('button', { name: /view all/i })
+      fireEvent.click(viewAllButton)
 
       // Click the Add button to show evidence input
       const addButton = screen.getByRole('button', { name: /add/i })
@@ -291,6 +299,10 @@ describe('Interactive Actions Hardening', () => {
       }))
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
+
+      // Add Evidence section is collapsed by default - click "View all" to expand
+      const viewAllButton = screen.getByRole('button', { name: /view all/i })
+      fireEvent.click(viewAllButton)
 
       // Click the Add button to show evidence input
       const addButton = screen.getByRole('button', { name: /add/i })
@@ -489,6 +501,10 @@ describe('Interactive Actions Hardening', () => {
       }))
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
+
+      // Add Evidence section is collapsed by default - click "View all" to expand
+      const viewAllButton = screen.getByRole('button', { name: /view all/i })
+      fireEvent.click(viewAllButton)
 
       // Click the Add button to show evidence input
       const addButton = screen.getByRole('button', { name: /add/i })

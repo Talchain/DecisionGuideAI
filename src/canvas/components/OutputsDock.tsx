@@ -61,10 +61,9 @@ import { ValidationPanel, type CritiqueItem } from './ValidationPanel'
 import { GraphTextView } from './GraphTextView'
 import { PreAnalysisGuidance } from './PreAnalysisGuidance'
 import { PreAnalysisHealth } from './PreAnalysisHealth'
-import { PreAnalysisReadinessPanel } from './PreAnalysisReadinessPanel'
-import { GoalNodeSelector, useGoalNodeActions } from './GoalNodeSelector'
-import { ThresholdInput } from './ThresholdInput'
+import { PreAnalysisPanel } from './pre-analysis'
 import { usePreRunValidation } from '../hooks/usePreRunValidation'
+import { usePreAnalysisData } from './pre-analysis/hooks/usePreAnalysisData'
 import { ActionsSignal } from './ActionsSignal'
 import { WarningBanner } from './WarningBanner'
 import { DegradedStateBanner } from './DegradedStateBanner'
@@ -108,6 +107,8 @@ import { useComparisonDetection } from '../hooks/useComparisonDetection'
 import { useScenarioComparison } from '../hooks/useScenarioComparison'
 import { useOptionRanking } from '../hooks/useOptionRanking'
 import { useRobustness } from '../hooks/useRobustness'
+import { mapRobustness } from '../../lib/mappers/mapRobustness'
+import type { MappedRobustness } from '../../lib/mappers/types'
 import { RobustnessBlock } from './RecommendationCard/RobustnessBlock'
 import { EvidencePackExport } from './ResultsPanel/EvidencePackExport'
 // ScenarioComparison modal removed - now rendered as ComparisonCanvasLayout in ReactFlowGraph
@@ -184,11 +185,7 @@ export function OutputsDock() {
   // Uses runMeta.runId and results hash when available
   const results = useCanvasStore(s => s.results)
   const robustnessRunId = results?.hash ? `run-${results.hash.slice(0, 8)}` : undefined
-  const {
-    robustness: robustnessData,
-    loading: robustnessLoading,
-    error: robustnessError,
-  } = useRobustness({
+  useRobustness({
     runId: robustnessRunId,
     responseHash: results?.hash,
     autoFetch: true,
@@ -227,22 +224,17 @@ export function OutputsDock() {
   const setShowComparePanel = useCanvasStore(s => s.setShowComparePanel)
   const setHighlightedNodes = useCanvasStore(s => s.setHighlightedNodes)
   const applyAutoFixChanges = useCanvasStore(s => s.applyAutoFixChanges)
-
-  // P0-UI-5: Goal node selection
-  const outcomeNodeId = useCanvasStore(s => s.outcomeNodeId)
-  const setOutcomeNode = useCanvasStore(s => s.setOutcomeNode)
-  const goalThreshold = useCanvasStore(s => s.goalThreshold)
-  const setGoalThreshold = useCanvasStore(s => s.setGoalThreshold)
+  // P0 Results Brief: Store actions for Status Quo baseline creation
+  const addNode = useCanvasStore(s => s.addNode)
   const updateNode = useCanvasStore(s => s.updateNode)
+  const addEdge = useCanvasStore(s => s.addEdge)
+  const setCeeAnalysisReady = useCanvasStore(s => s.setCeeAnalysisReady)
 
   // P0-UI-6: Pre-run validation hook
   const preRunValidation = usePreRunValidation()
 
-  // Goal node actions (mark as goal, set as outcome)
-  const { handleMarkAsGoal } = useGoalNodeActions(
-    (nodeId, data) => updateNode(nodeId, { data: { ...nodes.find(n => n.id === nodeId)?.data, ...data } }),
-    setOutcomeNode
-  )
+  // Pre-run readiness from canonical usePreAnalysisData hook
+  const preAnalysisReadiness = usePreAnalysisData()
 
   // Derived values from runMeta
   const diagnostics = runMeta.diagnostics
@@ -283,16 +275,11 @@ export function OutputsDock() {
     onExpandAccordion: () => setDriversAccordionExpanded(true),
   })
 
-  // Pre-run blocker state - managed by PreAnalysisGuidance component
-  const [hasPreRunBlockers, setHasPreRunBlockers] = useState(false)
-  // Pre-run readiness state - managed by PreAnalysisHealth component (CEE /graph-readiness)
-  const [readinessCanRun, setReadinessCanRun] = useState(true)
-
   const isRunning = resultsStatus === 'preparing' || resultsStatus === 'connecting' || resultsStatus === 'streaming'
 
-  // Unified run eligibility: guidance blockers, readiness, AND pre-run validation must all allow running
+  // Unified run eligibility: canonical readiness from usePreAnalysisData AND pre-run validation
   // P0-UI-6: Added preRunValidation.canRun check
-  const canRunAnalysis = !hasPreRunBlockers && readinessCanRun && preRunValidation.canRun && !isRunning
+  const canRunAnalysis = preAnalysisReadiness.isReady && preRunValidation.canRun && !isRunning
 
   // R3: CTA state machine for primary analysis button
   // P0.3: Enhanced with option count, driver informativeness, confidence level
@@ -342,7 +329,7 @@ export function OutputsDock() {
       node_count: nodes.length,
       edge_count: edges.length,
       option_count: comparison.optionNodes.length,
-      template_id: framing?.templateId || 'canvas-graph',
+      template_id: (framing as any)?.templateId || 'canvas-graph',
     })
     // P0-UI: Use V2 adapter (gets nodes, edges, outcomeNodeId from store)
     await runV2Analysis()
@@ -355,6 +342,61 @@ export function OutputsDock() {
       sessionStorage.setItem('comparison-prompt-dismissed', 'true')
     } catch {}
   }, [])
+
+  // P0 Results Brief: Add Status Quo baseline option
+  // Creates a new option node with is_baseline=true, empty interventions, and connects it to a decision node
+  const addStatusQuoBaseline = useCallback(() => {
+    // Find a decision node to connect to (or any node if no decision exists)
+    const decisionNode = nodes.find(n => n.type === 'decision')
+    const anchorNode = decisionNode || nodes[0]
+    if (!anchorNode) {
+      console.warn('[OutputsDock] Cannot add Status Quo baseline: no nodes to connect to')
+      return
+    }
+
+    // Position the new node offset from the anchor
+    const newPosition = {
+      x: (anchorNode.position?.x || 200) + 200,
+      y: (anchorNode.position?.y || 200) + 50,
+    }
+
+    // Create the option node
+    addNode(newPosition, 'option')
+
+    // Get the newly created node (it's the last one added)
+    const newNodes = useCanvasStore.getState().nodes
+    const newNode = newNodes[newNodes.length - 1]
+    if (!newNode) return
+
+    // Update the node data to mark it as a baseline with Status Quo label
+    updateNode(newNode.id, {
+      data: {
+        ...newNode.data,
+        label: 'Status Quo',
+        kind: 'option',
+        is_baseline: true,
+        interventions: {},
+        status: 'ready',
+      },
+    })
+
+    // Connect the new option to the decision node (if we have a decision)
+    if (decisionNode) {
+      addEdge({
+        source: decisionNode.id,
+        target: newNode.id,
+        type: 'default',
+        data: {
+          confidence: 0, // No confidence needed for decision→option edge
+        },
+      })
+    }
+
+    // Invalidate CEE analysis ready cache so next run re-extracts options
+    setCeeAnalysisReady(null)
+
+    console.info('[OutputsDock] Added Status Quo baseline option:', newNode.id)
+  }, [nodes, addNode, updateNode, addEdge, setCeeAnalysisReady])
 
   // M6: Handle compare now action - triggers scenario comparison
   const handleCompareNow = useCallback(async () => {
@@ -516,7 +558,13 @@ export function OutputsDock() {
   // Phase 0.3: Normalize response and check for degeneracy
   const normalisedResponse = useMemo(() => normaliseResponse(report), [report])
   const degeneracyCheck = useMemo(() => checkOutcomeDegeneracy(normalisedResponse), [normalisedResponse])
-  const { isDismissed: degeneracyDismissed, dismiss: dismissDegeneracy } = useDegeneracyDismissal(robustnessRunId)
+  useDegeneracyDismissal(robustnessRunId)
+
+  const mappedRobustness: MappedRobustness | null = useMemo(() => {
+    const raw = (report as any)?.robustness
+    if (!raw) return null
+    return mapRobustness(raw, { sourcePath: 'top_level' })
+  }, [report])
 
   let decisionReviewStatus: DecisionReviewStatus | null = null
   if (decisionReviewFlagOn) {
@@ -802,7 +850,7 @@ export function OutputsDock() {
         position: 'fixed',
         width: state.isOpen ? 'var(--dock-right-expanded, 24rem)' : 'var(--dock-right-collapsed, 2.5rem)',
         right: 12,
-        top: 'calc(var(--topbar-h) + 1rem)',
+        top: 12,
         bottom: 'calc(var(--bottombar-h) + 1rem)',
         background: 'rgba(255, 255, 255, 0.95)',
         backdropFilter: 'blur(8px)',
@@ -903,17 +951,15 @@ export function OutputsDock() {
       )}
 
       {state.isOpen && (
-        <div className={`flex-1 min-h-0 px-3 py-3 ${typography.caption} text-ink-900/70 space-y-4 overflow-y-auto`} data-testid="outputs-dock-body">
+        <div className={`flex-1 min-h-0 ${typography.caption} text-ink-900/70 ${isPreRun && nodes.length > 0 ? 'flex flex-col overflow-hidden' : 'px-3 py-3 space-y-4 overflow-y-auto'}`} data-testid="outputs-dock-body">
             {state.activeTab === 'results' && (
-              <div className="space-y-6">
+              <div className={isPreRun && nodes.length > 0 ? 'flex-1 min-h-0 flex flex-col' : 'space-y-6'}>
                 {/* P0.6: User-friendly error display */}
                 {isError && error && (() => {
                   const friendlyError = getUserFriendlyError({
                     code: error.code,
                     message: error.message,
-                    status: error.status,
-                    hasPartialResults: resultsStatus === 'complete',
-                    canRetry: error.canRetry,
+                    hasPartialResults: Boolean(report),
                   })
                   return (
                     <div
@@ -1022,39 +1068,14 @@ export function OutputsDock() {
                   </div>
                 )}
                 {/* Pre-run state: Show consolidated guidance and Run button */}
-                {isPreRun && (
-                  <div className="space-y-4" data-testid="outputs-pre-run">
-                    {/* P0-UI-5: Goal node selector */}
-                    {nodes.length > 0 && (
-                      <GoalNodeSelector
-                        nodes={nodes}
-                        currentGoalId={outcomeNodeId}
-                        onChange={setOutcomeNode}
-                        onMarkAsGoal={handleMarkAsGoal}
-                      />
-                    )}
-
-                    {/* Success threshold input (optional) - only show when goal is selected */}
-                    {outcomeNodeId && (
-                      <ThresholdInput
-                        value={goalThreshold}
-                        onChange={setGoalThreshold}
-                        unit={(() => {
-                          const goalNode = nodes.find(n => n.id === outcomeNodeId)
-                          return (goalNode?.data as { unit?: string })?.unit
-                        })()}
-                      />
-                    )}
-
-                    {/* Pre-Analysis Readiness Panel - consolidated quality, blockers, and coaching */}
-                    {nodes.length > 0 && (
-                      <PreAnalysisReadinessPanel
-                        onAnalyse={handleRunAnalysis}
-                        isAnalysing={isRunning}
-                        onBlockersChange={setHasPreRunBlockers}
-                        onCanRunChange={setReadinessCanRun}
-                      />
-                    )}
+                {isPreRun && nodes.length > 0 && (
+                  <div className="flex-1 min-h-0 flex flex-col" data-testid="outputs-pre-run">
+                    {/* Pre-Analysis Panel - M1 rebuild with new component architecture */}
+                    {/* Goal node selector and threshold are now inside AnalysisSettings accordion */}
+                    <PreAnalysisPanel
+                      onAnalyse={handleRunAnalysis}
+                      isAnalysing={isRunning}
+                    />
                   </div>
                 )}
                 {/* Phase 2 Sprint 1B: Slow-run UX feedback */}
@@ -1139,7 +1160,7 @@ export function OutputsDock() {
                         name: 'Robustness',
                         available: resultsSectionData?.confidence?.robustnessStatus === 'computed',
                       },
-                    ].filter(t => resultsSectionData != null)}
+                    ].filter(() => resultsSectionData != null)}
                     onDismiss={() => setDegradedBannerDismissed(true)}
                   />
                 )}
@@ -1201,6 +1222,7 @@ export function OutputsDock() {
                           focusNodeById(nodeId)
                           setTimeout(() => setHighlightedNodes([]), 3000)
                         }}
+                        onAddStatusQuoBaseline={addStatusQuoBaseline}
                       />
                     </Accordion>
 
@@ -1350,7 +1372,7 @@ export function OutputsDock() {
                 correlationIdHeader={correlationIdHeader}
                 nodes={nodes}
                 edges={edges}
-                robustness={robustnessData ?? null}
+                robustness={mappedRobustness}
                 robustnessSynthesis={ceeReviewV1?.robustness_synthesis ?? null}
               />
             )}
@@ -1431,10 +1453,7 @@ function DiagnosticsTabBody({
   correlationIdHeader: string | null | undefined
   nodes: Node[]
   edges: Edge[]
-  robustness: {
-    fragileEdges?: Array<{ edgeId: string; fromLabel?: string; toLabel?: string }>
-    robustEdges?: string[]
-  } | null
+  robustness: MappedRobustness | null
   robustnessSynthesis: {
     headline?: string
     assumption_explanations?: Array<{ node_id: string; label: string; explanation: string }>
@@ -1444,7 +1463,7 @@ function DiagnosticsTabBody({
   // Build fragile and robust edge ID sets for badges using adapter
   const fragileEdgeIds = useMemo(() => {
     if (!robustness?.fragileEdges) return new Set<string>()
-    return buildFragileEdgeIdSet(robustness.fragileEdges as any)
+    return buildFragileEdgeIdSet(robustness.fragileEdges)
   }, [robustness?.fragileEdges])
 
   const robustEdgeIds = useMemo(() => {

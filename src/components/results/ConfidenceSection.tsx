@@ -201,7 +201,7 @@ function UncertaintyRow({
                 className="text-xs px-2 py-0.5 bg-white/50 hover:bg-white/80 rounded transition-colors flex-shrink-0"
                 style={{ minHeight: '28px' }}
               >
-                Validate
+                Reduce uncertainty
               </button>
             )}
           </div>
@@ -246,7 +246,7 @@ function UncertaintyRow({
                 className="text-xs px-2 py-1 bg-white/50 hover:bg-white/80 rounded transition-colors"
                 style={{ minHeight: '28px' }}
               >
-                {item.suggestion || 'Validate'}
+                {item.suggestion || 'Reduce uncertainty'}
               </button>
             </div>
           )}
@@ -418,60 +418,98 @@ export function ConfidenceSection({
         </div>
       )}
 
-      {/* Uncertainties */}
-      {showUncertainties && (
-        <div className="space-y-2">
-          <h4 className="text-xs text-slate-500 uppercase tracking-wide">
-            Uncertainties
-          </h4>
-          {uncertainties.length === 0 ? (
-            <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg">
-              <p className="text-sm text-slate-600 flex items-start gap-2">
-                <span aria-hidden="true">ℹ️</span>
-                {/* Bug 4 fix: Different message based on robustness status */}
-                {robustnessStatus !== 'computed'
-                  ? EMPTY_STATES.robustness
-                  : filteredFragileEdges && filteredFragileEdges.filteredCount > 0
-                    ? `No high-sensitivity assumptions found. ${filteredFragileEdges.filteredCount} assumption${filteredFragileEdges.filteredCount === 1 ? '' : 's'} changed the best option in <${Math.round(filteredFragileEdges.threshold * 100)}% of scenarios.`
-                    : 'No sensitive assumptions identified at the current threshold.'}
+      {/* P2-3: Uncertainties - Two-tier ranked list */}
+      {showUncertainties && (() => {
+        // Split uncertainties into two tiers per brief:
+        // - "Could change the decision" = severity critical, error, or blocker (flip probability > 20%)
+        // - "Worth refining" = severity warning or info
+        const highImpactSeverities: CritiqueSeverity[] = ['blocker', 'critical', 'error']
+        const couldChangeDecision = displayUncertainties.filter(
+          item => highImpactSeverities.includes(item.severity || 'warning')
+        )
+        const worthRefining = displayUncertainties.filter(
+          item => !highImpactSeverities.includes(item.severity || 'warning')
+        )
+
+        return (
+          <div className="space-y-4">
+            {uncertainties.length === 0 ? (
+              <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg">
+                <p className="text-sm text-slate-600 flex items-start gap-2">
+                  <span aria-hidden="true">ℹ️</span>
+                  {/* Bug 4 fix: Different message based on robustness status */}
+                  {robustnessStatus !== 'computed'
+                    ? EMPTY_STATES.robustness
+                    : filteredFragileEdges && filteredFragileEdges.filteredCount > 0
+                      ? `No high-sensitivity assumptions found. ${filteredFragileEdges.filteredCount} assumption${filteredFragileEdges.filteredCount === 1 ? '' : 's'} changed the best option in <${Math.round(filteredFragileEdges.threshold * 100)}% of scenarios.`
+                      : 'No sensitive assumptions identified at the current threshold.'}
+                </p>
+              </div>
+            ) : (
+              <>
+                {/* Tier 1: Could change the decision */}
+                {couldChangeDecision.length > 0 && (
+                  <div className="space-y-2">
+                    <h4 className="text-xs text-slate-500 uppercase tracking-wide">
+                      Could change the decision
+                    </h4>
+                    <div className="space-y-2">
+                      {couldChangeDecision.map((item, index) => (
+                        <UncertaintyRow
+                          key={`high-${item.code}-${index}`}
+                          item={item}
+                          onFocus={onFocusNode}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Tier 2: Worth refining */}
+                {worthRefining.length > 0 && (
+                  <div className="space-y-2">
+                    <h4 className="text-xs text-slate-500 uppercase tracking-wide">
+                      Worth refining
+                    </h4>
+                    <div className="space-y-2">
+                      {worthRefining.map((item, index) => (
+                        <UncertaintyRow
+                          key={`low-${item.code}-${index}`}
+                          item={item}
+                          onFocus={onFocusNode}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+
+            {hiddenUncertaintyCount > 0 && (
+              <button
+                onClick={() => setShowAllUncertainties(!showAllUncertainties)}
+                className="text-xs text-sky-600 hover:text-sky-700"
+              >
+                {showAllUncertainties ? 'Show fewer' : `+${hiddenUncertaintyCount} more items`}
+              </button>
+            )}
+
+            {/* Task 1: Hidden high-risk edges disclosure (above threshold but cut by display limit) */}
+            {hiddenHighRiskCount !== undefined && hiddenHighRiskCount > 0 && (
+              <p className="text-xs text-slate-500 mt-2">
+                {hiddenHighRiskCount} more assumption{hiddenHighRiskCount === 1 ? '' : 's'} above threshold not shown
               </p>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {displayUncertainties.map((item, index) => (
-                <UncertaintyRow
-                  key={`${item.code}-${index}`}
-                  item={item}
-                  onFocus={onFocusNode}
-                />
-              ))}
-            </div>
-          )}
+            )}
 
-          {hiddenUncertaintyCount > 0 && (
-            <button
-              onClick={() => setShowAllUncertainties(!showAllUncertainties)}
-              className="text-xs text-sky-600 hover:text-sky-700"
-            >
-              {showAllUncertainties ? 'Show fewer' : `+${hiddenUncertaintyCount} more items`}
-            </button>
-          )}
-
-          {/* Task 1: Hidden high-risk edges disclosure (above threshold but cut by display limit) */}
-          {hiddenHighRiskCount !== undefined && hiddenHighRiskCount > 0 && (
-            <p className="text-xs text-slate-500 mt-2">
-              {hiddenHighRiskCount} more assumption{hiddenHighRiskCount === 1 ? '' : 's'} above threshold not shown
-            </p>
-          )}
-
-          {/* Filtered items disclosure (below threshold) */}
-          {filteredFragileEdges && filteredFragileEdges.filteredCount > 0 && (
-            <p className="text-xs text-slate-500 mt-2">
-              {filteredFragileEdges.description}
-            </p>
-          )}
-        </div>
-      )}
+            {/* Filtered items disclosure (below threshold) */}
+            {filteredFragileEdges && filteredFragileEdges.filteredCount > 0 && (
+              <p className="text-xs text-slate-500 mt-2">
+                {filteredFragileEdges.description}
+              </p>
+            )}
+          </div>
+        )
+      })()}
 
       {/* Task 4 (M1 Coaching): Evidence Gaps - "Where to Investigate" */}
       {evidenceGaps && evidenceGaps.length > 0 && (
@@ -524,7 +562,7 @@ export function ConfidenceSection({
                     {/* Task 4: Only show Focus CTA when target exists */}
                     {canFocus && (
                       <span className="text-xs text-sky-500 flex-shrink-0">
-                        Focus →
+                        Focus in model
                       </span>
                     )}
                   </div>
@@ -581,7 +619,7 @@ export function ConfidenceSection({
                   </div>
                   {action.targetId && (
                     <span className="text-xs text-slate-400 flex-shrink-0">
-                      Focus →
+                      Focus in model
                     </span>
                   )}
                 </div>
@@ -605,10 +643,10 @@ export function ConfidenceSection({
           <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg">
             <p className="text-sm text-slate-600 flex items-start gap-2">
               <span aria-hidden="true">ℹ️</span>
-              {/* Task 3: Show context-appropriate message when no improvements */}
+              {/* Task 3 + P2 Polish: Show context-appropriate message when no improvements */}
               {analysisStatus === 'computed' || analysisStatus === 'partial'
                 ? (tier.tier === 'strong' || robustnessLevel === 'high' || robustnessLevel === 'moderate'
-                    ? 'No improvements identified — your model structure is sound.'
+                    ? 'Model structure is sound — focus on strengthening assumptions and framing.'
                     : 'No structural issues detected. Focus on the assumptions above.')
                 : EMPTY_STATES.improvements}
             </p>

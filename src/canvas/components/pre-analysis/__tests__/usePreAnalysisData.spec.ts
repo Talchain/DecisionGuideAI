@@ -143,7 +143,7 @@ describe('usePreAnalysisData', () => {
       )
     })
 
-    it('adds no_risks to Strengthen when no risk nodes', () => {
+    it('adds no_risks to Strengthen when no risk nodes (coaching format)', () => {
       mockUseCanvasStore.mockImplementation(createMockStore({
         nodes: [
           { id: 'opt1', type: 'option', position: { x: 0, y: 0 }, data: { label: 'Option 1' } },
@@ -157,7 +157,8 @@ describe('usePreAnalysisData', () => {
         expect.objectContaining({
           key: 'no_risks',
           category: 'strengthen',
-          bias: 'blind_spots',
+          // Merged coaching format: question + context in one line
+          label: 'Are there constraints you need to stay within? Budget limits or timeline boundaries make results more realistic.',
         })
       )
     })
@@ -206,6 +207,135 @@ describe('usePreAnalysisData', () => {
 
       expect(result.current.evidenceQuality.level).toBe('high')
       expect(result.current.evidenceQuality.ratio).toBe(0.75)
+    })
+
+    it('returns High when 3/4 factors are brief_extraction (1 cee_inference)', () => {
+      // Formula: nonAiFactors / totalFactors = 3/4 = 0.75 → High (≥0.7)
+      mockUseCanvasStore.mockImplementation(createMockStore({
+        nodes: [
+          { id: 'f1', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'F1', observed_state: { source: 'brief_extraction' } } },
+          { id: 'f2', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'F2', observed_state: { source: 'brief_extraction' } } },
+          { id: 'f3', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'F3', observed_state: { source: 'brief_extraction' } } },
+          { id: 'f4', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'F4', observed_state: { source: 'cee_inference' } } },
+        ],
+      }))
+
+      const { result } = renderHook(() => usePreAnalysisData())
+
+      expect(result.current.evidenceQuality.level).toBe('high')
+      expect(result.current.evidenceQuality.ratio).toBe(0.75)
+    })
+
+    it('returns Medium when 2/4 factors are brief_extraction (2 cee_inference)', () => {
+      // Formula: nonAiFactors / totalFactors = 2/4 = 0.50 → Medium (≥0.4, <0.7)
+      mockUseCanvasStore.mockImplementation(createMockStore({
+        nodes: [
+          { id: 'f1', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'F1', observed_state: { source: 'brief_extraction' } } },
+          { id: 'f2', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'F2', observed_state: { source: 'brief_extraction' } } },
+          { id: 'f3', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'F3', observed_state: { source: 'cee_inference' } } },
+          { id: 'f4', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'F4', observed_state: { source: 'cee_inference' } } },
+        ],
+      }))
+
+      const { result } = renderHook(() => usePreAnalysisData())
+
+      expect(result.current.evidenceQuality.level).toBe('medium')
+      expect(result.current.evidenceQuality.ratio).toBe(0.5)
+    })
+
+    it('returns High when 1 factor is user_confirmed', () => {
+      // Formula: nonAiFactors / totalFactors = 1/1 = 1.00 → High (≥0.7)
+      mockUseCanvasStore.mockImplementation(createMockStore({
+        nodes: [
+          { id: 'f1', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'F1', observed_state: { source: 'user_confirmed' } } },
+        ],
+      }))
+
+      const { result } = renderHook(() => usePreAnalysisData())
+
+      expect(result.current.evidenceQuality.level).toBe('high')
+      expect(result.current.evidenceQuality.ratio).toBe(1)
+    })
+
+    it('returns Low when 1/4 factors are non-AI (1 brief_extraction + 3 cee_inference)', () => {
+      // Formula: nonAiFactors / totalFactors = 1/4 = 0.25 → Low (<0.4)
+      mockUseCanvasStore.mockImplementation(createMockStore({
+        nodes: [
+          { id: 'f1', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'F1', observed_state: { source: 'brief_extraction' } } },
+          { id: 'f2', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'F2', observed_state: { source: 'cee_inference' } } },
+          { id: 'f3', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'F3', observed_state: { source: 'cee_inference' } } },
+          { id: 'f4', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'F4', observed_state: { source: 'cee_inference' } } },
+        ],
+      }))
+
+      const { result } = renderHook(() => usePreAnalysisData())
+
+      expect(result.current.evidenceQuality.level).toBe('low')
+      expect(result.current.evidenceQuality.ratio).toBe(0.25)
+    })
+
+    it('returns Low when 0 total factors (no data)', () => {
+      // Edge case: 0 factors = Low confidence (no data to base confidence on)
+      mockUseCanvasStore.mockImplementation(createMockStore({
+        nodes: [
+          { id: 'opt1', type: 'option', position: { x: 0, y: 0 }, data: { label: 'Option 1' } },
+          { id: 'opt2', type: 'option', position: { x: 0, y: 0 }, data: { label: 'Option 2' } },
+        ],
+      }))
+
+      const { result } = renderHook(() => usePreAnalysisData())
+
+      expect(result.current.evidenceQuality.level).toBe('low')
+      expect(result.current.evidenceQuality.ratio).toBe(0)
+    })
+
+    it('returns Low when 0/3 factors are non-AI (all cee_inference)', () => {
+      // Formula: nonAiFactors / totalFactors = 0/3 = 0 → Low (<0.4)
+      mockUseCanvasStore.mockImplementation(createMockStore({
+        nodes: [
+          { id: 'f1', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'F1', observed_state: { source: 'cee_inference' } } },
+          { id: 'f2', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'F2', observed_state: { source: 'cee_inference' } } },
+          { id: 'f3', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'F3', observed_state: { source: 'cee_inference' } } },
+        ],
+      }))
+
+      const { result } = renderHook(() => usePreAnalysisData())
+
+      expect(result.current.evidenceQuality.level).toBe('low')
+      expect(result.current.evidenceQuality.ratio).toBe(0)
+    })
+
+    it('returns High when factors have no observed_state (undefined source)', () => {
+      // BLOCKLIST approach: undefined is NOT in AI_SOURCES, so counts as non-AI
+      // Formula: nonAiFactors / totalFactors = 3/3 = 1.00 → High (≥0.7)
+      mockUseCanvasStore.mockImplementation(createMockStore({
+        nodes: [
+          { id: 'f1', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'F1' } },
+          { id: 'f2', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'F2' } },
+          { id: 'f3', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'F3' } },
+        ],
+      }))
+
+      const { result } = renderHook(() => usePreAnalysisData())
+
+      expect(result.current.evidenceQuality.level).toBe('high')
+      expect(result.current.evidenceQuality.ratio).toBe(1)
+    })
+
+    it('returns High when factors have default source', () => {
+      // BLOCKLIST approach: 'default' is NOT in AI_SOURCES, so counts as non-AI
+      // Formula: nonAiFactors / totalFactors = 2/2 = 1.00 → High (≥0.7)
+      mockUseCanvasStore.mockImplementation(createMockStore({
+        nodes: [
+          { id: 'f1', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'F1', observed_state: { source: 'default' } } },
+          { id: 'f2', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'F2', observed_state: { source: 'default' } } },
+        ],
+      }))
+
+      const { result } = renderHook(() => usePreAnalysisData())
+
+      expect(result.current.evidenceQuality.level).toBe('high')
+      expect(result.current.evidenceQuality.ratio).toBe(1)
     })
   })
 
@@ -328,6 +458,100 @@ describe('usePreAnalysisData', () => {
       const { result } = renderHook(() => usePreAnalysisData())
 
       expect(result.current.isReady).toBe(true)
+    })
+  })
+
+  describe('Success Threshold Auto-Population', () => {
+    it('auto-fills threshold from goal_threshold', () => {
+      mockUseCanvasStore.mockImplementation(createMockStore({
+        nodes: [
+          {
+            id: 'goal1',
+            type: 'goal',
+            position: { x: 0, y: 0 },
+            data: { label: 'Goal', goal_threshold: 100 },
+          },
+        ],
+      }))
+
+      const { result } = renderHook(() => usePreAnalysisData())
+
+      expect(result.current.successThreshold).toBe(100)
+      expect(result.current.isThresholdAutoDerived).toBe(true)
+    })
+
+    it('auto-fills threshold from observed_state.value when goal_threshold missing', () => {
+      mockUseCanvasStore.mockImplementation(createMockStore({
+        nodes: [
+          {
+            id: 'goal1',
+            type: 'goal',
+            position: { x: 0, y: 0 },
+            data: { label: 'Goal', observed_state: { value: 75 } },
+          },
+        ],
+      }))
+
+      const { result } = renderHook(() => usePreAnalysisData())
+
+      expect(result.current.successThreshold).toBe(75)
+      expect(result.current.isThresholdAutoDerived).toBe(true)
+    })
+
+    it('prefers goal_threshold over observed_state.value', () => {
+      mockUseCanvasStore.mockImplementation(createMockStore({
+        nodes: [
+          {
+            id: 'goal1',
+            type: 'goal',
+            position: { x: 0, y: 0 },
+            data: { label: 'Goal', goal_threshold: 100, observed_state: { value: 75 } },
+          },
+        ],
+      }))
+
+      const { result } = renderHook(() => usePreAnalysisData())
+
+      expect(result.current.successThreshold).toBe(100)
+    })
+
+    it('returns null when no threshold values exist', () => {
+      mockUseCanvasStore.mockImplementation(createMockStore({
+        nodes: [
+          {
+            id: 'goal1',
+            type: 'goal',
+            position: { x: 0, y: 0 },
+            data: { label: 'Goal' },
+          },
+        ],
+      }))
+
+      const { result } = renderHook(() => usePreAnalysisData())
+
+      expect(result.current.successThreshold).toBeNull()
+      expect(result.current.isThresholdAutoDerived).toBe(false)
+    })
+
+    it('isThresholdAutoDerived is false when threshold_source is user', () => {
+      mockUseCanvasStore.mockImplementation(createMockStore({
+        nodes: [
+          {
+            id: 'goal1',
+            type: 'goal',
+            position: { x: 0, y: 0 },
+            data: {
+              label: 'Goal',
+              observed_state: { value: 75 },
+              threshold_source: 'user',
+            },
+          },
+        ],
+      }))
+
+      const { result } = renderHook(() => usePreAnalysisData())
+
+      expect(result.current.isThresholdAutoDerived).toBe(false)
     })
   })
 })

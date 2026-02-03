@@ -42,13 +42,9 @@ export function PreAnalysisPanel({
   // Ref for scrolling to improvements
   const improvementsRef = useRef<HTMLDivElement>(null)
 
-  // Scroll to All Improvements accordion
-  const handleImprovementsClick = useCallback(() => {
-    improvementsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-  }, [])
-
   // Focus handlers - wire to canvas focus helpers
   const setHighlightedNodes = useCanvasStore(s => s.setHighlightedNodes)
+  const setHighlightedEdges = useCanvasStore(s => s.setHighlightedEdges)
 
   const handleFocusNode = useCallback((nodeId: string) => {
     // Highlight and focus the node on canvas
@@ -66,6 +62,22 @@ export function PreAnalysisPanel({
       handleFocusNode(id)
     }
   }, [handleFocusNode])
+
+  // Hover handlers - highlight graph elements on panel item hover
+  const handleHoverElement = useCallback((type: 'node' | 'edge', id: string) => {
+    if (type === 'node') {
+      setHighlightedNodes([id])
+      setHighlightedEdges([])
+    } else {
+      setHighlightedEdges([id])
+      setHighlightedNodes([])
+    }
+  }, [setHighlightedNodes, setHighlightedEdges])
+
+  const handleHoverClear = useCallback(() => {
+    setHighlightedNodes([])
+    setHighlightedEdges([])
+  }, [setHighlightedNodes, setHighlightedEdges])
 
   // Goal change handler - update both ceeAnalysisReady AND outcomeNodeId for run pipeline
   const handleGoalChange = useCallback((goalId: string) => {
@@ -248,6 +260,70 @@ export function PreAnalysisPanel({
     console.info('[PreAnalysisPanel] Added baseline option:', newNode.id)
   }, [setHighlightedNodes])
 
+  // Add option action - create a new option node
+  const handleAddOption = useCallback(() => {
+    const { nodes, addNode, setCeeAnalysisReady } = useCanvasStore.getState()
+
+    // Find decision node for positioning
+    const decisionNode = nodes.find(n => n.type === 'decision')
+    const anchorNode = decisionNode || nodes[0]
+
+    // Calculate position near anchor
+    const newPosition = {
+      x: (anchorNode?.position?.x || 200) + 200,
+      y: (anchorNode?.position?.y || 200) + 100,
+    }
+
+    // Create new option node
+    addNode(newPosition, 'option')
+
+    // Invalidate CEE analysis ready state
+    setCeeAnalysisReady(null)
+
+    // Focus the new node
+    const newNodes = useCanvasStore.getState().nodes
+    const newNode = newNodes[newNodes.length - 1]
+    if (newNode) {
+      setHighlightedNodes([newNode.id])
+      focusNodeById(newNode.id)
+      setTimeout(() => setHighlightedNodes([]), 3000)
+    }
+
+    console.info('[PreAnalysisPanel] Added option node')
+  }, [setHighlightedNodes])
+
+  // Add risk action - create a new risk node
+  const handleAddRisk = useCallback(() => {
+    const { nodes, addNode, setCeeAnalysisReady } = useCanvasStore.getState()
+
+    // Find goal or decision node for positioning
+    const goalNode = nodes.find(n => n.type === 'goal')
+    const anchorNode = goalNode || nodes[0]
+
+    // Calculate position near anchor
+    const newPosition = {
+      x: (anchorNode?.position?.x || 200) + 200,
+      y: (anchorNode?.position?.y || 200) + 100,
+    }
+
+    // Create new risk node
+    addNode(newPosition, 'risk')
+
+    // Invalidate CEE analysis ready state
+    setCeeAnalysisReady(null)
+
+    // Focus the new node
+    const newNodes = useCanvasStore.getState().nodes
+    const newNode = newNodes[newNodes.length - 1]
+    if (newNode) {
+      setHighlightedNodes([newNode.id])
+      focusNodeById(newNode.id)
+      setTimeout(() => setHighlightedNodes([]), 3000)
+    }
+
+    console.info('[PreAnalysisPanel] Added risk node')
+  }, [setHighlightedNodes])
+
   // Memoize action handlers object to prevent unnecessary re-renders
   const actionHandlers: ImprovementActionHandlers = useMemo(() => ({
     onConfirm: handleConfirm,
@@ -255,7 +331,9 @@ export function PreAnalysisPanel({
     onEdit: handleEdit,
     onAddEvidence: handleAddEvidence,
     onAddBaseline: handleAddBaseline,
-  }), [handleConfirm, handleAssumption, handleEdit, handleAddEvidence, handleAddBaseline])
+    onAddOption: handleAddOption,
+    onAddRisk: handleAddRisk,
+  }), [handleConfirm, handleAssumption, handleEdit, handleAddEvidence, handleAddBaseline, handleAddOption, handleAddRisk])
 
   // Don't show panel if canvas is empty
   if (data.nodesByKind.goal.length === 0 &&
@@ -265,19 +343,28 @@ export function PreAnalysisPanel({
   }
 
   return (
-    <div className="flex flex-col h-full relative" data-testid="pre-analysis-panel">
+    <div className="flex flex-col flex-1 min-h-0 overflow-hidden" data-testid="pre-analysis-panel">
       {/* Scrollable content area */}
-      <div className="flex-1 overflow-y-auto px-3 py-3 space-y-4 pb-16">
-        {/* 1. Header with status and improvements link */}
+      <div className="flex-1 min-h-0 overflow-y-auto px-2 py-3 space-y-4">
+        {/* 1. Inline status line */}
         <Header
           isReady={data.isReady}
-          evidenceLevel={data.evidenceQuality.level}
           totalImprovements={data.totalImprovements}
-          onImprovementsClick={handleImprovementsClick}
+          blockerCount={data.blockerCount}
         />
 
         {/* 2. M1 Top Actions (Coach placeholder) */}
-        <M1TopActions topActions={data.topActions} />
+        <M1TopActions
+          topActions={data.topActions}
+          onAddEvidence={handleAddEvidence}
+          onHoverEnter={handleHoverElement}
+          onHoverLeave={handleHoverClear}
+        />
+
+        {/* Divider between top actions and all improvements */}
+        {data.topActions.length > 0 && (
+          <hr className="border-t border-panel-border" />
+        )}
 
         {/* 3. All Improvements accordion */}
         <div ref={improvementsRef}>
@@ -286,6 +373,8 @@ export function PreAnalysisPanel({
             totalImprovements={data.totalImprovements}
             onFocus={handleFocusEdge}
             actionHandlers={actionHandlers}
+            onHoverEnter={handleHoverElement}
+            onHoverLeave={handleHoverClear}
           />
         </div>
 
@@ -294,6 +383,8 @@ export function PreAnalysisPanel({
           nodesByKind={data.nodesByKind}
           edgeCount={data.edgeCount}
           onFocusNode={handleFocusNode}
+          onHoverNode={handleHoverElement}
+          onHoverClear={handleHoverClear}
         />
 
         {/* 5. Analysis Settings accordion (Goal Node + Success threshold) */}

@@ -96,6 +96,7 @@ export interface RecommendationSectionData {
   outcomeUnit?: OutcomeUnitType
   /** Symbol for currency (e.g., '$', '£') */
   outcomeUnitSymbol?: string
+  goalThreshold?: number | null
   /** Recommendation stability (0-1): how often the recommendation stays winner under uncertainty */
   recommendationStability?: number
   /** Win probability (0-1): how often this option beats alternatives */

@@ -57,8 +57,8 @@ export const FactorNode = memo((props: NodeProps) => {
     <div style={{ position: 'relative' }}>
       {isAffectedByHover && (
         <div
-          className="absolute -inset-1 rounded-xl border-2 border-info-500 pointer-events-none -z-10"
-          style={{ boxShadow: '0 0 12px var(--info-500)' }}
+          className="absolute -inset-1 rounded-xl border-2 border-info pointer-events-none -z-10"
+          style={{ boxShadow: '0 0 12px var(--info)' }}
         />
       )}
       <BaseNode
@@ -69,7 +69,7 @@ export const FactorNode = memo((props: NodeProps) => {
       >
       {/* Decision Graph Display v2 Task 11: Show intervention value when option hovered */}
       {isAffectedByHover && (
-        <div className="text-xs font-semibold text-info-600 mb-1 bg-info-50 px-1.5 py-0.5 rounded border border-info-200">
+        <div className="text-xs font-semibold text-info mb-1 bg-info-light px-1.5 py-0.5 rounded border border-info/30">
           Intervention: {formatDisplayValue(interventionValue, observedState?.unit)}
         </div>
       )}
@@ -84,14 +84,14 @@ export const FactorNode = memo((props: NodeProps) => {
           {/* Influence bar - teal/info color (only show if > 0) */}
           {displayMetadata.influence !== null && displayMetadata.influence > 0.001 && (
             <div className="flex items-center gap-1.5">
-              <span className="text-[10px] text-slate-500 w-14 shrink-0 truncate" title="Influence">Influence</span>
-              <div className="flex-1 h-1.5 bg-slate-200 rounded-full overflow-hidden max-w-[60px]">
+              <span className="text-[10px] text-text-light w-14 shrink-0 truncate" title="Influence">Influence</span>
+              <div className="flex-1 h-1.5 bg-panel-border rounded-full overflow-hidden max-w-[60px]">
                 <div
-                  className="h-full bg-info-500 rounded-full transition-all duration-300"
+                  className="h-full bg-info rounded-full transition-all duration-300"
                   style={{ width: `${Math.round(displayMetadata.influence * 100)}%` }}
                 />
               </div>
-              <span className="text-[10px] text-slate-500 w-8 text-right shrink-0">
+              <span className="text-[10px] text-text-light w-8 text-right shrink-0">
                 {Math.round(displayMetadata.influence * 100)}%
               </span>
             </div>
@@ -99,14 +99,14 @@ export const FactorNode = memo((props: NodeProps) => {
           {/* Confidence bar - slate/muted color (only show if > 0) */}
           {displayMetadata.confidence !== null && displayMetadata.confidence > 0.001 && (
             <div className="flex items-center gap-1.5">
-              <span className="text-[10px] text-slate-500 w-14 shrink-0 truncate" title="Confidence">Confidence</span>
-              <div className="flex-1 h-1.5 bg-slate-200 rounded-full overflow-hidden max-w-[60px]">
+              <span className="text-[10px] text-text-light w-14 shrink-0 truncate" title="Confidence">Confidence</span>
+              <div className="flex-1 h-1.5 bg-panel-border rounded-full overflow-hidden max-w-[60px]">
                 <div
-                  className="h-full bg-slate-400 rounded-full transition-all duration-300"
+                  className="h-full bg-factor rounded-full transition-all duration-300"
                   style={{ width: `${Math.round(displayMetadata.confidence * 100)}%` }}
                 />
               </div>
-              <span className="text-[10px] text-slate-500 w-8 text-right shrink-0">
+              <span className="text-[10px] text-text-light w-8 text-right shrink-0">
                 {Math.round(displayMetadata.confidence * 100)}%
               </span>
             </div>
@@ -118,14 +118,14 @@ export const FactorNode = memo((props: NodeProps) => {
       {/* UI Polish Task 1 & 3: Fixed unit position (after number for %) and added spacing */}
       {observedState && typeof observedState.value === 'number' && (
         <div className="factor-node-value text-xs mt-2 flex items-baseline gap-1">
-          <span className="font-semibold text-info-600">
+          <span className="font-semibold text-info">
             {/* UI Polish: formatDisplayValue handles % internally, so don't prepend unit for % */}
             {observedState.unit === '%'
               ? formatDisplayValue(observedState.value, observedState.unit)
               : `${observedState.unit ?? ''}${formatDisplayValue(observedState.value, observedState.unit)}`}
           </span>
           {observedState.baseline !== undefined && observedState.baseline !== observedState.value && (
-            <span className="text-slate-400 text-[10px]">
+            <span className="text-text-light text-[10px]">
               (was {observedState.unit === '%'
                 ? formatDisplayValue(observedState.baseline, observedState.unit)
                 : `${observedState.unit ?? ''}${formatDisplayValue(observedState.baseline, observedState.unit)}`})

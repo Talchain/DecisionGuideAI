@@ -11,6 +11,7 @@
  */
 
 import { CheckCircle, XCircle, Loader2 } from 'lucide-react'
+import { Tooltip } from '../Tooltip'
 import type { EvidenceQualityLevel } from './hooks/usePreAnalysisData'
 
 /** Evidence level colour mapping per brief spec */
@@ -71,7 +72,7 @@ export function StickyFooter({
 
   return (
     <div
-      className="absolute bottom-0 left-0 right-0 h-12 px-3 flex items-center justify-between bg-panel border-t border-panel-border"
+      className="flex-shrink-0 h-12 px-3 flex items-center justify-between bg-panel border-t border-panel-border"
       data-testid="sticky-footer"
     >
       {/* Left: Status + Evidence */}
@@ -83,12 +84,14 @@ export function StickyFooter({
         {evidenceLevel && (
           <>
             <span className="text-text-light">·</span>
-            <span className="text-text-body">
-              Evidence:{' '}
-              <span style={{ color: EVIDENCE_LEVEL_COLOURS[evidenceLevel] }}>
-                {evidenceLevel.charAt(0).toUpperCase() + evidenceLevel.slice(1)}
+            <Tooltip content="Based on how many factor values are confirmed vs estimated by AI">
+              <span className="text-text-body cursor-help">
+                Input confidence:{' '}
+                <span style={{ color: EVIDENCE_LEVEL_COLOURS[evidenceLevel] }}>
+                  {evidenceLevel.charAt(0).toUpperCase() + evidenceLevel.slice(1)}
+                </span>
               </span>
-            </span>
+            </Tooltip>
           </>
         )}
       </div>
@@ -100,7 +103,7 @@ export function StickyFooter({
         disabled={isDisabled}
         aria-disabled={isDisabled ? 'true' : 'false'}
         className={`
-          px-4 py-2 rounded-full text-sm font-medium transition-colors
+          px-4 py-2 rounded-full text-[11px] font-medium transition-colors
           flex items-center gap-2
           ${buttonStyle}
         `}

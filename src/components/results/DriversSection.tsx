@@ -52,6 +52,101 @@ const ZERO_REASON_MESSAGES: Record<string, string> = {
   zero_outcome_diff: "Changes don't affect outcome",
 }
 
+/**
+ * P1 Results Brief Item 7: Detect binary (0/1) factors from label pattern.
+ * Binary factors need different sensitivity copy since "10% change" is incoherent.
+ * Patterns detected: "(0/1)", "(0 or 1)", "yes/no", "(binary)"
+ */
+function isBinaryFactor(label: string): boolean {
+  const binaryPatterns = [
+    /\(0\/1\)/i,           // (0/1)
+    /\(0 or 1\)/i,         // (0 or 1)
+    /\(yes\/no\)/i,        // (yes/no)
+    /\(binary\)/i,         // (binary)
+    /\(on\/off\)/i,        // (on/off)
+    /\(true\/false\)/i,    // (true/false)
+  ]
+  return binaryPatterns.some(pattern => pattern.test(label))
+}
+
+/**
+ * P1 Results Brief Item 6: Clean up factor label encoding leaks.
+ * Strips technical encoding patterns from labels for cleaner display:
+ * - "Tech Lead Hired (0/1)" → "Tech Lead Hired"
+ * - "Advertising Budget (0–1, share of £20k cap)" → "Advertising Budget"
+ * - "Market Size (0-100)" → "Market Size"
+ *
+ * Returns cleaned label with optional qualifier (e.g., "Yes/No" for binary).
+ */
+function cleanFactorLabel(rawLabel: string): { label: string; qualifier?: string } {
+  // Patterns to strip from labels (preserving useful info when possible)
+  const patterns = [
+    // Binary patterns - strip and add qualifier
+    { pattern: /\s*\(0\/1\)\s*$/i, qualifier: 'Yes/No' },
+    { pattern: /\s*\(0 or 1\)\s*$/i, qualifier: 'Yes/No' },
+    { pattern: /\s*\(yes\/no\)\s*$/i, qualifier: 'Yes/No' },
+    { pattern: /\s*\(binary\)\s*$/i, qualifier: 'Yes/No' },
+    { pattern: /\s*\(on\/off\)\s*$/i, qualifier: 'On/Off' },
+    { pattern: /\s*\(true\/false\)\s*$/i, qualifier: 'True/False' },
+    // Range patterns - strip encoding but try to preserve meaningful range
+    { pattern: /\s*\(0[-–]1,?\s*share of\s+([£$€]?\d+[kK]?)\s*cap\)\s*$/i, replace: (m: string, cap: string) => ` (up to ${cap})` },
+    { pattern: /\s*\(0[-–]1\)\s*$/i, qualifier: undefined },  // Just strip numeric ranges
+    { pattern: /\s*\(0[-–]100\)\s*$/i, qualifier: undefined },
+    { pattern: /\s*\(0[-–]10\)\s*$/i, qualifier: undefined },
+    { pattern: /\s*\(\d+[-–]\d+\)\s*$/i, qualifier: undefined }, // Generic numeric range
+  ]
+
+  let cleanedLabel = rawLabel
+  let qualifier: string | undefined
+
+  for (const { pattern, qualifier: q, replace } of patterns) {
+    if (pattern.test(cleanedLabel)) {
+      if (replace) {
+        // Custom replacement function
+        cleanedLabel = cleanedLabel.replace(pattern, replace as never)
+      } else {
+        // Simple strip
+        cleanedLabel = cleanedLabel.replace(pattern, '')
+      }
+      if (q) qualifier = q
+      break // Only match first pattern
+    }
+  }
+
+  return { label: cleanedLabel.trim(), qualifier }
+}
+
+/**
+ * P1 Results Brief Item 7: Get appropriate sensitivity copy for factor type.
+ * - Binary factors: "If yes → ~X% shift" (not "10% change")
+ * - Continuous factors: "10% change → ~X% shift"
+ */
+function getSensitivityCopy(
+  label: string,
+  rawElasticity: number,
+  direction?: 'positive' | 'negative',
+  goalLabel?: string
+): string | null {
+  // Only show copy when we have meaningful elasticity data
+  if (rawElasticity <= 0.001) {
+    // Fallback to direction-only when no elasticity
+    if (direction && goalLabel) {
+      return direction === 'positive' ? `↗ ${goalLabel}` : `↘ ${goalLabel}`
+    }
+    return null
+  }
+
+  const shiftPercent = Math.round(rawElasticity * 10)
+
+  if (isBinaryFactor(label)) {
+    // Binary factor: "If yes → ~X% shift" or "Switching on/off → ~X% shift"
+    return `If yes → ~${shiftPercent}% shift`
+  }
+
+  // Continuous factor: standard copy
+  return `10% change → ~${shiftPercent}% shift`
+}
+
 // Tooltip component for secondary information
 function FactorTooltip({
   content,
@@ -169,9 +264,11 @@ function ExpandedDetails({
     }
   }, [driver.canFocus, driver.matchedNodeId, driver.factorKey, onFocus])
 
-  // Generate contextual insight copy only when we have real magnitude data
+  // P1 Results Brief Item 7: Binary-aware elasticity insight copy
   const elasticityInsight = driver.rawElasticity > 0.001
-    ? `A 10% change here shifts your goal by ~${Math.round(driver.rawElasticity * 10)}%`
+    ? isBinaryFactor(driver.factorLabel)
+      ? `Switching this on/off shifts your goal by ~${Math.round(driver.rawElasticity * 10)}%`
+      : `A 10% change here shifts your goal by ~${Math.round(driver.rawElasticity * 10)}%`
     : null
 
   // Task 3.5: Direction-based interpretation fallback when no elasticity data
@@ -275,6 +372,9 @@ function DriverRow({
   const [isTooltipOpen, setIsTooltipOpen] = useState(false)
   const infoButtonRef = useRef<HTMLButtonElement>(null)
 
+  // P1 Results Brief Item 6: Clean factor label encoding
+  const { label: cleanedLabel, qualifier: labelQualifier } = cleanFactorLabel(driver.factorLabel)
+
   // Direction styling - arrow color matches bar color
   const directionIcon = driver.direction === 'positive' ? '↗' : driver.direction === 'negative' ? '↘' : '•'
   const directionColor = driver.direction === 'positive'
@@ -297,15 +397,8 @@ function DriverRow({
     ? Math.max(0, Math.min(1, driver.confidence))
     : null
 
-  // Compact impact copy for second line
-  const impactShift = driver.rawElasticity > 0.001
-    ? Math.round(driver.rawElasticity * 10)
-    : null
-  const compactImpact = impactShift !== null
-    ? `10% change → ~${impactShift}% shift`
-    : driver.direction && goalLabel
-      ? driver.direction === 'positive' ? `↗ ${goalLabel}` : `↘ ${goalLabel}`
-      : null
+  // P1 Results Brief Item 7: Use binary-aware sensitivity copy
+  const compactImpact = getSensitivityCopy(driver.factorLabel, driver.rawElasticity, driver.direction, goalLabel)
 
   // Determine if we have secondary content for tooltip
   const alternativeWinnerLabel = driver.fragileEdgeInfo?.alternativeWinnerLabel
@@ -338,12 +431,19 @@ function DriverRow({
     setIsTooltipOpen(prev => !prev)
   }, [])
 
+  // P1 Results Brief Item 7: Binary-aware tooltip copy
+  const tooltipElasticityCopy = driver.rawElasticity > 0.001
+    ? isBinaryFactor(driver.factorLabel)
+      ? `Switching this on/off shifts your goal by ~${Math.round(driver.rawElasticity * 10)}%`
+      : `A 10% change here shifts your goal by ~${Math.round(driver.rawElasticity * 10)}%`
+    : null
+
   // Tooltip content
   const tooltipContent = (
     <>
-      {/* Full elasticity insight */}
-      {driver.rawElasticity > 0.001 && (
-        <p>A 10% change here shifts your goal by ~{Math.round(driver.rawElasticity * 10)}%</p>
+      {/* Full elasticity insight - P1: binary-aware copy */}
+      {tooltipElasticityCopy && (
+        <p>{tooltipElasticityCopy}</p>
       )}
       {/* Decision change risk */}
       {decisionChangeRisk && <p>{decisionChangeRisk}</p>}
@@ -377,7 +477,7 @@ function DriverRow({
     >
       {/* Line 1: Factor name + bars */}
       <div className={`grid ${GRID_COLS} gap-3 items-center p-3 pb-1`}>
-        {/* Factor name with direction arrow */}
+        {/* Factor name with direction arrow - P1 Item 6: cleaned label */}
         <div className="flex items-start gap-1.5 min-w-0">
           <span
             className="text-sm flex-shrink-0 mt-0.5"
@@ -387,7 +487,10 @@ function DriverRow({
             {directionIcon}
           </span>
           <span className="text-sm text-slate-800 break-words leading-snug">
-            {driver.factorLabel}
+            {cleanedLabel}
+            {labelQualifier && (
+              <span className="text-slate-400 ml-1">({labelQualifier})</span>
+            )}
           </span>
         </div>
 
@@ -595,7 +698,7 @@ export function DriversSection({
         </div>
         <div
           className="text-xs text-slate-500 text-right pr-6 cursor-help"
-          title="How certain we are about this causal relationship"
+          title="How certain the model is about this factor's influence, based on edge belief strength and evidence quality"
         >
           Confidence
         </div>

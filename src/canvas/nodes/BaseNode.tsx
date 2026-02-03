@@ -147,15 +147,13 @@ export const BaseNode = memo(({ id, nodeType, icon: Icon, data, selected, childr
         ${isDimmed ? 'opacity-40' : ''}
       `}
       style={{
-        backgroundColor: 'white', // Solid background
+        backgroundColor: '#FEFEFE', // Panel background color
         padding: '12px',
         minWidth: '140px',
         maxWidth: isExpanded ? '300px' : '200px',
         minHeight: isExpanded ? '120px' : undefined,
       }}
     >
-      {/* Phase 3: Border colour overlay for subtle tint */}
-      <div className={`absolute inset-0 rounded-lg ${colors.bg} opacity-10 -z-10`} />
       {/* Phase 2: Node badges for CEE/ISL warnings */}
       <NodeBadge
         nodeId={id}
@@ -197,6 +195,7 @@ export const BaseNode = memo(({ id, nodeType, icon: Icon, data, selected, childr
         }}
       >
         <span
+          className={colors.text}
           style={{
             display: 'inline-flex',
             alignItems: 'center',
@@ -208,7 +207,7 @@ export const BaseNode = memo(({ id, nodeType, icon: Icon, data, selected, childr
         </span>
 
         <span
-          className={`${typography.caption} ${colors.text} ${colors.bg} uppercase tracking-wide font-semibold px-1.5 py-0.5 rounded`}
+          className={`${typography.caption} ${colors.text} uppercase tracking-wide font-semibold`}
         >
           {nodeType}
         </span>
@@ -228,23 +227,23 @@ export const BaseNode = memo(({ id, nodeType, icon: Icon, data, selected, childr
             title={isExpanded ? 'Collapse' : 'Expand'}
           >
             {isExpanded ? (
-              <ChevronUp size={14} className={colors.text} />
+              <ChevronUp size={14} className="text-text-light" />
             ) : (
-              <ChevronDown size={14} className={colors.text} />
+              <ChevronDown size={14} className="text-text-light" />
             )}
           </button>
         )}
       </div>
       
       {/* Node label */}
-      <div className={`${typography.nodeTitle} ${colors.text} break-words`}>
+      <div className={`${typography.nodeTitle} text-text-body break-words`}>
         {label}
       </div>
 
       {/* Expanded description (markdown) */}
       {isExpanded && description && (
         <div
-          className={`${typography.nodeLabel} ${colors.text} opacity-85 mt-3 max-h-[200px] overflow-y-auto node-description`}
+          className={`${typography.nodeLabel} text-text-body opacity-85 mt-3 max-h-[200px] overflow-y-auto node-description`}
           dangerouslySetInnerHTML={{
             __html: sanitizeMarkdown(description)
           }}
@@ -253,7 +252,7 @@ export const BaseNode = memo(({ id, nodeType, icon: Icon, data, selected, childr
 
       {/* Optional children (description, metrics, etc.) */}
       {children && (
-        <div className={`${typography.nodeLabel} ${colors.text} opacity-80 mt-2`}>
+        <div className={`${typography.nodeLabel} text-text-body opacity-80 mt-2`}>
           {children}
         </div>
       )}

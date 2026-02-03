@@ -38,12 +38,13 @@ export const TopBar = ({
   const [settingsExpanded, setSettingsExpanded] = useState(false)
   const menuRef = useRef<HTMLDivElement | null>(null)
 
-  // Keep CSS layout variable in sync so docks respect top bar height
+  // Floating pill TopBar - set topbar-h to pill bottom (12px top + 45px height = 57px)
+  // This ensures LeftSidebar and other elements position correctly below the pill
   useEffect(() => {
     if (typeof document === 'undefined') return
     const root = document.documentElement
     const previous = root.style.getPropertyValue('--topbar-h')
-    root.style.setProperty('--topbar-h', '45px')
+    root.style.setProperty('--topbar-h', '57px')
     return () => {
       root.style.setProperty('--topbar-h', previous || '0px')
     }
@@ -157,7 +158,7 @@ export const TopBar = ({
 
   return (
     <div className={styles.topBar} role="banner">
-      {/* Left section */}
+      {/* Left section - logo and title */}
       <div className={styles.topBarLeft}>
         <a href="/" className={styles.logoLink} aria-label="Olumi home">
           <img
@@ -166,6 +167,9 @@ export const TopBar = ({
             className={styles.logo}
           />
         </a>
+
+        {/* Divider between logo and title */}
+        <div className={styles.divider} aria-hidden="true" />
 
         {/* Editable title */}
         {isEditing ? (

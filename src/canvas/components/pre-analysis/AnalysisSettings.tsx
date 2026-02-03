@@ -59,7 +59,7 @@ export function AnalysisSettings({
           <div className="flex items-center gap-3">
             <label
               htmlFor="goal-selector"
-              className="text-xs text-text-light w-24 flex-shrink-0"
+              className="text-sm text-text-light flex-shrink-0"
             >
               Goal
             </label>
@@ -67,7 +67,8 @@ export function AnalysisSettings({
               id="goal-selector"
               value={selectedGoalNode?.id ?? ''}
               onChange={(e) => onGoalChange?.(e.target.value)}
-              className="flex-1 px-2 py-1.5 text-sm border border-panel-border rounded-lg bg-panel text-text-body focus:outline-none focus:ring-2 focus:ring-info"
+              title={selectedGoalNode ? getNodeLabel(selectedGoalNode) : undefined}
+              className="flex-1 min-w-0 px-2 py-1.5 text-sm border border-panel-border rounded-lg bg-panel text-text-body focus:outline-none focus:ring-2 focus:ring-info cursor-pointer truncate"
             >
               {goalNodes.map(goal => (
                 <option key={goal.id} value={goal.id}>
@@ -82,7 +83,7 @@ export function AnalysisSettings({
         <div className="flex items-center gap-3">
           <label
             htmlFor="success-threshold"
-            className="text-xs text-text-light w-24 flex-shrink-0"
+            className="text-sm text-text-light w-24 flex-shrink-0"
           >
             Success threshold
           </label>
@@ -90,7 +91,7 @@ export function AnalysisSettings({
             <input
               id="success-threshold"
               type="number"
-              placeholder="Enter target value"
+              placeholder="Enter target value (optional)"
               value={successThreshold ?? ''}
               onChange={(e) => {
                 const rawValue = e.target.value
@@ -107,15 +108,17 @@ export function AnalysisSettings({
               className="flex-1 px-2 py-1.5 text-sm border border-panel-border rounded-lg bg-panel text-text-body focus:outline-none focus:ring-2 focus:ring-info"
             />
             {isThresholdAutoDerived && (
-              <Pill size="small" variant="info">
-                Auto-filled
-              </Pill>
+              <span title="Derived from goal node value">
+                <Pill size="small" variant="info">
+                  Auto
+                </Pill>
+              </span>
             )}
           </div>
         </div>
 
         {/* Helper text */}
-        <p className="text-xs text-text-light">
+        <p className="text-sm text-text-light">
           When set, shows probability of reaching this target for each option.
         </p>
 

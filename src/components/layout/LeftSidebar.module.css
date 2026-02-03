@@ -56,20 +56,20 @@
 }
 
 .iconButtonPrimary {
-  background: var(--info-500);
-  border-color: var(--info-500);
+  background: var(--info);
+  border-color: var(--info);
   color: white;
 }
 
 .iconButton:hover,
 .iconButtonPrimary:hover {
   background: var(--paper-50);
-  border-color: var(--info-500);
-  box-shadow: 0 0 0 1px var(--info-100);
+  border-color: var(--info);
+  box-shadow: 0 0 0 1px var(--info-light);
 }
 
 .iconButtonPrimary:hover {
-  background: var(--info-600);
+  background: var(--info-hover);
 }
 
 /* Active state for mode toggle buttons */
@@ -97,7 +97,7 @@
 .iconButton:focus-visible,
 .iconButtonPrimary:focus-visible,
 .iconButtonActive:focus-visible {
-  outline: 2px solid var(--info-500);
+  outline: 2px solid var(--info);
   outline-offset: 2px;
 }
 

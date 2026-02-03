@@ -60,8 +60,8 @@ describe('ConfidenceSection', () => {
     render(<ConfidenceSection data={mockData} />)
 
     // Component should render - title is now in parent panel header
-    // Check that some expected content is present
-    expect(screen.getByText('Uncertainties')).toBeInTheDocument()
+    // Check that some expected content is present (P2: two-tier uncertainty display)
+    expect(screen.getByText('Worth refining')).toBeInTheDocument()
     expect(screen.getByText('Improvements')).toBeInTheDocument()
   })
 
@@ -111,7 +111,8 @@ describe('ConfidenceSection', () => {
   it('renders uncertainties', () => {
     render(<ConfidenceSection data={mockData} />)
 
-    expect(screen.getByText('Uncertainties')).toBeInTheDocument()
+    // P2: Two-tier display - mock data has no severity, defaults to 'warning' → "Worth refining"
+    expect(screen.getByText('Worth refining')).toBeInTheDocument()
     expect(screen.getByText('Some assumptions may significantly affect results')).toBeInTheDocument()
   })
 
@@ -513,7 +514,7 @@ describe('ConfidenceSection', () => {
       // Row should render cleanly
       expect(screen.getByText('Unknown Factor')).toBeInTheDocument()
       expect(screen.getByText('Investigate this')).toBeInTheDocument()
-      expect(screen.getByText('Focus →')).toBeInTheDocument()
+      expect(screen.getByText('Focus in model')).toBeInTheDocument()
 
       // But VOI label should NOT be present
       expect(screen.queryByText(/impact if resolved/)).not.toBeInTheDocument()

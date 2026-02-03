@@ -16,7 +16,6 @@ import { useCallback, useMemo } from 'react'
 import { CheckCircle, Scale, Search, AlertTriangle } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import type { RecommendationSectionData, OptionResult, OutcomeUnitType, WinnerDeterminedBy, RobustnessLevel, RobustnessLabel, M1CoachingReadiness } from './types'
-import type { NearTieInfo } from '../../lib/mappers/types'
 import { focusNodeById } from '../../canvas/utils/focusHelpers'
 import { EMPTY_STATES } from './emptyStates'
 import { formatOutcomeValue, type OutcomeUnits } from '../../lib/format'
@@ -29,6 +28,7 @@ interface RecommendationSectionProps {
   onFocusNode?: (nodeId: string) => void
   /** Callback to navigate to Structure tab (for needs_framing CTA) */
   onNavigateToStructure?: () => void
+  onAddStatusQuoBaseline?: () => void
 }
 
 /**
@@ -97,6 +97,19 @@ function formatOutcome(
 
   // Unknown unit: plain number
   return displayValue.toFixed(decimals)
+}
+
+/**
+ * P0 Results Brief Item 1: Get recommendation label based on stability.
+ * - stability >= 70%: "Recommended" (confident recommendation)
+ * - stability 55-69%: "Current front-runner (given current assumptions)" (hedged)
+ * - stability < 55%: null (suppress label entirely - "too close to call")
+ */
+function getRecommendationLabel(stability: number | undefined): string | null {
+  if (stability == null) return 'Recommended' // Fallback to default if no stability data
+  if (stability >= 0.70) return 'Recommended'
+  if (stability >= 0.55) return 'Current front-runner'
+  return null // Suppress entirely when too close to call
 }
 
 /**
@@ -261,7 +274,7 @@ function RobustnessBadge({
   return (
     <span
       className={`${typography.caption} inline-flex items-center gap-1.5 px-2 py-0.5 rounded ${bgColor} ${textColor}`}
-      title="Statistical stability — how often this option stays best across simulated scenarios"
+      title="Percentage of simulated worlds where this option stays the winner"
     >
       <span className={`w-2 h-2 rounded-full ${dotColor}`} aria-hidden="true" />
       {text}
@@ -494,6 +507,8 @@ function OptionRow({
   outcomeUnit,
   outcomeUnitSymbol,
   storyHeadline,
+  goalThreshold,
+  recommendationLabel,
 }: {
   option: OptionResult
   onFocus?: (nodeId: string) => void
@@ -501,6 +516,9 @@ function OptionRow({
   outcomeUnitSymbol?: string
   /** M1 Coaching: Story headline for this option */
   storyHeadline?: string
+  goalThreshold?: number | null
+  /** P0 Results Brief: Stability-based recommendation label (null = suppress) */
+  recommendationLabel?: string | null
 }) {
   const handleClick = useCallback(() => {
     if (onFocus) {
@@ -510,9 +528,11 @@ function OptionRow({
     }
   }, [option.id, onFocus])
 
-  // Task 1.4: Use outcome.mean (expected) consistently
-  const displayValue = option.expected ?? option.goalProbability
-  const displaySuffix = option.goalProbability != null && option.expected == null
+  const showGoalProbability = goalThreshold != null && option.goalProbability != null
+  const displayValue = showGoalProbability
+    ? option.goalProbability
+    : option.expected ?? option.goalProbability
+  const displaySuffix = showGoalProbability || (option.goalProbability != null && option.expected == null)
     ? 'chance'
     : 'expected'
 
@@ -542,9 +562,10 @@ function OptionRow({
           >
             {option.label}
           </span>
-          {option.isRecommended && (
+          {/* P0 Results Brief: Stability-based recommendation label */}
+          {option.isRecommended && recommendationLabel && (
             <span className="text-xs bg-success-100 text-success-700 px-1.5 py-0.5 rounded">
-              Recommended
+              {recommendationLabel}
             </span>
           )}
           {option.isBaseline && (
@@ -586,6 +607,7 @@ export function RecommendationSection({
   data,
   onFocusNode,
   onNavigateToStructure,
+  onAddStatusQuoBaseline,
 }: RecommendationSectionProps) {
   const {
     recommendedOption,
@@ -618,6 +640,7 @@ export function RecommendationSection({
     dominantFactorLabel,
     // Task 6: Ready + warnings consistency
     hasWarnings,
+    goalThreshold,
   } = data
 
   // Task B: All-or-none story headlines guard
@@ -656,6 +679,7 @@ export function RecommendationSection({
   // Task 1.4: Use outcome.mean (expected) consistently - NOT p50 (median)
   const expectedValue = recommendedOption.expected
   const hasGoalProbability = typeof recommendedOption.goalProbability === 'number'
+  const showGoalProbabilityHeadline = goalThreshold != null && hasGoalProbability
   const shouldShowOutcomeDescription =
     typeof recommendedOption.outcome.p10 === 'number' &&
     typeof expectedValue === 'number' &&
@@ -696,8 +720,35 @@ export function RecommendationSection({
 
   const showTieExplanation = outcomesAppearTied && winSpread > 0.1
 
+  const hasBaseline = allOptions.some(o => o.isBaseline)
+
   return (
     <div className="space-y-4">
+      {/* Framing callout: Missing baseline */}
+      {!hasBaseline && onAddStatusQuoBaseline && (
+        <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg flex items-center justify-between gap-3">
+          <p className="text-sm text-slate-600">
+            Add a baseline option to compare against the current approach.
+          </p>
+          <button
+            onClick={onAddStatusQuoBaseline}
+            className="text-sm text-sky-700 hover:text-sky-800 hover:underline"
+          >
+            Add Status Quo baseline
+          </button>
+        </div>
+      )}
+
+      {/* Framing callout: Only two options (P1-3) */}
+      {allOptions.length === 2 && !isSingleOption && (
+        <div className="p-3 bg-info-50 border border-info-200 rounded-lg">
+          <p className="text-sm text-info-800">
+            <span className="font-medium">Limited options:</span>{' '}
+            Consider whether there are other approaches worth evaluating. Binary choices can sometimes miss creative alternatives.
+          </p>
+        </div>
+      )}
+
       {/* Task 1.7: Goal context - displayed when present */}
       {goalText && (
         <div className="text-sm text-slate-600">
@@ -742,11 +793,13 @@ export function RecommendationSection({
           <div>
             <span className="text-xs text-success-700">Best estimate:</span>
             <span className="text-xl font-semibold text-success-900 ml-2">
-              {expectedValue != null
-                ? `~${formatOutcome(Math.abs(expectedValue), outcomeUnit, outcomeUnitSymbol)} ${expectedValue >= 0 ? 'improvement' : 'decline'}`
-                : hasGoalProbability
-                  ? `${formatPercent(recommendedOption.goalProbability as number)} chance of reaching goal`
-                  : EMPTY_STATES.rangeData}
+              {showGoalProbabilityHeadline
+                ? `${formatPercent(recommendedOption.goalProbability as number)} chance of reaching goal`
+                : expectedValue != null
+                  ? `~${formatOutcome(Math.abs(expectedValue), outcomeUnit, outcomeUnitSymbol)} ${expectedValue >= 0 ? 'improvement' : 'decline'}`
+                  : hasGoalProbability
+                    ? `${formatPercent(recommendedOption.goalProbability as number)} chance of reaching goal`
+                    : EMPTY_STATES.rangeData}
             </span>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
@@ -882,6 +935,8 @@ export function RecommendationSection({
                 outcomeUnit={outcomeUnit}
                 outcomeUnitSymbol={outcomeUnitSymbol}
                 storyHeadline={showStoryHeadlines ? storyHeadlines?.[option.id] : undefined}
+                goalThreshold={goalThreshold}
+                recommendationLabel={getRecommendationLabel(recommendationStability)}
               />
             ))}
           </div>

@@ -36,6 +36,10 @@ interface ModelSnapshotProps {
   edgeCount: number
   /** Click handler for node focus (no-op in M1) */
   onFocusNode?: (nodeId: string) => void
+  /** Handler for hovering over a node */
+  onHoverNode?: (type: 'node' | 'edge', id: string) => void
+  /** Handler for clearing hover */
+  onHoverClear?: () => void
 }
 
 /** Node kind configuration */
@@ -59,9 +63,13 @@ interface SnapshotRowProps {
   kind: keyof NodesByKind
   nodes: Node[]
   onFocusNode?: (nodeId: string) => void
+  /** Handler for hovering over a node */
+  onHoverNode?: (type: 'node' | 'edge', id: string) => void
+  /** Handler for clearing hover */
+  onHoverClear?: () => void
 }
 
-function SnapshotRow({ kind, nodes, onFocusNode }: SnapshotRowProps) {
+function SnapshotRow({ kind, nodes, onFocusNode, onHoverNode, onHoverClear }: SnapshotRowProps) {
   const [isExpanded, setIsExpanded] = useState(false)
   const config = kindConfig[kind]
   const Icon = config.icon
@@ -85,19 +93,24 @@ function SnapshotRow({ kind, nodes, onFocusNode }: SnapshotRowProps) {
       <Icon className={`w-4 h-4 flex-shrink-0 mt-0.5 ${config.colorClass}`} aria-hidden="true" />
 
       {/* Kind label - coloured text permitted here */}
-      <span className={`text-xs font-medium w-16 flex-shrink-0 ${config.colorClass}`}>
+      <span className={`text-sm font-medium w-16 flex-shrink-0 ${config.colorClass}`}>
         {config.label}
       </span>
 
       {/* Node links */}
       <div className="flex-1 flex flex-wrap items-center gap-x-1 gap-y-0.5">
         {visibleNodes.map((node, idx) => (
-          <span key={node.id} className="inline-flex items-center">
+          <span
+            key={node.id}
+            className="inline-flex items-center"
+            onMouseEnter={() => onHoverNode?.('node', node.id)}
+            onMouseLeave={() => onHoverClear?.()}
+          >
             <NodeLink
               targetId={node.id}
               targetType="node"
               onClick={() => onFocusNode?.(node.id)}
-              className="text-xs"
+              className="text-sm"
             >
               {getNodeLabel(node)}
             </NodeLink>
@@ -112,7 +125,7 @@ function SnapshotRow({ kind, nodes, onFocusNode }: SnapshotRowProps) {
           <button
             type="button"
             onClick={handleToggleExpand}
-            className="text-xs text-info hover:underline ml-1"
+            className="text-xs text-info hover:underline cursor-pointer ml-1"
           >
             (+{hiddenCount})
           </button>
@@ -121,7 +134,7 @@ function SnapshotRow({ kind, nodes, onFocusNode }: SnapshotRowProps) {
           <button
             type="button"
             onClick={handleToggleExpand}
-            className="text-xs text-info hover:underline ml-1"
+            className="text-xs text-info hover:underline cursor-pointer ml-1"
           >
             (show less)
           </button>
@@ -135,6 +148,8 @@ export function ModelSnapshot({
   nodesByKind,
   edgeCount,
   onFocusNode,
+  onHoverNode,
+  onHoverClear,
 }: ModelSnapshotProps) {
   // Calculate total node count
   const totalNodes = Object.values(nodesByKind).reduce((sum, nodes) => sum + nodes.length, 0)
@@ -156,11 +171,13 @@ export function ModelSnapshot({
             kind={kind}
             nodes={nodesByKind[kind]}
             onFocusNode={onFocusNode}
+            onHoverNode={onHoverNode}
+            onHoverClear={onHoverClear}
           />
         ))}
 
         {presentKinds.length === 0 && (
-          <p className="text-xs text-text-light py-2">
+          <p className="text-sm text-text-light py-2">
             No nodes in the model yet
           </p>
         )}

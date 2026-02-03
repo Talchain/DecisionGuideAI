@@ -1,41 +1,59 @@
+/* Floating pill TopBar - positioned top-left like Miro */
 .topBar {
+  position: fixed;
+  top: 12px;
+  left: 12px;
+  z-index: 3000;
+
   display: flex;
   align-items: center;
-  /* Fix: Removed justify-content: space-between which interfered with flex: 1 on center section */
-  /* The layout now relies on topBarLeft/Right having no flex-grow and topBarCenter having flex: 1 */
   height: 45px;
-  padding: 0 24px;
-  background: var(--canvas-25);
-  border-bottom: 1px solid var(--sand-200);
-  position: sticky;
-  top: 0;
-  z-index: 3000;
+  padding: 0 8px 0 12px;
+  gap: 2px;
+
+  background: var(--bg-panel, #FEFEFE);
+  border: 1px solid var(--border-default, #EEE6D8);
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.04);
 }
 
 .topBarLeft {
   display: flex;
   align-items: center;
-  gap: 12px;
-  flex-shrink: 0; /* Prevent shrinking so center section gets all available space */
+  gap: 8px;
+  flex-shrink: 0;
 }
 
 .logo {
   display: block;
-  height: 24px;
+  height: 22px;
   width: auto;
+}
+
+.logoLink {
+  display: flex;
+  align-items: center;
 }
 
 .logoLink:focus {
   outline: 2px solid var(--sky-500);
   outline-offset: 2px;
-  border-radius: 8px;
+  border-radius: 4px;
+}
+
+/* Vertical divider between logo and title */
+.divider {
+  width: 1px;
+  height: 20px;
+  background: var(--border-default, #EEE6D8);
+  margin: 0 4px;
 }
 
 .titleButton {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 6px 10px;
+  gap: 4px;
+  padding: 4px 8px;
   background: transparent;
   border: none;
   border-radius: 6px;
@@ -44,7 +62,7 @@
 }
 
 .titleButton:hover {
-  background: var(--paper-50);
+  background: var(--bg-panel-hover, #FEF9F3);
 }
 
 .titleButton:focus {
@@ -53,182 +71,183 @@
 }
 
 .titleText {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--ink-900);
-  max-width: 320px;
+  font-size: 14px;
+  font-weight: 400;
+  color: var(--text-body, #3F3F3E);
+  max-width: 200px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .chevronIcon {
-  color: var(--ink-600);
+  color: var(--text-light, #908D8D);
   transition: transform 150ms;
 }
 
 .titleButton:hover .chevronIcon {
-  transform: translateY(2px);
+  transform: translateY(1px);
 }
 
 .titleInput {
-  font-size: 12px;
-  font-weight: 600;
-  padding: 6px 10px;
-  border: 2px solid var(--sky-500);
+  font-size: 14px;
+  font-weight: 400;
+  padding: 4px 8px;
+  border: 2px solid var(--info, #63ADCF);
   border-radius: 6px;
   background: white;
-  max-width: 320px;
+  max-width: 200px;
   outline: none;
+  color: var(--text-body, #3F3F3E);
 }
 
 .dirtyIndicator {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: var(--carrot-500);
-  margin-left: -6px;
+  background: var(--danger, #EA7B4B);
+  margin-left: -4px;
+  flex-shrink: 0;
 }
 
-/* Decision Graph Display v2 Task 13: Analysis metadata section */
-/* Fix 3: Remove margin-left: auto to prevent overlap with topBarRight */
-/* Issue #4: Add min-width: 0 + overflow: hidden for layout stability */
-/* Review fix: Use padding instead of margin to avoid consuming flex space */
+/* Center section - metadata chips in compact pill format */
 .topBarCenter {
   display: flex;
   align-items: center;
-  gap: 8px;
-  flex: 1;
-  justify-content: center;
-  padding: 0 8px; /* Reduced from margin: 0 16px - padding is inside the flex item */
-  min-width: 0;
-  overflow: hidden;
-}
-
-.metadataChip {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 4px 8px;
-  font-size: 11px;
-  font-weight: 500;
-  border: 1px solid var(--sand-200);
-  border-radius: 12px;
-  background: var(--paper-50);
-  color: var(--ink-700);
-  white-space: nowrap;
-}
-
-.metadataChip svg {
-  flex-shrink: 0;
-  color: var(--ink-500);
-}
-
-.metadataLabel {
-  line-height: 1;
-}
-
-/* Run status colors */
-.metadataChip[data-status="complete"] {
-  border-color: var(--mint-300);
-  background: var(--mint-50);
-  color: var(--mint-800);
-}
-
-.metadataChip[data-status="complete"] svg {
-  color: var(--mint-600);
-}
-
-.metadataChip[data-status="running"] {
-  border-color: var(--sky-300);
-  background: var(--sky-50);
-  color: var(--sky-800);
-}
-
-.metadataChip[data-status="running"] svg {
-  color: var(--sky-600);
-}
-
-.metadataChip[data-status="error"] {
-  border-color: var(--carrot-300);
-  background: var(--carrot-50);
-  color: var(--carrot-800);
-}
-
-.metadataChip[data-status="error"] svg {
-  color: var(--carrot-600);
-}
-
-/* Stability colors */
-.metadataChip[data-stability="stable"] {
-  border-color: var(--mint-300);
-  background: var(--mint-50);
-  color: var(--mint-800);
-}
-
-.metadataChip[data-stability="stable"] svg {
-  color: var(--mint-600);
-}
-
-.metadataChip[data-stability="fragile"] {
-  border-color: var(--carrot-300);
-  background: var(--carrot-50);
-  color: var(--carrot-800);
-}
-
-.metadataChip[data-stability="fragile"] svg {
-  color: var(--carrot-600);
+  gap: 6px;
+  margin-left: 8px;
+  padding-left: 8px;
+  border-left: 1px solid var(--border-default, #EEE6D8);
 }
 
 .topBarRight {
   display: flex;
   align-items: center;
-  gap: 8px;
-  flex-shrink: 0; /* Prevent shrinking so center section gets all available space */
+  gap: 4px;
+  margin-left: 4px;
+  flex-shrink: 0;
 }
 
-.saveButton,
-.shareButton,
-.menuButton {
+/* Compact icon buttons for pill design */
+.iconButton {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 6px 12px;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
   font-size: 12px;
   font-weight: 500;
-  border: 1px solid var(--sand-200);
+  border: none;
   border-radius: 6px;
-  background: white;
+  background: transparent;
+  color: var(--text-body, #3F3F3E);
   cursor: pointer;
   transition: all 150ms;
 }
 
-.saveButton:hover:not(:disabled),
-.shareButton:hover,
-.menuButton:hover {
-  border-color: var(--sky-500);
-  background: var(--sky-50);
+.iconButton:hover:not(:disabled) {
+  background: var(--bg-panel-hover, #FEF9F3);
+  color: var(--text-header, #262626);
+}
+
+.iconButton:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.iconButton svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* Save button with label */
+.saveButton {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 500;
+  border: 1px solid var(--border-default, #EEE6D8);
+  border-radius: 6px;
+  background: white;
+  color: var(--text-body, #3F3F3E);
+  cursor: pointer;
+  transition: all 150ms;
+}
+
+.saveButton:hover:not(:disabled) {
+  border-color: var(--info, #63ADCF);
+  background: var(--info-light, #BAD7E4);
+  color: var(--text-header, #262626);
 }
 
 .saveButton:disabled {
-  opacity: 0.5;
+  opacity: 0.4;
   cursor: not-allowed;
 }
 
 .saveButtonSaved {
-  border-color: var(--mint-500);
-  background: var(--mint-50);
-  color: var(--mint-700);
+  border-color: var(--success, #67C89E);
+  background: var(--success-light, #B8E2D0);
+  color: var(--text-header, #262626);
+}
+
+/* Share button - icon only in pill */
+.shareButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-body, #3F3F3E);
+  cursor: pointer;
+  transition: all 150ms;
+}
+
+.shareButton:hover {
+  background: var(--bg-panel-hover, #FEF9F3);
+  color: var(--text-header, #262626);
+}
+
+.shareButton svg {
+  width: 16px;
+  height: 16px;
 }
 
 .buttonLabel {
-  display: inline;
+  display: none; /* Hide labels in compact pill design */
 }
 
-@media (max-width: 768px) {
-  .buttonLabel {
-    display: none;
-  }
+/* Menu button */
+.menuButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-body, #3F3F3E);
+  cursor: pointer;
+  transition: all 150ms;
+}
+
+.menuButton:hover {
+  background: var(--bg-panel-hover, #FEF9F3);
+  color: var(--text-header, #262626);
+}
+
+.menuButton svg {
+  width: 16px;
+  height: 16px;
 }
 
 .menuDropdown {
@@ -237,18 +256,21 @@
 
 .dropdownMenu {
   position: absolute;
-  top: calc(100% + 6px);
+  top: calc(100% + 8px);
   right: 0;
-  min-width: 200px;
+  min-width: 220px;
   background: white;
-  border: 1px solid var(--sand-200);
+  border: 1px solid var(--border-default, #EEE6D8);
   border-radius: 10px;
-  box-shadow: var(--shadow-2);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12), 0 2px 4px rgba(0, 0, 0, 0.06);
   padding: 6px;
   z-index: 4000;
 }
 
 .dropdownMenuButton {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   width: 100%;
   text-align: left;
   padding: 8px 10px;
@@ -258,16 +280,22 @@
   border-radius: 6px;
   cursor: pointer;
   transition: background 150ms;
+  color: var(--text-body, #3F3F3E);
 }
 
 .dropdownMenuButton:hover {
-  background: var(--paper-50);
+  background: var(--bg-panel-hover, #FEF9F3);
+}
+
+.dropdownMenuButton svg {
+  color: var(--text-light, #908D8D);
+  flex-shrink: 0;
 }
 
 .dropdownMenuDivider {
-  margin: 8px 0;
+  margin: 6px 0;
   border: none;
-  border-top: 1px solid var(--sand-200);
+  border-top: 1px solid var(--border-default, #EEE6D8);
 }
 
 .dropdownMenuLabel {
@@ -276,24 +304,13 @@
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: var(--ink-600);
-}
-
-.dropdownMenuButton {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.dropdownMenuButton svg {
-  color: var(--ink-500);
-  flex-shrink: 0;
+  color: var(--text-light, #908D8D);
 }
 
 /* Settings section in dropdown */
 .settingsChevron {
   margin-left: auto;
-  color: var(--ink-500);
+  color: var(--text-light, #908D8D);
   transition: transform 200ms ease;
 }
 
@@ -325,19 +342,19 @@
   align-items: center;
   justify-content: space-between;
   font-size: 12px;
-  color: var(--ink-700);
+  color: var(--text-body, #3F3F3E);
   cursor: pointer;
   padding: 4px 0;
 }
 
 .settingsRow:hover {
-  color: var(--ink-900);
+  color: var(--text-header, #262626);
 }
 
 .settingsCheckbox {
   width: 14px;
   height: 14px;
-  accent-color: var(--sky-500);
+  accent-color: var(--info, #63ADCF);
   cursor: pointer;
 }
 
@@ -346,7 +363,7 @@
   flex-direction: column;
   gap: 4px;
   font-size: 12px;
-  color: var(--ink-700);
+  color: var(--text-body, #3F3F3E);
   padding: 4px 0;
 }
 
@@ -354,8 +371,8 @@
   width: 100%;
   height: 4px;
   border-radius: 2px;
-  background: var(--sand-200);
-  accent-color: var(--sky-500);
+  background: var(--border-default, #EEE6D8);
+  accent-color: var(--info, #63ADCF);
   cursor: pointer;
 }
 
@@ -363,5 +380,102 @@
   display: flex;
   justify-content: space-between;
   font-size: 10px;
-  color: var(--ink-500);
+  color: var(--text-light, #908D8D);
+}
+
+/* Metadata chips for pill design - body font size */
+.metadataChip {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  font-size: 14px;
+  font-weight: 400;
+  border: 1px solid var(--border-default, #EEE6D8);
+  border-radius: 12px;
+  background: var(--bg-panel, #FEFEFE);
+  color: var(--text-body, #3F3F3E);
+  white-space: nowrap;
+}
+
+.metadataChip svg {
+  flex-shrink: 0;
+  width: 14px;
+  height: 14px;
+  color: var(--text-light, #908D8D);
+}
+
+.metadataLabel {
+  line-height: 1;
+}
+
+/* Run status colors */
+.metadataChip[data-status="complete"] {
+  border-color: var(--success, #67C89E);
+  background: var(--success-light, #B8E2D0);
+  color: var(--text-header, #262626);
+}
+
+.metadataChip[data-status="complete"] svg {
+  color: var(--success, #67C89E);
+}
+
+.metadataChip[data-status="running"] {
+  border-color: var(--info, #63ADCF);
+  background: var(--info-light, #BAD7E4);
+  color: var(--text-header, #262626);
+}
+
+.metadataChip[data-status="running"] svg {
+  color: var(--info, #63ADCF);
+}
+
+.metadataChip[data-status="error"] {
+  border-color: var(--danger, #EA7B4B);
+  background: var(--danger-light, #FFB393);
+  color: var(--text-header, #262626);
+}
+
+.metadataChip[data-status="error"] svg {
+  color: var(--danger, #EA7B4B);
+}
+
+/* Stability colors */
+.metadataChip[data-stability="stable"] {
+  border-color: var(--success, #67C89E);
+  background: var(--success-light, #B8E2D0);
+  color: var(--text-header, #262626);
+}
+
+.metadataChip[data-stability="stable"] svg {
+  color: var(--success, #67C89E);
+}
+
+.metadataChip[data-stability="fragile"] {
+  border-color: var(--danger, #EA7B4B);
+  background: var(--danger-light, #FFB393);
+  color: var(--text-header, #262626);
+}
+
+/* Responsive handling for TopBar pill */
+@media (max-width: 900px) {
+  /* Hide metadata chips on medium screens */
+  .topBarCenter {
+    display: none;
+  }
+}
+
+@media (max-width: 600px) {
+  /* On small screens, constrain title and hide save label */
+  .titleText {
+    max-width: 120px;
+  }
+
+  .saveButton span {
+    display: none;
+  }
+
+  .saveButton {
+    padding: 6px 8px;
+  }
 }

@@ -299,7 +299,6 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
       />
       
       {/* Decision Graph Display v2 Task 3 + Task D: Direction sign indicator (single, near target) */}
-      {/* P2 Fix: Improved legibility - larger font, background pill, consistent offset */}
       {direction && (
         <EdgeLabelRenderer>
           <div
@@ -309,16 +308,10 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
               pointerEvents: 'none',
               fontSize: '16px',
               fontWeight: 700,
-              color: direction === 'positive' ? '#059669' : '#dc2626', // Darker for better contrast
-              // P2 Fix: Background pill for legibility
-              backgroundColor: 'rgba(255, 255, 255, 0.9)',
-              borderRadius: '50%',
-              width: '20px',
-              height: '20px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              boxShadow: '0 1px 2px rgba(0,0,0,0.1)',
+              color: direction === 'positive' ? '#059669' : '#dc2626',
+              backgroundColor: '#F4F0EA',
+              padding: '0 3px',
+              borderRadius: '2px',
             }}
             aria-label={`Effect direction: ${direction}`}
           >

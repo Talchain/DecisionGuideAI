@@ -83,20 +83,20 @@ describe('PreAnalysisPanel', () => {
       expect(screen.getByTestId('pre-analysis-panel')).toBeInTheDocument()
     })
 
-    it('shows "Ready to analyse" when isReady is true', () => {
-      mockUsePreAnalysisData.mockReturnValue(createMockData({ isReady: true }))
+    it('shows ready status when isReady is true', () => {
+      mockUsePreAnalysisData.mockReturnValue(createMockData({ isReady: true, totalImprovements: 5 }))
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
-      expect(screen.getByText('Ready to analyse')).toBeInTheDocument()
+      // New inline status line format: "✓ Ready · {n} optional improvements"
+      expect(screen.getByText(/✓ Ready · 5 optional improvements/)).toBeInTheDocument()
     })
 
-    it('shows "Not ready" in header when isReady is false', () => {
-      mockUsePreAnalysisData.mockReturnValue(createMockData({ isReady: false }))
+    it('shows blocked status in header when isReady is false', () => {
+      mockUsePreAnalysisData.mockReturnValue(createMockData({ isReady: false, blockerCount: 2 }))
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
-      // Use getAllByText since "Not ready" appears in both header and footer
-      const notReadyElements = screen.getAllByText('Not ready')
-      expect(notReadyElements.length).toBeGreaterThanOrEqual(1)
+      // New inline status line format: "⊘ Blocked · {n} issues to fix"
+      expect(screen.getByText(/⊘ Blocked · 2 issues to fix/)).toBeInTheDocument()
     })
   })
 
@@ -216,7 +216,7 @@ describe('PreAnalysisPanel', () => {
       expect(screen.getByText('Compare against doing nothing')).toBeInTheDocument()
     })
 
-    it('shows coaching sentence', () => {
+    it('renders top action item in list', () => {
       mockUsePreAnalysisData.mockReturnValue(createMockData({
         topActions: [
           { key: 'ta1', category: 'fix', label: 'Test', detail: 'Detail' },
@@ -224,7 +224,9 @@ describe('PreAnalysisPanel', () => {
       }))
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
-      expect(screen.getByText(/Review these items to improve your model's accuracy/)).toBeInTheDocument()
+      // Top actions render without coaching sentence (replaced by inline status)
+      expect(screen.getByText('Test')).toBeInTheDocument()
+      expect(screen.getByText('Detail')).toBeInTheDocument()
     })
   })
 
@@ -278,6 +280,7 @@ describe('PreAnalysisPanel', () => {
     it('renders sections in correct order: Header → TopActions → AllImprovements → ModelSnapshot → AnalysisSettings', () => {
       mockUsePreAnalysisData.mockReturnValue(createMockData({
         topActions: [{ key: 'ta1', category: 'fix', label: 'Test Action', detail: 'Detail' }],
+        totalImprovements: 5,
       }))
 
       const { container } = render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
@@ -285,8 +288,7 @@ describe('PreAnalysisPanel', () => {
       expect(panel).toBeInTheDocument()
 
       // Verify all required sections exist
-      expect(screen.getByText('Ready to analyse')).toBeInTheDocument() // Header
-      expect(screen.getByText(/Review these items/)).toBeInTheDocument() // M1 Top Actions
+      expect(screen.getByText(/✓ Ready/)).toBeInTheDocument() // Header inline status
       expect(screen.getByTestId('all-improvements-accordion')).toBeInTheDocument()
       expect(screen.getByTestId('model-snapshot-accordion')).toBeInTheDocument()
       expect(screen.getByTestId('analysis-settings-accordion')).toBeInTheDocument()
@@ -296,8 +298,8 @@ describe('PreAnalysisPanel', () => {
       const html = scrollableContent?.innerHTML ?? ''
 
       // Check that sections appear in correct order in the HTML
-      const headerPos = html.indexOf('Ready to analyse')
-      const topActionsPos = html.indexOf('Review these items')
+      const headerPos = html.indexOf('✓ Ready')
+      const topActionsPos = html.indexOf('Test Action') // M1 Top Actions item label
       const allImprovementsPos = html.indexOf('all-improvements-accordion')
       const modelSnapshotPos = html.indexOf('model-snapshot-accordion')
       const analysisSettingsPos = html.indexOf('analysis-settings-accordion')
@@ -308,13 +310,12 @@ describe('PreAnalysisPanel', () => {
       expect(modelSnapshotPos).toBeLessThan(analysisSettingsPos)
     })
 
-    it('sticky footer has absolute positioning', () => {
+    it('sticky footer uses flex layout for pinning', () => {
       mockUsePreAnalysisData.mockReturnValue(createMockData())
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
       const footer = screen.getByTestId('sticky-footer')
-      expect(footer).toHaveClass('absolute')
-      expect(footer).toHaveClass('bottom-0')
+      expect(footer).toHaveClass('flex-shrink-0')
     })
 
     it('sticky footer is visible in the DOM', () => {
@@ -326,7 +327,7 @@ describe('PreAnalysisPanel', () => {
       expect(footer).toBeVisible()
     })
 
-    it('action buttons in improvements have aria-disabled="true"', () => {
+    it('action buttons render for improvement items', () => {
       mockUsePreAnalysisData.mockReturnValue(createMockData({
         improvementsByCategory: {
           fix: [],
@@ -336,7 +337,7 @@ describe('PreAnalysisPanel', () => {
               category: 'verify',
               label: 'Test Factor',
               detail: 'AI est: 5.0',
-              action: { label: 'Confirm', kind: 'confirm' },
+              action: { label: 'Confirm', kind: 'confirm', targetId: 'n1', targetType: 'node' },
               focus: { type: 'node', id: 'n1', label: 'Test' },
             },
           ],
@@ -346,7 +347,7 @@ describe('PreAnalysisPanel', () => {
               category: 'add_evidence',
               label: 'Edge A → B',
               detail: 'No evidence',
-              action: { label: 'Add', kind: 'add' },
+              action: { label: 'Add', kind: 'add', targetId: 'e1', targetType: 'edge' },
               focus: { type: 'edge', id: 'e1', label: 'Edge' },
             },
           ],
@@ -357,9 +358,9 @@ describe('PreAnalysisPanel', () => {
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
 
-      // Find disabled buttons with aria-disabled
-      const disabledButtons = document.querySelectorAll('button[aria-disabled="true"]')
-      expect(disabledButtons.length).toBeGreaterThan(0)
+      // Verify action buttons are present in the DOM
+      const buttons = document.querySelectorAll('button')
+      expect(buttons.length).toBeGreaterThan(0)
     })
 
     it('disabled action buttons have disabled attribute', () => {
@@ -394,15 +395,14 @@ describe('PreAnalysisPanel', () => {
       }
     })
 
-    it('status text uses body colour not semantic colour', () => {
-      mockUsePreAnalysisData.mockReturnValue(createMockData({ isReady: true }))
+    it('status text uses semantic colour for ready/blocked state', () => {
+      mockUsePreAnalysisData.mockReturnValue(createMockData({ isReady: true, totalImprovements: 3 }))
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
-      
-      // Status text should have text-text-body class, not text-success
-      const statusText = screen.getByText('Ready to analyse')
-      expect(statusText).toHaveClass('text-text-body')
-      expect(statusText).not.toHaveClass('text-success')
+
+      // New inline status uses semantic colours: text-success for ready
+      const statusText = screen.getByText(/✓ Ready/)
+      expect(statusText).toHaveClass('text-success')
     })
   })
 })

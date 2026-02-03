@@ -698,6 +698,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     hasCompletedFirstRun,
     currentScenarioFraming,
     m1Coaching,
+    goalThreshold,
   } = useCanvasStore(
     useShallow((s) => ({
       results: s.results,
@@ -707,6 +708,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       hasCompletedFirstRun: s.hasCompletedFirstRun,
       currentScenarioFraming: (s as any).currentScenarioFraming,
       m1Coaching: (s.runMeta as any)?.m1Coaching ?? null,
+      goalThreshold: (s as any).goalThreshold,
     }))
   )
 
@@ -921,23 +923,27 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     function deriveRobustnessLevel(stability: number | undefined): RobustnessLevel | undefined {
       if (stability === undefined) return undefined
       if (stability >= 0.8) return 'high'
-      if (stability >= 0.5) return 'medium'
+      if (stability >= 0.5) return 'moderate'
       if (stability >= 0.3) return 'low'
       return 'very_low'
     }
 
     // Normalize robustness level - try explicit value first, then derive from stability
     const robustnessLevel: RobustnessLevel | undefined =
-      rawRobustnessLevel === 'high' || rawRobustnessLevel === 'medium' ||
-      rawRobustnessLevel === 'low' || rawRobustnessLevel === 'very_low'
+      rawRobustnessLevel === 'high' ||
+      rawRobustnessLevel === 'moderate' ||
+      rawRobustnessLevel === 'low' ||
+      rawRobustnessLevel === 'very_low'
         ? rawRobustnessLevel
-        : deriveRobustnessLevel(recommendationStability)
+        : rawRobustnessLevel === 'medium'
+          ? 'moderate'
+          : deriveRobustnessLevel(recommendationStability)
 
     // Derive label from level if not explicitly provided
     function deriveLabelFromLevel(level: RobustnessLevel | undefined): RobustnessLabel | undefined {
       if (!level) return undefined
       if (level === 'high') return 'robust'
-      if (level === 'medium') return 'moderate'
+      if (level === 'moderate') return 'moderate'
       return 'fragile' // low or very_low
     }
 
@@ -973,6 +979,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       // Issue 5 fix: Pass through unit for proper outcome formatting
       outcomeUnit,
       outcomeUnitSymbol,
+      goalThreshold,
       recommendationStability,
       // Task 1.3: Win probability for display
       winProbability,
@@ -1000,7 +1007,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
         const dominantId = m1Coaching?.key_drivers?.dominant_factor
         if (!dominantId) return undefined
         // Look up label from key_drivers.drivers
-        const driver = m1Coaching?.key_drivers?.drivers?.find(d => d.factor_id === dominantId)
+        const driver = m1Coaching?.key_drivers?.drivers?.find((d: any) => d.factor_id === dominantId)
         if (driver?.factor_label) return driver.factor_label
         // Fallback: look up from nodeLabelMap
         return nodeLabelMap.get(dominantId) ?? dominantId
@@ -1020,7 +1027,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
         return hasWarningCritiques || hasFragileEdges
       })(),
     }
-  }, [hasCompletedFirstRun, report, nodes, goalLabel, goalNodeId, outcomeUnit, outcomeUnitSymbol, currentScenarioFraming, m1Coaching, nodeLabelMap])
+  }, [hasCompletedFirstRun, report, nodes, goalLabel, goalNodeId, outcomeUnit, outcomeUnitSymbol, currentScenarioFraming, m1Coaching, nodeLabelMap, goalThreshold])
 
   // ==========================================================================
   // Drivers Section Data (with dynamic normalisation)
@@ -1340,7 +1347,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
         const plotDominantId = m1Coaching?.key_drivers?.dominant_factor
         if (plotDominantId) {
           // Look up the driver item to get the label
-          const dominantDriver = nonZeroImpactDrivers.find(d => d.factorKey === plotDominantId)
+          const dominantDriver = nonZeroImpactDrivers.find((d: any) => d.factorKey === plotDominantId)
           if (dominantDriver) {
             return {
               dominantFactorId: plotDominantId,
@@ -1348,7 +1355,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
             }
           }
           // Driver not in our list - use PLoT's key_drivers for label
-          const plotDriver = m1Coaching?.key_drivers?.drivers?.find(d => d.factor_id === plotDominantId)
+          const plotDriver = m1Coaching?.key_drivers?.drivers?.find((d: any) => d.factor_id === plotDominantId)
           return {
             dominantFactorId: plotDominantId,
             dominantFactorLabel: plotDriver?.factor_label ?? plotDominantId,

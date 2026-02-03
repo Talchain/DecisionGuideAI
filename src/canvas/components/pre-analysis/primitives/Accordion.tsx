@@ -108,13 +108,13 @@ export function Accordion({
           />
           <h3
             id={headingId}
-            className="text-sm font-semibold text-text-header"
+            className="text-[14px] font-semibold text-text-header"
           >
             {title}
           </h3>
         </div>
         {rightContent && (
-          <div className="text-sm text-text-light">
+          <div className="text-xs text-text-light">
             {rightContent}
           </div>
         )}

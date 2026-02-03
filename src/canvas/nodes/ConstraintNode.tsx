@@ -63,10 +63,11 @@ export const ConstraintNode = memo((props: NodeProps) => {
     <div
       className={`
         relative px-4 py-3 rounded-lg min-w-[160px] max-w-[220px]
-        bg-white border-2
+        border-2
         ${selected ? 'border-carrot-500 ring-2 ring-carrot-200' : 'border-carrot-400'}
         shadow-sm hover:shadow-md transition-shadow
       `}
+      style={{ backgroundColor: '#FEFEFE' }}
       data-testid="constraint-node"
       role="group"
       aria-label={`Constraint: ${nodeData.label}`}

@@ -31,7 +31,7 @@ import { usePreAnalysisData as useExistingPreAnalysisData } from '../../../hooks
 export type ImprovementCategory = 'fix' | 'verify' | 'add_evidence' | 'strengthen'
 
 /** Action kind for improvement items */
-export type ImprovementActionKind = 'confirm' | 'edit' | 'add' | 'assumption' | 'add_baseline'
+export type ImprovementActionKind = 'confirm' | 'edit' | 'add' | 'assumption' | 'add_baseline' | 'add_option' | 'add_risk'
 
 /** Single improvement item */
 export interface ImprovementItem {
@@ -144,11 +144,37 @@ function getNodeLabel(node: Node): string {
  *
  * Note: No enum exists in the codebase; ObservedState.source is typed as string.
  * See: src/adapters/cee/types.ts → ObservedState interface
+ *
+ * IMPORTANT: For evidence quality calculation, we check for EXPLICIT non-AI sources.
+ * If a factor has no source or an unknown source, it should NOT be counted as user-confirmed.
+ * - AI sources: 'ai', 'cee_inference', 'inferred'
+ * - Non-AI sources: 'brief_extraction', 'user', 'user_confirmed', 'user_assumption'
+ * - Unknown/missing: treated as AI (low confidence)
  */
 function isAiInferred(node: Node): boolean {
   const data = node.data as { observed_state?: { source?: string }; source?: string }
   const source = data?.observed_state?.source ?? data?.source
   return source === 'ai' || source === 'cee_inference' || source === 'inferred'
+}
+
+/**
+ * AI sources blocklist for evidence quality calculation.
+ *
+ * A factor is "AI-inferred" if its source is in this blocklist.
+ * Everything NOT in this blocklist is considered non-AI (user-provided),
+ * including: 'brief_extraction', 'user', 'user_confirmed', 'user_assumption',
+ * 'default', undefined, or any other value.
+ *
+ * This blocklist approach ensures we don't accidentally exclude valid
+ * non-AI sources that may be added in the future.
+ */
+const AI_SOURCES = new Set(['ai', 'cee_inference', 'inferred'])
+
+function isAiSource(node: Node): boolean {
+  const data = node.data as { observed_state?: { source?: string }; source?: string }
+  const source = data?.observed_state?.source ?? data?.source
+  // Only explicit AI sources return true; undefined/unknown = NOT AI
+  return source !== undefined && AI_SOURCES.has(source)
 }
 
 /**
@@ -328,37 +354,46 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
     }
 
     // === STRENGTHEN CATEGORY ===
-    // Only 2 options
+    // Coaching question format: question + why line + CTA actions
+
+    // Only 2 options - coaching question
     if (optionNodes.length === 2) {
       result.strengthen.push({
         key: 'only_2_options',
         category: 'strengthen',
-        label: `Only ${optionNodes.length} options`,
-        detail: 'Consider alternatives',
-        bias: 'framing',
+        label: 'Have you considered all your options?',
+        detail: 'Having only two choices can lead to binary thinking. What else could you do?',
+        action: { label: 'Add Option', kind: 'add_option' },
       })
     }
 
-    // No constraint nodes (using risk as proxy for constraints)
+    // No risks modelled - coaching question
     if (nodesByKind.risk.length === 0) {
       result.strengthen.push({
         key: 'no_risks',
         category: 'strengthen',
-        label: 'No risks modelled',
-        detail: 'What could go wrong?',
-        bias: 'blind_spots',
+        label: 'Are there constraints you need to stay within? Budget limits or timeline boundaries make results more realistic.',
+        detail: '',
+        action: { label: 'Add a constraint', kind: 'add_risk' },
       })
     }
 
-    // No negative effects modelled
+    // No negative effects modelled - coaching question with multiple CTAs
     const hasNegativeEdge = edges.some(hasNegativeStrength)
     if (!hasNegativeEdge && edges.length > 0) {
+      // Find first option node to focus on for "Add a negative relationship" CTA
+      const focusNode = optionNodes[0]
       result.strengthen.push({
         key: 'no_negative_effects',
         category: 'strengthen',
-        label: 'No negative effects modelled',
-        detail: 'All relationships are positive',
-        bias: 'blind_spots',
+        label: 'Could any of these changes have downsides? Adding risks or negative relationships helps avoid over-confidence.',
+        detail: '',
+        focus: focusNode ? {
+          type: 'node' as const,
+          id: focusNode.id,
+          label: getNodeLabel(focusNode),
+        } : undefined,
+        action: { label: 'Add a risk', kind: 'add_risk' },
       })
     }
 
@@ -380,15 +415,23 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
     return allItems.slice(0, 3)
   }, [improvementsByCategory])
 
-  // Evidence quality: count factors with confirmed source / total factors
+  // Input confidence (formerly evidence quality)
+  // Formula: nonAiFactors / totalFactors
+  // Uses BLOCKLIST approach: only 'ai', 'cee_inference', 'inferred' are AI
+  // Everything else is non-AI: 'brief_extraction', 'user', 'user_confirmed',
+  // 'user_assumption', 'default', undefined, or any other value
+  // Thresholds: ≥0.7 High, ≥0.4 Medium, <0.4 Low
+  // Edge case: 0 total factors = Low (no data to base confidence on)
   const evidenceQuality = useMemo<EvidenceQuality>(() => {
     const factors = nodesByKind.factor
+
     if (factors.length === 0) {
-      return { level: 'low', ratio: 0 }
+      return { level: 'low', ratio: 0 } // No factors = Low confidence (no data)
     }
 
-    const confirmedCount = factors.filter(f => !isAiInferred(f)).length
-    const ratio = confirmedCount / factors.length
+    // Count factors that are NOT AI-inferred (blocklist approach)
+    const nonAiCount = factors.filter(f => !isAiSource(f)).length
+    const ratio = nonAiCount / factors.length
 
     let level: EvidenceQualityLevel
     if (ratio >= 0.7) {
@@ -413,22 +456,40 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
   // Blocker count from existing hook for consistent footer display
   const blockerCount = existingReadiness.allIssues.filter(i => i.severity === 'blocker').length
 
-  // Success threshold
+  // Success threshold - priority: goal_threshold > observed_state.value > success_threshold > threshold
   const successThreshold = useMemo(() => {
-    // Check goal node for threshold
-    if (goalNode) {
-      const data = goalNode.data as { success_threshold?: number; threshold?: number }
-      return data?.success_threshold ?? data?.threshold ?? null
+    if (!goalNode) return null
+
+    const data = goalNode.data as {
+      goal_threshold?: number
+      observed_state?: { value?: number }
+      success_threshold?: number
+      threshold?: number
     }
+
+    // Priority order per brief
+    if (data?.goal_threshold != null) return data.goal_threshold
+    if (data?.observed_state?.value != null) return data.observed_state.value
+    if (data?.success_threshold != null) return data.success_threshold
+    if (data?.threshold != null) return data.threshold
     return null
   }, [goalNode])
 
+  // Auto-derived when threshold comes from goal node data (not user-set)
   const isThresholdAutoDerived = useMemo(() => {
-    if (goalNode) {
-      const data = goalNode.data as { threshold_source?: string }
-      return data?.threshold_source === 'auto' || data?.threshold_source === 'derived'
+    if (!goalNode) return false
+
+    const data = goalNode.data as {
+      threshold_source?: string
+      goal_threshold?: number
+      observed_state?: { value?: number }
     }
-    return false
+
+    // If user explicitly set it, not auto-derived
+    if (data?.threshold_source === 'user') return false
+
+    // Auto-derived if value came from goal_threshold or observed_state.value
+    return (data?.goal_threshold != null) || (data?.observed_state?.value != null)
   }, [goalNode])
 
   return {

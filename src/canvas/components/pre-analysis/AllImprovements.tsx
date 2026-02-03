@@ -15,7 +15,7 @@
  */
 
 import { useState, useCallback } from 'react'
-import { Accordion, Pill, NodeLink, BiasIcon, IconBtn } from './primitives'
+import { Accordion, Pill, NodeLink, IconBtn, BiasIcon } from './primitives'
 import { Check, Pencil, Plus, HelpCircle } from 'lucide-react'
 import type { ImprovementItem, ImprovementCategory, ImprovementActionKind } from './hooks/usePreAnalysisData'
 
@@ -31,6 +31,10 @@ export interface ImprovementActionHandlers {
   onAddEvidence?: (edgeId: string, evidence: string) => void
   /** Add baseline action - create baseline option node */
   onAddBaseline?: () => void
+  /** Add option action - create new option node */
+  onAddOption?: () => void
+  /** Add risk action - create new risk node */
+  onAddRisk?: () => void
 }
 
 interface AllImprovementsProps {
@@ -42,33 +46,37 @@ interface AllImprovementsProps {
   onFocus?: (type: 'node' | 'edge', id: string) => void
   /** Action handlers for interactive actions */
   actionHandlers?: ImprovementActionHandlers
+  /** Handler for hovering over an element */
+  onHoverEnter?: (type: 'node' | 'edge', id: string) => void
+  /** Handler for clearing hover */
+  onHoverLeave?: () => void
 }
 
-/** Category display config */
+/** Category display config - no backgrounds, sentence case labels */
 const categoryConfig: Record<ImprovementCategory, {
   label: string
-  bg: string
   border: string
+  rowBorderColor: string
 }> = {
   fix: {
-    label: 'FIX',
-    bg: 'bg-[rgba(234,123,75,0.07)]',
+    label: 'Fix',
     border: 'border-l-danger',
+    rowBorderColor: 'rgba(234, 123, 75, 0.2)', // danger at 20%
   },
   verify: {
-    label: 'VERIFY',
-    bg: 'bg-[rgba(255,166,86,0.07)]',
+    label: 'Verify',
     border: 'border-l-warning',
+    rowBorderColor: 'rgba(255, 166, 86, 0.2)', // warning at 20%
   },
   add_evidence: {
-    label: 'ADD EVIDENCE',
-    bg: 'bg-[rgba(176,168,153,0.04)]',
+    label: 'Add evidence',
     border: 'border-l-panel-border',
+    rowBorderColor: 'rgba(225, 216, 199, 0.4)', // #E1D8C7 at 40%
   },
   strengthen: {
-    label: 'STRENGTHEN',
-    bg: 'bg-[rgba(176,168,153,0.04)]',
+    label: 'Strengthen',
     border: 'border-l-panel-border',
+    rowBorderColor: 'rgba(170, 167, 228, 0.2)', // option color at 20%
   },
 }
 
@@ -82,30 +90,77 @@ interface CategorySectionProps {
   actionHandlers?: ImprovementActionHandlers
   /** Items being removed (showing exit transition) */
   removingItems?: Set<string>
+  /** Whether section is expanded (for collapsible sections like add_evidence) */
+  isExpanded?: boolean
+  /** Toggle expansion callback */
+  onToggleExpand?: () => void
+  /** Handler for hovering over an element */
+  onHoverEnter?: (type: 'node' | 'edge', id: string) => void
+  /** Handler for clearing hover */
+  onHoverLeave?: () => void
 }
 
-function CategorySection({ category, items, onFocus, actionHandlers, removingItems }: CategorySectionProps) {
+function CategorySection({ category, items, onFocus, actionHandlers, removingItems, isExpanded, onToggleExpand, onHoverEnter, onHoverLeave }: CategorySectionProps) {
   if (items.length === 0) return null
 
   const config = categoryConfig[category]
 
-  return (
-    <div className={`rounded-lg border-l-[3px] ${config.bg} ${config.border} p-3`}>
-      {/* Category label */}
-      <p className="text-[10px] font-bold uppercase text-text-body tracking-wide mb-2">
-        {config.label}
-      </p>
+  // For add_evidence, show collapsed summary by default
+  if (category === 'add_evidence' && !isExpanded) {
+    return (
+      <div className={`rounded-lg border border-panel-border border-l-[3px] ${config.border} py-2 px-2.5`}>
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-text-body">
+            {items.length} edge{items.length !== 1 ? 's' : ''} without evidence
+          </p>
+          <button
+            onClick={onToggleExpand}
+            className="text-xs font-medium text-info hover:underline cursor-pointer"
+          >
+            View all
+          </button>
+        </div>
+      </div>
+    )
+  }
 
-      {/* Items */}
+  return (
+    <div className={`rounded-lg border border-panel-border border-l-[3px] ${config.border} py-2 px-2.5`}>
+      {/* Category label - sentence case, no uppercase transform */}
+      <div className="flex items-center justify-between mb-2">
+        <p className="text-sm font-semibold text-text-light tracking-wide">
+          {config.label}
+        </p>
+        {/* Show collapse button for expanded add_evidence */}
+        {category === 'add_evidence' && isExpanded && onToggleExpand && (
+          <button
+            onClick={onToggleExpand}
+            className="text-xs font-medium text-info hover:underline cursor-pointer"
+          >
+            Collapse
+          </button>
+        )}
+      </div>
+
+      {/* Items with category-coloured borders between rows */}
       <div className="space-y-2">
-        {items.map(item => (
-          <ImprovementRow
+        {items.map((item, index) => (
+          <div
             key={item.key}
-            item={item}
-            onFocus={onFocus}
-            actionHandlers={actionHandlers}
-            isRemoving={removingItems?.has(item.key)}
-          />
+            style={index > 0 ? {
+              borderTop: `1px solid ${config.rowBorderColor}`,
+              paddingTop: '8px',
+            } : undefined}
+          >
+            <ImprovementRow
+              item={item}
+              onFocus={onFocus}
+              actionHandlers={actionHandlers}
+              isRemoving={removingItems?.has(item.key)}
+              onHoverEnter={onHoverEnter}
+              onHoverLeave={onHoverLeave}
+            />
+          </div>
         ))}
       </div>
     </div>
@@ -118,9 +173,13 @@ interface ImprovementRowProps {
   actionHandlers?: ImprovementActionHandlers
   /** Whether this item is being removed (showing exit transition) */
   isRemoving?: boolean
+  /** Handler for hovering over an element */
+  onHoverEnter?: (type: 'node' | 'edge', id: string) => void
+  /** Handler for clearing hover */
+  onHoverLeave?: () => void
 }
 
-function ImprovementRow({ item, onFocus, actionHandlers, isRemoving }: ImprovementRowProps) {
+function ImprovementRow({ item, onFocus, actionHandlers, isRemoving, onHoverEnter, onHoverLeave }: ImprovementRowProps) {
   const [showEvidenceInput, setShowEvidenceInput] = useState(false)
   const [evidenceValue, setEvidenceValue] = useState('')
   const [exitLabel, setExitLabel] = useState<string | null>(null)
@@ -165,6 +224,16 @@ function ImprovementRow({ item, onFocus, actionHandlers, isRemoving }: Improveme
           actionHandlers.onAddBaseline()
         }
         break
+      case 'add_option':
+        if (actionHandlers?.onAddOption) {
+          actionHandlers.onAddOption()
+        }
+        break
+      case 'add_risk':
+        if (actionHandlers?.onAddRisk) {
+          actionHandlers.onAddRisk()
+        }
+        break
     }
   }, [item.action, actionHandlers])
 
@@ -190,6 +259,8 @@ function ImprovementRow({ item, onFocus, actionHandlers, isRemoving }: Improveme
         return Pencil
       case 'add':
       case 'add_baseline':
+      case 'add_option':
+      case 'add_risk':
         return Plus
       case 'assumption':
         return HelpCircle
@@ -214,6 +285,10 @@ function ImprovementRow({ item, onFocus, actionHandlers, isRemoving }: Improveme
         return item.action?.targetType === 'edge' // Always enabled for evidence input
       case 'add_baseline':
         return !!actionHandlers?.onAddBaseline
+      case 'add_option':
+        return !!actionHandlers?.onAddOption
+      case 'add_risk':
+        return !!actionHandlers?.onAddRisk
       default:
         return false
     }
@@ -221,6 +296,24 @@ function ImprovementRow({ item, onFocus, actionHandlers, isRemoving }: Improveme
 
   const ActionIcon = getActionIcon()
   const actionEnabled = isActionEnabled()
+
+  // Determine hover target from focus or action targetId
+  const hoverTarget = item.focus
+    ? { type: item.focus.type, id: item.focus.id }
+    : item.action?.targetId
+      ? { type: (item.action.targetType || 'edge') as 'node' | 'edge', id: item.action.targetId }
+      : null
+
+  // Hover handlers for the row
+  const handleRowMouseEnter = () => {
+    if (hoverTarget && onHoverEnter) {
+      onHoverEnter(hoverTarget.type, hoverTarget.id)
+    }
+  }
+
+  const handleRowMouseLeave = () => {
+    onHoverLeave?.()
+  }
 
   // Show exit transition
   if (isRemoving || exitLabel) {
@@ -234,34 +327,95 @@ function ImprovementRow({ item, onFocus, actionHandlers, isRemoving }: Improveme
     )
   }
 
+  // Strengthen items: merged question + context in one paragraph, then CTAs
+  if (item.category === 'strengthen') {
+    return (
+      <div
+        className="space-y-2 cursor-pointer hover:bg-black/[0.02] rounded-md -mx-1 px-1"
+        onMouseEnter={handleRowMouseEnter}
+        onMouseLeave={handleRowMouseLeave}
+      >
+        {/* Merged question + context */}
+        <p className="text-sm text-text-header text-left">{item.label}</p>
+        {/* CTA pill buttons */}
+        <div className="flex items-center gap-2">
+          {item.action && (
+            <button
+              type="button"
+              onClick={handleActionClick}
+              disabled={!actionEnabled}
+              className="text-xs font-medium text-info border border-info/30 rounded-xl px-2.5 py-0.5 bg-transparent hover:border-info hover:bg-info/5 disabled:opacity-50 cursor-pointer"
+            >
+              {item.action.label}
+            </button>
+          )}
+          {/* Secondary CTA for "no negative effects" item */}
+          {item.key === 'no_negative_effects' && actionHandlers?.onEdit && (
+            <button
+              type="button"
+              onClick={() => {
+                if (item.focus?.id) {
+                  actionHandlers.onEdit(item.focus.id)
+                }
+              }}
+              className="text-xs font-medium text-info border border-info/30 rounded-xl px-2.5 py-0.5 bg-transparent hover:border-info hover:bg-info/5 cursor-pointer"
+            >
+              Add a negative relationship
+            </button>
+          )}
+        </div>
+      </div>
+    )
+  }
+
   return (
-    <div className="space-y-2">
-      <div className="flex items-start gap-2">
-        {/* NodeLink for focusable items */}
-        <div className="flex-1 min-w-0">
+    <div
+      className="cursor-pointer hover:bg-black/[0.02] rounded-md -mx-1 px-1"
+      onMouseEnter={handleRowMouseEnter}
+      onMouseLeave={handleRowMouseLeave}
+    >
+      {/* Positioning container for BiasIcon - no negative margins */}
+      <div className="relative w-full space-y-2">
+        {/* BiasIcon in top-right corner - wrapper needed because Tooltip creates its own relative context */}
+        {item.bias && (
+          <div className="absolute top-0 right-0">
+            <BiasIcon
+              bias={item.bias}
+              why={item.detail}
+            />
+          </div>
+        )}
+
+        {/* Single action button bottom-right (for non-verify categories like Fix) */}
+        {item.category !== 'verify' && item.action && ActionIcon && (
+          <div className="absolute bottom-0 right-0">
+            <IconBtn
+              icon={ActionIcon}
+              tooltip={item.action.label}
+              variant={item.action.kind === 'confirm' ? 'confirm' : item.action.kind === 'edit' ? 'edit' : 'default'}
+              onClick={handleActionClick}
+              disabled={!actionEnabled}
+            />
+          </div>
+        )}
+
+        <div className="flex items-start gap-2">
+          {/* NodeLink for focusable items - flush left alignment */}
+          <div className="flex-1 min-w-0 text-left pr-8">
           {item.focus ? (
             <NodeLink
               targetId={item.focus.id}
               targetType={item.focus.type}
               onClick={handleFocusClick}
-              className="text-sm"
+              className="text-sm text-left hover:underline"
             >
               {item.label}
             </NodeLink>
           ) : (
-            <span className="text-sm text-text-body">{item.label}</span>
+            <span className="text-sm text-text-body text-left">{item.label}</span>
           )}
-          <p className="text-xs text-text-light mt-0.5">{item.detail}</p>
+          <p className="text-sm text-text-light mt-0.5 text-left">{item.detail}</p>
         </div>
-
-        {/* Optional BiasIcon */}
-        {item.bias && (
-          <BiasIcon
-            bias={item.bias}
-            why={item.detail}
-            className="flex-shrink-0"
-          />
-        )}
 
         {/* Action buttons for Verify category (Confirm + Assumption + Edit) */}
         {item.category === 'verify' && (
@@ -306,17 +460,6 @@ function ImprovementRow({ item, onFocus, actionHandlers, isRemoving }: Improveme
             )}
           </div>
         )}
-
-        {/* Single action button for other categories */}
-        {item.category !== 'verify' && item.action && ActionIcon && (
-          <IconBtn
-            icon={ActionIcon}
-            tooltip={item.action.label}
-            variant={item.action.kind === 'confirm' ? 'confirm' : item.action.kind === 'edit' ? 'edit' : 'default'}
-            onClick={handleActionClick}
-            disabled={!actionEnabled}
-          />
-        )}
       </div>
 
       {/* Inline evidence input for Add Evidence category */}
@@ -356,6 +499,7 @@ function ImprovementRow({ item, onFocus, actionHandlers, isRemoving }: Improveme
           </button>
         </div>
       )}
+      </div>
     </div>
   )
 }
@@ -365,7 +509,12 @@ export function AllImprovements({
   totalImprovements,
   onFocus,
   actionHandlers,
+  onHoverEnter,
+  onHoverLeave,
 }: AllImprovementsProps) {
+  // Track expanded state for add_evidence section (collapsed by default)
+  const [addEvidenceExpanded, setAddEvidenceExpanded] = useState(false)
+
   return (
     <Accordion
       title="All Improvements"
@@ -377,7 +526,7 @@ export function AllImprovements({
       }
       testId="all-improvements-accordion"
     >
-      <div className="space-y-3">
+      <div className="space-y-2">
         {categoryOrder.map(category => (
           <CategorySection
             key={category}
@@ -385,6 +534,10 @@ export function AllImprovements({
             items={improvementsByCategory[category]}
             onFocus={onFocus}
             actionHandlers={actionHandlers}
+            isExpanded={category === 'add_evidence' ? addEvidenceExpanded : true}
+            onToggleExpand={category === 'add_evidence' ? () => setAddEvidenceExpanded(prev => !prev) : undefined}
+            onHoverEnter={onHoverEnter}
+            onHoverLeave={onHoverLeave}
           />
         ))}
       </div>

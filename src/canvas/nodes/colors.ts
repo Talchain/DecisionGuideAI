@@ -1,63 +1,62 @@
 /**
- * Phase 1B: Node type colors using Olumi brand palette
+ * Node type colors using Olumi Two-Shade System v2.0
  *
- * Each type has consistent colors for:
- * - Background (subtle tint)
- * - Border (strong accent)
- * - Hover state
- * - Selected state
- * - Text color
+ * Each node type maps to semantic colors:
+ * - Background: {color}-light (light shade)
+ * - Border/Text: {color} (main shade)
+ * - Hover: {color}-hover (derived state)
+ * - Selected: ring with main color at 50% opacity
  */
 
 export const nodeColors = {
   goal: {
-    bg: 'bg-amber-50',
-    border: 'border-amber-500',
-    hover: 'hover:border-amber-600',
-    selected: 'ring-4 ring-amber-400 ring-opacity-50',
-    text: 'text-amber-900',
+    bg: 'bg-goal-light',
+    border: 'border-goal',
+    hover: 'hover:border-goal-hover',
+    selected: 'ring-4 ring-goal/50',
+    text: 'text-goal',
   },
   decision: {
-    bg: 'bg-sky-50',
-    border: 'border-sky-500',
-    hover: 'hover:border-sky-600',
-    selected: 'ring-4 ring-sky-400 ring-opacity-50',
-    text: 'text-sky-900',
+    bg: 'bg-info-light',
+    border: 'border-info',
+    hover: 'hover:border-info-hover',
+    selected: 'ring-4 ring-info/50',
+    text: 'text-info',
   },
   option: {
-    bg: 'bg-purple-50',
-    border: 'border-purple-500',
-    hover: 'hover:border-purple-600',
-    selected: 'ring-4 ring-purple-400 ring-opacity-50',
-    text: 'text-purple-900',
+    bg: 'bg-option-light',
+    border: 'border-option',
+    hover: 'hover:border-option/80',
+    selected: 'ring-4 ring-option/50',
+    text: 'text-option',
   },
   outcome: {
-    bg: 'bg-mint-50',
-    border: 'border-mint-500',
-    hover: 'hover:border-mint-600',
-    selected: 'ring-4 ring-mint-400 ring-opacity-50',
-    text: 'text-mint-900',
+    bg: 'bg-success-light',
+    border: 'border-success',
+    hover: 'hover:border-success-hover',
+    selected: 'ring-4 ring-success/50',
+    text: 'text-success',
   },
   factor: {
-    bg: 'bg-slate-50',
-    border: 'border-slate-400',
-    hover: 'hover:border-slate-500',
-    selected: 'ring-4 ring-slate-300 ring-opacity-50',
-    text: 'text-slate-900',
+    bg: 'bg-factor-light',
+    border: 'border-factor',
+    hover: 'hover:border-factor/80',
+    selected: 'ring-4 ring-factor/50',
+    text: 'text-factor',
   },
   risk: {
-    bg: 'bg-red-50',
-    border: 'border-red-500',
-    hover: 'hover:border-red-600',
-    selected: 'ring-4 ring-red-400 ring-opacity-50',
-    text: 'text-red-900',
+    bg: 'bg-danger-light',
+    border: 'border-danger',
+    hover: 'hover:border-danger-hover',
+    selected: 'ring-4 ring-danger/50',
+    text: 'text-danger',
   },
   action: {
-    bg: 'bg-emerald-50',
-    border: 'border-emerald-500',
-    hover: 'hover:border-emerald-600',
-    selected: 'ring-4 ring-emerald-400 ring-opacity-50',
-    text: 'text-emerald-900',
+    bg: 'bg-success-light',
+    border: 'border-success',
+    hover: 'hover:border-success-hover',
+    selected: 'ring-4 ring-success/50',
+    text: 'text-success',
   },
 } as const
 

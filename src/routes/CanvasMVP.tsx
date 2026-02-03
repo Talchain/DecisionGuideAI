@@ -46,7 +46,6 @@ export default function CanvasMVP() {
     console.log(`[CanvasMVP] Render #${renderCountRef.current}`)
   }
 
-  const [short, setShort] = useState('dev')
   const [insertionError, setInsertionError] = useState<string | null>(null)
   const showTemplatesPanel = useCanvasStore(state => state.showTemplatesPanel)
   const closeTemplatesPanel = useCanvasStore(state => state.closeTemplatesPanel)
@@ -61,19 +60,9 @@ export default function CanvasMVP() {
   // v1.2: Auto-run analysis after template insertion
   const { run } = useResultsRun()
 
-  // Fetch version from /version.json (runtime)
+  // Track canvas opened event
   useEffect(() => {
     trackCanvasOpened()
-    fetch('/version.json')
-      .then(r => r.json())
-      .then(v => {
-        if (v?.short) setShort(v.short)
-      })
-      .catch(() => {
-        // Fallback to env var for local dev
-        const envShort = import.meta.env?.VITE_GIT_SHORT
-        if (envShort) setShort(envShort)
-      })
 
     // Dev-only console log
     if (import.meta.env.DEV) {
@@ -228,26 +217,6 @@ export default function CanvasMVP() {
       />
 
       <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
-        {/* Badge - fixed top-left */}
-        <div
-          style={{
-            position: 'fixed',
-            top: 8,
-            left: 8,
-            zIndex: 50,
-            padding: '6px 8px',
-            background: '#111',
-            color: '#0ff',
-            fontFamily: 'monospace',
-            fontSize: 12,
-            borderRadius: 6,
-            boxShadow: '0 2px 8px rgba(0,0,0,0.3)'
-          }}
-          data-testid="build-badge"
-        >
-          ROUTE=/canvas • COMMIT={short} • MODE=RF
-        </div>
-
         {/* React Flow Container */}
         <main role="main" data-testid="rf-root" style={{ height: '100%', width: '100%' }}>
           <ReactFlowGraph

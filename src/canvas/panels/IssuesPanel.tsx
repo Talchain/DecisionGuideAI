@@ -17,15 +17,15 @@ interface IssuesPanelProps {
 }
 
 const severityIcons: Record<IssueSeverity, JSX.Element> = {
-  error: <AlertCircle className="w-4 h-4 text-danger-600" />,
-  warning: <AlertTriangle className="w-4 h-4 text-warning-600" />,
-  info: <Info className="w-4 h-4 text-info-600" />,
+  error: <AlertCircle className="w-4 h-4 text-danger" />,
+  warning: <AlertTriangle className="w-4 h-4 text-warning" />,
+  info: <Info className="w-4 h-4 text-info" />,
 }
 
 const severityColors: Record<IssueSeverity, string> = {
-  error: 'bg-danger-50 border-danger-200',
-  warning: 'bg-warning-50 border-warning-200',
-  info: 'bg-info-50 border-info-200',
+  error: 'bg-danger-light border-danger/30',
+  warning: 'bg-warning-light border-warning/30',
+  info: 'bg-info-light border-info/30',
 }
 
 export function IssuesPanel({ issues, onFixIssue, onFixAll, onClose }: IssuesPanelProps) {
@@ -47,7 +47,7 @@ export function IssuesPanel({ issues, onFixIssue, onFixAll, onClose }: IssuesPan
   }
 
   return (
-    <div className="bg-white border-l border-slate-200 w-80 flex flex-col h-full">
+    <div className="bg-panel border-l border-slate-200 w-80 flex flex-col h-full">
       {/* Header */}
       <div className="px-4 py-3 border-b border-slate-200">
         <div className="flex items-center justify-between mb-3">

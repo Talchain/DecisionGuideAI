@@ -31,7 +31,6 @@ import { ToastProvider, useShowToast } from './ToastContext'
 import { ConfirmDialog } from './components/ConfirmDialog'
 // ValidationChip removed - validation consolidated into OutputsDock panel
 import { LayerProvider } from './components/LayerProvider'
-import { RecoveryBanner } from './components/RecoveryBanner'
 import { OnboardingOverlay } from './onboarding/OnboardingOverlay'
 import { useOnboarding } from './onboarding/useOnboarding'
 import { useCanvasKeyboardShortcuts } from './hooks/useCanvasKeyboardShortcuts'
@@ -1834,7 +1833,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
       )}
       {/* SettingsPanel moved to TopBar dropdown menu */}
       {/* ValidationChip removed - consolidated into OutputsDock */}
-      <RecoveryBanner />
+      {/* RecoveryBanner removed */}
       <LayoutProgressBanner />
 
       {/* M4: Graph Health UI - HealthStatusBar removed, consolidated into OutputsDock */}
