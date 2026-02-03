@@ -39,7 +39,6 @@ import type { Blueprint } from '../templates/blueprints/types'
 import { blueprintToGraph } from '../templates/mapper/blueprintToGraph'
 import { InfluenceExplainer, useInfluenceExplainer } from '../components/assistants/InfluenceExplainer'
 import { DraftChat } from './components/DraftChat'
-import { CanvasEmptyState } from './components/CanvasEmptyState'
 // N5: Code-split heavy panels with named chunks
 const InspectorPanel = lazy(() => import(/* webpackChunkName: "inspector-panel" */ './panels/InspectorPanel').then(m => ({ default: m.InspectorPanel })))
 import { useResultsRun } from './hooks/useResultsRun'
@@ -58,14 +57,11 @@ import { DocumentsManager } from './components/DocumentsManager'
 import { ProvenanceHubTab } from './components/ProvenanceHubTab'
 import { RadialQuickAddMenu } from './components/RadialQuickAddMenu'
 import { ConnectPrompt } from './components/ConnectPrompt'
-import { ConnectivityChip } from './components/ConnectivityChip'
-import { StatusChips } from './components/StatusChips'
 import { FocusModeChip } from './components/FocusModeChip'
 // EdgeLabelToggle moved to CanvasToolbar for cleaner UI
 import { LimitsPanel } from './components/LimitsPanel'
 import { BottomSheet } from './components/BottomSheet'
 import type { NodeType } from './domain/nodes'
-import { InputsDock } from './components/InputsDock'
 import { OutputsDock } from './components/OutputsDock'
 import { ComparisonCanvasLayout } from './components/ComparisonCanvasLayout'
 import { isInputsOutputsEnabled, isCommandPaletteEnabled, isDegradedBannerEnabled, isOnboardingTourEnabled, pocFlags } from '../flags'
@@ -362,8 +358,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
     return ids.values().next().value ?? null
   })
 
-  // Stable callbacks for CanvasEmptyState (React #185 prevention)
-  const handleEmptyStateDraft = useCallback(() => setShowDraftChat(true), [setShowDraftChat])
+  // Stable callback for templates panel (React #185 prevention)
   const handleEmptyStateTemplate = useCallback(() => openTemplatesPanel(), [openTemplatesPanel])
 
   // React #185 FIX: Memoize keyboard shortcut callbacks to prevent infinite re-render loops.
@@ -391,7 +386,8 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
   const [showResetConfirm, setShowResetConfirm] = useState(false)
 
   // Interaction mode: 'select' for normal selection/drag, 'hand' for pan mode (like Figma V/H)
-  const [interactionMode, setInteractionMode] = useState<'select' | 'hand'>('select')
+  // Default to 'hand' mode for easier canvas navigation on load
+  const [interactionMode, setInteractionMode] = useState<'select' | 'hand'>('hand')
 
   // M4: Graph Health actions (graphHealth, showIssuesPanel state selected above)
   const setShowIssuesPanel = useCanvasStore(s => s.setShowIssuesPanel)
@@ -1595,7 +1591,8 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
             // node/edge components vs the handlers
           >
             <Background variant={showGrid ? BackgroundVariant.Dots : BackgroundVariant.Lines} gap={gridSize} />
-            <MiniMap style={miniMapStyle} />
+            {/* MiniMap temporarily disabled for layout debugging */}
+            {/* <MiniMap style={miniMapStyle} /> */}
           </ReactFlow>
         </div>
         <div
@@ -1744,8 +1741,8 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
             maxZoom={4}
           >
             <Background variant={showGrid ? BackgroundVariant.Dots : BackgroundVariant.Lines} gap={gridSize} />
-            {/* TODO: Future enhancement - Add legend and interaction controls to MiniMap */}
-            <MiniMap style={miniMapStyle} />
+            {/* MiniMap temporarily disabled for layout debugging */}
+            {/* <MiniMap style={miniMapStyle} /> */}
             <svg style={{ position: 'absolute', top: 0, left: 0 }}>
               <defs>
                 {/* Arrowheads matching edge colors - original size (6x6), fixed regardless of stroke width */}
@@ -1753,7 +1750,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
                   <polygon points="0 0, 6 3, 0 6" fill="var(--surface-border)" />
                 </marker>
                 <marker id="arrowhead-selected" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
-                  <polygon points="0 0, 6 3, 0 6" fill="var(--info-500)" />
+                  <polygon points="0 0, 6 3, 0 6" fill="var(--info)" />
                 </marker>
               </defs>
             </svg>
@@ -1763,15 +1760,6 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
 
       {/* Highlight layer for Results drivers (keyed off global showResultsPanel flag) */}
       <HighlightLayer isResultsOpen={showResultsPanel} />
-
-      {/* Empty canvas state - shows helpful prompts when no nodes exist */}
-      {/* Uses stable callbacks (handleEmptyStateDraft/handleEmptyStateTemplate) to prevent re-renders */}
-      {nodes.length === 0 && debugMode === 'normal' && (
-        <CanvasEmptyState
-          onDraft={handleEmptyStateDraft}
-          onTemplate={handleEmptyStateTemplate}
-        />
-      )}
 
       {showAlignmentGuides && isDragging && <AlignmentGuides nodes={nodes} draggingNodeIds={draggingNodeIds} isActive={isDragging} />}
       {contextMenu && <ContextMenu x={contextMenu.x} y={contextMenu.y} onClose={handleCloseContextMenu} />}
@@ -1814,21 +1802,6 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
         canUndo={canUndo()}
         canRedo={canRedo()}
       />
-      {/* Status badges - positioned in bottom-left to avoid dock tabs */}
-      <div
-        className="absolute z-[1200] flex flex-row items-center gap-2"
-        style={{
-          bottom: 'calc(var(--bottombar-h, 3rem) + 1rem)',
-          left: dockLayoutEnabled ? 'calc(var(--dock-left-offset, 0rem) + 1rem)' : '1rem',
-        }}
-      >
-        <ConnectivityChip />
-        <StatusChips
-          currentNodes={nodes.length}
-          currentEdges={edges.length}
-          onClick={() => setShowLimits(true)}
-        />
-      </div>
       {/* Focus Mode Chip - shows when single node selected with path highlighting */}
       <div
         className="absolute z-[100] left-1/2 -translate-x-1/2 pointer-events-auto"
@@ -1989,22 +1962,6 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
         />
       )}
 
-      {dockLayoutEnabled && (
-        <div className="absolute inset-y-0 left-0 z-[900] flex pointer-events-none">
-          <InputsDock
-            currentNodes={nodes.length}
-            currentEdges={edges.length}
-            renderDocumentsTab={() => (
-              <div className="h-full overflow-auto" data-testid="documents-panel" tabIndex={-1}>
-                <DocumentsManager
-                  onUpload={handleUploadDocuments}
-                  onDelete={handleDeleteDocument}
-                />
-              </div>
-            )}
-          />
-        </div>
-      )}
       {/* OutputsDock (Results panel) - render in both old and new layouts */}
       <OutputsDock />
       <LimitsPanel
