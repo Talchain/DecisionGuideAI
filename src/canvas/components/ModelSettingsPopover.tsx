@@ -26,7 +26,11 @@ interface ModelSettingsPopoverProps {
  */
 export function ModelSettingsPopover({ isOpen, onClose, anchorRef }: ModelSettingsPopoverProps) {
   const popoverRef = useRef<HTMLDivElement>(null)
-  const [position, setPosition] = useState({ top: 0, right: 0 })
+  const [position, setPosition] = useState<{ top?: number; bottom?: number; left?: number; right?: number; maxHeight: number }>({
+    top: 0,
+    right: 0,
+    maxHeight: 360,
+  })
   const [showAllModels, setShowAllModels] = useState(false)
   const [showEnrichment, setShowEnrichment] = useState(false)
 
@@ -35,20 +39,16 @@ export function ModelSettingsPopover({ isOpen, onClose, anchorRef }: ModelSettin
 
   // Get model selection state from store
   const selectedGenerationModel = useCanvasStore((s) => s.selectedGenerationModel)
-  const selectedRepairModel = useCanvasStore((s) => s.selectedRepairModel)
   const selectedEnrichmentModel = useCanvasStore((s) => s.selectedEnrichmentModel)
   const setSelectedGenerationModel = useCanvasStore((s) => s.setSelectedGenerationModel)
-  const setSelectedRepairModel = useCanvasStore((s) => s.setSelectedRepairModel)
   const setSelectedEnrichmentModel = useCanvasStore((s) => s.setSelectedEnrichmentModel)
 
   // Get effective default model IDs from API (fallback to hardcoded)
   const defaultGeneration = getDefaultModelId('generation') || DEFAULT_MODELS.generation
-  const defaultRepair = getDefaultModelId('repair') || DEFAULT_MODELS.repair
   const defaultEnrichment = getDefaultModelId('enrichment') || DEFAULT_MODELS.enrichment
 
   // Get effective model IDs (use default if null)
   const effectiveGenerationModel = selectedGenerationModel ?? defaultGeneration
-  const effectiveRepairModel = selectedRepairModel ?? defaultRepair
   const effectiveEnrichmentModel = selectedEnrichmentModel ?? defaultEnrichment
 
   // Get models to display based on toggle
@@ -68,10 +68,41 @@ export function ModelSettingsPopover({ isOpen, onClose, anchorRef }: ModelSettin
       if (!anchor) return
 
       const rect = anchor.getBoundingClientRect()
-      setPosition({
-        top: rect.bottom + 8, // 8px gap below the button
-        right: window.innerWidth - rect.right, // Align right edge with button
-      })
+      const padding = 8
+      const popoverWidth = 528 // matches w-[528px]
+      const rootStyles = getComputedStyle(document.documentElement)
+      const topbarHeight = parseFloat(rootStyles.getPropertyValue('--topbar-h')) || 0
+      const safeTop = topbarHeight + padding
+      const availableBelow = window.innerHeight - rect.bottom - padding
+      const availableAbove = rect.top - safeTop
+      const viewportMax = window.innerHeight - safeTop - padding
+      const shouldOpenUp = availableAbove >= availableBelow
+
+      // Position popover so it aligns to the right side near the anchor
+      // If there's room, align right edge with anchor's right edge
+      // Otherwise, position from the right edge of viewport
+      const anchorRight = rect.right
+      const spaceOnRight = window.innerWidth - anchorRight
+      const useRightPositioning = spaceOnRight < popoverWidth
+
+      if (shouldOpenUp) {
+        const maxHeight = Math.max(0, Math.min(viewportMax, availableAbove))
+        setPosition({
+          bottom: window.innerHeight - rect.top + padding,
+          // Position from right edge if popover would extend off-screen, otherwise align right edges
+          right: useRightPositioning ? padding : window.innerWidth - rect.right,
+          left: undefined,
+          maxHeight,
+        })
+      } else {
+        const maxHeight = Math.max(0, Math.min(viewportMax, availableBelow))
+        setPosition({
+          top: Math.max(rect.bottom + padding, safeTop),
+          right: useRightPositioning ? padding : window.innerWidth - rect.right,
+          left: undefined,
+          maxHeight,
+        })
+      }
     }
 
     updatePosition()
@@ -143,10 +174,13 @@ export function ModelSettingsPopover({ isOpen, onClose, anchorRef }: ModelSettin
   return (
     <div
       ref={popoverRef}
-      className="fixed z-50 w-80 max-w-[calc(100vw-2rem)] max-h-[calc(100vh-4rem)] bg-paper-50 rounded-[20px] shadow-2 border border-sand-200 flex flex-col"
+      className="fixed z-50 w-[528px] max-w-[calc(100vw-2rem)] bg-paper-50 rounded-[20px] shadow-2 border border-sand-200 flex flex-col overflow-hidden"
       style={{
-        top: `${position.top}px`,
-        right: `${position.right}px`,
+        top: position.top !== undefined ? `${position.top}px` : undefined,
+        bottom: position.bottom !== undefined ? `${position.bottom}px` : undefined,
+        left: position.left !== undefined ? `${position.left}px` : undefined,
+        right: position.right !== undefined ? `${position.right}px` : undefined,
+        maxHeight: `${position.maxHeight}px`,
       }}
       role="dialog"
       aria-modal="true"
@@ -169,7 +203,7 @@ export function ModelSettingsPopover({ isOpen, onClose, anchorRef }: ModelSettin
       </div>
 
       {/* Content */}
-      <div className="p-4 space-y-4 overflow-y-auto flex-grow">
+      <div className="p-4 space-y-4 overflow-y-auto flex-grow min-h-0">
         {/* Generation Model */}
         <ModelDropdown
           label="Generation"

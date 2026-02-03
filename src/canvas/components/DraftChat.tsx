@@ -166,6 +166,7 @@ export function DraftChat() {
   const captureErrorDetail = useCanvasStore(s => s.captureErrorDetail)
   const nodeCount = useCanvasStore(s => s.nodes.length)
   const edgeCount = useCanvasStore(s => s.edges.length)
+  const showResultsPanel = useCanvasStore(s => s.showResultsPanel)
 
   // Auto-resize textarea based on content
   const adjustTextareaHeight = useCallback(() => {
@@ -190,6 +191,23 @@ export function DraftChat() {
       setIsMinimized(false)
     }
   }, [showDraftChat, nodeCount, edgeCount])
+
+  // Auto-resize expanded textarea when switching from minimized mode with content
+  useEffect(() => {
+    if (!isMinimized && textareaRef.current && description) {
+      // Small delay to ensure DOM is ready after state change
+      requestAnimationFrame(() => {
+        const textarea = textareaRef.current
+        if (textarea) {
+          textarea.style.height = 'auto'
+          const maxHeight = window.innerHeight * 0.75
+          const newHeight = Math.min(textarea.scrollHeight, maxHeight)
+          textarea.style.height = `${newHeight}px`
+          textarea.style.overflowY = textarea.scrollHeight > maxHeight ? 'auto' : 'hidden'
+        }
+      })
+    }
+  }, [isMinimized, description])
 
   // Handle file attachment
   const handleFileSelect = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
@@ -236,6 +254,9 @@ export function DraftChat() {
       if (result?.nodes?.length) {
         applyDraftToCanvas(result)
         setIsMinimized(true)
+        // Clear the description so it doesn't show in minimized mode
+        setDescription('')
+        setLastDraftDescription('')
       }
     } catch (err) {
       console.error('Draft failed:', err)
@@ -686,37 +707,25 @@ export function DraftChat() {
     } catch {}
   }, [panelHeight])
 
-  // Watch for dock offset changes to avoid results panel overlap
+  // Calculate dock offset by measuring the actual OutputsDock element
+  // This is the most reliable approach - measures what's actually on screen
   useEffect(() => {
     if (typeof window === 'undefined') return
 
     const checkDockOffset = () => {
-      const root = document.documentElement
-      const offsetValue = getComputedStyle(root).getPropertyValue('--dock-right-offset').trim()
-      // Parse rem/px value - if expanded (>= 20rem/320px), apply offset
-      let offsetPx = 0
-      if (offsetValue.endsWith('rem')) {
-        offsetPx = parseFloat(offsetValue) * 16
-      } else if (offsetValue.endsWith('px')) {
-        offsetPx = parseFloat(offsetValue)
-      } else if (offsetValue.startsWith('var(')) {
-        // It's referencing another variable like var(--dock-right-expanded)
-        // In this case, check if dock is expanded (26rem = 416px)
-        const expandedValue = getComputedStyle(root).getPropertyValue('--dock-right-expanded').trim()
-        if (expandedValue.endsWith('rem')) {
-          offsetPx = parseFloat(expandedValue) * 16
-        } else if (expandedValue.endsWith('px')) {
-          offsetPx = parseFloat(expandedValue)
-        }
+      const dockElement = document.querySelector('[data-testid="outputs-dock"]')
+      if (dockElement) {
+        const width = dockElement.getBoundingClientRect().width
+        // Only shift when dock is expanded (> 100px), not when collapsed (~40px)
+        setDockOffset(width > 100 ? width : 0)
+      } else {
+        // Dock not mounted - center the panel
+        setDockOffset(0)
       }
-      // Only apply offset if dock is actually expanded (> 100px threshold)
-      setDockOffset(offsetPx > 100 ? offsetPx : 0)
     }
 
-    // Check immediately and on interval (dock state can change)
     checkDockOffset()
     const interval = setInterval(checkDockOffset, 300)
-
     return () => clearInterval(interval)
   }, [])
 
@@ -730,12 +739,12 @@ export function DraftChat() {
       ref={panelRef}
       className="fixed z-[2000] flex flex-col transition-all duration-300 ease-out"
       style={{
-        // Center by default, shift left when results panel is open
+        // Center by default, shift left when results panel is expanded
         left: dockOffset > 0 ? `calc(50% - ${dockOffset / 2}px)` : '50%',
         transform: 'translateX(-50%)',
         bottom: 'calc(var(--bottombar-h, 0) + 1rem)',
         width: `${panelWidth * 1.44}px`,
-        // Constrain max width when dock is open (112px gap + sidebar)
+        // Constrain max width when dock is expanded
         maxWidth: dockOffset > 0
           ? `calc(100vw - ${dockOffset}px - 112px - 52px - 24px)`
           : 'calc(100vw - 96px)',
@@ -753,7 +762,8 @@ export function DraftChat() {
         />
         {isMinimized ? (
           <div
-            className="flex items-stretch gap-3 rounded-2xl border border-sand-200 bg-paper-50 px-4 py-3 shadow-2"
+            className="flex gap-3 rounded-2xl border border-sand-200 px-4 py-3 shadow-2"
+            style={{ backgroundColor: '#FEFEFE' }}
             data-testid="draft-chat-minimized"
           >
             {/* Textarea with submit button inside - takes remaining width */}
@@ -779,16 +789,17 @@ export function DraftChat() {
                   minHeight: '24px',
                   outline: 'none',
                   border: 'none',
-                  boxShadow: 'none'
+                  boxShadow: 'none',
+                  overflow: 'hidden'
                 }}
                 rows={1}
                 aria-label="Describe your decision"
               />
-              {/* Submit button inside textarea area */}
+              {/* Submit button inside textarea area - anchored to bottom right */}
               <button
                 onClick={handleDraft}
                 disabled={loading || !description.trim()}
-                className="absolute right-1 top-1/2 -translate-y-1/2 p-2 rounded-full transition-colors"
+                className="absolute right-1 bottom-0 p-2 rounded-full transition-colors"
                 style={{
                   backgroundColor: (description.trim() && !loading) ? '#63ADCF' : '#E8E5E1',
                   color: (description.trim() && !loading) ? '#FFFFFF' : '#9B9B9B',
@@ -806,8 +817,8 @@ export function DraftChat() {
                 )}
               </button>
             </div>
-            {/* Action buttons on the right */}
-            <div className="flex items-center gap-1 flex-shrink-0">
+            {/* Action buttons on the right - anchored to bottom */}
+            <div className="flex items-end gap-1 flex-shrink-0">
               <button
                 onClick={() => fileInputRef.current?.click()}
                 className="p-2 rounded-full text-ink-400 hover:text-ink-600 hover:bg-sand-100 transition-colors"
@@ -834,14 +845,7 @@ export function DraftChat() {
             </div>
           </div>
         ) : (
-          <div className="flex flex-col rounded-[20px] border border-sand-200 shadow-2 overflow-hidden relative" style={{ backgroundColor: '#FEFEFE', height: `${panelHeight}px`, maxHeight: '80vh' }}>
-            {/* Height resize handle (top edge) */}
-            <div
-              aria-hidden="true"
-              onMouseDown={handleHeightResizeStart}
-              className="absolute inset-x-0 top-0 h-1.5 cursor-row-resize bg-transparent hover:bg-sky-200/60 transition-colors z-10 rounded-t-[20px]"
-              title="Drag to resize panel height"
-            />
+          <div className="flex flex-col rounded-[20px] border border-sand-200 shadow-2 overflow-hidden relative" style={{ backgroundColor: '#FEFEFE', maxHeight: '80vh' }}>
             {/* Header */}
             <div className="flex items-center justify-between px-4 py-3 border-b border-sand-100" style={{ backgroundColor: '#FEFEFE' }}>
               <div className="flex items-center gap-2">
@@ -1006,13 +1010,21 @@ export function DraftChat() {
               )}
             </div>
 
-            {/* Input area - grows with panel height */}
+            {/* Input area - auto-grows with content, scrollbar at 75vh */}
             <div className="border-t border-sand-100 p-3 bg-paper-25 flex-shrink-0">
               <div className="relative">
                 <textarea
                   ref={textareaRef}
                   value={description}
-                  onChange={(e) => setDescription(e.target.value)}
+                  onChange={(e) => {
+                    setDescription(e.target.value)
+                    // Auto-resize textarea - grows with content, max 75vh
+                    e.target.style.height = 'auto'
+                    const maxHeight = window.innerHeight * 0.75
+                    const newHeight = Math.min(e.target.scrollHeight, maxHeight)
+                    e.target.style.height = `${newHeight}px`
+                    e.target.style.overflowY = e.target.scrollHeight > maxHeight ? 'auto' : 'hidden'
+                  }}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' && !e.shiftKey && description.trim() && !loading) {
                       e.preventDefault()
@@ -1023,14 +1035,15 @@ export function DraftChat() {
                   className={`
                     ${typography.body} w-full p-3 pb-12 rounded-xl border border-sand-200
                     focus:border-sand-200 focus:outline-none focus:ring-0 focus:shadow-none
-                    resize-none overflow-y-auto
+                    resize-none
                     placeholder:text-ink-400
                   `}
                   style={{
-                    // Height grows with panel: panelHeight minus header(~72px) minus padding(~24px) minus safety(~20px)
-                    height: `${Math.max(120, panelHeight - 116)}px`,
+                    minHeight: '120px',
+                    maxHeight: '75vh',
                     outline: 'none',
-                    boxShadow: 'none'
+                    boxShadow: 'none',
+                    overflowY: 'hidden'
                   }}
                 />
 

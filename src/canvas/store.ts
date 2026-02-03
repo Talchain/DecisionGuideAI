@@ -1139,7 +1139,8 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     const prev = history.past[history.past.length - 1]
     const past = history.past.slice(0, -1)
     const future = [{ nodes, edges }, ...history.future]
-    set({ nodes: prev.nodes, edges: prev.edges, history: { past, future } })
+    // Invalidate ceeAnalysisReady so panel re-evaluates from restored graph state
+    set({ nodes: prev.nodes, edges: prev.edges, history: { past, future }, ceeAnalysisReady: null })
     // Reset hash after undo
     const { nodes: newNodes, edges: newEdges } = get()
     set(() => ({ _internal: { lastHistoryHash: historyHash(newNodes, newEdges) } }))
@@ -1151,7 +1152,8 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     const next = history.future[0]
     const past = [...history.past, { nodes, edges }]
     const future = history.future.slice(1)
-    set({ nodes: next.nodes, edges: next.edges, history: { past, future } })
+    // Invalidate ceeAnalysisReady so panel re-evaluates from restored graph state
+    set({ nodes: next.nodes, edges: next.edges, history: { past, future }, ceeAnalysisReady: null })
     // Reset hash after redo
     const { nodes: newNodes, edges: newEdges } = get()
     set(() => ({ _internal: { lastHistoryHash: historyHash(newNodes, newEdges) } }))
@@ -1553,8 +1555,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       touchedNodeIds: new Set(),
       nextNodeId: 1,
       nextEdgeId: 1,
-      // Clear AI assistant and draft state
-      showDraftChat: false,
+      // Clear AI model selections but keep panel visible
       selectedGenerationModel: null,
       selectedRepairModel: null,
       selectedEnrichmentModel: null,
