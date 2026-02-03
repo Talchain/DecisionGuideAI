@@ -97,8 +97,9 @@ function formatCEEError(error: CEEError | Error): { message: string; debugInfo?:
   return { message: error.message }
 }
 
-// Storage key for panel width persistence
+// Storage keys for panel dimension persistence
 const DRAFT_PANEL_WIDTH_KEY = 'canvas.draftChat.width'
+const DRAFT_PANEL_HEIGHT_KEY = 'canvas.draftChat.height'
 
 export function DraftChat() {
   // Initialize description from stored value to maintain context across panel close/reopen
@@ -127,6 +128,20 @@ export function DraftChat() {
       }
     }
     return 676 // default width (30% increase from 520)
+  })
+
+  // Panel height state (persisted to localStorage) - 20% taller default
+  const [panelHeight, setPanelHeight] = useState<number>(() => {
+    if (typeof localStorage !== 'undefined') {
+      const stored = localStorage.getItem(DRAFT_PANEL_HEIGHT_KEY)
+      if (stored) {
+        const parsed = parseInt(stored, 10)
+        if (Number.isFinite(parsed) && parsed >= 200 && parsed <= 600) {
+          return parsed
+        }
+      }
+    }
+    return 360 // default height (20% increase from 300)
   })
 
   const {
@@ -634,6 +649,40 @@ export function DraftChat() {
     } catch {}
   }, [panelWidth])
 
+  // Handle panel height resize via drag (top edge)
+  const handleHeightResizeStart = useCallback((event: React.MouseEvent) => {
+    if (typeof window === 'undefined') return
+    event.preventDefault()
+
+    const startY = event.clientY
+    const startHeight = panelHeight
+
+    const handleMove = (e: MouseEvent) => {
+      // Dragging up increases height (negative deltaY = taller)
+      const deltaY = startY - e.clientY
+      const newHeight = Math.max(200, Math.min(600, startHeight + deltaY))
+      setPanelHeight(newHeight)
+    }
+
+    const handleUp = () => {
+      window.removeEventListener('mousemove', handleMove)
+      window.removeEventListener('mouseup', handleUp)
+      try {
+        localStorage.setItem(DRAFT_PANEL_HEIGHT_KEY, String(panelHeight))
+      } catch {}
+    }
+
+    window.addEventListener('mousemove', handleMove)
+    window.addEventListener('mouseup', handleUp)
+  }, [panelHeight])
+
+  // Persist panel height when it changes
+  useEffect(() => {
+    try {
+      localStorage.setItem(DRAFT_PANEL_HEIGHT_KEY, String(panelHeight))
+    } catch {}
+  }, [panelHeight])
+
   // Don't render if panel is closed
   if (!showDraftChat) {
     return null
@@ -726,7 +775,14 @@ export function DraftChat() {
             </button>
           </div>
         ) : (
-          <div className="flex flex-col max-h-full rounded-[20px] border border-sand-200 shadow-2 overflow-hidden relative" style={{ backgroundColor: '#FEFEFE' }}>
+          <div className="flex flex-col rounded-[20px] border border-sand-200 shadow-2 overflow-hidden relative" style={{ backgroundColor: '#FEFEFE', height: `${panelHeight}px`, maxHeight: '80vh' }}>
+            {/* Height resize handle (top edge) */}
+            <div
+              aria-hidden="true"
+              onMouseDown={handleHeightResizeStart}
+              className="absolute inset-x-0 top-0 h-1.5 cursor-row-resize bg-transparent hover:bg-sky-200/60 transition-colors z-10 rounded-t-[20px]"
+              title="Drag to resize panel height"
+            />
             {/* Header */}
             <div className="flex items-center justify-between px-4 py-3 border-b border-sand-100" style={{ backgroundColor: '#FEFEFE' }}>
               <div className="flex items-center gap-2">
@@ -907,12 +963,12 @@ export function DraftChat() {
                   placeholder="Describe your decision... e.g., We're deciding whether to expand into the European market. Key factors include regulatory costs, market size, and competition..."
                   className={`
                     ${typography.body} w-full p-3 pr-14 rounded-xl border border-sand-200
-                    focus:border-sand-200 focus:outline-none
+                    focus:border-sand-200 focus:outline-none focus:ring-0 focus:shadow-none
                     resize-none overflow-y-auto
                     placeholder:text-ink-400
                   `}
-                  style={{ minHeight: '120px', maxHeight: '300px' }}
-                  rows={3}
+                  style={{ minHeight: '144px', maxHeight: '360px', outline: 'none', boxShadow: 'none' }}
+                  rows={4}
                 />
 
                 <button
