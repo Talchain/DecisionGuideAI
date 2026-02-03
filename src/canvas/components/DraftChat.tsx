@@ -1,7 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
-import { X, Paperclip, Sparkles, Settings } from 'lucide-react'
+import { ChevronDown, ChevronUp, Paperclip, Settings, Sparkles, X } from 'lucide-react'
 import { useCEEDraft } from '../../hooks/useCEEDraft'
-import { DraftPreview } from './DraftPreview'
 import { DraftLoadingAnimation } from './DraftLoadingAnimation'
 import { ErrorAlert } from '../../components/ErrorAlert'
 import { useCanvasStore } from '../store'
@@ -107,15 +106,14 @@ export function DraftChat() {
   const [description, setDescription] = useState(lastDraftDescription || '')
   const [showSettingsPopover, setShowSettingsPopover] = useState(false)
   const [attachedFiles, setAttachedFiles] = useState<File[]>([])
+  const inputRef = useRef<HTMLInputElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const settingsButtonRef = useRef<HTMLButtonElement>(null)
   const panelRef = useRef<HTMLDivElement>(null)
 
-  // State for auto-apply flow
-  const [appliedNodeIds, setAppliedNodeIds] = useState<string[]>([])
-  const [appliedEdgeIds, setAppliedEdgeIds] = useState<string[]>([])
-  const [isOnCanvas, setIsOnCanvas] = useState(false)
+  const initialHasGraph = useCanvasStore.getState().nodes.length > 0 || useCanvasStore.getState().edges.length > 0
+  const [isMinimized, setIsMinimized] = useState(initialHasGraph)
 
   // Panel width state (persisted to localStorage)
   const [panelWidth, setPanelWidth] = useState<number>(() => {
@@ -123,12 +121,12 @@ export function DraftChat() {
       const stored = localStorage.getItem(DRAFT_PANEL_WIDTH_KEY)
       if (stored) {
         const parsed = parseInt(stored, 10)
-        if (Number.isFinite(parsed) && parsed >= 320 && parsed <= 600) {
+        if (Number.isFinite(parsed) && parsed >= 320 && parsed <= 780) {
           return parsed
         }
       }
     }
-    return 400 // default width
+    return 520 // default width (30% increase from 400)
   })
 
   const {
@@ -138,7 +136,6 @@ export function DraftChat() {
     draft: generateDraft,
     guidance,
     retryAfterSeconds,
-    reset,
   } = useCEEDraft()
   // React #185 FIX: Use individual selectors instead of destructuring from useCanvasStore()
   const showDraftChat = useCanvasStore(s => s.showDraftChat)
@@ -148,8 +145,9 @@ export function DraftChat() {
   const applyLayout = useCanvasStore(s => s.applyLayout)
   const setPendingFitView = useCanvasStore(s => s.setPendingFitView)
   const resetCanvas = useCanvasStore(s => s.resetCanvas)
-  const saveCurrentScenario = useCanvasStore(s => s.saveCurrentScenario)
   const captureErrorDetail = useCanvasStore(s => s.captureErrorDetail)
+  const nodeCount = useCanvasStore(s => s.nodes.length)
+  const edgeCount = useCanvasStore(s => s.edges.length)
 
   // Auto-resize textarea based on content
   const adjustTextareaHeight = useCallback(() => {
@@ -158,7 +156,7 @@ export function DraftChat() {
     // Reset height to auto to get the correct scrollHeight
     textarea.style.height = 'auto'
     // Set to scrollHeight, capped at max height
-    const maxHeight = 200
+    const maxHeight = 300
     const newHeight = Math.min(textarea.scrollHeight, maxHeight)
     textarea.style.height = `${newHeight}px`
   }, [])
@@ -166,6 +164,14 @@ export function DraftChat() {
   useEffect(() => {
     adjustTextareaHeight()
   }, [description, adjustTextareaHeight])
+
+  // Keep minimized state in sync with graph removal (expand when canvas is cleared)
+  useEffect(() => {
+    if (!showDraftChat) return
+    if (nodeCount === 0 && edgeCount === 0) {
+      setIsMinimized(false)
+    }
+  }, [showDraftChat, nodeCount, edgeCount])
 
   // Handle file attachment
   const handleFileSelect = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
@@ -210,10 +216,8 @@ export function DraftChat() {
       const result = await generateDraft(description)
       // Auto-apply the draft to canvas immediately
       if (result?.nodes?.length) {
-        const { nodeIds, edgeIds } = applyDraftToCanvas(result)
-        setAppliedNodeIds(nodeIds)
-        setAppliedEdgeIds(edgeIds)
-        setIsOnCanvas(true)
+        applyDraftToCanvas(result)
+        setIsMinimized(true)
       }
     } catch (err) {
       console.error('Draft failed:', err)
@@ -594,73 +598,7 @@ export function DraftChat() {
       }
     }
 
-    return {
-      nodeIds: nodes.map((n: any) => n.id),
-      edgeIds: edges.map((e: any) => e.id),
-    }
   }, [pushHistory, applyLayout, setPendingFitView])
-
-  // Remove the applied draft from canvas
-  const removeDraftFromCanvas = useCallback(() => {
-    if (appliedNodeIds.length === 0 && appliedEdgeIds.length === 0) return
-
-    pushHistory()
-    const state = useCanvasStore.getState()
-    useCanvasStore.setState({
-      nodes: state.nodes.filter(n => !appliedNodeIds.includes(n.id)),
-      edges: state.edges.filter(e => !appliedEdgeIds.includes(e.id)),
-    })
-    setIsOnCanvas(false)
-  }, [appliedNodeIds, appliedEdgeIds, pushHistory])
-
-  // Reinstate the draft to canvas
-  const reinstateDraft = useCallback(() => {
-    if (!draft) return
-    const { nodeIds, edgeIds } = applyDraftToCanvas(draft)
-    setAppliedNodeIds(nodeIds)
-    setAppliedEdgeIds(edgeIds)
-    setIsOnCanvas(true)
-  }, [draft, applyDraftToCanvas])
-
-  // Close the panel (keep current canvas state)
-  const handleClose = useCallback(() => {
-    reset()
-    setAppliedNodeIds([])
-    setAppliedEdgeIds([])
-    setIsOnCanvas(false)
-    setShowDraftChat(false)
-  }, [reset, setShowDraftChat])
-
-  // Legacy handlers for preview mode (kept for backward compatibility)
-  const handleAccept = () => {
-    // PERSISTENCE FIX: Save the current graph as a scenario before closing
-    // This ensures the graph persists across page refreshes
-    const scenarioId = saveCurrentScenario()
-    console.log('[SCENARIO_STATE]', {
-      scenarioId,
-      source: 'accept',
-      nodes: useCanvasStore.getState().nodes.length
-    })
-    handleClose()
-  }
-
-  const handleReject = () => {
-    // Remove the graph if it's on canvas, then close
-    if (isOnCanvas) {
-      removeDraftFromCanvas()
-    }
-    handleClose()
-  }
-
-  const handleGuidanceQuestionClick = (question: string) => {
-    setDescription((previous: string) => {
-      const trimmed = previous.trim()
-      if (!trimmed) {
-        return question
-      }
-      return `${trimmed}\n\n${question}`
-    })
-  }
 
   // Handle panel resize via drag
   const handleResizeStart = useCallback((event: React.MouseEvent) => {
@@ -672,7 +610,7 @@ export function DraftChat() {
 
     const handleMove = (e: MouseEvent) => {
       const deltaX = e.clientX - startX
-      const newWidth = Math.max(320, Math.min(600, startWidth + deltaX))
+      const newWidth = Math.max(320, Math.min(780, startWidth + deltaX))
       setPanelWidth(newWidth)
     }
 
@@ -708,229 +646,286 @@ export function DraftChat() {
       style={{
         // Position next to left sidebar (sidebar is at left: 12px with width ~52px)
         left: 'calc(12px + var(--leftsidebar-w, 52px) + 12px)',
-        top: 'calc(var(--topbar-h) + 1rem)',
-        // Content-driven height with max constraint instead of full canvas height
-        maxHeight: 'calc(100vh - var(--topbar-h) - var(--bottombar-h, 0) - 2rem)',
-        width: `${panelWidth}px`,
+        bottom: 'calc(var(--bottombar-h, 0) + 1rem)',
+        width: `${panelWidth * 1.44}px`,
         maxWidth: 'calc(100vw - 12px - var(--leftsidebar-w, 52px) - 48px)',
       }}
       role="dialog"
       aria-modal="true"
       aria-labelledby="draft-chat-title"
-      aria-describedby="draft-chat-description"
     >
-      {/* Panel container with slide animation */}
-      <div className="flex flex-col max-h-full rounded-[20px] border border-sand-200 shadow-2 overflow-hidden relative" style={{ backgroundColor: '#FEFEFE' }}>
-        {/* Resize handle on right edge */}
+      <div className="relative">
         <div
           aria-hidden="true"
           onMouseDown={handleResizeStart}
           className="absolute inset-y-0 right-0 w-1.5 cursor-col-resize bg-transparent hover:bg-sky-200/60 transition-colors z-10"
           title="Drag to resize panel"
         />
-        {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-sand-100" style={{ backgroundColor: '#FEFEFE' }}>
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-mint-500 flex items-center justify-center">
-              <Sparkles className="w-4 h-4 text-white" />
-            </div>
-            <div>
-              <h2 id="draft-chat-title" className={`${typography.label} text-ink-900`}>
-                Olumi AI
-              </h2>
-              <p className="text-xs text-ink-500">Describe your decision to get started</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-1">
+        {isMinimized ? (
+          <div
+            className="flex items-center gap-2 rounded-full border border-sand-200 bg-paper-50 px-3 py-2 shadow-2"
+            data-testid="draft-chat-minimized"
+          >
+            <input
+              ref={inputRef}
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && description.trim() && !loading) {
+                  e.preventDefault()
+                  handleDraft()
+                }
+              }}
+              placeholder="Describe your decision..."
+              className={`${typography.body} flex-1 bg-transparent outline-none placeholder:text-ink-400`}
+              aria-label="Describe your decision"
+            />
+            <button
+              onClick={handleDraft}
+              disabled={loading || !description.trim()}
+              className="p-2 rounded-full transition-colors"
+              style={{
+                backgroundColor: (description.trim() && !loading) ? '#63ADCF' : '#E8E5E1',
+                color: (description.trim() && !loading) ? '#FFFFFF' : '#9B9B9B',
+                cursor: (description.trim() && !loading) ? 'pointer' : 'not-allowed'
+              }}
+              aria-label="Generate draft"
+              title="Press Enter to send"
+            >
+              {loading ? (
+                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              ) : (
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              )}
+            </button>
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="p-2 rounded-full text-ink-400 hover:text-ink-600 hover:bg-sand-100 transition-colors"
+              aria-label="Attach file"
+            >
+              <Paperclip className="w-4 h-4" />
+            </button>
             <button
               ref={settingsButtonRef}
               onClick={() => setShowSettingsPopover(!showSettingsPopover)}
-              className="p-1.5 rounded-lg text-ink-400 hover:text-ink-600 hover:bg-sand-100 transition-colors"
+              className="p-2 rounded-full text-ink-400 hover:text-ink-600 hover:bg-sand-100 transition-colors"
               aria-label="Model settings"
               aria-expanded={showSettingsPopover}
             >
-              <Settings className="w-5 h-5" />
+              <Settings className="w-4 h-4" />
             </button>
             <button
-              onClick={() => setShowDraftChat(false)}
-              className="p-1.5 rounded-lg text-ink-400 hover:text-ink-600 hover:bg-sand-100 transition-colors"
-              aria-label="Close panel"
+              onClick={() => setIsMinimized(false)}
+              className="p-2 rounded-full text-ink-400 hover:text-ink-600 hover:bg-sand-100 transition-colors"
+              aria-label="Expand panel"
             >
-              <X className="w-5 h-5" />
+              <ChevronUp className="w-4 h-4" />
             </button>
           </div>
-        </div>
-
-        {/* Model Settings Popover */}
-        <ModelSettingsPopover
-          isOpen={showSettingsPopover}
-          onClose={() => setShowSettingsPopover(false)}
-          anchorRef={settingsButtonRef}
-        />
-
-        {/* Scrollable content area */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-4">
-          {/* Loading state - show animated visualization */}
-          {loading && !draft && (
-            <DraftLoadingAnimation />
-          )}
-
-          {!draft && !loading ? (
-            <>
-              {/* Guidance panel */}
-              {guidance && (
-                <DraftGuidancePanel
-                  guidance={guidance}
-                  onQuestionClick={handleGuidanceQuestionClick}
-                />
-              )}
-
-              {/* Error handling */}
-              {error && (() => {
-                const formatted = formatCEEError(error)
-
-                if (formatted.isUnavailable) {
-                  return (
-                    <div className="p-3 bg-sun-50 border border-sun-200 rounded-lg space-y-2" data-testid="cee-unavailable-banner">
-                      <p className={`${typography.body} text-sun-800 font-medium`}>
-                        {formatted.message}
-                      </p>
-                      <p className={`${typography.bodySmall} text-sun-700`}>
-                        Build your model manually using:
-                      </p>
-                      <ul className={`${typography.bodySmall} text-sun-700 list-disc list-inside space-y-0.5`}>
-                        <li><strong>+ Node</strong> button to add factors</li>
-                        <li><strong>Templates</strong> drawer for pre-built models</li>
-                        <li>Right-click canvas for quick-add menu</li>
-                      </ul>
-                      {formatted.debugInfo && (
-                        <details className="mt-1">
-                          <summary className={`${typography.caption} text-sun-700 cursor-pointer select-none`}>
-                            Technical details
-                          </summary>
-                          <pre className={`${typography.caption} text-sun-700 font-mono text-xs mt-1 opacity-70 whitespace-pre-wrap break-all`}>
-                            {formatted.debugInfo}
-                          </pre>
-                        </details>
-                      )}
-                    </div>
-                  )
-                }
-
-                return (
-                  <ErrorAlert
-                    title="Draft failed"
-                    message={formatted.message}
-                    severity="error"
-                    debugInfo={formatted.debugInfo}
-                    action={{ label: 'Try again', onClick: handleDraft }}
-                  />
-                )
-              })()}
-
-              {retryAfterSeconds !== null && (
-                <RateLimitNotice retryAfterSeconds={retryAfterSeconds} onRetry={handleDraft} />
-              )}
-
-              {/* Attached files preview */}
-              {attachedFiles.length > 0 && (
-                <div className="flex flex-wrap gap-2">
-                  {attachedFiles.map((file, index) => (
-                    <div
-                      key={`${file.name}-${index}`}
-                      className="flex items-center gap-1.5 px-2 py-1 bg-sand-50 border border-sand-200 rounded-lg text-xs"
-                    >
-                      <Paperclip className="w-3 h-3 text-ink-400" />
-                      <span className="max-w-[120px] truncate text-ink-700">{file.name}</span>
-                      <button
-                        onClick={() => removeFile(index)}
-                        className="p-0.5 hover:bg-sand-200 rounded"
-                        aria-label={`Remove ${file.name}`}
-                      >
-                        <X className="w-3 h-3 text-ink-400" />
-                      </button>
-                    </div>
-                  ))}
+        ) : (
+          <div className="flex flex-col max-h-full rounded-[20px] border border-sand-200 shadow-2 overflow-hidden relative" style={{ backgroundColor: '#FEFEFE' }}>
+            {/* Header */}
+            <div className="flex items-center justify-between px-4 py-3 border-b border-sand-100" style={{ backgroundColor: '#FEFEFE' }}>
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-mint-500 flex items-center justify-center">
+                  <Sparkles className="w-4 h-4 text-white" />
                 </div>
-              )}
-            </>
-          ) : null}
-
-          {/* Draft preview - shown when draft is ready */}
-          {draft && (
-            <DraftPreview
-              draft={draft as any}
-              onAccept={handleAccept}
-              onReject={handleReject}
-              // Summary mode props for auto-apply flow
-              mode="summary"
-              isOnCanvas={isOnCanvas}
-              onRemove={removeDraftFromCanvas}
-              onReinstate={reinstateDraft}
-              onClose={handleClose}
-            />
-          )}
-        </div>
-
-        {/* Input area - Claude-style */}
-        {!draft && (
-          <div className="border-t border-sand-100 p-3 bg-paper-25">
-            {/* File attachment button - moved to header row */}
-            <div className="flex items-center justify-end mb-2">
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                className="p-1.5 text-ink-400 hover:text-ink-600 hover:bg-sand-100 rounded-lg transition-colors"
-                aria-label="Attach file"
-              >
-                <Paperclip className="w-4 h-4" />
-              </button>
-              <input
-                ref={fileInputRef}
-                type="file"
-                multiple
-                onChange={handleFileSelect}
-                className="hidden"
-                accept=".pdf,.doc,.docx,.txt,.csv,.xlsx,.xls"
-              />
+                <div>
+                  <h2 id="draft-chat-title" className={`${typography.label} text-ink-900`}>
+                    Olumi AI
+                  </h2>
+                  <p className="text-xs text-ink-500">Describe your decision to get started</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  className="p-1.5 rounded-lg text-ink-400 hover:text-ink-600 hover:bg-sand-100 transition-colors"
+                  aria-label="Attach file"
+                >
+                  <Paperclip className="w-4 h-4" />
+                </button>
+                <button
+                  ref={settingsButtonRef}
+                  onClick={() => setShowSettingsPopover(!showSettingsPopover)}
+                  className="p-1.5 rounded-lg text-ink-400 hover:text-ink-600 hover:bg-sand-100 transition-colors"
+                  aria-label="Model settings"
+                  aria-expanded={showSettingsPopover}
+                >
+                  <Settings className="w-5 h-5" />
+                </button>
+                <button
+                  onClick={() => setIsMinimized(true)}
+                  className="p-1.5 rounded-lg text-ink-400 hover:text-ink-600 hover:bg-sand-100 transition-colors"
+                  aria-label="Minimize panel"
+                >
+                  <ChevronDown className="w-5 h-5" />
+                </button>
+              </div>
             </div>
 
-            {/* Textarea with auto-expand */}
-            <div className="relative">
-              <textarea
-                ref={textareaRef}
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                onKeyDown={(e) => {
-                  // Submit on Enter (without Shift)
-                  if (e.key === 'Enter' && !e.shiftKey && description.trim() && !loading) {
-                    e.preventDefault()
-                    handleDraft()
-                  }
-                }}
-                placeholder="Describe your decision... e.g., We're deciding whether to expand into the European market. Key factors include regulatory costs, market size, and competition..."
-                className={`
-                  ${typography.body} w-full p-3 pr-14 rounded-xl border border-sand-200
-                  focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20
-                  resize-none overflow-y-auto
-                  placeholder:text-ink-400
-                `}
-                style={{ minHeight: '80px', maxHeight: '200px' }}
-                rows={3}
-              />
+            {/* Model Settings Popover */}
+            <ModelSettingsPopover
+              isOpen={showSettingsPopover}
+              onClose={() => setShowSettingsPopover(false)}
+              anchorRef={settingsButtonRef}
+            />
 
-              {/* Send button */}
-              <button
-                onClick={handleDraft}
-                disabled={loading || !description.trim()}
-                className="absolute right-6 bottom-3 p-2 rounded-lg transition-colors"
-                style={{
-                  backgroundColor: (description.trim() && !loading) ? '#63ADCF' : '#E8E5E1',
-                  color: (description.trim() && !loading) ? '#FFFFFF' : '#9B9B9B',
-                  cursor: (description.trim() && !loading) ? 'pointer' : 'not-allowed'
-                }}
-                aria-label="Generate draft (Enter to send, Shift+Enter for new line)"
-                title="Press Enter to send • Shift+Enter for new line"
-              >
+            {/* Scrollable content area */}
+            <div
+              className={`flex-1 overflow-y-auto ${
+                loading || draft || guidance || error || retryAfterSeconds !== null || attachedFiles.length > 0
+                  ? 'p-4 space-y-4'
+                  : 'p-1'
+              }`}
+            >
+              {/* Loading state - show animated visualization */}
+              {loading && !draft && (
+                <DraftLoadingAnimation />
+              )}
+
+              {!draft && !loading ? (
+                <>
+                  {/* Guidance panel */}
+                  {guidance && (
+                    <DraftGuidancePanel
+                      guidance={guidance}
+                      onQuestionClick={(question) => {
+                        setDescription((previous: string) => {
+                          const trimmed = previous.trim()
+                          if (!trimmed) {
+                            return question
+                          }
+                          return `${trimmed}\n\n${question}`
+                        })
+                      }}
+                    />
+                  )}
+
+                  {/* Error handling */}
+                  {error && (() => {
+                    const formatted = formatCEEError(error)
+
+                    if (formatted.isUnavailable) {
+                      return (
+                        <div className="p-3 bg-sun-50 border border-sun-200 rounded-lg space-y-2" data-testid="cee-unavailable-banner">
+                          <p className={`${typography.body} text-sun-800 font-medium`}>
+                            {formatted.message}
+                          </p>
+                          <p className={`${typography.bodySmall} text-sun-700`}>
+                            Build your model manually using:
+                          </p>
+                          <ul className={`${typography.bodySmall} text-sun-700 list-disc list-inside space-y-0.5`}>
+                            <li><strong>+ Node</strong> button to add factors</li>
+                            <li><strong>Templates</strong> drawer for pre-built models</li>
+                            <li>Right-click canvas for quick-add menu</li>
+                          </ul>
+                          {formatted.debugInfo && (
+                            <details className="mt-1">
+                              <summary className={`${typography.caption} text-sun-700 cursor-pointer select-none`}>
+                                Technical details
+                              </summary>
+                              <pre className={`${typography.caption} text-sun-700 font-mono text-xs mt-1 opacity-70 whitespace-pre-wrap break-all`}>
+                                {formatted.debugInfo}
+                              </pre>
+                            </details>
+                          )}
+                        </div>
+                      )
+                    }
+
+                    return (
+                      <ErrorAlert
+                        title="Draft failed"
+                        message={formatted.message}
+                        severity="error"
+                        debugInfo={formatted.debugInfo}
+                        action={{ label: 'Try again', onClick: handleDraft }}
+                      />
+                    )
+                  })()}
+
+                  {retryAfterSeconds !== null && (
+                    <RateLimitNotice retryAfterSeconds={retryAfterSeconds} onRetry={handleDraft} />
+                  )}
+
+                  {/* Attached files preview */}
+                  {attachedFiles.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {attachedFiles.map((file, index) => (
+                        <div
+                          key={`${file.name}-${index}`}
+                          className="flex items-center gap-1.5 px-2 py-1 bg-sand-50 border border-sand-200 rounded-lg text-xs"
+                        >
+                          <Paperclip className="w-3 h-3 text-ink-400" />
+                          <span className="max-w-[120px] truncate text-ink-700">{file.name}</span>
+                          <button
+                            onClick={() => removeFile(index)}
+                            className="p-0.5 hover:bg-sand-200 rounded"
+                            aria-label={`Remove ${file.name}`}
+                          >
+                            <X className="w-3 h-3 text-ink-400" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </>
+              ) : null}
+
+              {draft && (
+                <div className="p-3 bg-paper-50 border border-sand-200 rounded-xl space-y-2" data-testid="draft-submitted-brief">
+                  <p className={`${typography.caption} uppercase tracking-wide text-ink-500`}>
+                    Submitted brief
+                  </p>
+                  <p className={`${typography.body} text-ink-900 whitespace-pre-wrap`}>
+                    {description || 'No brief provided.'}
+                  </p>
+                  <p className={`${typography.bodySmall} text-ink-500`}>
+                    Draft applied to canvas. Edit the brief below to generate a new version.
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Input area - Claude-style */}
+            <div className="border-t border-sand-100 p-3 bg-paper-25">
+              <div className="relative">
+                <textarea
+                  ref={textareaRef}
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey && description.trim() && !loading) {
+                      e.preventDefault()
+                      handleDraft()
+                    }
+                  }}
+                  placeholder="Describe your decision... e.g., We're deciding whether to expand into the European market. Key factors include regulatory costs, market size, and competition..."
+                  className={`
+                    ${typography.body} w-full p-3 pr-14 rounded-xl border border-sand-200
+                    focus:border-sand-200 focus:outline-none
+                    resize-none overflow-y-auto
+                    placeholder:text-ink-400
+                  `}
+                  style={{ minHeight: '120px', maxHeight: '300px' }}
+                  rows={3}
+                />
+
+                <button
+                  onClick={handleDraft}
+                  disabled={loading || !description.trim()}
+                  className="absolute right-6 bottom-3 p-2 rounded-lg transition-colors"
+                  style={{
+                    backgroundColor: (description.trim() && !loading) ? '#63ADCF' : '#E8E5E1',
+                    color: (description.trim() && !loading) ? '#FFFFFF' : '#9B9B9B',
+                    cursor: (description.trim() && !loading) ? 'pointer' : 'not-allowed'
+                  }}
+                  aria-label="Generate draft (Enter to send, Shift+Enter for new line)"
+                  title="Press Enter to send • Shift+Enter for new line"
+                >
                   {loading ? (
                     <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                   ) : (
@@ -938,10 +933,24 @@ export function DraftChat() {
                       <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" strokeLinecap="round" strokeLinejoin="round" />
                     </svg>
                   )}
-              </button>
+                </button>
+              </div>
             </div>
           </div>
         )}
+        <input
+          ref={fileInputRef}
+          type="file"
+          multiple
+          onChange={handleFileSelect}
+          className="hidden"
+          accept=".pdf,.doc,.docx,.txt,.csv,.xlsx,.xls"
+        />
+        <ModelSettingsPopover
+          isOpen={showSettingsPopover}
+          onClose={() => setShowSettingsPopover(false)}
+          anchorRef={settingsButtonRef}
+        />
       </div>
     </div>
   )
