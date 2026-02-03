@@ -30,15 +30,15 @@
 }
 
   body {
-    @apply bg-canvas-25 text-ink-900;
+    @apply bg-canvas text-text-header;
   }
 
   *:focus {
-    @apply outline-none ring-2 ring-info-500 ring-opacity-50;
+    @apply outline-none ring-2 ring-info ring-opacity-50;
   }
 
   ::selection {
-    @apply bg-info-100;
+    @apply bg-info-light;
   }
 }
 
@@ -373,4 +373,6 @@
   /* Effective offsets used by the canvas container; updated by dock components. */
   --dock-left-offset: 0rem;
   --dock-right-offset: 0rem;
+  /* Gap between AI panel and results dock (~3cm at 96 DPI) */
+  --ai-panel-gap: 7rem;
 }

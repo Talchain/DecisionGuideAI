@@ -644,11 +644,12 @@ export function DraftChat() {
       ref={panelRef}
       className="fixed z-[2000] flex flex-col transition-all duration-300 ease-out"
       style={{
-        // Position next to left sidebar (sidebar is at left: 12px with width ~52px)
-        left: 'calc(12px + var(--leftsidebar-w, 52px) + 12px)',
+        // Center horizontally, with dynamic right constraint when results panel is open
+        left: '50%',
+        transform: 'translateX(-50%)',
         bottom: 'calc(var(--bottombar-h, 0) + 1rem)',
         width: `${panelWidth * 1.44}px`,
-        maxWidth: 'calc(100vw - 12px - var(--leftsidebar-w, 52px) - 48px)',
+        maxWidth: `calc(100vw - var(--dock-right-offset, 0rem) - var(--ai-panel-gap, 7rem) - 24px)`,
       }}
       role="dialog"
       aria-modal="true"
