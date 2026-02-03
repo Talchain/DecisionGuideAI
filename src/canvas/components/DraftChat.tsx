@@ -753,7 +753,7 @@ export function DraftChat() {
         />
         {isMinimized ? (
           <div
-            className="flex items-stretch gap-2 rounded-2xl border border-sand-200 bg-paper-50 p-2 shadow-2"
+            className="flex items-stretch gap-3 rounded-2xl border border-sand-200 bg-paper-50 px-4 py-3 shadow-2"
             data-testid="draft-chat-minimized"
           >
             {/* Textarea with submit button inside - takes remaining width */}
@@ -763,9 +763,9 @@ export function DraftChat() {
                 value={description}
                 onChange={(e) => {
                   setDescription(e.target.value)
-                  // Auto-resize textarea
+                  // Auto-resize textarea - no max height, always grow
                   e.target.style.height = 'auto'
-                  e.target.style.height = `${Math.min(e.target.scrollHeight, 120)}px`
+                  e.target.style.height = `${e.target.scrollHeight}px`
                 }}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && !e.shiftKey && description.trim() && !loading) {
@@ -776,8 +776,7 @@ export function DraftChat() {
                 placeholder="Describe your decision..."
                 className={`${typography.body} w-full h-full pr-12 bg-transparent resize-none placeholder:text-ink-400`}
                 style={{
-                  minHeight: '36px',
-                  maxHeight: '120px',
+                  minHeight: '24px',
                   outline: 'none',
                   border: 'none',
                   boxShadow: 'none'
