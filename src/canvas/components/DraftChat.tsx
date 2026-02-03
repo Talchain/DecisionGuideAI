@@ -753,11 +753,11 @@ export function DraftChat() {
         />
         {isMinimized ? (
           <div
-            className="flex flex-col gap-2 rounded-2xl border border-sand-200 bg-paper-50 px-3 py-2 shadow-2"
+            className="flex items-stretch gap-2 rounded-2xl border border-sand-200 bg-paper-50 p-2 shadow-2"
             data-testid="draft-chat-minimized"
           >
-            {/* Auto-growing textarea for minimized state */}
-            <div className="flex items-end gap-2">
+            {/* Textarea with submit button inside - takes remaining width */}
+            <div className="flex-1 relative">
               <textarea
                 ref={inputRef as any}
                 value={description}
@@ -774,15 +774,22 @@ export function DraftChat() {
                   }
                 }}
                 placeholder="Describe your decision..."
-                className={`${typography.body} flex-1 bg-transparent outline-none resize-none placeholder:text-ink-400`}
-                style={{ minHeight: '24px', maxHeight: '120px' }}
+                className={`${typography.body} w-full h-full pr-12 bg-transparent resize-none placeholder:text-ink-400`}
+                style={{
+                  minHeight: '36px',
+                  maxHeight: '120px',
+                  outline: 'none',
+                  border: 'none',
+                  boxShadow: 'none'
+                }}
                 rows={1}
                 aria-label="Describe your decision"
               />
+              {/* Submit button inside textarea area */}
               <button
                 onClick={handleDraft}
                 disabled={loading || !description.trim()}
-                className="p-2 rounded-full transition-colors flex-shrink-0"
+                className="absolute right-1 top-1/2 -translate-y-1/2 p-2 rounded-full transition-colors"
                 style={{
                   backgroundColor: (description.trim() && !loading) ? '#63ADCF' : '#E8E5E1',
                   color: (description.trim() && !loading) ? '#FFFFFF' : '#9B9B9B',
@@ -800,8 +807,8 @@ export function DraftChat() {
                 )}
               </button>
             </div>
-            {/* Action buttons row */}
-            <div className="flex items-center gap-1 justify-end -mt-1">
+            {/* Action buttons on the right */}
+            <div className="flex items-center gap-1 flex-shrink-0">
               <button
                 onClick={() => fileInputRef.current?.click()}
                 className="p-2 rounded-full text-ink-400 hover:text-ink-600 hover:bg-sand-100 transition-colors"
