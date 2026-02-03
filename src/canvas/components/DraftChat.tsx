@@ -644,14 +644,14 @@ export function DraftChat() {
       ref={panelRef}
       className="fixed z-[2000] flex flex-col transition-all duration-300 ease-out"
       style={{
-        // Center within available space (shifts left when results panel opens)
-        // 50% - half of results panel offset = center of remaining space
-        left: `calc(50% - var(--dock-right-offset, 0rem) / 2)`,
+        // Center by default; only shift left when results panel is EXPANDED (not just collapsed tab bar)
+        // Uses max() to ignore the collapsed offset (2.5rem), only react to expanded offset (~26rem)
+        left: `calc(50% - max(0rem, var(--dock-right-offset, 0rem) - var(--dock-right-collapsed, 2.5rem)) / 2)`,
         transform: 'translateX(-50%)',
         bottom: 'calc(var(--bottombar-h, 0) + 1rem)',
         width: `${panelWidth * 1.44}px`,
-        // Max width leaves 3cm gap from results panel and left sidebar
-        maxWidth: `calc(100vw - var(--dock-right-offset, 0rem) - var(--ai-panel-gap, 7rem) - var(--leftsidebar-w, 52px) - var(--ai-panel-gap, 7rem))`,
+        // Max width: only constrain when dock is expanded, not when collapsed
+        maxWidth: `calc(100vw - max(0rem, var(--dock-right-offset, 0rem) - var(--dock-right-collapsed, 2.5rem)) - var(--ai-panel-gap, 7rem) - var(--leftsidebar-w, 52px) - 24px)`,
       }}
       role="dialog"
       aria-modal="true"
