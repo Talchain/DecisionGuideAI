@@ -121,12 +121,12 @@ export function DraftChat() {
       const stored = localStorage.getItem(DRAFT_PANEL_WIDTH_KEY)
       if (stored) {
         const parsed = parseInt(stored, 10)
-        if (Number.isFinite(parsed) && parsed >= 320 && parsed <= 780) {
+        if (Number.isFinite(parsed) && parsed >= 320 && parsed <= 1014) {
           return parsed
         }
       }
     }
-    return 520 // default width (30% increase from 400)
+    return 676 // default width (30% increase from 520)
   })
 
   const {
@@ -610,7 +610,7 @@ export function DraftChat() {
 
     const handleMove = (e: MouseEvent) => {
       const deltaX = e.clientX - startX
-      const newWidth = Math.max(320, Math.min(780, startWidth + deltaX))
+      const newWidth = Math.max(320, Math.min(1014, startWidth + deltaX))
       setPanelWidth(newWidth)
     }
 
@@ -644,12 +644,14 @@ export function DraftChat() {
       ref={panelRef}
       className="fixed z-[2000] flex flex-col transition-all duration-300 ease-out"
       style={{
-        // Center horizontally, with dynamic right constraint when results panel is open
-        left: '50%',
+        // Center within available space (shifts left when results panel opens)
+        // 50% - half of results panel offset = center of remaining space
+        left: `calc(50% - var(--dock-right-offset, 0rem) / 2)`,
         transform: 'translateX(-50%)',
         bottom: 'calc(var(--bottombar-h, 0) + 1rem)',
         width: `${panelWidth * 1.44}px`,
-        maxWidth: `calc(100vw - var(--dock-right-offset, 0rem) - var(--ai-panel-gap, 7rem) - 24px)`,
+        // Max width leaves 3cm gap from results panel and left sidebar
+        maxWidth: `calc(100vw - var(--dock-right-offset, 0rem) - var(--ai-panel-gap, 7rem) - var(--leftsidebar-w, 52px) - var(--ai-panel-gap, 7rem))`,
       }}
       role="dialog"
       aria-modal="true"
