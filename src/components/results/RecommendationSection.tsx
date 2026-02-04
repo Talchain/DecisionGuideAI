@@ -12,7 +12,7 @@
  * - Click-to-focus on option nodes
  */
 
-import { useCallback, useMemo, useState, useEffect } from 'react'
+import { useCallback, useMemo } from 'react'
 import { CheckCircle, Scale, Search, AlertTriangle } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import type { RecommendationSectionData, OptionResult, OutcomeUnitType, WinnerDeterminedBy, RobustnessLevel, RobustnessLabel, M1CoachingReadiness, DriverItem } from './types'
@@ -24,6 +24,9 @@ import { BASELINE_DELTA_EPSILON } from './constants'
 import { COPY, THRESHOLDS } from '../../lib/mappers/constants'
 import { stripEncodingNotation } from './utils/cleanFactorLabel'
 import { HeroSection } from './HeroSection'
+import { SuccessTarget } from './SuccessTarget'
+import { BaselineToggleCard } from './BaselineToggleCard'
+import { LimitedOptionsCard } from './LimitedOptionsCard'
 
 /** Top fragile edge data for HeroSection */
 export interface TopFragileEdge {
@@ -58,6 +61,16 @@ interface RecommendationSectionProps {
   fragileEdgeCount?: number
   /** Count of robust edges (for "Learn more" expand) */
   robustEdgeCount?: number
+  // P2 Task 1: Success target affordance props
+  /** Callback when threshold is changed and user clicks "Apply & re-run" */
+  onApplyThreshold?: (threshold: number | null) => void
+  /** Whether an analysis is currently running */
+  isRunning?: boolean
+  /** Whether the threshold was extracted by CEE from the brief */
+  isThresholdFromBrief?: boolean
+  // P2 Task 2: Baseline toggle props
+  /** Callback to add baseline and trigger re-run */
+  onAddBaselineAndRerun?: () => void
 }
 
 /**
@@ -640,6 +653,11 @@ export function RecommendationSection({
   seedUsed,
   fragileEdgeCount,
   robustEdgeCount,
+  // P2 props
+  onApplyThreshold,
+  isRunning = false,
+  isThresholdFromBrief = false,
+  onAddBaselineAndRerun,
 }: RecommendationSectionProps) {
   const {
     recommendedOption,
@@ -761,53 +779,34 @@ export function RecommendationSection({
     return allOptions.find(o => !o.isRecommended) ?? null
   }, [allOptions])
 
-  // Task 6: Coaching card dismissal persistence per response_hash
-  const coachingDismissalKey = responseHash ? `coaching-dismissed-${responseHash}` : null
-  const [coachingDismissed, setCoachingDismissed] = useState(() => {
-    if (typeof sessionStorage === 'undefined' || !coachingDismissalKey) return false
-    return sessionStorage.getItem(coachingDismissalKey) === 'true'
-  })
-
-  // Reset dismissal when response_hash changes
-  useEffect(() => {
-    if (coachingDismissalKey) {
-      const wasDismissed = sessionStorage.getItem(coachingDismissalKey) === 'true'
-      setCoachingDismissed(wasDismissed)
-    } else {
-      setCoachingDismissed(false)
-    }
-  }, [coachingDismissalKey])
-
-  const handleDismissCoaching = useCallback(() => {
-    setCoachingDismissed(true)
-    if (coachingDismissalKey && typeof sessionStorage !== 'undefined') {
-      sessionStorage.setItem(coachingDismissalKey, 'true')
-    }
-  }, [coachingDismissalKey])
-
-  // Task 6: Show coaching card when baseline absent OR option count <= 2
-  const showCoachingCard = !coachingDismissed && (!hasBaseline || optionCount <= 2) && !isSingleOption
+  // P2: Coaching cards now use their own internal state management
 
   return (
     <div className="space-y-4">
-      {/* Task 6: Coaching card for framing improvements (replaces "Needs Framing" badge) */}
-      {showCoachingCard && (
-        <div className="p-3 bg-panel border border-info rounded-lg">
-          <div className="flex items-start justify-between gap-3">
-            <p className="text-sm text-text-body">
-              You're comparing {optionCount} option{optionCount !== 1 ? 's' : ''} {!hasBaseline ? 'with no baseline' : ''}.
-              Adding a 'do nothing' option or additional alternatives would strengthen the analysis.
-            </p>
-            <button
-              onClick={handleDismissCoaching}
-              className="text-xs text-text-light hover:text-text-body flex-shrink-0"
-              aria-label="Dismiss coaching suggestion"
-            >
-              ✕
-            </button>
-          </div>
-        </div>
-      )}
+      {/* P2 Task 1: Success target affordance */}
+      <SuccessTarget
+        goalThreshold={goalThreshold}
+        goalLabel={goalLabel}
+        outcomeUnit={outcomeUnit}
+        outcomeUnitSymbol={outcomeUnitSymbol}
+        isFromBrief={isThresholdFromBrief}
+        isRunning={isRunning}
+        onApplyThreshold={onApplyThreshold}
+      />
+
+      {/* P2 Task 2: Baseline toggle card (shows when no baseline) */}
+      <BaselineToggleCard
+        show={!hasBaseline && !isSingleOption}
+        isRunning={isRunning}
+        onAddBaseline={onAddBaselineAndRerun}
+      />
+
+      {/* P2 Task 3: Limited options coaching card (shows when <= 2 options AND baseline exists) */}
+      <LimitedOptionsCard
+        optionCount={optionCount}
+        hasBaseline={hasBaseline}
+        responseHash={responseHash}
+      />
 
       {/* Task 1.7: Goal context - displayed when present */}
       {goalText && (

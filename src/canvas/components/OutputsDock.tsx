@@ -229,6 +229,8 @@ export function OutputsDock() {
   const updateNode = useCanvasStore(s => s.updateNode)
   const addEdge = useCanvasStore(s => s.addEdge)
   const setCeeAnalysisReady = useCanvasStore(s => s.setCeeAnalysisReady)
+  // P2: Success target affordance - threshold update
+  const setGoalThreshold = useCanvasStore(s => s.setGoalThreshold)
 
   // P0-UI-6: Pre-run validation hook
   const preRunValidation = usePreRunValidation()
@@ -397,6 +399,20 @@ export function OutputsDock() {
 
     console.info('[OutputsDock] Added Status Quo baseline option:', newNode.id)
   }, [nodes, addNode, updateNode, addEdge, setCeeAnalysisReady])
+
+  // P2 Task 1: Handle threshold change and trigger re-run
+  const handleApplyThreshold = useCallback((threshold: number | null) => {
+    setGoalThreshold(threshold)
+    // Trigger re-run after threshold update
+    runV2Analysis()
+  }, [setGoalThreshold, runV2Analysis])
+
+  // P2 Task 2: Handle add baseline and trigger re-run
+  const handleAddBaselineAndRerun = useCallback(() => {
+    addStatusQuoBaseline()
+    // Trigger re-run after baseline added
+    runV2Analysis()
+  }, [addStatusQuoBaseline, runV2Analysis])
 
   // M6: Handle compare now action - triggers scenario comparison
   const handleCompareNow = useCallback(async () => {
@@ -1225,6 +1241,12 @@ export function OutputsDock() {
                         seedUsed={(report as any)?.meta?.seed_used}
                         fragileEdgeCount={(report as any)?.robustness?.fragile_edges?.length}
                         robustEdgeCount={(report as any)?.robustness?.robust_edges?.length}
+                        // P2: New coaching card props
+                        responseHash={results?.hash}
+                        onApplyThreshold={handleApplyThreshold}
+                        isRunning={isRunning}
+                        isThresholdFromBrief={preAnalysisReadiness.isThresholdAutoDerived}
+                        onAddBaselineAndRerun={handleAddBaselineAndRerun}
                       />
                     </Accordion>
 
