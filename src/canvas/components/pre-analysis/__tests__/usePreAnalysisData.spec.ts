@@ -339,6 +339,49 @@ describe('usePreAnalysisData', () => {
     })
   })
 
+  describe('Loading State', () => {
+    it('returns isLoading=true when ceeAnalysisReady is null and nodes exist', () => {
+      // Simulates browser refresh: CEE data hasn't loaded yet but nodes exist
+      mockUseCanvasStore.mockImplementation(createMockStore({
+        nodes: [
+          { id: 'opt1', type: 'option', position: { x: 0, y: 0 }, data: { label: 'Option 1' } },
+          { id: 'f1', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'F1' } },
+        ],
+        ceeAnalysisReady: null,
+      }))
+
+      const { result } = renderHook(() => usePreAnalysisData())
+
+      expect(result.current.isLoading).toBe(true)
+    })
+
+    it('returns isLoading=false when ceeAnalysisReady is null and no nodes exist', () => {
+      // Empty graph - not loading, just empty
+      mockUseCanvasStore.mockImplementation(createMockStore({
+        nodes: [],
+        ceeAnalysisReady: null,
+      }))
+
+      const { result } = renderHook(() => usePreAnalysisData())
+
+      expect(result.current.isLoading).toBe(false)
+    })
+
+    it('returns isLoading=false when ceeAnalysisReady has data', () => {
+      // CEE data loaded - not loading anymore
+      mockUseCanvasStore.mockImplementation(createMockStore({
+        nodes: [
+          { id: 'opt1', type: 'option', position: { x: 0, y: 0 }, data: { label: 'Option 1' } },
+        ],
+        ceeAnalysisReady: { status: 'ready' },
+      }))
+
+      const { result } = renderHook(() => usePreAnalysisData())
+
+      expect(result.current.isLoading).toBe(false)
+    })
+  })
+
   describe('Top Actions', () => {
     it('returns max 3 items', () => {
       mockUseCanvasStore.mockImplementation(createMockStore({

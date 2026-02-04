@@ -351,6 +351,7 @@ export function PreAnalysisPanel({
           isReady={data.isReady}
           totalImprovements={data.totalImprovements}
           blockerCount={data.blockerCount}
+          isLoading={data.isLoading}
         />
 
         {/* 2. M1 Top Actions (Coach placeholder) */}
@@ -406,6 +407,7 @@ export function PreAnalysisPanel({
         isAnalysing={isAnalysing}
         onAnalyse={onAnalyse}
         evidenceLevel={data.evidenceQuality.level}
+        isLoading={data.isLoading}
       />
     </div>
   )

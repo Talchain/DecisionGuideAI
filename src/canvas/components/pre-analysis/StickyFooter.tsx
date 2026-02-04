@@ -1,10 +1,10 @@
 /**
  * StickyFooter - 48px bar pinned to bottom of panel
  *
- * Left: CheckCircle/XCircle icon + "Ready"/"Blocked"
+ * Left: CheckCircle/XCircle/Loader icon + "Ready"/"Blocked"/"Checking"
  * Right: CTA button
  *   - #63ADCF background, white text, border-radius: 999px
- *   - States: disabled "Fix {n} issues first" (when hasBlockers) → enabled "Analyse Now" (when ready) → "Analysing..." with spinner (during run)
+ *   - States: disabled "Checking..." (when loading) → disabled "Fix {n} issues first" (when hasBlockers) → enabled "Analyse Now" (when ready) → "Analysing..." with spinner (during run)
  *
  * Wired to existing run analysis handler.
  * Note: Evidence quality is shown in Header (complementary, not duplicated).
@@ -34,6 +34,8 @@ interface StickyFooterProps {
   onAnalyse: () => void
   /** Evidence quality level for display */
   evidenceLevel?: EvidenceQualityLevel
+  /** Whether CEE data is still loading */
+  isLoading?: boolean
 }
 
 export function StickyFooter({
@@ -43,14 +45,18 @@ export function StickyFooter({
   isAnalysing,
   onAnalyse,
   evidenceLevel,
+  isLoading = false,
 }: StickyFooterProps) {
   // Determine button state
-  const isDisabled = !isReady || isAnalysing
+  const isDisabled = !isReady || isAnalysing || isLoading
 
   let buttonLabel: string
   let buttonStyle: string
 
-  if (isAnalysing) {
+  if (isLoading) {
+    buttonLabel = 'Checking...'
+    buttonStyle = 'bg-factor-light text-text-light cursor-wait opacity-40'
+  } else if (isAnalysing) {
     buttonLabel = 'Analysing...'
     buttonStyle = 'bg-info text-white cursor-wait'
   } else if (hasBlockers) {
@@ -65,10 +71,24 @@ export function StickyFooter({
     buttonStyle = 'bg-info hover:bg-info-hover text-white'
   }
 
-  // Status icon and text
-  const StatusIcon = isReady ? CheckCircle : XCircle
-  const statusIconColor = isReady ? 'text-success' : 'text-danger'
-  const statusText = isReady ? 'Ready' : 'Blocked'
+  // Status icon and text - loading shows spinner
+  let StatusIcon: typeof CheckCircle | typeof XCircle | typeof Loader2
+  let statusIconColor: string
+  let statusText: string
+
+  if (isLoading) {
+    StatusIcon = Loader2
+    statusIconColor = 'text-text-light animate-spin'
+    statusText = 'Checking'
+  } else if (isReady) {
+    StatusIcon = CheckCircle
+    statusIconColor = 'text-success'
+    statusText = 'Ready'
+  } else {
+    StatusIcon = XCircle
+    statusIconColor = 'text-danger'
+    statusText = 'Blocked'
+  }
 
   return (
     <div

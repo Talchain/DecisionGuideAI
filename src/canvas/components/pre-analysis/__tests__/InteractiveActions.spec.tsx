@@ -366,7 +366,7 @@ describe('Interactive Actions Hardening', () => {
             key: 'verify_f1',
             category: 'verify',
             label: 'Factor',
-            detail: 'AI est: 0.5',
+            detail: 'AI estimate: 0.5',
             action: { label: 'Confirm', kind: 'confirm', targetId: 'f1', targetType: 'node' },
             focus: { type: 'node', id: 'f1', label: 'Factor' },
           }],
@@ -430,7 +430,7 @@ describe('Interactive Actions Hardening', () => {
             key: 'verify_f1',
             category: 'verify',
             label: 'Factor',
-            detail: 'AI est: 0.5',
+            detail: 'AI estimate: 0.5',
             // Note: Verify category renders separate Confirm/Assumption/Edit buttons
             // regardless of action.kind - they use action.targetId directly
             action: { label: 'Assumption', kind: 'assumption', targetId: 'f1', targetType: 'node' },

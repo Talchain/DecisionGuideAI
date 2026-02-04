@@ -115,6 +115,8 @@ export interface PreAnalysisData {
   successThreshold: number | null
   /** Whether success threshold was auto-derived */
   isThresholdAutoDerived: boolean
+  /** Whether CEE data is still loading (ceeAnalysisReady is null but we have nodes) */
+  isLoading: boolean
 }
 
 // ============================================================================
@@ -145,15 +147,17 @@ function getNodeLabel(node: Node): string {
  * Note: No enum exists in the codebase; ObservedState.source is typed as string.
  * See: src/adapters/cee/types.ts → ObservedState interface
  *
- * IMPORTANT: For evidence quality calculation, we check for EXPLICIT non-AI sources.
- * If a factor has no source or an unknown source, it should NOT be counted as user-confirmed.
- * - AI sources: 'ai', 'cee_inference', 'inferred'
- * - Non-AI sources: 'brief_extraction', 'user', 'user_confirmed', 'user_assumption'
- * - Unknown/missing: treated as AI (low confidence)
+ * IMPORTANT: Evidence quality uses BLOCKLIST approach for AI sources.
+ * Only EXPLICIT AI sources count as AI-inferred. Everything else is non-AI:
+ * - AI sources (blocklist): 'ai', 'cee_inference', 'inferred'
+ * - Non-AI sources: 'brief_extraction', 'user', 'user_confirmed', 'user_assumption', 'default', undefined
  */
 function isAiInferred(node: Node): boolean {
-  const data = node.data as { observed_state?: { source?: string }; source?: string }
-  const source = data?.observed_state?.source ?? data?.source
+  // Check both snake_case (observed_state) and camelCase (observedState) for compatibility
+  // DraftChat stores as observedState, but tests and CEE response may use observed_state
+  const data = node.data as { observed_state?: { source?: string }; observedState?: { source?: string }; source?: string }
+  const observedState = data?.observed_state ?? data?.observedState
+  const source = observedState?.source ?? data?.source
   return source === 'ai' || source === 'cee_inference' || source === 'inferred'
 }
 
@@ -171,8 +175,10 @@ function isAiInferred(node: Node): boolean {
 const AI_SOURCES = new Set(['ai', 'cee_inference', 'inferred'])
 
 function isAiSource(node: Node): boolean {
-  const data = node.data as { observed_state?: { source?: string }; source?: string }
-  const source = data?.observed_state?.source ?? data?.source
+  // Check both snake_case (observed_state) and camelCase (observedState) for compatibility
+  const data = node.data as { observed_state?: { source?: string }; observedState?: { source?: string }; source?: string }
+  const observedState = data?.observed_state ?? data?.observedState
+  const source = observedState?.source ?? data?.source
   // Only explicit AI sources return true; undefined/unknown = NOT AI
   return source !== undefined && AI_SOURCES.has(source)
 }
@@ -181,8 +187,10 @@ function isAiSource(node: Node): boolean {
  * Get AI-estimated value from node
  */
 function getAiEstimatedValue(node: Node): string | null {
-  const data = node.data as { observed_state?: { value?: number }; value?: number }
-  const value = data?.observed_state?.value ?? data?.value
+  // Check both snake_case (observed_state) and camelCase (observedState) for compatibility
+  const data = node.data as { observed_state?: { value?: number }; observedState?: { value?: number }; value?: number }
+  const observedState = data?.observed_state ?? data?.observedState
+  const value = observedState?.value ?? data?.value
   if (value === undefined || value === null) return null
   return typeof value === 'number' ? value.toFixed(1) : String(value)
 }
@@ -325,7 +333,7 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
           key: `verify_${factor.id}`,
           category: 'verify',
           label: getNodeLabel(factor),
-          detail: value ? `AI est: ${value}` : 'AI-estimated value',
+          detail: value ? `AI estimate: ${value}` : 'AI-estimated value',
           bias: 'confidence',
           focus: { type: 'node', id: factor.id, label: getNodeLabel(factor) },
           action: { label: 'Confirm', kind: 'confirm', targetId: factor.id, targetType: 'node' },
@@ -424,14 +432,19 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
   // Edge case: 0 total factors = Low (no data to base confidence on)
   const evidenceQuality = useMemo<EvidenceQuality>(() => {
     const factors = nodesByKind.factor
+    const total = factors.length
 
-    if (factors.length === 0) {
+    if (total === 0) {
+      // Dev debug log
+      if (process.env.NODE_ENV === 'development') {
+        console.debug('[InputConfidence]', { totalFactors: 0, nonAiFactors: 0, ratio: 0, level: 'low' })
+      }
       return { level: 'low', ratio: 0 } // No factors = Low confidence (no data)
     }
 
     // Count factors that are NOT AI-inferred (blocklist approach)
     const nonAiCount = factors.filter(f => !isAiSource(f)).length
-    const ratio = nonAiCount / factors.length
+    const ratio = nonAiCount / total
 
     let level: EvidenceQualityLevel
     if (ratio >= 0.7) {
@@ -440,6 +453,11 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
       level = 'medium'
     } else {
       level = 'low'
+    }
+
+    // Dev debug log
+    if (process.env.NODE_ENV === 'development') {
+      console.debug('[InputConfidence]', { totalFactors: total, nonAiFactors: nonAiCount, ratio, level })
     }
 
     return { level, ratio }
@@ -455,6 +473,10 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
   const hasBlockers = existingReadiness.hasBlockers
   // Blocker count from existing hook for consistent footer display
   const blockerCount = existingReadiness.allIssues.filter(i => i.severity === 'blocker').length
+
+  // Loading state: CEE data hasn't arrived yet but we have nodes (expecting CEE data)
+  // This prevents showing misleading "Blocked" during initial load
+  const isLoading = ceeAnalysisReady === null && nodes.length > 0
 
   // Success threshold - priority: goal_threshold > observed_state.value > success_threshold > threshold
   const successThreshold = useMemo(() => {
@@ -505,6 +527,7 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
     goalNode,
     successThreshold,
     isThresholdAutoDerived,
+    isLoading,
   }
 }
 

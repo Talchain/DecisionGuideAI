@@ -2,10 +2,11 @@
  * Header - Pre-Analysis Panel inline status line
  *
  * Single text line replacing the old header strip:
+ * - Loading: "◌ Checking..." in text-light color (while CEE data loads)
  * - Ready: "✓ Ready · {n} improvements" in success color
  * - Blocked: "⊘ Blocked · {n} issue(s) to fix" in danger color
  *
- * 13px, font-weight 600, no background/border/padding beyond panel's own.
+ * 14px, font-weight 600, no background/border/padding beyond panel's own.
  * This replaces the 'Top actions' section label.
  */
 
@@ -16,13 +17,25 @@ interface HeaderProps {
   totalImprovements: number
   /** Number of blocker issues (for blocked state) */
   blockerCount?: number
+  /** Whether CEE data is still loading */
+  isLoading?: boolean
 }
 
 export function Header({
   isReady,
   totalImprovements,
   blockerCount = 0,
+  isLoading = false,
 }: HeaderProps) {
+  // Loading state: "◌ Checking..." while CEE data loads
+  if (isLoading) {
+    return (
+      <p className="text-sm font-semibold text-text-light">
+        ◌ Checking...
+      </p>
+    )
+  }
+
   if (isReady) {
     // Ready state: "✓ Ready · {n} optional improvements"
     return (

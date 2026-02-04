@@ -17,7 +17,7 @@
 import { useState, useCallback } from 'react'
 import { Accordion, Pill, NodeLink, IconBtn, BiasIcon } from './primitives'
 import { Check, Pencil, Plus, HelpCircle } from 'lucide-react'
-import type { ImprovementItem, ImprovementCategory, ImprovementActionKind } from './hooks/usePreAnalysisData'
+import type { ImprovementItem, ImprovementCategory } from './hooks/usePreAnalysisData'
 
 /** Action handlers for improvement items */
 export interface ImprovementActionHandlers {
@@ -56,26 +56,31 @@ interface AllImprovementsProps {
 const categoryConfig: Record<ImprovementCategory, {
   label: string
   border: string
+  containerBorder: string
   rowBorderColor: string
 }> = {
   fix: {
     label: 'Fix',
     border: 'border-l-danger',
+    containerBorder: 'border-panel-border', // Keep default for Fix
     rowBorderColor: 'rgba(234, 123, 75, 0.2)', // danger at 20%
   },
   verify: {
     label: 'Verify',
     border: 'border-l-warning',
+    containerBorder: 'border-panel-border',
     rowBorderColor: 'rgba(255, 166, 86, 0.2)', // warning at 20%
   },
   add_evidence: {
     label: 'Add evidence',
     border: 'border-l-panel-border',
+    containerBorder: 'border-panel-border',
     rowBorderColor: 'rgba(225, 216, 199, 0.4)', // #E1D8C7 at 40%
   },
   strengthen: {
     label: 'Strengthen',
     border: 'border-l-panel-border',
+    containerBorder: 'border-panel-border',
     rowBorderColor: 'rgba(170, 167, 228, 0.2)', // option color at 20%
   },
 }
@@ -108,7 +113,7 @@ function CategorySection({ category, items, onFocus, actionHandlers, removingIte
   // For add_evidence, show collapsed summary by default
   if (category === 'add_evidence' && !isExpanded) {
     return (
-      <div className={`rounded-lg border border-panel-border border-l-[3px] ${config.border} py-2 px-2.5`}>
+      <div className={`rounded-lg border ${config.containerBorder} border-l-[3px] ${config.border} py-2 px-2.5`}>
         <div className="flex items-center justify-between">
           <p className="text-sm text-text-body">
             {items.length} edge{items.length !== 1 ? 's' : ''} without evidence
@@ -125,7 +130,7 @@ function CategorySection({ category, items, onFocus, actionHandlers, removingIte
   }
 
   return (
-    <div className={`rounded-lg border border-panel-border border-l-[3px] ${config.border} py-2 px-2.5`}>
+    <div className={`rounded-lg border ${config.containerBorder} border-l-[3px] ${config.border} py-2 px-2.5`}>
       {/* Category label - sentence case, no uppercase transform */}
       <div className="flex items-center justify-between mb-2">
         <p className="text-sm font-semibold text-text-light tracking-wide">
@@ -214,8 +219,8 @@ function ImprovementRow({ item, onFocus, actionHandlers, isRemoving, onHoverEnte
         }
         break
       case 'add':
-        // For edges, show inline evidence input
-        if (item.action?.targetType === 'edge') {
+        // For edges, show inline evidence input (only if handler exists)
+        if (item.action?.targetType === 'edge' && actionHandlers?.onAddEvidence) {
           setShowEvidenceInput(true)
         }
         break
@@ -423,7 +428,7 @@ function ImprovementRow({ item, onFocus, actionHandlers, isRemoving, onHoverEnte
             {actionHandlers?.onConfirm && (
               <IconBtn
                 icon={Check}
-                tooltip="Confirm"
+                tooltip="Confirm this value is correct"
                 variant="confirm"
                 onClick={() => {
                   if (item.action?.targetId) {
@@ -436,7 +441,7 @@ function ImprovementRow({ item, onFocus, actionHandlers, isRemoving, onHoverEnte
             {actionHandlers?.onAssumption && (
               <IconBtn
                 icon={HelpCircle}
-                tooltip="Mark as assumption"
+                tooltip="Keep as an assumption"
                 variant="assume"
                 onClick={() => {
                   if (item.action?.targetId) {

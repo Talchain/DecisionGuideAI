@@ -85,6 +85,15 @@
   force = true
   headers = {X-Olumi-Assist-Key = "${ASSIST_API_KEY}"}
 
+# CEE fallback route for /v1/cee/* path pattern
+# Handles requests when VITE_CEE_BFF_BASE points to /v1/cee instead of /bff/cee
+[[redirects]]
+  from = "/v1/cee/*"
+  to = "https://olumi-assistants-service.onrender.com/assist/v1/:splat"
+  status = 200
+  force = true
+  headers = {X-Olumi-Assist-Key = "${ASSIST_API_KEY}"}
+
 # =============================================================================
 # Edge Functions (security-critical functions listed first for audit clarity)
 # =============================================================================
