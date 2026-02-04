@@ -22,6 +22,8 @@ import type { Node, Edge } from '@xyflow/react'
 import type { BiasType } from '../primitives/BiasIcon'
 // Import existing readiness hook for canonical canRun/hasBlockers logic
 import { usePreAnalysisData as useExistingPreAnalysisData } from '../../../hooks/usePreAnalysisData'
+// Import label cleaning utility to strip encoding patterns from factor labels
+import { cleanFactorLabel } from '../../../../components/results/utils/cleanFactorLabel'
 
 // ============================================================================
 // Types
@@ -329,13 +331,15 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
     for (const factor of nodesByKind.factor) {
       if (isAiInferred(factor)) {
         const value = getAiEstimatedValue(factor)
+        const rawLabel = getNodeLabel(factor)
+        const cleanedLabel = cleanFactorLabel(rawLabel).label
         result.verify.push({
           key: `verify_${factor.id}`,
           category: 'verify',
-          label: getNodeLabel(factor),
+          label: cleanedLabel,
           detail: value ? `AI estimate: ${value}` : 'AI-estimated value',
           bias: 'confidence',
-          focus: { type: 'node', id: factor.id, label: getNodeLabel(factor) },
+          focus: { type: 'node', id: factor.id, label: cleanedLabel },
           action: { label: 'Confirm', kind: 'confirm', targetId: factor.id, targetType: 'node' },
         })
       }

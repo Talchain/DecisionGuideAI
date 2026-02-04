@@ -11,6 +11,7 @@
 import { useState, useCallback } from 'react'
 import { BiasIcon } from './primitives'
 import type { ImprovementItem, ImprovementCategory } from './hooks/usePreAnalysisData'
+import { cleanFactorLabel } from '../../../components/results/utils/cleanFactorLabel'
 
 interface M1TopActionsProps {
   /** Top 3 priority items */
@@ -92,38 +93,40 @@ export function M1TopActions({ topActions, onAddEvidence, onHoverEnter, onHoverL
                 {index + 1}
               </span>
 
-              {/* Content */}
-              <div className="flex-1 min-w-0">
+              {/* Content - flex-1 min-w-0 ensures text wraps within bounds */}
+              <div className="flex-1 min-w-0 pr-2">
                 <p className="text-sm font-medium text-text-header">
-                  {item.label}
+                  {cleanFactorLabel(item.label).label}
                 </p>
                 <p className="text-sm text-text-light mt-0.5">
                   {item.detail}
                 </p>
               </div>
 
-              {/* + Source CTA for evidence items */}
-              {isEvidenceItem && onAddEvidence && !showInput && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setActiveEvidenceInput(item.key)
-                    setEvidenceValue('')
-                  }}
-                  className="flex-shrink-0 text-xs font-medium text-info hover:underline cursor-pointer"
-                >
-                  + Source
-                </button>
-              )}
+              {/* Fixed action column - shrink-0 prevents collapse */}
+              <div className="flex items-center gap-1 shrink-0">
+                {/* + Source CTA for evidence items */}
+                {isEvidenceItem && onAddEvidence && !showInput && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveEvidenceInput(item.key)
+                      setEvidenceValue('')
+                    }}
+                    className="text-xs font-medium text-info hover:underline cursor-pointer"
+                  >
+                    + Source
+                  </button>
+                )}
 
-              {/* Optional BiasIcon - positioned top-right of card */}
-              {item.bias && !isEvidenceItem && (
-                <BiasIcon
-                  bias={item.bias}
-                  why={item.detail}
-                  className="absolute top-2 right-2"
-                />
-              )}
+                {/* Optional BiasIcon */}
+                {item.bias && !isEvidenceItem && (
+                  <BiasIcon
+                    bias={item.bias}
+                    why={item.detail}
+                  />
+                )}
+              </div>
             </div>
 
             {/* Inline evidence input */}

@@ -373,58 +373,41 @@ function ImprovementRow({ item, onFocus, actionHandlers, isRemoving, onHoverEnte
     )
   }
 
-  return (
-    <div
-      className="cursor-pointer hover:bg-black/[0.02] rounded-md -mx-1 px-1"
-      onMouseEnter={handleRowMouseEnter}
-      onMouseLeave={handleRowMouseLeave}
-    >
-      {/* Positioning container for BiasIcon - no negative margins */}
-      <div className="relative w-full space-y-2">
-        {/* BiasIcon in top-right corner - wrapper needed because Tooltip creates its own relative context */}
-        {item.bias && (
-          <div className="absolute top-0 right-0">
-            <BiasIcon
-              bias={item.bias}
-              why={item.detail}
-            />
+  // Verify items: single-line format "label · detail"
+  if (item.category === 'verify') {
+    // Build full text for title tooltip (shows on hover when truncated)
+    const fullText = item.detail ? `${item.label} · ${item.detail}` : item.label
+
+    return (
+      <div
+        className="cursor-pointer hover:bg-black/[0.02] rounded-md -mx-1 px-1"
+        onMouseEnter={handleRowMouseEnter}
+        onMouseLeave={handleRowMouseLeave}
+      >
+        <div className="flex items-center gap-2">
+          {/* Text content - flex-1 min-w-0 enables truncation */}
+          <div className="flex-1 min-w-0">
+            <p className="text-sm text-text-body truncate" title={fullText}>
+              {item.focus ? (
+                <NodeLink
+                  targetId={item.focus.id}
+                  targetType={item.focus.type}
+                  onClick={handleFocusClick}
+                  className="hover:underline"
+                >
+                  {item.label}
+                </NodeLink>
+              ) : (
+                <span>{item.label}</span>
+              )}
+              {item.detail && (
+                <span className="text-text-light"> · {item.detail}</span>
+              )}
+            </p>
           </div>
-        )}
 
-        {/* Single action button bottom-right (for non-verify categories like Fix) */}
-        {item.category !== 'verify' && item.action && ActionIcon && (
-          <div className="absolute bottom-0 right-0">
-            <IconBtn
-              icon={ActionIcon}
-              tooltip={item.action.label}
-              variant={item.action.kind === 'confirm' ? 'confirm' : item.action.kind === 'edit' ? 'edit' : 'default'}
-              onClick={handleActionClick}
-              disabled={!actionEnabled}
-            />
-          </div>
-        )}
-
-        <div className="flex items-start gap-2">
-          {/* NodeLink for focusable items - flush left alignment */}
-          <div className="flex-1 min-w-0 text-left pr-8">
-          {item.focus ? (
-            <NodeLink
-              targetId={item.focus.id}
-              targetType={item.focus.type}
-              onClick={handleFocusClick}
-              className="text-sm text-left hover:underline"
-            >
-              {item.label}
-            </NodeLink>
-          ) : (
-            <span className="text-sm text-text-body text-left">{item.label}</span>
-          )}
-          <p className="text-sm text-text-light mt-0.5 text-left">{item.detail}</p>
-        </div>
-
-        {/* Action buttons for Verify category (Confirm + Assumption + Edit) */}
-        {item.category === 'verify' && (
-          <div className="flex items-center gap-1">
+          {/* Fixed action column - shrink-0 prevents collapse */}
+          <div className="flex items-center gap-1 shrink-0">
             {actionHandlers?.onConfirm && (
               <IconBtn
                 icon={Check}
@@ -464,12 +447,64 @@ function ImprovementRow({ item, onFocus, actionHandlers, isRemoving, onHoverEnte
               />
             )}
           </div>
-        )}
+        </div>
+      </div>
+    )
+  }
+
+  // Fix, Add Evidence, and other rows
+  return (
+    <div
+      className="cursor-pointer hover:bg-black/[0.02] rounded-md -mx-1 px-1"
+      onMouseEnter={handleRowMouseEnter}
+      onMouseLeave={handleRowMouseLeave}
+    >
+      <div className="flex items-start gap-2">
+        {/* Text content - flex-1 min-w-0 enables truncation/wrapping */}
+        <div className="flex-1 min-w-0">
+          {item.focus ? (
+            <NodeLink
+              targetId={item.focus.id}
+              targetType={item.focus.type}
+              onClick={handleFocusClick}
+              className="text-sm text-left hover:underline"
+            >
+              {item.label}
+            </NodeLink>
+          ) : (
+            <span className="text-sm text-text-body text-left">{item.label}</span>
+          )}
+          {item.detail && (
+            <p className="text-sm text-text-light mt-0.5 text-left">{item.detail}</p>
+          )}
+        </div>
+
+        {/* Fixed action column - shrink-0 prevents collapse */}
+        <div className="flex items-center gap-1 shrink-0">
+          {/* BiasIcon for non-Fix categories only (Task 4: remove from Fix rows) */}
+          {item.bias && item.category !== 'fix' && (
+            <BiasIcon
+              bias={item.bias}
+              why={item.detail}
+            />
+          )}
+
+          {/* Action button for Fix/Evidence categories */}
+          {item.action && ActionIcon && (
+            <IconBtn
+              icon={ActionIcon}
+              tooltip={item.action.label}
+              variant={item.action.kind === 'confirm' ? 'confirm' : item.action.kind === 'edit' ? 'edit' : 'default'}
+              onClick={handleActionClick}
+              disabled={!actionEnabled}
+            />
+          )}
+        </div>
       </div>
 
       {/* Inline evidence input for Add Evidence category */}
       {showEvidenceInput && (
-        <div className="flex items-center gap-2 pl-4">
+        <div className="flex items-center gap-2 mt-2">
           <input
             type="text"
             value={evidenceValue}
@@ -504,7 +539,6 @@ function ImprovementRow({ item, onFocus, actionHandlers, isRemoving, onHoverEnte
           </button>
         </div>
       )}
-      </div>
     </div>
   )
 }
