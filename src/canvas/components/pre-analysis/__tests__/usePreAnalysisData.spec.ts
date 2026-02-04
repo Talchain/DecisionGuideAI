@@ -504,6 +504,159 @@ describe('usePreAnalysisData', () => {
     })
   })
 
+  describe('AI Estimate Value Formatting', () => {
+    it('formats fractional percentage values correctly (0.04 → "4%")', () => {
+      mockUseCanvasStore.mockImplementation(createMockStore({
+        nodes: [
+          {
+            id: 'factor1',
+            type: 'factor',
+            position: { x: 0, y: 0 },
+            data: {
+              label: 'Conversion Rate',
+              observed_state: { source: 'ai', value: 0.04, unit: '%' },
+            },
+          },
+        ],
+      }))
+
+      const { result } = renderHook(() => usePreAnalysisData())
+
+      expect(result.current.improvementsByCategory.verify).toContainEqual(
+        expect.objectContaining({
+          key: 'verify_factor1',
+          detail: 'AI estimate: 4%',
+        })
+      )
+    })
+
+    it('handles percentage values already in percent form (75 → "75%")', () => {
+      // Guard: if value > 1, assume it's already a percentage
+      mockUseCanvasStore.mockImplementation(createMockStore({
+        nodes: [
+          {
+            id: 'factor1',
+            type: 'factor',
+            position: { x: 0, y: 0 },
+            data: {
+              label: 'Completion Rate',
+              observed_state: { source: 'ai', value: 75, unit: '%' },
+            },
+          },
+        ],
+      }))
+
+      const { result } = renderHook(() => usePreAnalysisData())
+
+      expect(result.current.improvementsByCategory.verify).toContainEqual(
+        expect.objectContaining({
+          key: 'verify_factor1',
+          detail: 'AI estimate: 75%',
+        })
+      )
+    })
+
+    it('formats pound values correctly (20000 → "£20,000")', () => {
+      mockUseCanvasStore.mockImplementation(createMockStore({
+        nodes: [
+          {
+            id: 'factor1',
+            type: 'factor',
+            position: { x: 0, y: 0 },
+            data: {
+              label: 'Budget',
+              observed_state: { source: 'ai', value: 20000, unit: '£' },
+            },
+          },
+        ],
+      }))
+
+      const { result } = renderHook(() => usePreAnalysisData())
+
+      expect(result.current.improvementsByCategory.verify).toContainEqual(
+        expect.objectContaining({
+          key: 'verify_factor1',
+          detail: 'AI estimate: £20,000',
+        })
+      )
+    })
+
+    it('formats dollar values correctly (5000 → "$5,000")', () => {
+      mockUseCanvasStore.mockImplementation(createMockStore({
+        nodes: [
+          {
+            id: 'factor1',
+            type: 'factor',
+            position: { x: 0, y: 0 },
+            data: {
+              label: 'Revenue',
+              observed_state: { source: 'ai', value: 5000, unit: '$' },
+            },
+          },
+        ],
+      }))
+
+      const { result } = renderHook(() => usePreAnalysisData())
+
+      expect(result.current.improvementsByCategory.verify).toContainEqual(
+        expect.objectContaining({
+          key: 'verify_factor1',
+          detail: 'AI estimate: $5,000',
+        })
+      )
+    })
+
+    it('formats values without unit with reasonable precision (0.75 → "0.8")', () => {
+      mockUseCanvasStore.mockImplementation(createMockStore({
+        nodes: [
+          {
+            id: 'factor1',
+            type: 'factor',
+            position: { x: 0, y: 0 },
+            data: {
+              label: 'Score',
+              observed_state: { source: 'ai', value: 0.75 },
+            },
+          },
+        ],
+      }))
+
+      const { result } = renderHook(() => usePreAnalysisData())
+
+      expect(result.current.improvementsByCategory.verify).toContainEqual(
+        expect.objectContaining({
+          key: 'verify_factor1',
+          detail: 'AI estimate: 0.8',
+        })
+      )
+    })
+
+    it('shows fallback text when value is null', () => {
+      mockUseCanvasStore.mockImplementation(createMockStore({
+        nodes: [
+          {
+            id: 'factor1',
+            type: 'factor',
+            position: { x: 0, y: 0 },
+            data: {
+              label: 'Unknown',
+              observed_state: { source: 'ai', value: null },
+            },
+          },
+        ],
+      }))
+
+      const { result } = renderHook(() => usePreAnalysisData())
+
+      expect(result.current.improvementsByCategory.verify).toContainEqual(
+        expect.objectContaining({
+          key: 'verify_factor1',
+          detail: 'AI-estimated value',
+        })
+      )
+    })
+  })
+
   describe('Success Threshold Auto-Population', () => {
     it('auto-fills threshold from goal_threshold', () => {
       mockUseCanvasStore.mockImplementation(createMockStore({

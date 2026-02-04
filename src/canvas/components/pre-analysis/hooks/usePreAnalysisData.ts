@@ -186,15 +186,34 @@ function isAiSource(node: Node): boolean {
 }
 
 /**
- * Get AI-estimated value from node
+ * Get AI-estimated value from node, formatted with appropriate units
  */
 function getAiEstimatedValue(node: Node): string | null {
   // Check both snake_case (observed_state) and camelCase (observedState) for compatibility
-  const data = node.data as { observed_state?: { value?: number }; observedState?: { value?: number }; value?: number }
+  const data = node.data as {
+    observed_state?: { value?: number; unit?: string }
+    observedState?: { value?: number; unit?: string }
+    value?: number
+  }
   const observedState = data?.observed_state ?? data?.observedState
   const value = observedState?.value ?? data?.value
   if (value === undefined || value === null) return null
-  return typeof value === 'number' ? value.toFixed(1) : String(value)
+  if (typeof value !== 'number') return String(value)
+
+  // Format based on unit
+  const unit = observedState?.unit
+  if (unit === '%') {
+    // Guard: if value > 1, assume it's already a percentage (e.g., 4 = 4%)
+    // Otherwise treat as fractional (e.g., 0.04 = 4%)
+    const percentValue = value > 1 ? Math.round(value) : Math.round(value * 100)
+    return percentValue + '%'
+  }
+  if (unit === '£' || unit === '$') {
+    // Round to whole numbers for cleaner display of AI estimates
+    return unit + Math.round(value).toLocaleString()
+  }
+  // Default: display with reasonable precision
+  return value.toFixed(1)
 }
 
 /**
