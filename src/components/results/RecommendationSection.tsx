@@ -12,7 +12,7 @@
  * - Click-to-focus on option nodes
  */
 
-import { useCallback, useMemo } from 'react'
+import { useCallback, useMemo, useState, useEffect } from 'react'
 import { CheckCircle, Scale, Search, AlertTriangle } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import type { RecommendationSectionData, OptionResult, OutcomeUnitType, WinnerDeterminedBy, RobustnessLevel, RobustnessLabel, M1CoachingReadiness } from './types'
@@ -22,6 +22,7 @@ import { formatOutcomeValue, type OutcomeUnits } from '../../lib/format'
 import { typography } from '../../styles/typography'
 import { BASELINE_DELTA_EPSILON } from './constants'
 import { COPY, THRESHOLDS } from '../../lib/mappers/constants'
+import { stripEncodingNotation } from './utils/cleanFactorLabel'
 
 interface RecommendationSectionProps {
   data: RecommendationSectionData
@@ -29,6 +30,38 @@ interface RecommendationSectionProps {
   /** Callback to navigate to Structure tab (for needs_framing CTA) */
   onNavigateToStructure?: () => void
   onAddStatusQuoBaseline?: () => void
+  /** Response hash for coaching card dismissal persistence */
+  responseHash?: string
+}
+
+/**
+ * Fix B: Clean encoding patterns from story headlines (anywhere in string).
+ * PLoT generates headlines like "Factor X (0/1) → Outcome Y" which need cleaning.
+ * Removes patterns: (0/1), (0-1), (0–1), (yes/no), (binary), (on/off), (true/false)
+ * Also handles currency/percentage patterns: (0–1, share of £20k cap)
+ */
+function cleanStoryHeadline(headline: string): string {
+  if (!headline) return ''
+
+  // Patterns to remove (anywhere in string, not just at end)
+  const patterns = [
+    /\s*\(0\/1\)/gi,
+    /\s*\(0[–-]1\)/gi,
+    /\s*\(0[–-]1,\s*[^)]+\)/gi,  // (0-1, share of £20k cap)
+    /\s*\(yes\/no\)/gi,
+    /\s*\(binary\)/gi,
+    /\s*\(on\/off\)/gi,
+    /\s*\(true\/false\)/gi,
+    /\s*\(\d+[–-]\d+\)/gi,  // Generic numeric ranges like (0-100), (1-5)
+  ]
+
+  let cleaned = headline
+  for (const pattern of patterns) {
+    cleaned = cleaned.replace(pattern, '')
+  }
+
+  // Clean up double spaces and trim
+  return cleaned.replace(/\s+/g, ' ').trim()
 }
 
 /**
@@ -100,32 +133,60 @@ function formatOutcome(
 }
 
 /**
- * P0 Results Brief Item 1: Get recommendation label based on stability.
- * - stability >= 70%: "Recommended" (confident recommendation)
- * - stability 55-69%: "Current front-runner (given current assumptions)" (hedged)
- * - stability < 55%: null (suppress label entirely - "too close to call")
+ * P0 Results Brief: Get recommendation label based on stability.
+ * - stability >= 70%: "Strongest performer"
+ * - stability 55-69%: "Current front-runner"
+ * - stability < 55%: null (use "No clear front-runner" chip at section level)
  */
 function getRecommendationLabel(stability: number | undefined): string | null {
-  if (stability == null) return 'Recommended' // Fallback to default if no stability data
-  if (stability >= 0.70) return 'Recommended'
+  if (stability == null) return 'Strongest performer' // Fallback to default if no stability data
+  if (stability >= 0.70) return 'Strongest performer'
   if (stability >= 0.55) return 'Current front-runner'
-  return null // Suppress entirely when too close to call
+  return null // Low stability - show "No clear front-runner" at section level instead
+}
+
+/**
+ * P0 Results Brief Task 5: Get stability label based on thresholds.
+ * - stability >= 0.85 → "Stable result"
+ * - stability >= 0.70 && < 0.85 → "Mostly stable"
+ * - stability >= 0.55 && < 0.70 → "Sensitive to assumptions"
+ * - stability < 0.55 → "Highly sensitive"
+ */
+function getStabilityLabel(stability: number | undefined): string {
+  if (stability == null) return 'Stable result' // Fallback
+  if (stability >= 0.85) return 'Stable result'
+  if (stability >= 0.70) return 'Mostly stable'
+  if (stability >= 0.55) return 'Sensitive to assumptions'
+  return 'Highly sensitive'
+}
+
+/**
+ * Get stability tier color for badge styling.
+ */
+function getStabilityColor(stability: number | undefined): { bg: string; text: string; dot: string } {
+  if (stability == null || stability >= 0.70) {
+    return { bg: 'bg-success-50', text: 'text-success-700', dot: 'bg-success-500' }
+  }
+  if (stability >= 0.55) {
+    return { bg: 'bg-warning-50', text: 'text-warning-700', dot: 'bg-warning-500' }
+  }
+  return { bg: 'bg-danger-50', text: 'text-danger-700', dot: 'bg-danger-500' }
 }
 
 /**
  * Task 1.4: Get winner label based on how the winner was determined.
- * - win_probability present → "MOST LIKELY TO BE BEST"
- * - Only expected/p50 → "HIGHEST EXPECTED OUTCOME"
- * - Neither → "UNABLE TO DETERMINE BEST OPTION"
+ * - win_probability present → "Most likely to be best"
+ * - Only expected/p50 → "Highest expected outcome"
+ * - Neither → "Unable to determine best option"
  */
 function getWinnerLabel(determinedBy: WinnerDeterminedBy | undefined): string {
   switch (determinedBy) {
     case 'win_probability':
-      return 'MOST LIKELY TO BE BEST'
+      return 'Most likely to be best'
     case 'expected_outcome':
-      return 'HIGHEST EXPECTED OUTCOME'
+      return 'Highest expected outcome'
     default:
-      return 'UNABLE TO DETERMINE BEST OPTION'
+      return 'Unable to determine best option'
   }
 }
 
@@ -193,6 +254,10 @@ function DecisionReadinessChip({
   /** Whether there are warnings that need attention (for Ready + warnings consistency) */
   hasWarnings?: boolean
 }) {
+  // Task 6: Don't show "Needs Framing" badge - it contradicts positive analysis results
+  // The coaching card handles this case instead
+  if (readiness === 'needs_framing') return null
+
   const config = READINESS_CONFIG[readiness]
   if (!config) return null
 
@@ -220,68 +285,38 @@ function DecisionReadinessChip({
           <span className="ml-1 opacity-75">({displayScore}%)</span>
         )}
       </span>
-      {/* CTA for needs_framing readiness level */}
-      {readiness === 'needs_framing' && onNavigateToStructure && (
-        <button
-          onClick={onNavigateToStructure}
-          className={`${typography.caption} text-sky-600 hover:text-sky-800 hover:underline`}
-        >
-          Review model framing →
-        </button>
-      )}
     </div>
   )
 }
 
 /**
- * Task 1.5: Robustness badge component.
- * Maps level (high/medium/low/very_low) or label (robust/moderate/fragile) to display.
- * Handles normalisation: uppercase, trim, replace('-', '_')
+ * Task 5: Stability badge component with tiered plain language.
+ * Shows label only - percentage is behind progressive disclosure (tooltip).
+ * - >= 0.85 → "Stable result" (green)
+ * - >= 0.70 → "Mostly stable" (green)
+ * - >= 0.55 → "Sensitive to assumptions" (amber)
+ * - < 0.55 → "Highly sensitive" (red)
  */
-const BADGE_CONFIG: Record<string, { dotColor: string; text: string; bgColor: string; textColor: string }> = {
-  high: { dotColor: 'bg-success-500', text: 'Robust', bgColor: 'bg-success-50', textColor: 'text-success-700' },
-  robust: { dotColor: 'bg-success-500', text: 'Robust', bgColor: 'bg-success-50', textColor: 'text-success-700' },
-  medium: { dotColor: 'bg-warning-500', text: 'Moderate', bgColor: 'bg-warning-50', textColor: 'text-warning-700' },
-  moderate: { dotColor: 'bg-warning-500', text: 'Moderate', bgColor: 'bg-warning-50', textColor: 'text-warning-700' },
-  low: { dotColor: 'bg-orange-500', text: 'Fragile', bgColor: 'bg-orange-50', textColor: 'text-orange-700' },
-  fragile: { dotColor: 'bg-orange-500', text: 'Fragile', bgColor: 'bg-orange-50', textColor: 'text-orange-700' },
-  very_low: { dotColor: 'bg-danger-500', text: 'Very Fragile', bgColor: 'bg-danger-50', textColor: 'text-danger-700' },
-}
-
-function RobustnessBadge({
-  level,
-  label,
+function StabilityBadge({
   stability,
 }: {
-  level?: RobustnessLevel
-  label?: RobustnessLabel
-  /** Optional stability percentage to display inline (0-1) */
+  /** Stability score (0-1) */
   stability?: number
 }) {
-  // Normalise: level takes precedence, then label as fallback
-  // Handle uppercase, trim whitespace, replace hyphens with underscores
-  const badgeSource = level ?? label
-  if (!badgeSource) return null
+  if (stability == null) return null
 
-  const badgeKey = badgeSource.toLowerCase().trim().replace(/-/g, '_')
-  const config = BADGE_CONFIG[badgeKey]
-
-  if (!config) return null
-
-  const { dotColor, text, bgColor, textColor } = config
-  const stabilityPct = stability != null ? Math.round(stability * 100) : null
+  const stabilityLabel = getStabilityLabel(stability)
+  const colors = getStabilityColor(stability)
+  const stabilityPct = Math.round(stability * 100)
 
   return (
     <span
-      className={`${typography.caption} inline-flex items-center gap-1.5 px-2 py-0.5 rounded ${bgColor} ${textColor}`}
-      title="Percentage of simulated worlds where this option stays the winner"
+      className={`${typography.caption} inline-flex items-center gap-1.5 px-2 py-0.5 rounded ${colors.bg} ${colors.text}`}
+      title={`Result stability: ${stabilityPct}% — percentage of scenarios where this option stays the winner`}
+      aria-label={`${stabilityLabel}. ${stabilityPct}% stable in simulations.`}
     >
-      <span className={`w-2 h-2 rounded-full ${dotColor}`} aria-hidden="true" />
-      {text}
-      {/* Inline stability percentage */}
-      {stabilityPct != null && (
-        <span className="opacity-75 ml-1">{stabilityPct}% stable</span>
-      )}
+      <span className={`w-2 h-2 rounded-full ${colors.dot}`} aria-hidden="true" />
+      {stabilityLabel}
     </span>
   )
 }
@@ -528,43 +563,49 @@ function OptionRow({
     }
   }, [option.id, onFocus])
 
+  // Fix A: Only show goalProbability when both threshold AND probability are present
+  // When probability_of_goal is absent, show rank-based labels instead of "X expected"
   const showGoalProbability = goalThreshold != null && option.goalProbability != null
-  const displayValue = showGoalProbability
-    ? option.goalProbability
-    : option.expected ?? option.goalProbability
-  const displaySuffix = showGoalProbability || (option.goalProbability != null && option.expected == null)
-    ? 'chance'
-    : 'expected'
 
   // Task 2.2: Format delta from baseline (only for non-baseline options)
   const deltaText = !option.isBaseline
     ? formatDelta(option.deltaFromBaseline, outcomeUnit, outcomeUnitSymbol)
     : null
 
+  // Fix A: Rank-based labels for ALL options when probability is absent
+  // rank 1 = "Strongest performer", rank 2 = "Second strongest", etc.
+  const getRankLabel = (rank: number | undefined): string => {
+    if (rank == null) return '—'
+    if (rank === 1) return 'Strongest performer'
+    if (rank === 2) return 'Second strongest'
+    if (rank === 3) return 'Third strongest'
+    return `${rank}th strongest`
+  }
+
   return (
-    <button
+    <div
+      role="link"
+      tabIndex={0}
       onClick={handleClick}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleClick() } }}
       className={`
-        w-full text-left px-3 py-2 rounded-lg transition-colors flex items-center justify-between
-        ${option.isRecommended
-          ? 'bg-success-50 border border-success-200 hover:bg-success-100'
-          : 'bg-slate-50 border border-slate-200 hover:bg-slate-100'
-        }
+        w-full text-left px-3 py-2 rounded-lg transition-colors flex items-center justify-between cursor-pointer
+        bg-panel border border-panel-border hover:bg-panel-hover
+        focus:outline-none focus:ring-2 focus:ring-info-500 focus:ring-offset-1
+        ${option.isRecommended ? 'border-l-4 border-l-success' : ''}
       `}
-      title={`Click to focus ${option.label} on canvas`}
+      aria-label={`Focus on ${option.label} in model`}
     >
       <div className="flex-1">
         <div className="flex items-center gap-2">
           <span
-            className={`text-sm ${
-              option.isRecommended ? 'text-success-900' : 'text-slate-700'
-            }`}
+            className="text-sm text-text-body hover:underline"
           >
             {option.label}
           </span>
-          {/* P0 Results Brief: Stability-based recommendation label */}
+          {/* Task 3: Stability-based recommendation label (not "Recommended") */}
           {option.isRecommended && recommendationLabel && (
-            <span className="text-xs bg-success-100 text-success-700 px-1.5 py-0.5 rounded">
+            <span className="text-xs bg-success-light text-success px-1.5 py-0.5 rounded">
               {recommendationLabel}
             </span>
           )}
@@ -574,32 +615,28 @@ function OptionRow({
             </span>
           )}
         </div>
-        {/* M1 Coaching: Story headline as subtitle */}
-        {storyHeadline && (
-          <p className={`${typography.caption} text-slate-500 mt-0.5`}>
-            {storyHeadline}
+        {/* Fix B: Story headline only for winning option, cleaned of encoding patterns */}
+        {/* Non-winning options use rank labels instead (story_headline contains "Runner-up" from PLoT) */}
+        {storyHeadline && option.isRecommended && (
+          <p className={`${typography.caption} text-text-light mt-0.5`}>
+            {cleanStoryHeadline(storyHeadline)}
           </p>
         )}
       </div>
       <div className="flex flex-col items-end">
-        <span
-          className={`text-sm ${
-            option.isRecommended ? 'text-success-700' : 'text-slate-600'
-          }`}
-        >
-          {displayValue == null
-            ? '—'
-            : displaySuffix === 'chance'
-              ? `${formatPercent(displayValue)} ${displaySuffix}`
-              : `${formatOutcome(displayValue, outcomeUnit, outcomeUnitSymbol)} ${displaySuffix}`}
+        {/* Fix A: Show goal probability when available, otherwise rank-based labels */}
+        <span className="text-sm text-text-body">
+          {showGoalProbability && option.goalProbability != null
+            ? `${formatPercent(option.goalProbability)} chance of achieving your goal`
+            : getRankLabel(option.rank)}
         </span>
         {deltaText && (
-          <span className="text-xs text-slate-500">
+          <span className="text-xs text-text-light">
             {deltaText}
           </span>
         )}
       </div>
-    </button>
+    </div>
   )
 }
 
@@ -608,6 +645,7 @@ export function RecommendationSection({
   onFocusNode,
   onNavigateToStructure,
   onAddStatusQuoBaseline,
+  responseHash,
 }: RecommendationSectionProps) {
   const {
     recommendedOption,
@@ -721,31 +759,53 @@ export function RecommendationSection({
   const showTieExplanation = outcomesAppearTied && winSpread > 0.1
 
   const hasBaseline = allOptions.some(o => o.isBaseline)
+  const optionCount = allOptions.length
+
+  // Task 6: Coaching card dismissal persistence per response_hash
+  const coachingDismissalKey = responseHash ? `coaching-dismissed-${responseHash}` : null
+  const [coachingDismissed, setCoachingDismissed] = useState(() => {
+    if (typeof sessionStorage === 'undefined' || !coachingDismissalKey) return false
+    return sessionStorage.getItem(coachingDismissalKey) === 'true'
+  })
+
+  // Reset dismissal when response_hash changes
+  useEffect(() => {
+    if (coachingDismissalKey) {
+      const wasDismissed = sessionStorage.getItem(coachingDismissalKey) === 'true'
+      setCoachingDismissed(wasDismissed)
+    } else {
+      setCoachingDismissed(false)
+    }
+  }, [coachingDismissalKey])
+
+  const handleDismissCoaching = useCallback(() => {
+    setCoachingDismissed(true)
+    if (coachingDismissalKey && typeof sessionStorage !== 'undefined') {
+      sessionStorage.setItem(coachingDismissalKey, 'true')
+    }
+  }, [coachingDismissalKey])
+
+  // Task 6: Show coaching card when baseline absent OR option count <= 2
+  const showCoachingCard = !coachingDismissed && (!hasBaseline || optionCount <= 2) && !isSingleOption
 
   return (
     <div className="space-y-4">
-      {/* Framing callout: Missing baseline */}
-      {!hasBaseline && onAddStatusQuoBaseline && (
-        <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg flex items-center justify-between gap-3">
-          <p className="text-sm text-slate-600">
-            Add a baseline option to compare against the current approach.
-          </p>
-          <button
-            onClick={onAddStatusQuoBaseline}
-            className="text-sm text-sky-700 hover:text-sky-800 hover:underline"
-          >
-            Add Status Quo baseline
-          </button>
-        </div>
-      )}
-
-      {/* Framing callout: Only two options (P1-3) */}
-      {allOptions.length === 2 && !isSingleOption && (
-        <div className="p-3 bg-info-50 border border-info-200 rounded-lg">
-          <p className="text-sm text-info-800">
-            <span className="font-medium">Limited options:</span>{' '}
-            Consider whether there are other approaches worth evaluating. Binary choices can sometimes miss creative alternatives.
-          </p>
+      {/* Task 6: Coaching card for framing improvements (replaces "Needs Framing" badge) */}
+      {showCoachingCard && (
+        <div className="p-3 bg-panel border border-info rounded-lg">
+          <div className="flex items-start justify-between gap-3">
+            <p className="text-sm text-text-body">
+              You're comparing {optionCount} option{optionCount !== 1 ? 's' : ''} {!hasBaseline ? 'with no baseline' : ''}.
+              Adding a 'do nothing' option or additional alternatives would strengthen the analysis.
+            </p>
+            <button
+              onClick={handleDismissCoaching}
+              className="text-xs text-text-light hover:text-text-body flex-shrink-0"
+              aria-label="Dismiss coaching suggestion"
+            >
+              ✕
+            </button>
+          </div>
         </div>
       )}
 
@@ -772,8 +832,8 @@ export function RecommendationSection({
       {/* M1 Coaching: Dominant factor warning */}
       {/* Show when a single factor has >50% influence - this is a concentration risk */}
       {dominantFactorId && dominantFactorLabel && (
-        <div className="p-3 bg-warning-50 border border-warning-200 rounded-lg">
-          <p className="text-sm text-warning-800">
+        <div className="p-3 bg-panel border border-warning rounded-lg">
+          <p className="text-sm text-text-body">
             <span className="font-medium">⚠️ Concentration risk:</span>{' '}
             "{dominantFactorLabel}" accounts for the majority of influence on this decision.
             Consider validating this assumption or diversifying factors.
@@ -786,20 +846,25 @@ export function RecommendationSection({
         {winnerLabel}
       </div>
 
+      {/* No clear front-runner chip when stability < 0.55 */}
+      {recommendationStability != null && recommendationStability < 0.55 && (
+        <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg mb-4">
+          <p className="text-sm text-slate-700">
+            <span className="font-medium">No clear front-runner</span> — the top options are too close to distinguish with confidence.
+          </p>
+        </div>
+      )}
+
       {/* Main Recommendation */}
-      <div className="p-4 bg-success-50 border border-success-200 rounded-lg">
-        {/* Best estimate headline */}
+      <div className="p-4 bg-panel border border-panel-border rounded-lg">
+        {/* Hero outcome headline */}
         <div className="mb-2 flex items-center justify-between flex-wrap gap-2">
           <div>
-            <span className="text-xs text-success-700">Best estimate:</span>
-            <span className="text-xl font-semibold text-success-900 ml-2">
-              {showGoalProbabilityHeadline
-                ? `${formatPercent(recommendedOption.goalProbability as number)} chance of reaching goal`
-                : expectedValue != null
-                  ? `~${formatOutcome(Math.abs(expectedValue), outcomeUnit, outcomeUnitSymbol)} ${expectedValue >= 0 ? 'improvement' : 'decline'}`
-                  : hasGoalProbability
-                    ? `${formatPercent(recommendedOption.goalProbability as number)} chance of reaching goal`
-                    : EMPTY_STATES.rangeData}
+            <span className="text-xl font-semibold text-text-header">
+              {/* Task 4: Show probability_of_goal when present, otherwise winner outperforms message */}
+              {hasGoalProbability
+                ? `${formatPercent(recommendedOption.goalProbability as number)} chance of achieving your goal`
+                : `${recommendedOption.label} outperforms alternatives most consistently`}
             </span>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
@@ -812,20 +877,9 @@ export function RecommendationSection({
                 hasWarnings={hasWarnings}
               />
             )}
-            {/* Task 1.5: Robustness badge with inline stability */}
-            <RobustnessBadge
-              level={robustnessLevel}
-              label={robustnessLabel}
-              stability={recommendationStability}
-            />
-            {/* Fallback: show stability alone when badge is missing but stability exists */}
-            {!robustnessLevel && !robustnessLabel && recommendationStability != null && (
-              <span
-                className={`${typography.caption} inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-slate-100 text-slate-600`}
-                title="How stable the recommendation is under uncertainty"
-              >
-                {Math.round(recommendationStability * 100)}% stable
-              </span>
+            {/* Task 5: Stability badge with tiered plain language */}
+            {recommendationStability != null && (
+              <StabilityBadge stability={recommendationStability} />
             )}
           </div>
         </div>
@@ -850,65 +904,56 @@ export function RecommendationSection({
           return null
         })()}
 
-        {/* Near-tie warning callout */}
-        {/* Priority: nearTie.is_tie when available, fallback to stability-based heuristic */}
-        {/* Task 2: When near-tie shown, suppress legacy "Could go either way" messaging */}
-        {(() => {
-          // Determine if near-tie should be shown
-          // Priority: Use nearTie.isTie when present, else fall back to stability heuristic
-          const isNearTie = nearTie?.isTie ?? (recommendationStability !== undefined && recommendationStability < THRESHOLDS.STABILITY_MODERATE)
+        {/* Fix D3: "Too close to call" card removed - redundant with "No clear front-runner" + "Highly sensitive" badge */}
+        {/* Near-tie information is now communicated via the stability badge and front-runner chip above */}
 
-          if (!isNearTie) return null
+        {/* Patch 2: Tier-gated coaching paragraph based on stability */}
+        {/* Prevents "Could go either way" from contradicting "Stable result" label */}
+        {/* >= 0.85: Remove or show consistent message; < 0.85: show appropriate stability-aware text */}
+        {!nearTie?.isTie && (() => {
+          // Tier-gate: When stability is high (>= 0.85), don't show contradictory "Could go either way" text
+          const isHighStability = recommendationStability != null && recommendationStability >= 0.85
+          const isMediumHighStability = recommendationStability != null && recommendationStability >= 0.70 && recommendationStability < 0.85
+          const isMediumStability = recommendationStability != null && recommendationStability >= 0.55 && recommendationStability < 0.70
 
-          // DEBUG: Log near-tie data to diagnose gap issue
-          if (import.meta.env.DEV) {
-            console.log('[RecommendationSection] nearTie:', nearTie)
+          // Tier 1: High stability (>= 0.85) - show consistent message or nothing
+          if (isHighStability) {
+            return (
+              <p className="text-sm text-success-700">
+                The analysis is consistent across assumptions tested.
+              </p>
+            )
           }
 
-          // Build tied options labels from allOptions lookup
-          const optionLabels = new Map(allOptions.map(opt => [opt.id, opt.label]))
-          const tiedLabels = (nearTie?.tiedOptionIds ?? [])
-            .map(id => optionLabels.get(id))
-            .filter((label): label is string => Boolean(label))
-
-          // Task 1: Near-tie message with gap percentage
-          // Show percentage when gap > 0, otherwise generic message
-          const hasGap = typeof nearTie?.gap === 'number' && nearTie.gap > 0
-          const gapPercent = hasGap ? Math.round(nearTie!.gap * 100) : 0
-          const nearTieMessage = hasGap
-            ? COPY.NEAR_TIE_WITH_GAP(gapPercent)
-            : COPY.NEAR_TIE_MESSAGE
-
-          // Task 3: Tied options message with fallback
-          // Show specific labels if we have 2+, otherwise show generic fallback when near-tie detected
-          const tiedOptionsMessage = tiedLabels.length >= 2
-            ? COPY.TIED_OPTIONS_TEMPLATE(tiedLabels[0], tiedLabels[1])
-            : nearTie?.isTie
-              ? 'The top two options are effectively tied within the model\'s uncertainty.'
-              : null
-
-          return (
-            <div className="mt-3 p-3 bg-warning-50 border border-warning-200 rounded-lg">
-              <p className="text-sm text-warning-800">
-                <span className="font-medium">⚠️ Too close to call:</span>{' '}
-                {nearTieMessage}
+          // Tier 2: Medium-high stability (>= 0.70) - result holds under most assumptions
+          if (isMediumHighStability) {
+            return (
+              <p className="text-sm text-success-700">
+                Result holds under most assumptions. A few edge cases could shift the outcome.
               </p>
-              {tiedOptionsMessage && (
-                <p className="text-xs text-warning-700 mt-1">
-                  {tiedOptionsMessage}
-                </p>
-              )}
-            </div>
-          )
-        })()}
+            )
+          }
 
-        {/* Natural language description */}
-        {/* Task 2: Suppress when near-tie callout is shown to avoid duplicate messaging */}
-        {outcomeDescription && !nearTie?.isTie && (
-          <p className="text-sm text-success-700">
-            {outcomeDescription}
-          </p>
-        )}
+          // Tier 3: Medium stability (>= 0.55) - small changes could shift
+          if (isMediumStability) {
+            return (
+              <p className="text-sm text-warning-700">
+                Could go either way — small changes in assumptions could shift the recommendation.
+              </p>
+            )
+          }
+
+          // Tier 4: Low stability (< 0.55) or unknown - use outcome description or fallback
+          if (outcomeDescription) {
+            return (
+              <p className="text-sm text-warning-700">
+                {outcomeDescription}
+              </p>
+            )
+          }
+
+          return null
+        })()}
 
         {/* Range bar - Task 1.4: Use outcome.mean for expected value */}
         {expectedValue != null && (

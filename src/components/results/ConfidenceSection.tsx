@@ -20,6 +20,7 @@ import { focusNodeById, focusByTarget, type FocusTargetType } from '../../canvas
 import { EMPTY_STATES } from './emptyStates'
 import { typography } from '../../styles/typography'
 import { MIN_STABLE_RECOMMENDATION_STABILITY, isStableRobustnessLevel } from './constants'
+import { stripEncodingNotation } from './utils/cleanFactorLabel'
 
 /**
  * Task C (M1 Coaching): Convert VOI (Value of Information) to impact label.
@@ -157,8 +158,9 @@ function UncertaintyRow({
 
   // Truncate labels to max 25 chars for compact display
   const truncate = (s: string, max: number) => s.length > max ? s.slice(0, max - 1) + '…' : s
+  // Patch 1: Clean encoding notation from edge titles to avoid "(0/1)" leaks
   const edgeTitle = hasEdgeTitle
-    ? `${truncate(edgeMatch[1].trim(), 25)} → ${truncate(edgeMatch[2].trim(), 25)}`
+    ? `${truncate(stripEncodingNotation(edgeMatch[1].trim()), 25)} → ${truncate(stripEncodingNotation(edgeMatch[2].trim()), 25)}`
     : null
 
   // Format compact consequence
@@ -366,14 +368,14 @@ export function ConfidenceSection({
 
       {/* CASE 1b: Bug 2 fix - No fragile edges but low robustness/stability */}
       {showLowRobustnessWarning && !showTierWarning && (
-        <div className="p-4 bg-warning-50 border border-warning-200 rounded-lg">
+        <div className="p-4 bg-panel border border-warning rounded-lg">
           <div className="flex items-center gap-2 mb-2">
             <span className="text-lg">⚠</span>
-            <span className="text-sm font-semibold text-warning-800">
+            <span className="text-sm font-semibold text-text-header">
               Low confidence
             </span>
           </div>
-          <p className="text-sm text-warning-700">
+          <p className="text-sm text-text-body">
             No fragile edges, but overall confidence is low. Consider strengthening key assumptions.
           </p>
         </div>
@@ -450,7 +452,7 @@ export function ConfidenceSection({
                 {/* Tier 1: Could change the decision */}
                 {couldChangeDecision.length > 0 && (
                   <div className="space-y-2">
-                    <h4 className="text-xs text-slate-500 uppercase tracking-wide">
+                    <h4 className="text-xs text-slate-500 font-medium tracking-wide">
                       Could change the decision
                     </h4>
                     <div className="space-y-2">
@@ -468,7 +470,7 @@ export function ConfidenceSection({
                 {/* Tier 2: Worth refining */}
                 {worthRefining.length > 0 && (
                   <div className="space-y-2">
-                    <h4 className="text-xs text-slate-500 uppercase tracking-wide">
+                    <h4 className="text-xs text-slate-500 font-medium tracking-wide">
                       Worth refining
                     </h4>
                     <div className="space-y-2">
@@ -511,11 +513,11 @@ export function ConfidenceSection({
         )
       })()}
 
-      {/* Task 4 (M1 Coaching): Evidence Gaps - "Where to Investigate" */}
+      {/* Task 11: Evidence Gaps - consolidated into "What needs attention" */}
       {evidenceGaps && evidenceGaps.length > 0 && (
         <div className="space-y-2">
-          <h4 className="text-xs text-slate-500 uppercase tracking-wide">
-            Where to Investigate
+          <h4 className="text-xs text-slate-500 font-medium tracking-wide">
+            Evidence gaps
           </h4>
           <CappedList<EvidenceGapItem>
             items={evidenceGaps}
@@ -526,47 +528,52 @@ export function ConfidenceSection({
               const focusTarget = gap.targetNodeId ?? gap.factorId ?? null
               const canFocus = focusTarget !== null
 
+              const handleFocus = () => {
+                if (canFocus) {
+                  if (onFocusNode) {
+                    onFocusNode(focusTarget!)
+                  } else {
+                    focusNodeById(focusTarget!)
+                  }
+                }
+              }
+
+              // Task 7: Clean encoding notation from factor label
+              const cleanedFactorLabel = stripEncodingNotation(gap.factorLabel)
+
               return (
-                <button
-                  onClick={() => {
-                    if (canFocus) {
-                      if (onFocusNode) {
-                        onFocusNode(focusTarget!)
-                      } else {
-                        focusNodeById(focusTarget!)
-                      }
-                    }
-                  }}
-                  className={`w-full text-left p-3 bg-sky-50 border border-sky-200 rounded-lg transition-colors ${
-                    canFocus ? 'hover:bg-sky-100 cursor-pointer' : 'cursor-default'
-                  }`}
-                  disabled={!canFocus}
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm text-sky-800 font-medium">
-                        {gap.factorLabel}
+                <div className="w-full text-left p-3 bg-panel border border-panel-border rounded-lg">
+                  <div className="flex-1 min-w-0">
+                    {/* Task 2: Factor label is clickable instead of separate CTA */}
+                    {canFocus ? (
+                      <span
+                        role="link"
+                        tabIndex={0}
+                        onClick={handleFocus}
+                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleFocus() } }}
+                        className="text-sm text-text-body font-medium cursor-pointer hover:underline focus:outline-none focus:ring-2 focus:ring-info-500 focus:ring-offset-1 rounded"
+                        aria-label={`Focus on ${cleanedFactorLabel} in model`}
+                      >
+                        {cleanedFactorLabel}
+                      </span>
+                    ) : (
+                      <p className="text-sm text-text-body font-medium">
+                        {cleanedFactorLabel}
                       </p>
-                      {gap.suggestion && (
-                        <p className="text-xs text-sky-600 mt-1">
-                          {gap.suggestion}
-                        </p>
-                      )}
-                      {/* Task C: VOI impact label (only show if VOI is valid) */}
-                      {voiToImpact(gap.voi) && (
-                        <span className="text-xs text-sky-500 mt-1 block">
-                          {voiToImpact(gap.voi)}
-                        </span>
-                      )}
-                    </div>
-                    {/* Task 4: Only show Focus CTA when target exists */}
-                    {canFocus && (
-                      <span className="text-xs text-sky-500 flex-shrink-0">
-                        Focus in model
+                    )}
+                    {gap.suggestion && (
+                      <p className="text-xs text-text-light mt-1">
+                        {gap.suggestion}
+                      </p>
+                    )}
+                    {/* Task C: VOI impact label (only show if VOI is valid) */}
+                    {voiToImpact(gap.voi) && (
+                      <span className="text-xs text-text-light mt-1 block">
+                        {voiToImpact(gap.voi)}
                       </span>
                     )}
                   </div>
-                </button>
+                </div>
               )
             }}
             overflowLabel={(n) => `+${n} more`}
@@ -578,53 +585,58 @@ export function ConfidenceSection({
         </div>
       )}
 
-      {/* Task 5 (M1 Coaching): Next Actions - "Recommended Actions" */}
+      {/* Task 5 (M1 Coaching): Next Actions - "Recommended actions" */}
       {nextActions && nextActions.length > 0 && (
         <div className="space-y-2">
-          <h4 className="text-xs text-slate-500 uppercase tracking-wide">
-            Recommended Actions
+          <h4 className="text-xs text-slate-500 font-medium tracking-wide">
+            Recommended actions
           </h4>
           <CappedList<NextActionItem>
             items={nextActions}
             maxVisible={3}
             getKey={(action) => `${action.action}::${action.targetId ?? ''}`}
-            renderItem={(action, index) => (
-              <button
-                onClick={() => {
-                  if (action.targetId) {
-                    if (onFocusNode) {
-                      onFocusNode(action.targetId)
-                    } else {
-                      // Use unified focus handler for proper target type resolution
-                      focusByTarget(action.targetId, action.targetType as FocusTargetType)
-                    }
+            renderItem={(action, index) => {
+              const handleFocus = () => {
+                if (action.targetId) {
+                  if (onFocusNode) {
+                    onFocusNode(action.targetId)
+                  } else {
+                    // Use unified focus handler for proper target type resolution
+                    focusByTarget(action.targetId, action.targetType as FocusTargetType)
                   }
-                }}
-                className={`w-full text-left p-3 bg-slate-50 border border-slate-200 rounded-lg transition-colors ${
-                  action.targetId ? 'hover:bg-slate-100 cursor-pointer' : 'cursor-default'
-                }`}
-                disabled={!action.targetId}
-              >
-                <div className="flex items-start justify-between gap-2">
+                }
+              }
+
+              return (
+                <div className="w-full text-left p-3 bg-panel border border-panel-border rounded-lg">
                   <div className="flex-1 min-w-0">
                     {/* Task D: Bold the first action item for visual weight */}
-                    <p className={`text-sm text-slate-800 ${index === 0 ? 'font-semibold' : ''}`}>
-                      {action.action}
-                    </p>
+                    {/* Task 2: Action text is clickable if target exists */}
+                    {action.targetId ? (
+                      <span
+                        role="link"
+                        tabIndex={0}
+                        onClick={handleFocus}
+                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleFocus() } }}
+                        className={`text-sm text-text-body cursor-pointer hover:underline focus:outline-none focus:ring-2 focus:ring-info-500 focus:ring-offset-1 rounded ${index === 0 ? 'font-semibold' : ''}`}
+                        aria-label={`Focus on ${action.targetLabel || action.action} in model`}
+                      >
+                        {action.action}
+                      </span>
+                    ) : (
+                      <p className={`text-sm text-text-body ${index === 0 ? 'font-semibold' : ''}`}>
+                        {action.action}
+                      </p>
+                    )}
                     {action.rationale && (
-                      <p className="text-xs text-slate-500 mt-1">
+                      <p className="text-xs text-text-light mt-1">
                         {action.rationale}
                       </p>
                     )}
                   </div>
-                  {action.targetId && (
-                    <span className="text-xs text-slate-400 flex-shrink-0">
-                      Focus in model
-                    </span>
-                  )}
                 </div>
-              </button>
-            )}
+              )
+            }}
             overflowLabel={(n) => `+${n} more`}
             dedupeFn={(action) => `${action.action}::${action.targetId ?? ''}`}
             sortFn={(a, b) => a.priority - b.priority}
@@ -636,7 +648,7 @@ export function ConfidenceSection({
 
       {/* Improvements */}
       <div className="space-y-2">
-        <h4 className="text-xs text-slate-500 uppercase tracking-wide">
+        <h4 className="text-xs text-slate-500 font-medium tracking-wide">
           Improvements
         </h4>
         {improvements.length === 0 ? (
@@ -692,29 +704,39 @@ export function ConfidenceSection({
                   low: { icon: 'ℹ', bgColor: 'bg-slate-50', borderColor: 'border-slate-200', textColor: 'text-slate-600' },
                 }[assumption.severity] ?? { icon: 'ℹ', bgColor: 'bg-slate-50', borderColor: 'border-slate-200', textColor: 'text-slate-600' }
 
+                const handleFocus = () => {
+                  if (assumption.target) {
+                    if (onFocusNode) {
+                      onFocusNode(assumption.target)
+                    } else {
+                      // Use focusByTarget for consistency (defaults to node as assumption has no target_type)
+                      focusByTarget(assumption.target)
+                    }
+                  }
+                }
+
                 return (
                   <div
                     key={`assumption-${index}`}
-                    className={`p-2 ${severityConfig.bgColor} border ${severityConfig.borderColor} rounded text-xs`}
+                    className={`p-2 bg-panel border border-panel-border rounded text-xs`}
                   >
                     <div className="flex items-start gap-2">
                       <span className={severityConfig.textColor}>{severityConfig.icon}</span>
                       <div className="flex-1">
-                        <p className={severityConfig.textColor}>{assumption.message}</p>
-                        {assumption.target && (
-                          <button
-                            onClick={() => {
-                              if (onFocusNode) {
-                                onFocusNode(assumption.target!)
-                              } else {
-                                // Use focusByTarget for consistency (defaults to node as assumption has no target_type)
-                                focusByTarget(assumption.target!)
-                              }
-                            }}
-                            className="text-sky-600 hover:text-sky-700 mt-1"
+                        {/* Task 2: Assumption message is clickable if target exists */}
+                        {assumption.target ? (
+                          <span
+                            role="link"
+                            tabIndex={0}
+                            onClick={handleFocus}
+                            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleFocus() } }}
+                            className={`${severityConfig.textColor} cursor-pointer hover:underline focus:outline-none focus:ring-2 focus:ring-info-500 focus:ring-offset-1 rounded`}
+                            aria-label={`Focus on assumption in model`}
                           >
-                            Focus on canvas →
-                          </button>
+                            {assumption.message}
+                          </span>
+                        ) : (
+                          <p className={severityConfig.textColor}>{assumption.message}</p>
                         )}
                       </div>
                     </div>

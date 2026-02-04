@@ -41,6 +41,7 @@ import type {
   RobustnessLabel,
 } from './types'
 import type { FactorEnrichment, NearTieInfo } from '../../lib/mappers/types'
+import { stripEncodingNotation } from './utils/cleanFactorLabel'
 
 // =============================================================================
 // Winner Selection Helper
@@ -1587,23 +1588,27 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
 
       // Phase 3 Task 3.3: Label enrichment with fallback chain
       // Priority: PLoT label → canvas node lookup → "Unknown: {id}"
-      const sourceName =
+      // Patch 3: Apply stripEncodingNotation to clean labels from encoding patterns like "(0/1)"
+      const sourceName = stripEncodingNotation(
         nonEmptyLabel(fe.from_label) ??
         nonEmptyLabel(fe.fromLabel) ??
         getNodeLabel(fromId) ??
         formatUnattributedId(fromId) ??
         'Unknown factor'
-      const targetName =
+      )
+      const targetName = stripEncodingNotation(
         nonEmptyLabel(fe.to_label) ??
         nonEmptyLabel(fe.toLabel) ??
         getNodeLabel(toId) ??
         formatUnattributedId(toId) ??
         'Unknown target'
+      )
 
       // Phase 3 Task 3.3: Alternative winner label enrichment
       // Fallback chain: PLoT enrichment → canvas node → report option_comparison → "Unknown: {id}"
+      // Patch 3: Apply stripEncodingNotation to clean labels
       const altWinnerId = fe.alternative_winner_id ?? fe.alternativeWinnerId
-      const alternativeWinnerLabel =
+      const alternativeWinnerLabel = stripEncodingNotation(
         nonEmptyLabel(fe.alternative_winner_label) ??
         nonEmptyLabel(fe.alternativeWinnerLabel) ??
         nonEmptyLabel(fe.alternativeWinner) ??
@@ -1611,6 +1616,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
         getOptionLabel(altWinnerId) ??
         formatUnattributedId(altWinnerId) ??
         'another option'
+      )
 
       if (typeof window !== 'undefined' && (window as any).__OLUMI_DEBUG) {
         console.log('[FragileEdge:RESOLVED]', {

@@ -67,6 +67,8 @@ export interface OptionResult {
   isBaseline?: boolean
   /** Task 2.2: Point delta vs baseline (absolute, not percent) */
   deltaFromBaseline?: number | null
+  /** Task 8: Rank of this option (1 = best, 2 = second best, etc.) for display */
+  rank?: number
 }
 
 /** Outcome unit type for formatting - from goal node observed_state.unit */

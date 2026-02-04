@@ -19,7 +19,8 @@ import { focusNodeById } from '../../canvas/utils/focusHelpers'
 import { EMPTY_STATES } from './emptyStates'
 import { formatFlipRiskMessage } from './utils/formatScenarioRatio'
 import { FactorInsights, hasEnrichmentContent } from './FactorInsights'
-import { Info, ExternalLink, AlertTriangle } from 'lucide-react'
+import { cleanFactorLabel, stripEncodingNotation } from './utils/cleanFactorLabel'
+import { Info, AlertTriangle } from 'lucide-react'
 
 interface DriversSectionProps {
   data: DriversSectionData
@@ -69,52 +70,7 @@ function isBinaryFactor(label: string): boolean {
   return binaryPatterns.some(pattern => pattern.test(label))
 }
 
-/**
- * P1 Results Brief Item 6: Clean up factor label encoding leaks.
- * Strips technical encoding patterns from labels for cleaner display:
- * - "Tech Lead Hired (0/1)" → "Tech Lead Hired"
- * - "Advertising Budget (0–1, share of £20k cap)" → "Advertising Budget"
- * - "Market Size (0-100)" → "Market Size"
- *
- * Returns cleaned label with optional qualifier (e.g., "Yes/No" for binary).
- */
-function cleanFactorLabel(rawLabel: string): { label: string; qualifier?: string } {
-  // Patterns to strip from labels (preserving useful info when possible)
-  const patterns = [
-    // Binary patterns - strip and add qualifier
-    { pattern: /\s*\(0\/1\)\s*$/i, qualifier: 'Yes/No' },
-    { pattern: /\s*\(0 or 1\)\s*$/i, qualifier: 'Yes/No' },
-    { pattern: /\s*\(yes\/no\)\s*$/i, qualifier: 'Yes/No' },
-    { pattern: /\s*\(binary\)\s*$/i, qualifier: 'Yes/No' },
-    { pattern: /\s*\(on\/off\)\s*$/i, qualifier: 'On/Off' },
-    { pattern: /\s*\(true\/false\)\s*$/i, qualifier: 'True/False' },
-    // Range patterns - strip encoding but try to preserve meaningful range
-    { pattern: /\s*\(0[-–]1,?\s*share of\s+([£$€]?\d+[kK]?)\s*cap\)\s*$/i, replace: (m: string, cap: string) => ` (up to ${cap})` },
-    { pattern: /\s*\(0[-–]1\)\s*$/i, qualifier: undefined },  // Just strip numeric ranges
-    { pattern: /\s*\(0[-–]100\)\s*$/i, qualifier: undefined },
-    { pattern: /\s*\(0[-–]10\)\s*$/i, qualifier: undefined },
-    { pattern: /\s*\(\d+[-–]\d+\)\s*$/i, qualifier: undefined }, // Generic numeric range
-  ]
-
-  let cleanedLabel = rawLabel
-  let qualifier: string | undefined
-
-  for (const { pattern, qualifier: q, replace } of patterns) {
-    if (pattern.test(cleanedLabel)) {
-      if (replace) {
-        // Custom replacement function
-        cleanedLabel = cleanedLabel.replace(pattern, replace as never)
-      } else {
-        // Simple strip
-        cleanedLabel = cleanedLabel.replace(pattern, '')
-      }
-      if (q) qualifier = q
-      break // Only match first pattern
-    }
-  }
-
-  return { label: cleanedLabel.trim(), qualifier }
-}
+// Note: cleanFactorLabel imported from ./utils/cleanFactorLabel
 
 /**
  * P1 Results Brief Item 7: Get appropriate sensitivity copy for factor type.
@@ -335,14 +291,7 @@ function ExpandedDetails({
         </p>
       )}
 
-      {driver.canFocus && (
-        <button
-          onClick={handleFocusClick}
-          className="text-xs text-sky-600 hover:text-sky-700 flex items-center gap-1 mt-2"
-        >
-          Focus on canvas <span aria-hidden="true">→</span>
-        </button>
-      )}
+      {/* Task 2: Removed standalone "Focus on canvas" CTA - factor name is now clickable */}
 
       {/* CEE-generated insights (observations, perspectives, confidence question) */}
       {driver.enrichment && hasEnrichmentContent(driver.enrichment) && (
@@ -478,6 +427,7 @@ function DriverRow({
       {/* Line 1: Factor name + bars */}
       <div className={`grid ${GRID_COLS} gap-3 items-center p-3 pb-1`}>
         {/* Factor name with direction arrow - P1 Item 6: cleaned label */}
+        {/* Task 2: Factor name is clickable instead of separate CTA */}
         <div className="flex items-start gap-1.5 min-w-0">
           <span
             className="text-sm flex-shrink-0 mt-0.5"
@@ -486,12 +436,28 @@ function DriverRow({
           >
             {directionIcon}
           </span>
-          <span className="text-sm text-slate-800 break-words leading-snug">
-            {cleanedLabel}
-            {labelQualifier && (
-              <span className="text-slate-400 ml-1">({labelQualifier})</span>
-            )}
-          </span>
+          {driver.canFocus ? (
+            <span
+              role="link"
+              tabIndex={0}
+              onClick={handleFocusClick}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleFocusClick(e as unknown as React.MouseEvent) } }}
+              className="text-sm text-text-body break-words leading-snug cursor-pointer hover:underline focus:outline-none focus:ring-2 focus:ring-info-500 focus:ring-offset-1 rounded"
+              aria-label={`Focus on ${cleanedLabel} in model`}
+            >
+              {cleanedLabel}
+              {labelQualifier && (
+                <span className="text-text-light ml-1">({labelQualifier})</span>
+              )}
+            </span>
+          ) : (
+            <span className="text-sm text-text-body break-words leading-snug">
+              {cleanedLabel}
+              {labelQualifier && (
+                <span className="text-text-light ml-1">({labelQualifier})</span>
+              )}
+            </span>
+          )}
         </div>
 
         {/* Sensitivity bar */}
@@ -499,7 +465,7 @@ function DriverRow({
           <ProgressBar
             value={sensitivityValue}
             color={barColor}
-            aria-label={`${driver.factorLabel} sensitivity: ${Math.round(sensitivityValue * 100)}%`}
+            aria-label={`${cleanedLabel} sensitivity: ${Math.round(sensitivityValue * 100)}%`}
           />
         ) : (
           <div className="text-xs font-mono text-slate-400 w-9 text-right">—</div>
@@ -510,16 +476,16 @@ function DriverRow({
           <ProgressBar
             value={confidenceValue}
             color="blue"
-            aria-label={`${driver.factorLabel} confidence: ${Math.round(confidenceValue * 100)}%`}
+            aria-label={`${cleanedLabel} confidence: ${Math.round(confidenceValue * 100)}%`}
           />
         ) : (
           <div className="text-xs font-mono text-slate-400 w-9 text-right">—</div>
         )}
       </div>
 
-      {/* Line 2: Compact impact + icons */}
+      {/* Line 2: Compact impact + info icon */}
       <div className="px-3 pb-2 flex items-center justify-between gap-2">
-        <span className="text-xs text-slate-500 truncate">
+        <span className="text-xs text-text-light truncate">
           {compactImpact || '\u00A0'}
         </span>
         <div className="flex items-center gap-1 flex-shrink-0">
@@ -539,17 +505,7 @@ function DriverRow({
               <Info className="w-4 h-4" />
             </button>
           )}
-          {/* Focus icon - focuses on canvas */}
-          {driver.canFocus && (
-            <button
-              onClick={handleFocusClick}
-              className="p-1.5 text-sky-500 hover:text-sky-600 hover:bg-sky-50 rounded transition-colors"
-              style={{ minWidth: '44px', minHeight: '44px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-              aria-label={`Focus ${driver.factorLabel} on canvas`}
-            >
-              <ExternalLink className="w-4 h-4" />
-            </button>
-          )}
+          {/* Task 2: Removed standalone Focus icon - factor name is now clickable */}
         </div>
       </div>
 
@@ -668,15 +624,16 @@ export function DriversSection({
       {/* M1 Coaching: Dominant factor warning callout */}
       {/* Note: dominantFactorInfluence uses !== null to handle edge case of 0% (though detection requires >50%) */}
       {dominantFactorId && dominantFactorLabel && dominantFactorInfluence !== null && (
-        <div className="p-3 bg-warning-50 border border-warning-200 rounded-lg flex items-start gap-2">
-          <AlertTriangle className="w-4 h-4 text-warning-600 flex-shrink-0 mt-0.5" />
+        <div className="p-3 bg-panel border border-warning rounded-lg flex items-start gap-2">
+          <AlertTriangle className="w-4 h-4 text-warning flex-shrink-0 mt-0.5" />
           <div className="flex-1 min-w-0">
-            <p className="text-sm text-warning-800">
-              <span className="font-medium">{dominantFactorLabel}</span> dominates this decision ({dominantFactorInfluence}% influence). Validate this weight carefully.
+            <p className="text-sm text-text-body">
+              {/* Patch 1: Clean encoding notation from dominant factor label */}
+              <span className="font-medium">{stripEncodingNotation(dominantFactorLabel)}</span> dominates this decision ({dominantFactorInfluence}% influence). Validate this weight carefully.
             </p>
             <button
               onClick={handleDominantFactorFocus}
-              className="text-xs text-warning-700 hover:text-warning-800 underline mt-1"
+              className="text-xs text-info hover:text-info-hover underline mt-1"
             >
               Review on canvas
             </button>

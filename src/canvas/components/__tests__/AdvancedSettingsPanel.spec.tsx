@@ -21,7 +21,7 @@ describe('AdvancedSettingsPanel', () => {
       render(<AdvancedSettingsPanel />)
 
       // Header should be visible
-      expect(screen.getByText('Advanced Settings')).toBeInTheDocument()
+      expect(screen.getByText('Advanced settings')).toBeInTheDocument()
 
       // Content should not be visible
       expect(screen.queryByText('Risk Tolerance')).not.toBeInTheDocument()

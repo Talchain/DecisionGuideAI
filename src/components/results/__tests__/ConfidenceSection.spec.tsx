@@ -514,7 +514,7 @@ describe('ConfidenceSection', () => {
       // Row should render cleanly
       expect(screen.getByText('Unknown Factor')).toBeInTheDocument()
       expect(screen.getByText('Investigate this')).toBeInTheDocument()
-      expect(screen.getByText('Focus in model')).toBeInTheDocument()
+      // Task 2: "Focus in model" link removed - factor label is now clickable instead
 
       // But VOI label should NOT be present
       expect(screen.queryByText(/impact if resolved/)).not.toBeInTheDocument()

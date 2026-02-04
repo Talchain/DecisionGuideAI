@@ -1186,31 +1186,27 @@ export function OutputsDock() {
                       <div className="mb-4">
                         <div className="flex items-center justify-between">
                           <div>
-                            <span className={`${typography.caption} text-ink-500 uppercase tracking-wider`}>
-                              Your Objective
+                            <span className={`${typography.caption} text-text-light block`}>
+                              Your objective
                             </span>
-                            <p className={`${typography.body} font-medium text-ink-900 mt-0.5`}>
+                            <button
+                              onClick={() => {
+                                if (resultsSectionData.goalNodeId) {
+                                  setHighlightedNodes([resultsSectionData.goalNodeId])
+                                  focusNodeById(resultsSectionData.goalNodeId)
+                                  setTimeout(() => setHighlightedNodes([]), 3000)
+                                }
+                              }}
+                              disabled={!resultsSectionData.goalNodeId}
+                              className={`${typography.body} font-medium mt-0.5 text-left block ${
+                                resultsSectionData.goalNodeId
+                                  ? 'text-info hover:text-info-hover cursor-pointer'
+                                  : 'text-text-header cursor-default'
+                              }`}
+                            >
                               {resultsSectionData.goalLabel}
-                            </p>
+                            </button>
                           </div>
-                          <button
-                            onClick={() => {
-                              if (resultsSectionData.goalNodeId) {
-                                setHighlightedNodes([resultsSectionData.goalNodeId])
-                                focusNodeById(resultsSectionData.goalNodeId)
-                                setTimeout(() => setHighlightedNodes([]), 3000)
-                              }
-                            }}
-                            disabled={!resultsSectionData.goalNodeId}
-                            className={`${typography.caption} flex items-center gap-1 ${
-                              resultsSectionData.goalNodeId
-                                ? 'text-sky-600 hover:text-sky-800'
-                                : 'text-slate-400 cursor-not-allowed'
-                            }`}
-                          >
-                            View on canvas
-                            <span aria-hidden="true">→</span>
-                          </button>
                         </div>
                       </div>
 
@@ -1232,7 +1228,7 @@ export function OutputsDock() {
                         Graph Interaction P1: Controlled expansion for Canvas → Results sync
                         ============================================================ */}
                     <Accordion
-                      title="What's Influencing This"
+                      title="What's influencing this"
                       isExpanded={driversAccordionExpanded}
                       onExpandChange={setDriversAccordionExpanded}
                       testId="accordion-confidence"
@@ -1258,8 +1254,8 @@ export function OutputsDock() {
                     <Accordion
                       title={
                         resultsSectionData.confidence.assumptions?.length
-                          ? `What Needs Attention (${resultsSectionData.confidence.assumptions.length} assumptions)`
-                          : 'What Needs Attention'
+                          ? `What needs attention (${resultsSectionData.confidence.assumptions.length} assumptions)`
+                          : 'What needs attention'
                       }
                       defaultExpanded={false}
                       testId="accordion-next-steps"

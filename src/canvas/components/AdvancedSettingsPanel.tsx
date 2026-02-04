@@ -86,7 +86,7 @@ export const AdvancedSettingsPanel = memo(function AdvancedSettingsPanel({
           )}
           <Settings2 className="w-4 h-4 text-ink-500" aria-hidden="true" />
           <span className={`${typography.label} text-ink-800`}>
-            Advanced Settings
+            Advanced settings
           </span>
         </div>
       </button>

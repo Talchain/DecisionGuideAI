@@ -59,12 +59,11 @@ describe('RecommendationSection', () => {
     outcomeUnit: 'percent',
   }
 
-  it('renders best estimate headline', () => {
+  it('renders headline with outperforms message when no goal probability', () => {
     render(<RecommendationSection data={mockData} />)
 
-    expect(screen.getByText(/Best estimate:/)).toBeInTheDocument()
-    // Goal label removed from headline per Polish F - now shows only "~58% improvement"
-    expect(screen.getByText(/~58% improvement/)).toBeInTheDocument()
+    // Task 4: Headline now shows "X outperforms alternatives most consistently" when no goal probability
+    expect(screen.getByText(/outperforms alternatives most consistently/)).toBeInTheDocument()
   })
 
   it('renders probability range labels', () => {
@@ -91,10 +90,11 @@ describe('RecommendationSection', () => {
     expect(screen.getByText('Hire 2 Developers')).toBeInTheDocument()
   })
 
-  it('renders Recommended badge for top option', () => {
+  it('renders Strongest performer badge for top option', () => {
     render(<RecommendationSection data={mockData} />)
 
-    expect(screen.getByText('Recommended')).toBeInTheDocument()
+    // Task 3: Changed from "Recommended" to stability-based "Strongest performer"
+    expect(screen.getByText('Strongest performer')).toBeInTheDocument()
   })
 
   it('hides option comparison for single option', () => {
@@ -173,11 +173,22 @@ describe('RecommendationSection', () => {
     expect(screen.queryByText(/View goal on canvas/)).not.toBeInTheDocument()
   })
 
-  it('renders expected probability in option list', () => {
-    render(<RecommendationSection data={mockData} />)
+  it('renders rank-based labels in option list when probability_of_goal absent (Fix A)', () => {
+    // mockData has no goalThreshold/goalProbability, so rank labels should show
+    const dataWithRanks: RecommendationSectionData = {
+      ...mockData,
+      allOptions: mockData.allOptions.map((opt, idx) => ({
+        ...opt,
+        rank: idx + 1,
+      })),
+      recommendedOption: { ...mockData.recommendedOption!, rank: 1 },
+    }
+    render(<RecommendationSection data={dataWithRanks} />)
 
-    expect(screen.getByText('58% expected')).toBeInTheDocument()
-    expect(screen.getByText('41% expected')).toBeInTheDocument()
+    // Fix A: "X expected" replaced with rank labels when probability_of_goal absent
+    expect(screen.queryByText(/expected$/)).not.toBeInTheDocument()
+    expect(screen.getAllByText('Strongest performer').length).toBeGreaterThanOrEqual(1)
+    expect(screen.getByText('Second strongest')).toBeInTheDocument()
   })
 
   it('renders natural language outcome description', () => {
@@ -302,7 +313,7 @@ describe('RecommendationSection', () => {
   // =========================================================================
 
   describe('Option Comparison', () => {
-    it('should show different expected values for different options', () => {
+    it('should show rank-based labels when probability_of_goal is absent (Fix A)', () => {
       const optionsWithDifferentValues: RecommendationSectionData = {
         ...mockData,
         allOptions: [
@@ -315,6 +326,7 @@ describe('RecommendationSection', () => {
             expected: 30,
             outcome: { mean: 30, p10: 20, p50: 30, p90: 40 },
             isRecommended: false,
+            rank: 2,
           },
           {
             id: 'opt-b',
@@ -325,6 +337,7 @@ describe('RecommendationSection', () => {
             expected: 55,
             outcome: { mean: 55, p10: 40, p50: 55, p90: 70 },
             isRecommended: true,
+            rank: 1,
           },
         ],
         recommendedOption: {
@@ -336,15 +349,19 @@ describe('RecommendationSection', () => {
           expected: 55,
           outcome: { mean: 55, p10: 40, p50: 55, p90: 70 },
           isRecommended: true,
+          rank: 1,
         },
         isSingleOption: false,
       }
 
       render(<RecommendationSection data={optionsWithDifferentValues} />)
 
-      // Different options should show different expected values
-      expect(screen.getByText('30% expected')).toBeInTheDocument()
-      expect(screen.getByText('55% expected')).toBeInTheDocument()
+      // Fix A: When probability_of_goal is absent, show rank-based labels not "X expected"
+      // "Strongest performer" may appear multiple times (badge + option card)
+      expect(screen.getAllByText('Strongest performer').length).toBeGreaterThanOrEqual(1)
+      expect(screen.getByText('Second strongest')).toBeInTheDocument()
+      // "X expected" should NOT appear
+      expect(screen.queryByText(/expected$/)).not.toBeInTheDocument()
     })
 
     it('should mark correct option as recommended based on data', () => {
@@ -388,13 +405,14 @@ describe('RecommendationSection', () => {
 
       render(<RecommendationSection data={backendOverrideData} />)
 
-      // The Recommended badge should appear only once
-      const recommendedBadges = screen.getAllByText('Recommended')
+      // Task 3: The Strongest performer badge should appear only once
+      const recommendedBadges = screen.getAllByText('Strongest performer')
       expect(recommendedBadges).toHaveLength(1)
 
       // Option A should have the badge (check parent element structure)
-      const optionAButton = screen.getByRole('button', { name: /Option A/i })
-      expect(optionAButton).toHaveTextContent('Recommended')
+      // Task 2: Option rows now use role="link" instead of role="button"
+      const optionARow = screen.getByRole('link', { name: /Option A/i })
+      expect(optionARow).toHaveTextContent('Strongest performer')
     })
   })
 
@@ -417,11 +435,10 @@ describe('RecommendationSection', () => {
 
       render(<RecommendationSection data={consistencyData} />)
 
-      // Headline shows ~42% improvement
-      expect(screen.getByText(/~42% improvement/)).toBeInTheDocument()
+      // Task 4: Headline now shows "outperforms alternatives" when no goal probability
+      expect(screen.getByText(/outperforms alternatives most consistently/)).toBeInTheDocument()
 
-      // Range bar also shows 42% as expected (middle value)
-      // The 42% appears twice: once in headline, once in range bar
+      // Range bar shows 42% as expected (middle value)
       const percentages = screen.getAllByText('42%')
       expect(percentages.length).toBeGreaterThanOrEqual(1)
     })
@@ -431,8 +448,10 @@ describe('RecommendationSection', () => {
   // Polarity Language Tests
   // =========================================================================
 
-  describe('Polarity Language', () => {
-    it('shows "improvement" for positive expected outcome', () => {
+  describe('Headline Display (Task 4 updated)', () => {
+    // Task 4: Headline now shows "X outperforms alternatives" when no goal probability
+    // The old polarity language (improvement/decline) has been removed
+    it('shows outperforms message regardless of expected outcome sign', () => {
       const positiveData: RecommendationSectionData = {
         ...mockData,
         recommendedOption: {
@@ -444,11 +463,11 @@ describe('RecommendationSection', () => {
 
       render(<RecommendationSection data={positiveData} />)
 
-      expect(screen.getByText(/20% improvement/)).toBeInTheDocument()
-      expect(screen.queryByText(/decline/)).not.toBeInTheDocument()
+      // Task 4: Now shows "X outperforms alternatives" instead of "improvement"
+      expect(screen.getByText(/outperforms alternatives most consistently/)).toBeInTheDocument()
     })
 
-    it('shows "decline" for negative expected outcome', () => {
+    it('shows outperforms message for negative expected outcome', () => {
       const negativeData: RecommendationSectionData = {
         ...mockData,
         recommendedOption: {
@@ -460,11 +479,11 @@ describe('RecommendationSection', () => {
 
       render(<RecommendationSection data={negativeData} />)
 
-      expect(screen.getByText(/20% decline/)).toBeInTheDocument()
-      expect(screen.queryByText(/improvement/)).not.toBeInTheDocument()
+      // Task 4: Now shows "X outperforms alternatives" instead of "decline"
+      expect(screen.getByText(/outperforms alternatives most consistently/)).toBeInTheDocument()
     })
 
-    it('shows "improvement" for zero expected outcome (edge case)', () => {
+    it('shows outperforms message for zero expected outcome', () => {
       const zeroData: RecommendationSectionData = {
         ...mockData,
         recommendedOption: {
@@ -476,8 +495,8 @@ describe('RecommendationSection', () => {
 
       render(<RecommendationSection data={zeroData} />)
 
-      // Zero is treated as non-negative, so shows "improvement"
-      expect(screen.getByText(/0% improvement/)).toBeInTheDocument()
+      // Task 4: Now shows "X outperforms alternatives" for all cases
+      expect(screen.getByText(/outperforms alternatives most consistently/)).toBeInTheDocument()
     })
   })
 
@@ -486,23 +505,24 @@ describe('RecommendationSection', () => {
   // =========================================================================
 
   // =========================================================================
-  // Task 1.6: Recommendation Stability Tests (Updated text format)
+  // Task 5: Recommendation Stability Tests (Tiered plain language labels)
   // =========================================================================
 
   describe('Recommendation Stability', () => {
-    it('shows inline stability "85% stable" for stability 0.85', () => {
+    it('shows "Stable result" label for stability >= 0.85', () => {
       const stabilityData: RecommendationSectionData = {
         ...mockData,
         recommendationStability: 0.85,
-        robustnessLevel: 'high',  // Required for inline stability display
+        robustnessLevel: 'high',
       }
 
       render(<RecommendationSection data={stabilityData} />)
 
-      expect(screen.getByText(/85% stable/)).toBeInTheDocument()
+      // Task 5: Now shows tiered label instead of percentage
+      expect(screen.getByText('Stable result')).toBeInTheDocument()
     })
 
-    it('shows inline stability "92% stable" for high stability', () => {
+    it('shows "Stable result" label for high stability (0.92)', () => {
       const highStabilityData: RecommendationSectionData = {
         ...mockData,
         recommendationStability: 0.92,
@@ -511,10 +531,10 @@ describe('RecommendationSection', () => {
 
       render(<RecommendationSection data={highStabilityData} />)
 
-      expect(screen.getByText(/92% stable/)).toBeInTheDocument()
+      expect(screen.getByText('Stable result')).toBeInTheDocument()
     })
 
-    it('shows inline stability "65% stable" for medium stability', () => {
+    it('shows "Sensitive to assumptions" label for medium stability (0.65)', () => {
       const mediumStabilityData: RecommendationSectionData = {
         ...mockData,
         recommendationStability: 0.65,
@@ -523,10 +543,11 @@ describe('RecommendationSection', () => {
 
       render(<RecommendationSection data={mediumStabilityData} />)
 
-      expect(screen.getByText(/65% stable/)).toBeInTheDocument()
+      // 0.65 is >= 0.55 but < 0.70, so "Sensitive to assumptions"
+      expect(screen.getByText('Sensitive to assumptions')).toBeInTheDocument()
     })
 
-    it('shows inline stability "35% stable" for low stability', () => {
+    it('shows "Highly sensitive" label for low stability (0.35)', () => {
       const lowStabilityData: RecommendationSectionData = {
         ...mockData,
         recommendationStability: 0.35,
@@ -535,19 +556,24 @@ describe('RecommendationSection', () => {
 
       render(<RecommendationSection data={lowStabilityData} />)
 
-      expect(screen.getByText(/35% stable/)).toBeInTheDocument()
+      // 0.35 is < 0.55, so "Highly sensitive"
+      expect(screen.getByText('Highly sensitive')).toBeInTheDocument()
     })
 
-    it('does not show inline stability when recommendationStability is undefined', () => {
+    it('does not show stability badge when recommendationStability is undefined', () => {
       const noStabilityData: RecommendationSectionData = {
         ...mockData,
         recommendationStability: undefined,
-        robustnessLevel: 'moderate',  // Badge shows, but no stability
+        robustnessLevel: 'moderate',
       }
 
       render(<RecommendationSection data={noStabilityData} />)
 
-      expect(screen.queryByText(/% stable/i)).not.toBeInTheDocument()
+      // Task 5: No stability badge should show when stability is undefined
+      expect(screen.queryByText('Stable result')).not.toBeInTheDocument()
+      expect(screen.queryByText('Mostly stable')).not.toBeInTheDocument()
+      expect(screen.queryByText('Sensitive to assumptions')).not.toBeInTheDocument()
+      expect(screen.queryByText('Highly sensitive')).not.toBeInTheDocument()
     })
   })
 
@@ -595,7 +621,7 @@ describe('RecommendationSection', () => {
   // =========================================================================
 
   describe('Winner Labelling', () => {
-    it('shows "MOST LIKELY TO BE BEST" when win_probability present', () => {
+    it('shows "Most likely to be best" when win_probability present', () => {
       const winProbData: RecommendationSectionData = {
         ...mockData,
         determinedBy: 'win_probability',
@@ -603,10 +629,11 @@ describe('RecommendationSection', () => {
 
       render(<RecommendationSection data={winProbData} />)
 
-      expect(screen.getByText('MOST LIKELY TO BE BEST')).toBeInTheDocument()
+      // Task 1: Changed from ALL CAPS to sentence case
+      expect(screen.getByText('Most likely to be best')).toBeInTheDocument()
     })
 
-    it('shows "HIGHEST EXPECTED OUTCOME" when only expected_outcome available', () => {
+    it('shows "Highest expected outcome" when only expected_outcome available', () => {
       const expectedOnlyData: RecommendationSectionData = {
         ...mockData,
         determinedBy: 'expected_outcome',
@@ -614,10 +641,11 @@ describe('RecommendationSection', () => {
 
       render(<RecommendationSection data={expectedOnlyData} />)
 
-      expect(screen.getByText('HIGHEST EXPECTED OUTCOME')).toBeInTheDocument()
+      // Task 1: Changed from ALL CAPS to sentence case
+      expect(screen.getByText('Highest expected outcome')).toBeInTheDocument()
     })
 
-    it('shows "UNABLE TO DETERMINE BEST OPTION" when neither available', () => {
+    it('shows "Unable to determine best option" when neither available', () => {
       const unknownData: RecommendationSectionData = {
         ...mockData,
         determinedBy: 'unknown',
@@ -625,106 +653,62 @@ describe('RecommendationSection', () => {
 
       render(<RecommendationSection data={unknownData} />)
 
-      expect(screen.getByText('UNABLE TO DETERMINE BEST OPTION')).toBeInTheDocument()
+      // Task 1: Changed from ALL CAPS to sentence case
+      expect(screen.getByText('Unable to determine best option')).toBeInTheDocument()
     })
   })
 
   // =========================================================================
-  // Task 1.5: Robustness Badge Tests
+  // Task 5: Stability Badge Tests (replaced Robustness Badge)
   // =========================================================================
 
-  describe('Robustness Badge', () => {
-    it('shows Robust badge for robustnessLevel=high', () => {
+  describe('Stability Badge', () => {
+    // Note: The old Robustness Badge (Robust/Moderate/Fragile) has been replaced
+    // with StabilityBadge showing tiered plain language labels based on stability score.
+    // robustnessLevel/Label are no longer used for badge display.
+
+    it('shows stability badge when recommendationStability is provided', () => {
+      const stabilityData: RecommendationSectionData = {
+        ...mockData,
+        recommendationStability: 0.85,
+      }
+
+      render(<RecommendationSection data={stabilityData} />)
+
+      // Task 5: Stability >= 0.85 shows "Stable result"
+      expect(screen.getByText('Stable result')).toBeInTheDocument()
+    })
+
+    it('does not show old robustness badges anymore', () => {
       const highLevelData: RecommendationSectionData = {
         ...mockData,
         robustnessLevel: 'high',
+        recommendationStability: 0.90,
       }
 
       render(<RecommendationSection data={highLevelData} />)
 
-      expect(screen.getByText('Robust')).toBeInTheDocument()
-    })
-
-    it('shows Robust badge for robustnessLabel=robust (fallback)', () => {
-      const robustLabelData: RecommendationSectionData = {
-        ...mockData,
-        robustnessLabel: 'robust',
-      }
-
-      render(<RecommendationSection data={robustLabelData} />)
-
-      expect(screen.getByText('Robust')).toBeInTheDocument()
-    })
-
-    it('shows Moderate badge for robustnessLevel=medium', () => {
-      const mediumLevelData: RecommendationSectionData = {
-        ...mockData,
-        robustnessLevel: 'medium',
-      }
-
-      render(<RecommendationSection data={mediumLevelData} />)
-
-      expect(screen.getByText('Moderate')).toBeInTheDocument()
-    })
-
-    it('shows Moderate badge for robustnessLabel=moderate (fallback)', () => {
-      const moderateLabelData: RecommendationSectionData = {
-        ...mockData,
-        robustnessLabel: 'moderate',
-      }
-
-      render(<RecommendationSection data={moderateLabelData} />)
-
-      expect(screen.getByText('Moderate')).toBeInTheDocument()
-    })
-
-    it('shows Fragile badge for robustnessLevel=low', () => {
-      const lowLevelData: RecommendationSectionData = {
-        ...mockData,
-        robustnessLevel: 'low',
-      }
-
-      render(<RecommendationSection data={lowLevelData} />)
-
-      expect(screen.getByText('Fragile')).toBeInTheDocument()
-    })
-
-    it('shows Very Fragile badge for robustnessLevel=very_low', () => {
-      const veryLowData: RecommendationSectionData = {
-        ...mockData,
-        robustnessLevel: 'very_low',
-      }
-
-      render(<RecommendationSection data={veryLowData} />)
-
-      expect(screen.getByText('Very Fragile')).toBeInTheDocument()
-    })
-
-    it('does not render badge when both level and label are missing', () => {
-      const noBadgeData: RecommendationSectionData = {
-        ...mockData,
-        robustnessLevel: undefined,
-        robustnessLabel: undefined,
-      }
-
-      render(<RecommendationSection data={noBadgeData} />)
-
+      // Old badges should not appear
       expect(screen.queryByText('Robust')).not.toBeInTheDocument()
       expect(screen.queryByText('Moderate')).not.toBeInTheDocument()
       expect(screen.queryByText('Fragile')).not.toBeInTheDocument()
+      // New stability badge should appear
+      expect(screen.getByText('Stable result')).toBeInTheDocument()
     })
 
-    it('prefers level over label when both present', () => {
-      const bothPresentData: RecommendationSectionData = {
+    it('does not render stability badge when recommendationStability is undefined', () => {
+      const noStabilityData: RecommendationSectionData = {
         ...mockData,
-        robustnessLevel: 'high',
-        robustnessLabel: 'fragile', // Should be ignored
+        recommendationStability: undefined,
       }
 
-      render(<RecommendationSection data={bothPresentData} />)
+      render(<RecommendationSection data={noStabilityData} />)
 
-      expect(screen.getByText('Robust')).toBeInTheDocument()
-      expect(screen.queryByText('Fragile')).not.toBeInTheDocument()
+      // No stability labels should appear
+      expect(screen.queryByText('Stable result')).not.toBeInTheDocument()
+      expect(screen.queryByText('Mostly stable')).not.toBeInTheDocument()
+      expect(screen.queryByText('Sensitive to assumptions')).not.toBeInTheDocument()
+      expect(screen.queryByText('Highly sensitive')).not.toBeInTheDocument()
     })
   })
 
@@ -865,7 +849,7 @@ describe('RecommendationSection', () => {
         ...mockData,
         recommendedOption: {
           id: 'option-1',
-          label: 'Moderate Positive',
+          label: 'Test Option',  // Use different label to avoid double match
           p10: 0.1,
           p50: 0.35,  // 35% - should trigger "moderate positive"
           p90: 0.6,
@@ -879,7 +863,8 @@ describe('RecommendationSection', () => {
 
       render(<RecommendationSection data={moderatePositiveData} />)
 
-      expect(screen.getByText(/moderate positive/i)).toBeInTheDocument()
+      // Match the exact outcome description
+      expect(screen.getByText(/Likely a moderate positive outcome/i)).toBeInTheDocument()
     })
 
     it('shows "small positive" for p50 < 20% (in probability form < 0.2)', () => {
@@ -887,7 +872,7 @@ describe('RecommendationSection', () => {
         ...mockData,
         recommendedOption: {
           id: 'option-1',
-          label: 'Small Positive',
+          label: 'Test Option',  // Use different label to avoid double match
           p10: 0.05,
           p50: 0.15,  // 15% - should trigger "small positive"
           p90: 0.25,
@@ -901,7 +886,8 @@ describe('RecommendationSection', () => {
 
       render(<RecommendationSection data={smallPositiveData} />)
 
-      expect(screen.getByText(/small positive/i)).toBeInTheDocument()
+      // Match the exact outcome description text
+      expect(screen.getByText(/Likely a small positive outcome/i)).toBeInTheDocument()
     })
   })
 
@@ -920,8 +906,9 @@ describe('RecommendationSection', () => {
 
       render(<RecommendationSection data={sameValueData} />)
 
-      // Stability should show inline
-      expect(screen.getByText(/60% stable/)).toBeInTheDocument()
+      // Task 5: Stability now shows tiered label
+      // 0.60 is >= 0.55 && < 0.70 → "Sensitive to assumptions"
+      expect(screen.getByText('Sensitive to assumptions')).toBeInTheDocument()
       // Win probability should NOT show (difference <= 0.05)
       expect(screen.queryByText(/Wins in 60% of scenarios tested/)).not.toBeInTheDocument()
     })
@@ -937,7 +924,8 @@ describe('RecommendationSection', () => {
       render(<RecommendationSection data={differentValueData} />)
 
       // Both should show
-      expect(screen.getByText(/70% stable/)).toBeInTheDocument()
+      // 0.70 is >= 0.70 && < 0.85 → "Mostly stable"
+      expect(screen.getByText('Mostly stable')).toBeInTheDocument()
       expect(screen.getByText(/Wins in 55% of scenarios tested/)).toBeInTheDocument()
     })
 
@@ -946,15 +934,18 @@ describe('RecommendationSection', () => {
         ...mockData,
         recommendationStability: undefined,
         winProbability: 0.60,
-        robustnessLevel: 'moderate',  // Badge shows but no stability
+        robustnessLevel: 'moderate',
       }
 
       render(<RecommendationSection data={onlyWinData} />)
 
       // Win should show alone
       expect(screen.getByText(/Wins in 60% of scenarios tested/)).toBeInTheDocument()
-      // Stability should not show
-      expect(screen.queryByText(/% stable/)).not.toBeInTheDocument()
+      // Stability badge should not show (no stability value)
+      expect(screen.queryByText('Stable result')).not.toBeInTheDocument()
+      expect(screen.queryByText('Mostly stable')).not.toBeInTheDocument()
+      expect(screen.queryByText('Sensitive to assumptions')).not.toBeInTheDocument()
+      expect(screen.queryByText('Highly sensitive')).not.toBeInTheDocument()
     })
 
     it('shows only inline stability when win probability is null', () => {
@@ -967,8 +958,8 @@ describe('RecommendationSection', () => {
 
       render(<RecommendationSection data={onlyStabilityData} />)
 
-      // Stability should show inline
-      expect(screen.getByText(/75% stable/)).toBeInTheDocument()
+      // Task 5: 0.75 is >= 0.70 && < 0.85 → "Mostly stable"
+      expect(screen.getByText('Mostly stable')).toBeInTheDocument()
       // Win should not show
       expect(screen.queryByText(/Wins in/)).not.toBeInTheDocument()
     })
@@ -1299,7 +1290,7 @@ describe('RecommendationSection', () => {
       render(<RecommendationSection data={baselineData} />)
 
       // Status Quo (baseline) should not show delta text
-      const baselineRow = screen.getByRole('button', { name: /Status Quo/i })
+      const baselineRow = screen.getByRole('link', { name: /Status Quo/i })
       expect(baselineRow).not.toHaveTextContent('vs baseline')
     })
 
@@ -1483,12 +1474,12 @@ describe('RecommendationSection', () => {
 
       render(<RecommendationSection data={nearTieData} />)
 
-      // Should show near-tie warning with gap percentage
-      expect(screen.getByText(/Too close to call/)).toBeInTheDocument()
-      expect(screen.getByText(/Only 4% separates the top options/)).toBeInTheDocument()
+      // Fix D3: "Too close to call" card removed - near-tie now communicated via stability badge
+      // The card no longer renders; stability badge shows "Highly sensitive" or similar
+      expect(screen.queryByText(/Too close to call/)).not.toBeInTheDocument()
     })
 
-    it('shows generic message when nearTie.isTie is true with zero gap', () => {
+    it('does not show Too close to call card (removed per D3 fix)', () => {
       const nearTieZeroGapData: RecommendationSectionData = {
         ...mockData,
         nearTie: {
@@ -1503,12 +1494,11 @@ describe('RecommendationSection', () => {
 
       render(<RecommendationSection data={nearTieZeroGapData} />)
 
-      // Should show generic near-tie message
-      expect(screen.getByText(/Too close to call/)).toBeInTheDocument()
-      expect(screen.getByText(/Small changes in your assumptions could shift the recommendation/)).toBeInTheDocument()
+      // Fix D3: "Too close to call" card removed - redundant with "No clear front-runner" + stability badge
+      expect(screen.queryByText(/Too close to call/)).not.toBeInTheDocument()
     })
 
-    it('shows tied options when tiedOptionIds has valid labels', () => {
+    it('does not show tied options card (Fix D3 - card removed)', () => {
       const nearTieWithLabelsData: RecommendationSectionData = {
         ...mockData,
         allOptions: [
@@ -1527,8 +1517,9 @@ describe('RecommendationSection', () => {
 
       render(<RecommendationSection data={nearTieWithLabelsData} />)
 
-      // Should show tied options message
-      expect(screen.getByText(/Hire Tech Lead and Hire 2 Developers are effectively tied/)).toBeInTheDocument()
+      // Fix D3: "Too close to call" card with tied options message removed
+      // Near-tie information is now communicated via stability badge
+      expect(screen.queryByText(/effectively tied/)).not.toBeInTheDocument()
     })
 
     it('does not show near-tie callout when nearTie.isTie is false', () => {
@@ -1550,18 +1541,19 @@ describe('RecommendationSection', () => {
       expect(screen.queryByText(/Too close to call/)).not.toBeInTheDocument()
     })
 
-    it('falls back to stability-based near-tie when nearTie is undefined', () => {
-      // Low stability (< 0.6) should trigger near-tie display
+    it('shows No clear front-runner when stability is low (replaces Too close to call)', () => {
+      // Low stability (< 0.55) triggers "No clear front-runner" chip
       const lowStabilityData: RecommendationSectionData = {
         ...mockData,
         nearTie: undefined,
-        recommendationStability: 0.45,  // Below THRESHOLDS.STABILITY_MODERATE (0.6)
+        recommendationStability: 0.45,  // Below 0.55 threshold
       }
 
       render(<RecommendationSection data={lowStabilityData} />)
 
-      // Should show near-tie warning based on stability fallback
-      expect(screen.getByText(/Too close to call/)).toBeInTheDocument()
+      // Fix D3: "Too close to call" removed, now shows "No clear front-runner" instead
+      expect(screen.queryByText(/Too close to call/)).not.toBeInTheDocument()
+      expect(screen.getByText(/No clear front-runner/)).toBeInTheDocument()
     })
 
     it('does not show near-tie when nearTie undefined and stability is high', () => {
@@ -1577,7 +1569,7 @@ describe('RecommendationSection', () => {
       expect(screen.queryByText(/Too close to call/)).not.toBeInTheDocument()
     })
 
-    it('shows generic fallback when only one valid label found', () => {
+    it('does not show Too close to call with partial labels (Fix D3)', () => {
       const partialLabelsData: RecommendationSectionData = {
         ...mockData,
         allOptions: [
@@ -1595,9 +1587,8 @@ describe('RecommendationSection', () => {
 
       render(<RecommendationSection data={partialLabelsData} />)
 
-      // Should show near-tie warning with generic fallback (per brief: show fallback when tiedOptionIds can't be fully resolved)
-      expect(screen.getByText(/Too close to call/)).toBeInTheDocument()
-      expect(screen.getByText(/effectively tied within the model's uncertainty/)).toBeInTheDocument()
+      // Fix D3: "Too close to call" card removed - information conveyed via stability badge
+      expect(screen.queryByText(/Too close to call/)).not.toBeInTheDocument()
     })
   })
 })

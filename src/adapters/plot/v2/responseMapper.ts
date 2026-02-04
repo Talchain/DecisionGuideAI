@@ -568,9 +568,9 @@ export function mapV2ResponseToReportV1(
         const p90 = safeNumber(outcome?.p90) ?? high
 
         acc[optionId] = {
-          // Prefer actual probability_of_goal from V2 (when threshold was provided)
-          // Fall back to CI midpoint (null if no CI data)
-          goal_probability: safeNumber(opt.probability_of_goal) ?? ciMidpoint,
+          // Fix A: Only use actual probability_of_goal from V2 (when threshold was provided)
+          // Never fall back to computed values - undefined means "not available"
+          goal_probability: safeNumber(opt.probability_of_goal),
           confidence: 0.5, // Default confidence
           // Include win_probability when available (pairwise comparison)
           win_probability: safeNumber(opt.win_probability) ?? undefined,
@@ -588,7 +588,7 @@ export function mapV2ResponseToReportV1(
         return acc
       },
       {} as Record<string, {
-        goal_probability: number
+        goal_probability?: number
         confidence: number
         win_probability?: number
         expected?: number
