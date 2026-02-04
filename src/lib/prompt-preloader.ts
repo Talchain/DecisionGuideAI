@@ -17,7 +17,8 @@
  * ```
  */
 
-import { plotProxyBase } from './config'
+// CEE base URL - prompts/warm endpoint lives on CEE service, not PLoT
+const CEE_BASE_URL = (import.meta as any).env?.VITE_CEE_BFF_BASE || '/bff/cee'
 
 /** Whether preload has been successfully completed */
 let preloadComplete = false
@@ -49,7 +50,7 @@ export function preloadPrompts(): Promise<void> {
   const controller = new AbortController()
   const timeoutId = setTimeout(() => controller.abort(), PRELOAD_TIMEOUT_MS)
 
-  preloadPromise = fetch(`${plotProxyBase}/v1/prompts/warm`, {
+  preloadPromise = fetch(`${CEE_BASE_URL}/prompts/warm`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
