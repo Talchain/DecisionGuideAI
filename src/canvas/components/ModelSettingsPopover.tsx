@@ -60,6 +60,8 @@ export function ModelSettingsPopover({ isOpen, onClose, anchorRef }: ModelSettin
   }
 
   // Calculate popover position based on anchor element
+  // Popover appears above the cog icon, right-aligned to the AI panel's right edge
+  // Polls position to stay aligned when AI panel moves (e.g., when results panel opens)
   useEffect(() => {
     if (!isOpen || !anchorRef.current) return
 
@@ -69,47 +71,38 @@ export function ModelSettingsPopover({ isOpen, onClose, anchorRef }: ModelSettin
 
       const rect = anchor.getBoundingClientRect()
       const padding = 8
-      const popoverWidth = 528 // matches w-[528px]
       const rootStyles = getComputedStyle(document.documentElement)
       const topbarHeight = parseFloat(rootStyles.getPropertyValue('--topbar-h')) || 0
       const safeTop = topbarHeight + padding
-      const availableBelow = window.innerHeight - rect.bottom - padding
       const availableAbove = rect.top - safeTop
       const viewportMax = window.innerHeight - safeTop - padding
-      const shouldOpenUp = availableAbove >= availableBelow
+      const maxHeight = Math.max(0, Math.min(viewportMax, availableAbove))
 
-      // Position popover so it aligns to the right side near the anchor
-      // If there's room, align right edge with anchor's right edge
-      // Otherwise, position from the right edge of viewport
-      const anchorRight = rect.right
-      const spaceOnRight = window.innerWidth - anchorRight
-      const useRightPositioning = spaceOnRight < popoverWidth
+      // Find the AI panel to align to its right edge
+      const aiPanel = anchor.closest('[role="dialog"]')
+      const panelRect = aiPanel?.getBoundingClientRect()
 
-      if (shouldOpenUp) {
-        const maxHeight = Math.max(0, Math.min(viewportMax, availableAbove))
-        setPosition({
-          bottom: window.innerHeight - rect.top + padding,
-          // Position from right edge if popover would extend off-screen, otherwise align right edges
-          right: useRightPositioning ? padding : window.innerWidth - rect.right,
-          left: undefined,
-          maxHeight,
-        })
-      } else {
-        const maxHeight = Math.max(0, Math.min(viewportMax, availableBelow))
-        setPosition({
-          top: Math.max(rect.bottom + padding, safeTop),
-          right: useRightPositioning ? padding : window.innerWidth - rect.right,
-          left: undefined,
-          maxHeight,
-        })
-      }
+      // Calculate right offset: distance from viewport right edge to panel's right edge
+      // This aligns the popover's right edge with the AI panel's right edge
+      const panelRightEdge = panelRect?.right ?? rect.right
+      const rightFromViewport = window.innerWidth - panelRightEdge
+
+      setPosition({
+        bottom: window.innerHeight - rect.top + padding,
+        right: Math.max(padding, rightFromViewport),
+        left: undefined,
+        maxHeight,
+      })
     }
 
     updatePosition()
+    // Poll position to stay aligned when AI panel moves
+    const interval = setInterval(updatePosition, 100)
     window.addEventListener('resize', updatePosition)
     window.addEventListener('scroll', updatePosition, true)
 
     return () => {
+      clearInterval(interval)
       window.removeEventListener('resize', updatePosition)
       window.removeEventListener('scroll', updatePosition, true)
     }
