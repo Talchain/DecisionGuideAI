@@ -1,7 +1,8 @@
 /**
  * SuccessTarget Component Tests
  *
- * P2 Task 1: Tests for the inline success target affordance component.
+ * Task 2: Tests for the inline success target input component.
+ * New design: always-visible inline input, no intermediate "Set target" button.
  */
 
 import { describe, it, expect, vi } from 'vitest'
@@ -9,175 +10,181 @@ import { render, screen, fireEvent } from '@testing-library/react'
 import { SuccessTarget } from '../SuccessTarget'
 
 describe('SuccessTarget', () => {
-  describe('State C: No target set', () => {
-    it('renders prompt to set target when no threshold exists', () => {
+  describe('Inline Input (always visible)', () => {
+    it('renders input inline when no threshold exists', () => {
       render(<SuccessTarget goalThreshold={null} />)
 
-      expect(screen.getByText(/Set a success target/)).toBeInTheDocument()
-      expect(screen.getByRole('button', { name: /Set target/i })).toBeInTheDocument()
-    })
-
-    it('shows inline input when "Set target" is clicked', () => {
-      render(<SuccessTarget goalThreshold={null} />)
-
-      fireEvent.click(screen.getByRole('button', { name: /Set target/i }))
-
+      // Input should always be visible
       expect(screen.getByRole('spinbutton')).toBeInTheDocument()
-      expect(screen.getByRole('button', { name: /Apply & re-run/i })).toBeInTheDocument()
+      // Helper text should be present
+      expect(screen.getByText(/Set a success target/)).toBeInTheDocument()
     })
 
-    it('disables Set target button when running', () => {
+    it('renders input with current value when threshold exists', () => {
+      render(<SuccessTarget goalThreshold={100} />)
+
+      const input = screen.getByRole('spinbutton')
+      expect(input).toBeInTheDocument()
+      expect(input).toHaveValue(100)
+    })
+
+    it('shows placeholder text based on unit type', () => {
+      render(<SuccessTarget goalThreshold={null} outcomeUnit="currency" outcomeUnitSymbol="$" />)
+
+      const input = screen.getByRole('spinbutton')
+      expect(input).toHaveAttribute('placeholder', 'e.g. $20000')
+    })
+
+    it('shows percent placeholder for percent unit', () => {
+      render(<SuccessTarget goalThreshold={null} outcomeUnit="percent" />)
+
+      const input = screen.getByRole('spinbutton')
+      expect(input).toHaveAttribute('placeholder', 'e.g. 50')
+    })
+
+    it('disables input when isRunning is true', () => {
       render(<SuccessTarget goalThreshold={null} isRunning={true} />)
 
-      expect(screen.getByRole('button', { name: /Set target/i })).toBeDisabled()
+      expect(screen.getByRole('spinbutton')).toBeDisabled()
     })
   })
 
-  describe('State A/B: Target exists', () => {
-    it('renders target value with "Target:" prefix', () => {
-      render(
-        <SuccessTarget
-          goalThreshold={100}
-          outcomeUnit="currency"
-          outcomeUnitSymbol="$"
-        />
-      )
+  describe('Goal Label', () => {
+    it('shows goal label when provided', () => {
+      render(<SuccessTarget goalThreshold={null} goalLabel="MRR" />)
 
-      expect(screen.getByText(/Target:/)).toBeInTheDocument()
-      // Value is formatted - check for the number
-      expect(screen.getByText(/100/)).toBeInTheDocument()
+      expect(screen.getByText('MRR:')).toBeInTheDocument()
     })
 
-    it('shows "from your brief" attribution when isFromBrief is true', () => {
-      render(
-        <SuccessTarget
-          goalThreshold={50}
-          outcomeUnit="percent"
-          isFromBrief={true}
-        />
-      )
+    it('shows default label when goalLabel not provided', () => {
+      render(<SuccessTarget goalThreshold={null} />)
+
+      expect(screen.getByText('Success target:')).toBeInTheDocument()
+    })
+  })
+
+  describe('Attribution', () => {
+    it('shows "from your brief" when isFromBrief is true', () => {
+      render(<SuccessTarget goalThreshold={50} isFromBrief={true} />)
 
       expect(screen.getByText(/from your brief/)).toBeInTheDocument()
     })
 
-    it('shows "your target" attribution when isFromBrief is false', () => {
-      render(
-        <SuccessTarget
-          goalThreshold={50}
-          outcomeUnit="percent"
-          isFromBrief={false}
-        />
-      )
+    it('shows "your target" when threshold exists and not from brief', () => {
+      render(<SuccessTarget goalThreshold={50} isFromBrief={false} />)
 
       expect(screen.getByText(/your target/)).toBeInTheDocument()
     })
 
-    it('shows goal label when provided', () => {
-      render(
-        <SuccessTarget
-          goalThreshold={75}
-          goalLabel="MRR"
-          outcomeUnit="percent"
-        />
-      )
+    it('shows no attribution when no threshold', () => {
+      render(<SuccessTarget goalThreshold={null} />)
 
-      expect(screen.getByText(/MRR/)).toBeInTheDocument()
-    })
-
-    it('renders edit button', () => {
-      render(<SuccessTarget goalThreshold={100} />)
-
-      expect(screen.getByRole('button', { name: /Edit target/i })).toBeInTheDocument()
+      expect(screen.queryByText(/from your brief/)).not.toBeInTheDocument()
+      expect(screen.queryByText(/your target/)).not.toBeInTheDocument()
     })
   })
 
-  describe('Edit mode', () => {
-    it('enters edit mode when pencil icon is clicked', () => {
+  describe('Apply and re-run button', () => {
+    it('does not show Apply button when value unchanged', () => {
       render(<SuccessTarget goalThreshold={100} />)
 
-      fireEvent.click(screen.getByRole('button', { name: /Edit target/i }))
-
-      expect(screen.getByRole('spinbutton')).toBeInTheDocument()
-      expect(screen.getByRole('spinbutton')).toHaveValue(100)
+      expect(screen.queryByRole('button', { name: /Apply and re-run/i })).not.toBeInTheDocument()
     })
 
-    it('shows "Apply & re-run" button in edit mode', () => {
+    it('shows Apply button when value changes', () => {
       render(<SuccessTarget goalThreshold={100} />)
 
-      fireEvent.click(screen.getByRole('button', { name: /Edit target/i }))
-
-      expect(screen.getByRole('button', { name: /Apply & re-run/i })).toBeInTheDocument()
-    })
-
-    it('disables "Apply & re-run" button when value unchanged', () => {
-      render(<SuccessTarget goalThreshold={100} />)
-
-      fireEvent.click(screen.getByRole('button', { name: /Edit target/i }))
-
-      expect(screen.getByRole('button', { name: /Apply & re-run/i })).toBeDisabled()
-    })
-
-    it('enables "Apply & re-run" button when value changes', () => {
-      render(<SuccessTarget goalThreshold={100} />)
-
-      fireEvent.click(screen.getByRole('button', { name: /Edit target/i }))
       fireEvent.change(screen.getByRole('spinbutton'), { target: { value: '150' } })
 
-      expect(screen.getByRole('button', { name: /Apply & re-run/i })).not.toBeDisabled()
+      expect(screen.getByRole('button', { name: /Apply and re-run/i })).toBeInTheDocument()
     })
 
-    it('calls onApplyThreshold with new value when "Apply & re-run" is clicked', () => {
+    it('shows Apply button when entering value in empty input', () => {
+      render(<SuccessTarget goalThreshold={null} />)
+
+      fireEvent.change(screen.getByRole('spinbutton'), { target: { value: '100' } })
+
+      expect(screen.getByRole('button', { name: /Apply and re-run/i })).toBeInTheDocument()
+    })
+
+    it('calls onApplyThreshold when Apply button clicked', () => {
       const mockApply = vi.fn()
       render(<SuccessTarget goalThreshold={100} onApplyThreshold={mockApply} />)
 
-      fireEvent.click(screen.getByRole('button', { name: /Edit target/i }))
       fireEvent.change(screen.getByRole('spinbutton'), { target: { value: '150' } })
-      fireEvent.click(screen.getByRole('button', { name: /Apply & re-run/i }))
+      fireEvent.click(screen.getByRole('button', { name: /Apply and re-run/i }))
 
       expect(mockApply).toHaveBeenCalledWith(150)
     })
 
-    it('exits edit mode on Cancel click', () => {
-      render(<SuccessTarget goalThreshold={100} />)
+    it('calls onApplyThreshold on Enter key when value changed', () => {
+      const mockApply = vi.fn()
+      render(<SuccessTarget goalThreshold={100} onApplyThreshold={mockApply} />)
 
-      fireEvent.click(screen.getByRole('button', { name: /Edit target/i }))
-      expect(screen.getByRole('spinbutton')).toBeInTheDocument()
+      const input = screen.getByRole('spinbutton')
+      fireEvent.change(input, { target: { value: '150' } })
+      fireEvent.keyDown(input, { key: 'Enter' })
 
-      fireEvent.click(screen.getByRole('button', { name: /Cancel/i }))
-
-      expect(screen.queryByRole('spinbutton')).not.toBeInTheDocument()
+      expect(mockApply).toHaveBeenCalledWith(150)
     })
 
-    it('shows "Remove target" option in edit mode when target exists', () => {
-      render(<SuccessTarget goalThreshold={100} />)
+    it('disables Apply button when isRunning is true', () => {
+      // Start with isRunning=false so we can make changes
+      const { rerender } = render(<SuccessTarget goalThreshold={100} isRunning={false} />)
 
-      fireEvent.click(screen.getByRole('button', { name: /Edit target/i }))
+      // Make a change to trigger Apply button
+      fireEvent.change(screen.getByRole('spinbutton'), { target: { value: '150' } })
+      expect(screen.getByRole('button', { name: /Apply and re-run/i })).toBeInTheDocument()
+
+      // Now set isRunning=true
+      rerender(<SuccessTarget goalThreshold={100} isRunning={true} />)
+
+      // Input should be disabled and Apply button should be disabled
+      expect(screen.getByRole('spinbutton')).toBeDisabled()
+      expect(screen.getByRole('button', { name: /Running/i })).toBeDisabled()
+    })
+  })
+
+  describe('Remove target', () => {
+    it('shows Remove button when threshold exists', () => {
+      render(<SuccessTarget goalThreshold={100} />)
 
       expect(screen.getByRole('button', { name: /Remove target/i })).toBeInTheDocument()
     })
 
-    it('calls onApplyThreshold with null when "Remove target" is clicked', () => {
+    it('does not show Remove button when no threshold', () => {
+      render(<SuccessTarget goalThreshold={null} />)
+
+      expect(screen.queryByRole('button', { name: /Remove target/i })).not.toBeInTheDocument()
+    })
+
+    it('calls onApplyThreshold with null when Remove clicked', () => {
       const mockApply = vi.fn()
       render(<SuccessTarget goalThreshold={100} onApplyThreshold={mockApply} />)
 
-      fireEvent.click(screen.getByRole('button', { name: /Edit target/i }))
       fireEvent.click(screen.getByRole('button', { name: /Remove target/i }))
 
       expect(mockApply).toHaveBeenCalledWith(null)
     })
 
-    it('disables edit button when isRunning is true', () => {
+    it('hides Remove button when isRunning', () => {
       render(<SuccessTarget goalThreshold={100} isRunning={true} />)
 
-      expect(screen.getByRole('button', { name: /Edit target/i })).toBeDisabled()
+      expect(screen.queryByRole('button', { name: /Remove target/i })).not.toBeInTheDocument()
     })
   })
 
-  describe('accessibility', () => {
+  describe('Accessibility', () => {
     it('has proper testId for testing', () => {
       render(<SuccessTarget goalThreshold={100} />)
 
       expect(screen.getByTestId('success-target')).toBeInTheDocument()
+    })
+
+    it('input has accessible label', () => {
+      render(<SuccessTarget goalThreshold={null} goalLabel="Revenue" />)
+
+      expect(screen.getByRole('spinbutton', { name: /Revenue value/i })).toBeInTheDocument()
     })
   })
 })

@@ -85,11 +85,11 @@ describe('RecommendationSection', () => {
     expect(screen.getAllByText('Hire 2 Developers').length).toBeGreaterThanOrEqual(1)
   })
 
-  it('renders Strongest performer badge for top option', () => {
+  it('renders Strongest badge for top option', () => {
     render(<RecommendationSection data={mockData} />)
 
-    // Task 3: Changed from "Recommended" to stability-based "Strongest performer"
-    expect(screen.getByText('Strongest performer')).toBeInTheDocument()
+    // Task 3: Compact layout uses "Strongest" badge (shortened from "Strongest performer")
+    expect(screen.getByText('Strongest')).toBeInTheDocument()
   })
 
   it('hides option comparison for single option', () => {
@@ -394,17 +394,17 @@ describe('RecommendationSection', () => {
 
       render(<RecommendationSection data={backendOverrideData} />)
 
-      // Task 3: The Strongest performer badge should appear exactly once in option comparison
-      // (HeroSection may show the winner label as GraphLink but not badge)
-      const recommendedBadges = screen.getAllByText('Strongest performer')
+      // Task 3: Compact layout uses "Strongest" badge (shortened from "Strongest performer")
+      // The badge should appear exactly once in option comparison
+      const recommendedBadges = screen.getAllByText('Strongest')
       expect(recommendedBadges).toHaveLength(1)
 
       // Option A should have the badge in the option comparison section
       // Multiple links for "Option A" may exist (HeroSection GraphLink + option card)
       const optionALinks = screen.getAllByRole('link', { name: /Option A/i })
-      // At least one of them should have the Strongest performer badge
+      // At least one of them should have the Strongest badge
       const optionWithBadge = optionALinks.find(link =>
-        link.closest('[role="link"]')?.parentElement?.textContent?.includes('Strongest performer')
+        link.closest('[role="link"]')?.parentElement?.textContent?.includes('Strongest')
       )
       expect(optionWithBadge || recommendedBadges.length).toBeTruthy()
     })
@@ -1249,7 +1249,8 @@ describe('RecommendationSection', () => {
 
       render(<RecommendationSection data={deltaData} />)
 
-      // Should show delta for non-baseline option
+      // Task 3 compact layout: delta shown as visible text when no probability available
+      // Use getAllByRole since there are multiple links (HeroSection + option card)
       expect(screen.getByText('+28% vs baseline')).toBeInTheDocument()
     })
 
@@ -1328,7 +1329,7 @@ describe('RecommendationSection', () => {
 
       render(<RecommendationSection data={negativeData} />)
 
-      // Should show negative delta
+      // Task 3 compact layout: delta shown as visible text when no probability available
       expect(screen.getByText('-15% vs baseline')).toBeInTheDocument()
     })
 
@@ -1367,7 +1368,7 @@ describe('RecommendationSection', () => {
 
       render(<RecommendationSection data={zeroDeltaData} />)
 
-      // Should show "Same as baseline" instead of hiding
+      // Task 3 compact layout: "Same as baseline" shown as visible text when no probability
       expect(screen.getByText('Same as baseline')).toBeInTheDocument()
     })
 
@@ -1406,7 +1407,7 @@ describe('RecommendationSection', () => {
 
       render(<RecommendationSection data={nearZeroDeltaData} />)
 
-      // Should show "Same as baseline" instead of "+0.0%"
+      // Task 3 compact layout: "Same as baseline" shown as visible text when no probability
       expect(screen.getByText('Same as baseline')).toBeInTheDocument()
       // Should NOT show "+0.0" or similar
       expect(screen.queryByText(/\+0\.0/)).not.toBeInTheDocument()
@@ -1448,7 +1449,7 @@ describe('RecommendationSection', () => {
 
       render(<RecommendationSection data={negativeNearZeroDeltaData} />)
 
-      // Should show "Same as baseline" instead of "-0.0%"
+      // Task 3 compact layout: "Same as baseline" shown as visible text when no probability
       expect(screen.getByText('Same as baseline')).toBeInTheDocument()
     })
   })

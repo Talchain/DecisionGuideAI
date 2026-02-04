@@ -1,21 +1,18 @@
 /**
- * SuccessTarget Component (P2 Task 1)
+ * SuccessTarget Component (Task 2 redesign)
  *
- * Inline success target affordance at the top of the Results panel.
- * Surfaces goal_threshold which currently lives buried in advanced settings.
+ * Always-visible inline input for setting success target threshold.
+ * Replaces the previous multi-state design with a simpler inline approach.
  *
- * Three states:
- * A) Target extracted by CEE: "{goal_label}: {threshold}{unit}" with edit icon + "(from your brief)"
- * B) Target set by user: same as A but no attribution or "(your target)"
- * C) No target: prompt to set one with input affordance
- *
- * Uses "Apply & re-run" button pattern (NOT auto-run on change).
+ * Design guidelines compliance:
+ * - Input: min-height 44px, 12px 16px padding, 12px border-radius
+ * - Button: sm size (8px 16px padding), secondary style
+ * - Label: 14px (typography.label)
  */
 
 import { useState, useCallback, useEffect } from 'react'
-import { Pencil, Target, X, Loader2 } from 'lucide-react'
+import { X, Loader2 } from 'lucide-react'
 import { typography } from '../../styles/typography'
-import { formatOutcomeValue, type OutcomeUnits } from '../../lib/format'
 
 export interface SuccessTargetProps {
   /** Current goal threshold value */
@@ -35,21 +32,17 @@ export interface SuccessTargetProps {
 }
 
 /**
- * Format threshold value for display based on unit type.
+ * Get placeholder text based on unit type.
  */
-function formatThreshold(
-  value: number | null | undefined,
-  unit?: 'currency' | 'percent' | 'count',
-  symbol?: string
-): string {
-  if (value == null) return '—'
-
-  const units: OutcomeUnits = {
-    type: unit || 'count',
-    symbol: symbol,
+function getPlaceholder(unit?: 'currency' | 'percent' | 'count', symbol?: string): string {
+  switch (unit) {
+    case 'currency':
+      return symbol ? `e.g. ${symbol}20000` : 'e.g. 20000'
+    case 'percent':
+      return 'e.g. 50'
+    default:
+      return 'e.g. 100'
   }
-
-  return formatOutcomeValue(value, units)
 }
 
 export function SuccessTarget({
@@ -61,168 +54,120 @@ export function SuccessTarget({
   isRunning = false,
   onApplyThreshold,
 }: SuccessTargetProps) {
-  const [isEditing, setIsEditing] = useState(false)
-  const [editValue, setEditValue] = useState('')
+  const [inputValue, setInputValue] = useState('')
   const [hasChanges, setHasChanges] = useState(false)
 
-  // Reset edit state when goalThreshold changes externally
+  // Sync input value with goalThreshold when it changes externally
   useEffect(() => {
-    if (!isEditing) {
-      setEditValue(goalThreshold?.toString() ?? '')
-      setHasChanges(false)
-    }
-  }, [goalThreshold, isEditing])
-
-  const handleStartEdit = useCallback(() => {
-    setEditValue(goalThreshold?.toString() ?? '')
-    setIsEditing(true)
-    setHasChanges(false)
-  }, [goalThreshold])
-
-  const handleCancelEdit = useCallback(() => {
-    setIsEditing(false)
-    setEditValue(goalThreshold?.toString() ?? '')
+    setInputValue(goalThreshold?.toString() ?? '')
     setHasChanges(false)
   }, [goalThreshold])
 
   const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const newValue = e.target.value
-    setEditValue(newValue)
+    setInputValue(newValue)
     // Check if value differs from current threshold
     const numValue = newValue === '' ? null : parseFloat(newValue)
-    setHasChanges(numValue !== goalThreshold)
+    const currentValue = goalThreshold ?? null
+    setHasChanges(numValue !== currentValue)
   }, [goalThreshold])
 
   const handleApplyAndRerun = useCallback(() => {
     if (!onApplyThreshold) return
 
-    const numValue = editValue === '' ? null : parseFloat(editValue)
+    const numValue = inputValue === '' ? null : parseFloat(inputValue)
     // Only apply if it's a valid number or explicitly clearing
-    if (editValue !== '' && (isNaN(numValue as number))) return
+    if (inputValue !== '' && isNaN(numValue as number)) return
 
     onApplyThreshold(numValue)
-    setIsEditing(false)
     setHasChanges(false)
-  }, [editValue, onApplyThreshold])
+  }, [inputValue, onApplyThreshold])
 
-  const handleClearThreshold = useCallback(() => {
+  const handleRemoveThreshold = useCallback(() => {
     if (!onApplyThreshold) return
     onApplyThreshold(null)
-    setIsEditing(false)
+    setInputValue('')
     setHasChanges(false)
   }, [onApplyThreshold])
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && hasChanges) {
       handleApplyAndRerun()
-    } else if (e.key === 'Escape') {
-      handleCancelEdit()
     }
-  }, [hasChanges, handleApplyAndRerun, handleCancelEdit])
+  }, [hasChanges, handleApplyAndRerun])
 
   const hasThreshold = goalThreshold != null
+  const showApplyButton = hasChanges && inputValue !== ''
+  const showRemoveButton = hasThreshold
 
-  // State C: No target set - show prompt (clicking "Set target" transitions to edit mode in State A/B block)
-  if (!hasThreshold && !isEditing) {
-    return (
-      <div className="p-3 bg-panel border border-panel-border rounded-lg" data-testid="success-target">
-        <div className="flex items-center gap-3">
-          <Target className="w-4 h-4 text-text-light flex-shrink-0" />
-          <div className="flex-1">
-            <p className={`${typography.body} text-text-body`}>
-              Set a success target to see how likely you are to achieve your goal
-            </p>
-          </div>
-          <button
-            onClick={handleStartEdit}
-            disabled={isRunning}
-            className="px-3 py-1.5 text-sm font-medium text-white bg-info hover:bg-info/90 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
-          >
-            Set target
-          </button>
-        </div>
-      </div>
-    )
-  }
+  // Build label text
+  const labelText = goalLabel || 'Success target'
+  const attribution = isFromBrief ? ' (from your brief)' : hasThreshold ? ' (your target)' : ''
 
-  // State A/B: Target exists - show value with edit option
   return (
-    <div className="p-3 bg-panel border border-panel-border rounded-lg" data-testid="success-target">
-      {!isEditing ? (
-        <div className="flex items-center gap-3">
-          <Target className="w-4 h-4 text-success flex-shrink-0" />
-          <div className="flex-1">
-            <span className={`${typography.body} text-text-body`}>
-              <span className="font-medium">Target:</span>{' '}
-              {goalLabel ? `${goalLabel} ` : ''}
-              {formatThreshold(goalThreshold, outcomeUnit, outcomeUnitSymbol)}
-            </span>
-            {isFromBrief && (
-              <span className="ml-2 text-xs text-text-light">(from your brief)</span>
-            )}
-            {!isFromBrief && hasThreshold && (
-              <span className="ml-2 text-xs text-text-light">(your target)</span>
-            )}
-          </div>
-          <button
-            onClick={handleStartEdit}
-            disabled={isRunning}
-            className="p-1.5 text-text-light hover:text-text-body rounded-md transition-colors disabled:opacity-50"
-            aria-label="Edit target"
-          >
-            <Pencil className="w-4 h-4" />
-          </button>
-        </div>
-      ) : (
-        <div className="space-y-3">
-          <div className="flex items-center gap-3">
-            <Target className="w-4 h-4 text-success flex-shrink-0" />
-            <span className={`${typography.body} text-text-body font-medium`}>
-              Edit target{goalLabel ? ` for ${goalLabel}` : ''}
-            </span>
-          </div>
-          <div className="flex items-center gap-2">
+    <div className="p-4 bg-panel border border-panel-border rounded-lg" data-testid="success-target">
+      {/* Helper text as label - 14px per design guidelines */}
+      <label className={`block ${typography.label} text-text-light mb-2`}>
+        Set a success target to see how likely you are to achieve your goal
+      </label>
+
+      {/* Inline input row */}
+      <div className="flex items-center gap-3">
+        {/* Label + input */}
+        <div className="flex items-center gap-2 flex-1">
+          <span className={`${typography.label} text-text-body font-medium whitespace-nowrap`}>
+            {labelText}:
+          </span>
+          <div className="relative flex-1 max-w-[200px]">
             <input
               type="number"
-              value={editValue}
+              value={inputValue}
               onChange={handleInputChange}
               onKeyDown={handleKeyDown}
-              placeholder={`Enter ${goalLabel || 'target'} value`}
-              autoFocus
-              className="flex-1 px-3 py-1.5 text-sm border border-panel-border rounded-md focus:outline-none focus:ring-2 focus:ring-info focus:border-info"
+              placeholder={getPlaceholder(outcomeUnit, outcomeUnitSymbol)}
+              disabled={isRunning}
+              className="w-full min-h-[44px] px-4 py-3 text-sm border border-panel-border rounded-xl focus:outline-none focus:ring-2 focus:ring-info focus:border-info disabled:opacity-50 disabled:cursor-not-allowed"
+              aria-label={`${labelText} value`}
             />
-            <button
-              onClick={handleApplyAndRerun}
-              disabled={!hasChanges || isRunning}
-              className="px-3 py-1.5 text-sm font-medium text-white bg-info hover:bg-info/90 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
-            >
-              {isRunning ? (
-                <>
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  Running...
-                </>
-              ) : (
-                'Apply & re-run'
-              )}
-            </button>
-            <button
-              onClick={handleCancelEdit}
-              className="p-1.5 text-text-light hover:text-text-body rounded-md transition-colors"
-              aria-label="Cancel"
-            >
-              <X className="w-4 h-4" />
-            </button>
+            {/* Remove button (× inside input when threshold exists) */}
+            {showRemoveButton && !isRunning && (
+              <button
+                onClick={handleRemoveThreshold}
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-text-light hover:text-danger rounded transition-colors"
+                aria-label="Remove target"
+                type="button"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
           </div>
-          {/* Option to clear threshold */}
-          <button
-            onClick={handleClearThreshold}
-            disabled={isRunning}
-            className="text-xs text-text-light hover:text-danger transition-colors disabled:opacity-50"
-          >
-            Remove target
-          </button>
+          {/* Attribution */}
+          {attribution && (
+            <span className={`${typography.label} text-text-light whitespace-nowrap`}>
+              {attribution}
+            </span>
+          )}
         </div>
-      )}
+
+        {/* Apply button - only visible when value has changed */}
+        {showApplyButton && (
+          <button
+            onClick={handleApplyAndRerun}
+            disabled={isRunning}
+            className="px-4 py-2 text-sm font-medium text-text-body bg-transparent border border-panel-border hover:bg-panel-hover rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5 whitespace-nowrap"
+            type="button"
+          >
+            {isRunning ? (
+              <>
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                Running...
+              </>
+            ) : (
+              'Apply and re-run'
+            )}
+          </button>
+        )}
+      </div>
     </div>
   )
 }

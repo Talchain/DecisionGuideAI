@@ -79,6 +79,10 @@ export interface HeroSectionProps {
   goalLabel?: string
   goalThreshold?: number | null
 
+  // Readiness data (Task 1: for readiness statement in Learn More)
+  coachingReadiness?: 'ready' | 'close_call' | 'needs_evidence' | 'needs_framing'
+  coachingReadinessScore?: number
+
   // M2 content slots (optional, swaps in after M2 loads)
   m2Headline?: string
   m2Bullets?: [RichText, RichText, RichText]
@@ -310,6 +314,8 @@ export function HeroSection({
   robustEdgeCount,
   goalLabel,
   goalThreshold,
+  coachingReadiness,
+  coachingReadinessScore,
   m2Headline,
   m2Bullets,
   m2CoachingParagraph,
@@ -507,6 +513,55 @@ export function HeroSection({
     topFragileEdge,
   ])
 
+  // =========================================================================
+  // Readiness Statement (Task 1: replaces Analysis summary)
+  // =========================================================================
+  const readinessStatement = useMemo(() => {
+    // If no readiness data, return null to trigger fallback to m1CoachingNarrative
+    if (!coachingReadiness) return null
+
+    const totalAssumptions = (fragileEdgeCount ?? 0) + (robustEdgeCount ?? 0)
+    const stableCount = robustEdgeCount ?? 0
+    const fragileCount = fragileEdgeCount ?? 0
+
+    switch (coachingReadiness) {
+      case 'ready':
+        // Decision-ready: emphasise stability
+        if (totalAssumptions > 0) {
+          return `This analysis is decision-ready. ${totalAssumptions} assumptions were tested and ${stableCount} held stable.`
+        }
+        return 'This analysis is decision-ready.'
+
+      case 'needs_framing':
+        // Gaps that could affect result - summarise key issues
+        const framingIssues: string[] = []
+        if (fragileCount > 0) {
+          framingIssues.push(`${fragileCount} fragile assumption${fragileCount > 1 ? 's' : ''} identified`)
+        }
+        if (topFragileEdge) {
+          framingIssues.push('key relationships are sensitive to change')
+        }
+        const framingSummary = framingIssues.length > 0
+          ? framingIssues.join(' and ')
+          : 'some gaps detected'
+        return `This analysis has gaps that could affect the result. ${framingSummary.charAt(0).toUpperCase() + framingSummary.slice(1)}. Addressing these would strengthen confidence.`
+
+      case 'needs_evidence':
+        // Missing evidence - emphasise data gathering
+        if (fragileCount > 0) {
+          return `Key evidence is missing. ${fragileCount} uncertain assumption${fragileCount > 1 ? 's' : ''} could change the outcome. Gathering data on the most uncertain factors would improve reliability.`
+        }
+        return 'Key evidence is missing. Gathering data on the most uncertain factors would improve reliability.'
+
+      case 'close_call':
+        // Close decision - similar to needs_framing but with close-call context
+        return `This is a close call — options perform similarly. ${fragileCount > 0 ? `${fragileCount} assumption${fragileCount > 1 ? 's' : ''} could tip the balance. ` : ''}Consider whether any factor could change significantly.`
+
+      default:
+        return null
+    }
+  }, [coachingReadiness, fragileEdgeCount, robustEdgeCount, topFragileEdge])
+
   // Use M2 coaching paragraph if available
   const hasM2Coaching = m2CoachingParagraph && m2CoachingParagraph.length > 0
   const hasBiasInsights = m2BiasInsights && m2BiasInsights.length > 0
@@ -588,14 +643,16 @@ export function HeroSection({
           id="hero-learn-more"
           className="p-4 bg-panel border border-panel-border rounded-lg space-y-4"
         >
-          {/* Section 1: Coaching narrative (M2 or M1 fallback) */}
-          {(hasM2Coaching || m1CoachingNarrative) && (
+          {/* Section 1: Readiness assessment (Task 1) or Analysis summary fallback */}
+          {(readinessStatement || hasM2Coaching || m1CoachingNarrative) && (
             <div className="space-y-2">
               <h4 className={`${typography.label} text-text-header`}>
-                Analysis summary
+                {readinessStatement ? 'Readiness assessment' : 'Analysis summary'}
               </h4>
               <p className={`${typography.body} text-text-body`}>
-                {hasM2Coaching ? (
+                {readinessStatement ? (
+                  readinessStatement
+                ) : hasM2Coaching ? (
                   <RichTextRenderer
                     content={m2CoachingParagraph!}
                     onFocusNode={onFocusNode}

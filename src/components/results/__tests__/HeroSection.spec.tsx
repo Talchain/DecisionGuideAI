@@ -544,4 +544,102 @@ describe('HeroSection', () => {
       expect(screen.getByTestId('hero-section')).toBeInTheDocument()
     })
   })
+
+  // =========================================================================
+  // Task 1: Readiness Statement Tests
+  // =========================================================================
+
+  describe('Readiness Statement (Task 1)', () => {
+    it('shows "Readiness assessment" header when coachingReadiness is "ready"', () => {
+      render(
+        <HeroSection
+          {...baseProps}
+          recommendationStability={0.9}
+          coachingReadiness="ready"
+          fragileEdgeCount={2}
+          robustEdgeCount={8}
+          nSamples={1000}
+        />
+      )
+
+      // Expand learn more
+      fireEvent.click(screen.getByRole('button', { name: /Learn more/i }))
+
+      expect(screen.getByText('Readiness assessment')).toBeInTheDocument()
+      expect(screen.getByText(/This analysis is decision-ready/)).toBeInTheDocument()
+      expect(screen.getByText(/10 assumptions were tested and 8 held stable/)).toBeInTheDocument()
+    })
+
+    it('shows needs_framing readiness statement with fragile count', () => {
+      render(
+        <HeroSection
+          {...baseProps}
+          recommendationStability={0.6}
+          coachingReadiness="needs_framing"
+          fragileEdgeCount={3}
+          robustEdgeCount={5}
+          nSamples={1000}
+        />
+      )
+
+      fireEvent.click(screen.getByRole('button', { name: /Learn more/i }))
+
+      expect(screen.getByText('Readiness assessment')).toBeInTheDocument()
+      expect(screen.getByText(/This analysis has gaps that could affect the result/)).toBeInTheDocument()
+      expect(screen.getByText(/3 fragile assumptions identified/)).toBeInTheDocument()
+    })
+
+    it('shows needs_evidence readiness statement', () => {
+      render(
+        <HeroSection
+          {...baseProps}
+          recommendationStability={0.5}
+          coachingReadiness="needs_evidence"
+          fragileEdgeCount={4}
+          robustEdgeCount={2}
+          nSamples={1000}
+        />
+      )
+
+      fireEvent.click(screen.getByRole('button', { name: /Learn more/i }))
+
+      expect(screen.getByText('Readiness assessment')).toBeInTheDocument()
+      expect(screen.getByText(/Key evidence is missing/)).toBeInTheDocument()
+    })
+
+    it('shows close_call readiness statement', () => {
+      render(
+        <HeroSection
+          {...baseProps}
+          recommendationStability={0.52}
+          coachingReadiness="close_call"
+          fragileEdgeCount={2}
+          robustEdgeCount={4}
+          nSamples={1000}
+        />
+      )
+
+      fireEvent.click(screen.getByRole('button', { name: /Learn more/i }))
+
+      expect(screen.getByText('Readiness assessment')).toBeInTheDocument()
+      expect(screen.getByText(/This is a close call/)).toBeInTheDocument()
+    })
+
+    it('falls back to Analysis summary when coachingReadiness is null', () => {
+      render(
+        <HeroSection
+          {...baseProps}
+          recommendationStability={0.9}
+          nSamples={1000}
+          // No coachingReadiness prop
+        />
+      )
+
+      fireEvent.click(screen.getByRole('button', { name: /Learn more/i }))
+
+      // Should show old Analysis summary, not Readiness assessment
+      expect(screen.getByText('Analysis summary')).toBeInTheDocument()
+      expect(screen.queryByText('Readiness assessment')).not.toBeInTheDocument()
+    })
+  })
 })

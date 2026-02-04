@@ -386,12 +386,13 @@ describe('Banned Strings Integration Test', () => {
     it('shows win probability display when probability_of_goal is absent (P2 Task 4)', () => {
       render(<RecommendationSection data={fixtureNoGoalThreshold} />)
 
-      // P2 Task 4: When no goal probability but win probability is present, show "Wins in X% of simulations"
+      // Task 3 compact layout: Badge is "Strongest" and probability is compact percentage
       // Rank labels only show as fallback when winProbability is also absent
-      expect(screen.getByText('Strongest performer')).toBeInTheDocument()
-      expect(screen.getByText('Wins in 65% of simulations')).toBeInTheDocument()
-      expect(screen.getByText('Wins in 35% of simulations')).toBeInTheDocument()
-      expect(screen.getByText('Wins in 15% of simulations')).toBeInTheDocument()
+      expect(screen.getByText('Strongest')).toBeInTheDocument()
+      // Compact layout shows just percentages with tooltip
+      expect(screen.getByText('65%')).toBeInTheDocument()
+      expect(screen.getByText('35%')).toBeInTheDocument()
+      expect(screen.getByText('15%')).toBeInTheDocument()
 
       // Should NOT show "X expected" values
       expect(screen.queryByText(/\d+%? expected/i)).not.toBeInTheDocument()

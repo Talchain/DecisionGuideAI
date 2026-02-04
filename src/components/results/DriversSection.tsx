@@ -532,7 +532,7 @@ function ErrorState({ message, onRetry }: { message: string; onRetry?: () => voi
       {onRetry && (
         <button
           onClick={onRetry}
-          className="px-4 py-1.5 text-sm font-medium text-amber-700 bg-white border border-amber-300 rounded hover:bg-amber-50 transition-colors"
+          className="px-4 py-2 text-sm font-medium text-amber-700 bg-white border border-amber-300 rounded-lg hover:bg-amber-50 transition-colors"
         >
           Retry
         </button>

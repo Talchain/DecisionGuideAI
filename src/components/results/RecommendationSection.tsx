@@ -543,6 +543,11 @@ function formatDelta(
   return `${sign}${formatOutcome(delta, unit, symbol)} vs baseline`
 }
 
+/**
+ * Task 3: Compact horizontal option row.
+ * Single row layout: icon · name · badge · probability/rank · delta tooltip
+ * Entire row is clickable to focus on node in canvas.
+ */
 function OptionRow({
   option,
   onFocus,
@@ -573,35 +578,40 @@ function OptionRow({
   // Fix A: Only show goalProbability when both threshold AND probability are present
   const showGoalProbability = goalThreshold != null && option.goalProbability != null
 
-  // Task 2.2: Format delta from baseline (only for non-baseline options)
+  // Task 3: Delta from baseline for tooltip (compact - no inline display)
   const deltaText = !option.isBaseline
     ? formatDelta(option.deltaFromBaseline, outcomeUnit, outcomeUnitSymbol)
     : null
 
-  // P2 Task 4: Format win probability as "Wins in X% of simulations"
-  const formatWinProbability = (wp: number | null | undefined): string => {
-    if (wp == null) return '—'
-    return `Wins in ${Math.round(wp * 100)}% of simulations`
-  }
-
-  // Determine what to show in the right column
-  const rightColumnContent = useMemo(() => {
-    // Priority 1: If goal probability is available and threshold is set, show goal probability
+  // Compact probability/rank display
+  const { display, tooltip, isRankBased } = useMemo(() => {
+    // Priority 1: Goal probability if threshold is set
     if (showGoalProbability && option.goalProbability != null) {
-      return `${formatPercent(option.goalProbability)} chance of achieving your goal`
+      const pct = `${Math.round(option.goalProbability * 100)}%`
+      // Use approved copy: avoid "probability" in user-facing text
+      const tip = deltaText ? `${pct} chance of achieving your goal. ${deltaText}` : `${pct} chance of achieving your goal`
+      return { display: pct, tooltip: tip, isRankBased: false }
     }
-    // Priority 2: Show win probability if available
+    // Priority 2: Win probability
     if (option.winProbability != null) {
-      return formatWinProbability(option.winProbability)
+      const pct = `${Math.round(option.winProbability * 100)}%`
+      // Use approved "simulations" language per banned-strings policy
+      const tip = deltaText ? `Wins in ${pct} of simulations. ${deltaText}` : `Wins in ${pct} of simulations`
+      return { display: pct, tooltip: tip, isRankBased: false }
     }
-    // Fallback: Show rank-based label
+    // Priority 3: Rank-based label (Fix A compatibility)
     const rank = option.rank
-    if (rank == null) return '—'
-    if (rank === 1) return 'Strongest performer'
-    if (rank === 2) return 'Second strongest'
-    if (rank === 3) return 'Third strongest'
-    return `${rank}th strongest`
-  }, [showGoalProbability, option.goalProbability, option.winProbability, option.rank])
+    if (rank != null) {
+      const labels: Record<number, string> = { 1: 'Strongest performer', 2: 'Second strongest', 3: 'Third strongest' }
+      const label = labels[rank] || `${rank}th strongest`
+      return { display: label, tooltip: deltaText || label, isRankBased: true }
+    }
+    // Priority 4: Show delta text directly if nothing else available
+    if (deltaText) {
+      return { display: deltaText, tooltip: deltaText, isRankBased: true }
+    }
+    return { display: null, tooltip: null, isRankBased: false }
+  }, [showGoalProbability, option.goalProbability, option.winProbability, option.rank, deltaText])
 
   return (
     <div
@@ -610,43 +620,46 @@ function OptionRow({
       onClick={handleClick}
       onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleClick() } }}
       className={`
-        w-full text-left px-3 py-2 rounded-lg transition-colors flex items-center justify-between cursor-pointer
+        w-full text-left px-3 py-2 rounded-lg transition-colors cursor-pointer
+        flex items-center gap-3
         bg-panel border border-panel-border hover:bg-panel-hover
-        focus:outline-none focus:ring-2 focus:ring-info-500 focus:ring-offset-1
+        focus:outline-none focus:ring-2 focus:ring-info focus:ring-offset-1
         ${showBadge ? 'border-l-4 border-l-success' : ''}
       `}
       aria-label={`Focus on ${option.label} in model`}
     >
-      <div className="flex-1">
-        <div className="flex items-center gap-2">
-          <span
-            className="text-sm text-text-body hover:underline"
-          >
-            {option.label}
-          </span>
-          {/* P2 Task 4: Show "Strongest performer" badge for winner (not in close-call) */}
-          {showBadge && !isCloseCall && (
-            <span className="text-xs bg-success-light text-success px-1.5 py-0.5 rounded">
-              Strongest performer
-            </span>
-          )}
-          {option.isBaseline && (
-            <span className="text-xs bg-slate-200 text-slate-600 px-1.5 py-0.5 rounded">
-              Baseline
-            </span>
-          )}
-        </div>
-      </div>
-      <div className="flex flex-col items-end">
-        <span className="text-sm text-text-body">
-          {rightColumnContent}
+      {/* Icon: Option color indicator */}
+      <span
+        className="w-3 h-3 rounded-full bg-option flex-shrink-0"
+        aria-hidden="true"
+      />
+
+      {/* Name */}
+      <span className="text-sm text-text-body hover:underline flex-1 truncate">
+        {option.label}
+      </span>
+
+      {/* Badges (inline) */}
+      {showBadge && !isCloseCall && (
+        <span className="text-xs bg-success-light text-success px-1.5 py-0.5 rounded flex-shrink-0">
+          Strongest
         </span>
-        {deltaText && (
-          <span className="text-xs text-text-light">
-            {deltaText}
-          </span>
-        )}
-      </div>
+      )}
+      {option.isBaseline && (
+        <span className="text-xs bg-slate-200 text-slate-600 px-1.5 py-0.5 rounded flex-shrink-0">
+          Baseline
+        </span>
+      )}
+
+      {/* Probability/Rank display (compact) */}
+      {display && (
+        <span
+          className={`text-sm flex-shrink-0 ${isRankBased ? 'text-text-light' : 'font-medium text-text-body tabular-nums'}`}
+          title={tooltip || undefined}
+        >
+          {display}
+        </span>
+      )}
     </div>
   )
 }
@@ -725,7 +738,7 @@ export function RecommendationSection({
   if (!recommendedOption) {
     return (
       <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg">
-        <p className="text-sm text-slate-600">
+        <p className={`${typography.body} text-text-body`}>
           {EMPTY_STATES.recommendation}
         </p>
       </div>
@@ -820,7 +833,7 @@ export function RecommendationSection({
 
       {/* Task 1.7: Goal context - displayed when present */}
       {goalText && (
-        <div className="text-sm text-slate-600">
+        <div className={`${typography.body} text-text-body`}>
           <span className="font-medium">Goal:</span> {goalText}
         </div>
       )}
@@ -850,13 +863,15 @@ export function RecommendationSection({
         robustEdgeCount={robustEdgeCount}
         goalLabel={goalLabel}
         goalThreshold={goalThreshold}
+        coachingReadiness={coachingReadiness}
+        coachingReadinessScore={coachingReadinessScore}
         onFocusNode={onFocusNode}
       />
 
       {/* Option comparison (multiple options) */}
       {!isSingleOption && allOptions.length > 1 && (
         <div className="space-y-2">
-          <h4 className="text-sm text-slate-600">How this compares:</h4>
+          <h4 className={`${typography.label} text-text-light`}>How this compares:</h4>
           <div className="space-y-2">
             {(() => {
               // P2 Task 4: Sort by win_probability descending, determine winner and close-call
@@ -919,7 +934,7 @@ export function RecommendationSection({
       {/* Single option CTA */}
       {isSingleOption && (
         <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg">
-          <p className="text-sm text-slate-600">
+          <p className={`${typography.body} text-text-body`}>
             Add another option to compare alternatives.
           </p>
         </div>
