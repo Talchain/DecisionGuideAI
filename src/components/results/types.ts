@@ -342,6 +342,8 @@ export interface ConfidenceSectionData {
     alternativeWinnerLabel: string
     alternativeWinnerId?: string
     switchProbability?: number
+    /** Task C: Whether labels were successfully resolved (true) or fell back to "Unknown" (false) */
+    labelsResolved?: boolean
   }
 
   // ==========================================================================

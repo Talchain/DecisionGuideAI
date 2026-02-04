@@ -20,6 +20,7 @@ vi.mock('../../../canvas/utils/focusHelpers', () => ({
 /**
  * Banned copy patterns that should never appear in the Results Panel
  * P1 Brief: "scenarios", "recommendation", "Runner-up", "win probability", "(0/1)"
+ * Task D additions: "outperforms by", "points"
  */
 const BANNED_STRINGS = [
   'YOUR OBJECTIVE',           // Should be sentence case: "Your objective"
@@ -34,6 +35,9 @@ const BANNED_STRINGS = [
   '(0–1)',                    // Encoding notation with en-dash
   'scenarios tested',         // P1: Replace with "simulations" - banned in main UI
   'of scenarios',             // P1: "% of scenarios" is banned (use "simulations" instead)
+  'outperforms by',           // Task D: story_headline banned term
+  'points',                   // Task D: story_headline banned term (e.g., "leads by 5 points")
+  '(0–1 qualitative scale)',  // Task D: encoding pattern that should be stripped
 ]
 
 /**
@@ -205,6 +209,115 @@ const driversData: DriversSectionData = {
 }
 
 /**
+ * Fixture: DriversSection data with (0–1 qualitative scale) encoding (Task D)
+ * Tests that cleanFactorLabel strips this pattern from production payloads
+ */
+const driversDataWithQualitativeScale: DriversSectionData = {
+  drivers: [
+    {
+      factorKey: 'factor-1',
+      factorLabel: 'Competitive Response Intensity (0–1 qualitative scale)',
+      rawElasticity: 0.9,
+      normalisedInfluence: 1.0,
+      rank: 1,
+      direction: 'negative',
+    },
+    {
+      factorKey: 'factor-2',
+      factorLabel: 'Currency Fluctuation Impact (0–1 qualitative scale)',
+      rawElasticity: 0.7,
+      normalisedInfluence: 0.78,
+      rank: 2,
+      direction: 'negative',
+    },
+    {
+      factorKey: 'factor-3',
+      factorLabel: 'Regulatory Compliance Cost (0–1, share of £200k cap)',
+      rawElasticity: 0.5,
+      normalisedInfluence: 0.56,
+      rank: 3,
+      direction: 'negative',
+    },
+  ],
+  topDrivers: [
+    {
+      factorKey: 'factor-1',
+      factorLabel: 'Competitive Response Intensity (0–1 qualitative scale)',
+      rawElasticity: 0.9,
+      normalisedInfluence: 1.0,
+      rank: 1,
+      direction: 'negative',
+    },
+    {
+      factorKey: 'factor-2',
+      factorLabel: 'Currency Fluctuation Impact (0–1 qualitative scale)',
+      rawElasticity: 0.7,
+      normalisedInfluence: 0.78,
+      rank: 2,
+      direction: 'negative',
+    },
+  ],
+  driversStatus: 'computed',
+  totalCount: 3,
+  hasMagnitudeData: true,
+}
+
+/**
+ * Fixture: RecommendationSection with story_headlines containing banned terms (Task D)
+ * Tests that story_headlines with "outperforms by" and "points" are filtered
+ */
+const fixtureWithBannedStoryHeadlines: RecommendationSectionData = {
+  recommendedOption: {
+    id: 'option-1',
+    label: 'Strategy Alpha',
+    p10: 30,
+    p50: 60,
+    p90: 90,
+    expected: 60,
+    outcome: { mean: 60, p10: 30, p50: 60, p90: 90 },
+    isRecommended: true,
+    winProbability: 0.75,
+    rank: 1,
+  },
+  allOptions: [
+    {
+      id: 'option-1',
+      label: 'Strategy Alpha',
+      p10: 30,
+      p50: 60,
+      p90: 90,
+      expected: 60,
+      outcome: { mean: 60, p10: 30, p50: 60, p90: 90 },
+      isRecommended: true,
+      winProbability: 0.75,
+      rank: 1,
+    },
+    {
+      id: 'option-2',
+      label: 'Strategy Beta',
+      p10: 20,
+      p50: 45,
+      p90: 75,
+      expected: 45,
+      outcome: { mean: 45, p10: 20, p50: 45, p90: 75 },
+      isRecommended: false,
+      winProbability: 0.25,
+      rank: 2,
+    },
+  ],
+  goalLabel: 'maximize ROI',
+  isSingleOption: false,
+  analysisStatus: 'computed',
+  outcomeUnit: 'percent',
+  recommendationStability: 0.70,
+  // Task D: story_headlines with banned substrings
+  storyHeadlines: {
+    'option-1': 'Strategy Alpha outperforms by 15 points under most conditions',
+    'option-2': 'Strategy Beta trails by 10 points but outperforms by 5 points in volatile markets',
+  },
+}
+
+/**
  * Fixture: ConfidenceSection data
  */
 const confidenceData: ConfidenceSectionData = {
@@ -296,6 +409,21 @@ describe('Banned Strings Integration Test', () => {
       expect(screen.queryByText(/Runner-up/i)).not.toBeInTheDocument()
       expect(screen.queryByText(/win probability/i)).not.toBeInTheDocument()
     })
+
+    it('Task D: does not render story headlines with "outperforms by" or "points"', () => {
+      render(<RecommendationSection data={fixtureWithBannedStoryHeadlines} />)
+
+      const html = document.body.innerHTML
+
+      // Story headlines are no longer rendered (Task A removed them)
+      // Verify banned terms don't appear anywhere
+      expect(html).not.toContain('outperforms by')
+      expect(html).not.toContain('points')
+
+      // Ensure the component still renders correctly (may have multiple instances)
+      expect(screen.getAllByText('Strategy Alpha').length).toBeGreaterThan(0)
+      expect(screen.getAllByText('Strategy Beta').length).toBeGreaterThan(0)
+    })
   })
 
   describe('DriversSection', () => {
@@ -316,6 +444,21 @@ describe('Banned Strings Integration Test', () => {
       expect(screen.getByText('Tech Lead Hired')).toBeInTheDocument()
       expect(screen.queryByText(/\(0-100\)/)).not.toBeInTheDocument()
       expect(screen.queryByText(/\(0\/1\)/)).not.toBeInTheDocument()
+    })
+
+    it('Task D: strips (0–1 qualitative scale) encoding from production payloads', () => {
+      render(<DriversSection data={driversDataWithQualitativeScale} goalLabel="test goal" />)
+
+      // cleanFactorLabel should strip (0–1 qualitative scale) patterns
+      // Top 2 drivers are shown by default
+      expect(screen.getByText('Competitive Response Intensity')).toBeInTheDocument()
+      expect(screen.getByText('Currency Fluctuation Impact')).toBeInTheDocument()
+
+      // Encoding notation should NOT appear anywhere in rendered output
+      const html = document.body.innerHTML
+      expect(html).not.toContain('(0–1 qualitative scale)')
+      expect(html).not.toContain('qualitative scale')
+      expect(html).not.toContain('share of £200k cap')
     })
   })
 
@@ -351,6 +494,10 @@ describe('Banned Strings Integration Test', () => {
       expect(BANNED_STRINGS).toContain('of scenarios')
       expect(BANNED_STRINGS).toContain('win probability')
       expect(BANNED_STRINGS).toContain('(0/1)')
+      // Task D additions
+      expect(BANNED_STRINGS).toContain('outperforms by')
+      expect(BANNED_STRINGS).toContain('points')
+      expect(BANNED_STRINGS).toContain('(0–1 qualitative scale)')
     })
   })
 })

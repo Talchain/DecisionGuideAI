@@ -34,6 +34,8 @@ export interface TopFragileEdge {
   alternativeWinnerLabel: string
   alternativeWinnerId?: string
   switchProbability?: number
+  /** Task C: Whether labels were successfully resolved (true) or fell back to "Unknown" (false) */
+  labelsResolved?: boolean
 }
 
 interface RecommendationSectionProps {
@@ -56,36 +58,6 @@ interface RecommendationSectionProps {
   fragileEdgeCount?: number
   /** Count of robust edges (for "Learn more" expand) */
   robustEdgeCount?: number
-}
-
-/**
- * Fix B: Clean encoding patterns from story headlines (anywhere in string).
- * PLoT generates headlines like "Factor X (0/1) → Outcome Y" which need cleaning.
- * Removes patterns: (0/1), (0-1), (0–1), (yes/no), (binary), (on/off), (true/false)
- * Also handles currency/percentage patterns: (0–1, share of £20k cap)
- */
-function cleanStoryHeadline(headline: string): string {
-  if (!headline) return ''
-
-  // Patterns to remove (anywhere in string, not just at end)
-  const patterns = [
-    /\s*\(0\/1\)/gi,
-    /\s*\(0[–-]1\)/gi,
-    /\s*\(0[–-]1,\s*[^)]+\)/gi,  // (0-1, share of £20k cap)
-    /\s*\(yes\/no\)/gi,
-    /\s*\(binary\)/gi,
-    /\s*\(on\/off\)/gi,
-    /\s*\(true\/false\)/gi,
-    /\s*\(\d+[–-]\d+\)/gi,  // Generic numeric ranges like (0-100), (1-5)
-  ]
-
-  let cleaned = headline
-  for (const pattern of patterns) {
-    cleaned = cleaned.replace(pattern, '')
-  }
-
-  // Clean up double spaces and trim
-  return cleaned.replace(/\s+/g, ' ').trim()
 }
 
 /**
@@ -565,7 +537,6 @@ function OptionRow({
   onFocus,
   outcomeUnit,
   outcomeUnitSymbol,
-  storyHeadline,
   goalThreshold,
   recommendationLabel,
 }: {
@@ -573,8 +544,6 @@ function OptionRow({
   onFocus?: (nodeId: string) => void
   outcomeUnit?: OutcomeUnitType
   outcomeUnitSymbol?: string
-  /** M1 Coaching: Story headline for this option */
-  storyHeadline?: string
   goalThreshold?: number | null
   /** P0 Results Brief: Stability-based recommendation label (null = suppress) */
   recommendationLabel?: string | null
@@ -639,13 +608,8 @@ function OptionRow({
             </span>
           )}
         </div>
-        {/* Fix B: Story headline only for winning option, cleaned of encoding patterns */}
-        {/* Non-winning options use rank labels instead (story_headline contains "Runner-up" from PLoT) */}
-        {storyHeadline && option.isRecommended && (
-          <p className={`${typography.caption} text-text-light mt-0.5`}>
-            {cleanStoryHeadline(storyHeadline)}
-          </p>
-        )}
+        {/* P1: Story headlines removed from all option cards - banned language risk */}
+        {/* Winner shows badge only, non-winners show rank-based labels in right column */}
       </div>
       <div className="flex flex-col items-end">
         {/* Fix A: Show goal probability when available, otherwise rank-based labels */}
@@ -712,13 +676,8 @@ export function RecommendationSection({
     goalThreshold,
   } = data
 
-  // Task B: All-or-none story headlines guard
-  // If any option is missing a headline, show none to avoid inconsistent UI
-  const showStoryHeadlines = useMemo(() => {
-    if (!storyHeadlines || Object.keys(storyHeadlines).length === 0) return false
-    // All-or-none: if any option is missing a headline, show none
-    return allOptions.every(opt => storyHeadlines[opt.id])
-  }, [storyHeadlines, allOptions])
+  // P1: Story headlines removed from option cards - banned language risk
+  // storyHeadlines data is still available for debug/coaching but not rendered
 
   // Error state
   if (analysisStatus === 'failed' || analysisStatus === 'blocked') {
@@ -897,7 +856,6 @@ export function RecommendationSection({
                 onFocus={onFocusNode}
                 outcomeUnit={outcomeUnit}
                 outcomeUnitSymbol={outcomeUnitSymbol}
-                storyHeadline={showStoryHeadlines ? storyHeadlines?.[option.id] : undefined}
                 goalThreshold={goalThreshold}
                 recommendationLabel={getRecommendationLabel(recommendationStability)}
               />

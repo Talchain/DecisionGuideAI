@@ -1535,9 +1535,17 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
 
     // =========================================================================
     // P1 Integration: Extract topFragileEdge for HeroSection bullet 3
+    // Task C fix: Use ALL fragile edges (not just high-risk) sorted by switch_probability
+    // Only show stable template when fragile_edges is genuinely empty (length === 0)
     // =========================================================================
     const topFragileEdgeData = (() => {
-      const fe = sortedHighRiskEdges[0]
+      // Sort ALL fragile edges by switch_probability descending, pick top one
+      const allSortedByRisk = [...dedupedFragileEdges].sort((a: any, b: any) => {
+        const bProb = b.switch_probability ?? b.marginal_switch_probability ?? -Infinity
+        const aProb = a.switch_probability ?? a.marginal_switch_probability ?? -Infinity
+        return bProb - aProb
+      })
+      const fe = allSortedByRisk[0]
       if (!fe) return undefined
 
       const parseEdgeIdLocal = (edgeId: string | undefined) => {
@@ -1555,20 +1563,39 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       const toId = (typeof fe === 'string' ? undefined : (fe.to_id ?? fe.toId ?? fe.target)) ?? parsed.toId
       const altWinnerId = fe.alternative_winner_id ?? fe.alternativeWinnerId
 
+      // Track if we needed to fall back to graph lookup (PLoT didn't enrich labels)
+      const apiFromLabel = nonEmptyLabel(fe.from_label) ?? nonEmptyLabel(fe.fromLabel)
+      const apiToLabel = nonEmptyLabel(fe.to_label) ?? nonEmptyLabel(fe.toLabel)
+      const graphFromLabel = getNodeLabel(fromId)
+      const graphToLabel = getNodeLabel(toId)
+
+      // Task C: Console.warn when labels are ABSENT and we use graph lookup
+      if (!apiFromLabel && graphFromLabel && import.meta.env.DEV) {
+        console.warn(`[useResultsSectionData] Fragile edge from_label ABSENT, using graph lookup: ${fromId} → "${graphFromLabel}"`)
+      }
+      if (!apiToLabel && graphToLabel && import.meta.env.DEV) {
+        console.warn(`[useResultsSectionData] Fragile edge to_label ABSENT, using graph lookup: ${toId} → "${graphToLabel}"`)
+      }
+
       const sourceName = stripEncodingNotation(
-        nonEmptyLabel(fe.from_label) ??
-        nonEmptyLabel(fe.fromLabel) ??
-        getNodeLabel(fromId) ??
+        apiFromLabel ??
+        graphFromLabel ??
         formatUnattributedId(fromId) ??
         'Unknown factor'
       )
       const targetName = stripEncodingNotation(
-        nonEmptyLabel(fe.to_label) ??
-        nonEmptyLabel(fe.toLabel) ??
-        getNodeLabel(toId) ??
+        apiToLabel ??
+        graphToLabel ??
         formatUnattributedId(toId) ??
         'Unknown target'
       )
+
+      // Task C: Track if labels were successfully resolved
+      // If both source and target are "Unknown" or "Not attributed", set flag for generic bullet
+      const sourceResolved = sourceName !== 'Unknown factor' && !sourceName.startsWith('Not attributed:')
+      const targetResolved = targetName !== 'Unknown target' && !targetName.startsWith('Not attributed:')
+      const labelsResolved = sourceResolved && targetResolved
+
       const alternativeWinnerLabel = stripEncodingNotation(
         nonEmptyLabel(fe.alternative_winner_label) ??
         nonEmptyLabel(fe.alternativeWinnerLabel) ??
@@ -1587,6 +1614,8 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
         alternativeWinnerLabel,
         alternativeWinnerId: altWinnerId,
         switchProbability: fe.switch_probability ?? fe.marginal_switch_probability,
+        // Task C: Flag for HeroSection to show generic bullet when labels unresolved
+        labelsResolved,
       }
     })()
 

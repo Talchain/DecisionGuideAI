@@ -154,3 +154,59 @@ describe('stripEncodingNotation', () => {
     expect(stripEncodingNotation('')).toBe('')
   })
 })
+
+/**
+ * P1 Brief Task B: Comprehensive production payload tests
+ * These exact strings are from real production payloads
+ */
+describe('production payload patterns (P1 Task B)', () => {
+  it('strips (0–1, share of £200k cap) with en-dash', () => {
+    const result = cleanFactorLabel('Regulatory Compliance Cost (0–1, share of £200k cap)')
+    expect(result.label).toBe('Regulatory Compliance Cost')
+  })
+
+  it('strips (0–1 qualitative scale) without comma', () => {
+    const result = cleanFactorLabel('Competitive Response Intensity (0–1 qualitative scale)')
+    expect(result.label).toBe('Competitive Response Intensity')
+  })
+
+  it('strips another (0–1 qualitative scale) variant', () => {
+    const result = cleanFactorLabel('Currency Fluctuation Impact (0–1 qualitative scale)')
+    expect(result.label).toBe('Currency Fluctuation Impact')
+  })
+
+  it('strips (0/1) boolean encoding', () => {
+    expect(stripEncodingNotation('Tech Lead Hired (0/1)')).toBe('Tech Lead Hired')
+  })
+
+  it('strips another (0/1) boolean encoding', () => {
+    expect(stripEncodingNotation('Developers Hired (0/1)')).toBe('Developers Hired')
+  })
+
+  it('strips (0–1, share of £100k cap)', () => {
+    const result = cleanFactorLabel('Advertising Spend (0–1, share of £100k cap)')
+    expect(result.label).toBe('Advertising Spend')
+  })
+
+  it('strips (0-1) with ASCII hyphen', () => {
+    const result = cleanFactorLabel('Some Factor (0-1)')
+    expect(result.label).toBe('Some Factor')
+  })
+
+  it('preserves labels without encoding', () => {
+    const result = cleanFactorLabel('No Encoding Here')
+    expect(result.label).toBe('No Encoding Here')
+  })
+
+  // Additional edge cases from production
+  it('strips (0–1) bare encoding with en-dash', () => {
+    const result = cleanFactorLabel('Market Share (0–1)')
+    expect(result.label).toBe('Market Share')
+  })
+
+  it('strips pattern in middle of label (edge case)', () => {
+    // Should not happen in production, but test defensively
+    const result = cleanFactorLabel('Factor A (0/1) Description')
+    expect(result.label).toBe('Factor A Description')
+  })
+})

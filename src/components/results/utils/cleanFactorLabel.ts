@@ -5,10 +5,13 @@
  * Task 7: Fix encoding leak in labels.
  *
  * Patterns stripped:
- * - (0/1), (0–1), (0-1)
- * - (0–1, relative scale), (0–1, share of £20k cap)
- * - (yes/no), (binary), (on/off), (true/false)
+ * - (0/1), (0–1), (0-1) - bare encoding
+ * - (0–1 qualitative scale), (0–1, share of £20k cap) - encoding with context
+ * - (yes/no), (binary), (on/off), (true/false) - boolean text
  * - Generic numeric ranges like (0-100), (0-10)
+ *
+ * The regex matches opening paren, 0, any dash char (hyphen/en-dash/em-dash/slash),
+ * 1, then anything up to closing paren.
  */
 
 export interface CleanedLabel {
@@ -19,6 +22,17 @@ export interface CleanedLabel {
 }
 
 /**
+ * Master regex for ALL encoding patterns.
+ * Matches: (0-1...), (0–1...), (0—1...), (0/1)
+ * Uses Unicode code points:
+ * - \u002D = hyphen-minus (-)
+ * - \u2013 = en-dash (–)
+ * - \u2014 = em-dash (—)
+ * - \/ = forward slash (for 0/1 boolean)
+ */
+const ENCODING_PATTERN = /\s*\(0[\u002D\u2013\u2014\/]1[^)]*\)\s*/g
+
+/**
  * Strip parenthetical encoding notation from a label.
  *
  * @param rawLabel - The raw label that may contain encoding patterns
@@ -26,50 +40,46 @@ export interface CleanedLabel {
  *
  * @example
  * cleanFactorLabel("Tech Lead Hired (0/1)") // { label: "Tech Lead Hired", qualifier: "Yes/No" }
- * cleanFactorLabel("Budget (0–1, share of £20k cap)") // { label: "Budget", qualifier: undefined }
- * cleanFactorLabel("Market Size (0-100)") // { label: "Market Size", qualifier: undefined }
+ * cleanFactorLabel("Budget (0–1, share of £20k cap)") // { label: "Budget" }
+ * cleanFactorLabel("Competitive Response Intensity (0–1 qualitative scale)") // { label: "Competitive Response Intensity" }
+ * cleanFactorLabel("Market Size (0-100)") // { label: "Market Size" }
  */
 export function cleanFactorLabel(rawLabel: string): CleanedLabel {
   if (!rawLabel || typeof rawLabel !== 'string') {
     return { label: rawLabel || '' }
   }
 
-  // Patterns to strip from labels (in priority order)
-  const patterns: Array<{
-    pattern: RegExp
-    qualifier?: string
-    replace?: (match: string, ...groups: string[]) => string
-  }> = [
-    // Binary patterns - strip and add qualifier
-    { pattern: /\s*\(0\/1\)\s*$/i, qualifier: 'Yes/No' },
-    { pattern: /\s*\(0 or 1\)\s*$/i, qualifier: 'Yes/No' },
-    { pattern: /\s*\(yes\/no\)\s*$/i, qualifier: 'Yes/No' },
-    { pattern: /\s*\(binary\)\s*$/i, qualifier: 'Yes/No' },
-    { pattern: /\s*\(on\/off\)\s*$/i, qualifier: 'On/Off' },
-    { pattern: /\s*\(true\/false\)\s*$/i, qualifier: 'True/False' },
-    // Range patterns with context - strip entirely
-    { pattern: /\s*\(0[–-]1,?\s*relative scale\)\s*$/i },
-    { pattern: /\s*\(0[–-]1,?\s*share of\s+[^)]+\)\s*$/i },
-    // Simple range patterns - strip entirely
-    { pattern: /\s*\(0[–-]1\)\s*$/i },
-    { pattern: /\s*\(0[–-]100\)\s*$/i },
-    { pattern: /\s*\(0[–-]10\)\s*$/i },
-    { pattern: /\s*\(\d+[–-]\d+\)\s*$/i }, // Generic numeric range
+  // Determine qualifier based on pattern type
+  let qualifier: string | undefined
+  if (/\(0\/1\)/i.test(rawLabel)) {
+    qualifier = 'Yes/No'
+  } else if (/\(0 or 1\)/i.test(rawLabel)) {
+    qualifier = 'Yes/No'
+  } else if (/\(yes\/no\)/i.test(rawLabel)) {
+    qualifier = 'Yes/No'
+  } else if (/\(binary\)/i.test(rawLabel)) {
+    qualifier = 'Yes/No'
+  } else if (/\(on\/off\)/i.test(rawLabel)) {
+    qualifier = 'On/Off'
+  } else if (/\(true\/false\)/i.test(rawLabel)) {
+    qualifier = 'True/False'
+  }
+
+  // First, handle the master encoding pattern (0-1, 0–1, 0/1 with anything after)
+  let cleanedLabel = rawLabel.replace(ENCODING_PATTERN, ' ')
+
+  // Also handle other boolean text patterns
+  const otherPatterns = [
+    /\s*\(0 or 1\)\s*/gi,
+    /\s*\(yes\/no\)\s*/gi,
+    /\s*\(binary\)\s*/gi,
+    /\s*\(on\/off\)\s*/gi,
+    /\s*\(true\/false\)\s*/gi,
+    /\s*\(\d+[\u002D\u2013\u2014]\d+\)\s*/g, // Generic numeric ranges like (0-100)
   ]
 
-  let cleanedLabel = rawLabel
-  let qualifier: string | undefined
-
-  for (const { pattern, qualifier: q, replace } of patterns) {
-    if (pattern.test(cleanedLabel)) {
-      if (replace) {
-        cleanedLabel = cleanedLabel.replace(pattern, replace as never)
-      } else {
-        cleanedLabel = cleanedLabel.replace(pattern, '')
-      }
-      if (q) qualifier = q
-      break // Only match first pattern
-    }
+  for (const pattern of otherPatterns) {
+    cleanedLabel = cleanedLabel.replace(pattern, ' ')
   }
 
   return { label: cleanedLabel.trim(), qualifier }

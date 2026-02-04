@@ -64,6 +64,8 @@ export interface HeroSectionProps {
     toLabel: string
     alternativeWinnerLabel: string
     switchProbability?: number
+    /** Task C: Whether labels were successfully resolved */
+    labelsResolved?: boolean
   }
 
   // Technical details for "Learn more" expand
@@ -149,6 +151,11 @@ function GraphLink({
   onFocus?: (nodeId: string) => void
   className?: string
 }) {
+  // Task D guard: Early return for falsy nodeId to avoid broken focus
+  if (!nodeId) {
+    return <span className={className}>{label}</span>
+  }
+
   const handleClick = useCallback(() => {
     if (onFocus) {
       onFocus(nodeId)
@@ -392,17 +399,27 @@ export function HeroSection({
     }
 
     // Bullet 3: Fragile edge / risk
+    // Task C: Only show stable when NO fragile edges exist
+    // If fragile edges exist but labels unresolved, show generic risk bullet
     if (topFragileEdge) {
       const fromLabel = stripEncodingNotation(topFragileEdge.fromLabel)
       const toLabel = stripEncodingNotation(topFragileEdge.toLabel)
       const altLabel = stripEncodingNotation(topFragileEdge.alternativeWinnerLabel)
-      bullets.push({
-        text: `If the link between ${fromLabel} and ${toLabel} is weaker than expected, ${altLabel} becomes the stronger option`,
-        refs: [
-          { id: topFragileEdge.fromId, label: fromLabel },
-          { id: topFragileEdge.toId, label: toLabel },
-        ],
-      })
+
+      // Task C: If labels couldn't be resolved, show generic risk bullet
+      if (topFragileEdge.labelsResolved === false) {
+        bullets.push({
+          text: "Some assumptions could change the result — expand 'What needs attention' for details",
+        })
+      } else {
+        bullets.push({
+          text: `If the link between ${fromLabel} and ${toLabel} is weaker than expected, ${altLabel} becomes the stronger option`,
+          refs: [
+            { id: topFragileEdge.fromId, label: fromLabel },
+            { id: topFragileEdge.toId, label: toLabel },
+          ],
+        })
+      }
     } else {
       bullets.push({
         text: 'Result is stable across all assumptions tested',
