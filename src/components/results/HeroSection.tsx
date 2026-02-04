@@ -356,19 +356,31 @@ export function HeroSection({
     const bullets: M1Bullet[] = []
 
     // Bullet 1: Comparative
+    // Task 1 fix: Low stability (< 0.55) gets different messaging to avoid contradiction with headline
+    const isLowStability = recommendationStability != null && recommendationStability < 0.55
+
     if (optionCount === 1) {
       bullets.push({
         text: 'Only one option analysed — consider adding alternatives for comparison',
       })
     } else if (winnerGoalProbability != null && runnerUpGoalProbability != null && goalThreshold != null) {
+      // Goal probability present - show percentage comparison
+      const suffix = isLowStability ? ' — a narrow gap' : ''
       bullets.push({
-        text: `${formatPercent(winnerGoalProbability)} vs ${formatPercent(runnerUpGoalProbability)} chance of achieving your goal`,
+        text: `${formatPercent(winnerGoalProbability)} vs ${formatPercent(runnerUpGoalProbability)} chance of achieving your goal${suffix}`,
         refs: [
           { id: winnerId, label: winnerLabel },
           ...(runnerUpId && runnerUpLabel ? [{ id: runnerUpId, label: runnerUpLabel }] : []),
         ],
       })
+    } else if (isLowStability) {
+      // Low stability without goal probability - use "perform similarly" wording
+      bullets.push({
+        text: `Options perform similarly — ${winnerLabel} wins slightly more often`,
+        refs: [{ id: winnerId, label: winnerLabel }],
+      })
     } else {
+      // Normal stability without goal probability
       bullets.push({
         text: `${winnerLabel} outperforms alternatives most consistently`,
         refs: [{ id: winnerId, label: winnerLabel }],
@@ -438,6 +450,7 @@ export function HeroSection({
     runnerUpId,
     topDrivers,
     topFragileEdge,
+    recommendationStability, // Task 1: Include for low-stability bullet variant
   ])
 
   // Use M2 bullets if available
@@ -459,7 +472,7 @@ export function HeroSection({
       : 'unknown'
 
     // Build narrative based on available data
-    let narrative = `Based on ${nSamples.toLocaleString()} simulated scenarios, `
+    let narrative = `Based on ${nSamples.toLocaleString()} simulations, `
 
     if (winnerGoalProbability != null && runnerUpGoalProbability != null && goalThreshold != null) {
       narrative += `${winnerLabel} achieves the goal in ${formatPercent(winnerGoalProbability)} of cases compared to ${formatPercent(runnerUpGoalProbability)} for ${runnerUpLabel ?? 'the runner-up'}. `
@@ -634,7 +647,7 @@ export function HeroSection({
               )}
               {nSamples != null && (
                 <>
-                  <dt>Scenarios simulated</dt>
+                  <dt>Simulations run</dt>
                   <dd>{nSamples.toLocaleString()}</dd>
                 </>
               )}

@@ -21,6 +21,7 @@ vi.mock('../../../canvas/utils/focusHelpers', () => ({
  * Banned copy patterns that should never appear in the Results Panel
  * P1 Brief: "scenarios", "recommendation", "Runner-up", "win probability", "(0/1)"
  * Task D additions: "outperforms by", "points"
+ * Final polish: "simulated scenarios", "Scenarios simulated"
  */
 const BANNED_STRINGS = [
   'YOUR OBJECTIVE',           // Should be sentence case: "Your objective"
@@ -38,6 +39,8 @@ const BANNED_STRINGS = [
   'outperforms by',           // Task D: story_headline banned term
   'points',                   // Task D: story_headline banned term (e.g., "leads by 5 points")
   '(0–1 qualitative scale)',  // Task D: encoding pattern that should be stripped
+  'simulated scenarios',      // Final polish: use "simulations" instead
+  'Scenarios simulated',      // Final polish: use "Simulations run" instead
 ]
 
 /**
@@ -498,6 +501,9 @@ describe('Banned Strings Integration Test', () => {
       expect(BANNED_STRINGS).toContain('outperforms by')
       expect(BANNED_STRINGS).toContain('points')
       expect(BANNED_STRINGS).toContain('(0–1 qualitative scale)')
+      // Final polish additions
+      expect(BANNED_STRINGS).toContain('simulated scenarios')
+      expect(BANNED_STRINGS).toContain('Scenarios simulated')
     })
   })
 })

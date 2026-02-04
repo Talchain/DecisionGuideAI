@@ -119,6 +119,38 @@ describe('HeroSection', () => {
       expect(bulletWithText).toBeInTheDocument()
     })
 
+    it('shows "narrow gap" suffix when low stability AND goal probabilities present', () => {
+      render(
+        <HeroSection
+          {...baseProps}
+          winnerGoalProbability={0.55}
+          runnerUpGoalProbability={0.50}
+          runnerUpLabel="Option B"
+          runnerUpId="option-b"
+          goalThreshold={100}
+          recommendationStability={0.53} // Below 0.55 threshold
+        />
+      )
+
+      expect(screen.getByText(/55% vs 50% chance of achieving your goal — a narrow gap/)).toBeInTheDocument()
+    })
+
+    it('shows "wins slightly more often" when low stability AND no goal probabilities', () => {
+      render(
+        <HeroSection
+          {...baseProps}
+          recommendationStability={0.53} // Below 0.55 threshold
+        />
+      )
+
+      const bullets = screen.getAllByRole('listitem')
+      const bulletWithText = bullets.find(li =>
+        li.textContent?.includes('Options perform similarly') &&
+        li.textContent?.includes('wins slightly more often')
+      )
+      expect(bulletWithText).toBeInTheDocument()
+    })
+
     it('shows single option message when optionCount is 1', () => {
       render(
         <HeroSection
@@ -361,7 +393,7 @@ describe('HeroSection', () => {
       fireEvent.click(expandButton)
 
       expect(screen.getByText('Analysis summary')).toBeInTheDocument()
-      expect(screen.getByText(/Based on 10,000 simulated scenarios/)).toBeInTheDocument()
+      expect(screen.getByText(/Based on 10,000 simulations/)).toBeInTheDocument()
     })
 
     it('collapses when "Show less" is clicked', () => {
