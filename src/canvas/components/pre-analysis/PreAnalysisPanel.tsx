@@ -358,6 +358,9 @@ export function PreAnalysisPanel({
         <M1TopActions
           topActions={data.topActions}
           onAddEvidence={handleAddEvidence}
+          onConfirm={handleConfirm}
+          onAssumption={handleAssumption}
+          onEdit={handleEdit}
           onHoverEnter={handleHoverElement}
           onHoverLeave={handleHoverClear}
         />

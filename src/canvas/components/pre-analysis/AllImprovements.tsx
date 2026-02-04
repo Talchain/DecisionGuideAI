@@ -374,6 +374,7 @@ function ImprovementRow({ item, onFocus, actionHandlers, isRemoving, onHoverEnte
   }
 
   // Verify items: single-line format "label · detail"
+  // Label truncates, AI estimate and icons never collapse
   if (item.category === 'verify') {
     // Build full text for title tooltip (shows on hover when truncated)
     const fullText = item.detail ? `${item.label} · ${item.detail}` : item.label
@@ -386,8 +387,9 @@ function ImprovementRow({ item, onFocus, actionHandlers, isRemoving, onHoverEnte
       >
         <div className="flex items-center gap-2">
           {/* Text content - flex-1 min-w-0 enables truncation */}
-          <div className="flex-1 min-w-0">
-            <p className="text-sm text-text-body truncate" title={fullText}>
+          <div className="flex-1 min-w-0 flex items-center text-sm" title={fullText}>
+            {/* Label truncates */}
+            <span className="truncate text-text-body">
               {item.focus ? (
                 <NodeLink
                   targetId={item.focus.id}
@@ -398,12 +400,13 @@ function ImprovementRow({ item, onFocus, actionHandlers, isRemoving, onHoverEnte
                   {item.label}
                 </NodeLink>
               ) : (
-                <span>{item.label}</span>
+                item.label
               )}
-              {item.detail && (
-                <span className="text-text-light"> · {item.detail}</span>
-              )}
-            </p>
+            </span>
+            {/* AI estimate never collapses */}
+            {item.detail && (
+              <span className="shrink-0 text-text-light"> · {item.detail}</span>
+            )}
           </div>
 
           {/* Fixed action column - shrink-0 prevents collapse */}

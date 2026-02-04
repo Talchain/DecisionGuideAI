@@ -9,7 +9,8 @@
  */
 
 import { useState, useCallback } from 'react'
-import { BiasIcon } from './primitives'
+import { BiasIcon, IconBtn } from './primitives'
+import { Check, Pencil, HelpCircle } from 'lucide-react'
 import type { ImprovementItem, ImprovementCategory } from './hooks/usePreAnalysisData'
 import { cleanFactorLabel } from '../../../components/results/utils/cleanFactorLabel'
 
@@ -18,6 +19,12 @@ interface M1TopActionsProps {
   topActions: ImprovementItem[]
   /** Handler for adding evidence to an edge */
   onAddEvidence?: (edgeId: string, evidence: string) => void
+  /** Handler for confirming a factor value */
+  onConfirm?: (nodeId: string) => void
+  /** Handler for marking a factor as assumption */
+  onAssumption?: (nodeId: string) => void
+  /** Handler for editing a node on canvas */
+  onEdit?: (nodeId: string) => void
   /** Handler for hovering over an element */
   onHoverEnter?: (type: 'node' | 'edge', id: string) => void
   /** Handler for clearing hover */
@@ -40,7 +47,7 @@ const categoryStyles: Record<ImprovementCategory, { border: string }> = {
   },
 }
 
-export function M1TopActions({ topActions, onAddEvidence, onHoverEnter, onHoverLeave }: M1TopActionsProps) {
+export function M1TopActions({ topActions, onAddEvidence, onConfirm, onAssumption, onEdit, onHoverEnter, onHoverLeave }: M1TopActionsProps) {
   // Track which evidence item is showing the input
   const [activeEvidenceInput, setActiveEvidenceInput] = useState<string | null>(null)
   const [evidenceValue, setEvidenceValue] = useState('')
@@ -105,6 +112,48 @@ export function M1TopActions({ topActions, onAddEvidence, onHoverEnter, onHoverL
 
               {/* Fixed action column - shrink-0 prevents collapse */}
               <div className="flex items-center gap-1 shrink-0">
+                {/* Verify items: show Confirm, Assumption, Edit icons */}
+                {item.category === 'verify' && (
+                  <>
+                    {onConfirm && (
+                      <IconBtn
+                        icon={Check}
+                        tooltip="Confirm this value"
+                        variant="confirm"
+                        onClick={() => {
+                          if (item.action?.targetId) {
+                            onConfirm(item.action.targetId)
+                          }
+                        }}
+                      />
+                    )}
+                    {onAssumption && (
+                      <IconBtn
+                        icon={HelpCircle}
+                        tooltip="Mark as assumption"
+                        variant="assume"
+                        onClick={() => {
+                          if (item.action?.targetId) {
+                            onAssumption(item.action.targetId)
+                          }
+                        }}
+                      />
+                    )}
+                    {onEdit && (
+                      <IconBtn
+                        icon={Pencil}
+                        tooltip="Edit on canvas"
+                        variant="edit"
+                        onClick={() => {
+                          if (item.action?.targetId) {
+                            onEdit(item.action.targetId)
+                          }
+                        }}
+                      />
+                    )}
+                  </>
+                )}
+
                 {/* + Source CTA for evidence items */}
                 {isEvidenceItem && onAddEvidence && !showInput && (
                   <button
@@ -119,8 +168,8 @@ export function M1TopActions({ topActions, onAddEvidence, onHoverEnter, onHoverL
                   </button>
                 )}
 
-                {/* Optional BiasIcon */}
-                {item.bias && !isEvidenceItem && (
+                {/* BiasIcon for Fix and Strengthen (not Verify or Evidence) */}
+                {item.bias && (item.category === 'fix' || item.category === 'strengthen') && (
                   <BiasIcon
                     bias={item.bias}
                     why={item.detail}
