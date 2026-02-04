@@ -169,14 +169,15 @@ describe('RecommendationSection', () => {
   })
 
   it('renders rank-based labels in option list when probability_of_goal absent (Fix A)', () => {
-    // mockData has no goalThreshold/goalProbability, so rank labels should show
+    // mockData has no goalThreshold/goalProbability, and we remove winProbability to test rank labels
     const dataWithRanks: RecommendationSectionData = {
       ...mockData,
       allOptions: mockData.allOptions.map((opt, idx) => ({
         ...opt,
         rank: idx + 1,
+        winProbability: undefined, // P2 Task 4: Remove win probability to test rank label fallback
       })),
-      recommendedOption: { ...mockData.recommendedOption!, rank: 1 },
+      recommendedOption: { ...mockData.recommendedOption!, rank: 1, winProbability: undefined },
     }
     render(<RecommendationSection data={dataWithRanks} />)
 
@@ -1492,7 +1493,7 @@ describe('RecommendationSection', () => {
 
       render(<RecommendationSection data={nearTieZeroGapData} />)
 
-      // Fix D3: "Too close to call" card removed - redundant with "No clear front-runner" + stability badge
+      // Fix D3: "Too close to call" card removed - redundant with "No clear winner" + stability badge
       expect(screen.queryByText(/Too close to call/)).not.toBeInTheDocument()
     })
 
@@ -1539,8 +1540,8 @@ describe('RecommendationSection', () => {
       expect(screen.queryByText(/Too close to call/)).not.toBeInTheDocument()
     })
 
-    it('shows No clear front-runner when stability is low (replaces Too close to call)', () => {
-      // Low stability (< 0.55) triggers "No clear front-runner" chip
+    it('shows No clear winner when stability is low (replaces Too close to call)', () => {
+      // Low stability (< 0.55) triggers "No clear winner" headline in HeroSection
       const lowStabilityData: RecommendationSectionData = {
         ...mockData,
         nearTie: undefined,
@@ -1549,9 +1550,9 @@ describe('RecommendationSection', () => {
 
       render(<RecommendationSection data={lowStabilityData} />)
 
-      // Fix D3: "Too close to call" removed, now shows "No clear front-runner" instead
+      // Fix D3: "Too close to call" removed, now shows "No clear winner" instead
       expect(screen.queryByText(/Too close to call/)).not.toBeInTheDocument()
-      expect(screen.getByText(/No clear front-runner/)).toBeInTheDocument()
+      expect(screen.getByText(/No clear winner/)).toBeInTheDocument()
     })
 
     it('does not show near-tie when nearTie undefined and stability is high', () => {

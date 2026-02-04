@@ -34,7 +34,7 @@ describe('HeroSection', () => {
       expect(screen.getByText(/Some analysis steps did not complete/)).toBeInTheDocument()
     })
 
-    it('shows no clear front-runner when stability < 0.55 (rule 2)', () => {
+    it('shows no clear winner when stability < 0.55 (rule 2)', () => {
       render(
         <HeroSection
           {...baseProps}
@@ -42,7 +42,7 @@ describe('HeroSection', () => {
         />
       )
 
-      expect(screen.getByText(/No clear front-runner/)).toBeInTheDocument()
+      expect(screen.getByText(/No clear winner/)).toBeInTheDocument()
     })
 
     it('shows goal probability when present (rule 3)', () => {
@@ -79,7 +79,7 @@ describe('HeroSection', () => {
         />
       )
 
-      expect(screen.getByText(/No clear front-runner/)).toBeInTheDocument()
+      expect(screen.getByText(/No clear winner/)).toBeInTheDocument()
       expect(screen.queryByText(/85% chance/)).not.toBeInTheDocument()
     })
   })
@@ -439,7 +439,7 @@ describe('HeroSection', () => {
         />
       )
 
-      expect(screen.getByText(/No clear front-runner/)).toBeInTheDocument()
+      expect(screen.getByText(/No clear winner/)).toBeInTheDocument()
       expect(screen.queryByText('Custom M2 headline')).not.toBeInTheDocument()
     })
 

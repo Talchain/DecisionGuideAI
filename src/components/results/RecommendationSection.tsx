@@ -143,15 +143,13 @@ function formatOutcome(
 
 /**
  * P0 Results Brief: Get recommendation label based on stability.
- * - stability >= 70%: "Strongest performer"
- * - stability 55-69%: "Current front-runner"
- * - stability < 55%: null (use "No clear front-runner" chip at section level)
+ * - stability >= 55%: "Strongest performer" (badge shown)
+ * - stability < 55%: null (no badge - "No clear winner" headline handles this)
  */
 function getRecommendationLabel(stability: number | undefined): string | null {
   if (stability == null) return 'Strongest performer' // Fallback to default if no stability data
-  if (stability >= 0.70) return 'Strongest performer'
-  if (stability >= 0.55) return 'Current front-runner'
-  return null // Low stability - show "No clear front-runner" at section level instead
+  if (stability >= 0.55) return 'Strongest performer'
+  return null // Low stability - no badge shown
 }
 
 /**
@@ -551,15 +549,18 @@ function OptionRow({
   outcomeUnit,
   outcomeUnitSymbol,
   goalThreshold,
-  recommendationLabel,
+  showBadge,
+  isCloseCall,
 }: {
   option: OptionResult
   onFocus?: (nodeId: string) => void
   outcomeUnit?: OutcomeUnitType
   outcomeUnitSymbol?: string
   goalThreshold?: number | null
-  /** P0 Results Brief: Stability-based recommendation label (null = suppress) */
-  recommendationLabel?: string | null
+  /** P2 Task 4: Whether to show "Strongest performer" badge (winner only, not in close-call) */
+  showBadge?: boolean
+  /** P2 Task 4: Close-call scenario - win probability diff < 2% */
+  isCloseCall?: boolean
 }) {
   const handleClick = useCallback(() => {
     if (onFocus) {
@@ -570,7 +571,6 @@ function OptionRow({
   }, [option.id, onFocus])
 
   // Fix A: Only show goalProbability when both threshold AND probability are present
-  // When probability_of_goal is absent, show rank-based labels instead of "X expected"
   const showGoalProbability = goalThreshold != null && option.goalProbability != null
 
   // Task 2.2: Format delta from baseline (only for non-baseline options)
@@ -578,15 +578,30 @@ function OptionRow({
     ? formatDelta(option.deltaFromBaseline, outcomeUnit, outcomeUnitSymbol)
     : null
 
-  // Fix A: Rank-based labels for ALL options when probability is absent
-  // rank 1 = "Strongest performer", rank 2 = "Second strongest", etc.
-  const getRankLabel = (rank: number | undefined): string => {
+  // P2 Task 4: Format win probability as "Wins in X% of simulations"
+  const formatWinProbability = (wp: number | null | undefined): string => {
+    if (wp == null) return '—'
+    return `Wins in ${Math.round(wp * 100)}% of simulations`
+  }
+
+  // Determine what to show in the right column
+  const rightColumnContent = useMemo(() => {
+    // Priority 1: If goal probability is available and threshold is set, show goal probability
+    if (showGoalProbability && option.goalProbability != null) {
+      return `${formatPercent(option.goalProbability)} chance of achieving your goal`
+    }
+    // Priority 2: Show win probability if available
+    if (option.winProbability != null) {
+      return formatWinProbability(option.winProbability)
+    }
+    // Fallback: Show rank-based label
+    const rank = option.rank
     if (rank == null) return '—'
     if (rank === 1) return 'Strongest performer'
     if (rank === 2) return 'Second strongest'
     if (rank === 3) return 'Third strongest'
     return `${rank}th strongest`
-  }
+  }, [showGoalProbability, option.goalProbability, option.winProbability, option.rank])
 
   return (
     <div
@@ -598,7 +613,7 @@ function OptionRow({
         w-full text-left px-3 py-2 rounded-lg transition-colors flex items-center justify-between cursor-pointer
         bg-panel border border-panel-border hover:bg-panel-hover
         focus:outline-none focus:ring-2 focus:ring-info-500 focus:ring-offset-1
-        ${option.isRecommended ? 'border-l-4 border-l-success' : ''}
+        ${showBadge ? 'border-l-4 border-l-success' : ''}
       `}
       aria-label={`Focus on ${option.label} in model`}
     >
@@ -609,10 +624,10 @@ function OptionRow({
           >
             {option.label}
           </span>
-          {/* Task 3: Stability-based recommendation label (not "Recommended") */}
-          {option.isRecommended && recommendationLabel && (
+          {/* P2 Task 4: Show "Strongest performer" badge for winner (not in close-call) */}
+          {showBadge && !isCloseCall && (
             <span className="text-xs bg-success-light text-success px-1.5 py-0.5 rounded">
-              {recommendationLabel}
+              Strongest performer
             </span>
           )}
           {option.isBaseline && (
@@ -621,15 +636,10 @@ function OptionRow({
             </span>
           )}
         </div>
-        {/* P1: Story headlines removed from all option cards - banned language risk */}
-        {/* Winner shows badge only, non-winners show rank-based labels in right column */}
       </div>
       <div className="flex flex-col items-end">
-        {/* Fix A: Show goal probability when available, otherwise rank-based labels */}
         <span className="text-sm text-text-body">
-          {showGoalProbability && option.goalProbability != null
-            ? `${formatPercent(option.goalProbability)} chance of achieving your goal`
-            : getRankLabel(option.rank)}
+          {rightColumnContent}
         </span>
         {deltaText && (
           <span className="text-xs text-text-light">
@@ -848,17 +858,42 @@ export function RecommendationSection({
         <div className="space-y-2">
           <h4 className="text-sm text-slate-600">How this compares:</h4>
           <div className="space-y-2">
-            {allOptions.map((option) => (
-              <OptionRow
-                key={option.id}
-                option={option}
-                onFocus={onFocusNode}
-                outcomeUnit={outcomeUnit}
-                outcomeUnitSymbol={outcomeUnitSymbol}
-                goalThreshold={goalThreshold}
-                recommendationLabel={getRecommendationLabel(recommendationStability)}
-              />
-            ))}
+            {(() => {
+              // P2 Task 4: Sort by win_probability descending, determine winner and close-call
+              // Tiebreaker: isRecommended (backend-determined winner) for stable sort when wpA === wpB
+              const sortedOptions = [...allOptions].sort((a, b) => {
+                const wpA = a.winProbability ?? 0
+                const wpB = b.winProbability ?? 0
+                if (wpB !== wpA) return wpB - wpA // Descending by win probability
+                // Tiebreaker: recommended option first
+                if (a.isRecommended && !b.isRecommended) return -1
+                if (b.isRecommended && !a.isRecommended) return 1
+                return 0
+              })
+
+              // Determine winner (highest winProbability)
+              const winnerWp = sortedOptions[0]?.winProbability ?? 0
+              const secondWp = sortedOptions[1]?.winProbability ?? 0
+              const winnerId = sortedOptions[0]?.id
+
+              // Close-call: win probability diff < 2% (only when both have actual win probabilities)
+              // Don't trigger close-call when win probabilities are missing - fallback to badge display
+              const hasActualWinProbs = sortedOptions[0]?.winProbability != null && sortedOptions[1]?.winProbability != null
+              const isCloseCall = hasActualWinProbs && Math.abs(winnerWp - secondWp) < 0.02
+
+              return sortedOptions.map((option) => (
+                <OptionRow
+                  key={option.id}
+                  option={option}
+                  onFocus={onFocusNode}
+                  outcomeUnit={outcomeUnit}
+                  outcomeUnitSymbol={outcomeUnitSymbol}
+                  goalThreshold={goalThreshold}
+                  showBadge={option.id === winnerId && (recommendationStability == null || recommendationStability >= 0.55)}
+                  isCloseCall={isCloseCall}
+                />
+              ))
+            })()}
           </div>
 
           {/* Task 5: Similar outcomes explanation with win probability */}

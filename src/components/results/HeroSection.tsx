@@ -329,7 +329,7 @@ export function HeroSection({
 
     // Precedence rule 2: Low stability (< 0.55)
     if (recommendationStability != null && recommendationStability < 0.55) {
-      return 'No clear front-runner — results are sensitive to assumptions'
+      return 'No clear winner — results are sensitive to assumptions'
     }
 
     // Precedence rule 3: Goal probability present
@@ -475,9 +475,16 @@ export function HeroSection({
     let narrative = `Based on ${nSamples.toLocaleString()} simulations, `
 
     if (winnerGoalProbability != null && runnerUpGoalProbability != null && goalThreshold != null) {
-      narrative += `${winnerLabel} achieves the goal in ${formatPercent(winnerGoalProbability)} of cases compared to ${formatPercent(runnerUpGoalProbability)} for ${runnerUpLabel ?? 'the runner-up'}. `
+      narrative += `${winnerLabel} achieves the goal in ${formatPercent(winnerGoalProbability)} of cases compared to ${formatPercent(runnerUpGoalProbability)} for ${runnerUpLabel ?? 'the second option'}. `
     } else {
-      narrative += `${winnerLabel} outperforms alternatives most consistently. `
+      // Task 1: Apply tiered stability logic (same as headline)
+      if (recommendationStability != null && recommendationStability < 0.55) {
+        narrative += `options perform similarly. ${winnerLabel} wins slightly more often. `
+      } else if (recommendationStability != null && recommendationStability < 0.70) {
+        narrative += `${winnerLabel} performs strongest in more simulations, but the result is sensitive to assumptions. `
+      } else {
+        narrative += `${winnerLabel} outperforms alternatives most consistently. `
+      }
     }
 
     narrative += `The result stays the same in ${stabilityPct} of assumption tests.`
@@ -528,7 +535,7 @@ export function HeroSection({
                 className={`flex items-start gap-2 ${typography.body} text-text-body`}
               >
                 <span className="text-text-light flex-shrink-0 mt-0.5">•</span>
-                <span>
+                <span className="flex-1 min-w-0">
                   {isRichText ? (
                     <RichTextRenderer
                       content={bullet as RichText}

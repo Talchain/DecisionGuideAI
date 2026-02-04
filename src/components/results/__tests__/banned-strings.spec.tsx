@@ -30,6 +30,7 @@ const BANNED_STRINGS = [
   'View on canvas',           // Removed - goal text itself is now clickable
   'Runner-up',                // Should use rank-based labels: "Second strongest"
   'runner-up',                // Case variant
+  'front-runner',             // P2: Use "Strongest performer" or "No clear winner" instead
   'win probability',          // PLoT-generated label for non-winners
   '(0/1)',                    // Encoding notation
   '(0-1)',                    // Encoding notation variant
@@ -382,13 +383,15 @@ describe('Banned Strings Integration Test', () => {
       }
     })
 
-    it('shows rank-based labels when probability_of_goal is absent', () => {
+    it('shows win probability display when probability_of_goal is absent (P2 Task 4)', () => {
       render(<RecommendationSection data={fixtureNoGoalThreshold} />)
 
-      // Fix A: When no goal probability, rank labels should show
+      // P2 Task 4: When no goal probability but win probability is present, show "Wins in X% of simulations"
+      // Rank labels only show as fallback when winProbability is also absent
       expect(screen.getByText('Strongest performer')).toBeInTheDocument()
-      expect(screen.getByText('Second strongest')).toBeInTheDocument()
-      expect(screen.getByText('Third strongest')).toBeInTheDocument()
+      expect(screen.getByText('Wins in 65% of simulations')).toBeInTheDocument()
+      expect(screen.getByText('Wins in 35% of simulations')).toBeInTheDocument()
+      expect(screen.getByText('Wins in 15% of simulations')).toBeInTheDocument()
 
       // Should NOT show "X expected" values
       expect(screen.queryByText(/\d+%? expected/i)).not.toBeInTheDocument()
@@ -492,6 +495,8 @@ describe('Banned Strings Integration Test', () => {
       expect(BANNED_STRINGS).toContain('What Needs Attention')
       expect(BANNED_STRINGS).toContain('View on canvas')
       expect(BANNED_STRINGS).toContain('Runner-up')
+      // P2 additions
+      expect(BANNED_STRINGS).toContain('front-runner')
       // P1 additions
       expect(BANNED_STRINGS).toContain('scenarios tested')
       expect(BANNED_STRINGS).toContain('of scenarios')

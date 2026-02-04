@@ -130,13 +130,13 @@ export function SuccessTarget({
           <Target className="w-4 h-4 text-text-light flex-shrink-0" />
           <div className="flex-1">
             <p className={`${typography.body} text-text-body`}>
-              Set a success target to see probability of achieving your goal
+              Set a success target to see how likely you are to achieve your goal
             </p>
           </div>
           <button
             onClick={handleStartEdit}
             disabled={isRunning}
-            className="px-3 py-1.5 text-sm font-medium text-info bg-info-light hover:bg-info/10 rounded-md transition-colors disabled:opacity-50"
+            className="px-3 py-1.5 text-sm font-medium text-white bg-info hover:bg-info/90 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
           >
             Set target
           </button>
