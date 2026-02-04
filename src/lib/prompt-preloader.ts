@@ -55,6 +55,7 @@ export function preloadPrompts(): Promise<void> {
     headers: {
       'Content-Type': 'application/json',
     },
+    body: JSON.stringify({}),
     signal: controller.signal,
   })
     .then((response) => {
