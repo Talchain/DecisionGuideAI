@@ -443,7 +443,7 @@ export function ConfidenceSection({
                   {robustnessStatus !== 'computed'
                     ? EMPTY_STATES.robustness
                     : filteredFragileEdges && filteredFragileEdges.filteredCount > 0
-                      ? `No high-sensitivity assumptions found. ${filteredFragileEdges.filteredCount} assumption${filteredFragileEdges.filteredCount === 1 ? '' : 's'} changed the best option in <${Math.round(filteredFragileEdges.threshold * 100)}% of scenarios.`
+                      ? `No high-sensitivity assumptions found. ${filteredFragileEdges.filteredCount} assumption${filteredFragileEdges.filteredCount === 1 ? '' : 's'} changed the best option in <${Math.round(filteredFragileEdges.threshold * 100)}% of simulations.`
                       : 'No sensitive assumptions identified at the current threshold.'}
                 </p>
               </div>

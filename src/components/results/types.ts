@@ -333,6 +333,17 @@ export interface ConfidenceSectionData {
   /** Task 1: Count of high-risk edges hidden by display limit (above threshold but not shown) */
   hiddenHighRiskCount?: number
 
+  /** P1 Integration: Top fragile edge for HeroSection bullet 3 */
+  topFragileEdge?: {
+    fromId: string
+    fromLabel: string
+    toId: string
+    toLabel: string
+    alternativeWinnerLabel: string
+    alternativeWinnerId?: string
+    switchProbability?: number
+  }
+
   // ==========================================================================
   // M1 Coaching Fields (deterministic, not LLM-generated)
   // ==========================================================================

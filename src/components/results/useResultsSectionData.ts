@@ -1532,6 +1532,64 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       }
     })
     const getOptionLabel = (id: string | undefined) => (id ? optionLabelMap.get(id) : undefined)
+
+    // =========================================================================
+    // P1 Integration: Extract topFragileEdge for HeroSection bullet 3
+    // =========================================================================
+    const topFragileEdgeData = (() => {
+      const fe = sortedHighRiskEdges[0]
+      if (!fe) return undefined
+
+      const parseEdgeIdLocal = (edgeId: string | undefined) => {
+        if (!edgeId) return {}
+        const parts = edgeId.split('::')
+        if (parts.length === 2 && parts[0] && parts[1]) {
+          return { fromId: parts[0], toId: parts[1] }
+        }
+        return {}
+      }
+
+      const edgeId = typeof fe === 'string' ? fe : fe.edge_id ?? fe.edgeId
+      const parsed = parseEdgeIdLocal(edgeId)
+      const fromId = (typeof fe === 'string' ? undefined : (fe.from_id ?? fe.fromId ?? fe.source)) ?? parsed.fromId
+      const toId = (typeof fe === 'string' ? undefined : (fe.to_id ?? fe.toId ?? fe.target)) ?? parsed.toId
+      const altWinnerId = fe.alternative_winner_id ?? fe.alternativeWinnerId
+
+      const sourceName = stripEncodingNotation(
+        nonEmptyLabel(fe.from_label) ??
+        nonEmptyLabel(fe.fromLabel) ??
+        getNodeLabel(fromId) ??
+        formatUnattributedId(fromId) ??
+        'Unknown factor'
+      )
+      const targetName = stripEncodingNotation(
+        nonEmptyLabel(fe.to_label) ??
+        nonEmptyLabel(fe.toLabel) ??
+        getNodeLabel(toId) ??
+        formatUnattributedId(toId) ??
+        'Unknown target'
+      )
+      const alternativeWinnerLabel = stripEncodingNotation(
+        nonEmptyLabel(fe.alternative_winner_label) ??
+        nonEmptyLabel(fe.alternativeWinnerLabel) ??
+        nonEmptyLabel(fe.alternativeWinner) ??
+        getNodeLabel(altWinnerId) ??
+        getOptionLabel(altWinnerId) ??
+        formatUnattributedId(altWinnerId) ??
+        'another option'
+      )
+
+      return {
+        fromId: fromId ?? '',
+        fromLabel: sourceName,
+        toId: toId ?? '',
+        toLabel: targetName,
+        alternativeWinnerLabel,
+        alternativeWinnerId: altWinnerId,
+        switchProbability: fe.switch_probability ?? fe.marginal_switch_probability,
+      }
+    })()
+
     const parseEdgeId = (edgeId: string | undefined) => {
       if (!edgeId) return {}
       const parts = edgeId.split('::')
@@ -1701,7 +1759,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     const filteredFragileEdges = filteredFragileEdgesCount > 0 ? {
       filteredCount: filteredFragileEdgesCount,
       threshold: FRAGILE_EDGE_THRESHOLD,
-      description: `${filteredFragileEdgesCount} additional ${filteredFragileEdgesCount === 1 ? 'assumption' : 'assumptions'} changed the best option in <${Math.round(FRAGILE_EDGE_THRESHOLD * 100)}% of scenarios tested`,
+      description: `${filteredFragileEdgesCount} additional ${filteredFragileEdgesCount === 1 ? 'assumption' : 'assumptions'} changed the best option in <${Math.round(FRAGILE_EDGE_THRESHOLD * 100)}% of simulations`,
     } : undefined
 
     // Bug 2 fix: Extract robustness level for "Good foundation" logic
@@ -1725,6 +1783,8 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       filteredFragileEdges,
       // Task 1: Track hidden high-risk edges for disclosure
       hiddenHighRiskCount: hiddenHighRiskCount > 0 ? hiddenHighRiskCount : undefined,
+      // P1 Integration: Top fragile edge for HeroSection bullet 3
+      topFragileEdge: topFragileEdgeData,
       // Task 4 (M1 Coaching): Evidence gaps - sorted by VOI descending, deduped by factor_id
       ...(() => {
         const rawGaps = safeArray(m1Coaching?.evidence_gaps)

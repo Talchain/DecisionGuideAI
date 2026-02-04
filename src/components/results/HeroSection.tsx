@@ -207,6 +207,78 @@ function RichTextRenderer({
   )
 }
 
+/**
+ * Render M1 bullet text with clickable GraphLinks for refs.
+ * Finds each ref label in the text and wraps it with GraphLink.
+ */
+function M1BulletRenderer({
+  bullet,
+  onFocusNode,
+}: {
+  bullet: M1Bullet
+  onFocusNode?: (nodeId: string) => void
+}) {
+  const { text, refs } = bullet
+
+  // If no refs, render plain text
+  if (!refs || refs.length === 0) {
+    return <>{text}</>
+  }
+
+  // Build a list of segments: text parts and ref parts
+  const segments: Array<{ type: 'text'; text: string } | { type: 'ref'; id: string; label: string }> = []
+
+  let remainingText = text
+  let lastIndex = 0
+
+  // Sort refs by their position in the text to process in order
+  const sortedRefs = [...refs].sort((a, b) => {
+    const posA = text.indexOf(a.label)
+    const posB = text.indexOf(b.label)
+    return posA - posB
+  })
+
+  for (const ref of sortedRefs) {
+    const index = remainingText.indexOf(ref.label)
+    if (index === -1) continue // Label not found in remaining text
+
+    // Add text before the ref
+    if (index > 0) {
+      segments.push({ type: 'text', text: remainingText.slice(0, index) })
+    }
+
+    // Add the ref
+    segments.push({ type: 'ref', id: ref.id, label: ref.label })
+
+    // Update remaining text
+    remainingText = remainingText.slice(index + ref.label.length)
+    lastIndex = index + ref.label.length
+  }
+
+  // Add any remaining text
+  if (remainingText.length > 0) {
+    segments.push({ type: 'text', text: remainingText })
+  }
+
+  return (
+    <>
+      {segments.map((segment, i) => {
+        if (segment.type === 'text') {
+          return <span key={i}>{segment.text}</span>
+        }
+        return (
+          <GraphLink
+            key={i}
+            nodeId={segment.id}
+            label={segment.label}
+            onFocus={onFocusNode}
+          />
+        )
+      })}
+    </>
+  )
+}
+
 // =============================================================================
 // Main Component
 // =============================================================================
@@ -433,7 +505,10 @@ export function HeroSection({
                       onFocusNode={onFocusNode}
                     />
                   ) : (
-                    (bullet as M1Bullet).text
+                    <M1BulletRenderer
+                      bullet={bullet as M1Bullet}
+                      onFocusNode={onFocusNode}
+                    />
                   )}
                 </span>
               </li>

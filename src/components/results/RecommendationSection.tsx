@@ -15,7 +15,7 @@
 import { useCallback, useMemo, useState, useEffect } from 'react'
 import { CheckCircle, Scale, Search, AlertTriangle } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
-import type { RecommendationSectionData, OptionResult, OutcomeUnitType, WinnerDeterminedBy, RobustnessLevel, RobustnessLabel, M1CoachingReadiness } from './types'
+import type { RecommendationSectionData, OptionResult, OutcomeUnitType, WinnerDeterminedBy, RobustnessLevel, RobustnessLabel, M1CoachingReadiness, DriverItem } from './types'
 import { focusNodeById } from '../../canvas/utils/focusHelpers'
 import { EMPTY_STATES } from './emptyStates'
 import { formatOutcomeValue, type OutcomeUnits } from '../../lib/format'
@@ -23,6 +23,18 @@ import { typography } from '../../styles/typography'
 import { BASELINE_DELTA_EPSILON } from './constants'
 import { COPY, THRESHOLDS } from '../../lib/mappers/constants'
 import { stripEncodingNotation } from './utils/cleanFactorLabel'
+import { HeroSection } from './HeroSection'
+
+/** Top fragile edge data for HeroSection */
+export interface TopFragileEdge {
+  fromId: string
+  fromLabel: string
+  toId: string
+  toLabel: string
+  alternativeWinnerLabel: string
+  alternativeWinnerId?: string
+  switchProbability?: number
+}
 
 interface RecommendationSectionProps {
   data: RecommendationSectionData
@@ -32,6 +44,18 @@ interface RecommendationSectionProps {
   onAddStatusQuoBaseline?: () => void
   /** Response hash for coaching card dismissal persistence */
   responseHash?: string
+  /** Top drivers from DriversSection (for HeroSection bullet 2) */
+  topDrivers?: DriverItem[]
+  /** Top fragile edge from ConfidenceSection (for HeroSection bullet 3) */
+  topFragileEdge?: TopFragileEdge
+  /** Number of simulation samples (for "Learn more" expand) */
+  nSamples?: number
+  /** Random seed used (for "Learn more" expand) */
+  seedUsed?: number
+  /** Count of fragile edges (for "Learn more" expand) */
+  fragileEdgeCount?: number
+  /** Count of robust edges (for "Learn more" expand) */
+  robustEdgeCount?: number
 }
 
 /**
@@ -312,7 +336,7 @@ function StabilityBadge({
   return (
     <span
       className={`${typography.caption} inline-flex items-center gap-1.5 px-2 py-0.5 rounded ${colors.bg} ${colors.text}`}
-      title={`Result stability: ${stabilityPct}% — percentage of scenarios where this option stays the winner`}
+      title={`Result stability: ${stabilityPct}% — percentage of simulations where this option stays the winner`}
       aria-label={`${stabilityLabel}. ${stabilityPct}% stable in simulations.`}
     >
       <span className={`w-2 h-2 rounded-full ${colors.dot}`} aria-hidden="true" />
@@ -646,6 +670,12 @@ export function RecommendationSection({
   onNavigateToStructure,
   onAddStatusQuoBaseline,
   responseHash,
+  topDrivers,
+  topFragileEdge,
+  nSamples,
+  seedUsed,
+  fragileEdgeCount,
+  robustEdgeCount,
 }: RecommendationSectionProps) {
   const {
     recommendedOption,
@@ -657,6 +687,7 @@ export function RecommendationSection({
     outcomeUnit,
     outcomeUnitSymbol,
     recommendationStability,
+    goalLabel,
     // Task 1.3: Win probability
     winProbability,
     // Task 1.4: How winner was determined
@@ -761,6 +792,16 @@ export function RecommendationSection({
   const hasBaseline = allOptions.some(o => o.isBaseline)
   const optionCount = allOptions.length
 
+  // Compute runner-up for HeroSection (second-best option by rank)
+  const runnerUp = useMemo(() => {
+    if (allOptions.length < 2) return null
+    // Find second-ranked option (rank 2) or first non-recommended option
+    const byRank = allOptions.find(o => o.rank === 2)
+    if (byRank) return byRank
+    // Fallback: first non-recommended option
+    return allOptions.find(o => !o.isRecommended) ?? null
+  }, [allOptions])
+
   // Task 6: Coaching card dismissal persistence per response_hash
   const coachingDismissalKey = responseHash ? `coaching-dismissed-${responseHash}` : null
   const [coachingDismissed, setCoachingDismissed] = useState(() => {
@@ -816,156 +857,33 @@ export function RecommendationSection({
         </div>
       )}
 
-      {/* M1 Coaching: Headline strip below goal */}
-      {/* Display rules: Show only when coaching.headline exists. Muted styling if near-tie visible */}
-      {/* Max 2 lines with line-clamp-2 per brief spec */}
-      {coachingHeadline && (
-        <div
-          className={`text-sm line-clamp-2 ${
-            nearTie?.isTie ? 'text-slate-500 italic' : 'text-ink-900'
-          }`}
-        >
-          {coachingHeadline}
-        </div>
-      )}
-
-      {/* M1 Coaching: Dominant factor warning */}
-      {/* Show when a single factor has >50% influence - this is a concentration risk */}
-      {dominantFactorId && dominantFactorLabel && (
-        <div className="p-3 bg-panel border border-warning rounded-lg">
-          <p className="text-sm text-text-body">
-            <span className="font-medium">⚠️ Concentration risk:</span>{' '}
-            "{dominantFactorLabel}" accounts for the majority of influence on this decision.
-            Consider validating this assumption or diversifying factors.
-          </p>
-        </div>
-      )}
-
-      {/* Task 1.4: Winner label */}
-      <div className="text-xs font-semibold text-slate-500 tracking-wide">
-        {winnerLabel}
-      </div>
-
-      {/* No clear front-runner chip when stability < 0.55 */}
-      {recommendationStability != null && recommendationStability < 0.55 && (
-        <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg mb-4">
-          <p className="text-sm text-slate-700">
-            <span className="font-medium">No clear front-runner</span> — the top options are too close to distinguish with confidence.
-          </p>
-        </div>
-      )}
-
-      {/* Main Recommendation */}
-      <div className="p-4 bg-panel border border-panel-border rounded-lg">
-        {/* Hero outcome headline */}
-        <div className="mb-2 flex items-center justify-between flex-wrap gap-2">
-          <div>
-            <span className="text-xl font-semibold text-text-header">
-              {/* Task 4: Show probability_of_goal when present, otherwise winner outperforms message */}
-              {hasGoalProbability
-                ? `${formatPercent(recommendedOption.goalProbability as number)} chance of achieving your goal`
-                : `${recommendedOption.label} outperforms alternatives most consistently`}
-            </span>
-          </div>
-          <div className="flex items-center gap-2 flex-wrap">
-            {/* M1 Coaching: Decision Readiness chip */}
-            {coachingReadiness && (
-              <DecisionReadinessChip
-                readiness={coachingReadiness}
-                score={coachingReadinessScore}
-                onNavigateToStructure={onNavigateToStructure}
-                hasWarnings={hasWarnings}
-              />
-            )}
-            {/* Task 5: Stability badge with tiered plain language */}
-            {recommendationStability != null && (
-              <StabilityBadge stability={recommendationStability} />
-            )}
-          </div>
-        </div>
-
-        {/* Win probability - only show when significantly different from stability */}
-        {(() => {
-          const hasStability = recommendationStability != null
-          const hasWin = winProbability != null
-          const bothExist = hasStability && hasWin
-          const showWinSeparately = bothExist &&
-            Math.abs((recommendationStability as number) - (winProbability as number)) > 0.05
-          const showWinAlone = hasWin && !hasStability
-
-          // Only show win probability when different from stability OR when stability missing
-          if ((showWinSeparately || showWinAlone) && (winProbability as number) > 0) {
-            return (
-              <p className="text-sm text-success-700 mt-2">
-                Wins in {formatPercent(winProbability as number)} of scenarios tested
-              </p>
-            )
-          }
-          return null
-        })()}
-
-        {/* Fix D3: "Too close to call" card removed - redundant with "No clear front-runner" + "Highly sensitive" badge */}
-        {/* Near-tie information is now communicated via the stability badge and front-runner chip above */}
-
-        {/* Patch 2: Tier-gated coaching paragraph based on stability */}
-        {/* Prevents "Could go either way" from contradicting "Stable result" label */}
-        {/* >= 0.85: Remove or show consistent message; < 0.85: show appropriate stability-aware text */}
-        {!nearTie?.isTie && (() => {
-          // Tier-gate: When stability is high (>= 0.85), don't show contradictory "Could go either way" text
-          const isHighStability = recommendationStability != null && recommendationStability >= 0.85
-          const isMediumHighStability = recommendationStability != null && recommendationStability >= 0.70 && recommendationStability < 0.85
-          const isMediumStability = recommendationStability != null && recommendationStability >= 0.55 && recommendationStability < 0.70
-
-          // Tier 1: High stability (>= 0.85) - show consistent message or nothing
-          if (isHighStability) {
-            return (
-              <p className="text-sm text-success-700">
-                The analysis is consistent across assumptions tested.
-              </p>
-            )
-          }
-
-          // Tier 2: Medium-high stability (>= 0.70) - result holds under most assumptions
-          if (isMediumHighStability) {
-            return (
-              <p className="text-sm text-success-700">
-                Result holds under most assumptions. A few edge cases could shift the outcome.
-              </p>
-            )
-          }
-
-          // Tier 3: Medium stability (>= 0.55) - small changes could shift
-          if (isMediumStability) {
-            return (
-              <p className="text-sm text-warning-700">
-                Could go either way — small changes in assumptions could shift the recommendation.
-              </p>
-            )
-          }
-
-          // Tier 4: Low stability (< 0.55) or unknown - use outcome description or fallback
-          if (outcomeDescription) {
-            return (
-              <p className="text-sm text-warning-700">
-                {outcomeDescription}
-              </p>
-            )
-          }
-
-          return null
-        })()}
-
-        {/* Range bar - Task 1.4: Use outcome.mean for expected value */}
-        {expectedValue != null && (
-          <RangeBar
-            p10={recommendedOption.outcome.p10}
-            expectedValue={expectedValue}
-            p90={recommendedOption.outcome.p90}
-            outcomeUnit={outcomeUnit}
-            outcomeUnitSymbol={outcomeUnitSymbol}
-          />
-        )}
-      </div>
+      {/* HeroSection: Replaces old hero with M1 templates + M2 slots */}
+      <HeroSection
+        winnerLabel={recommendedOption.label}
+        winnerId={recommendedOption.id}
+        winnerGoalProbability={recommendedOption.goalProbability}
+        runnerUpLabel={runnerUp?.label}
+        runnerUpId={runnerUp?.id}
+        runnerUpGoalProbability={runnerUp?.goalProbability}
+        optionCount={optionCount}
+        hasBaseline={hasBaseline}
+        recommendationStability={recommendationStability}
+        analysisStatus={analysisStatus}
+        topDrivers={topDrivers?.map(d => ({
+          id: d.factorKey,
+          label: d.factorLabel,
+          direction: d.direction,
+        }))}
+        topFragileEdge={topFragileEdge}
+        nSamples={nSamples}
+        seedUsed={seedUsed}
+        responseHash={responseHash}
+        fragileEdgeCount={fragileEdgeCount}
+        robustEdgeCount={robustEdgeCount}
+        goalLabel={goalLabel}
+        goalThreshold={goalThreshold}
+        onFocusNode={onFocusNode}
+      />
 
       {/* Option comparison (multiple options) */}
       {!isSingleOption && allOptions.length > 1 && (
@@ -999,7 +917,7 @@ export function RecommendationSection({
                     Math.round(wp * 100)
                   )
                 }
-                return 'Expected outcomes are similar. The recommendation is based on which option wins more consistently across scenarios tested.'
+                return 'Expected outcomes are similar. The analysis indicates which option performs better most consistently.'
               })()}
             </p>
           )}

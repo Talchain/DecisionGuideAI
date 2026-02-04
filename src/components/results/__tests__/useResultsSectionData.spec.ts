@@ -906,7 +906,7 @@ describe('flip_risk_category display logic', () => {
       return null
     } else if (driver.flipRiskCategory === 'correlated') {
       // Show qualitative message for correlated factors (contribute to joint risk)
-      return 'In some scenarios tested, this factor can change which option is best'
+      return 'In some simulations, this factor can change which option is best'
     } else if (driver.flipRiskCategory === 'negligible') {
       // No flip text for negligible factors
       return null
@@ -929,7 +929,7 @@ describe('flip_risk_category display logic', () => {
     }
     // Task 1.2: 0.22 < 0.5 → ratio format "~1 in 5"
     expect(getFlipRiskMessage(driver)).toBe(
-      'In ~1 in 5 scenarios tested, "Keep Pro at £49" becomes the better choice'
+      'In ~1 in 5 simulations, "Keep Pro at £49" becomes the better choice'
     )
   })
 
@@ -950,7 +950,7 @@ describe('flip_risk_category display logic', () => {
         alternativeWinnerLabel: 'Option B',
       },
     }
-    expect(getFlipRiskMessage(driver)).toBe('In some scenarios tested, this factor can change which option is best')
+    expect(getFlipRiskMessage(driver)).toBe('In some simulations, this factor can change which option is best')
     expect(getFlipRiskMessage(driver)).not.toContain('0%')
   })
 
@@ -959,7 +959,7 @@ describe('flip_risk_category display logic', () => {
       flipRiskCategory: 'correlated' as const,
       fragileEdgeInfo: undefined,
     }
-    expect(getFlipRiskMessage(driver)).toBe('In some scenarios tested, this factor can change which option is best')
+    expect(getFlipRiskMessage(driver)).toBe('In some simulations, this factor can change which option is best')
   })
 
   it('negligible category shows no flip text', () => {
@@ -984,7 +984,7 @@ describe('flip_risk_category display logic', () => {
     }
     // Task 1.2: 0.35 < 0.5 → ratio format "~1 in 3"
     expect(getFlipRiskMessage(driver)).toBe(
-      'In ~1 in 3 scenarios tested, "Alternative Option" becomes the better choice'
+      'In ~1 in 3 simulations, "Alternative Option" becomes the better choice'
     )
   })
 

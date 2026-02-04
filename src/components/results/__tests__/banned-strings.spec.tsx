@@ -19,6 +19,7 @@ vi.mock('../../../canvas/utils/focusHelpers', () => ({
 
 /**
  * Banned copy patterns that should never appear in the Results Panel
+ * P1 Brief: "scenarios", "recommendation", "Runner-up", "win probability", "(0/1)"
  */
 const BANNED_STRINGS = [
   'YOUR OBJECTIVE',           // Should be sentence case: "Your objective"
@@ -31,6 +32,8 @@ const BANNED_STRINGS = [
   '(0/1)',                    // Encoding notation
   '(0-1)',                    // Encoding notation variant
   '(0–1)',                    // Encoding notation with en-dash
+  'scenarios tested',         // P1: Replace with "simulations" - banned in main UI
+  'of scenarios',             // P1: "% of scenarios" is banned (use "simulations" instead)
 ]
 
 /**
@@ -343,6 +346,11 @@ describe('Banned Strings Integration Test', () => {
       expect(BANNED_STRINGS).toContain('What Needs Attention')
       expect(BANNED_STRINGS).toContain('View on canvas')
       expect(BANNED_STRINGS).toContain('Runner-up')
+      // P1 additions
+      expect(BANNED_STRINGS).toContain('scenarios tested')
+      expect(BANNED_STRINGS).toContain('of scenarios')
+      expect(BANNED_STRINGS).toContain('win probability')
+      expect(BANNED_STRINGS).toContain('(0/1)')
     })
   })
 })

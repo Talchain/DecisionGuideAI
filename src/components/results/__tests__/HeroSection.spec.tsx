@@ -109,7 +109,14 @@ describe('HeroSection', () => {
         />
       )
 
-      expect(screen.getByText(/Option A outperforms alternatives most consistently/)).toBeInTheDocument()
+      // Text is split across elements (Option A is a GraphLink)
+      // Check that the full text is present in the bullet
+      const bullets = screen.getAllByRole('listitem')
+      const bulletWithText = bullets.find(li =>
+        li.textContent?.includes('Option A') &&
+        li.textContent?.includes('outperforms alternatives most consistently')
+      )
+      expect(bulletWithText).toBeInTheDocument()
     })
 
     it('shows single option message when optionCount is 1', () => {
@@ -136,8 +143,15 @@ describe('HeroSection', () => {
         />
       )
 
-      // Should clean encoding notation
-      expect(screen.getByText(/Market Size and Tech Lead Hired are the biggest drivers/)).toBeInTheDocument()
+      // Text is split across elements (driver names are GraphLinks)
+      // Should clean encoding notation and show both drivers
+      const bullets = screen.getAllByRole('listitem')
+      const driverBullet = bullets.find(li =>
+        li.textContent?.includes('Market Size') &&
+        li.textContent?.includes('Tech Lead Hired') &&
+        li.textContent?.includes('biggest drivers')
+      )
+      expect(driverBullet).toBeInTheDocument()
     })
 
     it('shows single driver message when only one driver', () => {
@@ -149,7 +163,13 @@ describe('HeroSection', () => {
         />
       )
 
-      expect(screen.getByText(/Market Size is the biggest driver/)).toBeInTheDocument()
+      // Text is split across elements (driver name is a GraphLink)
+      const bullets = screen.getAllByRole('listitem')
+      const driverBullet = bullets.find(li =>
+        li.textContent?.includes('Market Size') &&
+        li.textContent?.includes('is the biggest driver')
+      )
+      expect(driverBullet).toBeInTheDocument()
     })
 
     it('shows balanced factors message when no drivers', () => {
@@ -179,8 +199,16 @@ describe('HeroSection', () => {
         />
       )
 
+      // Text is split across elements (factor names are GraphLinks)
       // Should clean encoding notation
-      expect(screen.getByText(/If the link between Market Size and Revenue is weaker than expected, Option B becomes the stronger option/)).toBeInTheDocument()
+      const bullets = screen.getAllByRole('listitem')
+      const fragileBullet = bullets.find(li =>
+        li.textContent?.includes('If the link between') &&
+        li.textContent?.includes('Market Size') &&
+        li.textContent?.includes('Revenue') &&
+        li.textContent?.includes('Option B becomes the stronger option')
+      )
+      expect(fragileBullet).toBeInTheDocument()
     })
 
     it('shows stable result message when no fragile edges', () => {
@@ -192,6 +220,45 @@ describe('HeroSection', () => {
       )
 
       expect(screen.getByText(/Result is stable across all assumptions tested/)).toBeInTheDocument()
+    })
+
+    it('calls onFocusNode when clicking on a GraphLink in M1 bullet', () => {
+      const onFocusNode = vi.fn()
+
+      render(
+        <HeroSection
+          {...baseProps}
+          topDrivers={[
+            { id: 'factor-1', label: 'Market Size' },
+            { id: 'factor-2', label: 'Tech Lead' },
+          ]}
+          recommendationStability={0.9}
+          onFocusNode={onFocusNode}
+        />
+      )
+
+      // Find the GraphLink for "Market Size" and click it
+      const marketSizeLink = screen.getByRole('link', { name: /Focus on Market Size in model/ })
+      fireEvent.click(marketSizeLink)
+
+      expect(onFocusNode).toHaveBeenCalledWith('factor-1')
+    })
+
+    it('GraphLink has proper accessibility attributes', () => {
+      render(
+        <HeroSection
+          {...baseProps}
+          topDrivers={[
+            { id: 'factor-1', label: 'Market Size' },
+            { id: 'factor-2', label: 'Tech Lead' },
+          ]}
+          recommendationStability={0.9}
+        />
+      )
+
+      const marketSizeLink = screen.getByRole('link', { name: /Focus on Market Size in model/ })
+      expect(marketSizeLink).toHaveAttribute('tabIndex', '0')
+      expect(marketSizeLink).toHaveClass('cursor-pointer')
     })
   })
 

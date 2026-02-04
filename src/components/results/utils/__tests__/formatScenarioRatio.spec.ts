@@ -2,57 +2,57 @@ import { describe, it, expect } from 'vitest'
 import { formatScenarioRatio, formatFlipRiskMessage } from '../formatScenarioRatio'
 
 // =============================================================================
-// Task 1.8: Scenario Ratio Formatting Tests
+// Task 1.8: Simulation Ratio Formatting Tests
 // =============================================================================
 
 describe('formatScenarioRatio', () => {
   describe('percentage format (probability >= 0.5)', () => {
-    it('formats 0.6 as "~60% of scenarios tested"', () => {
-      expect(formatScenarioRatio(0.6)).toBe('~60% of scenarios tested')
+    it('formats 0.6 as "~60% of simulations"', () => {
+      expect(formatScenarioRatio(0.6)).toBe('~60% of simulations')
     })
 
-    it('formats 0.5 as "~50% of scenarios tested"', () => {
-      expect(formatScenarioRatio(0.5)).toBe('~50% of scenarios tested')
+    it('formats 0.5 as "~50% of simulations"', () => {
+      expect(formatScenarioRatio(0.5)).toBe('~50% of simulations')
     })
 
-    it('formats 0.85 as "~85% of scenarios tested"', () => {
-      expect(formatScenarioRatio(0.85)).toBe('~85% of scenarios tested')
+    it('formats 0.85 as "~85% of simulations"', () => {
+      expect(formatScenarioRatio(0.85)).toBe('~85% of simulations')
     })
 
-    it('formats 1.0 as "~100% of scenarios tested"', () => {
-      expect(formatScenarioRatio(1.0)).toBe('~100% of scenarios tested')
+    it('formats 1.0 as "~100% of simulations"', () => {
+      expect(formatScenarioRatio(1.0)).toBe('~100% of simulations')
     })
   })
 
   describe('boundary at 0.5', () => {
     it('returns percentage format for exactly 0.5', () => {
-      expect(formatScenarioRatio(0.5)).toBe('~50% of scenarios tested')
+      expect(formatScenarioRatio(0.5)).toBe('~50% of simulations')
     })
 
     it('returns ratio format for 0.49 (just below boundary)', () => {
-      expect(formatScenarioRatio(0.49)).toBe('~1 in 2 scenarios tested')
+      expect(formatScenarioRatio(0.49)).toBe('~1 in 2 simulations')
     })
 
     it('returns percentage format for 0.51 (just above boundary)', () => {
-      expect(formatScenarioRatio(0.51)).toBe('~51% of scenarios tested')
+      expect(formatScenarioRatio(0.51)).toBe('~51% of simulations')
     })
   })
 
   describe('ratio format (probability < 0.5)', () => {
-    it('formats 0.2 as "~1 in 5 scenarios tested"', () => {
-      expect(formatScenarioRatio(0.2)).toBe('~1 in 5 scenarios tested')
+    it('formats 0.2 as "~1 in 5 simulations"', () => {
+      expect(formatScenarioRatio(0.2)).toBe('~1 in 5 simulations')
     })
 
-    it('formats 0.1 as "~1 in 10 scenarios tested"', () => {
-      expect(formatScenarioRatio(0.1)).toBe('~1 in 10 scenarios tested')
+    it('formats 0.1 as "~1 in 10 simulations"', () => {
+      expect(formatScenarioRatio(0.1)).toBe('~1 in 10 simulations')
     })
 
-    it('formats 0.25 as "~1 in 4 scenarios tested"', () => {
-      expect(formatScenarioRatio(0.25)).toBe('~1 in 4 scenarios tested')
+    it('formats 0.25 as "~1 in 4 simulations"', () => {
+      expect(formatScenarioRatio(0.25)).toBe('~1 in 4 simulations')
     })
 
-    it('formats 0.33 as "~1 in 3 scenarios tested"', () => {
-      expect(formatScenarioRatio(0.33)).toBe('~1 in 3 scenarios tested')
+    it('formats 0.33 as "~1 in 3 simulations"', () => {
+      expect(formatScenarioRatio(0.33)).toBe('~1 in 3 simulations')
     })
   })
 
@@ -66,7 +66,7 @@ describe('formatScenarioRatio', () => {
     })
 
     it('clamps probability > 1 to 100%', () => {
-      expect(formatScenarioRatio(1.5)).toBe('~100% of scenarios tested')
+      expect(formatScenarioRatio(1.5)).toBe('~100% of simulations')
     })
 
     it('returns null for undefined', () => {
@@ -84,22 +84,22 @@ describe('formatScenarioRatio', () => {
 })
 
 describe('formatFlipRiskMessage', () => {
-  describe('valid inputs - scenario-tested language', () => {
+  describe('valid inputs - simulations language', () => {
     it('formats probability < 0.5 with ratio format', () => {
       expect(formatFlipRiskMessage(0.35, 'Option B')).toBe(
-        'In ~1 in 3 scenarios tested, "Option B" becomes the better choice'
+        'In ~1 in 3 simulations, "Option B" becomes the better choice'
       )
     })
 
     it('formats probability >= 0.5 with percentage format', () => {
       expect(formatFlipRiskMessage(0.6, 'Alternative Plan')).toBe(
-        'In ~60% of scenarios tested, "Alternative Plan" becomes the better choice'
+        'In ~60% of simulations, "Alternative Plan" becomes the better choice'
       )
     })
 
     it('formats exactly 0.5 with percentage format', () => {
       expect(formatFlipRiskMessage(0.5, 'Status Quo')).toBe(
-        'In ~50% of scenarios tested, "Status Quo" becomes the better choice'
+        'In ~50% of simulations, "Status Quo" becomes the better choice'
       )
     })
   })
@@ -115,7 +115,7 @@ describe('formatFlipRiskMessage', () => {
 
     it('clamps probability > 1 to 100%', () => {
       expect(formatFlipRiskMessage(1.5, 'Option B')).toBe(
-        'In ~100% of scenarios tested, "Option B" becomes the better choice'
+        'In ~100% of simulations, "Option B" becomes the better choice'
       )
     })
 

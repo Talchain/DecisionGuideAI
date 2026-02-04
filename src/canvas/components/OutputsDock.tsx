@@ -1219,6 +1219,12 @@ export function OutputsDock() {
                           setTimeout(() => setHighlightedNodes([]), 3000)
                         }}
                         onAddStatusQuoBaseline={addStatusQuoBaseline}
+                        topDrivers={resultsSectionData.drivers.topDrivers}
+                        topFragileEdge={resultsSectionData.confidence.topFragileEdge}
+                        nSamples={(report as any)?.summary?.n_samples_used ?? (report as any)?.meta?.n_samples}
+                        seedUsed={(report as any)?.meta?.seed_used}
+                        fragileEdgeCount={(report as any)?.robustness?.fragile_edges?.length}
+                        robustEdgeCount={(report as any)?.robustness?.robust_edges?.length}
                       />
                     </Accordion>
 

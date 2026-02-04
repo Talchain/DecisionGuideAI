@@ -253,8 +253,8 @@ function ExpandedDetails({
       alternativeWinnerLabel
     )
   } else if (driver.flipRiskCategory === 'correlated') {
-    // Task 10: Align with "scenarios tested" terminology used throughout Results Panel
-    decisionChangeRisk = 'In some scenarios tested, this factor can change which option is best'
+    // Task 10: Align with "simulations" terminology used throughout Results Panel
+    decisionChangeRisk = 'In some simulations, this factor can change which option is best'
   } else if (driver.flipRiskCategory === 'negligible') {
     // No risk text for negligible factors
     decisionChangeRisk = null
@@ -354,7 +354,7 @@ function DriverRow({
   const decisionChangeRisk = driver.flipRiskCategory === 'isolated'
     ? formatFlipRiskMessage(driver.fragileEdgeInfo?.switchProbability, alternativeWinnerLabel)
     : driver.flipRiskCategory === 'correlated'
-      ? 'In some scenarios tested, this factor can change which option is best'
+      ? 'In some simulations, this factor can change which option is best'
       : driver.flipRiskCategory !== 'negligible'
         ? formatFlipRiskMessage(driver.fragileEdgeInfo?.switchProbability, alternativeWinnerLabel)
         : null

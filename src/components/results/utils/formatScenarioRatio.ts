@@ -1,13 +1,13 @@
 /**
- * Task 1.8: Format scenario ratio with proper edge case guards.
+ * Task 1.8: Format simulation ratio with proper edge case guards.
  *
  * Display format:
- * - If probability >= 0.5: show "~{Math.round(probability * 100)}% of scenarios tested"
- * - If probability < 0.5 and probability > 0: show "~1 in {Math.round(1/probability)} scenarios tested"
+ * - If probability >= 0.5: show "~{Math.round(probability * 100)}% of simulations"
+ * - If probability < 0.5 and probability > 0: show "~1 in {Math.round(1/probability)} simulations"
  *
  * Edge case guards (critical):
  * - If probability <= 0: return null (omit ratio entirely)
- * - If probability > 1: clamp to 1, show "~100% of scenarios tested"
+ * - If probability > 1: clamp to 1, show "~100% of simulations"
  * - If probability is NaN or undefined or null: return null (omit ratio entirely)
  *
  * @param probability - Switch probability (0-1 range)
@@ -30,17 +30,17 @@ export function formatScenarioRatio(probability: number | undefined | null): str
   // If probability >= 0.5, show percentage format
   if (clampedProbability >= 0.5) {
     const percent = Math.round(clampedProbability * 100)
-    return `~${percent}% of scenarios tested`
+    return `~${percent}% of simulations`
   }
 
   // If probability < 0.5 and > 0, show "1 in N" format
   const ratio = Math.round(1 / clampedProbability)
-  return `~1 in ${ratio} scenarios tested`
+  return `~1 in ${ratio} simulations`
 }
 
 /**
- * Task 1.2: Format flip risk message with scenario-tested language.
- * Avoids forbidden "chance" and "flip" terminology.
+ * Task 1.2: Format flip risk message with simulations language.
+ * Avoids forbidden "chance", "flip", and "scenarios" terminology.
  *
  * @param probability - Switch probability (0-1 range)
  * @param alternativeLabel - Label for the alternative winner
@@ -68,14 +68,14 @@ export function formatFlipRiskMessage(
   // Clamp probability > 1 to 1 (<=0 already guarded above)
   const clampedProbability = Math.min(probability, 1)
 
-  // Task 1.2: Use scenario-tested language
+  // Task 1.2: Use simulations language
   // - If p ≥ 0.5: show percentage format
   // - If p < 0.5: show ratio format
   if (clampedProbability >= 0.5) {
     const percent = Math.round(clampedProbability * 100)
-    return `In ~${percent}% of scenarios tested, "${alternativeLabel}" becomes the better choice`
+    return `In ~${percent}% of simulations, "${alternativeLabel}" becomes the better choice`
   } else {
     const ratio = Math.round(1 / clampedProbability)
-    return `In ~1 in ${ratio} scenarios tested, "${alternativeLabel}" becomes the better choice`
+    return `In ~1 in ${ratio} simulations, "${alternativeLabel}" becomes the better choice`
   }
 }
