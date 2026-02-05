@@ -2,7 +2,7 @@
  * PipelineTab Component
  *
  * CEE internal processing stages for Debug Panel V2.
- * Shows artefact chain, pipeline stages, and connectivity.
+ * Shows artefact chain, pipeline stages, connectivity, M1 coaching, and M2 review.
  */
 
 import { useState, useMemo, useCallback, CSSProperties } from 'react'
