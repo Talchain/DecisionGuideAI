@@ -32,6 +32,7 @@ export interface V2Node {
     unit?: string
     source?: string
   }
+  category?: 'controllable' | 'observable' | 'external'
 }
 
 /**

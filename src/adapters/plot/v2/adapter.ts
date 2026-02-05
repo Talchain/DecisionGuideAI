@@ -49,6 +49,8 @@ interface CanvasNodeData {
     source?: string
   }
   interventions?: Record<string, number | UIInterventionValue>
+  /** CEE V12.4: Factor category for controllability display */
+  category?: 'controllable' | 'observable' | 'external'
   [key: string]: unknown
 }
 
@@ -334,17 +336,24 @@ function extractObservedState(data: CanvasNodeData | undefined): V2Node['observe
   return undefined
 }
 
+/** Valid category values for V2Node */
+const VALID_CATEGORIES = new Set(['controllable', 'observable', 'external'] as const)
+
 /**
  * Transform canvas node to V2Node format.
  */
 export function transformNodeToV2(node: Node<CanvasNodeData>): V2Node {
   const data = node.data ?? {}
 
+  // Only pass category if it's a valid value (guard against unexpected strings)
+  const category = data.category && VALID_CATEGORIES.has(data.category) ? data.category : undefined
+
   return {
     id: node.id,
     kind: data.kind ?? data.type ?? 'factor',
     label: data.label ?? node.id,
     observed_state: extractObservedState(data),
+    ...(category ? { category } : {}),
   }
 }
 
