@@ -152,8 +152,10 @@ describe('RecommendationSection', () => {
     const onFocusNode = vi.fn()
     render(<RecommendationSection data={mockData} onFocusNode={onFocusNode} />)
 
-    // Click on the Hire 2 Developers option (not the first one which is nested differently)
-    fireEvent.click(screen.getByText('Hire 2 Developers'))
+    // Click on the Hire 2 Developers option row (use getAllByText since it appears in both
+    // RangeVisualization and OptionRow, then click the one in the OptionRow which has role="link")
+    const optionRows = screen.getAllByRole('link', { name: /Focus on Hire 2 Developers in model/i })
+    fireEvent.click(optionRows[0])
 
     expect(onFocusNode).toHaveBeenCalledWith('option-2')
   })
@@ -1592,6 +1594,75 @@ describe('RecommendationSection', () => {
 
       // Fix D3: "Too close to call" card removed - information conveyed via stability badge
       expect(screen.queryByText(/Too close to call/)).not.toBeInTheDocument()
+    })
+  })
+
+  describe('Badge Threshold (2% boundary)', () => {
+    it('hides Strongest badge when win probability diff < 2% (close call)', () => {
+      const closeCallData: RecommendationSectionData = {
+        ...mockData,
+        recommendedOption: {
+          ...mockData.recommendedOption,
+          winProbability: 0.51, // 51%
+        },
+        allOptions: [
+          { ...mockData.allOptions[0], winProbability: 0.51 },
+          { ...mockData.allOptions[1], winProbability: 0.49 }, // diff = 2% exactly at boundary
+        ],
+      }
+
+      // At exactly 2% diff (0.02), isCloseCall = false (not < 0.02)
+      // But let's test < 2% first
+      const veryCloseData: RecommendationSectionData = {
+        ...closeCallData,
+        allOptions: [
+          { ...mockData.allOptions[0], winProbability: 0.505 },
+          { ...mockData.allOptions[1], winProbability: 0.495 }, // diff = 1%
+        ],
+      }
+
+      render(<RecommendationSection data={veryCloseData} />)
+
+      // diff = 1% < 2%, so isCloseCall = true, badge should be hidden
+      expect(screen.queryByText('Strongest')).not.toBeInTheDocument()
+    })
+
+    it('shows Strongest badge when win probability diff = 2% exactly', () => {
+      const boundaryData: RecommendationSectionData = {
+        ...mockData,
+        recommendedOption: {
+          ...mockData.recommendedOption,
+          winProbability: 0.51,
+        },
+        allOptions: [
+          { ...mockData.allOptions[0], winProbability: 0.51 },
+          { ...mockData.allOptions[1], winProbability: 0.49 }, // diff = 2% exactly
+        ],
+      }
+
+      render(<RecommendationSection data={boundaryData} />)
+
+      // diff = 2% (0.02), so 0.02 < 0.02 = false, isCloseCall = false, badge should show
+      expect(screen.getByText('Strongest')).toBeInTheDocument()
+    })
+
+    it('shows Strongest badge when win probability diff = 8.2% (Task 1 verify)', () => {
+      const clearWinnerData: RecommendationSectionData = {
+        ...mockData,
+        recommendedOption: {
+          ...mockData.recommendedOption,
+          winProbability: 0.541,
+        },
+        allOptions: [
+          { ...mockData.allOptions[0], winProbability: 0.541 },
+          { ...mockData.allOptions[1], winProbability: 0.459 }, // diff = 8.2%
+        ],
+      }
+
+      render(<RecommendationSection data={clearWinnerData} />)
+
+      // diff = 8.2% > 2%, badge should definitely show
+      expect(screen.getByText('Strongest')).toBeInTheDocument()
     })
   })
 })

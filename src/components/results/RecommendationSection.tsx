@@ -27,6 +27,7 @@ import { HeroSection } from './HeroSection'
 import { SuccessTarget } from './SuccessTarget'
 import { BaselineToggleCard } from './BaselineToggleCard'
 import { LimitedOptionsCard } from './LimitedOptionsCard'
+import { RangeVisualization } from './RangeVisualization'
 
 /** Top fragile edge data for HeroSection */
 export interface TopFragileEdge {
@@ -867,6 +868,18 @@ export function RecommendationSection({
         coachingReadinessScore={coachingReadinessScore}
         onFocusNode={onFocusNode}
       />
+
+      {/* P3 Task 3: Range visualization - outcome distribution bars */}
+      {!isSingleOption && allOptions.length > 1 && (
+        <RangeVisualization
+          options={allOptions}
+          goalThreshold={goalThreshold}
+          winnerId={recommendedOption?.id}
+          outcomeUnit={outcomeUnit}
+          outcomeUnitSymbol={outcomeUnitSymbol}
+          topDriverLabel={topDrivers?.[0]?.factorLabel}
+        />
+      )}
 
       {/* Option comparison (multiple options) */}
       {!isSingleOption && allOptions.length > 1 && (
