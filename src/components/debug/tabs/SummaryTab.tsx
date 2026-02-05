@@ -6,7 +6,7 @@
  */
 
 import { useState, useMemo, CSSProperties } from 'react'
-import { KpiCard, ServiceChain, type ChainNode, type KpiStatus, type PipelineStepData } from '../components'
+import { KpiCard, ServiceChain, type ChainNode, type ChainNodeStatus, type KpiStatus, type PipelineStepData } from '../components'
 import type { DebugData, ValidationIssue } from '../hooks/useDebugData'
 import { formatDuration } from '../utils'
 import { getErrorInfo } from '../constants/errorCodes'
@@ -265,10 +265,32 @@ export function SummaryTab({
         statusCode: previousFailed ? null : islData?.status,
         onClick: onNavigateToDataFlow,
       })
+      if (islData && !islData.success) previousFailed = true
+    }
+
+    // M2 Review (LLM-Enhanced Decision Review)
+    // Show M2 node when: extraction succeeded OR payload was captured (fallback for extraction failures)
+    const hasM2Payload = data.payloads.m2_request !== undefined || data.payloads.m2_response !== undefined
+    if (data.m2_review || hasM2Payload) {
+      const m2Status: ChainNodeStatus =
+        previousFailed ? 'skipped' :
+        !data.m2_review ? 'unavailable' : // Payload exists but extraction failed
+        data.m2_review.status === 'success' ? 'success' :
+        data.m2_review.status === 'failed' ? 'error' :
+        data.m2_review.status === 'skipped' ? 'skipped' :
+        data.m2_review.status === 'pending' ? 'pending' : 'unavailable'
+
+      nodes.push({
+        name: 'M2 Review',
+        duration_ms: previousFailed ? null : data.m2_review?.duration_ms ?? null,
+        status: m2Status,
+        statusCode: null,
+        onClick: onNavigateToPipeline,
+      })
     }
 
     return nodes
-  }, [data.services, data.cee_observability, ceePipelineSteps, onNavigateToDataFlow])
+  }, [data.services, data.cee_observability, data.m2_review, data.payloads, ceePipelineSteps, onNavigateToDataFlow, onNavigateToPipeline])
 
   // Validation filter state
   const [severityFilter, setSeverityFilter] = useState<SeverityFilter>('all')

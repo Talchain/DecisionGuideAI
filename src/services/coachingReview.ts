@@ -11,6 +11,7 @@
  */
 
 import type { RichText, RichSegment } from '../components/results/HeroSection'
+import { recordRequestPayload, recordResponsePayload } from '../lib/payload-trace-store'
 
 // =============================================================================
 // Request Types
@@ -206,6 +207,18 @@ export async function fetchCoachingReview(
   abortSignal?: AbortSignal
 ): Promise<FetchCoachingReviewResult> {
   const timeout = config.timeout ?? 10000
+  const endpoint = `${config.baseUrl}/v2/review`
+  const traceId = `m2-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+  const startTime = Date.now()
+
+  // Record request payload for debug panel
+  recordRequestPayload({
+    id: traceId,
+    endpoint,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: request,
+  })
 
   // Create abort controller for timeout
   const timeoutController = new AbortController()
@@ -222,7 +235,7 @@ export async function fetchCoachingReview(
     : timeoutController.signal
 
   try {
-    const response = await fetch(`${config.baseUrl}/v2/review`, {
+    const response = await fetch(endpoint, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -232,9 +245,18 @@ export async function fetchCoachingReview(
     })
 
     clearTimeout(timeoutId)
+    const duration = Date.now() - startTime
 
     if (!response.ok) {
       console.warn(`[CoachingReview] HTTP error: ${response.status} ${response.statusText}`)
+      recordResponsePayload({
+        id: traceId,
+        status: response.status,
+        headers: {},
+        body: { error: response.statusText },
+        duration,
+        error: `HTTP ${response.status}`,
+      })
       return { success: false, error: `HTTP ${response.status}` }
     }
 
@@ -246,28 +268,78 @@ export async function fetchCoachingReview(
     // Validate response
     const validated = validateReviewResponse(data, allowedIds)
     if (!validated) {
+      recordResponsePayload({
+        id: traceId,
+        status: response.status,
+        headers: {},
+        body: data,
+        duration,
+        error: 'Validation failed',
+      })
       return { success: false, error: 'Validation failed' }
     }
+
+    // Record successful response
+    recordResponsePayload({
+      id: traceId,
+      status: response.status,
+      headers: {},
+      body: data,
+      duration,
+    })
 
     return { success: true, data: validated }
   } catch (err) {
     clearTimeout(timeoutId)
+    const duration = Date.now() - startTime
 
     if (err instanceof Error) {
       if (err.name === 'AbortError') {
         // Check if it was timeout vs external cancellation
         if (abortSignal?.aborted) {
           console.log('[CoachingReview] Request cancelled')
+          recordResponsePayload({
+            id: traceId,
+            status: 0,
+            headers: {},
+            body: null,
+            duration,
+            error: 'Cancelled',
+          })
           return { success: false, error: 'Cancelled' }
         }
         console.warn('[CoachingReview] Request timed out')
+        recordResponsePayload({
+          id: traceId,
+          status: 0,
+          headers: {},
+          body: null,
+          duration,
+          error: 'Timeout',
+        })
         return { success: false, error: 'Timeout' }
       }
       console.warn('[CoachingReview] Network error:', err.message)
+      recordResponsePayload({
+        id: traceId,
+        status: 0,
+        headers: {},
+        body: null,
+        duration,
+        error: err.message,
+      })
       return { success: false, error: err.message }
     }
 
     console.warn('[CoachingReview] Unknown error:', err)
+    recordResponsePayload({
+      id: traceId,
+      status: 0,
+      headers: {},
+      body: null,
+      duration,
+      error: 'Unknown error',
+    })
     return { success: false, error: 'Unknown error' }
   }
 }

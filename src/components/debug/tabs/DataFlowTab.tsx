@@ -732,6 +732,105 @@ export function DataFlowTab({ data }: DataFlowTabProps) {
         </div>
       </div>
 
+      {/* CEE Downstream Calls Section */}
+      {data.cee_downstream && data.cee_downstream.length > 0 && (
+        <div style={sectionStyle}>
+          <div style={sectionTitleStyle}>
+            CEE Downstream Calls ({data.cee_downstream.length})
+          </div>
+          <div style={{ fontSize: 11, color: '#64748b', marginBottom: 12 }}>
+            CEE calls captured from PLoT downstream_calls.cee (e.g., /review, /decision-review)
+          </div>
+          {data.cee_downstream.map((call, index) => (
+            <div
+              key={index}
+              style={{
+                padding: 10,
+                background: call.success ? '#f0fdf4' : '#fef2f2',
+                border: `1px solid ${call.success ? '#bbf7d0' : '#fecaca'}`,
+                borderRadius: 6,
+                marginBottom: index < data.cee_downstream!.length - 1 ? 8 : 0,
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                <span
+                  style={{
+                    fontWeight: 600,
+                    color: call.success ? '#166534' : '#991b1b',
+                  }}
+                >
+                  {call.success ? '✓' : '✗'} {call.endpoint}
+                </span>
+                <span
+                  style={{
+                    fontSize: 10,
+                    padding: '2px 6px',
+                    background: call.success ? '#dcfce7' : '#fee2e2',
+                    borderRadius: 4,
+                    color: call.success ? '#166534' : '#991b1b',
+                  }}
+                >
+                  {call.status_code}
+                </span>
+                <span style={{ fontSize: 10, color: '#64748b' }}>
+                  {call.latency_ms}ms
+                </span>
+              </div>
+
+              {/* Schema/key info for debugging */}
+              {(call.schema_version || call.request_keys) && (
+                <div
+                  style={{
+                    fontSize: 10,
+                    color: '#475569',
+                    background: '#f8fafc',
+                    padding: 6,
+                    borderRadius: 4,
+                    marginBottom: 8,
+                  }}
+                >
+                  {call.schema_version && (
+                    <div>
+                      <span style={{ color: '#64748b' }}>Schema: </span>
+                      <code style={{ fontFamily: 'monospace' }}>{call.schema_version}</code>
+                    </div>
+                  )}
+                  {call.request_keys && (
+                    <div>
+                      <span style={{ color: '#64748b' }}>Request Keys: </span>
+                      <code style={{ fontFamily: 'monospace' }}>{call.request_keys.join(', ')}</code>
+                    </div>
+                  )}
+                  {call.payload_hash && !call.request && (
+                    <div>
+                      <span style={{ color: '#64748b' }}>Payload Hash: </span>
+                      <code style={{ fontFamily: 'monospace' }}>{call.payload_hash}</code>
+                      <span style={{ color: '#f59e0b', marginLeft: 8 }}>
+                        (full payload not available)
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {call.error && (
+                <div
+                  style={{
+                    fontSize: 11,
+                    color: '#991b1b',
+                    background: '#fee2e2',
+                    padding: 6,
+                    borderRadius: 4,
+                  }}
+                >
+                  Error: {call.error}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* No data placeholder */}
       {!data.hasData && (
         <div

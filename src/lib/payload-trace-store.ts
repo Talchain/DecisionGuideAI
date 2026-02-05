@@ -29,7 +29,7 @@ export interface TracedPayload {
   /** Request ID (correlates with debug-state) */
   id: string
   /** Service type */
-  service: 'CEE' | 'PLoT' | 'ISL' | 'BFF' | 'unknown'
+  service: 'CEE' | 'PLoT' | 'ISL' | 'BFF' | 'M2' | 'unknown'
   /** Endpoint path */
   endpoint: string
   /** HTTP method */

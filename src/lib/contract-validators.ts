@@ -522,7 +522,7 @@ export function validatePLoTResponse(response: unknown, sentRequestId?: string):
 /**
  * Detect which service a request is for based on endpoint
  */
-export function detectService(endpoint: string): 'CEE' | 'PLoT' | 'ISL' | 'BFF' | 'unknown' {
+export function detectService(endpoint: string): 'CEE' | 'PLoT' | 'ISL' | 'BFF' | 'M2' | 'unknown' {
   const lower = endpoint.toLowerCase()
   if (lower.includes('/cee/') || lower.includes('assist') || lower.includes('draft-graph')) {
     return 'CEE'
@@ -535,6 +535,10 @@ export function detectService(endpoint: string): 'CEE' | 'PLoT' | 'ISL' | 'BFF' 
   }
   if (lower.includes('/bff/')) {
     return 'BFF'
+  }
+  // M2 Decision Review (LLM-enhanced coaching)
+  if (lower.includes('/v2/review')) {
+    return 'M2'
   }
   return 'unknown'
 }

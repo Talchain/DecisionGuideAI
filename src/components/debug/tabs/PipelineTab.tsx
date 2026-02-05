@@ -1504,6 +1504,181 @@ export function PipelineTab({ data }: PipelineTabProps) {
         </div>
       )}
 
+      {/* M1 Coaching (Deterministic Layer) */}
+      {data.m1_coaching && (
+        <div
+          style={{
+            ...sectionStyle,
+            background: '#f0fdf4',
+            border: '1px solid #bbf7d0',
+          }}
+        >
+          <div style={{ ...sectionTitleStyle, color: '#166534', display: 'flex', alignItems: 'center', gap: 8 }}>
+            🎯 M1 Coaching (Deterministic)
+            {data.m1_coaching.readiness && (
+              <span
+                style={{
+                  fontSize: 10,
+                  padding: '2px 6px',
+                  borderRadius: 4,
+                  background: data.m1_coaching.readiness === 'ready' ? '#dcfce7' :
+                              data.m1_coaching.readiness === 'close_call' ? '#fef3c7' :
+                              data.m1_coaching.readiness === 'needs_evidence' ? '#fef2f2' : '#f3f4f6',
+                  color: data.m1_coaching.readiness === 'ready' ? '#166534' :
+                         data.m1_coaching.readiness === 'close_call' ? '#92400e' :
+                         data.m1_coaching.readiness === 'needs_evidence' ? '#991b1b' : '#374151',
+                }}
+              >
+                {data.m1_coaching.readiness.replace('_', ' ')}
+              </span>
+            )}
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+            <MetricCard label="Readiness" value={data.m1_coaching.readiness ?? '—'} />
+            <MetricCard label="Score" value={data.m1_coaching.readiness_score ?? '—'} />
+            <MetricCard
+              label="Evidence Gaps"
+              value={data.m1_coaching.evidence_gaps_count}
+              warn={data.m1_coaching.evidence_gaps_count > 0}
+            />
+            <MetricCard label="Key Drivers" value={data.m1_coaching.key_drivers?.count ?? 0} />
+            <MetricCard label="Next Actions" value={data.m1_coaching.next_actions_count} />
+            <MetricCard
+              label="Assumptions"
+              value={data.m1_coaching.assumptions_count}
+              warn={data.m1_coaching.assumptions_by_severity.high > 0}
+            />
+          </div>
+
+          {data.m1_coaching.key_drivers?.dominant_factor && (
+            <div
+              style={{
+                marginTop: 12,
+                padding: 8,
+                background: '#ecfdf5',
+                border: '1px solid #a7f3d0',
+                borderRadius: 4,
+                fontSize: 12,
+              }}
+            >
+              <strong>Dominant Factor:</strong> {data.m1_coaching.key_drivers.dominant_factor}
+            </div>
+          )}
+
+          {data.m1_coaching.assumptions_by_severity.high > 0 && (
+            <div
+              style={{
+                marginTop: 8,
+                padding: 8,
+                background: '#fef2f2',
+                border: '1px solid #fecaca',
+                borderRadius: 4,
+                fontSize: 12,
+                color: '#991b1b',
+              }}
+            >
+              ⚠️ {data.m1_coaching.assumptions_by_severity.high} high-severity assumption{data.m1_coaching.assumptions_by_severity.high > 1 ? 's' : ''}
+            </div>
+          )}
+
+          <details style={{ marginTop: 12 }}>
+            <summary style={{ cursor: 'pointer', fontSize: 11, color: '#64748b' }}>
+              View Raw M1 Coaching Data
+            </summary>
+            <div style={{ marginTop: 8 }}>
+              <JsonViewer data={data.m1_coaching.raw} maxHeight={300} />
+            </div>
+          </details>
+        </div>
+      )}
+
+      {/* M2 Decision Review (LLM-Enhanced) */}
+      <div
+        style={{
+          ...sectionStyle,
+          background: data.m2_review?.status === 'failed' ? '#fef2f2' :
+                      data.m2_review?.status === 'skipped' ? '#f8fafc' :
+                      data.m2_review?.status === 'success' ? '#f0f9ff' : '#fff',
+          border: data.m2_review?.status === 'failed' ? '1px solid #fecaca' :
+                  data.m2_review?.status === 'success' ? '1px solid #bae6fd' : '1px solid #e2e8f0',
+        }}
+      >
+        <div style={{ ...sectionTitleStyle, display: 'flex', alignItems: 'center', gap: 8 }}>
+          🤖 M2 Decision Review (LLM-Enhanced)
+          {data.m2_review?.status === 'success' && <span style={{ color: '#16a34a' }}>✓</span>}
+          {data.m2_review?.status === 'failed' && <span style={{ color: '#dc2626' }}>✗</span>}
+          {data.m2_review?.status === 'skipped' && <span style={{ color: '#94a3b8' }}>Skipped</span>}
+          {data.m2_review?.status === 'pending' && <span style={{ color: '#f59e0b' }}>⏳</span>}
+        </div>
+
+        {data.m2_review?.status === 'skipped' && data.m2_review.skip_reason && (
+          <div style={{ color: '#64748b', marginBottom: 8, fontSize: 12 }}>
+            Skip Reason: {data.m2_review.skip_reason}
+          </div>
+        )}
+
+        {data.m2_review?.status === 'success' && (
+          <>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+              <MetricCard label="Duration" value={data.m2_review.duration_ms ? `${data.m2_review.duration_ms}ms` : '—'} />
+              <MetricCard label="Bullets" value={data.m2_review.bullets_count} />
+              <MetricCard label="Bias Insights" value={data.m2_review.bias_insights_count} />
+            </div>
+
+            {data.m2_review.headline && (
+              <div
+                style={{
+                  marginTop: 12,
+                  padding: 8,
+                  background: '#f0f9ff',
+                  border: '1px solid #bae6fd',
+                  borderRadius: 4,
+                  fontSize: 12,
+                }}
+              >
+                <strong>Headline:</strong> {data.m2_review.headline}
+              </div>
+            )}
+
+            <details style={{ marginTop: 12 }}>
+              <summary style={{ cursor: 'pointer', fontSize: 11, color: '#64748b' }}>
+                View Raw M2 Response
+              </summary>
+              <div style={{ marginTop: 8 }}>
+                <JsonViewer data={data.m2_review.raw} maxHeight={300} />
+              </div>
+            </details>
+          </>
+        )}
+
+        {data.m2_review?.status === 'failed' && (
+          <div
+            style={{
+              color: '#dc2626',
+              padding: 8,
+              background: '#fef2f2',
+              borderRadius: 4,
+              fontSize: 12,
+            }}
+          >
+            Error: {data.m2_review.error ?? 'Unknown error'}
+          </div>
+        )}
+
+        {data.m2_review?.status === 'pending' && (
+          <div style={{ color: '#f59e0b', fontSize: 12 }}>
+            M2 Review request in progress...
+          </div>
+        )}
+
+        {!data.m2_review && (
+          <div style={{ color: '#94a3b8', fontSize: 12 }}>
+            M2 Review not available (requires analysis completion)
+          </div>
+        )}
+      </div>
+
       {/* No data placeholder */}
       {!data.hasData && (
         <div

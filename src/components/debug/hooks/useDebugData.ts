@@ -89,6 +89,26 @@ export interface IslDownstreamCall {
   error?: string
 }
 
+/**
+ * CEE downstream call data from PLoT response.
+ * Used for /review and /decision-review calls via PLoT orchestration.
+ */
+export interface CeeDownstreamCall {
+  endpoint: string
+  request: unknown
+  response: unknown | null
+  status_code: number
+  success: boolean
+  latency_ms: number
+  error?: string
+  /** Payload hash if full payload not available */
+  payload_hash?: string
+  /** Top-level keys for schema debugging */
+  request_keys?: string[]
+  /** Schema version if present in request */
+  schema_version?: string
+}
+
 export interface PipelineStageData {
   id: string
   name: string
@@ -170,6 +190,12 @@ export interface PayloadBundle {
   plot_response?: unknown
   isl_request?: unknown
   isl_response?: unknown
+  m2_request?: unknown
+  m2_response?: unknown
+  /** CEE downstream call request (from PLoT downstream_calls.cee) */
+  cee_downstream_request?: unknown
+  /** CEE downstream call response (from PLoT downstream_calls.cee) */
+  cee_downstream_response?: unknown
 }
 
 export interface GateData {
@@ -593,6 +619,63 @@ export interface GraphDiff {
   repair_type?: string
 }
 
+// =============================================================================
+// M1/M2 Architecture Types
+// =============================================================================
+
+/**
+ * M1 Coaching Layer (Deterministic)
+ * Extracted from V2RunResponse.m1_coaching
+ */
+export interface M1CoachingData {
+  /** Availability status */
+  status: 'available' | 'unavailable'
+  /** Decision readiness level */
+  readiness: 'ready' | 'close_call' | 'needs_evidence' | 'needs_framing' | null
+  /** Readiness score (0-100) */
+  readiness_score: number | null
+  /** Headline type for result display */
+  headline_type: string | null
+  /** Number of evidence gaps identified */
+  evidence_gaps_count: number
+  /** Key drivers summary */
+  key_drivers: {
+    count: number
+    dominant_factor: string | null
+  } | null
+  /** Number of suggested next actions */
+  next_actions_count: number
+  /** Number of assumptions identified */
+  assumptions_count: number
+  /** Assumptions breakdown by severity */
+  assumptions_by_severity: { high: number; medium: number; low: number }
+  /** Raw M1Coaching object for inspection */
+  raw: unknown
+}
+
+/**
+ * M2 Decision Review (LLM-Enhanced)
+ * Extracted from /v2/review response captured in payload trace
+ */
+export interface M2ReviewData {
+  /** Request/response status */
+  status: 'success' | 'failed' | 'skipped' | 'pending'
+  /** Reason if skipped */
+  skip_reason: string | null
+  /** Request duration in milliseconds */
+  duration_ms: number | null
+  /** Generated headline */
+  headline: string | null
+  /** Number of bullets generated */
+  bullets_count: number
+  /** Number of bias insights */
+  bias_insights_count: number
+  /** Error message if failed */
+  error: string | null
+  /** Raw ReviewResponse for inspection */
+  raw: unknown
+}
+
 export interface DebugData {
   /** Overall analysis status */
   overall: {
@@ -670,6 +753,15 @@ export interface DebugData {
 
   /** CEE Observability data from _observability object */
   cee_observability: CEEObservabilityData | null
+
+  /** M1 Coaching Layer (Deterministic) */
+  m1_coaching: M1CoachingData | null
+
+  /** M2 Decision Review (LLM-Enhanced) */
+  m2_review: M2ReviewData | null
+
+  /** CEE downstream calls from PLoT orchestration (for /review, /decision-review) */
+  cee_downstream: CeeDownstreamCall[] | null
 }
 
 // =============================================================================
@@ -743,6 +835,76 @@ function extractIslFromPlotResponse(plotResponse: unknown): IslDownstreamCall | 
   }
 
   return null
+}
+
+/**
+ * Extract CEE downstream calls from PLoT response.
+ * Used to capture /review and /decision-review calls via PLoT orchestration.
+ *
+ * Looks for downstream_calls.cee in multiple locations similar to ISL extraction.
+ * Returns array of all CEE calls found (there may be multiple).
+ */
+function extractCeeFromPlotResponse(plotResponse: unknown): CeeDownstreamCall[] | null {
+  if (!plotResponse || typeof plotResponse !== 'object') return null
+
+  const response = plotResponse as Record<string, unknown>
+
+  // Check all paths using shared accessors
+  let downstreamCalls: Record<string, unknown> | null = null
+  for (const { accessor } of DOWNSTREAM_CALLS_PATHS) {
+    const result = accessor(response)
+    if (result && typeof result === 'object') {
+      downstreamCalls = result as Record<string, unknown>
+      break
+    }
+  }
+
+  if (!downstreamCalls) return null
+
+  // Look for CEE calls
+  const ceeData = downstreamCalls.cee
+  if (!ceeData) return null
+
+  // CEE might be array or object
+  const ceeArray = Array.isArray(ceeData) ? ceeData : [ceeData]
+  const calls: CeeDownstreamCall[] = []
+
+  for (const cee of ceeArray) {
+    if (!cee || typeof cee !== 'object') continue
+    const data = cee as Record<string, unknown>
+
+    // Extract request payload or hash
+    const requestPayload = data.request_payload ?? data.request ?? data.payload
+    const requestKeys = requestPayload && typeof requestPayload === 'object'
+      ? Object.keys(requestPayload as Record<string, unknown>)
+      : undefined
+
+    // Extract schema version from request if present
+    const req = requestPayload as Record<string, unknown> | undefined
+    const schemaVersion = req?.schema_version as string | undefined ??
+                          req?._schema_version as string | undefined ??
+                          req?.version as string | undefined
+
+    // Normalize status code and success flag (avoid unsafe `as boolean` cast)
+    const statusCode = (data.status_code ?? data.status ?? 0) as number
+    const derivedSuccess = statusCode >= 200 && statusCode < 300
+    const success = typeof data.success === 'boolean' ? data.success : derivedSuccess
+
+    calls.push({
+      endpoint: (data.endpoint ?? data.url ?? '/cee/unknown') as string,
+      request: requestPayload ?? null,
+      response: (data.response_payload ?? data.response) as unknown ?? null,
+      status_code: statusCode,
+      success,
+      latency_ms: (data.latency_ms ?? data.elapsed_ms ?? data.duration_ms ?? 0) as number,
+      error: data.error as string | undefined,
+      payload_hash: (data.payload_hash ?? data.request_hash) as string | undefined,
+      request_keys: requestKeys,
+      schema_version: schemaVersion,
+    })
+  }
+
+  return calls.length > 0 ? calls : null
 }
 
 /**
@@ -2297,6 +2459,179 @@ function extractCEEObservability(ceeResponse: unknown): CEEObservabilityData | n
 }
 
 // =============================================================================
+// M1/M2 Architecture Extraction
+// =============================================================================
+
+/**
+ * Extract M1 Coaching data from PLoT response.
+ * M1 coaching is deterministic content generated during PLoT run.
+ */
+function extractM1Coaching(plotResponse: unknown): M1CoachingData | null {
+  if (!plotResponse || typeof plotResponse !== 'object') return null
+
+  const plot = plotResponse as Record<string, unknown>
+  const m1 = plot.m1_coaching as Record<string, unknown> | undefined
+
+  if (!m1) return null
+
+  // Extract readiness
+  const readiness = typeof m1.readiness === 'string'
+    ? m1.readiness as M1CoachingData['readiness']
+    : null
+
+  // Extract readiness score (0-100)
+  const readiness_score = typeof m1.readiness_score === 'number'
+    ? m1.readiness_score
+    : null
+
+  // Extract headline type
+  const headline_type = typeof m1.headline_type === 'string'
+    ? m1.headline_type
+    : null
+
+  // Extract evidence gaps count
+  const evidence_gaps = m1.evidence_gaps as unknown[] | undefined
+  const evidence_gaps_count = Array.isArray(evidence_gaps) ? evidence_gaps.length : 0
+
+  // Extract key drivers
+  const key_drivers_raw = m1.key_drivers as Record<string, unknown>[] | undefined
+  const key_drivers = Array.isArray(key_drivers_raw) ? {
+    count: key_drivers_raw.length,
+    dominant_factor: key_drivers_raw.length > 0
+      ? (key_drivers_raw[0].label as string | undefined) ?? null
+      : null,
+  } : null
+
+  // Extract next actions count
+  const next_actions = m1.next_actions as unknown[] | undefined
+  const next_actions_count = Array.isArray(next_actions) ? next_actions.length : 0
+
+  // Extract assumptions
+  const assumptions_ledger = m1.assumptions_ledger as Record<string, unknown>[] | undefined
+  const assumptions_count = Array.isArray(assumptions_ledger) ? assumptions_ledger.length : 0
+
+  // Count assumptions by severity
+  const assumptions_by_severity = { high: 0, medium: 0, low: 0 }
+  if (Array.isArray(assumptions_ledger)) {
+    for (const assumption of assumptions_ledger) {
+      const severity = (assumption as Record<string, unknown>).severity as string | undefined
+      if (severity === 'high') assumptions_by_severity.high++
+      else if (severity === 'medium') assumptions_by_severity.medium++
+      else assumptions_by_severity.low++
+    }
+  }
+
+  return {
+    status: 'available',
+    readiness,
+    readiness_score,
+    headline_type,
+    evidence_gaps_count,
+    key_drivers,
+    next_actions_count,
+    assumptions_count,
+    assumptions_by_severity,
+    raw: m1,
+  }
+}
+
+/**
+ * Extract M2 Review data from traced M2 payload.
+ * M2 is LLM-enhanced coaching from /v2/review endpoint.
+ */
+function extractM2Review(m2Payload: TracedPayload | null): M2ReviewData | null {
+  // No M2 payload found - not called yet
+  if (!m2Payload) {
+    return null
+  }
+
+  // Request in progress
+  if (!m2Payload.completed) {
+    return {
+      status: 'pending',
+      skip_reason: null,
+      duration_ms: null,
+      headline: null,
+      bullets_count: 0,
+      bias_insights_count: 0,
+      error: null,
+      raw: null,
+    }
+  }
+
+  // Request failed
+  if (m2Payload.error || (m2Payload.status && m2Payload.status >= 400)) {
+    return {
+      status: 'failed',
+      skip_reason: null,
+      duration_ms: m2Payload.duration ?? null,
+      headline: null,
+      bullets_count: 0,
+      bias_insights_count: 0,
+      error: m2Payload.error ?? `HTTP ${m2Payload.status}`,
+      raw: m2Payload.response?.body ?? null,
+    }
+  }
+
+  // Extract successful response data
+  const body = m2Payload.response?.body as Record<string, unknown> | undefined
+  if (!body) {
+    return {
+      status: 'failed',
+      skip_reason: null,
+      duration_ms: m2Payload.duration ?? null,
+      headline: null,
+      bullets_count: 0,
+      bias_insights_count: 0,
+      error: 'Empty response body',
+      raw: null,
+    }
+  }
+
+  // Validate response structure (aligned with validateReviewResponse in coachingReview.ts)
+  const headline = typeof body.headline === 'string' ? body.headline : null
+  const bullets = Array.isArray(body.bullets) ? body.bullets : []
+  const bias_insights = Array.isArray(body.bias_insights) ? body.bias_insights : []
+
+  // Check for validation failures that would cause UI to reject the response
+  const validationErrors: string[] = []
+  if (!headline || headline.length === 0 || headline.length > 100) {
+    validationErrors.push('Invalid headline')
+  }
+  if (bullets.length !== 3) {
+    validationErrors.push(`Expected 3 bullets, got ${bullets.length}`)
+  }
+  if (!Array.isArray(body.coaching_paragraph)) {
+    validationErrors.push('Missing coaching_paragraph')
+  }
+
+  // If validation would fail, mark as failed with validation error
+  if (validationErrors.length > 0) {
+    return {
+      status: 'failed',
+      skip_reason: null,
+      duration_ms: m2Payload.duration ?? null,
+      headline,
+      bullets_count: bullets.length,
+      bias_insights_count: bias_insights.length,
+      error: `Validation failed: ${validationErrors.join(', ')}`,
+      raw: body,
+    }
+  }
+
+  return {
+    status: 'success',
+    skip_reason: null,
+    duration_ms: m2Payload.duration ?? null,
+    headline,
+    bullets_count: bullets.length,
+    bias_insights_count: bias_insights.length,
+    error: null,
+    raw: body,
+  }
+}
+
+// =============================================================================
 // Hook
 // =============================================================================
 
@@ -2318,10 +2653,16 @@ export function useDebugData(): DebugData {
     const ceePayload = findBestPayload(tracedPayloads, 'CEE')
     const plotPayload = findBestPayload(tracedPayloads, 'PLoT')
     const islPayload = findBestPayload(tracedPayloads, 'ISL')
+    const m2Payload = findBestPayload(tracedPayloads, 'M2')
 
     // Extract ISL from PLoT downstream_calls if not found directly
     const islFromPlot = plotPayload?.response?.body
       ? extractIslFromPlotResponse(plotPayload.response)
+      : null
+
+    // Extract CEE downstream calls from PLoT response (for /review, /decision-review)
+    const ceeFromPlot = plotPayload?.response?.body
+      ? extractCeeFromPlotResponse(plotPayload.response)
       : null
 
     // Determine ISL data source
@@ -2412,6 +2753,10 @@ export function useDebugData(): DebugData {
       plot_response: plotPayload?.response?.body,
       isl_request: islServiceCall?.request,
       isl_response: islServiceCall?.response,
+      m2_request: m2Payload?.request?.body,
+      m2_response: m2Payload?.response?.body,
+      cee_downstream_request: ceeFromPlot?.[0]?.request,
+      cee_downstream_response: ceeFromPlot?.[0]?.response,
     }
 
     // Extract first error for error banner
@@ -2483,6 +2828,10 @@ export function useDebugData(): DebugData {
     )
     const cee_observability = extractCEEObservability(payloadBundle.cee_response)
 
+    // M1/M2 Architecture extractions
+    const m1_coaching = extractM1Coaching(payloadBundle.plot_response)
+    const m2_review = extractM2Review(m2Payload)
+
     return {
       overall: {
         status: overallStatus,
@@ -2528,6 +2877,11 @@ export function useDebugData(): DebugData {
       timing,
       schema_versions,
       cee_observability,
+
+      // M1/M2 Architecture
+      m1_coaching,
+      m2_review,
+      cee_downstream: ceeFromPlot,
     }
   }, [ceePipelineTrace, nodes, edges, runMeta, tracedPayloads, gatesMap])
 }
