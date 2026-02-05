@@ -319,4 +319,83 @@ describe('RangeVisualization', () => {
       expect(screen.queryByText('Invalid Option')).not.toBeInTheDocument()
     })
   })
+
+  describe('Winner ordering priority', () => {
+    it('includes winner in top 3 even when its winProbability is lower', () => {
+      // Winner has lower winProbability but should still be included due to tiebreaker
+      const optionsWithLowerWinnerWp: OptionResult[] = [
+        {
+          id: 'option-high-wp',
+          label: 'High WP Option',
+          expected: 100,
+          outcome: { mean: 100, p10: 60, p50: 100, p90: 140 },
+          p10: 60, p50: 100, p90: 140,
+          isRecommended: false,
+          winProbability: 0.40,
+        },
+        {
+          id: 'option-winner',
+          label: 'Winner Option',
+          expected: 90,
+          outcome: { mean: 90, p10: 50, p50: 90, p90: 130 },
+          p10: 50, p50: 90, p90: 130,
+          isRecommended: true,
+          winProbability: 0.40, // Same winProbability, but is the winner
+        },
+        {
+          id: 'option-third',
+          label: 'Third Option',
+          expected: 80,
+          outcome: { mean: 80, p10: 40, p50: 80, p90: 120 },
+          p10: 40, p50: 80, p90: 120,
+          isRecommended: false,
+          winProbability: 0.20,
+        },
+      ]
+
+      render(<RangeVisualization options={optionsWithLowerWinnerWp} winnerId="option-winner" />)
+
+      // All three should be visible
+      expect(screen.getByText('High WP Option')).toBeInTheDocument()
+      expect(screen.getByText('Winner Option')).toBeInTheDocument()
+      expect(screen.getByText('Third Option')).toBeInTheDocument()
+    })
+
+    it('prioritizes winner when winProbabilities are equal', () => {
+      const { container } = render(
+        <RangeVisualization
+          options={[
+            {
+              id: 'option-a',
+              label: 'Option A',
+              expected: 100,
+              outcome: { mean: 100, p10: 60, p50: 100, p90: 140 },
+              p10: 60, p50: 100, p90: 140,
+              isRecommended: false,
+              winProbability: 0.50,
+            },
+            {
+              id: 'option-b',
+              label: 'Option B (Winner)',
+              expected: 90,
+              outcome: { mean: 90, p10: 50, p50: 90, p90: 130 },
+              p10: 50, p50: 90, p90: 130,
+              isRecommended: true,
+              winProbability: 0.50, // Same winProbability
+            },
+          ]}
+          winnerId="option-b"
+        />
+      )
+
+      // Winner should appear first in the rendered list
+      const labels = container.querySelectorAll('span')
+      const labelTexts = Array.from(labels).map(l => l.textContent)
+      const optionAIndex = labelTexts.findIndex(t => t === 'Option A')
+      const optionBIndex = labelTexts.findIndex(t => t?.includes('Option B'))
+
+      // Winner (Option B) should come before Option A
+      expect(optionBIndex).toBeLessThan(optionAIndex)
+    })
+  })
 })

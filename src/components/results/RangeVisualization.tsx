@@ -144,12 +144,12 @@ function OptionRangeBar({
               }}
               title={`Target: ${formatThreshold(goalThreshold!, outcomeUnit, outcomeUnitSymbol)}`}
             />
-            {/* Threshold label (small, above line) */}
+            {/* Threshold label (small, above line) - clamp position at edges */}
             <div
               className="absolute -top-5 text-[10px] text-goal font-medium whitespace-nowrap"
               style={{
-                left: `${thresholdPct}%`,
-                transform: 'translateX(-50%)',
+                left: `${Math.max(5, Math.min(95, thresholdPct))}%`,
+                transform: thresholdPct < 15 ? 'translateX(0)' : thresholdPct > 85 ? 'translateX(-100%)' : 'translateX(-50%)',
               }}
             >
               {formatThreshold(goalThreshold!, outcomeUnit, outcomeUnitSymbol)}
@@ -176,6 +176,7 @@ export function RangeVisualization({
   const [showAll, setShowAll] = useState(false)
 
   // Filter to options with valid outcome data and sort by win probability
+  // Tiebreaker: recommended option (winnerId) first to ensure it's always in top 3
   const validOptions = useMemo(() => {
     return options
       .filter(opt =>
@@ -183,8 +184,16 @@ export function RangeVisualization({
         opt.outcome?.p50 != null &&
         opt.outcome?.p90 != null
       )
-      .sort((a, b) => (b.winProbability ?? 0) - (a.winProbability ?? 0))
-  }, [options])
+      .sort((a, b) => {
+        const wpA = a.winProbability ?? 0
+        const wpB = b.winProbability ?? 0
+        if (wpB !== wpA) return wpB - wpA // Descending by win probability
+        // Tiebreaker: winner first
+        if (a.id === winnerId) return -1
+        if (b.id === winnerId) return 1
+        return 0
+      })
+  }, [options, winnerId])
 
   // Calculate global min/max for consistent axis scaling
   const { minValue, maxValue } = useMemo(() => {
