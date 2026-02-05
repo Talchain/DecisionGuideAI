@@ -885,8 +885,10 @@ function extractCeeFromPlotResponse(plotResponse: unknown): CeeDownstreamCall[] 
                           req?._schema_version as string | undefined ??
                           req?.version as string | undefined
 
-    // Normalize status code and success flag (avoid unsafe `as boolean` cast)
-    const statusCode = (data.status_code ?? data.status ?? 0) as number
+    // Normalize status code and success flag
+    // Use Number() to handle string status codes (e.g., "200") from some backends
+    const rawStatus = data.status_code ?? data.status ?? 0
+    const statusCode = typeof rawStatus === 'number' ? rawStatus : Number(rawStatus) || 0
     const derivedSuccess = statusCode >= 200 && statusCode < 300
     const success = typeof data.success === 'boolean' ? data.success : derivedSuccess
 
