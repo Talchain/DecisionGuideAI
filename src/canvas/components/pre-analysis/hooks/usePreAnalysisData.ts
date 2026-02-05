@@ -356,7 +356,7 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
           key: `verify_${factor.id}`,
           category: 'verify',
           label: cleanedLabel,
-          detail: value ? `AI estimate: ${value}` : 'AI-estimated value',
+          detail: value || 'Value needed',
           bias: 'confidence',
           focus: { type: 'node', id: factor.id, label: cleanedLabel },
           action: { label: 'Confirm', kind: 'confirm', targetId: factor.id, targetType: 'node' },

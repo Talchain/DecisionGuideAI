@@ -16,7 +16,7 @@
 
 import { useState, useCallback } from 'react'
 import { Accordion, Pill, NodeLink, IconBtn, BiasIcon } from './primitives'
-import { Check, Pencil, Plus, HelpCircle } from 'lucide-react'
+import { Check, Pencil, Plus, HelpCircle, ChevronDown, ChevronRight } from 'lucide-react'
 import type { ImprovementItem, ImprovementCategory } from './hooks/usePreAnalysisData'
 
 /** Action handlers for improvement items */
@@ -35,6 +35,8 @@ export interface ImprovementActionHandlers {
   onAddOption?: () => void
   /** Add risk action - create new risk node */
   onAddRisk?: () => void
+  /** Reset source action - revert factor source back to AI for re-review */
+  onResetSource?: (nodeId: string) => void
 }
 
 interface AllImprovementsProps {
@@ -188,6 +190,10 @@ function ImprovementRow({ item, onFocus, actionHandlers, isRemoving, onHoverEnte
   const [showEvidenceInput, setShowEvidenceInput] = useState(false)
   const [evidenceValue, setEvidenceValue] = useState('')
   const [exitLabel, setExitLabel] = useState<string | null>(null)
+  // Reviewed state for Verify items: 'confirmed' | 'assumption' | null
+  const [reviewedState, setReviewedState] = useState<'confirmed' | 'assumption' | null>(null)
+  // Whether the reviewed item is expanded (to change response)
+  const [isReviewedExpanded, setIsReviewedExpanded] = useState(false)
 
   const handleFocusClick = () => {
     if (item.focus && onFocus) {
@@ -320,14 +326,64 @@ function ImprovementRow({ item, onFocus, actionHandlers, isRemoving, onHoverEnte
     onHoverLeave?.()
   }
 
-  // Show exit transition
-  if (isRemoving || exitLabel) {
+  // Show exit transition for non-Verify items
+  if (isRemoving || (exitLabel && item.category !== 'verify')) {
     return (
       <div className="flex items-center gap-2 opacity-50 transition-opacity duration-500">
         <span className="text-sm text-text-body">{item.label}</span>
         <Pill size="small" variant={exitLabel === 'Confirmed' ? 'success' : 'info'}>
           {exitLabel || 'Removed'}
         </Pill>
+      </div>
+    )
+  }
+
+  // Collapsed state for reviewed Verify items
+  if (item.category === 'verify' && reviewedState) {
+    return (
+      <div className="rounded-md -mx-1 px-1">
+        {/* Collapsed row */}
+        <button
+          type="button"
+          onClick={() => setIsReviewedExpanded(!isReviewedExpanded)}
+          className="w-full flex items-center gap-2 text-left cursor-pointer hover:bg-black/[0.02] rounded-md py-0.5"
+        >
+          {isReviewedExpanded ? (
+            <ChevronDown className="w-3.5 h-3.5 text-text-light shrink-0" />
+          ) : (
+            <ChevronRight className="w-3.5 h-3.5 text-text-light shrink-0" />
+          )}
+          <span className="text-sm text-text-light truncate">{item.label}</span>
+          <span className="shrink-0 text-sm text-text-light">·</span>
+          <span className="shrink-0 text-sm text-success flex items-center gap-1">
+            Reviewed <Check className="w-3.5 h-3.5" />
+          </span>
+        </button>
+
+        {/* Expanded content - ability to change response */}
+        {isReviewedExpanded && (
+          <div className="mt-2 ml-5 pl-1 border-l-2 border-panel-border">
+            <div className="flex items-center gap-2 py-1">
+              <span className="text-sm text-text-light">
+                {reviewedState === 'confirmed' ? 'Confirmed as correct' : 'Marked as assumption'}
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  // Reset node source back to AI so item reappears for re-review
+                  if (item.action?.targetId && actionHandlers?.onResetSource) {
+                    actionHandlers.onResetSource(item.action.targetId)
+                  }
+                  setReviewedState(null)
+                  setIsReviewedExpanded(false)
+                }}
+                className="text-xs text-info hover:underline cursor-pointer"
+              >
+                Change
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     )
   }
@@ -373,8 +429,8 @@ function ImprovementRow({ item, onFocus, actionHandlers, isRemoving, onHoverEnte
     )
   }
 
-  // Verify items: single-line format "label · detail"
-  // Label truncates, AI estimate and icons never collapse
+  // Verify items: single-line format "label · value"
+  // Label truncates, value and icons never collapse
   if (item.category === 'verify') {
     // Build full text for title tooltip (shows on hover when truncated)
     const fullText = item.detail ? `${item.label} · ${item.detail}` : item.label
@@ -403,7 +459,7 @@ function ImprovementRow({ item, onFocus, actionHandlers, isRemoving, onHoverEnte
                 item.label
               )}
             </span>
-            {/* AI estimate never collapses */}
+            {/* Value never collapses */}
             {item.detail && (
               <span className="shrink-0 text-text-light"> · {item.detail}</span>
             )}
@@ -418,7 +474,7 @@ function ImprovementRow({ item, onFocus, actionHandlers, isRemoving, onHoverEnte
                 variant="confirm"
                 onClick={() => {
                   if (item.action?.targetId) {
-                    setExitLabel('Confirmed')
+                    setReviewedState('confirmed')
                     actionHandlers.onConfirm(item.action.targetId)
                   }
                 }}
@@ -431,7 +487,7 @@ function ImprovementRow({ item, onFocus, actionHandlers, isRemoving, onHoverEnte
                 variant="assume"
                 onClick={() => {
                   if (item.action?.targetId) {
-                    setExitLabel('Assumption')
+                    setReviewedState('assumption')
                     actionHandlers.onAssumption(item.action.targetId)
                   }
                 }}

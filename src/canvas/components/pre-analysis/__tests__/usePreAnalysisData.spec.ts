@@ -504,7 +504,7 @@ describe('usePreAnalysisData', () => {
     })
   })
 
-  describe('AI Estimate Value Formatting', () => {
+  describe('Value Formatting', () => {
     it('formats fractional percentage values correctly (0.04 → "4%")', () => {
       mockUseCanvasStore.mockImplementation(createMockStore({
         nodes: [
@@ -525,7 +525,7 @@ describe('usePreAnalysisData', () => {
       expect(result.current.improvementsByCategory.verify).toContainEqual(
         expect.objectContaining({
           key: 'verify_factor1',
-          detail: 'AI estimate: 4%',
+          detail: '4%',
         })
       )
     })
@@ -551,7 +551,7 @@ describe('usePreAnalysisData', () => {
       expect(result.current.improvementsByCategory.verify).toContainEqual(
         expect.objectContaining({
           key: 'verify_factor1',
-          detail: 'AI estimate: 75%',
+          detail: '75%',
         })
       )
     })
@@ -576,7 +576,7 @@ describe('usePreAnalysisData', () => {
       expect(result.current.improvementsByCategory.verify).toContainEqual(
         expect.objectContaining({
           key: 'verify_factor1',
-          detail: 'AI estimate: £20,000',
+          detail: '£20,000',
         })
       )
     })
@@ -601,7 +601,7 @@ describe('usePreAnalysisData', () => {
       expect(result.current.improvementsByCategory.verify).toContainEqual(
         expect.objectContaining({
           key: 'verify_factor1',
-          detail: 'AI estimate: $5,000',
+          detail: '$5,000',
         })
       )
     })
@@ -626,7 +626,7 @@ describe('usePreAnalysisData', () => {
       expect(result.current.improvementsByCategory.verify).toContainEqual(
         expect.objectContaining({
           key: 'verify_factor1',
-          detail: 'AI estimate: 0.8',
+          detail: '0.8',
         })
       )
     })
@@ -651,7 +651,7 @@ describe('usePreAnalysisData', () => {
       expect(result.current.improvementsByCategory.verify).toContainEqual(
         expect.objectContaining({
           key: 'verify_factor1',
-          detail: 'AI-estimated value',
+          detail: 'Value needed',
         })
       )
     })

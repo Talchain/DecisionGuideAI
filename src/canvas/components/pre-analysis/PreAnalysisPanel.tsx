@@ -167,6 +167,25 @@ export function PreAnalysisPanel({
     setTimeout(() => setHighlightedNodes([]), 3000)
   }, [setHighlightedNodes])
 
+  // Reset source action - revert factor source back to AI for re-review
+  const handleResetSource = useCallback((nodeId: string) => {
+    const { nodes, updateNode } = useCanvasStore.getState()
+    const node = nodes.find(n => n.id === nodeId)
+    if (!node) return
+
+    const existingObservedState = (node.data as { observed_state?: Record<string, unknown> })?.observed_state || {}
+
+    updateNode(nodeId, {
+      data: {
+        ...node.data,
+        observed_state: {
+          ...existingObservedState,
+          source: 'ai', // Reset to AI source so item reappears in verify list
+        },
+      },
+    })
+  }, [])
+
   // Add evidence action - store evidence on edge metadata
   const handleAddEvidence = useCallback((edgeId: string, evidence: string) => {
     const { updateEdge } = useCanvasStore.getState()
@@ -333,7 +352,8 @@ export function PreAnalysisPanel({
     onAddBaseline: handleAddBaseline,
     onAddOption: handleAddOption,
     onAddRisk: handleAddRisk,
-  }), [handleConfirm, handleAssumption, handleEdit, handleAddEvidence, handleAddBaseline, handleAddOption, handleAddRisk])
+    onResetSource: handleResetSource,
+  }), [handleConfirm, handleAssumption, handleEdit, handleAddEvidence, handleAddBaseline, handleAddOption, handleAddRisk, handleResetSource])
 
   // Don't show panel if canvas is empty
   if (data.nodesByKind.goal.length === 0 &&
@@ -361,6 +381,7 @@ export function PreAnalysisPanel({
           onConfirm={handleConfirm}
           onAssumption={handleAssumption}
           onEdit={handleEdit}
+          onResetSource={handleResetSource}
           onHoverEnter={handleHoverElement}
           onHoverLeave={handleHoverClear}
         />
