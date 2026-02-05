@@ -452,6 +452,21 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
     // Phase 3.1: Use verification_prompts from CEE when available for better detail text
     const verificationPrompts = ceeAnalysisReady?.verification_prompts ?? {}
     for (const factor of nodesByKind.factor) {
+      // DEBUG: Trace controllable exclusion logic
+      const factorData = factor.data as { category?: string; observed_state?: { source?: string } }
+      console.log('[PreAnalysis Debug] Factor check:', {
+        id: factor.id,
+        label: getNodeLabel(factor),
+        category: factorData.category,
+        isControllable: isControllableFactor(factor),
+        isAiInferred: isAiInferred(factor),
+        hasIntervention: hasInterventionTargeting(factor.id, optionNodes),
+        optionsLength: optionNodes.length,
+        interventionKeys: optionNodes.map(o => {
+          const interventions = (o.data as { interventions?: Record<string, unknown> })?.interventions
+          return { optionId: o.id, keys: Object.keys(interventions || {}), values: interventions }
+        }),
+      })
       if (isAiInferred(factor)) {
         // Phase 2.5: Exclude controllable factors that have interventions targeting them
         // These are user choices, not assumptions that need verification
