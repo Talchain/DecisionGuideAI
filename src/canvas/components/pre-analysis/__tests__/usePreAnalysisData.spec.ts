@@ -52,6 +52,12 @@ describe('usePreAnalysisData', () => {
     ceeAnalysisReady?: {
       status?: string
       goal_node_id?: string
+      options?: Array<{
+        id: string
+        label?: string
+        status?: string
+        interventions?: Record<string, number | { value: number | null }>
+      }>
       verification_prompts?: Record<string, string>
       goal_threshold?: number | null
       low_confidence_edges?: Array<{ edge_id: string; prompt: string }>
@@ -1315,6 +1321,135 @@ describe('usePreAnalysisData', () => {
       // Verify items should also only have factor2
       expect(result.current.improvementsByCategory.verify).toHaveLength(1)
       expect(result.current.improvementsByCategory.verify[0].key).toBe('verify_factor2')
+    })
+
+    it('excludes controllable factors with interventions from ceeAnalysisReady.options (primary path)', () => {
+      // This tests the CEE V3 format where interventions live in ceeAnalysisReady.options[]
+      // NOT in node.data.interventions (which is the legacy fallback path)
+      mockUseCanvasStore.mockImplementation(createMockStore({
+        nodes: [
+          // Controllable factor with AI source
+          {
+            id: 'fac_investment',
+            type: 'factor',
+            position: { x: 0, y: 0 },
+            data: {
+              label: 'Initial Investment',
+              category: 'controllable',
+              observed_state: { source: 'cee_inference', value: 50000 },
+            },
+          },
+          // Non-controllable factor for comparison
+          {
+            id: 'fac_churn',
+            type: 'factor',
+            position: { x: 0, y: 0 },
+            data: {
+              label: 'Churn Rate',
+              category: 'external',
+              observed_state: { source: 'cee_inference', value: 0.05 },
+            },
+          },
+          // Options WITHOUT interventions in node.data
+          {
+            id: 'opt_expand',
+            type: 'option',
+            position: { x: 0, y: 0 },
+            data: { label: 'Expansion Plan' },
+          },
+          {
+            id: 'opt_baseline',
+            type: 'option',
+            position: { x: 0, y: 0 },
+            data: { label: 'Status Quo', is_baseline: true },
+          },
+        ],
+        // Interventions are in ceeAnalysisReady.options (CEE V3 format)
+        ceeAnalysisReady: {
+          status: 'ready',
+          goal_node_id: 'goal1',
+          options: [
+            {
+              id: 'opt_expand',
+              label: 'Expansion Plan',
+              status: 'ready',
+              interventions: {
+                fac_investment: { value: 100000 },
+              },
+            },
+            {
+              id: 'opt_baseline',
+              label: 'Status Quo',
+              status: 'ready',
+              interventions: {
+                fac_investment: { value: 0 },
+              },
+            },
+          ],
+        },
+      }))
+
+      const { result } = renderHook(() => usePreAnalysisData())
+
+      // fac_investment should be EXCLUDED (controllable + has intervention in ceeAnalysisReady.options)
+      expect(result.current.improvementsByCategory.verify).not.toContainEqual(
+        expect.objectContaining({ key: 'verify_fac_investment' })
+      )
+      // fac_churn should be INCLUDED (external category, even though options don't target it)
+      expect(result.current.improvementsByCategory.verify).toContainEqual(
+        expect.objectContaining({ key: 'verify_fac_churn' })
+      )
+    })
+
+    it('handles nested intervention format with null value (should not count as intervention)', () => {
+      // Test that { value: null } doesn't incorrectly match as an intervention
+      mockUseCanvasStore.mockImplementation(createMockStore({
+        nodes: [
+          {
+            id: 'factor1',
+            type: 'factor',
+            position: { x: 0, y: 0 },
+            data: {
+              label: 'Budget',
+              category: 'controllable',
+              observed_state: { source: 'ai', value: 5000 },
+            },
+          },
+          {
+            id: 'opt1',
+            type: 'option',
+            position: { x: 0, y: 0 },
+            data: { label: 'Option 1' },
+          },
+          {
+            id: 'opt2',
+            type: 'option',
+            position: { x: 0, y: 0 },
+            data: { label: 'Option 2', is_baseline: true },
+          },
+        ],
+        ceeAnalysisReady: {
+          status: 'ready',
+          goal_node_id: 'goal1',
+          options: [
+            {
+              id: 'opt1',
+              interventions: { factor1: { value: null } }, // null value should NOT count
+            },
+            {
+              id: 'opt2',
+              interventions: {},
+            },
+          ],
+        },
+      }))
+
+      const { result } = renderHook(() => usePreAnalysisData())
+
+      // factor1 should APPEAR in verify because { value: null } doesn't count as intervention
+      expect(result.current.improvementsByCategory.verify).toContainEqual(
+        expect.objectContaining({ key: 'verify_factor1' })
+      )
     })
   })
 

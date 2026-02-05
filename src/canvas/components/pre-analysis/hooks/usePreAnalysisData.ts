@@ -491,27 +491,6 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
     const verificationPrompts = ceeAnalysisReady?.verification_prompts ?? {}
     const ceeOptions = ceeAnalysisReady?.options
     for (const factor of nodesByKind.factor) {
-      // DEBUG: Trace controllable exclusion logic
-      const factorData = factor.data as { category?: string; observed_state?: { source?: string } }
-      console.log('[PreAnalysis Debug] Factor check:', {
-        id: factor.id,
-        label: getNodeLabel(factor),
-        category: factorData.category,
-        isControllable: isControllableFactor(factor),
-        isAiInferred: isAiInferred(factor),
-        hasIntervention: hasInterventionTargeting(factor.id, optionNodes, ceeOptions),
-        optionsLength: optionNodes.length,
-        ceeOptionsLength: ceeOptions?.length,
-        nodeInterventionKeys: optionNodes.map(o => {
-          const interventions = (o.data as { interventions?: Record<string, unknown> })?.interventions
-          return { optionId: o.id, keys: Object.keys(interventions || {}), values: interventions }
-        }),
-        ceeInterventionKeys: ceeOptions?.map(o => ({
-          optionId: o.id,
-          keys: Object.keys(o.interventions || {}),
-          values: o.interventions,
-        })),
-      })
       if (isAiInferred(factor)) {
         // Phase 2.5: Exclude controllable factors that have interventions targeting them
         // These are user choices, not assumptions that need verification
