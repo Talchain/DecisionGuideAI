@@ -232,13 +232,26 @@ function isControllableFactor(node: Node): boolean {
 
 /**
  * Check if a factor is targeted by any option's intervention.
- * Options store interventions as Record<factorId, value>.
+ * Options store interventions in two formats:
+ * - Simple: Record<factorId, number>
+ * - Nested: Record<factorId, { value: number }>
  */
 function hasInterventionTargeting(factorId: string, optionNodes: Node[]): boolean {
   for (const option of optionNodes) {
     const interventions = (option.data as { interventions?: Record<string, unknown> })?.interventions
     if (interventions && Object.prototype.hasOwnProperty.call(interventions, factorId)) {
-      return true
+      const value = interventions[factorId]
+      // Handle both simple (number) and nested ({ value: number }) formats
+      if (typeof value === 'number') {
+        return true
+      }
+      // Nested format: require value.value to be a number (not null/undefined)
+      if (value && typeof value === 'object' && 'value' in value) {
+        const nestedValue = (value as { value: unknown }).value
+        if (typeof nestedValue === 'number') {
+          return true
+        }
+      }
     }
   }
   return false
@@ -279,12 +292,13 @@ function needsReview(node: Node): boolean {
 function getAiEstimatedValue(node: Node, isBinary = false): string | null {
   // Check both snake_case (observed_state) and camelCase (observedState) for compatibility
   const data = node.data as {
-    observed_state?: { value?: number; unit?: string }
-    observedState?: { value?: number; unit?: string }
+    observed_state?: { value?: number; raw_value?: number; unit?: string }
+    observedState?: { value?: number; raw_value?: number; unit?: string }
     value?: number
   }
   const observedState = data?.observed_state ?? data?.observedState
   const value = observedState?.value ?? data?.value
+  const rawValue = observedState?.raw_value
   if (value === undefined || value === null) return null
   if (typeof value !== 'number') return String(value)
 
@@ -305,8 +319,10 @@ function getAiEstimatedValue(node: Node, isBinary = false): string | null {
     return percentValue + '%'
   }
   if (unit === '£' || unit === '$') {
-    // Round to whole numbers for cleaner display of AI estimates
-    return unit + Math.round(value).toLocaleString()
+    // Prefer raw_value for currency - it's the actual amount, not normalized 0-1 value
+    // Example: raw_value=100000 with unit="£" → "£100,000" (not "£0" from value=0.2)
+    const displayValue = rawValue ?? value
+    return unit + Math.round(displayValue).toLocaleString()
   }
   // Default: display with reasonable precision
   return value.toFixed(1)
@@ -660,47 +676,94 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
   // This prevents showing misleading "Blocked" during initial load
   const isLoading = ceeAnalysisReady === null && nodes.length > 0
 
-  // Success threshold - priority: CEE goal_threshold > node goal_threshold > observed_state.value > success_threshold > threshold
+  // Success threshold - priority: CEE goal_threshold > node goal_threshold > observed_state.value > success_threshold > threshold > factor_target_* nodes
   const successThreshold = useMemo(() => {
     // Phase 3.2: CEE goal_threshold takes highest priority
     if (ceeAnalysisReady?.goal_threshold != null) return ceeAnalysisReady.goal_threshold
 
-    if (!goalNode) return null
+    if (goalNode) {
+      const data = goalNode.data as {
+        goal_threshold?: number
+        observed_state?: { value?: number }
+        success_threshold?: number
+        threshold?: number
+      }
 
-    const data = goalNode.data as {
-      goal_threshold?: number
-      observed_state?: { value?: number }
-      success_threshold?: number
-      threshold?: number
+      // Priority order per brief (goal node data)
+      if (data?.goal_threshold != null) return data.goal_threshold
+      if (data?.observed_state?.value != null) return data.observed_state.value
+      if (data?.success_threshold != null) return data.success_threshold
+      if (data?.threshold != null) return data.threshold
     }
 
-    // Priority order per brief (node data fallbacks)
-    if (data?.goal_threshold != null) return data.goal_threshold
-    if (data?.observed_state?.value != null) return data.observed_state.value
-    if (data?.success_threshold != null) return data.success_threshold
-    if (data?.threshold != null) return data.threshold
-    return null
-  }, [ceeAnalysisReady?.goal_threshold, goalNode])
+    // Task 3: Fallback to factor_target_* or factor_value_* nodes with brief_extraction source
+    // These are target values detected from the user's brief
+    for (const node of nodes) {
+      const id = node.id
+      if (id.startsWith('factor_target_') || id.startsWith('factor_value_')) {
+        const nodeData = node.data as {
+          observed_state?: { value?: number; source?: string }
+          observedState?: { value?: number; source?: string }
+          value?: number
+          source?: string
+        }
+        const observedState = nodeData?.observed_state ?? nodeData?.observedState
+        const source = observedState?.source ?? nodeData?.source
+        const value = observedState?.value ?? nodeData?.value
 
-  // Auto-derived when threshold comes from CEE or goal node data (not user-set)
+        // Only use brief_extraction sources (user-provided target values)
+        if (source === 'brief_extraction' && value != null) {
+          return value
+        }
+      }
+    }
+
+    return null
+  }, [ceeAnalysisReady?.goal_threshold, goalNode, nodes])
+
+  // Auto-derived when threshold comes from CEE, goal node data, or factor_target_* nodes (not user-set)
   const isThresholdAutoDerived = useMemo(() => {
     // Phase 3.2: CEE goal_threshold is auto-derived
     if (ceeAnalysisReady?.goal_threshold != null) return true
 
-    if (!goalNode) return false
+    if (goalNode) {
+      const data = goalNode.data as {
+        threshold_source?: string
+        goal_threshold?: number
+        observed_state?: { value?: number }
+      }
 
-    const data = goalNode.data as {
-      threshold_source?: string
-      goal_threshold?: number
-      observed_state?: { value?: number }
+      // If user explicitly set it, not auto-derived
+      if (data?.threshold_source === 'user') return false
+
+      // Auto-derived if value came from goal_threshold or observed_state.value
+      if ((data?.goal_threshold != null) || (data?.observed_state?.value != null)) {
+        return true
+      }
     }
 
-    // If user explicitly set it, not auto-derived
-    if (data?.threshold_source === 'user') return false
+    // Task 3: If threshold came from factor_target_* node, it's auto-derived (detected from brief)
+    for (const node of nodes) {
+      const id = node.id
+      if (id.startsWith('factor_target_') || id.startsWith('factor_value_')) {
+        const nodeData = node.data as {
+          observed_state?: { value?: number; source?: string }
+          observedState?: { value?: number; source?: string }
+          value?: number
+          source?: string
+        }
+        const observedState = nodeData?.observed_state ?? nodeData?.observedState
+        const source = observedState?.source ?? nodeData?.source
+        const value = observedState?.value ?? nodeData?.value
 
-    // Auto-derived if value came from goal_threshold or observed_state.value
-    return (data?.goal_threshold != null) || (data?.observed_state?.value != null)
-  }, [ceeAnalysisReady?.goal_threshold, goalNode])
+        if (source === 'brief_extraction' && value != null) {
+          return true
+        }
+      }
+    }
+
+    return false
+  }, [ceeAnalysisReady?.goal_threshold, goalNode, nodes])
 
   // Threshold confirmed when explicitly marked as such in goal node data
   const isThresholdConfirmed = useMemo(() => {

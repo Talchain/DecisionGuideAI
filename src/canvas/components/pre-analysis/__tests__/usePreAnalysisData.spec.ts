@@ -1729,4 +1729,375 @@ describe('usePreAnalysisData', () => {
       )
     })
   })
+
+  describe('Bug Fixes', () => {
+    describe('Task 1: Nested intervention format', () => {
+      it('excludes controllable factor with nested intervention format { value: number }', () => {
+        mockUseCanvasStore.mockImplementation(createMockStore({
+          nodes: [
+            {
+              id: 'fac_europe_entry',
+              type: 'factor',
+              position: { x: 0, y: 0 },
+              data: {
+                label: 'Europe Entry',
+                category: 'controllable',
+                observed_state: { source: 'ai', value: 1 },
+              },
+            },
+            {
+              id: 'opt1',
+              type: 'option',
+              position: { x: 0, y: 0 },
+              data: {
+                label: 'Option 1',
+                // Nested format: { value: number }
+                interventions: { fac_europe_entry: { value: 1 } },
+              },
+            },
+            {
+              id: 'opt2',
+              type: 'option',
+              position: { x: 0, y: 0 },
+              data: { label: 'Option 2', is_baseline: true },
+            },
+          ],
+        }))
+
+        const { result } = renderHook(() => usePreAnalysisData())
+
+        // Controllable factor with nested intervention should be excluded
+        expect(result.current.improvementsByCategory.verify).not.toContainEqual(
+          expect.objectContaining({ key: 'verify_fac_europe_entry' })
+        )
+      })
+
+      it('excludes controllable factor with simple intervention format (number)', () => {
+        mockUseCanvasStore.mockImplementation(createMockStore({
+          nodes: [
+            {
+              id: 'fac_investment',
+              type: 'factor',
+              position: { x: 0, y: 0 },
+              data: {
+                label: 'Investment',
+                category: 'controllable',
+                observed_state: { source: 'ai', value: 0.2 },
+              },
+            },
+            {
+              id: 'opt1',
+              type: 'option',
+              position: { x: 0, y: 0 },
+              data: {
+                label: 'Option 1',
+                // Simple format: number
+                interventions: { fac_investment: 100000 },
+              },
+            },
+            {
+              id: 'opt2',
+              type: 'option',
+              position: { x: 0, y: 0 },
+              data: { label: 'Option 2', is_baseline: true },
+            },
+          ],
+        }))
+
+        const { result } = renderHook(() => usePreAnalysisData())
+
+        // Controllable factor with simple intervention should be excluded
+        expect(result.current.improvementsByCategory.verify).not.toContainEqual(
+          expect.objectContaining({ key: 'verify_fac_investment' })
+        )
+      })
+
+      it('does not exclude factor when intervention key exists but value is null', () => {
+        mockUseCanvasStore.mockImplementation(createMockStore({
+          nodes: [
+            {
+              id: 'factor1',
+              type: 'factor',
+              position: { x: 0, y: 0 },
+              data: {
+                label: 'Factor 1',
+                category: 'controllable',
+                observed_state: { source: 'ai', value: 0.5 },
+              },
+            },
+            {
+              id: 'opt1',
+              type: 'option',
+              position: { x: 0, y: 0 },
+              data: {
+                label: 'Option 1',
+                // Key exists but value is null
+                interventions: { factor1: null },
+              },
+            },
+            {
+              id: 'opt2',
+              type: 'option',
+              position: { x: 0, y: 0 },
+              data: { label: 'Option 2', is_baseline: true },
+            },
+          ],
+        }))
+
+        const { result } = renderHook(() => usePreAnalysisData())
+
+        // Factor should be included because intervention value is null
+        expect(result.current.improvementsByCategory.verify).toContainEqual(
+          expect.objectContaining({ key: 'verify_factor1' })
+        )
+      })
+
+      it('does not exclude factor when nested intervention has { value: null }', () => {
+        mockUseCanvasStore.mockImplementation(createMockStore({
+          nodes: [
+            {
+              id: 'factor1',
+              type: 'factor',
+              position: { x: 0, y: 0 },
+              data: {
+                label: 'Factor 1',
+                category: 'controllable',
+                observed_state: { source: 'ai', value: 0.5 },
+              },
+            },
+            {
+              id: 'opt1',
+              type: 'option',
+              position: { x: 0, y: 0 },
+              data: {
+                label: 'Option 1',
+                // Nested format with null value (placeholder intervention)
+                interventions: { factor1: { value: null } },
+              },
+            },
+            {
+              id: 'opt2',
+              type: 'option',
+              position: { x: 0, y: 0 },
+              data: { label: 'Option 2', is_baseline: true },
+            },
+          ],
+        }))
+
+        const { result } = renderHook(() => usePreAnalysisData())
+
+        // Factor should be included because nested intervention value is null
+        expect(result.current.improvementsByCategory.verify).toContainEqual(
+          expect.objectContaining({ key: 'verify_factor1' })
+        )
+      })
+    })
+
+    describe('Task 2: raw_value display for currency factors', () => {
+      it('displays raw_value with currency symbol when available', () => {
+        mockUseCanvasStore.mockImplementation(createMockStore({
+          nodes: [
+            {
+              id: 'factor1',
+              type: 'factor',
+              position: { x: 0, y: 0 },
+              data: {
+                label: 'Expansion Investment',
+                observed_state: {
+                  source: 'ai',
+                  value: 0.2, // Normalized 0-1 value
+                  raw_value: 100000, // Actual value
+                  unit: '£',
+                },
+              },
+            },
+          ],
+        }))
+
+        const { result } = renderHook(() => usePreAnalysisData())
+
+        // Should display raw_value (£100,000) not normalized value (£0)
+        expect(result.current.improvementsByCategory.verify).toContainEqual(
+          expect.objectContaining({
+            key: 'verify_factor1',
+            detail: '£100,000',
+          })
+        )
+      })
+
+      it('falls back to value when raw_value not available', () => {
+        mockUseCanvasStore.mockImplementation(createMockStore({
+          nodes: [
+            {
+              id: 'factor1',
+              type: 'factor',
+              position: { x: 0, y: 0 },
+              data: {
+                label: 'Budget',
+                observed_state: {
+                  source: 'ai',
+                  value: 5000, // No raw_value, use this
+                  unit: '$',
+                },
+              },
+            },
+          ],
+        }))
+
+        const { result } = renderHook(() => usePreAnalysisData())
+
+        expect(result.current.improvementsByCategory.verify).toContainEqual(
+          expect.objectContaining({
+            key: 'verify_factor1',
+            detail: '$5,000',
+          })
+        )
+      })
+    })
+
+    describe('Task 3: factor_target_* success threshold fallback', () => {
+      it('uses factor_target_* node value as success threshold when no other sources', () => {
+        mockUseCanvasStore.mockImplementation(createMockStore({
+          nodes: [
+            {
+              id: 'goal1',
+              type: 'goal',
+              position: { x: 0, y: 0 },
+              data: { label: 'Revenue Goal' }, // No threshold on goal node
+            },
+            {
+              id: 'factor_target_0',
+              type: 'factor',
+              position: { x: 0, y: 0 },
+              data: {
+                label: 'Target Revenue',
+                observed_state: {
+                  value: 800,
+                  source: 'brief_extraction',
+                },
+              },
+            },
+            { id: 'opt1', type: 'option', position: { x: 0, y: 0 }, data: { label: 'Option 1' } },
+            { id: 'opt2', type: 'option', position: { x: 0, y: 0 }, data: { label: 'Option 2', is_baseline: true } },
+          ],
+          edges: [
+            { id: 'e1', source: 'opt1', target: 'goal1' },
+            { id: 'e2', source: 'opt2', target: 'goal1' },
+          ],
+        }))
+
+        const { result } = renderHook(() => usePreAnalysisData())
+
+        expect(result.current.successThreshold).toBe(800)
+        expect(result.current.isThresholdAutoDerived).toBe(true)
+      })
+
+      it('uses factor_value_* node value as success threshold', () => {
+        mockUseCanvasStore.mockImplementation(createMockStore({
+          nodes: [
+            {
+              id: 'goal1',
+              type: 'goal',
+              position: { x: 0, y: 0 },
+              data: { label: 'Revenue Goal' },
+            },
+            {
+              id: 'factor_value_revenue',
+              type: 'factor',
+              position: { x: 0, y: 0 },
+              data: {
+                label: 'Revenue Target',
+                value: 1000, // Direct value property
+                source: 'brief_extraction',
+              },
+            },
+            { id: 'opt1', type: 'option', position: { x: 0, y: 0 }, data: { label: 'Option 1' } },
+            { id: 'opt2', type: 'option', position: { x: 0, y: 0 }, data: { label: 'Option 2', is_baseline: true } },
+          ],
+          edges: [
+            { id: 'e1', source: 'opt1', target: 'goal1' },
+            { id: 'e2', source: 'opt2', target: 'goal1' },
+          ],
+        }))
+
+        const { result } = renderHook(() => usePreAnalysisData())
+
+        expect(result.current.successThreshold).toBe(1000)
+      })
+
+      it('ignores factor_target_* with non-brief_extraction source', () => {
+        mockUseCanvasStore.mockImplementation(createMockStore({
+          nodes: [
+            {
+              id: 'goal1',
+              type: 'goal',
+              position: { x: 0, y: 0 },
+              data: { label: 'Revenue Goal' },
+            },
+            {
+              id: 'factor_target_0',
+              type: 'factor',
+              position: { x: 0, y: 0 },
+              data: {
+                label: 'Target',
+                observed_state: {
+                  value: 500,
+                  source: 'ai', // Not brief_extraction
+                },
+              },
+            },
+            { id: 'opt1', type: 'option', position: { x: 0, y: 0 }, data: { label: 'Option 1' } },
+            { id: 'opt2', type: 'option', position: { x: 0, y: 0 }, data: { label: 'Option 2', is_baseline: true } },
+          ],
+          edges: [
+            { id: 'e1', source: 'opt1', target: 'goal1' },
+            { id: 'e2', source: 'opt2', target: 'goal1' },
+          ],
+        }))
+
+        const { result } = renderHook(() => usePreAnalysisData())
+
+        expect(result.current.successThreshold).toBeNull()
+      })
+
+      it('prioritizes goal node threshold over factor_target_* fallback', () => {
+        mockUseCanvasStore.mockImplementation(createMockStore({
+          nodes: [
+            {
+              id: 'goal1',
+              type: 'goal',
+              position: { x: 0, y: 0 },
+              data: {
+                label: 'Revenue Goal',
+                goal_threshold: 2000, // Goal node has threshold
+              },
+            },
+            {
+              id: 'factor_target_0',
+              type: 'factor',
+              position: { x: 0, y: 0 },
+              data: {
+                label: 'Target',
+                observed_state: {
+                  value: 800,
+                  source: 'brief_extraction',
+                },
+              },
+            },
+            { id: 'opt1', type: 'option', position: { x: 0, y: 0 }, data: { label: 'Option 1' } },
+            { id: 'opt2', type: 'option', position: { x: 0, y: 0 }, data: { label: 'Option 2', is_baseline: true } },
+          ],
+          edges: [
+            { id: 'e1', source: 'opt1', target: 'goal1' },
+            { id: 'e2', source: 'opt2', target: 'goal1' },
+          ],
+        }))
+
+        const { result } = renderHook(() => usePreAnalysisData())
+
+        // Goal threshold takes priority
+        expect(result.current.successThreshold).toBe(2000)
+      })
+    })
+  })
 })

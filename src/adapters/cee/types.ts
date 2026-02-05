@@ -21,6 +21,8 @@ export type EffectDirection = 'positive' | 'negative'
  */
 export interface ObservedState {
   value: number
+  /** Raw value before normalization (e.g., £100,000 when value is 0.2) */
+  raw_value?: number
   baseline?: number
   unit?: string
   source?: string
