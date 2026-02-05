@@ -871,8 +871,6 @@ export function RecommendationSection({
       {/* Option comparison (multiple options) */}
       {!isSingleOption && allOptions.length > 1 && (
         <div className="space-y-2">
-          <h4 className={`${typography.label} text-text-light`}>How this compares:</h4>
-          <div className="space-y-2">
             {(() => {
               // P2 Task 4: Sort by win_probability descending, determine winner and close-call
               // Tiebreaker: isRecommended (backend-determined winner) for stable sort when wpA === wpB
@@ -909,7 +907,6 @@ export function RecommendationSection({
                 />
               ))
             })()}
-          </div>
 
           {/* Task 5: Similar outcomes explanation with win probability */}
           {showTieExplanation && (

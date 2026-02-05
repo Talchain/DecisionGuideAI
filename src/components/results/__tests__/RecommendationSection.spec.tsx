@@ -79,7 +79,7 @@ describe('RecommendationSection', () => {
   it('renders option comparison when multiple exist', () => {
     render(<RecommendationSection data={mockData} />)
 
-    expect(screen.getByText('How this compares:')).toBeInTheDocument()
+    // Task 4: "How this compares:" heading removed - verify options render without heading
     // Winner name appears in both HeroSection (as GraphLink) and option comparison
     expect(screen.getAllByText('Hire Tech Lead').length).toBeGreaterThanOrEqual(1)
     expect(screen.getAllByText('Hire 2 Developers').length).toBeGreaterThanOrEqual(1)
@@ -101,8 +101,10 @@ describe('RecommendationSection', () => {
 
     render(<RecommendationSection data={singleOptionData} />)
 
-    expect(screen.queryByText('How this compares:')).not.toBeInTheDocument()
+    // Task 4: "How this compares:" heading removed - single option shows CTA instead of options list
     expect(screen.getByText(/Add another option/)).toBeInTheDocument()
+    // Verify options list isn't rendered for single option
+    expect(screen.queryByRole('link', { name: /Focus on.*in model/ })).not.toBeInTheDocument()
   })
 
   it('renders error state when analysis failed', () => {
