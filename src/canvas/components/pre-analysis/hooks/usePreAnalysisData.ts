@@ -231,21 +231,59 @@ function isControllableFactor(node: Node): boolean {
 }
 
 /**
- * Check if a factor is targeted by any option's intervention.
- * Options store interventions in two formats:
- * - Simple: Record<factorId, number>
- * - Nested: Record<factorId, { value: number }>
+ * CEE option type for intervention lookup
  */
-function hasInterventionTargeting(factorId: string, optionNodes: Node[]): boolean {
+interface CEEOptionWithInterventions {
+  id: string
+  interventions?: Record<string, { value?: number | null } | number>
+}
+
+/**
+ * Check if a factor is targeted by any option's intervention.
+ *
+ * IMPORTANT: Interventions live in ceeAnalysisReady.options[], NOT in node.data.interventions.
+ * See OptionNode.tsx:16-17 and pathFinding.ts:199-200 for context.
+ *
+ * Supports two intervention formats:
+ * - Simple: Record<factorId, number>
+ * - Nested: Record<factorId, { value: number }> (CEE V3 format)
+ */
+function hasInterventionTargeting(
+  factorId: string,
+  optionNodes: Node[],
+  ceeOptions?: CEEOptionWithInterventions[]
+): boolean {
+  // Primary source: ceeAnalysisReady.options (canonical after CEE response)
+  if (ceeOptions) {
+    for (const ceeOption of ceeOptions) {
+      const interventions = ceeOption.interventions
+      if (interventions && Object.prototype.hasOwnProperty.call(interventions, factorId)) {
+        const value = interventions[factorId]
+        // Handle simple format (number)
+        if (typeof value === 'number') {
+          return true
+        }
+        // Handle nested format ({ value: number }) - CEE V3 format
+        if (value && typeof value === 'object' && 'value' in value) {
+          const nestedValue = value.value
+          if (typeof nestedValue === 'number') {
+            return true
+          }
+        }
+      }
+    }
+  }
+
+  // Fallback: node.data.interventions (for backward compatibility / pre-CEE state)
   for (const option of optionNodes) {
     const interventions = (option.data as { interventions?: Record<string, unknown> })?.interventions
     if (interventions && Object.prototype.hasOwnProperty.call(interventions, factorId)) {
       const value = interventions[factorId]
-      // Handle both simple (number) and nested ({ value: number }) formats
+      // Handle simple format (number)
       if (typeof value === 'number') {
         return true
       }
-      // Nested format: require value.value to be a number (not null/undefined)
+      // Handle nested format ({ value: number })
       if (value && typeof value === 'object' && 'value' in value) {
         const nestedValue = (value as { value: unknown }).value
         if (typeof nestedValue === 'number') {
@@ -451,6 +489,7 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
     // (controllable factors with interventions are "choices the user will make", not assumptions to verify)
     // Phase 3.1: Use verification_prompts from CEE when available for better detail text
     const verificationPrompts = ceeAnalysisReady?.verification_prompts ?? {}
+    const ceeOptions = ceeAnalysisReady?.options
     for (const factor of nodesByKind.factor) {
       // DEBUG: Trace controllable exclusion logic
       const factorData = factor.data as { category?: string; observed_state?: { source?: string } }
@@ -460,17 +499,23 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
         category: factorData.category,
         isControllable: isControllableFactor(factor),
         isAiInferred: isAiInferred(factor),
-        hasIntervention: hasInterventionTargeting(factor.id, optionNodes),
+        hasIntervention: hasInterventionTargeting(factor.id, optionNodes, ceeOptions),
         optionsLength: optionNodes.length,
-        interventionKeys: optionNodes.map(o => {
+        ceeOptionsLength: ceeOptions?.length,
+        nodeInterventionKeys: optionNodes.map(o => {
           const interventions = (o.data as { interventions?: Record<string, unknown> })?.interventions
           return { optionId: o.id, keys: Object.keys(interventions || {}), values: interventions }
         }),
+        ceeInterventionKeys: ceeOptions?.map(o => ({
+          optionId: o.id,
+          keys: Object.keys(o.interventions || {}),
+          values: o.interventions,
+        })),
       })
       if (isAiInferred(factor)) {
         // Phase 2.5: Exclude controllable factors that have interventions targeting them
         // These are user choices, not assumptions that need verification
-        if (isControllableFactor(factor) && hasInterventionTargeting(factor.id, optionNodes)) {
+        if (isControllableFactor(factor) && hasInterventionTargeting(factor.id, optionNodes, ceeOptions)) {
           continue
         }
 
@@ -798,6 +843,7 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
   const { reviewedFactorsCount, totalReviewableFactorsCount } = useMemo(() => {
     const factorNodes = nodesByKind.factor
     const optionNodes = [...nodesByKind.option, ...nodesByKind.decision]
+    const ceeOptions = ceeAnalysisReady?.options
     let reviewed = 0
     let total = 0
 
@@ -805,7 +851,7 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
       if (needsReview(factor)) {
         // Phase 2.5: Exclude controllable factors with interventions from progress count
         // (these don't appear in the UI, so shouldn't count toward progress)
-        if (isControllableFactor(factor) && hasInterventionTargeting(factor.id, optionNodes)) {
+        if (isControllableFactor(factor) && hasInterventionTargeting(factor.id, optionNodes, ceeOptions)) {
           continue
         }
         total++
@@ -816,7 +862,7 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
     }
 
     return { reviewedFactorsCount: reviewed, totalReviewableFactorsCount: total }
-  }, [nodesByKind.factor, nodesByKind.option, nodesByKind.decision])
+  }, [nodesByKind.factor, nodesByKind.option, nodesByKind.decision, ceeAnalysisReady?.options])
 
   return {
     improvementsByCategory,
