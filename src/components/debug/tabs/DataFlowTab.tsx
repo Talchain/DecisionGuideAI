@@ -306,6 +306,22 @@ export function DataFlowTab({ data }: DataFlowTabProps) {
     marginTop: 8,
   }
 
+  const sectionStyle: CSSProperties = {
+    background: '#fff',
+    border: '1px solid #e2e8f0',
+    borderRadius: 8,
+    padding: 16,
+  }
+
+  const sectionTitleStyle: CSSProperties = {
+    fontSize: 11,
+    fontWeight: 700,
+    textTransform: 'uppercase',
+    letterSpacing: '0.05em',
+    color: '#64748b',
+    marginBottom: 12,
+  }
+
   return (
     <div style={containerStyle}>
       <div style={headerStyle}>Service Boundaries</div>
