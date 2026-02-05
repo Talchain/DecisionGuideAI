@@ -285,6 +285,25 @@ export interface CEEAnalysisReady {
    * E.g., "The factor 'Price' doesn't have a path to the goal. Is this correct?"
    */
   user_questions?: string[]
+  /**
+   * Verification prompts for AI-estimated factors, keyed by factor node ID.
+   * E.g., { "factor_price": "Is the conversion rate around 4%?" }
+   * When present, used as detail text for review items instead of raw values.
+   */
+  verification_prompts?: Record<string, string>
+  /**
+   * Goal threshold pre-populated from CEE analysis.
+   * When present, used as successThreshold for the goal.
+   * Priority: goal_threshold from CEE > goal node data > null
+   */
+  goal_threshold?: number | null
+  /**
+   * Low-confidence edges that need user review.
+   * Each entry contains edge_id and a user-facing prompt.
+   * E.g., "Is the relationship between Price and Sales strong?"
+   * Max 3 are displayed in the Review assumptions tier.
+   */
+  low_confidence_edges?: Array<{ edge_id: string; prompt: string }>
 }
 
 /**

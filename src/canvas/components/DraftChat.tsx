@@ -130,18 +130,18 @@ export function DraftChat() {
     return 676 // default width (30% increase from 520)
   })
 
-  // Panel height state (persisted to localStorage) - 20% taller default
+  // Panel height state (persisted to localStorage)
   const [panelHeight, setPanelHeight] = useState<number>(() => {
     if (typeof localStorage !== 'undefined') {
       const stored = localStorage.getItem(DRAFT_PANEL_HEIGHT_KEY)
       if (stored) {
         const parsed = parseInt(stored, 10)
-        if (Number.isFinite(parsed) && parsed >= 200 && parsed <= 600) {
+        if (Number.isFinite(parsed) && parsed >= 200 && parsed <= 1200) {
           return parsed
         }
       }
     }
-    return 360 // default height (20% increase from 300)
+    return 864 // default height (60% taller than 540)
   })
 
   // Track dock offset for dynamic positioning (avoid results panel overlap)
@@ -1039,7 +1039,7 @@ export function DraftChat() {
                     placeholder:text-ink-400
                   `}
                   style={{
-                    minHeight: '120px',
+                    minHeight: '288px', // 60% taller than 180px
                     maxHeight: '75vh',
                     outline: 'none',
                     boxShadow: 'none',

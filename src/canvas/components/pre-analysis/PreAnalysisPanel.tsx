@@ -1,23 +1,24 @@
 /**
- * PreAnalysisPanel - Pre-Analysis Results Tab Right Panel (M1)
+ * PreAnalysisPanel - Pre-Analysis Results Tab Right Panel (Phase 2)
  *
- * Main component that replaces existing PreAnalysisReadinessPanel.
- * Section order top → bottom:
- * 1. Header
- * 2. M1 Top Actions (Coach placeholder)
- * 3. All Improvements accordion
- * 4. Model Snapshot accordion
- * 5. Analysis Settings accordion
- * 6. Sticky Footer (pinned)
+ * Three-tier hierarchy structure:
+ * 1. Header (with tier counts)
+ * 2. Success Target section
+ * 3. Must address tier
+ * 4. Review assumptions tier
+ * 5. Optional improvements tier (collapsed by default)
+ * 6. Model Snapshot accordion
+ * 7. Analysis Settings accordion
+ * 8. Sticky Footer (pinned)
  *
  * Scrollable content area between header and sticky footer.
  * All data derives from existing graph state — no new backend endpoints.
  */
 
-import { useCallback, useRef, useMemo } from 'react'
+import { useCallback, useRef, useMemo, useState } from 'react'
 import { usePreAnalysisData } from './hooks/usePreAnalysisData'
 import { Header } from './Header'
-import { M1TopActions } from './M1TopActions'
+import { SuccessTarget } from './SuccessTarget'
 import { AllImprovements, type ImprovementActionHandlers } from './AllImprovements'
 import { ModelSnapshot } from './ModelSnapshot'
 import { AnalysisSettings } from './AnalysisSettings'
@@ -36,7 +37,7 @@ export function PreAnalysisPanel({
   onAnalyse,
   isAnalysing = false,
 }: PreAnalysisPanelProps) {
-  // Get all panel data from hook
+  // Get all panel data from hook (includes derived progress counts)
   const data = usePreAnalysisData()
 
   // Ref for scrolling to improvements
@@ -82,10 +83,10 @@ export function PreAnalysisPanel({
   // Goal change handler - update both ceeAnalysisReady AND outcomeNodeId for run pipeline
   const handleGoalChange = useCallback((goalId: string) => {
     const { ceeAnalysisReady, setCeeAnalysisReady, setOutcomeNode } = useCanvasStore.getState()
-    
+
     // Update outcomeNodeId for run pipeline (useV2Run reads this)
     setOutcomeNode(goalId)
-    
+
     // Update ceeAnalysisReady for pre-analysis data
     if (ceeAnalysisReady) {
       setCeeAnalysisReady({ ...ceeAnalysisReady, goal_node_id: goalId })
@@ -115,6 +116,38 @@ export function PreAnalysisPanel({
           ...goalNode.data,
           success_threshold: value,
           threshold_source: value !== null ? 'user' : undefined,
+          // Clear confirmed status when value changes
+          threshold_confirmed: false,
+        },
+      })
+    }
+  }, [data.goalNode])
+
+  // Threshold confirm handler - mark threshold as confirmed in goal node
+  const handleThresholdConfirm = useCallback(() => {
+    const { updateNode } = useCanvasStore.getState()
+    const goalNode = data.goalNode
+
+    if (goalNode) {
+      updateNode(goalNode.id, {
+        data: {
+          ...goalNode.data,
+          threshold_confirmed: true,
+        },
+      })
+    }
+  }, [data.goalNode])
+
+  // Threshold edit handler - clear confirmed status
+  const handleThresholdEdit = useCallback(() => {
+    const { updateNode } = useCanvasStore.getState()
+    const goalNode = data.goalNode
+
+    if (goalNode) {
+      updateNode(goalNode.id, {
+        data: {
+          ...goalNode.data,
+          threshold_confirmed: false,
         },
       })
     }
@@ -343,6 +376,7 @@ export function PreAnalysisPanel({
     console.info('[PreAnalysisPanel] Added risk node')
   }, [setHighlightedNodes])
 
+
   // Memoize action handlers object to prevent unnecessary re-renders
   const actionHandlers: ImprovementActionHandlers = useMemo(() => ({
     onConfirm: handleConfirm,
@@ -366,44 +400,42 @@ export function PreAnalysisPanel({
     <div className="flex flex-col flex-1 min-h-0 overflow-hidden" data-testid="pre-analysis-panel">
       {/* Scrollable content area */}
       <div className="flex-1 min-h-0 overflow-y-auto px-2 py-3 space-y-4">
-        {/* 1. Inline status line */}
+        {/* 1. Header with tier counts */}
         <Header
           isReady={data.isReady}
-          totalImprovements={data.totalImprovements}
-          blockerCount={data.blockerCount}
           isLoading={data.isLoading}
+          mustAddressCount={data.tiers.mustAddress.count}
+          reviewCount={data.tiers.reviewAssumptions.count}
+          optionalCount={data.tiers.optional.count}
         />
 
-        {/* 2. M1 Top Actions (Coach placeholder) */}
-        <M1TopActions
-          topActions={data.topActions}
-          onAddEvidence={handleAddEvidence}
-          onConfirm={handleConfirm}
-          onAssumption={handleAssumption}
-          onEdit={handleEdit}
-          onResetSource={handleResetSource}
-          onHoverEnter={handleHoverElement}
-          onHoverLeave={handleHoverClear}
+        {/* 2. Success Target section */}
+        <SuccessTarget
+          goalNode={data.goalNode}
+          successThreshold={data.successThreshold}
+          isThresholdAutoDerived={data.isThresholdAutoDerived}
+          isThresholdConfirmed={data.isThresholdConfirmed}
+          onThresholdChange={handleThresholdChange}
+          onThresholdConfirm={handleThresholdConfirm}
+          onThresholdEdit={handleThresholdEdit}
         />
 
-        {/* Divider between top actions and all improvements */}
-        {data.topActions.length > 0 && (
-          <hr className="border-t border-panel-border" />
-        )}
-
-        {/* 3. All Improvements accordion */}
+        {/* 3-5. Three-tier improvement sections */}
         <div ref={improvementsRef}>
           <AllImprovements
             improvementsByCategory={data.improvementsByCategory}
+            tiers={data.tiers}
             totalImprovements={data.totalImprovements}
             onFocus={handleFocusEdge}
             actionHandlers={actionHandlers}
             onHoverEnter={handleHoverElement}
             onHoverLeave={handleHoverClear}
+            reviewedCount={data.reviewedFactorsCount}
+            totalReviewableCount={data.totalReviewableFactorsCount}
           />
         </div>
 
-        {/* 4. Model Snapshot accordion */}
+        {/* 6. Model Snapshot accordion */}
         <ModelSnapshot
           nodesByKind={data.nodesByKind}
           edgeCount={data.edgeCount}
@@ -412,7 +444,7 @@ export function PreAnalysisPanel({
           onHoverClear={handleHoverClear}
         />
 
-        {/* 5. Analysis Settings accordion (Goal Node + Success threshold) */}
+        {/* 7. Analysis Settings accordion (Goal Node + Success threshold) */}
         <AnalysisSettings
           goalNodes={data.nodesByKind.goal}
           selectedGoalNode={data.goalNode}
@@ -423,7 +455,7 @@ export function PreAnalysisPanel({
         />
       </div>
 
-      {/* 6. Sticky Footer (pinned to bottom) */}
+      {/* 8. Sticky Footer (pinned to bottom) */}
       <StickyFooter
         isReady={data.isReady}
         hasBlockers={data.hasBlockers}

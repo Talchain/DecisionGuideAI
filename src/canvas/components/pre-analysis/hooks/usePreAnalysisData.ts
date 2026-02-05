@@ -91,10 +91,28 @@ export interface CoachingPayload {
   suggestions?: Array<{ label: string; detail: string }>
 }
 
+/** Tier type for three-tier hierarchy */
+export type TierType = 'mustAddress' | 'reviewAssumptions' | 'optional'
+
+/** Tier data structure */
+export interface TierData {
+  items: ImprovementItem[]
+  count: number
+}
+
+/** Tiers grouped for panel rendering */
+export interface TiersData {
+  mustAddress: TierData
+  reviewAssumptions: TierData
+  optional: TierData
+}
+
 /** Hook return type */
 export interface PreAnalysisData {
   /** Improvements grouped by category */
   improvementsByCategory: Record<ImprovementCategory, ImprovementItem[]>
+  /** Improvements grouped by tier (three-tier hierarchy) */
+  tiers: TiersData
   /** Total count of all improvements */
   totalImprovements: number
   /** Top 3 items, priority order: Fix > Verify > Add evidence > Strengthen */
@@ -117,8 +135,14 @@ export interface PreAnalysisData {
   successThreshold: number | null
   /** Whether success threshold was auto-derived */
   isThresholdAutoDerived: boolean
+  /** Whether success threshold is confirmed by user */
+  isThresholdConfirmed: boolean
   /** Whether CEE data is still loading (ceeAnalysisReady is null but we have nodes) */
   isLoading: boolean
+  /** Count of factors with user_confirmed or user_assumption source (reviewed) */
+  reviewedFactorsCount: number
+  /** Total count of factors with observed_state (reviewable) */
+  totalReviewableFactorsCount: number
 }
 
 // ============================================================================
@@ -186,9 +210,73 @@ function isAiSource(node: Node): boolean {
 }
 
 /**
- * Get AI-estimated value from node, formatted with appropriate units
+ * Check if a factor has been reviewed by user (confirmed or marked as assumption)
  */
-function getAiEstimatedValue(node: Node): string | null {
+const REVIEWED_SOURCES = new Set(['user_confirmed', 'user_assumption'])
+
+function isReviewedByUser(node: Node): boolean {
+  const data = node.data as { observed_state?: { source?: string }; observedState?: { source?: string }; source?: string }
+  const observedState = data?.observed_state ?? data?.observedState
+  const source = observedState?.source ?? data?.source
+  return source !== undefined && REVIEWED_SOURCES.has(source)
+}
+
+/**
+ * Check if a factor has category === 'controllable'
+ */
+function isControllableFactor(node: Node): boolean {
+  const data = node.data as { category?: string }
+  const category = data?.category?.trim().toLowerCase()
+  return category === 'controllable'
+}
+
+/**
+ * Check if a factor is targeted by any option's intervention.
+ * Options store interventions as Record<factorId, value>.
+ */
+function hasInterventionTargeting(factorId: string, optionNodes: Node[]): boolean {
+  for (const option of optionNodes) {
+    const interventions = (option.data as { interventions?: Record<string, unknown> })?.interventions
+    if (interventions && Object.prototype.hasOwnProperty.call(interventions, factorId)) {
+      return true
+    }
+  }
+  return false
+}
+
+/**
+ * Check if a factor needs user review (AI-estimated, not brief_extraction)
+ *
+ * Only factors with AI sources need review. brief_extraction is user-provided
+ * via the brief, so it doesn't need additional review.
+ *
+ * Returns true if:
+ * - Source is AI (ai, cee_inference, inferred) - needs review
+ * - Source is user-reviewed (user_confirmed, user_assumption) - was AI, now reviewed
+ */
+function needsReview(node: Node): boolean {
+  const data = node.data as { observed_state?: { source?: string }; observedState?: { source?: string }; source?: string }
+  const observedState = data?.observed_state ?? data?.observedState
+  const source = observedState?.source ?? data?.source
+  if (!source) return false
+
+  // AI sources that need review
+  if (AI_SOURCES.has(source)) return true
+
+  // User-reviewed sources (were AI, user took action)
+  if (REVIEWED_SOURCES.has(source)) return true
+
+  // brief_extraction, default, and other sources don't need review
+  return false
+}
+
+/**
+ * Get AI-estimated value from node, formatted with appropriate units
+ *
+ * @param node - The factor node
+ * @param isBinary - Whether the factor is binary (0/1), from cleanFactorLabel qualifier
+ */
+function getAiEstimatedValue(node: Node, isBinary = false): string | null {
   // Check both snake_case (observed_state) and camelCase (observedState) for compatibility
   const data = node.data as {
     observed_state?: { value?: number; unit?: string }
@@ -199,6 +287,14 @@ function getAiEstimatedValue(node: Node): string | null {
   const value = observedState?.value ?? data?.value
   if (value === undefined || value === null) return null
   if (typeof value !== 'number') return String(value)
+
+  // Binary factors: display Yes/No instead of 0/1
+  if (isBinary) {
+    // Treat values close to 0 as "No", close to 1 as "Yes"
+    // Values in between are rounded (>0.5 = Yes, <=0.5 = No)
+    if (value <= 0.5) return 'No'
+    return 'Yes'
+  }
 
   // Format based on unit
   const unit = observedState?.unit
@@ -293,19 +389,8 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
     }
 
     // === FIX CATEGORY ===
-    // Missing baseline
     const optionNodes = [...nodesByKind.option, ...nodesByKind.decision]
     const hasBaseline = optionNodes.some(n => (n.data as { is_baseline?: boolean })?.is_baseline === true)
-    if (!hasBaseline && optionNodes.length >= 2) {
-      result.fix.push({
-        key: 'missing_baseline',
-        category: 'fix',
-        label: 'Add baseline',
-        detail: 'Compare against doing nothing',
-        bias: 'anchoring',
-        action: { label: 'Add', kind: 'add_baseline' },
-      })
-    }
 
     // Fewer than 2 options
     if (optionNodes.length < 2) {
@@ -346,20 +431,56 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
     }
 
     // === VERIFY CATEGORY ===
-    // Factors with AI-inferred source
+    // Factors with AI-inferred source, EXCLUDING controllable factors with interventions
+    // (controllable factors with interventions are "choices the user will make", not assumptions to verify)
+    // Phase 3.1: Use verification_prompts from CEE when available for better detail text
+    const verificationPrompts = ceeAnalysisReady?.verification_prompts ?? {}
     for (const factor of nodesByKind.factor) {
       if (isAiInferred(factor)) {
-        const value = getAiEstimatedValue(factor)
+        // Phase 2.5: Exclude controllable factors that have interventions targeting them
+        // These are user choices, not assumptions that need verification
+        if (isControllableFactor(factor) && hasInterventionTargeting(factor.id, optionNodes)) {
+          continue
+        }
+
         const rawLabel = getNodeLabel(factor)
-        const cleanedLabel = cleanFactorLabel(rawLabel).label
+        const { label: cleanedLabel, qualifier } = cleanFactorLabel(rawLabel)
+        // Binary factors have "Yes/No" qualifier - use it for better value display
+        const isBinary = qualifier === 'Yes/No' || qualifier === 'On/Off' || qualifier === 'True/False'
+        const value = getAiEstimatedValue(factor, isBinary)
+        // Phase 3.1: Prefer verification prompt from CEE over raw value
+        const verificationPrompt = verificationPrompts[factor.id]
         result.verify.push({
           key: `verify_${factor.id}`,
           category: 'verify',
           label: cleanedLabel,
-          detail: value || 'Value needed',
+          detail: verificationPrompt || value || 'Value needed',
           bias: 'confidence',
           focus: { type: 'node', id: factor.id, label: cleanedLabel },
           action: { label: 'Confirm', kind: 'confirm', targetId: factor.id, targetType: 'node' },
+        })
+      }
+    }
+
+    // Phase 3.3: Low-confidence edges from CEE (max 3, in Review assumptions tier)
+    const lowConfidenceEdges = ceeAnalysisReady?.low_confidence_edges ?? []
+    for (const edgeItem of lowConfidenceEdges.slice(0, 3)) {
+      const edge = edges.find(e => e.id === edgeItem.edge_id)
+      if (edge) {
+        const sourceNode = nodes.find(n => n.id === edge.source)
+        const targetNode = nodes.find(n => n.id === edge.target)
+        const sourceLabel = sourceNode ? cleanFactorLabel(getNodeLabel(sourceNode)).label : edge.source
+        const targetLabel = targetNode ? cleanFactorLabel(getNodeLabel(targetNode)).label : edge.target
+        const edgeLabel = `${sourceLabel} → ${targetLabel}`
+
+        result.verify.push({
+          key: `verify_edge_${edge.id}`,
+          category: 'verify',
+          label: edgeLabel,
+          detail: edgeItem.prompt,
+          bias: 'confidence',
+          focus: { type: 'edge', id: edge.id, label: edgeLabel },
+          action: { label: 'Edit', kind: 'edit', targetId: edge.id, targetType: 'edge' },
         })
       }
     }
@@ -370,8 +491,9 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
       if (!hasEvidence(edge)) {
         const sourceNode = nodes.find(n => n.id === edge.source)
         const targetNode = nodes.find(n => n.id === edge.target)
-        const sourceLabel = sourceNode ? getNodeLabel(sourceNode) : edge.source
-        const targetLabel = targetNode ? getNodeLabel(targetNode) : edge.target
+        // Apply cleanFactorLabel to strip encoding notation from factor labels
+        const sourceLabel = sourceNode ? cleanFactorLabel(getNodeLabel(sourceNode)).label : edge.source
+        const targetLabel = targetNode ? cleanFactorLabel(getNodeLabel(targetNode)).label : edge.target
 
         result.add_evidence.push({
           key: `evidence_${edge.id}`,
@@ -386,6 +508,18 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
 
     // === STRENGTHEN CATEGORY ===
     // Coaching question format: question + why line + CTA actions
+
+    // Missing baseline - optional recommendation (not a blocker)
+    if (!hasBaseline && optionNodes.length >= 2) {
+      result.strengthen.push({
+        key: 'missing_baseline',
+        category: 'strengthen',
+        label: 'Add a baseline option',
+        detail: 'Compare against doing nothing to see if any change is worth it',
+        bias: 'anchoring',
+        action: { label: 'Add', kind: 'add_baseline' },
+      })
+    }
 
     // Only 2 options - coaching question
     if (optionNodes.length === 2) {
@@ -429,11 +563,36 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
     }
 
     return result
-  }, [nodes, edges, nodesByKind])
+  }, [nodes, edges, nodesByKind, ceeAnalysisReady?.verification_prompts, ceeAnalysisReady?.low_confidence_edges])
 
   // Total improvements
   const totalImprovements = useMemo(() => {
     return Object.values(improvementsByCategory).reduce((sum, items) => sum + items.length, 0)
+  }, [improvementsByCategory])
+
+  // Three-tier grouping for Phase 2 panel structure
+  const tiers = useMemo<TiersData>(() => {
+    // Must address: Fix category
+    const mustAddressItems = improvementsByCategory.fix
+    // Review assumptions: Verify category
+    const reviewAssumptionsItems = improvementsByCategory.verify
+    // Optional improvements: Add evidence + Strengthen categories
+    const optionalItems = [...improvementsByCategory.add_evidence, ...improvementsByCategory.strengthen]
+
+    return {
+      mustAddress: {
+        items: mustAddressItems,
+        count: mustAddressItems.length,
+      },
+      reviewAssumptions: {
+        items: reviewAssumptionsItems,
+        count: reviewAssumptionsItems.length,
+      },
+      optional: {
+        items: optionalItems,
+        count: optionalItems.length,
+      },
+    }
   }, [improvementsByCategory])
 
   // Top 3 actions (priority order: Fix > Verify > Add evidence > Strengthen)
@@ -490,19 +649,22 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
   // This ensures we don't create a second source of truth for run-gating
   const existingReadiness = useExistingPreAnalysisData()
 
-  // isReady and hasBlockers come from the existing hook to maintain consistency
-  // with the existing PreAnalysisReadinessPanel's run-gating semantics
-  const isReady = existingReadiness.canRun
-  const hasBlockers = existingReadiness.hasBlockers
-  // Blocker count from existing hook for consistent footer display
-  const blockerCount = existingReadiness.allIssues.filter(i => i.severity === 'blocker').length
+  // isReady uses existing hook for canonical run-gating logic
+  // hasBlockers and blockerCount sync with Header (which uses mustAddress.count)
+  // This ensures both Header and Footer show consistent blocked/ready state
+  const isReady = existingReadiness.canRun && tiers.mustAddress.count === 0
+  const hasBlockers = tiers.mustAddress.count > 0
+  const blockerCount = tiers.mustAddress.count
 
   // Loading state: CEE data hasn't arrived yet but we have nodes (expecting CEE data)
   // This prevents showing misleading "Blocked" during initial load
   const isLoading = ceeAnalysisReady === null && nodes.length > 0
 
-  // Success threshold - priority: goal_threshold > observed_state.value > success_threshold > threshold
+  // Success threshold - priority: CEE goal_threshold > node goal_threshold > observed_state.value > success_threshold > threshold
   const successThreshold = useMemo(() => {
+    // Phase 3.2: CEE goal_threshold takes highest priority
+    if (ceeAnalysisReady?.goal_threshold != null) return ceeAnalysisReady.goal_threshold
+
     if (!goalNode) return null
 
     const data = goalNode.data as {
@@ -512,16 +674,19 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
       threshold?: number
     }
 
-    // Priority order per brief
+    // Priority order per brief (node data fallbacks)
     if (data?.goal_threshold != null) return data.goal_threshold
     if (data?.observed_state?.value != null) return data.observed_state.value
     if (data?.success_threshold != null) return data.success_threshold
     if (data?.threshold != null) return data.threshold
     return null
-  }, [goalNode])
+  }, [ceeAnalysisReady?.goal_threshold, goalNode])
 
-  // Auto-derived when threshold comes from goal node data (not user-set)
+  // Auto-derived when threshold comes from CEE or goal node data (not user-set)
   const isThresholdAutoDerived = useMemo(() => {
+    // Phase 3.2: CEE goal_threshold is auto-derived
+    if (ceeAnalysisReady?.goal_threshold != null) return true
+
     if (!goalNode) return false
 
     const data = goalNode.data as {
@@ -535,10 +700,49 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
 
     // Auto-derived if value came from goal_threshold or observed_state.value
     return (data?.goal_threshold != null) || (data?.observed_state?.value != null)
+  }, [ceeAnalysisReady?.goal_threshold, goalNode])
+
+  // Threshold confirmed when explicitly marked as such in goal node data
+  const isThresholdConfirmed = useMemo(() => {
+    if (!goalNode) return false
+
+    const data = goalNode.data as {
+      threshold_confirmed?: boolean
+    }
+
+    return data?.threshold_confirmed === true
   }, [goalNode])
+
+  // Calculate reviewed factors progress from node data (not UI state)
+  // Total = AI-estimated factors that need review (excludes brief_extraction)
+  // Also excludes controllable factors with interventions (to match UI)
+  // Reviewed = factors where user has taken Confirm or Assumption action
+  const { reviewedFactorsCount, totalReviewableFactorsCount } = useMemo(() => {
+    const factorNodes = nodesByKind.factor
+    const optionNodes = [...nodesByKind.option, ...nodesByKind.decision]
+    let reviewed = 0
+    let total = 0
+
+    for (const factor of factorNodes) {
+      if (needsReview(factor)) {
+        // Phase 2.5: Exclude controllable factors with interventions from progress count
+        // (these don't appear in the UI, so shouldn't count toward progress)
+        if (isControllableFactor(factor) && hasInterventionTargeting(factor.id, optionNodes)) {
+          continue
+        }
+        total++
+        if (isReviewedByUser(factor)) {
+          reviewed++
+        }
+      }
+    }
+
+    return { reviewedFactorsCount: reviewed, totalReviewableFactorsCount: total }
+  }, [nodesByKind.factor, nodesByKind.option, nodesByKind.decision])
 
   return {
     improvementsByCategory,
+    tiers,
     totalImprovements,
     topActions,
     evidenceQuality,
@@ -550,7 +754,10 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
     goalNode,
     successThreshold,
     isThresholdAutoDerived,
+    isThresholdConfirmed,
     isLoading,
+    reviewedFactorsCount,
+    totalReviewableFactorsCount,
   }
 }
 

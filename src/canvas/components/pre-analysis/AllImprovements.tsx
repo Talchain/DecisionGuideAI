@@ -17,7 +17,7 @@
 import { useState, useCallback } from 'react'
 import { Accordion, Pill, NodeLink, IconBtn, BiasIcon } from './primitives'
 import { Check, Pencil, Plus, HelpCircle, ChevronDown, ChevronRight } from 'lucide-react'
-import type { ImprovementItem, ImprovementCategory } from './hooks/usePreAnalysisData'
+import type { ImprovementItem, ImprovementCategory, TiersData } from './hooks/usePreAnalysisData'
 
 /** Action handlers for improvement items */
 export interface ImprovementActionHandlers {
@@ -42,6 +42,8 @@ export interface ImprovementActionHandlers {
 interface AllImprovementsProps {
   /** Improvements grouped by category */
   improvementsByCategory: Record<ImprovementCategory, ImprovementItem[]>
+  /** Improvements grouped by tier (three-tier hierarchy) */
+  tiers: TiersData
   /** Total count of all improvements */
   totalImprovements: number
   /** Click handler for node/edge focus */
@@ -52,6 +54,128 @@ interface AllImprovementsProps {
   onHoverEnter?: (type: 'node' | 'edge', id: string) => void
   /** Handler for clearing hover */
   onHoverLeave?: () => void
+  /** Count of reviewed factors (derived from node data) */
+  reviewedCount?: number
+  /** Total count of reviewable factors (derived from node data) */
+  totalReviewableCount?: number
+}
+
+/** Tier configuration for three-tier hierarchy */
+interface TierConfig {
+  title: string
+  border: string
+  defaultExpanded: boolean
+}
+
+/** Tier display configs */
+const tierConfig: Record<string, TierConfig> = {
+  mustAddress: {
+    title: 'Must address',
+    border: 'border-l-danger', // carrot
+    defaultExpanded: true,
+  },
+  reviewAssumptions: {
+    title: 'Review assumptions',
+    border: 'border-l-goal', // sun
+    defaultExpanded: true,
+  },
+  optional: {
+    title: 'Optional improvements',
+    border: 'border-l-info', // sky
+    defaultExpanded: false,
+  },
+}
+
+/** Tier Section Props */
+interface TierSectionProps {
+  tierKey: string
+  config: TierConfig
+  items: ImprovementItem[]
+  isExpanded: boolean
+  onToggleExpand: () => void
+  onFocus?: (type: 'node' | 'edge', id: string) => void
+  actionHandlers?: ImprovementActionHandlers
+  onHoverEnter?: (type: 'node' | 'edge', id: string) => void
+  onHoverLeave?: () => void
+  /** For review assumptions tier: progress tracking (derived from node data) */
+  reviewedCount?: number
+  totalCount?: number
+}
+
+/** Tier section component with accordion */
+function TierSection({
+  tierKey,
+  config,
+  items,
+  isExpanded,
+  onToggleExpand,
+  onFocus,
+  actionHandlers,
+  onHoverEnter,
+  onHoverLeave,
+  reviewedCount,
+  totalCount,
+}: TierSectionProps) {
+  // For reviewAssumptions: show tier when totalCount > 0 to display completion state
+  // For other tiers: hide when no items
+  const showCompletionState = tierKey === 'reviewAssumptions' && items.length === 0 && totalCount !== undefined && totalCount > 0
+  if (items.length === 0 && !showCompletionState) return null
+
+  // Build section title with progress for reviewAssumptions
+  let sectionTitle = config.title
+  if (tierKey === 'reviewAssumptions' && reviewedCount !== undefined && totalCount !== undefined) {
+    sectionTitle = `${config.title} (${reviewedCount} of ${totalCount} done)`
+  }
+
+  return (
+    <div className={`rounded-lg border border-panel-border border-l-[3px] ${config.border}`}>
+      {/* Section header - clickable accordion */}
+      <button
+        type="button"
+        onClick={onToggleExpand}
+        className="w-full flex items-center justify-between px-3 py-2 cursor-pointer hover:bg-black/[0.02]"
+      >
+        <span className="text-sm font-semibold text-text-body">{sectionTitle}</span>
+        <div className="flex items-center gap-2">
+          <span className={`text-xs rounded-full px-2 py-0.5 ${showCompletionState ? 'text-success bg-success-light' : 'text-text-light bg-factor-light'}`}>
+            {showCompletionState ? '✓' : items.length}
+          </span>
+          {isExpanded ? (
+            <ChevronDown className="w-4 h-4 text-text-light" />
+          ) : (
+            <ChevronRight className="w-4 h-4 text-text-light" />
+          )}
+        </div>
+      </button>
+
+      {/* Section content */}
+      {isExpanded && (
+        <div className="px-3 pb-3 space-y-2">
+          {showCompletionState ? (
+            <p className="text-sm text-success py-1">All reviewed</p>
+          ) : (
+            items.map((item, index) => (
+              <div
+                key={item.key}
+                style={index > 0 ? {
+                  borderTop: '1px solid rgba(238, 230, 216, 0.5)',
+                  paddingTop: '8px',
+                } : undefined}
+              >
+                <ImprovementRow
+                  item={item}
+                  onFocus={onFocus}
+                  actionHandlers={actionHandlers}
+                  onHoverEnter={onHoverEnter}
+                  onHoverLeave={onHoverLeave}
+                />
+              </div>
+            ))
+          )}
+        </div>
+      )}
+    </div>
+  )
 }
 
 /** Category display config - no backgrounds, sentence case labels */
@@ -500,7 +624,13 @@ function ImprovementRow({ item, onFocus, actionHandlers, isRemoving, onHoverEnte
                 variant="edit"
                 onClick={() => {
                   if (item.action?.targetId) {
-                    actionHandlers.onEdit(item.action.targetId)
+                    // For edges, use onFocus to focus the edge on canvas
+                    // For nodes, use onEdit to focus the node
+                    if (item.action?.targetType === 'edge' && onFocus) {
+                      onFocus('edge', item.action.targetId)
+                    } else {
+                      actionHandlers.onEdit(item.action.targetId)
+                    }
                   }
                 }}
               />
@@ -604,42 +734,63 @@ function ImprovementRow({ item, onFocus, actionHandlers, isRemoving, onHoverEnte
 
 export function AllImprovements({
   improvementsByCategory,
+  tiers,
   totalImprovements,
   onFocus,
   actionHandlers,
   onHoverEnter,
   onHoverLeave,
+  reviewedCount,
+  totalReviewableCount,
 }: AllImprovementsProps) {
-  // Track expanded state for add_evidence section (collapsed by default)
-  const [addEvidenceExpanded, setAddEvidenceExpanded] = useState(false)
+  // Track expanded state for each tier
+  const [mustAddressExpanded, setMustAddressExpanded] = useState(tierConfig.mustAddress.defaultExpanded)
+  const [reviewAssumptionsExpanded, setReviewAssumptionsExpanded] = useState(tierConfig.reviewAssumptions.defaultExpanded)
+  const [optionalExpanded, setOptionalExpanded] = useState(tierConfig.optional.defaultExpanded)
 
   return (
-    <Accordion
-      title="All Improvements"
-      defaultExpanded={true}
-      rightContent={
-        <Pill size="small" variant="default">
-          {totalImprovements}
-        </Pill>
-      }
-      testId="all-improvements-accordion"
-    >
-      <div className="space-y-2">
-        {categoryOrder.map(category => (
-          <CategorySection
-            key={category}
-            category={category}
-            items={improvementsByCategory[category]}
-            onFocus={onFocus}
-            actionHandlers={actionHandlers}
-            isExpanded={category === 'add_evidence' ? addEvidenceExpanded : true}
-            onToggleExpand={category === 'add_evidence' ? () => setAddEvidenceExpanded(prev => !prev) : undefined}
-            onHoverEnter={onHoverEnter}
-            onHoverLeave={onHoverLeave}
-          />
-        ))}
-      </div>
-    </Accordion>
+    <div className="space-y-3" data-testid="all-improvements-tiers">
+      {/* Must address tier */}
+      <TierSection
+        tierKey="mustAddress"
+        config={tierConfig.mustAddress}
+        items={tiers.mustAddress.items}
+        isExpanded={mustAddressExpanded}
+        onToggleExpand={() => setMustAddressExpanded(prev => !prev)}
+        onFocus={onFocus}
+        actionHandlers={actionHandlers}
+        onHoverEnter={onHoverEnter}
+        onHoverLeave={onHoverLeave}
+      />
+
+      {/* Review assumptions tier */}
+      <TierSection
+        tierKey="reviewAssumptions"
+        config={tierConfig.reviewAssumptions}
+        items={tiers.reviewAssumptions.items}
+        isExpanded={reviewAssumptionsExpanded}
+        onToggleExpand={() => setReviewAssumptionsExpanded(prev => !prev)}
+        onFocus={onFocus}
+        actionHandlers={actionHandlers}
+        onHoverEnter={onHoverEnter}
+        onHoverLeave={onHoverLeave}
+        reviewedCount={reviewedCount ?? 0}
+        totalCount={totalReviewableCount ?? 0}
+      />
+
+      {/* Optional improvements tier */}
+      <TierSection
+        tierKey="optional"
+        config={tierConfig.optional}
+        items={tiers.optional.items}
+        isExpanded={optionalExpanded}
+        onToggleExpand={() => setOptionalExpanded(prev => !prev)}
+        onFocus={onFocus}
+        actionHandlers={actionHandlers}
+        onHoverEnter={onHoverEnter}
+        onHoverLeave={onHoverLeave}
+      />
+    </div>
   )
 }
 

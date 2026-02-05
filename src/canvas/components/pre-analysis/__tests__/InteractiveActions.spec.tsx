@@ -49,36 +49,59 @@ vi.mock('../../../utils/focusHelpers', () => ({
 describe('Interactive Actions Hardening', () => {
   const mockOnAnalyse = vi.fn()
 
-  const createMockData = (overrides: Partial<PreAnalysisData> = {}): PreAnalysisData => ({
-    improvementsByCategory: {
+  const createMockData = (overrides: Partial<PreAnalysisData> = {}): PreAnalysisData => {
+    const improvementsByCategory = overrides.improvementsByCategory ?? {
       fix: [],
       verify: [],
       add_evidence: [],
       strengthen: [],
-    },
-    totalImprovements: 0,
-    topActions: [],
-    evidenceQuality: { level: 'medium', ratio: 0.5 },
-    isReady: true,
-    hasBlockers: false,
-    blockerCount: 0,
-    nodesByKind: {
-      goal: [{ id: 'g1', type: 'goal', position: { x: 0, y: 0 }, data: { label: 'Goal' } }],
-      decision: [],
-      option: [
-        { id: 'o1', type: 'option', position: { x: 0, y: 0 }, data: { label: 'Option 1' } },
-        { id: 'o2', type: 'option', position: { x: 0, y: 0 }, data: { label: 'Option 2' } },
-      ],
-      factor: [],
-      risk: [],
-      outcome: [],
-    },
-    edgeCount: 2,
-    goalNode: { id: 'g1', type: 'goal', position: { x: 0, y: 0 }, data: { label: 'Goal' } },
-    successThreshold: null,
-    isThresholdAutoDerived: false,
-    ...overrides,
-  })
+    }
+
+    // Build tiers from improvementsByCategory
+    const tiers = overrides.tiers ?? {
+      mustAddress: {
+        items: improvementsByCategory.fix,
+        count: improvementsByCategory.fix.length,
+      },
+      reviewAssumptions: {
+        items: improvementsByCategory.verify,
+        count: improvementsByCategory.verify.length,
+      },
+      optional: {
+        items: [...improvementsByCategory.add_evidence, ...improvementsByCategory.strengthen],
+        count: improvementsByCategory.add_evidence.length + improvementsByCategory.strengthen.length,
+      },
+    }
+
+    return {
+      improvementsByCategory,
+      tiers,
+      totalImprovements: 0,
+      topActions: [],
+      evidenceQuality: { level: 'medium', ratio: 0.5 },
+      isReady: true,
+      hasBlockers: false,
+      blockerCount: 0,
+      nodesByKind: {
+        goal: [{ id: 'g1', type: 'goal', position: { x: 0, y: 0 }, data: { label: 'Goal' } }],
+        decision: [],
+        option: [
+          { id: 'o1', type: 'option', position: { x: 0, y: 0 }, data: { label: 'Option 1' } },
+          { id: 'o2', type: 'option', position: { x: 0, y: 0 }, data: { label: 'Option 2' } },
+        ],
+        factor: [],
+        risk: [],
+        outcome: [],
+      },
+      edgeCount: 2,
+      goalNode: { id: 'g1', type: 'goal', position: { x: 0, y: 0 }, data: { label: 'Goal' } },
+      successThreshold: null,
+      isThresholdAutoDerived: false,
+      isThresholdConfirmed: false,
+      isLoading: false,
+      ...overrides,
+    }
+  }
 
   beforeEach(() => {
     vi.clearAllMocks()
@@ -124,27 +147,38 @@ describe('Interactive Actions Hardening', () => {
       }
       ;(useCanvasStore as unknown as { getState: () => typeof mockStateWithBaseline }).getState = () => mockStateWithBaseline
 
+      const fixItem = {
+        key: 'missing_baseline',
+        category: 'fix' as const,
+        label: 'Add baseline',
+        detail: 'Compare against doing nothing',
+        action: { label: 'Add', kind: 'add_baseline' as const },
+      }
+
       mockUsePreAnalysisData.mockReturnValue(createMockData({
         improvementsByCategory: {
-          fix: [{
-            key: 'missing_baseline',
-            category: 'fix',
-            label: 'Add baseline',
-            detail: 'Compare against doing nothing',
-            action: { label: 'Add', kind: 'add_baseline' },
-          }],
+          fix: [fixItem],
           verify: [],
           add_evidence: [],
           strengthen: [],
+        },
+        tiers: {
+          mustAddress: { items: [fixItem], count: 1 },
+          reviewAssumptions: { items: [], count: 0 },
+          optional: { items: [], count: 0 },
         },
         totalImprovements: 1,
       }))
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
 
-      // Find and click the Add baseline button
-      const addBaselineButton = screen.getByRole('button', { name: /add/i })
-      fireEvent.click(addBaselineButton)
+      // Find and click the Add baseline button (use aria-label for icon button)
+      const addButtons = screen.getAllByRole('button', { name: /add/i })
+      // Find the one that is for adding baseline (not "Add target")
+      const addBaselineButton = addButtons.find(btn => btn.getAttribute('aria-label') === 'Add')
+      if (addBaselineButton) {
+        fireEvent.click(addBaselineButton)
+      }
 
       // Verify: addNode was NOT called (baseline already exists)
       expect(mockAddNode).not.toHaveBeenCalled()
@@ -182,27 +216,37 @@ describe('Interactive Actions Hardening', () => {
 
       ;(useCanvasStore as unknown as { getState: () => typeof mockStateWithoutBaseline }).getState = () => mockStateWithoutBaseline
 
+      const fixItem = {
+        key: 'missing_baseline',
+        category: 'fix' as const,
+        label: 'Add baseline',
+        detail: 'Compare against doing nothing',
+        action: { label: 'Add', kind: 'add_baseline' as const },
+      }
+
       mockUsePreAnalysisData.mockReturnValue(createMockData({
         improvementsByCategory: {
-          fix: [{
-            key: 'missing_baseline',
-            category: 'fix',
-            label: 'Add baseline',
-            detail: 'Compare against doing nothing',
-            action: { label: 'Add', kind: 'add_baseline' },
-          }],
+          fix: [fixItem],
           verify: [],
           add_evidence: [],
           strengthen: [],
+        },
+        tiers: {
+          mustAddress: { items: [fixItem], count: 1 },
+          reviewAssumptions: { items: [], count: 0 },
+          optional: { items: [], count: 0 },
         },
         totalImprovements: 1,
       }))
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
 
-      // Find and click the Add baseline button
-      const addBaselineButton = screen.getByRole('button', { name: /add/i })
-      fireEvent.click(addBaselineButton)
+      // Must address tier is expanded by default, find the Add icon button (not "Add target" text button)
+      const addButtons = screen.getAllByRole('button', { name: /add/i })
+      // Find the one with aria-label="Add" (icon button, not "Add target" text button)
+      const addBaselineButton = addButtons.find(btn => btn.getAttribute('aria-label') === 'Add')
+      expect(addBaselineButton).toBeTruthy()
+      fireEvent.click(addBaselineButton!)
 
       // Verify: addNode WAS called
       expect(mockAddNode).toHaveBeenCalled()
@@ -211,32 +255,41 @@ describe('Interactive Actions Hardening', () => {
 
   describe('Evidence Input Sanitisation', () => {
     it('renders evidence input with maxLength=500', () => {
+      const evidenceItem = {
+        key: 'evidence_e1',
+        category: 'add_evidence' as const,
+        label: 'Factor → Goal',
+        detail: 'No evidence',
+        action: { label: 'Add', kind: 'add' as const, targetId: 'e1', targetType: 'edge' as const },
+        focus: { type: 'edge' as const, id: 'e1', label: 'Edge' },
+      }
+
       mockUsePreAnalysisData.mockReturnValue(createMockData({
         improvementsByCategory: {
           fix: [],
           verify: [],
-          add_evidence: [{
-            key: 'evidence_e1',
-            category: 'add_evidence',
-            label: 'Factor → Goal',
-            detail: 'No evidence',
-            action: { label: 'Add', kind: 'add', targetId: 'e1', targetType: 'edge' },
-            focus: { type: 'edge', id: 'e1', label: 'Edge' },
-          }],
+          add_evidence: [evidenceItem],
           strengthen: [],
+        },
+        tiers: {
+          mustAddress: { items: [], count: 0 },
+          reviewAssumptions: { items: [], count: 0 },
+          optional: { items: [evidenceItem], count: 1 },
         },
         totalImprovements: 1,
       }))
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
 
-      // Add Evidence section is collapsed by default - click "View all" to expand
-      const viewAllButton = screen.getByRole('button', { name: /view all/i })
-      fireEvent.click(viewAllButton)
+      // Optional tier is collapsed by default - click tier header to expand
+      const optionalHeader = screen.getByText('Optional improvements')
+      fireEvent.click(optionalHeader)
 
-      // Click the Add button to show evidence input
-      const addButton = screen.getByRole('button', { name: /add/i })
-      fireEvent.click(addButton)
+      // Click the Add button (icon button with aria-label="Add")
+      const addButtons = screen.getAllByRole('button', { name: /add/i })
+      const addButton = addButtons.find(btn => btn.getAttribute('aria-label') === 'Add')
+      expect(addButton).toBeTruthy()
+      fireEvent.click(addButton!)
 
       // Find the input
       const input = screen.getByPlaceholderText(/enter evidence source/i)
@@ -244,32 +297,41 @@ describe('Interactive Actions Hardening', () => {
     })
 
     it('disables Save button for whitespace-only input', () => {
+      const evidenceItem = {
+        key: 'evidence_e1',
+        category: 'add_evidence' as const,
+        label: 'Factor → Goal',
+        detail: 'No evidence',
+        action: { label: 'Add', kind: 'add' as const, targetId: 'e1', targetType: 'edge' as const },
+        focus: { type: 'edge' as const, id: 'e1', label: 'Edge' },
+      }
+
       mockUsePreAnalysisData.mockReturnValue(createMockData({
         improvementsByCategory: {
           fix: [],
           verify: [],
-          add_evidence: [{
-            key: 'evidence_e1',
-            category: 'add_evidence',
-            label: 'Factor → Goal',
-            detail: 'No evidence',
-            action: { label: 'Add', kind: 'add', targetId: 'e1', targetType: 'edge' },
-            focus: { type: 'edge', id: 'e1', label: 'Edge' },
-          }],
+          add_evidence: [evidenceItem],
           strengthen: [],
+        },
+        tiers: {
+          mustAddress: { items: [], count: 0 },
+          reviewAssumptions: { items: [], count: 0 },
+          optional: { items: [evidenceItem], count: 1 },
         },
         totalImprovements: 1,
       }))
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
 
-      // Add Evidence section is collapsed by default - click "View all" to expand
-      const viewAllButton = screen.getByRole('button', { name: /view all/i })
-      fireEvent.click(viewAllButton)
+      // Optional tier is collapsed by default - click tier header to expand
+      const optionalHeader = screen.getByText('Optional improvements')
+      fireEvent.click(optionalHeader)
 
-      // Click the Add button to show evidence input
-      const addButton = screen.getByRole('button', { name: /add/i })
-      fireEvent.click(addButton)
+      // Click the Add button to show evidence input (icon button with aria-label="Add")
+      const addButtons = screen.getAllByRole('button', { name: /add/i })
+      const addButton = addButtons.find(btn => btn.getAttribute('aria-label') === 'Add')
+      expect(addButton).toBeTruthy()
+      fireEvent.click(addButton!)
 
       // Enter whitespace-only
       const input = screen.getByPlaceholderText(/enter evidence source/i)
@@ -281,32 +343,41 @@ describe('Interactive Actions Hardening', () => {
     })
 
     it('trims and collapses whitespace in evidence input', () => {
+      const evidenceItem = {
+        key: 'evidence_e1',
+        category: 'add_evidence' as const,
+        label: 'Factor → Goal',
+        detail: 'No evidence',
+        action: { label: 'Add', kind: 'add' as const, targetId: 'e1', targetType: 'edge' as const },
+        focus: { type: 'edge' as const, id: 'e1', label: 'Edge' },
+      }
+
       mockUsePreAnalysisData.mockReturnValue(createMockData({
         improvementsByCategory: {
           fix: [],
           verify: [],
-          add_evidence: [{
-            key: 'evidence_e1',
-            category: 'add_evidence',
-            label: 'Factor → Goal',
-            detail: 'No evidence',
-            action: { label: 'Add', kind: 'add', targetId: 'e1', targetType: 'edge' },
-            focus: { type: 'edge', id: 'e1', label: 'Edge' },
-          }],
+          add_evidence: [evidenceItem],
           strengthen: [],
+        },
+        tiers: {
+          mustAddress: { items: [], count: 0 },
+          reviewAssumptions: { items: [], count: 0 },
+          optional: { items: [evidenceItem], count: 1 },
         },
         totalImprovements: 1,
       }))
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
 
-      // Add Evidence section is collapsed by default - click "View all" to expand
-      const viewAllButton = screen.getByRole('button', { name: /view all/i })
-      fireEvent.click(viewAllButton)
+      // Optional tier is collapsed by default - click tier header to expand
+      const optionalHeader = screen.getByText('Optional improvements')
+      fireEvent.click(optionalHeader)
 
-      // Click the Add button to show evidence input
-      const addButton = screen.getByRole('button', { name: /add/i })
-      fireEvent.click(addButton)
+      // Click the Add button to show evidence input (icon button with aria-label="Add")
+      const addButtons = screen.getAllByRole('button', { name: /add/i })
+      const addButton = addButtons.find(btn => btn.getAttribute('aria-label') === 'Add')
+      expect(addButton).toBeTruthy()
+      fireEvent.click(addButton!)
 
       // Enter value with excess whitespace
       const input = screen.getByPlaceholderText(/enter evidence source/i)
@@ -348,6 +419,15 @@ describe('Interactive Actions Hardening', () => {
       }
       ;(useCanvasStore as unknown as { getState: () => typeof mockStateWithFactor }).getState = () => mockStateWithFactor
 
+      const verifyItem = {
+        key: 'verify_f1',
+        category: 'verify' as const,
+        label: 'Factor',
+        detail: '0.5',
+        action: { label: 'Confirm', kind: 'confirm' as const, targetId: 'f1', targetType: 'node' as const },
+        focus: { type: 'node' as const, id: 'f1', label: 'Factor' },
+      }
+
       mockUsePreAnalysisData.mockReturnValue(createMockData({
         nodesByKind: {
           goal: [{ id: 'g1', type: 'goal', position: { x: 0, y: 0 }, data: { label: 'Goal' } }],
@@ -362,25 +442,27 @@ describe('Interactive Actions Hardening', () => {
         },
         improvementsByCategory: {
           fix: [],
-          verify: [{
-            key: 'verify_f1',
-            category: 'verify',
-            label: 'Factor',
-            detail: '0.5',
-            action: { label: 'Confirm', kind: 'confirm', targetId: 'f1', targetType: 'node' },
-            focus: { type: 'node', id: 'f1', label: 'Factor' },
-          }],
+          verify: [verifyItem],
           add_evidence: [],
           strengthen: [],
+        },
+        tiers: {
+          mustAddress: { items: [], count: 0 },
+          reviewAssumptions: { items: [verifyItem], count: 1 },
+          optional: { items: [], count: 0 },
         },
         totalImprovements: 1,
       }))
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
 
-      // Find and click the Confirm button (checkmark icon)
+      // Review assumptions tier is expanded by default
+      // Find and click the Confirm button (icon button with aria-label containing "Confirm")
       const confirmButtons = screen.getAllByRole('button', { name: /confirm/i })
-      fireEvent.click(confirmButtons[0])
+      // Find the one that's the icon button (has aria-label="Confirm this value is correct")
+      const confirmButton = confirmButtons.find(btn => btn.getAttribute('aria-label') === 'Confirm this value is correct')
+      expect(confirmButton).toBeTruthy()
+      fireEvent.click(confirmButton!)
 
       // Verify updateNode was called with user_confirmed source
       expect(mockUpdateNode).toHaveBeenCalledWith('f1', expect.objectContaining({
@@ -412,6 +494,17 @@ describe('Interactive Actions Hardening', () => {
       }
       ;(useCanvasStore as unknown as { getState: () => typeof mockStateWithFactor }).getState = () => mockStateWithFactor
 
+      const verifyItem = {
+        key: 'verify_f1',
+        category: 'verify' as const,
+        label: 'Factor',
+        detail: '0.5',
+        // Note: Verify category renders separate Confirm/Assumption/Edit buttons
+        // regardless of action.kind - they use action.targetId directly
+        action: { label: 'Assumption', kind: 'assumption' as const, targetId: 'f1', targetType: 'node' as const },
+        focus: { type: 'node' as const, id: 'f1', label: 'Factor' },
+      }
+
       mockUsePreAnalysisData.mockReturnValue(createMockData({
         nodesByKind: {
           goal: [{ id: 'g1', type: 'goal', position: { x: 0, y: 0 }, data: { label: 'Goal' } }],
@@ -426,27 +519,28 @@ describe('Interactive Actions Hardening', () => {
         },
         improvementsByCategory: {
           fix: [],
-          verify: [{
-            key: 'verify_f1',
-            category: 'verify',
-            label: 'Factor',
-            detail: '0.5',
-            // Note: Verify category renders separate Confirm/Assumption/Edit buttons
-            // regardless of action.kind - they use action.targetId directly
-            action: { label: 'Assumption', kind: 'assumption', targetId: 'f1', targetType: 'node' },
-            focus: { type: 'node', id: 'f1', label: 'Factor' },
-          }],
+          verify: [verifyItem],
           add_evidence: [],
           strengthen: [],
+        },
+        tiers: {
+          mustAddress: { items: [], count: 0 },
+          reviewAssumptions: { items: [verifyItem], count: 1 },
+          optional: { items: [], count: 0 },
         },
         totalImprovements: 1,
       }))
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
 
-      // Find and click the Assumption button (question mark icon)
+      // Review assumptions tier is expanded by default
+      // Find and click the Assumption button (icon button with aria-label containing "assumption")
+      // Note: "Review assumptions" tier header is also a button, so we need to find the icon button
       const assumptionButtons = screen.getAllByRole('button', { name: /assumption/i })
-      fireEvent.click(assumptionButtons[0])
+      // Find the one that's the icon button (has aria-label="Keep as an assumption")
+      const assumptionButton = assumptionButtons.find(btn => btn.getAttribute('aria-label') === 'Keep as an assumption')
+      expect(assumptionButton).toBeTruthy()
+      fireEvent.click(assumptionButton!)
 
       // Verify updateNode was called with user_assumption source
       expect(mockUpdateNode).toHaveBeenCalledWith('f1', expect.objectContaining({
@@ -483,32 +577,41 @@ describe('Interactive Actions Hardening', () => {
       }
       ;(useCanvasStore as unknown as { getState: () => typeof mockStateWithEdge }).getState = () => mockStateWithEdge
 
+      const evidenceItem = {
+        key: 'evidence_e1',
+        category: 'add_evidence' as const,
+        label: 'Factor → Goal',
+        detail: 'No evidence',
+        action: { label: 'Add', kind: 'add' as const, targetId: 'e1', targetType: 'edge' as const },
+        focus: { type: 'edge' as const, id: 'e1', label: 'Edge' },
+      }
+
       mockUsePreAnalysisData.mockReturnValue(createMockData({
         improvementsByCategory: {
           fix: [],
           verify: [],
-          add_evidence: [{
-            key: 'evidence_e1',
-            category: 'add_evidence',
-            label: 'Factor → Goal',
-            detail: 'No evidence',
-            action: { label: 'Add', kind: 'add', targetId: 'e1', targetType: 'edge' },
-            focus: { type: 'edge', id: 'e1', label: 'Edge' },
-          }],
+          add_evidence: [evidenceItem],
           strengthen: [],
+        },
+        tiers: {
+          mustAddress: { items: [], count: 0 },
+          reviewAssumptions: { items: [], count: 0 },
+          optional: { items: [evidenceItem], count: 1 },
         },
         totalImprovements: 1,
       }))
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
 
-      // Add Evidence section is collapsed by default - click "View all" to expand
-      const viewAllButton = screen.getByRole('button', { name: /view all/i })
-      fireEvent.click(viewAllButton)
+      // Optional tier is collapsed by default - click tier header to expand
+      const optionalHeader = screen.getByText('Optional improvements')
+      fireEvent.click(optionalHeader)
 
-      // Click the Add button to show evidence input
-      const addButton = screen.getByRole('button', { name: /add/i })
-      fireEvent.click(addButton)
+      // Click the Add button to show evidence input (icon button with aria-label="Add")
+      const addButtons = screen.getAllByRole('button', { name: /add/i })
+      const addButton = addButtons.find(btn => btn.getAttribute('aria-label') === 'Add')
+      expect(addButton).toBeTruthy()
+      fireEvent.click(addButton!)
 
       // Enter evidence
       const input = screen.getByPlaceholderText(/enter evidence source/i)
