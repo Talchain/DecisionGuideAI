@@ -871,42 +871,42 @@ export function RecommendationSection({
       {/* Option comparison (multiple options) */}
       {!isSingleOption && allOptions.length > 1 && (
         <div className="space-y-2">
-            {(() => {
-              // P2 Task 4: Sort by win_probability descending, determine winner and close-call
-              // Tiebreaker: isRecommended (backend-determined winner) for stable sort when wpA === wpB
-              const sortedOptions = [...allOptions].sort((a, b) => {
-                const wpA = a.winProbability ?? 0
-                const wpB = b.winProbability ?? 0
-                if (wpB !== wpA) return wpB - wpA // Descending by win probability
-                // Tiebreaker: recommended option first
-                if (a.isRecommended && !b.isRecommended) return -1
-                if (b.isRecommended && !a.isRecommended) return 1
-                return 0
-              })
+          {(() => {
+            // P2 Task 4: Sort by win_probability descending, determine winner and close-call
+            // Tiebreaker: isRecommended (backend-determined winner) for stable sort when wpA === wpB
+            const sortedOptions = [...allOptions].sort((a, b) => {
+              const wpA = a.winProbability ?? 0
+              const wpB = b.winProbability ?? 0
+              if (wpB !== wpA) return wpB - wpA // Descending by win probability
+              // Tiebreaker: recommended option first
+              if (a.isRecommended && !b.isRecommended) return -1
+              if (b.isRecommended && !a.isRecommended) return 1
+              return 0
+            })
 
-              // Determine winner (highest winProbability)
-              const winnerWp = sortedOptions[0]?.winProbability ?? 0
-              const secondWp = sortedOptions[1]?.winProbability ?? 0
-              const winnerId = sortedOptions[0]?.id
+            // Determine winner (highest winProbability)
+            const winnerWp = sortedOptions[0]?.winProbability ?? 0
+            const secondWp = sortedOptions[1]?.winProbability ?? 0
+            const winnerId = sortedOptions[0]?.id
 
-              // Close-call: win probability diff < 2% (only when both have actual win probabilities)
-              // Don't trigger close-call when win probabilities are missing - fallback to badge display
-              const hasActualWinProbs = sortedOptions[0]?.winProbability != null && sortedOptions[1]?.winProbability != null
-              const isCloseCall = hasActualWinProbs && Math.abs(winnerWp - secondWp) < 0.02
+            // Close-call: win probability diff < 2% (only when both have actual win probabilities)
+            // Don't trigger close-call when win probabilities are missing - fallback to badge display
+            const hasActualWinProbs = sortedOptions[0]?.winProbability != null && sortedOptions[1]?.winProbability != null
+            const isCloseCall = hasActualWinProbs && Math.abs(winnerWp - secondWp) < 0.02
 
-              return sortedOptions.map((option) => (
-                <OptionRow
-                  key={option.id}
-                  option={option}
-                  onFocus={onFocusNode}
-                  outcomeUnit={outcomeUnit}
-                  outcomeUnitSymbol={outcomeUnitSymbol}
-                  goalThreshold={goalThreshold}
-                  showBadge={option.id === winnerId && (recommendationStability == null || recommendationStability >= 0.55)}
-                  isCloseCall={isCloseCall}
-                />
-              ))
-            })()}
+            return sortedOptions.map((option) => (
+              <OptionRow
+                key={option.id}
+                option={option}
+                onFocus={onFocusNode}
+                outcomeUnit={outcomeUnit}
+                outcomeUnitSymbol={outcomeUnitSymbol}
+                goalThreshold={goalThreshold}
+                showBadge={option.id === winnerId && (recommendationStability == null || recommendationStability >= 0.55)}
+                isCloseCall={isCloseCall}
+              />
+            ))
+          })()}
 
           {/* Task 5: Similar outcomes explanation with win probability */}
           {showTieExplanation && (

@@ -101,9 +101,10 @@ describe('RecommendationSection', () => {
 
     render(<RecommendationSection data={singleOptionData} />)
 
-    // Task 4: "How this compares:" heading removed - single option shows CTA instead of options list
+    // Single option shows CTA to add more options
     expect(screen.getByText(/Add another option/)).toBeInTheDocument()
-    // Verify options list isn't rendered for single option
+    // OptionRow uses aria-label "Focus on X in model" - verify none rendered
+    // (HeroSection GraphLinks use different aria-label patterns)
     expect(screen.queryByRole('link', { name: /Focus on.*in model/ })).not.toBeInTheDocument()
   })
 
