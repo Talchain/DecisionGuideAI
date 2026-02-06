@@ -79,15 +79,18 @@ export function LLMCallsTab({ data }: LLMCallsTabProps) {
 
     // M2 Review call (if available)
     if (data.m2_review) {
+      // Try to get model info from cee_operations.decision_review
+      const decisionReviewOps = data.cee_operations?.decision_review
       const m2Call: LLMCallRow = {
         id: 'm2-review',
         stage: 'M2 Decision Review',
-        model: '—', // Model metadata not exposed by M2 endpoint
-        provider: '—', // Provider metadata not exposed by M2 endpoint
+        model: decisionReviewOps?.model ?? '—',
+        provider: decisionReviewOps?.provider ?? '—',
         tokens: null, // Token usage not exposed
         duration_ms: data.m2_review.duration_ms,
         status: data.m2_review.status === 'success' ? 'success' :
                 data.m2_review.status === 'failed' ? 'error' :
+                data.m2_review.status === 'skipped' ? 'error' :
                 data.m2_review.status === 'pending' ? 'pending' : 'error',
         timestamp: null, // Timestamp not exposed
         error: data.m2_review.error ?? undefined,
@@ -105,7 +108,7 @@ export function LLMCallsTab({ data }: LLMCallsTabProps) {
       if (!b.timestamp) return -1
       return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
     })
-  }, [data.cee_observability, data.m2_review])
+  }, [data.cee_observability, data.m2_review, data.cee_operations, data.pipeline.llm_metadata])
 
   // Totals
   const totals = useMemo(() => {

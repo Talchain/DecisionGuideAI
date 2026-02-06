@@ -2644,6 +2644,59 @@ function extractM2Review(
     }
   }
 
+  // Fallback: Check CEE downstream calls for decision-review data even without review_status
+  // This handles cases where PLoT doesn't set review_status but the review was executed
+  if (ceeDownstream && ceeDownstream.length > 0) {
+    const ceeReviewCall = ceeDownstream.find(call =>
+      call.endpoint.includes('decision-review') || call.endpoint.includes('/review')
+    )
+
+    if (ceeReviewCall) {
+      if (ceeReviewCall.success && ceeReviewCall.response) {
+        // Successful review call
+        const body = ceeReviewCall.response as Record<string, unknown>
+        const headline = typeof body.headline === 'string' ? body.headline : null
+        const bullets = Array.isArray(body.bullets) ? body.bullets : []
+        const biasInsights = Array.isArray(body.bias_insights) ? body.bias_insights : []
+
+        // Only return success if we have valid review data (headline)
+        if (headline) {
+          return {
+            status: 'success',
+            skip_reason: null,
+            duration_ms: ceeReviewCall.latency_ms ?? null,
+            headline,
+            bullets_count: bullets.length,
+            bias_insights_count: biasInsights.length,
+            error: null,
+            raw: body,
+          }
+        }
+      } else if (!ceeReviewCall.success) {
+        // Failed review call
+        const errorBody = ceeReviewCall.response as Record<string, unknown> | null
+        const errorMessage = errorBody
+          ? ((errorBody.error as string) ??
+             (errorBody.message as string) ??
+             (errorBody.detail as string) ??
+             ceeReviewCall.error ??
+             `HTTP ${ceeReviewCall.status_code}`)
+          : (ceeReviewCall.error ?? `HTTP ${ceeReviewCall.status_code}`)
+
+        return {
+          status: 'failed',
+          skip_reason: null,
+          duration_ms: ceeReviewCall.latency_ms ?? null,
+          headline: null,
+          bullets_count: 0,
+          bias_insights_count: 0,
+          error: errorMessage,
+          raw: ceeReviewCall.response ?? null,
+        }
+      }
+    }
+  }
+
   // No M2 data found anywhere
   return null
 }
