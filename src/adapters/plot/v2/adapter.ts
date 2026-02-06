@@ -874,6 +874,10 @@ export async function runV2(
     headers['X-Request-Id'] = request.request_id
   }
 
+  // Debug: trace brief field in payload
+  console.debug('[v2/run] payload keys:', Object.keys(request))
+  console.debug('[v2/run] brief in payload:', 'brief' in request, request.brief?.length)
+
   // Record request payload for debug panel
   recordRequestPayload({
     id: requestId,
