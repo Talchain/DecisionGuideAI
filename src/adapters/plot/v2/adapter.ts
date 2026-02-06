@@ -608,19 +608,33 @@ export function transformEdgeToV2Strict(edge: Edge<CanvasEdgeData>): V2Edge {
 // ============================================================================
 
 /**
+ * Options for buildV2Request fallback path.
+ */
+interface BuildV2RequestFallbackOptions {
+  framing?: {
+    title?: string
+    goal?: string
+    constraints?: string
+  }
+  brief?: string
+}
+
+/**
  * Build V2RunRequest from canvas state.
  *
  * @param nodes - Canvas nodes
  * @param edges - Canvas edges
  * @param options - UIOptions (may come from CEE or extracted from nodes)
  * @param goalNodeId - The outcome/goal node ID
+ * @param fallbackOptions - Optional framing and brief for fallback path
  * @returns V2RunRequest with normalised IDs and reverseIdMap for response translation
  */
 export function buildV2Request(
   nodes: Node<CanvasNodeData>[],
   edges: Edge<CanvasEdgeData>[],
   options: UIOption[],
-  goalNodeId: string
+  goalNodeId: string,
+  fallbackOptions?: BuildV2RequestFallbackOptions
 ): { request: V2RunRequest; reverseIdMap: Map<string, string> } {
   // Step 1: Extract or use provided options
   const validNodeIds = new Set(nodes.map((n) => n.id))
@@ -653,6 +667,8 @@ export function buildV2Request(
     goal_node_id: normalised.goalNodeId ?? goalNodeId,
     seed: String(Math.floor(Date.now() / 1000) % 1000000),
     detail_level: 'deep',
+    ...(fallbackOptions?.framing && { framing: fallbackOptions.framing }),
+    ...(fallbackOptions?.brief && { brief: fallbackOptions.brief }),
   }
 
   return { request, reverseIdMap: normalised.reverseIdMap }
@@ -723,7 +739,7 @@ export function buildV2RequestFromAnalysisReady(
     if (!fallbackGoalNodeId) {
       throw new Error('Either analysisReady or fallbackGoalNodeId must be provided')
     }
-    return buildV2Request(nodes, edges, fallbackOptions ?? [], fallbackGoalNodeId)
+    return buildV2Request(nodes, edges, fallbackOptions ?? [], fallbackGoalNodeId, { framing, brief })
   }
 
   // Step 1: Validate edges if strict mode enabled
