@@ -1,173 +1,323 @@
 /**
- * SuccessTarget Component (Task 2 redesign)
+ * SuccessTarget Component (Redesign — inline-editable, multi-target ready)
  *
- * Always-visible inline input for setting success target threshold.
- * Replaces the previous multi-state design with a simpler inline approach.
+ * Displays success target constraints with click-to-edit values
+ * and right-aligned probabilities.
  *
- * Design guidelines compliance:
- * - Input: min-height 44px, 12px 16px padding, 12px border-radius
- * - Button: sm size (8px 16px padding), secondary style
- * - Label: 14px (typography.label)
+ * Interaction:
+ * - Click value → edit mode (focused input)
+ * - Enter or Apply button → commit edit
+ * - Escape or blur → revert (do NOT commit on blur — prevents accidental rerun)
+ * - "+ Add" button disabled with tooltip "Coming soon"
+ *
+ * C7: Small inline "Apply" icon-button appears in edit mode
+ * as secondary commit affordance for touch/mobile devices
+ * (mobile "Done" key fires blur, not Enter).
  */
 
-import { useState, useCallback, useEffect } from 'react'
-import { X, Loader2 } from 'lucide-react'
+import { useState, useCallback, useEffect, useRef } from 'react'
+import { Plus, Check } from 'lucide-react'
 import { typography } from '../../styles/typography'
+import type { GoalConstraint } from './types'
 
 export interface SuccessTargetProps {
-  /** Current goal threshold value */
+  /** Array of goal constraints (currently always 0 or 1) */
+  goalConstraints: GoalConstraint[]
+  /** Probability of meeting ALL constraints jointly (multi-target future) */
+  probabilityOfJointGoal?: number | null
+  /** Whether the threshold was extracted from brief */
+  isFromBrief?: boolean
+  /** Whether analysis is running */
+  isRunning?: boolean
+  /** Callback when a constraint value is edited and committed */
+  onUpdateConstraint?: (id: string, newValue: number) => void
+  /** Remove a constraint */
+  onRemoveConstraint?: (id: string) => void
+
+  // Legacy props for backward compatibility during migration
+  /** @deprecated Use goalConstraints instead */
   goalThreshold?: number | null
-  /** Label for the goal (e.g., "MRR", "Churn rate") */
+  /** @deprecated Use goalConstraints[].label instead */
   goalLabel?: string
   /** Unit type for formatting */
   outcomeUnit?: 'currency' | 'percent' | 'count'
   /** Currency symbol if outcomeUnit is 'currency' */
   outcomeUnitSymbol?: string
-  /** Whether the threshold was extracted by CEE from the brief */
-  isFromBrief?: boolean
-  /** Whether an analysis is currently running */
-  isRunning?: boolean
-  /** Callback when threshold is changed and user clicks "Apply & re-run" */
+  /** Callback when threshold is changed */
   onApplyThreshold?: (threshold: number | null) => void
 }
 
 /**
- * Get placeholder text based on unit type.
+ * Format a probability (0-1) as integer percentage string.
  */
-function getPlaceholder(unit?: 'currency' | 'percent' | 'count', symbol?: string): string {
-  switch (unit) {
-    case 'currency':
-      return symbol ? `e.g. ${symbol}20000` : 'e.g. 20000'
-    case 'percent':
-      return 'e.g. 50'
-    default:
-      return 'e.g. 100'
-  }
+function formatProbability(value: number | null | undefined): string {
+  if (value == null) return '—'
+  return `${Math.round(value * 100)}%`
+}
+
+/**
+ * Single target row with click-to-edit value.
+ */
+function TargetRow({
+  constraint,
+  isEditing,
+  onStartEdit,
+  onCommit,
+  onRevert,
+  isRunning,
+}: {
+  constraint: GoalConstraint
+  isEditing: boolean
+  onStartEdit: () => void
+  onCommit: (newValue: number) => void
+  onRevert: () => void
+  isRunning: boolean
+}) {
+  const [editValue, setEditValue] = useState(constraint.value.toString())
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  // Focus input when entering edit mode
+  useEffect(() => {
+    if (isEditing && inputRef.current) {
+      inputRef.current.focus()
+      inputRef.current.select()
+    }
+  }, [isEditing])
+
+  // Sync edit value when constraint changes externally
+  useEffect(() => {
+    if (!isEditing) {
+      setEditValue(constraint.value.toString())
+    }
+  }, [constraint.value, isEditing])
+
+  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      const parsed = parseFloat(editValue)
+      if (!isNaN(parsed)) {
+        onCommit(parsed)
+      }
+    } else if (e.key === 'Escape') {
+      e.preventDefault()
+      onRevert()
+    }
+  }, [editValue, onCommit, onRevert])
+
+  const handleApplyClick = useCallback(() => {
+    const parsed = parseFloat(editValue)
+    if (!isNaN(parsed)) {
+      onCommit(parsed)
+    }
+  }, [editValue, onCommit])
+
+  const operatorDisplay = constraint.operator === '>=' ? '≥'
+    : constraint.operator === '<=' ? '≤'
+    : constraint.operator
+
+  return (
+    <div className="flex items-center gap-2 min-h-[36px]">
+      {/* Label + operator */}
+      <span className={`${typography.body} text-text-body`}>
+        {constraint.label}
+      </span>
+      <span className={`${typography.body} text-text-light`}>
+        {operatorDisplay}
+      </span>
+
+      {/* Value — click-to-edit */}
+      {isEditing ? (
+        <span className="inline-flex items-center gap-1">
+          <input
+            ref={inputRef}
+            type="number"
+            value={editValue}
+            onChange={(e) => setEditValue(e.target.value)}
+            onKeyDown={handleKeyDown}
+            onBlur={onRevert}
+            disabled={isRunning}
+            className="w-[100px] px-2 py-1 text-sm border border-info rounded focus:outline-none focus:ring-2 focus:ring-info tabular-nums"
+            aria-label={`Edit ${constraint.label} value`}
+          />
+          {/* C7: Apply button for touch/mobile commit */}
+          <button
+            type="button"
+            onMouseDown={(e) => {
+              // Prevent blur from firing before click (mouse users)
+              e.preventDefault()
+              handleApplyClick()
+            }}
+            onKeyDown={(e) => {
+              // Keyboard users: Enter/Space fires keydown, not mousedown
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault()
+                handleApplyClick()
+              }
+            }}
+            className="w-5 h-5 flex items-center justify-center text-success hover:text-success-hover rounded transition-colors"
+            aria-label="Apply value"
+            title="Apply"
+          >
+            <Check className="w-3.5 h-3.5" />
+          </button>
+        </span>
+      ) : (
+        <button
+          type="button"
+          onClick={onStartEdit}
+          disabled={isRunning}
+          className={`${typography.body} font-medium text-info hover:underline cursor-pointer tabular-nums disabled:opacity-50 disabled:cursor-not-allowed`}
+          aria-label={`Edit ${constraint.label} value: ${constraint.value}`}
+        >
+          {constraint.value}
+        </button>
+      )}
+
+      {/* Spacer */}
+      <span className="flex-1" />
+
+      {/* Probability — right-aligned */}
+      <span className={`${typography.body} font-medium text-text-body tabular-nums flex-shrink-0`}>
+        {formatProbability(constraint.probability)}
+      </span>
+    </div>
+  )
 }
 
 export function SuccessTarget({
-  goalThreshold,
-  goalLabel,
-  outcomeUnit,
-  outcomeUnitSymbol,
+  goalConstraints,
+  probabilityOfJointGoal,
   isFromBrief = false,
   isRunning = false,
+  onUpdateConstraint,
+  onRemoveConstraint,
+  // Legacy props
+  goalThreshold,
+  goalLabel,
   onApplyThreshold,
 }: SuccessTargetProps) {
-  const [inputValue, setInputValue] = useState('')
-  const [hasChanges, setHasChanges] = useState(false)
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [showEditHint, setShowEditHint] = useState(false)
 
-  // Sync input value with goalThreshold when it changes externally
-  useEffect(() => {
-    setInputValue(goalThreshold?.toString() ?? '')
-    setHasChanges(false)
-  }, [goalThreshold])
+  // Build effective constraints from either new or legacy props
+  const effectiveConstraints: GoalConstraint[] = goalConstraints?.length
+    ? goalConstraints
+    : goalThreshold != null
+    ? [{
+        id: 'primary',
+        label: goalLabel || 'Target',
+        operator: '>=' as const,
+        value: goalThreshold,
+        probability: null, // Probability comes from parent via goalConstraints
+      }]
+    : []
 
-  const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const newValue = e.target.value
-    setInputValue(newValue)
-    // Check if value differs from current threshold
-    const numValue = newValue === '' ? null : parseFloat(newValue)
-    const currentValue = goalThreshold ?? null
-    setHasChanges(numValue !== currentValue)
-  }, [goalThreshold])
+  const count = effectiveConstraints.length
+  const headerText = count <= 1 ? 'Success target' : 'Success targets'
+  const showCombinedRow = count > 1 && probabilityOfJointGoal != null
 
-  const handleApplyAndRerun = useCallback(() => {
-    if (!onApplyThreshold) return
+  const handleStartEdit = useCallback((id: string) => {
+    if (isRunning) return
+    setEditingId(id)
+    setShowEditHint(true)
+  }, [isRunning])
 
-    const numValue = inputValue === '' ? null : parseFloat(inputValue)
-    // Only apply if it's a valid number or explicitly clearing
-    if (inputValue !== '' && isNaN(numValue as number)) return
-
-    onApplyThreshold(numValue)
-    setHasChanges(false)
-  }, [inputValue, onApplyThreshold])
-
-  const handleRemoveThreshold = useCallback(() => {
-    if (!onApplyThreshold) return
-    onApplyThreshold(null)
-    setInputValue('')
-    setHasChanges(false)
-  }, [onApplyThreshold])
-
-  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && hasChanges) {
-      handleApplyAndRerun()
+  const handleCommit = useCallback((id: string, newValue: number) => {
+    setEditingId(null)
+    setShowEditHint(false)
+    if (onUpdateConstraint) {
+      onUpdateConstraint(id, newValue)
+    } else if (onApplyThreshold) {
+      // Legacy fallback
+      onApplyThreshold(newValue)
     }
-  }, [hasChanges, handleApplyAndRerun])
+  }, [onUpdateConstraint, onApplyThreshold])
 
-  const hasThreshold = goalThreshold != null
-  const showApplyButton = hasChanges && inputValue !== ''
-  const showRemoveButton = hasThreshold
+  const handleRevert = useCallback(() => {
+    setEditingId(null)
+    setShowEditHint(false)
+  }, [])
 
-  // Build label text
-  const labelText = goalLabel || 'Success target'
-  const attribution = isFromBrief ? ' (from your brief)' : hasThreshold ? ' (your target)' : ''
+  // Empty state — no constraints set
+  if (count === 0) {
+    return (
+      <div className="p-3 bg-panel border border-panel-border rounded-lg" data-testid="success-target">
+        <div className="flex items-center justify-between mb-2">
+          <span className={`${typography.label} text-text-header font-medium`}>
+            {headerText}
+          </span>
+          <button
+            type="button"
+            disabled
+            className="flex items-center gap-1 text-xs text-text-light opacity-50 cursor-not-allowed"
+            title="Coming soon"
+          >
+            <Plus className="w-3 h-3" />
+            Add
+          </button>
+        </div>
+        <p className={`${typography.caption} text-text-light`}>
+          Set a success target to see how likely you are to achieve your goal
+        </p>
+      </div>
+    )
+  }
 
   return (
-    <div className="p-4 bg-panel border border-panel-border rounded-lg" data-testid="success-target">
-      {/* Helper text as label - 14px per design guidelines */}
-      <label className={`block ${typography.label} text-text-light mb-2`}>
-        Set a success target to see how likely you are to achieve your goal
-      </label>
-
-      {/* Inline input row */}
-      <div className="flex items-center gap-3">
-        {/* Label + input */}
-        <div className="flex items-center gap-2 flex-1">
-          <span className={`${typography.label} text-text-body font-medium whitespace-nowrap`}>
-            {labelText}:
-          </span>
-          <div className="relative flex-1 max-w-[200px]">
-            <input
-              type="number"
-              value={inputValue}
-              onChange={handleInputChange}
-              onKeyDown={handleKeyDown}
-              placeholder={getPlaceholder(outcomeUnit, outcomeUnitSymbol)}
-              disabled={isRunning}
-              className="w-full min-h-[44px] px-4 py-3 text-sm border border-panel-border rounded-xl focus:outline-none focus:ring-2 focus:ring-info focus:border-info disabled:opacity-50 disabled:cursor-not-allowed"
-              aria-label={`${labelText} value`}
-            />
-            {/* Remove button (× inside input when threshold exists) */}
-            {showRemoveButton && !isRunning && (
-              <button
-                onClick={handleRemoveThreshold}
-                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-text-light hover:text-danger rounded transition-colors"
-                aria-label="Remove target"
-                type="button"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            )}
-          </div>
-          {/* Attribution */}
-          {attribution && (
-            <span className={`${typography.label} text-text-light whitespace-nowrap`}>
-              {attribution}
-            </span>
+    <div className="p-3 bg-panel border border-panel-border rounded-lg" data-testid="success-target">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-2">
+        <span className={`${typography.label} text-text-header font-medium`}>
+          {headerText}
+          {isFromBrief && (
+            <span className={`${typography.caption} text-text-light font-normal ml-1`}>(from your brief)</span>
           )}
-        </div>
+        </span>
+        <button
+          type="button"
+          disabled
+          className="flex items-center gap-1 text-xs text-text-light opacity-50 cursor-not-allowed"
+          title="Coming soon"
+        >
+          <Plus className="w-3 h-3" />
+          Add
+        </button>
+      </div>
 
-        {/* Apply button - only visible when value has changed */}
-        {showApplyButton && (
-          <button
-            onClick={handleApplyAndRerun}
-            disabled={isRunning}
-            className="px-4 py-2 text-sm font-medium text-text-body bg-transparent border border-panel-border hover:bg-panel-hover rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5 whitespace-nowrap"
-            type="button"
-          >
-            {isRunning ? (
-              <>
-                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                Running...
-              </>
-            ) : (
-              'Apply and re-run'
-            )}
-          </button>
+      {/* Target rows */}
+      <div className="space-y-1">
+        {effectiveConstraints.map((constraint) => (
+          <TargetRow
+            key={constraint.id}
+            constraint={constraint}
+            isEditing={editingId === constraint.id}
+            onStartEdit={() => handleStartEdit(constraint.id)}
+            onCommit={(newValue) => handleCommit(constraint.id, newValue)}
+            onRevert={handleRevert}
+            isRunning={isRunning}
+          />
+        ))}
+
+        {/* Combined row (multi-target only) */}
+        {showCombinedRow && (
+          <div className="flex items-center gap-2 min-h-[36px] border-t border-panel-border pt-1 mt-1">
+            <span className={`${typography.body} text-text-body font-medium`}>
+              Combined
+            </span>
+            <span className="flex-1" />
+            <span className={`${typography.body} font-medium text-text-body tabular-nums flex-shrink-0`}>
+              {formatProbability(probabilityOfJointGoal)}
+            </span>
+          </div>
         )}
       </div>
+
+      {/* C7: Edit mode hint */}
+      {showEditHint && editingId != null && (
+        <p className={`${typography.caption} text-text-light mt-1`}>
+          Enter to apply · Esc to cancel
+        </p>
+      )}
     </div>
   )
 }

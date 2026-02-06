@@ -55,7 +55,8 @@ describe('HeroSection', () => {
         />
       )
 
-      expect(screen.getByText(/Option A performs strongest — 85% chance of achieving your goal/)).toBeInTheDocument()
+      expect(screen.getByText('Option A performs best')).toBeInTheDocument()
+      expect(screen.getByText('85% chance of hitting your target')).toBeInTheDocument()
     })
 
     it('shows fallback headline when no special conditions (rule 4)', () => {
@@ -66,7 +67,7 @@ describe('HeroSection', () => {
         />
       )
 
-      expect(screen.getByText('Option A performs strongest')).toBeInTheDocument()
+      expect(screen.getByText('Option A performs best')).toBeInTheDocument()
     })
 
     it('precedence rule 2 overrides rule 3 (low stability beats goal probability)', () => {
@@ -235,10 +236,11 @@ describe('HeroSection', () => {
       // Should clean encoding notation
       const bullets = screen.getAllByRole('listitem')
       const fragileBullet = bullets.find(li =>
-        li.textContent?.includes('If the link between') &&
+        li.textContent?.includes('If') &&
         li.textContent?.includes('Market Size') &&
         li.textContent?.includes('Revenue') &&
-        li.textContent?.includes('Option B becomes the stronger option')
+        li.textContent?.includes('is weaker than expected') &&
+        li.textContent?.includes('Option B becomes stronger')
       )
       expect(fragileBullet).toBeInTheDocument()
     })
@@ -251,7 +253,7 @@ describe('HeroSection', () => {
         />
       )
 
-      expect(screen.getByText(/Result is stable across all assumptions tested/)).toBeInTheDocument()
+      expect(screen.getByText(/No assumptions tested could change this result/)).toBeInTheDocument()
     })
 
     it('calls onFocusNode when clicking on a GraphLink in M1 bullet', () => {
@@ -340,8 +342,8 @@ describe('HeroSection', () => {
     })
   })
 
-  describe('Learn More Expand', () => {
-    it('shows "Learn more" link', () => {
+  describe('More / Less Expand', () => {
+    it('shows "More" toggle button', () => {
       render(
         <HeroSection
           {...baseProps}
@@ -349,10 +351,10 @@ describe('HeroSection', () => {
         />
       )
 
-      expect(screen.getByRole('button', { name: /Learn more/i })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /More/i })).toBeInTheDocument()
     })
 
-    it('expands on click to show technical details', () => {
+    it('expands on click to show stability text and technical detail', () => {
       render(
         <HeroSection
           {...baseProps}
@@ -365,38 +367,34 @@ describe('HeroSection', () => {
         />
       )
 
-      const expandButton = screen.getByRole('button', { name: /Learn more/i })
+      const expandButton = screen.getByRole('button', { name: /More/i })
       fireEvent.click(expandButton)
 
-      expect(screen.getByText('Technical details')).toBeInTheDocument()
-      expect(screen.getByText('90% of assumption tests')).toBeInTheDocument()
-      expect(screen.getByText('3')).toBeInTheDocument() // Fragile assumptions
-      expect(screen.getByText('12')).toBeInTheDocument() // Stable assumptions
-      expect(screen.getByText('10,000')).toBeInTheDocument() // Scenarios
-      expect(screen.getByText('42')).toBeInTheDocument() // Seed
+      // Expanded stability text
+      expect(screen.getByText(/Result stays the same even if estimates are off/)).toBeInTheDocument()
+      // Stability percentage explanation
+      expect(screen.getByText(/the recommendation held in 90% of those tests/)).toBeInTheDocument()
+      // Technical detail is inside a nested <details>
+      expect(screen.getByText('Technical detail')).toBeInTheDocument()
     })
 
-    it('shows M1 coaching narrative when no M2 content', () => {
+    it('shows tier coaching card when stability < 0.85', () => {
       render(
         <HeroSection
           {...baseProps}
-          winnerGoalProbability={0.85}
-          runnerUpGoalProbability={0.65}
-          runnerUpLabel="Option B"
-          goalThreshold={100}
-          recommendationStability={0.9}
+          recommendationStability={0.75}
           nSamples={10000}
         />
       )
 
-      const expandButton = screen.getByRole('button', { name: /Learn more/i })
+      const expandButton = screen.getByRole('button', { name: /More/i })
       fireEvent.click(expandButton)
 
-      expect(screen.getByText('Analysis summary')).toBeInTheDocument()
-      expect(screen.getByText(/Based on 10,000 simulations/)).toBeInTheDocument()
+      // Tier coaching card for "Mostly stable"
+      expect(screen.getByText(/consistent under most assumptions/)).toBeInTheDocument()
     })
 
-    it('collapses when "Show less" is clicked', () => {
+    it('collapses when "Less" is clicked', () => {
       render(
         <HeroSection
           {...baseProps}
@@ -405,15 +403,15 @@ describe('HeroSection', () => {
         />
       )
 
-      const expandButton = screen.getByRole('button', { name: /Learn more/i })
+      const expandButton = screen.getByRole('button', { name: /More/i })
       fireEvent.click(expandButton)
 
-      expect(screen.getByText('Technical details')).toBeInTheDocument()
+      expect(screen.getByText('Technical detail')).toBeInTheDocument()
 
-      const collapseButton = screen.getByRole('button', { name: /Show less/i })
+      const collapseButton = screen.getByRole('button', { name: /Less/i })
       fireEvent.click(collapseButton)
 
-      expect(screen.queryByText('Technical details')).not.toBeInTheDocument()
+      expect(screen.queryByText('Technical detail')).not.toBeInTheDocument()
     })
   })
 
@@ -456,7 +454,7 @@ describe('HeroSection', () => {
         />
       )
 
-      const expandButton = screen.getByRole('button', { name: /Learn more/i })
+      const expandButton = screen.getByRole('button', { name: /More/i })
       fireEvent.click(expandButton)
 
       expect(screen.getByText('Questions to consider')).toBeInTheDocument()
@@ -475,7 +473,7 @@ describe('HeroSection', () => {
       )
 
       // Should not crash and should show fallback headline
-      expect(screen.getByText('Option A performs strongest')).toBeInTheDocument()
+      expect(screen.getByText('Option A performs best')).toBeInTheDocument()
     })
 
     it('handles missing drivers gracefully', () => {
@@ -526,11 +524,13 @@ describe('HeroSection', () => {
         />
       )
 
-      const expandButton = screen.getByRole('button', { name: /Learn more/i })
+      const expandButton = screen.getByRole('button', { name: /More/i })
       expect(expandButton).toHaveAttribute('aria-expanded', 'false')
 
       fireEvent.click(expandButton)
-      expect(expandButton).toHaveAttribute('aria-expanded', 'true')
+      // After clicking, the button text changes to "Less"
+      const lessButton = screen.getByRole('button', { name: /Less/i })
+      expect(lessButton).toHaveAttribute('aria-expanded', 'true')
     })
 
     it('has data-testid for component identification', () => {
@@ -545,101 +545,93 @@ describe('HeroSection', () => {
     })
   })
 
-  // =========================================================================
-  // Task 1: Readiness Statement Tests
-  // =========================================================================
+  describe('Expanded Content Details', () => {
+    it('shows no tier coaching card when stability >= 0.85', () => {
+      render(
+        <HeroSection
+          {...baseProps}
+          recommendationStability={0.92}
+          nSamples={10000}
+        />
+      )
 
-  describe('Readiness Statement (Task 1)', () => {
-    it('shows "Readiness assessment" header when coachingReadiness is "ready"', () => {
+      const expandButton = screen.getByRole('button', { name: /More/i })
+      fireEvent.click(expandButton)
+
+      // Stable result tier has no coaching
+      expect(screen.getByText(/Result stays the same even if estimates are off/)).toBeInTheDocument()
+      expect(screen.queryByText(/consistent under most assumptions/)).not.toBeInTheDocument()
+    })
+
+    it('shows M2 coaching paragraph when available', () => {
       render(
         <HeroSection
           {...baseProps}
           recommendationStability={0.9}
-          coachingReadiness="ready"
-          fragileEdgeCount={2}
-          robustEdgeCount={8}
-          nSamples={1000}
+          m2CoachingParagraph={[
+            { type: 'text', text: 'Consider checking ' },
+            { type: 'ref', id: 'factor-1', label: 'Market Size' },
+            { type: 'text', text: ' assumptions.' },
+          ]}
         />
       )
 
-      // Expand learn more
-      fireEvent.click(screen.getByRole('button', { name: /Learn more/i }))
+      const expandButton = screen.getByRole('button', { name: /More/i })
+      fireEvent.click(expandButton)
 
-      expect(screen.getByText('Readiness assessment')).toBeInTheDocument()
-      expect(screen.getByText(/This analysis is decision-ready/)).toBeInTheDocument()
-      expect(screen.getByText(/10 assumptions were tested and 8 held stable/)).toBeInTheDocument()
+      expect(screen.getByText(/Consider checking/)).toBeInTheDocument()
+      expect(screen.getByText('Market Size')).toBeInTheDocument()
     })
 
-    it('shows needs_framing readiness statement with fragile count', () => {
+    it('shows "Sensitive to assumptions" coaching for stability 0.55-0.69', () => {
       render(
         <HeroSection
           {...baseProps}
-          recommendationStability={0.6}
-          coachingReadiness="needs_framing"
+          recommendationStability={0.60}
+          nSamples={10000}
+        />
+      )
+
+      const expandButton = screen.getByRole('button', { name: /More/i })
+      fireEvent.click(expandButton)
+
+      expect(screen.getByText(/small changes could shift the recommendation/)).toBeInTheDocument()
+    })
+
+    it('shows "Highly sensitive" coaching for stability < 0.55', () => {
+      render(
+        <HeroSection
+          {...baseProps}
+          recommendationStability={0.40}
+          nSamples={10000}
+        />
+      )
+
+      const expandButton = screen.getByRole('button', { name: /More/i })
+      fireEvent.click(expandButton)
+
+      expect(screen.getByText(/consider strengthening key assumptions before committing/)).toBeInTheDocument()
+    })
+
+    it('shows technical detail as nested details element', () => {
+      render(
+        <HeroSection
+          {...baseProps}
+          recommendationStability={0.9}
+          nSamples={10000}
           fragileEdgeCount={3}
-          robustEdgeCount={5}
-          nSamples={1000}
+          robustEdgeCount={12}
+          seedUsed={42}
+          responseHash="abc123def456"
         />
       )
 
-      fireEvent.click(screen.getByRole('button', { name: /Learn more/i }))
+      const expandButton = screen.getByRole('button', { name: /More/i })
+      fireEvent.click(expandButton)
 
-      expect(screen.getByText('Readiness assessment')).toBeInTheDocument()
-      expect(screen.getByText(/This analysis has gaps that could affect the result/)).toBeInTheDocument()
-      expect(screen.getByText(/3 fragile assumptions identified/)).toBeInTheDocument()
-    })
-
-    it('shows needs_evidence readiness statement', () => {
-      render(
-        <HeroSection
-          {...baseProps}
-          recommendationStability={0.5}
-          coachingReadiness="needs_evidence"
-          fragileEdgeCount={4}
-          robustEdgeCount={2}
-          nSamples={1000}
-        />
-      )
-
-      fireEvent.click(screen.getByRole('button', { name: /Learn more/i }))
-
-      expect(screen.getByText('Readiness assessment')).toBeInTheDocument()
-      expect(screen.getByText(/Key evidence is missing/)).toBeInTheDocument()
-    })
-
-    it('shows close_call readiness statement', () => {
-      render(
-        <HeroSection
-          {...baseProps}
-          recommendationStability={0.52}
-          coachingReadiness="close_call"
-          fragileEdgeCount={2}
-          robustEdgeCount={4}
-          nSamples={1000}
-        />
-      )
-
-      fireEvent.click(screen.getByRole('button', { name: /Learn more/i }))
-
-      expect(screen.getByText('Readiness assessment')).toBeInTheDocument()
-      expect(screen.getByText(/This is a close call/)).toBeInTheDocument()
-    })
-
-    it('falls back to Analysis summary when coachingReadiness is null', () => {
-      render(
-        <HeroSection
-          {...baseProps}
-          recommendationStability={0.9}
-          nSamples={1000}
-          // No coachingReadiness prop
-        />
-      )
-
-      fireEvent.click(screen.getByRole('button', { name: /Learn more/i }))
-
-      // Should show old Analysis summary, not Readiness assessment
-      expect(screen.getByText('Analysis summary')).toBeInTheDocument()
-      expect(screen.queryByText('Readiness assessment')).not.toBeInTheDocument()
+      // Technical detail is a <details> with a <summary>
+      const summary = screen.getByText('Technical detail')
+      expect(summary.tagName).toBe('SUMMARY')
     })
   })
 })

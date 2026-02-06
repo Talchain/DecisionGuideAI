@@ -170,7 +170,7 @@ function UncertaintyRow({
     && alternativeOption !== 'another option'
   const consequence = hasSpecificAlternative
     ? `If wrong, ${alternativeOption} could win`
-    : 'Could flip recommendation'
+    : 'Could change the recommendation'
 
   // Determine if we use compact or full format
   const useCompactFormat = hasEdgeTitle && (hasSpecificAlternative || item.code === 'SENSITIVE_ASSUMPTION')
@@ -203,7 +203,7 @@ function UncertaintyRow({
                 className="text-xs px-2 py-0.5 bg-white/50 hover:bg-white/80 rounded transition-colors flex-shrink-0"
                 style={{ minHeight: '28px' }}
               >
-                Reduce uncertainty
+                Review this assumption
               </button>
             )}
           </div>
@@ -248,7 +248,7 @@ function UncertaintyRow({
                 className="text-xs px-2 py-1 bg-white/50 hover:bg-white/80 rounded transition-colors"
                 style={{ minHeight: '28px' }}
               >
-                {item.suggestion || 'Reduce uncertainty'}
+                {item.suggestion || 'Review this assumption'}
               </button>
             </div>
           )}

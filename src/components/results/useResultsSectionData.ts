@@ -36,6 +36,7 @@ import type {
   EdgeForDirection,
   CritiqueSeverity,
   FlipRiskCategory,
+  FlipThreshold,
   WinnerDeterminedBy,
   RobustnessLevel,
   RobustnessLabel,
@@ -970,6 +971,24 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     // Task 1.7: Get goal text from framing
     const goalText = currentScenarioFraming?.goal || undefined
 
+    // C2: Defensive adaptor for flip_thresholds — PLoT hasn't confirmed final location.
+    // Check all possible paths. Simplify once PLoT confirms the canonical location.
+    const flipThresholds: FlipThreshold[] = safeArray(
+      (report as any)?.flip_thresholds
+      ?? (report as any)?.report?.robustness?.flip_thresholds
+      ?? (report as any)?.robustness?.flip_thresholds
+    )
+      .map((ft: any) => ({
+        label: ft.label ?? ft.factor_label ?? nodeLabelMap.get(ft.node_id) ?? ft.node_id ?? 'Unknown',
+        node_id: ft.node_id ?? ft.factor_id ?? '',
+        current_value: typeof ft.current_value === 'number' ? ft.current_value : 0,
+        flip_value: typeof ft.flip_value === 'number' ? ft.flip_value : null,
+        flip_reason: ft.flip_reason,
+        unit: ft.unit,
+        alternative_winner_label: ft.alternative_winner_label ?? ft.alt_winner_label,
+      }))
+      .filter((ft: FlipThreshold) => ft.flip_reason !== 'timeout' && ft.flip_reason !== 'isl_error')
+
     return {
       recommendedOption,
       allOptions,
@@ -996,6 +1015,8 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       baselineOutcome,
       // Near-tie detection: when top options are too close to call
       nearTie,
+      // Task 6: Flip thresholds for tipping points visualisation
+      flipThresholds: flipThresholds.length > 0 ? flipThresholds : undefined,
       // M1 Coaching fields (Task 2)
       coachingHeadline: m1Coaching?.executive_summary?.headline,
       coachingReadiness: m1Coaching?.readiness,

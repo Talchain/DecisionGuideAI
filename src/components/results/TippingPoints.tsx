@@ -1,0 +1,361 @@
+/**
+ * TippingPoints Component
+ *
+ * Displays where the decision could flip — either as flip threshold tracks
+ * (Mode A) or as relative driver strength bars (Mode B fallback).
+ *
+ * Mode A: flip_thresholds present — shows current (●) and flip (╳) markers on tracks
+ * Mode B: flip_thresholds absent — horizontal bars by |elasticity|
+ *
+ * C4: Track domain uses observed_state.range when available, else padded [current, flip]
+ * C5: Sorted by normalised margin (most fragile first)
+ * C6: All values formatted via formatOutcomeValue
+ */
+
+import { useMemo, useState, useCallback } from 'react'
+import { ChevronDown, ChevronRight } from 'lucide-react'
+import { typography } from '../../styles/typography'
+import { formatOutcomeValue } from '../../lib/format'
+import { focusNodeById } from '../../canvas/utils/focusHelpers'
+import { stripEncodingNotation } from './utils/cleanFactorLabel'
+import type { FlipThreshold, DriverItem, OutcomeUnitType } from './types'
+
+// =============================================================================
+// GraphLink (local copy — same pattern as HeroSection)
+// =============================================================================
+
+function GraphLink({
+  nodeId,
+  label,
+  className = '',
+}: {
+  nodeId: string
+  label: string
+  className?: string
+}) {
+  if (!nodeId) {
+    if (import.meta.env.DEV) {
+      console.warn(`GraphLink fallback: node ${nodeId} ("${label}") not found in graph`)
+    }
+    return <span className={className}>{label}</span>
+  }
+
+  const handleClick = useCallback(() => {
+    focusNodeById(nodeId)
+  }, [nodeId])
+
+  return (
+    <span
+      role="link"
+      tabIndex={0}
+      onClick={handleClick}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleClick() } }}
+      className={`${className} text-info hover:text-info-hover hover:underline cursor-pointer`}
+    >
+      {label}
+    </span>
+  )
+}
+
+// =============================================================================
+// Mode A: Flip Threshold Tracks
+// =============================================================================
+
+export interface TippingPointsModeAProps {
+  flipThresholds: FlipThreshold[]
+  outcomeUnit?: OutcomeUnitType
+  outcomeUnitSymbol?: string
+}
+
+function FlipThresholdRow({
+  ft,
+  outcomeUnit,
+  outcomeUnitSymbol,
+}: {
+  ft: FlipThreshold & { _normalisedMargin?: number }
+  outcomeUnit?: OutcomeUnitType
+  outcomeUnitSymbol?: string
+}) {
+  const { current_value, flip_value, node_id, label, unit, alternative_winner_label } = ft
+
+  // Determine unit type for formatting (C6)
+  const effectiveUnit: OutcomeUnitType = (() => {
+    if (unit === '%' || unit === 'percent') return 'percent'
+    if (unit === '$' || unit === '£' || unit === '€') return 'currency'
+    return outcomeUnit ?? 'count'
+  })()
+  const effectiveSymbol = (unit === '$' || unit === '£' || unit === '€')
+    ? unit
+    : outcomeUnitSymbol
+
+  // C4: Track domain
+  // flip_value: null → no track, just "Stable across full range"
+  if (flip_value == null) {
+    return (
+      <div className="space-y-1">
+        <div className="flex items-center gap-2">
+          <GraphLink
+            nodeId={node_id}
+            label={stripEncodingNotation(label)}
+            className={typography.label}
+          />
+        </div>
+        <p className={`${typography.caption} text-text-light italic`}>
+          Stable across full range
+        </p>
+      </div>
+    )
+  }
+
+  // Calculate track domain with 20% padding
+  const lo = Math.min(current_value, flip_value)
+  const hi = Math.max(current_value, flip_value)
+  const span = hi - lo
+  const padding = span > 0 ? span * 0.2 : Math.abs(lo) * 0.2 || 1
+  const trackMin = lo - padding
+  const trackMax = hi + padding
+  const trackRange = trackMax - trackMin
+
+  const currentPct = trackRange > 0 ? ((current_value - trackMin) / trackRange) * 100 : 50
+  const flipPct = trackRange > 0 ? ((flip_value - trackMin) / trackRange) * 100 : 50
+
+  return (
+    <div className="space-y-1">
+      {/* Factor label */}
+      <GraphLink
+        nodeId={node_id}
+        label={stripEncodingNotation(label)}
+        className={typography.label}
+      />
+
+      {/* Track with current (●) and flip (╳) markers */}
+      <div className="relative h-1 bg-slate-200 rounded-full">
+        {/* Current value marker (●) */}
+        <div
+          className="absolute w-2.5 h-2.5 -top-[3px] bg-info rounded-full border border-white"
+          style={{ left: `${currentPct}%`, transform: 'translateX(-50%)' }}
+          title={`Current: ${formatOutcomeValue(current_value, effectiveUnit, effectiveSymbol)}`}
+        />
+        {/* Flip value marker (╳) */}
+        <div
+          className="absolute w-2.5 h-2.5 -top-[3px] flex items-center justify-center"
+          style={{ left: `${flipPct}%`, transform: 'translateX(-50%)' }}
+          title={`Flips at: ${formatOutcomeValue(flip_value, effectiveUnit, effectiveSymbol)}`}
+        >
+          <span className="text-[8px] font-bold text-danger leading-none">╳</span>
+        </div>
+      </div>
+
+      {/* Value labels and alternative winner */}
+      <div className="flex items-center justify-between">
+        <span className={`${typography.caption} text-text-light tabular-nums`}>
+          {formatOutcomeValue(current_value, effectiveUnit, effectiveSymbol)}
+        </span>
+        <span className={`${typography.caption} text-text-light tabular-nums`}>
+          {formatOutcomeValue(flip_value, effectiveUnit, effectiveSymbol)}
+        </span>
+      </div>
+      {alternative_winner_label && (
+        <p className={`${typography.caption} text-danger`}>
+          {stripEncodingNotation(alternative_winner_label)} becomes stronger
+        </p>
+      )}
+    </div>
+  )
+}
+
+function TippingPointsModeA({ flipThresholds, outcomeUnit, outcomeUnitSymbol }: TippingPointsModeAProps) {
+  const [showAll, setShowAll] = useState(false)
+
+  // C5: Sort by absolute margin, most fragile first (smallest distance to flip).
+  // Without observed_state.range from the graph, normalisation against the
+  // [current, flip] span is a no-op (margin === range). Use raw absolute
+  // margin instead — this correctly surfaces factors closest to their flip point.
+  // TODO: When PLoT provides observed_state.range per factor, normalise by that range.
+  const sorted = useMemo(() => {
+    return [...flipThresholds]
+      .map(ft => {
+        if (ft.flip_value == null) {
+          return { ...ft, _normalisedMargin: Infinity }
+        }
+        const margin = Math.abs(ft.current_value - ft.flip_value)
+        return { ...ft, _normalisedMargin: margin }
+      })
+      .sort((a, b) => a._normalisedMargin - b._normalisedMargin)
+  }, [flipThresholds])
+
+  const displayItems = showAll ? sorted : sorted.slice(0, 3)
+  const hiddenCount = sorted.length - 3
+
+  return (
+    <div className="space-y-3 p-3 bg-panel border border-panel-border rounded-lg">
+      {/* Header */}
+      <div>
+        <h4 className={`${typography.label} text-text-header font-medium`}>
+          Where the decision could flip
+        </h4>
+        <p className={`${typography.caption} text-text-light`}>
+          How far each factor can move before the recommendation changes
+        </p>
+      </div>
+
+      {/* Threshold rows */}
+      <div className="space-y-3">
+        {displayItems.map((ft, idx) => (
+          <FlipThresholdRow
+            key={ft.node_id || idx}
+            ft={ft}
+            outcomeUnit={outcomeUnit}
+            outcomeUnitSymbol={outcomeUnitSymbol}
+          />
+        ))}
+      </div>
+
+      {/* Show more/less toggle */}
+      {hiddenCount > 0 && (
+        <button
+          onClick={() => setShowAll(!showAll)}
+          className="flex items-center gap-1 text-xs text-info hover:text-info-hover transition-colors"
+        >
+          {showAll ? (
+            <>
+              <ChevronDown className="w-3 h-3" />
+              Show less
+            </>
+          ) : (
+            <>
+              <ChevronRight className="w-3 h-3" />
+              Show all {sorted.length}
+            </>
+          )}
+        </button>
+      )}
+    </div>
+  )
+}
+
+// =============================================================================
+// Mode B: Driver Strength Fallback
+// =============================================================================
+
+export interface TippingPointsModeBProps {
+  drivers: DriverItem[]
+}
+
+function TippingPointsModeB({ drivers }: TippingPointsModeBProps) {
+  const [showAll, setShowAll] = useState(false)
+
+  // Sort by |elasticity| descending, take non-zero only
+  const sorted = useMemo(() => {
+    return [...drivers]
+      .filter(d => Math.abs(d.rawElasticity) > 0.001)
+      .sort((a, b) => Math.abs(b.rawElasticity) - Math.abs(a.rawElasticity))
+  }, [drivers])
+
+  if (sorted.length === 0) return null
+
+  const maxElasticity = Math.abs(sorted[0].rawElasticity)
+  const displayItems = showAll ? sorted : sorted.slice(0, 3)
+  const hiddenCount = sorted.length - 3
+
+  return (
+    <div className="space-y-3 p-3 bg-panel border border-panel-border rounded-lg">
+      {/* Header — C3: "Driver strength" */}
+      <div>
+        <h4 className={`${typography.label} text-text-header font-medium`}>
+          Driver strength
+        </h4>
+        <p className={`${typography.caption} text-text-light`}>
+          Relative influence on the result
+        </p>
+      </div>
+
+      {/* Driver bars */}
+      <div className="space-y-2">
+        {displayItems.map(driver => {
+          const barWidth = maxElasticity > 0
+            ? (Math.abs(driver.rawElasticity) / maxElasticity) * 100
+            : 0
+
+          return (
+            <div key={driver.factorKey} className="space-y-1">
+              <GraphLink
+                nodeId={driver.matchedNodeId || driver.factorKey}
+                label={stripEncodingNotation(driver.factorLabel)}
+                className={typography.label}
+              />
+              <div className="relative h-1.5 bg-slate-100 rounded-full">
+                <div
+                  className="absolute h-1.5 rounded-full bg-info/50"
+                  style={{ width: `${barWidth}%` }}
+                />
+              </div>
+            </div>
+          )
+        })}
+      </div>
+
+      {/* Show more/less toggle */}
+      {hiddenCount > 0 && (
+        <button
+          onClick={() => setShowAll(!showAll)}
+          className="flex items-center gap-1 text-xs text-info hover:text-info-hover transition-colors"
+        >
+          {showAll ? (
+            <>
+              <ChevronDown className="w-3 h-3" />
+              Show less
+            </>
+          ) : (
+            <>
+              <ChevronRight className="w-3 h-3" />
+              Show all {sorted.length}
+            </>
+          )}
+        </button>
+      )}
+    </div>
+  )
+}
+
+// =============================================================================
+// Main Component — switches between Mode A and Mode B
+// =============================================================================
+
+export interface TippingPointsProps {
+  /** Flip thresholds from PLoT (Mode A when present) */
+  flipThresholds?: FlipThreshold[]
+  /** Top drivers for fallback display (Mode B) */
+  drivers?: DriverItem[]
+  /** Outcome unit for formatting */
+  outcomeUnit?: OutcomeUnitType
+  /** Currency symbol */
+  outcomeUnitSymbol?: string
+}
+
+export function TippingPoints({
+  flipThresholds,
+  drivers,
+  outcomeUnit,
+  outcomeUnitSymbol,
+}: TippingPointsProps) {
+  // Mode A: flip_thresholds present and non-empty
+  if (flipThresholds && flipThresholds.length > 0) {
+    return (
+      <TippingPointsModeA
+        flipThresholds={flipThresholds}
+        outcomeUnit={outcomeUnit}
+        outcomeUnitSymbol={outcomeUnitSymbol}
+      />
+    )
+  }
+
+  // Mode B: fallback to driver strength
+  if (drivers && drivers.length > 0) {
+    return <TippingPointsModeB drivers={drivers} />
+  }
+
+  return null
+}
+
+export default TippingPoints

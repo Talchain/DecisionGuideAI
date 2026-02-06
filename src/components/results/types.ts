@@ -27,6 +27,49 @@ export interface ConfidenceTierInfo {
 }
 
 // =============================================================================
+// Goal Constraint Types (Task 2 — Success Targets)
+// =============================================================================
+
+/** A single goal constraint for success target display */
+export interface GoalConstraint {
+  /** Unique identifier */
+  id: string
+  /** Display label (e.g., "MRR", "Churn rate") */
+  label: string
+  /** Comparison operator */
+  operator: '>=' | '<=' | '>' | '<' | '='
+  /** Threshold value */
+  value: number
+  /** Probability of achieving this individual constraint (0-1) */
+  probability?: number | null
+}
+
+// =============================================================================
+// Flip Threshold Types (Task 6 — Tipping Points)
+// =============================================================================
+
+/** Reason why a flip value could not be determined */
+export type FlipReason = 'no_bracket' | 'timeout' | 'isl_error'
+
+/** A single tipping-point entry from PLoT's robustness.flip_thresholds */
+export interface FlipThreshold {
+  /** Display label for the factor */
+  label: string
+  /** Canvas node ID for click-to-focus */
+  node_id: string
+  /** Current assumed value of the factor */
+  current_value: number
+  /** Value at which the recommendation changes (null if undetermined) */
+  flip_value: number | null
+  /** Why flip_value is null */
+  flip_reason?: FlipReason
+  /** Unit string for formatting (e.g., '$', '%') */
+  unit?: string
+  /** Label of the option that would become winner */
+  alternative_winner_label?: string
+}
+
+// =============================================================================
 // Recommendation Types
 // =============================================================================
 
@@ -117,6 +160,8 @@ export interface RecommendationSectionData {
   baselineOutcome?: number | null
   /** Near-tie detection: when top options are too close to call */
   nearTie?: NearTieInfo
+  /** Task 6: Flip thresholds for tipping points visualisation */
+  flipThresholds?: FlipThreshold[]
 
   // ==========================================================================
   // M1 Coaching Fields (deterministic, not LLM-generated)

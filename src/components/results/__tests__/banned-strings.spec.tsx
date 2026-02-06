@@ -42,6 +42,16 @@ const BANNED_STRINGS = [
   '(0–1 qualitative scale)',  // Task D: encoding pattern that should be stripped
   'simulated scenarios',      // Final polish: use "simulations" instead
   'Scenarios simulated',      // Final polish: use "Simulations run" instead
+  // C8: RTL banned term additions
+  'assumption tests',         // Use "simulations" instead
+  'lower bound',              // Use formatted p10 value instead
+  'upper bound',              // Use formatted p90 value instead
+  'Could flip recommendation',// Use "Could change the recommendation" or "{alt} could become stronger"
+  'Reduce uncertainty',       // Use "Review this assumption"
+  'performs strongest',       // Use "performs best"
+  'WHAT NEEDS',               // All-caps banned — use sentence case
+  'SUCCESS TARGET',           // All-caps banned — use sentence case
+  "WHAT'S INFLUENCING",       // All-caps banned — use sentence case
 ]
 
 /**
@@ -510,6 +520,13 @@ describe('Banned Strings Integration Test', () => {
       // Final polish additions
       expect(BANNED_STRINGS).toContain('simulated scenarios')
       expect(BANNED_STRINGS).toContain('Scenarios simulated')
+      // C8: RTL banned term additions
+      expect(BANNED_STRINGS).toContain('assumption tests')
+      expect(BANNED_STRINGS).toContain('lower bound')
+      expect(BANNED_STRINGS).toContain('upper bound')
+      expect(BANNED_STRINGS).toContain('Could flip recommendation')
+      expect(BANNED_STRINGS).toContain('Reduce uncertainty')
+      expect(BANNED_STRINGS).toContain('performs strongest')
     })
   })
 })

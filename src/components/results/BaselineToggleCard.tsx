@@ -1,26 +1,22 @@
 /**
- * BaselineToggleCard Component (P2 Task 2)
+ * BaselineToggleCard Component (Compact single-line redesign)
  *
- * Actionable inline card to add a "do nothing" baseline option.
- * Replaces the old passive baseline warning.
+ * Single-line warning (~40px) when no baseline option is included.
+ * Layout: ⚠ No baseline included  [?]  [Add baseline]
  *
- * Features:
- * - Primary action: "Add 'do nothing' baseline" button
- * - Secondary: "Learn why baselines help" expandable explanation
- * - Auto-triggers re-run after baseline is added
- * - Hidden when baseline already exists
+ * C1: Baseline does NOT trigger rerun. The [Add baseline] button
+ * mutates the decision draft only. User must manually rerun.
  */
 
-import { useState, useCallback } from 'react'
-import { Plus, ChevronDown, ChevronRight, Loader2 } from 'lucide-react'
+import { AlertTriangle } from 'lucide-react'
 import { typography } from '../../styles/typography'
 
 export interface BaselineToggleCardProps {
-  /** Whether to show this card (typically: !hasBaseline) */
+  /** Whether to show this card (typically: !hasBaseline && !isSingleOption) */
   show: boolean
   /** Whether an analysis is currently running */
   isRunning?: boolean
-  /** Callback to add baseline and trigger re-run */
+  /** Callback to add baseline to decision draft (does NOT trigger rerun) */
   onAddBaseline?: () => void
 }
 
@@ -29,73 +25,47 @@ export function BaselineToggleCard({
   isRunning = false,
   onAddBaseline,
 }: BaselineToggleCardProps) {
-  const [showExplanation, setShowExplanation] = useState(false)
+  if (!show) return null
 
-  const handleAddBaseline = useCallback(() => {
+  const handleAddBaseline = () => {
     if (onAddBaseline) {
       onAddBaseline()
     }
-  }, [onAddBaseline])
-
-  const toggleExplanation = useCallback(() => {
-    setShowExplanation(prev => !prev)
-  }, [])
-
-  if (!show) return null
+    // Baseline added to draft. User must manually rerun to generate comparison data.
+    console.log('[BaselineToggleCard] Baseline added to draft')
+  }
 
   return (
     <div
-      className="p-3 bg-panel border border-warning/30 rounded-lg"
+      className="flex items-center gap-2 px-3 py-2 bg-warning-light border border-warning/30 rounded-lg max-h-10"
       data-testid="baseline-toggle-card"
     >
-      <div className="flex items-start gap-3">
-        <div className="flex-1">
-          <p className={`${typography.body} text-text-body font-medium`}>
-            No baseline option included
-          </p>
-          <p className={`${typography.caption} text-text-light mt-1`}>
-            A baseline helps compare options against your current situation.
-          </p>
-        </div>
-        <button
-          onClick={handleAddBaseline}
-          disabled={isRunning}
-          className="px-2 py-1 min-h-[44px] text-sm font-medium text-white bg-info hover:bg-info/90 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5 flex-shrink-0"
-        >
-          {isRunning ? (
-            <>
-              <Loader2 className="w-3.5 h-3.5 animate-spin" />
-              Adding...
-            </>
-          ) : (
-            <>
-              <Plus className="w-3.5 h-3.5" />
-              Add 'do nothing' baseline
-            </>
-          )}
-        </button>
-      </div>
+      {/* Warning icon */}
+      <AlertTriangle className="w-4 h-4 text-warning flex-shrink-0" aria-hidden="true" />
 
-      {/* Expandable explanation */}
-      <div className="mt-2">
-        <button
-          onClick={toggleExplanation}
-          className="text-xs text-text-light hover:text-text-body flex items-center gap-1 transition-colors"
-        >
-          {showExplanation ? (
-            <ChevronDown className="w-3 h-3" />
-          ) : (
-            <ChevronRight className="w-3 h-3" />
-          )}
-          Learn why baselines help
-        </button>
-        {showExplanation && (
-          <p className={`${typography.caption} text-text-light mt-2 pl-4 border-l-2 border-panel-border`}>
-            A baseline anchors comparisons to your current situation, making differences between options more meaningful.
-            Without a baseline, it's harder to understand if any option actually improves on doing nothing.
-          </p>
-        )}
-      </div>
+      {/* Message */}
+      <span className={`${typography.caption} text-text-body flex-1`}>
+        No baseline included
+      </span>
+
+      {/* [?] tooltip */}
+      <span
+        className="w-5 h-5 flex items-center justify-center rounded-full text-[10px] text-text-light border border-panel-border cursor-help flex-shrink-0"
+        title="A 'do nothing' option shows whether any option improves on your current position."
+        aria-label="Why add a baseline?"
+      >
+        ?
+      </span>
+
+      {/* Add baseline button */}
+      <button
+        onClick={handleAddBaseline}
+        disabled={isRunning}
+        className="px-2 py-1 text-xs font-medium text-info hover:text-info-hover border border-info/30 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
+        type="button"
+      >
+        {isRunning ? 'Adding...' : 'Add baseline'}
+      </button>
     </div>
   )
 }

@@ -1,16 +1,17 @@
 /**
- * HeroSection Component (P1 Task 1)
+ * HeroSection Component (Restructured)
  *
- * Restructured hero section for Results Panel with:
- * - M1 deterministic headline with precedence rules
+ * Primary answer section for Results Panel:
+ * - Two-line headline: "{Winner} performs best" + sub-line
  * - 3 data-grounded bullets (comparative, drivers, risk)
- * - Stability label (single line, tiered)
- * - "Learn more" expand with coaching narrative
+ * - Stability label with short text + "More ▸" toggle
+ * - "More" expand: expanded stability text + tier coaching + nested technical detail
  *
  * Design principles:
  * - Never render PLoT story_headlines as user-facing copy
  * - Never show raw normalised values without units
- * - Default hero: no jargon; "Learn more" expand: light technical permitted
+ * - All factor/option names are GraphLinks (or plain text fallback)
+ * - Default hero: no jargon; "More" expand: light technical permitted
  */
 
 import { useState, useCallback, useMemo } from 'react'
@@ -33,13 +34,17 @@ export type RichText = RichSegment[]
 /** M1 bullet data */
 interface M1Bullet {
   text: string
-  /** Optional refs for clickable elements (M1 uses pre-computed refs) */
   refs?: Array<{ id: string; label: string }>
+}
+
+/** Structured headline with main + optional sub-line */
+interface StructuredHeadline {
+  main: string
+  sub: string | null
 }
 
 /** Props for HeroSection */
 export interface HeroSectionProps {
-  // Recommendation data
   winnerLabel: string
   winnerId: string
   winnerGoalProbability?: number | null
@@ -48,15 +53,9 @@ export interface HeroSectionProps {
   runnerUpGoalProbability?: number | null
   optionCount: number
   hasBaseline: boolean
-
-  // Stability/robustness
   recommendationStability?: number
   analysisStatus: 'computed' | 'partial' | 'failed' | 'blocked'
-
-  // Drivers (top 2 for bullet)
   topDrivers?: Array<{ id: string; label: string; direction?: 'positive' | 'negative' }>
-
-  // Fragile edge (top 1 for bullet)
   topFragileEdge?: {
     fromId: string
     fromLabel: string
@@ -64,43 +63,28 @@ export interface HeroSectionProps {
     toLabel: string
     alternativeWinnerLabel: string
     switchProbability?: number
-    /** Task C: Whether labels were successfully resolved */
     labelsResolved?: boolean
   }
-
-  // Technical details for "Learn more" expand
   nSamples?: number
   seedUsed?: number
   responseHash?: string
   fragileEdgeCount?: number
   robustEdgeCount?: number
-
-  // Goal info
   goalLabel?: string
   goalThreshold?: number | null
-
-  // Readiness data (Task 1: for readiness statement in Learn More)
   coachingReadiness?: 'ready' | 'close_call' | 'needs_evidence' | 'needs_framing'
   coachingReadinessScore?: number
-
-  // M2 content slots (optional, swaps in after M2 loads)
   m2Headline?: string
   m2Bullets?: [RichText, RichText, RichText]
   m2CoachingParagraph?: RichText
   m2BiasInsights?: string[]
-
-  // Callbacks
   onFocusNode?: (nodeId: string) => void
 }
 
 // =============================================================================
-// Helper Functions
+// Helpers
 // =============================================================================
 
-/**
- * Format probability (0-1) as percentage.
- * Shows one decimal for small values (< 1%) to avoid rounding to 0%.
- */
 function formatPercent(value: number): string {
   const percent = value * 100
   if (Math.abs(percent) < 1 && percent !== 0) {
@@ -109,31 +93,51 @@ function formatPercent(value: number): string {
   return `${Math.round(percent)}%`
 }
 
-/**
- * Get stability tier label and color.
- * Per P0 spec:
- * - >= 0.85: "Stable result"
- * - >= 0.70: "Mostly stable"
- * - >= 0.55: "Sensitive to assumptions"
- * - < 0.55: "Highly sensitive"
- */
+/** Stability tier with label, colour, short text, expanded text, and coaching. */
 function getStabilityTier(stability: number | undefined): {
   label: string
   colorClass: string
+  shortText: string
+  expandedText: string
+  coaching: string | null
 } {
   if (stability == null) {
-    return { label: '', colorClass: '' }
+    return { label: '', colorClass: '', shortText: '', expandedText: '', coaching: null }
   }
   if (stability >= 0.85) {
-    return { label: 'Stable result', colorClass: 'text-success' }
+    return {
+      label: 'Stable result',
+      colorClass: 'text-success',
+      shortText: 'Even if estimates are off',
+      expandedText: 'Result stays the same even if estimates are off.',
+      coaching: null, // No coaching for stable results
+    }
   }
   if (stability >= 0.70) {
-    return { label: 'Mostly stable', colorClass: 'text-success' }
+    return {
+      label: 'Mostly stable',
+      colorClass: 'text-success',
+      shortText: 'Under most assumptions',
+      expandedText: 'Result stays the same under most assumptions.',
+      coaching: 'The analysis is consistent under most assumptions. A few edge cases could shift the outcome.',
+    }
   }
   if (stability >= 0.55) {
-    return { label: 'Sensitive to assumptions', colorClass: 'text-warning' }
+    return {
+      label: 'Sensitive to assumptions',
+      colorClass: 'text-warning',
+      shortText: 'Review key inputs',
+      expandedText: 'Result changes under different assumptions — review key inputs.',
+      coaching: 'Result changes under different assumptions — small changes could shift the recommendation.',
+    }
   }
-  return { label: 'Highly sensitive', colorClass: 'text-danger' }
+  return {
+    label: 'Highly sensitive',
+    colorClass: 'text-danger',
+    shortText: 'Treat as directional',
+    expandedText: 'Small changes in assumptions change the result — treat as directional.',
+    coaching: 'Small changes in assumptions change the result — consider strengthening key assumptions before committing.',
+  }
 }
 
 // =============================================================================
@@ -141,8 +145,8 @@ function getStabilityTier(stability: number | undefined): {
 // =============================================================================
 
 /**
- * GraphLink - Clickable element that focuses a node on the canvas.
- * Styling: Inherit text colour, underline on hover, cursor pointer.
+ * GraphLink — Clickable element that focuses a node on the canvas.
+ * C9: Dev-only console warning when falling back to plain text.
  */
 function GraphLink({
   nodeId,
@@ -155,8 +159,10 @@ function GraphLink({
   onFocus?: (nodeId: string) => void
   className?: string
 }) {
-  // Task D guard: Early return for falsy nodeId to avoid broken focus
   if (!nodeId) {
+    if (import.meta.env.DEV) {
+      console.warn(`GraphLink fallback: node ${nodeId} ("${label}") not found in graph`)
+    }
     return <span className={className}>{label}</span>
   }
 
@@ -187,11 +193,7 @@ function GraphLink({
   )
 }
 
-/**
- * Render RichText (structured spans from M2).
- * - text segments: plain span
- * - ref segments: GraphLink
- */
+/** Render RichText (structured spans from M2). */
 function RichTextRenderer({
   content,
   onFocusNode,
@@ -218,10 +220,7 @@ function RichTextRenderer({
   )
 }
 
-/**
- * Render M1 bullet text with clickable GraphLinks for refs.
- * Finds each ref label in the text and wraps it with GraphLink.
- */
+/** Render M1 bullet text with clickable GraphLinks for refs. */
 function M1BulletRenderer({
   bullet,
   onFocusNode,
@@ -231,18 +230,14 @@ function M1BulletRenderer({
 }) {
   const { text, refs } = bullet
 
-  // If no refs, render plain text
   if (!refs || refs.length === 0) {
     return <>{text}</>
   }
 
-  // Build a list of segments: text parts and ref parts
   const segments: Array<{ type: 'text'; text: string } | { type: 'ref'; id: string; label: string }> = []
 
   let remainingText = text
-  let lastIndex = 0
 
-  // Sort refs by their position in the text to process in order
   const sortedRefs = [...refs].sort((a, b) => {
     const posA = text.indexOf(a.label)
     const posB = text.indexOf(b.label)
@@ -251,22 +246,15 @@ function M1BulletRenderer({
 
   for (const ref of sortedRefs) {
     const index = remainingText.indexOf(ref.label)
-    if (index === -1) continue // Label not found in remaining text
+    if (index === -1) continue
 
-    // Add text before the ref
     if (index > 0) {
       segments.push({ type: 'text', text: remainingText.slice(0, index) })
     }
-
-    // Add the ref
     segments.push({ type: 'ref', id: ref.id, label: ref.label })
-
-    // Update remaining text
     remainingText = remainingText.slice(index + ref.label.length)
-    lastIndex = index + ref.label.length
   }
 
-  // Add any remaining text
   if (remainingText.length > 0) {
     segments.push({ type: 'text', text: remainingText })
   }
@@ -325,52 +313,58 @@ export function HeroSection({
   const [isExpanded, setIsExpanded] = useState(false)
 
   // =========================================================================
-  // M1 Headline (Task 2: Deterministic templates with precedence)
+  // Headline (two-line: main + sub)
   // =========================================================================
-  const m1Headline = useMemo(() => {
-    // Precedence rule 1: Partial analysis
+  const m1Headline = useMemo<StructuredHeadline>(() => {
+    // Precedence 1: Partial analysis
     if (analysisStatus === 'partial') {
-      return 'Some analysis steps did not complete — results are partial'
+      return { main: 'Some analysis steps did not complete', sub: 'Results are partial' }
     }
 
-    // Precedence rule 2: Low stability (< 0.55)
+    // Precedence 2: Low stability (< 0.55) AND close options
     if (recommendationStability != null && recommendationStability < 0.55) {
-      return 'No clear winner — results are sensitive to assumptions'
+      return {
+        main: 'No clear winner — results are sensitive to assumptions',
+        sub: `Options perform similarly — ${winnerLabel} wins slightly more often`,
+      }
     }
 
-    // Precedence rule 3: Goal probability present
+    // Precedence 3: Goal probability present
     if (winnerGoalProbability != null && goalThreshold != null) {
-      return `${winnerLabel} performs strongest — ${formatPercent(winnerGoalProbability)} chance of achieving your goal`
+      return {
+        main: `${winnerLabel} performs best`,
+        sub: `${formatPercent(winnerGoalProbability)} chance of hitting your target`,
+      }
     }
 
-    // Precedence rule 4: Fallback
-    return `${winnerLabel} performs strongest`
-  }, [analysisStatus, recommendationStability, winnerGoalProbability, goalThreshold, winnerLabel])
+    // Precedence 4: Fallback — no target set
+    return {
+      main: `${winnerLabel} performs best`,
+      sub: optionCount > 1 ? 'Set a success target to see the likelihood of achieving your goal' : null,
+    }
+  }, [analysisStatus, recommendationStability, winnerGoalProbability, goalThreshold, winnerLabel, optionCount])
 
-  // Use M2 headline if available AND stability is not low (per spec: keep M1 when stability < 0.55)
-  const headline = useMemo(() => {
+  // M2 headline override (only when stability >= 0.55)
+  const headline = useMemo<StructuredHeadline>(() => {
     if (m2Headline && (recommendationStability == null || recommendationStability >= 0.55)) {
-      return m2Headline
+      return { main: m2Headline, sub: m1Headline.sub }
     }
     return m1Headline
   }, [m2Headline, recommendationStability, m1Headline])
 
   // =========================================================================
-  // M1 Bullets (Task 2: Exactly 3 data-grounded bullets)
+  // Bullets (3 data-grounded)
   // =========================================================================
   const m1Bullets = useMemo<M1Bullet[]>(() => {
     const bullets: M1Bullet[] = []
-
-    // Bullet 1: Comparative
-    // Task 1 fix: Low stability (< 0.55) gets different messaging to avoid contradiction with headline
     const isLowStability = recommendationStability != null && recommendationStability < 0.55
 
+    // Bullet 1: Comparative
     if (optionCount === 1) {
       bullets.push({
         text: 'Only one option analysed — consider adding alternatives for comparison',
       })
     } else if (winnerGoalProbability != null && runnerUpGoalProbability != null && goalThreshold != null) {
-      // Goal probability present - show percentage comparison
       const suffix = isLowStability ? ' — a narrow gap' : ''
       bullets.push({
         text: `${formatPercent(winnerGoalProbability)} vs ${formatPercent(runnerUpGoalProbability)} chance of achieving your goal${suffix}`,
@@ -380,13 +374,11 @@ export function HeroSection({
         ],
       })
     } else if (isLowStability) {
-      // Low stability without goal probability - use "perform similarly" wording
       bullets.push({
         text: `Options perform similarly — ${winnerLabel} wins slightly more often`,
         refs: [{ id: winnerId, label: winnerLabel }],
       })
     } else {
-      // Normal stability without goal probability
       bullets.push({
         text: `${winnerLabel} outperforms alternatives most consistently`,
         refs: [{ id: winnerId, label: winnerLabel }],
@@ -417,21 +409,18 @@ export function HeroSection({
     }
 
     // Bullet 3: Fragile edge / risk
-    // Task C: Only show stable when NO fragile edges exist
-    // If fragile edges exist but labels unresolved, show generic risk bullet
     if (topFragileEdge) {
       const fromLabel = stripEncodingNotation(topFragileEdge.fromLabel)
       const toLabel = stripEncodingNotation(topFragileEdge.toLabel)
       const altLabel = stripEncodingNotation(topFragileEdge.alternativeWinnerLabel)
 
-      // Task C: If labels couldn't be resolved, show generic risk bullet
       if (topFragileEdge.labelsResolved === false) {
         bullets.push({
           text: "Some assumptions could change the result — expand 'What needs attention' for details",
         })
       } else {
         bullets.push({
-          text: `If the link between ${fromLabel} and ${toLabel} is weaker than expected, ${altLabel} becomes the stronger option`,
+          text: `If ${fromLabel} → ${toLabel} is weaker than expected, ${altLabel} becomes stronger`,
           refs: [
             { id: topFragileEdge.fromId, label: fromLabel },
             { id: topFragileEdge.toId, label: toLabel },
@@ -440,129 +429,30 @@ export function HeroSection({
       }
     } else {
       bullets.push({
-        text: 'Result is stable across all assumptions tested',
+        text: 'No assumptions tested could change this result',
       })
     }
 
     return bullets
   }, [
-    optionCount,
-    winnerGoalProbability,
-    runnerUpGoalProbability,
-    goalThreshold,
-    winnerLabel,
-    winnerId,
-    runnerUpLabel,
-    runnerUpId,
-    topDrivers,
-    topFragileEdge,
-    recommendationStability, // Task 1: Include for low-stability bullet variant
+    optionCount, winnerGoalProbability, runnerUpGoalProbability, goalThreshold,
+    winnerLabel, winnerId, runnerUpLabel, runnerUpId,
+    topDrivers, topFragileEdge, recommendationStability,
   ])
 
-  // Use M2 bullets if available
   const bullets = m2Bullets ?? m1Bullets
 
   // =========================================================================
-  // Stability label
+  // Stability
   // =========================================================================
   const stabilityTier = getStabilityTier(recommendationStability)
+  const stabilityPct = recommendationStability != null
+    ? Math.round(recommendationStability * 100)
+    : null
 
   // =========================================================================
-  // "Learn more" content (Task 3)
+  // "More" expand content
   // =========================================================================
-  const m1CoachingNarrative = useMemo(() => {
-    if (!nSamples) return null
-
-    const stabilityPct = recommendationStability != null
-      ? `${Math.round(recommendationStability * 100)}%`
-      : 'unknown'
-
-    // Build narrative based on available data
-    let narrative = `Based on ${nSamples.toLocaleString()} simulations, `
-
-    if (winnerGoalProbability != null && runnerUpGoalProbability != null && goalThreshold != null) {
-      narrative += `${winnerLabel} achieves the goal in ${formatPercent(winnerGoalProbability)} of cases compared to ${formatPercent(runnerUpGoalProbability)} for ${runnerUpLabel ?? 'the second option'}. `
-    } else {
-      // Task 1: Apply tiered stability logic (same as headline)
-      if (recommendationStability != null && recommendationStability < 0.55) {
-        narrative += `options perform similarly. ${winnerLabel} wins slightly more often. `
-      } else if (recommendationStability != null && recommendationStability < 0.70) {
-        narrative += `${winnerLabel} performs strongest in more simulations, but the result is sensitive to assumptions. `
-      } else {
-        narrative += `${winnerLabel} outperforms alternatives most consistently. `
-      }
-    }
-
-    narrative += `The result stays the same in ${stabilityPct} of assumption tests.`
-
-    if (topFragileEdge) {
-      const fromLabel = stripEncodingNotation(topFragileEdge.fromLabel)
-      const toLabel = stripEncodingNotation(topFragileEdge.toLabel)
-      narrative += ` The most sensitive assumption is the relationship between ${fromLabel} and ${toLabel}.`
-    }
-
-    return narrative
-  }, [
-    nSamples,
-    recommendationStability,
-    winnerLabel,
-    winnerGoalProbability,
-    runnerUpLabel,
-    runnerUpGoalProbability,
-    goalThreshold,
-    topFragileEdge,
-  ])
-
-  // =========================================================================
-  // Readiness Statement (Task 1: replaces Analysis summary)
-  // =========================================================================
-  const readinessStatement = useMemo(() => {
-    // If no readiness data, return null to trigger fallback to m1CoachingNarrative
-    if (!coachingReadiness) return null
-
-    const totalAssumptions = (fragileEdgeCount ?? 0) + (robustEdgeCount ?? 0)
-    const stableCount = robustEdgeCount ?? 0
-    const fragileCount = fragileEdgeCount ?? 0
-
-    switch (coachingReadiness) {
-      case 'ready':
-        // Decision-ready: emphasise stability
-        if (totalAssumptions > 0) {
-          return `This analysis is decision-ready. ${totalAssumptions} assumptions were tested and ${stableCount} held stable.`
-        }
-        return 'This analysis is decision-ready.'
-
-      case 'needs_framing':
-        // Gaps that could affect result - summarise key issues
-        const framingIssues: string[] = []
-        if (fragileCount > 0) {
-          framingIssues.push(`${fragileCount} fragile assumption${fragileCount > 1 ? 's' : ''} identified`)
-        }
-        if (topFragileEdge) {
-          framingIssues.push('key relationships are sensitive to change')
-        }
-        const framingSummary = framingIssues.length > 0
-          ? framingIssues.join(' and ')
-          : 'some gaps detected'
-        return `This analysis has gaps that could affect the result. ${framingSummary.charAt(0).toUpperCase() + framingSummary.slice(1)}. Addressing these would strengthen confidence.`
-
-      case 'needs_evidence':
-        // Missing evidence - emphasise data gathering
-        if (fragileCount > 0) {
-          return `Key evidence is missing. ${fragileCount} uncertain assumption${fragileCount > 1 ? 's' : ''} could change the outcome. Gathering data on the most uncertain factors would improve reliability.`
-        }
-        return 'Key evidence is missing. Gathering data on the most uncertain factors would improve reliability.'
-
-      case 'close_call':
-        // Close decision - similar to needs_framing but with close-call context
-        return `This is a close call — options perform similarly. ${fragileCount > 0 ? `${fragileCount} assumption${fragileCount > 1 ? 's' : ''} could tip the balance. ` : ''}Consider whether any factor could change significantly.`
-
-      default:
-        return null
-    }
-  }, [coachingReadiness, fragileEdgeCount, robustEdgeCount, topFragileEdge])
-
-  // Use M2 coaching paragraph if available
   const hasM2Coaching = m2CoachingParagraph && m2CoachingParagraph.length > 0
   const hasBiasInsights = m2BiasInsights && m2BiasInsights.length > 0
 
@@ -573,15 +463,20 @@ export function HeroSection({
     <div className="space-y-4" data-testid="hero-section">
       {/* Main hero card */}
       <div className="p-4 bg-panel border border-panel-border rounded-lg">
-        {/* Headline */}
-        <h2 className={`${typography.h3} text-text-header mb-3`}>
-          {headline}
+        {/* Headline — two-line */}
+        <h2 className={`${typography.h3} text-text-header`}>
+          {headline.main}
         </h2>
+        {headline.sub && (
+          <p className={`${typography.body} text-text-body mt-1 mb-3`}>
+            {headline.sub}
+          </p>
+        )}
+        {!headline.sub && <div className="mb-3" />}
 
         {/* 3 Bullets */}
         <ul className="space-y-2 mb-4">
           {(Array.isArray(bullets) ? bullets : m1Bullets).map((bullet, index) => {
-            // M2 bullets are RichText arrays
             const isRichText = Array.isArray(bullet) && bullet.length > 0 && typeof bullet[0] === 'object' && 'type' in bullet[0]
 
             return (
@@ -589,7 +484,7 @@ export function HeroSection({
                 key={index}
                 className={`flex items-start gap-2 ${typography.body} text-text-body`}
               >
-                <span className="text-text-light flex-shrink-0 mt-0.5">•</span>
+                <span className="text-text-light flex-shrink-0 mt-0.5">·</span>
                 <span className="flex-1 min-w-0">
                   {isRichText ? (
                     <RichTextRenderer
@@ -608,63 +503,80 @@ export function HeroSection({
           })}
         </ul>
 
-        {/* Stability label + Learn more link */}
-        <div className="flex items-center justify-between border-t border-panel-border pt-3">
-          {stabilityTier.label && (
-            <span className={`${typography.caption} ${stabilityTier.colorClass}`}>
-              {stabilityTier.label}
-            </span>
-          )}
-          <button
-            type="button"
-            onClick={() => setIsExpanded(!isExpanded)}
-            className={`flex items-center gap-1 ${typography.caption} text-info hover:text-info-hover`}
-            aria-expanded={isExpanded}
-            aria-controls="hero-learn-more"
-          >
-            {isExpanded ? (
-              <>
-                <span>Show less</span>
-                <ChevronDown className="w-3 h-3" />
-              </>
-            ) : (
-              <>
-                <span>Learn more</span>
-                <ChevronRight className="w-3 h-3" />
-              </>
+        {/* Stability + More toggle */}
+        <div className="border-t border-panel-border pt-3">
+          <div className="flex items-center gap-3">
+            {stabilityTier.label && (
+              <span className={`${typography.caption} ${stabilityTier.colorClass} font-medium`}>
+                {stabilityTier.label}
+              </span>
             )}
-          </button>
+            {stabilityTier.shortText && (
+              <span className={`${typography.caption} text-text-light`}>
+                {stabilityTier.shortText}
+              </span>
+            )}
+            <span className="flex-1" />
+            <button
+              type="button"
+              onClick={() => setIsExpanded(!isExpanded)}
+              className={`flex items-center gap-1 ${typography.caption} text-info hover:text-info-hover flex-shrink-0`}
+              aria-expanded={isExpanded}
+              aria-controls="hero-more-content"
+            >
+              <span>{isExpanded ? 'Less' : 'More'}</span>
+              {isExpanded ? (
+                <ChevronDown className="w-3 h-3" />
+              ) : (
+                <ChevronRight className="w-3 h-3" />
+              )}
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* "Learn more" expand (Task 3) */}
+      {/* "More" expand */}
       {isExpanded && (
         <div
-          id="hero-learn-more"
+          id="hero-more-content"
           className="p-4 bg-panel border border-panel-border rounded-lg space-y-4"
         >
-          {/* Section 1: Readiness assessment (Task 1) or Analysis summary fallback */}
-          {(readinessStatement || hasM2Coaching || m1CoachingNarrative) && (
+          {/* Expanded stability explanation */}
+          {stabilityTier.expandedText && (
             <div className="space-y-2">
-              <h4 className={`${typography.label} text-text-header`}>
-                {readinessStatement ? 'Readiness assessment' : 'Analysis summary'}
-              </h4>
               <p className={`${typography.body} text-text-body`}>
-                {readinessStatement ? (
-                  readinessStatement
-                ) : hasM2Coaching ? (
-                  <RichTextRenderer
-                    content={m2CoachingParagraph!}
-                    onFocusNode={onFocusNode}
-                  />
-                ) : (
-                  m1CoachingNarrative
-                )}
+                {stabilityTier.expandedText}
+              </p>
+              {stabilityPct != null && (
+                <p className={`${typography.caption} text-text-light`}>
+                  We tested what happens when each assumption in your model is varied — the recommendation held in {stabilityPct}% of those tests.
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* Tier-gated coaching (only when stability < 0.85) */}
+          {stabilityTier.coaching && (
+            <div className="p-3 bg-info-light border border-info/30 rounded-lg">
+              <p className={`${typography.caption} text-text-body`}>
+                {stabilityTier.coaching}
               </p>
             </div>
           )}
 
-          {/* Section 2: Bias insights (M2 only) */}
+          {/* M2 coaching paragraph */}
+          {hasM2Coaching && (
+            <div className="space-y-2">
+              <p className={`${typography.body} text-text-body`}>
+                <RichTextRenderer
+                  content={m2CoachingParagraph!}
+                  onFocusNode={onFocusNode}
+                />
+              </p>
+            </div>
+          )}
+
+          {/* M2 bias insights */}
           {hasBiasInsights && (
             <div className="space-y-2">
               <h4 className={`${typography.label} text-text-header`}>
@@ -685,16 +597,16 @@ export function HeroSection({
             </div>
           )}
 
-          {/* Section 3: Technical detail (always present) */}
-          <div className="space-y-2">
-            <h4 className={`${typography.label} text-text-header`}>
-              Technical details
-            </h4>
-            <dl className={`grid grid-cols-2 gap-x-4 gap-y-1 ${typography.caption} text-text-light`}>
+          {/* Nested technical detail */}
+          <details className="group">
+            <summary className={`${typography.caption} text-text-light cursor-pointer hover:text-text-body select-none`}>
+              Technical detail
+            </summary>
+            <dl className={`mt-2 grid grid-cols-2 gap-x-4 gap-y-1 ${typography.caption} text-text-light`}>
               {recommendationStability != null && (
                 <>
                   <dt>Stability</dt>
-                  <dd>{Math.round(recommendationStability * 100)}% of assumption tests</dd>
+                  <dd>{stabilityPct}% of assumption tests</dd>
                 </>
               )}
               {fragileEdgeCount != null && (
@@ -730,7 +642,7 @@ export function HeroSection({
                 </>
               )}
             </dl>
-          </div>
+          </details>
         </div>
       )}
     </div>

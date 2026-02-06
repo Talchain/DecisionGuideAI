@@ -53,7 +53,7 @@ import { useDebugShortcut } from '../hooks/useDebugShortcut'
 import { RANGE_TERMINOLOGY } from '../../config/terminology'
 import { IdentifiabilityBadge, normalizeIdentifiabilityTag } from './IdentifiabilityBadge'
 import { EvidenceCoverageCompact } from './EvidenceCoverage'
-import { DecisionReadinessBadge } from './DecisionReadinessBadge'
+// DecisionReadinessBadge import removed — readiness content absorbed into Hero "More" expand
 import { ModelQualityScore } from './ModelQualityScore'
 import { UnifiedStatusBadge } from './UnifiedStatusBadge'
 import { InsightsPanel } from './InsightsPanel'
@@ -407,12 +407,11 @@ export function OutputsDock() {
     runV2Analysis()
   }, [setGoalThreshold, runV2Analysis])
 
-  // P2 Task 2: Handle add baseline and trigger re-run
-  const handleAddBaselineAndRerun = useCallback(() => {
+  // C1: Baseline addition does NOT trigger rerun — mutates draft only.
+  // User must manually rerun to generate comparison data.
+  const handleAddBaseline = useCallback(() => {
     addStatusQuoBaseline()
-    // Trigger re-run after baseline added
-    runV2Analysis()
-  }, [addStatusQuoBaseline, runV2Analysis])
+  }, [addStatusQuoBaseline])
 
   // M6: Handle compare now action - triggers scenario comparison
   const handleCompareNow = useCallback(async () => {
@@ -1190,65 +1189,59 @@ export function OutputsDock() {
                 {!isPreRun && hasInlineSummary && resultsSectionData && (
                   <div className="space-y-2" data-testid="outputs-results-redesign">
                     {/* ============================================================
-                        ANALYSIS ACCORDION (expanded by default)
+                        ANALYSIS SECTION (always visible — hero is the primary answer)
                         Contents: Objective + Recommendation card
                         ============================================================ */}
-                    <Accordion
-                      title="Analysis"
-                      defaultExpanded={true}
-                      testId="accordion-analysis"
-                    >
-                      {/* Objective */}
-                      <div className="mb-4">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <span className={`${typography.caption} text-text-light block`}>
-                              Your objective
-                            </span>
-                            <button
-                              onClick={() => {
-                                if (resultsSectionData.goalNodeId) {
-                                  setHighlightedNodes([resultsSectionData.goalNodeId])
-                                  focusNodeById(resultsSectionData.goalNodeId)
-                                  setTimeout(() => setHighlightedNodes([]), 3000)
-                                }
-                              }}
-                              disabled={!resultsSectionData.goalNodeId}
-                              className={`${typography.body} font-medium mt-0.5 text-left block ${
-                                resultsSectionData.goalNodeId
-                                  ? 'text-info hover:text-info-hover cursor-pointer'
-                                  : 'text-text-header cursor-default'
-                              }`}
-                            >
-                              {resultsSectionData.goalLabel}
-                            </button>
-                          </div>
+                    {/* Objective */}
+                    <div className="mb-4">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <span className={`${typography.caption} text-text-light block`}>
+                            Your objective
+                          </span>
+                          <button
+                            onClick={() => {
+                              if (resultsSectionData.goalNodeId) {
+                                setHighlightedNodes([resultsSectionData.goalNodeId])
+                                focusNodeById(resultsSectionData.goalNodeId)
+                                setTimeout(() => setHighlightedNodes([]), 3000)
+                              }
+                            }}
+                            disabled={!resultsSectionData.goalNodeId}
+                            className={`${typography.body} font-medium mt-0.5 text-left block ${
+                              resultsSectionData.goalNodeId
+                                ? 'text-info hover:text-info-hover cursor-pointer'
+                                : 'text-text-header cursor-default'
+                            }`}
+                          >
+                            {resultsSectionData.goalLabel}
+                          </button>
                         </div>
                       </div>
+                    </div>
 
-                      {/* Recommendation */}
-                      <RecommendationSection
-                        data={resultsSectionData.recommendation}
-                        onFocusNode={(nodeId) => {
-                          setHighlightedNodes([nodeId])
-                          focusNodeById(nodeId)
-                          setTimeout(() => setHighlightedNodes([]), 3000)
-                        }}
-                        onAddStatusQuoBaseline={addStatusQuoBaseline}
-                        topDrivers={resultsSectionData.drivers.topDrivers}
-                        topFragileEdge={resultsSectionData.confidence.topFragileEdge}
-                        nSamples={(report as any)?.summary?.n_samples_used ?? (report as any)?.meta?.n_samples}
-                        seedUsed={(report as any)?.meta?.seed_used}
-                        fragileEdgeCount={(report as any)?.robustness?.fragile_edges?.length}
-                        robustEdgeCount={(report as any)?.robustness?.robust_edges?.length}
-                        // P2: New coaching card props
-                        responseHash={results?.hash}
-                        onApplyThreshold={handleApplyThreshold}
-                        isRunning={isRunning}
-                        isThresholdFromBrief={preAnalysisReadiness.isThresholdAutoDerived}
-                        onAddBaselineAndRerun={handleAddBaselineAndRerun}
-                      />
-                    </Accordion>
+                    {/* Recommendation */}
+                    <RecommendationSection
+                      data={resultsSectionData.recommendation}
+                      onFocusNode={(nodeId) => {
+                        setHighlightedNodes([nodeId])
+                        focusNodeById(nodeId)
+                        setTimeout(() => setHighlightedNodes([]), 3000)
+                      }}
+                      onAddStatusQuoBaseline={addStatusQuoBaseline}
+                      topDrivers={resultsSectionData.drivers.topDrivers}
+                      topFragileEdge={resultsSectionData.confidence.topFragileEdge}
+                      nSamples={(report as any)?.summary?.n_samples_used ?? (report as any)?.meta?.n_samples}
+                      seedUsed={(report as any)?.meta?.seed_used}
+                      fragileEdgeCount={(report as any)?.robustness?.fragile_edges?.length}
+                      robustEdgeCount={(report as any)?.robustness?.robust_edges?.length}
+                      // P2: New coaching card props
+                      responseHash={results?.hash}
+                      onApplyThreshold={handleApplyThreshold}
+                      isRunning={isRunning}
+                      isThresholdFromBrief={preAnalysisReadiness.isThresholdAutoDerived}
+                      onAddBaseline={handleAddBaseline}
+                    />
 
                     {/* ============================================================
                         CONFIDENCE ACCORDION (collapsed by default)

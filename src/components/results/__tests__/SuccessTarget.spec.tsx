@@ -1,190 +1,443 @@
 /**
- * SuccessTarget Component Tests
+ * SuccessTarget Component Tests (Redesigned)
  *
- * Task 2: Tests for the inline success target input component.
- * New design: always-visible inline input, no intermediate "Set target" button.
+ * Tests for the inline-editable success target component
+ * with click-to-edit values and multi-target ready architecture.
  */
 
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { SuccessTarget } from '../SuccessTarget'
+import type { GoalConstraint } from '../types'
+
+// Mock focusHelpers (defensive — not directly used by SuccessTarget,
+// but kept in case a transitive import pulls it in)
+vi.mock('../../../canvas/utils/focusHelpers', () => ({
+  focusNodeById: vi.fn(),
+}))
+
+/** Helper to build a GoalConstraint with sensible defaults */
+function makeConstraint(overrides: Partial<GoalConstraint> = {}): GoalConstraint {
+  return {
+    id: 'c1',
+    label: 'Revenue',
+    operator: '>=',
+    value: 100000,
+    probability: 0.72,
+    ...overrides,
+  }
+}
 
 describe('SuccessTarget', () => {
-  describe('Inline Input (always visible)', () => {
-    it('renders input inline when no threshold exists', () => {
-      render(<SuccessTarget goalThreshold={null} />)
+  // ===========================================================================
+  // Empty state
+  // ===========================================================================
+  describe('Empty state (no constraints)', () => {
+    it('renders the empty-state message when goalConstraints is empty', () => {
+      render(<SuccessTarget goalConstraints={[]} />)
 
-      // Input should always be visible
-      expect(screen.getByRole('spinbutton')).toBeInTheDocument()
-      // Helper text should be present
-      expect(screen.getByText(/Set a success target/)).toBeInTheDocument()
+      expect(
+        screen.getByText('Set a success target to see how likely you are to achieve your goal'),
+      ).toBeInTheDocument()
     })
 
-    it('renders input with current value when threshold exists', () => {
-      render(<SuccessTarget goalThreshold={100} />)
+    it('still renders the header and "+ Add" button in the empty state', () => {
+      render(<SuccessTarget goalConstraints={[]} />)
 
-      const input = screen.getByRole('spinbutton')
-      expect(input).toBeInTheDocument()
-      expect(input).toHaveValue(100)
+      expect(screen.getByText('Success target')).toBeInTheDocument()
+      expect(screen.getByText('Add')).toBeInTheDocument()
     })
 
-    it('shows placeholder text based on unit type', () => {
-      render(<SuccessTarget goalThreshold={null} outcomeUnit="currency" outcomeUnitSymbol="$" />)
+    it('has proper data-testid for testing', () => {
+      render(<SuccessTarget goalConstraints={[]} />)
 
-      const input = screen.getByRole('spinbutton')
-      expect(input).toHaveAttribute('placeholder', 'e.g. $20000')
-    })
-
-    it('shows percent placeholder for percent unit', () => {
-      render(<SuccessTarget goalThreshold={null} outcomeUnit="percent" />)
-
-      const input = screen.getByRole('spinbutton')
-      expect(input).toHaveAttribute('placeholder', 'e.g. 50')
-    })
-
-    it('disables input when isRunning is true', () => {
-      render(<SuccessTarget goalThreshold={null} isRunning={true} />)
-
-      expect(screen.getByRole('spinbutton')).toBeDisabled()
+      expect(screen.getByTestId('success-target')).toBeInTheDocument()
     })
   })
 
-  describe('Goal Label', () => {
-    it('shows goal label when provided', () => {
-      render(<SuccessTarget goalThreshold={null} goalLabel="MRR" />)
+  // ===========================================================================
+  // Single constraint display
+  // ===========================================================================
+  describe('Single constraint display', () => {
+    it('renders label, operator, value and probability', () => {
+      const constraint = makeConstraint()
+      render(<SuccessTarget goalConstraints={[constraint]} />)
 
-      expect(screen.getByText('MRR:')).toBeInTheDocument()
+      expect(screen.getByText('Revenue')).toBeInTheDocument()
+      // >= renders as ≥
+      expect(screen.getByText('≥')).toBeInTheDocument()
+      // Value is rendered as a clickable button
+      expect(screen.getByRole('button', { name: /Edit Revenue value: 100000/i })).toBeInTheDocument()
+      // Probability formatted as integer percentage
+      expect(screen.getByText('72%')).toBeInTheDocument()
     })
 
-    it('shows default label when goalLabel not provided', () => {
-      render(<SuccessTarget goalThreshold={null} />)
+    it('renders <= operator as ≤', () => {
+      const constraint = makeConstraint({ operator: '<=' })
+      render(<SuccessTarget goalConstraints={[constraint]} />)
 
-      expect(screen.getByText('Success target:')).toBeInTheDocument()
+      expect(screen.getByText('≤')).toBeInTheDocument()
     })
-  })
 
-  describe('Attribution', () => {
-    it('shows "from your brief" when isFromBrief is true', () => {
-      render(<SuccessTarget goalThreshold={50} isFromBrief={true} />)
+    it('shows dash when probability is null', () => {
+      const constraint = makeConstraint({ probability: null })
+      render(<SuccessTarget goalConstraints={[constraint]} />)
+
+      expect(screen.getByText('—')).toBeInTheDocument()
+    })
+
+    it('shows singular header "Success target" for single constraint', () => {
+      render(<SuccessTarget goalConstraints={[makeConstraint()]} />)
+
+      expect(screen.getByText('Success target')).toBeInTheDocument()
+    })
+
+    it('shows "(from your brief)" when isFromBrief is true', () => {
+      render(<SuccessTarget goalConstraints={[makeConstraint()]} isFromBrief />)
 
       expect(screen.getByText(/from your brief/)).toBeInTheDocument()
     })
 
-    it('shows "your target" when threshold exists and not from brief', () => {
-      render(<SuccessTarget goalThreshold={50} isFromBrief={false} />)
-
-      expect(screen.getByText(/your target/)).toBeInTheDocument()
-    })
-
-    it('shows no attribution when no threshold', () => {
-      render(<SuccessTarget goalThreshold={null} />)
+    it('does not show "(from your brief)" when isFromBrief is false', () => {
+      render(<SuccessTarget goalConstraints={[makeConstraint()]} isFromBrief={false} />)
 
       expect(screen.queryByText(/from your brief/)).not.toBeInTheDocument()
-      expect(screen.queryByText(/your target/)).not.toBeInTheDocument()
-    })
-  })
-
-  describe('Apply and re-run button', () => {
-    it('does not show Apply button when value unchanged', () => {
-      render(<SuccessTarget goalThreshold={100} />)
-
-      expect(screen.queryByRole('button', { name: /Apply and re-run/i })).not.toBeInTheDocument()
     })
 
-    it('shows Apply button when value changes', () => {
-      render(<SuccessTarget goalThreshold={100} />)
-
-      fireEvent.change(screen.getByRole('spinbutton'), { target: { value: '150' } })
-
-      expect(screen.getByRole('button', { name: /Apply and re-run/i })).toBeInTheDocument()
-    })
-
-    it('shows Apply button when entering value in empty input', () => {
-      render(<SuccessTarget goalThreshold={null} />)
-
-      fireEvent.change(screen.getByRole('spinbutton'), { target: { value: '100' } })
-
-      expect(screen.getByRole('button', { name: /Apply and re-run/i })).toBeInTheDocument()
-    })
-
-    it('calls onApplyThreshold when Apply button clicked', () => {
-      const mockApply = vi.fn()
-      render(<SuccessTarget goalThreshold={100} onApplyThreshold={mockApply} />)
-
-      fireEvent.change(screen.getByRole('spinbutton'), { target: { value: '150' } })
-      fireEvent.click(screen.getByRole('button', { name: /Apply and re-run/i }))
-
-      expect(mockApply).toHaveBeenCalledWith(150)
-    })
-
-    it('calls onApplyThreshold on Enter key when value changed', () => {
-      const mockApply = vi.fn()
-      render(<SuccessTarget goalThreshold={100} onApplyThreshold={mockApply} />)
-
-      const input = screen.getByRole('spinbutton')
-      fireEvent.change(input, { target: { value: '150' } })
-      fireEvent.keyDown(input, { key: 'Enter' })
-
-      expect(mockApply).toHaveBeenCalledWith(150)
-    })
-
-    it('disables Apply button when isRunning is true', () => {
-      // Start with isRunning=false so we can make changes
-      const { rerender } = render(<SuccessTarget goalThreshold={100} isRunning={false} />)
-
-      // Make a change to trigger Apply button
-      fireEvent.change(screen.getByRole('spinbutton'), { target: { value: '150' } })
-      expect(screen.getByRole('button', { name: /Apply and re-run/i })).toBeInTheDocument()
-
-      // Now set isRunning=true
-      rerender(<SuccessTarget goalThreshold={100} isRunning={true} />)
-
-      // Input should be disabled and Apply button should be disabled
-      expect(screen.getByRole('spinbutton')).toBeDisabled()
-      expect(screen.getByRole('button', { name: /Running/i })).toBeDisabled()
-    })
-  })
-
-  describe('Remove target', () => {
-    it('shows Remove button when threshold exists', () => {
-      render(<SuccessTarget goalThreshold={100} />)
-
-      expect(screen.getByRole('button', { name: /Remove target/i })).toBeInTheDocument()
-    })
-
-    it('does not show Remove button when no threshold', () => {
-      render(<SuccessTarget goalThreshold={null} />)
-
-      expect(screen.queryByRole('button', { name: /Remove target/i })).not.toBeInTheDocument()
-    })
-
-    it('calls onApplyThreshold with null when Remove clicked', () => {
-      const mockApply = vi.fn()
-      render(<SuccessTarget goalThreshold={100} onApplyThreshold={mockApply} />)
-
-      fireEvent.click(screen.getByRole('button', { name: /Remove target/i }))
-
-      expect(mockApply).toHaveBeenCalledWith(null)
-    })
-
-    it('hides Remove button when isRunning', () => {
-      render(<SuccessTarget goalThreshold={100} isRunning={true} />)
-
-      expect(screen.queryByRole('button', { name: /Remove target/i })).not.toBeInTheDocument()
-    })
-  })
-
-  describe('Accessibility', () => {
-    it('has proper testId for testing', () => {
-      render(<SuccessTarget goalThreshold={100} />)
+    it('has proper data-testid when constraints exist', () => {
+      render(<SuccessTarget goalConstraints={[makeConstraint()]} />)
 
       expect(screen.getByTestId('success-target')).toBeInTheDocument()
     })
+  })
 
-    it('input has accessible label', () => {
-      render(<SuccessTarget goalThreshold={null} goalLabel="Revenue" />)
+  // ===========================================================================
+  // Click-to-edit flow
+  // ===========================================================================
+  describe('Click-to-edit flow', () => {
+    it('enters edit mode when value button is clicked', () => {
+      render(<SuccessTarget goalConstraints={[makeConstraint()]} />)
 
-      expect(screen.getByRole('spinbutton', { name: /Revenue value/i })).toBeInTheDocument()
+      // Click the value button
+      fireEvent.click(screen.getByRole('button', { name: /Edit Revenue value/i }))
+
+      // Should now have a number input
+      expect(screen.getByRole('spinbutton', { name: /Edit Revenue value/i })).toBeInTheDocument()
+    })
+
+    it('shows edit hint text when in edit mode', () => {
+      render(<SuccessTarget goalConstraints={[makeConstraint()]} />)
+
+      fireEvent.click(screen.getByRole('button', { name: /Edit Revenue value/i }))
+
+      expect(screen.getByText(/Enter to apply/)).toBeInTheDocument()
+      expect(screen.getByText(/Esc to cancel/)).toBeInTheDocument()
+    })
+
+    it('shows Apply check-icon button in edit mode', () => {
+      render(<SuccessTarget goalConstraints={[makeConstraint()]} />)
+
+      fireEvent.click(screen.getByRole('button', { name: /Edit Revenue value/i }))
+
+      expect(screen.getByRole('button', { name: 'Apply value' })).toBeInTheDocument()
+    })
+
+    it('does not enter edit mode when isRunning is true', () => {
+      render(<SuccessTarget goalConstraints={[makeConstraint()]} isRunning />)
+
+      // The value button should be disabled
+      const btn = screen.getByRole('button', { name: /Edit Revenue value/i })
+      expect(btn).toBeDisabled()
+    })
+  })
+
+  // ===========================================================================
+  // Enter commits
+  // ===========================================================================
+  describe('Enter key commits', () => {
+    it('calls onUpdateConstraint with parsed value on Enter', () => {
+      const onUpdate = vi.fn()
+      render(
+        <SuccessTarget
+          goalConstraints={[makeConstraint()]}
+          onUpdateConstraint={onUpdate}
+        />,
+      )
+
+      // Enter edit mode
+      fireEvent.click(screen.getByRole('button', { name: /Edit Revenue value/i }))
+
+      const input = screen.getByRole('spinbutton')
+      fireEvent.change(input, { target: { value: '150000' } })
+      fireEvent.keyDown(input, { key: 'Enter' })
+
+      expect(onUpdate).toHaveBeenCalledWith('c1', 150000)
+    })
+
+    it('exits edit mode after Enter', () => {
+      const onUpdate = vi.fn()
+      render(
+        <SuccessTarget
+          goalConstraints={[makeConstraint()]}
+          onUpdateConstraint={onUpdate}
+        />,
+      )
+
+      fireEvent.click(screen.getByRole('button', { name: /Edit Revenue value/i }))
+      const input = screen.getByRole('spinbutton')
+      fireEvent.change(input, { target: { value: '150000' } })
+      fireEvent.keyDown(input, { key: 'Enter' })
+
+      // Should be back to display mode (value button, not input)
+      expect(screen.queryByRole('spinbutton')).not.toBeInTheDocument()
+    })
+
+    it('does not commit when value is not a valid number', () => {
+      const onUpdate = vi.fn()
+      render(
+        <SuccessTarget
+          goalConstraints={[makeConstraint()]}
+          onUpdateConstraint={onUpdate}
+        />,
+      )
+
+      fireEvent.click(screen.getByRole('button', { name: /Edit Revenue value/i }))
+      const input = screen.getByRole('spinbutton')
+      fireEvent.change(input, { target: { value: '' } })
+      fireEvent.keyDown(input, { key: 'Enter' })
+
+      expect(onUpdate).not.toHaveBeenCalled()
+    })
+  })
+
+  // ===========================================================================
+  // Escape reverts
+  // ===========================================================================
+  describe('Escape key reverts', () => {
+    it('exits edit mode without committing on Escape', () => {
+      const onUpdate = vi.fn()
+      render(
+        <SuccessTarget
+          goalConstraints={[makeConstraint()]}
+          onUpdateConstraint={onUpdate}
+        />,
+      )
+
+      fireEvent.click(screen.getByRole('button', { name: /Edit Revenue value/i }))
+      const input = screen.getByRole('spinbutton')
+      fireEvent.change(input, { target: { value: '999999' } })
+      fireEvent.keyDown(input, { key: 'Escape' })
+
+      expect(onUpdate).not.toHaveBeenCalled()
+      // Should be back to display mode
+      expect(screen.queryByRole('spinbutton')).not.toBeInTheDocument()
+    })
+
+    it('hides edit hint text after Escape', () => {
+      render(<SuccessTarget goalConstraints={[makeConstraint()]} />)
+
+      fireEvent.click(screen.getByRole('button', { name: /Edit Revenue value/i }))
+      expect(screen.getByText(/Enter to apply/)).toBeInTheDocument()
+
+      const input = screen.getByRole('spinbutton')
+      fireEvent.keyDown(input, { key: 'Escape' })
+
+      expect(screen.queryByText(/Enter to apply/)).not.toBeInTheDocument()
+    })
+  })
+
+  // ===========================================================================
+  // Blur reverts
+  // ===========================================================================
+  describe('Blur reverts', () => {
+    it('exits edit mode without committing on blur', () => {
+      const onUpdate = vi.fn()
+      render(
+        <SuccessTarget
+          goalConstraints={[makeConstraint()]}
+          onUpdateConstraint={onUpdate}
+        />,
+      )
+
+      fireEvent.click(screen.getByRole('button', { name: /Edit Revenue value/i }))
+      const input = screen.getByRole('spinbutton')
+      fireEvent.change(input, { target: { value: '999999' } })
+      fireEvent.blur(input)
+
+      expect(onUpdate).not.toHaveBeenCalled()
+      // Should be back to display mode
+      expect(screen.queryByRole('spinbutton')).not.toBeInTheDocument()
+    })
+  })
+
+  // ===========================================================================
+  // Apply button (onMouseDown to prevent blur)
+  // ===========================================================================
+  describe('Apply button', () => {
+    it('commits the value via Apply button using onMouseDown', () => {
+      const onUpdate = vi.fn()
+      render(
+        <SuccessTarget
+          goalConstraints={[makeConstraint()]}
+          onUpdateConstraint={onUpdate}
+        />,
+      )
+
+      fireEvent.click(screen.getByRole('button', { name: /Edit Revenue value/i }))
+      const input = screen.getByRole('spinbutton')
+      fireEvent.change(input, { target: { value: '200000' } })
+
+      // The Apply button uses onMouseDown (not onClick) to prevent blur
+      const applyBtn = screen.getByRole('button', { name: 'Apply value' })
+      fireEvent.mouseDown(applyBtn)
+
+      expect(onUpdate).toHaveBeenCalledWith('c1', 200000)
+    })
+
+    it('exits edit mode after Apply button is used', () => {
+      const onUpdate = vi.fn()
+      render(
+        <SuccessTarget
+          goalConstraints={[makeConstraint()]}
+          onUpdateConstraint={onUpdate}
+        />,
+      )
+
+      fireEvent.click(screen.getByRole('button', { name: /Edit Revenue value/i }))
+      const input = screen.getByRole('spinbutton')
+      fireEvent.change(input, { target: { value: '200000' } })
+
+      const applyBtn = screen.getByRole('button', { name: 'Apply value' })
+      fireEvent.mouseDown(applyBtn)
+
+      // Should be back to display mode
+      expect(screen.queryByRole('spinbutton')).not.toBeInTheDocument()
+    })
+  })
+
+  // ===========================================================================
+  // Disabled "+ Add" button
+  // ===========================================================================
+  describe('Disabled "+ Add" button', () => {
+    it('renders the Add button as disabled', () => {
+      render(<SuccessTarget goalConstraints={[makeConstraint()]} />)
+
+      const addBtn = screen.getByText('Add').closest('button')!
+      expect(addBtn).toBeDisabled()
+    })
+
+    it('has title="Coming soon" on the Add button', () => {
+      render(<SuccessTarget goalConstraints={[makeConstraint()]} />)
+
+      const addBtn = screen.getByText('Add').closest('button')!
+      expect(addBtn).toHaveAttribute('title', 'Coming soon')
+    })
+
+    it('shows disabled Add button in empty state as well', () => {
+      render(<SuccessTarget goalConstraints={[]} />)
+
+      const addBtn = screen.getByText('Add').closest('button')!
+      expect(addBtn).toBeDisabled()
+      expect(addBtn).toHaveAttribute('title', 'Coming soon')
+    })
+  })
+
+  // ===========================================================================
+  // Legacy props fallback
+  // ===========================================================================
+  describe('Legacy props fallback', () => {
+    it('builds constraint from goalThreshold when goalConstraints is empty', () => {
+      render(<SuccessTarget goalConstraints={[]} goalThreshold={50000} />)
+
+      // Should display a target row with the threshold value
+      expect(screen.getByRole('button', { name: /Edit Target value: 50000/i })).toBeInTheDocument()
+    })
+
+    it('uses goalLabel for the label in legacy mode', () => {
+      render(<SuccessTarget goalConstraints={[]} goalThreshold={50000} goalLabel="MRR" />)
+
+      expect(screen.getByText('MRR')).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /Edit MRR value: 50000/i })).toBeInTheDocument()
+    })
+
+    it('defaults label to "Target" when goalLabel is not provided', () => {
+      render(<SuccessTarget goalConstraints={[]} goalThreshold={50000} />)
+
+      expect(screen.getByText('Target')).toBeInTheDocument()
+    })
+
+    it('calls onApplyThreshold as legacy fallback when onUpdateConstraint is absent', () => {
+      const onApply = vi.fn()
+      render(
+        <SuccessTarget
+          goalConstraints={[]}
+          goalThreshold={50000}
+          onApplyThreshold={onApply}
+        />,
+      )
+
+      // Enter edit mode
+      fireEvent.click(screen.getByRole('button', { name: /Edit Target value/i }))
+      const input = screen.getByRole('spinbutton')
+      fireEvent.change(input, { target: { value: '75000' } })
+      fireEvent.keyDown(input, { key: 'Enter' })
+
+      expect(onApply).toHaveBeenCalledWith(75000)
+    })
+
+    it('prefers goalConstraints over goalThreshold when both provided', () => {
+      const constraint = makeConstraint({ label: 'Revenue', value: 100000 })
+      render(
+        <SuccessTarget
+          goalConstraints={[constraint]}
+          goalThreshold={50000}
+          goalLabel="Legacy"
+        />,
+      )
+
+      // Should show the goalConstraints value, not the legacy one
+      expect(screen.getByText('Revenue')).toBeInTheDocument()
+      expect(screen.queryByText('Legacy')).not.toBeInTheDocument()
+    })
+
+    it('does not use legacy fallback when goalThreshold is null', () => {
+      render(<SuccessTarget goalConstraints={[]} goalThreshold={null} />)
+
+      // Should show empty state
+      expect(
+        screen.getByText('Set a success target to see how likely you are to achieve your goal'),
+      ).toBeInTheDocument()
+    })
+  })
+
+  // ===========================================================================
+  // Multi-constraint display
+  // ===========================================================================
+  describe('Multi-constraint display', () => {
+    it('shows plural header "Success targets" for multiple constraints', () => {
+      const constraints = [
+        makeConstraint({ id: 'c1', label: 'Revenue', value: 100000 }),
+        makeConstraint({ id: 'c2', label: 'Churn', operator: '<=', value: 5 }),
+      ]
+      render(<SuccessTarget goalConstraints={constraints} />)
+
+      expect(screen.getByText('Success targets')).toBeInTheDocument()
+    })
+
+    it('shows combined probability row when multi-target with joint probability', () => {
+      const constraints = [
+        makeConstraint({ id: 'c1', label: 'Revenue', value: 100000, probability: 0.8 }),
+        makeConstraint({ id: 'c2', label: 'Churn', operator: '<=', value: 5, probability: 0.9 }),
+      ]
+      render(
+        <SuccessTarget
+          goalConstraints={constraints}
+          probabilityOfJointGoal={0.65}
+        />,
+      )
+
+      expect(screen.getByText('Combined')).toBeInTheDocument()
+      expect(screen.getByText('65%')).toBeInTheDocument()
     })
   })
 })
