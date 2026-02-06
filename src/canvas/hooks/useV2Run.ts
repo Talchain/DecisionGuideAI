@@ -185,6 +185,7 @@ export function useV2Run(): UseV2RunReturn {
   const framing = useCanvasStore((s) => s.currentScenarioFraming)
   const ceeAnalysisReady = useCanvasStore((s) => s.ceeAnalysisReady)
   const ceeAnalysisReadyNodeIds = useCanvasStore((s) => s.ceeAnalysisReadyNodeIds)
+  const lastDraftDescription = useCanvasStore((s) => s.lastDraftDescription)
 
   // Store actions
   const resultsStart = useCanvasStore((s) => s.resultsStart)
@@ -296,6 +297,7 @@ export function useV2Run(): UseV2RunReturn {
       // Execute V2 run with analysisReady (or fallback to node extraction)
       // P0 Fix: Pass computed seed to avoid hardcoded "42" default
       // P0 Fix: Include framing for contextualised CEE responses
+      // P0 Fix: Include brief for PLoT context
       const result = await executeV2RunWithAnalysisReady(
         config,
         nodes,
@@ -309,7 +311,8 @@ export function useV2Run(): UseV2RunReturn {
           title: framing.title,
           goal: framing.goal,
           constraints: framing.constraints,
-        } : undefined
+        } : undefined,
+        lastDraftDescription || undefined
       )
 
       const elapsed_ms = Date.now() - startTime
@@ -667,6 +670,7 @@ export function useV2Run(): UseV2RunReturn {
     framing,
     ceeAnalysisReady,
     ceeAnalysisReadyNodeIds,
+    lastDraftDescription,
     setCeeAnalysisReady,
     resultsStart,
     resultsComplete,

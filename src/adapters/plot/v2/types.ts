@@ -90,6 +90,11 @@ export interface V2RunRequest {
     goal?: string
     constraints?: string
   }
+  /**
+   * Original decision brief from the user.
+   * PLoT uses this for context when generating insights and recommendations.
+   */
+  brief?: string
 }
 
 // ============================================================================

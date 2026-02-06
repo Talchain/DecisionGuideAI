@@ -685,6 +685,11 @@ export interface BuildV2RequestOptions {
     goal?: string
     constraints?: string
   }
+  /**
+   * Original decision brief from the user.
+   * PLoT uses this for context when generating insights and recommendations.
+   */
+  brief?: string
 }
 
 /**
@@ -711,7 +716,7 @@ export function buildV2RequestFromAnalysisReady(
   fallbackGoalNodeId?: string,
   options: BuildV2RequestOptions = {}
 ): { request: V2RunRequest; reverseIdMap: Map<string, string> } {
-  const { strictEdgeValidation = false, framing } = options
+  const { strictEdgeValidation = false, framing, brief } = options
 
   // Fall back to standard buildV2Request if no analysisReady
   if (!analysisReady) {
@@ -773,6 +778,8 @@ export function buildV2RequestFromAnalysisReady(
     detail_level: 'deep',
     // Include framing for contextualised CEE responses
     ...(framing && { framing }),
+    // Include brief for PLoT context
+    ...(brief && { brief }),
   }
 
   return { request, reverseIdMap: normalised.reverseIdMap }
@@ -1039,6 +1046,7 @@ export async function executeV2Run(
  * @param goalThreshold - Optional success threshold for probability_of_goal
  * @param seed - P0 Fix: Optional seed for reproducibility (avoids hardcoded "42")
  * @param framing - User's decision framing for contextualised CEE responses
+ * @param brief - Original decision brief from user for PLoT context
  */
 export async function executeV2RunWithAnalysisReady(
   config: V2AdapterConfig,
@@ -1049,7 +1057,8 @@ export async function executeV2RunWithAnalysisReady(
   requestId?: string,
   goalThreshold?: number,
   seed?: number,
-  framing?: { title?: string; goal?: string; constraints?: string }
+  framing?: { title?: string; goal?: string; constraints?: string },
+  brief?: string
 ): Promise<V2RunResult> {
   // Build fallback options from nodes (used when analysisReady not available)
   const validNodeIds = new Set(nodes.map((n) => n.id))
@@ -1057,13 +1066,14 @@ export async function executeV2RunWithAnalysisReady(
 
   // Build request - uses analysisReady if available, falls back to node extraction
   // P0 Fix: Pass seed to avoid hardcoded "42" default
+  // P0 Fix: Pass brief for PLoT context
   const { request, reverseIdMap } = buildV2RequestFromAnalysisReady(
     nodes,
     edges,
     analysisReady,
     fallbackOptions,
     fallbackGoalNodeId,
-    { strictEdgeValidation: false, seed, framing } // Lenient mode for user-edited graphs
+    { strictEdgeValidation: false, seed, framing, brief } // Lenient mode for user-edited graphs
   )
 
   // Add request ID for tracing
@@ -1085,6 +1095,8 @@ export async function executeV2RunWithAnalysisReady(
       goalNodeId: request.goal_node_id,
       goalThreshold: request.goal_threshold,
       usingAnalysisReady: !!analysisReady,
+      hasBrief: !!request.brief,
+      briefLength: request.brief?.length ?? 0,
     })
 
     // Detailed options logging for debugging empty interventions
