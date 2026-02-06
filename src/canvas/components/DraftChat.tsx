@@ -405,6 +405,8 @@ export function DraftChat() {
         description: n.description,
         // Include observed_state for factor nodes (works for V2, V3, and future versions)
         ...(n.observed_state ? { observedState: n.observed_state } : {}),
+        // CEE V12.4: Include category for factor controllability display
+        ...(n.category ? { category: n.category } : {}),
       },
     }))
 
