@@ -41,7 +41,7 @@ export function LLMCallsTab({ data }: LLMCallsTabProps) {
     const calls: LLMCallRow[] = []
 
     // CEE LLM calls from observability
-    if (data.cee_observability?.llm_calls) {
+    if (data.cee_observability?.llm_calls && data.cee_observability.llm_calls.length > 0) {
       data.cee_observability.llm_calls.forEach((call, i) => {
         calls.push({
           id: `cee-${i}`,
@@ -55,6 +55,25 @@ export function LLMCallsTab({ data }: LLMCallsTabProps) {
           error: call.error,
           raw: call,
         })
+      })
+    } else if (data.pipeline.llm_metadata) {
+      // Fallback: Use pipeline.llm_metadata when cee_observability.llm_calls is empty
+      // This happens when CEE response doesn't include observability data but has llm_metadata
+      const llmMeta = data.pipeline.llm_metadata
+      const tokenUsage = llmMeta.token_usage
+      calls.push({
+        id: 'pipeline-llm-0',
+        stage: 'CEE: draft_graph',
+        model: llmMeta.model ?? '—',
+        provider: '—', // Provider not available in llm_metadata
+        tokens: tokenUsage ? {
+          input: tokenUsage.prompt_tokens ?? 0,
+          output: tokenUsage.completion_tokens ?? 0,
+          total: tokenUsage.total_tokens ?? 0,
+        } : null,
+        duration_ms: llmMeta.duration_ms ?? null,
+        status: 'success', // If we have metadata, the call succeeded
+        timestamp: null,
       })
     }
 

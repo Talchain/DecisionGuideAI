@@ -762,6 +762,30 @@ export interface DebugData {
 
   /** CEE downstream calls from PLoT orchestration (for /review, /decision-review) */
   cee_downstream: CeeDownstreamCall[] | null
+
+  /** CEE operation metadata (model, prompt info per operation) */
+  cee_operations: CeeOperationMetadata | null
+}
+
+/**
+ * CEE operation metadata for each endpoint.
+ * Contains model, provider, prompt version, and degraded status.
+ */
+export interface CeeOperationMetadata {
+  /** Draft Graph (/assist/v1/draft-graph) metadata */
+  draft_graph: CeeOperationInfo | null
+  /** Decision Review (/assist/v1/decision-review) metadata */
+  decision_review: CeeOperationInfo | null
+  /** Explain Graph (/assist/v1/explain-graph) metadata */
+  explain_graph: CeeOperationInfo | null
+}
+
+export interface CeeOperationInfo {
+  model: string | null
+  provider: string | null
+  prompt_version: string | number | null
+  prompt_source: string | null
+  degraded: boolean
 }
 
 // =============================================================================
@@ -2538,10 +2562,96 @@ function extractM1Coaching(plotResponse: unknown): M1CoachingData | null {
 }
 
 /**
- * Extract M2 Review data from traced M2 payload.
- * M2 is LLM-enhanced coaching from /v2/review endpoint.
+ * Extract M2 Review data from traced M2 payload or PLoT orchestration response.
+ * M2 is LLM-enhanced coaching from /v2/review or /assist/v1/decision-review endpoint.
+ *
+ * When M2 is orchestrated through PLoT (vs direct /v2/review calls), the review status
+ * is embedded in the PLoT response rather than a separate M2 payload.
  */
-function extractM2Review(m2Payload: TracedPayload | null): M2ReviewData | null {
+function extractM2Review(
+  m2Payload: TracedPayload | null,
+  plotResponse: unknown,
+  ceeDownstream: CeeDownstreamCall[] | null
+): M2ReviewData | null {
+  // First, check if we have a direct M2 payload
+  if (m2Payload) {
+    return extractM2ReviewFromPayload(m2Payload)
+  }
+
+  // No direct M2 payload - check PLoT response for orchestrated M2 review status
+  if (plotResponse && typeof plotResponse === 'object') {
+    const plot = plotResponse as Record<string, unknown>
+    const reviewStatus = plot.review_status as string | undefined
+    const reviewSkipReason = plot.review_skip_reason as string | undefined
+
+    // If review_status indicates skipped or failed, extract error from CEE downstream
+    if (reviewStatus === 'skipped' || reviewStatus === 'failed' || reviewStatus === 'error') {
+      // Try to find the CEE decision-review call error
+      const ceeReviewCall = ceeDownstream?.find(call =>
+        call.endpoint.includes('decision-review') || call.endpoint.includes('review')
+      )
+
+      let errorMessage = reviewSkipReason ?? 'Unknown error'
+      if (ceeReviewCall && !ceeReviewCall.success) {
+        // Extract error from CEE downstream response
+        const errorBody = ceeReviewCall.response as Record<string, unknown> | null
+        if (errorBody) {
+          errorMessage = (errorBody.error as string) ??
+                         (errorBody.message as string) ??
+                         (errorBody.detail as string) ??
+                         ceeReviewCall.error ??
+                         `HTTP ${ceeReviewCall.status_code}: ${reviewSkipReason ?? 'CEE Error'}`
+        } else if (ceeReviewCall.error) {
+          errorMessage = ceeReviewCall.error
+        }
+      }
+
+      return {
+        status: reviewStatus === 'skipped' ? 'skipped' : 'failed',
+        skip_reason: reviewSkipReason ?? null,
+        duration_ms: ceeReviewCall?.latency_ms ?? null,
+        headline: null,
+        bullets_count: 0,
+        bias_insights_count: 0,
+        error: errorMessage,
+        raw: ceeReviewCall?.response ?? null,
+      }
+    }
+
+    // Check if review_status indicates success (orchestrated M2 completed)
+    if (reviewStatus === 'success' || reviewStatus === 'completed') {
+      const ceeReviewCall = ceeDownstream?.find(call =>
+        call.endpoint.includes('decision-review') || call.endpoint.includes('review')
+      )
+      if (ceeReviewCall?.success && ceeReviewCall.response) {
+        // Extract review data from CEE downstream response
+        const body = ceeReviewCall.response as Record<string, unknown>
+        const headline = typeof body.headline === 'string' ? body.headline : null
+        const bullets = Array.isArray(body.bullets) ? body.bullets : []
+        const biasInsights = Array.isArray(body.bias_insights) ? body.bias_insights : []
+
+        return {
+          status: 'success',
+          skip_reason: null,
+          duration_ms: ceeReviewCall.latency_ms ?? null,
+          headline,
+          bullets_count: bullets.length,
+          bias_insights_count: biasInsights.length,
+          error: null,
+          raw: body,
+        }
+      }
+    }
+  }
+
+  // No M2 data found anywhere
+  return null
+}
+
+/**
+ * Extract M2 Review data from a direct M2 payload trace.
+ */
+function extractM2ReviewFromPayload(m2Payload: TracedPayload): M2ReviewData | null {
   // No M2 payload found - not called yet
   if (!m2Payload) {
     return null
@@ -2631,6 +2741,91 @@ function extractM2Review(m2Payload: TracedPayload | null): M2ReviewData | null {
     error: null,
     raw: body,
   }
+}
+
+/**
+ * Extract CEE operation metadata from responses.
+ * Extracts model, provider, prompt info for each CEE operation.
+ *
+ * Data sources by endpoint:
+ * - Draft Graph (/assist/v1/draft-graph): trace.engine.model, trace.engine.provider, trace.prompt_version, trace.engine.degraded
+ * - Decision Review (/assist/v1/decision-review): _meta.model, trace.prompt_version, trace.prompt_source
+ * - Explain Graph (/assist/v1/explain-graph): trace.engine.model, trace.engine.provider
+ */
+function extractCeeOperations(
+  ceeResponse: unknown,
+  ceeDownstream: CeeDownstreamCall[] | null
+): CeeOperationMetadata | null {
+  const ops: CeeOperationMetadata = {
+    draft_graph: null,
+    decision_review: null,
+    explain_graph: null,
+  }
+
+  let hasData = false
+
+  // Extract Draft Graph metadata from primary CEE response
+  if (ceeResponse && typeof ceeResponse === 'object') {
+    const cee = ceeResponse as Record<string, unknown>
+    const trace = cee.trace as Record<string, unknown> | undefined
+    const engine = trace?.engine as Record<string, unknown> | undefined
+    const pipelineTrace = trace?.pipeline as Record<string, unknown> | undefined
+    const llmMetadata = pipelineTrace?.llm_metadata as Record<string, unknown> | undefined
+
+    // Draft graph uses trace.engine for model/provider
+    if (engine || llmMetadata || trace) {
+      ops.draft_graph = {
+        model: (engine?.model as string) ?? (llmMetadata?.model as string) ?? null,
+        provider: (engine?.provider as string) ?? null,
+        prompt_version: (trace?.prompt_version as string | number) ?? (llmMetadata?.prompt_version as string | number) ?? null,
+        prompt_source: (trace?.prompt_source as string) ?? null,
+        degraded: (engine?.degraded as boolean) ?? false,
+      }
+      hasData = true
+    }
+  }
+
+  // Extract Decision Review and Explain Graph metadata from CEE downstream calls
+  if (ceeDownstream && ceeDownstream.length > 0) {
+    for (const call of ceeDownstream) {
+      const response = call.response as Record<string, unknown> | null
+      if (!response) continue
+
+      const endpoint = call.endpoint.toLowerCase()
+
+      if (endpoint.includes('decision-review') || endpoint.includes('/review')) {
+        // Decision Review: _meta.model, trace.prompt_version, trace.prompt_source
+        const meta = response._meta as Record<string, unknown> | undefined
+        const trace = response.trace as Record<string, unknown> | undefined
+
+        ops.decision_review = {
+          model: (meta?.model as string) ?? (trace?.engine as Record<string, unknown>)?.model as string ?? null,
+          provider: (trace?.engine as Record<string, unknown>)?.provider as string ?? null,
+          prompt_version: (trace?.prompt_version as string | number) ?? null,
+          prompt_source: (trace?.prompt_source as string) ?? null,
+          degraded: (trace?.engine as Record<string, unknown>)?.degraded as boolean ?? false,
+        }
+        hasData = true
+      }
+
+      if (endpoint.includes('explain-graph') || endpoint.includes('explain')) {
+        // Explain Graph: trace.engine.model, trace.engine.provider
+        const trace = response.trace as Record<string, unknown> | undefined
+        const engine = trace?.engine as Record<string, unknown> | undefined
+
+        ops.explain_graph = {
+          model: (engine?.model as string) ?? null,
+          provider: (engine?.provider as string) ?? null,
+          prompt_version: (trace?.prompt_version as string | number) ?? null,
+          prompt_source: (trace?.prompt_source as string) ?? null,
+          degraded: (engine?.degraded as boolean) ?? false,
+        }
+        hasData = true
+      }
+    }
+  }
+
+  return hasData ? ops : null
 }
 
 // =============================================================================
@@ -2832,7 +3027,10 @@ export function useDebugData(): DebugData {
 
     // M1/M2 Architecture extractions
     const m1_coaching = extractM1Coaching(payloadBundle.plot_response)
-    const m2_review = extractM2Review(m2Payload)
+    const m2_review = extractM2Review(m2Payload, payloadBundle.plot_response, ceeFromPlot)
+
+    // CEE operation metadata (model, prompt info per operation)
+    const cee_operations = extractCeeOperations(payloadBundle.cee_response, ceeFromPlot)
 
     return {
       overall: {
@@ -2884,6 +3082,9 @@ export function useDebugData(): DebugData {
       m1_coaching,
       m2_review,
       cee_downstream: ceeFromPlot,
+
+      // CEE Operations metadata
+      cee_operations,
     }
   }, [ceePipelineTrace, nodes, edges, runMeta, tracedPayloads, gatesMap])
 }
