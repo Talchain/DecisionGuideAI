@@ -22,6 +22,8 @@ interface SuccessTargetProps {
   isThresholdAutoDerived: boolean
   /** Whether threshold is confirmed by user */
   isThresholdConfirmed: boolean
+  /** Source text explaining where threshold came from */
+  thresholdProvenance?: string | null
   /** Callback when threshold changes */
   onThresholdChange?: (value: number | null) => void
   /** Callback when threshold is confirmed */
@@ -35,6 +37,7 @@ export function SuccessTarget({
   successThreshold,
   isThresholdAutoDerived,
   isThresholdConfirmed,
+  thresholdProvenance,
   onThresholdChange,
   onThresholdConfirm,
   onThresholdEdit,
@@ -225,6 +228,11 @@ export function SuccessTarget({
           </button>
         </div>
       </div>
+
+      {/* Provenance text - only shown when threshold is auto-derived (not user-edited) */}
+      {thresholdProvenance && isThresholdAutoDerived && (
+        <p className="text-xs text-text-light mt-1.5">Extracted from: {thresholdProvenance}</p>
+      )}
 
       {/* Inline edit when expanded */}
       {isExpanded && (

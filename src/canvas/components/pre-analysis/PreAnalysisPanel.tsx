@@ -415,6 +415,7 @@ export function PreAnalysisPanel({
           successThreshold={data.successThreshold}
           isThresholdAutoDerived={data.isThresholdAutoDerived}
           isThresholdConfirmed={data.isThresholdConfirmed}
+          thresholdProvenance={data.thresholdProvenance}
           onThresholdChange={handleThresholdChange}
           onThresholdConfirm={handleThresholdConfirm}
           onThresholdEdit={handleThresholdEdit}

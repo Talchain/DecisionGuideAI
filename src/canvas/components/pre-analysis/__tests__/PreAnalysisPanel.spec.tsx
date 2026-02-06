@@ -73,6 +73,7 @@ describe('PreAnalysisPanel', () => {
       successThreshold: null,
       isThresholdAutoDerived: false,
       isThresholdConfirmed: false,
+      thresholdProvenance: null,
       isLoading: false,
       reviewedFactorsCount: 0,
       totalReviewableFactorsCount: 0,
@@ -602,6 +603,122 @@ describe('PreAnalysisPanel', () => {
 
       // Optional tier should be visible with count of 1
       expect(screen.getByText('Optional improvements')).toBeInTheDocument()
+    })
+  })
+
+  describe('P2 Polish Tasks', () => {
+    describe('Task 1: Inputs Reviewed Label', () => {
+      it('shows "Inputs reviewed:" label instead of "Input confidence:"', () => {
+        mockUsePreAnalysisData.mockReturnValue(createMockData({
+          evidenceQuality: { level: 'medium', ratio: 0.5 },
+        }))
+
+        render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
+
+        // Should show "Inputs reviewed:" not "Input confidence:"
+        expect(screen.getByText(/Inputs reviewed:/)).toBeInTheDocument()
+        expect(screen.queryByText(/Input confidence:/)).not.toBeInTheDocument()
+      })
+    })
+
+    describe('Task 2: Empty Review Tier Message', () => {
+      it('shows "No assumptions to review" when review tier has 0 items and 0 totalCount', () => {
+        mockUsePreAnalysisData.mockReturnValue(createMockData({
+          isReady: true,
+          tiers: {
+            mustAddress: { items: [], count: 0 },
+            reviewAssumptions: { items: [], count: 0 },
+            optional: { items: [], count: 0 },
+          },
+          reviewedFactorsCount: 0,
+          totalReviewableFactorsCount: 0, // No assumptions to review at all
+        }))
+
+        render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
+
+        // Review tier should be visible with empty message
+        expect(screen.getByText('Review assumptions')).toBeInTheDocument()
+        expect(screen.getByText('No assumptions to review')).toBeInTheDocument()
+      })
+
+      it('hides progress counter when no assumptions to review', () => {
+        mockUsePreAnalysisData.mockReturnValue(createMockData({
+          isReady: true,
+          tiers: {
+            mustAddress: { items: [], count: 0 },
+            reviewAssumptions: { items: [], count: 0 },
+            optional: { items: [], count: 0 },
+          },
+          reviewedFactorsCount: 0,
+          totalReviewableFactorsCount: 0,
+        }))
+
+        render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
+
+        // Should NOT show "(0 of 0 done)"
+        expect(screen.queryByText(/\(0 of 0 done\)/)).not.toBeInTheDocument()
+        // Should show plain "Review assumptions"
+        expect(screen.getByText('Review assumptions')).toBeInTheDocument()
+      })
+
+      it('shows dash badge when no assumptions to review', () => {
+        mockUsePreAnalysisData.mockReturnValue(createMockData({
+          isReady: true,
+          tiers: {
+            mustAddress: { items: [], count: 0 },
+            reviewAssumptions: { items: [], count: 0 },
+            optional: { items: [], count: 0 },
+          },
+          reviewedFactorsCount: 0,
+          totalReviewableFactorsCount: 0,
+        }))
+
+        render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
+
+        // Should show dash badge, not checkmark or count
+        expect(screen.getByText('—')).toBeInTheDocument()
+      })
+    })
+
+    describe('Task 3: Success Target Provenance', () => {
+      it('shows provenance text when available', () => {
+        mockUsePreAnalysisData.mockReturnValue(createMockData({
+          successThreshold: 1000000,
+          isThresholdAutoDerived: true,
+          thresholdProvenance: 'Target Revenue of $1M',
+        }))
+
+        render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
+
+        // Should show provenance text below threshold
+        expect(screen.getByText(/Extracted from: Target Revenue of \$1M/)).toBeInTheDocument()
+      })
+
+      it('does not show provenance text when not available', () => {
+        mockUsePreAnalysisData.mockReturnValue(createMockData({
+          successThreshold: 5000,
+          isThresholdAutoDerived: false,
+          thresholdProvenance: null,
+        }))
+
+        render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
+
+        // Should NOT show "Extracted from:"
+        expect(screen.queryByText(/Extracted from:/)).not.toBeInTheDocument()
+      })
+
+      it('does not show provenance text when user has edited threshold (not auto-derived)', () => {
+        mockUsePreAnalysisData.mockReturnValue(createMockData({
+          successThreshold: 5000,
+          isThresholdAutoDerived: false, // User edited the threshold
+          thresholdProvenance: 'Original target from brief', // Stale provenance still exists
+        }))
+
+        render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
+
+        // Should NOT show stale provenance after user edit
+        expect(screen.queryByText(/Extracted from:/)).not.toBeInTheDocument()
+      })
     })
   })
 })

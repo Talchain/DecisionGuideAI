@@ -116,14 +116,17 @@ function TierSection({
   reviewedCount,
   totalCount,
 }: TierSectionProps) {
-  // For reviewAssumptions: show tier when totalCount > 0 to display completion state
+  // For reviewAssumptions: always show tier (even when empty) to display state
   // For other tiers: hide when no items
-  const showCompletionState = tierKey === 'reviewAssumptions' && items.length === 0 && totalCount !== undefined && totalCount > 0
-  if (items.length === 0 && !showCompletionState) return null
+  const isReviewTier = tierKey === 'reviewAssumptions'
+  const showCompletionState = isReviewTier && items.length === 0 && totalCount !== undefined && totalCount > 0
+  const showEmptyState = isReviewTier && items.length === 0 && totalCount !== undefined && totalCount === 0
+  if (items.length === 0 && !showCompletionState && !showEmptyState) return null
 
   // Build section title with progress for reviewAssumptions
+  // Hide progress counter when no assumptions to review
   let sectionTitle = config.title
-  if (tierKey === 'reviewAssumptions' && reviewedCount !== undefined && totalCount !== undefined) {
+  if (isReviewTier && reviewedCount !== undefined && totalCount !== undefined && totalCount > 0) {
     sectionTitle = `${config.title} (${reviewedCount} of ${totalCount} done)`
   }
 
@@ -137,8 +140,8 @@ function TierSection({
       >
         <span className="text-sm font-semibold text-text-body">{sectionTitle}</span>
         <div className="flex items-center gap-2">
-          <span className={`text-xs rounded-full px-2 py-0.5 ${showCompletionState ? 'text-success bg-success-light' : 'text-text-light bg-factor-light'}`}>
-            {showCompletionState ? '✓' : items.length}
+          <span className={`text-xs rounded-full px-2 py-0.5 ${showCompletionState ? 'text-success bg-success-light' : showEmptyState ? 'text-text-light bg-factor-light' : 'text-text-light bg-factor-light'}`}>
+            {showCompletionState ? '✓' : showEmptyState ? '—' : items.length}
           </span>
           {isExpanded ? (
             <ChevronDown className="w-4 h-4 text-text-light" />
@@ -153,6 +156,8 @@ function TierSection({
         <div className="px-3 pb-3 space-y-2">
           {showCompletionState ? (
             <p className="text-sm text-success py-1">All reviewed</p>
+          ) : showEmptyState ? (
+            <p className="text-sm text-text-light py-1">No assumptions to review</p>
           ) : (
             items.map((item, index) => (
               <div

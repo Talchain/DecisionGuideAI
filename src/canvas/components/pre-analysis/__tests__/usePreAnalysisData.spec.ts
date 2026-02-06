@@ -2234,5 +2234,134 @@ describe('usePreAnalysisData', () => {
         expect(result.current.successThreshold).toBe(2000)
       })
     })
+
+    describe('P2-3: thresholdProvenance', () => {
+      it('returns provenance from factor_target_* node label when threshold from brief_extraction', () => {
+        mockUseCanvasStore.mockImplementation(createMockStore({
+          nodes: [
+            {
+              id: 'goal1',
+              type: 'goal',
+              position: { x: 0, y: 0 },
+              data: { label: 'Revenue Goal' },
+            },
+            {
+              id: 'factor_target_0',
+              type: 'factor',
+              position: { x: 0, y: 0 },
+              data: {
+                label: 'Target Revenue of $1M',
+                observed_state: {
+                  value: 1000000,
+                  source: 'brief_extraction',
+                },
+              },
+            },
+            { id: 'opt1', type: 'option', position: { x: 0, y: 0 }, data: { label: 'Option 1' } },
+            { id: 'opt2', type: 'option', position: { x: 0, y: 0 }, data: { label: 'Option 2', is_baseline: true } },
+          ],
+          edges: [
+            { id: 'e1', source: 'opt1', target: 'goal1' },
+            { id: 'e2', source: 'opt2', target: 'goal1' },
+          ],
+        }))
+
+        const { result } = renderHook(() => usePreAnalysisData())
+
+        expect(result.current.thresholdProvenance).toBe('Target Revenue of $1M')
+      })
+
+      it('returns reasoning from factor_target_* node when available', () => {
+        mockUseCanvasStore.mockImplementation(createMockStore({
+          nodes: [
+            {
+              id: 'goal1',
+              type: 'goal',
+              position: { x: 0, y: 0 },
+              data: { label: 'Revenue Goal' },
+            },
+            {
+              id: 'factor_target_0',
+              type: 'factor',
+              position: { x: 0, y: 0 },
+              data: {
+                label: 'Target Revenue',
+                observed_state: {
+                  value: 1000000,
+                  source: 'brief_extraction',
+                  reasoning: 'User mentioned goal of $1M revenue in their brief',
+                },
+              },
+            },
+            { id: 'opt1', type: 'option', position: { x: 0, y: 0 }, data: { label: 'Option 1' } },
+            { id: 'opt2', type: 'option', position: { x: 0, y: 0 }, data: { label: 'Option 2', is_baseline: true } },
+          ],
+          edges: [
+            { id: 'e1', source: 'opt1', target: 'goal1' },
+            { id: 'e2', source: 'opt2', target: 'goal1' },
+          ],
+        }))
+
+        const { result } = renderHook(() => usePreAnalysisData())
+
+        // Reasoning takes priority over label
+        expect(result.current.thresholdProvenance).toBe('User mentioned goal of $1M revenue in their brief')
+      })
+
+      it('returns null when no provenance available', () => {
+        mockUseCanvasStore.mockImplementation(createMockStore({
+          nodes: [
+            {
+              id: 'goal1',
+              type: 'goal',
+              position: { x: 0, y: 0 },
+              data: {
+                label: 'Revenue Goal',
+                goal_threshold: 5000,
+              },
+            },
+            { id: 'opt1', type: 'option', position: { x: 0, y: 0 }, data: { label: 'Option 1' } },
+            { id: 'opt2', type: 'option', position: { x: 0, y: 0 }, data: { label: 'Option 2', is_baseline: true } },
+          ],
+          edges: [
+            { id: 'e1', source: 'opt1', target: 'goal1' },
+            { id: 'e2', source: 'opt2', target: 'goal1' },
+          ],
+        }))
+
+        const { result } = renderHook(() => usePreAnalysisData())
+
+        expect(result.current.thresholdProvenance).toBeNull()
+      })
+
+      it('returns provenance.reasoning from goal node when available', () => {
+        mockUseCanvasStore.mockImplementation(createMockStore({
+          nodes: [
+            {
+              id: 'goal1',
+              type: 'goal',
+              position: { x: 0, y: 0 },
+              data: {
+                label: 'Revenue Goal',
+                goal_threshold: 5000,
+                provenance: {
+                  reasoning: 'Based on previous quarter performance',
+                },
+              },
+            },
+            { id: 'opt1', type: 'option', position: { x: 0, y: 0 }, data: { label: 'Option 1' } },
+            { id: 'opt2', type: 'option', position: { x: 0, y: 0 }, data: { label: 'Option 2', is_baseline: true } },
+          ],
+          edges: [
+            { id: 'e1', source: 'opt1', target: 'goal1' },
+            { id: 'e2', source: 'opt2', target: 'goal1' },
+          ],
+        }))
+
+        const { result } = renderHook(() => usePreAnalysisData())
+
+        expect(result.current.thresholdProvenance).toBe('Based on previous quarter performance')
+      })
+    })
   })
 })

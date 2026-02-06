@@ -106,7 +106,7 @@ export function StickyFooter({
             <span className="text-text-light">·</span>
             <Tooltip content="Based on how many factor values are confirmed vs estimated by AI">
               <span className="text-text-body cursor-help">
-                Input confidence:{' '}
+                Inputs reviewed:{' '}
                 <span style={{ color: EVIDENCE_LEVEL_COLOURS[evidenceLevel] }}>
                   {evidenceLevel.charAt(0).toUpperCase() + evidenceLevel.slice(1)}
                 </span>
@@ -136,7 +136,7 @@ export function StickyFooter({
                 ? 'Analysis not ready'
                 : 'Run analysis'
         }
-        title={isDisabled && !isAnalysing ? 'Complete required actions before analysing' : undefined}
+        title={isDisabled && !isAnalysing && !isLoading ? 'Complete required actions before analysing' : undefined}
       >
         {isAnalysing && <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />}
         {buttonLabel}

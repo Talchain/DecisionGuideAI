@@ -815,6 +815,68 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
     return data?.threshold_confirmed === true
   }, [goalNode])
 
+  // Threshold provenance - source text explaining where the threshold came from
+  // Check provenance.reasoning on goal node, observed_state.reasoning, or factor_target_* label
+  const thresholdProvenance = useMemo<string | null>(() => {
+    // Check if threshold came from CEE
+    if (ceeAnalysisReady?.goal_threshold != null) {
+      // Check for goal_threshold_reasoning in CEE response (if it exists)
+      const reasoning = (ceeAnalysisReady as { goal_threshold_reasoning?: string })?.goal_threshold_reasoning
+      if (reasoning && typeof reasoning === 'string') {
+        return reasoning
+      }
+      return null
+    }
+
+    // Check goal node for provenance/reasoning
+    if (goalNode) {
+      const data = goalNode.data as {
+        goal_threshold?: number
+        observed_state?: { value?: number; reasoning?: string }
+        provenance?: { reasoning?: string }
+        threshold_reasoning?: string
+      }
+
+      // Check if threshold came from goal node
+      if (data?.goal_threshold != null || data?.observed_state?.value != null) {
+        // Try various provenance fields
+        if (data?.observed_state?.reasoning) return data.observed_state.reasoning
+        if (data?.provenance?.reasoning) return data.provenance.reasoning
+        if (data?.threshold_reasoning) return data.threshold_reasoning
+      }
+    }
+
+    // Check if threshold came from factor_target_* node
+    for (const node of nodes) {
+      const id = node.id
+      if (id.startsWith('factor_target_') || id.startsWith('factor_value_')) {
+        const nodeData = node.data as {
+          observed_state?: { value?: number; source?: string; reasoning?: string }
+          observedState?: { value?: number; source?: string; reasoning?: string }
+          value?: number
+          source?: string
+          label?: string
+        }
+        const observedState = nodeData?.observed_state ?? nodeData?.observedState
+        const source = observedState?.source ?? nodeData?.source
+        const value = observedState?.value ?? nodeData?.value
+
+        // If this node provided the threshold
+        if (source === 'brief_extraction' && value != null) {
+          // Check for reasoning first
+          if (observedState?.reasoning) return observedState.reasoning
+          // Fall back to node label as provenance context
+          const label = nodeData?.label
+          if (label && typeof label === 'string') {
+            return label
+          }
+        }
+      }
+    }
+
+    return null
+  }, [ceeAnalysisReady, goalNode, nodes])
+
   // Calculate reviewed factors progress from node data (not UI state)
   // Total = AI-estimated factors that need review (excludes brief_extraction)
   // Also excludes controllable factors with interventions (to match UI)
@@ -858,6 +920,7 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
     successThreshold,
     isThresholdAutoDerived,
     isThresholdConfirmed,
+    thresholdProvenance,
     isLoading,
     reviewedFactorsCount,
     totalReviewableFactorsCount,
