@@ -254,9 +254,8 @@ export function DraftChat() {
       if (result?.nodes?.length) {
         applyDraftToCanvas(result)
         setIsMinimized(true)
-        // Clear the description so it doesn't show in minimized mode
+        // Clear UI input state (brief stays in store for /v2/run)
         setDescription('')
-        setLastDraftDescription('')
       }
     } catch (err) {
       console.error('Draft failed:', err)
