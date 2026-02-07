@@ -396,22 +396,19 @@ describe('Banned Strings Integration Test', () => {
     it('shows win probability display when probability_of_goal is absent (P2 Task 4)', () => {
       render(<RecommendationSection data={fixtureNoGoalThreshold} />)
 
-      // Task 3 compact layout: Badge is "Strongest" and probability is compact percentage
-      // Rank labels only show as fallback when winProbability is also absent
-      expect(screen.getByText('Strongest')).toBeInTheDocument()
-      // Compact layout shows just percentages with tooltip
-      expect(screen.getByText('65%')).toBeInTheDocument()
-      expect(screen.getByText('35%')).toBeInTheDocument()
-      expect(screen.getByText('15%')).toBeInTheDocument()
+      // HeroSection headline renders "performs best"
+      expect(screen.getByText(/performs best/)).toBeInTheDocument()
+
+      // RangeVisualization shows per-option win probability
+      expect(screen.getByText('Wins 65%')).toBeInTheDocument()
+      expect(screen.getByText('Wins 35%')).toBeInTheDocument()
+      expect(screen.getByText('Wins 15%')).toBeInTheDocument()
 
       // Should NOT show "X expected" values
       expect(screen.queryByText(/\d+%? expected/i)).not.toBeInTheDocument()
 
-      // Should NOT show "chance of achieving" in hero
+      // Should NOT show "chance of achieving" in hero (no goal threshold)
       expect(screen.queryByText(/chance of achieving/i)).not.toBeInTheDocument()
-
-      // Hero should show fallback text
-      expect(screen.getByText(/outperforms alternatives most consistently/)).toBeInTheDocument()
     })
 
     it('cleans story headlines and hides Runner-up labels', () => {

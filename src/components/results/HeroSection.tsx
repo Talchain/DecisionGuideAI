@@ -48,9 +48,11 @@ export interface HeroSectionProps {
   winnerLabel: string
   winnerId: string
   winnerGoalProbability?: number | null
+  winnerWinProbability?: number | null
   runnerUpLabel?: string
   runnerUpId?: string
   runnerUpGoalProbability?: number | null
+  runnerUpWinProbability?: number | null
   optionCount: number
   hasBaseline: boolean
   recommendationStability?: number
@@ -286,9 +288,11 @@ export function HeroSection({
   winnerLabel,
   winnerId,
   winnerGoalProbability,
+  winnerWinProbability,
   runnerUpLabel,
   runnerUpId,
   runnerUpGoalProbability,
+  runnerUpWinProbability,
   optionCount,
   hasBaseline,
   recommendationStability,
@@ -378,6 +382,15 @@ export function HeroSection({
         text: `Options perform similarly — ${winnerLabel} wins slightly more often`,
         refs: [{ id: winnerId, label: winnerLabel }],
       })
+    } else if (winnerWinProbability != null && runnerUpWinProbability != null && runnerUpLabel) {
+      // Concrete win probability comparison with runner-up
+      bullets.push({
+        text: `Wins ${formatPercent(winnerWinProbability)} vs ${formatPercent(runnerUpWinProbability)} for ${runnerUpLabel}`,
+        refs: [
+          { id: winnerId, label: winnerLabel },
+          ...(runnerUpId && runnerUpLabel ? [{ id: runnerUpId, label: runnerUpLabel }] : []),
+        ],
+      })
     } else {
       bullets.push({
         text: `${winnerLabel} outperforms alternatives most consistently`,
@@ -437,6 +450,7 @@ export function HeroSection({
   }, [
     optionCount, winnerGoalProbability, runnerUpGoalProbability, goalThreshold,
     winnerLabel, winnerId, runnerUpLabel, runnerUpId,
+    winnerWinProbability, runnerUpWinProbability,
     topDrivers, topFragileEdge, recommendationStability,
   ])
 
@@ -533,118 +547,118 @@ export function HeroSection({
             </button>
           </div>
         </div>
-      </div>
 
-      {/* "More" expand */}
-      {isExpanded && (
-        <div
-          id="hero-more-content"
-          className="p-4 bg-panel border border-panel-border rounded-lg space-y-4"
-        >
-          {/* Expanded stability explanation */}
-          {stabilityTier.expandedText && (
-            <div className="space-y-2">
-              <p className={`${typography.body} text-text-body`}>
-                {stabilityTier.expandedText}
-              </p>
-              {stabilityPct != null && (
-                <p className={`${typography.caption} text-text-light`}>
-                  We tested what happens when each assumption in your model is varied — the recommendation held in {stabilityPct}% of those tests.
+        {/* "More" expand — inside the hero card */}
+        {isExpanded && (
+          <div
+            id="hero-more-content"
+            className="mt-4 pt-4 border-t border-panel-border space-y-4"
+          >
+            {/* Expanded stability explanation */}
+            {stabilityTier.expandedText && (
+              <div className="space-y-2">
+                <p className={`${typography.body} text-text-body`}>
+                  {stabilityTier.expandedText}
                 </p>
-              )}
-            </div>
-          )}
+                {stabilityPct != null && (
+                  <p className={`${typography.caption} text-text-light`}>
+                    We tested what happens when each edge in your model is varied — the recommendation held in {stabilityPct}% of those tests.
+                  </p>
+                )}
+              </div>
+            )}
 
-          {/* Tier-gated coaching (only when stability < 0.85) */}
-          {stabilityTier.coaching && (
-            <div className="p-3 bg-info-light border border-info/30 rounded-lg">
-              <p className={`${typography.caption} text-text-body`}>
-                {stabilityTier.coaching}
-              </p>
-            </div>
-          )}
+            {/* Tier-gated coaching (only when stability < 0.85) */}
+            {stabilityTier.coaching && (
+              <div className="p-3 bg-info-light border border-info/30 rounded-lg">
+                <p className={`${typography.caption} text-text-body`}>
+                  {stabilityTier.coaching}
+                </p>
+              </div>
+            )}
 
-          {/* M2 coaching paragraph */}
-          {hasM2Coaching && (
-            <div className="space-y-2">
-              <p className={`${typography.body} text-text-body`}>
-                <RichTextRenderer
-                  content={m2CoachingParagraph!}
-                  onFocusNode={onFocusNode}
-                />
-              </p>
-            </div>
-          )}
+            {/* M2 coaching paragraph */}
+            {hasM2Coaching && (
+              <div className="space-y-2">
+                <p className={`${typography.body} text-text-body`}>
+                  <RichTextRenderer
+                    content={m2CoachingParagraph!}
+                    onFocusNode={onFocusNode}
+                  />
+                </p>
+              </div>
+            )}
 
-          {/* M2 bias insights */}
-          {hasBiasInsights && (
-            <div className="space-y-2">
-              <h4 className={`${typography.label} text-text-header`}>
-                Questions to consider
-              </h4>
-              <ul className="space-y-2">
-                {m2BiasInsights!.map((insight, i) => (
-                  <li
-                    key={i}
-                    className="p-3 bg-info-light border border-info/30 rounded-lg"
-                  >
-                    <p className={`${typography.body} text-text-body`}>
-                      {insight}
-                    </p>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
+            {/* M2 bias insights */}
+            {hasBiasInsights && (
+              <div className="space-y-2">
+                <h4 className={`${typography.label} text-text-header`}>
+                  Questions to consider
+                </h4>
+                <ul className="space-y-2">
+                  {m2BiasInsights!.map((insight, i) => (
+                    <li
+                      key={i}
+                      className="p-3 bg-info-light border border-info/30 rounded-lg"
+                    >
+                      <p className={`${typography.body} text-text-body`}>
+                        {insight}
+                      </p>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
 
-          {/* Nested technical detail */}
-          <details className="group">
-            <summary className={`${typography.caption} text-text-light cursor-pointer hover:text-text-body select-none`}>
-              Technical detail
-            </summary>
-            <dl className={`mt-2 grid grid-cols-2 gap-x-4 gap-y-1 ${typography.caption} text-text-light`}>
-              {recommendationStability != null && (
-                <>
-                  <dt>Stability</dt>
-                  <dd>{stabilityPct}% of assumption tests</dd>
-                </>
-              )}
-              {fragileEdgeCount != null && (
-                <>
-                  <dt>Fragile assumptions</dt>
-                  <dd>{fragileEdgeCount}</dd>
-                </>
-              )}
-              {robustEdgeCount != null && (
-                <>
-                  <dt>Stable assumptions</dt>
-                  <dd>{robustEdgeCount}</dd>
-                </>
-              )}
-              {nSamples != null && (
-                <>
-                  <dt>Simulations run</dt>
-                  <dd>{nSamples.toLocaleString()}</dd>
-                </>
-              )}
-              {seedUsed != null && (
-                <>
-                  <dt>Seed</dt>
-                  <dd className="font-mono">{seedUsed}</dd>
-                </>
-              )}
-              {responseHash && (
-                <>
-                  <dt>Result hash</dt>
-                  <dd className="font-mono truncate" title={responseHash}>
-                    {responseHash.slice(0, 12)}...
-                  </dd>
-                </>
-              )}
-            </dl>
-          </details>
-        </div>
-      )}
+            {/* Nested technical detail — P1-3: Olumi styled */}
+            <details className="group bg-panel border border-panel-border rounded-xl">
+              <summary className={`px-4 py-3 ${typography.label} text-text-body font-medium cursor-pointer hover:text-text-header select-none`}>
+                Technical detail
+              </summary>
+              <dl className={`px-4 pb-3 grid grid-cols-2 gap-x-4 gap-y-1 ${typography.caption}`}>
+                {recommendationStability != null && (
+                  <>
+                    <dt className="text-text-light">Stability</dt>
+                    <dd className="text-text-header">{stabilityPct}%</dd>
+                  </>
+                )}
+                {fragileEdgeCount != null && (
+                  <>
+                    <dt className="text-text-light">Fragile edges</dt>
+                    <dd className="text-text-header">{fragileEdgeCount}</dd>
+                  </>
+                )}
+                {robustEdgeCount != null && (
+                  <>
+                    <dt className="text-text-light">Stable edges</dt>
+                    <dd className="text-text-header">{robustEdgeCount}</dd>
+                  </>
+                )}
+                {nSamples != null && (
+                  <>
+                    <dt className="text-text-light">Simulations run</dt>
+                    <dd className="text-text-header">{nSamples.toLocaleString()}</dd>
+                  </>
+                )}
+                {seedUsed != null && (
+                  <>
+                    <dt className="text-text-light">Seed</dt>
+                    <dd className="text-text-header font-mono">{seedUsed}</dd>
+                  </>
+                )}
+                {responseHash && (
+                  <>
+                    <dt className="text-text-light">Result hash</dt>
+                    <dd className="text-text-header font-mono truncate" title={responseHash}>
+                      {responseHash.slice(0, 12)}...
+                    </dd>
+                  </>
+                )}
+              </dl>
+            </details>
+          </div>
+        )}
+      </div>
     </div>
   )
 }

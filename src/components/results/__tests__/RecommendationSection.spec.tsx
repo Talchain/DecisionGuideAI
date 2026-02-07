@@ -5,7 +5,7 @@
  */
 
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 import { RecommendationSection } from '../RecommendationSection'
 import type { RecommendationSectionData } from '../types'
 
@@ -59,11 +59,11 @@ describe('RecommendationSection', () => {
     outcomeUnit: 'percent',
   }
 
-  it('renders headline with outperforms message when no goal probability', () => {
+  it('renders headline with win probability comparison when available', () => {
     render(<RecommendationSection data={mockData} />)
 
-    // Task 4: Headline now shows "X outperforms alternatives most consistently" when no goal probability
-    expect(screen.getByText(/outperforms alternatives most consistently/)).toBeInTheDocument()
+    // P0-2: When win probabilities exist, bullet 1 shows concrete comparison
+    expect(screen.getByText(/Wins 67% vs 33%/)).toBeInTheDocument()
   })
 
   // Range bar removed - P1 HeroSection integration
@@ -83,13 +83,6 @@ describe('RecommendationSection', () => {
     // Winner name appears in both HeroSection (as GraphLink) and option comparison
     expect(screen.getAllByText('Hire Tech Lead').length).toBeGreaterThanOrEqual(1)
     expect(screen.getAllByText('Hire 2 Developers').length).toBeGreaterThanOrEqual(1)
-  })
-
-  it('renders Strongest badge for top option', () => {
-    render(<RecommendationSection data={mockData} />)
-
-    // Task 3: Compact layout uses "Strongest" badge (shortened from "Strongest performer")
-    expect(screen.getByText('Strongest')).toBeInTheDocument()
   })
 
   it('hides option comparison for single option', () => {
@@ -148,18 +141,6 @@ describe('RecommendationSection', () => {
     expect(screen.getByText(/Complete your model to see recommendations/)).toBeInTheDocument()
   })
 
-  it('calls onFocusNode when option clicked', () => {
-    const onFocusNode = vi.fn()
-    render(<RecommendationSection data={mockData} onFocusNode={onFocusNode} />)
-
-    // Click on the Hire 2 Developers option row (use getAllByText since it appears in both
-    // RangeVisualization and OptionRow, then click the one in the OptionRow which has role="link")
-    const optionRows = screen.getAllByRole('link', { name: /Focus on Hire 2 Developers in model/i })
-    fireEvent.click(optionRows[0])
-
-    expect(onFocusNode).toHaveBeenCalledWith('option-2')
-  })
-
   it('does not render goal link in recommendation section (moved to Objective section)', () => {
     // Goal link was removed from RecommendationSection - it's now in Objective section only
     const dataWithGoalId: RecommendationSectionData = {
@@ -171,25 +152,6 @@ describe('RecommendationSection', () => {
 
     // Link should NOT be present (removed per Polish E)
     expect(screen.queryByText(/View goal on canvas/)).not.toBeInTheDocument()
-  })
-
-  it('renders rank-based labels in option list when probability_of_goal absent (Fix A)', () => {
-    // mockData has no goalThreshold/goalProbability, and we remove winProbability to test rank labels
-    const dataWithRanks: RecommendationSectionData = {
-      ...mockData,
-      allOptions: mockData.allOptions.map((opt, idx) => ({
-        ...opt,
-        rank: idx + 1,
-        winProbability: undefined, // P2 Task 4: Remove win probability to test rank label fallback
-      })),
-      recommendedOption: { ...mockData.recommendedOption!, rank: 1, winProbability: undefined },
-    }
-    render(<RecommendationSection data={dataWithRanks} />)
-
-    // Fix A: "X expected" replaced with rank labels when probability_of_goal absent
-    expect(screen.queryByText(/expected$/)).not.toBeInTheDocument()
-    expect(screen.getAllByText('Strongest performer').length).toBeGreaterThanOrEqual(1)
-    expect(screen.getByText('Second strongest')).toBeInTheDocument()
   })
 
   // P1 Integration: Outcome description messages removed from hero
@@ -306,115 +268,6 @@ describe('RecommendationSection', () => {
   // Option Expected Value Uniqueness Tests (Fix 4)
   // =========================================================================
 
-  describe('Option Comparison', () => {
-    it('should show rank-based labels when probability_of_goal is absent (Fix A)', () => {
-      const optionsWithDifferentValues: RecommendationSectionData = {
-        ...mockData,
-        allOptions: [
-          {
-            id: 'opt-a',
-            label: 'Option A',
-            p10: 20,
-            p50: 30,
-            p90: 40,
-            expected: 30,
-            outcome: { mean: 30, p10: 20, p50: 30, p90: 40 },
-            isRecommended: false,
-            rank: 2,
-          },
-          {
-            id: 'opt-b',
-            label: 'Option B',
-            p10: 40,
-            p50: 55,
-            p90: 70,
-            expected: 55,
-            outcome: { mean: 55, p10: 40, p50: 55, p90: 70 },
-            isRecommended: true,
-            rank: 1,
-          },
-        ],
-        recommendedOption: {
-          id: 'opt-b',
-          label: 'Option B',
-          p10: 40,
-          p50: 55,
-          p90: 70,
-          expected: 55,
-          outcome: { mean: 55, p10: 40, p50: 55, p90: 70 },
-          isRecommended: true,
-          rank: 1,
-        },
-        isSingleOption: false,
-      }
-
-      render(<RecommendationSection data={optionsWithDifferentValues} />)
-
-      // Fix A: When probability_of_goal is absent, show rank-based labels not "X expected"
-      // "Strongest performer" may appear multiple times (badge + option card)
-      expect(screen.getAllByText('Strongest performer').length).toBeGreaterThanOrEqual(1)
-      expect(screen.getByText('Second strongest')).toBeInTheDocument()
-      // "X expected" should NOT appear
-      expect(screen.queryByText(/expected$/)).not.toBeInTheDocument()
-    })
-
-    it('should mark correct option as recommended based on data', () => {
-      // Option B has higher p50 but Option A is marked recommended (backend override)
-      const backendOverrideData: RecommendationSectionData = {
-        ...mockData,
-        allOptions: [
-          {
-            id: 'opt-a',
-            label: 'Option A',
-            p10: 20,
-            p50: 30,
-            p90: 40,
-            expected: 30,
-            outcome: { mean: 30, p10: 20, p50: 30, p90: 40 },
-            isRecommended: true,  // Backend marked this as recommended
-          },
-          {
-            id: 'opt-b',
-            label: 'Option B',
-            p10: 40,
-            p50: 55,  // Higher p50 but NOT recommended
-            p90: 70,
-            expected: 55,
-            outcome: { mean: 55, p10: 40, p50: 55, p90: 70 },
-            isRecommended: false,
-          },
-        ],
-        recommendedOption: {
-          id: 'opt-a',
-          label: 'Option A',
-          p10: 20,
-          p50: 30,
-          p90: 40,
-          expected: 30,
-          outcome: { mean: 30, p10: 20, p50: 30, p90: 40 },
-          isRecommended: true,
-        },
-        isSingleOption: false,
-      }
-
-      render(<RecommendationSection data={backendOverrideData} />)
-
-      // Task 3: Compact layout uses "Strongest" badge (shortened from "Strongest performer")
-      // The badge should appear exactly once in option comparison
-      const recommendedBadges = screen.getAllByText('Strongest')
-      expect(recommendedBadges).toHaveLength(1)
-
-      // Option A should have the badge in the option comparison section
-      // Multiple links for "Option A" may exist (HeroSection GraphLink + option card)
-      const optionALinks = screen.getAllByRole('link', { name: /Option A/i })
-      // At least one of them should have the Strongest badge
-      const optionWithBadge = optionALinks.find(link =>
-        link.closest('[role="link"]')?.parentElement?.textContent?.includes('Strongest')
-      )
-      expect(optionWithBadge || recommendedBadges.length).toBeTruthy()
-    })
-  })
-
   // =========================================================================
   // Metric Consistency Tests (Fix 1)
   // P1 Integration: Range bar removed - HeroSection shows M1 templates
@@ -437,8 +290,8 @@ describe('RecommendationSection', () => {
 
       // HeroSection renders with M1 templates
       expect(screen.getByTestId('hero-section')).toBeInTheDocument()
-      // Task 4: Headline shows "outperforms alternatives" when no goal probability
-      expect(screen.getByText(/outperforms alternatives most consistently/)).toBeInTheDocument()
+      // P0-2: Win probability comparison bullet when win probs available
+      expect(screen.getByText(/Wins 67% vs 33%/)).toBeInTheDocument()
     })
   })
 
@@ -447,9 +300,9 @@ describe('RecommendationSection', () => {
   // =========================================================================
 
   describe('Headline Display (Task 4 updated)', () => {
-    // Task 4: Headline now shows "X outperforms alternatives" when no goal probability
-    // The old polarity language (improvement/decline) has been removed
-    it('shows outperforms message regardless of expected outcome sign', () => {
+    // P0-2: When win probabilities are available, bullet 1 shows concrete comparison
+    // When absent, falls back to "outperforms alternatives most consistently"
+    it('shows win probability comparison regardless of expected outcome sign', () => {
       const positiveData: RecommendationSectionData = {
         ...mockData,
         recommendedOption: {
@@ -461,39 +314,23 @@ describe('RecommendationSection', () => {
 
       render(<RecommendationSection data={positiveData} />)
 
-      // Task 4: Now shows "X outperforms alternatives" instead of "improvement"
-      expect(screen.getByText(/outperforms alternatives most consistently/)).toBeInTheDocument()
+      // P0-2: Win probabilities available → concrete comparison
+      expect(screen.getByText(/Wins 67% vs 33%/)).toBeInTheDocument()
     })
 
-    it('shows outperforms message for negative expected outcome', () => {
-      const negativeData: RecommendationSectionData = {
+    it('shows fallback bullet when no win probabilities', () => {
+      const noWinProbData: RecommendationSectionData = {
         ...mockData,
         recommendedOption: {
           ...mockData.recommendedOption!,
-          expected: -0.20,
-          p50: -0.20,
+          winProbability: undefined,
         },
+        allOptions: mockData.allOptions.map(o => ({ ...o, winProbability: undefined })),
       }
 
-      render(<RecommendationSection data={negativeData} />)
+      render(<RecommendationSection data={noWinProbData} />)
 
-      // Task 4: Now shows "X outperforms alternatives" instead of "decline"
-      expect(screen.getByText(/outperforms alternatives most consistently/)).toBeInTheDocument()
-    })
-
-    it('shows outperforms message for zero expected outcome', () => {
-      const zeroData: RecommendationSectionData = {
-        ...mockData,
-        recommendedOption: {
-          ...mockData.recommendedOption!,
-          expected: 0,
-          p50: 0,
-        },
-      }
-
-      render(<RecommendationSection data={zeroData} />)
-
-      // Task 4: Now shows "X outperforms alternatives" for all cases
+      // No win probabilities → fallback to "outperforms alternatives"
       expect(screen.getByText(/outperforms alternatives most consistently/)).toBeInTheDocument()
     })
   })
@@ -973,189 +810,7 @@ describe('RecommendationSection', () => {
   // Task 5: Near-Tie Explanatory Text Tests
   // =========================================================================
 
-  describe('Near-Tie Explanatory Text', () => {
-    it('shows tie explanation when outcomes are same but win probabilities differ', () => {
-      // Both options have same expected value (58%) but different win probabilities
-      const tiedOutcomesData: RecommendationSectionData = {
-        ...mockData,
-        allOptions: [
-          {
-            id: 'option-1',
-            label: 'Option A',
-            p10: 23,
-            p50: 58,
-            p90: 81,
-            expected: 58,
-            outcome: { mean: 58, p10: 23, p50: 58, p90: 81 },
-            isRecommended: true,
-            winProbability: 0.65,
-          },
-          {
-            id: 'option-2',
-            label: 'Option B',
-            p10: 23,
-            p50: 58,
-            p90: 81,
-            expected: 58,  // Same expected value
-            outcome: { mean: 58, p10: 23, p50: 58, p90: 81 },
-            isRecommended: false,
-            winProbability: 0.35,  // Different win probability (spread = 0.30 > 0.1)
-          },
-        ],
-        isSingleOption: false,
-      }
-
-      render(<RecommendationSection data={tiedOutcomesData} />)
-
-      expect(screen.getByText(/Expected outcomes are similar/)).toBeInTheDocument()
-    })
-
-    it('does not show tie explanation when outcomes differ', () => {
-      // Options have different expected values
-      const differentOutcomesData: RecommendationSectionData = {
-        ...mockData,
-        allOptions: [
-          {
-            id: 'option-1',
-            label: 'Option A',
-            p10: 23,
-            p50: 58,
-            p90: 81,
-            expected: 58,
-            outcome: { mean: 58, p10: 23, p50: 58, p90: 81 },
-            isRecommended: true,
-            winProbability: 0.65,
-          },
-          {
-            id: 'option-2',
-            label: 'Option B',
-            p10: 18,
-            p50: 41,
-            p90: 68,
-            expected: 41,  // Different expected value
-            outcome: { mean: 41, p10: 18, p50: 41, p90: 68 },
-            isRecommended: false,
-            winProbability: 0.35,
-          },
-        ],
-        isSingleOption: false,
-      }
-
-      render(<RecommendationSection data={differentOutcomesData} />)
-
-      expect(screen.queryByText(/Expected outcomes are similar/)).not.toBeInTheDocument()
-    })
-
-    it('does not show tie explanation when win probability spread is small', () => {
-      // Same expected values but win probabilities are close (spread = 0.04 < 0.1)
-      const smallSpreadData: RecommendationSectionData = {
-        ...mockData,
-        allOptions: [
-          {
-            id: 'option-1',
-            label: 'Option A',
-            p10: 23,
-            p50: 58,
-            p90: 81,
-            expected: 58,
-            outcome: { mean: 58, p10: 23, p50: 58, p90: 81 },
-            isRecommended: true,
-            winProbability: 0.52,
-          },
-          {
-            id: 'option-2',
-            label: 'Option B',
-            p10: 23,
-            p50: 58,
-            p90: 81,
-            expected: 58,  // Same expected value
-            outcome: { mean: 58, p10: 23, p50: 58, p90: 81 },
-            isRecommended: false,
-            winProbability: 0.48,  // Small spread (0.04 < 0.1)
-          },
-        ],
-        isSingleOption: false,
-      }
-
-      render(<RecommendationSection data={smallSpreadData} />)
-
-      expect(screen.queryByText(/Expected outcomes are similar/)).not.toBeInTheDocument()
-    })
-
-    it('does not show tie explanation when outcomes are null/missing', () => {
-      // FIX: When expected values are null, should NOT show "Expected outcomes are similar"
-      const nullOutcomesData: RecommendationSectionData = {
-        ...mockData,
-        allOptions: [
-          {
-            id: 'option-1',
-            label: 'Option A',
-            p10: null as unknown as number,
-            p50: null as unknown as number,
-            p90: null as unknown as number,
-            expected: null as unknown as number,
-            outcome: { mean: null, p10: null, p50: null, p90: null },
-            isRecommended: true,
-            winProbability: 0.65,
-          },
-          {
-            id: 'option-2',
-            label: 'Option B',
-            p10: null as unknown as number,
-            p50: null as unknown as number,
-            p90: null as unknown as number,
-            expected: null as unknown as number,
-            outcome: { mean: null, p10: null, p50: null, p90: null },
-            isRecommended: false,
-            winProbability: 0.35,
-          },
-        ],
-        isSingleOption: false,
-      }
-
-      render(<RecommendationSection data={nullOutcomesData} />)
-
-      // Should NOT show tie explanation when outcomes are missing
-      expect(screen.queryByText(/Expected outcomes are similar/)).not.toBeInTheDocument()
-    })
-
-    it('falls back to outcome.mean when expected is null', () => {
-      // When expected is null but outcome.mean exists, should use outcome.mean
-      const fallbackData: RecommendationSectionData = {
-        ...mockData,
-        allOptions: [
-          {
-            id: 'option-1',
-            label: 'Option A',
-            p10: 23,
-            p50: 58,
-            p90: 81,
-            expected: null as unknown as number,  // null expected
-            outcome: { mean: 58, p10: 23, p50: 58, p90: 81 },  // but outcome.mean exists
-            isRecommended: true,
-            winProbability: 0.65,
-          },
-          {
-            id: 'option-2',
-            label: 'Option B',
-            p10: 23,
-            p50: 58,
-            p90: 81,
-            expected: null as unknown as number,  // null expected
-            outcome: { mean: 58, p10: 23, p50: 58, p90: 81 },  // same outcome.mean
-            isRecommended: false,
-            winProbability: 0.35,  // spread = 0.30 > 0.1
-          },
-        ],
-        isSingleOption: false,
-      }
-
-      render(<RecommendationSection data={fallbackData} />)
-
-      // Should show tie explanation using outcome.mean fallback
-      expect(screen.getByText(/Expected outcomes are similar/)).toBeInTheDocument()
-    })
-  })
+  // Near-Tie Explanatory Text — removed with OptionRow cards (P2-2)
 
   // =========================================================================
   // P1 Integration: "Wins in X% of scenarios" removed (banned language)
@@ -1182,282 +837,7 @@ describe('RecommendationSection', () => {
   // Task 2.1 & 2.2: Baseline & Delta Display Tests
   // =========================================================================
 
-  describe('Baseline & Delta Display', () => {
-    it('shows "Baseline" badge for baseline option', () => {
-      const baselineData: RecommendationSectionData = {
-        ...mockData,
-        allOptions: [
-          {
-            id: 'option-1',
-            label: 'Hire Tech Lead',
-            expected: 58,
-            outcome: { mean: 58, p10: 23, p50: 58, p90: 81 },
-            p10: 23,
-            p50: 58,
-            p90: 81,
-            isRecommended: true,
-          },
-          {
-            id: 'option-2',
-            label: 'Status Quo',
-            expected: 30,
-            outcome: { mean: 30, p10: 10, p50: 30, p90: 50 },
-            p10: 10,
-            p50: 30,
-            p90: 50,
-            isRecommended: false,
-            isBaseline: true,
-          },
-        ],
-        baselineId: 'option-2',
-        baselineOutcome: 30,
-        isSingleOption: false,
-      }
-
-      render(<RecommendationSection data={baselineData} />)
-
-      expect(screen.getByText('Baseline')).toBeInTheDocument()
-    })
-
-    it('shows delta vs baseline for non-baseline options', () => {
-      const deltaData: RecommendationSectionData = {
-        ...mockData,
-        allOptions: [
-          {
-            id: 'option-1',
-            label: 'Hire Tech Lead',
-            expected: 58,
-            outcome: { mean: 58, p10: 23, p50: 58, p90: 81 },
-            p10: 23,
-            p50: 58,
-            p90: 81,
-            isRecommended: true,
-            deltaFromBaseline: 28, // 58 - 30 = 28
-          },
-          {
-            id: 'option-2',
-            label: 'Status Quo',
-            expected: 30,
-            outcome: { mean: 30, p10: 10, p50: 30, p90: 50 },
-            p10: 10,
-            p50: 30,
-            p90: 50,
-            isRecommended: false,
-            isBaseline: true,
-            deltaFromBaseline: null, // Baseline has no delta
-          },
-        ],
-        baselineId: 'option-2',
-        baselineOutcome: 30,
-        isSingleOption: false,
-      }
-
-      render(<RecommendationSection data={deltaData} />)
-
-      // Task 3 compact layout: delta shown as visible text when no probability available
-      // Use getAllByRole since there are multiple links (HeroSection + option card)
-      expect(screen.getByText('+28% vs baseline')).toBeInTheDocument()
-    })
-
-    it('does not show delta for baseline option', () => {
-      const baselineData: RecommendationSectionData = {
-        ...mockData,
-        allOptions: [
-          {
-            id: 'option-1',
-            label: 'Hire Tech Lead',
-            expected: 58,
-            outcome: { mean: 58, p10: 23, p50: 58, p90: 81 },
-            p10: 23,
-            p50: 58,
-            p90: 81,
-            isRecommended: true,
-            deltaFromBaseline: 28,
-          },
-          {
-            id: 'option-2',
-            label: 'Status Quo',
-            expected: 30,
-            outcome: { mean: 30, p10: 10, p50: 30, p90: 50 },
-            p10: 10,
-            p50: 30,
-            p90: 50,
-            isRecommended: false,
-            isBaseline: true,
-            deltaFromBaseline: null,
-          },
-        ],
-        baselineId: 'option-2',
-        baselineOutcome: 30,
-        isSingleOption: false,
-      }
-
-      render(<RecommendationSection data={baselineData} />)
-
-      // Status Quo (baseline) should not show delta text
-      const baselineRow = screen.getByRole('link', { name: /Status Quo/i })
-      expect(baselineRow).not.toHaveTextContent('vs baseline')
-    })
-
-    it('shows negative delta correctly', () => {
-      const negativeData: RecommendationSectionData = {
-        ...mockData,
-        allOptions: [
-          {
-            id: 'option-1',
-            label: 'Status Quo',
-            expected: 50,
-            outcome: { mean: 50, p10: 30, p50: 50, p90: 70 },
-            p10: 30,
-            p50: 50,
-            p90: 70,
-            isRecommended: true,
-            isBaseline: true,
-            deltaFromBaseline: null,
-          },
-          {
-            id: 'option-2',
-            label: 'Risky Option',
-            expected: 35,
-            outcome: { mean: 35, p10: 10, p50: 35, p90: 60 },
-            p10: 10,
-            p50: 35,
-            p90: 60,
-            isRecommended: false,
-            deltaFromBaseline: -15, // 35 - 50 = -15
-          },
-        ],
-        baselineId: 'option-1',
-        baselineOutcome: 50,
-        isSingleOption: false,
-      }
-
-      render(<RecommendationSection data={negativeData} />)
-
-      // Task 3 compact layout: delta shown as visible text when no probability available
-      expect(screen.getByText('-15% vs baseline')).toBeInTheDocument()
-    })
-
-    it('shows "Same as baseline" for zero delta (Issue #3 fix)', () => {
-      const zeroDeltaData: RecommendationSectionData = {
-        ...mockData,
-        allOptions: [
-          {
-            id: 'option-1',
-            label: 'Status Quo',
-            expected: 50,
-            outcome: { mean: 50, p10: 30, p50: 50, p90: 70 },
-            p10: 30,
-            p50: 50,
-            p90: 70,
-            isRecommended: true,
-            isBaseline: true,
-            deltaFromBaseline: null,
-          },
-          {
-            id: 'option-2',
-            label: 'Equal Option',
-            expected: 50, // Same as baseline
-            outcome: { mean: 50, p10: 25, p50: 50, p90: 75 },
-            p10: 25,
-            p50: 50,
-            p90: 75,
-            isRecommended: false,
-            deltaFromBaseline: 0, // 50 - 50 = 0
-          },
-        ],
-        baselineId: 'option-1',
-        baselineOutcome: 50,
-        isSingleOption: false,
-      }
-
-      render(<RecommendationSection data={zeroDeltaData} />)
-
-      // Task 3 compact layout: "Same as baseline" shown as visible text when no probability
-      expect(screen.getByText('Same as baseline')).toBeInTheDocument()
-    })
-
-    it('shows "Same as baseline" for near-zero delta (Bug 3 fix)', () => {
-      const nearZeroDeltaData: RecommendationSectionData = {
-        ...mockData,
-        allOptions: [
-          {
-            id: 'option-1',
-            label: 'Status Quo',
-            expected: 50,
-            outcome: { mean: 50, p10: 30, p50: 50, p90: 70 },
-            p10: 30,
-            p50: 50,
-            p90: 70,
-            isRecommended: true,
-            isBaseline: true,
-            deltaFromBaseline: null,
-          },
-          {
-            id: 'option-2',
-            label: 'Nearly Equal Option',
-            expected: 50.01, // Near-baseline
-            outcome: { mean: 50.01, p10: 25, p50: 50.01, p90: 75 },
-            p10: 25,
-            p50: 50.01,
-            p90: 75,
-            isRecommended: false,
-            deltaFromBaseline: 0.01, // Within epsilon (0.05)
-          },
-        ],
-        baselineId: 'option-1',
-        baselineOutcome: 50,
-        isSingleOption: false,
-      }
-
-      render(<RecommendationSection data={nearZeroDeltaData} />)
-
-      // Task 3 compact layout: "Same as baseline" shown as visible text when no probability
-      expect(screen.getByText('Same as baseline')).toBeInTheDocument()
-      // Should NOT show "+0.0" or similar
-      expect(screen.queryByText(/\+0\.0/)).not.toBeInTheDocument()
-      expect(screen.queryByText(/-0\.0/)).not.toBeInTheDocument()
-    })
-
-    it('shows negative near-zero delta as "Same as baseline" (Bug 3 fix)', () => {
-      const negativeNearZeroDeltaData: RecommendationSectionData = {
-        ...mockData,
-        allOptions: [
-          {
-            id: 'option-1',
-            label: 'Status Quo',
-            expected: 50,
-            outcome: { mean: 50, p10: 30, p50: 50, p90: 70 },
-            p10: 30,
-            p50: 50,
-            p90: 70,
-            isRecommended: true,
-            isBaseline: true,
-            deltaFromBaseline: null,
-          },
-          {
-            id: 'option-2',
-            label: 'Slightly Lower Option',
-            expected: 49.98,
-            outcome: { mean: 49.98, p10: 25, p50: 49.98, p90: 75 },
-            p10: 25,
-            p50: 49.98,
-            p90: 75,
-            isRecommended: false,
-            deltaFromBaseline: -0.02, // Within epsilon (0.05)
-          },
-        ],
-        baselineId: 'option-1',
-        baselineOutcome: 50,
-        isSingleOption: false,
-      }
-
-      render(<RecommendationSection data={negativeNearZeroDeltaData} />)
-
-      // Task 3 compact layout: "Same as baseline" shown as visible text when no probability
-      expect(screen.getByText('Same as baseline')).toBeInTheDocument()
-    })
-  })
+  // Baseline & Delta Display — removed with OptionRow cards (P2-2)
 
   // =========================================================================
   // Near-Tie Detection Tests
@@ -1597,72 +977,5 @@ describe('RecommendationSection', () => {
     })
   })
 
-  describe('Badge Threshold (2% boundary)', () => {
-    it('hides Strongest badge when win probability diff < 2% (close call)', () => {
-      const closeCallData: RecommendationSectionData = {
-        ...mockData,
-        recommendedOption: {
-          ...mockData.recommendedOption,
-          winProbability: 0.51, // 51%
-        },
-        allOptions: [
-          { ...mockData.allOptions[0], winProbability: 0.51 },
-          { ...mockData.allOptions[1], winProbability: 0.49 }, // diff = 2% exactly at boundary
-        ],
-      }
-
-      // At exactly 2% diff (0.02), isCloseCall = false (not < 0.02)
-      // But let's test < 2% first
-      const veryCloseData: RecommendationSectionData = {
-        ...closeCallData,
-        allOptions: [
-          { ...mockData.allOptions[0], winProbability: 0.505 },
-          { ...mockData.allOptions[1], winProbability: 0.495 }, // diff = 1%
-        ],
-      }
-
-      render(<RecommendationSection data={veryCloseData} />)
-
-      // diff = 1% < 2%, so isCloseCall = true, badge should be hidden
-      expect(screen.queryByText('Strongest')).not.toBeInTheDocument()
-    })
-
-    it('shows Strongest badge when win probability diff = 2% exactly', () => {
-      const boundaryData: RecommendationSectionData = {
-        ...mockData,
-        recommendedOption: {
-          ...mockData.recommendedOption,
-          winProbability: 0.51,
-        },
-        allOptions: [
-          { ...mockData.allOptions[0], winProbability: 0.51 },
-          { ...mockData.allOptions[1], winProbability: 0.49 }, // diff = 2% exactly
-        ],
-      }
-
-      render(<RecommendationSection data={boundaryData} />)
-
-      // diff = 2% (0.02), so 0.02 < 0.02 = false, isCloseCall = false, badge should show
-      expect(screen.getByText('Strongest')).toBeInTheDocument()
-    })
-
-    it('shows Strongest badge when win probability diff = 8.2% (Task 1 verify)', () => {
-      const clearWinnerData: RecommendationSectionData = {
-        ...mockData,
-        recommendedOption: {
-          ...mockData.recommendedOption,
-          winProbability: 0.541,
-        },
-        allOptions: [
-          { ...mockData.allOptions[0], winProbability: 0.541 },
-          { ...mockData.allOptions[1], winProbability: 0.459 }, // diff = 8.2%
-        ],
-      }
-
-      render(<RecommendationSection data={clearWinnerData} />)
-
-      // diff = 8.2% > 2%, badge should definitely show
-      expect(screen.getByText('Strongest')).toBeInTheDocument()
-    })
-  })
+  // Badge Threshold — removed with OptionRow cards (P2-2)
 })

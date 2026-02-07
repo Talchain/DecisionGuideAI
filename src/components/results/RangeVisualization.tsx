@@ -34,21 +34,26 @@ export interface RangeVisualizationProps {
   scenarioContexts?: string[]
 }
 
-/** Format threshold/tick value for display. */
+/** Format threshold/tick value for display in user units. Never show raw normalised 0-1 values. */
 function formatThreshold(
   value: number,
   unit?: OutcomeUnitType,
   symbol?: string
 ): string {
   if (unit === 'currency' && symbol) {
-    return `${symbol}${value.toLocaleString()}`
+    return `${symbol}${Math.round(value).toLocaleString()}`
   }
   if (unit === 'percent') {
     // Auto-detect probability form (0-2 range) vs percentage form
     const displayValue = Math.abs(value) <= 2 ? value * 100 : value
     return `${Math.round(displayValue)}%`
   }
-  return value.toLocaleString()
+  // Count or unknown: show with commas, smart rounding
+  if (Math.abs(value) >= 10) {
+    return Math.round(value).toLocaleString()
+  }
+  // Small values: 1 decimal for precision
+  return value.toFixed(1)
 }
 
 /**
@@ -223,7 +228,7 @@ export function RangeVisualization({
       {thresholdPct != null && thresholdPct >= 0 && thresholdPct <= 100 && (
         <div className="relative h-4">
           <div
-            className="absolute w-0 h-4 border-l border-dashed border-goal"
+            className="absolute w-0 h-4 border-l-2 border-dashed border-goal"
             style={{
               left: `${thresholdPct}%`,
               transform: 'translateX(-50%)',
@@ -241,10 +246,10 @@ export function RangeVisualization({
         </div>
       )}
 
-      {/* User units — axis tick labels */}
+      {/* User units — axis tick labels (no pre-rounding — formatThreshold handles display) */}
       <div className="flex justify-between text-[10px] text-text-light">
-        <span>{formatThreshold(Math.round(minValue), outcomeUnit, outcomeUnitSymbol)}</span>
-        <span>{formatThreshold(Math.round(maxValue), outcomeUnit, outcomeUnitSymbol)}</span>
+        <span>{formatThreshold(minValue, outcomeUnit, outcomeUnitSymbol)}</span>
+        <span>{formatThreshold(maxValue, outcomeUnit, outcomeUnitSymbol)}</span>
       </div>
 
       {/* Show more/less toggle */}
