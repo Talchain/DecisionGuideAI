@@ -373,7 +373,7 @@ describe('HeroSection', () => {
       // Expanded stability text
       expect(screen.getByText(/Result stays the same even if estimates are off/)).toBeInTheDocument()
       // Stability percentage explanation
-      expect(screen.getByText(/the recommendation held in 90% of those tests/)).toBeInTheDocument()
+      expect(screen.getByText(/the recommendation stayed the same in 90% of variations/)).toBeInTheDocument()
       // Technical detail is inside a nested <details>
       expect(screen.getByText('Technical detail')).toBeInTheDocument()
     })

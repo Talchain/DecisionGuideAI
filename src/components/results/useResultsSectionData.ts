@@ -762,6 +762,29 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     return { outcomeUnit: 'count' as const, outcomeUnitSymbol: undefined }
   }, [goalNode])
 
+  // P0-1: Extract denormalisation scale from goal node
+  // PLoT returns normalised effect sizes (0–1). goal_threshold_cap is the scale maximum in user units.
+  const goalThresholdCap = useMemo(() => {
+    const data = goalNode?.data as any
+    return typeof data?.goal_threshold_cap === 'number' ? data.goal_threshold_cap
+      : typeof data?.threshold_cap === 'number' ? data.threshold_cap
+      : typeof data?.scale_max === 'number' ? data.scale_max
+      : null
+  }, [goalNode])
+
+  // P1-2: Effective goal threshold — canvas store with goal node fallback
+  const effectiveGoalThreshold = useMemo(() => {
+    if (goalThreshold != null) return goalThreshold
+    const data = goalNode?.data as any
+    return data?.goal_threshold_raw
+      ?? data?.goal_threshold
+      ?? data?.observedState?.value
+      ?? data?.observed_state?.value
+      ?? data?.success_threshold
+      ?? data?.threshold
+      ?? null
+  }, [goalThreshold, goalNode])
+
   const nodeLabelMap = useMemo(() => {
     const map = new Map<string, string>()
     nodes.forEach((node) => {
@@ -835,6 +858,19 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       // This prevents scale mismatches when expected and p50 have different magnitudes
       const norm = normalizeOutcomeValues(rawP10, rawExpected, rawP50, rawP90)
 
+      // P0-1: Denormalise — convert effect sizes (0–1) to user units
+      // Guards: skip scaling when cap is invalid or values already appear denormalized
+      const capValid = goalThresholdCap != null && goalThresholdCap > 0
+      const maxRaw = Math.max(
+        Math.abs(norm.p90 ?? 0), Math.abs(norm.p10 ?? 0), Math.abs(norm.expected ?? 0)
+      )
+      const alreadyDenormalized = maxRaw > 2 // values > 2 are likely already in user units
+      const scale = capValid && !alreadyDenormalized ? goalThresholdCap : 1
+      const scaledP10 = norm.p10 != null ? norm.p10 * scale : null
+      const scaledExpected = norm.expected != null ? norm.expected * scale : null
+      const scaledP50 = norm.p50 != null ? norm.p50 * scale : null
+      const scaledP90 = norm.p90 != null ? norm.p90 * scale : null
+
       const goalProbability = typeof prob.goal_probability === 'number'
         ? prob.goal_probability
         : null
@@ -843,18 +879,18 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
         id: nodeId,
         label: (node.data as any)?.label || nodeId,
         // Explicit expected value (mean) — primary value for "Expected" display
-        expected: norm.expected,
+        expected: scaledExpected,
         // Full outcome distribution (mean = expected, for consistency)
         outcome: {
-          mean: norm.expected,
-          p10: norm.p10,
-          p50: norm.p50,  // True median
-          p90: norm.p90,
+          mean: scaledExpected,
+          p10: scaledP10,
+          p50: scaledP50,  // True median
+          p90: scaledP90,
         },
         // Deprecated fields for backward compatibility
-        p10: norm.p10,
-        p50: norm.p50,
-        p90: norm.p90,
+        p10: scaledP10,
+        p50: scaledP50,
+        p90: scaledP90,
         isRecommended: false, // Will be set immutably below
         winProbability: prob.win_probability,
         goalProbability,
@@ -999,7 +1035,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       // Issue 5 fix: Pass through unit for proper outcome formatting
       outcomeUnit,
       outcomeUnitSymbol,
-      goalThreshold,
+      goalThreshold: effectiveGoalThreshold,
       recommendationStability,
       // Task 1.3: Win probability for display
       winProbability,
@@ -1049,7 +1085,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
         return hasWarningCritiques || hasFragileEdges
       })(),
     }
-  }, [hasCompletedFirstRun, report, nodes, goalLabel, goalNodeId, outcomeUnit, outcomeUnitSymbol, currentScenarioFraming, m1Coaching, nodeLabelMap, goalThreshold])
+  }, [hasCompletedFirstRun, report, nodes, goalLabel, goalNodeId, outcomeUnit, outcomeUnitSymbol, currentScenarioFraming, m1Coaching, nodeLabelMap, goalThreshold, goalThresholdCap, effectiveGoalThreshold])
 
   // ==========================================================================
   // Drivers Section Data (with dynamic normalisation)
@@ -1760,7 +1796,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       uncertainties.push({
         code: 'SENSITIVE_ASSUMPTION',
         message: friendlyMessage,
-        suggestion: 'Validate this assumption',
+        suggestion: 'Review this assumption',
         affectedNodes: [fromId, toId].filter(Boolean),
         severity,
         threshold: fe.threshold ? {

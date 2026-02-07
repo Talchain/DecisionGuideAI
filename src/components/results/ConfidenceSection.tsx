@@ -163,8 +163,11 @@ function UncertaintyRow({
     ? `${truncate(stripEncodingNotation(edgeMatch[1].trim()), 25)} → ${truncate(stripEncodingNotation(edgeMatch[2].trim()), 25)}`
     : null
 
-  // Format compact consequence
-  const alternativeOption = item.threshold?.alternativeOption
+  // Format compact consequence (P0-4: clean encoding from alternativeOption)
+  const rawAlternativeOption = item.threshold?.alternativeOption
+  const alternativeOption = typeof rawAlternativeOption === 'string'
+    ? stripEncodingNotation(rawAlternativeOption)
+    : rawAlternativeOption
   const hasSpecificAlternative = typeof alternativeOption === 'string'
     && alternativeOption.trim().length > 0
     && alternativeOption !== 'another option'
@@ -219,19 +222,19 @@ function UncertaintyRow({
                   {severityConfig.label}
                 </span>
               )}
-              <p className={`text-sm ${severityConfig.textColor}`}>{item.message}</p>
+              <p className={`text-sm ${severityConfig.textColor}`}>{stripEncodingNotation(item.message)}</p>
               {/* Threshold details if available */}
               {item.threshold && (
                 <div className={`text-xs ${severityConfig.textColor} mt-1 opacity-90`}>
                   {item.threshold.variable && (
                     <p>
-                      If {item.threshold.variable}{' '}
+                      If {stripEncodingNotation(item.threshold.variable)}{' '}
                       {item.threshold.direction === 'positive' ? 'drops below' : 'rises above'}{' '}
                       {item.threshold.value}
                     </p>
                   )}
                   {item.threshold.alternativeOption && (
-                    <p>{item.threshold.alternativeOption} becomes the better choice</p>
+                    <p>{stripEncodingNotation(item.threshold.alternativeOption)} becomes the better choice</p>
                   )}
                 </div>
               )}

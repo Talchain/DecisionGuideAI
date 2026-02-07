@@ -382,10 +382,12 @@ export function HeroSection({
         text: `Options perform similarly — ${winnerLabel} wins slightly more often`,
         refs: [{ id: winnerId, label: winnerLabel }],
       })
-    } else if (winnerWinProbability != null && runnerUpWinProbability != null && runnerUpLabel) {
-      // Concrete win probability comparison with runner-up
+    } else if (winnerWinProbability != null && runnerUpLabel) {
+      // Concrete win probability comparison — complement fallback when runner-up wp missing
+      const rwp = runnerUpWinProbability ?? (optionCount === 2 ? 1 - winnerWinProbability : null)
+      const suffix = rwp != null ? ` vs ${formatPercent(rwp)} for ${runnerUpLabel}` : ` of simulations`
       bullets.push({
-        text: `Wins ${formatPercent(winnerWinProbability)} vs ${formatPercent(runnerUpWinProbability)} for ${runnerUpLabel}`,
+        text: `Wins ${formatPercent(winnerWinProbability)}${suffix}`,
         refs: [
           { id: winnerId, label: winnerLabel },
           ...(runnerUpId && runnerUpLabel ? [{ id: runnerUpId, label: runnerUpLabel }] : []),
@@ -562,7 +564,7 @@ export function HeroSection({
                 </p>
                 {stabilityPct != null && (
                   <p className={`${typography.caption} text-text-light`}>
-                    We tested what happens when each edge in your model is varied — the recommendation held in {stabilityPct}% of those tests.
+                    We varied each assumption in your model — the recommendation stayed the same in {stabilityPct}% of variations.
                   </p>
                 )}
               </div>

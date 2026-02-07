@@ -89,8 +89,8 @@ function FlipThresholdRow({
     : outcomeUnitSymbol
 
   // C4: Track domain
-  // flip_value: null → no track, just "Stable across full range"
-  if (flip_value == null) {
+  // flip_value: null or heuristic → no track, just "Stable across explored range"
+  if (flip_value == null || flip_reason === 'heuristic' || flip_reason === 'no_bracket') {
     return (
       <div className="space-y-1">
         <div className="flex items-center gap-2">
@@ -101,7 +101,7 @@ function FlipThresholdRow({
           />
         </div>
         <p className={`${typography.caption} text-text-light italic`}>
-          Stable across full range
+          Stable across explored range
         </p>
       </div>
     )
@@ -339,8 +339,11 @@ export function TippingPoints({
   outcomeUnit,
   outcomeUnitSymbol,
 }: TippingPointsProps) {
-  // Mode A: flip_thresholds present and non-empty
-  if (flipThresholds && flipThresholds.length > 0) {
+  // Mode A: flip_thresholds with at least one usable flip (non-null value, non-heuristic)
+  const hasUsableFlips = flipThresholds && flipThresholds.some(
+    ft => ft.flip_value !== null && ft.flip_reason !== 'heuristic'
+  )
+  if (hasUsableFlips) {
     return (
       <TippingPointsModeA
         flipThresholds={flipThresholds}

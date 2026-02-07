@@ -198,13 +198,6 @@ export function RecommendationSection({
         onAddBaseline={onAddBaseline}
       />
 
-      {/* P2 Task 3: Limited options coaching card (shows when <= 2 options AND baseline exists) */}
-      <LimitedOptionsCard
-        optionCount={optionCount}
-        hasBaseline={hasBaseline}
-        responseHash={responseHash}
-      />
-
       {/* Task 1.7: Goal context - displayed when present */}
       {goalText && (
         <div className={`${typography.body} text-text-body`}>
@@ -242,6 +235,13 @@ export function RecommendationSection({
         coachingReadiness={coachingReadiness}
         coachingReadinessScore={coachingReadinessScore}
         onFocusNode={onFocusNode}
+      />
+
+      {/* P2 Task 3: Limited options coaching card (moved below hero) */}
+      <LimitedOptionsCard
+        optionCount={optionCount}
+        hasBaseline={hasBaseline}
+        responseHash={responseHash}
       />
 
       {/* P3 Task 3: Range visualization - outcome distribution bars */}
