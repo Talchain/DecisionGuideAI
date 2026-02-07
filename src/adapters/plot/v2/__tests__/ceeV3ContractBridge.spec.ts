@@ -812,3 +812,210 @@ describe('CEE Option Status Normalisation', () => {
     expect(uiOptions[0].status).toBe('needs_user_mapping')
   })
 })
+
+// ============================================================================
+// Dual-Path goal_threshold_* Tests
+// ============================================================================
+
+describe('goal_threshold_* dual-path preservation', () => {
+  it('path 1: goal_threshold_* on node.data flows through transformNodeToV2 into request graph', () => {
+    // When CEE puts goal_threshold_* directly on the goal node,
+    // DraftChat spreads them into node.data, and transformNodeToV2
+    // passes them through via the blocklist approach.
+    const nodes: Node[] = [
+      makeNode('factor_price', { label: 'Price', kind: 'factor' }),
+      makeNode('goal_growth', {
+        label: 'Reach 800 Customers',
+        kind: 'goal',
+        goal_threshold: 0.8,
+        goal_threshold_raw: 800,
+        goal_threshold_unit: 'count',
+        goal_threshold_cap: 1000,
+      }),
+    ]
+    const edges: Edge[] = [
+      makeEdge('e1', 'factor_price', 'goal_growth', {
+        weight: 0.7,
+        direction: 'positive',
+        beliefExists: 0.8,
+      }),
+    ]
+    const analysisReady: CEEAnalysisReady = {
+      options: [makeCEEOptionV3('opt1', 'ready', { factor_price: { value: 100 } })],
+      goal_node_id: 'goal_growth',
+      // No goal_threshold_* on analysisReady — only on node
+    }
+
+    const { request } = buildV2RequestFromAnalysisReady(nodes, edges, analysisReady)
+
+    // goal_threshold_* should be present on the goal node in the graph
+    const goalNode = request.graph.nodes.find((n) => n.id === 'goal_growth')
+    expect(goalNode).toBeDefined()
+    expect(goalNode!.goal_threshold).toBe(0.8)
+    expect(goalNode!.goal_threshold_raw).toBe(800)
+    expect(goalNode!.goal_threshold_unit).toBe('count')
+    expect(goalNode!.goal_threshold_cap).toBe(1000)
+  })
+
+  it('path 2: goal_threshold_* on analysisReady flows through to top-level request fields', () => {
+    // When CEE puts goal_threshold_* on the analysis_ready payload,
+    // buildV2RequestFromAnalysisReady spreads them onto the request.
+    const nodes: Node[] = [
+      makeNode('factor_price', { label: 'Price', kind: 'factor' }),
+      makeNode('goal_growth', { label: 'Reach 800 Customers', kind: 'goal' }),
+    ]
+    const edges: Edge[] = [
+      makeEdge('e1', 'factor_price', 'goal_growth', {
+        weight: 0.7,
+        direction: 'positive',
+        beliefExists: 0.8,
+      }),
+    ]
+    const analysisReady: CEEAnalysisReady = {
+      options: [makeCEEOptionV3('opt1', 'ready', { factor_price: { value: 100 } })],
+      goal_node_id: 'goal_growth',
+      goal_threshold: 0.8,
+      goal_threshold_raw: 800,
+      goal_threshold_unit: 'count',
+      goal_threshold_cap: 1000,
+    }
+
+    const { request } = buildV2RequestFromAnalysisReady(nodes, edges, analysisReady)
+
+    // goal_threshold_* should be present as top-level request fields
+    expect(request.goal_threshold).toBe(0.8)
+    expect(request.goal_threshold_raw).toBe(800)
+    expect(request.goal_threshold_unit).toBe('count')
+    expect(request.goal_threshold_cap).toBe(1000)
+  })
+
+  it('both paths: node-level and analysisReady-level goal_threshold_* coexist', () => {
+    const nodes: Node[] = [
+      makeNode('factor_price', { label: 'Price', kind: 'factor' }),
+      makeNode('goal_growth', {
+        label: 'Reach 800 Customers',
+        kind: 'goal',
+        goal_threshold: 0.8,
+        goal_threshold_raw: 800,
+        goal_threshold_unit: 'count',
+        goal_threshold_cap: 1000,
+      }),
+    ]
+    const edges: Edge[] = [
+      makeEdge('e1', 'factor_price', 'goal_growth', {
+        weight: 0.7,
+        direction: 'positive',
+        beliefExists: 0.8,
+      }),
+    ]
+    const analysisReady: CEEAnalysisReady = {
+      options: [makeCEEOptionV3('opt1', 'ready', { factor_price: { value: 100 } })],
+      goal_node_id: 'goal_growth',
+      goal_threshold: 0.8,
+      goal_threshold_raw: 800,
+      goal_threshold_unit: 'count',
+      goal_threshold_cap: 1000,
+    }
+
+    const { request } = buildV2RequestFromAnalysisReady(nodes, edges, analysisReady)
+
+    // Node-level
+    const goalNode = request.graph.nodes.find((n) => n.id === 'goal_growth')
+    expect(goalNode!.goal_threshold_raw).toBe(800)
+
+    // Request-level
+    expect(request.goal_threshold_raw).toBe(800)
+    expect(request.goal_threshold_unit).toBe('count')
+    expect(request.goal_threshold_cap).toBe(1000)
+  })
+
+  it('precedence: analysisReady goal_threshold_raw wins over node-level at request top-level', () => {
+    // Node has stale/different values; analysisReady has the authoritative ones.
+    // Request top-level fields come from analysisReady, node-level fields come from node.data.
+    const nodes: Node[] = [
+      makeNode('factor_price', { label: 'Price', kind: 'factor' }),
+      makeNode('goal_growth', {
+        label: 'Reach 800 Customers',
+        kind: 'goal',
+        goal_threshold: 0.5,
+        goal_threshold_raw: 500,       // Stale node value
+        goal_threshold_unit: 'users',  // Stale node value
+        goal_threshold_cap: 2000,      // Stale node value
+      }),
+    ]
+    const edges: Edge[] = [
+      makeEdge('e1', 'factor_price', 'goal_growth', {
+        weight: 0.7,
+        direction: 'positive',
+        beliefExists: 0.8,
+      }),
+    ]
+    const analysisReady: CEEAnalysisReady = {
+      options: [makeCEEOptionV3('opt1', 'ready', { factor_price: { value: 100 } })],
+      goal_node_id: 'goal_growth',
+      goal_threshold: 0.8,
+      goal_threshold_raw: 800,        // Authoritative
+      goal_threshold_unit: 'count',   // Authoritative
+      goal_threshold_cap: 1000,       // Authoritative
+    }
+
+    const { request } = buildV2RequestFromAnalysisReady(nodes, edges, analysisReady)
+
+    // Request top-level: analysisReady wins
+    expect(request.goal_threshold).toBe(0.8)
+    expect(request.goal_threshold_raw).toBe(800)
+    expect(request.goal_threshold_unit).toBe('count')
+    expect(request.goal_threshold_cap).toBe(1000)
+
+    // Node-level in graph: still carries the node's own values
+    const goalNode = request.graph.nodes.find((n) => n.id === 'goal_growth')
+    expect(goalNode!.goal_threshold_raw).toBe(500)
+  })
+})
+
+// ============================================================================
+// V3 observed_state pass-through via analysisReady path
+// ============================================================================
+
+describe('V3 observed_state preservation via buildV2RequestFromAnalysisReady', () => {
+  it('V3 fields survive the full pipeline (canvas node → transformNodeToV2 → normaliseGraphIds → request)', () => {
+    const nodes: Node[] = [
+      makeNode('fac_investment', {
+        label: 'Investment',
+        kind: 'factor',
+        observedState: {
+          value: 0.2,
+          unit: '£',
+          source: 'cee_inference',
+          raw_value: 100000,
+          cap: 500000,
+          factor_type: 'cost',
+          uncertainty_drivers: ['Vendor quotes pending'],
+        },
+      }),
+      makeNode('goal_growth', { label: 'Growth', kind: 'outcome' }),
+    ]
+    const edges: Edge[] = [
+      makeEdge('e1', 'fac_investment', 'goal_growth', {
+        weight: 0.5,
+        direction: 'positive',
+        beliefExists: 0.7,
+      }),
+    ]
+    const analysisReady: CEEAnalysisReady = {
+      options: [makeCEEOptionV3('opt1', 'ready', { fac_investment: { value: 0.3 } })],
+      goal_node_id: 'goal_growth',
+    }
+
+    const { request } = buildV2RequestFromAnalysisReady(nodes, edges, analysisReady)
+
+    const facNode = request.graph.nodes.find((n) => n.id === 'fac_investment')
+    expect(facNode).toBeDefined()
+    expect(facNode!.observed_state).toBeDefined()
+    expect(facNode!.observed_state!.raw_value).toBe(100000)
+    expect(facNode!.observed_state!.cap).toBe(500000)
+    expect(facNode!.observed_state!.factor_type).toBe('cost')
+    expect(facNode!.observed_state!.source).toBe('cee_inference')
+    expect(facNode!.observed_state!.uncertainty_drivers).toEqual(['Vendor quotes pending'])
+  })
+})

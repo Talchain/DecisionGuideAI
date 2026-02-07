@@ -29,6 +29,11 @@ export interface RedactionOptions {
   safeKeys?: string[]
   /** Per-field array limits for diagnostic-critical fields */
   fieldArrayLimits?: Record<string, number>
+  /** Keys whose string values bypass maxStringLength (e.g., 'text' for llm_raw.text in debug).
+   *  Still subject to neverTruncateMaxLength as a safety cap. */
+  neverTruncateKeys?: string[]
+  /** Safety cap for neverTruncateKeys strings (default: 200_000 chars ~200KB). Prevents memory blowout. */
+  neverTruncateMaxLength?: number
 }
 
 const DEFAULT_OPTIONS: Required<RedactionOptions> = {
@@ -48,6 +53,8 @@ const DEFAULT_OPTIONS: Required<RedactionOptions> = {
     warnings: 30,
     errors: 30,
   },
+  neverTruncateKeys: [],
+  neverTruncateMaxLength: 200_000,
 }
 
 /** Maximum size for raw error data storage (50KB) */
@@ -112,10 +119,18 @@ function redactValue(
     return value
   }
 
-  // Strings - truncate if too long
+  // Strings - truncate if too long (unless key is exempt via neverTruncateKeys)
   if (typeof value === 'string') {
+    const isExempt = currentKey != null && opts.neverTruncateKeys.includes(currentKey)
+    if (isExempt) {
+      // Exempt keys bypass maxStringLength but still have a safety cap
+      if (value.length > opts.neverTruncateMaxLength) {
+        return `${value.slice(0, opts.neverTruncateMaxLength)}... [truncated_by: bundle_redaction_safety_cap, ${value.length} chars total]`
+      }
+      return value
+    }
     if (value.length > opts.maxStringLength) {
-      return `${value.slice(0, opts.maxStringLength)}... (truncated, ${value.length} chars total)`
+      return `${value.slice(0, opts.maxStringLength)}... [truncated_by: bundle_redaction, ${value.length} chars total]`
     }
     return value
   }

@@ -737,3 +737,190 @@ describe('Request Payload Validation - intervention flattening', () => {
     expect(Object.values(interventions).every((v) => typeof v === 'number')).toBe(true)
   })
 })
+
+// ============================================================================
+// V3 Field Pass-Through Tests (CEE → PLoT preservation)
+// ============================================================================
+
+describe('V3 observed_state field pass-through', () => {
+  it('preserves V3 fields (raw_value, cap, factor_type, uncertainty_drivers, extractionType)', () => {
+    const node = makeNode('fac_investment', {
+      label: 'Investment',
+      kind: 'factor',
+      observedState: {
+        value: 0.2,
+        unit: '£',
+        source: 'cee_inference',
+        raw_value: 100000,
+        cap: 500000,
+        extractionType: 'inferred',
+        factor_type: 'cost',
+        uncertainty_drivers: ['Final vendor quotes pending', 'Scope not fully defined'],
+      },
+    })
+
+    const v2Node = transformNodeToV2(node)
+
+    expect(v2Node.observed_state).toBeDefined()
+    expect(v2Node.observed_state!.value).toBe(0.2)
+    expect(v2Node.observed_state!.raw_value).toBe(100000)
+    expect(v2Node.observed_state!.cap).toBe(500000)
+    expect(v2Node.observed_state!.factor_type).toBe('cost')
+    expect(v2Node.observed_state!.extractionType).toBe('inferred')
+    expect(v2Node.observed_state!.uncertainty_drivers).toEqual([
+      'Final vendor quotes pending',
+      'Scope not fully defined',
+    ])
+  })
+
+  it('preserves CEE-provided source (does not overwrite)', () => {
+    const node = makeNode('fac_1', {
+      label: 'Factor 1',
+      kind: 'factor',
+      observedState: {
+        value: 0.5,
+        source: 'cee_inference',
+      },
+    })
+
+    const v2Node = transformNodeToV2(node)
+
+    expect(v2Node.observed_state!.source).toBe('cee_inference')
+  })
+
+  it('uses CEE-provided std when present (does not overwrite with computed)', () => {
+    const node = makeNode('fac_1', {
+      label: 'Factor 1',
+      kind: 'factor',
+      observedState: {
+        value: 100,
+        std: 5,
+        baseline: 90,
+      },
+    })
+
+    const v2Node = transformNodeToV2(node)
+
+    // std should be CEE's value (5), not the UI-computed value
+    expect(v2Node.observed_state!.std).toBe(5)
+  })
+
+  it('computes std only when CEE did not provide it', () => {
+    const node = makeNode('fac_1', {
+      label: 'Factor 1',
+      kind: 'factor',
+      observedState: {
+        value: 100,
+        baseline: 80,
+        // No std provided — UI should compute it
+      },
+    })
+
+    const v2Node = transformNodeToV2(node)
+
+    expect(v2Node.observed_state!.std).toBeGreaterThanOrEqual(STD_FLOOR)
+    // delta = |100-80| = 20, computed std = max(0.001, 20*0.25) = 5
+    expect(v2Node.observed_state!.std).toBe(5)
+  })
+})
+
+describe('V3 node-level field pass-through', () => {
+  it('preserves goal_threshold_* fields on goal nodes (node path)', () => {
+    const node = makeNode('goal_growth', {
+      label: 'Reach 800 Pro Customers',
+      kind: 'goal',
+      goal_threshold: 0.8,
+      goal_threshold_raw: 800,
+      goal_threshold_unit: 'count',
+      goal_threshold_cap: 1000,
+    })
+
+    const v2Node = transformNodeToV2(node)
+
+    expect(v2Node.goal_threshold).toBe(0.8)
+    expect(v2Node.goal_threshold_raw).toBe(800)
+    expect(v2Node.goal_threshold_unit).toBe('count')
+    expect(v2Node.goal_threshold_cap).toBe(1000)
+  })
+
+  it('preserves prior field on external factor nodes', () => {
+    const node = makeNode('fac_external', {
+      label: 'Market Conditions',
+      kind: 'factor',
+      category: 'external',
+      prior: 0.7,
+    })
+
+    const v2Node = transformNodeToV2(node)
+
+    expect(v2Node.prior).toBe(0.7)
+    expect(v2Node.category).toBe('external')
+  })
+
+  it('excludes React Flow internal fields from V2 output', () => {
+    const node = makeNode('n1', {
+      label: 'Test',
+      kind: 'factor',
+      // React Flow internals that must NOT leak into PLoT payload
+      selected: true,
+      dragging: false,
+      measured: { width: 200, height: 100 },
+    })
+
+    const v2Node = transformNodeToV2(node)
+
+    expect(v2Node).not.toHaveProperty('selected')
+    expect(v2Node).not.toHaveProperty('dragging')
+    expect(v2Node).not.toHaveProperty('measured')
+  })
+
+  it('excludes UI-only fields (uncertainty, interventions) from V2 output', () => {
+    const node = makeNode('opt1', {
+      label: 'Option A',
+      kind: 'option',
+      uncertainty: 0.3,
+      interventions: { factor_price: 100 },
+    })
+
+    const v2Node = transformNodeToV2(node)
+
+    expect(v2Node).not.toHaveProperty('uncertainty')
+    expect(v2Node).not.toHaveProperty('interventions')
+  })
+})
+
+// ============================================================================
+// observed_state vs observedState Naming Boundary Tests
+// ============================================================================
+
+describe('observed_state / observedState naming boundary', () => {
+  it('transformNodeToV2 outputs snake_case key (observed_state) for PLoT', () => {
+    const node = makeNode('fac_1', {
+      label: 'Factor',
+      kind: 'factor',
+      observedState: { value: 42 },  // camelCase input (canvas convention)
+    })
+
+    const v2Node = transformNodeToV2(node)
+
+    // PLoT payload must use snake_case
+    expect(v2Node).toHaveProperty('observed_state')
+    expect(v2Node).not.toHaveProperty('observedState')
+    expect(v2Node.observed_state!.value).toBe(42)
+  })
+
+  it('camelCase observedState on canvas node does not leak as-is into V2 output', () => {
+    const node = makeNode('fac_1', {
+      label: 'Factor',
+      kind: 'factor',
+      observedState: { value: 10, source: 'cee_inference' },
+    })
+
+    const v2Node = transformNodeToV2(node)
+
+    // observedState is in the blocklist — must not appear in output
+    expect(v2Node).not.toHaveProperty('observedState')
+    // But snake_case observed_state must be present
+    expect(v2Node.observed_state).toBeDefined()
+  })
+})

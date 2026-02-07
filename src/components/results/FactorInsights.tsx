@@ -16,6 +16,7 @@
 import { useState, useId } from 'react'
 import { ChevronRight, ChevronDown, Lightbulb } from 'lucide-react'
 import type { FactorEnrichment } from '../../lib/mappers/types'
+import { stripEncodingNotation } from './utils/cleanFactorLabel'
 
 interface FactorInsightsProps {
   enrichment: FactorEnrichment
@@ -82,7 +83,7 @@ export function FactorInsights({ enrichment }: FactorInsightsProps) {
               <div className="font-medium text-slate-500 mb-1">Observations</div>
               <ul className="list-disc list-inside space-y-0.5 pl-1">
                 {enrichment.observations.map((obs, idx) => (
-                  <li key={idx} className="leading-relaxed">{obs}</li>
+                  <li key={idx} className="leading-relaxed">{stripEncodingNotation(obs)}</li>
                 ))}
               </ul>
             </div>
@@ -94,7 +95,7 @@ export function FactorInsights({ enrichment }: FactorInsightsProps) {
               <div className="font-medium text-slate-500 mb-1">Perspectives</div>
               <ul className="list-disc list-inside space-y-0.5 pl-1">
                 {enrichment.perspectives.map((persp, idx) => (
-                  <li key={idx} className="leading-relaxed">{persp}</li>
+                  <li key={idx} className="leading-relaxed">{stripEncodingNotation(persp)}</li>
                 ))}
               </ul>
             </div>
@@ -104,7 +105,7 @@ export function FactorInsights({ enrichment }: FactorInsightsProps) {
           {hasConfidenceQuestion && (
             <div className="bg-info-50 border border-info-200 rounded-md p-2 flex items-start gap-2">
               <Lightbulb size={14} className="text-info-500 shrink-0 mt-0.5" />
-              <span className="leading-relaxed">{enrichment.confidence_question}</span>
+              <span className="leading-relaxed">{stripEncodingNotation(enrichment.confidence_question!)}</span>
             </div>
           )}
         </div>

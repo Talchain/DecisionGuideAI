@@ -554,7 +554,7 @@ export function HeroSection({
         {isExpanded && (
           <div
             id="hero-more-content"
-            className="mt-4 pt-4 border-t border-panel-border space-y-4"
+            className="mt-3 pt-3 space-y-4"
           >
             {/* Expanded stability explanation */}
             {stabilityTier.expandedText && (

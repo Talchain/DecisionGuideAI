@@ -299,6 +299,12 @@ export interface CEEAnalysisReady {
    * Priority: goal_threshold from CEE > goal node data > null
    */
   goal_threshold?: number | null
+  /** V3: Raw (un-normalised) goal threshold value (e.g. 800 customers) */
+  goal_threshold_raw?: number | null
+  /** V3: Unit for goal threshold (e.g. "count", "USD") */
+  goal_threshold_unit?: string | null
+  /** V3: Cap used to normalise the goal threshold (e.g. 1000) */
+  goal_threshold_cap?: number | null
   /**
    * Low-confidence edges that need user review.
    * Each entry contains edge_id and a user-facing prompt.

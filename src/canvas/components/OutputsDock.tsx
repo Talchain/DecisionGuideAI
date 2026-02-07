@@ -1232,7 +1232,7 @@ export function OutputsDock() {
                       topDrivers={resultsSectionData.drivers.topDrivers}
                       topFragileEdge={resultsSectionData.confidence.topFragileEdge}
                       nSamples={(report as any)?.summary?.n_samples_used ?? (report as any)?.meta?.n_samples}
-                      seedUsed={(report as any)?.meta?.seed_used}
+                      seedUsed={(report as any)?.meta?.seed}
                       fragileEdgeCount={(report as any)?.robustness?.fragile_edges?.length}
                       robustEdgeCount={(report as any)?.robustness?.robust_edges?.length}
                       // P2: New coaching card props

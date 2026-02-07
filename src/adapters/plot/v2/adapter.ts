@@ -18,6 +18,7 @@ import type {
   V2RunError,
   V2RunResult,
   V2Node,
+  V2ObservedState,
   V2Edge,
   V2Option,
 } from './types'
@@ -42,11 +43,22 @@ interface CanvasNodeData {
   description?: string
   value?: number
   baseline?: number
+  /**
+   * Observed state from CEE (camelCase in canvas, snake_case in CEE/PLoT).
+   * Includes V3 pass-through fields: raw_value, cap, factor_type, etc.
+   */
   observedState?: {
     value?: number
+    std?: number
     baseline?: number
     unit?: string
     source?: string
+    // V3 pass-through fields from CEE
+    raw_value?: number
+    cap?: number
+    factor_type?: string
+    uncertainty_drivers?: unknown[]
+    extractionType?: string
   }
   interventions?: Record<string, number | UIInterventionValue>
   /** CEE V12.4: Factor category for controllability display */
@@ -282,35 +294,43 @@ export function ceeOptionToV2Option(ceeOption: CEEOptionV3): V2Option {
 /**
  * Extract observed_state from various canvas node formats.
  * Follows the 8-level fallback chain documented in the brief.
+ *
+ * Naming convention: canvas nodes store `observedState` (camelCase);
+ * CEE/PLoT payloads use `observed_state` (snake_case). This function
+ * reads from camelCase and returns snake_case for the V2 request.
+ *
+ * V3 pass-through: spreads ALL CEE-provided fields (raw_value, cap,
+ * factor_type, uncertainty_drivers, extractionType) and only adds
+ * std/baseline when CEE hasn't provided them.
  */
-function extractObservedState(data: CanvasNodeData | undefined): V2Node['observed_state'] | undefined {
+function extractObservedState(data: CanvasNodeData | undefined): V2ObservedState | undefined {
   if (!data) return undefined
 
-  // Priority 1: observedState object
+  // Priority 1: observedState object (camelCase — mapped from CEE's snake_case in DraftChat)
   if (data.observedState && typeof data.observedState.value === 'number') {
     const value = data.observedState.value
     const baseline = data.observedState.baseline ?? value
     const delta = Math.abs(value - baseline)
-    const unit = data.observedState.unit
-    const source = data.observedState.source
 
     // Derive std from change magnitude (25% of delta), with floor and proportional ceiling
     // Ceiling scales with value (50% ratio) but has absolute max for safety
     const rawStd = delta > 0
       ? Math.max(STD_FLOOR, delta * 0.25)
       : Math.max(STD_FLOOR, Math.abs(value) * 0.01)
-    const std = Math.min(rawStd, Math.abs(value) * STD_CEILING_RATIO, STD_CEILING_ABS)
+    const computedStd = Math.min(rawStd, Math.abs(value) * STD_CEILING_RATIO, STD_CEILING_ABS)
 
+    // Spread ALL CEE fields, then overlay computed defaults.
+    // This preserves V3 fields: raw_value, cap, factor_type, uncertainty_drivers, extractionType.
+    // std and baseline use CEE's values when present; computed values are fallback only.
     return {
+      ...data.observedState,
       value,
-      std,
+      std: data.observedState.std ?? computedStd,
       baseline,
-      ...(unit ? { unit } : {}),
-      ...(source ? { source } : {}),
     }
   }
 
-  // Priority 2: value + baseline fields (also check for unit/source at top level)
+  // Priority 2: value + baseline fields (top-level on node data — legacy format, no V3 fields)
   if (typeof data.value === 'number') {
     const value = data.value
     const baseline = typeof data.baseline === 'number' ? data.baseline : value
@@ -340,7 +360,31 @@ function extractObservedState(data: CanvasNodeData | undefined): V2Node['observe
 const VALID_CATEGORIES = new Set(['controllable', 'observable', 'external'] as const)
 
 /**
+ * Fields to EXCLUDE from V2Node pass-through.
+ * React Flow internals and UI-only display fields that PLoT doesn't need.
+ */
+const V2_NODE_BLOCKLIST = new Set([
+  // React Flow internals (added to node.data by RF)
+  'selected', 'dragging', 'measured', 'resizing',
+  // Canvas UI-only / RF structural fields
+  'position', 'positionAbsolute', 'draggable', 'selectable',
+  'deletable', 'connectable', 'focusable', 'parentId', 'extent',
+  'expandParent', 'ariaLabel', 'zIndex', 'hidden',
+  // Fields handled explicitly below
+  'label', 'kind', 'type', 'observedState', 'category',
+  // Fields that are UI-only (not for PLoT)
+  'uncertainty', 'interventions',
+])
+
+/**
  * Transform canvas node to V2Node format.
+ *
+ * Uses a blocklist approach: all node.data fields pass through to PLoT
+ * EXCEPT React Flow internals and UI-only fields. This ensures V3 fields
+ * (goal_threshold_*, prior, etc.) survive without needing explicit forwarding.
+ *
+ * Naming convention: output uses snake_case (`observed_state`) for the
+ * PLoT/CEE payload contract.
  */
 export function transformNodeToV2(node: Node<CanvasNodeData>): V2Node {
   const data = node.data ?? {}
@@ -348,11 +392,20 @@ export function transformNodeToV2(node: Node<CanvasNodeData>): V2Node {
   // Only pass category if it's a valid value (guard against unexpected strings)
   const category = data.category && VALID_CATEGORIES.has(data.category) ? data.category : undefined
 
+  // Collect pass-through fields (everything not in blocklist)
+  const passThrough: Record<string, unknown> = {}
+  for (const [key, value] of Object.entries(data)) {
+    if (!V2_NODE_BLOCKLIST.has(key) && value !== undefined) {
+      passThrough[key] = value
+    }
+  }
+
   return {
-    id: node.id,
+    ...passThrough,                              // V3 fields pass through (goal_threshold_*, prior, etc.)
+    id: node.id,                                 // Override: always use node.id
     kind: data.kind ?? data.type ?? 'factor',
     label: data.label ?? node.id,
-    observed_state: extractObservedState(data),
+    observed_state: extractObservedState(data),   // snake_case for PLoT payload
     ...(category ? { category } : {}),
   }
 }
@@ -796,6 +849,11 @@ export function buildV2RequestFromAnalysisReady(
     ...(framing && { framing }),
     // Include brief for PLoT context
     ...(brief && { brief }),
+    // V3: Pass through goal threshold enrichment fields from analysisReady
+    ...(analysisReady.goal_threshold != null && { goal_threshold: analysisReady.goal_threshold }),
+    ...(analysisReady.goal_threshold_raw != null && { goal_threshold_raw: analysisReady.goal_threshold_raw }),
+    ...(analysisReady.goal_threshold_unit ? { goal_threshold_unit: analysisReady.goal_threshold_unit } : {}),
+    ...(analysisReady.goal_threshold_cap != null && { goal_threshold_cap: analysisReady.goal_threshold_cap }),
   }
 
   return { request, reverseIdMap: normalised.reverseIdMap }

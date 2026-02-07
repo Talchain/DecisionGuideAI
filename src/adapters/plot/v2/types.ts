@@ -19,20 +19,41 @@ import type {
 // ============================================================================
 
 /**
+ * Observed state for a V2 node.
+ *
+ * Convention: snake_case (`observed_state`) in CEE/PLoT payloads.
+ * Canvas nodes use camelCase (`observedState`) — see extractObservedState().
+ */
+export interface V2ObservedState {
+  value: number
+  std?: number
+  baseline?: number
+  unit?: string
+  source?: string
+  // V3 pass-through fields from CEE
+  raw_value?: number
+  cap?: number
+  factor_type?: string
+  uncertainty_drivers?: unknown[]
+  extractionType?: string
+}
+
+/**
  * V2 node in the request graph.
  */
 export interface V2Node {
   id: string
   kind: string
   label: string
-  observed_state?: {
-    value: number
-    std?: number
-    baseline?: number
-    unit?: string
-    source?: string
-  }
+  observed_state?: V2ObservedState
   category?: 'controllable' | 'observable' | 'external'
+  // V3 pass-through fields from CEE goal nodes
+  goal_threshold?: number
+  goal_threshold_raw?: number
+  goal_threshold_unit?: string
+  goal_threshold_cap?: number
+  // V3 pass-through for external factor nodes
+  prior?: number
 }
 
 /**
@@ -81,6 +102,12 @@ export interface V2RunRequest {
   request_id?: string
   /** Optional success threshold for probability_of_goal calculation */
   goal_threshold?: number
+  /** V3: Raw (un-normalised) goal threshold value from CEE */
+  goal_threshold_raw?: number
+  /** V3: Unit for goal threshold (e.g. "count", "USD") */
+  goal_threshold_unit?: string
+  /** V3: Cap used to normalise the goal threshold */
+  goal_threshold_cap?: number
   /**
    * User's decision framing for contextualised CEE responses.
    * When provided, CEE can generate more relevant headlines and guidance.

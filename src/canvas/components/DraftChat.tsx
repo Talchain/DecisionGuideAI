@@ -391,23 +391,28 @@ export function DraftChat() {
     // Note: n.type contains the node kind ("goal", "outcome", "factor", etc.)
     // from adaptDraftResponse() which maps kind → type
     // Use rawNodes which checks both draftData.nodes and draftData.graph.nodes
-    const nodes = rawNodes.map((n: any) => ({
-      id: n.id,
-      type: n.kind || n.type, // CEE uses 'kind', React Flow needs 'type'
-      position: { x: 0, y: 0 }, // Layout algorithm will position
-      data: {
-        label: n.label,
-        // P0: Copy kind to data.kind for GoalNodeSelector and other components
-        // that check n.data.kind (n.type contains the kind value from CEE)
-        kind: n.kind || n.type,
-        uncertainty: n.uncertainty,
-        description: n.description,
-        // Include observed_state for factor nodes (works for V2, V3, and future versions)
-        ...(n.observed_state ? { observedState: n.observed_state } : {}),
-        // CEE V12.4: Include category for factor controllability display
-        ...(n.category ? { category: n.category } : {}),
-      },
-    }))
+    // Naming convention: CEE returns snake_case (observed_state, goal_threshold_raw, etc.).
+    // Canvas nodes store camelCase (observedState) for React Flow convention.
+    // The V2 adapter's extractObservedState() converts back to snake_case for PLoT.
+    const nodes = rawNodes.map((n: any) => {
+      // Destructure fields handled structurally; spread the rest into data
+      // so V3 fields (goal_threshold_*, prior, category, etc.) are preserved.
+      const { id, kind, type: nodeType, label, observed_state, ...rest } = n
+      return {
+        id,
+        type: kind || nodeType, // CEE uses 'kind', React Flow needs 'type'
+        position: { x: 0, y: 0 }, // Layout algorithm will position
+        data: {
+          ...rest,                              // V3 pass-through: goal_threshold_*, prior, etc.
+          label,
+          // P0: Copy kind to data.kind for GoalNodeSelector and other components
+          // that check n.data.kind (n.type contains the kind value from CEE)
+          kind: kind || nodeType,
+          // observed_state (snake_case from CEE) → observedState (camelCase for canvas)
+          ...(observed_state ? { observedState: observed_state } : {}),
+        },
+      }
+    })
 
     // Check both locations: draftData.edges (v2/v3 root) or draftData.graph.edges (nested)
     const rawEdges = draftData?.edges ?? (draftData as any)?.graph?.edges ?? []

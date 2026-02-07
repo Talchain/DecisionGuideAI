@@ -701,6 +701,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     currentScenarioFraming,
     m1Coaching,
     goalThreshold,
+    ceeAnalysisReady,
   } = useCanvasStore(
     useShallow((s) => ({
       results: s.results,
@@ -711,6 +712,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       currentScenarioFraming: (s as any).currentScenarioFraming,
       m1Coaching: (s.runMeta as any)?.m1Coaching ?? null,
       goalThreshold: (s as any).goalThreshold,
+      ceeAnalysisReady: s.ceeAnalysisReady,
     }))
   )
 
@@ -762,19 +764,25 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     return { outcomeUnit: 'count' as const, outcomeUnitSymbol: undefined }
   }, [goalNode])
 
-  // P0-1: Extract denormalisation scale from goal node
+  // P0-1: Extract denormalisation scale from goal node OR ceeAnalysisReady
   // PLoT returns normalised effect sizes (0–1). goal_threshold_cap is the scale maximum in user units.
+  // Priority: ceeAnalysisReady (most reliable) > goal node data > null
   const goalThresholdCap = useMemo(() => {
+    // 1. CEE analysis_ready is the canonical source
+    if (typeof ceeAnalysisReady?.goal_threshold_cap === 'number') return ceeAnalysisReady.goal_threshold_cap
+    // 2. Goal node data (spread from CEE node via DraftChat)
     const data = goalNode?.data as any
-    return typeof data?.goal_threshold_cap === 'number' ? data.goal_threshold_cap
-      : typeof data?.threshold_cap === 'number' ? data.threshold_cap
-      : typeof data?.scale_max === 'number' ? data.scale_max
-      : null
-  }, [goalNode])
+    if (typeof data?.goal_threshold_cap === 'number') return data.goal_threshold_cap
+    if (typeof data?.threshold_cap === 'number') return data.threshold_cap
+    if (typeof data?.scale_max === 'number') return data.scale_max
+    return null
+  }, [goalNode, ceeAnalysisReady])
 
-  // P1-2: Effective goal threshold — canvas store with goal node fallback
+  // P1-2: Effective goal threshold — canvas store > ceeAnalysisReady > goal node fallback
   const effectiveGoalThreshold = useMemo(() => {
     if (goalThreshold != null) return goalThreshold
+    // CEE analysis_ready has goal_threshold_raw in user units
+    if (typeof ceeAnalysisReady?.goal_threshold_raw === 'number') return ceeAnalysisReady.goal_threshold_raw
     const data = goalNode?.data as any
     return data?.goal_threshold_raw
       ?? data?.goal_threshold
@@ -783,7 +791,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       ?? data?.success_threshold
       ?? data?.threshold
       ?? null
-  }, [goalThreshold, goalNode])
+  }, [goalThreshold, goalNode, ceeAnalysisReady])
 
   const nodeLabelMap = useMemo(() => {
     const map = new Map<string, string>()
@@ -860,6 +868,9 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
 
       // P0-1: Denormalise — convert effect sizes (0–1) to user units
       // Guards: skip scaling when cap is invalid or values already appear denormalized
+      if (import.meta.env.DEV && nodeId === optionNodes[0]?.id) {
+        console.log('[Results] Denorm trace:', { goalThresholdCap, rawP10, rawP50, rawP90, normP10: norm.p10, normP90: norm.p90 })
+      }
       const capValid = goalThresholdCap != null && goalThresholdCap > 0
       const maxRaw = Math.max(
         Math.abs(norm.p90 ?? 0), Math.abs(norm.p10 ?? 0), Math.abs(norm.expected ?? 0)
@@ -1085,7 +1096,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
         return hasWarningCritiques || hasFragileEdges
       })(),
     }
-  }, [hasCompletedFirstRun, report, nodes, goalLabel, goalNodeId, outcomeUnit, outcomeUnitSymbol, currentScenarioFraming, m1Coaching, nodeLabelMap, goalThreshold, goalThresholdCap, effectiveGoalThreshold])
+  }, [hasCompletedFirstRun, report, nodes, goalLabel, goalNodeId, outcomeUnit, outcomeUnitSymbol, currentScenarioFraming, m1Coaching, nodeLabelMap, goalThreshold, goalThresholdCap, effectiveGoalThreshold, ceeAnalysisReady])
 
   // ==========================================================================
   // Drivers Section Data (with dynamic normalisation)
