@@ -32,14 +32,25 @@ export interface RangeVisualizationProps {
   winnerP10?: number | null
   /** M2 override — rich scenario contexts */
   scenarioContexts?: string[]
+  /** v7: When true, values are normalised model scores — show "Relative score" not user units */
+  isNormalised?: boolean
 }
 
-/** Format threshold/tick value for display in user units. Never show raw normalised 0-1 values. */
-function formatThreshold(
+/**
+ * Format threshold/tick value for display.
+ * When isNormalised=true, shows value as 2dp relative score.
+ * Otherwise formats in user units (currency, percent, count).
+ */
+export function formatThreshold(
   value: number,
   unit?: OutcomeUnitType,
-  symbol?: string
+  symbol?: string,
+  isNormalised?: boolean
 ): string {
+  // v7: Normalised model scores — show as 2dp relative value, no unit label
+  if (isNormalised) {
+    return value.toFixed(2)
+  }
   if (unit === 'currency' && symbol) {
     return `${symbol}${Math.round(value).toLocaleString()}`
   }
@@ -68,6 +79,7 @@ function OptionRangeBar({
   goalThreshold,
   outcomeUnit,
   outcomeUnitSymbol,
+  isNormalised,
 }: {
   option: OptionResult
   isWinner: boolean
@@ -76,6 +88,7 @@ function OptionRangeBar({
   goalThreshold?: number | null
   outcomeUnit?: OutcomeUnitType
   outcomeUnitSymbol?: string
+  isNormalised?: boolean
 }) {
   const { p10, p50, p90 } = option.outcome || {}
 
@@ -110,11 +123,11 @@ function OptionRangeBar({
     <div className="space-y-1">
       {/* Option label + probability */}
       <div className="flex items-center justify-between">
-        <span className={`${typography.label} text-text-body truncate`}>
+        <span className={`${typography.panelHeader} text-text-body truncate`}>
           {stripEncodingNotation(option.label)}
         </span>
         {probabilityText && (
-          <span className={`${typography.caption} text-text-light ml-2 flex-shrink-0`}>
+          <span className={`${typography.panelBody} text-text-light ml-2 flex-shrink-0`}>
             {probabilityText}
           </span>
         )}
@@ -135,7 +148,7 @@ function OptionRangeBar({
         <div
           className={`absolute w-0.5 h-3 -top-0.5 ${markerColor} rounded-full`}
           style={{ left: `${p50Pct}%`, transform: 'translateX(-50%)' }}
-          title={`Median: ${formatThreshold(p50, outcomeUnit, outcomeUnitSymbol)}`}
+          title={`Median: ${formatThreshold(p50, outcomeUnit, outcomeUnitSymbol, isNormalised)}`}
         />
       </div>
     </div>
@@ -152,6 +165,7 @@ export function RangeVisualization({
   topDriverDirection,
   winnerP10,
   scenarioContexts,
+  isNormalised,
 }: RangeVisualizationProps) {
   const [showAll, setShowAll] = useState(false)
 
@@ -220,6 +234,7 @@ export function RangeVisualization({
             goalThreshold={goalThreshold}
             outcomeUnit={outcomeUnit}
             outcomeUnitSymbol={outcomeUnitSymbol}
+            isNormalised={isNormalised}
           />
         ))}
       </div>
@@ -235,28 +250,36 @@ export function RangeVisualization({
             }}
           />
           <span
-            className="absolute top-0 text-[10px] text-goal font-medium whitespace-nowrap"
+            className={`absolute top-0 ${typography.panelMeta} text-goal font-medium whitespace-nowrap`}
             style={{
               left: `${Math.max(5, Math.min(95, thresholdPct))}%`,
               transform: thresholdPct < 15 ? 'translateX(0)' : thresholdPct > 85 ? 'translateX(-100%)' : 'translateX(-50%)',
             }}
           >
-            Target: {formatThreshold(goalThreshold!, outcomeUnit, outcomeUnitSymbol)}
+            Target: {formatThreshold(goalThreshold!, outcomeUnit, outcomeUnitSymbol, isNormalised)}
           </span>
         </div>
       )}
 
-      {/* User units — axis tick labels (no pre-rounding — formatThreshold handles display) */}
-      <div className="flex justify-between text-[10px] text-text-light">
-        <span>{formatThreshold(minValue, outcomeUnit, outcomeUnitSymbol)}</span>
-        <span>{formatThreshold(maxValue, outcomeUnit, outcomeUnitSymbol)}</span>
+      {/* Axis tick labels — show "Relative score" label when normalised */}
+      <div className={`flex justify-between ${typography.panelMeta} text-text-light`}>
+        {isNormalised && (
+          <span
+            className="text-text-light italic"
+            title="This value is a relative model score, not in absolute units. Add a success target to see results in your goal's units."
+          >
+            Relative score:&nbsp;
+          </span>
+        )}
+        <span>{formatThreshold(minValue, outcomeUnit, outcomeUnitSymbol, isNormalised)}</span>
+        <span>{formatThreshold(maxValue, outcomeUnit, outcomeUnitSymbol, isNormalised)}</span>
       </div>
 
       {/* Show more/less toggle */}
       {hiddenCount > 0 && (
         <button
           onClick={() => setShowAll(!showAll)}
-          className="flex items-center gap-1 text-xs text-info hover:text-info-hover transition-colors"
+          className={`flex items-center gap-1 ${typography.panelBody} text-info hover:text-info-hover transition-colors`}
         >
           {showAll ? (
             <>
@@ -276,7 +299,7 @@ export function RangeVisualization({
       {(() => {
         if (scenarioContexts && scenarioContexts.length > 0) {
           return (
-            <p className={`${typography.label} text-text-light italic`}>
+            <p className={`${typography.panelBody} text-text-light italic`}>
               {scenarioContexts[0]}
             </p>
           )
@@ -291,11 +314,11 @@ export function RangeVisualization({
 
           // Format the p10 value if available, otherwise use generic text
           const boundText = winnerP10 != null
-            ? formatThreshold(winnerP10, outcomeUnit, outcomeUnitSymbol)
+            ? formatThreshold(winnerP10, outcomeUnit, outcomeUnitSymbol, isNormalised)
             : 'the pessimistic end'
 
           return (
-            <p className={`${typography.label} text-text-light italic`}>
+            <p className={`${typography.panelBody} text-text-light italic`}>
               If {cleanLabel} is {directionWord} than estimated, expect closer to {boundText}
             </p>
           )

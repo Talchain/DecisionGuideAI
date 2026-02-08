@@ -1,0 +1,103 @@
+{
+  "analysis_status": "computed",
+  "selected_option_id": "option-expand",
+  "option_probabilities": {
+    "option-expand": {
+      "expected_outcome": 0.52,
+      "win_probability": 0.51,
+      "outcome": {
+        "mean": 0.52,
+        "p10": 0.18,
+        "p50": 0.50,
+        "p90": 0.84
+      }
+    },
+    "option-consolidate": {
+      "expected_outcome": 0.48,
+      "win_probability": 0.49,
+      "outcome": {
+        "mean": 0.48,
+        "p10": 0.15,
+        "p50": 0.46,
+        "p90": 0.81
+      }
+    }
+  },
+  "robustness": {
+    "recommendation_stability": 0.51,
+    "level": "low",
+    "is_robust": false,
+    "recommended_option_id": "option-expand",
+    "fragile_edges": [
+      {
+        "from_id": "factor-demand",
+        "to_id": "goal-revenue",
+        "from_label": "Customer demand",
+        "to_label": "Revenue growth",
+        "flip_probability": 0.49,
+        "alternative_winner_label": "Consolidate",
+        "alternative_winner_id": "option-consolidate"
+      },
+      {
+        "from_id": "factor-competition",
+        "to_id": "goal-revenue",
+        "from_label": "Competitive pressure",
+        "to_label": "Revenue growth",
+        "flip_probability": 0.38,
+        "alternative_winner_label": "Consolidate",
+        "alternative_winner_id": "option-consolidate"
+      },
+      {
+        "from_id": "factor-team-capacity",
+        "to_id": "goal-revenue",
+        "from_label": "Team capacity",
+        "to_label": "Revenue growth",
+        "flip_probability": 0.25,
+        "alternative_winner_label": "Consolidate",
+        "alternative_winner_id": "option-consolidate"
+      }
+    ],
+    "robust_edges": []
+  },
+  "factor_sensitivity": [
+    {
+      "factor_id": "factor-demand",
+      "factor_label": "Customer demand",
+      "elasticity": 0.55,
+      "rank": 1,
+      "direction": "positive",
+      "confidence": 0.35
+    },
+    {
+      "factor_id": "factor-competition",
+      "factor_label": "Competitive pressure",
+      "elasticity": 0.32,
+      "rank": 2,
+      "direction": "negative",
+      "confidence": 0.48
+    },
+    {
+      "factor_id": "factor-team-capacity",
+      "factor_label": "Team capacity",
+      "elasticity": 0.13,
+      "rank": 3,
+      "direction": "positive",
+      "confidence": 0.62
+    }
+  ],
+  "meta": {
+    "seed": "782341",
+    "n_samples": 1000
+  },
+  "results": {
+    "likely": 0.52,
+    "unitSymbol": ""
+  },
+  "run": {
+    "bands": {
+      "p10": 0.18,
+      "p50": 0.50,
+      "p90": 0.84
+    }
+  }
+}

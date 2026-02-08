@@ -170,6 +170,7 @@ export function adaptDraftResponse(raw: any): CEEDraftResponse {
 
   const edges = rawEdges
     .map((e) => {
+      // --- Validate required from/to (drop edge if missing) ---
       const fromRaw = (e as any).from
       const toRaw = (e as any).to
       const from =
@@ -186,25 +187,34 @@ export function adaptDraftResponse(raw: any): CEEDraftResponse {
             : null
       if (!from || !to) return null
 
-      const idRaw = (e as any).id
-      const id = typeof idRaw === 'string' && idRaw.trim().length > 0 ? idRaw : undefined
+      // --- Spread-first: preserve all raw fields, then override transformed ones ---
+      // This ensures unknown/additive CEE edge fields (e.g. edge_type, label,
+      // future CIL additions) are not silently dropped.
+      const raw = e as Record<string, unknown>
 
-      const weightRaw = (e as any).weight
+      // Validate/coerce id
+      const idRaw = raw.id
+      const id = typeof idRaw === 'string' && (idRaw as string).trim().length > 0 ? idRaw : undefined
+
+      // Clamp weight to [0,1]
+      const weightRaw = raw.weight
       const weight =
         typeof weightRaw === 'number' ? Math.max(0, Math.min(1, weightRaw)) : undefined
 
-      const beliefRaw = (e as any).belief
+      // Clamp belief to [0,1]
+      const beliefRaw = raw.belief
       const belief =
         typeof beliefRaw === 'number' ? Math.max(0, Math.min(1, beliefRaw)) : undefined
 
-      const rawProv = (e as any).provenance
+      // Normalize provenance (object or string)
+      const rawProv = raw.provenance
       let provenance: CEEDraftResponse['edges'][number]['provenance']
       if (rawProv && typeof rawProv === 'object') {
-        const source = rawProv.source != null ? String(rawProv.source) : ''
-        const quote = rawProv.quote != null ? String(rawProv.quote) : ''
+        const source = (rawProv as any).source != null ? String((rawProv as any).source) : ''
+        const quote = (rawProv as any).quote != null ? String((rawProv as any).quote) : ''
         const location =
-          rawProv.location !== undefined && rawProv.location !== null
-            ? String(rawProv.location)
+          (rawProv as any).location !== undefined && (rawProv as any).location !== null
+            ? String((rawProv as any).location)
             : undefined
         if (source || quote || location) {
           provenance = { source, quote, ...(location ? { location } : {}) }
@@ -213,48 +223,50 @@ export function adaptDraftResponse(raw: any): CEEDraftResponse {
         provenance = rawProv
       }
 
-      const rawProvSource = (e as any).provenance_source
+      // Validate provenance_source against allowlist
+      const rawProvSource = raw.provenance_source
       const allowedSources: Array<CEEDraftResponse['edges'][number]['provenance_source']> = [
         'document',
         'metric',
         'hypothesis',
         'engine',
       ]
-      const provenance_source = allowedSources.includes(rawProvSource) ? rawProvSource : undefined
+      const provenance_source = allowedSources.includes(rawProvSource as any) ? rawProvSource : undefined
 
-      // P0-2: Preserve semantic fields for downstream adapters
-      // strength_mean: normalized from nested or flat structure
-      const strengthMeanRaw = (e as any).strength_mean ?? (e as any).strength?.mean
+      // P0-2: Normalize strength_mean from nested or flat structure
+      const strengthMeanRaw = raw.strength_mean ?? (raw.strength as any)?.mean
       const strength_mean = typeof strengthMeanRaw === 'number' ? strengthMeanRaw : undefined
 
-      // strength_std: normalized from nested or flat structure
-      const strengthStdRaw = (e as any).strength_std ?? (e as any).strength?.std
+      // P0-2: Normalize strength_std from nested or flat structure
+      const strengthStdRaw = raw.strength_std ?? (raw.strength as any)?.std
       const strength_std = typeof strengthStdRaw === 'number' && strengthStdRaw > 0 ? strengthStdRaw : undefined
 
-      // effect_direction: preserved as-is
-      const effectDirRaw = (e as any).effect_direction
+      // Validate effect_direction against known values
+      const effectDirRaw = raw.effect_direction
       const effect_direction = effectDirRaw === 'positive' || effectDirRaw === 'negative' ? effectDirRaw : undefined
 
       // P0 Fix: belief_exists - structural certainty (0-1), distinct from parametric belief
-      // CEE returns belief_exists separately from belief; canvas needs it for PLoT exists_probability
-      const beliefExistsRaw = (e as any).belief_exists
+      const beliefExistsRaw = raw.belief_exists
       const belief_exists =
         typeof beliefExistsRaw === 'number' ? Math.max(0, Math.min(1, beliefExistsRaw)) : undefined
 
+      // Build the result: spread raw first (preserves unknown fields),
+      // then override with validated/transformed values.
+      // Fields that fail validation are explicitly set to undefined
+      // to overwrite the invalid raw value from the spread.
       return {
-        ...(id && { id }),
-        from,
-        to,
-        ...(weight !== undefined && { weight }),
-        ...(belief !== undefined && { belief }),
-        ...(provenance !== undefined && { provenance }),
-        ...(provenance_source && { provenance_source }),
-        // P0-2: Include preserved semantic fields
-        ...(strength_mean !== undefined && { strength_mean }),
-        ...(strength_std !== undefined && { strength_std }),
-        ...(effect_direction !== undefined && { effect_direction }),
-        // P0 Fix: Include belief_exists for PLoT exists_probability
-        ...(belief_exists !== undefined && { belief_exists }),
+        ...raw,                                // spread-first: preserve unknown fields
+        id,                                    // coerced id (undefined if invalid)
+        from,                                  // coerced from
+        to,                                    // coerced to
+        weight,                                // clamped weight (undefined if non-numeric)
+        belief,                                // clamped belief (undefined if non-numeric)
+        provenance,                            // normalized provenance (undefined if absent)
+        provenance_source,                     // validated provenance_source (undefined if not in allowlist)
+        strength_mean,                         // normalized strength_mean (undefined if non-numeric)
+        strength_std,                          // normalized strength_std (undefined if non-numeric or ≤0)
+        effect_direction,                      // validated effect_direction (undefined if not positive/negative)
+        belief_exists,                         // clamped belief_exists (undefined if non-numeric)
       }
     })
     .filter((edge): edge is CEEDraftResponse['edges'][number] => edge !== null)

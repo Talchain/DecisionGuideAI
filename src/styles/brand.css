@@ -58,22 +58,29 @@
   /* Danger / Risk / Critical (Red) */
   --danger: #EA7B4B;
   --danger-light: #FFB393;
+  --danger-bg: #FFF5F0;
   /* Border: rgba(234, 123, 75, 0.3) */
 
   /* Success / Outcome / Positive (Green) */
   --success: #67C89E;
   --success-light: #B8E2D0;
+  --success-bg: #F0FAF5;
   /* Border: rgba(103, 200, 158, 0.3) */
 
   /* Info / Decision / Navigation (Blue) */
   --info: #63ADCF;
   --info-light: #BAD7E4;
+  --info-bg: #F0F7FB;
   /* Border: rgba(99, 173, 207, 0.3) */
 
   /* Warning (Orange) - Separate from Danger */
   --warning: #FFA656;
   --warning-light: #FCC798;
+  --warning-bg: #FFF8F0;
   /* Border: rgba(255, 166, 86, 0.3) */
+
+  /* Border emphasis (stronger than --border-default) */
+  --border-emphasis: #DDD4C4;
 
   /* ============================================
      NODE-SPECIFIC COLORS

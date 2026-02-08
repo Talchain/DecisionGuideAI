@@ -84,7 +84,7 @@ export function CappedList<T>({
   // Empty state
   if (processedItems.length === 0) {
     return (
-      <p className={`${typography.caption} text-ink-400 italic`}>
+      <p className={`${typography.panelBody} text-ink-400 italic`}>
         {emptyMessage}
       </p>
     )
@@ -101,7 +101,7 @@ export function CappedList<T>({
         <button
           type="button"
           onClick={() => setIsExpanded(!isExpanded)}
-          className={`${typography.caption} flex items-center gap-1 text-sky-600 hover:text-sky-700 transition-colors mt-2`}
+          className={`${typography.panelBody} flex items-center gap-1 text-sky-600 hover:text-sky-700 transition-colors mt-2`}
           aria-expanded={isExpanded}
           aria-label={expandButtonAriaLabel}
         >

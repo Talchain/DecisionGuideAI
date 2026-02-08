@@ -15,6 +15,7 @@
 
 import { useState, useId } from 'react'
 import { ChevronRight, ChevronDown, Lightbulb } from 'lucide-react'
+import { typography } from '../../styles/typography'
 import type { FactorEnrichment } from '../../lib/mappers/types'
 import { stripEncodingNotation } from './utils/cleanFactorLabel'
 
@@ -61,7 +62,7 @@ export function FactorInsights({ enrichment }: FactorInsightsProps) {
         onClick={() => setIsExpanded(!isExpanded)}
         aria-expanded={isExpanded}
         aria-controls={contentId}
-        className="flex items-center gap-1 text-xs text-slate-500 hover:text-slate-700 transition-colors w-full text-left"
+        className={`flex items-center gap-1 ${typography.panelBody} text-slate-500 hover:text-slate-700 transition-colors w-full text-left`}
       >
         {isExpanded ? (
           <ChevronDown size={14} className="shrink-0" />
@@ -75,7 +76,7 @@ export function FactorInsights({ enrichment }: FactorInsightsProps) {
       {isExpanded && (
         <div
           id={contentId}
-          className="mt-2 space-y-3 text-xs text-slate-600"
+          className={`mt-2 space-y-3 ${typography.panelBody} text-slate-600`}
         >
           {/* Observations */}
           {hasObservations && (

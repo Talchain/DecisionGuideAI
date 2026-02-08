@@ -16,7 +16,7 @@ import { useMemo } from 'react'
 import type { RecommendationSectionData, OutcomeUnitType, DriverItem, GoalConstraint } from './types'
 import { EMPTY_STATES } from './emptyStates'
 import { typography } from '../../styles/typography'
-import { HeroSection } from './HeroSection'
+import { HeroSection, type OptionWinShare } from './HeroSection'
 import { SuccessTarget } from './SuccessTarget'
 import { BaselineToggleCard } from './BaselineToggleCard'
 import { LimitedOptionsCard } from './LimitedOptionsCard'
@@ -66,6 +66,8 @@ interface RecommendationSectionProps {
   // C1: Baseline toggle — mutates draft only, no rerun
   /** Callback to add baseline to decision draft (does NOT trigger rerun) */
   onAddBaseline?: () => void
+  /** v7 layout: hide RangeVisualization + TippingPoints (rendered at OutputsDock level instead) */
+  hideRangeVisualization?: boolean
 }
 
 export function RecommendationSection({
@@ -85,6 +87,7 @@ export function RecommendationSection({
   isRunning = false,
   isThresholdFromBrief = false,
   onAddBaseline,
+  hideRangeVisualization = false,
 }: RecommendationSectionProps) {
   const {
     recommendedOption,
@@ -119,6 +122,8 @@ export function RecommendationSection({
     goalThreshold,
     // Task 6: Flip thresholds for tipping points
     flipThresholds,
+    // v7: Whether outcome values are normalised model scores
+    isNormalised,
   } = data
 
   // P1: Story headlines removed from option cards - banned language risk
@@ -128,11 +133,11 @@ export function RecommendationSection({
   if (analysisStatus === 'failed' || analysisStatus === 'blocked') {
     return (
       <div className="p-4 bg-danger-50 border border-danger-200 rounded-lg">
-        <div className={`flex items-center gap-2 ${typography.body} text-danger-800 font-medium mb-2`}>
+        <div className={`flex items-center gap-2 ${typography.panelBody} text-danger-800 font-medium mb-2`}>
           <span>Analysis could not complete</span>
         </div>
         {statusReason && (
-          <p className={`${typography.body} text-danger-700`}>{statusReason}</p>
+          <p className={`${typography.panelBody} text-danger-700`}>{statusReason}</p>
         )}
       </div>
     )
@@ -142,7 +147,7 @@ export function RecommendationSection({
   if (!recommendedOption) {
     return (
       <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg">
-        <p className={`${typography.body} text-text-body`}>
+        <p className={`${typography.panelBody} text-text-body`}>
           {EMPTY_STATES.recommendation}
         </p>
       </div>
@@ -168,6 +173,19 @@ export function RecommendationSection({
       probability: recommendedOption?.goalProbability ?? null,
     }]
   }, [goalThreshold, goalLabel, recommendedOption?.goalProbability])
+
+  // Build win shares for WinGauge
+  const optionWinShares = useMemo<OptionWinShare[]>(() => {
+    const shares = allOptions
+      .filter(o => typeof o.winProbability === 'number')
+      .map(o => ({
+        id: o.id,
+        label: o.label,
+        winProbability: o.winProbability!,
+        isWinner: o.isRecommended,
+      }))
+    return shares
+  }, [allOptions])
 
   // Compute runner-up for HeroSection (second-best option by rank)
   const runnerUp = useMemo(() => {
@@ -200,7 +218,7 @@ export function RecommendationSection({
 
       {/* Task 1.7: Goal context - displayed when present */}
       {goalText && (
-        <div className={`${typography.body} text-text-body`}>
+        <div className={`${typography.panelBody} text-text-body`}>
           <span className="font-medium">Goal:</span> {goalText}
         </div>
       )}
@@ -232,6 +250,11 @@ export function RecommendationSection({
         robustEdgeCount={robustEdgeCount}
         goalLabel={goalLabel}
         goalThreshold={goalThreshold}
+        expectedOutcome={expectedValue}
+        outcomeUnit={outcomeUnit}
+        outcomeUnitSymbol={outcomeUnitSymbol}
+        isNormalised={isNormalised}
+        optionWinShares={optionWinShares}
         coachingReadiness={coachingReadiness}
         coachingReadinessScore={coachingReadinessScore}
         onFocusNode={onFocusNode}
@@ -245,7 +268,8 @@ export function RecommendationSection({
       />
 
       {/* P3 Task 3: Range visualization - outcome distribution bars */}
-      {!isSingleOption && allOptions.length > 1 && (
+      {/* v7 layout: when hideRangeVisualization is true, these render at OutputsDock level */}
+      {!hideRangeVisualization && !isSingleOption && allOptions.length > 1 && (
         <RangeVisualization
           options={allOptions}
           goalThreshold={goalThreshold}
@@ -259,7 +283,7 @@ export function RecommendationSection({
       )}
 
       {/* Task 6: Tipping points — flip thresholds or driver strength fallback */}
-      {!isSingleOption && (
+      {!hideRangeVisualization && !isSingleOption && (
         <TippingPoints
           flipThresholds={flipThresholds}
           drivers={topDrivers}
@@ -271,7 +295,7 @@ export function RecommendationSection({
       {/* Single option CTA */}
       {isSingleOption && (
         <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg">
-          <p className={`${typography.body} text-text-body`}>
+          <p className={`${typography.panelBody} text-text-body`}>
             Add another option to compare alternatives.
           </p>
         </div>

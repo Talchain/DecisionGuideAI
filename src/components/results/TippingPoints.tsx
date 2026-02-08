@@ -97,10 +97,10 @@ function FlipThresholdRow({
           <GraphLink
             nodeId={node_id}
             label={stripEncodingNotation(label)}
-            className={typography.label}
+            className={typography.panelHeader}
           />
         </div>
-        <p className={`${typography.caption} text-text-light italic`}>
+        <p className={`${typography.panelBody} text-text-light italic`}>
           Stable across explored range
         </p>
       </div>
@@ -125,7 +125,7 @@ function FlipThresholdRow({
       <GraphLink
         nodeId={node_id}
         label={stripEncodingNotation(label)}
-        className={typography.label}
+        className={typography.panelHeader}
       />
 
       {/* Track with current (●) and flip (╳) markers */}
@@ -142,21 +142,21 @@ function FlipThresholdRow({
           style={{ left: `${flipPct}%`, transform: 'translateX(-50%)' }}
           title={`Flips at: ${formatOutcomeValue(flip_value, effectiveUnit, effectiveSymbol)}`}
         >
-          <span className="text-[8px] font-bold text-danger leading-none">╳</span>
+          <span className={`${typography.panelMeta} font-bold text-danger leading-none`}>╳</span>
         </div>
       </div>
 
       {/* Value labels and alternative winner */}
       <div className="flex items-center justify-between">
-        <span className={`${typography.caption} text-text-light tabular-nums`}>
+        <span className={`${typography.panelBody} text-text-light tabular-nums`}>
           {formatOutcomeValue(current_value, effectiveUnit, effectiveSymbol)}
         </span>
-        <span className={`${typography.caption} text-text-light tabular-nums`}>
+        <span className={`${typography.panelBody} text-text-light tabular-nums`}>
           {formatOutcomeValue(flip_value, effectiveUnit, effectiveSymbol)}
         </span>
       </div>
       {alternative_winner_label && (
-        <p className={`${typography.caption} text-danger`}>
+        <p className={`${typography.panelBody} text-danger`}>
           {stripEncodingNotation(alternative_winner_label)} becomes stronger
         </p>
       )}
@@ -191,10 +191,10 @@ function TippingPointsModeA({ flipThresholds, outcomeUnit, outcomeUnitSymbol }: 
     <div className="space-y-3 p-3 bg-panel border border-panel-border rounded-lg">
       {/* Header */}
       <div>
-        <h4 className={`${typography.label} text-text-header font-medium`}>
+        <h4 className={`${typography.panelHeader} text-text-header font-medium`}>
           Where the decision could flip
         </h4>
-        <p className={`${typography.caption} text-text-light`}>
+        <p className={`${typography.panelBody} text-text-light`}>
           How far each factor can move before the recommendation changes
         </p>
       </div>
@@ -215,7 +215,7 @@ function TippingPointsModeA({ flipThresholds, outcomeUnit, outcomeUnitSymbol }: 
       {hiddenCount > 0 && (
         <button
           onClick={() => setShowAll(!showAll)}
-          className="flex items-center gap-1 text-xs text-info hover:text-info-hover transition-colors"
+          className={`flex items-center gap-1 ${typography.panelBody} text-info hover:text-info-hover transition-colors`}
         >
           {showAll ? (
             <>
@@ -262,10 +262,10 @@ function TippingPointsModeB({ drivers }: TippingPointsModeBProps) {
     <div className="space-y-3 p-3 bg-panel border border-panel-border rounded-lg">
       {/* Header — C3: "Driver strength" */}
       <div>
-        <h4 className={`${typography.label} text-text-header font-medium`}>
+        <h4 className={`${typography.panelHeader} text-text-header font-medium`}>
           Driver strength
         </h4>
-        <p className={`${typography.caption} text-text-light`}>
+        <p className={`${typography.panelBody} text-text-light`}>
           Relative influence on the result
         </p>
       </div>
@@ -282,7 +282,7 @@ function TippingPointsModeB({ drivers }: TippingPointsModeBProps) {
               <GraphLink
                 nodeId={driver.matchedNodeId || driver.factorKey}
                 label={stripEncodingNotation(driver.factorLabel)}
-                className={typography.label}
+                className={typography.panelHeader}
               />
               <div className="relative h-1.5 bg-slate-100 rounded-full">
                 <div
@@ -299,7 +299,7 @@ function TippingPointsModeB({ drivers }: TippingPointsModeBProps) {
       {hiddenCount > 0 && (
         <button
           onClick={() => setShowAll(!showAll)}
-          className="flex items-center gap-1 text-xs text-info hover:text-info-hover transition-colors"
+          className={`flex items-center gap-1 ${typography.panelBody} text-info hover:text-info-hover transition-colors`}
         >
           {showAll ? (
             <>

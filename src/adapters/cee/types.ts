@@ -113,6 +113,8 @@ export interface CEEDraftResponse {
       | { source: string; quote: string; location?: string }
       | string
     provenance_source?: 'document' | 'metric' | 'hypothesis' | 'engine'
+    /** Allow passthrough of unknown/additive CEE edge fields */
+    [key: string]: unknown
   }>
   draft_warnings: {
     structural: CEEStructuralWarning[]

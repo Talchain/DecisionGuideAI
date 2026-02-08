@@ -419,6 +419,18 @@ export function DraftChat() {
     const edges = rawEdges.map((e: any, i: number) => {
       const id = typeof e.id === 'string' && e.id.trim().length > 0 ? e.id : `e-${i}`
 
+      // Destructure known structural fields; spread the rest so unknown/additive
+      // CEE edge fields (e.g. edge_type, label, future CIL additions) are preserved.
+      const {
+        id: _id, from: _from, to: _to,
+        weight: _weight, strength: _strength,
+        strength_mean: _strengthMean, strength_std: _strengthStd,
+        effect_direction: _effectDir,
+        belief: _belief, belief_exists: _beliefExists,
+        provenance: _provenance, provenance_source: _provSource,
+        ...edgeRest
+      } = e as Record<string, unknown>
+
       // Extract edge properties first (needed for signed weight calculation)
       const directionFromEdge: EffectDirection | undefined =
         e.effect_direction === 'positive' || e.effect_direction === 'negative'
@@ -533,6 +545,7 @@ export function DraftChat() {
         type: 'styled' as const,
         data: {
           ...DEFAULT_EDGE_DATA,
+          ...edgeRest,                             // spread-first: preserve unknown CEE edge fields
           weight,
           pathType: 'bezier' as const,
           confidence,

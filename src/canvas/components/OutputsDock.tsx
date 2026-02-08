@@ -79,12 +79,16 @@ import { focusNodeById, focusEdgeById } from '../utils/focusHelpers'
 import { buildFragileEdgeIdSet, buildRobustEdgeIdSet, getDisplayEdgeId } from '../utils/edgeIdentity'
 import { NON_EVIDENCE_PROVENANCE } from '../utils/evidenceCoverage'
 import { LensContainer } from './LensContainer'
-// Results Panel Redesign: New section components
+// Results Panel Redesign: v7 four-section layout components
 import { useResultsSectionData } from '../../components/results/useResultsSectionData'
 import { RecommendationSection } from '../../components/results/RecommendationSection'
 import { DriversSection } from '../../components/results/DriversSection'
+import type { TornadoRow } from '../../components/results/TornadoChart'
 import { ConfidenceSection } from '../../components/results/ConfidenceSection'
 import { Accordion } from '../../components/results/Accordion'
+import { SectionHeader } from '../../components/results/SectionHeader'
+import { RangeVisualization } from '../../components/results/RangeVisualization'
+import { TippingPoints } from '../../components/results/TippingPoints'
 import { useCanvasResultsSync } from '../../components/results/useCanvasResultsSync'
 import { executeAutoFix, determineFixType, type AutoFixParams } from '../utils/autoFix'
 import { getStrengthCorrections, type StrengthCorrection } from '../../adapters/plot/v2/adapter'
@@ -269,12 +273,49 @@ export function OutputsDock() {
   // Results Panel Redesign: Section data hook for RecommendationSection, DriversSection, ConfidenceSection
   const resultsSectionData = useResultsSectionData()
 
-  // Graph Interaction P1: Canvas → Results sync for DriversSection accordion
-  const [driversAccordionExpanded, setDriversAccordionExpanded] = useState(false)
+  // Tornado chart: Derive per-factor outcome bounds from driver influence and recommended option range.
+  // Each factor's contribution to the outcome swing is proportional to its normalised influence.
+  const tornadoData = useMemo<{ rows: TornadoRow[]; expectedOutcome: number | null }>(() => {
+    const rec = resultsSectionData?.recommendation
+    const drv = resultsSectionData?.drivers
+    if (!rec?.recommendedOption || !drv?.drivers?.length) {
+      return { rows: [], expectedOutcome: null }
+    }
+    const expected = rec.recommendedOption.expected
+    const p10 = rec.recommendedOption.outcome?.p10
+    const p90 = rec.recommendedOption.outcome?.p90
+    if (expected == null || p10 == null || p90 == null) {
+      return { rows: [], expectedOutcome: null }
+    }
+    const downRange = expected - p10  // distance from expected to pessimistic
+    const upRange = p90 - expected    // distance from expected to optimistic
+
+    // Build rows from top drivers, sorted by influence descending
+    const rows: TornadoRow[] = [...drv.drivers]
+      .filter(d => (d.influenceScore ?? d.normalisedInfluence) > 0.01)
+      .sort((a, b) => (b.influenceScore ?? b.normalisedInfluence) - (a.influenceScore ?? a.normalisedInfluence))
+      .slice(0, 5) // Cap at 5 rows for readability
+      .map(d => {
+        const influence = d.influenceScore ?? d.normalisedInfluence
+        return {
+          factorKey: d.factorKey,
+          label: d.factorLabel,
+          lowOutcome: expected - influence * downRange,
+          highOutcome: expected + influence * upRange,
+          canFocus: d.canFocus,
+          matchedNodeId: d.matchedNodeId,
+        }
+      })
+
+    return { rows, expectedOutcome: expected }
+  }, [resultsSectionData?.recommendation, resultsSectionData?.drivers])
+
+  // Graph Interaction P1: Canvas → Results sync for DriversSection
+  // v7 layout: Drivers are always visible (no accordion), so isAccordionExpanded is always true
   const { highlightedDriverId, registerDriverRef } = useCanvasResultsSync({
     drivers: resultsSectionData.drivers.drivers,
-    isAccordionExpanded: driversAccordionExpanded,
-    onExpandAccordion: () => setDriversAccordionExpanded(true),
+    isAccordionExpanded: true,
+    onExpandAccordion: () => { /* no-op: drivers always visible in v7 layout */ },
   })
 
   const isRunning = resultsStatus === 'preparing' || resultsStatus === 'connecting' || resultsStatus === 'streaming'
@@ -1047,41 +1088,7 @@ export function OutputsDock() {
                     </div>
                   )
                 })()}
-                {/* Post-run: Rerun analysis + Compare buttons row */}
-                {!isPreRun && (
-                  <div className="flex gap-2" data-testid="outputs-action-buttons">
-                    <button
-                      type="button"
-                      onClick={handleRunAnalysis}
-                      disabled={isRunning}
-                      className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg font-medium transition-colors ${
-                        isRunning
-                          ? 'bg-sand-200 text-ink-500 cursor-not-allowed'
-                          : 'bg-sky-500 text-white hover:bg-sky-600'
-                      }`}
-                      data-testid="outputs-rerun-button"
-                    >
-                      <RefreshCw className={`w-5 h-5 ${isRunning ? 'animate-spin' : ''}`} aria-hidden="true" />
-                      {isRunning ? 'Running...' : 'Rerun'}
-                    </button>
-                    {comparison.canCompare && (
-                      <button
-                        type="button"
-                        onClick={handleCompareNow}
-                        disabled={scenarioComparison.loading}
-                        className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg font-medium transition-colors ${
-                          scenarioComparison.loading
-                            ? 'bg-sand-200 text-ink-500 cursor-not-allowed'
-                            : 'bg-paper-50 text-sky-700 border border-sky-300 hover:bg-sky-50'
-                        }`}
-                        data-testid="outputs-compare-button"
-                      >
-                        <GitCompare className="w-5 h-5" aria-hidden="true" />
-                        {scenarioComparison.loading ? 'Comparing...' : 'Compare'}
-                      </button>
-                    )}
-                  </div>
-                )}
+                {/* v7: Rerun + Compare buttons moved to sticky footer below */}
                 {/* Pre-run state: Show consolidated guidance and Run button */}
                 {isPreRun && nodes.length > 0 && (
                   <div className="flex-1 min-h-0 flex flex-col" data-testid="outputs-pre-run">
@@ -1179,82 +1186,107 @@ export function OutputsDock() {
                     onDismiss={() => setDegradedBannerDismissed(true)}
                   />
                 )}
-                {/* OLD VerdictCard and DecisionSummary REMOVED - Replaced by RecommendationSection below */}
-
                 {/* ======================================================================
-                    Results Panel Redesign: Accordion Layout (Phase 3)
-                    Three collapsible sections: Analysis, Confidence, Next Steps
-                    "Coaching over gates" approach with semantic labels and dynamic normalisation
+                    Results Panel v7: Four-Section Flat Layout
+                    Sections: 1. Hero  2. Options comparison  3. Drivers  4. Strengthen
+                    18px gaps between sections, no accordion wrappers on Drivers.
+                    Legacy blocks (InsightsPanel, AdvancedSettings, variance warning) removed
+                    from Results tab — they are not in the v7 prototype.
                     ====================================================================== */}
                 {!isPreRun && hasInlineSummary && resultsSectionData && (
-                  <div className="space-y-2" data-testid="outputs-results-redesign">
-                    {/* ============================================================
-                        ANALYSIS SECTION (always visible — hero is the primary answer)
-                        Contents: Objective + Recommendation card
-                        ============================================================ */}
-                    {/* Objective */}
-                    <div className="mb-4">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <span className={`${typography.caption} text-text-light block`}>
-                            Your objective
-                          </span>
-                          <button
-                            onClick={() => {
-                              if (resultsSectionData.goalNodeId) {
-                                setHighlightedNodes([resultsSectionData.goalNodeId])
-                                focusNodeById(resultsSectionData.goalNodeId)
-                                setTimeout(() => setHighlightedNodes([]), 3000)
-                              }
-                            }}
-                            disabled={!resultsSectionData.goalNodeId}
-                            className={`${typography.body} font-medium mt-0.5 text-left block ${
-                              resultsSectionData.goalNodeId
-                                ? 'text-info hover:text-info-hover cursor-pointer'
-                                : 'text-text-header cursor-default'
-                            }`}
-                          >
-                            {resultsSectionData.goalLabel}
-                          </button>
-                        </div>
+                  <div className="flex flex-col gap-[18px]" data-testid="outputs-results-redesign">
+
+                    {/* ── SECTION 1: HERO ─────────────────────────────────────── */}
+                    {/* Objective label + HeroSection (headline, win gauge, bullets, stability) */}
+                    <div>
+                      {/* Objective */}
+                      <div className="mb-3">
+                        <span className={`${typography.panelMeta} text-text-light block`}>
+                          Your objective
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (resultsSectionData.goalNodeId) {
+                              setHighlightedNodes([resultsSectionData.goalNodeId])
+                              focusNodeById(resultsSectionData.goalNodeId)
+                              setTimeout(() => setHighlightedNodes([]), 3000)
+                            }
+                          }}
+                          disabled={!resultsSectionData.goalNodeId}
+                          className={`${typography.panelHeader} mt-0.5 text-left block ${
+                            resultsSectionData.goalNodeId
+                              ? 'text-info hover:text-info-hover cursor-pointer'
+                              : 'text-text-header cursor-default'
+                          }`}
+                        >
+                          {resultsSectionData.goalLabel}
+                        </button>
                       </div>
+
+                      {/* RecommendationSection renders Hero + coaching cards.
+                          RangeVisualization + TippingPoints are hidden here — rendered in Section 2 below. */}
+                      <RecommendationSection
+                        data={resultsSectionData.recommendation}
+                        onFocusNode={(nodeId) => {
+                          setHighlightedNodes([nodeId])
+                          focusNodeById(nodeId)
+                          setTimeout(() => setHighlightedNodes([]), 3000)
+                        }}
+                        onAddStatusQuoBaseline={addStatusQuoBaseline}
+                        topDrivers={resultsSectionData.drivers.topDrivers}
+                        topFragileEdge={resultsSectionData.confidence.topFragileEdge}
+                        nSamples={(report as any)?.summary?.n_samples_used ?? (report as any)?.meta?.n_samples}
+                        seedUsed={(report as any)?.meta?.seed}
+                        fragileEdgeCount={(report as any)?.robustness?.fragile_edges?.length}
+                        robustEdgeCount={(report as any)?.robustness?.robust_edges?.length}
+                        responseHash={results?.hash}
+                        onApplyThreshold={handleApplyThreshold}
+                        isRunning={isRunning}
+                        isThresholdFromBrief={preAnalysisReadiness.isThresholdAutoDerived}
+                        onAddBaseline={handleAddBaseline}
+                        hideRangeVisualization
+                      />
                     </div>
 
-                    {/* Recommendation */}
-                    <RecommendationSection
-                      data={resultsSectionData.recommendation}
-                      onFocusNode={(nodeId) => {
-                        setHighlightedNodes([nodeId])
-                        focusNodeById(nodeId)
-                        setTimeout(() => setHighlightedNodes([]), 3000)
-                      }}
-                      onAddStatusQuoBaseline={addStatusQuoBaseline}
-                      topDrivers={resultsSectionData.drivers.topDrivers}
-                      topFragileEdge={resultsSectionData.confidence.topFragileEdge}
-                      nSamples={(report as any)?.summary?.n_samples_used ?? (report as any)?.meta?.n_samples}
-                      seedUsed={(report as any)?.meta?.seed}
-                      fragileEdgeCount={(report as any)?.robustness?.fragile_edges?.length}
-                      robustEdgeCount={(report as any)?.robustness?.robust_edges?.length}
-                      // P2: New coaching card props
-                      responseHash={results?.hash}
-                      onApplyThreshold={handleApplyThreshold}
-                      isRunning={isRunning}
-                      isThresholdFromBrief={preAnalysisReadiness.isThresholdAutoDerived}
-                      onAddBaseline={handleAddBaseline}
-                    />
+                    {/* ── SECTION 2: OPTIONS COMPARISON ────────────────────────── */}
+                    {/* Standalone section with range bars — extracted from RecommendationSection */}
+                    {!resultsSectionData.recommendation.isSingleOption &&
+                     resultsSectionData.recommendation.allOptions.length > 1 && (
+                      <div>
+                        <SectionHeader
+                          title="How the options compare"
+                          testId="section-header-options"
+                        />
+                        <RangeVisualization
+                          options={resultsSectionData.recommendation.allOptions}
+                          goalThreshold={resultsSectionData.recommendation.goalThreshold}
+                          winnerId={resultsSectionData.recommendation.recommendedOption?.id}
+                          outcomeUnit={resultsSectionData.recommendation.outcomeUnit}
+                          outcomeUnitSymbol={resultsSectionData.recommendation.outcomeUnitSymbol}
+                          topDriverLabel={resultsSectionData.drivers.topDrivers?.[0]?.factorLabel}
+                          topDriverDirection={resultsSectionData.drivers.topDrivers?.[0]?.direction}
+                          winnerP10={resultsSectionData.recommendation.recommendedOption?.outcome?.p10 ?? null}
+                          isNormalised={resultsSectionData.recommendation.isNormalised}
+                        />
+                        {/* Tipping points below range bars */}
+                        <TippingPoints
+                          flipThresholds={resultsSectionData.recommendation.flipThresholds}
+                          drivers={resultsSectionData.drivers.topDrivers}
+                          outcomeUnit={resultsSectionData.recommendation.outcomeUnit}
+                          outcomeUnitSymbol={resultsSectionData.recommendation.outcomeUnitSymbol}
+                        />
+                      </div>
+                    )}
 
-                    {/* ============================================================
-                        CONFIDENCE ACCORDION (collapsed by default)
-                        Contents: Drivers (factor sensitivity) + tier badge
-                        Graph Interaction P1: Controlled expansion for Canvas → Results sync
-                        ============================================================ */}
-                    <Accordion
-                      title="What's influencing this"
-                      isExpanded={driversAccordionExpanded}
-                      onExpandChange={setDriversAccordionExpanded}
-                      testId="accordion-confidence"
-                      badgeCount={resultsSectionData.drivers.totalCount}
-                    >
+                    {/* ── SECTION 3: DRIVERS ──────────────────────────────────── */}
+                    {/* Always visible — no accordion wrapper. Driver cards + TornadoChart. */}
+                    <div>
+                      <SectionHeader
+                        title="What's driving this"
+                        count={resultsSectionData.drivers.totalCount}
+                        testId="section-header-drivers"
+                      />
                       <DriversSection
                         data={resultsSectionData.drivers}
                         onFocusNode={(nodeId) => {
@@ -1265,42 +1297,47 @@ export function OutputsDock() {
                         goalLabel={resultsSectionData.goalLabel}
                         highlightedDriverId={highlightedDriverId}
                         registerDriverRef={registerDriverRef}
+                        expectedOutcome={tornadoData.expectedOutcome}
+                        tornadoRows={tornadoData.rows}
+                        outcomeUnit={resultsSectionData.recommendation.outcomeUnit}
+                        outcomeUnitSymbol={resultsSectionData.recommendation.outcomeUnitSymbol}
+                        isNormalised={resultsSectionData.recommendation.isNormalised}
                       />
-                    </Accordion>
+                    </div>
 
-                    {/* ============================================================
-                        NEXT STEPS ACCORDION (collapsed by default)
-                        Contents: Uncertainties + improvements + filtered edges disclosure
-                        ============================================================ */}
-                    <Accordion
-                      title={
-                        resultsSectionData.confidence.assumptions?.length
-                          ? `What needs attention (${resultsSectionData.confidence.assumptions.length} assumptions)`
-                          : 'What needs attention'
-                      }
-                      defaultExpanded={false}
-                      testId="accordion-next-steps"
-                      badgeCount={
-                        resultsSectionData.confidence.uncertainties.length +
-                        resultsSectionData.confidence.improvements.length
-                      }
-                      badgeVariant={
-                        resultsSectionData.confidence.tier.tier === 'needs_work'
-                          ? 'critical'
-                          : resultsSectionData.confidence.tier.tier === 'fair'
-                          ? 'warning'
-                          : 'default'
-                      }
-                    >
-                      <ConfidenceSection
-                        data={resultsSectionData.confidence}
-                        onFocusNode={(nodeId) => {
-                          setHighlightedNodes([nodeId])
-                          focusNodeById(nodeId)
-                          setTimeout(() => setHighlightedNodes([]), 3000)
-                        }}
-                      />
-                    </Accordion>
+                    {/* ── SECTION 4: STRENGTHEN ────────────────────────────────── */}
+                    {/* Collapsible accordion — opens by default when stability < 0.55 */}
+                    <div>
+                      <Accordion
+                        title="Strengthen your analysis"
+                        defaultExpanded={
+                          (resultsSectionData.recommendation.recommendationStability ?? 1) < 0.55
+                        }
+                        testId="accordion-strengthen"
+                        badgeCount={
+                          resultsSectionData.confidence.uncertainties.length +
+                          resultsSectionData.confidence.improvements.length
+                        }
+                        badgeVariant={
+                          resultsSectionData.confidence.tier.tier === 'needs_work'
+                            ? 'critical'
+                            : resultsSectionData.confidence.tier.tier === 'fair'
+                            ? 'warning'
+                            : 'default'
+                        }
+                      >
+                        <ConfidenceSection
+                          data={resultsSectionData.confidence}
+                          onFocusNode={(nodeId) => {
+                            setHighlightedNodes([nodeId])
+                            focusNodeById(nodeId)
+                            setTimeout(() => setHighlightedNodes([]), 3000)
+                          }}
+                          topDriverLabel={resultsSectionData.drivers.topDrivers[0]?.factorLabel}
+                          topDriverId={resultsSectionData.drivers.topDrivers[0]?.factorKey}
+                        />
+                      </Accordion>
+                    </div>
 
                     {/* Adjustments Made: Show any strength corrections applied during this run */}
                     {(() => {
@@ -1321,53 +1358,9 @@ export function OutputsDock() {
                         </details>
                       )
                     })()}
-                  </div>
-                )}
 
-                {/* OLD Four-Panel Structure REMOVED - Replaced by Results Panel Redesign above */}
-
-                {/* Additional context - kept from original inline summary */}
-                {!isPreRun && hasInlineSummary && (
-                  <div className="space-y-4" data-testid="outputs-additional-context">
-                    {/* Variance Warning: Alert when outcome range is too narrow */}
-                    {graphHealth?.variance_status === 'limited' && (
-                      <div
-                        className="p-3 bg-sun-50 border border-sun-200 rounded-lg flex items-start gap-2"
-                        role="alert"
-                        aria-live="polite"
-                        data-testid="variance-warning-banner"
-                      >
-                        <AlertTriangle className="w-4 h-4 text-sun-600 flex-shrink-0 mt-0.5" aria-hidden="true" />
-                        <div>
-                          <p className={`${typography.bodySmall} font-medium text-sun-900`}>
-                            Limited outcome variance
-                          </p>
-                          <p className={`${typography.caption} text-sun-700 mt-0.5`}>
-                            Results show little spread between scenarios. Consider adding more factors or adjusting edge weights to explore uncertainty.
-                          </p>
-                        </div>
-                      </div>
-                    )}
-                    {/* Insights: interpretation of results ("what does this mean?") */}
-                    {/* P0.1: Pass driversInformative to gate driver-based insight generation */}
-                    {report?.insights && (
-                      <InsightsPanel
-                        insights={report.insights}
-                        outcomeValue={mostLikelyValue}
-                        baselineValue={baselineValue}
-                        goalDirection={goalDirection}
-                        topDrivers={topDrivers}
-                        driversInformative={driversGating.showDriverNarratives}
-                      />
-                    )}
-                    {/* OLD DecisionReviewPanel REMOVED - Now merged into ConfidenceSection above */}
-                  </div>
-                )}
-
-                {/* Advanced Settings - Risk Tolerance & Structural Uncertainty */}
-                {!isPreRun && (
-                  <div className="mt-4">
-                    <AdvancedSettingsPanel />
+                    {/* 56px spacer for sticky footer clearance */}
+                    <div style={{ height: 56 }} aria-hidden="true" />
                   </div>
                 )}
               </div>
@@ -1433,6 +1426,52 @@ export function OutputsDock() {
             >
               Dismiss
             </button>
+          </div>
+        )}
+
+        {/* ── v7 STICKY FOOTER: Rerun + Compare ──────────────────────────── */}
+        {/* Fixed to bottom of dock. Visible post-run only. */}
+        {state.isOpen && !isPreRun && (
+          <div
+            className="sticky bottom-0 z-10 flex gap-1.5 px-2 py-2 rounded-b-2xl"
+            style={{
+              background: 'var(--bg-panel)',
+              borderTop: '1px solid var(--border-default)',
+              boxShadow: '0 -2px 8px rgba(38,38,38,0.06)',
+            }}
+            data-testid="outputs-sticky-footer"
+          >
+            <button
+              type="button"
+              onClick={handleRunAnalysis}
+              disabled={isRunning}
+              className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-pill text-xs font-semibold transition-colors ${
+                isRunning
+                  ? 'bg-sand-200 text-text-light cursor-not-allowed'
+                  : 'text-text-header hover:opacity-90'
+              }`}
+              style={isRunning ? undefined : { backgroundColor: 'var(--goal)' }}
+              data-testid="outputs-rerun-button"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${isRunning ? 'animate-spin' : ''}`} aria-hidden="true" />
+              {isRunning ? 'Running...' : 'Rerun'}
+            </button>
+            {comparison.canCompare && (
+              <button
+                type="button"
+                onClick={handleCompareNow}
+                disabled={scenarioComparison.loading}
+                className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-pill text-xs font-semibold transition-colors border ${
+                  scenarioComparison.loading
+                    ? 'bg-sand-200 text-text-light border-sand-200 cursor-not-allowed'
+                    : 'bg-panel text-text-header border-panel-border hover:bg-panel-hover'
+                }`}
+                data-testid="outputs-compare-button"
+              >
+                <GitCompare className="w-3.5 h-3.5" aria-hidden="true" />
+                {scenarioComparison.loading ? 'Comparing...' : 'Compare'}
+              </button>
+            )}
           </div>
         )}
     </aside>

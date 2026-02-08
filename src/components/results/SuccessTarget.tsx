@@ -118,10 +118,10 @@ function TargetRow({
   return (
     <div className="flex items-center gap-2 min-h-[36px]">
       {/* Label + operator */}
-      <span className={`${typography.body} text-text-body`}>
+      <span className={`${typography.panelBody} text-text-body`}>
         {constraint.label}
       </span>
-      <span className={`${typography.body} text-text-light`}>
+      <span className={`${typography.panelBody} text-text-light`}>
         {operatorDisplay}
       </span>
 
@@ -136,7 +136,7 @@ function TargetRow({
             onKeyDown={handleKeyDown}
             onBlur={onRevert}
             disabled={isRunning}
-            className="w-[100px] px-2 py-1 text-sm border border-info rounded focus:outline-none focus:ring-2 focus:ring-info tabular-nums"
+            className={`w-[100px] px-2 py-1 ${typography.panelBody} border border-info rounded focus:outline-none focus:ring-2 focus:ring-info tabular-nums`}
             aria-label={`Edit ${constraint.label} value`}
           />
           {/* C7: Apply button for touch/mobile commit */}
@@ -166,7 +166,7 @@ function TargetRow({
           type="button"
           onClick={onStartEdit}
           disabled={isRunning}
-          className={`${typography.body} font-medium text-info hover:underline cursor-pointer tabular-nums disabled:opacity-50 disabled:cursor-not-allowed`}
+          className={`${typography.panelBody} font-medium text-info hover:underline cursor-pointer tabular-nums disabled:opacity-50 disabled:cursor-not-allowed`}
           aria-label={`Edit ${constraint.label} value: ${constraint.value}`}
         >
           {constraint.value}
@@ -177,7 +177,7 @@ function TargetRow({
       <span className="flex-1" />
 
       {/* Probability — right-aligned */}
-      <span className={`${typography.body} font-medium text-text-body tabular-nums flex-shrink-0`}>
+      <span className={`${typography.panelBody} font-medium text-text-body tabular-nums flex-shrink-0`}>
         {formatProbability(constraint.probability)}
       </span>
     </div>
@@ -243,20 +243,20 @@ export function SuccessTarget({
     return (
       <div className="p-3 bg-panel border border-panel-border rounded-lg" data-testid="success-target">
         <div className="flex items-center justify-between mb-2">
-          <span className={`${typography.label} text-text-header font-medium`}>
+          <span className={`${typography.panelHeader} text-text-header`}>
             {headerText}
           </span>
           <button
             type="button"
             disabled
-            className="flex items-center gap-1 text-xs text-text-light opacity-50 cursor-not-allowed"
+            className={`flex items-center gap-1 ${typography.panelBody} text-text-light opacity-50 cursor-not-allowed`}
             title="Coming soon"
           >
             <Plus className="w-3 h-3" />
             Add
           </button>
         </div>
-        <p className={`${typography.caption} text-text-light`}>
+        <p className={`${typography.panelBody} text-text-light`}>
           Set a success target to see how likely you are to achieve your goal
         </p>
       </div>
@@ -267,16 +267,16 @@ export function SuccessTarget({
     <div className="p-3 bg-panel border border-panel-border rounded-lg" data-testid="success-target">
       {/* Header */}
       <div className="flex items-center justify-between mb-2">
-        <span className={`${typography.label} text-text-header font-medium`}>
+        <span className={`${typography.panelHeader} text-text-header`}>
           {headerText}
           {isFromBrief && (
-            <span className={`${typography.caption} text-text-light font-normal ml-1`}>(from your brief)</span>
+            <span className={`${typography.panelBody} text-text-light font-normal ml-1`}>(from your brief)</span>
           )}
         </span>
         <button
           type="button"
           disabled
-          className="flex items-center gap-1 text-xs text-text-light opacity-50 cursor-not-allowed"
+          className={`flex items-center gap-1 ${typography.panelBody} text-text-light opacity-50 cursor-not-allowed`}
           title="Coming soon"
         >
           <Plus className="w-3 h-3" />
@@ -301,11 +301,11 @@ export function SuccessTarget({
         {/* Combined row (multi-target only) */}
         {showCombinedRow && (
           <div className="flex items-center gap-2 min-h-[36px] border-t border-panel-border pt-1 mt-1">
-            <span className={`${typography.body} text-text-body font-medium`}>
+            <span className={`${typography.panelBody} text-text-body font-medium`}>
               Combined
             </span>
             <span className="flex-1" />
-            <span className={`${typography.body} font-medium text-text-body tabular-nums flex-shrink-0`}>
+            <span className={`${typography.panelBody} font-medium text-text-body tabular-nums flex-shrink-0`}>
               {formatProbability(probabilityOfJointGoal)}
             </span>
           </div>
@@ -314,7 +314,7 @@ export function SuccessTarget({
 
       {/* C7: Edit mode hint */}
       {showEditHint && editingId != null && (
-        <p className={`${typography.caption} text-text-light mt-1`}>
+        <p className={`${typography.panelBody} text-text-light mt-1`}>
           Enter to apply · Esc to cancel
         </p>
       )}

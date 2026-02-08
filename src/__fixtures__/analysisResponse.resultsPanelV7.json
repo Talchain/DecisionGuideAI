@@ -1,0 +1,115 @@
+{
+  "analysis_status": "computed",
+  "selected_option_id": "option-build-in-house",
+  "option_probabilities": {
+    "option-build-in-house": {
+      "expected_outcome": 640,
+      "win_probability": 0.71,
+      "goal_probability": 0.64,
+      "outcome": {
+        "mean": 640,
+        "p10": 380,
+        "p50": 620,
+        "p90": 890
+      }
+    },
+    "option-outsource": {
+      "expected_outcome": 480,
+      "win_probability": 0.22,
+      "goal_probability": 0.31,
+      "outcome": {
+        "mean": 480,
+        "p10": 260,
+        "p50": 460,
+        "p90": 710
+      }
+    },
+    "option-hybrid": {
+      "expected_outcome": 410,
+      "win_probability": 0.07,
+      "goal_probability": 0.18,
+      "outcome": {
+        "mean": 410,
+        "p10": 190,
+        "p50": 390,
+        "p90": 640
+      }
+    }
+  },
+  "robustness": {
+    "recommendation_stability": 0.78,
+    "level": "moderate",
+    "is_robust": true,
+    "recommended_option_id": "option-build-in-house",
+    "fragile_edges": [
+      {
+        "from_id": "factor-tech-lead",
+        "to_id": "goal-customers",
+        "from_label": "Tech lead hired",
+        "to_label": "Customers acquired",
+        "flip_probability": 0.22,
+        "alternative_winner_label": "Outsource",
+        "alternative_winner_id": "option-outsource"
+      },
+      {
+        "from_id": "factor-market-timing",
+        "to_id": "goal-customers",
+        "from_label": "Market timing",
+        "to_label": "Customers acquired",
+        "flip_probability": 0.14,
+        "alternative_winner_label": "Outsource",
+        "alternative_winner_id": "option-outsource"
+      }
+    ],
+    "robust_edges": [
+      {
+        "from_id": "factor-budget",
+        "to_id": "goal-customers",
+        "from_label": "Budget available",
+        "to_label": "Customers acquired"
+      }
+    ]
+  },
+  "factor_sensitivity": [
+    {
+      "factor_id": "factor-tech-lead",
+      "factor_label": "Tech lead hired",
+      "elasticity": 0.42,
+      "rank": 1,
+      "direction": "positive",
+      "confidence": 0.55
+    },
+    {
+      "factor_id": "factor-market-timing",
+      "factor_label": "Market timing",
+      "elasticity": 0.31,
+      "rank": 2,
+      "direction": "positive",
+      "confidence": 0.72
+    },
+    {
+      "factor_id": "factor-budget",
+      "factor_label": "Budget available",
+      "elasticity": 0.18,
+      "rank": 3,
+      "direction": "positive",
+      "confidence": 0.88
+    }
+  ],
+  "meta": {
+    "seed": "301506",
+    "n_samples": 1000,
+    "goal_threshold_used": 800
+  },
+  "results": {
+    "likely": 640,
+    "unitSymbol": ""
+  },
+  "run": {
+    "bands": {
+      "p10": 380,
+      "p50": 620,
+      "p90": 890
+    }
+  }
+}

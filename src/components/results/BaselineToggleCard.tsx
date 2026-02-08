@@ -44,13 +44,13 @@ export function BaselineToggleCard({
       <AlertTriangle className="w-4 h-4 text-warning flex-shrink-0" aria-hidden="true" />
 
       {/* Message */}
-      <span className={`${typography.caption} text-text-body flex-1`}>
+      <span className={`${typography.panelBody} text-text-body flex-1`}>
         No baseline included
       </span>
 
       {/* [?] tooltip */}
       <span
-        className="w-5 h-5 flex items-center justify-center rounded-full text-[10px] text-text-light border border-panel-border cursor-help flex-shrink-0"
+        className={`w-5 h-5 flex items-center justify-center rounded-full ${typography.panelMeta} text-text-light border border-panel-border cursor-help flex-shrink-0`}
         title="A 'do nothing' option shows whether any option improves on your current position."
         aria-label="Why add a baseline?"
       >
@@ -61,7 +61,7 @@ export function BaselineToggleCard({
       <button
         onClick={handleAddBaseline}
         disabled={isRunning}
-        className="px-2 py-1 text-xs font-medium text-info hover:text-info-hover border border-info/30 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
+        className={`px-2 py-1 ${typography.panelBody} font-medium text-info hover:text-info-hover border border-info/30 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0`}
         type="button"
       >
         {isRunning ? 'Adding...' : 'Add baseline'}

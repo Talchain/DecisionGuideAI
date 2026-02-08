@@ -186,6 +186,11 @@ export interface RecommendationSectionData {
   dominantFactorLabel?: string
   /** Whether there are warnings/uncertainties that need attention (for Ready + warnings consistency) */
   hasWarnings?: boolean
+  /**
+   * v7: True when outcome values are normalised model scores (scale=1, no goalThresholdCap).
+   * When true, UI must label values as "Relative score" with tooltip, never as user units.
+   */
+  isNormalised?: boolean
 }
 
 // =============================================================================
@@ -283,6 +288,8 @@ export interface UncertaintyItem {
   affectedNodes?: string[]
   /** Severity level for visual styling - defaults to 'warning' if not specified */
   severity?: CritiqueSeverity
+  /** Factor confidence (0-1) for confidence pill display. Derived from edge exists_probability. */
+  factorConfidence?: number | null
   /** For sensitivity thresholds (when small changes flip the recommendation) */
   threshold?: {
     variable: string

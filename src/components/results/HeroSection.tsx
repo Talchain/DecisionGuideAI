@@ -43,6 +43,14 @@ interface StructuredHeadline {
   sub: string | null
 }
 
+/** Win probability per option for the win gauge */
+export interface OptionWinShare {
+  id: string
+  label: string
+  winProbability: number
+  isWinner: boolean
+}
+
 /** Props for HeroSection */
 export interface HeroSectionProps {
   winnerLabel: string
@@ -74,6 +82,16 @@ export interface HeroSectionProps {
   robustEdgeCount?: number
   goalLabel?: string
   goalThreshold?: number | null
+  /** Expected outcome value (mean) for context bullet 2 */
+  expectedOutcome?: number | null
+  /** Unit type for formatting expected outcome */
+  outcomeUnit?: 'currency' | 'percent' | 'count'
+  /** Symbol for currency display */
+  outcomeUnitSymbol?: string
+  /** v7: When true, values are normalised model scores */
+  isNormalised?: boolean
+  /** Win probabilities per option for win gauge */
+  optionWinShares?: OptionWinShare[]
   coachingReadiness?: 'ready' | 'close_call' | 'needs_evidence' | 'needs_framing'
   coachingReadinessScore?: number
   m2Headline?: string
@@ -142,9 +160,104 @@ function getStabilityTier(stability: number | undefined): {
   }
 }
 
+/** Format an outcome value in user units for display. */
+function formatOutcomeValue(
+  value: number,
+  unit?: 'currency' | 'percent' | 'count',
+  symbol?: string,
+): string {
+  if (unit === 'currency' && symbol) {
+    return `${symbol}${Math.round(value).toLocaleString()}`
+  }
+  if (unit === 'percent') {
+    const displayValue = Math.abs(value) <= 2 ? value * 100 : value
+    return `${Math.round(displayValue)}%`
+  }
+  if (Math.abs(value) >= 10) {
+    return `~${Math.round(value).toLocaleString()}`
+  }
+  return `~${value.toFixed(1)}`
+}
+
 // =============================================================================
 // Sub-Components
 // =============================================================================
+
+/** Win gauge colours — winner gets success, others rotate through palette */
+const WIN_GAUGE_COLORS = [
+  'var(--success)',       // Winner
+  'var(--info-light)',    // Runner-up
+  'var(--border-default)', // Third
+  'var(--warning-light)', // Fourth (rare)
+]
+
+/**
+ * WinGauge — stacked horizontal bar showing win probability per option.
+ * "Wins across variations" label, segmented bar, and legend.
+ */
+function WinGauge({
+  shares,
+}: {
+  shares: OptionWinShare[]
+}) {
+  if (shares.length === 0) return null
+
+  // Sort: winner first, then by win probability descending
+  const sorted = [...shares].sort((a, b) => {
+    if (a.isWinner && !b.isWinner) return -1
+    if (!a.isWinner && b.isWinner) return 1
+    return b.winProbability - a.winProbability
+  })
+
+  return (
+    <div className="mb-4" role="figure" aria-label="Win probability distribution across options">
+      <p className={`${typography.panelMeta} font-medium text-text-light mb-1`}>
+        Wins across variations
+      </p>
+      {/* Stacked bar — use clamped raw percentage for width to avoid rounding gaps */}
+      <div className="flex h-3 rounded-full overflow-hidden gap-0.5">
+        {sorted.map((share, i) => {
+          const clamped = Math.max(0, Math.min(1, share.winProbability))
+          const widthPct = clamped * 100
+          const displayPct = Math.round(widthPct)
+          if (displayPct <= 0) return null
+          return (
+            <div
+              key={share.id}
+              className="h-full rounded-full"
+              style={{
+                width: `${widthPct}%`,
+                backgroundColor: i === 0 ? WIN_GAUGE_COLORS[0] : WIN_GAUGE_COLORS[Math.min(i, WIN_GAUGE_COLORS.length - 1)],
+              }}
+              role="img"
+              aria-label={`${stripEncodingNotation(share.label)}: ${displayPct}%`}
+            />
+          )
+        })}
+      </div>
+      {/* Legend */}
+      <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1.5">
+        {sorted.map((share, i) => {
+          const pct = Math.round(Math.max(0, Math.min(1, share.winProbability)) * 100)
+          if (pct <= 0) return null
+          const color = i === 0 ? WIN_GAUGE_COLORS[0] : WIN_GAUGE_COLORS[Math.min(i, WIN_GAUGE_COLORS.length - 1)]
+          return (
+            <span
+              key={share.id}
+              className={`flex items-center gap-1.5 ${typography.panelMeta} ${share.isWinner ? 'text-text-header font-semibold' : 'text-text-light'}`}
+            >
+              <span
+                className="w-2 h-2 rounded-full flex-shrink-0"
+                style={{ backgroundColor: color }}
+              />
+              {stripEncodingNotation(share.label)} {pct}%
+            </span>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
 
 /**
  * GraphLink — Clickable element that focuses a node on the canvas.
@@ -306,6 +419,11 @@ export function HeroSection({
   robustEdgeCount,
   goalLabel,
   goalThreshold,
+  expectedOutcome,
+  outcomeUnit,
+  outcomeUnitSymbol,
+  isNormalised,
+  optionWinShares,
   coachingReadiness,
   coachingReadinessScore,
   m2Headline,
@@ -400,8 +518,24 @@ export function HeroSection({
       })
     }
 
-    // Bullet 2: Top drivers
-    if (topDrivers && topDrivers.length >= 2) {
+    // Bullet 2: Expected outcome value
+    // v7: When normalised, show "Relative score" instead of user-unit label
+    if (expectedOutcome != null) {
+      if (isNormalised) {
+        bullets.push({
+          text: `Relative score: ${expectedOutcome.toFixed(2)}`,
+        })
+      } else {
+        const formatted = formatOutcomeValue(expectedOutcome, outcomeUnit, outcomeUnitSymbol)
+        const unitLabel = goalLabel && goalLabel !== 'your goal'
+          ? goalLabel.toLowerCase()
+          : 'outcome'
+        bullets.push({
+          text: `Expected ${unitLabel}: ${formatted}`,
+        })
+      }
+    } else if (topDrivers && topDrivers.length >= 2) {
+      // Fallback: show drivers when no expected outcome available
       const cleanLabel1 = stripEncodingNotation(topDrivers[0].label)
       const cleanLabel2 = stripEncodingNotation(topDrivers[1].label)
       bullets.push({
@@ -454,6 +588,7 @@ export function HeroSection({
     winnerLabel, winnerId, runnerUpLabel, runnerUpId,
     winnerWinProbability, runnerUpWinProbability,
     topDrivers, topFragileEdge, recommendationStability,
+    expectedOutcome, outcomeUnit, outcomeUnitSymbol, goalLabel, isNormalised,
   ])
 
   const bullets = m2Bullets ?? m1Bullets
@@ -480,15 +615,20 @@ export function HeroSection({
       {/* Main hero card */}
       <div className="p-4 bg-panel border border-panel-border rounded-lg">
         {/* Headline — two-line */}
-        <h2 className={`${typography.h3} text-text-header`}>
+        <h2 className={`${typography.panelHeader} text-[15px] text-text-header`}>
           {headline.main}
         </h2>
         {headline.sub && (
-          <p className={`${typography.body} text-text-body mt-1 mb-3`}>
+          <p className={`${typography.panelBody} text-text-body mt-1 mb-3`}>
             {headline.sub}
           </p>
         )}
         {!headline.sub && <div className="mb-3" />}
+
+        {/* Win gauge — stacked bar showing win probability per option */}
+        {optionWinShares && optionWinShares.length > 1 && (
+          <WinGauge shares={optionWinShares} />
+        )}
 
         {/* 3 Bullets */}
         <ul className="space-y-2 mb-4">
@@ -498,9 +638,9 @@ export function HeroSection({
             return (
               <li
                 key={index}
-                className={`flex items-start gap-2 ${typography.body} text-text-body`}
+                className={`flex items-start gap-2 ${typography.panelBody} text-text-body`}
               >
-                <span className="text-text-light flex-shrink-0 mt-0.5">·</span>
+                <span className="w-1.5 h-1.5 rounded-full bg-text-light flex-shrink-0 mt-1.5" aria-hidden="true" />
                 <span className="flex-1 min-w-0">
                   {isRichText ? (
                     <RichTextRenderer
@@ -522,21 +662,28 @@ export function HeroSection({
         {/* Stability + More toggle */}
         <div className="border-t border-panel-border pt-3">
           <div className="flex items-center gap-3">
-            {stabilityTier.label && (
-              <span className={`${typography.caption} ${stabilityTier.colorClass} font-medium`}>
-                {stabilityTier.label}
-              </span>
-            )}
-            {stabilityTier.shortText && (
-              <span className={`${typography.caption} text-text-light`}>
-                {stabilityTier.shortText}
+            {(stabilityTier.label || stabilityTier.shortText) && (
+              <span className="inline-flex items-center gap-1.5 bg-sand-50 px-2 py-0.5 rounded-full">
+                {stabilityTier.label && (
+                  <span className={`${typography.panelMeta} ${stabilityTier.colorClass} font-medium`}>
+                    {stabilityTier.label}
+                  </span>
+                )}
+                {stabilityTier.label && stabilityTier.shortText && (
+                  <span className="text-text-light/40" aria-hidden="true">·</span>
+                )}
+                {stabilityTier.shortText && (
+                  <span className={`${typography.panelMeta} text-text-light`}>
+                    {stabilityTier.shortText}
+                  </span>
+                )}
               </span>
             )}
             <span className="flex-1" />
             <button
               type="button"
               onClick={() => setIsExpanded(!isExpanded)}
-              className={`flex items-center gap-1 ${typography.caption} text-info hover:text-info-hover flex-shrink-0`}
+              className={`flex items-center gap-1 ${typography.panelBody} text-info hover:text-info-hover flex-shrink-0`}
               aria-expanded={isExpanded}
               aria-controls="hero-more-content"
             >
@@ -559,11 +706,11 @@ export function HeroSection({
             {/* Expanded stability explanation */}
             {stabilityTier.expandedText && (
               <div className="space-y-2">
-                <p className={`${typography.body} text-text-body`}>
+                <p className={`${typography.panelBody} text-text-body`}>
                   {stabilityTier.expandedText}
                 </p>
                 {stabilityPct != null && (
-                  <p className={`${typography.caption} text-text-light`}>
+                  <p className={`${typography.panelMeta} text-text-light`}>
                     We varied each assumption in your model — the recommendation stayed the same in {stabilityPct}% of variations.
                   </p>
                 )}
@@ -573,7 +720,7 @@ export function HeroSection({
             {/* Tier-gated coaching (only when stability < 0.85) */}
             {stabilityTier.coaching && (
               <div className="p-3 bg-info-light border border-info/30 rounded-lg">
-                <p className={`${typography.caption} text-text-body`}>
+                <p className={`${typography.panelBody} text-text-body`}>
                   {stabilityTier.coaching}
                 </p>
               </div>
@@ -582,7 +729,7 @@ export function HeroSection({
             {/* M2 coaching paragraph */}
             {hasM2Coaching && (
               <div className="space-y-2">
-                <p className={`${typography.body} text-text-body`}>
+                <p className={`${typography.panelBody} text-text-body`}>
                   <RichTextRenderer
                     content={m2CoachingParagraph!}
                     onFocusNode={onFocusNode}
@@ -594,7 +741,7 @@ export function HeroSection({
             {/* M2 bias insights */}
             {hasBiasInsights && (
               <div className="space-y-2">
-                <h4 className={`${typography.label} text-text-header`}>
+                <h4 className={`${typography.panelHeader} text-text-header`}>
                   Questions to consider
                 </h4>
                 <ul className="space-y-2">
@@ -603,7 +750,7 @@ export function HeroSection({
                       key={i}
                       className="p-3 bg-info-light border border-info/30 rounded-lg"
                     >
-                      <p className={`${typography.body} text-text-body`}>
+                      <p className={`${typography.panelBody} text-text-body`}>
                         {insight}
                       </p>
                     </li>
@@ -614,10 +761,10 @@ export function HeroSection({
 
             {/* Nested technical detail — P1-3: Olumi styled */}
             <details className="group bg-panel border border-panel-border rounded-xl">
-              <summary className={`px-4 py-3 ${typography.label} text-text-body font-medium cursor-pointer hover:text-text-header select-none`}>
+              <summary className={`px-4 py-3 ${typography.panelHeader} text-text-body cursor-pointer hover:text-text-header select-none`}>
                 Technical detail
               </summary>
-              <dl className={`px-4 pb-3 grid grid-cols-2 gap-x-4 gap-y-1 ${typography.caption}`}>
+              <dl className={`px-4 pb-3 grid grid-cols-2 gap-x-4 gap-y-1 ${typography.panelMeta}`}>
                 {recommendationStability != null && (
                   <>
                     <dt className="text-text-light">Stability</dt>

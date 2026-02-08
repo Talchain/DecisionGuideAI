@@ -123,13 +123,13 @@ export function Accordion({
           />
           <h3
             id={headingId}
-            className={`${typography.label} font-medium text-ink-800`}
+            className={`${typography.panelHeader} font-medium text-ink-800`}
           >
             {title}
           </h3>
           {badgeCount !== undefined && badgeCount > 0 && (
             <span
-              className={`${typography.caption} px-1.5 py-0.5 rounded-full ${badgeVariants[badgeVariant]}`}
+              className={`${typography.panelMeta} px-1.5 py-0.5 rounded-full ${badgeVariants[badgeVariant]}`}
             >
               {badgeCount}
             </span>

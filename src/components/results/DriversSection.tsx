@@ -20,6 +20,8 @@ import { EMPTY_STATES } from './emptyStates'
 import { formatFlipRiskMessage } from './utils/formatScenarioRatio'
 import { FactorInsights, hasEnrichmentContent } from './FactorInsights'
 import { cleanFactorLabel, stripEncodingNotation } from './utils/cleanFactorLabel'
+import { TornadoChart, type TornadoRow } from './TornadoChart'
+import { typography } from '../../styles/typography'
 import { Info, AlertTriangle } from 'lucide-react'
 
 interface DriversSectionProps {
@@ -32,14 +34,24 @@ interface DriversSectionProps {
   highlightedDriverId?: string | null
   /** Graph Interaction P1: Ref callback to register driver row elements for scroll sync */
   registerDriverRef?: (factorKey: string, element: HTMLDivElement | null) => void
+  /** Tornado chart: expected outcome (mean) for centre line */
+  expectedOutcome?: number | null
+  /** Tornado chart: p10/p90 outcome bounds per factor */
+  tornadoRows?: TornadoRow[]
+  /** Tornado chart: outcome unit type */
+  outcomeUnit?: 'currency' | 'percent' | 'count'
+  /** Tornado chart: outcome unit symbol */
+  outcomeUnitSymbol?: string
+  /** v7: When true, values are normalised model scores */
+  isNormalised?: boolean
 }
 
-// Bar colors (hex values as specified)
+// Bar colors — use design system tokens, no hex literals
 const BAR_COLORS = {
-  green: '#10B981',   // Positive direction
-  orange: '#F97316',  // Negative direction
-  blue: '#3B82F6',    // Confidence (always)
-  neutral: '#94A3B8', // slate-400, for unknown direction (Fix 4)
+  green: 'var(--success)',    // Positive direction
+  orange: 'var(--danger)',    // Negative direction
+  blue: 'var(--info)',        // Confidence (always)
+  neutral: 'var(--text-light)', // Unknown direction
 }
 
 // Grid columns constant - shared between header and rows to avoid alignment drift
@@ -153,7 +165,7 @@ function FactorTooltip({
     <div
       ref={tooltipRef}
       id={id}
-      className="absolute z-50 left-0 right-0 mt-1 p-3 bg-white border border-slate-200 rounded-lg shadow-lg text-xs text-slate-600 space-y-1.5"
+      className={`absolute z-50 left-0 right-0 mt-1 p-3 bg-white border border-slate-200 rounded-lg shadow-lg ${typography.panelBody} text-slate-600 space-y-1.5`}
       role="tooltip"
     >
       {content}
@@ -191,7 +203,7 @@ function ProgressBar({
           style={{ width: `${percent}%`, backgroundColor: BAR_COLORS[color] }}
         />
       </div>
-      <span className="text-xs font-mono text-slate-600 w-9 text-right">
+      <span className={`${typography.panelBody} font-mono text-slate-600 w-9 text-right`}>
         {percent}%
       </span>
     </div>
@@ -272,20 +284,20 @@ function ExpandedDetails({
   const showQualityHint = typeof driver.valueOfInformation === 'number' && driver.valueOfInformation > 0.05
 
   return (
-    <div className="px-4 pb-3 pt-1 border-t border-slate-100 bg-slate-50/50 text-xs text-slate-600 space-y-1.5">
+    <div className={`px-4 pb-3 pt-1 border-t border-slate-100 bg-slate-50/50 ${typography.panelBody} text-slate-600 space-y-1.5`}>
       {elasticityInsight && <p>{elasticityInsight}</p>}
       {/* Task 3.5: Direction-based fallback when no elasticity data */}
       {directionInterpretation && <p className="text-slate-500">{directionInterpretation}</p>}
       {decisionChangeRisk && <p>{decisionChangeRisk}</p>}
       {showQualityHint && (
-        <p className="text-xs text-slate-500 flex items-center gap-1">
+        <p className={`${typography.panelBody} text-slate-500 flex items-center gap-1`}>
           <span aria-hidden="true">⚠️</span>
           Could benefit from more evidence
         </p>
       )}
       {/* Zero reason message - explains why this factor shows zero sensitivity */}
       {driver.zeroReason && ZERO_REASON_MESSAGES[driver.zeroReason] && (
-        <p className="text-xs text-slate-500 flex items-center gap-1">
+        <p className={`${typography.panelBody} text-slate-500 flex items-center gap-1`}>
           <span aria-hidden="true">ℹ️</span>
           {ZERO_REASON_MESSAGES[driver.zeroReason]}
         </p>
@@ -430,7 +442,7 @@ function DriverRow({
         {/* Task 2: Factor name is clickable instead of separate CTA */}
         <div className="flex items-start gap-1.5 min-w-0">
           <span
-            className="text-sm flex-shrink-0 mt-0.5"
+            className={`${typography.panelBody} flex-shrink-0 mt-0.5`}
             style={{ color: directionColor }}
             aria-hidden="true"
           >
@@ -442,7 +454,7 @@ function DriverRow({
               tabIndex={0}
               onClick={handleFocusClick}
               onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleFocusClick(e as unknown as React.MouseEvent) } }}
-              className="text-sm text-text-body break-words leading-snug cursor-pointer hover:underline focus:outline-none focus:ring-2 focus:ring-info-500 focus:ring-offset-1 rounded"
+              className={`${typography.panelBody} text-text-body break-words leading-snug cursor-pointer hover:underline focus:outline-none focus:ring-2 focus:ring-info-500 focus:ring-offset-1 rounded`}
               aria-label={`Focus on ${cleanedLabel} in model`}
             >
               {cleanedLabel}
@@ -451,7 +463,7 @@ function DriverRow({
               )}
             </span>
           ) : (
-            <span className="text-sm text-text-body break-words leading-snug">
+            <span className={`${typography.panelBody} text-text-body break-words leading-snug`}>
               {cleanedLabel}
               {labelQualifier && (
                 <span className="text-text-light ml-1">({labelQualifier})</span>
@@ -468,7 +480,7 @@ function DriverRow({
             aria-label={`${cleanedLabel} sensitivity: ${Math.round(sensitivityValue * 100)}%`}
           />
         ) : (
-          <div className="text-xs font-mono text-slate-400 w-9 text-right">—</div>
+          <div className={`${typography.panelBody} font-mono text-slate-400 w-9 text-right`}>—</div>
         )}
 
         {/* Confidence bar */}
@@ -479,13 +491,13 @@ function DriverRow({
             aria-label={`${cleanedLabel} confidence: ${Math.round(confidenceValue * 100)}%`}
           />
         ) : (
-          <div className="text-xs font-mono text-slate-400 w-9 text-right">—</div>
+          <div className={`${typography.panelBody} font-mono text-slate-400 w-9 text-right`}>—</div>
         )}
       </div>
 
       {/* Line 2: Compact impact + info icon */}
       <div className="px-3 pb-2 flex items-center justify-between gap-2">
-        <span className="text-xs text-text-light truncate">
+        <span className={`${typography.panelBody} text-text-light truncate bg-sand-50/60 px-1.5 py-0.5 rounded`}>
           {compactImpact || '\u00A0'}
         </span>
         <div className="flex items-center gap-1 flex-shrink-0">
@@ -525,14 +537,14 @@ function DriverRow({
 function ErrorState({ message, onRetry }: { message: string; onRetry?: () => void }) {
   return (
     <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg text-center">
-      <p className="text-sm text-amber-800 font-medium mb-2">
+      <p className={`${typography.panelHeader} text-amber-800 mb-2`}>
         Unable to calculate factor sensitivity — service unavailable
       </p>
-      <p className="text-xs text-amber-600 mb-3">{message}</p>
+      <p className={`${typography.panelBody} text-amber-600 mb-3`}>{message}</p>
       {onRetry && (
         <button
           onClick={onRetry}
-          className="px-4 py-2 text-sm font-medium text-amber-700 bg-white border border-amber-300 rounded-lg hover:bg-amber-50 transition-colors"
+          className={`px-4 py-2 ${typography.panelHeader} text-amber-700 bg-white border border-amber-300 rounded-lg hover:bg-amber-50 transition-colors`}
         >
           Retry
         </button>
@@ -548,6 +560,11 @@ export function DriversSection({
   goalLabel,
   highlightedDriverId,
   registerDriverRef,
+  expectedOutcome,
+  tornadoRows,
+  outcomeUnit,
+  outcomeUnitSymbol,
+  isNormalised,
 }: DriversSectionProps) {
   const [showAll, setShowAll] = useState(false)
   const { drivers, driversStatus, topDrivers, hasMagnitudeData, islError, hiddenZeroImpactCount, dominantFactorId, dominantFactorLabel } = data
@@ -584,7 +601,7 @@ export function DriversSection({
   if (driversStatus !== 'computed') {
     return (
       <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg">
-        <p className="text-sm text-slate-600 flex items-start gap-2">
+        <p className={`${typography.panelBody} text-slate-600 flex items-start gap-2`}>
           <span aria-hidden="true">ℹ️</span>
           {EMPTY_STATES.drivers}
         </p>
@@ -596,7 +613,7 @@ export function DriversSection({
   if (drivers.length === 0) {
     return (
       <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg">
-        <p className="text-sm text-slate-600 flex items-start gap-2">
+        <p className={`${typography.panelBody} text-slate-600 flex items-start gap-2`}>
           <span aria-hidden="true">ℹ️</span>
           {EMPTY_STATES.drivers}
         </p>
@@ -627,13 +644,13 @@ export function DriversSection({
         <div className="p-3 bg-panel border border-warning rounded-lg flex items-start gap-2">
           <AlertTriangle className="w-4 h-4 text-warning flex-shrink-0 mt-0.5" />
           <div className="flex-1 min-w-0">
-            <p className="text-sm text-text-body">
+            <p className={`${typography.panelBody} text-text-body`}>
               {/* Patch 1: Clean encoding notation from dominant factor label */}
               <span className="font-medium">{stripEncodingNotation(dominantFactorLabel)}</span> dominates this decision ({dominantFactorInfluence}% influence). If this factor's weight is overestimated, the recommendation could change.
             </p>
             <button
               onClick={handleDominantFactorFocus}
-              className="text-xs text-info hover:text-info-hover underline mt-1"
+              className={`${typography.panelBody} text-info hover:text-info-hover underline mt-1`}
             >
               Review on canvas
             </button>
@@ -648,13 +665,13 @@ export function DriversSection({
         <div />
         {/* Task 4: Renamed "Influence" → "Sensitivity" */}
         <div
-          className="text-xs text-slate-500 text-right pr-6 cursor-help"
+          className={`${typography.panelBody} text-slate-500 text-right pr-6 cursor-help`}
           title="How sensitive your goal is to changes in this factor"
         >
           Sensitivity
         </div>
         <div
-          className="text-xs text-slate-500 text-right pr-6 cursor-help"
+          className={`${typography.panelBody} text-slate-500 text-right pr-6 cursor-help`}
           title="How certain the model is about this factor's influence, based on edge belief strength and evidence quality"
         >
           Confidence
@@ -682,7 +699,7 @@ export function DriversSection({
       {hiddenCount > 0 && (
         <button
           onClick={() => setShowAll(!showAll)}
-          className="text-sm text-sky-600 hover:text-sky-700"
+          className={`${typography.panelBody} text-sky-600 hover:text-sky-700`}
         >
           {showAll ? 'Show fewer factors' : `See all factors (+${hiddenCount} more)`}
         </button>
@@ -690,9 +707,21 @@ export function DriversSection({
 
       {/* Zero-impact disclosure - only show when collapsed and there are hidden zero-impact factors */}
       {!showAll && hiddenZeroImpactCount !== undefined && hiddenZeroImpactCount > 0 && (
-        <p className="text-xs text-slate-500 mt-1">
+        <p className={`${typography.panelBody} text-slate-500 mt-1`}>
           {hiddenZeroImpactCount} zero-impact factor{hiddenZeroImpactCount === 1 ? '' : 's'} hidden by default
         </p>
+      )}
+
+      {/* Tornado chart — always visible when data available */}
+      {tornadoRows && tornadoRows.length > 0 && expectedOutcome != null && (
+        <TornadoChart
+          rows={tornadoRows}
+          expectedOutcome={expectedOutcome}
+          outcomeUnit={outcomeUnit}
+          outcomeUnitSymbol={outcomeUnitSymbol}
+          onFocusNode={onFocusNode}
+          isNormalised={isNormalised}
+        />
       )}
     </div>
   )

@@ -85,14 +85,14 @@ export function LimitedOptionsCard({
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-start gap-2">
           <Info className="w-4 h-4 text-info flex-shrink-0 mt-0.5" />
-          <p className={`${typography.body} text-text-body`}>
+          <p className={`${typography.panelBody} text-text-body`}>
             You're comparing {optionCount} option{optionCount !== 1 ? 's' : ''}.
             Adding alternatives would strengthen the analysis.
           </p>
         </div>
         <button
           onClick={handleDismiss}
-          className="text-xs text-text-light hover:text-text-body flex-shrink-0"
+          className={`${typography.panelBody} text-text-light hover:text-text-body flex-shrink-0`}
           aria-label="Dismiss suggestion"
         >
           ✕

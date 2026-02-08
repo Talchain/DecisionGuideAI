@@ -842,6 +842,25 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
 
     // Build option results with percentile extraction
     const sharedBands = (report as any).run?.bands
+
+    // v7: Pre-scan all options to detect already-denormalized values.
+    // If any option has raw outcome magnitudes > 2, the data is already in user units
+    // even when goalThresholdCap is missing — so we should NOT label as "Relative score".
+    const capValid = goalThresholdCap != null && goalThresholdCap > 0
+    let anyAlreadyDenormalized = false
+    for (const node of optionNodes) {
+      const prob = optionProbs[node.id] || {}
+      const ob = prob.outcome ?? {}
+      const ob2 = prob.bands ?? sharedBands ?? {}
+      const vals = [
+        prob.expected_outcome ?? prob.expected ?? ob.mean ?? ob2.p50,
+        ob.p10 ?? ob2.p10,
+        ob.p90 ?? ob2.p90,
+      ]
+      const maxAbs = Math.max(...vals.map((v) => (typeof v === 'number' && isFinite(v) ? Math.abs(v) : 0)))
+      if (maxAbs > 2) { anyAlreadyDenormalized = true; break }
+    }
+    const isNormalisedResult = !capValid && !anyAlreadyDenormalized
     const unsortedOptions: OptionResult[] = optionNodes.map((node) => {
       const nodeId = node.id
       const prob = optionProbs[nodeId] || {}
@@ -871,11 +890,12 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       if (import.meta.env.DEV && nodeId === optionNodes[0]?.id) {
         console.log('[Results] Denorm trace:', { goalThresholdCap, rawP10, rawP50, rawP90, normP10: norm.p10, normP90: norm.p90 })
       }
-      const capValid = goalThresholdCap != null && goalThresholdCap > 0
       const maxRaw = Math.max(
         Math.abs(norm.p90 ?? 0), Math.abs(norm.p10 ?? 0), Math.abs(norm.expected ?? 0)
       )
       const alreadyDenormalized = maxRaw > 2 // values > 2 are likely already in user units
+      // v7: Track whether denormalisation was applied. When scale=1 and values are small,
+      // they are normalised model scores — UI must label as "Relative score", not user units.
       const scale = capValid && !alreadyDenormalized ? goalThresholdCap : 1
       const scaledP10 = norm.p10 != null ? norm.p10 * scale : null
       const scaledExpected = norm.expected != null ? norm.expected * scale : null
@@ -1064,6 +1084,8 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       nearTie,
       // Task 6: Flip thresholds for tipping points visualisation
       flipThresholds: flipThresholds.length > 0 ? flipThresholds : undefined,
+      // v7: Whether outcome values are normalised model scores (no goalThresholdCap)
+      isNormalised: isNormalisedResult,
       // M1 Coaching fields (Task 2)
       coachingHeadline: m1Coaching?.executive_summary?.headline,
       coachingReadiness: m1Coaching?.readiness,
@@ -1804,12 +1826,23 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
         }
       }
 
+      // Look up factor confidence from driver items for confidence pill display
+      const factorConfidence = (() => {
+        const sourceKey = fromId
+        if (!sourceKey) return null
+        const matchedDriver = drivers.drivers.find(
+          d => d.factorKey === sourceKey || d.matchedNodeId === sourceKey
+        )
+        return matchedDriver?.confidence ?? null
+      })()
+
       uncertainties.push({
         code: 'SENSITIVE_ASSUMPTION',
         message: friendlyMessage,
         suggestion: 'Review this assumption',
         affectedNodes: [fromId, toId].filter(Boolean),
         severity,
+        factorConfidence,
         threshold: fe.threshold ? {
           variable: fe.from_id ?? fe.fromId ?? fe.source,
           direction: normaliseDirection(fe.direction) ?? 'positive',
@@ -1992,7 +2025,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
         return { assumptions }
       })(),
     }
-  }, [report, m1Coaching])
+  }, [report, m1Coaching, drivers])
 
   // ==========================================================================
   // Improvements Section Data (Legacy - now merged into confidence)
