@@ -354,7 +354,8 @@ export function TippingPoints({
   }
 
   // Mode B: fallback to driver strength
-  if (drivers && drivers.length > 0) {
+  // v7.2: GATED — "Driver strength" block not in v7 prototype
+  if (false && drivers && drivers.length > 0) {
     return <TippingPointsModeB drivers={drivers} />
   }
 

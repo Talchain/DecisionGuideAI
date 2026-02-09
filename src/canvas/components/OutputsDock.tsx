@@ -1276,6 +1276,12 @@ export function OutputsDock() {
                           outcomeUnit={resultsSectionData.recommendation.outcomeUnit}
                           outcomeUnitSymbol={resultsSectionData.recommendation.outcomeUnitSymbol}
                         />
+                        {/* v7.2: Normalised mode inline note */}
+                        {resultsSectionData.recommendation.isNormalised && (
+                          <p className={`${typography.panelMeta} text-text-light italic mt-2`}>
+                            Values shown as % shift from baseline. Add a success target to see results in your goal's units.
+                          </p>
+                        )}
                       </div>
                     )}
 

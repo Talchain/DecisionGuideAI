@@ -639,8 +639,9 @@ export function DriversSection({
   return (
     <div className="space-y-4">
       {/* M1 Coaching: Dominant factor warning callout */}
+      {/* v7.2: GATED — coaching belongs in Strengthen section, not Drivers */}
       {/* Note: dominantFactorInfluence uses !== null to handle edge case of 0% (though detection requires >50%) */}
-      {dominantFactorId && dominantFactorLabel && dominantFactorInfluence !== null && (
+      {false && dominantFactorId && dominantFactorLabel && dominantFactorInfluence !== null && (
         <div className="p-3 bg-panel border border-warning rounded-lg flex items-start gap-2">
           <AlertTriangle className="w-4 h-4 text-warning flex-shrink-0 mt-0.5" />
           <div className="flex-1 min-w-0">

@@ -1392,16 +1392,16 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       })
       .sort((a, b) => a.rank - b.rank) // Sort by rank
 
-    // Task 2: Identify zero-impact factors (influence ≈ 0 AND confidence ≈ 0 or missing)
+    // Task 2: Identify zero-impact factors (influence < 0.01)
+    // v7.2: Filter solely on influence_score, regardless of confidence
     // These are filtered from default view but included in "See all factors"
     const ZERO_IMPACT_THRESHOLD = 0.01
     const isZeroImpact = (d: DriverItem) => {
       const influence = d.influenceScore ?? d.normalisedInfluence
-      const confidence = d.confidence
       // Bug fix: Handle undefined influence - treat as zero if missing
       const effectiveInfluence = typeof influence === 'number' ? influence : 0
-      // Zero impact = both influence and confidence are effectively zero or missing
-      return effectiveInfluence < ZERO_IMPACT_THRESHOLD && (confidence === undefined || confidence < ZERO_IMPACT_THRESHOLD)
+      // v7.2: Zero impact = influence < 0.01 (confidence not checked)
+      return effectiveInfluence < ZERO_IMPACT_THRESHOLD
     }
 
     // Filter non-zero-impact factors for default display
