@@ -261,11 +261,14 @@ export function RecommendationSection({
       />
 
       {/* P2 Task 3: Limited options coaching card (moved below hero) */}
-      <LimitedOptionsCard
-        optionCount={optionCount}
-        hasBaseline={hasBaseline}
-        responseHash={responseHash}
-      />
+      {/* v7.3: GATED — "You're comparing 2 options" banner not in prototype. Remove after v7 stable. */}
+      {false && (
+        <LimitedOptionsCard
+          optionCount={optionCount}
+          hasBaseline={hasBaseline}
+          responseHash={responseHash}
+        />
+      )}
 
       {/* P3 Task 3: Range visualization - outcome distribution bars */}
       {/* v7 layout: when hideRangeVisualization is true, these render at OutputsDock level */}

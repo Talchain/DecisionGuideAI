@@ -490,15 +490,14 @@ export function ConfidenceSection({
 
       {/* P2-3: Uncertainties - Two-tier ranked list */}
       {showUncertainties && (() => {
-        // Split uncertainties into two tiers per v7.1 prototype:
-        // - "Conditions that would change your mind" = severity critical, error, or blocker (flip probability > 20%)
-        // - "What you'd want to know before committing" = severity warning or info
-        const highImpactSeverities: CritiqueSeverity[] = ['blocker', 'critical', 'error']
+        // Split uncertainties into two tiers per v7.3 brief:
+        // - Group 1: "Conditions that would change your mind" = ALL fragile edges (code: SENSITIVE_ASSUMPTION)
+        // - Group 2: "What you'd want to know before committing" = low-confidence factors, evidence gaps
         const couldChangeDecision = displayUncertainties.filter(
-          item => highImpactSeverities.includes(item.severity || 'warning')
+          item => item.code === 'SENSITIVE_ASSUMPTION'
         )
         const worthRefining = displayUncertainties.filter(
-          item => !highImpactSeverities.includes(item.severity || 'warning')
+          item => item.code !== 'SENSITIVE_ASSUMPTION'
         )
 
         return (

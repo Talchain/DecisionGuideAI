@@ -812,6 +812,13 @@ export function HeroSection({
             </details>
           </div>
         )}
+
+        {/* v7.3: Normalised mode inline note - inside Hero card, at the end */}
+        {isNormalised && (
+          <p className={`${typography.panelMeta} text-text-light italic mt-2`}>
+            Values shown as % shift from baseline. Add a success target to see results in your goal's units.
+          </p>
+        )}
       </div>
     </div>
   )
