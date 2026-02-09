@@ -80,17 +80,56 @@ export const NodeCategorySchema = z.enum([
 export type NodeCategory = z.infer<typeof NodeCategorySchema>
 
 /**
- * V3 Node schema.
+ * Canonical node ID format (ISL V2 constraint).
+ * CEE guarantees generated IDs match this pattern.
+ */
+export const NodeIdSchema = z.string().regex(/^[a-z][a-z0-9_:-]*$/)
+
+/**
+ * Loose node ID format (accepts any non-empty string).
+ * Use for user-authored IDs that need normalization.
+ */
+export const NodeIdLooseSchema = z.string().min(1)
+
+export type NodeId = z.infer<typeof NodeIdSchema>
+export type NodeIdLoose = z.infer<typeof NodeIdLooseSchema>
+
+/**
+ * Type guard for canonical node IDs.
+ */
+export function isCanonicalNodeId(value: unknown): value is NodeId {
+  return NodeIdSchema.safeParse(value).success
+}
+
+/**
+ * Normalizes a node ID to ISL V2 format.
+ * Converts to lowercase, replaces invalid chars with underscore.
+ */
+export function normaliseNodeId(id: string): NodeId {
+  const normalized = id
+    .toLowerCase()
+    .replace(/[^a-z0-9_:-]/g, '_')
+    .replace(/^[^a-z]+/, '') // Remove leading non-letters
+
+  if (!normalized || !isCanonicalNodeId(normalized)) {
+    throw new Error(`Cannot normalize ID "${id}" to canonical format`)
+  }
+
+  return normalized
+}
+
+/**
+ * V3 Node schema (canonical contract - requires ISL-compliant IDs).
  *
  * This is the contract-boundary schema - uses .passthrough() to preserve
  * unknown fields across CEE → UI → PLoT boundaries.
  *
- * Note: ID regex is permissive to accept existing datasets. ISL V2 normalizes
- * IDs to ^[a-z][a-z0-9_:-]*$ internally, but schema accepts broader patterns.
+ * Note: ID must match ISL V2 format. CEE guarantees this for generated IDs.
+ * Use NodeV3LooseSchema for user-authored IDs that need normalization.
  */
 export const NodeV3Schema = z.object({
-  /** Node identifier (permissive - normalised downstream by ISL adapter) */
-  id: z.string().min(1),
+  /** Node identifier (ISL V2 format: ^[a-z][a-z0-9_:-]*$) */
+  id: NodeIdSchema,
   /** Node type/kind */
   kind: NodeKindSchema,
   /** Human-readable label */
@@ -116,6 +155,16 @@ export const NodeV3Schema = z.object({
 }).passthrough()
 
 export type NodeV3 = z.infer<typeof NodeV3Schema>
+
+/**
+ * Loose V3 Node schema (accepts non-canonical IDs).
+ * Use for user-authored graphs that need ID normalization.
+ */
+export const NodeV3LooseSchema = NodeV3Schema.extend({
+  id: NodeIdLooseSchema,
+})
+
+export type NodeV3Loose = z.infer<typeof NodeV3LooseSchema>
 
 /**
  * Type guard for NodeV3.

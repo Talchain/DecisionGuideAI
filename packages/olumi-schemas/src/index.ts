@@ -16,15 +16,23 @@ export {
   PriorSchema,
   NodeKindSchema,
   NodeCategorySchema,
+  NodeIdSchema,
+  NodeIdLooseSchema,
   NodeV3Schema,
+  NodeV3LooseSchema,
   isNodeV3,
+  isCanonicalNodeId,
+  normaliseNodeId,
 } from './nodes.js'
 export type {
   ObservedState,
   Prior,
   NodeKind,
   NodeCategory,
+  NodeId,
+  NodeIdLoose,
   NodeV3,
+  NodeV3Loose,
 } from './nodes.js'
 
 // Edge schemas
@@ -32,12 +40,14 @@ export {
   EffectDirectionSchema,
   EdgeStrengthSchema,
   EdgeV3Schema,
+  EdgeV3LenientSchema,
   isEdgeV3,
 } from './edges.js'
 export type {
   EffectDirection,
   EdgeStrength,
   EdgeV3,
+  EdgeV3Lenient,
 } from './edges.js'
 
 // Option and intervention schemas

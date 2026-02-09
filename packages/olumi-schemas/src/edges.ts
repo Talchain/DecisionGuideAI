@@ -29,23 +29,24 @@ export const EdgeStrengthSchema = z.object({
 export type EdgeStrength = z.infer<typeof EdgeStrengthSchema>
 
 /**
- * V3 Edge schema.
+ * V3 Edge schema (canonical contract - requires strength + exists_probability).
  *
  * This is the contract-boundary schema - uses .passthrough() to preserve
  * unknown fields across CEE → UI → PLoT boundaries.
  *
- * Note: strength and exists_probability are optional to accommodate draft/partial
- * edges. UI applies defaults (0.5 for strength.mean, 0.5 for exists_probability).
+ * Note: This defines the target contract (v3.3) where CEE guarantees strength
+ * and exists_probability. UI may apply display defaults for drafts, but the
+ * canonical contract requires them.
  */
 export const EdgeV3Schema = z.object({
   /** Source node ID */
   from: z.string(),
   /** Target node ID */
   to: z.string(),
-  /** Edge strength distribution (optional - UI defaults to 0.5 when missing) */
-  strength: EdgeStrengthSchema.optional(),
-  /** Probability that this edge exists (0-1, optional - UI defaults to 0.5) */
-  exists_probability: z.number().min(0).max(1).optional(),
+  /** Edge strength distribution */
+  strength: EdgeStrengthSchema,
+  /** Probability that this edge exists (0-1) */
+  exists_probability: z.number().min(0).max(1),
   /** Human-readable label (optional) */
   label: z.string().optional(),
   /** Effect direction (optional semantic hint) */
@@ -53,6 +54,19 @@ export const EdgeV3Schema = z.object({
 }).passthrough()
 
 export type EdgeV3 = z.infer<typeof EdgeV3Schema>
+
+/**
+ * Lenient V3 Edge schema for draft/partial edges (strength + exists_probability optional).
+ *
+ * Use this for UI draft states where edges may not have all fields yet.
+ * The canonical EdgeV3Schema requires these fields.
+ */
+export const EdgeV3LenientSchema = EdgeV3Schema.partial({
+  strength: true,
+  exists_probability: true,
+})
+
+export type EdgeV3Lenient = z.infer<typeof EdgeV3LenientSchema>
 
 /**
  * Type guard for EdgeV3.

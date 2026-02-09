@@ -80,16 +80,27 @@ describe('NodeV3Schema', () => {
     }
   })
 
-  it('accepts diverse node IDs (permissive schema)', () => {
-    // Schema is permissive to accept existing datasets
-    // ISL adapter normalizes IDs downstream
-    const nodes = [
-      { id: 'test_node', kind: 'goal', label: 'Valid' },
-      { id: 'Goal_Revenue', kind: 'goal', label: 'Uppercase' },
+  it('rejects invalid node IDs (must match ISL V2 format)', () => {
+    const invalidNodes = [
+      { id: 'Goal_Revenue', kind: 'goal', label: 'Uppercase start' },
       { id: '123_node', kind: 'factor', label: 'Digit start' },
+      { id: 'test node', kind: 'factor', label: 'Space' },
     ]
 
-    for (const node of nodes) {
+    for (const node of invalidNodes) {
+      const result = NodeV3Schema.safeParse(node)
+      expect(result.success).toBe(false)
+    }
+  })
+
+  it('accepts valid canonical node IDs', () => {
+    const validNodes = [
+      { id: 'test_node', kind: 'goal', label: 'Valid' },
+      { id: 'goal-revenue', kind: 'goal', label: 'Hyphen' },
+      { id: 'factor_a:v2', kind: 'factor', label: 'Colon' },
+    ]
+
+    for (const node of validNodes) {
       const result = NodeV3Schema.safeParse(node)
       expect(result.success).toBe(true)
     }
@@ -112,7 +123,7 @@ describe('NodeV3Schema', () => {
 })
 
 describe('EdgeV3Schema', () => {
-  it('validates a complete edge', () => {
+  it('validates a complete edge (canonical contract)', () => {
     const edge = {
       from: 'factor_price',
       to: 'goal_revenue',
@@ -126,24 +137,33 @@ describe('EdgeV3Schema', () => {
     const result = EdgeV3Schema.safeParse(edge)
     expect(result.success).toBe(true)
     if (result.success) {
-      expect(result.data.strength?.mean).toBe(0.7)
+      expect(result.data.strength.mean).toBe(0.7)
       expect(result.data.exists_probability).toBe(0.9)
     }
   })
 
-  it('validates a minimal edge (only from/to required)', () => {
-    // strength and exists_probability are optional (UI applies defaults)
+  it('rejects edge without required strength field', () => {
+    // Canonical EdgeV3Schema requires strength (CEE guarantees it)
     const edge = {
       from: 'factor_a',
       to: 'factor_b',
+      exists_probability: 0.8,
     }
 
     const result = EdgeV3Schema.safeParse(edge)
-    expect(result.success).toBe(true)
-    if (result.success) {
-      expect(result.data.strength).toBeUndefined()
-      expect(result.data.exists_probability).toBeUndefined()
+    expect(result.success).toBe(false)
+  })
+
+  it('rejects edge without required exists_probability field', () => {
+    // Canonical EdgeV3Schema requires exists_probability
+    const edge = {
+      from: 'factor_a',
+      to: 'factor_b',
+      strength: { mean: 0.5, std: 0.1 },
     }
+
+    const result = EdgeV3Schema.safeParse(edge)
+    expect(result.success).toBe(false)
   })
 
   it('validates edge with effect_direction', () => {
