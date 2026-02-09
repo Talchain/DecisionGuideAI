@@ -114,14 +114,20 @@ export type NormaliseResult =
  * Normalization strategy:
  * 1. Convert to lowercase
  * 2. Replace invalid characters (non-alphanumeric, non-underscore, non-hyphen, non-colon) with underscore
- * 3. Remove leading non-letter characters
+ * 3. Remove leading non-letter characters (digits, underscores, etc.)
  *
- * Examples:
+ * Success examples:
  * - "Revenue Growth" → { ok: true, value: "revenue_growth" }
  * - "goal-2024" → { ok: true, value: "goal-2024" }
- * - "123 revenue" → { ok: false, error: "..." } (starts with digits)
- * - "__goal" → { ok: false, error: "..." } (no letters remain after stripping leading underscores)
- * - "💡idea" → { ok: false, error: "..." } (emoji removed, "idea" survives → "idea")
+ * - "123 revenue" → { ok: true, value: "revenue" } (leading digits stripped)
+ * - "__goal" → { ok: true, value: "goal" } (leading underscores stripped)
+ * - "💡idea" → { ok: true, value: "idea" } (emoji replaced with _, then stripped)
+ *
+ * Failure examples:
+ * - "123" → { ok: false, error: "..." } (no letters remain)
+ * - "💡" → { ok: false, error: "..." } (no letters remain)
+ * - "___" → { ok: false, error: "..." } (no letters remain)
+ * - "" → { ok: false, error: "..." } (empty input)
  *
  * @param id - The ID to normalize (must be non-empty string)
  * @returns Success with normalized ID, or failure with error message
@@ -174,7 +180,10 @@ export function tryNormaliseNodeId(id: string): NormaliseResult {
  * @example
  * ```ts
  * normaliseNodeId("Revenue Growth") // "revenue_growth"
- * normaliseNodeId("123 revenue")    // throws Error
+ * normaliseNodeId("123 revenue")    // "revenue" (strips leading digits)
+ * normaliseNodeId("__goal")         // "goal" (strips leading underscores)
+ * normaliseNodeId("123")            // throws Error (no letters remain)
+ * normaliseNodeId("💡")             // throws Error (no letters remain)
  * ```
  */
 export function normaliseNodeId(id: string): NodeId {
