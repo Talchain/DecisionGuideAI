@@ -9,9 +9,12 @@ import { z } from 'zod'
 /**
  * Observed state for factor nodes.
  * Represents the current measured/known value of a factor.
+ *
+ * Note: value is unconstrained at schema level to accept diverse units/scales.
+ * ISL normalizes to [0,1] internally; UI may have different expectations.
  */
 export const ObservedStateSchema = z.object({
-  /** Normalized value (0-1 range for ISL) */
+  /** Value (unconstrained - normalization applied by downstream services) */
   value: z.number(),
   /** Standard deviation of the value (uncertainty) */
   std: z.number().optional(),
@@ -81,10 +84,13 @@ export type NodeCategory = z.infer<typeof NodeCategorySchema>
  *
  * This is the contract-boundary schema - uses .passthrough() to preserve
  * unknown fields across CEE → UI → PLoT boundaries.
+ *
+ * Note: ID regex is permissive to accept existing datasets. ISL V2 normalizes
+ * IDs to ^[a-z][a-z0-9_:-]*$ internally, but schema accepts broader patterns.
  */
 export const NodeV3Schema = z.object({
-  /** Node identifier (ISL V2 constraint: ^[a-z][a-z0-9_:-]*$) */
-  id: z.string().regex(/^[a-z][a-z0-9_:-]*$/),
+  /** Node identifier (permissive - normalised downstream by ISL adapter) */
+  id: z.string().min(1),
   /** Node type/kind */
   kind: NodeKindSchema,
   /** Human-readable label */

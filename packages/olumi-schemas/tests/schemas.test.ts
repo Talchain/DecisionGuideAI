@@ -80,15 +80,19 @@ describe('NodeV3Schema', () => {
     }
   })
 
-  it('rejects invalid node ID (must start with lowercase letter)', () => {
-    const node = {
-      id: '123_invalid',
-      kind: 'goal',
-      label: 'Invalid',
-    }
+  it('accepts diverse node IDs (permissive schema)', () => {
+    // Schema is permissive to accept existing datasets
+    // ISL adapter normalizes IDs downstream
+    const nodes = [
+      { id: 'test_node', kind: 'goal', label: 'Valid' },
+      { id: 'Goal_Revenue', kind: 'goal', label: 'Uppercase' },
+      { id: '123_node', kind: 'factor', label: 'Digit start' },
+    ]
 
-    const result = NodeV3Schema.safeParse(node)
-    expect(result.success).toBe(false)
+    for (const node of nodes) {
+      const result = NodeV3Schema.safeParse(node)
+      expect(result.success).toBe(true)
+    }
   })
 
   it('type guard works correctly', () => {
@@ -108,7 +112,7 @@ describe('NodeV3Schema', () => {
 })
 
 describe('EdgeV3Schema', () => {
-  it('validates a minimal edge', () => {
+  it('validates a complete edge', () => {
     const edge = {
       from: 'factor_price',
       to: 'goal_revenue',
@@ -122,8 +126,23 @@ describe('EdgeV3Schema', () => {
     const result = EdgeV3Schema.safeParse(edge)
     expect(result.success).toBe(true)
     if (result.success) {
-      expect(result.data.strength.mean).toBe(0.7)
+      expect(result.data.strength?.mean).toBe(0.7)
       expect(result.data.exists_probability).toBe(0.9)
+    }
+  })
+
+  it('validates a minimal edge (only from/to required)', () => {
+    // strength and exists_probability are optional (UI applies defaults)
+    const edge = {
+      from: 'factor_a',
+      to: 'factor_b',
+    }
+
+    const result = EdgeV3Schema.safeParse(edge)
+    expect(result.success).toBe(true)
+    if (result.success) {
+      expect(result.data.strength).toBeUndefined()
+      expect(result.data.exists_probability).toBeUndefined()
     }
   })
 
@@ -146,7 +165,7 @@ describe('EdgeV3Schema', () => {
     }
   })
 
-  it('rejects strength mean outside [-1, 1]', () => {
+  it('rejects strength mean outside [-1, 1] when strength provided', () => {
     const edge = {
       from: 'a',
       to: 'b',
@@ -154,14 +173,13 @@ describe('EdgeV3Schema', () => {
         mean: 1.5,  // Invalid
         std: 0.1,
       },
-      exists_probability: 0.9,
     }
 
     const result = EdgeV3Schema.safeParse(edge)
     expect(result.success).toBe(false)
   })
 
-  it('rejects negative std', () => {
+  it('rejects negative std when strength provided', () => {
     const edge = {
       from: 'a',
       to: 'b',
@@ -169,7 +187,6 @@ describe('EdgeV3Schema', () => {
         mean: 0.5,
         std: -0.1,  // Invalid
       },
-      exists_probability: 0.9,
     }
 
     const result = EdgeV3Schema.safeParse(edge)

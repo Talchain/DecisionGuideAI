@@ -27,20 +27,23 @@ export const CEE_TO_UI_DROPS = {
     // Schema metadata (not needed in UI)
     'schema_version',
 
-    // Fields that are transformed (not dropped, but renamed)
-    // observed_state (snake_case) → observedState (camelCase)
-    // kind → type (React Flow convention)
+    // Quality/meta fields used only for display, not stored in canvas state
+    'quality.details.raw_confidence',
   ],
   transformations: [
     {
       from: 'observed_state',
       to: 'observedState',
+      where: 'DraftChat.tsx node mapping (CEE → React Flow)',
       reason: 'React Flow / JavaScript convention uses camelCase',
+      note: 'adaptDraftResponse() preserves snake_case; DraftChat converts to camelCase',
     },
     {
       from: 'kind',
       to: 'type',
-      reason: 'React Flow nodes require "type" field',
+      where: 'adaptDraftResponse() legacy path',
+      reason: 'React Flow nodes require "type" field, but "kind" also preserved',
+      note: 'Both "kind" and "type" coexist in canvas state for backward compat',
     },
   ],
   preserved: [
