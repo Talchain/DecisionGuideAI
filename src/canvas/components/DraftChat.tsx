@@ -451,6 +451,8 @@ export function DraftChat() {
 
       // Priority: strength.mean (CEE v3 nested) > strength_mean (flat) > weight (legacy) > default
       // CEE v3 returns edges with `strength: { mean, std }` structure
+      // UI convention: default strength.mean is 0.5 for display when CEE/LLM provides no value.
+      // This is the UI's responsibility — CEE and PLoT do not default strengths.
       let rawWeight: number
       let weightSource: string
       if (typeof e.strength?.mean === 'number') {
@@ -463,7 +465,7 @@ export function DraftChat() {
         rawWeight = e.weight
         weightSource = 'weight'
       } else {
-        rawWeight = DEFAULT_EDGE_DATA.weight
+        rawWeight = DEFAULT_EDGE_DATA.weight  // 0.5
         weightSource = 'default'
       }
 

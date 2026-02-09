@@ -260,4 +260,61 @@ describe('DraftChat store integration', () => {
     setOutcomeNode(null)
     expect(useCanvasStore.getState().outcomeNodeId).toBeNull()
   })
+
+  describe('UI strength.mean default convention', () => {
+    // UI convention: default strength.mean is 0.5 when CEE provides no value
+    // This is the UI's responsibility — CEE and PLoT do not default strengths
+
+    const mapDraftEdgeToCanvas = (edge: Partial<{
+      strength: { mean?: number; std?: number }
+      strength_mean: number
+      weight: number
+      effect_direction: EffectDirection
+    }>) => {
+      let rawWeight: number
+      if (typeof edge.strength?.mean === 'number') {
+        rawWeight = edge.strength.mean
+      } else if (typeof edge.strength_mean === 'number') {
+        rawWeight = edge.strength_mean
+      } else if (typeof edge.weight === 'number') {
+        rawWeight = edge.weight
+      } else {
+        rawWeight = DEFAULT_EDGE_DATA.weight  // 0.5
+      }
+      return { rawWeight }
+    }
+
+    it('defaults to 0.5 when all strength fields are missing', () => {
+      const result = mapDraftEdgeToCanvas({})
+      expect(result.rawWeight).toBe(0.5)
+      expect(result.rawWeight).toBe(DEFAULT_EDGE_DATA.weight)
+    })
+
+    it('defaults to 0.5 when all strength fields are undefined', () => {
+      const result = mapDraftEdgeToCanvas({
+        strength: undefined,
+        strength_mean: undefined,
+        weight: undefined,
+      })
+      expect(result.rawWeight).toBe(0.5)
+    })
+
+    it('does not default when strength.mean is 0 (zero is valid)', () => {
+      const result = mapDraftEdgeToCanvas({ strength: { mean: 0 } })
+      expect(result.rawWeight).toBe(0)
+      expect(result.rawWeight).not.toBe(DEFAULT_EDGE_DATA.weight)
+    })
+
+    it('does not default when strength_mean is 0 (zero is valid)', () => {
+      const result = mapDraftEdgeToCanvas({ strength_mean: 0 })
+      expect(result.rawWeight).toBe(0)
+      expect(result.rawWeight).not.toBe(DEFAULT_EDGE_DATA.weight)
+    })
+
+    it('does not default when weight is 0 (zero is valid)', () => {
+      const result = mapDraftEdgeToCanvas({ weight: 0 })
+      expect(result.rawWeight).toBe(0)
+      expect(result.rawWeight).not.toBe(DEFAULT_EDGE_DATA.weight)
+    })
+  })
 })
