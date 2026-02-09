@@ -679,7 +679,7 @@ export function DriversSection({
       </div>
 
       {/* Driver rows */}
-      <div className="space-y-2">
+      <div className="space-y-2.5">
         {displayDrivers.map((driver) => (
           <DriverRow
             key={driver.factorKey}

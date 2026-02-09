@@ -107,7 +107,7 @@ const TIER_CONFIG: Record<ConfidenceTier, {
     bgColor: 'bg-warning-50',
     borderColor: 'border-warning-200',
     textColor: 'text-warning-800',
-    label: 'Partial picture',
+    label: 'Fair',
     descriptionWithItems: 'Your model covers the basics. Address the items below.',
     descriptionWithoutItems: 'Your model covers the basics but could use more detail.',
   },
@@ -490,9 +490,9 @@ export function ConfidenceSection({
 
       {/* P2-3: Uncertainties - Two-tier ranked list */}
       {showUncertainties && (() => {
-        // Split uncertainties into two tiers per brief:
-        // - "Could change the decision" = severity critical, error, or blocker (flip probability > 20%)
-        // - "Worth refining" = severity warning or info
+        // Split uncertainties into two tiers per v7.1 prototype:
+        // - "Conditions that would change your mind" = severity critical, error, or blocker (flip probability > 20%)
+        // - "What you'd want to know before committing" = severity warning or info
         const highImpactSeverities: CritiqueSeverity[] = ['blocker', 'critical', 'error']
         const couldChangeDecision = displayUncertainties.filter(
           item => highImpactSeverities.includes(item.severity || 'warning')
@@ -517,11 +517,11 @@ export function ConfidenceSection({
               </div>
             ) : (
               <>
-                {/* Tier 1: Could change the decision */}
+                {/* Tier 1: Conditions that would change your mind */}
                 {couldChangeDecision.length > 0 && (
                   <div className="space-y-2">
-                    <h4 className={`${typography.panelHeader} text-slate-500 tracking-wide`}>
-                      Could change the decision
+                    <h4 className={`${typography.panelHeader} text-danger tracking-wide`}>
+                      Conditions that would change your mind
                     </h4>
                     <div className="space-y-2">
                       {couldChangeDecision.map((item, index) => (
@@ -535,11 +535,11 @@ export function ConfidenceSection({
                   </div>
                 )}
 
-                {/* Tier 2: Worth refining */}
+                {/* Tier 2: What you'd want to know before committing */}
                 {worthRefining.length > 0 && (
                   <div className="space-y-2">
-                    <h4 className={`${typography.panelHeader} text-slate-500 tracking-wide`}>
-                      Worth refining
+                    <h4 className={`${typography.panelHeader} text-warning tracking-wide`}>
+                      What you'd want to know before committing
                     </h4>
                     <div className="space-y-2">
                       {worthRefining.map((item, index) => (

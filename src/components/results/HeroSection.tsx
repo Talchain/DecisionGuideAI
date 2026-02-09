@@ -519,11 +519,16 @@ export function HeroSection({
     }
 
     // Bullet 2: Expected outcome value
-    // v7: When normalised, show "Relative score" instead of user-unit label
+    // v7.1: When normalised (0.13), reframe as percentage shift (~13% improvement)
+    // When denormalised (e.g. 640 customers), show user-unit label
     if (expectedOutcome != null) {
       if (isNormalised) {
+        // Normalised values represent proportional shift from baseline — format as %
+        const pct = Math.round(expectedOutcome * 100)
+        const direction = pct > 0 ? 'improvement over baseline' : pct < 0 ? 'decline from baseline' : 'at baseline'
+        const prefix = pct > 0 ? '+' : ''
         bullets.push({
-          text: `Relative score: ${expectedOutcome.toFixed(2)}`,
+          text: `~${prefix}${pct}% ${direction}`,
         })
       } else {
         const formatted = formatOutcomeValue(expectedOutcome, outcomeUnit, outcomeUnitSymbol)

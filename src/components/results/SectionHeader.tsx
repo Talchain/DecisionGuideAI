@@ -22,7 +22,7 @@ export interface SectionHeaderProps {
 export function SectionHeader({ title, count, testId }: SectionHeaderProps) {
   return (
     <div
-      className="flex items-center gap-2 mb-2"
+      className="flex items-center gap-2 mb-2.5"
       data-testid={testId}
     >
       <h3

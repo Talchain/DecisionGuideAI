@@ -32,13 +32,13 @@ export interface RangeVisualizationProps {
   winnerP10?: number | null
   /** M2 override — rich scenario contexts */
   scenarioContexts?: string[]
-  /** v7: When true, values are normalised model scores — show "Relative score" not user units */
+  /** v7.1: When true, values are normalised model scores — show "% shift from baseline" not user units */
   isNormalised?: boolean
 }
 
 /**
  * Format threshold/tick value for display.
- * When isNormalised=true, shows value as 2dp relative score.
+ * When isNormalised=true, shows value as % shift (0.13 → "+13%").
  * Otherwise formats in user units (currency, percent, count).
  */
 export function formatThreshold(
@@ -47,9 +47,12 @@ export function formatThreshold(
   symbol?: string,
   isNormalised?: boolean
 ): string {
-  // v7: Normalised model scores — show as 2dp relative value, no unit label
+  // v7.1: Normalised model scores — reframe as % shift from baseline
+  // 0.13 → "+13%", -0.17 → "-17%"
   if (isNormalised) {
-    return value.toFixed(2)
+    const pct = Math.round(value * 100)
+    const prefix = pct > 0 ? '+' : ''
+    return `${prefix}${pct}%`
   }
   if (unit === 'currency' && symbol) {
     return `${symbol}${Math.round(value).toLocaleString()}`
@@ -261,14 +264,14 @@ export function RangeVisualization({
         </div>
       )}
 
-      {/* Axis tick labels — show "Relative score" label when normalised */}
+      {/* Axis tick labels — show "% shift from baseline" label when normalised */}
       <div className={`flex justify-between ${typography.panelMeta} text-text-light`}>
         {isNormalised && (
           <span
             className="text-text-light italic"
-            title="This value is a relative model score, not in absolute units. Add a success target to see results in your goal's units."
+            title="These values show percentage change from your baseline. Add a success target to see results in your goal's units."
           >
-            Relative score:&nbsp;
+            % shift from baseline:&nbsp;
           </span>
         )}
         <span>{formatThreshold(minValue, outcomeUnit, outcomeUnitSymbol, isNormalised)}</span>

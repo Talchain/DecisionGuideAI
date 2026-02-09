@@ -46,7 +46,7 @@ export interface TornadoChartProps {
   isNormalised?: boolean
 }
 
-/** Format a value for tornado axis/labels. Shows 2dp relative score when normalised. */
+/** Format a value for tornado axis/labels. Shows % shift when normalised (0.13 → "+13%"). */
 function formatValue(
   value: number,
   unit?: 'currency' | 'percent' | 'count',
@@ -54,7 +54,9 @@ function formatValue(
   isNormalised?: boolean,
 ): string {
   if (isNormalised) {
-    return value.toFixed(2)
+    const pct = Math.round(value * 100)
+    const prefix = pct > 0 ? '+' : ''
+    return `${prefix}${pct}%`
   }
   if (unit === 'currency' && symbol) {
     return `${symbol}${Math.round(value).toLocaleString()}`
