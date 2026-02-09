@@ -1424,7 +1424,8 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       drivers: driverItems,
       driversStatus: driverItems.length > 0 ? 'computed' : driversStatus,
       topDrivers,
-      totalCount: driverItems.length,
+      // v7.2: totalCount reflects non-zero-impact drivers only (visible count)
+      totalCount: nonZeroImpactDrivers.length,
       hasMagnitudeData,
       islError: islErrorMessage,
       // Task 2: Track hidden zero-impact factors

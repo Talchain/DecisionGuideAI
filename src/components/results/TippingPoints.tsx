@@ -50,7 +50,7 @@ function GraphLink({
       tabIndex={0}
       onClick={handleClick}
       onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleClick() } }}
-      className={`${className} text-info hover:text-info-hover hover:underline cursor-pointer`}
+      className={`${className} text-info hover:text-info-hover hover:underline cursor-pointer focus:outline-none focus:ring-2 focus:ring-info focus:ring-offset-1 rounded`}
     >
       {label}
     </span>
@@ -76,7 +76,7 @@ function FlipThresholdRow({
   outcomeUnit?: OutcomeUnitType
   outcomeUnitSymbol?: string
 }) {
-  const { current_value, flip_value, node_id, label, unit, alternative_winner_label } = ft
+  const { current_value, flip_value, flip_reason, node_id, label, unit, alternative_winner_label } = ft
 
   // Determine unit type for formatting (C6)
   const effectiveUnit: OutcomeUnitType = (() => {
@@ -89,7 +89,7 @@ function FlipThresholdRow({
     : outcomeUnitSymbol
 
   // C4: Track domain
-  // flip_value: null or heuristic → no track, just "Stable across explored range"
+  // flip_value: null or heuristic/no_bracket → no track, just "Stable across explored range"
   if (flip_value == null || flip_reason === 'heuristic' || flip_reason === 'no_bracket') {
     return (
       <div className="space-y-1">
@@ -339,9 +339,9 @@ export function TippingPoints({
   outcomeUnit,
   outcomeUnitSymbol,
 }: TippingPointsProps) {
-  // Mode A: flip_thresholds with at least one usable flip (non-null value, non-heuristic)
+  // Mode A: flip_thresholds with at least one usable flip (non-null value, non-heuristic, non-no_bracket)
   const hasUsableFlips = flipThresholds && flipThresholds.some(
-    ft => ft.flip_value !== null && ft.flip_reason !== 'heuristic'
+    ft => ft.flip_value !== null && ft.flip_reason !== 'heuristic' && ft.flip_reason !== 'no_bracket'
   )
   if (hasUsableFlips) {
     return (
