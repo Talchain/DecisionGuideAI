@@ -338,6 +338,80 @@ describe('transformEdgeToV2', () => {
     expect(v2Edge.strength.mean).toBe(0.5)
     expect(v2Edge.exists_probability).toBe(0.5)
   })
+
+  // CIL Phase 1: UI→PLoT boundary - explicit vs default values
+  describe('UI→PLoT default leakage prevention', () => {
+    it('forwards explicit zero strength (not treated as falsy)', () => {
+      // Critical: zero is a valid strength value and must be forwarded
+      // Catches bugs where falsy-check (if (weight)) would skip zero
+      const edge = makeEdge('e1', 'n1', 'n2', {
+        weight: 0,
+        beliefExists: 0.8,
+      })
+
+      const v2Edge = transformEdgeToV2(edge)
+
+      expect(v2Edge.strength.mean).toBe(0)
+      expect(v2Edge.exists_probability).toBe(0.8)
+    })
+
+    it('forwards explicit negative strength from direction', () => {
+      const edge = makeEdge('e1', 'n1', 'n2', {
+        weight: 0.7,
+        direction: 'negative',
+        beliefExists: 0.9,
+      })
+
+      const v2Edge = transformEdgeToV2(edge)
+
+      expect(v2Edge.strength.mean).toBe(-0.7)
+      expect(v2Edge.exists_probability).toBe(0.9)
+    })
+
+    it('documents UI display defaults for missing CEE values', () => {
+      /**
+       * Contract note: V2Edge requires strength + exists_probability fields,
+       * so when CEE provides no values, adapter MUST apply defaults to satisfy
+       * the type contract.
+       *
+       * Current behavior (documented here):
+       * - Missing weight → defaults to 0.5 (UI display convention)
+       * - Missing beliefExists → defaults to 0.5
+       *
+       * Trade-off: V2Edge type requires these fields, but we lose distinction
+       * between "CEE provided 0.5" vs "UI defaulted to 0.5 for display".
+       *
+       * Future consideration: Add metadata field to V2Edge to signal "is_default"
+       * so PLoT can distinguish analytical data from UI display conventions.
+       */
+      const edgeNoCEEData = makeEdge('e1', 'n1', 'n2', {})
+
+      const v2Edge = transformEdgeToV2(edgeNoCEEData)
+
+      // Adapter applies defaults (necessary given V2Edge contract)
+      expect(v2Edge.strength.mean).toBe(0.5)
+      expect(v2Edge.exists_probability).toBe(0.5)
+
+      // This documents current behavior: defaults ARE sent to PLoT
+      // because V2Edge requires non-optional fields
+    })
+
+    it('preserves CEE-provided strength values exactly', () => {
+      // When CEE provides explicit values, they must be forwarded unchanged
+      const edgeWithCEEData = makeEdge('e1', 'n1', 'n2', {
+        weight: 0.73,
+        direction: 'positive',
+        beliefExists: 0.88,
+        strengthStd: 0.15,
+      })
+
+      const v2Edge = transformEdgeToV2(edgeWithCEEData)
+
+      expect(v2Edge.strength.mean).toBe(0.73)
+      expect(v2Edge.strength.std).toBe(0.15)
+      expect(v2Edge.exists_probability).toBe(0.88)
+    })
+  })
 })
 
 // ============================================================================

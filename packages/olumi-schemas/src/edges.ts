@@ -58,8 +58,9 @@ export type EdgeV3 = z.infer<typeof EdgeV3Schema>
 /**
  * Lenient V3 Edge schema for draft/partial edges (strength + exists_probability optional).
  *
- * Use this for UI draft states where edges may not have all fields yet.
- * The canonical EdgeV3Schema requires these fields.
+ * Use this for CEE draft responses and boundary tolerance checks.
+ * This is NOT a validator for UI internal edge state, which may use flat strength_mean/strength_std fields.
+ * The canonical EdgeV3Schema requires strength + exists_probability fields.
  */
 export const EdgeV3LenientSchema = EdgeV3Schema.partial({
   strength: true,

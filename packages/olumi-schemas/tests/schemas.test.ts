@@ -18,6 +18,8 @@ import {
   isOptionForAnalysis,
   isAnalysisReadyV3,
   isFullyReady,
+  tryNormaliseNodeId,
+  normaliseNodeId,
 } from '../src'
 
 describe('NodeV3Schema', () => {
@@ -456,5 +458,81 @@ describe('SeedConfigSchema', () => {
       expect(result.data.seed).toBe('42')
       expect(result.data.seed_source).toBe('user_provided')
     }
+  })
+})
+
+describe('tryNormaliseNodeId', () => {
+  it('successfully normalizes valid input with spaces', () => {
+    const result = tryNormaliseNodeId('Revenue Growth')
+    expect(result.ok).toBe(true)
+    if (result.ok) {
+      expect(result.value).toBe('revenue_growth')
+    }
+  })
+
+  it('successfully normalizes input with mixed case and hyphens', () => {
+    const result = tryNormaliseNodeId('Goal-2024')
+    expect(result.ok).toBe(true)
+    if (result.ok) {
+      expect(result.value).toBe('goal-2024')
+    }
+  })
+
+  it('successfully normalizes ID starting with digits by stripping them (edge case: 123 revenue)', () => {
+    // "123 revenue" → "123_revenue" (replace space) → "revenue" (strip leading non-letters)
+    const result = tryNormaliseNodeId('123 revenue')
+    expect(result.ok).toBe(true)
+    if (result.ok) {
+      expect(result.value).toBe('revenue')
+    }
+  })
+
+  it('successfully normalizes ID with leading underscores (edge case: __goal)', () => {
+    // Underscores are valid chars, but we strip leading non-letters
+    // "__goal" → "__goal" (sanitized) → "goal" (strip leading non-letters)
+    const result = tryNormaliseNodeId('__goal')
+    expect(result.ok).toBe(true)
+    if (result.ok) {
+      expect(result.value).toBe('goal')
+    }
+  })
+
+  it('rejects emoji-only ID', () => {
+    const result = tryNormaliseNodeId('💡')
+    expect(result.ok).toBe(false)
+    if (!result.ok) {
+      expect(result.error).toContain('💡')
+      expect(result.error).toContain('empty string')
+    }
+  })
+
+  it('successfully normalizes emoji with text (edge case: 💡idea)', () => {
+    // "💡idea" → "_idea" (emoji replaced with _) → "idea" (strip leading non-letter)
+    const result = tryNormaliseNodeId('💡idea')
+    expect(result.ok).toBe(true)
+    if (result.ok) {
+      expect(result.value).toBe('idea')
+    }
+  })
+
+  it('rejects empty string', () => {
+    const result = tryNormaliseNodeId('')
+    expect(result.ok).toBe(false)
+    if (!result.ok) {
+      expect(result.error).toContain('non-empty string')
+    }
+  })
+
+  it('normaliseNodeId throws for invalid input', () => {
+    // IDs with no letters at all will fail
+    expect(() => normaliseNodeId('123')).toThrow('123')
+    expect(() => normaliseNodeId('💡')).toThrow('💡')
+    expect(() => normaliseNodeId('___')).toThrow('___')
+  })
+
+  it('normaliseNodeId succeeds for valid input', () => {
+    expect(normaliseNodeId('Revenue Growth')).toBe('revenue_growth')
+    expect(normaliseNodeId('goal-2024')).toBe('goal-2024')
+    expect(normaliseNodeId('123 revenue')).toBe('revenue') // Strips leading digits
   })
 })

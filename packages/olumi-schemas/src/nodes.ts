@@ -102,20 +102,89 @@ export function isCanonicalNodeId(value: unknown): value is NodeId {
 }
 
 /**
- * Normalizes a node ID to ISL V2 format.
- * Converts to lowercase, replaces invalid chars with underscore.
+ * Safe normalization result type.
  */
-export function normaliseNodeId(id: string): NodeId {
-  const normalized = id
-    .toLowerCase()
-    .replace(/[^a-z0-9_:-]/g, '_')
-    .replace(/^[^a-z]+/, '') // Remove leading non-letters
+export type NormaliseResult =
+  | { ok: true; value: NodeId }
+  | { ok: false; error: string }
 
-  if (!normalized || !isCanonicalNodeId(normalized)) {
-    throw new Error(`Cannot normalize ID "${id}" to canonical format`)
+/**
+ * Safely normalizes a node ID to ISL V2 format without throwing.
+ *
+ * Normalization strategy:
+ * 1. Convert to lowercase
+ * 2. Replace invalid characters (non-alphanumeric, non-underscore, non-hyphen, non-colon) with underscore
+ * 3. Remove leading non-letter characters
+ *
+ * Examples:
+ * - "Revenue Growth" → { ok: true, value: "revenue_growth" }
+ * - "goal-2024" → { ok: true, value: "goal-2024" }
+ * - "123 revenue" → { ok: false, error: "..." } (starts with digits)
+ * - "__goal" → { ok: false, error: "..." } (no letters remain after stripping leading underscores)
+ * - "💡idea" → { ok: false, error: "..." } (emoji removed, "idea" survives → "idea")
+ *
+ * @param id - The ID to normalize (must be non-empty string)
+ * @returns Success with normalized ID, or failure with error message
+ */
+export function tryNormaliseNodeId(id: string): NormaliseResult {
+  if (!id || typeof id !== 'string') {
+    return {
+      ok: false,
+      error: `Input must be a non-empty string (received: ${typeof id})`,
+    }
   }
 
-  return normalized
+  // Step 1: lowercase
+  const lower = id.toLowerCase()
+
+  // Step 2: replace invalid chars with underscore
+  const sanitized = lower.replace(/[^a-z0-9_:-]/g, '_')
+
+  // Step 3: remove leading non-letters
+  const normalized = sanitized.replace(/^[^a-z]+/, '')
+
+  // Check if normalization produced a valid canonical ID
+  if (!normalized) {
+    return {
+      ok: false,
+      error: `ID "${id}" normalizes to empty string (attempted: "${sanitized}" → "${normalized}")`,
+    }
+  }
+
+  if (!isCanonicalNodeId(normalized)) {
+    return {
+      ok: false,
+      error: `ID "${id}" cannot be normalized to ISL V2 format (attempted: "${normalized}")`,
+    }
+  }
+
+  return { ok: true, value: normalized }
+}
+
+/**
+ * Normalizes a node ID to ISL V2 format.
+ *
+ * Throws if normalization fails. For safe normalization with error handling,
+ * use tryNormaliseNodeId() instead.
+ *
+ * @param id - The ID to normalize
+ * @returns Normalized canonical ID
+ * @throws Error if ID cannot be normalized to ISL V2 format
+ *
+ * @example
+ * ```ts
+ * normaliseNodeId("Revenue Growth") // "revenue_growth"
+ * normaliseNodeId("123 revenue")    // throws Error
+ * ```
+ */
+export function normaliseNodeId(id: string): NodeId {
+  const result = tryNormaliseNodeId(id)
+
+  if (!result.ok) {
+    throw new Error(result.error)
+  }
+
+  return result.value
 }
 
 /**

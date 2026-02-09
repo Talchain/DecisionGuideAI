@@ -23,6 +23,7 @@ export {
   isNodeV3,
   isCanonicalNodeId,
   normaliseNodeId,
+  tryNormaliseNodeId,
 } from './nodes.js'
 export type {
   ObservedState,
@@ -33,6 +34,7 @@ export type {
   NodeIdLoose,
   NodeV3,
   NodeV3Loose,
+  NormaliseResult,
 } from './nodes.js'
 
 // Edge schemas
