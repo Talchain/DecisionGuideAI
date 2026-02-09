@@ -149,22 +149,27 @@ export function adaptDraftResponse(raw: any): CEEDraftResponse {
         : 'factor'
 
     const uncRaw = (n as any).uncertainty
+    // CIL 0.2: reject NaN/Infinity
     const uncertainty =
-      typeof uncRaw === 'number' && uncRaw >= 0 && uncRaw <= 1
+      Number.isFinite(uncRaw) && uncRaw >= 0 && uncRaw <= 1
         ? uncRaw
         : fallbackUncertainty
 
     // Preserve observed_state for factor nodes (Brief I fix)
+    // CIL 0.2: reject NaN/Infinity in observed_state.value
     const observed_state = (n as any).observed_state
     const hasObservedState = observed_state && typeof observed_state === 'object' &&
-      typeof observed_state.value === 'number'
+      Number.isFinite(observed_state.value)
 
+    // CIL 0.2: spread-first preserves unknown CEE node fields
     return {
+      ...n,
       id,
       label,
       type,
       uncertainty,
-      ...(hasObservedState ? { observed_state } : {}),
+      // Override observed_state: keep if valid, remove if invalid
+      ...(hasObservedState ? { observed_state } : { observed_state: undefined }),
     }
   })
 
@@ -196,15 +201,16 @@ export function adaptDraftResponse(raw: any): CEEDraftResponse {
       const idRaw = raw.id
       const id = typeof idRaw === 'string' && (idRaw as string).trim().length > 0 ? idRaw : undefined
 
+      // CIL 0.2: reject NaN/Infinity — JSON.stringify converts to null
       // Clamp weight to [0,1]
       const weightRaw = raw.weight
       const weight =
-        typeof weightRaw === 'number' ? Math.max(0, Math.min(1, weightRaw)) : undefined
+        Number.isFinite(weightRaw) ? Math.max(0, Math.min(1, weightRaw as number)) : undefined
 
       // Clamp belief to [0,1]
       const beliefRaw = raw.belief
       const belief =
-        typeof beliefRaw === 'number' ? Math.max(0, Math.min(1, beliefRaw)) : undefined
+        Number.isFinite(beliefRaw) ? Math.max(0, Math.min(1, beliefRaw as number)) : undefined
 
       // Normalize provenance (object or string)
       const rawProv = raw.provenance
@@ -234,28 +240,39 @@ export function adaptDraftResponse(raw: any): CEEDraftResponse {
       const provenance_source = allowedSources.includes(rawProvSource as any) ? rawProvSource : undefined
 
       // P0-2: Normalize strength_mean from nested or flat structure
+      // CIL 0.2: reject NaN/Infinity — JSON.stringify converts to null
       const strengthMeanRaw = raw.strength_mean ?? (raw.strength as any)?.mean
-      const strength_mean = typeof strengthMeanRaw === 'number' ? strengthMeanRaw : undefined
+      const strength_mean = Number.isFinite(strengthMeanRaw) ? strengthMeanRaw as number : undefined
 
       // P0-2: Normalize strength_std from nested or flat structure
       const strengthStdRaw = raw.strength_std ?? (raw.strength as any)?.std
-      const strength_std = typeof strengthStdRaw === 'number' && strengthStdRaw > 0 ? strengthStdRaw : undefined
+      const strength_std = Number.isFinite(strengthStdRaw) && (strengthStdRaw as number) > 0 ? strengthStdRaw as number : undefined
 
       // Validate effect_direction against known values
       const effectDirRaw = raw.effect_direction
       const effect_direction = effectDirRaw === 'positive' || effectDirRaw === 'negative' ? effectDirRaw : undefined
 
       // P0 Fix: belief_exists - structural certainty (0-1), distinct from parametric belief
+      // CIL 0.2: reject NaN/Infinity — JSON.stringify converts to null
       const beliefExistsRaw = raw.belief_exists
       const belief_exists =
-        typeof beliefExistsRaw === 'number' ? Math.max(0, Math.min(1, beliefExistsRaw)) : undefined
+        Number.isFinite(beliefExistsRaw) ? Math.max(0, Math.min(1, beliefExistsRaw as number)) : undefined
 
       // Build the result: spread raw first (preserves unknown fields),
       // then override with validated/transformed values.
       // Fields that fail validation are explicitly set to undefined
       // to overwrite the invalid raw value from the spread.
+
+      // CIL 0.2: Remove only mean/std from nested strength, preserve other subfields
+      let strengthRemaining: Record<string, unknown> | undefined
+      if (raw.strength && typeof raw.strength === 'object') {
+        const { mean, std, ...rest } = raw.strength as any
+        strengthRemaining = Object.keys(rest).length > 0 ? rest : undefined
+      }
+
       return {
         ...raw,                                // spread-first: preserve unknown fields
+        strength: strengthRemaining,           // CIL 0.2: preserve unknown strength.* fields, remove only mean/std
         id,                                    // coerced id (undefined if invalid)
         from,                                  // coerced from
         to,                                    // coerced to

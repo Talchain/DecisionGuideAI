@@ -66,7 +66,7 @@ function ImprovementRow({ item }: { item: ImprovementItem }) {
         <div className="flex-1 min-w-0">
           {/* Source badge for bias findings */}
           {item.source === 'bias' && (
-            <span className={`inline-block ${typography.panelBody} font-medium px-1.5 py-0.5 bg-purple-100 text-purple-700 rounded mb-1`}>
+            <span className={`inline-block ${typography.panelBody} px-1.5 py-0.5 bg-purple-100 text-purple-700 rounded mb-1`}>
               {config.label}
             </span>
           )}
@@ -124,9 +124,9 @@ export function ImprovementsSection({
         className="w-full flex items-center justify-between text-left"
       >
         <div className="flex items-center gap-2">
-          <h3 className={`${typography.panelHeader} font-semibold text-slate-700`}>Strengthen your analysis</h3>
+          <h3 className={`${typography.panelHeader} text-slate-700`}>Strengthen your analysis</h3>
           <span
-            className={`${typography.panelBody} font-medium px-2 py-0.5 rounded-full ${
+            className={`${typography.panelBody} px-2 py-0.5 rounded-full ${
               hasHighPriority ? 'bg-purple-100 text-purple-700' : 'bg-slate-100 text-slate-600'
             }`}
           >

@@ -4,6 +4,7 @@ import { BaseNode } from './BaseNode'
 import { NODE_REGISTRY } from '../domain/nodes'
 import type { RiskImpact } from '../domain/nodes'
 import { calculateRiskSeverity, getRiskSeverityColors, cleanDisplayLabel } from '../utils/graphDisplayCalculations'
+import { typography } from '../../styles/typography'
 
 export const RiskNode = memo((props: NodeProps) => {
   const metadata = NODE_REGISTRY.risk
@@ -24,7 +25,7 @@ export const RiskNode = memo((props: NodeProps) => {
       {/* Task 1 Fix: Only show badge when severity is present, not "Not rated" placeholder */}
       {severity && (
         <div
-          className={`${severityColors.bg} ${severityColors.border} ${severityColors.text} border rounded px-2 py-1 text-xs font-semibold mb-2`}
+          className={`${severityColors.bg} ${severityColors.border} ${severityColors.text} border rounded px-2 py-1 ${typography.nodeTitle} mb-2`}
           style={{ textAlign: 'center' }}
         >
           {severity.charAt(0).toUpperCase() + severity.slice(1)} Risk
@@ -32,7 +33,7 @@ export const RiskNode = memo((props: NodeProps) => {
       )}
 
       {props.data?.description && (
-        <div className="text-xs opacity-70">
+        <div className={`${typography.nodeLabel} opacity-70`}>
           {props.data.description}
         </div>
       )}

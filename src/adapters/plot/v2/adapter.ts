@@ -389,8 +389,9 @@ const V2_NODE_BLOCKLIST = new Set([
 export function transformNodeToV2(node: Node<CanvasNodeData>): V2Node {
   const data = node.data ?? {}
 
-  // Only pass category if it's a valid value (guard against unexpected strings)
-  const category = data.category && VALID_CATEGORIES.has(data.category) ? data.category : undefined
+  // CIL 0.2: preserve unknown category values for forward compat
+  // Known values used for UI rendering; unknown values still pass through to PLoT
+  const category = typeof data.category === 'string' && data.category.length > 0 ? data.category : undefined
 
   // Collect pass-through fields (everything not in blocklist)
   const passThrough: Record<string, unknown> = {}

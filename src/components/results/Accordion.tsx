@@ -123,7 +123,7 @@ export function Accordion({
           />
           <h3
             id={headingId}
-            className={`${typography.panelHeader} font-medium text-ink-800`}
+            className={`${typography.panelHeader} text-ink-800`}
           >
             {title}
           </h3>

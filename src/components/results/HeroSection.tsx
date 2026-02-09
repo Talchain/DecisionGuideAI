@@ -211,7 +211,7 @@ function WinGauge({
 
   return (
     <div className="mb-4" role="figure" aria-label="Win probability distribution across options">
-      <p className={`${typography.panelMeta} font-medium text-text-light mb-1`}>
+      <p className={`${typography.panelMeta} text-text-light mb-1`}>
         Wins across variations
       </p>
       {/* Stacked bar — use clamped raw percentage for width to avoid rounding gaps */}
@@ -244,7 +244,7 @@ function WinGauge({
           return (
             <span
               key={share.id}
-              className={`flex items-center gap-1.5 ${typography.panelMeta} ${share.isWinner ? 'text-text-header font-semibold' : 'text-text-light'}`}
+              className={`flex items-center gap-1.5 ${typography.panelMeta} ${share.isWinner ? 'text-text-header' : 'text-text-light'}`}
             >
               <span
                 className="w-2 h-2 rounded-full flex-shrink-0"
@@ -665,7 +665,7 @@ export function HeroSection({
             {(stabilityTier.label || stabilityTier.shortText) && (
               <span className="inline-flex items-center gap-1.5 bg-sand-50 px-2 py-0.5 rounded-full">
                 {stabilityTier.label && (
-                  <span className={`${typography.panelMeta} ${stabilityTier.colorClass} font-medium`}>
+                  <span className={`${typography.panelMeta} ${stabilityTier.colorClass}`}>
                     {stabilityTier.label}
                   </span>
                 )}

@@ -142,7 +142,7 @@ function FlipThresholdRow({
           style={{ left: `${flipPct}%`, transform: 'translateX(-50%)' }}
           title={`Flips at: ${formatOutcomeValue(flip_value, effectiveUnit, effectiveSymbol)}`}
         >
-          <span className={`${typography.panelMeta} font-bold text-danger leading-none`}>╳</span>
+          <span className={`${typography.panelMeta} text-danger leading-none`}>╳</span>
         </div>
       </div>
 
@@ -191,7 +191,7 @@ function TippingPointsModeA({ flipThresholds, outcomeUnit, outcomeUnitSymbol }: 
     <div className="space-y-3 p-3 bg-panel border border-panel-border rounded-lg">
       {/* Header */}
       <div>
-        <h4 className={`${typography.panelHeader} text-text-header font-medium`}>
+        <h4 className={`${typography.panelHeader} text-text-header`}>
           Where the decision could flip
         </h4>
         <p className={`${typography.panelBody} text-text-light`}>
@@ -262,7 +262,7 @@ function TippingPointsModeB({ drivers }: TippingPointsModeBProps) {
     <div className="space-y-3 p-3 bg-panel border border-panel-border rounded-lg">
       {/* Header — C3: "Driver strength" */}
       <div>
-        <h4 className={`${typography.panelHeader} text-text-header font-medium`}>
+        <h4 className={`${typography.panelHeader} text-text-header`}>
           Driver strength
         </h4>
         <p className={`${typography.panelBody} text-text-light`}>

@@ -646,7 +646,7 @@ export function DriversSection({
           <div className="flex-1 min-w-0">
             <p className={`${typography.panelBody} text-text-body`}>
               {/* Patch 1: Clean encoding notation from dominant factor label */}
-              <span className="font-medium">{stripEncodingNotation(dominantFactorLabel)}</span> dominates this decision ({dominantFactorInfluence}% influence). If this factor's weight is overestimated, the recommendation could change.
+              <span>{stripEncodingNotation(dominantFactorLabel)}</span> dominates this decision ({dominantFactorInfluence}% influence). If this factor's weight is overestimated, the recommendation could change.
             </p>
             <button
               onClick={handleDominantFactorFocus}

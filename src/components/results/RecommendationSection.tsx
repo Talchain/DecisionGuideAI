@@ -133,7 +133,7 @@ export function RecommendationSection({
   if (analysisStatus === 'failed' || analysisStatus === 'blocked') {
     return (
       <div className="p-4 bg-danger-50 border border-danger-200 rounded-lg">
-        <div className={`flex items-center gap-2 ${typography.panelBody} text-danger-800 font-medium mb-2`}>
+        <div className={`flex items-center gap-2 ${typography.panelBody} text-danger-800 mb-2`}>
           <span>Analysis could not complete</span>
         </div>
         {statusReason && (
@@ -219,7 +219,7 @@ export function RecommendationSection({
       {/* Task 1.7: Goal context - displayed when present */}
       {goalText && (
         <div className={`${typography.panelBody} text-text-body`}>
-          <span className="font-medium">Goal:</span> {goalText}
+          <span>Goal:</span> {goalText}
         </div>
       )}
 

@@ -11,6 +11,7 @@ import { NODE_REGISTRY } from '../domain/nodes'
 import type { NodeType } from '../domain/nodes'
 import { renderIcon } from '../helpers/renderIcon'
 import { useNodeDisplayMetadata } from '../hooks/useNodeDisplayMetadata'
+import { typography } from '../../styles/typography'
 
 interface NodeInspectorCompactProps {
   nodeId: string
@@ -253,7 +254,7 @@ export const NodeInspectorCompact = memo(({ nodeId, onClose, onExpandToFull }: N
           {renderIcon(metadata.icon, 16) ?? <span aria-hidden="true">•</span>}
           <span
             id="compact-node-inspector-title"
-            className="text-xs font-medium text-slate-700"
+            className={`${typography.panelMeta} font-medium text-slate-700`}
           >
             {metadata.label}
           </span>
@@ -279,7 +280,7 @@ export const NodeInspectorCompact = memo(({ nodeId, onClose, onExpandToFull }: N
 
       {/* Title */}
       <div className="mb-3">
-        <label htmlFor="compact-node-title" className="block text-xs font-medium text-slate-700 mb-1">
+        <label htmlFor="compact-node-title" className={`block ${typography.panelMeta} font-medium text-slate-700 mb-1`}>
           Title
         </label>
         <input
@@ -290,20 +291,20 @@ export const NodeInspectorCompact = memo(({ nodeId, onClose, onExpandToFull }: N
           value={label}
           onChange={(e) => setLabel(e.target.value)}
           onBlur={handleLabelBlur}
-          className="w-full text-sm border border-slate-300 rounded px-2 py-1"
+          className={`w-full ${typography.panelBody} border border-slate-300 rounded px-2 py-1`}
         />
       </div>
 
       {/* Type */}
       <div className="mb-3">
-        <label htmlFor="compact-node-type" className="block text-xs font-medium text-slate-700 mb-1">
+        <label htmlFor="compact-node-type" className={`block ${typography.panelMeta} font-medium text-slate-700 mb-1`}>
           Type
         </label>
         <select
           id="compact-node-type"
           value={currentType}
           onChange={(e) => handleTypeChange(e.target.value as NodeType)}
-          className="w-full text-sm border border-slate-300 rounded px-2 py-1 bg-white"
+          className={`w-full ${typography.panelBody} border border-slate-300 rounded px-2 py-1 bg-white`}
         >
           {(Object.keys(NODE_REGISTRY) as NodeType[]).map((type) => (
             <option key={type} value={type}>
@@ -316,7 +317,7 @@ export const NodeInspectorCompact = memo(({ nodeId, onClose, onExpandToFull }: N
       {/* Factor Insights (only for factors in Results mode) */}
       {currentType === 'factor' && displayMetadata.isResultsMode && (
         <div className="mb-3 pt-2 border-t border-slate-100">
-          <h4 className="text-xs font-medium text-slate-700 mb-2 flex items-center gap-2">
+          <h4 className={`${typography.panelMeta} font-medium text-slate-700 mb-2 flex items-center gap-2`}>
             Insights
             {displayMetadata.sensitivityRank !== null && (
               <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-100 text-amber-700">
@@ -391,7 +392,7 @@ export const NodeInspectorCompact = memo(({ nodeId, onClose, onExpandToFull }: N
       {/* Interventions section for Option nodes */}
       {isOptionNode && (
         <div className="pt-2 border-t border-slate-100">
-          <h4 className="text-xs font-medium text-slate-700 mb-2">Interventions</h4>
+          <h4 className={`${typography.panelMeta} font-medium text-slate-700 mb-2`}>Interventions</h4>
 
           {/* Task 5: Mode-aware empty state for baseline options */}
           {interventionRows.length === 0 ? (
@@ -410,10 +411,10 @@ export const NodeInspectorCompact = memo(({ nodeId, onClose, onExpandToFull }: N
                   onMouseLeave={() => handleInterventionHover(null)}
                 >
                   <ArrowRight size={10} className="flex-shrink-0 text-slate-400" aria-hidden="true" />
-                  <span className="text-xs text-slate-600 flex-1 min-w-0 truncate" title={row.factorLabel}>
+                  <span className={`${typography.panelBody} text-slate-600 flex-1 min-w-0 truncate`} title={row.factorLabel}>
                     {row.factorLabel}
                   </span>
-                  <span className="text-xs font-medium text-slate-700 flex-shrink-0">
+                  <span className={`${typography.panelBody} font-medium text-slate-700 flex-shrink-0`}>
                     {formatInterventionValue(row.value, row.unit)}
                   </span>
                 </div>
@@ -426,7 +427,7 @@ export const NodeInspectorCompact = memo(({ nodeId, onClose, onExpandToFull }: N
       {/* Inline Probabilities (only for decision-probability edges, not for option nodes) */}
       {!isOptionNode && outgoingEdges.length > 0 && !isInfluenceNetwork && (
         <div className="pt-2 border-t border-slate-100">
-          <h4 className="text-xs font-medium text-slate-700 mb-2">Probabilities</h4>
+          <h4 className={`${typography.panelMeta} font-medium text-slate-700 mb-2`}>Probabilities</h4>
 
           {/* Compact probability rows */}
           <div className="space-y-1.5 mb-2">
@@ -442,7 +443,7 @@ export const NodeInspectorCompact = memo(({ nodeId, onClose, onExpandToFull }: N
                 >
                   {row.locked ? <Lock size={10} /> : <Unlock size={10} />}
                 </button>
-                <span className="text-xs text-slate-600 flex-1 min-w-0 truncate" title={row.targetLabel}>
+                <span className={`${typography.panelBody} text-slate-600 flex-1 min-w-0 truncate`} title={row.targetLabel}>
                   {row.targetLabel}
                 </span>
                 <div className="flex items-center gap-1 flex-shrink-0">
@@ -454,11 +455,11 @@ export const NodeInspectorCompact = memo(({ nodeId, onClose, onExpandToFull }: N
                     value={row.percent}
                     disabled={row.locked}
                     onChange={(e) => updatePercent(row.edgeId, parseInt(e.target.value, 10) || 0)}
-                    className={`w-12 text-xs border border-slate-300 rounded px-1 py-0.5 text-right ${
+                    className={`w-12 ${typography.panelBody} border border-slate-300 rounded px-1 py-0.5 text-right ${
                       row.locked ? 'opacity-50' : ''
                     }`}
                   />
-                  <span className="text-xs text-slate-500">%</span>
+                  <span className={`${typography.panelBody} text-slate-500`}>%</span>
                 </div>
               </div>
             ))}
@@ -466,7 +467,7 @@ export const NodeInspectorCompact = memo(({ nodeId, onClose, onExpandToFull }: N
 
           {/* Total & Apply */}
           <div className="flex items-center justify-between">
-            <span className={`text-xs font-medium ${
+            <span className={`${typography.panelBody} font-medium ${
               validation.valid ? 'text-success-600' : 'text-warning-600'
             }`}>
               Total: {validation.sum}%
@@ -475,7 +476,7 @@ export const NodeInspectorCompact = memo(({ nodeId, onClose, onExpandToFull }: N
               type="button"
               onClick={handleApply}
               disabled={!validation.valid}
-              className={`px-2 py-1 text-xs font-medium rounded ${
+              className={`px-2 py-1 ${typography.panelBody} font-medium rounded ${
                 validation.valid
                   ? 'bg-info-500 text-white hover:bg-info-600'
                   : 'bg-slate-200 text-slate-400 cursor-not-allowed'

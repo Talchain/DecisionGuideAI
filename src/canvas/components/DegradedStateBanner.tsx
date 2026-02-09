@@ -61,11 +61,11 @@ export function DegradedStateBanner({
         {/* CEE Degraded Message */}
         {ceeDegraded && (
           <div className="mb-2">
-            <p className={`${typography.label} text-amber-900 font-medium`}>
+            <p className={`${typography.panelHeader} text-amber-900`}>
               CEE timed out — review may be incomplete
             </p>
             {ceeTimeoutReason && (
-              <p className={`${typography.caption} text-amber-700 mt-1`}>
+              <p className={`${typography.panelMeta} text-amber-700 mt-1`}>
                 {ceeTimeoutReason}
               </p>
             )}
@@ -75,7 +75,7 @@ export function DegradedStateBanner({
         {/* ISL Partial Message */}
         {islPartial && (
           <div>
-            <p className={`${typography.label} text-amber-900 font-medium`}>
+            <p className={`${typography.panelHeader} text-amber-900`}>
               Some analysis features unavailable
             </p>
             {analysisTypes && analysisTypes.length > 0 && (
@@ -83,7 +83,7 @@ export function DegradedStateBanner({
                 {analysisTypes.map((type) => (
                   <span
                     key={type.name}
-                    className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded ${
+                    className={`inline-flex items-center gap-1 ${typography.panelMeta} px-2 py-0.5 rounded ${
                       type.available
                         ? 'bg-emerald-100 text-emerald-700'
                         : 'bg-slate-100 text-slate-500'

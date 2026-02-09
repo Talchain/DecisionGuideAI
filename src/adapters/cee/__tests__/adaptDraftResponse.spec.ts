@@ -222,4 +222,209 @@ describe('adaptDraftResponse – edge spread-first', () => {
     const result = adaptDraftResponse(raw)
     expect(result.edges[0].provenance_source).toBeUndefined()
   })
+
+  // --- CIL 0.2: NaN/Infinity rejection (Task 2) ---
+
+  it('rejects NaN weight', () => {
+    const raw = {
+      graph: {
+        nodes: [
+          { id: 'a', label: 'A', kind: 'factor' },
+          { id: 'b', label: 'B', kind: 'factor' },
+        ],
+        edges: [{ from: 'a', to: 'b', weight: NaN }],
+      },
+    }
+
+    const result = adaptDraftResponse(raw)
+    expect(result.edges[0].weight).toBeUndefined()
+  })
+
+  it('rejects Infinity belief', () => {
+    const raw = {
+      graph: {
+        nodes: [
+          { id: 'a', label: 'A', kind: 'factor' },
+          { id: 'b', label: 'B', kind: 'factor' },
+        ],
+        edges: [{ from: 'a', to: 'b', belief: Infinity }],
+      },
+    }
+
+    const result = adaptDraftResponse(raw)
+    expect(result.edges[0].belief).toBeUndefined()
+  })
+
+  it('rejects -Infinity strength_mean', () => {
+    const raw = {
+      graph: {
+        nodes: [
+          { id: 'a', label: 'A', kind: 'factor' },
+          { id: 'b', label: 'B', kind: 'factor' },
+        ],
+        edges: [{ from: 'a', to: 'b', strength_mean: -Infinity }],
+      },
+    }
+
+    const result = adaptDraftResponse(raw)
+    expect((result.edges[0] as any).strength_mean).toBeUndefined()
+  })
+
+  it('accepts zero as a valid finite weight', () => {
+    const raw = {
+      graph: {
+        nodes: [
+          { id: 'a', label: 'A', kind: 'factor' },
+          { id: 'b', label: 'B', kind: 'factor' },
+        ],
+        edges: [{ from: 'a', to: 'b', weight: 0 }],
+      },
+    }
+
+    const result = adaptDraftResponse(raw)
+    expect(result.edges[0].weight).toBe(0)
+  })
+
+  it('rejects NaN belief_exists', () => {
+    const raw = {
+      graph: {
+        nodes: [
+          { id: 'a', label: 'A', kind: 'factor' },
+          { id: 'b', label: 'B', kind: 'factor' },
+        ],
+        edges: [{ from: 'a', to: 'b', belief_exists: NaN }],
+      },
+    }
+
+    const result = adaptDraftResponse(raw)
+    expect((result.edges[0] as any).belief_exists).toBeUndefined()
+  })
+
+  // --- CIL 0.2: Nested strength object removal (Task 3) ---
+
+  it('removes mean/std from nested strength, preserves other subfields', () => {
+    const raw = {
+      graph: {
+        nodes: [
+          { id: 'a', label: 'A', kind: 'factor' },
+          { id: 'b', label: 'B', kind: 'factor' },
+        ],
+        edges: [
+          { from: 'a', to: 'b', strength: { mean: 0.6, std: 0.1, confidence: 'high', source: 'experiment' } },
+        ],
+      },
+    }
+
+    const result = adaptDraftResponse(raw)
+    const edge = result.edges[0]
+    expect((edge as any).strength_mean).toBe(0.6)
+    expect((edge as any).strength_std).toBe(0.1)
+    // mean/std removed, but unknown subfields preserved
+    expect((edge as any).strength).toEqual({ confidence: 'high', source: 'experiment' })
+  })
+
+  it('removes strength entirely when only mean/std present', () => {
+    const raw = {
+      graph: {
+        nodes: [
+          { id: 'a', label: 'A', kind: 'factor' },
+          { id: 'b', label: 'B', kind: 'factor' },
+        ],
+        edges: [
+          { from: 'a', to: 'b', strength: { mean: 0.6, std: 0.1 } },
+        ],
+      },
+    }
+
+    const result = adaptDraftResponse(raw)
+    const edge = result.edges[0]
+    expect((edge as any).strength_mean).toBe(0.6)
+    expect((edge as any).strength_std).toBe(0.1)
+    // No unknown subfields, so strength object removed entirely
+    expect((edge as any).strength).toBeUndefined()
+  })
+
+  it('rejects NaN in node uncertainty', () => {
+    const raw = {
+      graph: {
+        nodes: [{ id: 'a', label: 'A', kind: 'factor', uncertainty: NaN }],
+        edges: [],
+      },
+    }
+
+    const result = adaptDraftResponse(raw)
+    // Falls back to computed fallback (1 - confidence)
+    expect(result.nodes[0].uncertainty).not.toBe(NaN)
+    expect(Number.isFinite(result.nodes[0].uncertainty)).toBe(true)
+  })
+
+  it('rejects NaN in observed_state.value', () => {
+    const raw = {
+      graph: {
+        nodes: [
+          {
+            id: 'a',
+            label: 'A',
+            kind: 'factor',
+            observed_state: { value: NaN, baseline: 10 },
+          },
+        ],
+        edges: [],
+      },
+    }
+
+    const result = adaptDraftResponse(raw)
+    // observed_state dropped due to invalid value
+    expect((result.nodes[0] as any).observed_state).toBeUndefined()
+  })
+
+  // --- CIL 0.2: Legacy node path spread-first (Task 4) ---
+
+  it('preserves unknown node fields in legacy graph.nodes path', () => {
+    const raw = {
+      graph: {
+        nodes: [
+          {
+            id: 'a',
+            label: 'A',
+            kind: 'factor',
+            new_cil_field: 42,
+            category: 'observable',
+          },
+          { id: 'b', label: 'B', kind: 'factor' },
+        ],
+        edges: [{ from: 'a', to: 'b' }],
+      },
+    }
+
+    const result = adaptDraftResponse(raw)
+    expect(result.nodes).toHaveLength(2)
+    // Unknown fields must survive through spread-first
+    expect((result.nodes[0] as any).new_cil_field).toBe(42)
+    expect((result.nodes[0] as any).category).toBe('observable')
+  })
+
+  it('preserves node unknown fields without affecting validated fields', () => {
+    const raw = {
+      graph: {
+        nodes: [
+          {
+            id: 'x',
+            label: 'Test',
+            kind: 'goal',
+            uncertainty: 0.5,
+            custom_array: [1, 2, { nested: true }],
+          },
+        ],
+        edges: [],
+      },
+    }
+
+    const result = adaptDraftResponse(raw)
+    expect(result.nodes[0].id).toBe('x')
+    expect(result.nodes[0].label).toBe('Test')
+    expect(result.nodes[0].type).toBe('goal')
+    expect(result.nodes[0].uncertainty).toBe(0.5)
+    expect((result.nodes[0] as any).custom_array).toEqual([1, 2, { nested: true }])
+  })
 })

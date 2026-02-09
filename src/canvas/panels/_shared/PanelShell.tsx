@@ -11,6 +11,7 @@
  */
 
 import React from 'react'
+import { typography } from '../../../styles/typography'
 
 export interface PanelShellProps {
   /** Icon element (Lucide icon component) */
@@ -91,7 +92,7 @@ export function PanelShell({
       <header className="shrink-0 flex items-center justify-between px-4 py-3 border-b border-sand-200 bg-paper-50 rounded-tl-2xl">
         <div className="flex items-center gap-2">
           {icon && <span className="text-ink-900/70">{icon}</span>}
-          <h3 className="text-base font-semibold text-ink-900">{title}</h3>
+          <h3 className={`${typography.panelHeader} text-ink-900`}>{title}</h3>
           {chips}
         </div>
         {onClose && (

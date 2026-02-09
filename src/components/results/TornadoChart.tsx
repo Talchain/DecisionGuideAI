@@ -142,14 +142,14 @@ export function TornadoChart({
                   <button
                     type="button"
                     onClick={handleClick}
-                    className={`${typography.panelMeta} font-medium text-info hover:underline focus:outline-none focus:ring-2 focus:ring-info focus:ring-offset-1 rounded truncate max-w-full text-right`}
+                    className={`${typography.panelMeta} text-info hover:underline focus:outline-none focus:ring-2 focus:ring-info focus:ring-offset-1 rounded truncate max-w-full text-right`}
                     title={cleanLabel}
                   >
                     {cleanLabel}
                   </button>
                 ) : (
                   <span
-                    className={`${typography.panelMeta} font-medium text-text-light truncate block`}
+                    className={`${typography.panelMeta} text-text-light truncate block`}
                     title={cleanLabel}
                   >
                     {cleanLabel}
@@ -191,7 +191,7 @@ export function TornadoChart({
 
                 {/* Low value label */}
                 <span
-                  className={`absolute top-1/2 -translate-y-1/2 ${typography.panelMeta} font-semibold text-danger whitespace-nowrap`}
+                  className={`absolute top-1/2 -translate-y-1/2 ${typography.panelMeta} text-danger whitespace-nowrap`}
                   style={{
                     right: `${100 - Math.min(lowPct, centrePct) + 1}%`,
                   }}
@@ -201,7 +201,7 @@ export function TornadoChart({
 
                 {/* High value label */}
                 <span
-                  className={`absolute top-1/2 -translate-y-1/2 ${typography.panelMeta} font-semibold text-success whitespace-nowrap`}
+                  className={`absolute top-1/2 -translate-y-1/2 ${typography.panelMeta} text-success whitespace-nowrap`}
                   style={{
                     left: `${Math.max(highPct, centrePct) + 1}%`,
                   }}

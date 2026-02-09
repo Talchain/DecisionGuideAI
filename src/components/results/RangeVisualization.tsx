@@ -250,7 +250,7 @@ export function RangeVisualization({
             }}
           />
           <span
-            className={`absolute top-0 ${typography.panelMeta} text-goal font-medium whitespace-nowrap`}
+            className={`absolute top-0 ${typography.panelMeta} text-goal whitespace-nowrap`}
             style={{
               left: `${Math.max(5, Math.min(95, thresholdPct))}%`,
               transform: thresholdPct < 15 ? 'translateX(0)' : thresholdPct > 85 ? 'translateX(-100%)' : 'translateX(-50%)',

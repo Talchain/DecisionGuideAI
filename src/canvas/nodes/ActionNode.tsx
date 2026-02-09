@@ -2,6 +2,7 @@ import { memo } from 'react'
 import type { NodeProps } from '@xyflow/react'
 import { BaseNode } from './BaseNode'
 import { NODE_REGISTRY } from '../domain/nodes'
+import { typography } from '../../styles/typography'
 
 export const ActionNode = memo((props: NodeProps) => {
   const metadata = NODE_REGISTRY.action
@@ -9,7 +10,7 @@ export const ActionNode = memo((props: NodeProps) => {
   return (
     <BaseNode {...props} nodeType="action" icon={metadata.icon}>
       {props.data?.description && (
-        <div className="text-xs opacity-70">
+        <div className={`${typography.nodeLabel} opacity-70`}>
           {props.data.description}
         </div>
       )}

@@ -857,6 +857,31 @@ describe('V3 node-level field pass-through', () => {
     expect(v2Node.category).toBe('external')
   })
 
+  // CIL 0.2: unknown category values pass through (Task 6)
+  it('preserves unknown category values for forward compatibility', () => {
+    const node = makeNode('fac_derived', {
+      label: 'Derived Factor',
+      kind: 'factor',
+      category: 'derived',
+    })
+
+    const v2Node = transformNodeToV2(node)
+
+    // Unknown categories must pass through to PLoT (not be dropped)
+    expect(v2Node.category).toBe('derived')
+  })
+
+  it('omits category when not present on node', () => {
+    const node = makeNode('fac_nocategory', {
+      label: 'No Category',
+      kind: 'factor',
+    })
+
+    const v2Node = transformNodeToV2(node)
+
+    expect(v2Node.category).toBeUndefined()
+  })
+
   it('excludes React Flow internal fields from V2 output', () => {
     const node = makeNode('n1', {
       label: 'Test',

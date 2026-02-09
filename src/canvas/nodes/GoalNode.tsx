@@ -3,6 +3,7 @@ import type { NodeProps } from '@xyflow/react'
 import { BaseNode } from './BaseNode'
 import { NODE_REGISTRY } from '../domain/nodes'
 import { useNodeDisplayMetadata } from '../hooks/useNodeDisplayMetadata'
+import { typography } from '../../styles/typography'
 
 export const GoalNode = memo((props: NodeProps) => {
   const metadata = NODE_REGISTRY.goal
@@ -14,19 +15,19 @@ export const GoalNode = memo((props: NodeProps) => {
     <BaseNode {...props} nodeType="goal" icon={metadata.icon}>
       {/* Decision Graph Display v2 Task 10 + Task B: Achievement probability with fallback */}
       {displayMetadata.achievementProbability !== null && (
-        <div className="text-xs font-semibold mb-1 text-success-600">
+        <div className={`${typography.nodeTitle} mb-1 text-success-600`}>
           {Math.round(displayMetadata.achievementProbability * 100)}% chance
         </div>
       )}
       {/* Task B + Fix 5: Fallback to recommendation stability when probability unavailable */}
       {displayMetadata.achievementProbability === null && displayMetadata.stabilityPercentage !== null && (
-        <div className="text-xs font-semibold mb-1 text-info-500">
+        <div className={`${typography.nodeTitle} mb-1 text-info-500`}>
           Recommended in {Math.round(displayMetadata.stabilityPercentage * 100)}% of scenarios
         </div>
       )}
 
       {props.data?.description && (
-        <div className="text-xs opacity-70">
+        <div className={`${typography.nodeLabel} opacity-70`}>
           {props.data.description}
         </div>
       )}

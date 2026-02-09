@@ -224,7 +224,7 @@ export const EdgeDataSchema = z.object({
   // Schema version for migrations
   // Accept legacy v2, v3, and current v4 values for backwards-compatible imports
   schemaVersion: z.union([z.literal(2), z.literal(3), z.literal(4)]).default(4),
-})
+}).passthrough() // CIL 0.2: passthrough preserves additive CIL fields through Zod parse
 
 export type EdgeData = z.infer<typeof EdgeDataSchema>
 

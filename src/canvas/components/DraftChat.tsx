@@ -428,6 +428,11 @@ export function DraftChat() {
         effect_direction: _effectDir,
         belief: _belief, belief_exists: _beliefExists,
         provenance: _provenance, provenance_source: _provSource,
+        // CIL 0.2: strip canvas-internal keys from CEE passthrough to
+        //          prevent collision with DEFAULT_EDGE_DATA values
+        style: _style, curvature: _curvature, kind: _kind,
+        functionType: _funcType, beliefStrength: _beliefStr,
+        schemaVersion: _schemaVer,
         ...edgeRest
       } = e as Record<string, unknown>
 
@@ -875,7 +880,7 @@ export function DraftChat() {
                   <h2 id="draft-chat-title" className={`${typography.label} text-ink-900`}>
                     Olumi AI
                   </h2>
-                  <p className="text-xs text-ink-500">Describe your decision to get started</p>
+                  <p className={`${typography.panelMeta} text-ink-500`}>Describe your decision to get started</p>
                 </div>
               </div>
               <div className="flex items-center gap-1">
@@ -953,20 +958,20 @@ export function DraftChat() {
                           <p className={`${typography.body} text-sun-800 font-medium`}>
                             {formatted.message}
                           </p>
-                          <p className={`${typography.bodySmall} text-sun-700`}>
+                          <p className={`${typography.panelBody} text-sun-700`}>
                             Build your model manually using:
                           </p>
-                          <ul className={`${typography.bodySmall} text-sun-700 list-disc list-inside space-y-0.5`}>
+                          <ul className={`${typography.panelBody} text-sun-700 list-disc list-inside space-y-0.5`}>
                             <li><strong>+ Node</strong> button to add factors</li>
                             <li><strong>Templates</strong> drawer for pre-built models</li>
                             <li>Right-click canvas for quick-add menu</li>
                           </ul>
                           {formatted.debugInfo && (
                             <details className="mt-1">
-                              <summary className={`${typography.caption} text-sun-700 cursor-pointer select-none`}>
+                              <summary className={`${typography.panelMeta} text-sun-700 cursor-pointer select-none`}>
                                 Technical details
                               </summary>
-                              <pre className={`${typography.caption} text-sun-700 font-mono text-xs mt-1 opacity-70 whitespace-pre-wrap break-all`}>
+                              <pre className={`${typography.panelMeta} text-sun-700 font-mono mt-1 opacity-70 whitespace-pre-wrap break-all`}>
                                 {formatted.debugInfo}
                               </pre>
                             </details>
@@ -1016,13 +1021,13 @@ export function DraftChat() {
 
               {draft && (
                 <div className="p-3 bg-paper-50 border border-sand-200 rounded-xl space-y-2" data-testid="draft-submitted-brief">
-                  <p className={`${typography.caption} uppercase tracking-wide text-ink-500`}>
+                  <p className={`${typography.panelMeta} uppercase tracking-wide text-ink-500`}>
                     Submitted brief
                   </p>
                   <p className={`${typography.body} text-ink-900 whitespace-pre-wrap`}>
                     {description || 'No brief provided.'}
                   </p>
-                  <p className={`${typography.bodySmall} text-ink-500`}>
+                  <p className={`${typography.panelBody} text-ink-500`}>
                     Draft applied to canvas. Edit the brief below to generate a new version.
                   </p>
                 </div>

@@ -5,6 +5,7 @@ import { NODE_REGISTRY } from '../domain/nodes'
 import { useCanvasStore } from '../store'
 import { deriveControllability, formatDisplayValue } from '../utils/graphDisplayCalculations'
 import { useNodeDisplayMetadata } from '../hooks/useNodeDisplayMetadata'
+import { typography } from '../../styles/typography'
 
 /**
  * Brief v2.2: ObservedState type for factor nodes
@@ -69,7 +70,7 @@ export const FactorNode = memo((props: NodeProps) => {
       >
       {/* Decision Graph Display v2 Task 11: Show intervention value when option hovered */}
       {isAffectedByHover && (
-        <div className="text-xs font-semibold text-info mb-1 bg-info-light px-1.5 py-0.5 rounded border border-info/30">
+        <div className={`${typography.nodeTitle} text-info mb-1 bg-info-light px-1.5 py-0.5 rounded border border-info/30`}>
           Intervention: {formatDisplayValue(interventionValue, observedState?.unit)}
         </div>
       )}
@@ -84,14 +85,14 @@ export const FactorNode = memo((props: NodeProps) => {
           {/* Influence bar - teal/info color (only show if > 0) */}
           {displayMetadata.influence !== null && displayMetadata.influence > 0.001 && (
             <div className="flex items-center gap-1.5">
-              <span className="text-[10px] text-text-light w-14 shrink-0 truncate" title="Influence">Influence</span>
+              <span className={`${typography.edgeLabel} text-text-light w-14 shrink-0 truncate`} title="Influence">Influence</span>
               <div className="flex-1 h-1.5 bg-panel-border rounded-full overflow-hidden max-w-[60px]">
                 <div
                   className="h-full bg-info rounded-full transition-all duration-300"
                   style={{ width: `${Math.round(displayMetadata.influence * 100)}%` }}
                 />
               </div>
-              <span className="text-[10px] text-text-light w-8 text-right shrink-0">
+              <span className={`${typography.edgeLabel} text-text-light w-8 text-right shrink-0`}>
                 {Math.round(displayMetadata.influence * 100)}%
               </span>
             </div>
@@ -99,14 +100,14 @@ export const FactorNode = memo((props: NodeProps) => {
           {/* Confidence bar - slate/muted color (only show if > 0) */}
           {displayMetadata.confidence !== null && displayMetadata.confidence > 0.001 && (
             <div className="flex items-center gap-1.5">
-              <span className="text-[10px] text-text-light w-14 shrink-0 truncate" title="Confidence">Confidence</span>
+              <span className={`${typography.edgeLabel} text-text-light w-14 shrink-0 truncate`} title="Confidence">Confidence</span>
               <div className="flex-1 h-1.5 bg-panel-border rounded-full overflow-hidden max-w-[60px]">
                 <div
                   className="h-full bg-factor rounded-full transition-all duration-300"
                   style={{ width: `${Math.round(displayMetadata.confidence * 100)}%` }}
                 />
               </div>
-              <span className="text-[10px] text-text-light w-8 text-right shrink-0">
+              <span className={`${typography.edgeLabel} text-text-light w-8 text-right shrink-0`}>
                 {Math.round(displayMetadata.confidence * 100)}%
               </span>
             </div>
@@ -117,7 +118,7 @@ export const FactorNode = memo((props: NodeProps) => {
       {/* Task 4: Better value display formatting */}
       {/* UI Polish Task 1 & 3: Fixed unit position (after number for %) and added spacing */}
       {observedState && typeof observedState.value === 'number' && (
-        <div className="factor-node-value text-xs mt-2 flex items-baseline gap-1">
+        <div className={`factor-node-value ${typography.nodeLabel} mt-2 flex items-baseline gap-1`}>
           <span className="font-semibold text-info">
             {/* UI Polish: formatDisplayValue handles % internally, so don't prepend unit for % */}
             {observedState.unit === '%'
@@ -125,7 +126,7 @@ export const FactorNode = memo((props: NodeProps) => {
               : `${observedState.unit ?? ''}${formatDisplayValue(observedState.value, observedState.unit)}`}
           </span>
           {observedState.baseline !== undefined && observedState.baseline !== observedState.value && (
-            <span className="text-text-light text-[10px]">
+            <span className={`text-text-light ${typography.edgeLabel}`}>
               (was {observedState.unit === '%'
                 ? formatDisplayValue(observedState.baseline, observedState.unit)
                 : `${observedState.unit ?? ''}${formatDisplayValue(observedState.baseline, observedState.unit)}`})
@@ -135,7 +136,7 @@ export const FactorNode = memo((props: NodeProps) => {
       )}
       {/* Description (existing) */}
       {props.data?.description && (
-        <div className={`text-xs opacity-70 ${observedState ? 'mt-0.5' : ''}`}>
+        <div className={`${typography.nodeLabel} opacity-70 ${observedState ? 'mt-0.5' : ''}`}>
           {props.data.description}
         </div>
       )}

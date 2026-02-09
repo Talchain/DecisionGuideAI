@@ -553,7 +553,7 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
       <button
         onClick={handleRun}
         disabled={loading}
-        className={`w-full px-6 py-3 ${typography.button} rounded-lg transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-600 disabled:opacity-50 disabled:cursor-not-allowed ${
+        className={`w-full px-6 py-3 ${typography.panelHeader} rounded-lg transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-600 disabled:opacity-50 disabled:cursor-not-allowed ${
           result
             ? 'text-gray-700 bg-white border border-gray-300 hover:bg-gray-50'
             : 'text-white bg-blue-600 hover:bg-blue-700 shadow-sm hover:shadow-md'
@@ -565,7 +565,7 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
       <div className="flex gap-2">
         <button
           onClick={handleSaveAsScenario}
-          className={`flex-1 px-4 py-2 ${typography.label} rounded-lg bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors`}
+          className={`flex-1 px-4 py-2 ${typography.panelHeader} rounded-lg bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors`}
           type="button"
           title="Save current canvas as a named scenario"
         >
@@ -573,7 +573,7 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
         </button>
         <button
           onClick={handleMergeIntoCurrent}
-          className={`flex-1 px-4 py-2 ${typography.label} rounded-lg bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors`}
+          className={`flex-1 px-4 py-2 ${typography.panelHeader} rounded-lg bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors`}
           type="button"
           title="Merge this template into current canvas"
         >
@@ -615,11 +615,11 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
               <div className="mb-4 p-3 bg-danger-50 border border-danger-200 rounded-lg">
                 <div className="flex items-start gap-2">
                   <div className="flex-shrink-0 w-5 h-5 rounded-full bg-danger-100 flex items-center justify-center mt-0.5">
-                    <span className={`${typography.caption} text-danger-700 font-bold`}>!</span>
+                    <span className={`${typography.panelMeta} text-danger-700 font-bold`}>!</span>
                   </div>
                   <div className="flex-1">
-                    <p className={`${typography.label} text-danger-900 mb-1`}>Blueprint Insertion Failed</p>
-                    <p className={`${typography.caption} text-danger-700 leading-relaxed`}>{insertionError}</p>
+                    <p className={`${typography.panelHeader} text-danger-900 mb-1`}>Blueprint Insertion Failed</p>
+                    <p className={`${typography.panelMeta} text-danger-700`}>{insertionError}</p>
                   </div>
                 </div>
               </div>
@@ -637,7 +637,7 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
                       <button
                         key={cat}
                         onClick={() => setSelectedCategory(cat)}
-                        className={`px-3 py-1.5 ${typography.caption} font-medium rounded-full transition-colors ${
+                        className={`px-3 py-1.5 ${typography.panelMeta} font-medium rounded-full transition-colors ${
                           selectedCategory === cat
                             ? 'bg-info-500 text-white'
                             : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
@@ -658,7 +658,7 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
                   placeholder="Search templates..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className={`w-full pl-10 pr-4 py-2 ${typography.body} border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-info-500`}
+                  className={`w-full pl-10 pr-4 py-2 ${typography.panelBody} border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-info-500`}
                 />
               </div>
 
@@ -667,16 +667,16 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
                 <div className="mb-4 p-4 bg-danger-50 border border-danger-200 rounded-lg">
                   <div className="flex items-start gap-3">
                     <div className="flex-shrink-0 w-5 h-5 rounded-full bg-danger-100 flex items-center justify-center mt-0.5">
-                      <span className={`${typography.caption} text-danger-700 font-bold`}>!</span>
+                      <span className={`${typography.panelMeta} text-danger-700 font-bold`}>!</span>
                     </div>
                     <div className="flex-1">
-                      <p className={`${typography.label} text-danger-900 mb-1`}>Templates Unavailable</p>
-                      <p className={`${typography.caption} text-danger-700 leading-relaxed mb-3`}>
+                      <p className={`${typography.panelHeader} text-danger-900 mb-1`}>Templates Unavailable</p>
+                      <p className={`${typography.panelMeta} text-danger-700 mb-3`}>
                         {templatesLoadError}
                       </p>
                       <button
                         onClick={retryLoadTemplates}
-                        className={`px-3 py-1.5 ${typography.label} text-danger-700 bg-danger-100 hover:bg-danger-200 rounded transition-colors`}
+                        className={`px-3 py-1.5 ${typography.panelHeader} text-danger-700 bg-danger-100 hover:bg-danger-200 rounded transition-colors`}
                         type="button"
                       >
                         Retry
@@ -690,7 +690,7 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
               {templatesLoading ? (
                 <TemplateSkeleton />
               ) : templatesLoadError ? null : filteredBlueprints.length === 0 ? (
-                <div className={`py-8 text-center ${typography.body} text-gray-500`}>
+                <div className={`py-8 text-center ${typography.panelBody} text-gray-500`}>
                   No templates found matching your criteria
                 </div>
               ) : (
@@ -721,7 +721,7 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
                   setSelectedBlueprint(null)
                   setTemplateVersion(undefined)
                 }}
-                className={`${typography.label} text-blue-600 hover:text-blue-700 transition-colors`}
+                className={`${typography.panelHeader} text-blue-600 hover:text-blue-700 transition-colors`}
                 type="button"
               >
                 ← Back to templates
@@ -733,7 +733,7 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
           {/* Dev Controls Toggle */}
           {selectedBlueprintId && (
             <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-              <label htmlFor="dev-toggle" className={`${typography.label} text-gray-700`}>
+              <label htmlFor="dev-toggle" className={`${typography.panelHeader} text-gray-700`}>
                 Show dev controls
               </label>
               <button
@@ -758,12 +758,12 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
           {showDevControls && selectedBlueprintId && (
             <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 space-y-3">
               <div className="flex items-center justify-between">
-                <span className={`${typography.caption} font-semibold text-yellow-800 uppercase tracking-wide`}>Dev Controls</span>
+                <span className={`${typography.panelMeta} font-semibold text-yellow-800 uppercase tracking-wide`}>Dev Controls</span>
                 <span className={`${typography.code} bg-yellow-200 text-yellow-900 px-2 py-1 rounded`}>Adapter: {adapterName}</span>
               </div>
               <div className="space-y-3">
                 <div>
-                  <label htmlFor="seed-input" className={`block ${typography.label} text-gray-700 mb-1`}>
+                  <label htmlFor="seed-input" className={`block ${typography.panelHeader} text-gray-700 mb-1`}>
                     Seed
                   </label>
                   <input
@@ -771,7 +771,7 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
                     type="number"
                     value={seed}
                     onChange={(e) => setSeed(e.target.value)}
-                    className={`w-full px-3 py-2 ${typography.body} border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-info-500`}
+                    className={`w-full px-3 py-2 ${typography.panelBody} border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-info-500`}
                     min="1"
                   />
                 </div>
@@ -779,13 +779,13 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
                   <button
                     onClick={handleRun}
                     disabled={loading || !selectedBlueprintId}
-                    className={`flex-1 px-4 py-2 ${typography.body} text-white bg-info-500 hover:bg-info-600 rounded-md focus:outline-none focus:ring-2 focus:ring-info-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors`}
+                    className={`flex-1 px-4 py-2 ${typography.panelBody} text-white bg-info-500 hover:bg-info-600 rounded-md focus:outline-none focus:ring-2 focus:ring-info-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors`}
                   >
                     {loading ? 'Running…' : 'Run'}
                   </button>
                   <button
                     onClick={handleReset}
-                    className={`px-4 py-2 ${typography.body} bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-400`}
+                    className={`px-4 py-2 ${typography.panelBody} bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-400`}
                   >
                     Reset
                   </button>
@@ -849,7 +849,7 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
               <div
                 role="status"
                 aria-live="polite"
-                className={`absolute bottom-4 left-0 right-0 mx-4 bg-gray-900 text-white px-4 py-3 rounded-lg shadow-panel ${typography.body}`}
+                className={`absolute bottom-4 left-0 right-0 mx-4 bg-gray-900 text-white px-4 py-3 rounded-lg shadow-panel ${typography.panelBody}`}
               >
                 {toastMessage}
               </div>

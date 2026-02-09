@@ -70,21 +70,21 @@ export function ErrorAlert({
         <Icon className={`w-5 h-5 ${config.iconColor} flex-shrink-0 mt-0.5`} aria-hidden="true" />
         <div className="flex-1 space-y-1">
           {title && (
-            <h3 className={`${typography.label} ${config.text} font-semibold`}>
+            <h3 className={`${typography.panelHeader} ${config.text}`}>
               {title}
             </h3>
           )}
-          <p className={`${typography.caption} ${config.textMuted}`}>
+          <p className={`${typography.panelMeta} ${config.textMuted}`}>
             {message}
           </p>
           {/* Debug info for POC mode - helps developers understand errors */}
           {debugInfo && (
             <details className="mt-1">
-              <summary className={`${typography.caption} ${config.textMuted} cursor-pointer select-none`}>
+              <summary className={`${typography.panelMeta} ${config.textMuted} cursor-pointer select-none`}>
                 Technical details
               </summary>
               <pre
-                className={`${typography.caption} ${config.textMuted} font-mono text-xs mt-1 opacity-70 whitespace-pre-wrap break-all`}
+                className={`${typography.panelMeta} ${config.textMuted} font-mono mt-1 opacity-70 whitespace-pre-wrap break-all`}
               >
                 {debugInfo}
               </pre>
@@ -93,7 +93,7 @@ export function ErrorAlert({
           {action && (
             <button
               onClick={action.onClick}
-              className={`mt-2 inline-flex items-center px-3 py-1.5 rounded ${typography.caption} font-medium ${config.text} hover:bg-white/50 transition-colors`}
+              className={`mt-2 inline-flex items-center px-3 py-1.5 rounded ${typography.panelMeta} font-medium ${config.text} hover:bg-white/50 transition-colors`}
               type="button"
             >
               {action.label}

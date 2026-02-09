@@ -166,7 +166,7 @@ function TargetRow({
           type="button"
           onClick={onStartEdit}
           disabled={isRunning}
-          className={`${typography.panelBody} font-medium text-info hover:underline cursor-pointer tabular-nums disabled:opacity-50 disabled:cursor-not-allowed`}
+          className={`${typography.panelBody} text-info hover:underline cursor-pointer tabular-nums disabled:opacity-50 disabled:cursor-not-allowed`}
           aria-label={`Edit ${constraint.label} value: ${constraint.value}`}
         >
           {constraint.value}
@@ -177,7 +177,7 @@ function TargetRow({
       <span className="flex-1" />
 
       {/* Probability — right-aligned */}
-      <span className={`${typography.panelBody} font-medium text-text-body tabular-nums flex-shrink-0`}>
+      <span className={`${typography.panelBody} text-text-body tabular-nums flex-shrink-0`}>
         {formatProbability(constraint.probability)}
       </span>
     </div>
@@ -301,11 +301,11 @@ export function SuccessTarget({
         {/* Combined row (multi-target only) */}
         {showCombinedRow && (
           <div className="flex items-center gap-2 min-h-[36px] border-t border-panel-border pt-1 mt-1">
-            <span className={`${typography.panelBody} text-text-body font-medium`}>
+            <span className={`${typography.panelBody} text-text-body`}>
               Combined
             </span>
             <span className="flex-1" />
-            <span className={`${typography.panelBody} font-medium text-text-body tabular-nums flex-shrink-0`}>
+            <span className={`${typography.panelBody} text-text-body tabular-nums flex-shrink-0`}>
               {formatProbability(probabilityOfJointGoal)}
             </span>
           </div>

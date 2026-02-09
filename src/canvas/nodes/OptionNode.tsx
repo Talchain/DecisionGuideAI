@@ -5,6 +5,7 @@ import { NODE_REGISTRY } from '../domain/nodes'
 import { useNodeDisplayMetadata } from '../hooks/useNodeDisplayMetadata'
 import { useCanvasStore } from '../store'
 import { formatDisplayValue } from '../utils/graphDisplayCalculations'
+import { typography } from '../../styles/typography'
 
 export const OptionNode = memo((props: NodeProps) => {
   const metadata = NODE_REGISTRY.option
@@ -66,14 +67,14 @@ export const OptionNode = memo((props: NodeProps) => {
       <BaseNode {...props} nodeType="option" icon={metadata.icon}>
       {/* Decision Graph Display v2 Task 7 (partial): Win rate */}
       {displayMetadata.winRate !== null && (
-        <div className="text-xs font-semibold mb-1 text-info-600">
+        <div className={`${typography.nodeTitle} mb-1 text-info-600`}>
           Wins {Math.round(displayMetadata.winRate * 100)}% of scenarios
         </div>
       )}
 
       {/* Decision Graph Display v2 Task 7 + Task E + Task 4: Intervention deltas with formatted values */}
       {interventionDeltas.length > 0 && (
-        <div className="text-xs text-slate-500 mt-1">
+        <div className={`${typography.nodeLabel} text-slate-500 mt-1`}>
           {interventionDeltas.map((delta, idx) => {
             // Task 4: Better value formatting with sign prefix
             const sign = delta.value > 0 ? '+' : ''
@@ -107,7 +108,7 @@ export const OptionNode = memo((props: NodeProps) => {
       )}
 
       {props.data?.description && (
-        <div className="text-xs opacity-70">
+        <div className={`${typography.nodeLabel} opacity-70`}>
           {props.data.description}
         </div>
       )}

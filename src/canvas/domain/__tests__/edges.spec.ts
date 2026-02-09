@@ -19,6 +19,7 @@ import {
   formRequiresBinaryValidation,
   FORM_DISPLAY_NAMES,
   DEFAULT_EDGE_DATA,
+  EdgeDataSchema,
   type EdgeData,
 } from '../edges'
 
@@ -31,6 +32,21 @@ describe('EdgeV2 Schema', () => {
     it('should have dual belief defaults', () => {
       expect(DEFAULT_EDGE_DATA.beliefExists).toBe(0.7)
       expect(DEFAULT_EDGE_DATA.beliefStrength).toBe(0.5)
+    })
+  })
+
+  // CIL 0.2: EdgeDataSchema passthrough (Task 5)
+  describe('EdgeDataSchema passthrough', () => {
+    it('preserves unknown CIL fields through Zod parse', () => {
+      const result = EdgeDataSchema.parse({ weight: 0.5, unknown_cil_field: true })
+      expect(result.weight).toBe(0.5)
+      expect((result as any).unknown_cil_field).toBe(true)
+    })
+
+    it('parses normally when no unknown fields are present', () => {
+      const result = EdgeDataSchema.parse({ weight: 0.5 })
+      expect(result.weight).toBe(0.5)
+      expect(result.schemaVersion).toBe(4) // default
     })
   })
 })

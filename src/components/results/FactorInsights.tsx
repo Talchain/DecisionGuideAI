@@ -69,7 +69,7 @@ export function FactorInsights({ enrichment }: FactorInsightsProps) {
         ) : (
           <ChevronRight size={14} className="shrink-0" />
         )}
-        <span className="font-medium">Insights</span>
+        <span>Insights</span>
       </button>
 
       {/* Content region */}
@@ -81,7 +81,7 @@ export function FactorInsights({ enrichment }: FactorInsightsProps) {
           {/* Observations */}
           {hasObservations && (
             <div>
-              <div className="font-medium text-slate-500 mb-1">Observations</div>
+              <div className="text-slate-500 mb-1">Observations</div>
               <ul className="list-disc list-inside space-y-0.5 pl-1">
                 {enrichment.observations.map((obs, idx) => (
                   <li key={idx} className="leading-relaxed">{stripEncodingNotation(obs)}</li>
@@ -93,7 +93,7 @@ export function FactorInsights({ enrichment }: FactorInsightsProps) {
           {/* Perspectives */}
           {hasPerspectives && (
             <div>
-              <div className="font-medium text-slate-500 mb-1">Perspectives</div>
+              <div className="text-slate-500 mb-1">Perspectives</div>
               <ul className="list-disc list-inside space-y-0.5 pl-1">
                 {enrichment.perspectives.map((persp, idx) => (
                   <li key={idx} className="leading-relaxed">{stripEncodingNotation(persp)}</li>

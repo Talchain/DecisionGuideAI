@@ -219,7 +219,7 @@ function UncertaintyRow({
               </span>
             )}
             {confidencePill && (
-              <span className={`${typography.panelMeta} font-semibold px-1.5 py-0.5 rounded-full whitespace-nowrap flex-shrink-0 ${confidencePill.bgClass} ${confidencePill.textClass} border ${confidencePill.borderClass}`}>
+              <span className={`${typography.panelMeta} px-1.5 py-0.5 rounded-full whitespace-nowrap flex-shrink-0 ${confidencePill.bgClass} ${confidencePill.textClass} border ${confidencePill.borderClass}`}>
                 {confidencePill.label}
               </span>
             )}
@@ -256,7 +256,7 @@ function UncertaintyRow({
                   <p className={`${typography.panelBody} ${severityConfig.textColor}`}>{stripEncodingNotation(item.message)}</p>
                 </div>
                 {confidencePill && (
-                  <span className={`${typography.panelMeta} font-semibold px-1.5 py-0.5 rounded-full whitespace-nowrap flex-shrink-0 mt-0.5 ${confidencePill.bgClass} ${confidencePill.textClass} border ${confidencePill.borderClass}`}>
+                  <span className={`${typography.panelMeta} px-1.5 py-0.5 rounded-full whitespace-nowrap flex-shrink-0 mt-0.5 ${confidencePill.bgClass} ${confidencePill.textClass} border ${confidencePill.borderClass}`}>
                     {confidencePill.label}
                   </span>
                 )}
@@ -520,7 +520,7 @@ export function ConfidenceSection({
                 {/* Tier 1: Could change the decision */}
                 {couldChangeDecision.length > 0 && (
                   <div className="space-y-2">
-                    <h4 className={`${typography.panelBody} text-slate-500 font-medium tracking-wide`}>
+                    <h4 className={`${typography.panelHeader} text-slate-500 tracking-wide`}>
                       Could change the decision
                     </h4>
                     <div className="space-y-2">
@@ -538,7 +538,7 @@ export function ConfidenceSection({
                 {/* Tier 2: Worth refining */}
                 {worthRefining.length > 0 && (
                   <div className="space-y-2">
-                    <h4 className={`${typography.panelBody} text-slate-500 font-medium tracking-wide`}>
+                    <h4 className={`${typography.panelHeader} text-slate-500 tracking-wide`}>
                       Worth refining
                     </h4>
                     <div className="space-y-2">
@@ -584,7 +584,7 @@ export function ConfidenceSection({
       {/* Task 11: Evidence Gaps - consolidated into "What needs attention" */}
       {evidenceGaps && evidenceGaps.length > 0 && (
         <div className="space-y-2">
-          <h4 className={`${typography.panelBody} text-slate-500 font-medium tracking-wide`}>
+          <h4 className={`${typography.panelHeader} text-slate-500 tracking-wide`}>
             Evidence gaps
           </h4>
           <CappedList<EvidenceGapItem>
@@ -656,7 +656,7 @@ export function ConfidenceSection({
       {/* Task 5 (M1 Coaching): Next Actions - "Recommended actions" */}
       {nextActions && nextActions.length > 0 && (
         <div className="space-y-2">
-          <h4 className={`${typography.panelBody} text-slate-500 font-medium tracking-wide`}>
+          <h4 className={`${typography.panelHeader} text-slate-500 tracking-wide`}>
             Recommended actions
           </h4>
           <CappedList<NextActionItem>
@@ -686,13 +686,13 @@ export function ConfidenceSection({
                         tabIndex={0}
                         onClick={handleFocus}
                         onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleFocus() } }}
-                        className={`${typography.panelBody} text-text-body cursor-pointer hover:underline focus:outline-none focus:ring-2 focus:ring-info-500 focus:ring-offset-1 rounded ${index === 0 ? 'font-semibold' : ''}`}
+                        className={`${typography.panelBody} text-text-body cursor-pointer hover:underline focus:outline-none focus:ring-2 focus:ring-info-500 focus:ring-offset-1 rounded`}
                         aria-label={`Focus on ${action.targetLabel || action.action} in model`}
                       >
                         {action.action}
                       </span>
                     ) : (
-                      <p className={`${typography.panelBody} text-text-body ${index === 0 ? 'font-semibold' : ''}`}>
+                      <p className={`${typography.panelBody} text-text-body`}>
                         {action.action}
                       </p>
                     )}
@@ -716,7 +716,7 @@ export function ConfidenceSection({
 
       {/* Improvements */}
       <div className="space-y-2">
-        <h4 className={`${typography.panelBody} text-slate-500 font-medium tracking-wide`}>
+        <h4 className={`${typography.panelHeader} text-slate-500 tracking-wide`}>
           Improvements
         </h4>
         {improvements.length === 0 ? (

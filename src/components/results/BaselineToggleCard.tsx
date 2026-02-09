@@ -61,7 +61,7 @@ export function BaselineToggleCard({
       <button
         onClick={handleAddBaseline}
         disabled={isRunning}
-        className={`px-2 py-1 ${typography.panelBody} font-medium text-info hover:text-info-hover border border-info/30 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0`}
+        className={`px-2 py-1 ${typography.panelBody} text-info hover:text-info-hover border border-info/30 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0`}
         type="button"
       >
         {isRunning ? 'Adding...' : 'Add baseline'}
