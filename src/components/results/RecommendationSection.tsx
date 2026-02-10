@@ -282,6 +282,7 @@ export function RecommendationSection({
           topDriverLabel={topDrivers?.[0]?.factorLabel}
           topDriverDirection={topDrivers?.[0]?.direction}
           winnerP10={recommendedOption?.outcome?.p10 ?? null}
+          hasBaseline={hasBaseline}
         />
       )}
 

@@ -32,8 +32,10 @@ export interface RangeVisualizationProps {
   winnerP10?: number | null
   /** M2 override — rich scenario contexts */
   scenarioContexts?: string[]
-  /** v7.1: When true, values are normalised model scores — show "% shift from baseline" not user units */
+  /** v7.1: When true, values are normalised model scores */
   isNormalised?: boolean
+  /** v7.6 T1: Whether an explicit baseline option exists — controls axis label wording */
+  hasBaseline?: boolean
 }
 
 /**
@@ -169,6 +171,7 @@ export function RangeVisualization({
   winnerP10,
   scenarioContexts,
   isNormalised,
+  hasBaseline,
 }: RangeVisualizationProps) {
   const [showAll, setShowAll] = useState(false)
 
@@ -264,14 +267,16 @@ export function RangeVisualization({
         </div>
       )}
 
-      {/* Axis tick labels — show "% shift from baseline" label when normalised */}
+      {/* v7.6 T1: Axis label — wording depends on hasBaseline */}
       <div className={`flex justify-between ${typography.panelMeta} text-text-light`}>
         {isNormalised && (
           <span
             className="text-text-light italic"
-            title="These values show percentage change from your baseline. Add a success target to see results in your goal's units."
+            title={hasBaseline
+              ? 'These values show percentage change from your baseline. Add a success target to see results in your goal\u2019s units.'
+              : 'These values show relative percentage difference. Add a success target to see results in your goal\u2019s units.'}
           >
-            % shift from baseline:&nbsp;
+            {hasBaseline ? '% shift from baseline:' : 'Relative % difference:'}&nbsp;
           </span>
         )}
         <span>{formatThreshold(minValue, outcomeUnit, outcomeUnitSymbol, isNormalised)}</span>

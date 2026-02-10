@@ -527,9 +527,11 @@ export function HeroSection({
     // When denormalised (e.g. 640 customers), show user-unit label
     if (expectedOutcome != null) {
       if (isNormalised) {
-        // Normalised values represent proportional shift from baseline — format as %
+        // v7.6 T1: Wording depends on whether an explicit baseline exists
         const pct = Math.round(expectedOutcome * 100)
-        const direction = pct > 0 ? 'improvement over baseline' : pct < 0 ? 'decline from baseline' : 'at baseline'
+        const direction = hasBaseline
+          ? (pct > 0 ? 'improvement over baseline' : pct < 0 ? 'decline from baseline' : 'at baseline')
+          : (pct > 0 ? 'relative improvement' : pct < 0 ? 'relative decline' : 'neutral')
         const prefix = pct > 0 ? '+' : ''
         bullets.push({
           text: `~${prefix}${pct}% ${direction}`,
@@ -706,10 +708,12 @@ export function HeroSection({
           </div>
         </div>
 
-        {/* v7.4: Normalised mode inline note - below stability footer, above expanded content */}
+        {/* v7.6 T1: Normalised note — wording depends on hasBaseline */}
         {isNormalised && (
           <p className={`${typography.panelMeta} text-text-light italic pt-2`}>
-            Values shown as % shift from baseline. Add a success target to see results in your goal's units.
+            {hasBaseline
+              ? 'Values shown as % shift from baseline. Add a success target to see results in your goal\u2019s units.'
+              : 'Values shown as relative % difference. Add a success target to see results in your goal\u2019s units.'}
           </p>
         )}
 

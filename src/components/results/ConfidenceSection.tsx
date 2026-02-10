@@ -405,11 +405,15 @@ export function ConfidenceSection({
   // Show tier warning only for non-strong tiers
   const showTierWarning = tier.tier !== 'strong'
   // Determine if there are items to address below (for dynamic description)
-  const hasItemsToAddress = uncertainties.length > 0 || improvements.length > 0
+  const hasItemsToAddress = uncertainties.length > 0 || (evidenceGaps?.length ?? 0) > 0
   const tierDescription = hasItemsToAddress ? config.descriptionWithItems : config.descriptionWithoutItems
 
-  // Intro nudge: show when there are actionable items and a top driver
-  const totalActionableItems = uncertainties.length + improvements.length
+  // v7.6 T2 Fix: Intro count reflects visible cards (Group 1 capped at 3)
+  const evidenceGapCount = evidenceGaps?.length ?? 0
+  const rawGroup1Count = uncertainties.filter(u => u.code === 'SENSITIVE_ASSUMPTION').length
+  const group1Count = Math.min(3, rawGroup1Count)
+  const group2Count = uncertainties.filter(u => u.code !== 'SENSITIVE_ASSUMPTION').length + evidenceGapCount
+  const totalActionableItems = group1Count + group2Count
   const showIntroNudge = totalActionableItems > 0 && topDriverLabel
 
   return (
@@ -417,7 +421,7 @@ export function ConfidenceSection({
       {/* Intro nudge — cognitive prompt */}
       {showIntroNudge && (
         <div className={`p-2.5 bg-panel-hover rounded-lg ${typography.panelHeader} text-text-body leading-relaxed`}>
-          <strong className="text-text-header">{totalActionableItems} item{totalActionableItems === 1 ? '' : 's'} could affect your decision.</strong>{' '}
+          <strong className="text-text-header">{totalActionableItems} item{totalActionableItems === 1 ? '' : 's'} could affect your decision</strong>{group1Count > 0 && group2Count > 0 ? ` — ${group1Count} condition${group1Count === 1 ? '' : 's'}, ${group2Count} to investigate.` : '.'}{' '}
           Your biggest driver ({topDriverId ? (
             <button
               type="button"

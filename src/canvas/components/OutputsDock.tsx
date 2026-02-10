@@ -1268,6 +1268,7 @@ export function OutputsDock() {
                           topDriverDirection={resultsSectionData.drivers.topDrivers?.[0]?.direction}
                           winnerP10={resultsSectionData.recommendation.recommendedOption?.outcome?.p10 ?? null}
                           isNormalised={resultsSectionData.recommendation.isNormalised}
+                          hasBaseline={resultsSectionData.recommendation.allOptions.some(o => o.isBaseline)}
                         />
                         {/* Tipping points below range bars */}
                         <TippingPoints
@@ -1315,8 +1316,9 @@ export function OutputsDock() {
                         }
                         testId="accordion-strengthen"
                         badgeCount={
-                          // v7.5 T6: Count actionable cards only (uncertainties + evidence gaps, excluding gated improvements)
-                          resultsSectionData.confidence.uncertainties.length +
+                          // v7.6 Fix: Reflect visible cards — Group 1 capped at 3, Group 2 all visible
+                          Math.min(3, resultsSectionData.confidence.uncertainties.filter(u => u.code === 'SENSITIVE_ASSUMPTION').length) +
+                          resultsSectionData.confidence.uncertainties.filter(u => u.code !== 'SENSITIVE_ASSUMPTION').length +
                           (resultsSectionData.confidence.evidenceGaps?.length ?? 0)
                         }
                         badgeVariant={
