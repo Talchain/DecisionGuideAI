@@ -86,8 +86,8 @@ function isBinaryFactor(label: string): boolean {
 
 /**
  * v7.5 T7: Softened sensitivity copy — "tends to shift" instead of causal assertions.
- * - Binary factors: "When true, outcome tends to shift by ~±X%"
- * - Continuous factors: "Higher values tend to shift outcome by ~±X%"
+ * - Binary factors: "When true, outcome tends to shift by X%" (negative: "-X%")
+ * - Continuous factors: "Higher values tend to shift outcome by X%" (negative: "-X%")
  * - Arrow icons provide direction context separately
  */
 function getSensitivityCopy(
@@ -105,16 +105,16 @@ function getSensitivityCopy(
     return null
   }
 
-  const shiftPercent = Math.round(rawElasticity * 10)
-  const sign = direction === 'positive' ? '+' : direction === 'negative' ? '-' : '±'
+  const shiftPercent = Math.max(1, Math.round(rawElasticity * 10))
+  const sign = direction === 'negative' ? '-' : ''
 
   if (isBinaryFactor(label)) {
     // Binary factor: softened phrasing
-    return `When true, outcome tends to shift by ~${sign}${shiftPercent}%`
+    return `When true, outcome tends to shift by ${sign}${shiftPercent}%`
   }
 
   // Continuous factor: softened phrasing
-  return `Higher values tend to shift outcome by ~${sign}${shiftPercent}%`
+  return `Higher values tend to shift outcome by ${sign}${shiftPercent}%`
 }
 
 // Tooltip component for secondary information
@@ -237,12 +237,12 @@ function ExpandedDetails({
   // v7.5 T7: Softened elasticity copy
   const elasticityInsight = driver.rawElasticity > 0.001
     ? (() => {
-        const shiftPercent = Math.round(driver.rawElasticity * 10)
-        const sign = driver.direction === 'positive' ? '+' : driver.direction === 'negative' ? '-' : '±'
+        const shiftPercent = Math.max(1, Math.round(driver.rawElasticity * 10))
+        const sign = driver.direction === 'negative' ? '-' : ''
         if (isBinaryFactor(driver.factorLabel)) {
-          return `When true, outcome tends to shift by ~${sign}${shiftPercent}%`
+          return `When true, outcome tends to shift by ${sign}${shiftPercent}%`
         }
-        return `Higher values tend to shift outcome by ~${sign}${shiftPercent}%`
+        return `Higher values tend to shift outcome by ${sign}${shiftPercent}%`
       })()
     : null
 
@@ -402,12 +402,12 @@ function DriverRow({
   // v7.5 T7: Softened tooltip copy
   const tooltipElasticityCopy = driver.rawElasticity > 0.001
     ? (() => {
-        const shiftPercent = Math.round(driver.rawElasticity * 10)
-        const sign = driver.direction === 'positive' ? '+' : driver.direction === 'negative' ? '-' : '±'
+        const shiftPercent = Math.max(1, Math.round(driver.rawElasticity * 10))
+        const sign = driver.direction === 'negative' ? '-' : ''
         if (isBinaryFactor(driver.factorLabel)) {
-          return `When true, outcome tends to shift by ~${sign}${shiftPercent}%`
+          return `When true, outcome tends to shift by ${sign}${shiftPercent}%`
         }
-        return `Higher values tend to shift outcome by ~${sign}${shiftPercent}%`
+        return `Higher values tend to shift outcome by ${sign}${shiftPercent}%`
       })()
     : null
 
@@ -724,8 +724,8 @@ export function DriversSection({
 
       {/* Zero-impact disclosure - only show when collapsed and there are hidden zero-impact factors */}
       {!showAll && hiddenZeroImpactCount !== undefined && hiddenZeroImpactCount > 0 && (
-        <p className={`${typography.panelBody} text-slate-500 mt-1`}>
-          {hiddenZeroImpactCount} zero-impact factor{hiddenZeroImpactCount === 1 ? '' : 's'} hidden by default
+        <p className={`${typography.panelMeta} text-text-light italic mt-1`}>
+          Some factors with minimal impact are not shown
         </p>
       )}
 
@@ -733,7 +733,7 @@ export function DriversSection({
       {tornadoRows && tornadoRows.length > 0 && expectedOutcome != null && (() => {
         // v7.5 T3 Fix: Filter tornado rows to match visibleDrivers only
         const visibleFactorKeys = new Set(visibleDrivers.map(d => d.factorKey))
-        const filteredTornadoRows = tornadoRows.filter(row => visibleFactorKeys.has(row.factorId))
+        const filteredTornadoRows = tornadoRows.filter(row => visibleFactorKeys.has(row.factorKey))
 
         return filteredTornadoRows.length > 0 && (
           <TornadoChart

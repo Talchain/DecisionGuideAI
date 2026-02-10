@@ -17,7 +17,6 @@ import type { RecommendationSectionData, OutcomeUnitType, DriverItem, GoalConstr
 import { EMPTY_STATES } from './emptyStates'
 import { typography } from '../../styles/typography'
 import { HeroSection, type OptionWinShare } from './HeroSection'
-import { SuccessTarget } from './SuccessTarget'
 import { BaselineToggleCard } from './BaselineToggleCard'
 import { LimitedOptionsCard } from './LimitedOptionsCard'
 import { RangeVisualization } from './RangeVisualization'
@@ -66,6 +65,8 @@ interface RecommendationSectionProps {
   // C1: Baseline toggle — mutates draft only, no rerun
   /** Callback to add baseline to decision draft (does NOT trigger rerun) */
   onAddBaseline?: () => void
+  /** Callback to set a specific option as baseline by ID (does NOT trigger rerun) */
+  onSetBaseline?: (optionId: string) => void
   /** v7 layout: hide RangeVisualization + TippingPoints (rendered at OutputsDock level instead) */
   hideRangeVisualization?: boolean
 }
@@ -87,6 +88,7 @@ export function RecommendationSection({
   isRunning = false,
   isThresholdFromBrief = false,
   onAddBaseline,
+  onSetBaseline,
   hideRangeVisualization = false,
 }: RecommendationSectionProps) {
   const {
@@ -201,19 +203,16 @@ export function RecommendationSection({
 
   return (
     <div className="space-y-4">
-      {/* Success target — inline-editable, multi-target ready */}
-      <SuccessTarget
-        goalConstraints={goalConstraints}
-        isFromBrief={isThresholdFromBrief}
-        isRunning={isRunning}
-        onApplyThreshold={onApplyThreshold}
-      />
+      {/* v7.8 T1: SuccessTarget moved inline into HeroSection */}
 
-      {/* P2 Task 2: Baseline toggle card (shows when no baseline) */}
+      {/* P2 Task 2: Baseline toggle card — dropdown to select/change baseline */}
       <BaselineToggleCard
-        show={!hasBaseline && !isSingleOption}
+        show={!isSingleOption}
         isRunning={isRunning}
         onAddBaseline={onAddBaseline}
+        onSetBaseline={onSetBaseline}
+        options={allOptions.map(o => ({ id: o.id, label: o.label }))}
+        baselineLabel={allOptions.find(o => o.isBaseline)?.label}
       />
 
       {/* Task 1.7: Goal context - displayed when present */}
@@ -258,6 +257,8 @@ export function RecommendationSection({
         coachingReadiness={coachingReadiness}
         coachingReadinessScore={coachingReadinessScore}
         onFocusNode={onFocusNode}
+        onApplyThreshold={onApplyThreshold}
+        isRunning={isRunning}
       />
 
       {/* P2 Task 3: Limited options coaching card (moved below hero) */}

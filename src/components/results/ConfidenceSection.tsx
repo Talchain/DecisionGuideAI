@@ -220,15 +220,26 @@ function UncertaintyRow({
   // Determine if we use compact or full format
   const useCompactFormat = hasEdgeTitle && (hasSpecificAlternative || item.code === 'SENSITIVE_ASSUMPTION')
 
+  const isClickable = item.affectedNodes && item.affectedNodes.length > 0
+  const cardClickHandler = isClickable ? () => handleNodeClick(item.affectedNodes![0]) : undefined
+
   return (
-    <div className={`p-3 ${severityConfig.bgColor} border ${severityConfig.borderColor} rounded-lg`}>
+    <div
+      className={`p-3 ${severityConfig.bgColor} border ${severityConfig.borderColor} rounded-lg transition-all ${
+        isClickable ? 'cursor-pointer hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-info/50' : ''
+      }`}
+      onClick={cardClickHandler}
+      role={isClickable ? 'button' : undefined}
+      tabIndex={isClickable ? 0 : undefined}
+      onKeyDown={isClickable ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); cardClickHandler!() } } : undefined}
+    >
       {useCompactFormat ? (
         // Compact 2-line format
         <>
-          {/* Line 1: Icon + edge title + optional severity label + confidence pill */}
+          {/* Line 1: Icon + edge title + optional severity label + confidence pill + arrow */}
           <div className="flex items-center gap-2">
             <span className={`${severityConfig.textColor} ${typography.panelBody} flex-shrink-0`}>{severityConfig.icon}</span>
-            <span className={`${typography.panelHeader} ${severityConfig.textColor} truncate flex-1 min-w-0`}>
+            <span className={`${typography.panelHeader} text-text-header truncate flex-1 min-w-0`}>
               {edgeTitle}
             </span>
             {severityConfig.label && (
@@ -241,21 +252,15 @@ function UncertaintyRow({
                 {confidencePill.label}
               </span>
             )}
+            {isClickable && (
+              <span className="text-text-light flex-shrink-0" aria-hidden="true">→</span>
+            )}
           </div>
-          {/* Line 2: Consequence + inline CTA */}
-          <div className="flex items-center justify-between gap-2 mt-1 ml-6">
-            <span className={`${typography.panelBody} ${severityConfig.textColor} opacity-90`}>
+          {/* Line 2: Consequence */}
+          <div className="flex items-center gap-2 mt-1 ml-6">
+            <span className={`${typography.panelBody} text-text-light`}>
               {consequence}
             </span>
-            {item.affectedNodes && item.affectedNodes.length > 0 && (
-              <button
-                onClick={() => handleNodeClick(item.affectedNodes![0])}
-                className={`${typography.panelBody} px-2 py-0.5 bg-white/50 hover:bg-white/80 rounded transition-colors flex-shrink-0`}
-                style={{ minHeight: '28px' }}
-              >
-                Review this assumption
-              </button>
-            )}
           </div>
         </>
       ) : (
@@ -267,21 +272,24 @@ function UncertaintyRow({
               <div className="flex items-start justify-between gap-2">
                 <div className="flex-1 min-w-0">
                   {severityConfig.label && (
-                    <span className={`${typography.panelBody} ${severityConfig.textColor} block mb-1`}>
+                    <span className={`${typography.panelBody} text-text-header block mb-1`}>
                       {severityConfig.label}
                     </span>
                   )}
-                  <p className={`${typography.panelBody} ${severityConfig.textColor}`}>{stripEncodingNotation(item.message)}</p>
+                  <p className={`${typography.panelBody} text-text-body`}>{stripEncodingNotation(item.message)}</p>
                 </div>
                 {confidencePill && (
                   <span className={`${typography.panelMeta} px-1.5 py-0.5 rounded-full whitespace-nowrap flex-shrink-0 mt-0.5 ${confidencePill.bgClass} ${confidencePill.textClass} border ${confidencePill.borderClass}`}>
                     {confidencePill.label}
                   </span>
                 )}
+                {isClickable && (
+                  <span className="text-text-light flex-shrink-0 mt-0.5" aria-hidden="true">→</span>
+                )}
               </div>
               {/* Threshold details if available */}
               {item.threshold && (
-                <div className={`${typography.panelBody} ${severityConfig.textColor} mt-1 opacity-90`}>
+                <div className={`${typography.panelBody} text-text-light mt-1`}>
                   {item.threshold.variable && (
                     <p>
                       If {stripEncodingNotation(item.threshold.variable)}{' '}
@@ -295,22 +303,11 @@ function UncertaintyRow({
                 </div>
               )}
               {/* Suggestion as text when no action nodes */}
-              {item.suggestion && !(item.affectedNodes && item.affectedNodes.length > 0) && (
-                <p className={`${typography.panelBody} ${severityConfig.textColor} mt-1 opacity-75`}>{item.suggestion}</p>
+              {item.suggestion && !isClickable && (
+                <p className={`${typography.panelBody} text-text-light mt-1`}>{item.suggestion}</p>
               )}
             </div>
           </div>
-          {item.affectedNodes && item.affectedNodes.length > 0 && (
-            <div className="flex justify-end mt-2">
-              <button
-                onClick={() => handleNodeClick(item.affectedNodes![0])}
-                className={`${typography.panelBody} px-2 py-1 bg-white/50 hover:bg-white/80 rounded transition-colors`}
-                style={{ minHeight: '28px' }}
-              >
-                {item.suggestion || 'Review this assumption'}
-              </button>
-            </div>
-          )}
         </>
       )}
     </div>
@@ -551,7 +548,7 @@ export function ConfidenceSection({
                 {/* Tier 1: Conditions that would change your mind */}
                 {couldChangeDecision.length > 0 && (
                   <div className="space-y-2">
-                    <h4 className={`${typography.panelHeader} text-danger tracking-wide`}>
+                    <h4 className={`${typography.panelHeader} text-text-header tracking-wide border-l-3 border-danger pl-2`}>
                       Conditions that would change your mind
                     </h4>
                     <div className="space-y-2">
@@ -570,7 +567,7 @@ export function ConfidenceSection({
                 {/* Tier 2: What you'd want to know before committing */}
                 {worthRefining.length > 0 && (
                   <div className="space-y-2">
-                    <h4 className={`${typography.panelHeader} text-warning tracking-wide`}>
+                    <h4 className={`${typography.panelHeader} text-text-header tracking-wide border-l-3 border-warning pl-2`}>
                       What you'd want to know before committing
                     </h4>
                     <div className="space-y-2">

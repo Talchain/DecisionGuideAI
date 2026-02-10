@@ -109,8 +109,8 @@ function OptionRangeBar({
   const p90Pct = ((p90 - minValue) / range) * 100
   const barWidth = p90Pct - p10Pct
 
-  const barColor = isWinner ? 'bg-success' : 'bg-info/30'
-  const markerColor = isWinner ? 'bg-success-light' : 'bg-info'
+  const barColor = isWinner ? 'bg-success' : 'bg-option'
+  const markerColor = isWinner ? 'bg-success-light' : 'bg-option-light'
 
   // C10: Per-option probability text with fallback
   const probabilityText = (() => {
@@ -249,14 +249,14 @@ export function RangeVisualization({
       {thresholdPct != null && thresholdPct >= 0 && thresholdPct <= 100 && (
         <div className="relative h-4">
           <div
-            className="absolute w-0 h-4 border-l-2 border-dashed border-goal"
+            className="absolute w-0 h-4 border-l-2 border-dashed border-primary"
             style={{
               left: `${thresholdPct}%`,
               transform: 'translateX(-50%)',
             }}
           />
           <span
-            className={`absolute top-0 ${typography.panelMeta} text-goal whitespace-nowrap`}
+            className={`absolute top-0 ${typography.panelMeta} text-primary whitespace-nowrap`}
             style={{
               left: `${Math.max(5, Math.min(95, thresholdPct))}%`,
               transform: thresholdPct < 15 ? 'translateX(0)' : thresholdPct > 85 ? 'translateX(-100%)' : 'translateX(-50%)',

@@ -40,6 +40,7 @@ export interface ResultsBodyProps {
   onAddStatusQuoBaseline?: () => void
   onApplyThreshold?: (threshold: number) => void
   onAddBaseline?: () => void
+  onSetBaseline?: (optionId: string) => void
   nSamples?: number | null
   seedUsed?: number | null
   fragileEdgeCount?: number
@@ -59,6 +60,7 @@ export function ResultsBody({
   onAddStatusQuoBaseline,
   onApplyThreshold,
   onAddBaseline,
+  onSetBaseline,
   nSamples,
   seedUsed,
   fragileEdgeCount,
@@ -111,6 +113,7 @@ export function ResultsBody({
           isRunning={isRunning}
           isThresholdFromBrief={isThresholdFromBrief}
           onAddBaseline={onAddBaseline}
+          onSetBaseline={onSetBaseline}
           hideRangeVisualization
         />
       </div>

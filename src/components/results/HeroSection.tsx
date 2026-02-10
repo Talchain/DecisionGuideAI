@@ -99,6 +99,10 @@ export interface HeroSectionProps {
   m2CoachingParagraph?: RichText
   m2BiasInsights?: string[]
   onFocusNode?: (nodeId: string) => void
+  /** Callback to apply a success target threshold and trigger rerun */
+  onApplyThreshold?: (threshold: number | null) => void
+  /** Whether an analysis is currently running */
+  isRunning?: boolean
 }
 
 // =============================================================================
@@ -193,7 +197,7 @@ const WIN_GAUGE_COLORS = [
 
 /**
  * WinGauge — stacked horizontal bar showing win probability per option.
- * "Wins across variations" label, segmented bar, and legend.
+ * "Wins across scenarios" label, segmented bar, and legend.
  */
 function WinGauge({
   shares,
@@ -212,7 +216,7 @@ function WinGauge({
   return (
     <div className="mb-4" role="figure" aria-label="Win probability distribution across options">
       <p className={`${typography.panelMeta} text-text-light mb-1`}>
-        Wins across variations
+        Wins across scenarios
       </p>
       {/* Stacked bar — use clamped raw percentage for width to avoid rounding gaps */}
       <div className="flex h-3 rounded-full overflow-hidden gap-0.5">
@@ -431,12 +435,33 @@ export function HeroSection({
   m2CoachingParagraph,
   m2BiasInsights,
   onFocusNode,
+  onApplyThreshold,
+  isRunning,
 }: HeroSectionProps) {
   // v7.4 Task 6: Default expand state based on robustness level
-  // low/very_low stability (< 0.55) defaults to expanded
-  // high/moderate stability (>= 0.55) defaults to collapsed
-  const shouldDefaultExpand = recommendationStability != null && recommendationStability < 0.55
+  // low/very_low stability (< 0.70) defaults to expanded ("Sensitive" or "Highly sensitive")
+  // moderate/high stability (>= 0.70) defaults to collapsed ("Mostly stable" or "Stable")
+  const shouldDefaultExpand = recommendationStability != null && recommendationStability < 0.70
   const [isExpanded, setIsExpanded] = useState(shouldDefaultExpand)
+
+  // v7.8 T1: Inline success target input
+  const hasTarget = goalThreshold != null
+  const [targetInputValue, setTargetInputValue] = useState('')
+  const [isEditingTarget, setIsEditingTarget] = useState(false)
+
+  const handleSetTarget = useCallback(() => {
+    const parsed = parseFloat(targetInputValue)
+    if (!isNaN(parsed) && onApplyThreshold) {
+      onApplyThreshold(parsed)
+      setTargetInputValue('')
+      setIsEditingTarget(false)
+    }
+  }, [targetInputValue, onApplyThreshold])
+
+  const handleEditTarget = useCallback(() => {
+    setTargetInputValue(goalThreshold != null ? String(goalThreshold) : '')
+    setIsEditingTarget(true)
+  }, [goalThreshold])
 
   // =========================================================================
   // Headline (two-line: main + sub)
@@ -463,10 +488,10 @@ export function HeroSection({
       }
     }
 
-    // Precedence 4: Fallback — no target set
+    // Precedence 4: Fallback — no target set (inline input handles CTA when onApplyThreshold is provided)
     return {
       main: `${winnerLabel} performs best`,
-      sub: optionCount > 1 ? 'Set a success target to see the likelihood of achieving your goal' : null,
+      sub: null,
     }
   }, [analysisStatus, recommendationStability, winnerGoalProbability, goalThreshold, winnerLabel, optionCount])
 
@@ -636,6 +661,52 @@ export function HeroSection({
         )}
         {!headline.sub && <div className="mb-3" />}
 
+        {/* v7.8 T1: Inline success target — replaces standalone SuccessTarget card */}
+        {onApplyThreshold && (
+          <div className="mb-3">
+            {!hasTarget || isEditingTarget ? (
+              <div className="flex items-center gap-2">
+                <span className={`${typography.panelBody} text-text-body flex-shrink-0`}>
+                  {isEditingTarget ? 'Success target:' : 'Set a success target:'}
+                </span>
+                <input
+                  type="number"
+                  value={targetInputValue}
+                  onChange={(e) => setTargetInputValue(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') handleSetTarget(); if (e.key === 'Escape') { setIsEditingTarget(false); setTargetInputValue('') } }}
+                  placeholder={outcomeUnitSymbol ? `e.g. ${outcomeUnitSymbol}200` : 'e.g. 200'}
+                  className={`${typography.panelBody} w-[120px] bg-panel border border-panel-border rounded-xl px-3 py-1.5 text-text-body focus:outline-none focus:border-info`}
+                  autoFocus={isEditingTarget}
+                  disabled={isRunning}
+                />
+                {outcomeUnitSymbol && (
+                  <span className={`${typography.panelMeta} text-text-light flex-shrink-0`}>{outcomeUnitSymbol}</span>
+                )}
+                <button
+                  onClick={handleSetTarget}
+                  disabled={!targetInputValue || isRunning}
+                  className={`${typography.panelBody} px-4 py-1.5 bg-primary text-white rounded-full hover:bg-primary-hover disabled:opacity-40 transition-colors`}
+                >
+                  Set
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <span className={`${typography.panelBody} text-text-body`}>
+                  Success target: {outcomeUnitSymbol}{goalThreshold}
+                </span>
+                <button
+                  onClick={handleEditTarget}
+                  className={`${typography.panelBody} text-info hover:underline`}
+                  disabled={isRunning}
+                >
+                  Edit
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Win gauge — stacked bar showing win probability per option */}
         {optionWinShares && optionWinShares.length > 1 && (
           <WinGauge shares={optionWinShares} />
@@ -731,7 +802,7 @@ export function HeroSection({
                 </p>
                 {stabilityPct != null && (
                   <p className={`${typography.panelMeta} text-text-light`}>
-                    We varied each assumption in your model — the recommendation stayed the same in {stabilityPct}% of variations.
+                    We varied each assumption in your model — the recommendation stayed the same in {stabilityPct}% of scenarios.
                   </p>
                 )}
               </div>
