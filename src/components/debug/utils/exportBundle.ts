@@ -49,6 +49,7 @@ interface DebugBundle {
       max_string_length: number
       max_array_items: number
       max_depth: number
+      never_truncate_keys?: string[]
     }
     /** Whether any arrays were truncated during capture */
     truncation_applied?: boolean
@@ -233,7 +234,7 @@ Environment: ${environment}
 ## Data Redaction Notice
 
 Payloads are REDACTED at capture time:
-- Long strings truncated to 1000 characters
+- Long strings truncated to 1000 characters (except llm_raw.text which is preserved in full)
 - Arrays capped to 100 items
 - Sensitive keys (password, token, secret, apiKey) masked
 - Object depth limited to 8 levels
@@ -388,6 +389,7 @@ export function buildDebugBundle(data: DebugData, options: ExportOptions = {}): 
         max_string_length: 1000,
         max_array_items: 100,
         max_depth: 8,
+        never_truncate_keys: ['text'],
       },
       ...(truncationApplied && {
         truncation_applied: true,

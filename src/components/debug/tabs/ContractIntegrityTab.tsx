@@ -35,6 +35,7 @@ interface SeedChainData {
 
 interface StrengthAuditData {
   total_edges: number
+  structural_excluded: number
   defaulted_count: number
   defaulted_percentage: number
   defaulted_edge_ids: string[]
@@ -242,8 +243,47 @@ function extractSeedChain(data: DebugData): { data: SeedChainData | null; status
   }
 }
 
+/**
+ * Build a map of node ID → kind from captured graph data.
+ * Used to identify structural wiring edges (decision→option, option→factor).
+ */
+function buildNodeKindMap(
+  ceeResponse: Record<string, unknown> | undefined,
+  plotRequest: Record<string, unknown> | undefined
+): Map<string, string> {
+  const map = new Map<string, string>()
+
+  // Try ceeResponse.nodes first
+  const ceeNodes = ceeResponse?.nodes
+  if (Array.isArray(ceeNodes)) {
+    for (const node of ceeNodes) {
+      if (!node || typeof node !== 'object') continue
+      const n = node as Record<string, unknown>
+      const id = n.id as string | undefined
+      const kind = (n.kind ?? n.type) as string | undefined
+      if (id && kind) map.set(id, kind)
+    }
+  }
+
+  // Fallback to plotRequest.graph.nodes
+  if (map.size === 0 && plotRequest?.graph && typeof plotRequest.graph === 'object') {
+    const graph = plotRequest.graph as Record<string, unknown>
+    const plotNodes = graph.nodes
+    if (Array.isArray(plotNodes)) {
+      for (const node of plotNodes) {
+        if (!node || typeof node !== 'object') continue
+        const n = node as Record<string, unknown>
+        const id = n.id as string | undefined
+        const kind = (n.kind ?? n.type) as string | undefined
+        if (id && kind) map.set(id, kind)
+      }
+    }
+  }
+
+  return map
+}
+
 function extractStrengthAudit(data: DebugData): { data: StrengthAuditData | null; status: SectionStatus } {
-  // Try edges from cee_response, then plot_request.graph.edges
   const ceeResponse = data.payloads.cee_response as Record<string, unknown> | undefined
   const plotRequest = data.payloads.plot_request as Record<string, unknown> | undefined
 
@@ -261,43 +301,101 @@ function extractStrengthAudit(data: DebugData): { data: StrengthAuditData | null
     return { data: null, status: 'unavailable' }
   }
 
-  // Default signature: |mean| === 0.5, std === 0.125
-  const defaultedEdgeIds: string[] = []
-  for (const edge of edges) {
-    if (!edge || typeof edge !== 'object') continue
-    const e = edge as Record<string, unknown>
-    const id = (e.id as string) ?? (e.edge_id as string) ?? '?'
-
-    // Extract mean and std from various shapes
-    let mean: number | null = null
-    let std: number | null = null
-
-    const strength = e.strength as Record<string, unknown> | undefined
-    if (strength && typeof strength === 'object') {
-      mean = typeof strength.mean === 'number' ? strength.mean : null
-      std = typeof strength.std === 'number' ? strength.std : null
-    }
-    if (mean === null && typeof e.strength_mean === 'number') mean = e.strength_mean
-    if (std === null && typeof e.strength_std === 'number') std = e.strength_std
-
-    if (mean !== null && std !== null && Math.abs(Math.abs(mean) - 0.5) < 0.001 && Math.abs(std - 0.125) < 0.001) {
-      defaultedEdgeIds.push(id)
-    }
-  }
-
-  const totalEdges = edges.length
-  const defaultedCount = defaultedEdgeIds.length
-  const defaultedPercentage = totalEdges > 0 ? (defaultedCount / totalEdges) * 100 : 0
-
-  // Extract validation_warnings filtered to strength
-  const strengthWarnings: Array<{ code: string; message: string }> = []
+  // Check CEE validation warnings for pre-computed details
   const validationWarnings = ceeResponse?.validation_warnings
+  let detailsFromWarning: Record<string, unknown> | null = null
   if (Array.isArray(validationWarnings)) {
     for (const w of validationWarnings) {
       if (!w || typeof w !== 'object') continue
       const warning = w as Record<string, unknown>
       const code = warning.code as string | undefined
-      if (code === 'STRENGTH_DEFAULT_APPLIED' || code === 'EDGE_STRENGTH_LOW') {
+      if (code === 'STRENGTH_MEAN_DEFAULT_DOMINANT' || code === 'STRENGTH_DEFAULT_APPLIED') {
+        if (warning.details && typeof warning.details === 'object') {
+          detailsFromWarning = warning.details as Record<string, unknown>
+          break
+        }
+      }
+    }
+  }
+
+  // Pre-computed counts from CEE warning details (when available).
+  // Only use totals when both total_edges AND structural_edges_excluded are present
+  // to avoid computing percentage against mismatched counts.
+  let precomputedTotalCausal: number | null = null
+  let precomputedStructuralExcluded: number | null = null
+  let precomputedDefaultedIds: string[] | null = null
+  if (detailsFromWarning) {
+    const hasTotal = typeof detailsFromWarning.total_edges === 'number'
+    const hasStructural = typeof detailsFromWarning.structural_edges_excluded === 'number'
+    if (hasTotal && hasStructural) {
+      precomputedTotalCausal = detailsFromWarning.total_edges as number
+      precomputedStructuralExcluded = detailsFromWarning.structural_edges_excluded as number
+    }
+    const ids = detailsFromWarning.defaulted_edge_ids ?? detailsFromWarning.mean_defaulted_edge_ids
+    if (Array.isArray(ids)) {
+      precomputedDefaultedIds = ids.map(String)
+    }
+  }
+
+  // Build node kind map for structural edge exclusion (fallback)
+  const structuralKinds = new Set(['decision', 'option'])
+  const nodeKindMap = buildNodeKindMap(ceeResponse, plotRequest)
+
+  // Partition edges: causal vs structural
+  const causalEdges: Array<Record<string, unknown>> = []
+  let structuralCount = 0
+  for (const edge of edges) {
+    if (!edge || typeof edge !== 'object') continue
+    const e = edge as Record<string, unknown>
+    const fromId = e.from as string | undefined
+    const fromKind = fromId ? nodeKindMap.get(fromId) : undefined
+    if (fromKind && structuralKinds.has(fromKind)) {
+      structuralCount++
+    } else {
+      causalEdges.push(e)
+    }
+  }
+
+  const totalCausal = precomputedTotalCausal ?? causalEdges.length
+  const structuralExcluded = precomputedStructuralExcluded ?? structuralCount
+
+  // Default signature detection on causal edges only
+  const defaultedEdgeIds: string[] = []
+  if (precomputedDefaultedIds) {
+    defaultedEdgeIds.push(...precomputedDefaultedIds)
+  } else {
+    for (const e of causalEdges) {
+      const fromId = (e.from as string) ?? '?'
+      const toId = (e.to as string) ?? '?'
+      const edgeLabel = `${fromId} \u2192 ${toId}`
+
+      let mean: number | null = null
+      let std: number | null = null
+      const strength = e.strength as Record<string, unknown> | undefined
+      if (strength && typeof strength === 'object') {
+        mean = typeof strength.mean === 'number' ? strength.mean : null
+        std = typeof strength.std === 'number' ? strength.std : null
+      }
+      if (mean === null && typeof e.strength_mean === 'number') mean = e.strength_mean
+      if (std === null && typeof e.strength_std === 'number') std = e.strength_std
+
+      if (mean !== null && std !== null && Math.abs(Math.abs(mean) - 0.5) < 0.001 && Math.abs(std - 0.125) < 0.001) {
+        defaultedEdgeIds.push(edgeLabel)
+      }
+    }
+  }
+
+  const defaultedCount = defaultedEdgeIds.length
+  const defaultedPercentage = totalCausal > 0 ? (defaultedCount / totalCausal) * 100 : 0
+
+  // Extract strength-related validation warnings
+  const strengthWarnings: Array<{ code: string; message: string }> = []
+  if (Array.isArray(validationWarnings)) {
+    for (const w of validationWarnings) {
+      if (!w || typeof w !== 'object') continue
+      const warning = w as Record<string, unknown>
+      const code = warning.code as string | undefined
+      if (code === 'STRENGTH_DEFAULT_APPLIED' || code === 'EDGE_STRENGTH_LOW' || code === 'STRENGTH_MEAN_DEFAULT_DOMINANT') {
         strengthWarnings.push({
           code: code,
           message: (warning.message as string) ?? code,
@@ -306,16 +404,16 @@ function extractStrengthAudit(data: DebugData): { data: StrengthAuditData | null
     }
   }
 
+  // Strength issues → warn only, never fail (data quality, not integrity failure)
   let status: SectionStatus = 'pass'
-  if (defaultedPercentage > 80) {
-    status = 'fail'
-  } else if (defaultedPercentage >= 50) {
+  if (defaultedPercentage >= 50 || strengthWarnings.length > 0) {
     status = 'warn'
   }
 
   return {
     data: {
-      total_edges: totalEdges,
+      total_edges: totalCausal,
+      structural_excluded: structuralExcluded,
       defaulted_count: defaultedCount,
       defaulted_percentage: defaultedPercentage,
       defaulted_edge_ids: defaultedEdgeIds,
@@ -328,17 +426,25 @@ function extractStrengthAudit(data: DebugData): { data: StrengthAuditData | null
 export function deriveRequestChainStatus(chain: DebugData['request_id_chain']): SectionStatus {
   if (!chain) return 'unavailable'
 
-  // Check for all-null IDs first — all_match can be true when no IDs exist
-  const values = [chain.ui_generated, chain.sent_to_plot, chain.cee_trace, chain.plot_request, chain.plot_response, chain.isl_request, chain.isl_response]
+  // Only score the analysis chain (hard invariant). Draft-graph trace is informational.
+  const ac = chain.analysis_chain
+  const values = [ac.ui_sent, ac.plot_received, ac.forwarded_to_isl, ac.isl_echoed]
   const nonNull = values.filter(v => v !== null)
   if (nonNull.length === 0) return 'unavailable'
 
-  if (chain.all_match) return 'pass'
-
-  // If some are null, it's a warning; if IDs diverge, it's a fail
   const hasNulls = values.some(v => v === null)
   const uniqueIds = new Set(nonNull)
+
+  // If IDs diverge, it's always a fail
   if (uniqueIds.size > 1) return 'fail'
+
+  // Incomplete chain (fewer than 2 IDs present) → warn, even if the single ID "matches" itself
+  if (nonNull.length < 2) return 'warn'
+
+  // all_match with ≥2 IDs is a real pass
+  if (ac.all_match) return 'pass'
+
+  // Some IDs still null → warn
   if (hasNulls) return 'warn'
   return 'pass'
 }
@@ -458,10 +564,15 @@ export function ContractIntegrityTab({ data }: ContractIntegrityTabProps) {
         {strengthAudit.data ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
-              <MetricBox label="Total edges" value={strengthAudit.data.total_edges} />
+              <MetricBox label="Causal edges" value={strengthAudit.data.total_edges} />
               <MetricBox label="Defaulted" value={strengthAudit.data.defaulted_count} warn={strengthAudit.data.defaulted_count > 0} />
               <MetricBox label="Percentage" value={`${strengthAudit.data.defaulted_percentage.toFixed(1)}%`} warn={strengthAudit.data.defaulted_percentage >= 50} />
             </div>
+            {strengthAudit.data.structural_excluded > 0 && (
+              <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>
+                Structural wiring excluded: {strengthAudit.data.structural_excluded}
+              </div>
+            )}
 
             {strengthAudit.data.defaulted_edge_ids.length > 0 && (
               <details>
@@ -511,24 +622,40 @@ export function ContractIntegrityTab({ data }: ContractIntegrityTabProps) {
       {/* Section 3: Request chain */}
       <Section title="Request chain" status={requestChainStatus}>
         {data.request_id_chain ? (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            <KvRow label="UI generated" value={data.request_id_chain.ui_generated} mono />
-            <KvRow label="Sent to PLoT" value={data.request_id_chain.sent_to_plot} mono />
-            <KvRow label="CEE trace" value={data.request_id_chain.cee_trace} mono />
-            <KvRow label="PLoT request" value={data.request_id_chain.plot_request} mono />
-            <KvRow label="PLoT response" value={data.request_id_chain.plot_response} mono />
-            <KvRow label="ISL request" value={data.request_id_chain.isl_request} mono />
-            <KvRow label="ISL response" value={data.request_id_chain.isl_response} mono />
-            <KvRow
-              label="All match"
-              value={
-                data.request_id_chain.all_match ? (
-                  <span style={{ color: '#16a34a' }}>{'\u2713'} Yes</span>
-                ) : (
-                  <span style={{ color: '#dc2626' }}>{'\u2717'} No</span>
-                )
-              }
-            />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {/* Analysis chain (hard invariant) */}
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 600, color: '#64748b', marginBottom: 6 }}>
+                Analysis chain
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <KvRow label="UI sent" value={data.request_id_chain.analysis_chain.ui_sent} mono />
+                <KvRow label="PLoT received" value={data.request_id_chain.analysis_chain.plot_received} mono />
+                <KvRow label="Forwarded to ISL" value={data.request_id_chain.analysis_chain.forwarded_to_isl} mono />
+                <KvRow label="ISL echoed" value={data.request_id_chain.analysis_chain.isl_echoed} mono />
+                <KvRow
+                  label="All match"
+                  value={
+                    data.request_id_chain.analysis_chain.all_match ? (
+                      <span style={{ color: '#16a34a' }}>{'\u2713'} Yes</span>
+                    ) : (
+                      <span style={{ color: '#dc2626' }}>{'\u2717'} No</span>
+                    )
+                  }
+                />
+              </div>
+            </div>
+
+            {/* Draft-graph trace (informational — no scoring) */}
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 600, color: '#64748b', marginBottom: 6 }}>
+                Draft-graph trace{' '}
+                <span style={{ fontSize: 9, fontWeight: 400, color: '#94a3b8' }}>(informational)</span>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <KvRow label="CEE trace" value={data.request_id_chain.draft_trace.cee_trace} mono />
+              </div>
+            </div>
           </div>
         ) : (
           <DataUnavailable />
