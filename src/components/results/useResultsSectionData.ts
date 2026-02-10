@@ -136,11 +136,8 @@ export function resolveBaselineId(
     if (userOption) return userSelectedBaselineId
   }
 
-  // 3. Heuristic: option label contains "status quo" (case-insensitive)
-  const statusQuoOption = options.find(o =>
-    o.label.toLowerCase().includes('status quo')
-  )
-  if (statusQuoOption) return statusQuoOption.id
+  // v7.5: Removed label heuristic — only honour explicit baseline flags.
+  // Heuristic caused baseline row to hide when option contained "Status Quo".
 
   return null
 }

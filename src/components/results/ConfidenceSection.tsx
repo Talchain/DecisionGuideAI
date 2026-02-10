@@ -377,8 +377,7 @@ export function ConfidenceSection({
   } = data
 
   const config = TIER_CONFIG[tier.tier]
-  const displayUncertainties = showAllUncertainties ? uncertainties : topUncertainties
-  const hiddenUncertaintyCount = uncertainties.length - topUncertainties.length
+  // v7.5 T1 Fix: displayUncertainties removed - split logic now uses full uncertainties array
   const displayImprovements = showAllImprovements ? improvements : topImprovements
   const hiddenImprovementCount = improvements.length - topImprovements.length
 
@@ -508,20 +507,24 @@ export function ConfidenceSection({
 
       {/* P2-3: Uncertainties - Two-tier ranked list */}
       {showUncertainties && (() => {
+        // v7.5 T1 Fix: Toggle now only affects Group 1 (fragile edges), not Group 2
         // Split uncertainties into two tiers per v7.3 brief:
-        // - Group 1: "Conditions that would change your mind" = top 3 fragile edges (code: SENSITIVE_ASSUMPTION), sorted by severity
-        // - Group 2: "What you'd want to know before committing" = low-confidence factors, evidence gaps
+        // - Group 1: "Conditions that would change your mind" = fragile edges (code: SENSITIVE_ASSUMPTION), sorted by severity, top 3 when collapsed
+        // - Group 2: "What you'd want to know before committing" = low-confidence factors (always all visible)
         const severityOrder = { critical: 3, error: 2, warning: 1, blocker: 4 }
-        const fragileEdges = displayUncertainties
+        const allFragileEdges = uncertainties
           .filter(item => item.code === 'SENSITIVE_ASSUMPTION')
           .sort((a, b) => {
             const aSev = severityOrder[a.severity || 'warning'] || 0
             const bSev = severityOrder[b.severity || 'warning'] || 0
             return bSev - aSev  // Higher severity first
           })
-          .slice(0, 3)  // Top 3 by severity (which maps to switch_probability)
-        const couldChangeDecision = fragileEdges
-        const worthRefining = displayUncertainties.filter(
+        // Toggle controls fragile edge display: top 3 when collapsed, all when expanded
+        const couldChangeDecision = showAllUncertainties ? allFragileEdges : allFragileEdges.slice(0, 3)
+        const hiddenFragileCount = Math.max(0, allFragileEdges.length - 3)
+
+        // Group 2: always show all non-SENSITIVE_ASSUMPTION items
+        const worthRefining = uncertainties.filter(
           item => item.code !== 'SENSITIVE_ASSUMPTION'
         )
 
@@ -581,20 +584,14 @@ export function ConfidenceSection({
               </>
             )}
 
-            {hiddenUncertaintyCount > 0 && (
+            {/* v7.5 T1: "Show N more" reveals fragile edges beyond top 3 (Group 1 only) */}
+            {hiddenFragileCount > 0 && (
               <button
                 onClick={() => setShowAllUncertainties(!showAllUncertainties)}
-                className={`${typography.panelBody} text-sky-600 hover:text-sky-700`}
+                className={`${typography.panelBody} text-info hover:underline`}
               >
-                {showAllUncertainties ? 'Show fewer' : `Show ${hiddenUncertaintyCount} more`}
+                {showAllUncertainties ? 'Show fewer' : `Show ${hiddenFragileCount} more`}
               </button>
-            )}
-
-            {/* Filtered items disclosure (below threshold) */}
-            {filteredFragileEdges && filteredFragileEdges.filteredCount > 0 && (
-              <p className={`${typography.panelBody} text-slate-500 mt-2`}>
-                {filteredFragileEdges.description}
-              </p>
             )}
           </div>
         )
@@ -603,8 +600,9 @@ export function ConfidenceSection({
       {/* Task 11: Evidence Gaps - consolidated into "What needs attention" */}
       {evidenceGaps && evidenceGaps.length > 0 && (
         <div className="space-y-2">
+          {/* v7.5 T2: Changed from "Evidence gaps" to match v7 prototype */}
           <h4 className={`${typography.panelHeader} text-slate-500 tracking-wide`}>
-            Evidence gaps
+            What you'd want to know before committing
           </h4>
           <CappedList<EvidenceGapItem>
             items={evidenceGaps}
@@ -672,8 +670,8 @@ export function ConfidenceSection({
         </div>
       )}
 
-      {/* Task 5 (M1 Coaching): Next Actions - "Recommended actions" */}
-      {nextActions && nextActions.length > 0 && (
+      {/* v7.5: gated — not in v7 prototype. Source: m1_coaching. Remove after v7 stable. */}
+      {false && nextActions && nextActions.length > 0 && (
         <div className="space-y-2">
           <h4 className={`${typography.panelHeader} text-slate-500 tracking-wide`}>
             Recommended actions
@@ -733,7 +731,8 @@ export function ConfidenceSection({
         </div>
       )}
 
-      {/* Improvements */}
+      {/* v7.5: gated — not in v7 prototype. Source: m1_coaching. Remove after v7 stable. */}
+      {false && (
       <div className="space-y-2">
         <h4 className={`${typography.panelHeader} text-slate-500 tracking-wide`}>
           Improvements
@@ -770,6 +769,7 @@ export function ConfidenceSection({
           </button>
         )}
       </div>
+      )}
 
       {/* Task 6 (M1 Coaching): Assumptions transparency link and disclosure */}
       {assumptions && assumptions.length > 0 && (

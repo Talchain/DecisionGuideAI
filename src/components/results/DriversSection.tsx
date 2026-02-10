@@ -85,9 +85,10 @@ function isBinaryFactor(label: string): boolean {
 // Note: cleanFactorLabel imported from ./utils/cleanFactorLabel
 
 /**
- * v7.4 Task 5: Natural language sensitivity copy using direction.
- * - Binary factors: "When true, improves/reduces outcome by ~X%"
- * - Continuous factors: "Higher values improve/reduce outcome by ~X%"
+ * v7.5 T7: Softened sensitivity copy — "tends to shift" instead of causal assertions.
+ * - Binary factors: "When true, outcome tends to shift by ~±X%"
+ * - Continuous factors: "Higher values tend to shift outcome by ~±X%"
+ * - Arrow icons provide direction context separately
  */
 function getSensitivityCopy(
   label: string,
@@ -105,15 +106,15 @@ function getSensitivityCopy(
   }
 
   const shiftPercent = Math.round(rawElasticity * 10)
-  const verb = direction === 'positive' ? 'improves' : direction === 'negative' ? 'reduces' : 'shifts'
+  const sign = direction === 'positive' ? '+' : direction === 'negative' ? '-' : '±'
 
   if (isBinaryFactor(label)) {
-    // Binary factor: natural language with direction
-    return `When true, ${verb} outcome by ~${shiftPercent}%`
+    // Binary factor: softened phrasing
+    return `When true, outcome tends to shift by ~${sign}${shiftPercent}%`
   }
 
-  // Continuous factor: natural language with direction
-  return `Higher values ${verb === 'shifts' ? 'shift' : verb === 'improves' ? 'improve' : 'reduce'} outcome by ~${shiftPercent}%`
+  // Continuous factor: softened phrasing
+  return `Higher values tend to shift outcome by ~${sign}${shiftPercent}%`
 }
 
 // Tooltip component for secondary information
@@ -233,15 +234,15 @@ function ExpandedDetails({
     }
   }, [driver.canFocus, driver.matchedNodeId, driver.factorKey, onFocus])
 
-  // v7.4 Task 5: Natural language elasticity copy
+  // v7.5 T7: Softened elasticity copy
   const elasticityInsight = driver.rawElasticity > 0.001
     ? (() => {
         const shiftPercent = Math.round(driver.rawElasticity * 10)
-        const verb = driver.direction === 'positive' ? 'improves' : driver.direction === 'negative' ? 'reduces' : 'shifts'
+        const sign = driver.direction === 'positive' ? '+' : driver.direction === 'negative' ? '-' : '±'
         if (isBinaryFactor(driver.factorLabel)) {
-          return `When true, ${verb} your goal by ~${shiftPercent}%`
+          return `When true, outcome tends to shift by ~${sign}${shiftPercent}%`
         }
-        return `Higher values ${verb === 'shifts' ? 'shift' : verb === 'improves' ? 'improve' : 'reduce'} your goal by ~${shiftPercent}%`
+        return `Higher values tend to shift outcome by ~${sign}${shiftPercent}%`
       })()
     : null
 
@@ -398,15 +399,15 @@ function DriverRow({
     setIsTooltipOpen(prev => !prev)
   }, [])
 
-  // v7.4 Task 5: Natural language tooltip copy
+  // v7.5 T7: Softened tooltip copy
   const tooltipElasticityCopy = driver.rawElasticity > 0.001
     ? (() => {
         const shiftPercent = Math.round(driver.rawElasticity * 10)
-        const verb = driver.direction === 'positive' ? 'improves' : driver.direction === 'negative' ? 'reduces' : 'shifts'
+        const sign = driver.direction === 'positive' ? '+' : driver.direction === 'negative' ? '-' : '±'
         if (isBinaryFactor(driver.factorLabel)) {
-          return `When true, ${verb} your goal by ~${shiftPercent}%`
+          return `When true, outcome tends to shift by ~${sign}${shiftPercent}%`
         }
-        return `Higher values ${verb === 'shifts' ? 'shift' : verb === 'improves' ? 'improve' : 'reduce'} your goal by ~${shiftPercent}%`
+        return `Higher values tend to shift outcome by ~${sign}${shiftPercent}%`
       })()
     : null
 
@@ -626,14 +627,24 @@ export function DriversSection({
     )
   }
 
-  const displayDrivers = showAll ? drivers : topDrivers
-  const hiddenCount = drivers.length - topDrivers.length
+  // v7.5 T3: Single visibleDrivers array filtering on influenceScore >= 0.01
+  // This ensures badge count, card rendering, "Show more/fewer", and tornado all use the same filtered set
+  const INFLUENCE_THRESHOLD = 0.01
+  const visibleDrivers = drivers.filter(d => {
+    const influence = d.influenceScore ?? d.normalisedInfluence
+    return typeof influence === 'number' && influence >= INFLUENCE_THRESHOLD
+  })
+
+  // v7.5 T3 Fix: Use visibleDrivers consistently (not topDrivers from data layer)
+  const TOP_DRIVERS_COUNT = 3
+  const displayDrivers = showAll ? visibleDrivers : visibleDrivers.slice(0, TOP_DRIVERS_COUNT)
+  const hiddenCount = showAll ? 0 : Math.max(0, visibleDrivers.length - TOP_DRIVERS_COUNT)
 
   // Get dominant factor's influence percentage
   // Clamp to [0,1] before converting to percentage to handle out-of-range values
   const dominantFactorInfluence = dominantFactorId
     ? (() => {
-        const driver = drivers.find(d => d.factorKey === dominantFactorId)
+        const driver = visibleDrivers.find(d => d.factorKey === dominantFactorId)
         if (!driver) return null
         const rawInfluence = driver.influenceScore ?? driver.normalisedInfluence
         const clampedInfluence = Math.max(0, Math.min(1, rawInfluence))
@@ -719,16 +730,22 @@ export function DriversSection({
       )}
 
       {/* Tornado chart — always visible when data available */}
-      {tornadoRows && tornadoRows.length > 0 && expectedOutcome != null && (
-        <TornadoChart
-          rows={tornadoRows}
-          expectedOutcome={expectedOutcome}
-          outcomeUnit={outcomeUnit}
-          outcomeUnitSymbol={outcomeUnitSymbol}
-          onFocusNode={onFocusNode}
-          isNormalised={isNormalised}
-        />
-      )}
+      {tornadoRows && tornadoRows.length > 0 && expectedOutcome != null && (() => {
+        // v7.5 T3 Fix: Filter tornado rows to match visibleDrivers only
+        const visibleFactorKeys = new Set(visibleDrivers.map(d => d.factorKey))
+        const filteredTornadoRows = tornadoRows.filter(row => visibleFactorKeys.has(row.factorId))
+
+        return filteredTornadoRows.length > 0 && (
+          <TornadoChart
+            rows={filteredTornadoRows}
+            expectedOutcome={expectedOutcome}
+            outcomeUnit={outcomeUnit}
+            outcomeUnitSymbol={outcomeUnitSymbol}
+            onFocusNode={onFocusNode}
+            isNormalised={isNormalised}
+          />
+        )
+      })()}
     </div>
   )
 }

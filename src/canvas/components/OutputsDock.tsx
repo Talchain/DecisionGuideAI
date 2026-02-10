@@ -1315,8 +1315,9 @@ export function OutputsDock() {
                         }
                         testId="accordion-strengthen"
                         badgeCount={
+                          // v7.5 T6: Count actionable cards only (uncertainties + evidence gaps, excluding gated improvements)
                           resultsSectionData.confidence.uncertainties.length +
-                          resultsSectionData.confidence.improvements.length
+                          (resultsSectionData.confidence.evidenceGaps?.length ?? 0)
                         }
                         badgeVariant={
                           resultsSectionData.confidence.tier.tier === 'needs_work'
