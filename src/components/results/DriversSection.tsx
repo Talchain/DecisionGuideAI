@@ -85,9 +85,9 @@ function isBinaryFactor(label: string): boolean {
 // Note: cleanFactorLabel imported from ./utils/cleanFactorLabel
 
 /**
- * P1 Results Brief Item 7: Get appropriate sensitivity copy for factor type.
- * - Binary factors: "If yes → ~X% shift" (not "10% change")
- * - Continuous factors: "10% change → ~X% shift"
+ * v7.4 Task 5: Natural language sensitivity copy using direction.
+ * - Binary factors: "When true, improves/reduces outcome by ~X%"
+ * - Continuous factors: "Higher values improve/reduce outcome by ~X%"
  */
 function getSensitivityCopy(
   label: string,
@@ -105,14 +105,15 @@ function getSensitivityCopy(
   }
 
   const shiftPercent = Math.round(rawElasticity * 10)
+  const verb = direction === 'positive' ? 'improves' : direction === 'negative' ? 'reduces' : 'shifts'
 
   if (isBinaryFactor(label)) {
-    // Binary factor: "If yes → ~X% shift" or "Switching on/off → ~X% shift"
-    return `If yes → ~${shiftPercent}% shift`
+    // Binary factor: natural language with direction
+    return `When true, ${verb} outcome by ~${shiftPercent}%`
   }
 
-  // Continuous factor: standard copy
-  return `10% change → ~${shiftPercent}% shift`
+  // Continuous factor: natural language with direction
+  return `Higher values ${verb === 'shifts' ? 'shift' : verb === 'improves' ? 'improve' : 'reduce'} outcome by ~${shiftPercent}%`
 }
 
 // Tooltip component for secondary information
@@ -232,11 +233,16 @@ function ExpandedDetails({
     }
   }, [driver.canFocus, driver.matchedNodeId, driver.factorKey, onFocus])
 
-  // P1 Results Brief Item 7: Binary-aware elasticity insight copy
+  // v7.4 Task 5: Natural language elasticity copy
   const elasticityInsight = driver.rawElasticity > 0.001
-    ? isBinaryFactor(driver.factorLabel)
-      ? `Switching this on/off shifts your goal by ~${Math.round(driver.rawElasticity * 10)}%`
-      : `A 10% change here shifts your goal by ~${Math.round(driver.rawElasticity * 10)}%`
+    ? (() => {
+        const shiftPercent = Math.round(driver.rawElasticity * 10)
+        const verb = driver.direction === 'positive' ? 'improves' : driver.direction === 'negative' ? 'reduces' : 'shifts'
+        if (isBinaryFactor(driver.factorLabel)) {
+          return `When true, ${verb} your goal by ~${shiftPercent}%`
+        }
+        return `Higher values ${verb === 'shifts' ? 'shift' : verb === 'improves' ? 'improve' : 'reduce'} your goal by ~${shiftPercent}%`
+      })()
     : null
 
   // Task 3.5: Direction-based interpretation fallback when no elasticity data
@@ -392,11 +398,16 @@ function DriverRow({
     setIsTooltipOpen(prev => !prev)
   }, [])
 
-  // P1 Results Brief Item 7: Binary-aware tooltip copy
+  // v7.4 Task 5: Natural language tooltip copy
   const tooltipElasticityCopy = driver.rawElasticity > 0.001
-    ? isBinaryFactor(driver.factorLabel)
-      ? `Switching this on/off shifts your goal by ~${Math.round(driver.rawElasticity * 10)}%`
-      : `A 10% change here shifts your goal by ~${Math.round(driver.rawElasticity * 10)}%`
+    ? (() => {
+        const shiftPercent = Math.round(driver.rawElasticity * 10)
+        const verb = driver.direction === 'positive' ? 'improves' : driver.direction === 'negative' ? 'reduces' : 'shifts'
+        if (isBinaryFactor(driver.factorLabel)) {
+          return `When true, ${verb} your goal by ~${shiftPercent}%`
+        }
+        return `Higher values ${verb === 'shifts' ? 'shift' : verb === 'improves' ? 'improve' : 'reduce'} your goal by ~${shiftPercent}%`
+      })()
     : null
 
   // Tooltip content
@@ -458,16 +469,10 @@ function DriverRow({
               aria-label={`Focus on ${cleanedLabel} in model`}
             >
               {cleanedLabel}
-              {labelQualifier && (
-                <span className="text-text-light ml-1">({labelQualifier})</span>
-              )}
             </span>
           ) : (
             <span className={`${typography.panelBody} text-text-body break-words leading-snug`}>
               {cleanedLabel}
-              {labelQualifier && (
-                <span className="text-text-light ml-1">({labelQualifier})</span>
-              )}
             </span>
           )}
         </div>

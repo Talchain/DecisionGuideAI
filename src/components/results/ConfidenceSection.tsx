@@ -135,13 +135,17 @@ const TIER_CONFIG: Record<ConfidenceTier, {
  * Compact uncertainty card - 2-line structure
  * Line 1: Icon + edge relationship title (from → to)
  * Line 2: Consequence + inline CTA
+ * v7.4 Task 7: Group-based styling - danger for Group 1, warning for Group 2
  */
 function UncertaintyRow({
   item,
   onFocus,
+  groupType = 'refinement',
 }: {
   item: UncertaintyItem
   onFocus?: (nodeId: string) => void
+  /** v7.4: Group context for styling - 'high-risk' = danger colors, 'refinement' = warning colors */
+  groupType?: 'high-risk' | 'refinement'
 }) {
   const handleNodeClick = useCallback((nodeId: string) => {
     if (onFocus) {
@@ -151,9 +155,23 @@ function UncertaintyRow({
     }
   }, [onFocus])
 
-  // Get severity config (default to warning)
+  // v7.4 Task 7: Use group-based styling instead of severity-based
+  // Group 1 (high-risk): danger-bg with danger border
+  // Group 2 (refinement): warning-bg with warning border
   const severity = item.severity || 'warning'
-  const severityConfig = SEVERITY_CONFIG[severity]
+  const baseSeverityConfig = SEVERITY_CONFIG[severity]
+
+  const severityConfig = groupType === 'high-risk' ? {
+    ...baseSeverityConfig,
+    bgColor: 'bg-danger-bg',
+    borderColor: 'border-danger/30',
+    textColor: 'text-danger',
+  } : {
+    ...baseSeverityConfig,
+    bgColor: 'bg-warning-bg',
+    borderColor: 'border-warning/30',
+    textColor: 'text-warning',
+  }
 
   // Confidence pill: show when factor confidence is below 70%
   const confidencePill = (() => {
@@ -517,8 +535,8 @@ export function ConfidenceSection({
                   {robustnessStatus !== 'computed'
                     ? EMPTY_STATES.robustness
                     : filteredFragileEdges && filteredFragileEdges.filteredCount > 0
-                      ? `No high-sensitivity assumptions found. ${filteredFragileEdges.filteredCount} assumption${filteredFragileEdges.filteredCount === 1 ? '' : 's'} changed the best option in <${Math.round(filteredFragileEdges.threshold * 100)}% of simulations.`
-                      : 'No sensitive assumptions identified at the current threshold.'}
+                      ? `No high-sensitivity assumptions found. ${filteredFragileEdges.filteredCount} other assumption${filteredFragileEdges.filteredCount === 1 ? '' : 's'} tested had lower impact.`
+                      : 'No sensitive assumptions identified.'}
                 </p>
               </div>
             ) : (
@@ -535,6 +553,7 @@ export function ConfidenceSection({
                           key={`high-${item.code}-${index}`}
                           item={item}
                           onFocus={onFocusNode}
+                          groupType="high-risk"
                         />
                       ))}
                     </div>
@@ -553,6 +572,7 @@ export function ConfidenceSection({
                           key={`low-${item.code}-${index}`}
                           item={item}
                           onFocus={onFocusNode}
+                          groupType="refinement"
                         />
                       ))}
                     </div>
@@ -566,15 +586,8 @@ export function ConfidenceSection({
                 onClick={() => setShowAllUncertainties(!showAllUncertainties)}
                 className={`${typography.panelBody} text-sky-600 hover:text-sky-700`}
               >
-                {showAllUncertainties ? 'Show fewer' : `+${hiddenUncertaintyCount} more items`}
+                {showAllUncertainties ? 'Show fewer' : `Show ${hiddenUncertaintyCount} more`}
               </button>
-            )}
-
-            {/* Task 1: Hidden high-risk edges disclosure (above threshold but cut by display limit) */}
-            {hiddenHighRiskCount !== undefined && hiddenHighRiskCount > 0 && (
-              <p className={`${typography.panelBody} text-slate-500 mt-2`}>
-                {hiddenHighRiskCount} more assumption{hiddenHighRiskCount === 1 ? '' : 's'} above threshold not shown
-              </p>
             )}
 
             {/* Filtered items disclosure (below threshold) */}

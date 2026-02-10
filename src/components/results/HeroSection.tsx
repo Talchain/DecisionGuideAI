@@ -432,7 +432,11 @@ export function HeroSection({
   m2BiasInsights,
   onFocusNode,
 }: HeroSectionProps) {
-  const [isExpanded, setIsExpanded] = useState(false)
+  // v7.4 Task 6: Default expand state based on robustness level
+  // low/very_low stability (< 0.55) defaults to expanded
+  // high/moderate stability (>= 0.55) defaults to collapsed
+  const shouldDefaultExpand = recommendationStability != null && recommendationStability < 0.55
+  const [isExpanded, setIsExpanded] = useState(shouldDefaultExpand)
 
   // =========================================================================
   // Headline (two-line: main + sub)
@@ -702,6 +706,13 @@ export function HeroSection({
           </div>
         </div>
 
+        {/* v7.4: Normalised mode inline note - below stability footer, above expanded content */}
+        {isNormalised && (
+          <p className={`${typography.panelMeta} text-text-light italic pt-2`}>
+            Values shown as % shift from baseline. Add a success target to see results in your goal's units.
+          </p>
+        )}
+
         {/* "More" expand — inside the hero card */}
         {isExpanded && (
           <div
@@ -811,13 +822,6 @@ export function HeroSection({
               </dl>
             </details>
           </div>
-        )}
-
-        {/* v7.3: Normalised mode inline note - inside Hero card, at the end */}
-        {isNormalised && (
-          <p className={`${typography.panelMeta} text-text-light italic mt-2`}>
-            Values shown as % shift from baseline. Add a success target to see results in your goal's units.
-          </p>
         )}
       </div>
     </div>
