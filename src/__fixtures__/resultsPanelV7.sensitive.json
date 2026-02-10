@@ -1,0 +1,81 @@
+{
+  "analysis_status": "computed",
+  "option_comparison": [
+    {
+      "option_id": "opt_expand",
+      "option_label": "Expand into European Market",
+      "outcome": {
+        "mean": 0.08,
+        "std": 0.25,
+        "p10": -0.22,
+        "p50": 0.07,
+        "p90": 0.39
+      },
+      "win_probability": 0.52,
+      "probability_of_goal": null
+    },
+    {
+      "option_id": "opt_hold",
+      "option_label": "Maintain Current Market Focus",
+      "outcome": {
+        "mean": -0.01,
+        "std": 0.03,
+        "p10": -0.06,
+        "p50": -0.01,
+        "p90": 0.04
+      },
+      "win_probability": 0.48,
+      "probability_of_goal": null
+    }
+  ],
+  "robustness": {
+    "recommendation_stability": 0.48,
+    "level": "low",
+    "is_robust": false,
+    "recommended_option_id": "opt_expand",
+    "recommended_option_label": "Expand into European Market",
+    "fragile_edges": [
+      {
+        "from_id": "fac_europe_entry",
+        "to_id": "goal_growth",
+        "from_label": "Europe Market Entry",
+        "to_label": "Achieve Growth",
+        "switch_probability": 0.78,
+        "alternative_winner_id": "opt_hold",
+        "alternative_winner_label": "Maintain Current Market Focus"
+      },
+      {
+        "from_id": "fac_investment",
+        "to_id": "goal_growth",
+        "from_label": "Investment Budget",
+        "to_label": "Achieve Growth",
+        "switch_probability": 0.65,
+        "alternative_winner_id": "opt_hold",
+        "alternative_winner_label": "Maintain Current Market Focus"
+      }
+    ]
+  },
+  "factor_sensitivity": [
+    {
+      "factor_id": "fac_europe_entry",
+      "factor_label": "Europe Market Entry",
+      "influence_score": 1.0,
+      "importance_rank": 1,
+      "direction": "positive",
+      "confidence": 0.45
+    },
+    {
+      "factor_id": "fac_investment",
+      "factor_label": "Investment Budget",
+      "influence_score": 0.68,
+      "importance_rank": 2,
+      "direction": "negative",
+      "confidence": 0.52
+    }
+  ],
+  "meta": {
+    "seed_used": "90376",
+    "n_samples": 1000,
+    "goal_threshold_used": null
+  }
+}

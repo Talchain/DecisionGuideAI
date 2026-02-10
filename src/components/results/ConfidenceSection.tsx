@@ -491,11 +491,18 @@ export function ConfidenceSection({
       {/* P2-3: Uncertainties - Two-tier ranked list */}
       {showUncertainties && (() => {
         // Split uncertainties into two tiers per v7.3 brief:
-        // - Group 1: "Conditions that would change your mind" = ALL fragile edges (code: SENSITIVE_ASSUMPTION)
+        // - Group 1: "Conditions that would change your mind" = top 3 fragile edges (code: SENSITIVE_ASSUMPTION), sorted by severity
         // - Group 2: "What you'd want to know before committing" = low-confidence factors, evidence gaps
-        const couldChangeDecision = displayUncertainties.filter(
-          item => item.code === 'SENSITIVE_ASSUMPTION'
-        )
+        const severityOrder = { critical: 3, error: 2, warning: 1, blocker: 4 }
+        const fragileEdges = displayUncertainties
+          .filter(item => item.code === 'SENSITIVE_ASSUMPTION')
+          .sort((a, b) => {
+            const aSev = severityOrder[a.severity || 'warning'] || 0
+            const bSev = severityOrder[b.severity || 'warning'] || 0
+            return bSev - aSev  // Higher severity first
+          })
+          .slice(0, 3)  // Top 3 by severity (which maps to switch_probability)
+        const couldChangeDecision = fragileEdges
         const worthRefining = displayUncertainties.filter(
           item => item.code !== 'SENSITIVE_ASSUMPTION'
         )

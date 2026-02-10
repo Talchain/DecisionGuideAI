@@ -1,0 +1,72 @@
+{
+  "analysis_status": "computed",
+  "option_comparison": [
+    {
+      "option_id": "opt_expand",
+      "option_label": "Expand into European Market",
+      "outcome": {
+        "mean": 0.1296,
+        "std": 0.2328,
+        "p10": -0.1698,
+        "p50": 0.1292,
+        "p90": 0.4285
+      },
+      "win_probability": 0.75,
+      "probability_of_goal": null
+    },
+    {
+      "option_id": "opt_hold",
+      "option_label": "Maintain Current Market Focus",
+      "outcome": {
+        "mean": -0.0095,
+        "std": 0.0301,
+        "p10": -0.0489,
+        "p50": -0.0098,
+        "p90": 0.0307
+      },
+      "win_probability": 0.25,
+      "probability_of_goal": null
+    }
+  ],
+  "robustness": {
+    "recommendation_stability": 0.75,
+    "level": "moderate",
+    "is_robust": true,
+    "recommended_option_id": "opt_expand",
+    "recommended_option_label": "Expand into European Market",
+    "fragile_edges": [
+      {
+        "from_id": "fac_europe_entry",
+        "to_id": "goal_growth",
+        "from_label": "Europe Market Entry",
+        "to_label": "Achieve Growth",
+        "switch_probability": 0.62,
+        "alternative_winner_id": "opt_hold",
+        "alternative_winner_label": "Maintain Current Market Focus"
+      }
+    ]
+  },
+  "factor_sensitivity": [
+    {
+      "factor_id": "fac_europe_entry",
+      "factor_label": "Europe Market Entry",
+      "influence_score": 1.0,
+      "importance_rank": 1,
+      "direction": "positive",
+      "confidence": 0.62
+    },
+    {
+      "factor_id": "fac_investment",
+      "factor_label": "Investment Budget",
+      "influence_score": 0.23,
+      "importance_rank": 2,
+      "direction": "negative",
+      "confidence": 0.62
+    }
+  ],
+  "meta": {
+    "seed_used": "90375",
+    "n_samples": 1000,
+    "goal_threshold_used": null
+  }
+}
