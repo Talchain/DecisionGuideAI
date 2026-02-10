@@ -1,3 +1,6 @@
+// For more info, see https://github.com/storybookjs/eslint-plugin-storybook#configuration-flat-config-format
+import storybook from "eslint-plugin-storybook";
+
 import js from '@eslint/js'
 import tseslint from '@typescript-eslint/eslint-plugin'
 import parser from '@typescript-eslint/parser'
@@ -24,10 +27,8 @@ export default [
     '**/*.mjs',
     '**/*.cjs',
   ] },
-
   // Base JS recommended rules
   js.configs.recommended,
-
   // TypeScript and React files
   {
     files: ['**/*.ts', '**/*.tsx'],
@@ -200,7 +201,6 @@ export default [
       'security/no-old-imports': 'error',
     },
   },
-
   // Tests: allow raw colors and console (used in assertions and test output)
   {
     files: ['tests/**/*.{ts,tsx}', '**/*.spec.ts', '**/*.spec.tsx', '**/*.test.ts', '**/*.test.tsx'],
@@ -209,7 +209,6 @@ export default [
       'no-console': 'off',
     },
   },
-
   // Type definition and stub files: ignore unused variable rules
   {
     files: ['**/*.d.ts', 'src/types/**/*.ts'],
@@ -218,7 +217,6 @@ export default [
       '@typescript-eslint/no-unused-vars': 'off',
     },
   },
-
   // ESLint rule tests: allow console + payload logging for spec coverage
   {
     files: ['eslint-rules/**/*.js'],
@@ -231,7 +229,6 @@ export default [
       'security/no-payload-logging': 'off',
     },
   },
-
   // Canvas source: enforce design tokens (no raw hex/rgb colors)
   {
     files: ['src/canvas/**/*.{tsx}'],
@@ -239,4 +236,5 @@ export default [
       'brand-tokens/no-raw-colors': 'error',
     },
   },
-]
+  ...storybook.configs["flat/recommended"]
+];

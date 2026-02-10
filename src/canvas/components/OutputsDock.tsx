@@ -81,15 +81,9 @@ import { NON_EVIDENCE_PROVENANCE } from '../utils/evidenceCoverage'
 import { LensContainer } from './LensContainer'
 // Results Panel Redesign: v7 four-section layout components
 import { useResultsSectionData } from '../../components/results/useResultsSectionData'
-import { RecommendationSection } from '../../components/results/RecommendationSection'
-import { DriversSection } from '../../components/results/DriversSection'
 import type { TornadoRow } from '../../components/results/TornadoChart'
-import { ConfidenceSection } from '../../components/results/ConfidenceSection'
-import { Accordion } from '../../components/results/Accordion'
-import { SectionHeader } from '../../components/results/SectionHeader'
-import { RangeVisualization } from '../../components/results/RangeVisualization'
-import { TippingPoints } from '../../components/results/TippingPoints'
 import { useCanvasResultsSync } from '../../components/results/useCanvasResultsSync'
+import { ResultsBody } from '../../components/results/ResultsBody'
 import { executeAutoFix, determineFixType, type AutoFixParams } from '../utils/autoFix'
 import { getStrengthCorrections, type StrengthCorrection } from '../../adapters/plot/v2/adapter'
 import { computeCTA, type CTAConfig } from '../../lib/ctaStateMachine'
@@ -1194,177 +1188,28 @@ export function OutputsDock() {
                     from Results tab — they are not in the v7 prototype.
                     ====================================================================== */}
                 {!isPreRun && hasInlineSummary && resultsSectionData && (
-                  <div className="flex flex-col gap-[18px]" data-testid="outputs-results-redesign">
-
-                    {/* ── SECTION 1: HERO ─────────────────────────────────────── */}
-                    {/* Objective label + HeroSection (headline, win gauge, bullets, stability) */}
-                    <div>
-                      {/* Objective */}
-                      <div className="mb-3">
-                        <span className={`${typography.panelMeta} text-text-light block`}>
-                          Your objective
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (resultsSectionData.goalNodeId) {
-                              setHighlightedNodes([resultsSectionData.goalNodeId])
-                              focusNodeById(resultsSectionData.goalNodeId)
-                              setTimeout(() => setHighlightedNodes([]), 3000)
-                            }
-                          }}
-                          disabled={!resultsSectionData.goalNodeId}
-                          className={`${typography.panelHeader} mt-0.5 text-left block ${
-                            resultsSectionData.goalNodeId
-                              ? 'text-info hover:text-info-hover cursor-pointer'
-                              : 'text-text-header cursor-default'
-                          }`}
-                        >
-                          {resultsSectionData.goalLabel}
-                        </button>
-                      </div>
-
-                      {/* RecommendationSection renders Hero + coaching cards.
-                          RangeVisualization + TippingPoints are hidden here — rendered in Section 2 below. */}
-                      <RecommendationSection
-                        data={resultsSectionData.recommendation}
-                        onFocusNode={(nodeId) => {
-                          setHighlightedNodes([nodeId])
-                          focusNodeById(nodeId)
-                          setTimeout(() => setHighlightedNodes([]), 3000)
-                        }}
-                        onAddStatusQuoBaseline={addStatusQuoBaseline}
-                        topDrivers={resultsSectionData.drivers.topDrivers}
-                        topFragileEdge={resultsSectionData.confidence.topFragileEdge}
-                        nSamples={(report as any)?.summary?.n_samples_used ?? (report as any)?.meta?.n_samples}
-                        seedUsed={(report as any)?.meta?.seed}
-                        fragileEdgeCount={(report as any)?.robustness?.fragile_edges?.length}
-                        robustEdgeCount={(report as any)?.robustness?.robust_edges?.length}
-                        responseHash={results?.hash}
-                        onApplyThreshold={handleApplyThreshold}
-                        isRunning={isRunning}
-                        isThresholdFromBrief={preAnalysisReadiness.isThresholdAutoDerived}
-                        onAddBaseline={handleAddBaseline}
-                        hideRangeVisualization
-                      />
-                    </div>
-
-                    {/* ── SECTION 2: OPTIONS COMPARISON ────────────────────────── */}
-                    {/* Standalone section with range bars — extracted from RecommendationSection */}
-                    {!resultsSectionData.recommendation.isSingleOption &&
-                     resultsSectionData.recommendation.allOptions.length > 1 && (
-                      <div>
-                        <SectionHeader
-                          title="How the options compare"
-                          testId="section-header-options"
-                        />
-                        <RangeVisualization
-                          options={resultsSectionData.recommendation.allOptions}
-                          goalThreshold={resultsSectionData.recommendation.goalThreshold}
-                          winnerId={resultsSectionData.recommendation.recommendedOption?.id}
-                          outcomeUnit={resultsSectionData.recommendation.outcomeUnit}
-                          outcomeUnitSymbol={resultsSectionData.recommendation.outcomeUnitSymbol}
-                          topDriverLabel={resultsSectionData.drivers.topDrivers?.[0]?.factorLabel}
-                          topDriverDirection={resultsSectionData.drivers.topDrivers?.[0]?.direction}
-                          winnerP10={resultsSectionData.recommendation.recommendedOption?.outcome?.p10 ?? null}
-                          isNormalised={resultsSectionData.recommendation.isNormalised}
-                          hasBaseline={resultsSectionData.recommendation.allOptions.some(o => o.isBaseline)}
-                        />
-                        {/* Tipping points below range bars */}
-                        <TippingPoints
-                          flipThresholds={resultsSectionData.recommendation.flipThresholds}
-                          drivers={resultsSectionData.drivers.topDrivers}
-                          outcomeUnit={resultsSectionData.recommendation.outcomeUnit}
-                          outcomeUnitSymbol={resultsSectionData.recommendation.outcomeUnitSymbol}
-                        />
-                      </div>
-                    )}
-
-                    {/* ── SECTION 3: DRIVERS ──────────────────────────────────── */}
-                    {/* Always visible — no accordion wrapper. Driver cards + TornadoChart. */}
-                    <div>
-                      <SectionHeader
-                        title="What's driving this"
-                        count={resultsSectionData.drivers.totalCount}
-                        testId="section-header-drivers"
-                      />
-                      <DriversSection
-                        data={resultsSectionData.drivers}
-                        onFocusNode={(nodeId) => {
-                          setHighlightedNodes([nodeId])
-                          focusNodeById(nodeId)
-                          setTimeout(() => setHighlightedNodes([]), 3000)
-                        }}
-                        goalLabel={resultsSectionData.goalLabel}
-                        highlightedDriverId={highlightedDriverId}
-                        registerDriverRef={registerDriverRef}
-                        expectedOutcome={tornadoData.expectedOutcome}
-                        tornadoRows={tornadoData.rows}
-                        outcomeUnit={resultsSectionData.recommendation.outcomeUnit}
-                        outcomeUnitSymbol={resultsSectionData.recommendation.outcomeUnitSymbol}
-                        isNormalised={resultsSectionData.recommendation.isNormalised}
-                      />
-                    </div>
-
-                    {/* ── SECTION 4: STRENGTHEN ────────────────────────────────── */}
-                    {/* Collapsible accordion — opens by default when stability < 0.55 */}
-                    <div>
-                      <Accordion
-                        title="Strengthen your analysis"
-                        defaultExpanded={
-                          (resultsSectionData.recommendation.recommendationStability ?? 1) < 0.55
-                        }
-                        testId="accordion-strengthen"
-                        badgeCount={
-                          // v7.6 Fix: Reflect visible cards — Group 1 capped at 3, Group 2 all visible
-                          Math.min(3, resultsSectionData.confidence.uncertainties.filter(u => u.code === 'SENSITIVE_ASSUMPTION').length) +
-                          resultsSectionData.confidence.uncertainties.filter(u => u.code !== 'SENSITIVE_ASSUMPTION').length +
-                          (resultsSectionData.confidence.evidenceGaps?.length ?? 0)
-                        }
-                        badgeVariant={
-                          resultsSectionData.confidence.tier.tier === 'needs_work'
-                            ? 'critical'
-                            : resultsSectionData.confidence.tier.tier === 'fair'
-                            ? 'warning'
-                            : 'default'
-                        }
-                      >
-                        <ConfidenceSection
-                          data={resultsSectionData.confidence}
-                          onFocusNode={(nodeId) => {
-                            setHighlightedNodes([nodeId])
-                            focusNodeById(nodeId)
-                            setTimeout(() => setHighlightedNodes([]), 3000)
-                          }}
-                          topDriverLabel={resultsSectionData.drivers.topDrivers[0]?.factorLabel}
-                          topDriverId={resultsSectionData.drivers.topDrivers[0]?.factorKey}
-                        />
-                      </Accordion>
-                    </div>
-
-                    {/* Adjustments Made: Show any strength corrections applied during this run */}
-                    {(() => {
-                      const corrections = getStrengthCorrections()
-                      if (corrections.length === 0) return null
-                      return (
-                        <details className="border border-sand-200 rounded-lg overflow-hidden">
-                          <summary className={`px-3 py-2 bg-sand-50 cursor-pointer hover:bg-sand-100 ${typography.caption} text-ink-600`}>
-                            {corrections.length} edge strength{corrections.length > 1 ? 's' : ''} adjusted
-                          </summary>
-                          <div className="p-3 space-y-1">
-                            {corrections.map((c, idx) => (
-                              <div key={idx} className={`${typography.code} text-ink-500 text-xs`}>
-                                "{c.from} → {c.to}": {c.original.toFixed(2)} → {c.clamped.toFixed(1)}
-                              </div>
-                            ))}
-                          </div>
-                        </details>
-                      )
-                    })()}
-
-                    {/* 56px spacer for sticky footer clearance */}
-                    <div style={{ height: 56 }} aria-hidden="true" />
-                  </div>
+                  <ResultsBody
+                    resultsSectionData={resultsSectionData}
+                    tornadoData={tornadoData}
+                    highlightedDriverId={highlightedDriverId}
+                    registerDriverRef={registerDriverRef}
+                    strengthCorrections={getStrengthCorrections()}
+                    onFocusNode={(nodeId) => {
+                      setHighlightedNodes([nodeId])
+                      focusNodeById(nodeId)
+                      setTimeout(() => setHighlightedNodes([]), 3000)
+                    }}
+                    isRunning={isRunning}
+                    isThresholdFromBrief={preAnalysisReadiness.isThresholdAutoDerived}
+                    onAddStatusQuoBaseline={addStatusQuoBaseline}
+                    onApplyThreshold={handleApplyThreshold}
+                    onAddBaseline={handleAddBaseline}
+                    nSamples={(report as any)?.summary?.n_samples_used ?? (report as any)?.meta?.n_samples}
+                    seedUsed={(report as any)?.meta?.seed}
+                    fragileEdgeCount={(report as any)?.robustness?.fragile_edges?.length}
+                    robustEdgeCount={(report as any)?.robustness?.robust_edges?.length}
+                    responseHash={results?.hash}
+                  />
                 )}
               </div>
             )}
