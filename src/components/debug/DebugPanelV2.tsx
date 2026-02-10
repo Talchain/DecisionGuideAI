@@ -11,7 +11,7 @@
 
 import { useState, useCallback, useMemo, CSSProperties } from 'react'
 import { useDebugData } from './hooks/useDebugData'
-import { SummaryTab, DataFlowTab, PipelineTab, RawTab, LLMCallsTab } from './tabs'
+import { SummaryTab, DataFlowTab, PipelineTab, RawTab, LLMCallsTab, ContractIntegrityTab } from './tabs'
 import { PayloadLabTab } from './PayloadLabTab'
 import { exportDebugBundle, copyRequestId } from './utils/exportBundle'
 import type { ISLTestResponse } from './types'
@@ -22,7 +22,7 @@ import { useCanvasStore } from '../../canvas/store'
 // Types
 // =============================================================================
 
-type V2Tab = 'summary' | 'data-flow' | 'pipeline' | 'llm-calls' | 'raw' | 'payload-lab'
+type V2Tab = 'summary' | 'data-flow' | 'pipeline' | 'llm-calls' | 'contracts' | 'raw' | 'payload-lab'
 
 interface TabConfig {
   id: V2Tab
@@ -34,6 +34,7 @@ const V2_TABS: TabConfig[] = [
   { id: 'data-flow', label: 'Data Flow' },
   { id: 'pipeline', label: 'Pipeline' },
   { id: 'llm-calls', label: 'LLM Calls' },
+  { id: 'contracts', label: 'Contract Integrity' },
   { id: 'raw', label: 'Captured' },
   { id: 'payload-lab', label: 'Payload Lab' },
 ]
@@ -357,6 +358,7 @@ export function DebugPanelV2({ onClose, width, height, expanded, onToggleExpande
         {activeTab === 'data-flow' && <DataFlowTab data={data} />}
         {activeTab === 'pipeline' && <PipelineTab data={data} />}
         {activeTab === 'llm-calls' && <LLMCallsTab data={data} />}
+        {activeTab === 'contracts' && <ContractIntegrityTab data={data} />}
         {activeTab === 'raw' && <RawTab data={data} />}
         {activeTab === 'payload-lab' && <PayloadLabTab onRunTest={handleRunISLTest} />}
       </div>
