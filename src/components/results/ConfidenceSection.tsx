@@ -41,6 +41,8 @@ interface ConfidenceSectionProps {
   topDriverLabel?: string
   /** Top driver ID for GraphLink in intro */
   topDriverId?: string
+  /** Number of visible drivers — gates "widest uncertainty" clause (needs ≥2) */
+  visibleDriverCount?: number
 }
 
 const SEVERITY_CONFIG: Record<CritiqueSeverity, {
@@ -198,11 +200,10 @@ function UncertaintyRow({
   const edgeMatch = item.message.match(/[""]([^""]+)\s*→\s*([^""]+)[""]/)
   const hasEdgeTitle = edgeMatch && edgeMatch[1] && edgeMatch[2]
 
-  // Truncate labels to max 25 chars for compact display
-  const truncate = (s: string, max: number) => s.length > max ? s.slice(0, max - 1) + '…' : s
   // Patch 1: Clean encoding notation from edge titles to avoid "(0/1)" leaks
+  // v7.9 T3: Removed JS truncation — CSS 2-line clamp handles overflow
   const edgeTitle = hasEdgeTitle
-    ? `${truncate(stripEncodingNotation(edgeMatch[1].trim()), 25)} → ${truncate(stripEncodingNotation(edgeMatch[2].trim()), 25)}`
+    ? `${stripEncodingNotation(edgeMatch[1].trim())} → ${stripEncodingNotation(edgeMatch[2].trim())}`
     : null
 
   // Format compact consequence (P0-4: clean encoding from alternativeOption)
@@ -237,9 +238,13 @@ function UncertaintyRow({
         // Compact 2-line format
         <>
           {/* Line 1: Icon + edge title + optional severity label + confidence pill + arrow */}
-          <div className="flex items-center gap-2">
-            <span className={`${severityConfig.textColor} ${typography.panelBody} flex-shrink-0`}>{severityConfig.icon}</span>
-            <span className={`${typography.panelHeader} text-text-header truncate flex-1 min-w-0`}>
+          <div className="flex items-start gap-2">
+            <span className={`${severityConfig.textColor} ${typography.panelBody} flex-shrink-0 mt-0.5`}>{severityConfig.icon}</span>
+            <span
+              className={`${typography.panelHeader} text-text-header flex-1 min-w-0 overflow-hidden`}
+              style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' } as React.CSSProperties}
+              title={edgeTitle ?? undefined}
+            >
               {edgeTitle}
             </span>
             {severityConfig.label && (
@@ -344,6 +349,7 @@ export function ConfidenceSection({
   onFocusNode,
   topDriverLabel,
   topDriverId,
+  visibleDriverCount = 0,
 }: ConfidenceSectionProps) {
   const [showAllUncertainties, setShowAllUncertainties] = useState(false)
   const [showAllImprovements, setShowAllImprovements] = useState(false)
@@ -419,20 +425,37 @@ export function ConfidenceSection({
       {showIntroNudge && (
         <div className={`p-2.5 bg-panel-hover rounded-lg ${typography.panelHeader} text-text-body leading-relaxed`}>
           <strong className="text-text-header">{totalActionableItems} item{totalActionableItems === 1 ? '' : 's'} could affect your decision</strong>{group1Count > 0 && group2Count > 0 ? ` — ${group1Count} condition${group1Count === 1 ? '' : 's'}, ${group2Count} to investigate.` : '.'}{' '}
-          Your biggest driver ({topDriverId ? (
-            <button
-              type="button"
-              onClick={() => {
-                if (onFocusNode) onFocusNode(topDriverId)
-                else focusNodeById(topDriverId)
-              }}
-              className="text-info font-medium hover:underline focus:outline-none focus:ring-2 focus:ring-info focus:ring-offset-1 rounded"
-            >
-              {stripEncodingNotation(topDriverLabel)}
-            </button>
+          {visibleDriverCount >= 2 ? (
+            <>Your biggest driver ({topDriverId ? (
+              <button
+                type="button"
+                onClick={() => {
+                  if (onFocusNode) onFocusNode(topDriverId)
+                  else focusNodeById(topDriverId)
+                }}
+                className="text-info font-medium hover:underline focus:outline-none focus:ring-2 focus:ring-info focus:ring-offset-1 rounded"
+              >
+                {stripEncodingNotation(topDriverLabel)}
+              </button>
+            ) : (
+              <span className="text-info font-medium">{stripEncodingNotation(topDriverLabel)}</span>
+            )}) also has the widest uncertainty — is your estimate solid enough to rely on?</>
           ) : (
-            <span className="text-info font-medium">{stripEncodingNotation(topDriverLabel)}</span>
-          )}) also has the widest uncertainty — is your estimate solid enough to rely on?
+            <>Is your estimate of {topDriverId ? (
+              <button
+                type="button"
+                onClick={() => {
+                  if (onFocusNode) onFocusNode(topDriverId)
+                  else focusNodeById(topDriverId)
+                }}
+                className="text-info font-medium hover:underline focus:outline-none focus:ring-2 focus:ring-info focus:ring-offset-1 rounded"
+              >
+                {stripEncodingNotation(topDriverLabel)}
+              </button>
+            ) : (
+              <span className="text-info font-medium">{stripEncodingNotation(topDriverLabel)}</span>
+            )} solid enough to rely on?</>
+          )}
         </div>
       )}
 

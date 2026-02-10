@@ -81,7 +81,7 @@ export function BaselineToggleCard({
 
   return (
     <div
-      className={`flex items-center gap-2 px-4 py-2.5 rounded-lg ${
+      className={`flex flex-wrap items-center gap-2 px-4 py-2.5 rounded-lg ${
         isChanging ? 'bg-panel border border-panel-border' : 'bg-warning-light border border-warning/20'
       }`}
       data-testid="baseline-toggle-card"
@@ -94,7 +94,7 @@ export function BaselineToggleCard({
           <select
             value={selectedOptionId}
             onChange={(e) => setSelectedOptionId(e.target.value)}
-            className={`${typography.panelBody} w-[200px] bg-panel border border-panel-border rounded-xl px-3 py-1.5 text-text-body focus:outline-none focus:border-info`}
+            className={`${typography.panelBody} w-[min(180px,45vw)] bg-panel border border-panel-border rounded-xl px-3 py-1.5 text-text-body focus:outline-none focus:border-info`}
             disabled={isRunning}
           >
             <option value="">Select an option…</option>

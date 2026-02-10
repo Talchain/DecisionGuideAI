@@ -680,12 +680,12 @@ export function DriversSection({
       <div className={`grid ${GRID_COLS} gap-3 px-3`}>
         {/* Empty cell for factor name column */}
         <div />
-        {/* Task 4: Renamed "Influence" → "Sensitivity" */}
+        {/* v7.9 T2: Renamed "Sensitivity" → "Relative influence" — values are normalised (top=100%), not absolute */}
         <div
           className={`${typography.panelBody} text-slate-500 text-right pr-6 cursor-help`}
-          title="How sensitive your goal is to changes in this factor"
+          title="How much this factor influences your goal relative to the top driver (top driver = 100%)"
         >
-          Sensitivity
+          Relative influence
         </div>
         <div
           className={`${typography.panelBody} text-slate-500 text-right pr-6 cursor-help`}

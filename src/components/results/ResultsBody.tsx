@@ -199,6 +199,7 @@ export function ResultsBody({
             onFocusNode={onFocusNode}
             topDriverLabel={resultsSectionData.drivers.topDrivers[0]?.factorLabel}
             topDriverId={resultsSectionData.drivers.topDrivers[0]?.factorKey}
+            visibleDriverCount={resultsSectionData.drivers.totalCount}
           />
         </Accordion>
       </div>

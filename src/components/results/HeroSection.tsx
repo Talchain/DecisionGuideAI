@@ -557,9 +557,8 @@ export function HeroSection({
         const direction = hasBaseline
           ? (pct > 0 ? 'improvement over baseline' : pct < 0 ? 'decline from baseline' : 'at baseline')
           : (pct > 0 ? 'relative improvement' : pct < 0 ? 'relative decline' : 'neutral')
-        const prefix = pct > 0 ? '+' : ''
         bullets.push({
-          text: `~${prefix}${pct}% ${direction}`,
+          text: `${pct}% ${direction}`,
         })
       } else {
         const formatted = formatOutcomeValue(expectedOutcome, outcomeUnit, outcomeUnitSymbol)
