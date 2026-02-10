@@ -29,7 +29,6 @@ import { getClientBuild, getVersionInfo } from './version-cache'
 import { getAllServiceHealthArray, type ServiceHealthInfo } from './service-health'
 import type { CeePipelineTrace } from '../adapters/cee/types'
 import type { ErrorDetail } from '../types/cee'
-import { redactPayload } from '../utils/payloadRedaction'
 
 /**
  * Sanitized downstream call for export
@@ -672,18 +671,11 @@ export async function createMergedDebugExport(extras?: {
       status: p.status,
       completed: p.completed,
       error: p.error,
-      request: p.request
-        ? {
-            headers: redactPayload(p.request.headers) as Record<string, string>,
-            body: redactPayload(p.request.body),
-          }
-        : undefined,
-      response: p.response
-        ? {
-            headers: redactPayload(p.response.headers) as Record<string, string>,
-            body: redactPayload(p.response.body),
-          }
-        : undefined,
+      // Payloads are already redacted at capture time by payload-trace-store
+      // (with neverTruncateKeys: ['text'] to preserve llm_raw.text).
+      // Do NOT re-redact here — it would strip the neverTruncateKeys exemption.
+      request: p.request ?? undefined,
+      response: p.response ?? undefined,
       contractValidation: p.contractValidation,
     })),
   }
