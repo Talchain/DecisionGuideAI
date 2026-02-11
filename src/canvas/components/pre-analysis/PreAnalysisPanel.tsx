@@ -25,6 +25,9 @@ import { AnalysisSettings } from './AnalysisSettings'
 import { StickyFooter } from './StickyFooter'
 import { focusNodeById, focusEdgeById } from '../../utils/focusHelpers'
 import { useCanvasStore } from '../../store'
+import { useRetryDraft } from '../../hooks/useRetryDraft'
+import { SOFT_BYPASS_STATUSES } from '../../hooks/usePreRunValidation'
+import { useShowToast } from '../../ToastContext'
 
 interface PreAnalysisPanelProps {
   /** Callback when user clicks the primary action button */
@@ -39,6 +42,24 @@ export function PreAnalysisPanel({
 }: PreAnalysisPanelProps) {
   // Get all panel data from hook (includes derived progress counts)
   const data = usePreAnalysisData()
+
+  // Retry draft hook — for re-running CEE when blocked due to LLM omission
+  const { retryDraft, canRetry, isRetrying, retryError } = useRetryDraft()
+  const showToast = useShowToast()
+
+  // Detect retry-eligible state: blocked + CEE status indicates LLM omission
+  const ceeStatus = useCanvasStore(s => s.ceeAnalysisReady?.status)
+  const canRetryDraft = canRetry && !data.isReady && !!ceeStatus && SOFT_BYPASS_STATUSES.has(ceeStatus)
+
+  // Retry handler with toast feedback
+  const handleRetryDraft = useCallback(async () => {
+    const result = await retryDraft()
+    if (result.success) {
+      showToast('Draft refreshed — check readiness', 'success')
+    } else {
+      showToast(result.error || 'Draft retry failed', 'error')
+    }
+  }, [retryDraft, showToast])
 
   // Ref for scrolling to improvements
   const improvementsRef = useRef<HTMLDivElement>(null)
@@ -465,6 +486,9 @@ export function PreAnalysisPanel({
         onAnalyse={onAnalyse}
         evidenceLevel={data.evidenceQuality.level}
         isLoading={data.isLoading}
+        canRetryDraft={canRetryDraft}
+        isRetrying={isRetrying}
+        onRetryDraft={handleRetryDraft}
       />
     </div>
   )

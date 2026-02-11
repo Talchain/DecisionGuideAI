@@ -23,6 +23,16 @@ import type { CEEAnalysisReady } from '../../adapters/cee/types'
 import { detectBaseline } from '../utils/baselineDetection'
 import type { ValidationWarning, ValidationBlocker } from '@talchain/schemas'
 
+/**
+ * CEE statuses that the LLM produces when it drops metadata (e.g. `category`).
+ * These can be soft-bypassed when the actual option data is resolved.
+ * Also used by PreAnalysisPanel to determine retry eligibility.
+ */
+export const SOFT_BYPASS_STATUSES: ReadonlySet<string> = new Set([
+  'needs_user_mapping',
+  'needs_encoding',
+])
+
 // ============================================================================
 // Types
 // ============================================================================
@@ -131,8 +141,6 @@ function validateOverallStatus(
     // resolved. If so, the status was downgraded due to missing metadata —
     // not a genuine structural problem. Only bypass for these two known
     // statuses; unknown/future statuses always block to avoid masking real issues.
-    const SOFT_BYPASS_STATUSES: ReadonlySet<string> = new Set(['needs_user_mapping', 'needs_encoding'])
-
     const isSoftStatus = SOFT_BYPASS_STATUSES.has(ceeAnalysisReady.status)
     const allOptionsResolved = isSoftStatus && (ceeAnalysisReady.options?.every(
       o => o.status === 'ready' && Object.keys(o.interventions || {}).length > 0

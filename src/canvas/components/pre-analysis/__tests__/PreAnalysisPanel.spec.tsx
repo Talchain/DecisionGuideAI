@@ -14,9 +14,44 @@ import { PreAnalysisPanel } from '../PreAnalysisPanel'
 import * as usePreAnalysisDataModule from '../hooks/usePreAnalysisData'
 import type { PreAnalysisData } from '../hooks/usePreAnalysisData'
 
-// Mock the hook
+// Mock the data hook
 vi.mock('../hooks/usePreAnalysisData', () => ({
   usePreAnalysisData: vi.fn(),
+}))
+
+// Mock useRetryDraft hook
+const mockRetryDraft = vi.fn().mockResolvedValue({ success: true })
+vi.mock('../../../hooks/useRetryDraft', () => ({
+  useRetryDraft: () => ({
+    retryDraft: mockRetryDraft,
+    canRetry: true,
+    isRetrying: false,
+    retryError: null,
+  }),
+}))
+
+// Mock usePreRunValidation — only need the SOFT_BYPASS_STATUSES constant
+vi.mock('../../../hooks/usePreRunValidation', () => ({
+  SOFT_BYPASS_STATUSES: new Set(['needs_user_mapping', 'needs_encoding']),
+}))
+
+// Mock useShowToast
+const mockShowToast = vi.fn()
+vi.mock('../../../ToastContext', () => ({
+  useShowToast: () => mockShowToast,
+}))
+
+// Mock useCanvasStore — return ceeAnalysisReady.status via selector
+let mockCeeStatus: string | undefined = undefined
+vi.mock('../../../store', () => ({
+  useCanvasStore: (selector: (state: any) => any) => {
+    const state = {
+      ceeAnalysisReady: mockCeeStatus ? { status: mockCeeStatus } : null,
+      setHighlightedNodes: vi.fn(),
+      setHighlightedEdges: vi.fn(),
+    }
+    return selector(state)
+  },
 }))
 
 const mockUsePreAnalysisData = usePreAnalysisDataModule.usePreAnalysisData as ReturnType<typeof vi.fn>
@@ -83,6 +118,7 @@ describe('PreAnalysisPanel', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
+    mockCeeStatus = undefined
   })
 
   describe('State Transitions', () => {
@@ -719,6 +755,83 @@ describe('PreAnalysisPanel', () => {
         // Should NOT show stale provenance after user edit
         expect(screen.queryByText(/Extracted from:/)).not.toBeInTheDocument()
       })
+    })
+  })
+
+  describe('Retry Draft Button', () => {
+    it('shows retry button when blocked with needs_user_mapping status', () => {
+      mockCeeStatus = 'needs_user_mapping'
+      mockUsePreAnalysisData.mockReturnValue(createMockData({
+        isReady: false,
+        hasBlockers: true,
+        blockerCount: 1,
+      }))
+
+      render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
+      expect(screen.getByTestId('retry-draft-button')).toBeInTheDocument()
+      expect(screen.getByTestId('retry-draft-button')).toHaveTextContent('Retry Draft')
+    })
+
+    it('shows retry button when blocked with needs_encoding status', () => {
+      mockCeeStatus = 'needs_encoding'
+      mockUsePreAnalysisData.mockReturnValue(createMockData({
+        isReady: false,
+        hasBlockers: true,
+        blockerCount: 1,
+      }))
+
+      render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
+      expect(screen.getByTestId('retry-draft-button')).toBeInTheDocument()
+    })
+
+    it('does not show retry button when status is ready', () => {
+      mockCeeStatus = 'ready'
+      mockUsePreAnalysisData.mockReturnValue(createMockData({
+        isReady: true,
+        hasBlockers: false,
+      }))
+
+      render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
+      expect(screen.queryByTestId('retry-draft-button')).not.toBeInTheDocument()
+    })
+
+    it('does not show retry button when status is an unknown value', () => {
+      mockCeeStatus = 'some_unknown_status'
+      mockUsePreAnalysisData.mockReturnValue(createMockData({
+        isReady: false,
+        hasBlockers: true,
+        blockerCount: 1,
+      }))
+
+      render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
+      expect(screen.queryByTestId('retry-draft-button')).not.toBeInTheDocument()
+    })
+
+    it('does not show retry button when no CEE status (loading)', () => {
+      mockCeeStatus = undefined
+      mockUsePreAnalysisData.mockReturnValue(createMockData({
+        isReady: false,
+        hasBlockers: true,
+        blockerCount: 1,
+        isLoading: true,
+      }))
+
+      render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
+      expect(screen.queryByTestId('retry-draft-button')).not.toBeInTheDocument()
+    })
+
+    it('calls retryDraft when retry button is clicked', async () => {
+      mockCeeStatus = 'needs_user_mapping'
+      mockRetryDraft.mockResolvedValue({ success: true })
+      mockUsePreAnalysisData.mockReturnValue(createMockData({
+        isReady: false,
+        hasBlockers: true,
+        blockerCount: 1,
+      }))
+
+      render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
+      fireEvent.click(screen.getByTestId('retry-draft-button'))
+      expect(mockRetryDraft).toHaveBeenCalledTimes(1)
     })
   })
 })
