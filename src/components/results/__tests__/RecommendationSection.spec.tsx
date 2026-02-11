@@ -59,11 +59,11 @@ describe('RecommendationSection', () => {
     outcomeUnit: 'percent',
   }
 
-  it('renders headline with win probability comparison when available', () => {
+  it('renders HeroSection with winner label', () => {
     render(<RecommendationSection data={mockData} />)
 
-    // P0-2: When win probabilities exist, bullet 1 shows concrete comparison
-    expect(screen.getByText(/Wins 67% vs 33%/)).toBeInTheDocument()
+    // V9.2: Merged headline shows winner label
+    expect(screen.getByText(/Hire Tech Lead performs best/)).toBeInTheDocument()
   })
 
   // Range bar removed - P1 HeroSection integration
@@ -290,8 +290,6 @@ describe('RecommendationSection', () => {
 
       // HeroSection renders with M1 templates
       expect(screen.getByTestId('hero-section')).toBeInTheDocument()
-      // P0-2: Win probability comparison bullet when win probs available
-      expect(screen.getByText(/Wins 67% vs 33%/)).toBeInTheDocument()
     })
   })
 
@@ -300,9 +298,7 @@ describe('RecommendationSection', () => {
   // =========================================================================
 
   describe('Headline Display (Task 4 updated)', () => {
-    // P0-2: When win probabilities are available, bullet 1 shows concrete comparison
-    // When absent, falls back to "outperforms alternatives most consistently"
-    it('shows win probability comparison regardless of expected outcome sign', () => {
+    it('renders HeroSection with merged headline regardless of expected outcome sign', () => {
       const positiveData: RecommendationSectionData = {
         ...mockData,
         recommendedOption: {
@@ -314,11 +310,12 @@ describe('RecommendationSection', () => {
 
       render(<RecommendationSection data={positiveData} />)
 
-      // P0-2: Win probabilities available → concrete comparison
-      expect(screen.getByText(/Wins 67% vs 33%/)).toBeInTheDocument()
+      // V9.2: Merged headline
+      expect(screen.getByTestId('hero-section')).toBeInTheDocument()
+      expect(screen.getByText(/Hire Tech Lead performs best/)).toBeInTheDocument()
     })
 
-    it('shows fallback bullet when no win probabilities', () => {
+    it('renders HeroSection when no win probabilities', () => {
       const noWinProbData: RecommendationSectionData = {
         ...mockData,
         recommendedOption: {
@@ -330,8 +327,9 @@ describe('RecommendationSection', () => {
 
       render(<RecommendationSection data={noWinProbData} />)
 
-      // No win probabilities → fallback to "outperforms alternatives"
-      expect(screen.getByText(/outperforms alternatives most consistently/)).toBeInTheDocument()
+      // V9.2: HeroSection still renders with merged headline
+      expect(screen.getByTestId('hero-section')).toBeInTheDocument()
+      expect(screen.getByText(/Hire Tech Lead performs best/)).toBeInTheDocument()
     })
   })
 
@@ -936,9 +934,10 @@ describe('RecommendationSection', () => {
 
       render(<RecommendationSection data={lowStabilityData} />)
 
-      // Fix D3: "Too close to call" removed, now shows "No clear winner" instead
+      // Fix D3: "Too close to call" removed, now shows "no clear winner" instead
+      // V9.2: lowercase "no" because it follows "To achieve [goal],"
       expect(screen.queryByText(/Too close to call/)).not.toBeInTheDocument()
-      expect(screen.getByText(/No clear winner/)).toBeInTheDocument()
+      expect(screen.getByText(/no clear winner/)).toBeInTheDocument()
     })
 
     it('does not show near-tie when nearTie undefined and stability is high', () => {

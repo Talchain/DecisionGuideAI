@@ -12,50 +12,13 @@
  * C6: All values formatted via formatOutcomeValue
  */
 
-import { useMemo, useState, useCallback } from 'react'
+import { useMemo, useState } from 'react'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 import { typography } from '../../styles/typography'
 import { formatOutcomeValue } from '../../lib/format'
-import { focusNodeById } from '../../canvas/utils/focusHelpers'
 import { stripEncodingNotation } from './utils/cleanFactorLabel'
+import { GraphLink } from './GraphLink'
 import type { FlipThreshold, DriverItem, OutcomeUnitType } from './types'
-
-// =============================================================================
-// GraphLink (local copy — same pattern as HeroSection)
-// =============================================================================
-
-function GraphLink({
-  nodeId,
-  label,
-  className = '',
-}: {
-  nodeId: string
-  label: string
-  className?: string
-}) {
-  if (!nodeId) {
-    if (import.meta.env.DEV) {
-      console.warn(`GraphLink fallback: node ${nodeId} ("${label}") not found in graph`)
-    }
-    return <span className={className}>{label}</span>
-  }
-
-  const handleClick = useCallback(() => {
-    focusNodeById(nodeId)
-  }, [nodeId])
-
-  return (
-    <span
-      role="link"
-      tabIndex={0}
-      onClick={handleClick}
-      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleClick() } }}
-      className={`${className} text-info hover:text-info-hover hover:underline cursor-pointer focus:outline-none focus:ring-2 focus:ring-info focus:ring-offset-1 rounded`}
-    >
-      {label}
-    </span>
-  )
-}
 
 // =============================================================================
 // Mode A: Flip Threshold Tracks

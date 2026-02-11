@@ -1085,6 +1085,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       isNormalised: isNormalisedResult,
       // M1 Coaching fields (Task 2)
       coachingHeadline: m1Coaching?.executive_summary?.headline,
+      coachingParagraph: m1Coaching?.executive_summary?.paragraph,
       coachingReadiness: m1Coaching?.readiness,
       coachingReadinessScore: m1Coaching?.readiness_signals?.score,
       storyHeadlines: m1Coaching?.story_headlines ?? {},

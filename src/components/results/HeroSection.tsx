@@ -14,12 +14,12 @@
  * - Default hero: no jargon; "More" expand: light technical permitted
  */
 
-import { useState, useCallback, useMemo } from 'react'
-import { ChevronDown, ChevronRight } from 'lucide-react'
+import { useState, useMemo } from 'react'
+import { AlertTriangle, ChevronDown, ChevronRight } from 'lucide-react'
 import { typography } from '../../styles/typography'
 import { stripEncodingNotation } from './utils/cleanFactorLabel'
-import { focusNodeById } from '../../canvas/utils/focusHelpers'
 import { formatPercent as formatPct } from '../../utils/formatPercent'
+import { GraphLink } from './GraphLink'
 
 // =============================================================================
 // Types
@@ -31,12 +31,6 @@ export type RichSegment =
   | { type: 'ref'; id: string; label: string }
 
 export type RichText = RichSegment[]
-
-/** M1 bullet data */
-interface M1Bullet {
-  text: string
-  refs?: Array<{ id: string; label: string }>
-}
 
 /** Structured headline with main + optional sub-line */
 interface StructuredHeadline {
@@ -77,10 +71,7 @@ export interface HeroSectionProps {
     labelsResolved?: boolean
   }
   nSamples?: number
-  seedUsed?: number
-  responseHash?: string
   fragileEdgeCount?: number
-  robustEdgeCount?: number
   goalLabel?: string
   goalThreshold?: number | null
   /** Expected outcome value (mean) for context bullet 2 */
@@ -95,25 +86,20 @@ export interface HeroSectionProps {
   optionWinShares?: OptionWinShare[]
   coachingReadiness?: 'ready' | 'close_call' | 'needs_evidence' | 'needs_framing'
   coachingReadinessScore?: number
+  /** M1 coaching narrative headline (1-line summary) */
+  coachingHeadline?: string
+  /** M1 coaching full narrative paragraph (for "More detail" expand) */
+  coachingParagraph?: string
   m2Headline?: string
   m2Bullets?: [RichText, RichText, RichText]
   m2CoachingParagraph?: RichText
   m2BiasInsights?: string[]
   onFocusNode?: (nodeId: string) => void
-  /** Callback to apply a success target threshold and trigger rerun */
-  onApplyThreshold?: (threshold: number | null) => void
-  /** Whether an analysis is currently running */
-  isRunning?: boolean
 }
 
 // =============================================================================
 // Helpers
 // =============================================================================
-
-/** Local alias — delegates to centralised formatPercent for win probabilities (0-1 → %) */
-function formatPercent(value: number): string {
-  return formatPct(value, { fromDecimal: true })
-}
 
 /** Stability tier with label, colour, short text, expanded text, and coaching. */
 function getStabilityTier(stability: number | undefined): {
@@ -160,25 +146,6 @@ function getStabilityTier(stability: number | undefined): {
     expandedText: 'Small changes in assumptions change the result — treat as directional.',
     coaching: 'Small changes in assumptions change the result — consider strengthening key assumptions before committing.',
   }
-}
-
-/** Format an outcome value in user units for display. */
-function formatOutcomeValue(
-  value: number,
-  unit?: 'currency' | 'percent' | 'count',
-  symbol?: string,
-): string {
-  if (unit === 'currency' && symbol) {
-    return `${symbol}${Math.round(value).toLocaleString()}`
-  }
-  if (unit === 'percent') {
-    const displayValue = Math.abs(value) <= 2 ? value * 100 : value
-    return `${Math.round(displayValue)}%`
-  }
-  if (Math.abs(value) >= 10) {
-    return Math.round(value).toLocaleString()
-  }
-  return value.toFixed(1)
 }
 
 // =============================================================================
@@ -262,139 +229,6 @@ function WinGauge({
   )
 }
 
-/**
- * GraphLink — Clickable element that focuses a node on the canvas.
- * C9: Dev-only console warning when falling back to plain text.
- */
-function GraphLink({
-  nodeId,
-  label,
-  onFocus,
-  className = '',
-}: {
-  nodeId: string
-  label: string
-  onFocus?: (nodeId: string) => void
-  className?: string
-}) {
-  if (!nodeId) {
-    if (import.meta.env.DEV) {
-      console.warn(`GraphLink fallback: node ${nodeId} ("${label}") not found in graph`)
-    }
-    return <span className={className}>{label}</span>
-  }
-
-  const handleClick = useCallback(() => {
-    if (onFocus) {
-      onFocus(nodeId)
-    } else {
-      focusNodeById(nodeId)
-    }
-  }, [nodeId, onFocus])
-
-  return (
-    <span
-      role="link"
-      tabIndex={0}
-      onClick={handleClick}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault()
-          handleClick()
-        }
-      }}
-      className={`cursor-pointer hover:underline focus:outline-none focus:ring-2 focus:ring-info focus:ring-offset-1 rounded ${className}`}
-      aria-label={`Focus on ${label} in model`}
-    >
-      {label}
-    </span>
-  )
-}
-
-/** Render RichText (structured spans from M2). */
-function RichTextRenderer({
-  content,
-  onFocusNode,
-}: {
-  content: RichText
-  onFocusNode?: (nodeId: string) => void
-}) {
-  return (
-    <>
-      {content.map((segment, i) => {
-        if (segment.type === 'text') {
-          return <span key={i}>{segment.text}</span>
-        }
-        return (
-          <GraphLink
-            key={i}
-            nodeId={segment.id}
-            label={segment.label}
-            onFocus={onFocusNode}
-          />
-        )
-      })}
-    </>
-  )
-}
-
-/** Render M1 bullet text with clickable GraphLinks for refs. */
-function M1BulletRenderer({
-  bullet,
-  onFocusNode,
-}: {
-  bullet: M1Bullet
-  onFocusNode?: (nodeId: string) => void
-}) {
-  const { text, refs } = bullet
-
-  if (!refs || refs.length === 0) {
-    return <>{text}</>
-  }
-
-  const segments: Array<{ type: 'text'; text: string } | { type: 'ref'; id: string; label: string }> = []
-
-  let remainingText = text
-
-  const sortedRefs = [...refs].sort((a, b) => {
-    const posA = text.indexOf(a.label)
-    const posB = text.indexOf(b.label)
-    return posA - posB
-  })
-
-  for (const ref of sortedRefs) {
-    const index = remainingText.indexOf(ref.label)
-    if (index === -1) continue
-
-    if (index > 0) {
-      segments.push({ type: 'text', text: remainingText.slice(0, index) })
-    }
-    segments.push({ type: 'ref', id: ref.id, label: ref.label })
-    remainingText = remainingText.slice(index + ref.label.length)
-  }
-
-  if (remainingText.length > 0) {
-    segments.push({ type: 'text', text: remainingText })
-  }
-
-  return (
-    <>
-      {segments.map((segment, i) => {
-        if (segment.type === 'text') {
-          return <span key={i}>{segment.text}</span>
-        }
-        return (
-          <GraphLink
-            key={i}
-            nodeId={segment.id}
-            label={segment.label}
-            onFocus={onFocusNode}
-          />
-        )
-      })}
-    </>
-  )
-}
 
 // =============================================================================
 // Main Component
@@ -416,10 +250,7 @@ export function HeroSection({
   topDrivers,
   topFragileEdge,
   nSamples,
-  seedUsed,
-  responseHash,
   fragileEdgeCount,
-  robustEdgeCount,
   goalLabel,
   goalThreshold,
   expectedOutcome,
@@ -429,13 +260,13 @@ export function HeroSection({
   optionWinShares,
   coachingReadiness,
   coachingReadinessScore,
+  coachingHeadline,
+  coachingParagraph,
   m2Headline,
   m2Bullets,
   m2CoachingParagraph,
   m2BiasInsights,
   onFocusNode,
-  onApplyThreshold,
-  isRunning,
 }: HeroSectionProps) {
   // v7.4 Task 6: Default expand state based on robustness level
   // low/very_low stability (< 0.70) defaults to expanded ("Sensitive" or "Highly sensitive")
@@ -443,78 +274,41 @@ export function HeroSection({
   const shouldDefaultExpand = recommendationStability != null && recommendationStability < 0.70
   const [isExpanded, setIsExpanded] = useState(shouldDefaultExpand)
 
-  // v7.8 T1: Inline success target input
-  const hasTarget = goalThreshold != null
-  const [targetInputValue, setTargetInputValue] = useState('')
-  const [isEditingTarget, setIsEditingTarget] = useState(false)
-
-  // v7.10 T4: Smart default — parse objective text for currency/% hint
-  const suggestedTarget = useMemo<string | null>(() => {
-    if (!goalLabel) return null
-    const currencyMatch = goalLabel.match(/[£$€]\s*(\d+[,.]?\d*)\s*([kKmM])?/)
-    if (currencyMatch) {
-      const raw = parseFloat(currencyMatch[1].replace(',', ''))
-      const multiplier = currencyMatch[2]
-      if (!isNaN(raw)) {
-        let expanded = raw
-        if (multiplier === 'k' || multiplier === 'K') expanded = raw * 1000
-        if (multiplier === 'm' || multiplier === 'M') expanded = raw * 1000000
-        return String(expanded)
-      }
-    }
-    const percentMatch = goalLabel.match(/(\d+[,.]?\d*)\s*%/)
-    if (percentMatch) {
-      const raw = parseFloat(percentMatch[1].replace(',', ''))
-      if (!isNaN(raw)) return String(raw)
-    }
-    return null
-  }, [goalLabel])
-
-  const handleSetTarget = useCallback(() => {
-    const parsed = parseFloat(targetInputValue)
-    if (!isNaN(parsed) && onApplyThreshold) {
-      onApplyThreshold(parsed)
-      setTargetInputValue('')
-      setIsEditingTarget(false)
-    }
-  }, [targetInputValue, onApplyThreshold])
-
-  const handleEditTarget = useCallback(() => {
-    setTargetInputValue(goalThreshold != null ? String(goalThreshold) : '')
-    setIsEditingTarget(true)
-  }, [goalThreshold])
-
   // =========================================================================
-  // Headline (two-line: main + sub)
+  // Headline — V9.2: merged "To achieve [goal], [winner] performs best"
   // =========================================================================
+  const goalPrefix = goalLabel && goalLabel !== 'your goal'
+    ? goalLabel
+    : 'your goal'
+
   const m1Headline = useMemo<StructuredHeadline>(() => {
     // Precedence 1: Partial analysis
     if (analysisStatus === 'partial') {
       return { main: 'Some analysis steps did not complete', sub: 'Results are partial' }
     }
 
-    // Precedence 2: Low stability (< 0.55) AND close options
+    // Precedence 2: Low stability (< 0.55) — no clear winner
     if (recommendationStability != null && recommendationStability < 0.55) {
       return {
-        main: 'No clear winner — results are sensitive to assumptions',
-        sub: `Options perform similarly — ${winnerLabel} wins slightly more often`,
+        main: `no clear winner \u2014 the result is sensitive to your estimates`,
+        sub: `${winnerLabel} wins slightly more often`,
       }
     }
 
-    // Precedence 3: Goal probability present
-    if (winnerGoalProbability != null && goalThreshold != null) {
+    // Precedence 3: Single option
+    if (optionCount === 1) {
       return {
-        main: `${winnerLabel} performs best`,
-        sub: `${formatPercent(winnerGoalProbability)} chance of hitting your target`,
+        main: `${winnerLabel} is your only option`,
+        sub: null,
       }
     }
 
-    // Precedence 4: Fallback — no target set (inline input handles CTA when onApplyThreshold is provided)
+    // Precedence 4: Standard — winner identified
     return {
       main: `${winnerLabel} performs best`,
       sub: null,
     }
-  }, [analysisStatus, recommendationStability, winnerGoalProbability, goalThreshold, winnerLabel, optionCount])
+  }, [analysisStatus, recommendationStability, winnerLabel, optionCount])
 
   // M2 headline override (only when stability >= 0.55)
   const headline = useMemo<StructuredHeadline>(() => {
@@ -525,101 +319,22 @@ export function HeroSection({
   }, [m2Headline, recommendationStability, m1Headline])
 
   // =========================================================================
-  // Bullets (3 data-grounded)
+  // V9.2: Condition card data (replaces bullets)
   // =========================================================================
-  const m1Bullets = useMemo<M1Bullet[]>(() => {
-    const bullets: M1Bullet[] = []
-    const isLowStability = recommendationStability != null && recommendationStability < 0.55
-
-    // Bullet 1: Comparative
-    if (optionCount === 1) {
-      bullets.push({
-        text: 'Only one option analysed — consider adding alternatives for comparison',
-      })
-    } else if (winnerGoalProbability != null && runnerUpGoalProbability != null && goalThreshold != null) {
-      const suffix = isLowStability ? ' — a narrow gap' : ''
-      bullets.push({
-        text: `${formatPercent(winnerGoalProbability)} vs ${formatPercent(runnerUpGoalProbability)} chance of achieving your goal${suffix}`,
-        refs: [
-          { id: winnerId, label: winnerLabel },
-          ...(runnerUpId && runnerUpLabel ? [{ id: runnerUpId, label: runnerUpLabel }] : []),
-        ],
-      })
-    } else if (isLowStability) {
-      bullets.push({
-        text: `Options perform similarly — ${winnerLabel} wins slightly more often`,
-        refs: [{ id: winnerId, label: winnerLabel }],
-      })
-    } else if (winnerWinProbability != null && runnerUpLabel) {
-      // Concrete win probability comparison — complement fallback when runner-up wp missing
-      const rwp = runnerUpWinProbability ?? (optionCount === 2 ? 1 - winnerWinProbability : null)
-      const suffix = rwp != null ? ` vs ${formatPercent(rwp)} for ${runnerUpLabel}` : ` of simulations`
-      bullets.push({
-        text: `Wins ${formatPercent(winnerWinProbability)}${suffix}`,
-        refs: [
-          { id: winnerId, label: winnerLabel },
-          ...(runnerUpId && runnerUpLabel ? [{ id: runnerUpId, label: runnerUpLabel }] : []),
-        ],
-      })
-    } else {
-      bullets.push({
-        text: `${winnerLabel} outperforms alternatives most consistently`,
-        refs: [{ id: winnerId, label: winnerLabel }],
-      })
+  const conditionCard = useMemo(() => {
+    if (!topFragileEdge) return null
+    if (topFragileEdge.labelsResolved === false) {
+      return { type: 'generic' as const }
     }
-
-    // Bullet 2: Fragile edge — coaching-critical "what could change your mind"
-    if (topFragileEdge && topFragileEdge.labelsResolved !== false) {
-      const fromLabel = stripEncodingNotation(topFragileEdge.fromLabel)
-      const toLabel = stripEncodingNotation(topFragileEdge.toLabel)
-      const altLabel = stripEncodingNotation(topFragileEdge.alternativeWinnerLabel)
-      bullets.push({
-        text: `If ${fromLabel} → ${toLabel} is weaker than expected, ${altLabel} becomes stronger`,
-        refs: [
-          { id: topFragileEdge.fromId, label: fromLabel },
-          { id: topFragileEdge.toId, label: toLabel },
-        ],
-      })
-    } else if (fragileEdgeCount != null && fragileEdgeCount > 0) {
-      // v7.10.1 T3: Generic fallback when labels unresolved
-      bullets.push({
-        text: 'Some assumptions could change the recommendation — review key inputs below.',
-      })
+    return {
+      type: 'specific' as const,
+      fromId: topFragileEdge.fromId,
+      fromLabel: stripEncodingNotation(topFragileEdge.fromLabel),
+      toId: topFragileEdge.toId,
+      toLabel: stripEncodingNotation(topFragileEdge.toLabel),
+      altLabel: stripEncodingNotation(topFragileEdge.alternativeWinnerLabel),
     }
-
-    // Bullet 3: Expected outcome, gated when win-prob delta ≤ 5%
-    const winDelta = (winnerWinProbability ?? 0) - (runnerUpWinProbability ?? 0)
-    if (expectedOutcome != null && Math.abs(winDelta) > 0.05) {
-      if (isNormalised) {
-        const pct = Math.round(expectedOutcome * 100)
-        const direction = hasBaseline
-          ? (pct > 0 ? 'improvement over baseline' : pct < 0 ? 'decline from baseline' : 'at baseline')
-          : (pct > 0 ? 'relative improvement' : pct < 0 ? 'relative decline' : 'neutral')
-        bullets.push({
-          text: `${formatPct(pct)} ${direction}`,
-        })
-      } else {
-        const formatted = formatOutcomeValue(expectedOutcome, outcomeUnit, outcomeUnitSymbol)
-        const unitLabel = goalLabel && goalLabel !== 'your goal'
-          ? goalLabel.toLowerCase()
-          : 'outcome'
-        bullets.push({
-          text: `Expected ${unitLabel}: ${formatted}`,
-        })
-      }
-    }
-
-    // v7.10 T2: Max 2 context bullets (comparison + one context line)
-    return bullets.slice(0, 2)
-  }, [
-    optionCount, winnerGoalProbability, runnerUpGoalProbability, goalThreshold,
-    winnerLabel, winnerId, runnerUpLabel, runnerUpId,
-    winnerWinProbability, runnerUpWinProbability,
-    topDrivers, topFragileEdge, fragileEdgeCount, recommendationStability,
-    expectedOutcome, outcomeUnit, outcomeUnitSymbol, goalLabel, isNormalised,
-  ])
-
-  const bullets = m2Bullets ?? m1Bullets
+  }, [topFragileEdge])
 
   // =========================================================================
   // Stability
@@ -630,115 +345,64 @@ export function HeroSection({
     : null
 
   // =========================================================================
-  // "More" expand content
-  // =========================================================================
-  const hasM2Coaching = m2CoachingParagraph && m2CoachingParagraph.length > 0
-  const hasBiasInsights = m2BiasInsights && m2BiasInsights.length > 0
-
-  // =========================================================================
   // Render
   // =========================================================================
   return (
     <div className="space-y-4" data-testid="hero-section">
       {/* Main hero card */}
       <div className="p-4 bg-panel border border-panel-border rounded-lg">
-        {/* Headline — two-line */}
-        <h2 className={`${typography.panelHeader} text-[15px] text-text-header`}>
-          {headline.main}
+        {/* V9.2 Headline — merged "To achieve [goal], [winner] performs best" */}
+        <div className="mb-1">
+          <span className={`${typography.panelMeta} text-text-light`}>Your objective</span>
+        </div>
+        <h2 className={`${typography.panelHeader} text-[15px] leading-snug`}>
+          <span className="text-text-header">To achieve {goalPrefix},</span>{' '}
+          <span className="text-success">{headline.main}</span>
         </h2>
         {headline.sub && (
-          <p className={`${typography.panelBody} text-text-body mt-1 mb-3`}>
+          <p className={`${typography.panelBody} text-text-body mt-1`}>
             {headline.sub}
           </p>
         )}
-        {!headline.sub && <div className="mb-3" />}
-
-        {/* v7.8 T1: Inline success target — replaces standalone SuccessTarget card */}
-        {onApplyThreshold && (
-          <div className="mb-3">
-            {!hasTarget || isEditingTarget ? (
-              <>
-                <div className="flex items-center gap-2">
-                  <span className={`${typography.panelBody} text-text-body flex-shrink-0`}>
-                    {isEditingTarget ? 'Success target:' : 'Set a success target:'}
-                  </span>
-                  <input
-                    type="number"
-                    value={targetInputValue}
-                    onChange={(e) => setTargetInputValue(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === 'Enter') handleSetTarget(); if (e.key === 'Escape') { setIsEditingTarget(false); setTargetInputValue('') } }}
-                    placeholder={suggestedTarget ?? (outcomeUnitSymbol ? `e.g. ${outcomeUnitSymbol}200` : 'e.g. 200')}
-                    className={`${typography.panelBody} w-[120px] bg-panel border border-panel-border rounded-xl px-3 py-1.5 text-text-body focus:outline-none focus:border-info`}
-                    autoFocus={isEditingTarget}
-                    disabled={isRunning}
-                  />
-                  {outcomeUnitSymbol && (
-                    <span className={`${typography.panelMeta} text-text-light flex-shrink-0`}>{outcomeUnitSymbol}</span>
-                  )}
-                  <button
-                    onClick={handleSetTarget}
-                    disabled={!targetInputValue || isRunning}
-                    className={`${typography.panelBody} px-4 py-1.5 bg-primary text-white rounded-full hover:bg-primary-hover disabled:opacity-40 transition-colors`}
-                  >
-                    Set
-                  </button>
-                </div>
-                {suggestedTarget && !isEditingTarget && (
-                  <p className={`${typography.panelMeta} text-text-light italic mt-1`} style={{ fontSize: 12 }}>
-                    Suggested from your objective
-                  </p>
-                )}
-              </>
-            ) : (
-              <div className="flex items-center gap-2">
-                <span className={`${typography.panelBody} text-text-body`}>
-                  Success target: {outcomeUnitSymbol}{goalThreshold}
-                </span>
-                <button
-                  onClick={handleEditTarget}
-                  className={`${typography.panelBody} text-info hover:underline`}
-                  disabled={isRunning}
-                >
-                  Edit
-                </button>
-              </div>
-            )}
-          </div>
-        )}
+        <div className="mb-3" />
 
         {/* Win gauge — stacked bar showing win probability per option */}
         {optionWinShares && optionWinShares.length > 1 && (
           <WinGauge shares={optionWinShares} />
         )}
 
-        {/* 3 Bullets */}
-        <ul className="space-y-2 mb-4">
-          {(Array.isArray(bullets) ? bullets : m1Bullets).map((bullet, index) => {
-            const isRichText = Array.isArray(bullet) && bullet.length > 0 && typeof bullet[0] === 'object' && 'type' in bullet[0]
+        {/* V9.2: Condition card — top fragile edge warning */}
+        {conditionCard && (
+          <div className="mb-3 p-3 border border-danger/30 rounded-lg flex items-start gap-2">
+            <AlertTriangle className="w-4 h-4 text-danger flex-shrink-0 mt-0.5" />
+            <p className={`${typography.panelBody} text-text-body`}>
+              {conditionCard.type === 'generic' ? (
+                'Some estimates could change the recommendation \u2014 review key inputs below.'
+              ) : (
+                <>
+                  If{' '}
+                  <GraphLink
+                    nodeId={conditionCard.fromId}
+                    label={`${conditionCard.fromLabel} \u2192 ${conditionCard.toLabel}`}
+                    onFocus={onFocusNode}
+                    className={typography.panelBody}
+                  />
+                  {' '}is weaker than expected, {conditionCard.altLabel} becomes stronger
+                </>
+              )}
+            </p>
+          </div>
+        )}
 
-            return (
-              <li
-                key={index}
-                className={`flex items-start gap-2 ${typography.panelBody} text-text-body`}
-              >
-                <span className="w-1.5 h-1.5 rounded-full bg-text-light flex-shrink-0 mt-1.5" aria-hidden="true" />
-                <span className="flex-1 min-w-0">
-                  {isRichText ? (
-                    <RichTextRenderer
-                      content={bullet as RichText}
-                      onFocusNode={onFocusNode}
-                    />
-                  ) : (
-                    <M1BulletRenderer
-                      bullet={bullet as M1Bullet}
-                      onFocusNode={onFocusNode}
-                    />
-                  )}
-                </span>
-              </li>
-            )
-          })}
-        </ul>
+        {/* V9.2: 1-line coaching narrative (hidden when More is expanded) */}
+        {coachingHeadline && !isExpanded && (
+          <p
+            className={`${typography.panelMeta} text-text-light mb-3 line-clamp-1`}
+            style={{ fontSize: 11 }}
+          >
+            {coachingHeadline}
+          </p>
+        )}
 
         {/* Stability + More toggle */}
         <div className="border-t border-panel-border pt-3">
@@ -787,95 +451,40 @@ export function HeroSection({
           </p>
         )}
 
-        {/* "More" expand — inside the hero card */}
+        {/* V9.2: "More detail" expand — narrative + stability summary */}
         {isExpanded && (
           <div
             id="hero-more-content"
-            className="mt-3 pt-3 space-y-4"
+            className="mt-3 pt-3 border-t border-panel-border space-y-3"
           >
-            {/* v7.10 T5: Removed redundant expanded stability explanation and tier coaching.
-                Stability tier pill + short text already communicate the message.
-                Only Technical detail, M2 coaching, and bias insights remain. */}
-
-            {/* v7.10: gated — not in prototype. Restore when M2 coaching is productised. */}
-            {false && hasM2Coaching && (
-              <div className="space-y-2">
-                <p className={`${typography.panelBody} text-text-body`}>
-                  <RichTextRenderer
-                    content={m2CoachingParagraph!}
-                    onFocusNode={onFocusNode}
-                  />
-                </p>
-              </div>
+            {/* Full narrative paragraph from coaching */}
+            {coachingParagraph && (
+              <p className={`${typography.panelBody} text-text-body`}>
+                {coachingParagraph}
+              </p>
             )}
 
-            {/* v7.10: gated — not in prototype. Restore when M2 coaching is productised. */}
-            {false && hasBiasInsights && (
-              <div className="space-y-2">
-                <h4 className={`${typography.panelHeader} text-text-header`}>
-                  Questions to consider
-                </h4>
-                <ul className="space-y-2">
-                  {m2BiasInsights!.map((insight, i) => (
-                    <li
-                      key={i}
-                      className="p-3 bg-info-light border border-info/30 rounded-lg"
-                    >
-                      <p className={`${typography.panelBody} text-text-body`}>
-                        {insight}
-                      </p>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-
-            {/* Nested technical detail — P1-3: Olumi styled */}
-            <details className="group bg-panel border border-panel-border rounded-xl">
-              <summary className={`px-4 py-3 ${typography.panelHeader} text-text-body cursor-pointer hover:text-text-header select-none`}>
-                Technical detail
-              </summary>
-              <dl className={`px-4 pb-3 grid grid-cols-2 gap-x-4 gap-y-1 ${typography.panelMeta}`}>
-                {recommendationStability != null && (
-                  <>
-                    <dt className="text-text-light">Stability</dt>
-                    <dd className="text-text-header">{formatPct(recommendationStability!, { fromDecimal: true })}</dd>
-                  </>
-                )}
-                {fragileEdgeCount != null && (
-                  <>
-                    <dt className="text-text-light">Fragile edges</dt>
-                    <dd className="text-text-header">{fragileEdgeCount}</dd>
-                  </>
-                )}
-                {robustEdgeCount != null && (
-                  <>
-                    <dt className="text-text-light">Stable edges</dt>
-                    <dd className="text-text-header">{robustEdgeCount}</dd>
-                  </>
-                )}
-                {nSamples != null && (
-                  <>
-                    <dt className="text-text-light">Simulations run</dt>
-                    <dd className="text-text-header">{nSamples.toLocaleString()}</dd>
-                  </>
-                )}
-                {seedUsed != null && (
-                  <>
-                    <dt className="text-text-light">Seed</dt>
-                    <dd className="text-text-header font-mono">{seedUsed}</dd>
-                  </>
-                )}
-                {responseHash && (
-                  <>
-                    <dt className="text-text-light">Result hash</dt>
-                    <dd className="text-text-header font-mono truncate" title={responseHash}>
-                      {responseHash.slice(0, 12)}...
-                    </dd>
-                  </>
-                )}
-              </dl>
-            </details>
+            {/* 3-row stability summary */}
+            <dl className={`grid grid-cols-2 gap-x-4 gap-y-1 ${typography.panelMeta}`}>
+              {stabilityPct != null && (
+                <>
+                  <dt className="text-text-light">Stability</dt>
+                  <dd className="text-text-header">{stabilityPct}%</dd>
+                </>
+              )}
+              {fragileEdgeCount != null && (
+                <>
+                  <dt className="text-text-light">Fragile edges</dt>
+                  <dd className="text-text-header">{fragileEdgeCount}</dd>
+                </>
+              )}
+              {nSamples != null && (
+                <>
+                  <dt className="text-text-light">Convergence</dt>
+                  <dd className="text-text-header">{nSamples.toLocaleString()} simulations</dd>
+                </>
+              )}
+            </dl>
           </div>
         )}
       </div>

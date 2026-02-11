@@ -169,6 +169,8 @@ export interface RecommendationSectionData {
 
   /** M1 Coaching headline from executive_summary */
   coachingHeadline?: string
+  /** M1 Coaching paragraph from executive_summary (full narrative) */
+  coachingParagraph?: string
   /** M1 Coaching readiness level */
   coachingReadiness?: M1CoachingReadiness
   /** M1 Coaching readiness score (0-100) */

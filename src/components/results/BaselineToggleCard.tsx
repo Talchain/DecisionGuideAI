@@ -79,7 +79,7 @@ export function BaselineToggleCard({
           </span>
         ) : (
           <span className={`${typography.panelMeta} text-text-light`}>
-            No baseline included
+            No baseline set
           </span>
         )}
         <span className={`${typography.panelMeta} text-text-light`} aria-hidden="true">·</span>
@@ -89,9 +89,16 @@ export function BaselineToggleCard({
           className={`${typography.panelMeta} text-info hover:underline flex-shrink-0`}
           type="button"
         >
-          {baselineLabel ? 'Change' : 'Set baseline'}
+          {baselineLabel ? 'Change' : 'Set'}
         </button>
       </div>
+
+      {/* V9.2: Helper text when no baseline is set */}
+      {!baselineLabel && !isSelecting && (
+        <p className={`${typography.panelMeta} text-text-light italic pl-3.5`} style={{ fontSize: 11 }}>
+          Baseline helps interpret how much each option improves on current trajectory.
+        </p>
+      )}
 
       {/* Inline dropdown — visible only while selecting */}
       {isSelecting && options.length > 0 && (

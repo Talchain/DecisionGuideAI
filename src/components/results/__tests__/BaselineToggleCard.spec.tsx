@@ -1,8 +1,8 @@
 /**
- * BaselineToggleCard Component Tests
+ * BaselineToggleCard Component Tests (V9.2)
  *
- * Tests for the compact single-line baseline warning card.
- * Layout: AlertTriangle icon + "No baseline included" + [?] tooltip + [Add baseline] button
+ * Tests for the inline baseline toggle row.
+ * Layout: ● "No baseline set" · [Set] | ● "Baseline: {name}" · [Change]
  */
 
 import { describe, it, expect, vi } from 'vitest'
@@ -24,89 +24,135 @@ describe('BaselineToggleCard', () => {
     })
   })
 
-  describe('compact warning layout', () => {
-    it('displays "No baseline included" message', () => {
+  describe('no baseline state', () => {
+    it('displays "No baseline set" message', () => {
       render(<BaselineToggleCard show={true} />)
 
-      expect(screen.getByText('No baseline included')).toBeInTheDocument()
+      expect(screen.getByText('No baseline set')).toBeInTheDocument()
     })
 
-    it('renders the AlertTriangle icon as decorative (aria-hidden)', () => {
-      render(<BaselineToggleCard show={true} />)
-
-      const card = screen.getByTestId('baseline-toggle-card')
-      const icon = card.querySelector('svg[aria-hidden="true"]')
-      expect(icon).toBeInTheDocument()
-    })
-
-    it('shows "Add baseline" button', () => {
+    it('shows "Set" button', () => {
       render(<BaselineToggleCard show={true} />)
 
       expect(
-        screen.getByRole('button', { name: /Add baseline/i })
+        screen.getByRole('button', { name: /^Set$/i })
       ).toBeInTheDocument()
     })
-  })
 
-  describe('tooltip', () => {
-    it('renders the [?] help indicator with correct title tooltip', () => {
+    it('shows helper text when no baseline set', () => {
       render(<BaselineToggleCard show={true} />)
 
-      const tooltip = screen.getByTitle(
-        "A 'do nothing' option shows whether any option improves on your current position."
-      )
-      expect(tooltip).toBeInTheDocument()
-    })
-
-    it('[?] has an accessible label', () => {
-      render(<BaselineToggleCard show={true} />)
-
-      expect(screen.getByLabelText('Why add a baseline?')).toBeInTheDocument()
+      expect(screen.getByText(/Baseline helps interpret/)).toBeInTheDocument()
     })
   })
 
-  describe('add baseline interaction', () => {
-    it('calls onAddBaseline when button is clicked', () => {
-      const mockAddBaseline = vi.fn()
+  describe('baseline set state', () => {
+    it('shows baseline label when set', () => {
       render(
-        <BaselineToggleCard show={true} onAddBaseline={mockAddBaseline} />
+        <BaselineToggleCard
+          show={true}
+          baselineLabel="Status Quo"
+          options={[{ id: 'sq', label: 'Status Quo' }]}
+        />
       )
 
-      fireEvent.click(screen.getByRole('button', { name: /Add baseline/i }))
-
-      expect(mockAddBaseline).toHaveBeenCalledTimes(1)
+      expect(screen.getByText(/Baseline: Status Quo/)).toBeInTheDocument()
     })
 
-    it('logs to console when button is clicked', () => {
-      const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
-      render(<BaselineToggleCard show={true} />)
-
-      fireEvent.click(screen.getByRole('button', { name: /Add baseline/i }))
-
-      expect(consoleSpy).toHaveBeenCalledWith(
-        '[BaselineToggleCard] Baseline added to draft'
+    it('shows "Change" button when baseline is set', () => {
+      render(
+        <BaselineToggleCard
+          show={true}
+          baselineLabel="Status Quo"
+          options={[{ id: 'sq', label: 'Status Quo' }]}
+        />
       )
-      consoleSpy.mockRestore()
+
+      expect(
+        screen.getByRole('button', { name: /Change/i })
+      ).toBeInTheDocument()
+    })
+
+    it('does not show helper text when baseline is set', () => {
+      render(
+        <BaselineToggleCard
+          show={true}
+          baselineLabel="Status Quo"
+          options={[{ id: 'sq', label: 'Status Quo' }]}
+        />
+      )
+
+      expect(screen.queryByText(/Baseline helps interpret/)).not.toBeInTheDocument()
+    })
+  })
+
+  describe('selecting baseline', () => {
+    it('shows dropdown when "Set" is clicked', () => {
+      render(
+        <BaselineToggleCard
+          show={true}
+          options={[
+            { id: 'opt-1', label: 'Option A' },
+            { id: 'opt-2', label: 'Option B' },
+          ]}
+        />
+      )
+
+      fireEvent.click(screen.getByRole('button', { name: /^Set$/i }))
+
+      expect(screen.getByRole('combobox')).toBeInTheDocument()
+      expect(screen.getByText('Option A')).toBeInTheDocument()
+      expect(screen.getByText('Option B')).toBeInTheDocument()
+    })
+
+    it('calls onSetBaseline when option is selected and confirmed', () => {
+      const onSetBaseline = vi.fn()
+
+      render(
+        <BaselineToggleCard
+          show={true}
+          onSetBaseline={onSetBaseline}
+          options={[
+            { id: 'opt-1', label: 'Option A' },
+            { id: 'opt-2', label: 'Option B' },
+          ]}
+        />
+      )
+
+      // Open dropdown
+      fireEvent.click(screen.getByRole('button', { name: /^Set$/i }))
+
+      // Select an option
+      fireEvent.change(screen.getByRole('combobox'), { target: { value: 'opt-1' } })
+
+      // Click "Set" button in the dropdown row
+      const setButtons = screen.getAllByRole('button', { name: /^Set$/i })
+      fireEvent.click(setButtons[setButtons.length - 1])
+
+      expect(onSetBaseline).toHaveBeenCalledWith('opt-1')
+    })
+
+    it('hides dropdown when "Cancel" is clicked', () => {
+      render(
+        <BaselineToggleCard
+          show={true}
+          options={[{ id: 'opt-1', label: 'Option A' }]}
+        />
+      )
+
+      fireEvent.click(screen.getByRole('button', { name: /^Set$/i }))
+      expect(screen.getByRole('combobox')).toBeInTheDocument()
+
+      fireEvent.click(screen.getByRole('button', { name: /Cancel/i }))
+      expect(screen.queryByRole('combobox')).not.toBeInTheDocument()
     })
   })
 
   describe('running state', () => {
-    it('disables button when isRunning is true', () => {
+    it('disables "Set" button when isRunning is true', () => {
       render(<BaselineToggleCard show={true} isRunning={true} />)
 
-      expect(screen.getByRole('button', { name: /Adding/i })).toBeDisabled()
-    })
-
-    it('shows "Adding..." text when isRunning is true', () => {
-      render(<BaselineToggleCard show={true} isRunning={true} />)
-
-      expect(screen.getByText('Adding...')).toBeInTheDocument()
-    })
-
-    it('shows "Add baseline" text when not running', () => {
-      render(<BaselineToggleCard show={true} isRunning={false} />)
-
-      expect(screen.getByText('Add baseline')).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /^Set$/i })).toBeDisabled()
     })
   })
 })

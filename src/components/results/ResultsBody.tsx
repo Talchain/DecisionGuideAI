@@ -71,33 +71,8 @@ export function ResultsBody({
     <div className="flex flex-col gap-[18px]" data-testid="outputs-results-redesign">
 
       {/* ── SECTION 1: HERO ─────────────────────────────────────── */}
-      {/* Objective label + HeroSection (headline, win gauge, bullets, stability) */}
+      {/* V9.2: Merged headline lives inside HeroSection. Goal label passed as prop. */}
       <div>
-        {/* Objective */}
-        <div className="mb-3">
-          <span className={`${typography.panelMeta} text-text-light block`}>
-            Your objective
-          </span>
-          <button
-            type="button"
-            onClick={() => {
-              if (resultsSectionData.goalNodeId && onFocusNode) {
-                onFocusNode(resultsSectionData.goalNodeId)
-              }
-            }}
-            disabled={!resultsSectionData.goalNodeId}
-            className={`${typography.panelHeader} mt-0.5 text-left block ${
-              resultsSectionData.goalNodeId
-                ? 'text-info hover:text-info-hover cursor-pointer'
-                : 'text-text-header cursor-default'
-            }`}
-          >
-            {resultsSectionData.goalLabel}
-          </button>
-        </div>
-
-        {/* RecommendationSection renders Hero + coaching cards.
-            RangeVisualization + TippingPoints are hidden here — rendered in Section 2 below. */}
         <RecommendationSection
           data={resultsSectionData.recommendation}
           onFocusNode={onFocusNode}

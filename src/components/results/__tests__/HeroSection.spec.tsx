@@ -1,15 +1,20 @@
 /**
- * HeroSection Tests (P1)
+ * HeroSection Tests (V9.2)
  *
- * Tests for the restructured hero section with M1 templates and M2 integration.
+ * Tests for the restructured hero section:
+ * - Merged headline: "To achieve [goal], [winner] performs best"
+ * - Condition card (replaces bullets)
+ * - 1-line coaching narrative
+ * - Simplified "More" expand: narrative + stability summary
  */
 
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { HeroSection, type HeroSectionProps } from '../HeroSection'
 
-// Mock focusNodeById
+// Mock focusByTarget (used by GraphLink)
 vi.mock('../../../canvas/utils/focusHelpers', () => ({
+  focusByTarget: vi.fn(),
   focusNodeById: vi.fn(),
 }))
 
@@ -22,7 +27,7 @@ const baseProps: HeroSectionProps = {
 }
 
 describe('HeroSection', () => {
-  describe('M1 Headline Precedence', () => {
+  describe('Merged Headline', () => {
     it('shows partial analysis message when status is partial (rule 1)', () => {
       render(
         <HeroSection
@@ -34,7 +39,7 @@ describe('HeroSection', () => {
       expect(screen.getByText(/Some analysis steps did not complete/)).toBeInTheDocument()
     })
 
-    it('shows no clear winner when stability < 0.55 (rule 2)', () => {
+    it('shows "no clear winner" when stability < 0.55 (rule 2)', () => {
       render(
         <HeroSection
           {...baseProps}
@@ -42,24 +47,12 @@ describe('HeroSection', () => {
         />
       )
 
-      expect(screen.getByText(/No clear winner/)).toBeInTheDocument()
+      // V9.2: merged headline — lowercase "no clear winner" after "To achieve..."
+      expect(screen.getByText(/no clear winner/)).toBeInTheDocument()
+      expect(screen.getByText(/sensitive to your estimates/)).toBeInTheDocument()
     })
 
-    it('shows goal probability when present (rule 3)', () => {
-      render(
-        <HeroSection
-          {...baseProps}
-          winnerGoalProbability={0.85}
-          goalThreshold={100}
-          recommendationStability={0.9}
-        />
-      )
-
-      expect(screen.getByText('Option A performs best')).toBeInTheDocument()
-      expect(screen.getByText('85% chance of hitting your target')).toBeInTheDocument()
-    })
-
-    it('shows fallback headline when no special conditions (rule 4)', () => {
+    it('shows "[winner] performs best" for standard case (rule 4)', () => {
       render(
         <HeroSection
           {...baseProps}
@@ -70,89 +63,7 @@ describe('HeroSection', () => {
       expect(screen.getByText('Option A performs best')).toBeInTheDocument()
     })
 
-    it('precedence rule 2 overrides rule 3 (low stability beats goal probability)', () => {
-      render(
-        <HeroSection
-          {...baseProps}
-          winnerGoalProbability={0.85}
-          goalThreshold={100}
-          recommendationStability={0.4} // Below 0.55
-        />
-      )
-
-      expect(screen.getByText(/No clear winner/)).toBeInTheDocument()
-      expect(screen.queryByText(/85% chance/)).not.toBeInTheDocument()
-    })
-  })
-
-  describe('M1 Bullets', () => {
-    it('shows comparative bullet with goal probabilities when available', () => {
-      render(
-        <HeroSection
-          {...baseProps}
-          winnerGoalProbability={0.85}
-          runnerUpGoalProbability={0.65}
-          runnerUpLabel="Option B"
-          runnerUpId="option-b"
-          goalThreshold={100}
-          recommendationStability={0.9}
-        />
-      )
-
-      expect(screen.getByText(/85% vs 65% chance of achieving your goal/)).toBeInTheDocument()
-    })
-
-    it('shows "outperforms most consistently" when no goal probabilities', () => {
-      render(
-        <HeroSection
-          {...baseProps}
-          recommendationStability={0.9}
-        />
-      )
-
-      // Text is split across elements (Option A is a GraphLink)
-      // Check that the full text is present in the bullet
-      const bullets = screen.getAllByRole('listitem')
-      const bulletWithText = bullets.find(li =>
-        li.textContent?.includes('Option A') &&
-        li.textContent?.includes('outperforms alternatives most consistently')
-      )
-      expect(bulletWithText).toBeInTheDocument()
-    })
-
-    it('shows "narrow gap" suffix when low stability AND goal probabilities present', () => {
-      render(
-        <HeroSection
-          {...baseProps}
-          winnerGoalProbability={0.55}
-          runnerUpGoalProbability={0.50}
-          runnerUpLabel="Option B"
-          runnerUpId="option-b"
-          goalThreshold={100}
-          recommendationStability={0.53} // Below 0.55 threshold
-        />
-      )
-
-      expect(screen.getByText(/55% vs 50% chance of achieving your goal — a narrow gap/)).toBeInTheDocument()
-    })
-
-    it('shows "wins slightly more often" when low stability AND no goal probabilities', () => {
-      render(
-        <HeroSection
-          {...baseProps}
-          recommendationStability={0.53} // Below 0.55 threshold
-        />
-      )
-
-      const bullets = screen.getAllByRole('listitem')
-      const bulletWithText = bullets.find(li =>
-        li.textContent?.includes('Options perform similarly') &&
-        li.textContent?.includes('wins slightly more often')
-      )
-      expect(bulletWithText).toBeInTheDocument()
-    })
-
-    it('shows single option message when optionCount is 1', () => {
+    it('shows "[winner] is your only option" for single option', () => {
       render(
         <HeroSection
           {...baseProps}
@@ -161,63 +72,75 @@ describe('HeroSection', () => {
         />
       )
 
-      expect(screen.getByText(/Only one option analysed/)).toBeInTheDocument()
+      expect(screen.getByText(/Option A is your only option/)).toBeInTheDocument()
     })
 
-    it('shows top drivers bullet when drivers present', () => {
+    it('includes goal label in merged headline', () => {
       render(
         <HeroSection
           {...baseProps}
-          topDrivers={[
-            { id: 'factor-1', label: 'Market Size (0-100)' },
-            { id: 'factor-2', label: 'Tech Lead Hired (0/1)' },
-          ]}
+          goalLabel="increase revenue"
           recommendationStability={0.9}
         />
       )
 
-      // Text is split across elements (driver names are GraphLinks)
-      // Should clean encoding notation and show both drivers
-      const bullets = screen.getAllByRole('listitem')
-      const driverBullet = bullets.find(li =>
-        li.textContent?.includes('Market Size') &&
-        li.textContent?.includes('Tech Lead Hired') &&
-        li.textContent?.includes('biggest drivers')
-      )
-      expect(driverBullet).toBeInTheDocument()
+      expect(screen.getByText(/To achieve increase revenue,/)).toBeInTheDocument()
     })
 
-    it('shows single driver message when only one driver', () => {
+    it('falls back to "your goal" when no goal label', () => {
       render(
         <HeroSection
           {...baseProps}
-          topDrivers={[{ id: 'factor-1', label: 'Market Size' }]}
           recommendationStability={0.9}
         />
       )
 
-      // Text is split across elements (driver name is a GraphLink)
-      const bullets = screen.getAllByRole('listitem')
-      const driverBullet = bullets.find(li =>
-        li.textContent?.includes('Market Size') &&
-        li.textContent?.includes('is the biggest driver')
-      )
-      expect(driverBullet).toBeInTheDocument()
+      expect(screen.getByText(/To achieve your goal,/)).toBeInTheDocument()
     })
 
-    it('shows balanced factors message when no drivers', () => {
+    it('precedence rule 2 overrides normal headline (low stability)', () => {
       render(
         <HeroSection
           {...baseProps}
-          topDrivers={[]}
-          recommendationStability={0.9}
+          winnerGoalProbability={0.85}
+          goalThreshold={100}
+          recommendationStability={0.4}
         />
       )
 
-      expect(screen.getByText(/No dominant drivers identified/)).toBeInTheDocument()
+      expect(screen.getByText(/no clear winner/)).toBeInTheDocument()
+    })
+  })
+
+  describe('M2 Headline Override', () => {
+    it('uses M2 headline when available and stability is high', () => {
+      render(
+        <HeroSection
+          {...baseProps}
+          recommendationStability={0.9}
+          m2Headline="Custom M2 headline"
+        />
+      )
+
+      expect(screen.getByText('Custom M2 headline')).toBeInTheDocument()
     })
 
-    it('shows fragile edge risk bullet when present', () => {
+    it('keeps M1 headline when stability < 0.55 even if M2 is available', () => {
+      render(
+        <HeroSection
+          {...baseProps}
+          recommendationStability={0.4}
+          m2Headline="Custom M2 headline"
+        />
+      )
+
+      expect(screen.getByText(/no clear winner/)).toBeInTheDocument()
+      expect(screen.queryByText('Custom M2 headline')).not.toBeInTheDocument()
+    })
+  })
+
+  describe('Condition Card', () => {
+    it('shows specific condition card when fragile edge has resolved labels', () => {
       render(
         <HeroSection
           {...baseProps}
@@ -232,20 +155,32 @@ describe('HeroSection', () => {
         />
       )
 
-      // Text is split across elements (factor names are GraphLinks)
-      // Should clean encoding notation
-      const bullets = screen.getAllByRole('listitem')
-      const fragileBullet = bullets.find(li =>
-        li.textContent?.includes('If') &&
-        li.textContent?.includes('Market Size') &&
-        li.textContent?.includes('Revenue') &&
-        li.textContent?.includes('is weaker than expected') &&
-        li.textContent?.includes('Option B becomes stronger')
-      )
-      expect(fragileBullet).toBeInTheDocument()
+      // Condition card should contain fragile edge info (encoding notation cleaned)
+      const card = screen.getByText(/is weaker than expected/)
+      expect(card).toBeInTheDocument()
+      expect(screen.getByText(/Option B becomes stronger/)).toBeInTheDocument()
     })
 
-    it('shows stable result message when no fragile edges', () => {
+    it('shows generic condition card when labels are unresolved', () => {
+      render(
+        <HeroSection
+          {...baseProps}
+          topFragileEdge={{
+            fromId: 'factor-1',
+            fromLabel: 'Unknown',
+            toId: 'outcome-1',
+            toLabel: 'Unknown',
+            alternativeWinnerLabel: 'Unknown',
+            labelsResolved: false,
+          }}
+          recommendationStability={0.9}
+        />
+      )
+
+      expect(screen.getByText(/Some estimates could change the recommendation/)).toBeInTheDocument()
+    })
+
+    it('does not render condition card when no fragile edges', () => {
       render(
         <HeroSection
           {...baseProps}
@@ -253,46 +188,100 @@ describe('HeroSection', () => {
         />
       )
 
-      expect(screen.getByText(/No assumptions tested could change this result/)).toBeInTheDocument()
+      expect(screen.queryByText(/is weaker than expected/)).not.toBeInTheDocument()
+      expect(screen.queryByText(/Some estimates could change/)).not.toBeInTheDocument()
     })
 
-    it('calls onFocusNode when clicking on a GraphLink in M1 bullet', () => {
+    it('condition card GraphLink calls onFocusNode on click', () => {
       const onFocusNode = vi.fn()
 
       render(
         <HeroSection
           {...baseProps}
-          topDrivers={[
-            { id: 'factor-1', label: 'Market Size' },
-            { id: 'factor-2', label: 'Tech Lead' },
-          ]}
+          topFragileEdge={{
+            fromId: 'factor-1',
+            fromLabel: 'Market Size',
+            toId: 'outcome-1',
+            toLabel: 'Revenue',
+            alternativeWinnerLabel: 'Option B',
+          }}
           recommendationStability={0.9}
           onFocusNode={onFocusNode}
         />
       )
 
-      // Find the GraphLink for "Market Size" and click it
-      const marketSizeLink = screen.getByRole('link', { name: /Focus on Market Size in model/ })
-      fireEvent.click(marketSizeLink)
+      // GraphLink is a <button> with aria-label
+      const graphLink = screen.getByRole('button', { name: /Focus on Market Size/ })
+      fireEvent.click(graphLink)
 
       expect(onFocusNode).toHaveBeenCalledWith('factor-1')
     })
 
-    it('GraphLink has proper accessibility attributes', () => {
+    it('cleans encoding notation from condition card labels', () => {
       render(
         <HeroSection
           {...baseProps}
-          topDrivers={[
-            { id: 'factor-1', label: 'Market Size' },
-            { id: 'factor-2', label: 'Tech Lead' },
-          ]}
+          topFragileEdge={{
+            fromId: 'f1',
+            fromLabel: 'Source (0/1)',
+            toId: 'f2',
+            toLabel: 'Target (yes/no)',
+            alternativeWinnerLabel: 'Alt Option',
+          }}
           recommendationStability={0.9}
         />
       )
 
-      const marketSizeLink = screen.getByRole('link', { name: /Focus on Market Size in model/ })
-      expect(marketSizeLink).toHaveAttribute('tabIndex', '0')
-      expect(marketSizeLink).toHaveClass('cursor-pointer')
+      const html = document.body.innerHTML
+      expect(html).not.toContain('(0/1)')
+      expect(html).not.toContain('(yes/no)')
+    })
+  })
+
+  describe('Coaching Narrative', () => {
+    it('shows 1-line coaching narrative when provided and collapsed', () => {
+      render(
+        <HeroSection
+          {...baseProps}
+          recommendationStability={0.9}
+          coachingHeadline="Option A is clearly the strongest choice given current estimates."
+        />
+      )
+
+      expect(screen.getByText(/Option A is clearly the strongest/)).toBeInTheDocument()
+    })
+
+    it('hides coaching narrative when More is expanded', () => {
+      render(
+        <HeroSection
+          {...baseProps}
+          recommendationStability={0.9}
+          coachingHeadline="Option A is clearly the strongest choice."
+        />
+      )
+
+      // Expand
+      const expandButton = screen.getByRole('button', { name: /More/i })
+      fireEvent.click(expandButton)
+
+      // Narrative should be hidden when expanded
+      expect(screen.queryByText(/Option A is clearly the strongest choice\./)).not.toBeInTheDocument()
+    })
+
+    it('does not render narrative when coachingHeadline is absent', () => {
+      const { container } = render(
+        <HeroSection
+          {...baseProps}
+          recommendationStability={0.9}
+        />
+      )
+
+      // No narrative line rendered (11px font-size element)
+      const narrativeElements = container.querySelectorAll('[style*="font-size: 11"]')
+      // If there are any, they shouldn't have coaching text
+      narrativeElements.forEach(el => {
+        expect(el.textContent).not.toMatch(/strongest|clearly/)
+      })
     })
   })
 
@@ -354,44 +343,41 @@ describe('HeroSection', () => {
       expect(screen.getByRole('button', { name: /More/i })).toBeInTheDocument()
     })
 
-    it('expands on click to show stability text and technical detail', () => {
+    it('expands to show stability summary on click', () => {
       render(
         <HeroSection
           {...baseProps}
           recommendationStability={0.9}
           nSamples={10000}
           fragileEdgeCount={3}
-          robustEdgeCount={12}
-          seedUsed={42}
-          responseHash="abc123def456"
         />
       )
 
       const expandButton = screen.getByRole('button', { name: /More/i })
       fireEvent.click(expandButton)
 
-      // Expanded stability text
-      expect(screen.getByText(/Result stays the same even if estimates are off/)).toBeInTheDocument()
-      // Stability percentage explanation
-      expect(screen.getByText(/the recommendation stayed the same in 90% of variations/)).toBeInTheDocument()
-      // Technical detail is inside a nested <details>
-      expect(screen.getByText('Technical detail')).toBeInTheDocument()
+      // V9.2: Stability summary rows
+      expect(screen.getByText('Stability')).toBeInTheDocument()
+      expect(screen.getByText('90%')).toBeInTheDocument()
+      expect(screen.getByText('Fragile edges')).toBeInTheDocument()
+      expect(screen.getByText('3')).toBeInTheDocument()
+      expect(screen.getByText('Convergence')).toBeInTheDocument()
+      expect(screen.getByText(/10,000 simulations/)).toBeInTheDocument()
     })
 
-    it('shows tier coaching card when stability < 0.85', () => {
+    it('shows coaching paragraph when expanded', () => {
       render(
         <HeroSection
           {...baseProps}
-          recommendationStability={0.75}
-          nSamples={10000}
+          recommendationStability={0.9}
+          coachingParagraph="This is a full narrative paragraph about the analysis results."
         />
       )
 
       const expandButton = screen.getByRole('button', { name: /More/i })
       fireEvent.click(expandButton)
 
-      // Tier coaching card for "Mostly stable"
-      expect(screen.getByText(/consistent under most assumptions/)).toBeInTheDocument()
+      expect(screen.getByText(/full narrative paragraph/)).toBeInTheDocument()
     })
 
     it('collapses when "Less" is clicked', () => {
@@ -400,66 +386,35 @@ describe('HeroSection', () => {
           {...baseProps}
           recommendationStability={0.9}
           nSamples={10000}
+          fragileEdgeCount={3}
         />
       )
 
       const expandButton = screen.getByRole('button', { name: /More/i })
       fireEvent.click(expandButton)
 
-      expect(screen.getByText('Technical detail')).toBeInTheDocument()
+      expect(screen.getByText('Stability')).toBeInTheDocument()
 
       const collapseButton = screen.getByRole('button', { name: /Less/i })
       fireEvent.click(collapseButton)
 
-      expect(screen.queryByText('Technical detail')).not.toBeInTheDocument()
-    })
-  })
-
-  describe('M2 Content Integration', () => {
-    it('uses M2 headline when available and stability is high', () => {
-      render(
-        <HeroSection
-          {...baseProps}
-          recommendationStability={0.9}
-          m2Headline="Custom M2 headline"
-        />
-      )
-
-      expect(screen.getByText('Custom M2 headline')).toBeInTheDocument()
+      expect(screen.queryByText('Convergence')).not.toBeInTheDocument()
     })
 
-    it('keeps M1 headline when stability < 0.55 even if M2 is available', () => {
-      render(
-        <HeroSection
-          {...baseProps}
-          recommendationStability={0.4}
-          m2Headline="Custom M2 headline"
-        />
-      )
-
-      expect(screen.getByText(/No clear winner/)).toBeInTheDocument()
-      expect(screen.queryByText('Custom M2 headline')).not.toBeInTheDocument()
-    })
-
-    it('shows M2 bias insights when available', () => {
+    it('does not show "Technical detail" (moved to Advanced in Phase 4)', () => {
       render(
         <HeroSection
           {...baseProps}
           recommendationStability={0.9}
           nSamples={10000}
-          m2BiasInsights={[
-            'Are you overweighting recent experiences?',
-            'Have you considered opposing viewpoints?',
-          ]}
+          fragileEdgeCount={3}
         />
       )
 
       const expandButton = screen.getByRole('button', { name: /More/i })
       fireEvent.click(expandButton)
 
-      expect(screen.getByText('Questions to consider')).toBeInTheDocument()
-      expect(screen.getByText('Are you overweighting recent experiences?')).toBeInTheDocument()
-      expect(screen.getByText('Have you considered opposing viewpoints?')).toBeInTheDocument()
+      expect(screen.queryByText('Technical detail')).not.toBeInTheDocument()
     })
   })
 
@@ -472,46 +427,18 @@ describe('HeroSection', () => {
         />
       )
 
-      // Should not crash and should show fallback headline
       expect(screen.getByText('Option A performs best')).toBeInTheDocument()
     })
 
-    it('handles missing drivers gracefully', () => {
+    it('renders without crashing when no optional props provided', () => {
       render(
         <HeroSection
           {...baseProps}
-          topDrivers={undefined}
           recommendationStability={0.9}
         />
       )
 
-      expect(screen.getByText(/No dominant drivers identified/)).toBeInTheDocument()
-    })
-
-    it('cleans encoding notation from all labels', () => {
-      render(
-        <HeroSection
-          {...baseProps}
-          topDrivers={[
-            { id: 'f1', label: 'Factor (0/1)' },
-            { id: 'f2', label: 'Another (0-100)' },
-          ]}
-          topFragileEdge={{
-            fromId: 'f1',
-            fromLabel: 'Source (0/1)',
-            toId: 'f2',
-            toLabel: 'Target (yes/no)',
-            alternativeWinnerLabel: 'Alt Option',
-          }}
-          recommendationStability={0.9}
-        />
-      )
-
-      // Should not contain encoding patterns
-      const html = document.body.innerHTML
-      expect(html).not.toContain('(0/1)')
-      expect(html).not.toContain('(0-100)')
-      expect(html).not.toContain('(yes/no)')
+      expect(screen.getByTestId('hero-section')).toBeInTheDocument()
     })
   })
 
@@ -528,7 +455,6 @@ describe('HeroSection', () => {
       expect(expandButton).toHaveAttribute('aria-expanded', 'false')
 
       fireEvent.click(expandButton)
-      // After clicking, the button text changes to "Less"
       const lessButton = screen.getByRole('button', { name: /Less/i })
       expect(lessButton).toHaveAttribute('aria-expanded', 'true')
     })
@@ -543,95 +469,25 @@ describe('HeroSection', () => {
 
       expect(screen.getByTestId('hero-section')).toBeInTheDocument()
     })
-  })
 
-  describe('Expanded Content Details', () => {
-    it('shows no tier coaching card when stability >= 0.85', () => {
+    it('condition card GraphLink is a button with aria-label', () => {
       render(
         <HeroSection
           {...baseProps}
-          recommendationStability={0.92}
-          nSamples={10000}
-        />
-      )
-
-      const expandButton = screen.getByRole('button', { name: /More/i })
-      fireEvent.click(expandButton)
-
-      // Stable result tier has no coaching
-      expect(screen.getByText(/Result stays the same even if estimates are off/)).toBeInTheDocument()
-      expect(screen.queryByText(/consistent under most assumptions/)).not.toBeInTheDocument()
-    })
-
-    it('shows M2 coaching paragraph when available', () => {
-      render(
-        <HeroSection
-          {...baseProps}
+          topFragileEdge={{
+            fromId: 'factor-1',
+            fromLabel: 'Market Size',
+            toId: 'outcome-1',
+            toLabel: 'Revenue',
+            alternativeWinnerLabel: 'Option B',
+          }}
           recommendationStability={0.9}
-          m2CoachingParagraph={[
-            { type: 'text', text: 'Consider checking ' },
-            { type: 'ref', id: 'factor-1', label: 'Market Size' },
-            { type: 'text', text: ' assumptions.' },
-          ]}
         />
       )
 
-      const expandButton = screen.getByRole('button', { name: /More/i })
-      fireEvent.click(expandButton)
-
-      expect(screen.getByText(/Consider checking/)).toBeInTheDocument()
-      expect(screen.getByText('Market Size')).toBeInTheDocument()
-    })
-
-    it('shows "Sensitive to assumptions" coaching for stability 0.55-0.69', () => {
-      render(
-        <HeroSection
-          {...baseProps}
-          recommendationStability={0.60}
-          nSamples={10000}
-        />
-      )
-
-      const expandButton = screen.getByRole('button', { name: /More/i })
-      fireEvent.click(expandButton)
-
-      expect(screen.getByText(/small changes could shift the recommendation/)).toBeInTheDocument()
-    })
-
-    it('shows "Highly sensitive" coaching for stability < 0.55', () => {
-      render(
-        <HeroSection
-          {...baseProps}
-          recommendationStability={0.40}
-          nSamples={10000}
-        />
-      )
-
-      const expandButton = screen.getByRole('button', { name: /More/i })
-      fireEvent.click(expandButton)
-
-      expect(screen.getByText(/consider strengthening key assumptions before committing/)).toBeInTheDocument()
-    })
-
-    it('shows technical detail as nested details element', () => {
-      render(
-        <HeroSection
-          {...baseProps}
-          recommendationStability={0.9}
-          nSamples={10000}
-          fragileEdgeCount={3}
-          robustEdgeCount={12}
-          seedUsed={42}
-          responseHash="abc123def456"
-        />
-      )
-
-      const expandButton = screen.getByRole('button', { name: /More/i })
-      fireEvent.click(expandButton)
-
-      // Technical detail is a <details> with a <summary>
-      const summary = screen.getByText('Technical detail')
-      expect(summary.tagName).toBe('SUMMARY')
+      const graphLink = screen.getByRole('button', { name: /Focus on Market Size/ })
+      expect(graphLink).toBeInTheDocument()
+      expect(graphLink).toHaveClass('cursor-pointer')
     })
   })
 })

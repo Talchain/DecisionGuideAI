@@ -243,10 +243,7 @@ export function RecommendationSection({
         }))}
         topFragileEdge={topFragileEdge}
         nSamples={nSamples}
-        seedUsed={seedUsed}
-        responseHash={responseHash}
         fragileEdgeCount={fragileEdgeCount}
-        robustEdgeCount={robustEdgeCount}
         goalLabel={goalLabel}
         goalThreshold={goalThreshold}
         expectedOutcome={expectedValue}
@@ -256,9 +253,9 @@ export function RecommendationSection({
         optionWinShares={optionWinShares}
         coachingReadiness={coachingReadiness}
         coachingReadinessScore={coachingReadinessScore}
+        coachingHeadline={coachingHeadline}
+        coachingParagraph={data.coachingParagraph}
         onFocusNode={onFocusNode}
-        onApplyThreshold={onApplyThreshold}
-        isRunning={isRunning}
       />
 
       {/* P2 Task 3: Limited options coaching card (moved below hero) */}
