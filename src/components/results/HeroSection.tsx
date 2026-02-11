@@ -652,36 +652,38 @@ export function HeroSection({
         {onApplyThreshold && (
           <div className="mb-3">
             {!hasTarget || isEditingTarget ? (
-              <div className="flex items-center gap-2">
-                <span className={`${typography.panelBody} text-text-body flex-shrink-0`}>
-                  {isEditingTarget ? 'Success target:' : 'Set a success target:'}
-                </span>
-                <input
-                  type="number"
-                  value={targetInputValue}
-                  onChange={(e) => setTargetInputValue(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === 'Enter') handleSetTarget(); if (e.key === 'Escape') { setIsEditingTarget(false); setTargetInputValue('') } }}
-                  placeholder={suggestedTarget ?? (outcomeUnitSymbol ? `e.g. ${outcomeUnitSymbol}200` : 'e.g. 200')}
-                  className={`${typography.panelBody} w-[120px] bg-panel border border-panel-border rounded-xl px-3 py-1.5 text-text-body focus:outline-none focus:border-info`}
-                  autoFocus={isEditingTarget}
-                  disabled={isRunning}
-                />
-                {outcomeUnitSymbol && (
-                  <span className={`${typography.panelMeta} text-text-light flex-shrink-0`}>{outcomeUnitSymbol}</span>
+              <>
+                <div className="flex items-center gap-2">
+                  <span className={`${typography.panelBody} text-text-body flex-shrink-0`}>
+                    {isEditingTarget ? 'Success target:' : 'Set a success target:'}
+                  </span>
+                  <input
+                    type="number"
+                    value={targetInputValue}
+                    onChange={(e) => setTargetInputValue(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') handleSetTarget(); if (e.key === 'Escape') { setIsEditingTarget(false); setTargetInputValue('') } }}
+                    placeholder={suggestedTarget ?? (outcomeUnitSymbol ? `e.g. ${outcomeUnitSymbol}200` : 'e.g. 200')}
+                    className={`${typography.panelBody} w-[120px] bg-panel border border-panel-border rounded-xl px-3 py-1.5 text-text-body focus:outline-none focus:border-info`}
+                    autoFocus={isEditingTarget}
+                    disabled={isRunning}
+                  />
+                  {outcomeUnitSymbol && (
+                    <span className={`${typography.panelMeta} text-text-light flex-shrink-0`}>{outcomeUnitSymbol}</span>
+                  )}
+                  <button
+                    onClick={handleSetTarget}
+                    disabled={!targetInputValue || isRunning}
+                    className={`${typography.panelBody} px-4 py-1.5 bg-primary text-white rounded-full hover:bg-primary-hover disabled:opacity-40 transition-colors`}
+                  >
+                    Set
+                  </button>
+                </div>
+                {suggestedTarget && !isEditingTarget && (
+                  <p className={`${typography.panelMeta} text-text-light italic mt-1`} style={{ fontSize: 12 }}>
+                    Suggested from your objective
+                  </p>
                 )}
-                <button
-                  onClick={handleSetTarget}
-                  disabled={!targetInputValue || isRunning}
-                  className={`${typography.panelBody} px-4 py-1.5 bg-primary text-white rounded-full hover:bg-primary-hover disabled:opacity-40 transition-colors`}
-                >
-                  Set
-                </button>
-              </div>
-              {suggestedTarget && !isEditingTarget && (
-                <p className={`${typography.panelMeta} text-text-light italic mt-1`} style={{ fontSize: 12 }}>
-                  Suggested from your objective
-                </p>
-              )}
+              </>
             ) : (
               <div className="flex items-center gap-2">
                 <span className={`${typography.panelBody} text-text-body`}>
