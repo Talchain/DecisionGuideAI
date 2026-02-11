@@ -335,6 +335,20 @@
   animation: edge-hint-pulse 1.5s ease-out infinite;
 }
 
+/* P2.3: Cross-highlight flash for option cards when GraphLink targets them */
+@keyframes cflash {
+  0%, 100% {
+    box-shadow: none;
+  }
+  50% {
+    box-shadow: 0 0 0 3px rgba(103, 200, 158, 0.3);
+  }
+}
+
+.cflash {
+  animation: cflash 0.6s ease-in-out;
+}
+
 /* Node palette (legacy - to be migrated) */
 :root {
   /* Layout bars */

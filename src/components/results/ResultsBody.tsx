@@ -17,7 +17,8 @@ import type { TornadoRow } from './TornadoChart'
 import { ConfidenceSection } from './ConfidenceSection'
 import { Accordion } from './Accordion'
 import { SectionHeader } from './SectionHeader'
-import { RangeVisualization } from './RangeVisualization'
+import { OptionCards } from './OptionCards'
+import { SuccessTargetRow } from './SuccessTargetRow'
 import { TippingPoints } from './TippingPoints'
 
 export interface StrengthCorrectionDisplay {
@@ -89,32 +90,31 @@ export function ResultsBody({
           isThresholdFromBrief={isThresholdFromBrief}
           onAddBaseline={onAddBaseline}
           onSetBaseline={onSetBaseline}
-          hideRangeVisualization
         />
       </div>
 
       {/* ── SECTION 2: OPTIONS COMPARISON ────────────────────────── */}
-      {/* Standalone section with range bars — extracted from RecommendationSection */}
+      {/* V9.2: SuccessTargetRow + card-based option comparison */}
       {!resultsSectionData.recommendation.isSingleOption &&
        resultsSectionData.recommendation.allOptions.length > 1 && (
-        <div>
+        <div className="space-y-2">
           <SectionHeader
             title="How the options compare"
             testId="section-header-options"
           />
-          <RangeVisualization
-            options={resultsSectionData.recommendation.allOptions}
+          <SuccessTargetRow
             goalThreshold={resultsSectionData.recommendation.goalThreshold}
-            winnerId={resultsSectionData.recommendation.recommendedOption?.id}
-            outcomeUnit={resultsSectionData.recommendation.outcomeUnit}
-            outcomeUnitSymbol={resultsSectionData.recommendation.outcomeUnitSymbol}
-            topDriverLabel={resultsSectionData.drivers.topDrivers?.[0]?.factorLabel}
-            topDriverDirection={resultsSectionData.drivers.topDrivers?.[0]?.direction}
-            winnerP10={resultsSectionData.recommendation.recommendedOption?.outcome?.p10 ?? null}
-            isNormalised={resultsSectionData.recommendation.isNormalised}
-            hasBaseline={resultsSectionData.recommendation.allOptions.some(o => o.isBaseline)}
+            isFromBrief={isThresholdFromBrief}
+            isRunning={isRunning}
+            onApplyThreshold={onApplyThreshold}
           />
-          {/* Tipping points below range bars */}
+          <OptionCards
+            options={resultsSectionData.recommendation.allOptions}
+            winnerId={resultsSectionData.recommendation.recommendedOption?.id}
+            hasGoalThreshold={resultsSectionData.recommendation.goalThreshold != null}
+            storyHeadlines={resultsSectionData.recommendation.storyHeadlines}
+          />
+          {/* Tipping points below option cards (kept until Phase 3.4 ships) */}
           <TippingPoints
             flipThresholds={resultsSectionData.recommendation.flipThresholds}
             drivers={resultsSectionData.drivers.topDrivers}

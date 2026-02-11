@@ -13,14 +13,12 @@
  */
 
 import { useMemo } from 'react'
-import type { RecommendationSectionData, OutcomeUnitType, DriverItem, GoalConstraint } from './types'
+import type { RecommendationSectionData, DriverItem } from './types'
 import { EMPTY_STATES } from './emptyStates'
 import { typography } from '../../styles/typography'
 import { HeroSection, type OptionWinShare } from './HeroSection'
 import { BaselineToggleCard } from './BaselineToggleCard'
 import { LimitedOptionsCard } from './LimitedOptionsCard'
-import { RangeVisualization } from './RangeVisualization'
-import { TippingPoints } from './TippingPoints'
 
 /** Top fragile edge data for HeroSection */
 export interface TopFragileEdge {
@@ -67,8 +65,6 @@ interface RecommendationSectionProps {
   onAddBaseline?: () => void
   /** Callback to set a specific option as baseline by ID (does NOT trigger rerun) */
   onSetBaseline?: (optionId: string) => void
-  /** v7 layout: hide RangeVisualization + TippingPoints (rendered at OutputsDock level instead) */
-  hideRangeVisualization?: boolean
 }
 
 export function RecommendationSection({
@@ -89,7 +85,6 @@ export function RecommendationSection({
   isThresholdFromBrief = false,
   onAddBaseline,
   onSetBaseline,
-  hideRangeVisualization = false,
 }: RecommendationSectionProps) {
   const {
     recommendedOption,
@@ -122,14 +117,9 @@ export function RecommendationSection({
     // Task 6: Ready + warnings consistency
     hasWarnings,
     goalThreshold,
-    // Task 6: Flip thresholds for tipping points
-    flipThresholds,
     // v7: Whether outcome values are normalised model scores
     isNormalised,
   } = data
-
-  // P1: Story headlines removed from option cards - banned language risk
-  // storyHeadlines data is still available for debug/coaching but not rendered
 
   // Error state
   if (analysisStatus === 'failed' || analysisStatus === 'blocked') {
@@ -163,18 +153,6 @@ export function RecommendationSection({
 
   const hasBaseline = allOptions.some(o => o.isBaseline)
   const optionCount = allOptions.length
-
-  // Build GoalConstraint[] from existing flat props for SuccessTarget
-  const goalConstraints: GoalConstraint[] = useMemo(() => {
-    if (goalThreshold == null) return []
-    return [{
-      id: 'primary',
-      label: goalLabel || 'Target',
-      operator: '>=' as const,
-      value: goalThreshold,
-      probability: recommendedOption?.goalProbability ?? null,
-    }]
-  }, [goalThreshold, goalLabel, recommendedOption?.goalProbability])
 
   // Build win shares for WinGauge
   const optionWinShares = useMemo<OptionWinShare[]>(() => {
@@ -265,32 +243,6 @@ export function RecommendationSection({
           optionCount={optionCount}
           hasBaseline={hasBaseline}
           responseHash={responseHash}
-        />
-      )}
-
-      {/* P3 Task 3: Range visualization - outcome distribution bars */}
-      {/* v7 layout: when hideRangeVisualization is true, these render at OutputsDock level */}
-      {!hideRangeVisualization && !isSingleOption && allOptions.length > 1 && (
-        <RangeVisualization
-          options={allOptions}
-          goalThreshold={goalThreshold}
-          winnerId={recommendedOption?.id}
-          outcomeUnit={outcomeUnit}
-          outcomeUnitSymbol={outcomeUnitSymbol}
-          topDriverLabel={topDrivers?.[0]?.factorLabel}
-          topDriverDirection={topDrivers?.[0]?.direction}
-          winnerP10={recommendedOption?.outcome?.p10 ?? null}
-          hasBaseline={hasBaseline}
-        />
-      )}
-
-      {/* Task 6: Tipping points — flip thresholds or driver strength fallback */}
-      {!hideRangeVisualization && !isSingleOption && (
-        <TippingPoints
-          flipThresholds={flipThresholds}
-          drivers={topDrivers}
-          outcomeUnit={outcomeUnit}
-          outcomeUnitSymbol={outcomeUnitSymbol}
         />
       )}
 

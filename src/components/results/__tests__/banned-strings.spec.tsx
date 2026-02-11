@@ -393,16 +393,15 @@ describe('Banned Strings Integration Test', () => {
       }
     })
 
-    it('shows win probability display when probability_of_goal is absent (P2 Task 4)', () => {
+    it('shows win probability in HeroSection when probability_of_goal is absent (P2 Task 4)', () => {
       render(<RecommendationSection data={fixtureNoGoalThreshold} />)
 
       // HeroSection headline renders "performs best"
       expect(screen.getByText(/performs best/)).toBeInTheDocument()
 
-      // RangeVisualization shows per-option win probability
-      expect(screen.getByText('Wins 65%')).toBeInTheDocument()
-      expect(screen.getByText('Wins 35%')).toBeInTheDocument()
-      expect(screen.getByText('Wins 15%')).toBeInTheDocument()
+      // V9.2: Win probability now shown via WinGauge inside HeroSection (not per-option text)
+      // OptionCards with "Wins" stat bars are rendered at ResultsBody level, not here
+      expect(screen.getByTestId('hero-section')).toBeInTheDocument()
 
       // Should NOT show "X expected" values
       expect(screen.queryByText(/\d+%? expected/i)).not.toBeInTheDocument()
@@ -429,14 +428,14 @@ describe('Banned Strings Integration Test', () => {
 
       const html = document.body.innerHTML
 
-      // Story headlines are no longer rendered (Task A removed them)
-      // Verify banned terms don't appear anywhere
+      // Story headlines are no longer rendered inside RecommendationSection
+      // (they render via OptionCards at ResultsBody level)
+      // Verify banned terms don't appear anywhere in HeroSection output
       expect(html).not.toContain('outperforms by')
       expect(html).not.toContain('points')
 
-      // Ensure the component still renders correctly (may have multiple instances)
-      expect(screen.getAllByText('Strategy Alpha').length).toBeGreaterThan(0)
-      expect(screen.getAllByText('Strategy Beta').length).toBeGreaterThan(0)
+      // V9.2: Winner appears in merged headline, other option names only in OptionCards (ResultsBody)
+      expect(screen.getByText(/Strategy Alpha performs best/)).toBeInTheDocument()
     })
   })
 

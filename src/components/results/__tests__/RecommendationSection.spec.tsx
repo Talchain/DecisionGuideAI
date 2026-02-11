@@ -76,13 +76,13 @@ describe('RecommendationSection', () => {
     expect(screen.getByTestId('hero-section')).toBeInTheDocument()
   })
 
-  it('renders option comparison when multiple exist', () => {
+  it('renders HeroSection with winner info (option cards moved to ResultsBody)', () => {
     render(<RecommendationSection data={mockData} />)
 
-    // Task 4: "How this compares:" heading removed - verify options render without heading
-    // Winner name appears in both HeroSection (as GraphLink) and option comparison
-    expect(screen.getAllByText('Hire Tech Lead').length).toBeGreaterThanOrEqual(1)
-    expect(screen.getAllByText('Hire 2 Developers').length).toBeGreaterThanOrEqual(1)
+    // V9.2: OptionCards now render at ResultsBody level, not inside RecommendationSection
+    // RecommendationSection shows HeroSection with winner in merged headline
+    expect(screen.getByTestId('hero-section')).toBeInTheDocument()
+    expect(screen.getByText(/Hire Tech Lead performs best/)).toBeInTheDocument()
   })
 
   it('hides option comparison for single option', () => {
