@@ -1257,14 +1257,32 @@ function extractBuildVersions(
   const plot = plotResponse as Record<string, unknown> | undefined
   const isl = islResponse as Record<string, unknown> | undefined
 
+  // CEE trace paths
+  const ceeTrace = cee?.trace as Record<string, unknown> | undefined
+  const ceeEngine = ceeTrace?.engine as Record<string, unknown> | undefined
+  // Error response fallback: trace.pipeline.cee_provenance (available even on non-2xx)
+  const ceePipeline = ceeTrace?.pipeline as Record<string, unknown> | undefined
+  const ceeProvenance = ceePipeline?.cee_provenance as Record<string, unknown> | undefined
+  // Also check nested error structures (proxy-wrapped errors)
+  const ceeErrorDetails = (cee?.details as Record<string, unknown>)?.trace as Record<string, unknown> | undefined
+  const ceeErrorPipeline = ceeErrorDetails?.pipeline as Record<string, unknown> | undefined
+  const ceeErrorProvenance = ceeErrorPipeline?.cee_provenance as Record<string, unknown> | undefined
+
+  // Build CEE version string — prefer engine.version, then cee_provenance.version+commit
+  const ceeVersionFromEngine = (ceeEngine?.version as string)
+    ?? (ceeEngine?.build as string)
+    ?? (ceeTrace?.build as string)
+    ?? (cee?.build as string)
+  const provenanceSource = ceeProvenance ?? ceeErrorProvenance
+  const ceeVersionFromProvenance = provenanceSource
+    ? ((provenanceSource.version as string) ?? null) +
+      ((provenanceSource.commit as string) ? `@${(provenanceSource.commit as string).slice(0, 7)}` : '')
+    : null
+
   return {
     ui: getClientBuild() || null,
-    // CEE path: trace.engine.version (preferred) or trace.engine.build (fallback)
-    cee: (cee?.trace as Record<string, unknown>)?.engine?.version as string
-      ?? (cee?.trace as Record<string, unknown>)?.engine?.build as string
-      ?? (cee?.trace as Record<string, unknown>)?.build as string
-      ?? (cee?.build as string)
-      ?? null,
+    cee: ceeVersionFromEngine
+      ?? (ceeVersionFromProvenance || null),
     plot: (plot?.meta as Record<string, unknown>)?.build as string
       ?? (plot?.trace as Record<string, unknown>)?.build as string
       ?? (plot?.build as string)
