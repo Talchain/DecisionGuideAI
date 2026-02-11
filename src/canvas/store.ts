@@ -207,6 +207,8 @@ interface CanvasState {
     status?: number
     correlationId?: string
     timestamp: number
+    /** Whether the error is retryable. false = deterministic validation failure. */
+    retryable?: boolean
   } | null
   // CEE V3: analysis_ready payload from last draft
   // Used by useV2Run to build requests with resolved interventions

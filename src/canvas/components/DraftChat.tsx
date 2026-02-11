@@ -263,13 +263,19 @@ export function DraftChat() {
       console.error('Draft failed:', err)
 
       // Store draft error for pre-analysis panel visibility
-      const draftError: { message: string; status?: number; correlationId?: string; timestamp: number } = {
+      const draftError: { message: string; status?: number; correlationId?: string; timestamp: number; retryable?: boolean } = {
         message: err instanceof Error ? err.message : 'Draft failed',
         timestamp: Date.now(),
       }
       if (err instanceof CEEError) {
         draftError.status = err.status
         draftError.correlationId = err.correlationId ?? undefined
+        // Extract retryable from CEE response body, fallback to HTTP status heuristic
+        const details = err.details as any
+        const ceeRetryable = details?.cee_response?.retryable ?? details?.retryable
+        draftError.retryable = typeof ceeRetryable === 'boolean'
+          ? ceeRetryable
+          : (err.status === 429 || err.status >= 500)
       }
       useCanvasStore.getState().setLastDraftError(draftError)
 
@@ -284,7 +290,7 @@ export function DraftChat() {
           message: err.message,
           requestId: err.correlationId ?? details?.trace?.request_id,
           endpoint: '/draft-graph',
-          retryable: err.status === 429 || err.status >= 500,
+          retryable: draftError.retryable ?? (err.status === 429 || err.status >= 500),
           rawBody: err.details ? JSON.stringify(err.details).slice(0, 2000) : undefined,
         })
       } else if (err instanceof Error) {

@@ -30,7 +30,7 @@ import { useRetryDraft } from '../../hooks/useRetryDraft'
 import { SOFT_BYPASS_STATUSES } from '../../hooks/usePreRunValidation'
 import { useShowToast } from '../../ToastContext'
 import { copyTextToClipboard } from '../../../utils/clipboard'
-import { RefreshCw, Copy } from 'lucide-react'
+import { RefreshCw, Copy, Pencil } from 'lucide-react'
 
 interface PreAnalysisPanelProps {
   /** Callback when user clicks the primary action button */
@@ -66,6 +66,12 @@ export function PreAnalysisPanel({
       showToast(result.error || 'Draft retry failed', 'error')
     }
   }, [retryDraft, showToast])
+
+  // Edit brief handler — opens DraftChat for re-phrasing
+  const setShowDraftChat = useCanvasStore(s => s.setShowDraftChat)
+  const handleEditBrief = useCallback(() => {
+    setShowDraftChat(true)
+  }, [setShowDraftChat])
 
   // Ref for scrolling to improvements
   const improvementsRef = useRef<HTMLDivElement>(null)
@@ -451,7 +457,7 @@ export function PreAnalysisPanel({
         {/* Draft error card */}
         {lastDraftError && (
           <div
-            className="rounded-md border bg-danger-light border-danger/30 px-3 py-2.5"
+            className="rounded-md bg-panel border border-panel-border border-l-[3px] border-l-danger px-3 py-2.5"
             data-testid="draft-error-card"
           >
             <p className="text-sm font-semibold text-danger">Draft failed</p>
@@ -462,17 +468,28 @@ export function PreAnalysisPanel({
               </p>
             )}
             <div className="flex items-center gap-2 mt-2">
-              {canRetryDraft && (
+              {lastDraftError.retryable === false ? (
+                <button
+                  type="button"
+                  onClick={handleEditBrief}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-info bg-panel border border-info/30 rounded-md hover:bg-info-light transition-colors"
+                  data-testid="draft-error-edit-brief"
+                >
+                  <Pencil size={12} />
+                  Edit brief
+                </button>
+              ) : canRetryDraft ? (
                 <button
                   type="button"
                   onClick={handleRetryDraft}
                   disabled={isRetrying}
                   className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-info bg-panel border border-info/30 rounded-md hover:bg-info-light disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  data-testid="draft-error-retry"
                 >
                   <RefreshCw size={12} className={isRetrying ? 'animate-spin' : ''} />
                   {isRetrying ? 'Retrying…' : 'Retry Draft'}
                 </button>
-              )}
+              ) : null}
               <button
                 type="button"
                 onClick={() => {
@@ -491,6 +508,11 @@ export function PreAnalysisPanel({
                 Copy diagnostics
               </button>
             </div>
+            {lastDraftError.retryable === false && (
+              <p className="text-xs text-text-light mt-1">
+                The previous draft couldn't be validated. Try rephrasing your decision brief.
+              </p>
+            )}
           </div>
         )}
 
@@ -500,7 +522,9 @@ export function PreAnalysisPanel({
             blockers={data.enrichedBlockers}
             canRetryDraft={canRetryDraft}
             isRetrying={isRetrying}
+            lastDraftRetryable={lastDraftError?.retryable}
             onRetryDraft={handleRetryDraft}
+            onEditBrief={handleEditBrief}
           />
         )}
 

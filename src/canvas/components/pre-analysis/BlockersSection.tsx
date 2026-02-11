@@ -2,18 +2,19 @@
  * BlockersSection — Structured blocker cards for pre-analysis panel.
  *
  * Renders "Fix before running" section with count badge.
- * Each blocker is a card with icon, title, description, and optional retry button.
+ * Each blocker is a card with icon, title, description, and optional retry/edit button.
  *
  * ⚠️  READ-ONLY GUARDRAIL: This component renders enriched blockers.
  *     It must NEVER mutate store state directly — all mutations flow through
- *     callbacks (onRetryDraft) passed from the parent.
+ *     callbacks (onRetryDraft, onEditBrief) passed from the parent.
  *
- * Design tokens (Olumi two-shade):
- * - critical: bg-danger-light, border-danger/30, text-danger
- * - warning:  bg-warning-light, border-warning/30, text-warning
+ * Design tokens:
+ * - Card bg: bg-panel (neutral surface)
+ * - Left border: 3px solid severity colour (danger / warning)
+ * - No filled/tinted backgrounds
  */
 
-import { AlertTriangle, RefreshCw } from 'lucide-react'
+import { AlertTriangle, RefreshCw, Pencil } from 'lucide-react'
 import type { EnrichedBlocker } from './blockerEnrichment'
 
 interface BlockersSectionProps {
@@ -23,17 +24,26 @@ interface BlockersSectionProps {
   canRetryDraft: boolean
   /** Whether retry is currently in progress */
   isRetrying: boolean
+  /** Whether the last draft error is non-retryable (deterministic failure) */
+  lastDraftRetryable?: boolean
   /** Retry callback — no scroll (amendment #8) */
   onRetryDraft: () => void
+  /** Edit brief callback — opens DraftChat for re-phrasing */
+  onEditBrief: () => void
 }
 
 export function BlockersSection({
   blockers,
   canRetryDraft,
   isRetrying,
+  lastDraftRetryable,
   onRetryDraft,
+  onEditBrief,
 }: BlockersSectionProps) {
   if (blockers.length === 0) return null
+
+  // When lastDraftRetryable is explicitly false, show "Edit brief" instead of "Retry Draft"
+  const showEditBriefInstead = lastDraftRetryable === false
 
   return (
     <div className="space-y-2" data-testid="blockers-section">
@@ -55,10 +65,8 @@ export function BlockersSection({
         return (
           <div
             key={`${blocker.code}-${idx}`}
-            className={`rounded-md border px-3 py-2.5 ${
-              isCritical
-                ? 'bg-danger-light border-danger/30'
-                : 'bg-warning-light border-warning/30'
+            className={`rounded-md bg-panel border-l-[3px] border border-panel-border px-3 py-2.5 ${
+              isCritical ? 'border-l-danger' : 'border-l-warning'
             }`}
             data-testid={`blocker-card-${blocker.code}`}
           >
@@ -79,21 +87,41 @@ export function BlockersSection({
                   {display.description}
                 </p>
 
-                {/* Retry button inside card when supported */}
+                {/* Action button inside card when retry is supported */}
                 {display.supportsRetry && canRetryDraft && (
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      onRetryDraft()
-                    }}
-                    disabled={isRetrying}
-                    className="mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-info bg-panel border border-info/30 rounded-md hover:bg-info-light disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                    data-testid={`blocker-retry-${blocker.code}`}
-                  >
-                    <RefreshCw size={12} className={isRetrying ? 'animate-spin' : ''} />
-                    {isRetrying ? 'Retrying…' : 'Retry Draft'}
-                  </button>
+                  showEditBriefInstead ? (
+                    <>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          onEditBrief()
+                        }}
+                        className="mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-info bg-panel border border-info/30 rounded-md hover:bg-info-light transition-colors"
+                        data-testid={`blocker-edit-brief-${blocker.code}`}
+                      >
+                        <Pencil size={12} />
+                        Edit brief
+                      </button>
+                      <p className="text-xs text-text-light mt-1">
+                        The previous draft couldn't be validated. Try rephrasing your decision brief.
+                      </p>
+                    </>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        onRetryDraft()
+                      }}
+                      disabled={isRetrying}
+                      className="mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-info bg-panel border border-info/30 rounded-md hover:bg-info-light disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      data-testid={`blocker-retry-${blocker.code}`}
+                    >
+                      <RefreshCw size={12} className={isRetrying ? 'animate-spin' : ''} />
+                      {isRetrying ? 'Retrying…' : 'Retry Draft'}
+                    </button>
+                  )
                 )}
               </div>
             </div>

@@ -71,13 +71,19 @@ export function useRetryDraft() {
         err instanceof Error ? err.message : 'Draft retry failed'
       setState({ isRetrying: false, error })
 
-      const draftError: { message: string; status?: number; correlationId?: string; timestamp: number } = {
+      const draftError: { message: string; status?: number; correlationId?: string; timestamp: number; retryable?: boolean } = {
         message: error,
         timestamp: Date.now(),
       }
       if (err instanceof CEEError) {
         draftError.status = err.status
         draftError.correlationId = err.correlationId ?? undefined
+        // Extract retryable from CEE response body, fallback to HTTP status heuristic
+        const details = err.details as any
+        const ceeRetryable = details?.cee_response?.retryable ?? details?.retryable
+        draftError.retryable = typeof ceeRetryable === 'boolean'
+          ? ceeRetryable
+          : (err.status === 429 || err.status >= 500)
       }
       store.setLastDraftError(draftError)
 
