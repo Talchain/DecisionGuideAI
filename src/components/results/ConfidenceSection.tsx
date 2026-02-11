@@ -543,14 +543,14 @@ export function ConfidenceSection({
             ) : (
               <>
                 {/* Tier 1: Conditions that would change your mind */}
-                {couldChangeDecision.length > 0 && (
-                  <div className="space-y-2">
-                    <h4 className={`${typography.panelHeader} text-text-header tracking-wide border-l-3 border-danger pl-2`}>
-                      Conditions that would change your mind
-                    </h4>
-                    <p className={`${typography.panelMeta} text-text-light`}>
-                      If any of these are wrong, the recommendation could change.
-                    </p>
+                <div className="space-y-2">
+                  <h4 className={`${typography.panelHeader} text-text-header tracking-wide border-l-3 border-danger pl-2`}>
+                    Conditions that would change your mind
+                  </h4>
+                  <p className={`${typography.panelMeta} text-text-light`}>
+                    If any of these are wrong, the recommendation could change.
+                  </p>
+                  {couldChangeDecision.length > 0 ? (
                     <div className="space-y-2">
                       {couldChangeDecision.map((item, index) => (
                         <UncertaintyRow
@@ -561,8 +561,12 @@ export function ConfidenceSection({
                         />
                       ))}
                     </div>
-                  </div>
-                )}
+                  ) : (
+                    <p className={`${typography.panelMeta} text-text-light italic py-2`}>
+                      No high-sensitivity conditions found.
+                    </p>
+                  )}
+                </div>
 
                 {/* Tier 2: What you'd want to know before committing */}
                 {worthRefining.length > 0 && (

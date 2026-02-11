@@ -15,6 +15,7 @@
 import { useMemo, useState } from 'react'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 import { typography } from '../../styles/typography'
+import { formatPercent as formatPct } from '../../utils/formatPercent'
 import { stripEncodingNotation } from './utils/cleanFactorLabel'
 import type { OptionResult, OutcomeUnitType } from './types'
 
@@ -52,9 +53,7 @@ export function formatThreshold(
   // v7.1: Normalised model scores — reframe as % shift from baseline
   // 0.13 → "+13%", -0.17 → "-17%"
   if (isNormalised) {
-    const pct = Math.round(value * 100)
-    const prefix = pct > 0 ? '+' : ''
-    return `${prefix}${pct}%`
+    return formatPct(value, { fromDecimal: true, sign: true })
   }
   if (unit === 'currency' && symbol) {
     return `${symbol}${Math.round(value).toLocaleString()}`
@@ -62,7 +61,7 @@ export function formatThreshold(
   if (unit === 'percent') {
     // Auto-detect probability form (0-2 range) vs percentage form
     const displayValue = Math.abs(value) <= 2 ? value * 100 : value
-    return `${Math.round(displayValue)}%`
+    return formatPct(displayValue)
   }
   // Count or unknown: show with commas, smart rounding
   if (Math.abs(value) >= 10) {
@@ -115,10 +114,10 @@ function OptionRangeBar({
   // C10: Per-option probability text with fallback
   const probabilityText = (() => {
     if (option.goalProbability != null && goalThreshold != null) {
-      return `${Math.round(option.goalProbability * 100)}% hit target`
+      return `${formatPct(option.goalProbability, { fromDecimal: true })} hit target`
     }
     if (option.winProbability != null) {
-      return `Wins ${Math.round(option.winProbability * 100)}%`
+      return `Wins ${formatPct(option.winProbability, { fromDecimal: true })}`
     }
     // C10: Omit suffix entirely when both missing
     return null

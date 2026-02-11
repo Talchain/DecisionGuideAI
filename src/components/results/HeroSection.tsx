@@ -568,7 +568,26 @@ export function HeroSection({
       })
     }
 
-    // v7.10 T2: Bullet 2 — expected outcome, gated when win-prob delta ≤ 5%
+    // Bullet 2: Fragile edge — coaching-critical "what could change your mind"
+    if (topFragileEdge && topFragileEdge.labelsResolved !== false) {
+      const fromLabel = stripEncodingNotation(topFragileEdge.fromLabel)
+      const toLabel = stripEncodingNotation(topFragileEdge.toLabel)
+      const altLabel = stripEncodingNotation(topFragileEdge.alternativeWinnerLabel)
+      bullets.push({
+        text: `If ${fromLabel} → ${toLabel} is weaker than expected, ${altLabel} becomes stronger`,
+        refs: [
+          { id: topFragileEdge.fromId, label: fromLabel },
+          { id: topFragileEdge.toId, label: toLabel },
+        ],
+      })
+    } else if (fragileEdgeCount != null && fragileEdgeCount > 0) {
+      // v7.10.1 T3: Generic fallback when labels unresolved
+      bullets.push({
+        text: 'Some assumptions could change the recommendation — review key inputs below.',
+      })
+    }
+
+    // Bullet 3: Expected outcome, gated when win-prob delta ≤ 5%
     const winDelta = (winnerWinProbability ?? 0) - (runnerUpWinProbability ?? 0)
     if (expectedOutcome != null && Math.abs(winDelta) > 0.05) {
       if (isNormalised) {
@@ -590,27 +609,13 @@ export function HeroSection({
       }
     }
 
-    // v7.10 T2: Bullet 3 — fragile edge (only when fragile edges exist)
-    if (topFragileEdge && topFragileEdge.labelsResolved !== false) {
-      const fromLabel = stripEncodingNotation(topFragileEdge.fromLabel)
-      const toLabel = stripEncodingNotation(topFragileEdge.toLabel)
-      const altLabel = stripEncodingNotation(topFragileEdge.alternativeWinnerLabel)
-      bullets.push({
-        text: `If ${fromLabel} → ${toLabel} is weaker than expected, ${altLabel} becomes stronger`,
-        refs: [
-          { id: topFragileEdge.fromId, label: fromLabel },
-          { id: topFragileEdge.toId, label: toLabel },
-        ],
-      })
-    }
-
     // v7.10 T2: Max 2 context bullets (comparison + one context line)
     return bullets.slice(0, 2)
   }, [
     optionCount, winnerGoalProbability, runnerUpGoalProbability, goalThreshold,
     winnerLabel, winnerId, runnerUpLabel, runnerUpId,
     winnerWinProbability, runnerUpWinProbability,
-    topDrivers, topFragileEdge, recommendationStability,
+    topDrivers, topFragileEdge, fragileEdgeCount, recommendationStability,
     expectedOutcome, outcomeUnit, outcomeUnitSymbol, goalLabel, isNormalised,
   ])
 

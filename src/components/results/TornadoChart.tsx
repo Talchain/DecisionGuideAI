@@ -13,6 +13,7 @@
 
 import { useMemo } from 'react'
 import { typography } from '../../styles/typography'
+import { formatPercent as formatPct } from '../../utils/formatPercent'
 import { stripEncodingNotation } from './utils/cleanFactorLabel'
 import { focusNodeById } from '../../canvas/utils/focusHelpers'
 
@@ -54,16 +55,14 @@ function formatValue(
   isNormalised?: boolean,
 ): string {
   if (isNormalised) {
-    const pct = Math.round(value * 100)
-    const prefix = pct > 0 ? '+' : ''
-    return `${prefix}${pct}%`
+    return formatPct(value, { fromDecimal: true, sign: true })
   }
   if (unit === 'currency' && symbol) {
     return `${symbol}${Math.round(value).toLocaleString()}`
   }
   if (unit === 'percent') {
     const displayValue = Math.abs(value) <= 2 ? value * 100 : value
-    return `${Math.round(displayValue)}%`
+    return formatPct(displayValue)
   }
   if (Math.abs(value) >= 10) {
     return Math.round(value).toLocaleString()
