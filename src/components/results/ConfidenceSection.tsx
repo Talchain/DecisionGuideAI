@@ -462,7 +462,7 @@ export function ConfidenceSection({
       )}
 
       {/* CASE 1b: Bug 2 fix - No fragile edges but low robustness/stability */}
-      {showLowRobustnessWarning && !showTierWarning && (
+      {showLowRobustnessWarning && (
         <div className="p-4 bg-panel border border-warning rounded-lg">
           <div className="flex items-center gap-2 mb-2">
             <span className="text-lg">⚠</span>
