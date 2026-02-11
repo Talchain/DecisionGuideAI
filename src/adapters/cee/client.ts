@@ -38,6 +38,49 @@ export class CEEError extends Error {
   }
 }
 
+/**
+ * Infer missing `category` on factor nodes from graph edge structure.
+ * Non-breaking: only fills in when category is undefined (never overwrites).
+ *
+ * Logic:
+ * - Factor has incoming edge from an option/decision node → "controllable"
+ * - Factor has no option edges → "observable"
+ *
+ * This handles the LLM omission pattern where GPT-4o non-deterministically
+ * drops the `category` field on factor nodes.
+ */
+function inferMissingCategories(nodes: any[], edges: any[]): void {
+  if (!Array.isArray(nodes) || !Array.isArray(edges)) return
+
+  // Build set of option/decision node IDs
+  const optionIds = new Set<string>()
+  for (const n of nodes) {
+    const kind = n.kind ?? n.type
+    if (kind === 'option' || kind === 'decision') {
+      optionIds.add(n.id)
+    }
+  }
+
+  // Build set of factor IDs that are targets of edges from option nodes
+  const optionTargets = new Set<string>()
+  for (const edge of edges) {
+    const from = edge.from ?? edge.source
+    const to = edge.to ?? edge.target
+    if (from && to && optionIds.has(from)) {
+      optionTargets.add(to)
+    }
+  }
+
+  // Fill missing category on factor nodes
+  for (const node of nodes) {
+    const kind = node.kind ?? node.type
+    if (kind !== 'factor') continue
+    if (node.category) continue // already has category — don't overwrite
+
+    node.category = optionTargets.has(node.id) ? 'controllable' : 'observable'
+  }
+}
+
 // Adapt the raw /draft-graph response into the CEEDraftResponse
 // shape expected by the UI. This is defensive so partially malformed
 // responses can still yield a reasonable graph.
@@ -97,6 +140,9 @@ export function adaptDraftResponse(raw: any): CEEDraftResponse {
     if (isCeePipelineTrace(draft.trace?.pipeline)) {
       result.pipeline_trace = draft.trace.pipeline
     }
+
+    // LLM omission resilience: infer missing category from graph edges
+    inferMissingCategories(result.nodes, result.edges)
 
     return result
   }
@@ -327,6 +373,9 @@ export function adaptDraftResponse(raw: any): CEEDraftResponse {
   if (isCeePipelineTrace((raw as any).trace?.pipeline)) {
     result.pipeline_trace = (raw as any).trace.pipeline
   }
+
+  // LLM omission resilience: infer missing category from graph edges
+  inferMissingCategories(result.nodes, result.edges)
 
   return result
 }
@@ -623,6 +672,10 @@ export class CEEClient {
           hasStages: Array.isArray(rawTrace?.stages),
         })
       }
+
+      // LLM omission resilience: infer missing category from graph edges
+      inferMissingCategories(result.nodes, result.edges)
+
       return result
     }
 
@@ -645,6 +698,10 @@ export class CEEClient {
           hasStages: Array.isArray(rawTrace?.stages),
         })
       }
+
+      // LLM omission resilience: infer missing category from graph edges
+      inferMissingCategories(result.nodes, result.edges)
+
       return result
     }
 

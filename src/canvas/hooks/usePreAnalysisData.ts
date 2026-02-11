@@ -147,7 +147,7 @@ const TITLE_MAP: Record<string, string> = {
   MISSING_GOAL_NODE: 'No goal selected',
   GOAL_NODE_NOT_FOUND: 'Goal node was deleted',
   GOAL_NODE_KIND_MISMATCH: 'Selected node is not a goal',
-  ANALYSIS_NOT_READY: 'Graph needs attention',
+  ANALYSIS_NOT_READY: 'Draft incomplete — try re-drafting',
   needs_encoding: 'Options need numeric values',
   needs_user_mapping: 'Options need configuration',
 }
@@ -616,10 +616,9 @@ export function usePreAnalysisData(): PreAnalysisData {
   // Can run analysis
   const hasBlockers = allIssues.some(i => i.severity === 'blocker')
   const graphCanRun = readinessLoading ? true : (readiness?.can_run_analysis ?? true)
-  const canRun = preRunValidation.canRun &&
-    !hasBlockers &&
-    graphCanRun &&
-    (ceeAnalysisReady?.status === 'ready' || ceeAnalysisReady?.status === undefined)
+  // Single source of truth: usePreRunValidation handles status checking
+  // (including LLM omission resilience). No redundant independent status gate.
+  const canRun = preRunValidation.canRun && !hasBlockers && graphCanRun
 
   // Ready options count
   const readyOptionsCount = ceeAnalysisReady?.options?.filter(o => o.status === 'ready').length ??

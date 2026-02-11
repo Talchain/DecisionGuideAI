@@ -222,7 +222,9 @@ describe('validateBeforeRun', () => {
   })
 
   describe('overall analysis_ready.status validation', () => {
-    it('blocks when status is needs_user_mapping', () => {
+    it('allows run when status is needs_user_mapping but all options are resolved', () => {
+      // LLM omission resilience: if all options have interventions and are ready,
+      // needs_user_mapping was likely due to missing category, not a real issue
       const nodes: Node[] = [
         makeNode('factor_price', 'factor'),
         makeNode('goal_revenue', 'goal'),
@@ -232,8 +234,33 @@ describe('validateBeforeRun', () => {
       const ceeAnalysisReady = makeCEEAnalysisReady(
         [{ id: 'option_a', label: 'Option A', status: 'ready', interventions: { factor_price: { value: 100 } } }],
         'goal_revenue',
-        'needs_user_mapping',  // Overall status is NOT ready
+        'needs_user_mapping',
         ['The factor "Price" doesn\'t have a path to the goal. Is this correct?']
+      )
+
+      const result = validateBeforeRun('goal_revenue', nodes, [], ceeAnalysisReady)
+
+      expect(result.canRun).toBe(true)
+      expect(result.blockers.some((b) => b.code === 'ANALYSIS_NOT_READY')).toBe(false)
+      // user_questions still captured regardless
+      expect(result.userQuestions).toEqual([
+        'The factor "Price" doesn\'t have a path to the goal. Is this correct?',
+      ])
+    })
+
+    it('blocks when status is needs_user_mapping and options have empty interventions', () => {
+      // Genuine structural issue: options don't have interventions
+      const nodes: Node[] = [
+        makeNode('factor_price', 'factor'),
+        makeNode('goal_revenue', 'goal'),
+        makeNode('option_a', 'option'),
+      ]
+
+      const ceeAnalysisReady = makeCEEAnalysisReady(
+        [{ id: 'option_a', label: 'Option A', status: 'needs_user_mapping', interventions: {} }],
+        'goal_revenue',
+        'needs_user_mapping',
+        ['Which factor does Option A affect?']
       )
 
       const result = validateBeforeRun('goal_revenue', nodes, [], ceeAnalysisReady)
@@ -241,11 +268,12 @@ describe('validateBeforeRun', () => {
       expect(result.canRun).toBe(false)
       expect(result.blockers.some((b) => b.code === 'ANALYSIS_NOT_READY')).toBe(true)
       expect(result.userQuestions).toEqual([
-        'The factor "Price" doesn\'t have a path to the goal. Is this correct?',
+        'Which factor does Option A affect?',
       ])
     })
 
-    it('blocks when status is needs_encoding', () => {
+    it('allows run when status is needs_encoding but all options are resolved', () => {
+      // If options already have numeric interventions, encoding is not actually needed
       const nodes: Node[] = [
         makeNode('factor_price', 'factor'),
         makeNode('goal_revenue', 'goal'),
@@ -260,9 +288,29 @@ describe('validateBeforeRun', () => {
 
       const result = validateBeforeRun('goal_revenue', nodes, [], ceeAnalysisReady)
 
+      expect(result.canRun).toBe(true)
+      expect(result.blockers.some((b) => b.code === 'ANALYSIS_NOT_READY')).toBe(false)
+    })
+
+    it('blocks for unknown status even when all options are resolved', () => {
+      // Unknown/future statuses must always block — soft bypass only applies
+      // to known LLM omission statuses (needs_user_mapping, needs_encoding)
+      const nodes: Node[] = [
+        makeNode('factor_price', 'factor'),
+        makeNode('goal_revenue', 'goal'),
+        makeNode('option_a', 'option'),
+      ]
+
+      const ceeAnalysisReady = makeCEEAnalysisReady(
+        [{ id: 'option_a', label: 'Option A', status: 'ready', interventions: { factor_price: { value: 100 } } }],
+        'goal_revenue',
+        'some_future_status' as any
+      )
+
+      const result = validateBeforeRun('goal_revenue', nodes, [], ceeAnalysisReady)
+
       expect(result.canRun).toBe(false)
       expect(result.blockers.some((b) => b.code === 'ANALYSIS_NOT_READY')).toBe(true)
-      expect(result.blockers.find((b) => b.code === 'ANALYSIS_NOT_READY')?.message).toContain('encoding')
     })
 
     it('allows run when status is ready', () => {

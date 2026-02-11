@@ -358,6 +358,113 @@ describe('adaptDraftResponse – edge spread-first', () => {
     expect(Number.isFinite(result.nodes[0].uncertainty)).toBe(true)
   })
 
+  // --- inferMissingCategories (called within adaptDraftResponse) ---
+
+  it('infers controllable category on factor nodes with incoming option edges', () => {
+    const raw = {
+      graph: {
+        nodes: [
+          { id: 'opt1', label: 'Option A', kind: 'option' },
+          { id: 'f1', label: 'Price', kind: 'factor' },   // target of option edge
+          { id: 'f2', label: 'Weather', kind: 'factor' },  // no option edge
+          { id: 'g1', label: 'Revenue', kind: 'goal' },
+        ],
+        edges: [
+          { from: 'opt1', to: 'f1', weight: 0.5 },
+          { from: 'f1', to: 'g1', weight: 0.8 },
+          { from: 'f2', to: 'g1', weight: 0.3 },
+        ],
+      },
+    }
+
+    const result = adaptDraftResponse(raw)
+    const f1 = result.nodes.find(n => n.id === 'f1')
+    const f2 = result.nodes.find(n => n.id === 'f2')
+
+    expect((f1 as any).category).toBe('controllable')
+    expect((f2 as any).category).toBe('observable')
+  })
+
+  it('does not overwrite existing category on factor nodes', () => {
+    const raw = {
+      graph: {
+        nodes: [
+          { id: 'opt1', label: 'Option A', kind: 'option' },
+          { id: 'f1', label: 'Price', kind: 'factor', category: 'external' },
+          { id: 'g1', label: 'Revenue', kind: 'goal' },
+        ],
+        edges: [
+          { from: 'opt1', to: 'f1', weight: 0.5 },
+          { from: 'f1', to: 'g1', weight: 0.8 },
+        ],
+      },
+    }
+
+    const result = adaptDraftResponse(raw)
+    const f1 = result.nodes.find(n => n.id === 'f1')
+
+    // Should NOT be overwritten to 'controllable' — preserve existing value
+    expect((f1 as any).category).toBe('external')
+  })
+
+  it('infers controllable from decision node edges too', () => {
+    const raw = {
+      graph: {
+        nodes: [
+          { id: 'dec1', label: 'Decision', kind: 'decision' },
+          { id: 'f1', label: 'Budget', kind: 'factor' },
+          { id: 'g1', label: 'Revenue', kind: 'goal' },
+        ],
+        edges: [
+          { from: 'dec1', to: 'f1', weight: 0.5 },
+          { from: 'f1', to: 'g1', weight: 0.8 },
+        ],
+      },
+    }
+
+    const result = adaptDraftResponse(raw)
+    const f1 = result.nodes.find(n => n.id === 'f1')
+
+    expect((f1 as any).category).toBe('controllable')
+  })
+
+  it('does not assign category to non-factor nodes', () => {
+    const raw = {
+      graph: {
+        nodes: [
+          { id: 'opt1', label: 'Option A', kind: 'option' },
+          { id: 'g1', label: 'Revenue', kind: 'goal' },
+        ],
+        edges: [
+          { from: 'opt1', to: 'g1', weight: 0.5 },
+        ],
+      },
+    }
+
+    const result = adaptDraftResponse(raw)
+    const g1 = result.nodes.find(n => n.id === 'g1')
+
+    // Goal node should not get a category from inference
+    expect((g1 as any).category).toBeUndefined()
+  })
+
+  it('handles graph with no edges gracefully (all factors become observable)', () => {
+    const raw = {
+      graph: {
+        nodes: [
+          { id: 'f1', label: 'Factor A', kind: 'factor' },
+          { id: 'f2', label: 'Factor B', kind: 'factor' },
+        ],
+        edges: [],
+      },
+    }
+
+    const result = adaptDraftResponse(raw)
+
+    expect((result.nodes[0] as any).category).toBe('observable')
+    expect((result.nodes[1] as any).category).toBe('observable')
+  })
+
   it('rejects NaN in observed_state.value', () => {
     const raw = {
       graph: {

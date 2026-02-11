@@ -126,18 +126,36 @@ function validateOverallStatus(
 
   // Check overall status
   if (ceeAnalysisReady.status !== 'ready') {
-    const statusMessages: Record<string, string> = {
-      needs_user_mapping: 'Graph has structural issues that need your input',
-      needs_encoding: 'Some options have categorical values that need encoding',
+    // LLM omission resilience: For known statuses that the LLM produces when
+    // it drops `category` on factor nodes, check if options are actually
+    // resolved. If so, the status was downgraded due to missing metadata —
+    // not a genuine structural problem. Only bypass for these two known
+    // statuses; unknown/future statuses always block to avoid masking real issues.
+    const SOFT_BYPASS_STATUSES: ReadonlySet<string> = new Set(['needs_user_mapping', 'needs_encoding'])
+
+    const isSoftStatus = SOFT_BYPASS_STATUSES.has(ceeAnalysisReady.status)
+    const allOptionsResolved = isSoftStatus && (ceeAnalysisReady.options?.every(
+      o => o.status === 'ready' && Object.keys(o.interventions || {}).length > 0
+    ) ?? false)
+
+    if (!allOptionsResolved) {
+      const statusMessages: Record<string, string> = {
+        needs_user_mapping: 'Options are missing intervention values. Re-draft your model to resolve.',
+        needs_encoding: 'Some options have categorical values that need encoding',
+      }
+
+      blockers.push({
+        code: 'ANALYSIS_NOT_READY',
+        message: statusMessages[ceeAnalysisReady.status] || 'Analysis not ready',
+        // NOTE: retry_draft is an intent marker for future UI wiring.
+        // Currently no component dispatches on this action type — the blocker
+        // message is displayed but no action button is rendered (no optionId/nodeId).
+        // TODO: Wire to re-invoke draftModel() using lastDraftDescription from store.
+        action: { type: 'retry_draft', label: 'Retry Draft' },
+      })
     }
 
-    blockers.push({
-      code: 'ANALYSIS_NOT_READY',
-      message: statusMessages[ceeAnalysisReady.status] || 'Analysis not ready',
-      action: { type: 'review_graph', label: 'Review graph' },
-    })
-
-    // Capture user_questions from CEE
+    // Capture user_questions from CEE regardless of blocker
     if (ceeAnalysisReady.user_questions?.length) {
       userQuestions.push(...ceeAnalysisReady.user_questions)
     }
