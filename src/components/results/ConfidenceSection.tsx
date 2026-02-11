@@ -163,14 +163,15 @@ function UncertaintyRow({
   const severity = item.severity || 'warning'
   const baseSeverityConfig = SEVERITY_CONFIG[severity]
 
+  // v7.10 T7: Lighter card backgrounds — use panel bg with semantic border only
   const severityConfig = groupType === 'high-risk' ? {
     ...baseSeverityConfig,
-    bgColor: 'bg-danger-bg',
+    bgColor: 'bg-panel',
     borderColor: 'border-danger/30',
     textColor: 'text-danger',
   } : {
     ...baseSeverityConfig,
-    bgColor: 'bg-warning-bg',
+    bgColor: 'bg-panel',
     borderColor: 'border-warning/30',
     textColor: 'text-warning',
   }
@@ -206,17 +207,11 @@ function UncertaintyRow({
     ? `${stripEncodingNotation(edgeMatch[1].trim())} → ${stripEncodingNotation(edgeMatch[2].trim())}`
     : null
 
-  // Format compact consequence (P0-4: clean encoding from alternativeOption)
+  // v7.10 T7: consequence line removed — determine compact format from edge data
   const rawAlternativeOption = item.threshold?.alternativeOption
-  const alternativeOption = typeof rawAlternativeOption === 'string'
-    ? stripEncodingNotation(rawAlternativeOption)
-    : rawAlternativeOption
-  const hasSpecificAlternative = typeof alternativeOption === 'string'
-    && alternativeOption.trim().length > 0
-    && alternativeOption !== 'another option'
-  const consequence = hasSpecificAlternative
-    ? `If wrong, ${alternativeOption} could win`
-    : 'Could change the recommendation'
+  const hasSpecificAlternative = typeof rawAlternativeOption === 'string'
+    && stripEncodingNotation(rawAlternativeOption).trim().length > 0
+    && rawAlternativeOption !== 'another option'
 
   // Determine if we use compact or full format
   const useCompactFormat = hasEdgeTitle && (hasSpecificAlternative || item.code === 'SENSITIVE_ASSUMPTION')
@@ -261,12 +256,7 @@ function UncertaintyRow({
               <span className="text-text-light flex-shrink-0" aria-hidden="true">→</span>
             )}
           </div>
-          {/* Line 2: Consequence */}
-          <div className="flex items-center gap-2 mt-1 ml-6">
-            <span className={`${typography.panelBody} text-text-light`}>
-              {consequence}
-            </span>
-          </div>
+          {/* v7.10 T7: Per-card consequence line removed — section intro already explains risk level */}
         </>
       ) : (
         // Full format for non-edge uncertainties
@@ -405,11 +395,7 @@ export function ConfidenceSection({
   const showLowRobustnessWarning = hasNoFragileEdges
     && (hasLowRobustness || (robustnessLevel !== undefined && !hasHighStability))
 
-  // Show tier warning only for non-strong tiers
-  const showTierWarning = tier.tier !== 'strong'
-  // Determine if there are items to address below (for dynamic description)
-  const hasItemsToAddress = uncertainties.length > 0 || (evidenceGaps?.length ?? 0) > 0
-  const tierDescription = hasItemsToAddress ? config.descriptionWithItems : config.descriptionWithoutItems
+  // v7.10 T6: showTierWarning + tierDescription removed — tier badge now in Accordion header
 
   // v7.6 T2 Fix: Intro count reflects visible cards (Group 1 capped at 3)
   const evidenceGapCount = evidenceGaps?.length ?? 0
@@ -490,20 +476,8 @@ export function ConfidenceSection({
         </div>
       )}
 
-      {/* CASE 2: Tier warning - show for fair/needs_work (NOT for strong) */}
-      {showTierWarning && (
-        <div className={`p-4 rounded-lg border ${config.bgColor} ${config.borderColor}`}>
-          <div className="flex items-center gap-2 mb-2">
-            <span className="text-lg">{config.icon}</span>
-            <span className={`${typography.panelHeader} ${config.textColor}`}>
-              {config.label}
-            </span>
-          </div>
-          <p className={`${typography.panelBody} ${config.textColor}`}>
-            {tierDescription}
-          </p>
-        </div>
-      )}
+      {/* v7.10 T6: CASE 2 tier warning card removed — readiness badge now shown
+          in Accordion header via tierLabel/tierVariant props. */}
 
       {/* CASE 3: Strong tier but has items to address - show compact header */}
       {/* Note: Only show if not showing low robustness warning */}
@@ -574,6 +548,9 @@ export function ConfidenceSection({
                     <h4 className={`${typography.panelHeader} text-text-header tracking-wide border-l-3 border-danger pl-2`}>
                       Conditions that would change your mind
                     </h4>
+                    <p className={`${typography.panelMeta} text-text-light`}>
+                      If any of these are wrong, the recommendation could change.
+                    </p>
                     <div className="space-y-2">
                       {couldChangeDecision.map((item, index) => (
                         <UncertaintyRow
@@ -593,6 +570,9 @@ export function ConfidenceSection({
                     <h4 className={`${typography.panelHeader} text-text-header tracking-wide border-l-3 border-warning pl-2`}>
                       What you'd want to know before committing
                     </h4>
+                    <p className={`${typography.panelMeta} text-text-light`}>
+                      These factors have limited evidence — worth investigating before you commit.
+                    </p>
                     <div className="space-y-2">
                       {worthRefining.map((item, index) => (
                         <UncertaintyRow
@@ -624,8 +604,8 @@ export function ConfidenceSection({
       {/* Task 11: Evidence Gaps - consolidated into "What needs attention" */}
       {evidenceGaps && evidenceGaps.length > 0 && (
         <div className="space-y-2">
-          {/* v7.5 T2: Changed from "Evidence gaps" to match v7 prototype */}
-          <h4 className={`${typography.panelHeader} text-slate-500 tracking-wide`}>
+          {/* v7.10 T10: Fixed header colour to dark text (was slate-500) */}
+          <h4 className={`${typography.panelHeader} text-text-header tracking-wide border-l-3 border-warning pl-2`}>
             What you'd want to know before committing
           </h4>
           <CappedList<EvidenceGapItem>

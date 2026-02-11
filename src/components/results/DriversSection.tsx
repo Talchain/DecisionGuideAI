@@ -22,6 +22,7 @@ import { FactorInsights, hasEnrichmentContent } from './FactorInsights'
 import { cleanFactorLabel, stripEncodingNotation } from './utils/cleanFactorLabel'
 import { TornadoChart, type TornadoRow } from './TornadoChart'
 import { typography } from '../../styles/typography'
+import { formatPercent } from '../../utils/formatPercent'
 import { Info, AlertTriangle } from 'lucide-react'
 
 interface DriversSectionProps {
@@ -105,16 +106,14 @@ function getSensitivityCopy(
     return null
   }
 
-  const shiftPercent = Math.max(1, Math.round(rawElasticity * 10))
-  const sign = direction === 'negative' ? '-' : ''
+  const shiftPct = Math.max(1, Math.round(rawElasticity * 10))
+  const formatted = direction === 'negative' ? formatPercent(-shiftPct, { sign: true }) : formatPercent(shiftPct)
 
   if (isBinaryFactor(label)) {
-    // Binary factor: softened phrasing
-    return `When true, outcome tends to shift by ${sign}${shiftPercent}%`
+    return `When true, outcome tends to shift by ${formatted}`
   }
 
-  // Continuous factor: softened phrasing
-  return `Higher values tend to shift outcome by ${sign}${shiftPercent}%`
+  return `Higher values tend to shift outcome by ${formatted}`
 }
 
 // Tooltip component for secondary information
@@ -237,12 +236,12 @@ function ExpandedDetails({
   // v7.5 T7: Softened elasticity copy
   const elasticityInsight = driver.rawElasticity > 0.001
     ? (() => {
-        const shiftPercent = Math.max(1, Math.round(driver.rawElasticity * 10))
-        const sign = driver.direction === 'negative' ? '-' : ''
+        const shiftPct = Math.max(1, Math.round(driver.rawElasticity * 10))
+        const formatted = driver.direction === 'negative' ? formatPercent(-shiftPct, { sign: true }) : formatPercent(shiftPct)
         if (isBinaryFactor(driver.factorLabel)) {
-          return `When true, outcome tends to shift by ${sign}${shiftPercent}%`
+          return `When true, outcome tends to shift by ${formatted}`
         }
-        return `Higher values tend to shift outcome by ${sign}${shiftPercent}%`
+        return `Higher values tend to shift outcome by ${formatted}`
       })()
     : null
 
@@ -680,12 +679,12 @@ export function DriversSection({
       <div className={`grid ${GRID_COLS} gap-3 px-3`}>
         {/* Empty cell for factor name column */}
         <div />
-        {/* v7.9 T2: Renamed "Sensitivity" → "Relative influence" — values are normalised (top=100%), not absolute */}
+        {/* v7.10 T9: Renamed "Relative influence" → "Influence" for brevity */}
         <div
           className={`${typography.panelBody} text-slate-500 text-right pr-6 cursor-help`}
-          title="How much this factor influences your goal relative to the top driver (top driver = 100%)"
+          title="Scaled so the strongest driver is 100%"
         >
-          Relative influence
+          Influence
         </div>
         <div
           className={`${typography.panelBody} text-slate-500 text-right pr-6 cursor-help`}
@@ -694,6 +693,18 @@ export function DriversSection({
           Confidence
         </div>
       </div>
+
+      {/* v7.10 T9: Equal-influence note when all visible drivers are within ±0.01 */}
+      {visibleDrivers.length >= 2 && (() => {
+        const scores = visibleDrivers.map(d => d.influenceScore ?? d.normalisedInfluence ?? 0)
+        const max = Math.max(...scores)
+        const min = Math.min(...scores)
+        return (max - min) <= 0.01 ? (
+          <p className={`${typography.panelMeta} text-text-light italic px-3`}>
+            Both factors have similar influence on the outcome.
+          </p>
+        ) : null
+      })()}
 
       {/* Driver rows */}
       <div className="space-y-2.5">
@@ -729,21 +740,30 @@ export function DriversSection({
         </p>
       )}
 
-      {/* Tornado chart — always visible when data available */}
+      {/* v7.10 T8: Tornado chart — collapsed by default, toggle to expand */}
       {tornadoRows && tornadoRows.length > 0 && expectedOutcome != null && (() => {
         // v7.5 T3 Fix: Filter tornado rows to match visibleDrivers only
         const visibleFactorKeys = new Set(visibleDrivers.map(d => d.factorKey))
         const filteredTornadoRows = tornadoRows.filter(row => visibleFactorKeys.has(row.factorKey))
 
         return filteredTornadoRows.length > 0 && (
-          <TornadoChart
-            rows={filteredTornadoRows}
-            expectedOutcome={expectedOutcome}
-            outcomeUnit={outcomeUnit}
-            outcomeUnitSymbol={outcomeUnitSymbol}
-            onFocusNode={onFocusNode}
-            isNormalised={isNormalised}
-          />
+          <details className="group">
+            <summary className={`${typography.panelHeader} text-text-header cursor-pointer select-none list-none flex items-center justify-between`}>
+              <span>What if your estimates are wrong?</span>
+              <span className={`${typography.panelBody} text-info group-open:hidden`}>Show ˅</span>
+              <span className={`${typography.panelBody} text-info hidden group-open:inline`}>Hide ˄</span>
+            </summary>
+            <div className="mt-2">
+              <TornadoChart
+                rows={filteredTornadoRows}
+                expectedOutcome={expectedOutcome}
+                outcomeUnit={outcomeUnit}
+                outcomeUnitSymbol={outcomeUnitSymbol}
+                onFocusNode={onFocusNode}
+                isNormalised={isNormalised}
+              />
+            </div>
+          </details>
         )
       })()}
     </div>

@@ -23,6 +23,10 @@ export interface AccordionProps {
   badgeCount?: number
   /** Badge variant for styling */
   badgeVariant?: 'default' | 'warning' | 'critical'
+  /** v7.10 T6: Readiness tier label shown as right-aligned pill */
+  tierLabel?: string
+  /** v7.10 T6: Tier variant for pill colour */
+  tierVariant?: 'strong' | 'fair' | 'needs_work'
   /** Whether section starts expanded (uncontrolled mode) */
   defaultExpanded?: boolean
   /** Controlled expansion state - when provided, component becomes controlled */
@@ -43,10 +47,18 @@ const badgeVariants = {
   critical: 'bg-danger-100 text-danger-700',
 }
 
+const tierVariants = {
+  strong: 'bg-success-light text-text-header',
+  fair: 'bg-warning-light text-text-header',
+  needs_work: 'bg-danger-light text-text-header',
+}
+
 export function Accordion({
   title,
   badgeCount,
   badgeVariant = 'default',
+  tierLabel,
+  tierVariant,
   defaultExpanded = false,
   isExpanded: controlledExpanded,
   onExpandChange,
@@ -114,7 +126,7 @@ export function Accordion({
         aria-controls={contentId}
         className="w-full px-3 py-2 bg-sand-50 border-b border-sand-200 flex items-center justify-between hover:bg-sand-100 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-info-500 focus-visible:ring-inset"
       >
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-1">
           <ChevronRight
             className={`h-4 w-4 text-ink-500 transition-transform duration-200 ${
               isExpanded ? 'rotate-90' : ''
@@ -132,6 +144,13 @@ export function Accordion({
               className={`${typography.panelMeta} px-1.5 py-0.5 rounded-full ${badgeVariants[badgeVariant]}`}
             >
               {badgeCount}
+            </span>
+          )}
+          {tierLabel && tierVariant && (
+            <span
+              className={`${typography.panelMeta} ml-auto px-2 py-0.5 rounded-full ${tierVariants[tierVariant]}`}
+            >
+              {tierLabel}
             </span>
           )}
         </div>

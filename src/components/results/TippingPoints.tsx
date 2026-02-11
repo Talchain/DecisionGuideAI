@@ -266,7 +266,7 @@ function TippingPointsModeB({ drivers }: TippingPointsModeBProps) {
           Driver strength
         </h4>
         <p className={`${typography.panelBody} text-text-light`}>
-          Relative influence on the result
+          Influence on the result
         </p>
       </div>
 

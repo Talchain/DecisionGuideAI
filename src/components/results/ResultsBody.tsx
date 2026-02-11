@@ -172,12 +172,13 @@ export function ResultsBody({
       </div>
 
       {/* ── SECTION 4: STRENGTHEN ────────────────────────────────── */}
-      {/* Collapsible accordion — opens by default when stability < 0.55 */}
+      {/* v7.10 T5: Auto-expand based on robustness.level === 'low' or 'very_low' */}
       <div>
         <Accordion
           title="Strengthen your analysis"
           defaultExpanded={
-            (resultsSectionData.recommendation.recommendationStability ?? 1) < 0.55
+            resultsSectionData.confidence.robustnessLevel === 'low' ||
+            resultsSectionData.confidence.robustnessLevel === 'very_low'
           }
           testId="accordion-strengthen"
           badgeCount={
@@ -192,6 +193,17 @@ export function ResultsBody({
               : resultsSectionData.confidence.tier.tier === 'fair'
               ? 'warning'
               : 'default'
+          }
+          tierLabel={
+            resultsSectionData.confidence.tier.tier === 'strong' ? 'Good'
+              : resultsSectionData.confidence.tier.tier === 'fair' ? 'Fair'
+              : resultsSectionData.confidence.tier.tier === 'needs_work' ? 'Needs work'
+              : undefined
+          }
+          tierVariant={
+            resultsSectionData.confidence.tier.tier !== 'unknown'
+              ? resultsSectionData.confidence.tier.tier as 'strong' | 'fair' | 'needs_work'
+              : undefined
           }
         >
           <ConfidenceSection

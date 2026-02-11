@@ -19,6 +19,7 @@ import { ChevronDown, ChevronRight } from 'lucide-react'
 import { typography } from '../../styles/typography'
 import { stripEncodingNotation } from './utils/cleanFactorLabel'
 import { focusNodeById } from '../../canvas/utils/focusHelpers'
+import { formatPercent as formatPct } from '../../utils/formatPercent'
 
 // =============================================================================
 // Types
@@ -109,12 +110,9 @@ export interface HeroSectionProps {
 // Helpers
 // =============================================================================
 
+/** Local alias — delegates to centralised formatPercent for win probabilities (0-1 → %) */
 function formatPercent(value: number): string {
-  const percent = value * 100
-  if (Math.abs(percent) < 1 && percent !== 0) {
-    return `${percent.toFixed(1)}%`
-  }
-  return `${Math.round(percent)}%`
+  return formatPct(value, { fromDecimal: true })
 }
 
 /** Stability tier with label, colour, short text, expanded text, and coaching. */
@@ -178,9 +176,9 @@ function formatOutcomeValue(
     return `${Math.round(displayValue)}%`
   }
   if (Math.abs(value) >= 10) {
-    return `~${Math.round(value).toLocaleString()}`
+    return Math.round(value).toLocaleString()
   }
-  return `~${value.toFixed(1)}`
+  return value.toFixed(1)
 }
 
 // =============================================================================
@@ -242,7 +240,8 @@ function WinGauge({
       {/* Legend */}
       <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1.5">
         {sorted.map((share, i) => {
-          const pct = Math.round(Math.max(0, Math.min(1, share.winProbability)) * 100)
+          const clamped = Math.max(0, Math.min(1, share.winProbability))
+          const pct = Math.round(clamped * 100)
           if (pct <= 0) return null
           const color = i === 0 ? WIN_GAUGE_COLORS[0] : WIN_GAUGE_COLORS[Math.min(i, WIN_GAUGE_COLORS.length - 1)]
           return (
@@ -254,7 +253,7 @@ function WinGauge({
                 className="w-2 h-2 rounded-full flex-shrink-0"
                 style={{ backgroundColor: color }}
               />
-              {stripEncodingNotation(share.label)} {pct}%
+              {stripEncodingNotation(share.label)} {formatPct(clamped, { fromDecimal: true })}
             </span>
           )
         })}
@@ -449,6 +448,28 @@ export function HeroSection({
   const [targetInputValue, setTargetInputValue] = useState('')
   const [isEditingTarget, setIsEditingTarget] = useState(false)
 
+  // v7.10 T4: Smart default — parse objective text for currency/% hint
+  const suggestedTarget = useMemo<string | null>(() => {
+    if (!goalLabel) return null
+    const currencyMatch = goalLabel.match(/[£$€]\s*(\d+[,.]?\d*)\s*([kKmM])?/)
+    if (currencyMatch) {
+      const raw = parseFloat(currencyMatch[1].replace(',', ''))
+      const multiplier = currencyMatch[2]
+      if (!isNaN(raw)) {
+        let expanded = raw
+        if (multiplier === 'k' || multiplier === 'K') expanded = raw * 1000
+        if (multiplier === 'm' || multiplier === 'M') expanded = raw * 1000000
+        return String(expanded)
+      }
+    }
+    const percentMatch = goalLabel.match(/(\d+[,.]?\d*)\s*%/)
+    if (percentMatch) {
+      const raw = parseFloat(percentMatch[1].replace(',', ''))
+      if (!isNaN(raw)) return String(raw)
+    }
+    return null
+  }, [goalLabel])
+
   const handleSetTarget = useCallback(() => {
     const parsed = parseFloat(targetInputValue)
     if (!isNaN(parsed) && onApplyThreshold) {
@@ -547,18 +568,16 @@ export function HeroSection({
       })
     }
 
-    // Bullet 2: Expected outcome value
-    // v7.1: When normalised (0.13), reframe as percentage shift (~13% improvement)
-    // When denormalised (e.g. 640 customers), show user-unit label
-    if (expectedOutcome != null) {
+    // v7.10 T2: Bullet 2 — expected outcome, gated when win-prob delta ≤ 5%
+    const winDelta = (winnerWinProbability ?? 0) - (runnerUpWinProbability ?? 0)
+    if (expectedOutcome != null && Math.abs(winDelta) > 0.05) {
       if (isNormalised) {
-        // v7.6 T1: Wording depends on whether an explicit baseline exists
         const pct = Math.round(expectedOutcome * 100)
         const direction = hasBaseline
           ? (pct > 0 ? 'improvement over baseline' : pct < 0 ? 'decline from baseline' : 'at baseline')
           : (pct > 0 ? 'relative improvement' : pct < 0 ? 'relative decline' : 'neutral')
         bullets.push({
-          text: `${pct}% ${direction}`,
+          text: `${formatPct(pct)} ${direction}`,
         })
       } else {
         const formatted = formatOutcomeValue(expectedOutcome, outcomeUnit, outcomeUnitSymbol)
@@ -569,55 +588,24 @@ export function HeroSection({
           text: `Expected ${unitLabel}: ${formatted}`,
         })
       }
-    } else if (topDrivers && topDrivers.length >= 2) {
-      // Fallback: show drivers when no expected outcome available
-      const cleanLabel1 = stripEncodingNotation(topDrivers[0].label)
-      const cleanLabel2 = stripEncodingNotation(topDrivers[1].label)
-      bullets.push({
-        text: `${cleanLabel1} and ${cleanLabel2} are the biggest drivers`,
-        refs: [
-          { id: topDrivers[0].id, label: cleanLabel1 },
-          { id: topDrivers[1].id, label: cleanLabel2 },
-        ],
-      })
-    } else if (topDrivers && topDrivers.length === 1) {
-      const cleanLabel = stripEncodingNotation(topDrivers[0].label)
-      bullets.push({
-        text: `${cleanLabel} is the biggest driver`,
-        refs: [{ id: topDrivers[0].id, label: cleanLabel }],
-      })
-    } else {
-      bullets.push({
-        text: 'No dominant drivers identified — outcome is balanced across factors',
-      })
     }
 
-    // Bullet 3: Fragile edge / risk
-    if (topFragileEdge) {
+    // v7.10 T2: Bullet 3 — fragile edge (only when fragile edges exist)
+    if (topFragileEdge && topFragileEdge.labelsResolved !== false) {
       const fromLabel = stripEncodingNotation(topFragileEdge.fromLabel)
       const toLabel = stripEncodingNotation(topFragileEdge.toLabel)
       const altLabel = stripEncodingNotation(topFragileEdge.alternativeWinnerLabel)
-
-      if (topFragileEdge.labelsResolved === false) {
-        bullets.push({
-          text: "Some assumptions could change the result — expand 'What needs attention' for details",
-        })
-      } else {
-        bullets.push({
-          text: `If ${fromLabel} → ${toLabel} is weaker than expected, ${altLabel} becomes stronger`,
-          refs: [
-            { id: topFragileEdge.fromId, label: fromLabel },
-            { id: topFragileEdge.toId, label: toLabel },
-          ],
-        })
-      }
-    } else {
       bullets.push({
-        text: 'No assumptions tested could change this result',
+        text: `If ${fromLabel} → ${toLabel} is weaker than expected, ${altLabel} becomes stronger`,
+        refs: [
+          { id: topFragileEdge.fromId, label: fromLabel },
+          { id: topFragileEdge.toId, label: toLabel },
+        ],
       })
     }
 
-    return bullets
+    // v7.10 T2: Max 2 context bullets (comparison + one context line)
+    return bullets.slice(0, 2)
   }, [
     optionCount, winnerGoalProbability, runnerUpGoalProbability, goalThreshold,
     winnerLabel, winnerId, runnerUpLabel, runnerUpId,
@@ -673,7 +661,7 @@ export function HeroSection({
                   value={targetInputValue}
                   onChange={(e) => setTargetInputValue(e.target.value)}
                   onKeyDown={(e) => { if (e.key === 'Enter') handleSetTarget(); if (e.key === 'Escape') { setIsEditingTarget(false); setTargetInputValue('') } }}
-                  placeholder={outcomeUnitSymbol ? `e.g. ${outcomeUnitSymbol}200` : 'e.g. 200'}
+                  placeholder={suggestedTarget ?? (outcomeUnitSymbol ? `e.g. ${outcomeUnitSymbol}200` : 'e.g. 200')}
                   className={`${typography.panelBody} w-[120px] bg-panel border border-panel-border rounded-xl px-3 py-1.5 text-text-body focus:outline-none focus:border-info`}
                   autoFocus={isEditingTarget}
                   disabled={isRunning}
@@ -689,6 +677,11 @@ export function HeroSection({
                   Set
                 </button>
               </div>
+              {suggestedTarget && !isEditingTarget && (
+                <p className={`${typography.panelMeta} text-text-light italic mt-1`} style={{ fontSize: 12 }}>
+                  Suggested from your objective
+                </p>
+              )}
             ) : (
               <div className="flex items-center gap-2">
                 <span className={`${typography.panelBody} text-text-body`}>
@@ -793,31 +786,12 @@ export function HeroSection({
             id="hero-more-content"
             className="mt-3 pt-3 space-y-4"
           >
-            {/* Expanded stability explanation */}
-            {stabilityTier.expandedText && (
-              <div className="space-y-2">
-                <p className={`${typography.panelBody} text-text-body`}>
-                  {stabilityTier.expandedText}
-                </p>
-                {stabilityPct != null && (
-                  <p className={`${typography.panelMeta} text-text-light`}>
-                    We varied each assumption in your model — the recommendation stayed the same in {stabilityPct}% of scenarios.
-                  </p>
-                )}
-              </div>
-            )}
+            {/* v7.10 T5: Removed redundant expanded stability explanation and tier coaching.
+                Stability tier pill + short text already communicate the message.
+                Only Technical detail, M2 coaching, and bias insights remain. */}
 
-            {/* Tier-gated coaching (only when stability < 0.85) */}
-            {stabilityTier.coaching && (
-              <div className="p-3 bg-info-light border border-info/30 rounded-lg">
-                <p className={`${typography.panelBody} text-text-body`}>
-                  {stabilityTier.coaching}
-                </p>
-              </div>
-            )}
-
-            {/* M2 coaching paragraph */}
-            {hasM2Coaching && (
+            {/* v7.10: gated — not in prototype. Restore when M2 coaching is productised. */}
+            {false && hasM2Coaching && (
               <div className="space-y-2">
                 <p className={`${typography.panelBody} text-text-body`}>
                   <RichTextRenderer
@@ -828,8 +802,8 @@ export function HeroSection({
               </div>
             )}
 
-            {/* M2 bias insights */}
-            {hasBiasInsights && (
+            {/* v7.10: gated — not in prototype. Restore when M2 coaching is productised. */}
+            {false && hasBiasInsights && (
               <div className="space-y-2">
                 <h4 className={`${typography.panelHeader} text-text-header`}>
                   Questions to consider
@@ -858,7 +832,7 @@ export function HeroSection({
                 {recommendationStability != null && (
                   <>
                     <dt className="text-text-light">Stability</dt>
-                    <dd className="text-text-header">{stabilityPct}%</dd>
+                    <dd className="text-text-header">{formatPct(recommendationStability!, { fromDecimal: true })}</dd>
                   </>
                 )}
                 {fragileEdgeCount != null && (
