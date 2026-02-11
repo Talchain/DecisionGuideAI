@@ -15,10 +15,11 @@
  * All data derives from existing graph state — no new backend endpoints.
  */
 
-import { useCallback, useRef, useMemo, useState } from 'react'
+import { useCallback, useRef, useMemo } from 'react'
 import { usePreAnalysisData } from './hooks/usePreAnalysisData'
 import { Header } from './Header'
 import { SuccessTarget } from './SuccessTarget'
+import { BlockersSection } from './BlockersSection'
 import { AllImprovements, type ImprovementActionHandlers } from './AllImprovements'
 import { ModelSnapshot } from './ModelSnapshot'
 import { AnalysisSettings } from './AnalysisSettings'
@@ -28,6 +29,8 @@ import { useCanvasStore } from '../../store'
 import { useRetryDraft } from '../../hooks/useRetryDraft'
 import { SOFT_BYPASS_STATUSES } from '../../hooks/usePreRunValidation'
 import { useShowToast } from '../../ToastContext'
+import { copyTextToClipboard } from '../../../utils/clipboard'
+import { RefreshCw, Copy } from 'lucide-react'
 
 interface PreAnalysisPanelProps {
   /** Callback when user clicks the primary action button */
@@ -50,6 +53,9 @@ export function PreAnalysisPanel({
   // Detect retry-eligible state: blocked + CEE status indicates LLM omission
   const ceeStatus = useCanvasStore(s => s.ceeAnalysisReady?.status)
   const canRetryDraft = canRetry && !data.isReady && !!ceeStatus && SOFT_BYPASS_STATUSES.has(ceeStatus)
+
+  // Draft error state for error card
+  const lastDraftError = useCanvasStore(s => s.lastDraftError)
 
   // Retry handler with toast feedback
   const handleRetryDraft = useCallback(async () => {
@@ -441,6 +447,62 @@ export function PreAnalysisPanel({
           onThresholdConfirm={handleThresholdConfirm}
           onThresholdEdit={handleThresholdEdit}
         />
+
+        {/* Draft error card */}
+        {lastDraftError && (
+          <div
+            className="rounded-md border bg-danger-light border-danger/30 px-3 py-2.5"
+            data-testid="draft-error-card"
+          >
+            <p className="text-sm font-semibold text-danger">Draft failed</p>
+            <p className="text-xs text-text-body mt-0.5">{lastDraftError.message}</p>
+            {lastDraftError.correlationId && (
+              <p className="text-xs text-text-light mt-0.5 font-mono">
+                ID: {lastDraftError.correlationId}
+              </p>
+            )}
+            <div className="flex items-center gap-2 mt-2">
+              {canRetryDraft && (
+                <button
+                  type="button"
+                  onClick={handleRetryDraft}
+                  disabled={isRetrying}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-info bg-panel border border-info/30 rounded-md hover:bg-info-light disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  <RefreshCw size={12} className={isRetrying ? 'animate-spin' : ''} />
+                  {isRetrying ? 'Retrying…' : 'Retry Draft'}
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => {
+                  const diagnostics = {
+                    message: lastDraftError.message,
+                    status: lastDraftError.status,
+                    correlationId: lastDraftError.correlationId,
+                    timestamp: new Date(lastDraftError.timestamp).toISOString(),
+                  }
+                  copyTextToClipboard(JSON.stringify(diagnostics, null, 2))
+                  showToast('Diagnostics copied', 'success')
+                }}
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-text-light bg-panel border border-panel-border rounded-md hover:bg-panel-hover transition-colors"
+              >
+                <Copy size={12} />
+                Copy diagnostics
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Blockers section — structured cards from usePreRunValidation */}
+        {!data.isReady && data.enrichedBlockers.length > 0 && (
+          <BlockersSection
+            blockers={data.enrichedBlockers}
+            canRetryDraft={canRetryDraft}
+            isRetrying={isRetrying}
+            onRetryDraft={handleRetryDraft}
+          />
+        )}
 
         {/* 3-5. Three-tier improvement sections */}
         <div ref={improvementsRef}>

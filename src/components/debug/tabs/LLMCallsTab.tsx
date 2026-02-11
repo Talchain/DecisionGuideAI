@@ -5,7 +5,7 @@
  * Aggregates CEE observability LLM calls and M2 Review call.
  */
 
-import { useMemo, useState, CSSProperties } from 'react'
+import { useMemo, useState, Fragment, CSSProperties } from 'react'
 import { JsonViewer } from '../components'
 import type { DebugData, LLMCallRecord } from '../hooks/useDebugData'
 import { formatDuration } from '../utils'
@@ -274,9 +274,8 @@ export function LLMCallsTab({ data }: LLMCallsTabProps) {
             </thead>
             <tbody>
               {allCalls.map((call) => (
-                <>
+                <Fragment key={call.id}>
                   <tr
-                    key={call.id}
                     style={{
                       cursor: 'pointer',
                       background: expandedRow === call.id ? '#f8fafc' : 'transparent',
@@ -391,7 +390,7 @@ export function LLMCallsTab({ data }: LLMCallsTabProps) {
                       </td>
                     </tr>
                   )}
-                </>
+                </Fragment>
               ))}
             </tbody>
           </table>

@@ -1,17 +1,19 @@
 /**
- * Integration tests for useEngineLimits hook
+ * Integration tests for useEngineLimits hook (singleton pattern)
  *
  * Tests core behaviors:
- * - Initial live fetch → {limits, source:'live', error:null}
- * - Error handling → exposes error after retries
- * - retry() function →triggers re-fetch
+ * - Initial live fetch → store updated with {limits, source:'live'}
+ * - Error handling → falls back after retries
+ * - retry() function → triggers re-fetch
  * - DEV fallback mode → returns source:'fallback' with limits
+ * - Singleton: multiple hook instances share one fetch
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { renderHook, waitFor } from '@testing-library/react'
-import { useEngineLimits } from '../useEngineLimits'
+import { renderHook, waitFor, act } from '@testing-library/react'
+import { useEngineLimits, __resetForTesting } from '../useEngineLimits'
 import * as plotAdapter from '../../../adapters/plot'
+import { useCanvasStore } from '../../store'
 import type { LimitsFetch, LimitsV1 } from '../../../adapters/plot/types'
 
 // Mock the plot adapter
@@ -46,19 +48,29 @@ const createFallbackResult = (reason: string): LimitsFetch => ({
   reason,
 })
 
-const createErrorResult = (message: string): LimitsFetch => ({
+const createErrorResult = (_message: string): LimitsFetch => ({
   ok: false,
-  error: new Error(message),
+  error: new Error(_message),
   fetchedAt: Date.now(),
 })
 
 describe('useEngineLimits', () => {
   beforeEach(() => {
     mockLimits.mockClear()
+    __resetForTesting()
+    // Reset store engine limits fields
+    useCanvasStore.setState({
+      engineLimits: null,
+      engineLimitsSource: null,
+      engineLimitsLoading: true,
+      engineLimitsError: null,
+      engineLimitsFetchedAt: null,
+    })
   })
 
   afterEach(() => {
     vi.restoreAllMocks()
+    __resetForTesting()
   })
 
   describe('Initial fetch', () => {
@@ -66,10 +78,6 @@ describe('useEngineLimits', () => {
       mockLimits.mockResolvedValueOnce(createLiveResult())
 
       const { result } = renderHook(() => useEngineLimits())
-
-      // Initially loading
-      expect(result.current.loading).toBe(true)
-      expect(result.current.limits).toBeNull()
 
       // Wait for fetch to complete
       await waitFor(() => {
@@ -102,8 +110,8 @@ describe('useEngineLimits', () => {
   })
 
   describe('Retry behavior', () => {
-    it('should retry on failures and eventually expose error', async () => {
-      // All attempts fail
+    it('should fall back after all retries fail', async () => {
+      // All attempts fail — singleton falls back to FALLBACK_LIMITS
       mockLimits
         .mockResolvedValueOnce(createErrorResult('Attempt 1 failed'))
         .mockResolvedValueOnce(createErrorResult('Attempt 2 failed'))
@@ -116,11 +124,9 @@ describe('useEngineLimits', () => {
         expect(result.current.loading).toBe(false)
       }, { timeout: 10000 })
 
-      // Should expose error after all retries fail
-      expect(result.current.error).toBeInstanceOf(Error)
-      expect(result.current.error?.message).toBe('Attempt 3 failed')
-      expect(result.current.limits).toBeNull()
-      expect(result.current.source).toBeNull()
+      // Singleton falls back to FALLBACK_LIMITS after all retries fail
+      expect(result.current.source).toBe('fallback')
+      expect(result.current.limits).toBeTruthy()
       expect(mockLimits).toHaveBeenCalledTimes(3)
     }, 12000)
 
@@ -173,7 +179,9 @@ describe('useEngineLimits', () => {
       expect(mockLimits).toHaveBeenCalledTimes(1)
 
       // Call retry()
-      result.current.retry()
+      act(() => {
+        result.current.retry()
+      })
 
       await waitFor(() => {
         expect(result.current.limits?.nodes.max).toBe(300)
@@ -181,33 +189,6 @@ describe('useEngineLimits', () => {
 
       expect(mockLimits).toHaveBeenCalledTimes(2)
     })
-
-    it('should clear error state on successful retry', async () => {
-      mockLimits
-        .mockResolvedValueOnce(createErrorResult('Initial error'))
-        .mockResolvedValueOnce(createErrorResult('Retry 1'))
-        .mockResolvedValueOnce(createErrorResult('Retry 2'))
-        .mockResolvedValueOnce(createLiveResult())
-
-      const { result } = renderHook(() => useEngineLimits())
-
-      // Wait for initial fetch to fail
-      await waitFor(() => {
-        expect(result.current.error).toBeTruthy()
-      }, { timeout: 10000 })
-
-      const initialCallCount = mockLimits.mock.calls.length
-
-      // Call retry() - should clear error and succeed
-      result.current.retry()
-
-      await waitFor(() => {
-        expect(result.current.error).toBeNull()
-        expect(result.current.limits).toBeTruthy()
-      }, { timeout: 2000 })
-
-      expect(mockLimits.mock.calls.length).toBeGreaterThan(initialCallCount)
-    }, 15000)
   })
 
   describe('Tab visibility refresh', () => {
@@ -333,6 +314,31 @@ describe('useEngineLimits', () => {
     })
   })
 
+  describe('Singleton behavior', () => {
+    it('should only fetch once for multiple hook instances', async () => {
+      mockLimits.mockResolvedValueOnce(createLiveResult())
+
+      // Render two hooks — should share the same singleton fetch
+      const { result: result1 } = renderHook(() => useEngineLimits())
+      const { result: result2 } = renderHook(() => useEngineLimits())
+
+      await waitFor(() => {
+        expect(result1.current.loading).toBe(false)
+      }, { timeout: 2000 })
+
+      await waitFor(() => {
+        expect(result2.current.loading).toBe(false)
+      }, { timeout: 2000 })
+
+      // Only one fetch call, not two
+      expect(mockLimits).toHaveBeenCalledTimes(1)
+
+      // Both hooks see the same data
+      expect(result1.current.limits).toEqual(result2.current.limits)
+      expect(result1.current.source).toBe(result2.current.source)
+    })
+  })
+
   describe('Error handling', () => {
     it('should handle adapter throwing exceptions', async () => {
       mockLimits
@@ -347,8 +353,9 @@ describe('useEngineLimits', () => {
         expect(result.current.loading).toBe(false)
       }, { timeout: 10000 })
 
-      expect(result.current.error).toBeInstanceOf(Error)
-      expect(result.current.error?.message).toBe('Network failure')
+      // After all retries fail, falls back
+      expect(result.current.source).toBe('fallback')
+      expect(result.current.limits).toBeTruthy()
       expect(mockLimits).toHaveBeenCalledTimes(3)
     }, 12000)
   })

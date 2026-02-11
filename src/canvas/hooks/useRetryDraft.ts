@@ -3,9 +3,9 @@
  *
  * Encapsulates the retry flow:
  * 1. Gets lastDraftDescription from store
- * 2. Resets canvas
- * 3. Calls draftModel() via useCEEDraft
- * 4. Applies result to canvas via applyDraftResult
+ * 2. Calls draftModel() via useCEEDraft (does NOT resetCanvas first)
+ * 3. On success: applies result to canvas via applyDraftResult (replaces graph)
+ * 4. On failure: canvas remains untouched (graph preserved)
  * 5. Exposes loading/error state for UI feedback
  *
  * retryDraft() returns a deterministic result so callers can show
@@ -14,6 +14,7 @@
 
 import { useState, useCallback } from 'react'
 import { useCEEDraft } from '../../hooks/useCEEDraft'
+import { CEEError } from '../../adapters/cee/client'
 import { useCanvasStore } from '../store'
 import { applyDraftResult } from '../utils/applyDraftResult'
 
@@ -47,27 +48,39 @@ export function useRetryDraft() {
     setState({ isRetrying: true, error: null })
 
     try {
-      // Clear existing graph
-      store.resetCanvas()
-
-      // Re-draft with same description
+      // Do NOT resetCanvas() before the draft succeeds (amendment #5).
+      // applyDraftResult() replaces the graph atomically on success.
       const result = await draft(description)
 
       if (!result?.nodes?.length) {
         const error = 'Draft returned empty graph'
         setState({ isRetrying: false, error })
+        store.setLastDraftError({ message: error, timestamp: Date.now() })
         return { success: false, error }
       }
 
-      // Apply to canvas (replaces current graph)
+      // Apply to canvas (replaces current graph atomically)
       applyDraftResult(result)
 
       setState({ isRetrying: false, error: null })
+      store.setLastDraftError(null)
       return { success: true }
     } catch (err) {
+      // Graph remains untouched — no snapshot/restore needed
       const error =
         err instanceof Error ? err.message : 'Draft retry failed'
       setState({ isRetrying: false, error })
+
+      const draftError: { message: string; status?: number; correlationId?: string; timestamp: number } = {
+        message: error,
+        timestamp: Date.now(),
+      }
+      if (err instanceof CEEError) {
+        draftError.status = err.status
+        draftError.correlationId = err.correlationId ?? undefined
+      }
+      store.setLastDraftError(draftError)
+
       return { success: false, error }
     }
   }, [draft])

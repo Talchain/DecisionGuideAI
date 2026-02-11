@@ -256,9 +256,22 @@ export function DraftChat() {
         setIsMinimized(true)
         // Clear UI input state (brief stays in store for /v2/run)
         setDescription('')
+        // Clear any previous draft error on success
+        useCanvasStore.getState().setLastDraftError(null)
       }
     } catch (err) {
       console.error('Draft failed:', err)
+
+      // Store draft error for pre-analysis panel visibility
+      const draftError: { message: string; status?: number; correlationId?: string; timestamp: number } = {
+        message: err instanceof Error ? err.message : 'Draft failed',
+        timestamp: Date.now(),
+      }
+      if (err instanceof CEEError) {
+        draftError.status = err.status
+        draftError.correlationId = err.correlationId ?? undefined
+      }
+      useCanvasStore.getState().setLastDraftError(draftError)
 
       // Capture error detail for debug drawer expansion
       if (err instanceof CEEError) {

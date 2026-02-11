@@ -9,6 +9,13 @@
  *
  * Omits tiers with zero count.
  * 14px, font-weight 600, no background/border/padding beyond panel's own.
+ *
+ * Sync note: Header and StickyFooter both derive from the same usePreAnalysisData() hook.
+ * isReady = existingReadiness.canRun && tiers.mustAddress.count === 0
+ * hasBlockers = tiers.mustAddress.count > 0
+ * When isReady=false AND mustAddressCount=0, it means canRun failed for reasons
+ * beyond mustAddress items (e.g. edge validation). Header shows "Not ready" (warning)
+ * while Footer shows context-appropriate state. This split is intentional.
  */
 
 interface HeaderProps {

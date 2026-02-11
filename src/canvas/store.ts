@@ -29,6 +29,7 @@ import type {
   CEEModelQualityFactors,
   CEEInterventionHint,
 } from '../adapters/cee/types'
+import type { LimitsV1 } from '../adapters/plot/types'
 import type { CeeDebugHeaders } from './utils/ceeDebugHeaders'
 import { loadSearchQuery, loadSortPreferences, saveSearchQuery, saveSortPreferences, __test__ as docsTest } from './store/documents'
 import { loadUIPreferences, saveUIPreference } from './store/uiPreferences'
@@ -200,6 +201,13 @@ interface CanvasState {
   selectedEnrichmentModel: string | null  // null = use default (claude-sonnet-4-20250514)
   // Last draft description (persisted to maintain context across panel close/reopen)
   lastDraftDescription: string
+  // Last draft error (NOT cleared in resetCanvas — survives retry cycles)
+  lastDraftError: {
+    message: string
+    status?: number
+    correlationId?: string
+    timestamp: number
+  } | null
   // CEE V3: analysis_ready payload from last draft
   // Used by useV2Run to build requests with resolved interventions
   ceeAnalysisReady: CEEAnalysisReady | null
@@ -218,6 +226,12 @@ interface CanvasState {
   ceeModelQualityFactors: CEEModelQualityFactors | null
   // Phase 1b: Intervention hints keyed by factor node ID
   ceeInterventionHints: Record<string, CEEInterventionHint> | null
+  // Engine limits (session-scoped singleton — NOT cleared in resetCanvas)
+  engineLimits: LimitsV1 | null
+  engineLimitsSource: 'live' | 'fallback' | null
+  engineLimitsLoading: boolean
+  engineLimitsError: Error | null
+  engineLimitsFetchedAt: number | null
   // M4: Graph Health & Repair
   graphHealth: GraphHealth | null
   showIssuesPanel: boolean
@@ -372,6 +386,7 @@ interface CanvasState {
   setSelectedEnrichmentModel: (modelId: string | null) => void
   resetModelToDefault: (operation: 'generation' | 'repair' | 'enrichment') => void
   setLastDraftDescription: (description: string) => void
+  setLastDraftError: (error: { message: string; status?: number; correlationId?: string; timestamp: number } | null) => void
   setCeeAnalysisReady: (analysisReady: CEEAnalysisReady | null) => void
   setCeePipelineTrace: (trace: CeePipelineTrace | null) => void
   setCeeQuality: (quality: CeeQualityDimensions | null) => void
@@ -380,6 +395,8 @@ interface CanvasState {
   setCeeGoalConnectivity: (connectivity: CEEGoalConnectivity | null) => void
   setCeeModelQualityFactors: (factors: CEEModelQualityFactors | null) => void
   setCeeInterventionHints: (hints: Record<string, CEEInterventionHint> | null) => void
+  setEngineLimits: (limits: LimitsV1 | null, source: 'live' | 'fallback' | null, fetchedAt: number | null, error?: Error | null) => void
+  setEngineLimitsLoading: (loading: boolean) => void
   // M4: Graph Health actions
   validateGraph: () => void
   setShowIssuesPanel: (show: boolean) => void
@@ -766,6 +783,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     selectedRepairModel: null,
     selectedEnrichmentModel: null,
     lastDraftDescription: '',
+    lastDraftError: null,
     showIssuesPanel: false,
     showProvenanceHub: false,
     showDocumentsDrawer: false,
@@ -784,6 +802,12 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   ceeGoalConnectivity: null,
   ceeModelQualityFactors: null,
   ceeInterventionHints: null,
+  // Engine limits (session-scoped singleton)
+  engineLimits: null,
+  engineLimitsSource: null,
+  engineLimitsLoading: true,
+  engineLimitsError: null,
+  engineLimitsFetchedAt: null,
   // M6: Scenario Comparison Mode
   comparisonMode: {
     active: false,
@@ -2259,6 +2283,10 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     saveUIPreference('lastDraftDescription', description)
   },
 
+  setLastDraftError: (error) => {
+    set({ lastDraftError: error })
+  },
+
   setCeeAnalysisReady: (analysisReady: CEEAnalysisReady | null) => {
     if (import.meta.env.DEV) {
       console.log('[Canvas] === SET CEE_ANALYSIS_READY ===')
@@ -2334,6 +2362,20 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       console.log('[Canvas] setCeeInterventionHints:', Object.keys(hints).length, 'hints')
     }
     set({ ceeInterventionHints: hints })
+  },
+
+  setEngineLimits: (limits, source, fetchedAt, error) => {
+    set({
+      engineLimits: limits,
+      engineLimitsSource: source,
+      engineLimitsLoading: false,
+      engineLimitsError: error ?? null,
+      engineLimitsFetchedAt: fetchedAt,
+    })
+  },
+
+  setEngineLimitsLoading: (loading) => {
+    set({ engineLimitsLoading: loading })
   },
 
   // M4: Graph Health actions

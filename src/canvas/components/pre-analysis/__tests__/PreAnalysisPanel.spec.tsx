@@ -41,17 +41,42 @@ vi.mock('../../../ToastContext', () => ({
   useShowToast: () => mockShowToast,
 }))
 
+// Mock clipboard utility
+vi.mock('../../../../utils/clipboard', () => ({
+  copyTextToClipboard: vi.fn().mockResolvedValue(true),
+}))
+
 // Mock useCanvasStore — return ceeAnalysisReady.status via selector
 let mockCeeStatus: string | undefined = undefined
+let mockLastDraftError: any = null
 vi.mock('../../../store', () => ({
-  useCanvasStore: (selector: (state: any) => any) => {
-    const state = {
-      ceeAnalysisReady: mockCeeStatus ? { status: mockCeeStatus } : null,
-      setHighlightedNodes: vi.fn(),
-      setHighlightedEdges: vi.fn(),
+  useCanvasStore: Object.assign(
+    (selector: (state: any) => any) => {
+      const state = {
+        ceeAnalysisReady: mockCeeStatus ? { status: mockCeeStatus } : null,
+        lastDraftError: mockLastDraftError,
+        setHighlightedNodes: vi.fn(),
+        setHighlightedEdges: vi.fn(),
+      }
+      return selector(state)
+    },
+    {
+      getState: () => ({
+        ceeAnalysisReady: mockCeeStatus ? { status: mockCeeStatus } : null,
+        lastDraftError: mockLastDraftError,
+        setHighlightedNodes: vi.fn(),
+        setHighlightedEdges: vi.fn(),
+        updateNode: vi.fn(),
+        setGoalThreshold: vi.fn(),
+        setCeeAnalysisReady: vi.fn(),
+        setOutcomeNode: vi.fn(),
+        nodes: [],
+        addNode: vi.fn(),
+        updateEdge: vi.fn(),
+        addEdge: vi.fn(),
+      }),
     }
-    return selector(state)
-  },
+  ),
 }))
 
 const mockUsePreAnalysisData = usePreAnalysisDataModule.usePreAnalysisData as ReturnType<typeof vi.fn>
@@ -112,6 +137,7 @@ describe('PreAnalysisPanel', () => {
       isLoading: false,
       reviewedFactorsCount: 0,
       totalReviewableFactorsCount: 0,
+      enrichedBlockers: [],
       ...overrides,
     }
   }
@@ -119,6 +145,7 @@ describe('PreAnalysisPanel', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockCeeStatus = undefined
+    mockLastDraftError = null
   })
 
   describe('State Transitions', () => {

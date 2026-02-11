@@ -24,6 +24,10 @@ import type { BiasType } from '../primitives/BiasIcon'
 import { usePreAnalysisData as useExistingPreAnalysisData } from '../../../hooks/usePreAnalysisData'
 // Import label cleaning utility to strip encoding patterns from factor labels
 import { cleanFactorLabel } from '../../../../components/results/utils/cleanFactorLabel'
+// Import blocker enrichment for structured blocker cards
+import { enrichAndSortBlockers, type EnrichedBlocker } from '../blockerEnrichment'
+// Import pre-run validation for enrichedBlockers
+import { usePreRunValidation } from '../../../hooks/usePreRunValidation'
 
 // ============================================================================
 // Types
@@ -143,6 +147,10 @@ export interface PreAnalysisData {
   reviewedFactorsCount: number
   /** Total count of factors with observed_state (reviewable) */
   totalReviewableFactorsCount: number
+  /** Enriched blockers from usePreRunValidation, sorted by priority */
+  enrichedBlockers: EnrichedBlocker[]
+  /** Threshold provenance text */
+  thresholdProvenance: string | null
 }
 
 // ============================================================================
@@ -475,12 +483,13 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
     }
     const disconnectedNodes = nodes.filter(n => !connectedNodeIds.has(n.id) && n.type !== 'goal')
     for (const node of disconnectedNodes.slice(0, 3)) {
+      const cleanedLabel = cleanFactorLabel(getNodeLabel(node)).label
       result.fix.push({
         key: `disconnected_${node.id}`,
         category: 'fix',
-        label: `Connect "${getNodeLabel(node)}"`,
+        label: `Connect "${cleanedLabel}"`,
         detail: 'Node has no relationships',
-        focus: { type: 'node', id: node.id, label: getNodeLabel(node) },
+        focus: { type: 'node', id: node.id, label: cleanedLabel },
       })
     }
 
@@ -715,6 +724,13 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
   // This prevents showing misleading "Blocked" during initial load
   const isLoading = ceeAnalysisReady === null && nodes.length > 0
 
+  // Enriched blockers from usePreRunValidation — structured cards for BlockersSection
+  const preRunValidation = usePreRunValidation()
+  const enrichedBlockers = useMemo(
+    () => enrichAndSortBlockers(preRunValidation.blockers),
+    [preRunValidation.blockers]
+  )
+
   // Success threshold - priority: CEE goal_threshold > node goal_threshold > observed_state.value > success_threshold > threshold > factor_target_* nodes
   const successThreshold = useMemo(() => {
     // Phase 3.2: CEE goal_threshold takes highest priority
@@ -924,6 +940,7 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
     isLoading,
     reviewedFactorsCount,
     totalReviewableFactorsCount,
+    enrichedBlockers,
   }
 }
 

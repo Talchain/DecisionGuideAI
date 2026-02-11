@@ -21,6 +21,7 @@ import { normaliseOptionFromLegacyNode, type LegacyOptionNode } from '../../type
 import { validateAllEdges, ceeOptionToUIOption } from '../../adapters/plot/v2'
 import type { CEEAnalysisReady } from '../../adapters/cee/types'
 import { detectBaseline } from '../utils/baselineDetection'
+import { DEFAULT_EDGE_DATA } from '../domain/edges'
 import type { ValidationWarning, ValidationBlocker } from '@talchain/schemas'
 
 /**
@@ -125,13 +126,14 @@ function validateGoalNode(
  */
 function validateOverallStatus(
   ceeAnalysisReady?: CEEAnalysisReady | null
-): { blockers: ValidationBlocker[]; userQuestions: string[] } {
+): { blockers: ValidationBlocker[]; warnings: ValidationWarning[]; userQuestions: string[] } {
   const blockers: ValidationBlocker[] = []
+  const warnings: ValidationWarning[] = []
   const userQuestions: string[] = []
 
   // If no ceeAnalysisReady or no status, don't block (legacy fallback path)
   if (!ceeAnalysisReady?.status) {
-    return { blockers, userQuestions }
+    return { blockers, warnings, userQuestions }
   }
 
   // Check overall status
@@ -152,15 +154,27 @@ function validateOverallStatus(
         needs_encoding: 'Some options have categorical values that need encoding',
       }
 
-      blockers.push({
-        code: 'ANALYSIS_NOT_READY',
-        message: statusMessages[ceeAnalysisReady.status] || 'Analysis not ready',
-        // NOTE: retry_draft is an intent marker for future UI wiring.
-        // Currently no component dispatches on this action type — the blocker
-        // message is displayed but no action button is rendered (no optionId/nodeId).
-        // TODO: Wire to re-invoke draftModel() using lastDraftDescription from store.
-        action: { type: 'retry_draft', label: 'Retry Draft' },
-      })
+      // Layer 1 gate relaxation (amendment #1): When interventions ARE populated
+      // but allOptionsResolved failed (e.g. some options still need mapping),
+      // downgrade to warning instead of hard blocker.
+      const anyInterventionsPopulated = isSoftStatus && (ceeAnalysisReady.options?.some(
+        o => Object.keys(o.interventions || {}).length > 0
+      ) ?? false)
+
+      if (anyInterventionsPopulated) {
+        // Downgrade to warning — interventions exist but status disagrees
+        warnings.push({
+          code: 'ANALYSIS_NOT_READY',
+          message: statusMessages[ceeAnalysisReady.status] || 'Analysis not ready',
+          suggestion: 'Some options have interventions but the model flagged issues. Consider re-drafting.',
+        })
+      } else {
+        blockers.push({
+          code: 'ANALYSIS_NOT_READY',
+          message: statusMessages[ceeAnalysisReady.status] || 'Analysis not ready',
+          action: { type: 'retry_draft', label: 'Retry Draft' },
+        })
+      }
     }
 
     // Capture user_questions from CEE regardless of blocker
@@ -169,7 +183,7 @@ function validateOverallStatus(
     }
   }
 
-  return { blockers, userQuestions }
+  return { blockers, warnings, userQuestions }
 }
 
 /**
@@ -198,7 +212,7 @@ function validateOptions(
     const needsMappingOptions = options.filter((o) => {
       if (o.status !== 'needs_user_mapping') return false
       const isBaselineEmpty =
-        detectBaseline(o.label).isBaseline && Object.keys(o.interventions).length === 0
+        detectBaseline(o.label ?? '').isBaseline && Object.keys(o.interventions).length === 0
       return !isBaselineEmpty
     })
     if (needsMappingOptions.length > 0) {
@@ -218,7 +232,7 @@ function validateOptions(
     const emptyInterventionOptions = options.filter((o) => {
       if (o.status !== 'ready') return false
       if (Object.keys(o.interventions).length !== 0) return false
-      return !detectBaseline(o.label).isBaseline
+      return !detectBaseline(o.label ?? '').isBaseline
     })
     if (emptyInterventionOptions.length > 0) {
       blockers.push({
@@ -264,7 +278,7 @@ function validateOptions(
   const needsMappingOptions = options.filter((o) => {
     if (o.status !== 'needs_user_mapping') return false
     const isBaselineEmpty =
-      detectBaseline(o.label).isBaseline && Object.keys(o.interventions).length === 0
+      detectBaseline(o.label ?? '').isBaseline && Object.keys(o.interventions).length === 0
     return !isBaselineEmpty
   })
   if (needsMappingOptions.length > 0) {
@@ -284,7 +298,7 @@ function validateOptions(
   const emptyInterventionOptions = options.filter((o) => {
     if (o.status !== 'ready') return false
     if (Object.keys(o.interventions).length !== 0) return false
-    return !detectBaseline(o.label).isBaseline
+    return !detectBaseline(o.label ?? '').isBaseline
   })
   if (emptyInterventionOptions.length > 0) {
     blockers.push({
@@ -397,6 +411,32 @@ function validateEdges(
 }
 
 /**
+ * Detect when most edges still have default weight.
+ * Fires when >80% of edges use DEFAULT_EDGE_DATA.weight and total >5.
+ * Per user amendment #6: specific copy for the warning.
+ */
+function checkDefaultStrengths(
+  edges: Edge[]
+): ValidationWarning | null {
+  if (edges.length <= 5) return null
+
+  const defaultWeight = DEFAULT_EDGE_DATA.weight
+  const defaultCount = edges.filter((e) => {
+    const w = (e.data as { weight?: number })?.weight
+    return w === defaultWeight || w === undefined || w === null
+  }).length
+
+  const ratio = defaultCount / edges.length
+  if (ratio <= 0.8) return null
+
+  return {
+    code: 'STRENGTH_DEFAULTS_DOMINANT',
+    message: `${defaultCount} of ${edges.length} relationships use default strength — results may lack differentiation`,
+    suggestion: 'Click relationships to set custom strengths for more accurate analysis.',
+  }
+}
+
+/**
  * Check for potentially identical options.
  */
 function checkIdenticalOptions(
@@ -453,6 +493,7 @@ export function validateBeforeRun(
   // This catches structural issues like "no causal path to goal"
   const overallValidation = validateOverallStatus(ceeAnalysisReady)
   allBlockers.push(...overallValidation.blockers)
+  allWarnings.push(...overallValidation.warnings)
   userQuestions = overallValidation.userQuestions
 
   // 1. Validate goal node
@@ -482,6 +523,12 @@ export function validateBeforeRun(
   if (edges && edges.length > 0) {
     const edgeValidation = validateEdges(edges)
     allWarnings.push(...edgeValidation.warnings)
+
+    // 6. Check for dominant default strengths
+    const strengthWarning = checkDefaultStrengths(edges)
+    if (strengthWarning) {
+      allWarnings.push(strengthWarning)
+    }
   }
 
   return {
