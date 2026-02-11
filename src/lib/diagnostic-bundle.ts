@@ -727,11 +727,19 @@ function extractCeeErrorResponse(ceePayload: { status?: number; response?: { bod
   const message = (b.message as string) ?? (b.error as string) ?? undefined
   const code = (b.code as string) ?? ((b.details as Record<string, unknown>)?.code as string) ?? undefined
 
-  // Extract trace data (CEE includes trace even in error responses)
-  const trace = b.trace as Record<string, unknown> | undefined
+  // Extract trace data from both shapes:
+  // Shape A — direct passthrough: body.trace.pipeline (PLoT relays CEE error as-is)
+  // Shape B — PLoT-wrapped:       body.details.trace.pipeline (PLoT wraps CEE error in details envelope)
+  const directTrace = b.trace as Record<string, unknown> | undefined
+  const wrappedDetails = b.details as Record<string, unknown> | undefined
+  const wrappedTrace = wrappedDetails?.trace as Record<string, unknown> | undefined
+  // Use whichever trace has a pipeline object
+  const trace = (directTrace?.pipeline ? directTrace : wrappedTrace?.pipeline ? wrappedTrace : directTrace) ?? undefined
   const pipeline = trace?.pipeline as Record<string, unknown> | undefined
 
-  const cee_request_id = (trace?.request_id as string) ?? undefined
+  const cee_request_id = (directTrace?.request_id as string)
+    ?? (wrappedTrace?.request_id as string)
+    ?? undefined
   const cee_provenance = pipeline?.cee_provenance as CeeErrorResponse['cee_provenance'] | undefined
   const checkpoints = Array.isArray(pipeline?.checkpoints) ? pipeline.checkpoints : undefined
   const pipeline_status = (pipeline?.status as string) ?? undefined
@@ -757,11 +765,15 @@ function extractRequestIdLabels(
   const ui_correlation_id = ceePayload?.id ?? null
 
   // CEE-generated request_id from response trace
+  // Check both direct passthrough (body.trace) and PLoT-wrapped (body.details.trace)
   let cee_request_id: string | null = null
   if (ceePayload?.response?.body && typeof ceePayload.response.body === 'object') {
     const body = ceePayload.response.body as Record<string, unknown>
-    const trace = body.trace as Record<string, unknown> | undefined
-    cee_request_id = (trace?.request_id as string) ?? null
+    const directTrace = body.trace as Record<string, unknown> | undefined
+    const wrappedTrace = (body.details as Record<string, unknown>)?.trace as Record<string, unknown> | undefined
+    cee_request_id = (directTrace?.request_id as string)
+      ?? (wrappedTrace?.request_id as string)
+      ?? null
   }
 
   return {
