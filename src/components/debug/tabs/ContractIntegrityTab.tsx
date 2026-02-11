@@ -14,6 +14,7 @@
 
 import { useMemo, useState, CSSProperties } from 'react'
 import type { DebugData } from '../hooks/useDebugData'
+import { CIL_WARNING_CODES, CIL_THRESHOLDS } from '@talchain/schemas'
 
 // =============================================================================
 // Types
@@ -309,7 +310,7 @@ function extractStrengthAudit(data: DebugData): { data: StrengthAuditData | null
       if (!w || typeof w !== 'object') continue
       const warning = w as Record<string, unknown>
       const code = warning.code as string | undefined
-      if (code === 'STRENGTH_MEAN_DEFAULT_DOMINANT' || code === 'STRENGTH_DEFAULT_APPLIED') {
+      if (code === CIL_WARNING_CODES.STRENGTH_MEAN_DEFAULT_DOMINANT || code === CIL_WARNING_CODES.STRENGTH_DEFAULT_APPLIED) {
         if (warning.details && typeof warning.details === 'object') {
           detailsFromWarning = warning.details as Record<string, unknown>
           break
@@ -379,7 +380,7 @@ function extractStrengthAudit(data: DebugData): { data: StrengthAuditData | null
       if (mean === null && typeof e.strength_mean === 'number') mean = e.strength_mean
       if (std === null && typeof e.strength_std === 'number') std = e.strength_std
 
-      if (mean !== null && std !== null && Math.abs(Math.abs(mean) - 0.5) < 0.001 && Math.abs(std - 0.125) < 0.001) {
+      if (mean !== null && std !== null && Math.abs(Math.abs(mean) - CIL_THRESHOLDS.STRENGTH_DEFAULT_MEAN) < CIL_THRESHOLDS.STRENGTH_DEFAULT_TOLERANCE && Math.abs(std - CIL_THRESHOLDS.STRENGTH_DEFAULT_STD) < CIL_THRESHOLDS.STRENGTH_DEFAULT_TOLERANCE) {
         defaultedEdgeIds.push(edgeLabel)
       }
     }
@@ -395,7 +396,7 @@ function extractStrengthAudit(data: DebugData): { data: StrengthAuditData | null
       if (!w || typeof w !== 'object') continue
       const warning = w as Record<string, unknown>
       const code = warning.code as string | undefined
-      if (code === 'STRENGTH_DEFAULT_APPLIED' || code === 'EDGE_STRENGTH_LOW' || code === 'STRENGTH_MEAN_DEFAULT_DOMINANT') {
+      if (code === CIL_WARNING_CODES.STRENGTH_DEFAULT_APPLIED || code === CIL_WARNING_CODES.EDGE_STRENGTH_LOW || code === CIL_WARNING_CODES.STRENGTH_MEAN_DEFAULT_DOMINANT) {
         strengthWarnings.push({
           code: code,
           message: (warning.message as string) ?? code,
@@ -406,7 +407,7 @@ function extractStrengthAudit(data: DebugData): { data: StrengthAuditData | null
 
   // Strength issues → warn only, never fail (data quality, not integrity failure)
   let status: SectionStatus = 'pass'
-  if (defaultedPercentage >= 50 || strengthWarnings.length > 0) {
+  if (defaultedPercentage >= CIL_THRESHOLDS.DEFAULTED_PERCENTAGE_WARN || strengthWarnings.length > 0) {
     status = 'warn'
   }
 
@@ -474,7 +475,7 @@ function extractRepairs(data: DebugData): { repairs: RepairEntry[]; status: Sect
 
   const warnCount = repairs.filter(r => r.severity === 'warn' || r.severity === 'warning').length
   let status: SectionStatus = 'pass'
-  if (warnCount > 5) {
+  if (warnCount > CIL_THRESHOLDS.REPAIR_WARN_THRESHOLD) {
     status = 'fail'
   } else if (warnCount > 0) {
     status = 'warn'

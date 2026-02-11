@@ -123,7 +123,46 @@ export {
   DEFAULT_STD,
   STRENGTH_BOUNDS,
   DEFAULT_SEED,
+  LIMITS,
 } from './limits.js'
+
+// Graph composite type
+export type { GraphV3 } from './graph.js'
+
+// CIL (Contract Integrity Layer) constants
+export {
+  CIL_WARNING_CODES,
+  CIL_WARNING_SEVERITY,
+  CIL_THRESHOLDS,
+} from './cil.js'
+export type {
+  CilWarningCode,
+  StrengthDefaultAppliedDetails,
+  StrengthMeanDefaultDominantDetails,
+} from './cil.js'
+
+// Validation types
+export type {
+  ValidationWarning,
+  ValidationBlocker,
+  ValidationResult,
+} from './validation.js'
+
+// Error types
+export type {
+  CeeErrorCodeType,
+  PlotCeeUpstreamEnvelope,
+  PlotProxyTimeoutError,
+} from './errors.js'
+
+// Request chain types
+export type {
+  AnalysisRequestIdChain,
+  DraftGraphTrace,
+} from './request-chain.js'
+
+// Readiness types
+export type { ProductReadiness } from './readiness.js'
 
 // Boundary documentation
 export {

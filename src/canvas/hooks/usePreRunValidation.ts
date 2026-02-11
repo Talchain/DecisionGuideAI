@@ -21,37 +21,14 @@ import { normaliseOptionFromLegacyNode, type LegacyOptionNode } from '../../type
 import { validateAllEdges, ceeOptionToUIOption } from '../../adapters/plot/v2'
 import type { CEEAnalysisReady } from '../../adapters/cee/types'
 import { detectBaseline } from '../utils/baselineDetection'
+import type { ValidationWarning, ValidationBlocker } from '@talchain/schemas'
 
 // ============================================================================
 // Types
 // ============================================================================
 
-export interface ValidationBlocker {
-  /** Unique code for this blocker type */
-  code: string
-  /** Human-readable message */
-  message: string
-  /** Affected node/option IDs */
-  affectedIds?: string[]
-  /** Suggested action */
-  action?: {
-    type: string
-    label: string
-    nodeId?: string
-    optionId?: string
-  }
-}
-
-export interface ValidationWarning {
-  /** Unique code for this warning type */
-  code: string
-  /** Human-readable message */
-  message: string
-  /** Additional suggestion */
-  suggestion?: string
-  /** Affected node/option ID */
-  affectedId?: string
-}
+// Re-export shared types for existing consumers
+export type { ValidationWarning, ValidationBlocker } from '@talchain/schemas'
 
 export interface RecommendedFix {
   /** Type of fix */

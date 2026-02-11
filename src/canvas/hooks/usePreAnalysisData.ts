@@ -16,6 +16,7 @@ import { useShallow } from 'zustand/shallow'
 import { usePreRunValidation, type ValidationBlocker } from './usePreRunValidation'
 import { useGraphReadiness } from './useGraphReadiness'
 import type { Node, Edge } from '@xyflow/react'
+import { CIL_WARNING_CODES } from '@talchain/schemas'
 import type {
   CEEDraftWarning,
   CEEGoalConnectivity,
@@ -181,7 +182,7 @@ const ACTIONS_MAP: Record<string, NormalisedAction[]> = {
  * Edge-related warning codes that should focus edge first
  */
 const EDGE_WARNINGS = new Set([
-  'EDGE_STRENGTH_LOW',
+  CIL_WARNING_CODES.EDGE_STRENGTH_LOW,
   'weak_path',
   'STRENGTH_CLUSTERING',
   'EDGE_ORIGIN_DEFAULTED',

@@ -1,6 +1,6 @@
 {
-  "name": "@olumi/schemas",
-  "version": "1.0.0",
+  "name": "@talchain/schemas",
+  "version": "0.1.0",
   "description": "Canonical TypeScript types and Zod runtime validators for the Olumi platform contract",
   "type": "module",
   "main": "./dist/index.js",

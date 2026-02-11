@@ -53,3 +53,19 @@ export const STRENGTH_BOUNDS = {
  * Default seed value for reproducibility.
  */
 export const DEFAULT_SEED = '42'
+
+/**
+ * Consolidated limits object for canvas validation.
+ * Canvas uses LIMITS.MAX_NODES, LIMITS.MAX_EDGES etc. for warn-at-80%/block-at-100%.
+ */
+export const LIMITS = {
+  MAX_NODES,
+  MAX_EDGES,
+  MAX_OPTIONS,
+  STD_FLOOR,
+  STD_CEILING_RATIO,
+  STD_CEILING_ABS,
+  DEFAULT_STD,
+  STRENGTH_BOUNDS,
+  DEFAULT_SEED,
+} as const

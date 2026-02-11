@@ -643,32 +643,13 @@ export function sanitizeV2RunResponse(data: V2RunResponse): V2RunResponse {
 }
 
 // ============================================================================
-// Constants
+// Constants — re-exported from @talchain/schemas
 // ============================================================================
 
-/**
- * Minimum standard deviation to avoid ISL validation errors.
- */
-export const STD_FLOOR = 0.001
-
-/**
- * Maximum standard deviation as a ratio of value (50% = std can be at most half of value).
- * ISL expects std << mean; this ratio ensures uncertainty stays proportional.
- */
-export const STD_CEILING_RATIO = 0.5
-
-/**
- * Absolute maximum standard deviation for extreme values.
- * Prevents unbounded std even for very large values.
- */
-export const STD_CEILING_ABS = 10000
-
-/**
- * Default standard deviation when not provided.
- */
-export const DEFAULT_STD = 0.1
-
-/**
- * Default seed value.
- */
-export const DEFAULT_SEED = '42'
+export {
+  STD_FLOOR,
+  STD_CEILING_RATIO,
+  STD_CEILING_ABS,
+  DEFAULT_STD,
+  DEFAULT_SEED,
+} from '@talchain/schemas'
