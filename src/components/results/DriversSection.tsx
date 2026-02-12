@@ -85,37 +85,6 @@ function isBinaryFactor(label: string): boolean {
 
 // Note: cleanFactorLabel imported from ./utils/cleanFactorLabel
 
-/**
- * v7.5 T7: Softened sensitivity copy — "tends to shift" instead of causal assertions.
- * - Binary factors: "When true, outcome tends to shift by X%" (negative: "-X%")
- * - Continuous factors: "Higher values tend to shift outcome by X%" (negative: "-X%")
- * - Arrow icons provide direction context separately
- */
-function getSensitivityCopy(
-  label: string,
-  rawElasticity: number,
-  direction?: 'positive' | 'negative',
-  goalLabel?: string
-): string | null {
-  // Only show copy when we have meaningful elasticity data
-  if (rawElasticity <= 0.001) {
-    // Fallback to direction-only when no elasticity
-    if (direction && goalLabel) {
-      return direction === 'positive' ? `↗ ${goalLabel}` : `↘ ${goalLabel}`
-    }
-    return null
-  }
-
-  const shiftPct = Math.max(1, Math.round(rawElasticity * 10))
-  const formatted = direction === 'negative' ? formatPercent(-shiftPct, { sign: true }) : formatPercent(shiftPct)
-
-  if (isBinaryFactor(label)) {
-    return `When true, outcome tends to shift by ${formatted}`
-  }
-
-  return `Higher values tend to shift outcome by ${formatted}`
-}
-
 // Tooltip component for secondary information
 function FactorTooltip({
   content,
@@ -364,9 +333,6 @@ function DriverRow({
     ? Math.max(0, Math.min(1, driver.confidence))
     : null
 
-  // P1 Results Brief Item 7: Use binary-aware sensitivity copy
-  const compactImpact = getSensitivityCopy(driver.factorLabel, driver.rawElasticity, driver.direction, goalLabel)
-
   // Determine if we have secondary content for tooltip
   const alternativeWinnerLabel = driver.fragileEdgeInfo?.alternativeWinnerLabel
   const decisionChangeRisk = driver.flipRiskCategory === 'isolated'
@@ -460,16 +426,14 @@ function DriverRow({
             {directionIcon}
           </span>
           {driver.canFocus ? (
-            <span
-              role="link"
-              tabIndex={0}
+            <button
+              type="button"
               onClick={handleFocusClick}
-              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleFocusClick(e as unknown as React.MouseEvent) } }}
-              className={`${typography.panelBody} text-text-body break-words leading-snug cursor-pointer hover:underline focus:outline-none focus:ring-2 focus:ring-info-500 focus:ring-offset-1 rounded`}
+              className={`${typography.panelBody} text-info hover:text-info-hover hover:underline break-words leading-snug cursor-pointer focus:outline-none focus:ring-2 focus:ring-info focus:ring-offset-1 rounded text-left`}
               aria-label={`Focus on ${cleanedLabel} in model`}
             >
               {cleanedLabel}
-            </span>
+            </button>
           ) : (
             <span className={`${typography.panelBody} text-text-body break-words leading-snug`}>
               {cleanedLabel}
@@ -500,31 +464,24 @@ function DriverRow({
         )}
       </div>
 
-      {/* Line 2: Compact impact + info icon */}
-      <div className="px-3 pb-2 flex items-center justify-between gap-2">
-        <span className={`${typography.panelBody} text-text-light truncate bg-sand-50/60 px-1.5 py-0.5 rounded`}>
-          {compactImpact || '\u00A0'}
-        </span>
-        <div className="flex items-center gap-1 flex-shrink-0">
-          {/* Info icon - reveals tooltip */}
-          {hasTooltipContent && (
-            <button
-              ref={infoButtonRef}
-              onClick={toggleTooltip}
-              onMouseEnter={() => setIsTooltipOpen(true)}
-              onMouseLeave={() => setIsTooltipOpen(false)}
-              className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded transition-colors"
-              style={{ minWidth: '44px', minHeight: '44px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-              aria-label="More information"
-              aria-expanded={isTooltipOpen}
-              aria-describedby={isTooltipOpen ? `tooltip-${driver.factorKey}` : undefined}
-            >
-              <Info className="w-4 h-4" />
-            </button>
-          )}
-          {/* Task 2: Removed standalone Focus icon - factor name is now clickable */}
+      {/* Line 2: Info icon (impact subtitle removed — tornado handles this) */}
+      {hasTooltipContent && (
+        <div className="px-3 pb-2 flex items-center justify-end">
+          <button
+            ref={infoButtonRef}
+            onClick={toggleTooltip}
+            onMouseEnter={() => setIsTooltipOpen(true)}
+            onMouseLeave={() => setIsTooltipOpen(false)}
+            className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded transition-colors"
+            style={{ minWidth: '44px', minHeight: '44px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+            aria-label="More information"
+            aria-expanded={isTooltipOpen}
+            aria-describedby={isTooltipOpen ? `tooltip-${driver.factorKey}` : undefined}
+          >
+            <Info className="w-4 h-4" />
+          </button>
         </div>
-      </div>
+      )}
 
       {/* Tooltip */}
       <FactorTooltip
@@ -749,7 +706,7 @@ export function DriversSection({
         return filteredTornadoRows.length > 0 && (
           <details className="group">
             <summary className={`${typography.panelHeader} text-text-header cursor-pointer select-none list-none flex items-center justify-between`}>
-              <span>What if your estimates are wrong?</span>
+              <span>Explore your estimates</span>
               <span className={`${typography.panelBody} text-info group-open:hidden`}>Show ˅</span>
               <span className={`${typography.panelBody} text-info hidden group-open:inline`}>Hide ˄</span>
             </summary>

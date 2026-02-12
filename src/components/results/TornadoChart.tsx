@@ -104,10 +104,10 @@ export function TornadoChart({
       data-testid="tornado-chart"
     >
       <h4 className={`${typography.panelHeader} text-text-header mb-0.5`}>
-        What if your estimates are wrong?
+        Explore your estimates
       </h4>
       <p className={`${typography.panelBody} text-text-light mb-3 leading-relaxed`}>
-        Each row varies one factor while keeping others unchanged
+        Drag the bars to see how the outcome shifts when each factor is stronger or weaker than your estimate.
       </p>
 
       {/* Tornado rows */}
@@ -217,14 +217,14 @@ export function TornadoChart({
 
       {/* Axis labels */}
       <div className={`flex justify-between mt-1 ml-[104px] ${typography.panelMeta} text-text-light`}>
-        <span>Worse</span>
+        <span>← Weaker than estimated</span>
         <span>Expected: {formatValue(expectedOutcome, outcomeUnit, outcomeUnitSymbol, isNormalised)}</span>
-        <span>Better</span>
+        <span>Stronger than estimated →</span>
       </div>
 
-      {/* Footer note — honest labelling: these are heuristic approximations */}
+      {/* Preview disclaimer */}
       <p className={`${typography.panelMeta} text-text-light mt-2 italic leading-relaxed`}>
-        Approximate sensitivity — shows directional impact, not exact bounds.
+        Preview only — drag to explore. Approximate sensitivity, not exact bounds.
       </p>
     </div>
   )
