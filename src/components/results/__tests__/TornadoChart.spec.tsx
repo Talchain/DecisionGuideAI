@@ -354,17 +354,17 @@ describe('TornadoChart', () => {
     const originalLeftWidth = leftBar.style.width
     const originalRightWidth = rightBar.style.width
 
-    // Full drag cycle to midpoint (clientX=100 → position 0.5 → interpolated = 100)
-    // At interpolated = expectedOutcome, both bars collapse to 0
+    // Full drag cycle on LEFT bar to midpoint (clientX=100 → position 0.5 → interpolated = 100)
+    // At interpolated = expectedOutcome, active (left) bar collapses to 0
     simulateDragCycle(leftBar, 100)
 
-    // After release at midpoint: storedOutcome=100=expectedOutcome, both bars 0 width
+    // Active bar (left) collapsed at midpoint
     expect(parseFloat(leftBar.style.width)).toBe(0)
-    expect(parseFloat(rightBar.style.width)).toBe(0)
-
-    // This differs from the original static widths (which showed the full range)
     expect(leftBar.style.width).not.toBe(originalLeftWidth)
-    expect(rightBar.style.width).not.toBe(originalRightWidth)
+
+    // Opposite bar (right) stays at original width, dimmed
+    expect(rightBar.style.width).toBe(originalRightWidth)
+    expect(rightBar.className).toContain('opacity-30')
   })
 
   it('bars have CSS transition except during active drag', () => {
@@ -380,6 +380,46 @@ describe('TornadoChart', () => {
     // After full drag cycle: released row still has smooth transition
     simulateDragCycle(leftBar, 50)
     expect(leftBar.style.transition).toContain('150ms')
+  })
+
+  it('opposite bar stays at original width with opacity-30 after drag', () => {
+    render(
+      <TornadoChart rows={[positiveRow]} expectedOutcome={100} />
+    )
+
+    const leftBar = screen.getByTestId('tornado-bar-left-revenue')
+    const rightBar = screen.getByTestId('tornado-bar-right-revenue')
+    const originalRightWidth = rightBar.style.width
+
+    // Drag the LEFT bar — right bar is the opposite
+    simulateDragCycle(leftBar, 50)
+
+    // Opposite bar (right) stays at original width, dimmed
+    expect(rightBar.style.width).toBe(originalRightWidth)
+    expect(rightBar.className).toContain('opacity-30')
+
+    // Active bar (left) has ring highlight, not dimmed
+    expect(leftBar.className).not.toContain('opacity-30')
+  })
+
+  it('dragging right bar dims left bar instead', () => {
+    render(
+      <TornadoChart rows={[positiveRow]} expectedOutcome={100} />
+    )
+
+    const leftBar = screen.getByTestId('tornado-bar-left-revenue')
+    const rightBar = screen.getByTestId('tornado-bar-right-revenue')
+    const originalLeftWidth = leftBar.style.width
+
+    // Drag the RIGHT bar — left bar is the opposite
+    simulateDragCycle(rightBar, 150)
+
+    // Opposite bar (left) stays at original width, dimmed
+    expect(leftBar.style.width).toBe(originalLeftWidth)
+    expect(leftBar.className).toContain('opacity-30')
+
+    // Active bar (right) not dimmed
+    expect(rightBar.className).not.toContain('opacity-30')
   })
 
   it('reset preview link hidden when no drag has occurred', () => {
@@ -412,11 +452,12 @@ describe('TornadoChart', () => {
     const originalLeftWidth = leftBar.style.width
     const originalRightWidth = rightBar.style.width
 
-    // Drag to midpoint and release
+    // Drag left bar to midpoint and release
     simulateDragCycle(leftBar, 100)
 
-    // Confirm widths changed (midpoint → both bars 0)
+    // Confirm active bar (left) changed, opposite (right) dimmed
     expect(leftBar.style.width).not.toBe(originalLeftWidth)
+    expect(rightBar.className).toContain('opacity-30')
 
     // Click reset
     fireEvent.click(screen.getByTestId('tornado-reset-preview'))
@@ -424,6 +465,10 @@ describe('TornadoChart', () => {
     // Widths restored to original
     expect(leftBar.style.width).toBe(originalLeftWidth)
     expect(rightBar.style.width).toBe(originalRightWidth)
+
+    // Both bars at full opacity (no opacity-30)
+    expect(leftBar.className).not.toContain('opacity-30')
+    expect(rightBar.className).not.toContain('opacity-30')
 
     // Reset link hidden
     expect(screen.queryByTestId('tornado-reset-preview')).not.toBeInTheDocument()

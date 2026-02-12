@@ -84,12 +84,16 @@ function formatValue(
 interface DragState {
   isDragging: boolean
   activeFactorId: string | null
+  /** Which bar the user is dragging ('left' or 'right') */
+  activeSide: 'left' | 'right' | null
   /** Current interpolated outcome for the actively dragged factor */
   interpolatedOutcome: number
   /** True once any bar has been dragged (persists until reset) */
   hasUserDragged: boolean
   /** factorId → interpolated outcome at released position */
   modifiedFactors: Map<string, number>
+  /** factorId → which side was dragged */
+  modifiedSides: Map<string, 'left' | 'right'>
 }
 
 interface DragContext {
@@ -111,9 +115,11 @@ export function TornadoChart({
   const [dragState, setDragState] = useState<DragState>({
     isDragging: false,
     activeFactorId: null,
+    activeSide: null,
     interpolatedOutcome: expectedOutcome,
     hasUserDragged: false,
     modifiedFactors: new Map(),
+    modifiedSides: new Map(),
   })
   const dragContextRef = useRef<DragContext | null>(null)
 
@@ -139,6 +145,7 @@ export function TornadoChart({
 
   const handlePointerDown = useCallback((
     factorId: string,
+    side: 'left' | 'right',
     e: React.PointerEvent,
   ) => {
     const row = rows.find(r => r.factorKey === factorId)
@@ -162,6 +169,7 @@ export function TornadoChart({
       ...prev,
       isDragging: true,
       activeFactorId: factorId,
+      activeSide: side,
     }))
   }, [rows])
 
@@ -187,16 +195,20 @@ export function TornadoChart({
     const ctx = dragContextRef.current
     if (!ctx) return
 
-    // Persist the final interpolated value
+    // Persist the final interpolated value and which side was dragged
     setDragState(prev => {
-      const next = new Map(prev.modifiedFactors)
-      next.set(ctx.factorId, prev.interpolatedOutcome)
+      const nextFactors = new Map(prev.modifiedFactors)
+      nextFactors.set(ctx.factorId, prev.interpolatedOutcome)
+      const nextSides = new Map(prev.modifiedSides)
+      if (prev.activeSide) nextSides.set(ctx.factorId, prev.activeSide)
       return {
         ...prev,
         isDragging: false,
         activeFactorId: null,
+        activeSide: null,
         hasUserDragged: true,
-        modifiedFactors: next,
+        modifiedFactors: nextFactors,
+        modifiedSides: nextSides,
       }
     })
 
@@ -207,9 +219,11 @@ export function TornadoChart({
     setDragState({
       isDragging: false,
       activeFactorId: null,
+      activeSide: null,
       interpolatedOutcome: expectedOutcome,
       hasUserDragged: false,
       modifiedFactors: new Map(),
+      modifiedSides: new Map(),
     })
     dragContextRef.current = null
   }, [expectedOutcome])
@@ -241,20 +255,27 @@ export function TornadoChart({
           const storedOutcome = dragState.modifiedFactors.get(row.factorKey)
           const isReactiveRow = isActiveRow || storedOutcome != null
 
+          // Which side is being (or was) dragged for this row?
+          const dragSide = isActiveRow
+            ? dragState.activeSide
+            : dragState.modifiedSides.get(row.factorKey) ?? null
+
           // Effective outcome for reactive bar widths:
-          // - Active drag: bar follows cursor (interpolated outcome)
-          // - Released after drag: bar stays at stored position
+          // - Active side: width interpolated from drag position
+          // - Opposite side: stays at ORIGINAL static width (dimmed)
           // - Undragged: original lowOutcome/highOutcome range
           let effectiveLow = row.lowOutcome
           let effectiveHigh = row.highOutcome
 
-          if (isActiveRow) {
-            const interp = dragState.interpolatedOutcome
-            effectiveLow = Math.min(interp, expectedOutcome)
-            effectiveHigh = Math.max(interp, expectedOutcome)
-          } else if (storedOutcome != null) {
-            effectiveLow = Math.min(storedOutcome, expectedOutcome)
-            effectiveHigh = Math.max(storedOutcome, expectedOutcome)
+          if (isReactiveRow && dragSide != null) {
+            const interp = isActiveRow ? dragState.interpolatedOutcome : storedOutcome!
+            if (dragSide === 'left') {
+              // Left bar was dragged — adjust low end only, right stays original
+              effectiveLow = Math.min(interp, expectedOutcome)
+            } else {
+              // Right bar was dragged — adjust high end only, left stays original
+              effectiveHigh = Math.max(interp, expectedOutcome)
+            }
           }
 
           const lowPct = totalRange > 0 ? ((effectiveLow - minVal) / totalRange) * 100 : 0
@@ -285,6 +306,14 @@ export function TornadoChart({
 
           // CSS transitions: instant during active drag, smooth snap for released/reset bars
           const barTransition = isActiveRow ? 'none' : 'width 150ms ease-out, left 150ms ease-out'
+
+          // Ring highlight on active bar, dim the opposite bar to preserve range context
+          const leftBarExtra = isReactiveRow
+            ? dragSide === 'left' ? 'ring-1 ring-text-light/30' : 'opacity-30'
+            : ''
+          const rightBarExtra = isReactiveRow
+            ? dragSide === 'right' ? 'ring-1 ring-text-light/30' : 'opacity-30'
+            : ''
 
           const handleClick = () => {
             const nodeId = row.matchedNodeId ?? row.factorKey
@@ -333,7 +362,7 @@ export function TornadoChart({
                 {/* Left bar — weaker than estimated */}
                 {shouldRenderLeftBar && (
                   <div
-                    className={`absolute top-0 h-full rounded-l ${isReactiveRow ? 'ring-1 ring-text-light/30' : ''}`}
+                    className={`absolute top-0 h-full rounded-l ${leftBarExtra}`}
                     style={{
                       left: `${leftLeft}%`,
                       width: `${Math.max(0, leftWidth)}%`,
@@ -341,7 +370,7 @@ export function TornadoChart({
                       cursor: dragState.isDragging ? 'grabbing' : 'grab',
                       transition: barTransition,
                     }}
-                    onPointerDown={(e) => handlePointerDown(row.factorKey, e)}
+                    onPointerDown={(e) => handlePointerDown(row.factorKey, 'left', e)}
                     onPointerMove={handlePointerMove}
                     onPointerUp={handlePointerUp}
                     data-testid={`tornado-bar-left-${row.factorKey}`}
@@ -361,7 +390,7 @@ export function TornadoChart({
                 {/* Right bar — stronger than estimated */}
                 {shouldRenderRightBar && (
                   <div
-                    className={`absolute top-0 h-full rounded-r ${isReactiveRow ? 'ring-1 ring-text-light/30' : ''}`}
+                    className={`absolute top-0 h-full rounded-r ${rightBarExtra}`}
                     style={{
                       left: `${rightLeft}%`,
                       width: `${Math.max(0, rightWidth)}%`,
@@ -369,7 +398,7 @@ export function TornadoChart({
                       cursor: dragState.isDragging ? 'grabbing' : 'grab',
                       transition: barTransition,
                     }}
-                    onPointerDown={(e) => handlePointerDown(row.factorKey, e)}
+                    onPointerDown={(e) => handlePointerDown(row.factorKey, 'right', e)}
                     onPointerMove={handlePointerMove}
                     onPointerUp={handlePointerUp}
                     data-testid={`tornado-bar-right-${row.factorKey}`}
@@ -389,7 +418,7 @@ export function TornadoChart({
                 {/* Low value label — hidden when left bar is collapsed */}
                 {leftWidth > 0.5 && (
                   <span
-                    className={`absolute top-1/2 -translate-y-1/2 ${typography.panelMeta} ${leftLabelColour} whitespace-nowrap ${dragState.isDragging ? 'pointer-events-none' : ''}`}
+                    className={`absolute top-1/2 -translate-y-1/2 ${typography.panelMeta} ${leftLabelColour} whitespace-nowrap ${dragState.isDragging ? 'pointer-events-none' : ''} ${leftBarExtra.includes('opacity') ? 'opacity-30' : ''}`}
                     style={{
                       right: `${100 - Math.min(lowPct, centrePct) + 1}%`,
                       transition: isActiveRow ? 'none' : 'right 150ms ease-out',
@@ -402,7 +431,7 @@ export function TornadoChart({
                 {/* High value label — hidden when right bar is collapsed */}
                 {rightWidth > 0.5 && (
                   <span
-                    className={`absolute top-1/2 -translate-y-1/2 ${typography.panelMeta} ${rightLabelColour} whitespace-nowrap ${dragState.isDragging ? 'pointer-events-none' : ''}`}
+                    className={`absolute top-1/2 -translate-y-1/2 ${typography.panelMeta} ${rightLabelColour} whitespace-nowrap ${dragState.isDragging ? 'pointer-events-none' : ''} ${rightBarExtra.includes('opacity') ? 'opacity-30' : ''}`}
                     style={{
                       left: `${Math.max(highPct, centrePct) + 1}%`,
                       transition: isActiveRow ? 'none' : 'left 150ms ease-out',
