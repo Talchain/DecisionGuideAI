@@ -13,6 +13,7 @@ import type {
   RobustnessSynthesisV3,
   M1Coaching,
 } from '../../../types/cee'
+import type { CEEGoalConstraint } from '../../cee/types'
 
 // ============================================================================
 // Request Types
@@ -122,6 +123,11 @@ export interface V2RunRequest {
    * PLoT uses this for context when generating insights and recommendations.
    */
   brief?: string
+  /**
+   * Goal constraints for multi-constraint analysis.
+   * When present, ISL computes probability_of_joint_goal.
+   */
+  goal_constraints?: CEEGoalConstraint[]
 }
 
 // ============================================================================

@@ -236,6 +236,19 @@ export type CEEEdgeOrigin = 'user' | 'ai' | 'default'
 // =============================================================================
 
 /**
+ * Goal constraint from CEE for multi-constraint analysis.
+ * Passed through to PLoT /v2/run so ISL can compute joint goal probability.
+ */
+export interface CEEGoalConstraint {
+  /** Constraint-specific identifier (e.g. "c1"), NOT a graph node ID */
+  id: string
+  label: string
+  operator: '>=' | '<=' | '>' | '<' | '='
+  value: number
+  probability?: number | null
+}
+
+/**
  * CEE V3 intervention format.
  */
 export interface CEEInterventionV3 {
@@ -314,6 +327,11 @@ export interface CEEAnalysisReady {
    * Max 3 are displayed in the Review assumptions tier.
    */
   low_confidence_edges?: Array<{ edge_id: string; prompt: string }>
+  /**
+   * Goal constraints for multi-constraint analysis.
+   * When present, PLoT/ISL computes probability_of_joint_goal.
+   */
+  goal_constraints?: CEEGoalConstraint[]
 }
 
 /**

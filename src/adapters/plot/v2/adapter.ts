@@ -855,6 +855,8 @@ export function buildV2RequestFromAnalysisReady(
     ...(analysisReady.goal_threshold_raw != null && { goal_threshold_raw: analysisReady.goal_threshold_raw }),
     ...(analysisReady.goal_threshold_unit ? { goal_threshold_unit: analysisReady.goal_threshold_unit } : {}),
     ...(analysisReady.goal_threshold_cap != null && { goal_threshold_cap: analysisReady.goal_threshold_cap }),
+    // V3: Pass through goal constraints for multi-constraint analysis
+    ...(analysisReady.goal_constraints?.length && { goal_constraints: analysisReady.goal_constraints }),
   }
 
   return { request, reverseIdMap: normalised.reverseIdMap }
