@@ -65,6 +65,8 @@ interface RecommendationSectionProps {
   onAddBaseline?: () => void
   /** Callback to set a specific option as baseline by ID (does NOT trigger rerun) */
   onSetBaseline?: (optionId: string) => void
+  /** V9.2 Phase 2.3: Cross-highlight — flash an option card when a GraphLink references it */
+  onFlashOption?: (optionId: string) => void
 }
 
 export function RecommendationSection({
@@ -85,6 +87,7 @@ export function RecommendationSection({
   isThresholdFromBrief = false,
   onAddBaseline,
   onSetBaseline,
+  onFlashOption,
 }: RecommendationSectionProps) {
   const {
     recommendedOption,
@@ -234,6 +237,7 @@ export function RecommendationSection({
         coachingHeadline={coachingHeadline}
         coachingParagraph={data.coachingParagraph}
         onFocusNode={onFocusNode}
+        onFlashOption={onFlashOption}
       />
 
       {/* P2 Task 3: Limited options coaching card (moved below hero) */}

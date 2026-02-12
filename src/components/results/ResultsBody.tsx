@@ -9,6 +9,7 @@
  * - Storybook stories (with fixture data)
  */
 
+import { useRef, useCallback } from 'react'
 import { typography } from '../../styles/typography'
 import type { ResultsSectionDataReturn } from './useResultsSectionData'
 import { RecommendationSection } from './RecommendationSection'
@@ -75,6 +76,16 @@ export function ResultsBody({
   edgeCount,
   identifiability,
 }: ResultsBodyProps) {
+  // Phase 2.3: Cross-highlight — flash an option card when a GraphLink references it
+  const optionCardRefs = useRef<Map<string, HTMLDivElement>>(new Map())
+  const flashOptionCard = useCallback((optionId: string) => {
+    const el = optionCardRefs.current.get(optionId)
+    if (!el) return
+    el.classList.remove('cflash')
+    void el.offsetWidth // force reflow to restart animation
+    el.classList.add('cflash')
+  }, [])
+
   return (
     <div className="flex flex-col gap-[18px]" data-testid="outputs-results-redesign">
 
@@ -97,6 +108,7 @@ export function ResultsBody({
           isThresholdFromBrief={isThresholdFromBrief}
           onAddBaseline={onAddBaseline}
           onSetBaseline={onSetBaseline}
+          onFlashOption={flashOptionCard}
         />
       </div>
 
@@ -120,6 +132,7 @@ export function ResultsBody({
             winnerId={resultsSectionData.recommendation.recommendedOption?.id}
             hasGoalThreshold={resultsSectionData.recommendation.goalThreshold != null}
             storyHeadlines={resultsSectionData.recommendation.storyHeadlines}
+            cardRefMap={optionCardRefs}
           />
           {/* Tipping points below option cards (kept until Phase 3.4 ships) */}
           <TippingPoints

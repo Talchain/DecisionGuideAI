@@ -68,6 +68,7 @@ export interface HeroSectionProps {
     toId: string
     toLabel: string
     alternativeWinnerLabel: string
+    alternativeWinnerId?: string
     switchProbability?: number
     labelsResolved?: boolean
   }
@@ -96,6 +97,8 @@ export interface HeroSectionProps {
   m2CoachingParagraph?: RichText
   m2BiasInsights?: string[]
   onFocusNode?: (nodeId: string) => void
+  /** V9.2 Phase 2.3: Cross-highlight — flash an option card when a GraphLink references it */
+  onFlashOption?: (optionId: string) => void
 }
 
 // =============================================================================
@@ -268,6 +271,7 @@ export function HeroSection({
   m2CoachingParagraph,
   m2BiasInsights,
   onFocusNode,
+  onFlashOption,
 }: HeroSectionProps) {
   // v7.4 Task 6: Default expand state based on robustness level
   // low/very_low stability (< 0.70) defaults to expanded ("Sensitive" or "Highly sensitive")
@@ -334,6 +338,7 @@ export function HeroSection({
       toId: topFragileEdge.toId,
       toLabel: stripEncodingNotation(topFragileEdge.toLabel),
       altLabel: stripEncodingNotation(topFragileEdge.alternativeWinnerLabel),
+      altId: topFragileEdge.alternativeWinnerId,
     }
   }, [topFragileEdge])
 
@@ -385,7 +390,19 @@ export function HeroSection({
                     onFocus={onFocusNode}
                     className={typography.panelBody}
                   />
-                  {' '}is weaker than expected, {conditionCard.altLabel} becomes stronger
+                  {' '}is weaker than expected,{' '}
+                  {conditionCard.altId && onFlashOption ? (
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); onFlashOption(conditionCard.altId!) }}
+                      className="text-info hover:underline"
+                    >
+                      {conditionCard.altLabel}
+                    </button>
+                  ) : (
+                    conditionCard.altLabel
+                  )}
+                  {' '}becomes stronger
                 </>
               )}
             </p>

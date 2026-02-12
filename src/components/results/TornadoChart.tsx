@@ -244,7 +244,7 @@ export function TornadoChart({
       data-testid="tornado-chart"
     >
       <p className={`${typography.panelBody} text-text-light mb-3 leading-relaxed`}>
-        Drag the bars to see how the outcome shifts when each factor is stronger or weaker than your estimate.
+        Drag a bar to preview a what-if — what happens if one factor is stronger or weaker than you estimated?
       </p>
 
       {/* Tornado rows */}
@@ -458,7 +458,7 @@ export function TornadoChart({
       {/* Preview disclaimer + reset link */}
       <div className="flex items-baseline justify-between mt-2">
         <p className={`${typography.panelMeta} text-text-light italic leading-relaxed`}>
-          Preview only — drag to explore. Approximate sensitivity, not exact bounds.
+          Preview only — explore one factor at a time. Approximate sensitivity, not exact bounds.
         </p>
         {dragState.hasUserDragged && (
           <button

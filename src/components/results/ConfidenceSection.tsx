@@ -236,7 +236,11 @@ function UncertaintyRow({
         <>
           {/* Line 1: Icon + edge title + optional severity label + confidence pill + arrow */}
           <div className="flex items-start gap-2">
-            <span className={`${severityConfig.textColor} ${typography.panelBody} flex-shrink-0 mt-0.5`}>{severityConfig.icon}</span>
+            {groupType === 'high-risk' ? (
+              <AlertTriangle className={`w-4 h-4 ${severityConfig.textColor} flex-shrink-0 mt-0.5`} />
+            ) : (
+              <span className={`${severityConfig.textColor} ${typography.panelBody} flex-shrink-0 mt-0.5`}>{severityConfig.icon}</span>
+            )}
             <span
               className={`${typography.panelHeader} text-text-header flex-1 min-w-0 overflow-hidden`}
               style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' } as React.CSSProperties}
@@ -264,7 +268,11 @@ function UncertaintyRow({
         // Full format for non-edge uncertainties
         <>
           <div className="flex items-start gap-2">
-            <span className={`${severityConfig.textColor} ${typography.panelBody} flex-shrink-0`}>{severityConfig.icon}</span>
+            {groupType === 'high-risk' ? (
+              <AlertTriangle className={`w-4 h-4 ${severityConfig.textColor} flex-shrink-0 mt-0.5`} />
+            ) : (
+              <span className={`${severityConfig.textColor} ${typography.panelBody} flex-shrink-0`}>{severityConfig.icon}</span>
+            )}
             <div className="flex-1 min-w-0">
               <div className="flex items-start justify-between gap-2">
                 <div className="flex-1 min-w-0">
@@ -405,14 +413,14 @@ export function ConfidenceSection({
       {/* CASE 1: Model is fully ready - show positive message ONLY */}
       {/* Bug 2 fix: Only show when robustness is high/moderate AND stability >= 0.6 */}
       {isFullyReady && (
-        <div className="p-4 bg-success-50 border border-success-200 rounded-lg">
+        <div className="p-4 border border-success/30 rounded-lg">
           <div className="flex items-center gap-2 mb-2">
             <span className="text-lg">✓</span>
-            <span className={`${typography.panelHeader} text-success-800`}>
+            <span className={`${typography.panelHeader} text-success`}>
               Good foundation
             </span>
           </div>
-          <p className={`${typography.panelBody} text-success-700`}>
+          <p className={`${typography.panelBody} text-text-body`}>
             Your model looks good. You're ready to decide.
           </p>
         </div>
@@ -439,10 +447,10 @@ export function ConfidenceSection({
       {/* CASE 3: Strong tier but has items to address - show compact header */}
       {/* Note: Only show if not showing low robustness warning */}
       {tier.tier === 'strong' && !isFullyReady && !showLowRobustnessWarning && (
-        <div className="p-3 bg-success-50 border border-success-200 rounded-lg">
+        <div className="p-3 border border-success/30 rounded-lg">
           <div className="flex items-center gap-2">
-            <span className="text-success-600">✓</span>
-            <p className={`${typography.panelBody} text-success-800`}>
+            <span className="text-success">✓</span>
+            <p className={`${typography.panelBody} text-text-body`}>
               Good foundation — a few items to consider below
             </p>
           </div>
@@ -451,8 +459,8 @@ export function ConfidenceSection({
 
       {/* Evidence coverage */}
       {evidenceCoverage && (
-        <div className="p-3 bg-info-50 border border-info-200 rounded-lg">
-          <p className={`${typography.panelBody} text-info-800`}>
+        <div className="p-3 border border-info/30 rounded-lg">
+          <p className={`${typography.panelBody} text-text-body`}>
             <span className="font-medium">Model evidence:</span>{' '}
             {evidenceCoverage.backedByData} assumptions backed by data,{' '}
             {evidenceCoverage.needsValidation} need validation

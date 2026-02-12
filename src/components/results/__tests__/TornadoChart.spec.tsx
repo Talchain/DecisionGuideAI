@@ -263,7 +263,7 @@ describe('TornadoChart', () => {
       />
     )
 
-    expect(screen.getByText(/Drag the bars/)).toBeInTheDocument()
+    expect(screen.getByText(/Drag a bar to preview/)).toBeInTheDocument()
   })
 
   // ── Axis label tests ──

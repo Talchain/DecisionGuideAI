@@ -1,6 +1,10 @@
 /**
  * TippingPoints Component
  *
+ * @deprecated Superseded by tornado flip indicator (Phase 3.4). Kept until
+ * tornado drag ships. Do not add new features here — migrate unique logic
+ * (user-unit formatting) into TornadoChart before removal.
+ *
  * Displays where the decision could flip — either as flip threshold tracks
  * (Mode A) or as relative driver strength bars (Mode B fallback).
  *
