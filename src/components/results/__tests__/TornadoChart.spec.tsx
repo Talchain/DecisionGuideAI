@@ -321,12 +321,14 @@ describe('TornadoChart', () => {
     fireEvent.pointerUp(bar, { pointerId: 1 })
   }
 
-  it('pointerDown activates reactive mode (bar gets ring highlight)', () => {
+  it('pointerDown activates reactive mode (bar gets ring highlight, opposite dimmed)', () => {
     render(
       <TornadoChart rows={[positiveRow]} expectedOutcome={100} />
     )
 
     const leftBar = screen.getByTestId('tornado-bar-left-revenue')
+    const rightBar = screen.getByTestId('tornado-bar-right-revenue')
+    const originalRightWidth = rightBar.style.width
     const container = leftBar.closest('[data-bar-container]') as HTMLElement
     container.getBoundingClientRect = () => ({
       left: 0, right: 200, width: 200,
@@ -335,13 +337,16 @@ describe('TornadoChart', () => {
     })
     leftBar.setPointerCapture = vi.fn()
 
-    // Before drag: no ring
+    // Before drag: no ring, no dimming
     expect(leftBar.className).not.toContain('ring-1')
+    expect(rightBar.className).not.toContain('opacity-30')
 
     fireEvent.pointerDown(leftBar, { pointerId: 1, clientX: 50 })
 
-    // After pointerDown: reactive mode → ring highlight
+    // During drag (before pointerUp): active bar has ring, opposite dimmed at original width
     expect(leftBar.className).toContain('ring-1')
+    expect(rightBar.className).toContain('opacity-30')
+    expect(rightBar.style.width).toBe(originalRightWidth)
   })
 
   it('bar widths reflect stored outcome after full drag cycle', () => {
