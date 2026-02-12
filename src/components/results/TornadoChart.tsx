@@ -9,16 +9,20 @@
  * approximation, not authoritative per-factor outcome bounds from PLoT.
  *
  * Phase 3.3: Drag interaction — bars are draggable to preview outcome shifts.
- * Phase 3.4: Flip indicator — warning when drag crosses a flip threshold.
- * Phase 3.5: "Apply and rerun" — persists dragged values and triggers rerun.
+ * Phase 3.4: Flip indicator — DISABLED. Requires factor-space bounds (factorLow/factorHigh)
+ *   to map drag position to factor values for comparison against flip_value. Currently
+ *   tornado data only has outcome-space values. Flip detection will be re-enabled when
+ *   PLoT factor_sensitivity per-factor ranges are threaded through the data pipeline.
+ * Phase 3.5: "Apply and rerun" — DISABLED. Same root cause as 3.4: writing outcome-space
+ *   interpolated values into factor-space observedState.value produces incorrect results.
+ *   Will be re-enabled alongside factor-space data availability.
  */
 
-import { useMemo, useCallback, useRef, useEffect, useState } from 'react'
+import { useMemo, useCallback, useRef, useState } from 'react'
 import { typography } from '../../styles/typography'
 import { formatPercent as formatPct } from '../../utils/formatPercent'
 import { stripEncodingNotation } from './utils/cleanFactorLabel'
 import { focusNodeById } from '../../canvas/utils/focusHelpers'
-import type { FlipThreshold } from './types'
 
 export interface TornadoRow {
   /** Factor key / node ID */
@@ -50,10 +54,6 @@ export interface TornadoChartProps {
   onFocusNode?: (nodeId: string) => void
   /** v7: When true, values are normalised model scores */
   isNormalised?: boolean
-  /** Flip thresholds for flip indicator (Phase 3.4) */
-  flipThresholds?: FlipThreshold[]
-  /** Callback to apply dragged values and rerun (Phase 3.5) */
-  onApplyAndRerun?: (modifiedFactors: Map<string, number>) => void
 }
 
 /** Format a value for tornado axis/labels. Shows % shift when normalised (0.13 → "+13%"). */
@@ -99,14 +99,6 @@ interface DragContext {
   pointerId: number
 }
 
-// ─── Flip detection ─────────────────────────────────────────────────────────
-
-interface ActiveFlip {
-  factorLabel: string
-  flipValue: number
-  alternativeWinnerLabel: string
-}
-
 export function TornadoChart({
   rows,
   expectedOutcome,
@@ -114,8 +106,6 @@ export function TornadoChart({
   outcomeUnitSymbol,
   onFocusNode,
   isNormalised,
-  flipThresholds,
-  onApplyAndRerun,
 }: TornadoChartProps) {
   // ── Drag state ──
   const [dragState, setDragState] = useState<DragState>({
@@ -126,21 +116,6 @@ export function TornadoChart({
     modifiedFactors: new Map(),
   })
   const dragContextRef = useRef<DragContext | null>(null)
-
-  // ── Flip state ──
-  const [activeFlip, setActiveFlip] = useState<ActiveFlip | null>(null)
-
-  // ── Reduced motion ──
-  const [prefersReducedMotion, setPrefersReducedMotion] = useState(false)
-  useEffect(() => {
-    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return
-    const mq = window.matchMedia('(prefers-reduced-motion: reduce)')
-    if (!mq) return
-    setPrefersReducedMotion(mq.matches)
-    const handler = (e: MediaQueryListEvent) => setPrefersReducedMotion(e.matches)
-    mq.addEventListener('change', handler)
-    return () => mq.removeEventListener('change', handler)
-  }, [])
 
   // Compute the full range across all rows for scaling
   const { minVal, maxVal } = useMemo(() => {
@@ -206,34 +181,7 @@ export function TornadoChart({
       ...prev,
       interpolatedOutcome: interpolated,
     }))
-
-    // Check flip thresholds for this factor
-    if (flipThresholds) {
-      const flip = flipThresholds.find(ft =>
-        ft.node_id === ctx.factorId && ft.flip_value != null
-      )
-      if (flip && flip.flip_value != null) {
-        // Has the interpolated outcome crossed the flip threshold?
-        // We check if the interpolated value has moved past the flip_value
-        // relative to the current_value (baseline)
-        const crossedFlip = (
-          (row.lowOutcome <= flip.flip_value && interpolated >= flip.flip_value) ||
-          (row.highOutcome >= flip.flip_value && interpolated <= flip.flip_value) ||
-          (interpolated >= flip.flip_value && expectedOutcome < flip.flip_value) ||
-          (interpolated <= flip.flip_value && expectedOutcome > flip.flip_value)
-        )
-        if (crossedFlip && flip.alternative_winner_label) {
-          setActiveFlip({
-            factorLabel: flip.label,
-            flipValue: flip.flip_value,
-            alternativeWinnerLabel: flip.alternative_winner_label,
-          })
-        } else {
-          setActiveFlip(null)
-        }
-      }
-    }
-  }, [flipThresholds, expectedOutcome])
+  }, [])
 
   const handlePointerUp = useCallback(() => {
     const ctx = dragContextRef.current
@@ -255,26 +203,13 @@ export function TornadoChart({
     dragContextRef.current = null
   }, [])
 
-  const handleApplyClick = useCallback(() => {
-    if (onApplyAndRerun && dragState.modifiedFactors.size > 0) {
-      onApplyAndRerun(dragState.modifiedFactors)
-      // Reset drag state after apply
-      setDragState({
-        isDragging: false,
-        activeFactorId: null,
-        interpolatedOutcome: expectedOutcome,
-        hasUserDragged: false,
-        modifiedFactors: new Map(),
-      })
-      setActiveFlip(null)
-    }
-  }, [onApplyAndRerun, dragState.modifiedFactors, expectedOutcome])
-
   // The outcome display: when dragging, show interpolated; when a factor was
   // previously dragged, show the most recently modified factor's value; else expected
   const displayOutcome = dragState.isDragging
     ? dragState.interpolatedOutcome
-    : expectedOutcome
+    : dragState.hasUserDragged
+      ? Array.from(dragState.modifiedFactors.values()).at(-1) ?? expectedOutcome
+      : expectedOutcome
 
   if (rows.length === 0) return null
 
@@ -445,30 +380,6 @@ export function TornadoChart({
         </span>
         <span>Stronger than estimated →</span>
       </div>
-
-      {/* Flip indicator (Phase 3.4) */}
-      {activeFlip && (
-        <div
-          className={`mt-2 p-2 border border-danger/30 rounded-lg ${!prefersReducedMotion ? 'animate-pulse' : ''}`}
-          data-testid="tornado-flip-indicator"
-        >
-          <p className={`${typography.panelBody} text-danger`}>
-            At {formatValue(activeFlip.flipValue, outcomeUnit, outcomeUnitSymbol, isNormalised)}, the recommendation flips to {activeFlip.alternativeWinnerLabel}
-          </p>
-        </div>
-      )}
-
-      {/* Apply and rerun button (Phase 3.5) */}
-      {dragState.hasUserDragged && onApplyAndRerun && (
-        <button
-          type="button"
-          onClick={handleApplyClick}
-          className={`mt-2 px-4 py-1.5 bg-info text-white rounded-full ${typography.panelBody} hover:bg-info-hover transition-colors`}
-          data-testid="tornado-apply-rerun"
-        >
-          Apply these estimates and rerun
-        </button>
-      )}
 
       {/* Preview disclaimer */}
       <p className={`${typography.panelMeta} text-text-light mt-2 italic leading-relaxed`}>

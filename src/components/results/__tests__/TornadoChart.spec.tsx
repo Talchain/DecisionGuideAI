@@ -214,9 +214,12 @@ describe('TornadoChart', () => {
     expect(leftBar).toHaveStyle({ cursor: 'grab' })
   })
 
-  // ── Flip indicator tests ──
+  // ── Disabled features (flip indicator + apply-and-rerun) ──
+  // Flip indicator and apply-and-rerun are disabled until factor-space bounds
+  // (factorLow/factorHigh) are available from PLoT factor_sensitivity data.
+  // See TornadoChart.tsx header comments for details.
 
-  it('flip indicator hidden when no flip data', () => {
+  it('flip indicator is not rendered (disabled)', () => {
     render(
       <TornadoChart
         rows={[positiveRow]}
@@ -227,40 +230,7 @@ describe('TornadoChart', () => {
     expect(screen.queryByTestId('tornado-flip-indicator')).not.toBeInTheDocument()
   })
 
-  it('flip indicator hidden when flip_value is null', () => {
-    render(
-      <TornadoChart
-        rows={[positiveRow]}
-        expectedOutcome={100}
-        flipThresholds={[{
-          label: 'Revenue Growth',
-          node_id: 'revenue',
-          current_value: 100,
-          flip_value: null,
-          flip_reason: 'no_bracket',
-        }]}
-      />
-    )
-
-    expect(screen.queryByTestId('tornado-flip-indicator')).not.toBeInTheDocument()
-  })
-
-  // ── Apply and rerun tests ──
-
-  it('apply and rerun button hidden initially', () => {
-    const onApply = vi.fn()
-    render(
-      <TornadoChart
-        rows={[positiveRow]}
-        expectedOutcome={100}
-        onApplyAndRerun={onApply}
-      />
-    )
-
-    expect(screen.queryByTestId('tornado-apply-rerun')).not.toBeInTheDocument()
-  })
-
-  it('apply and rerun button hidden when no onApplyAndRerun callback', () => {
+  it('apply-and-rerun button is not rendered (disabled)', () => {
     render(
       <TornadoChart
         rows={[positiveRow]}

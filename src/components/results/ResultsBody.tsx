@@ -51,8 +51,6 @@ export interface ResultsBodyProps {
   nodeCount?: number
   edgeCount?: number
   identifiability?: string | null
-  /** Callback when user drags tornado bars and clicks "Apply and rerun" */
-  onApplyTornadoDrag?: (modifiedFactors: Map<string, number>) => void
 }
 
 export function ResultsBody({
@@ -76,7 +74,6 @@ export function ResultsBody({
   nodeCount,
   edgeCount,
   identifiability,
-  onApplyTornadoDrag,
 }: ResultsBodyProps) {
   return (
     <div className="flex flex-col gap-[18px]" data-testid="outputs-results-redesign">
@@ -153,8 +150,6 @@ export function ResultsBody({
           outcomeUnit={resultsSectionData.recommendation.outcomeUnit}
           outcomeUnitSymbol={resultsSectionData.recommendation.outcomeUnitSymbol}
           isNormalised={resultsSectionData.recommendation.isNormalised}
-          flipThresholds={resultsSectionData.recommendation.flipThresholds}
-          onApplyTornadoDrag={onApplyTornadoDrag}
         />
       </div>
 

@@ -21,7 +21,6 @@ import { formatFlipRiskMessage } from './utils/formatScenarioRatio'
 import { FactorInsights, hasEnrichmentContent } from './FactorInsights'
 import { cleanFactorLabel, stripEncodingNotation } from './utils/cleanFactorLabel'
 import { TornadoChart, type TornadoRow } from './TornadoChart'
-import type { FlipThreshold } from './types'
 import { typography } from '../../styles/typography'
 import { formatPercent } from '../../utils/formatPercent'
 import { Info, AlertTriangle } from 'lucide-react'
@@ -46,10 +45,6 @@ interface DriversSectionProps {
   outcomeUnitSymbol?: string
   /** v7: When true, values are normalised model scores */
   isNormalised?: boolean
-  /** Flip thresholds for tornado flip indicator */
-  flipThresholds?: FlipThreshold[]
-  /** Callback when user applies tornado drag values and reruns */
-  onApplyTornadoDrag?: (modifiedFactors: Map<string, number>) => void
 }
 
 // Bar colors — use design system tokens, no hex literals
@@ -532,8 +527,6 @@ export function DriversSection({
   outcomeUnit,
   outcomeUnitSymbol,
   isNormalised,
-  flipThresholds,
-  onApplyTornadoDrag,
 }: DriversSectionProps) {
   const [showAll, setShowAll] = useState(false)
   const { drivers, driversStatus, topDrivers, hasMagnitudeData, islError, hiddenZeroImpactCount, dominantFactorId, dominantFactorLabel } = data
@@ -725,8 +718,6 @@ export function DriversSection({
                 outcomeUnitSymbol={outcomeUnitSymbol}
                 onFocusNode={onFocusNode}
                 isNormalised={isNormalised}
-                flipThresholds={flipThresholds}
-                onApplyAndRerun={onApplyTornadoDrag}
               />
             </div>
           </details>
