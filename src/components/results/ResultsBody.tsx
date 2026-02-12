@@ -20,6 +20,7 @@ import { SectionHeader } from './SectionHeader'
 import { OptionCards } from './OptionCards'
 import { SuccessTargetRow } from './SuccessTargetRow'
 import { TippingPoints } from './TippingPoints'
+import { AdvancedSection } from './AdvancedSection'
 
 export interface StrengthCorrectionDisplay {
   edgeId: string
@@ -47,6 +48,9 @@ export interface ResultsBodyProps {
   fragileEdgeCount?: number
   robustEdgeCount?: number
   responseHash?: string
+  nodeCount?: number
+  edgeCount?: number
+  identifiability?: string | null
 }
 
 export function ResultsBody({
@@ -67,6 +71,9 @@ export function ResultsBody({
   fragileEdgeCount,
   robustEdgeCount,
   responseHash,
+  nodeCount,
+  edgeCount,
+  identifiability,
 }: ResultsBodyProps) {
   return (
     <div className="flex flex-col gap-[18px]" data-testid="outputs-results-redesign">
@@ -150,7 +157,7 @@ export function ResultsBody({
       {/* v7.10 T5: Auto-expand based on robustness.level === 'low' or 'very_low' */}
       <div>
         <Accordion
-          title="Strengthen your analysis"
+          title="What to do next"
           defaultExpanded={
             resultsSectionData.confidence.robustnessLevel === 'low' ||
             resultsSectionData.confidence.robustnessLevel === 'very_low'
@@ -189,6 +196,21 @@ export function ResultsBody({
             visibleDriverCount={resultsSectionData.drivers.totalCount}
           />
         </Accordion>
+      </div>
+
+      {/* ── SECTION 5: ADVANCED ───────────────────────────────── */}
+      <div>
+        <AdvancedSection
+          stability={resultsSectionData.recommendation.recommendationStability}
+          nSamples={nSamples}
+          seedUsed={seedUsed}
+          fragileEdgeCount={fragileEdgeCount}
+          robustEdgeCount={robustEdgeCount}
+          nodeCount={nodeCount}
+          edgeCount={edgeCount}
+          identifiability={identifiability}
+          responseHash={responseHash}
+        />
       </div>
 
       {/* Adjustments Made: Show any strength corrections applied during this run */}

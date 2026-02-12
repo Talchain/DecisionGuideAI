@@ -13,7 +13,7 @@
  * - Conditional display based on status fields
  */
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useMemo } from 'react'
 import type { ConfidenceSectionData, UncertaintyItem, ImprovementItem, CritiqueSeverity, ConfidenceTier, EvidenceGapItem, NextActionItem, AssumptionItem } from './types'
 import { CappedList } from './CappedList'
 import { focusNodeById, focusByTarget, type FocusTargetType } from '../../canvas/utils/focusHelpers'
@@ -21,6 +21,8 @@ import { EMPTY_STATES } from './emptyStates'
 import { typography } from '../../styles/typography'
 import { MIN_STABLE_RECOMMENDATION_STABILITY, isStableRobustnessLevel } from './constants'
 import { stripEncodingNotation } from './utils/cleanFactorLabel'
+import { groupActionItems, type ActionGroup, type ActionItem } from './utils/groupActionItems'
+import { AlertTriangle, Search, EyeOff, Shield } from 'lucide-react'
 
 /**
  * Task C (M1 Coaching): Convert VOI (Value of Information) to impact label.
@@ -397,53 +399,8 @@ export function ConfidenceSection({
 
   // v7.10 T6: showTierWarning + tierDescription removed — tier badge now in Accordion header
 
-  // v7.6 T2 Fix: Intro count reflects visible cards (Group 1 capped at 3)
-  const evidenceGapCount = evidenceGaps?.length ?? 0
-  const rawGroup1Count = uncertainties.filter(u => u.code === 'SENSITIVE_ASSUMPTION').length
-  const group1Count = Math.min(3, rawGroup1Count)
-  const group2Count = uncertainties.filter(u => u.code !== 'SENSITIVE_ASSUMPTION').length + evidenceGapCount
-  const totalActionableItems = group1Count + group2Count
-  const showIntroNudge = totalActionableItems > 0 && topDriverLabel
-
   return (
     <div className="space-y-4">
-      {/* Intro nudge — cognitive prompt */}
-      {showIntroNudge && (
-        <div className={`p-2.5 bg-panel-hover rounded-lg ${typography.panelHeader} text-text-body leading-relaxed`}>
-          <strong className="text-text-header">{totalActionableItems} item{totalActionableItems === 1 ? '' : 's'} could affect your decision</strong>{group1Count > 0 && group2Count > 0 ? ` — ${group1Count} condition${group1Count === 1 ? '' : 's'}, ${group2Count} to investigate.` : '.'}{' '}
-          {visibleDriverCount >= 2 ? (
-            <>Your biggest driver ({topDriverId ? (
-              <button
-                type="button"
-                onClick={() => {
-                  if (onFocusNode) onFocusNode(topDriverId)
-                  else focusNodeById(topDriverId)
-                }}
-                className="text-info font-medium hover:underline focus:outline-none focus:ring-2 focus:ring-info focus:ring-offset-1 rounded"
-              >
-                {stripEncodingNotation(topDriverLabel)}
-              </button>
-            ) : (
-              <span className="text-info font-medium">{stripEncodingNotation(topDriverLabel)}</span>
-            )}) also has the widest uncertainty — is your estimate solid enough to rely on?</>
-          ) : (
-            <>Is your estimate of {topDriverId ? (
-              <button
-                type="button"
-                onClick={() => {
-                  if (onFocusNode) onFocusNode(topDriverId)
-                  else focusNodeById(topDriverId)
-                }}
-                className="text-info font-medium hover:underline focus:outline-none focus:ring-2 focus:ring-info focus:ring-offset-1 rounded"
-              >
-                {stripEncodingNotation(topDriverLabel)}
-              </button>
-            ) : (
-              <span className="text-info font-medium">{stripEncodingNotation(topDriverLabel)}</span>
-            )} solid enough to rely on?</>
-          )}
-        </div>
-      )}
 
       {/* CASE 1: Model is fully ready - show positive message ONLY */}
       {/* Bug 2 fix: Only show when robustness is high/moderate AND stability >= 0.6 */}
@@ -503,96 +460,206 @@ export function ConfidenceSection({
         </div>
       )}
 
-      {/* P2-3: Uncertainties - Two-tier ranked list */}
-      {showUncertainties && (() => {
-        // v7.5 T1 Fix: Toggle now only affects Group 1 (fragile edges), not Group 2
-        // Split uncertainties into two tiers per v7.3 brief:
-        // - Group 1: "Conditions that would change your mind" = fragile edges (code: SENSITIVE_ASSUMPTION), sorted by severity, top 3 when collapsed
-        // - Group 2: "What you'd want to know before committing" = low-confidence factors (always all visible)
-        const severityOrder = { critical: 3, error: 2, warning: 1, blocker: 4 }
-        const allFragileEdges = uncertainties
+      {/* V9.2: Grouped action items (replaces two-tier uncertainties + evidence gaps) */}
+      {(() => {
+        const severityOrder: Record<string, number> = { critical: 3, error: 2, warning: 1, blocker: 4 }
+        const fragileEdges = [...uncertainties]
           .filter(item => item.code === 'SENSITIVE_ASSUMPTION')
           .sort((a, b) => {
             const aSev = severityOrder[a.severity || 'warning'] || 0
             const bSev = severityOrder[b.severity || 'warning'] || 0
-            return bSev - aSev  // Higher severity first
+            return bSev - aSev
           })
-        // Toggle controls fragile edge display: top 3 when collapsed, all when expanded
-        const couldChangeDecision = showAllUncertainties ? allFragileEdges : allFragileEdges.slice(0, 3)
-        const hiddenFragileCount = Math.max(0, allFragileEdges.length - 3)
+        const displayFragileEdges = showAllUncertainties ? fragileEdges : fragileEdges.slice(0, 3)
+        const hiddenFragileCount = Math.max(0, fragileEdges.length - 3)
 
-        // Group 2: always show all non-SENSITIVE_ASSUMPTION items
-        const worthRefining = uncertainties.filter(
-          item => item.code !== 'SENSITIVE_ASSUMPTION'
-        )
+        const groups = groupActionItems({
+          fragileEdges: displayFragileEdges,
+          evidenceGaps: evidenceGaps ?? [],
+        })
+
+        // Non-fragile-edge uncertainties (Group 2 legacy: low-confidence factors)
+        const worthRefining = uncertainties.filter(item => item.code !== 'SENSITIVE_ASSUMPTION')
+
+        // If nothing at all to show, render empty state
+        const hasAnyContent = fragileEdges.length > 0
+          || worthRefining.length > 0
+          || (evidenceGaps?.length ?? 0) > 0
+
+        if (!hasAnyContent) {
+          return (
+            <div className="p-3 border border-panel-border rounded-lg">
+              <p className={`${typography.panelBody} text-text-light flex items-start gap-2`}>
+                <span aria-hidden="true">ℹ️</span>
+                {robustnessStatus !== 'computed'
+                  ? EMPTY_STATES.robustness
+                  : filteredFragileEdges && filteredFragileEdges.filteredCount > 0
+                    ? `No high-sensitivity assumptions found. ${filteredFragileEdges.filteredCount} other assumption${filteredFragileEdges.filteredCount === 1 ? '' : 's'} tested had lower impact.`
+                    : 'No sensitive assumptions identified.'}
+              </p>
+            </div>
+          )
+        }
+
+        // Render non-empty groups with dividers between them
+        const nonEmptyGroups: Array<{ group: ActionGroup; fragileEdgeItems?: UncertaintyItem[]; refinementItems?: UncertaintyItem[] }> = []
+
+        // Group 1: Validate before committing (fragile edges)
+        if (displayFragileEdges.length > 0) {
+          nonEmptyGroups.push({ group: groups[0], fragileEdgeItems: displayFragileEdges })
+        }
+
+        // Non-SENSITIVE_ASSUMPTION uncertainties rendered alongside Group 2
+        // Group 2: Investigate (evidence gaps + legacy low-confidence factors)
+        if (groups[1].items.length > 0 || worthRefining.length > 0) {
+          nonEmptyGroups.push({ group: groups[1], refinementItems: worthRefining })
+        }
+
+        // Groups 3 and 4: M2 only
+        if (groups[2].items.length > 0) nonEmptyGroups.push({ group: groups[2] })
+        if (groups[3].items.length > 0) nonEmptyGroups.push({ group: groups[3] })
+
+        const ICON_MAP: Record<string, React.ElementType> = {
+          AlertTriangle, Search, EyeOff, Shield,
+        }
 
         return (
           <div className="space-y-4">
-            {uncertainties.length === 0 ? (
-              <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg">
-                <p className={`${typography.panelBody} text-slate-600 flex items-start gap-2`}>
-                  <span aria-hidden="true">ℹ️</span>
-                  {/* Bug 4 fix: Different message based on robustness status */}
-                  {robustnessStatus !== 'computed'
-                    ? EMPTY_STATES.robustness
-                    : filteredFragileEdges && filteredFragileEdges.filteredCount > 0
-                      ? `No high-sensitivity assumptions found. ${filteredFragileEdges.filteredCount} other assumption${filteredFragileEdges.filteredCount === 1 ? '' : 's'} tested had lower impact.`
-                      : 'No sensitive assumptions identified.'}
-                </p>
-              </div>
-            ) : (
-              <>
-                {/* Tier 1: Conditions that would change your mind */}
-                <div className="space-y-2">
-                  <h4 className={`${typography.panelHeader} text-text-header tracking-wide border-l-3 border-danger pl-2`}>
-                    Conditions that would change your mind
-                  </h4>
-                  <p className={`${typography.panelMeta} text-text-light`}>
-                    If any of these are wrong, the recommendation could change.
-                  </p>
-                  {couldChangeDecision.length > 0 ? (
+            {nonEmptyGroups.map((entry, groupIdx) => {
+              const { group } = entry
+              const IconComponent = ICON_MAP[group.icon]
+
+              return (
+                <div key={group.key}>
+                  {/* Group divider — between groups, not above first */}
+                  {groupIdx > 0 && (
+                    <div className="border-t border-panel-border mb-4" />
+                  )}
+
+                  {/* Group header */}
+                  <div className="flex items-center gap-2 mb-1.5">
+                    {IconComponent && (
+                      <IconComponent className={`w-4 h-4 ${group.iconColour} flex-shrink-0`} />
+                    )}
+                    <h4 className={`${typography.panelHeader} text-text-header`}>
+                      {group.label}
+                    </h4>
+                    {group.items.length > 0 && (
+                      <span className={`${typography.panelMeta} text-text-light`}>
+                        {group.items.length + (entry.refinementItems?.length ?? 0)}
+                      </span>
+                    )}
+                  </div>
+                  {group.intro && (
+                    <p className={`${typography.panelMeta} text-text-light mb-2`}>
+                      {group.intro}
+                    </p>
+                  )}
+
+                  {/* Group 1: Fragile edge cards (reuse UncertaintyRow) */}
+                  {entry.fragileEdgeItems && (
                     <div className="space-y-2">
-                      {couldChangeDecision.map((item, index) => (
+                      {entry.fragileEdgeItems.map((item, index) => (
                         <UncertaintyRow
-                          key={`high-${item.code}-${index}`}
+                          key={`validate-${item.code}-${index}`}
                           item={item}
                           onFocus={onFocusNode}
                           groupType="high-risk"
                         />
                       ))}
                     </div>
-                  ) : (
-                    <p className={`${typography.panelMeta} text-text-light italic py-2`}>
-                      No high-sensitivity conditions found.
-                    </p>
                   )}
-                </div>
 
-                {/* Tier 2: What you'd want to know before committing */}
-                {worthRefining.length > 0 && (
-                  <div className="space-y-2">
-                    <h4 className={`${typography.panelHeader} text-text-header tracking-wide border-l-3 border-warning pl-2`}>
-                      What you'd want to know before committing
-                    </h4>
-                    <p className={`${typography.panelMeta} text-text-light`}>
-                      These factors have limited evidence — worth investigating before you commit.
-                    </p>
+                  {/* Group 2: Evidence gap cards + legacy low-confidence factors */}
+                  {group.key === 'investigate' && (
                     <div className="space-y-2">
-                      {worthRefining.map((item, index) => (
+                      {/* Legacy low-confidence factor cards */}
+                      {entry.refinementItems?.map((item, index) => (
                         <UncertaintyRow
-                          key={`low-${item.code}-${index}`}
+                          key={`refine-${item.code}-${index}`}
                           item={item}
                           onFocus={onFocusNode}
                           groupType="refinement"
                         />
                       ))}
-                    </div>
-                  </div>
-                )}
-              </>
-            )}
+                      {/* Evidence gap action items */}
+                      {group.items.map((actionItem) => {
+                        const canFocus = !!actionItem.targetId
+                        const handleFocus = () => {
+                          if (actionItem.targetId) {
+                            if (onFocusNode) onFocusNode(actionItem.targetId)
+                            else focusNodeById(actionItem.targetId)
+                          }
+                        }
+                        // Confidence pill
+                        const pill = actionItem.confidenceLevel === 'low'
+                          ? { label: 'Low confidence', cls: 'bg-danger-light text-danger border-danger/30' }
+                          : actionItem.confidenceLevel === 'medium'
+                          ? { label: 'Medium confidence', cls: 'bg-warning-light text-warning border-warning/30' }
+                          : null
 
-            {/* v7.5 T1: "Show N more" reveals fragile edges beyond top 3 (Group 1 only) */}
+                        return (
+                          <div
+                            key={actionItem.id}
+                            className="p-3 border border-panel-border rounded-lg"
+                          >
+                            <div className="flex items-start gap-2">
+                              <Search className="w-4 h-4 text-info flex-shrink-0 mt-0.5" />
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-start justify-between gap-2">
+                                  {canFocus ? (
+                                    <button
+                                      type="button"
+                                      onClick={handleFocus}
+                                      className={`${typography.panelHeader} text-info hover:text-info-hover hover:underline text-left focus:outline-none focus:ring-2 focus:ring-info focus:ring-offset-1 rounded`}
+                                      aria-label={`Focus on ${actionItem.title} in model`}
+                                    >
+                                      {actionItem.title}
+                                    </button>
+                                  ) : (
+                                    <span className={`${typography.panelHeader} text-text-header`}>
+                                      {actionItem.title}
+                                    </span>
+                                  )}
+                                  {pill && (
+                                    <span className={`${typography.panelMeta} px-1.5 py-0.5 rounded-full whitespace-nowrap flex-shrink-0 border ${pill.cls}`}>
+                                      {pill.label}
+                                    </span>
+                                  )}
+                                </div>
+                                {actionItem.subtitle && (
+                                  <p className={`${typography.panelBody} text-text-light mt-1`}>
+                                    {actionItem.subtitle}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
+
+                  {/* Groups 3/4: Simple text cards */}
+                  {(group.key === 'reflect' || group.key === 'premortem') && (
+                    <div className="space-y-2">
+                      {group.items.map((actionItem) => (
+                        <div
+                          key={actionItem.id}
+                          className="p-3 border border-panel-border rounded-lg"
+                        >
+                          <p className={`${typography.panelBody} text-text-body`}>
+                            {actionItem.title}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+
+            {/* Show more/fewer for Group 1 fragile edges */}
             {hiddenFragileCount > 0 && (
               <button
                 onClick={() => setShowAllUncertainties(!showAllUncertainties)}
@@ -604,79 +671,6 @@ export function ConfidenceSection({
           </div>
         )
       })()}
-
-      {/* Task 11: Evidence Gaps - consolidated into "What needs attention" */}
-      {evidenceGaps && evidenceGaps.length > 0 && (
-        <div className="space-y-2">
-          {/* v7.10 T10: Fixed header colour to dark text (was slate-500) */}
-          <h4 className={`${typography.panelHeader} text-text-header tracking-wide border-l-3 border-warning pl-2`}>
-            What you'd want to know before committing
-          </h4>
-          <CappedList<EvidenceGapItem>
-            items={evidenceGaps}
-            maxVisible={3}
-            getKey={(gap) => gap.factorId}
-            renderItem={(gap) => {
-              // Task 4: Focus fallback - target_node_id → factor_id → hide CTA
-              const focusTarget = gap.targetNodeId ?? gap.factorId ?? null
-              const canFocus = focusTarget !== null
-
-              const handleFocus = () => {
-                if (canFocus) {
-                  if (onFocusNode) {
-                    onFocusNode(focusTarget!)
-                  } else {
-                    focusNodeById(focusTarget!)
-                  }
-                }
-              }
-
-              // Task 7: Clean encoding notation from factor label
-              const cleanedFactorLabel = stripEncodingNotation(gap.factorLabel)
-
-              return (
-                <div className="w-full text-left p-3 bg-panel border border-panel-border rounded-lg">
-                  <div className="flex-1 min-w-0">
-                    {/* Task 2: Factor label is clickable instead of separate CTA */}
-                    {canFocus ? (
-                      <span
-                        role="link"
-                        tabIndex={0}
-                        onClick={handleFocus}
-                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleFocus() } }}
-                        className={`${typography.panelHeader} text-text-body cursor-pointer hover:underline focus:outline-none focus:ring-2 focus:ring-info-500 focus:ring-offset-1 rounded`}
-                        aria-label={`Focus on ${cleanedFactorLabel} in model`}
-                      >
-                        {cleanedFactorLabel}
-                      </span>
-                    ) : (
-                      <p className={`${typography.panelHeader} text-text-body`}>
-                        {cleanedFactorLabel}
-                      </p>
-                    )}
-                    {gap.suggestion && (
-                      <p className={`${typography.panelBody} text-text-light mt-1`}>
-                        {gap.suggestion}
-                      </p>
-                    )}
-                    {/* Task C: VOI impact label (only show if VOI is valid) */}
-                    {voiToImpact(gap.voi) && (
-                      <span className={`${typography.panelBody} text-text-light mt-1 block`}>
-                        {voiToImpact(gap.voi)}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              )
-            }}
-            overflowLabel={(n) => `+${n} more`}
-            dedupeFn={(gap) => gap.factorId}
-            sortFn={(a, b) => b.voi - a.voi}
-            emptyMessage="No evidence gaps identified"
-            expandButtonAriaLabel="Show more evidence gaps"
-          />
-        </div>
-      )}
 
       {/* v7.5: gated — not in v7 prototype. Source: m1_coaching. Remove after v7 stable. */}
       {false && nextActions && nextActions.length > 0 && (

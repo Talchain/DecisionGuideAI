@@ -1,7 +1,8 @@
 /**
  * ConfidenceSection Tests
  *
- * Tests for the "What needs attention" panel - merged confidence + improvements.
+ * Tests for the "What to do next" panel — grouped action items layout.
+ * V9.2 Phase 4: Replaces two-tier uncertainty display with grouped layout.
  */
 
 import { describe, it, expect, vi } from 'vitest'
@@ -12,6 +13,7 @@ import type { ConfidenceSectionData } from '../types'
 // Mock focusNodeById
 vi.mock('../../../canvas/utils/focusHelpers', () => ({
   focusNodeById: vi.fn(),
+  focusByTarget: vi.fn(),
 }))
 
 describe('ConfidenceSection', () => {
@@ -56,13 +58,13 @@ describe('ConfidenceSection', () => {
     rankingStability: 0.85,
   }
 
-  it('renders the component with content', () => {
+  it('renders the component with grouped layout', () => {
     render(<ConfidenceSection data={mockData} />)
 
-    // Component should render - title is now in parent panel header
-    // Check that some expected content is present (P2: two-tier uncertainty display)
-    expect(screen.getByText('Worth refining')).toBeInTheDocument()
-    expect(screen.getByText('Improvements')).toBeInTheDocument()
+    // V9.2: Group 1 header "Validate before committing" shown for fragile edges
+    expect(screen.getByText('Validate before committing')).toBeInTheDocument()
+    // Uncertainty message should be rendered via UncertaintyRow
+    expect(screen.getByText('Some assumptions may significantly affect results')).toBeInTheDocument()
   })
 
   it('renders strong confidence tier with items correctly', () => {
@@ -87,8 +89,9 @@ describe('ConfidenceSection', () => {
 
     render(<ConfidenceSection data={fairData} />)
 
-    expect(screen.getByText('Partial picture')).toBeInTheDocument()
-    expect(screen.getByText('Your model covers the basics. Address the items below.')).toBeInTheDocument()
+    // V9.2: Tier info now in Accordion header, not inline. But fair tier shows
+    // grouped content. Check that the Group 1 heading renders.
+    expect(screen.getByText('Validate before committing')).toBeInTheDocument()
   })
 
   it('renders needs_work confidence tier correctly', () => {
@@ -105,14 +108,15 @@ describe('ConfidenceSection', () => {
 
     render(<ConfidenceSection data={needsWorkData} />)
 
-    expect(screen.getByText('Early sketch')).toBeInTheDocument()
+    // Has fragile edges, so Group 1 renders
+    expect(screen.getByText('Validate before committing')).toBeInTheDocument()
   })
 
-  it('renders uncertainties', () => {
+  it('renders fragile edge uncertainties in Group 1', () => {
     render(<ConfidenceSection data={mockData} />)
 
-    // P2: Two-tier display - mock data has no severity, defaults to 'warning' → "Worth refining"
-    expect(screen.getByText('Worth refining')).toBeInTheDocument()
+    // V9.2: Fragile edges render in Group 1 via UncertaintyRow
+    expect(screen.getByText('Validate before committing')).toBeInTheDocument()
     expect(screen.getByText('Some assumptions may significantly affect results')).toBeInTheDocument()
   })
 
@@ -120,13 +124,6 @@ describe('ConfidenceSection', () => {
     render(<ConfidenceSection data={mockData} />)
 
     expect(screen.getByText(/Consider validating/)).toBeInTheDocument()
-  })
-
-  it('renders improvements section', () => {
-    render(<ConfidenceSection data={mockData} />)
-
-    expect(screen.getByText('Improvements')).toBeInTheDocument()
-    expect(screen.getByText('Add more data sources')).toBeInTheDocument()
   })
 
   it('shows "ready to decide" message when strong tier with no issues', () => {
@@ -184,47 +181,27 @@ describe('ConfidenceSection', () => {
     expect(screen.getByText(/3 need validation/)).toBeInTheDocument()
   })
 
-  it('expands to show more uncertainties', () => {
-    const manyUncertaintiesData: ConfidenceSectionData = {
+  it('shows "Show more" when more than 3 fragile edges', () => {
+    const manyFragileEdges: ConfidenceSectionData = {
       ...mockData,
       uncertainties: [
-        { code: 'A', message: 'Uncertainty 1' },
-        { code: 'B', message: 'Uncertainty 2' },
-        { code: 'C', message: 'Uncertainty 3' },
-        { code: 'D', message: 'Uncertainty 4' },
+        { code: 'SENSITIVE_ASSUMPTION', message: 'Edge 1' },
+        { code: 'SENSITIVE_ASSUMPTION', message: 'Edge 2' },
+        { code: 'SENSITIVE_ASSUMPTION', message: 'Edge 3' },
+        { code: 'SENSITIVE_ASSUMPTION', message: 'Edge 4' },
       ],
       topUncertainties: [
-        { code: 'A', message: 'Uncertainty 1' },
-        { code: 'B', message: 'Uncertainty 2' },
-        { code: 'C', message: 'Uncertainty 3' },
+        { code: 'SENSITIVE_ASSUMPTION', message: 'Edge 1' },
+        { code: 'SENSITIVE_ASSUMPTION', message: 'Edge 2' },
+        { code: 'SENSITIVE_ASSUMPTION', message: 'Edge 3' },
       ],
       robustnessStatus: 'computed',
     }
 
-    render(<ConfidenceSection data={manyUncertaintiesData} />)
+    render(<ConfidenceSection data={manyFragileEdges} />)
 
-    // Should show "+1 more items" button
-    expect(screen.getByText('+1 more items')).toBeInTheDocument()
-  })
-
-  it('expands to show more improvements', () => {
-    const manyImprovementsData: ConfidenceSectionData = {
-      ...mockData,
-      improvements: [
-        { action: 'A', reason: '', priority: 1, source: 'bias' },
-        { action: 'B', reason: '', priority: 2, source: 'bias' },
-        { action: 'C', reason: '', priority: 3, source: 'bias' },
-      ],
-      topImprovements: [
-        { action: 'A', reason: '', priority: 1, source: 'bias' },
-        { action: 'B', reason: '', priority: 2, source: 'bias' },
-      ],
-    }
-
-    render(<ConfidenceSection data={manyImprovementsData} />)
-
-    // Should show "+1 more items" button
-    expect(screen.getByText('+1 more items')).toBeInTheDocument()
+    // V9.2: Show more button for Group 1 fragile edges (capped at 3)
+    expect(screen.getByText('Show 1 more')).toBeInTheDocument()
   })
 
   it('renders threshold message for sensitive assumptions', () => {
@@ -261,22 +238,6 @@ describe('ConfidenceSection', () => {
 
     expect(screen.getByText(/Project Cost.*drops below.*150000/)).toBeInTheDocument()
     expect(screen.getByText(/Hire Contractors.*becomes the better choice/)).toBeInTheDocument()
-  })
-
-  it('renders effort estimate when available', () => {
-    const dataWithEffort: ConfidenceSectionData = {
-      ...mockData,
-      improvements: [
-        { action: 'Quick fix', reason: '', priority: 1, source: 'bias', effortMinutes: 15 },
-      ],
-      topImprovements: [
-        { action: 'Quick fix', reason: '', priority: 1, source: 'bias', effortMinutes: 15 },
-      ],
-    }
-
-    render(<ConfidenceSection data={dataWithEffort} />)
-
-    expect(screen.getByText('~15 min')).toBeInTheDocument()
   })
 
   // =============================================================================
@@ -407,19 +368,22 @@ describe('ConfidenceSection', () => {
   })
 
   // =============================================================================
-  // M1 Coaching: Evidence Gaps VOI handling
+  // V9.2: Evidence Gaps in grouped layout
   // =============================================================================
 
-  describe('M1 Coaching: Evidence Gaps VOI impact labels', () => {
-    it('renders VOI impact label when VOI is valid', () => {
+  describe('V9.2: Evidence Gaps in grouped layout', () => {
+    it('renders evidence gap in Group 2 with confidence pill', () => {
       const dataWithEvidenceGaps: ConfidenceSectionData = {
         ...mockData,
+        uncertainties: [],
+        topUncertainties: [],
         evidenceGaps: [
           {
             factorId: 'factor-1',
             factorLabel: 'Market Size',
             suggestion: 'Research market trends',
             voi: 0.75,
+            confidence: 30, // low confidence
           },
         ],
         topEvidenceGaps: [
@@ -428,6 +392,7 @@ describe('ConfidenceSection', () => {
             factorLabel: 'Market Size',
             suggestion: 'Research market trends',
             voi: 0.75,
+            confidence: 30,
           },
         ],
       }
@@ -435,17 +400,23 @@ describe('ConfidenceSection', () => {
       render(<ConfidenceSection data={dataWithEvidenceGaps} />)
 
       expect(screen.getByText('Market Size')).toBeInTheDocument()
-      expect(screen.getByText('High impact if resolved')).toBeInTheDocument()
+      // V9.2: Group 2 header
+      expect(screen.getByText('Investigate')).toBeInTheDocument()
+      // V9.2: Confidence pill instead of VOI label
+      expect(screen.getByText('Low confidence')).toBeInTheDocument()
     })
 
-    it('renders medium impact label for VOI >= 0.4', () => {
-      const dataWithMediumVOI: ConfidenceSectionData = {
+    it('renders medium confidence pill for evidence gap', () => {
+      const dataWithMediumConfidence: ConfidenceSectionData = {
         ...mockData,
+        uncertainties: [],
+        topUncertainties: [],
         evidenceGaps: [
           {
             factorId: 'factor-1',
             factorLabel: 'Competition',
             voi: 0.5,
+            confidence: 55, // medium confidence (55/100 = 0.55)
           },
         ],
         topEvidenceGaps: [
@@ -453,50 +424,28 @@ describe('ConfidenceSection', () => {
             factorId: 'factor-1',
             factorLabel: 'Competition',
             voi: 0.5,
+            confidence: 55,
           },
         ],
       }
 
-      render(<ConfidenceSection data={dataWithMediumVOI} />)
+      render(<ConfidenceSection data={dataWithMediumConfidence} />)
 
       expect(screen.getByText('Competition')).toBeInTheDocument()
-      expect(screen.getByText('Medium impact if resolved')).toBeInTheDocument()
+      expect(screen.getByText('Medium confidence')).toBeInTheDocument()
     })
 
-    it('renders lower impact label for VOI < 0.4', () => {
-      const dataWithLowVOI: ConfidenceSectionData = {
-        ...mockData,
-        evidenceGaps: [
-          {
-            factorId: 'factor-1',
-            factorLabel: 'Minor Factor',
-            voi: 0.2,
-          },
-        ],
-        topEvidenceGaps: [
-          {
-            factorId: 'factor-1',
-            factorLabel: 'Minor Factor',
-            voi: 0.2,
-          },
-        ],
-      }
-
-      render(<ConfidenceSection data={dataWithLowVOI} />)
-
-      expect(screen.getByText('Minor Factor')).toBeInTheDocument()
-      expect(screen.getByText('Lower impact if resolved')).toBeInTheDocument()
-    })
-
-    it('does not render VOI label when VOI is undefined', () => {
+    it('renders factor label cleanly when VOI is undefined', () => {
       const dataWithUndefinedVOI: ConfidenceSectionData = {
         ...mockData,
+        uncertainties: [],
+        topUncertainties: [],
         evidenceGaps: [
           {
             factorId: 'factor-1',
             factorLabel: 'Unknown Factor',
             suggestion: 'Investigate this',
-            voi: undefined as unknown as number, // Simulating undefined VOI
+            voi: undefined as unknown as number,
           },
         ],
         topEvidenceGaps: [
@@ -511,18 +460,14 @@ describe('ConfidenceSection', () => {
 
       render(<ConfidenceSection data={dataWithUndefinedVOI} />)
 
-      // Row should render cleanly
       expect(screen.getByText('Unknown Factor')).toBeInTheDocument()
-      expect(screen.getByText('Investigate this')).toBeInTheDocument()
-      // Task 2: "Focus in model" link removed - factor label is now clickable instead
-
-      // But VOI label should NOT be present
-      expect(screen.queryByText(/impact if resolved/)).not.toBeInTheDocument()
     })
 
-    it('does not render VOI label when VOI is NaN', () => {
+    it('renders factor label cleanly when VOI is NaN', () => {
       const dataWithNaNVOI: ConfidenceSectionData = {
         ...mockData,
+        uncertainties: [],
+        topUncertainties: [],
         evidenceGaps: [
           {
             factorId: 'factor-1',
@@ -541,11 +486,7 @@ describe('ConfidenceSection', () => {
 
       render(<ConfidenceSection data={dataWithNaNVOI} />)
 
-      // Row should render cleanly
       expect(screen.getByText('NaN Factor')).toBeInTheDocument()
-
-      // But VOI label should NOT be present
-      expect(screen.queryByText(/impact if resolved/)).not.toBeInTheDocument()
     })
   })
 })

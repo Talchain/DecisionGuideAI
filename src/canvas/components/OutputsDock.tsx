@@ -1216,6 +1216,9 @@ export function OutputsDock() {
                     fragileEdgeCount={(report as any)?.robustness?.fragile_edges?.length}
                     robustEdgeCount={(report as any)?.robustness?.robust_edges?.length}
                     responseHash={results?.hash}
+                    nodeCount={nodes.length}
+                    edgeCount={edges.length}
+                    identifiability={report?.model_card?.identifiability_tag}
                   />
                 )}
               </div>

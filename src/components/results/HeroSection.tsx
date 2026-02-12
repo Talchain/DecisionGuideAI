@@ -353,9 +353,6 @@ export function HeroSection({
       {/* Main hero card */}
       <div className="p-4 bg-panel border border-panel-border rounded-lg">
         {/* V9.2 Headline — merged "To achieve [goal], [winner] performs best" */}
-        <div className="mb-1">
-          <span className={`${typography.panelMeta} text-text-light`}>Your objective</span>
-        </div>
         <h2 className={`${typography.panelHeader} text-[15px] leading-snug`}>
           <span className="text-text-header">To achieve {goalPrefix},</span>{' '}
           <span className="text-success">{headline.main}</span>
