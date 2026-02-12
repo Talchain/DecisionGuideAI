@@ -656,6 +656,20 @@ export function DraftChat() {
       }
     }
 
+    // Store goal_constraints from CEE response root (NOT inside analysis_ready)
+    // These get passed to PLoT /v2/run for multi-constraint analysis
+    const rawGoalConstraints = (draftData as any).goal_constraints
+    const { setGoalConstraints } = useCanvasStore.getState()
+    if (Array.isArray(rawGoalConstraints) && rawGoalConstraints.length > 0) {
+      setGoalConstraints(rawGoalConstraints)
+      if (import.meta.env.DEV) {
+        console.log('[DraftChat] Stored goal_constraints:', rawGoalConstraints.length)
+      }
+    } else {
+      // Clear stale constraints when CEE omits or returns empty goal_constraints
+      setGoalConstraints(null)
+    }
+
     // Store pipeline trace for debug panel if present (using proper type guard)
     // Client extracts trace.pipeline to top-level pipeline_trace for all schema versions
     // Check pipeline_trace first (V1/V2/V3 after extraction), fallback to trace.pipeline (raw V2/V3)

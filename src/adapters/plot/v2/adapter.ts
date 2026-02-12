@@ -28,7 +28,7 @@ import {
   translateResponseToUIIds,
 } from '../../../utils/nodeIdNormalisation'
 import type { UIOption, UIInterventionValue } from '../../../types/options'
-import type { CEEAnalysisReady, CEEOptionV3 } from '../../cee/types'
+import type { CEEAnalysisReady, CEEGoalConstraint, CEEOptionV3 } from '../../cee/types'
 import { recordRequestPayload, recordResponsePayload } from '../../../lib/payload-trace-store'
 import { STRENGTH_BOUNDS, clampStrength } from '../../../canvas/domain/edges'
 
@@ -760,6 +760,11 @@ export interface BuildV2RequestOptions {
    * PLoT uses this for context when generating insights and recommendations.
    */
   brief?: string
+  /**
+   * Goal constraints for multi-constraint analysis.
+   * Stored separately from analysis_ready (CEE sends at response root).
+   */
+  goalConstraints?: CEEGoalConstraint[] | null
 }
 
 /**
@@ -786,7 +791,7 @@ export function buildV2RequestFromAnalysisReady(
   fallbackGoalNodeId?: string,
   options: BuildV2RequestOptions = {}
 ): { request: V2RunRequest; reverseIdMap: Map<string, string> } {
-  const { strictEdgeValidation = false, framing, brief } = options
+  const { strictEdgeValidation = false, framing, brief, goalConstraints } = options
 
   // Fall back to standard buildV2Request if no analysisReady
   if (!analysisReady) {
@@ -855,8 +860,8 @@ export function buildV2RequestFromAnalysisReady(
     ...(analysisReady.goal_threshold_raw != null && { goal_threshold_raw: analysisReady.goal_threshold_raw }),
     ...(analysisReady.goal_threshold_unit ? { goal_threshold_unit: analysisReady.goal_threshold_unit } : {}),
     ...(analysisReady.goal_threshold_cap != null && { goal_threshold_cap: analysisReady.goal_threshold_cap }),
-    // V3: Pass through goal constraints for multi-constraint analysis
-    ...(analysisReady.goal_constraints?.length && { goal_constraints: analysisReady.goal_constraints }),
+    // V3: Pass through goal constraints for multi-constraint analysis (from CEE response root, not analysis_ready)
+    ...(goalConstraints?.length && { goal_constraints: goalConstraints }),
   }
 
   return { request, reverseIdMap: normalised.reverseIdMap }
@@ -1128,6 +1133,7 @@ export async function executeV2Run(
  * @param seed - P0 Fix: Optional seed for reproducibility (avoids hardcoded "42")
  * @param framing - User's decision framing for contextualised CEE responses
  * @param brief - Original decision brief from user for PLoT context
+ * @param goalConstraints - Goal constraints from CEE response root for multi-constraint analysis
  */
 export async function executeV2RunWithAnalysisReady(
   config: V2AdapterConfig,
@@ -1139,7 +1145,8 @@ export async function executeV2RunWithAnalysisReady(
   goalThreshold?: number,
   seed?: number,
   framing?: { title?: string; goal?: string; constraints?: string },
-  brief?: string
+  brief?: string,
+  goalConstraints?: CEEGoalConstraint[] | null
 ): Promise<V2RunResult> {
   // Build fallback options from nodes (used when analysisReady not available)
   const validNodeIds = new Set(nodes.map((n) => n.id))
@@ -1154,7 +1161,7 @@ export async function executeV2RunWithAnalysisReady(
     analysisReady,
     fallbackOptions,
     fallbackGoalNodeId,
-    { strictEdgeValidation: false, seed, framing, brief } // Lenient mode for user-edited graphs
+    { strictEdgeValidation: false, seed, framing, brief, goalConstraints } // Lenient mode for user-edited graphs
   )
 
   // Add request ID for tracing

@@ -327,11 +327,6 @@ export interface CEEAnalysisReady {
    * Max 3 are displayed in the Review assumptions tier.
    */
   low_confidence_edges?: Array<{ edge_id: string; prompt: string }>
-  /**
-   * Goal constraints for multi-constraint analysis.
-   * When present, PLoT/ISL computes probability_of_joint_goal.
-   */
-  goal_constraints?: CEEGoalConstraint[]
 }
 
 /**
@@ -353,6 +348,12 @@ export interface CEEv3Response extends CEEv2Response {
   model_quality_factors?: CEEModelQualityFactors
   /** Phase 1b: Intervention hints keyed by factor node ID */
   intervention_hints?: Record<string, CEEInterventionHint>
+  /**
+   * Goal constraints for multi-constraint analysis.
+   * Lives at response root (NOT inside analysis_ready).
+   * When present, PLoT/ISL computes probability_of_joint_goal.
+   */
+  goal_constraints?: CEEGoalConstraint[]
 }
 
 /**

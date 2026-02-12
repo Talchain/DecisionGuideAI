@@ -978,7 +978,7 @@ describe('goal_threshold_* dual-path preservation', () => {
 // ============================================================================
 
 describe('goal_constraints pass-through via buildV2RequestFromAnalysisReady', () => {
-  it('forwards goal_constraints from analysisReady to V2RunRequest', () => {
+  it('forwards goal_constraints from options to V2RunRequest', () => {
     const nodes: Node[] = [
       makeNode('factor_price', { label: 'Price', kind: 'factor' }),
       makeNode('outcome_revenue', { label: 'Revenue', kind: 'outcome' }),
@@ -993,14 +993,17 @@ describe('goal_constraints pass-through via buildV2RequestFromAnalysisReady', ()
     const analysisReady: CEEAnalysisReady = {
       options: [makeCEEOptionV3('opt1', 'ready', { factor_price: { value: 100 } })],
       goal_node_id: 'outcome_revenue',
-      goal_constraints: [
-        { id: 'c1', label: 'MRR', operator: '>=', value: 50000 },
-        { id: 'c2', label: 'Churn rate', operator: '<=', value: 0.05 },
-        { id: 'c3', label: 'NPS', operator: '>=', value: 40 },
-      ],
     }
+    const goalConstraints = [
+      { id: 'c1', label: 'MRR', operator: '>=' as const, value: 50000 },
+      { id: 'c2', label: 'Churn rate', operator: '<=' as const, value: 0.05 },
+      { id: 'c3', label: 'NPS', operator: '>=' as const, value: 40 },
+    ]
 
-    const { request } = buildV2RequestFromAnalysisReady(nodes, edges, analysisReady)
+    const { request } = buildV2RequestFromAnalysisReady(
+      nodes, edges, analysisReady, undefined, undefined,
+      { goalConstraints }
+    )
 
     expect(request.goal_constraints).toBeDefined()
     expect(request.goal_constraints).toHaveLength(3)
@@ -1013,7 +1016,7 @@ describe('goal_constraints pass-through via buildV2RequestFromAnalysisReady', ()
     expect(request.goal_constraints![2].id).toBe('c3')
   })
 
-  it('omits goal_constraints from request when not present on analysisReady', () => {
+  it('omits goal_constraints from request when not provided in options', () => {
     const nodes: Node[] = [
       makeNode('factor_price', { label: 'Price', kind: 'factor' }),
       makeNode('outcome_revenue', { label: 'Revenue', kind: 'outcome' }),
@@ -1028,7 +1031,6 @@ describe('goal_constraints pass-through via buildV2RequestFromAnalysisReady', ()
     const analysisReady: CEEAnalysisReady = {
       options: [makeCEEOptionV3('opt1', 'ready', { factor_price: { value: 100 } })],
       goal_node_id: 'outcome_revenue',
-      // No goal_constraints
     }
 
     const { request } = buildV2RequestFromAnalysisReady(nodes, edges, analysisReady)
@@ -1051,12 +1053,39 @@ describe('goal_constraints pass-through via buildV2RequestFromAnalysisReady', ()
     const analysisReady: CEEAnalysisReady = {
       options: [makeCEEOptionV3('opt1', 'ready', { factor_price: { value: 100 } })],
       goal_node_id: 'outcome_revenue',
-      goal_constraints: [], // Explicitly empty
     }
 
-    const { request } = buildV2RequestFromAnalysisReady(nodes, edges, analysisReady)
+    const { request } = buildV2RequestFromAnalysisReady(
+      nodes, edges, analysisReady, undefined, undefined,
+      { goalConstraints: [] }
+    )
 
     // Empty array should be omitted (no constraints = no field)
+    expect(request.goal_constraints).toBeUndefined()
+  })
+
+  it('omits goal_constraints from request when null', () => {
+    const nodes: Node[] = [
+      makeNode('factor_price', { label: 'Price', kind: 'factor' }),
+      makeNode('outcome_revenue', { label: 'Revenue', kind: 'outcome' }),
+    ]
+    const edges: Edge[] = [
+      makeEdge('e1', 'factor_price', 'outcome_revenue', {
+        weight: 0.7,
+        direction: 'positive',
+        beliefExists: 0.8,
+      }),
+    ]
+    const analysisReady: CEEAnalysisReady = {
+      options: [makeCEEOptionV3('opt1', 'ready', { factor_price: { value: 100 } })],
+      goal_node_id: 'outcome_revenue',
+    }
+
+    const { request } = buildV2RequestFromAnalysisReady(
+      nodes, edges, analysisReady, undefined, undefined,
+      { goalConstraints: null }
+    )
+
     expect(request.goal_constraints).toBeUndefined()
   })
 })

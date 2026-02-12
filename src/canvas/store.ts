@@ -23,6 +23,7 @@ import type { CeeDecisionReviewPayloadV1, CeeTrace, CeeError, M1Review, M1Coachi
 import { sanitizeCeeReviewPayload, sanitizeM1Review } from './utils/ceeDataAdapter'
 import type {
   CEEAnalysisReady,
+  CEEGoalConstraint,
   CeePipelineTrace,
   CEEDraftWarning,
   CEEGoalConnectivity,
@@ -216,6 +217,8 @@ interface CanvasState {
   // Node IDs that existed when ceeAnalysisReady was stored
   // Used to detect stale analysis_ready after graph edits
   ceeAnalysisReadyNodeIds: string[] | null
+  // CEE goal constraints from draft-graph response root (for PLoT multi-constraint analysis)
+  goalConstraints: CEEGoalConstraint[] | null
   // CEE Pipeline trace from last draft-graph response (for debug panel)
   ceePipelineTrace: CeePipelineTrace | null
   // CEE quality dimensions from draft-graph response (for pre-analysis readiness display)
@@ -390,6 +393,7 @@ interface CanvasState {
   setLastDraftDescription: (description: string) => void
   setLastDraftError: (error: { message: string; status?: number; correlationId?: string; timestamp: number } | null) => void
   setCeeAnalysisReady: (analysisReady: CEEAnalysisReady | null) => void
+  setGoalConstraints: (constraints: CEEGoalConstraint[] | null) => void
   setCeePipelineTrace: (trace: CeePipelineTrace | null) => void
   setCeeQuality: (quality: CeeQualityDimensions | null) => void
   // Phase 1b actions
@@ -600,6 +604,7 @@ function invalidateAnalysisReady(
       ceeAnalysisReady: null,
       ceeAnalysisReadyNodeIds: null,
       ceeQuality: null,
+      goalConstraints: null,
       // Phase 1b: Clear extended CEE data
       ceeExtendedWarnings: null,
       ceeGoalConnectivity: null,
@@ -795,6 +800,8 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   // CEE V3: analysis_ready payload
   ceeAnalysisReady: null,
   ceeAnalysisReadyNodeIds: null,
+  // CEE goal constraints from draft-graph response root
+  goalConstraints: null,
   // CEE Pipeline trace from last draft
   ceePipelineTrace: null,
   // CEE quality dimensions from draft-graph response
@@ -1166,7 +1173,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     const past = history.past.slice(0, -1)
     const future = [{ nodes, edges }, ...history.future]
     // Invalidate ceeAnalysisReady so panel re-evaluates from restored graph state
-    set({ nodes: prev.nodes, edges: prev.edges, history: { past, future }, ceeAnalysisReady: null })
+    set({ nodes: prev.nodes, edges: prev.edges, history: { past, future }, ceeAnalysisReady: null, goalConstraints: null })
     // Reset hash after undo
     const { nodes: newNodes, edges: newEdges } = get()
     set(() => ({ _internal: { lastHistoryHash: historyHash(newNodes, newEdges) } }))
@@ -1179,7 +1186,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     const past = [...history.past, { nodes, edges }]
     const future = history.future.slice(1)
     // Invalidate ceeAnalysisReady so panel re-evaluates from restored graph state
-    set({ nodes: next.nodes, edges: next.edges, history: { past, future }, ceeAnalysisReady: null })
+    set({ nodes: next.nodes, edges: next.edges, history: { past, future }, ceeAnalysisReady: null, goalConstraints: null })
     // Reset hash after redo
     const { nodes: newNodes, edges: newEdges } = get()
     set(() => ({ _internal: { lastHistoryHash: historyHash(newNodes, newEdges) } }))
@@ -1585,9 +1592,10 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       selectedGenerationModel: null,
       selectedRepairModel: null,
       selectedEnrichmentModel: null,
-      // Clear CEE analysis_ready payload, pipeline trace, and quality
+      // Clear CEE analysis_ready payload, pipeline trace, quality, and constraints
       ceeAnalysisReady: null,
       ceeAnalysisReadyNodeIds: null,
+      goalConstraints: null,
       ceePipelineTrace: null,
       ceeQuality: null,
       // Phase 1b: Clear extended CEE data
@@ -2309,6 +2317,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
         ceeAnalysisReady: null,
         ceeAnalysisReadyNodeIds: null,
         ceeQuality: null,
+        goalConstraints: null,
         // Phase 1b: Clear extended CEE data
         ceeExtendedWarnings: null,
         ceeGoalConnectivity: null,
@@ -2316,6 +2325,10 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
         ceeInterventionHints: null,
       })
     }
+  },
+
+  setGoalConstraints: (constraints: CEEGoalConstraint[] | null) => {
+    set({ goalConstraints: constraints })
   },
 
   setCeePipelineTrace: (trace: CeePipelineTrace | null) => {

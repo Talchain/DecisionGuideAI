@@ -185,6 +185,7 @@ export function useV2Run(): UseV2RunReturn {
   const framing = useCanvasStore((s) => s.currentScenarioFraming)
   const ceeAnalysisReady = useCanvasStore((s) => s.ceeAnalysisReady)
   const ceeAnalysisReadyNodeIds = useCanvasStore((s) => s.ceeAnalysisReadyNodeIds)
+  const goalConstraints = useCanvasStore((s) => s.goalConstraints)
   const lastDraftDescription = useCanvasStore((s) => s.lastDraftDescription)
 
   // Store actions
@@ -193,6 +194,7 @@ export function useV2Run(): UseV2RunReturn {
   const resultsError = useCanvasStore((s) => s.resultsError)
   const setRunMeta = useCanvasStore((s) => s.setRunMeta)
   const setCeeAnalysisReady = useCanvasStore((s) => s.setCeeAnalysisReady)
+  const setGoalConstraints = useCanvasStore((s) => s.setGoalConstraints)
   const captureErrorDetail = useCanvasStore((s) => s.captureErrorDetail)
 
   const runV2Analysis = useCallback(async () => {
@@ -263,6 +265,7 @@ export function useV2Run(): UseV2RunReturn {
 
       // Check if ceeAnalysisReady is stale (graph changed since draft was applied)
       let effectiveAnalysisReady = ceeAnalysisReady
+      let effectiveGoalConstraints = goalConstraints
       const currentNodeIds = new Set(nodes.map((n) => n.id))
 
       if (ceeAnalysisReady) {
@@ -278,9 +281,11 @@ export function useV2Run(): UseV2RunReturn {
               reason: staleCheck.reason,
             })
           }
-          // Clear stale analysis_ready from store
+          // Clear stale analysis_ready and goal_constraints from store
           setCeeAnalysisReady(null)
+          setGoalConstraints(null)
           effectiveAnalysisReady = null
+          effectiveGoalConstraints = null
         }
       }
 
@@ -312,7 +317,8 @@ export function useV2Run(): UseV2RunReturn {
           goal: framing.goal,
           constraints: framing.constraints,
         } : undefined,
-        lastDraftDescription || undefined
+        lastDraftDescription || undefined,
+        effectiveGoalConstraints
       )
 
       const elapsed_ms = Date.now() - startTime
@@ -670,8 +676,10 @@ export function useV2Run(): UseV2RunReturn {
     framing,
     ceeAnalysisReady,
     ceeAnalysisReadyNodeIds,
+    goalConstraints,
     lastDraftDescription,
     setCeeAnalysisReady,
+    setGoalConstraints,
     resultsStart,
     resultsComplete,
     resultsError,
