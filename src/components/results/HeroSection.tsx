@@ -360,7 +360,7 @@ export function HeroSection({
         {/* V9.2 Headline — merged "To achieve [goal], [winner] performs best" */}
         <h2 className={`${typography.panelHeader} text-[15px] leading-snug`}>
           <span className="text-text-header">To achieve {goalPrefix},</span>{' '}
-          <span className="text-success">{headline.main}</span>
+          <span className={recommendationStability != null && recommendationStability < 0.55 ? 'text-text-header' : 'text-success'}>{headline.main}</span>
         </h2>
         {headline.sub && (
           <p className={`${typography.panelBody} text-text-body mt-1`}>
@@ -422,21 +422,11 @@ export function HeroSection({
         {/* Stability + More toggle */}
         <div className="border-t border-panel-border pt-3">
           <div className="flex items-center gap-3">
-            {(stabilityTier.label || stabilityTier.shortText) && (
+            {stabilityTier.label && (
               <span className="inline-flex items-center gap-1.5 bg-sand-50 px-2 py-0.5 rounded-full">
-                {stabilityTier.label && (
-                  <span className={`${typography.panelMeta} ${stabilityTier.colorClass}`}>
-                    {stabilityTier.label}
-                  </span>
-                )}
-                {stabilityTier.label && stabilityTier.shortText && (
-                  <span className="text-text-light/40" aria-hidden="true">·</span>
-                )}
-                {stabilityTier.shortText && (
-                  <span className={`${typography.panelMeta} text-text-light`}>
-                    {stabilityTier.shortText}
-                  </span>
-                )}
+                <span className={`${typography.panelMeta} ${stabilityTier.colorClass}`}>
+                  {stabilityTier.label}
+                </span>
               </span>
             )}
             <span className="flex-1" />

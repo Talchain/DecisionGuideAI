@@ -704,7 +704,7 @@ export function DriversSection({
         const filteredTornadoRows = tornadoRows.filter(row => visibleFactorKeys.has(row.factorKey))
 
         return filteredTornadoRows.length > 0 && (
-          <details className="group">
+          <details className="group" open>
             <summary className={`${typography.panelHeader} text-text-header cursor-pointer select-none list-none flex items-center justify-between`}>
               <span>Explore your estimates</span>
               <span className={`${typography.panelBody} text-info group-open:hidden`}>Show ˅</span>
