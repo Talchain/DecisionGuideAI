@@ -92,7 +92,7 @@ export function AdvancedSection({
           <h4 className={`${typography.panelHeader} text-text-header mb-1`}>
             Risk tolerance
           </h4>
-          <p className={`${typography.panelMeta} text-text-light mb-2`}>
+          <p className={`${typography.panelMeta} text-text-light italic mb-2`}>
             Re-weights the existing simulation — no new run required.
           </p>
           <div className="flex gap-1" role="radiogroup" aria-label="Risk tolerance">
@@ -139,7 +139,7 @@ export function AdvancedSection({
             {nSamples != null && (
               <>
                 <dt className="text-text-light">Convergence</dt>
-                <dd className="text-text-header">{nSamples.toLocaleString()} samples</dd>
+                <dd className="text-text-header">{nSamples.toLocaleString()} simulations</dd>
               </>
             )}
             {fragileEdgeCount != null && (

@@ -47,7 +47,7 @@ describe('AdvancedSection', () => {
     fireEvent.click(screen.getByText('Advanced'))
 
     expect(screen.getByText('Convergence')).toBeInTheDocument()
-    expect(screen.getByText('10,000 samples')).toBeInTheDocument()
+    expect(screen.getByText('10,000 simulations')).toBeInTheDocument()
   })
 
   it('renders fragile and stable edge counts', () => {
@@ -126,7 +126,7 @@ describe('AdvancedSection', () => {
     fireEvent.click(screen.getByText('Advanced'))
 
     expect(screen.getByText('72%')).toBeInTheDocument()
-    expect(screen.getByText('5,000 samples')).toBeInTheDocument()
+    expect(screen.getByText('5,000 simulations')).toBeInTheDocument()
     expect(screen.getByText('2')).toBeInTheDocument()
     expect(screen.getByText('8')).toBeInTheDocument()
     expect(screen.getByText('10 nodes, 18 edges')).toBeInTheDocument()
