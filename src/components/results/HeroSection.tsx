@@ -20,6 +20,7 @@ import { typography } from '../../styles/typography'
 import { stripEncodingNotation } from './utils/cleanFactorLabel'
 import { formatPercent as formatPct } from '../../utils/formatPercent'
 import { GraphLink } from './GraphLink'
+import { normaliseGoalLabel } from '../../utils/normaliseGoalLabel'
 
 // =============================================================================
 // Types
@@ -278,7 +279,7 @@ export function HeroSection({
   // Headline — V9.2: merged "To achieve [goal], [winner] performs best"
   // =========================================================================
   const goalPrefix = goalLabel && goalLabel !== 'your goal'
-    ? goalLabel
+    ? normaliseGoalLabel(goalLabel)
     : 'your goal'
 
   const m1Headline = useMemo<StructuredHeadline>(() => {
@@ -441,15 +442,6 @@ export function HeroSection({
             </button>
           </div>
         </div>
-
-        {/* v7.6 T1: Normalised note — wording depends on hasBaseline */}
-        {isNormalised && (
-          <p className={`${typography.panelMeta} text-text-light italic pt-2`}>
-            {hasBaseline
-              ? 'Values shown as % shift from baseline. Add a success target to see results in your goal\u2019s units.'
-              : 'Values shown as relative % difference. Add a success target to see results in your goal\u2019s units.'}
-          </p>
-        )}
 
         {/* V9.2: "More detail" expand — narrative + stability summary */}
         {isExpanded && (

@@ -22,9 +22,9 @@ export interface TornadoRow {
   factorKey: string
   /** Display label */
   label: string
-  /** Outcome value when factor is at pessimistic end (p10) */
+  /** Outcome when factor is at its worst from the user's perspective (left bar) */
   lowOutcome: number
-  /** Outcome value when factor is at optimistic end (p90) */
+  /** Outcome when factor is at its best from the user's perspective (right bar) */
   highOutcome: number
   /** Whether this factor can be focused on canvas */
   canFocus: boolean
@@ -103,9 +103,6 @@ export function TornadoChart({
       className="p-3.5 bg-panel border border-panel-border rounded-xl shadow-sm"
       data-testid="tornado-chart"
     >
-      <h4 className={`${typography.panelHeader} text-text-header mb-0.5`}>
-        Explore your estimates
-      </h4>
       <p className={`${typography.panelBody} text-text-light mb-3 leading-relaxed`}>
         Drag the bars to see how the outcome shifts when each factor is stronger or weaker than your estimate.
       </p>

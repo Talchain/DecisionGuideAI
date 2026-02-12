@@ -291,11 +291,20 @@ export function OutputsDock() {
       .slice(0, 5) // Cap at 5 rows for readability
       .map(d => {
         const influence = d.influenceScore ?? d.normalisedInfluence
+        // For negative-direction factors (e.g. churn, risk), "weaker" means
+        // the factor is higher (more churn = worse), so the pessimistic outcome
+        // maps to the upRange side. Flip low/high so the left bar ("weaker")
+        // always shows the worse outcome from the user's perspective.
+        const isNegative = d.direction === 'negative'
         return {
           factorKey: d.factorKey,
           label: d.factorLabel,
-          lowOutcome: expected - influence * downRange,
-          highOutcome: expected + influence * upRange,
+          lowOutcome: isNegative
+            ? expected + influence * upRange
+            : expected - influence * downRange,
+          highOutcome: isNegative
+            ? expected - influence * downRange
+            : expected + influence * upRange,
           canFocus: d.canFocus,
           matchedNodeId: d.matchedNodeId,
         }
