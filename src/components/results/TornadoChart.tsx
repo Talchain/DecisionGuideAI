@@ -203,6 +203,17 @@ export function TornadoChart({
     dragContextRef.current = null
   }, [])
 
+  const resetDrag = useCallback(() => {
+    setDragState({
+      isDragging: false,
+      activeFactorId: null,
+      interpolatedOutcome: expectedOutcome,
+      hasUserDragged: false,
+      modifiedFactors: new Map(),
+    })
+    dragContextRef.current = null
+  }, [expectedOutcome])
+
   // The outcome display: when dragging, show interpolated; when a factor was
   // previously dragged, show the most recently modified factor's value; else expected
   const displayOutcome = dragState.isDragging
@@ -225,14 +236,35 @@ export function TornadoChart({
       {/* Tornado rows */}
       <div className="space-y-2">
         {rows.map((row) => {
-          const lowPct = totalRange > 0 ? ((row.lowOutcome - minVal) / totalRange) * 100 : 0
-          const highPct = totalRange > 0 ? ((row.highOutcome - minVal) / totalRange) * 100 : 0
+          // Is this row actively being dragged or previously modified?
+          const isActiveRow = dragState.isDragging && dragState.activeFactorId === row.factorKey
+          const storedOutcome = dragState.modifiedFactors.get(row.factorKey)
+          const isReactiveRow = isActiveRow || storedOutcome != null
 
-          // Left bar: from centre leftward
+          // Effective outcome for reactive bar widths:
+          // - Active drag: bar follows cursor (interpolated outcome)
+          // - Released after drag: bar stays at stored position
+          // - Undragged: original lowOutcome/highOutcome range
+          let effectiveLow = row.lowOutcome
+          let effectiveHigh = row.highOutcome
+
+          if (isActiveRow) {
+            const interp = dragState.interpolatedOutcome
+            effectiveLow = Math.min(interp, expectedOutcome)
+            effectiveHigh = Math.max(interp, expectedOutcome)
+          } else if (storedOutcome != null) {
+            effectiveLow = Math.min(storedOutcome, expectedOutcome)
+            effectiveHigh = Math.max(storedOutcome, expectedOutcome)
+          }
+
+          const lowPct = totalRange > 0 ? ((effectiveLow - minVal) / totalRange) * 100 : 0
+          const highPct = totalRange > 0 ? ((effectiveHigh - minVal) / totalRange) * 100 : 0
+
+          // Left bar: from low end leftward to centre line
           const leftWidth = centrePct - Math.min(lowPct, centrePct)
           const leftLeft = Math.min(lowPct, centrePct)
 
-          // Right bar: from centre rightward
+          // Right bar: from centre line rightward to high end
           const rightWidth = Math.max(highPct, centrePct) - centrePct
           const rightLeft = centrePct
 
@@ -246,8 +278,13 @@ export function TornadoChart({
           const rightLabelColour = isNegativeDirection ? 'text-danger' : 'text-success'
 
           const cleanLabel = stripEncodingNotation(row.label)
-          const isActiveRow = dragState.activeFactorId === row.factorKey
-          const wasModified = dragState.modifiedFactors.has(row.factorKey)
+
+          // Reactive rows always render both bars to preserve pointer capture during drag
+          const shouldRenderLeftBar = isReactiveRow || leftWidth > 0.5
+          const shouldRenderRightBar = isReactiveRow || rightWidth > 0.5
+
+          // CSS transitions: instant during active drag, smooth snap for released/reset bars
+          const barTransition = isActiveRow ? 'none' : 'width 150ms ease-out, left 150ms ease-out'
 
           const handleClick = () => {
             const nodeId = row.matchedNodeId ?? row.factorKey
@@ -294,14 +331,15 @@ export function TornadoChart({
                 />
 
                 {/* Left bar — weaker than estimated */}
-                {leftWidth > 0.5 && (
+                {shouldRenderLeftBar && (
                   <div
-                    className={`absolute top-0 h-full rounded-l ${isActiveRow || wasModified ? 'ring-1 ring-text-light/30' : ''}`}
+                    className={`absolute top-0 h-full rounded-l ${isReactiveRow ? 'ring-1 ring-text-light/30' : ''}`}
                     style={{
                       left: `${leftLeft}%`,
-                      width: `${leftWidth}%`,
+                      width: `${Math.max(0, leftWidth)}%`,
                       backgroundColor: leftBarColour,
                       cursor: dragState.isDragging ? 'grabbing' : 'grab',
+                      transition: barTransition,
                     }}
                     onPointerDown={(e) => handlePointerDown(row.factorKey, e)}
                     onPointerMove={handlePointerMove}
@@ -321,14 +359,15 @@ export function TornadoChart({
                 )}
 
                 {/* Right bar — stronger than estimated */}
-                {rightWidth > 0.5 && (
+                {shouldRenderRightBar && (
                   <div
-                    className={`absolute top-0 h-full rounded-r ${isActiveRow || wasModified ? 'ring-1 ring-text-light/30' : ''}`}
+                    className={`absolute top-0 h-full rounded-r ${isReactiveRow ? 'ring-1 ring-text-light/30' : ''}`}
                     style={{
                       left: `${rightLeft}%`,
-                      width: `${rightWidth}%`,
+                      width: `${Math.max(0, rightWidth)}%`,
                       backgroundColor: rightBarColour,
                       cursor: dragState.isDragging ? 'grabbing' : 'grab',
+                      transition: barTransition,
                     }}
                     onPointerDown={(e) => handlePointerDown(row.factorKey, e)}
                     onPointerMove={handlePointerMove}
@@ -347,25 +386,31 @@ export function TornadoChart({
                   </div>
                 )}
 
-                {/* Low value label */}
-                <span
-                  className={`absolute top-1/2 -translate-y-1/2 ${typography.panelMeta} ${leftLabelColour} whitespace-nowrap ${dragState.isDragging ? 'pointer-events-none' : ''}`}
-                  style={{
-                    right: `${100 - Math.min(lowPct, centrePct) + 1}%`,
-                  }}
-                >
-                  {formatValue(row.lowOutcome, outcomeUnit, outcomeUnitSymbol, isNormalised)}
-                </span>
+                {/* Low value label — hidden when left bar is collapsed */}
+                {leftWidth > 0.5 && (
+                  <span
+                    className={`absolute top-1/2 -translate-y-1/2 ${typography.panelMeta} ${leftLabelColour} whitespace-nowrap ${dragState.isDragging ? 'pointer-events-none' : ''}`}
+                    style={{
+                      right: `${100 - Math.min(lowPct, centrePct) + 1}%`,
+                      transition: isActiveRow ? 'none' : 'right 150ms ease-out',
+                    }}
+                  >
+                    {formatValue(effectiveLow, outcomeUnit, outcomeUnitSymbol, isNormalised)}
+                  </span>
+                )}
 
-                {/* High value label */}
-                <span
-                  className={`absolute top-1/2 -translate-y-1/2 ${typography.panelMeta} ${rightLabelColour} whitespace-nowrap ${dragState.isDragging ? 'pointer-events-none' : ''}`}
-                  style={{
-                    left: `${Math.max(highPct, centrePct) + 1}%`,
-                  }}
-                >
-                  {formatValue(row.highOutcome, outcomeUnit, outcomeUnitSymbol, isNormalised)}
-                </span>
+                {/* High value label — hidden when right bar is collapsed */}
+                {rightWidth > 0.5 && (
+                  <span
+                    className={`absolute top-1/2 -translate-y-1/2 ${typography.panelMeta} ${rightLabelColour} whitespace-nowrap ${dragState.isDragging ? 'pointer-events-none' : ''}`}
+                    style={{
+                      left: `${Math.max(highPct, centrePct) + 1}%`,
+                      transition: isActiveRow ? 'none' : 'left 150ms ease-out',
+                    }}
+                  >
+                    {formatValue(effectiveHigh, outcomeUnit, outcomeUnitSymbol, isNormalised)}
+                  </span>
+                )}
               </div>
             </div>
           )
@@ -381,10 +426,22 @@ export function TornadoChart({
         <span>Stronger than estimated →</span>
       </div>
 
-      {/* Preview disclaimer */}
-      <p className={`${typography.panelMeta} text-text-light mt-2 italic leading-relaxed`}>
-        Preview only — drag to explore. Approximate sensitivity, not exact bounds.
-      </p>
+      {/* Preview disclaimer + reset link */}
+      <div className="flex items-baseline justify-between mt-2">
+        <p className={`${typography.panelMeta} text-text-light italic leading-relaxed`}>
+          Preview only — drag to explore. Approximate sensitivity, not exact bounds.
+        </p>
+        {dragState.hasUserDragged && (
+          <button
+            type="button"
+            onClick={resetDrag}
+            className={`${typography.panelMeta} text-info hover:underline cursor-pointer flex-shrink-0 ml-2`}
+            data-testid="tornado-reset-preview"
+          >
+            Reset preview
+          </button>
+        )}
+      </div>
     </div>
   )
 }

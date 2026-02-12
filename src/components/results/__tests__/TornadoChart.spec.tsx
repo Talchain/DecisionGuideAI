@@ -295,4 +295,140 @@ describe('TornadoChart', () => {
     // touch-action: none is set via style prop on the data-bar-container element
     expect(barContainer).toHaveAttribute('data-bar-container')
   })
+
+  // ── Reactive bar width + reset tests ──
+
+  /**
+   * Helper: simulate a full drag cycle on a tornado bar.
+   * Mocks getBoundingClientRect and setPointerCapture, then fires
+   * pointerdown → pointermove → pointerup at the given clientX.
+   *
+   * Container mock: 200px wide starting at x=0. The row's lowOutcome→highOutcome
+   * maps to position 0→1 within the container, so clientX=0 → lowOutcome,
+   * clientX=200 → highOutcome.
+   */
+  function simulateDragCycle(bar: HTMLElement, clientX: number) {
+    const container = bar.closest('[data-bar-container]') as HTMLElement
+    container.getBoundingClientRect = () => ({
+      left: 0, right: 200, width: 200,
+      top: 0, bottom: 20, height: 20,
+      x: 0, y: 0, toJSON: () => {},
+    })
+    bar.setPointerCapture = vi.fn()
+
+    fireEvent.pointerDown(bar, { pointerId: 1, clientX })
+    fireEvent.pointerMove(bar, { pointerId: 1, clientX })
+    fireEvent.pointerUp(bar, { pointerId: 1 })
+  }
+
+  it('pointerDown activates reactive mode (bar gets ring highlight)', () => {
+    render(
+      <TornadoChart rows={[positiveRow]} expectedOutcome={100} />
+    )
+
+    const leftBar = screen.getByTestId('tornado-bar-left-revenue')
+    const container = leftBar.closest('[data-bar-container]') as HTMLElement
+    container.getBoundingClientRect = () => ({
+      left: 0, right: 200, width: 200,
+      top: 0, bottom: 20, height: 20,
+      x: 0, y: 0, toJSON: () => {},
+    })
+    leftBar.setPointerCapture = vi.fn()
+
+    // Before drag: no ring
+    expect(leftBar.className).not.toContain('ring-1')
+
+    fireEvent.pointerDown(leftBar, { pointerId: 1, clientX: 50 })
+
+    // After pointerDown: reactive mode → ring highlight
+    expect(leftBar.className).toContain('ring-1')
+  })
+
+  it('bar widths reflect stored outcome after full drag cycle', () => {
+    render(
+      <TornadoChart rows={[positiveRow]} expectedOutcome={100} />
+    )
+
+    const leftBar = screen.getByTestId('tornado-bar-left-revenue')
+    const rightBar = screen.getByTestId('tornado-bar-right-revenue')
+    const originalLeftWidth = leftBar.style.width
+    const originalRightWidth = rightBar.style.width
+
+    // Full drag cycle to midpoint (clientX=100 → position 0.5 → interpolated = 100)
+    // At interpolated = expectedOutcome, both bars collapse to 0
+    simulateDragCycle(leftBar, 100)
+
+    // After release at midpoint: storedOutcome=100=expectedOutcome, both bars 0 width
+    expect(parseFloat(leftBar.style.width)).toBe(0)
+    expect(parseFloat(rightBar.style.width)).toBe(0)
+
+    // This differs from the original static widths (which showed the full range)
+    expect(leftBar.style.width).not.toBe(originalLeftWidth)
+    expect(rightBar.style.width).not.toBe(originalRightWidth)
+  })
+
+  it('bars have CSS transition except during active drag', () => {
+    render(
+      <TornadoChart rows={[positiveRow]} expectedOutcome={100} />
+    )
+
+    const leftBar = screen.getByTestId('tornado-bar-left-revenue')
+
+    // All rows (including undragged) have smooth transition
+    expect(leftBar.style.transition).toContain('150ms')
+
+    // After full drag cycle: released row still has smooth transition
+    simulateDragCycle(leftBar, 50)
+    expect(leftBar.style.transition).toContain('150ms')
+  })
+
+  it('reset preview link hidden when no drag has occurred', () => {
+    render(
+      <TornadoChart rows={[positiveRow]} expectedOutcome={100} />
+    )
+
+    expect(screen.queryByTestId('tornado-reset-preview')).not.toBeInTheDocument()
+  })
+
+  it('reset preview link visible after drag', () => {
+    render(
+      <TornadoChart rows={[positiveRow]} expectedOutcome={100} />
+    )
+
+    const leftBar = screen.getByTestId('tornado-bar-left-revenue')
+    simulateDragCycle(leftBar, 50)
+
+    expect(screen.getByTestId('tornado-reset-preview')).toBeInTheDocument()
+    expect(screen.getByText('Reset preview')).toBeInTheDocument()
+  })
+
+  it('clicking reset preview restores original bar widths and hides the link', () => {
+    render(
+      <TornadoChart rows={[positiveRow]} expectedOutcome={100} />
+    )
+
+    const leftBar = screen.getByTestId('tornado-bar-left-revenue')
+    const rightBar = screen.getByTestId('tornado-bar-right-revenue')
+    const originalLeftWidth = leftBar.style.width
+    const originalRightWidth = rightBar.style.width
+
+    // Drag to midpoint and release
+    simulateDragCycle(leftBar, 100)
+
+    // Confirm widths changed (midpoint → both bars 0)
+    expect(leftBar.style.width).not.toBe(originalLeftWidth)
+
+    // Click reset
+    fireEvent.click(screen.getByTestId('tornado-reset-preview'))
+
+    // Widths restored to original
+    expect(leftBar.style.width).toBe(originalLeftWidth)
+    expect(rightBar.style.width).toBe(originalRightWidth)
+
+    // Reset link hidden
+    expect(screen.queryByTestId('tornado-reset-preview')).not.toBeInTheDocument()
+
+    // Expected display shows original value
+    expect(screen.getByTestId('tornado-expected-display')).toHaveTextContent('Expected: 100')
+  })
 })
