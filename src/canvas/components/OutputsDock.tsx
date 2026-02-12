@@ -305,6 +305,7 @@ export function OutputsDock() {
           highOutcome: expected + influence * upRange,
           canFocus: d.canFocus,
           matchedNodeId: d.matchedNodeId,
+          direction: d.direction === 'negative' ? 'negative' as const : 'positive' as const,
         }
       })
 
@@ -448,6 +449,32 @@ export function OutputsDock() {
     // Trigger re-run after threshold update
     runV2Analysis()
   }, [setGoalThreshold, runV2Analysis])
+
+  // Phase 3.5: Handle tornado drag "Apply and rerun" — update canvas node values and trigger rerun
+  const handleApplyTornadoDrag = useCallback((modifiedFactors: Map<string, number>) => {
+    const currentNodes = useCanvasStore.getState().nodes
+    // Find tornado rows to map factorKey → matchedNodeId
+    const drv = resultsSectionData?.drivers?.drivers ?? []
+
+    modifiedFactors.forEach((newOutcomeValue, factorKey) => {
+      // Find the driver to get the matchedNodeId
+      const driver = drv.find(d => d.factorKey === factorKey)
+      const nodeId = driver?.matchedNodeId ?? factorKey
+      const node = currentNodes.find(n => n.id === nodeId)
+      if (!node) return
+
+      const existingData = node.data as Record<string, unknown>
+      const existingOs = (existingData.observedState ?? existingData.observed_state ?? {}) as Record<string, unknown>
+      updateNode(nodeId, {
+        data: {
+          ...existingData,
+          observedState: { ...existingOs, value: newOutcomeValue },
+        },
+      })
+    })
+
+    runV2Analysis()
+  }, [resultsSectionData?.drivers?.drivers, updateNode, runV2Analysis])
 
   // C1: Baseline addition does NOT trigger rerun — mutates draft only.
   // User must manually rerun to generate comparison data.
@@ -1219,6 +1246,7 @@ export function OutputsDock() {
                     nodeCount={nodes.length}
                     edgeCount={edges.length}
                     identifiability={report?.model_card?.identifiability_tag}
+                    onApplyTornadoDrag={handleApplyTornadoDrag}
                   />
                 )}
               </div>
