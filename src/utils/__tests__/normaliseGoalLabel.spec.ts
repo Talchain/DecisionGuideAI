@@ -30,6 +30,10 @@ describe('normaliseGoalLabel', () => {
     it('strips "Deliver"', () => {
       expect(normaliseGoalLabel('Deliver 95% uptime')).toBe('95% uptime')
     })
+
+    it('strips "To achieve" (prevents "To achieve To achieve X")', () => {
+      expect(normaliseGoalLabel('To achieve 10M ARR')).toBe('10M ARR')
+    })
   })
 
   describe('case-insensitive matching', () => {

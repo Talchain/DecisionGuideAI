@@ -12,6 +12,7 @@
 
 /** Verbs to strip (case-insensitive). Multi-word entries must come before single-word prefixes. */
 const LEADING_VERBS = [
+  'to achieve',
   'get to',
   'grow to',
   'achieve',

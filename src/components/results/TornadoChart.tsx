@@ -22,9 +22,9 @@ export interface TornadoRow {
   factorKey: string
   /** Display label */
   label: string
-  /** Outcome when factor is at its worst from the user's perspective (left bar) */
+  /** Outcome value when factor is at its low raw value */
   lowOutcome: number
-  /** Outcome when factor is at its best from the user's perspective (right bar) */
+  /** Outcome value when factor is at its high raw value */
   highOutcome: number
   /** Whether this factor can be focused on canvas */
   canFocus: boolean

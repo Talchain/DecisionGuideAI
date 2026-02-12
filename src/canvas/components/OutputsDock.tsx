@@ -291,20 +291,18 @@ export function OutputsDock() {
       .slice(0, 5) // Cap at 5 rows for readability
       .map(d => {
         const influence = d.influenceScore ?? d.normalisedInfluence
-        // For negative-direction factors (e.g. churn, risk), "weaker" means
-        // the factor is higher (more churn = worse), so the pessimistic outcome
-        // maps to the upRange side. Flip low/high so the left bar ("weaker")
-        // always shows the worse outcome from the user's perspective.
-        const isNegative = d.direction === 'negative'
+        // NOTE: lowOutcome/highOutcome represent outcome at the factor's low/high
+        // raw value, NOT "worse/better" from the user's perspective.
+        // For negative-direction factors (e.g. churn), low factor value = better
+        // outcome, but the rendering assumes lowOutcome < expected < highOutcome.
+        // Fixing the semantic mapping requires adding direction to TornadoRow and
+        // making the render layer direction-aware (swap bar colours). Deferred to
+        // Phase 3.3 alongside drag interaction work.
         return {
           factorKey: d.factorKey,
           label: d.factorLabel,
-          lowOutcome: isNegative
-            ? expected + influence * upRange
-            : expected - influence * downRange,
-          highOutcome: isNegative
-            ? expected - influence * downRange
-            : expected + influence * upRange,
+          lowOutcome: expected - influence * downRange,
+          highOutcome: expected + influence * upRange,
           canFocus: d.canFocus,
           matchedNodeId: d.matchedNodeId,
         }
