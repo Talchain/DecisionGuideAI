@@ -160,6 +160,8 @@ export function groupActionItems(input: GroupActionItemsInput): ActionGroup[] {
           id: `near-miss-${c.node_id}`,
           title: `${c.label} is close to failing`,
           subtitle: `${Math.round(c.near_miss_fraction * 100)}% of scenarios miss by a small margin — worth validating your estimate.`,
+          targetId: c.node_id,
+          targetType: 'node',
           confidenceLevel: 'medium',
           source: 'model',
         })

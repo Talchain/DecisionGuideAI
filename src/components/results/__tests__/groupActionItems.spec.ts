@@ -264,6 +264,8 @@ describe('groupActionItems', () => {
       expect(nearMissItems).toHaveLength(1)
       expect(nearMissItems[0].title).toBe('Timeline is close to failing')
       expect(nearMissItems[0].subtitle).toContain('42%')
+      expect(nearMissItems[0].targetId).toBe('timeline')
+      expect(nearMissItems[0].targetType).toBe('node')
       expect(nearMissItems[0].confidenceLevel).toBe('medium')
     })
 
