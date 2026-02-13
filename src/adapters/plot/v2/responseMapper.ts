@@ -584,6 +584,8 @@ export function mapV2ResponseToReportV1(
             p50,
             p90,
           },
+          // Multi-constraint analysis (when goal_constraints were provided in request)
+          constraint_analysis: opt.constraint_analysis,
         }
         return acc
       },
@@ -598,6 +600,7 @@ export function mapV2ResponseToReportV1(
           p50?: number | null
           p90?: number | null
         }
+        constraint_analysis?: import('../../../types/constraints').ConstraintAnalysis
       }>
     ),
     // Include V2-specific data for components that can use it

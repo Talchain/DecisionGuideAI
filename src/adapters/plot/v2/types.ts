@@ -4,6 +4,7 @@
  * Types for the /v2/run endpoint request and response.
  */
 
+import type { ConstraintAnalysis } from '../../../types/constraints'
 import type {
   M1ReviewStatus,
   DecisionQualityV3,
@@ -170,6 +171,8 @@ export interface V2OptionComparison {
   expected_outcome?: number
   /** Full outcome distribution when available (all fields optional in V2 response) */
   outcome?: Partial<V2Outcome>
+  /** Multi-constraint analysis results (when goal_constraints were provided) */
+  constraint_analysis?: ConstraintAnalysis
 }
 
 /**

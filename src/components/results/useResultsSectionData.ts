@@ -922,6 +922,8 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
         isRecommended: false, // Will be set immutably below
         winProbability: prob.win_probability,
         goalProbability,
+        // Multi-constraint analysis (from ISL when goal_constraints were provided)
+        constraintAnalysis: prob.constraint_analysis,
       }
     })
 

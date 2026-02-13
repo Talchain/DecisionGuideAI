@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { groupActionItems, type GroupActionItemsInput } from '../utils/groupActionItems'
 import type { UncertaintyItem, EvidenceGapItem } from '../types'
+import type { ConstraintAnalysis } from '../../../types/constraints'
 
 function makeEdge(overrides: Partial<UncertaintyItem> = {}): UncertaintyItem {
   return {
@@ -190,5 +191,117 @@ describe('groupActionItems', () => {
     expect(groups[1].key).toBe('investigate')
     expect(groups[2].key).toBe('reflect')
     expect(groups[3].key).toBe('premortem')
+  })
+
+  // ── Multi-constraint integration ────────────────────────────────────────
+
+  describe('constraint_analysis integration', () => {
+    const makeConstraintAnalysis = (overrides?: Partial<ConstraintAnalysis>): ConstraintAnalysis => ({
+      joint_probability: 0.52,
+      constraints: [
+        {
+          node_id: 'churn',
+          operator: '<=',
+          threshold: 0.04,
+          label: 'Churn rate',
+          prob_satisfied: 0.85,
+          failure_margin_median: 0.01,
+          near_miss_fraction: 0.1,
+          binding: false,
+        },
+        {
+          node_id: 'budget',
+          operator: '<=',
+          threshold: 20000,
+          label: 'Budget',
+          prob_satisfied: 0.78,
+          failure_margin_median: 2000,
+          near_miss_fraction: 0.15,
+          binding: true,
+        },
+      ],
+      ...overrides,
+    })
+
+    it('adds binding constraint to Group 1 (validate)', () => {
+      const groups = groupActionItems({
+        fragileEdges: [],
+        evidenceGaps: [],
+        constraintAnalysis: makeConstraintAnalysis(),
+      })
+
+      const bindingItems = groups[0].items.filter(i => i.id.startsWith('binding-'))
+      expect(bindingItems).toHaveLength(1)
+      expect(bindingItems[0].title).toBe('Budget is the binding constraint')
+      expect(bindingItems[0].subtitle).toBe('Most likely to prevent you from meeting all your targets.')
+      expect(bindingItems[0].targetId).toBe('budget')
+      expect(bindingItems[0].source).toBe('model')
+    })
+
+    it('adds near-miss constraint to Group 2 (investigate) when near_miss_fraction > 0.3', () => {
+      const analysis = makeConstraintAnalysis({
+        constraints: [
+          {
+            node_id: 'timeline',
+            operator: '<=',
+            threshold: 6,
+            label: 'Timeline',
+            prob_satisfied: 0.61,
+            failure_margin_median: 0.5,
+            near_miss_fraction: 0.42,
+            binding: false,
+          },
+        ],
+      })
+
+      const groups = groupActionItems({
+        fragileEdges: [],
+        evidenceGaps: [],
+        constraintAnalysis: analysis,
+      })
+
+      const nearMissItems = groups[1].items.filter(i => i.id.startsWith('near-miss-'))
+      expect(nearMissItems).toHaveLength(1)
+      expect(nearMissItems[0].title).toBe('Timeline is close to failing')
+      expect(nearMissItems[0].subtitle).toContain('42%')
+      expect(nearMissItems[0].confidenceLevel).toBe('medium')
+    })
+
+    it('does not add near-miss item when near_miss_fraction <= 0.3', () => {
+      const groups = groupActionItems({
+        fragileEdges: [],
+        evidenceGaps: [],
+        constraintAnalysis: makeConstraintAnalysis(), // both constraints have fraction <= 0.3
+      })
+
+      const nearMissItems = groups[1].items.filter(i => i.id.startsWith('near-miss-'))
+      expect(nearMissItems).toHaveLength(0)
+    })
+
+    it('no constraint items when constraintAnalysis is undefined', () => {
+      const groups = groupActionItems({
+        fragileEdges: [],
+        evidenceGaps: [],
+      })
+
+      const bindingItems = groups[0].items.filter(i => i.id.startsWith('binding-'))
+      const nearMissItems = groups[1].items.filter(i => i.id.startsWith('near-miss-'))
+      expect(bindingItems).toHaveLength(0)
+      expect(nearMissItems).toHaveLength(0)
+    })
+
+    it('binding constraint coexists with fragile edges in Group 1', () => {
+      const edge = makeEdge()
+      const groups = groupActionItems({
+        fragileEdges: [edge],
+        evidenceGaps: [],
+        constraintAnalysis: makeConstraintAnalysis(),
+      })
+
+      // 1 fragile edge + 1 binding constraint
+      expect(groups[0].items).toHaveLength(2)
+      expect(groups[0].items[0].id).toBe('factor-a→outcome-b')
+      expect(groups[0].items[1].id).toBe('binding-budget')
+    })
   })
 })

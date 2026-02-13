@@ -15,6 +15,7 @@
 
 import { useState, useCallback, useMemo } from 'react'
 import type { ConfidenceSectionData, UncertaintyItem, ImprovementItem, CritiqueSeverity, ConfidenceTier, EvidenceGapItem, NextActionItem, AssumptionItem } from './types'
+import type { ConstraintAnalysis } from '../../types/constraints'
 import { CappedList } from './CappedList'
 import { focusNodeById, focusByTarget, type FocusTargetType } from '../../canvas/utils/focusHelpers'
 import { EMPTY_STATES } from './emptyStates'
@@ -45,6 +46,8 @@ interface ConfidenceSectionProps {
   topDriverId?: string
   /** Number of visible drivers — gates "widest uncertainty" clause (needs ≥2) */
   visibleDriverCount?: number
+  /** Multi-constraint analysis from winning option (for binding/near-miss action items) */
+  winnerConstraintAnalysis?: ConstraintAnalysis
 }
 
 const SEVERITY_CONFIG: Record<CritiqueSeverity, {
@@ -350,6 +353,7 @@ export function ConfidenceSection({
   topDriverLabel,
   topDriverId,
   visibleDriverCount = 0,
+  winnerConstraintAnalysis,
 }: ConfidenceSectionProps) {
   const [showAllUncertainties, setShowAllUncertainties] = useState(false)
   const [showAllImprovements, setShowAllImprovements] = useState(false)
@@ -484,6 +488,7 @@ export function ConfidenceSection({
         const groups = groupActionItems({
           fragileEdges: displayFragileEdges,
           evidenceGaps: evidenceGaps ?? [],
+          constraintAnalysis: winnerConstraintAnalysis,
         })
 
         // Non-fragile-edge uncertainties (Group 2 legacy: low-confidence factors)

@@ -18,6 +18,10 @@ import { typography } from '../../styles/typography'
 import { formatPercent as formatPct } from '../../utils/formatPercent'
 import { stripEncodingNotation } from './utils/cleanFactorLabel'
 import type { OptionResult } from './types'
+import {
+  constraintConfidenceColour,
+  jointProbabilityLabel,
+} from '../../types/constraints'
 
 export interface OptionCardsProps {
   options: OptionResult[]
@@ -151,6 +155,18 @@ function OptionCard({
           />
         )}
       </div>
+
+      {/* Multi-constraint joint probability line */}
+      {option.constraintAnalysis != null &&
+        option.constraintAnalysis.constraints.length > 0 && (
+        <p
+          className={`${typography.panelMeta} ${constraintConfidenceColour(option.constraintAnalysis.joint_probability)}`}
+          data-testid="option-constraint-badge"
+        >
+          {jointProbabilityLabel(option.constraintAnalysis.joint_probability)}{' '}
+          {Math.round(option.constraintAnalysis.joint_probability * 100)}%
+        </p>
+      )}
     </div>
   )
 }

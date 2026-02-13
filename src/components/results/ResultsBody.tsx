@@ -126,6 +126,7 @@ export function ResultsBody({
             isFromBrief={isThresholdFromBrief}
             isRunning={isRunning}
             onApplyThreshold={onApplyThreshold}
+            constraintAnalysis={resultsSectionData.recommendation.recommendedOption?.constraintAnalysis}
           />
           <OptionCards
             options={resultsSectionData.recommendation.allOptions}
@@ -207,6 +208,7 @@ export function ResultsBody({
             topDriverLabel={resultsSectionData.drivers.topDrivers[0]?.factorLabel}
             topDriverId={resultsSectionData.drivers.topDrivers[0]?.factorKey}
             visibleDriverCount={resultsSectionData.drivers.totalCount}
+            winnerConstraintAnalysis={resultsSectionData.recommendation.recommendedOption?.constraintAnalysis}
           />
         </Accordion>
       </div>

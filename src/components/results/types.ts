@@ -8,6 +8,7 @@
  */
 
 import type { FactorEnrichment, NearTieInfo } from '../../lib/mappers/types'
+import type { ConstraintAnalysis } from '../../types/constraints'
 import type { M1CoachingReadiness } from '../../types/cee'
 
 // Re-export M1 coaching type for component use
@@ -112,6 +113,8 @@ export interface OptionResult {
   deltaFromBaseline?: number | null
   /** Task 8: Rank of this option (1 = best, 2 = second best, etc.) for display */
   rank?: number
+  /** Multi-constraint analysis: per-option constraint satisfaction from ISL */
+  constraintAnalysis?: ConstraintAnalysis
 }
 
 /** Outcome unit type for formatting - from goal node observed_state.unit */

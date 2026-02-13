@@ -215,4 +215,54 @@ describe('OptionCards', () => {
       expect(screen.queryByText('Hits target')).not.toBeInTheDocument()
     })
   })
+
+  describe('Multi-constraint badge', () => {
+    it('shows "Meets all targets X%" when constraint_analysis is present', () => {
+      const withConstraints: OptionResult[] = [
+        {
+          ...mockOptions[0],
+          constraintAnalysis: {
+            joint_probability: 0.68,
+            constraints: [
+              { node_id: 'c1', operator: '>=', threshold: 100, label: 'MRR', prob_satisfied: 0.85, failure_margin_median: 10, near_miss_fraction: 0.1, binding: false },
+            ],
+          },
+        },
+        mockOptions[1],
+      ]
+
+      render(<OptionCards options={withConstraints} winnerId="option-1" />)
+
+      const badge = screen.getByTestId('option-constraint-badge')
+      expect(badge).toBeInTheDocument()
+      expect(badge.textContent).toContain('Meets all targets')
+      expect(badge.textContent).toContain('68%')
+    })
+
+    it('shows "May miss targets" when joint_probability < 0.4', () => {
+      const withConstraints: OptionResult[] = [
+        {
+          ...mockOptions[0],
+          constraintAnalysis: {
+            joint_probability: 0.25,
+            constraints: [
+              { node_id: 'c1', operator: '>=', threshold: 100, label: 'MRR', prob_satisfied: 0.3, failure_margin_median: 20, near_miss_fraction: 0.5, binding: true },
+            ],
+          },
+        },
+      ]
+
+      render(<OptionCards options={withConstraints} winnerId="option-1" />)
+
+      const badge = screen.getByTestId('option-constraint-badge')
+      expect(badge.textContent).toContain('May miss targets')
+      expect(badge.textContent).toContain('25%')
+    })
+
+    it('does not show constraint line when constraint_analysis is absent', () => {
+      render(<OptionCards options={mockOptions} winnerId="option-1" />)
+
+      expect(screen.queryByTestId('option-constraint-badge')).not.toBeInTheDocument()
+    })
+  })
 })

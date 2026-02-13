@@ -10,6 +10,7 @@
  */
 
 import type { UncertaintyItem, EvidenceGapItem } from '../types'
+import type { ConstraintAnalysis } from '../../../types/constraints'
 import { stripEncodingNotation } from './cleanFactorLabel'
 
 // ─── Public types ────────────────────────────────────────────────────────────
@@ -91,10 +92,12 @@ export interface GroupActionItemsInput {
   biasFindings?: string[]
   /** M2 pre-mortem items (Phase 5) */
   preMortem?: string[]
+  /** Multi-constraint analysis from winning option (for binding/near-miss items) */
+  constraintAnalysis?: ConstraintAnalysis
 }
 
 export function groupActionItems(input: GroupActionItemsInput): ActionGroup[] {
-  const { fragileEdges, evidenceGaps, biasFindings, preMortem } = input
+  const { fragileEdges, evidenceGaps, biasFindings, preMortem, constraintAnalysis } = input
 
   // ── Group 1: Validate before committing ──────────────────────────────────
   const group1Keys = new Set<string>()
@@ -114,6 +117,23 @@ export function groupActionItems(input: GroupActionItemsInput): ActionGroup[] {
     }
   })
 
+  // Binding constraint → Group 1 ("Validate before committing")
+  // When binding: true, this constraint is most likely to prevent meeting all targets.
+  if (constraintAnalysis?.constraints) {
+    for (const c of constraintAnalysis.constraints) {
+      if (c.binding) {
+        group1Items.push({
+          id: `binding-${c.node_id}`,
+          title: `${c.label} is the binding constraint`,
+          subtitle: 'Most likely to prevent you from meeting all your targets.',
+          targetId: c.node_id,
+          targetType: 'node',
+          source: 'model',
+        })
+      }
+    }
+  }
+
   // ── Group 2: Investigate ─────────────────────────────────────────────────
   // Exclude evidence gaps whose dedup key exactly matches a Group 1 key
   const group2Items: ActionItem[] = evidenceGaps
@@ -130,6 +150,22 @@ export function groupActionItems(input: GroupActionItemsInput): ActionGroup[] {
       ),
       source: 'model' as const,
     }))
+
+  // Near-miss constraints → Group 2 ("Investigate")
+  // When near_miss_fraction > 0.3, many scenarios miss by a small margin.
+  if (constraintAnalysis?.constraints) {
+    for (const c of constraintAnalysis.constraints) {
+      if (c.near_miss_fraction > 0.3) {
+        group2Items.push({
+          id: `near-miss-${c.node_id}`,
+          title: `${c.label} is close to failing`,
+          subtitle: `${Math.round(c.near_miss_fraction * 100)}% of scenarios miss by a small margin — worth validating your estimate.`,
+          confidenceLevel: 'medium',
+          source: 'model',
+        })
+      }
+    }
+  }
 
   // ── Group 3: Worth reflecting on (M2 only) ──────────────────────────────
   const group3Items: ActionItem[] = (biasFindings ?? []).map((finding, i) => ({
