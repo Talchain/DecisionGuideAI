@@ -2364,4 +2364,166 @@ describe('usePreAnalysisData', () => {
       })
     })
   })
+
+  // ===========================================================================
+  // V3 Field Format Tests
+  // ===========================================================================
+
+  describe('V3 field format: factors with category + observed_state', () => {
+    it('shows observable factor with AI-sourced observedState in review tier', () => {
+      mockUseCanvasStore.mockImplementation(createMockStore({
+        nodes: [
+          {
+            id: 'fac_churn',
+            type: 'factor',
+            position: { x: 0, y: 0 },
+            data: {
+              label: 'Churn Rate',
+              category: 'observable',
+              // camelCase observedState — as DraftChat stores it after mapping from CEE
+              observedState: { value: 0.05, source: 'cee_inference' },
+            },
+          },
+          { id: 'opt1', type: 'option', position: { x: 0, y: 0 }, data: { label: 'Option 1' } },
+          { id: 'opt2', type: 'option', position: { x: 0, y: 0 }, data: { label: 'Option 2', is_baseline: true } },
+        ],
+      }))
+
+      const { result } = renderHook(() => usePreAnalysisData())
+
+      // Observable factor with AI source should appear in verify (review assumptions)
+      expect(result.current.improvementsByCategory.verify).toContainEqual(
+        expect.objectContaining({
+          key: 'verify_fac_churn',
+          category: 'verify',
+          label: 'Churn Rate',
+        })
+      )
+      // Should also appear in reviewAssumptions tier
+      expect(result.current.tiers.reviewAssumptions.items).toContainEqual(
+        expect.objectContaining({ key: 'verify_fac_churn' })
+      )
+    })
+
+    it('shows controllable factor without interventions in review tier', () => {
+      mockUseCanvasStore.mockImplementation(createMockStore({
+        nodes: [
+          {
+            id: 'fac_budget',
+            type: 'factor',
+            position: { x: 0, y: 0 },
+            data: {
+              label: 'Marketing Budget',
+              category: 'controllable',
+              observedState: { value: 50000, source: 'cee_inference' },
+            },
+          },
+          { id: 'opt1', type: 'option', position: { x: 0, y: 0 }, data: { label: 'Option 1' } },
+          { id: 'opt2', type: 'option', position: { x: 0, y: 0 }, data: { label: 'Option 2', is_baseline: true } },
+        ],
+      }))
+
+      const { result } = renderHook(() => usePreAnalysisData())
+
+      // Controllable factor without interventions should still appear in verify
+      expect(result.current.improvementsByCategory.verify).toContainEqual(
+        expect.objectContaining({ key: 'verify_fac_budget' })
+      )
+    })
+
+    it('excludes external factor with observed_state.value=None from verify when source is not AI', () => {
+      mockUseCanvasStore.mockImplementation(createMockStore({
+        nodes: [
+          {
+            id: 'fac_market',
+            type: 'factor',
+            position: { x: 0, y: 0 },
+            data: {
+              label: 'Market Conditions',
+              category: 'external',
+              // External factor with default source — not AI-inferred
+              observedState: { value: null, source: 'default' },
+            },
+          },
+          { id: 'opt1', type: 'option', position: { x: 0, y: 0 }, data: { label: 'Option 1' } },
+          { id: 'opt2', type: 'option', position: { x: 0, y: 0 }, data: { label: 'Option 2', is_baseline: true } },
+        ],
+      }))
+
+      const { result } = renderHook(() => usePreAnalysisData())
+
+      // External factor with 'default' source should NOT appear (not AI)
+      expect(result.current.improvementsByCategory.verify).not.toContainEqual(
+        expect.objectContaining({ key: 'verify_fac_market' })
+      )
+    })
+  })
+
+  describe('V3 field format: negative edge detection (direction field)', () => {
+    it('suppresses no_negative_effects coaching when edges have direction=negative', () => {
+      mockUseCanvasStore.mockImplementation(createMockStore({
+        nodes: [
+          { id: 'opt1', type: 'option', position: { x: 0, y: 0 }, data: { label: 'Option 1' } },
+          { id: 'opt2', type: 'option', position: { x: 0, y: 0 }, data: { label: 'Option 2', is_baseline: true } },
+          { id: 'f1', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'Factor 1' } },
+          { id: 'f2', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'Factor 2' } },
+        ],
+        edges: [
+          // Canvas edge format: direction='negative' + weight=0.7 (mapped by DraftChat from strength.mean=-0.7)
+          { id: 'e1', source: 'f1', target: 'f2', data: { direction: 'negative', weight: 0.7 } },
+        ],
+      }))
+
+      const { result } = renderHook(() => usePreAnalysisData())
+
+      // Should NOT suggest adding negative effects — one already exists
+      expect(result.current.improvementsByCategory.strengthen).not.toContainEqual(
+        expect.objectContaining({ key: 'no_negative_effects' })
+      )
+    })
+
+    it('shows no_negative_effects coaching when all edges have direction=positive', () => {
+      mockUseCanvasStore.mockImplementation(createMockStore({
+        nodes: [
+          { id: 'opt1', type: 'option', position: { x: 0, y: 0 }, data: { label: 'Option 1' } },
+          { id: 'opt2', type: 'option', position: { x: 0, y: 0 }, data: { label: 'Option 2', is_baseline: true } },
+          { id: 'f1', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'Factor 1' } },
+          { id: 'f2', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'Factor 2' } },
+        ],
+        edges: [
+          // All positive edges
+          { id: 'e1', source: 'f1', target: 'f2', data: { direction: 'positive', weight: 0.7 } },
+        ],
+      }))
+
+      const { result } = renderHook(() => usePreAnalysisData())
+
+      // Should suggest adding negative effects
+      expect(result.current.improvementsByCategory.strengthen).toContainEqual(
+        expect.objectContaining({ key: 'no_negative_effects' })
+      )
+    })
+
+    it('shows no_negative_effects coaching when edges have no direction (legacy)', () => {
+      mockUseCanvasStore.mockImplementation(createMockStore({
+        nodes: [
+          { id: 'opt1', type: 'option', position: { x: 0, y: 0 }, data: { label: 'Option 1' } },
+          { id: 'opt2', type: 'option', position: { x: 0, y: 0 }, data: { label: 'Option 2', is_baseline: true } },
+          { id: 'f1', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'Factor 1' } },
+          { id: 'f2', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'Factor 2' } },
+        ],
+        edges: [
+          // Legacy edge with no direction field
+          { id: 'e1', source: 'f1', target: 'f2', data: { weight: 0.5 } },
+        ],
+      }))
+
+      const { result } = renderHook(() => usePreAnalysisData())
+
+      // Should suggest adding negative effects (no direction = no negative)
+      expect(result.current.improvementsByCategory.strengthen).toContainEqual(
+        expect.objectContaining({ key: 'no_negative_effects' })
+      )
+    })
+  })
 })

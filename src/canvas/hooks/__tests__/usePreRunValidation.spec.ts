@@ -392,4 +392,106 @@ describe('validateBeforeRun', () => {
       expect(result.userQuestions).toBeUndefined()
     })
   })
+
+  // ===========================================================================
+  // V3 Flat Edge Format — Strength Warning
+  // ===========================================================================
+
+  describe('V3 edge strength warning (checkDefaultStrengths)', () => {
+    /**
+     * Canvas edges store strength as `weight` (unsigned magnitude, 0-2).
+     * DraftChat maps CEE V3 `strength.mean` / flat `strength_mean` → `weight`.
+     * The strength warning fires when >80% of edges use the default weight (0.5).
+     */
+
+    function makeEdgeWithWeight(id: string, from: string, to: string, weight: number): Edge {
+      return {
+        id,
+        source: from,
+        target: to,
+        data: { weight },
+      }
+    }
+
+    it('fires STRENGTH_DEFAULTS_DOMINANT when >80% of edges use default weight (0.5)', () => {
+      const nodes: Node[] = [
+        makeNode('goal_revenue', 'goal'),
+        makeNode('option_a', 'option'),
+      ]
+      const ceeAnalysisReady = makeCEEAnalysisReady(
+        [{ id: 'option_a', label: 'Option A', status: 'ready', interventions: { f1: { value: 1 } } }],
+        'goal_revenue',
+        'ready'
+      )
+
+      // 6 edges needed (>5 threshold), all with default weight 0.5
+      const edges: Edge[] = [
+        makeEdgeWithWeight('e1', 'f1', 'f2', 0.5),
+        makeEdgeWithWeight('e2', 'f2', 'f3', 0.5),
+        makeEdgeWithWeight('e3', 'f3', 'f4', 0.5),
+        makeEdgeWithWeight('e4', 'f4', 'f5', 0.5),
+        makeEdgeWithWeight('e5', 'f5', 'f6', 0.5),
+        makeEdgeWithWeight('e6', 'f6', 'goal_revenue', 0.5),
+      ]
+
+      const result = validateBeforeRun('goal_revenue', nodes, edges, ceeAnalysisReady)
+
+      const strengthWarning = result.warnings.find(w => w.code === 'STRENGTH_DEFAULTS_DOMINANT')
+      expect(strengthWarning).toBeDefined()
+      expect(strengthWarning!.message).toContain('6 of 6')
+    })
+
+    it('does NOT fire when edges have CEE-provided weight values (mapped from strength_mean)', () => {
+      const nodes: Node[] = [
+        makeNode('goal_revenue', 'goal'),
+        makeNode('option_a', 'option'),
+      ]
+      const ceeAnalysisReady = makeCEEAnalysisReady(
+        [{ id: 'option_a', label: 'Option A', status: 'ready', interventions: { f1: { value: 1 } } }],
+        'goal_revenue',
+        'ready'
+      )
+
+      // 6 edges with varied weights (mapped from CEE strength_mean by DraftChat)
+      const edges: Edge[] = [
+        makeEdgeWithWeight('e1', 'f1', 'f2', 0.3),
+        makeEdgeWithWeight('e2', 'f2', 'f3', 0.7),
+        makeEdgeWithWeight('e3', 'f3', 'f4', 0.8),
+        makeEdgeWithWeight('e4', 'f4', 'f5', 0.2),
+        makeEdgeWithWeight('e5', 'f5', 'f6', 0.6),
+        makeEdgeWithWeight('e6', 'f6', 'goal_revenue', 0.9),
+      ]
+
+      const result = validateBeforeRun('goal_revenue', nodes, edges, ceeAnalysisReady)
+
+      const strengthWarning = result.warnings.find(w => w.code === 'STRENGTH_DEFAULTS_DOMINANT')
+      expect(strengthWarning).toBeUndefined()
+    })
+
+    it('does NOT fire when <=5 edges (below threshold)', () => {
+      const nodes: Node[] = [
+        makeNode('goal_revenue', 'goal'),
+        makeNode('option_a', 'option'),
+      ]
+      const ceeAnalysisReady = makeCEEAnalysisReady(
+        [{ id: 'option_a', label: 'Option A', status: 'ready', interventions: { f1: { value: 1 } } }],
+        'goal_revenue',
+        'ready'
+      )
+
+      // Only 5 edges — below threshold, should not fire
+      const edges: Edge[] = [
+        makeEdgeWithWeight('e1', 'f1', 'f2', 0.5),
+        makeEdgeWithWeight('e2', 'f2', 'f3', 0.5),
+        makeEdgeWithWeight('e3', 'f3', 'f4', 0.5),
+        makeEdgeWithWeight('e4', 'f4', 'f5', 0.5),
+        makeEdgeWithWeight('e5', 'f5', 'goal_revenue', 0.5),
+      ]
+
+      const result = validateBeforeRun('goal_revenue', nodes, edges, ceeAnalysisReady)
+
+      const strengthWarning = result.warnings.find(w => w.code === 'STRENGTH_DEFAULTS_DOMINANT')
+      expect(strengthWarning).toBeUndefined()
+    })
+  })
 })

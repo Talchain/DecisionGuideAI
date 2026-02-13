@@ -388,11 +388,15 @@ function hasEvidence(edge: Edge): boolean {
 }
 
 /**
- * Check if edge has negative strength
+ * Check if edge has negative strength.
+ *
+ * Canvas edges store unsigned magnitude in `weight` and sign in `direction`.
+ * DraftChat maps CEE V3 `strength.mean` / flat `strength_mean` → weight + direction.
+ * V1 nested `strength.mean` is NOT present on canvas edges.
  */
 function hasNegativeStrength(edge: Edge): boolean {
-  const data = edge.data as { strength?: { mean?: number } } | undefined
-  return (data?.strength?.mean ?? 0) < 0
+  const data = edge.data as { direction?: string; weight?: number } | undefined
+  return data?.direction === 'negative' && (data?.weight ?? 0) > 0
 }
 
 // ============================================================================
