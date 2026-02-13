@@ -34,6 +34,17 @@ export const SOFT_BYPASS_STATUSES: ReadonlySet<string> = new Set([
   'needs_encoding',
 ])
 
+/**
+ * All recognised analysis_ready.status values.
+ * Unrecognised values trigger a defensive hard block.
+ */
+const RECOGNISED_STATUSES: ReadonlySet<string> = new Set([
+  'ready',
+  'needs_user_mapping',
+  'needs_encoding',
+  'needs_user_input',
+])
+
 // ============================================================================
 // Types
 // ============================================================================
@@ -121,8 +132,14 @@ function validateGoalNode(
 /**
  * Validate overall analysis_ready status.
  *
- * Checks the top-level status field which indicates if the graph
- * has structural issues (e.g., no causal path to goal).
+ * analysis_ready is the SINGLE SOURCE OF TRUTH for run gating.
+ * Top-level cee_response.options[] is for display only — never used for gating.
+ *
+ * Status handling:
+ * - 'ready': proceed
+ * - 'needs_user_input': hard block (deterministic, no bypass)
+ * - 'needs_user_mapping' / 'needs_encoding': soft-bypassable when options are resolved
+ * - unrecognised: defensive hard block
  */
 function validateOverallStatus(
   ceeAnalysisReady?: CEEAnalysisReady | null
@@ -136,16 +153,45 @@ function validateOverallStatus(
     return { blockers, warnings, userQuestions }
   }
 
+  // Defensive: reject unrecognised status values
+  if (!RECOGNISED_STATUSES.has(ceeAnalysisReady.status)) {
+    blockers.push({
+      code: 'ANALYSIS_NOT_READY',
+      message: `Unrecognised analysis status "${ceeAnalysisReady.status}". Please re-draft.`,
+      action: { type: 'retry_draft', label: 'Retry Draft' },
+    })
+    return { blockers, warnings, userQuestions }
+  }
+
   // Check overall status
   if (ceeAnalysisReady.status !== 'ready') {
-    // LLM omission resilience: For known statuses that the LLM produces when
+    // needs_user_input: deterministic user action required — always hard block
+    if (ceeAnalysisReady.status === 'needs_user_input') {
+      blockers.push({
+        code: 'ANALYSIS_NOT_READY',
+        message: 'Your decision brief needs changes before analysis can run.',
+        action: { type: 'retry_draft', label: 'Edit brief' },
+      })
+      if (ceeAnalysisReady.user_questions?.length) {
+        userQuestions.push(...ceeAnalysisReady.user_questions)
+      }
+      return { blockers, warnings, userQuestions }
+    }
+
+    // LLM omission resilience: For known soft statuses that the LLM produces when
     // it drops `category` on factor nodes, check if options are actually
     // resolved. If so, the status was downgraded due to missing metadata —
-    // not a genuine structural problem. Only bypass for these two known
-    // statuses; unknown/future statuses always block to avoid masking real issues.
+    // not a genuine structural problem.
     const isSoftStatus = SOFT_BYPASS_STATUSES.has(ceeAnalysisReady.status)
+
+    // Baseline options correctly have empty interventions ("do nothing").
+    // Exclude them from the intervention requirement in the soft bypass check.
     const allOptionsResolved = isSoftStatus && (ceeAnalysisReady.options?.every(
-      o => o.status === 'ready' && Object.keys(o.interventions || {}).length > 0
+      o => {
+        if (o.status !== 'ready') return false
+        const isBaseline = detectBaseline(o.label ?? '').isBaseline
+        return isBaseline || Object.keys(o.interventions || {}).length > 0
+      }
     ) ?? false)
 
     if (!allOptionsResolved) {
@@ -158,7 +204,7 @@ function validateOverallStatus(
       // but allOptionsResolved failed (e.g. some options still need mapping),
       // downgrade to warning instead of hard blocker.
       const anyInterventionsPopulated = isSoftStatus && (ceeAnalysisReady.options?.some(
-        o => Object.keys(o.interventions || {}).length > 0
+        o => !detectBaseline(o.label ?? '').isBaseline && Object.keys(o.interventions || {}).length > 0
       ) ?? false)
 
       if (anyInterventionsPopulated) {
@@ -184,6 +230,33 @@ function validateOverallStatus(
   }
 
   return { blockers, warnings, userQuestions }
+}
+
+/**
+ * Validate that analysis_ready has required shape when present.
+ *
+ * Structural invariant: analysis_ready.options must be present and non-empty.
+ * Per-option invariants (status, interventions) are enforced by validateOptions().
+ */
+function validateAnalysisReadyInvariants(
+  ceeAnalysisReady?: CEEAnalysisReady | null
+): { blockers: ValidationBlocker[] } {
+  const blockers: ValidationBlocker[] = []
+
+  // Only check when analysis_ready is present (no check for legacy fallback path)
+  if (!ceeAnalysisReady) return { blockers }
+
+  // Invariant: options must be present and non-empty
+  if (!ceeAnalysisReady.options || ceeAnalysisReady.options.length === 0) {
+    blockers.push({
+      code: 'ANALYSIS_READY_INVALID',
+      message: 'Analysis response is missing option data. Please re-draft.',
+      action: { type: 'retry_draft', label: 'Retry Draft' },
+    })
+    return { blockers }
+  }
+
+  return { blockers }
 }
 
 /**
@@ -495,6 +568,10 @@ export function validateBeforeRun(
   allBlockers.push(...overallValidation.blockers)
   allWarnings.push(...overallValidation.warnings)
   userQuestions = overallValidation.userQuestions
+
+  // 0b. Pre-run invariants: validate analysis_ready shape when present
+  const invariantValidation = validateAnalysisReadyInvariants(ceeAnalysisReady)
+  allBlockers.push(...invariantValidation.blockers)
 
   // 1. Validate goal node
   const goalValidation = validateGoalNode(goalNodeId, nodes)

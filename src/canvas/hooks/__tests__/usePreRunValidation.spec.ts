@@ -494,4 +494,150 @@ describe('validateBeforeRun', () => {
       expect(strengthWarning).toBeUndefined()
     })
   })
+
+  // ===========================================================================
+  // analysis_ready as Single Source of Truth
+  // ===========================================================================
+
+  describe('analysis_ready gating (source of truth)', () => {
+    /**
+     * Golden fixture: mirrors bundle 9e39e2c5 shape.
+     * Top-level options[].status = needs_user_mapping (display only),
+     * but analysis_ready.status = ready with resolved options.
+     *
+     * The store field ceeAnalysisReady is populated from cee_response.analysis_ready,
+     * NOT from top-level cee_response.options[]. So we only test analysis_ready here.
+     */
+    it('allows run when analysis_ready.status=ready and options are resolved (golden fixture)', () => {
+      const nodes: Node[] = [
+        makeNode('goal_revenue', 'goal'),
+        makeNode('option_a', 'option'),
+        makeNode('option_b', 'option'),
+      ]
+
+      // analysis_ready with status=ready and all options resolved
+      const ceeAnalysisReady = makeCEEAnalysisReady(
+        [
+          { id: 'option_a', label: 'Expand to Europe', status: 'ready', interventions: { factor_investment: { value: 100000 } } },
+          { id: 'option_b', label: 'Status Quo', status: 'ready', interventions: { factor_investment: { value: 0 } } },
+        ],
+        'goal_revenue',
+        'ready'
+      )
+
+      const result = validateBeforeRun('goal_revenue', nodes, [], ceeAnalysisReady)
+
+      expect(result.canRun).toBe(true)
+      expect(result.blockers).toHaveLength(0)
+    })
+
+    it('allows run when status=needs_user_mapping but all options resolved (baseline with empty interventions)', () => {
+      const nodes: Node[] = [
+        makeNode('goal_revenue', 'goal'),
+        makeNode('option_a', 'option'),
+        makeNode('option_baseline', 'option'),
+      ]
+
+      // analysis_ready.status downgraded by LLM, but options are actually resolved.
+      // Baseline ("Status Quo") correctly has empty interventions.
+      const ceeAnalysisReady = makeCEEAnalysisReady(
+        [
+          { id: 'option_a', label: 'Expand to Europe', status: 'ready', interventions: { factor_investment: { value: 100000 } } },
+          { id: 'option_baseline', label: 'Status Quo', status: 'ready', interventions: {} },
+        ],
+        'goal_revenue',
+        'needs_user_mapping'
+      )
+
+      const result = validateBeforeRun('goal_revenue', nodes, [], ceeAnalysisReady)
+
+      // Soft bypass: baseline excluded from intervention requirement
+      expect(result.canRun).toBe(true)
+      expect(result.blockers.some(b => b.code === 'ANALYSIS_NOT_READY')).toBe(false)
+    })
+
+    it('blocks when analysis_ready.status=needs_user_input (hard block)', () => {
+      const nodes: Node[] = [
+        makeNode('goal_revenue', 'goal'),
+        makeNode('option_a', 'option'),
+      ]
+
+      const ceeAnalysisReady: CEEAnalysisReady = {
+        options: [
+          { id: 'option_a', label: 'Option A', status: 'ready', interventions: { f1: { value: 1, source: 'brief_extraction' } } },
+        ],
+        goal_node_id: 'goal_revenue',
+        status: 'needs_user_input',
+        user_questions: ['Please clarify what revenue metric you want to optimize.'],
+      }
+
+      const result = validateBeforeRun('goal_revenue', nodes, [], ceeAnalysisReady)
+
+      expect(result.canRun).toBe(false)
+      const blocker = result.blockers.find(b => b.code === 'ANALYSIS_NOT_READY')
+      expect(blocker).toBeDefined()
+      expect(blocker!.message).toContain('brief needs changes')
+      expect(result.userQuestions).toContain('Please clarify what revenue metric you want to optimize.')
+    })
+
+    it('blocks when analysis_ready.options is empty', () => {
+      const nodes: Node[] = [
+        makeNode('goal_revenue', 'goal'),
+        makeNode('option_a', 'option'),
+      ]
+
+      const ceeAnalysisReady: CEEAnalysisReady = {
+        options: [], // Empty — invalid shape
+        goal_node_id: 'goal_revenue',
+        status: 'ready',
+      }
+
+      const result = validateBeforeRun('goal_revenue', nodes, [], ceeAnalysisReady)
+
+      expect(result.canRun).toBe(false)
+      expect(result.blockers.some(b => b.code === 'ANALYSIS_READY_INVALID')).toBe(true)
+    })
+
+    it('blocks when analysis_ready.status is unrecognised', () => {
+      const nodes: Node[] = [
+        makeNode('goal_revenue', 'goal'),
+        makeNode('option_a', 'option'),
+      ]
+
+      const ceeAnalysisReady: CEEAnalysisReady = {
+        options: [
+          { id: 'option_a', label: 'Option A', status: 'ready', interventions: { f1: { value: 1, source: 'brief_extraction' } } },
+        ],
+        goal_node_id: 'goal_revenue',
+        status: 'some_future_status' as any,
+      }
+
+      const result = validateBeforeRun('goal_revenue', nodes, [], ceeAnalysisReady)
+
+      expect(result.canRun).toBe(false)
+      const blocker = result.blockers.find(b => b.code === 'ANALYSIS_NOT_READY')
+      expect(blocker).toBeDefined()
+      expect(blocker!.message).toContain('Unrecognised')
+    })
+
+    it('falls back gracefully when analysis_ready is absent (legacy path)', () => {
+      const nodes: Node[] = [
+        makeNode('goal_revenue', 'goal'),
+        makeNode('option_a', 'option', {
+          interventions: { factor_price: 100 },
+          status: 'ready',
+        }),
+        makeNode('option_b', 'option', {
+          interventions: { factor_price: 200 },
+          status: 'ready',
+        }),
+      ]
+
+      // No ceeAnalysisReady — falls back to canvas node extraction
+      const result = validateBeforeRun('goal_revenue', nodes, [], null)
+
+      // Legacy path still works for backward compatibility
+      expect(result.blockers.some(b => b.code === 'ANALYSIS_READY_INVALID')).toBe(false)
+    })
+  })
 })

@@ -295,8 +295,9 @@ export interface CEEAnalysisReady {
    * - 'ready': All options resolved, graph is valid, can run analysis
    * - 'needs_encoding': Options have categorical values needing encoding
    * - 'needs_user_mapping': Structural issues (e.g., no causal path to goal)
+   * - 'needs_user_input': Deterministic user action required (hard block, no bypass)
    */
-  status?: 'ready' | 'needs_encoding' | 'needs_user_mapping'
+  status?: 'ready' | 'needs_encoding' | 'needs_user_mapping' | 'needs_user_input'
   /**
    * User-facing questions explaining issues when status is not 'ready'.
    * E.g., "The factor 'Price' doesn't have a path to the goal. Is this correct?"
