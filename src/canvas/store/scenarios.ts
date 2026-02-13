@@ -517,7 +517,7 @@ export interface AutosaveData {
     options: Array<{
       id: string
       label: string
-      status: 'ready' | 'needs_user_mapping'
+      status: 'ready' | 'needs_user_mapping' | 'needs_encoding'
       interventions: Record<string, unknown>
       user_questions?: string[]
       unresolved_targets?: string[]

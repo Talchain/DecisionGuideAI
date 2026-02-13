@@ -474,6 +474,62 @@ describe('ContractIntegrityTab', () => {
   })
 
   // -------------------------------------------------------------------------
+  // Section 4b: Model adjustments (CEE STRP/repair mutations)
+  // -------------------------------------------------------------------------
+
+  describe('Model adjustments section', () => {
+    it('renders model adjustments when present in cee_response.analysis_ready', () => {
+      const data = makeDebugData({
+        payloads: {
+          cee_response: {
+            analysis_ready: {
+              model_adjustments: [
+                { type: 'strp_repair', target: 'edge_e1', detail: 'Restored dropped edge' },
+                { type: 'category_infer', field: 'category', detail: 'Inferred controllable' },
+              ],
+            },
+          },
+        },
+      })
+      render(<ContractIntegrityTab data={data} />)
+      expect(screen.getByText('Model adjustments')).toBeInTheDocument()
+      expect(screen.getByText('strp_repair')).toBeInTheDocument()
+      expect(screen.getByText('category_infer')).toBeInTheDocument()
+      expect(screen.getByText(/Restored dropped edge/)).toBeInTheDocument()
+      expect(screen.getByText(/Inferred controllable/)).toBeInTheDocument()
+    })
+
+    it('does not render section when model_adjustments is absent', () => {
+      const data = makeDebugData({
+        payloads: {
+          cee_response: {
+            analysis_ready: {
+              options: [],
+              goal_node_id: 'g1',
+            },
+          },
+        },
+      })
+      render(<ContractIntegrityTab data={data} />)
+      expect(screen.queryByText('Model adjustments')).not.toBeInTheDocument()
+    })
+
+    it('does not render section when model_adjustments is empty', () => {
+      const data = makeDebugData({
+        payloads: {
+          cee_response: {
+            analysis_ready: {
+              model_adjustments: [],
+            },
+          },
+        },
+      })
+      render(<ContractIntegrityTab data={data} />)
+      expect(screen.queryByText('Model adjustments')).not.toBeInTheDocument()
+    })
+  })
+
+  // -------------------------------------------------------------------------
   // Section 5: Validation warnings
   // -------------------------------------------------------------------------
 

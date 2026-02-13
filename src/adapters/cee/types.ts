@@ -271,10 +271,12 @@ export interface CEEInterventionV3 {
 export interface CEEOptionV3 {
   id: string
   label: string
-  status: 'ready' | 'needs_user_mapping' | 'needs_user_input'
+  status: 'ready' | 'needs_user_mapping' | 'needs_user_input' | 'needs_encoding'
   interventions: Record<string, CEEInterventionV3>
   user_questions?: string[]
   unresolved_targets?: string[]
+  /** Original pre-encoding intervention values (e.g. categorical strings, booleans) */
+  raw_interventions?: Record<string, unknown>
 }
 
 /**
@@ -328,6 +330,26 @@ export interface CEEAnalysisReady {
    * Max 3 are displayed in the Review assumptions tier.
    */
   low_confidence_edges?: Array<{ edge_id: string; prompt: string }>
+  /**
+   * STRP/repair pipeline mutation descriptions.
+   * Each entry describes a model adjustment applied during CEE processing.
+   */
+  model_adjustments?: Array<{
+    type: string
+    field?: string
+    detail?: string
+    target?: string
+  }>
+  /**
+   * CEE-provided blockers for factors needing user input.
+   * Supplements graph-derived blockers in usePreRunValidation.
+   */
+  blockers?: Array<{
+    factor_id: string
+    factor_label?: string
+    option_id?: string
+    reason: string
+  }>
 }
 
 /**

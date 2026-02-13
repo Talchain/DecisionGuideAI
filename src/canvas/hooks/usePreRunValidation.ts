@@ -608,6 +608,38 @@ export function validateBeforeRun(
     }
   }
 
+  // 7. Merge CEE-provided blockers (supplement graph-derived blockers)
+  // CEE blockers have richer pipeline context; deduplicate by factor_id, preferring CEE version.
+  if (ceeAnalysisReady?.blockers?.length) {
+    // Dedupe CEE blockers by factor_id (keep first occurrence)
+    const seenCeeFactorIds = new Set<string>()
+    const dedupedCeeBlockers = ceeAnalysisReady.blockers.filter(b => {
+      if (seenCeeFactorIds.has(b.factor_id)) return false
+      seenCeeFactorIds.add(b.factor_id)
+      return true
+    })
+
+    const ceeFactorIds = new Set(dedupedCeeBlockers.map(b => b.factor_id))
+
+    // Remove graph-derived blockers that overlap with CEE blockers (check ALL affectedIds entries)
+    for (let i = allBlockers.length - 1; i >= 0; i--) {
+      const existing = allBlockers[i]
+      if (existing.affectedIds?.some(id => ceeFactorIds.has(id))) {
+        allBlockers.splice(i, 1)
+      }
+    }
+
+    // Add deduped CEE blockers
+    for (const ceeBlocker of dedupedCeeBlockers) {
+      allBlockers.push({
+        code: 'CEE_BLOCKER',
+        message: ceeBlocker.reason,
+        affectedIds: [ceeBlocker.factor_id],
+        action: { type: 'retry_draft', label: ceeBlocker.factor_label ?? ceeBlocker.factor_id },
+      })
+    }
+  }
+
   return {
     canRun: allBlockers.length === 0,
     blockers: allBlockers,

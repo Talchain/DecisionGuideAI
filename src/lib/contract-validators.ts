@@ -61,7 +61,7 @@ function isNonEmptyString(value: unknown): value is string {
 // CEE Response Validators
 // ============================================================================
 
-const VALID_CEE_STATUSES = ['ready', 'needs_encoding', 'needs_user_mapping'] as const
+const VALID_CEE_STATUSES = ['ready', 'needs_encoding', 'needs_user_mapping', 'needs_user_input'] as const
 const VALID_NODE_KINDS = ['goal', 'factor', 'outcome', 'decision', 'risk', 'action', 'option'] as const
 
 /**

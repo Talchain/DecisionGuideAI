@@ -535,3 +535,109 @@ describe('adaptDraftResponse – edge spread-first', () => {
     expect((result.nodes[0] as any).custom_array).toEqual([1, 2, { nested: true }])
   })
 })
+
+// =============================================================================
+// Pipeline-level: analysis_ready sub-field preservation through adaptDraftResponse
+// =============================================================================
+
+describe('adaptDraftResponse – analysis_ready sub-fields', () => {
+  it('preserves model_adjustments through adaptation (root-level nodes path)', () => {
+    const raw = {
+      nodes: [
+        { id: 'f1', label: 'Price', type: 'factor', uncertainty: 0.3 },
+        { id: 'g1', label: 'Revenue', type: 'goal', uncertainty: 0.1 },
+      ],
+      edges: [{ from: 'f1', to: 'g1', weight: 0.5 }],
+      quality_overall: 7,
+      draft_warnings: { structural: [], completeness: [] },
+      analysis_ready: {
+        options: [{ id: 'opt1', label: 'Raise Price', status: 'ready', interventions: { f1: { value: 0.8 } } }],
+        goal_node_id: 'g1',
+        model_adjustments: [
+          { type: 'strp_repair', target: 'edge_e1', detail: 'Restored dropped edge' },
+          { type: 'category_infer', field: 'category', detail: 'Inferred controllable' },
+        ],
+      },
+    }
+
+    const result = adaptDraftResponse(raw)
+    const ar = (result as any).analysis_ready
+    expect(ar).toBeDefined()
+    expect(ar.model_adjustments).toHaveLength(2)
+    expect(ar.model_adjustments[0].type).toBe('strp_repair')
+    expect(ar.model_adjustments[1].type).toBe('category_infer')
+  })
+
+  it('preserves blockers through adaptation (graph path)', () => {
+    const raw = {
+      graph: {
+        nodes: [
+          { id: 'f1', label: 'Price', kind: 'factor' },
+          { id: 'g1', label: 'Revenue', kind: 'goal' },
+        ],
+        edges: [{ from: 'f1', to: 'g1', weight: 0.5 }],
+      },
+      analysis_ready: {
+        options: [{ id: 'opt1', label: 'Raise Price', status: 'ready', interventions: { f1: { value: 0.8 } } }],
+        goal_node_id: 'g1',
+        blockers: [
+          { factor_id: 'f1', reason: 'No observed value', factor_label: 'Price' },
+          { factor_id: 'f2', reason: 'No causal path', option_id: 'opt1' },
+        ],
+      },
+    }
+
+    const result = adaptDraftResponse(raw)
+    const ar = (result as any).analysis_ready
+    expect(ar).toBeDefined()
+    expect(ar.blockers).toHaveLength(2)
+    expect(ar.blockers[0].factor_id).toBe('f1')
+    expect(ar.blockers[0].reason).toBe('No observed value')
+    expect(ar.blockers[1].option_id).toBe('opt1')
+  })
+
+  it('preserves both model_adjustments and blockers together', () => {
+    const raw = {
+      graph: {
+        nodes: [
+          { id: 'f1', label: 'Price', kind: 'factor' },
+          { id: 'g1', label: 'Revenue', kind: 'goal' },
+        ],
+        edges: [{ from: 'f1', to: 'g1', weight: 0.5 }],
+      },
+      analysis_ready: {
+        options: [{ id: 'opt1', label: 'Raise Price', status: 'ready', interventions: { f1: { value: 0.8 } } }],
+        goal_node_id: 'g1',
+        model_adjustments: [{ type: 'strp_repair', detail: 'Fixed edge' }],
+        blockers: [{ factor_id: 'f1', reason: 'Missing data' }],
+      },
+    }
+
+    const result = adaptDraftResponse(raw)
+    const ar = (result as any).analysis_ready
+    expect(ar.model_adjustments).toHaveLength(1)
+    expect(ar.blockers).toHaveLength(1)
+  })
+
+  it('analysis_ready without model_adjustments/blockers is not affected', () => {
+    const raw = {
+      graph: {
+        nodes: [
+          { id: 'f1', label: 'Price', kind: 'factor' },
+          { id: 'g1', label: 'Revenue', kind: 'goal' },
+        ],
+        edges: [{ from: 'f1', to: 'g1', weight: 0.5 }],
+      },
+      analysis_ready: {
+        options: [{ id: 'opt1', label: 'Raise Price', status: 'ready', interventions: { f1: { value: 0.8 } } }],
+        goal_node_id: 'g1',
+      },
+    }
+
+    const result = adaptDraftResponse(raw)
+    const ar = (result as any).analysis_ready
+    expect(ar).toBeDefined()
+    expect(ar.model_adjustments).toBeUndefined()
+    expect(ar.blockers).toBeUndefined()
+  })
+})

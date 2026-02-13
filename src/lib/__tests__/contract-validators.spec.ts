@@ -97,7 +97,7 @@ describe('Contract Validators', () => {
 
     describe('status enum', () => {
       it('passes for valid status values', () => {
-        const validStatuses = ['ready', 'needs_encoding', 'needs_user_mapping']
+        const validStatuses = ['ready', 'needs_encoding', 'needs_user_mapping', 'needs_user_input']
 
         for (const status of validStatuses) {
           const response = {

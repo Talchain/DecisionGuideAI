@@ -214,6 +214,19 @@ describe('Status Alias Normalisation', () => {
 
     expect(uiOption.status).toBe('needs_user_mapping')
   })
+
+  it('preserves needs_encoding status (not degraded to needs_user_mapping)', () => {
+    const ceeOption: CEEOptionV3 = {
+      id: 'opt1',
+      label: 'Option needing encoding',
+      status: 'needs_encoding',
+      interventions: {},
+    }
+
+    const uiOption = ceeOptionToUIOption(ceeOption)
+
+    expect(uiOption.status).toBe('needs_encoding')
+  })
 })
 
 // ============================================================================
@@ -277,6 +290,33 @@ describe('ceeOptionToUIOption', () => {
       'What is the target value?',
     ])
     expect(uiOption.unresolved_targets).toEqual(['market share', 'customer satisfaction'])
+  })
+
+  it('preserves raw_interventions when present', () => {
+    const ceeOption: CEEOptionV3 = {
+      id: 'opt_with_raw',
+      label: 'Option with raw interventions',
+      status: 'needs_encoding',
+      interventions: { factor_market: { value: 0.5, source: 'brief_extraction' } },
+      raw_interventions: { factor_market: 'UK' },
+    }
+
+    const uiOption = ceeOptionToUIOption(ceeOption)
+
+    expect(uiOption.raw_interventions).toEqual({ factor_market: 'UK' })
+  })
+
+  it('omits raw_interventions when absent', () => {
+    const ceeOption: CEEOptionV3 = {
+      id: 'opt_no_raw',
+      label: 'Option without raw interventions',
+      status: 'ready',
+      interventions: { factor_price: { value: 100, source: 'brief_extraction' } },
+    }
+
+    const uiOption = ceeOptionToUIOption(ceeOption)
+
+    expect(uiOption.raw_interventions).toBeUndefined()
   })
 })
 
@@ -1134,5 +1174,57 @@ describe('V3 observed_state preservation via buildV2RequestFromAnalysisReady', (
     expect(facNode!.observed_state!.factor_type).toBe('cost')
     expect(facNode!.observed_state!.source).toBe('cee_inference')
     expect(facNode!.observed_state!.uncertainty_drivers).toEqual(['Vendor quotes pending'])
+  })
+})
+
+// ============================================================================
+// M2: model_adjustments preservation
+// ============================================================================
+
+describe('model_adjustments preservation', () => {
+  it('model_adjustments survives on CEEAnalysisReady through adapter', () => {
+    const analysisReady: CEEAnalysisReady = {
+      options: [makeCEEOptionV3('opt1', 'ready', { factor_price: { value: 100 } })],
+      goal_node_id: 'outcome_revenue',
+      model_adjustments: [
+        { type: 'strp_repair', target: 'edge_e1', detail: 'Restored dropped edge' },
+        { type: 'category_infer', field: 'category', detail: 'Inferred controllable from edges' },
+      ],
+    }
+
+    // model_adjustments is on the type and accessible
+    expect(analysisReady.model_adjustments).toHaveLength(2)
+    expect(analysisReady.model_adjustments![0].type).toBe('strp_repair')
+    expect(analysisReady.model_adjustments![1].detail).toBe('Inferred controllable from edges')
+
+    // Verify it passes through hasAnalysisReady type guard
+    const response = makeCEEv3Response(analysisReady)
+    expect(hasAnalysisReady(response)).toBe(true)
+    expect(response.analysis_ready!.model_adjustments).toHaveLength(2)
+  })
+})
+
+// ============================================================================
+// M3: blockers preservation
+// ============================================================================
+
+describe('blockers preservation', () => {
+  it('blockers survive on CEEAnalysisReady', () => {
+    const analysisReady: CEEAnalysisReady = {
+      options: [makeCEEOptionV3('opt1', 'ready', { factor_price: { value: 100 } })],
+      goal_node_id: 'outcome_revenue',
+      blockers: [
+        { factor_id: 'factor_a', reason: 'Missing observed value', factor_label: 'Factor A' },
+        { factor_id: 'factor_b', reason: 'No causal path', option_id: 'opt1' },
+      ],
+    }
+
+    expect(analysisReady.blockers).toHaveLength(2)
+    expect(analysisReady.blockers![0].factor_id).toBe('factor_a')
+    expect(analysisReady.blockers![1].reason).toBe('No causal path')
+
+    const response = makeCEEv3Response(analysisReady)
+    expect(hasAnalysisReady(response)).toBe(true)
+    expect(response.analysis_ready!.blockers).toHaveLength(2)
   })
 })

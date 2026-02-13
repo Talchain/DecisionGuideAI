@@ -29,7 +29,7 @@ export interface UIOption {
    * - 'ready': Option has valid interventions and can be analysed
    * - 'needs_user_mapping': Option needs user input to resolve interventions
    */
-  status: 'ready' | 'needs_user_mapping'
+  status: 'ready' | 'needs_user_mapping' | 'needs_encoding'
 
   /**
    * What this option does causally.
@@ -56,6 +56,9 @@ export interface UIOption {
    * - 'legacy_node': Adapted from a legacy option node
    */
   source?: 'cee_generated' | 'user_created' | 'legacy_node'
+
+  /** Original pre-encoding intervention values (e.g. categorical strings, booleans) */
+  raw_interventions?: Record<string, unknown>
 }
 
 /**
@@ -110,10 +113,12 @@ export interface UIInterventionValue {
 export interface CEEOptionV3 {
   id: string
   label: string
-  status: 'ready' | 'needs_user_mapping'
+  status: 'ready' | 'needs_user_mapping' | 'needs_user_input' | 'needs_encoding'
   interventions: Record<string, CEEInterventionV3>
   user_questions?: string[]
   unresolved_targets?: string[]
+  /** Original pre-encoding intervention values (e.g. categorical strings, booleans) */
+  raw_interventions?: Record<string, unknown>
 }
 
 /**
@@ -195,6 +200,7 @@ export function normaliseOptionFromCEE(ceeOption: CEEOptionV3): UIOption {
     user_questions: ceeOption.user_questions,
     unresolved_targets: ceeOption.unresolved_targets,
     source: 'cee_generated',
+    ...(ceeOption.raw_interventions ? { raw_interventions: ceeOption.raw_interventions } : {}),
   }
 }
 

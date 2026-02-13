@@ -42,7 +42,7 @@ function makeCEEAnalysisReady(
   options: Array<{
     id: string
     label: string
-    status: 'ready' | 'needs_user_mapping'
+    status: 'ready' | 'needs_user_mapping' | 'needs_encoding'
     interventions: Record<string, { value: number }>
   }>,
   goalNodeId: string,
@@ -638,6 +638,113 @@ describe('validateBeforeRun', () => {
 
       // Legacy path still works for backward compatibility
       expect(result.blockers.some(b => b.code === 'ANALYSIS_READY_INVALID')).toBe(false)
+    })
+  })
+
+  // ===========================================================================
+  // M3: CEE-provided blockers merge with graph-derived blockers
+  // ===========================================================================
+
+  describe('CEE blockers merge', () => {
+    it('adds CEE blockers to validation result', () => {
+      const nodes: Node[] = [
+        makeNode('factor_price', 'factor'),
+        makeNode('goal_revenue', 'goal'),
+      ]
+
+      const ceeAnalysisReady = makeCEEAnalysisReady(
+        [{ id: 'opt1', label: 'Opt 1', status: 'ready', interventions: { factor_price: { value: 100 } } }],
+        'goal_revenue',
+        'ready'
+      )
+      ceeAnalysisReady.blockers = [
+        { factor_id: 'factor_b', reason: 'No causal path to goal', factor_label: 'Factor B' },
+      ]
+
+      const result = validateBeforeRun('goal_revenue', nodes, [], ceeAnalysisReady)
+
+      const ceeBlocker = result.blockers.find(b => b.code === 'CEE_BLOCKER')
+      expect(ceeBlocker).toBeDefined()
+      expect(ceeBlocker!.message).toBe('No causal path to goal')
+      expect(ceeBlocker!.affectedIds).toEqual(['factor_b'])
+    })
+
+    it('CEE blocker replaces graph-derived blocker for same factor_id', () => {
+      // Setup: option with id='factor_a' and status='needs_user_mapping' triggers
+      // OPTIONS_NEED_MAPPING blocker with affectedIds: ['factor_a'].
+      // CEE blocker for factor_id='factor_a' should replace it.
+      const nodes: Node[] = [
+        makeNode('factor_a', 'factor'),
+        makeNode('goal_revenue', 'goal'),
+      ]
+
+      const ceeAnalysisReady = makeCEEAnalysisReady(
+        [
+          { id: 'factor_a', label: 'Problematic', status: 'needs_user_mapping', interventions: {} },
+          { id: 'opt_good', label: 'Good', status: 'ready', interventions: { factor_a: { value: 100 } } },
+        ],
+        'goal_revenue',
+        'ready'
+      )
+      ceeAnalysisReady.blockers = [
+        { factor_id: 'factor_a', reason: 'CEE: richer context', factor_label: 'Factor A' },
+      ]
+
+      const result = validateBeforeRun('goal_revenue', nodes, [], ceeAnalysisReady)
+
+      // Graph-derived OPTIONS_NEED_MAPPING with affectedIds containing 'factor_a' replaced
+      const graphBlockersForA = result.blockers.filter(
+        b => b.code === 'OPTIONS_NEED_MAPPING' && b.affectedIds?.includes('factor_a')
+      )
+      expect(graphBlockersForA).toHaveLength(0)
+
+      // CEE blocker present instead
+      const ceeBlockers = result.blockers.filter(b => b.code === 'CEE_BLOCKER')
+      expect(ceeBlockers).toHaveLength(1)
+      expect(ceeBlockers[0].message).toBe('CEE: richer context')
+      expect(ceeBlockers[0].affectedIds).toEqual(['factor_a'])
+    })
+
+    it('deduplicates CEE blockers by factor_id (keeps first)', () => {
+      const nodes: Node[] = [
+        makeNode('factor_price', 'factor'),
+        makeNode('goal_revenue', 'goal'),
+      ]
+
+      const ceeAnalysisReady = makeCEEAnalysisReady(
+        [{ id: 'opt1', label: 'Opt 1', status: 'ready', interventions: { factor_price: { value: 100 } } }],
+        'goal_revenue',
+        'ready'
+      )
+      ceeAnalysisReady.blockers = [
+        { factor_id: 'factor_x', reason: 'First reason' },
+        { factor_id: 'factor_x', reason: 'Duplicate (dropped)' },
+        { factor_id: 'factor_y', reason: 'Different factor' },
+      ]
+
+      const result = validateBeforeRun('goal_revenue', nodes, [], ceeAnalysisReady)
+
+      const ceeBlockers = result.blockers.filter(b => b.code === 'CEE_BLOCKER')
+      expect(ceeBlockers).toHaveLength(2)
+      expect(ceeBlockers.find(b => b.affectedIds?.[0] === 'factor_x')!.message).toBe('First reason')
+      expect(ceeBlockers.find(b => b.affectedIds?.[0] === 'factor_y')!.message).toBe('Different factor')
+    })
+
+    it('no CEE blockers when analysis_ready.blockers is absent', () => {
+      const nodes: Node[] = [
+        makeNode('factor_price', 'factor'),
+        makeNode('goal_revenue', 'goal'),
+      ]
+
+      const ceeAnalysisReady = makeCEEAnalysisReady(
+        [{ id: 'opt1', label: 'Opt 1', status: 'ready', interventions: { factor_price: { value: 100 } } }],
+        'goal_revenue',
+        'ready'
+      )
+
+      const result = validateBeforeRun('goal_revenue', nodes, [], ceeAnalysisReady)
+
+      expect(result.blockers.filter(b => b.code === 'CEE_BLOCKER')).toHaveLength(0)
     })
   })
 })

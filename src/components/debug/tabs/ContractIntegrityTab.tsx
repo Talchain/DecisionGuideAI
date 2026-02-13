@@ -703,6 +703,38 @@ export function ContractIntegrityTab({ data }: ContractIntegrityTabProps) {
         )}
       </Section>
 
+      {/* Section 4b: CEE model adjustments (STRP/repair mutations) */}
+      {(() => {
+        const ceeResponse = data.payloads.cee_response as Record<string, unknown> | undefined
+        const analysisReady = ceeResponse?.analysis_ready as Record<string, unknown> | undefined
+        const adjustments = Array.isArray(analysisReady?.model_adjustments) ? analysisReady.model_adjustments as Array<Record<string, unknown>> : []
+        if (adjustments.length === 0) return null
+        return (
+          <Section title="Model adjustments" status="warn" defaultExpanded>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              {adjustments.map((adj, i) => (
+                <div
+                  key={i}
+                  style={{
+                    padding: '4px 8px',
+                    background: '#f0f9ff',
+                    border: '1px solid #bae6fd',
+                    borderRadius: 4,
+                    fontSize: 11,
+                    color: '#0c4a6e',
+                  }}
+                >
+                  <span style={{ fontFamily: 'monospace', fontWeight: 600 }}>{(adj.type as string) ?? '?'}</span>
+                  {adj.target && <span style={{ marginLeft: 6, color: '#64748b' }}>on {adj.target as string}</span>}
+                  {adj.detail && <span style={{ marginLeft: 6 }}>{adj.detail as string}</span>}
+                  {adj.field && <span style={{ marginLeft: 6, fontFamily: 'monospace', fontSize: 10, color: '#94a3b8' }}>{adj.field as string}</span>}
+                </div>
+              ))}
+            </div>
+          </Section>
+        )
+      })()}
+
       {/* Section 5: Validation warnings */}
       <Section title="Validation warnings" status={validationStatus}>
         {(() => {

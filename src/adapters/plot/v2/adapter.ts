@@ -187,7 +187,7 @@ export function uiOptionToV2Option(option: UIOption): V2Option {
 /**
  * Known valid status values for UIOption.
  */
-const KNOWN_OPTION_STATUSES = new Set(['ready', 'needs_user_mapping', 'needs_user_input'])
+const KNOWN_OPTION_STATUSES = new Set(['ready', 'needs_user_mapping', 'needs_user_input', 'needs_encoding'])
 
 /**
  * Normalise CEEOptionV3 status to UIOption status.
@@ -239,6 +239,7 @@ export function ceeOptionToUIOption(ceeOption: CEEOptionV3): UIOption {
     user_questions: ceeOption.user_questions,
     unresolved_targets: ceeOption.unresolved_targets,
     source: 'cee_generated',
+    ...(ceeOption.raw_interventions ? { raw_interventions: ceeOption.raw_interventions } : {}),
   }
 }
 
