@@ -171,6 +171,26 @@ export interface PipelineData {
   status: 'success' | 'error' | 'pending'
   total_duration_ms?: number
   stages: PipelineStageData[]
+  /** Pipeline provenance metadata (A/B/unified pipeline path, prompt provenance) */
+  cee_provenance?: {
+    pipeline_path?: string
+    model?: string
+    prompt_version?: string
+    prompt_source?: string
+    [key: string]: unknown
+  }
+  /** Enrichment diagnostics */
+  enrich?: {
+    called_count?: number
+    extraction_mode?: string
+    factors_added?: number
+    source?: string
+    [key: string]: unknown
+  }
+  /** Repair diagnostics */
+  repair?: Record<string, unknown>
+  /** STRP diagnostics */
+  strp?: Record<string, unknown>
   llm_metadata?: LlmMetadataData
   llm_raw?: LlmRawData
   node_extraction?: NodeExtractionData
@@ -3158,6 +3178,10 @@ export function useDebugData(): DebugData {
           ? (pipelineTrace as Record<string, unknown>).total_duration_ms as number
           : undefined,
         stages: extractPipelineStages(pipelineTrace),
+        cee_provenance: ((pipelineTrace as Record<string, unknown>)?.cee_provenance as PipelineData['cee_provenance']) ?? undefined,
+        enrich: ((pipelineTrace as Record<string, unknown>)?.enrich as PipelineData['enrich']) ?? undefined,
+        repair: ((pipelineTrace as Record<string, unknown>)?.repair as PipelineData['repair']) ?? undefined,
+        strp: ((pipelineTrace as Record<string, unknown>)?.strp as PipelineData['strp']) ?? undefined,
         llm_metadata: extractLlmMetadata(pipelineTrace, payloadBundle.cee_response),
         llm_raw: extractLlmRaw(payloadBundle.cee_response),
         node_extraction: extractNodeExtraction(pipelineTrace),

@@ -151,6 +151,8 @@ export interface PreAnalysisData {
   enrichedBlockers: EnrichedBlocker[]
   /** Threshold provenance text */
   thresholdProvenance: string | null
+  /** Model adjustments from CEE (STRP/repair pipeline mutations) */
+  modelAdjustments: Array<{ type: string; field?: string; detail?: string; target?: string }>
 }
 
 // ============================================================================
@@ -945,6 +947,7 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
     reviewedFactorsCount,
     totalReviewableFactorsCount,
     enrichedBlockers,
+    modelAdjustments: ceeAnalysisReady?.model_adjustments ?? [],
   }
 }
 

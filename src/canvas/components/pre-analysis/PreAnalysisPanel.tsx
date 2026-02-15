@@ -20,6 +20,7 @@ import { usePreAnalysisData } from './hooks/usePreAnalysisData'
 import { Header } from './Header'
 import { SuccessTarget } from './SuccessTarget'
 import { BlockersSection } from './BlockersSection'
+import { ModelAdjustments } from './ModelAdjustments'
 import { AllImprovements, type ImprovementActionHandlers } from './AllImprovements'
 import { ModelSnapshot } from './ModelSnapshot'
 import { AnalysisSettings } from './AnalysisSettings'
@@ -526,6 +527,11 @@ export function PreAnalysisPanel({
             onRetryDraft={handleRetryDraft}
             onEditBrief={handleEditBrief}
           />
+        )}
+
+        {/* Model adjustments — transparency for CEE automatic fixes */}
+        {data.modelAdjustments.length > 0 && (
+          <ModelAdjustments adjustments={data.modelAdjustments} />
         )}
 
         {/* 3-5. Three-tier improvement sections */}

@@ -87,6 +87,18 @@ export function BlockersSection({
                   {display.description}
                 </p>
 
+                {/* Suggested actions */}
+                {display.suggestedActions.length > 0 && (
+                  <ul className="mt-1 space-y-0.5">
+                    {display.suggestedActions.map((action) => (
+                      <li key={action} className="text-xs text-text-light flex items-center gap-1">
+                        <span className="text-text-light/50">&bull;</span>
+                        {action}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+
                 {/* Action button inside card when retry is supported */}
                 {display.supportsRetry && canRetryDraft && (
                   showEditBriefInstead ? (

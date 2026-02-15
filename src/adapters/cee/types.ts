@@ -521,6 +521,26 @@ export interface CeePipelineTrace {
   /** LLM call count - optional, defaults to 1 in raw_output mode */
   llm_call_count?: number
   stages: CeePipelineStage[]
+  /** Pipeline provenance metadata (A/B/unified pipeline path and prompt provenance) */
+  cee_provenance?: {
+    pipeline_path?: string
+    model?: string
+    prompt_version?: string
+    prompt_source?: string
+    [key: string]: unknown
+  }
+  /** Enrichment stage diagnostics */
+  enrich?: {
+    called_count?: number
+    extraction_mode?: string
+    factors_added?: number
+    source?: string
+    [key: string]: unknown
+  }
+  /** Repair stage diagnostics */
+  repair?: Record<string, unknown>
+  /** STRP stage diagnostics */
+  strp?: Record<string, unknown>
   connectivity?: CeeConnectivityDiagnostic
   llm_calls?: CeeLlmCall[]
   final_graph?: CeeFinalGraph

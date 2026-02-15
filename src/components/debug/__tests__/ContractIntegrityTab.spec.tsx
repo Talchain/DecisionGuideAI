@@ -373,6 +373,63 @@ describe('ContractIntegrityTab', () => {
       render(<ContractIntegrityTab data={data} />)
       expect(screen.getByText('Strength audit')).toBeInTheDocument()
     })
+
+    it('shows enrichment calls row with Pass when called_count is 1', () => {
+      const data = makeDebugData({
+        payloads: {
+          cee_response: {
+            edges: [{ from: 'f1', to: 'f2', strength_mean: 0.7, strength_std: 0.1 }],
+          },
+        },
+        pipeline: {
+          status: 'success',
+          stages: [],
+          connectivity: { decision_count: 0, option_count: 0, goal_count: 0, factor_count: 0, edge_count: 0 },
+          enrich: { called_count: 1 },
+        },
+      })
+
+      render(<ContractIntegrityTab data={data} />)
+
+      expect(screen.getByText('Enrichment calls')).toBeInTheDocument()
+      expect(screen.getByTestId('contract-integrity-enrichment-status')).toHaveTextContent('Pass')
+    })
+
+    it('shows enrichment calls row with Warn when called_count is greater than 1', () => {
+      const data = makeDebugData({
+        payloads: {
+          cee_response: {
+            edges: [{ from: 'f1', to: 'f2', strength_mean: 0.7, strength_std: 0.1 }],
+          },
+        },
+        pipeline: {
+          status: 'success',
+          stages: [],
+          connectivity: { decision_count: 0, option_count: 0, goal_count: 0, factor_count: 0, edge_count: 0 },
+          enrich: { called_count: 2 },
+        },
+      })
+
+      render(<ContractIntegrityTab data={data} />)
+
+      expect(screen.getByText('Enrichment calls')).toBeInTheDocument()
+      expect(screen.getByTestId('contract-integrity-enrichment-status')).toHaveTextContent('Warn')
+    })
+
+    it('shows enrichment calls row with N/A when called_count is absent', () => {
+      const data = makeDebugData({
+        payloads: {
+          cee_response: {
+            edges: [{ from: 'f1', to: 'f2', strength_mean: 0.7, strength_std: 0.1 }],
+          },
+        },
+      })
+
+      render(<ContractIntegrityTab data={data} />)
+
+      expect(screen.getByText('Enrichment calls')).toBeInTheDocument()
+      expect(screen.getByTestId('contract-integrity-enrichment-status')).toHaveTextContent('N/A')
+    })
   })
 
   // -------------------------------------------------------------------------

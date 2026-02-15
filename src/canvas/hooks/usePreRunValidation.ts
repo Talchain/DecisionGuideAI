@@ -610,12 +610,23 @@ export function validateBeforeRun(
 
   // 7. Merge CEE-provided blockers (supplement graph-derived blockers)
   // CEE blockers have richer pipeline context; deduplicate by factor_id, preferring CEE version.
+  // External factors are excluded — they legitimately have no option→factor edges.
   if (ceeAnalysisReady?.blockers?.length) {
+    // Build node lookup for category checks
+    const nodeById = new Map(nodes.map(n => [n.id, n]))
+
     // Dedupe CEE blockers by factor_id (keep first occurrence)
+    // Exclude external factors — they represent environmental conditions outside user control
     const seenCeeFactorIds = new Set<string>()
     const dedupedCeeBlockers = ceeAnalysisReady.blockers.filter(b => {
       if (seenCeeFactorIds.has(b.factor_id)) return false
       seenCeeFactorIds.add(b.factor_id)
+
+      // Tolerate unreachable external factors (category === 'external')
+      const factorNode = nodeById.get(b.factor_id)
+      const category = (factorNode?.data as { category?: string } | undefined)?.category
+      if (category === 'external') return false
+
       return true
     })
 

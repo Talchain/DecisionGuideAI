@@ -746,5 +746,159 @@ describe('validateBeforeRun', () => {
 
       expect(result.blockers.filter(b => b.code === 'CEE_BLOCKER')).toHaveLength(0)
     })
+
+    it('excludes CEE blockers for external factors', () => {
+      const nodes: Node[] = [
+        makeNode('factor_market', 'factor', { category: 'external' }),
+        makeNode('factor_price', 'factor', { category: 'controllable' }),
+        makeNode('goal_revenue', 'goal'),
+      ]
+
+      const ceeAnalysisReady = makeCEEAnalysisReady(
+        [{ id: 'opt1', label: 'Opt 1', status: 'ready', interventions: { factor_price: { value: 100 } } }],
+        'goal_revenue',
+        'ready'
+      )
+      ceeAnalysisReady.blockers = [
+        { factor_id: 'factor_market', reason: 'No option targets this factor', factor_label: 'Market Conditions' },
+      ]
+
+      const result = validateBeforeRun('goal_revenue', nodes, [], ceeAnalysisReady)
+
+      // External factor blocker should be excluded
+      expect(result.blockers.filter(b => b.code === 'CEE_BLOCKER')).toHaveLength(0)
+      expect(result.canRun).toBe(true)
+    })
+
+    it('keeps CEE blockers for controllable factors', () => {
+      const nodes: Node[] = [
+        makeNode('factor_price', 'factor', { category: 'controllable' }),
+        makeNode('goal_revenue', 'goal'),
+      ]
+
+      const ceeAnalysisReady = makeCEEAnalysisReady(
+        [{ id: 'opt1', label: 'Opt 1', status: 'ready', interventions: { factor_other: { value: 100 } } }],
+        'goal_revenue',
+        'ready'
+      )
+      ceeAnalysisReady.blockers = [
+        { factor_id: 'factor_price', reason: 'No option targets this factor', factor_label: 'Price' },
+      ]
+
+      const result = validateBeforeRun('goal_revenue', nodes, [], ceeAnalysisReady)
+
+      expect(result.blockers.filter(b => b.code === 'CEE_BLOCKER')).toHaveLength(1)
+      expect(result.canRun).toBe(false)
+    })
+
+    it('keeps CEE blockers for factors with undefined category (safe default)', () => {
+      const nodes: Node[] = [
+        makeNode('factor_unknown', 'factor'), // No category field
+        makeNode('goal_revenue', 'goal'),
+      ]
+
+      const ceeAnalysisReady = makeCEEAnalysisReady(
+        [{ id: 'opt1', label: 'Opt 1', status: 'ready', interventions: { factor_other: { value: 100 } } }],
+        'goal_revenue',
+        'ready'
+      )
+      ceeAnalysisReady.blockers = [
+        { factor_id: 'factor_unknown', reason: 'No option targets this factor' },
+      ]
+
+      const result = validateBeforeRun('goal_revenue', nodes, [], ceeAnalysisReady)
+
+      // Undefined category defaults to the stricter check — blocker kept
+      expect(result.blockers.filter(b => b.code === 'CEE_BLOCKER')).toHaveLength(1)
+      expect(result.canRun).toBe(false)
+    })
+  })
+
+  // ===========================================================================
+  // Readiness contract alignment
+  // ===========================================================================
+
+  describe('readiness contract alignment', () => {
+    it('all factors reachable → analysis_ready=ready AND canRun=true', () => {
+      const nodes: Node[] = [
+        makeNode('goal_revenue', 'goal'),
+        makeNode('option_a', 'option'),
+        makeNode('factor_price', 'factor', { category: 'controllable' }),
+      ]
+
+      const ceeAnalysisReady = makeCEEAnalysisReady(
+        [
+          { id: 'option_a', label: 'Option A', status: 'ready', interventions: { factor_price: { value: 100 } } },
+          { id: 'option_b', label: 'Status Quo', status: 'ready', interventions: { factor_price: { value: 0 } } },
+        ],
+        'goal_revenue',
+        'ready'
+      )
+      // No blockers — all factors reachable
+      ceeAnalysisReady.blockers = []
+
+      const result = validateBeforeRun('goal_revenue', nodes, [], ceeAnalysisReady)
+
+      expect(ceeAnalysisReady.status).toBe('ready')
+      expect(result.canRun).toBe(true)
+      expect(result.blockers).toHaveLength(0)
+    })
+
+    it('unreachable external factor → canRun=true (external factors tolerated)', () => {
+      const nodes: Node[] = [
+        makeNode('goal_revenue', 'goal'),
+        makeNode('option_a', 'option'),
+        makeNode('factor_price', 'factor', { category: 'controllable' }),
+        makeNode('factor_regulation', 'factor', { category: 'external' }),
+      ]
+
+      const ceeAnalysisReady = makeCEEAnalysisReady(
+        [
+          { id: 'option_a', label: 'Option A', status: 'ready', interventions: { factor_price: { value: 100 } } },
+          { id: 'option_b', label: 'Status Quo', status: 'ready', interventions: { factor_price: { value: 0 } } },
+        ],
+        'goal_revenue',
+        'ready'
+      )
+      // CEE reports external factor as unreachable
+      ceeAnalysisReady.blockers = [
+        { factor_id: 'factor_regulation', reason: 'No option targets this factor', factor_label: 'Regulation' },
+      ]
+
+      const result = validateBeforeRun('goal_revenue', nodes, [], ceeAnalysisReady)
+
+      // External factor excluded → no blockers → can run
+      expect(result.canRun).toBe(true)
+      expect(result.blockers.filter(b => b.code === 'CEE_BLOCKER')).toHaveLength(0)
+    })
+
+    it('unreachable controllable factor → canRun=false with appropriate blocker', () => {
+      const nodes: Node[] = [
+        makeNode('goal_revenue', 'goal'),
+        makeNode('option_a', 'option'),
+        makeNode('factor_price', 'factor', { category: 'controllable' }),
+        makeNode('factor_marketing', 'factor', { category: 'controllable' }),
+      ]
+
+      const ceeAnalysisReady = makeCEEAnalysisReady(
+        [
+          { id: 'option_a', label: 'Option A', status: 'ready', interventions: { factor_price: { value: 100 } } },
+          { id: 'option_b', label: 'Status Quo', status: 'ready', interventions: { factor_price: { value: 0 } } },
+        ],
+        'goal_revenue',
+        'ready'
+      )
+      // CEE reports controllable factor as unreachable
+      ceeAnalysisReady.blockers = [
+        { factor_id: 'factor_marketing', reason: 'No option targets this factor', factor_label: 'Marketing Spend' },
+      ]
+
+      const result = validateBeforeRun('goal_revenue', nodes, [], ceeAnalysisReady)
+
+      expect(result.canRun).toBe(false)
+      const ceeBlocker = result.blockers.find(b => b.code === 'CEE_BLOCKER')
+      expect(ceeBlocker).toBeDefined()
+      expect(ceeBlocker!.affectedIds).toEqual(['factor_marketing'])
+    })
   })
 })

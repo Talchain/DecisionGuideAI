@@ -142,6 +142,44 @@ function countIssues(gates: DebugData['gates']): number {
   return gates.filter((g) => g.status === 'fail').length
 }
 
+function getPipelinePathPill(path: string | undefined): {
+  label: string
+  style: CSSProperties
+} {
+  const normalized = path?.toLowerCase()
+
+  if (normalized === 'unified') {
+    return {
+      label: 'Unified pipeline',
+      style: {
+        background: '#ecfeff',
+        border: '1px solid #67e8f9',
+        color: '#0f766e',
+      },
+    }
+  }
+
+  if (normalized === 'a' || normalized === 'b') {
+    return {
+      label: `Legacy (${normalized.toUpperCase()})`,
+      style: {
+        background: '#f1f5f9',
+        border: '1px solid #cbd5e1',
+        color: '#334155',
+      },
+    }
+  }
+
+  return {
+    label: 'Unknown pipeline',
+    style: {
+      background: '#f8fafc',
+      border: '1px solid #e2e8f0',
+      color: '#64748b',
+    },
+  }
+}
+
 /**
  * Transform CEE observability data into pipeline steps for Service Chain display.
  * Uses timestamps for proper chronological ordering when available.
@@ -337,6 +375,8 @@ export function SummaryTab({
     ? temperature
     : 'N/A'
 
+  const pipelinePathPill = getPipelinePathPill(data.pipeline.cee_provenance?.pipeline_path)
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16, padding: 12 }}>
       {/* Error Banner */}
@@ -464,7 +504,23 @@ export function SummaryTab({
 
       {/* Row 3: Service Chain */}
       <div style={sectionStyle}>
-        <div style={sectionTitleStyle}>Service Chain</div>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+          <div style={{ ...sectionTitleStyle, marginBottom: 0 }}>Service Chain</div>
+          <span
+            data-testid="summary-pipeline-path-pill"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              padding: '2px 8px',
+              borderRadius: 999,
+              fontSize: 10,
+              fontWeight: 600,
+              ...pipelinePathPill.style,
+            }}
+          >
+            {pipelinePathPill.label}
+          </span>
+        </div>
         <ServiceChain nodes={chainNodes} />
       </div>
 

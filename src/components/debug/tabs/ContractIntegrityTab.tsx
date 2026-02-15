@@ -503,6 +503,11 @@ export function deriveValidationStatus(data: DebugData): SectionStatus {
   return 'warn'
 }
 
+function deriveEnrichmentCallStatus(calledCount: number | undefined): SectionStatus {
+  if (typeof calledCount !== 'number') return 'unavailable'
+  return calledCount === 1 ? 'pass' : 'warn'
+}
+
 // =============================================================================
 // Component
 // =============================================================================
@@ -513,6 +518,8 @@ export function ContractIntegrityTab({ data }: ContractIntegrityTabProps) {
   const requestChainStatus = useMemo(() => deriveRequestChainStatus(data.request_id_chain), [data.request_id_chain])
   const repairsResult = useMemo(() => extractRepairs(data), [data])
   const validationStatus = useMemo(() => deriveValidationStatus(data), [data])
+  const enrichmentCalledCount = data.pipeline.enrich?.called_count
+  const enrichmentCallStatus = deriveEnrichmentCallStatus(enrichmentCalledCount)
 
   const overall = useMemo(
     () => worstStatus([seedChain.status, strengthAudit.status, requestChainStatus, repairsResult.status, validationStatus]),
@@ -574,6 +581,18 @@ export function ContractIntegrityTab({ data }: ContractIntegrityTabProps) {
                 Structural wiring excluded: {strengthAudit.data.structural_excluded}
               </div>
             )}
+
+            <KvRow
+              label="Enrichment calls"
+              value={
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                  <span>{typeof enrichmentCalledCount === 'number' ? enrichmentCalledCount : '\u2014'}</span>
+                  <span data-testid="contract-integrity-enrichment-status">
+                    <StatusBadge status={enrichmentCallStatus} />
+                  </span>
+                </span>
+              }
+            />
 
             {strengthAudit.data.defaulted_edge_ids.length > 0 && (
               <details>

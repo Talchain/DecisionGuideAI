@@ -138,6 +138,7 @@ describe('PreAnalysisPanel', () => {
       reviewedFactorsCount: 0,
       totalReviewableFactorsCount: 0,
       enrichedBlockers: [],
+      modelAdjustments: [],
       ...overrides,
     }
   }
@@ -859,6 +860,53 @@ describe('PreAnalysisPanel', () => {
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
       fireEvent.click(screen.getByTestId('retry-draft-button'))
       expect(mockRetryDraft).toHaveBeenCalledTimes(1)
+    })
+  })
+
+  describe('Model Adjustments', () => {
+    it('renders model-adjustments section when adjustments are present', () => {
+      mockUsePreAnalysisData.mockReturnValue(createMockData({
+        modelAdjustments: [
+          { type: 'factor_reclassified', target: 'Market Conditions', detail: 'Reclassified from controllable to external' },
+          { type: 'edge_added', target: 'Price → Revenue' },
+        ],
+      }))
+
+      render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
+
+      expect(screen.getByTestId('model-adjustments')).toBeInTheDocument()
+      expect(screen.getByText('System corrections')).toBeInTheDocument()
+      expect(screen.getByText('2')).toBeInTheDocument() // count badge
+    })
+
+    it('does not render model-adjustments section when adjustments are empty', () => {
+      mockUsePreAnalysisData.mockReturnValue(createMockData({
+        modelAdjustments: [],
+      }))
+
+      render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
+
+      expect(screen.queryByTestId('model-adjustments')).not.toBeInTheDocument()
+    })
+
+    it('expands to show adjustment details on click', () => {
+      mockUsePreAnalysisData.mockReturnValue(createMockData({
+        modelAdjustments: [
+          { type: 'factor_reclassified', target: 'Market Size', detail: 'Changed to external' },
+        ],
+      }))
+
+      render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
+
+      // Initially collapsed — detail text not visible
+      expect(screen.queryByText('Changed to external')).not.toBeInTheDocument()
+
+      // Click to expand
+      fireEvent.click(screen.getByText('System corrections'))
+
+      // Now detail should be visible
+      expect(screen.getByText('Changed to external')).toBeInTheDocument()
+      expect(screen.getByText(/Factor reclassified/)).toBeInTheDocument()
     })
   })
 })
