@@ -40,6 +40,33 @@ export interface EnrichedBlocker {
   sortOrder: number
 }
 
+// ── ID display hygiene ───────────────────────────────────────────
+
+const ID_PREFIXES = ['constraint_fac_', 'constraint_', 'fac_', 'out_', 'risk_', 'opt_', 'dec_', 'goal_']
+
+/** Check whether a string looks like a raw node ID rather than a human-readable label. */
+export function looksLikeId(s: string): boolean {
+  // Known ID prefixes are always IDs regardless of casing
+  if (/^(fac|constraint|out|risk|opt|dec|goal)_/.test(s)) return true
+  // Underscore-delimited, no spaces, all lowercase → likely machine-generated ID
+  // Mixed-case labels like "Net_Profit" or "GDP_Growth" are left alone
+  return s.includes('_') && !s.includes(' ') && s === s.toLowerCase()
+}
+
+/** Convert a raw node ID into a human-readable title-cased label. */
+export function prettifyId(id: string): string {
+  let label = id
+  for (const prefix of ID_PREFIXES) {
+    if (label.startsWith(prefix)) {
+      label = label.slice(prefix.length)
+      break
+    }
+  }
+  return label
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, c => c.toUpperCase())
+}
+
 // ── Display metadata by blocker code ─────────────────────────────
 
 const BLOCKER_DISPLAY: Record<string, BlockerDisplayMeta> = {
@@ -171,10 +198,13 @@ export function enrichBlocker(blocker: ValidationBlocker): EnrichedBlocker {
   }
 
   // CEE_BLOCKER: use factor label from action.label for contextual title
+  // Prettify if the label looks like a raw ID (e.g., "fac_keeping_monthly_churn")
   if (blocker.code === 'CEE_BLOCKER' && blocker.action?.label) {
+    const rawLabel = blocker.action.label
+    const displayLabel = looksLikeId(rawLabel) ? prettifyId(rawLabel) : rawLabel
     display = {
       ...display,
-      title: `"${blocker.action.label}" is not connected`,
+      title: `"${displayLabel}" is not connected`,
     }
   }
 
@@ -202,6 +232,50 @@ export function enrichAndSortBlockers(blockers: ValidationBlocker[]): EnrichedBl
   return blockers
     .map(enrichBlocker)
     .sort((a, b) => a.sortOrder - b.sortOrder)
+}
+
+/**
+ * Hydrate blocker titles with real node labels from the graph.
+ * For CEE_BLOCKER items, replaces prettified-ID titles with actual node labels
+ * when a matching node is found.
+ */
+export function hydrateBlockerLabels(
+  blockers: EnrichedBlocker[],
+  nodesById: Map<string, { label?: string }>
+): EnrichedBlocker[] {
+  return blockers.map(enriched => {
+    if (enriched.blocker.code !== 'CEE_BLOCKER') return enriched
+
+    const factorId = enriched.blocker.affectedIds?.[0]
+    if (!factorId) return enriched
+
+    const node = nodesById.get(factorId)
+    const nodeLabel = node?.label
+    if (!nodeLabel || looksLikeId(nodeLabel)) return enriched
+
+    return {
+      ...enriched,
+      display: {
+        ...enriched.display,
+        title: `"${nodeLabel}" is not connected`,
+      },
+    }
+  })
+}
+
+/**
+ * Deduplicate enriched blockers by node identity.
+ * First occurrence wins (preserves richer CEE metadata).
+ * Non-node blockers (no affectedIds) are always kept.
+ */
+export function deduplicateBlockers(blockers: EnrichedBlocker[]): EnrichedBlocker[] {
+  const seen = new Set<string>()
+  return blockers.filter(b => {
+    const key = b.blocker.affectedIds?.[0] ?? `${b.blocker.code}:${b.blocker.message}`
+    if (seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
 }
 
 // ── Contextual guidance lookup ───────────────────────────────────

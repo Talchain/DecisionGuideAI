@@ -25,7 +25,7 @@ import { usePreAnalysisData as useExistingPreAnalysisData } from '../../../hooks
 // Import label cleaning utility to strip encoding patterns from factor labels
 import { cleanFactorLabel } from '../../../../components/results/utils/cleanFactorLabel'
 // Import blocker enrichment for structured blocker cards
-import { enrichAndSortBlockers, type EnrichedBlocker } from '../blockerEnrichment'
+import { enrichAndSortBlockers, hydrateBlockerLabels, deduplicateBlockers, type EnrichedBlocker } from '../blockerEnrichment'
 // Import pre-run validation for enrichedBlockers
 import { usePreRunValidation } from '../../../hooks/usePreRunValidation'
 
@@ -731,10 +731,16 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
   const isLoading = ceeAnalysisReady === null && nodes.length > 0
 
   // Enriched blockers from usePreRunValidation — structured cards for BlockersSection
+  // Pipeline: enrich → sort → hydrate labels from graph nodes → deduplicate by factor_id
   const preRunValidation = usePreRunValidation()
   const enrichedBlockers = useMemo(
-    () => enrichAndSortBlockers(preRunValidation.blockers),
-    [preRunValidation.blockers]
+    () => {
+      const enriched = enrichAndSortBlockers(preRunValidation.blockers)
+      const nodesById = new Map(nodes.map(n => [n.id, { label: (n.data as { label?: string })?.label }]))
+      const hydrated = hydrateBlockerLabels(enriched, nodesById)
+      return deduplicateBlockers(hydrated)
+    },
+    [preRunValidation.blockers, nodes]
   )
 
   // Success threshold - priority: CEE goal_threshold > node goal_threshold > observed_state.value > success_threshold > threshold > factor_target_* nodes
