@@ -9,7 +9,7 @@
  *   0–15 s  "Generating your decision model…"
  *  15–30 s  "Mapping factors and causal relationships…"
  *  30–60 s  "This is a complex decision — building a thorough model…"
- *  60–120 s "Still working — complex briefs can take up to two minutes…"
+ *  60–120 s "Still working — complex briefs can take up to two minutes. You can keep waiting or simplify your brief and try again."
  */
 
 import { useEffect, useState, useRef } from 'react'
@@ -20,7 +20,7 @@ export const PROGRESSIVE_STAGES = [
   { afterSeconds: 0,  message: 'Generating your decision model…' },
   { afterSeconds: 15, message: 'Mapping factors and causal relationships…' },
   { afterSeconds: 30, message: 'This is a complex decision — building a thorough model…' },
-  { afterSeconds: 60, message: 'Still working — complex briefs can take up to two minutes…' },
+  { afterSeconds: 60, message: 'Still working — complex briefs can take up to two minutes. You can keep waiting or simplify your brief and try again.' },
 ] as const
 
 /** Resolve the current message for a given elapsed time (seconds) */

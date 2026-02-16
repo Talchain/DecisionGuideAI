@@ -5,8 +5,8 @@ import { pocFlags } from '../../flags'
 import { track } from '../../lib/telemetry'
 
 // Client-side timeout for draft-graph requests
-// Must be >= CEE backend timeout (120s) to avoid premature client-side aborts
-const DRAFT_TIMEOUT_MS = 125_000
+// Must be > PLoT proxy timeout (150s) to avoid premature client-side aborts
+const DRAFT_TIMEOUT_MS = 155_000
 
 export type DraftStatus = 'idle' | 'requesting' | 'streaming' | 'ready' | 'error'
 

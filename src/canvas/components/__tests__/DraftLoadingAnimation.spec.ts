@@ -39,13 +39,13 @@ describe('messageForElapsed', () => {
 
   it('returns stage 4 message at 60 seconds', () => {
     expect(messageForElapsed(60)).toBe(
-      'Still working — complex briefs can take up to two minutes…'
+      'Still working — complex briefs can take up to two minutes. You can keep waiting or simplify your brief and try again.'
     )
   })
 
   it('returns stage 4 message at 120 seconds', () => {
     expect(messageForElapsed(120)).toBe(
-      'Still working — complex briefs can take up to two minutes…'
+      'Still working — complex briefs can take up to two minutes. You can keep waiting or simplify your brief and try again.'
     )
   })
 

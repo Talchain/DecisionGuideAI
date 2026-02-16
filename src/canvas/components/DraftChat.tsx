@@ -80,11 +80,11 @@ function formatCEEError(error: CEEError | Error): {
     const reason = rawDetails?.reason ?? rawDetails?.details?.reason
     const code = rawDetails?.code ?? rawDetails?.details?.code
 
-    // Detect timeout errors (client-side 408 or message match)
-    if (error.message === 'Request timeout' || error.status === 408) {
+    // Detect timeout errors (client-side 408, gateway 504, or message match)
+    if (error.message === 'Request timeout' || error.status === 408 || error.status === 504) {
       return {
-        message: 'The request took longer than expected and timed out.',
-        guidance: 'Complex decisions with many factors can take longer to process. Try simplifying your brief or breaking it into smaller parts.',
+        message: 'Complex briefs with many factors and options can take longer to model. You can:',
+        guidance: 'To speed things up, try focusing on your top 3\u20135 factors and 2\u20133 options. You can always add more detail later.',
         isTimeout: true,
         debugInfo,
       }
@@ -1034,11 +1034,15 @@ export function DraftChat() {
                       return (
                         <div className="p-3 bg-warning-light border border-warning/30 rounded-lg space-y-2" data-testid="draft-timeout-error">
                           <p className="text-sm font-semibold text-warning">
-                            Draft timed out
+                            This brief is taking longer than expected
                           </p>
                           <p className="text-xs text-text-body">
                             {formatted.message}
                           </p>
+                          <ul className="text-xs text-text-body list-disc list-inside space-y-0.5">
+                            <li>Wait a bit longer and try again</li>
+                            <li>Simplify your brief to fewer factors</li>
+                          </ul>
                           {formatted.guidance && (
                             <p className="text-xs text-text-light">
                               {formatted.guidance}
