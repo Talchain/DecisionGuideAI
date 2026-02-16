@@ -901,4 +901,86 @@ describe('validateBeforeRun', () => {
       expect(ceeBlocker!.affectedIds).toEqual(['factor_marketing'])
     })
   })
+
+  // ===========================================================================
+  // constraint_dropped classification
+  // ===========================================================================
+
+  describe('constraint_dropped classification', () => {
+    const baseNodes: Node[] = [
+      makeNode('factor_price', 'factor'),
+      makeNode('goal_revenue', 'goal'),
+      makeNode('option_a', 'option'),
+      makeNode('option_b', 'option'),
+    ]
+
+    function makeReadyCEE() {
+      return makeCEEAnalysisReady(
+        [
+          { id: 'option_a', label: 'Option A', status: 'ready', interventions: { factor_price: { value: 100 } } },
+          { id: 'option_b', label: 'Option B', status: 'ready', interventions: { factor_price: { value: 200 } } },
+        ],
+        'goal_revenue',
+        'ready'
+      )
+    }
+
+    it('constraint_dropped blockers do NOT set canRun to false', () => {
+      const cee = makeReadyCEE()
+      cee.blockers = [
+        { factor_id: 'constraint_budget_limit', reason: 'No matching factor', blocker_type: 'constraint_dropped' },
+        { factor_id: 'constraint_time_limit', reason: 'No matching factor', blocker_type: 'constraint_dropped' },
+      ]
+
+      const result = validateBeforeRun('goal_revenue', baseNodes, [], cee)
+
+      expect(result.canRun).toBe(true)
+      expect(result.blockers).toHaveLength(0)
+      expect(result.informationalBlockers).toHaveLength(2)
+      expect(result.informationalBlockers[0].code).toBe('CONSTRAINT_DROPPED')
+    })
+
+    it('real CEE blockers still set canRun to false', () => {
+      const cee = makeReadyCEE()
+      cee.blockers = [
+        { factor_id: 'factor_price', reason: 'No causal path', blocker_type: 'missing_value' },
+      ]
+
+      const result = validateBeforeRun('goal_revenue', baseNodes, [], cee)
+
+      expect(result.canRun).toBe(false)
+      expect(result.blockers).toHaveLength(1)
+      expect(result.blockers[0].code).toBe('CEE_BLOCKER')
+      expect(result.informationalBlockers).toHaveLength(0)
+    })
+
+    it('mix of constraint_dropped + real blockers: only real blockers count', () => {
+      const cee = makeReadyCEE()
+      cee.blockers = [
+        { factor_id: 'constraint_budget', reason: 'No matching factor', blocker_type: 'constraint_dropped' },
+        { factor_id: 'factor_price', reason: 'No causal path' }, // no blocker_type = blocking
+      ]
+
+      const result = validateBeforeRun('goal_revenue', baseNodes, [], cee)
+
+      expect(result.canRun).toBe(false)
+      expect(result.blockers).toHaveLength(1)
+      expect(result.blockers[0].code).toBe('CEE_BLOCKER')
+      expect(result.informationalBlockers).toHaveLength(1)
+      expect(result.informationalBlockers[0].code).toBe('CONSTRAINT_DROPPED')
+    })
+
+    it('CEE status ready + constraint_dropped only → canRun true', () => {
+      const cee = makeReadyCEE()
+      cee.blockers = [
+        { factor_id: 'constraint_max_headcount', reason: 'Unmatched constraint', blocker_type: 'constraint_dropped' },
+      ]
+
+      const result = validateBeforeRun('goal_revenue', baseNodes, [], cee)
+
+      expect(result.canRun).toBe(true)
+      expect(result.informationalBlockers).toHaveLength(1)
+      expect(result.informationalBlockers[0].action?.label).toBe('constraint_max_headcount')
+    })
+  })
 })

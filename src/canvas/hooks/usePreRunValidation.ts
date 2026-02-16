@@ -61,11 +61,22 @@ export interface RecommendedFix {
   reason: string
 }
 
+/**
+ * CEE blocker types that are informational — they do NOT block analysis.
+ * constraint_dropped: phantom constraint references that CEE couldn't match
+ * to a factor in the user's model. The analysis runs without them.
+ */
+export const NON_BLOCKING_CEE_TYPES: ReadonlySet<string> = new Set([
+  'constraint_dropped',
+])
+
 export interface ValidationResult {
   /** Whether analysis can proceed */
   canRun: boolean
   /** Issues that prevent running */
   blockers: ValidationBlocker[]
+  /** Non-blocking issues shown as informational warnings (e.g. constraint_dropped) */
+  informationalBlockers: ValidationBlocker[]
   /** Issues that should be addressed but don't block */
   warnings: ValidationWarning[]
   /** Recommended state changes (caller decides whether to apply) */
@@ -611,6 +622,9 @@ export function validateBeforeRun(
   // 7. Merge CEE-provided blockers (supplement graph-derived blockers)
   // CEE blockers have richer pipeline context; deduplicate by factor_id, preferring CEE version.
   // External factors are excluded — they legitimately have no option→factor edges.
+  // Non-blocking types (constraint_dropped) are separated into informationalBlockers.
+  const allInformationalBlockers: ValidationBlocker[] = []
+
   if (ceeAnalysisReady?.blockers?.length) {
     // Build node lookup for category checks
     const nodeById = new Map(nodes.map(n => [n.id, n]))
@@ -630,7 +644,11 @@ export function validateBeforeRun(
       return true
     })
 
-    const ceeFactorIds = new Set(dedupedCeeBlockers.map(b => b.factor_id))
+    // Partition CEE blockers into blocking vs informational
+    const blockingCeeBlockers = dedupedCeeBlockers.filter(b => !NON_BLOCKING_CEE_TYPES.has(b.blocker_type ?? ''))
+    const informationalCeeBlockers = dedupedCeeBlockers.filter(b => NON_BLOCKING_CEE_TYPES.has(b.blocker_type ?? ''))
+
+    const ceeFactorIds = new Set(blockingCeeBlockers.map(b => b.factor_id))
 
     // Remove graph-derived blockers that overlap with CEE blockers (check ALL affectedIds entries)
     for (let i = allBlockers.length - 1; i >= 0; i--) {
@@ -640,8 +658,8 @@ export function validateBeforeRun(
       }
     }
 
-    // Add deduped CEE blockers
-    for (const ceeBlocker of dedupedCeeBlockers) {
+    // Add blocking CEE blockers
+    for (const ceeBlocker of blockingCeeBlockers) {
       allBlockers.push({
         code: 'CEE_BLOCKER',
         message: ceeBlocker.reason,
@@ -649,11 +667,22 @@ export function validateBeforeRun(
         action: { type: 'retry_draft', label: ceeBlocker.factor_label ?? ceeBlocker.factor_id },
       })
     }
+
+    // Add informational CEE blockers (shown but don't block run)
+    for (const ceeBlocker of informationalCeeBlockers) {
+      allInformationalBlockers.push({
+        code: 'CONSTRAINT_DROPPED',
+        message: ceeBlocker.reason,
+        affectedIds: [ceeBlocker.factor_id],
+        action: { type: 'info', label: ceeBlocker.factor_label ?? ceeBlocker.factor_id },
+      })
+    }
   }
 
   return {
     canRun: allBlockers.length === 0,
     blockers: allBlockers,
+    informationalBlockers: allInformationalBlockers,
     warnings: allWarnings,
     recommendedFixes: allFixes.length > 0 ? allFixes : undefined,
     userQuestions: userQuestions.length > 0 ? userQuestions : undefined,

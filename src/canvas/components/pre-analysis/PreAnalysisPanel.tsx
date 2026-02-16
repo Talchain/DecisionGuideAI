@@ -518,9 +518,11 @@ export function PreAnalysisPanel({
         )}
 
         {/* Blockers section — structured cards from usePreRunValidation */}
-        {!data.isReady && data.enrichedBlockers.length > 0 && (
+        {/* Show when: blocking items exist (not ready), OR informational items exist (notes) */}
+        {((!data.isReady && data.enrichedBlockers.length > 0) || data.informationalBlockers.length > 0) && (
           <BlockersSection
-            blockers={data.enrichedBlockers}
+            blockers={data.isReady ? [] : data.enrichedBlockers}
+            informationalBlockers={data.informationalBlockers}
             canRetryDraft={canRetryDraft}
             isRetrying={isRetrying}
             lastDraftRetryable={lastDraftError?.retryable}

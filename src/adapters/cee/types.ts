@@ -335,10 +335,18 @@ export interface CEEAnalysisReady {
    * Each entry describes a model adjustment applied during CEE processing.
    */
   model_adjustments?: Array<{
-    type: string
+    /** Legacy type identifier */
+    type?: string
+    /** CEE code identifier (preferred over type) */
+    code?: string
     field?: string
+    /** Legacy detail text */
     detail?: string
+    /** CEE reason text (preferred over detail) */
+    reason?: string
     target?: string
+    /** Allow additional fields from CEE (e.g. edge_id, before, after) */
+    [key: string]: unknown
   }>
   /**
    * CEE-provided blockers for factors needing user input.
@@ -349,6 +357,8 @@ export interface CEEAnalysisReady {
     factor_label?: string
     option_id?: string
     reason: string
+    /** CEE blocker classification — e.g. 'constraint_dropped' for phantom constraints */
+    blocker_type?: string
   }>
 }
 

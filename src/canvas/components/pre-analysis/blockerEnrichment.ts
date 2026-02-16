@@ -13,7 +13,7 @@ import type { ValidationBlocker } from '@talchain/schemas'
 
 // ── Types ────────────────────────────────────────────────────────
 
-export type BlockerSeverity = 'critical' | 'warning'
+export type BlockerSeverity = 'critical' | 'warning' | 'info'
 
 export interface BlockerDisplayMeta {
   title: string
@@ -152,6 +152,15 @@ const BLOCKER_DISPLAY: Record<string, BlockerDisplayMeta> = {
     supportsRetry: true,
     suggestedActions: ['Connect it to an option', 'Remove if not relevant'],
   },
+
+  // Informational (non-blocking) — constraint_dropped
+  CONSTRAINT_DROPPED: {
+    title: 'Constraint not applied',
+    description: "The system couldn't match this constraint to a factor in your model. The analysis will run without it.",
+    severity: 'info',
+    supportsRetry: false,
+    suggestedActions: [],
+  },
 }
 
 /** Fallback for unknown blocker codes */
@@ -180,6 +189,8 @@ const BLOCKER_SORT_ORDER: Record<string, number> = {
   CATEGORY_MISSING: 24,
   // CEE blockers (show third)
   CEE_BLOCKER: 30,
+  // Informational (show last — non-blocking)
+  CONSTRAINT_DROPPED: 40,
 }
 
 const DEFAULT_SORT_ORDER = 50
@@ -205,6 +216,16 @@ export function enrichBlocker(blocker: ValidationBlocker): EnrichedBlocker {
     display = {
       ...display,
       title: `"${displayLabel}" is not connected`,
+    }
+  }
+
+  // CONSTRAINT_DROPPED: use constraint label for contextual title
+  if (blocker.code === 'CONSTRAINT_DROPPED' && blocker.action?.label) {
+    const rawLabel = blocker.action.label
+    const displayLabel = looksLikeId(rawLabel) ? prettifyId(rawLabel) : rawLabel
+    display = {
+      ...display,
+      title: `Constraint not applied: "${displayLabel}"`,
     }
   }
 
@@ -236,15 +257,16 @@ export function enrichAndSortBlockers(blockers: ValidationBlocker[]): EnrichedBl
 
 /**
  * Hydrate blocker titles with real node labels from the graph.
- * For CEE_BLOCKER items, replaces prettified-ID titles with actual node labels
- * when a matching node is found.
+ * For CEE_BLOCKER and CONSTRAINT_DROPPED items, replaces prettified-ID
+ * titles with actual node labels when a matching node is found.
  */
 export function hydrateBlockerLabels(
   blockers: EnrichedBlocker[],
   nodesById: Map<string, { label?: string }>
 ): EnrichedBlocker[] {
+  const HYDRATE_CODES = new Set(['CEE_BLOCKER', 'CONSTRAINT_DROPPED'])
   return blockers.map(enriched => {
-    if (enriched.blocker.code !== 'CEE_BLOCKER') return enriched
+    if (!HYDRATE_CODES.has(enriched.blocker.code)) return enriched
 
     const factorId = enriched.blocker.affectedIds?.[0]
     if (!factorId) return enriched
@@ -253,11 +275,15 @@ export function hydrateBlockerLabels(
     const nodeLabel = node?.label
     if (!nodeLabel || looksLikeId(nodeLabel)) return enriched
 
+    const title = enriched.blocker.code === 'CONSTRAINT_DROPPED'
+      ? `Constraint not applied: "${nodeLabel}"`
+      : `"${nodeLabel}" is not connected`
+
     return {
       ...enriched,
       display: {
         ...enriched.display,
-        title: `"${nodeLabel}" is not connected`,
+        title,
       },
     }
   })

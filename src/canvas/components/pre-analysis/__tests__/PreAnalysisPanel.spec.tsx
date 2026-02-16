@@ -138,6 +138,7 @@ describe('PreAnalysisPanel', () => {
       reviewedFactorsCount: 0,
       totalReviewableFactorsCount: 0,
       enrichedBlockers: [],
+      informationalBlockers: [],
       modelAdjustments: [],
       ...overrides,
     }
@@ -907,6 +908,90 @@ describe('PreAnalysisPanel', () => {
       // Now detail should be visible
       expect(screen.getByText('Changed to external')).toBeInTheDocument()
       expect(screen.getByText(/Factor reclassified/)).toBeInTheDocument()
+    })
+
+    it('renders adjustment with code/reason (no type/detail) without crash', () => {
+      mockUsePreAnalysisData.mockReturnValue(createMockData({
+        modelAdjustments: [
+          { code: 'deterministic_repair', field: 'nodes[fac_x].category', reason: 'Reclassified unreachable factor' },
+        ],
+      }))
+
+      render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
+
+      expect(screen.getByTestId('model-adjustments')).toBeInTheDocument()
+
+      // Expand and check
+      fireEvent.click(screen.getByText('System corrections'))
+      expect(screen.getByText('Deterministic repair')).toBeInTheDocument()
+      expect(screen.getByText('Reclassified unreachable factor')).toBeInTheDocument()
+    })
+
+    it('renders "System adjustment" fallback when both type and code are missing', () => {
+      mockUsePreAnalysisData.mockReturnValue(createMockData({
+        modelAdjustments: [
+          { field: 'nodes[fac_x].category' },
+        ],
+      }))
+
+      render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
+
+      fireEvent.click(screen.getByText('System corrections'))
+      expect(screen.getByText('System adjustment')).toBeInTheDocument()
+    })
+  })
+
+  describe('Informational Blockers', () => {
+    it('renders informational blockers with info styling when ready', () => {
+      mockUsePreAnalysisData.mockReturnValue(createMockData({
+        isReady: true,
+        hasBlockers: false,
+        blockerCount: 0,
+        enrichedBlockers: [],
+        informationalBlockers: [
+          {
+            blocker: { code: 'CONSTRAINT_DROPPED', message: 'No matching factor', affectedIds: ['constraint_budget'] },
+            display: {
+              title: 'Constraint not applied: "Budget"',
+              description: "The system couldn't match this constraint to a factor in your model. The analysis will run without it.",
+              severity: 'info' as const,
+              supportsRetry: false,
+              suggestedActions: [],
+            },
+            sortOrder: 40,
+          },
+        ],
+      }))
+
+      render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
+
+      // Should show "Notes" section, not "Fix before running"
+      expect(screen.getByText('Notes')).toBeInTheDocument()
+      expect(screen.queryByText('Fix before running')).not.toBeInTheDocument()
+
+      // Should show the info card
+      expect(screen.getByTestId('info-card-CONSTRAINT_DROPPED')).toBeInTheDocument()
+    })
+
+    it('does not count informational blockers in footer badge', () => {
+      mockUsePreAnalysisData.mockReturnValue(createMockData({
+        isReady: true,
+        hasBlockers: false,
+        blockerCount: 0,
+        informationalBlockers: [
+          {
+            blocker: { code: 'CONSTRAINT_DROPPED', message: 'No matching factor', affectedIds: ['c1'] },
+            display: { title: 'Test', description: 'Test', severity: 'info' as const, supportsRetry: false, suggestedActions: [] },
+            sortOrder: 40,
+          },
+        ],
+      }))
+
+      render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
+
+      // Footer should show "Ready" not "Blocked"
+      const footer = screen.getByTestId('sticky-footer')
+      expect(footer).toHaveTextContent('Analyse Now')
     })
   })
 })

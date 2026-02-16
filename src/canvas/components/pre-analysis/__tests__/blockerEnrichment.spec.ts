@@ -421,3 +421,76 @@ describe('deduplicateBlockers', () => {
     expect(result[0].blocker.message).toBe('Detailed: no causal path from any option to factor via DAG edges')
   })
 })
+
+// ── CONSTRAINT_DROPPED enrichment ───────────────────────────────
+
+describe('enrichBlocker — CONSTRAINT_DROPPED', () => {
+  it('uses info severity for CONSTRAINT_DROPPED', () => {
+    const enriched = enrichBlocker({
+      code: 'CONSTRAINT_DROPPED',
+      message: 'No matching factor',
+      affectedIds: ['constraint_budget_limit'],
+      action: { type: 'info', label: 'constraint_budget_limit' },
+    } as ValidationBlocker)
+
+    expect(enriched.display.severity).toBe('info')
+    expect(enriched.display.supportsRetry).toBe(false)
+    expect(enriched.display.suggestedActions).toEqual([])
+  })
+
+  it('prettifies constraint label in title', () => {
+    const enriched = enrichBlocker({
+      code: 'CONSTRAINT_DROPPED',
+      message: 'No matching factor',
+      affectedIds: ['constraint_budget_limit'],
+      action: { type: 'info', label: 'constraint_budget_limit' },
+    } as ValidationBlocker)
+
+    expect(enriched.display.title).toBe('Constraint not applied: "Budget Limit"')
+  })
+
+  it('preserves human-readable label in title', () => {
+    const enriched = enrichBlocker({
+      code: 'CONSTRAINT_DROPPED',
+      message: 'No matching factor',
+      affectedIds: ['constraint_budget'],
+      action: { type: 'info', label: 'Annual Budget' },
+    } as ValidationBlocker)
+
+    expect(enriched.display.title).toBe('Constraint not applied: "Annual Budget"')
+  })
+
+  it('sorts after CEE_BLOCKER', () => {
+    const dropped = enrichBlocker({
+      code: 'CONSTRAINT_DROPPED',
+      message: 'No matching factor',
+      affectedIds: ['constraint_x'],
+      action: { type: 'info', label: 'x' },
+    } as ValidationBlocker)
+
+    const cee = enrichBlocker({
+      code: 'CEE_BLOCKER',
+      message: 'No causal path',
+      affectedIds: ['fac_price'],
+      action: { type: 'retry_draft', label: 'Price' },
+    } as ValidationBlocker)
+
+    expect(dropped.sortOrder).toBeGreaterThan(cee.sortOrder)
+  })
+})
+
+describe('hydrateBlockerLabels — CONSTRAINT_DROPPED', () => {
+  it('hydrates CONSTRAINT_DROPPED with node label from graph', () => {
+    const enriched = enrichBlocker({
+      code: 'CONSTRAINT_DROPPED',
+      message: 'No matching factor',
+      affectedIds: ['constraint_budget'],
+      action: { type: 'info', label: 'constraint_budget' },
+    } as ValidationBlocker)
+
+    const nodesById = new Map([['constraint_budget', { label: 'Annual Budget Cap' }]])
+    const [hydrated] = hydrateBlockerLabels([enriched], nodesById)
+
+    expect(hydrated.display.title).toBe('Constraint not applied: "Annual Budget Cap"')
+  })
+})

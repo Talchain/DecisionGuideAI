@@ -149,10 +149,12 @@ export interface PreAnalysisData {
   totalReviewableFactorsCount: number
   /** Enriched blockers from usePreRunValidation, sorted by priority */
   enrichedBlockers: EnrichedBlocker[]
+  /** Informational (non-blocking) items like constraint_dropped — shown but don't prevent run */
+  informationalBlockers: EnrichedBlocker[]
   /** Threshold provenance text */
   thresholdProvenance: string | null
   /** Model adjustments from CEE (STRP/repair pipeline mutations) */
-  modelAdjustments: Array<{ type: string; field?: string; detail?: string; target?: string }>
+  modelAdjustments: Array<{ type?: string; code?: string; field?: string; detail?: string; reason?: string; target?: string }>
 }
 
 // ============================================================================
@@ -733,14 +735,27 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
   // Enriched blockers from usePreRunValidation — structured cards for BlockersSection
   // Pipeline: enrich → sort → hydrate labels from graph nodes → deduplicate by factor_id
   const preRunValidation = usePreRunValidation()
+  const nodesById = useMemo(
+    () => new Map(nodes.map(n => [n.id, { label: (n.data as { label?: string })?.label }])),
+    [nodes]
+  )
   const enrichedBlockers = useMemo(
     () => {
       const enriched = enrichAndSortBlockers(preRunValidation.blockers)
-      const nodesById = new Map(nodes.map(n => [n.id, { label: (n.data as { label?: string })?.label }]))
       const hydrated = hydrateBlockerLabels(enriched, nodesById)
       return deduplicateBlockers(hydrated)
     },
-    [preRunValidation.blockers, nodes]
+    [preRunValidation.blockers, nodesById]
+  )
+
+  // Informational blockers (e.g. constraint_dropped) — shown but don't block run
+  const informationalBlockers = useMemo(
+    () => {
+      const enriched = enrichAndSortBlockers(preRunValidation.informationalBlockers)
+      const hydrated = hydrateBlockerLabels(enriched, nodesById)
+      return deduplicateBlockers(hydrated)
+    },
+    [preRunValidation.informationalBlockers, nodesById]
   )
 
   // Success threshold - priority: CEE goal_threshold > node goal_threshold > observed_state.value > success_threshold > threshold > factor_target_* nodes
@@ -953,6 +968,7 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
     reviewedFactorsCount,
     totalReviewableFactorsCount,
     enrichedBlockers,
+    informationalBlockers,
     modelAdjustments: ceeAnalysisReady?.model_adjustments ?? [],
   }
 }

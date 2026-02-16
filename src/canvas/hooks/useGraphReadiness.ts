@@ -252,8 +252,11 @@ export function useGraphReadiness() {
       }
 
       // V3: Include analysis_ready if present so CEE knows about resolved options
+      // Strip model_adjustments — CEE produced them and doesn't need them back;
+      // forwarding them can cause 400s if CEE rejects unrecognised adjustment types.
       if (currentCeeAnalysisReady?.options?.length) {
-        payload.analysis_ready = currentCeeAnalysisReady
+        const { model_adjustments: _strip, ...analysisReadyForPayload } = currentCeeAnalysisReady
+        payload.analysis_ready = analysisReadyForPayload
       }
 
       // Create hash for deduplication
