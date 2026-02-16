@@ -282,7 +282,7 @@ describe('Interactive Actions Hardening', () => {
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
 
       // Optional tier is collapsed by default - click tier header to expand
-      const optionalHeader = screen.getByText('Optional improvements')
+      const optionalHeader = screen.getByText(/More improvements/)
       fireEvent.click(optionalHeader)
 
       // Click the Add button (icon button with aria-label="Add")
@@ -324,7 +324,7 @@ describe('Interactive Actions Hardening', () => {
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
 
       // Optional tier is collapsed by default - click tier header to expand
-      const optionalHeader = screen.getByText('Optional improvements')
+      const optionalHeader = screen.getByText(/More improvements/)
       fireEvent.click(optionalHeader)
 
       // Click the Add button to show evidence input (icon button with aria-label="Add")
@@ -370,7 +370,7 @@ describe('Interactive Actions Hardening', () => {
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
 
       // Optional tier is collapsed by default - click tier header to expand
-      const optionalHeader = screen.getByText('Optional improvements')
+      const optionalHeader = screen.getByText(/More improvements/)
       fireEvent.click(optionalHeader)
 
       // Click the Add button to show evidence input (icon button with aria-label="Add")
@@ -604,7 +604,7 @@ describe('Interactive Actions Hardening', () => {
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
 
       // Optional tier is collapsed by default - click tier header to expand
-      const optionalHeader = screen.getByText('Optional improvements')
+      const optionalHeader = screen.getByText(/More improvements/)
       fireEvent.click(optionalHeader)
 
       // Click the Add button to show evidence input (icon button with aria-label="Add")

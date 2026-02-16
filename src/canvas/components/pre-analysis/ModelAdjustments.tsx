@@ -68,9 +68,14 @@ export function ModelAdjustments({ adjustments }: ModelAdjustmentsProps) {
         className="flex items-center gap-2 w-full px-3 py-2 text-left hover:bg-panel-hover transition-colors rounded-md"
       >
         <Wrench size={14} className="text-text-light flex-shrink-0" />
-        <span className="text-xs font-semibold text-text-body flex-1">
-          System corrections
-        </span>
+        <div className="flex-1 min-w-0">
+          <span className="text-xs font-semibold text-text-body">
+            Auto-fixes applied
+          </span>
+          <p className="text-xs text-text-light leading-tight">
+            We fixed small issues without changing your intent.
+          </p>
+        </div>
         <span className="text-xs text-text-light">{adjustments.length}</span>
         {isExpanded ? (
           <ChevronDown size={14} className="text-text-light" />

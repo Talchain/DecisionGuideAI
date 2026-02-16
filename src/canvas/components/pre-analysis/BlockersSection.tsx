@@ -4,6 +4,9 @@
  * Renders "Fix before running" section with count badge for blocking items,
  * and a separate "Notes" section for informational (non-blocking) items.
  *
+ * Constraint_dropped items are grouped into a single collapsible card
+ * to avoid overwhelming users with many individual constraint cards.
+ *
  * ⚠️  READ-ONLY GUARDRAIL: This component renders enriched blockers.
  *     It must NEVER mutate store state directly — all mutations flow through
  *     callbacks (onRetryDraft, onEditBrief) passed from the parent.
@@ -15,7 +18,8 @@
  * - No filled/tinted backgrounds
  */
 
-import { AlertTriangle, Info, RefreshCw, Pencil } from 'lucide-react'
+import { useState } from 'react'
+import { AlertTriangle, ChevronDown, ChevronRight, Info, RefreshCw, Pencil } from 'lucide-react'
 import type { EnrichedBlocker } from './blockerEnrichment'
 
 interface BlockersSectionProps {
@@ -48,6 +52,10 @@ export function BlockersSection({
 
   // When lastDraftRetryable is explicitly false, show "Edit brief" instead of "Retry Draft"
   const showEditBriefInstead = lastDraftRetryable === false
+
+  // Partition informational blockers: constraint_dropped grouped, others individual
+  const constraintItems = informationalBlockers.filter(e => e.blocker.code === 'CONSTRAINT_DROPPED')
+  const otherInfoItems = informationalBlockers.filter(e => e.blocker.code !== 'CONSTRAINT_DROPPED')
 
   return (
     <div className="space-y-2" data-testid="blockers-section">
@@ -95,7 +103,7 @@ export function BlockersSection({
                     </p>
 
                     {/* Suggested actions */}
-                    {display.suggestedActions.length > 0 && (
+                    {display.suggestedActions?.length > 0 && (
                       <ul className="mt-1 space-y-0.5">
                         {display.suggestedActions.map((action) => (
                           <li key={action} className="text-xs text-text-light flex items-center gap-1">
@@ -151,18 +159,24 @@ export function BlockersSection({
       )}
 
       {/* Informational items — "Notes" (non-blocking) */}
-      {informationalBlockers.length > 0 && (
+      {(constraintItems.length > 0 || otherInfoItems.length > 0) && (
         <>
           <div className="flex items-center gap-2">
             <span className="text-sm font-semibold text-info">
               Notes
             </span>
             <span className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-info-light text-info text-xs font-semibold">
-              {informationalBlockers.length}
+              {constraintItems.length > 0 ? (otherInfoItems.length + 1) : otherInfoItems.length}
             </span>
           </div>
 
-          {informationalBlockers.map((enriched, idx) => {
+          {/* Grouped constraint_dropped card */}
+          {constraintItems.length > 0 && (
+            <ConstraintGroupCard items={constraintItems} />
+          )}
+
+          {/* Other informational items rendered individually */}
+          {otherInfoItems.map((enriched, idx) => {
             const { blocker, display } = enriched
 
             return (
@@ -190,6 +204,82 @@ export function BlockersSection({
           })}
         </>
       )}
+    </div>
+  )
+}
+
+/**
+ * Grouped card for multiple constraint_dropped items.
+ * Collapses N individual constraint cards into one with a collapsible list.
+ */
+function ConstraintGroupCard({ items }: { items: EnrichedBlocker[] }) {
+  const [isExpanded, setIsExpanded] = useState(false)
+
+  // Extract individual constraint labels — prefer structured fields, regex fallback
+  const constraintLabels = items.map((enriched) => {
+    // 1. Structured: action label from blocker
+    if (enriched.blocker.action?.label) return enriched.blocker.action.label
+    // 2. Structured: first affected ID
+    if (enriched.blocker.affectedIds?.[0]) return enriched.blocker.affectedIds[0]
+    // 3. Regex fallback: parse hydrated title 'Constraint not applied: "Label"'
+    const title = enriched.display.title
+    const match = title.match(/:\s*"(.+)"$/)
+    if (match) return match[1]
+    return title
+  })
+
+  return (
+    <div
+      className="rounded-md bg-panel border-l-[3px] border-l-info border border-panel-border px-3 py-2.5"
+      data-testid="constraint-group-card"
+    >
+      <div className="flex items-start gap-2">
+        <Info
+          size={16}
+          className="mt-0.5 flex-shrink-0 text-info"
+        />
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <p className="text-sm font-semibold text-info">
+              Constraints not applied
+            </p>
+            <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-info-light text-info text-xs font-semibold">
+              {items.length}
+            </span>
+          </div>
+          <p className="text-xs text-text-body mt-0.5">
+            Some constraints from your brief couldn't be matched to factors in
+            your model. The analysis will run without them. If you want them
+            enforced, try adding them as explicit factors or set them as targets.
+          </p>
+
+          {/* Collapsible constraint list — default collapsed */}
+          <button
+            type="button"
+            onClick={() => setIsExpanded(!isExpanded)}
+            className="mt-1.5 inline-flex items-center gap-1 text-xs text-info hover:text-info-hover transition-colors"
+            data-testid="constraint-group-toggle"
+          >
+            {isExpanded ? (
+              <ChevronDown size={12} />
+            ) : (
+              <ChevronRight size={12} />
+            )}
+            {isExpanded ? 'Hide constraints' : 'Show constraints'}
+          </button>
+
+          {isExpanded && (
+            <ul className="mt-1 space-y-0.5" data-testid="constraint-group-list">
+              {constraintLabels.map((label, idx) => (
+                <li key={idx} className="text-xs text-text-light flex items-center gap-1">
+                  <span className="text-text-light/50">&bull;</span>
+                  {label}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </div>
     </div>
   )
 }

@@ -80,7 +80,7 @@ const tierConfig: Record<string, TierConfig> = {
     defaultExpanded: true,
   },
   optional: {
-    title: 'Optional improvements',
+    title: 'More improvements',
     border: 'border-l-info', // sky
     defaultExpanded: false,
   },
@@ -125,9 +125,12 @@ function TierSection({
 
   // Build section title with progress for reviewAssumptions
   // Hide progress counter when no assumptions to review
+  // For optional tier, show count in title instead of status bar headline
   let sectionTitle = config.title
   if (isReviewTier && reviewedCount !== undefined && totalCount !== undefined && totalCount > 0) {
     sectionTitle = `${config.title} (${reviewedCount} of ${totalCount} done)`
+  } else if (tierKey === 'optional' && items.length > 0) {
+    sectionTitle = `${config.title} (${items.length})`
   }
 
   return (

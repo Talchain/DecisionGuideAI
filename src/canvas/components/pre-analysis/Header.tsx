@@ -5,7 +5,7 @@
  * - Loading: "◌ Checking..." in text-light color (while CEE data loads)
  * - Blocked: "⊘ Blocked · {mustAddress.count} to address" in danger color
  * - Not ready: "◌ Not ready" in warning color (when isReady=false but no mustAddress items)
- * - Ready: "✓ Ready · {review.count} to review · {optional.count} optional" in success color
+ * - Ready: "✓ Ready · {review.count} to review · Improvements available" in success color
  *
  * Omits tiers with zero count.
  * 14px, font-weight 600, no background/border/padding beyond panel's own.
@@ -66,12 +66,13 @@ export function Header({
   }
 
   // Ready state: build string with non-zero counts
+  // De-emphasise optional count — show "Improvements available" instead of raw number
   const parts: string[] = []
   if (reviewCount > 0) {
     parts.push(`${reviewCount} to review`)
   }
   if (optionalCount > 0) {
-    parts.push(`${optionalCount} optional`)
+    parts.push('Improvements available')
   }
 
   const suffix = parts.length > 0 ? ` · ${parts.join(' · ')}` : ''

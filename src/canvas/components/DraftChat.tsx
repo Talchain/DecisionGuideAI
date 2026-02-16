@@ -35,12 +35,20 @@ function isCEEUnavailable(error: CEEError | Error): boolean {
   return false
 }
 
-/** Format CEE error for user-friendly display + debug info */
+/** Format CEE error for user-friendly display + debug info.
+ *
+ * Three-way classification:
+ *   1. Graph invalid (CEE_GRAPH_INVALID) — draft was generated but failed structural validation
+ *   2. Timeout (408/504/CEE_PROXY_TIMEOUT) — request took too long
+ *   3. Truly empty (empty_draft/empty_graph) — CEE returned no graph data at all
+ */
 function formatCEEError(error: CEEError | Error): {
+  title?: string
   message: string
   debugInfo?: string
   isUnavailable?: boolean
   isTimeout?: boolean
+  isGraphInvalid?: boolean
   guidance?: string
 } {
   if (error instanceof CEEError) {
@@ -83,6 +91,7 @@ function formatCEEError(error: CEEError | Error): {
     // Detect timeout errors (client-side 408, gateway 504, or message match)
     if (error.message === 'Request timeout' || error.status === 408 || error.status === 504) {
       return {
+        title: 'This brief is taking longer than expected',
         message: 'Complex briefs with many factors and options can take longer to model. You can:',
         guidance: 'To speed things up, try focusing on your top 3\u20135 factors and 2\u20133 options. You can always add more detail later.',
         isTimeout: true,
@@ -90,10 +99,27 @@ function formatCEEError(error: CEEError | Error): {
       }
     }
 
-    let message = friendlyMessages[error.message] || error.message
-    if (reason === 'empty_draft' || reason === 'empty_graph' || code === 'CEE_GRAPH_INVALID') {
-      message = 'The AI assistant returned an empty draft for this description. Try adding more concrete context, factors, and relationships, then try again.'
+    // Graph invalid — draft was generated but failed structural validation/repair
+    if (code === 'CEE_GRAPH_INVALID' && reason !== 'empty_draft' && reason !== 'empty_graph') {
+      return {
+        title: "We couldn\u2019t build a valid model from this brief",
+        message: 'We generated a draft, but it had structural issues that couldn\u2019t be auto-repaired. This can happen with very short or ambiguous briefs.',
+        guidance: 'To improve results, try adding a clear goal or KPI, 2\u20133 specific options, and the key factors you think matter.',
+        isGraphInvalid: true,
+        debugInfo,
+      }
     }
+
+    // Truly empty — CEE returned no graph data
+    if (reason === 'empty_draft' || reason === 'empty_graph') {
+      return {
+        title: 'Empty draft',
+        message: 'The AI assistant returned an empty draft for this description. Try adding more concrete context, factors, and relationships, then try again.',
+        debugInfo,
+      }
+    }
+
+    const message = friendlyMessages[error.message] || error.message
 
     return {
       message,
@@ -1034,7 +1060,7 @@ export function DraftChat() {
                       return (
                         <div className="p-3 bg-warning-light border border-warning/30 rounded-lg space-y-2" data-testid="draft-timeout-error">
                           <p className="text-sm font-semibold text-warning">
-                            This brief is taking longer than expected
+                            {formatted.title}
                           </p>
                           <p className="text-xs text-text-body">
                             {formatted.message}
@@ -1069,9 +1095,44 @@ export function DraftChat() {
                       )
                     }
 
+                    if (formatted.isGraphInvalid) {
+                      return (
+                        <div className="p-3 bg-danger-light border border-danger/30 rounded-lg space-y-2" data-testid="draft-graph-invalid-error">
+                          <p className="text-sm font-semibold text-danger">
+                            {formatted.title}
+                          </p>
+                          <p className="text-xs text-text-body">
+                            {formatted.message}
+                          </p>
+                          {formatted.guidance && (
+                            <p className="text-xs text-text-light">
+                              {formatted.guidance}
+                            </p>
+                          )}
+                          <button
+                            type="button"
+                            onClick={handleDraft}
+                            className="mt-1 inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-info bg-panel border border-info/30 rounded-md hover:bg-info-light transition-colors"
+                          >
+                            Try again
+                          </button>
+                          {formatted.debugInfo && (
+                            <details className="mt-1">
+                              <summary className="text-xs text-text-light cursor-pointer select-none">
+                                Technical details
+                              </summary>
+                              <pre className="text-xs text-text-light font-mono mt-1 opacity-70 whitespace-pre-wrap break-all">
+                                {formatted.debugInfo}
+                              </pre>
+                            </details>
+                          )}
+                        </div>
+                      )
+                    }
+
                     return (
                       <ErrorAlert
-                        title="Draft failed"
+                        title={formatted.title || 'Draft failed'}
                         message={formatted.message}
                         severity="error"
                         debugInfo={formatted.debugInfo}

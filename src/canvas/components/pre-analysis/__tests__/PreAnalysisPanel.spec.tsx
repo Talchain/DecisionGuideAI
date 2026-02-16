@@ -185,8 +185,8 @@ describe('PreAnalysisPanel', () => {
       }))
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
-      // New header format: "✓ Ready · {review} to review · {optional} optional"
-      expect(screen.getByText(/✓ Ready · 3 to review · 2 optional/)).toBeInTheDocument()
+      // New header format: "✓ Ready · {review} to review · Improvements available"
+      expect(screen.getByText(/✓ Ready · 3 to review · Improvements available/)).toBeInTheDocument()
     })
 
     it('shows blocked status in header when isReady is false', () => {
@@ -657,8 +657,8 @@ describe('PreAnalysisPanel', () => {
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
 
-      // Header should show Ready with 1 optional, not Blocked
-      expect(screen.getByText(/✓ Ready · 1 optional/)).toBeInTheDocument()
+      // Header should show Ready with improvements available, not Blocked
+      expect(screen.getByText(/✓ Ready · Improvements available/)).toBeInTheDocument()
       expect(screen.queryByText(/Blocked/)).not.toBeInTheDocument()
 
       // Button should be enabled with "Analyse Now"
@@ -666,8 +666,8 @@ describe('PreAnalysisPanel', () => {
       expect(button).toHaveTextContent('Analyse Now')
       expect(button).not.toBeDisabled()
 
-      // Optional tier should be visible with count of 1
-      expect(screen.getByText('Optional improvements')).toBeInTheDocument()
+      // Optional tier should be visible with count in title
+      expect(screen.getByText(/More improvements/)).toBeInTheDocument()
     })
   })
 
@@ -876,7 +876,7 @@ describe('PreAnalysisPanel', () => {
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
 
       expect(screen.getByTestId('model-adjustments')).toBeInTheDocument()
-      expect(screen.getByText('System corrections')).toBeInTheDocument()
+      expect(screen.getByText('Auto-fixes applied')).toBeInTheDocument()
       expect(screen.getByText('2')).toBeInTheDocument() // count badge
     })
 
@@ -903,7 +903,7 @@ describe('PreAnalysisPanel', () => {
       expect(screen.queryByText('Changed to external')).not.toBeInTheDocument()
 
       // Click to expand
-      fireEvent.click(screen.getByText('System corrections'))
+      fireEvent.click(screen.getByText('Auto-fixes applied'))
 
       // Now detail should be visible
       expect(screen.getByText('Changed to external')).toBeInTheDocument()
@@ -922,7 +922,7 @@ describe('PreAnalysisPanel', () => {
       expect(screen.getByTestId('model-adjustments')).toBeInTheDocument()
 
       // Expand and check
-      fireEvent.click(screen.getByText('System corrections'))
+      fireEvent.click(screen.getByText('Auto-fixes applied'))
       expect(screen.getByText('Deterministic repair')).toBeInTheDocument()
       expect(screen.getByText('Reclassified unreachable factor')).toBeInTheDocument()
     })
@@ -936,7 +936,7 @@ describe('PreAnalysisPanel', () => {
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
 
-      fireEvent.click(screen.getByText('System corrections'))
+      fireEvent.click(screen.getByText('Auto-fixes applied'))
       expect(screen.getByText('System adjustment')).toBeInTheDocument()
     })
   })
@@ -969,8 +969,8 @@ describe('PreAnalysisPanel', () => {
       expect(screen.getByText('Notes')).toBeInTheDocument()
       expect(screen.queryByText('Fix before running')).not.toBeInTheDocument()
 
-      // Should show the info card
-      expect(screen.getByTestId('info-card-CONSTRAINT_DROPPED')).toBeInTheDocument()
+      // Should show the grouped constraint card
+      expect(screen.getByTestId('constraint-group-card')).toBeInTheDocument()
     })
 
     it('does not count informational blockers in footer badge', () => {
