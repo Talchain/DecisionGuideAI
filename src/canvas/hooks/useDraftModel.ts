@@ -4,8 +4,9 @@ import { draftGraph, draftGraphStream } from '../../adapters/assistants/http'
 import { pocFlags } from '../../flags'
 import { track } from '../../lib/telemetry'
 
-// P0: Client-side timeout for draft-graph requests (CEE has 25s budget, add 10s buffer)
-const DRAFT_TIMEOUT_MS = 35_000
+// Client-side timeout for draft-graph requests
+// Must be >= CEE backend timeout (120s) to avoid premature client-side aborts
+const DRAFT_TIMEOUT_MS = 125_000
 
 export type DraftStatus = 'idle' | 'requesting' | 'streaming' | 'ready' | 'error'
 

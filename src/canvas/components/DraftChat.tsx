@@ -36,7 +36,13 @@ function isCEEUnavailable(error: CEEError | Error): boolean {
 }
 
 /** Format CEE error for user-friendly display + debug info */
-function formatCEEError(error: CEEError | Error): { message: string; debugInfo?: string; isUnavailable?: boolean } {
+function formatCEEError(error: CEEError | Error): {
+  message: string
+  debugInfo?: string
+  isUnavailable?: boolean
+  isTimeout?: boolean
+  guidance?: string
+} {
   if (error instanceof CEEError) {
     const debugParts = [`Message: ${error.message}`, `Status: ${error.status}`]
     if (error.correlationId) {
@@ -67,13 +73,22 @@ function formatCEEError(error: CEEError | Error): { message: string; debugInfo?:
     // Map well-known backend error codes / messages to friendlier text
     const friendlyMessages: Record<string, string> = {
       'openai_response_invalid_schema': 'The AI service returned an unexpected response format. This is a temporary backend issue.',
-      'Request timeout': 'The request took too long. The AI service may be starting up - please try again.',
       'Too Many Requests': 'Too many requests. Please wait a moment and try again.',
     }
 
     const rawDetails = error.details as any
     const reason = rawDetails?.reason ?? rawDetails?.details?.reason
     const code = rawDetails?.code ?? rawDetails?.details?.code
+
+    // Detect timeout errors (client-side 408 or message match)
+    if (error.message === 'Request timeout' || error.status === 408) {
+      return {
+        message: 'The request took longer than expected and timed out.',
+        guidance: 'Complex decisions with many factors can take longer to process. Try simplifying your brief or breaking it into smaller parts.',
+        isTimeout: true,
+        debugInfo,
+      }
+    }
 
     let message = friendlyMessages[error.message] || error.message
     if (reason === 'empty_draft' || reason === 'empty_graph' || code === 'CEE_GRAPH_INVALID') {
@@ -1007,6 +1022,41 @@ export function DraftChat() {
                                 Technical details
                               </summary>
                               <pre className={`${typography.panelMeta} text-sun-700 font-mono mt-1 opacity-70 whitespace-pre-wrap break-all`}>
+                                {formatted.debugInfo}
+                              </pre>
+                            </details>
+                          )}
+                        </div>
+                      )
+                    }
+
+                    if (formatted.isTimeout) {
+                      return (
+                        <div className="p-3 bg-warning-light border border-warning/30 rounded-lg space-y-2" data-testid="draft-timeout-error">
+                          <p className="text-sm font-semibold text-warning">
+                            Draft timed out
+                          </p>
+                          <p className="text-xs text-text-body">
+                            {formatted.message}
+                          </p>
+                          {formatted.guidance && (
+                            <p className="text-xs text-text-light">
+                              {formatted.guidance}
+                            </p>
+                          )}
+                          <button
+                            type="button"
+                            onClick={handleDraft}
+                            className="mt-1 inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-info bg-panel border border-info/30 rounded-md hover:bg-info-light transition-colors"
+                          >
+                            Try again
+                          </button>
+                          {formatted.debugInfo && (
+                            <details className="mt-1">
+                              <summary className="text-xs text-text-light cursor-pointer select-none">
+                                Technical details
+                              </summary>
+                              <pre className="text-xs text-text-light font-mono mt-1 opacity-70 whitespace-pre-wrap break-all">
                                 {formatted.debugInfo}
                               </pre>
                             </details>

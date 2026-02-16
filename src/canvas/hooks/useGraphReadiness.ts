@@ -153,6 +153,8 @@ export function useGraphReadiness() {
   const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   // Track last payload hash to prevent duplicate requests
   const lastPayloadHashRef = useRef<string | null>(null)
+  // Guard against concurrent in-flight requests (React StrictMode double-mount)
+  const fetchInFlightRef = useRef(false)
   // Track if we've logged recently to reduce noise
   const lastLogTimeRef = useRef<number>(0)
   // Rate limit backoff state
@@ -172,6 +174,11 @@ export function useGraphReadiness() {
 
   // Stable callback that reads fresh state inside
   const fetchReadiness = useCallback(async () => {
+    // Prevent concurrent in-flight requests (React StrictMode double-mount)
+    if (fetchInFlightRef.current) return
+    fetchInFlightRef.current = true
+
+    try {
     // Check rate limit backoff
     const now = Date.now()
     if (backoffRef.current.until > now) {
@@ -430,6 +437,9 @@ export function useGraphReadiness() {
       setReadiness(fallback)
     } finally {
       setLoading(false)
+    }
+    } finally {
+      fetchInFlightRef.current = false
     }
   }, []) // No dependencies - reads from store directly
 
