@@ -531,7 +531,7 @@ export interface CEEObservabilityData {
   request_id: string | null
   /** Whether raw I/O is included */
   raw_io_included: boolean
-  /** Verbatim copy of cee_response.trace.repair_summary (null when absent) */
+  /** Verbatim copy of cee_response.trace.pipeline.repair_summary (null when absent) */
   repair_summary: unknown
 }
 
@@ -2394,11 +2394,33 @@ function extractCEEObservability(ceeResponse: unknown): CEEObservabilityData | n
 
   const cee = ceeResponse as Record<string, unknown>
 
+  // repair_summary lives at trace.pipeline.repair_summary in the raw CEE response.
+  // Extract it first — even when _observability is absent, repair_summary may be present.
+  const trace = cee.trace as Record<string, unknown> | undefined
+  const pipeline = trace?.pipeline as Record<string, unknown> | undefined
+  const repair_summary = pipeline?.repair_summary !== undefined ? pipeline.repair_summary : null
+
   // Check for _observability at top level or in trace
   const obs = (cee._observability as Record<string, unknown> | undefined)
-    ?? ((cee.trace as Record<string, unknown>)?._observability as Record<string, unknown> | undefined)
+    ?? (trace?._observability as Record<string, unknown> | undefined)
 
-  if (!obs) return null
+  // When neither _observability nor repair_summary exist, there's nothing to report
+  if (!obs && repair_summary === null) return null
+
+  // When _observability is absent but repair_summary exists, return minimal result
+  if (!obs) {
+    return {
+      llm_calls: [],
+      validation: null,
+      orchestrator: null,
+      totals: null,
+      graph_metrics: null,
+      graph_diffs: [],
+      request_id: null,
+      raw_io_included: false,
+      repair_summary,
+    }
+  }
 
   const isProd = isProductionEnvironment()
 
@@ -2453,10 +2475,6 @@ function extractCEEObservability(ceeResponse: unknown): CEEObservabilityData | n
   const request_id = typeof obs.request_id === 'string' ? obs.request_id : null
   // SECURITY: Always report false for raw_io_included in production
   const raw_io_included = isProd ? false : (typeof obs.raw_io_included === 'boolean' ? obs.raw_io_included : false)
-
-  // Verbatim passthrough of cee_response.trace.repair_summary (null when absent, not {})
-  const trace = cee.trace as Record<string, unknown> | undefined
-  const repair_summary = trace?.repair_summary !== undefined ? trace.repair_summary : null
 
   return {
     llm_calls,

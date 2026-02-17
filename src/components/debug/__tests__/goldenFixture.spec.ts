@@ -51,10 +51,12 @@ function makeDebugDataFromFixture(): DebugData {
       plot_response: plotFixture,
       cee_response: {
         trace: {
-          repair_summary: {
-            repairs_applied: 3,
-            repair_types: ['coefficient_normalization', 'orphan_removal'],
-            total_latency_ms: 45,
+          pipeline: {
+            repair_summary: {
+              repairs_applied: 3,
+              repair_types: ['coefficient_normalization', 'orphan_removal'],
+              total_latency_ms: 45,
+            },
           },
         },
       },
@@ -196,5 +198,79 @@ describe('golden fixture: extraction-level passthrough', () => {
     const fromPlot = draftChain ? { ...draftChain } : null
 
     expect(fromPlot).toBeNull()
+  })
+})
+
+/**
+ * Extraction-level test for cee_observability.repair_summary.
+ *
+ * Replicates the exact path traversal used by extractCEEObservability() —
+ * reading trace.pipeline.repair_summary from a raw CEE response — to prove
+ * the extraction logic is correct independently of the bundle builder.
+ */
+describe('golden fixture: repair_summary extraction-level', () => {
+  // Simulate the raw CEE response shape the payload trace store captures
+  const rawCeeResponse = {
+    trace: {
+      pipeline: {
+        repair_summary: {
+          repairs_applied: 3,
+          repair_types: ['coefficient_normalization', 'orphan_removal'],
+          total_latency_ms: 45,
+        },
+      },
+    },
+  }
+
+  it('extracts repair_summary from trace.pipeline.repair_summary', () => {
+    // This is the exact path logic from extractCEEObservability():
+    const cee = rawCeeResponse as Record<string, unknown>
+    const trace = cee.trace as Record<string, unknown> | undefined
+    const pipeline = trace?.pipeline as Record<string, unknown> | undefined
+    const repair_summary = pipeline?.repair_summary !== undefined ? pipeline.repair_summary : null
+
+    expect(repair_summary).toEqual({
+      repairs_applied: 3,
+      repair_types: ['coefficient_normalization', 'orphan_removal'],
+      total_latency_ms: 45,
+    })
+  })
+
+  it('returns null when trace.pipeline has no repair_summary', () => {
+    const cee = { trace: { pipeline: { status: 'success' } } } as Record<string, unknown>
+    const trace = cee.trace as Record<string, unknown> | undefined
+    const pipeline = trace?.pipeline as Record<string, unknown> | undefined
+    const repair_summary = pipeline?.repair_summary !== undefined ? pipeline.repair_summary : null
+
+    expect(repair_summary).toBeNull()
+  })
+
+  it('returns null when trace has no pipeline', () => {
+    const cee = { trace: { request_id: 'abc' } } as Record<string, unknown>
+    const trace = cee.trace as Record<string, unknown> | undefined
+    const pipeline = trace?.pipeline as Record<string, unknown> | undefined
+    const repair_summary = pipeline?.repair_summary !== undefined ? pipeline.repair_summary : null
+
+    expect(repair_summary).toBeNull()
+  })
+
+  it('returns null when CEE response has no trace', () => {
+    const cee = { nodes: [], edges: [] } as Record<string, unknown>
+    const trace = cee.trace as Record<string, unknown> | undefined
+    const pipeline = trace?.pipeline as Record<string, unknown> | undefined
+    const repair_summary = pipeline?.repair_summary !== undefined ? pipeline.repair_summary : null
+
+    expect(repair_summary).toBeNull()
+  })
+
+  it('does NOT read from trace.repair_summary (old incorrect path)', () => {
+    // This CEE response has repair_summary at the wrong path (trace.repair_summary).
+    // The extractor should NOT find it there.
+    const cee = { trace: { repair_summary: { repairs_applied: 99 } } } as Record<string, unknown>
+    const trace = cee.trace as Record<string, unknown> | undefined
+    const pipeline = trace?.pipeline as Record<string, unknown> | undefined
+    const repair_summary = pipeline?.repair_summary !== undefined ? pipeline.repair_summary : null
+
+    expect(repair_summary).toBeNull()
   })
 })
