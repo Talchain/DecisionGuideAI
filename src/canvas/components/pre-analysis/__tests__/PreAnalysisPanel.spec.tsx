@@ -140,6 +140,16 @@ describe('PreAnalysisPanel', () => {
       enrichedBlockers: [],
       informationalBlockers: [],
       modelAdjustments: [],
+      preMortem: null,
+      goalThresholdRaw: null,
+      goalThresholdUnit: null,
+      isGoalConfirmed: false,
+      optionPreviews: [],
+      qualityChecks: [],
+      repairActions: [],
+      ceeQuality: null,
+      hasDefaultStrengths: false,
+      defaultStrengthPercent: 0,
       ...overrides,
     }
   }
@@ -687,7 +697,7 @@ describe('PreAnalysisPanel', () => {
     })
 
     describe('Task 2: Empty Review Tier Message', () => {
-      it('shows "No assumptions to review" when review tier has 0 items and 0 totalCount', () => {
+      it('shows empty state message when review tier has 0 items and 0 totalCount', () => {
         mockUsePreAnalysisData.mockReturnValue(createMockData({
           isReady: true,
           tiers: {
@@ -701,9 +711,9 @@ describe('PreAnalysisPanel', () => {
 
         render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
 
-        // Review tier should be visible with empty message
+        // Review tier should be visible with empty state message
         expect(screen.getByText('Review assumptions')).toBeInTheDocument()
-        expect(screen.getByText('No assumptions to review')).toBeInTheDocument()
+        expect(screen.getByText(/nothing to review/)).toBeInTheDocument()
       })
 
       it('hides progress counter when no assumptions to review', () => {

@@ -126,7 +126,7 @@ export function SuccessTarget({
             ) : (
               <ChevronRight className="w-4 h-4 text-text-light shrink-0" />
             )}
-            <span className="text-sm text-text-body truncate">{goalLabel}</span>
+            <span className="text-sm text-text-body line-clamp-2">{goalLabel}</span>
             <span className="text-sm text-text-light shrink-0">: {formatValue(successThreshold)}</span>
             <span className="text-sm text-text-light shrink-0">·</span>
             <span className="text-sm text-success flex items-center gap-1 shrink-0">
@@ -239,7 +239,7 @@ export function SuccessTarget({
     <div className={`rounded-lg border border-panel-border border-l-[3px] ${borderColor} bg-panel p-3`}>
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2 min-w-0">
-          <span className="text-sm text-text-body truncate">{goalLabel}</span>
+          <span className="text-sm text-text-body line-clamp-2">{goalLabel}</span>
           <span className="text-sm text-text-light shrink-0">: {formatValue(successThreshold)}</span>
           {isThresholdAutoDerived && (
             <span className="text-xs text-text-light bg-factor-light rounded px-1.5 py-0.5 shrink-0">Auto</span>

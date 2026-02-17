@@ -368,14 +368,14 @@ function hasInterventionTargeting(
 }
 
 /**
- * Check if a factor needs user review (AI-estimated, not brief_extraction)
+ * Check if a factor needs user review
  *
- * Only factors with AI sources need review. brief_extraction is user-provided
- * via the brief, so it doesn't need additional review.
+ * v1.1: brief_extraction factors are now reviewable (user can confirm extracted values)
  *
  * Returns true if:
  * - Source is AI (ai, cee_inference, inferred) - needs review
- * - Source is user-reviewed (user_confirmed, user_assumption) - was AI, now reviewed
+ * - Source is brief_extraction - user-provided but should be confirmed
+ * - Source is user-reviewed (user_confirmed, user_assumption) - was reviewable, now reviewed
  */
 function needsReview(node: Node): boolean {
   const data = node.data as { observed_state?: { source?: string }; observedState?: { source?: string }; source?: string }
@@ -386,10 +386,12 @@ function needsReview(node: Node): boolean {
   // AI sources that need review
   if (AI_SOURCES.has(source)) return true
 
-  // User-reviewed sources (were AI, user took action)
+  // brief_extraction: user-provided via brief, should be confirmed
+  if (source === 'brief_extraction') return true
+
+  // User-reviewed sources (were reviewable, user took action)
   if (REVIEWED_SOURCES.has(source)) return true
 
-  // brief_extraction, default, and other sources don't need review
   return false
 }
 
@@ -412,13 +414,8 @@ function getAiEstimatedValue(node: Node, isBinary = false): string | null {
   if (value === undefined || value === null) return null
   if (typeof value !== 'number') return String(value)
 
-  // Binary factors: display Yes/No instead of 0/1
-  if (isBinary) {
-    // Treat values close to 0 as "No", close to 1 as "Yes"
-    // Values in between are rounded (>0.5 = Yes, <=0.5 = No)
-    if (value <= 0.5) return 'No'
-    return 'Yes'
-  }
+  // v1.1: always show numeric value — binary Yes/No coercion removed
+  // (was converting 0 → "No" which garbled factor rows in hiring brief)
 
   // Format based on unit
   const unit = observedState?.unit
@@ -567,66 +564,81 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
     }
 
     // === VERIFY CATEGORY ===
-    // Factors with AI-inferred source, with intervention-target factors shown as "Set by [Option]"
+    // Factors with observed_state from brief_extraction OR AI-inferred source
+    // v1.1: brief_extraction factors are now reviewable (user can confirm extracted values)
     // Phase 3.1: Use verification_prompts from CEE when available for better detail text
     const verificationPrompts = ceeAnalysisReady?.verification_prompts ?? {}
     const ceeOptions = ceeAnalysisReady?.options
     for (const factor of nodesByKind.factor) {
-      if (isAiInferred(factor)) {
-        const rawLabel = getNodeLabel(factor)
-        const { label: cleanedLabel, qualifier } = cleanFactorLabel(rawLabel)
-        const isBinary = qualifier === 'Yes/No' || qualifier === 'On/Off' || qualifier === 'True/False'
-        const value = getAiEstimatedValue(factor, isBinary)
-        const verificationPrompt = verificationPrompts[factor.id]
+      const os = getObservedState(factor.data)
+      const source = os.source
+      const isBriefExtraction = source === 'brief_extraction'
+      const isAi = isAiInferred(factor)
 
-        // Task 5b: Controllable factors with interventions show "Set by [Option]"
-        // instead of confirm/edit actions — they're not assumptions to verify
-        if (isControllableFactor(factor) && hasInterventionTargeting(factor.id, optionNodes, ceeOptions)) {
-          const settingOption = (ceeOptions ?? []).find(o =>
-            o.interventions && Object.prototype.hasOwnProperty.call(o.interventions, factor.id)
-          )
-          const optionLabel = settingOption
-            ? (nodes.find(n => n.id === settingOption.id)?.data as { label?: string })?.label ?? settingOption.label ?? settingOption.id
-            : null
+      if (!isBriefExtraction && !isAi) continue
 
-          result.verify.push({
-            key: `verify_intervention_${factor.id}`,
-            category: 'verify',
-            label: cleanedLabel,
-            detail: value || 'Value needed',
-            setByOption: optionLabel ?? undefined,
-            sourceBadge: 'option',
-            focus: { type: 'node', id: factor.id, label: cleanedLabel },
-            // No confirm/assumption actions — informational only
-          })
-          continue
-        }
+      const rawLabel = getNodeLabel(factor)
+      const { label: cleanedLabel } = cleanFactorLabel(rawLabel)
+      const value = getAiEstimatedValue(factor)
+      const verificationPrompt = verificationPrompts[factor.id]
 
-        // Task 5a: Extract uncertainty_drivers from observed_state
-        const os = getObservedState(factor.data)
-        const uncertaintyDrivers = Array.isArray(os.uncertainty_drivers)
-          ? os.uncertainty_drivers.filter((d): d is string => typeof d === 'string')
-          : undefined
-
-        // Determine source badge type
-        const source = os.source
-        const sourceBadge: 'brief' | 'ai' | undefined =
-          source === 'brief_extraction' ? 'brief' :
-          (source === 'ai' || source === 'cee_inference' || source === 'inferred') ? 'ai' :
-          undefined
+      // Controllable factors with interventions show "Set by [Option]" UNLESS
+      // source is brief_extraction (v1.1: prefer reviewable so user can validate)
+      if (!isBriefExtraction && isControllableFactor(factor) && hasInterventionTargeting(factor.id, optionNodes, ceeOptions)) {
+        const settingOption = (ceeOptions ?? []).find(o =>
+          o.interventions && Object.prototype.hasOwnProperty.call(o.interventions, factor.id)
+        )
+        const optionLabel = settingOption
+          ? (nodes.find(n => n.id === settingOption.id)?.data as { label?: string })?.label ?? settingOption.label ?? settingOption.id
+          : null
 
         result.verify.push({
-          key: `verify_${factor.id}`,
+          key: `verify_intervention_${factor.id}`,
           category: 'verify',
           label: cleanedLabel,
-          detail: verificationPrompt || value || 'Value needed',
-          bias: 'confidence',
+          detail: value || 'Value needed',
+          setByOption: optionLabel ?? undefined,
+          sourceBadge: 'option',
           focus: { type: 'node', id: factor.id, label: cleanedLabel },
-          action: { label: 'Confirm', kind: 'confirm', targetId: factor.id, targetType: 'node' },
-          uncertaintyDrivers,
-          sourceBadge,
+          // No confirm/assumption actions — informational only
         })
+        continue
       }
+
+      // Extract uncertainty_drivers from observed_state
+      const uncertaintyDrivers = Array.isArray(os.uncertainty_drivers)
+        ? os.uncertainty_drivers.filter((d): d is string => typeof d === 'string')
+        : undefined
+
+      // Determine source badge type
+      const sourceBadge: 'brief' | 'ai' | undefined =
+        isBriefExtraction ? 'brief' :
+        isAi ? 'ai' :
+        undefined
+
+      // Build context line: raw_value + cap if available, or "Estimated by AI"
+      let contextLine = verificationPrompt || ''
+      if (!contextLine) {
+        if (os.raw_value != null && os.cap != null) {
+          contextLine = `Raw: ${os.raw_value}, Cap: ${os.cap}`
+        } else if (os.raw_value != null) {
+          contextLine = `Raw value: ${os.raw_value}`
+        } else if (isAi) {
+          contextLine = 'Estimated by AI'
+        }
+      }
+
+      result.verify.push({
+        key: `verify_${factor.id}`,
+        category: 'verify',
+        label: cleanedLabel,
+        detail: contextLine || value || 'Value needed',
+        bias: 'confidence',
+        focus: { type: 'node', id: factor.id, label: cleanedLabel },
+        action: { label: 'Confirm', kind: 'confirm', targetId: factor.id, targetType: 'node' },
+        uncertaintyDrivers,
+        sourceBadge,
+      })
     }
 
     // Phase 3.3: Low-confidence edges from CEE (max 3, in Review assumptions tier)
@@ -1049,9 +1061,11 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
 
     for (const factor of factorNodes) {
       if (needsReview(factor)) {
-        // Phase 2.5: Exclude controllable factors with interventions from progress count
-        // (these don't appear in the UI, so shouldn't count toward progress)
-        if (isControllableFactor(factor) && hasInterventionTargeting(factor.id, optionNodes, ceeOptions)) {
+        const os = getObservedState(factor.data)
+        const isBriefExtraction = os.source === 'brief_extraction'
+        // Exclude controllable intervention targets from progress count UNLESS
+        // source is brief_extraction (v1.1: those are shown as reviewable)
+        if (!isBriefExtraction && isControllableFactor(factor) && hasInterventionTargeting(factor.id, optionNodes, ceeOptions)) {
           continue
         }
         total++

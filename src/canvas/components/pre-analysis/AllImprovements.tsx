@@ -155,6 +155,18 @@ function TierSection({
         </div>
       </button>
 
+      {/* Progress bar for reviewAssumptions tier (v1.1) */}
+      {isReviewTier && reviewedCount !== undefined && totalCount !== undefined && totalCount > 0 && (
+        <div className="px-3 pb-1">
+          <div className="w-full h-1.5 bg-factor-light rounded-full overflow-hidden">
+            <div
+              className="h-full bg-success rounded-full transition-all duration-300"
+              style={{ width: `${Math.round((reviewedCount / totalCount) * 100)}%` }}
+            />
+          </div>
+        </div>
+      )}
+
       {/* Section content */}
       {isExpanded && (
         <div className="px-3 pb-3 space-y-2">
@@ -579,10 +591,10 @@ function ImprovementRow({ item, onFocus, actionHandlers, isRemoving, onHoverEnte
         onMouseLeave={handleRowMouseLeave}
       >
         <div className="flex items-center gap-2">
-          {/* Text content - flex-1 min-w-0 enables truncation */}
-          <div className="flex-1 min-w-0 flex items-center text-sm" title={fullText}>
-            {/* Label truncates */}
-            <span className="truncate text-text-body">
+          {/* Text content - flex-1 min-w-0, label wraps (v1.1: no truncation) */}
+          <div className="flex-1 min-w-0 flex items-baseline flex-wrap text-sm" title={fullText}>
+            {/* Label: no truncation — full label always visible */}
+            <span className="text-text-body">
               {item.focus ? (
                 <NodeLink
                   targetId={item.focus.id}
@@ -670,7 +682,7 @@ function ImprovementRow({ item, onFocus, actionHandlers, isRemoving, onHoverEnte
         {/* Uncertainty drivers sub-line (Task 5a) */}
         {item.uncertaintyDrivers && item.uncertaintyDrivers.length > 0 && (
           <p className="text-xs text-text-light italic mt-0.5 ml-0.5">
-            | {item.uncertaintyDrivers.join(', ')}
+            ⤷ {item.uncertaintyDrivers.join(', ')}
           </p>
         )}
       </div>

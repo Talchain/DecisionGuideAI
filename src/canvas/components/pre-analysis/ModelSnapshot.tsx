@@ -170,9 +170,9 @@ export function ModelSnapshot({
 
   return (
     <Accordion
-      title="Model Snapshot"
+      title="Model snapshot"
       defaultExpanded={false}
-      rightContent={`${totalNodes} nodes · ${edgeCount} edges`}
+      rightContent={`${totalNodes} ${totalNodes === 1 ? 'node' : 'nodes'} · ${edgeCount} ${edgeCount === 1 ? 'edge' : 'edges'}`}
       testId="model-snapshot-accordion"
     >
       <div className="space-y-1">

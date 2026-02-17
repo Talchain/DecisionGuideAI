@@ -88,7 +88,7 @@ export function OptionPreview({
               <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1">
                 {opt.isBaseline && opt.interventions.length > 0 ? (
                   <span className="text-xs text-text-light">
-                    {opt.interventions.length} factors at current values
+                    {opt.interventions.length} {opt.interventions.length === 1 ? 'factor' : 'factors'} at current values
                   </span>
                 ) : (
                   opt.interventions.map(iv => (

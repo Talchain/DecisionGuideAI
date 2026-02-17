@@ -111,6 +111,16 @@ describe('Interactive Actions Hardening', () => {
       modelAdjustments: [],
       reviewedFactorsCount: 0,
       totalReviewableFactorsCount: 0,
+      preMortem: null,
+      goalThresholdRaw: null,
+      goalThresholdUnit: null,
+      isGoalConfirmed: false,
+      optionPreviews: [],
+      qualityChecks: [],
+      repairActions: [],
+      ceeQuality: null,
+      hasDefaultStrengths: false,
+      defaultStrengthPercent: 0,
       ...overrides,
     }
   }
