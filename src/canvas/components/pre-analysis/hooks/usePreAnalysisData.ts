@@ -92,6 +92,10 @@ export interface OptionPreviewData {
     interventionValue: number
     currentValue: number | null
     direction: 'up' | 'down' | 'same'
+    /** Factor's cap for presentation-layer denormalisation (UI-PRES-004) */
+    cap: number | null
+    /** Factor's display unit */
+    unit: string | null
   }>
 }
 
@@ -616,13 +620,27 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
         isAi ? 'ai' :
         undefined
 
-      // Build context line: raw_value + cap if available, or "Estimated by AI"
+      // Build context line: raw_value + unit as primary, cap as context, normalised fallback
       let contextLine = verificationPrompt || ''
       if (!contextLine) {
-        if (os.raw_value != null && os.cap != null) {
-          contextLine = `Raw: ${os.raw_value}, Cap: ${os.cap}`
-        } else if (os.raw_value != null) {
-          contextLine = `Raw value: ${os.raw_value}`
+        if (os.raw_value != null) {
+          // Primary: raw_value + unit (e.g., "9 months", "$100,000", "42%")
+          const unit = os.unit
+          let primary: string
+          if (unit === '$' || unit === '£') {
+            primary = `${unit}${Number(os.raw_value).toLocaleString()}`
+          } else if (unit === '%') {
+            primary = `${os.raw_value}%`
+          } else if (unit) {
+            primary = `${os.raw_value} ${unit}`
+          } else {
+            primary = String(os.raw_value)
+          }
+          // Context: cap (e.g., "of 18")
+          contextLine = os.cap != null ? `${primary} of ${os.cap}` : primary
+        } else if (os.value != null) {
+          // Fallback: normalised value with scale qualifier
+          contextLine = `${Number(os.value).toFixed(2)} (scale 0–1)`
         } else if (isAi) {
           contextLine = 'Estimated by AI'
         }
@@ -1122,7 +1140,9 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
       const interventionEntries = Object.entries(opt.interventions ?? {})
       const interventions = interventionEntries.map(([factorId, intervention]) => {
         const factorNode = nodes.find(n => n.id === factorId)
-        const factorLabel = factorNode ? cleanFactorLabel(getNodeLabel(factorNode)).label : factorId
+        // Strip all parenthetical descriptors for compact option preview display
+        const baseLabel = factorNode ? cleanFactorLabel(getNodeLabel(factorNode)).label : factorId
+        const factorLabel = baseLabel.replace(/\s*\([^)]*\)\s*/g, '').trim() || baseLabel
         const interventionValue = typeof intervention === 'number'
           ? intervention
           : (intervention as { value?: number })?.value ?? 0
@@ -1142,7 +1162,11 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
           else if (interventionValue < currentValue) direction = 'down'
         }
 
-        return { factorId, factorLabel, interventionValue, currentValue, direction }
+        // UI-PRES-004: include cap/unit for presentation-layer denormalisation
+        const factorCap = os.cap ?? null
+        const factorUnit = os.unit ?? null
+
+        return { factorId, factorLabel, interventionValue, currentValue, direction, cap: factorCap, unit: factorUnit }
       })
 
       return {
@@ -1201,11 +1225,16 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
       })
     }
 
-    // 4. Same levers (>80% intervention factor overlap across options)
+    // 4. Same levers (>80% intervention factor overlap across non-baseline options)
     const ceeOptions = ceeAnalysisReady?.options ?? []
-    const optionsWithInterventions = ceeOptions.filter(o => Object.keys(o.interventions ?? {}).length > 0)
-    if (optionsWithInterventions.length >= 2) {
-      const factorSets = optionsWithInterventions.map(o => new Set(Object.keys(o.interventions ?? {})))
+    const nonBaselineOptions = ceeOptions.filter(o => {
+      const optNode = nodes.find(n => n.id === o.id)
+      const explicit = (optNode?.data as { is_baseline?: boolean })?.is_baseline === true
+      const labelBased = detectBaseline(o.label ?? '').isBaseline
+      return !explicit && !labelBased && Object.keys(o.interventions ?? {}).length > 0
+    })
+    if (nonBaselineOptions.length >= 2) {
+      const factorSets = nonBaselineOptions.map(o => new Set(Object.keys(o.interventions ?? {})))
       const allFactors = new Set(factorSets.flatMap(s => [...s]))
       if (allFactors.size > 0) {
         const intersection = [...allFactors].filter(f => factorSets.every(s => s.has(f)))

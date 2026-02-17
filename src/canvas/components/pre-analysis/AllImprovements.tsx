@@ -145,7 +145,9 @@ function TierSection({
         <span className="text-sm font-semibold text-text-body">{sectionTitle}</span>
         <div className="flex items-center gap-2">
           <span className={`text-xs rounded-full px-2 py-0.5 ${showCompletionState ? 'text-success bg-success-light' : showEmptyState ? 'text-text-light bg-factor-light' : 'text-text-light bg-factor-light'}`}>
-            {showCompletionState ? '✓' : showEmptyState ? '—' : items.length}
+            {showCompletionState ? '✓' : showEmptyState ? '—' : (
+              isReviewTier ? items.filter(i => !i.setByOption).length : items.length
+            )}
           </span>
           {isExpanded ? (
             <ChevronDown className="w-4 h-4 text-text-light" />
@@ -584,6 +586,45 @@ function ImprovementRow({ item, onFocus, actionHandlers, isRemoving, onHoverEnte
     const fullText = item.detail ? `${item.label} · ${item.detail}` : item.label
     const isSetByOption = !!item.setByOption
 
+    // "Set by [Option]" items: two-line layout (label+value line 1, badge line 2)
+    if (isSetByOption) {
+      return (
+        <div
+          className="cursor-pointer hover:bg-black/[0.02] rounded-md -mx-1 px-1"
+          onMouseEnter={handleRowMouseEnter}
+          onMouseLeave={handleRowMouseLeave}
+        >
+          {/* Line 1: label + value */}
+          <div className="flex items-baseline flex-wrap text-sm" title={fullText}>
+            <span className="text-text-body">
+              {item.focus ? (
+                <NodeLink
+                  targetId={item.focus.id}
+                  targetType={item.focus.type}
+                  onClick={handleFocusClick}
+                  className="hover:underline"
+                >
+                  {item.label}
+                </NodeLink>
+              ) : (
+                item.label
+              )}
+            </span>
+            {item.detail && (
+              <span className="shrink-0 text-text-light"> · {item.detail}</span>
+            )}
+          </div>
+          {/* Line 2: "Set by [Option]" badge */}
+          <span
+            className="inline-block text-xs text-text-light bg-factor-light rounded px-1.5 py-0.5 mt-0.5 max-w-[200px] truncate"
+            title={`Set by ${item.setByOption}`}
+          >
+            Set by {item.setByOption}
+          </span>
+        </div>
+      )
+    }
+
     return (
       <div
         className="cursor-pointer hover:bg-black/[0.02] rounded-md -mx-1 px-1"
@@ -623,14 +664,8 @@ function ImprovementRow({ item, onFocus, actionHandlers, isRemoving, onHoverEnte
 
           {/* Fixed action column - shrink-0 prevents collapse */}
           <div className="flex items-center gap-1 shrink-0">
-            {isSetByOption ? (
-              /* "Set by [Option]" badge — stone-colored, no actions */
-              <span className="text-xs text-text-light bg-factor-light rounded px-1.5 py-0.5">
-                Set by {item.setByOption}
-              </span>
-            ) : (
-              <>
-                {actionHandlers?.onConfirm && (
+            <>
+              {actionHandlers?.onConfirm && (
                   <IconBtn
                     icon={Check}
                     tooltip="Confirm this value is correct"
@@ -674,8 +709,7 @@ function ImprovementRow({ item, onFocus, actionHandlers, isRemoving, onHoverEnte
                     }}
                   />
                 )}
-              </>
-            )}
+            </>
           </div>
         </div>
 

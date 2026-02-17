@@ -529,8 +529,8 @@ describe('usePreAnalysisData', () => {
   })
 
   describe('Value Formatting', () => {
-    it('formats fractional percentage values correctly (0.04 → "Estimated by AI")', () => {
-      // contextLine: no raw_value, no cap, isAi → "Estimated by AI"
+    it('formats fractional percentage values correctly (0.04 → "0.04 (scale 0–1)")', () => {
+      // contextLine: no raw_value, value present → normalised fallback
       mockUseCanvasStore.mockImplementation(createMockStore({
         nodes: [
           {
@@ -550,13 +550,13 @@ describe('usePreAnalysisData', () => {
       expect(result.current.improvementsByCategory.verify).toContainEqual(
         expect.objectContaining({
           key: 'verify_factor1',
-          detail: 'Estimated by AI',
+          detail: '0.04 (scale 0–1)',
         })
       )
     })
 
-    it('handles percentage values already in percent form (75 → "Estimated by AI")', () => {
-      // contextLine: no raw_value, no cap, isAi → "Estimated by AI"
+    it('handles percentage values already in percent form (75 → "75.00 (scale 0–1)")', () => {
+      // contextLine: no raw_value, value present → normalised fallback
       mockUseCanvasStore.mockImplementation(createMockStore({
         nodes: [
           {
@@ -576,13 +576,13 @@ describe('usePreAnalysisData', () => {
       expect(result.current.improvementsByCategory.verify).toContainEqual(
         expect.objectContaining({
           key: 'verify_factor1',
-          detail: 'Estimated by AI',
+          detail: '75.00 (scale 0–1)',
         })
       )
     })
 
-    it('formats pound values correctly (20000 → "Estimated by AI")', () => {
-      // contextLine: no raw_value, no cap, isAi → "Estimated by AI"
+    it('formats pound values correctly (20000 → "20000.00 (scale 0–1)")', () => {
+      // contextLine: no raw_value, value present → normalised fallback
       mockUseCanvasStore.mockImplementation(createMockStore({
         nodes: [
           {
@@ -602,13 +602,13 @@ describe('usePreAnalysisData', () => {
       expect(result.current.improvementsByCategory.verify).toContainEqual(
         expect.objectContaining({
           key: 'verify_factor1',
-          detail: 'Estimated by AI',
+          detail: '20000.00 (scale 0–1)',
         })
       )
     })
 
-    it('formats dollar values correctly (5000 → "Estimated by AI")', () => {
-      // contextLine: no raw_value, no cap, isAi → "Estimated by AI"
+    it('formats dollar values correctly (5000 → "5000.00 (scale 0–1)")', () => {
+      // contextLine: no raw_value, value present → normalised fallback
       mockUseCanvasStore.mockImplementation(createMockStore({
         nodes: [
           {
@@ -628,13 +628,13 @@ describe('usePreAnalysisData', () => {
       expect(result.current.improvementsByCategory.verify).toContainEqual(
         expect.objectContaining({
           key: 'verify_factor1',
-          detail: 'Estimated by AI',
+          detail: '5000.00 (scale 0–1)',
         })
       )
     })
 
-    it('formats values without unit with reasonable precision (0.75 → "Estimated by AI")', () => {
-      // contextLine: no raw_value, no cap, isAi → "Estimated by AI"
+    it('formats values without unit with reasonable precision (0.75 → "0.75 (scale 0–1)")', () => {
+      // contextLine: no raw_value, value present → normalised fallback
       mockUseCanvasStore.mockImplementation(createMockStore({
         nodes: [
           {
@@ -654,7 +654,7 @@ describe('usePreAnalysisData', () => {
       expect(result.current.improvementsByCategory.verify).toContainEqual(
         expect.objectContaining({
           key: 'verify_factor1',
-          detail: 'Estimated by AI',
+          detail: '0.75 (scale 0–1)',
         })
       )
     })
@@ -955,8 +955,8 @@ describe('usePreAnalysisData', () => {
   })
 
   describe('P1-2: Binary Factor Display', () => {
-    it('displays "Estimated by AI" for binary factor with value 1', () => {
-      // contextLine: no raw_value, no cap, isAi → "Estimated by AI"
+    it('displays normalised value for binary factor with value 1', () => {
+      // contextLine: no raw_value, value present → normalised fallback
       mockUseCanvasStore.mockImplementation(createMockStore({
         nodes: [
           {
@@ -976,13 +976,13 @@ describe('usePreAnalysisData', () => {
       expect(result.current.improvementsByCategory.verify).toContainEqual(
         expect.objectContaining({
           key: 'verify_factor1',
-          detail: 'Estimated by AI',
+          detail: '1.00 (scale 0–1)',
         })
       )
     })
 
-    it('displays "Estimated by AI" for binary factor with value 0', () => {
-      // contextLine: no raw_value, no cap, isAi → "Estimated by AI"
+    it('displays normalised value for binary factor with value 0', () => {
+      // contextLine: no raw_value, value present → normalised fallback
       mockUseCanvasStore.mockImplementation(createMockStore({
         nodes: [
           {
@@ -1002,13 +1002,13 @@ describe('usePreAnalysisData', () => {
       expect(result.current.improvementsByCategory.verify).toContainEqual(
         expect.objectContaining({
           key: 'verify_factor1',
-          detail: 'Estimated by AI',
+          detail: '0.00 (scale 0–1)',
         })
       )
     })
 
-    it('displays "Estimated by AI" for binary factor with value 0.5 or less', () => {
-      // contextLine: no raw_value, no cap, isAi → "Estimated by AI"
+    it('displays normalised value for binary factor with value 0.3', () => {
+      // contextLine: no raw_value, value present → normalised fallback
       mockUseCanvasStore.mockImplementation(createMockStore({
         nodes: [
           {
@@ -1028,13 +1028,13 @@ describe('usePreAnalysisData', () => {
       expect(result.current.improvementsByCategory.verify).toContainEqual(
         expect.objectContaining({
           key: 'verify_factor1',
-          detail: 'Estimated by AI',
+          detail: '0.30 (scale 0–1)',
         })
       )
     })
 
-    it('displays "Estimated by AI" for binary factor with value greater than 0.5', () => {
-      // contextLine: no raw_value, no cap, isAi → "Estimated by AI"
+    it('displays normalised value for binary factor with value 0.6', () => {
+      // contextLine: no raw_value, value present → normalised fallback
       mockUseCanvasStore.mockImplementation(createMockStore({
         nodes: [
           {
@@ -1054,13 +1054,13 @@ describe('usePreAnalysisData', () => {
       expect(result.current.improvementsByCategory.verify).toContainEqual(
         expect.objectContaining({
           key: 'verify_factor1',
-          detail: 'Estimated by AI',
+          detail: '0.60 (scale 0–1)',
         })
       )
     })
 
-    it('displays "Estimated by AI" for non-binary AI factors without raw_value', () => {
-      // contextLine: no raw_value, no cap, isAi → "Estimated by AI"
+    it('displays normalised value for non-binary AI factors without raw_value', () => {
+      // contextLine: no raw_value, value present → normalised fallback
       mockUseCanvasStore.mockImplementation(createMockStore({
         nodes: [
           {
@@ -1080,7 +1080,7 @@ describe('usePreAnalysisData', () => {
       expect(result.current.improvementsByCategory.verify).toContainEqual(
         expect.objectContaining({
           key: 'verify_factor1',
-          detail: 'Estimated by AI',
+          detail: '0.75 (scale 0–1)',
         })
       )
     })
@@ -1510,7 +1510,7 @@ describe('usePreAnalysisData', () => {
       )
     })
 
-    it('falls back to "Estimated by AI" when verification_prompt not available', () => {
+    it('falls back to normalised value when verification_prompt not available', () => {
       mockUseCanvasStore.mockImplementation(createMockStore({
         nodes: [
           {
@@ -1535,12 +1535,12 @@ describe('usePreAnalysisData', () => {
       expect(result.current.improvementsByCategory.verify).toContainEqual(
         expect.objectContaining({
           key: 'verify_factor1',
-          detail: 'Estimated by AI',
+          detail: '0.04 (scale 0–1)',
         })
       )
     })
 
-    it('falls back to "Estimated by AI" when ceeAnalysisReady is null', () => {
+    it('falls back to normalised value when ceeAnalysisReady is null', () => {
       mockUseCanvasStore.mockImplementation(createMockStore({
         nodes: [
           {
@@ -1561,7 +1561,7 @@ describe('usePreAnalysisData', () => {
       expect(result.current.improvementsByCategory.verify).toContainEqual(
         expect.objectContaining({
           key: 'verify_factor1',
-          detail: 'Estimated by AI',
+          detail: '100.00 (scale 0–1)',
         })
       )
     })
@@ -1608,11 +1608,11 @@ describe('usePreAnalysisData', () => {
         })
       )
 
-      // factor2 should fall back to "Estimated by AI" (no raw_value, no cap, isAi)
+      // factor2 should fall back to normalised value (no raw_value, value=85 present)
       expect(result.current.improvementsByCategory.verify).toContainEqual(
         expect.objectContaining({
           key: 'verify_factor2',
-          detail: 'Estimated by AI',
+          detail: '85.00 (scale 0–1)',
         })
       )
     })
@@ -2053,7 +2053,7 @@ describe('usePreAnalysisData', () => {
     })
 
     describe('Task 2: raw_value display for currency factors', () => {
-      it('displays "Raw value: {raw_value}" when raw_value is available', () => {
+      it('displays formatted raw_value with unit when raw_value is available', () => {
         mockUseCanvasStore.mockImplementation(createMockStore({
           nodes: [
             {
@@ -2075,16 +2075,16 @@ describe('usePreAnalysisData', () => {
 
         const { result } = renderHook(() => usePreAnalysisData())
 
-        // contextLine: raw_value exists (no cap) → "Raw value: 100000"
+        // contextLine: raw_value exists with unit=£ → "£100,000"
         expect(result.current.improvementsByCategory.verify).toContainEqual(
           expect.objectContaining({
             key: 'verify_factor1',
-            detail: 'Raw value: 100000',
+            detail: '£100,000',
           })
         )
       })
 
-      it('falls back to "Estimated by AI" when raw_value not available', () => {
+      it('falls back to normalised value when raw_value not available', () => {
         mockUseCanvasStore.mockImplementation(createMockStore({
           nodes: [
             {
@@ -2105,11 +2105,11 @@ describe('usePreAnalysisData', () => {
 
         const { result } = renderHook(() => usePreAnalysisData())
 
-        // contextLine: no raw_value, no cap, isAi → "Estimated by AI"
+        // contextLine: no raw_value, value present → normalised fallback
         expect(result.current.improvementsByCategory.verify).toContainEqual(
           expect.objectContaining({
             key: 'verify_factor1',
-            detail: 'Estimated by AI',
+            detail: '5000.00 (scale 0–1)',
           })
         )
       })

@@ -19,6 +19,29 @@ interface OptionPreviewProps {
   onHoverLeave?: () => void
 }
 
+/**
+ * Presentation-layer denormalisation (UI-PRES-004 debt).
+ * Converts normalised intervention value to human-readable using cap + unit.
+ * When CEE emits raw_interventions this helper becomes a pass-through.
+ */
+function formatInterventionDisplay(
+  normalisedValue: number,
+  cap: number | null,
+  unit: string | null,
+): string {
+  // Discrete / unchanged: show raw normalised
+  if (cap == null) return normalisedValue.toFixed(2)
+
+  const denormalised = normalisedValue * cap
+  // Round to integer when cap >= 10 (counts, currency), else 1 decimal
+  const display = cap >= 10 ? Math.round(denormalised) : +denormalised.toFixed(1)
+
+  if (unit === '$' || unit === '£') return `${unit}${display.toLocaleString()}`
+  if (unit === '%') return `${display}%`
+  if (unit) return `${display} ${unit}`
+  return String(display)
+}
+
 function InterventionArrow({ direction }: { direction: 'up' | 'down' | 'same' }) {
   if (direction === 'up') return <ArrowUp className="w-3 h-3 text-success" />
   if (direction === 'down') return <ArrowDown className="w-3 h-3 text-danger" />
@@ -95,7 +118,7 @@ export function OptionPreview({
                     <span key={iv.factorId} className="inline-flex items-center gap-1 text-xs text-text-body">
                       <InterventionArrow direction={iv.direction} />
                       <span>{iv.factorLabel}</span>
-                      <span className="text-text-light">{iv.interventionValue.toFixed(2)}</span>
+                      <span className="text-text-light">{formatInterventionDisplay(iv.interventionValue, iv.cap, iv.unit)}</span>
                     </span>
                   ))
                 )}

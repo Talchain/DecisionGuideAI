@@ -57,12 +57,50 @@ function formatAdjustmentType(type: string | undefined): string {
     .replace(/\b\w/g, c => c.toUpperCase())
 }
 
+/** Strip internal field paths like `(nodes[fac_xyz].category)` from display */
+function stripFieldPath(field: string | undefined): string | undefined {
+  if (!field) return field
+  // Match patterns like nodes[fac_...].field or fac_*.field
+  if (/^nodes\[/.test(field) || /^fac_/.test(field)) return undefined
+  return field
+}
+
+/** Group identical repair types: "Factor reclassified" × 4 → "4 factors reclassified to external" */
+function groupAdjustments(adjustments: ModelAdjustment[]): ModelAdjustment[] {
+  const groups = new Map<string, ModelAdjustment[]>()
+  for (const adj of adjustments) {
+    const key = `${adj.type ?? adj.code ?? ''}_${adj.detail ?? adj.reason ?? ''}`
+    const existing = groups.get(key)
+    if (existing) existing.push(adj)
+    else groups.set(key, [adj])
+  }
+
+  const result: ModelAdjustment[] = []
+  for (const [, group] of groups) {
+    if (group.length === 1) {
+      result.push(group[0])
+    } else {
+      // Merge: "4 factors reclassified to external"
+      const representative = { ...group[0] }
+      const displayType = representative.type ?? representative.code ?? 'adjustments'
+      const formatted = formatAdjustmentType(displayType).toLowerCase()
+      const detail = representative.detail ?? representative.reason
+      representative.detail = `${group.length} ${formatted}${detail ? ` — ${detail}` : ''}`
+      representative.target = undefined // Drop individual targets
+      representative.field = undefined
+      result.push(representative)
+    }
+  }
+  return result
+}
+
 export function ModelAdjustments({ adjustments, repairActions = [] }: ModelAdjustmentsProps) {
   const [isExpanded, setIsExpanded] = useState(false)
 
   if (adjustments.length === 0 && repairActions.length === 0) return null
 
-  const totalCount = adjustments.length + repairActions.length
+  const grouped = groupAdjustments(adjustments)
+  const totalCount = grouped.length + repairActions.length
 
   return (
     <div className="rounded-md border border-panel-border bg-panel" data-testid="model-adjustments">
@@ -90,9 +128,10 @@ export function ModelAdjustments({ adjustments, repairActions = [] }: ModelAdjus
 
       {isExpanded && (
         <div className="px-3 pb-2 space-y-1.5">
-          {adjustments.map((adj, idx) => {
+          {grouped.map((adj, idx) => {
             const displayType = adj.type ?? adj.code
             const displayDetail = adj.detail ?? adj.reason
+            const cleanField = stripFieldPath(adj.field)
             return (
               <div
                 key={`${displayType ?? 'adj'}-${adj.target ?? adj.field ?? idx}`}
@@ -106,8 +145,8 @@ export function ModelAdjustments({ adjustments, repairActions = [] }: ModelAdjus
                   {adj.target && (
                     <span className="text-text-light"> on {adj.target}</span>
                   )}
-                  {adj.field && (
-                    <span className="text-text-light"> ({adj.field})</span>
+                  {cleanField && (
+                    <span className="text-text-light"> ({cleanField})</span>
                   )}
                   {displayDetail && (
                     <p className="text-text-light mt-0.5">{displayDetail}</p>
@@ -120,7 +159,7 @@ export function ModelAdjustments({ adjustments, repairActions = [] }: ModelAdjus
           {/* Repair actions from trace.pipeline.repair_summary (Task 6b) */}
           {repairActions.length > 0 && (
             <>
-              {adjustments.length > 0 && (
+              {grouped.length > 0 && (
                 <div className="border-t border-panel-border my-1" />
               )}
               {repairActions.map((action, idx) => (
