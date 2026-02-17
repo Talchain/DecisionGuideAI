@@ -384,7 +384,7 @@ export function useSequentialAnalysis(
       if ((err as Error).name === 'AbortError') return
 
       console.error('[useSequentialAnalysis] Fetch failed:', err)
-      setError(err instanceof Error ? err.message : 'Failed to analyze sequential decision')
+      setError(err instanceof Error ? err.message : 'Failed to analyse sequential decision')
     } finally {
       setLoading(false)
     }

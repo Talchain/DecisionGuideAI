@@ -332,7 +332,7 @@ function extractPercentage(text: string): string | null {
 // ============================================================================
 
 /**
- * Task 1: Stateful Analyze Button
+ * Task 1: Stateful analyse button
  */
 function AnalyzeButton({
   totalBlockers,
@@ -1417,7 +1417,7 @@ export function PreAnalysisReadinessPanel({
   const [dismissedCoachingIds, setDismissedCoachingIds] = useState<Set<string>>(new Set())
   // Quality breakdown collapsed state (now includes Details accordion)
   const [isBreakdownOpen, setIsBreakdownOpen] = useState(false)
-  // Coaching accordion state - null means "use auto behavior", boolean means "user explicitly set"
+  // Coaching accordion state - null means "use auto behaviour", boolean means "user explicitly set"
   const [coachingUserOverride, setCoachingUserOverride] = useState<boolean | null>(null)
   // Track previous blocker count to detect transitions
   const [prevBlockerCount, setPrevBlockerCount] = useState<number | null>(null)

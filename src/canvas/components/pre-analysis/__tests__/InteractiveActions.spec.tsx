@@ -40,6 +40,12 @@ vi.mock('../../../store', () => ({
   }),
 }))
 
+// Mock useShowToast
+const mockShowToast = vi.fn()
+vi.mock('../../../ToastContext', () => ({
+  useShowToast: () => mockShowToast,
+}))
+
 // Mock focusNodeById
 vi.mock('../../../utils/focusHelpers', () => ({
   focusNodeById: vi.fn(),
@@ -99,6 +105,12 @@ describe('Interactive Actions Hardening', () => {
       isThresholdAutoDerived: false,
       isThresholdConfirmed: false,
       isLoading: false,
+      enrichedBlockers: [],
+      informationalBlockers: [],
+      thresholdProvenance: null,
+      modelAdjustments: [],
+      reviewedFactorsCount: 0,
+      totalReviewableFactorsCount: 0,
       ...overrides,
     }
   }

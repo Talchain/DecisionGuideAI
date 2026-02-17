@@ -175,7 +175,7 @@ export const RiskAdjustedDisplay = memo(function RiskAdjustedDisplay({
             </span>
           </div>
 
-          {/* Range visualization with emphasis */}
+          {/* Range visualisation with emphasis */}
           <div className="relative h-3 bg-sand-100 rounded-full overflow-hidden">
             {/* Background range */}
             <div className="absolute inset-0 flex items-center justify-between px-1">

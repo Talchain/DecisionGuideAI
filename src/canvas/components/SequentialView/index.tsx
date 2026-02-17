@@ -1,5 +1,5 @@
 /**
- * SequentialView - Multi-stage decision visualization
+ * SequentialView - Multi-stage decision visualisation
  *
  * Shows a timeline of decision stages with:
  * - Visual stage progression
@@ -152,7 +152,7 @@ export function SequentialView({
         )}
       </div>
 
-      {/* Timeline visualization */}
+      {/* Timeline visualisation */}
       <div className="px-4 py-4 border-b border-sand-100">
         <StageTimeline
           stages={stages}

@@ -1383,7 +1383,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
           recoveredFromAutosave,
         })
       } else if (loadSource === 'scenario' && currentId) {
-        // Load from scenario (existing behavior)
+        // Load from scenario (existing behaviour)
         const loaded = useCanvasStore.getState().loadScenario(currentId)
         console.log('[SCENARIO_STATE]', {
           scenarioId: currentId,

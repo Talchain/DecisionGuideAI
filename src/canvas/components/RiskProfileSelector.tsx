@@ -219,7 +219,7 @@ export function RiskProfileSelector({
               ) : (
                 <CheckCircle className="h-4 w-4" aria-hidden="true" />
               )}
-              {loading ? 'Analyzing...' : 'Get my profile'}
+              {loading ? 'Analysing...' : 'Get my profile'}
             </button>
           ) : (
             <button

@@ -6,7 +6,7 @@
 //   - Detecting baseline/status quo options by label or value
 //   - Formatting "vs." comparison text (always use formatBaselineComparison)
 //   - Baseline badge styling (use getBaselineBadgeProps)
-//   - Analyzing options relative to baseline
+//   - Analysing options relative to baseline
 //
 // USAGE:
 //   import { detectBaseline, formatBaselineComparison } from '@/canvas/utils/baselineDetection'
@@ -107,7 +107,7 @@ export function detectBaselineByValue(
 }
 
 /**
- * Analyze ranked options to find baseline and compare
+ * Analyse ranked options to find baseline and compare
  */
 export function analyzeBaselineComparison(
   rankedOptions: RankedOption[],

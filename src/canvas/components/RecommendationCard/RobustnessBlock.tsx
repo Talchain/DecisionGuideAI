@@ -139,7 +139,7 @@ const robustnessConfig: Record<RobustnessLabel, {
 // ============================================================================
 
 /**
- * Robustness meter visualization (5 segments)
+ * Robustness meter visualisation (5 segments)
  */
 function RobustnessMeter({ label }: { label: RobustnessLabel }) {
   const config = robustnessConfig[label]
@@ -527,7 +527,7 @@ export const RobustnessBlock = memo(function RobustnessBlock({
             </div>
           )}
 
-          {/* Task 6: Pareto analysis visualization (if multi-goal) */}
+          {/* Task 6: Pareto analysis visualisation (if multi-goal) */}
           {displayMode === 'multi-goal' && robustness.pareto && (
             <div className="px-4 py-3">
               <div className="flex items-center gap-2 mb-2">

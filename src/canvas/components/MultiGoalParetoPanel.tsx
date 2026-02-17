@@ -1,5 +1,5 @@
 /**
- * MultiGoalParetoPanel - Unified multi-goal trade-off visualization
+ * MultiGoalParetoPanel - Unified multi-goal trade-off visualisation
  *
  * Task 5.3: Visualize trade-offs when goals conflict
  *

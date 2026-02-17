@@ -6,7 +6,7 @@
  * No direct UI → ISL calls for robustness.
  *
  * Data flow:
- * 1. PLoT /v1/run (detail_level='deep') calls ISL /robustness/analyze/v2 internally
+ * 1. PLoT /v1/run (detail_level='deep') calls ISL /robustness/analyse/v2 internally
  * 2. Sensitivity data returned in enrichment.sensitivity_analysis.factors[]
  * 3. This hook extracts and caches the robustness data
  *

@@ -233,7 +233,7 @@ export const ThresholdDisplay = memo(function ThresholdDisplay({
                       {threshold.description}
                     </p>
 
-                    {/* Effect visualization */}
+                    {/* Effect visualisation */}
                     <div className="flex items-center gap-2 text-xs">
                       <span className={`px-2 py-1 rounded bg-sky-50 text-sky-700`}>
                         Below: {threshold.belowEffect}

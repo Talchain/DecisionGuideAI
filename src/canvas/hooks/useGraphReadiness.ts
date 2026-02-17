@@ -5,7 +5,7 @@
  * Returns quality tier, improvements list, and analysis eligibility.
  * Falls back to local graph analysis if CEE is unavailable.
  *
- * Optimized for stability:
+ * Optimised for stability:
  * - Uses fingerprint-based change detection to prevent excessive requests
  * - Reads store state inside callback to maintain stable callback reference
  * - Debounces changes effectively (callback doesn't recreate on every render)
@@ -25,6 +25,84 @@ const DEBOUNCE_DELAY = 500
 const INITIAL_BACKOFF_MS = 1000
 const MAX_BACKOFF_MS = 30000
 const BACKOFF_MULTIPLIER = 2
+
+// ── Module-level request deduplication ──────────────────────────────
+// Multiple components mount useGraphReadiness independently. Without
+// a shared cache each instance fires its own POST. This singleton
+// ensures identical payloads within DEDUP_WINDOW_MS reuse the same
+// in-flight promise.
+const DEDUP_WINDOW_MS = 250
+interface InflightEntry {
+  promise: Promise<Response>
+  timestamp: number
+  controller: AbortController
+  /** Number of hook instances sharing this entry */
+  refCount: number
+}
+const inflightCache = new Map<string, InflightEntry>()
+
+/**
+ * Deduplicated fetch: reuses an in-flight (or recently resolved) request
+ * for the same endpoint + payload body. Uses refCount to prevent one
+ * consumer's unmount from aborting a request shared by other consumers.
+ */
+function deduplicatedFetch(
+  url: string,
+  payloadJson: string,
+  correlationId: string,
+): { promise: Promise<Response>; entry: InflightEntry; isReused: boolean } {
+  // Key on endpoint + full payload body so distinct payloads never collide
+  const cacheKey = `${url}:${payloadJson}`
+  const existing = inflightCache.get(cacheKey)
+  if (existing && Date.now() - existing.timestamp < DEDUP_WINDOW_MS) {
+    existing.refCount++
+    return { promise: existing.promise, entry: existing, isReused: true }
+  }
+
+  const controller = new AbortController()
+  const promise = fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Request-ID': correlationId,
+    },
+    body: payloadJson,
+    signal: controller.signal,
+  })
+
+  const entry: InflightEntry = { promise, timestamp: Date.now(), controller, refCount: 1 }
+  inflightCache.set(cacheKey, entry)
+  promise.finally(() => {
+    setTimeout(() => {
+      // Only delete if it's still our entry (not replaced by a newer request)
+      if (inflightCache.get(cacheKey) === entry) {
+        inflightCache.delete(cacheKey)
+      }
+    }, DEDUP_WINDOW_MS)
+  })
+
+  return { promise, entry, isReused: false }
+}
+
+/**
+ * Release a ref to a shared inflight entry. Only aborts the underlying
+ * request when the last consumer releases (refCount drops to 0).
+ */
+function releaseInflightEntry(entry: InflightEntry | null): void {
+  if (!entry) return
+  entry.refCount--
+  if (entry.refCount <= 0) {
+    entry.controller.abort()
+  }
+}
+
+/** Clear inflight cache — exposed for testing */
+export function clearInflightCache(): void {
+  inflightCache.clear()
+}
+
+/** @internal — exposed for unit testing dedup logic. Not part of public API. */
+export const __test__ = { deduplicatedFetch, releaseInflightEntry }
 
 export type ReadinessLevel = 'needs_work' | 'fair' | 'strong'
 export type ImprovementPriority = 'high' | 'medium' | 'low'
@@ -149,7 +227,7 @@ export function useGraphReadiness() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const abortControllerRef = useRef<AbortController | null>(null)
+  const inflightEntryRef = useRef<InflightEntry | null>(null)
   const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   // Track last payload hash to prevent duplicate requests
   const lastPayloadHashRef = useRef<string | null>(null)
@@ -210,13 +288,9 @@ export function useGraphReadiness() {
       return
     }
 
-    // Cancel previous request
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort()
-    }
-
-    const controller = new AbortController()
-    abortControllerRef.current = controller
+    // Release previous shared entry (only aborts if we're the last consumer)
+    releaseInflightEntry(inflightEntryRef.current)
+    inflightEntryRef.current = null
 
     setLoading(true)
     setError(null)
@@ -266,22 +340,17 @@ export function useGraphReadiness() {
         payload.analysis_ready = analysisReadyForPayload
       }
 
-      // Create hash for deduplication
-      const edgeDataFingerprint = currentEdges
-        .map((e) => {
-          const conf = (e.data as any)?.confidence
-          return `${e.source}-${e.target}-${conf !== undefined ? conf.toFixed(3) : 'x'}`
-        })
-        .join(',')
-      const analysisReadyFingerprint = currentCeeAnalysisReady?.options?.length ?? 0
-      const payloadHash = `${currentNodes.length}-${currentEdges.length}-${currentNodes.map((n) => n.id).join(',')}-${edgeDataFingerprint}-ar${analysisReadyFingerprint}`
+      // Serialise payload once — used for per-instance skip check AND
+      // module-level dedup key (includes full payload body so distinct
+      // payloads never collide).
+      const payloadJson = JSON.stringify(payload)
 
-      if (payloadHash === lastPayloadHashRef.current) {
+      if (payloadJson === lastPayloadHashRef.current) {
         // Same payload, skip request
         setLoading(false)
         return
       }
-      lastPayloadHashRef.current = payloadHash
+      lastPayloadHashRef.current = payloadJson
 
       // Rate-limited logging (max once per 5 seconds)
       const now = Date.now()
@@ -302,15 +371,15 @@ export function useGraphReadiness() {
         lastLogTimeRef.current = now
       }
 
-      const response = await fetch(`${CEE_BASE_URL}/graph-readiness`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Request-ID': correlationId,
-        },
-        body: JSON.stringify(payload),
-        signal: controller.signal,
-      })
+      const { promise, entry } = deduplicatedFetch(
+        `${CEE_BASE_URL}/graph-readiness`,
+        payloadJson,
+        correlationId,
+      )
+      // Track shared entry so unmount cleanup releases our ref
+      inflightEntryRef.current = entry
+
+      const response = await promise
 
       if (!response.ok) {
         const errorBody = await response.text().catch(() => 'Unable to read response body')
@@ -463,9 +532,8 @@ export function useGraphReadiness() {
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort()
-      }
+      releaseInflightEntry(inflightEntryRef.current)
+      inflightEntryRef.current = null
       if (debounceTimeoutRef.current) {
         clearTimeout(debounceTimeoutRef.current)
       }

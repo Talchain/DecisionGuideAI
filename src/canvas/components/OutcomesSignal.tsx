@@ -326,7 +326,7 @@ export function OutcomesSignal({
             </div>
           </div>
 
-          {/* Brief 26 Task 7: Improved range visualization with connected success value */}
+          {/* Brief 26 Task 7: Improved range visualisation with connected success value */}
           <div className="space-y-2">
             {/* Range labels */}
             <div className="flex justify-between text-xs text-ink-400">

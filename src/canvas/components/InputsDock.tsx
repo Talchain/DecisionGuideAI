@@ -235,7 +235,7 @@ function ScenarioRunSummary() {
         <div className="rounded-lg border border-sand-200 bg-paper-50">
           <EmptyState
             icon={PlayCircle}
-            title="Ready to analyze"
+            title="Ready to analyse"
             description="Run an analysis to see how your decision model performs with current inputs."
             hint="Results will appear in the Outputs panel"
             className="py-4"

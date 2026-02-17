@@ -80,6 +80,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Build schemas
+        run: npm run build:schemas
+
       - name: Lint
         run: npm run lint
 
@@ -129,6 +132,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Build schemas
+        run: npm run build:schemas
+
       - name: Run unit tests (Vitest)
         run: npm run test:unit
       - name: Ensure tests.json (non-blocking)
@@ -152,6 +158,9 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Build schemas
+        run: npm run build:schemas
 
       - name: Run tests with coverage
         run: npm run test:coverage
@@ -366,6 +375,9 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Build schemas
+        run: npm run build:schemas
 
       - name: Build (production)
         run: npm run build:prod

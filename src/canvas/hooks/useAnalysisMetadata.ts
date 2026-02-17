@@ -14,7 +14,7 @@ export type StabilityStatus = 'stable' | 'fragile' | null
 interface AnalysisMetadata {
   /** Run status for display */
   runStatus: RunStatus
-  /** Number of scenarios analyzed */
+  /** Number of scenarios analysed */
   scenarioCount: number | null
   /** Stability assessment */
   stability: StabilityStatus

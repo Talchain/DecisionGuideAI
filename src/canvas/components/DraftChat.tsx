@@ -1001,7 +1001,7 @@ export function DraftChat() {
                   : 'p-1'
               }`}
             >
-              {/* Loading state - show animated visualization */}
+              {/* Loading state - show animated visualisation */}
               {loading && !draft && (
                 <DraftLoadingAnimation />
               )}

@@ -1,7 +1,7 @@
 /**
- * ParetoMiniChart - Compact Pareto frontier visualization
+ * ParetoMiniChart - Compact Pareto frontier visualisation
  *
- * Brief 10.6: Inline Pareto visualization for RobustnessBlock
+ * Brief 10.6: Inline Pareto visualisation for RobustnessBlock
  * Simplified version showing frontier vs dominated with minimal footprint.
  */
 
@@ -27,7 +27,7 @@ const CHART_HEIGHT = 120
 const PADDING = 20
 
 /**
- * Generate mock positions for visualization
+ * Generate mock positions for visualisation
  * In production, these would come from actual multi-criteria scores
  */
 function generateMockPositions(
