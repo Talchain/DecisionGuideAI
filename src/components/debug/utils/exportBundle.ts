@@ -502,6 +502,7 @@ export function buildDebugBundle(data: DebugData, options: ExportOptions = {}): 
           totals: data.cee_observability.totals,
           request_id: data.cee_observability.request_id,
           raw_io_included: false, // Always false in exports for security
+          repair_summary: data.cee_observability.repair_summary,
         }
       : null,
   }

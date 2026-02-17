@@ -449,6 +449,9 @@ export function useV2Run(): UseV2RunReturn {
         // Extract M1 Coaching data (deterministic coaching fields)
         const m1Coaching = extractM1CoachingFromV2(successResult)
 
+        // Extract M1 Review assumptions (key_assumptions + pre_mortem from PLoT)
+        const m1ReviewAssumptions = successResult.m1_review ?? null
+
         if (import.meta.env.DEV) {
           console.log('[useV2Run] Extracted M1 Review:', {
             hasCeeReview: !!ceeReviewV1,
@@ -518,6 +521,7 @@ export function useV2Run(): UseV2RunReturn {
           ceeErrorV1: null, // No error - synthesis succeeded
           m1Review, // M1 Review enrichment (rationale, robustness synthesis, etc.)
           m1Coaching, // M1 Coaching (deterministic, not LLM-generated)
+          m1ReviewAssumptions, // M1 Review assumptions + pre-mortem from PLoT
         })
 
         // Update gates after successful analysis

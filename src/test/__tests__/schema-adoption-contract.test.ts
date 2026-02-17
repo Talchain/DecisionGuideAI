@@ -31,7 +31,7 @@ import type {
   ValidationWarning,
   ValidationBlocker,
   CeeErrorCodeType,
-  AnalysisRequestIdChain,
+  PlotRequestIdChain,
   DraftGraphTrace,
   StrengthDefaultAppliedDetails,
   StrengthMeanDefaultDominantDetails,
@@ -97,12 +97,13 @@ describe('contract test: shared fixture validates against schemas', () => {
     const errorCode: CeeErrorCodeType = 'CEE_TIMEOUT'
     expect(errorCode).toBe('CEE_TIMEOUT')
 
-    const chain: AnalysisRequestIdChain = {
-      ui_sent: 'abc',
-      plot_received: 'abc',
-      forwarded_to_isl: 'abc',
+    const chain: PlotRequestIdChain = {
+      ui: 'abc',
+      plot: 'abc',
+      isl: 'abc',
       isl_echoed: 'abc',
       all_match: true,
+      chain_complete: true,
     }
     expect(chain.all_match).toBe(true)
 

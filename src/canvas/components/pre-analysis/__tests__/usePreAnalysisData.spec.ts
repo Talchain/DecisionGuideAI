@@ -62,13 +62,20 @@ describe('usePreAnalysisData', () => {
       goal_threshold?: number | null
       low_confidence_edges?: Array<{ edge_id: string; prompt: string }>
     } | null
+    runMeta?: {
+      m1ReviewAssumptions?: {
+        key_assumptions: string[]
+        pre_mortem?: { failure_scenario: string; warning_signs: string[]; mitigation: string } | null
+      } | null
+    } | null
   } = {}) => {
     const nodes = overrides.nodes ?? []
     const edges = overrides.edges ?? []
     const ceeAnalysisReady = overrides.ceeAnalysisReady ?? null
+    const runMeta = overrides.runMeta ?? null
 
     return (selector: (state: unknown) => unknown) => {
-      const state = { nodes, edges, ceeAnalysisReady }
+      const state = { nodes, edges, ceeAnalysisReady, runMeta }
       return selector(state)
     }
   }
@@ -2524,6 +2531,136 @@ describe('usePreAnalysisData', () => {
       expect(result.current.improvementsByCategory.strengthen).toContainEqual(
         expect.objectContaining({ key: 'no_negative_effects' })
       )
+    })
+  })
+
+  describe('M1 Review: key_assumptions in Review assumptions tier', () => {
+    it('adds key_assumptions items to verify category and reviewAssumptions tier', () => {
+      mockUseCanvasStore.mockImplementation(createMockStore({
+        nodes: [
+          { id: 'opt1', type: 'option', position: { x: 0, y: 0 }, data: { label: 'Option 1' } },
+          { id: 'opt2', type: 'option', position: { x: 0, y: 0 }, data: { label: 'Option 2', is_baseline: true } },
+        ],
+        runMeta: {
+          m1ReviewAssumptions: {
+            key_assumptions: [
+              'Market demand remains stable',
+              'Competitor pricing unchanged',
+              'Implementation costs within 10%',
+            ],
+          },
+        },
+      }))
+
+      const { result } = renderHook(() => usePreAnalysisData())
+
+      // All 3 assumptions should appear in verify category
+      const m1Items = result.current.improvementsByCategory.verify.filter(
+        (item) => item.key.startsWith('m1_assumption_')
+      )
+      expect(m1Items).toHaveLength(3)
+
+      // Each assumption text is preserved as the label
+      expect(m1Items[0].label).toBe('Market demand remains stable')
+      expect(m1Items[1].label).toBe('Competitor pricing unchanged')
+      expect(m1Items[2].label).toBe('Implementation costs within 10%')
+
+      // Items have correct shape: category=verify, no focus, no action
+      for (const item of m1Items) {
+        expect(item.category).toBe('verify')
+        expect(item.bias).toBe('confidence')
+        expect(item.focus).toBeUndefined()
+        expect(item.action).toBeUndefined()
+      }
+
+      // Items flow into reviewAssumptions tier
+      const tierItems = result.current.tiers.reviewAssumptions.items.filter(
+        (item) => item.key.startsWith('m1_assumption_')
+      )
+      expect(tierItems).toHaveLength(3)
+    })
+
+    it('renders no m1_assumption items when key_assumptions is empty', () => {
+      mockUseCanvasStore.mockImplementation(createMockStore({
+        nodes: [
+          { id: 'opt1', type: 'option', position: { x: 0, y: 0 }, data: { label: 'Option 1' } },
+          { id: 'opt2', type: 'option', position: { x: 0, y: 0 }, data: { label: 'Option 2', is_baseline: true } },
+        ],
+        runMeta: {
+          m1ReviewAssumptions: {
+            key_assumptions: [],
+          },
+        },
+      }))
+
+      const { result } = renderHook(() => usePreAnalysisData())
+
+      const m1Items = result.current.improvementsByCategory.verify.filter(
+        (item) => item.key.startsWith('m1_assumption_')
+      )
+      expect(m1Items).toHaveLength(0)
+    })
+
+    it('renders no m1_assumption items when m1ReviewAssumptions is null', () => {
+      mockUseCanvasStore.mockImplementation(createMockStore({
+        nodes: [
+          { id: 'opt1', type: 'option', position: { x: 0, y: 0 }, data: { label: 'Option 1' } },
+          { id: 'opt2', type: 'option', position: { x: 0, y: 0 }, data: { label: 'Option 2', is_baseline: true } },
+        ],
+        runMeta: null,
+      }))
+
+      const { result } = renderHook(() => usePreAnalysisData())
+
+      const m1Items = result.current.improvementsByCategory.verify.filter(
+        (item) => item.key.startsWith('m1_assumption_')
+      )
+      expect(m1Items).toHaveLength(0)
+    })
+
+    it('exposes preMortem from m1ReviewAssumptions', () => {
+      mockUseCanvasStore.mockImplementation(createMockStore({
+        nodes: [
+          { id: 'opt1', type: 'option', position: { x: 0, y: 0 }, data: { label: 'Option 1' } },
+          { id: 'opt2', type: 'option', position: { x: 0, y: 0 }, data: { label: 'Option 2', is_baseline: true } },
+        ],
+        runMeta: {
+          m1ReviewAssumptions: {
+            key_assumptions: ['Test assumption'],
+            pre_mortem: {
+              failure_scenario: 'Project fails due to market shift',
+              warning_signs: ['Revenue below target', 'Churn above 8%'],
+              mitigation: 'Quarterly checkpoints with go/no-go criteria',
+            },
+          },
+        },
+      }))
+
+      const { result } = renderHook(() => usePreAnalysisData())
+
+      expect(result.current.preMortem).toEqual({
+        failure_scenario: 'Project fails due to market shift',
+        warning_signs: ['Revenue below target', 'Churn above 8%'],
+        mitigation: 'Quarterly checkpoints with go/no-go criteria',
+      })
+    })
+
+    it('preMortem is null when not provided', () => {
+      mockUseCanvasStore.mockImplementation(createMockStore({
+        nodes: [
+          { id: 'opt1', type: 'option', position: { x: 0, y: 0 }, data: { label: 'Option 1' } },
+          { id: 'opt2', type: 'option', position: { x: 0, y: 0 }, data: { label: 'Option 2', is_baseline: true } },
+        ],
+        runMeta: {
+          m1ReviewAssumptions: {
+            key_assumptions: ['Some assumption'],
+          },
+        },
+      }))
+
+      const { result } = renderHook(() => usePreAnalysisData())
+
+      expect(result.current.preMortem).toBeNull()
     })
   })
 })

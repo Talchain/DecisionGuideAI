@@ -15,7 +15,7 @@
  * All data derives from existing graph state — no new backend endpoints.
  */
 
-import { useCallback, useRef, useMemo } from 'react'
+import { useCallback, useRef, useMemo, useState } from 'react'
 import { usePreAnalysisData } from './hooks/usePreAnalysisData'
 import { Header } from './Header'
 import { SuccessTarget } from './SuccessTarget'
@@ -31,7 +31,51 @@ import { useRetryDraft } from '../../hooks/useRetryDraft'
 import { SOFT_BYPASS_STATUSES } from '../../hooks/usePreRunValidation'
 import { useShowToast } from '../../ToastContext'
 import { copyTextToClipboard } from '../../../utils/clipboard'
-import { RefreshCw, Copy, Pencil } from 'lucide-react'
+import { RefreshCw, Copy, Pencil, ChevronDown, ChevronRight } from 'lucide-react'
+
+/** Collapsible pre-mortem section from PLoT m1_review */
+function PreMortemSection({ preMortem }: { preMortem: { failure_scenario: string; warning_signs: string[]; mitigation: string } }) {
+  const [isExpanded, setIsExpanded] = useState(false)
+
+  return (
+    <div className="rounded-lg border border-panel-border border-l-[3px] border-l-warning">
+      <button
+        type="button"
+        onClick={() => setIsExpanded(prev => !prev)}
+        className="w-full flex items-center justify-between px-3 py-2 cursor-pointer hover:bg-black/[0.02]"
+      >
+        <span className="text-sm font-semibold text-text-body">Pre-mortem</span>
+        {isExpanded ? (
+          <ChevronDown className="w-4 h-4 text-text-light" />
+        ) : (
+          <ChevronRight className="w-4 h-4 text-text-light" />
+        )}
+      </button>
+      {isExpanded && (
+        <div className="px-3 pb-3 space-y-2 text-sm text-text-body">
+          <div>
+            <div className="font-medium text-text-header mb-1">Failure scenario</div>
+            <p>{preMortem.failure_scenario}</p>
+          </div>
+          {preMortem.warning_signs.length > 0 && (
+            <div>
+              <div className="font-medium text-text-header mb-1">Warning signs</div>
+              <ul className="list-disc pl-4 space-y-0.5">
+                {preMortem.warning_signs.map((sign, i) => (
+                  <li key={i}>{sign}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+          <div>
+            <div className="font-medium text-text-header mb-1">Mitigation</div>
+            <p>{preMortem.mitigation}</p>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
 
 interface PreAnalysisPanelProps {
   /** Callback when user clicks the primary action button */
@@ -550,6 +594,11 @@ export function PreAnalysisPanel({
             totalReviewableCount={data.totalReviewableFactorsCount}
           />
         </div>
+
+        {/* Pre-mortem section (collapsible, from PLoT m1_review) */}
+        {data.preMortem && (
+          <PreMortemSection preMortem={data.preMortem} />
+        )}
 
         {/* 6. Model Snapshot accordion */}
         <ModelSnapshot

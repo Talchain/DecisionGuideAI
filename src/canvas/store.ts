@@ -135,6 +135,8 @@ export type RunMetaState = {
   m1Review?: M1Review | null
   // M1 Coaching - deterministic coaching fields from /v2/run (not LLM-generated)
   m1Coaching?: M1Coaching | null
+  // M1 Review assumptions + pre-mortem from PLoT /v2/run
+  m1ReviewAssumptions?: { key_assumptions: string[]; pre_mortem?: { failure_scenario: string; warning_signs: string[]; mitigation: string } | null } | null
   ceeDebugHeaders?: CeeDebugHeaders // Phase 1 Section 4.1: Dev-only debug headers
   // Raw error data for debugging malformed responses
   rawErrorData?: {

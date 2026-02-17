@@ -424,29 +424,23 @@ function extractStrengthAudit(data: DebugData): { data: StrengthAuditData | null
   }
 }
 
+/**
+ * Derive request chain status from PLoT's passthrough booleans only.
+ * No UI-side ID comparison or set logic — reads plot_chain_present,
+ * from_plot?.chain_complete, and from_plot?.all_match.
+ */
 export function deriveRequestChainStatus(chain: DebugData['request_id_chain']): SectionStatus {
   if (!chain) return 'unavailable'
 
-  // Only score the analysis chain (hard invariant). Draft-graph trace is informational.
-  const ac = chain.analysis_chain
-  const values = [ac.ui_sent, ac.plot_received, ac.forwarded_to_isl, ac.isl_echoed]
-  const nonNull = values.filter(v => v !== null)
-  if (nonNull.length === 0) return 'unavailable'
+  // PLoT didn't return a chain (draft flow or older PLoT build)
+  if (!chain.plot_chain_present || !chain.from_plot) return 'unavailable'
 
-  const hasNulls = values.some(v => v === null)
-  const uniqueIds = new Set(nonNull)
+  // Chain incomplete — PLoT says not all hops reported
+  if (!chain.from_plot.chain_complete) return 'warn'
 
-  // If IDs diverge, it's always a fail
-  if (uniqueIds.size > 1) return 'fail'
+  // PLoT says IDs don't all match
+  if (!chain.from_plot.all_match) return 'fail'
 
-  // Incomplete chain (fewer than 2 IDs present) → warn, even if the single ID "matches" itself
-  if (nonNull.length < 2) return 'warn'
-
-  // all_match with ≥2 IDs is a real pass
-  if (ac.all_match) return 'pass'
-
-  // Some IDs still null → warn
-  if (hasNulls) return 'warn'
   return 'pass'
 }
 
@@ -643,28 +637,51 @@ export function ContractIntegrityTab({ data }: ContractIntegrityTabProps) {
       <Section title="Request chain" status={requestChainStatus}>
         {data.request_id_chain ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            {/* Analysis chain (hard invariant) */}
+            {/* UI-generated ID */}
             <div>
-              <div style={{ fontSize: 11, fontWeight: 600, color: '#64748b', marginBottom: 6 }}>
-                Analysis chain
-              </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                <KvRow label="UI sent" value={data.request_id_chain.analysis_chain.ui_sent} mono />
-                <KvRow label="PLoT received" value={data.request_id_chain.analysis_chain.plot_received} mono />
-                <KvRow label="Forwarded to ISL" value={data.request_id_chain.analysis_chain.forwarded_to_isl} mono />
-                <KvRow label="ISL echoed" value={data.request_id_chain.analysis_chain.isl_echoed} mono />
-                <KvRow
-                  label="All match"
-                  value={
-                    data.request_id_chain.analysis_chain.all_match ? (
-                      <span style={{ color: '#16a34a' }}>{'\u2713'} Yes</span>
-                    ) : (
-                      <span style={{ color: '#dc2626' }}>{'\u2717'} No</span>
-                    )
-                  }
-                />
+                <KvRow label="UI generated" value={data.request_id_chain.ui_generated} mono />
               </div>
             </div>
+
+            {/* PLoT chain passthrough */}
+            {data.request_id_chain.from_plot ? (
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 600, color: '#64748b', marginBottom: 6 }}>
+                  From PLoT
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                  <KvRow label="UI (observed by PLoT)" value={data.request_id_chain.from_plot.ui as string | null} mono />
+                  <KvRow label="PLoT" value={data.request_id_chain.from_plot.plot as string | null} mono />
+                  <KvRow label="ISL" value={data.request_id_chain.from_plot.isl as string | null} mono />
+                  <KvRow label="ISL echoed" value={data.request_id_chain.from_plot.isl_echoed as string | null} mono />
+                  <KvRow
+                    label="All match"
+                    value={
+                      data.request_id_chain.from_plot.all_match ? (
+                        <span style={{ color: '#16a34a' }}>{'\u2713'} Yes</span>
+                      ) : (
+                        <span style={{ color: '#dc2626' }}>{'\u2717'} No</span>
+                      )
+                    }
+                  />
+                  <KvRow
+                    label="Chain complete"
+                    value={
+                      data.request_id_chain.from_plot.chain_complete ? (
+                        <span style={{ color: '#16a34a' }}>{'\u2713'} Yes</span>
+                      ) : (
+                        <span style={{ color: '#f59e0b' }}>{'\u26a0'} No</span>
+                      )
+                    }
+                  />
+                </div>
+              </div>
+            ) : (
+              <div style={{ fontSize: 12, color: '#94a3b8', fontStyle: 'italic' }}>
+                PLoT did not return a request ID chain
+              </div>
+            )}
 
             {/* Draft-graph trace (informational — no scoring) */}
             <div>

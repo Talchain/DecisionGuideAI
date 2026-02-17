@@ -272,6 +272,23 @@ export interface V2Meta {
   latency_ms: number
 }
 
+// ============================================================================
+// M1 Review Types (key assumptions + pre-mortem from PLoT)
+// ============================================================================
+
+/** Pre-mortem analysis from PLoT */
+export interface V2PreMortem {
+  failure_scenario: string
+  warning_signs: string[]
+  mitigation: string
+}
+
+/** M1 Review: key assumptions and pre-mortem analysis from PLoT /v2/run */
+export interface V2M1Review {
+  key_assumptions: string[]
+  pre_mortem?: V2PreMortem | null
+}
+
 /**
  * V2 success response.
  *
@@ -332,6 +349,13 @@ export interface V2RunResponse {
 
   /** M1 Coaching - deterministic coaching fields (not LLM-generated) */
   m1_coaching?: M1Coaching
+
+  // ==========================================================================
+  // M1 Review Fields (key assumptions + pre-mortem from PLoT)
+  // ==========================================================================
+
+  /** M1 Review - key assumptions and pre-mortem analysis */
+  m1_review?: V2M1Review
 }
 
 /**

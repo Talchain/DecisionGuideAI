@@ -3,7 +3,7 @@
  *
  * Tests for the Contract Integrity tab in the debug panel.
  * Covers all five sections, missing-data handling, status derivation,
- * structural edge exclusion, analysis chain separation, and scoring.
+ * structural edge exclusion, from_plot passthrough, and scoring.
  */
 
 import { describe, it, expect } from 'vitest'
@@ -16,34 +16,39 @@ import { redactPayload } from '../../../utils/payloadRedaction'
 // Fixtures
 // =============================================================================
 
-/** Build a well-typed RequestIdChain with analysis_chain and draft_trace */
+/** Build a well-typed RequestIdChain with from_plot passthrough */
 function makeChain(overrides: {
-  ui_sent?: string | null
-  plot_received?: string | null
-  forwarded_to_isl?: string | null
+  ui_generated?: string | null
+  /** When true (default), from_plot is populated with IDs */
+  plot_chain_present?: boolean
+  ui?: string | null
+  plot?: string | null
+  isl?: string | null
   isl_echoed?: string | null
   cee_trace?: string | null
   all_match?: boolean
+  chain_complete?: boolean
 } = {}): RequestIdChain {
-  const ui_sent = overrides.ui_sent ?? null
-  const plot_received = overrides.plot_received ?? null
-  const forwarded_to_isl = overrides.forwarded_to_isl ?? null
-  const isl_echoed = overrides.isl_echoed ?? null
+  const ui_generated = overrides.ui_generated ?? null
   const cee_trace = overrides.cee_trace ?? null
+  const plot_chain_present = overrides.plot_chain_present ?? true
   const all_match = overrides.all_match ?? false
+  const chain_complete = overrides.chain_complete ?? true
 
   return {
-    analysis_chain: { ui_sent, plot_received, forwarded_to_isl, isl_echoed, all_match },
+    ui_generated,
+    from_plot: plot_chain_present
+      ? {
+          ui: overrides.ui ?? ui_generated,
+          plot: overrides.plot ?? ui_generated,
+          isl: overrides.isl ?? ui_generated,
+          isl_echoed: overrides.isl_echoed ?? ui_generated,
+          all_match,
+          chain_complete,
+        }
+      : null,
+    plot_chain_present,
     draft_trace: { cee_trace },
-    // Legacy flat fields
-    ui_generated: ui_sent,
-    sent_to_plot: ui_sent,
-    cee_trace,
-    plot_request: ui_sent,
-    plot_response: plot_received,
-    isl_request: forwarded_to_isl,
-    isl_response: isl_echoed,
-    all_match,
   }
 }
 
@@ -128,12 +133,14 @@ const fullFixture = makeDebugData({
     isl_request: { seed: 42 },
   },
   request_id_chain: makeChain({
-    ui_sent: 'req-123',
-    plot_received: 'req-123',
-    forwarded_to_isl: 'req-123',
+    ui_generated: 'req-123',
+    ui: 'req-123',
+    plot: 'req-123',
+    isl: 'req-123',
     isl_echoed: 'req-123',
     cee_trace: 'req-123',
     all_match: true,
+    chain_complete: true,
   }),
   validation: {
     summary: { errors: 0, warnings: 1, info: 1 },
@@ -437,12 +444,11 @@ describe('ContractIntegrityTab', () => {
   // -------------------------------------------------------------------------
 
   describe('Request chain section', () => {
-    it('displays analysis chain and draft-graph trace sub-sections', () => {
+    it('displays from_plot and draft-graph trace sub-sections', () => {
       render(<ContractIntegrityTab data={fullFixture} />)
-      expect(screen.getByText('Analysis chain')).toBeInTheDocument()
-      expect(screen.getByText('UI sent')).toBeInTheDocument()
-      expect(screen.getByText('PLoT received')).toBeInTheDocument()
-      expect(screen.getByText('Forwarded to ISL')).toBeInTheDocument()
+      expect(screen.getByText('From PLoT')).toBeInTheDocument()
+      expect(screen.getByText('UI generated')).toBeInTheDocument()
+      expect(screen.getByText('UI (observed by PLoT)')).toBeInTheDocument()
       expect(screen.getByText('ISL echoed')).toBeInTheDocument()
       expect(screen.getByText(/Draft-graph trace/)).toBeInTheDocument()
       expect(screen.getByText('CEE trace')).toBeInTheDocument()
@@ -454,50 +460,51 @@ describe('ContractIntegrityTab', () => {
       expect(screen.getByText('Request chain')).toBeInTheDocument()
     })
 
-    it('shows analysis chain values from meta.request_id_chain', () => {
+    it('shows from_plot values when PLoT returns chain', () => {
       const data = makeDebugData({
         request_id_chain: makeChain({
-          ui_sent: 'abc-123',
-          plot_received: 'abc-123',
-          forwarded_to_isl: 'abc-123',
+          ui_generated: 'abc-123',
+          ui: 'abc-123',
+          plot: 'abc-123',
+          isl: 'abc-123',
           isl_echoed: 'abc-123',
           all_match: true,
+          chain_complete: true,
         }),
       })
       render(<ContractIntegrityTab data={data} />)
+      // ui_generated + from_plot.ui + from_plot.plot + from_plot.isl + from_plot.isl_echoed = 5
       expect(screen.getAllByText('abc-123').length).toBeGreaterThanOrEqual(4)
     })
 
-    it('shows analysis chain values from _meta.request_id_chain (fallback)', () => {
+    it('shows from_plot values from _meta (passthrough)', () => {
       // The tab component reads data.request_id_chain which is already extracted.
       // _meta fallback is handled in useDebugData extraction. Here we verify rendering.
       const data = makeDebugData({
         request_id_chain: makeChain({
-          ui_sent: 'def-456',
-          plot_received: 'def-456',
-          forwarded_to_isl: 'def-456',
+          ui_generated: 'def-456',
+          ui: 'def-456',
+          plot: 'def-456',
+          isl: 'def-456',
           isl_echoed: 'def-456',
           all_match: true,
+          chain_complete: true,
         }),
       })
       render(<ContractIntegrityTab data={data} />)
       expect(screen.getAllByText('def-456').length).toBeGreaterThanOrEqual(4)
     })
 
-    it('shows fallback values when request_id_chain is absent from PLoT response', () => {
-      // When PLoT doesn't return request_id_chain, the extraction falls back to
-      // captured payload IDs. Verify the component renders whatever is available.
+    it('shows hint when PLoT did not return a request_id_chain', () => {
       const data = makeDebugData({
         request_id_chain: makeChain({
-          ui_sent: 'ghi-789',
-          plot_received: null,
-          forwarded_to_isl: null,
-          isl_echoed: null,
-          all_match: false,
+          ui_generated: 'ghi-789',
+          plot_chain_present: false,
         }),
       })
       render(<ContractIntegrityTab data={data} />)
       expect(screen.getByText('ghi-789')).toBeInTheDocument()
+      expect(screen.getByText('PLoT did not return a request ID chain')).toBeInTheDocument()
     })
   })
 
@@ -621,56 +628,46 @@ describe('deriveRequestChainStatus', () => {
     expect(deriveRequestChainStatus(null)).toBe('unavailable')
   })
 
-  it('returns pass when analysis chain all_match is true', () => {
+  it('returns pass when from_plot.all_match and chain_complete are true', () => {
     expect(deriveRequestChainStatus(makeChain({
-      ui_sent: 'a', plot_received: 'a', forwarded_to_isl: 'a', isl_echoed: 'a',
-      all_match: true,
+      ui_generated: 'a', all_match: true, chain_complete: true,
     }))).toBe('pass')
   })
 
-  it('returns warn when some analysis chain IDs are null', () => {
+  it('returns warn when chain_complete is false', () => {
     expect(deriveRequestChainStatus(makeChain({
-      ui_sent: 'a', plot_received: 'a', forwarded_to_isl: null, isl_echoed: null,
-      all_match: false,
+      ui_generated: 'a', all_match: true, chain_complete: false,
     }))).toBe('warn')
   })
 
-  it('returns fail when analysis chain IDs diverge', () => {
+  it('returns fail when from_plot.all_match is false', () => {
     expect(deriveRequestChainStatus(makeChain({
-      ui_sent: 'a', plot_received: 'b', forwarded_to_isl: 'a', isl_echoed: 'a',
-      all_match: false,
+      ui_generated: 'a', all_match: false, chain_complete: true,
     }))).toBe('fail')
   })
 
-  it('returns unavailable when all analysis chain IDs are null', () => {
+  it('returns unavailable when plot_chain_present is false (draft flow)', () => {
     expect(deriveRequestChainStatus(makeChain({
-      ui_sent: null, plot_received: null, forwarded_to_isl: null, isl_echoed: null,
-      all_match: true,
+      ui_generated: 'a', plot_chain_present: false,
     }))).toBe('unavailable')
   })
 
-  it('returns warn when only a single ID is present (incomplete chain)', () => {
-    expect(deriveRequestChainStatus(makeChain({
-      ui_sent: 'a', plot_received: null, forwarded_to_isl: null, isl_echoed: null,
-      all_match: true, // all_match is true since 1 unique ID, but chain is incomplete
-    }))).toBe('warn')
-  })
-
-  it('CEE trace mismatch does NOT affect analysis chain status', () => {
-    // analysis_chain all match, but cee_trace is different
+  it('CEE trace mismatch does NOT affect chain status', () => {
     const chain = makeChain({
-      ui_sent: 'a', plot_received: 'a', forwarded_to_isl: 'a', isl_echoed: 'a',
+      ui_generated: 'a',
       cee_trace: 'different-cee-id',
       all_match: true,
+      chain_complete: true,
     })
     expect(deriveRequestChainStatus(chain)).toBe('pass')
   })
 
-  it('analysis chain mismatch causes fail even when draft trace matches', () => {
+  it('from_plot.all_match false causes fail even when draft trace matches', () => {
     const chain = makeChain({
-      ui_sent: 'a', plot_received: 'b', forwarded_to_isl: 'a', isl_echoed: 'a',
-      cee_trace: 'a', // draft trace matches ui_sent, but analysis chain diverges
+      ui_generated: 'a',
+      cee_trace: 'a',
       all_match: false,
+      chain_complete: true,
     })
     expect(deriveRequestChainStatus(chain)).toBe('fail')
   })
@@ -737,8 +734,7 @@ describe('overall status badge', () => {
         cee_response: {},
       },
       request_id_chain: makeChain({
-        ui_sent: 'a', plot_received: 'a', forwarded_to_isl: 'a', isl_echoed: 'a',
-        all_match: true,
+        ui_generated: 'a', all_match: true, chain_complete: true,
       }),
     })
     render(<ContractIntegrityTab data={data} />)
@@ -763,17 +759,18 @@ describe('overall status badge', () => {
         cee_response: {},
       },
       request_id_chain: makeChain({
-        ui_sent: 'a', plot_received: 'a', forwarded_to_isl: 'a', isl_echoed: 'a',
+        ui_generated: 'a',
         cee_trace: 'completely-different-id',
         all_match: true,
+        chain_complete: true,
       }),
     })
     render(<ContractIntegrityTab data={data} />)
-    // CEE trace is different but analysis chain is fine → should be pass
+    // CEE trace is different but from_plot chain is fine → should be pass
     expect(screen.getByText(/Contract integrity: pass/)).toBeInTheDocument()
   })
 
-  it('analysis chain mismatch DOES cause overall fail', () => {
+  it('from_plot.all_match false DOES cause overall fail', () => {
     const data = makeDebugData({
       payloads: {
         plot_response: {
@@ -791,8 +788,9 @@ describe('overall status badge', () => {
         cee_response: {},
       },
       request_id_chain: makeChain({
-        ui_sent: 'a', plot_received: 'b', forwarded_to_isl: 'a', isl_echoed: 'a',
+        ui_generated: 'a',
         all_match: false,
+        chain_complete: true,
       }),
     })
     render(<ContractIntegrityTab data={data} />)
@@ -821,8 +819,7 @@ describe('overall status badge', () => {
         },
       },
       request_id_chain: makeChain({
-        ui_sent: 'a', plot_received: 'a', forwarded_to_isl: 'a', isl_echoed: 'a',
-        all_match: true,
+        ui_generated: 'a', all_match: true, chain_complete: true,
       }),
     })
     render(<ContractIntegrityTab data={data} />)

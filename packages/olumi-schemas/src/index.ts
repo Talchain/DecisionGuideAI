@@ -157,7 +157,7 @@ export type {
 
 // Request chain types
 export type {
-  AnalysisRequestIdChain,
+  PlotRequestIdChain,
   DraftGraphTrace,
 } from './request-chain.js'
 

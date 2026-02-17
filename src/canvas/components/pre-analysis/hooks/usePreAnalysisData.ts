@@ -155,6 +155,8 @@ export interface PreAnalysisData {
   thresholdProvenance: string | null
   /** Model adjustments from CEE (STRP/repair pipeline mutations) */
   modelAdjustments: Array<{ type?: string; code?: string; field?: string; detail?: string; reason?: string; target?: string }>
+  /** Pre-mortem analysis from PLoT m1_review (null when absent) */
+  preMortem: { failure_scenario: string; warning_signs: string[]; mitigation: string } | null
 }
 
 // ============================================================================
@@ -418,6 +420,7 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
   const nodes = useCanvasStore(useShallow(s => s.nodes))
   const edges = useCanvasStore(useShallow(s => s.edges))
   const ceeAnalysisReady = useCanvasStore(s => s.ceeAnalysisReady)
+  const m1ReviewAssumptions = useCanvasStore(s => s.runMeta?.m1ReviewAssumptions)
 
   // Group nodes by kind
   const nodesByKind = useMemo<NodesByKind>(() => {
@@ -557,6 +560,18 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
       }
     }
 
+    // PLoT m1_review.key_assumptions — each is a plain string to display in Review assumptions tier
+    const keyAssumptions = m1ReviewAssumptions?.key_assumptions ?? []
+    for (const assumption of keyAssumptions) {
+      result.verify.push({
+        key: `m1_assumption_${result.verify.length}`,
+        category: 'verify',
+        label: assumption,
+        detail: '',
+        bias: 'confidence',
+      })
+    }
+
     // === ADD EVIDENCE CATEGORY ===
     // Edges with no evidence metadata
     for (const edge of edges) {
@@ -635,7 +650,7 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
     }
 
     return result
-  }, [nodes, edges, nodesByKind, ceeAnalysisReady?.verification_prompts, ceeAnalysisReady?.low_confidence_edges])
+  }, [nodes, edges, nodesByKind, ceeAnalysisReady?.verification_prompts, ceeAnalysisReady?.low_confidence_edges, m1ReviewAssumptions])
 
   // Total improvements
   const totalImprovements = useMemo(() => {
@@ -970,6 +985,7 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
     enrichedBlockers,
     informationalBlockers,
     modelAdjustments: ceeAnalysisReady?.model_adjustments ?? [],
+    preMortem: m1ReviewAssumptions?.pre_mortem ?? null,
   }
 }
 

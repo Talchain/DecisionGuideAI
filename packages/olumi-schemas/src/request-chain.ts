@@ -6,24 +6,28 @@
  */
 
 // =============================================================================
-// Analysis Request Chain
+// PLoT Request ID Chain (passthrough from PLoT _meta.request_id_chain)
 // =============================================================================
 
 /**
- * Analysis request ID chain: UI → PLoT → ISL.
- * Hard invariant — ID mismatches indicate routing or proxy errors.
+ * Request ID chain as returned by PLoT in _meta.request_id_chain.
+ * This is a verbatim passthrough — the UI must not compute or derive any fields.
  */
-export interface AnalysisRequestIdChain {
-  /** Request ID sent by UI to PLoT */
-  ui_sent: string | null
-  /** Request ID received by PLoT */
-  plot_received: string | null
-  /** Request ID forwarded by PLoT to ISL */
-  forwarded_to_isl: string | null
+export interface PlotRequestIdChain {
+  /** Request ID PLoT observed in the incoming request header */
+  ui: string | null
+  /** Request ID PLoT generated or forwarded */
+  plot: string | null
+  /** Request ID forwarded to ISL */
+  isl: string | null
   /** Request ID echoed back by ISL */
   isl_echoed: string | null
-  /** Whether all non-null IDs in the chain match */
+  /** Whether all IDs in the chain match (computed by PLoT) */
   all_match: boolean
+  /** Whether the chain is complete (computed by PLoT) */
+  chain_complete: boolean
+  /** Allow additional fields PLoT may add in the future */
+  [key: string]: unknown
 }
 
 // =============================================================================
