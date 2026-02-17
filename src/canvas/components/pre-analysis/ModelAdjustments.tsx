@@ -30,6 +30,8 @@ interface ModelAdjustment {
 
 interface ModelAdjustmentsProps {
   adjustments: ModelAdjustment[]
+  /** Repair actions from trace.pipeline.repair_summary (Task 6b) */
+  repairActions?: string[]
 }
 
 /** Humanise adjustment type/code for display */
@@ -55,10 +57,12 @@ function formatAdjustmentType(type: string | undefined): string {
     .replace(/\b\w/g, c => c.toUpperCase())
 }
 
-export function ModelAdjustments({ adjustments }: ModelAdjustmentsProps) {
+export function ModelAdjustments({ adjustments, repairActions = [] }: ModelAdjustmentsProps) {
   const [isExpanded, setIsExpanded] = useState(false)
 
-  if (adjustments.length === 0) return null
+  if (adjustments.length === 0 && repairActions.length === 0) return null
+
+  const totalCount = adjustments.length + repairActions.length
 
   return (
     <div className="rounded-md border border-panel-border bg-panel" data-testid="model-adjustments">
@@ -76,7 +80,7 @@ export function ModelAdjustments({ adjustments }: ModelAdjustmentsProps) {
             We fixed small issues without changing your intent.
           </p>
         </div>
-        <span className="text-xs text-text-light">{adjustments.length}</span>
+        <span className="text-xs text-text-light">{totalCount}</span>
         {isExpanded ? (
           <ChevronDown size={14} className="text-text-light" />
         ) : (
@@ -112,6 +116,24 @@ export function ModelAdjustments({ adjustments }: ModelAdjustmentsProps) {
               </div>
             )
           })}
+
+          {/* Repair actions from trace.pipeline.repair_summary (Task 6b) */}
+          {repairActions.length > 0 && (
+            <>
+              {adjustments.length > 0 && (
+                <div className="border-t border-panel-border my-1" />
+              )}
+              {repairActions.map((action, idx) => (
+                <div
+                  key={`repair-${idx}`}
+                  className="flex items-start gap-2 text-xs"
+                >
+                  <span className="text-text-light mt-0.5 flex-shrink-0">&bull;</span>
+                  <span className="text-text-body">{action}</span>
+                </div>
+              ))}
+            </>
+          )}
         </div>
       )}
     </div>

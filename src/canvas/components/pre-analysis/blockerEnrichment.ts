@@ -229,6 +229,18 @@ export function enrichBlocker(blocker: ValidationBlocker): EnrichedBlocker {
     }
   }
 
+  // OPTIONS_NEED_MAPPING: include specific option names in title if available
+  if (blocker.code === 'OPTIONS_NEED_MAPPING' && blocker.affectedIds && blocker.affectedIds.length > 0) {
+    const optionNames = blocker.affectedIds
+      .map(id => looksLikeId(id) ? prettifyId(id) : id)
+      .slice(0, 3) // max 3 names in title
+    const suffix = blocker.affectedIds.length > 3 ? ` +${blocker.affectedIds.length - 3} more` : ''
+    display = {
+      ...display,
+      title: `Options need configuration: ${optionNames.join(', ')}${suffix}`,
+    }
+  }
+
   // ANALYSIS_NOT_READY: pass through status-specific message from validation
   // (e.g., "Some options have categorical values that need encoding")
   if (blocker.code === 'ANALYSIS_NOT_READY' && blocker.message) {
@@ -264,13 +276,29 @@ export function hydrateBlockerLabels(
   blockers: EnrichedBlocker[],
   nodesById: Map<string, { label?: string }>
 ): EnrichedBlocker[] {
-  const HYDRATE_CODES = new Set(['CEE_BLOCKER', 'CONSTRAINT_DROPPED'])
+  const HYDRATE_CODES = new Set(['CEE_BLOCKER', 'CONSTRAINT_DROPPED', 'OPTIONS_NEED_MAPPING'])
   return blockers.map(enriched => {
     if (!HYDRATE_CODES.has(enriched.blocker.code)) return enriched
 
-    const factorId = enriched.blocker.affectedIds?.[0]
-    if (!factorId) return enriched
+    const affectedIds = enriched.blocker.affectedIds
+    if (!affectedIds || affectedIds.length === 0) return enriched
 
+    // OPTIONS_NEED_MAPPING: hydrate all affected option IDs
+    if (enriched.blocker.code === 'OPTIONS_NEED_MAPPING') {
+      const resolvedNames = affectedIds.map(id => {
+        const node = nodesById.get(id)
+        return (node?.label && !looksLikeId(node.label)) ? node.label : prettifyId(id)
+      }).slice(0, 3)
+      const suffix = affectedIds.length > 3 ? ` +${affectedIds.length - 3} more` : ''
+      const title = `Options need configuration: ${resolvedNames.join(', ')}${suffix}`
+      return {
+        ...enriched,
+        display: { ...enriched.display, title },
+      }
+    }
+
+    // CEE_BLOCKER / CONSTRAINT_DROPPED: hydrate first affected ID
+    const factorId = affectedIds[0]
     const node = nodesById.get(factorId)
     const nodeLabel = node?.label
     if (!nodeLabel || looksLikeId(nodeLabel)) return enriched

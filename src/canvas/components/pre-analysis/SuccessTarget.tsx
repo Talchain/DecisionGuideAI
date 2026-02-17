@@ -30,6 +30,10 @@ interface SuccessTargetProps {
   onThresholdConfirm?: () => void
   /** Callback to clear confirmed status (for editing) */
   onThresholdEdit?: () => void
+  /** Raw goal threshold from CEE (user-facing value, e.g. 200) */
+  goalThresholdRaw?: number | null
+  /** Goal threshold unit from CEE (e.g. "customers") */
+  goalThresholdUnit?: string | null
 }
 
 export function SuccessTarget({
@@ -41,6 +45,8 @@ export function SuccessTarget({
   onThresholdChange,
   onThresholdConfirm,
   onThresholdEdit,
+  goalThresholdRaw,
+  goalThresholdUnit,
 }: SuccessTargetProps) {
   // Local state for inline input
   const [showInput, setShowInput] = useState(false)
@@ -50,12 +56,30 @@ export function SuccessTarget({
 
   const goalLabel = goalNode ? ((goalNode.data as { label?: string })?.label ?? goalNode.id) : 'Goal'
 
-  // Format threshold value for display
+  // Left-border state: mint (confirmed), sky (unconfirmed), carrot (no goal)
+  const borderColor = !goalNode
+    ? 'border-l-danger'
+    : isThresholdConfirmed
+      ? 'border-l-success'
+      : 'border-l-info'
+
+  // Format threshold value for display — prefer raw + unit for user-facing values
   const formatValue = (value: number | null): string => {
     if (value === null) return ''
-    // Simple formatting - could be enhanced with unit awareness
+    // If we have a raw value + unit from CEE, show that (e.g. "200 customers")
+    if (goalThresholdRaw != null && goalThresholdUnit) {
+      return `${goalThresholdRaw.toLocaleString()} ${goalThresholdUnit}`
+    }
+    if (goalThresholdRaw != null) {
+      return goalThresholdRaw.toLocaleString()
+    }
     return value.toLocaleString()
   }
+
+  // Placeholder text for input — show unit hint when available
+  const inputPlaceholder = goalThresholdUnit
+    ? `Enter target (${goalThresholdUnit})`
+    : 'Enter target value'
 
   // Handle input submission
   const handleSubmit = useCallback(() => {
@@ -76,15 +100,21 @@ export function SuccessTarget({
     setIsExpanded(true)
   }, [onThresholdEdit])
 
-  // No goal node - don't render
+  // No goal node - show missing-goal card
   if (!goalNode) {
-    return null
+    return (
+      <div className={`rounded-lg border border-panel-border border-l-[3px] ${borderColor} bg-panel p-3`}>
+        <div className="flex items-center justify-between">
+          <span className="text-sm text-text-light">No goal selected</span>
+        </div>
+      </div>
+    )
   }
 
   // Confirmed state - collapsed view
   if (isThresholdConfirmed && successThreshold !== null) {
     return (
-      <div className="rounded-lg border border-panel-border bg-panel p-3">
+      <div className={`rounded-lg border border-panel-border border-l-[3px] ${borderColor} bg-panel p-3`}>
         <button
           type="button"
           onClick={() => setIsExpanded(!isExpanded)}
@@ -142,10 +172,10 @@ export function SuccessTarget({
     )
   }
 
-  // No target set - show add target CTA
+  // No target set - show add target CTA with hint
   if (successThreshold === null) {
     return (
-      <div className="rounded-lg border border-panel-border bg-panel p-3">
+      <div className={`rounded-lg border border-panel-border border-l-[3px] ${borderColor} bg-panel p-3`}>
         {showInput ? (
           <div className="flex items-center gap-3">
             <label className="text-sm text-text-light shrink-0">Target for {goalLabel}</label>
@@ -153,7 +183,7 @@ export function SuccessTarget({
               type="number"
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
-              placeholder="Enter target value"
+              placeholder={inputPlaceholder}
               autoFocus
               onKeyDown={(e) => {
                 if (e.key === 'Enter') handleSubmit()
@@ -184,15 +214,20 @@ export function SuccessTarget({
             </button>
           </div>
         ) : (
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-text-light">No target set</span>
-            <button
-              type="button"
-              onClick={() => setShowInput(true)}
-              className="text-xs font-medium text-info hover:underline cursor-pointer"
-            >
-              Add target
-            </button>
+          <div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-text-body">{goalLabel}</span>
+              <button
+                type="button"
+                onClick={() => setShowInput(true)}
+                className="text-xs font-medium text-info hover:underline cursor-pointer"
+              >
+                Add target
+              </button>
+            </div>
+            <p className="text-xs text-text-light mt-1">
+              Set a target to see probability of success
+            </p>
           </div>
         )}
       </div>
@@ -201,7 +236,7 @@ export function SuccessTarget({
 
   // Value present but not confirmed - show edit and confirm CTAs
   return (
-    <div className="rounded-lg border border-panel-border bg-panel p-3">
+    <div className={`rounded-lg border border-panel-border border-l-[3px] ${borderColor} bg-panel p-3`}>
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2 min-w-0">
           <span className="text-sm text-text-body truncate">{goalLabel}</span>

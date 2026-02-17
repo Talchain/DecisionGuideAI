@@ -28,6 +28,12 @@ import { cleanFactorLabel } from '../../../../components/results/utils/cleanFact
 import { enrichAndSortBlockers, hydrateBlockerLabels, deduplicateBlockers, type EnrichedBlocker } from '../blockerEnrichment'
 // Import pre-run validation for enrichedBlockers
 import { usePreRunValidation } from '../../../hooks/usePreRunValidation'
+// Import baseline detection for quality check #2
+import { detectBaseline } from '../../../utils/baselineDetection'
+// Import observed_state helpers for consistent access
+import { getObservedState } from '../../../utils/observedStateHelpers'
+// Import quality dimensions type from store
+import type { CeeQualityDimensions } from '../../../store'
 
 // ============================================================================
 // Types
@@ -66,6 +72,40 @@ export interface ImprovementItem {
     /** Target type (node or edge) */
     targetType?: 'node' | 'edge'
   }
+  /** Optional uncertainty drivers from CEE for verify items */
+  uncertaintyDrivers?: string[]
+  /** Option name that sets this factor (for intervention-target factors) */
+  setByOption?: string
+  /** Source badge type: 'brief' | 'ai' | 'option' */
+  sourceBadge?: 'brief' | 'ai' | 'option'
+}
+
+/** Option preview data for Task 3 */
+export interface OptionPreviewData {
+  id: string
+  label: string
+  status: string
+  isBaseline: boolean
+  interventions: Array<{
+    factorId: string
+    factorLabel: string
+    interventionValue: number
+    currentValue: number | null
+    direction: 'up' | 'down' | 'same'
+  }>
+}
+
+/** Decision quality check for Task 4 */
+export interface QualityCheck {
+  id: string
+  /** One-sentence nudge text */
+  message: string
+  /** CTA button label */
+  cta: string
+  /** CTA action kind (matches improvement action kinds or custom) */
+  ctaAction: string
+  /** Pill label: Framing or Verify */
+  pill: 'framing' | 'verify'
 }
 
 /** Evidence quality level */
@@ -153,10 +193,28 @@ export interface PreAnalysisData {
   informationalBlockers: EnrichedBlocker[]
   /** Threshold provenance text */
   thresholdProvenance: string | null
-  /** Model adjustments from CEE (STRP/repair pipeline mutations) */
-  modelAdjustments: Array<{ type?: string; code?: string; field?: string; detail?: string; reason?: string; target?: string }>
+  /** Model adjustments from CEE (STRP/repair pipeline mutations), with resolved labels */
+  modelAdjustments: Array<{ type?: string; code?: string; field?: string; detail?: string; reason?: string; target?: string; targetNodeId?: string }>
   /** Pre-mortem analysis from PLoT m1_review (null when absent) */
   preMortem: { failure_scenario: string; warning_signs: string[]; mitigation: string } | null
+  /** Task 2: Raw goal threshold from CEE (user-facing value, e.g. 200) */
+  goalThresholdRaw: number | null
+  /** Task 2: Goal threshold unit from CEE (e.g. "customers") */
+  goalThresholdUnit: string | null
+  /** Task 2: Whether the goal selection is confirmed by user */
+  isGoalConfirmed: boolean
+  /** Task 3: Option preview data */
+  optionPreviews: OptionPreviewData[]
+  /** Task 4: Decision quality checks that fired */
+  qualityChecks: QualityCheck[]
+  /** Task 6: Repair actions from trace.pipeline.repair_summary */
+  repairActions: string[]
+  /** Task 7: Quality scores from CEE draft */
+  ceeQuality: CeeQualityDimensions | null
+  /** Task 8: Whether most edges have default strengths (warning, not blocker) */
+  hasDefaultStrengths: boolean
+  /** Task 8: Percentage of edges with default strengths */
+  defaultStrengthPercent: number
 }
 
 // ============================================================================
@@ -421,6 +479,10 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
   const edges = useCanvasStore(useShallow(s => s.edges))
   const ceeAnalysisReady = useCanvasStore(s => s.ceeAnalysisReady)
   const m1ReviewAssumptions = useCanvasStore(s => s.runMeta?.m1ReviewAssumptions)
+  // Task 7: Quality scores from CEE draft
+  const ceeQuality = useCanvasStore(s => s.ceeQuality)
+  // Task 6: Pipeline trace for repair_summary
+  const ceePipelineTrace = useCanvasStore(s => s.ceePipelineTrace)
 
   // Group nodes by kind
   const nodesByKind = useMemo<NodesByKind>(() => {
@@ -505,26 +567,54 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
     }
 
     // === VERIFY CATEGORY ===
-    // Factors with AI-inferred source, EXCLUDING controllable factors with interventions
-    // (controllable factors with interventions are "choices the user will make", not assumptions to verify)
+    // Factors with AI-inferred source, with intervention-target factors shown as "Set by [Option]"
     // Phase 3.1: Use verification_prompts from CEE when available for better detail text
     const verificationPrompts = ceeAnalysisReady?.verification_prompts ?? {}
     const ceeOptions = ceeAnalysisReady?.options
     for (const factor of nodesByKind.factor) {
       if (isAiInferred(factor)) {
-        // Phase 2.5: Exclude controllable factors that have interventions targeting them
-        // These are user choices, not assumptions that need verification
+        const rawLabel = getNodeLabel(factor)
+        const { label: cleanedLabel, qualifier } = cleanFactorLabel(rawLabel)
+        const isBinary = qualifier === 'Yes/No' || qualifier === 'On/Off' || qualifier === 'True/False'
+        const value = getAiEstimatedValue(factor, isBinary)
+        const verificationPrompt = verificationPrompts[factor.id]
+
+        // Task 5b: Controllable factors with interventions show "Set by [Option]"
+        // instead of confirm/edit actions — they're not assumptions to verify
         if (isControllableFactor(factor) && hasInterventionTargeting(factor.id, optionNodes, ceeOptions)) {
+          const settingOption = (ceeOptions ?? []).find(o =>
+            o.interventions && Object.prototype.hasOwnProperty.call(o.interventions, factor.id)
+          )
+          const optionLabel = settingOption
+            ? (nodes.find(n => n.id === settingOption.id)?.data as { label?: string })?.label ?? settingOption.label ?? settingOption.id
+            : null
+
+          result.verify.push({
+            key: `verify_intervention_${factor.id}`,
+            category: 'verify',
+            label: cleanedLabel,
+            detail: value || 'Value needed',
+            setByOption: optionLabel ?? undefined,
+            sourceBadge: 'option',
+            focus: { type: 'node', id: factor.id, label: cleanedLabel },
+            // No confirm/assumption actions — informational only
+          })
           continue
         }
 
-        const rawLabel = getNodeLabel(factor)
-        const { label: cleanedLabel, qualifier } = cleanFactorLabel(rawLabel)
-        // Binary factors have "Yes/No" qualifier - use it for better value display
-        const isBinary = qualifier === 'Yes/No' || qualifier === 'On/Off' || qualifier === 'True/False'
-        const value = getAiEstimatedValue(factor, isBinary)
-        // Phase 3.1: Prefer verification prompt from CEE over raw value
-        const verificationPrompt = verificationPrompts[factor.id]
+        // Task 5a: Extract uncertainty_drivers from observed_state
+        const os = getObservedState(factor.data)
+        const uncertaintyDrivers = Array.isArray(os.uncertainty_drivers)
+          ? os.uncertainty_drivers.filter((d): d is string => typeof d === 'string')
+          : undefined
+
+        // Determine source badge type
+        const source = os.source
+        const sourceBadge: 'brief' | 'ai' | undefined =
+          source === 'brief_extraction' ? 'brief' :
+          (source === 'ai' || source === 'cee_inference' || source === 'inferred') ? 'ai' :
+          undefined
+
         result.verify.push({
           key: `verify_${factor.id}`,
           category: 'verify',
@@ -533,6 +623,8 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
           bias: 'confidence',
           focus: { type: 'node', id: factor.id, label: cleanedLabel },
           action: { label: 'Confirm', kind: 'confirm', targetId: factor.id, targetType: 'node' },
+          uncertaintyDrivers,
+          sourceBadge,
         })
       }
     }
@@ -773,9 +865,18 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
     [preRunValidation.informationalBlockers, nodesById]
   )
 
-  // Success threshold - priority: CEE goal_threshold > node goal_threshold > observed_state.value > success_threshold > threshold > factor_target_* nodes
+  // Success threshold - priority: user-set > CEE goal_threshold > node goal_threshold > observed_state.value > success_threshold > threshold > factor_target_* nodes
   const successThreshold = useMemo(() => {
-    // Phase 3.2: CEE goal_threshold takes highest priority
+    // User-set threshold takes highest priority — handleThresholdChange writes
+    // threshold_source: 'user' + success_threshold to the goal node
+    if (goalNode) {
+      const gd = goalNode.data as { threshold_source?: string; success_threshold?: number }
+      if (gd?.threshold_source === 'user' && gd?.success_threshold != null) {
+        return gd.success_threshold
+      }
+    }
+
+    // CEE goal_threshold (auto-derived from brief)
     if (ceeAnalysisReady?.goal_threshold != null) return ceeAnalysisReady.goal_threshold
 
     if (goalNode) {
@@ -963,6 +1064,259 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
     return { reviewedFactorsCount: reviewed, totalReviewableFactorsCount: total }
   }, [nodesByKind.factor, nodesByKind.option, nodesByKind.decision, ceeAnalysisReady?.options])
 
+  // =========================================================================
+  // Task 2: Goal threshold raw + unit for hero inputs
+  // =========================================================================
+  const goalThresholdRaw = useMemo<number | null>(() => {
+    if (ceeAnalysisReady?.goal_threshold_raw != null) return ceeAnalysisReady.goal_threshold_raw as number
+    if (goalNode) {
+      const data = goalNode.data as { goal_threshold_raw?: number }
+      return data?.goal_threshold_raw ?? null
+    }
+    return null
+  }, [ceeAnalysisReady?.goal_threshold_raw, goalNode])
+
+  const goalThresholdUnit = useMemo<string | null>(() => {
+    if (ceeAnalysisReady?.goal_threshold_unit) return ceeAnalysisReady.goal_threshold_unit as string
+    if (goalNode) {
+      const data = goalNode.data as { goal_threshold_unit?: string }
+      return data?.goal_threshold_unit ?? null
+    }
+    return null
+  }, [ceeAnalysisReady?.goal_threshold_unit, goalNode])
+
+  // Goal confirmed tracks whether the user explicitly confirmed goal selection
+  const isGoalConfirmed = useMemo(() => {
+    if (!goalNode) return false
+    return (goalNode.data as { goal_confirmed?: boolean })?.goal_confirmed === true
+  }, [goalNode])
+
+  // =========================================================================
+  // Task 3: Option previews from analysis_ready.options[]
+  // =========================================================================
+  const optionPreviews = useMemo<OptionPreviewData[]>(() => {
+    const options = ceeAnalysisReady?.options ?? []
+    if (options.length === 0) return []
+
+    return options.map(opt => {
+      const optionNode = nodes.find(n => n.id === opt.id)
+      // Detect baseline by explicit flag or label heuristic
+      const explicitBaseline = (optionNode?.data as { is_baseline?: boolean })?.is_baseline === true
+      const labelBaseline = detectBaseline(opt.label ?? '').isBaseline
+      const isBaseline = explicitBaseline || labelBaseline
+
+      const interventionEntries = Object.entries(opt.interventions ?? {})
+      const interventions = interventionEntries.map(([factorId, intervention]) => {
+        const factorNode = nodes.find(n => n.id === factorId)
+        const factorLabel = factorNode ? cleanFactorLabel(getNodeLabel(factorNode)).label : factorId
+        const interventionValue = typeof intervention === 'number'
+          ? intervention
+          : (intervention as { value?: number })?.value ?? 0
+
+        // Get current observed value for direction comparison
+        const os = getObservedState(factorNode?.data)
+        const currentValue = os.value ?? null
+
+        // Guard: only compute direction when both values are finite numbers
+        let direction: 'up' | 'down' | 'same' = 'same'
+        if (
+          currentValue !== null &&
+          Number.isFinite(currentValue) &&
+          Number.isFinite(interventionValue)
+        ) {
+          if (interventionValue > currentValue) direction = 'up'
+          else if (interventionValue < currentValue) direction = 'down'
+        }
+
+        return { factorId, factorLabel, interventionValue, currentValue, direction }
+      })
+
+      return {
+        id: opt.id,
+        label: opt.label,
+        status: opt.status,
+        isBaseline,
+        interventions,
+      }
+    })
+  }, [ceeAnalysisReady?.options, nodes])
+
+  // =========================================================================
+  // Task 4: Decision quality checks (6 client-side heuristics)
+  // =========================================================================
+  const qualityChecks = useMemo<QualityCheck[]>(() => {
+    const checks: QualityCheck[] = []
+    const optionNodes = [...nodesByKind.option, ...nodesByKind.decision]
+
+    // 1. No risks modelled
+    if (nodesByKind.risk.length === 0) {
+      checks.push({
+        id: 'no_risks',
+        message: 'No risks in your model \u2014 what could go wrong?',
+        cta: 'Add risk',
+        ctaAction: 'add_risk',
+        pill: 'framing',
+      })
+    }
+
+    // 2. No baseline option (check explicit flag + label heuristic)
+    const hasBaselineOption = optionNodes.some(n => {
+      const explicit = (n.data as { is_baseline?: boolean })?.is_baseline === true
+      const label = (n.data as { label?: string })?.label ?? ''
+      return explicit || detectBaseline(label).isBaseline
+    })
+    if (!hasBaselineOption && optionNodes.length >= 2) {
+      checks.push({
+        id: 'no_baseline',
+        message: "No 'do nothing' option \u2014 can't tell if action beats inaction",
+        cta: 'Add baseline',
+        ctaAction: 'add_baseline',
+        pill: 'framing',
+      })
+    }
+
+    // 3. All positive edges (no negative effect_direction)
+    const hasNegative = edges.some(hasNegativeStrength)
+    if (!hasNegative && edges.length > 0) {
+      checks.push({
+        id: 'all_positive_edges',
+        message: 'No trade-offs captured \u2014 every factor helps. Is that realistic?',
+        cta: 'Review structure',
+        ctaAction: 'review_structure',
+        pill: 'framing',
+      })
+    }
+
+    // 4. Same levers (>80% intervention factor overlap across options)
+    const ceeOptions = ceeAnalysisReady?.options ?? []
+    const optionsWithInterventions = ceeOptions.filter(o => Object.keys(o.interventions ?? {}).length > 0)
+    if (optionsWithInterventions.length >= 2) {
+      const factorSets = optionsWithInterventions.map(o => new Set(Object.keys(o.interventions ?? {})))
+      const allFactors = new Set(factorSets.flatMap(s => [...s]))
+      if (allFactors.size > 0) {
+        const intersection = [...allFactors].filter(f => factorSets.every(s => s.has(f)))
+        const overlapRatio = intersection.length / allFactors.size
+        if (overlapRatio > 0.8) {
+          checks.push({
+            id: 'same_levers',
+            message: 'Options affect the same factors \u2014 may not represent different strategies',
+            cta: 'Review options',
+            ctaAction: 'review_options',
+            pill: 'verify',
+          })
+        }
+      }
+    }
+
+    // 5. Many AI estimates (AI-sourced > brief_extraction count)
+    const factors = nodesByKind.factor
+    if (factors.length > 0) {
+      const aiCount = factors.filter(isAiSource).length
+      const briefCount = factors.length - aiCount
+      if (aiCount > briefCount) {
+        checks.push({
+          id: 'many_ai_estimates',
+          message: 'Most values estimated by AI \u2014 consider validating the top 2\u20133',
+          cta: 'Review assumptions',
+          ctaAction: 'review_assumptions',
+          pill: 'verify',
+        })
+      }
+    }
+
+    // 6. No target — only fire when CEE indicates quantitative goal
+    // (goal_threshold_unit or goal_threshold_cap present) or user started then cleared.
+    // Never fire on purely qualitative goals (spec: absence of target is not a warning).
+    const hasQuantitativeGoalHint = goalNode && (
+      (goalNode.data as { goal_threshold_unit?: string })?.goal_threshold_unit != null ||
+      (goalNode.data as { goal_threshold_cap?: number })?.goal_threshold_cap != null
+    )
+    const userClearedTarget = goalNode &&
+      (goalNode.data as { threshold_source?: string })?.threshold_source === 'user' &&
+      successThreshold === null
+
+    if (successThreshold === null && (hasQuantitativeGoalHint || userClearedTarget)) {
+      checks.push({
+        id: 'no_target',
+        message: 'No success threshold \u2014 results rank options but can\'t show probability of success',
+        cta: 'Set target',
+        ctaAction: 'set_target',
+        pill: 'framing',
+      })
+    }
+
+    return checks
+  }, [nodesByKind, edges, ceeAnalysisReady?.options, successThreshold, goalNode])
+
+  // =========================================================================
+  // Task 6: Model adjustments with resolved labels + repair actions from trace
+  // =========================================================================
+  const modelAdjustments = useMemo(() => {
+    const raw = ceeAnalysisReady?.model_adjustments ?? []
+    return raw.map(adj => {
+      const target = adj.target
+      if (!target) return adj
+      // Resolve node_id to human-readable label
+      const node = nodes.find(n => n.id === target)
+      const nodeLabel = node ? (node.data as { label?: string })?.label : null
+      if (nodeLabel) {
+        return { ...adj, target: nodeLabel, targetNodeId: target }
+      }
+      // Fallback: strip fac_ prefix, replace _ with spaces, title case
+      const cleaned = target
+        .replace(/^fac_/, '')
+        .replace(/_/g, ' ')
+        .replace(/\b\w/g, (c: string) => c.toUpperCase())
+      return { ...adj, target: cleaned, targetNodeId: target }
+    })
+  }, [ceeAnalysisReady?.model_adjustments, nodes])
+
+  // Repair actions from trace.pipeline.repair_summary
+  const repairActions = useMemo<string[]>(() => {
+    if (!ceePipelineTrace) return []
+    // repair_summary may be nested under different paths depending on CEE version
+    const trace = ceePipelineTrace as Record<string, unknown>
+    const repairSummary = trace.repair_summary ?? trace.repair
+    if (!repairSummary || typeof repairSummary !== 'object') return []
+
+    const summary = repairSummary as Record<string, unknown>
+    // Extract deterministic_repairs[].action text
+    const repairs = summary.deterministic_repairs
+    if (!Array.isArray(repairs)) return []
+
+    return repairs
+      .map((r: unknown) => {
+        if (r && typeof r === 'object' && 'action' in r) {
+          return String((r as { action: unknown }).action)
+        }
+        return null
+      })
+      .filter((s): s is string => s !== null)
+  }, [ceePipelineTrace])
+
+  // =========================================================================
+  // Task 8: Default edge strengths detection
+  // Uses epsilon tolerance for float comparison
+  // =========================================================================
+  const { hasDefaultStrengths, defaultStrengthPercent } = useMemo(() => {
+    if (edges.length === 0) return { hasDefaultStrengths: false, defaultStrengthPercent: 0 }
+
+    const isDefaultEdge = (edge: Edge) => {
+      const data = edge.data as { weight?: number; strengthStd?: number } | undefined
+      const mean = data?.weight ?? 0.5
+      const std = data?.strengthStd ?? 0.125
+      // Epsilon tolerance for float comparison
+      return Math.abs(mean - 0.5) < 0.01 && Math.abs(std - 0.125) < 0.01
+    }
+
+    const defaultCount = edges.filter(isDefaultEdge).length
+    const percent = defaultCount / edges.length
+    return {
+      hasDefaultStrengths: percent > 0.8,
+      defaultStrengthPercent: Math.round(percent * 100),
+    }
+  }, [edges])
+
   return {
     improvementsByCategory,
     tiers,
@@ -984,8 +1338,23 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
     totalReviewableFactorsCount,
     enrichedBlockers,
     informationalBlockers,
-    modelAdjustments: ceeAnalysisReady?.model_adjustments ?? [],
+    modelAdjustments,
     preMortem: m1ReviewAssumptions?.pre_mortem ?? null,
+    // Task 2
+    goalThresholdRaw,
+    goalThresholdUnit,
+    isGoalConfirmed,
+    // Task 3
+    optionPreviews,
+    // Task 4
+    qualityChecks,
+    // Task 6
+    repairActions,
+    // Task 7
+    ceeQuality,
+    // Task 8
+    hasDefaultStrengths,
+    defaultStrengthPercent,
   }
 }
 

@@ -120,7 +120,8 @@ function TierSection({
   // For other tiers: hide when no items
   const isReviewTier = tierKey === 'reviewAssumptions'
   const showCompletionState = isReviewTier && items.length === 0 && totalCount !== undefined && totalCount > 0
-  const showEmptyState = isReviewTier && items.length === 0 && totalCount !== undefined && totalCount === 0
+  // Empty state: no assumptions to review — show explainer text
+  const showEmptyState = isReviewTier && items.length === 0 && (totalCount === undefined || totalCount === 0)
   if (items.length === 0 && !showCompletionState && !showEmptyState) return null
 
   // Build section title with progress for reviewAssumptions
@@ -160,7 +161,9 @@ function TierSection({
           {showCompletionState ? (
             <p className="text-sm text-success py-1">All reviewed</p>
           ) : showEmptyState ? (
-            <p className="text-sm text-text-light py-1">No assumptions to review</p>
+            <p className="text-sm text-text-light py-1">
+              All factor values are set by your options or came from your brief — nothing to review.
+            </p>
           ) : (
             items.map((item, index) => (
               <div
@@ -563,9 +566,11 @@ function ImprovementRow({ item, onFocus, actionHandlers, isRemoving, onHoverEnte
 
   // Verify items: single-line format "label · value"
   // Label truncates, value and icons never collapse
+  // Intervention-target factors show "Set by [Option]" badge instead of actions
   if (item.category === 'verify') {
     // Build full text for title tooltip (shows on hover when truncated)
     const fullText = item.detail ? `${item.label} · ${item.detail}` : item.label
+    const isSetByOption = !!item.setByOption
 
     return (
       <div
@@ -595,56 +600,79 @@ function ImprovementRow({ item, onFocus, actionHandlers, isRemoving, onHoverEnte
             {item.detail && (
               <span className="shrink-0 text-text-light"> · {item.detail}</span>
             )}
+            {/* Source badge (Task 5) */}
+            {item.sourceBadge === 'brief' && (
+              <span className="shrink-0 text-xs text-text-light bg-success-light rounded px-1.5 py-0.5 ml-1">From brief</span>
+            )}
+            {item.sourceBadge === 'ai' && (
+              <span className="shrink-0 text-xs text-text-light bg-warning-light rounded px-1.5 py-0.5 ml-1">AI estimate</span>
+            )}
           </div>
 
           {/* Fixed action column - shrink-0 prevents collapse */}
           <div className="flex items-center gap-1 shrink-0">
-            {actionHandlers?.onConfirm && (
-              <IconBtn
-                icon={Check}
-                tooltip="Confirm this value is correct"
-                variant="confirm"
-                onClick={() => {
-                  if (item.action?.targetId) {
-                    setReviewedState('confirmed')
-                    actionHandlers.onConfirm(item.action.targetId)
-                  }
-                }}
-              />
-            )}
-            {actionHandlers?.onAssumption && (
-              <IconBtn
-                icon={HelpCircle}
-                tooltip="Keep as an assumption"
-                variant="assume"
-                onClick={() => {
-                  if (item.action?.targetId) {
-                    setReviewedState('assumption')
-                    actionHandlers.onAssumption(item.action.targetId)
-                  }
-                }}
-              />
-            )}
-            {actionHandlers?.onEdit && (
-              <IconBtn
-                icon={Pencil}
-                tooltip="Edit on canvas"
-                variant="edit"
-                onClick={() => {
-                  if (item.action?.targetId) {
-                    // For edges, use onFocus to focus the edge on canvas
-                    // For nodes, use onEdit to focus the node
-                    if (item.action?.targetType === 'edge' && onFocus) {
-                      onFocus('edge', item.action.targetId)
-                    } else {
-                      actionHandlers.onEdit(item.action.targetId)
-                    }
-                  }
-                }}
-              />
+            {isSetByOption ? (
+              /* "Set by [Option]" badge — stone-colored, no actions */
+              <span className="text-xs text-text-light bg-factor-light rounded px-1.5 py-0.5">
+                Set by {item.setByOption}
+              </span>
+            ) : (
+              <>
+                {actionHandlers?.onConfirm && (
+                  <IconBtn
+                    icon={Check}
+                    tooltip="Confirm this value is correct"
+                    variant="confirm"
+                    onClick={() => {
+                      if (item.action?.targetId) {
+                        setReviewedState('confirmed')
+                        actionHandlers.onConfirm(item.action.targetId)
+                      }
+                    }}
+                  />
+                )}
+                {actionHandlers?.onAssumption && (
+                  <IconBtn
+                    icon={HelpCircle}
+                    tooltip="Keep as an assumption"
+                    variant="assume"
+                    onClick={() => {
+                      if (item.action?.targetId) {
+                        setReviewedState('assumption')
+                        actionHandlers.onAssumption(item.action.targetId)
+                      }
+                    }}
+                  />
+                )}
+                {actionHandlers?.onEdit && (
+                  <IconBtn
+                    icon={Pencil}
+                    tooltip="Edit on canvas"
+                    variant="edit"
+                    onClick={() => {
+                      if (item.action?.targetId) {
+                        // For edges, use onFocus to focus the edge on canvas
+                        // For nodes, use onEdit to focus the node
+                        if (item.action?.targetType === 'edge' && onFocus) {
+                          onFocus('edge', item.action.targetId)
+                        } else {
+                          actionHandlers.onEdit(item.action.targetId)
+                        }
+                      }
+                    }}
+                  />
+                )}
+              </>
             )}
           </div>
         </div>
+
+        {/* Uncertainty drivers sub-line (Task 5a) */}
+        {item.uncertaintyDrivers && item.uncertaintyDrivers.length > 0 && (
+          <p className="text-xs text-text-light italic mt-0.5 ml-0.5">
+            | {item.uncertaintyDrivers.join(', ')}
+          </p>
+        )}
       </div>
     )
   }

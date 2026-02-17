@@ -20,18 +20,21 @@ import { usePreAnalysisData } from './hooks/usePreAnalysisData'
 import { Header } from './Header'
 import { SuccessTarget } from './SuccessTarget'
 import { BlockersSection } from './BlockersSection'
+import { OptionPreview } from './OptionPreview'
+import { DecisionQualityChecks } from './DecisionQualityChecks'
 import { ModelAdjustments } from './ModelAdjustments'
 import { AllImprovements, type ImprovementActionHandlers } from './AllImprovements'
 import { ModelSnapshot } from './ModelSnapshot'
 import { AnalysisSettings } from './AnalysisSettings'
 import { StickyFooter } from './StickyFooter'
 import { focusNodeById, focusEdgeById } from '../../utils/focusHelpers'
+import { getObservedState, withObservedStateUpdate } from '../../utils/observedStateHelpers'
 import { useCanvasStore } from '../../store'
 import { useRetryDraft } from '../../hooks/useRetryDraft'
 import { SOFT_BYPASS_STATUSES } from '../../hooks/usePreRunValidation'
 import { useShowToast } from '../../ToastContext'
 import { copyTextToClipboard } from '../../../utils/clipboard'
-import { RefreshCw, Copy, Pencil, ChevronDown, ChevronRight } from 'lucide-react'
+import { RefreshCw, Copy, Pencil, ChevronDown, ChevronRight, AlertTriangle } from 'lucide-react'
 
 /** Collapsible pre-mortem section from PLoT m1_review */
 function PreMortemSection({ preMortem }: { preMortem: { failure_scenario: string; warning_signs: string[]; mitigation: string } }) {
@@ -92,7 +95,7 @@ export function PreAnalysisPanel({
   const data = usePreAnalysisData()
 
   // Retry draft hook — for re-running CEE when blocked due to LLM omission
-  const { retryDraft, canRetry, isRetrying, retryError } = useRetryDraft()
+  const { retryDraft, canRetry, isRetrying } = useRetryDraft()
   const showToast = useShowToast()
 
   // Detect retry-eligible state: blocked + CEE status indicates LLM omission
@@ -239,16 +242,8 @@ export function PreAnalysisPanel({
     const node = nodes.find(n => n.id === nodeId)
     if (!node) return
 
-    const existingObservedState = (node.data as { observed_state?: Record<string, unknown> })?.observed_state || {}
-
     updateNode(nodeId, {
-      data: {
-        ...node.data,
-        observed_state: {
-          ...existingObservedState,
-          source: 'user_confirmed',
-        },
-      },
+      data: withObservedStateUpdate(node.data, { source: 'user_confirmed' }),
     })
   }, [])
 
@@ -258,16 +253,8 @@ export function PreAnalysisPanel({
     const node = nodes.find(n => n.id === nodeId)
     if (!node) return
 
-    const existingObservedState = (node.data as { observed_state?: Record<string, unknown> })?.observed_state || {}
-
     updateNode(nodeId, {
-      data: {
-        ...node.data,
-        observed_state: {
-          ...existingObservedState,
-          source: 'user_assumption',
-        },
-      },
+      data: withObservedStateUpdate(node.data, { source: 'user_assumption' }),
     })
   }, [])
 
@@ -284,16 +271,9 @@ export function PreAnalysisPanel({
     const node = nodes.find(n => n.id === nodeId)
     if (!node) return
 
-    const existingObservedState = (node.data as { observed_state?: Record<string, unknown> })?.observed_state || {}
-
+    // Reset to AI source so item reappears in verify list
     updateNode(nodeId, {
-      data: {
-        ...node.data,
-        observed_state: {
-          ...existingObservedState,
-          source: 'ai', // Reset to AI source so item reappears in verify list
-        },
-      },
+      data: withObservedStateUpdate(node.data, { source: 'ai' }),
     })
   }, [])
 
@@ -356,9 +336,9 @@ export function PreAnalysisPanel({
     const factorNodes = nodes.filter(n => n.type === 'factor')
     const interventions: Record<string, number> = {}
     for (const factor of factorNodes) {
-      const observedState = (factor.data as { observed_state?: { value?: number } })?.observed_state
-      if (observedState?.value != null) {
-        interventions[factor.id] = observedState.value
+      const os = getObservedState(factor.data)
+      if (os.value != null) {
+        interventions[factor.id] = os.value
       }
     }
 
@@ -455,6 +435,34 @@ export function PreAnalysisPanel({
   }, [setHighlightedNodes])
 
 
+  // Quality check CTA handler — routes action strings to existing handlers
+  const handleQualityCheckAction = useCallback((action: string) => {
+    switch (action) {
+      case 'add_risk':
+        handleAddRisk()
+        break
+      case 'add_baseline':
+        handleAddBaseline()
+        break
+      case 'add_option':
+        handleAddOption()
+        break
+      case 'review_structure':
+      case 'review_options':
+        // Scroll to improvements section
+        improvementsRef.current?.scrollIntoView({ behavior: 'smooth' })
+        break
+      case 'review_assumptions':
+        improvementsRef.current?.scrollIntoView({ behavior: 'smooth' })
+        break
+      case 'set_target':
+        // Focus on success target — scroll to top of panel
+        break
+      default:
+        break
+    }
+  }, [handleAddRisk, handleAddBaseline, handleAddOption])
+
   // Memoize action handlers object to prevent unnecessary re-renders
   const actionHandlers: ImprovementActionHandlers = useMemo(() => ({
     onConfirm: handleConfirm,
@@ -487,7 +495,7 @@ export function PreAnalysisPanel({
           optionalCount={data.tiers.optional.count}
         />
 
-        {/* 2. Success Target section */}
+        {/* 2. Success Target / Hero inputs section */}
         <SuccessTarget
           goalNode={data.goalNode}
           successThreshold={data.successThreshold}
@@ -497,6 +505,8 @@ export function PreAnalysisPanel({
           onThresholdChange={handleThresholdChange}
           onThresholdConfirm={handleThresholdConfirm}
           onThresholdEdit={handleThresholdEdit}
+          goalThresholdRaw={data.goalThresholdRaw}
+          goalThresholdUnit={data.goalThresholdUnit}
         />
 
         {/* Draft error card */}
@@ -554,9 +564,14 @@ export function PreAnalysisPanel({
               </button>
             </div>
             {lastDraftError.retryable === false && (
-              <p className="text-xs text-text-light mt-1">
-                The previous draft couldn't be validated. Try rephrasing your decision brief.
-              </p>
+              <div className="mt-2 rounded-md bg-factor-light px-2.5 py-2">
+                <p className="text-xs font-medium text-text-body mb-1">Tips for a clearer brief</p>
+                <ul className="text-xs text-text-light space-y-0.5 list-disc pl-3.5">
+                  <li>State one clear goal</li>
+                  <li>List 2–3 options you're considering</li>
+                  <li>Mention key factors that matter to your decision</li>
+                </ul>
+              </div>
             )}
           </div>
         )}
@@ -575,9 +590,22 @@ export function PreAnalysisPanel({
           />
         )}
 
-        {/* Model adjustments — transparency for CEE automatic fixes */}
-        {data.modelAdjustments.length > 0 && (
-          <ModelAdjustments adjustments={data.modelAdjustments} />
+        {/* 5. Option preview section (Task 3) */}
+        {data.optionPreviews.length > 0 && (
+          <OptionPreview
+            options={data.optionPreviews}
+            onFocusNode={handleFocusNode}
+            onHoverEnter={handleHoverElement}
+            onHoverLeave={handleHoverClear}
+          />
+        )}
+
+        {/* 6. Decision quality checks (Task 4) */}
+        {data.qualityChecks.length > 0 && (
+          <DecisionQualityChecks
+            checks={data.qualityChecks}
+            onAction={handleQualityCheckAction}
+          />
         )}
 
         {/* 3-5. Three-tier improvement sections */}
@@ -595,6 +623,50 @@ export function PreAnalysisPanel({
           />
         </div>
 
+        {/* Strength warning (Pattern C, Task 8) — between assumptions and draft notes */}
+        {data.hasDefaultStrengths && (
+          <div
+            className="rounded-md bg-panel border border-panel-border border-l-[3px] border-l-warning px-3 py-2.5"
+            data-testid="strength-warning-card"
+          >
+            <div className="flex items-start gap-2">
+              <AlertTriangle size={16} className="mt-0.5 flex-shrink-0 text-warning" />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-warning">
+                  Relationship strengths are estimated
+                </p>
+                <p className="text-xs text-text-body mt-0.5">
+                  {data.defaultStrengthPercent}% of edges use default strength values. Results may be less precise.
+                </p>
+                <div className="flex items-center gap-2 mt-2">
+                  <button
+                    type="button"
+                    onClick={onAnalyse}
+                    className="text-xs font-medium text-info border border-info/30 rounded-xl px-2.5 py-0.5 bg-transparent hover:border-info hover:bg-info/5 cursor-pointer"
+                  >
+                    Run with estimates
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => improvementsRef.current?.scrollIntoView({ behavior: 'smooth' })}
+                    className="text-xs font-medium text-info border border-info/30 rounded-xl px-2.5 py-0.5 bg-transparent hover:border-info hover:bg-info/5 cursor-pointer"
+                  >
+                    Review in structure
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Model adjustments — transparency for CEE automatic fixes */}
+        {(data.modelAdjustments.length > 0 || data.repairActions.length > 0) && (
+          <ModelAdjustments
+            adjustments={data.modelAdjustments}
+            repairActions={data.repairActions}
+          />
+        )}
+
         {/* Pre-mortem section (collapsible, from PLoT m1_review) */}
         {data.preMortem && (
           <PreMortemSection preMortem={data.preMortem} />
@@ -607,6 +679,7 @@ export function PreAnalysisPanel({
           onFocusNode={handleFocusNode}
           onHoverNode={handleHoverElement}
           onHoverClear={handleHoverClear}
+          ceeQuality={data.ceeQuality}
         />
 
         {/* 7. Analysis Settings accordion (Goal Node + Success threshold) */}

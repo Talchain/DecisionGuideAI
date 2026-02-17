@@ -27,6 +27,7 @@ import {
 } from 'lucide-react'
 import { Accordion, NodeLink } from './primitives'
 import type { NodesByKind } from './hooks/usePreAnalysisData'
+import type { CeeQualityDimensions } from '../../store'
 import type { Node } from '@xyflow/react'
 
 interface ModelSnapshotProps {
@@ -40,6 +41,8 @@ interface ModelSnapshotProps {
   onHoverNode?: (type: 'node' | 'edge', id: string) => void
   /** Handler for clearing hover */
   onHoverClear?: () => void
+  /** CEE quality scores (Task 7) */
+  ceeQuality?: CeeQualityDimensions | null
 }
 
 /** Node kind configuration */
@@ -144,12 +147,20 @@ function SnapshotRow({ kind, nodes, onFocusNode, onHoverNode, onHoverClear }: Sn
   )
 }
 
+/** Score color: >= 7 success, >= 4 warning, < 4 danger */
+function scoreColor(score: number): string {
+  if (score >= 7) return 'text-success'
+  if (score >= 4) return 'text-warning'
+  return 'text-danger'
+}
+
 export function ModelSnapshot({
   nodesByKind,
   edgeCount,
   onFocusNode,
   onHoverNode,
   onHoverClear,
+  ceeQuality,
 }: ModelSnapshotProps) {
   // Calculate total node count
   const totalNodes = Object.values(nodesByKind).reduce((sum, nodes) => sum + nodes.length, 0)
@@ -182,6 +193,38 @@ export function ModelSnapshot({
           </p>
         )}
       </div>
+
+      {/* Quality scores from CEE (Task 7) */}
+      {ceeQuality && ceeQuality.overall != null && (
+        <div className="mt-2 pt-2 border-t border-panel-border">
+          <p className="text-xs text-text-body">
+            <span className="font-medium">Quality: </span>
+            <span className={`font-semibold ${scoreColor(ceeQuality.overall)}`}>
+              {ceeQuality.overall}/10
+            </span>
+            {ceeQuality.structure != null && (
+              <span className="text-text-light">
+                {' · '}Structure <span className={scoreColor(ceeQuality.structure)}>{ceeQuality.structure}</span>
+              </span>
+            )}
+            {ceeQuality.causality != null && (
+              <span className="text-text-light">
+                {' · '}Causality <span className={scoreColor(ceeQuality.causality)}>{ceeQuality.causality}</span>
+              </span>
+            )}
+            {ceeQuality.coverage != null && (
+              <span className="text-text-light">
+                {' · '}Coverage <span className={scoreColor(ceeQuality.coverage)}>{ceeQuality.coverage}</span>
+              </span>
+            )}
+            {ceeQuality.safety != null && (
+              <span className="text-text-light">
+                {' · '}Safety <span className={scoreColor(ceeQuality.safety)}>{ceeQuality.safety}</span>
+              </span>
+            )}
+          </p>
+        </div>
+      )}
     </Accordion>
   )
 }
