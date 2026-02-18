@@ -4,14 +4,33 @@
 set -euo pipefail
 
 REPO_ROOT="$(git rev-parse --show-toplevel)"
-HOOKS_DIR="$REPO_ROOT/.git/hooks"
 SCRIPTS_DIR="$REPO_ROOT/scripts"
+
+# Respect core.hooksPath if configured, otherwise use default .git/hooks
+CUSTOM_HOOKS_PATH="$(git config core.hooksPath 2>/dev/null || true)"
+if [ -n "$CUSTOM_HOOKS_PATH" ]; then
+  # Resolve relative paths against repo root
+  case "$CUSTOM_HOOKS_PATH" in
+    /*) HOOKS_DIR="$CUSTOM_HOOKS_PATH" ;;
+    *)  HOOKS_DIR="$REPO_ROOT/$CUSTOM_HOOKS_PATH" ;;
+  esac
+else
+  HOOKS_DIR="$REPO_ROOT/.git/hooks"
+fi
 
 header() { printf '\033[1;34m── %s ──\033[0m\n' "$1"; }
 pass()   { printf '  \033[32m✓ %s\033[0m\n' "$1"; }
 fail()   { printf '  \033[31m✗ %s\033[0m\n' "$1"; }
+warn()   { printf '  \033[33m⚠ %s\033[0m\n' "$1"; }
 
 header "Installing git hooks"
+
+if [ -n "$CUSTOM_HOOKS_PATH" ]; then
+  warn "Using core.hooksPath: $HOOKS_DIR"
+fi
+
+# Ensure hooks directory exists
+mkdir -p "$HOOKS_DIR"
 
 # ─── pre-push hook ─────────────────────────────────────────────────────
 PRE_PUSH_HOOK="$HOOKS_DIR/pre-push"

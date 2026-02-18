@@ -6,7 +6,13 @@ set -euo pipefail
 FAILURES=0
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 BRANCH="$(git branch --show-current)"
-CHANGED_FILES="$(git diff --name-only HEAD~1 HEAD 2>/dev/null || echo '(initial commit)')"
+# Files that would be pushed (diff against upstream, fall back to HEAD~1)
+UPSTREAM="$(git rev-parse --abbrev-ref '@{upstream}' 2>/dev/null || true)"
+if [ -n "$UPSTREAM" ]; then
+  CHANGED_FILES="$(git diff --name-only "$UPSTREAM"..HEAD 2>/dev/null || echo '(no upstream diff)')"
+else
+  CHANGED_FILES="$(git diff --name-only HEAD~1 HEAD 2>/dev/null || echo '(initial commit)')"
+fi
 
 header() { printf '\n\033[1;34m── %s ──\033[0m\n' "$1"; }
 pass()   { printf '  \033[32m✓ %s\033[0m\n' "$1"; }
@@ -114,10 +120,10 @@ while IFS= read -r line; do
   check_file_ref "package.json" "$line"
 done < <(grep -n '"file:' "$REPO_ROOT/package.json" 2>/dev/null || true)
 
-# Check package-lock.json
+# Check package-lock.json (full scan)
 while IFS= read -r line; do
   check_file_ref "package-lock.json" "$line"
-done < <(grep -n '"file:' "$REPO_ROOT/package-lock.json" 2>/dev/null | head -20 || true)
+done < <(grep -n '"file:' "$REPO_ROOT/package-lock.json" 2>/dev/null || true)
 
 if [ "$UNEXPECTED_FILE_REFS" -eq 1 ]; then
   fail "Unexpected file: dependency references found"
@@ -127,7 +133,32 @@ fi
 
 # ─── Check 6: OpenAPI freshness ────────────────────────────────────────
 header "Check 6 — OpenAPI freshness"
-skip "No OpenAPI generation script found in package.json or scripts/. Skipped."
+
+# Detect OpenAPI/Swagger generation scripts in package.json or scripts/
+OPENAPI_SCRIPT=""
+if grep -qE '"(openapi|swagger|generate:api|generate:openapi|generate:swagger)' "$REPO_ROOT/package.json" 2>/dev/null; then
+  OPENAPI_SCRIPT="$(grep -oE '"(openapi|swagger|generate:api|generate:openapi|generate:swagger)[^"]*"' "$REPO_ROOT/package.json" | head -1 | tr -d '"')"
+fi
+if [ -z "$OPENAPI_SCRIPT" ] && ls "$REPO_ROOT/scripts/"*openapi* "$REPO_ROOT/scripts/"*swagger* 2>/dev/null | head -1 >/dev/null 2>&1; then
+  OPENAPI_SCRIPT="$(ls "$REPO_ROOT/scripts/"*openapi* "$REPO_ROOT/scripts/"*swagger* 2>/dev/null | head -1)"
+fi
+
+if [ -n "$OPENAPI_SCRIPT" ]; then
+  echo "  Found generation script: $OPENAPI_SCRIPT"
+  # Run generation and check for uncommitted diff
+  if npm run "$OPENAPI_SCRIPT" 2>&1 >/dev/null; then
+    if git diff --quiet; then
+      pass "OpenAPI spec is up to date"
+    else
+      fail "OpenAPI spec is stale — regenerated files differ from committed"
+      git diff --stat
+    fi
+  else
+    fail "OpenAPI generation script failed"
+  fi
+else
+  skip "No OpenAPI/Swagger generation script detected in package.json or scripts/. Skipped."
+fi
 
 # ─── Check 7: Summary ──────────────────────────────────────────────────
 header "Summary"
