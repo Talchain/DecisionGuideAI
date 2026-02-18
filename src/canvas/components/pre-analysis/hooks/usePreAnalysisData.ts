@@ -74,10 +74,8 @@ export interface ImprovementItem {
   }
   /** Optional uncertainty drivers from CEE for verify items */
   uncertaintyDrivers?: string[]
-  /** Option name that sets this factor (for intervention-target factors) */
-  setByOption?: string
-  /** Source badge type: 'brief' | 'ai' | 'option' */
-  sourceBadge?: 'brief' | 'ai' | 'option'
+  /** Source badge type: 'brief' | 'ai' */
+  sourceBadge?: 'brief' | 'ai'
   /** Secondary hint text (e.g. verification_prompt from CEE) */
   hint?: string
 }
@@ -98,6 +96,8 @@ export interface OptionPreviewData {
     cap: number | null
     /** Factor's display unit */
     unit: string | null
+    /** Factor's current raw value (for "unchanged" detection) */
+    currentRawValue: number | null
   }>
 }
 
@@ -457,14 +457,11 @@ function formatObservedStateDetail(os: ReturnType<typeof getObservedState>): str
       primary = String(os.raw_value)
     }
     if (os.cap != null) {
-      const capUnit = os.unit
+      // Don't repeat suffix units — "9 months of 18" not "9 months of 18 months"
+      // Prefix currencies still shown: "$9,000 of $18,000"
       let capStr: string
-      if (capUnit === '$' || capUnit === '£') {
-        capStr = `${capUnit}${Number(os.cap).toLocaleString()}`
-      } else if (capUnit === '%') {
-        capStr = `${os.cap}%`
-      } else if (capUnit) {
-        capStr = `${os.cap} ${capUnit}`
+      if (unit === '$' || unit === '£') {
+        capStr = `${unit}${Number(os.cap).toLocaleString()}`
       } else {
         capStr = String(os.cap)
       }
@@ -625,29 +622,9 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
       const value = getAiEstimatedValue(factor)
       const verificationPrompt = verificationPrompts[factor.id]
 
-      // Controllable factors with interventions show "Set by [Option]" UNLESS
-      // source is brief_extraction (v1.1: prefer reviewable so user can validate)
+      // Controllable factors with interventions: skip entirely (not reviewable)
+      // Exception: brief_extraction source (v1.1: prefer reviewable so user can validate)
       if (!isBriefExtraction && isControllableFactor(factor) && hasInterventionTargeting(factor.id, optionNodes, ceeOptions)) {
-        const settingOption = (ceeOptions ?? []).find(o =>
-          o.interventions && Object.prototype.hasOwnProperty.call(o.interventions, factor.id)
-        )
-        const optionLabel = settingOption
-          ? (nodes.find(n => n.id === settingOption.id)?.data as { label?: string })?.label ?? settingOption.label ?? settingOption.id
-          : null
-
-        // Use raw_value-first format consistent with verify items
-        const setByDetail = formatObservedStateDetail(os)
-
-        result.verify.push({
-          key: `verify_intervention_${factor.id}`,
-          category: 'verify',
-          label: cleanedLabel,
-          detail: setByDetail || value || 'Value needed',
-          setByOption: optionLabel ?? undefined,
-          sourceBadge: 'option',
-          focus: { type: 'node', id: factor.id, label: cleanedLabel },
-          // No confirm/assumption actions — informational only
-        })
         continue
       }
 
@@ -1174,22 +1151,39 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
         const os = getObservedState(factorNode?.data)
         const currentValue = os.value ?? null
 
-        // Guard: only compute direction when both values are finite numbers
-        let direction: 'up' | 'down' | 'same' = 'same'
-        if (
-          currentValue !== null &&
-          Number.isFinite(currentValue) &&
-          Number.isFinite(interventionValue)
-        ) {
-          if (interventionValue > currentValue) direction = 'up'
-          else if (interventionValue < currentValue) direction = 'down'
-        }
-
         // UI-PRES-004: include cap/unit for presentation-layer denormalisation
         const factorCap = os.cap ?? null
         const factorUnit = os.unit ?? null
+        // Raw value for "unchanged" detection (prefer raw_value, fall back to value×cap)
+        const currentRawValue = os.raw_value != null
+          ? os.raw_value
+          : (currentValue != null && factorCap != null ? currentValue * factorCap : null)
 
-        return { factorId, factorLabel, interventionValue, currentValue, direction, cap: factorCap, unit: factorUnit }
+        // Compute raw intervention value using same discrete detection as formatInterventionDisplay
+        // so that direction arrows and unchanged text use the same value space
+        let rawInterventionValue: number
+        if (factorCap == null) {
+          rawInterventionValue = interventionValue
+        } else {
+          const isDiscreteRaw = Number.isInteger(interventionValue) &&
+            interventionValue >= 0 && interventionValue <= factorCap
+          rawInterventionValue = isDiscreteRaw ? interventionValue : interventionValue * factorCap
+        }
+
+        // Direction from raw values (consistent with unchanged detection)
+        let direction: 'up' | 'down' | 'same' = 'same'
+        if (
+          currentRawValue != null &&
+          Number.isFinite(currentRawValue) &&
+          Number.isFinite(rawInterventionValue)
+        ) {
+          const rivRounded = Math.round(rawInterventionValue * 1000) / 1000
+          const crvRounded = Math.round((currentRawValue as number) * 1000) / 1000
+          if (rivRounded > crvRounded) direction = 'up'
+          else if (rivRounded < crvRounded) direction = 'down'
+        }
+
+        return { factorId, factorLabel, interventionValue, currentValue, direction, cap: factorCap, unit: factorUnit, currentRawValue }
       })
 
       return {

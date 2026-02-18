@@ -26,6 +26,7 @@ import {
   TrendingUp,
 } from 'lucide-react'
 import { Accordion, NodeLink } from './primitives'
+import { stripEncodingNotation } from '../../../components/results/utils/cleanFactorLabel'
 import type { NodesByKind } from './hooks/usePreAnalysisData'
 import type { CeeQualityDimensions } from '../../store'
 import type { Node } from '@xyflow/react'
@@ -87,7 +88,8 @@ function SnapshotRow({ kind, nodes, onFocusNode, onHoverNode, onHoverClear }: Sn
   }, [])
 
   const getNodeLabel = (node: Node): string => {
-    return (node.data as { label?: string })?.label ?? node.id
+    const raw = (node.data as { label?: string })?.label ?? node.id
+    return kind === 'factor' ? stripEncodingNotation(raw) : raw
   }
 
   return (

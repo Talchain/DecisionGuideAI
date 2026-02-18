@@ -34,39 +34,75 @@ interface ModelAdjustmentsProps {
   repairActions?: string[]
 }
 
-/** Humanise adjustment type/code for display */
+/**
+ * User-facing copy for known repair types.
+ * `summary` is the headline; `{count}` and `{targets}` are replaced at render time.
+ * `technical` is the raw engine text shown behind a "Details" toggle.
+ *
+ * Known types from CEE bundles:
+ * - factor_reclassified / category_inferred / category_infer
+ * - risk_coefficient_corrected / deterministic_repair / strp_repair
+ * - edge_added / edge_removed / node_removed
+ * - strength_defaulted / observed_state_defaulted / baseline_created
+ */
+const REPAIR_COPY: Record<string, string> = {
+  'factor_reclassified': 'Reclassified {count} factor(s) to external — not directly controlled by your options',
+  'category_inferred': 'Reclassified {count} factor(s) to external — not directly controlled by your options',
+  'category_infer': 'Reclassified {count} factor(s) to external — not directly controlled by your options',
+  'risk_coefficient_corrected': 'Corrected {count} relationship direction(s) where the sign didn\u2019t match the effect',
+  'deterministic_repair': 'Repaired {count} structural issue(s) in your model',
+  'strp_repair': 'Repaired {count} structural issue(s) in your model',
+  'edge_added': 'Added {count} missing relationship(s)',
+  'edge_removed': 'Removed {count} invalid relationship(s)',
+  'node_removed': 'Removed {count} unused node(s)',
+  'strength_defaulted': 'Set default strength for {count} relationship(s)',
+  'observed_state_defaulted': 'Set default values for {count} factor(s)',
+  'baseline_created': 'Created baseline option for comparison',
+}
+
+/** Get user-facing headline for a repair type, or null if unmapped */
+function getRepairCopy(type: string, count: number): string | null {
+  const template = REPAIR_COPY[type]
+  if (!template) return null
+  return template.replace('{count}', String(count))
+}
+
+/**
+ * Strip internal engine language from raw detail/reason strings.
+ * Removes field paths (strength.mean, effect_direction, nodes[...], edges[...])
+ * and quoted field names that leak from CEE repair descriptions.
+ */
+function sanitiseDetail(detail: string): string {
+  return detail
+    // Remove quoted internal field names: "effect_direction", 'strength.mean'
+    .replace(/["'][a-z_]+(\.[a-z_]+)*["']/g, '')
+    // Remove nodes[fac_...] or edges[...] references
+    .replace(/\b(nodes|edges)\[[^\]]*\]/g, '')
+    // Remove bare field paths: strength.mean, effect_direction
+    .replace(/\b(strength\.mean|effect_direction|observed_state\.\w+)\b/g, '')
+    // Collapse double spaces and trim
+    .replace(/\s{2,}/g, ' ')
+    .replace(/^\s*[—\-–]\s*/, '')
+    .trim()
+}
+
+/** Humanise adjustment type/code for display (fallback for ungrouped items) */
 function formatAdjustmentType(type: string | undefined): string {
   if (!type || typeof type !== 'string') return 'System adjustment'
-
-  const labels: Record<string, string> = {
-    'factor_reclassified': 'Factor reclassified',
-    'edge_added': 'Edge added',
-    'edge_removed': 'Edge removed',
-    'node_removed': 'Node removed',
-    'strength_defaulted': 'Strength defaulted',
-    'observed_state_defaulted': 'Observed state defaulted',
-    'category_inferred': 'Category inferred',
-    'baseline_created': 'Baseline created',
-    'deterministic_repair': 'Deterministic repair',
-    'risk_coefficient_corrected': 'Risk coefficient corrected',
-    'strp_repair': 'STRP repair',
-    'category_infer': 'Category inferred',
-  }
-  return labels[type] ?? type
+  return type
     .replace(/_/g, ' ')
     .replace(/\b\w/g, c => c.toUpperCase())
 }
 
-/** Strip internal field paths like `(nodes[fac_xyz].category)` from display */
-function stripFieldPath(field: string | undefined): string | undefined {
-  if (!field) return field
-  // Match patterns like nodes[fac_...].field or fac_*.field
-  if (/^nodes\[/.test(field) || /^fac_/.test(field)) return undefined
-  return field
+interface GroupedAdjustment extends ModelAdjustment {
+  /** User-facing headline from REPAIR_COPY map */
+  headline?: string
+  /** Raw technical detail (shown behind "Details" toggle) */
+  technicalDetail?: string
 }
 
-/** Group adjustments by type/code. Grouped rows show count + comma-separated targets. */
-function groupAdjustments(adjustments: ModelAdjustment[]): ModelAdjustment[] {
+/** Group adjustments by type/code. Grouped rows show user-facing copy + all target labels. */
+function groupAdjustments(adjustments: ModelAdjustment[]): GroupedAdjustment[] {
   const groups = new Map<string, ModelAdjustment[]>()
   for (const adj of adjustments) {
     const key = adj.type ?? adj.code ?? ''
@@ -75,27 +111,91 @@ function groupAdjustments(adjustments: ModelAdjustment[]): ModelAdjustment[] {
     else groups.set(key, [adj])
   }
 
-  const result: ModelAdjustment[] = []
-  for (const [, group] of groups) {
-    if (group.length === 1) {
-      result.push(group[0])
+  const result: GroupedAdjustment[] = []
+  for (const [key, group] of groups) {
+    const representative: GroupedAdjustment = { ...group[0] }
+    const rawDetail = representative.detail ?? representative.reason ?? ''
+
+    // Collect ALL target labels from the group (not just the first)
+    const targets = group
+      .map(a => a.target)
+      .filter((t): t is string => !!t)
+    representative.target = targets.length > 0 ? targets.join(', ') : undefined
+    representative.field = undefined
+
+    // Try the user-facing copy map
+    const humanCopy = getRepairCopy(key, group.length)
+    if (humanCopy) {
+      representative.headline = humanCopy
+      representative.technicalDetail = rawDetail ? sanitiseDetail(rawDetail) : undefined
+      // Clear detail so the render path uses headline instead
+      representative.detail = undefined
+    } else if (group.length > 1) {
+      // Unmapped type, grouped: "N × type — sanitised detail"
+      const formatted = formatAdjustmentType(key).toLowerCase()
+      const cleaned = rawDetail ? sanitiseDetail(rawDetail) : ''
+      representative.headline = `${group.length} × ${formatted}${cleaned ? ` — ${cleaned}` : ''}`
+      representative.technicalDetail = rawDetail || undefined
+      representative.detail = undefined
     } else {
-      // Merge: headline "4 factors reclassified" + target list
-      const representative = { ...group[0] }
-      const displayType = representative.type ?? representative.code ?? 'adjustments'
-      const formatted = formatAdjustmentType(displayType).toLowerCase()
-      const detail = representative.detail ?? representative.reason
-      representative.detail = `${group.length} × ${formatted}${detail ? ` — ${detail}` : ''}`
-      // Collect resolved target labels for sub-line
-      const targets = group
-        .map(a => a.target)
-        .filter((t): t is string => !!t)
-      representative.target = targets.length > 0 ? targets.join(', ') : undefined
-      representative.field = undefined
-      result.push(representative)
+      // Unmapped type, single: sanitise the detail text
+      if (rawDetail) {
+        representative.detail = sanitiseDetail(rawDetail)
+        representative.technicalDetail = rawDetail
+      }
     }
+
+    result.push(representative)
   }
   return result
+}
+
+function AdjustmentRow({ adj }: { adj: GroupedAdjustment }) {
+  const [showDetail, setShowDetail] = useState(false)
+  const displayType = adj.type ?? adj.code
+  const displayDetail = adj.detail ?? adj.reason
+
+  return (
+    <div className="flex items-start gap-2 text-xs">
+      <span className="text-text-light mt-0.5 flex-shrink-0">&bull;</span>
+      <div>
+        {adj.headline ? (
+          <>
+            <span className="font-medium text-text-body">{adj.headline}</span>
+            {adj.target && (
+              <p className="text-text-light mt-0.5">{adj.target}</p>
+            )}
+            {adj.technicalDetail && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setShowDetail(!showDetail)}
+                  className="text-info hover:underline cursor-pointer mt-0.5 block"
+                >
+                  {showDetail ? 'Hide details' : 'Details'}
+                </button>
+                {showDetail && (
+                  <p className="text-text-light mt-0.5 font-mono text-[10px] leading-tight">{adj.technicalDetail}</p>
+                )}
+              </>
+            )}
+          </>
+        ) : (
+          <>
+            <span className="font-medium text-text-body">
+              {formatAdjustmentType(displayType)}
+            </span>
+            {adj.target && (
+              <span className="text-text-light"> on {adj.target}</span>
+            )}
+            {displayDetail && (
+              <p className="text-text-light mt-0.5">{displayDetail}</p>
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  )
 }
 
 export function ModelAdjustments({ adjustments, repairActions = [] }: ModelAdjustmentsProps) {
@@ -134,43 +234,8 @@ export function ModelAdjustments({ adjustments, repairActions = [] }: ModelAdjus
         <div className="px-3 pb-2 space-y-1.5">
           {grouped.map((adj, idx) => {
             const displayType = adj.type ?? adj.code
-            const displayDetail = adj.detail ?? adj.reason
-            const cleanField = stripFieldPath(adj.field)
-            const isGrouped = displayDetail?.includes('×')
             return (
-              <div
-                key={`${displayType ?? 'adj'}-${idx}`}
-                className="flex items-start gap-2 text-xs"
-              >
-                <span className="text-text-light mt-0.5 flex-shrink-0">&bull;</span>
-                <div>
-                  {isGrouped ? (
-                    <>
-                      {/* Grouped: "4 × factor reclassified — reason" as title */}
-                      <span className="font-medium text-text-body">{displayDetail}</span>
-                      {/* Comma-separated target labels as sub-line */}
-                      {adj.target && (
-                        <p className="text-text-light mt-0.5">{adj.target}</p>
-                      )}
-                    </>
-                  ) : (
-                    <>
-                      <span className="font-medium text-text-body">
-                        {formatAdjustmentType(displayType)}
-                      </span>
-                      {adj.target && (
-                        <span className="text-text-light"> on {adj.target}</span>
-                      )}
-                      {cleanField && (
-                        <span className="text-text-light"> ({cleanField})</span>
-                      )}
-                      {displayDetail && (
-                        <p className="text-text-light mt-0.5">{displayDetail}</p>
-                      )}
-                    </>
-                  )}
-                </div>
-              </div>
+              <AdjustmentRow key={`${displayType ?? 'adj'}-${idx}`} adj={adj} />
             )
           })}
 

@@ -1336,10 +1336,10 @@ describe('usePreAnalysisData', () => {
 
       // Only factor2 should count toward progress - factor1 is controllable with intervention
       expect(result.current.totalReviewableFactorsCount).toBe(1)
-      // Verify items: factor1 appears as verify_intervention_factor1 (informational),
+      // Verify items: factor1 is excluded entirely (controllable with intervention),
       // factor2 appears as verify_factor2 (reviewable)
-      expect(result.current.improvementsByCategory.verify).toHaveLength(2)
-      expect(result.current.improvementsByCategory.verify).toContainEqual(
+      expect(result.current.improvementsByCategory.verify).toHaveLength(1)
+      expect(result.current.improvementsByCategory.verify).not.toContainEqual(
         expect.objectContaining({ key: 'verify_intervention_factor1' })
       )
       expect(result.current.improvementsByCategory.verify).toContainEqual(

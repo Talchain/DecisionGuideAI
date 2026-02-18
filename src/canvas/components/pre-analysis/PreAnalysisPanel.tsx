@@ -688,6 +688,8 @@ export function PreAnalysisPanel({
           selectedGoalNode={data.goalNode}
           successThreshold={data.successThreshold}
           isThresholdAutoDerived={data.isThresholdAutoDerived}
+          goalThresholdRaw={data.goalThresholdRaw}
+          goalThresholdUnit={data.goalThresholdUnit}
           onGoalChange={handleGoalChange}
           onThresholdChange={handleThresholdChange}
         />

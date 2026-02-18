@@ -909,15 +909,18 @@ describe('PreAnalysisPanel', () => {
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
 
-      // Initially collapsed — detail text not visible
-      expect(screen.queryByText('Changed to external')).not.toBeInTheDocument()
+      // Initially collapsed — headline not visible
+      expect(screen.queryByText(/Reclassified 1 factor/)).not.toBeInTheDocument()
 
       // Click to expand
       fireEvent.click(screen.getByText('Auto-fixes applied'))
 
-      // Now detail should be visible
-      expect(screen.getByText('Changed to external')).toBeInTheDocument()
-      expect(screen.getByText(/Factor reclassified/)).toBeInTheDocument()
+      // Humanised headline from REPAIR_COPY map
+      expect(screen.getByText(/Reclassified 1 factor/)).toBeInTheDocument()
+      // Target label visible
+      expect(screen.getByText('Market Size')).toBeInTheDocument()
+      // Raw detail behind "Details" toggle
+      expect(screen.getByText('Details')).toBeInTheDocument()
     })
 
     it('renders adjustment with code/reason (no type/detail) without crash', () => {
@@ -931,10 +934,11 @@ describe('PreAnalysisPanel', () => {
 
       expect(screen.getByTestId('model-adjustments')).toBeInTheDocument()
 
-      // Expand and check
+      // Expand and check — humanised headline from REPAIR_COPY map
       fireEvent.click(screen.getByText('Auto-fixes applied'))
-      expect(screen.getByText('Deterministic repair')).toBeInTheDocument()
-      expect(screen.getByText('Reclassified unreachable factor')).toBeInTheDocument()
+      expect(screen.getByText('Repaired 1 structural issue(s) in your model')).toBeInTheDocument()
+      // Raw reason is behind "Details" toggle
+      expect(screen.getByText('Details')).toBeInTheDocument()
     })
 
     it('renders "System adjustment" fallback when both type and code are missing', () => {

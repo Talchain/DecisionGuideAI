@@ -20,9 +20,30 @@ interface OptionPreviewProps {
 }
 
 /**
+ * Pluralise a unit when count !== 1.
+ * "months" → "month" for 1, "developers" → "developer" for 1, etc.
+ */
+function pluraliseUnit(unit: string, count: number): string {
+  if (count === 1 && unit.length > 1) {
+    // Handle -ies → -y: "enquiries" → "enquiry", "currencies" → "currency"
+    if (unit.endsWith('ies')) return unit.slice(0, -3) + 'y'
+    // Simple deplural: "months" → "month", "developers" → "developer"
+    if (unit.endsWith('s')) return unit.slice(0, -1)
+  }
+  return unit
+}
+
+/**
  * Presentation-layer denormalisation (UI-PRES-004 debt).
  * Converts normalised intervention value to human-readable using cap + unit.
  * When CEE emits raw_interventions this helper becomes a pass-through.
+ *
+ * Discrete detection: when the intervention value is an integer within [0, cap],
+ * treat it as already raw (skip ×cap). This prevents "2 × 2 = 4 developers"
+ * when CEE means "hire 2 developers".
+ *
+ * Binary detection: when cap is absent and value is 0 or 1 integer, show
+ * "to 1" / "to 0" without the "(scale 0–1)" qualifier.
  *
  * Returns: "to $5,000", "to 9 months", "unchanged", "to 0.80 (scale 0–1)"
  */
@@ -31,23 +52,49 @@ function formatInterventionDisplay(
   cap: number | null,
   unit: string | null,
   direction: 'up' | 'down' | 'same',
+  currentRawValue?: number | null,
 ): string {
-  if (direction === 'same') return 'unchanged'
+  // Don't claim 'unchanged' from direction alone — direction='same' can mean
+  // "no observed state to compare". The raw-value check below handles confirmed-same.
 
-  // No cap: normalised value with scale qualifier
-  if (cap == null) return `to ${normalisedValue.toFixed(2)} (scale 0–1)`
+  // --- Determine raw value ---
+  let rawValue: number
 
-  const denormalised = normalisedValue * cap
-  // Discrete: integer cap and integer result → no decimals
-  const isDiscrete = Number.isInteger(cap) && Number.isInteger(denormalised)
+  if (cap == null) {
+    // No cap: binary factors (0/1) show as integer, rest show normalised
+    if (Number.isInteger(normalisedValue) && (normalisedValue === 0 || normalisedValue === 1)) {
+      rawValue = normalisedValue
+    } else {
+      return `to ${normalisedValue.toFixed(2)} (scale 0–1)`
+    }
+  } else {
+    // Discrete: integer value within [0, cap] → already raw, skip ×cap
+    const isDiscreteRaw = Number.isInteger(normalisedValue) &&
+      normalisedValue >= 0 && normalisedValue <= cap
+    rawValue = isDiscreteRaw ? normalisedValue : normalisedValue * cap
+  }
+
+  // --- Unchanged detection (compare raw values) ---
+  if (currentRawValue != null && Number.isFinite(currentRawValue)) {
+    // Round both for comparison to avoid floating-point mismatch
+    const ivrRounded = Math.round(rawValue * 1000) / 1000
+    const crvRounded = Math.round(currentRawValue * 1000) / 1000
+    if (ivrRounded === crvRounded) return 'unchanged'
+  }
+
+  // --- Format display value ---
+  const isDiscrete = cap != null && Number.isInteger(cap) && Number.isInteger(rawValue)
   const display = isDiscrete
-    ? Math.round(denormalised)
-    : (cap >= 10 ? Math.round(denormalised) : +denormalised.toFixed(1))
+    ? Math.round(rawValue)
+    : (cap != null && cap >= 10 ? Math.round(rawValue) : +rawValue.toFixed(1))
 
-  if (unit === '$' || unit === '£') return `to ${unit}${display.toLocaleString()}`
-  if (unit === '%') return `to ${display}%`
-  if (unit) return `to ${display} ${unit}`
-  return `to ${display}`
+  // Show ~ when rounding changed the displayed value (continuous only)
+  const approx = !isDiscrete && display !== rawValue ? '~' : ''
+
+  if (unit === '$' || unit === '£') return `to ${approx}${unit}${display.toLocaleString()}`
+  if (unit === '%') return `to ${approx}${display}%`
+  if (unit) return `to ${approx}${display} ${pluraliseUnit(unit, display)}`
+  return `to ${approx}${display}`
 }
 
 function InterventionArrow({ direction }: { direction: 'up' | 'down' | 'same' }) {
@@ -123,7 +170,7 @@ export function OptionPreview({
                   </span>
                 ) : (
                   opt.interventions.map(iv => {
-                    const display = formatInterventionDisplay(iv.interventionValue, iv.cap, iv.unit, iv.direction)
+                    const display = formatInterventionDisplay(iv.interventionValue, iv.cap, iv.unit, iv.direction, iv.currentRawValue)
                     return (
                       <span key={iv.factorId} className="inline-flex items-center gap-1 text-xs text-text-body">
                         <InterventionArrow direction={iv.direction} />

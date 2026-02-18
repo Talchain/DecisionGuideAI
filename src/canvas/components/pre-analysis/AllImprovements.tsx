@@ -502,7 +502,7 @@ function ImprovementRow({ item, onFocus, actionHandlers, isRemoving, onHoverEnte
           ) : (
             <ChevronRight className="w-3.5 h-3.5 text-text-light shrink-0" />
           )}
-          <span className="text-sm text-text-light truncate">{item.label}</span>
+          <span className="text-sm text-text-light line-clamp-2">{item.label}</span>
           <span className="shrink-0 text-sm text-text-light">·</span>
           <span className="shrink-0 text-sm text-success flex items-center gap-1">
             Reviewed <Check className="w-3.5 h-3.5" />
@@ -579,51 +579,10 @@ function ImprovementRow({ item, onFocus, actionHandlers, isRemoving, onHoverEnte
   }
 
   // Verify items: single-line format "label · value"
-  // Label truncates, value and icons never collapse
-  // Intervention-target factors show "Set by [Option]" badge instead of actions
+  // Label wraps, value and icons never collapse
   if (item.category === 'verify') {
     // Build full text for title tooltip (shows on hover when truncated)
     const fullText = item.detail ? `${item.label} · ${item.detail}` : item.label
-    const isSetByOption = !!item.setByOption
-
-    // "Set by [Option]" items: two-line layout (label+value line 1, badge line 2)
-    if (isSetByOption) {
-      return (
-        <div
-          className="cursor-pointer hover:bg-black/[0.02] rounded-md -mx-1 px-1"
-          onMouseEnter={handleRowMouseEnter}
-          onMouseLeave={handleRowMouseLeave}
-        >
-          {/* Line 1: label (left) + value (right) */}
-          <div className="flex items-baseline justify-between gap-2 text-sm" title={fullText}>
-            <span className="text-text-body min-w-0 truncate">
-              {item.focus ? (
-                <NodeLink
-                  targetId={item.focus.id}
-                  targetType={item.focus.type}
-                  onClick={handleFocusClick}
-                  className="hover:underline"
-                >
-                  {item.label}
-                </NodeLink>
-              ) : (
-                item.label
-              )}
-            </span>
-            {item.detail && (
-              <span className="shrink-0 text-text-light">{item.detail}</span>
-            )}
-          </div>
-          {/* Line 2: "Set by [Option]" badge */}
-          <span
-            className="inline-block text-xs text-text-light bg-factor-light rounded px-1.5 py-0.5 mt-0.5 max-w-[200px] truncate"
-            title={`Set by ${item.setByOption}`}
-          >
-            Set by {item.setByOption}
-          </span>
-        </div>
-      )
-    }
 
     return (
       <div
@@ -634,8 +593,8 @@ function ImprovementRow({ item, onFocus, actionHandlers, isRemoving, onHoverEnte
         <div className="flex items-center gap-2">
           {/* Text content - flex-1 min-w-0, label wraps (v1.1: no truncation) */}
           <div className="flex-1 min-w-0 flex items-baseline flex-wrap text-sm" title={fullText}>
-            {/* Label: no truncation — full label always visible */}
-            <span className="text-text-body">
+            {/* Label: line-clamp-2 for long factor labels */}
+            <span className="text-text-body line-clamp-2">
               {item.focus ? (
                 <NodeLink
                   targetId={item.focus.id}
