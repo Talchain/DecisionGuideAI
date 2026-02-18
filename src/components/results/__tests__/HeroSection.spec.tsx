@@ -150,7 +150,7 @@ describe('HeroSection', () => {
         />
       )
 
-      expect(screen.getByText(/Option A has a 72% chance of reaching your target/)).toBeInTheDocument()
+      expect(screen.getByText(/Option A has a 72% chance of reaching your target of 100/)).toBeInTheDocument()
     })
 
     it('hides probability line when goalThreshold is null', () => {

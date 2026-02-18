@@ -407,7 +407,7 @@ export function HeroSection({
         {/* V9.2: Goal probability line — bridges "which wins most" and "does it hit my target" */}
         {goalThreshold != null && winnerGoalProbability != null && (
           <p className={`${typography.panelMeta} text-text-body mb-3`}>
-            {winnerLabel} has a {formatPct(winnerGoalProbability, { fromDecimal: true })} chance of reaching your target
+            {winnerLabel} has a {formatPct(winnerGoalProbability, { fromDecimal: true })} chance of reaching your target of {goalThreshold}
           </p>
         )}
 
