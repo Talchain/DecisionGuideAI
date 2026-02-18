@@ -51,7 +51,7 @@ fi
 # ─── Check 3: Full test suite ─────────────────────────────────────────
 header "Check 3 — Full test suite"
 
-TEST_OUTPUT_FILE="$(mktemp /tmp/pre-push-test-XXXXXX.log)"
+TEST_OUTPUT_FILE="$(mktemp /tmp/pre-push-test-XXXXXX)"
 
 if npm run test:full 2>&1 | tee "$TEST_OUTPUT_FILE"; then
   pass "Test suite passed"
