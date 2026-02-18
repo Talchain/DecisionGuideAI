@@ -624,8 +624,7 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
 
       // Factors targeted by ANY option's intervention: skip entirely (not reviewable)
       // Their values are defined by the option itself, not assumptions to review.
-      // Exception: brief_extraction source (v1.1: prefer reviewable so user can validate)
-      if (!isBriefExtraction && hasInterventionTargeting(factor.id, optionNodes, ceeOptions)) {
+      if (hasInterventionTargeting(factor.id, optionNodes, ceeOptions)) {
         continue
       }
 
@@ -773,7 +772,7 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
     }
 
     return result
-  }, [nodes, edges, nodesByKind, ceeAnalysisReady?.verification_prompts, ceeAnalysisReady?.low_confidence_edges, m1ReviewAssumptions])
+  }, [nodes, edges, nodesByKind, ceeAnalysisReady?.options, ceeAnalysisReady?.verification_prompts, ceeAnalysisReady?.low_confidence_edges, m1ReviewAssumptions])
 
   // Total improvements
   const totalImprovements = useMemo(() => {
@@ -1082,9 +1081,8 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
       if (needsReview(factor)) {
         const os = getObservedState(factor.data)
         const isBriefExtraction = os.source === 'brief_extraction'
-        // Exclude intervention targets from progress count UNLESS
-        // source is brief_extraction (v1.1: those are shown as reviewable)
-        if (!isBriefExtraction && hasInterventionTargeting(factor.id, optionNodes, ceeOptions)) {
+        // Exclude intervention targets from progress count
+        if (hasInterventionTargeting(factor.id, optionNodes, ceeOptions)) {
           continue
         }
         total++

@@ -2684,4 +2684,204 @@ describe('usePreAnalysisData', () => {
       expect(result.current.preMortem).toBeNull()
     })
   })
+
+  describe('Task 5: many_ai_estimates suppression', () => {
+    it('suppresses many_ai_estimates check when totalReviewableFactorsCount is 0', () => {
+      // All factors are intervention targets → totalReviewableFactorsCount = 0
+      mockUseCanvasStore.mockImplementation(createMockStore({
+        nodes: [
+          {
+            id: 'goal1',
+            type: 'goal',
+            position: { x: 0, y: 0 },
+            data: { label: 'Improve Productivity' },
+          },
+          {
+            id: 'factor1',
+            type: 'factor',
+            position: { x: 0, y: 0 },
+            data: {
+              label: 'Tech Lead Hired',
+              category: 'controllable',
+              observed_state: { source: 'cee_inference', value: 0 },
+            },
+          },
+          {
+            id: 'factor2',
+            type: 'factor',
+            position: { x: 0, y: 0 },
+            data: {
+              label: 'Team Size',
+              category: 'controllable',
+              observed_state: { source: 'cee_inference', value: 0.2 },
+            },
+          },
+          {
+            id: 'opt1',
+            type: 'option',
+            position: { x: 0, y: 0 },
+            data: { label: 'Hire Tech Lead' },
+          },
+          {
+            id: 'opt2',
+            type: 'option',
+            position: { x: 0, y: 0 },
+            data: { label: 'Status Quo', is_baseline: true },
+          },
+        ],
+        edges: [
+          { id: 'e1', source: 'factor1', target: 'goal1', type: 'default' },
+          { id: 'e2', source: 'factor2', target: 'goal1', type: 'default' },
+        ],
+        ceeAnalysisReady: {
+          status: 'analysis_ready',
+          goal_node_id: 'goal1',
+          options: [
+            { id: 'opt1', interventions: { factor1: 1, factor2: 0.5 } },
+            { id: 'opt2', interventions: { factor1: 0, factor2: 0.2 } },
+          ],
+        },
+      }))
+
+      const { result } = renderHook(() => usePreAnalysisData())
+
+      // All factors are intervention targets — should be 0 reviewable
+      expect(result.current.totalReviewableFactorsCount).toBe(0)
+      // many_ai_estimates check should be suppressed
+      expect(result.current.qualityChecks).not.toContainEqual(
+        expect.objectContaining({ id: 'many_ai_estimates' })
+      )
+    })
+
+    it('shows many_ai_estimates check when reviewable assumptions exist', () => {
+      // factor2 is NOT an intervention target → reviewable
+      mockUseCanvasStore.mockImplementation(createMockStore({
+        nodes: [
+          {
+            id: 'goal1',
+            type: 'goal',
+            position: { x: 0, y: 0 },
+            data: { label: 'Grow Revenue' },
+          },
+          {
+            id: 'factor1',
+            type: 'factor',
+            position: { x: 0, y: 0 },
+            data: {
+              label: 'Ad Spend',
+              category: 'controllable',
+              observed_state: { source: 'cee_inference', value: 5000 },
+            },
+          },
+          {
+            id: 'factor2',
+            type: 'factor',
+            position: { x: 0, y: 0 },
+            data: {
+              label: 'Market Demand',
+              category: 'external',
+              observed_state: { source: 'cee_inference', value: 0.7 },
+            },
+          },
+          {
+            id: 'factor3',
+            type: 'factor',
+            position: { x: 0, y: 0 },
+            data: {
+              label: 'Competitor Strength',
+              category: 'external',
+              observed_state: { source: 'cee_inference', value: 0.5 },
+            },
+          },
+          {
+            id: 'opt1',
+            type: 'option',
+            position: { x: 0, y: 0 },
+            data: { label: 'Increase Ads' },
+          },
+          {
+            id: 'opt2',
+            type: 'option',
+            position: { x: 0, y: 0 },
+            data: { label: 'Status Quo', is_baseline: true },
+          },
+        ],
+        edges: [
+          { id: 'e1', source: 'factor1', target: 'goal1', type: 'default' },
+          { id: 'e2', source: 'factor2', target: 'goal1', type: 'default' },
+          { id: 'e3', source: 'factor3', target: 'goal1', type: 'default' },
+        ],
+        ceeAnalysisReady: {
+          status: 'analysis_ready',
+          goal_node_id: 'goal1',
+          options: [
+            { id: 'opt1', interventions: { factor1: 10000 } },
+            { id: 'opt2', interventions: {} },
+          ],
+        },
+      }))
+
+      const { result } = renderHook(() => usePreAnalysisData())
+
+      // factor2 and factor3 are reviewable (not intervention targets, AI-sourced)
+      expect(result.current.totalReviewableFactorsCount).toBeGreaterThan(0)
+      // many_ai_estimates check should be present (AI count > brief count)
+      expect(result.current.qualityChecks).toContainEqual(
+        expect.objectContaining({ id: 'many_ai_estimates' })
+      )
+    })
+  })
+
+  describe('Task 1: brief_extraction intervention targets excluded', () => {
+    it('excludes brief_extraction factors when targeted by interventions', () => {
+      mockUseCanvasStore.mockImplementation(createMockStore({
+        nodes: [
+          {
+            id: 'goal1',
+            type: 'goal',
+            position: { x: 0, y: 0 },
+            data: { label: 'Improve Productivity' },
+          },
+          {
+            id: 'factor1',
+            type: 'factor',
+            position: { x: 0, y: 0 },
+            data: {
+              label: 'Tech Lead Hired',
+              category: 'controllable',
+              observed_state: { source: 'brief_extraction', value: 0 },
+            },
+          },
+          {
+            id: 'opt1',
+            type: 'option',
+            position: { x: 0, y: 0 },
+            data: { label: 'Hire Tech Lead' },
+          },
+          {
+            id: 'opt2',
+            type: 'option',
+            position: { x: 0, y: 0 },
+            data: { label: 'Status Quo', is_baseline: true },
+          },
+        ],
+        ceeAnalysisReady: {
+          status: 'analysis_ready',
+          goal_node_id: 'goal1',
+          options: [
+            { id: 'opt1', interventions: { factor1: 1 } },
+            { id: 'opt2', interventions: { factor1: 0 } },
+          ],
+        },
+      }))
+
+      const { result } = renderHook(() => usePreAnalysisData())
+
+      // brief_extraction factor targeted by intervention should be excluded
+      expect(result.current.improvementsByCategory.verify).not.toContainEqual(
+        expect.objectContaining({ key: 'verify_factor1' })
+      )
+      expect(result.current.totalReviewableFactorsCount).toBe(0)
+    })
+  })
 })
