@@ -83,41 +83,45 @@ describe('TornadoChart', () => {
     expect(screen.getByTestId('tornado-expected-display')).toHaveTextContent('Expected: 100')
   })
 
-  // ── Colour mapping tests ──
+  // ── Colour mapping tests (goal-direction semantics) ──
+  // Colours are driven by goalDirection prop (maximize/minimize), NOT by row.direction.
+  // maximize: right (higher outcome) = green, left (lower outcome) = orange
+  // minimize: left (lower outcome) = green, right (higher outcome) = orange
+  // unknown (no goalDirection): neutral info-light for both sides
 
-  it('positive-direction factor: left bar uses danger-light, right bar uses success-light', () => {
+  it('maximize goal: left bar uses danger-light, right bar uses success-light', () => {
     render(
       <TornadoChart
         rows={[positiveRow]}
         expectedOutcome={100}
+        goalDirection="maximize"
       />
     )
 
     const leftBar = screen.getByTestId('tornado-bar-left-revenue')
     const rightBar = screen.getByTestId('tornado-bar-right-revenue')
 
-    // Positive direction: left = orange (danger-light), right = green (success-light)
     expect(leftBar).toHaveStyle({ backgroundColor: 'var(--danger-light)' })
     expect(rightBar).toHaveStyle({ backgroundColor: 'var(--success-light)' })
   })
 
-  it('negative-direction factor: left bar uses success-light, right bar uses danger-light', () => {
+  it('minimize goal: left bar uses success-light, right bar uses danger-light', () => {
     render(
       <TornadoChart
         rows={[negativeRow]}
         expectedOutcome={100}
+        goalDirection="minimize"
       />
     )
 
     const leftBar = screen.getByTestId('tornado-bar-left-cost')
     const rightBar = screen.getByTestId('tornado-bar-right-cost')
 
-    // Negative direction: left = green (success-light), right = orange (danger-light)
     expect(leftBar).toHaveStyle({ backgroundColor: 'var(--success-light)' })
     expect(rightBar).toHaveStyle({ backgroundColor: 'var(--danger-light)' })
   })
 
-  it('undefined direction defaults to positive-direction colours', () => {
+  it('unknown goal direction: both bars use neutral info-light', () => {
     render(
       <TornadoChart
         rows={[undefinedDirectionRow]}
@@ -128,57 +132,41 @@ describe('TornadoChart', () => {
     const leftBar = screen.getByTestId('tornado-bar-left-unknown')
     const rightBar = screen.getByTestId('tornado-bar-right-unknown')
 
-    expect(leftBar).toHaveStyle({ backgroundColor: 'var(--danger-light)' })
-    expect(rightBar).toHaveStyle({ backgroundColor: 'var(--success-light)' })
+    expect(leftBar).toHaveStyle({ backgroundColor: 'var(--info-light)' })
+    expect(rightBar).toHaveStyle({ backgroundColor: 'var(--info-light)' })
   })
 
-  it('mixed-direction factors render correct colours per row', () => {
+  it('all rows share same colour scheme based on goal direction, regardless of row.direction', () => {
     render(
       <TornadoChart
         rows={[positiveRow, negativeRow, undefinedDirectionRow]}
         expectedOutcome={100}
+        goalDirection="maximize"
       />
     )
 
-    // Positive direction row
+    // All rows: left = danger-light, right = success-light (maximize goal)
+    for (const key of ['revenue', 'cost', 'unknown']) {
+      expect(screen.getByTestId(`tornado-bar-left-${key}`)).toHaveStyle({ backgroundColor: 'var(--danger-light)' })
+      expect(screen.getByTestId(`tornado-bar-right-${key}`)).toHaveStyle({ backgroundColor: 'var(--success-light)' })
+    }
+  })
+
+  it('switching goalDirection rerenders with correct colours', () => {
+    const { rerender } = render(
+      <TornadoChart rows={[positiveRow]} expectedOutcome={100} goalDirection="maximize" />
+    )
+
+    // maximize: left = danger, right = success
     expect(screen.getByTestId('tornado-bar-left-revenue')).toHaveStyle({ backgroundColor: 'var(--danger-light)' })
     expect(screen.getByTestId('tornado-bar-right-revenue')).toHaveStyle({ backgroundColor: 'var(--success-light)' })
 
-    // Negative direction row
-    expect(screen.getByTestId('tornado-bar-left-cost')).toHaveStyle({ backgroundColor: 'var(--success-light)' })
-    expect(screen.getByTestId('tornado-bar-right-cost')).toHaveStyle({ backgroundColor: 'var(--danger-light)' })
+    // Switch to minimize
+    rerender(<TornadoChart rows={[positiveRow]} expectedOutcome={100} goalDirection="minimize" />)
 
-    // Undefined direction row
-    expect(screen.getByTestId('tornado-bar-left-unknown')).toHaveStyle({ backgroundColor: 'var(--danger-light)' })
-    expect(screen.getByTestId('tornado-bar-right-unknown')).toHaveStyle({ backgroundColor: 'var(--success-light)' })
-  })
-
-  it('switching from 2-factor to 4-factor scenario preserves per-row colours', () => {
-    const twoRows = [positiveRow, negativeRow]
-    const fourRows: TornadoRow[] = [
-      positiveRow,
-      negativeRow,
-      { ...positiveRow, factorKey: 'revenue2', label: 'Revenue 2', direction: 'positive' },
-      { ...negativeRow, factorKey: 'cost2', label: 'Cost 2', direction: 'negative' },
-    ]
-
-    const { rerender } = render(
-      <TornadoChart rows={twoRows} expectedOutcome={100} />
-    )
-
-    // Verify 2-factor colours
-    expect(screen.getByTestId('tornado-bar-left-revenue')).toHaveStyle({ backgroundColor: 'var(--danger-light)' })
-    expect(screen.getByTestId('tornado-bar-left-cost')).toHaveStyle({ backgroundColor: 'var(--success-light)' })
-
-    // Rerender with 4 factors
-    rerender(<TornadoChart rows={fourRows} expectedOutcome={100} />)
-
-    // Original rows still correct
-    expect(screen.getByTestId('tornado-bar-left-revenue')).toHaveStyle({ backgroundColor: 'var(--danger-light)' })
-    expect(screen.getByTestId('tornado-bar-left-cost')).toHaveStyle({ backgroundColor: 'var(--success-light)' })
-    // New rows correct
-    expect(screen.getByTestId('tornado-bar-left-revenue2')).toHaveStyle({ backgroundColor: 'var(--danger-light)' })
-    expect(screen.getByTestId('tornado-bar-left-cost2')).toHaveStyle({ backgroundColor: 'var(--success-light)' })
+    // minimize: left = success, right = danger
+    expect(screen.getByTestId('tornado-bar-left-revenue')).toHaveStyle({ backgroundColor: 'var(--success-light)' })
+    expect(screen.getByTestId('tornado-bar-right-revenue')).toHaveStyle({ backgroundColor: 'var(--danger-light)' })
   })
 
   // ── Drag handle tests ──

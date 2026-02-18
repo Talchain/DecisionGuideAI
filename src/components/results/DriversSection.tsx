@@ -45,6 +45,8 @@ interface DriversSectionProps {
   outcomeUnitSymbol?: string
   /** v7: When true, values are normalised model scores */
   isNormalised?: boolean
+  /** Goal direction for tornado bar colouring — maximize means higher outcome = good */
+  goalDirection?: 'maximize' | 'minimize'
 }
 
 // Bar colors — use design system tokens, no hex literals
@@ -527,6 +529,7 @@ export function DriversSection({
   outcomeUnit,
   outcomeUnitSymbol,
   isNormalised,
+  goalDirection,
 }: DriversSectionProps) {
   const [showAll, setShowAll] = useState(false)
   const { drivers, driversStatus, topDrivers, hasMagnitudeData, islError, hiddenZeroImpactCount, dominantFactorId, dominantFactorLabel } = data
@@ -718,6 +721,7 @@ export function DriversSection({
                 outcomeUnitSymbol={outcomeUnitSymbol}
                 onFocusNode={onFocusNode}
                 isNormalised={isNormalised}
+                goalDirection={goalDirection}
               />
             </div>
           </details>

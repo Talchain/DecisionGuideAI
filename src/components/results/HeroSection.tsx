@@ -384,36 +384,9 @@ export function HeroSection({
           </p>
         )}
 
-        {/* V9.2 P1.5: Baseline row — inside hero card, below headline */}
-        {optionCount > 1 && (
-          <div className="mt-2">
-            <BaselineToggleCard
-              show={true}
-              isRunning={isRunning}
-              onAddBaseline={onAddBaseline}
-              onSetBaseline={onSetBaseline}
-              options={baselineOptions}
-              baselineLabel={baselineLabel}
-            />
-          </div>
-        )}
-        <div className="mb-3" />
-
-        {/* Win gauge — stacked bar showing win probability per option */}
-        {optionWinShares && optionWinShares.length > 1 && (
-          <WinGauge shares={optionWinShares} />
-        )}
-
-        {/* V9.2: Goal probability line — bridges "which wins most" and "does it hit my target" */}
-        {goalThreshold != null && winnerGoalProbability != null && (
-          <p className={`${typography.panelMeta} text-text-body mb-3`}>
-            {winnerLabel} has a {formatPct(winnerGoalProbability, { fromDecimal: true })} chance of reaching your target of {goalThreshold}
-          </p>
-        )}
-
         {/* V9.2: Condition card — top fragile edge warning. Inline sentence layout. */}
         {conditionCard && (
-          <div className="mb-3 p-3 border border-danger/30 rounded-lg flex items-start gap-2">
+          <div className="mt-3 mb-3 p-3 border border-danger/30 rounded-lg flex items-start gap-2">
             <AlertTriangle className="w-4 h-4 text-danger flex-shrink-0 mt-0.5" />
             <p className={`${typography.panelBody} text-text-body`}>
               {conditionCard.type === 'generic' ? (
@@ -454,6 +427,32 @@ export function HeroSection({
           >
             {coachingHeadline}
           </p>
+        )}
+
+        {/* Win gauge — stacked bar showing win probability per option */}
+        {optionWinShares && optionWinShares.length > 1 && (
+          <WinGauge shares={optionWinShares} />
+        )}
+
+        {/* V9.2: Goal probability line — bridges "which wins most" and "does it hit my target" */}
+        {goalThreshold != null && winnerGoalProbability != null && (
+          <p className={`${typography.panelMeta} text-text-body mb-3`}>
+            {winnerLabel} has a {formatPct(winnerGoalProbability, { fromDecimal: true })} chance of reaching your target of {goalThreshold}
+          </p>
+        )}
+
+        {/* V9.2: Baseline row — after win gauge, before "More detail" toggle */}
+        {optionCount > 1 && (
+          <div className="mt-2 pt-2 border-t border-panel-border">
+            <BaselineToggleCard
+              show={true}
+              isRunning={isRunning}
+              onAddBaseline={onAddBaseline}
+              onSetBaseline={onSetBaseline}
+              options={baselineOptions}
+              baselineLabel={baselineLabel}
+            />
+          </div>
         )}
 
         {/* Stability + More toggle */}

@@ -53,6 +53,8 @@ export interface ResultsBodyProps {
   nodeCount?: number
   edgeCount?: number
   identifiability?: string | null
+  /** Goal direction for tornado bar colouring — maximize means higher outcome = good */
+  goalDirection?: 'maximize' | 'minimize'
 }
 
 export function ResultsBody({
@@ -76,6 +78,7 @@ export function ResultsBody({
   nodeCount,
   edgeCount,
   identifiability,
+  goalDirection,
 }: ResultsBodyProps) {
   // Phase 2.3: Cross-highlight — flash an option card when a GraphLink references it
   const optionCardRefs = useRef<Map<string, HTMLDivElement>>(new Map())
@@ -172,6 +175,7 @@ export function ResultsBody({
           outcomeUnit={resultsSectionData.recommendation.outcomeUnit}
           outcomeUnitSymbol={resultsSectionData.recommendation.outcomeUnitSymbol}
           isNormalised={resultsSectionData.recommendation.isNormalised}
+          goalDirection={goalDirection}
         />
       </div>
 

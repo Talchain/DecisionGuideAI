@@ -1220,6 +1220,7 @@ export function OutputsDock() {
                     nodeCount={nodes.length}
                     edgeCount={edges.length}
                     identifiability={report?.model_card?.identifiability_tag}
+                    goalDirection={goalDirection}
                   />
                 )}
               </div>

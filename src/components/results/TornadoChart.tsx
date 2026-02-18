@@ -54,6 +54,8 @@ export interface TornadoChartProps {
   onFocusNode?: (nodeId: string) => void
   /** v7: When true, values are normalised model scores */
   isNormalised?: boolean
+  /** Goal direction — determines bar colour semantics (higher outcome = green for maximize, orange for minimize) */
+  goalDirection?: 'maximize' | 'minimize'
 }
 
 /** Whether structured unit data is available (not just normalised model scores). */
@@ -139,6 +141,7 @@ export function TornadoChart({
   outcomeUnitSymbol,
   onFocusNode,
   isNormalised,
+  goalDirection,
 }: TornadoChartProps) {
   // P0.2: Use relative % change when no structured unit is available
   const useRelativePct = !isNormalised && !hasStructuredUnit(outcomeUnit, outcomeUnitSymbol)
@@ -268,6 +271,10 @@ export function TornadoChart({
       ? Array.from(dragState.modifiedFactors.values()).at(-1) ?? expectedOutcome
       : expectedOutcome
 
+  if (import.meta.env.DEV && !goalDirection && rows.length > 0) {
+    console.warn('Tornado: goal direction unknown, using neutral colours')
+  }
+
   if (rows.length === 0) return null
 
   return (
@@ -317,14 +324,18 @@ export function TornadoChart({
           const rightWidth = Math.max(highPct, centrePct) - centrePct
           const rightLeft = centrePct
 
-          // Colour mapping: for positive-direction factors, left (weaker) = worse = orange,
-          // right (stronger) = better = green. For negative-direction factors (cost, churn),
-          // weaker = better = green, stronger = worse = orange. Bar positions stay the same.
-          const isNegativeDirection = row.direction === 'negative'
-          const leftBarColour = isNegativeDirection ? 'var(--success-light)' : 'var(--danger-light)'
-          const rightBarColour = isNegativeDirection ? 'var(--danger-light)' : 'var(--success-light)'
-          const leftLabelColour = isNegativeDirection ? 'text-success' : 'text-danger'
-          const rightLabelColour = isNegativeDirection ? 'text-danger' : 'text-success'
+          // Colour mapping by goal direction (outcome-vs-goal, not factor polarity):
+          // - maximize: right (higher outcome) = favourable (green), left (lower) = adverse (orange)
+          // - minimize: left (lower outcome) = favourable (green), right (higher) = adverse (orange)
+          // - unknown: neutral sky-200 for both bars
+          const leftBarColour = !goalDirection ? 'var(--info-light)'
+            : goalDirection === 'minimize' ? 'var(--success-light)' : 'var(--danger-light)'
+          const rightBarColour = !goalDirection ? 'var(--info-light)'
+            : goalDirection === 'minimize' ? 'var(--danger-light)' : 'var(--success-light)'
+          const leftLabelColour = !goalDirection ? 'text-info'
+            : goalDirection === 'minimize' ? 'text-success' : 'text-danger'
+          const rightLabelColour = !goalDirection ? 'text-info'
+            : goalDirection === 'minimize' ? 'text-danger' : 'text-success'
 
           const cleanLabel = stripEncodingNotation(row.label)
 
