@@ -148,11 +148,17 @@ function UncertaintyRow({
   item,
   onFocus,
   groupType = 'refinement',
+  humanisedTitle,
+  humanisedDescription,
 }: {
   item: UncertaintyItem
   onFocus?: (nodeId: string) => void
   /** v7.4: Group context for styling - 'high-risk' = danger colors, 'refinement' = warning colors */
   groupType?: 'high-risk' | 'refinement'
+  /** P0.1: Humanised title override (prevents raw PLoT messages leaking) */
+  humanisedTitle?: string
+  /** P0.1: Humanised description override */
+  humanisedDescription?: string
 }) {
   const handleNodeClick = useCallback((nodeId: string) => {
     if (onFocus) {
@@ -279,12 +285,12 @@ function UncertaintyRow({
             <div className="flex-1 min-w-0">
               <div className="flex items-start justify-between gap-2">
                 <div className="flex-1 min-w-0">
-                  {severityConfig.label && (
+                  {(humanisedTitle || severityConfig.label) && (
                     <span className={`${typography.panelBody} text-text-header block mb-1`}>
-                      {severityConfig.label}
+                      {humanisedTitle || severityConfig.label}
                     </span>
                   )}
-                  <p className={`${typography.panelBody} text-text-body`}>{stripEncodingNotation(item.message)}</p>
+                  <p className={`${typography.panelBody} text-text-body`}>{humanisedDescription || stripEncodingNotation(item.message)}</p>
                 </div>
                 {confidencePill && (
                   <span className={`${typography.panelMeta} px-1.5 py-0.5 rounded-full whitespace-nowrap flex-shrink-0 mt-0.5 ${confidencePill.bgClass} ${confidencePill.textClass} border ${confidencePill.borderClass}`}>
@@ -381,7 +387,25 @@ export function ConfidenceSection({
     topNextActions,
     // Task 6 (M1 Coaching): Assumptions
     assumptions,
+    // P0.1: Humanised critique messages
+    humanisedCritiques,
   } = data
+
+  // P0.1: Build lookup map for humanised critique display
+  const humanisedLookup = useMemo(() => {
+    const map = new Map<string, { title: string; description: string }>()
+    if (!humanisedCritiques) return map
+    // Non-SENSITIVE_ASSUMPTION uncertainties are indexed in the same order as humanisedCritiques
+    const plotCritiques = uncertainties.filter(u => u.code !== 'SENSITIVE_ASSUMPTION')
+    plotCritiques.forEach((item, idx) => {
+      const humanised = humanisedCritiques[idx]
+      if (humanised) {
+        const key = `${item.code}::${item.affectedNodes?.[0] ?? idx}`
+        map.set(key, { title: humanised.title, description: humanised.description })
+      }
+    })
+    return map
+  }, [uncertainties, humanisedCritiques])
 
   const config = TIER_CONFIG[tier.tier]
   // v7.5 T1 Fix: displayUncertainties removed - split logic now uses full uncertainties array
@@ -586,15 +610,21 @@ export function ConfidenceSection({
                   {/* Group 2: Evidence gap cards + legacy low-confidence factors */}
                   {group.key === 'investigate' && (
                     <div className="space-y-2">
-                      {/* Legacy low-confidence factor cards */}
-                      {entry.refinementItems?.map((item, index) => (
+                      {/* Legacy low-confidence factor cards — P0.1: humanised messages */}
+                      {entry.refinementItems?.map((item, index) => {
+                        const hKey = `${item.code}::${item.affectedNodes?.[0] ?? index}`
+                        const humanised = humanisedLookup.get(hKey)
+                        return (
                         <UncertaintyRow
                           key={`refine-${item.code}-${index}`}
                           item={item}
                           onFocus={onFocusNode}
                           groupType="refinement"
+                          humanisedTitle={humanised?.title}
+                          humanisedDescription={humanised?.description}
                         />
-                      ))}
+                        )
+                      })}
                       {/* Evidence gap action items */}
                       {group.items.map((actionItem) => {
                         const canFocus = !!actionItem.targetId

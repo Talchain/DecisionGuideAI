@@ -1,0 +1,146 @@
+/**
+ * AttentionBanner — top-of-results coaching banner for critique items.
+ *
+ * Displays humanised critique messages with progressive disclosure:
+ * - 0 items: not rendered
+ * - 1 item: inline (no collapse)
+ * - 2–3 items: collapsed by default with "[count] items to review" + chevron
+ * - 4+ items: collapsed with count + chevron
+ *
+ * Design: border-danger/30 (no fill), AlertTriangle icon, coaching tone.
+ * Each expanded item: humanised title + description + optional GraphLink CTA.
+ */
+
+import { useState } from 'react'
+import { AlertTriangle, ChevronDown, ChevronRight } from 'lucide-react'
+import { typography } from '../../styles/typography'
+import { focusNodeById } from '../../canvas/utils/focusHelpers'
+import type { HumanisedCritique } from './utils/humaniseCritique'
+
+export interface AttentionBannerProps {
+  /** Humanised critique items */
+  items: HumanisedCritique[]
+  /** Callback to focus a node on canvas */
+  onFocusNode?: (nodeId: string) => void
+}
+
+function BannerItem({
+  item,
+  onFocusNode,
+}: {
+  item: HumanisedCritique
+  onFocusNode?: (nodeId: string) => void
+}) {
+  const handleFocus = () => {
+    if (!item.factorId) return
+    if (onFocusNode) onFocusNode(item.factorId)
+    else focusNodeById(item.factorId)
+  }
+
+  return (
+    <div className="flex items-start gap-2 py-1.5">
+      <div className="flex-1 min-w-0">
+        <p className={`${typography.panelBody} text-text-header`}>
+          {item.title}
+        </p>
+        <p className={`${typography.panelMeta} text-text-light mt-0.5`}>
+          {item.description}
+        </p>
+        {item.suggestion && item.factorId && (
+          <button
+            type="button"
+            onClick={handleFocus}
+            className={`${typography.panelMeta} text-info hover:underline mt-0.5 focus:outline-none focus:ring-2 focus:ring-info focus:ring-offset-1 rounded`}
+          >
+            {item.suggestion}
+          </button>
+        )}
+        {item.suggestion && !item.factorId && (
+          <p className={`${typography.panelMeta} text-text-light italic mt-0.5`}>
+            {item.suggestion}
+          </p>
+        )}
+      </div>
+    </div>
+  )
+}
+
+export function AttentionBanner({ items, onFocusNode }: AttentionBannerProps) {
+  const [isExpanded, setIsExpanded] = useState(false)
+
+  if (items.length === 0) return null
+
+  // 1 item: inline, no collapse
+  if (items.length === 1) {
+    return (
+      <div
+        className="p-3 border border-danger/30 rounded-lg"
+        data-testid="attention-banner"
+      >
+        <div className="flex items-start gap-2">
+          <AlertTriangle className="w-4 h-4 text-danger flex-shrink-0 mt-0.5" />
+          <div className="flex-1 min-w-0">
+            <p className={`${typography.panelBody} text-text-header`}>
+              {items[0].title}
+            </p>
+            <p className={`${typography.panelMeta} text-text-light mt-0.5`}>
+              {items[0].description}
+            </p>
+            {items[0].suggestion && items[0].factorId && (
+              <button
+                type="button"
+                onClick={() => {
+                  if (onFocusNode) onFocusNode(items[0].factorId!)
+                  else focusNodeById(items[0].factorId!)
+                }}
+                className={`${typography.panelMeta} text-info hover:underline mt-0.5 focus:outline-none focus:ring-2 focus:ring-info focus:ring-offset-1 rounded`}
+              >
+                {items[0].suggestion}
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // 2+ items: collapsible
+  return (
+    <div
+      className="p-3 border border-danger/30 rounded-lg"
+      data-testid="attention-banner"
+    >
+      <button
+        type="button"
+        onClick={() => setIsExpanded(!isExpanded)}
+        className="flex items-center gap-2 w-full text-left"
+        aria-expanded={isExpanded}
+      >
+        <AlertTriangle className="w-4 h-4 text-danger flex-shrink-0" />
+        <span className={`${typography.panelBody} text-text-header flex-1`}>
+          A few inputs would sharpen these results
+        </span>
+        <span className={`${typography.panelMeta} text-text-light flex-shrink-0`}>
+          {items.length} items to review
+        </span>
+        {isExpanded ? (
+          <ChevronDown className="w-3.5 h-3.5 text-text-light flex-shrink-0" />
+        ) : (
+          <ChevronRight className="w-3.5 h-3.5 text-text-light flex-shrink-0" />
+        )}
+      </button>
+
+      {isExpanded && (
+        <div className="mt-2 pl-6 space-y-1 border-t border-panel-border pt-2">
+          {items.map((item, idx) => (
+            <BannerItem
+              key={item.factorId ?? `critique-${idx}`}
+              item={item}
+              onFocusNode={onFocusNode}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}

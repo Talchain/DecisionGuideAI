@@ -43,6 +43,7 @@ import type {
 } from './types'
 import type { FactorEnrichment, NearTieInfo } from '../../lib/mappers/types'
 import { stripEncodingNotation } from './utils/cleanFactorLabel'
+import { humaniseCritique } from './utils/humaniseCritique'
 
 // =============================================================================
 // Winner Selection Helper
@@ -1896,6 +1897,10 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     // Bug 2 fix: Extract robustness level for "Good foundation" logic
     const robustnessLevel = (report as any)?.robustness?.level as RobustnessLevel | undefined
 
+    // P0.1: Humanise non-SENSITIVE_ASSUMPTION critiques for attention banner
+    const plotCritiques = uncertainties.filter(u => u.code !== 'SENSITIVE_ASSUMPTION')
+    const humanisedCritiques = plotCritiques.map(item => humaniseCritique(item, nodeLabelMap))
+
     return {
       tier: tierInfo,
       qualityScore,
@@ -1914,6 +1919,8 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       filteredFragileEdges,
       // Task 1: Track hidden high-risk edges for disclosure
       hiddenHighRiskCount: hiddenHighRiskCount > 0 ? hiddenHighRiskCount : undefined,
+      // P0.1: Humanised critiques for attention banner
+      humanisedCritiques,
       // P1 Integration: Top fragile edge for HeroSection bullet 3
       topFragileEdge: topFragileEdgeData,
       // Task 4 (M1 Coaching): Evidence gaps - sorted by VOI descending, deduped by factor_id

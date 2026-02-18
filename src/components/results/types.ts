@@ -417,6 +417,8 @@ export interface ConfidenceSectionData {
   topNextActions?: NextActionItem[]
   /** M1 Coaching assumptions from ledger */
   assumptions?: AssumptionItem[]
+  /** Humanised critique items for attention banner (non-SENSITIVE_ASSUMPTION only) */
+  humanisedCritiques?: Array<{ title: string; description: string; suggestion?: string; factorId?: string }>
 }
 
 // =============================================================================

@@ -280,6 +280,73 @@ describe('TornadoChart', () => {
     expect(screen.getByText('Stronger than estimated →')).toBeInTheDocument()
   })
 
+  // ── P0.2: Value display mode tests ──
+
+  it('% mode: bar labels show relative % change when no unit provided', () => {
+    render(
+      <TornadoChart
+        rows={[positiveRow]}
+        expectedOutcome={100}
+      />
+    )
+
+    // lowOutcome=80 → (80-100)/100 = -20%, highOutcome=120 → (120-100)/100 = +20%
+    expect(screen.getByText('−20%')).toBeInTheDocument()
+    expect(screen.getByText('+20%')).toBeInTheDocument()
+  })
+
+  it('units mode: bar labels show formatted values when currency unit provided', () => {
+    render(
+      <TornadoChart
+        rows={[positiveRow]}
+        expectedOutcome={100}
+        outcomeUnit="currency"
+        outcomeUnitSymbol="$"
+      />
+    )
+
+    expect(screen.getByText('$80')).toBeInTheDocument()
+    expect(screen.getByText('$120')).toBeInTheDocument()
+    expect(screen.getByTestId('tornado-expected-display')).toHaveTextContent('Expected: $100')
+  })
+
+  it('units mode: bar labels show formatted values when percent unit provided', () => {
+    render(
+      <TornadoChart
+        rows={[{ ...positiveRow, lowOutcome: 0.30, highOutcome: 0.70 }]}
+        expectedOutcome={0.50}
+        outcomeUnit="percent"
+      />
+    )
+
+    // percent mode: small values get *100, formatted as "30%", "70%"
+    expect(screen.getByTestId('tornado-expected-display')).toHaveTextContent('Expected:')
+  })
+
+  it('% mode: negative direction factors show correct relative changes', () => {
+    render(
+      <TornadoChart
+        rows={[negativeRow]}
+        expectedOutcome={100}
+      />
+    )
+
+    // lowOutcome=85 → (85-100)/100 = -15%, highOutcome=115 → (115-100)/100 = +15%
+    expect(screen.getByText('−15%')).toBeInTheDocument()
+    expect(screen.getByText('+15%')).toBeInTheDocument()
+  })
+
+  it('centre axis always includes "Expected:" with value', () => {
+    render(
+      <TornadoChart
+        rows={[positiveRow]}
+        expectedOutcome={235}
+      />
+    )
+
+    expect(screen.getByTestId('tornado-expected-display')).toHaveTextContent('Expected: 235')
+  })
+
   // ── Touch action tests ──
 
   it('bar containers have data-bar-container attribute for drag support', () => {

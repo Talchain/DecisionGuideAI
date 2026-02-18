@@ -56,6 +56,13 @@ export interface TornadoChartProps {
   isNormalised?: boolean
 }
 
+/** Whether structured unit data is available (not just normalised model scores). */
+function hasStructuredUnit(unit?: 'currency' | 'percent' | 'count', symbol?: string): boolean {
+  if (unit === 'currency' && symbol) return true
+  if (unit === 'percent') return true
+  return false
+}
+
 /** Format a value for tornado axis/labels. Shows % shift when normalised (0.13 → "+13%"). */
 function formatValue(
   value: number,
@@ -77,6 +84,28 @@ function formatValue(
     return Math.round(value).toLocaleString()
   }
   return value.toFixed(1)
+}
+
+/**
+ * Format a bar-end value as relative % change from expected.
+ * Used when no structured unit is available (% mode default).
+ */
+function formatRelativeChange(value: number, expected: number): string {
+  if (expected === 0) return value >= 0 ? '+∞' : '−∞'
+  const pct = ((value - expected) / Math.abs(expected)) * 100
+  const rounded = Math.round(pct)
+  if (rounded === 0) return '0%'
+  return rounded > 0 ? `+${rounded}%` : `${rounded}%`.replace('-', '−')
+}
+
+/** Format the centre axis label. Includes "Expected" + value + unit context. */
+function formatExpectedLabel(
+  value: number,
+  unit?: 'currency' | 'percent' | 'count',
+  symbol?: string,
+  isNormalised?: boolean,
+): string {
+  return `Expected: ${formatValue(value, unit, symbol, isNormalised)}`
 }
 
 // ─── Drag state management ──────────────────────────────────────────────────
@@ -111,6 +140,9 @@ export function TornadoChart({
   onFocusNode,
   isNormalised,
 }: TornadoChartProps) {
+  // P0.2: Use relative % change when no structured unit is available
+  const useRelativePct = !isNormalised && !hasStructuredUnit(outcomeUnit, outcomeUnitSymbol)
+
   // ── Drag state ──
   const [dragState, setDragState] = useState<DragState>({
     isDragging: false,
@@ -424,7 +456,9 @@ export function TornadoChart({
                       transition: isActiveRow ? 'none' : 'right 150ms ease-out',
                     }}
                   >
-                    {formatValue(effectiveLow, outcomeUnit, outcomeUnitSymbol, isNormalised)}
+                    {useRelativePct
+                      ? formatRelativeChange(effectiveLow, expectedOutcome)
+                      : formatValue(effectiveLow, outcomeUnit, outcomeUnitSymbol, isNormalised)}
                   </span>
                 )}
 
@@ -437,7 +471,9 @@ export function TornadoChart({
                       transition: isActiveRow ? 'none' : 'left 150ms ease-out',
                     }}
                   >
-                    {formatValue(effectiveHigh, outcomeUnit, outcomeUnitSymbol, isNormalised)}
+                    {useRelativePct
+                      ? formatRelativeChange(effectiveHigh, expectedOutcome)
+                      : formatValue(effectiveHigh, outcomeUnit, outcomeUnitSymbol, isNormalised)}
                   </span>
                 )}
               </div>
@@ -450,7 +486,7 @@ export function TornadoChart({
       <div className={`flex justify-between mt-1 ml-[104px] ${typography.panelMeta} text-text-light`}>
         <span>← Weaker than estimated</span>
         <span data-testid="tornado-expected-display">
-          Expected: {formatValue(displayOutcome, outcomeUnit, outcomeUnitSymbol, isNormalised)}
+          {formatExpectedLabel(displayOutcome, outcomeUnit, outcomeUnitSymbol, isNormalised)}
         </span>
         <span>Stronger than estimated →</span>
       </div>

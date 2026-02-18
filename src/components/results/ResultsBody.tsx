@@ -22,6 +22,7 @@ import { OptionCards } from './OptionCards'
 import { SuccessTargetRow } from './SuccessTargetRow'
 import { TippingPoints } from './TippingPoints'
 import { AdvancedSection } from './AdvancedSection'
+import { AttentionBanner } from './AttentionBanner'
 
 export interface StrengthCorrectionDisplay {
   edgeId: string
@@ -88,6 +89,13 @@ export function ResultsBody({
 
   return (
     <div className="flex flex-col gap-[18px]" data-testid="outputs-results-redesign">
+
+      {/* ── ATTENTION BANNER ──────────────────────────────────────── */}
+      {/* P0.1: Humanised critique items — coaching tone, no raw field names */}
+      <AttentionBanner
+        items={resultsSectionData.confidence.humanisedCritiques ?? []}
+        onFocusNode={onFocusNode}
+      />
 
       {/* ── SECTION 1: HERO ─────────────────────────────────────── */}
       {/* V9.2: Merged headline lives inside HeroSection. Goal label passed as prop. */}
