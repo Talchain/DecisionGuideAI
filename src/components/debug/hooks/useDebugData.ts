@@ -258,7 +258,7 @@ export interface DiagnosticChecks {
   /** All paths checked for downstream_calls */
   downstream_calls_paths_checked: string[]
   /** Source of ISL data */
-  isl_data_source: 'downstream_calls' | 'direct_capture' | 'none'
+  isl_data_source: 'downstream_calls' | 'direct_capture' | 'plot_response_extraction' | 'none'
   /** Whether CEE trace is present */
   cee_trace_present: boolean
   /** Whether CEE is in degraded mode */
@@ -1344,7 +1344,7 @@ function findLlmRawPath(ceeResponse: unknown): string | null {
 function extractDiagnosticChecks(
   plotResponse: unknown,
   ceeResponse: unknown,
-  islDataSource: 'downstream_calls' | 'direct_capture' | 'none'
+  islDataSource: 'downstream_calls' | 'direct_capture' | 'plot_response_extraction' | 'none'
 ): DiagnosticChecks {
   const plot = plotResponse as Record<string, unknown> | undefined
   const cee = ceeResponse as Record<string, unknown> | undefined
@@ -1585,17 +1585,29 @@ function extractWinningOption(
 
   const plot = plotResponse as Record<string, unknown>
 
+  // Normalise downstream_calls.isl — may be array or object (see extractIslFromPlotResponse line 857).
+  const normaliseIsl = (isl: unknown): Record<string, unknown> | undefined => {
+    if (!isl) return undefined
+    const entry = Array.isArray(isl) ? isl[0] : isl
+    return entry && typeof entry === 'object' ? (entry as Record<string, unknown>) : undefined
+  }
+
   // Try multiple paths for ISL options (in priority order).
   // PLoT V2 uses "option_comparison" not "options" — check both keys at each path.
+  const dc = (plot.downstream_calls as Record<string, unknown>) ?? undefined
+  const rdc = ((plot.response as Record<string, unknown>)?.downstream_calls as Record<string, unknown>) ?? undefined
+  const islEntry = normaliseIsl(dc?.isl)
+  const rIslEntry = normaliseIsl(rdc?.isl)
+
   const islOptions =
     // Path 1: top-level option_comparison (PLoT V2 direct response — most common)
     (plot.option_comparison as unknown[]) ??
-    // Path 2: downstream_calls.isl[0].response.option_comparison or .options
-    (((plot.downstream_calls as Record<string, unknown>)?.isl as unknown[])?.[0] as Record<string, unknown>)?.response?.option_comparison ??
-    (((plot.downstream_calls as Record<string, unknown>)?.isl as unknown[])?.[0] as Record<string, unknown>)?.response?.options ??
-    // Path 3: response.downstream_calls.isl[0].response.option_comparison or .options
-    ((((plot.response as Record<string, unknown>)?.downstream_calls as Record<string, unknown>)?.isl as unknown[])?.[0] as Record<string, unknown>)?.response?.option_comparison ??
-    ((((plot.response as Record<string, unknown>)?.downstream_calls as Record<string, unknown>)?.isl as unknown[])?.[0] as Record<string, unknown>)?.response?.options ??
+    // Path 2: downstream_calls.isl.response.option_comparison or .options (array or object form)
+    (islEntry?.response as Record<string, unknown>)?.option_comparison ??
+    (islEntry?.response as Record<string, unknown>)?.options ??
+    // Path 3: response.downstream_calls.isl.response.option_comparison or .options
+    (rIslEntry?.response as Record<string, unknown>)?.option_comparison ??
+    (rIslEntry?.response as Record<string, unknown>)?.options ??
     // Path 4: results.option_comparison (nested under results key)
     ((plot.results as Record<string, unknown>)?.option_comparison as unknown[]) ??
     // Path 5: legacy fallback — top-level options
@@ -1605,8 +1617,8 @@ function extractWinningOption(
   if (import.meta.env.DEV) {
     console.log('[Winner Debug] ISL options search:', {
       path1_option_comparison: plot.option_comparison,
-      path2_downstream_calls: (((plot.downstream_calls as Record<string, unknown>)?.isl as unknown[])?.[0] as Record<string, unknown>)?.response?.option_comparison,
-      path3_response_downstream: ((((plot.response as Record<string, unknown>)?.downstream_calls as Record<string, unknown>)?.isl as unknown[])?.[0] as Record<string, unknown>)?.response?.option_comparison,
+      path2_downstream_calls: (islEntry?.response as Record<string, unknown>)?.option_comparison,
+      path3_response_downstream: (rIslEntry?.response as Record<string, unknown>)?.option_comparison,
       path4_results: (plot.results as Record<string, unknown>)?.option_comparison,
       path5_top_level_options: plot.options,
       found: islOptions,
@@ -2927,7 +2939,7 @@ export function useDebugData(): DebugData {
       : null
 
     // Determine ISL data source
-    let islDataSource: 'downstream_calls' | 'direct_capture' | 'none' = 'none'
+    let islDataSource: 'downstream_calls' | 'direct_capture' | 'plot_response_extraction' | 'none' = 'none'
 
     // Build ISL service call data from both sources
     const directIslCall = islPayload ? payloadToServiceCall(islPayload) : null
@@ -3013,8 +3025,9 @@ export function useDebugData(): DebugData {
     let islResponse: unknown = islServiceCall?.response ?? null
     if (!islResponse && plotPayload?.response?.body && typeof plotPayload.response.body === 'object') {
       const plotBody = plotPayload.response.body as Record<string, unknown>
-      // Only extract when we have ISL-characteristic fields present
-      if (plotBody.option_comparison || plotBody.factor_sensitivity || plotBody.robustness) {
+      // Only extract when we have ISL-characteristic fields present.
+      // Use key-presence checks (not truthy) so empty arrays/objects still trigger extraction.
+      if ('option_comparison' in plotBody || 'factor_sensitivity' in plotBody || 'robustness' in plotBody) {
         islResponse = {
           option_comparison: plotBody.option_comparison,
           factor_sensitivity: plotBody.factor_sensitivity,
@@ -3024,7 +3037,7 @@ export function useDebugData(): DebugData {
           _source: 'plot_response_extraction',
         }
         if (islDataSource === 'none') {
-          islDataSource = 'downstream_calls' // Mark as available via PLoT
+          islDataSource = 'plot_response_extraction'
         }
       }
     }

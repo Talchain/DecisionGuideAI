@@ -860,8 +860,14 @@ function mapDriversFromResponse(v2Response: V2RunResponse): ReportV1['drivers'] 
     const rawValue = safeNumber(factor.sensitivity_score) ?? safeNumber(factor.elasticity) ?? safeNumber(factor.sensitivity) ?? safeNumber(factor.importance_score)
     const magnitude = rawValue !== null ? Math.abs(rawValue) : null
 
+    // Prefer human-readable label from ISL enrichment (factor_label or label),
+    // fall back to formatting the factor_id as a display name.
+    const factorLabel = safeString(factor.factor_label)
+      ?? safeString(factor.label)
+      ?? formatNodeName(factorId)
+
     return {
-      label: formatNodeName(factorId),
+      label: factorLabel,
       polarity,
       // P1 Fix: Don't fabricate 'medium' when sensitivity data is missing
       // When magnitude is null, strength should be undefined to indicate missing data

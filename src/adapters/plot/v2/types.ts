@@ -199,6 +199,8 @@ export interface V2FactorSensitivity {
   node_id?: string
   /** Human-readable label (may come from ISL enrichment) */
   label?: string
+  /** PLoT V2 factor label (preferred over label when present) */
+  factor_label?: string
   /** Raw sensitivity value (may be positive or negative) */
   sensitivity?: number
   /** Sensitivity score (PLoT v2 format, 0-1 normalized) */

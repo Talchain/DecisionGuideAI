@@ -301,6 +301,142 @@ describe('useDebugData', () => {
     })
   })
 
+  // Regression: ISL fallback from PLoT response body should use key-presence, not truthy
+  describe('ISL fallback extraction from PLoT response body', () => {
+    it('extracts ISL fields from PLoT body when option_comparison is empty array', () => {
+      const plotPayload = {
+        id: 'req-empty-oc',
+        service: 'PLoT',
+        endpoint: '/v2/run',
+        status: 200,
+        completed: true,
+        duration: 1000,
+        request: { body: {} },
+        response: {
+          body: {
+            analysis_status: 'computed',
+            option_comparison: [],  // present but empty — truthy check would miss this
+            factor_sensitivity: [],
+            robustness: { fragile_edges: [], robust_edges: [] },
+          },
+        },
+      }
+
+      vi.mocked(usePayloadTraceStore).mockImplementation((selector) =>
+        selector({ payloads: [plotPayload] })
+      )
+
+      const { result } = renderHook(() => useDebugData())
+
+      // The fallback should still populate isl_response even with empty arrays
+      expect(result.current.payloads.isl_response).not.toBeNull()
+      expect((result.current.payloads.isl_response as Record<string, unknown>)?._source)
+        .toBe('plot_response_extraction')
+    })
+
+    it('sets islDataSource to plot_response_extraction when fields extracted from PLoT body', () => {
+      const plotPayload = {
+        id: 'req-plot-extract',
+        service: 'PLoT',
+        endpoint: '/v2/run',
+        status: 200,
+        completed: true,
+        duration: 1200,
+        request: { body: {} },
+        response: {
+          body: {
+            analysis_status: 'computed',
+            option_comparison: [{ option_id: 'opt1', win_probability: 0.7 }],
+            factor_sensitivity: [{ factor_id: 'f1', elasticity: 0.5 }],
+          },
+        },
+      }
+
+      vi.mocked(usePayloadTraceStore).mockImplementation((selector) =>
+        selector({ payloads: [plotPayload] })
+      )
+
+      const { result } = renderHook(() => useDebugData())
+
+      expect(result.current.diagnostics.isl_data_source).toBe('plot_response_extraction')
+    })
+  })
+
+  // Regression: downstream_calls.isl can be object (not just array)
+  describe('downstream_calls.isl object form', () => {
+    it('extracts ISL from object-shaped downstream_calls.isl', () => {
+      const plotPayload = {
+        id: 'req-obj-isl',
+        service: 'PLoT',
+        endpoint: '/v2/run',
+        status: 200,
+        completed: true,
+        duration: 1500,
+        request: { body: {} },
+        response: {
+          body: {
+            downstream_calls: {
+              isl: {
+                endpoint: '/api/isl/analyze',
+                request: { graph: {} },
+                response: { option_comparison: [{ option_id: 'opt1', win_probability: 0.8 }] },
+                status_code: 200,
+                success: true,
+                latency_ms: 400,
+              },
+            },
+          },
+        },
+      }
+
+      vi.mocked(usePayloadTraceStore).mockImplementation((selector) =>
+        selector({ payloads: [plotPayload] })
+      )
+
+      const { result } = renderHook(() => useDebugData())
+
+      expect(result.current.services.isl).not.toBeNull()
+      expect(result.current.services.isl?.endpoint).toBe('/api/isl/analyze')
+      expect(result.current.diagnostics.isl_data_source).toBe('downstream_calls')
+    })
+
+    it('extracts ISL from array-shaped downstream_calls.isl', () => {
+      const plotPayload = {
+        id: 'req-arr-isl',
+        service: 'PLoT',
+        endpoint: '/v2/run',
+        status: 200,
+        completed: true,
+        duration: 1500,
+        request: { body: {} },
+        response: {
+          body: {
+            downstream_calls: {
+              isl: [{
+                endpoint: '/api/isl/analyze',
+                request: { graph: {} },
+                response: { option_comparison: [{ option_id: 'opt1', win_probability: 0.6 }] },
+                status_code: 200,
+                success: true,
+                latency_ms: 350,
+              }],
+            },
+          },
+        },
+      }
+
+      vi.mocked(usePayloadTraceStore).mockImplementation((selector) =>
+        selector({ payloads: [plotPayload] })
+      )
+
+      const { result } = renderHook(() => useDebugData())
+
+      expect(result.current.services.isl).not.toBeNull()
+      expect(result.current.services.isl?.endpoint).toBe('/api/isl/analyze')
+      expect(result.current.diagnostics.isl_data_source).toBe('downstream_calls')
+    })
+  })
+
   describe('overall status calculation', () => {
     it('returns success when all payloads succeed', () => {
       vi.mocked(usePayloadTraceStore).mockImplementation((selector) =>

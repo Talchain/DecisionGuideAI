@@ -559,6 +559,30 @@ describe('mapDriversFromResponse (factor_sensitivity)', () => {
 
     expect(report.drivers).toHaveLength(0)
   })
+
+  // Regression: factor_label → label → formatNodeName fallback chain
+  it('prefers factor_label over label and formatNodeName', () => {
+    const v2Response = makeSuccessResponse({
+      drivers: [],
+      edge_sensitivity: [],
+      factor_sensitivity: [
+        // Sorted by elasticity magnitude: 0.7, 0.5, 0.3
+        { factor_id: 'market_size', factor_label: 'Market Size (adjusted)', label: 'Market Size', elasticity: 0.7 },
+        { factor_id: 'growth_rate', elasticity: 0.5 },
+        { factor_id: 'competitor_count', label: 'Competitors', elasticity: -0.3 },
+      ],
+    })
+
+    const report = mapV2ResponseToReportV1(v2Response, { seed: 42 })
+
+    expect(report.drivers).toHaveLength(3)
+    // factor_label takes precedence (highest elasticity = first)
+    expect(report.drivers[0].label).toBe('Market Size (adjusted)')
+    // formatNodeName fallback when neither factor_label nor label present
+    expect(report.drivers[1].label).toBe('Growth Rate')
+    // label fallback when no factor_label
+    expect(report.drivers[2].label).toBe('Competitors')
+  })
 })
 
 // ============================================================================

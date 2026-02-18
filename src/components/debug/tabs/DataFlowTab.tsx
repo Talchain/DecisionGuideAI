@@ -559,6 +559,8 @@ export function DataFlowTab({ data }: DataFlowTabProps) {
               {data.diagnostics.isl_data_source === 'downstream_calls' &&
                 '✓ ISL Data Path Confirmed'}
               {data.diagnostics.isl_data_source === 'direct_capture' && '✓ ISL Data Path Confirmed'}
+              {data.diagnostics.isl_data_source === 'plot_response_extraction' &&
+                '✓ ISL Data Extracted from PLoT Response'}
             </div>
             <div style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>
               {data.diagnostics.isl_data_source === 'none' &&
@@ -567,6 +569,8 @@ export function DataFlowTab({ data }: DataFlowTabProps) {
                 'ISL data extracted from PLoT response (downstream_calls.isl)'}
               {data.diagnostics.isl_data_source === 'direct_capture' &&
                 'ISL data captured directly via payload trace store'}
+              {data.diagnostics.isl_data_source === 'plot_response_extraction' &&
+                'ISL fields extracted from top-level PLoT response body (no downstream_calls.isl)'}
             </div>
           </div>
 

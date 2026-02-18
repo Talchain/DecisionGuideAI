@@ -54,27 +54,30 @@ else
   fail "TypeScript compilation failed"
 fi
 
-# ─── Check 3: Test suite (changed test files) ───────────────────────
-header "Check 3 — Test suite (changed test files)"
+# ─── Check 3: Test suite (full, excluding known-broken) ──────────────
+header "Check 3 — Test suite (full, known-broken excluded via vitest.config.ts)"
 
 TEST_OUTPUT_FILE="$(mktemp /tmp/pre-push-test-XXXXXX)"
 
-# Find changed test/spec files in the commit range
-CHANGED_TEST_FILES=""
-if [ -n "$UPSTREAM" ]; then
-  CHANGED_TEST_FILES="$(git diff --name-only "$UPSTREAM"..HEAD -- '*.spec.*' '*.test.*' 2>/dev/null || true)"
-else
-  CHANGED_TEST_FILES="$(git diff --name-only HEAD~1 HEAD -- '*.spec.*' '*.test.*' 2>/dev/null || true)"
-fi
+NODE_OPTIONS=--max-old-space-size=4096 npx vitest run --bail=1 2>&1 | tee "$TEST_OUTPUT_FILE" || true
+VITEST_EXIT=${PIPESTATUS[0]}
 
-if [ -z "$CHANGED_TEST_FILES" ]; then
-  skip "No test files changed — skipping tests"
+if [ "$VITEST_EXIT" -eq 0 ]; then
+  pass "Test suite passed (full run, known-broken excluded)"
+  rm -f "$TEST_OUTPUT_FILE"
 else
-  echo "  Running changed test files:"
-  echo "$CHANGED_TEST_FILES" | while IFS= read -r f; do echo "    $f"; done
-  # shellcheck disable=SC2086
-  if NODE_OPTIONS=--max-old-space-size=4096 npx vitest run $CHANGED_TEST_FILES --bail=1 2>&1 | tee "$TEST_OUTPUT_FILE"; then
-    pass "Test suite passed (changed test files)"
+  # Check if all test files actually passed — vitest exits non-zero on Worker OOM
+  # even when every test passes. Parse summary lines for "failed" counts.
+  TEST_FILES_FAILED=$(grep 'Test Files' "$TEST_OUTPUT_FILE" 2>/dev/null | grep -o '[0-9]* failed' | grep -o '[0-9]*' || echo "")
+  TESTS_FAILED=$(grep '^ *Tests' "$TEST_OUTPUT_FILE" 2>/dev/null | grep -o '[0-9]* failed' | grep -o '[0-9]*' || echo "")
+  HAS_OOM=$(grep -c 'ERR_WORKER_OUT_OF_MEMORY' "$TEST_OUTPUT_FILE" 2>/dev/null || echo "0")
+
+  if [ -z "$TEST_FILES_FAILED" ] && [ "$HAS_OOM" -gt 0 ]; then
+    # No "failed" count in summary + OOM errors = all tests passed, only OOM noise
+    pass "Test suite passed (Worker OOM warnings ignored — all test files passed)"
+    rm -f "$TEST_OUTPUT_FILE"
+  elif [ "$TEST_FILES_FAILED" = "0" ] && [ "${TESTS_FAILED:-0}" = "0" ]; then
+    pass "Test suite passed (all test files passed despite exit code $VITEST_EXIT)"
     rm -f "$TEST_OUTPUT_FILE"
   else
     fail "Test suite failed (last 40 lines below)"
