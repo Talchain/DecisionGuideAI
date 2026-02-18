@@ -411,7 +411,7 @@ export function HeroSection({
           </p>
         )}
 
-        {/* V9.2: Condition card — top fragile edge warning */}
+        {/* V9.2: Condition card — top fragile edge warning. Inline sentence layout. */}
         {conditionCard && (
           <div className="mb-3 p-3 border border-danger/30 rounded-lg flex items-start gap-2">
             <AlertTriangle className="w-4 h-4 text-danger flex-shrink-0 mt-0.5" />
@@ -420,26 +420,26 @@ export function HeroSection({
                 'Some estimates could change the recommendation \u2014 review key inputs below.'
               ) : (
                 <>
-                  If{' '}
+                  {'If '}
                   <GraphLink
                     nodeId={conditionCard.fromId}
                     label={`${conditionCard.fromLabel} \u2192 ${conditionCard.toLabel}`}
                     onFocus={onFocusNode}
-                    className={typography.panelBody}
+                    className={`${typography.panelBody} inline`}
                   />
-                  {' '}is weaker than expected,{' '}
+                  {' is weaker than expected, '}
                   {conditionCard.altId && onFlashOption ? (
                     <button
                       type="button"
                       onClick={(e) => { e.stopPropagation(); onFlashOption(conditionCard.altId!) }}
-                      className="text-info hover:underline"
+                      className="text-info hover:underline inline"
                     >
                       {conditionCard.altLabel}
                     </button>
                   ) : (
                     conditionCard.altLabel
                   )}
-                  {' '}becomes stronger
+                  {' becomes stronger'}
                 </>
               )}
             </p>

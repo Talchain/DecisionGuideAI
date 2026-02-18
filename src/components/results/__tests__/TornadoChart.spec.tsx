@@ -255,7 +255,7 @@ describe('TornadoChart', () => {
     expect(screen.getByText(/Approximate sensitivity/)).toBeInTheDocument()
   })
 
-  it('renders drag instruction text', () => {
+  it('renders preview disclaimer text', () => {
     render(
       <TornadoChart
         rows={[positiveRow]}
@@ -263,7 +263,7 @@ describe('TornadoChart', () => {
       />
     )
 
-    expect(screen.getByText(/Drag a bar to preview/)).toBeInTheDocument()
+    expect(screen.getByText(/Preview only/)).toBeInTheDocument()
   })
 
   // ── Axis label tests ──
@@ -276,8 +276,8 @@ describe('TornadoChart', () => {
       />
     )
 
-    expect(screen.getByText('← Weaker than estimated')).toBeInTheDocument()
-    expect(screen.getByText('Stronger than estimated →')).toBeInTheDocument()
+    expect(screen.getByText('← Weaker')).toBeInTheDocument()
+    expect(screen.getByText('Stronger →')).toBeInTheDocument()
   })
 
   // ── P0.2: Value display mode tests ──

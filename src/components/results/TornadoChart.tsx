@@ -275,10 +275,6 @@ export function TornadoChart({
       className="p-3.5 bg-panel border border-panel-border rounded-xl shadow-sm"
       data-testid="tornado-chart"
     >
-      <p className={`${typography.panelBody} text-text-light mb-3 leading-relaxed`}>
-        Drag a bar to preview a what-if — what happens if one factor is stronger or weaker than you estimated?
-      </p>
-
       {/* Tornado rows */}
       <div className="space-y-2">
         {rows.map((row) => {
@@ -482,13 +478,13 @@ export function TornadoChart({
         })}
       </div>
 
-      {/* Axis labels — outcome updates during drag */}
-      <div className={`flex justify-between mt-1 ml-[104px] ${typography.panelMeta} text-text-light`}>
-        <span>← Weaker than estimated</span>
-        <span data-testid="tornado-expected-display">
+      {/* Axis labels — outcome updates during drag. Compact text to avoid overlap at narrow widths. */}
+      <div className="flex items-baseline gap-2 mt-1.5 ml-[104px] text-[10px] leading-tight text-text-light">
+        <span className="flex-shrink-0 whitespace-nowrap">← Weaker</span>
+        <span className="flex-1 text-center truncate" data-testid="tornado-expected-display">
           {formatExpectedLabel(displayOutcome, outcomeUnit, outcomeUnitSymbol, isNormalised)}
         </span>
-        <span>Stronger than estimated →</span>
+        <span className="flex-shrink-0 whitespace-nowrap">Stronger →</span>
       </div>
 
       {/* Preview disclaimer + reset link */}
