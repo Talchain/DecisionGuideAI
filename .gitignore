@@ -50,3 +50,7 @@ tests/p2-1-stream-canary.test.ts
 
 *storybook.log
 storybook-static
+
+# Claude Code — ignore private config, track shared settings
+.claude/*
+!.claude/settings.json

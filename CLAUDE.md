@@ -224,5 +224,37 @@ These are necessary utilities, not brand colors:
 npm run dev          # Start dev server (port 5173)
 npm run build        # Production build
 npm run lint         # ESLint
-npm run type-check   # TypeScript check
+npm run typecheck    # TypeScript check (tsc -p tsconfig.ci.json --noEmit)
 ```
+
+## Deployment
+
+- Always push to `staging`. Never push to `main` without explicit confirmation.
+- Run `bash scripts/pre-push-validate.sh` before every push.
+- Always execute `git push` and verify it succeeded.
+
+## Git workflow
+
+- Run `git status` and `git diff --staged` before committing.
+- No simultaneous Claude Code sessions on this repository.
+- Flag unexpected uncommitted changes at session start.
+
+## Session preamble
+
+```bash
+git branch --show-current && git log --oneline -3 && git status
+```
+
+## Testing
+
+- Run full test suite and typecheck before committing. Report pass/fail counts.
+
+## Debugging
+
+- UI is a passthrough for display — it must not transform meaning (flip signs, default missing values, clamp ranges). If you see incorrect data displayed, the bug is upstream (PLoT or CEE), not in the UI.
+- Three temporary semantic transforms exist (`UI-SEM-001/002/003`) pending migration to PLoT. Do not add new ones.
+- Check for stale `.js` files when debugging unexpected behaviour.
+
+## Code review
+
+- Evaluate feedback independently. Do not change correct code to appease reviewers.
