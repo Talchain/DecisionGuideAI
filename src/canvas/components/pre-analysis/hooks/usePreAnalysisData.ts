@@ -622,9 +622,10 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
       const value = getAiEstimatedValue(factor)
       const verificationPrompt = verificationPrompts[factor.id]
 
-      // Controllable factors with interventions: skip entirely (not reviewable)
+      // Factors targeted by ANY option's intervention: skip entirely (not reviewable)
+      // Their values are defined by the option itself, not assumptions to review.
       // Exception: brief_extraction source (v1.1: prefer reviewable so user can validate)
-      if (!isBriefExtraction && isControllableFactor(factor) && hasInterventionTargeting(factor.id, optionNodes, ceeOptions)) {
+      if (!isBriefExtraction && hasInterventionTargeting(factor.id, optionNodes, ceeOptions)) {
         continue
       }
 
@@ -1081,9 +1082,9 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
       if (needsReview(factor)) {
         const os = getObservedState(factor.data)
         const isBriefExtraction = os.source === 'brief_extraction'
-        // Exclude controllable intervention targets from progress count UNLESS
+        // Exclude intervention targets from progress count UNLESS
         // source is brief_extraction (v1.1: those are shown as reviewable)
-        if (!isBriefExtraction && isControllableFactor(factor) && hasInterventionTargeting(factor.id, optionNodes, ceeOptions)) {
+        if (!isBriefExtraction && hasInterventionTargeting(factor.id, optionNodes, ceeOptions)) {
           continue
         }
         total++
@@ -1269,8 +1270,9 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
     }
 
     // 5. Many AI estimates (AI-sourced > brief_extraction count)
+    // Suppress when no reviewable assumptions exist (all factors are intervention targets)
     const factors = nodesByKind.factor
-    if (factors.length > 0) {
+    if (factors.length > 0 && totalReviewableFactorsCount > 0) {
       const aiCount = factors.filter(isAiSource).length
       const briefCount = factors.length - aiCount
       if (aiCount > briefCount) {
@@ -1306,7 +1308,7 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
     }
 
     return checks
-  }, [nodesByKind, edges, ceeAnalysisReady?.options, successThreshold, goalNode])
+  }, [nodesByKind, edges, ceeAnalysisReady?.options, successThreshold, goalNode, totalReviewableFactorsCount])
 
   // =========================================================================
   // Task 6: Model adjustments with resolved labels + repair actions from trace

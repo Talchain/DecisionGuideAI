@@ -1201,9 +1201,9 @@ describe('usePreAnalysisData', () => {
 
       const { result } = renderHook(() => usePreAnalysisData())
 
-      // External factor (even with intervention) should appear in verify
-      // because it's not controllable - it's an external assumption
-      expect(result.current.improvementsByCategory.verify).toContainEqual(
+      // External factor with intervention is now excluded from verify
+      // (intervention-target factors skip regardless of category)
+      expect(result.current.improvementsByCategory.verify).not.toContainEqual(
         expect.objectContaining({ key: 'verify_factor1' })
       )
     })

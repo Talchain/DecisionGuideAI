@@ -47,6 +47,7 @@ interface ModelAdjustmentsProps {
  */
 const REPAIR_COPY: Record<string, string> = {
   'factor_reclassified': 'Reclassified {count} factor(s) to external — not directly controlled by your options',
+  'category_reclassified': 'Reclassified {count} factor(s) to external — not directly controlled by your options',
   'category_inferred': 'Reclassified {count} factor(s) to external — not directly controlled by your options',
   'category_infer': 'Reclassified {count} factor(s) to external — not directly controlled by your options',
   'risk_coefficient_corrected': 'Corrected {count} relationship direction(s) where the sign didn\u2019t match the effect',
@@ -56,9 +57,14 @@ const REPAIR_COPY: Record<string, string> = {
   'edge_removed': 'Removed {count} invalid relationship(s)',
   'node_removed': 'Removed {count} unused node(s)',
   'strength_defaulted': 'Set default strength for {count} relationship(s)',
+  'edge_strength_clamped': 'Adjusted {count} relationship strength(s) to stay within valid range',
+  'exists_probability_defaulted': 'Set a default confidence level for {count} relationship(s) that were missing one',
   'observed_state_defaulted': 'Set default values for {count} factor(s)',
   'baseline_created': 'Created baseline option for comparison',
 }
+
+/** Generic fallback for unmapped repair codes */
+const GENERIC_REPAIR_FALLBACK = 'We corrected an internal inconsistency. Your intent hasn\u2019t changed.'
 
 /** Get user-facing headline for a repair type, or null if unmapped */
 function getRepairCopy(type: string, count: number): string | null {
@@ -130,19 +136,13 @@ function groupAdjustments(adjustments: ModelAdjustment[]): GroupedAdjustment[] {
       representative.technicalDetail = rawDetail ? sanitiseDetail(rawDetail) : undefined
       // Clear detail so the render path uses headline instead
       representative.detail = undefined
-    } else if (group.length > 1) {
-      // Unmapped type, grouped: "N × type — sanitised detail"
-      const formatted = formatAdjustmentType(key).toLowerCase()
-      const cleaned = rawDetail ? sanitiseDetail(rawDetail) : ''
-      representative.headline = `${group.length} × ${formatted}${cleaned ? ` — ${cleaned}` : ''}`
+    } else {
+      // Unmapped type: use generic fallback headline, raw detail behind toggle
+      representative.headline = group.length > 1
+        ? `${GENERIC_REPAIR_FALLBACK} (${group.length} items)`
+        : GENERIC_REPAIR_FALLBACK
       representative.technicalDetail = rawDetail || undefined
       representative.detail = undefined
-    } else {
-      // Unmapped type, single: sanitise the detail text
-      if (rawDetail) {
-        representative.detail = sanitiseDetail(rawDetail)
-        representative.technicalDetail = rawDetail
-      }
     }
 
     result.push(representative)
@@ -152,44 +152,29 @@ function groupAdjustments(adjustments: ModelAdjustment[]): GroupedAdjustment[] {
 
 function AdjustmentRow({ adj }: { adj: GroupedAdjustment }) {
   const [showDetail, setShowDetail] = useState(false)
-  const displayType = adj.type ?? adj.code
-  const displayDetail = adj.detail ?? adj.reason
+
+  // headline is always set by groupAdjustments; fallback defensively
+  const headline = adj.headline ?? GENERIC_REPAIR_FALLBACK
 
   return (
     <div className="flex items-start gap-2 text-xs">
       <span className="text-text-light mt-0.5 flex-shrink-0">&bull;</span>
       <div>
-        {adj.headline ? (
+        <span className="font-medium text-text-body">{headline}</span>
+        {adj.target && (
+          <p className="text-text-light mt-0.5">{adj.target}</p>
+        )}
+        {adj.technicalDetail && (
           <>
-            <span className="font-medium text-text-body">{adj.headline}</span>
-            {adj.target && (
-              <p className="text-text-light mt-0.5">{adj.target}</p>
-            )}
-            {adj.technicalDetail && (
-              <>
-                <button
-                  type="button"
-                  onClick={() => setShowDetail(!showDetail)}
-                  className="text-info hover:underline cursor-pointer mt-0.5 block"
-                >
-                  {showDetail ? 'Hide details' : 'Details'}
-                </button>
-                {showDetail && (
-                  <p className="text-text-light mt-0.5 font-mono text-[10px] leading-tight">{adj.technicalDetail}</p>
-                )}
-              </>
-            )}
-          </>
-        ) : (
-          <>
-            <span className="font-medium text-text-body">
-              {formatAdjustmentType(displayType)}
-            </span>
-            {adj.target && (
-              <span className="text-text-light"> on {adj.target}</span>
-            )}
-            {displayDetail && (
-              <p className="text-text-light mt-0.5">{displayDetail}</p>
+            <button
+              type="button"
+              onClick={() => setShowDetail(!showDetail)}
+              className="text-info hover:underline cursor-pointer mt-0.5 block"
+            >
+              {showDetail ? 'Hide details' : 'Details'}
+            </button>
+            {showDetail && (
+              <p className="text-text-light mt-0.5 font-mono text-[10px] leading-tight">{adj.technicalDetail}</p>
             )}
           </>
         )}

@@ -951,7 +951,8 @@ describe('PreAnalysisPanel', () => {
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
 
       fireEvent.click(screen.getByText('Auto-fixes applied'))
-      expect(screen.getByText('System adjustment')).toBeInTheDocument()
+      // Generic fallback when type/code unmapped
+      expect(screen.getByText(/We corrected an internal inconsistency/)).toBeInTheDocument()
     })
   })
 
