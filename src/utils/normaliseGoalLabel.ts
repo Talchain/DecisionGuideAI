@@ -6,8 +6,8 @@
  * "To achieve Achieve 800 Pro Customers". This utility removes the known leading
  * verb so the result reads naturally: "To achieve 800 Pro Customers".
  *
- * Only strips verbs that are semantically equivalent to "achieve" — if the label
- * starts with an unknown verb (e.g. "Maximise revenue"), it is left as-is.
+ * Strips verbs that are semantically equivalent to "achieve" plus
+ * optimisation verbs (maximise/minimize etc.) that also duplicate the template.
  */
 
 /** Verbs to strip (case-insensitive). Multi-word entries must come before single-word prefixes. */
@@ -16,10 +16,15 @@ const LEADING_VERBS = [
   'get to',
   'grow to',
   'achieve',
+  'maximise',
+  'maximize',
+  'minimise',
+  'minimize',
   'reach',
   'hit',
   'attain',
   'deliver',
+  'get',
 ]
 
 /**

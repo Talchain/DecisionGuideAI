@@ -21,6 +21,7 @@ import { stripEncodingNotation } from './utils/cleanFactorLabel'
 import { formatPercent as formatPct } from '../../utils/formatPercent'
 import { GraphLink } from './GraphLink'
 import { normaliseGoalLabel } from '../../utils/normaliseGoalLabel'
+import { BaselineToggleCard, type BaselineOption } from './BaselineToggleCard'
 
 // =============================================================================
 // Types
@@ -99,6 +100,16 @@ export interface HeroSectionProps {
   onFocusNode?: (nodeId: string) => void
   /** V9.2 Phase 2.3: Cross-highlight — flash an option card when a GraphLink references it */
   onFlashOption?: (optionId: string) => void
+  /** Whether an analysis is currently running (for baseline toggle) */
+  isRunning?: boolean
+  /** Callback to add baseline to decision draft */
+  onAddBaseline?: () => void
+  /** Callback to set a specific option as baseline by ID */
+  onSetBaseline?: (optionId: string) => void
+  /** Available options for baseline selection */
+  baselineOptions?: BaselineOption[]
+  /** Currently selected baseline option label */
+  baselineLabel?: string
 }
 
 // =============================================================================
@@ -272,6 +283,11 @@ export function HeroSection({
   m2BiasInsights,
   onFocusNode,
   onFlashOption,
+  isRunning,
+  onAddBaseline,
+  onSetBaseline,
+  baselineOptions,
+  baselineLabel,
 }: HeroSectionProps) {
   // v7.4 Task 6: Default expand state based on robustness level
   // low/very_low stability (< 0.70) defaults to expanded ("Sensitive" or "Highly sensitive")
@@ -367,11 +383,32 @@ export function HeroSection({
             {headline.sub}
           </p>
         )}
+
+        {/* V9.2 P1.5: Baseline row — inside hero card, below headline */}
+        {optionCount > 1 && (
+          <div className="mt-2">
+            <BaselineToggleCard
+              show={true}
+              isRunning={isRunning}
+              onAddBaseline={onAddBaseline}
+              onSetBaseline={onSetBaseline}
+              options={baselineOptions}
+              baselineLabel={baselineLabel}
+            />
+          </div>
+        )}
         <div className="mb-3" />
 
         {/* Win gauge — stacked bar showing win probability per option */}
         {optionWinShares && optionWinShares.length > 1 && (
           <WinGauge shares={optionWinShares} />
+        )}
+
+        {/* V9.2: Goal probability line — bridges "which wins most" and "does it hit my target" */}
+        {goalThreshold != null && winnerGoalProbability != null && (
+          <p className={`${typography.panelMeta} text-text-body mb-3`}>
+            {winnerLabel} has a {formatPct(winnerGoalProbability, { fromDecimal: true })} chance of reaching your target
+          </p>
         )}
 
         {/* V9.2: Condition card — top fragile edge warning */}

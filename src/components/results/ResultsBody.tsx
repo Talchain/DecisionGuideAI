@@ -199,9 +199,9 @@ export function ResultsBody({
               : 'default'
           }
           tierLabel={
-            resultsSectionData.confidence.tier.tier === 'strong' ? 'Good'
-              : resultsSectionData.confidence.tier.tier === 'fair' ? 'Fair'
-              : resultsSectionData.confidence.tier.tier === 'needs_work' ? 'Needs work'
+            resultsSectionData.confidence.tier.tier === 'strong' ? 'Evidence: Good'
+              : resultsSectionData.confidence.tier.tier === 'fair' ? 'Evidence: Fair'
+              : resultsSectionData.confidence.tier.tier === 'needs_work' ? 'Evidence: Needs work'
               : undefined
           }
           tierVariant={

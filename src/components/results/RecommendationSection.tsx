@@ -17,7 +17,6 @@ import type { RecommendationSectionData, DriverItem } from './types'
 import { EMPTY_STATES } from './emptyStates'
 import { typography } from '../../styles/typography'
 import { HeroSection, type OptionWinShare } from './HeroSection'
-import { BaselineToggleCard } from './BaselineToggleCard'
 import { LimitedOptionsCard } from './LimitedOptionsCard'
 
 /** Top fragile edge data for HeroSection */
@@ -186,16 +185,6 @@ export function RecommendationSection({
     <div className="space-y-4">
       {/* v7.8 T1: SuccessTarget moved inline into HeroSection */}
 
-      {/* P2 Task 2: Baseline toggle card — dropdown to select/change baseline */}
-      <BaselineToggleCard
-        show={!isSingleOption}
-        isRunning={isRunning}
-        onAddBaseline={onAddBaseline}
-        onSetBaseline={onSetBaseline}
-        options={allOptions.map(o => ({ id: o.id, label: o.label }))}
-        baselineLabel={allOptions.find(o => o.isBaseline)?.label}
-      />
-
       {/* Task 1.7: Goal context - displayed when present */}
       {goalText && (
         <div className={`${typography.panelBody} text-text-body`}>
@@ -238,6 +227,11 @@ export function RecommendationSection({
         coachingParagraph={data.coachingParagraph}
         onFocusNode={onFocusNode}
         onFlashOption={onFlashOption}
+        isRunning={isRunning}
+        onAddBaseline={onAddBaseline}
+        onSetBaseline={onSetBaseline}
+        baselineOptions={allOptions.map(o => ({ id: o.id, label: o.label }))}
+        baselineLabel={allOptions.find(o => o.isBaseline)?.label}
       />
 
       {/* P2 Task 3: Limited options coaching card (moved below hero) */}

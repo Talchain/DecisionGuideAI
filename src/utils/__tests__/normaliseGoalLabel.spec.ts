@@ -34,6 +34,26 @@ describe('normaliseGoalLabel', () => {
     it('strips "To achieve" (prevents "To achieve To achieve X")', () => {
       expect(normaliseGoalLabel('To achieve 10M ARR')).toBe('10M ARR')
     })
+
+    it('strips "Maximise"', () => {
+      expect(normaliseGoalLabel('Maximise revenue growth')).toBe('revenue growth')
+    })
+
+    it('strips "Maximize"', () => {
+      expect(normaliseGoalLabel('Maximize customer retention')).toBe('customer retention')
+    })
+
+    it('strips "Minimise"', () => {
+      expect(normaliseGoalLabel('Minimise churn rate')).toBe('churn rate')
+    })
+
+    it('strips "Minimize"', () => {
+      expect(normaliseGoalLabel('Minimize operational costs')).toBe('operational costs')
+    })
+
+    it('strips "Get"', () => {
+      expect(normaliseGoalLabel('Get 200 new signups')).toBe('200 new signups')
+    })
   })
 
   describe('case-insensitive matching', () => {
@@ -56,7 +76,7 @@ describe('normaliseGoalLabel', () => {
 
   describe('no-match passthrough', () => {
     it('leaves unknown verb as-is', () => {
-      expect(normaliseGoalLabel('Maximise revenue growth')).toBe('Maximise revenue growth')
+      expect(normaliseGoalLabel('Boost revenue growth')).toBe('Boost revenue growth')
     })
 
     it('leaves label starting with number as-is', () => {
@@ -88,6 +108,10 @@ describe('normaliseGoalLabel', () => {
     it('does not strip verb that is the entire label (no trailing content)', () => {
       // "Achieve" alone has no space + trailing text, so startsWith("achieve ") is false
       expect(normaliseGoalLabel('Achieve')).toBe('Achieve')
+    })
+
+    it('does not strip "Achieve" when part of another word', () => {
+      expect(normaliseGoalLabel('Achievement of excellence')).toBe('Achievement of excellence')
     })
 
     it('handles leading/trailing whitespace', () => {

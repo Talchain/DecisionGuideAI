@@ -149,6 +149,7 @@ export function Accordion({
           {tierLabel && tierVariant && (
             <span
               className={`${typography.panelMeta} ml-auto px-2 py-0.5 rounded-full ${tierVariants[tierVariant]}`}
+              title="Based on the confidence levels of your key factors. Improve by gathering data on low-confidence drivers."
             >
               {tierLabel}
             </span>

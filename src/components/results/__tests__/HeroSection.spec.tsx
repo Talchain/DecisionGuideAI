@@ -139,6 +139,58 @@ describe('HeroSection', () => {
     })
   })
 
+  describe('Goal Probability Line', () => {
+    it('shows probability line when goalThreshold and winnerGoalProbability are set', () => {
+      render(
+        <HeroSection
+          {...baseProps}
+          recommendationStability={0.9}
+          goalThreshold={100}
+          winnerGoalProbability={0.72}
+        />
+      )
+
+      expect(screen.getByText(/Option A has a 72% chance of reaching your target/)).toBeInTheDocument()
+    })
+
+    it('hides probability line when goalThreshold is null', () => {
+      render(
+        <HeroSection
+          {...baseProps}
+          recommendationStability={0.9}
+          goalThreshold={null}
+          winnerGoalProbability={0.72}
+        />
+      )
+
+      expect(screen.queryByText(/chance of reaching your target/)).not.toBeInTheDocument()
+    })
+
+    it('hides probability line when winnerGoalProbability is null', () => {
+      render(
+        <HeroSection
+          {...baseProps}
+          recommendationStability={0.9}
+          goalThreshold={100}
+          winnerGoalProbability={null}
+        />
+      )
+
+      expect(screen.queryByText(/chance of reaching your target/)).not.toBeInTheDocument()
+    })
+
+    it('hides probability line when both are absent', () => {
+      render(
+        <HeroSection
+          {...baseProps}
+          recommendationStability={0.9}
+        />
+      )
+
+      expect(screen.queryByText(/chance of reaching your target/)).not.toBeInTheDocument()
+    })
+  })
+
   describe('Condition Card', () => {
     it('shows specific condition card when fragile edge has resolved labels', () => {
       render(
