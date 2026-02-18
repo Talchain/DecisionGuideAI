@@ -13,14 +13,11 @@ import {
   detectService,
   type ContractValidationResult,
 } from './contract-validators'
-import { redactPayload } from '../utils/payloadRedaction'
+import { redactPayload, DEBUG_BUNDLE_REDACTION_OPTIONS } from '../utils/payloadRedaction'
 
-const PAYLOAD_REDACTION_OPTIONS = {
-  maxDepth: 8, // Increased from 6 to preserve response.body.trace.pipeline.llm_quality.corrections[]
-  maxArrayItems: 100, // Increased from 10 to support Full Graph export without truncation
-  maxStringLength: 1000,
-  neverTruncateKeys: ['text'], // Preserve pipeline.llm_raw.text without re-truncation
-} as const
+// Use shared debug-bundle redaction options for consistency across all capture paths.
+// Includes neverRedactKeys for constraint_analysis, observed_state, goal_constraints.
+const PAYLOAD_REDACTION_OPTIONS = DEBUG_BUNDLE_REDACTION_OPTIONS
 
 // ============================================================================
 // Types
