@@ -206,12 +206,13 @@ describe('mapV2ResponseToReportV1', () => {
 
     const report = mapV2ResponseToReportV1(v2Response, { seed: 42 })
 
-    // goal_probability = midpoint of confidence_interval
+    // goal_probability is null when probability_of_goal not in V2 response (Fix A)
     // expected and outcome contain distribution data
     expect(report.option_probabilities).toEqual({
       opt1: {
-        goal_probability: 50, // (30+70)/2 = 50
+        goal_probability: null, // No probability_of_goal in input (Fix A: no CI midpoint fallback)
         confidence: 0.5,
+        constraint_analysis: undefined,
         win_probability: undefined,
         expected: 50, // Falls back to CI midpoint when no mean
         outcome: {
@@ -222,8 +223,9 @@ describe('mapV2ResponseToReportV1', () => {
         },
       },
       opt2: {
-        goal_probability: 60, // (45+75)/2 = 60
+        goal_probability: null, // No probability_of_goal in input
         confidence: 0.5,
+        constraint_analysis: undefined,
         win_probability: undefined,
         expected: 60, // Falls back to CI midpoint
         outcome: {
@@ -696,13 +698,13 @@ describe('probability_of_goal and win_probability mapping', () => {
     expect(report.option_probabilities!['opt1'].goal_probability).toBe(0.75)
   })
 
-  it('falls back to CI midpoint when probability_of_goal not provided', () => {
+  it('returns null goal_probability when probability_of_goal not provided (Fix A)', () => {
     const v2Response = makeSuccessResponse({
       option_comparison: [
         {
           option_id: 'opt1',
           option_label: 'Option A',
-          confidence_interval: [30, 70], // midpoint = 50
+          confidence_interval: [30, 70],
         },
       ],
     })
@@ -710,7 +712,8 @@ describe('probability_of_goal and win_probability mapping', () => {
     const report = mapV2ResponseToReportV1(v2Response, { seed: 42 })
 
     expect(report.option_probabilities).toBeDefined()
-    expect(report.option_probabilities!['opt1'].goal_probability).toBe(50) // CI midpoint
+    // Fix A: no CI midpoint fallback — null means "not available"
+    expect(report.option_probabilities!['opt1'].goal_probability).toBeNull()
   })
 
   it('maps win_probability from V2 option_comparison', () => {

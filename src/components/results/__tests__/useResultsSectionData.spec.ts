@@ -1087,22 +1087,13 @@ describe('resolveBaselineId', () => {
     expect(result).toBeNull()
   })
 
-  it('falls back to Status Quo heuristic', () => {
+  it('returns null when label contains Status Quo but no explicit baseline (v7.5)', () => {
     const options = makeOptions(['Option A', 'Status Quo', 'Option C'])
     const nodes = makeNodes(['opt-0', 'opt-1', 'opt-2'])
 
     const result = resolveBaselineId(options, nodes as any, undefined)
 
-    expect(result).toBe('opt-1') // Status Quo
-  })
-
-  it('Status Quo match is case-insensitive', () => {
-    const options = makeOptions(['Option A', 'KEEP STATUS QUO'])
-    const nodes = makeNodes(['opt-0', 'opt-1'])
-
-    const result = resolveBaselineId(options, nodes as any, undefined)
-
-    expect(result).toBe('opt-1')
+    expect(result).toBeNull() // v7.5: label heuristic removed — only explicit flags
   })
 
   it('PLoT baseline takes precedence over user selection', () => {
@@ -1112,15 +1103,6 @@ describe('resolveBaselineId', () => {
     const result = resolveBaselineId(options, nodes as any, 'opt-1') // User selected opt-1
 
     expect(result).toBe('opt-0') // PLoT wins
-  })
-
-  it('PLoT baseline takes precedence over Status Quo heuristic', () => {
-    const options = makeOptions(['Option A', 'Status Quo'])
-    const nodes = makeNodes(['opt-0', 'opt-1'], 0) // opt-0 is PLoT baseline
-
-    const result = resolveBaselineId(options, nodes as any, undefined)
-
-    expect(result).toBe('opt-0') // PLoT wins over Status Quo heuristic
   })
 
   it('returns null when no baseline can be resolved', () => {

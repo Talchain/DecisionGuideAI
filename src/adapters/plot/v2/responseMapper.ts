@@ -717,10 +717,16 @@ function createDriversPayloadFromV2(v2Response: V2RunResponse): DriversPayload |
         safeNumber(factor.importance_score) ??
         undefined
 
+      // Prefer human-readable label from ISL enrichment (factor_label or label),
+      // fall back to formatting the factor_id as a display name.
+      const factorLabel = safeString(factor.factor_label)
+        ?? safeString(factor.label)
+        ?? formatNodeName(factorId)
+
       driverItems.push({
         id: factorId,
         kind: 'node',
-        label: formatNodeName(factorId),
+        label: factorLabel,
         sensitivity_score: sensitivityValue,
       })
     }

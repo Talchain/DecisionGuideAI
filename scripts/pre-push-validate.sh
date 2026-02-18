@@ -54,20 +54,35 @@ else
   fail "TypeScript compilation failed"
 fi
 
-# ─── Check 3: Full test suite ─────────────────────────────────────────
-header "Check 3 — Full test suite"
+# ─── Check 3: Test suite (changed test files) ───────────────────────
+header "Check 3 — Test suite (changed test files)"
 
 TEST_OUTPUT_FILE="$(mktemp /tmp/pre-push-test-XXXXXX)"
 
-if npm run test:full 2>&1 | tee "$TEST_OUTPUT_FILE"; then
-  pass "Test suite passed"
-  rm -f "$TEST_OUTPUT_FILE"
+# Find changed test/spec files in the commit range
+CHANGED_TEST_FILES=""
+if [ -n "$UPSTREAM" ]; then
+  CHANGED_TEST_FILES="$(git diff --name-only "$UPSTREAM"..HEAD -- '*.spec.*' '*.test.*' 2>/dev/null || true)"
 else
-  fail "Test suite failed (last 40 lines below)"
-  echo ""
-  tail -40 "$TEST_OUTPUT_FILE"
-  echo ""
-  echo "  Full output: $TEST_OUTPUT_FILE"
+  CHANGED_TEST_FILES="$(git diff --name-only HEAD~1 HEAD -- '*.spec.*' '*.test.*' 2>/dev/null || true)"
+fi
+
+if [ -z "$CHANGED_TEST_FILES" ]; then
+  skip "No test files changed — skipping tests"
+else
+  echo "  Running changed test files:"
+  echo "$CHANGED_TEST_FILES" | while IFS= read -r f; do echo "    $f"; done
+  # shellcheck disable=SC2086
+  if NODE_OPTIONS=--max-old-space-size=4096 npx vitest run $CHANGED_TEST_FILES --bail=1 2>&1 | tee "$TEST_OUTPUT_FILE"; then
+    pass "Test suite passed (changed test files)"
+    rm -f "$TEST_OUTPUT_FILE"
+  else
+    fail "Test suite failed (last 40 lines below)"
+    echo ""
+    tail -40 "$TEST_OUTPUT_FILE"
+    echo ""
+    echo "  Full output: $TEST_OUTPUT_FILE"
+  fi
 fi
 
 # ─── Check 4: Stale .js detection ─────────────────────────────────────

@@ -1585,38 +1585,44 @@ function extractWinningOption(
 
   const plot = plotResponse as Record<string, unknown>
 
-  // Try multiple paths for ISL options (in priority order)
+  // Try multiple paths for ISL options (in priority order).
+  // PLoT V2 uses "option_comparison" not "options" — check both keys at each path.
   const islOptions =
-    // Path 1: downstream_calls.isl[0].response.options (most common for orchestrated calls)
+    // Path 1: top-level option_comparison (PLoT V2 direct response — most common)
+    (plot.option_comparison as unknown[]) ??
+    // Path 2: downstream_calls.isl[0].response.option_comparison or .options
+    (((plot.downstream_calls as Record<string, unknown>)?.isl as unknown[])?.[0] as Record<string, unknown>)?.response?.option_comparison ??
     (((plot.downstream_calls as Record<string, unknown>)?.isl as unknown[])?.[0] as Record<string, unknown>)?.response?.options ??
-    // Path 2: response.downstream_calls.isl[0].response.options
+    // Path 3: response.downstream_calls.isl[0].response.option_comparison or .options
+    ((((plot.response as Record<string, unknown>)?.downstream_calls as Record<string, unknown>)?.isl as unknown[])?.[0] as Record<string, unknown>)?.response?.option_comparison ??
     ((((plot.response as Record<string, unknown>)?.downstream_calls as Record<string, unknown>)?.isl as unknown[])?.[0] as Record<string, unknown>)?.response?.options ??
-    // Path 3: isl.response.options (direct ISL capture)
-    ((plot.isl as Record<string, unknown>)?.response as Record<string, unknown>)?.options ??
-    // Path 4: response.options (legacy format)
-    (plot.response as Record<string, unknown>)?.options ??
-    // Path 5: top-level options (fallback)
+    // Path 4: results.option_comparison (nested under results key)
+    ((plot.results as Record<string, unknown>)?.option_comparison as unknown[]) ??
+    // Path 5: legacy fallback — top-level options
     (plot.options as unknown[])
 
   // Debug logging (dev/staging only)
   if (import.meta.env.DEV) {
     console.log('[Winner Debug] ISL options search:', {
-      path1_downstream_calls: (((plot.downstream_calls as Record<string, unknown>)?.isl as unknown[])?.[0] as Record<string, unknown>)?.response?.options,
-      path2_response_downstream: ((((plot.response as Record<string, unknown>)?.downstream_calls as Record<string, unknown>)?.isl as unknown[])?.[0] as Record<string, unknown>)?.response?.options,
-      path3_isl_response: ((plot.isl as Record<string, unknown>)?.response as Record<string, unknown>)?.options,
-      path4_response: (plot.response as Record<string, unknown>)?.options,
-      path5_top_level: plot.options,
+      path1_option_comparison: plot.option_comparison,
+      path2_downstream_calls: (((plot.downstream_calls as Record<string, unknown>)?.isl as unknown[])?.[0] as Record<string, unknown>)?.response?.option_comparison,
+      path3_response_downstream: ((((plot.response as Record<string, unknown>)?.downstream_calls as Record<string, unknown>)?.isl as unknown[])?.[0] as Record<string, unknown>)?.response?.option_comparison,
+      path4_results: (plot.results as Record<string, unknown>)?.option_comparison,
+      path5_top_level_options: plot.options,
       found: islOptions,
     })
   }
 
   if (!Array.isArray(islOptions) || islOptions.length === 0) return null
 
-  // Find option with highest win_probability
+  // Find option with highest win_probability.
+  // option_comparison items use option_id/option_label; legacy uses id/label.
   interface IslOption {
     id?: string
+    option_id?: string
     win_probability?: number
     label?: string
+    option_label?: string
   }
 
   const sortedOptions = [...islOptions]
@@ -1627,11 +1633,11 @@ function extractWinningOption(
   if (sortedOptions.length === 0) return null
 
   const winner = sortedOptions[0]
-  const winnerId = winner.id ?? ''
+  const winnerId = winner.option_id ?? winner.id ?? ''
   const winProb = (winner.win_probability ?? 0) * 100
 
-  // Try to get label from CEE response options
-  let winnerLabel = winner.label ?? winnerId
+  // Prefer option_label (option_comparison format), then label, then ID
+  let winnerLabel = winner.option_label ?? winner.label ?? winnerId
   if (ceeResponse && typeof ceeResponse === 'object') {
     const cee = ceeResponse as Record<string, unknown>
     const ceeOptions =
@@ -1654,8 +1660,8 @@ function extractWinningOption(
 
   if (isCloseRace && sortedOptions.length > 1) {
     const second = sortedOptions[1]
-    const secondId = second.id ?? ''
-    let secondLabel = second.label ?? secondId
+    const secondId = second.option_id ?? second.id ?? ''
+    let secondLabel = second.option_label ?? second.label ?? secondId
 
     // Try to get runner-up label from CEE
     if (ceeResponse && typeof ceeResponse === 'object') {
@@ -3000,6 +3006,29 @@ export function useDebugData(): DebugData {
       isl: islServiceCall,
     }
 
+    // Extract ISL-derived fields from PLoT response body as fallback.
+    // When PLoT doesn't include downstream_calls.isl, the ISL analysis results
+    // (option_comparison, factor_sensitivity, robustness, constraint_analysis)
+    // are still present in the PLoT response body itself.
+    let islResponse: unknown = islServiceCall?.response ?? null
+    if (!islResponse && plotPayload?.response?.body && typeof plotPayload.response.body === 'object') {
+      const plotBody = plotPayload.response.body as Record<string, unknown>
+      // Only extract when we have ISL-characteristic fields present
+      if (plotBody.option_comparison || plotBody.factor_sensitivity || plotBody.robustness) {
+        islResponse = {
+          option_comparison: plotBody.option_comparison,
+          factor_sensitivity: plotBody.factor_sensitivity,
+          robustness: plotBody.robustness,
+          constraint_analysis: plotBody.constraint_analysis,
+          analysis_status: plotBody.analysis_status,
+          _source: 'plot_response_extraction',
+        }
+        if (islDataSource === 'none') {
+          islDataSource = 'downstream_calls' // Mark as available via PLoT
+        }
+      }
+    }
+
     // Build payloads bundle
     const payloadBundle: PayloadBundle = {
       cee_request: ceePayload?.request?.body,
@@ -3007,7 +3036,7 @@ export function useDebugData(): DebugData {
       plot_request: plotPayload?.request?.body,
       plot_response: plotPayload?.response?.body,
       isl_request: islServiceCall?.request,
-      isl_response: islServiceCall?.response,
+      isl_response: islResponse,
       m2_request: m2Payload?.request?.body,
       m2_response: m2Payload?.response?.body,
       cee_downstream_request: ceeFromPlot?.[0]?.request,
