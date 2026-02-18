@@ -65,11 +65,11 @@ function stripFieldPath(field: string | undefined): string | undefined {
   return field
 }
 
-/** Group identical repair types: "Factor reclassified" × 4 → "4 factors reclassified to external" */
+/** Group adjustments by type/code. Grouped rows show count + comma-separated targets. */
 function groupAdjustments(adjustments: ModelAdjustment[]): ModelAdjustment[] {
   const groups = new Map<string, ModelAdjustment[]>()
   for (const adj of adjustments) {
-    const key = `${adj.type ?? adj.code ?? ''}_${adj.detail ?? adj.reason ?? ''}`
+    const key = adj.type ?? adj.code ?? ''
     const existing = groups.get(key)
     if (existing) existing.push(adj)
     else groups.set(key, [adj])
@@ -80,13 +80,17 @@ function groupAdjustments(adjustments: ModelAdjustment[]): ModelAdjustment[] {
     if (group.length === 1) {
       result.push(group[0])
     } else {
-      // Merge: "4 factors reclassified to external"
+      // Merge: headline "4 factors reclassified" + target list
       const representative = { ...group[0] }
       const displayType = representative.type ?? representative.code ?? 'adjustments'
       const formatted = formatAdjustmentType(displayType).toLowerCase()
       const detail = representative.detail ?? representative.reason
-      representative.detail = `${group.length} ${formatted}${detail ? ` — ${detail}` : ''}`
-      representative.target = undefined // Drop individual targets
+      representative.detail = `${group.length} × ${formatted}${detail ? ` — ${detail}` : ''}`
+      // Collect resolved target labels for sub-line
+      const targets = group
+        .map(a => a.target)
+        .filter((t): t is string => !!t)
+      representative.target = targets.length > 0 ? targets.join(', ') : undefined
       representative.field = undefined
       result.push(representative)
     }
@@ -132,24 +136,38 @@ export function ModelAdjustments({ adjustments, repairActions = [] }: ModelAdjus
             const displayType = adj.type ?? adj.code
             const displayDetail = adj.detail ?? adj.reason
             const cleanField = stripFieldPath(adj.field)
+            const isGrouped = displayDetail?.includes('×')
             return (
               <div
-                key={`${displayType ?? 'adj'}-${adj.target ?? adj.field ?? idx}`}
+                key={`${displayType ?? 'adj'}-${idx}`}
                 className="flex items-start gap-2 text-xs"
               >
                 <span className="text-text-light mt-0.5 flex-shrink-0">&bull;</span>
                 <div>
-                  <span className="font-medium text-text-body">
-                    {formatAdjustmentType(displayType)}
-                  </span>
-                  {adj.target && (
-                    <span className="text-text-light"> on {adj.target}</span>
-                  )}
-                  {cleanField && (
-                    <span className="text-text-light"> ({cleanField})</span>
-                  )}
-                  {displayDetail && (
-                    <p className="text-text-light mt-0.5">{displayDetail}</p>
+                  {isGrouped ? (
+                    <>
+                      {/* Grouped: "4 × factor reclassified — reason" as title */}
+                      <span className="font-medium text-text-body">{displayDetail}</span>
+                      {/* Comma-separated target labels as sub-line */}
+                      {adj.target && (
+                        <p className="text-text-light mt-0.5">{adj.target}</p>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      <span className="font-medium text-text-body">
+                        {formatAdjustmentType(displayType)}
+                      </span>
+                      {adj.target && (
+                        <span className="text-text-light"> on {adj.target}</span>
+                      )}
+                      {cleanField && (
+                        <span className="text-text-light"> ({cleanField})</span>
+                      )}
+                      {displayDetail && (
+                        <p className="text-text-light mt-0.5">{displayDetail}</p>
+                      )}
+                    </>
                   )}
                 </div>
               </div>

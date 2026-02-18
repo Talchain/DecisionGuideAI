@@ -23,23 +23,31 @@ interface OptionPreviewProps {
  * Presentation-layer denormalisation (UI-PRES-004 debt).
  * Converts normalised intervention value to human-readable using cap + unit.
  * When CEE emits raw_interventions this helper becomes a pass-through.
+ *
+ * Returns: "to $5,000", "to 9 months", "unchanged", "to 0.80 (scale 0–1)"
  */
 function formatInterventionDisplay(
   normalisedValue: number,
   cap: number | null,
   unit: string | null,
+  direction: 'up' | 'down' | 'same',
 ): string {
-  // Discrete / unchanged: show raw normalised
-  if (cap == null) return normalisedValue.toFixed(2)
+  if (direction === 'same') return 'unchanged'
+
+  // No cap: normalised value with scale qualifier
+  if (cap == null) return `to ${normalisedValue.toFixed(2)} (scale 0–1)`
 
   const denormalised = normalisedValue * cap
-  // Round to integer when cap >= 10 (counts, currency), else 1 decimal
-  const display = cap >= 10 ? Math.round(denormalised) : +denormalised.toFixed(1)
+  // Discrete: integer cap and integer result → no decimals
+  const isDiscrete = Number.isInteger(cap) && Number.isInteger(denormalised)
+  const display = isDiscrete
+    ? Math.round(denormalised)
+    : (cap >= 10 ? Math.round(denormalised) : +denormalised.toFixed(1))
 
-  if (unit === '$' || unit === '£') return `${unit}${display.toLocaleString()}`
-  if (unit === '%') return `${display}%`
-  if (unit) return `${display} ${unit}`
-  return String(display)
+  if (unit === '$' || unit === '£') return `to ${unit}${display.toLocaleString()}`
+  if (unit === '%') return `to ${display}%`
+  if (unit) return `to ${display} ${unit}`
+  return `to ${display}`
 }
 
 function InterventionArrow({ direction }: { direction: 'up' | 'down' | 'same' }) {
@@ -114,13 +122,16 @@ export function OptionPreview({
                     {opt.interventions.length} {opt.interventions.length === 1 ? 'factor' : 'factors'} at current values
                   </span>
                 ) : (
-                  opt.interventions.map(iv => (
-                    <span key={iv.factorId} className="inline-flex items-center gap-1 text-xs text-text-body">
-                      <InterventionArrow direction={iv.direction} />
-                      <span>{iv.factorLabel}</span>
-                      <span className="text-text-light">{formatInterventionDisplay(iv.interventionValue, iv.cap, iv.unit)}</span>
-                    </span>
-                  ))
+                  opt.interventions.map(iv => {
+                    const display = formatInterventionDisplay(iv.interventionValue, iv.cap, iv.unit, iv.direction)
+                    return (
+                      <span key={iv.factorId} className="inline-flex items-center gap-1 text-xs text-text-body">
+                        <InterventionArrow direction={iv.direction} />
+                        <span>{iv.factorLabel}</span>
+                        <span className="text-text-light">{display}</span>
+                      </span>
+                    )
+                  })
                 )}
                 {opt.interventions.length === 0 && !opt.isBaseline && (
                   <span className="text-xs text-text-light">No interventions mapped</span>

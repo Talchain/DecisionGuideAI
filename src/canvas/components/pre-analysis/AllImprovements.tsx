@@ -146,7 +146,7 @@ function TierSection({
         <div className="flex items-center gap-2">
           <span className={`text-xs rounded-full px-2 py-0.5 ${showCompletionState ? 'text-success bg-success-light' : showEmptyState ? 'text-text-light bg-factor-light' : 'text-text-light bg-factor-light'}`}>
             {showCompletionState ? '✓' : showEmptyState ? '—' : (
-              isReviewTier ? items.filter(i => !i.setByOption).length : items.length
+              isReviewTier && totalCount != null ? totalCount : items.length
             )}
           </span>
           {isExpanded ? (
@@ -594,9 +594,9 @@ function ImprovementRow({ item, onFocus, actionHandlers, isRemoving, onHoverEnte
           onMouseEnter={handleRowMouseEnter}
           onMouseLeave={handleRowMouseLeave}
         >
-          {/* Line 1: label + value */}
-          <div className="flex items-baseline flex-wrap text-sm" title={fullText}>
-            <span className="text-text-body">
+          {/* Line 1: label (left) + value (right) */}
+          <div className="flex items-baseline justify-between gap-2 text-sm" title={fullText}>
+            <span className="text-text-body min-w-0 truncate">
               {item.focus ? (
                 <NodeLink
                   targetId={item.focus.id}
@@ -611,7 +611,7 @@ function ImprovementRow({ item, onFocus, actionHandlers, isRemoving, onHoverEnte
               )}
             </span>
             {item.detail && (
-              <span className="shrink-0 text-text-light"> · {item.detail}</span>
+              <span className="shrink-0 text-text-light">{item.detail}</span>
             )}
           </div>
           {/* Line 2: "Set by [Option]" badge */}
@@ -717,6 +717,12 @@ function ImprovementRow({ item, onFocus, actionHandlers, isRemoving, onHoverEnte
         {item.uncertaintyDrivers && item.uncertaintyDrivers.length > 0 && (
           <p className="text-xs text-text-light italic mt-0.5 ml-0.5">
             ⤷ {item.uncertaintyDrivers.join(', ')}
+          </p>
+        )}
+        {/* Verification hint (secondary to raw_value) */}
+        {item.hint && (
+          <p className="text-xs text-text-light mt-0.5 ml-0.5">
+            {item.hint}
           </p>
         )}
       </div>

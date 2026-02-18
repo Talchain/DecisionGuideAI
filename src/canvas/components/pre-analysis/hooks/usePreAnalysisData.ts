@@ -78,6 +78,8 @@ export interface ImprovementItem {
   setByOption?: string
   /** Source badge type: 'brief' | 'ai' | 'option' */
   sourceBadge?: 'brief' | 'ai' | 'option'
+  /** Secondary hint text (e.g. verification_prompt from CEE) */
+  hint?: string
 }
 
 /** Option preview data for Task 3 */
@@ -400,12 +402,10 @@ function needsReview(node: Node): boolean {
 }
 
 /**
- * Get AI-estimated value from node, formatted with appropriate units
- *
- * @param node - The factor node
- * @param isBinary - Whether the factor is binary (0/1), from cleanFactorLabel qualifier
+ * Get formatted value from node's observed_state.
+ * Used as fallback detail for "Set by" items and verify rows when raw_value is absent.
  */
-function getAiEstimatedValue(node: Node, isBinary = false): string | null {
+function getAiEstimatedValue(node: Node): string | null {
   // Check both snake_case (observed_state) and camelCase (observedState) for compatibility
   const data = node.data as {
     observed_state?: { value?: number; raw_value?: number; unit?: string }
@@ -437,6 +437,45 @@ function getAiEstimatedValue(node: Node, isBinary = false): string | null {
   }
   // Default: display with reasonable precision
   return value.toFixed(1)
+}
+
+/**
+ * Format observed_state for display: raw_value + unit as primary, cap as context, normalised fallback.
+ * Shared by verify items and "Set by" items for consistent formatting.
+ */
+function formatObservedStateDetail(os: ReturnType<typeof getObservedState>): string {
+  if (os.raw_value != null) {
+    const unit = os.unit
+    let primary: string
+    if (unit === '$' || unit === '£') {
+      primary = `${unit}${Number(os.raw_value).toLocaleString()}`
+    } else if (unit === '%') {
+      primary = `${os.raw_value}%`
+    } else if (unit) {
+      primary = `${os.raw_value} ${unit}`
+    } else {
+      primary = String(os.raw_value)
+    }
+    if (os.cap != null) {
+      const capUnit = os.unit
+      let capStr: string
+      if (capUnit === '$' || capUnit === '£') {
+        capStr = `${capUnit}${Number(os.cap).toLocaleString()}`
+      } else if (capUnit === '%') {
+        capStr = `${os.cap}%`
+      } else if (capUnit) {
+        capStr = `${os.cap} ${capUnit}`
+      } else {
+        capStr = String(os.cap)
+      }
+      return `${primary} of ${capStr}`
+    }
+    return primary
+  }
+  if (os.value != null) {
+    return `${Number(os.value).toFixed(2)} (scale 0–1)`
+  }
+  return ''
 }
 
 /**
@@ -596,11 +635,14 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
           ? (nodes.find(n => n.id === settingOption.id)?.data as { label?: string })?.label ?? settingOption.label ?? settingOption.id
           : null
 
+        // Use raw_value-first format consistent with verify items
+        const setByDetail = formatObservedStateDetail(os)
+
         result.verify.push({
           key: `verify_intervention_${factor.id}`,
           category: 'verify',
           label: cleanedLabel,
-          detail: value || 'Value needed',
+          detail: setByDetail || value || 'Value needed',
           setByOption: optionLabel ?? undefined,
           sourceBadge: 'option',
           focus: { type: 'node', id: factor.id, label: cleanedLabel },
@@ -620,31 +662,11 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
         isAi ? 'ai' :
         undefined
 
-      // Build context line: raw_value + unit as primary, cap as context, normalised fallback
-      let contextLine = verificationPrompt || ''
-      if (!contextLine) {
-        if (os.raw_value != null) {
-          // Primary: raw_value + unit (e.g., "9 months", "$100,000", "42%")
-          const unit = os.unit
-          let primary: string
-          if (unit === '$' || unit === '£') {
-            primary = `${unit}${Number(os.raw_value).toLocaleString()}`
-          } else if (unit === '%') {
-            primary = `${os.raw_value}%`
-          } else if (unit) {
-            primary = `${os.raw_value} ${unit}`
-          } else {
-            primary = String(os.raw_value)
-          }
-          // Context: cap (e.g., "of 18")
-          contextLine = os.cap != null ? `${primary} of ${os.cap}` : primary
-        } else if (os.value != null) {
-          // Fallback: normalised value with scale qualifier
-          contextLine = `${Number(os.value).toFixed(2)} (scale 0–1)`
-        } else if (isAi) {
-          contextLine = 'Estimated by AI'
-        }
-      }
+      // Build context line: raw_value + unit always primary, verification_prompt → hint
+      const contextLine = formatObservedStateDetail(os) || (isAi ? 'Estimated by AI' : '')
+
+      // Verification prompt demoted to secondary hint (never overrides raw_value)
+      const hint = verificationPrompt || undefined
 
       result.verify.push({
         key: `verify_${factor.id}`,
@@ -656,6 +678,7 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
         action: { label: 'Confirm', kind: 'confirm', targetId: factor.id, targetType: 'node' },
         uncertaintyDrivers,
         sourceBadge,
+        hint,
       })
     }
 

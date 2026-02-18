@@ -1478,7 +1478,7 @@ describe('usePreAnalysisData', () => {
   })
 
   describe('Phase 3.1: verification_prompts from CEE', () => {
-    it('uses verification_prompts as detail when available', () => {
+    it('uses verification_prompts as hint, raw_value/normalised as detail', () => {
       mockUseCanvasStore.mockImplementation(createMockStore({
         nodes: [
           {
@@ -1502,10 +1502,12 @@ describe('usePreAnalysisData', () => {
 
       const { result } = renderHook(() => usePreAnalysisData())
 
+      // detail uses normalised value (no raw_value); hint gets verification prompt
       expect(result.current.improvementsByCategory.verify).toContainEqual(
         expect.objectContaining({
           key: 'verify_factor1',
-          detail: 'Is the conversion rate around 4%?',
+          detail: '0.04 (scale 0\u20131)',
+          hint: 'Is the conversion rate around 4%?',
         })
       )
     })
@@ -1566,7 +1568,7 @@ describe('usePreAnalysisData', () => {
       )
     })
 
-    it('uses verification_prompts with multiple factors', () => {
+    it('uses verification_prompts as hint with multiple factors', () => {
       mockUseCanvasStore.mockImplementation(createMockStore({
         nodes: [
           {
@@ -1600,19 +1602,20 @@ describe('usePreAnalysisData', () => {
 
       const { result } = renderHook(() => usePreAnalysisData())
 
-      // factor1 should use verification prompt
+      // factor1: detail from normalised value, hint from verification prompt
       expect(result.current.improvementsByCategory.verify).toContainEqual(
         expect.objectContaining({
           key: 'verify_factor1',
-          detail: 'Is the conversion rate around 4%?',
+          detail: '0.04 (scale 0\u20131)',
+          hint: 'Is the conversion rate around 4%?',
         })
       )
 
-      // factor2 should fall back to normalised value (no raw_value, value=85 present)
+      // factor2: no prompt → hint undefined, detail from normalised value
       expect(result.current.improvementsByCategory.verify).toContainEqual(
         expect.objectContaining({
           key: 'verify_factor2',
-          detail: '85.00 (scale 0–1)',
+          detail: '85.00 (scale 0\u20131)',
         })
       )
     })
