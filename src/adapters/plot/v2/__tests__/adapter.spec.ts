@@ -1108,4 +1108,38 @@ describe('buildV2RequestFromAnalysisReady — display metadata exclusion', () =>
       expect(ALLOWED_KEYS).toContain(key)
     }
   })
+
+  it('unknown analysisReady fields do not leak to request', () => {
+    // Future-proof: if CEE adds new fields to analysis_ready,
+    // they must NOT appear on the /v2/run request unless explicitly allowlisted.
+    const nodes: Node[] = [
+      makeNode('f1', { label: 'Factor', kind: 'factor', value: 50 }),
+      makeNode('goal', { label: 'Goal', kind: 'goal' }),
+    ]
+    const edges: Edge[] = [
+      makeEdge('e1', 'f1', 'goal', { weight: 0.5, direction: 'positive', beliefExists: 0.7 }),
+    ]
+    const analysisReady = {
+      options: [{
+        id: 'opt1',
+        label: 'Option',
+        status: 'ready' as const,
+        interventions: { f1: { value: 100, source: 'brief_extraction' } },
+      }],
+      goal_node_id: 'goal',
+      goal_threshold: 0.6,
+      // Synthetic unknown fields that could appear in future CEE versions
+      new_backend_field: 'should_not_leak',
+      experimental_config: { nested: true },
+      display_hint: 'compact',
+    } as CEEAnalysisReady
+
+    const { request } = buildV2RequestFromAnalysisReady(nodes, edges, analysisReady)
+
+    expect(request).not.toHaveProperty('new_backend_field')
+    expect(request).not.toHaveProperty('experimental_config')
+    expect(request).not.toHaveProperty('display_hint')
+    // Allowed field still present
+    expect(request.goal_threshold).toBe(0.6)
+  })
 })
