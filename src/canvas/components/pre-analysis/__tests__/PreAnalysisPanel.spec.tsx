@@ -886,8 +886,7 @@ describe('PreAnalysisPanel', () => {
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
 
       expect(screen.getByTestId('model-adjustments')).toBeInTheDocument()
-      expect(screen.getByText('Auto-fixes applied')).toBeInTheDocument()
-      expect(screen.getByText('2')).toBeInTheDocument() // count badge
+      expect(screen.getByText('2 auto-fixes applied')).toBeInTheDocument()
     })
 
     it('does not render model-adjustments section when adjustments are empty', () => {
@@ -913,7 +912,7 @@ describe('PreAnalysisPanel', () => {
       expect(screen.queryByText(/Reclassified 1 factor/)).not.toBeInTheDocument()
 
       // Click to expand
-      fireEvent.click(screen.getByText('Auto-fixes applied'))
+      fireEvent.click(screen.getByText('1 auto-fix applied'))
 
       // Humanised headline from REPAIR_COPY map
       expect(screen.getByText(/Reclassified 1 factor/)).toBeInTheDocument()
@@ -935,8 +934,8 @@ describe('PreAnalysisPanel', () => {
       expect(screen.getByTestId('model-adjustments')).toBeInTheDocument()
 
       // Expand and check — humanised headline from REPAIR_COPY map
-      fireEvent.click(screen.getByText('Auto-fixes applied'))
-      expect(screen.getByText('Repaired 1 structural issue(s) in your model')).toBeInTheDocument()
+      fireEvent.click(screen.getByText('1 auto-fix applied'))
+      expect(screen.getByText('Repaired 1 structural issue in your model')).toBeInTheDocument()
       // Raw reason is behind "Details" toggle
       expect(screen.getByText('Details')).toBeInTheDocument()
     })
@@ -950,7 +949,7 @@ describe('PreAnalysisPanel', () => {
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
 
-      fireEvent.click(screen.getByText('Auto-fixes applied'))
+      fireEvent.click(screen.getByText('1 auto-fix applied'))
       // Generic fallback when type/code unmapped
       expect(screen.getByText(/We corrected an internal inconsistency/)).toBeInTheDocument()
     })

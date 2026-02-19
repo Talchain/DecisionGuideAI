@@ -307,6 +307,9 @@ describe('Interactive Actions Hardening', () => {
       const optionalHeader = screen.getByText(/More improvements/)
       fireEvent.click(optionalHeader)
 
+      // Evidence items are collapsed behind "View all" — expand them
+      fireEvent.click(screen.getByText(/View all/))
+
       // Click the Add button (icon button with aria-label="Add")
       const addButtons = screen.getAllByRole('button', { name: /add/i })
       const addButton = addButtons.find(btn => btn.getAttribute('aria-label') === 'Add')
@@ -348,6 +351,9 @@ describe('Interactive Actions Hardening', () => {
       // Optional tier is collapsed by default - click tier header to expand
       const optionalHeader = screen.getByText(/More improvements/)
       fireEvent.click(optionalHeader)
+
+      // Evidence items are collapsed behind "View all" — expand them
+      fireEvent.click(screen.getByText(/View all/))
 
       // Click the Add button to show evidence input (icon button with aria-label="Add")
       const addButtons = screen.getAllByRole('button', { name: /add/i })
@@ -394,6 +400,9 @@ describe('Interactive Actions Hardening', () => {
       // Optional tier is collapsed by default - click tier header to expand
       const optionalHeader = screen.getByText(/More improvements/)
       fireEvent.click(optionalHeader)
+
+      // Evidence items are collapsed behind "View all" — expand them
+      fireEvent.click(screen.getByText(/View all/))
 
       // Click the Add button to show evidence input (icon button with aria-label="Add")
       const addButtons = screen.getAllByRole('button', { name: /add/i })
@@ -628,6 +637,9 @@ describe('Interactive Actions Hardening', () => {
       // Optional tier is collapsed by default - click tier header to expand
       const optionalHeader = screen.getByText(/More improvements/)
       fireEvent.click(optionalHeader)
+
+      // Evidence items are collapsed behind "View all" — expand them
+      fireEvent.click(screen.getByText(/View all/))
 
       // Click the Add button to show evidence input (icon button with aria-label="Add")
       const addButtons = screen.getAllByRole('button', { name: /add/i })

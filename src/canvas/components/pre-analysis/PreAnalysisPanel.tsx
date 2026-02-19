@@ -682,16 +682,11 @@ export function PreAnalysisPanel({
           ceeQuality={data.ceeQuality}
         />
 
-        {/* 7. Analysis Settings accordion (Goal Node + Success threshold) */}
+        {/* 7. Analysis Settings accordion (Goal selector) */}
         <AnalysisSettings
           goalNodes={data.nodesByKind.goal}
           selectedGoalNode={data.goalNode}
-          successThreshold={data.successThreshold}
-          isThresholdAutoDerived={data.isThresholdAutoDerived}
-          goalThresholdRaw={data.goalThresholdRaw}
-          goalThresholdUnit={data.goalThresholdUnit}
           onGoalChange={handleGoalChange}
-          onThresholdChange={handleThresholdChange}
         />
       </div>
 

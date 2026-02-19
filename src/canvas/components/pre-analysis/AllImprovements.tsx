@@ -116,6 +116,9 @@ function TierSection({
   reviewedCount,
   totalCount,
 }: TierSectionProps) {
+  // For optional tier: collapse add_evidence items into summary row
+  const [evidenceExpanded, setEvidenceExpanded] = useState(false)
+
   // For reviewAssumptions: always show tier (even when empty) to display state
   // For other tiers: hide when no items
   const isReviewTier = tierKey === 'reviewAssumptions'
@@ -124,13 +127,18 @@ function TierSection({
   const showEmptyState = isReviewTier && items.length === 0 && (totalCount === undefined || totalCount === 0)
   if (items.length === 0 && !showCompletionState && !showEmptyState) return null
 
+  // Split optional tier items: strengthen items render normally, add_evidence collapsed
+  const isOptionalTier = tierKey === 'optional'
+  const evidenceItems = isOptionalTier ? items.filter(i => i.category === 'add_evidence') : []
+  const nonEvidenceItems = isOptionalTier ? items.filter(i => i.category !== 'add_evidence') : items
+
   // Build section title with progress for reviewAssumptions
   // Hide progress counter when no assumptions to review
   // For optional tier, show count in title instead of status bar headline
   let sectionTitle = config.title
   if (isReviewTier && reviewedCount !== undefined && totalCount !== undefined && totalCount > 0) {
     sectionTitle = `${config.title} (${reviewedCount} of ${totalCount} done)`
-  } else if (tierKey === 'optional' && items.length > 0) {
+  } else if (isOptionalTier && items.length > 0) {
     sectionTitle = `${config.title} (${items.length})`
   }
 
@@ -179,23 +187,83 @@ function TierSection({
               All factor values are set by your options or came from your brief — nothing to review.
             </p>
           ) : (
-            items.map((item, index) => (
-              <div
-                key={item.key}
-                style={index > 0 ? {
-                  borderTop: '1px solid rgba(238, 230, 216, 0.5)',
-                  paddingTop: '8px',
-                } : undefined}
-              >
-                <ImprovementRow
-                  item={item}
-                  onFocus={onFocus}
-                  actionHandlers={actionHandlers}
-                  onHoverEnter={onHoverEnter}
-                  onHoverLeave={onHoverLeave}
-                />
-              </div>
-            ))
+            <>
+              {/* Non-evidence items render normally */}
+              {nonEvidenceItems.map((item, index) => (
+                <div
+                  key={item.key}
+                  style={index > 0 ? {
+                    borderTop: '1px solid rgba(238, 230, 216, 0.5)',
+                    paddingTop: '8px',
+                  } : undefined}
+                >
+                  <ImprovementRow
+                    item={item}
+                    onFocus={onFocus}
+                    actionHandlers={actionHandlers}
+                    onHoverEnter={onHoverEnter}
+                    onHoverLeave={onHoverLeave}
+                  />
+                </div>
+              ))}
+
+              {/* Evidence items: collapsed summary row */}
+              {evidenceItems.length > 0 && (
+                <div
+                  style={nonEvidenceItems.length > 0 ? {
+                    borderTop: '1px solid rgba(238, 230, 216, 0.5)',
+                    paddingTop: '8px',
+                  } : undefined}
+                >
+                  {!evidenceExpanded ? (
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm text-text-body">
+                        {evidenceItems.length} edge{evidenceItems.length !== 1 ? 's' : ''} without evidence
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => setEvidenceExpanded(true)}
+                        className="text-xs font-medium text-info hover:underline cursor-pointer"
+                      >
+                        View all
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="flex items-center justify-between mb-2">
+                        <p className="text-sm font-semibold text-text-light">
+                          Add evidence ({evidenceItems.length})
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => setEvidenceExpanded(false)}
+                          className="text-xs font-medium text-info hover:underline cursor-pointer"
+                        >
+                          Collapse
+                        </button>
+                      </div>
+                      {evidenceItems.map((item, index) => (
+                        <div
+                          key={item.key}
+                          style={index > 0 ? {
+                            borderTop: '1px solid rgba(225, 216, 199, 0.4)',
+                            paddingTop: '8px',
+                          } : undefined}
+                        >
+                          <ImprovementRow
+                            item={item}
+                            onFocus={onFocus}
+                            actionHandlers={actionHandlers}
+                            onHoverEnter={onHoverEnter}
+                            onHoverLeave={onHoverLeave}
+                          />
+                        </div>
+                      ))}
+                    </>
+                  )}
+                </div>
+              )}
+            </>
           )}
         </div>
       )}

@@ -45,22 +45,22 @@ interface ModelAdjustmentsProps {
  * - edge_added / edge_removed / node_removed
  * - strength_defaulted / observed_state_defaulted / baseline_created
  */
-const REPAIR_COPY: Record<string, string> = {
-  'factor_reclassified': 'Reclassified {count} factor(s) to external — not directly controlled by your options',
-  'category_reclassified': 'Reclassified {count} factor(s) to external — not directly controlled by your options',
-  'category_inferred': 'Reclassified {count} factor(s) to external — not directly controlled by your options',
-  'category_infer': 'Reclassified {count} factor(s) to external — not directly controlled by your options',
-  'risk_coefficient_corrected': 'Corrected {count} relationship direction(s) where the sign didn\u2019t match the effect',
-  'deterministic_repair': 'Repaired {count} structural issue(s) in your model',
-  'strp_repair': 'Repaired {count} structural issue(s) in your model',
-  'edge_added': 'Added {count} missing relationship(s)',
-  'edge_removed': 'Removed {count} invalid relationship(s)',
-  'node_removed': 'Removed {count} unused node(s)',
-  'strength_defaulted': 'Set default strength for {count} relationship(s)',
-  'edge_strength_clamped': 'Adjusted {count} relationship strength(s) to stay within valid range',
-  'exists_probability_defaulted': 'Set a default confidence level for {count} relationship(s) that were missing one',
-  'observed_state_defaulted': 'Set default values for {count} factor(s)',
-  'baseline_created': 'Created baseline option for comparison',
+const REPAIR_COPY: Record<string, { singular: string; plural: string }> = {
+  'factor_reclassified': { singular: 'Reclassified 1 factor to external — not directly controlled by your options', plural: 'Reclassified {count} factors to external — not directly controlled by your options' },
+  'category_reclassified': { singular: 'Reclassified 1 factor to external — not directly controlled by your options', plural: 'Reclassified {count} factors to external — not directly controlled by your options' },
+  'category_inferred': { singular: 'Reclassified 1 factor to external — not directly controlled by your options', plural: 'Reclassified {count} factors to external — not directly controlled by your options' },
+  'category_infer': { singular: 'Reclassified 1 factor to external — not directly controlled by your options', plural: 'Reclassified {count} factors to external — not directly controlled by your options' },
+  'risk_coefficient_corrected': { singular: 'Corrected 1 relationship direction where the sign didn\u2019t match the effect', plural: 'Corrected {count} relationship directions where the sign didn\u2019t match the effect' },
+  'deterministic_repair': { singular: 'Repaired 1 structural issue in your model', plural: 'Repaired {count} structural issues in your model' },
+  'strp_repair': { singular: 'Repaired 1 structural issue in your model', plural: 'Repaired {count} structural issues in your model' },
+  'edge_added': { singular: 'Added 1 missing relationship', plural: 'Added {count} missing relationships' },
+  'edge_removed': { singular: 'Removed 1 invalid relationship', plural: 'Removed {count} invalid relationships' },
+  'node_removed': { singular: 'Removed 1 unused node', plural: 'Removed {count} unused nodes' },
+  'strength_defaulted': { singular: 'Set default strength for 1 relationship', plural: 'Set default strength for {count} relationships' },
+  'edge_strength_clamped': { singular: 'Adjusted 1 relationship strength to stay within valid range', plural: 'Adjusted {count} relationship strengths to stay within valid range' },
+  'exists_probability_defaulted': { singular: 'Set a default confidence level for 1 relationship that was missing one', plural: 'Set a default confidence level for {count} relationships that were missing one' },
+  'observed_state_defaulted': { singular: 'Set default values for 1 factor', plural: 'Set default values for {count} factors' },
+  'baseline_created': { singular: 'Created baseline option for comparison', plural: 'Created baseline option for comparison' },
 }
 
 /** Generic fallback for unmapped repair codes */
@@ -68,8 +68,9 @@ const GENERIC_REPAIR_FALLBACK = 'We corrected an internal inconsistency. Your in
 
 /** Get user-facing headline for a repair type, or null if unmapped */
 function getRepairCopy(type: string, count: number): string | null {
-  const template = REPAIR_COPY[type]
-  if (!template) return null
+  const entry = REPAIR_COPY[type]
+  if (!entry) return null
+  const template = count === 1 ? entry.singular : entry.plural
   return template.replace('{count}', String(count))
 }
 
@@ -201,13 +202,12 @@ export function ModelAdjustments({ adjustments, repairActions = [] }: ModelAdjus
         <Wrench size={14} className="text-text-light flex-shrink-0" />
         <div className="flex-1 min-w-0">
           <span className="text-xs font-semibold text-text-body">
-            Auto-fixes applied
+            {totalCount === 1 ? '1 auto-fix applied' : `${totalCount} auto-fixes applied`}
           </span>
           <p className="text-xs text-text-light leading-tight">
             We fixed small issues without changing your intent.
           </p>
         </div>
-        <span className="text-xs text-text-light">{totalCount}</span>
         {isExpanded ? (
           <ChevronDown size={14} className="text-text-light" />
         ) : (

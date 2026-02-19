@@ -659,8 +659,8 @@ describe('usePreAnalysisData', () => {
       )
     })
 
-    it('shows fallback text when value is null', () => {
-      // contextLine: no raw_value, no cap, isAi → "Estimated by AI"
+    it('excludes factors with null observed_state value from verify', () => {
+      // Factors without a non-null observed_state value are excluded from verify
       mockUseCanvasStore.mockImplementation(createMockStore({
         nodes: [
           {
@@ -677,11 +677,8 @@ describe('usePreAnalysisData', () => {
 
       const { result } = renderHook(() => usePreAnalysisData())
 
-      expect(result.current.improvementsByCategory.verify).toContainEqual(
-        expect.objectContaining({
-          key: 'verify_factor1',
-          detail: 'Estimated by AI',
-        })
+      expect(result.current.improvementsByCategory.verify).not.toContainEqual(
+        expect.objectContaining({ key: 'verify_factor1' })
       )
     })
   })
@@ -860,34 +857,34 @@ describe('usePreAnalysisData', () => {
     })
   })
 
-  describe('P0-2: Progress Counter Excludes brief_extraction', () => {
-    it('includes brief_extraction factors in totalReviewableFactorsCount', () => {
+  describe('P0-2: Progress Counter — observed_state value based', () => {
+    it('counts factors with observed_state value in totalReviewableFactorsCount', () => {
       mockUseCanvasStore.mockImplementation(createMockStore({
         nodes: [
-          { id: 'f1', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'F1', observed_state: { source: 'brief_extraction' } } },
-          { id: 'f2', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'F2', observed_state: { source: 'cee_inference' } } },
-          { id: 'f3', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'F3', observed_state: { source: 'ai' } } },
+          { id: 'f1', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'F1', observed_state: { source: 'brief_extraction', value: 0.5 } } },
+          { id: 'f2', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'F2', observed_state: { source: 'cee_inference', value: 0.3 } } },
+          { id: 'f3', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'F3', observed_state: { source: 'ai', value: 0.7 } } },
         ],
       }))
 
       const { result } = renderHook(() => usePreAnalysisData())
 
-      // brief_extraction is now reviewable (v1.1), so all 3 are counted
+      // All 3 factors have observed_state values
       expect(result.current.totalReviewableFactorsCount).toBe(3)
     })
 
     it('counts user_confirmed and user_assumption as reviewed', () => {
       mockUseCanvasStore.mockImplementation(createMockStore({
         nodes: [
-          { id: 'f1', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'F1', observed_state: { source: 'user_confirmed' } } },
-          { id: 'f2', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'F2', observed_state: { source: 'user_assumption' } } },
-          { id: 'f3', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'F3', observed_state: { source: 'cee_inference' } } },
+          { id: 'f1', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'F1', observed_state: { source: 'user_confirmed', value: 0.5 } } },
+          { id: 'f2', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'F2', observed_state: { source: 'user_assumption', value: 0.3 } } },
+          { id: 'f3', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'F3', observed_state: { source: 'cee_inference', value: 0.7 } } },
         ],
       }))
 
       const { result } = renderHook(() => usePreAnalysisData())
 
-      // user_confirmed and user_assumption count toward total (they were AI, now reviewed)
+      // user_confirmed and user_assumption count as reviewed
       expect(result.current.totalReviewableFactorsCount).toBe(3)
       expect(result.current.reviewedFactorsCount).toBe(2)
     })
@@ -895,14 +892,13 @@ describe('usePreAnalysisData', () => {
     it('counts brief_extraction factors as reviewable', () => {
       mockUseCanvasStore.mockImplementation(createMockStore({
         nodes: [
-          { id: 'f1', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'F1', observed_state: { source: 'brief_extraction' } } },
-          { id: 'f2', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'F2', observed_state: { source: 'brief_extraction' } } },
+          { id: 'f1', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'F1', observed_state: { source: 'brief_extraction', value: 0.4 } } },
+          { id: 'f2', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'F2', observed_state: { source: 'brief_extraction', value: 0.6 } } },
         ],
       }))
 
       const { result } = renderHook(() => usePreAnalysisData())
 
-      // brief_extraction is now reviewable (v1.1)
       expect(result.current.totalReviewableFactorsCount).toBe(2)
       expect(result.current.reviewedFactorsCount).toBe(0)
     })
@@ -1086,11 +1082,10 @@ describe('usePreAnalysisData', () => {
     })
   })
 
-  describe('Phase 2.5: Controllable Factors with Interventions', () => {
-    it('excludes controllable factors with interventions from verify category', () => {
+  describe('Verify filter: observed_state value inclusion', () => {
+    it('includes factors with observed_state value in verify regardless of interventions', () => {
       mockUseCanvasStore.mockImplementation(createMockStore({
         nodes: [
-          // Controllable factor targeted by option intervention
           {
             id: 'factor1',
             type: 'factor',
@@ -1101,7 +1096,6 @@ describe('usePreAnalysisData', () => {
               observed_state: { source: 'ai', value: 5000 },
             },
           },
-          // Option with intervention targeting factor1
           {
             id: 'opt1',
             type: 'option',
@@ -1122,8 +1116,8 @@ describe('usePreAnalysisData', () => {
 
       const { result } = renderHook(() => usePreAnalysisData())
 
-      // Controllable factor with intervention should NOT appear in verify
-      expect(result.current.improvementsByCategory.verify).not.toContainEqual(
+      // Factor with observed_state value appears in verify even if targeted by interventions
+      expect(result.current.improvementsByCategory.verify).toContainEqual(
         expect.objectContaining({ key: 'verify_factor1' })
       )
     })
@@ -1131,7 +1125,6 @@ describe('usePreAnalysisData', () => {
     it('includes controllable factor without interventions in verify category', () => {
       mockUseCanvasStore.mockImplementation(createMockStore({
         nodes: [
-          // Controllable factor NOT targeted by any intervention
           {
             id: 'factor1',
             type: 'factor',
@@ -1142,7 +1135,6 @@ describe('usePreAnalysisData', () => {
               observed_state: { source: 'ai', value: 5000 },
             },
           },
-          // Option without interventions
           {
             id: 'opt1',
             type: 'option',
@@ -1160,16 +1152,14 @@ describe('usePreAnalysisData', () => {
 
       const { result } = renderHook(() => usePreAnalysisData())
 
-      // Controllable factor WITHOUT intervention should appear in verify
       expect(result.current.improvementsByCategory.verify).toContainEqual(
         expect.objectContaining({ key: 'verify_factor1' })
       )
     })
 
-    it('includes external category factor with interventions in verify category', () => {
+    it('includes external factor with interventions in verify category', () => {
       mockUseCanvasStore.mockImplementation(createMockStore({
         nodes: [
-          // External factor (not controllable) targeted by intervention
           {
             id: 'factor1',
             type: 'factor',
@@ -1180,7 +1170,6 @@ describe('usePreAnalysisData', () => {
               observed_state: { source: 'ai', value: 0.05 },
             },
           },
-          // Option with intervention targeting factor1
           {
             id: 'opt1',
             type: 'option',
@@ -1201,14 +1190,13 @@ describe('usePreAnalysisData', () => {
 
       const { result } = renderHook(() => usePreAnalysisData())
 
-      // External factor with intervention is now excluded from verify
-      // (intervention-target factors skip regardless of category)
-      expect(result.current.improvementsByCategory.verify).not.toContainEqual(
+      // Factor with observed_state value is always included
+      expect(result.current.improvementsByCategory.verify).toContainEqual(
         expect.objectContaining({ key: 'verify_factor1' })
       )
     })
 
-    it('excludes controllable factor when multiple options have interventions', () => {
+    it('includes factors targeted by multiple options in verify', () => {
       mockUseCanvasStore.mockImplementation(createMockStore({
         nodes: [
           {
@@ -1244,13 +1232,13 @@ describe('usePreAnalysisData', () => {
 
       const { result } = renderHook(() => usePreAnalysisData())
 
-      // Factor targeted by ANY option intervention should be excluded
-      expect(result.current.improvementsByCategory.verify).not.toContainEqual(
+      // Factor with observed_state value always appears
+      expect(result.current.improvementsByCategory.verify).toContainEqual(
         expect.objectContaining({ key: 'verify_factor1' })
       )
     })
 
-    it('handles category case insensitively', () => {
+    it('excludes factors with null observed_state value', () => {
       mockUseCanvasStore.mockImplementation(createMockStore({
         nodes: [
           {
@@ -1259,18 +1247,15 @@ describe('usePreAnalysisData', () => {
             position: { x: 0, y: 0 },
             data: {
               label: 'Budget',
-              category: 'Controllable', // Mixed case
-              observed_state: { source: 'ai', value: 5000 },
+              category: 'Controllable',
+              observed_state: { source: 'ai', value: null },
             },
           },
           {
             id: 'opt1',
             type: 'option',
             position: { x: 0, y: 0 },
-            data: {
-              label: 'Option 1',
-              interventions: { factor1: 10000 },
-            },
+            data: { label: 'Option 1' },
           },
           {
             id: 'opt2',
@@ -1283,16 +1268,15 @@ describe('usePreAnalysisData', () => {
 
       const { result } = renderHook(() => usePreAnalysisData())
 
-      // Should handle mixed case category
+      // Factor with null value should NOT appear in verify
       expect(result.current.improvementsByCategory.verify).not.toContainEqual(
         expect.objectContaining({ key: 'verify_factor1' })
       )
     })
 
-    it('excludes controllable factors with interventions from progress count but shows in verify', () => {
+    it('counts all factors with observed_state values in progress', () => {
       mockUseCanvasStore.mockImplementation(createMockStore({
         nodes: [
-          // Controllable factor with intervention - should NOT count toward progress
           {
             id: 'factor1',
             type: 'factor',
@@ -1303,7 +1287,6 @@ describe('usePreAnalysisData', () => {
               observed_state: { source: 'ai', value: 5000 },
             },
           },
-          // Regular AI factor - should count toward progress
           {
             id: 'factor2',
             type: 'factor',
@@ -1313,7 +1296,6 @@ describe('usePreAnalysisData', () => {
               observed_state: { source: 'ai', value: 0.04 },
             },
           },
-          // Option with intervention targeting factor1
           {
             id: 'opt1',
             type: 'option',
@@ -1334,25 +1316,20 @@ describe('usePreAnalysisData', () => {
 
       const { result } = renderHook(() => usePreAnalysisData())
 
-      // Only factor2 should count toward progress - factor1 is controllable with intervention
-      expect(result.current.totalReviewableFactorsCount).toBe(1)
-      // Verify items: factor1 is excluded entirely (controllable with intervention),
-      // factor2 appears as verify_factor2 (reviewable)
-      expect(result.current.improvementsByCategory.verify).toHaveLength(1)
-      expect(result.current.improvementsByCategory.verify).not.toContainEqual(
-        expect.objectContaining({ key: 'verify_intervention_factor1' })
+      // Both factors have observed_state values — both count
+      expect(result.current.totalReviewableFactorsCount).toBe(2)
+      expect(result.current.improvementsByCategory.verify).toHaveLength(2)
+      expect(result.current.improvementsByCategory.verify).toContainEqual(
+        expect.objectContaining({ key: 'verify_factor1' })
       )
       expect(result.current.improvementsByCategory.verify).toContainEqual(
         expect.objectContaining({ key: 'verify_factor2' })
       )
     })
 
-    it('excludes controllable factors with interventions from ceeAnalysisReady.options (primary path)', () => {
-      // This tests the CEE V3 format where interventions live in ceeAnalysisReady.options[]
-      // NOT in node.data.interventions (which is the legacy fallback path)
+    it('includes factors from ceeAnalysisReady.options regardless of interventions', () => {
       mockUseCanvasStore.mockImplementation(createMockStore({
         nodes: [
-          // Controllable factor with AI source
           {
             id: 'fac_investment',
             type: 'factor',
@@ -1363,7 +1340,6 @@ describe('usePreAnalysisData', () => {
               observed_state: { source: 'cee_inference', value: 50000 },
             },
           },
-          // Non-controllable factor for comparison
           {
             id: 'fac_churn',
             type: 'factor',
@@ -1374,7 +1350,6 @@ describe('usePreAnalysisData', () => {
               observed_state: { source: 'cee_inference', value: 0.05 },
             },
           },
-          // Options WITHOUT interventions in node.data
           {
             id: 'opt_expand',
             type: 'option',
@@ -1388,7 +1363,6 @@ describe('usePreAnalysisData', () => {
             data: { label: 'Status Quo', is_baseline: true },
           },
         ],
-        // Interventions are in ceeAnalysisReady.options (CEE V3 format)
         ceeAnalysisReady: {
           status: 'ready',
           goal_node_id: 'goal1',
@@ -1415,18 +1389,16 @@ describe('usePreAnalysisData', () => {
 
       const { result } = renderHook(() => usePreAnalysisData())
 
-      // fac_investment should be EXCLUDED (controllable + has intervention in ceeAnalysisReady.options)
-      expect(result.current.improvementsByCategory.verify).not.toContainEqual(
+      // Both factors have observed_state values — both appear in verify
+      expect(result.current.improvementsByCategory.verify).toContainEqual(
         expect.objectContaining({ key: 'verify_fac_investment' })
       )
-      // fac_churn should be INCLUDED (external category, even though options don't target it)
       expect(result.current.improvementsByCategory.verify).toContainEqual(
         expect.objectContaining({ key: 'verify_fac_churn' })
       )
     })
 
-    it('handles nested intervention format with null value (should not count as intervention)', () => {
-      // Test that { value: null } doesn't incorrectly match as an intervention
+    it('includes factor regardless of intervention format', () => {
       mockUseCanvasStore.mockImplementation(createMockStore({
         nodes: [
           {
@@ -1458,7 +1430,7 @@ describe('usePreAnalysisData', () => {
           options: [
             {
               id: 'opt1',
-              interventions: { factor1: { value: null } }, // null value should NOT count
+              interventions: { factor1: { value: null } },
             },
             {
               id: 'opt2',
@@ -1470,7 +1442,7 @@ describe('usePreAnalysisData', () => {
 
       const { result } = renderHook(() => usePreAnalysisData())
 
-      // factor1 should APPEAR in verify because { value: null } doesn't count as intervention
+      // factor1 has observed_state value — appears in verify
       expect(result.current.improvementsByCategory.verify).toContainEqual(
         expect.objectContaining({ key: 'verify_factor1' })
       )
@@ -1894,7 +1866,7 @@ describe('usePreAnalysisData', () => {
 
   describe('Bug Fixes', () => {
     describe('Task 1: Nested intervention format', () => {
-      it('excludes controllable factor with nested intervention format { value: number }', () => {
+      it('includes factor with nested intervention format { value: number }', () => {
         mockUseCanvasStore.mockImplementation(createMockStore({
           nodes: [
             {
@@ -1913,7 +1885,6 @@ describe('usePreAnalysisData', () => {
               position: { x: 0, y: 0 },
               data: {
                 label: 'Option 1',
-                // Nested format: { value: number }
                 interventions: { fac_europe_entry: { value: 1 } },
               },
             },
@@ -1928,13 +1899,13 @@ describe('usePreAnalysisData', () => {
 
         const { result } = renderHook(() => usePreAnalysisData())
 
-        // Controllable factor with nested intervention should be excluded
-        expect(result.current.improvementsByCategory.verify).not.toContainEqual(
+        // Factor with observed_state value appears in verify regardless of interventions
+        expect(result.current.improvementsByCategory.verify).toContainEqual(
           expect.objectContaining({ key: 'verify_fac_europe_entry' })
         )
       })
 
-      it('excludes controllable factor with simple intervention format (number)', () => {
+      it('includes factor with simple intervention format (number)', () => {
         mockUseCanvasStore.mockImplementation(createMockStore({
           nodes: [
             {
@@ -1953,7 +1924,6 @@ describe('usePreAnalysisData', () => {
               position: { x: 0, y: 0 },
               data: {
                 label: 'Option 1',
-                // Simple format: number
                 interventions: { fac_investment: 100000 },
               },
             },
@@ -1968,8 +1938,8 @@ describe('usePreAnalysisData', () => {
 
         const { result } = renderHook(() => usePreAnalysisData())
 
-        // Controllable factor with simple intervention should be excluded
-        expect(result.current.improvementsByCategory.verify).not.toContainEqual(
+        // Factor with observed_state value appears in verify regardless of interventions
+        expect(result.current.improvementsByCategory.verify).toContainEqual(
           expect.objectContaining({ key: 'verify_fac_investment' })
         )
       })
@@ -2686,8 +2656,8 @@ describe('usePreAnalysisData', () => {
   })
 
   describe('Task 5: many_ai_estimates suppression', () => {
-    it('suppresses many_ai_estimates check when totalReviewableFactorsCount is 0', () => {
-      // All factors are intervention targets → totalReviewableFactorsCount = 0
+    it('fires many_ai_estimates when all factors are AI-sourced with values', () => {
+      // All factors have observed_state values — reviewable
       mockUseCanvasStore.mockImplementation(createMockStore({
         nodes: [
           {
@@ -2745,10 +2715,10 @@ describe('usePreAnalysisData', () => {
 
       const { result } = renderHook(() => usePreAnalysisData())
 
-      // All factors are intervention targets — should be 0 reviewable
-      expect(result.current.totalReviewableFactorsCount).toBe(0)
-      // many_ai_estimates check should be suppressed
-      expect(result.current.qualityChecks).not.toContainEqual(
+      // Both factors have observed_state values — both counted
+      expect(result.current.totalReviewableFactorsCount).toBe(2)
+      // many_ai_estimates check fires (all AI, no brief)
+      expect(result.current.qualityChecks).toContainEqual(
         expect.objectContaining({ id: 'many_ai_estimates' })
       )
     })
@@ -2877,11 +2847,11 @@ describe('usePreAnalysisData', () => {
 
       const { result } = renderHook(() => usePreAnalysisData())
 
-      // brief_extraction factor targeted by intervention should be excluded
-      expect(result.current.improvementsByCategory.verify).not.toContainEqual(
+      // brief_extraction factor with observed_state value is included
+      expect(result.current.improvementsByCategory.verify).toContainEqual(
         expect.objectContaining({ key: 'verify_factor1' })
       )
-      expect(result.current.totalReviewableFactorsCount).toBe(0)
+      expect(result.current.totalReviewableFactorsCount).toBe(1)
     })
   })
 })

@@ -562,7 +562,11 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
 
     // === FIX CATEGORY ===
     const optionNodes = [...nodesByKind.option, ...nodesByKind.decision]
-    const hasBaseline = optionNodes.some(n => (n.data as { is_baseline?: boolean })?.is_baseline === true)
+    const hasBaseline = optionNodes.some(n => {
+      const explicit = (n.data as { is_baseline?: boolean })?.is_baseline === true
+      const label = (n.data as { label?: string })?.label ?? ''
+      return explicit || detectBaseline(label).isBaseline
+    })
 
     // Fewer than 2 options
     if (optionNodes.length < 2) {
@@ -608,25 +612,19 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
     // v1.1: brief_extraction factors are now reviewable (user can confirm extracted values)
     // Phase 3.1: Use verification_prompts from CEE when available for better detail text
     const verificationPrompts = ceeAnalysisReady?.verification_prompts ?? {}
-    const ceeOptions = ceeAnalysisReady?.options
     for (const factor of nodesByKind.factor) {
       const os = getObservedState(factor.data)
+      // Include any factor with observed_state value (not null)
+      if (os.value == null) continue
+
       const source = os.source
       const isBriefExtraction = source === 'brief_extraction'
       const isAi = isAiInferred(factor)
-
-      if (!isBriefExtraction && !isAi) continue
 
       const rawLabel = getNodeLabel(factor)
       const { label: cleanedLabel } = cleanFactorLabel(rawLabel)
       const value = getAiEstimatedValue(factor)
       const verificationPrompt = verificationPrompts[factor.id]
-
-      // Factors targeted by ANY option's intervention: skip entirely (not reviewable)
-      // Their values are defined by the option itself, not assumptions to review.
-      if (hasInterventionTargeting(factor.id, optionNodes, ceeOptions)) {
-        continue
-      }
 
       // Extract uncertainty_drivers from observed_state
       const uncertaintyDrivers = Array.isArray(os.uncertainty_drivers)
@@ -772,7 +770,7 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
     }
 
     return result
-  }, [nodes, edges, nodesByKind, ceeAnalysisReady?.options, ceeAnalysisReady?.verification_prompts, ceeAnalysisReady?.low_confidence_edges, m1ReviewAssumptions])
+  }, [nodes, edges, nodesByKind, ceeAnalysisReady?.verification_prompts, ceeAnalysisReady?.low_confidence_edges, m1ReviewAssumptions])
 
   // Total improvements
   const totalImprovements = useMemo(() => {
@@ -1072,28 +1070,22 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
   // Reviewed = factors where user has taken Confirm or Assumption action
   const { reviewedFactorsCount, totalReviewableFactorsCount } = useMemo(() => {
     const factorNodes = nodesByKind.factor
-    const optionNodes = [...nodesByKind.option, ...nodesByKind.decision]
-    const ceeOptions = ceeAnalysisReady?.options
     let reviewed = 0
     let total = 0
 
     for (const factor of factorNodes) {
-      if (needsReview(factor)) {
-        const os = getObservedState(factor.data)
-        const isBriefExtraction = os.source === 'brief_extraction'
-        // Exclude intervention targets from progress count
-        if (hasInterventionTargeting(factor.id, optionNodes, ceeOptions)) {
-          continue
-        }
-        total++
-        if (isReviewedByUser(factor)) {
-          reviewed++
-        }
+      const os = getObservedState(factor.data)
+      // Any factor with observed_state value is reviewable
+      if (os.value == null) continue
+
+      total++
+      if (isReviewedByUser(factor)) {
+        reviewed++
       }
     }
 
     return { reviewedFactorsCount: reviewed, totalReviewableFactorsCount: total }
-  }, [nodesByKind.factor, nodesByKind.option, nodesByKind.decision, ceeAnalysisReady?.options])
+  }, [nodesByKind.factor])
 
   // =========================================================================
   // Task 2: Goal threshold raw + unit for hero inputs
@@ -1270,7 +1262,7 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
     // 5. Many AI estimates (AI-sourced > brief_extraction count)
     // Suppress when no reviewable assumptions exist (all factors are intervention targets)
     const factors = nodesByKind.factor
-    if (factors.length > 0 && totalReviewableFactorsCount > 0) {
+    if (factors.length > 0) {
       const aiCount = factors.filter(isAiSource).length
       const briefCount = factors.length - aiCount
       if (aiCount > briefCount) {
@@ -1298,7 +1290,7 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
     if (successThreshold === null && (hasQuantitativeGoalHint || userClearedTarget)) {
       checks.push({
         id: 'no_target',
-        message: 'No success threshold \u2014 results rank options but can\'t show probability of success',
+        message: 'No success target \u2014 results rank options but can\'t show probability of success',
         cta: 'Set target',
         ctaAction: 'set_target',
         pill: 'framing',
@@ -1306,7 +1298,7 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
     }
 
     return checks
-  }, [nodesByKind, edges, ceeAnalysisReady?.options, successThreshold, goalNode, totalReviewableFactorsCount])
+  }, [nodesByKind, edges, ceeAnalysisReady?.options, successThreshold, goalNode])
 
   // =========================================================================
   // Task 6: Model adjustments with resolved labels + repair actions from trace

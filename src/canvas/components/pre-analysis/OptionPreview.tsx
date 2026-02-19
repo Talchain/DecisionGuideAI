@@ -61,11 +61,17 @@ function formatInterventionDisplay(
   let rawValue: number
 
   if (cap == null) {
-    // No cap: binary factors (0/1) show as integer, rest show normalised
+    // No cap: binary factors (0/1) show as integer, rest map to qualitative level
     if (Number.isInteger(normalisedValue) && (normalisedValue === 0 || normalisedValue === 1)) {
       rawValue = normalisedValue
     } else {
-      return `to ${normalisedValue.toFixed(2)} (scale 0–1)`
+      // Qualitative level mapping for factors without raw_value/cap/unit
+      const level = normalisedValue <= 0.20 ? 'very low'
+        : normalisedValue <= 0.40 ? 'low'
+        : normalisedValue <= 0.60 ? 'moderate'
+        : normalisedValue <= 0.80 ? 'high'
+        : 'very high'
+      return `to ${level}`
     }
   } else {
     // Discrete: integer value within [0, cap] → already raw, skip ×cap
@@ -166,7 +172,7 @@ export function OptionPreview({
               <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1">
                 {opt.isBaseline && opt.interventions.length > 0 ? (
                   <span className="text-xs text-text-light">
-                    {opt.interventions.length} {opt.interventions.length === 1 ? 'factor' : 'factors'} at current values
+                    No changes — compare against current state
                   </span>
                 ) : (
                   opt.interventions.map(iv => {
