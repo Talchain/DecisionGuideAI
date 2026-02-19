@@ -12,6 +12,7 @@ import {
   transformNodeToV2,
   transformEdgeToV2,
   buildV2Request,
+  buildV2RequestFromAnalysisReady,
 } from '../adapter'
 import {
   isBlockedResponse,
@@ -23,6 +24,7 @@ import {
   type V2RunError,
 } from '../types'
 import type { UIOption, UIInterventionValue } from '../../../../types/options'
+import type { CEEAnalysisReady } from '../../../cee/types'
 
 // ============================================================================
 // Test Fixtures
@@ -1021,5 +1023,89 @@ describe('observed_state / observedState naming boundary', () => {
     expect(v2Node).not.toHaveProperty('observedState')
     // But snake_case observed_state must be present
     expect(v2Node.observed_state).toBeDefined()
+  })
+})
+
+// ============================================================================
+// /v2/run request allowlist — CEE display metadata exclusion
+// ============================================================================
+
+describe('buildV2RequestFromAnalysisReady — display metadata exclusion', () => {
+  it('excludes goal_threshold_raw, _unit, _cap from request top level', () => {
+    // CEE analysis_ready includes display metadata alongside normalised fields.
+    // PLoT uses extra='forbid' — only allowed fields may appear on the request.
+    const nodes: Node[] = [
+      makeNode('factor_price', { label: 'Price', kind: 'factor', value: 100 }),
+      makeNode('goal_revenue', { label: 'Revenue Target', kind: 'goal' }),
+    ]
+    const edges: Edge[] = [
+      makeEdge('e1', 'factor_price', 'goal_revenue', {
+        weight: 0.7,
+        direction: 'positive',
+        beliefExists: 0.8,
+      }),
+    ]
+    const analysisReady: CEEAnalysisReady = {
+      options: [{
+        id: 'opt_high',
+        label: 'High Price',
+        status: 'ready',
+        interventions: { factor_price: { value: 150, source: 'brief_extraction' } },
+      }],
+      goal_node_id: 'goal_revenue',
+      goal_threshold: 0.8,
+      goal_threshold_raw: 800,
+      goal_threshold_unit: 'count',
+      goal_threshold_cap: 1000,
+    }
+
+    const { request } = buildV2RequestFromAnalysisReady(nodes, edges, analysisReady)
+
+    // Allowed: goal_threshold (normalised 0-1)
+    expect(request.goal_threshold).toBe(0.8)
+
+    // Excluded: CEE display metadata
+    expect(request).not.toHaveProperty('goal_threshold_raw')
+    expect(request).not.toHaveProperty('goal_threshold_unit')
+    expect(request).not.toHaveProperty('goal_threshold_cap')
+  })
+
+  it('request contains only PLoT-accepted top-level keys', () => {
+    const ALLOWED_KEYS = new Set([
+      'graph', 'options', 'goal_node_id', 'goal_threshold',
+      'goal_constraints', 'seed', 'detail_level', 'brief',
+      'request_id', 'framing',
+    ])
+
+    const nodes: Node[] = [
+      makeNode('f1', { label: 'Factor', kind: 'factor', value: 50 }),
+      makeNode('goal', { label: 'Goal', kind: 'goal' }),
+    ]
+    const edges: Edge[] = [
+      makeEdge('e1', 'f1', 'goal', { weight: 0.5, direction: 'positive', beliefExists: 0.7 }),
+    ]
+    const analysisReady: CEEAnalysisReady = {
+      options: [{
+        id: 'opt1',
+        label: 'Option',
+        status: 'ready',
+        interventions: { f1: { value: 100, source: 'brief_extraction' } },
+      }],
+      goal_node_id: 'goal',
+      goal_threshold: 0.6,
+      goal_threshold_raw: 600,
+      goal_threshold_unit: 'USD',
+      goal_threshold_cap: 1000,
+    }
+
+    const { request } = buildV2RequestFromAnalysisReady(
+      nodes, edges, analysisReady, [], undefined,
+      { brief: 'test brief', goalConstraints: [{ node_id: 'f1', operator: '>=', value: 40 }] }
+    )
+
+    // Every key on the request must be in the allowlist
+    for (const key of Object.keys(request)) {
+      expect(ALLOWED_KEYS).toContain(key)
+    }
   })
 })

@@ -846,6 +846,12 @@ export function buildV2RequestFromAnalysisReady(
   }
 
   // Step 6: Build final request
+  // ALLOWLIST: Only PLoT-accepted top-level fields may appear here.
+  // PLoT uses extra='forbid' — unknown fields cause 400.
+  // Accepted: graph, options, goal_node_id, goal_threshold, goal_constraints,
+  //           seed, detail_level, brief, request_id, framing
+  // NOT accepted: goal_threshold_raw, goal_threshold_unit, goal_threshold_cap
+  //               (these are CEE display metadata, stored in analysis_ready only)
   const request: V2RunRequest = {
     graph: normalised.graph,
     options: normalised.options,
@@ -856,12 +862,9 @@ export function buildV2RequestFromAnalysisReady(
     ...(framing && { framing }),
     // Include brief for PLoT context
     ...(brief && { brief }),
-    // V3: Pass through goal threshold enrichment fields from analysisReady
+    // Goal threshold (normalised 0-1) — accepted by PLoT
     ...(analysisReady.goal_threshold != null && { goal_threshold: analysisReady.goal_threshold }),
-    ...(analysisReady.goal_threshold_raw != null && { goal_threshold_raw: analysisReady.goal_threshold_raw }),
-    ...(analysisReady.goal_threshold_unit ? { goal_threshold_unit: analysisReady.goal_threshold_unit } : {}),
-    ...(analysisReady.goal_threshold_cap != null && { goal_threshold_cap: analysisReady.goal_threshold_cap }),
-    // V3: Pass through goal constraints for multi-constraint analysis (from CEE response root, not analysis_ready)
+    // Goal constraints for multi-constraint analysis (from CEE response root, not analysis_ready)
     ...(goalConstraints?.length && { goal_constraints: goalConstraints }),
   }
 

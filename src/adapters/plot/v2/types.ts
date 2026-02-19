@@ -104,12 +104,6 @@ export interface V2RunRequest {
   request_id?: string
   /** Optional success threshold for probability_of_goal calculation */
   goal_threshold?: number
-  /** V3: Raw (un-normalised) goal threshold value from CEE */
-  goal_threshold_raw?: number
-  /** V3: Unit for goal threshold (e.g. "count", "USD") */
-  goal_threshold_unit?: string
-  /** V3: Cap used to normalise the goal threshold */
-  goal_threshold_cap?: number
   /**
    * User's decision framing for contextualised CEE responses.
    * When provided, CEE can generate more relevant headlines and guidance.

@@ -897,9 +897,9 @@ describe('goal_threshold_* dual-path preservation', () => {
     expect(goalNode!.goal_threshold_cap).toBe(1000)
   })
 
-  it('path 2: goal_threshold_* on analysisReady flows through to top-level request fields', () => {
-    // When CEE puts goal_threshold_* on the analysis_ready payload,
-    // buildV2RequestFromAnalysisReady spreads them onto the request.
+  it('path 2: only goal_threshold (normalised) flows to request top-level; display metadata is excluded', () => {
+    // PLoT uses extra='forbid' — goal_threshold_raw, _unit, _cap are CEE display
+    // metadata that must NOT appear on the /v2/run request top level.
     const nodes: Node[] = [
       makeNode('factor_price', { label: 'Price', kind: 'factor' }),
       makeNode('goal_growth', { label: 'Reach 800 Customers', kind: 'goal' }),
@@ -922,14 +922,15 @@ describe('goal_threshold_* dual-path preservation', () => {
 
     const { request } = buildV2RequestFromAnalysisReady(nodes, edges, analysisReady)
 
-    // goal_threshold_* should be present as top-level request fields
+    // goal_threshold (normalised 0-1) IS accepted by PLoT
     expect(request.goal_threshold).toBe(0.8)
-    expect(request.goal_threshold_raw).toBe(800)
-    expect(request.goal_threshold_unit).toBe('count')
-    expect(request.goal_threshold_cap).toBe(1000)
+    // Display metadata must NOT be on request top level
+    expect(request).not.toHaveProperty('goal_threshold_raw')
+    expect(request).not.toHaveProperty('goal_threshold_unit')
+    expect(request).not.toHaveProperty('goal_threshold_cap')
   })
 
-  it('both paths: node-level and analysisReady-level goal_threshold_* coexist', () => {
+  it('both paths: display metadata on nodes only, not on request top-level', () => {
     const nodes: Node[] = [
       makeNode('factor_price', { label: 'Price', kind: 'factor' }),
       makeNode('goal_growth', {
@@ -959,28 +960,29 @@ describe('goal_threshold_* dual-path preservation', () => {
 
     const { request } = buildV2RequestFromAnalysisReady(nodes, edges, analysisReady)
 
-    // Node-level
+    // Node-level: display metadata preserved (PLoT accepts on nodes)
     const goalNode = request.graph.nodes.find((n) => n.id === 'goal_growth')
     expect(goalNode!.goal_threshold_raw).toBe(800)
 
-    // Request-level
-    expect(request.goal_threshold_raw).toBe(800)
-    expect(request.goal_threshold_unit).toBe('count')
-    expect(request.goal_threshold_cap).toBe(1000)
+    // Request top-level: display metadata excluded (PLoT extra='forbid')
+    expect(request.goal_threshold).toBe(0.8)
+    expect(request).not.toHaveProperty('goal_threshold_raw')
+    expect(request).not.toHaveProperty('goal_threshold_unit')
+    expect(request).not.toHaveProperty('goal_threshold_cap')
   })
 
-  it('precedence: analysisReady goal_threshold_raw wins over node-level at request top-level', () => {
-    // Node has stale/different values; analysisReady has the authoritative ones.
-    // Request top-level fields come from analysisReady, node-level fields come from node.data.
+  it('node-level display metadata preserved even when analysisReady has different values', () => {
+    // Node has its own values; analysisReady has authoritative ones.
+    // Node-level values stay on the node. Neither leaks to request top-level.
     const nodes: Node[] = [
       makeNode('factor_price', { label: 'Price', kind: 'factor' }),
       makeNode('goal_growth', {
         label: 'Reach 800 Customers',
         kind: 'goal',
         goal_threshold: 0.5,
-        goal_threshold_raw: 500,       // Stale node value
-        goal_threshold_unit: 'users',  // Stale node value
-        goal_threshold_cap: 2000,      // Stale node value
+        goal_threshold_raw: 500,
+        goal_threshold_unit: 'users',
+        goal_threshold_cap: 2000,
       }),
     ]
     const edges: Edge[] = [
@@ -994,20 +996,20 @@ describe('goal_threshold_* dual-path preservation', () => {
       options: [makeCEEOptionV3('opt1', 'ready', { factor_price: { value: 100 } })],
       goal_node_id: 'goal_growth',
       goal_threshold: 0.8,
-      goal_threshold_raw: 800,        // Authoritative
-      goal_threshold_unit: 'count',   // Authoritative
-      goal_threshold_cap: 1000,       // Authoritative
+      goal_threshold_raw: 800,
+      goal_threshold_unit: 'count',
+      goal_threshold_cap: 1000,
     }
 
     const { request } = buildV2RequestFromAnalysisReady(nodes, edges, analysisReady)
 
-    // Request top-level: analysisReady wins
+    // Request top-level: only goal_threshold (normalised), no display metadata
     expect(request.goal_threshold).toBe(0.8)
-    expect(request.goal_threshold_raw).toBe(800)
-    expect(request.goal_threshold_unit).toBe('count')
-    expect(request.goal_threshold_cap).toBe(1000)
+    expect(request).not.toHaveProperty('goal_threshold_raw')
+    expect(request).not.toHaveProperty('goal_threshold_unit')
+    expect(request).not.toHaveProperty('goal_threshold_cap')
 
-    // Node-level in graph: still carries the node's own values
+    // Node-level in graph: carries the node's own values
     const goalNode = request.graph.nodes.find((n) => n.id === 'goal_growth')
     expect(goalNode!.goal_threshold_raw).toBe(500)
   })
