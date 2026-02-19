@@ -981,6 +981,18 @@ export function PipelineTab({ data }: PipelineTabProps) {
         </div>
       </div>
 
+      {/* Pipeline path indicator */}
+      <PipelinePathIndicator pipeline={data.pipeline} sectionStyle={sectionStyle} sectionTitleStyle={sectionTitleStyle} />
+
+      {/* Enrichment call count */}
+      <EnrichmentSection enrich={data.pipeline.enrich} sectionStyle={sectionStyle} sectionTitleStyle={sectionTitleStyle} />
+
+      {/* CEE repair summary */}
+      <CeeRepairSummary repair={data.pipeline.repair} sectionStyle={sectionStyle} sectionTitleStyle={sectionTitleStyle} />
+
+      {/* STRP mutations */}
+      <StrpMutations strp={data.pipeline.strp} sectionStyle={sectionStyle} sectionTitleStyle={sectionTitleStyle} />
+
       {/* CEE Operations Model/Prompt Info */}
       {data.cee_operations && (
         <div style={sectionStyle}>
