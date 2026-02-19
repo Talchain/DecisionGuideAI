@@ -633,8 +633,8 @@ describe('usePreAnalysisData', () => {
       )
     })
 
-    it('formats values without unit with reasonable precision (0.75 → "0.75 (scale 0–1)")', () => {
-      // contextLine: no raw_value, value present → normalised fallback
+    it('formats qualitative factors without unit as level names (0.75 → "high")', () => {
+      // no raw_value, value in 0–1 range, no unit/cap → qualitative level
       mockUseCanvasStore.mockImplementation(createMockStore({
         nodes: [
           {
@@ -654,7 +654,7 @@ describe('usePreAnalysisData', () => {
       expect(result.current.improvementsByCategory.verify).toContainEqual(
         expect.objectContaining({
           key: 'verify_factor1',
-          detail: '0.75 (scale 0–1)',
+          detail: 'high',
         })
       )
     })
@@ -951,8 +951,8 @@ describe('usePreAnalysisData', () => {
   })
 
   describe('P1-2: Binary Factor Display', () => {
-    it('displays normalised value for binary factor with value 1', () => {
-      // contextLine: no raw_value, value present → normalised fallback
+    it('displays qualitative level for binary factor with value 1', () => {
+      // no raw_value, value in 0–1 range, no unit/cap → qualitative level
       mockUseCanvasStore.mockImplementation(createMockStore({
         nodes: [
           {
@@ -972,13 +972,13 @@ describe('usePreAnalysisData', () => {
       expect(result.current.improvementsByCategory.verify).toContainEqual(
         expect.objectContaining({
           key: 'verify_factor1',
-          detail: '1.00 (scale 0–1)',
+          detail: 'very high',
         })
       )
     })
 
-    it('displays normalised value for binary factor with value 0', () => {
-      // contextLine: no raw_value, value present → normalised fallback
+    it('displays qualitative level for binary factor with value 0', () => {
+      // no raw_value, value in 0–1 range, no unit/cap → qualitative level
       mockUseCanvasStore.mockImplementation(createMockStore({
         nodes: [
           {
@@ -998,13 +998,13 @@ describe('usePreAnalysisData', () => {
       expect(result.current.improvementsByCategory.verify).toContainEqual(
         expect.objectContaining({
           key: 'verify_factor1',
-          detail: '0.00 (scale 0–1)',
+          detail: 'very low',
         })
       )
     })
 
-    it('displays normalised value for binary factor with value 0.3', () => {
-      // contextLine: no raw_value, value present → normalised fallback
+    it('displays qualitative level for binary factor with value 0.3', () => {
+      // no raw_value, value in 0–1 range, no unit/cap → qualitative level
       mockUseCanvasStore.mockImplementation(createMockStore({
         nodes: [
           {
@@ -1024,13 +1024,13 @@ describe('usePreAnalysisData', () => {
       expect(result.current.improvementsByCategory.verify).toContainEqual(
         expect.objectContaining({
           key: 'verify_factor1',
-          detail: '0.30 (scale 0–1)',
+          detail: 'low',
         })
       )
     })
 
-    it('displays normalised value for binary factor with value 0.6', () => {
-      // contextLine: no raw_value, value present → normalised fallback
+    it('displays qualitative level for binary factor with value 0.6', () => {
+      // no raw_value, value in 0–1 range, no unit/cap → qualitative level
       mockUseCanvasStore.mockImplementation(createMockStore({
         nodes: [
           {
@@ -1050,13 +1050,13 @@ describe('usePreAnalysisData', () => {
       expect(result.current.improvementsByCategory.verify).toContainEqual(
         expect.objectContaining({
           key: 'verify_factor1',
-          detail: '0.60 (scale 0–1)',
+          detail: 'moderate',
         })
       )
     })
 
-    it('displays normalised value for non-binary AI factors without raw_value', () => {
-      // contextLine: no raw_value, value present → normalised fallback
+    it('displays qualitative level for non-binary AI factors without raw_value', () => {
+      // no raw_value, value in 0–1 range, no unit/cap → qualitative level
       mockUseCanvasStore.mockImplementation(createMockStore({
         nodes: [
           {
@@ -1076,7 +1076,7 @@ describe('usePreAnalysisData', () => {
       expect(result.current.improvementsByCategory.verify).toContainEqual(
         expect.objectContaining({
           key: 'verify_factor1',
-          detail: '0.75 (scale 0–1)',
+          detail: 'high',
         })
       )
     })
@@ -1474,17 +1474,17 @@ describe('usePreAnalysisData', () => {
 
       const { result } = renderHook(() => usePreAnalysisData())
 
-      // detail uses normalised value (no raw_value); hint gets verification prompt
+      // detail uses qualitative level (no raw_value, value in 0–1); hint gets verification prompt
       expect(result.current.improvementsByCategory.verify).toContainEqual(
         expect.objectContaining({
           key: 'verify_factor1',
-          detail: '0.04 (scale 0\u20131)',
+          detail: 'very low',
           hint: 'Is the conversion rate around 4%?',
         })
       )
     })
 
-    it('falls back to normalised value when verification_prompt not available', () => {
+    it('falls back to qualitative level when verification_prompt not available', () => {
       mockUseCanvasStore.mockImplementation(createMockStore({
         nodes: [
           {
@@ -1509,7 +1509,7 @@ describe('usePreAnalysisData', () => {
       expect(result.current.improvementsByCategory.verify).toContainEqual(
         expect.objectContaining({
           key: 'verify_factor1',
-          detail: '0.04 (scale 0–1)',
+          detail: 'very low',
         })
       )
     })
@@ -1574,16 +1574,16 @@ describe('usePreAnalysisData', () => {
 
       const { result } = renderHook(() => usePreAnalysisData())
 
-      // factor1: detail from normalised value, hint from verification prompt
+      // factor1: qualitative level (value 0.04 in 0–1), hint from verification prompt
       expect(result.current.improvementsByCategory.verify).toContainEqual(
         expect.objectContaining({
           key: 'verify_factor1',
-          detail: '0.04 (scale 0\u20131)',
+          detail: 'very low',
           hint: 'Is the conversion rate around 4%?',
         })
       )
 
-      // factor2: no prompt → hint undefined, detail from normalised value
+      // factor2: value 85 is > 1, falls back to scale format
       expect(result.current.improvementsByCategory.verify).toContainEqual(
         expect.objectContaining({
           key: 'verify_factor2',
@@ -2715,8 +2715,9 @@ describe('usePreAnalysisData', () => {
 
       const { result } = renderHook(() => usePreAnalysisData())
 
-      // Both factors have observed_state values — both counted
-      expect(result.current.totalReviewableFactorsCount).toBe(2)
+      // factor1 excluded as binary lever (interventions all 0/1, no metadata)
+      // factor2 included (interventions 0.5/0.2, not all binary)
+      expect(result.current.totalReviewableFactorsCount).toBe(1)
       // many_ai_estimates check fires (all AI, no brief)
       expect(result.current.qualityChecks).toContainEqual(
         expect.objectContaining({ id: 'many_ai_estimates' })
@@ -2847,11 +2848,12 @@ describe('usePreAnalysisData', () => {
 
       const { result } = renderHook(() => usePreAnalysisData())
 
-      // brief_extraction factor with observed_state value is included
-      expect(result.current.improvementsByCategory.verify).toContainEqual(
+      // Binary lever factor excluded even with brief_extraction source —
+      // no raw_value/cap/unit and all interventions are 0 or 1
+      expect(result.current.improvementsByCategory.verify).not.toContainEqual(
         expect.objectContaining({ key: 'verify_factor1' })
       )
-      expect(result.current.totalReviewableFactorsCount).toBe(1)
+      expect(result.current.totalReviewableFactorsCount).toBe(0)
     })
   })
 })

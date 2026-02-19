@@ -766,7 +766,7 @@ describe('PreAnalysisPanel', () => {
         render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
 
         // Should show provenance text below threshold
-        expect(screen.getByText(/Extracted from: Target Revenue of \$1M/)).toBeInTheDocument()
+        expect(screen.getByText(/Source: Target Revenue of \$1M/)).toBeInTheDocument()
       })
 
       it('does not show provenance text when not available', () => {
@@ -778,8 +778,8 @@ describe('PreAnalysisPanel', () => {
 
         render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
 
-        // Should NOT show "Extracted from:"
-        expect(screen.queryByText(/Extracted from:/)).not.toBeInTheDocument()
+        // Should NOT show "Source:"
+        expect(screen.queryByText(/Source:/)).not.toBeInTheDocument()
       })
 
       it('does not show provenance text when user has edited threshold (not auto-derived)', () => {

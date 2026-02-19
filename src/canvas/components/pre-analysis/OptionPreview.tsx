@@ -57,15 +57,17 @@ function formatInterventionDisplay(
   // Don't claim 'unchanged' from direction alone — direction='same' can mean
   // "no observed state to compare". The raw-value check below handles confirmed-same.
 
+  // Qualitative detection: no unit AND (no cap, or cap=1 which is just normalised ceiling)
+  const isQualitative = unit == null && (cap == null || cap === 1)
+
   // --- Determine raw value ---
   let rawValue: number
 
-  if (cap == null) {
-    // No cap: binary factors (0/1) show as integer, rest map to qualitative level
+  if (isQualitative) {
+    // Binary factors (0/1) show as integer, rest map to qualitative level
     if (Number.isInteger(normalisedValue) && (normalisedValue === 0 || normalisedValue === 1)) {
       rawValue = normalisedValue
     } else {
-      // Qualitative level mapping for factors without raw_value/cap/unit
       const level = normalisedValue <= 0.20 ? 'very low'
         : normalisedValue <= 0.40 ? 'low'
         : normalisedValue <= 0.60 ? 'moderate'
@@ -73,6 +75,8 @@ function formatInterventionDisplay(
         : 'very high'
       return `to ${level}`
     }
+  } else if (cap == null) {
+    rawValue = normalisedValue
   } else {
     // Discrete: integer value within [0, cap] → already raw, skip ×cap
     const isDiscreteRaw = Number.isInteger(normalisedValue) &&

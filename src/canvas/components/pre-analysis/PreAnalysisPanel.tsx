@@ -507,6 +507,7 @@ export function PreAnalysisPanel({
           onThresholdEdit={handleThresholdEdit}
           goalThresholdRaw={data.goalThresholdRaw}
           goalThresholdUnit={data.goalThresholdUnit}
+          thresholdSourceBadge={data.thresholdSourceBadge}
         />
 
         {/* Draft error card */}

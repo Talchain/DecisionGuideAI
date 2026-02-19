@@ -177,6 +177,34 @@ describe('formatBaselineComparison', () => {
   })
 })
 
+describe('detectBaseline — polish brief Task 4 label variants', () => {
+  it.each([
+    ['Do nothing', true],
+    ['do nothing', true],
+    ['Do Nothing', true],
+    ['DO NOTHING', true],
+    ['Keep current approach', true],
+    ['Stay with existing', true],
+    ['Maintain status quo', true],
+    ['Continue as is', true],
+    ['No change', true],
+    ['Use default plan', true],
+  ])('"%s" → isBaseline=%s', (label, expected) => {
+    expect(detectBaseline(label).isBaseline).toBe(expected)
+  })
+
+  it('does not detect action-oriented labels', () => {
+    expect(detectBaseline('Hire more staff').isBaseline).toBe(false)
+    expect(detectBaseline('Launch new product').isBaseline).toBe(false)
+    expect(detectBaseline('Expand to Europe').isBaseline).toBe(false)
+  })
+
+  it('handles leading/trailing whitespace', () => {
+    expect(detectBaseline('  Do nothing  ').isBaseline).toBe(true)
+    expect(detectBaseline('\tKeep current\n').isBaseline).toBe(true)
+  })
+})
+
 describe('getBaselineBadgeProps', () => {
   it('returns badge props for baseline options', () => {
     const result = getBaselineBadgeProps(true)

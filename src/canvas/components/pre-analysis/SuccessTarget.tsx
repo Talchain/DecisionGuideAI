@@ -24,6 +24,8 @@ interface SuccessTargetProps {
   isThresholdConfirmed: boolean
   /** Source text explaining where threshold came from */
   thresholdProvenance?: string | null
+  /** Source badge type: 'brief' or 'ai' */
+  thresholdSourceBadge?: 'brief' | 'ai' | null
   /** Callback when threshold changes */
   onThresholdChange?: (value: number | null) => void
   /** Callback when threshold is confirmed */
@@ -47,6 +49,7 @@ export function SuccessTarget({
   onThresholdEdit,
   goalThresholdRaw,
   goalThresholdUnit,
+  thresholdSourceBadge,
 }: SuccessTargetProps) {
   // Local state for inline input
   const [showInput, setShowInput] = useState(false)
@@ -111,28 +114,24 @@ export function SuccessTarget({
     )
   }
 
-  // Confirmed state - collapsed view
+  // Confirmed state - compact single line, expandable for editing
   if (isThresholdConfirmed && successThreshold !== null) {
     return (
       <div className={`rounded-lg border border-panel-border border-l-[3px] ${borderColor} bg-panel p-3`}>
         <button
           type="button"
           onClick={() => setIsExpanded(!isExpanded)}
-          className="w-full flex items-center justify-between text-left cursor-pointer"
+          className="w-full flex items-center gap-2 text-left cursor-pointer"
         >
-          <div className="flex items-center gap-2 min-w-0">
-            {isExpanded ? (
-              <ChevronDown className="w-4 h-4 text-text-light shrink-0" />
-            ) : (
-              <ChevronRight className="w-4 h-4 text-text-light shrink-0" />
-            )}
-            <span className="text-sm text-text-body line-clamp-2">{goalLabel}</span>
-            <span className="text-sm text-text-light shrink-0">: {formatValue(successThreshold)}</span>
-            <span className="text-sm text-text-light shrink-0">·</span>
-            <span className="text-sm text-success flex items-center gap-1 shrink-0">
-              Confirmed <Check className="w-3.5 h-3.5" />
-            </span>
-          </div>
+          {isExpanded ? (
+            <ChevronDown className="w-3.5 h-3.5 text-text-light shrink-0" />
+          ) : (
+            <ChevronRight className="w-3.5 h-3.5 text-text-light shrink-0" />
+          )}
+          <span className="text-sm text-text-body truncate">{goalLabel}</span>
+          <span className="text-text-light shrink-0">·</span>
+          <span className="text-[13px] font-semibold text-text-header shrink-0">{formatValue(successThreshold)}</span>
+          <Check className="w-3.5 h-3.5 text-success shrink-0" />
         </button>
 
         {/* Expanded content - edit option */}
@@ -237,36 +236,42 @@ export function SuccessTarget({
   // Value present but not confirmed - show edit and confirm CTAs
   return (
     <div className={`rounded-lg border border-panel-border border-l-[3px] ${borderColor} bg-panel p-3`}>
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2 min-w-0">
-          <span className="text-sm text-text-body line-clamp-2">{goalLabel}</span>
-          <span className="text-sm text-text-light shrink-0">: {formatValue(successThreshold)}</span>
-          {isThresholdAutoDerived && (
-            <span className="text-xs text-text-light bg-factor-light rounded px-1.5 py-0.5 shrink-0">Auto</span>
-          )}
-        </div>
-        <div className="flex items-center gap-2 shrink-0">
-          <button
-            type="button"
-            onClick={handleEditClick}
-            className="p-1 text-text-light hover:text-text-body rounded hover:bg-black/[0.04]"
-            title="Edit target"
-          >
-            <Pencil className="w-4 h-4" />
-          </button>
+      {/* Goal name — up to 2 lines */}
+      <p className="text-sm text-text-body line-clamp-2" title={goalLabel}>{goalLabel}</p>
+
+      {/* Success target line */}
+      <div className="flex items-center gap-2 mt-1">
+        <span className="text-[11px] text-text-light shrink-0">Success target:</span>
+        <span className="text-[13px] font-semibold text-text-header">{formatValue(successThreshold)}</span>
+        {thresholdSourceBadge === 'brief' && (
+          <span className="text-[10px] text-success bg-success-light rounded px-1.5 py-0.5 shrink-0">From brief</span>
+        )}
+        {thresholdSourceBadge === 'ai' && (
+          <span className="text-[10px] text-info bg-info-light rounded px-1.5 py-0.5 shrink-0">AI estimate</span>
+        )}
+        <div className="flex items-center gap-1 ml-auto shrink-0">
           <button
             type="button"
             onClick={onThresholdConfirm}
-            className="px-3 py-1.5 text-xs font-medium text-white bg-info rounded-lg hover:bg-info-hover"
+            className="w-[22px] h-[22px] flex items-center justify-center rounded-full border border-success/30 text-success hover:bg-success-light cursor-pointer"
+            title="Confirm target"
           >
-            Confirm
+            <Check className="w-3 h-3" />
+          </button>
+          <button
+            type="button"
+            onClick={handleEditClick}
+            className="w-[22px] h-[22px] flex items-center justify-center rounded-full border border-panel-border text-text-light hover:bg-panel-hover cursor-pointer"
+            title="Edit target"
+          >
+            <Pencil className="w-3 h-3" />
           </button>
         </div>
       </div>
 
       {/* Provenance text - only shown when threshold is auto-derived (not user-edited) */}
       {thresholdProvenance && isThresholdAutoDerived && (
-        <p className="text-xs text-text-light mt-1.5">Extracted from: {thresholdProvenance}</p>
+        <p className="text-xs text-text-light mt-1">Source: {thresholdProvenance}</p>
       )}
 
       {/* Inline edit when expanded */}

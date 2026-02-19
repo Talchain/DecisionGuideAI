@@ -199,6 +199,8 @@ export interface PreAnalysisData {
   informationalBlockers: EnrichedBlocker[]
   /** Threshold provenance text */
   thresholdProvenance: string | null
+  /** Source badge for threshold: 'brief' when extracted from brief, 'ai' when AI-generated */
+  thresholdSourceBadge: 'brief' | 'ai' | null
   /** Model adjustments from CEE (STRP/repair pipeline mutations), with resolved labels */
   modelAdjustments: Array<{ type?: string; code?: string; field?: string; detail?: string; reason?: string; target?: string; targetNodeId?: string }>
   /** Pre-mortem analysis from PLoT m1_review (null when absent) */
@@ -443,7 +445,22 @@ function getAiEstimatedValue(node: Node): string | null {
  * Format observed_state for display: raw_value + unit as primary, cap as context, normalised fallback.
  * Shared by verify items and "Set by" items for consistent formatting.
  */
+/**
+ * Map a normalised 0–1 value to a qualitative level.
+ * Used for factors without cap/unit where numeric display is meaningless.
+ */
+function toQualitativeLevel(v: number): string {
+  if (v <= 0.20) return 'very low'
+  if (v <= 0.40) return 'low'
+  if (v <= 0.60) return 'moderate'
+  if (v <= 0.80) return 'high'
+  return 'very high'
+}
+
 function formatObservedStateDetail(os: ReturnType<typeof getObservedState>): string {
+  // Qualitative factors: no unit AND (no cap, or cap is 1 which is just the normalised ceiling)
+  const isQualitative = os.unit == null && (os.cap == null || os.cap === 1)
+
   if (os.raw_value != null) {
     const unit = os.unit
     let primary: string
@@ -453,10 +470,13 @@ function formatObservedStateDetail(os: ReturnType<typeof getObservedState>): str
       primary = `${os.raw_value}%`
     } else if (unit) {
       primary = `${os.raw_value} ${unit}`
+    } else if (isQualitative && Number(os.raw_value) >= 0 && Number(os.raw_value) <= 1) {
+      // No unit, no meaningful cap, value in 0–1 range — show qualitative level
+      return toQualitativeLevel(Number(os.raw_value))
     } else {
       primary = String(os.raw_value)
     }
-    if (os.cap != null) {
+    if (os.cap != null && !isQualitative) {
       // Don't repeat suffix units — "9 months of 18" not "9 months of 18 months"
       // Prefix currencies still shown: "$9,000 of $18,000"
       let capStr: string
@@ -470,7 +490,9 @@ function formatObservedStateDetail(os: ReturnType<typeof getObservedState>): str
     return primary
   }
   if (os.value != null) {
-    return `${Number(os.value).toFixed(2)} (scale 0–1)`
+    const numValue = Number(os.value)
+    if (isQualitative && numValue >= 0 && numValue <= 1) return toQualitativeLevel(numValue)
+    return `${numValue.toFixed(2)} (scale 0–1)`
   }
   return ''
 }
@@ -611,11 +633,31 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
     // Factors with observed_state from brief_extraction OR AI-inferred source
     // v1.1: brief_extraction factors are now reviewable (user can confirm extracted values)
     // Phase 3.1: Use verification_prompts from CEE when available for better detail text
+    //
+    // Binary lever exclusion: factors with no raw_value/cap/unit where every
+    // intervention across all options is exactly 0 or 1 are mechanism nodes
+    // (e.g. "Tech Lead Hired"), not assumptions to validate.
+    const ceeOptions = ceeAnalysisReady?.options ?? []
     const verificationPrompts = ceeAnalysisReady?.verification_prompts ?? {}
     for (const factor of nodesByKind.factor) {
       const os = getObservedState(factor.data)
       // Include any factor with observed_state value (not null)
       if (os.value == null) continue
+
+      // Exclude binary lever factors: no rich metadata + all interventions are 0 or 1
+      if (os.raw_value == null && os.cap == null && os.unit == null) {
+        const interventionValues: number[] = []
+        for (const opt of ceeOptions) {
+          const iv = (opt.interventions ?? {})[factor.id]
+          if (iv != null) {
+            const numericIv = typeof iv === 'number' ? iv : (iv as { value?: number })?.value
+            if (numericIv != null) interventionValues.push(numericIv)
+          }
+        }
+        if (interventionValues.length > 0 && interventionValues.every(v => v === 0 || v === 1)) {
+          continue
+        }
+      }
 
       const source = os.source
       const isBriefExtraction = source === 'brief_extraction'
@@ -770,7 +812,7 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
     }
 
     return result
-  }, [nodes, edges, nodesByKind, ceeAnalysisReady?.verification_prompts, ceeAnalysisReady?.low_confidence_edges, m1ReviewAssumptions])
+  }, [nodes, edges, nodesByKind, ceeAnalysisReady?.options, ceeAnalysisReady?.verification_prompts, ceeAnalysisReady?.low_confidence_edges, m1ReviewAssumptions])
 
   // Total improvements
   const totalImprovements = useMemo(() => {
@@ -1064,19 +1106,50 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
     return null
   }, [ceeAnalysisReady, goalNode, nodes])
 
+  // Threshold source badge: 'brief' when extracted from brief, 'ai' when AI-generated
+  const thresholdSourceBadge = useMemo<'brief' | 'ai' | null>(() => {
+    if (!isThresholdAutoDerived) return null
+    // CEE goal_threshold is extracted from user brief
+    if (ceeAnalysisReady?.goal_threshold != null) return 'brief'
+    // factor_target_* with brief_extraction source
+    for (const node of nodes) {
+      if (node.id.startsWith('factor_target_') || node.id.startsWith('factor_value_')) {
+        const nd = node.data as { observed_state?: { source?: string }; observedState?: { source?: string } }
+        const src = nd?.observed_state?.source ?? nd?.observedState?.source
+        if (src === 'brief_extraction') return 'brief'
+      }
+    }
+    // Default: AI-generated
+    return 'ai'
+  }, [isThresholdAutoDerived, ceeAnalysisReady?.goal_threshold, nodes])
+
   // Calculate reviewed factors progress from node data (not UI state)
-  // Total = AI-estimated factors that need review (excludes brief_extraction)
-  // Also excludes controllable factors with interventions (to match UI)
+  // Total = factors that appear in the verify section (excludes binary levers)
   // Reviewed = factors where user has taken Confirm or Assumption action
   const { reviewedFactorsCount, totalReviewableFactorsCount } = useMemo(() => {
     const factorNodes = nodesByKind.factor
+    const options = ceeAnalysisReady?.options ?? []
     let reviewed = 0
     let total = 0
 
     for (const factor of factorNodes) {
       const os = getObservedState(factor.data)
-      // Any factor with observed_state value is reviewable
       if (os.value == null) continue
+
+      // Exclude binary levers (must match verify filter)
+      if (os.raw_value == null && os.cap == null && os.unit == null) {
+        const ivValues: number[] = []
+        for (const opt of options) {
+          const iv = (opt.interventions ?? {})[factor.id]
+          if (iv != null) {
+            const numericIv = typeof iv === 'number' ? iv : (iv as { value?: number })?.value
+            if (numericIv != null) ivValues.push(numericIv)
+          }
+        }
+        if (ivValues.length > 0 && ivValues.every(v => v === 0 || v === 1)) {
+          continue
+        }
+      }
 
       total++
       if (isReviewedByUser(factor)) {
@@ -1085,7 +1158,7 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
     }
 
     return { reviewedFactorsCount: reviewed, totalReviewableFactorsCount: total }
-  }, [nodesByKind.factor])
+  }, [nodesByKind.factor, ceeAnalysisReady?.options])
 
   // =========================================================================
   // Task 2: Goal threshold raw + unit for hero inputs
@@ -1385,6 +1458,7 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
     isThresholdAutoDerived,
     isThresholdConfirmed,
     thresholdProvenance,
+    thresholdSourceBadge,
     isLoading,
     reviewedFactorsCount,
     totalReviewableFactorsCount,
