@@ -238,8 +238,6 @@ function buildCEEPipelineSteps(data: DebugData): PipelineStepData[] {
 
   // Strip timestamp from output (not part of PipelineStepData interface)
   return allSteps.map(({ timestamp, ...step }) => step)
-
-  return steps
 }
 
 export function SummaryTab({

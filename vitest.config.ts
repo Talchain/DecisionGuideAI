@@ -21,7 +21,6 @@ export default defineConfig({
       'src/canvas/components/__tests__/ObjectiveBanner.spec.tsx',
       'src/canvas/components/__tests__/OutcomesSignal.spec.tsx',
       'src/canvas/components/__tests__/OutputsDock.dom.spec.tsx',
-      'src/canvas/components/__tests__/RangeDisplay.spec.tsx',
       'src/canvas/components/__tests__/ResultsPanel.gating.spec.tsx',
       'src/canvas/components/__tests__/ResultsPanel.spec.tsx',
       'src/canvas/components/__tests__/ValidationChip.spec.tsx',

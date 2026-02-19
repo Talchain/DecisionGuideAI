@@ -829,6 +829,71 @@ describe('overall status badge', () => {
 })
 
 // =============================================================================
+// Bundle completeness indicator
+// =============================================================================
+
+describe('bundle completeness indicator', () => {
+  it('shows "Bundle complete" when plot_request, plot_response, isl_response, and request_id are present', () => {
+    const data = makeDebugData({
+      payloads: {
+        plot_request: { seed: 1 },
+        plot_response: { meta: {} },
+        isl_response: { options: [] },
+      },
+      overall: { status: 'success', total_duration_ms: 500, request_id: 'req-abc' },
+    })
+    render(<ContractIntegrityTab data={data} />)
+    const el = screen.getByTestId('bundle-completeness')
+    expect(el.textContent).toMatch(/Bundle complete/)
+  })
+
+  it('shows "Bundle incomplete" with missing items when payloads are empty', () => {
+    const data = makeDebugData({
+      payloads: {},
+      overall: { status: 'success', total_duration_ms: 500, request_id: null },
+    })
+    render(<ContractIntegrityTab data={data} />)
+    const el = screen.getByTestId('bundle-completeness')
+    expect(el.textContent).toMatch(/Bundle incomplete/)
+    expect(el.textContent).toMatch(/PLoT request/)
+    expect(el.textContent).toMatch(/PLoT response/)
+    expect(el.textContent).toMatch(/ISL response/)
+    expect(el.textContent).toMatch(/Request ID/)
+  })
+
+  it('does NOT affect overall contract integrity status', () => {
+    // Missing isl_response but other sections all pass → overall should still be pass
+    const data = makeDebugData({
+      payloads: {
+        plot_response: {
+          meta: { seed_source: 'client_provided', seed_used: 1 },
+          repairs_applied: [],
+        },
+        plot_request: {
+          seed: 1,
+          graph: {
+            edges: [
+              { from: 'f1', to: 'f2', strength: { mean: 0.7, std: 0.1 } },
+            ],
+          },
+        },
+        cee_response: {},
+        // isl_response intentionally missing
+      },
+      request_id_chain: makeChain({
+        ui_generated: 'a', all_match: true, chain_complete: true,
+      }),
+    })
+    render(<ContractIntegrityTab data={data} />)
+    // Bundle shows incomplete
+    const bundle = screen.getByTestId('bundle-completeness')
+    expect(bundle.textContent).toMatch(/Bundle incomplete/)
+    // But overall status is still pass (bundle is informational only)
+    expect(screen.getByText(/Contract integrity: pass/)).toBeInTheDocument()
+  })
+})
+
+// =============================================================================
 // Redaction: llm_raw.text exemption
 // =============================================================================
 
@@ -880,5 +945,280 @@ describe('llm_raw.text redaction exemption', () => {
     expect((llmRaw.text as string).length).toBe(5000)
     expect((llmRaw.some_other_field as string).length).toBeLessThan(2000)
     expect((llmRaw.some_other_field as string)).toContain('truncated_by: bundle_redaction')
+  })
+})
+
+// =============================================================================
+// Repairs applied section (observability audit)
+// =============================================================================
+
+describe('Repairs applied section', () => {
+  it('shows pass badge when repairs_applied is empty array', () => {
+    const data = makeDebugData({
+      payloads: {
+        plot_response: { repairs_applied: [], analysis_status: 'computed' },
+      },
+    })
+    render(<ContractIntegrityTab data={data} />)
+    const section = screen.getByTestId('repairs-applied-section')
+    // Section is collapsed when empty — check badge text
+    expect(section).toHaveTextContent('Pass')
+    // Expand to verify empty state message
+    fireEvent.click(screen.getAllByText('Repairs applied')[0])
+    expect(section).toHaveTextContent('No repairs needed')
+  })
+
+  it('shows warn badge and table rows when repairs are populated', () => {
+    const data = makeDebugData({
+      payloads: {
+        plot_response: {
+          analysis_status: 'computed',
+          repairs_applied: [
+            { code: 'NORM_001', layer: 'normalization', field_path: 'edges[0].strength', before: 1.5, after: 1.0, severity: 'warn' },
+          ],
+        },
+      },
+    })
+    render(<ContractIntegrityTab data={data} />)
+    expect(screen.getByText('NORM_001')).toBeInTheDocument()
+    expect(screen.getByText('normalization')).toBeInTheDocument()
+  })
+
+  it('shows unavailable when plot_response is missing', () => {
+    const data = makeDebugData({ payloads: {} })
+    render(<ContractIntegrityTab data={data} />)
+    const section = screen.getByTestId('repairs-applied-section')
+    expect(section).toHaveTextContent('N/A')
+    // Expand to verify content
+    fireEvent.click(screen.getAllByText('Repairs applied')[0])
+    expect(section).toHaveTextContent('Data not available')
+  })
+
+  it('renders constraint PU injection sub-row', () => {
+    const data = makeDebugData({
+      payloads: {
+        plot_response: {
+          analysis_status: 'computed',
+          repairs_applied: [
+            { type: 'constraint_parameter_injection', node_id: 'factor_revenue', value: 500, source: 'goal_constraint' },
+          ],
+        },
+      },
+    })
+    render(<ContractIntegrityTab data={data} />)
+    const injectionRow = screen.getByTestId('constraint-pu-injection')
+    expect(injectionRow).toHaveTextContent('factor_revenue')
+    expect(injectionRow).toHaveTextContent('Constraint PU injected')
+  })
+})
+
+// =============================================================================
+// Constraint pipeline section
+// =============================================================================
+
+describe('Constraint pipeline section', () => {
+  it('shows pass badge when constraints_status is computed', () => {
+    const data = makeDebugData({
+      payloads: {
+        plot_response: {
+          analysis_status: 'computed',
+          constraints_status: 'computed',
+          _meta: { filtered_constraints: [], constraint_sources: {} },
+        },
+      },
+    })
+    render(<ContractIntegrityTab data={data} />)
+    const section = screen.getByTestId('constraint-pipeline-section')
+    expect(section).toHaveTextContent('Pass')
+    // Expand to verify content
+    fireEvent.click(screen.getByText('Constraint pipeline'))
+    expect(section).toHaveTextContent('computed')
+  })
+
+  it('shows filtered constraints count when present', () => {
+    const data = makeDebugData({
+      payloads: {
+        plot_response: {
+          analysis_status: 'computed',
+          constraints_status: 'computed',
+          _meta: {
+            filtered_constraints: [
+              { constraint_id: 'c1', reason: 'duplicate' },
+              { constraint_id: 'c2', reason: 'invalid' },
+            ],
+            constraint_sources: {},
+          },
+        },
+      },
+    })
+    render(<ContractIntegrityTab data={data} />)
+    // Expand section
+    fireEvent.click(screen.getByText('Constraint pipeline'))
+    const section = screen.getByTestId('constraint-pipeline-section')
+    expect(section).toHaveTextContent('2 constraints filtered')
+  })
+
+  it('shows unavailable when constraints_status is missing', () => {
+    const data = makeDebugData({
+      payloads: {
+        plot_response: { analysis_status: 'computed' },
+      },
+    })
+    render(<ContractIntegrityTab data={data} />)
+    const section = screen.getByTestId('constraint-pipeline-section')
+    // Expand section
+    fireEvent.click(screen.getByText('Constraint pipeline'))
+    expect(section).toHaveTextContent('No constraints in this run')
+  })
+})
+
+// =============================================================================
+// Decision review section
+// =============================================================================
+
+describe('Decision review section', () => {
+  it('maps complete status with no warnings to pass "Complete"', () => {
+    const data = makeDebugData({
+      payloads: {
+        plot_response: {
+          analysis_status: 'computed',
+          review_status: 'complete',
+          review_warnings: [],
+        },
+      },
+    })
+    render(<ContractIntegrityTab data={data} />)
+    const section = screen.getByTestId('decision-review-section')
+    expect(section).toHaveTextContent('Pass')
+    // Expand to see label
+    fireEvent.click(screen.getByText('Decision review'))
+    expect(section).toHaveTextContent('Complete')
+    // Ensure it doesn't say "Complete with warnings"
+    expect(section).not.toHaveTextContent('Complete with warnings')
+  })
+
+  it('maps complete with warnings to warn "Complete with warnings"', () => {
+    const data = makeDebugData({
+      payloads: {
+        plot_response: {
+          analysis_status: 'computed',
+          review_status: 'complete',
+          review_warnings: ['UNGROUNDED_NUMBER', 'MISSING_BRIEF_EVIDENCE'],
+        },
+      },
+    })
+    render(<ContractIntegrityTab data={data} />)
+    const section = screen.getByTestId('decision-review-section')
+    expect(section).toHaveTextContent('Complete with warnings')
+    expect(section).toHaveTextContent('UNGROUNDED_NUMBER')
+    expect(section).toHaveTextContent('MISSING_BRIEF_EVIDENCE')
+  })
+
+  it('maps failed status to fail badge', () => {
+    const data = makeDebugData({
+      payloads: {
+        plot_response: {
+          analysis_status: 'computed',
+          review_status: 'failed',
+          review_failure_codes: ['MODIFIED_VALUES'],
+        },
+      },
+    })
+    render(<ContractIntegrityTab data={data} />)
+    const section = screen.getByTestId('decision-review-section')
+    expect(section).toHaveTextContent('Failed')
+    expect(section).toHaveTextContent('MODIFIED_VALUES')
+  })
+
+  it('shows unavailable "Not run" when review_status is absent', () => {
+    const data = makeDebugData({
+      payloads: {
+        plot_response: { analysis_status: 'computed' },
+      },
+    })
+    render(<ContractIntegrityTab data={data} />)
+    const section = screen.getByTestId('decision-review-section')
+    expect(section).toHaveTextContent('N/A')
+    // Expand to see content
+    fireEvent.click(screen.getByText('Decision review'))
+    expect(section).toHaveTextContent('Not run')
+  })
+
+  it('shows human-readable explanation for known warning codes', () => {
+    const data = makeDebugData({
+      payloads: {
+        plot_response: {
+          analysis_status: 'computed',
+          review_status: 'complete',
+          review_warnings: ['UNGROUNDED_NUMBER'],
+        },
+      },
+    })
+    render(<ContractIntegrityTab data={data} />)
+    expect(screen.getByText('Number not traceable to brief')).toBeInTheDocument()
+  })
+})
+
+// =============================================================================
+// Critiques section
+// =============================================================================
+
+describe('Critiques section', () => {
+  it('shows pass badge when critiques is empty', () => {
+    const data = makeDebugData({
+      payloads: {
+        plot_response: { analysis_status: 'computed', critiques: [] },
+      },
+    })
+    render(<ContractIntegrityTab data={data} />)
+    const section = screen.getByTestId('critiques-section')
+    expect(section).toHaveTextContent('Pass')
+    // Expand to see content
+    fireEvent.click(screen.getByText('Critiques'))
+    expect(section).toHaveTextContent('No critiques')
+  })
+
+  it('shows warn with severity pills when critiques are populated', () => {
+    const data = makeDebugData({
+      payloads: {
+        plot_response: {
+          analysis_status: 'computed',
+          critiques: [
+            { code: 'LOW_DATA', severity: 'warning', message: 'Insufficient data for factor X' },
+          ],
+        },
+      },
+    })
+    render(<ContractIntegrityTab data={data} />)
+    const section = screen.getByTestId('critiques-section')
+    expect(section).toHaveTextContent('LOW_DATA')
+    expect(section).toHaveTextContent('Insufficient data for factor X')
+  })
+})
+
+// =============================================================================
+// Overall status aggregation includes new sections
+// =============================================================================
+
+describe('Overall status with new sections', () => {
+  it('propagates fail from decision review to overall status', () => {
+    const data = makeDebugData({
+      payloads: {
+        plot_response: {
+          analysis_status: 'computed',
+          meta: { seed_source: 'client_provided', seed_used: 42 },
+          repairs_applied: [],
+          review_status: 'failed',
+          review_failure_codes: ['MODIFIED_VALUES'],
+          critiques: [],
+        },
+        plot_request: { seed: 42, graph: { edges: [] } },
+        isl_request: { seed: 42 },
+      },
+      request_id_chain: makeChain({ ui_generated: 'req-1', all_match: true, chain_complete: true }),
+    })
+    render(<ContractIntegrityTab data={data} />)
+    // Overall should show fail because decision review is fail
+    expect(screen.getByText(/Contract integrity: fail/i)).toBeInTheDocument()
   })
 })

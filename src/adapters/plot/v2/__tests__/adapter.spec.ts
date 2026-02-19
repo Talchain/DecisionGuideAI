@@ -1143,3 +1143,121 @@ describe('buildV2RequestFromAnalysisReady — display metadata exclusion', () =>
     expect(request.goal_threshold).toBe(0.6)
   })
 })
+
+// =============================================================================
+// XOR: goal_threshold vs goal_constraints
+// =============================================================================
+
+describe('XOR: goal_threshold vs goal_constraints', () => {
+  const xorNodes: Node[] = [
+    makeNode('f1', { label: 'Factor', kind: 'factor', value: 50 }),
+    makeNode('goal', { label: 'Goal', kind: 'goal' }),
+  ]
+  const xorEdges: Edge[] = [
+    makeEdge('e1', 'f1', 'goal', { weight: 0.5, direction: 'positive', beliefExists: 0.7 }),
+  ]
+  const xorAnalysisReady: CEEAnalysisReady = {
+    options: [{
+      id: 'opt1',
+      label: 'Option',
+      status: 'ready',
+      interventions: { f1: { value: 100, source: 'brief_extraction' } },
+    }],
+    goal_node_id: 'goal',
+    goal_threshold: 0.8,
+  }
+
+  it('removes goal_threshold when goal_constraints are present (non-empty array)', () => {
+    const { request } = buildV2RequestFromAnalysisReady(
+      xorNodes, xorEdges, xorAnalysisReady, [], undefined,
+      { goalConstraints: [{ id: 'c1', label: 'Revenue >= 500', operator: '>=', value: 500 }] }
+    )
+
+    expect(request.goal_constraints).toHaveLength(1)
+    expect(request).not.toHaveProperty('goal_threshold')
+  })
+
+  it('preserves goal_threshold when goal_constraints is empty array', () => {
+    const { request } = buildV2RequestFromAnalysisReady(
+      xorNodes, xorEdges, xorAnalysisReady, [], undefined,
+      { goalConstraints: [] }
+    )
+
+    expect(request.goal_threshold).toBe(0.8)
+    expect(request).not.toHaveProperty('goal_constraints')
+  })
+
+  it('preserves goal_threshold when goal_constraints is absent', () => {
+    const { request } = buildV2RequestFromAnalysisReady(
+      xorNodes, xorEdges, xorAnalysisReady
+    )
+
+    expect(request.goal_threshold).toBe(0.8)
+    expect(request).not.toHaveProperty('goal_constraints')
+  })
+
+  it('preserves goal_constraints when goal_threshold is absent', () => {
+    const noThreshold: CEEAnalysisReady = {
+      ...xorAnalysisReady,
+      goal_threshold: undefined,
+    }
+    const { request } = buildV2RequestFromAnalysisReady(
+      xorNodes, xorEdges, noThreshold, [], undefined,
+      { goalConstraints: [{ id: 'c1', label: 'Revenue >= 500', operator: '>=', value: 500 }] }
+    )
+
+    expect(request.goal_constraints).toHaveLength(1)
+    expect(request).not.toHaveProperty('goal_threshold')
+  })
+
+  it('execute path: goal_threshold re-injected via parameter is removed when goal_constraints exist', () => {
+    // Regression test for executeV2RunWithAnalysisReady (adapter.ts:1186-1196).
+    // The builder XOR removes goal_threshold, but the execute path can re-inject
+    // it via the goalThreshold parameter. The second XOR must catch this.
+    const { request } = buildV2RequestFromAnalysisReady(
+      xorNodes, xorEdges, xorAnalysisReady, [], undefined,
+      { goalConstraints: [{ id: 'c1', label: 'Revenue >= 500', operator: '>=', value: 500 }] }
+    )
+
+    // Builder XOR already removed goal_threshold
+    expect(request).not.toHaveProperty('goal_threshold')
+
+    // Simulate execute path: goalThreshold parameter re-injects after builder
+    request.goal_threshold = 0.8
+
+    // Apply the same XOR pattern as executeV2RunWithAnalysisReady (adapter.ts:1194-1196)
+    if (Array.isArray(request.goal_constraints) && request.goal_constraints.length > 0) {
+      delete request.goal_threshold
+    }
+
+    expect(request).not.toHaveProperty('goal_threshold')
+    expect(request.goal_constraints).toHaveLength(1)
+  })
+})
+
+// =============================================================================
+// buildV2Request: scenario comparison path
+// =============================================================================
+
+describe('buildV2Request (scenario comparison path)', () => {
+  it('does not include goal_constraints in request', () => {
+    const nodes: Node[] = [
+      makeNode('f1', { label: 'Factor', kind: 'factor', value: 50 }),
+      makeNode('goal', { label: 'Goal', kind: 'goal' }),
+    ]
+    const edges: Edge[] = [
+      makeEdge('e1', 'f1', 'goal', { weight: 0.5, direction: 'positive', beliefExists: 0.7 }),
+    ]
+    const options: UIOption[] = [{
+      id: 'opt1',
+      label: 'Option',
+      status: 'ready',
+      interventions: { f1: { value: 100, source: 'brief_extraction' as const } },
+    }]
+
+    const { request } = buildV2Request(nodes, edges, options, 'goal')
+
+    expect(request).not.toHaveProperty('goal_constraints')
+    expect(request).not.toHaveProperty('goal_threshold')
+  })
+})

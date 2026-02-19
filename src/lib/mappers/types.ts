@@ -217,6 +217,7 @@ export interface RawFactor {
   node_id?: string
   id?: string
   label?: string
+  factor_label?: string
   elasticity?: number
   sensitivity_score?: number
   sensitivity?: number

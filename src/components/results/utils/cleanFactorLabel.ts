@@ -30,7 +30,7 @@ export interface CleanedLabel {
  * - \u2014 = em-dash (—)
  * - \/ = forward slash (for 0/1 boolean)
  */
-const ENCODING_PATTERN = /\s*\(0[\u002D\u2013\u2014\/]1[^)]*\)\s*/g
+const ENCODING_PATTERN = /\s*\(0[\u002D\u2013\u2014/]1[^)]*\)\s*/g
 
 /**
  * Strip parenthetical encoding notation from a label.

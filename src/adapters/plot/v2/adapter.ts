@@ -716,6 +716,7 @@ export function buildV2Request(
 
   // Step 4: Build final request
   // P0 Fix: Derive seed from timestamp instead of hardcoded "42"
+  // Scenario comparison path: does not include goal_constraints, so XOR enforcement not needed
   const request: V2RunRequest = {
     graph: normalised.graph,
     options: normalised.options,
@@ -866,6 +867,14 @@ export function buildV2RequestFromAnalysisReady(
     ...(analysisReady.goal_threshold != null && { goal_threshold: analysisReady.goal_threshold }),
     // Goal constraints for multi-constraint analysis (from CEE response root, not analysis_ready)
     ...(goalConstraints?.length && { goal_constraints: goalConstraints }),
+  }
+
+  // XOR: goal_constraints take precedence over goal_threshold (PLoT contract §3.3.5).
+  // When constraints are present, ISL uses probability_of_joint_goal instead of probability_of_goal.
+  // delete is safe here: V2RunRequest marks goal_threshold as optional, so removing it
+  // produces a valid request object.
+  if (Array.isArray(request.goal_constraints) && request.goal_constraints.length > 0) {
+    delete request.goal_threshold
   }
 
   return { request, reverseIdMap: normalised.reverseIdMap }
@@ -1176,6 +1185,14 @@ export async function executeV2RunWithAnalysisReady(
   // Add goal threshold for probability_of_goal calculation
   if (goalThreshold !== undefined) {
     request.goal_threshold = goalThreshold
+  }
+
+  // XOR: goal_constraints take precedence over goal_threshold (PLoT contract §3.3.5).
+  // This catches the case where goalThreshold is injected via the function parameter
+  // after the builder already set goal_constraints.
+  // delete is safe: V2RunRequest marks goal_threshold as optional.
+  if (Array.isArray(request.goal_constraints) && request.goal_constraints.length > 0) {
+    delete request.goal_threshold
   }
 
   if (import.meta.env.DEV) {

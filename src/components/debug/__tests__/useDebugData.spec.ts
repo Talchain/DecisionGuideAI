@@ -577,6 +577,199 @@ describe('useDebugData', () => {
     })
   })
 
+  describe('winningOption extraction (extractWinningOption)', () => {
+    it('extracts winner from top-level option_comparison (PLoT V2)', () => {
+      const plotPayload = {
+        id: 'req-winner-oc',
+        service: 'PLoT',
+        endpoint: '/v2/run',
+        status: 200,
+        completed: true,
+        duration: 1500,
+        request: { body: {} },
+        response: {
+          body: {
+            option_comparison: [
+              { option_id: 'opt_a', option_label: 'Option A', win_probability: 0.85 },
+              { option_id: 'opt_b', option_label: 'Option B', win_probability: 0.15 },
+            ],
+          },
+        },
+      }
+
+      vi.mocked(usePayloadTraceStore).mockImplementation((selector) =>
+        selector({ payloads: [plotPayload] })
+      )
+
+      const { result } = renderHook(() => useDebugData())
+
+      expect(result.current.winningOption).not.toBeNull()
+      expect(result.current.winningOption?.id).toBe('opt_a')
+      expect(result.current.winningOption?.label).toBe('Option A')
+      expect(result.current.winningOption?.win_probability).toBeCloseTo(85)
+      expect(result.current.winningOption?.is_close_race).toBe(false)
+    })
+
+    it('extracts winner from legacy options array (backwards compat)', () => {
+      const plotPayload = {
+        id: 'req-winner-legacy',
+        service: 'PLoT',
+        endpoint: '/v2/run',
+        status: 200,
+        completed: true,
+        duration: 1500,
+        request: { body: {} },
+        response: {
+          body: {
+            options: [
+              { id: 'opt_x', label: 'Option X', win_probability: 0.72 },
+              { id: 'opt_y', label: 'Option Y', win_probability: 0.28 },
+            ],
+          },
+        },
+      }
+
+      vi.mocked(usePayloadTraceStore).mockImplementation((selector) =>
+        selector({ payloads: [plotPayload] })
+      )
+
+      const { result } = renderHook(() => useDebugData())
+
+      expect(result.current.winningOption).not.toBeNull()
+      expect(result.current.winningOption?.id).toBe('opt_x')
+      expect(result.current.winningOption?.label).toBe('Option X')
+      expect(result.current.winningOption?.win_probability).toBeCloseTo(72)
+    })
+
+    it('prefers option_comparison over options when both present', () => {
+      const plotPayload = {
+        id: 'req-winner-precedence',
+        service: 'PLoT',
+        endpoint: '/v2/run',
+        status: 200,
+        completed: true,
+        duration: 1500,
+        request: { body: {} },
+        response: {
+          body: {
+            option_comparison: [
+              { option_id: 'oc_winner', option_label: 'From OC', win_probability: 0.9 },
+            ],
+            options: [
+              { id: 'legacy_winner', label: 'From Legacy', win_probability: 0.8 },
+            ],
+          },
+        },
+      }
+
+      vi.mocked(usePayloadTraceStore).mockImplementation((selector) =>
+        selector({ payloads: [plotPayload] })
+      )
+
+      const { result } = renderHook(() => useDebugData())
+
+      expect(result.current.winningOption).not.toBeNull()
+      expect(result.current.winningOption?.id).toBe('oc_winner')
+      expect(result.current.winningOption?.label).toBe('From OC')
+    })
+
+    it('finds options in downstream_calls.isl.response.option_comparison', () => {
+      const plotPayload = {
+        id: 'req-winner-dc',
+        service: 'PLoT',
+        endpoint: '/v2/run',
+        status: 200,
+        completed: true,
+        duration: 1500,
+        request: { body: {} },
+        response: {
+          body: {
+            downstream_calls: {
+              isl: {
+                endpoint: '/api/isl/analyze',
+                status_code: 200,
+                success: true,
+                latency_ms: 300,
+                response: {
+                  option_comparison: [
+                    { option_id: 'dc_opt', option_label: 'DC Option', win_probability: 0.95 },
+                  ],
+                },
+              },
+            },
+          },
+        },
+      }
+
+      vi.mocked(usePayloadTraceStore).mockImplementation((selector) =>
+        selector({ payloads: [plotPayload] })
+      )
+
+      const { result } = renderHook(() => useDebugData())
+
+      expect(result.current.winningOption).not.toBeNull()
+      expect(result.current.winningOption?.id).toBe('dc_opt')
+    })
+
+    it('returns null when option_comparison is empty', () => {
+      const plotPayload = {
+        id: 'req-winner-empty',
+        service: 'PLoT',
+        endpoint: '/v2/run',
+        status: 200,
+        completed: true,
+        duration: 1000,
+        request: { body: {} },
+        response: {
+          body: {
+            option_comparison: [],
+          },
+        },
+      }
+
+      vi.mocked(usePayloadTraceStore).mockImplementation((selector) =>
+        selector({ payloads: [plotPayload] })
+      )
+
+      const { result } = renderHook(() => useDebugData())
+
+      expect(result.current.winningOption).toBeNull()
+    })
+
+    it('detects close race and populates runner_up', () => {
+      const plotPayload = {
+        id: 'req-winner-close',
+        service: 'PLoT',
+        endpoint: '/v2/run',
+        status: 200,
+        completed: true,
+        duration: 1500,
+        request: { body: {} },
+        response: {
+          body: {
+            option_comparison: [
+              { option_id: 'opt_1', option_label: 'First', win_probability: 0.55 },
+              { option_id: 'opt_2', option_label: 'Second', win_probability: 0.45 },
+            ],
+          },
+        },
+      }
+
+      vi.mocked(usePayloadTraceStore).mockImplementation((selector) =>
+        selector({ payloads: [plotPayload] })
+      )
+
+      const { result } = renderHook(() => useDebugData())
+
+      expect(result.current.winningOption).not.toBeNull()
+      expect(result.current.winningOption?.is_close_race).toBe(true)
+      expect(result.current.winningOption?.runner_up).not.toBeUndefined()
+      expect(result.current.winningOption?.runner_up?.id).toBe('opt_2')
+      expect(result.current.winningOption?.runner_up?.label).toBe('Second')
+      expect(result.current.winningOption?.runner_up?.win_probability).toBeCloseTo(45)
+    })
+  })
+
   describe('hasData detection', () => {
     it('returns hasData=false when no data available', () => {
       const { result } = renderHook(() => useDebugData())

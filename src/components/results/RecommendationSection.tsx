@@ -236,6 +236,7 @@ export function RecommendationSection({
 
       {/* P2 Task 3: Limited options coaching card (moved below hero) */}
       {/* v7.3: GATED — "You're comparing 2 options" banner not in prototype. Remove after v7 stable. */}
+      {/* eslint-disable-next-line no-constant-binary-expression */}
       {false && (
         <LimitedOptionsCard
           optionCount={optionCount}

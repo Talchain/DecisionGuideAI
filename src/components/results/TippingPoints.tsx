@@ -322,6 +322,7 @@ export function TippingPoints({
 
   // Mode B: fallback to driver strength
   // v7.2: GATED — "Driver strength" block not in v7 prototype
+  // eslint-disable-next-line no-constant-condition, no-constant-binary-expression
   if (false && drivers && drivers.length > 0) {
     return <TippingPointsModeB drivers={drivers} />
   }

@@ -43,7 +43,10 @@ function getFactorId(factor: RawFactor, index: number): string {
   const id = asOptionalString(factor.id)
   if (id) return id
 
-  // Fall back to normalised label
+  // Fall back to normalised label (prefer factor_label over label, matching display logic)
+  const factorLabel = asOptionalString(factor.factor_label)
+  if (factorLabel) return normaliseLabel(factorLabel)
+
   const label = asOptionalString(factor.label)
   if (label) return normaliseLabel(label)
 
@@ -154,7 +157,7 @@ export function mapFactorSensitivity(
 ): MappedFactor[] {
   return factors.map((factor, index): MappedFactor => {
     const factorId = getFactorId(factor, index)
-    const label = asOptionalString(factor.label) ?? factorId
+    const label = asOptionalString(factor.factor_label) || asOptionalString(factor.label) || factorId
     const rawInfluence = getRawInfluence(factor)
     const direction = normaliseDirection(asOptionalString(factor.direction))
     const confidence = getConfidence(factor)

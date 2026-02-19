@@ -341,5 +341,48 @@ describe('mapFactorSensitivity', () => {
 
       expect(result[0].label).toBe('fac_price')
     })
+
+    it('prefers factor_label over label (PLoT V2 field name)', () => {
+      const factors: RawFactor[] = [
+        { factor_id: 'fac_price', factor_label: 'Price (adjusted)', label: 'Price' },
+      ]
+
+      const result = mapFactorSensitivity(factors, defaultOptions)
+
+      expect(result[0].label).toBe('Price (adjusted)')
+    })
+
+    it('falls back to label when factor_label is empty string', () => {
+      const factors: RawFactor[] = [
+        { factor_id: 'fac_price', factor_label: '', label: 'Price' },
+      ]
+
+      const result = mapFactorSensitivity(factors, defaultOptions)
+
+      expect(result[0].label).toBe('Price')
+    })
+  })
+
+  describe('ID fallback with factor_label', () => {
+    it('uses normalised factor_label for ID when no ID fields are present', () => {
+      const factors: RawFactor[] = [
+        { factor_label: 'Market Size' },
+      ]
+
+      const result = mapFactorSensitivity(factors, defaultOptions)
+
+      expect(result[0].factorId).toBe('market_size')
+      expect(result[0].label).toBe('Market Size')
+    })
+
+    it('prefers factor_label over label for ID fallback', () => {
+      const factors: RawFactor[] = [
+        { factor_label: 'Price (adjusted)', label: 'Price' },
+      ]
+
+      const result = mapFactorSensitivity(factors, defaultOptions)
+
+      expect(result[0].factorId).toBe('price_(adjusted)')
+    })
   })
 })

@@ -728,6 +728,7 @@ export function ConfidenceSection({
       })()}
 
       {/* v7.5: gated — not in v7 prototype. Source: m1_coaching. Remove after v7 stable. */}
+      {/* eslint-disable-next-line no-constant-binary-expression */}
       {false && nextActions && nextActions.length > 0 && (
         <div className="space-y-2">
           <h4 className={`${typography.panelHeader} text-slate-500 tracking-wide`}>
@@ -789,6 +790,7 @@ export function ConfidenceSection({
       )}
 
       {/* v7.5: gated — not in v7 prototype. Source: m1_coaching. Remove after v7 stable. */}
+      {/* eslint-disable-next-line no-constant-binary-expression */}
       {false && (
       <div className="space-y-2">
         <h4 className={`${typography.panelHeader} text-slate-500 tracking-wide`}>

@@ -352,6 +352,44 @@ export interface V2RunResponse {
 
   /** M1 Review - key assumptions and pre-mortem analysis */
   m1_review?: V2M1Review
+
+  // ==========================================================================
+  // Observability Fields (optional, from PLoT response passthrough)
+  // ==========================================================================
+
+  /** Repairs applied by PLoT during processing */
+  repairs_applied?: Array<{
+    code?: string
+    type?: string
+    layer?: string
+    field_path?: string
+    before?: unknown
+    after?: unknown
+    severity?: string
+    node_id?: string
+    value?: unknown
+    source?: string
+    reason?: string
+  }>
+
+  /** PLoT response metadata (filtered constraints, constraint sources) */
+  _meta?: {
+    filtered_constraints?: unknown[]
+    constraint_sources?: Record<string, string>
+    [key: string]: unknown
+  }
+
+  /** Decision review status (FeatureStatus-like: 'complete' | 'failed' | absent) */
+  review_status?: string
+
+  /** Decision review warnings (M1 warning codes) */
+  review_warnings?: string[]
+
+  /** Decision review failure codes */
+  review_failure_codes?: string[]
+
+  /** Constraints pipeline status (FeatureStatus: 'computed' | 'unavailable' | 'skipped' | 'error') */
+  constraints_status?: string
 }
 
 /**
