@@ -13,6 +13,17 @@ import { getErrorInfo } from '../constants/errorCodes'
 
 type SeverityFilter = 'all' | 'error' | 'warning' | 'info'
 
+// Timeout budget constants (ms). Must match backend configuration:
+// CEE: ENDPOINT_TIMEOUTS['/draft-graph'] = 120000 (src/adapters/cee/client.ts:386)
+// PLoT: config.timeouts.syncRequest = 30000 (src/lib/config.ts:119)
+// ISL: default timeout = 30000 (src/adapters/isl/client.ts:45)
+// See: Platform Contract §4.9 Timeout Hierarchy
+const SERVICE_BUDGETS = {
+  CEE: 120_000,
+  PLoT: 30_000,
+  ISL: 30_000,
+}
+
 // Severity icon and color mapping
 const SEVERITY_CONFIG = {
   error: { icon: '●', bg: '#fef2f2', border: '#fecaca', text: '#dc2626' },
@@ -375,6 +386,49 @@ export function SummaryTab({
 
   const pipelinePathPill = getPipelinePathPill(data.pipeline.cee_provenance?.pipeline_path)
 
+  // Timeout budget computation
+  const budgetEntries = useMemo(() => {
+    const services = [
+      { name: 'CEE', duration: data.services.cee?.duration_ms, budget: SERVICE_BUDGETS.CEE },
+      { name: 'PLoT', duration: data.services.plot?.duration_ms, budget: SERVICE_BUDGETS.PLoT },
+      { name: 'ISL', duration: data.services.isl?.duration_ms, budget: SERVICE_BUDGETS.ISL },
+    ]
+    return services
+      .filter(s => s.duration != null)
+      .map(s => {
+        const pct = (s.duration! / s.budget) * 100
+        const color = pct > 95 ? '#dc2626' : pct >= 80 ? '#d97706' : '#16a34a'
+        return { name: s.name, pct, pctLabel: `${Math.round(pct)}%`, color }
+      })
+  }, [data.services])
+
+  // Constraint status badge
+  const constraintStatusBadge = useMemo(() => {
+    const plotResponse = data.payloads.plot_response as Record<string, unknown> | undefined
+    if (!plotResponse) return null
+    const cs = plotResponse.constraints_status as string | undefined
+    if (!cs) return null
+    const kpiStatus: KpiStatus = cs === 'computed' ? 'ok' : cs === 'error' ? 'error' : 'neutral'
+    const label = cs.charAt(0).toUpperCase() + cs.slice(1)
+    return { label, kpiStatus }
+  }, [data.payloads.plot_response])
+
+  // Review status badge
+  const reviewStatusBadge = useMemo(() => {
+    if (!data.m2_review) return null
+    const statusMap: Record<string, { label: string; kpiStatus: KpiStatus }> = {
+      success: { label: 'Complete', kpiStatus: 'ok' },
+      failed: { label: 'Failed', kpiStatus: 'error' },
+      skipped: { label: 'Skipped', kpiStatus: 'neutral' },
+      pending: { label: 'Pending', kpiStatus: 'info' as KpiStatus },
+    }
+    const mapped = statusMap[data.m2_review.status] ?? { label: data.m2_review.status, kpiStatus: 'neutral' as KpiStatus }
+    return {
+      ...mapped,
+      tooltip: data.m2_review.error ?? data.m2_review.skip_reason ?? undefined,
+    }
+  }, [data.m2_review])
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16, padding: 12 }}>
       {/* Error Banner */}
@@ -477,6 +531,23 @@ export function SummaryTab({
             tooltip={issueCount > 0 ? 'Click to investigate' : 'All gates passing'}
             compact
           />
+          {constraintStatusBadge && (
+            <KpiCard
+              label="Constraints"
+              value={constraintStatusBadge.label}
+              status={constraintStatusBadge.kpiStatus}
+              compact
+            />
+          )}
+          {reviewStatusBadge && (
+            <KpiCard
+              label="Review"
+              value={reviewStatusBadge.label}
+              status={reviewStatusBadge.kpiStatus}
+              tooltip={reviewStatusBadge.tooltip}
+              compact
+            />
+          )}
         </div>
       </div>
 
@@ -521,6 +592,35 @@ export function SummaryTab({
         </div>
         <ServiceChain nodes={chainNodes} />
       </div>
+
+      {/* Timeout budget indicator */}
+      {budgetEntries.length > 0 && (
+        <div style={sectionStyle} data-testid="timeout-budget-section">
+          <div style={sectionTitleStyle}>Timeout budget</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {budgetEntries.map(entry => (
+              <div key={entry.name} style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: 12 }}>
+                <div style={{ width: 40, fontWeight: 600, color: '#334155', flexShrink: 0 }}>{entry.name}</div>
+                <div style={{ flex: 1, height: 8, background: '#f1f5f9', borderRadius: 4, overflow: 'hidden' }}>
+                  <div
+                    data-testid={`budget-bar-${entry.name.toLowerCase()}`}
+                    style={{
+                      width: `${Math.min(entry.pct, 100)}%`,
+                      height: '100%',
+                      borderRadius: 4,
+                      background: entry.color,
+                      transition: 'width 0.3s ease',
+                    }}
+                  />
+                </div>
+                <div style={{ width: 50, textAlign: 'right', fontFamily: 'monospace', fontSize: 11, color: entry.color, fontWeight: 600, flexShrink: 0 }}>
+                  {entry.pctLabel}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Row 3: Graph Validation */}
       {data.hasData && (

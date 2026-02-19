@@ -679,6 +679,236 @@ function GraphDiffItem({ diff }: { diff: GraphDiff }) {
   )
 }
 
+// =============================================================================
+// Pipeline observability components
+// =============================================================================
+
+const MAX_TABLE_ROWS = 50
+
+/** Split pipeline_path string with delimiter tolerance: ' → ', '→', '->' */
+function splitPipelinePath(pathStr: string): string[] {
+  return pathStr.split(/\s*(?:→|->)\s*/).map(s => s.trim()).filter(Boolean)
+}
+
+function PipelinePathIndicator({
+  pipeline,
+  sectionStyle,
+  sectionTitleStyle,
+}: {
+  pipeline: DebugData['pipeline']
+  sectionStyle: CSSProperties
+  sectionTitleStyle: CSSProperties
+}) {
+  const stages = useMemo(() => {
+    const pathStr = pipeline.cee_provenance?.pipeline_path
+    if (typeof pathStr === 'string' && pathStr.length > 0) {
+      return splitPipelinePath(pathStr)
+    }
+    // Fallback: derive from field presence
+    const derived: string[] = ['cee']
+    if (pipeline.enrich) derived.push('enrich')
+    if (pipeline.repair) derived.push('repair')
+    if (pipeline.strp) derived.push('strp')
+    derived.push('plot_v2')
+    return derived
+  }, [pipeline])
+
+  return (
+    <div style={sectionStyle} data-testid="pipeline-path-indicator">
+      <div style={sectionTitleStyle}>Pipeline path</div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
+        {stages.map((stage, i) => (
+          <span key={`${stage}-${i}`} style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+            {i > 0 && <span style={{ color: '#94a3b8', fontSize: 10 }}>{'\u2192'}</span>}
+            <span
+              style={{
+                padding: '2px 8px',
+                borderRadius: 4,
+                fontSize: 11,
+                fontWeight: 500,
+                background: '#f1f5f9',
+                border: '1px solid #e2e8f0',
+                color: '#334155',
+                fontFamily: 'monospace',
+              }}
+            >
+              {stage}
+            </span>
+          </span>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function EnrichmentSection({
+  enrich,
+  sectionStyle,
+  sectionTitleStyle,
+}: {
+  enrich: DebugData['pipeline']['enrich']
+  sectionStyle: CSSProperties
+  sectionTitleStyle: CSSProperties
+}) {
+  if (!enrich) return null
+  const calledCount = enrich.called_count
+  const isMultiple = typeof calledCount === 'number' && calledCount > 1
+  return (
+    <div style={sectionStyle} data-testid="enrichment-section">
+      <div style={sectionTitleStyle}>Enrichment</div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+        <div style={{ padding: 8, background: isMultiple ? '#fffbeb' : '#f9fafb', border: `1px solid ${isMultiple ? '#fde68a' : '#e5e7eb'}`, borderRadius: 4, textAlign: 'center' }}>
+          <div style={{ fontSize: 10, color: '#6b7280', marginBottom: 4 }}>Called count</div>
+          <div style={{ fontSize: 14, fontWeight: 600, fontFamily: 'monospace', color: isMultiple ? '#d97706' : '#334155' }}>
+            {calledCount ?? 'N/A'}
+          </div>
+          {isMultiple && <div style={{ fontSize: 9, color: '#d97706', marginTop: 2 }}>Called {calledCount} times</div>}
+        </div>
+        <div style={{ padding: 8, background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 4, textAlign: 'center' }}>
+          <div style={{ fontSize: 10, color: '#6b7280', marginBottom: 4 }}>Extraction mode</div>
+          <div style={{ fontSize: 14, fontWeight: 600, fontFamily: 'monospace', color: '#334155' }}>{enrich.extraction_mode ?? 'N/A'}</div>
+        </div>
+        <div style={{ padding: 8, background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 4, textAlign: 'center' }}>
+          <div style={{ fontSize: 10, color: '#6b7280', marginBottom: 4 }}>Factors added</div>
+          <div style={{ fontSize: 14, fontWeight: 600, fontFamily: 'monospace', color: '#334155' }}>{enrich.factors_added ?? 'N/A'}</div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function CeeRepairSummary({
+  repair,
+  sectionStyle,
+  sectionTitleStyle,
+}: {
+  repair: Record<string, unknown> | undefined
+  sectionStyle: CSSProperties
+  sectionTitleStyle: CSSProperties
+}) {
+  if (!repair) return null
+  const applied = Array.isArray((repair as Record<string, unknown>).applied) ? (repair as Record<string, unknown>).applied as Array<Record<string, unknown>> : []
+  const skipped = Array.isArray((repair as Record<string, unknown>).skipped) ? (repair as Record<string, unknown>).skipped as string[] : []
+
+  if (applied.length === 0 && skipped.length === 0) {
+    return (
+      <div style={sectionStyle} data-testid="cee-repair-summary">
+        <div style={sectionTitleStyle}>CEE repair summary</div>
+        <div style={{ color: '#16a34a', fontSize: 12 }}>No CEE repairs applied</div>
+      </div>
+    )
+  }
+
+  return (
+    <div style={sectionStyle} data-testid="cee-repair-summary">
+      <div style={sectionTitleStyle}>CEE repair summary</div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {applied.length > 0 && (
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
+              <thead>
+                <tr>
+                  <th style={{ textAlign: 'left', padding: '6px 8px', background: '#f8fafc', borderBottom: '1px solid #e2e8f0', fontWeight: 600, color: '#475569', fontSize: 10 }}>Field</th>
+                  <th style={{ textAlign: 'left', padding: '6px 8px', background: '#f8fafc', borderBottom: '1px solid #e2e8f0', fontWeight: 600, color: '#475569', fontSize: 10 }}>From</th>
+                  <th style={{ textAlign: 'left', padding: '6px 8px', background: '#f8fafc', borderBottom: '1px solid #e2e8f0', fontWeight: 600, color: '#475569', fontSize: 10 }}>To</th>
+                  <th style={{ textAlign: 'left', padding: '6px 8px', background: '#f8fafc', borderBottom: '1px solid #e2e8f0', fontWeight: 600, color: '#475569', fontSize: 10 }}>Reason</th>
+                </tr>
+              </thead>
+              <tbody>
+                {applied.slice(0, MAX_TABLE_ROWS).map((r, i) => (
+                  <tr key={i} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                    <td style={{ padding: '6px 8px', fontFamily: 'monospace', fontSize: 10 }}>{(r.field as string) ?? '?'}</td>
+                    <td style={{ padding: '6px 8px', fontFamily: 'monospace', fontSize: 10 }}>{formatValue(r.from)}</td>
+                    <td style={{ padding: '6px 8px', fontFamily: 'monospace', fontSize: 10 }}>{formatValue(r.to)}</td>
+                    <td style={{ padding: '6px 8px', fontSize: 10 }}>{(r.reason as string) ?? '?'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {applied.length > MAX_TABLE_ROWS && (
+              <div style={{ fontSize: 10, color: '#94a3b8', marginTop: 4 }}>+{applied.length - MAX_TABLE_ROWS} more</div>
+            )}
+          </div>
+        )}
+        {skipped.length > 0 && (
+          <div>
+            <div style={{ fontSize: 11, fontWeight: 600, color: '#64748b', marginBottom: 4 }}>Skipped</div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+              {skipped.map((s, i) => (
+                <span key={i} style={{ padding: '2px 6px', borderRadius: 3, fontSize: 10, fontFamily: 'monospace', background: '#f1f5f9', color: '#475569' }}>{s}</span>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function StrpMutations({
+  strp,
+  sectionStyle,
+  sectionTitleStyle,
+}: {
+  strp: Record<string, unknown> | undefined
+  sectionStyle: CSSProperties
+  sectionTitleStyle: CSSProperties
+}) {
+  if (!strp) return null
+  const mutations = Array.isArray((strp as Record<string, unknown>).mutations) ? (strp as Record<string, unknown>).mutations as Array<Record<string, unknown>> : []
+
+  if (mutations.length === 0) {
+    return (
+      <div style={sectionStyle} data-testid="strp-mutations">
+        <div style={sectionTitleStyle}>STRP mutations</div>
+        <div style={{ color: '#16a34a', fontSize: 12 }}>No STRP mutations</div>
+      </div>
+    )
+  }
+
+  return (
+    <div style={sectionStyle} data-testid="strp-mutations">
+      <div style={sectionTitleStyle}>STRP mutations</div>
+      <div style={{ overflowX: 'auto' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
+          <thead>
+            <tr>
+              <th style={{ textAlign: 'left', padding: '6px 8px', background: '#f8fafc', borderBottom: '1px solid #e2e8f0', fontWeight: 600, color: '#475569', fontSize: 10 }}>Path</th>
+              <th style={{ textAlign: 'left', padding: '6px 8px', background: '#f8fafc', borderBottom: '1px solid #e2e8f0', fontWeight: 600, color: '#475569', fontSize: 10 }}>Action</th>
+              <th style={{ textAlign: 'left', padding: '6px 8px', background: '#f8fafc', borderBottom: '1px solid #e2e8f0', fontWeight: 600, color: '#475569', fontSize: 10 }}>Reason</th>
+            </tr>
+          </thead>
+          <tbody>
+            {mutations.slice(0, MAX_TABLE_ROWS).map((m, i) => (
+              <tr key={i} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                <td style={{ padding: '6px 8px', fontFamily: 'monospace', fontSize: 10 }}>{(m.path as string) ?? '?'}</td>
+                <td style={{ padding: '6px 8px', fontSize: 10 }}>{(m.action as string) ?? '?'}</td>
+                <td style={{ padding: '6px 8px', fontSize: 10 }}>{(m.reason as string) ?? '?'}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {mutations.length > MAX_TABLE_ROWS && (
+          <div style={{ fontSize: 10, color: '#94a3b8', marginTop: 4 }}>+{mutations.length - MAX_TABLE_ROWS} more</div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+/** Format a value for display (handle null/undefined/objects) */
+function formatValue(v: unknown): string {
+  if (v === null || v === undefined) return '\u2014'
+  if (typeof v === 'string') return v
+  if (typeof v === 'number' || typeof v === 'boolean') return String(v)
+  try {
+    const str = JSON.stringify(v)
+    return str.length > 40 ? str.slice(0, 37) + '...' : str
+  } catch {
+    return '[object]'
+  }
+}
+
 export function PipelineTab({ data }: PipelineTabProps) {
   const [showFullLlmOutput, setShowFullLlmOutput] = useState(false)
 

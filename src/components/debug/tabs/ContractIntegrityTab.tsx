@@ -621,11 +621,12 @@ function extractDecisionReview(data: DebugData): { data: DecisionReviewData | nu
     return { data: null, status: 'unavailable' }
   }
 
-  const reviewStatus = plotResponse.review_status as string | undefined
-  if (!reviewStatus) {
+  const reviewStatusRaw = plotResponse.review_status as string | undefined
+  if (!reviewStatusRaw) {
     return { data: null, status: 'unavailable' }
   }
 
+  const reviewStatus = reviewStatusRaw.toLowerCase().trim()
   const warnings = Array.isArray(plotResponse.review_warnings) ? plotResponse.review_warnings as string[] : []
   const failureCodes = Array.isArray(plotResponse.review_failure_codes) ? plotResponse.review_failure_codes as string[] : []
 
@@ -763,6 +764,33 @@ export function ContractIntegrityTab({ data }: ContractIntegrityTabProps) {
           </span>
         )}
       </div>
+
+      {/* Optional field coverage */}
+      {(bundleCompleteness.optional_present.length > 0 || bundleCompleteness.optional_absent.length > 0) && (
+        <div
+          data-testid="optional-field-coverage"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            padding: '4px 12px',
+            background: '#f8fafc',
+            border: '1px solid #e2e8f0',
+            borderRadius: 6,
+            fontSize: 10,
+            color: '#64748b',
+          }}
+        >
+          <span>
+            Optional fields: {bundleCompleteness.optional_present.length}/{bundleCompleteness.optional_present.length + bundleCompleteness.optional_absent.length} present
+          </span>
+          {bundleCompleteness.optional_present.length > 0 && (
+            <span style={{ color: '#16a34a' }}>
+              ({bundleCompleteness.optional_present.map(k => BUNDLE_KEY_LABELS[k] ?? k).join(', ')})
+            </span>
+          )}
+        </div>
+      )}
 
       {/* Section 1: Seed chain */}
       <Section title="Seed chain" status={seedChain.status}>
@@ -971,7 +999,7 @@ export function ContractIntegrityTab({ data }: ContractIntegrityTabProps) {
               )}
 
               {/* Constraint PU injection sub-rows */}
-              {repairsResult.constraintInjections.map((ci, i) => (
+              {repairsResult.constraintInjections.slice(0, MAX_REPAIR_ROWS).map((ci, i) => (
                 <div
                   key={`ci-${i}`}
                   data-testid="constraint-pu-injection"
@@ -989,9 +1017,12 @@ export function ContractIntegrityTab({ data }: ContractIntegrityTabProps) {
                   {' '}(value: {formatCellValue(ci.value)}, source: {ci.source})
                 </div>
               ))}
+              {repairsResult.constraintInjections.length > MAX_REPAIR_ROWS && (
+                <div style={{ fontSize: 10, color: '#94a3b8' }}>+{repairsResult.constraintInjections.length - MAX_REPAIR_ROWS} more</div>
+              )}
 
               {/* Generic unrecognised entries */}
-              {repairsResult.genericEntries.map((ge, i) => (
+              {repairsResult.genericEntries.slice(0, MAX_REPAIR_ROWS).map((ge, i) => (
                 <div
                   key={`gen-${i}`}
                   style={{
@@ -1007,6 +1038,9 @@ export function ContractIntegrityTab({ data }: ContractIntegrityTabProps) {
                   {ge.entries.map(([k, v]) => `${k}: ${formatCellValue(v)}`).join(', ')}
                 </div>
               ))}
+              {repairsResult.genericEntries.length > MAX_REPAIR_ROWS && (
+                <div style={{ fontSize: 10, color: '#94a3b8' }}>+{repairsResult.genericEntries.length - MAX_REPAIR_ROWS} more</div>
+              )}
             </div>
           ) : (
             <div style={{ color: '#16a34a', fontSize: 12 }}>No repairs needed</div>

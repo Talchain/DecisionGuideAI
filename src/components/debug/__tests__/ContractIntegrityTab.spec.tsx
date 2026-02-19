@@ -1157,6 +1157,54 @@ describe('Decision review section', () => {
     render(<ContractIntegrityTab data={data} />)
     expect(screen.getByText('Number not traceable to brief')).toBeInTheDocument()
   })
+
+  it('shows "(unknown code)" fallback for unrecognised warning codes', () => {
+    const data = makeDebugData({
+      payloads: {
+        plot_response: {
+          analysis_status: 'computed',
+          review_status: 'complete',
+          review_warnings: ['TOTALLY_NEW_CODE'],
+        },
+      },
+    })
+    render(<ContractIntegrityTab data={data} />)
+    expect(screen.getByText('(unknown code)')).toBeInTheDocument()
+    expect(screen.getByText('TOTALLY_NEW_CODE')).toBeInTheDocument()
+  })
+
+  it('normalises mixed-case review_status to lowercase match', () => {
+    const data = makeDebugData({
+      payloads: {
+        plot_response: {
+          analysis_status: 'computed',
+          review_status: 'Complete',
+          review_warnings: [],
+        },
+      },
+    })
+    render(<ContractIntegrityTab data={data} />)
+    const section = screen.getByTestId('decision-review-section')
+    expect(section).toHaveTextContent('Pass')
+    fireEvent.click(screen.getByText('Decision review'))
+    expect(section).toHaveTextContent('Complete')
+    expect(section).not.toHaveTextContent('Not run')
+  })
+
+  it('normalises whitespace-padded review_status', () => {
+    const data = makeDebugData({
+      payloads: {
+        plot_response: {
+          analysis_status: 'computed',
+          review_status: '  failed  ',
+          review_failure_codes: [],
+        },
+      },
+    })
+    render(<ContractIntegrityTab data={data} />)
+    const section = screen.getByTestId('decision-review-section')
+    expect(section).toHaveTextContent('Failed')
+  })
 })
 
 // =============================================================================
@@ -1220,5 +1268,43 @@ describe('Overall status with new sections', () => {
     render(<ContractIntegrityTab data={data} />)
     // Overall should show fail because decision review is fail
     expect(screen.getByText(/Contract integrity: fail/i)).toBeInTheDocument()
+  })
+})
+
+// =============================================================================
+// Optional field coverage display
+// =============================================================================
+
+describe('Optional field coverage in CIL tab', () => {
+  it('displays optional field coverage with partial fields', () => {
+    const data = makeDebugData({
+      payloads: {
+        plot_response: {
+          analysis_status: 'computed',
+          repairs_applied: [],
+          critiques: [],
+        },
+        plot_request: { seed: 42, graph: { edges: [] } },
+        isl_response: { option_comparison: [] },
+      },
+    })
+    render(<ContractIntegrityTab data={data} />)
+    const coverage = screen.getByTestId('optional-field-coverage')
+    expect(coverage).toHaveTextContent('Optional fields: 2/4 present')
+    expect(coverage).toHaveTextContent('Repairs applied')
+    expect(coverage).toHaveTextContent('Critiques')
+  })
+
+  it('displays all-absent optional fields', () => {
+    const data = makeDebugData({
+      payloads: {
+        plot_response: { analysis_status: 'computed' },
+        plot_request: { seed: 42, graph: { edges: [] } },
+        isl_response: { option_comparison: [] },
+      },
+    })
+    render(<ContractIntegrityTab data={data} />)
+    const coverage = screen.getByTestId('optional-field-coverage')
+    expect(coverage).toHaveTextContent('Optional fields: 0/4 present')
   })
 })

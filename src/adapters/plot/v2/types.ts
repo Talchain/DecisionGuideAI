@@ -388,8 +388,8 @@ export interface V2RunResponse {
   /** Decision review failure codes */
   review_failure_codes?: string[]
 
-  /** Constraints pipeline status (FeatureStatus: 'computed' | 'unavailable' | 'skipped' | 'error') */
-  constraints_status?: string
+  /** Constraints pipeline status */
+  constraints_status?: 'computed' | 'unavailable' | 'skipped' | 'error'
 }
 
 /**

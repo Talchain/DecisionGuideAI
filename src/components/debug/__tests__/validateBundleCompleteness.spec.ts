@@ -98,3 +98,101 @@ describe('validateBundleCompleteness', () => {
     expect(result.missing).toEqual(['plot_request', 'plot_response', 'isl_response', 'request_id'])
   })
 })
+
+// =============================================================================
+// Optional field coverage (observability audit)
+// =============================================================================
+
+describe('validateBundleCompleteness optional fields', () => {
+  it('reports optional fields present when plot_response contains them', () => {
+    const result = validateBundleCompleteness(makeInput({
+      payloads: {
+        plot_request: { graph: {} },
+        plot_response: {
+          analysis_status: 'computed',
+          repairs_applied: [],
+          constraints_status: 'computed',
+          review_status: 'complete',
+          critiques: [],
+        },
+        isl_response: { option_comparison: [] },
+      },
+    }))
+
+    expect(result.optional_present).toEqual(['repairs_applied', 'constraints_status', 'review_status', 'critiques'])
+    expect(result.optional_absent).toEqual([])
+  })
+
+  it('reports optional fields absent when plot_response lacks them', () => {
+    const result = validateBundleCompleteness(makeInput({
+      payloads: {
+        plot_request: { graph: {} },
+        plot_response: { analysis_status: 'computed' },
+        isl_response: { option_comparison: [] },
+      },
+    }))
+
+    expect(result.optional_present).toEqual([])
+    expect(result.optional_absent).toEqual(['repairs_applied', 'constraints_status', 'review_status', 'critiques'])
+  })
+
+  it('reports partial optional field coverage', () => {
+    const result = validateBundleCompleteness(makeInput({
+      payloads: {
+        plot_request: { graph: {} },
+        plot_response: {
+          analysis_status: 'computed',
+          critiques: [],
+          repairs_applied: [],
+        },
+        isl_response: { option_comparison: [] },
+      },
+    }))
+
+    expect(result.optional_present).toEqual(['repairs_applied', 'critiques'])
+    expect(result.optional_absent).toEqual(['constraints_status', 'review_status'])
+  })
+
+  it('handles null plot_response gracefully for optional fields', () => {
+    const result = validateBundleCompleteness(makeInput({
+      payloads: {
+        plot_request: { graph: {} },
+        plot_response: undefined,
+        isl_response: { option_comparison: [] },
+      },
+    }))
+
+    expect(result.optional_present).toEqual([])
+    expect(result.optional_absent).toEqual(['repairs_applied', 'constraints_status', 'review_status', 'critiques'])
+  })
+
+  it('existing required check still works with optional additions', () => {
+    const result = validateBundleCompleteness(makeInput())
+
+    expect(result.complete).toBe(true)
+    expect(result.missing).toEqual([])
+    // Optional fields are absent from default fixture
+    expect(result.optional_absent.length).toBe(4)
+  })
+
+  it('missing required keys still detected with optional additions', () => {
+    const result = validateBundleCompleteness(makeInput({
+      payloads: {
+        plot_request: undefined,
+        plot_response: {
+          analysis_status: 'computed',
+          repairs_applied: [],
+          critiques: [],
+        },
+        isl_response: undefined,
+      },
+    }))
+
+    expect(result.complete).toBe(false)
+    expect(result.missing).toContain('plot_request')
+    expect(result.missing).toContain('isl_response')
+    // Optional still tracked correctly
+    expect(result.optional_present).toContain('repairs_applied')
+    expect(result.optional_present).toContain('critiques')
+  })
+})

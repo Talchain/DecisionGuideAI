@@ -24,6 +24,10 @@ export interface BundleCompletenessInput {
 export interface BundleCompletenessResult {
   complete: boolean
   missing: string[]
+  /** Optional observability fields present in PLoT response */
+  optional_present: string[]
+  /** Optional observability fields absent from PLoT response */
+  optional_absent: string[]
 }
 
 /** Keys that must be present for a bundle to be considered complete */
@@ -32,6 +36,14 @@ const REQUIRED_KEYS = [
   'plot_response',
   'isl_response',
   'request_id',
+] as const
+
+/** Optional observability fields checked on plot_response */
+const OPTIONAL_KEYS = [
+  'repairs_applied',
+  'constraints_status',
+  'review_status',
+  'critiques',
 ] as const
 
 /**
@@ -55,9 +67,24 @@ export function validateBundleCompleteness(input: BundleCompletenessInput): Bund
     }
   }
 
+  // Check optional observability keys on plot_response
+  const optionalPresent: string[] = []
+  const optionalAbsent: string[] = []
+  const plotResponse = input.payloads.plot_response as Record<string, unknown> | undefined
+
+  for (const key of OPTIONAL_KEYS) {
+    if (plotResponse && plotResponse[key] != null) {
+      optionalPresent.push(key)
+    } else {
+      optionalAbsent.push(key)
+    }
+  }
+
   return {
     complete: missing.length === 0,
     missing,
+    optional_present: optionalPresent,
+    optional_absent: optionalAbsent,
   }
 }
 
@@ -69,4 +96,8 @@ export const BUNDLE_KEY_LABELS: Record<string, string> = {
   request_id: 'Request ID',
   cee_response: 'CEE response',
   cee_request: 'CEE request',
+  repairs_applied: 'Repairs applied',
+  constraints_status: 'Constraint status',
+  review_status: 'Review status',
+  critiques: 'Critiques',
 }
