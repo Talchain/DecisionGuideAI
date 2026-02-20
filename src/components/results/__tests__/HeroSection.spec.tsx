@@ -542,4 +542,267 @@ describe('HeroSection', () => {
       expect(graphLink).toHaveClass('cursor-pointer')
     })
   })
+
+  // ===========================================================================
+  // V11: Structured Hero — decisionState-driven path
+  // ===========================================================================
+  describe('V11: Structured Hero Rows', () => {
+    const v11Props: HeroSectionProps = {
+      ...baseProps,
+      recommendationStability: 0.85,
+      winnerWinProbability: 0.62,
+      runnerUpLabel: 'Option B',
+      runnerUpId: 'option-b',
+      runnerUpWinProbability: 0.30,
+      goalLabel: 'increase revenue',
+    }
+
+    describe('Robust state', () => {
+      it('renders "Leads" row with winner in green', () => {
+        render(
+          <HeroSection
+            {...v11Props}
+            decisionState="robust"
+          />
+        )
+
+        expect(screen.getByTestId('hero-rows')).toBeInTheDocument()
+        expect(screen.getByText('Leads')).toBeInTheDocument()
+        expect(screen.getByText('Option A')).toHaveClass('text-success')
+        expect(screen.getByText(/62% win likelihood/)).toBeInTheDocument()
+      })
+
+      it('renders Status row with "No single assumption could flip this"', () => {
+        render(
+          <HeroSection
+            {...v11Props}
+            decisionState="robust"
+          />
+        )
+
+        expect(screen.getByText('Status')).toBeInTheDocument()
+        expect(screen.getByText(/No single assumption could flip this/)).toBeInTheDocument()
+      })
+
+      it('renders hinge link in Status row when hinge is provided', () => {
+        const onFocusNode = vi.fn()
+
+        render(
+          <HeroSection
+            {...v11Props}
+            decisionState="robust"
+            hinge={{
+              label: 'Market Size',
+              nodeId: 'factor-1',
+              kind: 'edge',
+              reason: 'fragile_edge',
+              edgeDetail: 'Market Size → Revenue',
+              alternativeWinnerLabel: null,
+            }}
+            onFocusNode={onFocusNode}
+          />
+        )
+
+        const link = screen.getByRole('button', { name: /Focus on Market Size/ })
+        expect(link).toBeInTheDocument()
+        fireEvent.click(link)
+        expect(onFocusNode).toHaveBeenCalledWith('factor-1')
+      })
+    })
+
+    describe('Sensitive state', () => {
+      it('renders "Leads" row and "Validate first" label', () => {
+        render(
+          <HeroSection
+            {...v11Props}
+            decisionState="sensitive"
+            hinge={{
+              label: 'Customer Growth',
+              nodeId: 'factor-2',
+              kind: 'node',
+              reason: 'voi',
+              edgeDetail: null,
+              alternativeWinnerLabel: null,
+            }}
+          />
+        )
+
+        expect(screen.getByText('Leads')).toBeInTheDocument()
+        expect(screen.getByText('Validate first')).toBeInTheDocument()
+      })
+    })
+
+    describe('Indeterminate state', () => {
+      it('renders "Result" row with "No clear winner" and percentages', () => {
+        render(
+          <HeroSection
+            {...v11Props}
+            decisionState="indeterminate"
+          />
+        )
+
+        expect(screen.getByText('Result')).toBeInTheDocument()
+        expect(screen.getByText(/No clear winner/)).toBeInTheDocument()
+        expect(screen.getByText(/62% vs 30%/)).toBeInTheDocument()
+      })
+
+      it('renders "Resolve first" label with hinge', () => {
+        render(
+          <HeroSection
+            {...v11Props}
+            decisionState="indeterminate"
+            hinge={{
+              label: 'Adoption Rate',
+              nodeId: 'factor-3',
+              kind: 'edge',
+              reason: 'fragile_edge',
+              edgeDetail: 'Adoption Rate → Market Share',
+              alternativeWinnerLabel: 'Option B',
+            }}
+          />
+        )
+
+        expect(screen.getByText('Resolve first')).toBeInTheDocument()
+        const link = screen.getByRole('button', { name: /Focus on Adoption Rate/ })
+        expect(link).toBeInTheDocument()
+      })
+
+      it('does not render winner in green', () => {
+        render(
+          <HeroSection
+            {...v11Props}
+            decisionState="indeterminate"
+          />
+        )
+
+        // "No clear winner" should be text-text-body (muted), not text-success
+        const resultText = screen.getByText(/No clear winner/)
+        expect(resultText).toHaveClass('text-text-body')
+        expect(resultText).not.toHaveClass('text-success')
+      })
+    })
+  })
+
+  describe('V11: Meta Strip', () => {
+    it('renders evidence badge for "good" level', () => {
+      render(
+        <HeroSection
+          {...baseProps}
+          decisionState="robust"
+          evidenceLevel="good"
+        />
+      )
+
+      const badge = screen.getByTestId('evidence-badge')
+      expect(badge).toHaveTextContent('Evidence: Good')
+      expect(badge).toHaveClass('bg-success-light')
+    })
+
+    it('renders evidence badge for "fair" level', () => {
+      render(
+        <HeroSection
+          {...baseProps}
+          decisionState="sensitive"
+          evidenceLevel="fair"
+        />
+      )
+
+      const badge = screen.getByTestId('evidence-badge')
+      expect(badge).toHaveTextContent('Evidence: Fair')
+      expect(badge).toHaveClass('bg-goal-light')
+    })
+
+    it('renders evidence badge for "needs_work" level', () => {
+      render(
+        <HeroSection
+          {...baseProps}
+          decisionState="indeterminate"
+          evidenceLevel="needs_work"
+        />
+      )
+
+      const badge = screen.getByTestId('evidence-badge')
+      expect(badge).toHaveTextContent('Evidence: Needs work')
+      expect(badge).toHaveClass('bg-danger-light')
+    })
+
+    it('shows meta strip with target when goalThreshold is set', () => {
+      render(
+        <HeroSection
+          {...baseProps}
+          decisionState="robust"
+          goalThreshold={500}
+        />
+      )
+
+      const strip = screen.getByTestId('meta-strip')
+      expect(strip).toHaveTextContent('Target:')
+      expect(strip).toHaveTextContent('500')
+    })
+  })
+
+  describe('V11: Stats Grid (More Detail)', () => {
+    it('shows V11 labels: Win likelihood, Robustness, Fragile edges X of Y, Sampling', () => {
+      render(
+        <HeroSection
+          {...baseProps}
+          decisionState="robust"
+          winnerWinProbability={0.62}
+          recommendationStability={0.90}
+          fragileEdgeCount={2}
+          robustEdgeCount={8}
+          nSamples={10000}
+        />
+      )
+
+      // Expand More
+      const expandButton = screen.getByRole('button', { name: /More/i })
+      fireEvent.click(expandButton)
+
+      expect(screen.getByText('Win likelihood')).toBeInTheDocument()
+      expect(screen.getByText('62%')).toBeInTheDocument()
+      expect(screen.getByText('Robustness')).toBeInTheDocument()
+      expect(screen.getByText(/90%.*stable result/i)).toBeInTheDocument()
+      expect(screen.getByText('Fragile edges')).toBeInTheDocument()
+      expect(screen.getByText('2 of 10')).toBeInTheDocument()
+      expect(screen.getByText('Sampling')).toBeInTheDocument()
+      expect(screen.getByText(/10,000 simulations/)).toBeInTheDocument()
+    })
+  })
+
+  describe('V11: Win Gauge Colour Swap', () => {
+    it('uses standard colours for robust state', () => {
+      render(
+        <HeroSection
+          {...baseProps}
+          decisionState="robust"
+          optionWinShares={[
+            { id: 'a', label: 'Option A', winProbability: 0.6, isWinner: true },
+            { id: 'b', label: 'Option B', winProbability: 0.4, isWinner: false },
+          ]}
+        />
+      )
+
+      const bars = screen.getAllByRole('img')
+      expect(bars[0]).toHaveStyle({ backgroundColor: 'var(--success)' })
+      expect(bars[1]).toHaveStyle({ backgroundColor: 'var(--info-light)' })
+    })
+
+    it('uses factor colours for indeterminate state', () => {
+      render(
+        <HeroSection
+          {...baseProps}
+          decisionState="indeterminate"
+          optionWinShares={[
+            { id: 'a', label: 'Option A', winProbability: 0.5, isWinner: true },
+            { id: 'b', label: 'Option B', winProbability: 0.45, isWinner: false },
+          ]}
+        />
+      )
+
+      const bars = screen.getAllByRole('img')
+      expect(bars[0]).toHaveStyle({ backgroundColor: 'var(--factor)' })
+      expect(bars[1]).toHaveStyle({ backgroundColor: 'var(--factor)' })
+    })
+  })
 })

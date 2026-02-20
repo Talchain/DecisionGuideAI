@@ -159,16 +159,16 @@ function getStabilityTier(stability: number | undefined): {
       label: 'Sensitive to assumptions',
       colorClass: 'text-warning',
       shortText: 'Review key inputs',
-      expandedText: 'Result changes under different assumptions — review key inputs.',
-      coaching: 'Result changes under different assumptions — small changes could shift the recommendation.',
+      expandedText: 'Result changes under different assumptions. Review key inputs.',
+      coaching: 'Result changes under different assumptions. Small changes could shift the recommendation.',
     }
   }
   return {
     label: 'Highly sensitive',
     colorClass: 'text-danger',
     shortText: 'Treat as directional',
-    expandedText: 'Small changes in assumptions change the result — treat as directional.',
-    coaching: 'Small changes in assumptions change the result — consider strengthening key assumptions before committing.',
+    expandedText: 'Small changes in assumptions change the result. Treat as directional.',
+    coaching: 'Small changes in assumptions change the result. Consider strengthening key assumptions before committing.',
   }
 }
 
@@ -267,6 +267,213 @@ function WinGauge({
 
 
 // =============================================================================
+// V11: Evidence Badge
+// =============================================================================
+
+const EVIDENCE_BADGE_CONFIG: Record<EvidenceLevel, { label: string; bg: string; text: string; tooltip: string }> = {
+  good: {
+    label: 'Evidence: Good',
+    bg: 'bg-success-light',
+    text: 'text-success',
+    tooltip: 'Based on stability and proportion of fragile edges.',
+  },
+  fair: {
+    label: 'Evidence: Fair',
+    bg: 'bg-goal-light',
+    text: 'text-goal',
+    tooltip: 'Based on stability and proportion of fragile edges.',
+  },
+  needs_work: {
+    label: 'Evidence: Needs work',
+    bg: 'bg-danger-light',
+    text: 'text-danger',
+    tooltip: 'Based on stability and proportion of fragile edges.',
+  },
+}
+
+// =============================================================================
+// V11: MetaStrip — single-row evidence + baseline + target
+// =============================================================================
+
+function MetaStrip({
+  evidenceLevel,
+  baselineLabel,
+  goalThreshold,
+  onSetBaseline,
+  onAddBaseline,
+  baselineOptions,
+  isRunning,
+}: {
+  evidenceLevel?: EvidenceLevel
+  baselineLabel?: string
+  goalThreshold?: number | null
+  onSetBaseline?: (id: string) => void
+  onAddBaseline?: () => void
+  baselineOptions?: BaselineOption[]
+  isRunning?: boolean
+}) {
+  const badge = evidenceLevel ? EVIDENCE_BADGE_CONFIG[evidenceLevel] : null
+
+  return (
+    <div className="flex items-center gap-4 flex-wrap" data-testid="meta-strip">
+      {/* Evidence badge */}
+      {badge && (
+        <span
+          className={`inline-flex items-center px-2 py-0.5 rounded-full ${badge.bg} ${badge.text} ${typography.panelMeta}`}
+          title={badge.tooltip}
+          data-testid="evidence-badge"
+        >
+          {badge.label}
+        </span>
+      )}
+      {/* Baseline */}
+      {baselineOptions && baselineOptions.length > 0 && (
+        <BaselineToggleCard
+          show={true}
+          isRunning={isRunning}
+          onAddBaseline={onAddBaseline}
+          onSetBaseline={onSetBaseline}
+          options={baselineOptions}
+          baselineLabel={baselineLabel}
+        />
+      )}
+      {/* Target */}
+      {goalThreshold != null && (
+        <span className={`${typography.panelMeta} text-text-light`}>
+          Target: <span className="text-text-body">{goalThreshold}</span>
+        </span>
+      )}
+    </div>
+  )
+}
+
+// =============================================================================
+// V11: HeroRows — per-state structured rows
+// =============================================================================
+
+function HeroRows({
+  decisionState,
+  goalLabel,
+  goalThreshold,
+  winnerLabel,
+  winnerId,
+  winnerWinProbability,
+  runnerUpLabel,
+  runnerUpWinProbability,
+  hinge,
+  onFocusNode,
+}: {
+  decisionState: DecisionState
+  goalLabel?: string
+  goalThreshold?: number | null
+  winnerLabel: string
+  winnerId: string
+  winnerWinProbability?: number | null
+  runnerUpLabel?: string
+  runnerUpWinProbability?: number | null
+  hinge?: HingeInfo | null
+  onFocusNode?: (nodeId: string) => void
+}) {
+  const goalDisplay = goalThreshold != null
+    ? `${goalThreshold}`
+    : goalLabel && goalLabel !== 'your goal'
+      ? normaliseGoalLabel(goalLabel)
+      : 'your goal'
+
+  const winPct = winnerWinProbability != null
+    ? Math.round(winnerWinProbability * 100)
+    : null
+
+  const runnerUpPct = runnerUpWinProbability != null
+    ? Math.round(runnerUpWinProbability * 100)
+    : null
+
+  const hingeLink = hinge ? (
+    <GraphLink
+      nodeId={hinge.nodeId}
+      label={hinge.label}
+      onFocus={onFocusNode}
+      className={`${typography.panelBody} inline`}
+    />
+  ) : null
+
+  return (
+    <dl className="space-y-2" data-testid="hero-rows">
+      {/* Row 1: Goal */}
+      <div className="flex gap-2">
+        <dt className={`${typography.panelMeta} text-text-light w-24 flex-shrink-0`}>Goal</dt>
+        <dd className={`${typography.panelBody} text-text-header`}>{goalDisplay}</dd>
+      </div>
+
+      {/* Row 2: Leads / Result */}
+      {decisionState === 'indeterminate' ? (
+        <div className="flex gap-2">
+          <dt className={`${typography.panelMeta} text-text-light w-24 flex-shrink-0`}>Result</dt>
+          <dd className={`${typography.panelBody} text-text-body`}>
+            No clear winner{winPct != null && runnerUpPct != null && (
+              <> ({winPct}% vs {runnerUpPct}%)</>
+            )}
+          </dd>
+        </div>
+      ) : (
+        <div className="flex gap-2">
+          <dt className={`${typography.panelMeta} text-text-light w-24 flex-shrink-0`}>Leads</dt>
+          <dd className={`${typography.panelBody}`}>
+            <span className="text-success font-medium">{winnerLabel}</span>
+            {winPct != null && (
+              <span className="text-text-light"> ({winPct}% win likelihood)</span>
+            )}
+          </dd>
+        </div>
+      )}
+
+      {/* Row 3: Status / Validate / Resolve */}
+      {decisionState === 'robust' && (
+        <div className="flex gap-2">
+          <dt className={`${typography.panelMeta} text-text-light w-24 flex-shrink-0`}>Status</dt>
+          <dd>
+            <div className="px-3 py-2 rounded-lg border border-success/30 bg-success-light/30">
+              <p className={`${typography.panelBody} text-text-body`}>
+                No single assumption could flip this.
+                {hingeLink && (
+                  <> Validate {hingeLink}</>
+                )}
+              </p>
+            </div>
+          </dd>
+        </div>
+      )}
+
+      {decisionState === 'sensitive' && hinge && (
+        <div className="flex gap-2">
+          <dt className={`${typography.panelMeta} text-danger w-24 flex-shrink-0`}>Validate first</dt>
+          <dd>
+            <div className="px-3 py-2 rounded-lg bg-danger-light/30 border border-danger/20">
+              <p className={`${typography.panelBody} text-text-body`}>
+                {hingeLink}
+              </p>
+            </div>
+          </dd>
+        </div>
+      )}
+
+      {decisionState === 'indeterminate' && hinge && (
+        <div className="flex gap-2">
+          <dt className={`${typography.panelMeta} text-danger w-24 flex-shrink-0`}>Resolve first</dt>
+          <dd>
+            <div className="px-3 py-2 rounded-lg bg-danger-light/30 border border-danger/20">
+              <p className={`${typography.panelBody} text-text-body`}>
+                {hingeLink}
+              </p>
+            </div>
+          </dd>
+        </div>
+      )}
+    </dl>
+  )
+}
+
+// =============================================================================
 // Main Component
 // =============================================================================
 
@@ -336,7 +543,7 @@ export function HeroSection({
     // Precedence 2: Low stability (< 0.55) — no clear winner
     if (recommendationStability != null && recommendationStability < 0.55) {
       return {
-        main: `no clear winner \u2014 the result is sensitive to your estimates`,
+        main: `no clear winner, the result is sensitive to your estimates`,
         sub: `${winnerLabel} wins slightly more often`,
       }
     }
@@ -392,7 +599,135 @@ export function HeroSection({
     : null
 
   // =========================================================================
+  // V11: Stats grid for "More detail" expand
+  // =========================================================================
+  const totalRobustnessEdges = (fragileEdgeCount ?? 0) + (robustEdgeCount ?? 0)
+
+  // =========================================================================
   // Render
+  // =========================================================================
+
+  // V11 path: structured hero rows + meta strip when decisionState is provided
+  if (decisionState) {
+    return (
+      <div className="space-y-4" data-testid="hero-section">
+        <div className="p-4 bg-panel border border-panel-border rounded-lg space-y-4">
+          {/* Meta strip */}
+          <MetaStrip
+            evidenceLevel={evidenceLevel}
+            baselineLabel={baselineLabel}
+            goalThreshold={goalThreshold}
+            onSetBaseline={onSetBaseline}
+            onAddBaseline={onAddBaseline}
+            baselineOptions={baselineOptions}
+            isRunning={isRunning}
+          />
+
+          {/* Structured hero rows */}
+          <HeroRows
+            decisionState={decisionState}
+            goalLabel={goalLabel}
+            goalThreshold={goalThreshold}
+            winnerLabel={winnerLabel}
+            winnerId={winnerId}
+            winnerWinProbability={winnerWinProbability}
+            runnerUpLabel={runnerUpLabel}
+            runnerUpWinProbability={runnerUpWinProbability}
+            hinge={hinge}
+            onFocusNode={onFocusNode}
+          />
+
+          {/* Win gauge */}
+          {optionWinShares && optionWinShares.length > 1 && (
+            <WinGauge shares={optionWinShares} decisionState={decisionState} />
+          )}
+
+          {/* V9.2: Goal probability line */}
+          {goalThreshold != null && winnerGoalProbability != null && (
+            <p className={`${typography.panelMeta} text-text-body`}>
+              {winnerLabel} has a {formatPct(winnerGoalProbability, { fromDecimal: true })} chance of reaching your target of {goalThreshold}
+            </p>
+          )}
+
+          {/* More / Less toggle */}
+          <div className="border-t border-panel-border pt-3">
+            <div className="flex items-center gap-3">
+              {stabilityTier.label && (
+                <span className="inline-flex items-center gap-1.5 bg-sand-50 px-2 py-0.5 rounded-full">
+                  <span className={`${typography.panelMeta} ${stabilityTier.colorClass}`}>
+                    {stabilityTier.label}
+                  </span>
+                </span>
+              )}
+              <span className="flex-1" />
+              <button
+                type="button"
+                onClick={() => setIsExpanded(!isExpanded)}
+                className={`flex items-center gap-1 ${typography.panelBody} text-info hover:text-info-hover flex-shrink-0`}
+                aria-expanded={isExpanded}
+                aria-controls="hero-more-content"
+              >
+                <span>{isExpanded ? 'Less' : 'More'}</span>
+                {isExpanded ? (
+                  <ChevronDown className="w-3 h-3" />
+                ) : (
+                  <ChevronRight className="w-3 h-3" />
+                )}
+              </button>
+            </div>
+          </div>
+
+          {/* "More detail" expand — V11 stats grid */}
+          {isExpanded && (
+            <div
+              id="hero-more-content"
+              className="mt-3 pt-3 border-t border-panel-border space-y-3"
+            >
+              {coachingParagraph && (
+                <p className={`${typography.panelBody} text-text-body`}>
+                  {coachingParagraph}
+                </p>
+              )}
+
+              <dl className={`grid grid-cols-2 gap-x-4 gap-y-1 ${typography.panelMeta}`}>
+                {winnerWinProbability != null && (
+                  <>
+                    <dt className="text-text-light">Win likelihood</dt>
+                    <dd className="text-text-header">{Math.round(winnerWinProbability * 100)}%</dd>
+                  </>
+                )}
+                {stabilityPct != null && (
+                  <>
+                    <dt className="text-text-light">Robustness</dt>
+                    <dd className="text-text-header">
+                      {stabilityPct}%{stabilityTier.label && ` (${stabilityTier.label.toLowerCase()})`}
+                    </dd>
+                  </>
+                )}
+                {fragileEdgeCount != null && (
+                  <>
+                    <dt className="text-text-light">Fragile edges</dt>
+                    <dd className="text-text-header">
+                      {fragileEdgeCount}{totalRobustnessEdges > 0 && ` of ${totalRobustnessEdges}`}
+                    </dd>
+                  </>
+                )}
+                {nSamples != null && (
+                  <>
+                    <dt className="text-text-light">Sampling</dt>
+                    <dd className="text-text-header">{nSamples.toLocaleString()} simulations</dd>
+                  </>
+                )}
+              </dl>
+            </div>
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  // =========================================================================
+  // Legacy path: V9.2 layout (when decisionState is not provided)
   // =========================================================================
   return (
     <div className="space-y-4" data-testid="hero-section">
@@ -415,7 +750,7 @@ export function HeroSection({
             <AlertTriangle className="w-4 h-4 text-danger flex-shrink-0 mt-0.5" />
             <p className={`${typography.panelBody} text-text-body`}>
               {conditionCard.type === 'generic' ? (
-                'Some estimates could change the recommendation \u2014 review key inputs below.'
+                'Some estimates could change the recommendation, review key inputs below.'
               ) : (
                 <>
                   {'If '}
