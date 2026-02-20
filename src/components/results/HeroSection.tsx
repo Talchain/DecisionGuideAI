@@ -214,13 +214,15 @@ function WinGauge({
     return b.winProbability - a.winProbability
   })
 
+  const isDeemphasised = decisionState === 'indeterminate'
+
   return (
-    <div className="mb-4" role="figure" aria-label="Win probability distribution across options">
+    <div className={`mb-4${isDeemphasised ? ' opacity-70' : ''}`} role="figure" aria-label="Win probability distribution across options">
       <p className={`${typography.panelMeta} text-text-light mb-1`}>
         Wins across scenarios
       </p>
       {/* Stacked bar — use clamped raw percentage for width to avoid rounding gaps */}
-      <div className="flex h-3 rounded-full overflow-hidden gap-0.5">
+      <div className={`flex rounded-full overflow-hidden gap-0.5${isDeemphasised ? ' h-2' : ' h-3'}`}>
         {sorted.map((share, i) => {
           const clamped = Math.max(0, Math.min(1, share.winProbability))
           const widthPct = clamped * 100
@@ -338,9 +340,16 @@ function MetaStrip({
         />
       )}
       {/* Target */}
-      {goalThreshold != null && (
+      {goalThreshold != null ? (
         <span className={`${typography.panelMeta} text-text-light`}>
           Target: <span className="text-text-body">{goalThreshold}</span>
+        </span>
+      ) : (
+        <span
+          className={`${typography.panelMeta} text-text-light border border-dashed border-panel-border px-2 py-0.5 rounded`}
+          data-testid="target-unset-prompt"
+        >
+          Set a success target to see each option's probability of achieving your goal
         </span>
       )}
     </div>
@@ -362,6 +371,8 @@ function HeroRows({
   runnerUpWinProbability,
   hinge,
   onFocusNode,
+  outcomeUnit,
+  outcomeUnitSymbol,
 }: {
   decisionState: DecisionState
   goalLabel?: string
@@ -373,12 +384,24 @@ function HeroRows({
   runnerUpWinProbability?: number | null
   hinge?: HingeInfo | null
   onFocusNode?: (nodeId: string) => void
+  outcomeUnit?: 'currency' | 'percent' | 'count'
+  outcomeUnitSymbol?: string
 }) {
-  const goalDisplay = goalThreshold != null
-    ? `${goalThreshold}`
-    : goalLabel && goalLabel !== 'your goal'
+  // Goal row: threshold with unit, or goal label
+  const goalDisplay = (() => {
+    if (goalThreshold != null) {
+      if (outcomeUnit === 'currency' && outcomeUnitSymbol) {
+        return `${outcomeUnitSymbol}${goalThreshold.toLocaleString()}`
+      }
+      if (outcomeUnit === 'percent') {
+        return `${goalThreshold}%`
+      }
+      return `${goalThreshold}`
+    }
+    return goalLabel && goalLabel !== 'your goal'
       ? normaliseGoalLabel(goalLabel)
       : 'your goal'
+  })()
 
   const winPct = winnerWinProbability != null
     ? Math.round(winnerWinProbability * 100)
@@ -396,6 +419,64 @@ function HeroRows({
       className={`${typography.panelBody} inline`}
     />
   ) : null
+
+  // Row 3 content builder
+  const renderRow3 = () => {
+    if (decisionState === 'robust') {
+      return (
+        <div className="flex gap-2">
+          <dt className={`${typography.panelMeta} text-text-light w-24 flex-shrink-0`}>Status</dt>
+          <dd>
+            <div className="px-3 py-2 rounded-lg border border-success/30 bg-success-light/30">
+              <p className={`${typography.panelBody} text-text-body`}>
+                No single assumption could flip this.
+                {hingeLink && (
+                  <> Validate {hingeLink} <span className="text-info">Edit estimate &rarr;</span></>
+                )}
+              </p>
+            </div>
+          </dd>
+        </div>
+      )
+    }
+
+    if (decisionState === 'sensitive') {
+      return (
+        <div className="flex gap-2">
+          <dt className={`${typography.panelMeta} text-danger w-24 flex-shrink-0`}>Validate first</dt>
+          <dd>
+            <div className="px-3 py-2 rounded-lg bg-danger-light/30 border border-danger/20">
+              <p className={`${typography.panelBody} text-text-body`}>
+                {hingeLink ? (
+                  <>{hingeLink} <span className="text-info">Edit estimate &rarr;</span></>
+                ) : (
+                  'Review key assumptions before committing.'
+                )}
+              </p>
+            </div>
+          </dd>
+        </div>
+      )
+    }
+
+    // indeterminate
+    return (
+      <div className="flex gap-2">
+        <dt className={`${typography.panelMeta} text-danger w-24 flex-shrink-0`}>Resolve first</dt>
+        <dd>
+          <div className="px-3 py-2 rounded-lg bg-danger-light/30 border border-danger/20">
+            <p className={`${typography.panelBody} text-text-body`}>
+              {hingeLink ? (
+                <>{hingeLink} <span className="text-info">Edit estimate &rarr;</span></>
+              ) : (
+                'Review key assumptions to distinguish the options.'
+              )}
+            </p>
+          </div>
+        </dd>
+      </div>
+    )
+  }
 
   return (
     <dl className="space-y-2" data-testid="hero-rows">
@@ -427,48 +508,8 @@ function HeroRows({
         </div>
       )}
 
-      {/* Row 3: Status / Validate / Resolve */}
-      {decisionState === 'robust' && (
-        <div className="flex gap-2">
-          <dt className={`${typography.panelMeta} text-text-light w-24 flex-shrink-0`}>Status</dt>
-          <dd>
-            <div className="px-3 py-2 rounded-lg border border-success/30 bg-success-light/30">
-              <p className={`${typography.panelBody} text-text-body`}>
-                No single assumption could flip this.
-                {hingeLink && (
-                  <> Validate {hingeLink}</>
-                )}
-              </p>
-            </div>
-          </dd>
-        </div>
-      )}
-
-      {decisionState === 'sensitive' && hinge && (
-        <div className="flex gap-2">
-          <dt className={`${typography.panelMeta} text-danger w-24 flex-shrink-0`}>Validate first</dt>
-          <dd>
-            <div className="px-3 py-2 rounded-lg bg-danger-light/30 border border-danger/20">
-              <p className={`${typography.panelBody} text-text-body`}>
-                {hingeLink}
-              </p>
-            </div>
-          </dd>
-        </div>
-      )}
-
-      {decisionState === 'indeterminate' && hinge && (
-        <div className="flex gap-2">
-          <dt className={`${typography.panelMeta} text-danger w-24 flex-shrink-0`}>Resolve first</dt>
-          <dd>
-            <div className="px-3 py-2 rounded-lg bg-danger-light/30 border border-danger/20">
-              <p className={`${typography.panelBody} text-text-body`}>
-                {hingeLink}
-              </p>
-            </div>
-          </dd>
-        </div>
-      )}
+      {/* Row 3: Status / Validate / Resolve — always present */}
+      {renderRow3()}
     </dl>
   )
 }
@@ -635,6 +676,8 @@ export function HeroSection({
             runnerUpWinProbability={runnerUpWinProbability}
             hinge={hinge}
             onFocusNode={onFocusNode}
+            outcomeUnit={outcomeUnit}
+            outcomeUnitSymbol={outcomeUnitSymbol}
           />
 
           {/* Win gauge */}
