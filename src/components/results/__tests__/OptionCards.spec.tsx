@@ -528,7 +528,7 @@ describe('OptionCards', () => {
       expect(screen.getByText('Lower win likelihood')).toBeInTheDocument()
     })
 
-    it('story headline takes priority over hinge-aware description', () => {
+    it('V11.2: VM hinge-aware description takes priority over story_headline when decisionState available', () => {
       render(
         <OptionCards
           options={mockOptions}
@@ -540,11 +540,24 @@ describe('OptionCards', () => {
         />
       )
 
-      expect(screen.getByText('Custom headline for winner.')).toBeInTheDocument()
-      expect(screen.queryByText(/depends on/)).not.toBeInTheDocument()
+      // VM description wins when decisionState is set
+      expect(screen.getByText('Highest win likelihood but depends on Customer churn')).toBeInTheDocument()
+      expect(screen.queryByText('Custom headline for winner.')).not.toBeInTheDocument()
     })
 
-    it('falls back to legacy descriptions when decisionState is absent', () => {
+    it('V11.2: story_headline is used when decisionState is absent', () => {
+      render(
+        <OptionCards
+          options={mockOptions}
+          winnerId="option-1"
+          storyHeadlines={{ 'option-1': 'Custom headline for winner.' }}
+        />
+      )
+
+      expect(screen.getByText('Custom headline for winner.')).toBeInTheDocument()
+    })
+
+    it('falls back to legacy descriptions when decisionState is absent and no headlines', () => {
       render(<OptionCards options={mockOptions} winnerId="option-1" />)
 
       expect(screen.getByText('Top-performing option based on current estimates.')).toBeInTheDocument()

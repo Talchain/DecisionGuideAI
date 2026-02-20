@@ -170,6 +170,7 @@ function UncertaintyRow({
   groupType = 'refinement',
   humanisedTitle,
   humanisedDescription,
+  humanisedSuggestion,
 }: {
   item: UncertaintyItem
   onFocus?: (nodeId: string) => void
@@ -179,6 +180,8 @@ function UncertaintyRow({
   humanisedTitle?: string
   /** P0.1: Humanised description override */
   humanisedDescription?: string
+  /** V11.2 Fix 4: Humanised suggestion for inline CTA */
+  humanisedSuggestion?: string
 }) {
   const handleNodeClick = useCallback((nodeId: string) => {
     if (onFocus) {
@@ -317,9 +320,12 @@ function UncertaintyRow({
                     {confidencePill.label}
                   </span>
                 )}
-                {isClickable && (
-                  <span className="text-text-light flex-shrink-0 mt-0.5" aria-hidden="true">→</span>
-                )}
+                {/* V11.2 Fix 4: Show humanised suggestion as inline CTA when clickable */}
+                {isClickable && humanisedSuggestion ? (
+                  <span className={`${typography.panelMeta} text-info flex-shrink-0 mt-0.5 whitespace-nowrap`}>{humanisedSuggestion}</span>
+                ) : isClickable ? (
+                  <span className="text-text-light flex-shrink-0 mt-0.5" aria-hidden="true">{'\u2192'}</span>
+                ) : null}
               </div>
               {/* Threshold details if available */}
               {item.threshold && (
@@ -337,8 +343,8 @@ function UncertaintyRow({
                 </div>
               )}
               {/* Suggestion as text when no action nodes */}
-              {item.suggestion && !isClickable && (
-                <p className={`${typography.panelBody} text-text-light mt-1`}>{item.suggestion}</p>
+              {!isClickable && (humanisedSuggestion || item.suggestion) && (
+                <p className={`${typography.panelBody} text-text-light mt-1`}>{humanisedSuggestion || item.suggestion}</p>
               )}
             </div>
           </div>
@@ -416,8 +422,9 @@ export function ConfidenceSection({
   } = data
 
   // P0.1: Build lookup map for humanised critique display
+  // V11.2 Fix 1+4: Include suggestion for CTA rendering
   const humanisedLookup = useMemo(() => {
-    const map = new Map<string, { title: string; description: string }>()
+    const map = new Map<string, { title: string; description: string; suggestion?: string }>()
     if (!humanisedCritiques) return map
     // Non-SENSITIVE_ASSUMPTION uncertainties are indexed in the same order as humanisedCritiques
     const plotCritiques = uncertainties.filter(u => u.code !== 'SENSITIVE_ASSUMPTION')
@@ -425,7 +432,7 @@ export function ConfidenceSection({
       const humanised = humanisedCritiques[idx]
       if (humanised) {
         const key = `${item.code}::${item.affectedNodes?.[0] ?? idx}`
-        map.set(key, { title: humanised.title, description: humanised.description })
+        map.set(key, { title: humanised.title, description: humanised.description, suggestion: humanised.suggestion })
       }
     })
     return map
@@ -664,6 +671,7 @@ export function ConfidenceSection({
                   {group.key === 'investigate' && (
                     <div className="space-y-2">
                       {/* Legacy low-confidence factor cards — P0.1: humanised messages */}
+                      {/* V11.2 Fix 1+4: Pass humanised suggestion for CTA rendering */}
                       {entry.refinementItems?.map((item, index) => {
                         const hKey = `${item.code}::${item.affectedNodes?.[0] ?? index}`
                         const humanised = humanisedLookup.get(hKey)
@@ -675,6 +683,7 @@ export function ConfidenceSection({
                           groupType="refinement"
                           humanisedTitle={humanised?.title}
                           humanisedDescription={humanised?.description}
+                          humanisedSuggestion={humanised?.suggestion}
                         />
                         )
                       })}

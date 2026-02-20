@@ -54,6 +54,10 @@ const BANNED_STRINGS = [
   "WHAT'S INFLUENCING",       // All-caps banned, use sentence case
   '\u2014',                   // Em-dash banned, use comma or period
   '\u2013',                   // En-dash banned in user-facing text, use hyphen or comma
+  // V11.2: Internal field names that must never leak to UI
+  'observed_state.value',     // PLoT internal field name
+  'intercept=0',              // PLoT internal parameter
+  'constraint_fac_',          // PLoT internal constraint prefix
 ]
 
 /**

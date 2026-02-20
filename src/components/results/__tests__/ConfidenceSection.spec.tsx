@@ -489,4 +489,73 @@ describe('ConfidenceSection', () => {
       expect(screen.getByText('NaN Factor')).toBeInTheDocument()
     })
   })
+
+  // =========================================================================
+  // V11.2 Fix 1+4: Humanised suggestion CTA for constraint items
+  // =========================================================================
+
+  describe('V11.2: Constraint item humanised CTA', () => {
+    it('renders humanised suggestion as CTA text for clickable constraint items', () => {
+      const constraintData: ConfidenceSectionData = {
+        ...mockData,
+        uncertainties: [
+          {
+            code: 'CONSTRAINT_TARGET_NO_OBSERVED_VALUE',
+            message: 'observed_state.value is missing for constraint_fac_budget_max',
+            affectedNodes: ['fac_budget'],
+            severity: 'warning',
+          },
+        ],
+        topUncertainties: [],
+        humanisedCritiques: [
+          {
+            title: 'Budget has no estimate set',
+            description: 'Results may be unreliable without a current value for this constraint.',
+            suggestion: 'Set estimate \u2192',
+            factorId: 'fac_budget',
+          },
+        ],
+      }
+
+      render(<ConfidenceSection data={constraintData} />)
+
+      // Humanised title should render instead of raw message
+      expect(screen.getByText('Budget has no estimate set')).toBeInTheDocument()
+      // CTA should render inline
+      expect(screen.getByText('Set estimate \u2192')).toBeInTheDocument()
+      // Raw internal strings should NOT appear
+      expect(screen.queryByText(/observed_state/)).not.toBeInTheDocument()
+      expect(screen.queryByText(/constraint_fac_/)).not.toBeInTheDocument()
+    })
+
+    it('never exposes raw critique message for unknown codes', () => {
+      const unknownCodeData: ConfidenceSectionData = {
+        ...mockData,
+        uncertainties: [
+          {
+            code: 'BRAND_NEW_CODE',
+            message: 'constraint_fac_churn_max observed_state.value intercept=0',
+            affectedNodes: ['fac_churn'],
+            severity: 'warning',
+          },
+        ],
+        topUncertainties: [],
+        humanisedCritiques: [
+          {
+            title: "Review this factor's inputs",
+            description: "Some information needed to assess this factor isn't available yet.",
+            suggestion: 'Check and update this factor',
+            factorId: 'fac_churn',
+          },
+        ],
+      }
+
+      render(<ConfidenceSection data={unknownCodeData} />)
+
+      // Raw internal strings should never appear
+      expect(screen.queryByText(/constraint_fac_/)).not.toBeInTheDocument()
+      expect(screen.queryByText(/observed_state/)).not.toBeInTheDocument()
+      expect(screen.queryByText(/intercept=0/)).not.toBeInTheDocument()
+    })
+  })
 })

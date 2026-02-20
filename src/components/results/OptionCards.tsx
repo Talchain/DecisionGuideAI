@@ -42,6 +42,11 @@ export interface OptionCardsProps {
   runnerId?: string
 }
 
+/** Strip arrow characters from story headlines (scoped to option card descriptions only) */
+function stripArrows(text: string): string {
+  return text.replace(/\s*[→\u2192]\s*/g, ' ').replace(/\s*->\s*/g, ' ').trim()
+}
+
 /** Fallback description when no story headline is available */
 function fallbackDescription(option: OptionResult, totalOptions: number): string {
   if (option.isRecommended && totalOptions > 1) {
@@ -267,11 +272,12 @@ export function OptionCards({
         const isRunnerUp = option.id === runnerId
         const headline = storyHeadlines?.[option.id]
 
-        // V11: Use hinge-aware descriptions when decisionState is available
-        const description = headline
-          ? stripEncodingNotation(headline)
-          : decisionState
-            ? hingeAwareDescription(option, isWinner, isRunnerUp, hinge)
+        // V11.2 Fix 2: VM hinge-aware descriptions take priority when decisionState available
+        // Arrow characters stripped from story headlines (scoped to option card descriptions)
+        const description = decisionState
+          ? hingeAwareDescription(option, isWinner, isRunnerUp, hinge)
+          : headline
+            ? stripArrows(stripEncodingNotation(headline))
             : fallbackDescription(option, options.length)
 
         return (

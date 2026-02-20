@@ -742,9 +742,12 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
 
   // Extract outcome unit from goal node for proper formatting (Issue 5 fix)
   // The goal node's observed_state.unit tells us whether values are currency, percent, or count
+  // V11.2 Fix 3: goal_threshold_unit fallback + pass raw unit string for count types
   const { outcomeUnit, outcomeUnitSymbol } = useMemo(() => {
     const observedState = (goalNode?.data as any)?.observedState ?? (goalNode?.data as any)?.observed_state
     const rawUnit = observedState?.unit
+      ?? (goalNode?.data as any)?.goal_threshold_unit
+      ?? ceeAnalysisReady?.goal_threshold_unit
 
     if (!rawUnit) return { outcomeUnit: undefined, outcomeUnitSymbol: undefined }
 
@@ -762,8 +765,9 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     }
 
     // Default to count for numeric units (users, items, etc.)
-    return { outcomeUnit: 'count' as const, outcomeUnitSymbol: undefined }
-  }, [goalNode])
+    // V11.2 Fix 3: Pass raw unit string as symbol for unit-aware tornado axis labels
+    return { outcomeUnit: 'count' as const, outcomeUnitSymbol: String(rawUnit) }
+  }, [goalNode, ceeAnalysisReady?.goal_threshold_unit])
 
   // P0-1: Extract denormalisation scale from goal node OR ceeAnalysisReady
   // PLoT returns normalised effect sizes (0–1). goal_threshold_cap is the scale maximum in user units.
