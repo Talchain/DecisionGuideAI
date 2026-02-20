@@ -104,35 +104,105 @@ export function AttentionBanner({ items, onFocusNode }: AttentionBannerProps) {
     )
   }
 
-  // 2+ items: collapsible
+  // 2 items: collapsible (all behind toggle)
+  if (items.length === 2) {
+    return (
+      <div
+        className="p-3 border border-danger/30 rounded-lg"
+        data-testid="attention-banner"
+      >
+        <button
+          type="button"
+          onClick={() => setIsExpanded(!isExpanded)}
+          className="flex items-center gap-2 w-full text-left"
+          aria-expanded={isExpanded}
+        >
+          <AlertTriangle className="w-4 h-4 text-danger flex-shrink-0" />
+          <span className={`${typography.panelBody} text-text-header flex-1`}>
+            A few inputs would sharpen these results
+          </span>
+          <span className={`${typography.panelMeta} text-text-light flex-shrink-0`}>
+            {items.length} items to review
+          </span>
+          {isExpanded ? (
+            <ChevronDown className="w-3.5 h-3.5 text-text-light flex-shrink-0" />
+          ) : (
+            <ChevronRight className="w-3.5 h-3.5 text-text-light flex-shrink-0" />
+          )}
+        </button>
+
+        {isExpanded && (
+          <div className="mt-2 pl-6 space-y-1 border-t border-panel-border pt-2">
+            {items.map((item, idx) => (
+              <BannerItem
+                key={item.factorId ?? `critique-${idx}`}
+                item={item}
+                onFocusNode={onFocusNode}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  // 3+ items: first inline, rest collapsed behind "and N more"
+  const [first, ...rest] = items
+
   return (
     <div
       className="p-3 border border-danger/30 rounded-lg"
       data-testid="attention-banner"
     >
+      <div className="flex items-start gap-2">
+        <AlertTriangle className="w-4 h-4 text-danger flex-shrink-0 mt-0.5" />
+        <div className="flex-1 min-w-0">
+          <p className={`${typography.panelBody} text-text-header`}>
+            {first.title}
+          </p>
+          <p className={`${typography.panelMeta} text-text-light mt-0.5`}>
+            {first.description}
+          </p>
+          {first.suggestion && first.factorId && (
+            <button
+              type="button"
+              onClick={() => {
+                if (onFocusNode) onFocusNode(first.factorId!)
+                else focusNodeById(first.factorId!)
+              }}
+              className={`${typography.panelMeta} text-info hover:underline mt-0.5 focus:outline-none focus:ring-2 focus:ring-info focus:ring-offset-1 rounded`}
+            >
+              {first.suggestion}
+            </button>
+          )}
+          {first.suggestion && !first.factorId && (
+            <p className={`${typography.panelMeta} text-text-light italic mt-0.5`}>
+              {first.suggestion}
+            </p>
+          )}
+        </div>
+      </div>
+
       <button
         type="button"
         onClick={() => setIsExpanded(!isExpanded)}
-        className="flex items-center gap-2 w-full text-left"
+        className="flex items-center gap-1 mt-2 pl-6"
         aria-expanded={isExpanded}
+        data-testid="banner-show-more"
       >
-        <AlertTriangle className="w-4 h-4 text-danger flex-shrink-0" />
-        <span className={`${typography.panelBody} text-text-header flex-1`}>
-          A few inputs would sharpen these results
-        </span>
-        <span className={`${typography.panelMeta} text-text-light flex-shrink-0`}>
-          {items.length} items to review
+        <span className={`${typography.panelMeta} text-info hover:underline`}>
+          and {rest.length} more
         </span>
         {isExpanded ? (
-          <ChevronDown className="w-3.5 h-3.5 text-text-light flex-shrink-0" />
+          <ChevronDown className="w-3 h-3 text-info flex-shrink-0" />
         ) : (
-          <ChevronRight className="w-3.5 h-3.5 text-text-light flex-shrink-0" />
+          <ChevronRight className="w-3 h-3 text-info flex-shrink-0" />
         )}
       </button>
 
       {isExpanded && (
         <div className="mt-2 pl-6 space-y-1 border-t border-panel-border pt-2">
-          {items.map((item, idx) => (
+          {rest.map((item, idx) => (
             <BannerItem
               key={item.factorId ?? `critique-${idx}`}
               item={item}

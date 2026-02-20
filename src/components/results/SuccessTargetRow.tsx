@@ -32,6 +32,8 @@ export interface SuccessTargetRowProps {
   onApplyThreshold?: (threshold: number) => void
   /** Multi-constraint analysis from the winning option */
   constraintAnalysis?: ConstraintAnalysis
+  /** Whether "Hits target" bars are visible (all options have probability_of_goal) */
+  showHitsTarget?: boolean
 }
 
 /** Render ASCII operator as unicode for display */
@@ -85,6 +87,7 @@ export function SuccessTargetRow({
   isRunning = false,
   onApplyThreshold,
   constraintAnalysis,
+  showHitsTarget = true,
 }: SuccessTargetRowProps) {
   const [isEditing, setIsEditing] = useState(false)
   const [editValue, setEditValue] = useState('')
@@ -233,10 +236,16 @@ export function SuccessTargetRow({
       </div>
 
       {/* Microcopy */}
-      {hasTarget && !isEditing && (
+      {hasTarget && !isEditing && showHitsTarget && (
         <p className={`${typography.panelMeta} text-text-light mt-1.5`}>
           <strong className="text-text-body">Wins</strong> = outperforms alternatives.{' '}
           <strong className="text-text-body">Hits target</strong> = reaches your success target.
+        </p>
+      )}
+      {hasTarget && !isEditing && !showHitsTarget && (
+        <p className={`${typography.panelMeta} text-text-light mt-1.5`}>
+          <strong className="text-text-body">Wins</strong> = outperforms alternatives.
+          Run analysis again to compute target likelihood.
         </p>
       )}
       {!hasTarget && !isEditing && (

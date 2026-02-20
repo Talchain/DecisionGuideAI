@@ -70,7 +70,7 @@ function hingeAwareDescription(
     if (hinge?.reason === 'heuristic' || hinge?.reason === 'voi') {
       return `Highest win likelihood. ${hinge.label} has the widest uncertainty.`
     }
-    return 'Highest win likelihood across all simulations'
+    return 'Highest win likelihood across simulated scenarios'
   }
   if (isRunnerUp) {
     if (hinge?.alternativeWinnerLabel && hinge.alternativeWinnerLabel === option.label) {
@@ -245,9 +245,9 @@ export function OptionCards({
   // V11: Indeterminate neutralisation — stone colours, no success border
   const neutralised = decisionState === 'indeterminate'
 
-  // V11: Conditional "Hits target" — also hide when NO option has goalProbability
-  const anyGoalProbability = options.some(o => o.goalProbability != null)
-  const showHitsTarget = hasGoalThreshold && anyGoalProbability
+  // V11: Conditional "Hits target" — hide unless EVERY option has goalProbability
+  const allGoalProbability = options.every(o => o.goalProbability != null)
+  const showHitsTarget = hasGoalThreshold && allGoalProbability
 
   // Sort: winner first, then by rank
   const sorted = [...options].sort((a, b) => {

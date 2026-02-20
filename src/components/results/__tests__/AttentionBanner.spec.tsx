@@ -64,12 +64,41 @@ describe('AttentionBanner', () => {
     expect(buttons).toHaveLength(0)
   })
 
-  it('shows correct count for 4+ items', () => {
+  it('shows first inline with "and N more" for 3+ items', () => {
+    const items = [
+      mockItem({ title: 'First issue' }),
+      mockItem({ title: 'Second issue', factorId: 'fac_b' }),
+      mockItem({ title: 'Third issue', factorId: 'fac_c' }),
+    ]
+    render(<AttentionBanner items={items} />)
+    // First item shown inline
+    expect(screen.getByText('First issue')).toBeInTheDocument()
+    // "and 2 more" toggle visible
+    expect(screen.getByText('and 2 more')).toBeInTheDocument()
+    // Rest hidden until expanded
+    expect(screen.queryByText('Second issue')).not.toBeInTheDocument()
+  })
+
+  it('expands 3+ items to show rest when "and N more" clicked', () => {
+    const items = [
+      mockItem({ title: 'First issue' }),
+      mockItem({ title: 'Second issue', factorId: 'fac_b' }),
+      mockItem({ title: 'Third issue', factorId: 'fac_c' }),
+    ]
+    render(<AttentionBanner items={items} />)
+    fireEvent.click(screen.getByTestId('banner-show-more'))
+    expect(screen.getByText('Second issue')).toBeInTheDocument()
+    expect(screen.getByText('Third issue')).toBeInTheDocument()
+  })
+
+  it('shows "and 4 more" for 5 items', () => {
     const items = Array.from({ length: 5 }, (_, i) =>
       mockItem({ title: `Issue ${i + 1}`, factorId: `fac_${i}` }),
     )
     render(<AttentionBanner items={items} />)
-    expect(screen.getByText('5 items to review')).toBeInTheDocument()
+    // First shown inline
+    expect(screen.getByText('Issue 1')).toBeInTheDocument()
+    expect(screen.getByText('and 4 more')).toBeInTheDocument()
   })
 
   it('does not render raw internal strings', () => {

@@ -373,7 +373,7 @@ describe('OptionCards', () => {
       expect(screen.queryByText('Hits target')).not.toBeInTheDocument()
     })
 
-    it('shows "Hits target" when hasGoalThreshold and options have goalProbability', () => {
+    it('shows "Hits target" when hasGoalThreshold and ALL options have goalProbability', () => {
       render(
         <OptionCards
           options={mockOptions}
@@ -384,6 +384,23 @@ describe('OptionCards', () => {
       )
 
       expect(screen.getAllByText('Hits target')).toHaveLength(2)
+    })
+
+    it('hides "Hits target" when only SOME options have goalProbability', () => {
+      const partialGoalProb: OptionResult[] = [
+        { ...mockOptions[0], goalProbability: 0.75 },
+        { ...mockOptions[1], goalProbability: undefined },
+      ]
+      render(
+        <OptionCards
+          options={partialGoalProb}
+          winnerId="option-1"
+          hasGoalThreshold={true}
+          decisionState="robust"
+        />
+      )
+
+      expect(screen.queryByText('Hits target')).not.toBeInTheDocument()
     })
   })
 
@@ -445,7 +462,7 @@ describe('OptionCards', () => {
         />
       )
 
-      expect(screen.getByText('Highest win likelihood across all simulations')).toBeInTheDocument()
+      expect(screen.getByText('Highest win likelihood across simulated scenarios')).toBeInTheDocument()
     })
 
     it('runner-up: matched alternate winner shows overtake description', () => {

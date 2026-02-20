@@ -510,7 +510,7 @@ export function TornadoChart({
       {/* Preview disclaimer + reset link */}
       <div className="flex items-baseline justify-between mt-2">
         <p className={`${typography.panelMeta} text-text-light italic leading-relaxed`}>
-          Preview only. Explore one factor at a time. Approximate sensitivity, not exact bounds.
+          Drag to explore. Approximate, showing directional impact.
         </p>
         {dragState.hasUserDragged && (
           <button

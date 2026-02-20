@@ -110,7 +110,9 @@ export function ResultsBody({
       {/* ── ATTENTION BANNER ──────────────────────────────────────── */}
       {/* P0.1: Humanised critique items — coaching tone, no raw field names */}
       <AttentionBanner
-        items={resultsSectionData.confidence.humanisedCritiques ?? []}
+        items={(resultsSectionData.confidence.humanisedCritiques ?? []).filter(
+          c => c.suggestion != null && c.factorId != null
+        )}
         onFocusNode={onFocusNode}
       />
 
@@ -155,6 +157,10 @@ export function ResultsBody({
             isRunning={isRunning}
             onApplyThreshold={onApplyThreshold}
             constraintAnalysis={resultsSectionData.recommendation.recommendedOption?.constraintAnalysis}
+            showHitsTarget={
+              resultsSectionData.recommendation.goalThreshold != null &&
+              resultsSectionData.recommendation.allOptions.every(o => o.goalProbability != null)
+            }
           />
           <OptionCards
             options={resultsSectionData.recommendation.allOptions}
@@ -225,6 +231,9 @@ export function ResultsBody({
           const hingeInGaps = evidenceGapsForBadge.some(g => g.factorId === hingeNodeId)
           if (hingeInTop3Fragile || hingeInGaps) badgeCount = Math.max(0, badgeCount - 1)
         }
+        // V11.1 Fix 7: Add 1 for VOI promoted block when visible (sensitive/indeterminate + hinge)
+        const voiBlockVisible = (vm.decisionState === 'sensitive' || vm.decisionState === 'indeterminate') && vm.hinge != null
+        if (voiBlockVisible) badgeCount += 1
 
         // V11: M2 data for ChallengeSection (groups 3 and 4)
         const m2Groups = groupActionItems({

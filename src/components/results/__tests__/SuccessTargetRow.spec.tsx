@@ -125,6 +125,29 @@ describe('SuccessTargetRow', () => {
     })
   })
 
+  describe('V11.1: showHitsTarget microcopy gating', () => {
+    it('shows full Wins + Hits target microcopy when showHitsTarget is true', () => {
+      render(<SuccessTargetRow goalThreshold={100} showHitsTarget={true} />)
+
+      expect(screen.getByText(/outperforms alternatives/)).toBeInTheDocument()
+      expect(screen.getByText(/reaches your success target/)).toBeInTheDocument()
+    })
+
+    it('shows Wins-only microcopy with rerun note when showHitsTarget is false', () => {
+      render(<SuccessTargetRow goalThreshold={100} showHitsTarget={false} />)
+
+      expect(screen.getByText(/outperforms alternatives/)).toBeInTheDocument()
+      expect(screen.queryByText(/reaches your success target/)).not.toBeInTheDocument()
+      expect(screen.getByText(/Run analysis again to compute target likelihood/)).toBeInTheDocument()
+    })
+
+    it('defaults showHitsTarget to true (backwards compatible)', () => {
+      render(<SuccessTargetRow goalThreshold={100} />)
+
+      expect(screen.getByText(/reaches your success target/)).toBeInTheDocument()
+    })
+  })
+
   describe('Multi-constraint display', () => {
     const constraintAnalysis: ConstraintAnalysis = {
       joint_probability: 0.52,

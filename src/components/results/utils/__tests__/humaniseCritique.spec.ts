@@ -116,7 +116,7 @@ describe('humaniseCritique', () => {
       expect(result.factorId).toBe('node_123')
     })
 
-    it('extracts fac_ pattern from message when no affectedNodes', () => {
+    it('does NOT extract fac_ pattern from message (global rule: nodeId lookup only)', () => {
       const labels = new Map([['fac_customer_churn', 'Customer churn']])
       const result = humaniseCritique(
         makeItem({
@@ -126,31 +126,32 @@ describe('humaniseCritique', () => {
         }),
         labels,
       )
-      expect(result.title).toContain('Customer churn')
-      expect(result.factorId).toBe('fac_customer_churn')
+      // Should use "This factor" fallback, NOT parse label from message
+      expect(result.title).toContain('This factor')
+      expect(result.factorId).toBeUndefined()
     })
 
-    it('falls back to "a key factor" when node not found', () => {
+    it('falls back to "This factor" when node not found in labels map', () => {
       const result = humaniseCritique(
         makeItem({ code: 'MISSING_OBSERVED_STATE', affectedNodes: ['unknown_id'] }),
         new Map(),
       )
-      expect(result.title).toContain('a key factor')
+      expect(result.title).toContain('This factor')
       expect(result.factorId).toBe('unknown_id')
     })
 
-    it('falls back to "a key factor" when no nodeLabels provided', () => {
+    it('falls back to "This factor" when no nodeLabels provided', () => {
       const result = humaniseCritique(
         makeItem({ code: 'MISSING_OBSERVED_STATE', affectedNodes: ['some_id'] }),
       )
-      expect(result.title).toContain('a key factor')
+      expect(result.title).toContain('This factor')
     })
 
-    it('falls back to "a key factor" when no affectedNodes and no fac_ pattern', () => {
+    it('falls back to "This factor" when no affectedNodes', () => {
       const result = humaniseCritique(
         makeItem({ code: 'MISSING_OBSERVED_STATE', message: 'some generic message', affectedNodes: undefined }),
       )
-      expect(result.title).toContain('a key factor')
+      expect(result.title).toContain('This factor')
       expect(result.factorId).toBeUndefined()
     })
   })

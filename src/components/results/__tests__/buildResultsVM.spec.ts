@@ -560,4 +560,34 @@ describe('buildResultsVM', () => {
     expect(ROBUST_THRESHOLD).toBe(0.80)
     expect(SENSITIVE_THRESHOLD).toBe(0.55)
   })
+
+  // ── V11.1 Fix 5: VM is sole source of truth for decisionState ─────────
+
+  it('decisionState ignores raw robustnessLevel when stability is available', () => {
+    // robustnessLevel says "very_low" (would map to 0.35 → indeterminate)
+    // but actual stability is 0.85 → robust overrides
+    const data = makeData({
+      options: [
+        makeOption({ id: 'a', winProbability: 0.70, isRecommended: true }),
+        makeOption({ id: 'b', winProbability: 0.30, isRecommended: false }),
+      ],
+      recommendationStability: 0.85,
+      robustnessLevel: 'very_low',
+    })
+    const vm = buildResultsVM(data)
+    expect(vm.decisionState).toBe('robust')
+  })
+
+  it('decisionState derives from gap even when robustnessLevel is high', () => {
+    // robustnessLevel = "high" but gap is tiny → indeterminate (gap overrides)
+    const data = makeData({
+      options: [
+        makeOption({ id: 'a', winProbability: 0.51, isRecommended: true }),
+        makeOption({ id: 'b', winProbability: 0.49, isRecommended: false }),
+      ],
+      robustnessLevel: 'high',
+    })
+    const vm = buildResultsVM(data)
+    expect(vm.decisionState).toBe('indeterminate')
+  })
 })

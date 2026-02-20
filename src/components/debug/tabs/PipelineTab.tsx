@@ -1971,7 +1971,7 @@ export function PipelineTab({ data }: PipelineTabProps) {
         {data.m2_review?.status === 'success' && (
           <>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
-              <MetricCard label="Duration" value={data.m2_review.duration_ms ? `${(data.m2_review.duration_ms / 1000).toFixed(1)}s` : '—'} />
+              <MetricCard label="Duration" value={data.m2_review.duration_ms != null ? `${(data.m2_review.duration_ms / 1000).toFixed(1)}s` : '—'} />
               <MetricCard label="Bias findings" value={data.m2_review.bias_insights_count} />
               <MetricCard label="Assumptions" value={data.m2_review.key_assumptions_count} />
               <MetricCard label="Model" value={data.m2_review.model ?? '—'} />

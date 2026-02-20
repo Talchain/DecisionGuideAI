@@ -1083,17 +1083,27 @@ function extractNodeExtraction(pipeline: unknown, ceeResponse?: unknown): NodeEx
 
     // stage_2_normalise → "Normalised" (may not exist per brief)
     // Fallback: stage_3_enrich as closest available proxy
-    const normSnap = snapshots.stage_2_normalise as Record<string, unknown> | undefined
-      ?? snapshots.stage_3_enrich as Record<string, unknown> | undefined
-    if (normSnap) {
-      result.normalised = countNodesInSnapshot(normSnap)
+    // Prefer first stage with non-empty extracted counts
+    const normCounts2 = snapshots.stage_2_normalise
+      ? countNodesInSnapshot(snapshots.stage_2_normalise as Record<string, unknown>) : undefined
+    const normCounts3 = snapshots.stage_3_enrich
+      ? countNodesInSnapshot(snapshots.stage_3_enrich as Record<string, unknown>) : undefined
+    const normCounts = (normCounts2 && Object.keys(normCounts2).length > 0) ? normCounts2
+      : (normCounts3 && Object.keys(normCounts3).length > 0) ? normCounts3 : undefined
+    if (normCounts) {
+      result.normalised = normCounts
     }
 
-    // stage_4_repair or stage_5_package → "Validated"
-    const validSnap = snapshots.stage_5_package as Record<string, unknown> | undefined
-      ?? snapshots.stage_4_repair as Record<string, unknown> | undefined
-    if (validSnap) {
-      result.validated = countNodesInSnapshot(validSnap)
+    // stage_5_package or stage_4_repair → "Validated"
+    // Prefer first stage with non-empty extracted counts
+    const validCounts5 = snapshots.stage_5_package
+      ? countNodesInSnapshot(snapshots.stage_5_package as Record<string, unknown>) : undefined
+    const validCounts4 = snapshots.stage_4_repair
+      ? countNodesInSnapshot(snapshots.stage_4_repair as Record<string, unknown>) : undefined
+    const validCounts = (validCounts5 && Object.keys(validCounts5).length > 0) ? validCounts5
+      : (validCounts4 && Object.keys(validCounts4).length > 0) ? validCounts4 : undefined
+    if (validCounts) {
+      result.validated = validCounts
     }
 
     // Only return if we got at least one stage

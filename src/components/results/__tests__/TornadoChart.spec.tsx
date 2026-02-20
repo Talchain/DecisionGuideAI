@@ -239,8 +239,8 @@ describe('TornadoChart', () => {
       />
     )
 
-    expect(screen.getByText(/Preview only/)).toBeInTheDocument()
-    expect(screen.getByText(/Approximate sensitivity/)).toBeInTheDocument()
+    expect(screen.getByText(/Drag to explore/)).toBeInTheDocument()
+    expect(screen.getByText(/directional impact/)).toBeInTheDocument()
   })
 
   it('renders preview disclaimer text', () => {
@@ -251,7 +251,7 @@ describe('TornadoChart', () => {
       />
     )
 
-    expect(screen.getByText(/Preview only/)).toBeInTheDocument()
+    expect(screen.getByText(/Drag to explore/)).toBeInTheDocument()
   })
 
   // ── Axis label tests ──

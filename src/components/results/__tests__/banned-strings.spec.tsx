@@ -53,6 +53,7 @@ const BANNED_STRINGS = [
   'SUCCESS TARGET',           // All-caps banned — use sentence case
   "WHAT'S INFLUENCING",       // All-caps banned, use sentence case
   '\u2014',                   // Em-dash banned, use comma or period
+  '\u2013',                   // En-dash banned in user-facing text, use hyphen or comma
 ]
 
 /**

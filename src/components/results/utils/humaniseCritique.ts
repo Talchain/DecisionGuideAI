@@ -6,10 +6,13 @@
  * human-readable templates and provides a safe fallback for unknown codes that NEVER
  * exposes the raw message to users.
  *
+ * Global rule: labels resolve via nodeId → graph store lookup ONLY.
+ * Never parsed from critique message strings.
+ *
  * Factor label resolution chain:
  * 1. nodeId from affectedNodes → look up in nodeLabels map → use node.label
- * 2. Extract node ID from message if encoded (e.g. `fac_xxx`)
- * 3. Fallback: "a key factor"
+ * 2. affectedNodes present but not in map → "This factor" + factorId
+ * 3. No affectedNodes → "This factor", no factorId
  */
 
 import type { UncertaintyItem } from '../types'
@@ -78,46 +81,50 @@ const CODE_TEMPLATES: Record<string, TemplateFactory> = {
     description: 'Adding data or references to key factors would strengthen the analysis.',
     suggestion: 'Gather data for your highest-impact factors',
   }),
+  CONSTRAINT_TARGET_NO_OBSERVED_VALUE: (label) => ({
+    title: `${label} has no estimate set`,
+    description: 'Results may be unreliable without a current value for this constraint.',
+    suggestion: 'Set estimate \u2192',
+  }),
+  CONSTRAINT_MISSING_RANGE: (label) => ({
+    title: `${label} is missing a range for its constraint`,
+    description: 'A range is needed to assess whether this target can be met.',
+    suggestion: 'Set range \u2192',
+  }),
+  CONSTRAINT_FILTERED_TEMPORAL: () => ({
+    title: 'Some time-based constraints were excluded',
+    description: 'Temporal constraints outside the analysis window were filtered from results.',
+    // No suggestion — not actionable by the user
+  }),
+  CONSTRAINT_OUT_OF_DOMAIN: (label) => ({
+    title: `${label} constraint value is outside the expected range`,
+    description: 'The target for this constraint falls outside the range the model can assess.',
+    suggestion: 'Review \u2192',
+  }),
 }
 
 // ─── Label resolution ────────────────────────────────────────────────────────
 
-const FALLBACK_LABEL = 'a key factor'
+const FALLBACK_LABEL = 'This factor'
 
 /**
  * Resolve a human-readable factor label from the critique.
  *
- * Resolution chain:
- * 1. affectedNodes[0] → nodeLabels map
- * 2. Extract node ID pattern from raw message (fac_xxx, constraint_fac_xxx)
- * 3. Fallback: "a key factor"
+ * Resolution chain (global rule: nodeId → graph store only, never parse messages):
+ * 1. affectedNodes[0] → nodeLabels map → use label
+ * 2. affectedNodes[0] exists but not in map → "This factor" + factorId
+ * 3. No affectedNodes → "This factor", no factorId
  */
 function resolveFactorLabel(
   item: UncertaintyItem,
   nodeLabels?: Map<string, string>,
 ): { label: string; factorId?: string } {
-  // 1. Try affectedNodes[0]
   const nodeId = item.affectedNodes?.[0]
   if (nodeId && nodeLabels?.has(nodeId)) {
     return { label: nodeLabels.get(nodeId)!, factorId: nodeId }
   }
   if (nodeId) {
     return { label: FALLBACK_LABEL, factorId: nodeId }
-  }
-
-  // 2. Try extracting node ID from message
-  const idMatch = item.message?.match(/(?:constraint_)?(fac_[a-z0-9_]+)/i)
-  if (idMatch) {
-    const extractedId = idMatch[1]
-    if (nodeLabels?.has(extractedId)) {
-      return { label: nodeLabels.get(extractedId)!, factorId: extractedId }
-    }
-    // Also try the full match (with constraint_ prefix)
-    const fullId = idMatch[0]
-    if (nodeLabels?.has(fullId)) {
-      return { label: nodeLabels.get(fullId)!, factorId: fullId }
-    }
-    return { label: FALLBACK_LABEL, factorId: extractedId }
   }
 
   return { label: FALLBACK_LABEL }
