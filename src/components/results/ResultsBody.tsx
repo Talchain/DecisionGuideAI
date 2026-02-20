@@ -82,12 +82,14 @@ export function ResultsBody({
   goalDirection,
 }: ResultsBodyProps) {
   // V11: Build enriched view model (no visible changes yet — Phase A2)
+  // Evidence ratio: fragile / (fragile + robust) = robustness-assessed edges only
+  const robustnessEdgeTotal = (fragileEdgeCount ?? 0) + (robustEdgeCount ?? 0)
   const _vm = useMemo(
     () => buildResultsVM(resultsSectionData, {
       fragileEdgeCount,
-      totalEdgeCount: edgeCount,
+      totalEdgeCount: robustnessEdgeTotal,
     }),
-    [resultsSectionData, fragileEdgeCount, edgeCount],
+    [resultsSectionData, fragileEdgeCount, robustnessEdgeTotal],
   )
 
   // Phase 2.3: Cross-highlight — flash an option card when a GraphLink references it

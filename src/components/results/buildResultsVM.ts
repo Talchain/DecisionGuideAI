@@ -46,7 +46,11 @@ const LEVEL_STABILITY_MAP: Record<string, number> = {
 
 /**
  * Resolve a numeric stability value from available data.
- * Ladder: recommendationStability → robustnessLevel map → is_robust → 0.50
+ * Ladder: recommendationStability → robustnessLevel map → default 0.50
+ *
+ * Note: is_robust is NOT available in ResultsSectionDataReturn (it flows to
+ * useAnalysisMetadata for the canvas stability chip). robustnessLevel already
+ * covers the equivalent mapping (high→0.85, low→0.50).
  */
 export function resolveStability(
   recommendationStability: number | undefined,
