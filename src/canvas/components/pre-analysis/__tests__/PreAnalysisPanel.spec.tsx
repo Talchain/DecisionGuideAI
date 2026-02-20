@@ -411,17 +411,15 @@ describe('PreAnalysisPanel', () => {
       mockUsePreAnalysisData.mockReturnValue(createMockData())
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
-      // Goal selector is inside Analysis Settings accordion - need to expand it first
-      const accordion = screen.getByTestId('analysis-settings-accordion')
-      const button = accordion.querySelector('button')
-      if (button) fireEvent.click(button)
 
-      // Should have exactly one goal selector
-      const goalSelectors = screen.getAllByLabelText(/goal/i)
-      expect(goalSelectors.length).toBe(1)
+      // Goal selector now lives in the SuccessTarget hero section
+      // With a single goal, it renders as static text (no dropdown)
+      // Verify goal label is present (appears in SuccessTarget + ModelSnapshot)
+      const goalTexts = screen.getAllByText('Goal')
+      expect(goalTexts.length).toBeGreaterThanOrEqual(1)
     })
 
-    it('renders sections in correct order: Header → SuccessTarget → Tiers → ModelSnapshot → AnalysisSettings', () => {
+    it('renders sections in correct order: Header → SuccessTarget → Tiers → ModelSnapshot', () => {
       mockUsePreAnalysisData.mockReturnValue(createMockData({
         tiers: {
           mustAddress: { items: [{ key: 'f1', category: 'fix', label: 'Test Fix', detail: 'Detail' }], count: 1 },
@@ -441,25 +439,21 @@ describe('PreAnalysisPanel', () => {
       const panel = container.querySelector('[data-testid="pre-analysis-panel"]')
       expect(panel).toBeInTheDocument()
 
-      // Verify all required sections exist (new Phase 2 structure)
+      // Verify all required sections exist (goal selector moved to SuccessTarget hero)
       expect(screen.getByText(/Blocked · 1 to address/)).toBeInTheDocument() // Header with tier counts
       expect(screen.getByTestId('all-improvements-tiers')).toBeInTheDocument()
       expect(screen.getByTestId('model-snapshot-accordion')).toBeInTheDocument()
-      expect(screen.getByTestId('analysis-settings-accordion')).toBeInTheDocument()
 
       // Verify order by comparing positions in the DOM
       const scrollableContent = panel?.querySelector('.overflow-y-auto')
       const html = scrollableContent?.innerHTML ?? ''
 
-      // Check that sections appear in correct order in the HTML
       const headerPos = html.indexOf('Blocked')
       const tiersPos = html.indexOf('all-improvements-tiers')
       const modelSnapshotPos = html.indexOf('model-snapshot-accordion')
-      const analysisSettingsPos = html.indexOf('analysis-settings-accordion')
 
       expect(headerPos).toBeLessThan(tiersPos)
       expect(tiersPos).toBeLessThan(modelSnapshotPos)
-      expect(modelSnapshotPos).toBeLessThan(analysisSettingsPos)
     })
 
     it('sticky footer uses flex layout for pinning', () => {
@@ -899,7 +893,7 @@ describe('PreAnalysisPanel', () => {
       expect(screen.queryByTestId('model-adjustments')).not.toBeInTheDocument()
     })
 
-    it('expands to show adjustment details on click', () => {
+    it('renders single adjustment inline with headline and details toggle', () => {
       mockUsePreAnalysisData.mockReturnValue(createMockData({
         modelAdjustments: [
           { type: 'factor_reclassified', target: 'Market Size', detail: 'Changed to external' },
@@ -908,13 +902,7 @@ describe('PreAnalysisPanel', () => {
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
 
-      // Initially collapsed — headline not visible
-      expect(screen.queryByText(/Reclassified 1 factor/)).not.toBeInTheDocument()
-
-      // Click to expand
-      fireEvent.click(screen.getByText('1 auto-fix applied'))
-
-      // Humanised headline from REPAIR_COPY map
+      // Single fix renders inline — headline visible immediately (no expand needed)
       expect(screen.getByText(/Reclassified 1 factor/)).toBeInTheDocument()
       // Target label visible
       expect(screen.getByText('Market Size')).toBeInTheDocument()
@@ -933,8 +921,7 @@ describe('PreAnalysisPanel', () => {
 
       expect(screen.getByTestId('model-adjustments')).toBeInTheDocument()
 
-      // Expand and check — humanised headline from REPAIR_COPY map
-      fireEvent.click(screen.getByText('1 auto-fix applied'))
+      // Single fix renders inline — headline visible immediately
       expect(screen.getByText('Repaired 1 structural issue in your model')).toBeInTheDocument()
       // Raw reason is behind "Details" toggle
       expect(screen.getByText('Details')).toBeInTheDocument()
@@ -949,8 +936,7 @@ describe('PreAnalysisPanel', () => {
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
 
-      fireEvent.click(screen.getByText('1 auto-fix applied'))
-      // Generic fallback when type/code unmapped
+      // Single fix renders inline — generic fallback visible immediately
       expect(screen.getByText(/We corrected an internal inconsistency/)).toBeInTheDocument()
     })
   })

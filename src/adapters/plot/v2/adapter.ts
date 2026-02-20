@@ -874,6 +874,9 @@ export function buildV2RequestFromAnalysisReady(
   // delete is safe here: V2RunRequest marks goal_threshold as optional, so removing it
   // produces a valid request object.
   if (Array.isArray(request.goal_constraints) && request.goal_constraints.length > 0) {
+    if (request.goal_threshold != null && import.meta.env.DEV) {
+      console.debug('[V2Adapter] XOR: removed goal_threshold (%.2f) — goal_constraints present (%d)', request.goal_threshold, request.goal_constraints.length)
+    }
     delete request.goal_threshold
   }
 
@@ -1192,6 +1195,9 @@ export async function executeV2RunWithAnalysisReady(
   // after the builder already set goal_constraints.
   // delete is safe: V2RunRequest marks goal_threshold as optional.
   if (Array.isArray(request.goal_constraints) && request.goal_constraints.length > 0) {
+    if (request.goal_threshold != null && import.meta.env.DEV) {
+      console.debug('[V2Adapter] XOR (execute path): removed goal_threshold (%.2f) — goal_constraints present (%d)', request.goal_threshold, request.goal_constraints.length)
+    }
     delete request.goal_threshold
   }
 

@@ -555,8 +555,8 @@ describe('usePreAnalysisData', () => {
       )
     })
 
-    it('handles percentage values already in percent form (75 → "75.00 (scale 0–1)")', () => {
-      // contextLine: no raw_value, value present → normalised fallback
+    it('handles percentage values already in percent form (75 → "75")', () => {
+      // contextLine: no raw_value, value present, value > 1 → plain number (no scale suffix)
       mockUseCanvasStore.mockImplementation(createMockStore({
         nodes: [
           {
@@ -576,13 +576,13 @@ describe('usePreAnalysisData', () => {
       expect(result.current.improvementsByCategory.verify).toContainEqual(
         expect.objectContaining({
           key: 'verify_factor1',
-          detail: '75.00 (scale 0–1)',
+          detail: '75',
         })
       )
     })
 
-    it('formats pound values correctly (20000 → "20000.00 (scale 0–1)")', () => {
-      // contextLine: no raw_value, value present → normalised fallback
+    it('formats pound values correctly (20000 → "20000")', () => {
+      // contextLine: no raw_value, value present, value > 1 → plain number (no scale suffix)
       mockUseCanvasStore.mockImplementation(createMockStore({
         nodes: [
           {
@@ -602,13 +602,13 @@ describe('usePreAnalysisData', () => {
       expect(result.current.improvementsByCategory.verify).toContainEqual(
         expect.objectContaining({
           key: 'verify_factor1',
-          detail: '20000.00 (scale 0–1)',
+          detail: '20000',
         })
       )
     })
 
-    it('formats dollar values correctly (5000 → "5000.00 (scale 0–1)")', () => {
-      // contextLine: no raw_value, value present → normalised fallback
+    it('formats dollar values correctly (5000 → "5000")', () => {
+      // contextLine: no raw_value, value present, value > 1 → plain number (no scale suffix)
       mockUseCanvasStore.mockImplementation(createMockStore({
         nodes: [
           {
@@ -628,7 +628,7 @@ describe('usePreAnalysisData', () => {
       expect(result.current.improvementsByCategory.verify).toContainEqual(
         expect.objectContaining({
           key: 'verify_factor1',
-          detail: '5000.00 (scale 0–1)',
+          detail: '5000',
         })
       )
     })
@@ -1535,7 +1535,7 @@ describe('usePreAnalysisData', () => {
       expect(result.current.improvementsByCategory.verify).toContainEqual(
         expect.objectContaining({
           key: 'verify_factor1',
-          detail: '100.00 (scale 0–1)',
+          detail: '100',
         })
       )
     })
@@ -1583,11 +1583,11 @@ describe('usePreAnalysisData', () => {
         })
       )
 
-      // factor2: value 85 is > 1, falls back to scale format
+      // factor2: value 85 is > 1, plain number (no scale suffix)
       expect(result.current.improvementsByCategory.verify).toContainEqual(
         expect.objectContaining({
           key: 'verify_factor2',
-          detail: '85.00 (scale 0\u20131)',
+          detail: '85',
         })
       )
     })
@@ -2078,11 +2078,11 @@ describe('usePreAnalysisData', () => {
 
         const { result } = renderHook(() => usePreAnalysisData())
 
-        // contextLine: no raw_value, value present → normalised fallback
+        // contextLine: no raw_value, value present, value > 1 → plain number (no scale suffix)
         expect(result.current.improvementsByCategory.verify).toContainEqual(
           expect.objectContaining({
             key: 'verify_factor1',
-            detail: '5000.00 (scale 0–1)',
+            detail: '5000',
           })
         )
       })

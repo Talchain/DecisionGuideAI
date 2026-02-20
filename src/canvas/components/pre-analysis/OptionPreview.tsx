@@ -67,13 +67,16 @@ function formatInterventionDisplay(
     // Binary factors (0/1) show as integer, rest map to qualitative level
     if (Number.isInteger(normalisedValue) && (normalisedValue === 0 || normalisedValue === 1)) {
       rawValue = normalisedValue
-    } else {
+    } else if (normalisedValue >= 0 && normalisedValue <= 1) {
       const level = normalisedValue <= 0.20 ? 'very low'
         : normalisedValue <= 0.40 ? 'low'
         : normalisedValue <= 0.60 ? 'moderate'
         : normalisedValue <= 0.80 ? 'high'
         : 'very high'
       return `to ${level}`
+    } else {
+      // Out-of-range value with no cap/unit — display numeric as-is
+      rawValue = normalisedValue
     }
   } else if (cap == null) {
     rawValue = normalisedValue

@@ -498,6 +498,7 @@ export function PreAnalysisPanel({
         {/* 2. Success Target / Hero inputs section */}
         <SuccessTarget
           goalNode={data.goalNode}
+          goalNodes={data.nodesByKind.goal}
           successThreshold={data.successThreshold}
           isThresholdAutoDerived={data.isThresholdAutoDerived}
           isThresholdConfirmed={data.isThresholdConfirmed}
@@ -505,6 +506,7 @@ export function PreAnalysisPanel({
           onThresholdChange={handleThresholdChange}
           onThresholdConfirm={handleThresholdConfirm}
           onThresholdEdit={handleThresholdEdit}
+          onGoalChange={handleGoalChange}
           goalThresholdRaw={data.goalThresholdRaw}
           goalThresholdUnit={data.goalThresholdUnit}
           thresholdSourceBadge={data.thresholdSourceBadge}
@@ -683,12 +685,7 @@ export function PreAnalysisPanel({
           ceeQuality={data.ceeQuality}
         />
 
-        {/* 7. Analysis Settings accordion (Goal selector) */}
-        <AnalysisSettings
-          goalNodes={data.nodesByKind.goal}
-          selectedGoalNode={data.goalNode}
-          onGoalChange={handleGoalChange}
-        />
+        {/* Goal selector now lives in SuccessTarget hero — AnalysisSettings removed */}
       </div>
 
       {/* 8. Sticky Footer (pinned to bottom) */}

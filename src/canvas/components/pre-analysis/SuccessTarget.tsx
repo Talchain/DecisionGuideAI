@@ -9,13 +9,15 @@
  * Persistence: Uses goal node data field for confirmed status to survive undo/redo.
  */
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { Check, ChevronDown, ChevronRight, Pencil } from 'lucide-react'
 import type { Node } from '@xyflow/react'
 
 interface SuccessTargetProps {
   /** Currently selected goal node */
   goalNode: Node | null
+  /** All goal nodes (for dropdown when multiple) */
+  goalNodes?: Node[]
   /** Success threshold value */
   successThreshold: number | null
   /** Whether threshold was auto-derived */
@@ -32,6 +34,8 @@ interface SuccessTargetProps {
   onThresholdConfirm?: () => void
   /** Callback to clear confirmed status (for editing) */
   onThresholdEdit?: () => void
+  /** Callback when goal selection changes */
+  onGoalChange?: (goalId: string) => void
   /** Raw goal threshold from CEE (user-facing value, e.g. 200) */
   goalThresholdRaw?: number | null
   /** Goal threshold unit from CEE (e.g. "customers") */
@@ -40,6 +44,7 @@ interface SuccessTargetProps {
 
 export function SuccessTarget({
   goalNode,
+  goalNodes = [],
   successThreshold,
   isThresholdAutoDerived,
   isThresholdConfirmed,
@@ -47,6 +52,7 @@ export function SuccessTarget({
   onThresholdChange,
   onThresholdConfirm,
   onThresholdEdit,
+  onGoalChange,
   goalThresholdRaw,
   goalThresholdUnit,
   thresholdSourceBadge,
@@ -56,6 +62,8 @@ export function SuccessTarget({
   const [inputValue, setInputValue] = useState('')
   // Expanded state for confirmed target
   const [isExpanded, setIsExpanded] = useState(false)
+  // Local draft value for edit input — prevents snapping back to stale goalThresholdRaw
+  const [editDraft, setEditDraft] = useState<string>('')
 
   const goalLabel = goalNode ? ((goalNode.data as { label?: string })?.label ?? goalNode.id) : 'Goal'
 
@@ -65,6 +73,26 @@ export function SuccessTarget({
     : isThresholdConfirmed
       ? 'border-l-success'
       : 'border-l-info'
+
+  // Raw→normalised conversion factor: normalised = raw × factor
+  // e.g. raw=200, normalised=0.2 → factor=0.001
+  const rawToNormFactor = (goalThresholdRaw != null && goalThresholdRaw !== 0 && successThreshold != null && successThreshold !== 0)
+    ? successThreshold / goalThresholdRaw
+    : null
+
+  // Initial display value for edit inputs — raw when available, normalised as fallback
+  const editDisplayValue = goalThresholdRaw ?? successThreshold
+
+  // Seed editDraft from display value when edit section opens
+  useEffect(() => {
+    if (isExpanded) {
+      setEditDraft(editDisplayValue != null ? String(editDisplayValue) : '')
+    }
+  }, [isExpanded]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Convert user-entered raw value back to normalised for the store
+  const toNormalised = (raw: number): number =>
+    rawToNormFactor != null ? raw * rawToNormFactor : raw
 
   // Format threshold value for display — prefer raw + unit for user-facing values
   const formatValue = (value: number | null): string => {
@@ -83,6 +111,36 @@ export function SuccessTarget({
   const inputPlaceholder = goalThresholdUnit
     ? `Enter target (${goalThresholdUnit})`
     : 'Enter target value'
+
+  // Label for edit inputs — include unit when available
+  const editLabel = goalThresholdUnit
+    ? `Target value (${goalThresholdUnit})`
+    : 'Target value'
+
+  const hasMultipleGoals = goalNodes.length > 1
+  const getNodeLabel = (node: Node): string =>
+    (node.data as { label?: string })?.label ?? node.id
+
+  // Render goal name: dropdown when multiple goals, static text when single
+  const renderGoalName = () => {
+    if (hasMultipleGoals && onGoalChange) {
+      return (
+        <select
+          value={goalNode?.id ?? ''}
+          onChange={(e) => onGoalChange(e.target.value)}
+          title={goalLabel}
+          className="text-[14px] font-medium text-text-header bg-transparent border-none p-0 cursor-pointer focus:outline-none focus:ring-0 truncate max-w-full"
+        >
+          {goalNodes.map(g => (
+            <option key={g.id} value={g.id}>{getNodeLabel(g)}</option>
+          ))}
+        </select>
+      )
+    }
+    return (
+      <p className="text-[14px] font-medium text-text-header line-clamp-2" title={goalLabel}>{goalLabel}</p>
+    )
+  }
 
   // Handle input submission
   const handleSubmit = useCallback(() => {
@@ -128,9 +186,9 @@ export function SuccessTarget({
           ) : (
             <ChevronRight className="w-3.5 h-3.5 text-text-light shrink-0" />
           )}
-          <span className="text-sm text-text-body truncate">{goalLabel}</span>
+          <span className="text-[14px] font-medium text-text-header truncate">{goalLabel}</span>
           <span className="text-text-light shrink-0">·</span>
-          <span className="text-[13px] font-semibold text-text-header shrink-0">{formatValue(successThreshold)}</span>
+          <span className="text-[14px] font-semibold text-text-header shrink-0">{formatValue(successThreshold)}</span>
           <Check className="w-3.5 h-3.5 text-success shrink-0" />
         </button>
 
@@ -138,18 +196,19 @@ export function SuccessTarget({
         {isExpanded && (
           <div className="mt-3 pt-3 border-t border-panel-border">
             <div className="flex items-center gap-3">
-              <label className="text-sm text-text-light shrink-0">Target value</label>
+              <label className="text-sm text-text-light shrink-0">{editLabel}</label>
               <input
                 type="number"
-                value={successThreshold ?? ''}
+                value={editDraft}
                 onChange={(e) => {
                   const val = e.target.value
+                  setEditDraft(val)
                   if (val === '') {
                     onThresholdChange?.(null)
                   } else {
                     const parsed = parseFloat(val)
                     if (!Number.isNaN(parsed)) {
-                      onThresholdChange?.(parsed)
+                      onThresholdChange?.(toNormalised(parsed))
                     }
                   }
                   // Clear confirmed status when editing
@@ -215,7 +274,7 @@ export function SuccessTarget({
         ) : (
           <div>
             <div className="flex items-center justify-between">
-              <span className="text-sm text-text-body">{goalLabel}</span>
+              {renderGoalName()}
               <button
                 type="button"
                 onClick={() => setShowInput(true)}
@@ -236,18 +295,18 @@ export function SuccessTarget({
   // Value present but not confirmed - show edit and confirm CTAs
   return (
     <div className={`rounded-lg border border-panel-border border-l-[3px] ${borderColor} bg-panel p-3`}>
-      {/* Goal name — up to 2 lines */}
-      <p className="text-sm text-text-body line-clamp-2" title={goalLabel}>{goalLabel}</p>
+      {/* Goal name — dropdown when multiple, static when single */}
+      {renderGoalName()}
 
       {/* Success target line */}
       <div className="flex items-center gap-2 mt-1">
-        <span className="text-[11px] text-text-light shrink-0">Success target:</span>
-        <span className="text-[13px] font-semibold text-text-header">{formatValue(successThreshold)}</span>
+        <span className="text-[12px] text-text-light shrink-0">Success target:</span>
+        <span className="text-[14px] font-semibold text-text-header">{formatValue(successThreshold)}</span>
         {thresholdSourceBadge === 'brief' && (
-          <span className="text-[10px] text-success bg-success-light rounded px-1.5 py-0.5 shrink-0">From brief</span>
+          <span className="text-[11px] text-success bg-success-light rounded px-1.5 py-0.5 shrink-0">From brief</span>
         )}
         {thresholdSourceBadge === 'ai' && (
-          <span className="text-[10px] text-info bg-info-light rounded px-1.5 py-0.5 shrink-0">AI estimate</span>
+          <span className="text-[11px] text-info bg-info-light rounded px-1.5 py-0.5 shrink-0">AI estimate</span>
         )}
         <div className="flex items-center gap-1 ml-auto shrink-0">
           <button
@@ -278,18 +337,19 @@ export function SuccessTarget({
       {isExpanded && (
         <div className="mt-3 pt-3 border-t border-panel-border">
           <div className="flex items-center gap-3">
-            <label className="text-sm text-text-light shrink-0">Target value</label>
+            <label className="text-sm text-text-light shrink-0">{editLabel}</label>
             <input
               type="number"
-              value={successThreshold ?? ''}
+              value={editDraft}
               onChange={(e) => {
                 const val = e.target.value
+                setEditDraft(val)
                 if (val === '') {
                   onThresholdChange?.(null)
                 } else {
                   const parsed = parseFloat(val)
                   if (!Number.isNaN(parsed)) {
-                    onThresholdChange?.(parsed)
+                    onThresholdChange?.(toNormalised(parsed))
                   }
                 }
               }}

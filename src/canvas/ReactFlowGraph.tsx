@@ -1402,6 +1402,20 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
         } catch {}
       }
 
+      // Restore ceeAnalysisReady from sessionStorage (survives tab-refresh)
+      // This must run in the PROD path too, not just the dev fallback.
+      try {
+        const ceeRaw = sessionStorage.getItem('olumi-cee-analysis-ready')
+        if (ceeRaw) {
+          const ceeData = JSON.parse(ceeRaw)
+          if (ceeData && typeof ceeData === 'object') {
+            useCanvasStore.getState().setCeeAnalysisReady(ceeData)
+          }
+        }
+      } catch {
+        // Ignore parse failures — stale/corrupt data is silently discarded
+      }
+
       return
     }
 
@@ -1419,6 +1433,19 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
         nodes: loaded.nodes,
         edges: loaded.edges
       })
+
+      // Restore ceeAnalysisReady from sessionStorage (survives tab-refresh)
+      try {
+        const ceeRaw = sessionStorage.getItem('olumi-cee-analysis-ready')
+        if (ceeRaw) {
+          const ceeData = JSON.parse(ceeRaw)
+          if (ceeData && typeof ceeData === 'object') {
+            useCanvasStore.getState().setCeeAnalysisReady(ceeData)
+          }
+        }
+      } catch {
+        // Ignore parse failures — stale/corrupt data is silently discarded
+      }
 
       // Try to restore results from most recent matching run (draft mode fallback)
       try {

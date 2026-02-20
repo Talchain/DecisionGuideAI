@@ -42,6 +42,7 @@ import type {
   RobustnessLabel,
 } from './types'
 import type { FactorEnrichment, NearTieInfo } from '../../lib/mappers/types'
+import { normaliseFactorFields } from '../../lib/mappers/mapFactorSensitivity'
 import { stripEncodingNotation } from './utils/cleanFactorLabel'
 import { humaniseCritique } from './utils/humaniseCritique'
 
@@ -168,15 +169,16 @@ function normaliseSeverity(severity: string | undefined): CritiqueSeverity {
 
 /**
  * Get canonical factor key from various ID fields.
- * Priority: factor_id > node_id > id > normalised(label)
- * Note: PLoT uses factor_id as the canonical field name.
+ * Pre-mapped data: uses factorId (already resolved).
+ * Raw data: delegates to normaliseFactorFields (node_id > factor_id > id > label).
  */
 function getFactorKey(factor: RawFactorSensitivity | UiFactorSensitivity, index: number): string {
+  // Pre-mapped UiFactorSensitivity has factorId already resolved
   if ('factorId' in factor && factor.factorId) return factor.factorId
-  if ('factor_id' in factor && factor.factor_id) return factor.factor_id
-  if ('node_id' in factor && factor.node_id) return factor.node_id
-  if ('id' in factor && factor.id) return factor.id
-  if (factor.label) return normaliseLabel(factor.label)
+  // Raw data — use centralised field resolution
+  const { node_id, label: resolvedLabel } = normaliseFactorFields(factor as Record<string, unknown>)
+  if (node_id) return node_id
+  if (resolvedLabel) return normaliseLabel(resolvedLabel)
   // Fallback: generate unique key using index
   return `factor_${index}`
 }
@@ -247,9 +249,10 @@ function getRawElasticity(factor: RawFactorSensitivity | UiFactorSensitivity): n
 
 function normalizeFactorSensitivity(raw: unknown, nodeLabelMap: Map<string, string>): UiFactorSensitivity {
   const typed = (raw ?? {}) as Record<string, any>
-  const rawId = typed.factor_id ?? typed.node_id ?? typed.id
+  const nf = normaliseFactorFields(typed)
+  const rawId = nf.node_id
   const labelFromNodes = rawId ? nodeLabelMap.get(rawId) : undefined
-  const label = typed.label ?? typed.node_label ?? labelFromNodes ?? rawId ?? 'Unknown factor'
+  const label = nf.label ?? typed.node_label ?? labelFromNodes ?? rawId ?? 'Unknown factor'
   const elasticity =
     typeof typed.elasticity === 'number' ? typed.elasticity
       : typeof typed.sensitivity_score === 'number' ? typed.sensitivity_score
@@ -1045,15 +1048,18 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       ?? (report as any)?.report?.robustness?.flip_thresholds
       ?? (report as any)?.robustness?.flip_thresholds
     )
-      .map((ft: any) => ({
-        label: ft.label ?? ft.factor_label ?? nodeLabelMap.get(ft.node_id) ?? ft.node_id ?? 'Unknown',
-        node_id: ft.node_id ?? ft.factor_id ?? '',
-        current_value: typeof ft.current_value === 'number' ? ft.current_value : 0,
-        flip_value: typeof ft.flip_value === 'number' ? ft.flip_value : null,
-        flip_reason: ft.flip_reason,
-        unit: ft.unit,
-        alternative_winner_label: ft.alternative_winner_label ?? ft.alt_winner_label,
-      }))
+      .map((ft: any) => {
+        const nf = normaliseFactorFields(ft)
+        return {
+          label: nf.label ?? nodeLabelMap.get(nf.node_id ?? '') ?? nf.node_id ?? 'Unknown',
+          node_id: nf.node_id ?? '',
+          current_value: typeof ft.current_value === 'number' ? ft.current_value : 0,
+          flip_value: typeof ft.flip_value === 'number' ? ft.flip_value : null,
+          flip_reason: ft.flip_reason,
+          unit: ft.unit,
+          alternative_winner_label: ft.alternative_winner_label ?? ft.alt_winner_label,
+        }
+      })
       .filter((ft: FlipThreshold) => ft.flip_reason !== 'timeout' && ft.flip_reason !== 'isl_error')
 
     return {

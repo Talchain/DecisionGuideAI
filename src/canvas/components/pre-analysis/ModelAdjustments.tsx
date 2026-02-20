@@ -175,7 +175,9 @@ function AdjustmentRow({ adj }: { adj: GroupedAdjustment }) {
               {showDetail ? 'Hide details' : 'Details'}
             </button>
             {showDetail && (
-              <p className="text-text-light mt-0.5 font-mono text-[10px] leading-tight">{adj.technicalDetail}</p>
+              <div className="bg-factor-light rounded-md p-2 mt-1">
+                <p className="text-text-light font-mono text-[11px] leading-tight">{adj.technicalDetail}</p>
+              </div>
             )}
           </>
         )}
@@ -192,17 +194,38 @@ export function ModelAdjustments({ adjustments, repairActions = [] }: ModelAdjus
   const grouped = groupAdjustments(adjustments)
   const totalCount = grouped.length + repairActions.length
 
+  // Single fix: compact inline row — no collapsible wrapper
+  if (totalCount === 1) {
+    const singleAdj = grouped[0]
+    const singleRepair = repairActions[0]
+    return (
+      <div className="rounded-lg border border-panel-border bg-panel px-3 py-2" data-testid="model-adjustments">
+        <div className="flex items-start gap-2">
+          <Wrench size={14} className="text-text-light flex-shrink-0 mt-0.5" />
+          <div className="flex-1 min-w-0">
+            {singleAdj ? (
+              <AdjustmentRow adj={singleAdj} />
+            ) : (
+              <span className="text-xs text-text-body">{singleRepair}</span>
+            )}
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // Multiple fixes: collapsible section
   return (
-    <div className="rounded-md border border-panel-border bg-panel" data-testid="model-adjustments">
+    <div className="rounded-lg border border-panel-border bg-panel" data-testid="model-adjustments">
       <button
         type="button"
         onClick={() => setIsExpanded(!isExpanded)}
-        className="flex items-center gap-2 w-full px-3 py-2 text-left hover:bg-panel-hover transition-colors rounded-md"
+        className="flex items-center gap-2 w-full px-3 py-2 text-left hover:bg-panel-hover transition-colors rounded-lg"
       >
         <Wrench size={14} className="text-text-light flex-shrink-0" />
         <div className="flex-1 min-w-0">
           <span className="text-xs font-semibold text-text-body">
-            {totalCount === 1 ? '1 auto-fix applied' : `${totalCount} auto-fixes applied`}
+            {totalCount} auto-fixes applied
           </span>
           <p className="text-xs text-text-light leading-tight">
             We fixed small issues without changing your intent.
@@ -224,7 +247,7 @@ export function ModelAdjustments({ adjustments, repairActions = [] }: ModelAdjus
             )
           })}
 
-          {/* Repair actions from trace.pipeline.repair_summary (Task 6b) */}
+          {/* Repair actions from trace.pipeline.repair_summary */}
           {repairActions.length > 0 && (
             <>
               {grouped.length > 0 && (

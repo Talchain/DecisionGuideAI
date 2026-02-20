@@ -13,7 +13,7 @@
  */
 
 import { useMemo } from 'react'
-import type { RecommendationSectionData, DriverItem } from './types'
+import type { RecommendationSectionData, DriverItem, DecisionState, HingeInfo, EvidenceLevel } from './types'
 import { EMPTY_STATES } from './emptyStates'
 import { typography } from '../../styles/typography'
 import { HeroSection, type OptionWinShare } from './HeroSection'
@@ -66,6 +66,12 @@ interface RecommendationSectionProps {
   onSetBaseline?: (optionId: string) => void
   /** V9.2 Phase 2.3: Cross-highlight — flash an option card when a GraphLink references it */
   onFlashOption?: (optionId: string) => void
+  /** V11: Tri-state decision classification */
+  decisionState?: DecisionState
+  /** V11: Deterministic hinge for coaching copy */
+  hinge?: HingeInfo | null
+  /** V11: Evidence quality level for meta strip badge */
+  evidenceLevel?: EvidenceLevel
 }
 
 export function RecommendationSection({
@@ -87,6 +93,9 @@ export function RecommendationSection({
   onAddBaseline,
   onSetBaseline,
   onFlashOption,
+  decisionState,
+  hinge,
+  evidenceLevel,
 }: RecommendationSectionProps) {
   const {
     recommendedOption,
@@ -232,6 +241,10 @@ export function RecommendationSection({
         onSetBaseline={onSetBaseline}
         baselineOptions={allOptions.map(o => ({ id: o.id, label: o.label }))}
         baselineLabel={allOptions.find(o => o.isBaseline)?.label}
+        decisionState={decisionState}
+        hinge={hinge}
+        evidenceLevel={evidenceLevel}
+        robustEdgeCount={robustEdgeCount}
       />
 
       {/* P2 Task 3: Limited options coaching card (moved below hero) */}

@@ -81,10 +81,10 @@ export function ResultsBody({
   identifiability,
   goalDirection,
 }: ResultsBodyProps) {
-  // V11: Build enriched view model (no visible changes yet — Phase A2)
+  // V11: Build enriched view model — drives hero rows, colours, collapse behaviour
   // Evidence ratio: fragile / (fragile + robust) = robustness-assessed edges only
   const robustnessEdgeTotal = (fragileEdgeCount ?? 0) + (robustEdgeCount ?? 0)
-  const _vm = useMemo(
+  const vm = useMemo(
     () => buildResultsVM(resultsSectionData, {
       fragileEdgeCount,
       totalEdgeCount: robustnessEdgeTotal,
@@ -113,7 +113,7 @@ export function ResultsBody({
       />
 
       {/* ── SECTION 1: HERO ─────────────────────────────────────── */}
-      {/* V9.2: Merged headline lives inside HeroSection. Goal label passed as prop. */}
+      {/* V11: Structured hero rows driven by decisionState from VM */}
       <div>
         <RecommendationSection
           data={resultsSectionData.recommendation}
@@ -132,6 +132,9 @@ export function ResultsBody({
           onAddBaseline={onAddBaseline}
           onSetBaseline={onSetBaseline}
           onFlashOption={flashOptionCard}
+          decisionState={vm.decisionState}
+          hinge={vm.hinge}
+          evidenceLevel={vm.evidenceLevel}
         />
       </div>
 

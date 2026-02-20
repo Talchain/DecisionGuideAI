@@ -711,7 +711,7 @@ describe('useDebugData', () => {
       expect(result.current.winningOption?.id).toBe('dc_opt')
     })
 
-    it('returns null when option_comparison is empty', () => {
+    it('returns null when all paths are empty', () => {
       const plotPayload = {
         id: 'req-winner-empty',
         service: 'PLoT',
@@ -734,6 +734,174 @@ describe('useDebugData', () => {
       const { result } = renderHook(() => useDebugData())
 
       expect(result.current.winningOption).toBeNull()
+    })
+
+    it('falls through empty option_comparison to populated ISL direct (regression)', () => {
+      // Path 1 has empty option_comparison — must not shadow Path 6 with real data.
+      const plotPayload = {
+        id: 'req-empty-fallthrough',
+        service: 'PLoT',
+        endpoint: '/v2/run',
+        status: 200,
+        completed: true,
+        duration: 1200,
+        request: { body: {} },
+        response: {
+          body: {
+            analysis_status: 'computed',
+            option_comparison: [], // empty — must fall through
+          },
+        },
+      }
+      const islPayload = {
+        id: 'req-empty-fallthrough-isl',
+        service: 'ISL',
+        endpoint: '/isl/simulate',
+        status: 200,
+        completed: true,
+        duration: 300,
+        request: { body: {} },
+        response: {
+          body: {
+            option_comparison: [
+              { option_id: 'fall_opt', option_label: 'Fallthrough Winner', win_probability: 0.91 },
+            ],
+          },
+        },
+      }
+
+      vi.mocked(usePayloadTraceStore).mockImplementation((selector) =>
+        selector({ payloads: [plotPayload, islPayload] })
+      )
+
+      const { result } = renderHook(() => useDebugData())
+
+      expect(result.current.winningOption).not.toBeNull()
+      expect(result.current.winningOption?.id).toBe('fall_opt')
+      expect(result.current.winningOption?.label).toBe('Fallthrough Winner')
+    })
+
+    it('extracts winner from ISL-only payload when PLoT is absent', () => {
+      // No PLoT payload at all — ISL-only scenario.
+      const islPayload = {
+        id: 'req-isl-only',
+        service: 'ISL',
+        endpoint: '/isl/simulate',
+        status: 200,
+        completed: true,
+        duration: 300,
+        request: { body: {} },
+        response: {
+          body: {
+            option_comparison: [
+              { option_id: 'isl_only_opt', option_label: 'ISL Only Winner', win_probability: 0.78 },
+            ],
+          },
+        },
+      }
+
+      vi.mocked(usePayloadTraceStore).mockImplementation((selector) =>
+        selector({ payloads: [islPayload] })
+      )
+
+      const { result } = renderHook(() => useDebugData())
+
+      expect(result.current.winningOption).not.toBeNull()
+      expect(result.current.winningOption?.id).toBe('isl_only_opt')
+      expect(result.current.winningOption?.label).toBe('ISL Only Winner')
+    })
+
+    it('finds winner from separate ISL payload option_comparison (Path 6)', () => {
+      // PLoT response has NO option_comparison — forces fallthrough to Path 6.
+      const plotPayload = {
+        id: 'req-isl-direct',
+        service: 'PLoT',
+        endpoint: '/v2/run',
+        status: 200,
+        completed: true,
+        duration: 1200,
+        request: { body: {} },
+        response: {
+          body: {
+            analysis_status: 'computed',
+            // No option_comparison or options here
+          },
+        },
+      }
+      const islPayload = {
+        id: 'req-isl-direct-isl',
+        service: 'ISL',
+        endpoint: '/isl/simulate',
+        status: 200,
+        completed: true,
+        duration: 300,
+        request: { body: {} },
+        response: {
+          body: {
+            option_comparison: [
+              { option_id: 'isl_opt_a', option_label: 'ISL Direct A', win_probability: 0.88 },
+              { option_id: 'isl_opt_b', option_label: 'ISL Direct B', win_probability: 0.12 },
+            ],
+          },
+        },
+      }
+
+      vi.mocked(usePayloadTraceStore).mockImplementation((selector) =>
+        selector({ payloads: [plotPayload, islPayload] })
+      )
+
+      const { result } = renderHook(() => useDebugData())
+
+      expect(result.current.winningOption).not.toBeNull()
+      expect(result.current.winningOption?.id).toBe('isl_opt_a')
+      expect(result.current.winningOption?.label).toBe('ISL Direct A')
+      expect(result.current.winningOption?.win_probability).toBeCloseTo(88)
+    })
+
+    it('finds winner from separate ISL payload options array (legacy Path 6)', () => {
+      // PLoT response has NO option_comparison — forces fallthrough to Path 6.
+      const plotPayload = {
+        id: 'req-isl-legacy',
+        service: 'PLoT',
+        endpoint: '/v2/run',
+        status: 200,
+        completed: true,
+        duration: 1200,
+        request: { body: {} },
+        response: {
+          body: {
+            analysis_status: 'computed',
+          },
+        },
+      }
+      const islPayload = {
+        id: 'req-isl-legacy-isl',
+        service: 'ISL',
+        endpoint: '/isl/simulate',
+        status: 200,
+        completed: true,
+        duration: 300,
+        request: { body: {} },
+        response: {
+          body: {
+            options: [
+              { id: 'isl_leg_x', label: 'Legacy ISL X', win_probability: 0.65 },
+              { id: 'isl_leg_y', label: 'Legacy ISL Y', win_probability: 0.35 },
+            ],
+          },
+        },
+      }
+
+      vi.mocked(usePayloadTraceStore).mockImplementation((selector) =>
+        selector({ payloads: [plotPayload, islPayload] })
+      )
+
+      const { result } = renderHook(() => useDebugData())
+
+      expect(result.current.winningOption).not.toBeNull()
+      expect(result.current.winningOption?.id).toBe('isl_leg_x')
+      expect(result.current.winningOption?.label).toBe('Legacy ISL X')
+      expect(result.current.winningOption?.win_probability).toBeCloseTo(65)
     })
 
     it('detects close race and populates runner_up', () => {

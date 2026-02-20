@@ -1579,11 +1579,10 @@ function extractValidation(
  */
 function extractWinningOption(
   plotResponse: unknown,
-  ceeResponse: unknown
+  ceeResponse: unknown,
+  islResponse?: unknown
 ): WinningOptionData | null {
-  if (!plotResponse || typeof plotResponse !== 'object') return null
-
-  const plot = plotResponse as Record<string, unknown>
+  const plot = (plotResponse && typeof plotResponse === 'object') ? plotResponse as Record<string, unknown> : undefined
 
   // Normalise downstream_calls.isl — may be array or object (see extractIslFromPlotResponse line 857).
   const normaliseIsl = (isl: unknown): Record<string, unknown> | undefined => {
@@ -1594,38 +1593,51 @@ function extractWinningOption(
 
   // Try multiple paths for ISL options (in priority order).
   // PLoT V2 uses "option_comparison" not "options" — check both keys at each path.
-  const dc = (plot.downstream_calls as Record<string, unknown>) ?? undefined
-  const rdc = ((plot.response as Record<string, unknown>)?.downstream_calls as Record<string, unknown>) ?? undefined
+  const dc = (plot?.downstream_calls as Record<string, unknown>) ?? undefined
+  const rdc = ((plot?.response as Record<string, unknown>)?.downstream_calls as Record<string, unknown>) ?? undefined
   const islEntry = normaliseIsl(dc?.isl)
   const rIslEntry = normaliseIsl(rdc?.isl)
 
+  // Separate ISL response payload (captured independently from PLoT)
+  const islDirect = (islResponse && typeof islResponse === 'object') ? islResponse as Record<string, unknown> : undefined
+
+  // Helper: returns array only if it's a non-empty array, otherwise undefined.
+  // This ensures empty arrays at earlier paths don't shadow populated later paths.
+  const nonEmpty = (v: unknown): unknown[] | undefined =>
+    Array.isArray(v) && v.length > 0 ? v : undefined
+
+  // Build candidate list — first non-empty array wins.
   const islOptions =
     // Path 1: top-level option_comparison (PLoT V2 direct response — most common)
-    (plot.option_comparison as unknown[]) ??
+    nonEmpty(plot?.option_comparison) ??
     // Path 2: downstream_calls.isl.response.option_comparison or .options (array or object form)
-    (islEntry?.response as Record<string, unknown>)?.option_comparison ??
-    (islEntry?.response as Record<string, unknown>)?.options ??
+    nonEmpty((islEntry?.response as Record<string, unknown>)?.option_comparison) ??
+    nonEmpty((islEntry?.response as Record<string, unknown>)?.options) ??
     // Path 3: response.downstream_calls.isl.response.option_comparison or .options
-    (rIslEntry?.response as Record<string, unknown>)?.option_comparison ??
-    (rIslEntry?.response as Record<string, unknown>)?.options ??
+    nonEmpty((rIslEntry?.response as Record<string, unknown>)?.option_comparison) ??
+    nonEmpty((rIslEntry?.response as Record<string, unknown>)?.options) ??
     // Path 4: results.option_comparison (nested under results key)
-    ((plot.results as Record<string, unknown>)?.option_comparison as unknown[]) ??
+    nonEmpty((plot?.results as Record<string, unknown>)?.option_comparison) ??
     // Path 5: legacy fallback — top-level options
-    (plot.options as unknown[])
+    nonEmpty(plot?.options) ??
+    // Path 6: separate ISL response payload — option_comparison or options
+    nonEmpty(islDirect?.option_comparison) ??
+    nonEmpty(islDirect?.options)
 
   // Debug logging (dev/staging only)
   if (import.meta.env.DEV) {
     console.log('[Winner Debug] ISL options search:', {
-      path1_option_comparison: plot.option_comparison,
+      path1_option_comparison: plot?.option_comparison,
       path2_downstream_calls: (islEntry?.response as Record<string, unknown>)?.option_comparison,
       path3_response_downstream: (rIslEntry?.response as Record<string, unknown>)?.option_comparison,
-      path4_results: (plot.results as Record<string, unknown>)?.option_comparison,
-      path5_top_level_options: plot.options,
+      path4_results: (plot?.results as Record<string, unknown>)?.option_comparison,
+      path5_top_level_options: plot?.options,
+      path6_isl_direct: islDirect?.option_comparison ?? islDirect?.options,
       found: islOptions,
     })
   }
 
-  if (!Array.isArray(islOptions) || islOptions.length === 0) return null
+  if (!islOptions) return null
 
   // Find option with highest win_probability.
   // option_comparison items use option_id/option_label; legacy uses id/label.
@@ -3098,7 +3110,8 @@ export function useDebugData(): DebugData {
     // Extract winning option data
     const winningOption = extractWinningOption(
       payloadBundle.plot_response,
-      payloadBundle.cee_response
+      payloadBundle.cee_response,
+      payloadBundle.isl_response
     )
 
     // Extract robustness data with stability context

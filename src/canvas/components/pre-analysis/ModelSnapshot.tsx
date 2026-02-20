@@ -93,21 +93,21 @@ function SnapshotRow({ kind, nodes, onFocusNode, onHoverNode, onHoverClear }: Sn
   }
 
   return (
-    <div className="flex items-start gap-2 py-1">
-      {/* Icon */}
-      <Icon className={`w-4 h-4 flex-shrink-0 mt-0.5 ${config.colorClass}`} aria-hidden="true" />
+    <div className="py-1">
+      {/* Kind header: icon + label */}
+      <div className="flex items-center gap-2">
+        <Icon className={`w-4 h-4 flex-shrink-0 ${config.colorClass}`} aria-hidden="true" />
+        <span className={`text-sm font-medium ${config.colorClass}`}>
+          {config.label}
+        </span>
+      </div>
 
-      {/* Kind label - coloured text permitted here */}
-      <span className={`text-sm font-medium w-16 flex-shrink-0 ${config.colorClass}`}>
-        {config.label}
-      </span>
-
-      {/* Node links */}
-      <div className="flex-1 flex flex-wrap items-center gap-x-1 gap-y-0.5">
-        {visibleNodes.map((node, idx) => (
-          <span
+      {/* Node links — one per line, left-aligned */}
+      <div className="ml-6 mt-0.5">
+        {visibleNodes.map((node) => (
+          <div
             key={node.id}
-            className="inline-flex items-center"
+            className="py-0.5"
             onMouseEnter={() => onHoverNode?.('node', node.id)}
             onMouseLeave={() => onHoverClear?.()}
           >
@@ -119,10 +119,7 @@ function SnapshotRow({ kind, nodes, onFocusNode, onHoverNode, onHoverClear }: Sn
             >
               {getNodeLabel(node)}
             </NodeLink>
-            {idx < visibleNodes.length - 1 && (
-              <span className="text-text-light">,</span>
-            )}
-          </span>
+          </div>
         ))}
 
         {/* Expander link */}
@@ -130,18 +127,18 @@ function SnapshotRow({ kind, nodes, onFocusNode, onHoverNode, onHoverClear }: Sn
           <button
             type="button"
             onClick={handleToggleExpand}
-            className="text-xs text-info hover:underline cursor-pointer ml-1"
+            className="text-xs text-info hover:underline cursor-pointer py-0.5"
           >
-            (+{hiddenCount})
+            +{hiddenCount} more
           </button>
         )}
         {isExpanded && hiddenCount > 0 && (
           <button
             type="button"
             onClick={handleToggleExpand}
-            className="text-xs text-info hover:underline cursor-pointer ml-1"
+            className="text-xs text-info hover:underline cursor-pointer py-0.5"
           >
-            (show less)
+            Show less
           </button>
         )}
       </div>

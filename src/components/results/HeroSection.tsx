@@ -22,6 +22,7 @@ import { formatPercent as formatPct } from '../../utils/formatPercent'
 import { GraphLink } from './GraphLink'
 import { normaliseGoalLabel } from '../../utils/normaliseGoalLabel'
 import { BaselineToggleCard, type BaselineOption } from './BaselineToggleCard'
+import type { DecisionState, HingeInfo, EvidenceLevel } from './types'
 
 // =============================================================================
 // Types
@@ -110,6 +111,14 @@ export interface HeroSectionProps {
   baselineOptions?: BaselineOption[]
   /** Currently selected baseline option label */
   baselineLabel?: string
+  /** V11: Tri-state decision classification */
+  decisionState?: DecisionState
+  /** V11: Deterministic hinge for coaching copy */
+  hinge?: HingeInfo | null
+  /** V11: Evidence quality level for meta strip badge */
+  evidenceLevel?: EvidenceLevel
+  /** V11: Robust edge count for "Fragile edges X of Y" display */
+  robustEdgeCount?: number
 }
 
 // =============================================================================
@@ -175,16 +184,28 @@ const WIN_GAUGE_COLORS = [
   'var(--warning-light)', // Fourth (rare)
 ]
 
+/** V11: Indeterminate colours — stone for top two, muted for rest */
+const WIN_GAUGE_COLORS_INDETERMINATE = [
+  'var(--factor)',         // Top option
+  'var(--factor)',         // Second option
+  'var(--border-default)', // Third
+  'var(--border-default)', // Fourth
+]
+
 /**
  * WinGauge — stacked horizontal bar showing win probability per option.
  * "Wins across scenarios" label, segmented bar, and legend.
  */
 function WinGauge({
   shares,
+  decisionState,
 }: {
   shares: OptionWinShare[]
+  decisionState?: DecisionState
 }) {
   if (shares.length === 0) return null
+
+  const colors = decisionState === 'indeterminate' ? WIN_GAUGE_COLORS_INDETERMINATE : WIN_GAUGE_COLORS
 
   // Sort: winner first, then by win probability descending
   const sorted = [...shares].sort((a, b) => {
@@ -211,7 +232,7 @@ function WinGauge({
               className="h-full rounded-full"
               style={{
                 width: `${widthPct}%`,
-                backgroundColor: i === 0 ? WIN_GAUGE_COLORS[0] : WIN_GAUGE_COLORS[Math.min(i, WIN_GAUGE_COLORS.length - 1)],
+                backgroundColor: colors[Math.min(i, colors.length - 1)],
               }}
               role="img"
               aria-label={`${stripEncodingNotation(share.label)}: ${displayPct}%`}
@@ -225,7 +246,7 @@ function WinGauge({
           const clamped = Math.max(0, Math.min(1, share.winProbability))
           const pct = Math.round(clamped * 100)
           if (pct <= 0) return null
-          const color = i === 0 ? WIN_GAUGE_COLORS[0] : WIN_GAUGE_COLORS[Math.min(i, WIN_GAUGE_COLORS.length - 1)]
+          const color = colors[Math.min(i, colors.length - 1)]
           return (
             <span
               key={share.id}
@@ -288,6 +309,10 @@ export function HeroSection({
   onSetBaseline,
   baselineOptions,
   baselineLabel,
+  decisionState,
+  hinge,
+  evidenceLevel,
+  robustEdgeCount,
 }: HeroSectionProps) {
   // v7.4 Task 6: Default expand state based on robustness level
   // low/very_low stability (< 0.70) defaults to expanded ("Sensitive" or "Highly sensitive")

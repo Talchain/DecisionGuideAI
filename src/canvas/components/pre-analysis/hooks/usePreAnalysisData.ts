@@ -477,6 +477,8 @@ function formatObservedStateDetail(os: ReturnType<typeof getObservedState>): str
       primary = String(os.raw_value)
     }
     if (os.cap != null && !isQualitative) {
+      // Suppress "of 100" for percentages — "50%" not "50% of 100"
+      if (unit === '%' && Number(os.cap) === 100) return primary
       // Don't repeat suffix units — "9 months of 18" not "9 months of 18 months"
       // Prefix currencies still shown: "$9,000 of $18,000"
       let capStr: string
@@ -492,7 +494,8 @@ function formatObservedStateDetail(os: ReturnType<typeof getObservedState>): str
   if (os.value != null) {
     const numValue = Number(os.value)
     if (isQualitative && numValue >= 0 && numValue <= 1) return toQualitativeLevel(numValue)
-    return `${numValue.toFixed(2)} (scale 0–1)`
+    if (numValue >= 0 && numValue <= 1) return `${numValue.toFixed(2)} (scale 0–1)`
+    return String(numValue)
   }
   return ''
 }

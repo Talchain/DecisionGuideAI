@@ -207,7 +207,7 @@ function TierSection({
                 </div>
               ))}
 
-              {/* Evidence items: collapsed summary row */}
+              {/* Evidence items: summary always visible, individual items behind toggle */}
               {evidenceItems.length > 0 && (
                 <div
                   style={nonEvidenceItems.length > 0 ? {
@@ -215,33 +215,23 @@ function TierSection({
                     paddingTop: '8px',
                   } : undefined}
                 >
-                  {!evidenceExpanded ? (
-                    <div className="flex items-center justify-between">
-                      <p className="text-sm text-text-body">
-                        {evidenceItems.length} edge{evidenceItems.length !== 1 ? 's' : ''} without evidence
-                      </p>
-                      <button
-                        type="button"
-                        onClick={() => setEvidenceExpanded(true)}
-                        className="text-xs font-medium text-info hover:underline cursor-pointer"
-                      >
-                        View all
-                      </button>
-                    </div>
-                  ) : (
-                    <>
-                      <div className="flex items-center justify-between mb-2">
-                        <p className="text-sm font-semibold text-text-light">
-                          Add evidence ({evidenceItems.length})
-                        </p>
-                        <button
-                          type="button"
-                          onClick={() => setEvidenceExpanded(false)}
-                          className="text-xs font-medium text-info hover:underline cursor-pointer"
-                        >
-                          Collapse
-                        </button>
-                      </div>
+                  {/* Summary line — always visible on expand */}
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm text-text-body">
+                      {evidenceItems.length} edge{evidenceItems.length !== 1 ? 's' : ''} without evidence
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setEvidenceExpanded(!evidenceExpanded)}
+                      className="text-xs font-medium text-info hover:underline cursor-pointer"
+                    >
+                      {evidenceExpanded ? 'Collapse' : 'View all'}
+                    </button>
+                  </div>
+
+                  {/* Individual edge items — only when user explicitly requests */}
+                  {evidenceExpanded && (
+                    <div className="mt-2 space-y-2">
                       {evidenceItems.map((item, index) => (
                         <div
                           key={item.key}
@@ -259,7 +249,7 @@ function TierSection({
                           />
                         </div>
                       ))}
-                    </>
+                    </div>
                   )}
                 </div>
               )}
