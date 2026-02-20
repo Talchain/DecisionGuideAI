@@ -9,9 +9,10 @@
  * - Storybook stories (with fixture data)
  */
 
-import { useRef, useCallback } from 'react'
+import { useRef, useCallback, useMemo } from 'react'
 import { typography } from '../../styles/typography'
 import type { ResultsSectionDataReturn } from './useResultsSectionData'
+import { buildResultsVM } from './buildResultsVM'
 import { RecommendationSection } from './RecommendationSection'
 import { DriversSection } from './DriversSection'
 import type { TornadoRow } from './TornadoChart'
@@ -80,6 +81,15 @@ export function ResultsBody({
   identifiability,
   goalDirection,
 }: ResultsBodyProps) {
+  // V11: Build enriched view model (no visible changes yet — Phase A2)
+  const _vm = useMemo(
+    () => buildResultsVM(resultsSectionData, {
+      fragileEdgeCount,
+      totalEdgeCount: edgeCount,
+    }),
+    [resultsSectionData, fragileEdgeCount, edgeCount],
+  )
+
   // Phase 2.3: Cross-highlight — flash an option card when a GraphLink references it
   const optionCardRefs = useRef<Map<string, HTMLDivElement>>(new Map())
   const flashOptionCard = useCallback((optionId: string) => {

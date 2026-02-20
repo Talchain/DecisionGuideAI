@@ -501,3 +501,56 @@ export interface EdgeForDirection {
   effect_direction?: string
   direction?: string
 }
+
+// =============================================================================
+// V11: Results View Model Types
+// =============================================================================
+
+/** Tri-state decision classification driving hero, colours, and collapse behaviour */
+export type DecisionState = 'robust' | 'sensitive' | 'indeterminate'
+
+/** Evidence quality derived from decision state + fragile ratio */
+export type EvidenceLevel = 'good' | 'fair' | 'needs_work'
+
+/** Deterministic single-uncertainty selection for coaching copy */
+export interface HingeInfo {
+  /** The uncertainty FACTOR name (from_label), NOT the edge or option */
+  label: string
+  /** Always from_id — the input factor the user can edit */
+  nodeId: string
+  /** 'edge' if from fragile_edges, 'node' if from VOI/heuristic */
+  kind: 'edge' | 'node'
+  /** How the hinge was selected */
+  reason: 'fragile_edge' | 'voi' | 'heuristic' | 'none'
+  /** Full edge description "X → Y" — for tooltip / "More detail" only */
+  edgeDetail: string | null
+  /** Label of the option that would win if this assumption shifts */
+  alternativeWinnerLabel: string | null
+}
+
+/** VOI-driven top action recommendation */
+export interface TopAction {
+  /** Factor label for display */
+  label: string
+  /** Node ID for focus */
+  nodeId: string
+  /** True when this factor could flip the recommendation */
+  couldFlip: boolean
+}
+
+/** Extra metadata not in ResultsSectionDataReturn (passed from parent) */
+export interface BuildResultsVMMeta {
+  fragileEdgeCount?: number
+  totalEdgeCount?: number
+}
+
+/** Enriched view model layered on top of ResultsSectionDataReturn */
+export interface ResultsVM {
+  decisionState: DecisionState
+  gapTop2: number
+  hinge: HingeInfo | null
+  evidenceLevel: EvidenceLevel
+  topAction: TopAction | null
+  /** Pass-through to underlying data */
+  raw: import('./useResultsSectionData').ResultsSectionDataReturn
+}
