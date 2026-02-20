@@ -215,9 +215,15 @@ export function ResultsBody({
         const nonFragileCount = resultsSectionData.confidence.uncertainties.filter(u => u.code !== 'SENSITIVE_ASSUMPTION').length
         let badgeCount = Math.min(3, fragileEdgesForBadge.length) + nonFragileCount + evidenceGapsForBadge.length
         if (hingeNodeId) {
-          const hingeInFragile = fragileEdgesForBadge.some(u => u.affectedNodes?.[0] === hingeNodeId)
+          // Only subtract from fragile edges if hinge is in the visible top-3
+          // (ConfidenceSection sorts by severity then slices to 3)
+          const sevOrder: Record<string, number> = { blocker: 4, critical: 3, error: 2, warning: 1 }
+          const sortedFragile = [...fragileEdgesForBadge].sort(
+            (a, b) => (sevOrder[b.severity || 'warning'] || 0) - (sevOrder[a.severity || 'warning'] || 0),
+          )
+          const hingeInTop3Fragile = sortedFragile.slice(0, 3).some(u => u.affectedNodes?.[0] === hingeNodeId)
           const hingeInGaps = evidenceGapsForBadge.some(g => g.factorId === hingeNodeId)
-          if (hingeInFragile || hingeInGaps) badgeCount = Math.max(0, badgeCount - 1)
+          if (hingeInTop3Fragile || hingeInGaps) badgeCount = Math.max(0, badgeCount - 1)
         }
 
         // V11: M2 data for ChallengeSection (groups 3 and 4)

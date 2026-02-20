@@ -160,6 +160,42 @@ describe('ConfidenceSection: V11 VOI promoted block', () => {
 
     expect(screen.queryByTestId('voi-could-flip')).not.toBeInTheDocument()
   })
+
+  it('shows "Strongest driver" copy for fragile_edge hinge', () => {
+    render(
+      <ConfidenceSection
+        data={baseData}
+        decisionState="sensitive"
+        hinge={testHinge}
+        topAction={flippableAction}
+      />
+    )
+
+    expect(screen.getByText(/Strongest driver, widest uncertainty/)).toBeInTheDocument()
+  })
+
+  it('shows "Highest information value" copy for VOI hinge', () => {
+    const voiHinge: HingeInfo = {
+      label: 'Market size',
+      nodeId: 'factor-market',
+      kind: 'node',
+      reason: 'voi',
+      edgeDetail: null,
+      alternativeWinnerLabel: null,
+    }
+
+    render(
+      <ConfidenceSection
+        data={baseData}
+        decisionState="sensitive"
+        hinge={voiHinge}
+        topAction={nonFlippableAction}
+      />
+    )
+
+    expect(screen.getByText(/Highest information value/)).toBeInTheDocument()
+    expect(screen.queryByText(/Strongest driver/)).not.toBeInTheDocument()
+  })
 })
 
 describe('ConfidenceSection: V11 hinge de-duplication', () => {

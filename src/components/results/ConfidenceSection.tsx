@@ -473,7 +473,10 @@ export function ConfidenceSection({
             Most valuable next step
           </h4>
           <p className={`${typography.panelBody} text-text-body`}>
-            Validate {hinge.label}. Strongest driver, widest uncertainty.
+            Validate {hinge.label}.{' '}
+            {hinge.reason === 'voi'
+              ? 'Highest information value for your decision.'
+              : 'Strongest driver, widest uncertainty.'}
           </p>
           {topAction?.couldFlip && (
             <p className={`${typography.panelMeta} text-danger mt-1`} data-testid="voi-could-flip">
