@@ -223,6 +223,8 @@ export interface PreAnalysisData {
   hasDefaultStrengths: boolean
   /** Task 8: Percentage of edges with default strengths */
   defaultStrengthPercent: number
+  /** One-line coaching summary synthesising model readiness */
+  coachingSummary: string | null
 }
 
 // ============================================================================
@@ -1289,6 +1291,22 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
       })
     }
 
+    // 2b. Goal baseline missing — goal node has a value but no explicit baseline
+    // Without a baseline, PLoT can't tell how much each option improves on the current state.
+    if (goalNode) {
+      const goalOs = getObservedState(goalNode.data)
+      const hasExplicitBaseline = goalOs.baseline != null && goalOs.baseline !== goalOs.value
+      if (goalOs.value != null && !hasExplicitBaseline) {
+        checks.push({
+          id: 'goal_baseline_missing',
+          message: 'Goal has no current-state baseline \u2014 results show relative rankings only',
+          cta: 'Set baseline',
+          ctaAction: 'set_goal_baseline',
+          pill: 'framing',
+        })
+      }
+    }
+
     // 3. All positive edges (no negative effect_direction)
     const hasNegative = edges.some(hasNegativeStrength)
     if (!hasNegative && edges.length > 0) {
@@ -1327,10 +1345,30 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
       }
     }
 
-    // 5. Many AI estimates (AI-sourced > brief_extraction count)
-    // Suppress when no reviewable assumptions exist (all factors are intervention targets)
+    // Factor nodes — shared by checks 4b and 5
     const factors = nodesByKind.factor
-    if (factors.length > 0) {
+
+    // 4b. No external factors — every factor is controllable, missing environmental context
+    if (factors.length >= 3) {
+      const hasExternal = factors.some(n => {
+        const cat = (n.data as { category?: string })?.category?.trim().toLowerCase()
+        return cat === 'external' || cat === 'observable'
+      })
+      if (!hasExternal) {
+        checks.push({
+          id: 'zero_external_factors',
+          message: 'No external factors \u2014 what market or environmental conditions could affect the outcome?',
+          cta: 'Review structure',
+          ctaAction: 'review_structure',
+          pill: 'framing',
+        })
+      }
+    }
+
+    // 5. Many AI estimates (AI-sourced > brief_extraction count)
+    // Suppress when no reviewable assumptions exist (all factors are intervention targets
+    // or binary levers — nothing for the user to review)
+    if (factors.length > 0 && totalReviewableFactorsCount > 0) {
       const aiCount = factors.filter(isAiSource).length
       const briefCount = factors.length - aiCount
       if (aiCount > briefCount) {
@@ -1366,7 +1404,7 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
     }
 
     return checks
-  }, [nodesByKind, edges, ceeAnalysisReady?.options, successThreshold, goalNode])
+  }, [nodesByKind, edges, ceeAnalysisReady?.options, successThreshold, goalNode, totalReviewableFactorsCount])
 
   // =========================================================================
   // Task 6: Model adjustments with resolved labels + repair actions from trace
@@ -1437,6 +1475,33 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
     }
   }, [edges])
 
+  // Coaching summary — one-line text synthesising the model's readiness state
+  const coachingSummary = useMemo<string | null>(() => {
+    if (isLoading) return null
+    if (!isReady && blockerCount > 0) return null // blockers section handles this
+
+    const fixCount = tiers.mustAddress.count
+    const verifyCount = tiers.reviewAssumptions.count
+    const qCheckCount = qualityChecks.length
+
+    if (fixCount > 0) {
+      return `${fixCount} issue${fixCount !== 1 ? 's' : ''} to fix before running analysis.`
+    }
+    if (qCheckCount > 0 && verifyCount > 0) {
+      return `${verifyCount} assumption${verifyCount !== 1 ? 's' : ''} to review and ${qCheckCount} quality suggestion${qCheckCount !== 1 ? 's' : ''} to consider.`
+    }
+    if (verifyCount > 0) {
+      return `${verifyCount} assumption${verifyCount !== 1 ? 's' : ''} to review before running.`
+    }
+    if (qCheckCount > 0) {
+      return `${qCheckCount} quality suggestion${qCheckCount !== 1 ? 's' : ''} to consider.`
+    }
+    if (isReady && totalImprovements === 0) {
+      return 'Model looks ready \u2014 no issues detected.'
+    }
+    return null
+  }, [isLoading, isReady, blockerCount, tiers, qualityChecks, totalImprovements])
+
   return {
     improvementsByCategory,
     tiers,
@@ -1461,21 +1526,16 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
     informationalBlockers,
     modelAdjustments,
     preMortem: m1ReviewAssumptions?.pre_mortem ?? null,
-    // Task 2
     goalThresholdRaw,
     goalThresholdUnit,
     isGoalConfirmed,
-    // Task 3
     optionPreviews,
-    // Task 4
     qualityChecks,
-    // Task 6
     repairActions,
-    // Task 7
     ceeQuality,
-    // Task 8
     hasDefaultStrengths,
     defaultStrengthPercent,
+    coachingSummary,
   }
 }
 

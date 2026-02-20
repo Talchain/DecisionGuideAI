@@ -216,7 +216,7 @@ export function M1TopActions({ topActions, onAddEvidence, onConfirm, onAssumptio
                     {onAssumption && (
                       <IconBtn
                         icon={HelpCircle}
-                        tooltip="Mark as assumption"
+                        tooltip={"Accept as assumption \u2014 won\u2019t ask again"}
                         variant="assume"
                         onClick={() => {
                           if (item.action?.targetId) {

@@ -677,15 +677,15 @@ describe('PreAnalysisPanel', () => {
 
   describe('P2 Polish Tasks', () => {
     describe('Task 1: Inputs Reviewed Label', () => {
-      it('shows "Inputs reviewed:" label instead of "Input confidence:"', () => {
+      it('shows "Data:" label instead of "Input confidence:"', () => {
         mockUsePreAnalysisData.mockReturnValue(createMockData({
           evidenceQuality: { level: 'medium', ratio: 0.5 },
         }))
 
         render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
 
-        // Should show "Inputs reviewed:" not "Input confidence:"
-        expect(screen.getByText(/Inputs reviewed:/)).toBeInTheDocument()
+        // Should show "Data:" not "Input confidence:"
+        expect(screen.getByText(/Data:/)).toBeInTheDocument()
         expect(screen.queryByText(/Input confidence:/)).not.toBeInTheDocument()
       })
     })
@@ -707,7 +707,7 @@ describe('PreAnalysisPanel', () => {
 
         // Review tier should be visible with empty state message
         expect(screen.getByText('Review assumptions')).toBeInTheDocument()
-        expect(screen.getByText(/nothing to review/)).toBeInTheDocument()
+        expect(screen.getByText(/Nothing needs review/)).toBeInTheDocument()
       })
 
       it('hides progress counter when no assumptions to review', () => {
@@ -903,7 +903,7 @@ describe('PreAnalysisPanel', () => {
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
 
       // Single fix renders inline — headline visible immediately (no expand needed)
-      expect(screen.getByText(/Reclassified 1 factor/)).toBeInTheDocument()
+      expect(screen.getByText(/Moved 1 factor outside your control/)).toBeInTheDocument()
       // Target label visible
       expect(screen.getByText('Market Size')).toBeInTheDocument()
       // Raw detail behind "Details" toggle

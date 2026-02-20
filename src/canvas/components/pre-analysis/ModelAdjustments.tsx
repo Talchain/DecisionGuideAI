@@ -46,10 +46,10 @@ interface ModelAdjustmentsProps {
  * - strength_defaulted / observed_state_defaulted / baseline_created
  */
 const REPAIR_COPY: Record<string, { singular: string; plural: string }> = {
-  'factor_reclassified': { singular: 'Reclassified 1 factor to external — not directly controlled by your options', plural: 'Reclassified {count} factors to external — not directly controlled by your options' },
-  'category_reclassified': { singular: 'Reclassified 1 factor to external — not directly controlled by your options', plural: 'Reclassified {count} factors to external — not directly controlled by your options' },
-  'category_inferred': { singular: 'Reclassified 1 factor to external — not directly controlled by your options', plural: 'Reclassified {count} factors to external — not directly controlled by your options' },
-  'category_infer': { singular: 'Reclassified 1 factor to external — not directly controlled by your options', plural: 'Reclassified {count} factors to external — not directly controlled by your options' },
+  'factor_reclassified': { singular: 'Moved 1 factor outside your control \u2014 treated as an external condition', plural: 'Moved {count} factors outside your control \u2014 treated as external conditions' },
+  'category_reclassified': { singular: 'Moved 1 factor outside your control \u2014 treated as an external condition', plural: 'Moved {count} factors outside your control \u2014 treated as external conditions' },
+  'category_inferred': { singular: 'Moved 1 factor outside your control \u2014 treated as an external condition', plural: 'Moved {count} factors outside your control \u2014 treated as external conditions' },
+  'category_infer': { singular: 'Moved 1 factor outside your control \u2014 treated as an external condition', plural: 'Moved {count} factors outside your control \u2014 treated as external conditions' },
   'risk_coefficient_corrected': { singular: 'Corrected 1 relationship direction where the sign didn\u2019t match the effect', plural: 'Corrected {count} relationship directions where the sign didn\u2019t match the effect' },
   'deterministic_repair': { singular: 'Repaired 1 structural issue in your model', plural: 'Repaired {count} structural issues in your model' },
   'strp_repair': { singular: 'Repaired 1 structural issue in your model', plural: 'Repaired {count} structural issues in your model' },
@@ -60,7 +60,7 @@ const REPAIR_COPY: Record<string, { singular: string; plural: string }> = {
   'edge_strength_clamped': { singular: 'Adjusted 1 relationship strength to stay within valid range', plural: 'Adjusted {count} relationship strengths to stay within valid range' },
   'exists_probability_defaulted': { singular: 'Set a default confidence level for 1 relationship that was missing one', plural: 'Set a default confidence level for {count} relationships that were missing one' },
   'observed_state_defaulted': { singular: 'Set default values for 1 factor', plural: 'Set default values for {count} factors' },
-  'baseline_created': { singular: 'Created baseline option for comparison', plural: 'Created baseline option for comparison' },
+  'baseline_created': { singular: 'Added a \u2018do nothing\u2019 baseline so results can show improvement over the status quo', plural: 'Added a \u2018do nothing\u2019 baseline so results can show improvement over the status quo' },
 }
 
 /** Generic fallback for unmapped repair codes */

@@ -184,7 +184,7 @@ function TierSection({
             <p className="text-sm text-success py-1">All reviewed</p>
           ) : showEmptyState ? (
             <p className="text-sm text-text-light py-1">
-              All factor values are set by your options or came from your brief — nothing to review.
+              All values came from your brief or are set by your options. Nothing needs review.
             </p>
           ) : (
             <>
@@ -698,7 +698,7 @@ function ImprovementRow({ item, onFocus, actionHandlers, isRemoving, onHoverEnte
                 {actionHandlers?.onAssumption && (
                   <IconBtn
                     icon={HelpCircle}
-                    tooltip="Keep as an assumption"
+                    tooltip={"Accept as assumption \u2014 won\u2019t ask again"}
                     variant="assume"
                     onClick={() => {
                       if (item.action?.targetId) {

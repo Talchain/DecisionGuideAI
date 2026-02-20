@@ -284,7 +284,7 @@ export function SuccessTarget({
               </button>
             </div>
             <p className="text-xs text-text-light mt-1">
-              Set a target to see probability of success
+              Add a target to see each option's probability of success
             </p>
           </div>
         )}

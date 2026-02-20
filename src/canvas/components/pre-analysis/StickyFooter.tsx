@@ -43,6 +43,10 @@ interface StickyFooterProps {
   isRetrying?: boolean
   /** Click handler for retry draft button */
   onRetryDraft?: () => void
+  /** Number of reviewed (user-confirmed) factors */
+  reviewedCount?: number
+  /** Total number of reviewable factors */
+  totalReviewableCount?: number
 }
 
 export function StickyFooter({
@@ -56,6 +60,8 @@ export function StickyFooter({
   canRetryDraft = false,
   isRetrying = false,
   onRetryDraft,
+  reviewedCount,
+  totalReviewableCount,
 }: StickyFooterProps) {
   // Determine primary button state
   const isDisabled = !isReady || isAnalysing || isLoading || isRetrying
@@ -121,12 +127,22 @@ export function StickyFooter({
         <span className="font-medium text-text-body">
           {statusText}
         </span>
+        {!isRetrying && (totalReviewableCount != null && totalReviewableCount > 0) && (
+          <>
+            <span className="text-text-light">·</span>
+            <Tooltip content="Number of factor values you've confirmed or marked as assumptions">
+              <span className="text-text-body cursor-help">
+                {reviewedCount ?? 0}/{totalReviewableCount} reviewed
+              </span>
+            </Tooltip>
+          </>
+        )}
         {evidenceLevel && !isRetrying && (
           <>
             <span className="text-text-light">·</span>
-            <Tooltip content="Based on how many factor values are confirmed vs estimated by AI">
+            <Tooltip content="Proportion of inputs from your brief vs estimated by AI">
               <span className="text-text-body cursor-help">
-                Inputs reviewed:{' '}
+                Data:{' '}
                 <span style={{ color: EVIDENCE_LEVEL_COLOURS[evidenceLevel] }}>
                   {evidenceLevel.charAt(0).toUpperCase() + evidenceLevel.slice(1)}
                 </span>

@@ -458,6 +458,12 @@ export function PreAnalysisPanel({
       case 'set_target':
         // Focus on success target — scroll to top of panel
         break
+      case 'set_goal_baseline':
+        // Focus goal node on canvas for baseline editing
+        if (data.goalNode) {
+          handleFocusNode(data.goalNode.id)
+        }
+        break
       default:
         break
     }
@@ -494,6 +500,11 @@ export function PreAnalysisPanel({
           reviewCount={data.tiers.reviewAssumptions.count}
           optionalCount={data.tiers.optional.count}
         />
+
+        {/* Coaching summary — one-line text below header */}
+        {data.coachingSummary && (
+          <p className="text-xs text-text-light -mt-2">{data.coachingSummary}</p>
+        )}
 
         {/* 2. Success Target / Hero inputs section */}
         <SuccessTarget
@@ -700,6 +711,8 @@ export function PreAnalysisPanel({
         canRetryDraft={canRetryDraft}
         isRetrying={isRetrying}
         onRetryDraft={handleRetryDraft}
+        reviewedCount={data.reviewedFactorsCount}
+        totalReviewableCount={data.totalReviewableFactorsCount}
       />
     </div>
   )

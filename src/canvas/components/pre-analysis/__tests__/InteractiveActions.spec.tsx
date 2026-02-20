@@ -568,8 +568,8 @@ describe('Interactive Actions Hardening', () => {
       // Find and click the Assumption button (icon button with aria-label containing "assumption")
       // Note: "Review assumptions" tier header is also a button, so we need to find the icon button
       const assumptionButtons = screen.getAllByRole('button', { name: /assumption/i })
-      // Find the one that's the icon button (has aria-label="Keep as an assumption")
-      const assumptionButton = assumptionButtons.find(btn => btn.getAttribute('aria-label') === 'Keep as an assumption')
+      // Find the one that's the icon button (has aria-label="Accept as assumption — won't ask again")
+      const assumptionButton = assumptionButtons.find(btn => btn.getAttribute('aria-label') === 'Accept as assumption \u2014 won\u2019t ask again')
       expect(assumptionButton).toBeTruthy()
       fireEvent.click(assumptionButton!)
 

@@ -1,8 +1,9 @@
 /**
  * DecisionQualityChecks — Collapsible section showing client-side decision quality heuristics.
  *
- * Renders up to 6 checks: no_risks, no_baseline, all_positive_edges, same_levers,
- * many_ai_estimates, no_target. Each has a one-sentence nudge, a pill tag
+ * Renders checks: no_risks, no_baseline, goal_baseline_missing, all_positive_edges,
+ * same_levers, zero_external_factors, many_ai_estimates, no_target.
+ * Each has a one-sentence nudge, a pill tag
  * (Framing or Verify), and a CTA button.
  *
  * Hidden when 0 checks triggered. Max 3 visible; remainder under "N more" toggle.
