@@ -153,7 +153,7 @@ function LlmRawSection({
         }}
       >
         <div style={{ fontSize: 11, fontWeight: 600, color: '#64748b', marginBottom: 4 }}>
-          Raw LLM Output
+          Raw LLM output
         </div>
         <div style={{ fontSize: 12, color: '#94a3b8' }}>
           Not available — CEE response does not include llm_raw data
@@ -186,7 +186,7 @@ function LlmRawSection({
           userSelect: 'none',
         }}
       >
-        Raw LLM Output {llmRaw.truncated && <span style={{ color: '#f59e0b' }}>(truncated)</span>}
+        Raw LLM output {llmRaw.truncated && <span style={{ color: '#f59e0b' }}>(truncated)</span>}
       </summary>
 
       <div style={{ marginTop: 12 }}>
@@ -931,7 +931,6 @@ export function PipelineTab({ data }: PipelineTabProps) {
   const sectionTitleStyle: CSSProperties = {
     fontSize: 11,
     fontWeight: 700,
-    textTransform: 'uppercase',
     letterSpacing: '0.05em',
     color: '#64748b',
     marginBottom: 12,
@@ -1038,7 +1037,7 @@ export function PipelineTab({ data }: PipelineTabProps) {
                     userSelect: 'none',
                   }}
                 >
-                  🤖 LLM Calls ({data.cee_observability.llm_calls.length})
+                  LLM calls ({data.cee_observability.llm_calls.length})
                   {data.cee_observability.totals && (
                     <span style={{ marginLeft: 8, color: '#6b7280', fontWeight: 400 }}>
                       • {data.cee_observability.totals.total_tokens.total.toLocaleString()} tokens
@@ -1127,7 +1126,7 @@ export function PipelineTab({ data }: PipelineTabProps) {
               </details>
             )}
 
-            {/* Raw LLM Output Section */}
+            {/* Raw LLM output Section */}
             <LlmRawSection
               llmRaw={data.pipeline.llm_raw}
               llmRawPathFound={data.diagnostics.llm_raw_path_found}
@@ -1183,7 +1182,7 @@ export function PipelineTab({ data }: PipelineTabProps) {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16, padding: 12 }}>
       {/* Artefact Chain Summary */}
       <div style={sectionStyle}>
-        <div style={sectionTitleStyle}>Artefact Chain</div>
+        <div style={sectionTitleStyle}>Artefact chain</div>
         <div
           style={{
             display: 'flex',
@@ -1226,7 +1225,7 @@ export function PipelineTab({ data }: PipelineTabProps) {
       {/* CEE Operations Model/Prompt Info */}
       {data.cee_operations && (
         <div style={sectionStyle}>
-          <div style={sectionTitleStyle}>CEE Operations</div>
+          <div style={sectionTitleStyle}>CEE operations</div>
           <div
             style={{
               display: 'flex',
@@ -1263,7 +1262,7 @@ export function PipelineTab({ data }: PipelineTabProps) {
       {/* CEE Processing Table (Phase B1) */}
       {data.cee_observability && data.cee_observability.llm_calls.length > 0 && (
         <div style={sectionStyle}>
-          <div style={sectionTitleStyle}>CEE Processing</div>
+          <div style={sectionTitleStyle}>CEE processing</div>
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
               <thead>
@@ -1507,7 +1506,7 @@ export function PipelineTab({ data }: PipelineTabProps) {
       {/* Connectivity Summary */}
       {connectivity && (
         <div style={sectionStyle}>
-          <div style={sectionTitleStyle}>Graph Connectivity</div>
+          <div style={sectionTitleStyle}>Graph connectivity</div>
           <div style={{ fontSize: 12, color: '#334155' }}>
             {connectivity.decision_count > 0 && `${connectivity.decision_count} decision`}
             {connectivity.option_count > 0 && ` → ${connectivity.option_count} options`}
@@ -1522,7 +1521,7 @@ export function PipelineTab({ data }: PipelineTabProps) {
       {data.corrections.length > 0 && (
         <div style={sectionStyle}>
           <div style={sectionTitleStyle}>
-            Graph Corrections
+            Graph corrections
             {data.correctionsSummary && (
               <span style={{ fontWeight: 400, marginLeft: 8 }}>
                 ({data.correctionsSummary.total} total)
@@ -1631,7 +1630,7 @@ export function PipelineTab({ data }: PipelineTabProps) {
 
       {/* Pipeline Stages */}
       <div style={sectionStyle}>
-        <div style={sectionTitleStyle}>Pipeline Stages</div>
+        <div style={sectionTitleStyle}>Pipeline stages</div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {stages.length > 0 ? (
             stages.map((stage) => (
@@ -1665,10 +1664,10 @@ export function PipelineTab({ data }: PipelineTabProps) {
        data.cee_observability.validation.attempt_records.length > 0 && (
         <div style={sectionStyle}>
           <div style={sectionTitleStyle}>
-            ✓ Validation Attempts ({data.cee_observability.validation.attempts})
+            Validation attempts ({data.cee_observability.validation.attempts})
             {data.cee_observability.validation.repairs_triggered && (
               <span style={{ marginLeft: 8, color: '#f59e0b', fontWeight: 400, fontSize: 11 }}>
-                ⚡ Repairs Applied
+                Repairs applied
               </span>
             )}
           </div>
@@ -1725,7 +1724,7 @@ export function PipelineTab({ data }: PipelineTabProps) {
                 {attempt.repairs_triggered && attempt.repair_types && attempt.repair_types.length > 0 && (
                   <div style={{ marginTop: 8, padding: 8, background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 4 }}>
                     <div style={{ fontSize: 10, fontWeight: 600, color: '#92400e', marginBottom: 4 }}>
-                      ⚡ Repairs Applied:
+                      Repairs applied:
                     </div>
                     <ul style={{ margin: 0, paddingLeft: 20, fontSize: 10, color: '#78716c' }}>
                       {attempt.repair_types.map((type, idx) => (
@@ -1776,15 +1775,15 @@ export function PipelineTab({ data }: PipelineTabProps) {
       {data.cee_observability?.graph_metrics && (
         <div style={sectionStyle}>
           <div style={sectionTitleStyle}>
-            📊 Graph Quality Metrics
+            Graph quality metrics
             {data.cee_observability.graph_metrics.has_cycles && (
               <span style={{ marginLeft: 8, color: '#dc2626', fontWeight: 400, fontSize: 11 }}>
-                ⚠ Cycles Detected
+                Cycles detected
               </span>
             )}
             {(data.cee_observability.graph_metrics.orphan_nodes as number) > 0 && (
               <span style={{ marginLeft: 8, color: '#f59e0b', fontWeight: 400, fontSize: 11 }}>
-                ⚠ {data.cee_observability.graph_metrics.orphan_nodes} Orphans
+                {data.cee_observability.graph_metrics.orphan_nodes} orphans
               </span>
             )}
           </div>
@@ -1840,7 +1839,7 @@ export function PipelineTab({ data }: PipelineTabProps) {
           }}
         >
           <div style={{ ...sectionTitleStyle, color: '#92400e' }}>
-            ⚡ Graph Repairs ({data.cee_observability.graph_diffs.length})
+            Graph repairs ({data.cee_observability.graph_diffs.length})
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -1861,7 +1860,7 @@ export function PipelineTab({ data }: PipelineTabProps) {
           }}
         >
           <div style={{ ...sectionTitleStyle, color: '#166534', display: 'flex', alignItems: 'center', gap: 8 }}>
-            🎯 M1 Coaching (Deterministic)
+            M1 coaching (deterministic)
             {data.m1_coaching.readiness && (
               <span
                 style={{
@@ -1952,7 +1951,7 @@ export function PipelineTab({ data }: PipelineTabProps) {
         }}
       >
         <div style={{ ...sectionTitleStyle, display: 'flex', alignItems: 'center', gap: 8 }}>
-          🤖 M2 Decision Review (LLM-Enhanced)
+          M2 decision review (LLM-enhanced)
           {data.m2_review?.status === 'success' && <span style={{ color: '#16a34a' }}>✓</span>}
           {data.m2_review?.status === 'failed' && <span style={{ color: '#dc2626' }}>✗</span>}
           {data.m2_review?.status === 'skipped' && <span style={{ color: '#94a3b8' }}>Skipped</span>}

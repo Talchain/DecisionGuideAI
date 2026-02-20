@@ -266,3 +266,86 @@ describe('STRP mutations', () => {
     expect(section).toHaveTextContent('No STRP mutations')
   })
 })
+
+// =============================================================================
+// Sentence case section headers (B5.20 + B5.21)
+// =============================================================================
+
+describe('PipelineTab sentence case headers', () => {
+  it('renders known section headers in sentence case', () => {
+    const data = makeDebugData({
+      pipeline: {
+        status: 'success',
+        stages: [],
+        cee_provenance: { pipeline_path: 'cee_v3 → plot_v2' },
+        enrich: { called_count: 1, extraction_mode: 'fast' },
+        repair: { applied: 1 },
+        strp: { mutations: [] },
+      },
+      m1_coaching: {
+        readiness: 'ready',
+        readiness_score: 85,
+        headline_type: 'recommendation',
+        evidence_gaps: 0,
+        key_drivers: 2,
+        dominant_factor: 'price',
+        next_actions: 1,
+        assumptions_count: 0,
+        assumptions_by_severity: { high: 0, medium: 0, low: 0 },
+        raw: {},
+      },
+      m2_review: {
+        status: 'success',
+        skip_reason: null,
+        duration_ms: 2000,
+        headline: 'Strong recommendation',
+        bullets_count: 3,
+        bias_insights_count: 1,
+        error: null,
+        raw: null,
+      },
+    })
+
+    render(<PipelineTab data={data} />)
+
+    // Exact sentence case assertions for each known header
+    expect(screen.getByText('Artefact chain')).toBeInTheDocument()
+    expect(screen.getByText('Pipeline path')).toBeInTheDocument()
+    expect(screen.getByText('Enrichment')).toBeInTheDocument()
+    expect(screen.getByText('CEE repair summary')).toBeInTheDocument()
+    expect(screen.getByText('STRP mutations')).toBeInTheDocument()
+  })
+
+  it('renders M1/M2 section titles in exact sentence case format', () => {
+    const data = makeDebugData({
+      m1_coaching: {
+        readiness: 'ready',
+        readiness_score: 85,
+        headline_type: 'recommendation',
+        evidence_gaps: 0,
+        key_drivers: 2,
+        dominant_factor: 'price',
+        next_actions: 1,
+        assumptions_count: 0,
+        assumptions_by_severity: { high: 0, medium: 0, low: 0 },
+        raw: {},
+      },
+      m2_review: {
+        status: 'success',
+        skip_reason: null,
+        duration_ms: 2000,
+        headline: 'Strong recommendation',
+        bullets_count: 3,
+        bias_insights_count: 1,
+        error: null,
+        raw: null,
+      },
+    })
+
+    render(<PipelineTab data={data} />)
+
+    // M1 and M2 headers must match exactly — no emoji prefix, sentence case
+    expect(screen.getByText(/^M1 coaching \(deterministic\)/)).toBeInTheDocument()
+    expect(screen.getByText(/^M2 decision review \(LLM-enhanced\)/)).toBeInTheDocument()
+  })
+})

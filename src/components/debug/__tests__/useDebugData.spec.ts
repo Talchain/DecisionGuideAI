@@ -971,4 +971,121 @@ describe('useDebugData', () => {
       expect(result.current.hasData).toBe(true)
     })
   })
+
+  // ===========================================================================
+  // B5.25: M2 review extraction with review_status variants
+  // ===========================================================================
+
+  describe('M2 review extraction', () => {
+    it('extracts M2 review when PLoT response has review_status "complete" + downstream data', () => {
+      const plotPayload = {
+        id: 'req-m2-complete',
+        service: 'PLoT',
+        endpoint: '/v2/run',
+        status: 200,
+        completed: true,
+        duration: 5000,
+        request: { body: {} },
+        response: {
+          body: {
+            analysis_status: 'computed',
+            review_status: 'complete',
+            downstream_calls: {
+              cee: [{
+                endpoint: '/assist/v1/decision-review',
+                status_code: 200,
+                success: true,
+                latency_ms: 2000,
+                response: {
+                  headline: 'Strong recommendation for Option A',
+                  bullets: ['Point 1', 'Point 2', 'Point 3'],
+                  coaching_paragraph: ['Para 1'],
+                  bias_insights: [{ type: 'anchoring' }],
+                },
+              }],
+            },
+          },
+        },
+      }
+
+      vi.mocked(usePayloadTraceStore).mockImplementation((selector) =>
+        selector({ payloads: [plotPayload] })
+      )
+
+      const { result } = renderHook(() => useDebugData())
+
+      expect(result.current.m2_review).not.toBeNull()
+      expect(result.current.m2_review?.status).toBe('success')
+      expect(result.current.m2_review?.headline).toBe('Strong recommendation for Option A')
+      expect(result.current.m2_review?.bullets_count).toBe(3)
+      expect(result.current.m2_review?.bias_insights_count).toBe(1)
+    })
+
+    it('shows M2 review "not available" when PLoT response has no review data', () => {
+      const plotPayload = {
+        id: 'req-no-review',
+        service: 'PLoT',
+        endpoint: '/v2/run',
+        status: 200,
+        completed: true,
+        duration: 3000,
+        request: { body: {} },
+        response: {
+          body: {
+            analysis_status: 'computed',
+            // No review_status, no downstream calls
+          },
+        },
+      }
+
+      vi.mocked(usePayloadTraceStore).mockImplementation((selector) =>
+        selector({ payloads: [plotPayload] })
+      )
+
+      const { result } = renderHook(() => useDebugData())
+
+      expect(result.current.m2_review).toBeNull()
+    })
+  })
+
+  // ===========================================================================
+  // B5.19: Artefact chain node_extraction fallback
+  // ===========================================================================
+
+  describe('artefact chain node_extraction', () => {
+    it('derives validated counts from canvas nodes when pipeline trace lacks node_extraction', () => {
+      vi.mocked(useCanvasStore).mockImplementation((selector) =>
+        selector({
+          ceePipelineTrace: null,
+          nodes: [
+            { id: '1', data: { kind: 'decision' } },
+            { id: '2', data: { kind: 'option' } },
+            { id: '3', data: { kind: 'option' } },
+            { id: '4', data: { kind: 'goal' } },
+            { id: '5', data: { kind: 'factor' } },
+          ],
+          edges: [],
+          runMeta: null,
+        })
+      )
+
+      const { result } = renderHook(() => useDebugData())
+
+      // node_extraction should have a validated stage derived from connectivity
+      expect(result.current.pipeline.node_extraction).toBeDefined()
+      expect(result.current.pipeline.node_extraction?.validated).toEqual({
+        decision: 1,
+        option: 2,
+        goal: 1,
+        factor: 1,
+      })
+    })
+
+    it('returns undefined node_extraction when no canvas nodes and no pipeline trace', () => {
+      // Default mock: ceePipelineTrace=null, nodes=[], edges=[]
+      const { result } = renderHook(() => useDebugData())
+
+      expect(result.current.pipeline.node_extraction).toBeUndefined()
+    })
+  })
 })

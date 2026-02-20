@@ -137,7 +137,6 @@ export function LLMCallsTab({ data }: LLMCallsTabProps) {
   const sectionTitleStyle: CSSProperties = {
     fontSize: 11,
     fontWeight: 700,
-    textTransform: 'uppercase',
     letterSpacing: '0.05em',
     color: '#64748b',
     marginBottom: 12,
@@ -182,7 +181,7 @@ export function LLMCallsTab({ data }: LLMCallsTabProps) {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16, padding: 12 }}>
       {/* Summary Stats */}
       <div style={sectionStyle}>
-        <div style={sectionTitleStyle}>LLM Call Summary</div>
+        <div style={sectionTitleStyle}>LLM call summary</div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 12 }}>
           <div
             style={{
@@ -260,7 +259,7 @@ export function LLMCallsTab({ data }: LLMCallsTabProps) {
 
       {/* Calls Table */}
       <div style={sectionStyle}>
-        <div style={sectionTitleStyle}>LLM Calls ({allCalls.length})</div>
+        <div style={sectionTitleStyle}>LLM calls ({allCalls.length})</div>
         {allCalls.length > 0 ? (
           <table style={tableStyle}>
             <thead>
@@ -411,7 +410,7 @@ export function LLMCallsTab({ data }: LLMCallsTabProps) {
       {/* Token Breakdown (if available) */}
       {data.cee_observability?.totals && (
         <div style={sectionStyle}>
-          <div style={sectionTitleStyle}>Token Usage Breakdown</div>
+          <div style={sectionTitleStyle}>Token usage breakdown</div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
             <div
               style={{

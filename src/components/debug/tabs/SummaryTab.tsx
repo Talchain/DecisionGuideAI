@@ -372,7 +372,6 @@ export function SummaryTab({
   const sectionTitleStyle: CSSProperties = {
     fontSize: 11,
     fontWeight: 700,
-    textTransform: 'uppercase',
     letterSpacing: '0.05em',
     color: '#64748b',
     marginBottom: 12,
@@ -475,7 +474,7 @@ export function SummaryTab({
 
       {/* Row 1: KPI Cards */}
       <div style={sectionStyle}>
-        <div style={sectionTitleStyle}>Health Overview</div>
+        <div style={sectionTitleStyle}>Health overview</div>
         <div
           style={{
             display: 'grid',
@@ -574,7 +573,7 @@ export function SummaryTab({
       {/* Row 3: Service Chain */}
       <div style={sectionStyle}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-          <div style={{ ...sectionTitleStyle, marginBottom: 0 }}>Service Chain</div>
+          <div style={{ ...sectionTitleStyle, marginBottom: 0 }}>Service chain</div>
           <span
             data-testid="summary-pipeline-path-pill"
             style={{
@@ -643,7 +642,7 @@ export function SummaryTab({
                 {validationExpanded ? '▼' : '▶'}
               </button>
               <span style={sectionTitleStyle as CSSProperties & { marginBottom: 0 }}>
-                Graph Validation
+                Graph validation
               </span>
               {/* Severity counts badge */}
               <div style={{ display: 'flex', gap: 8, marginLeft: 8 }}>
@@ -820,7 +819,7 @@ export function SummaryTab({
 
       {/* Row 4: Quick Stats - Dense Row */}
       <div style={sectionStyle}>
-        <div style={sectionTitleStyle}>Quick Stats</div>
+        <div style={sectionTitleStyle}>Quick stats</div>
         <div
           style={{
             display: 'flex',

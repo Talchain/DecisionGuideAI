@@ -230,13 +230,12 @@ export function RawTab({ data }: RawTabProps) {
           style={{
             fontSize: 11,
             fontWeight: 700,
-            textTransform: 'uppercase',
             letterSpacing: '0.05em',
             color: '#64748b',
             marginBottom: 8,
           }}
         >
-          Select Payload
+          Select payload
         </div>
         <div style={selectorStyle} role="radiogroup" aria-label="Payload selector">
           {payloadOptions.map((option) => (

@@ -2654,7 +2654,10 @@ function extractM2Review(
     }
 
     // Check if review_status indicates success (orchestrated M2 completed)
-    if (reviewStatus === 'success' || reviewStatus === 'completed') {
+    // PLoT sends 'complete'; tolerate 'success', 'completed', 'passed' variants
+    const isReviewSuccess = reviewStatus === 'complete' || reviewStatus === 'success'
+      || reviewStatus === 'completed' || reviewStatus === 'passed'
+    if (isReviewSuccess) {
       const ceeReviewCall = ceeDownstream?.find(call =>
         call.endpoint.includes('decision-review') || call.endpoint.includes('review')
       )
@@ -2675,6 +2678,19 @@ function extractM2Review(
           error: null,
           raw: body,
         }
+      }
+
+      // review_status indicates success but no downstream call data found.
+      // Return a minimal success entry so the UI shows the review ran.
+      return {
+        status: 'success',
+        skip_reason: null,
+        duration_ms: null,
+        headline: null,
+        bullets_count: 0,
+        bias_insights_count: 0,
+        error: null,
+        raw: null,
       }
     }
   }
@@ -3170,7 +3186,12 @@ export function useDebugData(): DebugData {
         strp: ((pipelineTrace as Record<string, unknown>)?.strp as PipelineData['strp']) ?? undefined,
         llm_metadata: extractLlmMetadata(pipelineTrace, payloadBundle.cee_response),
         llm_raw: extractLlmRaw(payloadBundle.cee_response),
-        node_extraction: extractNodeExtraction(pipelineTrace),
+        node_extraction: extractNodeExtraction(pipelineTrace)
+          // Fallback: derive "validated" stage from canvas node counts when
+          // the CEE pipeline trace doesn't include node_extraction data.
+          ?? (Object.values(nodeCounts).some(v => v > 0)
+            ? { validated: { decision: nodeCounts.decision, option: nodeCounts.option, goal: nodeCounts.goal, factor: nodeCounts.factor } }
+            : undefined),
         connectivity: {
           decision_count: nodeCounts.decision,
           option_count: nodeCounts.option,

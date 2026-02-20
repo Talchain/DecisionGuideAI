@@ -293,7 +293,6 @@ export function DataFlowTab({ data }: DataFlowTabProps) {
   const headerStyle: CSSProperties = {
     fontSize: 11,
     fontWeight: 700,
-    textTransform: 'uppercase',
     letterSpacing: '0.05em',
     color: '#64748b',
     marginBottom: 8,
@@ -316,7 +315,6 @@ export function DataFlowTab({ data }: DataFlowTabProps) {
   const sectionTitleStyle: CSSProperties = {
     fontSize: 11,
     fontWeight: 700,
-    textTransform: 'uppercase',
     letterSpacing: '0.05em',
     color: '#64748b',
     marginBottom: 12,
@@ -324,7 +322,7 @@ export function DataFlowTab({ data }: DataFlowTabProps) {
 
   return (
     <div style={containerStyle}>
-      <div style={headerStyle}>Service Boundaries</div>
+      <div style={headerStyle}>Service boundaries</div>
 
       {/* UI → CEE Boundary */}
       <BoundaryCard
@@ -385,7 +383,7 @@ export function DataFlowTab({ data }: DataFlowTabProps) {
           </div>
         )}
 
-        <RawResponseInspector title="Raw CEE Response Keys" response={data.payloads.cee_response} />
+        <RawResponseInspector title="Raw CEE response keys" response={data.payloads.cee_response} />
       </BoundaryCard>
 
       {/* UI → PLoT Boundary */}
@@ -446,7 +444,7 @@ export function DataFlowTab({ data }: DataFlowTabProps) {
         )}
 
         <RawResponseInspector
-          title="Raw PLoT Response Keys"
+          title="Raw PLoT response keys"
           response={data.payloads.plot_response}
           downstreamCallsPath={data.diagnostics.downstream_calls_path_found}
         />
@@ -480,7 +478,7 @@ export function DataFlowTab({ data }: DataFlowTabProps) {
           >
             Source: {data.diagnostics.isl_data_source}
           </div>
-          <RawResponseInspector title="Raw ISL Response Keys" response={data.payloads.isl_response} />
+          <RawResponseInspector title="Raw ISL response keys" response={data.payloads.isl_response} />
         </BoundaryCard>
       ) : (
         <div
@@ -517,13 +515,12 @@ export function DataFlowTab({ data }: DataFlowTabProps) {
           style={{
             fontSize: 11,
             fontWeight: 700,
-            textTransform: 'uppercase',
             letterSpacing: '0.05em',
             color: '#64748b',
             marginBottom: 12,
           }}
         >
-          ISL Data Diagnostic
+          ISL data diagnostic
         </div>
 
         <div>
@@ -756,7 +753,7 @@ export function DataFlowTab({ data }: DataFlowTabProps) {
       {data.cee_downstream && data.cee_downstream.length > 0 && (
         <div style={sectionStyle}>
           <div style={sectionTitleStyle}>
-            CEE Downstream Calls ({data.cee_downstream.length})
+            CEE downstream calls ({data.cee_downstream.length})
           </div>
           <div style={{ fontSize: 11, color: '#64748b', marginBottom: 12 }}>
             CEE calls captured from PLoT downstream_calls.cee (e.g., /review, /decision-review)
