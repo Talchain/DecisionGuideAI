@@ -15,7 +15,7 @@
  */
 
 import { useState, useMemo } from 'react'
-import { AlertTriangle, ChevronDown, ChevronRight } from 'lucide-react'
+import { AlertTriangle, ChevronDown, ChevronRight, Info } from 'lucide-react'
 import { typography } from '../../styles/typography'
 import { stripEncodingNotation } from './utils/cleanFactorLabel'
 import { formatPercent as formatPct } from '../../utils/formatPercent'
@@ -88,12 +88,24 @@ export interface HeroSectionProps {
   isNormalised?: boolean
   /** Win probabilities per option for win gauge */
   optionWinShares?: OptionWinShare[]
-  coachingReadiness?: 'ready' | 'close_call' | 'needs_evidence' | 'needs_framing'
+  coachingReadiness?: 'ready' | 'close_call' | 'needs_evidence' | 'needs_framing' | 'low' | 'not_ready'
   coachingReadinessScore?: number
   /** M1 coaching narrative headline (1-line summary) */
   coachingHeadline?: string
   /** M1 coaching full narrative paragraph (for "More detail" expand) */
   coachingParagraph?: string
+  /** V12: Executive summary decision statement */
+  coachingDecisionStatement?: string
+  /** V12: Executive summary key qualifier */
+  coachingKeyQualifier?: string
+  /** V12: Executive summary action implication */
+  coachingActionImplication?: string
+  /** V12 C1: M2 narrative summary for "Full analysis" expandable */
+  m2NarrativeSummary?: string
+  /** V12: Readiness dimensions for tooltip */
+  coachingReadinessDimensions?: { evidence: number; robustness: number; clarity: number }
+  /** V12: Identifiability tag from model card */
+  identifiabilityTag?: string | null
   m2Headline?: string
   m2Bullets?: [RichText, RichText, RichText]
   m2CoachingParagraph?: RichText
@@ -546,6 +558,12 @@ export function HeroSection({
   coachingReadinessScore,
   coachingHeadline,
   coachingParagraph,
+  coachingDecisionStatement,
+  coachingKeyQualifier,
+  coachingActionImplication,
+  m2NarrativeSummary,
+  coachingReadinessDimensions,
+  identifiabilityTag,
   m2Headline,
   m2Bullets,
   m2CoachingParagraph,
@@ -696,7 +714,12 @@ export function HeroSection({
           <div className="border-t border-panel-border pt-3">
             <div className="flex items-center gap-3">
               {stabilityTier.label && (
-                <span className="inline-flex items-center gap-1.5 bg-sand-50 px-2 py-0.5 rounded-full">
+                <span
+                  className="inline-flex items-center gap-1.5 bg-sand-50 px-2 py-0.5 rounded-full"
+                  title={coachingReadinessDimensions
+                    ? `Evidence quality: ${Math.round(coachingReadinessDimensions.evidence * 100)}% \u00B7 Model robustness: ${Math.round(coachingReadinessDimensions.robustness * 100)}% \u00B7 Framing quality: ${Math.round(coachingReadinessDimensions.clarity * 100)}%`
+                    : undefined}
+                >
                   <span className={`${typography.panelMeta} ${stabilityTier.colorClass}`}>
                     {stabilityTier.label}
                   </span>
@@ -720,17 +743,50 @@ export function HeroSection({
             </div>
           </div>
 
-          {/* "More detail" expand — V11 stats grid */}
+          {/* "More detail" expand — V12 executive summary + stats grid */}
           {isExpanded && (
             <div
               id="hero-more-content"
               className="mt-3 pt-3 border-t border-panel-border space-y-3"
             >
-              {coachingParagraph && (
+              {/* V12: Decision statement takes priority, fallback to coachingParagraph */}
+              {coachingDecisionStatement ? (
+                <p className={`${typography.panelBody} text-text-header font-medium`}>
+                  {coachingDecisionStatement}
+                </p>
+              ) : coachingParagraph ? (
                 <p className={`${typography.panelBody} text-text-body`}>
                   {coachingParagraph}
                 </p>
+              ) : null}
+
+              {/* V12: Key qualifier — uncertainty caveat */}
+              {coachingKeyQualifier && (
+                <p className={`${typography.panelMeta} text-text-body italic`}>
+                  {coachingKeyQualifier}
+                </p>
               )}
+
+              {/* V12 C3: Action implication — linkify hinge factor if mentioned */}
+              {coachingActionImplication && (() => {
+                const hingeLabel = hinge?.label
+                const hingeId = hinge?.nodeId
+                if (hingeLabel && hingeId && coachingActionImplication.includes(hingeLabel)) {
+                  const idx = coachingActionImplication.indexOf(hingeLabel)
+                  return (
+                    <p className={`${typography.panelMeta} text-text-body`}>
+                      {coachingActionImplication.slice(0, idx)}
+                      <GraphLink nodeId={hingeId} label={hingeLabel} onFocus={onFocusNode} className="inline text-xs" />
+                      {coachingActionImplication.slice(idx + hingeLabel.length)}
+                    </p>
+                  )
+                }
+                return (
+                  <p className={`${typography.panelMeta} text-text-body`}>
+                    {coachingActionImplication}
+                  </p>
+                )
+              })()}
 
               <dl className={`grid grid-cols-2 gap-x-4 gap-y-1 ${typography.panelMeta}`}>
                 {winnerWinProbability != null && (
@@ -762,6 +818,36 @@ export function HeroSection({
                   </>
                 )}
               </dl>
+
+              {/* V12: Identifiability advisory — only for concerning tags */}
+              {(() => {
+                // Map backend tags to user-facing labels
+                const identMap: Record<string, { label: string; colorClass: string }> = {
+                  partially_identifiable: { label: 'Structural validity: Some limitations', colorClass: 'text-info' },
+                  not_backdoor_identifiable: { label: 'Structural validity: Treat as directional', colorClass: 'text-warning' },
+                }
+                const mapped = identifiabilityTag ? identMap[identifiabilityTag] : null
+                if (!mapped) return null
+                return (
+                  <div className={`flex items-start gap-1.5 ${typography.panelMeta} ${mapped.colorClass}`}>
+                    <Info className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
+                    <span>{mapped.label}</span>
+                  </div>
+                )
+              })()}
+
+              {/* V12 C1: M2 narrative summary — "Full analysis" expandable */}
+              {m2NarrativeSummary && (
+                <details className="mt-2">
+                  <summary className={`${typography.panelBody} text-info cursor-pointer hover:text-info-hover`}>
+                    Full analysis
+                  </summary>
+                  <div className="mt-2">
+                    <p className={`${typography.panelMeta} text-text-light italic mb-1`}>AI-enhanced analysis</p>
+                    <p className={`${typography.panelBody} text-text-body`}>{m2NarrativeSummary}</p>
+                  </div>
+                </details>
+              )}
             </div>
           )}
         </div>

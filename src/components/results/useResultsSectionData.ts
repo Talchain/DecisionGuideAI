@@ -711,7 +711,9 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       edges: s.edges,
       hasCompletedFirstRun: s.hasCompletedFirstRun,
       currentScenarioFraming: (s as any).currentScenarioFraming,
-      m1Coaching: (s.runMeta as any)?.m1Coaching ?? null,
+      m1Coaching: s.runMeta?.m1Coaching ?? null,
+      reviewStatus: s.runMeta?.reviewStatus,
+      m1ReviewAssumptions: s.runMeta?.m1ReviewAssumptions ?? null,
       goalThreshold: (s as any).goalThreshold,
       ceeAnalysisReady: s.ceeAnalysisReady,
     }))
@@ -1098,10 +1100,20 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       isNormalised: isNormalisedResult,
       // M1 Coaching fields (Task 2)
       coachingHeadline: m1Coaching?.executive_summary?.headline,
-      coachingParagraph: m1Coaching?.executive_summary?.paragraph,
+      coachingParagraph: m1Coaching?.executive_summary?.paragraph
+        ?? m1Coaching?.executive_summary?.summary,
       coachingReadiness: m1Coaching?.readiness,
       coachingReadinessScore: m1Coaching?.readiness_signals?.score,
+      coachingReadinessDimensions: m1Coaching?.readiness_signals?.dimensions,
       storyHeadlines: m1Coaching?.story_headlines ?? {},
+      // V12: Executive summary structured fields
+      coachingDecisionStatement: m1Coaching?.executive_summary?.decision_statement
+        ?? m1Coaching?.executive_summary?.recommendation,
+      coachingKeyQualifier: m1Coaching?.executive_summary?.key_qualifier,
+      coachingActionImplication: m1Coaching?.executive_summary?.action_implication
+        ?? m1Coaching?.executive_summary?.readiness_statement,
+      // V12 C1: M2 narrative summary — gated on review_status === 'complete'
+      m2NarrativeSummary: reviewStatus === 'complete' ? m1ReviewAssumptions?.narrative_summary : undefined,
       // M1 Coaching: Dominant factor from key_drivers (factor with >50% influence)
       // Use PLoT's computed dominant_factor if available
       dominantFactorId: m1Coaching?.key_drivers?.dominant_factor,
@@ -1129,7 +1141,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
         return hasWarningCritiques || hasFragileEdges
       })(),
     }
-  }, [hasCompletedFirstRun, report, nodes, goalLabel, goalNodeId, outcomeUnit, outcomeUnitSymbol, currentScenarioFraming, m1Coaching, nodeLabelMap, goalThreshold, goalThresholdCap, effectiveGoalThreshold, ceeAnalysisReady])
+  }, [hasCompletedFirstRun, report, nodes, goalLabel, goalNodeId, outcomeUnit, outcomeUnitSymbol, currentScenarioFraming, m1Coaching, nodeLabelMap, goalThreshold, goalThresholdCap, effectiveGoalThreshold, ceeAnalysisReady, m1ReviewAssumptions])
 
   // ==========================================================================
   // Drivers Section Data (with dynamic normalisation)
@@ -1947,19 +1959,19 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
           return true
         })
 
-        // Sort by VOI descending
+        // Sort by VOI descending (defensive: accept both voi_score and voi field names)
         const sortedGaps = uniqueGaps.sort((a: any, b: any) => {
-          const aVoi = typeof a.voi === 'number' ? a.voi : 0
-          const bVoi = typeof b.voi === 'number' ? b.voi : 0
+          const aVoi = typeof a.voi_score === 'number' ? a.voi_score : typeof a.voi === 'number' ? a.voi : 0
+          const bVoi = typeof b.voi_score === 'number' ? b.voi_score : typeof b.voi === 'number' ? b.voi : 0
           return bVoi - aVoi
         })
 
-        // Map to UI format
+        // Map to UI format (defensive: accept both voi_score/voi field names)
         const evidenceGaps = sortedGaps.map((gap: any) => ({
           factorId: gap.factor_id,
           factorLabel: gap.factor_label ?? gap.factor_id,
           confidence: gap.confidence ?? 0,
-          voi: gap.voi ?? 0,
+          voi: gap.voi_score ?? gap.voi ?? 0,
           suggestion: gap.suggestion ?? '',
           targetNodeId: gap.target_node_id,
         }))
@@ -2006,14 +2018,22 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
         })
 
         // Map to UI format
-        const nextActions = sortedActions.map((action: any) => ({
-          action: action.action ?? '',
-          rationale: action.rationale ?? '',
-          priority: action.priority ?? 999,
-          targetType: action.target_type as 'node' | 'edge' | 'factor' | 'option' | undefined,
-          targetId: action.target_id,
-          targetLabel: action.target_label,
-        }))
+        // V12 B6: For edge targets, extract from-node ID for canvas focus
+        const nextActions = sortedActions.map((action: any) => {
+          const rawTargetId = action.target_id as string | undefined
+          const targetType = action.target_type as 'node' | 'edge' | 'factor' | 'option' | undefined
+          const resolvedTargetId = targetType === 'edge' && rawTargetId?.includes('->')
+            ? rawTargetId.split('->')[0]
+            : rawTargetId
+          return {
+            action: action.action ?? '',
+            rationale: action.rationale ?? '',
+            priority: action.priority ?? 999,
+            targetType,
+            targetId: resolvedTargetId,
+            targetLabel: action.target_label,
+          }
+        })
 
         return {
           nextActions,
@@ -2042,8 +2062,54 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
 
         return { assumptions }
       })(),
+      // V12: M1 coaching top fragile edge — parsed from edge_id/label
+      m1CoachingTopFragileEdge: (() => {
+        const tfe = m1Coaching?.top_fragile_edge
+        if (!tfe?.edge_id) return undefined
+        // Parse from_id from edge_id (e.g. "fac_x->out_y" → "fac_x")
+        const fromId = tfe.edge_id.split('->')[0] ?? ''
+        const toId = tfe.edge_id.split('->')[1] ?? ''
+        // Parse from_label from label (e.g. "Product-Market Fit → Customer Acq" → "Product-Market Fit")
+        const labelParts = tfe.label.split(/\s*\u2192\s*|\s*->\s*/)
+        const fromLabel = labelParts[0]?.trim() ?? fromId
+        const toLabel = labelParts[1]?.trim() ?? toId
+        return {
+          fromId,
+          fromLabel,
+          toId,
+          toLabel,
+          switchProbability: tfe.switch_probability,
+          alternativeWinnerLabel: tfe.alternative_winner ?? null,
+        }
+      })(),
+      // V12: Review status for M2 gate
+      reviewStatus,
+      // V12: M2 data (gated on reviewStatus === 'complete' in components)
+      m2BiasFindings: (() => {
+        const findings = safeArray(m1ReviewAssumptions?.bias_findings)
+        if (findings.length === 0) return undefined
+        return findings.map((f: any) => ({
+          type: f.type ?? '',
+          source: f.source ?? '',
+          description: f.description ?? '',
+          affectedElements: safeArray(f.affected_elements),
+          linkedCritiqueCode: f.linked_critique_code ?? '',
+        }))
+      })(),
+      m2DecisionQualityPrompts: (() => {
+        const prompts = safeArray(m1ReviewAssumptions?.decision_quality_prompts)
+        if (prompts.length === 0) return undefined
+        return prompts.map((p: any) => ({
+          principle: p.principle ?? '',
+          appliesBecause: p.applies_because ?? '',
+          question: p.question ?? '',
+        }))
+      })(),
+      m2EvidenceEnhancements: m1ReviewAssumptions?.evidence_enhancements as
+        Record<string, { specific_action: string; decision_hygiene: string }> | undefined,
+      m2NarrativeSummary: m1ReviewAssumptions?.narrative_summary,
     }
-  }, [report, m1Coaching, drivers])
+  }, [report, m1Coaching, drivers, reviewStatus, m1ReviewAssumptions])
 
   // ==========================================================================
   // Improvements Section Data (Legacy - now merged into confidence)

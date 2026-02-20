@@ -562,5 +562,19 @@ describe('OptionCards', () => {
 
       expect(screen.getByText('Top-performing option based on current estimates.')).toBeInTheDocument()
     })
+
+    it('V11.2: strips arrow characters from story_headline fallback', () => {
+      render(
+        <OptionCards
+          options={mockOptions}
+          winnerId="option-1"
+          storyHeadlines={{ 'option-1': 'Leads by 5pp → strongest performer' }}
+        />
+      )
+
+      // Arrow should be replaced with "to"
+      expect(screen.getByText('Leads by 5pp to strongest performer')).toBeInTheDocument()
+      expect(screen.queryByText(/→/)).not.toBeInTheDocument()
+    })
   })
 })

@@ -558,4 +558,64 @@ describe('ConfidenceSection', () => {
       expect(screen.queryByText(/intercept=0/)).not.toBeInTheDocument()
     })
   })
+
+  // V12: Next actions ungated
+  describe('V12: Next actions rendering', () => {
+    it('renders next actions when present (false gate removed)', () => {
+      const dataWithActions: ConfidenceSectionData = {
+        ...mockData,
+        nextActions: [
+          { action: 'Validate pricing model', rationale: 'High uncertainty', priority: 1, targetId: 'fac-price' },
+          { action: 'Check market size data', rationale: 'Low confidence', priority: 2 },
+        ],
+      }
+
+      render(<ConfidenceSection data={dataWithActions} />)
+
+      expect(screen.getByText('Recommended actions')).toBeInTheDocument()
+      expect(screen.getByText('Validate pricing model')).toBeInTheDocument()
+      expect(screen.getByText('Check market size data')).toBeInTheDocument()
+    })
+
+    it('strips arrow characters from action text', () => {
+      const dataWithArrows: ConfidenceSectionData = {
+        ...mockData,
+        nextActions: [
+          { action: 'Price → Revenue relationship', rationale: '', priority: 1 },
+        ],
+      }
+
+      render(<ConfidenceSection data={dataWithArrows} />)
+
+      expect(screen.getByText('Price to Revenue relationship')).toBeInTheDocument()
+      expect(screen.queryByText(/→/)).not.toBeInTheDocument()
+    })
+
+    it('excludes actions targeting the hinge factor', () => {
+      const dataWithActions: ConfidenceSectionData = {
+        ...mockData,
+        nextActions: [
+          { action: 'Validate pricing model', rationale: '', priority: 1, targetId: 'fac-price' },
+          { action: 'Check market size', rationale: '', priority: 2, targetId: 'fac-market' },
+        ],
+      }
+
+      render(
+        <ConfidenceSection
+          data={dataWithActions}
+          hinge={{ label: 'Price', nodeId: 'fac-price', kind: 'node', reason: 'voi', edgeDetail: null, alternativeWinnerLabel: null }}
+        />
+      )
+
+      // fac-price should be excluded (matches hinge nodeId)
+      expect(screen.queryByText('Validate pricing model')).not.toBeInTheDocument()
+      // fac-market should still render
+      expect(screen.getByText('Check market size')).toBeInTheDocument()
+    })
+
+    it('does not render section when no next actions', () => {
+      render(<ConfidenceSection data={mockData} />)
+      expect(screen.queryByText('Recommended actions')).not.toBeInTheDocument()
+    })
+  })
 })

@@ -279,10 +279,50 @@ export interface V2PreMortem {
   mitigation: string
 }
 
+/** M2 decision quality prompt — structured coaching question from PLoT review */
+export interface V2DecisionQualityPrompt {
+  /** Framework principle, e.g. "Pre-mortem (Klein)" */
+  principle: string
+  /** Why this principle applies */
+  applies_because: string
+  /** The coaching question itself */
+  question: string
+}
+
+/** M2 bias finding — cognitive bias risk from PLoT review */
+export interface V2BiasFinding {
+  /** Bias type code, e.g. "ANCHORING_RISK" */
+  type: string
+  /** Source of the finding */
+  source: string
+  /** Human-readable description of the bias risk */
+  description: string
+  /** Factor IDs affected — for graph links */
+  affected_elements: string[]
+  /** Linked critique code for cross-reference */
+  linked_critique_code: string
+}
+
+/** M2 evidence enhancement — per-factor enrichment from PLoT review */
+export interface V2EvidenceEnhancement {
+  /** Concrete action to improve this factor's evidence */
+  specific_action: string
+  /** Decision hygiene tip for this factor */
+  decision_hygiene: string
+}
+
 /** M1 Review: key assumptions and pre-mortem analysis from PLoT /v2/run */
 export interface V2M1Review {
   key_assumptions: string[]
   pre_mortem?: V2PreMortem | null
+  /** V12: M2 decision quality prompts (gated on review_status === 'complete') */
+  decision_quality_prompts?: V2DecisionQualityPrompt[]
+  /** V12: M2 bias findings */
+  bias_findings?: V2BiasFinding[]
+  /** V12: M2 evidence enhancements keyed by factor_id */
+  evidence_enhancements?: Record<string, V2EvidenceEnhancement>
+  /** V12: M2 narrative summary paragraph */
+  narrative_summary?: string
 }
 
 /**

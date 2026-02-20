@@ -69,6 +69,9 @@ export function resolveStability(
  * Derive the tri-state decision classification.
  * Gap rule evaluated FIRST — prevents "robust" on indistinguishable winners.
  */
+/** Readiness values that prevent a robust classification (downgrade to sensitive) */
+const DOWNGRADE_READINESS: readonly string[] = ['needs_framing', 'close_call', 'low', 'not_ready']
+
 export function deriveDecisionState(
   gapTop2: number,
   stability: number,
@@ -76,8 +79,9 @@ export function deriveDecisionState(
 ): DecisionState {
   if (gapTop2 < GAP_THRESHOLD) return 'indeterminate'
   if (stability >= ROBUST_THRESHOLD) {
-    // Readiness can only downgrade, never upgrade
-    if (readiness === 'needs_evidence' || readiness === 'needs_framing') return 'sensitive'
+    // Readiness can only downgrade, never upgrade.
+    // needs_evidence is NOT a downgrade — most analyses need more evidence
+    if (readiness && DOWNGRADE_READINESS.includes(readiness)) return 'sensitive'
     return 'robust'
   }
   if (stability >= SENSITIVE_THRESHOLD) return 'sensitive'
@@ -107,13 +111,27 @@ export function computeGapTop2(options: Array<{ winProbability?: number }>): num
  * Select the single most important uncertainty (the "hinge").
  *
  * Priority:
- * 1. Fragile edge with highest |switch_probability| (from topFragileEdge)
+ * 0. M1 coaching top_fragile_edge (highest authority — coaching's explicit pick)
+ * 1. Fragile edge with highest |switch_probability| (from robustness topFragileEdge)
  * 2. Top VOI evidence gap
  * 3. Heuristic: |elasticity| × (1 - confidence) from drivers
  * 4. null
  */
 export function selectHinge(data: ResultsSectionDataReturn): HingeInfo | null {
-  // Priority 1: Top fragile edge (already sorted by switch_probability in useResultsSectionData)
+  // Priority 0: M1 coaching top fragile edge (coaching's explicit pick)
+  const coachingEdge = data.confidence.m1CoachingTopFragileEdge
+  if (coachingEdge && coachingEdge.fromId) {
+    return {
+      label: coachingEdge.fromLabel,
+      nodeId: coachingEdge.fromId,
+      kind: 'edge',
+      reason: 'fragile_edge',
+      edgeDetail: `${coachingEdge.fromLabel} → ${coachingEdge.toLabel}`,
+      alternativeWinnerLabel: coachingEdge.alternativeWinnerLabel ?? null,
+    }
+  }
+
+  // Priority 1: Top fragile edge from robustness (sorted by switch_probability in useResultsSectionData)
   const tfe = data.confidence.topFragileEdge
   if (tfe && tfe.fromId) {
     return {

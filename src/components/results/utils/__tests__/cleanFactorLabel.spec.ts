@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect } from 'vitest'
-import { cleanFactorLabel, stripEncodingNotation } from '../cleanFactorLabel'
+import { cleanFactorLabel, stripEncodingNotation, sanitizeCoachingText } from '../cleanFactorLabel'
 
 describe('cleanFactorLabel', () => {
   describe('binary patterns', () => {
@@ -208,5 +208,32 @@ describe('production payload patterns (P1 Task B)', () => {
     // Should not happen in production, but test defensively
     const result = cleanFactorLabel('Factor A (0/1) Description')
     expect(result.label).toBe('Factor A Description')
+  })
+})
+
+// V12: sanitizeCoachingText
+describe('sanitizeCoachingText', () => {
+  it('replaces Unicode right arrow (U+2192) with "to"', () => {
+    expect(sanitizeCoachingText('Factor A → Factor B')).toBe('Factor A to Factor B')
+  })
+
+  it('replaces ASCII arrow (->) with "to"', () => {
+    expect(sanitizeCoachingText('Factor A -> Factor B')).toBe('Factor A to Factor B')
+  })
+
+  it('handles multiple arrows', () => {
+    expect(sanitizeCoachingText('A → B → C')).toBe('A to B to C')
+  })
+
+  it('returns empty string for empty input', () => {
+    expect(sanitizeCoachingText('')).toBe('')
+  })
+
+  it('trims whitespace', () => {
+    expect(sanitizeCoachingText('  Factor A  ')).toBe('Factor A')
+  })
+
+  it('leaves non-arrow text unchanged', () => {
+    expect(sanitizeCoachingText('Validate your pricing model')).toBe('Validate your pricing model')
   })
 })

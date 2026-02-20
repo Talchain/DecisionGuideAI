@@ -33,6 +33,8 @@ export interface ActionItem {
   // M2 enrichment fields (populated in Phase 5)
   whatCouldHappen?: string
   whatToDo?: string
+  /** V12 B4: Node IDs for graph links (from M2 bias finding affected_elements) */
+  affectedNodeIds?: string[]
 }
 
 export interface ActionGroup {
@@ -83,23 +85,56 @@ function confidenceToLevel(confidence: number | null | undefined): 'low' | 'medi
 
 // ─── Main function ───────────────────────────────────────────────────────────
 
+/** V12: M2 bias finding (real PLoT shape) */
+export interface M2BiasFindingInput {
+  type: string
+  source: string
+  description: string
+  affectedElements: string[]
+  linkedCritiqueCode: string
+}
+
+/** V12: M2 decision quality prompt (real PLoT shape) */
+export interface M2DecisionQualityPromptInput {
+  principle: string
+  appliesBecause: string
+  question: string
+}
+
+/** V12: M2 evidence enhancement per factor */
+export interface M2EvidenceEnhancementInput {
+  specific_action: string
+  decision_hygiene: string
+}
+
 export interface GroupActionItemsInput {
   /** Fragile edge uncertainties (code === 'SENSITIVE_ASSUMPTION') */
   fragileEdges: UncertaintyItem[]
   /** Evidence gaps from M1 coaching */
   evidenceGaps: EvidenceGapItem[]
-  /** M2 bias findings (Phase 5) */
-  biasFindings?: string[]
-  /** M2 pre-mortem items (Phase 5) */
-  preMortem?: string[]
+  /** M2 bias findings — structured from PLoT review */
+  biasFindings?: string[] | M2BiasFindingInput[]
+  /** M2 pre-mortem items — strings from assumptions or M2 decision quality prompts */
+  preMortem?: string[] | M2DecisionQualityPromptInput[]
   /** Multi-constraint analysis from winning option (for binding/near-miss items) */
   constraintAnalysis?: ConstraintAnalysis
   /** V11: Factor node IDs to exclude from action items (hinge shown in VOI block) */
   excludeFactorIds?: string[]
+  /** V12: M2 evidence enhancements keyed by factor_id — enriches Group 2 items */
+  evidenceEnhancements?: Record<string, M2EvidenceEnhancementInput>
+  /** V12: Next actions from M1 coaching — merged into Group 1 */
+  nextActions?: Array<{
+    action: string
+    rationale: string
+    priority: number
+    targetType?: string
+    targetId?: string
+    targetLabel?: string
+  }>
 }
 
 export function groupActionItems(input: GroupActionItemsInput): ActionGroup[] {
-  const { fragileEdges, evidenceGaps, biasFindings, preMortem, constraintAnalysis, excludeFactorIds } = input
+  const { fragileEdges, evidenceGaps, biasFindings, preMortem, constraintAnalysis, excludeFactorIds, evidenceEnhancements, nextActions } = input
 
   // V11: Factors already shown in VOI block — exclude from action item lists
   const excludeSet = new Set(excludeFactorIds ?? [])
@@ -111,6 +146,10 @@ export function groupActionItems(input: GroupActionItemsInput): ActionGroup[] {
   const group1ItemsAll: ActionItem[] = fragileEdges.map(item => {
     const key = edgeDedupKey(item)
     group1Keys.add(key)
+    // Also add individual node IDs for cross-group dedup (next_actions, evidence gaps)
+    for (const nodeId of item.affectedNodes ?? []) {
+      group1Keys.add(nodeId)
+    }
     return {
       id: key,
       title: edgeTitle(item),
@@ -146,22 +185,47 @@ export function groupActionItems(input: GroupActionItemsInput): ActionGroup[] {
     }
   }
 
+  // V12: Merge next_actions into Group 1 alongside fragile edges
+  if (nextActions) {
+    for (const action of nextActions) {
+      const targetId = action.targetId ?? ''
+      // Dedupe against existing Group 1 keys and excluded factors
+      // Skip empty targetId for dedup checks — multiple targetless actions are valid
+      if (targetId && (group1Keys.has(targetId) || excludeSet.has(targetId))) continue
+      if (targetId) group1Keys.add(targetId) // Prevent same factor appearing in Group 2
+      group1Items.push({
+        id: `next-${targetId || action.action.slice(0, 30)}`,
+        title: stripEncodingNotation(action.action),
+        subtitle: action.rationale || undefined,
+        targetId: targetId || undefined,
+        targetType: 'node',
+        source: 'model',
+      })
+    }
+  }
+
   // ── Group 2: Investigate ─────────────────────────────────────────────────
   // Exclude evidence gaps whose dedup key matches Group 1 OR excluded factors
   const group2Items: ActionItem[] = evidenceGaps
     .filter(gap => !group1Keys.has(gap.factorId) && !excludeSet.has(gap.factorId))
     .sort((a, b) => b.voi - a.voi)
-    .map(gap => ({
-      id: gap.factorId,
-      title: stripEncodingNotation(gap.factorLabel),
-      subtitle: gap.suggestion || undefined,
-      targetId: gap.targetNodeId ?? gap.factorId ?? undefined,
-      targetType: 'node' as const,
-      confidenceLevel: confidenceToLevel(
-        gap.confidence != null ? gap.confidence / 100 : undefined
-      ),
-      source: 'model' as const,
-    }))
+    .map(gap => {
+      // V12: Enrich with M2 evidence enhancements when available
+      const enhancement = evidenceEnhancements?.[gap.factorId]
+      return {
+        id: gap.factorId,
+        title: stripEncodingNotation(gap.factorLabel),
+        subtitle: gap.suggestion || undefined,
+        targetId: gap.targetNodeId ?? gap.factorId ?? undefined,
+        targetType: 'node' as const,
+        confidenceLevel: confidenceToLevel(
+          gap.confidence != null ? gap.confidence / 100 : undefined
+        ),
+        source: 'model' as const,
+        whatCouldHappen: enhancement?.decision_hygiene,
+        whatToDo: enhancement?.specific_action,
+      }
+    })
 
   // Near-miss constraints → Group 2 ("Investigate")
   // When near_miss_fraction > 0.3, many scenarios miss by a small margin.
@@ -182,18 +246,38 @@ export function groupActionItems(input: GroupActionItemsInput): ActionGroup[] {
   }
 
   // ── Group 3: Worth reflecting on (M2 only) ──────────────────────────────
-  const group3Items: ActionItem[] = (biasFindings ?? []).map((finding, i) => ({
-    id: `bias-${i}`,
-    title: finding,
-    source: 'brief' as const,
-  }))
+  // V12: Handle both legacy string[] and structured M2BiasFindingInput[]
+  const group3Items: ActionItem[] = (biasFindings ?? []).map((finding, i) => {
+    if (typeof finding === 'string') {
+      return { id: `bias-${i}`, title: finding, source: 'brief' as const }
+    }
+    // Structured M2 bias finding
+    return {
+      id: `bias-${finding.type}-${i}`,
+      title: finding.description,
+      subtitle: finding.affectedElements.length > 0
+        ? `Affects: ${finding.affectedElements.join(', ')}`
+        : undefined,
+      affectedNodeIds: finding.affectedElements.length > 0 ? finding.affectedElements : undefined,
+      source: 'model' as const,
+    }
+  })
 
   // ── Group 4: What could go wrong (M2 only) ──────────────────────────────
-  const group4Items: ActionItem[] = (preMortem ?? []).map((item, i) => ({
-    id: `premortem-${i}`,
-    title: item,
-    source: 'brief' as const,
-  }))
+  // V12: Handle both legacy string[] and structured M2DecisionQualityPromptInput[]
+  const group4Items: ActionItem[] = (preMortem ?? []).map((item, i) => {
+    if (typeof item === 'string') {
+      return { id: `premortem-${i}`, title: item, source: 'brief' as const }
+    }
+    // Structured M2 decision quality prompt
+    return {
+      id: `dqp-${i}`,
+      title: item.principle,
+      subtitle: item.question,
+      whatCouldHappen: item.appliesBecause,
+      source: 'model' as const,
+    }
+  })
 
   return [
     {

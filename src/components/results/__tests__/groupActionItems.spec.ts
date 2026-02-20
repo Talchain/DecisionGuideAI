@@ -69,9 +69,8 @@ describe('groupActionItems', () => {
     expect(groups[1].items).toHaveLength(0)
   })
 
-  it('does NOT suppress evidence gap when factorId only partially matches a fragile edge from_id', () => {
-    // Edge key is "factor-a→outcome-b", gap key is "factor-a"
-    // These are different keys — gap should NOT be suppressed
+  it('V12: suppresses evidence gap when factorId matches a fragile edge affected node', () => {
+    // V12 extended dedup: same factor in both validate and investigate is prevented
     const edge = makeEdge({
       affectedNodes: ['factor-a', 'outcome-b'],
     })
@@ -84,9 +83,8 @@ describe('groupActionItems', () => {
 
     expect(groups[0].items).toHaveLength(1)
     expect(groups[0].items[0].id).toBe('factor-a→outcome-b')
-    // Gap stays in Group 2 — partial match does not suppress
-    expect(groups[1].items).toHaveLength(1)
-    expect(groups[1].items[0].id).toBe('factor-a')
+    // V12: factor-a is now suppressed from Group 2 (extended dedup)
+    expect(groups[1].items).toHaveLength(0)
   })
 
   it('returns empty Group 1 when no fragile edges, and all evidence gaps in Group 2', () => {
@@ -373,6 +371,151 @@ describe('groupActionItems', () => {
 
       expect(groups[0].items).toHaveLength(1)
       expect(groups[1].items).toHaveLength(1)
+    })
+  })
+
+  // V12: nextActions merge into Group 1
+  describe('V12: nextActions', () => {
+    it('merges next_actions into Group 1 alongside fragile edges', () => {
+      const edge = makeEdge()
+      const groups = groupActionItems({
+        fragileEdges: [edge],
+        evidenceGaps: [],
+        nextActions: [
+          { action: 'Validate pricing model', rationale: 'High uncertainty', priority: 1, targetId: 'fac-pricing' },
+        ],
+      })
+
+      expect(groups[0].items).toHaveLength(2)
+      expect(groups[0].items[1].title).toBe('Validate pricing model')
+      expect(groups[0].items[1].subtitle).toBe('High uncertainty')
+    })
+
+    it('deduplicates next_actions against fragile edge targetIds', () => {
+      const edge = makeEdge({ affectedNodes: ['factor-a', 'outcome-b'] })
+      const groups = groupActionItems({
+        fragileEdges: [edge],
+        evidenceGaps: [],
+        nextActions: [
+          { action: 'Check Factor A', rationale: '', priority: 1, targetId: 'factor-a' },
+        ],
+      })
+
+      // factor-a already in Group 1 from fragile edge — next action excluded
+      expect(groups[0].items).toHaveLength(1)
+    })
+
+    it('deduplicates next_actions against excludeFactorIds', () => {
+      const groups = groupActionItems({
+        fragileEdges: [],
+        evidenceGaps: [],
+        nextActions: [
+          { action: 'Check Factor', rationale: '', priority: 1, targetId: 'hinge-factor' },
+        ],
+        excludeFactorIds: ['hinge-factor'],
+      })
+
+      expect(groups[0].items).toHaveLength(0)
+    })
+
+    it('next_actions targetIds prevent same factor appearing in Group 2', () => {
+      const gap = makeGap({ factorId: 'fac-pricing' })
+      const groups = groupActionItems({
+        fragileEdges: [],
+        evidenceGaps: [gap],
+        nextActions: [
+          { action: 'Validate pricing', rationale: '', priority: 1, targetId: 'fac-pricing' },
+        ],
+      })
+
+      // fac-pricing in Group 1 from next_actions — excluded from Group 2
+      expect(groups[0].items).toHaveLength(1)
+      expect(groups[1].items).toHaveLength(0)
+    })
+  })
+
+  // V12: evidence enhancements
+  describe('V12: evidenceEnhancements', () => {
+    it('enriches Group 2 items with M2 evidence enhancements', () => {
+      const gap = makeGap({ factorId: 'fac-churn' })
+      const groups = groupActionItems({
+        fragileEdges: [],
+        evidenceGaps: [gap],
+        evidenceEnhancements: {
+          'fac-churn': {
+            specific_action: 'Run customer retention survey',
+            decision_hygiene: 'Estimate before reviewing data',
+          },
+        },
+      })
+
+      expect(groups[1].items[0].whatToDo).toBe('Run customer retention survey')
+      expect(groups[1].items[0].whatCouldHappen).toBe('Estimate before reviewing data')
+    })
+
+    it('handles missing enhancement gracefully', () => {
+      const gap = makeGap({ factorId: 'fac-other' })
+      const groups = groupActionItems({
+        fragileEdges: [],
+        evidenceGaps: [gap],
+        evidenceEnhancements: {},
+      })
+
+      expect(groups[1].items[0].whatToDo).toBeUndefined()
+      expect(groups[1].items[0].whatCouldHappen).toBeUndefined()
+    })
+  })
+
+  // V12: structured M2 bias findings
+  describe('V12: structured M2 data', () => {
+    it('handles structured M2 bias findings', () => {
+      const groups = groupActionItems({
+        fragileEdges: [],
+        evidenceGaps: [],
+        biasFindings: [
+          {
+            type: 'ANCHORING_RISK',
+            source: 'model',
+            description: 'Are the baseline assumptions anchored?',
+            affectedElements: ['fac-a', 'fac-b'],
+            linkedCritiqueCode: 'CRIT_001',
+          },
+        ],
+      })
+
+      expect(groups[2].items).toHaveLength(1)
+      expect(groups[2].items[0].title).toBe('Are the baseline assumptions anchored?')
+      expect(groups[2].items[0].subtitle).toBe('Affects: fac-a, fac-b')
+    })
+
+    it('handles structured M2 decision quality prompts in Group 4', () => {
+      const groups = groupActionItems({
+        fragileEdges: [],
+        evidenceGaps: [],
+        preMortem: [
+          {
+            principle: 'Pre-mortem (Klein)',
+            appliesBecause: 'readiness is not complete',
+            question: 'What if the competitor moves first?',
+          },
+        ],
+      })
+
+      expect(groups[3].items).toHaveLength(1)
+      expect(groups[3].items[0].title).toBe('Pre-mortem (Klein)')
+      expect(groups[3].items[0].subtitle).toBe('What if the competitor moves first?')
+      expect(groups[3].items[0].whatCouldHappen).toBe('readiness is not complete')
+    })
+
+    it('handles legacy string[] bias findings', () => {
+      const groups = groupActionItems({
+        fragileEdges: [],
+        evidenceGaps: [],
+        biasFindings: ['Consider anchoring bias'],
+      })
+
+      expect(groups[2].items).toHaveLength(1)
+      expect(groups[2].items[0].title).toBe('Consider anchoring bias')
     })
   })
 })

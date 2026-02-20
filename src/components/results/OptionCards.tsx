@@ -18,7 +18,7 @@
 import { useRef, type RefObject } from 'react'
 import { typography } from '../../styles/typography'
 import { formatPercent as formatPct } from '../../utils/formatPercent'
-import { stripEncodingNotation } from './utils/cleanFactorLabel'
+import { stripEncodingNotation, sanitizeCoachingText } from './utils/cleanFactorLabel'
 import type { OptionResult, DecisionState, HingeInfo } from './types'
 import {
   constraintConfidenceColour,
@@ -42,10 +42,8 @@ export interface OptionCardsProps {
   runnerId?: string
 }
 
-/** Strip arrow characters from story headlines (scoped to option card descriptions only) */
-function stripArrows(text: string): string {
-  return text.replace(/\s*[→\u2192]\s*/g, ' ').replace(/\s*->\s*/g, ' ').trim()
-}
+/** @deprecated Use sanitizeCoachingText from cleanFactorLabel.ts */
+const stripArrows = sanitizeCoachingText
 
 /** Fallback description when no story headline is available */
 function fallbackDescription(option: OptionResult, totalOptions: number): string {

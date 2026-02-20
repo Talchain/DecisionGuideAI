@@ -178,8 +178,18 @@ export interface RecommendationSectionData {
   coachingReadiness?: M1CoachingReadiness
   /** M1 Coaching readiness score (0-100) */
   coachingReadinessScore?: number
+  /** V12: Readiness signal dimensions for tooltip */
+  coachingReadinessDimensions?: { evidence: number; robustness: number; clarity: number }
   /** M1 Coaching story headlines: optionId → summary */
   storyHeadlines?: Record<string, string>
+  /** V12: Executive summary decision statement */
+  coachingDecisionStatement?: string
+  /** V12: Executive summary key qualifier */
+  coachingKeyQualifier?: string
+  /** V12: Executive summary action implication */
+  coachingActionImplication?: string
+  /** V12 C1: M2 narrative summary for "Full analysis" expandable */
+  m2NarrativeSummary?: string
 
   // ==========================================================================
   // M1 Coaching: Dominant Factor Warning
@@ -419,6 +429,40 @@ export interface ConfidenceSectionData {
   assumptions?: AssumptionItem[]
   /** Humanised critique items for attention banner (non-SENSITIVE_ASSUMPTION only) */
   humanisedCritiques?: Array<{ title: string; description: string; suggestion?: string; factorId?: string }>
+
+  // ==========================================================================
+  // V12: M1 Coaching Top Fragile Edge + M2 Fields
+  // ==========================================================================
+
+  /** V12: M1 coaching's pick for the single most decision-relevant sensitivity (Priority 0 hinge) */
+  m1CoachingTopFragileEdge?: {
+    fromId: string
+    fromLabel: string
+    toId: string
+    toLabel: string
+    switchProbability: number
+    alternativeWinnerLabel: string | null
+  }
+  /** V12: Review status for M2 gate ('complete' enables M2 data) */
+  reviewStatus?: string
+  /** V12: M2 bias findings (structured) */
+  m2BiasFindings?: Array<{
+    type: string
+    source: string
+    description: string
+    affectedElements: string[]
+    linkedCritiqueCode: string
+  }>
+  /** V12: M2 decision quality prompts (structured) */
+  m2DecisionQualityPrompts?: Array<{
+    principle: string
+    appliesBecause: string
+    question: string
+  }>
+  /** V12: M2 evidence enhancements per factor_id */
+  m2EvidenceEnhancements?: Record<string, { specific_action: string; decision_hygiene: string }>
+  /** V12: M2 narrative summary paragraph */
+  m2NarrativeSummary?: string
 }
 
 // =============================================================================

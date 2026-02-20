@@ -25,7 +25,7 @@ import { TippingPoints } from './TippingPoints'
 import { AdvancedSection } from './AdvancedSection'
 import { AttentionBanner } from './AttentionBanner'
 import { ChallengeSection } from './ChallengeSection'
-import { groupActionItems } from './utils/groupActionItems'
+import { groupActionItems, type ActionItem } from './utils/groupActionItems'
 
 export interface StrengthCorrectionDisplay {
   edgeId: string
@@ -139,6 +139,7 @@ export function ResultsBody({
           decisionState={vm.decisionState}
           hinge={vm.hinge}
           evidenceLevel={vm.evidenceLevel}
+          identifiabilityTag={identifiability}
         />
       </div>
 
@@ -235,19 +236,27 @@ export function ResultsBody({
         const voiBlockVisible = (vm.decisionState === 'sensitive' || vm.decisionState === 'indeterminate') && vm.hinge != null
         if (voiBlockVisible) badgeCount += 1
 
-        // V11: M2 data for ChallengeSection (groups 3 and 4)
-        const m2Groups = groupActionItems({
-          fragileEdges: [],
-          evidenceGaps: [],
-          biasFindings: resultsSectionData.confidence.assumptions
-            ?.filter(a => a.severity === 'high')
-            .map(a => a.message),
-          preMortem: resultsSectionData.confidence.assumptions
-            ?.filter(a => a.severity === 'medium')
-            .map(a => a.message),
-        })
-        const biasFindings = m2Groups[2].items
-        const preMortemItems = m2Groups[3].items
+        // V12: Include nextActions in badge count (capped at 3, hinge-deduped)
+        const nextActionsForBadge = resultsSectionData.confidence.nextActions ?? []
+        const filteredNextActionsCount = hingeNodeId
+          ? nextActionsForBadge.filter(a => a.targetId !== hingeNodeId).length
+          : nextActionsForBadge.length
+        badgeCount += Math.min(3, filteredNextActionsCount)
+
+        // V12 B5: ChallengeSection only visible when review_status === 'complete'
+        const reviewComplete = resultsSectionData.confidence.reviewStatus === 'complete'
+        let biasFindings: ActionItem[] = []
+        let preMortemItems: ActionItem[] = []
+        if (reviewComplete) {
+          const m2Groups = groupActionItems({
+            fragileEdges: [],
+            evidenceGaps: [],
+            biasFindings: resultsSectionData.confidence.m2BiasFindings ?? undefined,
+            preMortem: resultsSectionData.confidence.m2DecisionQualityPrompts ?? undefined,
+          })
+          biasFindings = m2Groups[2].items
+          preMortemItems = m2Groups[3].items
+        }
 
         return (
           <>
@@ -314,6 +323,7 @@ export function ResultsBody({
                   <ChallengeSection
                     biasFindings={biasFindings}
                     preMortemItems={preMortemItems}
+                    onFocusNode={onFocusNode}
                   />
                 </Accordion>
               </div>

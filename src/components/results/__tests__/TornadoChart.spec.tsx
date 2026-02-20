@@ -578,4 +578,19 @@ describe('TornadoChart', () => {
     expect(screen.getByTestId('tornado-axis-left')).toHaveTextContent('← Weaker')
     expect(screen.getByTestId('tornado-axis-right')).toHaveTextContent('Stronger →')
   })
+
+  it('V11.2: empty-string outcomeUnitSymbol falls back to generic axis labels', () => {
+    render(
+      <TornadoChart
+        rows={[positiveRow]}
+        expectedOutcome={100}
+        outcomeUnit="count"
+        outcomeUnitSymbol=""
+      />
+    )
+
+    // Empty string is falsy, so condition fails → generic labels
+    expect(screen.getByTestId('tornado-axis-left')).toHaveTextContent('← Weaker')
+    expect(screen.getByTestId('tornado-axis-right')).toHaveTextContent('Stronger →')
+  })
 })

@@ -66,8 +66,9 @@ function makeData(overrides: {
   options?: OptionResult[]
   recommendationStability?: number
   robustnessLevel?: 'high' | 'moderate' | 'low' | 'very_low'
-  coachingReadiness?: 'ready' | 'close_call' | 'needs_evidence' | 'needs_framing'
+  coachingReadiness?: 'ready' | 'close_call' | 'needs_evidence' | 'needs_framing' | 'low' | 'not_ready'
   topFragileEdge?: ConfidenceSectionData['topFragileEdge']
+  m1CoachingTopFragileEdge?: ConfidenceSectionData['m1CoachingTopFragileEdge']
   evidenceGaps?: EvidenceGapItem[]
   topEvidenceGaps?: EvidenceGapItem[]
   drivers?: DriverItem[]
@@ -106,6 +107,7 @@ function makeData(overrides: {
     improvements: [],
     topImprovements: [],
     topFragileEdge: overrides.topFragileEdge,
+    m1CoachingTopFragileEdge: overrides.m1CoachingTopFragileEdge,
     evidenceGaps: overrides.evidenceGaps,
     topEvidenceGaps: overrides.topEvidenceGaps,
     totalHighRiskEdges: overrides.totalHighRiskEdges,
@@ -147,8 +149,9 @@ describe('deriveDecisionState', () => {
     expect(deriveDecisionState(0.25, 0.40)).toBe('indeterminate')
   })
 
-  it('downgrades robust to sensitive when readiness is needs_evidence', () => {
-    expect(deriveDecisionState(0.25, 0.85, 'needs_evidence')).toBe('sensitive')
+  // V12: needs_evidence does NOT downgrade (common case, shouldn't prevent robust)
+  it('does not downgrade robust when readiness is needs_evidence', () => {
+    expect(deriveDecisionState(0.25, 0.85, 'needs_evidence')).toBe('robust')
   })
 
   it('downgrades robust to sensitive when readiness is needs_framing', () => {
@@ -159,8 +162,18 @@ describe('deriveDecisionState', () => {
     expect(deriveDecisionState(0.25, 0.85, 'ready')).toBe('robust')
   })
 
-  it('does not downgrade when readiness is close_call', () => {
-    expect(deriveDecisionState(0.25, 0.85, 'close_call')).toBe('robust')
+  // V12: close_call now downgrades (unlike V11 where it did not)
+  it('downgrades robust to sensitive when readiness is close_call', () => {
+    expect(deriveDecisionState(0.25, 0.85, 'close_call')).toBe('sensitive')
+  })
+
+  // V12: low and not_ready also downgrade
+  it('downgrades robust to sensitive when readiness is low', () => {
+    expect(deriveDecisionState(0.25, 0.85, 'low')).toBe('sensitive')
+  })
+
+  it('downgrades robust to sensitive when readiness is not_ready', () => {
+    expect(deriveDecisionState(0.25, 0.85, 'not_ready')).toBe('sensitive')
   })
 
   it('returns robust at exact ROBUST_THRESHOLD boundary', () => {
@@ -377,6 +390,54 @@ describe('selectHinge', () => {
     })
     const hinge = selectHinge(data)
     expect(hinge!.nodeId).toBe('node-a-canvas')
+  })
+
+  // V12: Priority 0 — coaching top_fragile_edge overrides robustness topFragileEdge
+  it('selects m1CoachingTopFragileEdge as priority 0 over robustness topFragileEdge', () => {
+    const data = makeData({
+      m1CoachingTopFragileEdge: {
+        fromId: 'fac-pmf',
+        fromLabel: 'Product-Market Fit',
+        toId: 'out-acq',
+        toLabel: 'Customer Acquisition',
+        switchProbability: 0.468,
+        alternativeWinnerLabel: 'Build Dedicated Product',
+      },
+      topFragileEdge: {
+        fromId: 'fac-price',
+        fromLabel: 'Price Sensitivity',
+        toId: 'goal-rev',
+        toLabel: 'Revenue',
+        alternativeWinnerLabel: 'Option B',
+        switchProbability: 0.6,
+      },
+      topEvidenceGaps: [makeEvidenceGap()],
+      drivers: [makeDriver()],
+    })
+    const hinge = selectHinge(data)
+    expect(hinge).not.toBeNull()
+    expect(hinge!.label).toBe('Product-Market Fit')
+    expect(hinge!.nodeId).toBe('fac-pmf')
+    expect(hinge!.kind).toBe('edge')
+    expect(hinge!.reason).toBe('fragile_edge')
+    expect(hinge!.edgeDetail).toBe('Product-Market Fit → Customer Acquisition')
+    expect(hinge!.alternativeWinnerLabel).toBe('Build Dedicated Product')
+  })
+
+  it('falls through to priority 1 when m1CoachingTopFragileEdge absent', () => {
+    const data = makeData({
+      topFragileEdge: {
+        fromId: 'fac-price',
+        fromLabel: 'Price Sensitivity',
+        toId: 'goal-rev',
+        toLabel: 'Revenue',
+        alternativeWinnerLabel: 'Option B',
+        switchProbability: 0.6,
+      },
+    })
+    const hinge = selectHinge(data)
+    expect(hinge!.label).toBe('Price Sensitivity')
+    expect(hinge!.reason).toBe('fragile_edge')
   })
 })
 

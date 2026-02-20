@@ -72,6 +72,8 @@ interface RecommendationSectionProps {
   hinge?: HingeInfo | null
   /** V11: Evidence quality level for meta strip badge */
   evidenceLevel?: EvidenceLevel
+  /** V12: Identifiability tag from model card */
+  identifiabilityTag?: string | null
 }
 
 export function RecommendationSection({
@@ -96,6 +98,7 @@ export function RecommendationSection({
   decisionState,
   hinge,
   evidenceLevel,
+  identifiabilityTag,
 }: RecommendationSectionProps) {
   const {
     recommendedOption,
@@ -234,6 +237,12 @@ export function RecommendationSection({
         coachingReadinessScore={coachingReadinessScore}
         coachingHeadline={coachingHeadline}
         coachingParagraph={data.coachingParagraph}
+        coachingDecisionStatement={data.coachingDecisionStatement}
+        coachingKeyQualifier={data.coachingKeyQualifier}
+        coachingActionImplication={data.coachingActionImplication}
+        m2NarrativeSummary={data.m2NarrativeSummary}
+        coachingReadinessDimensions={data.coachingReadinessDimensions}
+        identifiabilityTag={identifiabilityTag}
         onFocusNode={onFocusNode}
         onFlashOption={onFlashOption}
         isRunning={isRunning}

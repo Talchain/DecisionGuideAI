@@ -96,4 +96,19 @@ export function stripEncodingNotation(rawLabel: string): string {
   return cleanFactorLabel(rawLabel).label
 }
 
+/**
+ * Sanitize coaching text: strip arrow characters and encoding notation.
+ * Use for any M1/M2 text surfaced in the coaching UI (next_actions, narrative snippets).
+ *
+ * @param text - Raw coaching text from PLoT
+ * @returns Cleaned text suitable for display
+ */
+export function sanitizeCoachingText(text: string): string {
+  if (!text) return ''
+  return text
+    .replace(/\s*[\u2192]\s*/g, ' to ')   // Unicode right arrow →
+    .replace(/\s*->\s*/g, ' to ')          // ASCII arrow ->
+    .trim()
+}
+
 export default cleanFactorLabel

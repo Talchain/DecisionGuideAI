@@ -82,6 +82,7 @@ function extractM1CoachingFromV2(response: V2RunResponse): M1Coaching | null {
     evidence_gaps: coaching.evidence_gaps ?? [],
     next_actions: coaching.next_actions ?? [],
     assumptions_ledger: coaching.assumptions_ledger ?? [],
+    top_fragile_edge: coaching.top_fragile_edge ?? undefined,
   }
 }
 
@@ -522,6 +523,7 @@ export function useV2Run(): UseV2RunReturn {
           m1Review, // M1 Review enrichment (rationale, robustness synthesis, etc.)
           m1Coaching, // M1 Coaching (deterministic, not LLM-generated)
           m1ReviewAssumptions, // M1 Review assumptions + pre-mortem from PLoT
+          reviewStatus: successResult.review_status, // V12: M2 gate
         })
 
         // Update gates after successful analysis

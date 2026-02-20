@@ -21,7 +21,7 @@ import { focusNodeById, focusByTarget, type FocusTargetType } from '../../canvas
 import { EMPTY_STATES } from './emptyStates'
 import { typography } from '../../styles/typography'
 import { MIN_STABLE_RECOMMENDATION_STABILITY, isStableRobustnessLevel } from './constants'
-import { stripEncodingNotation } from './utils/cleanFactorLabel'
+import { stripEncodingNotation, sanitizeCoachingText } from './utils/cleanFactorLabel'
 import { groupActionItems, type ActionGroup, type ActionItem } from './utils/groupActionItems'
 import { AlertTriangle, Search } from 'lucide-react'
 
@@ -419,6 +419,8 @@ export function ConfidenceSection({
     assumptions,
     // P0.1: Humanised critique messages
     humanisedCritiques,
+    // V12: M2 evidence enhancements
+    m2EvidenceEnhancements,
   } = data
 
   // P0.1: Build lookup map for humanised critique display
@@ -570,11 +572,17 @@ export function ConfidenceSection({
           ? displayFragileEdges.filter(item => !excludeSet.has(item.affectedNodes?.[0] ?? ''))
           : displayFragileEdges
 
+        // V12: Cross-dedup nextActions vs evidence gaps — exclude nextAction targets from Group 2
+        const nextActionTargetIds = (nextActions ?? [])
+          .map(a => a.targetId).filter((id): id is string => !!id)
+        const extendedExcludeIds = [...(excludeFactorIds ?? []), ...nextActionTargetIds]
+
         const groups = groupActionItems({
           fragileEdges: displayFragileEdges,
           evidenceGaps: evidenceGaps ?? [],
           constraintAnalysis: winnerConstraintAnalysis,
-          excludeFactorIds,
+          excludeFactorIds: extendedExcludeIds,
+          evidenceEnhancements: m2EvidenceEnhancements,
         })
 
         // Non-fragile-edge uncertainties (Group 2 legacy: low-confidence factors)
@@ -687,7 +695,7 @@ export function ConfidenceSection({
                         />
                         )
                       })}
-                      {/* Evidence gap action items */}
+                      {/* Evidence gap action items — V12 B2: expandable when M2 enrichment present */}
                       {group.items.map((actionItem) => {
                         const canFocus = !!actionItem.targetId
                         const handleFocus = () => {
@@ -703,42 +711,66 @@ export function ConfidenceSection({
                           ? { label: 'Medium confidence', cls: 'bg-warning-light text-warning border-warning/30' }
                           : null
 
+                        const hasEnrichment = actionItem.whatToDo || actionItem.whatCouldHappen
+
+                        const cardContent = (
+                          <div className="flex items-start gap-2">
+                            <Search className="w-4 h-4 text-info flex-shrink-0 mt-0.5" />
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-start justify-between gap-2">
+                                {canFocus ? (
+                                  <button
+                                    type="button"
+                                    onClick={handleFocus}
+                                    className={`${typography.panelHeader} text-info hover:text-info-hover hover:underline text-left focus:outline-none focus:ring-2 focus:ring-info focus:ring-offset-1 rounded`}
+                                    aria-label={`Focus on ${actionItem.title} in model`}
+                                  >
+                                    {actionItem.title}
+                                  </button>
+                                ) : (
+                                  <span className={`${typography.panelHeader} text-text-header`}>
+                                    {actionItem.title}
+                                  </span>
+                                )}
+                                {pill && (
+                                  <span className={`${typography.panelMeta} px-1.5 py-0.5 rounded-full whitespace-nowrap flex-shrink-0 border ${pill.cls}`}>
+                                    {pill.label}
+                                  </span>
+                                )}
+                              </div>
+                              {actionItem.subtitle && (
+                                <p className={`${typography.panelBody} text-text-light mt-1`}>
+                                  {actionItem.subtitle}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        )
+
+                        if (hasEnrichment) {
+                          return (
+                            <details key={actionItem.id} className="border border-panel-border rounded-lg overflow-hidden">
+                              <summary className="p-3 cursor-pointer hover:bg-panel-hover">
+                                {cardContent}
+                              </summary>
+                              <div className="px-3 pb-3 space-y-1 border-t border-panel-border pt-2">
+                                {actionItem.whatToDo && (
+                                  <p className={`${typography.panelBody} text-text-body`}>{actionItem.whatToDo}</p>
+                                )}
+                                {actionItem.whatCouldHappen && (
+                                  <p className={`${typography.panelMeta} text-text-light italic`}>{actionItem.whatCouldHappen}</p>
+                                )}
+                              </div>
+                            </details>
+                          )
+                        }
+
                         return (
                           <div
                             key={actionItem.id}
                             className="p-3 border border-panel-border rounded-lg"
                           >
-                            <div className="flex items-start gap-2">
-                              <Search className="w-4 h-4 text-info flex-shrink-0 mt-0.5" />
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-start justify-between gap-2">
-                                  {canFocus ? (
-                                    <button
-                                      type="button"
-                                      onClick={handleFocus}
-                                      className={`${typography.panelHeader} text-info hover:text-info-hover hover:underline text-left focus:outline-none focus:ring-2 focus:ring-info focus:ring-offset-1 rounded`}
-                                      aria-label={`Focus on ${actionItem.title} in model`}
-                                    >
-                                      {actionItem.title}
-                                    </button>
-                                  ) : (
-                                    <span className={`${typography.panelHeader} text-text-header`}>
-                                      {actionItem.title}
-                                    </span>
-                                  )}
-                                  {pill && (
-                                    <span className={`${typography.panelMeta} px-1.5 py-0.5 rounded-full whitespace-nowrap flex-shrink-0 border ${pill.cls}`}>
-                                      {pill.label}
-                                    </span>
-                                  )}
-                                </div>
-                                {actionItem.subtitle && (
-                                  <p className={`${typography.panelBody} text-text-light mt-1`}>
-                                    {actionItem.subtitle}
-                                  </p>
-                                )}
-                              </div>
-                            </div>
+                            {cardContent}
                           </div>
                         )
                       })}
@@ -763,67 +795,74 @@ export function ConfidenceSection({
         )
       })()}
 
-      {/* v7.5: gated — not in v7 prototype. Source: m1_coaching. Remove after v7 stable. */}
-      {/* eslint-disable-next-line no-constant-binary-expression */}
-      {false && nextActions && nextActions.length > 0 && (
-        <div className="space-y-2">
-          <h4 className={`${typography.panelHeader} text-slate-500 tracking-wide`}>
-            Recommended actions
-          </h4>
-          <CappedList<NextActionItem>
-            items={nextActions}
-            maxVisible={3}
-            getKey={(action) => `${action.action}::${action.targetId ?? ''}`}
-            renderItem={(action, index) => {
-              const handleFocus = () => {
-                if (action.targetId) {
-                  if (onFocusNode) {
-                    onFocusNode(action.targetId)
-                  } else {
-                    // Use unified focus handler for proper target type resolution
-                    focusByTarget(action.targetId, action.targetType as FocusTargetType)
+      {/* V12: Next actions from M1 coaching — ungated, hinge excluded */}
+      {(() => {
+        if (!nextActions || nextActions.length === 0) return null
+        // V12: Exclude actions targeting the hinge factor (shown in VOI block)
+        const hingeNodeId = hinge?.nodeId
+        const filtered = hingeNodeId
+          ? nextActions.filter(a => a.targetId !== hingeNodeId)
+          : nextActions
+        if (filtered.length === 0) return null
+        return (
+          <div className="space-y-2">
+            <h4 className={`${typography.panelHeader} text-text-light tracking-wide`}>
+              Recommended actions
+            </h4>
+            <CappedList<NextActionItem>
+              items={filtered}
+              maxVisible={3}
+              getKey={(action) => `${action.action}::${action.targetId ?? ''}`}
+              renderItem={(action) => {
+                const handleFocus = () => {
+                  if (action.targetId) {
+                    if (onFocusNode) {
+                      onFocusNode(action.targetId)
+                    } else {
+                      focusByTarget(action.targetId, action.targetType as FocusTargetType)
+                    }
                   }
                 }
-              }
+                // V12: Sanitize coaching text (strip arrows)
+                const actionText = sanitizeCoachingText(action.action)
 
-              return (
-                <div className="w-full text-left p-3 bg-panel border border-panel-border rounded-lg">
-                  <div className="flex-1 min-w-0">
-                    {/* Task D: Bold the first action item for visual weight */}
-                    {/* Task 2: Action text is clickable if target exists */}
-                    {action.targetId ? (
-                      <span
-                        role="link"
-                        tabIndex={0}
-                        onClick={handleFocus}
-                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleFocus() } }}
-                        className={`${typography.panelBody} text-text-body cursor-pointer hover:underline focus:outline-none focus:ring-2 focus:ring-info-500 focus:ring-offset-1 rounded`}
-                        aria-label={`Focus on ${action.targetLabel || action.action} in model`}
-                      >
-                        {action.action}
-                      </span>
-                    ) : (
-                      <p className={`${typography.panelBody} text-text-body`}>
-                        {action.action}
-                      </p>
-                    )}
-                    {action.rationale && (
-                      <p className={`${typography.panelBody} text-text-light mt-1`}>
-                        {action.rationale}
-                      </p>
-                    )}
+                return (
+                  <div className="w-full text-left p-3 bg-panel border border-panel-border rounded-lg">
+                    <div className="flex-1 min-w-0">
+                      {action.targetId ? (
+                        <span
+                          role="link"
+                          tabIndex={0}
+                          onClick={handleFocus}
+                          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleFocus() } }}
+                          className={`${typography.panelBody} text-text-body cursor-pointer hover:underline focus:outline-none focus:ring-2 focus:ring-info/30 focus:ring-offset-1 rounded`}
+                          aria-label={`Focus on ${action.targetLabel || actionText} in model`}
+                        >
+                          {actionText}
+                        </span>
+                      ) : (
+                        <p className={`${typography.panelBody} text-text-body`}>
+                          {actionText}
+                        </p>
+                      )}
+                      {action.rationale && (
+                        <p className={`${typography.panelBody} text-text-light mt-1`}>
+                          {action.rationale}
+                        </p>
+                      )}
+                    </div>
                   </div>
-                </div>
-              )
-            }}
-            overflowLabel={(n) => `+${n} more`}
-            dedupeFn={(action) => `${action.action}::${action.targetId ?? ''}`}
-            sortFn={(a, b) => a.priority - b.priority}
-            emptyMessage="No recommended actions"
-            expandButtonAriaLabel="Show more recommended actions"
-          />
-        </div>
-      )}
+                )
+              }}
+              overflowLabel={(n) => `+${n} more`}
+              dedupeFn={(action) => `${action.action}::${action.targetId ?? ''}`}
+              sortFn={(a, b) => a.priority - b.priority}
+              emptyMessage="No recommended actions"
+              expandButtonAriaLabel="Show more recommended actions"
+            />
+          </div>
+        )
+      })()}
 
       {/* v7.5: gated — not in v7 prototype. Source: m1_coaching. Remove after v7 stable. */}
       {/* eslint-disable-next-line no-constant-binary-expression */}

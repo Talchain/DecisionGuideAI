@@ -951,4 +951,124 @@ describe('HeroSection', () => {
       expect(screen.getByTestId('hero-rows')).toHaveTextContent('75%')
     })
   })
+
+  // V12: Executive summary fields in "More detail" expand
+  describe('V12: Executive summary in More detail', () => {
+    it('renders decision statement when expanded', () => {
+      render(
+        <HeroSection
+          {...baseProps}
+          decisionState="robust"
+          recommendationStability={0.85}
+          coachingDecisionStatement="Acquire Competitor is the clear winner."
+        />
+      )
+
+      // Click "More" to expand (high stability defaults to collapsed)
+      const moreButton = screen.getByRole('button', { name: /more/i })
+      fireEvent.click(moreButton)
+
+      expect(screen.getByText('Acquire Competitor is the clear winner.')).toBeInTheDocument()
+    })
+
+    it('renders key qualifier and action implication when expanded', () => {
+      render(
+        <HeroSection
+          {...baseProps}
+          decisionState="robust"
+          recommendationStability={0.85}
+          coachingKeyQualifier="Key uncertainty: Engineering Capacity"
+          coachingActionImplication="Gather evidence on Engineering Capacity before deciding."
+        />
+      )
+
+      const moreButton = screen.getByRole('button', { name: /more/i })
+      fireEvent.click(moreButton)
+
+      expect(screen.getByText('Key uncertainty: Engineering Capacity')).toBeInTheDocument()
+      expect(screen.getByText('Gather evidence on Engineering Capacity before deciding.')).toBeInTheDocument()
+    })
+
+    it('falls back to coachingParagraph when no decision statement', () => {
+      render(
+        <HeroSection
+          {...baseProps}
+          decisionState="robust"
+          recommendationStability={0.85}
+          coachingParagraph="General coaching paragraph."
+        />
+      )
+
+      const moreButton = screen.getByRole('button', { name: /more/i })
+      fireEvent.click(moreButton)
+
+      expect(screen.getByText('General coaching paragraph.')).toBeInTheDocument()
+    })
+  })
+
+  // V12: Identifiability advisory
+  describe('V12: Identifiability advisory', () => {
+    it('shows advisory for partially_identifiable', () => {
+      render(
+        <HeroSection
+          {...baseProps}
+          decisionState="robust"
+          recommendationStability={0.85}
+          identifiabilityTag="partially_identifiable"
+        />
+      )
+
+      const moreButton = screen.getByRole('button', { name: /more/i })
+      fireEvent.click(moreButton)
+
+      expect(screen.getByText('Structural validity: Some limitations')).toBeInTheDocument()
+    })
+
+    it('shows advisory for not_backdoor_identifiable', () => {
+      render(
+        <HeroSection
+          {...baseProps}
+          decisionState="robust"
+          recommendationStability={0.85}
+          identifiabilityTag="not_backdoor_identifiable"
+        />
+      )
+
+      const moreButton = screen.getByRole('button', { name: /more/i })
+      fireEvent.click(moreButton)
+
+      expect(screen.getByText('Structural validity: Treat as directional')).toBeInTheDocument()
+    })
+
+    it('does not show advisory for identifiable', () => {
+      render(
+        <HeroSection
+          {...baseProps}
+          decisionState="robust"
+          recommendationStability={0.85}
+          identifiabilityTag="identifiable"
+        />
+      )
+
+      const moreButton = screen.getByRole('button', { name: /more/i })
+      fireEvent.click(moreButton)
+
+      expect(screen.queryByText(/Structural validity/)).not.toBeInTheDocument()
+    })
+
+    it('does not show advisory when identifiabilityTag absent', () => {
+      render(
+        <HeroSection
+          {...baseProps}
+          decisionState="robust"
+          recommendationStability={0.85}
+        />
+      )
+
+      const moreButton = screen.getByRole('button', { name: /more/i })
+      fireEvent.click(moreButton)
+
+      expect(screen.queryByText(/Structural validity/)).not.toBeInTheDocument()
+    })
+  })
 })
