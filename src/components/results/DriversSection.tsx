@@ -669,19 +669,36 @@ export function DriversSection({
 
       {/* Driver rows */}
       <div className="space-y-2.5">
-        {displayDrivers.map((driver) => (
-          <DriverRow
-            key={driver.factorKey}
-            driver={driver}
-            onFocus={onFocusNode}
-            goalLabel={goalLabel}
-            isHighlighted={highlightedDriverId === driver.factorKey}
-            registerRef={registerDriverRef
-              ? (el) => registerDriverRef(driver.factorKey, el)
-              : undefined
-            }
-          />
-        ))}
+        {displayDrivers.map((driver, index) => {
+          // V11: Driver #1 microline — show overtake warning below first driver
+          const showMicroline = index === 0
+            && driver.fragileEdgeInfo?.switchProbability != null
+            && driver.fragileEdgeInfo.switchProbability > 0
+            && driver.fragileEdgeInfo.alternativeWinnerLabel
+
+          return (
+            <div key={driver.factorKey}>
+              <DriverRow
+                driver={driver}
+                onFocus={onFocusNode}
+                goalLabel={goalLabel}
+                isHighlighted={highlightedDriverId === driver.factorKey}
+                registerRef={registerDriverRef
+                  ? (el) => registerDriverRef(driver.factorKey, el)
+                  : undefined
+                }
+              />
+              {showMicroline && (
+                <p
+                  className="text-danger text-[10px] mt-1 ml-1"
+                  data-testid="driver-microline"
+                >
+                  If wrong, {driver.fragileEdgeInfo!.alternativeWinnerLabel} overtakes
+                </p>
+              )}
+            </div>
+          )
+        })}
       </div>
 
       {/* Expand/collapse */}

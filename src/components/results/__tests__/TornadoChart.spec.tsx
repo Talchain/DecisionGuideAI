@@ -270,7 +270,7 @@ describe('TornadoChart', () => {
 
   // ── P0.2: Value display mode tests ──
 
-  it('% mode: bar labels show relative % change when no unit provided', () => {
+  it('relative mode: bar labels show pp change when no unit provided', () => {
     render(
       <TornadoChart
         rows={[positiveRow]}
@@ -278,9 +278,9 @@ describe('TornadoChart', () => {
       />
     )
 
-    // lowOutcome=80 → (80-100)/100 = -20%, highOutcome=120 → (120-100)/100 = +20%
-    expect(screen.getByText('−20%')).toBeInTheDocument()
-    expect(screen.getByText('+20%')).toBeInTheDocument()
+    // lowOutcome=80 → (80-100)/100 = -20 pp, highOutcome=120 → (120-100)/100 = +20 pp
+    expect(screen.getByText('−20 pp')).toBeInTheDocument()
+    expect(screen.getByText('+20 pp')).toBeInTheDocument()
   })
 
   it('units mode: bar labels show formatted values when currency unit provided', () => {
@@ -311,7 +311,7 @@ describe('TornadoChart', () => {
     expect(screen.getByTestId('tornado-expected-display')).toHaveTextContent('Expected:')
   })
 
-  it('% mode: negative direction factors show correct relative changes', () => {
+  it('relative mode: negative direction factors show correct pp changes', () => {
     render(
       <TornadoChart
         rows={[negativeRow]}
@@ -319,9 +319,9 @@ describe('TornadoChart', () => {
       />
     )
 
-    // lowOutcome=85 → (85-100)/100 = -15%, highOutcome=115 → (115-100)/100 = +15%
-    expect(screen.getByText('−15%')).toBeInTheDocument()
-    expect(screen.getByText('+15%')).toBeInTheDocument()
+    // lowOutcome=85 → (85-100)/100 = -15 pp, highOutcome=115 → (115-100)/100 = +15 pp
+    expect(screen.getByText('−15 pp')).toBeInTheDocument()
+    expect(screen.getByText('+15 pp')).toBeInTheDocument()
   })
 
   it('centre axis always includes "Expected:" with value', () => {
@@ -535,5 +535,47 @@ describe('TornadoChart', () => {
 
     // Expected display shows original value
     expect(screen.getByTestId('tornado-expected-display')).toHaveTextContent('Expected: 100')
+  })
+
+  // ── V11 Phase D: Unit-aware axis labels ──
+
+  it('V11: count unit shows "Fewer/More {symbol}" axis labels', () => {
+    render(
+      <TornadoChart
+        rows={[positiveRow]}
+        expectedOutcome={100}
+        outcomeUnit="count"
+        outcomeUnitSymbol="customers"
+      />
+    )
+
+    expect(screen.getByTestId('tornado-axis-left')).toHaveTextContent('← Fewer customers')
+    expect(screen.getByTestId('tornado-axis-right')).toHaveTextContent('More customers →')
+  })
+
+  it('V11: currency unit keeps generic axis labels', () => {
+    render(
+      <TornadoChart
+        rows={[positiveRow]}
+        expectedOutcome={100}
+        outcomeUnit="currency"
+        outcomeUnitSymbol="$"
+      />
+    )
+
+    expect(screen.getByTestId('tornado-axis-left')).toHaveTextContent('← Weaker')
+    expect(screen.getByTestId('tornado-axis-right')).toHaveTextContent('Stronger →')
+  })
+
+  it('V11: no unit keeps generic axis labels', () => {
+    render(
+      <TornadoChart
+        rows={[positiveRow]}
+        expectedOutcome={100}
+      />
+    )
+
+    expect(screen.getByTestId('tornado-axis-left')).toHaveTextContent('← Weaker')
+    expect(screen.getByTestId('tornado-axis-right')).toHaveTextContent('Stronger →')
   })
 })

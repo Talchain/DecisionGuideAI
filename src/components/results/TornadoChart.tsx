@@ -89,15 +89,16 @@ function formatValue(
 }
 
 /**
- * Format a bar-end value as relative % change from expected.
- * Used when no structured unit is available (% mode default).
+ * Format a bar-end value as relative change from expected.
+ * Uses "pp" (percentage points) suffix to distinguish from outcome's own % unit.
+ * Used when no structured unit is available.
  */
 function formatRelativeChange(value: number, expected: number): string {
   if (expected === 0) return value >= 0 ? '+∞' : '−∞'
   const pct = ((value - expected) / Math.abs(expected)) * 100
   const rounded = Math.round(pct)
-  if (rounded === 0) return '0%'
-  return rounded > 0 ? `+${rounded}%` : `${rounded}%`.replace('-', '−')
+  if (rounded === 0) return '0 pp'
+  return rounded > 0 ? `+${rounded} pp` : `${rounded} pp`.replace('-', '−')
 }
 
 /** Format the centre axis label. Includes "Expected" + value + unit context. */
@@ -489,13 +490,21 @@ export function TornadoChart({
         })}
       </div>
 
-      {/* Axis labels — outcome updates during drag. Compact text to avoid overlap at narrow widths. */}
+      {/* Axis labels — outcome updates during drag. V11: unit-aware when count unit available. */}
       <div className="flex items-baseline gap-2 mt-1.5 ml-[104px] text-[10px] leading-tight text-text-light">
-        <span className="flex-shrink-0 whitespace-nowrap">← Weaker</span>
+        <span className="flex-shrink-0 whitespace-nowrap" data-testid="tornado-axis-left">
+          {outcomeUnitSymbol && outcomeUnit === 'count'
+            ? `← Fewer ${outcomeUnitSymbol}`
+            : '← Weaker'}
+        </span>
         <span className="flex-1 text-center truncate" data-testid="tornado-expected-display">
           {formatExpectedLabel(displayOutcome, outcomeUnit, outcomeUnitSymbol, isNormalised)}
         </span>
-        <span className="flex-shrink-0 whitespace-nowrap">Stronger →</span>
+        <span className="flex-shrink-0 whitespace-nowrap" data-testid="tornado-axis-right">
+          {outcomeUnitSymbol && outcomeUnit === 'count'
+            ? `More ${outcomeUnitSymbol} →`
+            : 'Stronger →'}
+        </span>
       </div>
 
       {/* Preview disclaimer + reset link */}
