@@ -57,8 +57,9 @@ function formatInterventionDisplay(
   // Don't claim 'unchanged' from direction alone — direction='same' can mean
   // "no observed state to compare". The raw-value check below handles confirmed-same.
 
-  // Qualitative detection: no unit AND (no cap, or cap=1 which is just normalised ceiling)
-  const isQualitative = unit == null && (cap == null || cap === 1)
+  // Qualitative detection: no meaningful unit AND (no cap, or cap=1 which is just normalised ceiling)
+  // Empty string unit is treated the same as absent — CEE sometimes sends unit: ""
+  const isQualitative = !unit && (cap == null || cap === 1)
 
   // --- Determine raw value ---
   let rawValue: number

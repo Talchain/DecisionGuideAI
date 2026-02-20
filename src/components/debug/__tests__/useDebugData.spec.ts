@@ -1087,5 +1087,354 @@ describe('useDebugData', () => {
 
       expect(result.current.pipeline.node_extraction).toBeUndefined()
     })
+
+    it('derives Raw from stage_1_parse snapshot in CEE response', () => {
+      const ceePayload = {
+        id: 'req-cee-stages',
+        service: 'CEE',
+        endpoint: '/assist/v1/draft-graph',
+        status: 200,
+        completed: true,
+        duration: 5000,
+        request: { body: {} },
+        response: {
+          body: {
+            trace: {
+              pipeline: {
+                stage_snapshots: {
+                  stage_1_parse: {
+                    nodes: [
+                      { kind: 'decision', id: 'd1' },
+                      { kind: 'option', id: 'o1' },
+                      { kind: 'option', id: 'o2' },
+                      { kind: 'goal', id: 'g1' },
+                    ],
+                  },
+                  stage_4_repair: {
+                    nodes: [
+                      { kind: 'decision', id: 'd1' },
+                      { kind: 'option', id: 'o1' },
+                      { kind: 'option', id: 'o2' },
+                      { kind: 'goal', id: 'g1' },
+                      { kind: 'factor', id: 'f1' },
+                    ],
+                  },
+                },
+              },
+            },
+          },
+        },
+      }
+
+      vi.mocked(usePayloadTraceStore).mockImplementation((selector) =>
+        selector({ payloads: [ceePayload] })
+      )
+
+      const { result } = renderHook(() => useDebugData())
+
+      expect(result.current.pipeline.node_extraction?.raw).toEqual({
+        decision: 1,
+        option: 2,
+        goal: 1,
+      })
+      expect(result.current.pipeline.node_extraction?.validated).toEqual({
+        decision: 1,
+        option: 2,
+        goal: 1,
+        factor: 1,
+      })
+    })
+
+    it('shows Normalised as undefined when stage_2_normalise absent and no enrich snapshot', () => {
+      const ceePayload = {
+        id: 'req-cee-no-norm',
+        service: 'CEE',
+        endpoint: '/assist/v1/draft-graph',
+        status: 200,
+        completed: true,
+        duration: 5000,
+        request: { body: {} },
+        response: {
+          body: {
+            trace: {
+              pipeline: {
+                stage_snapshots: {
+                  stage_1_parse: { nodes: [{ kind: 'decision', id: 'd1' }] },
+                  // stage_2_normalise absent, stage_3_enrich absent
+                  stage_4_repair: { nodes: [{ kind: 'decision', id: 'd1' }] },
+                },
+              },
+            },
+          },
+        },
+      }
+
+      vi.mocked(usePayloadTraceStore).mockImplementation((selector) =>
+        selector({ payloads: [ceePayload] })
+      )
+
+      const { result } = renderHook(() => useDebugData())
+
+      expect(result.current.pipeline.node_extraction?.raw).toBeDefined()
+      expect(result.current.pipeline.node_extraction?.normalised).toBeUndefined()
+      expect(result.current.pipeline.node_extraction?.validated).toBeDefined()
+    })
+  })
+
+  // ===========================================================================
+  // M2 review: reading from m1_review + review_meta on PLoT response
+  // ===========================================================================
+
+  describe('M2 review from m1_review + review_meta', () => {
+    it('extracts duration from review_meta.latency_ms', () => {
+      const plotPayload = {
+        id: 'req-m2-meta',
+        service: 'PLoT',
+        endpoint: '/v2/run',
+        status: 200,
+        completed: true,
+        duration: 20000,
+        request: { body: {} },
+        response: {
+          body: {
+            analysis_status: 'computed',
+            review_status: 'complete',
+            review_meta: { model: 'gpt-4.1-2025-04-14', latency_ms: 17380 },
+            m1_review: {
+              narrative_summary: 'A detailed review of the decision.',
+              bias_findings: [{ type: 'anchoring' }],
+              key_assumptions: ['A1', 'A2', 'A3', 'A4', 'A5'],
+            },
+            review_warnings: ['READINESS_CONTRADICTION', 'UNGROUNDED_NUMBER'],
+          },
+        },
+      }
+
+      vi.mocked(usePayloadTraceStore).mockImplementation((selector) =>
+        selector({ payloads: [plotPayload] })
+      )
+
+      const { result } = renderHook(() => useDebugData())
+
+      expect(result.current.m2_review).not.toBeNull()
+      expect(result.current.m2_review?.duration_ms).toBe(17380)
+    })
+
+    it('extracts bias findings count from m1_review.bias_findings.length', () => {
+      const plotPayload = {
+        id: 'req-m2-bias',
+        service: 'PLoT',
+        endpoint: '/v2/run',
+        status: 200,
+        completed: true,
+        duration: 20000,
+        request: { body: {} },
+        response: {
+          body: {
+            analysis_status: 'computed',
+            review_status: 'complete',
+            review_meta: { model: 'gpt-4.1-2025-04-14', latency_ms: 17380 },
+            m1_review: {
+              narrative_summary: 'Summary text',
+              bias_findings: [{ type: 'anchoring' }],
+              key_assumptions: ['A1', 'A2', 'A3'],
+            },
+            review_warnings: [],
+          },
+        },
+      }
+
+      vi.mocked(usePayloadTraceStore).mockImplementation((selector) =>
+        selector({ payloads: [plotPayload] })
+      )
+
+      const { result } = renderHook(() => useDebugData())
+
+      expect(result.current.m2_review?.bias_insights_count).toBe(1)
+    })
+
+    it('extracts review warnings from review_warnings array', () => {
+      const plotPayload = {
+        id: 'req-m2-warnings',
+        service: 'PLoT',
+        endpoint: '/v2/run',
+        status: 200,
+        completed: true,
+        duration: 20000,
+        request: { body: {} },
+        response: {
+          body: {
+            analysis_status: 'computed',
+            review_status: 'complete',
+            review_meta: { model: 'gpt-4.1', latency_ms: 1000 },
+            m1_review: {
+              narrative_summary: 'Review text',
+              bias_findings: [],
+              key_assumptions: [],
+            },
+            review_warnings: ['READINESS_CONTRADICTION', 'UNGROUNDED_NUMBER'],
+          },
+        },
+      }
+
+      vi.mocked(usePayloadTraceStore).mockImplementation((selector) =>
+        selector({ payloads: [plotPayload] })
+      )
+
+      const { result } = renderHook(() => useDebugData())
+
+      expect(result.current.m2_review?.review_warnings).toEqual([
+        'READINESS_CONTRADICTION',
+        'UNGROUNDED_NUMBER',
+      ])
+    })
+
+    it('extracts M2 model from review_meta.model', () => {
+      const plotPayload = {
+        id: 'req-m2-model',
+        service: 'PLoT',
+        endpoint: '/v2/run',
+        status: 200,
+        completed: true,
+        duration: 20000,
+        request: { body: {} },
+        response: {
+          body: {
+            analysis_status: 'computed',
+            review_status: 'complete',
+            review_meta: { model: 'gpt-4.1-2025-04-14', latency_ms: 17380 },
+            m1_review: {
+              narrative_summary: 'Review text',
+              bias_findings: [],
+              key_assumptions: ['A1'],
+            },
+            review_warnings: [],
+          },
+        },
+      }
+
+      vi.mocked(usePayloadTraceStore).mockImplementation((selector) =>
+        selector({ payloads: [plotPayload] })
+      )
+
+      const { result } = renderHook(() => useDebugData())
+
+      // M2 model
+      expect(result.current.m2_review?.model).toBe('gpt-4.1-2025-04-14')
+      // Key assumptions count
+      expect(result.current.m2_review?.key_assumptions_count).toBe(1)
+      // Narrative summary
+      expect(result.current.m2_review?.narrative_summary).toBe('Review text')
+    })
+
+    it('populates LLM Calls tab M2 row with review_meta duration', () => {
+      const plotPayload = {
+        id: 'req-m2-llm',
+        service: 'PLoT',
+        endpoint: '/v2/run',
+        status: 200,
+        completed: true,
+        duration: 20000,
+        request: { body: {} },
+        response: {
+          body: {
+            analysis_status: 'computed',
+            review_status: 'complete',
+            review_meta: { model: 'gpt-4.1-2025-04-14', latency_ms: 17380 },
+            m1_review: {
+              narrative_summary: 'Text',
+              bias_findings: [],
+              key_assumptions: [],
+            },
+          },
+        },
+      }
+
+      vi.mocked(usePayloadTraceStore).mockImplementation((selector) =>
+        selector({ payloads: [plotPayload] })
+      )
+
+      const { result } = renderHook(() => useDebugData())
+
+      // Duration from review_meta.latency_ms is wired through to m2_review.duration_ms
+      expect(result.current.m2_review?.duration_ms).toBe(17380)
+      // Model from review_meta.model is wired through
+      expect(result.current.m2_review?.model).toBe('gpt-4.1-2025-04-14')
+    })
+
+    it('extracts CEE draft tokens from trace.pipeline.llm_metadata', () => {
+      const ceePayload = {
+        id: 'req-cee-llm',
+        service: 'CEE',
+        endpoint: '/assist/v1/draft-graph',
+        status: 200,
+        completed: true,
+        duration: 43307,
+        request: { body: {} },
+        response: {
+          body: {
+            trace: {
+              pipeline: {
+                llm_metadata: {
+                  model: 'gpt-4o',
+                  duration_ms: 43307,
+                  token_usage: {
+                    prompt_tokens: 5000,
+                    completion_tokens: 2000,
+                    total_tokens: 7000,
+                  },
+                },
+              },
+            },
+          },
+        },
+      }
+
+      vi.mocked(usePayloadTraceStore).mockImplementation((selector) =>
+        selector({ payloads: [ceePayload] })
+      )
+
+      const { result } = renderHook(() => useDebugData())
+
+      // llm_metadata is available on pipeline
+      expect(result.current.pipeline.llm_metadata).toBeDefined()
+      expect(result.current.pipeline.llm_metadata?.model).toBe('gpt-4o')
+      expect(result.current.pipeline.llm_metadata?.token_usage?.total_tokens).toBe(7000)
+      expect(result.current.pipeline.llm_metadata?.duration_ms).toBe(43307)
+    })
+
+    it('gracefully handles missing review_meta (no crashes)', () => {
+      const plotPayload = {
+        id: 'req-m2-no-meta',
+        service: 'PLoT',
+        endpoint: '/v2/run',
+        status: 200,
+        completed: true,
+        duration: 5000,
+        request: { body: {} },
+        response: {
+          body: {
+            analysis_status: 'computed',
+            review_status: 'complete',
+            // No review_meta, no m1_review
+          },
+        },
+      }
+
+      vi.mocked(usePayloadTraceStore).mockImplementation((selector) =>
+        selector({ payloads: [plotPayload] })
+      )
+
+      const { result } = renderHook(() => useDebugData())
+
+      // Should still return success with null/0 values (no crash)
+      expect(result.current.m2_review).not.toBeNull()
+      expect(result.current.m2_review?.status).toBe('success')
+      expect(result.current.m2_review?.duration_ms).toBeNull()
+      expect(result.current.m2_review?.model).toBeNull()
+      expect(result.current.m2_review?.bias_insights_count).toBe(0)
+      expect(result.current.m2_review?.key_assumptions_count).toBe(0)
+      expect(result.current.m2_review?.review_warnings).toEqual([])
+    })
   })
 })

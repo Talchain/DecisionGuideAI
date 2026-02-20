@@ -81,7 +81,7 @@ describe('usePreAnalysisData', () => {
   }
 
   describe('Improvement Categorisation', () => {
-    it('adds missing_baseline to Strengthen (optional) when no baseline and ≥2 options', () => {
+    it('baseline nudge appears only in Decision quality, not duplicated in Strengthen', () => {
       mockUseCanvasStore.mockImplementation(createMockStore({
         nodes: [
           { id: 'opt1', type: 'option', position: { x: 0, y: 0 }, data: { label: 'Option 1' } },
@@ -91,17 +91,17 @@ describe('usePreAnalysisData', () => {
 
       const { result } = renderHook(() => usePreAnalysisData())
 
-      // missing_baseline is now optional (in strengthen category), not a blocker
-      expect(result.current.improvementsByCategory.strengthen).toContainEqual(
-        expect.objectContaining({
-          key: 'missing_baseline',
-          category: 'strengthen',
-          bias: 'anchoring',
-        })
+      // missing_baseline is NOT in strengthen (surfaced only in decisionQuality)
+      expect(result.current.improvementsByCategory.strengthen).not.toContainEqual(
+        expect.objectContaining({ key: 'missing_baseline' })
       )
-      // Should NOT be in fix category
+      // Nor in fix
       expect(result.current.improvementsByCategory.fix).not.toContainEqual(
         expect.objectContaining({ key: 'missing_baseline' })
+      )
+      // But present in qualityChecks
+      expect(result.current.qualityChecks).toContainEqual(
+        expect.objectContaining({ id: 'no_baseline' })
       )
     })
 
@@ -655,6 +655,84 @@ describe('usePreAnalysisData', () => {
         expect.objectContaining({
           key: 'verify_factor1',
           detail: 'high',
+        })
+      )
+    })
+
+    it('formats factor with empty string unit and cap=1 as qualitative level', () => {
+      // CEE sometimes sends cap: 1, unit: "" — treat as qualitative
+      mockUseCanvasStore.mockImplementation(createMockStore({
+        nodes: [
+          {
+            id: 'factor1',
+            type: 'factor',
+            position: { x: 0, y: 0 },
+            data: {
+              label: 'Integration Complexity',
+              observed_state: { source: 'ai', value: 0.5, cap: 1, unit: '' },
+            },
+          },
+        ],
+      }))
+
+      const { result } = renderHook(() => usePreAnalysisData())
+
+      expect(result.current.improvementsByCategory.verify).toContainEqual(
+        expect.objectContaining({
+          key: 'verify_factor1',
+          detail: 'moderate',
+        })
+      )
+    })
+
+    it('formats factor with cap=1, unit="" and raw_value as qualitative level', () => {
+      // When raw_value is present but unit is empty and cap is 1, still qualitative
+      mockUseCanvasStore.mockImplementation(createMockStore({
+        nodes: [
+          {
+            id: 'factor1',
+            type: 'factor',
+            position: { x: 0, y: 0 },
+            data: {
+              label: 'Product-Market Fit',
+              observed_state: { source: 'ai', value: 0.8, raw_value: 0.8, cap: 1, unit: '' },
+            },
+          },
+        ],
+      }))
+
+      const { result } = renderHook(() => usePreAnalysisData())
+
+      expect(result.current.improvementsByCategory.verify).toContainEqual(
+        expect.objectContaining({
+          key: 'verify_factor1',
+          detail: 'high',
+        })
+      )
+    })
+
+    it('formats factor with cap=1, unit="" and out-of-range value as numeric', () => {
+      // Value > 1 with cap=1, unit="" — range guard prevents qualitative mapping
+      mockUseCanvasStore.mockImplementation(createMockStore({
+        nodes: [
+          {
+            id: 'factor1',
+            type: 'factor',
+            position: { x: 0, y: 0 },
+            data: {
+              label: 'Large Factor',
+              observed_state: { source: 'ai', value: 5000, cap: 1, unit: '' },
+            },
+          },
+        ],
+      }))
+
+      const { result } = renderHook(() => usePreAnalysisData())
+
+      expect(result.current.improvementsByCategory.verify).toContainEqual(
+        expect.objectContaining({
+          key: 'verify_factor1',
+          detail: '5000',
         })
       )
     })

@@ -458,8 +458,9 @@ function toQualitativeLevel(v: number): string {
 }
 
 function formatObservedStateDetail(os: ReturnType<typeof getObservedState>): string {
-  // Qualitative factors: no unit AND (no cap, or cap is 1 which is just the normalised ceiling)
-  const isQualitative = os.unit == null && (os.cap == null || os.cap === 1)
+  // Qualitative factors: no meaningful unit AND (no cap, or cap=1 which is just the normalised ceiling)
+  // Empty string unit is treated the same as absent — CEE sometimes sends unit: ""
+  const isQualitative = !os.unit && (os.cap == null || os.cap === 1)
 
   if (os.raw_value != null) {
     const unit = os.unit
@@ -761,17 +762,8 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
     // === STRENGTHEN CATEGORY ===
     // Coaching question format: question + why line + CTA actions
 
-    // Missing baseline - optional recommendation (not a blocker)
-    if (!hasBaseline && optionNodes.length >= 2) {
-      result.strengthen.push({
-        key: 'missing_baseline',
-        category: 'strengthen',
-        label: 'Add a baseline option',
-        detail: 'Compare against doing nothing to see if any change is worth it',
-        bias: 'anchoring',
-        action: { label: 'Add', kind: 'add_baseline' },
-      })
-    }
+    // Missing baseline — surfaced only in Decision quality (no_baseline check).
+    // Not duplicated here to avoid showing the same nudge in two locations.
 
     // Only 2 options - coaching question
     if (optionNodes.length === 2) {

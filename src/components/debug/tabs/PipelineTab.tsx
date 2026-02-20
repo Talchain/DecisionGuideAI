@@ -374,11 +374,14 @@ function ArtefactChip({
   counts,
   status,
   previousCounts,
+  emptyLabel,
 }: {
   label: string
   counts?: Record<string, number>
   status: 'ok' | 'warn' | 'error' | 'neutral'
   previousCounts?: Record<string, number>
+  /** Label shown when counts is undefined. Defaults to formatNodeCounts (which returns "No data"). */
+  emptyLabel?: string
 }) {
   const colors = {
     ok: { bg: '#dcfce7', border: '#86efac', text: '#166534' },
@@ -407,7 +410,7 @@ function ArtefactChip({
     >
       <span style={{ fontSize: 11, fontWeight: 600, color: c.text }}>{label}</span>
       <span style={{ fontSize: 10, fontFamily: 'monospace', color: '#64748b' }}>
-        {formatNodeCounts(counts)}
+        {counts ? formatNodeCounts(counts) : (emptyLabel ?? 'No data')}
         {delta && (
           <span style={{ color: deltaColor, fontWeight: 600, marginLeft: 4 }}>
             ({delta})
@@ -1199,6 +1202,7 @@ export function PipelineTab({ data }: PipelineTabProps) {
             counts={nodeExtraction?.normalised}
             status={normalisedStatus}
             previousCounts={nodeExtraction?.raw}
+            emptyLabel="Not captured"
           />
           <Arrow />
           <ArtefactChip
@@ -1966,13 +1970,68 @@ export function PipelineTab({ data }: PipelineTabProps) {
 
         {data.m2_review?.status === 'success' && (
           <>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
-              <MetricCard label="Duration" value={data.m2_review.duration_ms ? `${data.m2_review.duration_ms}ms` : '—'} />
-              <MetricCard label="Bullets" value={data.m2_review.bullets_count} />
-              <MetricCard label="Bias Insights" value={data.m2_review.bias_insights_count} />
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
+              <MetricCard label="Duration" value={data.m2_review.duration_ms ? `${(data.m2_review.duration_ms / 1000).toFixed(1)}s` : '—'} />
+              <MetricCard label="Bias findings" value={data.m2_review.bias_insights_count} />
+              <MetricCard label="Assumptions" value={data.m2_review.key_assumptions_count} />
+              <MetricCard label="Model" value={data.m2_review.model ?? '—'} />
             </div>
 
-            {data.m2_review.headline && (
+            {(data.m2_review.review_warnings?.length ?? 0) > 0 && (
+              <div
+                style={{
+                  marginTop: 12,
+                  padding: 8,
+                  background: '#fef9c3',
+                  border: '1px solid #fde047',
+                  borderRadius: 4,
+                  fontSize: 11,
+                  display: 'flex',
+                  flexWrap: 'wrap',
+                  gap: 4,
+                }}
+              >
+                <strong style={{ color: '#854d0e' }}>Warnings:</strong>
+                {data.m2_review.review_warnings.map((w, i) => (
+                  <span
+                    key={i}
+                    style={{
+                      padding: '1px 6px',
+                      background: '#fef3c7',
+                      border: '1px solid #fde68a',
+                      borderRadius: 3,
+                      fontFamily: 'monospace',
+                      fontSize: 10,
+                      color: '#92400e',
+                    }}
+                  >
+                    {w}
+                  </span>
+                ))}
+              </div>
+            )}
+
+            {data.m2_review.narrative_summary && (
+              <div
+                style={{
+                  marginTop: 12,
+                  padding: 8,
+                  background: '#f0f9ff',
+                  border: '1px solid #bae6fd',
+                  borderRadius: 4,
+                  fontSize: 12,
+                  whiteSpace: 'pre-wrap',
+                }}
+              >
+                <strong>Narrative summary:</strong>{' '}
+                {data.m2_review.narrative_summary.length > 200
+                  ? `${data.m2_review.narrative_summary.slice(0, 200)}…`
+                  : data.m2_review.narrative_summary}
+              </div>
+            )}
+
+            {/* Legacy headline display for older response shapes */}
+            {!data.m2_review.narrative_summary && data.m2_review.headline && (
               <div
                 style={{
                   marginTop: 12,
@@ -1989,7 +2048,7 @@ export function PipelineTab({ data }: PipelineTabProps) {
 
             <details style={{ marginTop: 12 }}>
               <summary style={{ cursor: 'pointer', fontSize: 11, color: '#64748b' }}>
-                View Raw M2 Response
+                View raw M2 response
               </summary>
               <div style={{ marginTop: 8 }}>
                 <JsonViewer data={data.m2_review.raw} maxHeight={300} />

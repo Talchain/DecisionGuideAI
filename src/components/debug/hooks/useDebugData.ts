@@ -690,10 +690,18 @@ export interface M2ReviewData {
   duration_ms: number | null
   /** Generated headline */
   headline: string | null
+  /** Narrative summary text from m1_review.narrative_summary */
+  narrative_summary: string | null
   /** Number of bullets generated */
   bullets_count: number
-  /** Number of bias insights */
+  /** Number of bias insights (m1_review.bias_findings) */
   bias_insights_count: number
+  /** Number of key assumptions (m1_review.key_assumptions) */
+  key_assumptions_count: number
+  /** Review warnings from PLoT response (e.g. READINESS_CONTRADICTION) */
+  review_warnings: string[]
+  /** Model used for review (from review_meta.model) */
+  model: string | null
   /** Error message if failed */
   error: string | null
   /** Raw ReviewResponse for inspection */
@@ -1045,15 +1053,91 @@ function extractLlmMetadata(pipeline: unknown, ceeResponse?: unknown): LlmMetada
 /**
  * Extract node extraction data from pipeline
  */
-function extractNodeExtraction(pipeline: unknown): NodeExtractionData | undefined {
-  if (!pipeline || typeof pipeline !== 'object') return undefined
+function extractNodeExtraction(pipeline: unknown, ceeResponse?: unknown): NodeExtractionData | undefined {
+  if (!pipeline || typeof pipeline !== 'object') {
+    // Fall through to ceeResponse check below
+    if (!ceeResponse) return undefined
+  }
 
-  const p = pipeline as Record<string, unknown>
+  const p = (pipeline && typeof pipeline === 'object') ? pipeline as Record<string, unknown> : {} as Record<string, unknown>
   if (p.node_extraction && typeof p.node_extraction === 'object') {
     return p.node_extraction as NodeExtractionData
   }
 
+  // Fallback: derive from CEE stage_snapshots
+  // stage_snapshots lives at ceeResponse.trace.pipeline.stage_snapshots
+  // or directly on the pipeline trace object
+  const snapshots = p.stage_snapshots as Record<string, unknown> | undefined
+    ?? (ceeResponse && typeof ceeResponse === 'object'
+      ? ((ceeResponse as Record<string, unknown>).trace as Record<string, unknown>)
+          ?.pipeline?.stage_snapshots as Record<string, unknown> | undefined
+      : undefined)
+  if (snapshots && typeof snapshots === 'object') {
+    const result: NodeExtractionData = {}
+
+    // stage_1_parse → "Raw"
+    const rawSnap = snapshots.stage_1_parse as Record<string, unknown> | undefined
+    if (rawSnap) {
+      result.raw = countNodesInSnapshot(rawSnap)
+    }
+
+    // stage_2_normalise → "Normalised" (may not exist per brief)
+    // Fallback: stage_3_enrich as closest available proxy
+    const normSnap = snapshots.stage_2_normalise as Record<string, unknown> | undefined
+      ?? snapshots.stage_3_enrich as Record<string, unknown> | undefined
+    if (normSnap) {
+      result.normalised = countNodesInSnapshot(normSnap)
+    }
+
+    // stage_4_repair or stage_5_package → "Validated"
+    const validSnap = snapshots.stage_5_package as Record<string, unknown> | undefined
+      ?? snapshots.stage_4_repair as Record<string, unknown> | undefined
+    if (validSnap) {
+      result.validated = countNodesInSnapshot(validSnap)
+    }
+
+    // Only return if we got at least one stage
+    if (result.raw || result.normalised || result.validated) {
+      return result
+    }
+  }
+
   return undefined
+}
+
+/**
+ * Count nodes by kind in a stage snapshot object.
+ * Snapshots contain { nodes: [...], edges: [...] } or node count summary fields.
+ */
+function countNodesInSnapshot(snapshot: Record<string, unknown>): Record<string, number> {
+  // If snapshot has direct count fields, use them
+  if (typeof snapshot.decision === 'number' || typeof snapshot.option === 'number') {
+    const counts: Record<string, number> = {}
+    for (const kind of ['decision', 'option', 'goal', 'factor', 'outcome']) {
+      if (typeof snapshot[kind] === 'number') counts[kind] = snapshot[kind] as number
+    }
+    return counts
+  }
+
+  // If snapshot has a nodes array, count by kind
+  const nodes = snapshot.nodes as Array<Record<string, unknown>> | undefined
+  if (Array.isArray(nodes)) {
+    const counts: Record<string, number> = {}
+    for (const node of nodes) {
+      const kind = (node.kind ?? node.type ?? node.node_type) as string | undefined
+      if (kind) {
+        counts[kind] = (counts[kind] ?? 0) + 1
+      }
+    }
+    return counts
+  }
+
+  // If snapshot has node_count / edge_count summary
+  if (typeof snapshot.node_count === 'number') {
+    return { total: snapshot.node_count as number }
+  }
+
+  return {}
 }
 
 /**
@@ -2619,16 +2703,29 @@ function extractM2Review(
     const reviewStatus = plot.review_status as string | undefined
     const reviewSkipReason = plot.review_skip_reason as string | undefined
 
+    // Extract PLoT-level review fields (available regardless of success/fail)
+    const reviewMeta = plot.review_meta as Record<string, unknown> | undefined
+    const m1Review = plot.m1_review as Record<string, unknown> | undefined
+    const reviewWarnings = Array.isArray(plot.review_warnings)
+      ? (plot.review_warnings as string[])
+      : []
+    const reviewModel = typeof reviewMeta?.model === 'string' ? reviewMeta.model : null
+    const reviewLatencyMs = typeof reviewMeta?.latency_ms === 'number' ? reviewMeta.latency_ms : null
+
+    // Extract m1_review fields
+    const narrativeSummary = typeof m1Review?.narrative_summary === 'string'
+      ? m1Review.narrative_summary : null
+    const biasFindings = Array.isArray(m1Review?.bias_findings) ? m1Review.bias_findings : []
+    const keyAssumptions = Array.isArray(m1Review?.key_assumptions) ? m1Review.key_assumptions : []
+
     // If review_status indicates skipped or failed, extract error from CEE downstream
     if (reviewStatus === 'skipped' || reviewStatus === 'failed' || reviewStatus === 'error') {
-      // Try to find the CEE decision-review call error
       const ceeReviewCall = ceeDownstream?.find(call =>
         call.endpoint.includes('decision-review') || call.endpoint.includes('review')
       )
 
       let errorMessage = reviewSkipReason ?? 'Unknown error'
       if (ceeReviewCall && !ceeReviewCall.success) {
-        // Extract error from CEE downstream response
         const errorBody = ceeReviewCall.response as Record<string, unknown> | null
         if (errorBody) {
           errorMessage = (errorBody.error as string) ??
@@ -2644,10 +2741,14 @@ function extractM2Review(
       return {
         status: reviewStatus === 'skipped' ? 'skipped' : 'failed',
         skip_reason: reviewSkipReason ?? null,
-        duration_ms: ceeReviewCall?.latency_ms ?? null,
+        duration_ms: reviewLatencyMs ?? ceeReviewCall?.latency_ms ?? null,
         headline: null,
+        narrative_summary: null,
         bullets_count: 0,
         bias_insights_count: 0,
+        key_assumptions_count: 0,
+        review_warnings: reviewWarnings,
+        model: reviewModel,
         error: errorMessage,
         raw: ceeReviewCall?.response ?? null,
       }
@@ -2658,11 +2759,29 @@ function extractM2Review(
     const isReviewSuccess = reviewStatus === 'complete' || reviewStatus === 'success'
       || reviewStatus === 'completed' || reviewStatus === 'passed'
     if (isReviewSuccess) {
+      // Primary data source: m1_review + review_meta on PLoT response body
+      if (m1Review) {
+        return {
+          status: 'success',
+          skip_reason: null,
+          duration_ms: reviewLatencyMs,
+          headline: narrativeSummary,
+          narrative_summary: narrativeSummary,
+          bullets_count: 0, // narrative_summary is a string, not bullet array
+          bias_insights_count: biasFindings.length,
+          key_assumptions_count: keyAssumptions.length,
+          review_warnings: reviewWarnings,
+          model: reviewModel,
+          error: null,
+          raw: { m1_review: m1Review, review_meta: reviewMeta, review_warnings: reviewWarnings },
+        }
+      }
+
+      // Fallback: Try CEE downstream call data (older response shape)
       const ceeReviewCall = ceeDownstream?.find(call =>
         call.endpoint.includes('decision-review') || call.endpoint.includes('review')
       )
       if (ceeReviewCall?.success && ceeReviewCall.response) {
-        // Extract review data from CEE downstream response
         const body = ceeReviewCall.response as Record<string, unknown>
         const headline = typeof body.headline === 'string' ? body.headline : null
         const bullets = Array.isArray(body.bullets) ? body.bullets : []
@@ -2671,26 +2790,33 @@ function extractM2Review(
         return {
           status: 'success',
           skip_reason: null,
-          duration_ms: ceeReviewCall.latency_ms ?? null,
+          duration_ms: reviewLatencyMs ?? ceeReviewCall.latency_ms ?? null,
           headline,
+          narrative_summary: null,
           bullets_count: bullets.length,
           bias_insights_count: biasInsights.length,
+          key_assumptions_count: 0,
+          review_warnings: reviewWarnings,
+          model: reviewModel,
           error: null,
           raw: body,
         }
       }
 
-      // review_status indicates success but no downstream call data found.
-      // Return a minimal success entry so the UI shows the review ran.
+      // review_status indicates success but no content sources found.
       return {
         status: 'success',
         skip_reason: null,
-        duration_ms: null,
+        duration_ms: reviewLatencyMs,
         headline: null,
+        narrative_summary: null,
         bullets_count: 0,
         bias_insights_count: 0,
+        key_assumptions_count: 0,
+        review_warnings: reviewWarnings,
+        model: reviewModel,
         error: null,
-        raw: null,
+        raw: reviewMeta ? { review_meta: reviewMeta } : null,
       }
     }
   }
@@ -2704,27 +2830,28 @@ function extractM2Review(
 
     if (ceeReviewCall) {
       if (ceeReviewCall.success && ceeReviewCall.response) {
-        // Successful review call
         const body = ceeReviewCall.response as Record<string, unknown>
         const headline = typeof body.headline === 'string' ? body.headline : null
         const bullets = Array.isArray(body.bullets) ? body.bullets : []
         const biasInsights = Array.isArray(body.bias_insights) ? body.bias_insights : []
 
-        // Only return success if we have valid review data (headline)
         if (headline) {
           return {
             status: 'success',
             skip_reason: null,
             duration_ms: ceeReviewCall.latency_ms ?? null,
             headline,
+            narrative_summary: null,
             bullets_count: bullets.length,
             bias_insights_count: biasInsights.length,
+            key_assumptions_count: 0,
+            review_warnings: [],
+            model: null,
             error: null,
             raw: body,
           }
         }
       } else if (!ceeReviewCall.success) {
-        // Failed review call
         const errorBody = ceeReviewCall.response as Record<string, unknown> | null
         const errorMessage = errorBody
           ? ((errorBody.error as string) ??
@@ -2739,8 +2866,12 @@ function extractM2Review(
           skip_reason: null,
           duration_ms: ceeReviewCall.latency_ms ?? null,
           headline: null,
+          narrative_summary: null,
           bullets_count: 0,
           bias_insights_count: 0,
+          key_assumptions_count: 0,
+          review_warnings: [],
+          model: null,
           error: errorMessage,
           raw: ceeReviewCall.response ?? null,
         }
@@ -2756,95 +2887,42 @@ function extractM2Review(
  * Extract M2 Review data from a direct M2 payload trace.
  */
 function extractM2ReviewFromPayload(m2Payload: TracedPayload): M2ReviewData | null {
-  // No M2 payload found - not called yet
-  if (!m2Payload) {
-    return null
-  }
+  if (!m2Payload) return null
 
-  // Request in progress
+  const defaults = {
+    narrative_summary: null,
+    key_assumptions_count: 0,
+    review_warnings: [] as string[],
+    model: null,
+  } as const
+
   if (!m2Payload.completed) {
-    return {
-      status: 'pending',
-      skip_reason: null,
-      duration_ms: null,
-      headline: null,
-      bullets_count: 0,
-      bias_insights_count: 0,
-      error: null,
-      raw: null,
-    }
+    return { status: 'pending', skip_reason: null, duration_ms: null, headline: null, bullets_count: 0, bias_insights_count: 0, error: null, raw: null, ...defaults }
   }
 
-  // Request failed
   if (m2Payload.error || (m2Payload.status && m2Payload.status >= 400)) {
-    return {
-      status: 'failed',
-      skip_reason: null,
-      duration_ms: m2Payload.duration ?? null,
-      headline: null,
-      bullets_count: 0,
-      bias_insights_count: 0,
-      error: m2Payload.error ?? `HTTP ${m2Payload.status}`,
-      raw: m2Payload.response?.body ?? null,
-    }
+    return { status: 'failed', skip_reason: null, duration_ms: m2Payload.duration ?? null, headline: null, bullets_count: 0, bias_insights_count: 0, error: m2Payload.error ?? `HTTP ${m2Payload.status}`, raw: m2Payload.response?.body ?? null, ...defaults }
   }
 
-  // Extract successful response data
   const body = m2Payload.response?.body as Record<string, unknown> | undefined
   if (!body) {
-    return {
-      status: 'failed',
-      skip_reason: null,
-      duration_ms: m2Payload.duration ?? null,
-      headline: null,
-      bullets_count: 0,
-      bias_insights_count: 0,
-      error: 'Empty response body',
-      raw: null,
-    }
+    return { status: 'failed', skip_reason: null, duration_ms: m2Payload.duration ?? null, headline: null, bullets_count: 0, bias_insights_count: 0, error: 'Empty response body', raw: null, ...defaults }
   }
 
-  // Validate response structure (aligned with validateReviewResponse in coachingReview.ts)
   const headline = typeof body.headline === 'string' ? body.headline : null
   const bullets = Array.isArray(body.bullets) ? body.bullets : []
   const bias_insights = Array.isArray(body.bias_insights) ? body.bias_insights : []
 
-  // Check for validation failures that would cause UI to reject the response
   const validationErrors: string[] = []
-  if (!headline || headline.length === 0 || headline.length > 100) {
-    validationErrors.push('Invalid headline')
-  }
-  if (bullets.length !== 3) {
-    validationErrors.push(`Expected 3 bullets, got ${bullets.length}`)
-  }
-  if (!Array.isArray(body.coaching_paragraph)) {
-    validationErrors.push('Missing coaching_paragraph')
-  }
+  if (!headline || headline.length === 0 || headline.length > 100) validationErrors.push('Invalid headline')
+  if (bullets.length !== 3) validationErrors.push(`Expected 3 bullets, got ${bullets.length}`)
+  if (!Array.isArray(body.coaching_paragraph)) validationErrors.push('Missing coaching_paragraph')
 
-  // If validation would fail, mark as failed with validation error
   if (validationErrors.length > 0) {
-    return {
-      status: 'failed',
-      skip_reason: null,
-      duration_ms: m2Payload.duration ?? null,
-      headline,
-      bullets_count: bullets.length,
-      bias_insights_count: bias_insights.length,
-      error: `Validation failed: ${validationErrors.join(', ')}`,
-      raw: body,
-    }
+    return { status: 'failed', skip_reason: null, duration_ms: m2Payload.duration ?? null, headline, bullets_count: bullets.length, bias_insights_count: bias_insights.length, error: `Validation failed: ${validationErrors.join(', ')}`, raw: body, ...defaults }
   }
 
-  return {
-    status: 'success',
-    skip_reason: null,
-    duration_ms: m2Payload.duration ?? null,
-    headline,
-    bullets_count: bullets.length,
-    bias_insights_count: bias_insights.length,
-    error: null,
-    raw: body,
-  }
+  return { status: 'success', skip_reason: null, duration_ms: m2Payload.duration ?? null, headline, bullets_count: bullets.length, bias_insights_count: bias_insights.length, error: null, raw: body, ...defaults }
 }
 
 /**
@@ -3186,7 +3264,7 @@ export function useDebugData(): DebugData {
         strp: ((pipelineTrace as Record<string, unknown>)?.strp as PipelineData['strp']) ?? undefined,
         llm_metadata: extractLlmMetadata(pipelineTrace, payloadBundle.cee_response),
         llm_raw: extractLlmRaw(payloadBundle.cee_response),
-        node_extraction: extractNodeExtraction(pipelineTrace)
+        node_extraction: extractNodeExtraction(pipelineTrace, payloadBundle.cee_response)
           // Fallback: derive "validated" stage from canvas node counts when
           // the CEE pipeline trace doesn't include node_extraction data.
           ?? (Object.values(nodeCounts).some(v => v > 0)

@@ -626,9 +626,9 @@ describe('PreAnalysisPanel', () => {
       expect(screen.getByText('✓')).toBeInTheDocument()
     })
 
-    it('shows Ready and enables button when only missing baseline (optional improvement)', () => {
-      // Scenario: 2 options, no baseline, no other blockers
-      // Missing baseline is now optional, should NOT block analysis
+    it('shows Ready and enables button when only optional improvements present', () => {
+      // Scenario: optional strengthen item, no blockers
+      // Optional improvements should NOT block analysis
       mockUsePreAnalysisData.mockReturnValue(createMockData({
         isReady: true,
         hasBlockers: false,
@@ -638,10 +638,10 @@ describe('PreAnalysisPanel', () => {
           reviewAssumptions: { items: [], count: 0 },
           optional: {
             items: [{
-              key: 'missing_baseline',
+              key: 'only_2_options',
               category: 'strengthen',
-              label: 'Add a baseline option',
-              detail: 'Compare against doing nothing to see if any change is worth it',
+              label: 'Consider adding a third option',
+              detail: 'More options can reveal better alternatives',
             }],
             count: 1,
           },
@@ -651,10 +651,10 @@ describe('PreAnalysisPanel', () => {
           verify: [],
           add_evidence: [],
           strengthen: [{
-            key: 'missing_baseline',
+            key: 'only_2_options',
             category: 'strengthen',
-            label: 'Add a baseline option',
-            detail: 'Compare against doing nothing to see if any change is worth it',
+            label: 'Consider adding a third option',
+            detail: 'More options can reveal better alternatives',
           }],
         },
       }))

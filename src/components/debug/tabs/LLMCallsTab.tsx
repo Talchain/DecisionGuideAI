@@ -79,20 +79,20 @@ export function LLMCallsTab({ data }: LLMCallsTabProps) {
 
     // M2 Review call (if available)
     if (data.m2_review) {
-      // Try to get model info from cee_operations.decision_review
+      // Model from review_meta.model (populated into m2_review.model), fallback to cee_operations
       const decisionReviewOps = data.cee_operations?.decision_review
       const m2Call: LLMCallRow = {
         id: 'm2-review',
         stage: 'M2 Decision Review',
-        model: decisionReviewOps?.model ?? '—',
+        model: data.m2_review.model ?? decisionReviewOps?.model ?? '—',
         provider: decisionReviewOps?.provider ?? '—',
-        tokens: null, // Token usage not exposed
+        tokens: null,
         duration_ms: data.m2_review.duration_ms,
         status: data.m2_review.status === 'success' ? 'success' :
                 data.m2_review.status === 'failed' ? 'error' :
                 data.m2_review.status === 'skipped' ? 'error' :
                 data.m2_review.status === 'pending' ? 'pending' : 'error',
-        timestamp: null, // Timestamp not exposed
+        timestamp: null,
         error: data.m2_review.error ?? undefined,
         isM2: true,
       }
