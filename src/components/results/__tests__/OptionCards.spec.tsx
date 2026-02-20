@@ -445,7 +445,7 @@ describe('OptionCards', () => {
         />
       )
 
-      expect(screen.getByText('Highest win likelihood across simulated scenarios')).toBeInTheDocument()
+      expect(screen.getByText('Highest win likelihood across all simulations')).toBeInTheDocument()
     })
 
     it('runner-up: matched alternate winner shows overtake description', () => {

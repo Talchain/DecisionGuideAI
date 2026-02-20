@@ -163,9 +163,10 @@ export function ResultsBody({
             decisionState={vm.decisionState}
             hinge={vm.hinge}
             runnerId={
-              // Runner-up: second option by win probability (for hinge-aware descriptions)
+              // Runner-up: second option by rank (consistent with OptionCards sort order)
               [...resultsSectionData.recommendation.allOptions]
-                .sort((a, b) => (b.winProbability ?? 0) - (a.winProbability ?? 0))[1]?.id
+                .filter(o => o.id !== resultsSectionData.recommendation.recommendedOption?.id)
+                .sort((a, b) => (a.rank ?? 999) - (b.rank ?? 999))[0]?.id
             }
           />
           {/* Tipping points below option cards (kept until Phase 3.4 ships) */}

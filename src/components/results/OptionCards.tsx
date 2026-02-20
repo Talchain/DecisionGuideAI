@@ -70,7 +70,7 @@ function hingeAwareDescription(
     if (hinge?.reason === 'heuristic' || hinge?.reason === 'voi') {
       return `Highest win likelihood. ${hinge.label} has the widest uncertainty.`
     }
-    return 'Highest win likelihood across simulated scenarios'
+    return 'Highest win likelihood across all simulations'
   }
   if (isRunnerUp) {
     if (hinge?.alternativeWinnerLabel && hinge.alternativeWinnerLabel === option.label) {
@@ -150,10 +150,10 @@ function OptionCard({
     : isWinner ? 'border-success' : 'border-panel-border'
   const rank = option.rank ?? (isWinner ? 1 : undefined)
 
-  // V11: Rank badge — show "58%" in stone when neutralised, "#1 of N" when normal
+  // V11: Rank badge — show "58%" in stone when neutralised (with winProbability), "#1 of N" otherwise
   const rankBadgeContent = neutralised && option.winProbability != null
     ? formatPct(option.winProbability, { fromDecimal: true })
-    : `#${rank} of ${totalOptions}`
+    : rank != null ? `#${rank} of ${totalOptions}` : null
 
   const rankBadgeClass = neutralised
     ? 'bg-factor-light text-factor'
