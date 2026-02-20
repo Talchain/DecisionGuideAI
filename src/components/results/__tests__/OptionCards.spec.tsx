@@ -1,14 +1,17 @@
 /**
- * OptionCards Component Tests (V9.2 Phase 2)
+ * OptionCards Component Tests (V9.2 Phase 2 + V11 Phase C)
  *
  * Tests for the card-based option comparison replacing RangeVisualization.
  * Layout: option name + rank badge + description + "Wins" bar + "Hits target" bar.
+ *
+ * V11 additions: indeterminate neutralisation, conditional hits target,
+ * hinge-aware descriptions.
  */
 
 import { describe, it, expect } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { OptionCards } from '../OptionCards'
-import type { OptionResult } from '../types'
+import type { OptionResult, HingeInfo } from '../types'
 
 const mockOptions: OptionResult[] = [
   {
@@ -263,6 +266,271 @@ describe('OptionCards', () => {
       render(<OptionCards options={mockOptions} winnerId="option-1" />)
 
       expect(screen.queryByTestId('option-constraint-badge')).not.toBeInTheDocument()
+    })
+  })
+
+  // =========================================================================
+  // V11 Phase C: Indeterminate Neutralisation + Hinge-Aware Descriptions
+  // =========================================================================
+
+  describe('V11: Indeterminate neutralisation', () => {
+    it('removes border-success from winner when indeterminate', () => {
+      render(
+        <OptionCards
+          options={mockOptions}
+          winnerId="option-1"
+          decisionState="indeterminate"
+        />
+      )
+
+      const winnerCard = screen.getByTestId('option-card-option-1')
+      expect(winnerCard.className).not.toContain('border-success')
+      expect(winnerCard.className).toContain('border-panel-border')
+    })
+
+    it('shows percentage in rank badge instead of "#1 of N" when indeterminate', () => {
+      render(
+        <OptionCards
+          options={mockOptions}
+          winnerId="option-1"
+          decisionState="indeterminate"
+        />
+      )
+
+      const badge = screen.getByTestId('rank-badge-option-1')
+      expect(badge.textContent).toBe('65%')
+      expect(screen.queryByText('#1 of 2')).not.toBeInTheDocument()
+    })
+
+    it('uses stone badge styling (bg-factor-light text-factor) when indeterminate', () => {
+      render(
+        <OptionCards
+          options={mockOptions}
+          winnerId="option-1"
+          decisionState="indeterminate"
+        />
+      )
+
+      const badge = screen.getByTestId('rank-badge-option-1')
+      expect(badge.className).toContain('bg-factor-light')
+      expect(badge.className).toContain('text-factor')
+      expect(badge.className).not.toContain('text-success')
+    })
+
+    it('uses stone bar colour (bg-factor) for win bars when indeterminate', () => {
+      const { container } = render(
+        <OptionCards
+          options={mockOptions}
+          winnerId="option-1"
+          decisionState="indeterminate"
+        />
+      )
+
+      // All bar fills should be bg-factor, not bg-success
+      const bars = container.querySelectorAll('.bg-factor')
+      expect(bars.length).toBeGreaterThanOrEqual(2) // at least 2 win bars
+      expect(container.querySelectorAll('.bg-success')).toHaveLength(0)
+    })
+
+    it('preserves normal border-success when robust', () => {
+      render(
+        <OptionCards
+          options={mockOptions}
+          winnerId="option-1"
+          decisionState="robust"
+        />
+      )
+
+      const winnerCard = screen.getByTestId('option-card-option-1')
+      expect(winnerCard.className).toContain('border-success')
+    })
+
+    it('preserves normal "#1 of N" badges when sensitive', () => {
+      render(
+        <OptionCards
+          options={mockOptions}
+          winnerId="option-1"
+          decisionState="sensitive"
+        />
+      )
+
+      expect(screen.getByText('#1 of 2')).toBeInTheDocument()
+    })
+  })
+
+  describe('V11: Conditional hits target', () => {
+    it('hides "Hits target" when hasGoalThreshold but no option has goalProbability', () => {
+      const noGoalProb = mockOptions.map(o => ({ ...o, goalProbability: undefined }))
+      render(
+        <OptionCards
+          options={noGoalProb}
+          winnerId="option-1"
+          hasGoalThreshold={true}
+          decisionState="robust"
+        />
+      )
+
+      expect(screen.queryByText('Hits target')).not.toBeInTheDocument()
+    })
+
+    it('shows "Hits target" when hasGoalThreshold and options have goalProbability', () => {
+      render(
+        <OptionCards
+          options={mockOptions}
+          winnerId="option-1"
+          hasGoalThreshold={true}
+          decisionState="robust"
+        />
+      )
+
+      expect(screen.getAllByText('Hits target')).toHaveLength(2)
+    })
+  })
+
+  describe('V11: Hinge-aware descriptions', () => {
+    const fragileHinge: HingeInfo = {
+      label: 'Customer churn',
+      nodeId: 'factor-1',
+      kind: 'edge',
+      reason: 'fragile_edge',
+      edgeDetail: 'Customer churn → Revenue',
+      alternativeWinnerLabel: 'Option B',
+    }
+
+    const heuristicHinge: HingeInfo = {
+      label: 'Market size',
+      nodeId: 'factor-2',
+      kind: 'node',
+      reason: 'heuristic',
+      edgeDetail: null,
+      alternativeWinnerLabel: null,
+    }
+
+    it('winner: fragile edge hinge shows "depends on {label}"', () => {
+      render(
+        <OptionCards
+          options={mockOptions}
+          winnerId="option-1"
+          decisionState="sensitive"
+          hinge={fragileHinge}
+          runnerId="option-2"
+        />
+      )
+
+      expect(screen.getByText('Highest win likelihood but depends on Customer churn')).toBeInTheDocument()
+    })
+
+    it('winner: heuristic hinge shows "{label} has the widest uncertainty"', () => {
+      render(
+        <OptionCards
+          options={mockOptions}
+          winnerId="option-1"
+          decisionState="sensitive"
+          hinge={heuristicHinge}
+          runnerId="option-2"
+        />
+      )
+
+      expect(screen.getByText('Highest win likelihood. Market size has the widest uncertainty.')).toBeInTheDocument()
+    })
+
+    it('winner: no hinge shows generic description', () => {
+      render(
+        <OptionCards
+          options={mockOptions}
+          winnerId="option-1"
+          decisionState="robust"
+          hinge={null}
+          runnerId="option-2"
+        />
+      )
+
+      expect(screen.getByText('Highest win likelihood across simulated scenarios')).toBeInTheDocument()
+    })
+
+    it('runner-up: matched alternate winner shows overtake description', () => {
+      render(
+        <OptionCards
+          options={mockOptions}
+          winnerId="option-1"
+          decisionState="sensitive"
+          hinge={fragileHinge}
+          runnerId="option-2"
+        />
+      )
+
+      // Option B is runnerId AND matches hinge.alternativeWinnerLabel
+      expect(screen.getByText('If Customer churn shifts, this option overtakes')).toBeInTheDocument()
+    })
+
+    it('runner-up: unmatched alternate winner shows generic runner-up', () => {
+      const hingeNoMatch: HingeInfo = {
+        ...fragileHinge,
+        alternativeWinnerLabel: 'Option C', // not Option B
+      }
+      render(
+        <OptionCards
+          options={mockOptions}
+          winnerId="option-1"
+          decisionState="sensitive"
+          hinge={hingeNoMatch}
+          runnerId="option-2"
+        />
+      )
+
+      expect(screen.getByText('Second highest win likelihood')).toBeInTheDocument()
+    })
+
+    it('other options show "Lower win likelihood"', () => {
+      const threeOptions: OptionResult[] = [
+        ...mockOptions,
+        {
+          id: 'option-3',
+          label: 'Option C',
+          expected: 80,
+          outcome: { mean: 80, p10: 40, p50: 80, p90: 120 },
+          p10: 40,
+          p50: 80,
+          p90: 120,
+          isRecommended: false,
+          winProbability: 0.10,
+          rank: 3,
+        },
+      ]
+
+      render(
+        <OptionCards
+          options={threeOptions}
+          winnerId="option-1"
+          decisionState="sensitive"
+          hinge={fragileHinge}
+          runnerId="option-2"
+        />
+      )
+
+      expect(screen.getByText('Lower win likelihood')).toBeInTheDocument()
+    })
+
+    it('story headline takes priority over hinge-aware description', () => {
+      render(
+        <OptionCards
+          options={mockOptions}
+          winnerId="option-1"
+          decisionState="sensitive"
+          hinge={fragileHinge}
+          runnerId="option-2"
+          storyHeadlines={{ 'option-1': 'Custom headline for winner.' }}
+        />
+      )
+
+      expect(screen.getByText('Custom headline for winner.')).toBeInTheDocument()
+      expect(screen.queryByText(/depends on/)).not.toBeInTheDocument()
+    })
+
+    it('falls back to legacy descriptions when decisionState is absent', () => {
+      render(<OptionCards options={mockOptions} winnerId="option-1" />)
+
+      expect(screen.getByText('Top-performing option based on current estimates.')).toBeInTheDocument()
     })
   })
 })

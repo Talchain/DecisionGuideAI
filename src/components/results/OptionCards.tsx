@@ -10,6 +10,8 @@
  * Leading option card has border-success (mint-500 border).
  * Other cards use border-panel-border.
  *
+ * V11: Indeterminate neutralisation — stone colours, percentage badges, muted text.
+ *
  * Design rules: no background fills on cards (borders only).
  */
 
@@ -17,7 +19,7 @@ import { useRef, type RefObject } from 'react'
 import { typography } from '../../styles/typography'
 import { formatPercent as formatPct } from '../../utils/formatPercent'
 import { stripEncodingNotation } from './utils/cleanFactorLabel'
-import type { OptionResult } from './types'
+import type { OptionResult, DecisionState, HingeInfo } from './types'
 import {
   constraintConfidenceColour,
   jointProbabilityLabel,
@@ -32,6 +34,12 @@ export interface OptionCardsProps {
   storyHeadlines?: Record<string, string>
   /** Ref map for flash animation: optionId → ref */
   cardRefMap?: RefObject<Map<string, HTMLDivElement>>
+  /** V11: Tri-state decision classification for neutralisation */
+  decisionState?: DecisionState
+  /** V11: Hinge info for contextual descriptions */
+  hinge?: HingeInfo | null
+  /** V11: Runner-up option ID for hinge-aware descriptions */
+  runnerId?: string
 }
 
 /** Fallback description when no story headline is available */
@@ -45,26 +53,59 @@ function fallbackDescription(option: OptionResult, totalOptions: number): string
   return 'Compare against the leading option.'
 }
 
+/**
+ * V11: Hinge-aware description for option cards.
+ * Replaces fallbackDescription when decisionState is available.
+ */
+function hingeAwareDescription(
+  option: OptionResult,
+  isWinner: boolean,
+  isRunnerUp: boolean,
+  hinge: HingeInfo | null | undefined,
+): string {
+  if (isWinner) {
+    if (hinge?.reason === 'fragile_edge') {
+      return `Highest win likelihood but depends on ${hinge.label}`
+    }
+    if (hinge?.reason === 'heuristic' || hinge?.reason === 'voi') {
+      return `Highest win likelihood. ${hinge.label} has the widest uncertainty.`
+    }
+    return 'Highest win likelihood across simulated scenarios'
+  }
+  if (isRunnerUp) {
+    if (hinge?.alternativeWinnerLabel && hinge.alternativeWinnerLabel === option.label) {
+      return `If ${hinge.label} shifts, this option overtakes`
+    }
+    return 'Second highest win likelihood'
+  }
+  return 'Lower win likelihood'
+}
+
 /** Horizontal bar segment for stat rows */
 function StatBar({
   value,
   label,
   isLeader,
   color,
+  neutralised = false,
 }: {
   value: number | null | undefined
   label: string
   isLeader: boolean
   color: 'success' | 'info'
+  /** V11: When true, use stone colours for all bars (indeterminate state) */
+  neutralised?: boolean
 }) {
   if (value == null) return null
 
   const pct = Math.round(value * 100)
   const barWidth = Math.max(2, pct) // minimum 2% so bar is always visible
 
-  const barColorClass = isLeader
-    ? (color === 'success' ? 'bg-success' : 'bg-info')
-    : 'bg-factor-light'
+  const barColorClass = neutralised
+    ? 'bg-factor'
+    : isLeader
+      ? (color === 'success' ? 'bg-success' : 'bg-info')
+      : 'bg-factor-light'
 
   return (
     <div className="flex items-center gap-2">
@@ -92,6 +133,7 @@ function OptionCard({
   hasGoalThreshold,
   description,
   cardRef,
+  neutralised = false,
 }: {
   option: OptionResult
   isWinner: boolean
@@ -99,9 +141,25 @@ function OptionCard({
   hasGoalThreshold: boolean
   description: string
   cardRef?: (el: HTMLDivElement | null) => void
+  /** V11: When true, neutralise all colour semantics (indeterminate state) */
+  neutralised?: boolean
 }) {
-  const borderClass = isWinner ? 'border-success' : 'border-panel-border'
+  // V11: Indeterminate neutralisation — no .leads border, all default
+  const borderClass = neutralised
+    ? 'border-panel-border'
+    : isWinner ? 'border-success' : 'border-panel-border'
   const rank = option.rank ?? (isWinner ? 1 : undefined)
+
+  // V11: Rank badge — show "58%" in stone when neutralised, "#1 of N" when normal
+  const rankBadgeContent = neutralised && option.winProbability != null
+    ? formatPct(option.winProbability, { fromDecimal: true })
+    : `#${rank} of ${totalOptions}`
+
+  const rankBadgeClass = neutralised
+    ? 'bg-factor-light text-factor'
+    : isWinner
+      ? 'bg-success-light text-success'
+      : 'bg-factor-light text-text-light'
 
   return (
     <div
@@ -117,13 +175,10 @@ function OptionCard({
         </span>
         {rank != null && totalOptions > 1 && (
           <span
-            className={`${typography.panelMeta} px-1.5 py-0.5 rounded-full leading-none flex-shrink-0 ${
-              isWinner
-                ? 'bg-success-light text-success'
-                : 'bg-factor-light text-text-light'
-            }`}
+            className={`${typography.panelMeta} px-1.5 py-0.5 rounded-full leading-none flex-shrink-0 ${rankBadgeClass}`}
+            data-testid={`rank-badge-${option.id}`}
           >
-            #{rank} of {totalOptions}
+            {rankBadgeContent}
           </span>
         )}
         {option.isBaseline && (
@@ -145,6 +200,7 @@ function OptionCard({
           label="Wins"
           isLeader={isWinner}
           color="success"
+          neutralised={neutralised}
         />
         {hasGoalThreshold && (
           <StatBar
@@ -152,6 +208,7 @@ function OptionCard({
             label="Hits target"
             isLeader={isWinner}
             color="info"
+            neutralised={neutralised}
           />
         )}
       </div>
@@ -177,10 +234,20 @@ export function OptionCards({
   hasGoalThreshold = false,
   storyHeadlines,
   cardRefMap,
+  decisionState,
+  hinge,
+  runnerId,
 }: OptionCardsProps) {
   // Internal ref map if none provided externally
   const internalRefMap = useRef<Map<string, HTMLDivElement>>(new Map())
   const refMap = cardRefMap ?? internalRefMap
+
+  // V11: Indeterminate neutralisation — stone colours, no success border
+  const neutralised = decisionState === 'indeterminate'
+
+  // V11: Conditional "Hits target" — also hide when NO option has goalProbability
+  const anyGoalProbability = options.some(o => o.goalProbability != null)
+  const showHitsTarget = hasGoalThreshold && anyGoalProbability
 
   // Sort: winner first, then by rank
   const sorted = [...options].sort((a, b) => {
@@ -197,10 +264,15 @@ export function OptionCards({
     <div className="space-y-2" data-testid="option-cards">
       {sorted.map(option => {
         const isWinner = option.id === winnerId
+        const isRunnerUp = option.id === runnerId
         const headline = storyHeadlines?.[option.id]
+
+        // V11: Use hinge-aware descriptions when decisionState is available
         const description = headline
           ? stripEncodingNotation(headline)
-          : fallbackDescription(option, options.length)
+          : decisionState
+            ? hingeAwareDescription(option, isWinner, isRunnerUp, hinge)
+            : fallbackDescription(option, options.length)
 
         return (
           <OptionCard
@@ -208,8 +280,9 @@ export function OptionCards({
             option={option}
             isWinner={isWinner}
             totalOptions={options.length}
-            hasGoalThreshold={hasGoalThreshold}
+            hasGoalThreshold={showHitsTarget}
             description={description}
+            neutralised={neutralised}
             cardRef={(el) => {
               if (el) {
                 refMap.current.set(option.id, el)

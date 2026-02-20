@@ -160,6 +160,13 @@ export function ResultsBody({
             hasGoalThreshold={resultsSectionData.recommendation.goalThreshold != null}
             storyHeadlines={resultsSectionData.recommendation.storyHeadlines}
             cardRefMap={optionCardRefs}
+            decisionState={vm.decisionState}
+            hinge={vm.hinge}
+            runnerId={
+              // Runner-up: second option by win probability (for hinge-aware descriptions)
+              [...resultsSectionData.recommendation.allOptions]
+                .sort((a, b) => (b.winProbability ?? 0) - (a.winProbability ?? 0))[1]?.id
+            }
           />
           {/* Tipping points below option cards (kept until Phase 3.4 ships) */}
           <TippingPoints
