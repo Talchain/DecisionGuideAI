@@ -914,6 +914,7 @@ function formatValue(v: unknown): string {
 
 export function PipelineTab({ data }: PipelineTabProps) {
   const [showFullLlmOutput, setShowFullLlmOutput] = useState(false)
+  const [narrativeExpanded, setNarrativeExpanded] = useState(false)
 
   const nodeExtraction = data.pipeline.node_extraction
   const llmMetadata = data.pipeline.llm_metadata
@@ -2024,9 +2025,25 @@ export function PipelineTab({ data }: PipelineTabProps) {
                 }}
               >
                 <strong>Narrative summary:</strong>{' '}
-                {data.m2_review.narrative_summary.length > 200
-                  ? `${data.m2_review.narrative_summary.slice(0, 200)}…`
+                {data.m2_review.narrative_summary.length > 200 && !narrativeExpanded
+                  ? `${data.m2_review.narrative_summary.slice(0, 200)}… `
                   : data.m2_review.narrative_summary}
+                {data.m2_review.narrative_summary.length > 200 && (
+                  <button
+                    onClick={() => setNarrativeExpanded(!narrativeExpanded)}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: '#0369a1',
+                      cursor: 'pointer',
+                      fontSize: 11,
+                      padding: 0,
+                      marginLeft: 4,
+                    }}
+                  >
+                    {narrativeExpanded ? 'Show less' : 'Show more'}
+                  </button>
+                )}
               </div>
             )}
 

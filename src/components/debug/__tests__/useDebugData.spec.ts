@@ -1179,6 +1179,43 @@ describe('useDebugData', () => {
       expect(result.current.pipeline.node_extraction?.normalised).toBeUndefined()
       expect(result.current.pipeline.node_extraction?.validated).toBeDefined()
     })
+
+    it('falls back to stage_4_repair when stage_5_package is empty', () => {
+      const ceePayload = {
+        id: 'req-cee-empty-pkg',
+        service: 'CEE',
+        endpoint: '/assist/v1/draft-graph',
+        status: 200,
+        completed: true,
+        duration: 5000,
+        request: { body: {} },
+        response: {
+          body: {
+            trace: {
+              pipeline: {
+                stage_snapshots: {
+                  stage_1_parse: { nodes: [{ kind: 'decision', id: 'd1' }] },
+                  stage_5_package: {}, // present but empty — should not be used
+                  stage_4_repair: { nodes: [{ kind: 'decision', id: 'd1' }, { kind: 'option', id: 'o1' }] },
+                },
+              },
+            },
+          },
+        },
+      }
+
+      vi.mocked(usePayloadTraceStore).mockImplementation((selector) =>
+        selector({ payloads: [ceePayload] })
+      )
+
+      const { result } = renderHook(() => useDebugData())
+
+      // stage_5_package is empty so validated should come from stage_4_repair
+      expect(result.current.pipeline.node_extraction?.validated).toEqual({
+        decision: 1,
+        option: 1,
+      })
+    })
   })
 
   // ===========================================================================
@@ -1401,6 +1438,35 @@ describe('useDebugData', () => {
       expect(result.current.pipeline.llm_metadata?.model).toBe('gpt-4o')
       expect(result.current.pipeline.llm_metadata?.token_usage?.total_tokens).toBe(7000)
       expect(result.current.pipeline.llm_metadata?.duration_ms).toBe(43307)
+    })
+
+    it('preserves duration_ms of 0 (not coerced to null)', () => {
+      const plotPayload = {
+        id: 'req-m2-zero-dur',
+        service: 'PLoT',
+        endpoint: '/v2/run',
+        status: 200,
+        completed: true,
+        duration: 5000,
+        request: { body: {} },
+        response: {
+          body: {
+            analysis_status: 'computed',
+            review_status: 'complete',
+            review_meta: { model: 'gpt-4.1-2025-04-14', latency_ms: 0 },
+            m1_review: { narrative_summary: 'Test' },
+          },
+        },
+      }
+
+      vi.mocked(usePayloadTraceStore).mockImplementation((selector) =>
+        selector({ payloads: [plotPayload] })
+      )
+
+      const { result } = renderHook(() => useDebugData())
+
+      // duration_ms: 0 should be preserved, not coerced to null
+      expect(result.current.m2_review?.duration_ms).toBe(0)
     })
 
     it('gracefully handles missing review_meta (no crashes)', () => {
