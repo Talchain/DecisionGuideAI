@@ -804,5 +804,151 @@ describe('HeroSection', () => {
       expect(bars[0]).toHaveStyle({ backgroundColor: 'var(--factor)' })
       expect(bars[1]).toHaveStyle({ backgroundColor: 'var(--factor)' })
     })
+
+    it('applies de-emphasis (reduced height, opacity) for indeterminate state', () => {
+      const { container } = render(
+        <HeroSection
+          {...baseProps}
+          decisionState="indeterminate"
+          optionWinShares={[
+            { id: 'a', label: 'Option A', winProbability: 0.5, isWinner: true },
+            { id: 'b', label: 'Option B', winProbability: 0.45, isWinner: false },
+          ]}
+        />
+      )
+
+      const gauge = container.querySelector('[role="figure"]')!
+      expect(gauge).toHaveClass('opacity-70')
+      // Bar container should use h-2 (smaller) instead of h-3
+      const barContainer = gauge.querySelector('.flex.rounded-full')!
+      expect(barContainer).toHaveClass('h-2')
+      expect(barContainer).not.toHaveClass('h-3')
+    })
+  })
+
+  describe('V11: Target-unset Prompt', () => {
+    it('shows dashed prompt when goalThreshold is not set', () => {
+      render(
+        <HeroSection
+          {...baseProps}
+          decisionState="robust"
+          goalThreshold={null}
+        />
+      )
+
+      const prompt = screen.getByTestId('target-unset-prompt')
+      expect(prompt).toHaveTextContent(/Set a success target/)
+      expect(prompt).toHaveClass('border-dashed')
+    })
+
+    it('shows target value when goalThreshold is set (no prompt)', () => {
+      render(
+        <HeroSection
+          {...baseProps}
+          decisionState="robust"
+          goalThreshold={500}
+        />
+      )
+
+      expect(screen.queryByTestId('target-unset-prompt')).not.toBeInTheDocument()
+      expect(screen.getByTestId('meta-strip')).toHaveTextContent('500')
+    })
+  })
+
+  describe('V11: Row-3 Fallback', () => {
+    it('shows "Validate first" row even when hinge is null in sensitive state', () => {
+      render(
+        <HeroSection
+          {...baseProps}
+          decisionState="sensitive"
+          hinge={null}
+        />
+      )
+
+      expect(screen.getByText('Validate first')).toBeInTheDocument()
+      expect(screen.getByText(/Review key assumptions before committing/)).toBeInTheDocument()
+    })
+
+    it('shows "Resolve first" row even when hinge is null in indeterminate state', () => {
+      render(
+        <HeroSection
+          {...baseProps}
+          decisionState="indeterminate"
+          hinge={null}
+        />
+      )
+
+      expect(screen.getByText('Resolve first')).toBeInTheDocument()
+      expect(screen.getByText(/Review key assumptions to distinguish/)).toBeInTheDocument()
+    })
+  })
+
+  describe('V11: Edit Estimate CTA', () => {
+    it('shows "Edit estimate" action text after hinge link in robust state', () => {
+      render(
+        <HeroSection
+          {...baseProps}
+          decisionState="robust"
+          hinge={{
+            label: 'Market Size',
+            nodeId: 'factor-1',
+            kind: 'edge',
+            reason: 'fragile_edge',
+            edgeDetail: 'Market Size → Revenue',
+            alternativeWinnerLabel: null,
+          }}
+        />
+      )
+
+      expect(screen.getByText(/Edit estimate/)).toBeInTheDocument()
+    })
+
+    it('shows "Edit estimate" action text in sensitive state with hinge', () => {
+      render(
+        <HeroSection
+          {...baseProps}
+          decisionState="sensitive"
+          hinge={{
+            label: 'Customer Growth',
+            nodeId: 'factor-2',
+            kind: 'node',
+            reason: 'voi',
+            edgeDetail: null,
+            alternativeWinnerLabel: null,
+          }}
+        />
+      )
+
+      expect(screen.getByText(/Edit estimate/)).toBeInTheDocument()
+    })
+  })
+
+  describe('V11: Goal Row Unit Display', () => {
+    it('shows currency symbol + formatted threshold for currency unit', () => {
+      render(
+        <HeroSection
+          {...baseProps}
+          decisionState="robust"
+          goalThreshold={100000}
+          outcomeUnit="currency"
+          outcomeUnitSymbol="$"
+        />
+      )
+
+      expect(screen.getByTestId('hero-rows')).toHaveTextContent('$100,000')
+    })
+
+    it('shows percentage suffix for percent unit', () => {
+      render(
+        <HeroSection
+          {...baseProps}
+          decisionState="robust"
+          goalThreshold={75}
+          outcomeUnit="percent"
+        />
+      )
+
+      expect(screen.getByTestId('hero-rows')).toHaveTextContent('75%')
+    })
   })
 })
