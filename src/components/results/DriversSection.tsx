@@ -451,7 +451,7 @@ function DriverRow({
             aria-label={`${cleanedLabel} sensitivity: ${Math.round(sensitivityValue * 100)}%`}
           />
         ) : (
-          <div className={`${typography.panelBody} font-mono text-slate-400 w-9 text-right`}>—</div>
+          <div className={`${typography.panelBody} font-mono text-slate-400 w-9 text-right`}>-</div>
         )}
 
         {/* Confidence bar */}
@@ -462,7 +462,7 @@ function DriverRow({
             aria-label={`${cleanedLabel} confidence: ${Math.round(confidenceValue * 100)}%`}
           />
         ) : (
-          <div className={`${typography.panelBody} font-mono text-slate-400 w-9 text-right`}>—</div>
+          <div className={`${typography.panelBody} font-mono text-slate-400 w-9 text-right`}>-</div>
         )}
       </div>
 

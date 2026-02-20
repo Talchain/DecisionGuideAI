@@ -93,7 +93,7 @@ export function AdvancedSection({
             Risk tolerance
           </h4>
           <p className={`${typography.panelMeta} text-text-light italic mb-2`}>
-            Re-weights the existing simulation — no new run required.
+            Re-weights the existing simulation, no new run required.
           </p>
           <div className="flex gap-1" role="radiogroup" aria-label="Risk tolerance">
             {PRESET_ORDER.map(preset => {

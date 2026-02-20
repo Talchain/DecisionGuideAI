@@ -151,7 +151,7 @@ describe('ConfidenceSection', () => {
 
     render(<ConfidenceSection data={strongWithUncertaintiesData} />)
 
-    expect(screen.getByText(/Good foundation — a few items to consider below/)).toBeInTheDocument()
+    expect(screen.getByText(/Good foundation, a few items to consider below/)).toBeInTheDocument()
   })
 
   it('shows "items to consider" when strong tier has improvements', () => {
@@ -163,7 +163,7 @@ describe('ConfidenceSection', () => {
 
     render(<ConfidenceSection data={strongWithImprovementsData} />)
 
-    expect(screen.getByText(/Good foundation — a few items to consider below/)).toBeInTheDocument()
+    expect(screen.getByText(/Good foundation, a few items to consider below/)).toBeInTheDocument()
   })
 
   it('renders evidence coverage when available', () => {

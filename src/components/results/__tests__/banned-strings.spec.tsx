@@ -51,7 +51,8 @@ const BANNED_STRINGS = [
   'performs strongest',       // Use "performs best"
   'WHAT NEEDS',               // All-caps banned — use sentence case
   'SUCCESS TARGET',           // All-caps banned — use sentence case
-  "WHAT'S INFLUENCING",       // All-caps banned — use sentence case
+  "WHAT'S INFLUENCING",       // All-caps banned, use sentence case
+  '\u2014',                   // Em-dash banned, use comma or period
 ]
 
 /**
@@ -523,6 +524,8 @@ describe('Banned Strings Integration Test', () => {
       expect(BANNED_STRINGS).toContain('Could flip recommendation')
       expect(BANNED_STRINGS).toContain('Reduce uncertainty')
       expect(BANNED_STRINGS).toContain('performs strongest')
+      // V11: em-dash ban
+      expect(BANNED_STRINGS).toContain('\u2014')
     })
   })
 })

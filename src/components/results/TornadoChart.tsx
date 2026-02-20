@@ -501,7 +501,7 @@ export function TornadoChart({
       {/* Preview disclaimer + reset link */}
       <div className="flex items-baseline justify-between mt-2">
         <p className={`${typography.panelMeta} text-text-light italic leading-relaxed`}>
-          Preview only — explore one factor at a time. Approximate sensitivity, not exact bounds.
+          Preview only. Explore one factor at a time. Approximate sensitivity, not exact bounds.
         </p>
         {dragState.hasUserDragged && (
           <button

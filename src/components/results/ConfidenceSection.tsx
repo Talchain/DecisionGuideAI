@@ -491,7 +491,7 @@ export function ConfidenceSection({
           <div className="flex items-center gap-2">
             <span className="text-success">✓</span>
             <p className={`${typography.panelBody} text-text-body`}>
-              Good foundation — a few items to consider below
+              Good foundation, a few items to consider below
             </p>
           </div>
         </div>
@@ -803,7 +803,7 @@ export function ConfidenceSection({
               {/* Task 3 + P2 Polish: Show context-appropriate message when no improvements */}
               {analysisStatus === 'computed' || analysisStatus === 'partial'
                 ? (tier.tier === 'strong' || robustnessLevel === 'high' || robustnessLevel === 'moderate'
-                    ? 'Model structure is sound — focus on strengthening assumptions and framing.'
+                    ? 'Model structure is sound. Focus on strengthening assumptions and framing.'
                     : 'No structural issues detected. Focus on the assumptions above.')
                 : EMPTY_STATES.improvements}
             </p>
