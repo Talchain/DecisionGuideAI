@@ -24,6 +24,8 @@ import { SuccessTargetRow } from './SuccessTargetRow'
 import { TippingPoints } from './TippingPoints'
 import { AdvancedSection } from './AdvancedSection'
 import { AttentionBanner } from './AttentionBanner'
+import { ChallengeSection } from './ChallengeSection'
+import { groupActionItems } from './utils/groupActionItems'
 
 export interface StrengthCorrectionDisplay {
   edgeId: string
@@ -202,51 +204,108 @@ export function ResultsBody({
         />
       </div>
 
-      {/* ── SECTION 4: STRENGTHEN ────────────────────────────────── */}
-      {/* v7.10 T5: Auto-expand based on robustness.level === 'low' or 'very_low' */}
-      <div>
-        <Accordion
-          title="What to do next"
-          defaultExpanded={
-            resultsSectionData.confidence.robustnessLevel === 'low' ||
-            resultsSectionData.confidence.robustnessLevel === 'very_low'
-          }
-          testId="accordion-strengthen"
-          badgeCount={
-            // v7.6 Fix: Reflect visible cards — Group 1 capped at 3, Group 2 all visible
-            Math.min(3, resultsSectionData.confidence.uncertainties.filter(u => u.code === 'SENSITIVE_ASSUMPTION').length) +
-            resultsSectionData.confidence.uncertainties.filter(u => u.code !== 'SENSITIVE_ASSUMPTION').length +
-            (resultsSectionData.confidence.evidenceGaps?.length ?? 0)
-          }
-          badgeVariant={
-            resultsSectionData.confidence.tier.tier === 'needs_work'
-              ? 'critical'
-              : resultsSectionData.confidence.tier.tier === 'fair'
-              ? 'warning'
-              : 'default'
-          }
-          tierLabel={
-            resultsSectionData.confidence.tier.tier === 'strong' ? 'Evidence: Good'
-              : resultsSectionData.confidence.tier.tier === 'fair' ? 'Evidence: Fair'
-              : resultsSectionData.confidence.tier.tier === 'needs_work' ? 'Evidence: Needs work'
-              : undefined
-          }
-          tierVariant={
-            resultsSectionData.confidence.tier.tier !== 'unknown'
-              ? resultsSectionData.confidence.tier.tier as 'strong' | 'fair' | 'needs_work'
-              : undefined
-          }
-        >
-          <ConfidenceSection
-            data={resultsSectionData.confidence}
-            onFocusNode={onFocusNode}
-            topDriverLabel={resultsSectionData.drivers.topDrivers[0]?.factorLabel}
-            topDriverId={resultsSectionData.drivers.topDrivers[0]?.factorKey}
-            visibleDriverCount={resultsSectionData.drivers.totalCount}
-            winnerConstraintAnalysis={resultsSectionData.recommendation.recommendedOption?.constraintAnalysis}
-          />
-        </Accordion>
-      </div>
+      {/* ── SECTION 4: WHAT TO DO NEXT ───────────────────────────── */}
+      {/* V11: Collapse behaviour driven by decisionState, not robustness level */}
+      {(() => {
+        // V11: Badge count accounting for hinge de-duplication
+        const hingeNodeId = vm.hinge?.nodeId
+        const hingeExcludeIds = hingeNodeId ? [hingeNodeId] : undefined
+        const fragileEdgesForBadge = resultsSectionData.confidence.uncertainties.filter(u => u.code === 'SENSITIVE_ASSUMPTION')
+        const evidenceGapsForBadge = resultsSectionData.confidence.evidenceGaps ?? []
+        const nonFragileCount = resultsSectionData.confidence.uncertainties.filter(u => u.code !== 'SENSITIVE_ASSUMPTION').length
+        let badgeCount = Math.min(3, fragileEdgesForBadge.length) + nonFragileCount + evidenceGapsForBadge.length
+        if (hingeNodeId) {
+          const hingeInFragile = fragileEdgesForBadge.some(u => u.affectedNodes?.[0] === hingeNodeId)
+          const hingeInGaps = evidenceGapsForBadge.some(g => g.factorId === hingeNodeId)
+          if (hingeInFragile || hingeInGaps) badgeCount = Math.max(0, badgeCount - 1)
+        }
+
+        // V11: M2 data for ChallengeSection (groups 3 and 4)
+        const m2Groups = groupActionItems({
+          fragileEdges: [],
+          evidenceGaps: [],
+          biasFindings: resultsSectionData.confidence.assumptions
+            ?.filter(a => a.severity === 'high')
+            .map(a => a.message),
+          preMortem: resultsSectionData.confidence.assumptions
+            ?.filter(a => a.severity === 'medium')
+            .map(a => a.message),
+        })
+        const biasFindings = m2Groups[2].items
+        const preMortemItems = m2Groups[3].items
+
+        return (
+          <>
+            <div>
+              <Accordion
+                title="What to do next"
+                defaultExpanded={
+                  vm.decisionState === 'sensitive' || vm.decisionState === 'indeterminate'
+                }
+                testId="accordion-strengthen"
+                badgeCount={badgeCount}
+                badgeVariant={
+                  vm.decisionState === 'indeterminate'
+                    ? 'critical'
+                    : vm.decisionState === 'sensitive'
+                    ? 'warning'
+                    : 'default'
+                }
+                tierLabel={
+                  resultsSectionData.confidence.tier.tier === 'strong' ? 'Evidence: Good'
+                    : resultsSectionData.confidence.tier.tier === 'fair' ? 'Evidence: Fair'
+                    : resultsSectionData.confidence.tier.tier === 'needs_work' ? 'Evidence: Needs work'
+                    : undefined
+                }
+                tierVariant={
+                  resultsSectionData.confidence.tier.tier !== 'unknown'
+                    ? resultsSectionData.confidence.tier.tier as 'strong' | 'fair' | 'needs_work'
+                    : undefined
+                }
+              >
+                <ConfidenceSection
+                  data={resultsSectionData.confidence}
+                  onFocusNode={onFocusNode}
+                  topDriverLabel={resultsSectionData.drivers.topDrivers[0]?.factorLabel}
+                  topDriverId={resultsSectionData.drivers.topDrivers[0]?.factorKey}
+                  visibleDriverCount={resultsSectionData.drivers.totalCount}
+                  winnerConstraintAnalysis={resultsSectionData.recommendation.recommendedOption?.constraintAnalysis}
+                  hinge={vm.hinge}
+                  decisionState={vm.decisionState}
+                  topAction={vm.topAction}
+                  excludeFactorIds={hingeExcludeIds}
+                />
+              </Accordion>
+              {/* V11: Robust compact VOI affordance — below collapsed accordion */}
+              {vm.decisionState === 'robust' && vm.hinge && (
+                <p
+                  className={`${typography.panelMeta} text-text-light mt-1.5 px-3`}
+                  data-testid="robust-voi-compact"
+                >
+                  If you want extra confidence: validate {vm.hinge.label}
+                </p>
+              )}
+            </div>
+
+            {/* ── SECTION 4b: CHALLENGE YOUR ASSUMPTIONS (M2) ──────── */}
+            {(biasFindings.length > 0 || preMortemItems.length > 0) && (
+              <div>
+                <Accordion
+                  title="Challenge your assumptions"
+                  defaultExpanded={false}
+                  testId="accordion-challenge"
+                  badgeCount={biasFindings.length + preMortemItems.length}
+                >
+                  <ChallengeSection
+                    biasFindings={biasFindings}
+                    preMortemItems={preMortemItems}
+                  />
+                </Accordion>
+              </div>
+            )}
+          </>
+        )
+      })()}
 
       {/* ── SECTION 5: ADVANCED ───────────────────────────────── */}
       <div>

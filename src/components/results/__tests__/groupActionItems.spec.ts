@@ -306,4 +306,73 @@ describe('groupActionItems', () => {
       expect(groups[0].items[1].id).toBe('binding-budget')
     })
   })
+
+  // ── V11 Phase E: Hinge de-duplication ─────────────────────────────────────
+
+  describe('V11: excludeFactorIds (hinge de-duplication)', () => {
+    it('removes fragile edge from Group 1 when its from-node matches excludeFactorIds', () => {
+      const edge1 = makeEdge({ affectedNodes: ['factor-hinge', 'outcome-b'] })
+      const edge2 = makeEdge({
+        message: 'If "Factor C → Outcome D" changes',
+        affectedNodes: ['factor-c', 'outcome-d'],
+      })
+
+      const groups = groupActionItems({
+        fragileEdges: [edge1, edge2],
+        evidenceGaps: [],
+        excludeFactorIds: ['factor-hinge'],
+      })
+
+      expect(groups[0].items).toHaveLength(1)
+      expect(groups[0].items[0].targetId).toBe('factor-c')
+    })
+
+    it('removes evidence gap from Group 2 when factorId matches excludeFactorIds', () => {
+      const gap1 = makeGap({ factorId: 'factor-hinge', factorLabel: 'Hinge Factor' })
+      const gap2 = makeGap({ factorId: 'factor-other', factorLabel: 'Other Factor' })
+
+      const groups = groupActionItems({
+        fragileEdges: [],
+        evidenceGaps: [gap1, gap2],
+        excludeFactorIds: ['factor-hinge'],
+      })
+
+      expect(groups[1].items).toHaveLength(1)
+      expect(groups[1].items[0].id).toBe('factor-other')
+    })
+
+    it('excluded fragile edge still prevents same factor from appearing in Group 2', () => {
+      // Edge has single affectedNode matching gap factorId
+      const edge = makeEdge({
+        message: 'factor-shared changes',
+        affectedNodes: ['factor-shared'],
+      })
+      const gap = makeGap({ factorId: 'factor-shared', factorLabel: 'Shared' })
+
+      const groups = groupActionItems({
+        fragileEdges: [edge],
+        evidenceGaps: [gap],
+        excludeFactorIds: ['factor-shared'],
+      })
+
+      // Excluded from Group 1 display
+      expect(groups[0].items).toHaveLength(0)
+      // Still excluded from Group 2 (dedup key preserved)
+      expect(groups[1].items).toHaveLength(0)
+    })
+
+    it('does not affect other groups when excludeFactorIds is empty', () => {
+      const edge = makeEdge()
+      const gap = makeGap()
+
+      const groups = groupActionItems({
+        fragileEdges: [edge],
+        evidenceGaps: [gap],
+        excludeFactorIds: [],
+      })
+
+      expect(groups[0].items).toHaveLength(1)
+      expect(groups[1].items).toHaveLength(1)
+    })
+  })
 })

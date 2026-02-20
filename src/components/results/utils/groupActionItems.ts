@@ -94,14 +94,21 @@ export interface GroupActionItemsInput {
   preMortem?: string[]
   /** Multi-constraint analysis from winning option (for binding/near-miss items) */
   constraintAnalysis?: ConstraintAnalysis
+  /** V11: Factor node IDs to exclude from action items (hinge shown in VOI block) */
+  excludeFactorIds?: string[]
 }
 
 export function groupActionItems(input: GroupActionItemsInput): ActionGroup[] {
-  const { fragileEdges, evidenceGaps, biasFindings, preMortem, constraintAnalysis } = input
+  const { fragileEdges, evidenceGaps, biasFindings, preMortem, constraintAnalysis, excludeFactorIds } = input
+
+  // V11: Factors already shown in VOI block — exclude from action item lists
+  const excludeSet = new Set(excludeFactorIds ?? [])
 
   // ── Group 1: Validate before committing ──────────────────────────────────
+  // Build dedup keys from ALL fragile edges (including excluded) to prevent
+  // the same factor appearing in Group 2 after being excluded from Group 1.
   const group1Keys = new Set<string>()
-  const group1Items: ActionItem[] = fragileEdges.map(item => {
+  const group1ItemsAll: ActionItem[] = fragileEdges.map(item => {
     const key = edgeDedupKey(item)
     group1Keys.add(key)
     return {
@@ -116,6 +123,11 @@ export function groupActionItems(input: GroupActionItemsInput): ActionGroup[] {
       source: 'model' as const,
     }
   })
+
+  // V11: Filter out excluded factors from display (hinge shown in VOI block)
+  const group1Items = excludeSet.size > 0
+    ? group1ItemsAll.filter(item => !excludeSet.has(item.targetId ?? ''))
+    : group1ItemsAll
 
   // Binding constraint → Group 1 ("Validate before committing")
   // When binding: true, this constraint is most likely to prevent meeting all targets.
@@ -135,9 +147,9 @@ export function groupActionItems(input: GroupActionItemsInput): ActionGroup[] {
   }
 
   // ── Group 2: Investigate ─────────────────────────────────────────────────
-  // Exclude evidence gaps whose dedup key exactly matches a Group 1 key
+  // Exclude evidence gaps whose dedup key matches Group 1 OR excluded factors
   const group2Items: ActionItem[] = evidenceGaps
-    .filter(gap => !group1Keys.has(gap.factorId))
+    .filter(gap => !group1Keys.has(gap.factorId) && !excludeSet.has(gap.factorId))
     .sort((a, b) => b.voi - a.voi)
     .map(gap => ({
       id: gap.factorId,

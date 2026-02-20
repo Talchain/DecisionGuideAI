@@ -14,7 +14,7 @@
  */
 
 import { useState, useCallback, useMemo } from 'react'
-import type { ConfidenceSectionData, UncertaintyItem, ImprovementItem, CritiqueSeverity, ConfidenceTier, EvidenceGapItem, NextActionItem, AssumptionItem } from './types'
+import type { ConfidenceSectionData, UncertaintyItem, ImprovementItem, CritiqueSeverity, ConfidenceTier, EvidenceGapItem, NextActionItem, AssumptionItem, DecisionState, HingeInfo, TopAction } from './types'
 import type { ConstraintAnalysis } from '../../types/constraints'
 import { CappedList } from './CappedList'
 import { focusNodeById, focusByTarget, type FocusTargetType } from '../../canvas/utils/focusHelpers'
@@ -23,7 +23,7 @@ import { typography } from '../../styles/typography'
 import { MIN_STABLE_RECOMMENDATION_STABILITY, isStableRobustnessLevel } from './constants'
 import { stripEncodingNotation } from './utils/cleanFactorLabel'
 import { groupActionItems, type ActionGroup, type ActionItem } from './utils/groupActionItems'
-import { AlertTriangle, Search, EyeOff, Shield } from 'lucide-react'
+import { AlertTriangle, Search } from 'lucide-react'
 
 /**
  * Task C (M1 Coaching): Convert VOI (Value of Information) to impact label.
@@ -48,6 +48,14 @@ interface ConfidenceSectionProps {
   visibleDriverCount?: number
   /** Multi-constraint analysis from winning option (for binding/near-miss action items) */
   winnerConstraintAnalysis?: ConstraintAnalysis
+  /** V11: Hinge info for VOI promoted block */
+  hinge?: HingeInfo | null
+  /** V11: Decision state — controls VOI block visibility */
+  decisionState?: DecisionState
+  /** V11: Top action — controls impact label in VOI block */
+  topAction?: TopAction | null
+  /** V11: Factor IDs to exclude from action items (hinge shown in VOI block) */
+  excludeFactorIds?: string[]
 }
 
 const SEVERITY_CONFIG: Record<CritiqueSeverity, {
@@ -372,6 +380,10 @@ export function ConfidenceSection({
   topDriverId,
   visibleDriverCount = 0,
   winnerConstraintAnalysis,
+  hinge,
+  decisionState,
+  topAction,
+  excludeFactorIds,
 }: ConfidenceSectionProps) {
   const [showAllUncertainties, setShowAllUncertainties] = useState(false)
   const [showAllImprovements, setShowAllImprovements] = useState(false)
@@ -450,6 +462,27 @@ export function ConfidenceSection({
   return (
     <div className="space-y-4">
 
+      {/* V11: VOI promoted block — "Most valuable next step" for sensitive/indeterminate */}
+      {decisionState && decisionState !== 'robust' && hinge && (
+        <div
+          className="p-4 border border-info/30 rounded-lg"
+          style={{ backgroundColor: 'rgba(99,173,207,0.04)' }}
+          data-testid="voi-promoted-block"
+        >
+          <h4 className={`${typography.panelHeader} text-text-header mb-1`}>
+            Most valuable next step
+          </h4>
+          <p className={`${typography.panelBody} text-text-body`}>
+            Validate {hinge.label}. Strongest driver, widest uncertainty.
+          </p>
+          {topAction?.couldFlip && (
+            <p className={`${typography.panelMeta} text-danger mt-1`} data-testid="voi-could-flip">
+              Could change the recommendation
+            </p>
+          )}
+        </div>
+      )}
+
       {/* CASE 1: Model is fully ready - show positive message ONLY */}
       {/* Bug 2 fix: Only show when robustness is high/moderate AND stability >= 0.6 */}
       {isFullyReady && (
@@ -521,10 +554,17 @@ export function ConfidenceSection({
         const displayFragileEdges = showAllUncertainties ? fragileEdges : fragileEdges.slice(0, 3)
         const hiddenFragileCount = Math.max(0, fragileEdges.length - 3)
 
+        // V11: Exclude hinge factor from displayed fragile edges (shown in VOI block)
+        const excludeSet = new Set(excludeFactorIds ?? [])
+        const visibleFragileEdges = excludeSet.size > 0
+          ? displayFragileEdges.filter(item => !excludeSet.has(item.affectedNodes?.[0] ?? ''))
+          : displayFragileEdges
+
         const groups = groupActionItems({
           fragileEdges: displayFragileEdges,
           evidenceGaps: evidenceGaps ?? [],
           constraintAnalysis: winnerConstraintAnalysis,
+          excludeFactorIds,
         })
 
         // Non-fragile-edge uncertainties (Group 2 legacy: low-confidence factors)
@@ -553,9 +593,9 @@ export function ConfidenceSection({
         // Render non-empty groups with dividers between them
         const nonEmptyGroups: Array<{ group: ActionGroup; fragileEdgeItems?: UncertaintyItem[]; refinementItems?: UncertaintyItem[] }> = []
 
-        // Group 1: Validate before committing (fragile edges)
-        if (displayFragileEdges.length > 0) {
-          nonEmptyGroups.push({ group: groups[0], fragileEdgeItems: displayFragileEdges })
+        // Group 1: Validate before committing (fragile edges, after hinge exclusion)
+        if (visibleFragileEdges.length > 0) {
+          nonEmptyGroups.push({ group: groups[0], fragileEdgeItems: visibleFragileEdges })
         }
 
         // Non-SENSITIVE_ASSUMPTION uncertainties rendered alongside Group 2
@@ -564,12 +604,10 @@ export function ConfidenceSection({
           nonEmptyGroups.push({ group: groups[1], refinementItems: worthRefining })
         }
 
-        // Groups 3 and 4: M2 only
-        if (groups[2].items.length > 0) nonEmptyGroups.push({ group: groups[2] })
-        if (groups[3].items.length > 0) nonEmptyGroups.push({ group: groups[3] })
+        // Groups 3 and 4 (M2 bias/pre-mortem) moved to ChallengeSection
 
         const ICON_MAP: Record<string, React.ElementType> = {
-          AlertTriangle, Search, EyeOff, Shield,
+          AlertTriangle, Search,
         }
 
         return (
@@ -695,21 +733,7 @@ export function ConfidenceSection({
                     </div>
                   )}
 
-                  {/* Groups 3/4: Simple text cards */}
-                  {(group.key === 'reflect' || group.key === 'premortem') && (
-                    <div className="space-y-2">
-                      {group.items.map((actionItem) => (
-                        <div
-                          key={actionItem.id}
-                          className="p-3 border border-panel-border rounded-lg"
-                        >
-                          <p className={`${typography.panelBody} text-text-body`}>
-                            {actionItem.title}
-                          </p>
-                        </div>
-                      ))}
-                    </div>
-                  )}
+                  {/* Groups 3/4 (M2) moved to ChallengeSection */}
                 </div>
               )
             })}
