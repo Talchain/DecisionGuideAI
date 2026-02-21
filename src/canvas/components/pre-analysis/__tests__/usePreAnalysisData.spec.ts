@@ -2879,6 +2879,74 @@ describe('usePreAnalysisData', () => {
         expect.objectContaining({ id: 'many_ai_estimates' })
       )
     })
+
+    it('suppresses many_ai_estimates when 0 reviewable assumptions', () => {
+      // All factors are binary levers (intervention values are 0 or 1 only)
+      // → totalReviewableFactorsCount === 0 → check should NOT fire
+      mockUseCanvasStore.mockImplementation(createMockStore({
+        nodes: [
+          {
+            id: 'goal1',
+            type: 'goal',
+            position: { x: 0, y: 0 },
+            data: { label: 'Grow Revenue' },
+          },
+          {
+            id: 'factor1',
+            type: 'factor',
+            position: { x: 0, y: 0 },
+            data: {
+              label: 'Feature Enabled',
+              category: 'controllable',
+              observed_state: { source: 'cee_inference', value: 0 },
+            },
+          },
+          {
+            id: 'factor2',
+            type: 'factor',
+            position: { x: 0, y: 0 },
+            data: {
+              label: 'Campaign Active',
+              category: 'controllable',
+              observed_state: { source: 'cee_inference', value: 0 },
+            },
+          },
+          {
+            id: 'opt1',
+            type: 'option',
+            position: { x: 0, y: 0 },
+            data: { label: 'Launch Both' },
+          },
+          {
+            id: 'opt2',
+            type: 'option',
+            position: { x: 0, y: 0 },
+            data: { label: 'Status Quo', is_baseline: true },
+          },
+        ],
+        edges: [
+          { id: 'e1', source: 'factor1', target: 'goal1', type: 'default' },
+          { id: 'e2', source: 'factor2', target: 'goal1', type: 'default' },
+        ],
+        ceeAnalysisReady: {
+          status: 'analysis_ready',
+          goal_node_id: 'goal1',
+          options: [
+            { id: 'opt1', interventions: { factor1: 1, factor2: 1 } },
+            { id: 'opt2', interventions: { factor1: 0, factor2: 0 } },
+          ],
+        },
+      }))
+
+      const { result } = renderHook(() => usePreAnalysisData())
+
+      // Both factors are binary levers → 0 reviewable
+      expect(result.current.totalReviewableFactorsCount).toBe(0)
+      // many_ai_estimates should NOT fire
+      expect(result.current.qualityChecks).not.toContainEqual(
+        expect.objectContaining({ id: 'many_ai_estimates' })
+      )
+    })
   })
 
   describe('Task 1: brief_extraction intervention targets excluded', () => {
