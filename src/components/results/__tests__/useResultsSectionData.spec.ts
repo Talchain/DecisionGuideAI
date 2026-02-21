@@ -5,8 +5,10 @@
  * Covers dynamic normalisation, field fallback chains, rank computation, etc.
  */
 
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, beforeEach } from 'vitest'
+import { renderHook } from '@testing-library/react'
 import {
+  useResultsSectionData,
   normaliseLabel,
   getFactorKey,
   getRawElasticity,
@@ -21,7 +23,9 @@ import {
   normaliseImprovements,
   normalizeOutcomeValues,
   determineWinnerSelection,
+  resolveBaselineId,
 } from '../useResultsSectionData'
+import { useCanvasStore } from '../../../canvas/store'
 import { formatFlipRiskMessage } from '../utils/formatScenarioRatio'
 import type { RawFactorSensitivity, EdgeForDirection } from '../types'
 
@@ -1039,10 +1043,92 @@ describe('determineWinnerSelection', () => {
 })
 
 // =============================================================================
-// Baseline Resolution Tests (Task 2.1)
+// Hook Runtime Regression Tests (V12)
 // =============================================================================
 
-import { resolveBaselineId } from '../useResultsSectionData'
+describe('useResultsSectionData runtime safety', () => {
+  beforeEach(() => {
+    useCanvasStore.setState({
+      results: {
+        status: 'idle',
+        progress: 0,
+      } as any,
+      runMeta: {},
+      nodes: [],
+      edges: [],
+      hasCompletedFirstRun: false,
+      currentScenarioFraming: null,
+      ceeAnalysisReady: undefined,
+    })
+  })
+
+  it('does not throw when reviewStatus and m1ReviewAssumptions are absent', () => {
+    const { result } = renderHook(() => useResultsSectionData())
+
+    expect(result.current.isError).toBe(false)
+    expect(result.current.confidence.reviewStatus).toBeUndefined()
+    expect(result.current.confidence.m2NarrativeSummary).toBeUndefined()
+  })
+
+  it('gates m2NarrativeSummary when reviewStatus is not complete', () => {
+    useCanvasStore.setState({
+      results: {
+        status: 'complete',
+        progress: 100,
+        report: {
+          run: { critique: [] },
+          robustness: { fragile_edges: [] },
+          option_comparison: [],
+        },
+      } as any,
+      hasCompletedFirstRun: true,
+      runMeta: {
+        reviewStatus: 'in_progress',
+        m1ReviewAssumptions: {
+          key_assumptions: [],
+          narrative_summary: 'Should be hidden',
+        },
+      } as any,
+    })
+
+    const { result } = renderHook(() => useResultsSectionData())
+
+    expect(result.current.confidence.reviewStatus).toBe('in_progress')
+    expect(result.current.confidence.m2NarrativeSummary).toBeUndefined()
+    expect(result.current.recommendation.m2NarrativeSummary).toBeUndefined()
+  })
+
+  it('exposes m2NarrativeSummary when reviewStatus is complete', () => {
+    useCanvasStore.setState({
+      results: {
+        status: 'complete',
+        progress: 100,
+        report: {
+          run: { critique: [] },
+          robustness: { fragile_edges: [] },
+          option_comparison: [],
+        },
+      } as any,
+      hasCompletedFirstRun: true,
+      runMeta: {
+        reviewStatus: 'complete',
+        m1ReviewAssumptions: {
+          key_assumptions: [],
+          narrative_summary: 'Visible summary',
+        },
+      } as any,
+    })
+
+    const { result } = renderHook(() => useResultsSectionData())
+
+    expect(result.current.confidence.m2NarrativeSummary).toBe('Visible summary')
+    expect(result.current.recommendation.m2NarrativeSummary).toBe('Visible summary')
+  })
+})
+
+// =============================================================================
+// Baseline Resolution Tests (Task 2.1)
+// =============================================================================
 
 describe('resolveBaselineId', () => {
   const makeOptions = (labels: string[]) =>

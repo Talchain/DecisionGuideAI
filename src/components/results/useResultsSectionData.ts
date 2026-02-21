@@ -701,6 +701,8 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     hasCompletedFirstRun,
     currentScenarioFraming,
     m1Coaching,
+    reviewStatus,
+    m1ReviewAssumptions,
     goalThreshold,
     ceeAnalysisReady,
   } = useCanvasStore(
@@ -2107,7 +2109,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       })(),
       m2EvidenceEnhancements: m1ReviewAssumptions?.evidence_enhancements as
         Record<string, { specific_action: string; decision_hygiene: string }> | undefined,
-      m2NarrativeSummary: m1ReviewAssumptions?.narrative_summary,
+      m2NarrativeSummary: reviewStatus === 'complete' ? m1ReviewAssumptions?.narrative_summary : undefined,
     }
   }, [report, m1Coaching, drivers, reviewStatus, m1ReviewAssumptions])
 

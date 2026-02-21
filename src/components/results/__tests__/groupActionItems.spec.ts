@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { groupActionItems, type GroupActionItemsInput } from '../utils/groupActionItems'
+import { groupActionItems } from '../utils/groupActionItems'
 import type { UncertaintyItem, EvidenceGapItem } from '../types'
 import type { ConstraintAnalysis } from '../../../types/constraints'
 
@@ -431,6 +431,23 @@ describe('groupActionItems', () => {
       // fac-pricing in Group 1 from next_actions — excluded from Group 2
       expect(groups[0].items).toHaveLength(1)
       expect(groups[1].items).toHaveLength(0)
+    })
+
+    it('keeps multiple targetless next_actions (no empty-target dedupe collapse)', () => {
+      const groups = groupActionItems({
+        fragileEdges: [],
+        evidenceGaps: [],
+        nextActions: [
+          { action: 'Validate pricing assumptions', rationale: 'Data stale', priority: 1 },
+          { action: 'Interview two customers', rationale: 'Qualitative check', priority: 2 },
+        ],
+      })
+
+      expect(groups[0].items).toHaveLength(2)
+      expect(groups[0].items.map(item => item.title)).toEqual([
+        'Validate pricing assumptions',
+        'Interview two customers',
+      ])
     })
   })
 
