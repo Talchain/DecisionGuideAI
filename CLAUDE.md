@@ -231,7 +231,19 @@ npm run typecheck    # TypeScript check (tsc -p tsconfig.ci.json --noEmit)
 
 - Always push to `staging`. Never push to `main` without explicit confirmation.
 - Run `bash scripts/pre-push-validate.sh` before every push.
-- Always execute `git push` and verify it succeeded.
+- Always execute `git push` and verify it succeeded. Do not just summarise commands — run them.
+
+### Deployment verification protocol
+
+When asked to deploy or merge to staging:
+
+1. Confirm the target branch is `staging` — never push to `main` without explicit user confirmation
+2. Before committing, run `git status` and `git diff --staged` to verify ONLY intended changes are staged
+3. If there are uncommitted changes from previous sessions, flag them and get user approval before including
+4. Actually execute every git command — do not present commands as a summary without running them
+5. After push, verify it succeeded by checking the output
+
+Never bundle unrelated uncommitted changes into a deployment commit.
 
 ## Git workflow
 
@@ -241,20 +253,91 @@ npm run typecheck    # TypeScript check (tsc -p tsconfig.ci.json --noEmit)
 
 ## Session preamble
 
+At the start of every session, before any other work:
+
 ```bash
-git branch --show-current && git log --oneline -3 && git status
+# 1. Branch and recent history
+git branch --show-current && git log --oneline -5 && git status
+
+# 2. Check for stale .js files shadowing .ts/.tsx sources
+find src -name '*.js' -o -name '*.jsx' | while read f; do
+  for ext in .ts .tsx; do
+    tsf="${f%.*}$ext"
+    [ -f "$tsf" ] && echo "STALE: $f"
+  done
+done
+
+# 3. Check for uncommitted changes or stash entries
+git stash list
 ```
+
+Report the output. If stale `.js` files are found, flag them — they cause silent shadowing bugs where Vite resolves the `.js` file instead of the `.ts` source. If unexpected uncommitted changes or stash entries exist, flag them before proceeding.
+
+Confirm the branch is correct for the task before starting any work.
 
 ## Testing
 
-- Run full test suite and typecheck before committing. Report pass/fail counts.
+- After any code changes, run the full test suite, typecheck, and build before committing:
+  ```bash
+  npm test
+  npm run typecheck
+  npm run build
+  ```
+- Report the exact number of passing/failing tests.
 
 ## Debugging
 
 - UI is a passthrough for display — it must not transform meaning (flip signs, default missing values, clamp ranges). If you see incorrect data displayed, the bug is upstream (PLoT or CEE), not in the UI.
 - Three temporary semantic transforms exist (`UI-SEM-001/002/003`) pending migration to PLoT. Do not add new ones.
-- Check for stale `.js` files when debugging unexpected behaviour.
+- Check for stale `.js` files co-located with `.ts`/`.tsx` source files in `src/`. Vite may resolve the wrong file. Check for and remove stale `.js` files when debugging unexpected behaviour.
+- This is a React app — check for stale component state, missing dependency arrays in hooks, and incorrect memoisation when debugging rendering issues.
 
-## Code review
+### Data flow tracing (mandatory before any fix)
 
-- Evaluate feedback independently. Do not change correct code to appease reviewers.
+Before implementing any bug fix or feature that touches data flowing between components or services:
+
+1. Where does the data originate? (API response? Local state? URL params? PLoT SSE stream?)
+2. List every transform/adapter layer it passes through (with file paths)
+3. Where is it consumed in the UI?
+4. Are there alternate code paths? (loading states, error states, empty states)
+
+Only after the trace is documented, implement fixes at ALL affected layers. Do not fix one layer and assume others are correct.
+
+## Code review analysis
+
+When asked to address code review feedback:
+
+1. Read ALL feedback items first before making any changes
+2. For each item, determine independently:
+   - Is the feedback valid and does it require a code change?
+   - Is it already handled by existing code?
+   - Is it incorrect or based on a misunderstanding of the architecture?
+3. State your reasoning for each determination before making changes
+4. Do not make changes just to appease reviewers if the existing code is correct
+5. Group changes by affected file to minimise unnecessary edits
+
+## Task completion checklist
+
+Before reporting ANY task as complete, run and show the output of all checks:
+
+```bash
+# 1. Correct branch?
+git branch --show-current
+
+# 2. Clean state? (no accidental uncommitted changes)
+git status
+
+# 3. Recent commits match the work just done?
+git log --oneline -5
+
+# 4. All tests pass?
+npm test
+
+# 5. TypeScript compiles cleanly?
+npm run typecheck
+
+# 6. Build succeeds?
+npm run build
+```
+
+If any check fails, fix it before reporting completion. Do not report "done" with failing tests or uncommitted changes unless explicitly discussed with the user.
