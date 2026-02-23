@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState, useMemo, useRef, lazy, Suspense, memo } from 'react'
 import { useLocation } from 'react-router-dom'
-import { ReactFlow, ReactFlowProvider, MiniMap, Background, BackgroundVariant, type Connection, type NodeChange, type EdgeChange, useReactFlow } from '@xyflow/react'
+import { ReactFlow, ReactFlowProvider, MiniMap, Background, BackgroundVariant, SelectionMode, type Connection, type NodeChange, type EdgeChange, useReactFlow } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 // Note: shallow from 'zustand/shallow' was removed - causes infinite loops with Zustand v5
 // Use individual selectors instead (see React #185 fix comment below)
@@ -387,6 +387,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
   // Interaction mode: 'select' for normal selection/drag, 'hand' for pan mode (like Figma V/H)
   // Default to 'hand' mode for easier canvas navigation on load
   const [interactionMode, setInteractionMode] = useState<'select' | 'hand'>('hand')
+  const canDragSelect = interactionMode === 'select'
 
   // M4: Graph Health actions (graphHealth, showIssuesPanel state selected above)
   const setShowIssuesPanel = useCanvasStore(s => s.setShowIssuesPanel)
@@ -1761,6 +1762,9 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
             defaultEdgeOptions={defaultEdgeOpts}
             snapToGrid={snapToGrid}
             snapGrid={snapGridValue}
+            selectionOnDrag={canDragSelect}
+            selectionMode={SelectionMode.Partial}
+            multiSelectionKeyCode={['Meta', 'Control']}
             panOnDrag={interactionMode === 'hand'}
             fitView
             minZoom={0.1}

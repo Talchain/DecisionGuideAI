@@ -16,7 +16,7 @@ function seedDemoGraph() {
       { id: 'e3', source: '2', target: '4', data: {} } as any,
       { id: 'e4', source: '3', target: '4', data: {} } as any,
     ],
-    selection: { nodeIds: new Set(), edgeIds: new Set() },
+    selection: { nodeIds: new Set(), edgeIds: new Set(), anchorPosition: null },
     history: { past: [], future: [] },
     nextNodeId: 5,
     nextEdgeId: 5,
@@ -157,6 +157,19 @@ describe('Canvas Store', () => {
     expect(newSelection.nodeIds.has(nodes[0].id)).toBe(true)
   })
 
+  it('tracks multi-node selection and clears single-anchor position', () => {
+    seedDemoGraph()
+    const { onSelectionChange, nodes } = useCanvasStore.getState()
+
+    onSelectionChange({ nodes: [nodes[0], nodes[1]], edges: [] })
+
+    const selection = useCanvasStore.getState().selection
+    expect(selection.nodeIds.size).toBe(2)
+    expect(selection.nodeIds.has(nodes[0].id)).toBe(true)
+    expect(selection.nodeIds.has(nodes[1].id)).toBe(true)
+    expect(selection.anchorPosition).toBeNull()
+  })
+
   it('deletes selected nodes and connected edges', () => {
     seedDemoGraph()
     const { onSelectionChange, deleteSelected } = useCanvasStore.getState()
@@ -204,7 +217,7 @@ describe('Canvas Store', () => {
     
     // Select first node
     useCanvasStore.setState({ 
-      selection: { nodeIds: new Set(['1']), edgeIds: new Set() } 
+      selection: { nodeIds: new Set(['1']), edgeIds: new Set(), anchorPosition: null } 
     })
     
     duplicateSelected()
@@ -224,7 +237,7 @@ describe('Canvas Store', () => {
     const { copySelected } = useCanvasStore.getState()
     
     useCanvasStore.setState({ 
-      selection: { nodeIds: new Set(['1', '2']), edgeIds: new Set() } 
+      selection: { nodeIds: new Set(['1', '2']), edgeIds: new Set(), anchorPosition: null } 
     })
     
     copySelected()
@@ -238,7 +251,7 @@ describe('Canvas Store', () => {
     const { copySelected, pasteClipboard } = useCanvasStore.getState()
     
     useCanvasStore.setState({ 
-      selection: { nodeIds: new Set(['1']), edgeIds: new Set() } 
+      selection: { nodeIds: new Set(['1']), edgeIds: new Set(), anchorPosition: null } 
     })
     
     copySelected()
@@ -253,7 +266,7 @@ describe('Canvas Store', () => {
     const { cutSelected } = useCanvasStore.getState()
     
     useCanvasStore.setState({ 
-      selection: { nodeIds: new Set(['1']), edgeIds: new Set() } 
+      selection: { nodeIds: new Set(['1']), edgeIds: new Set(), anchorPosition: null } 
     })
     
     cutSelected()
@@ -295,6 +308,7 @@ describe('Canvas Store', () => {
       selection: {
         nodeIds: new Set(['2', '3', '4']),
         edgeIds: new Set(['e2', 'e3', 'e4']),
+        anchorPosition: null,
       },
     }))
 
@@ -355,7 +369,7 @@ describe('Canvas Store', () => {
     const originalX = nodes[0].position.x
     
     useCanvasStore.setState({ 
-      selection: { nodeIds: new Set(['1']), edgeIds: new Set() } 
+      selection: { nodeIds: new Set(['1']), edgeIds: new Set(), anchorPosition: null } 
     })
     
     nudgeSelected(10, 0)
