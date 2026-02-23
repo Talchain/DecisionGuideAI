@@ -33,6 +33,13 @@ export interface CleanedLabel {
 const ENCODING_PATTERN = /\s*\(0[\u002D\u2013\u2014/]1[^)]*\)\s*/g
 
 /**
+ * Discrete encoding pattern: (0=Label, 1=Label) or (0=Label, 1=Label, 2=Label)
+ * Matches parenthetical containing digit=word assignments separated by commas.
+ * Examples: "(0=Developers, 1=Tech Lead)", "(0=Low, 1=Medium, 2=High)"
+ */
+const DISCRETE_ENCODING_PATTERN = /\s*\(\d+=\w[^)]*\)\s*/g
+
+/**
  * Strip parenthetical encoding notation from a label.
  *
  * @param rawLabel - The raw label that may contain encoding patterns
@@ -68,6 +75,9 @@ export function cleanFactorLabel(rawLabel: string): CleanedLabel {
   // First, handle the master encoding pattern (0-1, 0–1, 0/1 with anything after)
   let cleanedLabel = rawLabel.replace(ENCODING_PATTERN, ' ')
 
+  // Discrete encoding: (0=Developers, 1=Tech Lead)
+  cleanedLabel = cleanedLabel.replace(DISCRETE_ENCODING_PATTERN, ' ')
+
   // Also handle other boolean text patterns
   const otherPatterns = [
     /\s*\(0 or 1\)\s*/gi,
@@ -98,17 +108,20 @@ export function stripEncodingNotation(rawLabel: string): string {
 
 /**
  * Sanitize coaching text: strip arrow characters and encoding notation.
- * Use for any M1/M2 text surfaced in the coaching UI (next_actions, narrative snippets).
+ * Single function for ALL coaching-facing text cleanup.
+ * Use for any M1/M2 text surfaced in the coaching UI (next_actions, narrative snippets,
+ * factor labels, Validate/Investigate titles, VOI block, option card descriptions).
  *
  * @param text - Raw coaching text from PLoT
  * @returns Cleaned text suitable for display
  */
 export function sanitizeCoachingText(text: string): string {
   if (!text) return ''
-  return text
-    .replace(/\s*[\u2192]\s*/g, ' to ')   // Unicode right arrow →
-    .replace(/\s*->\s*/g, ' to ')          // ASCII arrow ->
-    .trim()
+  return stripEncodingNotation(
+    text
+      .replace(/\s*[\u2192]\s*/g, ' to ')   // Unicode right arrow →
+      .replace(/\s*->\s*/g, ' to ')          // ASCII arrow ->
+  ).trim()
 }
 
 export default cleanFactorLabel

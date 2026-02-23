@@ -101,14 +101,17 @@ function formatRelativeChange(value: number, expected: number): string {
   return rounded > 0 ? `+${rounded} pp` : `${rounded} pp`.replace('-', '−')
 }
 
-/** Format the centre axis label. Includes "Expected" + value + unit context. */
+/** Format the centre axis label. Includes "Expected" + value + unit context.
+ *  V12.1 Fix 5: Appends unit symbol for count units (e.g., "Expected: 239 customers"). */
 function formatExpectedLabel(
   value: number,
   unit?: 'currency' | 'percent' | 'count',
   symbol?: string,
   isNormalised?: boolean,
 ): string {
-  return `Expected: ${formatValue(value, unit, symbol, isNormalised)}`
+  const formatted = formatValue(value, unit, symbol, isNormalised)
+  if (unit === 'count' && symbol) return `Expected: ${formatted} ${symbol}`
+  return `Expected: ${formatted}`
 }
 
 // ─── Drag state management ──────────────────────────────────────────────────
@@ -506,6 +509,16 @@ export function TornadoChart({
             : 'Stronger →'}
         </span>
       </div>
+
+      {/* V12.1 Fix 6: Clarification when axis shows unit but bars show pp */}
+      {useRelativePct && outcomeUnitSymbol && outcomeUnit === 'count' && (
+        <p
+          className={`${typography.panelMeta} text-text-light italic mt-1 ml-[104px]`}
+          data-testid="tornado-pp-clarification"
+        >
+          Values show relative change in percentage points.
+        </p>
+      )}
 
       {/* Preview disclaimer + reset link */}
       <div className="flex items-baseline justify-between mt-2">

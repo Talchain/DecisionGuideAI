@@ -77,7 +77,9 @@ describe('humaniseCritique', () => {
       )
       expect(result.title).toBe("Review this factor's inputs")
       expect(result.description).toContain("isn't available yet")
-      expect(result.suggestion).toBe('Check and update this factor')
+      // V12.1: Unmapped codes must NOT have suggestion — banner filter (suggestion != null)
+      // excludes them from the attention banner above the hero.
+      expect(result.suggestion).toBeUndefined()
     })
 
     it('does NOT include raw message in any output field', () => {

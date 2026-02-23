@@ -58,6 +58,11 @@ const BANNED_STRINGS = [
   'observed_state.value',     // PLoT internal field name
   'intercept=0',              // PLoT internal parameter
   'constraint_fac_',          // PLoT internal constraint prefix
+  // V12.1 Fix 2: Discrete encoding notation
+  '0=Developers',             // Discrete encoding leak
+  '0=Tech Lead',              // Discrete encoding leak
+  // V12.1 Fix 3: Removed section heading
+  'Recommended actions',      // Merged into Validate group
 ]
 
 /**

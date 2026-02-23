@@ -14,14 +14,13 @@
  */
 
 import { useState, useCallback, useMemo } from 'react'
-import type { ConfidenceSectionData, UncertaintyItem, ImprovementItem, CritiqueSeverity, ConfidenceTier, EvidenceGapItem, NextActionItem, AssumptionItem, DecisionState, HingeInfo, TopAction } from './types'
+import type { ConfidenceSectionData, UncertaintyItem, ImprovementItem, CritiqueSeverity, ConfidenceTier, EvidenceGapItem, AssumptionItem, DecisionState, HingeInfo, TopAction } from './types'
 import type { ConstraintAnalysis } from '../../types/constraints'
-import { CappedList } from './CappedList'
 import { focusNodeById, focusByTarget, type FocusTargetType } from '../../canvas/utils/focusHelpers'
 import { EMPTY_STATES } from './emptyStates'
 import { typography } from '../../styles/typography'
 import { MIN_STABLE_RECOMMENDATION_STABILITY, isStableRobustnessLevel } from './constants'
-import { stripEncodingNotation, sanitizeCoachingText } from './utils/cleanFactorLabel'
+import { stripEncodingNotation } from './utils/cleanFactorLabel'
 import { groupActionItems, type ActionGroup, type ActionItem } from './utils/groupActionItems'
 import { AlertTriangle, Search } from 'lucide-react'
 
@@ -230,16 +229,12 @@ function UncertaintyRow({
     }
   })()
 
-  // Extract edge relationship from message for compact title
-  // Pattern: If "X → Y" changes... or similar
-  const edgeMatch = item.message.match(/[""]([^""]+)\s*→\s*([^""]+)[""]/)
-  const hasEdgeTitle = edgeMatch && edgeMatch[1] && edgeMatch[2]
-
-  // Patch 1: Clean encoding notation from edge titles to avoid "(0/1)" leaks
-  // v7.9 T3: Removed JS truncation — CSS 2-line clamp handles overflow
-  const edgeTitle = hasEdgeTitle
-    ? `${stripEncodingNotation(edgeMatch[1].trim())} → ${stripEncodingNotation(edgeMatch[2].trim())}`
-    : null
+  // Extract factor name from edge relationship in message for compact title
+  // V12.1 Fix 4: Use from_label only (factor name), not the full edge path
+  // V12.1 Fix 1: Guard against internal field names leaking
+  const edgeMatch = item.message.match(/[""]([^""]+)\s*\u2192\s*([^""]+)[""]/)
+  const fromLabel = edgeMatch?.[1] ? stripEncodingNotation(edgeMatch[1].trim()) : null
+  const edgeTitle = fromLabel && !INTERNAL_PATTERN.test(fromLabel) ? fromLabel : null
 
   // v7.10 T7: consequence line removed — determine compact format from edge data
   const rawAlternativeOption = item.threshold?.alternativeOption
@@ -248,7 +243,7 @@ function UncertaintyRow({
     && rawAlternativeOption !== 'another option'
 
   // Determine if we use compact or full format
-  const useCompactFormat = hasEdgeTitle && (hasSpecificAlternative || item.code === 'SENSITIVE_ASSUMPTION')
+  const useCompactFormat = edgeTitle && (hasSpecificAlternative || item.code === 'SENSITIVE_ASSUMPTION')
 
   const isClickable = item.affectedNodes && item.affectedNodes.length > 0
   const cardClickHandler = isClickable ? () => handleNodeClick(item.affectedNodes![0]) : undefined
@@ -572,18 +567,26 @@ export function ConfidenceSection({
           ? displayFragileEdges.filter(item => !excludeSet.has(item.affectedNodes?.[0] ?? ''))
           : displayFragileEdges
 
-        // V12: Cross-dedup nextActions vs evidence gaps — exclude nextAction targets from Group 2
-        const nextActionTargetIds = (nextActions ?? [])
-          .map(a => a.targetId).filter((id): id is string => !!id)
-        const extendedExcludeIds = [...(excludeFactorIds ?? []), ...nextActionTargetIds]
+        // V12.1 Fix 3: Hinge-filter nextActions before passing to groupActionItems
+        const hingeNodeId = hinge?.nodeId
+        const filteredNextActions = hingeNodeId
+          ? (nextActions ?? []).filter(a => a.targetId !== hingeNodeId)
+          : (nextActions ?? [])
 
+        // Cross-group dedup (nextActions vs evidence gaps) is handled inside
+        // groupActionItems via group1Keys — no need to add nextAction target IDs
+        // to excludeFactorIds here.
         const groups = groupActionItems({
           fragileEdges: displayFragileEdges,
           evidenceGaps: evidenceGaps ?? [],
           constraintAnalysis: winnerConstraintAnalysis,
-          excludeFactorIds: extendedExcludeIds,
+          excludeFactorIds: excludeFactorIds,
           evidenceEnhancements: m2EvidenceEnhancements,
+          nextActions: filteredNextActions.length > 0 ? filteredNextActions : undefined,
         })
+
+        // V12.1 Fix 3: Extract next-action items from Group 1 for separate rendering
+        const nextActionGroupItems = groups[0].items.filter(i => i.id.startsWith('next-'))
 
         // Non-fragile-edge uncertainties (Group 2 legacy: low-confidence factors)
         const worthRefining = uncertainties.filter(item => item.code !== 'SENSITIVE_ASSUMPTION')
@@ -592,6 +595,7 @@ export function ConfidenceSection({
         const hasAnyContent = fragileEdges.length > 0
           || worthRefining.length > 0
           || (evidenceGaps?.length ?? 0) > 0
+          || nextActionGroupItems.length > 0
 
         if (!hasAnyContent) {
           return (
@@ -611,8 +615,9 @@ export function ConfidenceSection({
         // Render non-empty groups with dividers between them
         const nonEmptyGroups: Array<{ group: ActionGroup; fragileEdgeItems?: UncertaintyItem[]; refinementItems?: UncertaintyItem[] }> = []
 
-        // Group 1: Validate before committing (fragile edges, after hinge exclusion)
-        if (visibleFragileEdges.length > 0) {
+        // Group 1: Validate before committing (fragile edges + next actions, after hinge exclusion)
+        // V12.1 Fix 3: Also show Group 1 when only next-action items exist
+        if (visibleFragileEdges.length > 0 || nextActionGroupItems.length > 0) {
           nonEmptyGroups.push({ group: groups[0], fragileEdgeItems: visibleFragileEdges })
         }
 
@@ -649,9 +654,11 @@ export function ConfidenceSection({
                     <h4 className={`${typography.panelHeader} text-text-header`}>
                       {group.label}
                     </h4>
-                    {group.items.length > 0 && (
+                    {(group.items.length > 0 || (entry.fragileEdgeItems?.length ?? 0) > 0) && (
                       <span className={`${typography.panelMeta} text-text-light`}>
-                        {group.items.length + (entry.refinementItems?.length ?? 0)}
+                        {group.key === 'validate'
+                          ? (entry.fragileEdgeItems?.length ?? 0) + nextActionGroupItems.length
+                          : group.items.length + (entry.refinementItems?.length ?? 0)}
                       </span>
                     )}
                   </div>
@@ -661,10 +668,11 @@ export function ConfidenceSection({
                     </p>
                   )}
 
-                  {/* Group 1: Fragile edge cards (reuse UncertaintyRow) */}
-                  {entry.fragileEdgeItems && (
+                  {/* Group 1: Fragile edge cards (reuse UncertaintyRow) + next-action cards */}
+                  {group.key === 'validate' && (
                     <div className="space-y-2">
-                      {entry.fragileEdgeItems.map((item, index) => (
+                      {/* Fragile edge items first (by switch_probability descending) */}
+                      {entry.fragileEdgeItems?.map((item, index) => (
                         <UncertaintyRow
                           key={`validate-${item.code}-${index}`}
                           item={item}
@@ -672,6 +680,39 @@ export function ConfidenceSection({
                           groupType="high-risk"
                         />
                       ))}
+                      {/* V12.1 Fix 3: Next-action items after fragile edges (by priority ascending) */}
+                      {nextActionGroupItems.map((actionItem) => {
+                        const canFocus = !!actionItem.targetId
+                        const handleFocus = () => {
+                          if (actionItem.targetId) {
+                            if (onFocusNode) onFocusNode(actionItem.targetId)
+                            else focusNodeById(actionItem.targetId)
+                          }
+                        }
+                        return (
+                          <div
+                            key={actionItem.id}
+                            className={`p-3 bg-panel border border-danger/30 rounded-lg ${canFocus ? 'cursor-pointer hover:-translate-y-0.5 hover:shadow-md' : ''}`}
+                            onClick={canFocus ? handleFocus : undefined}
+                            role={canFocus ? 'button' : undefined}
+                            tabIndex={canFocus ? 0 : undefined}
+                            onKeyDown={canFocus ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleFocus() } } : undefined}
+                          >
+                            <div className="flex items-start gap-2">
+                              <AlertTriangle className="w-4 h-4 text-danger flex-shrink-0 mt-0.5" />
+                              <div className="flex-1 min-w-0">
+                                <p className={`${typography.panelHeader} text-text-header`}>{actionItem.title}</p>
+                                {actionItem.subtitle && (
+                                  <p className={`${typography.panelBody} text-text-light mt-0.5`}>{actionItem.subtitle}</p>
+                                )}
+                              </div>
+                              {canFocus && (
+                                <span className="text-text-light flex-shrink-0" aria-hidden="true">{'\u2192'}</span>
+                              )}
+                            </div>
+                          </div>
+                        )
+                      })}
                     </div>
                   )}
 
@@ -795,74 +836,7 @@ export function ConfidenceSection({
         )
       })()}
 
-      {/* V12: Next actions from M1 coaching — ungated, hinge excluded */}
-      {(() => {
-        if (!nextActions || nextActions.length === 0) return null
-        // V12: Exclude actions targeting the hinge factor (shown in VOI block)
-        const hingeNodeId = hinge?.nodeId
-        const filtered = hingeNodeId
-          ? nextActions.filter(a => a.targetId !== hingeNodeId)
-          : nextActions
-        if (filtered.length === 0) return null
-        return (
-          <div className="space-y-2">
-            <h4 className={`${typography.panelHeader} text-text-light tracking-wide`}>
-              Recommended actions
-            </h4>
-            <CappedList<NextActionItem>
-              items={filtered}
-              maxVisible={3}
-              getKey={(action) => `${action.action}::${action.targetId ?? ''}`}
-              renderItem={(action) => {
-                const handleFocus = () => {
-                  if (action.targetId) {
-                    if (onFocusNode) {
-                      onFocusNode(action.targetId)
-                    } else {
-                      focusByTarget(action.targetId, action.targetType as FocusTargetType)
-                    }
-                  }
-                }
-                // V12: Sanitize coaching text (strip arrows)
-                const actionText = sanitizeCoachingText(action.action)
-
-                return (
-                  <div className="w-full text-left p-3 bg-panel border border-panel-border rounded-lg">
-                    <div className="flex-1 min-w-0">
-                      {action.targetId ? (
-                        <span
-                          role="link"
-                          tabIndex={0}
-                          onClick={handleFocus}
-                          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleFocus() } }}
-                          className={`${typography.panelBody} text-text-body cursor-pointer hover:underline focus:outline-none focus:ring-2 focus:ring-info/30 focus:ring-offset-1 rounded`}
-                          aria-label={`Focus on ${action.targetLabel || actionText} in model`}
-                        >
-                          {actionText}
-                        </span>
-                      ) : (
-                        <p className={`${typography.panelBody} text-text-body`}>
-                          {actionText}
-                        </p>
-                      )}
-                      {action.rationale && (
-                        <p className={`${typography.panelBody} text-text-light mt-1`}>
-                          {action.rationale}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                )
-              }}
-              overflowLabel={(n) => `+${n} more`}
-              dedupeFn={(action) => `${action.action}::${action.targetId ?? ''}`}
-              sortFn={(a, b) => a.priority - b.priority}
-              emptyMessage="No recommended actions"
-              expandButtonAriaLabel="Show more recommended actions"
-            />
-          </div>
-        )
-      })()}
+      {/* V12.1 Fix 3: "Recommended actions" section removed — next_actions merged into Validate group above */}
 
       {/* v7.5: gated — not in v7 prototype. Source: m1_coaching. Remove after v7 stable. */}
       {/* eslint-disable-next-line no-constant-binary-expression */}

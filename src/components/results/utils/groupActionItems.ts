@@ -11,7 +11,7 @@
 
 import type { UncertaintyItem, EvidenceGapItem } from '../types'
 import type { ConstraintAnalysis } from '../../../types/constraints'
-import { stripEncodingNotation } from './cleanFactorLabel'
+import { stripEncodingNotation, sanitizeCoachingText } from './cleanFactorLabel'
 
 // ─── Public types ────────────────────────────────────────────────────────────
 
@@ -66,13 +66,22 @@ function edgeDedupKey(item: UncertaintyItem): string {
   return `msg:${item.message.slice(0, 40)}`
 }
 
-/** Extract a clean title from a fragile edge UncertaintyItem. */
+/** Internal-string blocklist — titles matching these patterns are replaced with safe fallback. */
+const INTERNAL_PATTERN = /constraint_|observed_state|intercept=|node_id=|edge_id=|fac_[a-z_]+_/i
+
+/** Extract a clean title from a fragile edge UncertaintyItem.
+ *  V12.1 Fix 4: Uses from_label only (factor name), not the full edge path.
+ *  V12.1 Fix 1: Guards against internal field names leaking. */
 function edgeTitle(item: UncertaintyItem): string {
-  const edgeMatch = item.message.match(/[""\u201C]([^""\u201D]+)\s*→\s*([^""\u201D]+)[""\u201D]/)
-  if (edgeMatch?.[1] && edgeMatch?.[2]) {
-    return `${stripEncodingNotation(edgeMatch[1].trim())} → ${stripEncodingNotation(edgeMatch[2].trim())}`
+  const edgeMatch = item.message.match(/[""\u201C]([^""\u201D]+)\s*\u2192\s*([^""\u201D]+)[""\u201D]/)
+  if (edgeMatch?.[1]) {
+    const fromLabel = stripEncodingNotation(edgeMatch[1].trim())
+    if (INTERNAL_PATTERN.test(fromLabel)) return 'Check and update this factor'
+    return fromLabel
   }
-  return stripEncodingNotation(item.message)
+  const cleaned = stripEncodingNotation(item.message)
+  if (INTERNAL_PATTERN.test(cleaned)) return 'Check and update this factor'
+  return cleaned
 }
 
 /** Map factor confidence (0-1) to a level label. */
@@ -195,7 +204,7 @@ export function groupActionItems(input: GroupActionItemsInput): ActionGroup[] {
       if (targetId) group1Keys.add(targetId) // Prevent same factor appearing in Group 2
       group1Items.push({
         id: `next-${targetId || action.action.slice(0, 30)}`,
-        title: stripEncodingNotation(action.action),
+        title: sanitizeCoachingText(action.action),
         subtitle: action.rationale || undefined,
         targetId: targetId || undefined,
         targetType: 'node',

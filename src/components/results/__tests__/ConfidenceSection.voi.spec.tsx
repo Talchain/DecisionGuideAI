@@ -229,10 +229,10 @@ describe('ConfidenceSection: V11 hinge de-duplication', () => {
       />
     )
 
-    // Only the non-excluded edge should render
-    expect(screen.getByText(/Market size → Revenue/)).toBeInTheDocument()
+    // Only the non-excluded edge should render (V12.1 Fix 4: from_label only)
+    expect(screen.getByText('Market size')).toBeInTheDocument()
     // The excluded edge (hinge factor) should not render as a card
-    expect(screen.queryByText(/Customer churn → Revenue/)).not.toBeInTheDocument()
+    expect(screen.queryByText('Customer churn')).not.toBeInTheDocument()
   })
 
   it('shows all fragile edges when no excludeFactorIds', () => {
@@ -261,7 +261,8 @@ describe('ConfidenceSection: V11 hinge de-duplication', () => {
       />
     )
 
-    expect(screen.getByText(/Customer churn → Revenue/)).toBeInTheDocument()
-    expect(screen.getByText(/Market size → Revenue/)).toBeInTheDocument()
+    // V12.1 Fix 4: from_label only (no arrow paths)
+    expect(screen.getByText('Customer churn')).toBeInTheDocument()
+    expect(screen.getByText('Market size')).toBeInTheDocument()
   })
 })

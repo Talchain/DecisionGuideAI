@@ -593,4 +593,84 @@ describe('TornadoChart', () => {
     expect(screen.getByTestId('tornado-axis-left')).toHaveTextContent('← Weaker')
     expect(screen.getByTestId('tornado-axis-right')).toHaveTextContent('Stronger →')
   })
+
+  // V12.1 Fix 5: Expected value includes unit
+  it('V12.1: count unit shows "Expected: {value} {unit}" in expected display', () => {
+    render(
+      <TornadoChart
+        rows={[positiveRow]}
+        expectedOutcome={239}
+        outcomeUnit="count"
+        outcomeUnitSymbol="customers"
+      />
+    )
+
+    expect(screen.getByTestId('tornado-expected-display')).toHaveTextContent('Expected: 239 customers')
+  })
+
+  it('V12.1: no unit shows "Expected: {value}" without trailing space', () => {
+    render(
+      <TornadoChart
+        rows={[positiveRow]}
+        expectedOutcome={239}
+      />
+    )
+
+    expect(screen.getByTestId('tornado-expected-display')).toHaveTextContent('Expected: 239')
+    // Verify no trailing space
+    expect(screen.getByTestId('tornado-expected-display').textContent).not.toMatch(/Expected: 239\s/)
+  })
+
+  it('V12.1: currency unit does not append symbol after value', () => {
+    render(
+      <TornadoChart
+        rows={[positiveRow]}
+        expectedOutcome={100}
+        outcomeUnit="currency"
+        outcomeUnitSymbol="$"
+      />
+    )
+
+    // Currency symbol goes before the value, not after
+    expect(screen.getByTestId('tornado-expected-display')).toHaveTextContent('Expected: $100')
+  })
+
+  // V12.1 Fix 6: pp/unit clarification line
+  it('V12.1: shows pp clarification when axis has unit but bars show pp', () => {
+    render(
+      <TornadoChart
+        rows={[positiveRow]}
+        expectedOutcome={100}
+        outcomeUnit="count"
+        outcomeUnitSymbol="customers"
+      />
+    )
+
+    expect(screen.getByTestId('tornado-pp-clarification')).toBeInTheDocument()
+    expect(screen.getByText('Values show relative change in percentage points.')).toBeInTheDocument()
+  })
+
+  it('V12.1: no pp clarification when no unit (pp is expected)', () => {
+    render(
+      <TornadoChart
+        rows={[positiveRow]}
+        expectedOutcome={100}
+      />
+    )
+
+    expect(screen.queryByTestId('tornado-pp-clarification')).not.toBeInTheDocument()
+  })
+
+  it('V12.1: no pp clarification when currency unit (bars show absolute values)', () => {
+    render(
+      <TornadoChart
+        rows={[positiveRow]}
+        expectedOutcome={100}
+        outcomeUnit="currency"
+        outcomeUnitSymbol="$"
+      />
+    )
+
+    expect(screen.queryByTestId('tornado-pp-clarification')).not.toBeInTheDocument()
+  })
 })

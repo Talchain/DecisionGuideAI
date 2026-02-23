@@ -157,10 +157,12 @@ export function humaniseCritique(
     console.warn('[humaniseCritique] Unmapped critique code:', item.code, '| Raw message:', item.message)
   }
 
+  // No suggestion → banner filter (suggestion != null) will exclude unmapped codes
+  // from the attention banner above the hero. The title/description still render
+  // inside ConfidenceSection rows for unmapped codes.
   return {
     title: 'Review this factor\'s inputs',
     description: 'Some information needed to assess this factor isn\'t available yet.',
-    suggestion: 'Check and update this factor',
     factorId,
   }
 }

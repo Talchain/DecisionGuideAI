@@ -34,7 +34,8 @@ describe('groupActionItems', () => {
 
     expect(groups[0].key).toBe('validate')
     expect(groups[0].items).toHaveLength(1)
-    expect(groups[0].items[0].title).toBe('Factor A → Outcome B')
+    // V12.1 Fix 4: edgeTitle now returns from_label only (no arrow path)
+    expect(groups[0].items[0].title).toBe('Factor A')
     expect(groups[0].items[0].id).toBe('factor-a→outcome-b')
   })
 
@@ -533,6 +534,54 @@ describe('groupActionItems', () => {
 
       expect(groups[2].items).toHaveLength(1)
       expect(groups[2].items[0].title).toBe('Consider anchoring bias')
+    })
+  })
+
+  // V12.1 Fix 1: Internal field name guard in edgeTitle
+  describe('V12.1 Fix 1: internal field name guard', () => {
+    it('replaces internal field names with safe fallback title', () => {
+      const edge = makeEdge({
+        message: 'If "constraint_fac_customer_churn_max \u2192 observed_state.value" changes, results shift',
+        affectedNodes: ['fac-churn', 'goal-1'],
+      })
+      const groups = groupActionItems({
+        fragileEdges: [edge],
+        evidenceGaps: [],
+      })
+
+      expect(groups[0].items[0].title).toBe('Check and update this factor')
+      // No internal field names in title
+      expect(groups[0].items[0].title).not.toContain('constraint_fac_')
+      expect(groups[0].items[0].title).not.toContain('observed_state')
+    })
+
+    it('shows clean from_label when no internal patterns', () => {
+      const edge = makeEdge({
+        message: 'If "Market Size \u2192 Revenue" changes significantly',
+        affectedNodes: ['fac-market', 'goal-revenue'],
+      })
+      const groups = groupActionItems({
+        fragileEdges: [edge],
+        evidenceGaps: [],
+      })
+
+      // V12.1 Fix 4: from_label only, no arrow path
+      expect(groups[0].items[0].title).toBe('Market Size')
+      expect(groups[0].items[0].title).not.toContain('\u2192')
+    })
+  })
+
+  // V12.1 Fix 4: No arrow paths in Validate titles
+  describe('V12.1 Fix 4: no arrow in validate titles', () => {
+    it('fragile edge title contains no arrow character', () => {
+      const edge = makeEdge()
+      const groups = groupActionItems({
+        fragileEdges: [edge],
+        evidenceGaps: [],
+      })
+
+      expect(groups[0].items[0].title).not.toContain('\u2192')
+      expect(groups[0].items[0].title).not.toContain('->')
     })
   })
 })

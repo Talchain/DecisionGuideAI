@@ -560,8 +560,9 @@ describe('ConfidenceSection', () => {
   })
 
   // V12: Next actions ungated
-  describe('V12: Next actions rendering', () => {
-    it('renders next actions when present (false gate removed)', () => {
+  // V12.1 Fix 3: Next actions merged into Validate group (no separate section)
+  describe('V12.1: Next actions merged into Validate', () => {
+    it('renders next actions within Validate group (no Recommended actions heading)', () => {
       const dataWithActions: ConfidenceSectionData = {
         ...mockData,
         nextActions: [
@@ -572,7 +573,10 @@ describe('ConfidenceSection', () => {
 
       render(<ConfidenceSection data={dataWithActions} />)
 
-      expect(screen.getByText('Recommended actions')).toBeInTheDocument()
+      // V12.1 Fix 3: No separate "Recommended actions" heading
+      expect(screen.queryByText('Recommended actions')).not.toBeInTheDocument()
+      // Items appear under "Validate before committing"
+      expect(screen.getByText('Validate before committing')).toBeInTheDocument()
       expect(screen.getByText('Validate pricing model')).toBeInTheDocument()
       expect(screen.getByText('Check market size data')).toBeInTheDocument()
     })
@@ -581,14 +585,14 @@ describe('ConfidenceSection', () => {
       const dataWithArrows: ConfidenceSectionData = {
         ...mockData,
         nextActions: [
-          { action: 'Price → Revenue relationship', rationale: '', priority: 1 },
+          { action: 'Price \u2192 Revenue relationship', rationale: '', priority: 1 },
         ],
       }
 
       render(<ConfidenceSection data={dataWithArrows} />)
 
+      // sanitizeCoachingText strips arrows
       expect(screen.getByText('Price to Revenue relationship')).toBeInTheDocument()
-      expect(screen.queryByText(/→/)).not.toBeInTheDocument()
     })
 
     it('excludes actions targeting the hinge factor', () => {
@@ -609,11 +613,11 @@ describe('ConfidenceSection', () => {
 
       // fac-price should be excluded (matches hinge nodeId)
       expect(screen.queryByText('Validate pricing model')).not.toBeInTheDocument()
-      // fac-market should still render
+      // fac-market should still render in Validate group
       expect(screen.getByText('Check market size')).toBeInTheDocument()
     })
 
-    it('does not render section when no next actions', () => {
+    it('does not render Recommended actions section when no next actions', () => {
       render(<ConfidenceSection data={mockData} />)
       expect(screen.queryByText('Recommended actions')).not.toBeInTheDocument()
     })
