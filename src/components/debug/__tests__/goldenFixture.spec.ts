@@ -274,3 +274,120 @@ describe('golden fixture: repair_summary extraction-level', () => {
     expect(repair_summary).toBeNull()
   })
 })
+
+describe('debug bundle observability diagnostics', () => {
+  it('populates causal_claims_diagnostic when CEE response includes causal_claims', () => {
+    const data = makeDebugDataFromFixture()
+    data.payloads.cee_response = {
+      trace: {
+        validation_warnings: [{ code: 'CAUSAL_CLAIM_INVALID_REF' }, { code: 'GRAPH_DISCONNECTED' }],
+        pipeline: {
+          causal_claims: [{ id: 'c1' }, { id: 'c2' }, { id: 'c3' }],
+          validated_causal_claims: [{ id: 'c1' }, { id: 'c2' }],
+        },
+      },
+    }
+
+    const bundle = buildDebugBundle(data)
+    expect(bundle.pipeline.causal_claims_diagnostic).toEqual({
+      llm_emitted: true,
+      raw_count: 3,
+      validated_count: 2,
+      dropped_count: 1,
+      warnings: ['CAUSAL_CLAIM_INVALID_REF'],
+    })
+  })
+
+  it('sets causal_claims_diagnostic.llm_emitted=false when causal_claims is absent', () => {
+    const data = makeDebugDataFromFixture()
+    data.payloads.cee_response = {
+      trace: {
+        pipeline: {
+          repair_summary: { repairs_applied: 0 },
+        },
+      },
+    }
+
+    const bundle = buildDebugBundle(data)
+    expect(bundle.pipeline.causal_claims_diagnostic.llm_emitted).toBe(false)
+    expect(bundle.pipeline.causal_claims_diagnostic.raw_count).toBe(0)
+  })
+
+  it('extracts isl_raw_fields from payloads.isl_response', () => {
+    const data = makeDebugDataFromFixture()
+    data.payloads.isl_response = {
+      stability_thresholds: { low: 0.2, medium: 0.5, high: 0.8 },
+      factor_sensitivity_3c_fields: [
+        {
+          factor_id: 'fac_x',
+          attribution_stability: 'low',
+          elasticity_std: 0.13,
+          rank_flip_rate: 0.15,
+          stability_method: 'bootstrap_20',
+        },
+      ],
+      confounding_sensitivity: { score: 0.1 },
+    }
+
+    const bundle = buildDebugBundle(data)
+    expect(bundle.isl_diagnostic.isl_raw_fields.stability_thresholds).toEqual({ low: 0.2, medium: 0.5, high: 0.8 })
+    expect(bundle.isl_diagnostic.isl_raw_fields.factor_sensitivity_3c_fields).toHaveLength(1)
+    expect(bundle.isl_diagnostic.isl_raw_fields.confounding_sensitivity).toEqual({ score: 0.1 })
+  })
+
+  it('keeps typical debug bundle payload under 500KB', () => {
+    const data = makeDebugDataFromFixture()
+    data.pipeline.llm_raw = {
+      text: JSON.stringify({
+        nodes: Array.from({ length: 12 }, (_, i) => ({ id: `n${i}`, kind: 'factor' })),
+        edges: Array.from({ length: 20 }, (_, i) => ({ source: `n${i % 10}`, target: `n${(i + 1) % 10}` })),
+        causal_claims: Array.from({ length: 5 }, (_, i) => ({ id: `c${i}`, claim: 'x causes y' })),
+      }),
+      truncated: false,
+      char_count: 5000,
+    }
+
+    const bundle = buildDebugBundle(data)
+    const sizeBytes = new TextEncoder().encode(JSON.stringify(bundle)).length
+    expect(sizeBytes).toBeLessThan(500 * 1024)
+  })
+
+  it('extracts cee_pipeline_path and cee_strp_mutations_count from repair_summary', () => {
+    const data = makeDebugDataFromFixture()
+    data.cee_observability = {
+      llm_calls: [],
+      validation: null,
+      orchestrator: null,
+      totals: null,
+      graph_metrics: null,
+      graph_diffs: [],
+      request_id: null,
+      raw_io_included: false,
+      repair_summary: {
+        cee_pipeline_path: 'unified_v3',
+        cee_strp_mutations_count: 3,
+        repairs_applied: 2,
+        repair_types: ['orphan_removal'],
+        total_latency_ms: 45,
+      },
+    }
+
+    const bundle = buildDebugBundle(data)
+    expect(bundle.pipeline.cee_pipeline_path).toBe('unified')
+    expect(bundle.pipeline.cee_strp_mutations_count).toBe(3)
+  })
+
+  it('extracts cee_pipeline_path from provenance when repair_summary is missing', () => {
+    const data = makeDebugDataFromFixture()
+    data.pipeline = {
+      ...data.pipeline,
+      cee_provenance: {
+        pipeline_path: 'legacy_pipeline',
+      },
+    }
+    data.cee_observability = null
+
+    const bundle = buildDebugBundle(data)
+    expect(bundle.pipeline.cee_pipeline_path).toBe('legacy')
+  })
+})

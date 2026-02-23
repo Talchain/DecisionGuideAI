@@ -1163,6 +1163,13 @@ function simpleHash(str: string): string {
   return Math.abs(hash).toString(16).padStart(8, '0')
 }
 
+function extractOriginalCharCountFromTruncationMarker(text: string): number | null {
+  const marker = text.match(/\[(?:truncated_by:[^\]]*,\s*)?(\d+)\s+chars\s+total\]/i)
+  if (!marker) return null
+  const parsed = Number(marker[1])
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : null
+}
+
 /**
  * Extract raw LLM output data from CEE response
  * Looks in: ceeResponse?.trace?.pipeline?.llm_raw
@@ -1198,7 +1205,10 @@ function extractLlmRaw(ceeResponse: unknown): LlmRawData | undefined {
 
   // Get character count (type-guarded) - check all possible field names
   const rawCharCount = raw.char_count ?? raw.character_count ?? raw.length
-  const charCount = text?.length ?? (typeof rawCharCount === 'number' ? rawCharCount : undefined)
+  const markerCharCount = text ? extractOriginalCharCountFromTruncationMarker(text) : null
+  const charCount = markerCharCount
+    ?? (typeof rawCharCount === 'number' ? rawCharCount : undefined)
+    ?? text?.length
 
   // Extract node counts if available (type-guarded)
   let nodeCounts: LlmRawData['node_counts'] | undefined

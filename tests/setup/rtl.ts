@@ -39,10 +39,11 @@ if (typeof HTMLCanvasElement !== 'undefined') {
 }
 
 // Always start on real timers; opt-in to fakes per-test only
-beforeEach(() => vi.useRealTimers())
+beforeEach(() => {
+  vi.useRealTimers()
+})
 afterEach(() => {
   cleanup()        // unmount everything
-  vi.resetModules() // clear module state
   vi.clearAllMocks()
   vi.useRealTimers()
 })

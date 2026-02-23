@@ -62,6 +62,16 @@ const DEFAULT_OPTIONS: Required<RedactionOptions> = {
   neverRedactKeys: [],
 }
 
+function getDebugLlmRawMaxChars(): number {
+  const envValue =
+    import.meta.env.DEBUG_LLM_RAW_MAX_CHARS ??
+    import.meta.env.VITE_DEBUG_LLM_RAW_MAX_CHARS
+  const parsed = Number(envValue)
+  return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : 8000
+}
+
+export const DEBUG_LLM_RAW_MAX_CHARS = getDebugLlmRawMaxChars()
+
 /**
  * Redaction options for debug bundles.
  * Higher limits than defaults to preserve diagnostic data.
@@ -71,7 +81,8 @@ export const DEBUG_BUNDLE_REDACTION_OPTIONS: RedactionOptions = {
   maxDepth: 8,
   maxArrayItems: 100,
   maxStringLength: 1000,
-  neverTruncateKeys: ['text'],
+  neverTruncateKeys: ['text', 'output_preview', 'output', 'content'],
+  neverTruncateMaxLength: DEBUG_LLM_RAW_MAX_CHARS,
   neverRedactKeys: ['constraint_analysis', 'observed_state', 'goal_constraints'],
 }
 

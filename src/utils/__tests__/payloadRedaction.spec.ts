@@ -151,6 +151,37 @@ describe('redactPayload', () => {
       // Should be capped at 300 chars + truncation message
       expect(redacted.pipeline.llm_raw.text.startsWith('X'.repeat(300))).toBe(true)
     })
+
+    it('keeps typical llm_raw.output_preview payloads untruncated in debug bundle mode', () => {
+      const payload = {
+        pipeline: {
+          llm_raw: {
+            output_preview: 'A'.repeat(5000),
+          },
+        },
+      }
+
+      const redacted = redactPayload(payload, DEBUG_BUNDLE_REDACTION_OPTIONS) as any
+
+      expect(redacted.pipeline.llm_raw.output_preview).toHaveLength(5000)
+      expect(redacted.pipeline.llm_raw.output_preview).not.toContain('truncated_by: bundle_redaction')
+    })
+
+    it('caps llm_raw text-like fields at 8000 chars in debug bundle mode', () => {
+      const payload = {
+        pipeline: {
+          llm_raw: {
+            output: 'B'.repeat(9000),
+          },
+        },
+      }
+
+      const redacted = redactPayload(payload, DEBUG_BUNDLE_REDACTION_OPTIONS) as any
+
+      expect(redacted.pipeline.llm_raw.output).toContain('truncated_by: bundle_redaction_safety_cap')
+      expect(redacted.pipeline.llm_raw.output).toContain('9000 chars total')
+      expect(redacted.pipeline.llm_raw.output.startsWith('B'.repeat(8000))).toBe(true)
+    })
   })
 
   describe('double-redaction regression', () => {

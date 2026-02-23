@@ -22,6 +22,7 @@ import type {
 } from '../hooks/useDebugData'
 import { getVersionInfo, getClientBuild } from '../../../lib/version-cache'
 import { getBufferedLogs, type BufferedLog } from '../../../utils/debugLogBuffer'
+import { DEBUG_LLM_RAW_MAX_CHARS } from '../../../utils/payloadRedaction'
 
 // =============================================================================
 // Types
@@ -33,6 +34,113 @@ interface DiagnosticInfo {
   environment: string
   client_version: string
   user_agent: string
+}
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === 'object' ? value as Record<string, unknown> : null
+}
+
+function getPipelinePath(value: unknown): 'unified' | 'legacy' | null {
+  if (typeof value !== 'string') return null
+  const normalized = value.trim().toLowerCase()
+  if (normalized.includes('unified')) return 'unified'
+  if (normalized.includes('legacy')) return 'legacy'
+  return null
+}
+
+function toWarningsList(value: unknown): string[] {
+  if (!Array.isArray(value)) return []
+  return value
+    .map((item) => {
+      if (typeof item === 'string') return item
+      if (item && typeof item === 'object' && typeof (item as Record<string, unknown>).code === 'string') {
+        return (item as Record<string, unknown>).code as string
+      }
+      return null
+    })
+    .filter((v): v is string => typeof v === 'string')
+}
+
+function extractIslRawFields(islResponse: unknown) {
+  const isl = asRecord(islResponse)
+  const factorSensitivity = Array.isArray(isl?.factor_sensitivity_3c_fields)
+    ? isl.factor_sensitivity_3c_fields
+    : []
+
+  return {
+    stability_thresholds: asRecord(isl?.stability_thresholds),
+    factor_sensitivity_3c_fields: factorSensitivity.filter(
+      (item): item is Record<string, unknown> => !!item && typeof item === 'object'
+    ),
+    confounding_sensitivity: asRecord(isl?.confounding_sensitivity),
+  }
+}
+
+function extractCausalClaimsDiagnostic(ceeResponse: unknown): DebugBundle['pipeline']['causal_claims_diagnostic'] {
+  const cee = asRecord(ceeResponse)
+  const trace = asRecord(cee?.trace)
+  const pipeline = asRecord(trace?.pipeline ?? cee?.pipeline)
+
+  const hasCausalClaimsField =
+    (pipeline && Object.prototype.hasOwnProperty.call(pipeline, 'causal_claims')) ||
+    (cee && Object.prototype.hasOwnProperty.call(cee, 'causal_claims'))
+
+  const rawClaims = (pipeline?.causal_claims ?? cee?.causal_claims) as unknown
+  const validatedClaims = (pipeline?.validated_causal_claims ?? cee?.validated_causal_claims) as unknown
+  const droppedClaims = (pipeline?.dropped_causal_claims ?? cee?.dropped_causal_claims) as unknown
+
+  const rawCount = Array.isArray(rawClaims) ? rawClaims.length : 0
+  const validatedCount = Array.isArray(validatedClaims)
+    ? validatedClaims.length
+    : (typeof pipeline?.causal_claims_validated_count === 'number'
+        ? pipeline.causal_claims_validated_count
+        : 0)
+  const droppedCount = Array.isArray(droppedClaims)
+    ? droppedClaims.length
+    : Math.max(rawCount - validatedCount, 0)
+
+  const warnings = [
+    ...toWarningsList(cee?.validation_warnings),
+    ...toWarningsList(trace?.validation_warnings),
+    ...toWarningsList(pipeline?.validation_warnings),
+  ].filter((code) => code.includes('CAUSAL_CLAIM'))
+
+  return {
+    llm_emitted: Boolean(hasCausalClaimsField),
+    raw_count: rawCount,
+    validated_count: validatedCount,
+    dropped_count: droppedCount,
+    warnings,
+  }
+}
+
+function extractCeePipelineQuickFields(data: DebugData): {
+  cee_pipeline_path: 'unified' | 'legacy' | null
+  cee_strp_mutations_count: number | null
+} {
+  const repairSummary = asRecord(data.cee_observability?.repair_summary)
+  const pathFromRepairSummary = getPipelinePath(
+    repairSummary?.cee_pipeline_path ?? repairSummary?.pipeline_path
+  )
+  const pathFromProvenance = getPipelinePath(data.pipeline.cee_provenance?.pipeline_path)
+
+  const strpFromRepairSummary =
+    typeof repairSummary?.cee_strp_mutations_count === 'number'
+      ? repairSummary.cee_strp_mutations_count
+      : typeof repairSummary?.strp_mutations_count === 'number'
+        ? repairSummary.strp_mutations_count
+        : Array.isArray(repairSummary?.strp_mutations)
+          ? repairSummary.strp_mutations.length
+          : null
+
+  const strpFromPipeline = Array.isArray((data.pipeline.strp as Record<string, unknown> | undefined)?.mutations)
+    ? (((data.pipeline.strp as Record<string, unknown>).mutations as unknown[]).length)
+    : null
+
+  return {
+    cee_pipeline_path: pathFromRepairSummary ?? pathFromProvenance,
+    cee_strp_mutations_count: strpFromRepairSummary ?? strpFromPipeline,
+  }
 }
 
 interface DebugBundle {
@@ -50,6 +158,7 @@ interface DebugBundle {
       max_array_items: number
       max_depth: number
       never_truncate_keys?: string[]
+      never_truncate_max_length?: number
     }
     /** Whether any arrays were truncated during capture */
     truncation_applied?: boolean
@@ -81,12 +190,21 @@ interface DebugBundle {
     total_duration_ms: number | null
     llm_metadata: unknown
     llm_raw: LlmRawData | null
+    cee_pipeline_path: 'unified' | 'legacy' | null
+    cee_strp_mutations_count: number | null
+    causal_claims_diagnostic: {
+      llm_emitted: boolean
+      raw_count: number
+      validated_count: number
+      dropped_count: number
+      warnings: string[]
+    }
     node_extraction: unknown
     connectivity: unknown
   }
   /** ISL diagnostic details */
   isl_diagnostic: {
-    data_source: 'downstream_calls' | 'direct_capture' | 'none'
+    data_source: 'downstream_calls' | 'direct_capture' | 'plot_response_extraction' | 'none'
     downstream_calls_path_found: string | null
     downstream_calls_paths_checked: string[]
     plot_response_keys: string[]
@@ -98,6 +216,11 @@ interface DebugBundle {
     duration_ms: number | null
     success: boolean | null
     error: string | null
+    isl_raw_fields: {
+      stability_thresholds: Record<string, unknown> | null
+      factor_sensitivity_3c_fields: Array<Record<string, unknown>>
+      confounding_sensitivity: Record<string, unknown> | null
+    }
   }
   /** Gate statuses */
   gates: Array<{ name: string; status: string; message?: string }>
@@ -180,7 +303,10 @@ export interface FullGraphData {
     data?: {
       strength?: number
       strength_mean?: number
+      strength_std?: number
       confidence?: number
+      belief_exists?: number
+      effect_direction?: string
       label?: string
       kind?: string
     }
@@ -234,7 +360,7 @@ Environment: ${environment}
 ## Data Redaction Notice
 
 Payloads are REDACTED at capture time:
-- Long strings truncated to 1000 characters (except llm_raw.text which is preserved in full)
+- Long strings truncated to 1000 characters (except llm_raw text-like fields, capped at ${DEBUG_LLM_RAW_MAX_CHARS} chars)
 - Arrays capped to 100 items
 - Sensitive keys (password, token, secret, apiKey) masked
 - Object depth limited to 8 levels
@@ -376,6 +502,9 @@ export function buildDebugBundle(data: DebugData, options: ExportOptions = {}): 
   const payloadsTruncated = detectTruncation(data.payloads)
   const graphTruncated = fullGraph ? detectTruncation(fullGraph) : false
   const truncationApplied = payloadsTruncated || graphTruncated
+  const pipelineQuickFields = extractCeePipelineQuickFields(data)
+  const causalClaimsDiagnostic = extractCausalClaimsDiagnostic(data.payloads.cee_response)
+  const islRawFields = extractIslRawFields(data.payloads.isl_response)
 
   return {
     meta: {
@@ -389,7 +518,8 @@ export function buildDebugBundle(data: DebugData, options: ExportOptions = {}): 
         max_string_length: 1000,
         max_array_items: 100,
         max_depth: 8,
-        never_truncate_keys: ['text'],
+        never_truncate_keys: ['text', 'output_preview', 'output', 'content'],
+        never_truncate_max_length: DEBUG_LLM_RAW_MAX_CHARS,
       },
       ...(truncationApplied && {
         truncation_applied: true,
@@ -440,6 +570,9 @@ export function buildDebugBundle(data: DebugData, options: ExportOptions = {}): 
       total_duration_ms: data.pipeline.total_duration_ms ?? null,
       llm_metadata: data.pipeline.llm_metadata ?? null,
       llm_raw: data.pipeline.llm_raw ?? null,
+      cee_pipeline_path: pipelineQuickFields.cee_pipeline_path,
+      cee_strp_mutations_count: pipelineQuickFields.cee_strp_mutations_count,
+      causal_claims_diagnostic: causalClaimsDiagnostic,
       node_extraction: data.pipeline.node_extraction ?? null,
       connectivity: data.pipeline.connectivity ?? null,
     },
@@ -458,6 +591,7 @@ export function buildDebugBundle(data: DebugData, options: ExportOptions = {}): 
       duration_ms: data.services.isl?.duration_ms ?? null,
       success: data.services.isl?.success ?? null,
       error: data.services.isl?.error ?? null,
+      isl_raw_fields: islRawFields,
     },
     gates: data.gates.map((g) => ({
       name: g.name,
@@ -500,6 +634,8 @@ export function buildDebugBundle(data: DebugData, options: ExportOptions = {}): 
           validation: data.cee_observability.validation,
           orchestrator: data.cee_observability.orchestrator,
           totals: data.cee_observability.totals,
+          graph_metrics: data.cee_observability.graph_metrics,
+          graph_diffs: data.cee_observability.graph_diffs,
           request_id: data.cee_observability.request_id,
           raw_io_included: false, // Always false in exports for security
           repair_summary: data.cee_observability.repair_summary,
