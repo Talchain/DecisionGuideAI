@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
-import { GraphTextView } from '../GraphTextView'
+import { GraphTextView, SectionErrorBoundary } from '../GraphTextView'
 import type { Node, Edge } from '@xyflow/react'
 
 const createMockNode = (id: string, type: string, label: string): Node => ({
@@ -62,18 +62,12 @@ describe('GraphTextView', () => {
     expect(screen.getByText('Outcomes')).toBeInTheDocument()
   })
 
-  it('displays enhanced summary with node breakdown and statistics', () => {
+  it('displays enhanced summary with node breakdown', () => {
     const onNodeClick = vi.fn()
     render(<GraphTextView nodes={mockNodes} edges={mockEdges} onNodeClick={onNodeClick} />)
 
     // Enhanced summary shows node breakdown
     expect(screen.getByText('Node breakdown')).toBeInTheDocument()
-
-    // Shows connected count
-    expect(screen.getByText('Connected')).toBeInTheDocument()
-
-    // Shows edges with evidence section
-    expect(screen.getByText('Edges with evidence')).toBeInTheDocument()
   })
 
   it('calls onNodeClick when a node is clicked', () => {
@@ -301,5 +295,80 @@ describe('GraphTextView', () => {
     // Risk section has edge e5 with negative direction
     const riskSection = screen.getByTestId('graph-text-view-section-risk')
     expect(riskSection).toHaveTextContent('effect: -0.3')
+  })
+
+  it('handles edges with missing or null data gracefully', () => {
+    const onNodeClick = vi.fn()
+    const edgesWithBadData: Edge[] = [
+      { id: 'bad-1', source: 'decision-1', target: 'option-1', data: null as any },
+      { id: 'bad-2', source: 'decision-1', target: 'option-2', data: undefined },
+    ]
+
+    render(
+      <GraphTextView
+        nodes={mockNodes}
+        edges={edgesWithBadData}
+        onNodeClick={onNodeClick}
+      />
+    )
+
+    // Should render without crashing
+    expect(screen.getByTestId('graph-text-view')).toBeInTheDocument()
+  })
+
+  it('does not display redundant Connected or Edges with evidence stats', () => {
+    const onNodeClick = vi.fn()
+    render(<GraphTextView nodes={mockNodes} edges={mockEdges} onNodeClick={onNodeClick} />)
+
+    expect(screen.queryByText('Connected')).not.toBeInTheDocument()
+    expect(screen.queryByText('Edges with evidence')).not.toBeInTheDocument()
+  })
+
+  it('renders nodes with non-string labels without crashing', () => {
+    const onNodeClick = vi.fn()
+    const nodesWithBadLabels: Node[] = [
+      { id: 'num-label', type: 'factor', position: { x: 0, y: 0 }, data: { label: 42 } },
+      { id: 'null-label', type: 'factor', position: { x: 0, y: 0 }, data: { label: null } },
+      { id: 'obj-label', type: 'factor', position: { x: 0, y: 0 }, data: { label: { text: 'hi' } } },
+    ]
+
+    render(<GraphTextView nodes={nodesWithBadLabels} edges={[]} onNodeClick={onNodeClick} />)
+
+    expect(screen.getByTestId('graph-text-view')).toBeInTheDocument()
+    // Number label should be coerced to string "42"
+    expect(screen.getByText('42')).toBeInTheDocument()
+  })
+})
+
+describe('SectionErrorBoundary', () => {
+  it('renders fallback UI when child throws', () => {
+    // Suppress React error boundary console noise
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    function Boom(): JSX.Element {
+      throw new Error('test boom')
+    }
+
+    render(
+      <SectionErrorBoundary section="test section">
+        <Boom />
+      </SectionErrorBoundary>
+    )
+
+    expect(screen.getByText('Unable to display test section.')).toBeInTheDocument()
+    expect(screen.getByText('Retry')).toBeInTheDocument()
+
+    spy.mockRestore()
+  })
+
+  it('renders children when no error', () => {
+    render(
+      <SectionErrorBoundary section="healthy section">
+        <div data-testid="child">OK</div>
+      </SectionErrorBoundary>
+    )
+
+    expect(screen.getByTestId('child')).toBeInTheDocument()
+    expect(screen.queryByText('Unable to display')).not.toBeInTheDocument()
   })
 })

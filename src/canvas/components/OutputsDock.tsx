@@ -58,7 +58,7 @@ import { ModelQualityScore } from './ModelQualityScore'
 import { UnifiedStatusBadge } from './UnifiedStatusBadge'
 import { InsightsPanel } from './InsightsPanel'
 import { ValidationPanel, type CritiqueItem } from './ValidationPanel'
-import { GraphTextView } from './GraphTextView'
+import { GraphTextView, SectionErrorBoundary } from './GraphTextView'
 import { PreAnalysisGuidance } from './PreAnalysisGuidance'
 import { PreAnalysisHealth } from './PreAnalysisHealth'
 import { PreAnalysisPanel } from './pre-analysis'
@@ -1537,14 +1537,16 @@ function DiagnosticsTabBody({
         </div>
 
         {/* Full GraphTextView with all P1 functionality */}
-        <GraphTextView
-          nodes={nodes}
-          edges={edges}
-          onNodeClick={focusNodeById}
-          onEdgeClick={focusEdgeById}
-          fragileEdgeIds={fragileEdgeIds}
-          robustEdgeIds={robustEdgeIds}
-        />
+        <SectionErrorBoundary section="model structure">
+          <GraphTextView
+            nodes={nodes}
+            edges={edges}
+            onNodeClick={focusNodeById}
+            onEdgeClick={focusEdgeById}
+            fragileEdgeIds={fragileEdgeIds}
+            robustEdgeIds={robustEdgeIds}
+          />
+        </SectionErrorBoundary>
       </LensContainer>
 
       {/* ===== LENS 3: IMPROVEMENTS (default COLLAPSED) ===== */}
