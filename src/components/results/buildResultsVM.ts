@@ -74,9 +74,16 @@ const DOWNGRADE_READINESS: readonly string[] = ['needs_framing', 'close_call', '
 
 export function deriveDecisionState(
   gapTop2: number,
-  stability: number,
+  stability: number | null | undefined,
   readiness?: M1CoachingReadiness,
 ): DecisionState {
+  // V12.2: Handle null/undefined stability (treat as unknown data)
+  if (stability == null) {
+    if (gapTop2 < GAP_THRESHOLD) return 'indeterminate'
+    if (gapTop2 >= 0.30) return 'sensitive'  // large gap, some signal
+    return 'indeterminate'  // moderate gap but no stability data
+  }
+
   if (gapTop2 < GAP_THRESHOLD) return 'indeterminate'
   if (stability >= ROBUST_THRESHOLD) {
     // Readiness can only downgrade, never upgrade.

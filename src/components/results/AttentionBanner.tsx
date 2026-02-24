@@ -65,13 +65,30 @@ function BannerItem({
   )
 }
 
+/** Runtime guard patterns to reject internal field leaks (defence in depth) */
+const INTERNAL_LEAK_PATTERNS = [
+  /constraint_fac_/i,
+  /observed_state\./i,
+  /intercept\s*=/i,
+  /fac_[a-z_]+/,          // raw factor IDs (V12.2: broadened to catch all patterns)
+  /blocks_analysis/i,
+  /node_id\s*=/i,
+  /edge_id\s*=/i,
+]
+
 export function AttentionBanner({ items, onFocusNode }: AttentionBannerProps) {
   const [isExpanded, setIsExpanded] = useState(false)
 
-  if (items.length === 0) return null
+  // Defence in depth: filter out any items with internal pattern leaks
+  const safeItems = items.filter(item => {
+    const text = `${item.title ?? ''} ${item.description ?? ''} ${item.suggestion ?? ''}`
+    return !INTERNAL_LEAK_PATTERNS.some(p => p.test(text))
+  })
+
+  if (safeItems.length === 0) return null
 
   // 1 item: inline, no collapse
-  if (items.length === 1) {
+  if (safeItems.length === 1) {
     return (
       <div
         className="p-3 border border-danger/30 rounded-lg"
@@ -81,21 +98,21 @@ export function AttentionBanner({ items, onFocusNode }: AttentionBannerProps) {
           <AlertTriangle className="w-4 h-4 text-danger flex-shrink-0 mt-0.5" />
           <div className="flex-1 min-w-0">
             <p className={`${typography.panelBody} text-text-header`}>
-              {items[0].title}
+              {safeItems[0].title}
             </p>
             <p className={`${typography.panelMeta} text-text-light mt-0.5`}>
-              {items[0].description}
+              {safeItems[0].description}
             </p>
-            {items[0].suggestion && items[0].factorId && (
+            {safeItems[0].suggestion && safeItems[0].factorId && (
               <button
                 type="button"
                 onClick={() => {
-                  if (onFocusNode) onFocusNode(items[0].factorId!)
-                  else focusNodeById(items[0].factorId!)
+                  if (onFocusNode) onFocusNode(safeItems[0].factorId!)
+                  else focusNodeById(safeItems[0].factorId!)
                 }}
                 className={`${typography.panelMeta} text-info hover:underline mt-0.5 focus:outline-none focus:ring-2 focus:ring-info focus:ring-offset-1 rounded`}
               >
-                {items[0].suggestion}
+                {safeItems[0].suggestion}
               </button>
             )}
           </div>
@@ -105,7 +122,7 @@ export function AttentionBanner({ items, onFocusNode }: AttentionBannerProps) {
   }
 
   // 2 items: collapsible (all behind toggle)
-  if (items.length === 2) {
+  if (safeItems.length === 2) {
     return (
       <div
         className="p-3 border border-danger/30 rounded-lg"
@@ -122,7 +139,7 @@ export function AttentionBanner({ items, onFocusNode }: AttentionBannerProps) {
             A few inputs would sharpen these results
           </span>
           <span className={`${typography.panelMeta} text-text-light flex-shrink-0`}>
-            {items.length} items to review
+            {safeItems.length} items to review
           </span>
           {isExpanded ? (
             <ChevronDown className="w-3.5 h-3.5 text-text-light flex-shrink-0" />
@@ -133,7 +150,7 @@ export function AttentionBanner({ items, onFocusNode }: AttentionBannerProps) {
 
         {isExpanded && (
           <div className="mt-2 pl-6 space-y-1 border-t border-panel-border pt-2">
-            {items.map((item, idx) => (
+            {safeItems.map((item, idx) => (
               <BannerItem
                 key={item.factorId ?? `critique-${idx}`}
                 item={item}
@@ -147,7 +164,7 @@ export function AttentionBanner({ items, onFocusNode }: AttentionBannerProps) {
   }
 
   // 3+ items: first inline, rest collapsed behind "and N more"
-  const [first, ...rest] = items
+  const [first, ...rest] = safeItems
 
   return (
     <div

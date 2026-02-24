@@ -15,6 +15,8 @@ import type { ActionItem } from './utils/groupActionItems'
 import { CappedList } from './CappedList'
 import { GraphLink } from './GraphLink'
 import { EyeOff, Shield } from 'lucide-react'
+import { stripEncodingNotation } from './utils/cleanFactorLabel'
+import type { UncertaintyItem, DriverItem } from './types'
 
 export interface ChallengeSectionProps {
   /** M2 bias findings (Group 3: "Worth reflecting on") */
@@ -23,9 +25,48 @@ export interface ChallengeSectionProps {
   preMortemItems: ActionItem[]
   /** V12 B4: Focus handler for graph links on affected elements */
   onFocusNode?: (nodeId: string) => void
+  /** V12.2: Factor lookup data for resolving IDs to labels */
+  evidenceGaps?: UncertaintyItem[]
+  drivers?: DriverItem[]
 }
 
-function ChallengeCard({ item, onFocusNode }: { item: ActionItem; onFocusNode?: (nodeId: string) => void }): ReactNode {
+/**
+ * V12.2: Resolve factor ID to display label.
+ * Resolution chain:
+ * 1. Evidence gaps by factorId → factorLabel
+ * 2. Drivers by factorKey → factorLabel
+ * 3. Strip fac_ prefix, replace underscores with spaces, title case
+ */
+function resolveFactorLabel(
+  factorId: string,
+  evidenceGaps?: UncertaintyItem[],
+  drivers?: DriverItem[]
+): string {
+  // Look up in evidence gaps
+  const gap = evidenceGaps?.find(g => g.factorId === factorId || g.targetNodeId === factorId)
+  if (gap?.factorLabel) return stripEncodingNotation(gap.factorLabel)
+
+  // Look up in drivers
+  const driver = drivers?.find(d => d.factorKey === factorId || d.matchedNodeId === factorId)
+  if (driver?.factorLabel) return stripEncodingNotation(driver.factorLabel)
+
+  // Fallback: strip fac_ prefix, replace underscores with spaces, title case
+  let fallback = factorId.replace(/^fac_/, '').replace(/_/g, ' ')
+  fallback = fallback.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
+  return fallback
+}
+
+function ChallengeCard({
+  item,
+  onFocusNode,
+  evidenceGaps,
+  drivers,
+}: {
+  item: ActionItem
+  onFocusNode?: (nodeId: string) => void
+  evidenceGaps?: UncertaintyItem[]
+  drivers?: DriverItem[]
+}): ReactNode {
   const hasExpandContent = item.whatCouldHappen || item.whatToDo || item.subtitle || item.affectedNodeIds
 
   if (!hasExpandContent) {
@@ -49,7 +90,12 @@ function ChallengeCard({ item, onFocusNode }: { item: ActionItem; onFocusNode?: 
             {item.affectedNodeIds.map((nodeId, i) => (
               <span key={nodeId}>
                 {i > 0 && ', '}
-                <GraphLink nodeId={nodeId} label={nodeId} onFocus={onFocusNode} className="inline text-xs" />
+                <GraphLink
+                  nodeId={nodeId}
+                  label={resolveFactorLabel(nodeId, evidenceGaps, drivers)}
+                  onFocus={onFocusNode}
+                  className="inline text-xs"
+                />
               </span>
             ))}
           </p>
@@ -69,7 +115,13 @@ function ChallengeCard({ item, onFocusNode }: { item: ActionItem; onFocusNode?: 
   )
 }
 
-export function ChallengeSection({ biasFindings, preMortemItems, onFocusNode }: ChallengeSectionProps) {
+export function ChallengeSection({
+  biasFindings,
+  preMortemItems,
+  onFocusNode,
+  evidenceGaps,
+  drivers,
+}: ChallengeSectionProps) {
   if (biasFindings.length === 0 && preMortemItems.length === 0) return null
 
   return (
@@ -90,7 +142,14 @@ export function ChallengeSection({ biasFindings, preMortemItems, onFocusNode }: 
             items={biasFindings}
             maxVisible={2}
             getKey={(item) => item.id}
-            renderItem={(item) => <ChallengeCard item={item} onFocusNode={onFocusNode} />}
+            renderItem={(item) => (
+              <ChallengeCard
+                item={item}
+                onFocusNode={onFocusNode}
+                evidenceGaps={evidenceGaps}
+                drivers={drivers}
+              />
+            )}
             overflowLabel={(n) => `See ${n} more`}
             expandButtonAriaLabel="Show more bias findings"
           />
@@ -113,7 +172,14 @@ export function ChallengeSection({ biasFindings, preMortemItems, onFocusNode }: 
             items={preMortemItems}
             maxVisible={2}
             getKey={(item) => item.id}
-            renderItem={(item) => <ChallengeCard item={item} onFocusNode={onFocusNode} />}
+            renderItem={(item) => (
+              <ChallengeCard
+                item={item}
+                onFocusNode={onFocusNode}
+                evidenceGaps={evidenceGaps}
+                drivers={drivers}
+              />
+            )}
             overflowLabel={(n) => `See ${n} more`}
             expandButtonAriaLabel="Show more pre-mortem items"
           />

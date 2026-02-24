@@ -172,10 +172,10 @@ export function ResultsBody({
             decisionState={vm.decisionState}
             hinge={vm.hinge}
             runnerId={
-              // Runner-up: second option by rank (consistent with OptionCards sort order)
+              // V12.2 Fix 1: Runner-up is highest by win_probability excluding winner
               [...resultsSectionData.recommendation.allOptions]
                 .filter(o => o.id !== resultsSectionData.recommendation.recommendedOption?.id)
-                .sort((a, b) => (a.rank ?? 999) - (b.rank ?? 999))[0]?.id
+                .sort((a, b) => (b.winProbability ?? 0) - (a.winProbability ?? 0))[0]?.id
             }
           />
           {/* Tipping points below option cards (kept until Phase 3.4 ships) */}
@@ -324,6 +324,8 @@ export function ResultsBody({
                     biasFindings={biasFindings}
                     preMortemItems={preMortemItems}
                     onFocusNode={onFocusNode}
+                    evidenceGaps={resultsSectionData.confidence.evidenceGaps}
+                    drivers={resultsSectionData.drivers.drivers}
                   />
                 </Accordion>
               </div>

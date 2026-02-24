@@ -536,6 +536,10 @@ describe('Banned Strings Integration Test', () => {
       expect(BANNED_STRINGS).toContain('performs strongest')
       // V11: em-dash ban
       expect(BANNED_STRINGS).toContain('\u2014')
+      // V12.2 Fix 2: Internal pattern bans
+      expect(BANNED_STRINGS).toContain('observed_state.value')
+      expect(BANNED_STRINGS).toContain('intercept=0')
+      expect(BANNED_STRINGS).toContain('constraint_fac_')
     })
   })
 })

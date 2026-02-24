@@ -133,20 +133,20 @@ describe('humaniseCritique', () => {
       expect(result.factorId).toBeUndefined()
     })
 
-    it('falls back to "This factor" when node not found in labels map', () => {
+    it('V12.2: derives label from ID when node not found in labels map', () => {
       const result = humaniseCritique(
         makeItem({ code: 'MISSING_OBSERVED_STATE', affectedNodes: ['unknown_id'] }),
         new Map(),
       )
-      expect(result.title).toContain('This factor')
+      expect(result.title).toBe('Unknown Id is missing a current value')
       expect(result.factorId).toBe('unknown_id')
     })
 
-    it('falls back to "This factor" when no nodeLabels provided', () => {
+    it('V12.2: derives label from ID when no nodeLabels provided', () => {
       const result = humaniseCritique(
         makeItem({ code: 'MISSING_OBSERVED_STATE', affectedNodes: ['some_id'] }),
       )
-      expect(result.title).toContain('This factor')
+      expect(result.title).toBe('Some Id is missing a current value')
     })
 
     it('falls back to "This factor" when no affectedNodes', () => {

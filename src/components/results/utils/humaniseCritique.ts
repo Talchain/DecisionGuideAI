@@ -108,11 +108,21 @@ const CODE_TEMPLATES: Record<string, TemplateFactory> = {
 const FALLBACK_LABEL = 'This factor'
 
 /**
+ * V12.2: Generate human-readable label from raw factor ID.
+ * Strips fac_ prefix, replaces underscores with spaces, title cases each word.
+ */
+function factorIdToLabel(factorId: string): string {
+  let label = factorId.replace(/^fac_/, '').replace(/_/g, ' ')
+  label = label.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
+  return label
+}
+
+/**
  * Resolve a human-readable factor label from the critique.
  *
  * Resolution chain (global rule: nodeId → graph store only, never parse messages):
  * 1. affectedNodes[0] → nodeLabels map → use label
- * 2. affectedNodes[0] exists but not in map → "This factor" + factorId
+ * 2. affectedNodes[0] exists but not in map → derive label from ID (V12.2)
  * 3. No affectedNodes → "This factor", no factorId
  */
 function resolveFactorLabel(
@@ -124,7 +134,8 @@ function resolveFactorLabel(
     return { label: nodeLabels.get(nodeId)!, factorId: nodeId }
   }
   if (nodeId) {
-    return { label: FALLBACK_LABEL, factorId: nodeId }
+    // V12.2: Derive label from ID instead of generic fallback
+    return { label: factorIdToLabel(nodeId), factorId: nodeId }
   }
 
   return { label: FALLBACK_LABEL }

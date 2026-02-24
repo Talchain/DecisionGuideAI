@@ -76,12 +76,13 @@ describe('humaniseCritique', () => {
     expect(result.factorId).toBe('fac_churn')
   })
 
-  it('uses "This factor" fallback when node not in labels map', () => {
+  it('V12.2: derives label from ID when node not in labels map', () => {
     const result = humaniseCritique(
       makeItem({ code: 'CONSTRAINT_TARGET_NO_OBSERVED_VALUE', affectedNodes: ['fac_unknown'] }),
       nodeLabels,
     )
-    expect(result.title).toBe('This factor has no estimate set')
+    // V12.2: fac_unknown → Unknown (not "This factor")
+    expect(result.title).toBe('Unknown has no estimate set')
     expect(result.factorId).toBe('fac_unknown')
   })
 

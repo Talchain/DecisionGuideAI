@@ -181,15 +181,15 @@ export function RecommendationSection({
     return shares
   }, [allOptions])
 
-  // Compute runner-up for HeroSection (second-best option by rank)
+  // V12.2 Fix 1: Runner-up is highest by win_probability excluding winner
   const runnerUp = useMemo(() => {
     if (allOptions.length < 2) return null
-    // Find second-ranked option (rank 2) or first non-recommended option
-    const byRank = allOptions.find(o => o.rank === 2)
-    if (byRank) return byRank
-    // Fallback: first non-recommended option
-    return allOptions.find(o => !o.isRecommended) ?? null
-  }, [allOptions])
+    // Filter out winner, sort by win_probability descending, take first
+    const sorted = [...allOptions]
+      .filter(o => o.id !== recommendedOption.id)
+      .sort((a, b) => (b.winProbability ?? 0) - (a.winProbability ?? 0))
+    return sorted[0] ?? null
+  }, [allOptions, recommendedOption.id])
 
   // P2: Coaching cards now use their own internal state management
 
