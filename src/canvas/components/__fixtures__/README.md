@@ -20,6 +20,14 @@ All fixtures must include:
 - `review_cards[]` - Feature flag ON in staging
 - Valid V2RunResponse schema compliance
 
+## Story Files
+
+Two story files render these fixtures:
+- **OutputsDock.stories.tsx** - Results Panel stories (4 stories, one per fixture)
+- **GraphTextView.stories.tsx** - Structure tab stories (4 stories, one per fixture)
+
+Total: **8 stories** (2 per fixture)
+
 ## TODO: Capture Real Responses
 
 To complete this task:
@@ -27,7 +35,7 @@ To complete this task:
 2. Run analyses with the characteristics above
 3. Open DevTools → Network → find SSE response from `/v2/run`
 4. Save complete JSON to the fixture files
-5. Create corresponding `.stories.tsx` files
+5. Update story files with fixture data (nodes, edges, robustness sets)
 6. Generate visual regression snapshots
 
 ## Dependencies

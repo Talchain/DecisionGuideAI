@@ -82,7 +82,7 @@ function ConstraintRow({ item }: { item: ConstraintItem }) {
       </div>
       {/* Task M.1.2 Step 2: Display failure margin when constraint is missed */}
       {isMissed && item.failure_margin_median != null && (
-        <p className={`${typography.panelMeta} text-danger ml-6`}>
+        <p className={`${typography.panelMeta} text-warning ml-6`}>
           Typically misses by {item.failure_margin_median} {/* TODO: Add unit from parent context if available */}
         </p>
       )}
