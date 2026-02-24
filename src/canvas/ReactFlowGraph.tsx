@@ -147,10 +147,15 @@ interface ReactFlowGraphProps {
 }
 
 /**
- * Restore ceeAnalysisReady with multi-layer fallback and validation
- * Fallback chain: sessionStorage → autosave → scenario → null
+ * Restore ceeAnalysisReady with source-aligned fallback and validation
+ *
+ * CRITICAL: Readiness source must align with graph source to prevent stale data.
+ * - If graph loaded from autosave → prefer autosave readiness
+ * - If graph loaded from scenario → prefer scenario readiness
+ * - Only use sessionStorage when no persistent source exists (draft mode)
  */
 function restoreCeeAnalysisReady(
+  loadSource: 'autosave' | 'scenario' | 'none',
   autosave: scenarios.AutosaveData | null,
   scenario: Scenario | null,
   currentNodes: import('@xyflow/react').Node[]
@@ -159,35 +164,49 @@ function restoreCeeAnalysisReady(
   let ceeAnalysisReadyNodeIds: string[] | null = null
   let source: 'session' | 'autosave' | 'scenario' | 'none' = 'none'
 
-  // 1. Try sessionStorage first (most recent)
-  try {
-    const ceeRaw = sessionStorage.getItem('olumi-cee-analysis-ready')
-    if (ceeRaw) {
-      const ceeData = JSON.parse(ceeRaw)
-      if (ceeData && typeof ceeData === 'object') {
-        ceeAnalysisReady = ceeData
-        source = 'session'
-      }
-    }
-  } catch {
-    // Ignore parse errors
-  }
-
-  // 2. Fallback to autosave
-  if (!ceeAnalysisReady && autosave?.ceeAnalysisReady) {
+  // PRIORITY 1: Align with chosen graph source
+  if (loadSource === 'autosave' && autosave?.ceeAnalysisReady) {
     ceeAnalysisReady = autosave.ceeAnalysisReady
     ceeAnalysisReadyNodeIds = autosave.nodes.map((n) => n.id)
     source = 'autosave'
-  }
-
-  // 3. Fallback to scenario
-  if (!ceeAnalysisReady && scenario?.ceeAnalysisReady) {
+  } else if (loadSource === 'scenario' && scenario?.ceeAnalysisReady) {
     ceeAnalysisReady = scenario.ceeAnalysisReady
     ceeAnalysisReadyNodeIds = scenario.ceeAnalysisReadyNodeIds ?? null
     source = 'scenario'
   }
 
-  // 4. Validate if we found data
+  // PRIORITY 2: Fallback to other persistent source
+  if (!ceeAnalysisReady) {
+    if (autosave?.ceeAnalysisReady) {
+      ceeAnalysisReady = autosave.ceeAnalysisReady
+      ceeAnalysisReadyNodeIds = autosave.nodes.map((n) => n.id)
+      source = 'autosave'
+    } else if (scenario?.ceeAnalysisReady) {
+      ceeAnalysisReady = scenario.ceeAnalysisReady
+      ceeAnalysisReadyNodeIds = scenario.ceeAnalysisReadyNodeIds ?? null
+      source = 'scenario'
+    }
+  }
+
+  // PRIORITY 3: Last resort - sessionStorage (draft mode, no persistent source)
+  if (!ceeAnalysisReady && loadSource === 'none') {
+    try {
+      const ceeRaw = sessionStorage.getItem('olumi-cee-analysis-ready')
+      const nodeIdsRaw = sessionStorage.getItem('olumi-cee-analysis-ready-node-ids')
+      if (ceeRaw) {
+        const ceeData = JSON.parse(ceeRaw)
+        if (ceeData && typeof ceeData === 'object') {
+          ceeAnalysisReady = ceeData
+          ceeAnalysisReadyNodeIds = nodeIdsRaw ? JSON.parse(nodeIdsRaw) : null
+          source = 'session'
+        }
+      }
+    } catch {
+      // Ignore parse errors
+    }
+  }
+
+  // Validate and restore if we found data
   if (ceeAnalysisReady) {
     const validation = validateCeeAnalysisReady(
       ceeAnalysisReady,
@@ -200,6 +219,8 @@ function restoreCeeAnalysisReady(
       if (import.meta.env.DEV) {
         console.log('[canvas:init] Restored ceeAnalysisReady:', {
           source,
+          loadSource,
+          aligned: source === loadSource || loadSource === 'none',
           options: ceeAnalysisReady.options.length,
           goal_node_id: ceeAnalysisReady.goal_node_id,
         })
@@ -208,11 +229,18 @@ function restoreCeeAnalysisReady(
       if (import.meta.env.DEV) {
         console.warn('[canvas:init] Invalid ceeAnalysisReady discarded:', {
           source,
+          loadSource,
           reason: validation.reason,
           details: validation.details,
         })
       }
-      // Invalid data - don't restore
+      // Clear invalid session payload to avoid repeated validation
+      if (source === 'session') {
+        try {
+          sessionStorage.removeItem('olumi-cee-analysis-ready')
+          sessionStorage.removeItem('olumi-cee-analysis-ready-node-ids')
+        } catch {}
+      }
     }
   }
 }
@@ -1477,8 +1505,8 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
         } catch {}
       }
 
-      // Restore ceeAnalysisReady with multi-layer fallback and validation
-      restoreCeeAnalysisReady(autosave, scenario, useCanvasStore.getState().nodes)
+      // Restore ceeAnalysisReady with source-aligned fallback and validation
+      restoreCeeAnalysisReady(loadSource, autosave, scenario, useCanvasStore.getState().nodes)
 
       return
     }
@@ -1498,9 +1526,9 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
         edges: loaded.edges
       })
 
-      // Restore ceeAnalysisReady with multi-layer fallback and validation
-      // In fallback path: autosave and scenario are null, so only tries sessionStorage
-      restoreCeeAnalysisReady(null, null, loaded.nodes)
+      // Restore ceeAnalysisReady with source-aligned fallback and validation
+      // Fallback path: no persistent source exists, loadSource='none' allows sessionStorage
+      restoreCeeAnalysisReady('none', null, null, loaded.nodes)
 
       // Try to restore results from most recent matching run (draft mode fallback)
       try {

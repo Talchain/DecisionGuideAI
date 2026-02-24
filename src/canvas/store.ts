@@ -2356,8 +2356,11 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       const { nodes } = get()
       const nodeIds = nodes.map((n) => n.id)
       set({ ceeAnalysisReady: analysisReady, ceeAnalysisReadyNodeIds: nodeIds })
-      // Persist to sessionStorage for tab-refresh survival
-      try { sessionStorage.setItem('olumi-cee-analysis-ready', JSON.stringify(analysisReady)) } catch {}
+      // Persist to sessionStorage for tab-refresh survival (with node IDs for validation)
+      try {
+        sessionStorage.setItem('olumi-cee-analysis-ready', JSON.stringify(analysisReady))
+        sessionStorage.setItem('olumi-cee-analysis-ready-node-ids', JSON.stringify(nodeIds))
+      } catch {}
     } else {
       set({
         ceeAnalysisReady: null,
@@ -2370,7 +2373,10 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
         ceeModelQualityFactors: null,
         ceeInterventionHints: null,
       })
-      try { sessionStorage.removeItem('olumi-cee-analysis-ready') } catch {}
+      try {
+        sessionStorage.removeItem('olumi-cee-analysis-ready')
+        sessionStorage.removeItem('olumi-cee-analysis-ready-node-ids')
+      } catch {}
     }
   },
 
