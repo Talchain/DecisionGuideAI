@@ -1019,6 +1019,14 @@ export function OutputsDock() {
                     message: error.message,
                     hasPartialResults: Boolean(report),
                   })
+
+                  // Task P.3.4: CEE timeout with complexity context (>15 nodes)
+                  const isCeeTimeout = error.code === 'CEE_TIMEOUT' || error.code === 'TIMEOUT'
+                  const isComplexGraph = nodes.length > 15
+                  if (isCeeTimeout && isComplexGraph) {
+                    friendlyError.explanation = 'Your decision has many factors. Try simplifying to the 8-10 most important ones, then add detail after your first analysis.'
+                  }
+
                   return (
                     <div
                       className={`flex flex-col gap-2 px-3 py-3 rounded-lg border ${
@@ -1044,37 +1052,58 @@ export function OutputsDock() {
                       <div className={`${typography.caption} text-ink-900/80`}>
                         {friendlyError.explanation}
                       </div>
-                      <div className="flex gap-2 mt-1">
-                        {friendlyError.canRetry && (
+                      <div className="flex flex-col gap-2 mt-1">
+                        <div className="flex gap-2">
+                          {friendlyError.canRetry && (
+                            <button
+                              type="button"
+                              onClick={handleRunAnalysis}
+                              disabled={isRunning}
+                              className={`${typography.caption} font-medium px-3 py-1.5 rounded ${
+                                friendlyError.severity === 'error'
+                                  ? 'bg-danger-600 text-white hover:bg-danger-700'
+                                  : friendlyError.severity === 'warning'
+                                    ? 'bg-sun-600 text-white hover:bg-sun-700'
+                                    : 'bg-sky-600 text-white hover:bg-sky-700'
+                              } disabled:opacity-50`}
+                            >
+                              {friendlyError.actionText}
+                            </button>
+                          )}
+                          {/* Task P.3.5: Edit model button (secondary action) */}
                           <button
                             type="button"
-                            onClick={handleRunAnalysis}
-                            disabled={isRunning}
-                            className={`${typography.caption} font-medium px-3 py-1.5 rounded ${
-                              friendlyError.severity === 'error'
-                                ? 'bg-danger-600 text-white hover:bg-danger-700'
-                                : friendlyError.severity === 'warning'
-                                  ? 'bg-sun-600 text-white hover:bg-sun-700'
-                                  : 'bg-sky-600 text-white hover:bg-sky-700'
-                            } disabled:opacity-50`}
-                          >
-                            {friendlyError.actionText}
-                          </button>
-                        )}
-                        {friendlyError.secondaryActionText && (
-                          <button
-                            type="button"
+                            onClick={() => setState(prev => ({ ...prev, isOpen: false }))}
                             className={`${typography.caption} font-medium px-3 py-1.5 rounded border ${
                               friendlyError.severity === 'error'
-                                ? 'border-danger-300 text-danger-700 hover:bg-danger-100'
+                                ? 'border-danger-300 text-danger-700 hover:bg-danger-50'
                                 : friendlyError.severity === 'warning'
-                                  ? 'border-sun-300 text-sun-700 hover:bg-sun-100'
-                                  : 'border-sky-300 text-sky-700 hover:bg-sky-100'
+                                  ? 'border-sun-300 text-sun-700 hover:bg-sun-50'
+                                  : 'border-sky-300 text-sky-700 hover:bg-sky-50'
                             }`}
+                            data-testid="edit-model-button"
                           >
-                            {friendlyError.secondaryActionText}
+                            Edit model
                           </button>
-                        )}
+                          {friendlyError.secondaryActionText && (
+                            <button
+                              type="button"
+                              className={`${typography.caption} font-medium px-3 py-1.5 rounded border ${
+                                friendlyError.severity === 'error'
+                                  ? 'border-danger-300 text-danger-700 hover:bg-danger-100'
+                                  : friendlyError.severity === 'warning'
+                                    ? 'border-sun-300 text-sun-700 hover:bg-sun-100'
+                                    : 'border-sky-300 text-sky-700 hover:bg-sky-100'
+                              }`}
+                            >
+                              {friendlyError.secondaryActionText}
+                            </button>
+                          )}
+                        </div>
+                        {/* Task P.3.5: Coaching text for repeated failures */}
+                        <p className={`${typography.caption} text-ink-900/70`}>
+                          If analysis keeps failing, try simplifying to 8-10 of the most important factors.
+                        </p>
                       </div>
                       {/* Debug info (only in dev mode) */}
                       {import.meta.env.DEV && (

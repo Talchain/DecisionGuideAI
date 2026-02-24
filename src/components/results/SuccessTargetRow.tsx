@@ -59,23 +59,32 @@ function ConstraintIcon({ prob }: { prob: number }) {
 function ConstraintRow({ item }: { item: ConstraintItem }) {
   const pct = Math.round(item.prob_satisfied * 100)
   const colour = constraintConfidenceColour(item.prob_satisfied)
+  const isMissed = item.prob_satisfied < 0.5
 
   return (
     <div
-      className="flex items-center gap-2 py-1.5 border-b border-panel-border last:border-b-0"
+      className="flex flex-col gap-1 py-1.5 border-b border-panel-border last:border-b-0"
       data-testid={`constraint-row-${item.node_id}`}
     >
-      <ConstraintIcon prob={item.prob_satisfied} />
-      <span className={`${typography.panelBody} text-text-body flex-1 truncate`}>
-        {item.label} {renderOperator(item.operator)} {item.threshold}
-      </span>
-      <span className={`${typography.panelBody} ${colour} tabular-nums flex-shrink-0`}>
-        {pct}%
-      </span>
-      {item.binding && (
-        <span className={`${typography.panelMeta} text-danger flex-shrink-0`}>
-          (binding)
+      <div className="flex items-center gap-2">
+        <ConstraintIcon prob={item.prob_satisfied} />
+        <span className={`${typography.panelBody} text-text-body flex-1 truncate`}>
+          {item.label} {renderOperator(item.operator)} {item.threshold}
         </span>
+        <span className={`${typography.panelBody} ${colour} tabular-nums flex-shrink-0`}>
+          {pct}%
+        </span>
+        {item.binding && (
+          <span className={`${typography.panelMeta} text-danger flex-shrink-0`}>
+            (binding)
+          </span>
+        )}
+      </div>
+      {/* Task M.1.2 Step 2: Display failure margin when constraint is missed */}
+      {isMissed && item.failure_margin_median != null && (
+        <p className={`${typography.panelMeta} text-danger ml-6`}>
+          Typically misses by {item.failure_margin_median} {/* TODO: Add unit from parent context if available */}
+        </p>
       )}
     </div>
   )

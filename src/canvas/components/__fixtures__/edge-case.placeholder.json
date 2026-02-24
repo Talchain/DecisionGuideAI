@@ -1,0 +1,16 @@
+{
+  "_comment": "TODO Q.2: Replace with real staging response",
+  "_requirements": [
+    "Qualitative goal (not quantitative)",
+    "Single option (status quo only, no alternatives)",
+    "No constraints defined",
+    "m2_decision_review: null (CEE review not available)",
+    "Include fact_objects[] if applicable",
+    "Include review_cards[] if applicable"
+  ],
+  "_capture_instructions": "Create single-option qualitative model, capture SSE response",
+  "model_card": {
+    "response_hash": "PLACEHOLDER",
+    "seed": 1337
+  }
+}

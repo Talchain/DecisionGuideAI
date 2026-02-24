@@ -94,6 +94,11 @@ export function PreAnalysisPanel({
   // Get all panel data from hook (includes derived progress counts)
   const data = usePreAnalysisData()
 
+  // Task P.3.2: Get node and edge counts for minimal graph coaching
+  const nodes = useCanvasStore(s => s.nodes)
+  const edges = useCanvasStore(s => s.edges)
+  const isMinimalGraph = nodes.length < 3 || edges.length < 2
+
   // Retry draft hook — for re-running CEE when blocked due to LLM omission
   const { retryDraft, canRetry, isRetrying } = useRetryDraft()
   const showToast = useShowToast()
@@ -504,6 +509,20 @@ export function PreAnalysisPanel({
         {/* Coaching summary — one-line text below header */}
         {data.coachingSummary && (
           <p className="text-xs text-text-light -mt-2">{data.coachingSummary}</p>
+        )}
+
+        {/* Task P.3.2: Minimal graph coaching (pre-run guidance, not blocker) */}
+        {isMinimalGraph && (
+          <div
+            className="flex items-start gap-2 px-3 py-2.5 bg-info-light border border-info/30 rounded-md"
+            role="status"
+            data-testid="minimal-graph-coaching"
+          >
+            <AlertTriangle className="w-4 h-4 text-info flex-shrink-0 mt-0.5" aria-hidden="true" />
+            <p className="text-sm text-info">
+              Your model needs more detail for a meaningful analysis. Try adding factors that influence your outcome.
+            </p>
+          </div>
         )}
 
         {/* 2. Success Target / Hero inputs section */}

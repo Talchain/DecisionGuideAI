@@ -1,0 +1,15 @@
+{
+  "_comment": "TODO Q.2: Replace with real staging response",
+  "_requirements": [
+    "Win probabilities within 5% of each other",
+    "At least one fragile edge in robustness analysis",
+    "One constraint with prob_satisfied between 0.4-0.6",
+    "Include fact_objects[]",
+    "Include review_cards[]"
+  ],
+  "_capture_instructions": "Create a close-call scenario on staging, capture SSE response",
+  "model_card": {
+    "response_hash": "PLACEHOLDER",
+    "seed": 1337
+  }
+}
