@@ -1244,6 +1244,9 @@ export function OutputsDock() {
                 edges={edges}
                 robustness={mappedRobustness}
                 robustnessSynthesis={ceeReviewV1?.robustness_synthesis ?? null}
+                m1Coaching={runMeta.m1Coaching ?? null}
+                analysisStatus={(report as any)?.analysis_status}
+                robustnessStatus={(report as any)?.robustness_status}
               />
             )}
           </div>
@@ -1356,6 +1359,9 @@ function DiagnosticsTabBody({
   edges,
   robustness,
   robustnessSynthesis,
+  m1Coaching,
+  analysisStatus,
+  robustnessStatus,
 }: {
   healthView: { label: string; detail: string }
   graphHealth: GraphHealth | null
@@ -1375,6 +1381,22 @@ function DiagnosticsTabBody({
     assumption_explanations?: Array<{ node_id: string; label: string; explanation: string }>
     investigation_suggestions?: string[]
   } | null
+  m1Coaching: {
+    executive_summary?: {
+      headline?: string
+      paragraph?: string
+      summary?: string
+      [key: string]: unknown
+    }
+    assumptions_ledger?: Array<{
+      severity: 'low' | 'medium' | 'high'
+      message: string
+      target?: string
+    }>
+    [key: string]: unknown
+  } | null
+  analysisStatus?: 'computed' | 'partial' | string
+  robustnessStatus?: 'computed' | 'unavailable' | 'skipped' | 'error' | string
 }) {
   // Build fragile and robust edge ID sets for badges using adapter
   const fragileEdgeIds = useMemo(() => {
@@ -1387,13 +1409,11 @@ function DiagnosticsTabBody({
     return buildRobustEdgeIdSet(robustness.robustEdges)
   }, [robustness?.robustEdges])
 
-  // Determine analysis state for banner
-  // Check if robustness object exists (analysis completed), not if arrays have content
-  // Empty/undefined arrays are valid (model may be fully robust with no fragile edges)
-  const hasRobustnessData = !!robustness
-  const hasSynthesis = !!robustnessSynthesis?.headline
-  const hasPartialData = hasRobustnessData && !hasSynthesis
-  const needsAnalysis = !hasRobustnessData && !hasSynthesis
+  // FIX 2: Determine analysis state for banner based on CORE analysis status
+  // Check analysis_status and robustness_status from PLoT, not CEE synthesis
+  const coreAnalysisComplete = analysisStatus === 'computed' && robustnessStatus === 'computed'
+  const needsAnalysis = !analysisStatus || analysisStatus === 'not_run'
+  const hasPartialData = !coreAnalysisComplete && !needsAnalysis
 
   // Find edges without real evidence (missing provenance or non-evidence markers)
   // Uses canonical NON_EVIDENCE_PROVENANCE for consistency with countEdgesWithEvidence
@@ -1431,13 +1451,29 @@ function DiagnosticsTabBody({
             <div className="space-y-2">
               {robustness.fragileEdges.map((fragileEdge, idx) => {
                 const edgeId = fragileEdge.edgeId
-                const edgeLabel = fragileEdge.fromLabel && fragileEdge.toLabel
-                  ? `${fragileEdge.fromLabel} → ${fragileEdge.toLabel}`
+
+                // FIX 1: Resolve labels from nodes (PLoT doesn't provide from_label/to_label in fragile_edges)
+                // Extract from_id and to_id from edgeId (format: "from_id->to_id")
+                const [fromId, toId] = edgeId.split('->')
+                const fromNode = nodes.find(n => n.id === fromId)
+                const toNode = nodes.find(n => n.id === toId)
+                const edgeLabel = fromNode && toNode
+                  ? `${(fromNode.data as any)?.label || fromId} → ${(toNode.data as any)?.label || toId}`
                   : edgeId
-                // Find matching assumption explanation if available
-                const explanation = robustnessSynthesis?.assumption_explanations?.find(
+
+                // FIX 4: Find matching assumption from m1_coaching.assumptions_ledger
+                // Match by entity_id (edge ID)
+                const assumptionFromLedger = m1Coaching?.assumptions_ledger?.find(
+                  a => a.target === edgeId
+                )
+
+                // Fallback to CEE synthesis explanation if no ledger match
+                const ceeExplanation = robustnessSynthesis?.assumption_explanations?.find(
                   ae => ae.node_id === edgeId || ae.label === edgeLabel
                 )
+
+                // Use ledger message if available, otherwise CEE explanation
+                const explanation = assumptionFromLedger?.message || ceeExplanation?.explanation
 
                 return (
                   <div key={edgeId || idx} className="p-2 bg-amber-50 border border-amber-200 rounded">
@@ -1454,7 +1490,7 @@ function DiagnosticsTabBody({
                     </button>
                     {explanation && (
                       <p className={`${typography.caption} text-amber-700 mt-1 pl-6`}>
-                        {explanation.explanation}
+                        {explanation}
                       </p>
                     )}
                   </div>
@@ -1514,15 +1550,46 @@ function DiagnosticsTabBody({
         {/* D. Closure - What this decision hinges on */}
         <div data-testid="closure-section">
           <div className={`${typography.label} text-ink-700 mb-2`}>What this decision hinges on</div>
-          {robustnessSynthesis?.headline ? (
-            <p className={`${typography.body} text-ink-700`}>
-              {robustnessSynthesis.headline}
-            </p>
-          ) : (
-            <p className={`${typography.body} text-ink-500`}>
-              Run analysis to generate a summary of what matters most.
-            </p>
-          )}
+          {(() => {
+            // FIX 3: Fallback chain for closure summary
+            // 1. robustnessSynthesis?.headline (CEE synthesis - primary)
+            // 2. m1Coaching?.executive_summary?.summary (M1 coaching fallback)
+            // 3. "Summary unavailable" (if analysis ran but no summary)
+            // 4. "Run analysis..." (if no analysis has run)
+            const headline = robustnessSynthesis?.headline
+            const executiveSummary = m1Coaching?.executive_summary?.summary || m1Coaching?.executive_summary?.paragraph
+
+            if (headline) {
+              return (
+                <p className={`${typography.body} text-ink-700`}>
+                  {headline}
+                </p>
+              )
+            }
+
+            if (executiveSummary) {
+              return (
+                <p className={`${typography.body} text-ink-700`}>
+                  {executiveSummary}
+                </p>
+              )
+            }
+
+            // Check if analysis has run (using analysis_status)
+            if (analysisStatus === 'computed' || analysisStatus === 'partial') {
+              return (
+                <p className={`${typography.body} text-ink-500`}>
+                  Summary unavailable for this analysis.
+                </p>
+              )
+            }
+
+            return (
+              <p className={`${typography.body} text-ink-500`}>
+                Run analysis to generate a summary of what matters most.
+              </p>
+            )
+          })()}
         </div>
       </LensContainer>
 
