@@ -34,6 +34,7 @@ import type { LimitsV1 } from '../adapters/plot/types'
 import type { CeeDebugHeaders } from './utils/ceeDebugHeaders'
 import { loadSearchQuery, loadSortPreferences, saveSearchQuery, saveSortPreferences, __test__ as docsTest } from './store/documents'
 import { loadUIPreferences, saveUIPreference } from './store/uiPreferences'
+import { validateCeeAnalysisReady } from './utils/ceeAnalysisReadyValidation'
 
 // Brief 37 Optimization: Stable empty array to prevent re-renders
 // graphHealthFromQuality() returns this when no issues exist, avoiding new array allocation
@@ -2075,6 +2076,32 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
 
     scenarios.setCurrentScenarioId(id)
 
+    // Validate and restore ceeAnalysisReady if present
+    if (scenario.ceeAnalysisReady) {
+      const validation = validateCeeAnalysisReady(
+        scenario.ceeAnalysisReady,
+        scenario.ceeAnalysisReadyNodeIds ?? null,
+        nodes
+      )
+
+      if (validation.isValid) {
+        get().setCeeAnalysisReady(scenario.ceeAnalysisReady)
+        if (import.meta.env.DEV) {
+          console.log('[loadScenario] Restored ceeAnalysisReady:', {
+            options: scenario.ceeAnalysisReady.options.length,
+            goal: scenario.ceeAnalysisReady.goal_node_id,
+          })
+        }
+      } else {
+        if (import.meta.env.DEV) {
+          console.warn('[loadScenario] Stale ceeAnalysisReady discarded:', validation)
+        }
+        get().setCeeAnalysisReady(null)
+      }
+    } else {
+      get().setCeeAnalysisReady(null)
+    }
+
     // Restore results from run history if this scenario has a last run
     tryRestoreResultsFromHistory(scenario.last_result_hash, get().resultsLoadHistorical)
 
@@ -2090,6 +2117,8 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       currentScenarioLastResultHash,
       currentScenarioLastRunAt,
       currentScenarioLastRunSeed,
+      ceeAnalysisReady,
+      ceeAnalysisReadyNodeIds,
     } = get()
 
     // P0-2: Set saving state
@@ -2105,6 +2134,8 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
           last_result_hash: currentScenarioLastResultHash || undefined,
           last_run_at: currentScenarioLastRunAt || undefined,
           last_run_seed: currentScenarioLastRunSeed || undefined,
+          ceeAnalysisReady: ceeAnalysisReady ?? null,
+          ceeAnalysisReadyNodeIds: ceeAnalysisReadyNodeIds ?? null,
         })
         // Clear autosave since work is now saved to scenario
         scenarios.clearAutosave()
@@ -2128,6 +2159,8 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
           last_result_hash: currentScenarioLastResultHash || undefined,
           last_run_at: currentScenarioLastRunAt || undefined,
           last_run_seed: currentScenarioLastRunSeed || undefined,
+          ceeAnalysisReady: ceeAnalysisReady ?? null,
+          ceeAnalysisReadyNodeIds: ceeAnalysisReadyNodeIds ?? null,
         })
         // Clear autosave since work is now saved to scenario
         scenarios.clearAutosave()

@@ -12,6 +12,9 @@ import { StyledEdge } from './edges/StyledEdge'
 import { useKeyboardShortcuts } from './useKeyboardShortcuts'
 import { loadState, saveState } from './persist'
 import * as scenarios from './store/scenarios'
+import type { Scenario } from './store/scenarios'
+import { validateCeeAnalysisReady } from './utils/ceeAnalysisReadyValidation'
+import type { CEEAnalysisReady } from '../adapters/cee/types'
 import { ContextMenu } from './ContextMenu'
 import { CanvasToolbar } from './CanvasToolbar'
 import { LeftSidebar } from '../components/layout/LeftSidebar'
@@ -141,6 +144,77 @@ interface ReactFlowGraphProps {
   blueprintEventBus?: BlueprintEventBus
   onCanvasInteraction?: () => void
   enableGhostSuggestions?: boolean
+}
+
+/**
+ * Restore ceeAnalysisReady with multi-layer fallback and validation
+ * Fallback chain: sessionStorage → autosave → scenario → null
+ */
+function restoreCeeAnalysisReady(
+  autosave: scenarios.AutosaveData | null,
+  scenario: Scenario | null,
+  currentNodes: import('@xyflow/react').Node[]
+): void {
+  let ceeAnalysisReady: CEEAnalysisReady | null = null
+  let ceeAnalysisReadyNodeIds: string[] | null = null
+  let source: 'session' | 'autosave' | 'scenario' | 'none' = 'none'
+
+  // 1. Try sessionStorage first (most recent)
+  try {
+    const ceeRaw = sessionStorage.getItem('olumi-cee-analysis-ready')
+    if (ceeRaw) {
+      const ceeData = JSON.parse(ceeRaw)
+      if (ceeData && typeof ceeData === 'object') {
+        ceeAnalysisReady = ceeData
+        source = 'session'
+      }
+    }
+  } catch {
+    // Ignore parse errors
+  }
+
+  // 2. Fallback to autosave
+  if (!ceeAnalysisReady && autosave?.ceeAnalysisReady) {
+    ceeAnalysisReady = autosave.ceeAnalysisReady
+    ceeAnalysisReadyNodeIds = autosave.nodes.map((n) => n.id)
+    source = 'autosave'
+  }
+
+  // 3. Fallback to scenario
+  if (!ceeAnalysisReady && scenario?.ceeAnalysisReady) {
+    ceeAnalysisReady = scenario.ceeAnalysisReady
+    ceeAnalysisReadyNodeIds = scenario.ceeAnalysisReadyNodeIds ?? null
+    source = 'scenario'
+  }
+
+  // 4. Validate if we found data
+  if (ceeAnalysisReady) {
+    const validation = validateCeeAnalysisReady(
+      ceeAnalysisReady,
+      ceeAnalysisReadyNodeIds,
+      currentNodes
+    )
+
+    if (validation.isValid) {
+      useCanvasStore.getState().setCeeAnalysisReady(ceeAnalysisReady)
+      if (import.meta.env.DEV) {
+        console.log('[canvas:init] Restored ceeAnalysisReady:', {
+          source,
+          options: ceeAnalysisReady.options.length,
+          goal_node_id: ceeAnalysisReady.goal_node_id,
+        })
+      }
+    } else {
+      if (import.meta.env.DEV) {
+        console.warn('[canvas:init] Invalid ceeAnalysisReady discarded:', {
+          source,
+          reason: validation.reason,
+          details: validation.details,
+        })
+      }
+      // Invalid data - don't restore
+    }
+  }
 }
 
 // Brief 37: Wrap in memo to prevent parent-triggered re-renders from ReactFlowProvider
@@ -1403,19 +1477,8 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
         } catch {}
       }
 
-      // Restore ceeAnalysisReady from sessionStorage (survives tab-refresh)
-      // This must run in the PROD path too, not just the dev fallback.
-      try {
-        const ceeRaw = sessionStorage.getItem('olumi-cee-analysis-ready')
-        if (ceeRaw) {
-          const ceeData = JSON.parse(ceeRaw)
-          if (ceeData && typeof ceeData === 'object') {
-            useCanvasStore.getState().setCeeAnalysisReady(ceeData)
-          }
-        }
-      } catch {
-        // Ignore parse failures — stale/corrupt data is silently discarded
-      }
+      // Restore ceeAnalysisReady with multi-layer fallback and validation
+      restoreCeeAnalysisReady(autosave, scenario, useCanvasStore.getState().nodes)
 
       return
     }
@@ -1435,18 +1498,9 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
         edges: loaded.edges
       })
 
-      // Restore ceeAnalysisReady from sessionStorage (survives tab-refresh)
-      try {
-        const ceeRaw = sessionStorage.getItem('olumi-cee-analysis-ready')
-        if (ceeRaw) {
-          const ceeData = JSON.parse(ceeRaw)
-          if (ceeData && typeof ceeData === 'object') {
-            useCanvasStore.getState().setCeeAnalysisReady(ceeData)
-          }
-        }
-      } catch {
-        // Ignore parse failures — stale/corrupt data is silently discarded
-      }
+      // Restore ceeAnalysisReady with multi-layer fallback and validation
+      // In fallback path: autosave and scenario are null, so only tries sessionStorage
+      restoreCeeAnalysisReady(null, null, loaded.nodes)
 
       // Try to restore results from most recent matching run (draft mode fallback)
       try {
