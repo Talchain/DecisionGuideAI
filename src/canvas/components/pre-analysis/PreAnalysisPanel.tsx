@@ -97,7 +97,7 @@ export function PreAnalysisPanel({
   // Task P.3.2: Get node and edge counts for minimal graph coaching
   const nodes = useCanvasStore(s => s.nodes)
   const edges = useCanvasStore(s => s.edges)
-  const isMinimalGraph = nodes.length < 3 || edges.length < 2
+  const isMinimalGraph = (nodes?.length ?? 0) < 3 || (edges?.length ?? 0) < 2
 
   // Retry draft hook — for re-running CEE when blocked due to LLM omission
   const { retryDraft, canRetry, isRetrying } = useRetryDraft()
