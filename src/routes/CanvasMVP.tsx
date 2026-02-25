@@ -3,6 +3,7 @@
 
 import '../styles/plot.css'
 import { useEffect, useState, lazy, Suspense, useCallback, useRef } from 'react'
+import { useParams } from 'react-router-dom'
 import ReactFlowGraph, { type BlueprintEventBus, type BlueprintInsertResult } from '../canvas/ReactFlowGraph'
 import type { Blueprint } from '../templates/blueprints/types'
 import { useCanvasStore } from '../canvas/store'
@@ -13,6 +14,7 @@ import { DebugTray } from '../components/DebugTray'
 import { TopBar } from '../components/layout/TopBar'
 import { getScenario } from '../canvas/store/scenarios'
 import { buildShareLink } from '../canvas/utils/shareLink'
+import { useScenario } from '../hooks/useScenario'
 
 const TemplatesPanel = lazy(() => import('../canvas/panels/TemplatesPanel').then(m => ({ default: m.TemplatesPanel })))
 
@@ -59,6 +61,29 @@ export default function CanvasMVP() {
 
   // v1.2: Auto-run analysis after template insertion
   const { run } = useResultsRun()
+
+  // C.1a: Supabase scenario persistence
+  const { id: scenarioIdFromRoute } = useParams<{ id: string }>()
+  const {
+    loadScenario: loadSupabaseScenario,
+    saveStatus: supabaseSaveStatus,
+    lastSavedAt: supabaseLastSaved,
+    saveError: supabaseSaveError,
+    isPersistenceActive,
+  } = useScenario()
+
+  // C.1a: Hydrate from Supabase when navigating to /scenario/:id
+  const hydratedRef = useRef<string | null>(null)
+  useEffect(() => {
+    if (scenarioIdFromRoute && isPersistenceActive && hydratedRef.current !== scenarioIdFromRoute) {
+      hydratedRef.current = scenarioIdFromRoute
+      loadSupabaseScenario(scenarioIdFromRoute).catch((err) => {
+        if (import.meta.env.DEV) {
+          console.error('[CanvasMVP] Failed to load scenario from Supabase:', err)
+        }
+      })
+    }
+  }, [scenarioIdFromRoute, isPersistenceActive, loadSupabaseScenario])
 
   // Track canvas opened event
   useEffect(() => {
@@ -213,7 +238,10 @@ export default function CanvasMVP() {
         onSave={handleSave}
         onShare={handleShare}
         isDirty={isDirty}
-        lastSaved={lastSaved}
+        lastSaved={isPersistenceActive && supabaseLastSaved ? new Date(supabaseLastSaved) : lastSaved}
+        saveStatus={isPersistenceActive ? supabaseSaveStatus : undefined}
+        saveError={isPersistenceActive ? supabaseSaveError : undefined}
+        isPersisted={isPersistenceActive}
       />
 
       <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>

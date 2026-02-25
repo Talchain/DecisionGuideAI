@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
-import { Save, Share2, MoreVertical, Check, BookOpen, Keyboard, HelpCircle, Activity, Users, Shield, ShieldAlert, Clock, Settings, ChevronRight } from 'lucide-react'
+import { Save, Share2, MoreVertical, Check, BookOpen, Keyboard, HelpCircle, Activity, Users, Shield, ShieldAlert, Clock, Settings, ChevronRight, AlertTriangle } from 'lucide-react'
 import Tooltip from '../Tooltip'
 import { Spinner } from '../Spinner'
 import styles from './TopBar.module.css'
@@ -20,6 +20,10 @@ interface TopBarProps {
   onShare?: () => void
   isDirty?: boolean
   lastSaved?: Date | null
+  // C.1a: Supabase persistence status
+  saveStatus?: 'saved' | 'saving' | 'error'
+  saveError?: string | null
+  isPersisted?: boolean
 }
 
 export const TopBar = ({
@@ -29,6 +33,9 @@ export const TopBar = ({
   onShare,
   isDirty = false,
   lastSaved = null,
+  saveStatus,
+  saveError,
+  isPersisted = false,
 }: TopBarProps) => {
   const [isEditing, setIsEditing] = useState(false)
   const [editValue, setEditValue] = useState(scenarioTitle)
@@ -36,7 +43,22 @@ export const TopBar = ({
   const [showSavedConfirmation, setShowSavedConfirmation] = useState(false)
   const [showMenu, setShowMenu] = useState(false)
   const [settingsExpanded, setSettingsExpanded] = useState(false)
+  const [showSavedPill, setShowSavedPill] = useState(false)
   const menuRef = useRef<HTMLDivElement | null>(null)
+
+  // C.1a: Auto-fade "Saved" pill after 2s
+  const prevSaveStatusRef = useRef(saveStatus)
+  useEffect(() => {
+    if (saveStatus === 'saved' && prevSaveStatusRef.current === 'saving') {
+      setShowSavedPill(true)
+      const timer = setTimeout(() => setShowSavedPill(false), 2000)
+      return () => clearTimeout(timer)
+    }
+    if (saveStatus === 'saving') {
+      setShowSavedPill(false)
+    }
+    prevSaveStatusRef.current = saveStatus
+  }, [saveStatus])
 
   // Floating pill TopBar - set topbar-h to pill bottom (12px top + 45px height = 57px)
   // This ensures LeftSidebar and other elements position correctly below the pill
@@ -209,9 +231,42 @@ export const TopBar = ({
           </button>
         )}
 
-        {/* Dirty indicator */}
-        {isDirty && !isSaving && (
+        {/* Dirty indicator (localStorage mode only) */}
+        {!isPersisted && isDirty && !isSaving && (
           <span className={styles.dirtyIndicator} aria-label="Unsaved changes" />
+        )}
+
+        {/* C.1a: Supabase persistence save status */}
+        {isPersisted && saveStatus === 'saving' && (
+          <div
+            className="flex items-center gap-1 px-2 py-0.5 text-[11px] text-gray-500 bg-gray-100 rounded-full"
+            role="status"
+            aria-live="polite"
+          >
+            <Clock className="w-3 h-3 animate-pulse" />
+            <span>Saving…</span>
+          </div>
+        )}
+        {isPersisted && showSavedPill && (
+          <div
+            className="flex items-center gap-1 px-2 py-0.5 text-[11px] text-green-700 bg-green-50 rounded-full transition-opacity duration-300"
+            role="status"
+            aria-live="polite"
+          >
+            <Check className="w-3 h-3" />
+            <span>Saved</span>
+          </div>
+        )}
+        {isPersisted && saveStatus === 'error' && (
+          <div
+            className="flex items-center gap-1 px-2 py-0.5 text-[11px] text-amber-700 bg-amber-50 rounded-full"
+            role="status"
+            aria-live="polite"
+            title={saveError ?? 'Save failed'}
+          >
+            <AlertTriangle className="w-3 h-3" />
+            <span>Save failed — retrying</span>
+          </div>
         )}
       </div>
 
