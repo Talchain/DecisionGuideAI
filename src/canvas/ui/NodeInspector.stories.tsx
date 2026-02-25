@@ -462,5 +462,49 @@ export const ActionRow: Story = {
       }}
     />
   ),
-  play: async ({ canvasElement }) => { await assertSummaryHeight(canvasElement) },
+  play: async ({ canvasElement }) => {
+    await assertSummaryHeight(canvasElement)
+    // P.5: Confirm button SHOULD be rendered for Factor nodes
+    const actionRow = canvasElement.querySelector('[data-testid="inspector-action-row"]')
+    expect(actionRow).toBeTruthy()
+    const buttons = actionRow?.querySelectorAll('button') ?? []
+    expect(buttons.length).toBe(2)
+    // First button is Confirm (Check), second is Edit (Pencil)
+    expect(buttons[0]?.getAttribute('aria-label')).toBe('Unmark as reviewed')
+    expect(buttons[1]?.getAttribute('aria-label')).toBe('Edit assumptions')
+  },
+}
+
+export const GoalActionRow: Story = {
+  name: 'Goal — action row (no Confirm button, P.1)',
+  render: () => (
+    <StoreWrapper
+      nodeId="g1"
+      storeState={{
+        nodes: [
+          {
+            id: 'g1',
+            type: 'goal',
+            position: { x: 0, y: 0 },
+            data: { label: 'Increase revenue to £2M', kind: 'goal' },
+          },
+        ],
+        edges: [],
+        goalThreshold: 2000000,
+        goalConstraints: [],
+        outcomeNodeId: 'g1',
+        touchedNodeIds: new Set(),
+      }}
+    />
+  ),
+  play: async ({ canvasElement }) => {
+    await assertSummaryHeight(canvasElement)
+    // P.5: Confirm button should NOT be rendered for Goal nodes
+    const actionRow = canvasElement.querySelector('[data-testid="inspector-action-row"]')
+    expect(actionRow).toBeTruthy()
+    // Only the Edit (Pencil) button should be present, not the Confirm (Check) button
+    const buttons = actionRow?.querySelectorAll('button') ?? []
+    expect(buttons.length).toBe(1)
+    expect(buttons[0]?.getAttribute('aria-label')).toBe('Edit assumptions')
+  },
 }

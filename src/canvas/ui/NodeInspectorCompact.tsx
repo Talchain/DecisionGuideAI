@@ -1,4 +1,9 @@
 /**
+ * @deprecated Phase 2 (S.1) removed compact inspector routing — single-click
+ * now opens the full 4-section inspector directly. This file is retained
+ * temporarily to avoid import breakage. Safe to delete once all references
+ * are confirmed removed. See commit 8320510e.
+ *
  * Compact node inspector for contextual popover
  * Shows: node icon, type label, node label (read-only), key metric, expand button.
  * No structural editing controls (type/label change requires full inspector).

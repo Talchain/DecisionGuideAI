@@ -32,6 +32,10 @@ export const EdgeInspector = memo(({ edgeId, onClose }: EdgeInspectorProps) => {
   const resultsStatus = useCanvasStore(s => s.results?.status)
   const isResultsMode = resultsStatus === 'complete'
   const robustness = useCanvasStore(s => s.results?.report?.robustness)
+  // P.1: Edge confirm tracking (edges have assumptions worth confirming)
+  const confirmedNodeIds = useCanvasStore(s => s.confirmedNodeIds)
+  const toggleConfirmedNode = useCanvasStore(s => s.toggleConfirmedNode)
+  const isConfirmed = confirmedNodeIds.has(edgeId)
   const { showToast } = useToast()
 
   const edge = edges.find(e => e.id === edgeId)
@@ -268,6 +272,23 @@ export const EdgeInspector = memo(({ edgeId, onClose }: EdgeInspectorProps) => {
           Fragile
         </span>
       )}
+
+      {/* P.1: Edge confirm button — edges have assumptions worth reviewing */}
+      <div className="flex items-center gap-1 mt-2" data-testid="inspector-action-row">
+        <button
+          type="button"
+          onClick={() => toggleConfirmedNode(edgeId)}
+          className={`w-7 h-7 flex items-center justify-center rounded transition-colors ${
+            isConfirmed
+              ? 'bg-success-light text-success'
+              : 'bg-transparent text-text-light hover:bg-panel-hover'
+          }`}
+          aria-label={isConfirmed ? 'Unmark as reviewed' : 'Mark as reviewed'}
+          title={isConfirmed ? 'Reviewed' : 'Mark as reviewed'}
+        >
+          <Check size={14} />
+        </button>
+      </div>
 
       {/* Live region for announcements */}
       <div role="status" aria-live="polite" aria-atomic="true" className="sr-only">

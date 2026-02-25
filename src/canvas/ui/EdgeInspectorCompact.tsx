@@ -1,4 +1,9 @@
 /**
+ * @deprecated Phase 2 (S.1) removed compact inspector routing — single-click
+ * now opens the full 4-section inspector directly. This file is retained
+ * temporarily to avoid import breakage. Safe to delete once all references
+ * are confirmed removed. See commit 8320510e.
+ *
  * Compact edge inspector for contextual popover
  * Shows only essential fields: Effect on target, Confidence, Label, Style
  * British English: visualisation, colour

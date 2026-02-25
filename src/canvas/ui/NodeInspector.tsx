@@ -192,21 +192,23 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
         {node.data?.label || 'Untitled'}
       </p>
 
-      {/* S.4: Inline action row — Confirm + Edit */}
+      {/* S.4: Inline action row — Confirm (Factor only, P.1) + Edit */}
       <div className="flex items-center gap-1 mt-1.5" data-testid="inspector-action-row">
-        <button
-          type="button"
-          onClick={() => toggleConfirmedNode(nodeId)}
-          className={`w-7 h-7 flex items-center justify-center rounded transition-colors ${
-            isConfirmed
-              ? 'bg-success-light text-success'
-              : 'bg-transparent text-text-light hover:bg-panel-hover'
-          }`}
-          aria-label={isConfirmed ? 'Unmark as reviewed' : 'Mark as reviewed'}
-          title={isConfirmed ? 'Reviewed' : 'Mark as reviewed'}
-        >
-          <Check size={14} />
-        </button>
+        {isFactorNode && (
+          <button
+            type="button"
+            onClick={() => toggleConfirmedNode(nodeId)}
+            className={`w-7 h-7 flex items-center justify-center rounded transition-colors ${
+              isConfirmed
+                ? 'bg-success-light text-success'
+                : 'bg-transparent text-text-light hover:bg-panel-hover'
+            }`}
+            aria-label={isConfirmed ? 'Unmark as reviewed' : 'Mark as reviewed'}
+            title={isConfirmed ? 'Reviewed' : 'Mark as reviewed'}
+          >
+            <Check size={14} />
+          </button>
+        )}
         <button
           type="button"
           onClick={() => {
@@ -595,7 +597,14 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
                 compact
               />
               <p className={`${typography.panelMeta} text-text-light italic`}>
-                Clear results to edit interventions.
+                <button
+                  type="button"
+                  onClick={() => useCanvasStore.getState().resultsReset()}
+                  className="text-info hover:underline cursor-pointer"
+                >
+                  Clear results
+                </button>
+                {' '}to edit interventions.
               </p>
             </div>
           ) : showMappingForm ? (
