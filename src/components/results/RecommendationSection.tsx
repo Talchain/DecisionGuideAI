@@ -13,7 +13,7 @@
  */
 
 import { useMemo } from 'react'
-import type { RecommendationSectionData, DriverItem, DecisionState, HingeInfo, EvidenceLevel } from './types'
+import type { RecommendationSectionData, DriverItem, DecisionState, HingeInfo } from './types'
 import { EMPTY_STATES } from './emptyStates'
 import { typography } from '../../styles/typography'
 import { HeroSection, type OptionWinShare } from './HeroSection'
@@ -70,8 +70,6 @@ interface RecommendationSectionProps {
   decisionState?: DecisionState
   /** V11: Deterministic hinge for coaching copy */
   hinge?: HingeInfo | null
-  /** V11: Evidence quality level for meta strip badge */
-  evidenceLevel?: EvidenceLevel
   /** V12: Identifiability tag from model card */
   identifiabilityTag?: string | null
 }
@@ -97,7 +95,6 @@ export function RecommendationSection({
   onFlashOption,
   decisionState,
   hinge,
-  evidenceLevel,
   identifiabilityTag,
 }: RecommendationSectionProps) {
   const {
@@ -252,7 +249,6 @@ export function RecommendationSection({
         baselineLabel={allOptions.find(o => o.isBaseline)?.label}
         decisionState={decisionState}
         hinge={hinge}
-        evidenceLevel={evidenceLevel}
         robustEdgeCount={robustEdgeCount}
       />
 

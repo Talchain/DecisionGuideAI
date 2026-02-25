@@ -22,7 +22,7 @@ import { formatPercent as formatPct } from '../../utils/formatPercent'
 import { GraphLink } from './GraphLink'
 import { normaliseGoalLabel } from '../../utils/normaliseGoalLabel'
 import { BaselineToggleCard, type BaselineOption } from './BaselineToggleCard'
-import type { DecisionState, HingeInfo, EvidenceLevel } from './types'
+import type { DecisionState, HingeInfo } from './types'
 
 // =============================================================================
 // Types
@@ -127,8 +127,6 @@ export interface HeroSectionProps {
   decisionState?: DecisionState
   /** V11: Deterministic hinge for coaching copy */
   hinge?: HingeInfo | null
-  /** V11: Evidence quality level for meta strip badge */
-  evidenceLevel?: EvidenceLevel
   /** V11: Robust edge count for "Fragile edges X of Y" display */
   robustEdgeCount?: number
 }
@@ -188,21 +186,45 @@ function getStabilityTier(stability: number | undefined): {
 // Sub-Components
 // =============================================================================
 
-/** Win gauge colours — winner gets success, others rotate through palette */
-const WIN_GAUGE_COLORS = [
-  'var(--success)',       // Winner
-  'var(--info-light)',    // Runner-up
-  'var(--border-default)', // Third
-  'var(--warning-light)', // Fourth (rare)
+/** V12.3: Win gauge + option card colours — shared palette for visual continuity */
+export const WIN_GAUGE_COLORS = [
+  'var(--success)',         // Winner — mint-500
+  'var(--info)',            // Runner-up — sky-500
+  'var(--option)',          // Third — lilac-400
+  'var(--border-default)',  // Fourth+ — sand-200
 ]
 
-/** V11: Indeterminate colours — stone for top two, muted for rest */
-const WIN_GAUGE_COLORS_INDETERMINATE = [
-  'var(--factor)',         // Top option
-  'var(--factor)',         // Second option
-  'var(--border-default)', // Third
-  'var(--border-default)', // Fourth
+/** V12.3: Indeterminate colours — sky for top two (near-tie signal), muted for rest */
+export const WIN_GAUGE_COLORS_INDETERMINATE = [
+  'var(--info)',            // Top option — sky-500
+  'var(--info-light)',      // Second option — sky-200 (lighter, near-tie signal)
+  'var(--border-default)',  // Third — sand-200
+  'var(--border-default)',  // Fourth — sand-200
 ]
+
+/**
+ * Build a colour map from option ID → CSS colour, using the same sort order
+ * as WinGauge (winner first, then winProbability descending). This ensures
+ * OptionCards left-border colours match the corresponding WinGauge segment
+ * regardless of how cards are independently sorted.
+ */
+export function buildSegmentColorMap(
+  options: Array<{ id: string; winProbability?: number | null; isRecommended?: boolean }>,
+  winnerId: string | undefined,
+  decisionState?: DecisionState,
+): Record<string, string> {
+  const colors = decisionState === 'indeterminate' ? WIN_GAUGE_COLORS_INDETERMINATE : WIN_GAUGE_COLORS
+  const sorted = [...options].sort((a, b) => {
+    if (a.id === winnerId && b.id !== winnerId) return -1
+    if (a.id !== winnerId && b.id === winnerId) return 1
+    return (b.winProbability ?? 0) - (a.winProbability ?? 0)
+  })
+  const map: Record<string, string> = {}
+  sorted.forEach((opt, i) => {
+    map[opt.id] = colors[Math.min(i, colors.length - 1)]
+  })
+  return map
+}
 
 /**
  * WinGauge — stacked horizontal bar showing win probability per option.
@@ -281,36 +303,10 @@ function WinGauge({
 
 
 // =============================================================================
-// V11: Evidence Badge
-// =============================================================================
-
-const EVIDENCE_BADGE_CONFIG: Record<EvidenceLevel, { label: string; bg: string; text: string; tooltip: string }> = {
-  good: {
-    label: 'Evidence: Good',
-    bg: 'bg-success-light',
-    text: 'text-success',
-    tooltip: 'Based on stability and proportion of fragile edges.',
-  },
-  fair: {
-    label: 'Evidence: Fair',
-    bg: 'bg-goal-light',
-    text: 'text-goal',
-    tooltip: 'Based on stability and proportion of fragile edges.',
-  },
-  needs_work: {
-    label: 'Evidence: Needs work',
-    bg: 'bg-danger-light',
-    text: 'text-danger',
-    tooltip: 'Based on stability and proportion of fragile edges.',
-  },
-}
-
-// =============================================================================
-// V11: MetaStrip — single-row evidence + baseline + target
+// V11: MetaStrip — single-row baseline + target
 // =============================================================================
 
 function MetaStrip({
-  evidenceLevel,
   baselineLabel,
   goalThreshold,
   onSetBaseline,
@@ -318,7 +314,6 @@ function MetaStrip({
   baselineOptions,
   isRunning,
 }: {
-  evidenceLevel?: EvidenceLevel
   baselineLabel?: string
   goalThreshold?: number | null
   onSetBaseline?: (id: string) => void
@@ -326,20 +321,8 @@ function MetaStrip({
   baselineOptions?: BaselineOption[]
   isRunning?: boolean
 }) {
-  const badge = evidenceLevel ? EVIDENCE_BADGE_CONFIG[evidenceLevel] : null
-
   return (
     <div className="flex items-center gap-4 flex-wrap" data-testid="meta-strip">
-      {/* Evidence badge */}
-      {badge && (
-        <span
-          className={`inline-flex items-center px-2 py-0.5 rounded-full ${badge.bg} ${badge.text} ${typography.panelMeta}`}
-          title={badge.tooltip}
-          data-testid="evidence-badge"
-        >
-          {badge.label}
-        </span>
-      )}
       {/* Baseline */}
       {baselineOptions && baselineOptions.length > 0 && (
         <BaselineToggleCard
@@ -432,21 +415,17 @@ function HeroRows({
     />
   ) : null
 
-  // Row 3 content builder
+  // V12.3 Task 2: Row 3 content builder — "Action" label with bullet separator
   const renderRow3 = () => {
     if (decisionState === 'robust') {
+      // Robust with hinge: suggest validation. Robust without hinge: no action row.
+      if (!hingeLink) return null
       return (
         <div className="flex gap-2">
-          <dt className={`${typography.panelMeta} text-text-light w-24 flex-shrink-0`}>Status</dt>
-          <dd>
-            <div className="px-3 py-2 rounded-lg border border-success/30 bg-success-light/30">
-              <p className={`${typography.panelBody} text-text-body`}>
-                No single assumption could flip this.
-                {hingeLink && (
-                  <> Validate {hingeLink} <span className="text-info">Edit estimate &rarr;</span></>
-                )}
-              </p>
-            </div>
+          <dt className={`${typography.panelMeta} text-text-light w-24 flex-shrink-0`}>Action</dt>
+          <dd className={`${typography.panelBody} text-text-body`}>
+            <span className="text-text-light mr-1" aria-hidden="true">•</span>
+            Validate: {hingeLink}
           </dd>
         </div>
       )
@@ -455,17 +434,14 @@ function HeroRows({
     if (decisionState === 'sensitive') {
       return (
         <div className="flex gap-2">
-          <dt className={`${typography.panelMeta} text-danger w-24 flex-shrink-0`}>Validate first</dt>
-          <dd>
-            <div className="px-3 py-2 rounded-lg bg-danger-light/30 border border-danger/20">
-              <p className={`${typography.panelBody} text-text-body`}>
-                {hingeLink ? (
-                  <>{hingeLink} <span className="text-info">Edit estimate &rarr;</span></>
-                ) : (
-                  'Review key assumptions before committing.'
-                )}
-              </p>
-            </div>
+          <dt className={`${typography.panelMeta} text-text-light w-24 flex-shrink-0`}>Action</dt>
+          <dd className={`${typography.panelBody} text-text-body`}>
+            <span className="text-text-light mr-1" aria-hidden="true">•</span>
+            {hingeLink ? (
+              <>Validate first: {hingeLink}</>
+            ) : (
+              'Review key assumptions before committing.'
+            )}
           </dd>
         </div>
       )
@@ -474,17 +450,14 @@ function HeroRows({
     // indeterminate
     return (
       <div className="flex gap-2">
-        <dt className={`${typography.panelMeta} text-danger w-24 flex-shrink-0`}>Resolve first</dt>
-        <dd>
-          <div className="px-3 py-2 rounded-lg bg-danger-light/30 border border-danger/20">
-            <p className={`${typography.panelBody} text-text-body`}>
-              {hingeLink ? (
-                <>{hingeLink} <span className="text-info">Edit estimate &rarr;</span></>
-              ) : (
-                'Review key assumptions to distinguish the options.'
-              )}
-            </p>
-          </div>
+        <dt className={`${typography.panelMeta} text-text-light w-24 flex-shrink-0`}>Action</dt>
+        <dd className={`${typography.panelBody} text-text-body`}>
+          <span className="text-text-light mr-1" aria-hidden="true">•</span>
+          {hingeLink ? (
+            <>Resolve first: {hingeLink}</>
+          ) : (
+            'Review key assumptions to distinguish the options.'
+          )}
         </dd>
       </div>
     )
@@ -520,7 +493,7 @@ function HeroRows({
         </div>
       )}
 
-      {/* Row 3: Status / Validate / Resolve — always present */}
+      {/* Row 3: Action — present unless robust + no hinge */}
       {renderRow3()}
     </dl>
   )
@@ -577,7 +550,6 @@ export function HeroSection({
   baselineLabel,
   decisionState,
   hinge,
-  evidenceLevel,
   robustEdgeCount,
 }: HeroSectionProps) {
   // v7.4 Task 6: Default expand state based on robustness level
@@ -673,7 +645,6 @@ export function HeroSection({
         <div className="p-4 bg-panel border border-panel-border rounded-lg space-y-4">
           {/* Meta strip */}
           <MetaStrip
-            evidenceLevel={evidenceLevel}
             baselineLabel={baselineLabel}
             goalThreshold={goalThreshold}
             onSetBaseline={onSetBaseline}

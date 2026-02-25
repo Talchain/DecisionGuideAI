@@ -178,11 +178,12 @@ describe('OptionCards', () => {
   })
 
   describe('Winner styling', () => {
-    it('applies border-success to winner card', () => {
+    it('V12.3: winner card uses border-panel-border class (colour via inline style)', () => {
       render(<OptionCards options={mockOptions} winnerId="option-1" />)
 
       const winnerCard = screen.getByTestId('option-card-option-1')
-      expect(winnerCard.className).toContain('border-success')
+      // V12.3: border colour is now applied via inline borderLeftColor, not class
+      expect(winnerCard.className).toContain('border-panel-border')
     })
 
     it('applies border-panel-border to non-winner card', () => {
@@ -332,7 +333,7 @@ describe('OptionCards', () => {
       expect(container.querySelectorAll('.bg-success')).toHaveLength(0)
     })
 
-    it('preserves normal border-success when robust', () => {
+    it('V12.3: preserves border-panel-border when robust (colour via inline style)', () => {
       render(
         <OptionCards
           options={mockOptions}
@@ -342,7 +343,8 @@ describe('OptionCards', () => {
       )
 
       const winnerCard = screen.getByTestId('option-card-option-1')
-      expect(winnerCard.className).toContain('border-success')
+      // V12.3: all cards use border-panel-border; winner gets coloured left border via inline style
+      expect(winnerCard.className).toContain('border-panel-border')
     })
 
     it('preserves normal "#1 of N" badges when sensitive', () => {

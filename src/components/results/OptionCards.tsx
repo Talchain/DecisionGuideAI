@@ -7,8 +7,8 @@
  * - "Wins" stat row: horizontal bar + percentage
  * - "Hits target" stat row: horizontal bar + percentage (conditional on target set)
  *
- * Leading option card has border-success (mint-500 border).
- * Other cards use border-panel-border.
+ * All cards use border-panel-border. Leading option card gets a coloured
+ * left border (3px) matching its WinGauge segment colour via inline style.
  *
  * V11: Indeterminate neutralisation — stone colours, percentage badges, muted text.
  *
@@ -40,6 +40,8 @@ export interface OptionCardsProps {
   hinge?: HingeInfo | null
   /** V11: Runner-up option ID for hinge-aware descriptions */
   runnerId?: string
+  /** V12.3: Segment colour per option ID (keyed by option ID, CSS custom property values) */
+  segmentColorMap?: Record<string, string>
 }
 
 /** @deprecated Use sanitizeCoachingText from cleanFactorLabel.ts */
@@ -91,6 +93,7 @@ function StatBar({
   isLeader,
   color,
   neutralised = false,
+  segmentColor,
 }: {
   value: number | null | undefined
   label: string
@@ -98,17 +101,24 @@ function StatBar({
   color: 'success' | 'info'
   /** V11: When true, use stone colours for all bars (indeterminate state) */
   neutralised?: boolean
+  /** V12.3: CSS colour value from wins bar segment for bar fill */
+  segmentColor?: string
 }) {
   if (value == null) return null
 
   const pct = Math.round(value * 100)
   const barWidth = Math.max(2, pct) // minimum 2% so bar is always visible
 
-  const barColorClass = neutralised
-    ? 'bg-factor'
-    : isLeader
-      ? (color === 'success' ? 'bg-success' : 'bg-info')
-      : 'bg-factor-light'
+  // V12.3: Use segment colour for "Wins" bar; keep "Hits target" as info
+  const useSegmentColor = segmentColor && color === 'success'
+
+  const barColorClass = useSegmentColor
+    ? '' // colour applied via inline style
+    : neutralised
+      ? 'bg-factor'
+      : isLeader
+        ? (color === 'success' ? 'bg-success' : 'bg-info')
+        : 'bg-factor-light'
 
   return (
     <div className="flex items-center gap-2">
@@ -118,7 +128,10 @@ function StatBar({
       <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
         <div
           className={`h-2 rounded-full transition-all ${barColorClass}`}
-          style={{ width: `${barWidth}%` }}
+          style={{
+            width: `${barWidth}%`,
+            ...(useSegmentColor ? { backgroundColor: segmentColor } : {}),
+          }}
         />
       </div>
       <span className={`${typography.panelMeta} text-text-body tabular-nums w-[36px] text-right flex-shrink-0`}>
@@ -137,6 +150,7 @@ function OptionCard({
   description,
   cardRef,
   neutralised = false,
+  segmentColor,
 }: {
   option: OptionResult
   isWinner: boolean
@@ -146,11 +160,11 @@ function OptionCard({
   cardRef?: (el: HTMLDivElement | null) => void
   /** V11: When true, neutralise all colour semantics (indeterminate state) */
   neutralised?: boolean
+  /** V12.3: CSS colour value for left border + bar fill (from wins bar segment) */
+  segmentColor?: string
 }) {
-  // V11: Indeterminate neutralisation — no .leads border, all default
-  const borderClass = neutralised
-    ? 'border-panel-border'
-    : isWinner ? 'border-success' : 'border-panel-border'
+  // V12.3: Use segment colour for left border when provided
+  const borderClass = 'border-panel-border'
   const rank = option.rank ?? (isWinner ? 1 : undefined)
 
   // V11: Rank badge — show "58%" in stone when neutralised (with winProbability), "#1 of N" otherwise
@@ -168,6 +182,7 @@ function OptionCard({
     <div
       ref={cardRef}
       className={`p-3 border ${borderClass} rounded-lg space-y-2`}
+      style={segmentColor ? { borderLeftWidth: '3px', borderLeftColor: segmentColor } : undefined}
       data-testid={`option-card-${option.id}`}
       data-option-id={option.id}
     >
@@ -204,6 +219,7 @@ function OptionCard({
           isLeader={isWinner}
           color="success"
           neutralised={neutralised}
+          segmentColor={segmentColor}
         />
         {hasGoalThreshold && (
           <StatBar
@@ -240,6 +256,7 @@ export function OptionCards({
   decisionState,
   hinge,
   runnerId,
+  segmentColorMap,
 }: OptionCardsProps) {
   // Internal ref map if none provided externally
   const internalRefMap = useRef<Map<string, HTMLDivElement>>(new Map())
@@ -265,7 +282,7 @@ export function OptionCards({
 
   return (
     <div className="space-y-2" data-testid="option-cards">
-      {sorted.map(option => {
+      {sorted.map((option, index) => {
         const isWinner = option.id === winnerId
         const isRunnerUp = option.id === runnerId
         const headline = storyHeadlines?.[option.id]
@@ -278,6 +295,9 @@ export function OptionCards({
             ? stripArrows(stripEncodingNotation(headline))
             : fallbackDescription(option, options.length)
 
+        // V12.3: Segment colour from wins bar palette (keyed by option ID)
+        const segmentColor = segmentColorMap?.[option.id]
+
         return (
           <OptionCard
             key={option.id}
@@ -287,6 +307,7 @@ export function OptionCards({
             hasGoalThreshold={showHitsTarget}
             description={description}
             neutralised={neutralised}
+            segmentColor={segmentColor}
             cardRef={(el) => {
               if (el) {
                 refMap.current.set(option.id, el)

@@ -206,6 +206,63 @@ describe('Accordion', () => {
     })
   })
 
+  describe('V12.3: Evidence tier label (actions section)', () => {
+    it('renders tierLabel when tierLabel and tierVariant are provided', () => {
+      render(
+        <Accordion
+          title="What to do next"
+          tierLabel="Evidence: Good"
+          tierVariant="strong"
+        >
+          <p>Content</p>
+        </Accordion>
+      )
+
+      expect(screen.getByText('Evidence: Good')).toBeInTheDocument()
+    })
+
+    it('renders tierLabel for "fair" variant', () => {
+      render(
+        <Accordion
+          title="What to do next"
+          tierLabel="Evidence: Fair"
+          tierVariant="fair"
+        >
+          <p>Content</p>
+        </Accordion>
+      )
+
+      expect(screen.getByText('Evidence: Fair')).toBeInTheDocument()
+    })
+
+    it('renders tierLabel for "needs_work" variant', () => {
+      render(
+        <Accordion
+          title="What to do next"
+          tierLabel="Evidence: Needs work"
+          tierVariant="needs_work"
+        >
+          <p>Content</p>
+        </Accordion>
+      )
+
+      expect(screen.getByText('Evidence: Needs work')).toBeInTheDocument()
+    })
+
+    it('does NOT render tierLabel when tierVariant is absent', () => {
+      render(
+        <Accordion
+          title="What to do next"
+          tierLabel="Evidence: Good"
+        >
+          <p>Content</p>
+        </Accordion>
+      )
+
+      expect(screen.queryByText('Evidence: Good')).not.toBeInTheDocument()
+    })
+  })
+
   describe('test ID', () => {
     it('applies testId to section', () => {
       render(

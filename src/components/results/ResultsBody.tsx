@@ -20,6 +20,7 @@ import { ConfidenceSection } from './ConfidenceSection'
 import { Accordion } from './Accordion'
 import { SectionHeader } from './SectionHeader'
 import { OptionCards } from './OptionCards'
+import { buildSegmentColorMap } from './HeroSection'
 import { SuccessTargetRow } from './SuccessTargetRow'
 import { TippingPoints } from './TippingPoints'
 import { AdvancedSection } from './AdvancedSection'
@@ -138,7 +139,6 @@ export function ResultsBody({
           onFlashOption={flashOptionCard}
           decisionState={vm.decisionState}
           hinge={vm.hinge}
-          evidenceLevel={vm.evidenceLevel}
           identifiabilityTag={identifiability}
         />
       </div>
@@ -177,6 +177,11 @@ export function ResultsBody({
                 .filter(o => o.id !== resultsSectionData.recommendation.recommendedOption?.id)
                 .sort((a, b) => (b.winProbability ?? 0) - (a.winProbability ?? 0))[0]?.id
             }
+            segmentColorMap={buildSegmentColorMap(
+              resultsSectionData.recommendation.allOptions,
+              resultsSectionData.recommendation.recommendedOption?.id,
+              vm.decisionState,
+            )}
           />
           {/* Tipping points below option cards (kept until Phase 3.4 ships) */}
           <TippingPoints
