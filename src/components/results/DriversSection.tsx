@@ -23,7 +23,7 @@ import { cleanFactorLabel, stripEncodingNotation } from './utils/cleanFactorLabe
 import { TornadoChart, type TornadoRow } from './TornadoChart'
 import { typography } from '../../styles/typography'
 import { formatPercent } from '../../utils/formatPercent'
-import { Info, AlertTriangle } from 'lucide-react'
+import { AlertTriangle } from 'lucide-react'
 
 interface DriversSectionProps {
   data: DriversSectionData
@@ -454,7 +454,9 @@ function DriverRow({
               aria-expanded={isTooltipOpen}
               aria-describedby={isTooltipOpen ? `tooltip-${driver.factorKey}` : undefined}
             >
-              <Info className="w-3.5 h-3.5 [&_circle]:hidden" />
+              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M12 16v-4" /><path d="M12 8h.01" />
+              </svg>
             </button>
           )}
         </div>

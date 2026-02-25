@@ -1237,7 +1237,6 @@ export function OutputsDock() {
                       setTimeout(() => setHighlightedNodes([]), 3000)
                     }}
                     isRunning={isRunning}
-                    isThresholdFromBrief={preAnalysisReadiness.isThresholdAutoDerived}
                     onAddStatusQuoBaseline={addStatusQuoBaseline}
                     onApplyThreshold={handleApplyThreshold}
                     onAddBaseline={handleAddBaseline}

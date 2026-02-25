@@ -24,8 +24,6 @@ import {
 export interface SuccessTargetRowProps {
   /** Current goal threshold value (null = not set) */
   goalThreshold?: number | null
-  /** Whether the threshold was extracted from the brief */
-  isFromBrief?: boolean
   /** Whether analysis is currently running */
   isRunning?: boolean
   /** Callback when user commits a new threshold value */
@@ -92,7 +90,6 @@ function ConstraintRow({ item }: { item: ConstraintItem }) {
 
 export function SuccessTargetRow({
   goalThreshold,
-  isFromBrief = false,
   isRunning = false,
   onApplyThreshold,
   constraintAnalysis,
@@ -181,11 +178,6 @@ export function SuccessTargetRow({
       <div className="flex items-center gap-2 min-h-[28px]">
         <span className={`${typography.panelHeader} text-text-header flex-shrink-0`}>
           Success target
-          {isFromBrief && (
-            <span className={`${typography.panelMeta} text-text-light font-normal ml-1`}>
-              (from brief)
-            </span>
-          )}
         </span>
 
         {hasTarget && !isEditing && (
@@ -245,18 +237,6 @@ export function SuccessTargetRow({
       </div>
 
       {/* Microcopy */}
-      {hasTarget && !isEditing && showHitsTarget && (
-        <p className={`${typography.panelMeta} text-text-light mt-1.5`}>
-          <strong className="text-text-body">Wins</strong> = outperforms alternatives.{' '}
-          <strong className="text-text-body">Hits target</strong> = reaches your success target.
-        </p>
-      )}
-      {hasTarget && !isEditing && !showHitsTarget && (
-        <p className={`${typography.panelMeta} text-text-light mt-1.5`}>
-          <strong className="text-text-body">Wins</strong> = outperforms alternatives.
-          Run analysis again to compute target likelihood.
-        </p>
-      )}
       {!hasTarget && !isEditing && (
         <p className={`${typography.panelMeta} text-text-light mt-1.5`}>
           Set a success target to see each option's chance of achieving it.

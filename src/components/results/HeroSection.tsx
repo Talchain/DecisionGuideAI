@@ -624,7 +624,12 @@ export function HeroSection({
   // =========================================================================
   // Stability
   // =========================================================================
-  const stabilityTier = getStabilityTier(recommendationStability)
+  const rawStabilityTier = getStabilityTier(recommendationStability)
+  // V12.4: Override stability badge when decision is indeterminate to avoid
+  // contradicting the "No clear winner" hero headline with "Highly sensitive".
+  const stabilityTier = decisionState === 'indeterminate'
+    ? { ...rawStabilityTier, label: 'Too close to call', colorClass: 'text-info' }
+    : rawStabilityTier
   const stabilityPct = recommendationStability != null
     ? Math.round(recommendationStability * 100)
     : null

@@ -57,8 +57,6 @@ interface RecommendationSectionProps {
   onApplyThreshold?: (threshold: number | null) => void
   /** Whether an analysis is currently running */
   isRunning?: boolean
-  /** Whether the threshold was extracted by CEE from the brief */
-  isThresholdFromBrief?: boolean
   // C1: Baseline toggle — mutates draft only, no rerun
   /** Callback to add baseline to decision draft (does NOT trigger rerun) */
   onAddBaseline?: () => void
@@ -89,7 +87,6 @@ export function RecommendationSection({
   // P2 props
   onApplyThreshold,
   isRunning = false,
-  isThresholdFromBrief = false,
   onAddBaseline,
   onSetBaseline,
   onFlashOption,

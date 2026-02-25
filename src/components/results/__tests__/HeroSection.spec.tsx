@@ -1070,4 +1070,65 @@ describe('HeroSection', () => {
       expect(screen.queryByText(/Structural validity/)).not.toBeInTheDocument()
     })
   })
+
+  // ===========================================================================
+  // V12.4: Stability tier override for indeterminate
+  // ===========================================================================
+  describe('V12.4: Stability tier override for indeterminate', () => {
+    it('shows "Too close to call" instead of "Highly sensitive" when decisionState is indeterminate', () => {
+      render(
+        <HeroSection
+          {...baseProps}
+          decisionState="indeterminate"
+          recommendationStability={0.40}
+          winnerWinProbability={0.39}
+          runnerUpLabel="Option B"
+          runnerUpWinProbability={0.35}
+        />
+      )
+
+      expect(screen.getByText('Too close to call')).toBeInTheDocument()
+      expect(screen.queryByText('Highly sensitive')).not.toBeInTheDocument()
+    })
+
+    it('preserves "Stable result" for robust state', () => {
+      render(
+        <HeroSection
+          {...baseProps}
+          decisionState="robust"
+          recommendationStability={0.92}
+        />
+      )
+
+      expect(screen.getByText('Stable result')).toBeInTheDocument()
+      expect(screen.queryByText('Too close to call')).not.toBeInTheDocument()
+    })
+
+    it('preserves "Sensitive to assumptions" for sensitive state', () => {
+      render(
+        <HeroSection
+          {...baseProps}
+          decisionState="sensitive"
+          recommendationStability={0.60}
+        />
+      )
+
+      expect(screen.getByText('Sensitive to assumptions')).toBeInTheDocument()
+      expect(screen.queryByText('Too close to call')).not.toBeInTheDocument()
+    })
+
+    it('uses text-info colour for indeterminate badge', () => {
+      render(
+        <HeroSection
+          {...baseProps}
+          decisionState="indeterminate"
+          recommendationStability={0.40}
+        />
+      )
+
+      const badge = screen.getByText('Too close to call')
+      expect(badge).toHaveClass('text-info')
+      expect(badge).not.toHaveClass('text-danger')
+    })
+  })
 })

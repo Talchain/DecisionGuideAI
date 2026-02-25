@@ -52,13 +52,6 @@ describe('SuccessTargetRow', () => {
       expect(screen.getByText('≥')).toBeInTheDocument()
     })
 
-    it('shows Wins/Hits target microcopy', () => {
-      render(<SuccessTargetRow goalThreshold={100} />)
-
-      expect(screen.getByText(/outperforms alternatives/)).toBeInTheDocument()
-      expect(screen.getByText(/reaches your success target/)).toBeInTheDocument()
-    })
-
     it('hides placeholder microcopy', () => {
       render(<SuccessTargetRow goalThreshold={100} />)
 
@@ -67,11 +60,6 @@ describe('SuccessTargetRow', () => {
       ).not.toBeInTheDocument()
     })
 
-    it('shows "(from brief)" when isFromBrief is true', () => {
-      render(<SuccessTargetRow goalThreshold={100} isFromBrief={true} />)
-
-      expect(screen.getByText('(from brief)')).toBeInTheDocument()
-    })
   })
 
   describe('Edit mode', () => {
@@ -122,29 +110,6 @@ describe('SuccessTargetRow', () => {
       // "Set target" or value button should be disabled
       const button = screen.getByLabelText(/Edit success target/)
       expect(button).toBeDisabled()
-    })
-  })
-
-  describe('V11.1: showHitsTarget microcopy gating', () => {
-    it('shows full Wins + Hits target microcopy when showHitsTarget is true', () => {
-      render(<SuccessTargetRow goalThreshold={100} showHitsTarget={true} />)
-
-      expect(screen.getByText(/outperforms alternatives/)).toBeInTheDocument()
-      expect(screen.getByText(/reaches your success target/)).toBeInTheDocument()
-    })
-
-    it('shows Wins-only microcopy with rerun note when showHitsTarget is false', () => {
-      render(<SuccessTargetRow goalThreshold={100} showHitsTarget={false} />)
-
-      expect(screen.getByText(/outperforms alternatives/)).toBeInTheDocument()
-      expect(screen.queryByText(/reaches your success target/)).not.toBeInTheDocument()
-      expect(screen.getByText(/Run analysis again to compute target likelihood/)).toBeInTheDocument()
-    })
-
-    it('defaults showHitsTarget to true (backwards compatible)', () => {
-      render(<SuccessTargetRow goalThreshold={100} />)
-
-      expect(screen.getByText(/reaches your success target/)).toBeInTheDocument()
     })
   })
 

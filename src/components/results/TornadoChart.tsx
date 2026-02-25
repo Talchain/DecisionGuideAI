@@ -370,7 +370,7 @@ export function TornadoChart({
           return (
             <div key={row.factorKey} className="flex items-center gap-2">
               {/* Label */}
-              <div className="w-24 flex-shrink-0 text-right">
+              <div className="w-[150px] flex-shrink-0 text-right">
                 {row.canFocus ? (
                   <button
                     type="button"
@@ -494,7 +494,7 @@ export function TornadoChart({
       </div>
 
       {/* Axis labels — outcome updates during drag. V11: unit-aware when count unit available. */}
-      <div className="flex items-baseline gap-2 mt-1.5 ml-[104px] text-[10px] leading-tight text-text-light">
+      <div className="flex items-baseline gap-2 mt-1.5 ml-[158px] text-[10px] leading-tight text-text-light">
         <span className="flex-shrink-0 whitespace-nowrap" data-testid="tornado-axis-left">
           {outcomeUnitSymbol && outcomeUnit === 'count'
             ? `← Fewer ${outcomeUnitSymbol}`
@@ -513,7 +513,7 @@ export function TornadoChart({
       {/* V12.1 Fix 6: Clarification when axis shows unit but bars show pp */}
       {useRelativePct && outcomeUnitSymbol && outcomeUnit === 'count' && (
         <p
-          className={`${typography.panelMeta} text-text-light italic mt-1 ml-[104px]`}
+          className={`${typography.panelMeta} text-text-light italic mt-1 ml-[158px]`}
           data-testid="tornado-pp-clarification"
         >
           Values show relative change in percentage points.

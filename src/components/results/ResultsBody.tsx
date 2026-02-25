@@ -44,7 +44,6 @@ export interface ResultsBodyProps {
   strengthCorrections?: StrengthCorrectionDisplay[]
   onFocusNode?: (nodeId: string) => void
   isRunning?: boolean
-  isThresholdFromBrief?: boolean
   onAddStatusQuoBaseline?: () => void
   onApplyThreshold?: (threshold: number) => void
   onAddBaseline?: () => void
@@ -69,7 +68,6 @@ export function ResultsBody({
   strengthCorrections = [],
   onFocusNode,
   isRunning,
-  isThresholdFromBrief,
   onAddStatusQuoBaseline,
   onApplyThreshold,
   onAddBaseline,
@@ -133,7 +131,6 @@ export function ResultsBody({
           responseHash={responseHash}
           onApplyThreshold={onApplyThreshold}
           isRunning={isRunning}
-          isThresholdFromBrief={isThresholdFromBrief}
           onAddBaseline={onAddBaseline}
           onSetBaseline={onSetBaseline}
           onFlashOption={flashOptionCard}
@@ -154,7 +151,6 @@ export function ResultsBody({
           />
           <SuccessTargetRow
             goalThreshold={resultsSectionData.recommendation.goalThreshold}
-            isFromBrief={isThresholdFromBrief}
             isRunning={isRunning}
             onApplyThreshold={onApplyThreshold}
             constraintAnalysis={resultsSectionData.recommendation.recommendedOption?.constraintAnalysis}
