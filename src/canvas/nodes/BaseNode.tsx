@@ -23,6 +23,7 @@ import { nodeColors } from './colors'
 import { typography } from '../../styles/typography'
 import { getControllabilityBorderStyle } from '../utils/graphDisplayCalculations'
 import { useNodeDisplayMetadata } from '../hooks/useNodeDisplayMetadata'
+import { isGoalDefined } from '../../utils/isGoalDefined'
 
 interface BaseNodeProps extends NodeProps {
   nodeType: NodeType
@@ -100,6 +101,28 @@ export const BaseNode = memo(({ id, nodeType, icon: Icon, data, selected, childr
   // Phase 2: Uncertain node styling
   const isUncertain = (data?.uncertainty ?? 0) > 0.4
 
+  // B.I.10: Pre-run overlay — show dashed goal border for incomplete nodes
+  const resultsStatus = useCanvasStore(s => s.results?.status)
+  const goalThreshold = useCanvasStore(s => s.goalThreshold)
+  const goalConstraints = useCanvasStore(s => s.goalConstraints)
+  const edges = useCanvasStore(s => s.edges)
+  const isPreRunMode = resultsStatus !== 'complete'
+  const isIncomplete = (() => {
+    if (!isPreRunMode) return false
+    if (nodeType === 'factor') {
+      const obs = data?.observedState as { value?: number } | undefined
+      return obs?.value === undefined
+    }
+    if (nodeType === 'goal') {
+      return !isGoalDefined(goalThreshold, goalConstraints)
+    }
+    if (nodeType === 'decision') {
+      const hasOptions = edges.some(e => e.source === id)
+      return !hasOptions
+    }
+    return false
+  })()
+
   // Decision Graph Display v2 Task 6 + P1 Hotfix: Controllability-based border style for factors
   // P1 Hotfix: Don't default factors to dashed — only show dashed when explicitly 'partial'
   // When controllability is undefined or 'unknown', use solid (we don't claim anything)
@@ -139,7 +162,7 @@ export const BaseNode = memo(({ id, nodeType, icon: Icon, data, selected, childr
       aria-expanded={description ? isExpanded : undefined}
       className={`
         relative rounded-lg border-2 shadow-sm
-        ${colors.border} ${borderStyle}
+        ${isIncomplete ? 'border-goal border-dashed' : `${colors.border} ${borderStyle}`}
         transition-all duration-200
         cursor-default
         ${selected ? 'ring-2 ring-sky-500 ring-offset-2' : ''}
@@ -161,6 +184,16 @@ export const BaseNode = memo(({ id, nodeType, icon: Icon, data, selected, childr
         islAffected={islAffected}
         onClick={handleBadgeClick}
       />
+
+      {/* B.I.10: "?" badge for incomplete goal nodes */}
+      {isIncomplete && nodeType === 'goal' && (
+        <div
+          className="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-goal text-white flex items-center justify-center text-[10px] font-bold"
+          title="Set a success threshold to enable analysis"
+        >
+          ?
+        </div>
+      )}
 
       {/* Decision Graph Display v2 Task 5: Sensitivity rank badge (Results mode, top 3 factors) */}
       {displayMetadata.sensitivityRank && (

@@ -184,7 +184,7 @@ export const EdgeDataSchema = z.object({
 
   // Semantic properties
   kind: EdgeKindEnum.default('decision-probability'),
-  label: z.string().max(50).optional(),
+  label: z.string().max(120).optional(),
   // confidence: interpreted as branch probability (0-1). For decision nodes,
   // NodeInspectorCompact treats confidence on outgoing edges as a probability
   // distribution that should sum to ~1 across all branches.

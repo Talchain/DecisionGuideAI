@@ -30,6 +30,8 @@ interface AccordionProps {
   testId?: string
   /** Additional class for the container */
   className?: string
+  /** Additional class for the title element (overrides default h3 styling) */
+  titleClassName?: string
 }
 
 export function Accordion({
@@ -41,6 +43,7 @@ export function Accordion({
   children,
   testId,
   className = '',
+  titleClassName,
 }: AccordionProps) {
   // Support both controlled and uncontrolled modes
   const [internalExpanded, setInternalExpanded] = useState(defaultExpanded)
@@ -108,7 +111,7 @@ export function Accordion({
           />
           <h3
             id={headingId}
-            className="text-[14px] font-semibold text-text-header"
+            className={titleClassName ?? "text-[14px] font-semibold text-text-header"}
           >
             {title}
           </h3>

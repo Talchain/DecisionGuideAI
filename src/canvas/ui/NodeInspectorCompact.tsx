@@ -1,11 +1,11 @@
 /**
  * Compact node inspector for contextual popover
- * Shows only essential fields: Title, Type, Probabilities (for decisions), and Interventions (for options)
+ * Shows only essential fields: Title, Type, and Interventions (for options)
  * British English: visualisation, colour
  */
 
 import { memo, useState, useCallback, useRef, useEffect, useMemo } from 'react'
-import { Lock, Unlock, Maximize2, AlertTriangle, ArrowRight } from 'lucide-react'
+import { Maximize2, AlertTriangle, ArrowRight } from 'lucide-react'
 import { useCanvasStore } from '../store'
 import { NODE_REGISTRY } from '../domain/nodes'
 import type { NodeType } from '../domain/nodes'
@@ -19,14 +19,6 @@ interface NodeInspectorCompactProps {
   onExpandToFull: () => void
 }
 
-interface ProbabilityRow {
-  edgeId: string
-  targetNodeId: string
-  targetLabel: string
-  percent: number
-  locked: boolean
-}
-
 interface InterventionRow {
   factorId: string
   factorLabel: string
@@ -36,9 +28,7 @@ interface InterventionRow {
 
 export const NodeInspectorCompact = memo(({ nodeId, onClose, onExpandToFull }: NodeInspectorCompactProps) => {
   const nodes = useCanvasStore(s => s.nodes)
-  const edges = useCanvasStore(s => s.edges)
   const updateNode = useCanvasStore(s => s.updateNode)
-  const pushHistory = useCanvasStore(s => s.pushHistory)
   const setHighlightedNodes = useCanvasStore(s => s.setHighlightedNodes)
 
   const node = nodes.find(n => n.id === nodeId)
@@ -49,18 +39,6 @@ export const NodeInspectorCompact = memo(({ nodeId, onClose, onExpandToFull }: N
   const displayMetadata = useNodeDisplayMetadata(nodeId, currentType)
 
   const [label, setLabel] = useState<string>(String(node?.data?.label ?? ''))
-
-  // Get outgoing edges from this node
-  const outgoingEdges = useMemo(() =>
-    edges.filter(e => e.source === nodeId),
-    [edges, nodeId]
-  )
-
-  // Check if edges are influence-weight edges (not probabilities)
-  const isInfluenceNetwork = useMemo(() => {
-    if (outgoingEdges.length === 0) return false
-    return outgoingEdges.some(e => e.data?.kind === 'influence-weight')
-  }, [outgoingEdges])
 
   // Get interventions for option nodes
   // Unit precedence: intervention_unit → observed_state.unit → null
@@ -80,36 +58,10 @@ export const NodeInspectorCompact = memo(({ nodeId, onClose, onExpandToFull }: N
     })
   }, [isOptionNode, node?.data?.interventions, nodes])
 
-  // Initialize probability rows
-  const initialRows = useMemo<ProbabilityRow[]>(() => {
-    return outgoingEdges.map(edge => {
-      const targetNode = nodes.find(n => n.id === edge.target)
-      const confidence = edge.data?.confidence ?? 0
-      return {
-        edgeId: edge.id,
-        targetNodeId: edge.target,
-        targetLabel: targetNode?.data?.label || 'Unknown',
-        percent: Math.round(confidence * 100),
-        locked: false
-      }
-    })
-  }, [outgoingEdges, nodes])
-
-  const [rows, setRows] = useState<ProbabilityRow[]>(initialRows)
-
-  // Reset when node changes
+  // Reset label when node changes
   useEffect(() => {
-    setRows(initialRows)
     setLabel(String(node?.data?.label ?? ''))
-  }, [initialRows, node?.data?.label])
-
-  // Validation
-  const validation = useMemo(() => {
-    if (rows.length === 0) return { valid: true, sum: 0 }
-    const sum = rows.reduce((acc, r) => acc + r.percent, 0)
-    const valid = Math.abs(sum - 100) <= 1
-    return { valid, sum }
-  }, [rows])
+  }, [node?.data?.label])
 
   const labelRef = useRef<HTMLInputElement>(null)
 
@@ -135,52 +87,6 @@ export const NodeInspectorCompact = memo(({ nodeId, onClose, onExpandToFull }: N
       onClose()
     }
   }, [onClose])
-
-  const toggleLock = useCallback((edgeId: string) => {
-    setRows(prev => prev.map(r =>
-      r.edgeId === edgeId ? { ...r, locked: !r.locked } : r
-    ))
-  }, [])
-
-  const updatePercent = useCallback((edgeId: string, percent: number) => {
-    setRows(prev => prev.map(r =>
-      r.edgeId === edgeId ? { ...r, percent } : r
-    ))
-  }, [])
-
-  const handleApply = useCallback(() => {
-    if (!validation.valid) return
-
-    pushHistory()
-
-    const updatedEdges = edges.map(edge => {
-      const row = rows.find(r => r.edgeId === edge.id)
-      if (!row) return edge
-
-      const currentLabel = edge.data?.label
-      const isAutoLabel = !currentLabel || /^\d+%$/.test(currentLabel)
-      const newLabel = isAutoLabel ? `${row.percent}%` : currentLabel
-
-      return {
-        ...edge,
-        data: {
-          ...edge.data,
-          kind: 'decision-probability',
-          confidence: row.percent / 100,
-          label: newLabel
-        }
-      }
-    })
-
-    useCanvasStore.setState((state) => {
-      const touchedNodeIds = new Set(state.touchedNodeIds)
-      rows.forEach(row => {
-        const edge = edges.find(e => e.id === row.edgeId)
-        if (edge) touchedNodeIds.add(edge.source)
-      })
-      return { edges: updatedEdges, touchedNodeIds }
-    })
-  }, [rows, edges, validation.valid, pushHistory])
 
   // Task 6: Debounced hover highlight for intervention rows (50ms delay)
   const hoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -424,69 +330,7 @@ export const NodeInspectorCompact = memo(({ nodeId, onClose, onExpandToFull }: N
         </div>
       )}
 
-      {/* Inline Probabilities (only for decision-probability edges, not for option nodes) */}
-      {!isOptionNode && outgoingEdges.length > 0 && !isInfluenceNetwork && (
-        <div className="pt-2 border-t border-slate-100">
-          <h4 className={`${typography.panelMeta} font-medium text-slate-700 mb-2`}>Probabilities</h4>
-
-          {/* Compact probability rows */}
-          <div className="space-y-1.5 mb-2">
-            {rows.map((row) => (
-              <div key={row.edgeId} className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => toggleLock(row.edgeId)}
-                  className={`flex-shrink-0 p-0.5 rounded ${
-                    row.locked ? 'text-info-600' : 'text-slate-400'
-                  }`}
-                  aria-label={row.locked ? `Unlock ${row.targetLabel}` : `Lock ${row.targetLabel}`}
-                >
-                  {row.locked ? <Lock size={10} /> : <Unlock size={10} />}
-                </button>
-                <span className={`${typography.panelBody} text-slate-600 flex-1 min-w-0 truncate`} title={row.targetLabel}>
-                  {row.targetLabel}
-                </span>
-                <div className="flex items-center gap-1 flex-shrink-0">
-                  <input
-                    type="number"
-                    min="0"
-                    max="100"
-                    step="5"
-                    value={row.percent}
-                    disabled={row.locked}
-                    onChange={(e) => updatePercent(row.edgeId, parseInt(e.target.value, 10) || 0)}
-                    className={`w-12 ${typography.panelBody} border border-slate-300 rounded px-1 py-0.5 text-right ${
-                      row.locked ? 'opacity-50' : ''
-                    }`}
-                  />
-                  <span className={`${typography.panelBody} text-slate-500`}>%</span>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* Total & Apply */}
-          <div className="flex items-center justify-between">
-            <span className={`${typography.panelBody} font-medium ${
-              validation.valid ? 'text-success-600' : 'text-warning-600'
-            }`}>
-              Total: {validation.sum}%
-            </span>
-            <button
-              type="button"
-              onClick={handleApply}
-              disabled={!validation.valid}
-              className={`px-2 py-1 ${typography.panelBody} font-medium rounded ${
-                validation.valid
-                  ? 'bg-info-500 text-white hover:bg-info-600'
-                  : 'bg-slate-200 text-slate-400 cursor-not-allowed'
-              }`}
-            >
-              Apply
-            </button>
-          </div>
-        </div>
-      )}
+      {/* B.I.1: Probabilities section removed — implied portfolio-weighting model not used by Olumi */}
     </div>
   )
 })

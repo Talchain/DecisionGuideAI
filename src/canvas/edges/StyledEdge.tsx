@@ -203,6 +203,10 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
   // Direction is already encoded via color (green/red) and sign (+/−)
   const dashArray = existenceCertaintyDash
 
+  // B.I.10: Pre-run overlay — dashed goal-coloured stroke for edges without any confidence value
+  // Check beliefExists (CEE field) AND belief (inspector field) to avoid false positives
+  const isPreRunIncompleteEdge = !isResultsMode && beliefExists === undefined && belief === undefined
+
   // Determine label visibility and styling
   const labelVisibility = useMemo(
     () => shouldShowLabel(label, confidence, outgoingEdgeCount, kind),
@@ -286,11 +290,12 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
           // Graph Interaction P1: Highlighted edges get thicker stroke
           strokeWidth: isHighlightedEdge ? Math.max(edgeStrokeWidth, 3) : edgeStrokeWidth,
           // Fix 1: Use existence certainty for line style, fallback to visual props
-          strokeDasharray: dashArray ?? visualProps.strokeDasharray,
+          // B.I.10: Pre-run incomplete edges get dashed stroke to indicate "needs attention"
+          strokeDasharray: isPreRunIncompleteEdge ? '6 3' : (dashArray ?? visualProps.strokeDasharray),
           // Graph Interaction P1: Highlighted edges get brighter color
           // Brief v2.2: Use direction-based colour (always applies - grey for unknown)
-          // Use semantic-info token (sky-500) to avoid conflict with fragile edge badges
-          stroke: isHighlightedEdge ? 'var(--semantic-info)' : (directionStroke ?? visualProps.stroke),
+          // B.I.10: Pre-run incomplete edges get goal colour
+          stroke: isHighlightedEdge ? 'var(--semantic-info)' : (isPreRunIncompleteEdge ? 'var(--goal)' : (directionStroke ?? visualProps.stroke)),
           // Performance: use will-change for frequent updates
           willChange: selected || isHighlightedEdge ? 'stroke, stroke-width' : undefined,
           // Graph Interaction P1: Smooth transition for highlighting

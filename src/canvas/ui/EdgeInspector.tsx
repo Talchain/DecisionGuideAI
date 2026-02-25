@@ -1,7 +1,7 @@
 /**
- * Edge property inspector
+ * Edge property inspector — 4-section accordion layout
+ * B.I.4: Summary (always open), Assumptions, Appearance, Advanced
  * Debounced sliders (~120ms) with aria-live announcements
- * British English: visualisation, colour
  */
 
 import { memo, useState, useCallback, useEffect, useRef, useMemo } from 'react'
@@ -11,6 +11,8 @@ import { EDGE_CONSTRAINTS, type EdgeStyle, type EdgePathType, DEFAULT_EDGE_DATA 
 import { useToast } from '../ToastContext'
 import { Tooltip } from '../components/Tooltip'
 import { typography } from '../../styles/typography'
+import { InspectorAccordion } from './inspector'
+import { SignedStrengthSlider } from './inspector/SignedStrengthSlider'
 import type { WeightSuggestion } from '../decisionReview/types'
 
 interface EdgeInspectorProps {
@@ -18,76 +20,68 @@ interface EdgeInspectorProps {
   onClose: () => void
 }
 
-/**
- * Debounced edge property inspector
- * INP target: ≤100ms p75 for slider interactions
- */
 export const EdgeInspector = memo(({ edgeId, onClose }: EdgeInspectorProps) => {
-  // React 18 + Zustand v5: use individual selectors instead of object+shallow
   const edges = useCanvasStore(s => s.edges)
   const nodes = useCanvasStore(s => s.nodes)
   const updateEdge = useCanvasStore(s => s.updateEdge)
   const deleteEdge = useCanvasStore(s => s.deleteEdge)
   const beginReconnect = useCanvasStore(s => s.beginReconnect)
-  const selectNodes = useCanvasStore(s => s.selectNodes)
   const ceeReview = useCanvasStore(s => s.runMeta.ceeReview)
   const { showToast } = useToast()
 
   const edge = edges.find(e => e.id === edgeId)
 
-  // Find weight suggestion for this edge (if any)
+  // Weight suggestion from CEE/ISL
   const weightSuggestion = useMemo((): WeightSuggestion | undefined => {
     if (!ceeReview?.weight_suggestions) return undefined
     return ceeReview.weight_suggestions.find(s => s.edge_id === edgeId)
   }, [ceeReview?.weight_suggestions, edgeId])
 
-  // Check if this suggestion was already applied (via provenance marker or auto_applied flag)
   const suggestionAlreadyApplied = useMemo(() => {
     if (!weightSuggestion) return false
     if (weightSuggestion.auto_applied) return true
-    // Check if user applied via "Apply suggestion" button (sets provenance to 'ai-suggested')
     if (edge?.data?.provenance === 'ai-suggested') return true
     return false
   }, [weightSuggestion, edge?.data?.provenance])
 
-  // Local state for immediate UI updates with proper defaults
-  const [weight, setWeight] = useState<number>(edge?.data?.weight ?? 0.5)
+  // B.I.6: Compute initial signed value from weight + direction
+  const initialSignedValue = useMemo(() => {
+    const w = edge?.data?.weight ?? 0.5
+    return edge?.data?.direction === 'negative' ? -w : w
+  }, [edge?.data?.weight, edge?.data?.direction])
+
+  // Local state for immediate UI updates
+  const [signedValue, setSignedValue] = useState<number>(initialSignedValue)
   const [style, setStyle] = useState<EdgeStyle>(edge?.data?.style ?? 'solid')
   const [curvature, setCurvature] = useState<number>(edge?.data?.curvature ?? 0.15)
   const [pathType, setPathType] = useState<EdgePathType>(edge?.data?.pathType ?? 'bezier')
   const [label, setLabel] = useState<string>(edge?.data?.label ?? '')
-  const [belief, setBelief] = useState<number | undefined>(edge?.data?.belief) // v1.2
-  const [provenance, setProvenance] = useState<string>(edge?.data?.provenance ?? '') // v1.2
-  
-  // Debounce timer refs
-  const weightTimerRef = useRef<NodeJS.Timeout>()
+  const [belief, setBelief] = useState<number | undefined>(edge?.data?.belief)
+  const [provenance, setProvenance] = useState<string>(edge?.data?.provenance ?? '')
+
+  // Debounce timers
   const curvatureTimerRef = useRef<NodeJS.Timeout>()
   const beliefTimerRef = useRef<NodeJS.Timeout>()
 
-  // Live region for announcements
   const [announcement, setAnnouncement] = useState('')
 
-  // Cleanup timers on unmount
   useEffect(() => {
     return () => {
-      clearTimeout(weightTimerRef.current)
       clearTimeout(curvatureTimerRef.current)
       clearTimeout(beliefTimerRef.current)
     }
   }, [])
-  
-  // Debounced weight update (~120ms)
-  const handleWeightChange = useCallback((value: number) => {
-    setWeight(value)
-    clearTimeout(weightTimerRef.current)
-    weightTimerRef.current = setTimeout(() => {
-      const current = edge?.data ?? DEFAULT_EDGE_DATA
-      updateEdge(edgeId, { data: { ...current, weight: value } })
-      setAnnouncement(`Weight set to ${value.toFixed(2)}`)
-    }, 120)
+
+  // B.I.6: Signed slider writes weight + direction separately
+  const handleSignedStrengthChange = useCallback((newSignedValue: number) => {
+    setSignedValue(newSignedValue)
+    const current = edge?.data ?? DEFAULT_EDGE_DATA
+    const absWeight = Math.abs(newSignedValue)
+    const direction = newSignedValue >= 0 ? 'positive' : 'negative'
+    updateEdge(edgeId, { data: { ...current, weight: absWeight, direction } })
+    setAnnouncement(`Effect on target set to ${newSignedValue.toFixed(2)}`)
   }, [edgeId, edge?.data, updateEdge])
-  
-  // Immediate style update (no debounce needed for discrete choice)
+
   const handleStyleChange = useCallback((value: EdgeStyle) => {
     setStyle(value)
     const current = edge?.data ?? DEFAULT_EDGE_DATA
@@ -95,7 +89,6 @@ export const EdgeInspector = memo(({ edgeId, onClose }: EdgeInspectorProps) => {
     setAnnouncement(`Style changed to ${value}`)
   }, [edgeId, edge?.data, updateEdge])
 
-  // Immediate path type update (no debounce needed for discrete choice)
   const handlePathTypeChange = useCallback((value: EdgePathType) => {
     setPathType(value)
     const current = edge?.data ?? DEFAULT_EDGE_DATA
@@ -108,7 +101,6 @@ export const EdgeInspector = memo(({ edgeId, onClose }: EdgeInspectorProps) => {
     setAnnouncement(`Path type changed to ${labels[value]}`)
   }, [edgeId, edge?.data, updateEdge])
 
-  // Debounced curvature update (~120ms)
   const handleCurvatureChange = useCallback((value: number) => {
     setCurvature(value)
     clearTimeout(curvatureTimerRef.current)
@@ -118,14 +110,12 @@ export const EdgeInspector = memo(({ edgeId, onClose }: EdgeInspectorProps) => {
       setAnnouncement(`Curvature set to ${(value * 100).toFixed(0)}%`)
     }, 120)
   }, [edgeId, edge?.data, updateEdge])
-  
-  // Immediate label update (on blur)
+
   const handleLabelBlur = useCallback(() => {
     const current = edge?.data ?? DEFAULT_EDGE_DATA
     updateEdge(edgeId, { data: { ...current, label: label || undefined } })
   }, [edgeId, edge?.data, label, updateEdge])
 
-  // v1.2: Debounced belief update (~120ms)
   const handleBeliefChange = useCallback((value: number | undefined) => {
     setBelief(value)
     clearTimeout(beliefTimerRef.current)
@@ -138,13 +128,6 @@ export const EdgeInspector = memo(({ edgeId, onClose }: EdgeInspectorProps) => {
     }, 120)
   }, [edgeId, edge?.data, updateEdge])
 
-  // v1.2: Immediate provenance update (on blur)
-  const handleProvenanceBlur = useCallback(() => {
-    const current = edge?.data ?? DEFAULT_EDGE_DATA
-    updateEdge(edgeId, { data: { ...current, provenance: provenance || undefined } })
-  }, [edgeId, edge?.data, provenance, updateEdge])
-
-  // Apply weight suggestion from CEE/ISL
   const handleApplySuggestion = useCallback(() => {
     if (!weightSuggestion) return
     const current = edge?.data ?? DEFAULT_EDGE_DATA
@@ -157,7 +140,7 @@ export const EdgeInspector = memo(({ edgeId, onClose }: EdgeInspectorProps) => {
       updates.belief = weightSuggestion.suggested_belief
     }
     updateEdge(edgeId, { data: updates })
-    setWeight(weightSuggestion.suggested_weight)
+    setSignedValue(weightSuggestion.suggested_weight)
     if (weightSuggestion.suggested_belief !== undefined) {
       setBelief(weightSuggestion.suggested_belief)
     }
@@ -165,14 +148,13 @@ export const EdgeInspector = memo(({ edgeId, onClose }: EdgeInspectorProps) => {
     showToast('Applied AI-suggested weight', 'success')
     setAnnouncement(`Applied suggested weight: ${weightSuggestion.suggested_weight.toFixed(2)}`)
   }, [edgeId, edge?.data, weightSuggestion, updateEdge, showToast])
-  // Delete edge
+
   const handleDelete = useCallback(() => {
     deleteEdge(edgeId)
     showToast('Connector deleted — press ⌘Z to undo.', 'success')
     onClose()
   }, [edgeId, deleteEdge, showToast, onClose])
-  
-  // Begin reconnect mode
+
   const handleReconnectSource = useCallback(() => {
     beginReconnect(edgeId, 'source')
     showToast('Reconnect source: click a node or press Esc to cancel.', 'info')
@@ -183,7 +165,6 @@ export const EdgeInspector = memo(({ edgeId, onClose }: EdgeInspectorProps) => {
     showToast('Reconnect target: click a node or press Esc to cancel.', 'info')
   }, [edgeId, beginReconnect, showToast])
 
-  // v1.2: Reset to defaults
   const handleReset = useCallback(() => {
     const current = edge?.data ?? DEFAULT_EDGE_DATA
     const resetData = {
@@ -193,87 +174,106 @@ export const EdgeInspector = memo(({ edgeId, onClose }: EdgeInspectorProps) => {
       provenance: edge?.data?.templateId ? 'template' : undefined
     }
     updateEdge(edgeId, { data: resetData })
-    setWeight(EDGE_CONSTRAINTS.weight.default)
+    setSignedValue(EDGE_CONSTRAINTS.weight.default)
     setBelief(EDGE_CONSTRAINTS.belief.default)
     setProvenance(edge?.data?.templateId ? 'template' : '')
     showToast('Edge properties reset to defaults.', 'success')
   }, [edgeId, edge?.data, updateEdge, showToast])
-  
-  // Keyboard: Esc closes and returns focus
+
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Escape') {
       e.preventDefault()
       onClose()
     }
   }, [onClose])
-  
+
   if (!edge) {
     return (
-      <div className={`p-4 ${typography.panelBody} text-slate-500`}>
+      <div className={`p-4 ${typography.panelBody} text-text-light`}>
         No edge selected
       </div>
     )
   }
-  
-  return (
-    <div 
-      className="p-4 border-t border-slate-200" 
-      role="region" 
-      aria-label="Edge properties"
-      data-testid="panel-edge-properties"
-      onKeyDown={handleKeyDown}
-    >
-      {/* Live region for announcements */}
-      <div
-        role="status"
-        aria-live="polite"
-        aria-atomic="true"
-        className="sr-only"
-      >
-        {announcement}
-      </div>
-      
-      <div className="flex items-center justify-between mb-4">
-        <h3 className={`${typography.panelHeader} text-slate-900`}>Edge Properties</h3>
+
+  const sourceLabel = nodes.find(n => n.id === edge.source)?.data?.label || edge.source
+  const targetLabel = nodes.find(n => n.id === edge.target)?.data?.label || edge.target
+
+  // Determine direction label for summary based on signed value
+  const directionLabel = signedValue < 0 ? 'Hurts' : signedValue > 0 ? 'Helps' : 'Neutral'
+  const directionColor = signedValue < 0 ? 'text-danger' : signedValue > 0 ? 'text-success' : 'text-text-light'
+
+  // ─── SUMMARY ───────────────────────────────────────────────────────
+  const summaryContent = (
+    <div className="pb-2">
+      {/* Header with close button */}
+      <div className="flex items-center justify-between mb-3">
+        <h3 className={`${typography.panelHeader} text-text-header`}>Connection</h3>
         <button
           onClick={onClose}
-          className="text-slate-400 hover:text-slate-600 text-xl leading-none"
+          className="text-text-light hover:text-text-body text-xl leading-none"
           aria-label="Close inspector"
         >
           ×
         </button>
       </div>
 
-      {/* Weight Suggestion Banner (when ISL/CEE provides one) */}
+      {/* Source → Target */}
+      <div className={`${typography.panelBody} text-text-body mb-2`}>
+        <span className="font-medium">{sourceLabel}</span>
+        <span className="text-text-light mx-1">→</span>
+        <span className="font-medium">{targetLabel}</span>
+      </div>
+
+      {/* Helps/Hurts magnitude (read-only) */}
+      <div className="flex items-center justify-between px-2 py-1 bg-panel rounded border border-panel-border">
+        <span className={`${typography.panelMeta} ${directionColor} font-medium`}>
+          {directionLabel}
+        </span>
+        <span className={`${typography.panelBody} font-medium text-text-body tabular-nums`}>
+          {signedValue >= 0 ? '+' : ''}{signedValue.toFixed(2)}
+        </span>
+      </div>
+
+      {/* Live region for announcements */}
+      <div role="status" aria-live="polite" aria-atomic="true" className="sr-only">
+        {announcement}
+      </div>
+    </div>
+  )
+
+  // ─── ASSUMPTIONS ───────────────────────────────────────────────────
+  const assumptionsContent = (
+    <div className="space-y-4">
+      {/* Weight Suggestion Banner */}
       {weightSuggestion && !suggestionAlreadyApplied && (
         <div
-          className="mb-4 p-3 rounded-lg bg-sky-50 border border-sky-200"
+          className="p-3 rounded-lg bg-info-light border border-info/30"
           role="region"
           aria-label="AI weight suggestion"
           data-testid="weight-suggestion-banner"
         >
           <div className="flex items-start gap-2">
-            <Lightbulb className="w-4 h-4 text-sky-600 flex-shrink-0 mt-0.5" aria-hidden="true" />
+            <Lightbulb className="w-4 h-4 text-info flex-shrink-0 mt-0.5" aria-hidden="true" />
             <div className="flex-1 min-w-0">
               <div className="flex items-center justify-between mb-1">
-                <span className={`${typography.panelHeader} text-sky-900`}>
+                <span className={`${typography.panelHeader} text-text-header`}>
                   Suggested weight: {weightSuggestion.suggested_weight.toFixed(2)}
                 </span>
                 <span className={`
                   ${typography.panelMeta} px-1.5 py-0.5 rounded
-                  ${weightSuggestion.confidence === 'high' ? 'bg-success-100 text-success-700' : ''}
-                  ${weightSuggestion.confidence === 'medium' ? 'bg-warning-100 text-warning-700' : ''}
-                  ${weightSuggestion.confidence === 'low' ? 'bg-slate-100 text-slate-600' : ''}
+                  ${weightSuggestion.confidence === 'high' ? 'bg-success-light text-success' : ''}
+                  ${weightSuggestion.confidence === 'medium' ? 'bg-warning-light text-warning' : ''}
+                  ${weightSuggestion.confidence === 'low' ? 'bg-panel text-text-light' : ''}
                 `}>
                   {weightSuggestion.confidence} confidence
                 </span>
               </div>
-              <p className={`${typography.panelMeta} text-sky-700 mb-2 line-clamp-2`}>
+              <p className={`${typography.panelMeta} text-text-light mb-2 line-clamp-2`}>
                 {weightSuggestion.rationale}
               </p>
               <button
                 onClick={handleApplySuggestion}
-                className={`inline-flex items-center gap-1.5 px-3 py-1.5 ${typography.panelBody} rounded bg-sky-500 text-white hover:bg-sky-600 transition-colors`}
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 ${typography.panelBody} rounded bg-info text-white hover:opacity-90 transition-opacity`}
                 data-testid="btn-apply-weight-suggestion"
               >
                 <Check className="w-3 h-3" aria-hidden="true" />
@@ -284,69 +284,26 @@ export const EdgeInspector = memo(({ edgeId, onClose }: EdgeInspectorProps) => {
         </div>
       )}
 
-      {/* Weight control */}
-      <div className="mb-4">
-        <Tooltip content="Strength of this connection (0 = no influence, 1 = strong influence)" position="right">
-          <label htmlFor="edge-weight" className={`block ${typography.panelMeta} text-slate-700 mb-1`}>
-            Weight
+      {/* B.I.6: Signed strength slider — writes weight + direction */}
+      <div>
+        <Tooltip content="How strongly this connection affects the target (-1 = strong negative, +1 = strong positive)" position="right">
+          <label className={`block ${typography.panelMeta} font-medium text-text-body mb-1`}>
+            Effect on target
           </label>
         </Tooltip>
-        <p className={`${typography.panelMeta} text-slate-500 mb-1.5`}>0 = no influence, 1 = strong influence</p>
-        <div className="flex items-center gap-2">
-          <input
-            id="edge-weight"
-            type="range"
-            min={EDGE_CONSTRAINTS.weight.min}
-            max={EDGE_CONSTRAINTS.weight.max}
-            step={EDGE_CONSTRAINTS.weight.step}
-            value={weight}
-            onChange={(e) => handleWeightChange(parseFloat(e.target.value))}
-            className="flex-1"
-            aria-valuemin={EDGE_CONSTRAINTS.weight.min}
-            aria-valuemax={EDGE_CONSTRAINTS.weight.max}
-            aria-valuenow={weight}
-            aria-valuetext={`${weight.toFixed(2)}`}
-          />
-          <input
-            type="number"
-            min={EDGE_CONSTRAINTS.weight.min}
-            max={EDGE_CONSTRAINTS.weight.max}
-            step={EDGE_CONSTRAINTS.weight.step}
-            value={weight.toFixed(2)}
-            onChange={(e) => handleWeightChange(Math.max(EDGE_CONSTRAINTS.weight.min, Math.min(EDGE_CONSTRAINTS.weight.max, parseFloat(e.target.value) || EDGE_CONSTRAINTS.weight.default)))}
-            className={`w-16 ${typography.panelBody} border border-slate-300 rounded px-2 py-1`}
-            aria-label="Weight value"
-          />
-        </div>
+        <SignedStrengthSlider
+          value={signedValue}
+          onChange={handleSignedStrengthChange}
+        />
       </div>
 
-      {/* v1.2: Belief × Weight readout (when belief present) */}
-      {belief !== undefined && (
-        <div className="mb-4 p-3 rounded bg-info-50 border border-info-200">
-          <div className="flex items-center justify-between">
-            <Tooltip content="Combined influence: belief (epistemic certainty) × weight (connection strength)" position="right">
-              <label className={`${typography.panelMeta} text-info-900`}>
-                Belief × Weight
-              </label>
-            </Tooltip>
-            <span className={`${typography.panelHeader} text-info-700 tabular-nums`}>
-              {(belief * weight).toFixed(3)}
-            </span>
-          </div>
-          <p className={`${typography.panelMeta} text-info-600 mt-1`}>
-            Belief: {belief.toFixed(2)} · Weight: {weight.toFixed(2)}
-          </p>
-        </div>
-      )}
-
-      {/* v1.2: Belief control (epistemic certainty) */}
-      <div className="mb-4">
+      {/* B.I.7: Confidence slider with coloured bar */}
+      <div>
         <Tooltip content="Your certainty about this connection (0% = uncertain, 100% = certain)" position="right">
-          <label htmlFor="edge-belief" className={`block ${typography.panelMeta} text-slate-700 mb-1`}>
-            Belief (epistemic certainty)
+          <label htmlFor="edge-belief" className={`block ${typography.panelMeta} font-medium text-text-body mb-1`}>
+            Confidence
           </label>
         </Tooltip>
-        <p className={`${typography.panelMeta} text-slate-500 mb-1.5`}>0% = uncertain, 100% = certain</p>
         <div className="flex items-center gap-2">
           <input
             id="edge-belief"
@@ -362,41 +319,50 @@ export const EdgeInspector = memo(({ edgeId, onClose }: EdgeInspectorProps) => {
             aria-valuenow={belief ?? EDGE_CONSTRAINTS.belief.default}
             aria-valuetext={`${Math.round((belief ?? EDGE_CONSTRAINTS.belief.default) * 100)}%`}
           />
-          <span className={`w-14 ${typography.panelMeta} text-slate-900 tabular-nums text-right`}>
+          <span className={`w-14 ${typography.panelMeta} text-text-body tabular-nums text-right`}>
             {Math.round((belief ?? EDGE_CONSTRAINTS.belief.default) * 100)}%
           </span>
         </div>
+        {/* Confidence bar: green >=50%, red <50% */}
+        <div className="h-1.5 bg-panel-border rounded-full overflow-hidden mt-1">
+          <div
+            className={`h-full rounded-full transition-all duration-200 ${
+              (belief ?? EDGE_CONSTRAINTS.belief.default) >= 0.5 ? 'bg-success' : 'bg-danger'
+            }`}
+            style={{ width: `${Math.max((belief ?? EDGE_CONSTRAINTS.belief.default) * 100, 2)}%` }}
+          />
+        </div>
       </div>
 
-      {/* v1.2: Provenance display (source tracking) */}
-      {provenance && (
-        <div className="mb-4">
-          <label className={`block ${typography.panelMeta} text-slate-700 mb-1.5`}>
-            Provenance
-          </label>
-          <div className="flex items-center gap-2">
-            <span className={`
-              inline-flex items-center px-2 py-1 rounded ${typography.panelBody}
-              ${provenance === 'template' ? 'bg-info-100 text-info-700 border border-info-200' : ''}
-              ${provenance === 'user' ? 'bg-danger-100 text-danger-700 border border-danger-200' : ''}
-              ${provenance === 'inferred' ? 'bg-slate-100 text-slate-700 border border-slate-200' : ''}
-              ${!['template', 'user', 'inferred'].includes(provenance) ? 'bg-slate-100 text-slate-700 border border-slate-200' : ''}
-            `}>
-              {provenance}
-            </span>
-          </div>
-          <p className={`${typography.panelMeta} text-slate-500 mt-1`}>
-            {provenance === 'template' && 'Inherited from template'}
-            {provenance === 'user' && 'Manually edited'}
-            {provenance === 'inferred' && 'System inferred'}
-            {!['template', 'user', 'inferred'].includes(provenance) && `Source: ${provenance}`}
-          </p>
-        </div>
-      )}
+      {/* Label */}
+      <div>
+        <label htmlFor="edge-label" className={`block ${typography.panelMeta} font-medium text-text-body mb-1`}>
+          Label <span className="text-text-light">(optional)</span>
+        </label>
+        <textarea
+          id="edge-label"
+          maxLength={120}
+          value={label}
+          onChange={(e) => setLabel(e.target.value)}
+          onBlur={handleLabelBlur}
+          placeholder="Add a label..."
+          rows={2}
+          className={`w-full ${typography.panelBody} border border-panel-border rounded px-2 py-1`}
+        />
+        <p className={`${typography.panelMeta} text-text-light mt-1`}>
+          Short label for this connection.
+        </p>
+        {/* TODO(phase-2): Render edge labels on canvas */}
+      </div>
+    </div>
+  )
 
+  // ─── APPEARANCE ────────────────────────────────────────────────────
+  const appearanceContent = (
+    <div className="space-y-4">
       {/* Style control */}
-      <div className="mb-4">
-        <label className={`block ${typography.panelMeta} text-slate-700 mb-1`}>
+      <div>
+        <label className={`block ${typography.panelMeta} font-medium text-text-body mb-1`}>
           Style
         </label>
         <div className="flex gap-2" role="radiogroup" aria-label="Edge style">
@@ -407,8 +373,8 @@ export const EdgeInspector = memo(({ edgeId, onClose }: EdgeInspectorProps) => {
               className={`
                 flex-1 px-3 py-2 ${typography.panelBody} rounded border transition-colors
                 ${style === s
-                  ? 'bg-info-50 border-info-500 text-info-700'
-                  : 'bg-white border-slate-300 text-slate-700 hover:bg-slate-50'
+                  ? 'bg-info-light border-info/30 text-info'
+                  : 'bg-panel border-panel-border text-text-body hover:bg-panel-hover'
                 }
               `}
               role="radio"
@@ -420,11 +386,11 @@ export const EdgeInspector = memo(({ edgeId, onClose }: EdgeInspectorProps) => {
         </div>
       </div>
 
-      {/* Path type control */}
-      <div className="mb-4">
+      {/* Path type */}
+      <div>
         <Tooltip content="Choose how the connector line is drawn between nodes" position="right">
-          <label className={`block ${typography.panelMeta} text-slate-700 mb-1`}>
-            Path Type
+          <label className={`block ${typography.panelMeta} font-medium text-text-body mb-1`}>
+            Path type
           </label>
         </Tooltip>
         <div className="flex gap-2" role="radiogroup" aria-label="Edge path type">
@@ -439,8 +405,8 @@ export const EdgeInspector = memo(({ edgeId, onClose }: EdgeInspectorProps) => {
               className={`
                 flex-1 px-3 py-2 ${typography.panelBody} rounded border transition-colors
                 ${pathType === value
-                  ? 'bg-info-50 border-info-500 text-info-700'
-                  : 'bg-white border-slate-300 text-slate-700 hover:bg-slate-50'
+                  ? 'bg-info-light border-info/30 text-info'
+                  : 'bg-panel border-panel-border text-text-body hover:bg-panel-hover'
                 }
               `}
               role="radio"
@@ -454,12 +420,12 @@ export const EdgeInspector = memo(({ edgeId, onClose }: EdgeInspectorProps) => {
         </div>
       </div>
 
-      {/* Curvature control (only for smoothstep) */}
+      {/* Curvature (smoothstep only) */}
       {pathType === 'smoothstep' && (
-        <div className="mb-4">
+        <div>
           <Tooltip content="Corner roundness for step paths (0 = sharp corners, max = rounded)" position="right">
-            <label htmlFor="edge-curvature" className={`block ${typography.panelMeta} text-slate-700 mb-1`}>
-              Corner Radius
+            <label htmlFor="edge-curvature" className={`block ${typography.panelMeta} font-medium text-text-body mb-1`}>
+              Corner radius
             </label>
           </Tooltip>
           <input
@@ -478,66 +444,66 @@ export const EdgeInspector = memo(({ edgeId, onClose }: EdgeInspectorProps) => {
           />
         </div>
       )}
-      
-      {/* Label control */}
-      <div className="mb-4">
-        <label htmlFor="edge-label" className={`block ${typography.panelMeta} text-slate-700 mb-1`}>
-          Label (optional)
-        </label>
-        <input
-          id="edge-label"
-          type="text"
-          maxLength={50}
-          value={label}
-          onChange={(e) => setLabel(e.target.value)}
-          onBlur={handleLabelBlur}
-          placeholder="Add a label..."
-          className={`w-full ${typography.panelBody} border border-slate-300 rounded px-2 py-1`}
-        />
-      </div>
-      
-      {/* Probability - CTA to parent decision */}
-      <div className="mb-4">
-        <Tooltip content="% likelihood this connector is taken (all from the same step must total 100%)" position="right">
-          <label className={`block ${typography.panelMeta} text-slate-700 mb-1`}>
-            Probability
+
+      <p className={`${typography.panelMeta} text-text-light italic`}>
+        These settings affect how the connection looks on the canvas. They do not affect analysis.
+      </p>
+    </div>
+  )
+
+  // ─── ADVANCED ──────────────────────────────────────────────────────
+  const advancedContent = (
+    <div className="space-y-4">
+      {/* Provenance */}
+      {provenance && (
+        <div>
+          <label className={`block ${typography.panelMeta} font-medium text-text-body mb-1.5`}>
+            Provenance
           </label>
-        </Tooltip>
-        <div className="p-3 rounded bg-info-50 border border-info-200">
-          <p className={`${typography.panelBody} text-slate-600 mb-2`}>
-            Edit probabilities in this decision (or press <kbd className={`px-1 py-0.5 ${typography.panelBody} font-semibold bg-slate-100 border border-slate-300 rounded`}>P</kbd> after selecting)
+          <div className="flex items-center gap-2">
+            <span className={`
+              inline-flex items-center px-2 py-1 rounded ${typography.panelBody}
+              ${provenance === 'template' ? 'bg-info-light text-info border border-info/30' : ''}
+              ${provenance === 'user' ? 'bg-danger-light text-danger border border-danger/30' : ''}
+              ${provenance === 'inferred' || provenance === 'ai-suggested' ? 'bg-panel text-text-body border border-panel-border' : ''}
+              ${!['template', 'user', 'inferred', 'ai-suggested'].includes(provenance) ? 'bg-panel text-text-body border border-panel-border' : ''}
+            `}>
+              {provenance}
+            </span>
+          </div>
+          <p className={`${typography.panelMeta} text-text-light mt-1`}>
+            {provenance === 'template' && 'Inherited from template'}
+            {provenance === 'user' && 'Manually edited'}
+            {provenance === 'inferred' && 'System inferred'}
+            {provenance === 'ai-suggested' && 'Applied from AI suggestion'}
+            {!['template', 'user', 'inferred', 'ai-suggested'].includes(provenance) && `Source: ${provenance}`}
           </p>
-          <button
-            type="button"
-            onClick={() => {
-              // Select the source decision node
-              if (edge?.source) {
-                selectNodes([edge.source])
-                onClose()
-              }
-            }}
-            className={`w-full px-3 py-1.5 ${typography.panelBody} rounded text-white bg-info-500 hover:bg-info-600 transition-colors`}
-          >
-            Go to decision probabilities
-          </button>
         </div>
-      </div>
-      
+      )}
+
+      {/* Strength std (read-only) */}
+      {edge.data?.strengthStd !== undefined && (
+        <div className="flex items-center justify-between">
+          <span className={`${typography.panelMeta} text-text-light`}>Uncertainty in effect size</span>
+          <span className={`${typography.panelMeta} text-text-body tabular-nums`}>
+            ±{edge.data.strengthStd.toFixed(3)}
+          </span>
+        </div>
+      )}
+
       {/* Connection endpoints */}
-      <div className="mb-4 pb-4 border-t border-slate-200 pt-4">
-        <label className={`block ${typography.panelMeta} text-slate-700 mb-2`}>
+      <div className="pt-2 border-t border-panel-border">
+        <label className={`block ${typography.panelMeta} font-medium text-text-body mb-2`}>
           Connection
         </label>
         <div className="space-y-2">
           <div className="flex items-center justify-between">
-            <span className={`${typography.panelBody} text-slate-600`}>Source:</span>
+            <span className={`${typography.panelBody} text-text-light`}>Source:</span>
             <div className="flex items-center gap-2">
-              <span className={typography.panelBody}>
-                {nodes.find(n => n.id === edge.source)?.data?.label || edge.source}
-              </span>
+              <span className={typography.panelBody}>{sourceLabel}</span>
               <button
                 onClick={handleReconnectSource}
-                className={`${typography.panelBody} underline text-info-600 hover:text-info-700 transition-colors`}
+                className={`${typography.panelBody} underline text-info hover:opacity-80 transition-opacity`}
                 data-testid="btn-edge-reconnect-source"
               >
                 Change…
@@ -545,14 +511,12 @@ export const EdgeInspector = memo(({ edgeId, onClose }: EdgeInspectorProps) => {
             </div>
           </div>
           <div className="flex items-center justify-between">
-            <span className={`${typography.panelBody} text-slate-600`}>Target:</span>
+            <span className={`${typography.panelBody} text-text-light`}>Target:</span>
             <div className="flex items-center gap-2">
-              <span className={typography.panelBody}>
-                {nodes.find(n => n.id === edge.target)?.data?.label || edge.target}
-              </span>
+              <span className={typography.panelBody}>{targetLabel}</span>
               <button
                 onClick={handleReconnectTarget}
-                className={`${typography.panelBody} underline text-info-600 hover:text-info-700 transition-colors`}
+                className={`${typography.panelBody} underline text-info hover:opacity-80 transition-opacity`}
                 data-testid="btn-edge-reconnect-target"
               >
                 Change…
@@ -561,30 +525,49 @@ export const EdgeInspector = memo(({ edgeId, onClose }: EdgeInspectorProps) => {
           </div>
         </div>
       </div>
-      
-      {/* v1.2: Reset button (show if edge has been modified or has template) */}
-      {(edge?.data?.templateId || weight !== EDGE_CONSTRAINTS.weight.default || belief !== EDGE_CONSTRAINTS.belief.default) && (
-        <div className="mb-2 pt-2 border-t border-slate-200">
+
+      {/* Reset button */}
+      {(edge?.data?.templateId || Math.abs(signedValue) !== EDGE_CONSTRAINTS.weight.default || belief !== EDGE_CONSTRAINTS.belief.default) && (
+        <div className="pt-2 border-t border-panel-border">
           <button
             onClick={handleReset}
-            className={`w-full px-3 py-2 ${typography.panelHeader} text-slate-700 rounded bg-slate-100 hover:bg-slate-200 transition-colors`}
+            className={`w-full px-3 py-2 ${typography.panelHeader} text-text-body rounded bg-panel hover:bg-panel-hover border border-panel-border transition-colors`}
             data-testid="btn-edge-reset"
           >
-            Reset to Defaults
+            Reset to defaults
           </button>
         </div>
       )}
 
       {/* Delete button */}
-      <div className={edge?.data?.templateId || weight !== EDGE_CONSTRAINTS.weight.default || belief !== EDGE_CONSTRAINTS.belief.default ? 'pt-0' : 'pt-2 border-t border-slate-200'}>
+      <div>
         <button
           onClick={handleDelete}
-          className={`w-full px-3 py-2 ${typography.panelHeader} text-white rounded bg-danger-500 hover:bg-danger-600 transition-colors`}
+          className={`w-full px-3 py-2 ${typography.panelHeader} text-white rounded bg-danger hover:opacity-90 transition-opacity`}
           data-testid="btn-edge-delete"
         >
-          Delete Connector
+          Delete connector
         </button>
       </div>
+    </div>
+  )
+
+  return (
+    <div
+      className="p-4 border-t border-panel-border"
+      role="region"
+      aria-label="Edge properties"
+      data-testid="panel-edge-properties"
+      onKeyDown={handleKeyDown}
+    >
+      <InspectorAccordion
+        summary={summaryContent}
+        assumptions={assumptionsContent}
+        appearance={appearanceContent}
+        advanced={advancedContent}
+        defaultOpen="assumptions"
+        testId="edge-inspector"
+      />
     </div>
   )
 })

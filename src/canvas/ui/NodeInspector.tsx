@@ -1,25 +1,23 @@
 /**
- * Node property inspector - keyboard-first editing
- * Includes inline probability editor (single source of truth)
- * Brief v2.2: Added FactorValueEditor for observed_state editing
+ * Node property inspector — 4-section accordion layout
+ * B.I.4: Summary (always open), Assumptions, Appearance, Advanced
+ * Brief v2.2: FactorValueEditor for observed_state editing
  */
 
 import { memo, useState, useCallback, useRef, useEffect, useMemo } from 'react'
-import { Lock, Unlock, AlertTriangle } from 'lucide-react'
 import { useCanvasStore } from '../store'
 import { NODE_REGISTRY } from '../domain/nodes'
 import type { NodeType } from '../domain/nodes'
 import { renderIcon } from '../helpers/renderIcon'
-import { autoBalance, equalSplit, type BalanceRow } from '../utils/probabilityBalancing'
 import { Tooltip } from '../components/Tooltip'
-// P0-UI-7/8: Intervention editing for option nodes
 import { InterventionDisplay } from '../components/InterventionDisplay'
 import { UserMappingForm, NeedsMappingPrompt } from '../components/UserMappingForm'
 import { normaliseOptionFromLegacyNode, type LegacyOptionNode, type UIOption } from '../../types/options'
+import { InspectorAccordion } from './inspector'
+import { GoalThresholdEditor } from './inspector/GoalThresholdEditor'
+import { typography } from '../../styles/typography'
+import { isGoalDefined } from '../../utils/isGoalDefined'
 
-/**
- * Brief v2.2: ObservedState type for factor nodes
- */
 interface ObservedState {
   value: number
   baseline?: number
@@ -32,31 +30,20 @@ interface NodeInspectorProps {
   onClose: () => void
 }
 
-interface ProbabilityRow {
-  edgeId: string
-  targetNodeId: string
-  targetLabel: string
-  percent: number  // 0-100
-  locked: boolean  // ephemeral UI state
-}
-
 export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
-  // React 18 + Zustand v5: use individual selectors instead of object+shallow
   const nodes = useCanvasStore(s => s.nodes)
-  const edges = useCanvasStore(s => s.edges)
   const updateNode = useCanvasStore(s => s.updateNode)
-  const pushHistory = useCanvasStore(s => s.pushHistory)
-  const outcomeNodeId = useCanvasStore(s => s.outcomeNodeId)
-  const setOutcomeNode = useCanvasStore(s => s.setOutcomeNode)
-  // Task 7: Mode-aware display - check if in Results mode
   const resultsStatus = useCanvasStore(s => s.results?.status)
   const isResultsMode = resultsStatus === 'complete'
+  const outcomeNodeId = useCanvasStore(s => s.outcomeNodeId)
+  const goalThreshold = useCanvasStore(s => s.goalThreshold)
+  const goalConstraints = useCanvasStore(s => s.goalConstraints)
 
   const node = nodes.find(n => n.id === nodeId)
   const [label, setLabel] = useState<string>(String(node?.data?.label ?? ''))
   const [description, setDescription] = useState<string>(String(node?.data?.description ?? ''))
 
-  // Brief v2.2: State for factor value editing
+  // Factor value editing
   const isFactorNode = node?.type === 'factor'
   const existingObservedState = node?.data?.observedState as ObservedState | undefined
   const [factorValue, setFactorValue] = useState<string>(
@@ -67,24 +54,21 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
   )
   const [factorUnit, setFactorUnit] = useState<string>(existingObservedState?.unit ?? '')
 
-  // P0-UI-7/8: Option node intervention editing
+  // Option node intervention editing
   const isOptionNode = node?.type === 'option' || node?.data?.kind === 'option'
   const [showMappingForm, setShowMappingForm] = useState(false)
 
-  // Convert option node to UIOption for intervention display/editing
   const optionAsUIOption = useMemo<UIOption | null>(() => {
     if (!isOptionNode || !node) return null
     const validNodeIds = new Set(nodes.map(n => n.id))
     return normaliseOptionFromLegacyNode(node as unknown as LegacyOptionNode, validNodeIds)
   }, [isOptionNode, node, nodes])
 
-  // Handle saving updated option mappings
   const handleSaveOptionMapping = useCallback((updatedOption: UIOption) => {
     if (!node) return
-    // Update node data with new interventions
     const newInterventions: Record<string, number> = {}
-    for (const [nodeId, iv] of Object.entries(updatedOption.interventions)) {
-      newInterventions[nodeId] = iv.value
+    for (const [nId, iv] of Object.entries(updatedOption.interventions)) {
+      newInterventions[nId] = iv.value
     }
     updateNode(nodeId, {
       data: {
@@ -95,74 +79,7 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
     setShowMappingForm(false)
   }, [node, nodeId, updateNode])
 
-  // Get outgoing edges from this node
-  const outgoingEdges = useMemo(() =>
-    edges.filter(e => e.source === nodeId),
-    [edges, nodeId]
-  )
-
-  // Check if edges are influence-weight edges (not probabilities)
-  const isInfluenceNetwork = useMemo(() => {
-    if (outgoingEdges.length === 0) return false
-    // If ANY edge is influence-weight, treat as influence network
-    return outgoingEdges.some(e => e.data?.kind === 'influence-weight')
-  }, [outgoingEdges])
-
-  // Initialize probability rows from current edge state
-  const initialRows = useMemo<ProbabilityRow[]>(() => {
-    return outgoingEdges.map(edge => {
-      const targetNode = nodes.find(n => n.id === edge.target)
-      const confidence = edge.data?.confidence ?? 0
-
-      return {
-        edgeId: edge.id,
-        targetNodeId: edge.target,
-        targetLabel: targetNode?.data?.label || 'Unknown',
-        percent: Math.round(confidence * 100),
-        locked: false
-      }
-    })
-  }, [outgoingEdges, nodes])
-
-  const [rows, setRows] = useState<ProbabilityRow[]>(initialRows)
-  const [originalRows, setOriginalRows] = useState<ProbabilityRow[]>(initialRows)
-  const [balanceError, setBalanceError] = useState<string | undefined>()
-
-  // Reset draft when node changes
-  useEffect(() => {
-    setRows(initialRows)
-    setOriginalRows(initialRows)
-    setBalanceError(undefined)
-  }, [initialRows])
-
-  // Validation
-  const validation = useMemo(() => {
-    if (rows.length === 0) return { valid: true, sum: 0 }
-
-    const sum = rows.reduce((acc, r) => acc + r.percent, 0)
-    const tolerance = 1 // ±1%
-    const valid = Math.abs(sum - 100) <= tolerance
-
-    return { valid, sum }
-  }, [rows])
-
-  // Check if changes have been made
-  const hasChanges = useMemo(() => {
-    if (rows.length !== originalRows.length) return true
-    return rows.some((row, i) => row.percent !== originalRows[i].percent)
-  }, [rows, originalRows])
-
   const labelRef = useRef<HTMLInputElement>(null)
-  const probabilitiesRef = useRef<HTMLDivElement>(null)
-  const firstSliderRef = useRef<HTMLInputElement>(null)
-
-  // Expose ref for keyboard shortcut focusing
-  useEffect(() => {
-    // Store ref in a data attribute for P key handler
-    if (probabilitiesRef.current) {
-      probabilitiesRef.current.dataset.nodeId = nodeId
-    }
-  }, [nodeId])
 
   useEffect(() => {
     labelRef.current?.focus()
@@ -183,13 +100,11 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
     }
   }, [nodeId, description, node?.data, updateNode])
 
-  // Brief v2.2: Handler for factor value updates
   const handleFactorValueUpdate = useCallback(() => {
     const value = factorValue.trim() ? parseFloat(factorValue) : undefined
     const baseline = factorBaseline.trim() ? parseFloat(factorBaseline) : undefined
     const unit = factorUnit.trim() || undefined
 
-    // Only update if we have at least a value
     if (value !== undefined && !isNaN(value)) {
       const newObservedState: ObservedState = {
         value,
@@ -203,14 +118,12 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
         }
       })
     } else if (!factorValue.trim() && existingObservedState) {
-      // Clear observedState if value is empty
       const { observedState: _, ...restData } = node?.data ?? {}
       updateNode(nodeId, { data: restData })
     }
   }, [nodeId, factorValue, factorBaseline, factorUnit, node?.data, updateNode, existingObservedState])
 
   const handleTypeChange = useCallback((newType: NodeType) => {
-    // Update node type in place (preserves id, position, label)
     updateNode(nodeId, { type: newType })
   }, [nodeId, updateNode])
 
@@ -221,141 +134,140 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
     }
   }, [onClose])
 
-  // Probability editing handlers
-  const toggleLock = useCallback((edgeId: string) => {
-    setRows(prev => prev.map(r =>
-      r.edgeId === edgeId ? { ...r, locked: !r.locked } : r
-    ))
-  }, [])
-
-  const updatePercent = useCallback((edgeId: string, percent: number) => {
-    setBalanceError(undefined) // Clear error when user manually edits
-    setRows(prev => prev.map(r =>
-      r.edgeId === edgeId ? { ...r, percent } : r
-    ))
-  }, [])
-
-  const handleAutoBalance = useCallback(() => {
-    const balanceRows: BalanceRow[] = rows.map(r => ({
-      value: r.percent,
-      locked: r.locked
-    }))
-
-    const result = autoBalance(balanceRows, { step: 5 })
-
-    if (result.error) {
-      setBalanceError(result.error)
-    } else {
-      setBalanceError(undefined)
-      setRows(prev => prev.map((r, i) => ({
-        ...r,
-        percent: result.values[i]
-      })))
-    }
-  }, [rows])
-
-  const handleEqualSplit = useCallback(() => {
-    const balanceRows: BalanceRow[] = rows.map(r => ({
-      value: r.percent,
-      locked: r.locked
-    }))
-
-    const result = equalSplit(balanceRows, { step: 5 })
-
-    if (result.error) {
-      setBalanceError(result.error)
-    } else {
-      setBalanceError(undefined)
-      setRows(prev => prev.map((r, i) => ({
-        ...r,
-        percent: result.values[i]
-      })))
-    }
-  }, [rows])
-
-  const handleReset = useCallback(() => {
-    setRows(originalRows)
-    setBalanceError(undefined)
-  }, [originalRows])
-
-  const handleApply = useCallback(() => {
-    if (!validation.valid) {
-      return
-    }
-
-    // Build the new edges array with all updates applied
-    const updatedEdges = edges.map(edge => {
-      const row = rows.find(r => r.edgeId === edge.id)
-      if (!row) return edge
-
-      const currentLabel = edge.data?.label
-      // Only update label if it's auto-generated (matches "X%" pattern) or undefined
-      // Preserve custom labels like "High cost path"
-      const isAutoLabel = !currentLabel || /^\d+%$/.test(currentLabel)
-      const newLabel = isAutoLabel ? `${row.percent}%` : currentLabel
-
-      return {
-        ...edge,
-        data: {
-          ...edge.data,
-          kind: 'decision-probability',
-          confidence: row.percent / 100,
-          label: newLabel
-        }
-      }
-    })
-
-    // Batch update using setState with function to ensure we merge touched nodes correctly
-    useCanvasStore.setState((state) => {
-      const touchedNodeIds = new Set(state.touchedNodeIds)
-
-      // Mark all nodes whose edges we're updating as touched
-      rows.forEach(row => {
-        const edge = edges.find(e => e.id === row.edgeId)
-        if (edge) {
-          touchedNodeIds.add(edge.source)
-        }
-      })
-
-      return {
-        edges: updatedEdges,
-        touchedNodeIds
-      }
-    })
-
-    // Save current state to history AFTER making changes
-    // This ensures the new state (with updated edges) is captured in history
-    pushHistory()
-
-    // Update original rows to new state
-    setOriginalRows(rows)
-    setBalanceError(undefined)
-  }, [rows, edges, validation.valid, pushHistory])
-
-  const allLocked = rows.length > 0 && rows.every(r => r.locked)
-
-  if (!node) return <div className="p-4 text-sm text-slate-500">Select a node to edit its details</div>
+  if (!node) return <div className={`p-4 ${typography.panelBody} text-text-light`}>Select a node to edit its details</div>
 
   const currentType = (node.type || 'decision') as NodeType
   const metadata = NODE_REGISTRY[currentType] || NODE_REGISTRY.decision
+  const isGoalNode = currentType === 'goal'
+  const isAnalysisTarget = outcomeNodeId === nodeId
+  const goalDefined = isGoalDefined(goalThreshold, goalConstraints)
 
-  return (
-    <div className="p-4 border-t border-slate-200" onKeyDown={handleKeyDown} role="region" aria-label="Node properties">
-      <div className="flex items-center justify-between mb-4">
+  // ─── SUMMARY ───────────────────────────────────────────────────────
+  const summaryContent = (
+    <div className="pb-2">
+      {/* Header with close button */}
+      <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
           {renderIcon(metadata.icon, 18) ?? <span aria-hidden="true">•</span>}
-          <h3 className="text-sm font-semibold">{metadata.label}</h3>
+          <span className={`${typography.panelHeader} text-text-header`}>{metadata.label}</span>
         </div>
-        <button onClick={onClose} className="text-slate-400 hover:text-slate-600" aria-label="Close">×</button>
+        <button onClick={onClose} className="text-text-light hover:text-text-body" aria-label="Close">×</button>
       </div>
 
-      <div className="mb-4">
-        <label htmlFor="node-type" className="block text-xs font-medium text-slate-700 mb-1">Type</label>
+      {/* Node label — read-only, 2-line max */}
+      <p
+        className={`${typography.panelBody} text-text-body line-clamp-2`}
+        title={String(node.data?.label ?? '')}
+      >
+        {node.data?.label || 'Untitled'}
+      </p>
+
+      {/* B.I.5: Factor category pill — neutral styling for all categories */}
+      {isFactorNode && node.data?.category && (
+        <span className={`inline-flex items-center mt-1.5 px-2 py-0.5 rounded-full ${typography.panelMeta} bg-panel text-text-light border border-panel-border`}>
+          {String(node.data.category)}
+        </span>
+      )}
+
+      {/* KPI row: Factor current value */}
+      {isFactorNode && existingObservedState?.value !== undefined && (
+        <div className="flex items-center justify-between mt-2 px-2 py-1 bg-panel rounded border border-panel-border">
+          <span className={`${typography.panelMeta} text-text-light`}>Current value</span>
+          <span className={`${typography.panelBody} font-medium text-text-body tabular-nums`}>
+            {existingObservedState.unit ? `${existingObservedState.value} ${existingObservedState.unit}` : existingObservedState.value}
+          </span>
+        </div>
+      )}
+
+      {/* B.I.8: Goal coaching card */}
+      {isGoalNode && !goalDefined && (
+        <div className="mt-2 p-2 bg-info-light border border-info/30 rounded">
+          <p className={`${typography.panelMeta} text-info`}>
+            Set a success threshold so analysis can compute the probability of reaching it.
+          </p>
+        </div>
+      )}
+
+      {/* KPI row: Goal threshold */}
+      {isGoalNode && goalDefined && goalThreshold != null && (
+        <div className="flex items-center justify-between mt-2 px-2 py-1 bg-panel rounded border border-panel-border">
+          <span className={`${typography.panelMeta} text-text-light`}>Threshold</span>
+          <span className={`${typography.panelBody} font-medium text-text-body tabular-nums`}>
+            {goalThreshold}
+          </span>
+        </div>
+      )}
+
+      {/* B.I.9: Option Summary — intervention count or "Baseline" pill */}
+      {isOptionNode && (
+        <div className="mt-2">
+          {optionAsUIOption && Object.keys(optionAsUIOption.interventions).length > 0 ? (
+            <span className={`${typography.panelMeta} text-text-light`}>
+              {Object.keys(optionAsUIOption.interventions).length} intervention{Object.keys(optionAsUIOption.interventions).length !== 1 ? 's' : ''}
+            </span>
+          ) : (
+            <span className={`inline-flex items-center px-2 py-0.5 rounded-full ${typography.panelMeta} bg-panel text-text-light border border-panel-border italic`}>
+              Baseline
+            </span>
+          )}
+        </div>
+      )}
+
+      {/* KPI row: Prior */}
+      {node.data?.prior !== undefined && (
+        <div className="flex items-center justify-between mt-2 px-2 py-1 bg-panel rounded border border-panel-border">
+          <span className={`${typography.panelMeta} text-text-light`}>Prior</span>
+          <span className={`${typography.panelBody} font-medium text-text-body tabular-nums`}>
+            {(node.data.prior * 100).toFixed(0)}%
+          </span>
+        </div>
+      )}
+    </div>
+  )
+
+  // ─── ASSUMPTIONS ───────────────────────────────────────────────────
+  const assumptionsContent = (
+    <div className="space-y-4">
+      {/* Title input */}
+      <div>
+        <label htmlFor="node-title" className={`block ${typography.panelMeta} font-medium text-text-body mb-1`}>Title</label>
+        <input
+          ref={labelRef}
+          id="node-title"
+          type="text"
+          maxLength={100}
+          value={label}
+          onChange={(e) => setLabel(e.target.value)}
+          onBlur={handleLabelBlur}
+          className={`w-full ${typography.panelBody} border border-panel-border rounded px-2 py-1`}
+        />
+      </div>
+
+      {/* Description */}
+      <div>
+        <label htmlFor="node-description" className={`block ${typography.panelMeta} font-medium text-text-body mb-1`}>
+          Note <span className="text-text-light">(optional)</span>
+        </label>
+        <textarea
+          id="node-description"
+          maxLength={500}
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          onBlur={handleDescriptionBlur}
+          rows={3}
+          className={`w-full ${typography.panelBody} border border-panel-border rounded px-2 py-1`}
+          placeholder="Add a note..."
+        />
+      </div>
+
+      {/* Type dropdown */}
+      <div>
+        <label htmlFor="node-type" className={`block ${typography.panelMeta} font-medium text-text-body mb-1`}>Type</label>
         <select
           id="node-type"
           value={currentType}
           onChange={(e) => handleTypeChange(e.target.value as NodeType)}
-          className="w-full text-sm border border-slate-300 rounded px-2 py-1.5 bg-white"
+          className={`w-full ${typography.panelBody} border border-panel-border rounded px-2 py-1.5 bg-panel`}
           data-testid="select-node-type"
         >
           {(Object.keys(NODE_REGISTRY) as NodeType[]).map((type) => (
@@ -366,25 +278,16 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
         </select>
       </div>
 
-      {/* v1.2 Node Metadata (optional) */}
-      {node.data?.kind && (
-        <div className="mb-4">
-          <label className="block text-xs font-medium text-slate-700 mb-1">Kind</label>
-          <div className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium bg-info-50 border border-info-200 text-info-700">
-            {node.data.kind}
-          </div>
-        </div>
-      )}
-
+      {/* Prior bar */}
       {node.data?.prior !== undefined && (
-        <div className="mb-4">
-          <label className="block text-xs font-medium text-slate-700 mb-1">
-            Prior <span className="text-slate-500">(belief before evidence)</span>
+        <div>
+          <label className={`block ${typography.panelMeta} font-medium text-text-body mb-1`}>
+            Prior <span className="text-text-light">(belief before evidence)</span>
           </label>
           <div className="flex items-center gap-2">
-            <div className="flex-1 h-2 bg-slate-200 rounded-full overflow-hidden">
+            <div className="flex-1 h-2 bg-panel-border rounded-full overflow-hidden">
               <div
-                className="h-full bg-info-500 rounded-full transition-all"
+                className="h-full bg-info rounded-full transition-all"
                 style={{ width: `${node.data.prior * 100}%` }}
                 role="progressbar"
                 aria-valuenow={node.data.prior}
@@ -393,26 +296,25 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
                 aria-valuetext={`${(node.data.prior * 100).toFixed(0)}%`}
               />
             </div>
-            <span className="text-xs font-medium text-slate-700 tabular-nums w-10 text-right">
+            <span className={`${typography.panelMeta} font-medium text-text-body tabular-nums w-10 text-right`}>
               {(node.data.prior * 100).toFixed(0)}%
             </span>
           </div>
         </div>
       )}
 
+      {/* Utility bar */}
       {node.data?.utility !== undefined && (
-        <div className="mb-4">
-          <label className="block text-xs font-medium text-slate-700 mb-1">
-            Utility <span className="text-slate-500">(value from -1 to +1)</span>
+        <div>
+          <label className={`block ${typography.panelMeta} font-medium text-text-body mb-1`}>
+            Utility <span className="text-text-light">(value from -1 to +1)</span>
           </label>
           <div className="flex items-center gap-2">
-            <div className="flex-1 h-2 bg-slate-200 rounded-full overflow-hidden relative">
-              {/* Center line marker */}
-              <div className="absolute inset-y-0 left-1/2 w-px bg-slate-400" />
-              {/* Utility bar - centered at 50%, extends left (negative) or right (positive) */}
+            <div className="flex-1 h-2 bg-panel-border rounded-full overflow-hidden relative">
+              <div className="absolute inset-y-0 left-1/2 w-px bg-text-light" />
               <div
                 className={`absolute inset-y-0 transition-all ${
-                  node.data.utility >= 0 ? 'bg-success-500' : 'bg-danger-500'
+                  node.data.utility >= 0 ? 'bg-success' : 'bg-danger'
                 }`}
                 style={{
                   left: node.data.utility >= 0 ? '50%' : `${50 + (node.data.utility * 50)}%`,
@@ -425,68 +327,43 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
                 aria-valuetext={node.data.utility.toFixed(2)}
               />
             </div>
-            <span className="text-xs font-medium text-slate-700 tabular-nums w-10 text-right">
+            <span className={`${typography.panelMeta} font-medium text-text-body tabular-nums w-10 text-right`}>
               {node.data.utility >= 0 ? '+' : ''}{node.data.utility.toFixed(2)}
             </span>
           </div>
         </div>
       )}
 
-      <div className="mb-4">
-        <label htmlFor="node-title" className="block text-xs font-medium text-slate-700 mb-1">Title</label>
-        <input
-          ref={labelRef}
-          id="node-title"
-          type="text"
-          maxLength={100}
-          value={label}
-          onChange={(e) => setLabel(e.target.value)}
-          onBlur={handleLabelBlur}
-          className="w-full text-sm border border-slate-300 rounded px-2 py-1"
-        />
-      </div>
+      {/* B.I.8: Goal threshold editor */}
+      {isGoalNode && (
+        <GoalThresholdEditor />
+      )}
 
-      <div className="mb-4">
-        <label htmlFor="node-description" className="block text-xs font-medium text-slate-700 mb-1">
-          Note <span className="text-slate-400">(optional)</span>
-        </label>
-        <textarea
-          id="node-description"
-          maxLength={500}
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          onBlur={handleDescriptionBlur}
-          rows={3}
-          className="w-full text-sm border border-slate-300 rounded px-2 py-1"
-          placeholder="Add a note..."
-        />
-      </div>
-
-      {/* Brief v2.2: Factor Value Editor */}
+      {/* Factor value editor */}
       {isFactorNode && (
-        <div className="mb-4 pb-4 border-b border-slate-200">
+        <div className="pt-2 border-t border-panel-border">
           <Tooltip content="Set the current and baseline values for this factor" position="right">
-            <h4 className="text-xs font-medium text-slate-700 mb-2">
-              Observed Value <span className="text-slate-400">(optional)</span>
+            <h4 className={`${typography.panelMeta} font-medium text-text-body mb-2`}>
+              Current value <span className="text-text-light">(optional)</span>
             </h4>
           </Tooltip>
 
           <div className="flex gap-2 mb-2">
             <div className="w-16">
-              <label htmlFor="factor-unit" className="block text-xs text-slate-500 mb-1">Unit</label>
+              <label htmlFor="factor-unit" className={`block ${typography.panelMeta} text-text-light mb-1`}>Unit</label>
               <input
                 id="factor-unit"
                 type="text"
                 value={factorUnit}
                 onChange={(e) => setFactorUnit(e.target.value)}
                 onBlur={handleFactorValueUpdate}
-                placeholder="£, %, etc."
-                className="w-full text-sm border border-slate-300 rounded px-2 py-1"
+                placeholder="e.g. £, %, users"
+                className={`w-full ${typography.panelBody} border border-panel-border rounded px-2 py-1`}
                 maxLength={10}
               />
             </div>
             <div className="flex-1">
-              <label htmlFor="factor-value" className="block text-xs text-slate-500 mb-1">Current</label>
+              <label htmlFor="factor-value" className={`block ${typography.panelMeta} text-text-light mb-1`}>Current</label>
               <input
                 id="factor-value"
                 type="number"
@@ -494,15 +371,15 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
                 onChange={(e) => setFactorValue(e.target.value)}
                 onBlur={handleFactorValueUpdate}
                 placeholder="59"
-                className="w-full text-sm border border-slate-300 rounded px-2 py-1"
+                className={`w-full ${typography.panelBody} border border-panel-border rounded px-2 py-1`}
                 step="any"
               />
             </div>
           </div>
 
           <div>
-            <label htmlFor="factor-baseline" className="block text-xs text-slate-500 mb-1">
-              Baseline <span className="text-slate-400">(previous value)</span>
+            <label htmlFor="factor-baseline" className={`block ${typography.panelMeta} text-text-light mb-1`}>
+              Baseline
             </label>
             <input
               id="factor-baseline"
@@ -511,27 +388,27 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
               onChange={(e) => setFactorBaseline(e.target.value)}
               onBlur={handleFactorValueUpdate}
               placeholder="49"
-              className="w-full text-sm border border-slate-300 rounded px-2 py-1"
+              className={`w-full ${typography.panelBody} border border-panel-border rounded px-2 py-1`}
               step="any"
             />
+            {!factorBaseline.trim() && (
+              <p className={`${typography.panelMeta} text-text-light mt-1`}>
+                Set a baseline for change-from-baseline calculations
+              </p>
+            )}
           </div>
-
-          <p className="text-xs text-slate-500 mt-2">
-            Used for parameter uncertainty in analysis.
-          </p>
         </div>
       )}
 
-      {/* P0-UI-7/8: Intervention Editor for Option Nodes */}
+      {/* Intervention editor for option nodes */}
       {isOptionNode && optionAsUIOption && (
-        <div className="mb-4 pb-4 border-b border-slate-200">
+        <div className="pt-2 border-t border-panel-border">
           <Tooltip content="Define what causal changes this option makes" position="right">
-            <h4 className="text-xs font-medium text-slate-700 mb-2">
+            <h4 className={`${typography.panelMeta} font-medium text-text-body mb-2`}>
               Interventions
             </h4>
           </Tooltip>
 
-          {/* Task 7: Mode-aware display - read-only in Results mode */}
           {isResultsMode ? (
             <div className="space-y-2">
               <InterventionDisplay
@@ -539,8 +416,8 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
                 nodes={nodes}
                 compact
               />
-              <p className="text-xs text-slate-400 italic">
-                Switch to Structure mode to edit interventions
+              <p className={`${typography.panelMeta} text-text-light italic`}>
+                Interventions are locked while results are displayed
               </p>
             </div>
           ) : showMappingForm ? (
@@ -565,7 +442,7 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
               <button
                 type="button"
                 onClick={() => setShowMappingForm(true)}
-                className="text-xs text-sky-600 hover:text-sky-700 hover:underline"
+                className={`${typography.panelMeta} text-info hover:underline`}
               >
                 Edit interventions
               </button>
@@ -573,223 +450,45 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
           )}
         </div>
       )}
+    </div>
+  )
 
-      {/* Outcome Node Selector */}
-      <div className="mb-4 pb-4 border-b border-slate-200">
-        <Tooltip content="Mark this node as the target outcome for analysis" position="right">
-          <label htmlFor="outcome-toggle" className="flex items-center gap-2 cursor-pointer">
-            <input
-              id="outcome-toggle"
-              type="checkbox"
-              checked={outcomeNodeId === nodeId}
-              onChange={(e) => {
-                setOutcomeNode(e.target.checked ? nodeId : null)
-              }}
-              className="w-4 h-4 text-info-600 border-slate-300 rounded focus:ring-info-500"
-              data-testid="toggle-outcome-node"
-            />
-            <span className="text-xs font-medium text-slate-700">
-              Use as Outcome Node
-            </span>
-            {outcomeNodeId === nodeId && (
-              <span className="ml-auto px-2 py-0.5 text-xs rounded-full bg-info-100 text-info-700">
-                Target
-              </span>
-            )}
-          </label>
-        </Tooltip>
-        <p className="text-xs text-slate-500 mt-1.5 ml-6">
-          When set, analysis will focus on this node as the target outcome.
-        </p>
+  // ─── ADVANCED ──────────────────────────────────────────────────────
+  const advancedContent = (
+    <div className="space-y-3">
+      {/* Node ID */}
+      <div className="flex items-center justify-between">
+        <span className={`${typography.panelMeta} text-text-light`}>Node ID</span>
+        <code className={`${typography.code} text-text-light select-all`}>{nodeId}</code>
       </div>
 
-      {/* Inline Probability Editor (only for decision-probability edges, not influence networks) */}
-      {outgoingEdges.length > 0 && !isInfluenceNetwork && (
-        <section
-          ref={probabilitiesRef}
-          className="mb-4 pt-4 border-t border-slate-200"
-          aria-labelledby="probabilities-heading"
-        >
-          <Tooltip content="% likelihood each connector is taken (must total 100%)" position="right">
-            <h4 id="probabilities-heading" className="text-xs font-medium text-slate-700 mb-2">
-              Probabilities
-            </h4>
-          </Tooltip>
-
-          {/* Helper Text */}
-          <p className="text-xs text-slate-600 mb-3 leading-snug">
-            Auto-balance keeps your ratios, rounds to nice numbers, and totals 100%. Equal split divides the remaining (unlocked) options evenly.
-          </p>
-
-          {/* Probability Rows */}
-          <div className="space-y-2 mb-3">
-            {rows.map((row, index) => {
-              const isFirstUnlocked = !row.locked && !rows.slice(0, index).some(r => !r.locked)
-
-              return (
-                <div key={row.edgeId} className="flex items-center gap-1.5">
-                  {/* Lock toggle */}
-                  <button
-                    type="button"
-                    onClick={() => toggleLock(row.edgeId)}
-                    className={`flex-shrink-0 p-1 rounded hover:bg-slate-100 transition-colors ${
-                      row.locked ? 'text-info-600' : 'text-slate-400'
-                    }`}
-                    aria-label={row.locked ? `Unlock ${row.targetLabel}` : `Lock ${row.targetLabel}`}
-                    aria-pressed={row.locked}
-                    title={row.locked ? 'Locked' : 'Unlocked'}
-                  >
-                    {row.locked ? <Lock size={12} /> : <Unlock size={12} />}
-                  </button>
-
-                  {/* Target label */}
-                  <span className="text-xs text-slate-700 w-14 flex-shrink-0 truncate" title={row.targetLabel}>
-                    {row.targetLabel}
-                  </span>
-
-                  {/* Range slider - constrained width */}
-                  <input
-                    ref={isFirstUnlocked ? firstSliderRef : null}
-                    type="range"
-                    min="0"
-                    max="100"
-                    step="1"
-                    value={row.percent}
-                    disabled={row.locked}
-                    onChange={(e) => updatePercent(row.edgeId, parseInt(e.target.value, 10))}
-                    className={`flex-1 min-w-0 max-w-[120px] ${row.locked ? 'opacity-50' : 'opacity-100'}`}
-                    aria-label={`Probability to ${row.targetLabel}`}
-                    aria-valuemin={0}
-                    aria-valuemax={100}
-                    aria-valuenow={row.percent}
-                    aria-valuetext={`${row.percent}%`}
-                  />
-
-                  {/* Numeric input */}
-                  <input
-                    type="number"
-                    min="0"
-                    max="100"
-                    step="1"
-                    value={row.percent}
-                    disabled={row.locked}
-                    onChange={(e) => {
-                      const val = parseInt(e.target.value, 10)
-                      if (!isNaN(val)) {
-                        updatePercent(row.edgeId, Math.max(0, Math.min(100, val)))
-                      }
-                    }}
-                    className={`w-10 text-xs border border-slate-300 rounded px-1 py-0.5 text-right flex-shrink-0 ${row.locked ? 'opacity-50' : 'opacity-100'}`}
-                    aria-label={`${row.targetLabel} percentage`}
-                  />
-                  <span className="text-xs text-slate-500 flex-shrink-0">%</span>
-                </div>
-              )
-            })}
-          </div>
-
-          {/* Total Indicator */}
-          <div className={`mb-3 p-2 rounded text-xs border ${
-            validation.valid
-              ? 'bg-success-50 border-success-500'
-              : 'bg-warning-50 border-warning-500'
-          }`}>
-            <span className="font-medium">Total: {validation.sum}%</span>
-            {!validation.valid && <span className="text-slate-600"> (must be 100% ±1%)</span>}
-          </div>
-
-          {/* Balance Error Banner */}
-          {balanceError && (
-            <div className="mb-3 p-2 rounded flex items-start gap-2 bg-warning-50 border border-warning-500" role="alert">
-              <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5 text-warning-600" />
-              <p className="text-xs text-warning-900">
-                {balanceError}
-              </p>
-            </div>
-          )}
-
-          {/* Action Buttons */}
-          <div className="flex flex-wrap gap-2 mb-3">
-            <Tooltip content="Preserves your ratios, rounds to nice numbers, and totals 100%" position="top">
-              <button
-                type="button"
-                onClick={handleAutoBalance}
-                disabled={allLocked}
-                className={`px-3 py-1.5 text-xs font-medium rounded border border-slate-300 transition-colors ${
-                  allLocked
-                    ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
-                    : 'bg-white text-slate-700 hover:bg-slate-50 cursor-pointer'
-                }`}
-                title={allLocked ? "Unlock at least one row" : undefined}
-              >
-                Auto-balance
-              </button>
-            </Tooltip>
-
-            <Tooltip content="Divides the remaining (unlocked) amount evenly" position="top">
-              <button
-                type="button"
-                onClick={handleEqualSplit}
-                disabled={allLocked}
-                className={`px-3 py-1.5 text-xs font-medium rounded border border-slate-300 transition-colors ${
-                  allLocked
-                    ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
-                    : 'bg-white text-slate-700 hover:bg-slate-50 cursor-pointer'
-                }`}
-                title={allLocked ? "Unlock at least one row" : undefined}
-              >
-                Equal split
-              </button>
-            </Tooltip>
-
-            <button
-              type="button"
-              onClick={handleReset}
-              disabled={!hasChanges}
-              className={`px-3 py-1.5 text-xs font-medium rounded border border-slate-300 transition-colors ${
-                hasChanges
-                  ? 'bg-white text-slate-700 hover:bg-slate-50 cursor-pointer'
-                  : 'bg-slate-100 text-slate-400 cursor-not-allowed'
-              }`}
-            >
-              Reset
-            </button>
-
-            <div className="flex-1" />
-
-            <button
-              type="button"
-              onClick={handleApply}
-              disabled={!validation.valid || !hasChanges || !!balanceError}
-              className={`px-4 py-1.5 text-xs font-medium rounded transition-colors text-white ${
-                (!validation.valid || !hasChanges || !!balanceError)
-                  ? 'bg-slate-300 cursor-not-allowed'
-                  : 'bg-info-500 hover:bg-info-600 cursor-pointer'
-              }`}
-              title={
-                balanceError
-                  ? "Unlock some rows to fix overflow"
-                  : !validation.valid
-                  ? "Fix probabilities to apply"
-                  : !hasChanges
-                  ? "No changes to apply"
-                  : "Apply changes"
-              }
-            >
-              Apply
-            </button>
-          </div>
-        </section>
-      )}
-
-      {/* Empty state for probabilities */}
-      {outgoingEdges.length === 0 && (
-        <div className="mb-4 pt-4 border-t border-slate-200">
-          <p className="text-xs text-slate-500 italic">
-            Add connectors from this decision to set probabilities.
-          </p>
+      {/* Kind (from CEE) */}
+      {node.data?.kind && (
+        <div className="flex items-center justify-between">
+          <span className={`${typography.panelMeta} text-text-light`}>Kind</span>
+          <span className={`${typography.panelMeta} text-text-body`}>{String(node.data.kind)}</span>
         </div>
       )}
+
+      {/* Analysis target — only shown for goal/outcome nodes */}
+      {(isGoalNode || currentType === 'outcome') && (
+        <div className="flex items-center justify-between">
+          <span className={`${typography.panelMeta} text-text-light`}>Analysis target</span>
+          <span className={`${typography.panelMeta} text-text-body`}>{isAnalysisTarget ? 'Yes' : 'No'}</span>
+        </div>
+      )}
+    </div>
+  )
+
+  return (
+    <div className="p-4 border-t border-panel-border" onKeyDown={handleKeyDown} role="region" aria-label="Node properties">
+      <InspectorAccordion
+        summary={summaryContent}
+        assumptions={assumptionsContent}
+        advanced={advancedContent}
+        defaultOpen="assumptions"
+        testId="node-inspector"
+      />
     </div>
   )
 })
