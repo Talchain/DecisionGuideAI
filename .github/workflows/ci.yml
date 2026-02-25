@@ -1,6 +1,13 @@
 # CI for DecisionGuideAI — runs on pushes and pull requests to main.
 # It creates two required checks: "TypeScript" and "Tests".
 # Safe dummy env vars are provided so no real secrets are needed in CI.
+#
+# Optimisation notes (2026-02):
+# - Shared `install` job caches node_modules + schemas for all downstream jobs
+# - vitest + coverage merged into a single job (was running tests twice)
+# - build artifact shared with bundle-policy (was building twice)
+# - E2E Chromium sharded across 4 runners (was single-threaded, 90+ specs)
+# - Removed duplicate e2e.yml and compose-evidence.yml workflows
 
 name: CI
 
@@ -30,6 +37,42 @@ env:
   VITE_PLOT_LITE_BASE_URL: "/plot-lite"
 
 jobs:
+  # ── Shared install: cache node_modules + schemas for all downstream jobs ──
+  install:
+    name: Install & Cache
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use Node.js from .nvmrc
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: "npm"
+
+      - name: Cache node_modules
+        id: cache-nm
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: nm-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
+      - name: Install dependencies
+        if: steps.cache-nm.outputs.cache-hit != 'true'
+        run: npm ci
+
+      - name: Build schemas
+        run: npm run build:schemas
+
+      - name: Upload schemas artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: schemas-dist
+          path: packages/olumi-schemas/dist/
+          retention-days: 1
+
+  # ── Security (no install dependency — runs independently) ──────────────
   secrets-scan:
     name: Secrets Scan (Gitleaks)
     runs-on: ubuntu-latest
@@ -47,6 +90,7 @@ jobs:
 
   security-audit:
     name: Security Audit (npm)
+    needs: install
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -58,14 +102,19 @@ jobs:
           node-version-file: .nvmrc
           cache: "npm"
 
-      - name: Install dependencies
-        run: npm ci
+      - name: Restore node_modules cache
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: nm-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
 
       - name: Audit for high/critical vulnerabilities
         run: npm run security:audit
 
+  # ── Static analysis ────────────────────────────────────────────────────
   tsc:
     name: TypeScript
+    needs: install
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -77,11 +126,17 @@ jobs:
           node-version-file: .nvmrc
           cache: "npm"
 
-      - name: Install dependencies
-        run: npm ci
+      - name: Restore node_modules cache
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: nm-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
 
-      - name: Build schemas
-        run: npm run build:schemas
+      - name: Download schemas
+        uses: actions/download-artifact@v4
+        with:
+          name: schemas-dist
+          path: packages/olumi-schemas/dist/
 
       - name: Lint
         run: npm run lint
@@ -116,8 +171,10 @@ jobs:
       - name: Duplicate-suffix guard
         run: npm run ci:guard:duplicates
 
+  # ── Unit tests + coverage (merged — was two separate jobs running tests twice) ──
   vitest:
-    name: Tests
+    name: Tests + Coverage
+    needs: install
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -129,40 +186,19 @@ jobs:
           node-version-file: .nvmrc
           cache: "npm"
 
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Build schemas
-        run: npm run build:schemas
-
-      - name: Run unit tests (Vitest)
-        run: npm run test:unit
-      - name: Ensure tests.json (non-blocking)
-        run: node tools/ensure-tests-json.js
-        env:
-          ENSURE_TESTS_JSON_SKIP_RUN: '1'
-        continue-on-error: true
-
-  coverage:
-    name: Coverage Report
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Use Node.js from .nvmrc
-        uses: actions/setup-node@v4
+      - name: Restore node_modules cache
+        uses: actions/cache@v4
         with:
-          node-version-file: .nvmrc
-          cache: "npm"
+          path: node_modules
+          key: nm-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
 
-      - name: Install dependencies
-        run: npm ci
+      - name: Download schemas
+        uses: actions/download-artifact@v4
+        with:
+          name: schemas-dist
+          path: packages/olumi-schemas/dist/
 
-      - name: Build schemas
-        run: npm run build:schemas
-
-      - name: Run tests with coverage
+      - name: Run unit tests with coverage
         run: npm run test:coverage
 
       - name: Upload coverage report
@@ -173,8 +209,16 @@ jobs:
           retention-days: 7
           if-no-files-found: ignore
 
+      - name: Ensure tests.json (non-blocking)
+        run: node tools/ensure-tests-json.js
+        env:
+          ENSURE_TESTS_JSON_SKIP_RUN: '1'
+        continue-on-error: true
+
+  # ── Backend contract ───────────────────────────────────────────────────
   contract:
     name: Backend Contract
+    needs: install
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -186,8 +230,11 @@ jobs:
           node-version-file: .nvmrc
           cache: "npm"
 
-      - name: Install dependencies
-        run: npm ci
+      - name: Restore node_modules cache
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: nm-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
 
       - name: Verify backend contract
         run: npm run ci:verify-contract
@@ -195,33 +242,57 @@ jobs:
           VITE_PLOT_LITE_BASE_URL: https://plot-lite-service.onrender.com
         continue-on-error: false
 
+  # ── Build + dist scans + bundle policy (merged — was two jobs building twice) ──
   build:
-    name: Build + No-Console
+    name: Build + No-Console + Bundle Policy
+    needs: install
     runs-on: ubuntu-latest
     # POC: Skip on PoC branches to avoid console/E2E scan failures
     if: ${{ !contains(github.ref_name, 'hotfix/poc') && !contains(github.ref_name, 'poc') && !contains(github.ref_name, 'safe/poc') }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
       - name: Use Node.js 20.x
         uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
-      - name: Install dependencies
-        run: npm ci
-      - name: Build (with PLC assertion)
+
+      - name: Restore node_modules cache
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: nm-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
+      - name: Download schemas
+        uses: actions/download-artifact@v4
+        with:
+          name: schemas-dist
+          path: packages/olumi-schemas/dist/
+
+      - name: Build (with PLC assertion + bundle budget)
         run: npm run build:ci
+
       - name: Scan dist for console/debugger and E2E toggles
         run: |
           npm run ci:no-console
           npm run ci:scan-dist
 
+      - name: Bundle Policy (safe chunks React-free)
+        run: npm run ci:bundle-policy
+
+  # ── E2E Chromium (sharded across 4 runners) ───────────────────────────
   e2e-chromium:
-    name: E2E (Chromium)
+    name: E2E Chromium (${{ matrix.shard }})
+    needs: install
     runs-on: ubuntu-latest
     # POC: Skip on PoC branches to avoid E2E failures
     if: ${{ !contains(github.ref_name, 'hotfix/poc') && !contains(github.ref_name, 'poc') && !contains(github.ref_name, 'safe/poc') }}
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1/4, 2/4, 3/4, 4/4]
     env:
       VITE_E2E: '1'
     steps:
@@ -242,20 +313,23 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-playwright-
 
-      - name: Install dependencies
-        run: npm ci
+      - name: Restore node_modules cache
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: nm-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
 
       - name: Install Chromium (Playwright)
         run: npx playwright install --with-deps chromium
 
-      - name: Run E2E (Chromium)
-        run: npx playwright test --project=chromium -c playwright.config.ts --retries=1
+      - name: Run E2E (Chromium, shard ${{ matrix.shard }})
+        run: npx playwright test --project=chromium -c playwright.config.ts --retries=1 --shard=${{ matrix.shard }}
 
       - name: Upload Playwright test-results on failure
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-test-results
+          name: playwright-test-results-${{ strategy.job-index }}
           path: test-results
           retention-days: 7
           if-no-files-found: ignore
@@ -264,13 +338,15 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-report
+          name: playwright-report-${{ strategy.job-index }}
           path: playwright-report
           retention-days: 7
           if-no-files-found: ignore
 
+  # ── E2E cross-browser smoke ────────────────────────────────────────────
   e2e-firefox:
     name: E2E Smoke (Firefox)
+    needs: install
     runs-on: ubuntu-latest
     env:
       VITE_E2E: '1'
@@ -282,8 +358,11 @@ jobs:
         with:
           node-version: '20'
           cache: 'npm'
-      - name: Install dependencies
-        run: npm ci
+      - name: Restore node_modules cache
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: nm-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
       - name: Install Firefox (Playwright)
         run: npx playwright install --with-deps firefox
       - name: Run smoke + summary-v2 on Firefox
@@ -295,6 +374,7 @@ jobs:
 
   e2e-webkit:
     name: E2E Smoke (WebKit)
+    needs: install
     runs-on: ubuntu-latest
     env:
       VITE_E2E: '1'
@@ -306,8 +386,11 @@ jobs:
         with:
           node-version: '20'
           cache: 'npm'
-      - name: Install dependencies
-        run: npm ci
+      - name: Restore node_modules cache
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: nm-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
       - name: Install WebKit (Playwright)
         run: npx playwright install --with-deps webkit
       - name: Run smoke + summary-v2 on WebKit
@@ -317,8 +400,10 @@ jobs:
           e2e/summary-v2.spec.ts
           --project=webkit -c playwright.config.ts
 
+  # ── Evidence ───────────────────────────────────────────────────────────
   evidence:
     name: Evidence (Perf, A11y, UI-Pack, Share-Cap, Immutability)
+    needs: install
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -328,8 +413,11 @@ jobs:
         with:
           node-version: '20'
           cache: 'npm'
-      - name: Install dependencies
-        run: npm ci
+      - name: Restore node_modules cache
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: nm-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
       - name: Install Chromium (Playwright)
         run: npx playwright install --with-deps chromium
       - name: Perf probe (worker layout, p95)
@@ -354,39 +442,16 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-report
+          name: playwright-report-evidence
           path: |
             playwright-report
           retention-days: 7
           if-no-files-found: ignore
 
-  bundle-policy:
-    name: Bundle Policy
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Use Node.js 20.x
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Build schemas
-        run: npm run build:schemas
-
-      - name: Build (production)
-        run: npm run build:prod
-
-      - name: Bundle Policy (safe chunks React-free)
-        run: npm run ci:bundle-policy
-
+  # ── E2E production safe-screen ─────────────────────────────────────────
   e2e-prod-safe:
     name: E2E (production safe-screen)
+    needs: install
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -406,8 +471,11 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-playwright-
 
-      - name: Install dependencies
-        run: npm ci
+      - name: Restore node_modules cache
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: nm-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
 
       - name: Install Chromium (Playwright)
         run: npx playwright install --with-deps chromium

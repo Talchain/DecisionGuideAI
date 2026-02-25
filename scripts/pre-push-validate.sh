@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 # pre-push-validate.sh — Gate that catches deployment failures before push.
 # Exit non-zero on any failure. Runs all checks (no early abort).
+#
+# Optimisation (2026-02): Checks 2 (typecheck) and 3 (vitest) now run in
+# parallel since they are independent, cutting ~3 min off the local gate.
 set -euo pipefail
 
 FAILURES=0
@@ -45,23 +48,42 @@ else
   pass "Branch '$BRANCH' OK (not pushing to main)"
 fi
 
-# ─── Check 2: TypeScript compilation ──────────────────────────────────
-header "Check 2 — TypeScript compilation"
+# ─── Checks 2 & 3: TypeScript + Tests (run in parallel) ──────────────
+header "Checks 2 & 3 — TypeScript compilation + Test suite (parallel)"
 
-if npm run typecheck 2>&1; then
-  pass "TypeScript compilation succeeded"
-else
-  fail "TypeScript compilation failed"
-fi
-
-# ─── Check 3: Test suite (full, excluding known-broken) ──────────────
-header "Check 3 — Test suite (full, known-broken excluded via vitest.config.ts)"
-
+TSC_OUTPUT_FILE="$(mktemp /tmp/pre-push-tsc-XXXXXX)"
 TEST_OUTPUT_FILE="$(mktemp /tmp/pre-push-test-XXXXXX)"
 
-NODE_OPTIONS=--max-old-space-size=4096 npx vitest run --bail=1 2>&1 | tee "$TEST_OUTPUT_FILE" || true
-VITEST_EXIT=${PIPESTATUS[0]}
+# Launch both in background
+npm run typecheck >"$TSC_OUTPUT_FILE" 2>&1 &
+PID_TSC=$!
 
+NODE_OPTIONS=--max-old-space-size=4096 npx vitest run --bail=1 2>&1 | tee "$TEST_OUTPUT_FILE" &
+PID_TEST=$!
+
+# Wait for typecheck
+TSC_EXIT=0
+wait $PID_TSC || TSC_EXIT=$?
+
+# Wait for tests
+VITEST_EXIT=0
+wait $PID_TEST || VITEST_EXIT=$?
+
+# Report typecheck result
+header "Check 2 — TypeScript compilation"
+if [ "$TSC_EXIT" -eq 0 ]; then
+  pass "TypeScript compilation succeeded"
+  rm -f "$TSC_OUTPUT_FILE"
+else
+  fail "TypeScript compilation failed"
+  echo ""
+  cat "$TSC_OUTPUT_FILE"
+  echo ""
+  echo "  Full output: $TSC_OUTPUT_FILE"
+fi
+
+# Report test result
+header "Check 3 — Test suite (full, known-broken excluded via vitest.config.ts)"
 if [ "$VITEST_EXIT" -eq 0 ]; then
   pass "Test suite passed (full run, known-broken excluded)"
   rm -f "$TEST_OUTPUT_FILE"
