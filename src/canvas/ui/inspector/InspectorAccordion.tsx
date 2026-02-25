@@ -6,7 +6,7 @@
  * Reuses existing Accordion component in controlled mode.
  */
 
-import { useState, useCallback, type ReactNode } from 'react'
+import { useState, useCallback, useEffect, type ReactNode } from 'react'
 import { Accordion } from '../../components/pre-analysis/primitives/Accordion'
 
 /** Section IDs for inspector panels */
@@ -23,6 +23,8 @@ interface InspectorAccordionProps {
   advanced?: ReactNode
   /** Which section starts expanded (default: none) */
   defaultOpen?: InspectorSectionId
+  /** S.4: Externally request a section to open (e.g. from Edit button in Summary action row) */
+  requestOpenSection?: InspectorSectionId | null
   /** Test ID prefix */
   testId?: string
 }
@@ -36,9 +38,17 @@ export function InspectorAccordion({
   appearance,
   advanced,
   defaultOpen,
+  requestOpenSection,
   testId = 'inspector',
 }: InspectorAccordionProps) {
   const [openSection, setOpenSection] = useState<InspectorSectionId | null>(defaultOpen ?? null)
+
+  // S.4: Respond to external requests to open a section
+  useEffect(() => {
+    if (requestOpenSection) {
+      setOpenSection(requestOpenSection)
+    }
+  }, [requestOpenSection])
 
   const handleToggle = useCallback((sectionId: InspectorSectionId) => {
     setOpenSection(prev => prev === sectionId ? null : sectionId)

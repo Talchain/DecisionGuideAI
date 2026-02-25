@@ -160,6 +160,7 @@ export const BaseNode = memo(({ id, nodeType, icon: Icon, data, selected, childr
       role="group"
       aria-label={accessibleName}
       aria-expanded={description ? isExpanded : undefined}
+      {...(isIncomplete ? { 'data-testid': nodeType === 'goal' ? 'overlay-missing-threshold-node' : 'overlay-missing-value' } : {})}
       className={`
         relative rounded-lg border-2 shadow-sm
         ${isIncomplete ? 'border-goal border-dashed' : `${colors.border} ${borderStyle}`}
@@ -190,6 +191,7 @@ export const BaseNode = memo(({ id, nodeType, icon: Icon, data, selected, childr
         <div
           className="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-goal text-white flex items-center justify-center text-[10px] font-bold"
           title="Set a success threshold to enable analysis"
+          data-testid="overlay-missing-threshold"
         >
           ?
         </div>

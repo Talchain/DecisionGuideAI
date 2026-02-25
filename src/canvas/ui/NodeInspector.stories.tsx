@@ -193,3 +193,274 @@ export const DecisionNode: Story = {
   ),
   play: async ({ canvasElement }) => { await assertSummaryHeight(canvasElement) },
 }
+
+// ── S.8: Phase 2 Summary feature stories ────────────────────────────
+
+/** Minimal report fixture for post-analysis stories */
+const minimalReport = {
+  schema: 'report.v1' as const,
+  meta: { seed: 42, response_id: 'test-1', elapsed_ms: 1200 },
+  model_card: { response_hash: 'abc123', response_hash_algo: 'sha256' as const, normalized: true as const },
+  results: { conservative: 100, likely: 150, optimistic: 200 },
+  confidence: { level: 'medium' as const, why: 'Test' },
+  drivers: [],
+}
+
+export const FactorPreAnalysisNoValue: Story = {
+  name: 'Factor — pre-analysis, no value (coaching prompt)',
+  render: () => (
+    <StoreWrapper
+      nodeId="f1"
+      storeState={{
+        nodes: [
+          {
+            id: 'f1',
+            type: 'factor',
+            position: { x: 0, y: 0 },
+            data: { label: 'Customer satisfaction', kind: 'factor', category: 'controllable' },
+          },
+        ],
+        edges: [],
+        goalThreshold: null,
+        goalConstraints: [],
+        outcomeNodeId: null,
+        touchedNodeIds: new Set(),
+      }}
+    />
+  ),
+  play: async ({ canvasElement }) => { await assertSummaryHeight(canvasElement) },
+}
+
+export const FactorPostAnalysis: Story = {
+  name: 'Factor — post-analysis (influence + confidence bars)',
+  render: () => (
+    <StoreWrapper
+      nodeId="f1"
+      storeState={{
+        nodes: [
+          {
+            id: 'f1',
+            type: 'factor',
+            position: { x: 0, y: 0 },
+            data: {
+              label: 'Customer satisfaction',
+              kind: 'factor',
+              category: 'KPI',
+              observedState: { value: 72, baseline: 65, unit: '%' },
+            },
+          },
+        ],
+        edges: [
+          { id: 'e1', source: 'f1', target: 'g1', data: { weight: 0.7, direction: 'positive' } },
+        ],
+        goalThreshold: 200,
+        goalConstraints: [],
+        outcomeNodeId: null,
+        touchedNodeIds: new Set(),
+        results: {
+          status: 'complete',
+          progress: 100,
+          report: {
+            ...minimalReport,
+            factor_sensitivity: [
+              { factor_id: 'f1', elasticity: 0.85, confidence: 0.3, influence_score: 0.85 },
+              { factor_id: 'f2', elasticity: 0.4, confidence: 0.7, influence_score: 0.4 },
+            ],
+          },
+        },
+      }}
+    />
+  ),
+  play: async ({ canvasElement }) => { await assertSummaryHeight(canvasElement) },
+}
+
+export const FactorPostAnalysisFragile: Story = {
+  name: 'Factor — post-analysis with fragile badge',
+  render: () => (
+    <StoreWrapper
+      nodeId="f1"
+      storeState={{
+        nodes: [
+          {
+            id: 'f1',
+            type: 'factor',
+            position: { x: 0, y: 0 },
+            data: {
+              label: 'Customer satisfaction',
+              kind: 'factor',
+              category: 'KPI',
+              observedState: { value: 72, baseline: 65, unit: '%' },
+            },
+          },
+        ],
+        edges: [
+          { id: 'e1', source: 'f1', target: 'g1', data: { weight: 0.7, direction: 'positive' } },
+          { id: 'e-fragile', source: 'f2', target: 'f1', data: { weight: 0.5, direction: 'negative' } },
+        ],
+        goalThreshold: 200,
+        goalConstraints: [],
+        outcomeNodeId: null,
+        touchedNodeIds: new Set(),
+        results: {
+          status: 'complete',
+          progress: 100,
+          report: {
+            ...minimalReport,
+            factor_sensitivity: [
+              { factor_id: 'f1', elasticity: 0.85, confidence: 0.3, influence_score: 0.85 },
+            ],
+            robustness: {
+              fragile_edges: [
+                { edge_id: 'e-fragile', switch_probability: 0.6, from_id: 'f2', to_id: 'f1' },
+              ],
+              recommendation_stability: 0.72,
+            },
+          },
+        },
+      }}
+    />
+  ),
+  play: async ({ canvasElement }) => { await assertSummaryHeight(canvasElement) },
+}
+
+export const GoalChecklist: Story = {
+  name: 'Goal — checklist (pre-analysis, items failing)',
+  render: () => (
+    <StoreWrapper
+      nodeId="g1"
+      storeState={{
+        nodes: [
+          {
+            id: 'g1',
+            type: 'goal',
+            position: { x: 0, y: 0 },
+            data: { label: 'Increase revenue', kind: 'goal' },
+          },
+        ],
+        edges: [],
+        goalThreshold: null,
+        goalConstraints: [],
+        outcomeNodeId: 'g1',
+        touchedNodeIds: new Set(),
+      }}
+    />
+  ),
+  play: async ({ canvasElement }) => { await assertSummaryHeight(canvasElement) },
+}
+
+export const GoalPostAnalysis: Story = {
+  name: 'Goal — post-analysis (goal probability)',
+  render: () => (
+    <StoreWrapper
+      nodeId="g1"
+      storeState={{
+        nodes: [
+          {
+            id: 'g1',
+            type: 'goal',
+            position: { x: 0, y: 0 },
+            data: { label: 'Increase revenue to £2M', kind: 'goal' },
+          },
+        ],
+        edges: [
+          { id: 'e1', source: 'f1', target: 'g1', data: { weight: 0.7, direction: 'positive' } },
+        ],
+        goalThreshold: 2000000,
+        goalConstraints: [],
+        outcomeNodeId: 'g1',
+        touchedNodeIds: new Set(),
+        results: {
+          status: 'complete',
+          progress: 100,
+          report: {
+            ...minimalReport,
+            option_comparison: [
+              { option_id: 'o1', probability_of_goal: 0.73, win_probability: 0.62 },
+            ],
+            robustness: {
+              recommended_option_id: 'o1',
+              recommendation_stability: 0.85,
+            },
+          },
+        },
+      }}
+    />
+  ),
+  play: async ({ canvasElement }) => { await assertSummaryHeight(canvasElement) },
+}
+
+export const OptionPostAnalysis: Story = {
+  name: 'Option — post-analysis (win probability)',
+  render: () => (
+    <StoreWrapper
+      nodeId="o1"
+      storeState={{
+        nodes: [
+          {
+            id: 'o1',
+            type: 'option',
+            position: { x: 0, y: 0 },
+            data: {
+              label: 'Hire 3 engineers',
+              kind: 'option',
+              interventions: { f1: 85 },
+            },
+          },
+          {
+            id: 'f1',
+            type: 'factor',
+            position: { x: 100, y: 0 },
+            data: { label: 'Team size', observedState: { value: 12, unit: 'people' } },
+          },
+        ],
+        edges: [],
+        goalThreshold: 200,
+        goalConstraints: [],
+        outcomeNodeId: null,
+        touchedNodeIds: new Set(),
+        results: {
+          status: 'complete',
+          progress: 100,
+          report: {
+            ...minimalReport,
+            option_comparison: [
+              { option_id: 'o1', probability_of_goal: 0.65, win_probability: 0.62 },
+            ],
+          },
+        },
+      }}
+    />
+  ),
+  play: async ({ canvasElement }) => { await assertSummaryHeight(canvasElement) },
+}
+
+export const ActionRow: Story = {
+  name: 'Factor — confirmed (action row checkmark highlighted)',
+  render: () => (
+    <StoreWrapper
+      nodeId="f1"
+      storeState={{
+        nodes: [
+          {
+            id: 'f1',
+            type: 'factor',
+            position: { x: 0, y: 0 },
+            data: {
+              label: 'Customer satisfaction score',
+              kind: 'factor',
+              category: 'KPI',
+              observedState: { value: 72, baseline: 65, unit: '%' },
+            },
+          },
+        ],
+        edges: [],
+        goalThreshold: null,
+        goalConstraints: [],
+        outcomeNodeId: null,
+        touchedNodeIds: new Set(),
+        confirmedNodeIds: new Set(['f1']),
+      }}
+    />
+  ),
+  play: async ({ canvasElement }) => { await assertSummaryHeight(canvasElement) },
+}

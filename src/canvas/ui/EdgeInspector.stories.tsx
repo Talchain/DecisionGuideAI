@@ -196,3 +196,92 @@ export const NeutralEdge: Story = {
   ),
   play: async ({ canvasElement }) => { await assertSummaryHeight(canvasElement) },
 }
+
+// ── S.8: Phase 2 Summary feature stories ────────────────────────────
+
+/** Minimal report fixture for post-analysis stories */
+const minimalReport = {
+  schema: 'report.v1' as const,
+  meta: { seed: 42, response_id: 'test-1', elapsed_ms: 1200 },
+  model_card: { response_hash: 'abc123', response_hash_algo: 'sha256' as const, normalized: true as const },
+  results: { conservative: 100, likely: 150, optimistic: 200 },
+  confidence: { level: 'medium' as const, why: 'Test' },
+  drivers: [],
+}
+
+export const EdgeWithStrengthBar: Story = {
+  name: 'Edge — with strength bar (positive)',
+  render: () => (
+    <StoreWrapper
+      edgeId="e1"
+      storeState={{
+        nodes: baseNodes,
+        edges: [
+          {
+            id: 'e1',
+            type: 'styled',
+            source: 'n1',
+            target: 'n2',
+            data: {
+              weight: 0.7,
+              direction: 'positive',
+              beliefExists: 0.85,
+              belief: 0.85,
+              style: 'solid' as const,
+              curvature: 0.15,
+              pathType: 'bezier' as const,
+            },
+          },
+        ],
+        touchedNodeIds: new Set(),
+        runMeta: { ceeReview: null },
+      }}
+    />
+  ),
+  play: async ({ canvasElement }) => { await assertSummaryHeight(canvasElement) },
+}
+
+export const EdgeNegativeFragile: Story = {
+  name: 'Edge — negative + fragile pill',
+  render: () => (
+    <StoreWrapper
+      edgeId="e1"
+      storeState={{
+        nodes: baseNodes,
+        edges: [
+          {
+            id: 'e1',
+            type: 'styled',
+            source: 'n1',
+            target: 'n2',
+            data: {
+              weight: 0.4,
+              direction: 'negative',
+              beliefExists: 0.6,
+              belief: 0.6,
+              style: 'solid' as const,
+              curvature: 0.15,
+              pathType: 'bezier' as const,
+            },
+          },
+        ],
+        touchedNodeIds: new Set(),
+        runMeta: { ceeReview: null },
+        results: {
+          status: 'complete',
+          progress: 100,
+          report: {
+            ...minimalReport,
+            robustness: {
+              fragile_edges: [
+                { edge_id: 'e1', switch_probability: 0.5, from_id: 'n1', to_id: 'n2' },
+              ],
+              recommendation_stability: 0.68,
+            },
+          },
+        },
+      }}
+    />
+  ),
+  play: async ({ canvasElement }) => { await assertSummaryHeight(canvasElement) },
+}

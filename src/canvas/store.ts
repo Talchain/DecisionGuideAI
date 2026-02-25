@@ -257,6 +257,8 @@ interface CanvasState {
   highlightedNodes: Set<string>
   highlightedEdges: Set<string>
   dimmedNodeIds: Set<string>
+  // S.4: Session-only "user-reviewed" tracking — resets on page refresh
+  confirmedNodeIds: Set<string>
   // Decision Graph Display v2 Task 11: Option hover state for intervention highlighting
   hoveredOptionId: string | null
   // M5: Grounding & Provenance
@@ -426,6 +428,8 @@ interface CanvasState {
   setHighlightedNodes: (ids: string[]) => void
   setHighlightedEdges: (ids: string[]) => void
   setDimmedNodes: (ids: string[]) => void
+  // S.4: Toggle "user-reviewed" confirmation on a node (session-only)
+  toggleConfirmedNode: (nodeId: string) => void
   // M5: Provenance actions
   addDocument: (document: Omit<Document, 'id' | 'uploadedAt'>) => string
   removeDocument: (id: string) => void
@@ -847,6 +851,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   highlightedNodes: new Set<string>(),
   highlightedEdges: new Set<string>(),
   dimmedNodeIds: new Set<string>(),
+  confirmedNodeIds: new Set<string>(),
   hoveredOptionId: null,
   // M5: Grounding & Provenance
   documents: [],
@@ -2577,6 +2582,17 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   },
   setDimmedNodes: (ids: string[]) => {
     set({ dimmedNodeIds: new Set(ids) })
+  },
+  // S.4: Toggle "user-reviewed" confirmation (session-only, resets on refresh)
+  toggleConfirmedNode: (nodeId: string) => {
+    const current = get().confirmedNodeIds
+    const next = new Set(current)
+    if (next.has(nodeId)) {
+      next.delete(nodeId)
+    } else {
+      next.add(nodeId)
+    }
+    set({ confirmedNodeIds: next })
   },
   // Decision Graph Display v2 Task 11: Option hover for intervention highlighting
   setHoveredOption: (optionId: string | null) => {

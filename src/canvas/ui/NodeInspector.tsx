@@ -5,6 +5,7 @@
  */
 
 import { memo, useState, useCallback, useRef, useEffect, useMemo } from 'react'
+import { AlertTriangle, Check, Pencil } from 'lucide-react'
 import { useCanvasStore } from '../store'
 import { NODE_REGISTRY } from '../domain/nodes'
 import type { NodeType } from '../domain/nodes'
@@ -15,9 +16,11 @@ import { UserMappingForm, NeedsMappingPrompt } from '../components/UserMappingFo
 import { normaliseOptionFromLegacyNode, type LegacyOptionNode, type UIOption } from '../../types/options'
 import { InspectorAccordion } from './inspector'
 import { GoalThresholdEditor } from './inspector/GoalThresholdEditor'
+import { GoalProgressChecklist } from './inspector/GoalProgressChecklist'
 import { typography } from '../../styles/typography'
 import { isGoalDefined } from '../../utils/isGoalDefined'
 import { detectBaseline } from '../utils/baselineDetection'
+import { useNodeDisplayMetadata } from '../hooks/useNodeDisplayMetadata'
 
 interface ObservedState {
   value: number
@@ -40,6 +43,10 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
   const isResultsMode = resultsStatus === 'complete'
   const goalThreshold = useCanvasStore(s => s.goalThreshold)
   const goalConstraints = useCanvasStore(s => s.goalConstraints)
+  // S.4: Session-only "user-reviewed" tracking
+  const confirmedNodeIds = useCanvasStore(s => s.confirmedNodeIds)
+  const toggleConfirmedNode = useCanvasStore(s => s.toggleConfirmedNode)
+  const isConfirmed = confirmedNodeIds.has(nodeId)
 
   const node = nodes.find(n => n.id === nodeId)
   const [label, setLabel] = useState<string>(String(node?.data?.label ?? ''))
@@ -139,6 +146,32 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
   const isGoalNode = currentType === 'goal'
   const goalDefined = isGoalDefined(goalThreshold, goalConstraints)
 
+  // S.4: State for programmatic section opening from Edit button
+  const [requestOpenSection, setRequestOpenSection] = useState<'assumptions' | null>(null)
+
+  // S.3: Post-analysis intelligence from existing data paths (P5)
+  const displayMetadata = useNodeDisplayMetadata(nodeId, currentType)
+  const edges = useCanvasStore(s => s.edges)
+  const robustness = useCanvasStore(s => s.results?.report?.robustness)
+
+  // S.3 correction #3: Summary content priority — coaching card OR bars, never both
+  const [showInsightBars, setShowInsightBars] = useState(false)
+  const hasCoachingCard = isFactorNode &&
+    displayMetadata.isResultsMode &&
+    displayMetadata.inSensitivityAnalysis &&
+    displayMetadata.influence !== null &&
+    displayMetadata.confidence !== null &&
+    displayMetadata.influence >= 0.7 &&
+    displayMetadata.confidence < 0.5
+
+  // Check if this factor is target of a fragile edge
+  const isFragileTarget = useMemo(() => {
+    if (!robustness?.fragile_edges || !isFactorNode) return false
+    return edges.some(e =>
+      e.target === nodeId && robustness.fragile_edges?.includes(e.id)
+    )
+  }, [robustness, edges, nodeId, isFactorNode])
+
   // ─── SUMMARY ───────────────────────────────────────────────────────
   const summaryContent = (
     <div className="pb-2">
@@ -159,6 +192,39 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
         {node.data?.label || 'Untitled'}
       </p>
 
+      {/* S.4: Inline action row — Confirm + Edit */}
+      <div className="flex items-center gap-1 mt-1.5" data-testid="inspector-action-row">
+        <button
+          type="button"
+          onClick={() => toggleConfirmedNode(nodeId)}
+          className={`w-7 h-7 flex items-center justify-center rounded transition-colors ${
+            isConfirmed
+              ? 'bg-success-light text-success'
+              : 'bg-transparent text-text-light hover:bg-panel-hover'
+          }`}
+          aria-label={isConfirmed ? 'Unmark as reviewed' : 'Mark as reviewed'}
+          title={isConfirmed ? 'Reviewed' : 'Mark as reviewed'}
+        >
+          <Check size={14} />
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setRequestOpenSection('assumptions')
+            // Focus first editable field after accordion transition
+            setTimeout(() => {
+              const el = document.getElementById('node-title') || document.getElementById('factor-unit')
+              el?.focus()
+            }, 150)
+          }}
+          className="w-7 h-7 flex items-center justify-center rounded bg-transparent text-text-light hover:bg-panel-hover transition-colors"
+          aria-label="Edit assumptions"
+          title="Edit assumptions"
+        >
+          <Pencil size={14} />
+        </button>
+      </div>
+
       {/* B.I.5: Factor category pill — neutral styling for all categories */}
       {isFactorNode && node.data?.category && (
         <span className={`inline-flex items-center mt-1.5 px-2 py-0.5 rounded-full ${typography.panelMeta} bg-panel text-text-light border border-panel-border`}>
@@ -166,27 +232,34 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
         </span>
       )}
 
-      {/* KPI row: Factor current value */}
+      {/* KPI row: Factor current value — S.2: raw_value check first to prevent "0.6 %" on normalised factors */}
       {isFactorNode && existingObservedState?.value !== undefined && (
         <div className="flex items-center justify-between mt-2 px-2 py-1 bg-panel rounded border border-panel-border">
-          <span className={`${typography.panelMeta} text-text-light`}>Current value</span>
+          <span className={`${typography.panelMeta} text-text-light flex items-center gap-1`}>
+            Current value
+            {isConfirmed && <Check size={10} className="text-success" aria-label="Reviewed" />}
+          </span>
           <span className={`${typography.panelBody} font-medium text-text-body tabular-nums`}>
-            {existingObservedState.unit
-              ? `${existingObservedState.value} ${existingObservedState.unit}`
-              : existingObservedState.raw_value != null
-                ? `${existingObservedState.value} on 0\u20131 scale`
+            {existingObservedState.raw_value != null
+              ? `${existingObservedState.value} on 0\u20131 scale`
+              : existingObservedState.unit && !(existingObservedState.unit === '%' && existingObservedState.value <= 1)
+                ? `${existingObservedState.value} ${existingObservedState.unit}`
                 : existingObservedState.value}
           </span>
         </div>
       )}
 
-      {/* B.I.8: Goal coaching card */}
-      {isGoalNode && !goalDefined && (
-        <div className="mt-2 p-2 bg-info-light border border-info/30 rounded">
-          <p className={`${typography.panelMeta} text-info`}>
-            Set a success threshold so analysis can compute the probability of reaching it.
-          </p>
-        </div>
+      {/* S.6: Goal progress checklist (pre-analysis) replaces single coaching card */}
+      {isGoalNode && !isResultsMode && (
+        <GoalProgressChecklist
+          nodeId={nodeId}
+          onExpandAssumptions={() => {
+            setRequestOpenSection('assumptions')
+            setTimeout(() => {
+              document.getElementById('goal-threshold')?.focus()
+            }, 150)
+          }}
+        />
       )}
 
       {/* KPI row: Goal threshold */}
@@ -225,6 +298,124 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
           <span className={`${typography.panelBody} font-medium text-text-body tabular-nums`}>
             {(node.data.prior * 100).toFixed(0)}%
           </span>
+        </div>
+      )}
+
+      {/* S.3: Factor post-analysis intelligence */}
+      {isFactorNode && displayMetadata.isResultsMode && displayMetadata.inSensitivityAnalysis && (
+        <div className="mt-3 pt-2 border-t border-panel-border">
+          {/* Fragile badge */}
+          {isFragileTarget && (
+            <span className={`inline-flex items-center px-2 py-0.5 rounded-full ${typography.panelMeta} bg-danger-light text-danger mb-2`}>
+              Fragile link
+            </span>
+          )}
+
+          {/* Correction #3: Coaching card takes priority over bars */}
+          {hasCoachingCard && !showInsightBars ? (
+            <>
+              <div className={`flex items-start gap-1.5 p-2 bg-warning-light border border-warning/30 rounded ${typography.panelMeta} text-warning`}>
+                <AlertTriangle size={12} className="flex-shrink-0 mt-0.5" />
+                <span>High influence but low confidence. Consider gathering more data to reduce uncertainty.</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowInsightBars(true)}
+                className={`${typography.panelMeta} text-info hover:underline mt-1`}
+              >
+                Show details
+              </button>
+            </>
+          ) : (
+            <>
+              {/* Influence bar */}
+              {displayMetadata.influence !== null && (
+                <div className="mb-2">
+                  <div className="flex justify-between items-center mb-1">
+                    <span className={`${typography.panelMeta} text-text-light flex items-center gap-1.5`}>
+                      Influence
+                      {displayMetadata.sensitivityRank !== null && (
+                        <span className={`inline-flex items-center px-1.5 py-0.5 rounded ${typography.panelMeta} bg-warning-light text-warning`}>
+                          #{displayMetadata.sensitivityRank}
+                        </span>
+                      )}
+                    </span>
+                    <span className={`${typography.panelMeta} text-text-body`}>
+                      {Math.round(displayMetadata.influence * 100)}%
+                    </span>
+                  </div>
+                  <div className="h-1.5 bg-panel-border rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-info rounded-full transition-all duration-300"
+                      style={{ width: `${Math.max(displayMetadata.influence * 100, 2)}%` }}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Confidence bar */}
+              {displayMetadata.confidence !== null && (
+                <div className="mb-2">
+                  <div className="flex justify-between items-center mb-1">
+                    <span className={`${typography.panelMeta} text-text-light`}>Confidence</span>
+                    <span className={`${typography.panelMeta} text-text-body`}>
+                      {Math.round(displayMetadata.confidence * 100)}%
+                    </span>
+                  </div>
+                  <div className="h-1.5 bg-panel-border rounded-full overflow-hidden">
+                    <div
+                      className={`h-full rounded-full transition-all duration-300 ${
+                        displayMetadata.confidence < 0.5 ? 'bg-warning' : 'bg-success'
+                      }`}
+                      style={{ width: `${Math.max(displayMetadata.confidence * 100, 2)}%` }}
+                    />
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      )}
+
+      {/* S.3: Factor not in sensitivity analysis */}
+      {isFactorNode && displayMetadata.isResultsMode && !displayMetadata.inSensitivityAnalysis && (
+        <div className="mt-3 pt-2 border-t border-panel-border">
+          <p className={`${typography.panelMeta} text-text-light italic`}>
+            Insights not available for this factor
+          </p>
+        </div>
+      )}
+
+      {/* S.3: Goal post-analysis — achievement probability or stability */}
+      {isGoalNode && displayMetadata.isResultsMode && (
+        <div className="mt-3 pt-2 border-t border-panel-border">
+          {displayMetadata.achievementProbability !== null ? (
+            <div className="flex items-center justify-between px-2 py-1 bg-panel rounded border border-panel-border">
+              <span className={`${typography.panelMeta} text-text-light`}>Goal probability</span>
+              <span className={`${typography.panelBody} font-medium text-text-body tabular-nums`}>
+                {Math.round(displayMetadata.achievementProbability * 100)}%
+              </span>
+            </div>
+          ) : displayMetadata.stabilityPercentage !== null ? (
+            <div className="flex items-center justify-between px-2 py-1 bg-panel rounded border border-panel-border">
+              <span className={`${typography.panelMeta} text-text-light`}>Recommendation stability</span>
+              <span className={`${typography.panelBody} font-medium text-text-body tabular-nums`}>
+                {Math.round(displayMetadata.stabilityPercentage * 100)}%
+              </span>
+            </div>
+          ) : null}
+        </div>
+      )}
+
+      {/* S.3: Option post-analysis — win probability */}
+      {isOptionNode && displayMetadata.isResultsMode && displayMetadata.winRate !== null && (
+        <div className="mt-3 pt-2 border-t border-panel-border">
+          <div className="flex items-center justify-between px-2 py-1 bg-panel rounded border border-panel-border">
+            <span className={`${typography.panelMeta} text-text-light`}>Win probability</span>
+            <span className={`${typography.panelBody} font-medium text-text-body tabular-nums`}>
+              {Math.round(displayMetadata.winRate * 100)}%
+            </span>
+          </div>
         </div>
       )}
     </div>
@@ -499,6 +690,7 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
         assumptions={assumptionsContent}
         advanced={advancedContent}
         defaultOpen="assumptions"
+        requestOpenSection={requestOpenSection}
         testId="node-inspector"
       />
     </div>

@@ -20,7 +20,6 @@ import { CanvasToolbar } from './CanvasToolbar'
 import { LeftSidebar } from '../components/layout/LeftSidebar'
 import { RightPanel } from '../components/layout/RightPanel'
 import { AlignmentGuides } from './components/AlignmentGuides'
-import { InspectorPopover } from './components/InspectorPopover'
 import { InspectorModal } from './components/InspectorModal'
 import { CommandPalette } from './components/CommandPalette'
 import { ReconnectBanner } from './components/ReconnectBanner'
@@ -397,8 +396,6 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
   const [isDragging, setIsDragging] = useState(false)
   const [showCommandPalette, setShowCommandPalette] = useState(false)
   const [showFullInspector, setShowFullInspector] = useState(false)
-  const [suppressPopover, setSuppressPopover] = useState(false)
-  const suppressTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [pendingBlueprint, setPendingBlueprint] = useState<Blueprint | null>(null)
   const [existingTemplate, setExistingTemplate] = useState<{ id: string; name: string } | null>(null)
   const { isOpen: isKeyboardLegendOpen, open: openKeyboardLegend, close: closeKeyboardLegend } = useKeyboardLegend()
@@ -428,14 +425,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
     }
   }, [openOnboarding, openKeyboardLegend, showInfluenceExplainer])
 
-  // Cleanup suppressPopover timeout on unmount
-  useEffect(() => {
-    return () => {
-      if (suppressTimeoutRef.current) {
-        clearTimeout(suppressTimeoutRef.current)
-      }
-    }
-  }, [])
+  // S.1: suppressPopover removed — compact popover no longer renders
 
   // P0-7: Quick-add mode state
   const [quickAddMode, setQuickAddMode] = useState(false)
@@ -784,12 +774,17 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
     if (reconnecting) {
       completeReconnect(node.id)
       showToast('Connector updated — press ⌘Z to undo.', 'success')
+    } else {
+      // S.1: One click, full context — open full inspector immediately
+      setShowFullInspector(true)
     }
   }, [reconnecting, completeReconnect, showToast, onCanvasInteraction])
 
   const handleEdgeClick = useCallback(() => {
     // Close Templates panel when clicking an edge
     onCanvasInteraction?.()
+    // S.1: One click, full context — open full inspector immediately
+    setShowFullInspector(true)
   }, [onCanvasInteraction])
 
   // Double-click handlers for opening full inspector modal
@@ -1618,22 +1613,11 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
   const onNodeDragStart = useCallback((_: React.MouseEvent | MouseEvent, node: any) => {
     setDraggingNodeIds(prev => new Set([...prev, node.id]))
     setIsDragging(true)
-    setSuppressPopover(true)
-
-    // Clear any pending timeout
-    if (suppressTimeoutRef.current) {
-      clearTimeout(suppressTimeoutRef.current)
-    }
   }, [])
 
   const onNodeDragStop = useCallback(() => {
     setDraggingNodeIds(new Set())
     setIsDragging(false)
-
-    // Keep suppressed for 150ms after drag ends to prevent flash
-    suppressTimeoutRef.current = setTimeout(() => {
-      setSuppressPopover(false)
-    }, 150)
   }, [])
 
   const handleCloseContextMenu = useCallback(() => setContextMenu(null), [])
@@ -1934,9 +1918,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
           <InfluenceExplainer forceShow={isInfluenceExplainerForced} onDismiss={hideInfluenceExplainer} compact />
         </div>
       )}
-      {!showFullInspector && !suppressPopover && (
-        <InspectorPopover onExpandToFull={() => setShowFullInspector(true)} />
-      )}
+      {/* S.1: Compact popover removed — single-click now opens full inspector directly */}
       {showFullInspector && (
         <InspectorModal
           nodeId={selectedNodeId}

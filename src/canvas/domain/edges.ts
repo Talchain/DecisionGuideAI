@@ -374,6 +374,17 @@ export function clampBelief(belief: number): number {
 }
 
 /**
+ * S.3: Get edge confidence, checking beliefExists then legacy belief.
+ * Prevents dual-field inconsistency — use this everywhere confidence is needed.
+ */
+export function getEdgeConfidence(edgeData: Record<string, unknown> | undefined): number | null {
+  if (!edgeData) return null
+  if (typeof edgeData.beliefExists === 'number') return edgeData.beliefExists
+  if (typeof edgeData.belief === 'number') return edgeData.belief
+  return null
+}
+
+/**
  * Trim provenance to max length
  */
 export function trimProvenance(provenance: string): string {

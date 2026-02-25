@@ -7,7 +7,7 @@
  *  T3  Edge inspector + signed slider
  *  T4  Option inspector + baseline detection
  *  T5  Pre-run canvas overlay (dashed borders, badges)
- *  T6  Compact inspector
+ *  T6  Single-click opens full inspector (S.1)
  *  T7  Terminology pass verification
  *  T8  Accordion mutual exclusion
  */
@@ -94,6 +94,10 @@ async function loadInspectorFixture(page: Page) {
         id: 'e-f3-f1', source: 'factor-3', target: 'factor-1',
         data: { weight: 0.3, direction: 'negative', belief: 0.5, style: 'dashed', pathType: 'bezier', schemaVersion: 4 },
       },
+      {
+        id: 'e-no-confidence', source: 'option-active', target: 'factor-2',
+        data: { weight: 0.4, direction: 'positive', style: 'solid', pathType: 'bezier', schemaVersion: 4 },
+      },
     ]
 
     // @ts-ignore — Zustand setState: set nodes/edges and dismiss the DraftChat overlay
@@ -123,30 +127,11 @@ async function openFullInspectorByLabel(page: Page, label: string) {
 }
 
 /**
- * Click a node by label to open the compact inspector popover.
- */
-async function openCompactInspectorByLabel(page: Page, label: string) {
-  const node = page.locator('.react-flow__node').filter({ hasText: label }).first()
-  await expect(node).toBeVisible({ timeout: 5000 })
-  await node.click()
-  // Wait for the compact popover to appear
-  await page.waitForTimeout(600)
-}
-
-/**
  * Close the full inspector modal via Escape key.
  */
 async function closeFullInspector(page: Page) {
   await page.keyboard.press('Escape')
   await expect(page.locator('div[aria-labelledby="inspector-panel-title"]')).not.toBeVisible({ timeout: 3000 })
-}
-
-/**
- * Close any popover by clicking empty canvas area, then wait.
- */
-async function closePopover(page: Page) {
-  await page.locator('.react-flow__pane').click({ position: { x: 10, y: 10 } })
-  await page.waitForTimeout(300)
 }
 
 /**
@@ -357,28 +342,49 @@ test.describe('Inspector Phase 1 (Track B)', () => {
     const count = await nodes.count()
     expect(count).toBeGreaterThanOrEqual(7)
 
+    // S.7: Assert overlay data-testid markers are present
+    // Goal node has no threshold set → "?" badge with data-testid="overlay-missing-threshold"
+    const missingThresholdBadge = page.locator('[data-testid="overlay-missing-threshold"]')
+    await expect(missingThresholdBadge.first()).toBeVisible()
+
+    // Goal node wrapper has dashed border overlay
+    const missingThresholdNode = page.locator('[data-testid="overlay-missing-threshold-node"]')
+    await expect(missingThresholdNode.first()).toBeVisible()
+
+    // Decision node has no outgoing edges → overlay-missing-value on the decision wrapper
+    const missingValueNode = page.locator('[data-testid="overlay-missing-value"]')
+    await expect(missingValueNode.first()).toBeVisible()
+
+    // Edge e-no-confidence has no belief/beliefExists → overlay-missing-confidence on hitbox path
+    const missingConfidence = page.locator('[data-testid="overlay-missing-confidence"]')
+    await expect(missingConfidence.first()).toBeAttached()
+
     // Screenshot the full canvas in pre-run state
     await page.screenshot({ path: path.join(SCREENSHOT_DIR, 'canvas-pre-run-overlay.png') })
   })
 
-  // ── T6: Compact inspector ───────────────────────────────────────
+  // ── T6: Single-click opens full inspector (S.1) ────────────────
 
-  test('T6 — Compact inspector shows read-only structure', async ({ page }) => {
-    // Single-click opens compact popover
-    await openCompactInspectorByLabel(page, 'Customer satisfaction')
+  test('T6 — Single-click opens full inspector', async ({ page }) => {
+    // S.1: Single-click on a node opens the full 4-section accordion inspector
+    const factorNode = page.locator('.react-flow__node').filter({ hasText: 'Customer satisfaction' }).first()
+    await expect(factorNode).toBeVisible({ timeout: 5000 })
+    await factorNode.click()
 
-    // No Type dropdown visible in compact
-    const typeSelect = page.locator('select[data-testid="select-node-type"]')
-    await expect(typeSelect).toHaveCount(0)
+    // Full inspector modal should appear (not the compact popover)
+    await expect(page.locator('div[aria-labelledby="inspector-panel-title"]')).toBeVisible({ timeout: 5000 })
 
-    // No "Probabilities" text
-    await expect(page.locator('text=Probabilities')).toHaveCount(0)
+    // Accordion sections visible
+    const dialog = page.locator('div[aria-labelledby="inspector-panel-title"]')
+    await expect(dialog.getByText('ASSUMPTIONS')).toBeVisible()
+    await expect(dialog.getByText('ADVANCED')).toBeVisible()
 
-    // No "Use as Outcome Node" checkbox
-    await expect(page.locator('text=Use as Outcome Node')).toHaveCount(0)
+    // No compact popover rendered
+    // (InspectorPopover was removed in S.1, but verify no popover-like element exists)
+    await expect(page.locator('[data-testid="inspector-popover"]')).toHaveCount(0)
 
     // Screenshot
-    await page.screenshot({ path: path.join(SCREENSHOT_DIR, 'compact-inspector.png') })
+    await page.screenshot({ path: path.join(SCREENSHOT_DIR, 'single-click-full-inspector.png') })
   })
 
   // ── T7: Terminology pass verification ────────────────────────────

@@ -282,6 +282,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
         style={{ pointerEvents: 'stroke' }}
+        {...(isPreRunIncompleteEdge ? { 'data-testid': 'overlay-missing-confidence' } : {})}
       />
       <BaseEdge
         id={id}

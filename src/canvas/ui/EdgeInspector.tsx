@@ -7,12 +7,13 @@
 import { memo, useState, useCallback, useEffect, useRef, useMemo } from 'react'
 import { Lightbulb, Check } from 'lucide-react'
 import { useCanvasStore } from '../store'
-import { EDGE_CONSTRAINTS, type EdgeStyle, type EdgePathType, DEFAULT_EDGE_DATA } from '../domain/edges'
+import { EDGE_CONSTRAINTS, type EdgeStyle, type EdgePathType, DEFAULT_EDGE_DATA, getEdgeConfidence } from '../domain/edges'
 import { useToast } from '../ToastContext'
 import { Tooltip } from '../components/Tooltip'
 import { typography } from '../../styles/typography'
 import { InspectorAccordion } from './inspector'
 import { SignedStrengthSlider } from './inspector/SignedStrengthSlider'
+import { StrengthBar } from './inspector/StrengthBar'
 import type { WeightSuggestion } from '../decisionReview/types'
 
 interface EdgeInspectorProps {
@@ -27,6 +28,10 @@ export const EdgeInspector = memo(({ edgeId, onClose }: EdgeInspectorProps) => {
   const deleteEdge = useCanvasStore(s => s.deleteEdge)
   const beginReconnect = useCanvasStore(s => s.beginReconnect)
   const ceeReview = useCanvasStore(s => s.runMeta.ceeReview)
+  // S.3: Post-analysis robustness data for fragile edge detection
+  const resultsStatus = useCanvasStore(s => s.results?.status)
+  const isResultsMode = resultsStatus === 'complete'
+  const robustness = useCanvasStore(s => s.results?.report?.robustness)
   const { showToast } = useToast()
 
   const edge = edges.find(e => e.id === edgeId)
@@ -49,6 +54,21 @@ export const EdgeInspector = memo(({ edgeId, onClose }: EdgeInspectorProps) => {
     const w = edge?.data?.weight ?? 0.5
     return edge?.data?.direction === 'negative' ? -w : w
   }, [edge?.data?.weight, edge?.data?.direction])
+
+  // S.3: Check if this edge is fragile (in robustness.fragile_edges)
+  const isFragileEdge = useMemo(() => {
+    if (!robustness?.fragile_edges) return false
+    return (robustness.fragile_edges as any[]).some((fe: any) => {
+      const feId = fe.edge_id || fe.edgeId || fe
+      if (feId === edgeId) return true
+      const fromId = fe.from_id ?? fe.fromId ?? fe.source
+      const toId = fe.to_id ?? fe.toId ?? fe.target
+      return fromId === edge?.source && toId === edge?.target
+    })
+  }, [robustness, edgeId, edge?.source, edge?.target])
+
+  // S.3: Edge confidence from beliefExists (preferred) or belief (legacy)
+  const edgeConfidence = getEdgeConfidence(edge?.data as Record<string, unknown> | undefined)
 
   // Local state for immediate UI updates
   const [signedValue, setSignedValue] = useState<number>(initialSignedValue)
@@ -224,15 +244,30 @@ export const EdgeInspector = memo(({ edgeId, onClose }: EdgeInspectorProps) => {
         <span className="font-medium">{targetLabel}</span>
       </div>
 
-      {/* Helps/Hurts magnitude (read-only) */}
-      <div className="flex items-center justify-between px-2 py-1 bg-panel rounded border border-panel-border">
-        <span className={`${typography.panelMeta} ${directionColor} font-medium`}>
-          {directionLabel}
-        </span>
-        <span className={`${typography.panelBody} font-medium text-text-body tabular-nums`}>
-          {signedValue >= 0 ? '+' : ''}{signedValue.toFixed(2)}
-        </span>
+      {/* S.5: Visual strength bar */}
+      <div className="mt-2">
+        <StrengthBar
+          weight={Math.abs(signedValue)}
+          direction={signedValue >= 0 ? 'positive' : 'negative'}
+        />
       </div>
+
+      {/* S.3: Confidence KPI (read-only) */}
+      {edgeConfidence !== null && (
+        <div className="flex items-center justify-between mt-2 px-2 py-1 bg-panel rounded border border-panel-border">
+          <span className={`${typography.panelMeta} text-text-light`}>Confidence</span>
+          <span className={`${typography.panelBody} font-medium text-text-body tabular-nums`}>
+            {Math.round(edgeConfidence * 100)}%
+          </span>
+        </div>
+      )}
+
+      {/* S.3: Fragile edge warning pill (post-analysis) */}
+      {isFragileEdge && (
+        <span className={`inline-flex items-center mt-2 px-2 py-0.5 rounded-full ${typography.panelMeta} bg-danger-light text-danger`}>
+          Fragile
+        </span>
+      )}
 
       {/* Live region for announcements */}
       <div role="status" aria-live="polite" aria-atomic="true" className="sr-only">
@@ -352,7 +387,6 @@ export const EdgeInspector = memo(({ edgeId, onClose }: EdgeInspectorProps) => {
         <p className={`${typography.panelMeta} text-text-light mt-1`}>
           Short label for this connection.
         </p>
-        {/* TODO(phase-2): Render edge labels on canvas */}
       </div>
     </div>
   )
