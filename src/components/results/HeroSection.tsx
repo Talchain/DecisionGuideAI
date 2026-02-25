@@ -625,11 +625,14 @@ export function HeroSection({
   // Stability
   // =========================================================================
   const rawStabilityTier = getStabilityTier(recommendationStability)
-  // V12.4: Override stability badge when decision is indeterminate to avoid
-  // contradicting the "No clear winner" hero headline with "Highly sensitive".
+  // V12.4: Override stability badge when decisionState contradicts rawStabilityTier.
+  // - indeterminate: "No clear winner" headline must not show "Highly sensitive"
+  // - sensitive (readiness downgrade): hero says sensitive but raw stability is green
   const stabilityTier = decisionState === 'indeterminate'
     ? { ...rawStabilityTier, label: 'Too close to call', colorClass: 'text-info' }
-    : rawStabilityTier
+    : decisionState === 'sensitive' && rawStabilityTier.colorClass === 'text-success'
+      ? { ...rawStabilityTier, label: 'Sensitive to assumptions', colorClass: 'text-warning' }
+      : rawStabilityTier
   const stabilityPct = recommendationStability != null
     ? Math.round(recommendationStability * 100)
     : null

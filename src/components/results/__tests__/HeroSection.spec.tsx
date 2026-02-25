@@ -1072,9 +1072,9 @@ describe('HeroSection', () => {
   })
 
   // ===========================================================================
-  // V12.4: Stability tier override for indeterminate
+  // V12.4: Stability tier override (indeterminate + readiness downgrade)
   // ===========================================================================
-  describe('V12.4: Stability tier override for indeterminate', () => {
+  describe('V12.4: Stability tier override (indeterminate + readiness downgrade)', () => {
     it('shows "Too close to call" instead of "Highly sensitive" when decisionState is indeterminate', () => {
       render(
         <HeroSection
@@ -1129,6 +1129,65 @@ describe('HeroSection', () => {
       const badge = screen.getByText('Too close to call')
       expect(badge).toHaveClass('text-info')
       expect(badge).not.toHaveClass('text-danger')
+    })
+
+    it('overrides "Stable result" to "Sensitive to assumptions" when readiness downgraded to sensitive', () => {
+      // stability=0.90 → getStabilityTier returns "Stable result" (text-success)
+      // but decisionState='sensitive' due to readiness downgrade
+      render(
+        <HeroSection
+          {...baseProps}
+          decisionState="sensitive"
+          recommendationStability={0.90}
+        />
+      )
+
+      expect(screen.getByText('Sensitive to assumptions')).toBeInTheDocument()
+      expect(screen.queryByText('Stable result')).not.toBeInTheDocument()
+    })
+
+    it('overrides "Mostly stable" to "Sensitive to assumptions" when readiness downgraded to sensitive', () => {
+      // stability=0.75 → getStabilityTier returns "Mostly stable" (text-success)
+      // but decisionState='sensitive' due to readiness downgrade
+      render(
+        <HeroSection
+          {...baseProps}
+          decisionState="sensitive"
+          recommendationStability={0.75}
+        />
+      )
+
+      expect(screen.getByText('Sensitive to assumptions')).toBeInTheDocument()
+      expect(screen.queryByText('Mostly stable')).not.toBeInTheDocument()
+    })
+
+    it('uses text-warning colour for readiness-downgraded sensitive badge', () => {
+      render(
+        <HeroSection
+          {...baseProps}
+          decisionState="sensitive"
+          recommendationStability={0.90}
+        />
+      )
+
+      const badge = screen.getByText('Sensitive to assumptions')
+      expect(badge).toHaveClass('text-warning')
+      expect(badge).not.toHaveClass('text-success')
+    })
+
+    it('does NOT override when sensitive state matches natural stability tier', () => {
+      // stability=0.60 → getStabilityTier returns "Sensitive to assumptions" (text-warning)
+      // decisionState='sensitive' — no contradiction, no override needed
+      render(
+        <HeroSection
+          {...baseProps}
+          decisionState="sensitive"
+          recommendationStability={0.60}
+        />
+      )
+
+      const badge = screen.getByText('Sensitive to assumptions')
+      expect(badge).toHaveClass('text-warning')
     })
   })
 })
