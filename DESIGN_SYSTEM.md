@@ -1,4 +1,6 @@
-# Olumi Design System (Two-Shade System v2.0)
+# Olumi Design System — Quick Reference
+
+> Full specification: [`docs/Design/Olumi_Design_System_v2_1.md`](docs/Design/Olumi_Design_System_v2_1.md)
 
 ## Philosophy
 
@@ -162,8 +164,9 @@ These aliases are defined in `brand.css` and `tailwind.config.js` for backward c
 
 ## Key Files
 
-- `src/styles/brand.css` — CSS custom properties (source of truth)
-- `tailwind.config.js` — Tailwind color mappings
-- `src/canvas/nodes/colors.ts` — Node color classes
-- `src/canvas/theme/nodes.ts` — Node theme tokens
+- `docs/Design/Olumi_Design_System_v2_1.md` — Full design system specification
+- `src/styles/brand.css` — CSS custom properties (colour source of truth)
+- `tailwind.config.js` — Tailwind colour mappings
 - `src/styles/typography.ts` — Typography tokens
+- `src/canvas/nodes/colors.ts` — Node colour classes
+- `src/canvas/theme/nodes.ts` — Node theme tokens

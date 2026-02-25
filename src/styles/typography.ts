@@ -1,16 +1,8 @@
 /**
- * Olumi Typography System (v1.2 Aligned)
+ * Olumi Typography System (Design System v2.1)
  *
- * Single font family: Inter for all text
- *
- * Olumi Design Guidelines v1.2 Type Scale:
- * - H1: 48-64px (text-5xl to text-6xl)
- * - H2: 32-40px (text-3xl to text-4xl)
- * - H3: 24-28px (text-2xl)
- * - H4: 20-22px (text-xl)
- * - Body: 16px (text-base)
- * - Label: 14px (text-sm)
- * - Minimum font size: 14px (accessibility)
+ * Single font family: Inter for all text.
+ * Full specification: docs/design/Olumi_Design_System_v2_1.md
  *
  * Usage:
  * import { typography } from '@/styles/typography'
