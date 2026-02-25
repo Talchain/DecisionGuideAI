@@ -297,6 +297,7 @@ function DriverRow({
   goalLabel,
   isHighlighted,
   registerRef,
+  microlineLabel,
 }: {
   driver: DriverItem
   onFocus?: (nodeId: string) => void
@@ -306,6 +307,8 @@ function DriverRow({
   isHighlighted?: boolean
   /** Graph Interaction P1: Ref callback to register this row for scroll sync */
   registerRef?: (element: HTMLDivElement | null) => void
+  /** V12.2: Microline overtake warning label (only for first driver) */
+  microlineLabel?: string
 }) {
   const [isTooltipOpen, setIsTooltipOpen] = useState(false)
   const infoButtonRef = useRef<HTMLButtonElement>(null)
@@ -415,13 +418,12 @@ function DriverRow({
           : 'border-slate-200'
       }`}
     >
-      {/* Line 1: Factor name + bars */}
-      <div className={`grid ${GRID_COLS} gap-3 items-center p-3 pb-1`}>
-        {/* Factor name with direction arrow - P1 Item 6: cleaned label */}
-        {/* Task 2: Factor name is clickable instead of separate CTA */}
-        <div className="flex items-start gap-1.5 min-w-0">
+      {/* Single row: Factor name + info icon + bars */}
+      <div className={`grid ${GRID_COLS} gap-2 items-center px-3 py-1.5`}>
+        {/* Factor name with direction arrow and inline info icon */}
+        <div className="flex items-center gap-1.5 min-w-0">
           <span
-            className={`${typography.panelBody} flex-shrink-0 mt-0.5`}
+            className={`${typography.panelBody} flex-shrink-0`}
             style={{ color: directionColor }}
             aria-hidden="true"
           >
@@ -431,15 +433,29 @@ function DriverRow({
             <button
               type="button"
               onClick={handleFocusClick}
-              className={`${typography.panelBody} text-info hover:text-info-hover hover:underline break-words leading-snug cursor-pointer focus:outline-none focus:ring-2 focus:ring-info focus:ring-offset-1 rounded text-left`}
+              className={`${typography.panelBody} text-info hover:text-info-hover hover:underline break-words leading-snug cursor-pointer focus:outline-none focus:ring-2 focus:ring-info focus:ring-offset-1 rounded text-left truncate`}
               aria-label={`Focus on ${cleanedLabel} in model`}
             >
               {cleanedLabel}
             </button>
           ) : (
-            <span className={`${typography.panelBody} text-text-body break-words leading-snug`}>
+            <span className={`${typography.panelBody} text-text-body break-words leading-snug truncate`}>
               {cleanedLabel}
             </span>
+          )}
+          {hasTooltipContent && (
+            <button
+              ref={infoButtonRef}
+              onClick={toggleTooltip}
+              onMouseEnter={() => setIsTooltipOpen(true)}
+              onMouseLeave={() => setIsTooltipOpen(false)}
+              className="p-0.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded transition-colors flex-shrink-0"
+              aria-label="More information"
+              aria-expanded={isTooltipOpen}
+              aria-describedby={isTooltipOpen ? `tooltip-${driver.factorKey}` : undefined}
+            >
+              <Info className="w-3.5 h-3.5 [&_circle]:hidden" />
+            </button>
           )}
         </div>
 
@@ -466,23 +482,14 @@ function DriverRow({
         )}
       </div>
 
-      {/* Line 2: Info icon (impact subtitle removed — tornado handles this) */}
-      {hasTooltipContent && (
-        <div className="px-3 pb-2 flex items-center justify-end">
-          <button
-            ref={infoButtonRef}
-            onClick={toggleTooltip}
-            onMouseEnter={() => setIsTooltipOpen(true)}
-            onMouseLeave={() => setIsTooltipOpen(false)}
-            className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded transition-colors"
-            style={{ minWidth: '44px', minHeight: '44px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-            aria-label="More information"
-            aria-expanded={isTooltipOpen}
-            aria-describedby={isTooltipOpen ? `tooltip-${driver.factorKey}` : undefined}
-          >
-            <Info className="w-4 h-4" />
-          </button>
-        </div>
+      {/* V12.2: Microline overtake warning inside card */}
+      {microlineLabel && (
+        <p
+          className="text-danger text-[10px] px-3 pb-1.5 -mt-0.5"
+          data-testid="driver-microline"
+        >
+          If wrong, {microlineLabel} overtakes
+        </p>
       )}
 
       {/* Tooltip */}
@@ -677,26 +684,18 @@ export function DriversSection({
             && driver.fragileEdgeInfo.alternativeWinnerLabel
 
           return (
-            <div key={driver.factorKey}>
-              <DriverRow
-                driver={driver}
-                onFocus={onFocusNode}
-                goalLabel={goalLabel}
-                isHighlighted={highlightedDriverId === driver.factorKey}
-                registerRef={registerDriverRef
-                  ? (el) => registerDriverRef(driver.factorKey, el)
-                  : undefined
-                }
-              />
-              {showMicroline && (
-                <p
-                  className="text-danger text-[10px] mt-1 ml-1"
-                  data-testid="driver-microline"
-                >
-                  If wrong, {driver.fragileEdgeInfo!.alternativeWinnerLabel} overtakes
-                </p>
-              )}
-            </div>
+            <DriverRow
+              key={driver.factorKey}
+              driver={driver}
+              onFocus={onFocusNode}
+              goalLabel={goalLabel}
+              isHighlighted={highlightedDriverId === driver.factorKey}
+              registerRef={registerDriverRef
+                ? (el) => registerDriverRef(driver.factorKey, el)
+                : undefined
+              }
+              microlineLabel={showMicroline ? driver.fragileEdgeInfo!.alternativeWinnerLabel : undefined}
+            />
           )
         })}
       </div>
