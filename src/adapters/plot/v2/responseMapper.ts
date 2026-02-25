@@ -267,6 +267,7 @@ export function pickFactorSensitivityForUi(v2Response: V2RunResponse): FactorSen
         confidence: f.confidence as number | undefined,
         // VOI Fix: Pass through value_of_information for driver confidence display
         value_of_information: f.value_of_information as number | undefined,
+        confidence_components: f.confidence_components as V2FactorSensitivity['confidence_components'],
       }))
       return { factors, _source_path: 'downstream_calls.isl' }
     }
@@ -316,6 +317,7 @@ export function pickFactorSensitivityForUi(v2Response: V2RunResponse): FactorSen
         confidence: f.confidence as number | undefined,
         // VOI Fix: Pass through value_of_information for driver confidence display
         value_of_information: f.value_of_information as number | undefined,
+        confidence_components: f.confidence_components as V2FactorSensitivity['confidence_components'],
       }))
       return { factors, _source_path: 'enrichment' }
     }

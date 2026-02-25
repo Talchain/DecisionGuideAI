@@ -33,6 +33,11 @@ export const FactorSensitivitySchema = z.object({
   importance_rank: z.number().int().positive(),
   /** Confidence in this factor's influence (0-1) */
   confidence: z.number().min(0).max(1).optional(),
+  /** Breakdown of confidence into structural and sampling components */
+  confidence_components: z.object({
+    structural_certainty: z.number(),
+    sampling_stability: z.number().nullable(),
+  }).optional(),
 }).passthrough()
 
 export type FactorSensitivity = z.infer<typeof FactorSensitivitySchema>

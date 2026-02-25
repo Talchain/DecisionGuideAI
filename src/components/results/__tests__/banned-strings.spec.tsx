@@ -505,6 +505,36 @@ describe('Banned Strings Integration Test', () => {
     })
   })
 
+  describe('DriversSection confidence method labels', () => {
+    it('does not render confidence_source method labels (graph/isl)', () => {
+      // confidence_source is a diagnostic field only, never user-facing
+      const driversWithConfidence: DriversSectionData = {
+        ...driversData,
+        drivers: driversData.drivers.map((d) => ({
+          ...d,
+          confidence: 0.75,
+          semanticLabel: 'biggest' as const,
+          canFocus: false,
+        })),
+        topDrivers: driversData.topDrivers.map((d) => ({
+          ...d,
+          confidence: 0.75,
+          semanticLabel: 'biggest' as const,
+          canFocus: false,
+        })),
+      }
+      render(<DriversSection data={driversWithConfidence} goalLabel="test goal" />)
+
+      const html = document.body.innerHTML.toLowerCase()
+      // confidence_source values must not appear as method indicator text
+      expect(html).not.toContain('source: graph')
+      expect(html).not.toContain('source: isl')
+      // Method labels must not appear near confidence context
+      expect(html).not.toMatch(/confidence.*\bgraph\b/)
+      expect(html).not.toMatch(/confidence.*\bisl\b/)
+    })
+  })
+
   describe('All fixtures combined check', () => {
     it('ensures BANNED_STRINGS array is comprehensive', () => {
       // Meta-test: verify our banned list covers expected patterns

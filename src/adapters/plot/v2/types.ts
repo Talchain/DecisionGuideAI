@@ -211,6 +211,11 @@ export interface V2FactorSensitivity {
   confidence?: number
   /** Value of information score (0-1), used for driver confidence display */
   value_of_information?: number
+  /** Breakdown of confidence into structural and sampling components */
+  confidence_components?: {
+    structural_certainty: number
+    sampling_stability: number | null
+  }
 }
 
 /**

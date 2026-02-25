@@ -514,6 +514,11 @@ export interface RawFactorSensitivity {
   value_of_information?: number
   /** Confidence in this factor's influence (0-1), from PLoT factor_sensitivity */
   confidence?: number
+  /** Breakdown of confidence into structural and sampling components */
+  confidence_components?: {
+    structural_certainty: number
+    sampling_stability: number | null
+  }
 }
 
 export interface UiFactorSensitivity {
