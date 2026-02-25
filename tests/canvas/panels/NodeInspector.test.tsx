@@ -27,11 +27,11 @@ describe('NodeInspector (panel)', () => {
     expect(screen.getByDisplayValue('Decision Node')).toBeTruthy()
   })
 
-  it('renders type selector with current type', () => {
+  it('renders type as read-only text in Advanced section', () => {
     render(<NodeInspector nodeId="n1" onClose={() => {}} />)
 
-    const select = screen.getByTestId('select-node-type') as HTMLSelectElement
-    expect(select.value).toBe('decision')
+    const typeDisplay = screen.getByTestId('read-only-node-type')
+    expect(typeDisplay.textContent).toBe('Decision')
   })
 
   // B.I.1: Probabilities section removed — tests for probability editor no longer applicable

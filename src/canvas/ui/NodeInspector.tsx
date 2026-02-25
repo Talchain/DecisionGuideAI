@@ -17,9 +17,12 @@ import { InspectorAccordion } from './inspector'
 import { GoalThresholdEditor } from './inspector/GoalThresholdEditor'
 import { typography } from '../../styles/typography'
 import { isGoalDefined } from '../../utils/isGoalDefined'
+import { detectBaseline } from '../utils/baselineDetection'
 
 interface ObservedState {
   value: number
+  /** Raw value before normalisation (e.g. £100,000 when value is 0.2) */
+  raw_value?: number
   baseline?: number
   unit?: string
   source?: string
@@ -35,7 +38,6 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
   const updateNode = useCanvasStore(s => s.updateNode)
   const resultsStatus = useCanvasStore(s => s.results?.status)
   const isResultsMode = resultsStatus === 'complete'
-  const outcomeNodeId = useCanvasStore(s => s.outcomeNodeId)
   const goalThreshold = useCanvasStore(s => s.goalThreshold)
   const goalConstraints = useCanvasStore(s => s.goalConstraints)
 
@@ -123,10 +125,6 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
     }
   }, [nodeId, factorValue, factorBaseline, factorUnit, node?.data, updateNode, existingObservedState])
 
-  const handleTypeChange = useCallback((newType: NodeType) => {
-    updateNode(nodeId, { type: newType })
-  }, [nodeId, updateNode])
-
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Escape') {
       e.preventDefault()
@@ -139,7 +137,6 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
   const currentType = (node.type || 'decision') as NodeType
   const metadata = NODE_REGISTRY[currentType] || NODE_REGISTRY.decision
   const isGoalNode = currentType === 'goal'
-  const isAnalysisTarget = outcomeNodeId === nodeId
   const goalDefined = isGoalDefined(goalThreshold, goalConstraints)
 
   // ─── SUMMARY ───────────────────────────────────────────────────────
@@ -174,7 +171,11 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
         <div className="flex items-center justify-between mt-2 px-2 py-1 bg-panel rounded border border-panel-border">
           <span className={`${typography.panelMeta} text-text-light`}>Current value</span>
           <span className={`${typography.panelBody} font-medium text-text-body tabular-nums`}>
-            {existingObservedState.unit ? `${existingObservedState.value} ${existingObservedState.unit}` : existingObservedState.value}
+            {existingObservedState.unit
+              ? `${existingObservedState.value} ${existingObservedState.unit}`
+              : existingObservedState.raw_value != null
+                ? `${existingObservedState.value} on 0\u20131 scale`
+                : existingObservedState.value}
           </span>
         </div>
       )}
@@ -198,16 +199,20 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
         </div>
       )}
 
-      {/* B.I.9: Option Summary — intervention count or "Baseline" pill */}
+      {/* B.I.9: Option Summary — intervention count or baseline pill */}
       {isOptionNode && (
         <div className="mt-2">
           {optionAsUIOption && Object.keys(optionAsUIOption.interventions).length > 0 ? (
             <span className={`${typography.panelMeta} text-text-light`}>
               {Object.keys(optionAsUIOption.interventions).length} intervention{Object.keys(optionAsUIOption.interventions).length !== 1 ? 's' : ''}
             </span>
-          ) : (
+          ) : detectBaseline(String(node.data?.label ?? '')).isBaseline ? (
             <span className={`inline-flex items-center px-2 py-0.5 rounded-full ${typography.panelMeta} bg-panel text-text-light border border-panel-border italic`}>
               Baseline
+            </span>
+          ) : (
+            <span className={`${typography.panelMeta} text-text-light italic`}>
+              No interventions
             </span>
           )}
         </div>
@@ -258,24 +263,6 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
           className={`w-full ${typography.panelBody} border border-panel-border rounded px-2 py-1`}
           placeholder="Add a note..."
         />
-      </div>
-
-      {/* Type dropdown */}
-      <div>
-        <label htmlFor="node-type" className={`block ${typography.panelMeta} font-medium text-text-body mb-1`}>Type</label>
-        <select
-          id="node-type"
-          value={currentType}
-          onChange={(e) => handleTypeChange(e.target.value as NodeType)}
-          className={`w-full ${typography.panelBody} border border-panel-border rounded px-2 py-1.5 bg-panel`}
-          data-testid="select-node-type"
-        >
-          {(Object.keys(NODE_REGISTRY) as NodeType[]).map((type) => (
-            <option key={type} value={type}>
-              {NODE_REGISTRY[type].label}
-            </option>
-          ))}
-        </select>
       </div>
 
       {/* Prior bar */}
@@ -417,7 +404,7 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
                 compact
               />
               <p className={`${typography.panelMeta} text-text-light italic`}>
-                Interventions are locked while results are displayed
+                Clear results to edit interventions.
               </p>
             </div>
           ) : showMappingForm ? (
@@ -432,6 +419,25 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
               option={optionAsUIOption}
               onConfigure={() => setShowMappingForm(true)}
             />
+          ) : Object.keys(optionAsUIOption.interventions).length === 0 ? (
+            <div className="space-y-2">
+              {detectBaseline(String(node?.data?.label ?? '')).isBaseline ? (
+                <p className={`${typography.panelMeta} text-text-light italic`}>
+                  No changes — current trajectory.
+                </p>
+              ) : (
+                <p className={`${typography.panelMeta} text-text-light`}>
+                  Add interventions to define this option's strategy.
+                </p>
+              )}
+              <button
+                type="button"
+                onClick={() => setShowMappingForm(true)}
+                className={`${typography.panelMeta} text-info hover:underline`}
+              >
+                Add interventions
+              </button>
+            </div>
           ) : (
             <div className="space-y-2">
               <InterventionDisplay
@@ -470,11 +476,17 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
         </div>
       )}
 
-      {/* Analysis target — only shown for goal/outcome nodes */}
+      {/* Type (read-only) */}
+      <div className="flex items-center justify-between">
+        <span className={`${typography.panelMeta} text-text-light`}>Type</span>
+        <span className={`${typography.panelMeta} text-text-body`} data-testid="read-only-node-type">{metadata.label}</span>
+      </div>
+
+      {/* Analysis target — Goal/Outcome are always analysis targets */}
       {(isGoalNode || currentType === 'outcome') && (
         <div className="flex items-center justify-between">
           <span className={`${typography.panelMeta} text-text-light`}>Analysis target</span>
-          <span className={`${typography.panelMeta} text-text-body`}>{isAnalysisTarget ? 'Yes' : 'No'}</span>
+          <span className={`${typography.panelMeta} text-text-body`}>Yes</span>
         </div>
       )}
     </div>

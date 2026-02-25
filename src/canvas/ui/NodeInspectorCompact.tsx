@@ -1,10 +1,11 @@
 /**
  * Compact node inspector for contextual popover
- * Shows only essential fields: Title, Type, and Interventions (for options)
+ * Shows: node icon, type label, node label (read-only), key metric, expand button.
+ * No structural editing controls (type/label change requires full inspector).
  * British English: visualisation, colour
  */
 
-import { memo, useState, useCallback, useRef, useEffect, useMemo } from 'react'
+import { memo, useCallback, useRef, useEffect, useMemo } from 'react'
 import { Maximize2, AlertTriangle, ArrowRight } from 'lucide-react'
 import { useCanvasStore } from '../store'
 import { NODE_REGISTRY } from '../domain/nodes'
@@ -28,7 +29,6 @@ interface InterventionRow {
 
 export const NodeInspectorCompact = memo(({ nodeId, onClose, onExpandToFull }: NodeInspectorCompactProps) => {
   const nodes = useCanvasStore(s => s.nodes)
-  const updateNode = useCanvasStore(s => s.updateNode)
   const setHighlightedNodes = useCanvasStore(s => s.setHighlightedNodes)
 
   const node = nodes.find(n => n.id === nodeId)
@@ -37,8 +37,6 @@ export const NodeInspectorCompact = memo(({ nodeId, onClose, onExpandToFull }: N
 
   // Get display metadata for insights section (only meaningful for factors in Results mode)
   const displayMetadata = useNodeDisplayMetadata(nodeId, currentType)
-
-  const [label, setLabel] = useState<string>(String(node?.data?.label ?? ''))
 
   // Get interventions for option nodes
   // Unit precedence: intervention_unit → observed_state.unit → null
@@ -57,29 +55,6 @@ export const NodeInspectorCompact = memo(({ nodeId, onClose, onExpandToFull }: N
       return { factorId, factorLabel, value, unit }
     })
   }, [isOptionNode, node?.data?.interventions, nodes])
-
-  // Reset label when node changes
-  useEffect(() => {
-    setLabel(String(node?.data?.label ?? ''))
-  }, [node?.data?.label])
-
-  const labelRef = useRef<HTMLInputElement>(null)
-
-  useEffect(() => {
-    labelRef.current?.focus()
-    labelRef.current?.select()
-  }, [])
-
-  const handleLabelBlur = useCallback(() => {
-    const trimmed = label.trim().slice(0, 100)
-    if (trimmed && trimmed !== node?.data?.label) {
-      updateNode(nodeId, { data: { ...node?.data, label: trimmed } })
-    }
-  }, [nodeId, label, node?.data, updateNode])
-
-  const handleTypeChange = useCallback((newType: NodeType) => {
-    updateNode(nodeId, { type: newType })
-  }, [nodeId, updateNode])
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Escape') {
@@ -148,19 +123,19 @@ export const NodeInspectorCompact = memo(({ nodeId, onClose, onExpandToFull }: N
 
   return (
     <div
-      className="p-3 bg-white rounded-lg shadow-lg border border-slate-200"
+      className="p-3 bg-panel rounded-lg shadow-lg border border-panel-border"
       onKeyDown={handleKeyDown}
       role="dialog"
       aria-label="Node properties"
       aria-labelledby="compact-node-inspector-title"
     >
       {/* Header */}
-      <div className="flex items-center justify-between mb-3 pb-2 border-b border-slate-100">
+      <div className="flex items-center justify-between mb-3 pb-2 border-b border-panel-border">
         <div className="flex items-center gap-2">
           {renderIcon(metadata.icon, 16) ?? <span aria-hidden="true">•</span>}
           <span
             id="compact-node-inspector-title"
-            className={`${typography.panelMeta} font-medium text-slate-700`}
+            className={`${typography.panelMeta} text-text-body min-w-0`}
           >
             {metadata.label}
           </span>
@@ -168,7 +143,7 @@ export const NodeInspectorCompact = memo(({ nodeId, onClose, onExpandToFull }: N
         <div className="flex items-center gap-1">
           <button
             onClick={onExpandToFull}
-            className="p-1 text-slate-400 hover:text-slate-600 rounded"
+            className="p-1 text-text-light hover:text-text-body rounded"
             aria-label="Expand to full inspector"
             title="Expand"
           >
@@ -176,7 +151,7 @@ export const NodeInspectorCompact = memo(({ nodeId, onClose, onExpandToFull }: N
           </button>
           <button
             onClick={onClose}
-            className="p-1 text-slate-400 hover:text-slate-600 rounded"
+            className={`p-1 text-text-light hover:text-text-body rounded ${typography.panelHeader} leading-none`}
             aria-label="Close"
           >
             ×
@@ -184,49 +159,31 @@ export const NodeInspectorCompact = memo(({ nodeId, onClose, onExpandToFull }: N
         </div>
       </div>
 
-      {/* Title */}
-      <div className="mb-3">
-        <label htmlFor="compact-node-title" className={`block ${typography.panelMeta} font-medium text-slate-700 mb-1`}>
-          Title
-        </label>
-        <input
-          ref={labelRef}
-          id="compact-node-title"
-          type="text"
-          maxLength={100}
-          value={label}
-          onChange={(e) => setLabel(e.target.value)}
-          onBlur={handleLabelBlur}
-          className={`w-full ${typography.panelBody} border border-slate-300 rounded px-2 py-1`}
-        />
-      </div>
+      {/* Node label — 1 line, truncated */}
+      <p
+        className={`${typography.panelBody} text-text-body truncate mb-2`}
+        title={String(node.data?.label ?? '')}
+      >
+        {node.data?.label || 'Untitled'}
+      </p>
 
-      {/* Type */}
-      <div className="mb-3">
-        <label htmlFor="compact-node-type" className={`block ${typography.panelMeta} font-medium text-slate-700 mb-1`}>
-          Type
-        </label>
-        <select
-          id="compact-node-type"
-          value={currentType}
-          onChange={(e) => handleTypeChange(e.target.value as NodeType)}
-          className={`w-full ${typography.panelBody} border border-slate-300 rounded px-2 py-1 bg-white`}
-        >
-          {(Object.keys(NODE_REGISTRY) as NodeType[]).map((type) => (
-            <option key={type} value={type}>
-              {NODE_REGISTRY[type].label}
-            </option>
-          ))}
-        </select>
-      </div>
+      {/* Key metric: Factor current value */}
+      {currentType === 'factor' && (node.data?.observedState as any)?.value !== undefined && (
+        <div className="flex items-center justify-between px-2 py-1 bg-panel rounded border border-panel-border mb-2">
+          <span className={`${typography.panelMeta} text-text-light`}>Current value</span>
+          <span className={`${typography.panelMeta} text-text-body tabular-nums`}>
+            {(node.data?.observedState as any).value}
+          </span>
+        </div>
+      )}
 
       {/* Factor Insights (only for factors in Results mode) */}
       {currentType === 'factor' && displayMetadata.isResultsMode && (
-        <div className="mb-3 pt-2 border-t border-slate-100">
-          <h4 className={`${typography.panelMeta} font-medium text-slate-700 mb-2 flex items-center gap-2`}>
+        <div className="mb-3 pt-2 border-t border-panel-border">
+          <h4 className={`${typography.panelMeta} text-text-body mb-2 flex items-center gap-2`}>
             Insights
             {displayMetadata.sensitivityRank !== null && (
-              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-100 text-amber-700">
+              <span className={`inline-flex items-center px-1.5 py-0.5 rounded ${typography.panelMeta} bg-warning-light text-warning`}>
                 #{displayMetadata.sensitivityRank}
               </span>
             )}
@@ -234,7 +191,7 @@ export const NodeInspectorCompact = memo(({ nodeId, onClose, onExpandToFull }: N
 
           {/* Not in sensitivity analysis (e.g., root "Value" node) */}
           {!displayMetadata.inSensitivityAnalysis && (
-            <p className="text-[10px] text-slate-400 italic">
+            <p className={`${typography.panelMeta} text-text-light italic`}>
               Insights not available for this factor
             </p>
           )}
@@ -246,14 +203,14 @@ export const NodeInspectorCompact = memo(({ nodeId, onClose, onExpandToFull }: N
               {displayMetadata.influence !== null && (
                 <div className="mb-2">
                   <div className="flex justify-between items-center mb-1">
-                    <span className="text-[10px] text-slate-500">Influence</span>
-                    <span className="text-[10px] font-medium text-slate-700">
+                    <span className={`${typography.panelMeta} text-text-light`}>Influence</span>
+                    <span className={`${typography.panelMeta} text-text-body`}>
                       {Math.round(displayMetadata.influence * 100)}%
                     </span>
                   </div>
-                  <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                  <div className="h-1.5 bg-panel-border rounded-full overflow-hidden">
                     <div
-                      className="h-full bg-info-500 rounded-full transition-all duration-300"
+                      className="h-full bg-info rounded-full transition-all duration-300"
                       style={{ width: `${Math.max(displayMetadata.influence * 100, 2)}%` }}
                     />
                   </div>
@@ -264,15 +221,15 @@ export const NodeInspectorCompact = memo(({ nodeId, onClose, onExpandToFull }: N
               {displayMetadata.confidence !== null && (
                 <div className="mb-2">
                   <div className="flex justify-between items-center mb-1">
-                    <span className="text-[10px] text-slate-500">Confidence</span>
-                    <span className="text-[10px] font-medium text-slate-700">
+                    <span className={`${typography.panelMeta} text-text-light`}>Confidence</span>
+                    <span className={`${typography.panelMeta} text-text-body`}>
                       {Math.round(displayMetadata.confidence * 100)}%
                     </span>
                   </div>
-                  <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                  <div className="h-1.5 bg-panel-border rounded-full overflow-hidden">
                     <div
                       className={`h-full rounded-full transition-all duration-300 ${
-                        displayMetadata.confidence < 0.5 ? 'bg-warning-500' : 'bg-success-500'
+                        displayMetadata.confidence < 0.5 ? 'bg-warning' : 'bg-success'
                       }`}
                       style={{ width: `${Math.max(displayMetadata.confidence * 100, 2)}%` }}
                     />
@@ -285,7 +242,7 @@ export const NodeInspectorCompact = memo(({ nodeId, onClose, onExpandToFull }: N
                displayMetadata.confidence !== null &&
                displayMetadata.influence >= 0.7 &&
                displayMetadata.confidence < 0.5 && (
-                <div className="flex items-start gap-1.5 p-2 bg-amber-50 border border-amber-200 rounded text-[10px] text-amber-700">
+                <div className={`flex items-start gap-1.5 p-2 bg-warning-light border border-warning/30 rounded ${typography.panelMeta} text-warning`}>
                   <AlertTriangle size={12} className="flex-shrink-0 mt-0.5" />
                   <span>High influence but low confidence. Consider gathering more data to reduce uncertainty.</span>
                 </div>
@@ -297,12 +254,12 @@ export const NodeInspectorCompact = memo(({ nodeId, onClose, onExpandToFull }: N
 
       {/* Interventions section for Option nodes */}
       {isOptionNode && (
-        <div className="pt-2 border-t border-slate-100">
-          <h4 className={`${typography.panelMeta} font-medium text-slate-700 mb-2`}>Interventions</h4>
+        <div className="pt-2 border-t border-panel-border">
+          <h4 className={`${typography.panelMeta} text-text-body mb-2`}>Interventions</h4>
 
-          {/* Task 5: Mode-aware empty state for baseline options */}
+          {/* Mode-aware empty state for baseline options */}
           {interventionRows.length === 0 ? (
-            <p className="text-[10px] text-slate-400 italic">
+            <p className={`${typography.panelMeta} text-text-light italic`}>
               {displayMetadata.isResultsMode
                 ? 'No interventions — this option represents the baseline'
                 : 'No interventions — this option maintains current values'}
@@ -312,15 +269,15 @@ export const NodeInspectorCompact = memo(({ nodeId, onClose, onExpandToFull }: N
               {interventionRows.map((row) => (
                 <div
                   key={row.factorId}
-                  className="flex items-center gap-2 hover:bg-slate-50 rounded px-1 py-0.5 -mx-1 transition-colors cursor-default"
+                  className="flex items-center gap-2 hover:bg-panel-hover rounded px-1 py-0.5 -mx-1 transition-colors cursor-default"
                   onMouseEnter={() => handleInterventionHover(row.factorId)}
                   onMouseLeave={() => handleInterventionHover(null)}
                 >
-                  <ArrowRight size={10} className="flex-shrink-0 text-slate-400" aria-hidden="true" />
-                  <span className={`${typography.panelBody} text-slate-600 flex-1 min-w-0 truncate`} title={row.factorLabel}>
+                  <ArrowRight size={10} className="flex-shrink-0 text-text-light" aria-hidden="true" />
+                  <span className={`${typography.panelBody} text-text-body flex-1 min-w-0 truncate`} title={row.factorLabel}>
                     {row.factorLabel}
                   </span>
-                  <span className={`${typography.panelBody} font-medium text-slate-700 flex-shrink-0`}>
+                  <span className={`${typography.panelBody} text-text-body flex-shrink-0`}>
                     {formatInterventionValue(row.value, row.unit)}
                   </span>
                 </div>
@@ -329,8 +286,6 @@ export const NodeInspectorCompact = memo(({ nodeId, onClose, onExpandToFull }: N
           )}
         </div>
       )}
-
-      {/* B.I.1: Probabilities section removed — implied portfolio-weighting model not used by Olumi */}
     </div>
   )
 })
