@@ -427,7 +427,7 @@ export function ConfidenceSection({
     plotCritiques.forEach((item, idx) => {
       const humanised = humanisedCritiques[idx]
       if (humanised) {
-        const key = `${item.code}::${item.affectedNodes?.[0] ?? idx}`
+        const key = `${item.code}::${item.affectedNodes?.[0] ?? ''}`
         map.set(key, { title: humanised.title, description: humanised.description, suggestion: humanised.suggestion })
       }
     })

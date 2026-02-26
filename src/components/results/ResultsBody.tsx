@@ -259,7 +259,7 @@ export function ResultsBody({
         if (humanisedCritiques) {
           plotCritiques.forEach((item, idx) => {
             if (humanisedCritiques[idx]) {
-              humanisedKeys.add(`${item.code}::${item.affectedNodes?.[0] ?? idx}`)
+              humanisedKeys.add(`${item.code}::${item.affectedNodes?.[0] ?? ''}`)
             }
           })
         }
