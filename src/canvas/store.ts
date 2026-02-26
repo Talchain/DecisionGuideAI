@@ -1898,6 +1898,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       results: {
         ...s.results,
         status: 'error',
+        // retryAfter: reserved for future rate-limit handling, not currently displayed
         error: { code, message, retryAfter, request_id, canRetry },
         finishedAt: Date.now()
       }

@@ -265,6 +265,7 @@ export function OutputsDock() {
   // C.1b: Supabase persistence callbacks for analysis results
   const {
     setAnalysisRunning,
+    resetAnalysisStatus,
     persistAnalysisSuccess,
     persistAnalysisFailure,
     isPersistenceActive: _isPersistenceActive,
@@ -276,10 +277,11 @@ export function OutputsDock() {
     if (!_isPersistenceActive) return undefined
     return {
       setAnalysisRunning,
+      resetAnalysisStatus,
       persistAnalysisSuccess,
       persistAnalysisFailure,
     }
-  }, [_isPersistenceActive, setAnalysisRunning, persistAnalysisSuccess, persistAnalysisFailure])
+  }, [_isPersistenceActive, setAnalysisRunning, resetAnalysisStatus, persistAnalysisSuccess, persistAnalysisFailure])
 
   // P0-UI: V2 run hook for /v2/run endpoint
   const { runV2Analysis, cancelRun } = useV2Run(v2Persistence)

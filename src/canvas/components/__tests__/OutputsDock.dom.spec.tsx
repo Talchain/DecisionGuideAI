@@ -6,6 +6,15 @@
  import { STORAGE_KEY as RUN_HISTORY_STORAGE_KEY, type StoredRun } from '../../store/runHistory'
  import { __resetTelemetryCounters, __getTelemetryCounters } from '../../../lib/telemetry'
 
+ // Mock react-router-dom (useScenario calls useNavigate)
+ vi.mock('react-router-dom', async (importOriginal) => {
+   const actual = await importOriginal<typeof import('react-router-dom')>()
+   return {
+     ...actual,
+     useNavigate: vi.fn(() => vi.fn()),
+   }
+ })
+
  // Mock flags module with all required exports
  vi.mock('../../../flags', () => ({
    isDecisionReviewEnabled: vi.fn(() => true),
@@ -614,7 +623,7 @@ describe('OutputsDock DOM', () => {
     expect(banner).toHaveTextContent('Something went wrong.')
   })
 
-  it('renders retryAfter and request_id details in the error banner when provided', () => {
+  it('renders user-friendly error and request_id in error banner when provided', () => {
     const baseResults = useCanvasStore.getState().results
 
     useCanvasStore.setState({
@@ -625,6 +634,7 @@ describe('OutputsDock DOM', () => {
         error: {
           code: 'RATE_LIMITED',
           message: 'Too many requests.',
+          // retryAfter: reserved for future rate-limit handling, not currently displayed
           retryAfter: 42,
           request_id: 'req-error-123',
         },
@@ -635,10 +645,10 @@ describe('OutputsDock DOM', () => {
 
     const banner = screen.getByTestId('outputs-error-banner')
     expect(banner).toBeInTheDocument()
-    expect(banner).toHaveTextContent('RATE_LIMITED')
-    expect(banner).toHaveTextContent('Too many requests.')
-    expect(banner).toHaveTextContent('Retry after 42 seconds')
-    expect(banner).toHaveTextContent('PLoT Request ID: req-error-123')
+    // User-friendly headline from userFriendlyErrors mapping
+    expect(banner).toHaveTextContent('Too many requests')
+    // Debug section shows code and request_id in DEV mode
+    expect(banner).toHaveTextContent('Request ID: req-error-123')
   })
 
   it('shows empty compare state when there are no runs yet', () => {
@@ -1256,3 +1266,246 @@ function openStructureTab() {
   const structureTab = screen.getByRole('button', { name: 'Structure' })
   fireEvent.click(structureTab)
 }
+
+// I.1 & I.2: Phase 1 UI fix tests
+// These tests use consistent node setup to ensure OutputsDock renders properly.
+const testNodes = [
+  { id: 'goal-1', type: 'goal', data: { label: 'Test Goal' }, position: { x: 0, y: 0 } },
+  { id: 'decision-1', type: 'decision', data: { label: 'Test Decision' }, position: { x: 100, y: 100 } },
+]
+const testEdges = [{ id: 'e1', source: 'goal-1', target: 'decision-1' }]
+const fakeReportForTests: any = {
+  results: { conservative: 10, likely: 20, optimistic: 30, units: 'percent', unitSymbol: '%' },
+  run: { bands: { p10: 10, p50: 20, p90: 30 } },
+}
+
+function cleanupDockState() {
+  ensureMatchMedia()
+  try { sessionStorage.removeItem('canvas.outputsDock.v1') } catch {}
+  try { window.history.replaceState({}, '', '/canvas') } catch {}
+  try { localStorage.removeItem(RUN_HISTORY_STORAGE_KEY) } catch {}
+  useCanvasStore.setState({
+    currentScenarioFraming: null,
+    currentScenarioLastResultHash: null,
+    hasCompletedFirstRun: false,
+  } as any)
+}
+
+describe('I.1: Structure tab auto-switch guard', () => {
+  beforeEach(cleanupDockState)
+  it('does NOT auto-switch away from Structure tab when status remains complete', () => {
+    const baseResults = useCanvasStore.getState().results
+
+    useCanvasStore.setState({
+      nodes: testNodes,
+      edges: testEdges,
+      hasCompletedFirstRun: true,
+      results: {
+        ...baseResults,
+        status: 'complete',
+        report: fakeReportForTests,
+      },
+    } as any)
+
+    render(<OutputsDock />)
+
+    // User navigates to Structure tab
+    openStructureTab()
+
+    const structureHeader = screen.getByText('Structure', {
+      selector: 'span[aria-live="polite"]',
+    })
+    expect(structureHeader).toBeInTheDocument()
+
+    // Trigger a re-render with status still 'complete' (simulates React re-render)
+    act(() => {
+      useCanvasStore.setState({
+        results: {
+          ...useCanvasStore.getState().results,
+          status: 'complete',
+        },
+      } as any)
+    })
+
+    // Should remain on Structure tab — not yanked back to Results
+    const structureHeaderAfter = screen.getByText('Structure', {
+      selector: 'span[aria-live="polite"]',
+    })
+    expect(structureHeaderAfter).toBeInTheDocument()
+  })
+
+  it('auto-switches to Results tab on idle → preparing transition', () => {
+    const baseResults = useCanvasStore.getState().results
+
+    useCanvasStore.setState({
+      nodes: testNodes,
+      edges: testEdges,
+      hasCompletedFirstRun: true,
+      results: {
+        ...baseResults,
+        status: 'complete',
+        report: fakeReportForTests,
+      },
+    } as any)
+
+    render(<OutputsDock />)
+
+    // User navigates to Structure tab after a completed run
+    openStructureTab()
+    expect(screen.getByText('Structure', {
+      selector: 'span[aria-live="polite"]',
+    })).toBeInTheDocument()
+
+    // Reset status to idle (simulates resultsReset), then start a new run
+    act(() => {
+      useCanvasStore.setState({
+        results: { ...useCanvasStore.getState().results, status: 'idle' },
+      } as any)
+    })
+
+    // Now start a new analysis (idle → preparing)
+    act(() => {
+      useCanvasStore.setState({
+        results: { ...useCanvasStore.getState().results, status: 'preparing' },
+      } as any)
+    })
+
+    // Should auto-switch to Results tab
+    expect(screen.getByText('Results', {
+      selector: 'span[aria-live="polite"]',
+    })).toBeInTheDocument()
+  })
+})
+
+describe('I.2b: Cancel button during analysis', () => {
+  beforeEach(cleanupDockState)
+  it('shows cancel button when analysis is running', () => {
+    const baseResults = useCanvasStore.getState().results
+
+    useCanvasStore.setState({
+      nodes: testNodes,
+      edges: testEdges,
+      hasCompletedFirstRun: true,
+      results: {
+        ...baseResults,
+        status: 'streaming',
+        report: fakeReportForTests,
+      },
+    } as any)
+
+    render(<OutputsDock />)
+
+    const cancelButton = screen.getByTestId('cancel-analysis-button')
+    expect(cancelButton).toBeInTheDocument()
+    expect(cancelButton).toHaveTextContent('Cancel')
+  })
+
+  it('hides cancel button when analysis is complete', () => {
+    const baseResults = useCanvasStore.getState().results
+
+    useCanvasStore.setState({
+      nodes: testNodes,
+      edges: testEdges,
+      hasCompletedFirstRun: true,
+      results: {
+        ...baseResults,
+        status: 'complete',
+        report: fakeReportForTests,
+      },
+    } as any)
+
+    render(<OutputsDock />)
+
+    expect(screen.queryByTestId('cancel-analysis-button')).not.toBeInTheDocument()
+  })
+})
+
+describe('I.2c: Stale results indicator', () => {
+  beforeEach(cleanupDockState)
+  it('shows stale results banner when error occurs with previous results', () => {
+    const baseResults = useCanvasStore.getState().results
+
+    useCanvasStore.setState({
+      nodes: testNodes,
+      edges: testEdges,
+      hasCompletedFirstRun: true,
+      results: {
+        ...baseResults,
+        status: 'error',
+        report: fakeReportForTests,
+        error: {
+          code: 'NETWORK_ERROR',
+          message: 'Failed to fetch',
+          canRetry: true,
+        },
+      },
+    } as any)
+
+    render(<OutputsDock />)
+
+    const banner = screen.getByTestId('stale-results-banner')
+    expect(banner).toBeInTheDocument()
+    expect(banner).toHaveTextContent('Showing results from previous analysis')
+  })
+
+  it('does NOT show stale results banner on first-run error (no previous results)', () => {
+    const baseResults = useCanvasStore.getState().results
+
+    useCanvasStore.setState({
+      nodes: testNodes,
+      edges: testEdges,
+      hasCompletedFirstRun: true,
+      results: {
+        ...baseResults,
+        status: 'error',
+        report: null,
+        error: {
+          code: 'NETWORK_ERROR',
+          message: 'Failed to fetch',
+          canRetry: true,
+        },
+      },
+    } as any)
+
+    render(<OutputsDock />)
+
+    expect(screen.queryByTestId('stale-results-banner')).not.toBeInTheDocument()
+  })
+})
+
+describe('I.2a: Secondary action button interaction', () => {
+  beforeEach(cleanupDockState)
+  it('clicking secondary action button closes the dock', () => {
+    const baseResults = useCanvasStore.getState().results
+
+    // SERVICE_UNAVAILABLE has secondaryActionText: 'Continue Without'
+    useCanvasStore.setState({
+      nodes: testNodes,
+      edges: testEdges,
+      hasCompletedFirstRun: true,
+      results: {
+        ...baseResults,
+        status: 'error',
+        report: null,
+        error: {
+          code: 'SERVICE_UNAVAILABLE',
+          message: 'Service is down.',
+          canRetry: true,
+        },
+      },
+    } as any)
+
+    render(<OutputsDock />)
+
+    // Verify secondary button is rendered with expected text
+    const secondaryButton = screen.getByTestId('error-secondary-action')
+    expect(secondaryButton).toBeInTheDocument()
+    expect(secondaryButton).toHaveTextContent('Continue Without')
+
+    // Click the secondary action
+    fireEvent.click(secondaryButton)
+
+    // After click, dock should close — the error banner should no longer be visible
+    expect(screen.queryByTestId('outputs-error-banner')).not.toBeInTheDocument()
+  })
+})

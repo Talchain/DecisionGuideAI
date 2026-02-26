@@ -193,7 +193,7 @@ export async function resetAnalysisStatus(
 ): Promise<void> {
   const { error } = await supabase
     .from('scenarios')
-    .update({ analysis_status: 'none' })
+    .update({ analysis_status: 'none', analysis_error: null })
     .eq('id', scenarioId)
 
   if (error) {

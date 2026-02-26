@@ -177,6 +177,8 @@ export interface V2RunPersistence {
   persistAnalysisFailure: (
     errorPayload: { code: string; message: string },
   ) => Promise<void>
+  /** Reset analysis_status to 'none' — called on user-initiated cancel. */
+  resetAnalysisStatus?: () => Promise<void>
 }
 
 interface UseV2RunReturn {
@@ -656,6 +658,8 @@ export function useV2Run(persistence?: V2RunPersistence): UseV2RunReturn {
       if (controller.signal.aborted && err instanceof Error && err.name === 'AbortError') {
         resultsCancelled()
         setIsRunning(false)
+        // Reset Supabase analysis_status back to 'none' (fire-and-forget)
+        persistence?.resetAnalysisStatus?.().catch(() => {})
         return
       }
 

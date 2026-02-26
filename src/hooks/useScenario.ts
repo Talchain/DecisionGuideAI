@@ -42,6 +42,7 @@ export interface UseScenarioReturn {
 
   // Analysis persistence
   setAnalysisRunning: () => Promise<void>
+  resetAnalysisStatus: () => Promise<void>
   persistAnalysisSuccess: (
     analysis: unknown,
     graphHash: string,
@@ -415,6 +416,14 @@ export function useScenario(): UseScenarioReturn {
     [isPersistenceActive, currentScenarioId],
   )
 
+  const resetAnalysisStatusCb = useCallback(
+    async (): Promise<void> => {
+      if (!isPersistenceActive || !currentScenarioId) return
+      await scenarioService.resetAnalysisStatus(currentScenarioId)
+    },
+    [isPersistenceActive, currentScenarioId],
+  )
+
   const clearAnalysisStale = useCallback(() => {
     setAnalysisStale(false)
   }, [])
@@ -504,6 +513,7 @@ export function useScenario(): UseScenarioReturn {
       saveError,
       isPersistenceActive,
       setAnalysisRunning: setAnalysisRunningCb,
+      resetAnalysisStatus: resetAnalysisStatusCb,
       persistAnalysisSuccess,
       persistAnalysisFailure,
       persistBrief,
@@ -521,6 +531,7 @@ export function useScenario(): UseScenarioReturn {
       saveError,
       isPersistenceActive,
       setAnalysisRunningCb,
+      resetAnalysisStatusCb,
       persistAnalysisSuccess,
       persistAnalysisFailure,
       persistBrief,

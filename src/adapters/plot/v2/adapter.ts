@@ -926,6 +926,8 @@ export { isBlockedResponse }
 export interface V2AdapterConfig {
   baseUrl: string
   timeout?: number
+  /** External abort signal for user-initiated cancellation */
+  signal?: AbortSignal
 }
 
 /**
@@ -936,7 +938,7 @@ export async function runV2(
   config: V2AdapterConfig,
   request: V2RunRequest
 ): Promise<V2RunResult> {
-  const { baseUrl, timeout = 120000 } = config
+  const { baseUrl, timeout = 120000, signal: externalSignal } = config
   const startTime = Date.now()
   const requestId = request.request_id || `v2-${Date.now()}`
   const endpoint = '/v2/run'
@@ -947,6 +949,15 @@ export async function runV2(
 
   const controller = new AbortController()
   const timeoutId = setTimeout(() => controller.abort(), timeout)
+
+  // Link external abort signal (user cancellation) to internal controller
+  if (externalSignal) {
+    if (externalSignal.aborted) {
+      controller.abort()
+    } else {
+      externalSignal.addEventListener('abort', () => controller.abort(), { once: true })
+    }
+  }
 
   // Build headers, including X-Request-Id if present in request
   const headers: Record<string, string> = {
