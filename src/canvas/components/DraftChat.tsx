@@ -8,7 +8,7 @@ import { typography } from '../../styles/typography'
 import { CEEError } from '../../adapters/cee/client'
 import { DraftGuidancePanel } from './DraftGuidancePanel'
 import { RateLimitNotice } from './RateLimitNotice'
-import { ModelSettingsPopover } from './ModelSettingsPopover'
+import { ThinkingModePopover } from './ThinkingModePopover'
 import { DEFAULT_EDGE_DATA, trimProvenance } from '../domain/edges'
 import { saveAutosave } from '../store/scenarios'
 import { hasAnalysisReady, isCeePipelineTrace } from '../../adapters/cee/types'
@@ -860,6 +860,11 @@ export function DraftChat() {
           className="absolute inset-y-0 right-0 w-1.5 cursor-col-resize bg-transparent hover:bg-sky-200/60 transition-colors z-10"
           title="Drag to resize panel"
         />
+        <ThinkingModePopover
+          isOpen={showSettingsPopover}
+          onClose={() => setShowSettingsPopover(false)}
+          anchorRef={settingsButtonRef}
+        />
         {isMinimized ? (
           <div
             className="flex gap-3 rounded-2xl border border-sand-200 px-4 py-3 shadow-2"
@@ -929,8 +934,8 @@ export function DraftChat() {
               <button
                 ref={settingsButtonRef}
                 onClick={() => setShowSettingsPopover(!showSettingsPopover)}
-                className="p-2 rounded-full text-ink-400 hover:text-ink-600 hover:bg-sand-100 transition-colors"
-                aria-label="Model settings"
+                className="flex items-center justify-center min-w-[44px] min-h-[44px] rounded-full text-ink-400 hover:text-ink-600 hover:bg-sand-100 transition-colors"
+                aria-label="Thinking mode"
                 aria-expanded={showSettingsPopover}
               >
                 <Settings className="w-4 h-4" />
@@ -970,8 +975,8 @@ export function DraftChat() {
                 <button
                   ref={settingsButtonRef}
                   onClick={() => setShowSettingsPopover(!showSettingsPopover)}
-                  className="p-1.5 rounded-lg text-ink-400 hover:text-ink-600 hover:bg-sand-100 transition-colors"
-                  aria-label="Model settings"
+                  className="flex items-center justify-center min-w-[44px] min-h-[44px] rounded-lg text-ink-400 hover:text-ink-600 hover:bg-sand-100 transition-colors"
+                  aria-label="Thinking mode"
                   aria-expanded={showSettingsPopover}
                 >
                   <Settings className="w-5 h-5" />
@@ -985,13 +990,6 @@ export function DraftChat() {
                 </button>
               </div>
             </div>
-
-            {/* Model Settings Popover */}
-            <ModelSettingsPopover
-              isOpen={showSettingsPopover}
-              onClose={() => setShowSettingsPopover(false)}
-              anchorRef={settingsButtonRef}
-            />
 
             {/* Scrollable content area - shrinks to make room for input */}
             <div
@@ -1255,11 +1253,6 @@ export function DraftChat() {
           onChange={handleFileSelect}
           className="hidden"
           accept=".pdf,.doc,.docx,.txt,.csv,.xlsx,.xls"
-        />
-        <ModelSettingsPopover
-          isOpen={showSettingsPopover}
-          onClose={() => setShowSettingsPopover(false)}
-          anchorRef={settingsButtonRef}
         />
       </div>
     </div>
