@@ -212,13 +212,28 @@ export function useScenario(): UseScenarioReturn {
   }, [framing, currentScenarioId, isPersistenceActive])
 
   // -----------------------------------------------------------------------
-  // Cleanup all timers on unmount
+  // Cleanup all timers on unmount + best-effort flush of pending saves
   // -----------------------------------------------------------------------
 
   useEffect(() => {
     return () => {
-      if (graphSaveTimerRef.current) clearTimeout(graphSaveTimerRef.current)
-      if (framingSaveTimerRef.current) clearTimeout(framingSaveTimerRef.current)
+      // Best-effort flush: if a debounced graph save is pending, fire it now
+      if (graphSaveTimerRef.current) {
+        clearTimeout(graphSaveTimerRef.current)
+        const sid = scenarioIdRef.current
+        if (sid) {
+          const { nodes: n, edges: e } = useCanvasStore.getState()
+          scenarioService.saveGraph(sid, { nodes: n, edges: e }).catch(() => {})
+        }
+      }
+      if (framingSaveTimerRef.current) {
+        clearTimeout(framingSaveTimerRef.current)
+        const sid = scenarioIdRef.current
+        const f = useCanvasStore.getState().currentScenarioFraming
+        if (sid && f) {
+          scenarioService.saveFraming(sid, f).catch(() => {})
+        }
+      }
       if (retryTimerRef.current) clearTimeout(retryTimerRef.current)
     }
   }, [])
@@ -237,6 +252,15 @@ export function useScenario(): UseScenarioReturn {
     if (titleAutoSetForScenarioRef.current === currentScenarioId) return
 
     const framingObj = framing as Record<string, unknown> | null
+
+    // Don't overwrite an existing user-set title
+    const existingTitle = framingObj?.title
+    if (existingTitle && typeof existingTitle === 'string' && existingTitle.trim().length > 0) {
+      // Mark as handled so we don't re-check on every framing change
+      titleAutoSetForScenarioRef.current = currentScenarioId
+      return
+    }
+
     const goal = framingObj?.goal
     if (!goal || typeof goal !== 'string') return
 

@@ -141,6 +141,10 @@ describe('useScenario', () => {
       results: { status: 'idle' },
     }
     setAuth(null, false)
+    // Default mock returns — flush-on-unmount calls .catch() on these
+    mockSaveGraph.mockResolvedValue(undefined)
+    mockSaveFraming.mockResolvedValue(undefined)
+    mockSaveTitle.mockResolvedValue(undefined)
     vi.useFakeTimers()
   })
 
@@ -570,6 +574,80 @@ describe('useScenario', () => {
       })
 
       expect(result.current.analysisStale).toBe(false)
+    })
+  })
+
+  // -----------------------------------------------------------------------
+  // C.1b: Auto-title from framing goal (Task 10 + H2 fix)
+  // -----------------------------------------------------------------------
+
+  describe('auto-title', () => {
+    it('fires saveTitle when framing has goal and no existing title', async () => {
+      setAuth(REAL_USER_ID, true)
+      setStoreState({
+        currentScenarioId: 'scenario-1',
+        currentScenarioFraming: { goal: 'Increase revenue by 20%' },
+      })
+      mockSaveTitle.mockResolvedValue(undefined)
+
+      renderUseScenario()
+
+      // Auto-title fires synchronously in the effect cycle
+      await act(async () => {
+        await vi.runAllTimersAsync()
+      })
+
+      expect(mockSaveTitle).toHaveBeenCalledWith('scenario-1', 'Increase revenue by 20%')
+    })
+
+    it('does NOT fire saveTitle when framing already has a non-empty title', async () => {
+      setAuth(REAL_USER_ID, true)
+      setStoreState({
+        currentScenarioId: 'scenario-1',
+        currentScenarioFraming: { title: 'My Custom Title', goal: 'Increase revenue' },
+      })
+
+      renderUseScenario()
+
+      await act(async () => {
+        await vi.runAllTimersAsync()
+      })
+
+      expect(mockSaveTitle).not.toHaveBeenCalled()
+    })
+
+    it('truncates goals longer than 60 characters', async () => {
+      setAuth(REAL_USER_ID, true)
+      const longGoal = 'A'.repeat(80)
+      setStoreState({
+        currentScenarioId: 'scenario-1',
+        currentScenarioFraming: { goal: longGoal },
+      })
+      mockSaveTitle.mockResolvedValue(undefined)
+
+      renderUseScenario()
+
+      await act(async () => {
+        await vi.runAllTimersAsync()
+      })
+
+      expect(mockSaveTitle).toHaveBeenCalledWith('scenario-1', 'A'.repeat(57) + '...')
+    })
+
+    it('does not fire when persistence is inactive', async () => {
+      setAuth('guest', true)
+      setStoreState({
+        currentScenarioId: 'scenario-1',
+        currentScenarioFraming: { goal: 'Some goal' },
+      })
+
+      renderUseScenario()
+
+      await act(async () => {
+        await vi.runAllTimersAsync()
+      })
+
+      expect(mockSaveTitle).not.toHaveBeenCalled()
     })
   })
 

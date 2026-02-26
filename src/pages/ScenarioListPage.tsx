@@ -68,7 +68,7 @@ function formatLastActivity(events: ScenarioEvent[] | null | undefined, updatedA
 
   switch (lastEvent.event_type) {
     case 'analysis_run':
-      if (details.winner && details.probability) {
+      if (details.winner && details.probability != null) {
         return `Analysis run — ${details.winner} won at ${Math.round(Number(details.probability) * 100)}%`
       }
       return 'Analysis run'

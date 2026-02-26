@@ -28,6 +28,7 @@ import {
   synthesizeCeeTraceFromV2,
 } from '../../adapters/plot/v2/responseMapper'
 import { trackRunCompleted, trackRunFailed, trackEmptyComputedResults } from '../../lib/resultsInstrumentation'
+import { generateGraphHash } from '../store/runHistory'
 import { trackTypedError } from '../../lib/telemetry'
 import { ApiError, NetworkError, ProcessingError, isApiError } from '../../lib/api-errors'
 import { generateRequestId } from '../../types/requestId'
@@ -565,11 +566,12 @@ export function useV2Run(persistence?: V2RunPersistence): UseV2RunReturn {
         // C.1b: Persist analysis results to Supabase (non-blocking)
         if (persistence) {
           const seedUsed = successResult.meta?.seed_used
-            ? parseInt(successResult.meta.seed_used, 10)
+            ? (parseInt(successResult.meta.seed_used, 10) || 0)
             : (seed ?? 0)
+          const graphHash = generateGraphHash(nodes, edges, seedUsed)
           persistence.persistAnalysisSuccess(
             successResult,
-            report.graph_hash ?? '',
+            graphHash,
             seedUsed,
             successResult.response_hash,
             {
