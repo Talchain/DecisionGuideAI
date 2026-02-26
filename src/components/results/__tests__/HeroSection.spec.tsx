@@ -816,8 +816,8 @@ describe('HeroSection', () => {
     })
   })
 
-  describe('V11: Target-unset Prompt', () => {
-    it('shows dashed prompt when goalThreshold is not set', () => {
+  describe('V12.5: Target-unset Prompt removed', () => {
+    it('does NOT show verbose target-unset prompt when goalThreshold is null', () => {
       render(
         <HeroSection
           {...baseProps}
@@ -826,12 +826,11 @@ describe('HeroSection', () => {
         />
       )
 
-      const prompt = screen.getByTestId('target-unset-prompt')
-      expect(prompt).toHaveTextContent(/Set a success target/)
-      expect(prompt).toHaveClass('border-dashed')
+      expect(screen.queryByTestId('target-unset-prompt')).not.toBeInTheDocument()
+      expect(screen.queryByText(/Set a success target/)).not.toBeInTheDocument()
     })
 
-    it('shows target value when goalThreshold is set (no prompt)', () => {
+    it('shows target value when goalThreshold is set', () => {
       render(
         <HeroSection
           {...baseProps}

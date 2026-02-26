@@ -273,4 +273,8 @@ describe('sanitizeCoachingText', () => {
   it('strips (0-1, share of N) from coaching text', () => {
     expect(sanitizeCoachingText('Engineering Capacity (0\u20131, share of 20 engineers) is key')).toBe('Engineering Capacity is key')
   })
+
+  it('V12.5: replaces em dash (\u2014) with comma', () => {
+    expect(sanitizeCoachingText('criteria \u2014 margin')).toBe('criteria, margin')
+  })
 })

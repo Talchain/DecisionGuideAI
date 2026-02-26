@@ -250,11 +250,24 @@ export function ResultsBody({
         const nextActionCount = actionGroups[0].items.filter(i => i.id.startsWith('next-')).length
 
         // worthRefining: non-SENSITIVE_ASSUMPTION uncertainties, minus internal leaks
-        // Must match ConfidenceSection's INTERNAL_PATTERN filter
+        // Must match ConfidenceSection's INTERNAL_PATTERN + humanised-override exemption
         const BADGE_INTERNAL_PATTERN = /constraint_|observed_state|intercept=|node_id=|edge_id=|fac_[a-z_]+|opt_[a-z_]+|goal_[a-z_]+|blocks_analysis/i
+        // Build humanised lookup keys (same logic as ConfidenceSection)
+        const humanisedKeys = new Set<string>()
+        const plotCritiques = resultsSectionData.confidence.uncertainties.filter(u => u.code !== 'SENSITIVE_ASSUMPTION')
+        const humanisedCritiques = resultsSectionData.confidence.humanisedCritiques
+        if (humanisedCritiques) {
+          plotCritiques.forEach((item, idx) => {
+            if (humanisedCritiques[idx]) {
+              humanisedKeys.add(`${item.code}::${item.affectedNodes?.[0] ?? idx}`)
+            }
+          })
+        }
         const worthRefiningCount = resultsSectionData.confidence.uncertainties.filter(u => {
           if (u.code === 'SENSITIVE_ASSUMPTION') return false
-          return !BADGE_INTERNAL_PATTERN.test(u.message)
+          if (!BADGE_INTERNAL_PATTERN.test(u.message)) return true
+          const key = `${u.code}::${u.affectedNodes?.[0] ?? ''}`
+          return humanisedKeys.has(key)
         }).length
 
         // VOI block visible when sensitive/indeterminate + hinge

@@ -313,17 +313,10 @@ function MetaStrip({
           baselineLabel={baselineLabel}
         />
       )}
-      {/* Target */}
-      {goalThreshold != null ? (
+      {/* Target — show value when set, omit prompt when unset (V12.5) */}
+      {goalThreshold != null && (
         <span className={`${typography.panelMeta} text-text-light`}>
           Target: <span className="text-text-body">{goalThreshold}</span>
-        </span>
-      ) : (
-        <span
-          className={`${typography.panelMeta} text-text-light border border-dashed border-panel-border px-2 py-0.5 rounded`}
-          data-testid="target-unset-prompt"
-        >
-          Set a success target to see each option's probability of achieving your goal
         </span>
       )}
     </div>
