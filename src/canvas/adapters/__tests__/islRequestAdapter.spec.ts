@@ -19,6 +19,7 @@ import {
   transformNodesToISLGraph,
   extractISLOptions,
 } from '../islRequestAdapter'
+import { STD_FLOOR } from '../../../adapters/plot/v2/types'
 import type {
   UIRobustnessRequest,
   UIFormRequest,
@@ -363,7 +364,7 @@ describe('islRequestAdapter', () => {
   describe('computeDefaultStd', () => {
     it('computes std from belief', () => {
       // cv = 0.3 * (1 - 0.9) + 0.1 = 0.13
-      // std = max(0.05, 0.13 * 0.8) = max(0.05, 0.104) = 0.104
+      // std = max(STD_FLOOR, 0.13 * 0.8) = max(0.001, 0.104) = 0.104
       const result = computeDefaultStd({ weight: 0.8, beliefExists: 0.9 })
       expect(result).toBeCloseTo(0.104, 2)
     })
@@ -373,11 +374,21 @@ describe('islRequestAdapter', () => {
       expect(result).toBeCloseTo(0.104, 2)
     })
 
-    it('uses minimum floor of 0.05', () => {
+    it('uses STD_FLOOR, not hardcoded 0.05', () => {
       // cv = 0.3 * (1 - 1.0) + 0.1 = 0.1
-      // std = max(0.05, 0.1 * 0.1) = max(0.05, 0.01) = 0.05
+      // std = max(STD_FLOOR, 0.1 * 0.1) = max(0.001, 0.01) = 0.01
+      // PLoT applies its own internal floor of 0.05; UI's job is to prevent literal zero
       const result = computeDefaultStd({ weight: 0.1, beliefExists: 1.0 })
-      expect(result).toBe(0.05)
+      expect(result).toBeCloseTo(0.01, 5)
+      expect(result).toBeGreaterThan(STD_FLOOR)  // above STD_FLOOR
+      expect(result).toBeLessThan(0.05)           // below old hardcoded floor
+    })
+
+    it('defaults belief to 0.8 (DEFAULT_EXISTS_PROBABILITY) when no belief fields provided', () => {
+      // cv = 0.3 * (1 - 0.8) + 0.1 = 0.16
+      // std = max(STD_FLOOR, 0.16 * 0.5) = max(0.001, 0.08) = 0.08
+      const result = computeDefaultStd({ weight: 0.5 })
+      expect(result).toBeCloseTo(0.08, 2)
     })
   })
 
@@ -440,6 +451,75 @@ describe('islRequestAdapter', () => {
 
       expect(result[0].strength.mean).toBe(0.7)
     })
+
+    it('ISL adapter: edge with no belief fields omits exists_probability', () => {
+      const edges: UIEdge[] = [{
+        id: 'e1',
+        source: 'a',
+        target: 'b',
+        data: {
+          weight: 0.6,
+          direction: 'positive',
+          // No beliefExists, confidence, or belief
+        }
+      }]
+
+      const result = transformEdgesToISLv2(edges)
+
+      // Field omitted — ISL defaults to 0.8 internally
+      expect(result[0]).not.toHaveProperty('exists_probability')
+    })
+
+    it('ISL adapter: edge with explicit beliefExists forwards the value', () => {
+      const edges: UIEdge[] = [{
+        id: 'e1',
+        source: 'a',
+        target: 'b',
+        data: {
+          weight: 0.6,
+          direction: 'positive',
+          beliefExists: 0.7,
+        }
+      }]
+
+      const result = transformEdgesToISLv2(edges)
+
+      expect(result[0].exists_probability).toBe(0.7)
+    })
+
+    it('ISL adapter: edge with confidence (no beliefExists) forwards via fallback chain', () => {
+      const edges: UIEdge[] = [{
+        id: 'e1',
+        source: 'a',
+        target: 'b',
+        data: {
+          weight: 0.6,
+          direction: 'positive',
+          confidence: 0.65,
+        }
+      }]
+
+      const result = transformEdgesToISLv2(edges)
+
+      expect(result[0].exists_probability).toBe(0.65)
+    })
+
+    it('ISL adapter: edge with belief (no beliefExists/confidence) forwards via fallback chain', () => {
+      const edges: UIEdge[] = [{
+        id: 'e1',
+        source: 'a',
+        target: 'b',
+        data: {
+          weight: 0.6,
+          direction: 'positive',
+          belief: 0.55,
+        }
+      }]
+
+      const result = transformEdgesToISLv2(edges)
+
+      expect(result[0].exists_probability).toBe(0.55)
+    })
   })
 
   describe('extractParameterUncertainties with observedState', () => {
@@ -490,8 +570,8 @@ describe('islRequestAdapter', () => {
 
       const result = extractParameterUncertainties(nodes)
 
-      // Minimum floor is 0.001 (aligned with V2 adapter STD_FLOOR)
-      expect(result.factor.std).toBe(0.001)
+      // Minimum floor aligned with V2 adapter STD_FLOOR
+      expect(result.factor.std).toBe(STD_FLOOR)
     })
 
     it('prioritizes observedState over value field', () => {

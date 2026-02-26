@@ -636,7 +636,8 @@ describe('buildV2RequestFromAnalysisReady', () => {
 
     // Edge should have fallback values
     expect(request.graph.edges[0].strength.mean).toBe(0.5) // Default weight
-    expect(request.graph.edges[0].exists_probability).toBe(0.5) // Default belief
+    // exists_probability omitted — PLoT applies DEFAULT_EXISTS_PROBABILITY (0.8) with repair logging
+    expect(request.graph.edges[0]).not.toHaveProperty('exists_probability')
   })
 
   it('throws EdgeValidationError with strictEdgeValidation=true', () => {

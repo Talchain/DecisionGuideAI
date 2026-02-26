@@ -27,7 +27,7 @@ import type {
   ISLParameterUncertainty,
   LegacyISLRobustnessRequest,
 } from '../../adapters/isl/types'
-import { STD_FLOOR } from '../../adapters/plot/v2/types'
+import { STD_FLOOR, DEFAULT_EXISTS_PROBABILITY } from '../../adapters/plot/v2/types'
 
 // =============================================================================
 // UI Graph Types (internal format)
@@ -160,15 +160,15 @@ export function computeSignedMean(data: UIEdge['data']): number {
 
 /**
  * Compute default std when not provided by CEE.
- * Uses same formula as CEE for consistency:
+ * Uses same formula as V2 adapter for consistency:
  * cv = 0.3 * (1 - belief) + 0.1
- * std = max(0.05, cv * magnitude)
+ * std = max(STD_FLOOR, cv * magnitude)
  */
 export function computeDefaultStd(data: UIEdge['data']): number {
   const magnitude = data?.weight ?? 0.5
-  const belief = data?.beliefExists ?? data?.confidence ?? data?.belief ?? 0.5
+  const belief = data?.beliefExists ?? data?.confidence ?? data?.belief ?? DEFAULT_EXISTS_PROBABILITY
   const cv = 0.3 * (1 - belief) + 0.1
-  return Math.max(0.05, cv * magnitude)
+  return Math.max(STD_FLOOR, cv * magnitude)
 }
 
 /**
@@ -180,10 +180,13 @@ export function transformEdgesToISLv2(edges: UIEdge[]): ISLGraphEdgeV2[] {
   return edges.map(e => {
     const data = e.data
 
+    const existsProb = data?.beliefExists ?? data?.confidence ?? data?.belief
+
     return {
       from: e.source,
       to: e.target,
-      exists_probability: data?.beliefExists ?? data?.confidence ?? data?.belief ?? 0.5,
+      // When omitted, ISL defaults to 0.8 (matches PLoT DEFAULT_EXISTS_PROBABILITY)
+      ...(existsProb !== undefined ? { exists_probability: existsProb } : {}),
       strength: {
         mean: computeSignedMean(data),
         std: data?.strengthStd ?? computeDefaultStd(data)

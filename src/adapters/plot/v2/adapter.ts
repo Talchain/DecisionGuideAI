@@ -22,7 +22,7 @@ import type {
   V2Edge,
   V2Option,
 } from './types'
-import { STD_FLOOR, STD_CEILING_RATIO, STD_CEILING_ABS, DEFAULT_STD, isBlockedResponse } from './types'
+import { STD_FLOOR, STD_CEILING_RATIO, STD_CEILING_ABS, DEFAULT_STD, DEFAULT_EXISTS_PROBABILITY, isBlockedResponse } from './types'
 import {
   normaliseGraphIds,
   translateResponseToUIIds,
@@ -545,6 +545,10 @@ export function getStrengthCorrections(): StrengthCorrection[] {
  * Clamps result to CEE-valid range [-1, +1].
  *
  * IMPORTANT: Call validateEdgeData first to ensure fields exist.
+ *
+ * UI-SEM-001: Reclassified as format conversion (not semantic transform).
+ * Canvas stores unsigned weight + direction; wire format requires signed mean.
+ * This is the adapter's legitimate job — PLoT cannot own this.
  */
 function computeSignedMean(data: CanvasEdgeData | undefined, edgeId?: string, from?: string, to?: string): number {
   const magnitude = data?.weight ?? 0.5
@@ -584,7 +588,7 @@ function computeSignedMean(data: CanvasEdgeData | undefined, edgeId?: string, fr
  */
 function computeDefaultStd(data: CanvasEdgeData | undefined): number {
   const magnitude = data?.weight ?? 0.5
-  const belief = data?.beliefExists ?? data?.confidence ?? data?.belief ?? 0.5
+  const belief = data?.beliefExists ?? data?.confidence ?? data?.belief ?? DEFAULT_EXISTS_PROBABILITY
   const cv = 0.3 * (1 - belief) + 0.1
   return Math.max(STD_FLOOR, cv * magnitude)
 }
@@ -600,7 +604,7 @@ export function transformEdgeToV2(edge: Edge<CanvasEdgeData>): V2Edge {
   const data = edge.data ?? {}
 
   const std = data.strengthStd ?? computeDefaultStd(data)
-  const existsProb = data.beliefExists ?? data.confidence ?? data.belief ?? 0.5
+  const existsProb = data.beliefExists ?? data.confidence ?? data.belief
   const finalStd = Math.max(STD_FLOOR, std)
 
   // Diagnostic logging for edge uncertainty data flow
@@ -612,12 +616,12 @@ export function transformEdgeToV2(edge: Edge<CanvasEdgeData>): V2Edge {
       canvas_belief: data.belief,
       canvas_strengthStd: data.strengthStd,
       computed_defaultStd: data.strengthStd === undefined ? computeDefaultStd(data) : 'N/A (used canvas)',
-      output_exists_probability: existsProb,
+      output_exists_probability: existsProb ?? 'omitted (PLoT defaults to 0.8)',
       output_strength_std: finalStd,
       fallback_used: data.beliefExists === undefined
         ? data.confidence === undefined
           ? data.belief === undefined
-            ? '0.5 (default)'
+            ? 'omitted (PLoT applies DEFAULT_EXISTS_PROBABILITY)'
             : 'belief'
           : 'confidence'
         : 'beliefExists',
@@ -631,7 +635,8 @@ export function transformEdgeToV2(edge: Edge<CanvasEdgeData>): V2Edge {
       mean: computeSignedMean(data, edge.id, edge.source, edge.target),
       std: finalStd,
     },
-    exists_probability: existsProb,
+    // When omitted, PLoT applies DEFAULT_EXISTS_PROBABILITY (0.8) with repair logging
+    ...(existsProb !== undefined ? { exists_probability: existsProb } : {}),
   }
 }
 
@@ -646,6 +651,7 @@ export function transformEdgeToV2Strict(edge: Edge<CanvasEdgeData>): V2Edge {
 
   const data = edge.data!
   const std = data.strengthStd ?? computeDefaultStd(data)
+  const existsProb = data.beliefExists ?? data.confidence ?? data.belief
 
   return {
     from: edge.source,
@@ -654,7 +660,8 @@ export function transformEdgeToV2Strict(edge: Edge<CanvasEdgeData>): V2Edge {
       mean: computeSignedMean(data, edge.id, edge.source, edge.target),
       std: Math.max(STD_FLOOR, std),
     },
-    exists_probability: data.beliefExists ?? data.confidence ?? data.belief ?? 0.5,
+    // When omitted, PLoT applies DEFAULT_EXISTS_PROBABILITY (0.8) with repair logging
+    ...(existsProb !== undefined ? { exists_probability: existsProb } : {}),
   }
 }
 

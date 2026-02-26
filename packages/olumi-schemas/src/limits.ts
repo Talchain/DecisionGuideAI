@@ -42,6 +42,13 @@ export const STD_CEILING_ABS = 10000
 export const DEFAULT_STD = 0.1
 
 /**
+ * Canonical default for missing exists_probability — matches PLoT repair code DEFAULT_EXISTS_PROBABILITY.
+ * When the UI omits the field, PLoT/ISL apply this value server-side with repair logging.
+ * Used in computeDefaultStd derivation (CV calculation).
+ */
+export const DEFAULT_EXISTS_PROBABILITY = 0.8
+
+/**
  * Edge strength bounds (CEE-valid range).
  */
 export const STRENGTH_BOUNDS = {
@@ -66,6 +73,7 @@ export const LIMITS = {
   STD_CEILING_RATIO,
   STD_CEILING_ABS,
   DEFAULT_STD,
+  DEFAULT_EXISTS_PROBABILITY,
   STRENGTH_BOUNDS,
   DEFAULT_SEED,
 } as const

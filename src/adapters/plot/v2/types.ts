@@ -60,6 +60,10 @@ export interface V2Node {
 
 /**
  * V2 edge in the request graph.
+ *
+ * exists_probability is optional: when the UI has no explicit value,
+ * the field is omitted and PLoT applies DEFAULT_EXISTS_PROBABILITY (0.8)
+ * with repair logging.
  */
 export interface V2Edge {
   from: string
@@ -68,7 +72,7 @@ export interface V2Edge {
     mean: number
     std: number
   }
-  exists_probability: number
+  exists_probability?: number
 }
 
 /**
@@ -763,5 +767,6 @@ export {
   STD_CEILING_RATIO,
   STD_CEILING_ABS,
   DEFAULT_STD,
+  DEFAULT_EXISTS_PROBABILITY,
   DEFAULT_SEED,
 } from '@talchain/schemas'
