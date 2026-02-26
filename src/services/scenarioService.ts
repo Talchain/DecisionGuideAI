@@ -214,7 +214,7 @@ export async function setAnalysisRunning(
 ): Promise<void> {
   const { error } = await supabase
     .from('scenarios')
-    .update({ analysis_status: 'running' })
+    .update({ analysis_status: 'running', analysis_error: null })
     .eq('id', scenarioId)
 
   if (error) {

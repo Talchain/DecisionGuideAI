@@ -207,5 +207,56 @@ describe('useV2Run cancel behavior', () => {
 
     // Verify: persistAnalysisFailure was NOT called (cancel is not a failure)
     expect(mockPersistAnalysisFailure).not.toHaveBeenCalled()
+
+    // Verify: persistAnalysisSuccess was NOT called (cancel produced no result)
+    expect(mockPersistAnalysisSuccess).not.toHaveBeenCalled()
+  })
+
+  it('swallows resetAnalysisStatus rejection without destabilising the hook', async () => {
+    const mockResetAnalysisStatus = vi.fn().mockRejectedValue(new Error('Supabase unreachable'))
+
+    const persistence = {
+      setAnalysisRunning: vi.fn().mockResolvedValue(undefined),
+      resetAnalysisStatus: mockResetAnalysisStatus,
+      persistAnalysisSuccess: vi.fn().mockResolvedValue(undefined),
+      persistAnalysisFailure: vi.fn().mockResolvedValue(undefined),
+    }
+
+    function makeAbortError(): Error {
+      const err = new Error('The operation was aborted.')
+      err.name = 'AbortError'
+      return err
+    }
+
+    mockExecute.mockImplementation(
+      (config: { signal?: AbortSignal }) =>
+        new Promise((_resolve, reject) => {
+          const signal = config.signal
+          if (signal) {
+            if (signal.aborted) {
+              reject(makeAbortError())
+              return
+            }
+            signal.addEventListener('abort', () => reject(makeAbortError()), { once: true })
+          }
+        })
+    )
+
+    const { result } = renderHook(() => useV2Run(persistence))
+
+    let runPromise: Promise<void>
+    await act(async () => {
+      runPromise = result.current.runV2Analysis()
+    })
+
+    // Cancel — resetAnalysisStatus will reject, but hook should not throw
+    await act(async () => {
+      result.current.cancelRun()
+      await runPromise!
+    })
+
+    // Hook settled without error; resetAnalysisStatus was attempted
+    expect(mockResetAnalysisStatus).toHaveBeenCalledTimes(1)
+    expect(useCanvasStore.getState().results.status).toBe('cancelled')
   })
 })
