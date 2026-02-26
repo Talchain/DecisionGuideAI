@@ -368,7 +368,7 @@ export function TornadoChart({
           }
 
           return (
-            <div key={row.factorKey} className="flex items-center gap-2">
+            <div key={row.factorKey} className="flex items-center gap-3">
               {/* Label */}
               <div className="w-[150px] flex-shrink-0 text-right">
                 {row.canFocus ? (
@@ -394,7 +394,7 @@ export function TornadoChart({
               <div
                 className={`flex-1 h-5 relative ${isActiveRow ? 'opacity-90' : ''}`}
                 data-bar-container
-                style={{ touchAction: 'none' }}
+                style={{ touchAction: 'none', overflowX: 'clip' }}
               >
                 {/* Centre line */}
                 <div
@@ -494,7 +494,7 @@ export function TornadoChart({
       </div>
 
       {/* Axis labels — outcome updates during drag. V11: unit-aware when count unit available. */}
-      <div className="flex items-baseline gap-2 mt-1.5 ml-[158px] text-[10px] leading-tight text-text-light">
+      <div className="flex items-baseline gap-2 mt-1.5 ml-[162px] text-[10px] leading-tight text-text-light">
         <span className="flex-shrink-0 whitespace-nowrap" data-testid="tornado-axis-left">
           {outcomeUnitSymbol && outcomeUnit === 'count'
             ? `← Fewer ${outcomeUnitSymbol}`

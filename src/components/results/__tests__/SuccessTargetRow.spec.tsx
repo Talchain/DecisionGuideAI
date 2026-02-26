@@ -24,12 +24,12 @@ describe('SuccessTargetRow', () => {
       expect(screen.getByText('Set target')).toBeInTheDocument()
     })
 
-    it('shows placeholder microcopy', () => {
+    it('V12.5: placeholder microcopy removed (self-explanatory "Set target" link)', () => {
       render(<SuccessTargetRow />)
 
       expect(
-        screen.getByText("Set a success target to see each option's chance of achieving it.")
-      ).toBeInTheDocument()
+        screen.queryByText("Set a success target to see each option's chance of achieving it.")
+      ).not.toBeInTheDocument()
     })
 
     it('hides "Wins"/"Hits target" microcopy', () => {

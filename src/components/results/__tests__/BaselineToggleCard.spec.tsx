@@ -39,10 +39,10 @@ describe('BaselineToggleCard', () => {
       ).toBeInTheDocument()
     })
 
-    it('shows helper text when no baseline set', () => {
+    it('V12.5: helper text removed (self-explanatory "Set" link)', () => {
       render(<BaselineToggleCard show={true} />)
 
-      expect(screen.getByText(/Baseline helps interpret/)).toBeInTheDocument()
+      expect(screen.queryByText(/Baseline helps interpret/)).not.toBeInTheDocument()
     })
   })
 

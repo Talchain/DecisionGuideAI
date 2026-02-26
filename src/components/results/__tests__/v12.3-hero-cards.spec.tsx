@@ -107,8 +107,8 @@ describe('V12.3 Task 1: Evidence badge removed from hero', () => {
 // Task 2: "Action" label with bullet separator
 // ===========================================================================
 
-describe('V12.3 Task 2: Action label with bullet separator', () => {
-  it('robust + hinge: shows "Action • Validate: {link}"', () => {
+describe('V12.5 Task 2: Action line (prose layout, no dt/dd)', () => {
+  it('robust + hinge: shows "Validate:" action with link', () => {
     render(
       <HeroSection
         {...heroBase}
@@ -124,14 +124,11 @@ describe('V12.3 Task 2: Action label with bullet separator', () => {
       />
     )
 
-    expect(screen.getByText('Action')).toBeInTheDocument()
     expect(screen.getByText(/Validate:/)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Focus on Market Size/ })).toBeInTheDocument()
-    // Bullet separator present
-    expect(screen.getByText('•')).toBeInTheDocument()
   })
 
-  it('robust + no hinge: Action row is absent', () => {
+  it('robust + no hinge: action line is absent', () => {
     render(
       <HeroSection
         {...heroBase}
@@ -140,10 +137,10 @@ describe('V12.3 Task 2: Action label with bullet separator', () => {
       />
     )
 
-    expect(screen.queryByText('Action')).not.toBeInTheDocument()
+    expect(screen.queryByText(/Validate:/)).not.toBeInTheDocument()
   })
 
-  it('sensitive + hinge: shows "Action • Validate first: {link}"', () => {
+  it('sensitive + hinge: shows "Validate first:" action with link', () => {
     render(
       <HeroSection
         {...heroBase}
@@ -159,12 +156,11 @@ describe('V12.3 Task 2: Action label with bullet separator', () => {
       />
     )
 
-    expect(screen.getByText('Action')).toBeInTheDocument()
     expect(screen.getByText(/Validate first:/)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Focus on Customer Churn/ })).toBeInTheDocument()
   })
 
-  it('sensitive + no hinge: shows "Action" with fallback text', () => {
+  it('sensitive + no hinge: shows fallback text', () => {
     render(
       <HeroSection
         {...heroBase}
@@ -173,11 +169,10 @@ describe('V12.3 Task 2: Action label with bullet separator', () => {
       />
     )
 
-    expect(screen.getByText('Action')).toBeInTheDocument()
     expect(screen.getByText(/Review key assumptions before committing/)).toBeInTheDocument()
   })
 
-  it('indeterminate + hinge: shows "Action • Resolve first: {link}"', () => {
+  it('indeterminate + hinge: shows "Resolve first:" action with link', () => {
     render(
       <HeroSection
         {...heroBase}
@@ -193,12 +188,11 @@ describe('V12.3 Task 2: Action label with bullet separator', () => {
       />
     )
 
-    expect(screen.getByText('Action')).toBeInTheDocument()
     expect(screen.getByText(/Resolve first:/)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Focus on Adoption Rate/ })).toBeInTheDocument()
   })
 
-  it('indeterminate + no hinge: shows "Action" with fallback text', () => {
+  it('indeterminate + no hinge: shows fallback text', () => {
     render(
       <HeroSection
         {...heroBase}
@@ -207,11 +201,10 @@ describe('V12.3 Task 2: Action label with bullet separator', () => {
       />
     )
 
-    expect(screen.getByText('Action')).toBeInTheDocument()
     expect(screen.getByText(/Review key assumptions to distinguish/)).toBeInTheDocument()
   })
 
-  it('Action label aligns at same width as Goal and Leads', () => {
+  it('V12.5: prose layout uses <p> tags, not <dt>/<dd>', () => {
     render(
       <HeroSection
         {...heroBase}
@@ -228,11 +221,11 @@ describe('V12.3 Task 2: Action label with bullet separator', () => {
     )
 
     const heroRows = screen.getByTestId('hero-rows')
-    const dtElements = heroRows.querySelectorAll('dt')
-    // All <dt> elements should share the w-24 class for alignment
-    dtElements.forEach((dt) => {
-      expect(dt.className).toContain('w-24')
-    })
+    const pElements = heroRows.querySelectorAll('p')
+    expect(pElements.length).toBeGreaterThanOrEqual(2)
+    // No <dt> or <dd> elements in prose layout
+    expect(heroRows.querySelectorAll('dt').length).toBe(0)
+    expect(heroRows.querySelectorAll('dd').length).toBe(0)
   })
 })
 

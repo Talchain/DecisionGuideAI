@@ -558,7 +558,7 @@ describe('HeroSection', () => {
     }
 
     describe('Robust state', () => {
-      it('renders "Leads" row with winner in green', () => {
+      it('V12.5: renders winner in green with win likelihood (prose layout)', () => {
         render(
           <HeroSection
             {...v11Props}
@@ -567,12 +567,11 @@ describe('HeroSection', () => {
         )
 
         expect(screen.getByTestId('hero-rows')).toBeInTheDocument()
-        expect(screen.getByText('Leads')).toBeInTheDocument()
         expect(screen.getByText('Option A')).toHaveClass('text-success')
         expect(screen.getByText(/62% win likelihood/)).toBeInTheDocument()
       })
 
-      it('V12.3: renders "Action" row with hinge link when hinge is provided', () => {
+      it('V12.5: renders action line with hinge link when hinge is provided', () => {
         const onFocusNode = vi.fn()
 
         render(
@@ -591,7 +590,6 @@ describe('HeroSection', () => {
           />
         )
 
-        expect(screen.getByText('Action')).toBeInTheDocument()
         expect(screen.getByText(/Validate:/)).toBeInTheDocument()
         const link = screen.getByRole('button', { name: /Focus on Market Size/ })
         expect(link).toBeInTheDocument()
@@ -613,7 +611,7 @@ describe('HeroSection', () => {
     })
 
     describe('Sensitive state', () => {
-      it('V12.3: renders "Leads" row and "Action" label with "Validate first:" content', () => {
+      it('V12.5: renders winner and action line with "Validate first:" content', () => {
         render(
           <HeroSection
             {...v11Props}
@@ -629,14 +627,13 @@ describe('HeroSection', () => {
           />
         )
 
-        expect(screen.getByText('Leads')).toBeInTheDocument()
-        expect(screen.getByText('Action')).toBeInTheDocument()
+        expect(screen.getByText('Option A')).toHaveClass('text-success')
         expect(screen.getByText(/Validate first:/)).toBeInTheDocument()
       })
     })
 
     describe('Indeterminate state', () => {
-      it('renders "Result" row with "No clear winner" and percentages', () => {
+      it('V12.5: renders "No clear winner" with percentages (prose layout)', () => {
         render(
           <HeroSection
             {...v11Props}
@@ -644,12 +641,11 @@ describe('HeroSection', () => {
           />
         )
 
-        expect(screen.getByText('Result')).toBeInTheDocument()
         expect(screen.getByText(/No clear winner/)).toBeInTheDocument()
         expect(screen.getByText(/62% vs 30%/)).toBeInTheDocument()
       })
 
-      it('V12.3: renders "Action" label with "Resolve first:" content and hinge', () => {
+      it('V12.5: renders "Resolve first:" action line with hinge', () => {
         render(
           <HeroSection
             {...v11Props}
@@ -665,7 +661,6 @@ describe('HeroSection', () => {
           />
         )
 
-        expect(screen.getByText('Action')).toBeInTheDocument()
         expect(screen.getByText(/Resolve first:/)).toBeInTheDocument()
         const link = screen.getByRole('button', { name: /Focus on Adoption Rate/ })
         expect(link).toBeInTheDocument()
@@ -679,9 +674,9 @@ describe('HeroSection', () => {
           />
         )
 
-        // "No clear winner" should be text-text-body (muted), not text-success
+        // "No clear winner" is in the result line (text-text-header), not coloured success
         const resultText = screen.getByText(/No clear winner/)
-        expect(resultText).toHaveClass('text-text-body')
+        expect(resultText).toHaveClass('text-text-header')
         expect(resultText).not.toHaveClass('text-success')
       })
     })
@@ -851,7 +846,7 @@ describe('HeroSection', () => {
   })
 
   describe('V12.3: Row-3 Fallback', () => {
-    it('shows "Action" row with fallback text when hinge is null in sensitive state', () => {
+    it('shows action fallback text when hinge is null in sensitive state', () => {
       render(
         <HeroSection
           {...baseProps}
@@ -860,11 +855,10 @@ describe('HeroSection', () => {
         />
       )
 
-      expect(screen.getByText('Action')).toBeInTheDocument()
       expect(screen.getByText(/Review key assumptions before committing/)).toBeInTheDocument()
     })
 
-    it('shows "Action" row with fallback text when hinge is null in indeterminate state', () => {
+    it('shows action fallback text when hinge is null in indeterminate state', () => {
       render(
         <HeroSection
           {...baseProps}
@@ -873,13 +867,12 @@ describe('HeroSection', () => {
         />
       )
 
-      expect(screen.getByText('Action')).toBeInTheDocument()
       expect(screen.getByText(/Review key assumptions to distinguish/)).toBeInTheDocument()
     })
   })
 
   describe('V12.3: Action Row with Hinge', () => {
-    it('shows "Action" row with "Validate:" in robust state with hinge', () => {
+    it('shows "Validate:" action line in robust state with hinge', () => {
       render(
         <HeroSection
           {...baseProps}
@@ -895,12 +888,11 @@ describe('HeroSection', () => {
         />
       )
 
-      expect(screen.getByText('Action')).toBeInTheDocument()
       expect(screen.getByText(/Validate:/)).toBeInTheDocument()
       expect(screen.getByRole('button', { name: /Focus on Market Size/ })).toBeInTheDocument()
     })
 
-    it('shows "Action" row with "Validate first:" in sensitive state with hinge', () => {
+    it('shows "Validate first:" action line in sensitive state with hinge', () => {
       render(
         <HeroSection
           {...baseProps}
@@ -916,7 +908,6 @@ describe('HeroSection', () => {
         />
       )
 
-      expect(screen.getByText('Action')).toBeInTheDocument()
       expect(screen.getByText(/Validate first:/)).toBeInTheDocument()
       expect(screen.getByRole('button', { name: /Focus on Customer Growth/ })).toBeInTheDocument()
     })

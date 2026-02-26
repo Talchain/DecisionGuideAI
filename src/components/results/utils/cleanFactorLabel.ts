@@ -121,6 +121,7 @@ export function sanitizeCoachingText(text: string): string {
     text
       .replace(/\s*[\u2192]\s*/g, ' to ')   // Unicode right arrow →
       .replace(/\s*->\s*/g, ' to ')          // ASCII arrow ->
+      .replace(/\s*\u2014\s*/g, ', ')        // Em dash — to comma
   ).trim()
 }
 

@@ -215,34 +215,54 @@ export function ResultsBody({
       {/* ── SECTION 4: WHAT TO DO NEXT ───────────────────────────── */}
       {/* V11: Collapse behaviour driven by decisionState, not robustness level */}
       {(() => {
-        // V11: Badge count accounting for hinge de-duplication
+        // V12.5: Badge count mirrors ConfidenceSection's rendered item count
+        // Uses groupActionItems for dedup parity — badge can never diverge from content.
         const hingeNodeId = vm.hinge?.nodeId
         const hingeExcludeIds = hingeNodeId ? [hingeNodeId] : undefined
-        const fragileEdgesForBadge = resultsSectionData.confidence.uncertainties.filter(u => u.code === 'SENSITIVE_ASSUMPTION')
-        const evidenceGapsForBadge = resultsSectionData.confidence.evidenceGaps ?? []
-        const nonFragileCount = resultsSectionData.confidence.uncertainties.filter(u => u.code !== 'SENSITIVE_ASSUMPTION').length
-        let badgeCount = Math.min(3, fragileEdgesForBadge.length) + nonFragileCount + evidenceGapsForBadge.length
-        if (hingeNodeId) {
-          // Only subtract from fragile edges if hinge is in the visible top-3
-          // (ConfidenceSection sorts by severity then slices to 3)
-          const sevOrder: Record<string, number> = { blocker: 4, critical: 3, error: 2, warning: 1 }
-          const sortedFragile = [...fragileEdgesForBadge].sort(
-            (a, b) => (sevOrder[b.severity || 'warning'] || 0) - (sevOrder[a.severity || 'warning'] || 0),
-          )
-          const hingeInTop3Fragile = sortedFragile.slice(0, 3).some(u => u.affectedNodes?.[0] === hingeNodeId)
-          const hingeInGaps = evidenceGapsForBadge.some(g => g.factorId === hingeNodeId)
-          if (hingeInTop3Fragile || hingeInGaps) badgeCount = Math.max(0, badgeCount - 1)
-        }
-        // V11.1 Fix 7: Add 1 for VOI promoted block when visible (sensitive/indeterminate + hinge)
-        const voiBlockVisible = (vm.decisionState === 'sensitive' || vm.decisionState === 'indeterminate') && vm.hinge != null
-        if (voiBlockVisible) badgeCount += 1
 
-        // V12: Include nextActions in badge count (capped at 3, hinge-deduped)
-        const nextActionsForBadge = resultsSectionData.confidence.nextActions ?? []
-        const filteredNextActionsCount = hingeNodeId
-          ? nextActionsForBadge.filter(a => a.targetId !== hingeNodeId).length
-          : nextActionsForBadge.length
-        badgeCount += Math.min(3, filteredNextActionsCount)
+        // Replicate ConfidenceSection's fragile-edge preparation (top 3 by severity)
+        const sevOrder: Record<string, number> = { blocker: 4, critical: 3, error: 2, warning: 1 }
+        const fragileEdgesTop3 = resultsSectionData.confidence.uncertainties
+          .filter(u => u.code === 'SENSITIVE_ASSUMPTION')
+          .sort((a, b) => (sevOrder[b.severity || 'warning'] || 0) - (sevOrder[a.severity || 'warning'] || 0))
+          .slice(0, 3)
+
+        // Visible fragile edges after hinge exclusion
+        const visibleFragileCount = hingeNodeId
+          ? fragileEdgesTop3.filter(u => u.affectedNodes?.[0] !== hingeNodeId).length
+          : fragileEdgesTop3.length
+
+        // Hinge-filter nextActions (same as ConfidenceSection)
+        const filteredNextActions = hingeNodeId
+          ? (resultsSectionData.confidence.nextActions ?? []).filter(a => a.targetId !== hingeNodeId)
+          : (resultsSectionData.confidence.nextActions ?? [])
+
+        // Run groupActionItems for deduped evidence gaps + next-action items
+        const actionGroups = groupActionItems({
+          fragileEdges: fragileEdgesTop3,
+          evidenceGaps: resultsSectionData.confidence.evidenceGaps ?? [],
+          constraintAnalysis: resultsSectionData.recommendation.recommendedOption?.constraintAnalysis,
+          excludeFactorIds: hingeExcludeIds,
+          nextActions: filteredNextActions.length > 0 ? filteredNextActions : undefined,
+        })
+
+        // Next-action items from Group 1 (rendered separately from fragile edges)
+        const nextActionCount = actionGroups[0].items.filter(i => i.id.startsWith('next-')).length
+
+        // worthRefining: non-SENSITIVE_ASSUMPTION uncertainties, minus internal leaks
+        // Must match ConfidenceSection's INTERNAL_PATTERN filter
+        const BADGE_INTERNAL_PATTERN = /constraint_|observed_state|intercept=|node_id=|edge_id=|fac_[a-z_]+|opt_[a-z_]+|goal_[a-z_]+|blocks_analysis/i
+        const worthRefiningCount = resultsSectionData.confidence.uncertainties.filter(u => {
+          if (u.code === 'SENSITIVE_ASSUMPTION') return false
+          return !BADGE_INTERNAL_PATTERN.test(u.message)
+        }).length
+
+        // VOI block visible when sensitive/indeterminate + hinge
+        const voiBlockVisible = (vm.decisionState === 'sensitive' || vm.decisionState === 'indeterminate') && vm.hinge != null
+
+        // Total badge = rendered items across all groups + VOI
+        let badgeCount = visibleFragileCount + nextActionCount + actionGroups[1].items.length + worthRefiningCount
+        if (voiBlockVisible) badgeCount += 1
 
         // V12 B5: ChallengeSection only visible when review_status === 'complete'
         const reviewComplete = resultsSectionData.confidence.reviewStatus === 'complete'

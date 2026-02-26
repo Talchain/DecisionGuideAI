@@ -236,12 +236,7 @@ export function SuccessTargetRow({
         )}
       </div>
 
-      {/* Microcopy */}
-      {!hasTarget && !isEditing && (
-        <p className={`${typography.panelMeta} text-text-light mt-1.5`}>
-          Set a success target to see each option's chance of achieving it.
-        </p>
-      )}
+      {/* V12.5: Explanatory paragraph removed — "Set target" link is self-explanatory */}
     </div>
   )
 }

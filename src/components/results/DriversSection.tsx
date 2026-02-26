@@ -433,13 +433,14 @@ function DriverRow({
             <button
               type="button"
               onClick={handleFocusClick}
-              className={`${typography.panelBody} text-info hover:text-info-hover hover:underline break-words leading-snug cursor-pointer focus:outline-none focus:ring-2 focus:ring-info focus:ring-offset-1 rounded text-left truncate`}
+              className={`${typography.panelBody} text-info hover:text-info-hover hover:underline break-words leading-snug cursor-pointer focus:outline-none focus:ring-2 focus:ring-info focus:ring-offset-1 rounded text-left line-clamp-2`}
               aria-label={`Focus on ${cleanedLabel} in model`}
+              title={cleanedLabel}
             >
               {cleanedLabel}
             </button>
           ) : (
-            <span className={`${typography.panelBody} text-text-body break-words leading-snug truncate`}>
+            <span className={`${typography.panelBody} text-text-body break-words leading-snug line-clamp-2`} title={cleanedLabel}>
               {cleanedLabel}
             </span>
           )}

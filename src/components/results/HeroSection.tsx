@@ -394,87 +394,50 @@ function HeroRows({
     />
   ) : null
 
-  // V12.3 Task 2: Row 3 content builder — "Action" label with bullet separator
-  const renderRow3 = () => {
+  // V12.5: Row 3 action content
+  const actionContent = (() => {
     if (decisionState === 'robust') {
-      // Robust with hinge: suggest validation. Robust without hinge: no action row.
       if (!hingeLink) return null
-      return (
-        <div className="flex gap-2">
-          <dt className={`${typography.panelMeta} text-text-light w-24 flex-shrink-0`}>Action</dt>
-          <dd className={`${typography.panelBody} text-text-body`}>
-            <span className="text-text-light mr-1" aria-hidden="true">•</span>
-            Validate: {hingeLink}
-          </dd>
-        </div>
-      )
+      return <>Validate: {hingeLink}</>
     }
-
     if (decisionState === 'sensitive') {
-      return (
-        <div className="flex gap-2">
-          <dt className={`${typography.panelMeta} text-text-light w-24 flex-shrink-0`}>Action</dt>
-          <dd className={`${typography.panelBody} text-text-body`}>
-            <span className="text-text-light mr-1" aria-hidden="true">•</span>
-            {hingeLink ? (
-              <>Validate first: {hingeLink}</>
-            ) : (
-              'Review key assumptions before committing.'
-            )}
-          </dd>
-        </div>
-      )
+      return hingeLink ? <>Validate first: {hingeLink}</> : 'Review key assumptions before committing.'
     }
-
     // indeterminate
-    return (
-      <div className="flex gap-2">
-        <dt className={`${typography.panelMeta} text-text-light w-24 flex-shrink-0`}>Action</dt>
-        <dd className={`${typography.panelBody} text-text-body`}>
-          <span className="text-text-light mr-1" aria-hidden="true">•</span>
-          {hingeLink ? (
-            <>Resolve first: {hingeLink}</>
-          ) : (
-            'Review key assumptions to distinguish the options.'
-          )}
-        </dd>
-      </div>
-    )
-  }
+    return hingeLink ? <>Resolve first: {hingeLink}</> : 'Review key assumptions to distinguish the options.'
+  })()
 
+  // V12.5: Three-line prose hero (replaces dl/dt/dd table)
   return (
-    <dl className="space-y-2" data-testid="hero-rows">
-      {/* Row 1: Goal */}
-      <div className="flex gap-2">
-        <dt className={`${typography.panelMeta} text-text-light w-24 flex-shrink-0`}>Goal</dt>
-        <dd className={`${typography.panelBody} text-text-header`}>{goalDisplay}</dd>
-      </div>
+    <div className="space-y-1" data-testid="hero-rows">
+      {/* Line 1: Goal */}
+      <p className={`${typography.panelMeta} text-text-light`}>
+        {goalDisplay}
+      </p>
 
-      {/* Row 2: Leads / Result */}
+      {/* Line 2: Result / Leader */}
       {decisionState === 'indeterminate' ? (
-        <div className="flex gap-2">
-          <dt className={`${typography.panelMeta} text-text-light w-24 flex-shrink-0`}>Result</dt>
-          <dd className={`${typography.panelBody} text-text-body`}>
-            No clear winner{winPct != null && runnerUpPct != null && (
-              <> ({winPct}% vs {runnerUpPct}%)</>
-            )}
-          </dd>
-        </div>
+        <p className={`${typography.panelBody} text-text-header`}>
+          No clear winner{winPct != null && runnerUpPct != null && (
+            <> ({winPct}% vs {runnerUpPct}%)</>
+          )}
+        </p>
       ) : (
-        <div className="flex gap-2">
-          <dt className={`${typography.panelMeta} text-text-light w-24 flex-shrink-0`}>Leads</dt>
-          <dd className={`${typography.panelBody}`}>
-            <span className="text-success font-medium">{winnerLabel}</span>
-            {winPct != null && (
-              <span className="text-text-light"> ({winPct}% win likelihood)</span>
-            )}
-          </dd>
-        </div>
+        <p className={`${typography.panelBody} text-text-header`}>
+          <span className="text-success font-medium">{winnerLabel}</span>
+          {winPct != null && (
+            <span className="text-text-light"> ({winPct}% win likelihood)</span>
+          )}
+        </p>
       )}
 
-      {/* Row 3: Action — present unless robust + no hinge */}
-      {renderRow3()}
-    </dl>
+      {/* Line 3: Action */}
+      {actionContent && (
+        <p className={`${typography.panelBody} text-text-body`}>
+          {actionContent}
+        </p>
+      )}
+    </div>
   )
 }
 

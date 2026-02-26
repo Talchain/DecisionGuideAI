@@ -269,8 +269,7 @@ function UncertaintyRow({
               <span className={`${severityConfig.textColor} ${typography.panelBody} flex-shrink-0 mt-0.5`}>{severityConfig.icon}</span>
             )}
             <span
-              className={`${typography.panelHeader} text-text-header flex-1 min-w-0 overflow-hidden`}
-              style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' } as React.CSSProperties}
+              className={`${typography.panelHeader} text-text-header flex-1 min-w-0 break-words leading-snug`}
               title={edgeTitle ?? undefined}
             >
               {edgeTitle}

@@ -93,12 +93,7 @@ export function BaselineToggleCard({
         </button>
       </div>
 
-      {/* V9.2: Helper text when no baseline is set */}
-      {!baselineLabel && !isSelecting && (
-        <p className={`${typography.panelMeta} text-text-light italic pl-3.5`} style={{ fontSize: 11 }}>
-          Baseline helps interpret how much each option improves on current trajectory.
-        </p>
-      )}
+      {/* V12.5: Explanatory paragraph removed — "Set" link is self-explanatory */}
 
       {/* Inline dropdown — visible only while selecting */}
       {isSelecting && options.length > 0 && (
