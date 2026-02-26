@@ -302,7 +302,7 @@ describe('scenarioService', () => {
       await service.resetAnalysisStatus('scenario-1')
 
       expect(mockFrom).toHaveBeenCalledWith('scenarios')
-      expect(updateFn).toHaveBeenCalledWith({ analysis_status: 'none' })
+      expect(updateFn).toHaveBeenCalledWith({ analysis_status: 'none', analysis_error: null })
       expect(eqFn).toHaveBeenCalledWith('id', 'scenario-1')
     })
 

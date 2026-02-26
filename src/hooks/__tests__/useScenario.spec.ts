@@ -541,6 +541,37 @@ describe('useScenario', () => {
   })
 
   // -----------------------------------------------------------------------
+  // C.1b: resetAnalysisStatus
+  // -----------------------------------------------------------------------
+
+  describe('resetAnalysisStatus', () => {
+    it('is a no-op without persistence', async () => {
+      setAuth('guest', true)
+      const { result } = renderUseScenario()
+
+      await act(async () => {
+        await result.current.resetAnalysisStatus()
+      })
+
+      expect(mockResetAnalysisStatus).not.toHaveBeenCalled()
+    })
+
+    it('calls service.resetAnalysisStatus when active', async () => {
+      setAuth(REAL_USER_ID, true)
+      setStoreState({ currentScenarioId: 'scenario-1' })
+      mockResetAnalysisStatus.mockResolvedValue(undefined)
+
+      const { result } = renderUseScenario()
+
+      await act(async () => {
+        await result.current.resetAnalysisStatus()
+      })
+
+      expect(mockResetAnalysisStatus).toHaveBeenCalledWith('scenario-1')
+    })
+  })
+
+  // -----------------------------------------------------------------------
   // C.1b: analysisStale
   // -----------------------------------------------------------------------
 
