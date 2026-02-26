@@ -2,10 +2,10 @@
  * OptionCards — V9.2 card-based option comparison.
  *
  * Replaces RangeVisualization (p10/p50/p90 range bars) with:
- * - Option name + rank badge ("#1 of N")
+ * - Option name + rank badge ("#1 of N") + win percentage text
  * - 1-2 line contextual description (story headline or fallback)
- * - "Wins" stat row: horizontal bar + percentage
  * - "Hits target" stat row: horizontal bar + percentage (conditional on target set)
+ * V12.4: Per-card "Wins" bars removed; win % shown as text in card header.
  *
  * All cards use border-panel-border. Leading option card gets a coloured
  * left border (3px) matching its WinGauge segment colour via inline style.
@@ -186,7 +186,7 @@ function OptionCard({
       data-testid={`option-card-${option.id}`}
       data-option-id={option.id}
     >
-      {/* Header: name + rank badge */}
+      {/* Header: name + rank badge + win percentage */}
       <div className="flex items-center gap-2">
         <span className={`${typography.panelHeader} text-text-header truncate`}>
           {stripEncodingNotation(option.label)}
@@ -204,6 +204,15 @@ function OptionCard({
             Baseline
           </span>
         )}
+        <span className="flex-1" />
+        {option.winProbability != null && (
+          <span
+            className={`${typography.panelMeta} text-text-body tabular-nums flex-shrink-0`}
+            data-testid={`win-pct-${option.id}`}
+          >
+            {formatPct(option.winProbability, { fromDecimal: true })}
+          </span>
+        )}
       </div>
 
       {/* Description: story headline or fallback */}
@@ -212,16 +221,8 @@ function OptionCard({
       </p>
 
       {/* Stat rows */}
-      <div className="space-y-1.5">
-        <StatBar
-          value={option.winProbability}
-          label="Wins"
-          isLeader={isWinner}
-          color="success"
-          neutralised={neutralised}
-          segmentColor={segmentColor}
-        />
-        {hasGoalThreshold && (
+      {hasGoalThreshold && (
+        <div className="space-y-1.5">
           <StatBar
             value={option.goalProbability}
             label="Hits target"
@@ -229,8 +230,8 @@ function OptionCard({
             color="info"
             neutralised={neutralised}
           />
-        )}
-      </div>
+        </div>
+      )}
 
       {/* Multi-constraint joint probability line */}
       {option.constraintAnalysis != null &&

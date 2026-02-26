@@ -74,6 +74,8 @@ const INTERNAL_LEAK_PATTERNS = [
   /blocks_analysis/i,
   /node_id\s*=/i,
   /edge_id\s*=/i,
+  /opt_[a-z_]+/i,          // raw option IDs
+  /goal_[a-z_]+/i,         // raw goal IDs
 ]
 
 export function AttentionBanner({ items, onFocusNode }: AttentionBannerProps) {

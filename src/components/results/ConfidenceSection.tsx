@@ -153,7 +153,7 @@ const TIER_CONFIG: Record<ConfidenceTier, {
  */
 
 /** Internal-string blocklist — if a raw message matches, replace with safe generic copy. */
-const INTERNAL_PATTERN = /constraint_|observed_state|intercept=|node_id=|edge_id=|fac_[a-z_]+_/i
+const INTERNAL_PATTERN = /constraint_|observed_state|intercept=|node_id=|edge_id=|fac_[a-z_]+|opt_[a-z_]+|goal_[a-z_]+|blocks_analysis/i
 
 function safeMessageFallback(message: string): string {
   const cleaned = stripEncodingNotation(message)
@@ -589,7 +589,14 @@ export function ConfidenceSection({
         const nextActionGroupItems = groups[0].items.filter(i => i.id.startsWith('next-'))
 
         // Non-fragile-edge uncertainties (Group 2 legacy: low-confidence factors)
-        const worthRefining = uncertainties.filter(item => item.code !== 'SENSITIVE_ASSUMPTION')
+        // V12.4: Suppress items whose raw message matches internal-leak patterns,
+        // UNLESS a humanised version is available (constraint items with humanised CTAs)
+        const worthRefining = uncertainties.filter(item => {
+          if (item.code === 'SENSITIVE_ASSUMPTION') return false
+          if (!INTERNAL_PATTERN.test(item.message)) return true
+          const key = `${item.code}::${item.affectedNodes?.[0] ?? ''}`
+          return humanisedLookup.has(key)
+        })
 
         // If nothing at all to show, render empty state
         const hasAnyContent = fragileEdges.length > 0

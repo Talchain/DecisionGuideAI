@@ -276,17 +276,6 @@ export function ResultsBody({
                     ? 'warning'
                     : 'default'
                 }
-                tierLabel={
-                  resultsSectionData.confidence.tier.tier === 'strong' ? 'Evidence: Good'
-                    : resultsSectionData.confidence.tier.tier === 'fair' ? 'Evidence: Fair'
-                    : resultsSectionData.confidence.tier.tier === 'needs_work' ? 'Evidence: Needs work'
-                    : undefined
-                }
-                tierVariant={
-                  resultsSectionData.confidence.tier.tier !== 'unknown'
-                    ? resultsSectionData.confidence.tier.tier as 'strong' | 'fair' | 'needs_work'
-                    : undefined
-                }
               >
                 <ConfidenceSection
                   data={resultsSectionData.confidence}

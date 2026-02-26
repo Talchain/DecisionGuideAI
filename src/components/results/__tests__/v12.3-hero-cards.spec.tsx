@@ -391,8 +391,8 @@ describe('V12.3 Task 3: Option card border colours match wins bar segments', () 
     })
   })
 
-  describe('Bar fill colour matches segment', () => {
-    it('wins bar fill uses segment colour via inline style', () => {
+  describe('V12.4: Per-card wins bars removed', () => {
+    it('no per-card wins bar fill — win percentage as text only', () => {
       const colorMap = buildSegmentColorMap(threeOptions, 'opt-a', 'robust')
       render(
         <OptionCards
@@ -404,12 +404,10 @@ describe('V12.3 Task 3: Option card border colours match wins bar segments', () 
         />
       )
 
-      // Each "Wins" bar fill div should have backgroundColor matching its segment colour
-      const winnerCard = screen.getByTestId('option-card-opt-a')
-      const barFills = winnerCard.querySelectorAll('.rounded-full.transition-all')
-      // The bar fill should have inline backgroundColor
-      const fill = barFills[0] as HTMLElement
-      expect(fill.style.backgroundColor).toBe('var(--success)')
+      // "Wins" label no longer rendered (bars removed)
+      expect(screen.queryByText('Wins')).not.toBeInTheDocument()
+      // Win percentage still shown as text
+      expect(screen.getByTestId('win-pct-opt-a')).toBeInTheDocument()
     })
   })
 

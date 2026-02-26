@@ -2,10 +2,11 @@
  * OptionCards Component Tests (V9.2 Phase 2 + V11 Phase C)
  *
  * Tests for the card-based option comparison replacing RangeVisualization.
- * Layout: option name + rank badge + description + "Wins" bar + "Hits target" bar.
+ * Layout: option name + rank badge + description + win % text + "Hits target" bar.
  *
  * V11 additions: indeterminate neutralisation, conditional hits target,
  * hinge-aware descriptions.
+ * V12.4: Per-card "Wins" bar removed; win % shown as text in header.
  */
 
 import { describe, it, expect } from 'vitest'
@@ -122,18 +123,15 @@ describe('OptionCards', () => {
   })
 
   describe('Stat rows', () => {
-    it('shows "Wins" stat for all options', () => {
+    it('V12.4: shows win probability as text (no bar)', () => {
       render(<OptionCards options={mockOptions} winnerId="option-1" />)
 
-      const winsLabels = screen.getAllByText('Wins')
-      expect(winsLabels).toHaveLength(2)
-    })
+      // "Wins" bar label should no longer exist
+      expect(screen.queryByText('Wins')).not.toBeInTheDocument()
 
-    it('shows win probability percentages', () => {
-      render(<OptionCards options={mockOptions} winnerId="option-1" />)
-
-      expect(screen.getByText('65%')).toBeInTheDocument()
-      expect(screen.getByText('35%')).toBeInTheDocument()
+      // Win percentage displayed as text in header
+      expect(screen.getByTestId('win-pct-option-1')).toHaveTextContent('65%')
+      expect(screen.getByTestId('win-pct-option-2')).toHaveTextContent('35%')
     })
 
     it('shows "Hits target" when hasGoalThreshold is true', () => {
@@ -199,7 +197,7 @@ describe('OptionCards', () => {
       const noWinProb = mockOptions.map(o => ({ ...o, winProbability: undefined }))
       render(<OptionCards options={noWinProb} winnerId="option-1" />)
 
-      // Cards should still render, just no "Wins" stat bars
+      // Cards should still render, just no win percentage text
       expect(screen.getByText('Option A')).toBeInTheDocument()
       expect(screen.getByText('Option B')).toBeInTheDocument()
     })
@@ -318,8 +316,8 @@ describe('OptionCards', () => {
       expect(badge.className).not.toContain('text-success')
     })
 
-    it('uses stone bar colour (bg-factor) for win bars when indeterminate', () => {
-      const { container } = render(
+    it('V12.4: no per-card wins bars when indeterminate (removed)', () => {
+      render(
         <OptionCards
           options={mockOptions}
           winnerId="option-1"
@@ -327,10 +325,10 @@ describe('OptionCards', () => {
         />
       )
 
-      // All bar fills should be bg-factor, not bg-success
-      const bars = container.querySelectorAll('.bg-factor')
-      expect(bars.length).toBeGreaterThanOrEqual(2) // at least 2 win bars
-      expect(container.querySelectorAll('.bg-success')).toHaveLength(0)
+      // Wins bars removed — no "Wins" label rendered
+      expect(screen.queryByText('Wins')).not.toBeInTheDocument()
+      // Win percentage still shown as text
+      expect(screen.getByTestId('win-pct-option-1')).toBeInTheDocument()
     })
 
     it('V12.3: preserves border-panel-border when robust (colour via inline style)', () => {

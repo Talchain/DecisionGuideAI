@@ -228,7 +228,7 @@ export function buildSegmentColorMap(
 
 /**
  * WinGauge — stacked horizontal bar showing win probability per option.
- * "Wins across scenarios" label, segmented bar, and legend.
+ * "Wins across scenarios" label + segmented bar. Legend removed in V12.4.
  */
 function WinGauge({
   shares,
@@ -273,27 +273,6 @@ function WinGauge({
               role="img"
               aria-label={`${stripEncodingNotation(share.label)}: ${displayPct}%`}
             />
-          )
-        })}
-      </div>
-      {/* Legend */}
-      <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1.5">
-        {sorted.map((share, i) => {
-          const clamped = Math.max(0, Math.min(1, share.winProbability))
-          const pct = Math.round(clamped * 100)
-          if (pct <= 0) return null
-          const color = colors[Math.min(i, colors.length - 1)]
-          return (
-            <span
-              key={share.id}
-              className={`flex items-center gap-1.5 ${typography.panelMeta} ${share.isWinner ? 'text-text-header' : 'text-text-light'}`}
-            >
-              <span
-                className="w-2 h-2 rounded-full flex-shrink-0"
-                style={{ backgroundColor: color }}
-              />
-              {stripEncodingNotation(share.label)} {formatPct(clamped, { fromDecimal: true })}
-            </span>
           )
         })}
       </div>
