@@ -24,7 +24,7 @@
  */
 
 import { useEffect, useState, useRef, useMemo, useCallback, type ChangeEvent } from 'react'
-import { BarChart3, Shuffle, Activity, Clock, PlayCircle, RefreshCw, AlertTriangle, GitCompare } from 'lucide-react'
+import { BarChart3, Shuffle, Activity, Clock, PlayCircle, RefreshCw, AlertTriangle, GitCompare, XCircle } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
 import { useDockState } from '../hooks/useDockState'
 import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion'
@@ -74,7 +74,8 @@ import { DecisionSummary } from './DecisionSummary'
 import { DecisionQuality } from './DecisionQuality'
 import { AdvancedSettingsPanel } from './AdvancedSettingsPanel'
 import { mapConfidenceToReadiness } from '../utils/mapConfidenceToReadiness'
-import { useV2Run } from '../hooks/useV2Run'
+import { useV2Run, type V2RunPersistence } from '../hooks/useV2Run'
+import { useScenario } from '../../hooks/useScenario'
 import { focusNodeById, focusEdgeById } from '../utils/focusHelpers'
 import { buildFragileEdgeIdSet, buildRobustEdgeIdSet, getDisplayEdgeId } from '../utils/edgeIdentity'
 import { NON_EVIDENCE_PROVENANCE } from '../utils/evidenceCoverage'
@@ -261,8 +262,27 @@ export function OutputsDock() {
   const report = useCanvasStore(selectReport)
   const error = useCanvasStore(selectError)
 
+  // C.1b: Supabase persistence callbacks for analysis results
+  const {
+    setAnalysisRunning,
+    persistAnalysisSuccess,
+    persistAnalysisFailure,
+    isPersistenceActive: _isPersistenceActive,
+    analysisStale,
+  } = useScenario()
+
+  // Build persistence object only when Supabase persistence is active
+  const v2Persistence = useMemo<V2RunPersistence | undefined>(() => {
+    if (!_isPersistenceActive) return undefined
+    return {
+      setAnalysisRunning,
+      persistAnalysisSuccess,
+      persistAnalysisFailure,
+    }
+  }, [_isPersistenceActive, setAnalysisRunning, persistAnalysisSuccess, persistAnalysisFailure])
+
   // P0-UI: V2 run hook for /v2/run endpoint
-  const { runV2Analysis } = useV2Run()
+  const { runV2Analysis, cancelRun } = useV2Run(v2Persistence)
 
   // Results Panel Redesign: Section data hook for RecommendationSection, DriversSection, ConfidenceSection
   const resultsSectionData = useResultsSectionData()
@@ -683,20 +703,31 @@ export function OutputsDock() {
   // MERGED EFFECT: Handles both resultsStatus and showResultsPanel dock opening
   // Fix for React #185: Previously two separate effects could cascade and cause infinite loops.
   // Now unified with ref-based debounce to prevent rapid state updates.
+  //
+  // I.1 Fix: Only auto-switch to Results tab when status *transitions* from
+  // idle/cancelled into an active state — not on every render where status is
+  // already non-idle. This prevents yanking users off the Structure/Compare tab
+  // when they navigate there post-analysis.
   const lastDockOpenRef = useRef<number>(0)
+  const prevAutoSwitchStatusRef = useRef(resultsStatus)
 
   useEffect(() => {
-    // Determine if dock should open based on either trigger
-    const shouldOpenForResults =
+    const prevStatus = prevAutoSwitchStatusRef.current
+    prevAutoSwitchStatusRef.current = resultsStatus
+
+    const wasInactive = prevStatus === 'idle' || prevStatus === 'cancelled'
+    const isNowActive =
       resultsStatus === 'preparing' ||
       resultsStatus === 'connecting' ||
       resultsStatus === 'streaming' ||
       resultsStatus === 'complete' ||
       resultsStatus === 'error'
 
-    const shouldOpen = shouldOpenForResults || showResultsPanel
-
-    if (!shouldOpen) return
+    // Auto-switch to Results tab only when:
+    // 1. Status transitions from idle/cancelled → active (user started a run)
+    // 2. showResultsPanel flag is explicitly set (external trigger)
+    const statusTransitioned = wasInactive && isNowActive
+    if (!statusTransitioned && !showResultsPanel) return
 
     // Debounce: prevent rapid updates within 50ms (React #185 fix)
     const now = Date.now()
@@ -1088,6 +1119,7 @@ export function OutputsDock() {
                           {friendlyError.secondaryActionText && (
                             <button
                               type="button"
+                              onClick={() => setState(prev => ({ ...prev, isOpen: false }))}
                               className={`${typography.caption} font-medium px-3 py-1.5 rounded border ${
                                 friendlyError.severity === 'error'
                                   ? 'border-danger-300 text-danger-700 hover:bg-danger-100'
@@ -1095,6 +1127,7 @@ export function OutputsDock() {
                                     ? 'border-sun-300 text-sun-700 hover:bg-sun-100'
                                     : 'border-sky-300 text-sky-700 hover:bg-sky-100'
                               }`}
+                              data-testid="error-secondary-action"
                             >
                               {friendlyError.secondaryActionText}
                             </button>
@@ -1141,6 +1174,20 @@ export function OutputsDock() {
                   >
                     <Clock className="w-4 h-4 flex-shrink-0" aria-hidden="true" />
                     <span className={`${typography.caption} text-sky-900`}>{slowRunMessage}</span>
+                  </div>
+                )}
+                {/* I.2b: Cancel button during active analysis */}
+                {isRunning && (
+                  <div className="flex justify-end px-3">
+                    <button
+                      type="button"
+                      onClick={cancelRun}
+                      className={`${typography.caption} font-medium px-3 py-1.5 rounded border border-ink-200 text-ink-600 hover:bg-sand-100 flex items-center gap-1.5`}
+                      data-testid="cancel-analysis-button"
+                    >
+                      <XCircle className="w-3.5 h-3.5" aria-hidden="true" />
+                      Cancel
+                    </button>
                   </div>
                 )}
                 {/* P0.7: Loading skeleton during analysis (when streaming without report) */}
@@ -1216,6 +1263,34 @@ export function OutputsDock() {
                     ].filter(() => resultsSectionData != null)}
                     onDismiss={() => setDegradedBannerDismissed(true)}
                   />
+                )}
+                {/* I.2c: Stale results indicator — shown when current run errored
+                    but previous results are still visible */}
+                {isError && report && (
+                  <div
+                    className="flex items-center gap-2 px-3 py-2 bg-sun-50 border border-sun-200 rounded"
+                    role="status"
+                    data-testid="stale-results-banner"
+                  >
+                    <AlertTriangle className="w-4 h-4 text-sun-600 flex-shrink-0" aria-hidden="true" />
+                    <span className={`${typography.caption} text-sun-800`}>
+                      Showing results from previous analysis
+                    </span>
+                  </div>
+                )}
+                {/* C.1b: Graph-staleness indicator — shown when graph has been
+                    edited after the last successful analysis */}
+                {analysisStale && !isError && report && (
+                  <div
+                    className="flex items-center gap-2 px-3 py-2 bg-warning-light border border-warning/30 rounded"
+                    role="status"
+                    data-testid="graph-stale-banner"
+                  >
+                    <AlertTriangle className="w-4 h-4 text-warning flex-shrink-0" aria-hidden="true" />
+                    <span className={`${typography.caption} text-warning`}>
+                      Results may be outdated — run analysis again
+                    </span>
+                  </div>
                 )}
                 {/* ======================================================================
                     Results Panel v7: Four-Section Flat Layout

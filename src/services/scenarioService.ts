@@ -99,7 +99,7 @@ export async function listScenarios(
 
   const { data, error } = await supabase
     .from('scenarios')
-    .select('id, title, stage, analysis_status, updated_at')
+    .select('id, title, stage, analysis_status, updated_at, events')
     .eq('user_id', userId)
     .order('updated_at', { ascending: false })
 
@@ -200,6 +200,27 @@ export async function resetAnalysisStatus(
     throw new ScenarioPersistenceError(
       `Failed to reset analysis status: ${error.message}`,
       'RESET_ANALYSIS_STATUS_FAILED',
+      error,
+    )
+  }
+}
+
+// ---------------------------------------------------------------------------
+// 5c. setAnalysisRunning (direct UPDATE — marks analysis as in-progress)
+// ---------------------------------------------------------------------------
+
+export async function setAnalysisRunning(
+  scenarioId: string,
+): Promise<void> {
+  const { error } = await supabase
+    .from('scenarios')
+    .update({ analysis_status: 'running' })
+    .eq('id', scenarioId)
+
+  if (error) {
+    throw new ScenarioPersistenceError(
+      `Failed to set analysis running: ${error.message}`,
+      'SET_RUNNING_FAILED',
       error,
     )
   }

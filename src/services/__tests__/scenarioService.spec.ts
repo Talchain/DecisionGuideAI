@@ -160,7 +160,7 @@ describe('scenarioService', () => {
 
       const result = await service.listScenarios(VALID_UUID)
 
-      expect(selectFn).toHaveBeenCalledWith('id, title, stage, analysis_status, updated_at')
+      expect(selectFn).toHaveBeenCalledWith('id, title, stage, analysis_status, updated_at, events')
       expect(eqFn).toHaveBeenCalledWith('user_id', VALID_UUID)
       expect(orderFn).toHaveBeenCalledWith('updated_at', { ascending: false })
       expect(result).toEqual(items)
@@ -254,6 +254,38 @@ describe('scenarioService', () => {
 
       await service.saveTitle('scenario-1', 'New title')
       expect(updateFn).toHaveBeenCalledWith({ title: 'New title' })
+    })
+  })
+
+  // -----------------------------------------------------------------------
+  // setAnalysisRunning (C.1b Task 6)
+  // -----------------------------------------------------------------------
+
+  describe('setAnalysisRunning', () => {
+    it('calls UPDATE with analysis_status: running', async () => {
+      const eqFn = vi.fn().mockResolvedValue({ error: null })
+      const updateFn = vi.fn().mockReturnValue({ eq: eqFn })
+      mockFrom.mockReturnValue({ update: updateFn, select: vi.fn(), insert: mockInsert, delete: mockDelete })
+
+      await service.setAnalysisRunning('scenario-1')
+
+      expect(mockFrom).toHaveBeenCalledWith('scenarios')
+      expect(updateFn).toHaveBeenCalledWith({ analysis_status: 'running' })
+      expect(eqFn).toHaveBeenCalledWith('id', 'scenario-1')
+    })
+
+    it('throws ScenarioPersistenceError on failure', async () => {
+      const eqFn = vi.fn().mockResolvedValue({ error: { message: 'DB error' } })
+      const updateFn = vi.fn().mockReturnValue({ eq: eqFn })
+      mockFrom.mockReturnValue({ update: updateFn, select: vi.fn(), insert: mockInsert, delete: mockDelete })
+
+      try {
+        await service.setAnalysisRunning('scenario-1')
+        expect.fail('Should have thrown')
+      } catch (err) {
+        expect(err).toBeInstanceOf(ScenarioPersistenceError)
+        expect((err as ScenarioPersistenceError).code).toBe('SET_RUNNING_FAILED')
+      }
     })
   })
 

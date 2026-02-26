@@ -40,7 +40,8 @@ export interface UseScenarioReturn {
   // Is Supabase persistence active?
   isPersistenceActive: boolean
 
-  // C.1b stubs — wiring points for Phase 2
+  // Analysis persistence
+  setAnalysisRunning: () => Promise<void>
   persistAnalysisSuccess: (
     analysis: unknown,
     graphHash: string,
@@ -56,6 +57,10 @@ export interface UseScenarioReturn {
   persistBrief: (brief: unknown, turnId?: string) => Promise<void>
   setStage: (stage: ScenarioStage, turnId?: string) => Promise<void>
   createSharedBrief: () => Promise<{ slug: string } | null>
+
+  // Graph staleness — true when graph has been edited after the last analysis
+  analysisStale: boolean
+  clearAnalysisStale: () => void
 }
 
 const GRAPH_DEBOUNCE_MS = 1500
@@ -74,11 +79,15 @@ export function useScenario(): UseScenarioReturn {
   const nodes = useCanvasStore((s) => s.nodes)
   const edges = useCanvasStore((s) => s.edges)
   const framing = useCanvasStore((s) => s.currentScenarioFraming)
+  const resultsStatus = useCanvasStore((s) => s.results.status)
 
   // Save state
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('saved')
   const [lastSavedAt, setLastSavedAt] = useState<number | null>(null)
   const [saveError, setSaveError] = useState<string | null>(null)
+
+  // Graph staleness — true when graph has been edited after the last analysis
+  const [analysisStale, setAnalysisStale] = useState(false)
 
   // Timer refs for debounce and retry (cleared on unmount)
   const graphSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -110,6 +119,11 @@ export function useScenario(): UseScenarioReturn {
 
     const graphSnapshot = JSON.stringify({ nodes, edges })
     if (graphSnapshot === lastSavedGraphRef.current) return
+
+    // Mark results as stale when graph changes after a completed analysis
+    if (resultsStatus === 'complete') {
+      setAnalysisStale(true)
+    }
 
     if (graphSaveTimerRef.current) clearTimeout(graphSaveTimerRef.current)
 
@@ -162,7 +176,7 @@ export function useScenario(): UseScenarioReturn {
       if (graphSaveTimerRef.current) clearTimeout(graphSaveTimerRef.current)
       if (retryTimerRef.current) clearTimeout(retryTimerRef.current)
     }
-  }, [nodes, edges, currentScenarioId, isPersistenceActive])
+  }, [nodes, edges, currentScenarioId, isPersistenceActive, resultsStatus])
 
   // -----------------------------------------------------------------------
   // Auto-save framing (debounced 1500ms)
@@ -208,6 +222,52 @@ export function useScenario(): UseScenarioReturn {
       if (retryTimerRef.current) clearTimeout(retryTimerRef.current)
     }
   }, [])
+
+  // -----------------------------------------------------------------------
+  // Title auto-generation from framing goal (C.1b Task 10)
+  // Only auto-set once per scenario load — don't overwrite user edits.
+  // The ref tracks whether we've already auto-set for the current scenario.
+  // -----------------------------------------------------------------------
+
+  const titleAutoSetForScenarioRef = useRef<string | null>(null)
+
+  useEffect(() => {
+    if (!isPersistenceActive || !currentScenarioId) return
+    // Only auto-set once per loaded scenario
+    if (titleAutoSetForScenarioRef.current === currentScenarioId) return
+
+    const framingObj = framing as Record<string, unknown> | null
+    const goal = framingObj?.goal
+    if (!goal || typeof goal !== 'string') return
+
+    const autoTitle = goal.length > 60
+      ? goal.substring(0, 57) + '...'
+      : goal
+
+    titleAutoSetForScenarioRef.current = currentScenarioId
+    scenarioService.saveTitle(currentScenarioId, autoTitle).catch(() => {
+      // Non-critical — title remains untitled
+    })
+  }, [framing, currentScenarioId, isPersistenceActive])
+
+  // -----------------------------------------------------------------------
+  // Navigation guard — beforeunload (C.1b Task 11)
+  // Warn the user when navigating away with pending saves.
+  // -----------------------------------------------------------------------
+
+  const isDirty = useCanvasStore((s) => s.isDirty)
+
+  useEffect(() => {
+    const handler = (e: BeforeUnloadEvent) => {
+      if (saveStatus === 'saving' || isDirty) {
+        e.preventDefault()
+        // Required for Chrome — string value is ignored by modern browsers
+        e.returnValue = ''
+      }
+    }
+    window.addEventListener('beforeunload', handler)
+    return () => window.removeEventListener('beforeunload', handler)
+  }, [saveStatus, isDirty])
 
   // -----------------------------------------------------------------------
   // createScenario — insert row + navigate to /scenario/:id
@@ -320,8 +380,20 @@ export function useScenario(): UseScenarioReturn {
   )
 
   // -----------------------------------------------------------------------
-  // C.1b stubs — Phase 2 wiring points
+  // Analysis persistence (C.1b)
   // -----------------------------------------------------------------------
+
+  const setAnalysisRunningCb = useCallback(
+    async (): Promise<void> => {
+      if (!isPersistenceActive || !currentScenarioId) return
+      await scenarioService.setAnalysisRunning(currentScenarioId)
+    },
+    [isPersistenceActive, currentScenarioId],
+  )
+
+  const clearAnalysisStale = useCallback(() => {
+    setAnalysisStale(false)
+  }, [])
 
   const persistAnalysisSuccess = useCallback(
     async (
@@ -332,6 +404,9 @@ export function useScenario(): UseScenarioReturn {
       details?: Record<string, unknown>,
       turnId?: string,
     ): Promise<void> => {
+      // Clear staleness when new analysis completes
+      setAnalysisStale(false)
+
       if (!isPersistenceActive || !currentScenarioId) return
       const eventId = crypto.randomUUID()
       await scenarioService.storeAnalysis(
@@ -404,11 +479,14 @@ export function useScenario(): UseScenarioReturn {
       lastSavedAt,
       saveError,
       isPersistenceActive,
+      setAnalysisRunning: setAnalysisRunningCb,
       persistAnalysisSuccess,
       persistAnalysisFailure,
       persistBrief,
       setStage,
       createSharedBrief,
+      analysisStale,
+      clearAnalysisStale,
     }),
     [
       createScenario,
@@ -418,11 +496,14 @@ export function useScenario(): UseScenarioReturn {
       lastSavedAt,
       saveError,
       isPersistenceActive,
+      setAnalysisRunningCb,
       persistAnalysisSuccess,
       persistAnalysisFailure,
       persistBrief,
       setStage,
       createSharedBrief,
+      analysisStale,
+      clearAnalysisStale,
     ],
   )
 }

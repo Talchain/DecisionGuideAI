@@ -48,6 +48,8 @@ const mockStoreBrief = vi.fn()
 const mockSetStage = vi.fn()
 const mockCreateSharedBrief = vi.fn()
 const mockResetAnalysisStatus = vi.fn()
+const mockSetAnalysisRunning = vi.fn()
+const mockSaveTitle = vi.fn()
 
 vi.mock('../../services/scenarioService', () => ({
   createScenario: (...args: unknown[]) => mockCreateScenario(...args),
@@ -61,6 +63,8 @@ vi.mock('../../services/scenarioService', () => ({
   setStage: (...args: unknown[]) => mockSetStage(...args),
   createSharedBrief: (...args: unknown[]) => mockCreateSharedBrief(...args),
   resetAnalysisStatus: (...args: unknown[]) => mockResetAnalysisStatus(...args),
+  setAnalysisRunning: (...args: unknown[]) => mockSetAnalysisRunning(...args),
+  saveTitle: (...args: unknown[]) => mockSaveTitle(...args),
 }))
 
 // Canvas store mock — minimal Zustand-compatible mock
@@ -134,6 +138,7 @@ describe('useScenario', () => {
       currentScenarioFraming: null,
       isDirty: false,
       lastSavedAt: null,
+      results: { status: 'idle' },
     }
     setAuth(null, false)
     vi.useFakeTimers()
@@ -497,6 +502,100 @@ describe('useScenario', () => {
       expect(result.current.saveStatus).toBe('saved')
       expect(result.current.lastSavedAt).toBeNull()
       expect(result.current.saveError).toBeNull()
+    })
+  })
+
+  // -----------------------------------------------------------------------
+  // C.1b: setAnalysisRunning
+  // -----------------------------------------------------------------------
+
+  describe('setAnalysisRunning', () => {
+    it('is a no-op without persistence', async () => {
+      setAuth('guest', true)
+      const { result } = renderUseScenario()
+
+      await act(async () => {
+        await result.current.setAnalysisRunning()
+      })
+
+      expect(mockSetAnalysisRunning).not.toHaveBeenCalled()
+    })
+
+    it('calls service.setAnalysisRunning when active', async () => {
+      setAuth(REAL_USER_ID, true)
+      setStoreState({ currentScenarioId: 'scenario-1' })
+      mockSetAnalysisRunning.mockResolvedValue(undefined)
+
+      const { result } = renderUseScenario()
+
+      await act(async () => {
+        await result.current.setAnalysisRunning()
+      })
+
+      expect(mockSetAnalysisRunning).toHaveBeenCalledWith('scenario-1')
+    })
+  })
+
+  // -----------------------------------------------------------------------
+  // C.1b: analysisStale
+  // -----------------------------------------------------------------------
+
+  describe('analysisStale', () => {
+    it('starts as false', () => {
+      setAuth(REAL_USER_ID, true)
+      const { result } = renderUseScenario()
+      expect(result.current.analysisStale).toBe(false)
+    })
+
+    it('is cleared by clearAnalysisStale', () => {
+      setAuth(REAL_USER_ID, true)
+      const { result } = renderUseScenario()
+
+      act(() => {
+        result.current.clearAnalysisStale()
+      })
+
+      expect(result.current.analysisStale).toBe(false)
+    })
+
+    it('is cleared by persistAnalysisSuccess', async () => {
+      setAuth(REAL_USER_ID, true)
+      setStoreState({ currentScenarioId: 'scenario-1' })
+      mockStoreAnalysis.mockResolvedValue(undefined)
+
+      const { result } = renderUseScenario()
+
+      await act(async () => {
+        await result.current.persistAnalysisSuccess({}, 'hash', 42, 'resp')
+      })
+
+      expect(result.current.analysisStale).toBe(false)
+    })
+  })
+
+  // -----------------------------------------------------------------------
+  // C.1b: Navigation guard (beforeunload)
+  // -----------------------------------------------------------------------
+
+  describe('navigation guard', () => {
+    it('adds beforeunload handler', () => {
+      const addSpy = vi.spyOn(window, 'addEventListener')
+      setAuth(REAL_USER_ID, true)
+      renderUseScenario()
+
+      expect(addSpy).toHaveBeenCalledWith('beforeunload', expect.any(Function))
+      addSpy.mockRestore()
+    })
+
+    it('removes beforeunload handler on unmount', () => {
+      const removeSpy = vi.spyOn(window, 'removeEventListener')
+      setAuth(REAL_USER_ID, true)
+      const { unmount } = renderUseScenario()
+
+      unmount()
+
+      expect(removeSpy).toHaveBeenCalledWith('beforeunload', expect.any(Function))
+      removeSpy.mockRestore()
     })
   })
 })

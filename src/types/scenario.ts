@@ -13,6 +13,11 @@
 // § 2.1 — scenarios table row
 // ---------------------------------------------------------------------------
 
+// JSONB columns are typed as `unknown` (not Supabase `Json`) intentionally.
+// This forces explicit casting at read boundaries per Schema v2.0 Principle 7:
+// "Consumers cast to domain types at read time."
+// `unknown` is stricter than `Json` and prevents implicit structural assumptions.
+
 export interface ScenarioRow {
   id: string                              // uuid (PK)
   user_id: string                         // uuid (FK → auth.users)
@@ -35,7 +40,7 @@ export interface ScenarioRow {
 /** List-view projection — only the columns needed for the scenario list page */
 export type ScenarioListItem = Pick<
   ScenarioRow,
-  'id' | 'title' | 'stage' | 'analysis_status' | 'updated_at'
+  'id' | 'title' | 'stage' | 'analysis_status' | 'updated_at' | 'events'
 >
 
 // ---------------------------------------------------------------------------

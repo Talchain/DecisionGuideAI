@@ -5,7 +5,7 @@
  * Calls /v2/run and maps response to store format.
  */
 
-import { useCallback, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import { useCanvasStore } from '../store'
 import type { Node, Edge } from '@xyflow/react'
 import {
@@ -163,8 +163,24 @@ function isAnalysisReadyStale(
   return { isStale: false }
 }
 
+/** Optional Supabase persistence callbacks injected by the calling component. */
+export interface V2RunPersistence {
+  setAnalysisRunning: () => Promise<void>
+  persistAnalysisSuccess: (
+    analysis: unknown,
+    graphHash: string,
+    seedUsed: number,
+    responseHash: string,
+    details?: Record<string, unknown>,
+  ) => Promise<void>
+  persistAnalysisFailure: (
+    errorPayload: { code: string; message: string },
+  ) => Promise<void>
+}
+
 interface UseV2RunReturn {
   runV2Analysis: () => Promise<void>
+  cancelRun: () => void
   isRunning: boolean
   error: string | null
 }
@@ -173,10 +189,12 @@ interface UseV2RunReturn {
  * Hook for running V2 analysis.
  *
  * Uses executeV2Run and maps response to store format.
+ * Accepts optional Supabase persistence callbacks (C.1b Task 6).
  */
-export function useV2Run(): UseV2RunReturn {
+export function useV2Run(persistence?: V2RunPersistence): UseV2RunReturn {
   const [isRunning, setIsRunning] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const abortControllerRef = useRef<AbortController | null>(null)
 
   // Store selectors
   const nodes = useCanvasStore((s) => s.nodes)
@@ -193,6 +211,7 @@ export function useV2Run(): UseV2RunReturn {
   const resultsStart = useCanvasStore((s) => s.resultsStart)
   const resultsComplete = useCanvasStore((s) => s.resultsComplete)
   const resultsError = useCanvasStore((s) => s.resultsError)
+  const resultsCancelled = useCanvasStore((s) => s.resultsCancelled)
   const setRunMeta = useCanvasStore((s) => s.setRunMeta)
   const setCeeAnalysisReady = useCanvasStore((s) => s.setCeeAnalysisReady)
   const setGoalConstraints = useCanvasStore((s) => s.setGoalConstraints)
@@ -204,6 +223,10 @@ export function useV2Run(): UseV2RunReturn {
       setError('No goal node selected')
       return
     }
+
+    // Create a fresh AbortController for this run so the user can cancel
+    const controller = new AbortController()
+    abortControllerRef.current = controller
 
     setIsRunning(true)
     setError(null)
@@ -241,6 +264,13 @@ export function useV2Run(): UseV2RunReturn {
       console.log('[useV2Run] Request ID:', requestId)
     }
 
+    // C.1b: Mark analysis as running in Supabase (fire-and-forget, non-blocking)
+    if (persistence) {
+      persistence.setAnalysisRunning().catch(() => {
+        // Non-critical — UI already shows running state
+      })
+    }
+
     // Signal run start
     resultsStart({ seed })
 
@@ -262,6 +292,7 @@ export function useV2Run(): UseV2RunReturn {
       const config: V2AdapterConfig = {
         baseUrl: import.meta.env.VITE_PLOT_PROXY_BASE || '/bff/engine',
         timeout: 120000,
+        signal: controller.signal,
       }
 
       // Check if ceeAnalysisReady is stale (graph changed since draft was applied)
@@ -349,6 +380,14 @@ export function useV2Run(): UseV2RunReturn {
           canRetry: false, // User needs to fix model first
         })
 
+        // C.1b: Persist failure to Supabase (non-blocking)
+        if (persistence) {
+          persistence.persistAnalysisFailure({
+            code: 'VALIDATION_BLOCKED',
+            message: errorResult.status_reason,
+          }).catch(() => { /* non-critical */ })
+        }
+
         setError(errorResult.status_reason)
         setIsRunning(false)
         return
@@ -382,6 +421,14 @@ export function useV2Run(): UseV2RunReturn {
           report: errorReport,
           hash: failedResult.response_hash,
         })
+
+        // C.1b: Persist failure to Supabase (non-blocking)
+        if (persistence) {
+          persistence.persistAnalysisFailure({
+            code: 'ANALYSIS_FAILED',
+            message: 'Analysis could not complete',
+          }).catch(() => { /* non-critical */ })
+        }
 
         setError('Analysis could not complete')
         setIsRunning(false)
@@ -515,6 +562,27 @@ export function useV2Run(): UseV2RunReturn {
           ceeTraceV1,
         })
 
+        // C.1b: Persist analysis results to Supabase (non-blocking)
+        if (persistence) {
+          const seedUsed = successResult.meta?.seed_used
+            ? parseInt(successResult.meta.seed_used, 10)
+            : (seed ?? 0)
+          persistence.persistAnalysisSuccess(
+            successResult,
+            report.graph_hash ?? '',
+            seedUsed,
+            successResult.response_hash,
+            {
+              option_count: successResult.option_comparison?.length ?? 0,
+              analysis_status: successResult.analysis_status,
+            },
+          ).catch((err) => {
+            if (import.meta.env.DEV) {
+              console.warn('[useV2Run] Supabase analysis persistence failed', err)
+            }
+          })
+        }
+
         // Update run metadata with CEE data for debugging/display
         setRunMeta({
           ceeReviewV1,
@@ -582,6 +650,13 @@ export function useV2Run(): UseV2RunReturn {
       })
       setError('Unexpected response format')
     } catch (err) {
+      // Distinguish user-initiated cancellation from other abort errors
+      if (controller.signal.aborted && err instanceof Error && err.name === 'AbortError') {
+        resultsCancelled()
+        setIsRunning(false)
+        return
+      }
+
       const elapsed_ms = Date.now() - startTime
       const message = err instanceof Error ? err.message : 'Unknown error'
 
@@ -629,6 +704,14 @@ export function useV2Run(): UseV2RunReturn {
         canRetry: typedError.retryable,
       })
 
+      // C.1b: Persist failure to Supabase (non-blocking)
+      if (persistence) {
+        persistence.persistAnalysisFailure({
+          code: errorCode,
+          message,
+        }).catch(() => { /* non-critical */ })
+      }
+
       // Capture error detail for debug drawer expansion
       captureErrorDetail({
         timestamp: new Date().toISOString(),
@@ -673,6 +756,7 @@ export function useV2Run(): UseV2RunReturn {
 
       setError(message)
     } finally {
+      abortControllerRef.current = null
       setIsRunning(false)
     }
   }, [
@@ -689,12 +773,21 @@ export function useV2Run(): UseV2RunReturn {
     resultsStart,
     resultsComplete,
     resultsError,
+    resultsCancelled,
     setRunMeta,
     captureErrorDetail,
+    persistence,
   ])
+
+  const cancelRun = useCallback(() => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort()
+    }
+  }, [])
 
   return {
     runV2Analysis,
+    cancelRun,
     isRunning,
     error,
   }

@@ -70,6 +70,7 @@ export default function CanvasMVP() {
     lastSavedAt: supabaseLastSaved,
     saveError: supabaseSaveError,
     isPersistenceActive,
+    createSharedBrief,
   } = useScenario()
 
   // C.1a: Hydrate from Supabase when navigating to /scenario/:id
@@ -205,17 +206,36 @@ export default function CanvasMVP() {
     }
   }, [currentScenarioId, saveCurrentScenario, scenarioTitle])
 
-  const handleShare = useCallback(() => {
+  const handleShare = useCallback(async () => {
     try {
+      // C.1b: If Supabase persistence is active, create a shared brief via RPC
+      if (isPersistenceActive) {
+        const result = await createSharedBrief()
+        if (result) {
+          const url = `${window.location.origin}/#/brief/${result.slug}`
+          if (navigator.clipboard?.writeText) {
+            await navigator.clipboard.writeText(url).catch(() => {
+              // eslint-disable-next-line no-alert
+              window.prompt('Copy this link', url)
+            })
+          } else {
+            // eslint-disable-next-line no-alert
+            window.prompt('Copy this link', url)
+          }
+          return
+        }
+        // If createSharedBrief returned null (no scenarioId), fall through to local share
+      }
+
+      // Local share fallback (guest mode)
       const { results } = useCanvasStore.getState()
       const hash = results.hash
       if (!hash) {
-        // eslint-disable-next-line no-console
         console.warn('[CanvasMVP] Cannot share scenario: no results hash available')
         return
       }
       const link = buildShareLink(hash)
-      if (navigator.clipboard && navigator.clipboard.writeText) {
+      if (navigator.clipboard?.writeText) {
         navigator.clipboard.writeText(link).catch(() => {
           // eslint-disable-next-line no-alert
           window.prompt('Copy this link', link)
@@ -225,10 +245,12 @@ export default function CanvasMVP() {
         window.prompt('Copy this link', link)
       }
     } catch (error) {
-      // eslint-disable-next-line no-console
       console.error('[CanvasMVP] Failed to generate share link', error)
+      // User-friendly: if brief creation fails, show a message
+      // eslint-disable-next-line no-alert
+      window.alert('Generate a decision brief first before sharing.')
     }
-  }, [])
+  }, [isPersistenceActive, createSharedBrief])
 
   return (
     <div style={{ height: '100vh', width: '100vw', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
