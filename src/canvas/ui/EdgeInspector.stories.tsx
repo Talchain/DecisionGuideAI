@@ -209,8 +209,8 @@ const minimalReport = {
   drivers: [],
 }
 
-export const EdgeWithStrengthBar: Story = {
-  name: 'Edge — with strength bar (positive)',
+export const EdgeWithPositiveDirection: Story = {
+  name: 'Edge — positive direction + confidence',
   render: () => (
     <StoreWrapper
       edgeId="e1"

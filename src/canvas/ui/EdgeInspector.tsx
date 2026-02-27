@@ -1,19 +1,18 @@
 /**
- * Edge property inspector — 4-section accordion layout
- * B.I.4: Summary (always open), Assumptions, Appearance, Advanced
+ * Edge property inspector — 3-section accordion layout
+ * B.I.4: Summary (always open), Assumptions, Advanced
  * Debounced sliders (~120ms) with aria-live announcements
  */
 
 import { memo, useState, useCallback, useEffect, useRef, useMemo } from 'react'
 import { Lightbulb, Check } from 'lucide-react'
 import { useCanvasStore } from '../store'
-import { EDGE_CONSTRAINTS, type EdgeStyle, type EdgePathType, DEFAULT_EDGE_DATA, getEdgeConfidence } from '../domain/edges'
+import { EDGE_CONSTRAINTS, DEFAULT_EDGE_DATA, getEdgeConfidence } from '../domain/edges'
 import { useToast } from '../ToastContext'
 import { Tooltip } from '../components/Tooltip'
 import { typography } from '../../styles/typography'
 import { InspectorAccordion } from './inspector'
 import { SignedStrengthSlider } from './inspector/SignedStrengthSlider'
-import { StrengthBar } from './inspector/StrengthBar'
 import { getConfidenceCoaching, shouldShowInfluenceCoaching } from './inspector/coachingText'
 import { useNodeDisplayMetadata } from '../hooks/useNodeDisplayMetadata'
 import type { WeightSuggestion } from '../decisionReview/types'
@@ -89,22 +88,17 @@ export const EdgeInspector = memo(({ edgeId, onClose }: EdgeInspectorProps) => {
 
   // Local state for immediate UI updates
   const [signedValue, setSignedValue] = useState<number>(initialSignedValue)
-  const [style, setStyle] = useState<EdgeStyle>(edge?.data?.style ?? 'solid')
-  const [curvature, setCurvature] = useState<number>(edge?.data?.curvature ?? 0.15)
-  const [pathType, setPathType] = useState<EdgePathType>(edge?.data?.pathType ?? 'bezier')
   const [label, setLabel] = useState<string>(edge?.data?.label ?? '')
   const [belief, setBelief] = useState<number | undefined>(edge?.data?.belief)
   const [provenance, setProvenance] = useState<string>(edge?.data?.provenance ?? '')
 
-  // Debounce timers
-  const curvatureTimerRef = useRef<NodeJS.Timeout>()
+  // Debounce timer
   const beliefTimerRef = useRef<NodeJS.Timeout>()
 
   const [announcement, setAnnouncement] = useState('')
 
   useEffect(() => {
     return () => {
-      clearTimeout(curvatureTimerRef.current)
       clearTimeout(beliefTimerRef.current)
     }
   }, [])
@@ -117,35 +111,6 @@ export const EdgeInspector = memo(({ edgeId, onClose }: EdgeInspectorProps) => {
     const direction = newSignedValue >= 0 ? 'positive' : 'negative'
     updateEdge(edgeId, { data: { ...current, weight: absWeight, direction } })
     setAnnouncement(`Effect on target set to ${newSignedValue.toFixed(2)}`)
-  }, [edgeId, edge?.data, updateEdge])
-
-  const handleStyleChange = useCallback((value: EdgeStyle) => {
-    setStyle(value)
-    const current = edge?.data ?? DEFAULT_EDGE_DATA
-    updateEdge(edgeId, { data: { ...current, style: value } })
-    setAnnouncement(`Style changed to ${value}`)
-  }, [edgeId, edge?.data, updateEdge])
-
-  const handlePathTypeChange = useCallback((value: EdgePathType) => {
-    setPathType(value)
-    const current = edge?.data ?? DEFAULT_EDGE_DATA
-    updateEdge(edgeId, { data: { ...current, pathType: value } })
-    const labels: Record<EdgePathType, string> = {
-      bezier: 'Curved',
-      smoothstep: 'Step',
-      straight: 'Straight',
-    }
-    setAnnouncement(`Path type changed to ${labels[value]}`)
-  }, [edgeId, edge?.data, updateEdge])
-
-  const handleCurvatureChange = useCallback((value: number) => {
-    setCurvature(value)
-    clearTimeout(curvatureTimerRef.current)
-    curvatureTimerRef.current = setTimeout(() => {
-      const current = edge?.data ?? DEFAULT_EDGE_DATA
-      updateEdge(edgeId, { data: { ...current, curvature: value } })
-      setAnnouncement(`Curvature set to ${(value * 100).toFixed(0)}%`)
-    }, 120)
   }, [edgeId, edge?.data, updateEdge])
 
   const handleLabelBlur = useCallback(() => {
@@ -235,9 +200,11 @@ export const EdgeInspector = memo(({ edgeId, onClose }: EdgeInspectorProps) => {
   const sourceLabel = nodes.find(n => n.id === edge.source)?.data?.label || edge.source
   const targetLabel = nodes.find(n => n.id === edge.target)?.data?.label || edge.target
 
-  // Determine direction label for summary based on signed value
-  const directionLabel = signedValue < 0 ? 'Hurts' : signedValue > 0 ? 'Helps' : 'Neutral'
-  const directionColor = signedValue < 0 ? 'text-danger' : signedValue > 0 ? 'text-success' : 'text-text-light'
+  // Derive direction from canonical edge.data.direction + weight, not local slider state
+  const canonicalDirection = edge.data?.direction
+  const canonicalWeight = edge.data?.weight ?? 0
+  const directionLabel = canonicalDirection === 'negative' ? 'Hurts' : canonicalWeight > 0 ? 'Helps' : 'Neutral'
+  const directionColor = canonicalDirection === 'negative' ? 'text-danger' : canonicalWeight > 0 ? 'text-success' : 'text-text-light'
 
   // D.2: Coaching nudge from local belief state for instant feedback
   const confidenceCoaching = getConfidenceCoaching(belief ?? EDGE_CONSTRAINTS.belief.default)
@@ -264,22 +231,18 @@ export const EdgeInspector = memo(({ edgeId, onClose }: EdgeInspectorProps) => {
         <span className="font-medium">{targetLabel}</span>
       </div>
 
-      {/* S.5: Visual strength bar */}
-      <div className="mt-2">
-        <StrengthBar
-          weight={Math.abs(signedValue)}
-          direction={signedValue >= 0 ? 'positive' : 'negative'}
-        />
-      </div>
+      {/* E.2: Effect direction */}
+      <p className={`${typography.panelBody} ${directionColor} mt-2`}>
+        {directionLabel === 'Helps' ? 'Helps target' : directionLabel === 'Hurts' ? 'Hurts target' : 'Neutral'}
+      </p>
 
-      {/* S.3: Confidence KPI (read-only) */}
+      {/* E.2: Confidence level — colour by threshold */}
       {edgeConfidence !== null && (
-        <div className="flex items-center justify-between mt-2 px-2 py-1 bg-panel rounded border border-panel-border">
-          <span className={`${typography.panelMeta} text-text-light`}>Confidence</span>
-          <span className={`${typography.panelBody} font-medium text-text-body tabular-nums`}>
-            {Math.round(edgeConfidence * 100)}%
-          </span>
-        </div>
+        <p className={`${typography.panelMeta} mt-1 ${
+          edgeConfidence >= 0.7 ? 'text-success' : edgeConfidence >= 0.4 ? 'text-info' : 'text-warning'
+        }`}>
+          {Math.round(edgeConfidence * 100)}%
+        </p>
       )}
 
       {/* S.3: Fragile edge warning pill (post-analysis) */}
@@ -426,7 +389,13 @@ export const EdgeInspector = memo(({ edgeId, onClose }: EdgeInspectorProps) => {
         </p>
       </div>
 
-      {/* Label */}
+    </div>
+  )
+
+  // ─── ADVANCED ──────────────────────────────────────────────────────
+  const advancedContent = (
+    <div className="space-y-4">
+      {/* E.3: Label — moved from Assumptions */}
       <div>
         <label htmlFor="edge-label" className={`block ${typography.panelMeta} font-medium text-text-body mb-1`}>
           Label <span className="text-text-light">(optional)</span>
@@ -445,106 +414,12 @@ export const EdgeInspector = memo(({ edgeId, onClose }: EdgeInspectorProps) => {
           Short label for this connection.
         </p>
       </div>
-    </div>
-  )
 
-  // ─── APPEARANCE ────────────────────────────────────────────────────
-  const appearanceContent = (
-    <div className="space-y-4">
-      {/* Style control */}
-      <div>
-        <label className={`block ${typography.panelMeta} font-medium text-text-body mb-1`}>
-          Style
-        </label>
-        <div className="flex gap-2" role="radiogroup" aria-label="Edge style">
-          {(['solid', 'dashed', 'dotted'] as const).map((s) => (
-            <button
-              key={s}
-              onClick={() => handleStyleChange(s)}
-              className={`
-                flex-1 px-3 py-2 ${typography.panelBody} rounded border transition-colors
-                ${style === s
-                  ? 'bg-info-light border-info/30 text-info'
-                  : 'bg-panel border-panel-border text-text-body hover:bg-panel-hover'
-                }
-              `}
-              role="radio"
-              aria-checked={style === s}
-            >
-              {s.charAt(0).toUpperCase() + s.slice(1)}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Path type */}
-      <div>
-        <Tooltip content="Choose how the connector line is drawn between nodes" position="right">
-          <label className={`block ${typography.panelMeta} font-medium text-text-body mb-1`}>
-            Path type
-          </label>
-        </Tooltip>
-        <div className="flex gap-2" role="radiogroup" aria-label="Edge path type">
-          {([
-            { value: 'bezier' as const, label: 'Curved', icon: '⟿' },
-            { value: 'smoothstep' as const, label: 'Step', icon: '⊢' },
-            { value: 'straight' as const, label: 'Straight', icon: '╲' },
-          ]).map(({ value, label: pathLabel, icon }) => (
-            <button
-              key={value}
-              onClick={() => handlePathTypeChange(value)}
-              className={`
-                flex-1 px-3 py-2 ${typography.panelBody} rounded border transition-colors
-                ${pathType === value
-                  ? 'bg-info-light border-info/30 text-info'
-                  : 'bg-panel border-panel-border text-text-body hover:bg-panel-hover'
-                }
-              `}
-              role="radio"
-              aria-checked={pathType === value}
-              title={pathLabel}
-            >
-              <span className="mr-1">{icon}</span>
-              {pathLabel}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Curvature (smoothstep only) */}
-      {pathType === 'smoothstep' && (
-        <div>
-          <Tooltip content="Corner roundness for step paths (0 = sharp corners, max = rounded)" position="right">
-            <label htmlFor="edge-curvature" className={`block ${typography.panelMeta} font-medium text-text-body mb-1`}>
-              Corner radius
-            </label>
-          </Tooltip>
-          <input
-            id="edge-curvature"
-            type="range"
-            min={EDGE_CONSTRAINTS.curvature.min}
-            max={EDGE_CONSTRAINTS.curvature.max}
-            step={0.01}
-            value={curvature}
-            onChange={(e) => handleCurvatureChange(parseFloat(e.target.value))}
-            className="w-full"
-            aria-valuemin={EDGE_CONSTRAINTS.curvature.min}
-            aria-valuemax={EDGE_CONSTRAINTS.curvature.max}
-            aria-valuenow={curvature}
-            aria-valuetext={`${(curvature * 100).toFixed(0)}%`}
-          />
-        </div>
-      )}
-
-      <p className={`${typography.panelMeta} text-text-light italic`}>
-        These settings affect how the connection looks on the canvas. They do not affect analysis.
+      {/* E.1: Styling explanation — replaces removed Appearance section */}
+      <p className={`${typography.panelMeta} text-text-light`}>
+        Connection styling reflects confidence and effect size.
       </p>
-    </div>
-  )
 
-  // ─── ADVANCED ──────────────────────────────────────────────────────
-  const advancedContent = (
-    <div className="space-y-4">
       {/* Provenance */}
       {provenance && (
         <div>
@@ -654,7 +529,6 @@ export const EdgeInspector = memo(({ edgeId, onClose }: EdgeInspectorProps) => {
       <InspectorAccordion
         summary={summaryContent}
         assumptions={assumptionsContent}
-        appearance={appearanceContent}
         advanced={advancedContent}
         defaultOpen="assumptions"
         testId="edge-inspector"

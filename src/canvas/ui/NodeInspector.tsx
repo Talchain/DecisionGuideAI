@@ -1,6 +1,6 @@
 /**
- * Node property inspector — 4-section accordion layout
- * B.I.4: Summary (always open), Assumptions, Appearance, Advanced
+ * Node property inspector — 3-section accordion layout
+ * B.I.4: Summary (always open), Assumptions, Advanced
  * Brief v2.2: FactorValueEditor for observed_state editing
  */
 
@@ -18,7 +18,6 @@ import { InspectorAccordion } from './inspector'
 import { GoalThresholdEditor } from './inspector/GoalThresholdEditor'
 import { GoalProgressChecklist } from './inspector/GoalProgressChecklist'
 import { typography } from '../../styles/typography'
-import { isGoalDefined } from '../../utils/isGoalDefined'
 import { detectBaseline } from '../utils/baselineDetection'
 import { useNodeDisplayMetadata } from '../hooks/useNodeDisplayMetadata'
 
@@ -42,7 +41,7 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
   const resultsStatus = useCanvasStore(s => s.results?.status)
   const isResultsMode = resultsStatus === 'complete'
   const goalThreshold = useCanvasStore(s => s.goalThreshold)
-  const goalConstraints = useCanvasStore(s => s.goalConstraints)
+
   // S.4: Session-only "user-reviewed" tracking
   const confirmedNodeIds = useCanvasStore(s => s.confirmedNodeIds)
   const toggleConfirmedNode = useCanvasStore(s => s.toggleConfirmedNode)
@@ -144,7 +143,7 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
   const currentType = (node.type || 'decision') as NodeType
   const metadata = NODE_REGISTRY[currentType] || NODE_REGISTRY.decision
   const isGoalNode = currentType === 'goal'
-  const goalDefined = isGoalDefined(goalThreshold, goalConstraints)
+
 
   // S.4: State for programmatic section opening from Edit button
   const [requestOpenSection, setRequestOpenSection] = useState<'assumptions' | null>(null)
@@ -251,27 +250,34 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
         </div>
       )}
 
-      {/* S.6: Goal progress checklist (pre-analysis) replaces single coaching card */}
+      {/* S.6: Goal progress checklist (pre-analysis) */}
       {isGoalNode && !isResultsMode && (
         <GoalProgressChecklist
           nodeId={nodeId}
-          onExpandAssumptions={() => {
+          onExpandAssumptions={goalThreshold != null ? () => {
             setRequestOpenSection('assumptions')
             setTimeout(() => {
               document.getElementById('goal-threshold')?.focus()
             }, 150)
+          } : () => {
+            // E.4: Threshold editor is inline in Summary — just focus it
+            setTimeout(() => {
+              document.getElementById('goal-threshold')?.focus()
+            }, 50)
           }}
         />
       )}
 
-      {/* KPI row: Goal threshold */}
-      {isGoalNode && goalDefined && goalThreshold != null && (
-        <div className="flex items-center justify-between mt-2 px-2 py-1 bg-panel rounded border border-panel-border">
-          <span className={`${typography.panelMeta} text-text-light`}>Threshold</span>
-          <span className={`${typography.panelBody} font-medium text-text-body tabular-nums`}>
-            {goalThreshold}
-          </span>
+      {/* E.4: Goal threshold — inline editor when unset, read-only when set */}
+      {isGoalNode && goalThreshold == null && (
+        <div className="mt-2">
+          <GoalThresholdEditor />
         </div>
+      )}
+      {isGoalNode && goalThreshold != null && (
+        <p className={`${typography.panelBody} text-text-body mt-2`}>
+          Target: \u2265 {goalThreshold}
+        </p>
       )}
 
       {/* B.I.9: Option Summary — intervention count or baseline pill */}
@@ -514,8 +520,8 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
         </div>
       )}
 
-      {/* B.I.8: Goal threshold editor */}
-      {isGoalNode && (
+      {/* B.I.8 + E.4: Goal threshold editor — only in Assumptions when threshold is already set */}
+      {isGoalNode && goalThreshold != null && (
         <GoalThresholdEditor />
       )}
 
@@ -682,12 +688,11 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
         <span className={`${typography.panelMeta} text-text-body`} data-testid="read-only-node-type">{metadata.label}</span>
       </div>
 
-      {/* Analysis target — Goal/Outcome are always analysis targets */}
+      {/* E.6: Analysis goal pill — only for goal/outcome nodes */}
       {(isGoalNode || currentType === 'outcome') && (
-        <div className="flex items-center justify-between">
-          <span className={`${typography.panelMeta} text-text-light`}>Analysis target</span>
-          <span className={`${typography.panelMeta} text-text-body`}>Yes</span>
-        </div>
+        <span className={`inline-flex items-center px-2 py-0.5 rounded-full ${typography.panelMeta} bg-info-light text-info`}>
+          Analysis goal
+        </span>
       )}
     </div>
   )

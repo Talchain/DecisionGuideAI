@@ -79,7 +79,7 @@ export const FactorNode: Story = {
 }
 
 export const GoalNodeUndefined: Story = {
-  name: 'Goal — threshold not set (coaching card)',
+  name: 'Goal — threshold not set (inline editor)',
   render: () => (
     <StoreWrapper
       nodeId="g1"

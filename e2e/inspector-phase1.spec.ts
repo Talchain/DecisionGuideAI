@@ -228,12 +228,16 @@ test.describe('Inspector Phase 1 (Track B)', () => {
 
     const dialog = page.locator('div[aria-labelledby="inspector-panel-title"]')
 
-    // Coaching card visible when threshold is empty
-    const coachingText = dialog.getByText(/success threshold|Set a success threshold/i).first()
-    await expect(coachingText).toBeVisible()
+    // E.4: Threshold editor is inline in Summary when threshold is unset
+    const summarySection = dialog.locator('[data-testid="node-inspector-summary"]')
+    await expect(summarySection.locator('#goal-threshold')).toBeVisible()
+    // Helper text for the inline editor
+    await expect(summarySection.getByText(/reaching or exceeding this target/i)).toBeVisible()
 
-    // Expand ASSUMPTIONS
+    // Expand ASSUMPTIONS — threshold editor should NOT be present when unset
     await clickAccordionSection(page, 'ASSUMPTIONS')
+    const assumptionsSection = dialog.locator('[data-testid="node-inspector-assumptions"]')
+    await expect(assumptionsSection.locator('#goal-threshold')).toHaveCount(0)
 
     // Type dropdown is NOT present
     const typeSelect = dialog.locator('select[data-testid="select-node-type"]')
@@ -242,9 +246,8 @@ test.describe('Inspector Phase 1 (Track B)', () => {
     // Expand ADVANCED
     await clickAccordionSection(page, 'ADVANCED')
 
-    // Analysis target shows "Yes"
-    await expect(dialog.getByText('Analysis target')).toBeVisible()
-    await expect(dialog.getByText('Yes')).toBeVisible()
+    // E.6: "Analysis goal" pill (replaces "Analysis target: Yes")
+    await expect(dialog.getByText('Analysis goal')).toBeVisible()
 
     // Screenshot
     await page.screenshot({ path: path.join(SCREENSHOT_DIR, 'goal-inspector-with-threshold.png') })
@@ -269,11 +272,11 @@ test.describe('Inspector Phase 1 (Track B)', () => {
     // Confidence label visible
     await expect(dialog.getByText(/Confidence/i).first()).toBeVisible()
 
-    // Expand APPEARANCE
-    await clickAccordionSection(page, 'APPEARANCE')
+    // E.1: APPEARANCE section removed — assert absent
+    await expect(dialog.getByText('APPEARANCE')).not.toBeVisible()
 
-    // Help text about appearance not affecting analysis
-    await expect(dialog.getByText(/do not affect analysis/i)).toBeVisible()
+    // E.2: StrengthBar removed from Summary — assert absent
+    await expect(dialog.locator('[data-testid="strength-bar"]')).toHaveCount(0)
 
     // Expand ADVANCED
     await clickAccordionSection(page, 'ADVANCED')
@@ -418,10 +421,10 @@ test.describe('Inspector Phase 1 (Track B)', () => {
     // "Confidence" (not "Belief")
     await expect(edgeDialog.getByText(/Confidence/i).first()).toBeVisible()
 
-    // Section headers are UPPERCASE
+    // Section headers are UPPERCASE (E.1: APPEARANCE removed)
     await expect(edgeDialog.getByText('ASSUMPTIONS')).toBeVisible()
-    await expect(edgeDialog.getByText('APPEARANCE')).toBeVisible()
     await expect(edgeDialog.getByText('ADVANCED')).toBeVisible()
+    await expect(edgeDialog.getByText('APPEARANCE')).not.toBeVisible()
   })
 
   // ── T8: Accordion mutual exclusion ───────────────────────────────
