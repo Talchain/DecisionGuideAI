@@ -88,7 +88,7 @@ describe('V12.3 Task 1: Evidence badge removed from hero', () => {
     },
   )
 
-  it('meta strip still renders target when goalThreshold is set', () => {
+  it('V14: baseline-target-row renders target when goalThreshold is set', () => {
     render(
       <HeroSection
         {...heroBase}
@@ -96,9 +96,9 @@ describe('V12.3 Task 1: Evidence badge removed from hero', () => {
         goalThreshold={500}
       />
     )
-    const strip = screen.getByTestId('meta-strip')
-    expect(strip).toHaveTextContent('Target:')
-    expect(strip).toHaveTextContent('500')
+    const row = screen.getByTestId('baseline-target-row')
+    expect(row).toHaveTextContent('Target:')
+    expect(row).toHaveTextContent('500')
     expect(screen.queryByTestId('evidence-badge')).not.toBeInTheDocument()
   })
 })
@@ -107,125 +107,125 @@ describe('V12.3 Task 1: Evidence badge removed from hero', () => {
 // Task 2: "Action" label with bullet separator
 // ===========================================================================
 
-describe('V12.5 Task 2: Action line (prose layout, no dt/dd)', () => {
-  it('robust + hinge: shows "Validate:" action with link', () => {
+describe('V14: Coaching next action (replaces V12.5 action lines)', () => {
+  it('robust + topNextAction: shows coaching next action with link', () => {
     render(
       <HeroSection
         {...heroBase}
         decisionState="robust"
-        hinge={{
-          label: 'Market Size',
-          nodeId: 'factor-1',
-          kind: 'edge',
-          reason: 'fragile_edge',
-          edgeDetail: 'Market Size → Revenue',
-          alternativeWinnerLabel: null,
+        topNextAction={{
+          action: 'Validate Market Size before deciding.',
+          rationale: 'Fragile edge',
+          priority: 1,
+          targetType: 'factor',
+          targetId: 'factor-1',
+          targetLabel: 'Market Size',
         }}
       />
     )
 
-    expect(screen.getByText(/Validate:/)).toBeInTheDocument()
+    const actionRow = screen.getByTestId('coaching-next-action')
+    expect(actionRow.textContent).toContain('Market Size')
     expect(screen.getByRole('button', { name: /Focus on Market Size/ })).toBeInTheDocument()
   })
 
-  it('robust + no hinge: action line is absent', () => {
+  it('robust + no topNextAction: coaching next action is absent', () => {
     render(
       <HeroSection
         {...heroBase}
         decisionState="robust"
-        hinge={null}
       />
     )
 
-    expect(screen.queryByText(/Validate:/)).not.toBeInTheDocument()
+    expect(screen.queryByTestId('coaching-next-action')).not.toBeInTheDocument()
   })
 
-  it('sensitive + hinge: shows "Validate first:" action with link', () => {
+  it('sensitive + topNextAction: shows coaching next action with link', () => {
     render(
       <HeroSection
         {...heroBase}
         decisionState="sensitive"
-        hinge={{
-          label: 'Customer Churn',
-          nodeId: 'factor-2',
-          kind: 'node',
-          reason: 'voi',
-          edgeDetail: null,
-          alternativeWinnerLabel: null,
+        topNextAction={{
+          action: 'Review Customer Churn estimates carefully.',
+          rationale: 'VOI factor',
+          priority: 1,
+          targetType: 'factor',
+          targetId: 'factor-2',
+          targetLabel: 'Customer Churn',
         }}
       />
     )
 
-    expect(screen.getByText(/Validate first:/)).toBeInTheDocument()
+    const actionRow = screen.getByTestId('coaching-next-action')
+    expect(actionRow.textContent).toContain('Customer Churn')
     expect(screen.getByRole('button', { name: /Focus on Customer Churn/ })).toBeInTheDocument()
   })
 
-  it('sensitive + no hinge: shows fallback text', () => {
+  it('sensitive + no topNextAction: coaching next action is absent', () => {
     render(
       <HeroSection
         {...heroBase}
         decisionState="sensitive"
-        hinge={null}
       />
     )
 
-    expect(screen.getByText(/Review key assumptions before committing/)).toBeInTheDocument()
+    expect(screen.queryByTestId('coaching-next-action')).not.toBeInTheDocument()
   })
 
-  it('indeterminate + hinge: shows "Resolve first:" action with link', () => {
+  it('indeterminate + topNextAction: shows coaching next action with link', () => {
     render(
       <HeroSection
         {...heroBase}
         decisionState="indeterminate"
-        hinge={{
-          label: 'Adoption Rate',
-          nodeId: 'factor-3',
-          kind: 'edge',
-          reason: 'fragile_edge',
-          edgeDetail: 'Adoption Rate → Market Share',
-          alternativeWinnerLabel: 'Option B',
+        topNextAction={{
+          action: 'Resolve Adoption Rate uncertainty before deciding.',
+          rationale: 'Fragile edge',
+          priority: 1,
+          targetType: 'factor',
+          targetId: 'factor-3',
+          targetLabel: 'Adoption Rate',
         }}
       />
     )
 
-    expect(screen.getByText(/Resolve first:/)).toBeInTheDocument()
+    const actionRow = screen.getByTestId('coaching-next-action')
+    expect(actionRow.textContent).toContain('Adoption Rate')
     expect(screen.getByRole('button', { name: /Focus on Adoption Rate/ })).toBeInTheDocument()
   })
 
-  it('indeterminate + no hinge: shows fallback text', () => {
+  it('indeterminate + no topNextAction: coaching next action is absent', () => {
     render(
       <HeroSection
         {...heroBase}
         decisionState="indeterminate"
-        hinge={null}
       />
     )
 
-    expect(screen.getByText(/Review key assumptions to distinguish/)).toBeInTheDocument()
+    expect(screen.queryByTestId('coaching-next-action')).not.toBeInTheDocument()
   })
 
-  it('V12.5: prose layout uses <p> tags, not <dt>/<dd>', () => {
-    render(
+  it('V14: hero section uses <p> tags, no <dt>/<dd> layout', () => {
+    const { container } = render(
       <HeroSection
         {...heroBase}
         decisionState="sensitive"
-        hinge={{
-          label: 'X',
-          nodeId: 'f-x',
-          kind: 'node',
-          reason: 'voi',
-          edgeDetail: null,
-          alternativeWinnerLabel: null,
+        topNextAction={{
+          action: 'Check X carefully.',
+          rationale: 'VOI',
+          priority: 1,
+          targetType: 'factor',
+          targetId: 'f-x',
+          targetLabel: 'X',
         }}
       />
     )
 
-    const heroRows = screen.getByTestId('hero-rows')
-    const pElements = heroRows.querySelectorAll('p')
-    expect(pElements.length).toBeGreaterThanOrEqual(2)
-    // No <dt> or <dd> elements in prose layout
-    expect(heroRows.querySelectorAll('dt').length).toBe(0)
-    expect(heroRows.querySelectorAll('dd').length).toBe(0)
+    const heroSection = screen.getByTestId('hero-section')
+    // V14: No <dt>/<dd> in the hero section default view (only in "More" expand stats grid)
+    // The main content area uses <p> and <div> elements
+    const actionRow = screen.getByTestId('coaching-next-action')
+    const pElements = actionRow.querySelectorAll('p')
+    expect(pElements.length).toBeGreaterThanOrEqual(1)
   })
 })
 

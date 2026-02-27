@@ -13,130 +13,10 @@ import { DEFAULT_EDGE_DATA, trimProvenance } from '../domain/edges'
 import { saveAutosave } from '../store/scenarios'
 import { hasAnalysisReady, isCeePipelineTrace } from '../../adapters/cee/types'
 import type { CEEDraftResponse, CEEv2Response, EffectDirection } from '../../adapters/cee/types'
-
-/** Check if error indicates CEE service is unavailable */
-function isCEEUnavailable(error: CEEError | Error): boolean {
-  if (error instanceof CEEError) {
-    // HTTP 404 (not found) or 503 (service unavailable)
-    return error.status === 404 || error.status === 503
-  }
-  // Network-level failures (no HTTP status) - treat as service unavailable
-  // These typically indicate the service is not reachable at all
-  const message = error.message?.toLowerCase() ?? ''
-  if (
-    message.includes('failed to fetch') ||
-    message.includes('network') ||
-    message.includes('connection refused') ||
-    message.includes('dns') ||
-    message.includes('econnrefused')
-  ) {
-    return true
-  }
-  return false
-}
-
-/** Format CEE error for user-friendly display + debug info.
- *
- * Three-way classification:
- *   1. Graph invalid (CEE_GRAPH_INVALID) — draft was generated but failed structural validation
- *   2. Timeout (408/504/CEE_PROXY_TIMEOUT) — request took too long
- *   3. Truly empty (empty_draft/empty_graph) — CEE returned no graph data at all
- */
-function formatCEEError(error: CEEError | Error): {
-  title?: string
-  message: string
-  debugInfo?: string
-  isUnavailable?: boolean
-  isTimeout?: boolean
-  isGraphInvalid?: boolean
-  guidance?: string
-} {
-  if (error instanceof CEEError) {
-    const debugParts = [`Message: ${error.message}`, `Status: ${error.status}`]
-    if (error.correlationId) {
-      debugParts.push(`Correlation ID: ${error.correlationId}`)
-    }
-    if (error.details) {
-      try {
-        const detailsString = typeof error.details === 'string'
-          ? error.details
-          : JSON.stringify(error.details, null, 2)
-        debugParts.push(`Details: ${detailsString}`)
-      } catch {
-        // Ignore JSON stringify failures
-      }
-    }
-
-    const debugInfo = debugParts.join('\n')
-
-    // Check if service is unavailable (404/503)
-    if (isCEEUnavailable(error)) {
-      return {
-        message: 'AI drafting is temporarily unavailable.',
-        isUnavailable: true,
-        debugInfo,
-      }
-    }
-
-    // Map well-known backend error codes / messages to friendlier text
-    const friendlyMessages: Record<string, string> = {
-      'openai_response_invalid_schema': 'The AI service returned an unexpected response format. This is a temporary backend issue.',
-      'Too Many Requests': 'Too many requests. Please wait a moment and try again.',
-    }
-
-    const rawDetails = error.details as any
-    const reason = rawDetails?.reason ?? rawDetails?.details?.reason
-    const code = rawDetails?.code ?? rawDetails?.details?.code
-
-    // Detect timeout errors (client-side 408, gateway 504, or message match)
-    if (error.message === 'Request timeout' || error.status === 408 || error.status === 504) {
-      return {
-        title: 'This brief is taking longer than expected',
-        message: 'Complex briefs with many factors and options can take longer to model. You can:',
-        guidance: 'To speed things up, try focusing on your top 3\u20135 factors and 2\u20133 options. You can always add more detail later.',
-        isTimeout: true,
-        debugInfo,
-      }
-    }
-
-    // Graph invalid — draft was generated but failed structural validation/repair
-    if (code === 'CEE_GRAPH_INVALID' && reason !== 'empty_draft' && reason !== 'empty_graph') {
-      return {
-        title: "We couldn\u2019t build a valid model from this brief",
-        message: 'We generated a draft, but it had structural issues that couldn\u2019t be auto-repaired. This can happen with very short or ambiguous briefs.',
-        guidance: 'To improve results, try adding a clear goal or KPI, 2\u20133 specific options, and the key factors you think matter.',
-        isGraphInvalid: true,
-        debugInfo,
-      }
-    }
-
-    // Truly empty — CEE returned no graph data
-    if (reason === 'empty_draft' || reason === 'empty_graph') {
-      return {
-        title: 'Empty draft',
-        message: 'The AI assistant returned an empty draft for this description. Try adding more concrete context, factors, and relationships, then try again.',
-        debugInfo,
-      }
-    }
-
-    const message = friendlyMessages[error.message] || error.message
-
-    return {
-      message,
-      debugInfo,
-    }
-  }
-
-  // Check if non-CEEError is a network failure (treat as unavailable)
-  if (isCEEUnavailable(error)) {
-    return {
-      message: 'AI drafting is temporarily unavailable.',
-      isUnavailable: true,
-    }
-  }
-
-  return { message: error.message }
-}
+import { validateBrief } from '../utils/briefValidation'
+import { formatCEEError } from '../utils/formatCEEError'
+import { BriefCoachingHint } from './BriefCoachingHint'
+import { EXAMPLE_BRIEF_CHIPS } from '../../constants/validation'
 
 // Storage keys for panel dimension persistence
 const DRAFT_PANEL_WIDTH_KEY = 'canvas.draftChat.width'
@@ -209,6 +89,11 @@ export function DraftChat() {
   const edgeCount = useCanvasStore(s => s.edges.length)
   const showResultsPanel = useCanvasStore(s => s.showResultsPanel)
 
+  // Brief validation
+  const [isInputFocused, setIsInputFocused] = useState(false)
+  const briefValidation = validateBrief(description)
+  const canSubmit = briefValidation.isValid && !loading
+
   // Auto-resize textarea based on content
   const adjustTextareaHeight = useCallback(() => {
     const textarea = textareaRef.current
@@ -265,7 +150,7 @@ export function DraftChat() {
   }, [])
 
   const handleDraft = async () => {
-    if (!description.trim()) return
+    if (!validateBrief(description).isValid) return
 
     // If there is already a graph on the canvas, confirm before clearing it
     const { nodes, edges } = useCanvasStore.getState()
@@ -866,6 +751,7 @@ export function DraftChat() {
           anchorRef={settingsButtonRef}
         />
         {isMinimized ? (
+          <>
           <div
             className="flex gap-3 rounded-2xl border border-sand-200 px-4 py-3 shadow-2"
             style={{ backgroundColor: '#FEFEFE' }}
@@ -882,8 +768,10 @@ export function DraftChat() {
                   e.target.style.height = 'auto'
                   e.target.style.height = `${e.target.scrollHeight}px`
                 }}
+                onFocus={() => setIsInputFocused(true)}
+                onBlur={() => setIsInputFocused(false)}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey && description.trim() && !loading) {
+                  if (e.key === 'Enter' && !e.shiftKey && canSubmit) {
                     e.preventDefault()
                     handleDraft()
                   }
@@ -903,12 +791,12 @@ export function DraftChat() {
               {/* Submit button inside textarea area - anchored to bottom right */}
               <button
                 onClick={handleDraft}
-                disabled={loading || !description.trim()}
+                disabled={!canSubmit}
                 className="absolute right-1 bottom-0 p-2 rounded-full transition-colors"
                 style={{
-                  backgroundColor: (description.trim() && !loading) ? '#63ADCF' : '#E8E5E1',
-                  color: (description.trim() && !loading) ? '#FFFFFF' : '#9B9B9B',
-                  cursor: (description.trim() && !loading) ? 'pointer' : 'not-allowed'
+                  backgroundColor: canSubmit ? '#63ADCF' : '#E8E5E1',
+                  color: canSubmit ? '#FFFFFF' : '#9B9B9B',
+                  cursor: canSubmit ? 'pointer' : 'not-allowed'
                 }}
                 aria-label="Generate draft"
                 title="Press Enter to send"
@@ -949,6 +837,12 @@ export function DraftChat() {
               </button>
             </div>
           </div>
+          <BriefCoachingHint
+            isFocused={isInputFocused}
+            isValid={briefValidation.isValid}
+            softWarning={briefValidation.warningText}
+          />
+          </>
         ) : (
           <div className="flex flex-col rounded-[20px] border border-sand-200 shadow-2 overflow-hidden relative" style={{ backgroundColor: '#FEFEFE', maxHeight: '80vh' }}>
             {/* Header */}
@@ -1040,7 +934,7 @@ export function DraftChat() {
                             <li><strong>Templates</strong> drawer for pre-built models</li>
                             <li>Right-click canvas for quick-add menu</li>
                           </ul>
-                          {formatted.debugInfo && (
+                          {import.meta.env.DEV && formatted.debugInfo && (
                             <details className="mt-1">
                               <summary className={`${typography.panelMeta} text-sun-700 cursor-pointer select-none`}>
                                 Technical details
@@ -1079,7 +973,7 @@ export function DraftChat() {
                           >
                             Try again
                           </button>
-                          {formatted.debugInfo && (
+                          {import.meta.env.DEV && formatted.debugInfo && (
                             <details className="mt-1">
                               <summary className="text-xs text-text-light cursor-pointer select-none">
                                 Technical details
@@ -1114,12 +1008,59 @@ export function DraftChat() {
                           >
                             Try again
                           </button>
-                          {formatted.debugInfo && (
+                          {import.meta.env.DEV && formatted.debugInfo && (
                             <details className="mt-1">
                               <summary className="text-xs text-text-light cursor-pointer select-none">
                                 Technical details
                               </summary>
                               <pre className="text-xs text-text-light font-mono mt-1 opacity-70 whitespace-pre-wrap break-all">
+                                {formatted.debugInfo}
+                              </pre>
+                            </details>
+                          )}
+                        </div>
+                      )
+                    }
+
+                    if (formatted.isValidationFailed) {
+                      return (
+                        <div className="p-3 bg-danger-light border border-danger/30 rounded-lg space-y-3" data-testid="draft-validation-error">
+                          <p className={`${typography.label} text-danger`}>
+                            {formatted.title}
+                          </p>
+                          <p className={`${typography.panelBody} text-text-body`}>
+                            {formatted.message}
+                          </p>
+                          {formatted.guidance && (
+                            <p className={`${typography.panelMeta} text-text-light`}>
+                              {formatted.guidance}
+                            </p>
+                          )}
+                          <div className="flex flex-wrap gap-2" data-testid="brief-suggestion-chips">
+                            {EXAMPLE_BRIEF_CHIPS.map((chip) => (
+                              <button
+                                key={chip.id}
+                                type="button"
+                                onClick={() => setDescription(chip.text)}
+                                className={`${typography.panelMeta} px-2.5 py-1 rounded-full border border-info/30 bg-info-light text-info hover:bg-info hover:text-text-on-color transition-colors`}
+                              >
+                                {chip.label}
+                              </button>
+                            ))}
+                          </div>
+                          <button
+                            type="button"
+                            onClick={handleDraft}
+                            className="mt-1 inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-info bg-panel border border-info/30 rounded-md hover:bg-info-light transition-colors"
+                          >
+                            Try again
+                          </button>
+                          {import.meta.env.DEV && formatted.debugInfo && (
+                            <details className="mt-1">
+                              <summary className={`${typography.panelMeta} text-text-light cursor-pointer select-none`}>
+                                Technical details
+                              </summary>
+                              <pre className={`${typography.panelMeta} text-text-light font-mono mt-1 opacity-70 whitespace-pre-wrap break-all`}>
                                 {formatted.debugInfo}
                               </pre>
                             </details>
@@ -1197,8 +1138,10 @@ export function DraftChat() {
                     e.target.style.height = `${newHeight}px`
                     e.target.style.overflowY = e.target.scrollHeight > maxHeight ? 'auto' : 'hidden'
                   }}
+                  onFocus={() => setIsInputFocused(true)}
+                  onBlur={() => setIsInputFocused(false)}
                   onKeyDown={(e) => {
-                    if (e.key === 'Enter' && !e.shiftKey && description.trim() && !loading) {
+                    if (e.key === 'Enter' && !e.shiftKey && canSubmit) {
                       e.preventDefault()
                       handleDraft()
                     }
@@ -1222,14 +1165,14 @@ export function DraftChat() {
                 {/* Submit button - positioned inside textarea, equidistant from bottom-right */}
                 <button
                   onClick={handleDraft}
-                  disabled={loading || !description.trim()}
+                  disabled={!canSubmit}
                   className="absolute p-2 rounded-lg transition-colors"
                   style={{
                     right: '12px',
                     bottom: '12px',
-                    backgroundColor: (description.trim() && !loading) ? '#63ADCF' : '#E8E5E1',
-                    color: (description.trim() && !loading) ? '#FFFFFF' : '#9B9B9B',
-                    cursor: (description.trim() && !loading) ? 'pointer' : 'not-allowed'
+                    backgroundColor: canSubmit ? '#63ADCF' : '#E8E5E1',
+                    color: canSubmit ? '#FFFFFF' : '#9B9B9B',
+                    cursor: canSubmit ? 'pointer' : 'not-allowed'
                   }}
                   aria-label="Generate draft (Enter to send, Shift+Enter for new line)"
                   title="Press Enter to send • Shift+Enter for new line"
@@ -1243,6 +1186,11 @@ export function DraftChat() {
                   )}
                 </button>
               </div>
+              <BriefCoachingHint
+                isFocused={isInputFocused}
+                isValid={briefValidation.isValid}
+                softWarning={briefValidation.warningText}
+              />
             </div>
           </div>
         )}

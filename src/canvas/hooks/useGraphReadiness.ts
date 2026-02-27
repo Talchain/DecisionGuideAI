@@ -319,6 +319,13 @@ export function useGraphReadiness() {
             }
             return baseNode
           }),
+          /**
+           * UI-SEM-011: Default belief injection (belief: 0.7).
+           * Injects default belief=0.7 when edge lacks beliefExists/belief fields.
+           * Flows to CEE /assist/v1/graph-readiness (coaching, not PLoT analysis).
+           * CEE uses as hints for coaching guidance, not ground truth.
+           * Classification: pre-analysis default — low risk, coaching only.
+           */
           // CEE expects 'from'/'to' not 'source'/'target'
           edges: currentEdges.map((e) => ({
             id: e.id,

@@ -20,23 +20,27 @@ import { BaseEdge, EdgeLabelRenderer, getBezierPath, getSmoothStepPath, getStrai
 import { Lightbulb, AlertTriangle } from 'lucide-react'
 import type { EdgeData, EdgePathType } from '../domain/edges'
 import { applyEdgeVisualProps } from '../theme/edges'
-import { formatConfidence, shouldShowLabel } from '../domain/edges'
+import { formatConfidence, shouldShowLabel, getEdgeConfidence, computeSignedMean } from '../domain/edges'
 import { useIsDark } from '../hooks/useTheme'
 import { getEdgeLabel } from '../domain/edgeLabels'
 import { useEdgeLabelMode } from '../store/edgeLabelMode'
 import { EdgeEditPopover } from './EdgeEditPopover'
 import { useCanvasStore } from '../store'
-import { existenceCertaintyToLineStyle, calculateEdgeImportance, importanceToStrokeWidth } from '../utils/graphDisplayCalculations'
+import { existenceCertaintyToLineStyle, calculateEdgeImportance, importanceToStrokeWidth, weightMagnitudeToStrokeWidth } from '../utils/graphDisplayCalculations'
 import { typography } from '../../styles/typography'
 import { useEdgeEditHint } from '../hooks/useFirstTimeHints'
+import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion'
 
 /**
  * StyledEdge with semantic visual properties
  * Maps weight/style/curvature to SVG rendering
  * v1.2 + P1: Live edge label toggle (human ⇄ numeric)
  */
+// Direction colours (green/red/grey) are pre-existing hex — not changed in this brief.
+// All new styling uses design tokens.
 export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, selected, data }: EdgeProps<EdgeData>) => {
   const isDark = useIsDark()
+  const prefersReducedMotion = usePrefersReducedMotion()
   const { getNode, getEdges } = useReactFlow()
 
   // P1 Polish: Edge label mode from Zustand store (live updates, cross-tab sync)
@@ -122,10 +126,11 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
     [weight, style, curvature, selected, isDark]
   )
 
-  // Task A: Edge thickness based on importance (Results mode only)
+  // Task A: Edge thickness based on importance (Results) or weight magnitude (Edit)
   const edgeStrokeWidth = useMemo(() => {
     if (!isResultsMode || !report) {
-      return visualProps.strokeWidth // Edit mode: uniform thickness
+      // D.1: Pre-run mode — stroke width encodes weight magnitude
+      return weightMagnitudeToStrokeWidth(computeSignedMean(edgeData as Record<string, unknown> | undefined))
     }
 
     // Get factor_sensitivity data
@@ -172,7 +177,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
 
     // Map to stroke width (1-8px range)
     return importanceToStrokeWidth(importance, maxImportance)
-  }, [isResultsMode, report, source, edgeData?.beliefExists, weight, getEdges, visualProps.strokeWidth])
+  }, [isResultsMode, report, source, edgeData?.beliefExists, weight, getEdges, edgeData?.direction])
 
   // Decision Graph Display v2: Direction-based stroke colour
   // positive: green, negative: red (risk color), unknown: grey
@@ -203,9 +208,12 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
   // Direction is already encoded via color (green/red) and sign (+/−)
   const dashArray = existenceCertaintyDash
 
-  // B.I.10: Pre-run overlay — dashed goal-coloured stroke for edges without any confidence value
-  // Check beliefExists (CEE field) AND belief (inspector field) to avoid false positives
-  const isPreRunIncompleteEdge = !isResultsMode && beliefExists === undefined && belief === undefined
+  // D.1: Unified confidence check via getEdgeConfidence (returns null when missing)
+  const edgeConfidenceValue = getEdgeConfidence(edgeData as Record<string, unknown> | undefined)
+
+  // B.I.10: Pre-run overlay — dashed goal-coloured stroke for edges with NO confidence set.
+  // A confidence of 0 is a valid user choice (low), not "missing".
+  const isPreRunIncompleteEdge = !isResultsMode && edgeConfidenceValue === null
 
   // Determine label visibility and styling
   const labelVisibility = useMemo(
@@ -298,9 +306,11 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
           // B.I.10: Pre-run incomplete edges get goal colour
           stroke: isHighlightedEdge ? 'var(--semantic-info)' : (isPreRunIncompleteEdge ? 'var(--goal)' : (directionStroke ?? visualProps.stroke)),
           // Performance: use will-change for frequent updates
-          willChange: selected || isHighlightedEdge ? 'stroke, stroke-width' : undefined,
-          // Graph Interaction P1: Smooth transition for highlighting
-          transition: 'stroke 200ms, stroke-width 200ms',
+          willChange: selected || isHighlightedEdge ? 'stroke, stroke-width, stroke-dasharray' : undefined,
+          // D.1: Smooth transitions for live styling; respect prefers-reduced-motion (§7.4)
+          transition: prefersReducedMotion
+            ? 'none'
+            : 'stroke 200ms ease, stroke-width 200ms ease, stroke-dasharray 200ms ease',
         }}
       />
       

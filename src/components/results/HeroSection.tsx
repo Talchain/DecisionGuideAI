@@ -15,14 +15,18 @@
  */
 
 import { useState, useMemo } from 'react'
-import { AlertTriangle, ChevronDown, ChevronRight, Info } from 'lucide-react'
+import { AlertTriangle, ChevronDown, ChevronRight, Compass, Info } from 'lucide-react'
 import { typography } from '../../styles/typography'
-import { stripEncodingNotation } from './utils/cleanFactorLabel'
+import { stripEncodingNotation, sanitizeCoachingText } from './utils/cleanFactorLabel'
 import { formatPercent as formatPct } from '../../utils/formatPercent'
 import { GraphLink } from './GraphLink'
+import { linkifyCoachingText, type LinkEntity } from './utils/linkifyCoachingText'
 import { normaliseGoalLabel } from '../../utils/normaliseGoalLabel'
 import { BaselineToggleCard, type BaselineOption } from './BaselineToggleCard'
-import type { DecisionState, HingeInfo } from './types'
+import { BaselineTargetRow } from './BaselineTargetRow'
+import { GAP_THRESHOLD } from './buildResultsVM'
+import type { DecisionState, HingeInfo, NextActionItem } from './types'
+import type { NearTieInfo } from '../../lib/mappers/types'
 
 // =============================================================================
 // Types
@@ -129,6 +133,10 @@ export interface HeroSectionProps {
   hinge?: HingeInfo | null
   /** V11: Robust edge count for "Fragile edges X of Y" display */
   robustEdgeCount?: number
+  /** V14: Near-tie detection for headline */
+  nearTie?: NearTieInfo
+  /** V14: Top coaching next action */
+  topNextAction?: NextActionItem
 }
 
 // =============================================================================
@@ -417,7 +425,7 @@ function HeroRows({
         </p>
       ) : (
         <p className={`${typography.panelBody} text-text-header`}>
-          <span className="text-success font-medium">{winnerLabel}</span>
+          <span className="text-success">{winnerLabel}</span>
           {winPct != null && (
             <span className="text-text-light"> ({winPct}% win likelihood)</span>
           )}
@@ -486,6 +494,8 @@ export function HeroSection({
   decisionState,
   hinge,
   robustEdgeCount,
+  nearTie,
+  topNextAction,
 }: HeroSectionProps) {
   // v7.4 Task 6: Default expand state based on robustness level
   // low/very_low stability (< 0.70) defaults to expanded ("Sensitive" or "Highly sensitive")
@@ -581,59 +591,283 @@ export function HeroSection({
   // Render
   // =========================================================================
 
-  // V11 path: structured hero rows + meta strip when decisionState is provided
+  // =========================================================================
+  // V14: Build entity lookup for linkifyCoachingText
+  // =========================================================================
+  const linkEntities = useMemo<LinkEntity[]>(() => {
+    const entities: LinkEntity[] = []
+    // Options
+    if (optionWinShares) {
+      for (const opt of optionWinShares) {
+        if (opt.label) entities.push({ label: opt.label, nodeId: opt.id })
+      }
+    }
+    // Top drivers (factors)
+    if (topDrivers) {
+      for (const d of topDrivers) {
+        if (d.label && !entities.some(e => e.label === d.label)) {
+          entities.push({ label: d.label, nodeId: d.id })
+        }
+      }
+    }
+    return entities
+  }, [optionWinShares, topDrivers])
+
+  // =========================================================================
+  // V14 Task 2: Near-tie headline
+  // =========================================================================
+  const v14Headline = useMemo(() => {
+    if (analysisStatus === 'partial') {
+      return { isNearTie: false as const, text: 'Some analysis steps did not complete' }
+    }
+
+    // Near-tie: use nearTie data or derive from win probability gap
+    const resolveNearTie = (): { optA: string; idA: string; optB: string; idB: string } | null => {
+      if (nearTie?.isTie && nearTie.tiedOptionIds.length >= 2) {
+        const idA = nearTie.tiedOptionIds[0]
+        const idB = nearTie.tiedOptionIds[1]
+        const labelA = optionWinShares?.find(o => o.id === idA)?.label
+        const labelB = optionWinShares?.find(o => o.id === idB)?.label
+        if (labelA && labelB) return { optA: labelA, idA, optB: labelB, idB }
+      }
+      // Fallback: derive from option comparison gap using canonical threshold
+      if (!nearTie && optionWinShares && optionWinShares.length >= 2) {
+        const sorted = [...optionWinShares].sort((a, b) => b.winProbability - a.winProbability)
+        const gap = Math.abs(sorted[0].winProbability - sorted[1].winProbability)
+        if (gap < GAP_THRESHOLD) {
+          return { optA: sorted[0].label, idA: sorted[0].id, optB: sorted[1].label, idB: sorted[1].id }
+        }
+      }
+      return null
+    }
+
+    const tie = resolveNearTie()
+    if (tie) {
+      return { isNearTie: true as const, ...tie }
+    }
+
+    if (optionCount === 1) {
+      return { isNearTie: false as const, text: `${winnerLabel} is your only option` }
+    }
+
+    return { isNearTie: false as const, text: null } // standard winner headline
+  }, [analysisStatus, nearTie, optionWinShares, optionCount, winnerLabel])
+
+  // =========================================================================
+  // V14 Task 3: Decision state dot mapping
+  // =========================================================================
+  const decisionStateDot = useMemo(() => {
+    const map: Record<DecisionState, { color: string; text: string }> = {
+      indeterminate: { color: 'bg-warning text-warning', text: 'Too close to call' },
+      sensitive: { color: 'bg-warning text-warning', text: 'Sensitive to assumptions' },
+      robust: { color: 'bg-success text-success', text: 'Stable result' },
+    }
+    return decisionState ? map[decisionState] : null
+  }, [decisionState])
+
+  // =========================================================================
+  // V14 Task 4: Condition card — factor-only, direction-aware
+  // =========================================================================
+  const v14ConditionCard = useMemo(() => {
+    if (!topFragileEdge) return null
+    if ((topFragileEdge.switchProbability ?? 0) <= 0.25) return null
+    if (topFragileEdge.labelsResolved === false) return null
+
+    const fromLabel = stripEncodingNotation(topFragileEdge.fromLabel)
+    const altLabel = stripEncodingNotation(topFragileEdge.alternativeWinnerLabel)
+
+    // Look up direction from topDrivers
+    const driverMatch = topDrivers?.find(d => d.id === topFragileEdge.fromId)
+    const isPositive = driverMatch?.direction === 'positive'
+
+    return {
+      fromId: topFragileEdge.fromId,
+      fromLabel,
+      toId: topFragileEdge.toId,
+      altLabel,
+      altId: topFragileEdge.alternativeWinnerId,
+      isPositive,
+    }
+  }, [topFragileEdge, topDrivers])
+
+  // V14 path: structured hero with headline, dot, executive, condition card, gauge
   if (decisionState) {
+    // Sanitize coaching text for structured executive
+    const sanitizedDecisionStatement = coachingDecisionStatement
+      ? sanitizeCoachingText(coachingDecisionStatement)
+      : null
+    const sanitizedActionImplication = coachingActionImplication
+      ? sanitizeCoachingText(coachingActionImplication)
+      : null
+    const sanitizedParagraph = coachingParagraph
+      ? sanitizeCoachingText(coachingParagraph)
+      : null
+
     return (
       <div className="space-y-4" data-testid="hero-section">
-        <div className="p-4 bg-panel border border-panel-border rounded-lg space-y-4">
-          {/* Meta strip */}
-          <MetaStrip
-            baselineLabel={baselineLabel}
-            goalThreshold={goalThreshold}
-            onSetBaseline={onSetBaseline}
-            onAddBaseline={onAddBaseline}
-            baselineOptions={baselineOptions}
-            isRunning={isRunning}
-          />
+        <div className="p-4 bg-panel border border-panel-border rounded-lg space-y-3">
 
-          {/* Structured hero rows */}
-          <HeroRows
-            decisionState={decisionState}
-            goalLabel={goalLabel}
-            goalThreshold={goalThreshold}
-            winnerLabel={winnerLabel}
-            winnerId={winnerId}
-            winnerWinProbability={winnerWinProbability}
-            runnerUpLabel={runnerUpLabel}
-            runnerUpWinProbability={runnerUpWinProbability}
-            hinge={hinge}
-            onFocusNode={onFocusNode}
-            outcomeUnit={outcomeUnit}
-            outcomeUnitSymbol={outcomeUnitSymbol}
-          />
+          {/* ── Task 2: Headline ─────────────────────────────────── */}
+          {v14Headline.isNearTie ? (
+            <h2 className={`${typography.panelHeader} leading-snug`}>
+              <span className="text-text-header">To {goalPrefix},</span>{' '}
+              <GraphLink nodeId={v14Headline.idA} label={v14Headline.optA} className="text-info">
+                {v14Headline.optA}
+              </GraphLink>
+              {' and '}
+              <GraphLink nodeId={v14Headline.idB} label={v14Headline.optB} className="text-info">
+                {v14Headline.optB}
+              </GraphLink>
+              {' are too close to separate'}
+            </h2>
+          ) : (
+            <h2 className={`${typography.panelHeader} leading-snug`}>
+              <span className="text-text-header">To {goalPrefix},</span>{' '}
+              <span className="text-text-header">
+                {v14Headline.text ?? (
+                  <>
+                    <GraphLink nodeId={winnerId} label={winnerLabel} className="text-success">
+                      {winnerLabel}
+                    </GraphLink>
+                    {' performs best'}
+                  </>
+                )}
+              </span>
+            </h2>
+          )}
 
-          {/* Win gauge */}
+          {/* ── Task 3: Decision state dot ────────────────────── */}
+          {decisionStateDot && (
+            <div className="flex items-center gap-1.5 mb-2" data-testid="decision-state-dot">
+              <span
+                className={`w-[7px] h-[7px] rounded-full flex-shrink-0 ${decisionStateDot.color.split(' ')[0]}`}
+                aria-hidden="true"
+              />
+              <span className={`${typography.panelMeta} ${decisionStateDot.color.split(' ')[1]}`}>
+                {decisionStateDot.text}
+              </span>
+            </div>
+          )}
+
+          {/* ── Task 1: Structured executive ──────────────────── */}
+          {(sanitizedDecisionStatement || sanitizedActionImplication) ? (
+            <div className="mb-2" data-testid="structured-executive">
+              {sanitizedDecisionStatement && (
+                <p className={`${typography.panelBody} text-text-body`}>
+                  {linkifyCoachingText(sanitizedDecisionStatement, linkEntities)}
+                </p>
+              )}
+              {sanitizedActionImplication && (
+                <p className={`${typography.panelBody} text-text-light`}>
+                  {linkifyCoachingText(sanitizedActionImplication, linkEntities)}
+                </p>
+              )}
+            </div>
+          ) : sanitizedParagraph ? (
+            <div className="mb-2" data-testid="structured-executive">
+              <p className={`${typography.panelBody} text-text-body`}>
+                {linkifyCoachingText(sanitizedParagraph, linkEntities)}
+              </p>
+            </div>
+          ) : null}
+
+          {/* ── Task 4: Condition card ────────────────────────── */}
+          {v14ConditionCard && (
+            <div className="mb-3 p-3 border border-danger/30 rounded-lg flex items-start gap-2" data-testid="condition-card">
+              <AlertTriangle className="w-4 h-4 text-danger flex-shrink-0 mt-0.5" />
+              <p className={`${typography.panelBody} text-text-body`}>
+                {'If '}
+                <GraphLink
+                  edgeRef={{ fromId: v14ConditionCard.fromId, toId: v14ConditionCard.toId }}
+                  fallbackNodeId={v14ConditionCard.fromId}
+                  label={v14ConditionCard.fromLabel}
+                  className={`${typography.panelBody} inline`}
+                >
+                  {v14ConditionCard.fromLabel}
+                </GraphLink>
+                {v14ConditionCard.isPositive
+                  ? ' is weaker than expected, '
+                  : ' differs from your estimate, '}
+                {v14ConditionCard.altId ? (
+                  <GraphLink
+                    nodeId={v14ConditionCard.altId}
+                    label={v14ConditionCard.altLabel}
+                    className={`${typography.panelBody} inline`}
+                  >
+                    {v14ConditionCard.altLabel}
+                  </GraphLink>
+                ) : (
+                  v14ConditionCard.altLabel
+                )}
+                {' becomes the stronger option'}
+              </p>
+            </div>
+          )}
+
+          {/* ── Task 6: Win gauge (no legend — already removed V12.4) ── */}
           {optionWinShares && optionWinShares.length > 1 && (
             <WinGauge shares={optionWinShares} decisionState={decisionState} />
           )}
 
-          {/* V9.2: Goal probability line */}
+          {/* Goal probability line */}
           {goalThreshold != null && winnerGoalProbability != null && (
             <p className={`${typography.panelMeta} text-text-body`}>
               {winnerLabel} has a {formatPct(winnerGoalProbability, { fromDecimal: true })} chance of reaching your target of {goalThreshold}
             </p>
           )}
 
-          {/* More / Less toggle */}
+          {/* ── Task 7: Baseline + target row ────────────────── */}
+          <BaselineTargetRow
+            baselineOptions={baselineOptions}
+            baselineLabel={baselineLabel}
+            isRunning={isRunning}
+            onAddBaseline={onAddBaseline}
+            onSetBaseline={onSetBaseline}
+            goalThreshold={goalThreshold}
+            outcomeUnit={outcomeUnit}
+            outcomeUnitSymbol={outcomeUnitSymbol}
+          />
+
+          {/* ── Task 8: Coaching next action ──────────────────── */}
+          {topNextAction && topNextAction.action && (
+            <div className="flex items-start gap-2" data-testid="coaching-next-action">
+              <Compass className="w-3.5 h-3.5 text-info flex-shrink-0 mt-0.5" />
+              <p className={`${typography.panelBody} text-text-body`}>
+                {(() => {
+                  const actionText = sanitizeCoachingText(topNextAction.action)
+                  const targetLabel = topNextAction.targetLabel
+                  const targetId = topNextAction.targetId
+
+                  // Wrap target_label in GraphLink if it appears in the action text.
+                  // For edge targets, targetId is already resolved to the from-node
+                  // by useResultsSectionData (splits "source->target" → "source").
+                  if (targetLabel && targetId && actionText.includes(targetLabel)) {
+                    const idx = actionText.indexOf(targetLabel)
+                    return (
+                      <>
+                        {actionText.slice(0, idx)}
+                        <GraphLink
+                          nodeId={targetId}
+                          label={targetLabel}
+                          className={`${typography.panelBody} inline`}
+                        >
+                          {targetLabel}
+                        </GraphLink>
+                        {actionText.slice(idx + targetLabel.length)}
+                      </>
+                    )
+                  }
+                  return actionText
+                })()}
+              </p>
+            </div>
+          )}
+
+          {/* ── Stability badge + More / Less toggle ─────────── */}
           <div className="border-t border-panel-border pt-3">
             <div className="flex items-center gap-3">
               {stabilityTier.label && (
-                <span
-                  className="inline-flex items-center gap-1.5 bg-sand-50 px-2 py-0.5 rounded-full"
-                  title={coachingReadinessDimensions
-                    ? `Evidence quality: ${Math.round(coachingReadinessDimensions.evidence * 100)}% \u00B7 Model robustness: ${Math.round(coachingReadinessDimensions.robustness * 100)}% \u00B7 Framing quality: ${Math.round(coachingReadinessDimensions.clarity * 100)}%`
-                    : undefined}
-                >
+                <span className="inline-flex items-center gap-1.5 bg-panel-hover px-2 py-0.5 rounded-full">
                   <span className={`${typography.panelMeta} ${stabilityTier.colorClass}`}>
                     {stabilityTier.label}
                   </span>
@@ -657,51 +891,57 @@ export function HeroSection({
             </div>
           </div>
 
-          {/* "More detail" expand — V12 executive summary + stats grid */}
+          {/* ── Task 5: "More detail" expand ──────────────────── */}
           {isExpanded && (
             <div
               id="hero-more-content"
               className="mt-3 pt-3 border-t border-panel-border space-y-3"
             >
-              {/* V12: Decision statement takes priority, fallback to coachingParagraph */}
-              {coachingDecisionStatement ? (
-                <p className={`${typography.panelBody} text-text-header font-medium`}>
-                  {coachingDecisionStatement}
-                </p>
-              ) : coachingParagraph ? (
+              {/* Narrative: M2 when available, M1 fallback */}
+              {m2NarrativeSummary ? (
+                <div>
+                  <p className={`${typography.panelMeta} text-text-light italic mb-1`}>AI-enhanced analysis</p>
+                  <p className={`${typography.panelBody} text-text-body`}>
+                    {sanitizeCoachingText(m2NarrativeSummary)}
+                  </p>
+                </div>
+              ) : sanitizedParagraph ? (
                 <p className={`${typography.panelBody} text-text-body`}>
-                  {coachingParagraph}
+                  {sanitizedParagraph}
                 </p>
               ) : null}
 
-              {/* V12: Key qualifier — uncertainty caveat */}
-              {coachingKeyQualifier && (
-                <p className={`${typography.panelMeta} text-text-body italic`}>
-                  {coachingKeyQualifier}
-                </p>
+              {/* Readiness bars */}
+              {coachingReadinessDimensions && (
+                <div data-testid="readiness-bars">
+                  <p className={`${typography.panelMeta} text-text-header mb-2`}>Readiness</p>
+                  {(['evidence', 'robustness', 'clarity'] as const).map(dim => {
+                    const value = coachingReadinessDimensions[dim]
+                    if (value == null) return null
+                    const pct = Math.round(value * 100)
+                    const fillColor = value < 0.4 ? 'bg-danger' : value < 0.7 ? 'bg-warning' : 'bg-success'
+                    const label = dim === 'clarity' ? 'Framing' : dim.charAt(0).toUpperCase() + dim.slice(1)
+                    return (
+                      <div key={dim} className="flex items-center gap-2 mb-1">
+                        <span className={`${typography.panelMeta} text-text-light text-right`} style={{ width: 80 }}>
+                          {label}
+                        </span>
+                        <div className="flex-1 bg-panel-border rounded-full" style={{ height: 4 }}>
+                          <div
+                            className={`${fillColor} rounded-full`}
+                            style={{ width: `${pct}%`, height: 4 }}
+                          />
+                        </div>
+                        <span className={`${typography.panelMeta} text-text-light`} style={{ width: 30 }}>
+                          {pct}%
+                        </span>
+                      </div>
+                    )
+                  })}
+                </div>
               )}
 
-              {/* V12 C3: Action implication — linkify hinge factor if mentioned */}
-              {coachingActionImplication && (() => {
-                const hingeLabel = hinge?.label
-                const hingeId = hinge?.nodeId
-                if (hingeLabel && hingeId && coachingActionImplication.includes(hingeLabel)) {
-                  const idx = coachingActionImplication.indexOf(hingeLabel)
-                  return (
-                    <p className={`${typography.panelMeta} text-text-body`}>
-                      {coachingActionImplication.slice(0, idx)}
-                      <GraphLink nodeId={hingeId} label={hingeLabel} onFocus={onFocusNode} className="inline text-xs" />
-                      {coachingActionImplication.slice(idx + hingeLabel.length)}
-                    </p>
-                  )
-                }
-                return (
-                  <p className={`${typography.panelMeta} text-text-body`}>
-                    {coachingActionImplication}
-                  </p>
-                )
-              })()}
-
+              {/* Stats grid */}
               <dl className={`grid grid-cols-2 gap-x-4 gap-y-1 ${typography.panelMeta}`}>
                 {winnerWinProbability != null && (
                   <>
@@ -733,9 +973,8 @@ export function HeroSection({
                 )}
               </dl>
 
-              {/* V12: Identifiability advisory — only for concerning tags */}
+              {/* Identifiability advisory */}
               {(() => {
-                // Map backend tags to user-facing labels
                 const identMap: Record<string, { label: string; colorClass: string }> = {
                   partially_identifiable: { label: 'Structural validity: Some limitations', colorClass: 'text-info' },
                   not_backdoor_identifiable: { label: 'Structural validity: Treat as directional', colorClass: 'text-warning' },
@@ -749,19 +988,6 @@ export function HeroSection({
                   </div>
                 )
               })()}
-
-              {/* V12 C1: M2 narrative summary — "Full analysis" expandable */}
-              {m2NarrativeSummary && (
-                <details className="mt-2">
-                  <summary className={`${typography.panelBody} text-info cursor-pointer hover:text-info-hover`}>
-                    Full analysis
-                  </summary>
-                  <div className="mt-2">
-                    <p className={`${typography.panelMeta} text-text-light italic mb-1`}>AI-enhanced analysis</p>
-                    <p className={`${typography.panelBody} text-text-body`}>{m2NarrativeSummary}</p>
-                  </div>
-                </details>
-              )}
             </div>
           )}
         </div>
@@ -777,7 +1003,7 @@ export function HeroSection({
       {/* Main hero card */}
       <div className="p-4 bg-panel border border-panel-border rounded-lg">
         {/* V9.2 Headline — merged "To achieve [goal], [winner] performs best" */}
-        <h2 className={`${typography.panelHeader} text-[15px] leading-snug`}>
+        <h2 className={`${typography.panelHeader} leading-snug`}>
           <span className="text-text-header">To achieve {goalPrefix},</span>{' '}
           <span className={recommendationStability != null && recommendationStability < 0.55 ? 'text-text-header' : 'text-success'}>{headline.main}</span>
         </h2>
@@ -787,37 +1013,33 @@ export function HeroSection({
           </p>
         )}
 
-        {/* V9.2: Condition card — top fragile edge warning. Inline sentence layout. */}
-        {conditionCard && (
+        {/* V14: Condition card — factor-only language, no arrow notation */}
+        {conditionCard && conditionCard.type === 'specific' && (
           <div className="mt-3 mb-3 p-3 border border-danger/30 rounded-lg flex items-start gap-2">
             <AlertTriangle className="w-4 h-4 text-danger flex-shrink-0 mt-0.5" />
             <p className={`${typography.panelBody} text-text-body`}>
-              {conditionCard.type === 'generic' ? (
-                'Some estimates could change the recommendation, review key inputs below.'
+              {'If '}
+              <GraphLink
+                nodeId={conditionCard.fromId}
+                label={conditionCard.fromLabel}
+                onFocus={onFocusNode}
+                className={`${typography.panelBody} inline`}
+              >
+                {conditionCard.fromLabel}
+              </GraphLink>
+              {' differs from your estimate, '}
+              {conditionCard.altId ? (
+                <GraphLink
+                  nodeId={conditionCard.altId}
+                  label={conditionCard.altLabel}
+                  className={`${typography.panelBody} inline`}
+                >
+                  {conditionCard.altLabel}
+                </GraphLink>
               ) : (
-                <>
-                  {'If '}
-                  <GraphLink
-                    nodeId={conditionCard.fromId}
-                    label={`${conditionCard.fromLabel} \u2192 ${conditionCard.toLabel}`}
-                    onFocus={onFocusNode}
-                    className={`${typography.panelBody} inline`}
-                  />
-                  {' is weaker than expected, '}
-                  {conditionCard.altId && onFlashOption ? (
-                    <button
-                      type="button"
-                      onClick={(e) => { e.stopPropagation(); onFlashOption(conditionCard.altId!) }}
-                      className="text-info hover:underline inline"
-                    >
-                      {conditionCard.altLabel}
-                    </button>
-                  ) : (
-                    conditionCard.altLabel
-                  )}
-                  {' becomes stronger'}
-                </>
+                conditionCard.altLabel
               )}
+              {' becomes the stronger option'}
             </p>
           </div>
         )}
@@ -862,7 +1084,7 @@ export function HeroSection({
         <div className="border-t border-panel-border pt-3">
           <div className="flex items-center gap-3">
             {stabilityTier.label && (
-              <span className="inline-flex items-center gap-1.5 bg-sand-50 px-2 py-0.5 rounded-full">
+              <span className="inline-flex items-center gap-1.5 bg-panel-hover px-2 py-0.5 rounded-full">
                 <span className={`${typography.panelMeta} ${stabilityTier.colorClass}`}>
                   {stabilityTier.label}
                 </span>

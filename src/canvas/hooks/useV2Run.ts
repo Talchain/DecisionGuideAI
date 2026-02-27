@@ -36,56 +36,7 @@ import type { CEEAnalysisReady } from '../../adapters/cee/types'
 import type { M1Review, M1Coaching } from '../../types/cee'
 import { useGateStore, updateRobustnessGate, updateRobustnessGateFromV2 } from '../../lib/gate-state'
 import { buildRawErrorData, hashStackTrace } from '../../utils/payloadRedaction'
-
-/**
- * Extract M1 Review data from V2 response.
- * Returns null if CEE status is skipped or no review data present.
- */
-function extractM1ReviewFromV2(response: V2RunResponse): M1Review | null {
-  // If no CEE status or explicitly skipped, return null
-  const ceeStatus = response.cee_status ?? 'skipped'
-  if (ceeStatus === 'skipped') {
-    return null
-  }
-
-  return {
-    cee_status: ceeStatus,
-    decision_quality: response.decision_quality ?? null,
-    insights: response.insights ?? null,
-    improvement_guidance: response.improvement_guidance ?? null,
-    rationale: response.rationale ?? null,
-    robustness_synthesis: response.robustness_synthesis ?? null,
-    ceeTrace: response.cee_trace ? {
-      requestId: response.cee_trace.request_id,
-      latency_ms: response.cee_trace.latency_ms,
-      degraded: response.cee_trace.degraded,
-    } : undefined,
-  }
-}
-
-/**
- * Extract M1 Coaching data from V2 response.
- * Returns null if m1_coaching is not present.
- * These are deterministic fields computed after ISL, not LLM-generated.
- */
-function extractM1CoachingFromV2(response: V2RunResponse): M1Coaching | null {
-  const coaching = response.m1_coaching
-  if (!coaching) {
-    return null
-  }
-
-  return {
-    executive_summary: coaching.executive_summary ?? undefined,
-    story_headlines: coaching.story_headlines ?? {},
-    readiness: coaching.readiness ?? undefined,
-    readiness_signals: coaching.readiness_signals ?? undefined,
-    key_drivers: coaching.key_drivers ?? undefined,
-    evidence_gaps: coaching.evidence_gaps ?? [],
-    next_actions: coaching.next_actions ?? [],
-    assumptions_ledger: coaching.assumptions_ledger ?? [],
-    top_fragile_edge: coaching.top_fragile_edge ?? undefined,
-  }
-}
+import { extractM1ReviewFromV2, extractM1CoachingFromV2 } from '../../hooks/hydrateAnalysis'
 
 /**
  * P0 Fix: Derive a stable numeric seed from a string.

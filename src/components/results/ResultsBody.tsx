@@ -12,6 +12,7 @@
 import { useRef, useCallback, useMemo } from 'react'
 import { typography } from '../../styles/typography'
 import type { ResultsSectionDataReturn } from './useResultsSectionData'
+import type { NextActionItem } from './types'
 import { buildResultsVM } from './buildResultsVM'
 import { RecommendationSection } from './RecommendationSection'
 import { DriversSection } from './DriversSection'
@@ -124,6 +125,7 @@ export function ResultsBody({
           onAddStatusQuoBaseline={onAddStatusQuoBaseline}
           topDrivers={resultsSectionData.drivers.topDrivers}
           topFragileEdge={resultsSectionData.confidence.topFragileEdge}
+          topNextAction={resultsSectionData.confidence.topNextActions?.[0]}
           nSamples={nSamples ?? undefined}
           seedUsed={seedUsed ?? undefined}
           fragileEdgeCount={fragileEdgeCount}

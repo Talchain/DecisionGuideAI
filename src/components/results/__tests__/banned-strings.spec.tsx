@@ -15,6 +15,8 @@ import type { RecommendationSectionData, ConfidenceSectionData, DriversSectionDa
 // Mock canvas helpers
 vi.mock('../../../canvas/utils/focusHelpers', () => ({
   focusNodeById: vi.fn(),
+  focusByTarget: vi.fn(),
+  focusEdgeByEndpoints: vi.fn(),
 }))
 
 /**
@@ -384,6 +386,66 @@ const confidenceData: ConfidenceSectionData = {
   ],
 }
 
+/**
+ * Fixture: V14 coaching text with dirty patterns
+ * Tests that sanitizeCoachingText strips arrows, em-dashes, encoding notation
+ * from decision_statement and action_implication fields
+ */
+const fixtureWithCoachingText: RecommendationSectionData = {
+  recommendedOption: {
+    id: 'option-1',
+    label: 'Option A',
+    p10: 20,
+    p50: 50,
+    p90: 80,
+    expected: 50,
+    outcome: { mean: 50, p10: 20, p50: 50, p90: 80 },
+    isRecommended: true,
+    winProbability: 0.72,
+    goalProbability: 0.85,
+    rank: 1,
+  },
+  allOptions: [
+    {
+      id: 'option-1',
+      label: 'Option A',
+      p10: 20,
+      p50: 50,
+      p90: 80,
+      expected: 50,
+      outcome: { mean: 50, p10: 20, p50: 50, p90: 80 },
+      isRecommended: true,
+      winProbability: 0.72,
+      goalProbability: 0.85,
+      rank: 1,
+    },
+    {
+      id: 'option-2',
+      label: 'Option B',
+      p10: 15,
+      p50: 40,
+      p90: 70,
+      expected: 40,
+      outcome: { mean: 40, p10: 15, p50: 40, p90: 70 },
+      isRecommended: false,
+      winProbability: 0.28,
+      goalProbability: 0.65,
+      rank: 2,
+    },
+  ],
+  goalLabel: 'increase revenue',
+  goalThreshold: 100000,
+  isSingleOption: false,
+  analysisStatus: 'computed',
+  outcomeUnit: 'currency',
+  outcomeUnitSymbol: '$',
+  recommendationStability: 0.80,
+  // V14 coaching fields with dirty patterns (arrows, em-dashes, encoding notation)
+  coachingDecisionStatement: 'Option A \u2192 outperforms because Market Size (0/1) \u2014 is the key driver',
+  coachingActionImplication: 'Focus on Market Size (0\u20131 qualitative scale) \u2192 to improve outcomes',
+  coachingParagraph: 'Option A leads due to Market Size -> Revenue pathway \u2013 this is robust',
+}
+
 describe('Banned Strings Integration Test', () => {
   describe('RecommendationSection', () => {
     it('does not contain banned strings with goal threshold', () => {
@@ -447,6 +509,35 @@ describe('Banned Strings Integration Test', () => {
 
       // V9.2: Winner appears in merged headline, other option names only in OptionCards (ResultsBody)
       expect(screen.getByText(/Strategy Alpha performs best/)).toBeInTheDocument()
+    })
+
+    it('V14: does not contain banned strings in coaching text fields', () => {
+      render(<RecommendationSection data={fixtureWithCoachingText} />)
+
+      const html = document.body.innerHTML
+      for (const banned of BANNED_STRINGS) {
+        expect(html).not.toContain(banned)
+      }
+    })
+
+    it('V14: sanitizes arrows and encoding from decision_statement', () => {
+      render(<RecommendationSection data={fixtureWithCoachingText} />)
+
+      const html = document.body.innerHTML
+      // Arrow chars should be stripped by sanitizeCoachingText
+      expect(html).not.toContain('\u2192') // →
+      expect(html).not.toContain('->')
+      // Encoding notation should be stripped
+      expect(html).not.toContain('(0/1)')
+      expect(html).not.toContain('qualitative scale')
+    })
+
+    it('V14: sanitizes arrows and encoding from action_implication', () => {
+      render(<RecommendationSection data={fixtureWithCoachingText} />)
+
+      // Em-dash and en-dash should be stripped
+      expect(document.body.innerHTML).not.toContain('\u2014')
+      expect(document.body.innerHTML).not.toContain('\u2013')
     })
   })
 

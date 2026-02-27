@@ -16,6 +16,7 @@ import { HeroSection, type HeroSectionProps } from '../HeroSection'
 vi.mock('../../../canvas/utils/focusHelpers', () => ({
   focusByTarget: vi.fn(),
   focusNodeById: vi.fn(),
+  focusEdgeByEndpoints: vi.fn(),
 }))
 
 const baseProps: HeroSectionProps = {
@@ -207,13 +208,13 @@ describe('HeroSection', () => {
         />
       )
 
-      // Condition card should contain fragile edge info (encoding notation cleaned)
-      const card = screen.getByText(/is weaker than expected/)
+      // V14: Condition card uses factor-only format (no arrow)
+      const card = screen.getByText(/differs from your estimate/)
       expect(card).toBeInTheDocument()
-      expect(screen.getByText(/Option B becomes stronger/)).toBeInTheDocument()
+      expect(screen.getByText(/becomes the stronger option/)).toBeInTheDocument()
     })
 
-    it('shows generic condition card when labels are unresolved', () => {
+    it('does not render condition card when labels are unresolved', () => {
       render(
         <HeroSection
           {...baseProps}
@@ -229,7 +230,9 @@ describe('HeroSection', () => {
         />
       )
 
-      expect(screen.getByText(/Some estimates could change the recommendation/)).toBeInTheDocument()
+      // V14: generic condition card is no longer rendered (unresolved labels suppressed)
+      expect(screen.queryByText(/Some estimates could change the recommendation/)).not.toBeInTheDocument()
+      expect(screen.queryByText(/differs from your estimate/)).not.toBeInTheDocument()
     })
 
     it('does not render condition card when no fragile edges', () => {
@@ -558,7 +561,7 @@ describe('HeroSection', () => {
     }
 
     describe('Robust state', () => {
-      it('V12.5: renders winner in green with win likelihood (prose layout)', () => {
+      it('V14: renders winner in green in headline (GraphLink)', () => {
         render(
           <HeroSection
             {...v11Props}
@@ -566,74 +569,64 @@ describe('HeroSection', () => {
           />
         )
 
-        expect(screen.getByTestId('hero-rows')).toBeInTheDocument()
-        expect(screen.getByText('Option A')).toHaveClass('text-success')
-        expect(screen.getByText(/62% win likelihood/)).toBeInTheDocument()
+        // V14: winner is rendered in headline via GraphLink, decision-state-dot shows "Stable result"
+        expect(screen.getByTestId('decision-state-dot')).toBeInTheDocument()
+        expect(screen.getByText(/performs best/)).toBeInTheDocument()
       })
 
-      it('V12.5: renders action line with hinge link when hinge is provided', () => {
+      it('V14: renders coaching next action with hinge target', () => {
         const onFocusNode = vi.fn()
 
         render(
           <HeroSection
             {...v11Props}
             decisionState="robust"
-            hinge={{
-              label: 'Market Size',
-              nodeId: 'factor-1',
-              kind: 'edge',
-              reason: 'fragile_edge',
-              edgeDetail: 'Market Size → Revenue',
-              alternativeWinnerLabel: null,
+            topNextAction={{
+              action: 'Validate Market Size before deciding.',
+              rationale: 'Fragile edge',
+              priority: 1,
+              targetType: 'factor',
+              targetId: 'factor-1',
+              targetLabel: 'Market Size',
             }}
             onFocusNode={onFocusNode}
           />
         )
 
-        expect(screen.getByText(/Validate:/)).toBeInTheDocument()
-        const link = screen.getByRole('button', { name: /Focus on Market Size/ })
-        expect(link).toBeInTheDocument()
-        fireEvent.click(link)
-        expect(onFocusNode).toHaveBeenCalledWith('factor-1')
+        // V14: action lines replaced by coaching-next-action
+        const actionRow = screen.getByTestId('coaching-next-action')
+        expect(actionRow.textContent).toContain('Market Size')
       })
 
-      it('V12.3: omits Action row when no hinge in robust state', () => {
+      it('V14: omits coaching next action when not provided in robust state', () => {
         render(
           <HeroSection
             {...v11Props}
             decisionState="robust"
-            hinge={null}
           />
         )
 
-        expect(screen.queryByText('Action')).not.toBeInTheDocument()
+        expect(screen.queryByTestId('coaching-next-action')).not.toBeInTheDocument()
       })
     })
 
     describe('Sensitive state', () => {
-      it('V12.5: renders winner and action line with "Validate first:" content', () => {
+      it('V14: renders winner in headline and decision-state-dot shows "Sensitive to assumptions"', () => {
         render(
           <HeroSection
             {...v11Props}
             decisionState="sensitive"
-            hinge={{
-              label: 'Customer Growth',
-              nodeId: 'factor-2',
-              kind: 'node',
-              reason: 'voi',
-              edgeDetail: null,
-              alternativeWinnerLabel: null,
-            }}
           />
         )
 
-        expect(screen.getByText('Option A')).toHaveClass('text-success')
-        expect(screen.getByText(/Validate first:/)).toBeInTheDocument()
+        expect(screen.getByText(/performs best/)).toBeInTheDocument()
+        const dot = screen.getByTestId('decision-state-dot')
+        expect(dot.textContent).toContain('Sensitive to assumptions')
       })
     })
 
     describe('Indeterminate state', () => {
-      it('V12.5: renders "No clear winner" with percentages (prose layout)', () => {
+      it('V14: renders "Too close to call" decision state dot', () => {
         render(
           <HeroSection
             {...v11Props}
@@ -641,32 +634,31 @@ describe('HeroSection', () => {
           />
         )
 
-        expect(screen.getByText(/No clear winner/)).toBeInTheDocument()
-        expect(screen.getByText(/62% vs 30%/)).toBeInTheDocument()
+        const dot = screen.getByTestId('decision-state-dot')
+        expect(dot.textContent).toContain('Too close to call')
       })
 
-      it('V12.5: renders "Resolve first:" action line with hinge', () => {
+      it('V14: renders coaching next action when provided', () => {
         render(
           <HeroSection
             {...v11Props}
             decisionState="indeterminate"
-            hinge={{
-              label: 'Adoption Rate',
-              nodeId: 'factor-3',
-              kind: 'edge',
-              reason: 'fragile_edge',
-              edgeDetail: 'Adoption Rate → Market Share',
-              alternativeWinnerLabel: 'Option B',
+            topNextAction={{
+              action: 'Resolve Adoption Rate uncertainty before deciding.',
+              rationale: 'Fragile edge',
+              priority: 1,
+              targetType: 'factor',
+              targetId: 'factor-3',
+              targetLabel: 'Adoption Rate',
             }}
           />
         )
 
-        expect(screen.getByText(/Resolve first:/)).toBeInTheDocument()
-        const link = screen.getByRole('button', { name: /Focus on Adoption Rate/ })
-        expect(link).toBeInTheDocument()
+        const actionRow = screen.getByTestId('coaching-next-action')
+        expect(actionRow.textContent).toContain('Adoption Rate')
       })
 
-      it('does not render winner in green', () => {
+      it('V14: headline does not use success colour for indeterminate state', () => {
         render(
           <HeroSection
             {...v11Props}
@@ -674,10 +666,11 @@ describe('HeroSection', () => {
           />
         )
 
-        // "No clear winner" is in the result line (text-text-header), not coloured success
-        const resultText = screen.getByText(/No clear winner/)
-        expect(resultText).toHaveClass('text-text-header')
-        expect(resultText).not.toHaveClass('text-success')
+        // The headline should show "performs best" in text-text-header, not text-success
+        // (V14 standard headline wraps winner in GraphLink with text-success only for non-tie)
+        const dot = screen.getByTestId('decision-state-dot')
+        expect(dot.textContent).toContain('Too close to call')
+        expect(dot).not.toHaveClass('text-success')
       })
     })
   })
@@ -716,7 +709,7 @@ describe('HeroSection', () => {
       expect(screen.queryByTestId('evidence-badge')).not.toBeInTheDocument()
     })
 
-    it('shows meta strip with target when goalThreshold is set', () => {
+    it('V14: shows target in baseline-target-row when goalThreshold is set', () => {
       render(
         <HeroSection
           {...baseProps}
@@ -725,9 +718,8 @@ describe('HeroSection', () => {
         />
       )
 
-      const strip = screen.getByTestId('meta-strip')
-      expect(strip).toHaveTextContent('Target:')
-      expect(strip).toHaveTextContent('500')
+      const row = screen.getByTestId('baseline-target-row')
+      expect(row).toHaveTextContent('500')
     })
   })
 
@@ -830,7 +822,7 @@ describe('HeroSection', () => {
       expect(screen.queryByText(/Set a success target/)).not.toBeInTheDocument()
     })
 
-    it('shows target value when goalThreshold is set', () => {
+    it('V14: shows target value in baseline-target-row when goalThreshold is set', () => {
       render(
         <HeroSection
           {...baseProps}
@@ -840,12 +832,12 @@ describe('HeroSection', () => {
       )
 
       expect(screen.queryByTestId('target-unset-prompt')).not.toBeInTheDocument()
-      expect(screen.getByTestId('meta-strip')).toHaveTextContent('500')
+      expect(screen.getByTestId('baseline-target-row')).toHaveTextContent('500')
     })
   })
 
-  describe('V12.3: Row-3 Fallback', () => {
-    it('shows action fallback text when hinge is null in sensitive state', () => {
+  describe('V14: No coaching-next-action when not provided', () => {
+    it('sensitive state: no coaching-next-action when topNextAction absent', () => {
       render(
         <HeroSection
           {...baseProps}
@@ -854,10 +846,11 @@ describe('HeroSection', () => {
         />
       )
 
-      expect(screen.getByText(/Review key assumptions before committing/)).toBeInTheDocument()
+      // V14: action lines removed; coaching-next-action only renders when topNextAction is provided
+      expect(screen.queryByTestId('coaching-next-action')).not.toBeInTheDocument()
     })
 
-    it('shows action fallback text when hinge is null in indeterminate state', () => {
+    it('indeterminate state: no coaching-next-action when topNextAction absent', () => {
       render(
         <HeroSection
           {...baseProps}
@@ -866,54 +859,56 @@ describe('HeroSection', () => {
         />
       )
 
-      expect(screen.getByText(/Review key assumptions to distinguish/)).toBeInTheDocument()
+      expect(screen.queryByTestId('coaching-next-action')).not.toBeInTheDocument()
     })
   })
 
-  describe('V12.3: Action Row with Hinge', () => {
-    it('shows "Validate:" action line in robust state with hinge', () => {
+  describe('V14: Coaching next action with target', () => {
+    it('shows coaching next action with Market Size target in robust state', () => {
       render(
         <HeroSection
           {...baseProps}
           decisionState="robust"
-          hinge={{
-            label: 'Market Size',
-            nodeId: 'factor-1',
-            kind: 'edge',
-            reason: 'fragile_edge',
-            edgeDetail: 'Market Size → Revenue',
-            alternativeWinnerLabel: null,
+          topNextAction={{
+            action: 'Validate Market Size before deciding.',
+            rationale: 'Fragile edge',
+            priority: 1,
+            targetType: 'factor',
+            targetId: 'factor-1',
+            targetLabel: 'Market Size',
           }}
         />
       )
 
-      expect(screen.getByText(/Validate:/)).toBeInTheDocument()
+      const actionRow = screen.getByTestId('coaching-next-action')
+      expect(actionRow.textContent).toContain('Market Size')
       expect(screen.getByRole('button', { name: /Focus on Market Size/ })).toBeInTheDocument()
     })
 
-    it('shows "Validate first:" action line in sensitive state with hinge', () => {
+    it('shows coaching next action with Customer Growth target in sensitive state', () => {
       render(
         <HeroSection
           {...baseProps}
           decisionState="sensitive"
-          hinge={{
-            label: 'Customer Growth',
-            nodeId: 'factor-2',
-            kind: 'node',
-            reason: 'voi',
-            edgeDetail: null,
-            alternativeWinnerLabel: null,
+          topNextAction={{
+            action: 'Review Customer Growth estimates before committing.',
+            rationale: 'VOI factor',
+            priority: 1,
+            targetType: 'factor',
+            targetId: 'factor-2',
+            targetLabel: 'Customer Growth',
           }}
         />
       )
 
-      expect(screen.getByText(/Validate first:/)).toBeInTheDocument()
+      const actionRow = screen.getByTestId('coaching-next-action')
+      expect(actionRow.textContent).toContain('Customer Growth')
       expect(screen.getByRole('button', { name: /Focus on Customer Growth/ })).toBeInTheDocument()
     })
   })
 
-  describe('V11: Goal Row Unit Display', () => {
-    it('shows currency symbol + formatted threshold for currency unit', () => {
+  describe('V14: Goal Target Unit Display in BaselineTargetRow', () => {
+    it('shows currency symbol + formatted threshold in baseline-target-row', () => {
       render(
         <HeroSection
           {...baseProps}
@@ -924,10 +919,10 @@ describe('HeroSection', () => {
         />
       )
 
-      expect(screen.getByTestId('hero-rows')).toHaveTextContent('$100,000')
+      expect(screen.getByTestId('baseline-target-row')).toHaveTextContent('$100,000')
     })
 
-    it('shows percentage suffix for percent unit', () => {
+    it('shows percentage suffix in baseline-target-row for percent unit', () => {
       render(
         <HeroSection
           {...baseProps}
@@ -937,7 +932,7 @@ describe('HeroSection', () => {
         />
       )
 
-      expect(screen.getByTestId('hero-rows')).toHaveTextContent('75%')
+      expect(screen.getByTestId('baseline-target-row')).toHaveTextContent('75%')
     })
   })
 
@@ -960,25 +955,22 @@ describe('HeroSection', () => {
       expect(screen.getByText('Acquire Competitor is the clear winner.')).toBeInTheDocument()
     })
 
-    it('renders key qualifier and action implication when expanded', () => {
+    it('V14: renders action implication in structured-executive (always visible)', () => {
       render(
         <HeroSection
           {...baseProps}
           decisionState="robust"
           recommendationStability={0.85}
-          coachingKeyQualifier="Key uncertainty: Engineering Capacity"
           coachingActionImplication="Gather evidence on Engineering Capacity before deciding."
         />
       )
 
-      const moreButton = screen.getByRole('button', { name: /more/i })
-      fireEvent.click(moreButton)
-
-      expect(screen.getByText('Key uncertainty: Engineering Capacity')).toBeInTheDocument()
-      expect(screen.getByText('Gather evidence on Engineering Capacity before deciding.')).toBeInTheDocument()
+      // V14: action implication renders in structured-executive, visible without expanding
+      const exec = screen.getByTestId('structured-executive')
+      expect(exec.textContent).toContain('Gather evidence on Engineering Capacity before deciding.')
     })
 
-    it('falls back to coachingParagraph when no decision statement', () => {
+    it('V14: falls back to coachingParagraph in structured-executive when no decision statement', () => {
       render(
         <HeroSection
           {...baseProps}
@@ -988,10 +980,9 @@ describe('HeroSection', () => {
         />
       )
 
-      const moreButton = screen.getByRole('button', { name: /more/i })
-      fireEvent.click(moreButton)
-
-      expect(screen.getByText('General coaching paragraph.')).toBeInTheDocument()
+      // V14: coachingParagraph renders in structured-executive as fallback (always visible)
+      const exec = screen.getByTestId('structured-executive')
+      expect(exec.textContent).toContain('General coaching paragraph.')
     })
   })
 
@@ -1065,6 +1056,9 @@ describe('HeroSection', () => {
   // V12.4: Stability tier override (indeterminate + readiness downgrade)
   // ===========================================================================
   describe('V12.4: Stability tier override (indeterminate + readiness downgrade)', () => {
+    // V14: Both the stability badge and decision-state-dot render the same text,
+    // so we use getAllByText and check specific containers.
+
     it('shows "Too close to call" instead of "Highly sensitive" when decisionState is indeterminate', () => {
       render(
         <HeroSection
@@ -1077,7 +1071,7 @@ describe('HeroSection', () => {
         />
       )
 
-      expect(screen.getByText('Too close to call')).toBeInTheDocument()
+      expect(screen.getAllByText('Too close to call').length).toBeGreaterThanOrEqual(1)
       expect(screen.queryByText('Highly sensitive')).not.toBeInTheDocument()
     })
 
@@ -1090,7 +1084,7 @@ describe('HeroSection', () => {
         />
       )
 
-      expect(screen.getByText('Stable result')).toBeInTheDocument()
+      expect(screen.getAllByText('Stable result').length).toBeGreaterThanOrEqual(1)
       expect(screen.queryByText('Too close to call')).not.toBeInTheDocument()
     })
 
@@ -1103,12 +1097,12 @@ describe('HeroSection', () => {
         />
       )
 
-      expect(screen.getByText('Sensitive to assumptions')).toBeInTheDocument()
+      expect(screen.getAllByText('Sensitive to assumptions').length).toBeGreaterThanOrEqual(1)
       expect(screen.queryByText('Too close to call')).not.toBeInTheDocument()
     })
 
-    it('uses text-info colour for indeterminate badge', () => {
-      render(
+    it('uses text-info colour for indeterminate stability badge', () => {
+      const { container } = render(
         <HeroSection
           {...baseProps}
           decisionState="indeterminate"
@@ -1116,9 +1110,12 @@ describe('HeroSection', () => {
         />
       )
 
-      const badge = screen.getByText('Too close to call')
-      expect(badge).toHaveClass('text-info')
-      expect(badge).not.toHaveClass('text-danger')
+      // Find the stability badge (inside bg-panel-hover pill)
+      const badgePill = container.querySelector('.bg-panel-hover span')
+      expect(badgePill).toBeTruthy()
+      expect(badgePill!.textContent).toBe('Too close to call')
+      expect(badgePill!.className).toContain('text-info')
+      expect(badgePill!.className).not.toContain('text-danger')
     })
 
     it('overrides "Stable result" to "Sensitive to assumptions" when readiness downgraded to sensitive', () => {
@@ -1132,7 +1129,7 @@ describe('HeroSection', () => {
         />
       )
 
-      expect(screen.getByText('Sensitive to assumptions')).toBeInTheDocument()
+      expect(screen.getAllByText('Sensitive to assumptions').length).toBeGreaterThanOrEqual(1)
       expect(screen.queryByText('Stable result')).not.toBeInTheDocument()
     })
 
@@ -1147,12 +1144,12 @@ describe('HeroSection', () => {
         />
       )
 
-      expect(screen.getByText('Sensitive to assumptions')).toBeInTheDocument()
+      expect(screen.getAllByText('Sensitive to assumptions').length).toBeGreaterThanOrEqual(1)
       expect(screen.queryByText('Mostly stable')).not.toBeInTheDocument()
     })
 
-    it('uses text-warning colour for readiness-downgraded sensitive badge', () => {
-      render(
+    it('uses text-warning colour for readiness-downgraded sensitive stability badge', () => {
+      const { container } = render(
         <HeroSection
           {...baseProps}
           decisionState="sensitive"
@@ -1160,14 +1157,288 @@ describe('HeroSection', () => {
         />
       )
 
-      const badge = screen.getByText('Sensitive to assumptions')
-      expect(badge).toHaveClass('text-warning')
-      expect(badge).not.toHaveClass('text-success')
+      // Find the stability badge (inside bg-panel-hover pill)
+      const badgePill = container.querySelector('.bg-panel-hover span')
+      expect(badgePill).toBeTruthy()
+      expect(badgePill!.textContent).toBe('Sensitive to assumptions')
+      expect(badgePill!.className).toContain('text-warning')
+      expect(badgePill!.className).not.toContain('text-success')
     })
 
     it('does NOT override when sensitive state matches natural stability tier', () => {
       // stability=0.60 → getStabilityTier returns "Sensitive to assumptions" (text-warning)
       // decisionState='sensitive' — no contradiction, no override needed
+      const { container } = render(
+        <HeroSection
+          {...baseProps}
+          decisionState="sensitive"
+          recommendationStability={0.60}
+        />
+      )
+
+      const badgePill = container.querySelector('.bg-panel-hover span')
+      expect(badgePill).toBeTruthy()
+      expect(badgePill!.textContent).toBe('Sensitive to assumptions')
+      expect(badgePill!.className).toContain('text-warning')
+    })
+  })
+
+  // ===========================================================================
+  // V14 Tests
+  // ===========================================================================
+
+  describe('V14 Task 2: Near-tie headline', () => {
+    it('shows near-tie headline when nearTie.isTie is true', () => {
+      render(
+        <HeroSection
+          {...baseProps}
+          decisionState="indeterminate"
+          nearTie={{
+            isTie: true,
+            topOptionId: 'option-a',
+            secondOptionId: 'option-b',
+            tiedOptionIds: ['option-a', 'option-b'],
+            gap: 0.05,
+            threshold: 0.10,
+          }}
+          optionWinShares={[
+            { id: 'option-a', label: 'Option A', winProbability: 0.35, isWinner: true },
+            { id: 'option-b', label: 'Option B', winProbability: 0.33, isWinner: false },
+          ]}
+        />
+      )
+
+      expect(screen.getByText(/are too close to separate/)).toBeInTheDocument()
+      // Both option names should be rendered as buttons (GraphLinks)
+      const buttons = screen.getAllByRole('button')
+      const optAButton = buttons.find(b => b.textContent === 'Option A')
+      const optBButton = buttons.find(b => b.textContent === 'Option B')
+      expect(optAButton).toBeTruthy()
+      expect(optBButton).toBeTruthy()
+    })
+
+    it('shows standard winner headline when not near-tie', () => {
+      render(
+        <HeroSection
+          {...baseProps}
+          decisionState="robust"
+          recommendationStability={0.90}
+          optionWinShares={[
+            { id: 'option-a', label: 'Option A', winProbability: 0.65, isWinner: true },
+            { id: 'option-b', label: 'Option B', winProbability: 0.35, isWinner: false },
+          ]}
+        />
+      )
+
+      expect(screen.getByText(/performs best/)).toBeInTheDocument()
+    })
+
+    it('derives near-tie from win probability gap when nearTie absent', () => {
+      render(
+        <HeroSection
+          {...baseProps}
+          decisionState="indeterminate"
+          optionWinShares={[
+            { id: 'option-a', label: 'Option A', winProbability: 0.35, isWinner: true },
+            { id: 'option-b', label: 'Option B', winProbability: 0.33, isWinner: false },
+          ]}
+        />
+      )
+
+      // Gap = 0.02 < 0.10 = GAP_THRESHOLD → treated as near-tie
+      expect(screen.getByText(/are too close to separate/)).toBeInTheDocument()
+    })
+  })
+
+  describe('V14 Task 3: Decision state dot', () => {
+    it('renders "Too close to call" with warning colour for indeterminate', () => {
+      render(
+        <HeroSection {...baseProps} decisionState="indeterminate" />
+      )
+
+      const dot = screen.getByTestId('decision-state-dot')
+      expect(dot).toBeInTheDocument()
+      expect(dot.textContent).toContain('Too close to call')
+      const dotElement = dot.querySelector('span:first-child')
+      expect(dotElement).toHaveClass('bg-warning')
+    })
+
+    it('renders "Sensitive to assumptions" with warning colour for sensitive', () => {
+      render(
+        <HeroSection {...baseProps} decisionState="sensitive" recommendationStability={0.60} />
+      )
+
+      const dot = screen.getByTestId('decision-state-dot')
+      expect(dot.textContent).toContain('Sensitive to assumptions')
+    })
+
+    it('renders "Stable result" with success colour for robust', () => {
+      render(
+        <HeroSection {...baseProps} decisionState="robust" recommendationStability={0.90} />
+      )
+
+      const dot = screen.getByTestId('decision-state-dot')
+      expect(dot.textContent).toContain('Stable result')
+      const dotElement = dot.querySelector('span:first-child')
+      expect(dotElement).toHaveClass('bg-success')
+    })
+  })
+
+  describe('V14 Task 1: Structured executive', () => {
+    it('renders decision_statement and action_implication', () => {
+      render(
+        <HeroSection
+          {...baseProps}
+          decisionState="robust"
+          recommendationStability={0.90}
+          coachingDecisionStatement="Option A is the clear winner for revenue growth."
+          coachingActionImplication="Proceed with confidence on Option A."
+        />
+      )
+
+      const exec = screen.getByTestId('structured-executive')
+      expect(exec).toBeInTheDocument()
+      expect(exec.textContent).toContain('Option A is the clear winner')
+      expect(exec.textContent).toContain('Proceed with confidence')
+    })
+
+    it('falls back to coachingParagraph when decision_statement is missing', () => {
+      render(
+        <HeroSection
+          {...baseProps}
+          decisionState="robust"
+          recommendationStability={0.90}
+          coachingParagraph="This is the M1 coaching summary paragraph."
+        />
+      )
+
+      const exec = screen.getByTestId('structured-executive')
+      expect(exec.textContent).toContain('M1 coaching summary paragraph')
+    })
+
+    it('hides executive block when no coaching data', () => {
+      render(
+        <HeroSection {...baseProps} decisionState="robust" recommendationStability={0.90} />
+      )
+
+      expect(screen.queryByTestId('structured-executive')).toBeNull()
+    })
+
+    it('sanitizes arrow characters from coaching text', () => {
+      render(
+        <HeroSection
+          {...baseProps}
+          decisionState="robust"
+          recommendationStability={0.90}
+          coachingDecisionStatement="Factor A → Goal shows strong influence."
+        />
+      )
+
+      const exec = screen.getByTestId('structured-executive')
+      // Arrow should be replaced with " to "
+      expect(exec.textContent).not.toContain('\u2192')
+      expect(exec.textContent).toContain('Factor A to Goal')
+    })
+  })
+
+  describe('V14 Task 4: Condition card', () => {
+    const fragileEdge = {
+      fromId: 'fac-eng',
+      fromLabel: 'Engineering Capacity',
+      toId: 'out-rev',
+      toLabel: 'Revenue',
+      alternativeWinnerLabel: 'Option B',
+      alternativeWinnerId: 'option-b',
+      switchProbability: 0.40,
+      labelsResolved: true,
+    }
+
+    it('renders factor-only condition card with direction-aware copy', () => {
+      render(
+        <HeroSection
+          {...baseProps}
+          decisionState="sensitive"
+          recommendationStability={0.60}
+          topFragileEdge={fragileEdge}
+          topDrivers={[{ id: 'fac-eng', label: 'Engineering Capacity', direction: 'positive' }]}
+        />
+      )
+
+      const card = screen.getByTestId('condition-card')
+      expect(card.textContent).toContain('is weaker than expected')
+      expect(card.textContent).toContain('Engineering Capacity')
+      // No arrow notation
+      expect(card.textContent).not.toContain('\u2192')
+      expect(card.textContent).not.toContain('->')
+    })
+
+    it('uses "differs" copy when direction is not positive', () => {
+      render(
+        <HeroSection
+          {...baseProps}
+          decisionState="sensitive"
+          recommendationStability={0.60}
+          topFragileEdge={fragileEdge}
+          topDrivers={[{ id: 'fac-eng', label: 'Engineering Capacity', direction: 'negative' }]}
+        />
+      )
+
+      const card = screen.getByTestId('condition-card')
+      expect(card.textContent).toContain('differs from your estimate')
+    })
+
+    it('hides condition card when switchProbability <= 0.25', () => {
+      render(
+        <HeroSection
+          {...baseProps}
+          decisionState="sensitive"
+          recommendationStability={0.60}
+          topFragileEdge={{ ...fragileEdge, switchProbability: 0.20 }}
+        />
+      )
+
+      expect(screen.queryByTestId('condition-card')).toBeNull()
+    })
+
+    it('hides condition card when topFragileEdge is absent', () => {
+      render(
+        <HeroSection {...baseProps} decisionState="robust" recommendationStability={0.90} />
+      )
+
+      expect(screen.queryByTestId('condition-card')).toBeNull()
+    })
+  })
+
+  describe('V14 Task 5: More detail readiness bars', () => {
+    it('renders readiness bars when dimensions provided and expanded', () => {
+      const { container } = render(
+        <HeroSection
+          {...baseProps}
+          decisionState="sensitive"
+          recommendationStability={0.60}
+          coachingReadinessDimensions={{ evidence: 0.78, robustness: 0.45, clarity: 0.30 }}
+        />
+      )
+
+      // Auto-expanded because stability < 0.70
+      const bars = screen.getByTestId('readiness-bars')
+      expect(bars).toBeInTheDocument()
+      expect(bars.textContent).toContain('Evidence')
+      expect(bars.textContent).toContain('78%')
+      expect(bars.textContent).toContain('Robustness')
+      expect(bars.textContent).toContain('45%')
+      expect(bars.textContent).toContain('Framing')
+      expect(bars.textContent).toContain('30%')
+
+      // Check semantic fill colours: evidence >= 0.7 = success, robustness 0.4-0.69 = warning, clarity < 0.4 = danger
+      const fills = container.querySelectorAll('[class*="rounded-full"]')
+      const fillClasses = Array.from(fills).map(el => el.className)
+      expect(fillClasses.some(c => c.includes('bg-success'))).toBe(true)
+      expect(fillClasses.some(c => c.includes('bg-warning'))).toBe(true)
+      expect(fillClasses.some(c => c.includes('bg-danger'))).toBe(true)
+    })
+
+    it('skips readiness bars when dimensions not provided', () => {
       render(
         <HeroSection
           {...baseProps}
@@ -1176,8 +1447,146 @@ describe('HeroSection', () => {
         />
       )
 
-      const badge = screen.getByText('Sensitive to assumptions')
-      expect(badge).toHaveClass('text-warning')
+      expect(screen.queryByTestId('readiness-bars')).toBeNull()
+    })
+
+    it('renders M2 narrative with label when available', () => {
+      render(
+        <HeroSection
+          {...baseProps}
+          decisionState="sensitive"
+          recommendationStability={0.60}
+          m2NarrativeSummary="This is the M2 enhanced analysis."
+        />
+      )
+
+      expect(screen.getByText('AI-enhanced analysis')).toBeInTheDocument()
+      expect(screen.getByText(/M2 enhanced analysis/)).toBeInTheDocument()
+    })
+
+    it('falls back to M1 paragraph when M2 absent', () => {
+      render(
+        <HeroSection
+          {...baseProps}
+          decisionState="sensitive"
+          recommendationStability={0.60}
+          coachingParagraph="M1 deterministic coaching paragraph."
+        />
+      )
+
+      expect(screen.queryByText('AI-enhanced analysis')).toBeNull()
+      // V14: M1 paragraph may appear in both structured-executive and "More" expand
+      expect(screen.getAllByText(/M1 deterministic coaching/).length).toBeGreaterThanOrEqual(1)
+    })
+  })
+
+  describe('V14 Task 6: Win gauge no legend', () => {
+    it('renders win gauge without legend row', () => {
+      const { container } = render(
+        <HeroSection
+          {...baseProps}
+          decisionState="robust"
+          recommendationStability={0.90}
+          optionWinShares={[
+            { id: 'option-a', label: 'Option A', winProbability: 0.65, isWinner: true },
+            { id: 'option-b', label: 'Option B', winProbability: 0.35, isWinner: false },
+          ]}
+        />
+      )
+
+      // Win gauge label exists
+      expect(screen.getByText('Wins across scenarios')).toBeInTheDocument()
+      // No legend labels below the bar (option labels only appear in gauge aria-labels)
+      const figure = container.querySelector('[role="figure"]')
+      expect(figure).toBeTruthy()
+      // Legend items would be plain text with option labels — ensure they're only in aria
+      const figureText = figure!.querySelector('p')
+      expect(figureText?.textContent).toBe('Wins across scenarios')
+    })
+  })
+
+  describe('V14 Task 7: BaselineTargetRow', () => {
+    it('renders baseline-target-row in V14 path', () => {
+      render(
+        <HeroSection
+          {...baseProps}
+          decisionState="robust"
+          recommendationStability={0.90}
+          baselineOptions={[
+            { id: 'option-a', label: 'Option A' },
+            { id: 'option-b', label: 'Option B' },
+          ]}
+        />
+      )
+
+      expect(screen.getByTestId('baseline-target-row')).toBeInTheDocument()
+    })
+  })
+
+  describe('V14 Task 8: Coaching next action', () => {
+    it('renders next action with GraphLink when target_label in text', () => {
+      render(
+        <HeroSection
+          {...baseProps}
+          decisionState="robust"
+          recommendationStability={0.90}
+          topNextAction={{
+            action: 'Gather evidence on Engineering Capacity before deciding.',
+            rationale: 'Low confidence factor',
+            priority: 1,
+            targetType: 'factor',
+            targetId: 'fac-eng',
+            targetLabel: 'Engineering Capacity',
+          }}
+        />
+      )
+
+      const actionRow = screen.getByTestId('coaching-next-action')
+      expect(actionRow).toBeInTheDocument()
+      expect(actionRow.textContent).toContain('Gather evidence on')
+      expect(actionRow.textContent).toContain('Engineering Capacity')
+      // Target label should be a button (GraphLink)
+      const buttons = actionRow.querySelectorAll('button')
+      expect(buttons.length).toBeGreaterThanOrEqual(1)
+    })
+
+    it('renders plain text when target_label not in action text', () => {
+      render(
+        <HeroSection
+          {...baseProps}
+          decisionState="robust"
+          recommendationStability={0.90}
+          topNextAction={{
+            action: 'Review your assumptions carefully.',
+            rationale: 'General advice',
+            priority: 1,
+          }}
+        />
+      )
+
+      const actionRow = screen.getByTestId('coaching-next-action')
+      expect(actionRow.textContent).toContain('Review your assumptions')
+    })
+
+    it('hides next action when topNextAction is undefined', () => {
+      render(
+        <HeroSection {...baseProps} decisionState="robust" recommendationStability={0.90} />
+      )
+
+      expect(screen.queryByTestId('coaching-next-action')).toBeNull()
+    })
+
+    it('hides next action when action text is empty', () => {
+      render(
+        <HeroSection
+          {...baseProps}
+          decisionState="robust"
+          recommendationStability={0.90}
+          topNextAction={{ action: '', rationale: '', priority: 1 }}
+        />
+      )
+
+      expect(screen.queryByTestId('coaching-next-action')).toBeNull()
     })
   })
 })

@@ -384,6 +384,11 @@ interface CanvasState {
   resultsCancelled: () => void
   resultsReset: () => void
   resultsLoadHistorical: (run: StoredRun) => void
+  /** Hydrate results from Supabase row.analysis (V2RunResponse already mapped to store shape) */
+  resultsHydrateFromSupabase: (hydrated: {
+    results: Partial<ResultsState>
+    runMeta: Partial<RunMetaState>
+  }) => void
   setRunMeta: (meta: RunMetaState) => void
   // Scenario actions
   loadScenario: (id: string) => boolean
@@ -1988,6 +1993,43 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       })(),
       isDirty: false,
       hasCompletedFirstRun: true
+    }))
+  },
+
+  resultsHydrateFromSupabase: (hydrated) => {
+    const { results: hydratedResults, runMeta: hydratedRunMeta } = hydrated
+
+    // Invariant: status must be 'complete' for hydration to proceed
+    if (hydratedResults.status !== 'complete' || !hydratedResults.report) {
+      if (import.meta.env.DEV) {
+        console.warn('[store] resultsHydrateFromSupabase: invariant violation — status is not complete or report missing, skipping')
+      }
+      return
+    }
+
+    // Brief 37: Pass existing health to avoid creating new objects when unchanged
+    const existingHealth = get().graphHealth
+    const healthFromQuality = graphHealthFromQuality(
+      hydratedResults.report?.graph_quality,
+      existingHealth,
+    )
+
+    set(s => ({
+      results: {
+        ...s.results,
+        ...hydratedResults,
+      },
+      runMeta: {
+        ...s.runMeta,
+        ...hydratedRunMeta,
+      },
+      graphHealth: (() => {
+        if (!healthFromQuality) return s.graphHealth ?? null
+        if (!s.graphHealth) return healthFromQuality
+        if (s.graphHealth.issues.length > 0) return s.graphHealth
+        return healthFromQuality
+      })(),
+      hasCompletedFirstRun: true,
     }))
   },
 

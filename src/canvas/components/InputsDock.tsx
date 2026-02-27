@@ -9,7 +9,8 @@ import { buildHealthStrings } from '../utils/graphHealthStrings'
 import { typography } from '../../styles/typography'
 import { Collapsible } from '../../components/Collapsible'
 import { EmptyState } from './EmptyState'
-import { useAsk } from '../../hooks/useAsk'
+import { useAsk, composeBriefText } from '../../hooks/useAsk'
+import { BRIEF_MIN_CHARS } from '../../constants/validation'
 
 type InputsDockTab = 'documents' | 'scenarios' | 'limits'
 
@@ -25,34 +26,6 @@ interface InputsDockProps {
   renderDocumentsTab?: () => JSX.Element
 }
 
-// P0 Fix: Minimum brief length for CEE validation
-const MIN_BRIEF_LENGTH = 30
-
-/**
- * Calculate brief length from framing fields
- * Matches logic in useAsk.ts buildBriefFromFraming()
- */
-function calculateBriefLength(framing: {
-  title?: string
-  goal?: string
-  timeline?: string
-  constraints?: string
-  risks?: string
-  uncertainties?: string
-} | null): number {
-  if (!framing) return 0
-
-  const parts: string[] = []
-  if (framing.title) parts.push(`Decision: ${framing.title}`)
-  if (framing.goal) parts.push(`Goal: ${framing.goal}`)
-  if (framing.timeline) parts.push(`Timeline: ${framing.timeline}`)
-  if (framing.constraints) parts.push(`Constraints: ${framing.constraints}`)
-  if (framing.risks) parts.push(`Risks: ${framing.risks}`)
-  if (framing.uncertainties) parts.push(`Uncertainties: ${framing.uncertainties}`)
-
-  return parts.join('\n\n').length
-}
-
 function FramingSection() {
   // React #185 FIX: Use shallow comparison for object selector
   const framing = useCanvasStore(s => s.currentScenarioFraming)
@@ -64,8 +37,8 @@ function FramingSection() {
   const hasCoreFraming = Boolean(framing?.title || framing?.goal || framing?.timeline)
 
   // P0 Fix: Calculate brief length for validation hint
-  const briefLength = useMemo(() => calculateBriefLength(framing), [framing])
-  const showBriefHint = briefLength > 0 && briefLength < MIN_BRIEF_LENGTH
+  const briefLength = useMemo(() => composeBriefText(framing).length, [framing])
+  const showBriefHint = briefLength > 0 && briefLength < BRIEF_MIN_CHARS
 
   const handleChange = (field: 'title' | 'goal' | 'timeline' | 'constraints' | 'risks' | 'uncertainties') =>
     (event: any) => {
@@ -195,8 +168,8 @@ function FramingSection() {
           data-testid="brief-length-hint"
         >
           <p className={`${typography.caption} text-sun-800`}>
-            <span className="font-medium">Tip:</span> Brief should be at least {MIN_BRIEF_LENGTH} characters for best AI review results.
-            <span className="text-sun-600 ml-1">({MIN_BRIEF_LENGTH - briefLength} more needed)</span>
+            <span className="font-medium">Tip:</span> Brief should be at least {BRIEF_MIN_CHARS} characters for best AI review results.
+            <span className="text-sun-600 ml-1">({BRIEF_MIN_CHARS - briefLength} more needed)</span>
           </p>
         </div>
       )}

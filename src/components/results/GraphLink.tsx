@@ -8,13 +8,23 @@
  */
 
 import { useCallback, type ReactNode, type RefObject } from 'react'
-import { focusByTarget, type FocusTargetType } from '../../canvas/utils/focusHelpers'
+import { focusByTarget, focusEdgeByEndpoints, type FocusTargetType } from '../../canvas/utils/focusHelpers'
+
+/** V14: Edge reference by endpoints — looks up real ReactFlow edge ID at click time */
+export interface EdgeRef {
+  fromId: string
+  toId: string
+}
 
 export interface GraphLinkProps {
   /** Node ID to focus (convenience — sets targetType='node') */
   nodeId?: string
   /** Edge ID to focus (convenience — sets targetType='edge') */
   edgeId?: string
+  /** V14: Edge reference by endpoints — looks up real edge ID from canvas store */
+  edgeRef?: EdgeRef
+  /** V14: Fallback node ID when edge focus fails (used with edgeRef) */
+  fallbackNodeId?: string
   /** Display text when children not provided */
   label?: string
   /** Rich content (takes precedence over label) */
@@ -30,21 +40,27 @@ export interface GraphLinkProps {
 export function GraphLink({
   nodeId,
   edgeId,
+  edgeRef,
+  fallbackNodeId,
   label,
   children,
   onFocus,
   className = '',
   flashTargetRef,
 }: GraphLinkProps) {
-  const targetId = nodeId ?? edgeId
-  const targetType: FocusTargetType = edgeId ? 'edge' : 'node'
+  const targetId = nodeId ?? edgeId ?? edgeRef?.fromId
+  const targetType: FocusTargetType = (edgeId || edgeRef) ? 'edge' : 'node'
 
   const handleClick = useCallback(() => {
-    if (!targetId) return
+    if (!targetId && !edgeRef) return
+
     if (onFocus) {
-      onFocus(targetId)
+      onFocus(targetId!)
+    } else if (edgeRef) {
+      // V14: Look up real edge by source+target endpoints, fallback to node
+      focusEdgeByEndpoints(edgeRef.fromId, edgeRef.toId, fallbackNodeId ?? edgeRef.fromId)
     } else {
-      focusByTarget(targetId, targetType)
+      focusByTarget(targetId!, targetType)
     }
     // Cross-highlight: flash the target element if ref provided
     if (flashTargetRef?.current) {
@@ -54,7 +70,7 @@ export function GraphLink({
       void el.offsetWidth
       el.classList.add('cflash')
     }
-  }, [targetId, targetType, onFocus, flashTargetRef])
+  }, [targetId, targetType, onFocus, edgeRef, fallbackNodeId, flashTargetRef])
 
   const displayContent = children ?? label
 
@@ -69,7 +85,7 @@ export function GraphLink({
     <button
       type="button"
       onClick={handleClick}
-      className={`text-info hover:text-info-hover hover:underline cursor-pointer focus:outline-none focus:ring-2 focus:ring-info focus:ring-offset-1 rounded ${className}`}
+      className={`text-info hover:text-info-hover hover:underline cursor-pointer focus:outline-none focus:ring-2 focus:ring-info focus:ring-offset-2 rounded ${className}`}
       aria-label={`Focus on ${label ?? 'element'} in model`}
       title={label}
     >

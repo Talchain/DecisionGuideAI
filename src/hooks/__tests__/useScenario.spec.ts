@@ -70,12 +70,16 @@ vi.mock('../../services/scenarioService', () => ({
 // Canvas store mock — minimal Zustand-compatible mock
 const mockHydrateGraphSlice = vi.fn()
 const mockMarkClean = vi.fn()
+const mockResultsHydrateFromSupabase = vi.fn()
+const mockResultsError = vi.fn()
 
 let storeState: Record<string, unknown> = {}
 
 const mockGetState = vi.fn(() => ({
   hydrateGraphSlice: mockHydrateGraphSlice,
   markClean: mockMarkClean,
+  resultsHydrateFromSupabase: mockResultsHydrateFromSupabase,
+  resultsError: mockResultsError,
   currentScenarioId: storeState.currentScenarioId ?? null,
   ...storeState,
 }))
@@ -679,6 +683,186 @@ describe('useScenario', () => {
       })
 
       expect(mockSaveTitle).not.toHaveBeenCalled()
+    })
+  })
+
+  // -----------------------------------------------------------------------
+  // P0-1: Analysis hydration on load
+  // -----------------------------------------------------------------------
+
+  describe('analysis hydration', () => {
+    it('hydrates results when analysis_status is ready', async () => {
+      setAuth(REAL_USER_ID, true)
+
+      const mockRow = {
+        id: 'scenario-3',
+        graph: { nodes: [], edges: [] },
+        framing: null,
+        analysis_status: 'ready',
+        analysis: {
+          analysis_status: 'computed',
+          option_comparison_status: 'computed',
+          robustness_status: 'unavailable',
+          drivers_status: 'unavailable',
+          option_comparison: [
+            { option_id: 'opt-1', option_label: 'Option A', confidence_interval: [0.3, 0.7] },
+          ],
+          critiques: [],
+          response_hash: 'resp-hash-from-analysis',
+        },
+        analysis_provenance: {
+          graph_hash: 'g-hash',
+          seed_used: 42,
+          response_hash: 'resp-hash-prov',
+          analysed_at: '2026-02-20T10:00:00Z',
+        },
+        analysis_error: null,
+        updated_at: '2026-02-20T10:00:00Z',
+      }
+      mockLoadScenario.mockResolvedValue(mockRow)
+
+      const { result } = renderUseScenario()
+
+      await act(async () => {
+        await result.current.loadScenario('scenario-3')
+      })
+
+      // resultsHydrateFromSupabase should have been called
+      expect(mockResultsHydrateFromSupabase).toHaveBeenCalledTimes(1)
+      const hydrated = mockResultsHydrateFromSupabase.mock.calls[0][0]
+      expect(hydrated.results.status).toBe('complete')
+      expect(hydrated.results.progress).toBe(100)
+      expect(hydrated.results.seed).toBe(42)
+      expect(hydrated.results.hash).toBe('resp-hash-prov')
+
+      // Staleness metadata set via setState
+      expect(mockSetState).toHaveBeenCalledWith(
+        expect.objectContaining({
+          currentScenarioLastResultHash: 'resp-hash-prov',
+          currentScenarioLastRunAt: '2026-02-20T10:00:00Z',
+          currentScenarioLastRunSeed: '42',
+        }),
+      )
+    })
+
+    it('hydrates error state when analysis_status is failed', async () => {
+      setAuth(REAL_USER_ID, true)
+
+      const mockRow = {
+        id: 'scenario-4',
+        graph: { nodes: [], edges: [] },
+        framing: null,
+        analysis_status: 'failed',
+        analysis: null,
+        analysis_provenance: null,
+        analysis_error: { code: 'TIMEOUT', message: 'Analysis timed out' },
+        updated_at: '2026-02-20T10:00:00Z',
+      }
+      mockLoadScenario.mockResolvedValue(mockRow)
+
+      const { result } = renderUseScenario()
+
+      await act(async () => {
+        await result.current.loadScenario('scenario-4')
+      })
+
+      // Should set error state with stale fields cleared
+      expect(mockSetState).toHaveBeenCalledWith(
+        expect.objectContaining({
+          results: expect.objectContaining({
+            status: 'error',
+            error: expect.objectContaining({
+              code: 'TIMEOUT',
+              message: 'Analysis timed out',
+            }),
+          }),
+          currentScenarioLastResultHash: null,
+          currentScenarioLastRunSeed: null,
+        }),
+      )
+      // resultsHydrateFromSupabase should NOT have been called
+      expect(mockResultsHydrateFromSupabase).not.toHaveBeenCalled()
+    })
+
+    it('does not crash when analysis_status is ready but analysis is null', async () => {
+      setAuth(REAL_USER_ID, true)
+
+      const mockRow = {
+        id: 'scenario-5',
+        graph: { nodes: [], edges: [] },
+        framing: null,
+        analysis_status: 'ready',
+        analysis: null,
+        analysis_provenance: null,
+        analysis_error: null,
+        updated_at: '2026-02-20T10:00:00Z',
+      }
+      mockLoadScenario.mockResolvedValue(mockRow)
+
+      const { result } = renderUseScenario()
+
+      await act(async () => {
+        await result.current.loadScenario('scenario-5')
+      })
+
+      expect(mockResultsHydrateFromSupabase).not.toHaveBeenCalled()
+    })
+
+    it('does not hydrate analysis when analysis_status is none', async () => {
+      setAuth(REAL_USER_ID, true)
+
+      const mockRow = {
+        id: 'scenario-7',
+        graph: { nodes: [], edges: [] },
+        framing: null,
+        analysis_status: 'none',
+        analysis: null,
+        analysis_provenance: null,
+        analysis_error: null,
+        updated_at: '2026-02-20T10:00:00Z',
+      }
+      mockLoadScenario.mockResolvedValue(mockRow)
+
+      const { result } = renderUseScenario()
+
+      await act(async () => {
+        await result.current.loadScenario('scenario-7')
+      })
+
+      expect(mockResultsHydrateFromSupabase).not.toHaveBeenCalled()
+    })
+
+    it('hydrates error with defaults when analysis_error has no code/message', async () => {
+      setAuth(REAL_USER_ID, true)
+
+      const mockRow = {
+        id: 'scenario-8',
+        graph: { nodes: [], edges: [] },
+        framing: null,
+        analysis_status: 'failed',
+        analysis: null,
+        analysis_provenance: null,
+        analysis_error: {},
+        updated_at: '2026-02-20T10:00:00Z',
+      }
+      mockLoadScenario.mockResolvedValue(mockRow)
+
+      const { result } = renderUseScenario()
+
+      await act(async () => {
+        await result.current.loadScenario('scenario-8')
+      })
+
+      expect(mockSetState).toHaveBeenCalledWith(
+        expect.objectContaining({
+          results: expect.objectContaining({
+            error: expect.objectContaining({
+              code: 'PERSISTED_FAILURE',
+              message: 'Previous analysis failed',
+            }),
+          }),
+        }),
+      )
     })
   })
 

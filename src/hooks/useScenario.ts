@@ -20,7 +20,8 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { useCanvasStore } from '../canvas/store'
 import * as scenarioService from '../services/scenarioService'
-import type { ScenarioStage, AnalysisProvenance } from '../types/scenario'
+import type { ScenarioStage, AnalysisProvenance, AnalysisStatus } from '../types/scenario'
+import { hydrateAnalysisFromV2Response } from './hydrateAnalysis'
 import type { Edge } from '@xyflow/react'
 import { DEFAULT_EDGE_DATA, type EdgeData } from '../canvas/domain/edges'
 
@@ -166,8 +167,9 @@ export function useScenario(): UseScenarioReturn {
               useCanvasStore.getState().markClean()
               useCanvasStore.setState({ lastSavedAt: now })
             }
-          } catch {
-            // Retry failed — keep error indicator visible
+          } catch (retryErr) {
+            // Retry failed — keep error indicator visible; log for observability
+            console.error('[useScenario] save retry failed:', retryErr)
           }
         }, RETRY_DELAY_MS)
       }
@@ -224,7 +226,9 @@ export function useScenario(): UseScenarioReturn {
         const sid = scenarioIdRef.current
         if (sid) {
           const { nodes: n, edges: e } = useCanvasStore.getState()
-          scenarioService.saveGraph(sid, { nodes: n, edges: e }).catch(() => {})
+          scenarioService.saveGraph(sid, { nodes: n, edges: e }).catch((err) => {
+            console.error('[useScenario] Unmount graph flush failed:', err)
+          })
         }
       }
       if (framingSaveTimerRef.current) {
@@ -232,7 +236,9 @@ export function useScenario(): UseScenarioReturn {
         const sid = scenarioIdRef.current
         const f = useCanvasStore.getState().currentScenarioFraming
         if (sid && f) {
-          scenarioService.saveFraming(sid, f).catch(() => {})
+          scenarioService.saveFraming(sid, f).catch((err) => {
+            console.error('[useScenario] Unmount framing flush failed:', err)
+          })
         }
       }
       if (retryTimerRef.current) clearTimeout(retryTimerRef.current)
@@ -270,8 +276,9 @@ export function useScenario(): UseScenarioReturn {
       : goal
 
     titleAutoSetForScenarioRef.current = currentScenarioId
-    scenarioService.saveTitle(currentScenarioId, autoTitle).catch(() => {
+    scenarioService.saveTitle(currentScenarioId, autoTitle).catch((err) => {
       // Non-critical — title remains untitled
+      console.error('[useScenario] Auto-title save failed:', err)
     })
   }, [framing, currentScenarioId, isPersistenceActive])
 
@@ -376,13 +383,70 @@ export function useScenario(): UseScenarioReturn {
         // Fire-and-forget status reset on the server
         scenarioService
           .resetAnalysisStatus(row.id)
-          .catch(() => {
+          .catch((err) => {
             // Non-critical — the UI already treats it as 'none'
+            console.error('[useScenario] Reset interrupted analysis status failed:', err)
           })
       }
 
-      // Phase 2 (C.1b): hydrate results store from row.analysis when
-      // analysis_status === 'ready', and set error state when 'failed'
+      // Hydrate analysis results from Supabase when status is 'ready'
+      if (row.analysis_status === 'ready' && row.analysis != null) {
+        const hydrated = hydrateAnalysisFromV2Response(
+          row.analysis,
+          (row.analysis_provenance as AnalysisProvenance) ?? null,
+        )
+
+        if (hydrated) {
+          useCanvasStore.getState().resultsHydrateFromSupabase(hydrated)
+
+          // Set staleness-detection metadata on the store
+          const prov = row.analysis_provenance as AnalysisProvenance | null
+          useCanvasStore.setState({
+            currentScenarioLastResultHash: hydrated.results.hash ?? null,
+            currentScenarioLastRunAt: prov?.analysed_at ?? null,
+            currentScenarioLastRunSeed:
+              prov?.seed_used != null ? String(prov.seed_used) : null,
+          })
+        } else if (import.meta.env.DEV) {
+          console.warn(
+            '[useScenario] Failed to hydrate analysis — invalid V2RunResponse shape',
+          )
+        }
+      }
+
+      // Hydrate error state when analysis previously failed
+      if (row.analysis_status === 'failed' && row.analysis_error != null) {
+        const errorPayload = row.analysis_error as {
+          code?: string
+          message?: string
+        }
+        // Clear stale results state before setting error
+        useCanvasStore.setState({
+          results: {
+            status: 'error',
+            progress: 0,
+            error: {
+              code: errorPayload?.code ?? 'PERSISTED_FAILURE',
+              message: errorPayload?.message ?? 'Previous analysis failed',
+              canRetry: true,
+            },
+          },
+          runMeta: {
+            diagnostics: undefined,
+            correlationIdHeader: undefined,
+            degraded: undefined,
+            ceeReview: null,
+            ceeTrace: null,
+            ceeError: null,
+            ceeReviewV1: null,
+            ceeTraceV1: null,
+            ceeErrorV1: null,
+          },
+          currentScenarioLastResultHash: null,
+          currentScenarioLastRunAt: null,
+          currentScenarioLastRunSeed: null,
+        })
+      }
     },
     [isPersistenceActive],
   )

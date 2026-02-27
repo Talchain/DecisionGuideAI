@@ -37,6 +37,15 @@ export const SENSITIVE_THRESHOLD = 0.55
 
 // ─── Stability Fallback ─────────────────────────────────────────────────────
 
+/**
+ * UI-SEM-007: Stability fabrication from categorical robustness level.
+ * When PLoT omits numeric recommendation_stability, reverse-engineers an
+ * approximate numeric value from the categorical level (high→0.85, etc.).
+ * The fabricated value feeds deriveDecisionState (UI-SEM-006) — it is never
+ * displayed numerically to users. The categorical label remains primary.
+ * Classification: F.6 concern — PLoT should always provide numeric stability.
+ * TODO: F.6 — remove when PLoT guarantees numeric recommendation_stability.
+ */
 const LEVEL_STABILITY_MAP: Record<string, number> = {
   high: 0.85,
   moderate: 0.65,
@@ -66,6 +75,12 @@ export function resolveStability(
 // ─── Decision State ─────────────────────────────────────────────────────────
 
 /**
+ * UI-SEM-006: DecisionState thresholds (GAP 0.10, ROBUST 0.80, SENSITIVE 0.55).
+ * Derives tri-state decision classification (robust/sensitive/indeterminate)
+ * from win-probability gap and stability score. These thresholds determine
+ * user-facing coaching language. Acceptable at VM layer — display derivation.
+ * Classification: VM-layer display derivation — legitimate.
+ *
  * Derive the tri-state decision classification.
  * Gap rule evaluated FIRST — prevents "robust" on indistinguishable winners.
  */

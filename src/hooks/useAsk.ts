@@ -18,6 +18,7 @@
  * mutate('What should I focus on?')
  */
 
+import { useCallback, useEffect, useRef } from 'react'
 import { useMutation, type UseMutationResult } from '@tanstack/react-query'
 import { useCanvasStore } from '../canvas/store'
 import type { Node, Edge } from '@xyflow/react'
@@ -26,6 +27,7 @@ import { isModelAction, isHighlight } from '../types/primitives'
 import { generateRequestId, extractServerRequestId, type RequestTrace, type AskRecord } from '../types/requestId'
 import { prepareGraphSnapshot, type Graph } from '../lib/graphTransform'
 import { checkAskPreflight, type PreflightResult } from '../lib/askPreflight'
+import { fetchWithTimeout, FetchTimeoutError } from '../utils/fetchWithTimeout'
 
 // =============================================================================
 // Types
@@ -211,6 +213,9 @@ const CEE_BASE_URL = (import.meta as any).env?.VITE_CEE_BFF_BASE || '/bff/cee'
 /** CEE /ask endpoint */
 const ASK_ENDPOINT = `${CEE_BASE_URL}/ask`
 
+/** Timeout for /ask requests (ms) — CEE LLM calls can be slow on complex graphs */
+const ASK_TIMEOUT_MS = 45_000
+
 /** CEE contract version */
 const GRAPH_SCHEMA_VERSION = '2.2' as const
 
@@ -229,7 +234,33 @@ const DEFAULT_MARKET_CONTEXT = {
 // =============================================================================
 
 /**
- * Build brief from scenario framing
+ * Compose the brief string from framing fields (no fallback or truncation).
+ * Exported so InputsDock can reuse the same field→string mapping for length checks.
+ */
+export function composeBriefText(framing: {
+  title?: string
+  goal?: string
+  timeline?: string
+  constraints?: string
+  risks?: string
+  uncertainties?: string
+} | null): string {
+  if (!framing) return ''
+
+  const parts: string[] = []
+
+  if (framing.title) parts.push(`Decision: ${framing.title}`)
+  if (framing.goal) parts.push(`Goal: ${framing.goal}`)
+  if (framing.timeline) parts.push(`Timeline: ${framing.timeline}`)
+  if (framing.constraints) parts.push(`Constraints: ${framing.constraints}`)
+  if (framing.risks) parts.push(`Risks: ${framing.risks}`)
+  if (framing.uncertainties) parts.push(`Uncertainties: ${framing.uncertainties}`)
+
+  return parts.join('\n\n')
+}
+
+/**
+ * Build brief from scenario framing, with fallback and CEE-spec truncation.
  */
 function buildBrief(framing: {
   title?: string
@@ -239,32 +270,7 @@ function buildBrief(framing: {
   risks?: string
   uncertainties?: string
 } | null): string {
-  if (!framing) {
-    return DEFAULT_BRIEF
-  }
-
-  const parts: string[] = []
-
-  if (framing.title) {
-    parts.push(`Decision: ${framing.title}`)
-  }
-  if (framing.goal) {
-    parts.push(`Goal: ${framing.goal}`)
-  }
-  if (framing.timeline) {
-    parts.push(`Timeline: ${framing.timeline}`)
-  }
-  if (framing.constraints) {
-    parts.push(`Constraints: ${framing.constraints}`)
-  }
-  if (framing.risks) {
-    parts.push(`Risks: ${framing.risks}`)
-  }
-  if (framing.uncertainties) {
-    parts.push(`Uncertainties: ${framing.uncertainties}`)
-  }
-
-  const brief = parts.join('\n\n')
+  const brief = composeBriefText(framing)
 
   // Ensure minimum length (10 chars per CEE spec)
   if (brief.length < 10) {
@@ -356,14 +362,15 @@ function normalizeResponse(
 /**
  * Call CEE /assist/v1/ask endpoint with WorkingSetRequest
  */
-async function askEndpoint(
+export async function askEndpoint(
   userMessage: string,
   nodes: Node[],
   edges: Edge[],
   scenarioId: string | null,
   framing: Parameters<typeof buildBrief>[0],
   selection: { nodeIds: Set<string>; edgeIds: Set<string> },
-  baseUrl?: string
+  baseUrl?: string,
+  signal?: AbortSignal,
 ): Promise<NormalizedAskResponse> {
   // Generate client request ID (UUID v4)
   const clientRequestId = generateRequestId()
@@ -394,15 +401,36 @@ async function askEndpoint(
   let response: Response
 
   try {
-    response = await fetch(endpoint, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Request-Id': clientRequestId, // Required header
+    response = await fetchWithTimeout(
+      endpoint,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Request-Id': clientRequestId, // Required header
+        },
+        body: JSON.stringify(payload),
+        signal, // caller-provided AbortSignal (merged with timeout by fetchWithTimeout)
       },
-      body: JSON.stringify(payload),
-    })
+      ASK_TIMEOUT_MS,
+    )
   } catch (networkError) {
+    // Timeout → user-visible error
+    if (networkError instanceof FetchTimeoutError) {
+      throw new AskApiError({
+        code: 'TIMEOUT',
+        message: `Request timed out after ${ASK_TIMEOUT_MS / 1000}s. The model may be processing a complex graph — please try again.`,
+        retryable: true,
+      })
+    }
+    // Abort (unmount or explicit cancel) — caller distinguishes via mountedRef
+    if (networkError instanceof Error && networkError.name === 'AbortError') {
+      throw new AskApiError({
+        code: 'CANCELLED',
+        message: 'Request was cancelled.',
+        retryable: false,
+      })
+    }
     throw new AskApiError({
       code: 'NETWORK_ERROR',
       message: networkError instanceof Error ? networkError.message : 'Network request failed',
@@ -476,17 +504,38 @@ export function useAsk(
   const framing = useCanvasStore(s => s.currentScenarioFraming)
   const selection = useCanvasStore(s => s.selection)
 
+  // Abort in-flight request on unmount or new request
+  const abortControllerRef = useRef<AbortController | null>(null)
+  // Track mount state to distinguish unmount abort (silent) from user cancel (visible)
+  const mountedRef = useRef(true)
+
+  useEffect(() => {
+    mountedRef.current = true
+    return () => {
+      mountedRef.current = false
+      // Abort any in-flight request on unmount
+      abortControllerRef.current?.abort()
+    }
+  }, [])
+
   const mutation = useMutation<NormalizedAskResponse, Error, string>({
-    mutationFn: (userMessage: string) =>
-      askEndpoint(
+    mutationFn: (userMessage: string) => {
+      // Abort previous in-flight request (if any)
+      abortControllerRef.current?.abort()
+      const controller = new AbortController()
+      abortControllerRef.current = controller
+
+      return askEndpoint(
         userMessage,
         nodes,
         edges,
         scenarioId,
         framing,
         selection,
-        options.baseUrl
-      ),
+        options.baseUrl,
+        controller.signal,
+      )
+    },
     onSuccess: (data) => {
       // Trigger highlight callback
       if (options.onHighlight && data.highlights.length > 0) {
@@ -506,25 +555,44 @@ export function useAsk(
         })
       }
     },
+    onError: (error) => {
+      // Suppress CANCELLED errors caused by unmount — component is gone, no state to update
+      if (
+        !mountedRef.current &&
+        error instanceof AskApiError &&
+        error.code === 'CANCELLED'
+      ) {
+        return
+      }
+    },
   })
 
   // Helper for explicit graph context (useful for testing)
-  const askWithGraph = (message: string, customNodes: Node[], customEdges: Edge[]) => {
-    mutation.mutate(message, {
-      // Override the mutation function for this call
-      onMutate: () => {
-        return askEndpoint(
-          message,
-          customNodes,
-          customEdges,
-          scenarioId,
-          framing,
-          selection,
-          options.baseUrl
-        )
-      },
-    } as any) // Type hack - TanStack Query doesn't directly support this
-  }
+  const askWithGraph = useCallback(
+    (message: string, customNodes: Node[], customEdges: Edge[]) => {
+      // Abort previous in-flight request
+      abortControllerRef.current?.abort()
+      const controller = new AbortController()
+      abortControllerRef.current = controller
+
+      mutation.mutate(message, {
+        // Override the mutation function for this call
+        onMutate: () => {
+          return askEndpoint(
+            message,
+            customNodes,
+            customEdges,
+            scenarioId,
+            framing,
+            selection,
+            options.baseUrl,
+            controller.signal,
+          )
+        },
+      } as any) // Type hack - TanStack Query doesn't directly support this
+    },
+    [mutation, scenarioId, framing, selection, options.baseUrl],
+  )
 
   return {
     ...mutation,

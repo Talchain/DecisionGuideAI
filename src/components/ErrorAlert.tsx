@@ -77,8 +77,8 @@ export function ErrorAlert({
           <p className={`${typography.panelMeta} ${config.textMuted}`}>
             {message}
           </p>
-          {/* Debug info for POC mode - helps developers understand errors */}
-          {debugInfo && (
+          {/* Debug info — DEV only, hidden in production builds */}
+          {import.meta.env.DEV && debugInfo && (
             <details className="mt-1">
               <summary className={`${typography.panelMeta} ${config.textMuted} cursor-pointer select-none`}>
                 Technical details

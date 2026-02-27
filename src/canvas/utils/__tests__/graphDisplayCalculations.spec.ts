@@ -9,6 +9,7 @@ import {
   importanceToStrokeWidth,
   calculateRiskSeverity,
   existenceCertaintyToLineStyle,
+  weightMagnitudeToStrokeWidth,
   getRiskSeverityColors,
   getControllabilityBorderStyle,
   deriveControllability,
@@ -169,34 +170,70 @@ describe('graphDisplayCalculations', () => {
       expect(lineStyle).toBeUndefined()
     })
 
-    it('returns "8,4" (dashed) for 30-70% certainty', () => {
+    it('returns "6,4" (dashed) for 40-70% certainty', () => {
       const lineStyle = existenceCertaintyToLineStyle(0.5)
-      expect(lineStyle).toBe('8,4')
+      expect(lineStyle).toBe('6,4')
     })
 
-    it('returns "8,4" (dashed) for exactly 70% certainty', () => {
+    it('returns "6,4" (dashed) for exactly 70% certainty', () => {
       const lineStyle = existenceCertaintyToLineStyle(0.7)
-      expect(lineStyle).toBe('8,4')
+      expect(lineStyle).toBe('6,4')
     })
 
-    it('returns "8,4" (dashed) for exactly 30% certainty', () => {
-      const lineStyle = existenceCertaintyToLineStyle(0.3)
-      expect(lineStyle).toBe('8,4')
+    it('returns "6,4" (dashed) for exactly 40% certainty', () => {
+      const lineStyle = existenceCertaintyToLineStyle(0.4)
+      expect(lineStyle).toBe('6,4')
     })
 
-    it('returns "2,2" (dotted) for <30% certainty', () => {
-      const lineStyle = existenceCertaintyToLineStyle(0.29)
-      expect(lineStyle).toBe('2,2')
+    it('returns "2,4" (dotted) for <40% certainty', () => {
+      const lineStyle = existenceCertaintyToLineStyle(0.39)
+      expect(lineStyle).toBe('2,4')
     })
 
-    it('returns "2,2" (dotted) for very low certainty', () => {
+    it('returns "2,4" (dotted) for very low certainty', () => {
       const lineStyle = existenceCertaintyToLineStyle(0.05)
-      expect(lineStyle).toBe('2,2')
+      expect(lineStyle).toBe('2,4')
     })
 
-    it('returns "2,2" (dotted) for 0% certainty', () => {
+    it('returns "2,4" (dotted) for 0% certainty', () => {
       const lineStyle = existenceCertaintyToLineStyle(0)
-      expect(lineStyle).toBe('2,2')
+      expect(lineStyle).toBe('2,4')
+    })
+  })
+
+  describe('weightMagnitudeToStrokeWidth', () => {
+    it('returns 1px for magnitude 0', () => {
+      expect(weightMagnitudeToStrokeWidth(0)).toBe(1)
+    })
+
+    it('returns 1px for magnitude < 0.3', () => {
+      expect(weightMagnitudeToStrokeWidth(0.29)).toBe(1)
+    })
+
+    it('returns 2px for magnitude 0.3', () => {
+      expect(weightMagnitudeToStrokeWidth(0.3)).toBe(2)
+    })
+
+    it('returns 2px for magnitude < 0.6', () => {
+      expect(weightMagnitudeToStrokeWidth(0.59)).toBe(2)
+    })
+
+    it('returns 3px for magnitude 0.6', () => {
+      expect(weightMagnitudeToStrokeWidth(0.6)).toBe(3)
+    })
+
+    it('returns 3px for magnitude 1.0', () => {
+      expect(weightMagnitudeToStrokeWidth(1.0)).toBe(3)
+    })
+
+    it('clamps magnitude > 1 to 3px', () => {
+      expect(weightMagnitudeToStrokeWidth(1.5)).toBe(3)
+    })
+
+    it('handles negative values via internal Math.abs', () => {
+      expect(weightMagnitudeToStrokeWidth(-0.8)).toBe(3)
+      expect(weightMagnitudeToStrokeWidth(-0.2)).toBe(1)
+      expect(weightMagnitudeToStrokeWidth(-0.45)).toBe(2)
     })
   })
 

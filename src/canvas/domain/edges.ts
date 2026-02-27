@@ -400,6 +400,26 @@ export function formatConfidence(confidence: number | undefined): string {
 }
 
 /**
+ * D.1: Compute signed strength mean from edge data (domain-level).
+ *
+ * Priority: strength_mean (already signed) > weight + direction (legacy).
+ * Used for visual encoding (stroke width) — not for adapter payloads.
+ */
+export function computeSignedMean(
+  data: Record<string, unknown> | undefined,
+): number {
+  const strengthMean = (data as any)?.strength_mean
+  if (typeof strengthMean === 'number') return strengthMean
+
+  const magnitude = (typeof (data as any)?.weight === 'number')
+    ? (data as any).weight as number
+    : 0.5
+  const direction = (data as any)?.direction ?? (data as any)?.effect_direction
+  const sign = direction === 'negative' ? -1 : 1
+  return sign * magnitude
+}
+
+/**
  * Determine if an edge label should be shown and how it should be styled
  * Implements tiered visibility system:
  * - Custom labels: Always visible, prominent

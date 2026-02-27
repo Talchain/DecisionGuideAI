@@ -11,6 +11,7 @@
 
 import { useState, useCallback, useRef, useEffect } from 'react'
 import { typography } from '../../../styles/typography'
+import { getEffectSizeCoaching } from './coachingText'
 
 interface SignedStrengthSliderProps {
   /** Current signed value (-1 to +1) */
@@ -58,6 +59,9 @@ export function SignedStrengthSlider({
   const absValue = Math.abs(localValue)
   const displayColor = isNegative ? 'text-danger' : localValue > 0 ? 'text-success' : 'text-text-light'
   const directionLabel = isNegative ? 'Hurts' : localValue > 0 ? 'Helps' : 'Neutral'
+
+  // D.2: Effect size coaching nudge from local state for instant feedback
+  const effectCoaching = getEffectSizeCoaching(absValue)
 
   // Calculate fill gradient position (centre-out)
   const fillPercent = absValue * 50 // 0-50% from centre
@@ -122,6 +126,11 @@ export function SignedStrengthSlider({
           {localValue >= 0 ? '+' : ''}{localValue.toFixed(2)}
         </span>
       </div>
+
+      {/* D.2: Effect size coaching nudge */}
+      <p className={`${typography.panelMeta} ${effectCoaching.colorClass} mt-1`}>
+        {effectCoaching.text}
+      </p>
     </div>
   )
 }

@@ -13,7 +13,7 @@
  */
 
 import { useMemo } from 'react'
-import type { RecommendationSectionData, DriverItem, DecisionState, HingeInfo } from './types'
+import type { RecommendationSectionData, DriverItem, DecisionState, HingeInfo, NextActionItem } from './types'
 import { EMPTY_STATES } from './emptyStates'
 import { typography } from '../../styles/typography'
 import { HeroSection, type OptionWinShare } from './HeroSection'
@@ -70,6 +70,8 @@ interface RecommendationSectionProps {
   hinge?: HingeInfo | null
   /** V12: Identifiability tag from model card */
   identifiabilityTag?: string | null
+  /** V14: Top next action from M1 coaching (for hero coaching line) */
+  topNextAction?: NextActionItem
 }
 
 export function RecommendationSection({
@@ -93,6 +95,7 @@ export function RecommendationSection({
   decisionState,
   hinge,
   identifiabilityTag,
+  topNextAction,
 }: RecommendationSectionProps) {
   const {
     recommendedOption,
@@ -247,6 +250,8 @@ export function RecommendationSection({
         decisionState={decisionState}
         hinge={hinge}
         robustEdgeCount={robustEdgeCount}
+        nearTie={nearTie}
+        topNextAction={topNextAction}
       />
 
       {/* P2 Task 3: Limited options coaching card (moved below hero) */}

@@ -337,6 +337,26 @@
 
 ---
 
+## Registered Transforms Summary (UI-SEM-001 through UI-SEM-011)
+
+| ID | Location | Transform | Classification |
+|----|----------|-----------|----------------|
+| UI-SEM-001 | `adapters/plot/v2/adapter.ts:549` | Canvas weight+direction → signed mean | Format conversion (legitimate) |
+| UI-SEM-002 | `adapters/plot/v2/adapter.ts` | Observed state default injection | Adapter concern (legitimate) |
+| UI-SEM-003 | `adapters/plot/v2/adapter.ts` | STD floor enforcement | Adapter concern (legitimate) |
+| UI-SEM-004 | `canvas/adapters/islRequestAdapter.ts:645` | Risk→goal sign heuristic | Adapter concern (legitimate) |
+| UI-SEM-005 | `components/results/useResultsSectionData.ts:1002` | Robustness level derivation from stability | Redundant backstop (remove when PLoT guarantees level) |
+| UI-SEM-006 | `components/results/buildResultsVM.ts:77` | DecisionState thresholds (GAP/ROBUST/SENSITIVE) | VM-layer display derivation (legitimate) |
+| UI-SEM-007 | `components/results/buildResultsVM.ts:40` | Stability fabrication from categorical level | **F.6 concern** (remove when PLoT guarantees numeric stability) |
+| UI-SEM-008 | `lib/format.ts:60,72,118` | Probability cap at 99% | Display formatting (legitimate) |
+| UI-SEM-009 | `canvas/components/DecisionSummary.tsx:238` | p15/p85 confidence band fabrication | **F.6 VIOLATION** (request from PLoT or remove) |
+| UI-SEM-010 | `types/constraints.ts:37` | Constraint confidence colour thresholds | Display formatting (legitimate) |
+| UI-SEM-011 | `canvas/hooks/useGraphReadiness.ts:322` | Default belief: 0.7 injection | Pre-analysis default (low risk, coaching only) |
+
+**F.6 violations:** UI-SEM-007, UI-SEM-009 — these transforms create semantic meaning the backend never provided.
+
+---
+
 ## Verification
 
 Run the contract test to verify passthrough fields:

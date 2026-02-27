@@ -35,6 +35,11 @@ export interface ConstraintAnalysis {
 }
 
 /**
+ * UI-SEM-010: Constraint confidence colour thresholds.
+ * Maps constraint satisfaction probability to colour encoding for display.
+ * Thresholds documented here; applied by constraintConfidenceColour() below.
+ * Classification: legitimate display formatting — probability→colour mapping.
+ *
  * Confidence colour encoding thresholds for constraint probabilities.
  * - >= 0.70: success (green) — likely to meet
  * - 0.40–0.69: info (blue) — uncertain

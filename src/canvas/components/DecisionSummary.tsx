@@ -235,9 +235,14 @@ export function DecisionSummary({
     const story = runMeta?.ceeReview?.story
     const topDriver = story?.key_drivers?.[0]
 
-    // Calculate approximate 70% confidence band (p15-p85)
-    // p15 = midpoint between p10 and p50
-    // p85 = midpoint between p50 and p90
+    /**
+     * UI-SEM-009: p15/p85 confidence band fabrication.
+     * ISL provides p10/p50/p90; p15 and p85 are linearly interpolated
+     * (p15 = midpoint of p10–p50, p85 = midpoint of p50–p90).
+     * These values were never computed by ISL — they are UI-derived estimates.
+     * Classification: F.6 VIOLATION — fabricates percentiles ISL never calculated.
+     * TODO: F.6 VIOLATION — request p15/p85 from PLoT or remove interpolation.
+     */
     let confidenceBand = null
     if (p10 !== undefined && p50 !== undefined && p90 !== undefined) {
       const p15 = p10 + (p50 - p10) * 0.5
@@ -447,7 +452,7 @@ export function DecisionSummary({
         {/* 70% confidence band */}
         {summaryData.confidenceBand && (
           <p className={`${typography.caption} text-ink-500 mb-2`}>
-            70% likely: {formatOutcomeValue(summaryData.confidenceBand.p15, summaryData.units, summaryData.unitSymbol)}–{formatOutcomeValue(summaryData.confidenceBand.p85, summaryData.units, summaryData.unitSymbol)}
+            70% likely (estimated): {formatOutcomeValue(summaryData.confidenceBand.p15, summaryData.units, summaryData.unitSymbol)}–{formatOutcomeValue(summaryData.confidenceBand.p85, summaryData.units, summaryData.unitSymbol)}
           </p>
         )}
 

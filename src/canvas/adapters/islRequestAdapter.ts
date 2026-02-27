@@ -642,6 +642,13 @@ export function buildISLConformalRequest(
     const sourceId = edge.source
     const targetId = edge.target
 
+    /**
+     * UI-SEM-004: Risk→goal sign heuristic (last-resort fallback).
+     * When an edge lacks signed strength_mean and effect_direction, auto-negates
+     * the coefficient for risk→goal/outcome edges. Same class as UI-SEM-001
+     * (adapter concern: translating causal semantics to ISL wire format).
+     * Classification: adapter concern — legitimate.
+     */
     // P0-4: Priority order for sign handling (canonical rule: direction encoded via signed strength_mean)
     // 1. Use signed strength_mean if present (canonical source of truth)
     // 2. Apply effect_direction if coefficient is positive/unsigned

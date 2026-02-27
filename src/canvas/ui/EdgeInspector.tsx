@@ -14,6 +14,8 @@ import { typography } from '../../styles/typography'
 import { InspectorAccordion } from './inspector'
 import { SignedStrengthSlider } from './inspector/SignedStrengthSlider'
 import { StrengthBar } from './inspector/StrengthBar'
+import { getConfidenceCoaching, shouldShowInfluenceCoaching } from './inspector/coachingText'
+import { useNodeDisplayMetadata } from '../hooks/useNodeDisplayMetadata'
 import type { WeightSuggestion } from '../decisionReview/types'
 
 interface EdgeInspectorProps {
@@ -73,6 +75,17 @@ export const EdgeInspector = memo(({ edgeId, onClose }: EdgeInspectorProps) => {
 
   // S.3: Edge confidence from beliefExists (preferred) or belief (legacy)
   const edgeConfidence = getEdgeConfidence(edge?.data as Record<string, unknown> | undefined)
+
+  // D.3: Source node type — only look up sensitivity rank for factor nodes
+  const sourceNode = nodes.find(n => n.id === edge?.source)
+  const sourceNodeType = (sourceNode?.data?.kind ?? sourceNode?.type) as string | undefined
+  const sourceIsFactor = sourceNodeType === 'factor'
+  // Hook must be called unconditionally; passing empty ID for non-factor sources
+  // ensures sensitivityRank is null for goal, option, decision, etc.
+  const { sensitivityRank } = useNodeDisplayMetadata(
+    sourceIsFactor ? (edge?.source ?? '') : '',
+    'factor',
+  )
 
   // Local state for immediate UI updates
   const [signedValue, setSignedValue] = useState<number>(initialSignedValue)
@@ -226,6 +239,9 @@ export const EdgeInspector = memo(({ edgeId, onClose }: EdgeInspectorProps) => {
   const directionLabel = signedValue < 0 ? 'Hurts' : signedValue > 0 ? 'Helps' : 'Neutral'
   const directionColor = signedValue < 0 ? 'text-danger' : signedValue > 0 ? 'text-success' : 'text-text-light'
 
+  // D.2: Coaching nudge from local belief state for instant feedback
+  const confidenceCoaching = getConfidenceCoaching(belief ?? EDGE_CONSTRAINTS.belief.default)
+
   // ─── SUMMARY ───────────────────────────────────────────────────────
   const summaryContent = (
     <div className="pb-2">
@@ -271,6 +287,22 @@ export const EdgeInspector = memo(({ edgeId, onClose }: EdgeInspectorProps) => {
         <span className={`inline-flex items-center mt-2 px-2 py-0.5 rounded-full ${typography.panelMeta} bg-danger-light text-danger`}>
           Fragile
         </span>
+      )}
+
+      {/* D.3: Per-edge influence context (post-analysis only) */}
+      {isResultsMode && sensitivityRank !== null && (
+        <p className={`${typography.panelMeta} text-info mt-2`}>
+          Connects factor ranked #{sensitivityRank} in influence
+        </p>
+      )}
+
+      {/* D.3: Coaching card — rank #1 + fragile + low confidence */}
+      {isResultsMode && shouldShowInfluenceCoaching(sensitivityRank, isFragileEdge, edgeConfidence) && (
+        <div className="mt-2 p-2 rounded bg-warning-light border border-warning/30">
+          <p className={`${typography.panelMeta} text-warning`}>
+            This is your model's most influential path, and it's fragile. Strengthening confidence here would improve result reliability.
+          </p>
+        </div>
       )}
 
       {/* P.1: Edge confirm button — edges have assumptions worth reviewing */}
@@ -388,6 +420,10 @@ export const EdgeInspector = memo(({ edgeId, onClose }: EdgeInspectorProps) => {
             style={{ width: `${Math.max((belief ?? EDGE_CONSTRAINTS.belief.default) * 100, 2)}%` }}
           />
         </div>
+        {/* D.2: Confidence coaching nudge */}
+        <p className={`${typography.panelMeta} ${confidenceCoaching.colorClass} mt-1`}>
+          {confidenceCoaching.text}
+        </p>
       </div>
 
       {/* Label */}

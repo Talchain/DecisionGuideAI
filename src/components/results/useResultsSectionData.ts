@@ -999,7 +999,13 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     const rawRobustnessLevel = robustness?.level as string | undefined
     const rawRobustnessLabel = robustness?.label as string | undefined
 
-    // Derive level from recommendation_stability if not explicitly provided
+    /**
+     * UI-SEM-005: Robustness level derivation from stability thresholds.
+     * When PLoT omits robustness.level, derives categorical level from
+     * recommendation_stability using hardcoded brackets (0.8/0.5/0.3).
+     * Classification: redundant backstop — PLoT now provides level.
+     * TODO: Remove when PLoT guarantees level field on all responses.
+     */
     function deriveRobustnessLevel(stability: number | undefined): RobustnessLevel | undefined {
       if (stability === undefined) return undefined
       if (stability >= 0.8) return 'high'
