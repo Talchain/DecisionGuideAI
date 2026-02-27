@@ -22,7 +22,6 @@ import { Accordion } from './Accordion'
 import { SectionHeader } from './SectionHeader'
 import { OptionCards } from './OptionCards'
 import { buildSegmentColorMap } from './HeroSection'
-import { SuccessTargetRow } from './SuccessTargetRow'
 import { TippingPoints } from './TippingPoints'
 import { AdvancedSection } from './AdvancedSection'
 import { AttentionBanner } from './AttentionBanner'
@@ -143,23 +142,12 @@ export function ResultsBody({
       </div>
 
       {/* ── SECTION 2: OPTIONS COMPARISON ────────────────────────── */}
-      {/* V9.2: SuccessTargetRow + card-based option comparison */}
       {!resultsSectionData.recommendation.isSingleOption &&
        resultsSectionData.recommendation.allOptions.length > 1 && (
         <div className="space-y-2">
           <SectionHeader
             title="How the options compare"
             testId="section-header-options"
-          />
-          <SuccessTargetRow
-            goalThreshold={resultsSectionData.recommendation.goalThreshold}
-            isRunning={isRunning}
-            onApplyThreshold={onApplyThreshold}
-            constraintAnalysis={resultsSectionData.recommendation.recommendedOption?.constraintAnalysis}
-            showHitsTarget={
-              resultsSectionData.recommendation.goalThreshold != null &&
-              resultsSectionData.recommendation.allOptions.every(o => o.goalProbability != null)
-            }
           />
           <OptionCards
             options={resultsSectionData.recommendation.allOptions}
@@ -323,6 +311,8 @@ export function ResultsBody({
                   decisionState={vm.decisionState}
                   topAction={vm.topAction}
                   excludeFactorIds={hingeExcludeIds}
+                  coachingReadiness={resultsSectionData.recommendation.coachingReadiness}
+                  hasWinnerAbove50={resultsSectionData.recommendation.allOptions.some(o => (o.winProbability ?? 0) > 0.5)}
                 />
               </Accordion>
               {/* V11: Robust compact VOI affordance — below collapsed accordion */}

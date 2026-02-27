@@ -149,31 +149,10 @@ describe('deriveDecisionState', () => {
     expect(deriveDecisionState(0.25, 0.40)).toBe('indeterminate')
   })
 
-  // V12: needs_evidence does NOT downgrade (common case, shouldn't prevent robust)
-  it('does not downgrade robust when readiness is needs_evidence', () => {
-    expect(deriveDecisionState(0.25, 0.85, 'needs_evidence')).toBe('robust')
-  })
-
-  it('downgrades robust to sensitive when readiness is needs_framing', () => {
-    expect(deriveDecisionState(0.25, 0.85, 'needs_framing')).toBe('sensitive')
-  })
-
-  it('does not downgrade when readiness is ready', () => {
-    expect(deriveDecisionState(0.25, 0.85, 'ready')).toBe('robust')
-  })
-
-  // V12: close_call now downgrades (unlike V11 where it did not)
-  it('downgrades robust to sensitive when readiness is close_call', () => {
-    expect(deriveDecisionState(0.25, 0.85, 'close_call')).toBe('sensitive')
-  })
-
-  // V12: low and not_ready also downgrade
-  it('downgrades robust to sensitive when readiness is low', () => {
-    expect(deriveDecisionState(0.25, 0.85, 'low')).toBe('sensitive')
-  })
-
-  it('downgrades robust to sensitive when readiness is not_ready', () => {
-    expect(deriveDecisionState(0.25, 0.85, 'not_ready')).toBe('sensitive')
+  // V14.1: deriveDecisionState is purely gap + stability — readiness no longer downgrades
+  it('remains robust regardless of readiness (V14.1: readiness decoupled)', () => {
+    // Extra args are ignored — deriveDecisionState only takes (gap, stability)
+    expect(deriveDecisionState(0.25, 0.85)).toBe('robust')
   })
 
   it('returns robust at exact ROBUST_THRESHOLD boundary', () => {
@@ -284,7 +263,7 @@ describe('selectHinge', () => {
     expect(hinge!.nodeId).toBe('fac-price')
     expect(hinge!.kind).toBe('edge')
     expect(hinge!.reason).toBe('fragile_edge')
-    expect(hinge!.edgeDetail).toBe('Price Sensitivity → Revenue')
+    expect(hinge!.edgeDetail).toBe('Price Sensitivity to Revenue')
     expect(hinge!.alternativeWinnerLabel).toBe('Option B')
   })
 
@@ -420,7 +399,7 @@ describe('selectHinge', () => {
     expect(hinge!.nodeId).toBe('fac-pmf')
     expect(hinge!.kind).toBe('edge')
     expect(hinge!.reason).toBe('fragile_edge')
-    expect(hinge!.edgeDetail).toBe('Product-Market Fit → Customer Acquisition')
+    expect(hinge!.edgeDetail).toBe('Product-Market Fit to Customer Acquisition')
     expect(hinge!.alternativeWinnerLabel).toBe('Build Dedicated Product')
   })
 

@@ -349,6 +349,17 @@
   animation: cflash 0.6s ease-in-out;
 }
 
+/* V14.1: Results panel card hover — cross-highlight with canvas */
+.results-card-hover {
+  transition: background-color 150ms, box-shadow 150ms, transform 150ms;
+  cursor: pointer;
+}
+.results-card-hover:hover {
+  background-color: var(--bg-panel-hover, rgba(0,0,0,0.02));
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  transform: translateY(-2px);
+}
+
 /* Node palette (legacy - to be migrated) */
 :root {
   /* Layout bars */

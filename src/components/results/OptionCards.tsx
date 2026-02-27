@@ -19,6 +19,7 @@ import { useRef, type RefObject } from 'react'
 import { typography } from '../../styles/typography'
 import { formatPercent as formatPct } from '../../utils/formatPercent'
 import { stripEncodingNotation } from './utils/cleanFactorLabel'
+import { highlightNode, clearHighlight } from '../../canvas/utils/highlightHelpers'
 import type { OptionResult, DecisionState, HingeInfo } from './types'
 import {
   constraintConfidenceColour,
@@ -178,10 +179,12 @@ function OptionCard({
   return (
     <div
       ref={cardRef}
-      className={`p-3 border ${borderClass} rounded-lg space-y-2`}
+      className={`p-3 border ${borderClass} rounded-lg space-y-2 results-card-hover`}
       style={segmentColor ? { borderLeftWidth: '3px', borderLeftColor: segmentColor } : undefined}
       data-testid={`option-card-${option.id}`}
       data-option-id={option.id}
+      onMouseEnter={() => highlightNode(option.id)}
+      onMouseLeave={clearHighlight}
     >
       {/* Header: name + rank badge + win percentage */}
       <div className="flex items-center gap-2">

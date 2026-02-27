@@ -17,24 +17,13 @@ import { useState, useCallback, useMemo } from 'react'
 import type { ConfidenceSectionData, UncertaintyItem, ImprovementItem, CritiqueSeverity, ConfidenceTier, EvidenceGapItem, AssumptionItem, DecisionState, HingeInfo, TopAction } from './types'
 import type { ConstraintAnalysis } from '../../types/constraints'
 import { focusNodeById, focusByTarget, type FocusTargetType } from '../../canvas/utils/focusHelpers'
+import { highlightNode, clearHighlight } from '../../canvas/utils/highlightHelpers'
 import { EMPTY_STATES } from './emptyStates'
 import { typography } from '../../styles/typography'
 import { MIN_STABLE_RECOMMENDATION_STABILITY, isStableRobustnessLevel } from './constants'
 import { stripEncodingNotation } from './utils/cleanFactorLabel'
 import { groupActionItems, type ActionGroup, type ActionItem } from './utils/groupActionItems'
 import { AlertTriangle, Search } from 'lucide-react'
-
-/**
- * Task C (M1 Coaching): Convert VOI (Value of Information) to impact label.
- * Thresholds: >= 0.7 high, >= 0.4 medium, < 0.4 lower
- * Guards against undefined/NaN to avoid misleading "Lower impact" display.
- */
-function voiToImpact(voi: number | undefined | null): string | null {
-  if (!Number.isFinite(voi)) return null
-  if (voi >= 0.7) return 'High impact if resolved'
-  if (voi >= 0.4) return 'Medium impact if resolved'
-  return 'Lower impact if resolved'
-}
 
 interface ConfidenceSectionProps {
   data: ConfidenceSectionData
@@ -55,6 +44,10 @@ interface ConfidenceSectionProps {
   topAction?: TopAction | null
   /** V11: Factor IDs to exclude from action items (hinge shown in VOI block) */
   excludeFactorIds?: string[]
+  /** V14.1: Coaching readiness — gates "Good foundation" display */
+  coachingReadiness?: 'ready' | 'close_call' | 'needs_evidence' | 'needs_framing' | 'low' | 'not_ready'
+  /** V14.1: Whether any option has winProbability > 0.5 */
+  hasWinnerAbove50?: boolean
 }
 
 const SEVERITY_CONFIG: Record<CritiqueSeverity, {
@@ -384,6 +377,8 @@ export function ConfidenceSection({
   decisionState,
   topAction,
   excludeFactorIds,
+  coachingReadiness,
+  hasWinnerAbove50,
 }: ConfidenceSectionProps) {
   const [showAllUncertainties, setShowAllUncertainties] = useState(false)
   const [showAllImprovements, setShowAllImprovements] = useState(false)
@@ -449,11 +444,17 @@ export function ConfidenceSection({
   const hasLowRobustness = robustnessLevel !== undefined && !isStableRobustnessLevel(robustnessLevel)
   const hasHighStability = (rankingStability ?? 1) >= MIN_STABLE_RECOMMENDATION_STABILITY
 
+  // V14.1: Readiness gate — "Good foundation" hidden when coaching says model needs work
+  const readinessBlocks = coachingReadiness === 'needs_framing' || coachingReadiness === 'needs_evidence'
+
   // Determine if model is fully ready:
   // - Strong tier, no improvements, no uncertainties
   // - AND (robustness undefined OR high/moderate) AND stability >= 0.6
+  // - V14.1: AND readiness is not needs_framing/needs_evidence
+  // - V14.1: AND at least one option has winProbability > 0.5
   const isFullyReady = tier.tier === 'strong' && improvements.length === 0 && uncertainties.length === 0
     && hasStableRobustness && hasHighStability
+    && !readinessBlocks && (hasWinnerAbove50 !== false)
 
   // Bug 2 fix: Low robustness warning only when robustnessLevel is explicitly low/very_low
   // OR when stability is below threshold with explicit robustness data
@@ -524,8 +525,8 @@ export function ConfidenceSection({
           in Accordion header via tierLabel/tierVariant props. */}
 
       {/* CASE 3: Strong tier but has items to address - show compact header */}
-      {/* Note: Only show if not showing low robustness warning */}
-      {tier.tier === 'strong' && !isFullyReady && !showLowRobustnessWarning && (
+      {/* Note: Only show if not showing low robustness warning or readiness blocks */}
+      {tier.tier === 'strong' && !isFullyReady && !showLowRobustnessWarning && !readinessBlocks && (
         <div className="p-3 border border-success/30 rounded-lg">
           <div className="flex items-center gap-2">
             <span className="text-success">✓</span>
@@ -758,6 +759,16 @@ export function ConfidenceSection({
                           ? { label: 'Medium confidence', cls: 'bg-warning-light text-warning border-warning/30' }
                           : null
 
+                        // V14.1: VOI pill — "Check first" / "Check next"
+                        const voiPill = actionItem.voiLevel
+                          ? {
+                              label: actionItem.voiLevel,
+                              cls: actionItem.voiLevel === 'Check first'
+                                ? 'text-info border-info/30'
+                                : 'text-text-light border-border-default',
+                            }
+                          : null
+
                         const hasEnrichment = actionItem.whatToDo || actionItem.whatCouldHappen
 
                         const cardContent = (
@@ -784,6 +795,11 @@ export function ConfidenceSection({
                                     {pill.label}
                                   </span>
                                 )}
+                                {voiPill && (
+                                  <span className={`${typography.panelMeta} px-1.5 py-0.5 rounded-full whitespace-nowrap flex-shrink-0 border ${voiPill.cls}`}>
+                                    {voiPill.label}
+                                  </span>
+                                )}
                               </div>
                               {actionItem.subtitle && (
                                 <p className={`${typography.panelBody} text-text-light mt-1`}>
@@ -796,7 +812,12 @@ export function ConfidenceSection({
 
                         if (hasEnrichment) {
                           return (
-                            <details key={actionItem.id} className="border border-panel-border rounded-lg overflow-hidden">
+                            <details
+                              key={actionItem.id}
+                              className="border border-panel-border rounded-lg overflow-hidden results-card-hover"
+                              onMouseEnter={() => actionItem.targetId && highlightNode(actionItem.targetId)}
+                              onMouseLeave={clearHighlight}
+                            >
                               <summary className="p-3 cursor-pointer hover:bg-panel-hover">
                                 {cardContent}
                               </summary>
@@ -815,7 +836,9 @@ export function ConfidenceSection({
                         return (
                           <div
                             key={actionItem.id}
-                            className="p-3 border border-panel-border rounded-lg"
+                            className={`p-3 border border-panel-border rounded-lg ${actionItem.targetId ? 'results-card-hover' : ''}`}
+                            onMouseEnter={() => actionItem.targetId && highlightNode(actionItem.targetId)}
+                            onMouseLeave={clearHighlight}
                           >
                             {cardContent}
                           </div>

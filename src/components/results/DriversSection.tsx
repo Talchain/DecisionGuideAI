@@ -16,6 +16,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
 import type { DriversSectionData, DriverItem } from './types'
 import { focusNodeById } from '../../canvas/utils/focusHelpers'
+import { highlightNode, clearHighlight } from '../../canvas/utils/highlightHelpers'
 import { EMPTY_STATES } from './emptyStates'
 import { formatFlipRiskMessage } from './utils/formatScenarioRatio'
 import { FactorInsights, hasEnrichmentContent } from './FactorInsights'
@@ -412,11 +413,13 @@ function DriverRow({
   return (
     <div
       ref={registerRef}
-      className={`rounded-lg border overflow-hidden bg-white relative transition-all duration-200 ${
+      className={`rounded-lg border overflow-hidden bg-white relative transition-all duration-200 results-card-hover ${
         isHighlighted
           ? 'border-amber-400 ring-2 ring-amber-300 shadow-lg'
           : 'border-slate-200'
       }`}
+      onMouseEnter={() => highlightNode(driver.matchedNodeId ?? driver.factorKey)}
+      onMouseLeave={clearHighlight}
     >
       {/* Single row: Factor name + info icon + bars */}
       <div className={`grid ${GRID_COLS} gap-2 items-center px-3 py-1.5`}>
@@ -473,16 +476,26 @@ function DriverRow({
           <div className={`${typography.panelBody} font-mono text-slate-400 w-9 text-right`}>-</div>
         )}
 
-        {/* Confidence bar */}
-        {confidenceValue !== null ? (
-          <ProgressBar
-            value={confidenceValue}
-            color="blue"
-            aria-label={`${cleanedLabel} confidence: ${Math.round(confidenceValue * 100)}%`}
-          />
-        ) : (
-          <div className={`${typography.panelBody} font-mono text-slate-400 w-9 text-right`}>-</div>
-        )}
+        {/* Confidence bar + default estimate pill */}
+        <div className="flex items-center gap-1">
+          {confidenceValue !== null ? (
+            <ProgressBar
+              value={confidenceValue}
+              color="blue"
+              aria-label={`${cleanedLabel} confidence: ${Math.round(confidenceValue * 100)}%`}
+            />
+          ) : (
+            <div className={`${typography.panelBody} font-mono text-slate-400 w-9 text-right`}>-</div>
+          )}
+          {driver.isDefaultedConfidence && (
+            <span
+              className={`${typography.panelMeta} text-text-light border border-border-default rounded-full px-2 py-0.5 whitespace-nowrap flex-shrink-0`}
+              data-testid="default-estimate-pill"
+            >
+              Default estimate
+            </span>
+          )}
+        </div>
       </div>
 
       {/* V12.2: Microline overtake warning inside card */}
@@ -711,6 +724,13 @@ export function DriversSection({
         >
           {showAll ? 'Show fewer factors' : `See all factors (+${hiddenCount} more)`}
         </button>
+      )}
+
+      {/* V14.1: Default estimate coaching note */}
+      {displayDrivers.some(d => d.isDefaultedConfidence) && (
+        <p className={`${typography.panelMeta} text-text-light italic px-3`}>
+          Some confidence scores reflect default estimates. Gathering evidence will make them more meaningful.
+        </p>
       )}
 
       {/* Zero-impact disclosure - only show when collapsed and there are hidden zero-impact factors */}

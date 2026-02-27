@@ -30,6 +30,8 @@ export interface ActionItem {
   confidenceLevel?: 'low' | 'medium' | 'high'
   /** Coaching tag */
   source: 'model' | 'brief'
+  /** V14.1: VOI-derived action label ("Check first" / "Check next") */
+  voiLevel?: string | null
   // M2 enrichment fields (populated in Phase 5)
   whatCouldHappen?: string
   whatToDo?: string
@@ -90,6 +92,14 @@ function confidenceToLevel(confidence: number | null | undefined): 'low' | 'medi
   if (confidence < 0.5) return 'low'
   if (confidence < 0.7) return 'medium'
   return 'high'
+}
+
+/** V14.1: Map VOI score to user-friendly action label. */
+function voiToLabel(voi: number | undefined | null): string | null {
+  if (voi == null || !Number.isFinite(voi)) return null
+  if (voi >= 0.7) return 'Check first'
+  if (voi >= 0.4) return 'Check next'
+  return null
 }
 
 // ─── Main function ───────────────────────────────────────────────────────────
@@ -230,6 +240,7 @@ export function groupActionItems(input: GroupActionItemsInput): ActionGroup[] {
         confidenceLevel: confidenceToLevel(
           gap.confidence != null ? gap.confidence / 100 : undefined
         ),
+        voiLevel: voiToLabel(gap.voi),
         source: 'model' as const,
         whatCouldHappen: enhancement?.decision_hygiene,
         whatToDo: enhancement?.specific_action,

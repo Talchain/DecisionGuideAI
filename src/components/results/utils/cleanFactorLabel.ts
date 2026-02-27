@@ -33,11 +33,12 @@ export interface CleanedLabel {
 const ENCODING_PATTERN = /\s*\(0[\u002D\u2013\u2014/]1[^)]*\)\s*/g
 
 /**
- * Discrete encoding pattern: (0=Label, 1=Label) or (0=Label, 1=Label, 2=Label)
- * Matches parenthetical containing digit=word assignments separated by commas.
- * Examples: "(0=Developers, 1=Tech Lead)", "(0=Low, 1=Medium, 2=High)"
+ * Discrete encoding pattern: (0=Label, 1=Label) or (0=Cat, 0.94=Dog)
+ * Matches any parenthetical containing digit[.digit]=label assignments.
+ * Covers integer keys (0=Cat, 1=Dog), decimal keys (0=Cat, 0.94=Dog),
+ * and multi-entry lists (0=A, 1=B, 2=C).
  */
-const DISCRETE_ENCODING_PATTERN = /\s*\(\d+=\w[^)]*\)\s*/g
+const DISCRETE_ENCODING_PATTERN = /\s*\([^)]*\d+\.?\d*\s*=\s*[^)]+\)\s*/g
 
 /**
  * Strip parenthetical encoding notation from a label.

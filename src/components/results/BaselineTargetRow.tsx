@@ -5,10 +5,10 @@
  * Reuses BaselineToggleCard internally for baseline selection UI.
  */
 
-import { useState } from 'react'
 import { Info } from 'lucide-react'
 import { typography } from '../../styles/typography'
 import { BaselineToggleCard, type BaselineOption } from './BaselineToggleCard'
+import Tooltip from '../Tooltip'
 
 export interface BaselineTargetRowProps {
   /** Available options for baseline selection */
@@ -52,8 +52,6 @@ export function BaselineTargetRow({
   outcomeUnitSymbol,
   onEditTarget,
 }: BaselineTargetRowProps) {
-  const [showTooltip, setShowTooltip] = useState(false)
-
   const hasBaseline = Boolean(baselineLabel)
   const hasTarget = goalThreshold != null
   const hasBaselineOptions = baselineOptions && baselineOptions.length > 0
@@ -117,11 +115,14 @@ export function BaselineTargetRow({
           </>
         )}
 
-        {/* Info tooltip */}
-        <div
-          className="relative inline-flex"
-          onMouseEnter={() => setShowTooltip(true)}
-          onMouseLeave={() => setShowTooltip(false)}
+        {/* Info tooltip — uses floating-ui Tooltip for auto flip/shift at panel edges */}
+        <Tooltip
+          content={
+            <p className={typography.panelMeta}>
+              A baseline shows where you are now. A success target shows what
+              you're aiming for, each option's chance of reaching it.
+            </p>
+          }
         >
           <button
             type="button"
@@ -130,19 +131,7 @@ export function BaselineTargetRow({
           >
             <Info className="w-3.5 h-3.5" />
           </button>
-          {showTooltip && (
-            <div
-              className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 z-50 px-3 py-2 bg-text-header text-white rounded-lg shadow-3"
-              style={{ maxWidth: 220 }}
-              role="tooltip"
-            >
-              <p className={typography.panelMeta}>
-                A baseline shows where you are now. A success target shows what
-                you're aiming for, each option's chance of reaching it.
-              </p>
-            </div>
-          )}
-        </div>
+        </Tooltip>
       </div>
     </div>
   )

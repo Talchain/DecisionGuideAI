@@ -22,7 +22,7 @@ import type {
   ResultsVM,
   RobustnessLevel,
 } from './types'
-import type { M1CoachingReadiness } from '../../types/cee'
+import { sanitizeCoachingText } from './utils/cleanFactorLabel'
 
 // ─── Thresholds ─────────────────────────────────────────────────────────────
 
@@ -84,13 +84,14 @@ export function resolveStability(
  * Derive the tri-state decision classification.
  * Gap rule evaluated FIRST — prevents "robust" on indistinguishable winners.
  */
-/** Readiness values that prevent a robust classification (downgrade to sensitive) */
-const DOWNGRADE_READINESS: readonly string[] = ['needs_framing', 'close_call', 'low', 'not_ready']
-
+/**
+ * V14.1: Decision state derives EXCLUSIVELY from computational robustness.
+ * Readiness concerns (needs_framing, needs_evidence) surface through coaching
+ * actions, readiness bars, and next-action items — not the decision dot.
+ */
 export function deriveDecisionState(
   gapTop2: number,
   stability: number | null | undefined,
-  readiness?: M1CoachingReadiness,
 ): DecisionState {
   // V12.2: Handle null/undefined stability (treat as unknown data)
   if (stability == null) {
@@ -100,12 +101,7 @@ export function deriveDecisionState(
   }
 
   if (gapTop2 < GAP_THRESHOLD) return 'indeterminate'
-  if (stability >= ROBUST_THRESHOLD) {
-    // Readiness can only downgrade, never upgrade.
-    // needs_evidence is NOT a downgrade — most analyses need more evidence
-    if (readiness && DOWNGRADE_READINESS.includes(readiness)) return 'sensitive'
-    return 'robust'
-  }
+  if (stability >= ROBUST_THRESHOLD) return 'robust'
   if (stability >= SENSITIVE_THRESHOLD) return 'sensitive'
   return 'indeterminate'
 }
@@ -144,11 +140,11 @@ export function selectHinge(data: ResultsSectionDataReturn): HingeInfo | null {
   const coachingEdge = data.confidence.m1CoachingTopFragileEdge
   if (coachingEdge && coachingEdge.fromId) {
     return {
-      label: coachingEdge.fromLabel,
+      label: sanitizeCoachingText(coachingEdge.fromLabel),
       nodeId: coachingEdge.fromId,
       kind: 'edge',
       reason: 'fragile_edge',
-      edgeDetail: `${coachingEdge.fromLabel} → ${coachingEdge.toLabel}`,
+      edgeDetail: `${sanitizeCoachingText(coachingEdge.fromLabel)} to ${sanitizeCoachingText(coachingEdge.toLabel)}`,
       alternativeWinnerLabel: coachingEdge.alternativeWinnerLabel ?? null,
     }
   }
@@ -157,11 +153,11 @@ export function selectHinge(data: ResultsSectionDataReturn): HingeInfo | null {
   const tfe = data.confidence.topFragileEdge
   if (tfe && tfe.fromId) {
     return {
-      label: tfe.fromLabel,
+      label: sanitizeCoachingText(tfe.fromLabel),
       nodeId: tfe.fromId,
       kind: 'edge',
       reason: 'fragile_edge',
-      edgeDetail: `${tfe.fromLabel} → ${tfe.toLabel}`,
+      edgeDetail: `${sanitizeCoachingText(tfe.fromLabel)} to ${sanitizeCoachingText(tfe.toLabel)}`,
       alternativeWinnerLabel: tfe.alternativeWinnerLabel ?? null,
     }
   }
@@ -170,7 +166,7 @@ export function selectHinge(data: ResultsSectionDataReturn): HingeInfo | null {
   const topGap = data.confidence.topEvidenceGaps?.[0] ?? data.confidence.evidenceGaps?.[0]
   if (topGap) {
     return {
-      label: topGap.factorLabel,
+      label: sanitizeCoachingText(topGap.factorLabel),
       nodeId: topGap.targetNodeId ?? topGap.factorId,
       kind: 'node',
       reason: 'voi',
@@ -193,7 +189,7 @@ export function selectHinge(data: ResultsSectionDataReturn): HingeInfo | null {
     }
     if (bestDriver && bestScore > 0) {
       return {
-        label: bestDriver.factorLabel,
+        label: sanitizeCoachingText(bestDriver.factorLabel),
         nodeId: bestDriver.matchedNodeId ?? bestDriver.factorKey,
         kind: 'node',
         reason: 'heuristic',
@@ -256,7 +252,6 @@ export function buildResultsVM(
   const decisionState = deriveDecisionState(
     gapTop2,
     stability,
-    recommendation.coachingReadiness,
   )
 
   // Hinge

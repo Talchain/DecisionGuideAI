@@ -24,6 +24,7 @@ import { linkifyCoachingText, type LinkEntity } from './utils/linkifyCoachingTex
 import { normaliseGoalLabel } from '../../utils/normaliseGoalLabel'
 import { BaselineToggleCard, type BaselineOption } from './BaselineToggleCard'
 import { BaselineTargetRow } from './BaselineTargetRow'
+import { focusNodeById } from '../../canvas/utils/focusHelpers'
 import { GAP_THRESHOLD } from './buildResultsVM'
 import type { DecisionState, HingeInfo, NextActionItem } from './types'
 import type { NearTieInfo } from '../../lib/mappers/types'
@@ -137,6 +138,8 @@ export interface HeroSectionProps {
   nearTie?: NearTieInfo
   /** V14: Top coaching next action */
   topNextAction?: NextActionItem
+  /** V14.1: Goal node ID for "Add target" focus */
+  goalNodeId?: string
 }
 
 // =============================================================================
@@ -496,6 +499,7 @@ export function HeroSection({
   robustEdgeCount,
   nearTie,
   topNextAction,
+  goalNodeId,
 }: HeroSectionProps) {
   // v7.4 Task 6: Default expand state based on robustness level
   // low/very_low stability (< 0.70) defaults to expanded ("Sensitive" or "Highly sensitive")
@@ -820,6 +824,7 @@ export function HeroSection({
             goalThreshold={goalThreshold}
             outcomeUnit={outcomeUnit}
             outcomeUnitSymbol={outcomeUnitSymbol}
+            onEditTarget={goalNodeId ? () => focusNodeById(goalNodeId) : undefined}
           />
 
           {/* ── Task 8: Coaching next action ──────────────────── */}
@@ -908,7 +913,7 @@ export function HeroSection({
               {/* Readiness bars */}
               {coachingReadinessDimensions && (
                 <div data-testid="readiness-bars">
-                  <p className={`${typography.panelMeta} text-text-header mb-2`}>Readiness</p>
+                  <p className={`${typography.panelMeta} text-text-header font-medium mb-2`}>Readiness</p>
                   {(['evidence', 'robustness', 'clarity'] as const).map(dim => {
                     const value = coachingReadinessDimensions[dim]
                     if (value == null) return null

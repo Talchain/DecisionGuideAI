@@ -108,6 +108,7 @@ export function RecommendationSection({
     outcomeUnitSymbol,
     recommendationStability,
     goalLabel,
+    goalNodeId,
     // Task 1.3: Win probability
     winProbability,
     // Task 1.5: Robustness level and label
@@ -252,6 +253,7 @@ export function RecommendationSection({
         robustEdgeCount={robustEdgeCount}
         nearTie={nearTie}
         topNextAction={topNextAction}
+        goalNodeId={goalNodeId}
       />
 
       {/* P2 Task 3: Limited options coaching card (moved below hero) */}

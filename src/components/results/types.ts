@@ -265,6 +265,8 @@ export interface DriverItem {
   flipRiskCategory?: FlipRiskCategory
   /** CEE-generated enrichment (observations, perspectives, confidence question) */
   enrichment?: FactorEnrichment
+  /** V14.1: confidence is a default estimate (isl_default), not user-provided */
+  isDefaultedConfidence?: boolean
 }
 
 export interface DriversSectionData {

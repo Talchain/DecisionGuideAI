@@ -289,6 +289,11 @@ function normalizeFactorSensitivity(raw: unknown, nodeLabelMap: Map<string, stri
       ? rawFlipRiskCategory
       : undefined
 
+  // V14.1: confidence_source — 'isl_default' indicates placeholder confidence
+  const confidenceSource = typeof typed.confidence_source === 'string'
+    ? typed.confidence_source
+    : undefined
+
   return {
     factorId: rawId ?? label,
     label,
@@ -300,6 +305,7 @@ function normalizeFactorSensitivity(raw: unknown, nodeLabelMap: Map<string, stri
     zeroReason,
     valueOfInformation,
     flipRiskCategory,
+    confidenceSource,
   }
 }
 
@@ -734,13 +740,35 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
   )
 
   // Goal label fallback chain: framing > node label > default
+  // V14.1: Sanitize + guard against short/ambiguous labels that read awkwardly as "To a Cat"
   const goalLabel = useMemo(() => {
-    if (currentScenarioFraming?.goal) return currentScenarioFraming.goal
-    if (goalNode?.data && typeof (goalNode.data as any).label === 'string') {
-      return (goalNode.data as any).label
+    let raw = 'your goal'
+    if (currentScenarioFraming?.goal) {
+      raw = currentScenarioFraming.goal
+    } else if (goalNode?.data && typeof (goalNode.data as any).label === 'string') {
+      raw = (goalNode.data as any).label
     }
-    return 'your goal'
-  }, [currentScenarioFraming, goalNode])
+    if (raw === 'your goal') return raw
+
+    // Sanitize encoding notation and arrows
+    const cleaned = sanitizeCoachingText(raw)
+    if (!cleaned || cleaned === 'your goal') return 'your goal'
+
+    // Guard: if label is very short (< 4 words), it likely reads awkwardly as
+    // "To a Cat" — prefix with context so it becomes "the best outcome for Cat"
+    const optionLabels = new Set(
+      nodes.filter(n => (n.data as any)?.kind === 'option').map(n => (n.data as any)?.label as string).filter(Boolean)
+    )
+    const factorLabels = new Set(
+      nodes.filter(n => (n.data as any)?.kind === 'factor').map(n => (n.data as any)?.label as string).filter(Boolean)
+    )
+    const wordCount = cleaned.split(/\s+/).length
+    if (wordCount < 4 || optionLabels.has(cleaned) || factorLabels.has(cleaned)) {
+      return `the best outcome for ${cleaned}`
+    }
+
+    return cleaned
+  }, [currentScenarioFraming, goalNode, nodes])
 
   const goalNodeId = goalNode?.id
 
@@ -1117,10 +1145,12 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       coachingReadiness: m1Coaching?.readiness,
       coachingReadinessScore: m1Coaching?.readiness_signals?.score,
       coachingReadinessDimensions: (() => {
-        const raw = m1Coaching?.readiness_signals?.dimensions
+        // Defensive: try .dimensions first, then fall back to readiness_signals itself
+        // (some backends nest dimensions, others put them at the top level)
+        const dims = m1Coaching?.readiness_signals?.dimensions
+        const raw = (dims ?? m1Coaching?.readiness_signals) as Record<string, number> | undefined
         if (!raw) return undefined
-        // Defensive: normalise backend key variants to the { evidence, robustness, clarity }
-        // shape that HeroSection expects. Accepts both canonical and alternative key names.
+        // Normalise backend key variants to { evidence, robustness, clarity }
         const evidence = raw.evidence ?? raw.evidence_quality
         const robustness = raw.robustness ?? raw.model_robustness
         const clarity = raw.clarity ?? raw.framing_quality
@@ -1450,6 +1480,8 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
           flipRiskCategory: f.raw.flipRiskCategory,
           // CEE-generated enrichment (observations, perspectives, confidence question)
           enrichment,
+          // V14.1: confidence_source 'isl_default' = placeholder, not user-provided
+          isDefaultedConfidence: f.raw.confidenceSource === 'isl_default',
         }
       })
       .sort((a, b) => a.rank - b.rank) // Sort by rank
@@ -2144,8 +2176,19 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
           question: p.question ? sanitizeCoachingText(p.question) : '',
         }))
       })(),
-      m2EvidenceEnhancements: m1ReviewAssumptions?.evidence_enhancements as
-        Record<string, { specific_action: string; decision_hygiene: string }> | undefined,
+      m2EvidenceEnhancements: (() => {
+        const raw = m1ReviewAssumptions?.evidence_enhancements as
+          Record<string, { specific_action: string; decision_hygiene: string }> | undefined
+        if (!raw) return undefined
+        const sanitized: Record<string, { specific_action: string; decision_hygiene: string }> = {}
+        for (const [k, v] of Object.entries(raw)) {
+          sanitized[k] = {
+            specific_action: v.specific_action ? sanitizeCoachingText(v.specific_action) : '',
+            decision_hygiene: v.decision_hygiene ? sanitizeCoachingText(v.decision_hygiene) : '',
+          }
+        }
+        return sanitized
+      })(),
       m2NarrativeSummary: (() => {
         const raw = reviewStatus === 'complete' ? m1ReviewAssumptions?.narrative_summary : undefined
         return raw ? sanitizeCoachingText(raw) : undefined
