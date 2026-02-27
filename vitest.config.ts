@@ -49,10 +49,11 @@ export default defineConfig({
     mockReset: true,
     isolate: true,
     passWithNoTests: true,
-    // Limit parallelism to avoid JS heap OOM in CI and local full runs
+    // Single thread to avoid JS heap OOM locally. CI has more RAM and uses
+    // sharded runners for parallelism instead.
     poolOptions: {
       threads: {
-        maxThreads: 2,
+        maxThreads: 1,
         minThreads: 1,
       },
     },

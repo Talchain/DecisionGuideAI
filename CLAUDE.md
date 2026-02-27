@@ -80,17 +80,57 @@ git stash list
 
 Report the output. Stale `.js` files cause silent shadowing bugs where Vite resolves the `.js` file instead of the `.ts` source. Flag unexpected uncommitted changes or stash entries before proceeding. Confirm the branch is correct for the task.
 
-## Testing
+## Testing — Three-Tier Process
 
-After any code changes, run the full test suite, typecheck, and build before committing:
+Testing uses a tiered approach to avoid crushing the local machine. The full suite
+(500+ files, 6,600+ tests) causes Worker OOM at 4 GB and takes ~15 min locally.
+CI is the real safety net — it runs the full suite with sharded runners and 7 GB RAM.
+
+### Tier 1: Smoke (after every code change)
+
+Run **only** after making changes, before reporting the task as done.
+Targets changed files and their direct dependents — fast and light.
 
 ```bash
-npm test
+npm run typecheck                              # ~60-90s, catches type errors
+npx vitest run --changed --bail=1              # only tests affected by changes
+```
+
+If `--changed` finds no related tests, skip the vitest step — typecheck alone is sufficient.
+Report: "Typecheck passed. N related tests passed." (or "No related tests for this change.")
+
+### Tier 2: Pre-commit validation
+
+Run before committing. Still lightweight — no full test suite.
+
+```bash
 npm run typecheck
+npm run lint
+```
+
+### Tier 3: Full gate (before pushing to staging only)
+
+Run **only** when the user explicitly says to push to staging.
+The pre-push hook (`scripts/pre-push-validate.sh`) handles this automatically.
+Do NOT run `npm test` or `npm run build` manually before pushing — the hook does it.
+
+```bash
+git push origin staging    # triggers pre-push hook which runs full suite
+```
+
+If the user asks to run the full suite outside of a push, use:
+```bash
+npm run test:full          # 4 GB heap, --bail=1
 npm run build
 ```
 
-Report the exact number of passing/failing tests.
+### Important rules
+
+- **Never run `npm test` (full suite) after every code change** — it OOMs and wastes time.
+- **Never run typecheck + full tests in parallel** — doubles peak RAM and causes OOM.
+- The pre-push hook runs checks sequentially to stay within memory limits.
+- CI (GitHub Actions) is the authoritative gate — it runs the full suite, E2E, coverage,
+  bundle policy, and security scans. Local testing is a fast feedback loop, not a replacement.
 
 ## Debugging
 
@@ -125,15 +165,15 @@ When asked to address code review feedback:
 
 ## Task Completion Checklist
 
-Before reporting ANY task as complete, run and show the output of all checks:
+Before reporting ANY task as complete, run the **Tier 1 smoke checks** (not the full suite):
 
 ```bash
-git branch --show-current   # Correct branch?
-git status                  # Clean state?
-git log --oneline -5        # Recent commits match work done?
-npm test                    # All tests pass?
-npm run typecheck           # TypeScript compiles?
-npm run build               # Build succeeds?
+git branch --show-current                      # Correct branch?
+git status                                     # Clean state?
+npm run typecheck                              # TypeScript compiles?
+npx vitest run --changed --bail=1              # Related tests pass?
 ```
 
-If any check fails, fix it before reporting completion. Do not report "done" with failing tests or uncommitted changes unless explicitly discussed with the user.
+If typecheck or related tests fail, fix before reporting completion.
+Do NOT run `npm test` (full suite) or `npm run build` here — those run in the pre-push hook
+when the user decides to push, and again in CI. See "Testing — Three-Tier Process" above.
