@@ -754,8 +754,9 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     const cleaned = sanitizeCoachingText(raw)
     if (!cleaned || cleaned === 'your goal') return 'your goal'
 
-    // Guard: if label is very short (< 4 words), it likely reads awkwardly as
-    // "To a Cat" — prefix with context so it becomes "the best outcome for Cat"
+    // Guard: single-word labels or labels that collide with option/factor names
+    // read awkwardly as "To Cat" — prefix with context → "the best outcome for Cat"
+    // Multi-word verb phrases ("increase revenue") read fine as-is.
     const optionLabels = new Set(
       nodes.filter(n => (n.data as any)?.kind === 'option').map(n => (n.data as any)?.label as string).filter(Boolean)
     )
@@ -763,7 +764,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       nodes.filter(n => (n.data as any)?.kind === 'factor').map(n => (n.data as any)?.label as string).filter(Boolean)
     )
     const wordCount = cleaned.split(/\s+/).length
-    if (wordCount < 4 || optionLabels.has(cleaned) || factorLabels.has(cleaned)) {
+    if (wordCount < 2 || optionLabels.has(cleaned) || factorLabels.has(cleaned)) {
       return `the best outcome for ${cleaned}`
     }
 

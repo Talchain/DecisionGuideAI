@@ -233,6 +233,22 @@ describe('discrete encoding patterns (V12.1 Fix 2)', () => {
     const result = cleanFactorLabel('Revenue (annual)')
     expect(result.label).toBe('Revenue (annual)')
   })
+
+  // V14.1: Decimal encoding patterns
+  it('strips (0=Cat, 0.94=Dog) with decimal keys', () => {
+    const result = cleanFactorLabel('Pet Type (0=Cat, 0.94=Dog)')
+    expect(result.label).toBe('Pet Type')
+  })
+
+  it('strips (0=Low, 0.5=Med, 1=High) with decimal keys', () => {
+    const result = cleanFactorLabel('Risk (0=Low, 0.5=Med, 1=High)')
+    expect(result.label).toBe('Risk')
+  })
+
+  it('strips (0=Off, 1=On) integer case still works', () => {
+    const result = cleanFactorLabel('Status (0=Off, 1=On)')
+    expect(result.label).toBe('Status')
+  })
 })
 
 // V12: sanitizeCoachingText
@@ -276,5 +292,14 @@ describe('sanitizeCoachingText', () => {
 
   it('V12.5: replaces em dash (\u2014) with comma', () => {
     expect(sanitizeCoachingText('criteria \u2014 margin')).toBe('criteria, margin')
+  })
+
+  // V14.1: Decimal encoding in coaching text
+  it('strips decimal encoding (0=Cat, 0.94=Dog) from coaching text', () => {
+    expect(sanitizeCoachingText('Pet Type (0=Cat, 0.94=Dog) drives the outcome')).toBe('Pet Type drives the outcome')
+  })
+
+  it('strips multi-entry decimal encoding from coaching text', () => {
+    expect(sanitizeCoachingText('Risk (0=Low, 0.5=Med, 1=High) is uncertain')).toBe('Risk is uncertain')
   })
 })

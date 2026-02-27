@@ -25,6 +25,7 @@ import { normaliseGoalLabel } from '../../utils/normaliseGoalLabel'
 import { BaselineToggleCard, type BaselineOption } from './BaselineToggleCard'
 import { BaselineTargetRow } from './BaselineTargetRow'
 import { focusNodeById } from '../../canvas/utils/focusHelpers'
+import { highlightNode, clearHighlight } from '../../canvas/utils/highlightHelpers'
 import { GAP_THRESHOLD } from './buildResultsVM'
 import type { DecisionState, HingeInfo, NextActionItem } from './types'
 import type { NearTieInfo } from '../../lib/mappers/types'
@@ -771,7 +772,12 @@ export function HeroSection({
 
           {/* ── Task 4: Condition card ────────────────────────── */}
           {v14ConditionCard && (
-            <div className="mb-3 p-3 border border-danger/30 rounded-lg flex items-start gap-2" data-testid="condition-card">
+            <div
+              className="mb-3 p-3 border border-danger/30 rounded-lg flex items-start gap-2 results-card-hover"
+              data-testid="condition-card"
+              onMouseEnter={() => highlightNode(v14ConditionCard.fromId)}
+              onMouseLeave={clearHighlight}
+            >
               <AlertTriangle className="w-4 h-4 text-danger flex-shrink-0 mt-0.5" />
               <p className={`${typography.panelBody} text-text-body`}>
                 {'If '}
@@ -1014,7 +1020,11 @@ export function HeroSection({
 
         {/* V14: Condition card — factor-only language, no arrow notation */}
         {conditionCard && conditionCard.type === 'specific' && (
-          <div className="mt-3 mb-3 p-3 border border-danger/30 rounded-lg flex items-start gap-2">
+          <div
+            className="mt-3 mb-3 p-3 border border-danger/30 rounded-lg flex items-start gap-2 results-card-hover"
+            onMouseEnter={() => highlightNode(conditionCard.fromId)}
+            onMouseLeave={clearHighlight}
+          >
             <AlertTriangle className="w-4 h-4 text-danger flex-shrink-0 mt-0.5" />
             <p className={`${typography.panelBody} text-text-body`}>
               {'If '}
