@@ -193,7 +193,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
   }, [direction, isDark])
 
   // Decision Graph Display v2: Existence certainty line style
-  // Solid: >70%, Dashed: 30-70%, Dotted: <30%
+  // Solid: >70%, Dashed: 40-70%, Dotted: <40%
   // Use utility function to ensure single source of truth
   // Issue #1 fix: Add fallback for snake_case field names from raw API data
   const beliefExists = edgeData?.beliefExists ??
