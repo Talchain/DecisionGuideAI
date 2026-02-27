@@ -581,17 +581,17 @@ describe('ConfidenceSection', () => {
       expect(screen.getByText('Check market size data')).toBeInTheDocument()
     })
 
-    it('strips arrow characters from action text', () => {
-      const dataWithArrows: ConfidenceSectionData = {
+    it('renders pre-sanitized action text (sanitization happens at data layer)', () => {
+      // Data layer sanitizes arrows before passing to ConfidenceSection
+      const dataWithCleanActions: ConfidenceSectionData = {
         ...mockData,
         nextActions: [
-          { action: 'Price \u2192 Revenue relationship', rationale: '', priority: 1 },
+          { action: 'Price to Revenue relationship', rationale: '', priority: 1 },
         ],
       }
 
-      render(<ConfidenceSection data={dataWithArrows} />)
+      render(<ConfidenceSection data={dataWithCleanActions} />)
 
-      // sanitizeCoachingText strips arrows
       expect(screen.getByText('Price to Revenue relationship')).toBeInTheDocument()
     })
 

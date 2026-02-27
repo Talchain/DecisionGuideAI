@@ -18,7 +18,7 @@
 import { useRef, type RefObject } from 'react'
 import { typography } from '../../styles/typography'
 import { formatPercent as formatPct } from '../../utils/formatPercent'
-import { stripEncodingNotation, sanitizeCoachingText } from './utils/cleanFactorLabel'
+import { stripEncodingNotation } from './utils/cleanFactorLabel'
 import type { OptionResult, DecisionState, HingeInfo } from './types'
 import {
   constraintConfidenceColour,
@@ -43,9 +43,6 @@ export interface OptionCardsProps {
   /** V12.3: Segment colour per option ID (keyed by option ID, CSS custom property values) */
   segmentColorMap?: Record<string, string>
 }
-
-/** @deprecated Use sanitizeCoachingText from cleanFactorLabel.ts */
-const stripArrows = sanitizeCoachingText
 
 /** Fallback description when no story headline is available */
 function fallbackDescription(option: OptionResult, totalOptions: number): string {
@@ -293,7 +290,7 @@ export function OptionCards({
         const description = decisionState
           ? hingeAwareDescription(option, isWinner, isRunnerUp, hinge)
           : headline
-            ? stripArrows(stripEncodingNotation(headline))
+            ? headline
             : fallbackDescription(option, options.length)
 
         // V12.3: Segment colour from wins bar palette (keyed by option ID)

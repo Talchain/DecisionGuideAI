@@ -43,7 +43,7 @@ import type {
 } from './types'
 import type { FactorEnrichment, NearTieInfo } from '../../lib/mappers/types'
 import { normaliseFactorFields } from '../../lib/mappers/mapFactorSensitivity'
-import { stripEncodingNotation } from './utils/cleanFactorLabel'
+import { stripEncodingNotation, sanitizeCoachingText } from './utils/cleanFactorLabel'
 import { humaniseCritique } from './utils/humaniseCritique'
 
 // =============================================================================
@@ -1106,22 +1106,53 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       flipThresholds: flipThresholds.length > 0 ? flipThresholds : undefined,
       // v7: Whether outcome values are normalised model scores (no goalThresholdCap)
       isNormalised: isNormalisedResult,
-      // M1 Coaching fields (Task 2)
-      coachingHeadline: m1Coaching?.executive_summary?.headline,
-      coachingParagraph: m1Coaching?.executive_summary?.paragraph
-        ?? m1Coaching?.executive_summary?.summary,
+      // M1 Coaching fields (Task 2) — sanitized at data layer
+      coachingHeadline: m1Coaching?.executive_summary?.headline
+        ? sanitizeCoachingText(m1Coaching.executive_summary.headline) : undefined,
+      coachingParagraph: (() => {
+        const raw = m1Coaching?.executive_summary?.paragraph
+          ?? m1Coaching?.executive_summary?.summary
+        return raw ? sanitizeCoachingText(raw) : undefined
+      })(),
       coachingReadiness: m1Coaching?.readiness,
       coachingReadinessScore: m1Coaching?.readiness_signals?.score,
-      coachingReadinessDimensions: m1Coaching?.readiness_signals?.dimensions,
-      storyHeadlines: m1Coaching?.story_headlines ?? {},
-      // V12: Executive summary structured fields
-      coachingDecisionStatement: m1Coaching?.executive_summary?.decision_statement
-        ?? m1Coaching?.executive_summary?.recommendation,
-      coachingKeyQualifier: m1Coaching?.executive_summary?.key_qualifier,
-      coachingActionImplication: m1Coaching?.executive_summary?.action_implication
-        ?? m1Coaching?.executive_summary?.readiness_statement,
-      // V12 C1: M2 narrative summary — gated on review_status === 'complete'
-      m2NarrativeSummary: reviewStatus === 'complete' ? m1ReviewAssumptions?.narrative_summary : undefined,
+      coachingReadinessDimensions: (() => {
+        const raw = m1Coaching?.readiness_signals?.dimensions
+        if (!raw) return undefined
+        // Defensive: normalise backend key variants to the { evidence, robustness, clarity }
+        // shape that HeroSection expects. Accepts both canonical and alternative key names.
+        const evidence = raw.evidence ?? raw.evidence_quality
+        const robustness = raw.robustness ?? raw.model_robustness
+        const clarity = raw.clarity ?? raw.framing_quality
+        if (evidence == null || robustness == null || clarity == null) return undefined
+        return { evidence, robustness, clarity } as { evidence: number; robustness: number; clarity: number }
+      })(),
+      storyHeadlines: (() => {
+        const raw = m1Coaching?.story_headlines ?? {}
+        const sanitized: Record<string, string> = {}
+        for (const [k, v] of Object.entries(raw)) {
+          sanitized[k] = typeof v === 'string' ? sanitizeCoachingText(v) : ''
+        }
+        return sanitized
+      })(),
+      // V12: Executive summary structured fields — sanitized at data layer
+      coachingDecisionStatement: (() => {
+        const raw = m1Coaching?.executive_summary?.decision_statement
+          ?? m1Coaching?.executive_summary?.recommendation
+        return raw ? sanitizeCoachingText(raw) : undefined
+      })(),
+      coachingKeyQualifier: m1Coaching?.executive_summary?.key_qualifier
+        ? sanitizeCoachingText(m1Coaching.executive_summary.key_qualifier) : undefined,
+      coachingActionImplication: (() => {
+        const raw = m1Coaching?.executive_summary?.action_implication
+          ?? m1Coaching?.executive_summary?.readiness_statement
+        return raw ? sanitizeCoachingText(raw) : undefined
+      })(),
+      // V12 C1: M2 narrative summary — gated on review_status === 'complete', sanitized at data layer
+      m2NarrativeSummary: (() => {
+        const raw = reviewStatus === 'complete' ? m1ReviewAssumptions?.narrative_summary : undefined
+        return raw ? sanitizeCoachingText(raw) : undefined
+      })(),
       // M1 Coaching: Dominant factor from key_drivers (factor with >50% influence)
       // Use PLoT's computed dominant_factor if available
       dominantFactorId: m1Coaching?.key_drivers?.dominant_factor,
@@ -2034,12 +2065,12 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
             ? rawTargetId.split('->')[0]
             : rawTargetId
           return {
-            action: action.action ?? '',
-            rationale: action.rationale ?? '',
+            action: action.action ? sanitizeCoachingText(action.action) : '',
+            rationale: action.rationale ? sanitizeCoachingText(action.rationale) : '',
             priority: action.priority ?? 999,
             targetType,
             targetId: resolvedTargetId,
-            targetLabel: action.target_label,
+            targetLabel: action.target_label ? sanitizeCoachingText(action.target_label) : undefined,
           }
         })
 
@@ -2064,7 +2095,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
         // Map to UI format
         const assumptions = sortedAssumptions.map((assumption: any) => ({
           severity: (assumption.severity ?? 'low') as 'low' | 'medium' | 'high',
-          message: assumption.message ?? '',
+          message: assumption.message ? sanitizeCoachingText(assumption.message) : '',
           target: assumption.target,
         }))
 
@@ -2099,7 +2130,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
         return findings.map((f: any) => ({
           type: f.type ?? '',
           source: f.source ?? '',
-          description: f.description ?? '',
+          description: f.description ? sanitizeCoachingText(f.description) : '',
           affectedElements: safeArray(f.affected_elements),
           linkedCritiqueCode: f.linked_critique_code ?? '',
         }))
@@ -2108,14 +2139,17 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
         const prompts = safeArray(m1ReviewAssumptions?.decision_quality_prompts)
         if (prompts.length === 0) return undefined
         return prompts.map((p: any) => ({
-          principle: p.principle ?? '',
-          appliesBecause: p.applies_because ?? '',
-          question: p.question ?? '',
+          principle: p.principle ? sanitizeCoachingText(p.principle) : '',
+          appliesBecause: p.applies_because ? sanitizeCoachingText(p.applies_because) : '',
+          question: p.question ? sanitizeCoachingText(p.question) : '',
         }))
       })(),
       m2EvidenceEnhancements: m1ReviewAssumptions?.evidence_enhancements as
         Record<string, { specific_action: string; decision_hygiene: string }> | undefined,
-      m2NarrativeSummary: reviewStatus === 'complete' ? m1ReviewAssumptions?.narrative_summary : undefined,
+      m2NarrativeSummary: (() => {
+        const raw = reviewStatus === 'complete' ? m1ReviewAssumptions?.narrative_summary : undefined
+        return raw ? sanitizeCoachingText(raw) : undefined
+      })(),
     }
   }, [report, m1Coaching, drivers, reviewStatus, m1ReviewAssumptions])
 

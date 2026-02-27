@@ -17,7 +17,7 @@
 import { useState, useMemo } from 'react'
 import { AlertTriangle, ChevronDown, ChevronRight, Compass, Info } from 'lucide-react'
 import { typography } from '../../styles/typography'
-import { stripEncodingNotation, sanitizeCoachingText } from './utils/cleanFactorLabel'
+import { stripEncodingNotation } from './utils/cleanFactorLabel'
 import { formatPercent as formatPct } from '../../utils/formatPercent'
 import { GraphLink } from './GraphLink'
 import { linkifyCoachingText, type LinkEntity } from './utils/linkifyCoachingText'
@@ -692,16 +692,10 @@ export function HeroSection({
 
   // V14 path: structured hero with headline, dot, executive, condition card, gauge
   if (decisionState) {
-    // Sanitize coaching text for structured executive
-    const sanitizedDecisionStatement = coachingDecisionStatement
-      ? sanitizeCoachingText(coachingDecisionStatement)
-      : null
-    const sanitizedActionImplication = coachingActionImplication
-      ? sanitizeCoachingText(coachingActionImplication)
-      : null
-    const sanitizedParagraph = coachingParagraph
-      ? sanitizeCoachingText(coachingParagraph)
-      : null
+    // Data layer sanitizes these — just null-guard for rendering
+    const sanitizedDecisionStatement = coachingDecisionStatement || null
+    const sanitizedActionImplication = coachingActionImplication || null
+    const sanitizedParagraph = coachingParagraph || null
 
     return (
       <div className="space-y-4" data-testid="hero-section">
@@ -834,7 +828,7 @@ export function HeroSection({
               <Compass className="w-3.5 h-3.5 text-info flex-shrink-0 mt-0.5" />
               <p className={`${typography.panelBody} text-text-body`}>
                 {(() => {
-                  const actionText = sanitizeCoachingText(topNextAction.action)
+                  const actionText = topNextAction.action
                   const targetLabel = topNextAction.targetLabel
                   const targetId = topNextAction.targetId
 
@@ -902,7 +896,7 @@ export function HeroSection({
                 <div>
                   <p className={`${typography.panelMeta} text-text-light italic mb-1`}>AI-enhanced analysis</p>
                   <p className={`${typography.panelBody} text-text-body`}>
-                    {sanitizeCoachingText(m2NarrativeSummary)}
+                    {m2NarrativeSummary}
                   </p>
                 </div>
               ) : sanitizedParagraph ? (

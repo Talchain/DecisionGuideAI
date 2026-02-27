@@ -563,16 +563,16 @@ describe('OptionCards', () => {
       expect(screen.getByText('Top-performing option based on current estimates.')).toBeInTheDocument()
     })
 
-    it('V11.2: strips arrow characters from story_headline fallback', () => {
+    it('V11.2: renders pre-sanitized story_headline (sanitization at data layer)', () => {
+      // Data layer sanitizes arrows before passing storyHeadlines to OptionCards
       render(
         <OptionCards
           options={mockOptions}
           winnerId="option-1"
-          storyHeadlines={{ 'option-1': 'Leads by 5pp → strongest performer' }}
+          storyHeadlines={{ 'option-1': 'Leads by 5pp to strongest performer' }}
         />
       )
 
-      // Arrow should be replaced with "to"
       expect(screen.getByText('Leads by 5pp to strongest performer')).toBeInTheDocument()
       expect(screen.queryByText(/→/)).not.toBeInTheDocument()
     })

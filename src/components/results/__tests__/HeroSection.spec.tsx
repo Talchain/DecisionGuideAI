@@ -1324,18 +1324,18 @@ describe('HeroSection', () => {
       expect(screen.queryByTestId('structured-executive')).toBeNull()
     })
 
-    it('sanitizes arrow characters from coaching text', () => {
+    it('renders pre-sanitized coaching text (sanitization happens at data layer)', () => {
+      // Data layer sanitizes arrows before passing to HeroSection
       render(
         <HeroSection
           {...baseProps}
           decisionState="robust"
           recommendationStability={0.90}
-          coachingDecisionStatement="Factor A → Goal shows strong influence."
+          coachingDecisionStatement="Factor A to Goal shows strong influence."
         />
       )
 
       const exec = screen.getByTestId('structured-executive')
-      // Arrow should be replaced with " to "
       expect(exec.textContent).not.toContain('\u2192')
       expect(exec.textContent).toContain('Factor A to Goal')
     })

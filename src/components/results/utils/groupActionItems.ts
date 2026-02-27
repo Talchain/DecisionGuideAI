@@ -204,7 +204,7 @@ export function groupActionItems(input: GroupActionItemsInput): ActionGroup[] {
       if (targetId) group1Keys.add(targetId) // Prevent same factor appearing in Group 2
       group1Items.push({
         id: `next-${targetId || action.action.slice(0, 30)}`,
-        title: sanitizeCoachingText(action.action),
+        title: action.action, // sanitized at data layer
         subtitle: action.rationale || undefined,
         targetId: targetId || undefined,
         targetType: 'node',
@@ -258,9 +258,9 @@ export function groupActionItems(input: GroupActionItemsInput): ActionGroup[] {
   // V12: Handle both legacy string[] and structured M2BiasFindingInput[]
   const group3Items: ActionItem[] = (biasFindings ?? []).map((finding, i) => {
     if (typeof finding === 'string') {
-      return { id: `bias-${i}`, title: finding, source: 'brief' as const }
+      return { id: `bias-${i}`, title: sanitizeCoachingText(finding), source: 'brief' as const }
     }
-    // Structured M2 bias finding
+    // Structured M2 bias finding — description sanitized at data layer
     return {
       id: `bias-${finding.type}-${i}`,
       title: finding.description,
@@ -276,9 +276,9 @@ export function groupActionItems(input: GroupActionItemsInput): ActionGroup[] {
   // V12: Handle both legacy string[] and structured M2DecisionQualityPromptInput[]
   const group4Items: ActionItem[] = (preMortem ?? []).map((item, i) => {
     if (typeof item === 'string') {
-      return { id: `premortem-${i}`, title: item, source: 'brief' as const }
+      return { id: `premortem-${i}`, title: sanitizeCoachingText(item), source: 'brief' as const }
     }
-    // Structured M2 decision quality prompt
+    // Structured M2 decision quality prompt — fields sanitized at data layer
     return {
       id: `dqp-${i}`,
       title: item.principle,
