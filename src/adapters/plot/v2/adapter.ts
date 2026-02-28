@@ -300,6 +300,12 @@ export function ceeOptionToV2Option(ceeOption: CEEOptionV3): V2Option {
  * CEE/PLoT payloads use `observed_state` (snake_case). This function
  * reads from camelCase and returns snake_case for the V2 request.
  *
+ * UI-SEM-002: Observed state default injection — std and baseline are
+ * computed when CEE has not provided them. Adapter concern (legitimate).
+ *
+ * UI-SEM-003: STD floor enforcement (STD_FLOOR constant). Prevents
+ * zero-variance nodes from crashing PLoT. Adapter concern (legitimate).
+ *
  * V3 pass-through: spreads ALL CEE-provided fields (raw_value, cap,
  * factor_type, uncertainty_drivers, extractionType) and only adds
  * std/baseline when CEE hasn't provided them.

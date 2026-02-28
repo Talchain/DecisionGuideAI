@@ -14,7 +14,7 @@
  */
 
 import { useState, useCallback, useMemo } from 'react'
-import type { ConfidenceSectionData, UncertaintyItem, ImprovementItem, CritiqueSeverity, ConfidenceTier, EvidenceGapItem, AssumptionItem, DecisionState, HingeInfo, TopAction } from './types'
+import type { ConfidenceSectionData, UncertaintyItem, CritiqueSeverity, ConfidenceTier, EvidenceGapItem, AssumptionItem, DecisionState, HingeInfo, TopAction } from './types'
 import type { ConstraintAnalysis } from '../../types/constraints'
 import { focusNodeById, focusByTarget, type FocusTargetType } from '../../canvas/utils/focusHelpers'
 import { highlightNode, clearHighlight } from '../../canvas/utils/highlightHelpers'
@@ -341,31 +341,6 @@ function UncertaintyRow({
   )
 }
 
-function ImprovementRow({
-  item,
-}: {
-  item: ImprovementItem
-}) {
-  return (
-    <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg">
-      <div className="flex items-start gap-2">
-        <span className="text-slate-400 mt-0.5">□</span>
-        <div className="flex-1">
-          <p className={`${typography.panelBody} text-slate-700`}>{item.action}</p>
-          {item.reason && item.reason !== item.action && (
-            <p className={`${typography.panelBody} text-slate-500 mt-1`}>{item.reason}</p>
-          )}
-          {item.effortMinutes && (
-            <span className={`${typography.panelBody} text-slate-500 mt-1 inline-block`}>
-              ~{item.effortMinutes} min
-            </span>
-          )}
-        </div>
-      </div>
-    </div>
-  )
-}
-
 export function ConfidenceSection({
   data,
   onFocusNode,
@@ -381,7 +356,6 @@ export function ConfidenceSection({
   hasWinnerAbove50,
 }: ConfidenceSectionProps) {
   const [showAllUncertainties, setShowAllUncertainties] = useState(false)
-  const [showAllImprovements, setShowAllImprovements] = useState(false)
   const [showAssumptions, setShowAssumptions] = useState(false)
 
   const {
@@ -390,7 +364,6 @@ export function ConfidenceSection({
     topUncertainties,
     evidenceCoverage,
     improvements,
-    topImprovements,
     filteredFragileEdges,
     analysisStatus,
     robustnessStatus,
@@ -430,10 +403,6 @@ export function ConfidenceSection({
   }, [uncertainties, humanisedCritiques])
 
   const config = TIER_CONFIG[tier.tier]
-  // v7.5 T1 Fix: displayUncertainties removed - split logic now uses full uncertainties array
-  const displayImprovements = showAllImprovements ? improvements : topImprovements
-  const hiddenImprovementCount = improvements.length - topImprovements.length
-
   // Always show uncertainties section header with empty state if needed
   const showUncertainties = true
 
@@ -867,46 +836,6 @@ export function ConfidenceSection({
 
       {/* V12.1 Fix 3: "Recommended actions" section removed — next_actions merged into Validate group above */}
 
-      {/* v7.5: gated — not in v7 prototype. Source: m1_coaching. Remove after v7 stable. */}
-      {/* eslint-disable-next-line no-constant-binary-expression */}
-      {false && (
-      <div className="space-y-2">
-        <h4 className={`${typography.panelHeader} text-slate-500 tracking-wide`}>
-          Improvements
-        </h4>
-        {improvements.length === 0 ? (
-          <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg">
-            <p className={`${typography.panelBody} text-slate-600 flex items-start gap-2`}>
-              <span aria-hidden="true">ℹ️</span>
-              {/* Task 3 + P2 Polish: Show context-appropriate message when no improvements */}
-              {analysisStatus === 'computed' || analysisStatus === 'partial'
-                ? (tier.tier === 'strong' || robustnessLevel === 'high' || robustnessLevel === 'moderate'
-                    ? 'Model structure is sound. Focus on strengthening assumptions and framing.'
-                    : 'No structural issues detected. Focus on the assumptions above.')
-                : EMPTY_STATES.improvements}
-            </p>
-          </div>
-        ) : (
-          <div className="space-y-2">
-            {displayImprovements.map((item, index) => (
-              <ImprovementRow
-                key={`${item.action.slice(0, 20)}-${index}`}
-                item={item}
-              />
-            ))}
-          </div>
-        )}
-
-        {hiddenImprovementCount > 0 && (
-          <button
-            onClick={() => setShowAllImprovements(!showAllImprovements)}
-            className={`${typography.panelBody} text-sky-600 hover:text-sky-700`}
-          >
-            {showAllImprovements ? 'Show fewer' : `+${hiddenImprovementCount} more items`}
-          </button>
-        )}
-      </div>
-      )}
 
       {/* Task 6 (M1 Coaching): Assumptions transparency link and disclosure */}
       {assumptions && assumptions.length > 0 && (

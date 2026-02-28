@@ -17,7 +17,6 @@ import type { RecommendationSectionData, DriverItem, DecisionState, HingeInfo, N
 import { EMPTY_STATES } from './emptyStates'
 import { typography } from '../../styles/typography'
 import { HeroSection, type OptionWinShare } from './HeroSection'
-import { LimitedOptionsCard } from './LimitedOptionsCard'
 
 /** Top fragile edge data for HeroSection */
 export interface TopFragileEdge {
@@ -255,17 +254,6 @@ export function RecommendationSection({
         topNextAction={topNextAction}
         goalNodeId={goalNodeId}
       />
-
-      {/* P2 Task 3: Limited options coaching card (moved below hero) */}
-      {/* v7.3: GATED — "You're comparing 2 options" banner not in prototype. Remove after v7 stable. */}
-      {/* eslint-disable-next-line no-constant-binary-expression */}
-      {false && (
-        <LimitedOptionsCard
-          optionCount={optionCount}
-          hasBaseline={hasBaseline}
-          responseHash={responseHash}
-        />
-      )}
 
       {/* Single option CTA */}
       {isSingleOption && (

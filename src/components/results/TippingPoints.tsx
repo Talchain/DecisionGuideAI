@@ -202,91 +202,7 @@ function TippingPointsModeA({ flipThresholds, outcomeUnit, outcomeUnitSymbol }: 
 }
 
 // =============================================================================
-// Mode B: Driver Strength Fallback
-// =============================================================================
-
-export interface TippingPointsModeBProps {
-  drivers: DriverItem[]
-}
-
-function TippingPointsModeB({ drivers }: TippingPointsModeBProps) {
-  const [showAll, setShowAll] = useState(false)
-
-  // Sort by |elasticity| descending, take non-zero only
-  const sorted = useMemo(() => {
-    return [...drivers]
-      .filter(d => Math.abs(d.rawElasticity) > 0.001)
-      .sort((a, b) => Math.abs(b.rawElasticity) - Math.abs(a.rawElasticity))
-  }, [drivers])
-
-  if (sorted.length === 0) return null
-
-  const maxElasticity = Math.abs(sorted[0].rawElasticity)
-  const displayItems = showAll ? sorted : sorted.slice(0, 3)
-  const hiddenCount = sorted.length - 3
-
-  return (
-    <div className="space-y-3 p-3 bg-panel border border-panel-border rounded-lg">
-      {/* Header — C3: "Driver strength" */}
-      <div>
-        <h4 className={`${typography.panelHeader} text-text-header`}>
-          Driver strength
-        </h4>
-        <p className={`${typography.panelBody} text-text-light`}>
-          Influence on the result
-        </p>
-      </div>
-
-      {/* Driver bars */}
-      <div className="space-y-2">
-        {displayItems.map(driver => {
-          const barWidth = maxElasticity > 0
-            ? (Math.abs(driver.rawElasticity) / maxElasticity) * 100
-            : 0
-
-          return (
-            <div key={driver.factorKey} className="space-y-1">
-              <GraphLink
-                nodeId={driver.matchedNodeId || driver.factorKey}
-                label={stripEncodingNotation(driver.factorLabel)}
-                className={typography.panelHeader}
-              />
-              <div className="relative h-1.5 bg-slate-100 rounded-full">
-                <div
-                  className="absolute h-1.5 rounded-full bg-info/50"
-                  style={{ width: `${barWidth}%` }}
-                />
-              </div>
-            </div>
-          )
-        })}
-      </div>
-
-      {/* Show more/less toggle */}
-      {hiddenCount > 0 && (
-        <button
-          onClick={() => setShowAll(!showAll)}
-          className={`flex items-center gap-1 ${typography.panelBody} text-info hover:text-info-hover transition-colors`}
-        >
-          {showAll ? (
-            <>
-              <ChevronDown className="w-3 h-3" />
-              Show less
-            </>
-          ) : (
-            <>
-              <ChevronRight className="w-3 h-3" />
-              Show all {sorted.length}
-            </>
-          )}
-        </button>
-      )}
-    </div>
-  )
-}
-
-// =============================================================================
-// Main Component — switches between Mode A and Mode B
+// Main Component
 // =============================================================================
 
 export interface TippingPointsProps {
@@ -318,13 +234,6 @@ export function TippingPoints({
         outcomeUnitSymbol={outcomeUnitSymbol}
       />
     )
-  }
-
-  // Mode B: fallback to driver strength
-  // v7.2: GATED — "Driver strength" block not in v7 prototype
-  // eslint-disable-next-line no-constant-condition, no-constant-binary-expression
-  if (false && drivers && drivers.length > 0) {
-    return <TippingPointsModeB drivers={drivers} />
   }
 
   return null

@@ -99,6 +99,8 @@ jobs:
       - run: npm ci
       - run: npm run build --if-present
       - run: npm test --if-present
+        env:
+          NODE_OPTIONS: "--max-old-space-size=4096"
       - name: Ensure tests.json (non-blocking if file missing)
         run: node tools/ensure-tests-json.js
         continue-on-error: true

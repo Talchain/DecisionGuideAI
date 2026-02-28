@@ -24,7 +24,6 @@ import { cleanFactorLabel, stripEncodingNotation } from './utils/cleanFactorLabe
 import { TornadoChart, type TornadoRow } from './TornadoChart'
 import { typography } from '../../styles/typography'
 import { formatPercent } from '../../utils/formatPercent'
-import { AlertTriangle } from 'lucide-react'
 
 interface DriversSectionProps {
   data: DriversSectionData
@@ -257,7 +256,7 @@ function ExpandedDetails({
     )
   }
 
-  // Show "Could benefit from more evidence" when VOI > 0.05 (investigation could change decision)
+  // UI-SEM-014: VOI evidence threshold (0.05). Estimated — PLoT does not provide a visibility gate for VOI hints.
   // VOI = 0 means "even if you gather more data, the decision won't change"
   const showQualityHint = typeof driver.valueOfInformation === 'number' && driver.valueOfInformation > 0.05
 
@@ -555,18 +554,8 @@ export function DriversSection({
   goalDirection,
 }: DriversSectionProps) {
   const [showAll, setShowAll] = useState(false)
-  const { drivers, driversStatus, topDrivers, hasMagnitudeData, islError, hiddenZeroImpactCount, dominantFactorId, dominantFactorLabel } = data
+  const { drivers, driversStatus, topDrivers, hasMagnitudeData, islError, hiddenZeroImpactCount } = data
 
-  // Handle focus on dominant factor
-  const handleDominantFactorFocus = useCallback(() => {
-    if (dominantFactorId) {
-      if (onFocusNode) {
-        onFocusNode(dominantFactorId)
-      } else {
-        focusNodeById(dominantFactorId)
-      }
-    }
-  }, [dominantFactorId, onFocusNode])
 
   // Diagnostic logging for data issues (debug mode only)
   useEffect(() => {
@@ -624,40 +613,8 @@ export function DriversSection({
 
   // Get dominant factor's influence percentage
   // Clamp to [0,1] before converting to percentage to handle out-of-range values
-  const dominantFactorInfluence = dominantFactorId
-    ? (() => {
-        const driver = visibleDrivers.find(d => d.factorKey === dominantFactorId)
-        if (!driver) return null
-        const rawInfluence = driver.influenceScore ?? driver.normalisedInfluence
-        const clampedInfluence = Math.max(0, Math.min(1, rawInfluence))
-        return Math.round(clampedInfluence * 100)
-      })()
-    : null
-
   return (
     <div className="space-y-4">
-      {/* M1 Coaching: Dominant factor warning callout */}
-      {/* v7.2: GATED — coaching belongs in Strengthen section, not Drivers */}
-      {/* Note: dominantFactorInfluence uses !== null to handle edge case of 0% (though detection requires >50%) */}
-      {/* eslint-disable-next-line no-constant-binary-expression */}
-      {false && dominantFactorId && dominantFactorLabel && dominantFactorInfluence !== null && (
-        <div className="p-3 bg-panel border border-warning rounded-lg flex items-start gap-2">
-          <AlertTriangle className="w-4 h-4 text-warning flex-shrink-0 mt-0.5" />
-          <div className="flex-1 min-w-0">
-            <p className={`${typography.panelBody} text-text-body`}>
-              {/* Patch 1: Clean encoding notation from dominant factor label */}
-              <span>{stripEncodingNotation(dominantFactorLabel)}</span> dominates this decision ({dominantFactorInfluence}% influence). If this factor's weight is overestimated, the recommendation could change.
-            </p>
-            <button
-              onClick={handleDominantFactorFocus}
-              className={`${typography.panelBody} text-info hover:text-info-hover underline mt-1`}
-            >
-              Review on canvas
-            </button>
-          </div>
-        </div>
-      )}
-
       {/* Column headers - right-aligned above bars only */}
       {/* NOTE: Panel title rendered by parent (OutputsDock section header) */}
       <div className={`grid ${GRID_COLS} gap-3 px-3`}>

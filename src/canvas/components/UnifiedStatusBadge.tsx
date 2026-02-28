@@ -46,7 +46,9 @@ function getUnifiedStatus(
   quality?: GraphQuality | null,
   confidenceScore?: number
 ): UnifiedStatus {
-  // Calculate effective scores
+  // UI-SEM-018: Confidence score fabrication from categorical level (high=0.8, medium=0.5, low=0.3)
+  // and status thresholds (quality>=0.7+conf>=0.7 Ready, quality>=0.5||conf>=0.4 Caveats).
+  // Estimated — PLoT does not provide a numeric confidence score for status badge derivation.
   const qualityScore = quality?.score ?? 0
   const confScore = confidenceScore ?? (readiness?.confidence === 'high' ? 0.8 : readiness?.confidence === 'medium' ? 0.5 : 0.3)
 

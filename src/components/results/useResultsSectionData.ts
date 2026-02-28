@@ -534,7 +534,9 @@ function getSemanticLabel(rank: number, normalisedValue: number): DriverSemantic
 // =============================================================================
 
 /**
- * Map readiness level to confidence tier.
+ * UI-SEM-019: Readiness/confidence level taxonomy mapping. PLoT uses varied labels
+ * (ready/caution/not_ready, high/medium/low); this normalises to strong/fair/needs_work.
+ * Estimated — PLoT does not provide a canonical tier enum.
  */
 function mapReadinessLevel(level: string): ConfidenceTier {
   const mapping: Record<string, ConfidenceTier> = {
@@ -547,9 +549,6 @@ function mapReadinessLevel(level: string): ConfidenceTier {
   return mapping[level.toLowerCase()] ?? 'unknown'
 }
 
-/**
- * Map confidence level to tier.
- */
 function mapConfidenceLevel(level: string): ConfidenceTier {
   const normalised = String(level).toLowerCase().trim()
   const mapping: Record<string, ConfidenceTier> = {
@@ -575,6 +574,9 @@ function getConfidenceTier(
   if (graphReadiness?.readiness_level) {
     return mapReadinessLevel(graphReadiness.readiness_level)
   }
+
+  // UI-SEM-015: Confidence tier score-based fallback (>=70 strong, >=40 fair, else needs_work).
+  // Estimated — PLoT does not provide tier thresholds for numeric readiness/quality scores.
 
   // 2. Fallback: Graph readiness readiness_score (0-100)
   if (typeof graphReadiness?.readiness_score === 'number') {
@@ -1625,7 +1627,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       severity: normaliseSeverity(w.severity),
     }))
 
-    // Add sensitive assumptions from robustness analysis (formerly "fragile edges")
+    // UI-SEM-013: Fragile edge filter threshold (0.3). Estimated — PLoT does not provide a visibility gate.
     // Filter to only show high-risk fragile edges (switch_probability > 0.3)
     // P0 Fix: Use safeArray to handle truncated wrapper format
     const fragileEdgesRaw = safeArray((report as any)?.robustness?.fragile_edges)
@@ -1908,10 +1910,8 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       const friendlyMessage = fe.description ||
         `If "${edgeLabel}" changes significantly, "${alternativeWinnerLabel}" could become the better choice`
 
-      // P2 Fix: Derive severity from flip probability
-      // Use switch_probability as primary (direct flip probability from ISL)
-      // > 0.7 = critical assumption (high risk of flipping); > 0.5 = error; > 0.3 = warning
-      // Note: 'blocker' is reserved for genuine pre-run validation blockers (blocks_analysis: true)
+      // UI-SEM-012: Edge severity derived from switch_probability thresholds (>0.7 critical, >0.5 error).
+      // Estimated — PLoT does not provide a severity field for fragile edges.
       let severity: 'critical' | 'error' | 'warning' = 'warning'
       const flipProbability = fe.switch_probability ?? fe.marginal_switch_probability
       if (typeof flipProbability === 'number') {

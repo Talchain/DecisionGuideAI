@@ -276,7 +276,8 @@ export function supportsValidation(
 // =============================================================================
 
 /**
- * Derive robustness label from overall robustness score
+ * UI-SEM-016: Robustness label from numeric score (>=0.7 robust, >=0.4 moderate, else fragile).
+ * Estimated — PLoT does not always provide a categorical robustness label.
  */
 function deriveRobustnessLabel(score: number | undefined): RobustnessLabel {
   if (score === undefined) return 'moderate'
