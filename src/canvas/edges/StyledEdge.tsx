@@ -179,18 +179,27 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
     return importanceToStrokeWidth(importance, maxImportance)
   }, [isResultsMode, report, source, edgeData?.beliefExists, weight, getEdges, edgeData?.direction])
 
-  // Decision Graph Display v2: Direction-based stroke colour
-  // positive: green, negative: red (risk color), unknown: grey
+  // F.2: Direction-based stroke colour — applies both pre-run and post-run
+  // Truly uninitialised (no direction AND weight is default/undefined): yellow var(--goal)
+  // Direction set + weight > 0: green (positive) or red (negative)
+  // Direction set + weight === 0: grey (neutral, valid user choice)
+  // Direction undefined but weight explicitly set: grey
   const directionStroke = useMemo(() => {
-    if (!direction) return isDark ? '#a1a1aa' : '#d4d4d8' // Zinc-400/300 for unknown
-    if (direction === 'positive') {
+    // Truly uninitialised: no direction AND weight is undefined → yellow
+    if (direction === undefined && edgeData?.weight === undefined) {
+      return 'var(--goal)'
+    }
+    // Direction set with positive weight → green
+    if (direction === 'positive' && weight > 0) {
       return isDark ? '#bbf7d0' : '#a7f3d0' // Pastel green-200/emerald-200
     }
-    if (direction === 'negative') {
+    // Direction set with negative weight → red
+    if (direction === 'negative' && weight > 0) {
       return isDark ? '#FF6B6B' : '#ef4444' // Risk red (matches risk node border)
     }
-    return isDark ? '#a1a1aa' : '#d4d4d8' // Zinc fallback
-  }, [direction, isDark])
+    // Neutral: weight === 0 (valid user choice) or no direction with explicit weight
+    return isDark ? '#a1a1aa' : '#d4d4d8' // Zinc-400/300 (grey/ink)
+  }, [direction, weight, edgeData?.weight, isDark])
 
   // Decision Graph Display v2: Existence certainty line style
   // Solid: >70%, Dashed: 40-70%, Dotted: <40%
@@ -211,7 +220,8 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
   // D.1: Unified confidence check via getEdgeConfidence (returns null when missing)
   const edgeConfidenceValue = getEdgeConfidence(edgeData as Record<string, unknown> | undefined)
 
-  // B.I.10: Pre-run overlay — dashed goal-coloured stroke for edges with NO confidence set.
+  // B.I.10: Pre-run overlay — dashed stroke for edges with NO confidence set.
+  // F.2: Controls dash pattern only; colour is derived from direction.
   // A confidence of 0 is a valid user choice (low), not "missing".
   const isPreRunIncompleteEdge = !isResultsMode && edgeConfidenceValue === null
 
@@ -302,9 +312,9 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
           // B.I.10: Pre-run incomplete edges get dashed stroke to indicate "needs attention"
           strokeDasharray: isPreRunIncompleteEdge ? '6 3' : (dashArray ?? visualProps.strokeDasharray),
           // Graph Interaction P1: Highlighted edges get brighter color
-          // Brief v2.2: Use direction-based colour (always applies - grey for unknown)
-          // B.I.10: Pre-run incomplete edges get goal colour
-          stroke: isHighlightedEdge ? 'var(--semantic-info)' : (isPreRunIncompleteEdge ? 'var(--goal)' : (directionStroke ?? visualProps.stroke)),
+          // F.2: Direction colour always applies — yellow only for truly uninitialised edges
+          // Pre-run overlay controls dash pattern only, not colour
+          stroke: isHighlightedEdge ? 'var(--semantic-info)' : (directionStroke ?? visualProps.stroke),
           // Performance: use will-change for frequent updates
           willChange: selected || isHighlightedEdge ? 'stroke, stroke-width, stroke-dasharray' : undefined,
           // D.1: Smooth transitions for live styling; respect prefers-reduced-motion (§7.4)

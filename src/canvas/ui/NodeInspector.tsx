@@ -153,8 +153,7 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
   const edges = useCanvasStore(s => s.edges)
   const robustness = useCanvasStore(s => s.results?.report?.robustness)
 
-  // S.3 correction #3: Summary content priority — coaching card OR bars, never both
-  const [showInsightBars, setShowInsightBars] = useState(false)
+  // F.5: Coaching card shown alongside bars (no toggle)
   const hasCoachingCard = isFactorNode &&
     displayMetadata.isResultsMode &&
     displayMetadata.inSensitivityAnalysis &&
@@ -162,6 +161,37 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
     displayMetadata.confidence !== null &&
     displayMetadata.influence >= 0.7 &&
     displayMetadata.confidence < 0.5
+
+  // F.4: Context label — find nearest meaningful parent for context line
+  // Any connected node of a different kind can provide context (not just decision/goal)
+  const contextNode = useMemo(() => {
+    const selfType = currentType as string
+    // Find an incoming edge whose source provides meaningful context
+    for (const e of edges) {
+      if (e.target === nodeId) {
+        const src = nodes.find(n => n.id === e.source)
+        if (src) {
+          const srcType = (src.type || '') as string
+          if (srcType && srcType !== selfType) {
+            return { kind: srcType, label: String(src.data?.label ?? '') }
+          }
+        }
+      }
+    }
+    // Also check outgoing edges (e.g. for options connected to a decision)
+    for (const e of edges) {
+      if (e.source === nodeId) {
+        const tgt = nodes.find(n => n.id === e.target)
+        if (tgt) {
+          const tgtType = (tgt.type || '') as string
+          if (tgtType && tgtType !== selfType) {
+            return { kind: tgtType, label: String(tgt.data?.label ?? '') }
+          }
+        }
+      }
+    }
+    return null
+  }, [edges, nodes, nodeId, currentType])
 
   // Check if this factor is target of a fragile edge
   const isFragileTarget = useMemo(() => {
@@ -182,6 +212,14 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
         </div>
         <button onClick={onClose} className="text-text-light hover:text-text-body" aria-label="Close">×</button>
       </div>
+
+      {/* F.4: Context line — shows nearest connected node of a different kind */}
+      {contextNode && (
+        <p className={`${typography.panelMeta} mb-1`}>
+          <span className="text-text-light">{contextNode.kind === 'decision' ? 'Decision' : contextNode.kind.charAt(0).toUpperCase() + contextNode.kind.slice(1)}: </span>
+          <span className={typography.panelBody}>{contextNode.label}</span>
+        </p>
+      )}
 
       {/* Node label — read-only, 2-line max */}
       <p
@@ -319,68 +357,57 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
             </span>
           )}
 
-          {/* Correction #3: Coaching card takes priority over bars */}
-          {hasCoachingCard && !showInsightBars ? (
-            <>
-              <div className={`flex items-start gap-1.5 p-2 bg-warning-light border border-warning/30 rounded ${typography.panelMeta} text-warning`}>
-                <AlertTriangle size={12} className="flex-shrink-0 mt-0.5" />
-                <span>High influence but low confidence. Consider gathering more data to reduce uncertainty.</span>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowInsightBars(true)}
-                className={`${typography.panelMeta} text-info hover:underline mt-1`}
-              >
-                Show details
-              </button>
-            </>
-          ) : (
-            <>
-              {/* Influence bar */}
-              {displayMetadata.influence !== null && (
-                <div className="mb-2">
-                  <div className="flex justify-between items-center mb-1">
-                    <span className={`${typography.panelMeta} text-text-light flex items-center gap-1.5`}>
-                      Influence
-                      {displayMetadata.sensitivityRank !== null && (
-                        <span className={`inline-flex items-center px-1.5 py-0.5 rounded ${typography.panelMeta} bg-warning-light text-warning`}>
-                          #{displayMetadata.sensitivityRank}
-                        </span>
-                      )}
-                    </span>
-                    <span className={`${typography.panelMeta} text-text-body`}>
-                      {Math.round(displayMetadata.influence * 100)}%
-                    </span>
-                  </div>
-                  <div className="h-1.5 bg-panel-border rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-info rounded-full transition-all duration-300"
-                      style={{ width: `${Math.max(displayMetadata.influence * 100, 2)}%` }}
-                    />
-                  </div>
-                </div>
-              )}
+          {/* F.5: Coaching card + bars shown together (no toggle) */}
+          {hasCoachingCard && (
+            <div className={`flex items-start gap-1.5 p-2 bg-warning-light border border-warning/30 rounded ${typography.panelMeta} text-warning mb-2`}>
+              <AlertTriangle size={12} className="flex-shrink-0 mt-0.5" />
+              <span>High influence but low confidence. Consider gathering more data to reduce uncertainty.</span>
+            </div>
+          )}
 
-              {/* Confidence bar */}
-              {displayMetadata.confidence !== null && (
-                <div className="mb-2">
-                  <div className="flex justify-between items-center mb-1">
-                    <span className={`${typography.panelMeta} text-text-light`}>Confidence</span>
-                    <span className={`${typography.panelMeta} text-text-body`}>
-                      {Math.round(displayMetadata.confidence * 100)}%
+          {/* Influence bar */}
+          {displayMetadata.influence !== null && (
+            <div className="mb-2">
+              <div className="flex justify-between items-center mb-1">
+                <span className={`${typography.panelMeta} text-text-light flex items-center gap-1.5`}>
+                  Influence
+                  {displayMetadata.sensitivityRank !== null && (
+                    <span className={`inline-flex items-center px-1.5 py-0.5 rounded ${typography.panelMeta} bg-warning-light text-warning`}>
+                      #{displayMetadata.sensitivityRank}
                     </span>
-                  </div>
-                  <div className="h-1.5 bg-panel-border rounded-full overflow-hidden">
-                    <div
-                      className={`h-full rounded-full transition-all duration-300 ${
-                        displayMetadata.confidence < 0.5 ? 'bg-warning' : 'bg-success'
-                      }`}
-                      style={{ width: `${Math.max(displayMetadata.confidence * 100, 2)}%` }}
-                    />
-                  </div>
-                </div>
-              )}
-            </>
+                  )}
+                </span>
+                <span className={`${typography.panelMeta} text-text-body`}>
+                  {Math.round(displayMetadata.influence * 100)}%
+                </span>
+              </div>
+              <div className="h-1.5 bg-panel-border rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-info rounded-full transition-all duration-300"
+                  style={{ width: `${Math.max(displayMetadata.influence * 100, 2)}%` }}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Confidence bar */}
+          {displayMetadata.confidence !== null && (
+            <div className="mb-2">
+              <div className="flex justify-between items-center mb-1">
+                <span className={`${typography.panelMeta} text-text-light`}>Confidence</span>
+                <span className={`${typography.panelMeta} text-text-body`}>
+                  {Math.round(displayMetadata.confidence * 100)}%
+                </span>
+              </div>
+              <div className="h-1.5 bg-panel-border rounded-full overflow-hidden">
+                <div
+                  className={`h-full rounded-full transition-all duration-300 ${
+                    displayMetadata.confidence < 0.5 ? 'bg-warning' : 'bg-success'
+                  }`}
+                  style={{ width: `${Math.max(displayMetadata.confidence * 100, 2)}%` }}
+                />
+              </div>
+            </div>
           )}
         </div>
       )}
@@ -602,16 +629,18 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
                 nodes={nodes}
                 compact
               />
-              <p className={`${typography.panelMeta} text-text-light italic`}>
-                <button
-                  type="button"
-                  onClick={() => useCanvasStore.getState().resultsReset()}
-                  className="text-info hover:underline cursor-pointer"
-                >
-                  Clear results
-                </button>
-                {' '}to edit interventions.
+              {/* F.6: Clear results — helper text + secondary button */}
+              <p className={`${typography.panelMeta} text-text-light`}>
+                Edits are paused while results are shown.
               </p>
+              <button
+                type="button"
+                onClick={() => useCanvasStore.getState().resultsReset()}
+                className={`mt-1 px-3 py-1.5 ${typography.panelBody} text-text-body rounded bg-panel hover:bg-panel-hover border border-panel-border transition-colors`}
+                data-testid="btn-clear-results"
+              >
+                Clear results
+              </button>
             </div>
           ) : showMappingForm ? (
             <UserMappingForm

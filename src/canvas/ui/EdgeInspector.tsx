@@ -79,6 +79,9 @@ export const EdgeInspector = memo(({ edgeId, onClose }: EdgeInspectorProps) => {
   const sourceNode = nodes.find(n => n.id === edge?.source)
   const sourceNodeType = (sourceNode?.data?.kind ?? sourceNode?.type) as string | undefined
   const sourceIsFactor = sourceNodeType === 'factor'
+
+  // F.1: Organisational edge gate — Decision→Option and Option→* are organisational (non-causal)
+  const isOrganisationalEdge = sourceNodeType === 'decision' || sourceNodeType === 'option'
   // Hook must be called unconditionally; passing empty ID for non-factor sources
   // ensures sensitivityRank is null for goal, option, decision, etc.
   const { sensitivityRank } = useNodeDisplayMetadata(
@@ -231,59 +234,72 @@ export const EdgeInspector = memo(({ edgeId, onClose }: EdgeInspectorProps) => {
         <span className="font-medium">{targetLabel}</span>
       </div>
 
-      {/* E.2: Effect direction */}
-      <p className={`${typography.panelBody} ${directionColor} mt-2`}>
-        {directionLabel === 'Helps' ? 'Helps target' : directionLabel === 'Hurts' ? 'Hurts target' : 'Neutral'}
-      </p>
-
-      {/* E.2: Confidence level — colour by threshold */}
-      {edgeConfidence !== null && (
-        <p className={`${typography.panelMeta} mt-1 ${
-          edgeConfidence >= 0.7 ? 'text-success' : edgeConfidence >= 0.4 ? 'text-info' : 'text-warning'
-        }`}>
-          {Math.round(edgeConfidence * 100)}%
-        </p>
-      )}
-
-      {/* S.3: Fragile edge warning pill (post-analysis) */}
-      {isFragileEdge && (
-        <span className={`inline-flex items-center mt-2 px-2 py-0.5 rounded-full ${typography.panelMeta} bg-danger-light text-danger`}>
-          Fragile
-        </span>
-      )}
-
-      {/* D.3: Per-edge influence context (post-analysis only) */}
-      {isResultsMode && sensitivityRank !== null && (
-        <p className={`${typography.panelMeta} text-info mt-2`}>
-          Connects factor ranked #{sensitivityRank} in influence
-        </p>
-      )}
-
-      {/* D.3: Coaching card — rank #1 + fragile + low confidence */}
-      {isResultsMode && shouldShowInfluenceCoaching(sensitivityRank, isFragileEdge, edgeConfidence) && (
-        <div className="mt-2 p-2 rounded bg-warning-light border border-warning/30">
-          <p className={`${typography.panelMeta} text-warning`}>
-            This is your model's most influential path, and it's fragile. Strengthening confidence here would improve result reliability.
+      {/* F.1: Organisational edge notice — no causal controls */}
+      {isOrganisationalEdge ? (
+        <div className="mt-2" data-testid="organisational-edge-notice">
+          <p className={`${typography.panelMeta} text-text-light`}>Organisational link</p>
+          <p className={`${typography.panelMeta} text-text-light mt-1`}>
+            This connection shows how options relate to the decision. It does not affect analysis.
           </p>
         </div>
-      )}
+      ) : (
+        <>
+          {/* E.2 + F.3: Effect direction with dynamic target label */}
+          <p className={`${typography.panelBody} ${directionColor} mt-2 flex`}>
+            <span>{directionLabel === 'Helps' ? 'Helps ' : directionLabel === 'Hurts' ? 'Hurts ' : 'Neutral effect on '}</span>
+            <span className="overflow-hidden text-ellipsis whitespace-nowrap" style={{ maxWidth: '200px' }} title={targetLabel}>{targetLabel}</span>
+          </p>
 
-      {/* P.1: Edge confirm button — edges have assumptions worth reviewing */}
-      <div className="flex items-center gap-1 mt-2" data-testid="inspector-action-row">
-        <button
-          type="button"
-          onClick={() => toggleConfirmedNode(edgeId)}
-          className={`w-7 h-7 flex items-center justify-center rounded transition-colors ${
-            isConfirmed
-              ? 'bg-success-light text-success'
-              : 'bg-transparent text-text-light hover:bg-panel-hover'
-          }`}
-          aria-label={isConfirmed ? 'Unmark as reviewed' : 'Mark as reviewed'}
-          title={isConfirmed ? 'Reviewed' : 'Mark as reviewed'}
-        >
-          <Check size={14} />
-        </button>
-      </div>
+          {/* E.2: Confidence level — colour by threshold */}
+          {edgeConfidence !== null && (
+            <p className={`${typography.panelMeta} mt-1 ${
+              edgeConfidence >= 0.7 ? 'text-success' : edgeConfidence >= 0.4 ? 'text-info' : 'text-warning'
+            }`}>
+              {Math.round(edgeConfidence * 100)}%
+            </p>
+          )}
+
+          {/* S.3: Fragile edge warning pill (post-analysis) */}
+          {isFragileEdge && (
+            <span className={`inline-flex items-center mt-2 px-2 py-0.5 rounded-full ${typography.panelMeta} bg-danger-light text-danger`}>
+              Fragile
+            </span>
+          )}
+
+          {/* D.3: Per-edge influence context (post-analysis only) */}
+          {isResultsMode && sensitivityRank !== null && (
+            <p className={`${typography.panelMeta} text-info mt-2`}>
+              Connects factor ranked #{sensitivityRank} in influence
+            </p>
+          )}
+
+          {/* D.3: Coaching card — rank #1 + fragile + low confidence */}
+          {isResultsMode && shouldShowInfluenceCoaching(sensitivityRank, isFragileEdge, edgeConfidence) && (
+            <div className="mt-2 p-2 rounded bg-warning-light border border-warning/30">
+              <p className={`${typography.panelMeta} text-warning`}>
+                This is your model's most influential path, and it's fragile. Strengthening confidence here would improve result reliability.
+              </p>
+            </div>
+          )}
+
+          {/* P.1: Edge confirm button — edges have assumptions worth reviewing */}
+          <div className="flex items-center gap-1 mt-2" data-testid="inspector-action-row">
+            <button
+              type="button"
+              onClick={() => toggleConfirmedNode(edgeId)}
+              className={`w-7 h-7 flex items-center justify-center rounded transition-colors ${
+                isConfirmed
+                  ? 'bg-success-light text-success'
+                  : 'bg-transparent text-text-light hover:bg-panel-hover'
+              }`}
+              aria-label={isConfirmed ? 'Unmark as reviewed' : 'Mark as reviewed'}
+              title={isConfirmed ? 'Reviewed' : 'Mark as reviewed'}
+            >
+              <Check size={14} />
+            </button>
+          </div>
+        </>
+      )}
 
       {/* Live region for announcements */}
       <div role="status" aria-live="polite" aria-atomic="true" className="sr-only">
@@ -528,9 +544,9 @@ export const EdgeInspector = memo(({ edgeId, onClose }: EdgeInspectorProps) => {
     >
       <InspectorAccordion
         summary={summaryContent}
-        assumptions={assumptionsContent}
+        assumptions={isOrganisationalEdge ? undefined : assumptionsContent}
         advanced={advancedContent}
-        defaultOpen="assumptions"
+        defaultOpen={isOrganisationalEdge ? 'advanced' : 'assumptions'}
         testId="edge-inspector"
       />
     </div>
