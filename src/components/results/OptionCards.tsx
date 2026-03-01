@@ -149,6 +149,7 @@ function OptionCard({
   cardRef,
   neutralised = false,
   segmentColor,
+  sortedRank,
 }: {
   option: OptionResult
   isWinner: boolean
@@ -160,10 +161,13 @@ function OptionCard({
   neutralised?: boolean
   /** V12.3: CSS colour value for left border + bar fill (from wins bar segment) */
   segmentColor?: string
+  /** V14.2: 1-indexed rank derived from win probability sort order */
+  sortedRank?: number
 }) {
   // V12.3: Use segment colour for left border when provided
   const borderClass = 'border-panel-border'
-  const rank = option.rank ?? (isWinner ? 1 : undefined)
+  // V14.2: Prefer sort-derived rank, fallback to option.rank or winner inference
+  const rank = sortedRank ?? option.rank ?? (isWinner ? 1 : undefined)
 
   // V11: Rank badge — show "58%" in stone when neutralised (with winProbability), "#1 of N" otherwise
   const rankBadgeContent = neutralised && option.winProbability != null
@@ -270,13 +274,9 @@ export function OptionCards({
   const allGoalProbability = options.every(o => o.goalProbability != null)
   const showHitsTarget = hasGoalThreshold && allGoalProbability
 
-  // Sort: winner first, then by rank
+  // V14.2: Sort by win probability descending (same order as WinGauge segments)
   const sorted = [...options].sort((a, b) => {
-    if (a.id === winnerId) return -1
-    if (b.id === winnerId) return 1
-    const rankA = a.rank ?? 999
-    const rankB = b.rank ?? 999
-    return rankA - rankB
+    return (b.winProbability ?? 0) - (a.winProbability ?? 0)
   })
 
   if (sorted.length === 0) return null
@@ -309,6 +309,7 @@ export function OptionCards({
             description={description}
             neutralised={neutralised}
             segmentColor={segmentColor}
+            sortedRank={index + 1}
             cardRef={(el) => {
               if (el) {
                 refMap.current.set(option.id, el)

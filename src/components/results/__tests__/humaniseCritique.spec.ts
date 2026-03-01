@@ -43,7 +43,7 @@ describe('humaniseCritique', () => {
       nodeLabels,
     )
     expect(result.title).toBe('Budget has no estimate set')
-    expect(result.suggestion).toBe('Set estimate \u2192')
+    expect(result.suggestion).toBe('Set estimate')
     expect(result.factorId).toBe('fac_budget')
   })
 
@@ -53,7 +53,7 @@ describe('humaniseCritique', () => {
       nodeLabels,
     )
     expect(result.title).toBe('Timeline is missing a range for its constraint')
-    expect(result.suggestion).toBe('Set range \u2192')
+    expect(result.suggestion).toBe('Set range')
     expect(result.factorId).toBe('fac_timeline')
   })
 
@@ -72,7 +72,7 @@ describe('humaniseCritique', () => {
       nodeLabels,
     )
     expect(result.title).toBe('Customer churn constraint value is outside the expected range')
-    expect(result.suggestion).toBe('Review \u2192')
+    expect(result.suggestion).toBe('Review')
     expect(result.factorId).toBe('fac_churn')
   })
 

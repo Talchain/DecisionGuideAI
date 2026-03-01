@@ -337,7 +337,7 @@ describe('V12.4 Finding 1: ConfidenceSection internal-leak suppression', () => {
         {
           title: 'Budget has no estimate set',
           description: 'Results may be unreliable without a current value for this constraint.',
-          suggestion: 'Set estimate →',
+          suggestion: 'Set estimate',
           factorId: 'fac_budget',
         },
       ],

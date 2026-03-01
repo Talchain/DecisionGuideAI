@@ -93,12 +93,16 @@ function formatValue(
  * Uses "pp" (percentage points) suffix to distinguish from outcome's own % unit.
  * Used when no structured unit is available.
  */
+/**
+ * V14.2: Per-row value shows sign + magnitude only (no unit suffix).
+ * Unit ("pp") is shown once in the axis helper text to declutter rows.
+ */
 function formatRelativeChange(value: number, expected: number): string {
   if (expected === 0) return value >= 0 ? '+∞' : '−∞'
   const pct = ((value - expected) / Math.abs(expected)) * 100
   const rounded = Math.round(pct)
-  if (rounded === 0) return '0 pp'
-  return rounded > 0 ? `+${rounded} pp` : `${rounded} pp`.replace('-', '−')
+  if (rounded === 0) return '0'
+  return rounded > 0 ? `+${rounded}` : `${rounded}`.replace('-', '−')
 }
 
 /** Format the centre axis label. Includes "Expected" + value + unit context.
@@ -394,7 +398,7 @@ export function TornadoChart({
               <div
                 className={`flex-1 h-5 relative ${isActiveRow ? 'opacity-90' : ''}`}
                 data-bar-container
-                style={{ touchAction: 'none', overflowX: 'clip' }}
+                style={{ touchAction: 'none' }}
               >
                 {/* Centre line */}
                 <div
@@ -461,7 +465,7 @@ export function TornadoChart({
                 {/* Low value label — hidden when left bar is collapsed */}
                 {leftWidth > 0.5 && (
                   <span
-                    className={`absolute top-1/2 -translate-y-1/2 ${typography.panelMeta} ${leftLabelColour} whitespace-nowrap ${dragState.isDragging ? 'pointer-events-none' : ''} ${leftBarExtra.includes('opacity') ? 'opacity-30' : ''}`}
+                    className={`absolute top-1/2 -translate-y-1/2 ${typography.panelMeta} ${leftLabelColour} whitespace-nowrap tabular-nums ${dragState.isDragging ? 'pointer-events-none' : ''} ${leftBarExtra.includes('opacity') ? 'opacity-30' : ''}`}
                     style={{
                       right: `${100 - Math.min(lowPct, centrePct) + 1}%`,
                       transition: isActiveRow ? 'none' : 'right 150ms ease-out',
@@ -476,7 +480,7 @@ export function TornadoChart({
                 {/* High value label — hidden when right bar is collapsed */}
                 {rightWidth > 0.5 && (
                   <span
-                    className={`absolute top-1/2 -translate-y-1/2 ${typography.panelMeta} ${rightLabelColour} whitespace-nowrap ${dragState.isDragging ? 'pointer-events-none' : ''} ${rightBarExtra.includes('opacity') ? 'opacity-30' : ''}`}
+                    className={`absolute top-1/2 -translate-y-1/2 ${typography.panelMeta} ${rightLabelColour} whitespace-nowrap tabular-nums ${dragState.isDragging ? 'pointer-events-none' : ''} ${rightBarExtra.includes('opacity') ? 'opacity-30' : ''}`}
                     style={{
                       left: `${Math.max(highPct, centrePct) + 1}%`,
                       transition: isActiveRow ? 'none' : 'left 150ms ease-out',
@@ -510,13 +514,13 @@ export function TornadoChart({
         </span>
       </div>
 
-      {/* V12.1 Fix 6: Clarification when axis shows unit but bars show pp */}
-      {useRelativePct && outcomeUnitSymbol && outcomeUnit === 'count' && (
+      {/* V14.2: Clarification — unit shown once in axis text, not per row */}
+      {useRelativePct && (
         <p
           className={`${typography.panelMeta} text-text-light italic mt-1 ml-[158px]`}
           data-testid="tornado-pp-clarification"
         >
-          Values show relative change in percentage points.
+          Values show relative change in percentage points (pp).
         </p>
       )}
 

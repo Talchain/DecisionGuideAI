@@ -229,6 +229,8 @@ export interface V2Critique {
   code: string
   severity: 'blocker' | 'warning' | 'info'
   message: string
+  /** Humanised message for user-facing UI (preferred over raw `message`) */
+  user_message?: string
   suggestion?: string
   affected_nodes?: string[]
 }

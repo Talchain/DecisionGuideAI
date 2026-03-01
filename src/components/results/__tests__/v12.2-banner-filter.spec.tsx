@@ -111,7 +111,7 @@ describe('Fix 2: AttentionBanner runtime guard', () => {
       {
         title: 'Customer Churn Rate has no estimate set',
         description: 'Results may be unreliable without a current value for this constraint.',
-        suggestion: 'Set estimate →',
+        suggestion: 'Set estimate',
         factorId: 'fac_customer_churn',
       },
     ]

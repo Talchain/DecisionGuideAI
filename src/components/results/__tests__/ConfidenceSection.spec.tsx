@@ -567,7 +567,7 @@ describe('ConfidenceSection', () => {
         ...mockData,
         nextActions: [
           { action: 'Validate pricing model', rationale: 'High uncertainty', priority: 1, targetId: 'fac-price' },
-          { action: 'Check market size data', rationale: 'Low confidence', priority: 2 },
+          { action: 'Check market size data', rationale: 'Low confidence', priority: 2, targetId: 'fac-market' },
         ],
       }
 
@@ -586,7 +586,7 @@ describe('ConfidenceSection', () => {
       const dataWithCleanActions: ConfidenceSectionData = {
         ...mockData,
         nextActions: [
-          { action: 'Price to Revenue relationship', rationale: '', priority: 1 },
+          { action: 'Price to Revenue relationship', rationale: '', priority: 1, targetId: 'fac-price' },
         ],
       }
 

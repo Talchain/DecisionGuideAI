@@ -84,12 +84,12 @@ const CODE_TEMPLATES: Record<string, TemplateFactory> = {
   CONSTRAINT_TARGET_NO_OBSERVED_VALUE: (label) => ({
     title: `${label} has no estimate set`,
     description: 'Results may be unreliable without a current value for this constraint.',
-    suggestion: 'Set estimate \u2192',
+    suggestion: 'Set estimate',
   }),
   CONSTRAINT_MISSING_RANGE: (label) => ({
     title: `${label} is missing a range for its constraint`,
     description: 'A range is needed to assess whether this target can be met.',
-    suggestion: 'Set range \u2192',
+    suggestion: 'Set range',
   }),
   CONSTRAINT_FILTERED_TEMPORAL: () => ({
     title: 'Some time-based constraints were excluded',
@@ -99,7 +99,7 @@ const CODE_TEMPLATES: Record<string, TemplateFactory> = {
   CONSTRAINT_OUT_OF_DOMAIN: (label) => ({
     title: `${label} constraint value is outside the expected range`,
     description: 'The target for this constraint falls outside the range the model can assess.',
-    suggestion: 'Review \u2192',
+    suggestion: 'Review',
   }),
 }
 
@@ -168,6 +168,17 @@ export function humaniseCritique(
     console.warn('[humaniseCritique] Unmapped critique code:', item.code, '| Raw message:', item.message)
   }
 
+  // V14.2: Prefer user_message from PLoT (humanised by the engine) over generic fallback
+  if (item.userMessage) {
+    return {
+      title: item.userMessage,
+      description: 'Review this factor to improve result accuracy.',
+      suggestion: factorId ? `Review ${factorLabel}` : undefined,
+      factorId,
+    }
+  }
+
+  // No user_message and no template match → generic fallback.
   // No suggestion → banner filter (suggestion != null) will exclude unmapped codes
   // from the attention banner above the hero. The title/description still render
   // inside ConfidenceSection rows for unmapped codes.

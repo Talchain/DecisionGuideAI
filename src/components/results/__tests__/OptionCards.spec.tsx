@@ -163,7 +163,7 @@ describe('OptionCards', () => {
   })
 
   describe('Ordering', () => {
-    it('renders winner first regardless of input order', () => {
+    it('V14.2: renders cards sorted by win probability descending regardless of input order', () => {
       const reversed = [mockOptions[1], mockOptions[0]]
       const { container } = render(
         <OptionCards options={reversed} winnerId="option-1" />

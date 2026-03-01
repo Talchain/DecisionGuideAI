@@ -555,7 +555,8 @@ export function ConfidenceSection({
         })
 
         // V12.1 Fix 3: Extract next-action items from Group 1 for separate rendering
-        const nextActionGroupItems = groups[0].items.filter(i => i.id.startsWith('next-'))
+        // V14.2: Only show items with specific targets — exclude generic preamble cards
+        const nextActionGroupItems = groups[0].items.filter(i => i.id.startsWith('next-') && i.targetId)
 
         // Non-fragile-edge uncertainties (Group 2 legacy: low-confidence factors)
         // V12.4: Suppress items whose raw message matches internal-leak patterns,

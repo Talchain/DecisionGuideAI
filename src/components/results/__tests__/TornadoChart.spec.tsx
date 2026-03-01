@@ -270,7 +270,7 @@ describe('TornadoChart', () => {
 
   // ── P0.2: Value display mode tests ──
 
-  it('relative mode: bar labels show pp change when no unit provided', () => {
+  it('relative mode: bar labels show change without pp suffix when no unit provided', () => {
     render(
       <TornadoChart
         rows={[positiveRow]}
@@ -278,9 +278,10 @@ describe('TornadoChart', () => {
       />
     )
 
-    // lowOutcome=80 → (80-100)/100 = -20 pp, highOutcome=120 → (120-100)/100 = +20 pp
-    expect(screen.getByText('−20 pp')).toBeInTheDocument()
-    expect(screen.getByText('+20 pp')).toBeInTheDocument()
+    // V14.2: Per-row values show sign + magnitude only (unit shown once in axis text)
+    // lowOutcome=80 → (80-100)/100 = -20, highOutcome=120 → (120-100)/100 = +20
+    expect(screen.getByText('−20')).toBeInTheDocument()
+    expect(screen.getByText('+20')).toBeInTheDocument()
   })
 
   it('units mode: bar labels show formatted values when currency unit provided', () => {
@@ -311,7 +312,7 @@ describe('TornadoChart', () => {
     expect(screen.getByTestId('tornado-expected-display')).toHaveTextContent('Expected:')
   })
 
-  it('relative mode: negative direction factors show correct pp changes', () => {
+  it('relative mode: negative direction factors show correct changes', () => {
     render(
       <TornadoChart
         rows={[negativeRow]}
@@ -319,9 +320,10 @@ describe('TornadoChart', () => {
       />
     )
 
-    // lowOutcome=85 → (85-100)/100 = -15 pp, highOutcome=115 → (115-100)/100 = +15 pp
-    expect(screen.getByText('−15 pp')).toBeInTheDocument()
-    expect(screen.getByText('+15 pp')).toBeInTheDocument()
+    // V14.2: Per-row values show sign + magnitude only
+    // lowOutcome=85 → (85-100)/100 = -15, highOutcome=115 → (115-100)/100 = +15
+    expect(screen.getByText('−15')).toBeInTheDocument()
+    expect(screen.getByText('+15')).toBeInTheDocument()
   })
 
   it('centre axis always includes "Expected:" with value', () => {
@@ -635,8 +637,20 @@ describe('TornadoChart', () => {
     expect(screen.getByTestId('tornado-expected-display')).toHaveTextContent('Expected: $100')
   })
 
-  // V12.1 Fix 6: pp/unit clarification line
-  it('V12.1: shows pp clarification when axis has unit but bars show pp', () => {
+  // V14.2: pp clarification shown whenever relative mode is active
+  it('V14.2: shows pp clarification when in relative mode (no structured unit)', () => {
+    render(
+      <TornadoChart
+        rows={[positiveRow]}
+        expectedOutcome={100}
+      />
+    )
+
+    expect(screen.getByTestId('tornado-pp-clarification')).toBeInTheDocument()
+    expect(screen.getByText('Values show relative change in percentage points (pp).')).toBeInTheDocument()
+  })
+
+  it('V14.2: shows pp clarification with count unit (bars show relative, not absolute)', () => {
     render(
       <TornadoChart
         rows={[positiveRow]}
@@ -647,21 +661,9 @@ describe('TornadoChart', () => {
     )
 
     expect(screen.getByTestId('tornado-pp-clarification')).toBeInTheDocument()
-    expect(screen.getByText('Values show relative change in percentage points.')).toBeInTheDocument()
   })
 
-  it('V12.1: no pp clarification when no unit (pp is expected)', () => {
-    render(
-      <TornadoChart
-        rows={[positiveRow]}
-        expectedOutcome={100}
-      />
-    )
-
-    expect(screen.queryByTestId('tornado-pp-clarification')).not.toBeInTheDocument()
-  })
-
-  it('V12.1: no pp clarification when currency unit (bars show absolute values)', () => {
+  it('V14.2: no pp clarification when currency unit (bars show absolute values)', () => {
     render(
       <TornadoChart
         rows={[positiveRow]}

@@ -94,11 +94,20 @@ function confidenceToLevel(confidence: number | null | undefined): 'low' | 'medi
   return 'high'
 }
 
-/** V14.1: Map VOI score to user-friendly action label. */
-function voiToLabel(voi: number | undefined | null): string | null {
-  if (voi == null || !Number.isFinite(voi)) return null
-  if (voi >= 0.7) return 'Check first'
-  if (voi >= 0.4) return 'Check next'
+/**
+ * V14.2: Rank-based VOI labels. ISL VOI scores are relative (not normalised
+ * to 0–1), so absolute thresholds don't work. Use rank instead:
+ * - Rank 1 AND voi > 0 → "Check first"
+ * - Rank 2–3 AND voi > 0 → "Check next"
+ * - voi === 0 or rank > 3 → no pill
+ *
+ * @param voi - Raw VOI score from ISL
+ * @param rank - 0-indexed position in VOI-descending sorted list
+ */
+function voiToLabel(voi: number | undefined | null, rank: number): string | null {
+  if (voi == null || !Number.isFinite(voi) || voi <= 0) return null
+  if (rank === 0) return 'Check first'
+  if (rank <= 2) return 'Check next'
   return null
 }
 
@@ -228,7 +237,7 @@ export function groupActionItems(input: GroupActionItemsInput): ActionGroup[] {
   const group2Items: ActionItem[] = evidenceGaps
     .filter(gap => !group1Keys.has(gap.factorId) && !excludeSet.has(gap.factorId))
     .sort((a, b) => b.voi - a.voi)
-    .map(gap => {
+    .map((gap, voiRank) => {
       // V12: Enrich with M2 evidence enhancements when available
       const enhancement = evidenceEnhancements?.[gap.factorId]
       return {
@@ -240,7 +249,7 @@ export function groupActionItems(input: GroupActionItemsInput): ActionGroup[] {
         confidenceLevel: confidenceToLevel(
           gap.confidence != null ? gap.confidence / 100 : undefined
         ),
-        voiLevel: voiToLabel(gap.voi),
+        voiLevel: voiToLabel(gap.voi, voiRank),
         source: 'model' as const,
         whatCouldHappen: enhancement?.decision_hygiene,
         whatToDo: enhancement?.specific_action,

@@ -237,7 +237,8 @@ export function ResultsBody({
         })
 
         // Next-action items from Group 1 (rendered separately from fragile edges)
-        const nextActionCount = actionGroups[0].items.filter(i => i.id.startsWith('next-')).length
+        // V14.2: Only count items with specific targets — exclude generic preamble cards
+        const nextActionCount = actionGroups[0].items.filter(i => i.id.startsWith('next-') && i.targetId).length
 
         // worthRefining: non-SENSITIVE_ASSUMPTION uncertainties, minus internal leaks
         // Must match ConfidenceSection's INTERNAL_PATTERN + humanised-override exemption

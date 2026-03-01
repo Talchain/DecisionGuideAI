@@ -301,6 +301,8 @@ export type CritiqueSeverity = 'blocker' | 'critical' | 'error' | 'warning' | 'i
 export interface UncertaintyItem {
   code: string
   message: string
+  /** Humanised message from PLoT (preferred over raw `message` for user-facing UI) */
+  userMessage?: string
   suggestion?: string
   affectedNodes?: string[]
   /** Severity level for visual styling - defaults to 'warning' if not specified */

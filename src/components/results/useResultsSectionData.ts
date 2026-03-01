@@ -289,10 +289,13 @@ function normalizeFactorSensitivity(raw: unknown, nodeLabelMap: Map<string, stri
       ? rawFlipRiskCategory
       : undefined
 
-  // V14.1: confidence_source — 'isl_default' indicates placeholder confidence
+  // V14.1: confidence_source — 'isl' or 'isl_default' indicates placeholder confidence
   const confidenceSource = typeof typed.confidence_source === 'string'
     ? typed.confidence_source
     : undefined
+
+  // V14.2: sampling_stability from confidence_components (0 for ISL-defaulted, null for graph-sourced)
+  const samplingStability = typed.confidence_components?.sampling_stability ?? undefined
 
   return {
     factorId: rawId ?? label,
@@ -306,6 +309,7 @@ function normalizeFactorSensitivity(raw: unknown, nodeLabelMap: Map<string, stri
     valueOfInformation,
     flipRiskCategory,
     confidenceSource,
+    samplingStability,
   }
 }
 
@@ -1483,8 +1487,12 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
           flipRiskCategory: f.raw.flipRiskCategory,
           // CEE-generated enrichment (observations, perspectives, confidence question)
           enrichment,
-          // V14.1: confidence_source 'isl_default' = placeholder, not user-provided
-          isDefaultedConfidence: f.raw.confidenceSource === 'isl_default',
+          // V14.2: Default estimate pill — ISL-sourced confidence with sampling_stability === 0
+          // confidence_source 'isl' or 'isl_default' with sampling_stability === 0 → show pill
+          // confidence_source 'graph' with sampling_stability === null → intentional, no pill
+          isDefaultedConfidence:
+            (f.raw.confidenceSource === 'isl' || f.raw.confidenceSource === 'isl_default')
+            && f.raw.samplingStability === 0,
         }
       })
       .sort((a, b) => a.rank - b.rank) // Sort by rank
@@ -1621,6 +1629,8 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     const uncertainties: UncertaintyItem[] = warnings.map((w: any) => ({
       code: w.code || 'UNKNOWN',
       message: w.message,
+      // Pass user_message through for humanisation fallback
+      userMessage: typeof w.user_message === 'string' && w.user_message.trim() ? w.user_message.trim() : undefined,
       suggestion: w.suggested_fix,
       affectedNodes: w.node_id ? [w.node_id] : undefined,
       // Map critique severity: BLOCKER/ERROR/WARNING/INFO → blocker/error/warning/info
@@ -2107,9 +2117,31 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
           }
         })
 
+        // V14.2: topNextActions for hero coaching line uses ALL actions sorted by
+        // priority (not deduped against fragile edges). The deduped `nextActions` is
+        // used by the "What to do next" section to avoid redundancy.
+        const allSortedActions = [...rawActions].sort((a: any, b: any) => {
+          const aPriority = typeof a.priority === 'number' ? a.priority : 999
+          const bPriority = typeof b.priority === 'number' ? b.priority : 999
+          return aPriority - bPriority
+        }).map((action: any) => ({
+          action: action.action ? sanitizeCoachingText(action.action) : '',
+          rationale: action.rationale ? sanitizeCoachingText(action.rationale) : '',
+          priority: action.priority ?? 999,
+          targetType: action.target_type as 'node' | 'edge' | 'factor' | 'option' | undefined,
+          targetId: (() => {
+            const rawTargetId = action.target_id as string | undefined
+            const targetType = action.target_type as string | undefined
+            return targetType === 'edge' && rawTargetId?.includes('->')
+              ? rawTargetId.split('->')[0]
+              : rawTargetId
+          })(),
+          targetLabel: action.target_label ? sanitizeCoachingText(action.target_label) : undefined,
+        }))
+
         return {
           nextActions,
-          topNextActions: nextActions.slice(0, 3),
+          topNextActions: allSortedActions.slice(0, 3),
         }
       })(),
       // Task 6 (M1 Coaching): Assumptions ledger - sorted by severity (high → medium → low)
