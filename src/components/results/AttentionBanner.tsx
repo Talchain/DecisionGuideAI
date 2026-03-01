@@ -41,7 +41,7 @@ function BannerItem({
     <div className="flex items-start gap-2 py-1.5">
       <div className="flex-1 min-w-0">
         <p className={`${typography.panelBody} text-text-header`}>
-          {item.title}
+          {item.displayText}
         </p>
         <p className={`${typography.panelMeta} text-text-light mt-0.5`}>
           {item.description}
@@ -81,9 +81,10 @@ const INTERNAL_LEAK_PATTERNS = [
 export function AttentionBanner({ items, onFocusNode }: AttentionBannerProps) {
   const [isExpanded, setIsExpanded] = useState(false)
 
-  // Defence in depth: filter out any items with internal pattern leaks
+  // Defence in depth: reject items without displayText or with internal pattern leaks
   const safeItems = items.filter(item => {
-    const text = `${item.title ?? ''} ${item.description ?? ''} ${item.suggestion ?? ''}`
+    if (!item.displayText) return false // V14.3: displayText is the only render path
+    const text = `${item.displayText} ${item.description ?? ''} ${item.suggestion ?? ''}`
     return !INTERNAL_LEAK_PATTERNS.some(p => p.test(text))
   })
 
@@ -100,7 +101,7 @@ export function AttentionBanner({ items, onFocusNode }: AttentionBannerProps) {
           <AlertTriangle className="w-4 h-4 text-danger flex-shrink-0 mt-0.5" />
           <div className="flex-1 min-w-0">
             <p className={`${typography.panelBody} text-text-header`}>
-              {safeItems[0].title}
+              {safeItems[0].displayText}
             </p>
             <p className={`${typography.panelMeta} text-text-light mt-0.5`}>
               {safeItems[0].description}
@@ -177,7 +178,7 @@ export function AttentionBanner({ items, onFocusNode }: AttentionBannerProps) {
         <AlertTriangle className="w-4 h-4 text-danger flex-shrink-0 mt-0.5" />
         <div className="flex-1 min-w-0">
           <p className={`${typography.panelBody} text-text-header`}>
-            {first.title}
+            {first.displayText}
           </p>
           <p className={`${typography.panelMeta} text-text-light mt-0.5`}>
             {first.description}

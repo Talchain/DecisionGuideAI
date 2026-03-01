@@ -110,7 +110,7 @@ export function ResultsBody({
       {/* P0.1: Humanised critique items — coaching tone, no raw field names */}
       <AttentionBanner
         items={(resultsSectionData.confidence.humanisedCritiques ?? []).filter(
-          c => c.suggestion != null && c.factorId != null
+          c => c.displayText != null && c.suggestion != null && c.factorId != null
         )}
         onFocusNode={onFocusNode}
       />

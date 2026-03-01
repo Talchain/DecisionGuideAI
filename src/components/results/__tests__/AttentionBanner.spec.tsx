@@ -5,6 +5,7 @@ import type { HumanisedCritique } from '../utils/humaniseCritique'
 
 const mockItem = (overrides: Partial<HumanisedCritique> = {}): HumanisedCritique => ({
   title: 'Customer churn is missing a current value',
+  displayText: 'Customer churn is missing a current value',
   description: 'A default was assumed, so results may be less reliable.',
   suggestion: 'Add your current estimate for Customer churn',
   factorId: 'fac_churn',
@@ -27,7 +28,7 @@ describe('AttentionBanner', () => {
   })
 
   it('renders collapsed for 2+ items', () => {
-    const items = [mockItem(), mockItem({ title: 'Revenue target issue', factorId: 'fac_rev' })]
+    const items = [mockItem(), mockItem({ title: 'Revenue target issue', displayText: 'Revenue target issue', factorId: 'fac_rev' })]
     render(<AttentionBanner items={items} />)
     expect(screen.getByTestId('attention-banner')).toBeInTheDocument()
     expect(screen.getByText('A few inputs would sharpen these results')).toBeInTheDocument()
@@ -37,7 +38,7 @@ describe('AttentionBanner', () => {
   })
 
   it('expands to show items when clicked', () => {
-    const items = [mockItem(), mockItem({ title: 'Revenue target issue', factorId: 'fac_rev' })]
+    const items = [mockItem(), mockItem({ title: 'Revenue target issue', displayText: 'Revenue target issue', factorId: 'fac_rev' })]
     render(<AttentionBanner items={items} />)
     fireEvent.click(screen.getByText('A few inputs would sharpen these results'))
     expect(screen.getByText('Customer churn is missing a current value')).toBeInTheDocument()
@@ -66,9 +67,9 @@ describe('AttentionBanner', () => {
 
   it('shows first inline with "and N more" for 3+ items', () => {
     const items = [
-      mockItem({ title: 'First issue' }),
-      mockItem({ title: 'Second issue', factorId: 'fac_b' }),
-      mockItem({ title: 'Third issue', factorId: 'fac_c' }),
+      mockItem({ title: 'First issue', displayText: 'First issue' }),
+      mockItem({ title: 'Second issue', displayText: 'Second issue', factorId: 'fac_b' }),
+      mockItem({ title: 'Third issue', displayText: 'Third issue', factorId: 'fac_c' }),
     ]
     render(<AttentionBanner items={items} />)
     // First item shown inline
@@ -81,9 +82,9 @@ describe('AttentionBanner', () => {
 
   it('expands 3+ items to show rest when "and N more" clicked', () => {
     const items = [
-      mockItem({ title: 'First issue' }),
-      mockItem({ title: 'Second issue', factorId: 'fac_b' }),
-      mockItem({ title: 'Third issue', factorId: 'fac_c' }),
+      mockItem({ title: 'First issue', displayText: 'First issue' }),
+      mockItem({ title: 'Second issue', displayText: 'Second issue', factorId: 'fac_b' }),
+      mockItem({ title: 'Third issue', displayText: 'Third issue', factorId: 'fac_c' }),
     ]
     render(<AttentionBanner items={items} />)
     fireEvent.click(screen.getByTestId('banner-show-more'))
@@ -93,7 +94,7 @@ describe('AttentionBanner', () => {
 
   it('shows "and 4 more" for 5 items', () => {
     const items = Array.from({ length: 5 }, (_, i) =>
-      mockItem({ title: `Issue ${i + 1}`, factorId: `fac_${i}` }),
+      mockItem({ title: `Issue ${i + 1}`, displayText: `Issue ${i + 1}`, factorId: `fac_${i}` }),
     )
     render(<AttentionBanner items={items} />)
     // First shown inline
@@ -106,6 +107,7 @@ describe('AttentionBanner', () => {
       <AttentionBanner
         items={[mockItem({
           title: "Review this factor's inputs",
+          displayText: "Review this factor's inputs",
           description: "Some information isn't available yet.",
         })]}
       />,

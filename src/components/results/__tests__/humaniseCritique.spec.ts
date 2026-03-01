@@ -111,4 +111,58 @@ describe('humaniseCritique', () => {
     expect(result.title).toBe('This factor is missing a current value')
     expect(result.factorId).toBeUndefined()
   })
+
+  // ── V14.3: displayText + template precedence invariants ──────────────────
+
+  it('V14.3: template takes precedence over userMessage for known codes', () => {
+    const item: UncertaintyItem = {
+      code: 'MISSING_OBSERVED_STATE',
+      message: 'internal raw message',
+      userMessage: 'PLoT user message override',
+      affectedNodes: ['fac_churn'],
+    }
+    const result = humaniseCritique(item, nodeLabels)
+    // Template must win — its title is "{label} is missing a current value"
+    expect(result.title).toBe('Customer churn is missing a current value')
+    expect(result.title).not.toBe('PLoT user message override')
+    expect(result.displayText).toBe('Customer churn is missing a current value')
+  })
+
+  it('V14.3: displayText is null for generic fallback (no template, no userMessage)', () => {
+    const item: UncertaintyItem = {
+      code: 'UNKNOWN_CODE_123',
+      message: 'fac_internal raw stuff',
+      affectedNodes: ['fac_churn'],
+    }
+    const result = humaniseCritique(item, nodeLabels)
+    expect(result.displayText).toBeNull()
+    // Title still has generic text for ConfidenceSection rows
+    expect(result.title).toBe('Review this factor\'s inputs')
+  })
+
+  it('V14.3: displayText is null when userMessage contains internal tokens', () => {
+    const item: UncertaintyItem = {
+      code: 'NOVEL_CODE',
+      message: 'internal message',
+      userMessage: 'Something about fac_customer_churn field',
+      affectedNodes: ['fac_churn'],
+    }
+    const result = humaniseCritique(item, nodeLabels)
+    expect(result.displayText).toBeNull()
+    // Title preserves the userMessage for ConfidenceSection fallback
+    expect(result.title).toBe('Something about fac_customer_churn field')
+  })
+
+  it('V14.3: userMessage fallback does NOT auto-generate suggestion', () => {
+    const item: UncertaintyItem = {
+      code: 'NOVEL_CODE',
+      message: 'internal message',
+      userMessage: 'Please review this factor',
+      affectedNodes: ['fac_churn'],
+    }
+    const result = humaniseCritique(item, nodeLabels)
+    expect(result.suggestion).toBeUndefined()
+    // displayText is set (clean userMessage)
+    expect(result.displayText).toBe('Please review this factor')
+  })
 })

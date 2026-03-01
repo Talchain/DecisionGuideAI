@@ -490,8 +490,9 @@ function DriverRow({
             <span
               className={`${typography.panelMeta} text-text-light border border-border-default rounded-full px-2 py-0.5 whitespace-nowrap flex-shrink-0`}
               data-testid="default-estimate-pill"
+              title="This confidence score is a default estimate, not based on evidence"
             >
-              Default estimate
+              Default
             </span>
           )}
         </div>

@@ -15,6 +15,7 @@ import {
 } from '../buildResultsVM'
 import { groupActionItems } from '../utils/groupActionItems'
 import { humaniseCritique } from '../utils/humaniseCritique'
+import { buildSegmentColorMap, WIN_GAUGE_COLORS, WIN_GAUGE_COLORS_INDETERMINATE } from '../HeroSection'
 import type { ResultsSectionDataReturn } from '../useResultsSectionData'
 import type {
   RecommendationSectionData,
@@ -470,6 +471,98 @@ describe('Golden payload regression tests', () => {
       expect(result.suggestion).toBeDefined()
       expect(result.suggestion).not.toContain('\u2192') // no arrow
       expect(result.suggestion).not.toContain('→')      // no arrow
+    })
+  })
+
+  // 10. V14.3: WinGauge and OptionCard colour consistency
+  describe('WinGauge and OptionCard colour consistency', () => {
+    it('buildSegmentColorMap assigns winner the first colour (robust)', () => {
+      const colorMap = buildSegmentColorMap(GOLDEN_OPTIONS, 'opt_build', 'robust')
+      // Winner (opt_build) gets first colour = var(--success)
+      expect(colorMap['opt_build']).toBe(WIN_GAUGE_COLORS[0])
+      // All options get a colour
+      for (const opt of GOLDEN_OPTIONS) {
+        expect(colorMap[opt.id]).toBeDefined()
+      }
+    })
+
+    it('buildSegmentColorMap assigns winner the first colour (sensitive)', () => {
+      const colorMap = buildSegmentColorMap(GOLDEN_OPTIONS, 'opt_build', 'sensitive')
+      expect(colorMap['opt_build']).toBe(WIN_GAUGE_COLORS[0])
+    })
+
+    it('indeterminate state uses indeterminate palette', () => {
+      const colorMap = buildSegmentColorMap(GOLDEN_OPTIONS, 'opt_build', 'indeterminate')
+      expect(colorMap['opt_build']).toBe(WIN_GAUGE_COLORS_INDETERMINATE[0])
+      // Second option gets indeterminate second colour
+      const sortedNonWinner = [...GOLDEN_OPTIONS]
+        .filter(o => o.id !== 'opt_build')
+        .sort((a, b) => (b.winProbability ?? 0) - (a.winProbability ?? 0))
+      expect(colorMap[sortedNonWinner[0].id]).toBe(WIN_GAUGE_COLORS_INDETERMINATE[1])
+    })
+
+    it('colour map has same entry count as options', () => {
+      const colorMap = buildSegmentColorMap(GOLDEN_OPTIONS, 'opt_build', 'robust')
+      expect(Object.keys(colorMap).length).toBe(GOLDEN_OPTIONS.length)
+    })
+  })
+
+  // 11. V14.3: displayText field on humanised critiques
+  describe('V14.3 displayText on golden critiques', () => {
+    it('template-mapped critique has non-null displayText', () => {
+      const critiques = data.confidence.humanisedCritiques ?? []
+      // First critique (MISSING_OBSERVED_STATE) has template → displayText should match title
+      expect(critiques[0].displayText).toBe(critiques[0].title)
+    })
+
+    it('unmapped critique without userMessage has null displayText', () => {
+      const critiques = data.confidence.humanisedCritiques ?? []
+      // Second critique (UNKNOWN_INTERNAL_CODE) has no template and no userMessage
+      expect(critiques[1].displayText).toBeNull()
+    })
+  })
+
+  // 12. V14.3: Implementation actions filtered from Validate group
+  describe('V14.3 implementation action filtering', () => {
+    it('"Proceed with X" is excluded from Validate group', () => {
+      const groups = groupActionItems({
+        fragileEdges: [],
+        evidenceGaps: GOLDEN_EVIDENCE_GAPS,
+        nextActions: [
+          ...GOLDEN_NEXT_ACTIONS,
+          {
+            action: 'Proceed with Increase Pro Plan Price to $59',
+            rationale: 'Implementation step',
+            priority: 7,
+            targetType: 'node',
+            targetId: 'fac_pricing',
+            targetLabel: 'Pricing',
+          },
+        ],
+      })
+      const validateItems = groups[0].items
+      const proceedItem = validateItems.find(i => i.title.includes('Proceed with'))
+      expect(proceedItem).toBeUndefined()
+    })
+
+    it('"Proceed to validate X" is kept in Validate group', () => {
+      const groups = groupActionItems({
+        fragileEdges: [],
+        evidenceGaps: GOLDEN_EVIDENCE_GAPS,
+        nextActions: [
+          {
+            action: 'Proceed to validate pricing assumptions',
+            rationale: 'Validation step',
+            priority: 2,
+            targetType: 'node',
+            targetId: 'fac_pricing_val',
+            targetLabel: 'Pricing',
+          },
+        ],
+      })
+      const validateItems = groups[0].items
+      const proceedItem = validateItems.find(i => i.title.includes('Proceed to validate'))
+      expect(proceedItem).toBeDefined()
     })
   })
 })

@@ -90,42 +90,50 @@ const baseMockData: ConfidenceSectionData = {
 // ===========================================================================
 
 describe('V12.4 Task 1: Internal critique filtering', () => {
-  it('filters out items matching opt_[a-z_]+ pattern', () => {
+  it('filters out items matching opt_[a-z_]+ pattern in displayText', () => {
     const items: HumanisedCritique[] = [
-      { title: 'Check opt_revenue_growth', description: 'This references opt_revenue_growth internally', factorId: 'f1' },
+      { title: 'Check opt_revenue_growth', displayText: 'Check opt_revenue_growth', description: 'This references opt_revenue_growth internally', factorId: 'f1' },
     ]
     const { container } = render(<AttentionBanner items={items} />)
     expect(container.querySelector('[data-testid="attention-banner"]')).toBeNull()
   })
 
-  it('filters out items matching goal_[a-z_]+ pattern', () => {
+  it('filters out items matching goal_[a-z_]+ pattern in displayText', () => {
     const items: HumanisedCritique[] = [
-      { title: 'Check goal_maximize_profit', description: 'This references goal_maximize_profit', factorId: 'f1' },
+      { title: 'Check goal_maximize_profit', displayText: 'Check goal_maximize_profit', description: 'This references goal_maximize_profit', factorId: 'f1' },
     ]
     const { container } = render(<AttentionBanner items={items} />)
     expect(container.querySelector('[data-testid="attention-banner"]')).toBeNull()
   })
 
-  it('passes through clean text items', () => {
+  it('passes through clean text items with displayText', () => {
     const items: HumanisedCritique[] = [
-      { title: 'Budget needs attention', description: 'Please review the budget estimate.', factorId: 'f1' },
+      { title: 'Budget needs attention', displayText: 'Budget needs attention', description: 'Please review the budget estimate.', factorId: 'f1' },
     ]
     render(<AttentionBanner items={items} />)
     expect(screen.getByTestId('attention-banner')).toBeInTheDocument()
     expect(screen.getByText('Budget needs attention')).toBeInTheDocument()
   })
 
-  it('filters items with constraint_fac_ in text', () => {
+  it('filters items without displayText (V14.3 contract)', () => {
     const items: HumanisedCritique[] = [
-      { title: 'constraint_fac_budget_max is unset', description: 'Internal field leaked', factorId: 'f1' },
+      { title: 'Budget needs attention', displayText: null, description: 'Review the budget.', factorId: 'f1' },
     ]
     const { container } = render(<AttentionBanner items={items} />)
     expect(container.querySelector('[data-testid="attention-banner"]')).toBeNull()
   })
 
-  it('filters items with observed_state references', () => {
+  it('filters items with constraint_fac_ in displayText', () => {
     const items: HumanisedCritique[] = [
-      { title: 'Missing value', description: 'observed_state.mu is unset for budget', factorId: 'f1' },
+      { title: 'constraint_fac_budget_max is unset', displayText: 'constraint_fac_budget_max is unset', description: 'Internal field leaked', factorId: 'f1' },
+    ]
+    const { container } = render(<AttentionBanner items={items} />)
+    expect(container.querySelector('[data-testid="attention-banner"]')).toBeNull()
+  })
+
+  it('filters items with observed_state references in description', () => {
+    const items: HumanisedCritique[] = [
+      { title: 'Missing value', displayText: 'Missing value', description: 'observed_state.mu is unset for budget', factorId: 'f1' },
     ]
     const { container } = render(<AttentionBanner items={items} />)
     expect(container.querySelector('[data-testid="attention-banner"]')).toBeNull()
@@ -133,10 +141,10 @@ describe('V12.4 Task 1: Internal critique filtering', () => {
 
   it('+N more path: mixed clean and internal items only shows clean count', () => {
     const items: HumanisedCritique[] = [
-      { title: 'Clean item 1', description: 'Visible', factorId: 'f1' },
-      { title: 'Clean item 2', description: 'Also visible', factorId: 'f2' },
-      { title: 'Clean item 3', description: 'Third visible', factorId: 'f3' },
-      { title: 'Internal leak', description: 'constraint_fac_x is bad', factorId: 'f4' },
+      { title: 'Clean item 1', displayText: 'Clean item 1', description: 'Visible', factorId: 'f1' },
+      { title: 'Clean item 2', displayText: 'Clean item 2', description: 'Also visible', factorId: 'f2' },
+      { title: 'Clean item 3', displayText: 'Clean item 3', description: 'Third visible', factorId: 'f3' },
+      { title: 'Internal leak', displayText: 'Internal leak', description: 'constraint_fac_x is bad', factorId: 'f4' },
     ]
     render(<AttentionBanner items={items} />)
     // 3 clean items: first inline, rest collapsed as "and 2 more"

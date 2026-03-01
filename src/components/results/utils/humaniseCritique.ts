@@ -22,6 +22,8 @@ import type { UncertaintyItem } from '../types'
 export interface HumanisedCritique {
   title: string
   description: string
+  /** V14.3: Canonical user-safe text for banner display. null = exclude from banner. */
+  displayText: string | null
   suggestion?: string
   /** Resolved factor/node ID for GraphLink CTA */
   factorId?: string
@@ -29,7 +31,7 @@ export interface HumanisedCritique {
 
 // ─── Code → template map ─────────────────────────────────────────────────────
 
-type TemplateFactory = (factorLabel: string) => Omit<HumanisedCritique, 'factorId'>
+type TemplateFactory = (factorLabel: string) => Omit<HumanisedCritique, 'factorId' | 'displayText'>
 
 const CODE_TEMPLATES: Record<string, TemplateFactory> = {
   MISSING_OBSERVED_STATE: (label) => ({
@@ -103,6 +105,11 @@ const CODE_TEMPLATES: Record<string, TemplateFactory> = {
   }),
 }
 
+// ─── Internal token detection ────────────────────────────────────────────────
+
+/** V14.3: Consolidated internal-token regex. If resolved text trips this, displayText = null. */
+const INTERNAL_TOKEN_REGEX = /constraint_fac_|observed_state\.|intercept\s*=|fac_[a-z_]+|blocks_analysis|node_id\s*=|edge_id\s*=|opt_[a-z_]+|goal_[a-z_]+/i
+
 // ─── Label resolution ────────────────────────────────────────────────────────
 
 const FALLBACK_LABEL = 'This factor'
@@ -160,7 +167,8 @@ export function humaniseCritique(
   const template = CODE_TEMPLATES[item.code]
   if (template) {
     const result = template(factorLabel)
-    return { ...result, factorId }
+    const displayText = INTERNAL_TOKEN_REGEX.test(result.title) ? null : result.title
+    return { ...result, displayText, factorId }
   }
 
   // Safe fallback — NEVER expose raw message
@@ -168,23 +176,26 @@ export function humaniseCritique(
     console.warn('[humaniseCritique] Unmapped critique code:', item.code, '| Raw message:', item.message)
   }
 
-  // V14.2: Prefer user_message from PLoT (humanised by the engine) over generic fallback
+  // V14.2→V14.3: Prefer user_message from PLoT (humanised by the engine) over generic fallback.
+  // No auto-generated suggestion — only template-matched codes get actionable CTAs.
+  // Items without suggestion are excluded from the banner but shown in ConfidenceSection.
   if (item.userMessage) {
+    const displayText = INTERNAL_TOKEN_REGEX.test(item.userMessage) ? null : item.userMessage
     return {
       title: item.userMessage,
       description: 'Review this factor to improve result accuracy.',
-      suggestion: factorId ? `Review ${factorLabel}` : undefined,
+      displayText,
       factorId,
     }
   }
 
   // No user_message and no template match → generic fallback.
-  // No suggestion → banner filter (suggestion != null) will exclude unmapped codes
-  // from the attention banner above the hero. The title/description still render
+  // displayText: null → excluded from banner. Title/description still render
   // inside ConfidenceSection rows for unmapped codes.
   return {
     title: 'Review this factor\'s inputs',
     description: 'Some information needed to assess this factor isn\'t available yet.',
+    displayText: null,
     factorId,
   }
 }

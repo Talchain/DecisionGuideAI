@@ -1341,6 +1341,71 @@ describe('HeroSection', () => {
     })
   })
 
+  describe('V14.3: Executive copy guard', () => {
+    it('guards "proceed" text when decision state is sensitive', () => {
+      render(
+        <HeroSection
+          {...baseProps}
+          decisionState="sensitive"
+          recommendationStability={0.60}
+          coachingDecisionStatement="Option A leads on revenue growth."
+          coachingActionImplication="Proceed with implementation."
+          topFragileEdge={{
+            fromId: 'fac-market', fromLabel: 'Market Size',
+            toId: 'fac-revenue', toLabel: 'Revenue',
+            alternativeWinnerLabel: 'Option B',
+            switchProbability: 0.45, labelsResolved: true,
+          }}
+        />,
+      )
+      const exec = screen.getByTestId('structured-executive')
+      expect(exec.textContent).not.toContain('Proceed')
+      expect(exec.textContent).toContain('Validate key assumptions before deciding')
+      expect(exec.textContent).toContain('Market Size')
+    })
+
+    it('guards "proceed" text when indeterminate, without hinge', () => {
+      render(
+        <HeroSection
+          {...baseProps}
+          decisionState="indeterminate"
+          recommendationStability={0.40}
+          coachingDecisionStatement="No clear winner."
+          coachingActionImplication="Move forward with Option A."
+        />,
+      )
+      const exec = screen.getByTestId('structured-executive')
+      expect(exec.textContent).not.toContain('Move forward')
+      expect(exec.textContent).toContain('Validate key assumptions before deciding.')
+    })
+
+    it('allows "proceed" text when decision state is robust', () => {
+      render(
+        <HeroSection
+          {...baseProps}
+          decisionState="robust"
+          recommendationStability={0.90}
+          coachingActionImplication="Proceed with confidence on Option A."
+        />,
+      )
+      const exec = screen.getByTestId('structured-executive')
+      expect(exec.textContent).toContain('Proceed with confidence')
+    })
+
+    it('passes through non-proceed text unchanged when sensitive', () => {
+      render(
+        <HeroSection
+          {...baseProps}
+          decisionState="sensitive"
+          recommendationStability={0.60}
+          coachingActionImplication="Gather evidence on Engineering Capacity before deciding."
+        />,
+      )
+      const exec = screen.getByTestId('structured-executive')
+      expect(exec.textContent).toContain('Gather evidence')
+    })
+  })
+
   describe('V14 Task 4: Condition card', () => {
     const fragileEdge = {
       fromId: 'fac-eng',

@@ -13,12 +13,14 @@ describe('Fix 2: AttentionBanner runtime guard', () => {
     const items: HumanisedCritique[] = [
       {
         title: 'Good item',
+        displayText: 'Good item',
         description: 'This should render',
         suggestion: 'Review this',
         factorId: 'factor_1',
       },
       {
         title: 'constraint_fac_customer_churn_max is invalid',
+        displayText: 'constraint_fac_customer_churn_max is invalid',
         description: 'This should be filtered',
         suggestion: 'Check this',
         factorId: 'fac_customer_churn',
@@ -35,6 +37,7 @@ describe('Fix 2: AttentionBanner runtime guard', () => {
     const items: HumanisedCritique[] = [
       {
         title: 'observed_state.value is missing',
+        displayText: 'observed_state.value is missing',
         description: 'Internal leak',
         factorId: 'factor_1',
       },
@@ -49,6 +52,7 @@ describe('Fix 2: AttentionBanner runtime guard', () => {
     const items: HumanisedCritique[] = [
       {
         title: 'Factor has issue',
+        displayText: 'Factor has issue',
         description: 'intercept=0 for fac_churn',
         factorId: 'fac_churn',
       },
@@ -59,10 +63,11 @@ describe('Fix 2: AttentionBanner runtime guard', () => {
     expect(screen.queryByTestId('attention-banner')).not.toBeInTheDocument()
   })
 
-  it('filters out items containing raw fac_ IDs in title', () => {
+  it('filters out items containing raw fac_ IDs in displayText', () => {
     const items: HumanisedCritique[] = [
       {
         title: 'fac_engineering_capacity_max needs review',
+        displayText: 'fac_engineering_capacity_max needs review',
         description: 'Check this factor',
         factorId: 'fac_engineering_capacity',
       },
@@ -77,6 +82,7 @@ describe('Fix 2: AttentionBanner runtime guard', () => {
     const items: HumanisedCritique[] = [
       {
         title: 'This blocks_analysis from completing',
+        displayText: 'This blocks_analysis from completing',
         description: 'Internal error message',
         factorId: 'factor_1',
       },
@@ -91,11 +97,13 @@ describe('Fix 2: AttentionBanner runtime guard', () => {
     const items: HumanisedCritique[] = [
       {
         title: 'Error with node_id=fac_revenue',
+        displayText: 'Error with node_id=fac_revenue',
         description: 'Internal reference',
         factorId: 'fac_revenue',
       },
       {
         title: 'Issue on edge_id=e123',
+        displayText: 'Issue on edge_id=e123',
         description: 'Edge problem',
         factorId: 'factor_2',
       },
@@ -110,6 +118,7 @@ describe('Fix 2: AttentionBanner runtime guard', () => {
     const items: HumanisedCritique[] = [
       {
         title: 'Customer Churn Rate has no estimate set',
+        displayText: 'Customer Churn Rate has no estimate set',
         description: 'Results may be unreliable without a current value for this constraint.',
         suggestion: 'Set estimate',
         factorId: 'fac_customer_churn',
@@ -122,25 +131,44 @@ describe('Fix 2: AttentionBanner runtime guard', () => {
     expect(screen.getByText('Results may be unreliable without a current value for this constraint.')).toBeInTheDocument()
   })
 
+  it('filters items without displayText (V14.3)', () => {
+    const items: HumanisedCritique[] = [
+      {
+        title: 'Clean title',
+        displayText: null,
+        description: 'Should not render',
+        factorId: 'factor_1',
+      },
+    ]
+
+    render(<AttentionBanner items={items} />)
+
+    expect(screen.queryByTestId('attention-banner')).not.toBeInTheDocument()
+  })
+
   it('filters expanded items in "+N more" collapse', () => {
     const items: HumanisedCritique[] = [
       {
         title: 'First item (clean)',
+        displayText: 'First item (clean)',
         description: 'This renders',
         factorId: 'factor_1',
       },
       {
         title: 'Second item (clean)',
+        displayText: 'Second item (clean)',
         description: 'This also renders',
         factorId: 'factor_2',
       },
       {
         title: 'Third item with constraint_fac_ leak',
+        displayText: 'Third item with constraint_fac_ leak',
         description: 'This should be filtered',
         factorId: 'fac_bad',
       },
       {
         title: 'Fourth item (clean)',
+        displayText: 'Fourth item (clean)',
         description: 'This renders',
         factorId: 'factor_4',
       },

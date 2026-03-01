@@ -194,6 +194,29 @@ function getStabilityTier(stability: number | undefined): {
   }
 }
 
+// ─── V14.3: Executive copy guard ─────────────────────────────────────────────
+
+/** Implementation-verb pattern — contradicts sensitive/indeterminate state */
+const PROCEED_PATTERN = /\b(proceed|implement|move ahead|move forward|go ahead|continue with|ready to decide|ship|launch|execute|roll out)\b/i
+
+/**
+ * V14.3: Guard action implication text against misleading "proceed" language
+ * when the decision state is sensitive or indeterminate.
+ * Applies ONLY to action implication (line 2), not decision statement (line 1).
+ */
+function guardActionImplication(
+  text: string | null | undefined,
+  decisionState: DecisionState | undefined,
+  topFragileEdgeFromLabel?: string,
+): string | null {
+  if (!text) return null
+  if (decisionState !== 'sensitive' && decisionState !== 'indeterminate') return text
+  if (!PROCEED_PATTERN.test(text)) return text
+  return topFragileEdgeFromLabel
+    ? `Validate key assumptions before deciding, starting with ${topFragileEdgeFromLabel}.`
+    : 'Validate key assumptions before deciding.'
+}
+
 // =============================================================================
 // Sub-Components
 // =============================================================================
@@ -699,7 +722,9 @@ export function HeroSection({
   if (decisionState) {
     // Data layer sanitizes these — just null-guard for rendering
     const sanitizedDecisionStatement = coachingDecisionStatement || null
-    const sanitizedActionImplication = coachingActionImplication || null
+    const sanitizedActionImplication = guardActionImplication(
+      coachingActionImplication, decisionState, topFragileEdge?.fromLabel,
+    ) || null
     const sanitizedParagraph = coachingParagraph || null
 
     return (

@@ -111,6 +111,24 @@ function voiToLabel(voi: number | undefined | null, rank: number): string | null
   return null
 }
 
+// ─── V14.3: Dual-verb filter for validation group ────────────────────────────
+
+/** Implementation verbs that contradict the "Validate" group header */
+const IMPLEMENTATION_VERB = /\b(proceed|implement|execute|roll out|launch|ship|deploy|go ahead)\b/i
+
+/** Validation verbs that indicate the action IS validation-oriented */
+const VALIDATION_VERB = /\b(validate|confirm|measure|benchmark|gather|test|check|review|verify|assess)\b/i
+
+/**
+ * Returns true if an action text is appropriate for "Validate before committing".
+ * Actions with implementation verbs but no validation verbs are excluded.
+ * e.g. "Proceed with X" → false, "Proceed to validate X" → true, "Gather data on X" → true.
+ */
+function isValidationAction(text: string): boolean {
+  if (!IMPLEMENTATION_VERB.test(text)) return true
+  return VALIDATION_VERB.test(text)
+}
+
 // ─── Main function ───────────────────────────────────────────────────────────
 
 /** V12: M2 bias finding (real PLoT shape) */
@@ -220,6 +238,7 @@ export function groupActionItems(input: GroupActionItemsInput): ActionGroup[] {
       // Dedupe against existing Group 1 keys and excluded factors
       // Skip empty targetId for dedup checks — multiple targetless actions are valid
       if (targetId && (group1Keys.has(targetId) || excludeSet.has(targetId))) continue
+      if (!isValidationAction(action.action)) continue // V14.3: Skip implementation actions
       if (targetId) group1Keys.add(targetId) // Prevent same factor appearing in Group 2
       group1Items.push({
         id: `next-${targetId || action.action.slice(0, 30)}`,

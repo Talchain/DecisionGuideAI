@@ -388,7 +388,7 @@ export function ConfidenceSection({
   // P0.1: Build lookup map for humanised critique display
   // V11.2 Fix 1+4: Include suggestion for CTA rendering
   const humanisedLookup = useMemo(() => {
-    const map = new Map<string, { title: string; description: string; suggestion?: string }>()
+    const map = new Map<string, { title: string; description: string; displayText: string | null; suggestion?: string }>()
     if (!humanisedCritiques) return map
     // Non-SENSITIVE_ASSUMPTION uncertainties are indexed in the same order as humanisedCritiques
     const plotCritiques = uncertainties.filter(u => u.code !== 'SENSITIVE_ASSUMPTION')
@@ -396,7 +396,7 @@ export function ConfidenceSection({
       const humanised = humanisedCritiques[idx]
       if (humanised) {
         const key = `${item.code}::${item.affectedNodes?.[0] ?? ''}`
-        map.set(key, { title: humanised.title, description: humanised.description, suggestion: humanised.suggestion })
+        map.set(key, { title: humanised.title, description: humanised.description, displayText: humanised.displayText, suggestion: humanised.suggestion })
       }
     })
     return map
