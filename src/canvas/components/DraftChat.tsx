@@ -15,7 +15,6 @@ import { hasAnalysisReady, isCeePipelineTrace } from '../../adapters/cee/types'
 import type { CEEDraftResponse, CEEv2Response, EffectDirection } from '../../adapters/cee/types'
 import { validateBrief } from '../utils/briefValidation'
 import { formatCEEError } from '../utils/formatCEEError'
-import { BriefCoachingHint } from './BriefCoachingHint'
 import { EXAMPLE_BRIEF_CHIPS } from '../../constants/validation'
 import { isOrchestratorV2Enabled } from '../../flags'
 import { ConversationPanel } from '../conversation/ConversationPanel'
@@ -850,11 +849,6 @@ export function DraftChat() {
               </button>
             </div>
           </div>
-          <BriefCoachingHint
-            isFocused={isInputFocused}
-            isValid={briefValidation.isValid}
-            softWarning={briefValidation.warningText}
-          />
           </>
         ) : (
           <div className="flex flex-col rounded-[20px] border border-sand-200 shadow-2 overflow-hidden relative" style={{ backgroundColor: '#FEFEFE', maxHeight: '80vh' }}>
@@ -1205,11 +1199,6 @@ export function DraftChat() {
                   )}
                 </button>
               </div>
-              <BriefCoachingHint
-                isFocused={isInputFocused}
-                isValid={briefValidation.isValid}
-                softWarning={briefValidation.warningText}
-              />
             </div>
             </>
             )}

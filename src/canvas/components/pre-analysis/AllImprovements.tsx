@@ -679,8 +679,8 @@ function ImprovementRow({ item, onFocus, actionHandlers, isRemoving, onHoverEnte
             )}
           </div>
 
-          {/* Fixed action column - shrink-0 prevents collapse */}
-          <div className="flex items-center gap-1 shrink-0">
+          {/* Fixed action column - anchored bottom-right */}
+          <div className="flex items-center gap-0.5 shrink-0 ml-auto self-end">
             <>
               {actionHandlers?.onConfirm && (
                   <IconBtn
@@ -773,8 +773,8 @@ function ImprovementRow({ item, onFocus, actionHandlers, isRemoving, onHoverEnte
           )}
         </div>
 
-        {/* Fixed action column - shrink-0 prevents collapse, self-end for Fix rows */}
-        <div className={`flex items-center gap-1 shrink-0${item.category === 'fix' ? ' self-end' : ''}`}>
+        {/* Fixed action column - anchored bottom-right */}
+        <div className="flex items-center gap-0.5 shrink-0 ml-auto self-end">
           {/* BiasIcon for non-Fix categories only (Task 4: remove from Fix rows) */}
           {item.bias && item.category !== 'fix' && (
             <BiasIcon

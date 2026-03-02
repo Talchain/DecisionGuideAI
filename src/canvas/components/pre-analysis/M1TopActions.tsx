@@ -195,8 +195,8 @@ export function M1TopActions({ topActions, onAddEvidence, onConfirm, onAssumptio
                 </p>
               </div>
 
-              {/* Fixed action column - shrink-0 prevents collapse */}
-              <div className="flex items-center gap-1 shrink-0">
+              {/* Fixed action column - anchored bottom-right */}
+              <div className="flex items-center gap-0.5 shrink-0 ml-auto self-end">
                 {/* Verify items: show Confirm, Assumption, Edit icons */}
                 {item.category === 'verify' && (
                   <>
