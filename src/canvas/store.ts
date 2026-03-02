@@ -215,6 +215,8 @@ interface CanvasState {
   selectedGenerationModel: string | null  // null = use default (gpt-4o)
   selectedRepairModel: string | null      // null = use default (claude-sonnet-4-20250514)
   selectedEnrichmentModel: string | null  // null = use default (claude-sonnet-4-20250514)
+  // A.5+: Pre-draft canvas snapshot for undo-draft capability
+  draftChatPreDraftSnapshot: { nodes: Node[]; edges: Edge<EdgeData>[] } | null
   // Last draft description (persisted to maintain context across panel close/reopen)
   lastDraftDescription: string
   // Last draft error (NOT cleared in resetCanvas — survives retry cycles)
@@ -414,6 +416,9 @@ interface CanvasState {
   resetModelToDefault: (operation: 'generation' | 'repair' | 'enrichment') => void
   // A.15: Stage setter
   setCurrentStage: (stage: ScenarioStage | null) => void
+  // A.5+: Draft snapshot + undo
+  setDraftChatPreDraftSnapshot: (snapshot: { nodes: Node[]; edges: Edge<EdgeData>[] } | null) => void
+  undoDraft: () => void
   setLastDraftDescription: (description: string) => void
   setLastDraftError: (error: { message: string; status?: number; correlationId?: string; timestamp: number } | null) => void
   setCeeAnalysisReady: (analysisReady: CEEAnalysisReady | null) => void
@@ -816,6 +821,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     selectedGenerationModel: null,
     selectedRepairModel: null,
     selectedEnrichmentModel: null,
+    draftChatPreDraftSnapshot: null,
     lastDraftDescription: '',
     lastDraftError: null,
     showIssuesPanel: false,
@@ -1653,6 +1659,8 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       currentScenarioId: null,
       // A.15: Clear lifecycle stage
       currentStage: null,
+      // A.5+: Clear draft snapshot
+      draftChatPreDraftSnapshot: null,
     })
   },
 
@@ -2389,6 +2397,32 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
 
   // A.15: Stage setter
   setCurrentStage: (stage) => set({ currentStage: stage }),
+
+  // A.5+: Draft snapshot + undo
+  setDraftChatPreDraftSnapshot: (snapshot) => set({ draftChatPreDraftSnapshot: snapshot }),
+  undoDraft: () => {
+    const { draftChatPreDraftSnapshot } = get()
+    if (!draftChatPreDraftSnapshot) return
+
+    pushToHistory(get, set)
+
+    set({
+      nodes: draftChatPreDraftSnapshot.nodes,
+      edges: draftChatPreDraftSnapshot.edges,
+      draftChatPreDraftSnapshot: null,
+      // Clear analysis state from the undone draft
+      ceeAnalysisReady: null,
+      ceeAnalysisReadyNodeIds: null,
+      ceePipelineTrace: null,
+      ceeQuality: null,
+    })
+
+    // Crash resilience
+    saveAutosave(
+      draftChatPreDraftSnapshot.nodes,
+      draftChatPreDraftSnapshot.edges,
+    )
+  },
 
   // Store last draft description for persistence across panel close/reopen
   setLastDraftDescription: (description: string) => {
