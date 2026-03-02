@@ -271,6 +271,13 @@ const FLAGS_CONFIG = {
     envKey: 'VITE_USE_PLOT_ENRICHMENT',
     storageKey: 'feature.plotEnrichment',
   },
+  // A.5+: Orchestrator V2 conversation panel
+  // When ON, all DraftChat sends go through POST /orchestrate/v1/turn.
+  // When OFF, existing draft-graph flow is preserved unchanged.
+  orchestratorV2: {
+    envKey: 'VITE_ENABLE_ORCHESTRATOR_V2',
+    storageKey: 'feature.orchestratorV2',
+  },
 } as const
 
 // ============================================================================
@@ -336,6 +343,7 @@ const flags = {
   onboardingTour: makeFlag(FLAGS_CONFIG.onboardingTour),
   schemaV2: makeFlag(FLAGS_CONFIG.schemaV2),
   plotEnrichment: makeFlag(FLAGS_CONFIG.plotEnrichment),
+  orchestratorV2: makeFlag(FLAGS_CONFIG.orchestratorV2),
 }
 
 // Export with original naming convention for backward compatibility
@@ -396,6 +404,7 @@ export const isSnapshotsV2Enabled = flags.snapshotsV2
 export const isOnboardingTourEnabled = flags.onboardingTour
 export const isSchemaV2Enabled = flags.schemaV2
 export const isPlotEnrichmentEnabled = flags.plotEnrichment
+export const isOrchestratorV2Enabled = flags.orchestratorV2
 
 // ============================================================================
 // POC FLAGS (special pattern - constant object, not functions)
