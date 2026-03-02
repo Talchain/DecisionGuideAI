@@ -145,16 +145,8 @@ const TIER_CONFIG: Record<ConfidenceTier, {
  * v7.4 Task 7: Group-based styling - danger for Group 1, warning for Group 2
  */
 
-/** Internal-string blocklist — if a raw message matches, replace with safe generic copy. */
+/** Internal-string blocklist — used for data-layer guards (edge title extraction, filter predicates). */
 const INTERNAL_PATTERN = /constraint_|observed_state|intercept=|node_id=|edge_id=|fac_[a-z_]+|opt_[a-z_]+|goal_[a-z_]+|blocks_analysis/i
-
-function safeMessageFallback(message: string): string {
-  const cleaned = stripEncodingNotation(message)
-  if (INTERNAL_PATTERN.test(cleaned)) {
-    return 'Check and update this factor\u2019s inputs for more reliable results.'
-  }
-  return cleaned
-}
 
 function UncertaintyRow({
   item,
@@ -300,7 +292,7 @@ function UncertaintyRow({
                       {humanisedTitle || severityConfig.label}
                     </span>
                   )}
-                  <p className={`${typography.panelBody} text-text-body`}>{humanisedDescription || safeMessageFallback(item.message)}</p>
+                  <p className={`${typography.panelBody} text-text-body`}>{humanisedDescription || item.displayText || 'Check and update this factor\u2019s inputs for more reliable results.'}</p>
                 </div>
                 {confidencePill && (
                   <span className={`${typography.panelMeta} px-1.5 py-0.5 rounded-full whitespace-nowrap flex-shrink-0 mt-0.5 ${confidencePill.bgClass} ${confidencePill.textClass} border ${confidencePill.borderClass}`}>

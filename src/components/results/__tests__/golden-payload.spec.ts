@@ -522,7 +522,124 @@ describe('Golden payload regression tests', () => {
     })
   })
 
-  // 12. V14.3: Implementation actions filtered from Validate group
+  // 12. V14.3b: Extended critique coverage — internal tokens in all code paths
+  describe('V14.3b: Internal tokens never reach banner from any critique path', () => {
+    // Extended critiques: cover every code path through humaniseCritique()
+    const extendedCritiques: UncertaintyItem[] = [
+      // Path 1: Template match — code in CODE_TEMPLATES, message has internal tokens
+      {
+        code: 'MISSING_OBSERVED_STATE',
+        message: 'constraint_fac_customer_churn_max targets factor node fac_customer_churn with observed_state.value missing',
+        userMessage: 'Customer Churn is missing a current value',
+        affectedNodes: ['fac_customer_churn'],
+        severity: 'warning',
+      },
+      // Path 2: Template match — code in CODE_TEMPLATES, NO userMessage
+      {
+        code: 'CONSTRAINT_TARGET_NO_OBSERVED_VALUE',
+        message: 'constraint_fac_budget_max has no observed_state.value set',
+        affectedNodes: ['fac_budget'],
+        severity: 'warning',
+      },
+      // Path 3: No template match, userMessage with internal tokens
+      {
+        code: 'NOVEL_CODE_A',
+        message: 'fac_revenue blocks_analysis pipeline intercept=0',
+        userMessage: 'fac_revenue has constraint_fac_revenue_max issue with observed_state.value',
+        affectedNodes: ['fac_revenue'],
+        severity: 'warning',
+      },
+      // Path 4: No template match, userMessage clean
+      {
+        code: 'NOVEL_CODE_B',
+        message: 'node_id=fac_scalability edge_id=e42 opt_build blocks_analysis',
+        userMessage: 'Scalability needs review to improve accuracy',
+        affectedNodes: ['fac_scalability'],
+        severity: 'warning',
+      },
+      // Path 5: No template match, NO userMessage — generic fallback
+      {
+        code: 'NOVEL_CODE_C',
+        message: 'fac_competition has intercept=0 and blocks_analysis pipeline',
+        affectedNodes: ['fac_competition'],
+        severity: 'warning',
+      },
+      // Path 6: No template match, no userMessage, no affectedNodes — orphan critique
+      {
+        code: 'NOVEL_CODE_D',
+        message: 'goal_revenue opt_partner observed_state.baseline missing',
+        severity: 'warning',
+      },
+    ]
+
+    const nodeLabels = new Map([
+      ['fac_customer_churn', 'Customer Churn'],
+      ['fac_budget', 'Budget'],
+      ['fac_revenue', 'Revenue'],
+      ['fac_scalability', 'Scalability'],
+      ['fac_competition', 'Competition'],
+    ])
+
+    const humanised = extendedCritiques
+      .filter(u => u.code !== 'SENSITIVE_ASSUMPTION')
+      .map(item => humaniseCritique(item, nodeLabels))
+
+    const INTERNAL_PATTERNS = [
+      /constraint_fac_/, /fac_[a-z_]+/, /observed_state/, /intercept=0/,
+      /opt_[a-z_]+/, /blocks_analysis/, /node_id=/, /edge_id=/, /goal_[a-z_]+/,
+    ]
+
+    it('no humanised critique title/description/suggestion contains internal tokens', () => {
+      for (const c of humanised) {
+        const text = `${c.title} ${c.description} ${c.suggestion ?? ''} ${c.displayText ?? ''}`
+        for (const pattern of INTERNAL_PATTERNS) {
+          expect(text, `Internal token "${pattern}" found in: ${text}`).not.toMatch(pattern)
+        }
+      }
+    })
+
+    it('banner filter (displayText + suggestion + factorId) admits only safe items', () => {
+      const bannerItems = humanised.filter(
+        c => c.displayText != null && c.suggestion != null && c.factorId != null,
+      )
+      // Path 1 (template) and Path 2 (template) should be in banner
+      // Path 3 (internal userMessage) should be excluded (displayText null)
+      // Path 4 (clean userMessage, no template) should be excluded (no suggestion)
+      // Path 5 (no userMessage, no template) should be excluded (displayText null)
+      // Path 6 (no userMessage, no template, no affectedNodes) should be excluded
+      expect(bannerItems.length).toBe(2)
+      expect(bannerItems[0].displayText).toContain('Customer Churn')
+      expect(bannerItems[1].displayText).toContain('Budget')
+    })
+
+    it('items with internal-token userMessage fall through to generic fallback', () => {
+      // Path 3: userMessage contains fac_revenue, constraint_fac_, observed_state
+      // Should fall through to generic fallback — title should NOT contain internal tokens
+      const path3 = humanised.find(c => c.factorId === 'fac_revenue')
+      expect(path3).toBeDefined()
+      expect(path3!.displayText).toBeNull()
+      expect(path3!.title).toBe("Review this factor's inputs")
+      expect(path3!.description).toBe("Some information needed to assess this factor isn't available yet.")
+    })
+
+    it('items with clean userMessage but no template get no suggestion', () => {
+      // Path 4: clean userMessage, no template match → no auto-suggestion
+      const path4 = humanised.find(c => c.title === 'Scalability needs review to improve accuracy')
+      expect(path4).toBeDefined()
+      expect(path4!.suggestion).toBeUndefined()
+      expect(path4!.displayText).toBe('Scalability needs review to improve accuracy')
+    })
+
+    it('generic fallback (no template, no userMessage) gets displayText=null', () => {
+      // Path 5+6: no template, no userMessage → generic fallback with displayText=null
+      const path5 = humanised.find(c => c.factorId === 'fac_competition')
+      const path6 = humanised.find(c => c.factorId === undefined)
+      expect(path5?.displayText).toBeNull()
+      expect(path6?.displayText).toBeNull()
+    })
+  })
+
+  // 13. V14.3: Implementation actions filtered from Validate group
   describe('V14.3 implementation action filtering', () => {
     it('"Proceed with X" is excluded from Validate group', () => {
       const groups = groupActionItems({

@@ -29,6 +29,7 @@ describe('ConfidenceSection', () => {
       {
         code: 'SENSITIVE_ASSUMPTION',
         message: 'Some assumptions may significantly affect results',
+        displayText: 'Some assumptions may significantly affect results',
         suggestion: 'Consider validating with additional data',
       },
     ],
@@ -36,6 +37,7 @@ describe('ConfidenceSection', () => {
       {
         code: 'SENSITIVE_ASSUMPTION',
         message: 'Some assumptions may significantly affect results',
+        displayText: 'Some assumptions may significantly affect results',
         suggestion: 'Consider validating with additional data',
       },
     ],
@@ -185,15 +187,15 @@ describe('ConfidenceSection', () => {
     const manyFragileEdges: ConfidenceSectionData = {
       ...mockData,
       uncertainties: [
-        { code: 'SENSITIVE_ASSUMPTION', message: 'Edge 1' },
-        { code: 'SENSITIVE_ASSUMPTION', message: 'Edge 2' },
-        { code: 'SENSITIVE_ASSUMPTION', message: 'Edge 3' },
-        { code: 'SENSITIVE_ASSUMPTION', message: 'Edge 4' },
+        { code: 'SENSITIVE_ASSUMPTION', message: 'Edge 1', displayText: 'Edge 1' },
+        { code: 'SENSITIVE_ASSUMPTION', message: 'Edge 2', displayText: 'Edge 2' },
+        { code: 'SENSITIVE_ASSUMPTION', message: 'Edge 3', displayText: 'Edge 3' },
+        { code: 'SENSITIVE_ASSUMPTION', message: 'Edge 4', displayText: 'Edge 4' },
       ],
       topUncertainties: [
-        { code: 'SENSITIVE_ASSUMPTION', message: 'Edge 1' },
-        { code: 'SENSITIVE_ASSUMPTION', message: 'Edge 2' },
-        { code: 'SENSITIVE_ASSUMPTION', message: 'Edge 3' },
+        { code: 'SENSITIVE_ASSUMPTION', message: 'Edge 1', displayText: 'Edge 1' },
+        { code: 'SENSITIVE_ASSUMPTION', message: 'Edge 2', displayText: 'Edge 2' },
+        { code: 'SENSITIVE_ASSUMPTION', message: 'Edge 3', displayText: 'Edge 3' },
       ],
       robustnessStatus: 'computed',
     }
@@ -211,6 +213,7 @@ describe('ConfidenceSection', () => {
         {
           code: 'SENSITIVE_ASSUMPTION',
           message: 'Cost sensitivity',
+          displayText: 'Cost sensitivity',
           threshold: {
             variable: 'Project Cost',
             direction: 'positive',
@@ -223,6 +226,7 @@ describe('ConfidenceSection', () => {
         {
           code: 'SENSITIVE_ASSUMPTION',
           message: 'Cost sensitivity',
+          displayText: 'Cost sensitivity',
           threshold: {
             variable: 'Project Cost',
             direction: 'positive',
@@ -510,6 +514,7 @@ describe('ConfidenceSection', () => {
         humanisedCritiques: [
           {
             title: 'Budget has no estimate set',
+            displayText: 'Budget has no estimate set',
             description: 'Results may be unreliable without a current value for this constraint.',
             suggestion: 'Set estimate \u2192',
             factorId: 'fac_budget',
@@ -543,6 +548,7 @@ describe('ConfidenceSection', () => {
         humanisedCritiques: [
           {
             title: "Review this factor's inputs",
+            displayText: "Review this factor's inputs",
             description: "Some information needed to assess this factor isn't available yet.",
             suggestion: 'Check and update this factor',
             factorId: 'fac_churn',

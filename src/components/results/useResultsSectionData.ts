@@ -1626,16 +1626,27 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     const critiques = (report as any)?.run?.critique || []
     const warnings = critiques.filter((c: any) => c.severity === 'WARNING')
 
-    const uncertainties: UncertaintyItem[] = warnings.map((w: any) => ({
-      code: w.code || 'UNKNOWN',
-      message: w.message,
-      // Pass user_message through for humanisation fallback
-      userMessage: typeof w.user_message === 'string' && w.user_message.trim() ? w.user_message.trim() : undefined,
-      suggestion: w.suggested_fix,
-      affectedNodes: w.node_id ? [w.node_id] : undefined,
-      // Map critique severity: BLOCKER/ERROR/WARNING/INFO → blocker/error/warning/info
-      severity: normaliseSeverity(w.severity),
-    }))
+    // V14.3b: Internal-token guard — messages matching this are NOT safe for JSX render.
+    const CRITIQUE_INTERNAL_PATTERN = /constraint_|observed_state|intercept=|node_id=|edge_id=|fac_[a-z_]+|opt_[a-z_]+|goal_[a-z_]+|blocks_analysis/i
+
+    const uncertainties: UncertaintyItem[] = warnings.map((w: any) => {
+      const msg: string = w.message ?? ''
+      const cleaned = stripEncodingNotation(msg)
+      return {
+        code: w.code || 'UNKNOWN',
+        message: msg,
+        // Pass user_message through for humanisation fallback
+        userMessage: typeof w.user_message === 'string' && w.user_message.trim() ? w.user_message.trim() : undefined,
+        // V14.3b: Pre-sanitised text — safe for JSX render fallback (no raw .message in render paths)
+        displayText: CRITIQUE_INTERNAL_PATTERN.test(cleaned)
+          ? 'Check and update this factor\u2019s inputs for more reliable results.'
+          : cleaned,
+        suggestion: w.suggested_fix,
+        affectedNodes: w.node_id ? [w.node_id] : undefined,
+        // Map critique severity: BLOCKER/ERROR/WARNING/INFO → blocker/error/warning/info
+        severity: normaliseSeverity(w.severity),
+      }
+    })
 
     // UI-SEM-013: Fragile edge filter threshold (0.3). Estimated — PLoT does not provide a visibility gate.
     // Filter to only show high-risk fragile edges (switch_probability > 0.3)
@@ -1942,9 +1953,15 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
         return matchedDriver?.confidence ?? null
       })()
 
+      // V14.3b: Pre-sanitised displayText for JSX render fallback
+      const saDisplayText = CRITIQUE_INTERNAL_PATTERN.test(friendlyMessage)
+        ? 'Check and update this factor\u2019s inputs for more reliable results.'
+        : friendlyMessage
+
       uncertainties.push({
         code: 'SENSITIVE_ASSUMPTION',
         message: friendlyMessage,
+        displayText: saDisplayText,
         suggestion: 'Review this assumption',
         affectedNodes: [fromId, toId].filter(Boolean),
         severity,

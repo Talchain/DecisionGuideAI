@@ -206,12 +206,14 @@ describe('ConfidenceSection: V11 hinge de-duplication', () => {
         {
           code: 'SENSITIVE_ASSUMPTION',
           message: 'If "Customer churn → Revenue" changes, recommendation shifts',
+          displayText: 'If "Customer churn → Revenue" changes, recommendation shifts',
           affectedNodes: ['factor-churn', 'outcome-revenue'],
           severity: 'critical',
         },
         {
           code: 'SENSITIVE_ASSUMPTION',
           message: 'If "Market size → Revenue" changes, recommendation shifts',
+          displayText: 'If "Market size → Revenue" changes, recommendation shifts',
           affectedNodes: ['factor-market', 'outcome-revenue'],
           severity: 'warning',
         },
@@ -242,11 +244,13 @@ describe('ConfidenceSection: V11 hinge de-duplication', () => {
         {
           code: 'SENSITIVE_ASSUMPTION',
           message: 'If "Customer churn → Revenue" changes',
+          displayText: 'If "Customer churn → Revenue" changes',
           affectedNodes: ['factor-churn', 'outcome-revenue'],
         },
         {
           code: 'SENSITIVE_ASSUMPTION',
           message: 'If "Market size → Revenue" changes',
+          displayText: 'If "Market size → Revenue" changes',
           affectedNodes: ['factor-market', 'outcome-revenue'],
         },
       ],

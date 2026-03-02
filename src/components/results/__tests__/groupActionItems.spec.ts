@@ -7,6 +7,7 @@ function makeEdge(overrides: Partial<UncertaintyItem> = {}): UncertaintyItem {
   return {
     code: 'SENSITIVE_ASSUMPTION',
     message: 'If "Factor A → Outcome B" changes, the recommendation shifts',
+    displayText: 'If "Factor A → Outcome B" changes, the recommendation shifts',
     affectedNodes: ['factor-a', 'outcome-b'],
     severity: 'critical',
     ...overrides,

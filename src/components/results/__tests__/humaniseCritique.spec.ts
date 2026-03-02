@@ -140,7 +140,7 @@ describe('humaniseCritique', () => {
     expect(result.title).toBe('Review this factor\'s inputs')
   })
 
-  it('V14.3: displayText is null when userMessage contains internal tokens', () => {
+  it('V14.3b: internal-token userMessage falls through to generic fallback', () => {
     const item: UncertaintyItem = {
       code: 'NOVEL_CODE',
       message: 'internal message',
@@ -149,8 +149,8 @@ describe('humaniseCritique', () => {
     }
     const result = humaniseCritique(item, nodeLabels)
     expect(result.displayText).toBeNull()
-    // Title preserves the userMessage for ConfidenceSection fallback
-    expect(result.title).toBe('Something about fac_customer_churn field')
+    // V14.3b: Title must also be safe — falls through to generic, not contaminated userMessage
+    expect(result.title).toBe("Review this factor's inputs")
   })
 
   it('V14.3: userMessage fallback does NOT auto-generate suggestion', () => {

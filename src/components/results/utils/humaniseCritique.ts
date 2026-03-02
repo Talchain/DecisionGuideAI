@@ -176,15 +176,16 @@ export function humaniseCritique(
     console.warn('[humaniseCritique] Unmapped critique code:', item.code, '| Raw message:', item.message)
   }
 
-  // V14.2→V14.3: Prefer user_message from PLoT (humanised by the engine) over generic fallback.
+  // V14.2→V14.3b: Prefer user_message from PLoT (humanised by the engine) over generic fallback.
   // No auto-generated suggestion — only template-matched codes get actionable CTAs.
   // Items without suggestion are excluded from the banner but shown in ConfidenceSection.
-  if (item.userMessage) {
-    const displayText = INTERNAL_TOKEN_REGEX.test(item.userMessage) ? null : item.userMessage
+  // V14.3b: If userMessage contains internal tokens, fall through to generic fallback —
+  // never use contaminated text as title (which renders in ConfidenceSection Group 2).
+  if (item.userMessage && !INTERNAL_TOKEN_REGEX.test(item.userMessage)) {
     return {
       title: item.userMessage,
       description: 'Review this factor to improve result accuracy.',
-      displayText,
+      displayText: item.userMessage,
       factorId,
     }
   }

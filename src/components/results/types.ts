@@ -303,6 +303,8 @@ export interface UncertaintyItem {
   message: string
   /** Humanised message from PLoT (preferred over raw `message` for user-facing UI) */
   userMessage?: string
+  /** V14.3b: Pre-sanitised text for JSX render fallback. Computed at data layer via internal-token guard. */
+  displayText?: string
   suggestion?: string
   affectedNodes?: string[]
   /** Severity level for visual styling - defaults to 'warning' if not specified */
