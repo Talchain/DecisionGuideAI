@@ -76,7 +76,7 @@ describe('HeroSection', () => {
       expect(screen.getByText(/Option A is your only option/)).toBeInTheDocument()
     })
 
-    it('includes goal label in merged headline', () => {
+    it('includes goal label in Objective line', () => {
       render(
         <HeroSection
           {...baseProps}
@@ -85,7 +85,9 @@ describe('HeroSection', () => {
         />
       )
 
-      expect(screen.getByText(/To achieve increase revenue,/)).toBeInTheDocument()
+      expect(screen.getByText(/Objective:/)).toBeInTheDocument()
+      expect(screen.getByText(/increase revenue/)).toBeInTheDocument()
+      expect(screen.getByText(/Result:/)).toBeInTheDocument()
     })
 
     it('falls back to "your goal" when no goal label', () => {
@@ -96,7 +98,8 @@ describe('HeroSection', () => {
         />
       )
 
-      expect(screen.getByText(/To achieve your goal,/)).toBeInTheDocument()
+      expect(screen.getByText(/Objective:/)).toBeInTheDocument()
+      expect(screen.getByText(/your goal/)).toBeInTheDocument()
     })
 
     it('precedence rule 2 overrides normal headline (low stability)', () => {

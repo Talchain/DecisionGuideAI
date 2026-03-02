@@ -532,11 +532,8 @@ export function HeroSection({
   const [isExpanded, setIsExpanded] = useState(shouldDefaultExpand)
 
   // =========================================================================
-  // Headline — V9.2: merged "To achieve [goal], [winner] performs best"
+  // Headline — Objective / Result format
   // =========================================================================
-  const goalPrefix = goalLabel && goalLabel !== 'your goal'
-    ? normaliseGoalLabel(goalLabel)
-    : 'your goal'
 
   const m1Headline = useMemo<StructuredHeadline>(() => {
     // Precedence 1: Partial analysis
@@ -734,29 +731,35 @@ export function HeroSection({
           {/* ── Task 2: Headline ─────────────────────────────────── */}
           {v14Headline.isNearTie ? (
             <h2 className={`${typography.panelHeader} leading-snug`}>
-              <span className="text-text-header">To {goalPrefix},</span>{' '}
-              <GraphLink nodeId={v14Headline.idA} label={v14Headline.optA} className="text-info">
-                {v14Headline.optA}
-              </GraphLink>
-              {' and '}
-              <GraphLink nodeId={v14Headline.idB} label={v14Headline.optB} className="text-info">
-                {v14Headline.optB}
-              </GraphLink>
-              {' are too close to separate'}
+              <div><span className="text-text-header">Objective: </span><span className="text-text-header">{goalLabel || 'your goal'}</span></div>
+              <div>
+                <span className="text-text-header">Result: </span>
+                <GraphLink nodeId={v14Headline.idA} label={v14Headline.optA} className="text-info">
+                  {v14Headline.optA}
+                </GraphLink>
+                {' and '}
+                <GraphLink nodeId={v14Headline.idB} label={v14Headline.optB} className="text-info">
+                  {v14Headline.optB}
+                </GraphLink>
+                {' are too close to separate'}
+              </div>
             </h2>
           ) : (
             <h2 className={`${typography.panelHeader} leading-snug`}>
-              <span className="text-text-header">To {goalPrefix},</span>{' '}
-              <span className="text-text-header">
-                {v14Headline.text ?? (
-                  <>
-                    <GraphLink nodeId={winnerId} label={winnerLabel} className="text-success">
-                      {winnerLabel}
-                    </GraphLink>
-                    {' performs best'}
-                  </>
-                )}
-              </span>
+              <div><span className="text-text-header">Objective: </span><span className="text-text-header">{goalLabel || 'your goal'}</span></div>
+              <div>
+                <span className="text-text-header">Result: </span>
+                <span className="text-text-header">
+                  {v14Headline.text ?? (
+                    <>
+                      <GraphLink nodeId={winnerId} label={winnerLabel} className="text-success">
+                        {winnerLabel}
+                      </GraphLink>
+                      {' performs best'}
+                    </>
+                  )}
+                </span>
+              </div>
             </h2>
           )}
 
@@ -1032,10 +1035,13 @@ export function HeroSection({
     <div className="space-y-4" data-testid="hero-section">
       {/* Main hero card */}
       <div className="p-4 bg-panel border border-panel-border rounded-lg">
-        {/* V9.2 Headline — merged "To achieve [goal], [winner] performs best" */}
+        {/* V9.2 Headline — Objective / Result format */}
         <h2 className={`${typography.panelHeader} leading-snug`}>
-          <span className="text-text-header">To achieve {goalPrefix},</span>{' '}
-          <span className={recommendationStability != null && recommendationStability < 0.55 ? 'text-text-header' : 'text-success'}>{headline.main}</span>
+          <div><span className="text-text-header">Objective: </span><span className="text-text-header">{goalLabel || 'your goal'}</span></div>
+          <div>
+            <span className="text-text-header">Result: </span>
+            <span className={recommendationStability != null && recommendationStability < 0.55 ? 'text-text-header' : 'text-success'}>{headline.main}</span>
+          </div>
         </h2>
         {headline.sub && (
           <p className={`${typography.panelBody} text-text-body mt-1`}>
