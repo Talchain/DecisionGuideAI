@@ -27,13 +27,18 @@ export const ConversationPanel = memo(function ConversationPanel({
   conversation,
   onCollapse,
 }: ConversationPanelProps) {
-  const { messages, isThinking, longRunningHint, sendMessage, sendChip, retryLast } = conversation
+  const { messages, isThinking, longRunningHint, lastFailedInput, sendMessage, sendChip, retryLast } = conversation
   const [inputValue, setInputValue] = useState('')
   const listRef = useRef<HTMLDivElement>(null)
   const listEndRef = useRef<HTMLDivElement>(null)
   const [showNewMessageIndicator, setShowNewMessageIndicator] = useState(false)
   const userScrolledUpRef = useRef(false)
   const nodeCount = useCanvasStore((s) => s.nodes.length)
+
+  // Restore input text when a send fails so the user can edit and resend
+  useEffect(() => {
+    if (lastFailedInput) setInputValue(lastFailedInput)
+  }, [lastFailedInput])
 
   // Show welcome message only when empty and no graph
   const showWelcome = messages.length === 0 && nodeCount === 0

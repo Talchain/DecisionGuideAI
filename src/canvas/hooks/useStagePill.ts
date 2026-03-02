@@ -42,7 +42,7 @@ const STAGE_BORDER: Record<ScenarioStage, string> = {
 
 // UI-SEM-020: Stage derivation from canvas state
 // Remove when orchestrator provides envelope.stage_indicator
-function deriveStageFromState(
+export function deriveStageFromState(
   hasNodes: boolean,
   isComplete: boolean,
 ): ScenarioStage {

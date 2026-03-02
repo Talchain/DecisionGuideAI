@@ -69,6 +69,9 @@ export interface ActionChip {
 /** Max chips per assistant turn (coaching + suggested actions combined) */
 export const MAX_CHIPS_PER_TURN = 4
 
+/** Max suggested-action chips within the total budget (coaching fills first) */
+export const MAX_SUGGESTED_ACTIONS = 2
+
 /** Max visible blocks per assistant turn before "Show more" toggle */
 export const MAX_VISIBLE_BLOCKS_PER_TURN = 4
 

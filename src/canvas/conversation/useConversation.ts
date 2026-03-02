@@ -16,13 +16,14 @@ import type {
   OrchestratorResponseEnvelopeV2,
   ConversationTurnPair,
 } from './types'
-import { MAX_CHIPS_PER_TURN } from './types'
+import { MAX_CHIPS_PER_TURN, MAX_SUGGESTED_ACTIONS } from './types'
 
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
 
 const LONG_RUNNING_THRESHOLD_MS = 10_000
+const STILL_WORKING_THRESHOLD_MS = 20_000
 const TIMEOUT_MS = 30_000
 
 // ---------------------------------------------------------------------------
@@ -30,7 +31,7 @@ const TIMEOUT_MS = 30_000
 // ---------------------------------------------------------------------------
 
 /** Extract last N turn pairs (user+assistant = 1 pair) from messages */
-function buildHistory(
+export function buildHistory(
   messages: ConversationMessage[],
   maxPairs: number,
 ): ConversationTurnPair[] {
@@ -43,13 +44,17 @@ function buildHistory(
   return pairs.slice(-(maxPairs * 2))
 }
 
-/** Enforce chip budget: coaching chips first, then suggested actions */
-function enforceChipBudget(
+/** Enforce chip budget: coaching chips take priority, suggested actions capped at MAX_SUGGESTED_ACTIONS */
+export function enforceChipBudget(
   coachingChips: ActionChip[],
   suggestedActions: ActionChip[],
 ): ActionChip[] {
-  const merged = [...coachingChips, ...suggestedActions]
-  return merged.slice(0, MAX_CHIPS_PER_TURN)
+  const coaching = coachingChips.slice(0, MAX_CHIPS_PER_TURN)
+  const remainingSlots = Math.min(
+    MAX_SUGGESTED_ACTIONS,
+    MAX_CHIPS_PER_TURN - coaching.length,
+  )
+  return [...coaching, ...suggestedActions.slice(0, remainingSlots)]
 }
 
 // ---------------------------------------------------------------------------
@@ -60,6 +65,8 @@ export interface UseConversationReturn {
   messages: ConversationMessage[]
   isThinking: boolean
   longRunningHint: string | null
+  /** The user's last input text, restored on error so they can edit and resend */
+  lastFailedInput: string | null
   sendMessage: (text: string) => Promise<void>
   sendChip: (chip: ActionChip) => Promise<void>
   clearHistory: () => void
@@ -70,10 +77,12 @@ export function useConversation(): UseConversationReturn {
   const [messages, setMessages] = useState<ConversationMessage[]>([])
   const [isThinking, setIsThinking] = useState(false)
   const [longRunningHint, setLongRunningHint] = useState<string | null>(null)
+  const [lastFailedInput, setLastFailedInput] = useState<string | null>(null)
 
   // Refs for timers and abort
   const abortRef = useRef<AbortController | null>(null)
   const longRunningTimerRef = useRef<ReturnType<typeof setTimeout>>()
+  const stillWorkingTimerRef = useRef<ReturnType<typeof setTimeout>>()
   const timeoutTimerRef = useRef<ReturnType<typeof setTimeout>>()
   const lastUserInputRef = useRef<string>('')
 
@@ -81,6 +90,7 @@ export function useConversation(): UseConversationReturn {
   useEffect(() => {
     return () => {
       clearTimeout(longRunningTimerRef.current)
+      clearTimeout(stillWorkingTimerRef.current)
       clearTimeout(timeoutTimerRef.current)
       abortRef.current?.abort()
     }
@@ -95,6 +105,7 @@ export function useConversation(): UseConversationReturn {
       setMessages([])
       setIsThinking(false)
       setLongRunningHint(null)
+      setLastFailedInput(null)
     }
   }, [scenarioId])
 
@@ -105,6 +116,7 @@ export function useConversation(): UseConversationReturn {
   const buildRequest = useCallback(
     (text: string): OrchestratorTurnRequest => {
       const store = useCanvasStore.getState()
+      const { nodeIds, edgeIds } = store.selection
       return {
         scenario_id: store.currentScenarioId ?? `session-${Date.now()}`,
         message: text,
@@ -118,6 +130,10 @@ export function useConversation(): UseConversationReturn {
           has_results: store.results.status === 'complete',
           last_run_hash: store.currentScenarioLastResultHash,
         },
+        selected_elements:
+          nodeIds.size > 0 || edgeIds.size > 0
+            ? { node_ids: [...nodeIds], edge_ids: [...edgeIds] }
+            : undefined,
         client_turn_id: crypto.randomUUID(),
       }
     },
@@ -154,6 +170,7 @@ export function useConversation(): UseConversationReturn {
       if (!text.trim() || isThinking) return
 
       lastUserInputRef.current = text
+      setLastFailedInput(null)
 
       // Add user message
       const userMsg: ConversationMessage = {
@@ -173,17 +190,23 @@ export function useConversation(): UseConversationReturn {
       const controller = new AbortController()
       abortRef.current = controller
 
-      // 10s long-running placeholder
+      // 10s → "Running analysis…", 20s → "Still working…"
       longRunningTimerRef.current = setTimeout(() => {
-        setLongRunningHint('Running analysis...')
+        setLongRunningHint('Running analysis\u2026')
       }, LONG_RUNNING_THRESHOLD_MS)
+
+      stillWorkingTimerRef.current = setTimeout(() => {
+        setLongRunningHint('Still working\u2026')
+      }, STILL_WORKING_THRESHOLD_MS)
 
       // 30s timeout
       timeoutTimerRef.current = setTimeout(() => {
         controller.abort()
         clearTimeout(longRunningTimerRef.current)
+        clearTimeout(stillWorkingTimerRef.current)
         setIsThinking(false)
         setLongRunningHint(null)
+        setLastFailedInput(text)
         addMessage({
           id: crypto.randomUUID(),
           role: 'assistant',
@@ -201,6 +224,8 @@ export function useConversation(): UseConversationReturn {
       } catch (err) {
         if ((err as Error).name === 'AbortError') return // timeout already handled
 
+        setLastFailedInput(text)
+
         const message =
           err instanceof OrchestratorError
             ? `Something went wrong (${err.status}). Try again or rephrase your message.`
@@ -216,6 +241,7 @@ export function useConversation(): UseConversationReturn {
         })
       } finally {
         clearTimeout(longRunningTimerRef.current)
+        clearTimeout(stillWorkingTimerRef.current)
         clearTimeout(timeoutTimerRef.current)
         setIsThinking(false)
         setLongRunningHint(null)
@@ -262,8 +288,10 @@ export function useConversation(): UseConversationReturn {
     setMessages([])
     setIsThinking(false)
     setLongRunningHint(null)
+    setLastFailedInput(null)
     abortRef.current?.abort()
     clearTimeout(longRunningTimerRef.current)
+    clearTimeout(stillWorkingTimerRef.current)
     clearTimeout(timeoutTimerRef.current)
   }, [])
 
@@ -271,6 +299,7 @@ export function useConversation(): UseConversationReturn {
     messages,
     isThinking,
     longRunningHint,
+    lastFailedInput,
     sendMessage,
     sendChip,
     clearHistory,
