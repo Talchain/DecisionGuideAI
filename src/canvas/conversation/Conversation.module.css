@@ -1,0 +1,365 @@
+/* A.5+ Conversation Panel — CSS Module with Design System v2.1 tokens */
+
+/* ---------------------------------------------------------------------------
+ * § 1 — Message list container
+ * ---------------------------------------------------------------------------*/
+
+.messageList {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 16px;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+}
+
+/* ---------------------------------------------------------------------------
+ * § 2 — Message bubbles
+ * ---------------------------------------------------------------------------*/
+
+.messageBubble {
+  max-width: 85%;
+  padding: 12px 16px;
+  border-radius: 12px;
+  word-break: break-word;
+  white-space: pre-wrap;
+}
+
+.messageBubbleUser {
+  composes: messageBubble;
+  align-self: flex-end;
+  background: var(--info, #63ADCF);
+  color: var(--text-on-color, #FFFFFF);
+}
+
+.messageBubbleAssistant {
+  composes: messageBubble;
+  align-self: flex-start;
+  background: var(--bg-panel, #FEFEFE);
+  border: 1px solid var(--border-default, #EEE6D8);
+  color: var(--text-body, #3F3F3E);
+}
+
+/* ---------------------------------------------------------------------------
+ * § 3 — Typing indicator (three bouncing dots)
+ * ---------------------------------------------------------------------------*/
+
+.typingIndicator {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 12px 16px;
+  align-self: flex-start;
+  background: var(--bg-panel, #FEFEFE);
+  border: 1px solid var(--border-default, #EEE6D8);
+  border-radius: 12px;
+  max-width: 85%;
+}
+
+.typingDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--text-light, #908D8D);
+  animation: typingBounce 1.4s ease-in-out infinite;
+}
+
+.typingDot:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.typingDot:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes typingBounce {
+  0%, 60%, 100% {
+    transform: translateY(0);
+  }
+  30% {
+    transform: translateY(-4px);
+  }
+}
+
+.longRunningHint {
+  font-size: 12px;
+  color: var(--text-light, #908D8D);
+  margin-top: 4px;
+}
+
+/* ---------------------------------------------------------------------------
+ * § 4 — Inline blocks
+ * ---------------------------------------------------------------------------*/
+
+.blockContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.commentaryBlock {
+  color: var(--text-body, #3F3F3E);
+}
+
+.commentaryBlockWarning {
+  color: var(--warning, #FFA656);
+}
+
+.commentaryBlockPositive {
+  color: var(--success, #67C89E);
+}
+
+.reviewCardInfo {
+  border-left: 3px solid var(--info, #63ADCF);
+  background: var(--info-light, #BAD7E4);
+  padding: 12px;
+  border-radius: 8px;
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.reviewCardAlert {
+  border-top: 3px solid var(--danger, #EA7B4B);
+  background: var(--bg-panel, #FEFEFE);
+  padding: 12px;
+  border-radius: 8px;
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.reviewCardIcon {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+}
+
+.reviewCardContent {
+  flex: 1;
+  min-width: 0;
+}
+
+.reviewCardTitle {
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.factBlock {
+  border-top: 3px solid var(--success, #67C89E);
+  background: var(--bg-panel, #FEFEFE);
+  border-radius: 8px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.factValue {
+  font-weight: 600;
+  font-size: 18px;
+  color: var(--text-header, #262626);
+}
+
+.factLabel {
+  font-size: 12px;
+  color: var(--text-light, #908D8D);
+}
+
+.factSource {
+  font-size: 11px;
+  color: var(--text-light, #908D8D);
+  font-style: italic;
+}
+
+.showMoreToggle {
+  font-size: 12px;
+  color: var(--info, #63ADCF);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px 0;
+  font-weight: 500;
+}
+
+.showMoreToggle:hover {
+  text-decoration: underline;
+}
+
+/* ---------------------------------------------------------------------------
+ * § 5 — Action chips
+ * ---------------------------------------------------------------------------*/
+
+.chipRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border-width: 1px;
+  border-style: solid;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  min-height: 44px;
+  transition: background 150ms, color 150ms;
+}
+
+.chipPrimary {
+  composes: chip;
+  background: var(--info-light, #BAD7E4);
+  color: var(--info, #63ADCF);
+  border-color: color-mix(in srgb, var(--info, #63ADCF) 30%, transparent);
+}
+
+.chipPrimary:hover {
+  background: var(--info, #63ADCF);
+  color: var(--text-on-color, #FFFFFF);
+}
+
+.chipSecondary {
+  composes: chip;
+  background: var(--bg-panel, #FEFEFE);
+  color: var(--text-body, #3F3F3E);
+  border-color: var(--border-default, #EEE6D8);
+}
+
+.chipSecondary:hover {
+  background: var(--bg-panel-hover, #FEF9F3);
+}
+
+.chipUndo {
+  composes: chip;
+  background: var(--warning-light, #FCC798);
+  color: var(--warning, #FFA656);
+  border-color: color-mix(in srgb, var(--warning, #FFA656) 30%, transparent);
+}
+
+.chipUndo:hover {
+  background: var(--warning, #FFA656);
+  color: var(--text-on-color, #FFFFFF);
+}
+
+/* ---------------------------------------------------------------------------
+ * § 6 — Growing input
+ * ---------------------------------------------------------------------------*/
+
+.inputBar {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--border-default, #EEE6D8);
+  background: var(--bg-panel, #FEFEFE);
+  flex-shrink: 0;
+}
+
+.growingInput {
+  flex: 1;
+  padding: 10px 12px;
+  border: 1px solid var(--border-default, #EEE6D8);
+  border-radius: 12px;
+  background: var(--bg-panel, #FEFEFE);
+  color: var(--text-body, #3F3F3E);
+  font-family: 'Inter', sans-serif;
+  font-size: 16px;
+  line-height: 1.5;
+  resize: none;
+  outline: none;
+  overflow: hidden;
+}
+
+.growingInput::placeholder {
+  color: var(--text-light, #908D8D);
+}
+
+.growingInput:focus {
+  border-color: var(--info, #63ADCF);
+}
+
+.sendButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  border: none;
+  cursor: pointer;
+  transition: background 150ms;
+  flex-shrink: 0;
+}
+
+.sendButtonActive {
+  composes: sendButton;
+  background: var(--info, #63ADCF);
+  color: var(--text-on-color, #FFFFFF);
+}
+
+.sendButtonDisabled {
+  composes: sendButton;
+  background: var(--border-default, #EEE6D8);
+  color: var(--text-light, #908D8D);
+  cursor: not-allowed;
+}
+
+.sendButtonSpinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid color-mix(in srgb, var(--text-on-color, #FFFFFF) 30%, transparent);
+  border-top-color: var(--text-on-color, #FFFFFF);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ---------------------------------------------------------------------------
+ * § 7 — Welcome message
+ * ---------------------------------------------------------------------------*/
+
+.welcomeMessage {
+  align-self: flex-start;
+  max-width: 85%;
+  padding: 12px 16px;
+  border-radius: 12px;
+  background: var(--bg-panel, #FEFEFE);
+  border: 1px solid var(--border-default, #EEE6D8);
+  color: var(--text-body, #3F3F3E);
+}
+
+/* ---------------------------------------------------------------------------
+ * § 8 — New message indicator
+ * ---------------------------------------------------------------------------*/
+
+.newMessageIndicator {
+  position: sticky;
+  bottom: 8px;
+  align-self: center;
+  padding: 6px 16px;
+  border-radius: 999px;
+  background: var(--info, #63ADCF);
+  color: var(--text-on-color, #FFFFFF);
+  font-size: 12px;
+  font-weight: 500;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  z-index: 1;
+}
+
+.newMessageIndicator:hover {
+  opacity: 0.9;
+}

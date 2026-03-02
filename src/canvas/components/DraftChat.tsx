@@ -17,6 +17,9 @@ import { validateBrief } from '../utils/briefValidation'
 import { formatCEEError } from '../utils/formatCEEError'
 import { BriefCoachingHint } from './BriefCoachingHint'
 import { EXAMPLE_BRIEF_CHIPS } from '../../constants/validation'
+import { isOrchestratorV2Enabled } from '../../flags'
+import { ConversationPanel } from '../conversation/ConversationPanel'
+import { useConversation } from '../conversation/useConversation'
 
 // Storage keys for panel dimension persistence
 const DRAFT_PANEL_WIDTH_KEY = 'canvas.draftChat.width'
@@ -88,6 +91,9 @@ export function DraftChat() {
   const nodeCount = useCanvasStore(s => s.nodes.length)
   const edgeCount = useCanvasStore(s => s.edges.length)
   const showResultsPanel = useCanvasStore(s => s.showResultsPanel)
+
+  // A.5+ Conversation mode (feature-flagged)
+  const conversation = useConversation()
 
   // Brief validation
   const [isInputFocused, setIsInputFocused] = useState(false)
@@ -855,7 +861,6 @@ export function DraftChat() {
                   <h2 id="draft-chat-title" className={`${typography.label} text-ink-900`}>
                     Olumi AI
                   </h2>
-                  <p className={`${typography.panelMeta} text-ink-500`}>Describe your decision to get started</p>
                 </div>
               </div>
               <div className="flex items-center gap-1">
@@ -885,6 +890,13 @@ export function DraftChat() {
               </div>
             </div>
 
+            {isOrchestratorV2Enabled() ? (
+              <ConversationPanel
+                conversation={conversation}
+                onCollapse={() => setIsMinimized(true)}
+              />
+            ) : (
+            <>
             {/* Scrollable content area - shrinks to make room for input */}
             <div
               className={`flex-1 min-h-0 overflow-y-auto ${
@@ -1192,6 +1204,8 @@ export function DraftChat() {
                 softWarning={briefValidation.warningText}
               />
             </div>
+            </>
+            )}
           </div>
         )}
         <input
