@@ -280,6 +280,13 @@ export function DraftChat() {
 
   // Apply draft to canvas and return the IDs of added nodes/edges
   const applyDraftToCanvas = useCallback((draftData: CEEDraftResponse | CEEv2Response | null) => {
+    // Capture pre-draft snapshot for undo-draft capability (A.5+)
+    const store = useCanvasStore.getState()
+    store.setDraftChatPreDraftSnapshot({
+      nodes: store.nodes,
+      edges: store.edges,
+    })
+
     // Check both locations: root level or nested under graph
     const rawNodes = draftData?.nodes ?? (draftData as any)?.graph?.nodes ?? []
     const rawEdgesForCheck = draftData?.edges ?? (draftData as any)?.graph?.edges ?? []

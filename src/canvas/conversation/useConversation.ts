@@ -226,11 +226,24 @@ export function useConversation(): UseConversationReturn {
 
   const sendChip = useCallback(
     async (chip: ActionChip) => {
+      // Undo draft: restore pre-draft snapshot via store action
+      if (chip.intent === 'undo') {
+        useCanvasStore.getState().undoDraft()
+        addMessage({
+          id: crypto.randomUUID(),
+          role: 'assistant',
+          content: 'Draft undone. The canvas has been restored to its previous state.',
+          synthetic: true,
+          timestamp: new Date(),
+        })
+        return
+      }
+
       if (chip.message) {
         await sendMessage(chip.message)
       }
     },
-    [sendMessage],
+    [sendMessage, addMessage],
   )
 
   const retryLast = useCallback(async () => {
