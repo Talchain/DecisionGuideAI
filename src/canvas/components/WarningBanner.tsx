@@ -9,7 +9,7 @@
  * - "View affected items" link to highlight nodes/edges
  */
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { AlertTriangle, X, ChevronDown, ChevronRight } from 'lucide-react'
 import { typography } from '../../styles/typography'
 
@@ -18,6 +18,9 @@ export interface Warning {
   message: string
   affected_ids?: string[]
 }
+
+/** V14.3b: Defence-in-depth — filter out warnings containing internal ISL field names. */
+const INTERNAL_PATTERN = /constraint_fac_|observed_state\.|intercept\s*=|fac_[a-z_]+|blocks_analysis|node_id\s*=|edge_id\s*=|opt_[a-z_]+|goal_[a-z_]+/i
 
 interface WarningBannerProps {
   warnings: Warning[]
@@ -29,10 +32,16 @@ interface WarningBannerProps {
 export function WarningBanner({ warnings, onDismiss, onViewAffected }: WarningBannerProps) {
   const [isExpanded, setIsExpanded] = useState(false)
 
-  if (warnings.length === 0) return null
+  // V14.3b: Defence-in-depth — strip any warning with internal tokens that slipped past the adapter
+  const safeWarnings = useMemo(
+    () => warnings.filter(w => !INTERNAL_PATTERN.test(w.message)),
+    [warnings],
+  )
 
-  const firstWarning = warnings[0]
-  const hasMultiple = warnings.length > 1
+  if (safeWarnings.length === 0) return null
+
+  const firstWarning = safeWarnings[0]
+  const hasMultiple = safeWarnings.length > 1
 
   return (
     <div
@@ -65,13 +74,13 @@ export function WarningBanner({ warnings, onDismiss, onViewAffected }: WarningBa
             ) : (
               <ChevronRight className="w-3 h-3" />
             )}
-            +{warnings.length - 1} more {warnings.length === 2 ? 'warning' : 'warnings'}
+            +{safeWarnings.length - 1} more {safeWarnings.length === 2 ? 'warning' : 'warnings'}
           </button>
         )}
 
         {isExpanded && (
           <ul className="mt-2 space-y-1">
-            {warnings.slice(1).map((w, i) => (
+            {safeWarnings.slice(1).map((w, i) => (
               <li key={i} className={`${typography.caption} text-warning-800`}>
                 • {w.message}
               </li>

@@ -358,6 +358,7 @@ const confidenceData: ConfidenceSectionData = {
     {
       code: 'SENSITIVE_ASSUMPTION',
       message: 'If "Market Size (0-100) → Revenue" changes, results may shift.',
+      displayText: 'If "Market Size → Revenue" changes, results may shift.',
       suggestion: 'Review estimate',
     },
   ],
@@ -365,6 +366,7 @@ const confidenceData: ConfidenceSectionData = {
     {
       code: 'SENSITIVE_ASSUMPTION',
       message: 'If "Market Size (0-100) → Revenue" changes, results may shift.',
+      displayText: 'If "Market Size → Revenue" changes, results may shift.',
       suggestion: 'Review estimate',
     },
   ],

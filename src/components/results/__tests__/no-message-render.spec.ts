@@ -41,15 +41,18 @@ function getSourceFiles(dir: string): string[] {
 /**
  * Pattern to detect .message rendered in JSX.
  *
- * Matches JSX expressions like: {item.message}, {critique.message},
- * {u.message}, etc. inside curly braces.
+ * V14.3b: Broadened from a narrow variable-name list to catch ANY
+ * `<identifier>.message` inside JSX interpolation braces. This prevents
+ * regressions from variable renames (e.g. `w.message`, `firstWarning.message`).
+ *
+ * Matches: {x.message}, {firstWarning.message}, {item.message}, etc.
  *
  * Does NOT match:
- * - .test(item.message) — filter context, not render
- * - console.warn(..., item.message) — debug context
- * - .messages, .messageId — different properties
+ * - .test(item.message) — filter context, not render (caught by SAFE_PATTERNS)
+ * - console.warn(..., item.message) — debug context (caught by SAFE_PATTERNS)
+ * - .messages, .messageId — different properties (\b ensures word boundary)
  */
-const JSX_MESSAGE_RENDER = /\{[^}]*\b(?:item|critique|uncertainty|warning|u|c)\.message\b[^}]*\}/g
+const JSX_MESSAGE_RENDER = /\{[^}]*\b\w+\.message\b[^}]*\}/g
 
 /**
  * Allowlist: patterns that are safe despite containing .message in JSX-like context.
@@ -58,7 +61,6 @@ const JSX_MESSAGE_RENDER = /\{[^}]*\b(?:item|critique|uncertainty|warning|u|c)\.
  * - .test(: filter/guard context
  * - console.: debug context
  * - match(: regex extraction, not rendering
- * - safeMessageFallback(: guard function that strips internal tokens before render
  */
 const SAFE_PATTERNS = [
   /assumption\.message/,
@@ -66,14 +68,34 @@ const SAFE_PATTERNS = [
   /\.test\(/,
   /console\./,
   /\.match\(/,
-  /safeMessageFallback\(/,
+]
+
+/**
+ * V14.3b: Files that render .message BUT have runtime defence-in-depth filtering.
+ * Map of basename → regex that MUST be present in the file source for the exemption
+ * to hold. If someone removes the runtime filter, this test starts failing — keeping
+ * the structural guard tight without pattern-allowlisting specific variable names.
+ *
+ * WarningBanner.tsx: renders w.message / firstWarning.message, but only from
+ * `safeWarnings` which filters via INTERNAL_PATTERN. Behavioural coverage in
+ * WarningBanner.spec.tsx (lines 195-267) verifies internal tokens are stripped.
+ */
+const DEFENCE_IN_DEPTH_FILES: Record<string, RegExp> = {
+  'WarningBanner.tsx': /INTERNAL_PATTERN\.test\(/,
+}
+
+/** V14.3b: Additional files that render warning/critique-like data */
+const EXTRA_FILES = [
+  join(__dirname, '..', '..', '..', 'canvas', 'components', 'WarningBanner.tsx'),
 ]
 
 describe('V14.3: No .message renders in results components', () => {
-  const sourceFiles = getSourceFiles(RESULTS_DIR)
+  const sourceFiles = [...getSourceFiles(RESULTS_DIR), ...EXTRA_FILES.filter(f => {
+    try { statSync(f); return true } catch { return false }
+  })]
 
   for (const filePath of sourceFiles) {
-    const fileName = relative(RESULTS_DIR, filePath)
+    const fileName = relative(join(RESULTS_DIR, '..', '..'), filePath)
 
     it(`${fileName} does not render critique .message in JSX`, () => {
       const content = readFileSync(filePath, 'utf-8')
@@ -85,6 +107,22 @@ describe('V14.3: No .message renders in results components', () => {
       )
 
       if (unsafe.length > 0) {
+        // V14.3b: Files with runtime defence-in-depth get a conditional pass —
+        // but ONLY if the runtime filter is still present in the source.
+        // If someone removes the filter, this test starts failing.
+        const baseName = filePath.split('/').pop() ?? ''
+        const guard = DEFENCE_IN_DEPTH_FILES[baseName]
+        if (guard) {
+          if (!guard.test(content)) {
+            throw new Error(
+              `${fileName} renders .message in JSX and its runtime filter ` +
+              `(${guard}) is missing. Either restore the filter or stop ` +
+              `rendering .message directly.`,
+            )
+          }
+          return // runtime filter present — safe
+        }
+
         throw new Error(
           `Found .message rendered in JSX in ${fileName}:\n` +
           unsafe.map(m => `  ${m}`).join('\n') +

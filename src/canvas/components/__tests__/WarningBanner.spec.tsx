@@ -189,4 +189,81 @@ describe('WarningBanner', () => {
     expect(screen.getByText('3 edges had no type specified')).toBeInTheDocument()
     expect(screen.queryByText(/more warning/)).not.toBeInTheDocument()
   })
+
+  // ── V14.3b: Internal-token filtering ──────────────────────────────────────
+
+  describe('V14.3b: Internal token filtering', () => {
+    const INTERNAL_PATTERNS = [
+      /constraint_fac_/,
+      /observed_state/,
+      /intercept=/,
+      /fac_[a-z_]+/,
+      /blocks_analysis/,
+      /node_id=/,
+      /edge_id=/,
+      /opt_[a-z_]+/,
+      /goal_[a-z_]+/,
+    ]
+
+    it('filters out warnings containing internal ISL field names', () => {
+      const mixedWarnings: Warning[] = [
+        { code: 'GENERAL', message: 'Constraint "constraint_fac_customer_churn_max" targets factor node "fac_customer_churn" which has no observed_state.value.' },
+        { code: 'EDGE_TYPE_INFERRED', message: '3 edges had no type specified' },
+        { code: 'GENERAL', message: 'fac_customer_churn has no derivable range.' },
+      ]
+      render(<WarningBanner warnings={mixedWarnings} />)
+
+      // Clean warning should render
+      expect(screen.getByText('3 edges had no type specified')).toBeInTheDocument()
+      // Internal-token warnings should be filtered
+      expect(screen.queryByText(/constraint_fac_/)).not.toBeInTheDocument()
+      expect(screen.queryByText(/observed_state/)).not.toBeInTheDocument()
+      expect(screen.queryByText(/fac_customer_churn/)).not.toBeInTheDocument()
+    })
+
+    it('renders nothing when all warnings contain internal tokens', () => {
+      const allInternal: Warning[] = [
+        { code: 'GENERAL', message: 'constraint_fac_budget_max observed_state.value missing' },
+        { code: 'GENERAL', message: 'fac_revenue intercept=0 blocks_analysis' },
+      ]
+      const { container } = render(<WarningBanner warnings={allInternal} />)
+      expect(container.firstChild).toBeNull()
+    })
+
+    it('expanded list only shows safe warnings', () => {
+      const mixedWarnings: Warning[] = [
+        { code: 'EDGE_TYPE_INFERRED', message: 'Edges had no type' },
+        { code: 'GENERAL', message: 'fac_competition has intercept=0' },
+        { code: 'WEIGHTS_NORMALIZED', message: 'Weights normalized' },
+      ]
+      render(<WarningBanner warnings={mixedWarnings} />)
+
+      // Only 2 safe warnings → "+1 more warning" (not +2)
+      expect(screen.getByText('+1 more warning')).toBeInTheDocument()
+
+      fireEvent.click(screen.getByText('+1 more warning'))
+
+      // Clean warning in expanded list
+      expect(screen.getByText('• Weights normalized')).toBeInTheDocument()
+      // Internal warning NOT in expanded list
+      expect(screen.queryByText(/intercept=0/)).not.toBeInTheDocument()
+    })
+
+    it('no internal tokens in any rendered text (production payloads)', () => {
+      // Simulate the exact warnings from the user's screenshot
+      const productionWarnings: Warning[] = [
+        { code: 'GENERAL', message: 'Constraint "constraint_fac_customer_churn_max" targets factor node "fac_customer_churn" which has no observed_state.value. ISL will default to intercept=0, which may produce misleading probability results.' },
+        { code: 'GENERAL', message: 'Constraint "constraint_fac_customer_churn_max" target node "fac_customer_churn" has no derivable range. Constraint value will be compared as-is by ISL.' },
+        { code: 'GENERAL', message: '1 temporal constraint(s) filtered before analysis: [constraint_goal_mid_market_success_max]. Temporal constraints cannot be evaluated on a static causal graph.' },
+      ]
+      render(<WarningBanner warnings={productionWarnings} />)
+
+      // All three contain internal tokens — entire banner should be hidden
+      expect(screen.queryByTestId('warning-banner')).not.toBeInTheDocument()
+      const textContent = document.body.textContent ?? ''
+      for (const pattern of INTERNAL_PATTERNS) {
+        expect(textContent, `Internal token ${pattern} leaked to DOM`).not.toMatch(pattern)
+      }
+    })
+  })
 })

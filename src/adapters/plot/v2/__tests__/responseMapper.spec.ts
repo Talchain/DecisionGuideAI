@@ -317,6 +317,22 @@ describe('mapV2ResponseToReportV1', () => {
     expect(report.warnings).toEqual(['Warning message', 'Info message'])
   })
 
+  it('V14.3b: filters internal-token warnings from report.warnings', () => {
+    const v2Response = makeSuccessResponse({
+      critiques: [
+        { code: 'WARN1', severity: 'warning', message: 'Constraint "constraint_fac_customer_churn_max" targets factor node "fac_customer_churn" which has no observed_state.value.' },
+        { code: 'WARN2', severity: 'warning', message: 'Clean user-facing warning' },
+        { code: 'WARN3', severity: 'warning', message: 'fac_budget has intercept=0 and blocks_analysis pipeline' },
+        { code: 'WARN4', severity: 'info', message: '1 temporal constraint(s) filtered: [constraint_goal_mid_market_success_max]' },
+      ],
+    })
+
+    const report = mapV2ResponseToReportV1(v2Response, { seed: 42 })
+
+    // Only the clean warning should survive
+    expect(report.warnings).toEqual(['Clean user-facing warning'])
+  })
+
   it('handles empty option_comparison array', () => {
     const v2Response = makeSuccessResponse({ option_comparison: [] })
 

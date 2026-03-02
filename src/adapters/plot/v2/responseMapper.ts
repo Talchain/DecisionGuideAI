@@ -127,6 +127,12 @@ export function detectComputedButEmpty(v2Response: V2RunResponse): ComputedButEm
  * - Option node filtering messages (e.g., "Node 'opt_x' has kind='option'. Option nodes are filtered...")
  * - Normalization warnings that are handled internally
  */
+/**
+ * V14.3b: Internal-token regex — matches ISL field names, constraint prefixes, etc.
+ * Warnings matching this contain implementation details not safe for user display.
+ */
+const INTERNAL_WARNING_PATTERN = /constraint_fac_|observed_state\.|intercept\s*=|fac_[a-z_]+|blocks_analysis|node_id\s*=|edge_id\s*=|opt_[a-z_]+|goal_[a-z_]+/i
+
 function isInternalImplementationWarning(message: string): boolean {
   if (!message) return false
   const lowerMessage = message.toLowerCase()
@@ -145,6 +151,12 @@ function isInternalImplementationWarning(message: string): boolean {
 
   // Filter out clamping warnings (internal ISL constraint enforcement)
   if (lowerMessage.includes('clamped')) {
+    return true
+  }
+
+  // V14.3b: Filter out any warning containing internal ISL field names
+  // These are handled through the structured critique → humaniseCritique path
+  if (INTERNAL_WARNING_PATTERN.test(message)) {
     return true
   }
 
