@@ -31,6 +31,7 @@ import type {
   CEEInterventionHint,
 } from '../adapters/cee/types'
 import type { LimitsV1 } from '../adapters/plot/types'
+import type { ScenarioStage } from '../types/scenario'
 import type { CeeDebugHeaders } from './utils/ceeDebugHeaders'
 import { loadSearchQuery, loadSortPreferences, saveSearchQuery, saveSortPreferences, __test__ as docsTest } from './store/documents'
 import { loadUIPreferences, saveUIPreference } from './store/uiPreferences'
@@ -194,6 +195,8 @@ interface CanvasState {
   // Scenario state
   currentScenarioId: string | null  // Active scenario ID
   currentScenarioFraming: ScenarioFraming | null
+  // A.15: Decision lifecycle stage (hydrated from Supabase, updated by orchestrator)
+  currentStage: ScenarioStage | null
   currentScenarioLastResultHash: string | null  // Most recent analysis hash for the active scenario
   currentScenarioLastRunAt: string | null  // ISO timestamp of last analysis run for the active scenario
   currentScenarioLastRunSeed: string | null  // Seed used for last analysis run (stringified)
@@ -409,6 +412,8 @@ interface CanvasState {
   setSelectedRepairModel: (modelId: string | null) => void
   setSelectedEnrichmentModel: (modelId: string | null) => void
   resetModelToDefault: (operation: 'generation' | 'repair' | 'enrichment') => void
+  // A.15: Stage setter
+  setCurrentStage: (stage: ScenarioStage | null) => void
   setLastDraftDescription: (description: string) => void
   setLastDraftError: (error: { message: string; status?: number; correlationId?: string; timestamp: number } | null) => void
   setCeeAnalysisReady: (analysisReady: CEEAnalysisReady | null) => void
@@ -793,6 +798,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   // Scenario state
   currentScenarioId: scenarios.getCurrentScenarioId(),
   currentScenarioFraming: null,
+  currentStage: null,
   currentScenarioLastResultHash: null,
   currentScenarioLastRunAt: null,
   currentScenarioLastRunSeed: null,
@@ -1645,6 +1651,8 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       },
       // Clear scenario tracking in store state
       currentScenarioId: null,
+      // A.15: Clear lifecycle stage
+      currentStage: null,
     })
   },
 
@@ -2378,6 +2386,9 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     }
     set(resetMap[operation])
   },
+
+  // A.15: Stage setter
+  setCurrentStage: (stage) => set({ currentStage: stage }),
 
   // Store last draft description for persistence across panel close/reopen
   setLastDraftDescription: (description: string) => {

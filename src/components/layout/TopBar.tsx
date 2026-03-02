@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
-import { Save, Share2, MoreVertical, Check, BookOpen, Keyboard, HelpCircle, Activity, Users, Shield, ShieldAlert, Clock, Settings, ChevronRight, AlertTriangle } from 'lucide-react'
+import { Save, Share2, MoreVertical, Check, BookOpen, Keyboard, HelpCircle, Users, Shield, ShieldAlert, Clock, Settings, ChevronRight, AlertTriangle } from 'lucide-react'
 import Tooltip from '../Tooltip'
 import { Spinner } from '../Spinner'
 import styles from './TopBar.module.css'
 import { useAnalysisMetadata } from '../../canvas/hooks/useAnalysisMetadata'
+import { useStagePill } from '../../canvas/hooks/useStagePill'
 import { useSettingsStore } from '../../canvas/settingsStore'
 
 // Custom events for help actions (communicated to ReactFlowGraph)
@@ -163,6 +164,8 @@ export const TopBar = ({
 
   // Decision Graph Display v2 Task 13: Analysis metadata
   const analysisMetadata = useAnalysisMetadata()
+  // A.15: Stage lifecycle pill
+  const stagePill = useStagePill()
 
   // Canvas settings from store
   const {
@@ -272,13 +275,15 @@ export const TopBar = ({
 
       {/* Decision Graph Display v2 Task 13: Analysis metadata chips */}
       <div className={styles.topBarCenter}>
-        {/* Run Status */}
-        <Tooltip content={analysisMetadata.runStatus === 'complete' ? 'Analysis complete' : analysisMetadata.runStatus === 'running' ? 'Analysis in progress' : analysisMetadata.runStatus === 'error' ? 'Analysis failed' : 'Draft (not analyzed)'}>
-          <div className={styles.metadataChip} data-status={analysisMetadata.runStatus}>
-            <Activity size={12} aria-hidden="true" />
-            <span className={styles.metadataLabel}>
-              {analysisMetadata.runStatus === 'complete' ? 'Complete' : analysisMetadata.runStatus === 'running' ? 'Running...' : analysisMetadata.runStatus === 'error' ? 'Error' : 'Draft'}
-            </span>
+        {/* A.15: Stage lifecycle pill */}
+        <Tooltip content={`Decision stage: ${stagePill.label}`}>
+          <div
+            className={styles.stagePill}
+            style={{ borderColor: stagePill.borderColor }}
+            data-stage={stagePill.stage}
+            data-stage-source={stagePill.source}
+          >
+            <span className={styles.metadataLabel}>{stagePill.label}</span>
           </div>
         </Tooltip>
 

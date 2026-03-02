@@ -357,9 +357,10 @@ export function useScenario(): UseScenarioReturn {
         currentScenarioId: row.id,
       })
 
-      // Hydrate framing
+      // Hydrate framing + stage
       useCanvasStore.setState({
         currentScenarioFraming: (row.framing as Record<string, unknown> | null) ?? null,
+        currentStage: row.stage,  // A.15: Hydrate lifecycle stage from Supabase
         isDirty: false,
         lastSavedAt: new Date(row.updated_at).getTime(),
       })

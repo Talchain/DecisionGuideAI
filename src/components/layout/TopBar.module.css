@@ -383,6 +383,22 @@
   color: var(--text-light, #908D8D);
 }
 
+/* A.15: Stage lifecycle pill — true pill shape (999px radius, 2px border) */
+.stagePill {
+  display: flex;
+  align-items: center;
+  padding: 4px 12px;
+  font-size: 14px;
+  font-weight: 500;
+  border-width: 2px;
+  border-style: solid;
+  border-color: var(--border-default, #EEE6D8); /* fallback; overridden inline */
+  border-radius: 999px;
+  background: var(--bg-panel, #FEFEFE);
+  color: var(--text-body, #3F3F3E);
+  white-space: nowrap;
+}
+
 /* Metadata chips for pill design - body font size */
 .metadataChip {
   display: flex;
