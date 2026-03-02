@@ -383,6 +383,13 @@ export function ResultsBody({
 
       {/* 56px spacer for sticky footer clearance */}
       <div style={{ height: 56 }} aria-hidden="true" />
+
+      {/* V14.3b: Dev-only build marker for deploy verification */}
+      {import.meta.env.DEV && (
+        <div className="text-[10px] text-text-light/40 text-center py-1" data-testid="dev-build-marker">
+          {typeof __GIT_SHA__ !== 'undefined' ? __GIT_SHA__ : 'dev'}
+        </div>
+      )}
     </div>
   )
 }

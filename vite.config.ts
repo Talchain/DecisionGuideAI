@@ -1,6 +1,7 @@
 import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
 import path from 'node:path';
+import { execSync } from 'node:child_process';
 
 // ⚠️  CRITICAL: DO NOT ADD use-sync-external-store shim aliases!
 // The custom shim causes React #185 infinite loops because useCallback dependencies
@@ -57,6 +58,9 @@ export default defineConfig(({ mode, command }) => {
   plugins: [react()],
   define: {
     __BUILD_ID__: JSON.stringify(process.env.BUILD_ID || new Date().toISOString()),
+    __GIT_SHA__: JSON.stringify(
+      (() => { try { return execSync('git rev-parse --short=7 HEAD', { encoding: 'utf-8' }).trim() } catch { return 'unknown' } })()
+    ),
   },
   resolve: {
     alias: [

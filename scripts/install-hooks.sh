@@ -34,22 +34,23 @@ mkdir -p "$HOOKS_DIR"
 
 # ─── pre-push hook ─────────────────────────────────────────────────────
 PRE_PUSH_HOOK="$HOOKS_DIR/pre-push"
-PRE_PUSH_SCRIPT="$SCRIPTS_DIR/pre-push-validate.sh"
+PRE_PUSH_SCRIPT="$SCRIPTS_DIR/validate-prepush.sh"
 
 if [ ! -f "$PRE_PUSH_SCRIPT" ]; then
-  fail "scripts/pre-push-validate.sh not found"
+  fail "scripts/validate-prepush.sh not found"
   exit 1
 fi
 
 cat > "$PRE_PUSH_HOOK" << 'HOOK'
 #!/usr/bin/env bash
-# Git pre-push hook — delegates to scripts/pre-push-validate.sh
+# Git pre-push hook — delegates to scripts/validate-prepush.sh (fast gate).
+# The full test suite runs in CI post-push (staging-full-tests.yml).
 # Stdin (ref info) is forwarded so the script can parse destination refs.
 set -euo pipefail
 
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 
-exec bash "$REPO_ROOT/scripts/pre-push-validate.sh"
+exec bash "$REPO_ROOT/scripts/validate-prepush.sh"
 HOOK
 
 chmod +x "$PRE_PUSH_HOOK"
@@ -68,17 +69,17 @@ else
 fi
 
 if [ ! -x "$PRE_PUSH_SCRIPT" ]; then
-  fail "scripts/pre-push-validate.sh is not executable"
+  fail "scripts/validate-prepush.sh is not executable"
   ERRORS=1
 else
-  pass "scripts/pre-push-validate.sh is executable"
+  pass "scripts/validate-prepush.sh is executable"
 fi
 
-# Verify hook content references the validation script
-if grep -q "pre-push-validate.sh" "$PRE_PUSH_HOOK"; then
-  pass "Hook delegates to pre-push-validate.sh"
+# Verify hook content references the fast validation script
+if grep -q "validate-prepush.sh" "$PRE_PUSH_HOOK"; then
+  pass "Hook delegates to validate-prepush.sh"
 else
-  fail "Hook does not reference pre-push-validate.sh"
+  fail "Hook does not reference validate-prepush.sh"
   ERRORS=1
 fi
 

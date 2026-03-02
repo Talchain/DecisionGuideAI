@@ -26,10 +26,10 @@ if [ -z "$COMMAND" ] || ! echo "$COMMAND" | grep -qE '(^|&&|;|\|)\s*git\s+push';
 fi
 
 REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || echo '.')"
-VALIDATE_SCRIPT="$REPO_ROOT/scripts/pre-push-validate.sh"
+VALIDATE_SCRIPT="$REPO_ROOT/scripts/validate-prepush.sh"
 
 if [ ! -x "$VALIDATE_SCRIPT" ]; then
-  echo "pre-push-validate.sh not found or not executable" >&2
+  echo "validate-prepush.sh not found or not executable" >&2
   exit 2  # Block
 fi
 
