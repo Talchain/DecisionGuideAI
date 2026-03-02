@@ -195,6 +195,9 @@ export const ConversationPanel = memo(function ConversationPanel({
               })
             } else {
               // Fallback: replay ops locally
+              if (import.meta.env.DEV) {
+                console.warn('[olumi] op-replay fallback: PLoT did not return full graph, applying operations individually')
+              }
               applyPatchOperations(block.operations, () => useCanvasStore.getState())
             }
 

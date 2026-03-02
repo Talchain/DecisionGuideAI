@@ -146,6 +146,9 @@ describe('handlePatchAccept — validated graph preference', () => {
 
     mockValidatePatch.mockResolvedValue({ valid: true, graph: validatedGraph })
 
+    // Spy on pushHistory to verify atomicity — must be called exactly once
+    const pushHistorySpy = vi.spyOn(useCanvasStore.getState(), 'pushHistory')
+
     const block = makePatchBlock()
     const msg = makeMessage(block)
     const { conversation, patchStates, sendSystemEvent } = makeMockConversation([msg])
@@ -164,6 +167,9 @@ describe('handlePatchAccept — validated graph preference', () => {
     expect(state.nodes.find((n) => n.id === 'n-new')).toBeTruthy()
     expect(state.edges).toHaveLength(2)
 
+    // Atomicity: pushHistory called exactly once before setState
+    expect(pushHistorySpy).toHaveBeenCalledTimes(1)
+
     // patch_accepted system event dispatched
     expect(sendSystemEvent).toHaveBeenCalledWith(
       expect.objectContaining({ type: 'patch_accepted', payload: { patch_id: 'patch-1' } }),
@@ -171,6 +177,8 @@ describe('handlePatchAccept — validated graph preference', () => {
 
     // validatePatch was called
     expect(mockValidatePatch).toHaveBeenCalledTimes(1)
+
+    pushHistorySpy.mockRestore()
   })
 
   it('accepts validated_graph key as alternative to graph', async () => {
@@ -184,6 +192,9 @@ describe('handlePatchAccept — validated graph preference', () => {
 
     // Response uses validated_graph instead of graph
     mockValidatePatch.mockResolvedValue({ valid: true, validated_graph: validatedGraph })
+
+    // Spy on pushHistory to verify atomicity on alternate key path
+    const pushHistorySpy = vi.spyOn(useCanvasStore.getState(), 'pushHistory')
 
     const block = makePatchBlock()
     const msg = makeMessage(block)
@@ -201,6 +212,11 @@ describe('handlePatchAccept — validated graph preference', () => {
     const state = useCanvasStore.getState()
     expect(state.nodes).toHaveLength(3)
     expect(state.nodes.find((n) => n.id === 'n-alt')).toBeTruthy()
+
+    // Atomicity: pushHistory called exactly once (same as graph key path)
+    expect(pushHistorySpy).toHaveBeenCalledTimes(1)
+
+    pushHistorySpy.mockRestore()
   })
 
   it('falls back to op replay when validate response has no graph', async () => {
@@ -254,10 +270,9 @@ describe('handlePatchAccept — unknown operation guard', () => {
     expect(useCanvasStore.getState().nodes).toEqual(INITIAL_NODES)
     expect(useCanvasStore.getState().edges).toEqual(INITIAL_EDGES)
 
-    // Rejection info correct
+    // Rejection info — assert on stable code, not human-readable message
     const rejection = patchRejections.get('patch-1')
     expect(rejection?.code).toBe('UNSUPPORTED_OPERATION')
-    expect(rejection?.message).toContain('merge_nodes')
 
     // validatePatch was NOT called (guard fires before network call)
     expect(mockValidatePatch).not.toHaveBeenCalled()
@@ -279,7 +294,7 @@ describe('handlePatchAccept — unknown operation guard', () => {
       ],
     })
     const msg = makeMessage(block)
-    const { conversation, patchStates } = makeMockConversation([msg])
+    const { conversation, patchStates, patchRejections } = makeMockConversation([msg])
 
     render(<ConversationPanel conversation={conversation} onCollapse={vi.fn()} />)
 
@@ -292,6 +307,9 @@ describe('handlePatchAccept — unknown operation guard', () => {
     // No partial application — store untouched (no n3 added)
     expect(useCanvasStore.getState().nodes).toEqual(INITIAL_NODES)
     expect(mockValidatePatch).not.toHaveBeenCalled()
+
+    // Assert stable rejection code (not message string)
+    expect(patchRejections.get('patch-1')?.code).toBe('UNSUPPORTED_OPERATION')
   })
 })
 
