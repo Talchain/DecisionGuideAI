@@ -153,7 +153,8 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
   const edges = useCanvasStore(s => s.edges)
   const robustness = useCanvasStore(s => s.results?.report?.robustness)
 
-  // F.5: Coaching card shown alongside bars (no toggle)
+  // S.3 + F.5: Coaching card takes priority over insight bars (no toggle)
+  // If coaching card conditions are met, show card only. Otherwise show bars automatically.
   const hasCoachingCard = isFactorNode &&
     displayMetadata.isResultsMode &&
     displayMetadata.inSensitivityAnalysis &&
@@ -357,57 +358,60 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
             </span>
           )}
 
-          {/* F.5: Coaching card + bars shown together (no toggle) */}
-          {hasCoachingCard && (
+          {/* S.3 + F.5: Priority rule — coaching card OR insight bars, never both.
+              If coaching card applies, show it alone. Otherwise show bars automatically. */}
+          {hasCoachingCard ? (
             <div className={`flex items-start gap-1.5 p-2 bg-warning-light border border-warning/30 rounded ${typography.panelMeta} text-warning mb-2`}>
               <AlertTriangle size={12} className="flex-shrink-0 mt-0.5" />
               <span>High influence but low confidence. Consider gathering more data to reduce uncertainty.</span>
             </div>
-          )}
-
-          {/* Influence bar */}
-          {displayMetadata.influence !== null && (
-            <div className="mb-2">
-              <div className="flex justify-between items-center mb-1">
-                <span className={`${typography.panelMeta} text-text-light flex items-center gap-1.5`}>
-                  Influence
-                  {displayMetadata.sensitivityRank !== null && (
-                    <span className={`inline-flex items-center px-1.5 py-0.5 rounded ${typography.panelMeta} bg-warning-light text-warning`}>
-                      #{displayMetadata.sensitivityRank}
+          ) : (
+            <>
+              {/* Influence bar */}
+              {displayMetadata.influence !== null && (
+                <div className="mb-2">
+                  <div className="flex justify-between items-center mb-1">
+                    <span className={`${typography.panelMeta} text-text-light flex items-center gap-1.5`}>
+                      Influence
+                      {displayMetadata.sensitivityRank !== null && (
+                        <span className={`inline-flex items-center px-1.5 py-0.5 rounded ${typography.panelMeta} bg-warning-light text-warning`}>
+                          #{displayMetadata.sensitivityRank}
+                        </span>
+                      )}
                     </span>
-                  )}
-                </span>
-                <span className={`${typography.panelMeta} text-text-body`}>
-                  {Math.round(displayMetadata.influence * 100)}%
-                </span>
-              </div>
-              <div className="h-1.5 bg-panel-border rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-info rounded-full transition-all duration-300"
-                  style={{ width: `${Math.max(displayMetadata.influence * 100, 2)}%` }}
-                />
-              </div>
-            </div>
-          )}
+                    <span className={`${typography.panelMeta} text-text-body`}>
+                      {Math.round(displayMetadata.influence * 100)}%
+                    </span>
+                  </div>
+                  <div className="h-1.5 bg-panel-border rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-info rounded-full transition-all duration-300"
+                      style={{ width: `${Math.max(displayMetadata.influence * 100, 2)}%` }}
+                    />
+                  </div>
+                </div>
+              )}
 
-          {/* Confidence bar */}
-          {displayMetadata.confidence !== null && (
-            <div className="mb-2">
-              <div className="flex justify-between items-center mb-1">
-                <span className={`${typography.panelMeta} text-text-light`}>Confidence</span>
-                <span className={`${typography.panelMeta} text-text-body`}>
-                  {Math.round(displayMetadata.confidence * 100)}%
-                </span>
-              </div>
-              <div className="h-1.5 bg-panel-border rounded-full overflow-hidden">
-                <div
-                  className={`h-full rounded-full transition-all duration-300 ${
-                    displayMetadata.confidence < 0.5 ? 'bg-warning' : 'bg-success'
-                  }`}
-                  style={{ width: `${Math.max(displayMetadata.confidence * 100, 2)}%` }}
-                />
-              </div>
-            </div>
+              {/* Confidence bar */}
+              {displayMetadata.confidence !== null && (
+                <div className="mb-2">
+                  <div className="flex justify-between items-center mb-1">
+                    <span className={`${typography.panelMeta} text-text-light`}>Confidence</span>
+                    <span className={`${typography.panelMeta} text-text-body`}>
+                      {Math.round(displayMetadata.confidence * 100)}%
+                    </span>
+                  </div>
+                  <div className="h-1.5 bg-panel-border rounded-full overflow-hidden">
+                    <div
+                      className={`h-full rounded-full transition-all duration-300 ${
+                        displayMetadata.confidence < 0.5 ? 'bg-warning' : 'bg-success'
+                      }`}
+                      style={{ width: `${Math.max(displayMetadata.confidence * 100, 2)}%` }}
+                    />
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </div>
       )}

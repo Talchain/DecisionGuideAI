@@ -180,14 +180,17 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
   }, [isResultsMode, report, source, edgeData?.beliefExists, weight, getEdges, edgeData?.direction])
 
   // F.2: Direction-based stroke colour — applies both pre-run and post-run
-  // Truly uninitialised (no direction AND weight is default/undefined): yellow var(--goal)
-  // Direction set + weight > 0: green (positive) or red (negative)
-  // Direction set + weight === 0: grey (neutral, valid user choice)
-  // Direction undefined but weight explicitly set: grey
+  // Yellow is strictly reserved for truly uninitialised edges (no direction AND no weight).
+  // If weight is defined but direction is not, use grey (not yellow).
   const directionStroke = useMemo(() => {
+    const rawWeight = edgeData?.weight
     // Truly uninitialised: no direction AND weight is undefined → yellow
-    if (direction === undefined && edgeData?.weight === undefined) {
+    if (direction === undefined && rawWeight === undefined) {
       return 'var(--goal)'
+    }
+    // Weight defined but direction not yet set → grey (not yellow)
+    if (direction === undefined) {
+      return isDark ? '#a1a1aa' : '#d4d4d8' // Zinc-400/300
     }
     // Direction set with positive weight → green
     if (direction === 'positive' && weight > 0) {
@@ -197,7 +200,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
     if (direction === 'negative' && weight > 0) {
       return isDark ? '#FF6B6B' : '#ef4444' // Risk red (matches risk node border)
     }
-    // Neutral: weight === 0 (valid user choice) or no direction with explicit weight
+    // Neutral: weight === 0 (valid user choice)
     return isDark ? '#a1a1aa' : '#d4d4d8' // Zinc-400/300 (grey/ink)
   }, [direction, weight, edgeData?.weight, isDark])
 

@@ -7,6 +7,7 @@ import { describe, it, expect } from 'vitest'
 /**
  * Pure function replicating the direction stroke logic from StyledEdge.tsx (F.2)
  * Extracted here so the rules can be tested without a full React render.
+ * Yellow is strictly reserved for truly uninitialised edges (no direction AND no weight).
  */
 function computeDirectionStroke(
   direction: 'positive' | 'negative' | undefined,
@@ -18,6 +19,10 @@ function computeDirectionStroke(
   if (direction === undefined && rawWeight === undefined) {
     return 'var(--goal)'
   }
+  // Weight defined but direction not yet set → grey (not yellow)
+  if (direction === undefined) {
+    return isDark ? '#a1a1aa' : '#d4d4d8'
+  }
   // Direction set with positive weight → green
   if (direction === 'positive' && weight > 0) {
     return isDark ? '#bbf7d0' : '#a7f3d0'
@@ -26,7 +31,7 @@ function computeDirectionStroke(
   if (direction === 'negative' && weight > 0) {
     return isDark ? '#FF6B6B' : '#ef4444'
   }
-  // Neutral: weight === 0 (valid user choice) or no direction with explicit weight
+  // Neutral: weight === 0 (valid user choice)
   return isDark ? '#a1a1aa' : '#d4d4d8'
 }
 
@@ -58,6 +63,11 @@ describe('directionStroke colour logic (F.2)', () => {
 
   it('weight=0.5, direction=undefined, rawWeight=0.5 → grey (no direction set)', () => {
     const result = computeDirectionStroke(undefined, 0.5, 0.5, false)
+    expect(result).toBe('#d4d4d8')
+  })
+
+  it('weight=0, direction=undefined, rawWeight=0 → grey (weight defined, no direction), NOT yellow', () => {
+    const result = computeDirectionStroke(undefined, 0, 0, false)
     expect(result).toBe('#d4d4d8')
   })
 
