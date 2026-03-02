@@ -32,6 +32,7 @@ export type ConversationBlock =
   | CommentaryBlock
   | ReviewCardBlock
   | FactBlock
+  | GraphPatchBlock
 
 export interface CommentaryBlock {
   type: 'commentary'
@@ -52,6 +53,20 @@ export interface FactBlock {
   label: string
   value: string
   source?: string
+}
+
+export interface PatchOperation {
+  op: 'add_node' | 'remove_node' | 'update_node' | 'add_edge' | 'remove_edge' | 'update_edge'
+  target_id: string
+  data: Record<string, unknown>
+}
+
+export interface GraphPatchBlock {
+  type: 'graph_patch'
+  patch_id: string
+  summary: string
+  operations: PatchOperation[]
+  target_graph_hash: string
 }
 
 // ---------------------------------------------------------------------------

@@ -19,6 +19,9 @@ import { EXAMPLE_BRIEF_CHIPS } from '../../constants/validation'
 import { isOrchestratorV2Enabled } from '../../flags'
 import { ConversationPanel } from '../conversation/ConversationPanel'
 import { useConversation } from '../conversation/useConversation'
+import { useGraphEditEvents } from '../conversation/useGraphEditEvents'
+import { useAnalysisCompleteEvent } from '../conversation/useAnalysisCompleteEvent'
+import { useSessionResumeEvent } from '../conversation/useSessionResumeEvent'
 
 // Storage keys for panel dimension persistence
 const DRAFT_PANEL_WIDTH_KEY = 'canvas.draftChat.width'
@@ -93,6 +96,11 @@ export function DraftChat() {
 
   // A.5+ Conversation mode (feature-flagged)
   const conversation = useConversation()
+
+  // A.5+ Phase 2: Wire system event hooks (all no-ops when flag is OFF)
+  useGraphEditEvents(conversation.sendSystemEvent)
+  useAnalysisCompleteEvent(conversation.sendSystemEvent)
+  useSessionResumeEvent(conversation.sendSystemEvent, conversation.messages)
 
   // Brief validation
   const [isInputFocused, setIsInputFocused] = useState(false)
