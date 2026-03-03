@@ -33,11 +33,26 @@ export type ConversationBlock =
   | ReviewCardBlock
   | FactBlock
   | GraphPatchBlock
+  | FramingBlock
+  | BriefBlock
+
+// ---------------------------------------------------------------------------
+// Citation marker (optional on CommentaryBlock)
+// ---------------------------------------------------------------------------
+
+export interface CitationRef {
+  /** 1-based superscript index in the text */
+  index: number
+  /** Source description shown in legend / tooltip */
+  source: string
+}
 
 export interface CommentaryBlock {
   type: 'commentary'
   text: string
   tone?: 'neutral' | 'warning' | 'positive'
+  /** Optional citation markers; rendered as numbered legend below text */
+  citations?: CitationRef[]
 }
 
 export interface ReviewCardBlock {
@@ -46,13 +61,45 @@ export interface ReviewCardBlock {
   body: string
   /** 'info' = coaching (left 3px info border), 'alert' = danger (top 3px danger border) */
   variant: 'info' | 'alert'
+  /** Optional priority badge — sentence case */
+  priority?: 'critical' | 'high' | 'medium' | 'low'
+}
+
+// ---------------------------------------------------------------------------
+// FactBlock — simple backward-compat shape plus optional template fields
+// ---------------------------------------------------------------------------
+
+export interface FactEntry {
+  label: string
+  value: string | number
+  /** Reference line for bar rendering */
+  baseline?: number
+}
+
+export type FactType =
+  | 'simple'           // default — renders label/value/source
+  | 'option_comparison'
+  | 'sensitivity'
+  | 'robustness'
+  | 'constraint'
+
+export interface FactLineage {
+  n_samples?: number
+  source?: string
 }
 
 export interface FactBlock {
   type: 'fact'
+  /** Kept required for backward compat with existing tests */
   label: string
+  /** Kept required for backward compat with existing tests */
   value: string
   source?: string
+  /** absent = 'simple' */
+  fact_type?: FactType
+  /** Template data for non-simple fact_types */
+  facts?: FactEntry[]
+  lineage?: FactLineage
 }
 
 export interface PatchOperation {
@@ -61,12 +108,50 @@ export interface PatchOperation {
   data: Record<string, unknown>
 }
 
+// ---------------------------------------------------------------------------
+// Block action (CEE-provided action buttons for graph_patch)
+// ---------------------------------------------------------------------------
+
+export interface BlockAction {
+  action_type: 'accept' | 'dismiss' | 'view_details' | string
+  label: string
+  variant?: 'primary' | 'secondary' | 'danger'
+}
+
 export interface GraphPatchBlock {
   type: 'graph_patch'
   patch_id: string
   summary: string
   operations: PatchOperation[]
   target_graph_hash: string
+  /**
+   * When true, CEE has already applied the graph via envelope side_effects.
+   * Render as applied state immediately — no Accept/Dismiss, no system event.
+   */
+  auto_apply?: boolean
+  /** CEE-provided action buttons; overrides default Accept/Dismiss when present */
+  actions?: BlockAction[]
+  /** Canonical block identifier from CEE */
+  block_id?: string
+}
+
+// ---------------------------------------------------------------------------
+// New block types (A.1)
+// ---------------------------------------------------------------------------
+
+export interface FramingBlock {
+  type: 'framing'
+  goal: string
+  options: string[]
+  constraints?: string[]
+  key_risks?: string[]
+}
+
+export interface BriefBlock {
+  type: 'brief'
+  title: string
+  summary: string
+  brief_url?: string
 }
 
 // ---------------------------------------------------------------------------
@@ -153,6 +238,8 @@ export interface OrchestratorResponseEnvelopeV2 {
   blocks?: ConversationBlock[]
   suggested_actions?: ActionChip[]
   stage_indicator?: ScenarioStage
+  /** Guidance items for cross-surface display (strip, inspector, canvas highlight) */
+  guidance_items?: import('../stores/guidanceStore').GuidanceItem[]
   /** Debug/trace field — not displayed to user */
   turn_plan?: string
   /** Echoed client_turn_id for deduplication */

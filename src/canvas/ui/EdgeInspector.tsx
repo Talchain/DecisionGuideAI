@@ -12,6 +12,7 @@ import { useToast } from '../ToastContext'
 import { Tooltip } from '../components/Tooltip'
 import { typography } from '../../styles/typography'
 import { InspectorAccordion } from './inspector'
+import { InspectorGuidanceSection } from './inspector/InspectorGuidanceSection'
 import { SignedStrengthSlider } from './inspector/SignedStrengthSlider'
 import { getConfidenceCoaching, shouldShowInfluenceCoaching } from './inspector/coachingText'
 import { useNodeDisplayMetadata } from '../hooks/useNodeDisplayMetadata'
@@ -300,6 +301,11 @@ export const EdgeInspector = memo(({ edgeId, onClose }: EdgeInspectorProps) => {
           </div>
         </>
       )}
+
+      {/* Guidance suggestions for this edge.
+          target_object.id from CEE mirrors the canvas edge ID (e.g. "e3") — no mapping needed
+          because we send our edge IDs to CEE/PLoT and they echo them back in guidance_items. */}
+      <InspectorGuidanceSection elementId={edgeId} />
 
       {/* Live region for announcements */}
       <div role="status" aria-live="polite" aria-atomic="true" className="sr-only">

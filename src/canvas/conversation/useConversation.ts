@@ -10,8 +10,10 @@ import { useState, useCallback, useRef, useEffect } from 'react'
 import { useCanvasStore } from '../store'
 import { callOrchestratorTurn, OrchestratorError } from './turnService'
 import { isOrchestratorV2Enabled } from '../../flags'
+import { useGuidanceStore } from '../stores/guidanceStore'
 import type {
   ConversationMessage,
+  ConversationBlock,
   ActionChip,
   SystemEvent,
   OrchestratorTurnRequest,
@@ -60,6 +62,115 @@ export function enforceChipBudget(
     MAX_CHIPS_PER_TURN - coaching.length,
   )
   return [...coaching, ...suggestedActions.slice(0, remainingSlots)]
+}
+
+/**
+ * Normalise a block as received from CEE's wire format into the flat UI type.
+ *
+ * CEE may send blocks in two shapes:
+ *  1. Wrapped: { block_id, block_type, data: {...}, actions: [...] }
+ *  2. Flat (legacy): { type, ...fields } — already in UI format
+ *
+ * Unknown block_type values are passed through as-is; InlineBlocks renders a
+ * fallback for them. Unknown enum values within known block types degrade
+ * gracefully — never crash.
+ */
+export function adaptCEEBlock(raw: unknown): ConversationBlock {
+  if (raw == null || typeof raw !== 'object') {
+    // Return a minimal unknown block so InlineBlocks can show fallback
+    return { type: 'commentary', text: '' } as ConversationBlock
+  }
+
+  const obj = raw as Record<string, unknown>
+
+  // Wrapped CEE format: { block_type, data, ... }
+  if (typeof obj.block_type === 'string' && 'data' in obj) {
+    const { block_type, block_id, data, actions } = obj
+    const dataObj = (data != null && typeof data === 'object' ? data : {}) as Record<string, unknown>
+
+    switch (block_type) {
+      case 'framing':
+        return {
+          type: 'framing',
+          goal: String(dataObj.goal ?? ''),
+          options: Array.isArray(dataObj.options) ? dataObj.options.map(String) : [],
+          constraints: Array.isArray(dataObj.constraints) ? dataObj.constraints.map(String) : undefined,
+          key_risks: Array.isArray(dataObj.key_risks) ? dataObj.key_risks.map(String) : undefined,
+        }
+
+      case 'graph_patch':
+        return {
+          type: 'graph_patch',
+          patch_id: String(dataObj.patch_id ?? block_id ?? ''),
+          summary: String(dataObj.description ?? dataObj.summary ?? ''),
+          operations: Array.isArray(dataObj.operations) ? dataObj.operations as any : [],
+          target_graph_hash: String(dataObj.applied_graph_hash ?? dataObj.target_graph_hash ?? ''),
+          auto_apply: dataObj.auto_apply === true,
+          actions: Array.isArray(actions) ? actions as any : undefined,
+          block_id: typeof block_id === 'string' ? block_id : undefined,
+        }
+
+      case 'fact':
+        return {
+          type: 'fact',
+          label: String(dataObj.label ?? ''),
+          value: String(dataObj.value ?? ''),
+          source: dataObj.source != null ? String(dataObj.source) : undefined,
+          fact_type: (dataObj.fact_type as any) ?? undefined,
+          facts: Array.isArray(dataObj.facts) ? dataObj.facts as any : undefined,
+          lineage: dataObj.lineage as any ?? undefined,
+        }
+
+      case 'commentary':
+        return {
+          type: 'commentary',
+          text: String(dataObj.narrative ?? dataObj.text ?? ''),
+          citations: Array.isArray(dataObj.citations) ? dataObj.citations as any : undefined,
+        }
+
+      case 'review_card':
+        return {
+          type: 'review_card',
+          title: String(dataObj.title ?? ''),
+          body: String(dataObj.description ?? dataObj.body ?? ''),
+          variant: dataObj.variant === 'alert' ? 'alert' : 'info',
+          priority: dataObj.priority as any ?? undefined,
+        }
+
+      case 'brief':
+        return {
+          type: 'brief',
+          title: String(dataObj.title ?? ''),
+          summary: String(dataObj.summary ?? ''),
+          brief_url: dataObj.shareable_url != null ? String(dataObj.shareable_url) : undefined,
+        }
+
+      default:
+        // Unknown block_type — pass raw type through for InlineBlocks fallback
+        return { type: block_type as any, ...dataObj } as unknown as ConversationBlock
+    }
+  }
+
+  // Flat format (legacy / already-normalised) — pass through as-is
+  return raw as ConversationBlock
+}
+
+/**
+ * Budget-aware block selection: keep original CEE array order.
+ * Moves all graph_patch blocks to the front so that if the visible-set slice
+ * is applied (MAX_VISIBLE_BLOCKS_PER_TURN), patch blocks are never hidden
+ * behind the "Show more" toggle.
+ *
+ * NOTE: This returns the FULL reordered array. InlineBlocks applies the visual
+ * slice. Block settlement state (proposed/accepted/rejected/dismissed) is
+ * managed separately in patchBlockStates and is not available here.
+ */
+export function prioritiseBlocks(blocks: ConversationBlock[]): ConversationBlock[] {
+  // Separate graph_patch blocks from the rest (preserve sub-order within each group)
+  const patchBlocks = blocks.filter((b) => b.type === 'graph_patch')
+  const others = blocks.filter((b) => b.type !== 'graph_patch')
+  // Patch blocks first, then everything else in original order
+  return [...patchBlocks, ...others]
 }
 
 // ---------------------------------------------------------------------------
@@ -170,14 +281,22 @@ export function useConversation(): UseConversationReturn {
         useCanvasStore.getState().setCurrentStage(envelope.stage_indicator)
       }
 
+      // Update guidance items (replaces previous array; clears stale active ID)
+      useGuidanceStore.getState().setGuidanceItems(envelope.guidance_items ?? [])
+
       // Build action chips from suggested_actions (enforced budget)
       const chips = enforceChipBudget([], envelope.suggested_actions ?? [])
+
+      // Normalise CEE blocks and apply budget priority (proposed patches first)
+      const rawBlocks = envelope.blocks ?? []
+      const normalisedBlocks = rawBlocks.map(adaptCEEBlock)
+      const orderedBlocks = prioritiseBlocks(normalisedBlocks)
 
       const assistantMsg: ConversationMessage = {
         id: crypto.randomUUID(),
         role: 'assistant',
         content: envelope.assistant_text,
-        blocks: envelope.blocks,
+        blocks: orderedBlocks.length > 0 ? orderedBlocks : undefined,
         actionChips: chips.length > 0 ? chips : undefined,
         timestamp: new Date(),
         clientTurnId: envelope.client_turn_id,

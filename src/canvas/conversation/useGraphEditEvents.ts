@@ -12,6 +12,7 @@
 import { useEffect, useRef } from 'react'
 import { useCanvasStore } from '../store'
 import { isOrchestratorV2Enabled } from '../../flags'
+import { useGuidanceStore } from '../stores/guidanceStore'
 import type { SystemEvent } from './types'
 import type { Node, Edge } from '@xyflow/react'
 
@@ -195,6 +196,9 @@ export function useGraphEditEvents(
         // Cap IDs to prevent pathological payloads
         const changedNodeIds = [...batchAcc.changedNodeIds].slice(0, MAX_IDS_PER_BATCH)
         const changedEdgeIds = [...batchAcc.changedEdgeIds].slice(0, MAX_IDS_PER_BATCH)
+
+        // Clear guidance when user makes a direct graph edit — prevents stale items
+        useGuidanceStore.getState().clearGuidanceItems()
 
         sendSystemEvent({
           type: 'direct_graph_edit',

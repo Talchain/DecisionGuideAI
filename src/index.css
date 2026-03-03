@@ -401,3 +401,106 @@
   /* Gap between AI panel and results dock (~3cm at 96 DPI) */
   --ai-panel-gap: 7rem;
 }
+
+/* ---------------------------------------------------------------------------
+ * Guidance pulse highlight (A.2 Task 4)
+ * Applied to .react-flow__node or .react-flow__edge elements via DOM class toggle.
+ * Uses outline to avoid affecting layout. Single pulse then static ring.
+ * ---------------------------------------------------------------------------*/
+
+.guidance-pulse-ring > * {
+  outline: 2.5px solid var(--info, #63ADCF);
+  outline-offset: 3px;
+  border-radius: 8px;
+  animation: guidance-pulse 600ms ease-out 1 forwards;
+}
+
+.react-flow__edge.guidance-pulse-ring .react-flow__edge-path {
+  stroke: var(--info, #63ADCF);
+  stroke-width: 3;
+  filter: drop-shadow(0 0 3px var(--info, #63ADCF));
+  animation: guidance-edge-pulse 600ms ease-out 1 forwards;
+}
+
+@keyframes guidance-pulse {
+  0% {
+    outline-color: transparent;
+    outline-width: 4px;
+  }
+  30% {
+    outline-color: var(--info, #63ADCF);
+    outline-width: 4px;
+  }
+  100% {
+    outline-color: var(--info, #63ADCF);
+    outline-width: 2.5px;
+  }
+}
+
+@keyframes guidance-edge-pulse {
+  0% {
+    opacity: 0.4;
+    stroke-width: 5;
+  }
+  100% {
+    opacity: 1;
+    stroke-width: 3;
+  }
+}
+
+/* must_fix variant — danger colour (nodes and edges) */
+.guidance-pulse-ring[data-guidance-category="must_fix"] > * {
+  outline-color: var(--danger, #EA7B4B);
+  animation-name: guidance-pulse-danger;
+}
+
+.react-flow__edge.guidance-pulse-ring[data-guidance-category="must_fix"] .react-flow__edge-path {
+  stroke: var(--danger, #EA7B4B);
+  filter: drop-shadow(0 0 3px var(--danger, #EA7B4B));
+}
+
+/* should_fix variant — info colour (advisory, not critical) */
+.guidance-pulse-ring[data-guidance-category="should_fix"] > * {
+  outline-color: var(--info, #63ADCF);
+  animation-name: guidance-pulse;
+}
+
+@keyframes guidance-pulse-danger {
+  0% {
+    outline-color: transparent;
+    outline-width: 4px;
+  }
+  30% {
+    outline-color: var(--danger, #EA7B4B);
+    outline-width: 4px;
+  }
+  100% {
+    outline-color: var(--danger, #EA7B4B);
+    outline-width: 2.5px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .guidance-pulse-ring > * {
+    animation: none;
+    outline: 2.5px solid var(--info, #63ADCF);
+    outline-offset: 3px;
+  }
+
+  .guidance-pulse-ring[data-guidance-category="must_fix"] > * {
+    outline-color: var(--danger, #EA7B4B);
+  }
+
+  .guidance-pulse-ring[data-guidance-category="should_fix"] > * {
+    outline-color: var(--info, #63ADCF);
+  }
+
+  .react-flow__edge.guidance-pulse-ring .react-flow__edge-path {
+    animation: none;
+  }
+
+  .react-flow__edge.guidance-pulse-ring[data-guidance-category="must_fix"] .react-flow__edge-path {
+    stroke: var(--danger, #EA7B4B);
+    filter: drop-shadow(0 0 3px var(--danger, #EA7B4B));
+  }
+}

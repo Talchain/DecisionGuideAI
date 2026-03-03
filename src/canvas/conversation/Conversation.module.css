@@ -337,6 +337,361 @@
 }
 
 /* ---------------------------------------------------------------------------
+ * § 4c — FramingBlock
+ * ---------------------------------------------------------------------------*/
+
+.framingBlock {
+  border-top: 3px solid var(--info, #63ADCF);
+  background: var(--bg-panel, #FEFEFE);
+  border-radius: 8px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.framingGoal {
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--text-header, #262626);
+}
+
+.framingOptions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.framingOptionPill {
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: var(--info-light, #BAD7E4);
+  color: var(--info, #63ADCF);
+  font-size: 12px;
+  font-weight: 500;
+  border: 1px solid color-mix(in srgb, var(--info, #63ADCF) 30%, transparent);
+}
+
+.framingSection {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.framingSectionLabel {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-light, #908D8D);
+  letter-spacing: 0.04em;
+}
+
+.framingItem {
+  font-size: 13px;
+  color: var(--text-body, #3F3F3E);
+  padding-left: 8px;
+  border-left: 2px solid var(--border-default, #EEE6D8);
+}
+
+/* ---------------------------------------------------------------------------
+ * § 4d — BriefBlock
+ * ---------------------------------------------------------------------------*/
+
+.briefBlock {
+  border-top: 3px solid var(--success, #67C89E);
+  background: var(--bg-panel, #FEFEFE);
+  border-radius: 8px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.briefTitle {
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+
+.briefSummaryCollapsed {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  color: var(--text-body, #3F3F3E);
+  @media (prefers-reduced-motion: no-preference) {
+    transition: none;
+  }
+}
+
+.briefSummaryExpanded {
+  color: var(--text-body, #3F3F3E);
+}
+
+.briefExpandToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--info, #63ADCF);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px 0;
+  min-height: 44px;
+}
+
+.briefExpandToggle:hover {
+  text-decoration: underline;
+}
+
+.briefViewLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--info, #63ADCF);
+  text-decoration: none;
+}
+
+.briefViewLink:hover {
+  text-decoration: underline;
+}
+
+/* ---------------------------------------------------------------------------
+ * § 4e — FactBlock templates
+ * ---------------------------------------------------------------------------*/
+
+.factBarTrack {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--border-default, #EEE6D8);
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+}
+
+.factBarFill {
+  height: 100%;
+  border-radius: 3px;
+  background: var(--success, #67C89E);
+  @media (prefers-reduced-motion: no-preference) {
+    transition: width 300ms ease;
+  }
+}
+
+.factBarRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.factBarLabel {
+  font-size: 12px;
+  color: var(--text-body, #3F3F3E);
+  min-width: 80px;
+  flex-shrink: 0;
+}
+
+.factBarValue {
+  font-size: 12px;
+  color: var(--text-light, #908D8D);
+  flex-shrink: 0;
+  min-width: 36px;
+  text-align: right;
+}
+
+.factRobustnessRow {
+  display: flex;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.factRobustnessSegment {
+  flex: 1;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--border-default, #EEE6D8);
+}
+
+.factRobustnessSegmentActive {
+  composes: factRobustnessSegment;
+  background: var(--success, #67C89E);
+}
+
+.factConstraintBadgePass {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: var(--success-light, #B8E2D0);
+  color: var(--success, #67C89E);
+  display: inline-flex;
+  align-items: center;
+}
+
+.factConstraintBadgeFail {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: var(--danger-light, #FFB393);
+  color: var(--danger, #EA7B4B);
+  display: inline-flex;
+  align-items: center;
+}
+
+.factLineage {
+  font-size: 11px;
+  color: var(--text-light, #908D8D);
+  font-style: italic;
+  margin-top: 4px;
+}
+
+/* ---------------------------------------------------------------------------
+ * § 4f — ReviewCard priority badge (sentence case — no uppercase)
+ * ---------------------------------------------------------------------------*/
+
+.priorityBadge {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 3px;
+  color: var(--text-on-color, #FFFFFF);
+  display: inline-flex;
+  align-items: center;
+}
+
+.priorityBadgeCritical {
+  composes: priorityBadge;
+  background: var(--danger, #EA7B4B);
+}
+
+.priorityBadgeHigh {
+  composes: priorityBadge;
+  background: var(--warning, #FFA656);
+}
+
+.priorityBadgeMedium {
+  composes: priorityBadge;
+  background: var(--info, #63ADCF);
+}
+
+.priorityBadgeLow {
+  composes: priorityBadge;
+  background: var(--text-light, #908D8D);
+}
+
+.reviewCardBadgeRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+/* ---------------------------------------------------------------------------
+ * § 4g — Commentary citation markers
+ * ---------------------------------------------------------------------------*/
+
+.citationLegend {
+  font-size: 11px;
+  color: var(--text-light, #908D8D);
+  margin-top: 6px;
+  border-top: 1px solid var(--border-default, #EEE6D8);
+  padding-top: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.citationEntry {
+  display: flex;
+  gap: 4px;
+  cursor: pointer;
+}
+
+.citationEntry:hover {
+  text-decoration: underline;
+}
+
+.citationIndex {
+  font-weight: 600;
+  color: var(--info, #63ADCF);
+  flex-shrink: 0;
+}
+
+.citationHighlight {
+  outline: 2px solid var(--info, #63ADCF);
+  border-radius: 4px;
+}
+
+@keyframes citationPulse {
+  0%, 100% { outline-color: var(--info, #63ADCF); }
+  50% { outline-color: transparent; }
+}
+
+.citationHighlightPulse {
+  composes: citationHighlight;
+  animation: citationPulse 1s ease-in-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .citationHighlightPulse {
+    animation: none;
+  }
+  .factBarFill {
+    transition: none;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+ * § 4h — Unknown block fallback
+ * ---------------------------------------------------------------------------*/
+
+.unknownBlock {
+  border: 1px dashed var(--border-default, #EEE6D8);
+  border-radius: 8px;
+  padding: 8px 12px;
+  background: var(--bg-panel, #FEFEFE);
+}
+
+.unknownBlockLabel {
+  font-size: 11px;
+  color: var(--text-light, #908D8D);
+  font-style: italic;
+}
+
+/* ---------------------------------------------------------------------------
+ * § 4i — GraphPatchBlock danger action variant
+ * ---------------------------------------------------------------------------*/
+
+.graphPatchDanger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 16px;
+  min-width: 44px;
+  min-height: 44px;
+  border-radius: 8px;
+  border: 1px solid var(--danger, #EA7B4B);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  background: none;
+  color: var(--danger, #EA7B4B);
+  transition: background 150ms;
+}
+
+.graphPatchDanger:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--danger, #EA7B4B) 10%, transparent);
+}
+
+.graphPatchDanger:disabled {
+  color: var(--text-light, #908D8D);
+  border-color: var(--border-default, #EEE6D8);
+  cursor: not-allowed;
+}
+
+/* ---------------------------------------------------------------------------
  * § 5 — Action chips
  * ---------------------------------------------------------------------------*/
 
@@ -394,6 +749,124 @@
 .chipUndo:hover {
   background: var(--warning, #FFA656);
   color: var(--text-on-color, #FFFFFF);
+}
+
+/* ---------------------------------------------------------------------------
+ * § 5b — Guidance strip (next best step)
+ * ---------------------------------------------------------------------------*/
+
+.guidanceStrip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 16px;
+  min-height: 40px;
+  max-height: 48px;
+  background: var(--bg-panel, #FEFEFE);
+  border-top: 1px solid var(--border-default, #EEE6D8);
+  box-shadow: 0 -1px 4px rgba(0, 0, 0, 0.04);
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.guidanceBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* Category badge colour variants */
+.guidanceBadgeDanger {
+  background: var(--danger-light, #F8D5C5);
+  color: var(--danger, #EA7B4B);
+}
+
+.guidanceBadgeInfo {
+  background: var(--info-light, #BAD7E4);
+  color: var(--info, #63ADCF);
+}
+
+.guidanceBadgeInfoLight {
+  background: var(--info-light, #BAD7E4);
+  color: var(--info, #63ADCF);
+  opacity: 0.85;
+}
+
+.guidanceBadgeOptionLight {
+  background: var(--option-light, #E5EDDA);
+  color: var(--option, #7BAD55);
+}
+
+.guidanceStripTitle {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-body, #3F3F3E);
+  font-size: 13px;
+  min-width: 0;
+}
+
+.guidanceStripAction {
+  flex-shrink: 0;
+  padding: 6px 12px;
+  min-width: 44px;
+  min-height: 44px;
+  border-radius: 6px;
+  border: 1px solid var(--info, #63ADCF);
+  background: transparent;
+  color: var(--info, #63ADCF);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 150ms;
+  white-space: nowrap;
+}
+
+.guidanceStripAction:hover {
+  background: var(--info-light, #BAD7E4);
+}
+
+.guidanceStripAction:focus-visible {
+  outline: 2px solid var(--info, #63ADCF);
+  outline-offset: 2px;
+}
+
+.guidanceStripDismiss {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  color: var(--text-light, #908D8D);
+  cursor: pointer;
+  transition: color 150ms;
+}
+
+.guidanceStripDismiss:hover {
+  color: var(--text-body, #3F3F3E);
+}
+
+.guidanceStripDismiss:focus-visible {
+  outline: 2px solid var(--info, #63ADCF);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .guidanceStripAction,
+  .guidanceStripDismiss {
+    transition: none;
+  }
 }
 
 /* ---------------------------------------------------------------------------

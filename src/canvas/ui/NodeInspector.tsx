@@ -17,6 +17,7 @@ import { normaliseOptionFromLegacyNode, type LegacyOptionNode, type UIOption } f
 import { InspectorAccordion } from './inspector'
 import { GoalThresholdEditor } from './inspector/GoalThresholdEditor'
 import { GoalProgressChecklist } from './inspector/GoalProgressChecklist'
+import { InspectorGuidanceSection } from './inspector/InspectorGuidanceSection'
 import { typography } from '../../styles/typography'
 import { detectBaseline } from '../utils/baselineDetection'
 import { useNodeDisplayMetadata } from '../hooks/useNodeDisplayMetadata'
@@ -457,6 +458,9 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
           </div>
         </div>
       )}
+
+      {/* A.2: Guidance suggestions for this element */}
+      <InspectorGuidanceSection elementId={nodeId} />
     </div>
   )
 

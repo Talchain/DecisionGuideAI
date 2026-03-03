@@ -9,8 +9,10 @@
 import { useRef, useEffect, useState, useCallback, memo } from 'react'
 import { typography } from '../../styles/typography'
 import { useCanvasStore } from '../store'
+import { useGuidanceStore } from '../stores/guidanceStore'
 import { MessageBubble } from './MessageBubble'
 import { GrowingInput } from './GrowingInput'
+import { GuidanceStrip } from './GuidanceStrip'
 import type { ActionChip, GraphPatchBlock, PatchOperation } from './types'
 import type { UseConversationReturn, PatchRejectionInfo } from './useConversation'
 import { plot } from '../../adapters/plot'
@@ -255,6 +257,34 @@ export const ConversationPanel = memo(function ConversationPanel({
 
   const canSend = inputValue.trim().length > 0 && !isThinking
 
+  // Guidance strip callbacks
+  const setActiveGuidanceItem = useGuidanceStore((s) => s.setActiveGuidanceItem)
+
+  const handleScrollToPatch = useCallback((patchId: string) => {
+    const el = listRef.current?.querySelector(`[data-patch-id="${patchId}"]`)
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+    } else {
+      // Fallback: scroll to bottom where latest message is
+      scrollToBottom()
+    }
+  }, [scrollToBottom])
+
+  const handleOpenInspector = useCallback((nodeId: string) => {
+    useCanvasStore.getState().selectNodeWithoutHistory(nodeId)
+    useCanvasStore.getState().setShowInspectorPanel(true)
+  }, [])
+
+  // Register conversation callbacks in the guidance store so InspectorGuidanceSection
+  // can trigger sendMessage and scrollToPatch without prop drilling through InspectorModal.
+  // Clear on unmount so stale closures don't execute after the panel is gone.
+  useEffect(() => {
+    useGuidanceStore.getState().registerConversationCallbacks(sendMessage, handleScrollToPatch)
+    return () => {
+      useGuidanceStore.setState({ _sendMessage: null, _scrollToPatch: null })
+    }
+  }, [sendMessage, handleScrollToPatch])
+
   return (
     <>
       {/* Message list */}
@@ -308,6 +338,14 @@ export const ConversationPanel = memo(function ConversationPanel({
 
         <div ref={listEndRef} />
       </div>
+
+      {/* Guidance strip — next best step, above input */}
+      <GuidanceStrip
+        onSendMessage={sendMessage}
+        onSetActive={setActiveGuidanceItem}
+        onScrollToPatch={handleScrollToPatch}
+        onOpenInspector={handleOpenInspector}
+      />
 
       {/* Input bar */}
       <div className={styles.inputBar}>
