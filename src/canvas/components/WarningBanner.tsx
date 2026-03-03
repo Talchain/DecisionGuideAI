@@ -47,18 +47,18 @@ export function WarningBanner({ warnings, onDismiss, onViewAffected }: WarningBa
     <div
       role="alert"
       aria-live="polite"
-      className="flex items-start gap-3 px-4 py-3 rounded-lg border bg-warning-50 border-warning-200"
+      className="flex items-start gap-3 px-4 py-3 rounded-lg border bg-warning-light border-warning/30"
       data-testid="warning-banner"
     >
       {/* Icon */}
       <AlertTriangle
-        className="w-5 h-5 flex-shrink-0 mt-0.5 text-warning-600"
+        className="w-5 h-5 flex-shrink-0 mt-0.5 text-warning"
         aria-hidden="true"
       />
 
       {/* Content */}
       <div className="flex-1 min-w-0">
-        <p className={`${typography.label} text-warning-900`}>
+        <p className={`${typography.label} text-warning`}>
           {firstWarning.message}
         </p>
 
@@ -67,7 +67,7 @@ export function WarningBanner({ warnings, onDismiss, onViewAffected }: WarningBa
           <button
             type="button"
             onClick={() => setIsExpanded(!isExpanded)}
-            className={`${typography.caption} mt-1 text-warning-700 flex items-center gap-1 hover:text-warning-800`}
+            className={`${typography.caption} mt-1 text-warning flex items-center gap-1 hover:text-warning/80`}
           >
             {isExpanded ? (
               <ChevronDown className="w-3 h-3" />
@@ -81,7 +81,7 @@ export function WarningBanner({ warnings, onDismiss, onViewAffected }: WarningBa
         {isExpanded && (
           <ul className="mt-2 space-y-1">
             {safeWarnings.slice(1).map((w, i) => (
-              <li key={i} className={`${typography.caption} text-warning-800`}>
+              <li key={i} className={`${typography.caption} text-warning`}>
                 • {w.message}
               </li>
             ))}
@@ -93,7 +93,7 @@ export function WarningBanner({ warnings, onDismiss, onViewAffected }: WarningBa
           <button
             type="button"
             onClick={() => onViewAffected(firstWarning.affected_ids!)}
-            className={`mt-2 ${typography.caption} font-medium underline text-warning-800 hover:text-warning-900`}
+            className={`mt-2 ${typography.caption} font-medium underline text-warning hover:text-warning/80`}
           >
             View {firstWarning.affected_ids.length} affected{' '}
             {firstWarning.affected_ids.length === 1 ? 'item' : 'items'}
@@ -106,10 +106,10 @@ export function WarningBanner({ warnings, onDismiss, onViewAffected }: WarningBa
         <button
           type="button"
           onClick={onDismiss}
-          className="flex-shrink-0 p-1 rounded hover:bg-warning-100 transition-colors"
+          className="flex-shrink-0 p-1 rounded hover:bg-warning-light/70 transition-colors"
           aria-label="Dismiss warning"
         >
-          <X className="w-4 h-4 text-warning-600" />
+          <X className="w-4 h-4 text-warning" />
         </button>
       )}
     </div>

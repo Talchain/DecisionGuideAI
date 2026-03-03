@@ -763,18 +763,6 @@ export function HeroSection({
             </h2>
           )}
 
-          {/* ── Task 3: Decision state dot ────────────────────── */}
-          {decisionStateDot && (
-            <div className="flex items-center gap-1.5 mb-2" data-testid="decision-state-dot">
-              <span
-                className={`w-[7px] h-[7px] rounded-full flex-shrink-0 ${decisionStateDot.color.split(' ')[0]}`}
-                aria-hidden="true"
-              />
-              <span className={`${typography.panelMeta} ${decisionStateDot.color.split(' ')[1]}`}>
-                {decisionStateDot.text}
-              </span>
-            </div>
-          )}
 
           {/* ── Task 1: Structured executive ──────────────────── */}
           {(sanitizedDecisionStatement || sanitizedActionImplication) ? (

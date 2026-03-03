@@ -233,6 +233,20 @@ export default {
         base: 'var(--duration-base)',
         slow: 'var(--duration-slow)',
       },
+      keyframes: {
+        slideDown: {
+          from: { opacity: '0', transform: 'translateY(-8px)' },
+          to:   { opacity: '1', transform: 'translateY(0)' },
+        },
+        fadeOut: {
+          from: { opacity: '1' },
+          to:   { opacity: '0' },
+        },
+      },
+      animation: {
+        slideDown: 'slideDown 0.2s ease-out',
+        fadeOut:   'fadeOut 0.2s ease-out forwards',
+      },
     },
   },
   plugins: [],

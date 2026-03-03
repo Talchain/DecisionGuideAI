@@ -68,7 +68,7 @@ export function extractM1CoachingFromV2(response: V2RunResponse): M1Coaching | n
     key_drivers: coaching.key_drivers ?? undefined,
     evidence_gaps: coaching.evidence_gaps ?? [],
     next_actions: coaching.next_actions ?? [],
-    assumptions_ledger: coaching.assumptions_ledger ?? [],
+    assumptions_ledger: Array.isArray(coaching.assumptions_ledger) ? coaching.assumptions_ledger : [],
     top_fragile_edge: coaching.top_fragile_edge ?? undefined,
   }
 }

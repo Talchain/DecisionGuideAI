@@ -572,8 +572,6 @@ describe('HeroSection', () => {
           />
         )
 
-        // V14: winner is rendered in headline via GraphLink, decision-state-dot shows "Stable result"
-        expect(screen.getByTestId('decision-state-dot')).toBeInTheDocument()
         expect(screen.getByText(/performs best/)).toBeInTheDocument()
       })
 
@@ -614,7 +612,7 @@ describe('HeroSection', () => {
     })
 
     describe('Sensitive state', () => {
-      it('V14: renders winner in headline and decision-state-dot shows "Sensitive to assumptions"', () => {
+      it('renders winner in headline for sensitive state', () => {
         render(
           <HeroSection
             {...v11Props}
@@ -623,13 +621,12 @@ describe('HeroSection', () => {
         )
 
         expect(screen.getByText(/performs best/)).toBeInTheDocument()
-        const dot = screen.getByTestId('decision-state-dot')
-        expect(dot.textContent).toContain('Sensitive to assumptions')
+        expect(screen.queryByTestId('decision-state-dot')).not.toBeInTheDocument()
       })
     })
 
     describe('Indeterminate state', () => {
-      it('V14: renders "Too close to call" decision state dot', () => {
+      it('does not render decision-state-dot', () => {
         render(
           <HeroSection
             {...v11Props}
@@ -637,8 +634,7 @@ describe('HeroSection', () => {
           />
         )
 
-        const dot = screen.getByTestId('decision-state-dot')
-        expect(dot.textContent).toContain('Too close to call')
+        expect(screen.queryByTestId('decision-state-dot')).not.toBeInTheDocument()
       })
 
       it('V14: renders coaching next action when provided', () => {
@@ -669,11 +665,7 @@ describe('HeroSection', () => {
           />
         )
 
-        // The headline should show "performs best" in text-text-header, not text-success
-        // (V14 standard headline wraps winner in GraphLink with text-success only for non-tie)
-        const dot = screen.getByTestId('decision-state-dot')
-        expect(dot.textContent).toContain('Too close to call')
-        expect(dot).not.toHaveClass('text-success')
+        expect(screen.queryByTestId('decision-state-dot')).not.toBeInTheDocument()
       })
     })
   })
@@ -1253,39 +1245,6 @@ describe('HeroSection', () => {
     })
   })
 
-  describe('V14 Task 3: Decision state dot', () => {
-    it('renders "Too close to call" with warning colour for indeterminate', () => {
-      render(
-        <HeroSection {...baseProps} decisionState="indeterminate" />
-      )
-
-      const dot = screen.getByTestId('decision-state-dot')
-      expect(dot).toBeInTheDocument()
-      expect(dot.textContent).toContain('Too close to call')
-      const dotElement = dot.querySelector('span:first-child')
-      expect(dotElement).toHaveClass('bg-warning')
-    })
-
-    it('renders "Sensitive to assumptions" with warning colour for sensitive', () => {
-      render(
-        <HeroSection {...baseProps} decisionState="sensitive" recommendationStability={0.60} />
-      )
-
-      const dot = screen.getByTestId('decision-state-dot')
-      expect(dot.textContent).toContain('Sensitive to assumptions')
-    })
-
-    it('renders "Stable result" with success colour for robust', () => {
-      render(
-        <HeroSection {...baseProps} decisionState="robust" recommendationStability={0.90} />
-      )
-
-      const dot = screen.getByTestId('decision-state-dot')
-      expect(dot.textContent).toContain('Stable result')
-      const dotElement = dot.querySelector('span:first-child')
-      expect(dotElement).toHaveClass('bg-success')
-    })
-  })
 
   describe('V14 Task 1: Structured executive', () => {
     it('renders decision_statement and action_implication', () => {

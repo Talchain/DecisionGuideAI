@@ -943,24 +943,24 @@ export function DraftChat() {
 
                     if (formatted.isUnavailable) {
                       return (
-                        <div className="p-3 bg-sun-50 border border-sun-200 rounded-lg space-y-2" data-testid="cee-unavailable-banner">
-                          <p className={`${typography.body} text-sun-800 font-medium`}>
+                        <div className="p-3 bg-warning-light border border-warning/30 rounded-lg space-y-2" data-testid="cee-unavailable-banner">
+                          <p className={`${typography.body} text-warning font-medium`}>
                             {formatted.message}
                           </p>
-                          <p className={`${typography.panelBody} text-sun-700`}>
+                          <p className={`${typography.panelBody} text-text-body`}>
                             Build your model manually using:
                           </p>
-                          <ul className={`${typography.panelBody} text-sun-700 list-disc list-inside space-y-0.5`}>
+                          <ul className={`${typography.panelBody} text-text-body list-disc list-inside space-y-0.5`}>
                             <li><strong>+ Node</strong> button to add factors</li>
                             <li><strong>Templates</strong> drawer for pre-built models</li>
                             <li>Right-click canvas for quick-add menu</li>
                           </ul>
                           {import.meta.env.DEV && formatted.debugInfo && (
                             <details className="mt-1">
-                              <summary className={`${typography.panelMeta} text-sun-700 cursor-pointer select-none`}>
+                              <summary className={`${typography.panelMeta} text-text-light cursor-pointer select-none`}>
                                 Technical details
                               </summary>
-                              <pre className={`${typography.panelMeta} text-sun-700 font-mono mt-1 opacity-70 whitespace-pre-wrap break-all`}>
+                              <pre className={`${typography.panelMeta} text-text-light font-mono mt-1 opacity-70 whitespace-pre-wrap break-all`}>
                                 {formatted.debugInfo}
                               </pre>
                             </details>
@@ -1045,25 +1045,25 @@ export function DraftChat() {
 
                     if (formatted.isValidationFailed) {
                       return (
-                        <div className="p-3 bg-danger-light border border-danger/30 rounded-lg space-y-3" data-testid="draft-validation-error">
-                          <p className={`${typography.label} text-danger`}>
+                        <div className="max-w-lg px-4 py-3 bg-danger-light border border-danger/30 rounded-md" data-testid="draft-validation-error">
+                          <p className="text-sm font-semibold text-danger">
                             {formatted.title}
                           </p>
-                          <p className={`${typography.panelBody} text-text-body`}>
+                          <p className="mt-2 text-sm text-text-body">
                             {formatted.message}
                           </p>
                           {formatted.guidance && (
-                            <p className={`${typography.panelMeta} text-text-light`}>
+                            <p className="mt-1 text-xs text-text-light">
                               {formatted.guidance}
                             </p>
                           )}
-                          <div className="flex flex-wrap gap-2" data-testid="brief-suggestion-chips">
+                          <div className="mt-3 flex flex-wrap gap-2" data-testid="brief-suggestion-chips">
                             {EXAMPLE_BRIEF_CHIPS.map((chip) => (
                               <button
                                 key={chip.id}
                                 type="button"
                                 onClick={() => setDescription(chip.text)}
-                                className={`${typography.panelMeta} px-2.5 py-1 rounded-full border border-info/30 bg-info-light text-info hover:bg-info hover:text-text-on-color transition-colors`}
+                                className="min-h-11 px-3 py-1.5 text-xs bg-panel text-text-body border border-panel-border rounded-full hover:bg-panel-hover transition-colors cursor-pointer"
                               >
                                 {chip.label}
                               </button>
@@ -1072,16 +1072,16 @@ export function DraftChat() {
                           <button
                             type="button"
                             onClick={handleDraft}
-                            className="mt-1 inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-info bg-panel border border-info/30 rounded-md hover:bg-info-light transition-colors"
+                            className="mt-3 inline-flex items-center px-4 py-2 text-sm font-semibold text-text-body bg-transparent border border-[rgba(38,38,38,0.16)] rounded-full hover:bg-panel-hover transition-colors"
                           >
                             Try again
                           </button>
                           {import.meta.env.DEV && formatted.debugInfo && (
-                            <details className="mt-1">
-                              <summary className={`${typography.panelMeta} text-text-light cursor-pointer select-none`}>
+                            <details className="mt-2">
+                              <summary className="text-xs text-text-light cursor-pointer select-none">
                                 Technical details
                               </summary>
-                              <pre className={`${typography.panelMeta} text-text-light font-mono mt-1 opacity-70 whitespace-pre-wrap break-all`}>
+                              <pre className="text-xs text-text-light font-mono mt-1 opacity-70 whitespace-pre-wrap break-all">
                                 {formatted.debugInfo}
                               </pre>
                             </details>

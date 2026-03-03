@@ -1,5 +1,5 @@
 import { useEffect, useCallback } from 'react'
-import { AlertTriangle } from 'lucide-react'
+import { XCircle } from 'lucide-react'
 import { typography } from '../../styles/typography'
 
 interface ConfirmDialogProps {
@@ -44,16 +44,16 @@ export function ConfirmDialog({
       aria-modal="true"
       aria-labelledby="confirm-title"
     >
-      <div className="bg-white rounded-xl shadow-panel p-6 max-w-md mx-4">
+      <div className="bg-panel rounded-xl shadow-panel p-6 max-w-md mx-4">
         <div className="flex items-start gap-4 mb-4">
-          <div className="flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center bg-warning-100">
-            <AlertTriangle className="w-5 h-5 text-warning-600" />
+          <div className="flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center bg-danger-light">
+            <XCircle className="w-5 h-5 text-danger" />
           </div>
           <div className="flex-1">
-            <h3 id="confirm-title" className={`${typography.h4} text-gray-900 mb-2`}>
+            <h3 id="confirm-title" className={`${typography.h4} text-text-header mb-2`}>
               {title}
             </h3>
-            <p className={`${typography.body} text-gray-600`}>
+            <p className={`${typography.body} text-text-body`}>
               {message}
             </p>
           </div>
@@ -62,13 +62,13 @@ export function ConfirmDialog({
         <div className="flex gap-3 justify-end">
           <button
             onClick={onCancel}
-            className={`px-4 py-2 ${typography.label} text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-400 transition-colors`}
+            className={`px-4 py-2 ${typography.label} text-text-body bg-panel-hover rounded-lg hover:bg-panel-border focus:outline-none focus:ring-2 focus:ring-panel-border transition-colors`}
           >
             {cancelLabel}
           </button>
           <button
             onClick={onConfirm}
-            className={`px-4 py-2 ${typography.label} text-white bg-warning-500 hover:bg-warning-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-warning-500 transition-colors`}
+            className={`px-4 py-2 ${typography.label} text-white bg-danger hover:bg-danger/90 rounded-lg focus:outline-none focus:ring-2 focus:ring-danger/50 transition-colors`}
             autoFocus
           >
             {confirmLabel}

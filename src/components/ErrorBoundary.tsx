@@ -32,21 +32,21 @@ export default class ErrorBoundary extends Component<Props, State> {
     if (this.state.hasError) {
       return (
         <div className="min-h-[200px] flex items-center justify-center p-8">
-          <div className="bg-red-50 border border-red-200 rounded-lg p-6 max-w-lg w-full">
+          <div className="bg-danger-light border border-danger/30 rounded-lg p-6 max-w-lg w-full">
             <div className="flex items-start gap-4">
               <div className="flex-shrink-0">
-                <AlertTriangle className="h-6 w-6 text-red-500" />
+                <AlertTriangle className="h-6 w-6 text-danger" />
               </div>
               <div>
-                <h3 className="text-lg font-medium text-red-800 mb-2">
+                <h3 className="text-lg font-medium text-danger mb-2">
                   Something went wrong
                 </h3>
-                <p className="text-sm text-red-700 mb-4">
+                <p className="text-sm text-text-body mb-4">
                   {this.state.error?.message || 'An unexpected error occurred'}
                 </p>
                 <button
                   onClick={() => window.location.reload()}
-                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-danger hover:bg-danger/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-danger/50"
                 >
                   Refresh Page
                 </button>

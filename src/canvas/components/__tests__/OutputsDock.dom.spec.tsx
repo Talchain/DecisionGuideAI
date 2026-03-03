@@ -72,13 +72,13 @@ describe('OutputsDock DOM', () => {
     expect(aside).toBeInTheDocument()
 
     const tabs = screen.getAllByRole('button', {
-      name: /Results|Compare|Structure/,
+      name: /Results|Compare|Model/,
     })
 
     expect(tabs.map(tab => tab.textContent)).toEqual([
       'Results',
       'Compare',
-      'Structure',
+      'Model',
     ])
   })
 
@@ -92,15 +92,15 @@ describe('OutputsDock DOM', () => {
 
     const resultsIcon = screen.getByRole('button', { name: 'Results' })
     const compareIcon = screen.getByRole('button', { name: 'Compare' })
-    const structureIcon = screen.getByRole('button', { name: 'Structure' })
+    const modelIcon = screen.getByRole('button', { name: 'Model' })
 
     expect(resultsIcon).toBeInTheDocument()
     expect(compareIcon).toBeInTheDocument()
-    expect(structureIcon).toBeInTheDocument()
+    expect(modelIcon).toBeInTheDocument()
 
-    fireEvent.click(structureIcon)
+    fireEvent.click(modelIcon)
 
-    const headerLabel = screen.getByText('Structure', {
+    const headerLabel = screen.getByText('Model', {
       selector: 'span[aria-live="polite"]',
     })
     expect(headerLabel).toBeInTheDocument()
@@ -138,7 +138,7 @@ describe('OutputsDock DOM', () => {
 
     render(<OutputsDock />)
 
-    const headerLabel = screen.getByText('Structure', {
+    const headerLabel = screen.getByText('Model', {
       selector: 'span[aria-live="polite"]',
     })
     expect(headerLabel).toBeInTheDocument()
@@ -147,8 +147,8 @@ describe('OutputsDock DOM', () => {
   it('updates ?tab= query parameter when tabs are clicked', () => {
     render(<OutputsDock />)
 
-    // Switch to Structure tab
-    const structureTab = screen.getByRole('button', { name: 'Structure' })
+    // Switch to Model tab
+    const structureTab = screen.getByRole('button', { name: 'Model' })
     fireEvent.click(structureTab)
 
     let params = new URLSearchParams(window.location.search)
@@ -228,10 +228,10 @@ describe('OutputsDock DOM', () => {
     render(<OutputsDock />)
 
     // Move away from Results tab
-    const structureTab = screen.getByRole('button', { name: 'Structure' })
+    const structureTab = screen.getByRole('button', { name: 'Model' })
     fireEvent.click(structureTab)
 
-    const structureHeader = screen.getByText('Structure', {
+    const structureHeader = screen.getByText('Model', {
       selector: 'span[aria-live="polite"]',
     })
     expect(structureHeader).toBeInTheDocument()
@@ -1263,7 +1263,7 @@ function openCompareTab() {
 }
 
 function openStructureTab() {
-  const structureTab = screen.getByRole('button', { name: 'Structure' })
+  const structureTab = screen.getByRole('button', { name: 'Model' })
   fireEvent.click(structureTab)
 }
 
@@ -1291,9 +1291,9 @@ function cleanupDockState() {
   } as any)
 }
 
-describe('I.1: Structure tab auto-switch guard', () => {
+describe('I.1: Model tab auto-switch guard', () => {
   beforeEach(cleanupDockState)
-  it('does NOT auto-switch away from Structure tab when status remains complete', () => {
+  it('does NOT auto-switch away from Model tab when status remains complete', () => {
     const baseResults = useCanvasStore.getState().results
 
     useCanvasStore.setState({
@@ -1309,10 +1309,10 @@ describe('I.1: Structure tab auto-switch guard', () => {
 
     render(<OutputsDock />)
 
-    // User navigates to Structure tab
+    // User navigates to Model tab
     openStructureTab()
 
-    const structureHeader = screen.getByText('Structure', {
+    const structureHeader = screen.getByText('Model', {
       selector: 'span[aria-live="polite"]',
     })
     expect(structureHeader).toBeInTheDocument()
@@ -1327,8 +1327,8 @@ describe('I.1: Structure tab auto-switch guard', () => {
       } as any)
     })
 
-    // Should remain on Structure tab — not yanked back to Results
-    const structureHeaderAfter = screen.getByText('Structure', {
+    // Should remain on Model tab — not yanked back to Results
+    const structureHeaderAfter = screen.getByText('Model', {
       selector: 'span[aria-live="polite"]',
     })
     expect(structureHeaderAfter).toBeInTheDocument()
@@ -1350,9 +1350,9 @@ describe('I.1: Structure tab auto-switch guard', () => {
 
     render(<OutputsDock />)
 
-    // User navigates to Structure tab after a completed run
+    // User navigates to Model tab after a completed run
     openStructureTab()
-    expect(screen.getByText('Structure', {
+    expect(screen.getByText('Model', {
       selector: 'span[aria-live="polite"]',
     })).toBeInTheDocument()
 
