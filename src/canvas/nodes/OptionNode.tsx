@@ -16,15 +16,19 @@ export const OptionNode = memo((props: NodeProps) => {
   const nodes = useCanvasStore(state => state.nodes)
   const resultsReport = useCanvasStore(state => state.results.report)
 
-  // T7b: "Recommended" badge — highest winRate option among all options
+  // T7b: "Recommended" badge — highest winRate option among visible canvas options only
   const isRecommended = useMemo(() => {
     if (!displayMetadata.isResultsMode || displayMetadata.winRate === null) return false
     const optionNodes = nodes.filter(n => n.type === 'option' || n.data?.type === 'option')
     if (optionNodes.length < 2) return false
-    // Find max winRate across all option nodes from the report
+    // Compare only visible canvas option IDs — ignores stale/hidden options in the report
+    const visibleOptionIds = new Set(optionNodes.map(n => n.id))
     const report = resultsReport as any
-    const optionResults: Record<string, number> = report?.options ?? report?.option_results ?? {}
-    const allRates = Object.values(optionResults).filter((v): v is number => typeof v === 'number')
+    const optionProbabilities: Record<string, { win_probability?: number }> = report?.option_probabilities ?? {}
+    const allRates = Object.entries(optionProbabilities)
+      .filter(([id]) => visibleOptionIds.has(id))
+      .map(([, v]) => typeof v?.win_probability === 'number' ? v.win_probability : null)
+      .filter((v): v is number => v !== null)
     if (allRates.length === 0) return false
     const maxRate = Math.max(...allRates)
     return displayMetadata.winRate >= maxRate - 0.0001 // float tolerance
@@ -56,9 +60,10 @@ export const OptionNode = memo((props: NodeProps) => {
               /^[A-Z]{2,}$/.test(word) ? word : word.toLowerCase()
             )
           : stripped
-        const unit = (factorNode?.data?.unit as string | undefined) ??
-                     ((factorNode?.data?.observedState as { unit?: string } | undefined)?.unit)
-        return { label: cleanedLabel, value, unit }
+        const observedState = factorNode?.data?.observedState as { unit?: string; factor_type?: string } | undefined
+        const unit = (factorNode?.data?.unit as string | undefined) ?? observedState?.unit
+        const factorType = observedState?.factor_type
+        return { label: cleanedLabel, value, unit, factorType }
       })
       .sort((a, b) => Math.abs(b.value) - Math.abs(a.value))
       .slice(0, 3)
@@ -120,7 +125,7 @@ export const OptionNode = memo((props: NodeProps) => {
                   {chip.label}:
                 </span>
                 <span className="font-medium shrink-0">
-                  {formatInterventionValue(chip.value, chip.unit)}
+                  {formatInterventionValue(chip.value, chip.unit, chip.factorType)}
                 </span>
               </div>
             ))}

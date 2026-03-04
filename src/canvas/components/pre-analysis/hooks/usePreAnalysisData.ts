@@ -1309,14 +1309,13 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
       })
     }
 
-    // 2b. Goal baseline missing — goal node has no explicit current-state baseline.
-    // Fires whether or not the goal has an observed_state.value — the absence of a separate
-    // baseline (observed_state.baseline != null && baseline !== value) is the signal.
-    // Without a baseline, PLoT can't tell how much each option improves on the current state.
+    // 2b. Goal baseline missing — goal has no current-state value at all.
+    // Fires when goal exists but observed_state is absent or observed_state.value is null/undefined.
+    // Does NOT fire when a value is present (even without a separate baseline) — PLoT can use
+    // the value itself as an implicit baseline.
     if (goalNode) {
       const goalOs = getObservedState(goalNode.data)
-      const hasExplicitBaseline = goalOs.baseline != null && goalOs.baseline !== goalOs.value
-      if (!hasExplicitBaseline) {
+      if (goalOs.value == null) {
         checks.push({
           id: 'goal_baseline_missing',
           message: 'Goal has no current-state baseline \u2014 results show relative rankings only',

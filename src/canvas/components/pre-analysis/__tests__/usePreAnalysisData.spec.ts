@@ -3141,7 +3141,7 @@ describe('usePreAnalysisData', () => {
       expect(check?.cta).toBe('Set baseline')
     })
 
-    it('fires when goal has observed_state.value but no baseline', () => {
+    it('does NOT fire when goal has observed_state.value (even without explicit baseline)', () => {
       mockUseCanvasStore.mockImplementation((selector: (state: unknown) => unknown) => {
         const state = {
           nodes: [
@@ -3163,8 +3163,9 @@ describe('usePreAnalysisData', () => {
 
       const { result } = renderHook(() => usePreAnalysisData())
 
+      // value is present — PLoT can use it as implicit baseline, no warning needed
       const check = result.current.qualityChecks.find(c => c.id === 'goal_baseline_missing')
-      expect(check).toBeDefined()
+      expect(check).toBeUndefined()
     })
 
     it('does NOT fire when goal has an explicit baseline different from value', () => {
@@ -3316,6 +3317,69 @@ describe('usePreAnalysisData', () => {
       const option = result.current.optionPreviews.find(o => o.id === 'opt1')
       expect(option?.interventions).toHaveLength(1)
       expect(option?.interventions[0].factorId).toBe('fac2')
+    })
+
+    it('omits dimensional intervention when direction is same (currentRawValue known, equal)', () => {
+      mockUseCanvasStore.mockImplementation((selector: (state: unknown) => unknown) => {
+        const state = {
+          nodes: [
+            { id: 'opt1', type: 'option', position: { x: 0, y: 0 }, data: { label: 'Option A' } },
+            // dimensional factor: cap=100 (raw unit), value=0.5 → raw=50
+            { id: 'fac1', type: 'factor', position: { x: 0, y: 0 }, data: {
+              label: 'Revenue',
+              observedState: { value: 0.5, cap: 100, unit: '$k' },
+            }},
+          ],
+          edges: [],
+          ceeAnalysisReady: {
+            status: 'ready',
+            goal_node_id: 'goal1',
+            options: [
+              // intervention = 0.5 normalised, same as current → direction='same'
+              { id: 'opt1', status: 'ready', interventions: { fac1: 0.5 } },
+            ],
+          },
+          runMeta: null,
+        }
+        return selector(state)
+      })
+
+      const { result } = renderHook(() => usePreAnalysisData())
+
+      const option = result.current.optionPreviews.find(o => o.id === 'opt1')
+      // direction='same' for dimensional factor with known baseline → should be omitted
+      expect(option?.interventions).toHaveLength(0)
+    })
+
+    it('keeps dimensional intervention when currentRawValue is unknown', () => {
+      mockUseCanvasStore.mockImplementation((selector: (state: unknown) => unknown) => {
+        const state = {
+          nodes: [
+            { id: 'opt1', type: 'option', position: { x: 0, y: 0 }, data: { label: 'Option A' } },
+            // dimensional factor but no observed_state → currentRawValue unknown
+            { id: 'fac1', type: 'factor', position: { x: 0, y: 0 }, data: {
+              label: 'Revenue',
+              observedState: { cap: 100, unit: '$k' }, // value absent
+            }},
+          ],
+          edges: [],
+          ceeAnalysisReady: {
+            status: 'ready',
+            goal_node_id: 'goal1',
+            options: [
+              { id: 'opt1', status: 'ready', interventions: { fac1: 0.5 } },
+            ],
+          },
+          runMeta: null,
+        }
+        return selector(state)
+      })
+
+      const { result } = renderHook(() => usePreAnalysisData())
+
+      const option = result.current.optionPreviews.find(o => o.id === 'opt1')
+      // No baseline → always show
+      expect(option?.interventions).toHaveLength(1)
     })
   })
 

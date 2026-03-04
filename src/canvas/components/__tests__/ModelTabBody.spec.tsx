@@ -309,8 +309,8 @@ describe('Inline edit — Enter/Escape/blur (source field)', () => {
 describe('Search filtering', () => {
   it('filters factors by label', () => {
     const nodes = [
-      makeFactorNode('f1', 'Market size'),
-      makeFactorNode('f2', 'Interest rate'),
+      makeFactorNode('f1', 'Market size', { source: 'user' }),
+      makeFactorNode('f2', 'Interest rate', { source: 'user' }),
     ]
     render(<ModelTabBody {...DEFAULT_PROPS} nodes={nodes} edges={[]} />)
 
@@ -488,5 +488,113 @@ describe('Golden UI test — headline numbers regression guard', () => {
     )
     // exists_probability = 0.73 → 73%; must NOT fall back to default 70%
     expect(screen.getByTestId('edge-e-ep-likelihood-display')).toHaveTextContent('73')
+  })
+})
+
+describe('Attention banner — source category split', () => {
+  const postAnalysis = { fragileEdges: [], robustEdges: [], stabilityScore: 0.9 }
+
+  it('shows "AI-estimated" for cee_inference source, not "missing source"', () => {
+    const nodes = [makeFactorNode('f1', 'Revenue', { source: 'cee_inference' })]
+    render(<ModelTabBody {...DEFAULT_PROPS} nodes={nodes} edges={[]} robustness={postAnalysis} />)
+    expect(screen.getByTestId('model-attention-banner')).toBeInTheDocument()
+    expect(screen.getByText(/1 AI-estimated/)).toBeInTheDocument()
+    expect(screen.queryByText(/missing source/)).not.toBeInTheDocument()
+  })
+
+  it('shows "missing source" for truly absent source', () => {
+    const nodes = [makeFactorNode('f1', 'Revenue', { source: undefined })]
+    render(<ModelTabBody {...DEFAULT_PROPS} nodes={nodes} edges={[]} robustness={postAnalysis} />)
+    expect(screen.getByText(/1 factor missing source/)).toBeInTheDocument()
+    expect(screen.queryByText(/AI-estimated/)).not.toBeInTheDocument()
+  })
+
+  it('shows both categories when mixed', () => {
+    const nodes = [
+      makeFactorNode('f1', 'Revenue', { source: undefined }),
+      makeFactorNode('f2', 'Churn', { source: 'cee_inference' }),
+    ]
+    render(<ModelTabBody {...DEFAULT_PROPS} nodes={nodes} edges={[]} robustness={postAnalysis} />)
+    expect(screen.getByText(/1 factor missing source.*1 AI-estimated/)).toBeInTheDocument()
+  })
+})
+
+describe('External factor — range display', () => {
+  function makeExternalNode(id: string, label: string, priorMin?: number, priorMax?: number): Node {
+    return {
+      id,
+      type: 'factor',
+      position: { x: 0, y: 0 },
+      data: {
+        label,
+        category: 'external',
+        ...(priorMin !== undefined && priorMax !== undefined
+          ? { prior: { range_min: priorMin, range_max: priorMax } }
+          : {}),
+      },
+    }
+  }
+
+  it('shows explicit prior range when set', () => {
+    const node = makeExternalNode('ef1', 'Customer churn rate', 0, 0.14)
+    render(<ModelTabBody {...DEFAULT_PROPS} nodes={[node]} edges={[]} />)
+    // InlineEdit renders with -display suffix in read mode
+    expect(screen.getByTestId('factor-ef1-prior-min-display')).toBeInTheDocument()
+    expect(screen.queryByTestId('factor-ef1-default-range')).not.toBeInTheDocument()
+  })
+
+  it('shows "0 – 1 (uniform) · default range" when no prior is set', () => {
+    const node = makeExternalNode('ef2', 'Market growth rate')
+    render(<ModelTabBody {...DEFAULT_PROPS} nodes={[node]} edges={[]} />)
+    expect(screen.getByTestId('factor-ef2-default-range')).toBeInTheDocument()
+    expect(screen.getByTestId('factor-ef2-default-range')).toHaveTextContent('0 – 1 (uniform) · default range')
+    // "No range specified" must not appear anywhere
+    expect(screen.queryByText(/No range specified/)).not.toBeInTheDocument()
+  })
+
+  it('shows Refine range pill when no prior is set', () => {
+    const node = makeExternalNode('ef3', 'Inflation rate')
+    render(<ModelTabBody {...DEFAULT_PROPS} nodes={[node]} edges={[]} />)
+    expect(screen.getByTestId('factor-ef3-refine-range')).toBeInTheDocument()
+    expect(screen.getByTestId('factor-ef3-refine-range')).toHaveTextContent('Refine range')
+  })
+
+  it('does not show Refine range pill when prior is already set', () => {
+    const node = makeExternalNode('ef4', 'Interest rate', 0.01, 0.1)
+    render(<ModelTabBody {...DEFAULT_PROPS} nodes={[node]} edges={[]} />)
+    expect(screen.queryByTestId('factor-ef4-refine-range')).not.toBeInTheDocument()
+  })
+})
+
+describe('Strengthen section — sub-headers and constraint warnings', () => {
+  const fragileRobustness = {
+    fragileEdges: [{ edgeId: 'e1', fromId: 'f1', toId: 'f2', switchProbability: 0.85 }],
+    robustEdges: [],
+    stabilityScore: 0.4,
+  }
+
+  it('shows fragile edges sub-header post-analysis', () => {
+    const nodes = [makeFactorNode('f1', 'Factor A'), makeFactorNode('f2', 'Factor B')]
+    const edges = [makeEdge('e1', 'f1', 'f2')]
+    render(<ModelTabBody {...DEFAULT_PROPS} nodes={nodes} edges={edges} robustness={fragileRobustness} />)
+    expect(screen.getByTestId('strengthen-fragile-edges')).toBeInTheDocument()
+    expect(screen.getByText(/Fragile edges \(1\)/)).toBeInTheDocument()
+  })
+
+  it('shows constraint warning when critique has baseline issue', () => {
+    const nodes = [makeFactorNode('f1', 'Customer churn')]
+    const critique = [
+      { severity: 'WARNING' as const, message: 'constraint targets Customer churn which has no baseline', code: 'CONSTRAINT_NO_BASELINE', node_id: 'f1' },
+    ]
+    render(<ModelTabBody {...DEFAULT_PROPS} nodes={nodes} edges={[]} robustness={null} critique={critique} />)
+    expect(screen.getByTestId('strengthen-constraint-warnings')).toBeInTheDocument()
+    expect(screen.getByText(/Needs attention \(1\)/)).toBeInTheDocument()
+    expect(screen.getByText(/has a constraint but no baseline/)).toBeInTheDocument()
+  })
+
+  it('shows no constraint warnings section when critique is empty', () => {
+    const nodes = [makeFactorNode('f1', 'Factor')]
+    render(<ModelTabBody {...DEFAULT_PROPS} nodes={nodes} edges={[]} robustness={null} critique={[]} />)
+    expect(screen.queryByTestId('strengthen-constraint-warnings')).not.toBeInTheDocument()
   })
 })

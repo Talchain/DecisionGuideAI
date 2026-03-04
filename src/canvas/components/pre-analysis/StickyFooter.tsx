@@ -7,23 +7,32 @@
  *   - Retry: "Retry Draft" appears when blocked due to incomplete draft (ANALYSIS_NOT_READY)
  *   - States: disabled "Checking..." → disabled "Fix N issues" → "Retry Draft" (when retryable) → enabled "Analyse Now" → "Analysing..." with spinner
  *
- * Reviewed count tooltip shows source distribution ("N from brief, M estimated by AI").
- * Evidence tier label removed — the reviewed count is the primary trust signal.
+ * "Quality: High/Medium/Low" label shows source-distribution tooltip
+ * ("N from brief, M estimated by AI").
+ * Reviewed count shows as secondary signal when reviewable factors exist.
  */
 
 import { CheckCircle, XCircle, Loader2, RefreshCw } from 'lucide-react'
 import { Tooltip } from '../Tooltip'
+import type { EvidenceQualityLevel } from './hooks/usePreAnalysisData'
 
 /** Derive source distribution tooltip from raw counts */
-function getReviewedTooltip(nonAiCount?: number, totalCount?: number): string {
+function getEvidenceTooltip(nonAiCount?: number, totalCount?: number): string {
   if (totalCount == null || totalCount === 0) {
-    return "Number of factor values you've confirmed or marked as assumptions"
+    return 'Proportion of inputs from your brief vs estimated by AI'
   }
   const aiCount = totalCount - (nonAiCount ?? 0)
   const briefCount = nonAiCount ?? 0
   if (aiCount === 0) return `All ${totalCount} values from your brief`
   if (briefCount === 0) return `All ${totalCount} values estimated by AI`
   return `${briefCount} from brief, ${aiCount} estimated by AI`
+}
+
+/** Colour class for Quality tier label */
+function qualityColour(level: EvidenceQualityLevel): string {
+  if (level === 'high') return 'text-success'
+  if (level === 'medium') return 'text-warning'
+  return 'text-danger'
 }
 
 interface StickyFooterProps {
@@ -49,6 +58,8 @@ interface StickyFooterProps {
   reviewedCount?: number
   /** Total number of reviewable factors */
   totalReviewableCount?: number
+  /** Evidence quality tier — drives "Quality: X" label */
+  evidenceLevel?: EvidenceQualityLevel
   /** Factors NOT from AI sources — used to build source-distribution tooltip */
   evidenceNonAiCount?: number
   /** Total factor count — used to build source-distribution tooltip */
@@ -67,6 +78,7 @@ export function StickyFooter({
   onRetryDraft,
   reviewedCount,
   totalReviewableCount,
+  evidenceLevel,
   evidenceNonAiCount,
   evidenceTotalCount,
 }: StickyFooterProps) {
@@ -127,27 +139,38 @@ export function StickyFooter({
   const allReviewed = totalReviewableCount != null && totalReviewableCount > 0 &&
     (reviewedCount ?? 0) >= totalReviewableCount
 
-  const reviewedTooltip = getReviewedTooltip(evidenceNonAiCount, evidenceTotalCount)
+  const evidenceTooltip = getEvidenceTooltip(evidenceNonAiCount, evidenceTotalCount)
 
   return (
     <div
       className="flex-shrink-0 h-12 px-3 flex items-center justify-between bg-panel border-t border-panel-border"
       data-testid="sticky-footer"
     >
-      {/* Left: Status + Reviewed count */}
+      {/* Left: Status + Quality label + Reviewed count */}
       <div className="flex items-center gap-2 text-sm">
         <StatusIcon className={`w-4 h-4 ${statusIconColor}`} aria-hidden="true" />
         <span className="font-medium text-text-body">
           {statusText}
         </span>
+        {!isRetrying && evidenceLevel && (
+          <>
+            <span className="text-text-light">·</span>
+            <Tooltip content={evidenceTooltip}>
+              <span className="text-text-light cursor-help">
+                {'Quality: '}
+                <span className={`font-medium ${qualityColour(evidenceLevel)}`}>
+                  {evidenceLevel.charAt(0).toUpperCase() + evidenceLevel.slice(1)}
+                </span>
+              </span>
+            </Tooltip>
+          </>
+        )}
         {!isRetrying && (totalReviewableCount != null && totalReviewableCount > 0) && (
           <>
             <span className="text-text-light">·</span>
-            <Tooltip content={reviewedTooltip}>
-              <span className="text-text-body cursor-help">
-                {allReviewed ? 'All reviewed' : `${reviewedCount ?? 0}/${totalReviewableCount} reviewed`}
-              </span>
-            </Tooltip>
+            <span className="text-text-body">
+              {allReviewed ? 'All reviewed' : `${reviewedCount ?? 0}/${totalReviewableCount} reviewed`}
+            </span>
           </>
         )}
       </div>

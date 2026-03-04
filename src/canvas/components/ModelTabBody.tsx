@@ -35,6 +35,7 @@ import { focusNodeById, focusEdgeById } from '../utils/focusHelpers'
 import { countEdgesWithEvidence, NON_EVIDENCE_PROVENANCE } from '../utils/evidenceCoverage'
 import { SectionErrorBoundary } from './GraphTextView'
 import type { MappedRobustness } from '../../lib/mappers/types'
+import type { CritiqueItemV1 } from '../../adapters/plot/types'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -49,6 +50,8 @@ interface ModelTabBodyProps {
   nodes: Node[]
   edges: Edge[]
   robustness: MappedRobustness | null
+  /** PLoT critique items — used to surface constraint warnings in Strengthen */
+  critique?: CritiqueItemV1[] | null
 }
 
 interface ObservedState {
@@ -231,7 +234,7 @@ function InlineEdit({
       tabIndex={0}
       onClick={handleFocus}
       onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleFocus() }}
-      className="inline-flex items-center gap-0.5 cursor-text rounded-sm hover:bg-panel-hover px-1 -mx-1"
+      className="inline-flex items-center gap-0.5 cursor-text rounded-sm border border-transparent hover:bg-panel-hover hover:border-panel-border px-1 -mx-1 transition-colors"
       title={tooltip ?? 'Click to edit'}
       data-testid={testId ? `${testId}-display` : undefined}
     >
@@ -389,7 +392,7 @@ function FactorCard({ node }: { node: Node }) {
         /* External: prior range + scale description + source */
         <div className="space-y-0.5">
           <div className="flex items-center gap-1 flex-wrap">
-            <span className={`${typography.panelMeta} text-text-light w-14 shrink-0`}>Range</span>
+            <span className={`${typography.panelMeta} text-text-light w-14 shrink-0`}>Prior</span>
             {hasPriorRange ? (
               <>
                 <InlineEdit
@@ -409,27 +412,30 @@ function FactorCard({ node }: { node: Node }) {
                   numeric
                   testId={`factor-${node.id}-prior-max`}
                 />
-                <span className={`${typography.panelMeta} text-text-light`}>· {scaleDesc}</span>
+                <span className={`${typography.panelMeta} text-text-light`}>
+                  · {scaleDesc}{isSynthesisedPrior ? ' · from model repair' : ''}
+                </span>
               </>
             ) : (
-              <span
-                className={`${typography.panelMeta} text-text-light`}
-                data-testid={`factor-${node.id}-no-range`}
-              >
-                No range specified
-              </span>
+              /* No prior set — show implicit 0–1 uniform default, not "no range specified" */
+              <>
+                <span
+                  className={`${typography.panelMeta} text-text-light`}
+                  data-testid={`factor-${node.id}-default-range`}
+                >
+                  0 – 1 (uniform) · default range
+                </span>
+                <button
+                  type="button"
+                  onClick={() => focusNodeById(node.id)}
+                  className={`inline-flex items-center px-2 py-0.5 rounded-full border border-dashed border-info/40 text-info hover:bg-info-light/50 transition-colors ${typography.panelMeta}`}
+                  data-testid={`factor-${node.id}-refine-range`}
+                >
+                  Refine range
+                </button>
+              </>
             )}
           </div>
-          {isSynthesisedPrior && (
-            <p className={`${typography.panelMeta} text-text-light`}>
-              Synthesised from observed value
-            </p>
-          )}
-          {isFullRange && !isSynthesisedPrior && (
-            <p className={`${typography.panelMeta} text-text-light`}>
-              Full range — no estimate available
-            </p>
-          )}
           {/* Source row — external factors can also have a source */}
           <div className="flex items-center gap-1 flex-wrap">
             <span className={`${typography.panelMeta} text-text-light w-14 shrink-0`}>Source</span>
@@ -942,6 +948,7 @@ export function ModelTabBody({
   nodes,
   edges,
   robustness,
+  critique,
 }: ModelTabBodyProps) {
   const [searchQuery, setSearchQuery] = useState('')
 
@@ -1001,10 +1008,19 @@ export function ModelTabBody({
 
   // ── Attention banner (post-analysis only) ─────────────────────────────────
 
-  const factorsMissingSource = useMemo(() => {
+  // Truly missing: null/undefined/empty string (excludes AI-estimated)
+  const factorsTrulyMissingSource = useMemo(() => {
     return grouped.factor.filter(n => {
       const obs = (n.data as any)?.observedState ?? (n.data as any)?.observed_state
-      return !obs?.source || obs.source === 'cee_inference'
+      return !obs?.source
+    }).length
+  }, [grouped.factor])
+
+  // AI-estimated: source is 'cee_inference' — less severe than truly missing
+  const factorsAiEstimated = useMemo(() => {
+    return grouped.factor.filter(n => {
+      const obs = (n.data as any)?.observedState ?? (n.data as any)?.observed_state
+      return obs?.source === 'cee_inference'
     }).length
   }, [grouped.factor])
 
@@ -1020,7 +1036,7 @@ export function ModelTabBody({
   const fragileEdgeCount = hasRobustnessData ? fragileEdgeIds.size : 0
 
   const showAttentionBanner = hasRobustnessData && (
-    fragileEdgeCount > 0 || factorsMissingSource > 0 || defaultedEdgeCount > 2
+    fragileEdgeCount > 0 || factorsTrulyMissingSource > 0 || factorsAiEstimated > 0 || defaultedEdgeCount > 2
   )
 
   // ── Factor sort: needs-attention first, then alpha ─────────────────────────
@@ -1077,6 +1093,34 @@ export function ModelTabBody({
       return !provenance || NON_EVIDENCE_PROVENANCE.includes(provenance)
     })
   }, [causalEdges])
+
+  // Fragile edges sorted by switch_probability descending (for Strengthen section)
+  const fragileSortedEdges = useMemo(() => {
+    return [...fragileEdgeIds].map(rfId => {
+      const edge = causalEdges.find(e => getDisplayEdgeId(e) === rfId)
+      const switchProb = fragileEdgeSwitchProbMap.get(rfId) ?? 0
+      return { edge, rfId, switchProb }
+    }).filter((x): x is { edge: Edge; rfId: string; switchProb: number } => x.edge !== undefined)
+      .sort((a, b) => b.switchProb - a.switchProb)
+  }, [fragileEdgeIds, causalEdges, fragileEdgeSwitchProbMap])
+
+  // Constraint warnings from PLoT critique — codes related to missing baseline or constraint issues
+  const CONSTRAINT_CRITIQUE_CODES = ['MISSING_BASELINE', 'CONSTRAINT_NO_BASELINE', 'CONSTRAINT_INTERCEPT_DEFAULT', 'constraint_missing_baseline']
+  const constraintWarnings = useMemo(() => {
+    if (!critique?.length) return []
+    return critique.filter(c =>
+      CONSTRAINT_CRITIQUE_CODES.some(code => c.code?.toUpperCase().includes(code.toUpperCase())) ||
+      c.message?.toLowerCase().includes('constraint') && c.message?.toLowerCase().includes('baseline')
+    )
+  }, [critique])
+
+  // Factors truly missing source (for Strengthen — separate from AI-estimated)
+  const factorsTrulyMissingSourceList = useMemo(() => {
+    return grouped.factor.filter(n => {
+      const obs = (n.data as any)?.observedState ?? (n.data as any)?.observed_state
+      return !obs?.source
+    })
+  }, [grouped.factor])
 
   const showDefaultedWarning = defaultedEdgeCount > 2
 
@@ -1174,17 +1218,20 @@ export function ModelTabBody({
           <AlertTriangle className="w-3.5 h-3.5 text-warning shrink-0 mt-0.5" aria-hidden="true" />
           <div className="flex-1 min-w-0">
             <div className={`${typography.panelBody} text-text-body`}>
-              {factorsMissingSource > 0 && (
-                <span>{factorsMissingSource} factor{factorsMissingSource !== 1 ? 's' : ''} missing source</span>
-              )}
-              {factorsMissingSource > 0 && fragileEdgeCount > 0 && <span> · </span>}
-              {fragileEdgeCount > 0 && (
-                <span>{fragileEdgeCount} fragile edge{fragileEdgeCount !== 1 ? 's' : ''} detected</span>
-              )}
-              {(factorsMissingSource > 0 || fragileEdgeCount > 0) && defaultedEdgeCount > 2 && <span> · </span>}
-              {defaultedEdgeCount > 2 && (
-                <span>{defaultedEdgeCount} edges with default values</span>
-              )}
+              {[
+                factorsTrulyMissingSource > 0
+                  ? `${factorsTrulyMissingSource} factor${factorsTrulyMissingSource !== 1 ? 's' : ''} missing source`
+                  : null,
+                factorsAiEstimated > 0
+                  ? `${factorsAiEstimated} AI-estimated`
+                  : null,
+                fragileEdgeCount > 0
+                  ? `${fragileEdgeCount} fragile edge${fragileEdgeCount !== 1 ? 's' : ''}`
+                  : null,
+                defaultedEdgeCount > 2
+                  ? `${defaultedEdgeCount} edges with default values`
+                  : null,
+              ].filter(Boolean).join(' · ')}
             </div>
             <a
               href="#strengthen"
@@ -1282,9 +1329,113 @@ export function ModelTabBody({
           </div>
         )}
 
-        {edgesWithoutEvidence.length > 0 ? (
-          <div data-testid="evidence-gaps-section">
+        {/* ── Needs attention: constraint warnings ── */}
+        {constraintWarnings.length > 0 && (
+          <div className="mb-3" data-testid="strengthen-constraint-warnings">
+            <div className={`${typography.panelMeta} text-text-light mb-1`}>
+              Needs attention ({constraintWarnings.length})
+            </div>
             <div className="space-y-1">
+              {constraintWarnings.map((c, i) => {
+                const factorNode = c.node_id ? nodes.find(n => n.id === c.node_id) : undefined
+                const factorLabel = factorNode
+                  ? String((factorNode.data as any)?.label ?? c.node_id)
+                  : (c.node_id ?? 'Unknown factor')
+                return (
+                  <div
+                    key={c.code ?? i}
+                    className="flex items-center gap-2 p-1.5 bg-panel border border-panel-border rounded-sm"
+                    data-testid={`strengthen-constraint-${c.code ?? i}`}
+                  >
+                    <span className="w-2 h-2 rounded-full bg-warning shrink-0" aria-hidden="true" />
+                    <span className={`${typography.panelBody} text-text-header flex-1 min-w-0`}>
+                      {factorLabel} has a constraint but no baseline value — add an estimate
+                    </span>
+                    {c.node_id && (
+                      <button
+                        type="button"
+                        onClick={() => focusNodeById(c.node_id!)}
+                        className={`inline-flex items-center px-2 py-0.5 rounded-full bg-warning-light text-warning border border-warning/20 ${typography.panelMeta} hover:bg-warning/20 transition-colors shrink-0`}
+                      >
+                        Add estimate
+                      </button>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* ── Fragile edges (post-analysis only) ── */}
+        {hasRobustnessData && fragileSortedEdges.length > 0 && (
+          <div className="mb-3" data-testid="strengthen-fragile-edges">
+            <div className={`${typography.panelMeta} text-text-light mb-1`}>
+              Fragile edges ({fragileSortedEdges.length})
+            </div>
+            <div className="space-y-1">
+              {fragileSortedEdges.map(({ edge, rfId, switchProb }) => {
+                const srcNode = nodes.find(n => n.id === edge.source)
+                const tgtNode = nodes.find(n => n.id === edge.target)
+                const edgeLabel = srcNode && tgtNode
+                  ? `${String((srcNode.data as any)?.label ?? edge.source)} → ${String((tgtNode.data as any)?.label ?? edge.target)}`
+                  : rfId
+                return (
+                  <div
+                    key={rfId}
+                    className="flex items-center gap-2 p-1.5 bg-panel border border-panel-border rounded-sm"
+                  >
+                    <span className="w-2 h-2 rounded-full bg-warning shrink-0" aria-hidden="true" />
+                    <span className={`${typography.panelBody} text-text-header flex-1 min-w-0 truncate`}>
+                      {edgeLabel}
+                    </span>
+                    {switchProb > 0 && (
+                      <span className={`${typography.panelMeta} text-warning shrink-0`}>
+                        {Math.round(switchProb * 100)}%
+                      </span>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => focusEdgeById(rfId)}
+                      className={`inline-flex items-center px-2 py-0.5 rounded-full bg-info-light text-info border border-info/20 ${typography.panelMeta} hover:bg-info/20 transition-colors shrink-0`}
+                    >
+                      Add evidence
+                    </button>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* ── Missing evidence: factors + remaining edges ── */}
+        {(factorsTrulyMissingSourceList.length > 0 || edgesWithoutEvidence.length > 0) ? (
+          <div data-testid="strengthen-missing-evidence">
+            <div className={`${typography.panelMeta} text-text-light mb-1`}>
+              Missing evidence ({factorsTrulyMissingSourceList.length + edgesWithoutEvidence.length})
+            </div>
+            <div className="space-y-1">
+              {factorsTrulyMissingSourceList.map(n => {
+                const lbl = String((n.data as any)?.label ?? n.id)
+                return (
+                  <div
+                    key={n.id}
+                    className="flex items-center gap-2 p-1.5 bg-panel border border-panel-border rounded-sm"
+                  >
+                    <span className="text-text-light shrink-0" aria-hidden="true">◐</span>
+                    <span className={`${typography.panelBody} text-text-header flex-1 min-w-0 truncate`}>
+                      {lbl}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => focusNodeById(n.id)}
+                      className={`inline-flex items-center px-2 py-0.5 rounded-full bg-info-light text-info border border-info/20 ${typography.panelMeta} hover:bg-info/20 transition-colors shrink-0`}
+                    >
+                      Add source
+                    </button>
+                  </div>
+                )
+              })}
               {edgesWithoutEvidence.slice(0, 5).map(edge => {
                 const edgeId = getDisplayEdgeId(edge)
                 const srcNode = nodes.find(n => n.id === edge.source)
@@ -1292,7 +1443,6 @@ export function ModelTabBody({
                 const edgeLabel = srcNode && tgtNode
                   ? `${String((srcNode.data as any)?.label ?? edge.source)} → ${String((tgtNode.data as any)?.label ?? edge.target)}`
                   : edgeId
-
                 return (
                   <div
                     key={edgeId}
@@ -1328,9 +1478,11 @@ export function ModelTabBody({
             )}
           </div>
         ) : (
-          <p className={`${typography.panelBody} text-text-light`}>
-            All edges have supporting evidence.
-          </p>
+          constraintWarnings.length === 0 && fragileSortedEdges.length === 0 && (
+            <p className={`${typography.panelBody} text-text-light`}>
+              All edges have supporting evidence.
+            </p>
+          )
         )}
       </div>
 

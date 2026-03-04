@@ -45,64 +45,100 @@ describe('StickyFooter — reviewed count display', () => {
   })
 })
 
-describe('StickyFooter — reviewed count tooltip (source distribution)', () => {
-  it('shows "All N values estimated by AI" tooltip when nonAiCount=0', () => {
+describe('StickyFooter — Quality label display', () => {
+  it('shows "Quality: High" when evidenceLevel is high', () => {
     render(
       <StickyFooter
         {...baseProps}
-        reviewedCount={0}
-        totalReviewableCount={5}
+        evidenceLevel="high"
+        evidenceNonAiCount={5}
+        evidenceTotalCount={5}
+      />,
+    )
+    expect(screen.getByText(/Quality:/)).toBeInTheDocument()
+    expect(screen.getByText('High')).toBeInTheDocument()
+  })
+
+  it('shows "Quality: Medium" when evidenceLevel is medium', () => {
+    render(
+      <StickyFooter
+        {...baseProps}
+        evidenceLevel="medium"
+        evidenceNonAiCount={2}
+        evidenceTotalCount={4}
+      />,
+    )
+    expect(screen.getByText(/Quality:/)).toBeInTheDocument()
+    expect(screen.getByText('Medium')).toBeInTheDocument()
+  })
+
+  it('shows "Quality: Low" when evidenceLevel is low', () => {
+    render(
+      <StickyFooter
+        {...baseProps}
+        evidenceLevel="low"
         evidenceNonAiCount={0}
         evidenceTotalCount={5}
       />,
     )
-    const reviewedEl = screen.getByText('0/5 reviewed')
-    expect(reviewedEl).toBeInTheDocument()
-    // Tooltip content rendered as title-equivalent via Tooltip component
-    // The tooltip wraps reviewed text, so check the tooltip content prop indirectly
-    // by confirming the element has cursor-help class (tooltip trigger)
-    expect(reviewedEl).toHaveClass('cursor-help')
+    expect(screen.getByText(/Quality:/)).toBeInTheDocument()
+    expect(screen.getByText('Low')).toBeInTheDocument()
+  })
+
+  it('does not show Quality label when evidenceLevel is absent', () => {
+    render(<StickyFooter {...baseProps} />)
+    expect(screen.queryByText(/Quality:/)).not.toBeInTheDocument()
+  })
+})
+
+describe('StickyFooter — Quality tooltip (source distribution)', () => {
+  it('Quality label has cursor-help class (tooltip trigger) when evidenceLevel present', () => {
+    render(
+      <StickyFooter
+        {...baseProps}
+        evidenceLevel="low"
+        evidenceNonAiCount={0}
+        evidenceTotalCount={5}
+      />,
+    )
+    const qualityEl = screen.getByText(/Quality:/)
+    expect(qualityEl).toHaveClass('cursor-help')
   })
 
   it('shows mixed source tooltip when some from brief and some AI', () => {
     render(
       <StickyFooter
         {...baseProps}
-        reviewedCount={2}
-        totalReviewableCount={5}
+        evidenceLevel="medium"
         evidenceNonAiCount={2}
         evidenceTotalCount={5}
       />,
     )
-    expect(screen.getByText('2/5 reviewed')).toBeInTheDocument()
+    expect(screen.getByText(/Quality:/)).toBeInTheDocument()
+    expect(screen.getByText('Medium')).toBeInTheDocument()
   })
 
-  it('shows "All N values from your brief" tooltip when aiCount=0', () => {
+  it('shows Quality label with all-brief tooltip when aiCount=0', () => {
     render(
       <StickyFooter
         {...baseProps}
-        reviewedCount={5}
-        totalReviewableCount={5}
+        evidenceLevel="high"
         evidenceNonAiCount={5}
         evidenceTotalCount={5}
       />,
     )
-    expect(screen.getByText('All reviewed')).toBeInTheDocument()
+    expect(screen.getByText('High')).toBeInTheDocument()
   })
-})
 
-describe('StickyFooter — no evidence tier label', () => {
-  it('does not render "Data confidence:" label', () => {
+  it('shows Quality label with fallback tooltip text when evidenceTotalCount is 0', () => {
     render(
       <StickyFooter
         {...baseProps}
-        reviewedCount={2}
-        totalReviewableCount={5}
-        evidenceNonAiCount={2}
-        evidenceTotalCount={5}
+        evidenceLevel="low"
+        evidenceNonAiCount={0}
+        evidenceTotalCount={0}
       />,
     )
-    expect(screen.queryByText(/Data confidence:/)).not.toBeInTheDocument()
-    expect(screen.queryByText(/Quality:/)).not.toBeInTheDocument()
+    expect(screen.getByText(/Quality:/)).toBeInTheDocument()
   })
 })

@@ -130,26 +130,20 @@ export function useNodeDisplayMetadata(
     }
 
     // Task 8 & 10: Outcome/Goal achievement probability
-    // BUG FIX: Goals/outcomes don't have option_ids, so we use the recommended option's probability
+    // Read from option_probabilities (the field the responseMapper actually populates)
     let achievementProbability: number | null = null
     let stabilityPercentage: number | null = null
 
     if (nodeType === 'outcome' || nodeType === 'goal') {
-      const optionComparison = report.option_comparison || []
+      const optionProbabilities = report.option_probabilities ?? {}
       // Get the recommended option from robustness
       const recommendedOptionId = report.robustness?.recommended_option_id ??
                                   report.robustness?.recommendedOptionId
 
       if (recommendedOptionId) {
-        const recommendedOption = optionComparison.find((opt: any) =>
-          opt.option_id === recommendedOptionId || opt.optionId === recommendedOptionId
-        )
-
-        if (recommendedOption) {
-          // Schema v2.6: probability_of_goal (not goal_hit_probability)
-          achievementProbability = recommendedOption.probability_of_goal ??
-                                  recommendedOption.probabilityOfGoal ??
-                                  null
+        const rec = optionProbabilities[recommendedOptionId]
+        if (rec) {
+          achievementProbability = rec.goal_probability ?? null
         }
       }
 
@@ -164,16 +158,13 @@ export function useNodeDisplayMetadata(
     }
 
     // Task 8: Win rate for options
+    // Read from option_probabilities[nodeId].win_probability — that's where the mapper puts it
     let winRate: number | null = null
     if (nodeType === 'option') {
-      const optionComparison = report.option_comparison || []
-      const option = optionComparison.find((opt: any) =>
-        opt.option_id === nodeId || opt.optionId === nodeId
-      )
-
-      if (option) {
-        // Schema v2.6: win_probability (not win_rate)
-        winRate = option.win_probability ?? option.winProbability ?? null
+      const optionProbabilities = report.option_probabilities ?? {}
+      const optionData = optionProbabilities[nodeId]
+      if (optionData) {
+        winRate = optionData.win_probability ?? null
       }
     }
 

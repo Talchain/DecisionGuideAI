@@ -53,15 +53,39 @@ export function evidenceTierLabel(score: number): string {
   return 'Weak'
 }
 
+/** Factor types that use qualitative tier labels (no numeric meaning to users) */
+const QUALITATIVE_FACTOR_TYPES = new Set(['quality', 'demand', 'other'])
+
+/**
+ * Map a 0–1 intervention value to a qualitative tier label.
+ * Used when a factor has no unit and its type is qualitative.
+ *
+ * | Value      | Label     |
+ * |------------|-----------|
+ * | 0          | "None"    |
+ * | 0.01–0.30  | "Low"     |
+ * | 0.31–0.60  | "Medium"  |
+ * | 0.61–0.89  | "High"    |
+ * | 0.90–1.0   | "Very high"|
+ */
+export function qualitativeTierLabel(value: number): string {
+  if (value === 0) return 'None'
+  if (value <= 0.3) return 'Low'
+  if (value <= 0.6) return 'Medium'
+  if (value < 0.9) return 'High'
+  return 'Very high'
+}
+
 /**
  * Format an intervention value for display as a human-readable chip.
  * Used in OptionNode intervention chips (T8).
  *
- * @param value - Normalised intervention value (0–1 for binary/fraction, or raw)
- * @param unit  - Optional unit hint (e.g. '%', 'fraction', '£')
+ * @param value      - Normalised intervention value (0–1 for binary/fraction, or raw)
+ * @param unit       - Optional unit hint (e.g. '%', 'fraction', '£')
+ * @param factorType - Optional CEE factor_type (e.g. 'quality', 'demand') — triggers tier labels
  * @returns Human-readable string
  */
-export function formatInterventionValue(value: number, unit?: string): string {
+export function formatInterventionValue(value: number, unit?: string, factorType?: string): string {
   if (unit === 'fraction' || unit === 'proportion') {
     return `${Math.round(value * 100)}%`
   }
@@ -75,9 +99,12 @@ export function formatInterventionValue(value: number, unit?: string): string {
   if (unit) {
     return `${value} ${unit}`
   }
-  // Binary 0/1 without unit
-  if (value === 0) return 'None'
-  if (value === 1) return 'Full'
-  // Continuous without unit — show as number (max 2 dp)
+  // No unit — check if this is a qualitative factor type (case-insensitive)
+  const ft = factorType?.toLowerCase().trim()
+  const isQualitative = !ft || QUALITATIVE_FACTOR_TYPES.has(ft)
+  if (isQualitative) {
+    return qualitativeTierLabel(value)
+  }
+  // Continuous without unit, non-qualitative — show as number (max 2 dp)
   return value % 1 === 0 ? String(value) : value.toFixed(2).replace(/\.?0+$/, '')
 }

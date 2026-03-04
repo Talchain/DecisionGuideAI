@@ -134,12 +134,17 @@ describe('OptionNode', () => {
       winRate: 0.72,
       isResultsMode: true,
     })
-    // Set up store with report that has option win rates
+    // Set up store with report using option_probabilities (the field responseMapper populates)
     vi.mocked(useCanvasStore).mockImplementation((selector) =>
       selector(makeStoreState({
         results: {
           status: 'complete',
-          report: { options: { 'option-1': 0.72, 'option-2': 0.28 } },
+          report: {
+            option_probabilities: {
+              'option-1': { goal_probability: 0.8, confidence: 0.5, win_probability: 0.72 },
+              'option-2': { goal_probability: 0.4, confidence: 0.5, win_probability: 0.28 },
+            },
+          },
         },
         nodes: [
           { id: 'option-1', type: 'option', data: { type: 'option' } },
@@ -166,7 +171,12 @@ describe('OptionNode', () => {
       selector(makeStoreState({
         results: {
           status: 'complete',
-          report: { options: { 'option-1': 0.28, 'option-2': 0.72 } },
+          report: {
+            option_probabilities: {
+              'option-1': { goal_probability: 0.4, confidence: 0.5, win_probability: 0.28 },
+              'option-2': { goal_probability: 0.8, confidence: 0.5, win_probability: 0.72 },
+            },
+          },
         },
         nodes: [
           { id: 'option-1', type: 'option', data: { type: 'option' } },
@@ -238,6 +248,54 @@ describe('OptionNode', () => {
     expect(screen.queryByText(/:/)).toBeNull()
   })
 
+  // G2: Qualitative tier labels for no-unit qualitative factors
+  it('shows tier label for qualitative factor (no unit, factor_type "quality")', () => {
+    vi.mocked(useCanvasStore).mockImplementation((selector) =>
+      selector(makeStoreState({
+        ceeAnalysisReady: {
+          options: [{
+            id: 'option-1',
+            interventions: { 'factor-1': 0.7 },
+          }],
+        },
+        nodes: [{
+          id: 'factor-1',
+          data: {
+            label: 'Product-market fit',
+            observedState: { factor_type: 'quality' },
+          },
+        }],
+      }) as any)
+    )
+    renderOption()
+    expect(screen.getByText('Product-market fit:')).toBeDefined()
+    // 0.7 with factor_type 'quality' → 'High'
+    expect(screen.getByText('High')).toBeDefined()
+  })
+
+  it('shows numeric value for factor with unit even if factor_type is qualitative', () => {
+    vi.mocked(useCanvasStore).mockImplementation((selector) =>
+      selector(makeStoreState({
+        ceeAnalysisReady: {
+          options: [{
+            id: 'option-1',
+            interventions: { 'factor-1': 0.6 },
+          }],
+        },
+        nodes: [{
+          id: 'factor-1',
+          data: {
+            label: 'Revenue share',
+            observedState: { unit: 'fraction', factor_type: 'quality' },
+          },
+        }],
+      }) as any)
+    )
+    renderOption()
+    // unit=fraction takes priority → '60%'
+    expect(screen.getByText('60%')).toBeDefined()
+  })
+
   it('formats intervention value correctly when value is nested object {value: N}', () => {
     vi.mocked(useCanvasStore).mockImplementation((selector) =>
       selector(makeStoreState({
@@ -273,7 +331,7 @@ describe('OptionNode', () => {
     expect(screen.queryByText(/win probability/)).toBeNull()
   })
 
-  it('does not show Recommended badge when resultsReport has no options key', () => {
+  it('does not show Recommended badge when resultsReport has no option_probabilities key', () => {
     vi.mocked(useNodeDisplayMetadata).mockReturnValue({
       sensitivityRank: null,
       influence: null,
@@ -297,6 +355,43 @@ describe('OptionNode', () => {
     expect(screen.queryByText('Recommended')).toBeNull()
   })
 
+  it('shows Recommended badge when a non-canvas option has higher rate in report', () => {
+    // P0-2: only visible canvas option IDs count when computing max
+    vi.mocked(useNodeDisplayMetadata).mockReturnValue({
+      sensitivityRank: null,
+      influence: null,
+      confidence: null,
+      inSensitivityAnalysis: false,
+      achievementProbability: null,
+      stabilityPercentage: null,
+      winRate: 0.72,
+      isResultsMode: true,
+    })
+    vi.mocked(useCanvasStore).mockImplementation((selector) =>
+      selector(makeStoreState({
+        results: {
+          status: 'complete',
+          report: {
+            option_probabilities: {
+              // option-hidden is NOT on canvas — should be excluded from max
+              'option-hidden': { goal_probability: 0.9, confidence: 0.5, win_probability: 0.95 },
+              'option-1': { goal_probability: 0.8, confidence: 0.5, win_probability: 0.72 },
+              'option-2': { goal_probability: 0.4, confidence: 0.5, win_probability: 0.28 },
+            },
+          },
+        },
+        nodes: [
+          { id: 'option-1', type: 'option', data: { type: 'option' } },
+          { id: 'option-2', type: 'option', data: { type: 'option' } },
+          // option-hidden is absent from canvas nodes
+        ],
+      }) as any)
+    )
+    renderOption()
+    // option-1 has highest win rate among visible options → Recommended
+    expect(screen.getByText('Recommended')).toBeDefined()
+  })
+
   it('does not show Recommended badge when only one option node exists', () => {
     vi.mocked(useNodeDisplayMetadata).mockReturnValue({
       sensitivityRank: null,
@@ -312,7 +407,11 @@ describe('OptionNode', () => {
       selector(makeStoreState({
         results: {
           status: 'complete',
-          report: { options: { 'option-1': 1.0 } },
+          report: {
+            option_probabilities: {
+              'option-1': { goal_probability: 0.9, confidence: 0.5, win_probability: 1.0 },
+            },
+          },
         },
         nodes: [{ id: 'option-1', type: 'option', data: { type: 'option' } }],
       }) as any)

@@ -1375,6 +1375,7 @@ export function OutputsDock() {
                 nodes={nodes}
                 edges={edges}
                 robustness={mappedRobustness}
+                critique={report?.run?.critique}
               />
             )}
           </div>

@@ -11,6 +11,7 @@ import {
   sensitivityTierLabel,
   evidenceTierLabel,
   formatInterventionValue,
+  qualitativeTierLabel,
 } from '../labelUtils'
 
 // ---------------------------------------------------------------------------
@@ -137,6 +138,53 @@ describe('evidenceTierLabel', () => {
 })
 
 // ---------------------------------------------------------------------------
+// qualitativeTierLabel (G2)
+// ---------------------------------------------------------------------------
+describe('qualitativeTierLabel', () => {
+  it('returns "None" for 0', () => {
+    expect(qualitativeTierLabel(0)).toBe('None')
+  })
+
+  it('returns "Low" for values 0.01–0.30', () => {
+    expect(qualitativeTierLabel(0.01)).toBe('Low')
+    expect(qualitativeTierLabel(0.2)).toBe('Low')
+    expect(qualitativeTierLabel(0.3)).toBe('Low')
+  })
+
+  it('returns "Medium" for values 0.31–0.60', () => {
+    expect(qualitativeTierLabel(0.31)).toBe('Medium')
+    expect(qualitativeTierLabel(0.5)).toBe('Medium')
+    expect(qualitativeTierLabel(0.6)).toBe('Medium')
+  })
+
+  it('returns "High" for values 0.61–0.89', () => {
+    expect(qualitativeTierLabel(0.61)).toBe('High')
+    expect(qualitativeTierLabel(0.75)).toBe('High')
+    expect(qualitativeTierLabel(0.89)).toBe('High')
+  })
+
+  it('returns "Very high" for values 0.90–1.0', () => {
+    expect(qualitativeTierLabel(0.9)).toBe('Very high')
+    expect(qualitativeTierLabel(1.0)).toBe('Very high')
+  })
+
+  it('boundary: 0.3 → "Low", 0.31 → "Medium"', () => {
+    expect(qualitativeTierLabel(0.3)).toBe('Low')
+    expect(qualitativeTierLabel(0.31)).toBe('Medium')
+  })
+
+  it('boundary: 0.6 → "Medium", 0.61 → "High"', () => {
+    expect(qualitativeTierLabel(0.6)).toBe('Medium')
+    expect(qualitativeTierLabel(0.61)).toBe('High')
+  })
+
+  it('boundary: 0.89 → "High", 0.9 → "Very high"', () => {
+    expect(qualitativeTierLabel(0.89)).toBe('High')
+    expect(qualitativeTierLabel(0.9)).toBe('Very high')
+  })
+})
+
+// ---------------------------------------------------------------------------
 // formatInterventionValue (T8)
 // ---------------------------------------------------------------------------
 describe('formatInterventionValue', () => {
@@ -178,29 +226,86 @@ describe('formatInterventionValue', () => {
     })
   })
 
-  describe('no unit (binary / continuous)', () => {
+  describe('no unit, no factorType — qualitative tier labels (default)', () => {
     it('returns "None" for 0', () => {
       expect(formatInterventionValue(0)).toBe('None')
     })
 
-    it('returns "Full" for 1', () => {
-      expect(formatInterventionValue(1)).toBe('Full')
+    it('returns "Low" for 0.2', () => {
+      expect(formatInterventionValue(0.2)).toBe('Low')
     })
 
-    it('formats continuous value without unit', () => {
-      expect(formatInterventionValue(0.75)).toBe('0.75')
-      expect(formatInterventionValue(2)).toBe('2')
+    it('returns "Medium" for 0.5', () => {
+      expect(formatInterventionValue(0.5)).toBe('Medium')
     })
 
-    it('formats 0.5 as continuous (not binary)', () => {
-      // 0.5 is not 0 or 1, so formatted as a continuous number
-      expect(formatInterventionValue(0.5)).toBe('0.5')
+    it('returns "High" for 0.75', () => {
+      expect(formatInterventionValue(0.75)).toBe('High')
+    })
+
+    it('returns "Very high" for 1.0', () => {
+      expect(formatInterventionValue(1)).toBe('Very high')
     })
   })
 
-  describe('missing unit', () => {
-    it('handles undefined unit', () => {
-      expect(formatInterventionValue(0.3, undefined)).toBe('0.3')
+  describe('no unit + explicit qualitative factorType', () => {
+    it('uses tier labels for factorType "quality"', () => {
+      expect(formatInterventionValue(0.7, undefined, 'quality')).toBe('High')
+    })
+
+    it('uses tier labels for factorType "demand"', () => {
+      expect(formatInterventionValue(0.3, undefined, 'demand')).toBe('Low')
+    })
+
+    it('uses tier labels for factorType "other"', () => {
+      expect(formatInterventionValue(0.5, undefined, 'other')).toBe('Medium')
+    })
+  })
+
+  describe('no unit + non-qualitative factorType — numeric display', () => {
+    it('shows numeric for factorType "continuous"', () => {
+      expect(formatInterventionValue(0.75, undefined, 'continuous')).toBe('0.75')
+      expect(formatInterventionValue(2, undefined, 'continuous')).toBe('2')
+    })
+
+    it('shows numeric for factorType "cost"', () => {
+      expect(formatInterventionValue(0.5, undefined, 'cost')).toBe('0.5')
+    })
+
+    it('shows numeric for factorType "time"', () => {
+      expect(formatInterventionValue(12, undefined, 'time')).toBe('12')
+    })
+  })
+
+  describe('unit always wins over factorType', () => {
+    it('uses fraction format when unit=fraction even if factorType is quality', () => {
+      expect(formatInterventionValue(0.6, 'fraction', 'quality')).toBe('60%')
+    })
+
+    it('uses generic unit format when unit is present', () => {
+      expect(formatInterventionValue(12, 'months', 'quality')).toBe('12 months')
+    })
+  })
+
+  describe('factorType case-insensitive normalization (P1-4)', () => {
+    it('treats "Quality" (title case) as qualitative', () => {
+      expect(formatInterventionValue(0.7, undefined, 'Quality')).toBe('High')
+    })
+
+    it('treats "QUALITY" (all caps) as qualitative', () => {
+      expect(formatInterventionValue(0.3, undefined, 'QUALITY')).toBe('Low')
+    })
+
+    it('treats "Demand" (title case) as qualitative', () => {
+      expect(formatInterventionValue(0.5, undefined, 'Demand')).toBe('Medium')
+    })
+
+    it('treats "CONTINUOUS" as non-qualitative (numeric)', () => {
+      expect(formatInterventionValue(0.75, undefined, 'CONTINUOUS')).toBe('0.75')
+    })
+
+    it('treats whitespace-padded " quality " as qualitative', () => {
+      expect(formatInterventionValue(0.7, undefined, ' quality ')).toBe('High')
     })
   })
 })

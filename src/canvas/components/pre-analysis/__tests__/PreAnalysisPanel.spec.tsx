@@ -395,17 +395,17 @@ describe('PreAnalysisPanel', () => {
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
       const footer = screen.getByTestId('sticky-footer')
-      const allReviewed = footer.querySelector('.cursor-help')
-      expect(allReviewed?.textContent).toBe('All reviewed')
+      expect(footer).toHaveTextContent('All reviewed')
     })
 
-    it('does not show evidence tier label (Data confidence: removed)', () => {
+    it('shows "Quality: X" tier label in footer', () => {
       mockUsePreAnalysisData.mockReturnValue(createMockData({
         evidenceQuality: { level: 'medium', ratio: 0.5, nonAiCount: 2, totalCount: 4 },
       }))
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
-      expect(screen.queryByText(/Data confidence:/)).not.toBeInTheDocument()
+      expect(screen.getByText(/Quality:/)).toBeInTheDocument()
+      expect(screen.getByText('Medium')).toBeInTheDocument()
     })
   })
 
@@ -689,9 +689,9 @@ describe('PreAnalysisPanel', () => {
 
         render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
 
-        // Shows reviewed count — the primary trust signal
+        // Shows reviewed count and Quality label in footer
         expect(screen.getByText('2/4 reviewed')).toBeInTheDocument()
-        // No evidence tier label in footer
+        expect(screen.getByText(/Quality:/)).toBeInTheDocument()
         expect(screen.queryByText(/Data confidence:/)).not.toBeInTheDocument()
         expect(screen.queryByText(/Input confidence:/)).not.toBeInTheDocument()
       })
