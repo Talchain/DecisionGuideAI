@@ -184,6 +184,7 @@ export type SystemEventType =
   | 'direct_analysis_run'
   | 'patch_accepted'
   | 'patch_dismissed'
+  | 'feedback_submitted'
   | 'session_resume'
   | 'undo_draft'
 
@@ -200,10 +201,13 @@ export interface OrchestratorTurnRequest {
   scenario_id: string
   message: string
   conversation_history: ConversationTurnPair[]
+  /**
+   * Full graph sent on every turn. CEE needs nodes/edges for guidance refresh
+   * and validate-patch. The compact summary (node_count etc.) is insufficient.
+   */
   graph_state?: {
-    node_count: number
-    edge_count: number
-    has_goal: boolean
+    nodes: unknown[]
+    edges: unknown[]
   }
   analysis_state?: {
     has_results: boolean
@@ -213,9 +217,12 @@ export interface OrchestratorTurnRequest {
     node_ids?: string[]
     edge_ids?: string[]
   }
-  /** System event — not wired in this PR, field defined for forward compatibility */
-  system_event?: SystemEvent
-  /** Nonce for idempotency — not wired in this PR, field defined for forward compatibility */
+  /**
+   * System event — wire format is SystemEventWire (CEE v3) when
+   * ENABLE_V3_SYSTEM_EVENTS is ON, or raw SystemEvent when OFF.
+   */
+  system_event?: unknown
+  /** Nonce for idempotency */
   turn_nonce?: string
   client_turn_id: string
 }
@@ -244,4 +251,16 @@ export interface OrchestratorResponseEnvelopeV2 {
   turn_plan?: string
   /** Echoed client_turn_id for deduplication */
   client_turn_id?: string
+  /**
+   * A.9: Full V2RunResponse when the orchestrator executed run_analysis.
+   * Present only on analysis turns; absent on all other turns.
+   * The UI must write this to the results store so the panel updates
+   * without a direct /v2/run call.
+   */
+  analysis_response?: import('../../adapters/plot/v2/types').V2RunResponse
+  /**
+   * A.9: Error produced by run_analysis on the CEE side.
+   * Present only when analysis was attempted but failed.
+   */
+  analysis_error?: { code: string; message: string }
 }

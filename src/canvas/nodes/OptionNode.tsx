@@ -4,58 +4,73 @@ import { BaseNode } from './BaseNode'
 import { NODE_REGISTRY } from '../domain/nodes'
 import { useNodeDisplayMetadata } from '../hooks/useNodeDisplayMetadata'
 import { useCanvasStore } from '../store'
-import { formatDisplayValue } from '../utils/graphDisplayCalculations'
 import { typography } from '../../styles/typography'
+import { cleanFactorLabel, formatInterventionValue } from '../utils/labelUtils'
 
 export const OptionNode = memo((props: NodeProps) => {
   const metadata = NODE_REGISTRY.option
 
-  // Decision Graph Display v2 Task 7: Win rate display
+  // T7b: Win probability post-analysis
   const displayMetadata = useNodeDisplayMetadata(props.id, 'option')
 
-  // Decision Graph Display v2 Task 7: Intervention delta display
-  // Fix: Read interventions from ceeAnalysisReady, NOT from props.data.interventions
-  // The interventions live in ceeAnalysisReady.options[] after CEE response, not on node data
   const nodes = useCanvasStore(state => state.nodes)
+  const resultsReport = useCanvasStore(state => state.results.report)
+
+  // T7b: "Recommended" badge — highest winRate option among all options
+  const isRecommended = useMemo(() => {
+    if (!displayMetadata.isResultsMode || displayMetadata.winRate === null) return false
+    const optionNodes = nodes.filter(n => n.type === 'option' || n.data?.type === 'option')
+    if (optionNodes.length < 2) return false
+    // Find max winRate across all option nodes from the report
+    const report = resultsReport as any
+    const optionResults: Record<string, number> = report?.options ?? report?.option_results ?? {}
+    const allRates = Object.values(optionResults).filter((v): v is number => typeof v === 'number')
+    if (allRates.length === 0) return false
+    const maxRate = Math.max(...allRates)
+    return displayMetadata.winRate >= maxRate - 0.0001 // float tolerance
+  }, [displayMetadata.isResultsMode, displayMetadata.winRate, nodes, resultsReport])
   const ceeAnalysisReady = useCanvasStore(state => state.ceeAnalysisReady)
   const setHoveredOption = useCanvasStore(state => state.setHoveredOption)
 
-  const interventionDeltas = useMemo(() => {
-    // Look up this option's interventions from ceeAnalysisReady
+  // T8: Readable intervention chips with cleaned labels and formatted values
+  const interventionChips = useMemo(() => {
     const ceeOption = ceeAnalysisReady?.options?.find(opt => opt.id === props.id)
     const interventions = ceeOption?.interventions
     if (!interventions || typeof interventions !== 'object') return []
 
-    // Fix 2: Convert to array and get top 2 by absolute value
-    // Handle both formats: Record<string, number> and Record<string, {value: number}>
     return Object.entries(interventions)
       .map(([factorId, rawValue]) => {
-        // Extract numeric value - handle both number and {value: number} formats
         const value = typeof rawValue === 'number' ? rawValue :
                      (rawValue && typeof rawValue === 'object' && 'value' in rawValue) ?
-                     Number(rawValue.value) : 0
+                     Number((rawValue as { value: unknown }).value) : 0
 
         const factorNode = nodes.find(n => n.id === factorId)
-        const factorLabel = factorNode?.data?.label || factorId
-        const unit = factorNode?.data?.unit as string | undefined
-        return { factorLabel, value, unit }
+        const rawLabel = (factorNode?.data?.label as string | undefined) ?? factorId
+        const stripped = cleanFactorLabel(rawLabel)
+        // Sentence case: first letter upper, rest lower (preserves words ≤3 chars as-is to protect acronyms)
+        // Sentence case: uppercase first char, lowercase subsequent words
+        // unless they look like acronyms (all-caps, ≥2 chars — e.g. ICP, ROI)
+        const cleanedLabel = stripped.length > 0
+          ? stripped.charAt(0).toUpperCase() +
+            stripped.slice(1).replace(/\b([A-Za-z]+)\b/g, (word) =>
+              /^[A-Z]{2,}$/.test(word) ? word : word.toLowerCase()
+            )
+          : stripped
+        const unit = (factorNode?.data?.unit as string | undefined) ??
+                     ((factorNode?.data?.observedState as { unit?: string } | undefined)?.unit)
+        return { label: cleanedLabel, value, unit }
       })
-      .filter(delta => delta.value !== 0) // Fix 2: Filter out zero interventions
       .sort((a, b) => Math.abs(b.value) - Math.abs(a.value))
-      .slice(0, 2)
+      .slice(0, 3)
   }, [ceeAnalysisReady, props.id, nodes])
 
-  // Decision Graph Display v2 Task 11: Intervention highlighting on hover
-  // Fix: Check ceeAnalysisReady for interventions, not props.data
   const hasInterventions = useMemo(() => {
     const ceeOption = ceeAnalysisReady?.options?.find(opt => opt.id === props.id)
-    return ceeOption?.interventions && Object.keys(ceeOption.interventions).length > 0
+    return !!(ceeOption?.interventions && Object.keys(ceeOption.interventions).length > 0)
   }, [ceeAnalysisReady, props.id])
 
   const handleMouseEnter = useMemo(() => () => {
-    if (hasInterventions) {
-      setHoveredOption(props.id)
-    }
+    if (hasInterventions) setHoveredOption(props.id)
   }, [props.id, hasInterventions, setHoveredOption])
 
   const handleMouseLeave = useMemo(() => () => {
@@ -63,56 +78,61 @@ export const OptionNode = memo((props: NodeProps) => {
   }, [setHoveredOption])
 
   return (
-    <div onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave} style={{ height: '100%', width: '100%' }}>
-      <BaseNode {...props} nodeType="option" icon={metadata.icon}>
-      {/* Decision Graph Display v2 Task 7 (partial): Win rate */}
-      {displayMetadata.winRate !== null && (
-        <div className={`${typography.nodeTitle} mb-1 text-info-600`}>
-          Wins {Math.round(displayMetadata.winRate * 100)}% of scenarios
-        </div>
-      )}
+    <div
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+      style={{ height: '100%', width: '100%', minWidth: '238px' }}
+    >
+      <BaseNode {...props} nodeType="option" icon={metadata.icon} maxWidth={238}>
+        {/* T7b: Win probability — only in results mode */}
+        {displayMetadata.isResultsMode && displayMetadata.winRate !== null && (
+          <div className="mt-2 mb-2">
+            <div className="flex items-baseline gap-1.5 mb-1 flex-wrap">
+              <span className={`${typography.nodeTitle} font-semibold text-option`}>
+                {Math.round(displayMetadata.winRate * 100)}%
+              </span>
+              <span className={`${typography.nodeLabel} text-text-light`}>win probability</span>
+              {isRecommended && (
+                <span className={`${typography.nodeLabel} bg-success-light text-success rounded-full px-1.5 py-0.5 ml-auto`}>
+                  Recommended
+                </span>
+              )}
+            </div>
+            <div className="h-1.5 bg-panel-border rounded-full overflow-hidden">
+              <div
+                className="h-full bg-option rounded-full transition-all duration-300"
+                style={{ width: `${Math.round(displayMetadata.winRate * 100)}%` }}
+              />
+            </div>
+          </div>
+        )}
 
-      {/* Decision Graph Display v2 Task 7 + Task E + Task 4: Intervention deltas with formatted values */}
-      {interventionDeltas.length > 0 && (
-        <div className={`${typography.nodeLabel} text-slate-500 mt-1`}>
-          {interventionDeltas.map((delta, idx) => {
-            // Task 4: Better value formatting with sign prefix
-            const sign = delta.value > 0 ? '+' : ''
-            let formattedValue: string
-            if (delta.unit === 'fraction') {
-              // Fraction → percentage
-              formattedValue = `${sign}${Math.round(delta.value * 100)}%`
-            } else if (delta.unit) {
-              // Other unit → formatted value with space and unit
-              formattedValue = `${sign}${formatDisplayValue(delta.value, delta.unit)} ${delta.unit}`
-            } else {
-              // No unit → just formatted value with sign
-              formattedValue = `${sign}${formatDisplayValue(delta.value)}`
-            }
-
-            // Task E: Truncate label if > 20 chars, add title for full label on hover
-            const truncatedLabel = delta.factorLabel.length > 20
-              ? delta.factorLabel.substring(0, 20) + '...'
-              : delta.factorLabel
-
-            return (
-              <div key={idx} className="mb-0.5">
-                <span className="font-medium" title={delta.factorLabel}>{truncatedLabel}:</span>{' '}
-                <span className="text-success-600">
-                  {formattedValue}
+        {/* T8: Readable intervention chips */}
+        {interventionChips.length > 0 && (
+          <div className={`${typography.nodeLabel} mt-1 flex flex-col gap-0.5`}>
+            {interventionChips.map((chip, idx) => (
+              <div
+                key={idx}
+                className="bg-factor-light text-text-body inline-flex items-baseline gap-1"
+                style={{ padding: '2px 8px', borderRadius: '4px' }}
+              >
+                <span className="text-text-light truncate" style={{ maxWidth: '150px' }} title={chip.label}>
+                  {chip.label}:
+                </span>
+                <span className="font-medium shrink-0">
+                  {formatInterventionValue(chip.value, chip.unit)}
                 </span>
               </div>
-            )
-          })}
-        </div>
-      )}
+            ))}
+          </div>
+        )}
 
-      {props.data?.description && (
-        <div className={`${typography.nodeLabel} opacity-70`}>
-          {props.data.description}
-        </div>
-      )}
-    </BaseNode>
+        {props.data?.description && (
+          <div className={`${typography.nodeLabel} opacity-70 mt-1`}>
+            {props.data.description}
+          </div>
+        )}
+      </BaseNode>
     </div>
   )
 })

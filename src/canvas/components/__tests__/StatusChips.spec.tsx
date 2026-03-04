@@ -183,7 +183,7 @@ describe('StatusChips', () => {
 
       const errorButton = screen.getByText('Limits Unavailable')
       expect(errorButton).toBeInTheDocument()
-      expect(errorButton.closest('button')).toHaveClass('text-danger-700')
+      expect(errorButton.closest('button')).toHaveClass('text-danger')
     })
 
     it('shows error message in tooltip', () => {
@@ -314,9 +314,9 @@ describe('StatusChips', () => {
       const button = container.querySelector('button')
       expect(button).not.toBeNull()
       const className = button!.className
-      expect(className).toContain('text-success-700')
-      expect(className).not.toContain('text-warning-700')
-      expect(className).not.toContain('text-danger-700')
+      expect(className).toContain('text-success')
+      expect(className).not.toContain('text-warning')
+      expect(className).not.toContain('text-danger')
     })
 
     it('uses warning styles when usage is between 70% and 89%', () => {
@@ -327,7 +327,7 @@ describe('StatusChips', () => {
       const button = container.querySelector('button')
       expect(button).not.toBeNull()
       const className = button!.className
-      expect(className).toContain('text-warning-700')
+      expect(className).toContain('text-warning')
     })
 
     it('uses danger styles when usage is >= 90%', () => {
@@ -338,7 +338,7 @@ describe('StatusChips', () => {
       const button = container.querySelector('button')
       expect(button).not.toBeNull()
       const className = button!.className
-      expect(className).toContain('text-danger-700')
+      expect(className).toContain('text-danger')
     })
   })
 

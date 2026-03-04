@@ -23,7 +23,7 @@ export function PropertiesPanel() {
   })
 
   const wrapper = (children: React.ReactNode) => (
-    <div className="fixed right-6 top-24 w-80 rounded-2xl shadow bg-white border border-gray-200/50 max-h-[calc(100vh-7rem)] overflow-y-auto">
+    <div className="fixed right-6 top-24 w-80 rounded-lg shadow-2 bg-white border border-panel-border/50 max-h-[calc(100vh-7rem)] overflow-y-auto">
       <div className="p-6">{children}</div>
     </div>
   )

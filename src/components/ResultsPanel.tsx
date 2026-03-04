@@ -15,7 +15,7 @@ function ScenarioChart({ results }: { results: any }) {
   const scenarios = [
     { key: 'conservative', label: RANGE_TERMINOLOGY.conservative.userLabel, color: 'bg-amber-400', textColor: 'text-amber-900' },
     { key: 'most_likely', label: RANGE_TERMINOLOGY.likely.userLabel, color: 'bg-indigo-400', textColor: 'text-indigo-900' },
-    { key: 'optimistic', label: RANGE_TERMINOLOGY.optimistic.userLabel, color: 'bg-teal-400', textColor: 'text-teal-900' }
+    { key: 'optimistic', label: RANGE_TERMINOLOGY.optimistic.userLabel, color: 'bg-success', textColor: 'text-success' }
   ]
 
   // Extract numeric values
@@ -133,13 +133,13 @@ export default function ResultsPanel({ flowResult, isLiveData, biases, biasesSou
               )}
 
               {flowResult.results.optimistic && (
-                <div className="bg-teal-50 border border-teal-200 rounded-lg p-2">
-                  <div className="text-[10px] font-semibold text-teal-900 mb-0.5">{RANGE_TERMINOLOGY.optimistic.userLabel}</div>
-                  <div className="text-sm font-bold text-teal-900">
+                <div className="bg-success-light border border-success/30 rounded-lg p-2">
+                  <div className="text-[10px] font-semibold text-success mb-0.5">{RANGE_TERMINOLOGY.optimistic.userLabel}</div>
+                  <div className="text-sm font-bold text-success">
                     {flowResult.results.optimistic.cost_delta || flowResult.results.optimistic.value}
                   </div>
                   {(flowResult.results.optimistic.risk || flowResult.results.optimistic.confidence) && (
-                    <div className="text-[10px] text-teal-700 mt-0.5">
+                    <div className="text-[10px] text-success mt-0.5">
                       {flowResult.results.optimistic.confidence 
                         ? `Confidence: ${flowResult.results.optimistic.confidence}` 
                         : `Risk: ${flowResult.results.optimistic.risk}`}

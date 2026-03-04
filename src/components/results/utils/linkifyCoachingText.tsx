@@ -19,6 +19,8 @@ export interface LinkEntity {
   label: string
   nodeId?: string
   edgeId?: string
+  /** Optional CSS class override for the rendered GraphLink (e.g. 'text-success' for winner) */
+  className?: string
 }
 
 const MAX_LINKS = 4
@@ -162,6 +164,7 @@ export function linkifyCoachingText(
         nodeId={match.entity.nodeId}
         edgeId={match.entity.edgeId}
         label={match.entity.label}
+        className={match.entity.className}
       >
         {match.entity.label}
       </GraphLink>

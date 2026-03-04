@@ -56,7 +56,7 @@ export function EmptyStateOverlay({ onDismiss }: EmptyStateOverlayProps) {
       aria-modal="true"
       aria-labelledby="welcome-title"
     >
-      <div className="bg-white rounded-xl shadow-2xl max-w-md w-full m-4 p-6 relative">
+      <div className="bg-white rounded-lg shadow-3 max-w-md w-full m-4 p-6 relative">
         <button
           type="button"
           onClick={handleCloseClick}

@@ -135,12 +135,12 @@ export function RecommendationSection({
   // Error state
   if (analysisStatus === 'failed' || analysisStatus === 'blocked') {
     return (
-      <div className="p-4 bg-danger-50 border border-danger-200 rounded-lg">
-        <div className={`flex items-center gap-2 ${typography.panelBody} text-danger-800 mb-2`}>
+      <div className="p-4 bg-danger-light border border-danger/30 rounded-lg">
+        <div className={`flex items-center gap-2 ${typography.panelBody} text-danger mb-2`}>
           <span>Analysis could not complete</span>
         </div>
         {statusReason && (
-          <p className={`${typography.panelBody} text-danger-700`}>{statusReason}</p>
+          <p className={`${typography.panelBody} text-danger`}>{statusReason}</p>
         )}
       </div>
     )
@@ -149,7 +149,7 @@ export function RecommendationSection({
   // No recommendation available
   if (!recommendedOption) {
     return (
-      <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg">
+      <div className="p-4 bg-panel border border-panel-border rounded-lg">
         <p className={`${typography.panelBody} text-text-body`}>
           {EMPTY_STATES.recommendation}
         </p>
@@ -257,7 +257,7 @@ export function RecommendationSection({
 
       {/* Single option CTA */}
       {isSingleOption && (
-        <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg">
+        <div className="p-3 bg-panel border border-panel-border rounded-lg">
           <p className={`${typography.panelBody} text-text-body`}>
             Add another option to compare alternatives.
           </p>

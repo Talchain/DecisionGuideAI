@@ -14,7 +14,7 @@ function makeOption(overrides: Partial<OptionPreviewData> & { interventions: Opt
 }
 
 describe('OptionPreview — intervention display', () => {
-  it('shows qualitative level for cap=1, unit="" intervention (0.8 → "to high")', () => {
+  it('shows qualitative level for cap=1, unit="" intervention (0.8 → "to very high")', () => {
     render(
       <OptionPreview
         options={[makeOption({
@@ -32,7 +32,7 @@ describe('OptionPreview — intervention display', () => {
       />,
     )
 
-    expect(screen.getByText('to high')).toBeInTheDocument()
+    expect(screen.getByText('to very high')).toBeInTheDocument()
   })
 
   it('shows qualitative level for cap=1, unit="" intervention (0.5 → "to moderate")', () => {
@@ -96,6 +96,38 @@ describe('OptionPreview — intervention display', () => {
     )
 
     expect(screen.getByText('to low')).toBeInTheDocument()
+  })
+
+  // Task 1: boundary value tests for the 5-level qualitative scale
+  it.each([
+    [0, 'to very low'],
+    [0.19, 'to very low'],
+    [0.2, 'to low'],
+    [0.39, 'to low'],
+    [0.4, 'to moderate'],
+    [0.59, 'to moderate'],
+    [0.6, 'to high'],
+    [0.79, 'to high'],
+    [0.8, 'to very high'],
+    [1, 'to very high'],
+  ])('qualitative boundary: %f → "%s"', (interventionValue, expectedLabel) => {
+    render(
+      <OptionPreview
+        options={[makeOption({
+          interventions: [{
+            factorId: 'fac1',
+            factorLabel: 'Factor',
+            interventionValue,
+            currentValue: null,
+            direction: 'up',
+            cap: null,
+            unit: null,
+            currentRawValue: null,
+          }],
+        })]}
+      />,
+    )
+    expect(screen.getByText(expectedLabel)).toBeInTheDocument()
   })
 
   it('shows raw + unit when cap and unit are meaningful', () => {

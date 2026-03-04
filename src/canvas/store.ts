@@ -112,6 +112,11 @@ export interface ResultsState {
   // Phase 1B: PLoT enrichment data (ISL results bundled with PLoT response)
   // When VITE_USE_PLOT_ENRICHMENT is enabled, robustness/validation data comes from here
   enrichment?: PLoTEnrichment | null
+  /**
+   * A.9: Provenance of the current results — 'direct' (Play button) or 'conversation'
+   * (arrived via orchestrator envelope). Used by the conversation indicator badge.
+   */
+  resultsSource?: 'direct' | 'conversation'
 }
 
 export type SseDiagnostics = {
@@ -380,6 +385,8 @@ interface CanvasState {
     ceeTraceV1?: CeeTrace | null
     ceeErrorV1?: CeeError | null
     enrichment?: PLoTEnrichment | null // Phase 1B: ISL data bundled from PLoT
+    /** A.9: Provenance — 'direct' (Play button) or 'conversation' (envelope path). Defaults to 'direct'. */
+    resultsSource?: 'direct' | 'conversation'
   }) => void
   resultsError: (params: { code: string; message: string; retryAfter?: number; request_id?: string; canRetry?: boolean }) => void
   /** Capture detailed error information for Debug Panel */
@@ -474,6 +481,12 @@ interface CanvasState {
   exitComparisonMode: () => void
   // P2: Hydration hygiene
   hydrateGraphSlice: (loaded: { nodes?: Node[]; edges?: Edge<EdgeData>[]; currentScenarioId?: string | null }) => void
+  // A.7: External mutation suppression — prevents direct_graph_edit events firing
+  // during patch-apply, envelope-applied changes, scenario hydration, etc.
+  /** Reference count: >0 while a non-user graph mutation is in progress */
+  _externalMutationActive: number
+  beginExternalGraphMutation: (source: 'envelope_apply' | 'patch_apply' | 'hydrate') => void
+  endExternalGraphMutation: () => void
   // Week 3: AI Clarifier actions
   setShowAIClarifier: (show: boolean) => void
   startClarifierSession: (prompt: string, context: string) => void
@@ -880,6 +893,8 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   // M6: Compare & Decision Rationale
   selectedSnapshotsForComparison: [],
   currentDecisionRationale: null,
+  // A.7: External mutation suppression reference count (0 = inactive)
+  _externalMutationActive: 0,
   // Week 3: AI Clarifier initial state
   showAIClarifier: false,
   clarifierSession: null,
@@ -1824,7 +1839,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     }))
   },
 
-  resultsComplete: ({ report, hash, drivers, ceeReview, ceeTrace, ceeError, ceeReviewV1, ceeTraceV1, ceeErrorV1, enrichment }) => {
+  resultsComplete: ({ report, hash, drivers, ceeReview, ceeTrace, ceeError, ceeReviewV1, ceeTraceV1, ceeErrorV1, enrichment, resultsSource }) => {
     const { nodes, edges, results, currentScenarioId, graphHealth: existingHealth } = get()
 
     const finishedAt = Date.now()
@@ -1845,6 +1860,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
         finishedAt,
         error: undefined,
         enrichment: enrichment ?? null, // Phase 1B: Persist enrichment from PLoT
+        resultsSource: resultsSource ?? 'direct', // A.9: provenance
       },
       graphHealth: (() => {
         if (!healthFromQuality) return s.graphHealth ?? null
@@ -2114,6 +2130,9 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     // Reseed IDs to avoid conflicts
     get().reseedIds(nodes, edges)
 
+    // A.7: Suppress direct_graph_edit events during scenario hydration
+    set((s) => ({ _externalMutationActive: s._externalMutationActive + 1 }))
+    try {
     set({
       nodes,
       edges,
@@ -2170,6 +2189,12 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     tryRestoreResultsFromHistory(scenario.last_result_hash, get().resultsLoadHistorical)
 
     return true
+    } catch (e) {
+      throw e
+    } finally {
+      // A.7: End suppression after hydration is complete (always, even on throw)
+      set((s) => ({ _externalMutationActive: Math.max(0, s._externalMutationActive - 1) }))
+    }
   },
 
   saveCurrentScenario: (name?: string) => {
@@ -3194,15 +3219,33 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     }
 
     // Apply updates without clobbering panels/results/other slices
-    set(updates)
-
-    // Reseed IDs to prevent collisions
-    if (loaded.nodes && loaded.edges) {
-      get().reseedIds(loaded.nodes, loaded.edges)
+    // A.7: Increment suppression counter before mutating
+    set((s) => ({ ...updates, _externalMutationActive: s._externalMutationActive + 1 }))
+    try {
+      // Reseed IDs to prevent collisions
+      if (loaded.nodes && loaded.edges) {
+        get().reseedIds(loaded.nodes, loaded.edges)
+      }
+    } finally {
+      // A.7: End suppression after hydration (always, even on throw)
+      set((s) => ({ _externalMutationActive: Math.max(0, s._externalMutationActive - 1) }))
     }
   },
 
   cleanup: clearTimers,
+
+  // A.7: External mutation suppression — reference-counted so nested calls
+  // don't prematurely clear suppression when two callers overlap.
+  beginExternalGraphMutation: (source) => {
+    if (import.meta.env.DEV) {
+      console.debug(`[canvas] beginExternalGraphMutation(${source})`)
+    }
+    set((s) => ({ _externalMutationActive: s._externalMutationActive + 1 }))
+  },
+
+  endExternalGraphMutation: () => {
+    set((s) => ({ _externalMutationActive: Math.max(0, s._externalMutationActive - 1) }))
+  },
 
   updateScenarioFraming: (partial) => {
     set(s => ({
@@ -3271,3 +3314,5 @@ export const selectError = (state: CanvasState): { code: string; message: string
 export const selectRunId = (state: CanvasState): string | undefined => state.results.runId
 export const selectSeed = (state: CanvasState): number | undefined => state.results.seed
 export const selectHash = (state: CanvasState): string | undefined => state.results.hash
+/** A.9: Provenance of the current results — 'direct' | 'conversation' | undefined */
+export const selectResultsSource = (state: CanvasState): 'direct' | 'conversation' | undefined => state.results.resultsSource

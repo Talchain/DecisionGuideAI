@@ -99,7 +99,7 @@ const SensitivityResultItem = memo(function SensitivityResultItem({
         <button
           type="button"
           onClick={() => onApplyAlternative(result.edge_id, result.alternative_form)}
-          className="mt-2 text-xs text-teal-700 hover:text-teal-800 font-medium hover:underline"
+          className="mt-2 text-xs text-info hover:text-info font-medium hover:underline"
         >
           Apply {alternativeInfo?.name || result.alternative_form} to this edge
         </button>

@@ -117,7 +117,7 @@ export function RecommendedNextSteps({
 
   if (!hasContent) {
     return (
-      <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg" data-testid="next-steps-empty">
+      <div className="p-4 bg-panel border border-panel-border rounded-lg" data-testid="next-steps-empty">
         <p className={`${typography.body} text-ink-600 flex items-start gap-2`}>
           <span aria-hidden="true">ℹ️</span>
           {EMPTY_STATES.nextSteps}

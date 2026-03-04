@@ -229,7 +229,7 @@ export class CanvasErrorBoundary extends Component<Props, State> {
     if (this.state.hasError) {
       return (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-gray-900/95 backdrop-blur-sm">
-          <div className="bg-panel rounded-2xl shadow-panel p-8 max-w-lg mx-4 max-h-[90vh] overflow-y-auto">
+          <div className="bg-panel rounded-lg shadow-panel p-8 max-w-lg mx-4 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center gap-3 mb-4">
               <div className="w-12 h-12 bg-danger-light rounded-full flex items-center justify-center flex-shrink-0">
                 <XCircle className="w-6 h-6 text-danger" aria-hidden="true" />

@@ -86,7 +86,7 @@ export function SignedStrengthSlider({
         <div className="absolute left-1/2 -translate-x-px w-0.5 h-3 bg-text-light rounded-full" />
         {/* Fill from centre */}
         <div
-          className="absolute h-1.5 rounded-full transition-all duration-75"
+          className="absolute h-1.5 rounded-full transition-all duration-100"
           style={{
             left: fillLeft,
             width: fillWidth,
@@ -119,10 +119,10 @@ export function SignedStrengthSlider({
 
       {/* Value display */}
       <div className="flex items-center justify-between mt-1">
-        <span className={`${typography.panelMeta} ${displayColor} font-medium`}>
+        <span className={`${typography.panelMeta} ${displayColor}`}>
           {directionLabel}
         </span>
-        <span className={`${typography.panelBody} ${displayColor} font-medium tabular-nums`}>
+        <span className={`${typography.panelBody} ${displayColor} tabular-nums`}>
           {localValue >= 0 ? '+' : ''}{localValue.toFixed(2)}
         </span>
       </div>

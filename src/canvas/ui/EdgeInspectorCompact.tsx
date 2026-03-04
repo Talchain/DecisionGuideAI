@@ -100,7 +100,7 @@ export const EdgeInspectorCompact = memo(({ edgeId, onClose, onExpandToFull }: E
 
   return (
     <div
-      className="p-3 bg-panel rounded-lg shadow-lg border border-panel-border w-64"
+      className="p-3 bg-panel rounded-lg shadow-3 border border-panel-border w-64"
       onKeyDown={handleKeyDown}
       role="dialog"
       aria-label="Edge properties"
@@ -138,7 +138,7 @@ export const EdgeInspectorCompact = memo(({ edgeId, onClose, onExpandToFull }: E
       {/* Effect on target */}
       <div className="mb-3">
         <div className="flex items-center justify-between mb-1">
-          <label htmlFor="compact-edge-weight" className={`${typography.panelMeta} font-medium text-text-body`}>
+          <label htmlFor="compact-edge-weight" className={`${typography.panelMeta} text-text-body`}>
             Effect on target
           </label>
           <span className={`${typography.panelMeta} text-text-light tabular-nums`}>{weight.toFixed(2)}</span>
@@ -158,7 +158,7 @@ export const EdgeInspectorCompact = memo(({ edgeId, onClose, onExpandToFull }: E
       {/* Confidence */}
       <div className="mb-3">
         <div className="flex items-center justify-between mb-1">
-          <label htmlFor="compact-edge-belief" className={`${typography.panelMeta} font-medium text-text-body`}>
+          <label htmlFor="compact-edge-belief" className={`${typography.panelMeta} text-text-body`}>
             Confidence
           </label>
           <span className={`${typography.panelMeta} text-text-light tabular-nums`}>{Math.round(belief * 100)}%</span>
@@ -177,7 +177,7 @@ export const EdgeInspectorCompact = memo(({ edgeId, onClose, onExpandToFull }: E
 
       {/* Label */}
       <div className="mb-3">
-        <label htmlFor="compact-edge-label" className={`block ${typography.panelMeta} font-medium text-text-body mb-1`}>
+        <label htmlFor="compact-edge-label" className={`block ${typography.panelMeta} text-text-body mb-1`}>
           Label
         </label>
         <input
@@ -194,7 +194,7 @@ export const EdgeInspectorCompact = memo(({ edgeId, onClose, onExpandToFull }: E
 
       {/* Style */}
       <div>
-        <label className={`block ${typography.panelMeta} font-medium text-text-body mb-1`}>Style</label>
+        <label className={`block ${typography.panelMeta} text-text-body mb-1`}>Style</label>
         <div className="flex gap-1" role="radiogroup" aria-label="Edge style">
           {(['solid', 'dashed', 'dotted'] as const).map((s) => (
             <button

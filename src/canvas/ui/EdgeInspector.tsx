@@ -360,7 +360,7 @@ export const EdgeInspector = memo(({ edgeId, onClose }: EdgeInspectorProps) => {
       {/* B.I.6: Signed strength slider — writes weight + direction */}
       <div>
         <Tooltip content="How strongly this connection affects the target (-1 = strong negative, +1 = strong positive)" position="right">
-          <label className={`block ${typography.panelMeta} font-medium text-text-body mb-1`}>
+          <label className={`block ${typography.panelMeta} text-text-body mb-1`}>
             Effect on target
           </label>
         </Tooltip>
@@ -373,7 +373,7 @@ export const EdgeInspector = memo(({ edgeId, onClose }: EdgeInspectorProps) => {
       {/* B.I.7: Confidence slider with coloured bar */}
       <div>
         <Tooltip content="Your certainty about this connection (0% = uncertain, 100% = certain)" position="right">
-          <label htmlFor="edge-belief" className={`block ${typography.panelMeta} font-medium text-text-body mb-1`}>
+          <label htmlFor="edge-belief" className={`block ${typography.panelMeta} text-text-body mb-1`}>
             Confidence
           </label>
         </Tooltip>
@@ -419,7 +419,7 @@ export const EdgeInspector = memo(({ edgeId, onClose }: EdgeInspectorProps) => {
     <div className="space-y-4">
       {/* E.3: Label — moved from Assumptions */}
       <div>
-        <label htmlFor="edge-label" className={`block ${typography.panelMeta} font-medium text-text-body mb-1`}>
+        <label htmlFor="edge-label" className={`block ${typography.panelMeta} text-text-body mb-1`}>
           Label <span className="text-text-light">(optional)</span>
         </label>
         <textarea
@@ -445,7 +445,7 @@ export const EdgeInspector = memo(({ edgeId, onClose }: EdgeInspectorProps) => {
       {/* Provenance */}
       {provenance && (
         <div>
-          <label className={`block ${typography.panelMeta} font-medium text-text-body mb-1.5`}>
+          <label className={`block ${typography.panelMeta} text-text-body mb-1.5`}>
             Provenance
           </label>
           <div className="flex items-center gap-2">
@@ -481,7 +481,7 @@ export const EdgeInspector = memo(({ edgeId, onClose }: EdgeInspectorProps) => {
 
       {/* Connection endpoints */}
       <div className="pt-2 border-t border-panel-border">
-        <label className={`block ${typography.panelMeta} font-medium text-text-body mb-2`}>
+        <label className={`block ${typography.panelMeta} text-text-body mb-2`}>
           Connection
         </label>
         <div className="space-y-2">

@@ -11,6 +11,7 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { HeroSection, type HeroSectionProps } from '../HeroSection'
+import * as focusHelpers from '../../../canvas/utils/focusHelpers'
 
 // Mock focusByTarget (used by GraphLink)
 vi.mock('../../../canvas/utils/focusHelpers', () => ({
@@ -76,7 +77,7 @@ describe('HeroSection', () => {
       expect(screen.getByText(/Option A is your only option/)).toBeInTheDocument()
     })
 
-    it('includes goal label in Objective line', () => {
+    it('includes goal label in Goal line', () => {
       render(
         <HeroSection
           {...baseProps}
@@ -85,9 +86,9 @@ describe('HeroSection', () => {
         />
       )
 
-      expect(screen.getByText(/Objective:/)).toBeInTheDocument()
+      expect(screen.getByText(/Goal/)).toBeInTheDocument()
       expect(screen.getByText(/increase revenue/)).toBeInTheDocument()
-      expect(screen.getByText(/Result:/)).toBeInTheDocument()
+      expect(screen.getByText(/Result/)).toBeInTheDocument()
     })
 
     it('falls back to "your goal" when no goal label', () => {
@@ -98,7 +99,7 @@ describe('HeroSection', () => {
         />
       )
 
-      expect(screen.getByText(/Objective:/)).toBeInTheDocument()
+      expect(screen.getByText(/Goal/)).toBeInTheDocument()
       expect(screen.getByText(/your goal/)).toBeInTheDocument()
     })
 
@@ -1203,7 +1204,7 @@ describe('HeroSection', () => {
         />
       )
 
-      expect(screen.getByText(/are too close to separate/)).toBeInTheDocument()
+      expect(screen.getByText(/are too close to call/)).toBeInTheDocument()
       // Both option names should be rendered as buttons (GraphLinks)
       const buttons = screen.getAllByRole('button')
       const optAButton = buttons.find(b => b.textContent === 'Option A')
@@ -1241,7 +1242,7 @@ describe('HeroSection', () => {
       )
 
       // Gap = 0.02 < 0.10 = GAP_THRESHOLD → treated as near-tie
-      expect(screen.getByText(/are too close to separate/)).toBeInTheDocument()
+      expect(screen.getByText(/are too close to call/)).toBeInTheDocument()
     })
   })
 
@@ -1614,6 +1615,244 @@ describe('HeroSection', () => {
       )
 
       expect(screen.queryByTestId('coaching-next-action')).toBeNull()
+    })
+  })
+
+  describe('V15 Task 1: Winner colour assignment', () => {
+    it('winner GraphLink is text-success for clear winner (robust)', () => {
+      const { container } = render(
+        <HeroSection
+          {...baseProps}
+          decisionState="robust"
+          recommendationStability={0.90}
+          winnerId="option-a"
+          winnerLabel="Option A"
+          optionWinShares={[
+            { id: 'option-a', label: 'Option A', winProbability: 0.65, isWinner: true },
+            { id: 'option-b', label: 'Option B', winProbability: 0.35, isWinner: false },
+          ]}
+        />
+      )
+
+      // Winner button should have text-success class
+      const buttons = container.querySelectorAll('button')
+      const winnerBtn = Array.from(buttons).find(b => b.textContent === 'Option A')
+      expect(winnerBtn).toBeTruthy()
+      expect(winnerBtn!.className).toContain('text-success')
+    })
+
+    it('both options are text-info in indeterminate (near-tie)', () => {
+      const { container } = render(
+        <HeroSection
+          {...baseProps}
+          decisionState="indeterminate"
+          recommendationStability={0.40}
+          winnerId="option-a"
+          winnerLabel="Option A"
+          nearTie={{ isTie: true, tiedOptionIds: ['option-a', 'option-b'], gap: 0.02, threshold: 0.10 }}
+          optionWinShares={[
+            { id: 'option-a', label: 'Option A', winProbability: 0.35, isWinner: true },
+            { id: 'option-b', label: 'Option B', winProbability: 0.33, isWinner: false },
+          ]}
+        />
+      )
+
+      // Both options in near-tie headline should be text-info, not text-success
+      const buttons = container.querySelectorAll('button')
+      const optABtn = Array.from(buttons).find(b => b.textContent === 'Option A')
+      const optBBtn = Array.from(buttons).find(b => b.textContent === 'Option B')
+      expect(optABtn).toBeTruthy()
+      expect(optBBtn).toBeTruthy()
+      expect(optABtn!.className).not.toContain('text-success')
+      expect(optABtn!.className).toContain('text-info')
+      expect(optBBtn!.className).not.toContain('text-success')
+      expect(optBBtn!.className).toContain('text-info')
+    })
+
+    it('condition card alt option is text-success for non-indeterminate', () => {
+      const { container } = render(
+        <HeroSection
+          {...baseProps}
+          decisionState="sensitive"
+          recommendationStability={0.60}
+          topFragileEdge={{
+            fromId: 'fac-eng',
+            fromLabel: 'Engineering Capacity',
+            toId: 'out-rev',
+            toLabel: 'Revenue',
+            alternativeWinnerLabel: 'Option B',
+            alternativeWinnerId: 'option-b',
+            switchProbability: 0.40,
+            labelsResolved: true,
+          }}
+        />
+      )
+
+      const card = screen.getByTestId('condition-card')
+      // The alt option button (Option B) should have text-success class
+      const altBtn = card.querySelector('button[title="Option B"]')
+      expect(altBtn).toBeTruthy()
+      expect(altBtn!.className).toContain('text-success')
+    })
+
+    it('condition card alt option is text-info for indeterminate', () => {
+      const { container } = render(
+        <HeroSection
+          {...baseProps}
+          decisionState="indeterminate"
+          recommendationStability={0.40}
+          topFragileEdge={{
+            fromId: 'fac-eng',
+            fromLabel: 'Engineering Capacity',
+            toId: 'out-rev',
+            toLabel: 'Revenue',
+            alternativeWinnerLabel: 'Option B',
+            alternativeWinnerId: 'option-b',
+            switchProbability: 0.40,
+            labelsResolved: true,
+          }}
+        />
+      )
+
+      const card = screen.getByTestId('condition-card')
+      const altBtn = card.querySelector('button[title="Option B"]')
+      expect(altBtn).toBeTruthy()
+      expect(altBtn!.className).not.toContain('text-success')
+      expect(altBtn!.className).toContain('text-info')
+    })
+  })
+
+  describe('V15 Task 2: Goal label + clickable goal node', () => {
+    it('renders "Goal" label (not "Objective")', () => {
+      render(
+        <HeroSection
+          {...baseProps}
+          decisionState="robust"
+          recommendationStability={0.90}
+          goalLabel="Increase MRR"
+        />
+      )
+
+      expect(screen.getByText('Goal')).toBeInTheDocument()
+      expect(screen.queryByText(/Objective/)).not.toBeInTheDocument()
+    })
+
+    it('goal content is clickable button when goalNodeId provided', () => {
+      const mockFocusNodeById = vi.mocked(focusHelpers.focusNodeById)
+      mockFocusNodeById.mockClear()
+      render(
+        <HeroSection
+          {...baseProps}
+          decisionState="robust"
+          recommendationStability={0.90}
+          goalLabel="Increase MRR"
+          goalNodeId="goal-node-1"
+        />
+      )
+
+      const goalBtn = screen.getByRole('button', { name: /Increase MRR/ })
+      expect(goalBtn).toBeTruthy()
+      expect(goalBtn.className).toContain('text-info')
+      fireEvent.click(goalBtn)
+      expect(mockFocusNodeById).toHaveBeenCalledWith('goal-node-1')
+    })
+
+    it('goal content is plain text when goalNodeId not provided', () => {
+      render(
+        <HeroSection
+          {...baseProps}
+          decisionState="robust"
+          recommendationStability={0.90}
+          goalLabel="Increase MRR"
+        />
+      )
+
+      // Should not be a button
+      expect(screen.queryByRole('button', { name: /Increase MRR/ })).toBeNull()
+      expect(screen.getByText('Increase MRR')).toBeInTheDocument()
+    })
+  })
+
+  describe('V15 Task 3: Too close to call phrase', () => {
+    it('uses "too close to call" not "too close to separate" in near-tie headline', () => {
+      render(
+        <HeroSection
+          {...baseProps}
+          decisionState="indeterminate"
+          nearTie={{ isTie: true, tiedOptionIds: ['option-a', 'option-b'], gap: 0.02, threshold: 0.10 }}
+          optionWinShares={[
+            { id: 'option-a', label: 'Option A', winProbability: 0.35, isWinner: true },
+            { id: 'option-b', label: 'Option B', winProbability: 0.33, isWinner: false },
+          ]}
+        />
+      )
+
+      expect(screen.getByText(/are too close to call/)).toBeInTheDocument()
+      expect(screen.queryByText(/are too close to separate/)).not.toBeInTheDocument()
+    })
+  })
+
+  describe('V15 Task 4: Deduplicate action implication vs coaching CTA', () => {
+    it('suppresses action implication when CTA target matches', () => {
+      render(
+        <HeroSection
+          {...baseProps}
+          decisionState="robust"
+          recommendationStability={0.90}
+          coachingDecisionStatement="Option A is the clear winner."
+          coachingActionImplication="Gather evidence on Conversion Rate before deciding."
+          topNextAction={{
+            action: 'Gather evidence on Conversion Rate.',
+            rationale: 'Low confidence',
+            priority: 1,
+            targetId: 'fac-conv',
+            targetLabel: 'Conversion Rate',
+          }}
+        />
+      )
+
+      const exec = screen.getByTestId('structured-executive')
+      // Decision statement renders
+      expect(exec.textContent).toContain('Option A is the clear winner')
+      // Action implication suppressed — same entity as CTA
+      expect(exec.textContent).not.toContain('Gather evidence on Conversion Rate before deciding')
+      // CTA still shows
+      expect(screen.getByTestId('coaching-next-action')).toBeInTheDocument()
+    })
+
+    it('shows action implication when CTA target is different entity', () => {
+      render(
+        <HeroSection
+          {...baseProps}
+          decisionState="robust"
+          recommendationStability={0.90}
+          coachingActionImplication="Gather evidence on Market Size before deciding."
+          topNextAction={{
+            action: 'Review Conversion Rate data.',
+            rationale: 'Different factor',
+            priority: 1,
+            targetId: 'fac-conv',
+            targetLabel: 'Conversion Rate',
+          }}
+        />
+      )
+
+      const exec = screen.getByTestId('structured-executive')
+      expect(exec.textContent).toContain('Market Size before deciding')
+    })
+
+    it('shows action implication when no coaching CTA exists', () => {
+      render(
+        <HeroSection
+          {...baseProps}
+          decisionState="robust"
+          recommendationStability={0.90}
+          coachingActionImplication="Gather evidence on Market Size before deciding."
+        />
+      )
+
+      const exec = screen.getByTestId('structured-executive')
+      expect(exec.textContent).toContain('Market Size before deciding')
     })
   })
 })

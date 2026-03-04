@@ -104,8 +104,8 @@ export function FactorInsights({ enrichment }: FactorInsightsProps) {
 
           {/* Confidence question callout */}
           {hasConfidenceQuestion && (
-            <div className="bg-info-50 border border-info-200 rounded-md p-2 flex items-start gap-2">
-              <Lightbulb size={14} className="text-info-500 shrink-0 mt-0.5" />
+            <div className="bg-info-light border border-info/30 rounded-md p-2 flex items-start gap-2">
+              <Lightbulb size={14} className="text-info shrink-0 mt-0.5" />
               <span className="leading-relaxed">{stripEncodingNotation(enrichment.confidence_question!)}</span>
             </div>
           )}

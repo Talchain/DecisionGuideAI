@@ -228,7 +228,7 @@ export const MultiGoalParetoPanel = memo(function MultiGoalParetoPanel({
               Goals aligned
             </span>
           )}
-          <span className={`${typography.caption} px-2 py-0.5 rounded-full bg-teal-100 text-teal-700`}>
+          <span className={`${typography.caption} px-2 py-0.5 rounded-full bg-success-light text-success`}>
             {frontier.length} optimal
           </span>
         </div>
@@ -333,7 +333,7 @@ export const MultiGoalParetoPanel = memo(function MultiGoalParetoPanel({
                     onClick={() => handleOptionClick(opt.optionId)}
                     className={`w-full text-left p-2 rounded-lg border transition-colors ${
                       isFrontier
-                        ? 'bg-teal-50 border-teal-200 hover:bg-teal-100'
+                        ? 'bg-success-light border-success/30 hover:opacity-90'
                         : 'bg-sand-50 border-sand-200 hover:bg-sand-100'
                     }`}
                     data-testid={`weighted-option-${opt.optionId}`}
@@ -350,13 +350,13 @@ export const MultiGoalParetoPanel = memo(function MultiGoalParetoPanel({
                       </span>
                       <span
                         className={`${typography.bodySmall} font-medium ${
-                          isFrontier ? 'text-teal-800' : 'text-ink-700'
+                          isFrontier ? 'text-success' : 'text-ink-700'
                         }`}
                       >
                         {opt.label}
                       </span>
                       {isFrontier && (
-                        <Award className="h-3.5 w-3.5 text-teal-600 ml-auto" />
+                        <Award className="h-3.5 w-3.5 text-success ml-auto" />
                       )}
                     </div>
                     <div className={`${typography.caption} text-ink-500 ml-7 mt-1`}>

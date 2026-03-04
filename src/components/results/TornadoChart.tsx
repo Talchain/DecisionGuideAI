@@ -287,7 +287,7 @@ export function TornadoChart({
 
   return (
     <div
-      className="p-3.5 bg-panel border border-panel-border rounded-xl shadow-sm"
+      className="p-3.5 bg-panel border border-panel-border rounded-xl shadow-1"
       data-testid="tornado-chart"
     >
       {/* Tornado rows */}

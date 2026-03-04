@@ -30,8 +30,8 @@ function getProvenanceStyle(provenance?: FormProvenance, isDark = false): string
   switch (provenance) {
     case 'cee_recommended':
       return isDark
-        ? 'bg-teal-800 border-teal-600 text-teal-200'
-        : 'bg-teal-100 border-teal-300 text-teal-700'
+        ? 'bg-info border-info text-white'
+        : 'bg-info-light border-info/30 text-info'
     case 'user_selected':
       return isDark
         ? 'bg-amber-800 border-amber-600 text-amber-200'

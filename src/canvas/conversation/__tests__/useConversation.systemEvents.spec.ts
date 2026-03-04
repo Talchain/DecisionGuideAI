@@ -34,8 +34,10 @@ vi.mock('../turnService', () => ({
 }))
 
 let flagValue = true
+let v3FlagValue = false
 vi.mock('../../../flags', () => ({
   isOrchestratorV2Enabled: () => flagValue,
+  isV3SystemEventsEnabled: () => v3FlagValue,
 }))
 
 // ---------------------------------------------------------------------------
@@ -46,6 +48,7 @@ beforeEach(() => {
   vi.useFakeTimers()
   mockCallTurn.mockReset()
   flagValue = true
+  v3FlagValue = false
 
   useCanvasStore.setState({
     currentScenarioId: 'test-scenario',
@@ -208,7 +211,7 @@ describe('sendSystemEvent', () => {
     expect(setCurrentStage).toHaveBeenCalledWith('evaluate')
   })
 
-  it('includes client_turn_id in system_event.payload for correlation', async () => {
+  it('request includes client_turn_id at root level', async () => {
     mockCallTurn.mockResolvedValue({
       assistant_text: 'Acknowledged.',
       client_turn_id: 'resp-corr',
@@ -225,9 +228,67 @@ describe('sendSystemEvent', () => {
 
     expect(mockCallTurn).toHaveBeenCalledTimes(1)
     const request = mockCallTurn.mock.calls[0][0]
-
-    // client_turn_id in request root should match the one embedded in system_event.payload
     expect(request.client_turn_id).toBeTruthy()
-    expect(request.system_event.payload.client_turn_id).toBe(request.client_turn_id)
+  })
+
+  it('sends v3 wire format when ENABLE_V3_SYSTEM_EVENTS is ON', async () => {
+    v3FlagValue = true
+    mockCallTurn.mockResolvedValue({
+      assistant_text: 'Acknowledged.',
+      client_turn_id: 'resp-v3',
+    })
+
+    const { result } = renderHook(() => useConversation())
+
+    await act(async () => {
+      await result.current.sendSystemEvent({
+        type: 'direct_graph_edit',
+        payload: { changed_node_ids: ['n1'] },
+      })
+    })
+
+    expect(mockCallTurn).toHaveBeenCalledTimes(1)
+    const request = mockCallTurn.mock.calls[0][0]
+    // Wire format fields
+    expect(request.system_event.event_type).toBe('direct_graph_edit')
+    expect(request.system_event.details).toEqual({ changed_node_ids: ['n1'] })
+    expect(typeof request.system_event.timestamp).toBe('string')
+    expect(typeof request.system_event.event_id).toBe('string')
+    // Must NOT have old internal shape fields
+    expect(request.system_event.type).toBeUndefined()
+    expect(request.system_event.payload).toBeUndefined()
+  })
+
+  it('skips system_event entirely when v3 is ON and type is unknown to CEE', async () => {
+    v3FlagValue = true
+    mockCallTurn.mockResolvedValue({ assistant_text: 'ok' })
+
+    const { result } = renderHook(() => useConversation())
+
+    await act(async () => {
+      await result.current.sendSystemEvent({ type: 'session_resume', payload: {} })
+    })
+
+    const request = mockCallTurn.mock.calls[0][0]
+    expect(request.system_event).toBeUndefined()
+  })
+
+  it('sends full graph_state (nodes + edges arrays)', async () => {
+    mockCallTurn.mockResolvedValue({ assistant_text: 'ok' })
+    useCanvasStore.setState({
+      nodes: [{ id: 'n1', type: 'decision', position: { x: 0, y: 0 }, data: { label: 'A', kind: 'decision' } }] as any,
+      edges: [],
+    })
+
+    const { result } = renderHook(() => useConversation())
+
+    await act(async () => {
+      await result.current.sendSystemEvent({ type: 'direct_analysis_run' })
+    })
+
+    const request = mockCallTurn.mock.calls[0][0]
+    expect(Array.isArray(request.graph_state.nodes)).toBe(true)
+    expect(Array.isArray(request.graph_state.edges)).toBe(true)
+    expect(request.graph_state.nodes).toHaveLength(1)
   })
 })

@@ -58,6 +58,7 @@ export interface CEEv2Edge {
   strength_std?: number  // Issue 6 fix: Made optional (CEE may not always provide)
   strength_mean?: number // P0 Fix: CEE may provide separate strength mean
   belief_exists?: number // P0 Fix: Structural certainty (0-1), distinct from parametric belief
+  exists_probability?: number // Alt field name used by some CEE versions
   provenance?: string | { source: string; quote: string; location?: string }
   provenance_source?: 'document' | 'metric' | 'hypothesis' | 'engine'
 }
@@ -360,6 +361,12 @@ export interface CEEAnalysisReady {
     /** CEE blocker classification — e.g. 'constraint_dropped' for phantom constraints */
     blocker_type?: string
   }>
+  /**
+   * Decision-specific coaching summary from CEE (coaching.summary).
+   * Used as primary coaching line in pre-analysis panel; falls back to
+   * count-based string when absent.
+   */
+  coaching_summary?: string | null
 }
 
 /**
@@ -373,6 +380,8 @@ export interface CEEAnalysisReady {
  */
 export interface CEEv3Response extends CEEv2Response {
   analysis_ready?: CEEAnalysisReady
+  /** CEE coaching payload — decision-specific guidance generated alongside the draft */
+  coaching?: { summary?: string }
   /** Phase 1b: Extended warnings with dimension codes and Focus CTAs */
   extended_warnings?: CEEDraftWarning[]
   /** Phase 1b: Goal connectivity status */

@@ -186,27 +186,37 @@ export const ConversationPanel = memo(function ConversationPanel({
           if (result.valid) {
             // Prefer PLoT's validated graph when available — avoids state drift
             // from store-generated IDs and implicit normalisation during local replay.
-            // Accept either key name (endpoint shape not yet finalised).
             const validatedGraph = result.graph ?? result.validated_graph
-            if (validatedGraph?.nodes && validatedGraph?.edges) {
-              const store = useCanvasStore.getState()
-              store.pushHistory()
-              useCanvasStore.setState({
-                nodes: validatedGraph.nodes,
-                edges: validatedGraph.edges,
-              })
-            } else {
-              // Fallback: replay ops locally
-              if (import.meta.env.DEV) {
-                console.warn('[olumi] op-replay fallback: PLoT did not return full graph, applying operations individually')
+            // A.7: Suppress direct_graph_edit during patch-apply
+            useCanvasStore.getState().beginExternalGraphMutation('patch_apply')
+            try {
+              if (validatedGraph?.nodes && validatedGraph?.edges) {
+                const store = useCanvasStore.getState()
+                store.pushHistory()
+                useCanvasStore.setState({
+                  nodes: validatedGraph.nodes,
+                  edges: validatedGraph.edges,
+                })
+              } else {
+                // Fallback: replay ops locally
+                if (import.meta.env.DEV) {
+                  console.warn('[olumi] op-replay fallback: PLoT did not return full graph, applying operations individually')
+                }
+                applyPatchOperations(block.operations, () => useCanvasStore.getState())
               }
-              applyPatchOperations(block.operations, () => useCanvasStore.getState())
+            } finally {
+              useCanvasStore.getState().endExternalGraphMutation()
             }
 
             setPatchBlockState(stateKey, 'accepted')
             sendSystemEvent({
               type: 'patch_accepted',
-              payload: { patch_id: patchId },
+              payload: {
+                patch_id: patchId,
+                operations: block.operations,
+                // Use only the confirmed field from PLoT validate-patch response
+                applied_graph_hash: typeof result.graph_hash === 'string' ? result.graph_hash : undefined,
+              },
             })
           } else {
             // Validation failed — show rejection inline
@@ -226,11 +236,21 @@ export const ConversationPanel = memo(function ConversationPanel({
           }
         } else {
           // No validate-patch endpoint — apply directly (optimistic)
-          applyPatchOperations(block.operations, () => useCanvasStore.getState())
+          // A.7: Suppress direct_graph_edit during patch-apply
+          useCanvasStore.getState().beginExternalGraphMutation('patch_apply')
+          try {
+            applyPatchOperations(block.operations, () => useCanvasStore.getState())
+          } finally {
+            useCanvasStore.getState().endExternalGraphMutation()
+          }
           setPatchBlockState(stateKey, 'accepted')
           sendSystemEvent({
             type: 'patch_accepted',
-            payload: { patch_id: patchId },
+            payload: {
+              patch_id: patchId,
+              operations: block.operations,
+              applied_graph_hash: undefined,
+            },
           })
         }
       } catch {
@@ -253,6 +273,17 @@ export const ConversationPanel = memo(function ConversationPanel({
       })
     },
     [setPatchBlockState, sendSystemEvent],
+  )
+
+  // A.7: Feedback handler — sends feedback_submitted system event (non-blocking)
+  const handleFeedback = useCallback(
+    (turnId: string, rating: 'up' | 'down') => {
+      sendSystemEvent({
+        type: 'feedback_submitted',
+        payload: { turn_id: turnId, rating },
+      })
+    },
+    [sendSystemEvent],
   )
 
   const canSend = inputValue.trim().length > 0 && !isThinking
@@ -311,6 +342,7 @@ export const ConversationPanel = memo(function ConversationPanel({
             patchRejections={patchRejections}
             onPatchAccept={handlePatchAccept}
             onPatchDismiss={handlePatchDismiss}
+            onFeedback={handleFeedback}
           />
         ))}
 

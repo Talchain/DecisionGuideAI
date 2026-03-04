@@ -99,7 +99,7 @@ export function PanelShell({
           <button
             aria-label="Close panel"
             onClick={onClose}
-            className="flex items-center justify-center size-8 rounded-xl hover:bg-slate-100 transition-colors text-slate-500 hover:text-slate-700"
+            className="flex items-center justify-center size-8 rounded-md hover:bg-panel-hover transition-colors text-text-light hover:text-text-body"
             type="button"
           >
             <svg

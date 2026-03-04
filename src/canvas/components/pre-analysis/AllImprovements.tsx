@@ -536,7 +536,7 @@ function ImprovementRow({ item, onFocus, actionHandlers, isRemoving, onHoverEnte
   // Show exit transition for non-Verify items
   if (isRemoving || (exitLabel && item.category !== 'verify')) {
     return (
-      <div className="flex items-center gap-2 opacity-50 transition-opacity duration-500">
+      <div className="flex items-center gap-2 opacity-50 transition-opacity duration-400">
         <span className="text-sm text-text-body">{item.label}</span>
         <Pill size="small" variant={exitLabel === 'Confirmed' ? 'success' : 'info'}>
           {exitLabel || 'Removed'}
@@ -612,7 +612,7 @@ function ImprovementRow({ item, onFocus, actionHandlers, isRemoving, onHoverEnte
               type="button"
               onClick={handleActionClick}
               disabled={!actionEnabled}
-              className="text-xs font-medium text-info border border-info/30 rounded-xl px-2.5 py-0.5 bg-transparent hover:border-info hover:bg-info/5 disabled:opacity-50 cursor-pointer"
+              className="text-xs font-medium text-info border border-info/30 rounded-md px-2.5 py-0.5 bg-transparent hover:border-info hover:bg-info/5 disabled:opacity-50 cursor-pointer"
             >
               {item.action.label}
             </button>
@@ -626,7 +626,7 @@ function ImprovementRow({ item, onFocus, actionHandlers, isRemoving, onHoverEnte
                   actionHandlers.onEdit(item.focus.id)
                 }
               }}
-              className="text-xs font-medium text-info border border-info/30 rounded-xl px-2.5 py-0.5 bg-transparent hover:border-info hover:bg-info/5 cursor-pointer"
+              className="text-xs font-medium text-info border border-info/30 rounded-md px-2.5 py-0.5 bg-transparent hover:border-info hover:bg-info/5 cursor-pointer"
             >
               Add a negative relationship
             </button>

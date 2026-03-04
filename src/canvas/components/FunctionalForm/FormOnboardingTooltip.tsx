@@ -75,7 +75,7 @@ const FormExample = memo(function FormExample({
 
   return (
     <div className="flex items-start gap-2">
-      <span className="text-lg font-mono text-teal-600" aria-hidden="true">
+      <span className="text-lg font-mono text-info" aria-hidden="true">
         {info?.icon || '─'}
       </span>
       <div>
@@ -110,7 +110,7 @@ export const FormOnboardingTooltip = memo(function FormOnboardingTooltip({
       {/* Header */}
       <div className="flex items-center justify-between p-4 border-b border-sand-100">
         <div className="flex items-center gap-2">
-          <Info className="w-5 h-5 text-teal-600" aria-hidden="true" />
+          <Info className="w-5 h-5 text-info" aria-hidden="true" />
           <span className={`${typography.body} font-medium text-ink-700`}>
             Relationship Forms
           </span>
@@ -150,7 +150,7 @@ export const FormOnboardingTooltip = memo(function FormOnboardingTooltip({
 
         {/* Tip */}
         <div className="flex items-start gap-2 p-2.5 bg-sand-50 rounded-lg">
-          <ArrowRight className="w-4 h-4 text-teal-600 mt-0.5 flex-shrink-0" />
+          <ArrowRight className="w-4 h-4 text-info mt-0.5 flex-shrink-0" />
           <p className={`${typography.caption} text-ink-600`}>
             <strong>Tip:</strong> Click on any edge and use the inspector panel to
             change its relationship form.
@@ -163,7 +163,7 @@ export const FormOnboardingTooltip = memo(function FormOnboardingTooltip({
         <button
           type="button"
           onClick={onDismiss}
-          className="px-4 py-2 rounded-lg bg-teal-600 text-white text-sm font-medium hover:bg-teal-700 transition-colors"
+          className="px-4 py-2 rounded-lg bg-info text-white text-sm font-medium hover:opacity-90 transition-colors"
         >
           Got it!
         </button>

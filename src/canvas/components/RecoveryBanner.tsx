@@ -105,8 +105,8 @@ export function RecoveryBanner() {
       role="alert"
       aria-live="assertive"
     >
-      <div className="flex items-start gap-3 p-4 bg-warning-50 border-2 border-warning-500 rounded-lg shadow-panel">
-        <AlertCircle className="w-5 h-5 text-warning-700 flex-shrink-0 mt-0.5" />
+      <div className="flex items-start gap-3 p-4 bg-warning-light border-2 border-warning rounded-lg shadow-panel">
+        <AlertCircle className="w-5 h-5 text-warning flex-shrink-0 mt-0.5" />
         <div className="flex-1 min-w-0">
           <p className={`${typography.label} text-warning-900`}>
             Autosave recovery available
@@ -125,7 +125,7 @@ export function RecoveryBanner() {
             </button>
             <button
               onClick={handleDismiss}
-              className={`px-3 py-1.5 ${typography.label} text-warning-700 bg-white hover:bg-warning-100 border border-warning-300 rounded-lg transition-colors`}
+              className={`px-3 py-1.5 ${typography.label} text-warning bg-white hover:bg-warning-light border border-warning/30 rounded-lg transition-colors`}
               data-testid="btn-dismiss-recovery"
               type="button"
             >

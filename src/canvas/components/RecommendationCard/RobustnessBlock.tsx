@@ -531,11 +531,11 @@ export const RobustnessBlock = memo(function RobustnessBlock({
           {displayMode === 'multi-goal' && robustness.pareto && (
             <div className="px-4 py-3">
               <div className="flex items-center gap-2 mb-2">
-                <Scale className="h-4 w-4 text-teal-600" aria-hidden="true" />
+                <Scale className="h-4 w-4 text-success" aria-hidden="true" />
                 <span className={`${typography.label} text-ink-700`}>
                   Multi-Goal Trade-offs
                 </span>
-                <span className={`${typography.caption} px-2 py-0.5 rounded-full bg-teal-100 text-teal-700`}>
+                <span className={`${typography.caption} px-2 py-0.5 rounded-full bg-success-light text-success`}>
                   {robustness.pareto.frontier.length} optimal options
                 </span>
               </div>

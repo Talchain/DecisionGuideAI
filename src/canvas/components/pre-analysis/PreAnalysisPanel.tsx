@@ -508,7 +508,7 @@ export function PreAnalysisPanel({
 
         {/* Coaching summary — one-line text below header */}
         {data.coachingSummary && (
-          <p className="text-xs text-text-light -mt-2">{data.coachingSummary}</p>
+          <p className="text-sm text-text-light -mt-2 line-clamp-1" title={data.coachingSummary}>{data.coachingSummary}</p>
         )}
 
         {/* Task P.3.2: Minimal graph coaching (pre-run guidance, not blocker) */}
@@ -675,14 +675,14 @@ export function PreAnalysisPanel({
                   <button
                     type="button"
                     onClick={onAnalyse}
-                    className="text-xs font-medium text-info border border-info/30 rounded-xl px-2.5 py-0.5 bg-transparent hover:border-info hover:bg-info/5 cursor-pointer"
+                    className="text-xs font-medium text-info border border-info/30 rounded-md px-2.5 py-0.5 bg-transparent hover:border-info hover:bg-info/5 cursor-pointer"
                   >
                     Run with estimates
                   </button>
                   <button
                     type="button"
                     onClick={() => improvementsRef.current?.scrollIntoView({ behavior: 'smooth' })}
-                    className="text-xs font-medium text-info border border-info/30 rounded-xl px-2.5 py-0.5 bg-transparent hover:border-info hover:bg-info/5 cursor-pointer"
+                    className="text-xs font-medium text-info border border-info/30 rounded-md px-2.5 py-0.5 bg-transparent hover:border-info hover:bg-info/5 cursor-pointer"
                   >
                     Review in structure
                   </button>
@@ -725,13 +725,14 @@ export function PreAnalysisPanel({
         blockerCount={data.blockerCount}
         isAnalysing={isAnalysing}
         onAnalyse={onAnalyse}
-        evidenceLevel={data.evidenceQuality.level}
         isLoading={data.isLoading}
         canRetryDraft={canRetryDraft}
         isRetrying={isRetrying}
         onRetryDraft={handleRetryDraft}
         reviewedCount={data.reviewedFactorsCount}
         totalReviewableCount={data.totalReviewableFactorsCount}
+        evidenceNonAiCount={data.evidenceQuality.nonAiCount}
+        evidenceTotalCount={data.evidenceQuality.totalCount}
       />
     </div>
   )

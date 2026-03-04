@@ -60,7 +60,7 @@ export function RangeLabels({
         {/* Tooltip */}
         {isHovered && showTooltips && (
           <div
-            className="absolute top-full mt-1 z-50 w-48 px-3 py-2 bg-ink-900 text-paper-50 rounded shadow-lg"
+            className="absolute top-full mt-1 z-50 w-48 px-3 py-2 bg-text-header text-white rounded shadow-3"
             role="tooltip"
           >
             <div className={`${typography.caption} font-medium mb-1`}>

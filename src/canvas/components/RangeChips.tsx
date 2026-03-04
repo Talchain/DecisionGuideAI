@@ -126,9 +126,9 @@ function RangeChip({ label, technicalLabel, value, variant, units, unitSymbol }:
   const formattedValue = value === null ? '—' : formatValue(value, units, unitSymbol)
 
   const variantClasses = {
-    conservative: 'bg-yellow-50 border-yellow-200 text-yellow-600',
-    likely: 'bg-info-50 border-info-200 text-info-600',
-    optimistic: 'bg-green-50 border-green-200 text-green-600'
+    conservative: 'bg-warning-light border-warning/30 text-warning',
+    likely: 'bg-info-light border-info/30 text-info',
+    optimistic: 'bg-success-light border-success/30 text-success'
   }
 
   return (

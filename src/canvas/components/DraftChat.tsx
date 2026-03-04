@@ -475,10 +475,15 @@ export function DraftChat() {
       const confidence =
         typeof e.belief === 'number' ? Math.max(0, Math.min(1, e.belief)) : undefined
 
-      // P0 Fix: Extract belief_exists (structural certainty) separately from belief (parametric certainty)
-      // CEE returns belief_exists as 0-1 probability that the edge exists at all
+      // P0 Fix: Extract belief_exists / exists_probability (structural certainty) separately from belief (parametric certainty)
+      // CEE may use either field name: belief_exists or exists_probability
+      const beliefExistsRaw = typeof e.belief_exists === 'number'
+        ? e.belief_exists
+        : typeof e.exists_probability === 'number'
+          ? e.exists_probability
+          : undefined
       const beliefExistsValue =
-        typeof e.belief_exists === 'number' ? Math.max(0, Math.min(1, e.belief_exists)) : undefined
+        beliefExistsRaw !== undefined ? Math.max(0, Math.min(1, beliefExistsRaw)) : undefined
 
       // Diagnostic logging for edge uncertainty data flow
       if (import.meta.env.DEV) {
@@ -593,7 +598,11 @@ export function DraftChat() {
     // This enables using CEE's resolved options in the analysis
     if (hasAnalysisReady(draftData)) {
       const { setCeeAnalysisReady } = useCanvasStore.getState()
-      setCeeAnalysisReady(draftData.analysis_ready)
+      const coachingSummary = (draftData as any).coaching?.summary
+      const analysisReadyWithCoaching = coachingSummary
+        ? { ...draftData.analysis_ready, coaching_summary: coachingSummary }
+        : draftData.analysis_ready
+      setCeeAnalysisReady(analysisReadyWithCoaching)
       if (import.meta.env.DEV) {
         console.log('[DraftChat] Stored analysis_ready:', {
           options: draftData.analysis_ready.options.length,
@@ -773,7 +782,7 @@ export function DraftChat() {
         {isMinimized ? (
           <>
           <div
-            className="flex gap-3 rounded-2xl border border-sand-200 px-4 py-3 shadow-2"
+            className="flex gap-3 rounded-lg border border-panel-border px-4 py-3 shadow-2"
             style={{ backgroundColor: '#FEFEFE' }}
             data-testid="draft-chat-minimized"
           >

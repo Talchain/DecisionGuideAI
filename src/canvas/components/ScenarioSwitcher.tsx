@@ -190,7 +190,7 @@ export function ScenarioSwitcher() {
         {/* Trigger button */}
         <button
           onClick={() => setIsOpen(!isOpen)}
-          className={`flex items-center gap-2 px-3 py-1.5 ${typography.label} text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-info-500 transition-colors`}
+          className={`flex items-center gap-2 px-3 py-1.5 ${typography.label} text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-info focus:ring-offset-2 transition-colors`}
           type="button"
           aria-expanded={isOpen}
           aria-haspopup="true"
@@ -386,7 +386,7 @@ export function ScenarioSwitcher() {
                   setInputValue('')
                 }
               }}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-info-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-info focus:ring-offset-2"
               placeholder="Scenario name"
               autoFocus
             />
@@ -430,7 +430,7 @@ export function ScenarioSwitcher() {
                   setInputValue('')
                 }
               }}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-info-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-info focus:ring-offset-2"
               placeholder="Scenario name"
               autoFocus
             />

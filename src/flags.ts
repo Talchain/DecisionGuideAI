@@ -278,6 +278,13 @@ const FLAGS_CONFIG = {
     envKey: 'VITE_ENABLE_ORCHESTRATOR_V2',
     storageKey: 'feature.orchestratorV2',
   },
+  // A.7: CEE v3 system event wire format
+  // When ON, system_event is serialised to { event_type, timestamp, event_id, details }
+  // matching CEE Brief C v3 Zod schema. Default OFF until CEE Brief C is on staging.
+  v3SystemEvents: {
+    envKey: 'VITE_ENABLE_V3_SYSTEM_EVENTS',
+    storageKey: 'feature.v3SystemEvents',
+  },
 } as const
 
 // ============================================================================
@@ -344,6 +351,7 @@ const flags = {
   schemaV2: makeFlag(FLAGS_CONFIG.schemaV2),
   plotEnrichment: makeFlag(FLAGS_CONFIG.plotEnrichment),
   orchestratorV2: makeFlag(FLAGS_CONFIG.orchestratorV2),
+  v3SystemEvents: makeFlag(FLAGS_CONFIG.v3SystemEvents),
 }
 
 // Export with original naming convention for backward compatibility
@@ -405,6 +413,7 @@ export const isOnboardingTourEnabled = flags.onboardingTour
 export const isSchemaV2Enabled = flags.schemaV2
 export const isPlotEnrichmentEnabled = flags.plotEnrichment
 export const isOrchestratorV2Enabled = flags.orchestratorV2
+export const isV3SystemEventsEnabled = flags.v3SystemEvents
 
 // ============================================================================
 // POC FLAGS (special pattern - constant object, not functions)

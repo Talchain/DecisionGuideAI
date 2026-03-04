@@ -24,11 +24,11 @@
  */
 
 import { useEffect, useState, useRef, useMemo, useCallback, type ChangeEvent } from 'react'
-import { BarChart3, Shuffle, Activity, Clock, PlayCircle, RefreshCw, AlertTriangle, GitCompare, XCircle } from 'lucide-react'
+import { BarChart3, Shuffle, Activity, Clock, PlayCircle, RefreshCw, AlertTriangle, GitCompare, XCircle, MessageCircle } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
 import { useDockState } from '../hooks/useDockState'
 import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion'
-import { useCanvasStore, selectResultsStatus, selectReport, selectError } from '../store'
+import { useCanvasStore, selectResultsStatus, selectReport, selectError, selectResultsSource } from '../store'
 import { loadRuns, type StoredRun } from '../store/runHistory'
 import * as runsBus from '../store/runsBus'
 import { typography } from '../../styles/typography'
@@ -262,6 +262,20 @@ export function OutputsDock() {
   const resultsStatus = useCanvasStore(selectResultsStatus)
   const report = useCanvasStore(selectReport)
   const error = useCanvasStore(selectError)
+  const resultsSource = useCanvasStore(selectResultsSource)
+
+  // A.9: Auto-dismiss conversation indicator after 5 seconds
+  const [convIndicatorVisible, setConvIndicatorVisible] = useState(false)
+  const prevResultsSourceRef = useRef<'direct' | 'conversation' | undefined>(undefined)
+  useEffect(() => {
+    if (resultsSource === 'conversation' && prevResultsSourceRef.current !== 'conversation') {
+      setConvIndicatorVisible(true)
+      const id = setTimeout(() => setConvIndicatorVisible(false), 5000)
+      return () => clearTimeout(id)
+    }
+    prevResultsSourceRef.current = resultsSource
+    return undefined
+  }, [resultsSource])
 
   // C.1b: Supabase persistence callbacks for analysis results
   const {
@@ -988,7 +1002,7 @@ export function OutputsDock() {
                   type="button"
                   onClick={() => handleTabClick(tab.id)}
                   data-testid={tab.id === 'diagnostics' ? 'outputs-dock-tab-diagnostics' : undefined}
-                  className={`flex-1 px-2 py-1 rounded ${typography.caption} font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-info-500 focus-visible:ring-offset-1 ${
+                  className={`flex-1 px-2 py-1 rounded ${typography.caption} font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-1 ${
                     state.activeTab === tab.id
                       ? 'bg-sky-200 text-sky-600 border-b-2 border-sky-500'
                       : 'text-ink-900/70 hover:bg-paper-50 hover:text-ink-900 border-b-2 border-transparent'
@@ -1027,7 +1041,7 @@ export function OutputsDock() {
                 key={tab.id}
                 type="button"
                 onClick={() => handleTabClick(tab.id)}
-                className={`flex items-center justify-center w-7 h-7 rounded-full border ${typography.caption} focus:outline-none focus-visible:ring-2 focus-visible:ring-info-500 focus-visible:ring-offset-1 ${
+                className={`flex items-center justify-center w-7 h-7 rounded-full border ${typography.caption} focus:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-1 ${
                   state.activeTab === tab.id
                     ? 'bg-sky-200 text-sky-600 border-sky-500'
                     : 'text-ink-900/70 bg-paper-50 border-sand-200 hover:bg-paper-50 hover:text-ink-900'
@@ -1065,10 +1079,10 @@ export function OutputsDock() {
                     <div
                       className={`flex flex-col gap-2 px-3 py-3 rounded-lg border ${
                         friendlyError.severity === 'error'
-                          ? 'bg-danger-50 border-danger-200'
+                          ? 'bg-danger-light border-danger/30'
                           : friendlyError.severity === 'warning'
-                            ? 'bg-sun-50 border-sun-200'
-                            : 'bg-sky-50 border-sky-200'
+                            ? 'bg-warning-light border-warning/30'
+                            : 'bg-info-light border-info/30'
                       }`}
                       role="alert"
                       aria-live="polite"
@@ -1076,10 +1090,10 @@ export function OutputsDock() {
                     >
                       <div className={`${typography.body} font-medium ${
                         friendlyError.severity === 'error'
-                          ? 'text-danger-800'
+                          ? 'text-danger'
                           : friendlyError.severity === 'warning'
-                            ? 'text-sun-800'
-                            : 'text-sky-800'
+                            ? 'text-warning'
+                            : 'text-info'
                       }`}>
                         {friendlyError.headline}
                       </div>
@@ -1110,10 +1124,10 @@ export function OutputsDock() {
                             onClick={() => setState(prev => ({ ...prev, isOpen: false }))}
                             className={`${typography.caption} font-medium px-3 py-1.5 rounded border ${
                               friendlyError.severity === 'error'
-                                ? 'border-danger-300 text-danger-700 hover:bg-danger-50'
+                                ? 'border-danger/30 text-danger hover:bg-danger-light'
                                 : friendlyError.severity === 'warning'
-                                  ? 'border-sun-300 text-sun-700 hover:bg-sun-50'
-                                  : 'border-sky-300 text-sky-700 hover:bg-sky-50'
+                                  ? 'border-warning/30 text-warning hover:bg-warning-light'
+                                  : 'border-info/30 text-info hover:bg-info-light'
                             }`}
                             data-testid="edit-model-button"
                           >
@@ -1125,10 +1139,10 @@ export function OutputsDock() {
                               onClick={() => setState(prev => ({ ...prev, isOpen: false }))}
                               className={`${typography.caption} font-medium px-3 py-1.5 rounded border ${
                                 friendlyError.severity === 'error'
-                                  ? 'border-danger-300 text-danger-700 hover:bg-danger-100'
+                                  ? 'border-danger/30 text-danger hover:opacity-80'
                                   : friendlyError.severity === 'warning'
-                                    ? 'border-sun-300 text-sun-700 hover:bg-sun-100'
-                                    : 'border-sky-300 text-sky-700 hover:bg-sky-100'
+                                    ? 'border-warning/30 text-warning hover:opacity-80'
+                                    : 'border-info/30 text-info hover:opacity-80'
                               }`}
                               data-testid="error-secondary-action"
                             >
@@ -1295,6 +1309,21 @@ export function OutputsDock() {
                     </span>
                   </div>
                 )}
+                {/* A.9: Conversation-triggered analysis indicator — auto-dismisses after 5s */}
+                {convIndicatorVisible && !isPreRun && report && (
+                  <div
+                    className="flex items-center gap-1.5 px-3 py-1.5"
+                    role="status"
+                    aria-live="polite"
+                    data-testid="conv-results-indicator"
+                    onClick={() => setConvIndicatorVisible(false)}
+                  >
+                    <MessageCircle className="w-3 h-3 text-text-light flex-shrink-0" aria-hidden="true" />
+                    <span className={`${typography.caption} text-text-light`}>
+                      Updated from conversation
+                    </span>
+                  </div>
+                )}
                 {/* ======================================================================
                     Results Panel v7: Four-Section Flat Layout
                     Sections: 1. Hero  2. Options comparison  3. Drivers  4. Strengthen
@@ -1361,7 +1390,7 @@ export function OutputsDock() {
             aria-label="Generating scenario comparison"
             data-testid="scenario-comparison-loading"
           >
-            <div className="bg-white px-6 py-4 rounded-lg shadow-lg flex items-center gap-3">
+            <div className="bg-white px-6 py-4 rounded-lg shadow-3 flex items-center gap-3">
               <div className="w-5 h-5 border-2 border-sky-500 border-t-transparent rounded-full animate-spin" />
               <span className={`${typography.body} text-ink-900`}>Generating comparison...</span>
             </div>
@@ -1371,7 +1400,7 @@ export function OutputsDock() {
         {/* M6: Error display for comparison */}
         {scenarioComparison.error && (
           <div
-            className="fixed bottom-24 right-4 z-[1000] bg-danger-50 border border-danger-200 px-4 py-3 rounded-lg shadow-lg max-w-sm"
+            className="fixed bottom-24 right-4 z-[1000] bg-danger-light border border-danger/30 px-4 py-3 rounded-lg shadow-3 max-w-sm"
             role="alert"
             data-testid="scenario-comparison-error"
           >

@@ -25,7 +25,7 @@ export function TemplateCard({ template, nodes, edges, onInsert, onMerge, onLear
   }, [nodes, edges])
 
   return (
-    <div className="border border-gray-200 rounded-lg p-4 hover:shadow-sm hover:border-info-500 transition-all">
+    <div className="border border-panel-border rounded-lg p-4 hover:shadow-1 hover:border-info transition-all">
       {/* P0-5: Mini-layout preview */}
       {previewDataUrl && (
         <div className="mb-3 rounded-md overflow-hidden border border-gray-200">

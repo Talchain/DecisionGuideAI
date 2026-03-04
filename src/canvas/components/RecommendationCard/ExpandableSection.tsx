@@ -64,7 +64,7 @@ export function ExpandableSection({
       {isExpanded && (
         <div
           id={testId ? `${testId}-content` : undefined}
-          className="px-4 pb-3 animate-in fade-in-0 slide-in-from-top-1 duration-150"
+          className="px-4 pb-3 animate-in fade-in-0 slide-in-from-top-1 duration-200"
         >
           {children}
         </div>

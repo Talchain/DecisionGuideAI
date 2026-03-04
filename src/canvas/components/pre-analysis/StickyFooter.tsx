@@ -7,19 +7,23 @@
  *   - Retry: "Retry Draft" appears when blocked due to incomplete draft (ANALYSIS_NOT_READY)
  *   - States: disabled "Checking..." → disabled "Fix N issues" → "Retry Draft" (when retryable) → enabled "Analyse Now" → "Analysing..." with spinner
  *
- * Wired to existing run analysis handler + retry draft handler.
- * Note: Evidence quality is shown in Header (complementary, not duplicated).
+ * Reviewed count tooltip shows source distribution ("N from brief, M estimated by AI").
+ * Evidence tier label removed — the reviewed count is the primary trust signal.
  */
 
 import { CheckCircle, XCircle, Loader2, RefreshCw } from 'lucide-react'
 import { Tooltip } from '../Tooltip'
-import type { EvidenceQualityLevel } from './hooks/usePreAnalysisData'
 
-/** Evidence level colour mapping per brief spec */
-const EVIDENCE_LEVEL_COLOURS: Record<EvidenceQualityLevel, string> = {
-  low: '#EA7B4B',    // Danger
-  medium: '#FFA656', // Warning
-  high: '#67C89E',   // Success
+/** Derive source distribution tooltip from raw counts */
+function getReviewedTooltip(nonAiCount?: number, totalCount?: number): string {
+  if (totalCount == null || totalCount === 0) {
+    return "Number of factor values you've confirmed or marked as assumptions"
+  }
+  const aiCount = totalCount - (nonAiCount ?? 0)
+  const briefCount = nonAiCount ?? 0
+  if (aiCount === 0) return `All ${totalCount} values from your brief`
+  if (briefCount === 0) return `All ${totalCount} values estimated by AI`
+  return `${briefCount} from brief, ${aiCount} estimated by AI`
 }
 
 interface StickyFooterProps {
@@ -33,8 +37,6 @@ interface StickyFooterProps {
   isAnalysing: boolean
   /** Click handler for analyse button */
   onAnalyse: () => void
-  /** Evidence quality level for display */
-  evidenceLevel?: EvidenceQualityLevel
   /** Whether CEE data is still loading */
   isLoading?: boolean
   /** Whether retry draft is available (blocked due to incomplete draft) */
@@ -47,6 +49,10 @@ interface StickyFooterProps {
   reviewedCount?: number
   /** Total number of reviewable factors */
   totalReviewableCount?: number
+  /** Factors NOT from AI sources — used to build source-distribution tooltip */
+  evidenceNonAiCount?: number
+  /** Total factor count — used to build source-distribution tooltip */
+  evidenceTotalCount?: number
 }
 
 export function StickyFooter({
@@ -55,13 +61,14 @@ export function StickyFooter({
   blockerCount,
   isAnalysing,
   onAnalyse,
-  evidenceLevel,
   isLoading = false,
   canRetryDraft = false,
   isRetrying = false,
   onRetryDraft,
   reviewedCount,
   totalReviewableCount,
+  evidenceNonAiCount,
+  evidenceTotalCount,
 }: StickyFooterProps) {
   // Determine primary button state
   const isDisabled = !isReady || isAnalysing || isLoading || isRetrying
@@ -116,12 +123,18 @@ export function StickyFooter({
   // Show retry button when blocked due to incomplete draft and retry is available
   const showRetryButton = canRetryDraft && hasBlockers && !isLoading && !isAnalysing && !isRetrying
 
+  // "All reviewed" when every reviewable factor has been confirmed
+  const allReviewed = totalReviewableCount != null && totalReviewableCount > 0 &&
+    (reviewedCount ?? 0) >= totalReviewableCount
+
+  const reviewedTooltip = getReviewedTooltip(evidenceNonAiCount, evidenceTotalCount)
+
   return (
     <div
       className="flex-shrink-0 h-12 px-3 flex items-center justify-between bg-panel border-t border-panel-border"
       data-testid="sticky-footer"
     >
-      {/* Left: Status + Evidence */}
+      {/* Left: Status + Reviewed count */}
       <div className="flex items-center gap-2 text-sm">
         <StatusIcon className={`w-4 h-4 ${statusIconColor}`} aria-hidden="true" />
         <span className="font-medium text-text-body">
@@ -130,22 +143,9 @@ export function StickyFooter({
         {!isRetrying && (totalReviewableCount != null && totalReviewableCount > 0) && (
           <>
             <span className="text-text-light">·</span>
-            <Tooltip content="Number of factor values you've confirmed or marked as assumptions">
+            <Tooltip content={reviewedTooltip}>
               <span className="text-text-body cursor-help">
-                {reviewedCount ?? 0}/{totalReviewableCount} reviewed
-              </span>
-            </Tooltip>
-          </>
-        )}
-        {evidenceLevel && !isRetrying && (
-          <>
-            <span className="text-text-light">·</span>
-            <Tooltip content="Proportion of inputs from your brief vs estimated by AI">
-              <span className="text-text-body cursor-help">
-                Data:{' '}
-                <span style={{ color: EVIDENCE_LEVEL_COLOURS[evidenceLevel] }}>
-                  {evidenceLevel.charAt(0).toUpperCase() + evidenceLevel.slice(1)}
-                </span>
+                {allReviewed ? 'All reviewed' : `${reviewedCount ?? 0}/${totalReviewableCount} reviewed`}
               </span>
             </Tooltip>
           </>

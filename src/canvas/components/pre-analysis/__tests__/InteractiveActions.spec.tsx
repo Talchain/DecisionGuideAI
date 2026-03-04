@@ -84,7 +84,7 @@ describe('Interactive Actions Hardening', () => {
       tiers,
       totalImprovements: 0,
       topActions: [],
-      evidenceQuality: { level: 'medium', ratio: 0.5 },
+      evidenceQuality: { level: 'medium', ratio: 0.5, nonAiCount: 2, totalCount: 4 },
       isReady: true,
       hasBlockers: false,
       blockerCount: 0,

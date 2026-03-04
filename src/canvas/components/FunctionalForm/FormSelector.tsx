@@ -82,7 +82,7 @@ const FormOption = memo(function FormOption({
       className={`
         w-full flex items-start gap-3 p-2.5 rounded-lg text-left transition-colors
         ${selected
-          ? 'bg-teal-100 border border-teal-300'
+          ? 'bg-success-light border border-success/30'
           : 'hover:bg-sand-100 border border-transparent'
         }
       `}
@@ -94,7 +94,7 @@ const FormOption = memo(function FormOption({
       <div
         className={`
           flex-shrink-0 w-8 h-8 rounded flex items-center justify-center
-          ${selected ? 'bg-teal-200 text-teal-700' : 'bg-sand-200 text-sand-600'}
+          ${selected ? 'bg-success-light text-success' : 'bg-sand-200 text-sand-600'}
         `}
       >
         <FormCurvePreview form={form} size={20} />
@@ -106,7 +106,7 @@ const FormOption = memo(function FormOption({
           <span
             className={`
               ${typography.body} font-medium
-              ${selected ? 'text-teal-800' : 'text-ink-700'}
+              ${selected ? 'text-success' : 'text-ink-700'}
             `}
           >
             {info?.name || form}
@@ -117,14 +117,14 @@ const FormOption = memo(function FormOption({
             </span>
           )}
           {selected && (
-            <Check className="w-4 h-4 text-teal-600 ml-auto" aria-hidden="true" />
+            <Check className="w-4 h-4 text-success ml-auto" aria-hidden="true" />
           )}
         </div>
         {showDescription && info?.shortDescription && (
           <p
             className={`
               ${typography.caption} mt-0.5
-              ${selected ? 'text-teal-700' : 'text-ink-500'}
+              ${selected ? 'text-success' : 'text-ink-500'}
             `}
           >
             {info.shortDescription}

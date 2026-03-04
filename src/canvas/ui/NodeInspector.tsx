@@ -280,7 +280,7 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
             Current value
             {isConfirmed && <Check size={10} className="text-success" aria-label="Reviewed" />}
           </span>
-          <span className={`${typography.panelBody} font-medium text-text-body tabular-nums`}>
+          <span className={`${typography.panelBody} text-text-body tabular-nums`}>
             {existingObservedState.raw_value != null
               ? `${existingObservedState.value} on 0\u20131 scale`
               : existingObservedState.unit && !(existingObservedState.unit === '%' && existingObservedState.value <= 1)
@@ -343,7 +343,7 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
       {node.data?.prior !== undefined && (
         <div className="flex items-center justify-between mt-2 px-2 py-1 bg-panel rounded border border-panel-border">
           <span className={`${typography.panelMeta} text-text-light`}>Prior</span>
-          <span className={`${typography.panelBody} font-medium text-text-body tabular-nums`}>
+          <span className={`${typography.panelBody} text-text-body tabular-nums`}>
             {(node.data.prior * 100).toFixed(0)}%
           </span>
         </div>
@@ -432,14 +432,14 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
           {displayMetadata.achievementProbability !== null ? (
             <div className="flex items-center justify-between px-2 py-1 bg-panel rounded border border-panel-border">
               <span className={`${typography.panelMeta} text-text-light`}>Goal probability</span>
-              <span className={`${typography.panelBody} font-medium text-text-body tabular-nums`}>
+              <span className={`${typography.panelBody} text-text-body tabular-nums`}>
                 {Math.round(displayMetadata.achievementProbability * 100)}%
               </span>
             </div>
           ) : displayMetadata.stabilityPercentage !== null ? (
             <div className="flex items-center justify-between px-2 py-1 bg-panel rounded border border-panel-border">
               <span className={`${typography.panelMeta} text-text-light`}>Recommendation stability</span>
-              <span className={`${typography.panelBody} font-medium text-text-body tabular-nums`}>
+              <span className={`${typography.panelBody} text-text-body tabular-nums`}>
                 {Math.round(displayMetadata.stabilityPercentage * 100)}%
               </span>
             </div>
@@ -452,7 +452,7 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
         <div className="mt-3 pt-2 border-t border-panel-border">
           <div className="flex items-center justify-between px-2 py-1 bg-panel rounded border border-panel-border">
             <span className={`${typography.panelMeta} text-text-light`}>Win probability</span>
-            <span className={`${typography.panelBody} font-medium text-text-body tabular-nums`}>
+            <span className={`${typography.panelBody} text-text-body tabular-nums`}>
               {Math.round(displayMetadata.winRate * 100)}%
             </span>
           </div>
@@ -469,7 +469,7 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
     <div className="space-y-4">
       {/* Title input */}
       <div>
-        <label htmlFor="node-title" className={`block ${typography.panelMeta} font-medium text-text-body mb-1`}>Title</label>
+        <label htmlFor="node-title" className={`block ${typography.panelMeta} text-text-body mb-1`}>Title</label>
         <input
           ref={labelRef}
           id="node-title"
@@ -484,7 +484,7 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
 
       {/* Description */}
       <div>
-        <label htmlFor="node-description" className={`block ${typography.panelMeta} font-medium text-text-body mb-1`}>
+        <label htmlFor="node-description" className={`block ${typography.panelMeta} text-text-body mb-1`}>
           Note <span className="text-text-light">(optional)</span>
         </label>
         <textarea
@@ -502,7 +502,7 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
       {/* Prior bar */}
       {node.data?.prior !== undefined && (
         <div>
-          <label className={`block ${typography.panelMeta} font-medium text-text-body mb-1`}>
+          <label className={`block ${typography.panelMeta} text-text-body mb-1`}>
             Prior <span className="text-text-light">(belief before evidence)</span>
           </label>
           <div className="flex items-center gap-2">
@@ -517,7 +517,7 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
                 aria-valuetext={`${(node.data.prior * 100).toFixed(0)}%`}
               />
             </div>
-            <span className={`${typography.panelMeta} font-medium text-text-body tabular-nums w-10 text-right`}>
+            <span className={`${typography.panelMeta} text-text-body tabular-nums w-10 text-right`}>
               {(node.data.prior * 100).toFixed(0)}%
             </span>
           </div>
@@ -527,7 +527,7 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
       {/* Utility bar */}
       {node.data?.utility !== undefined && (
         <div>
-          <label className={`block ${typography.panelMeta} font-medium text-text-body mb-1`}>
+          <label className={`block ${typography.panelMeta} text-text-body mb-1`}>
             Utility <span className="text-text-light">(value from -1 to +1)</span>
           </label>
           <div className="flex items-center gap-2">
@@ -548,7 +548,7 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
                 aria-valuetext={node.data.utility.toFixed(2)}
               />
             </div>
-            <span className={`${typography.panelMeta} font-medium text-text-body tabular-nums w-10 text-right`}>
+            <span className={`${typography.panelMeta} text-text-body tabular-nums w-10 text-right`}>
               {node.data.utility >= 0 ? '+' : ''}{node.data.utility.toFixed(2)}
             </span>
           </div>
@@ -564,7 +564,7 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
       {isFactorNode && (
         <div className="pt-2 border-t border-panel-border">
           <Tooltip content="Set the current and baseline values for this factor" position="right">
-            <h4 className={`${typography.panelMeta} font-medium text-text-body mb-2`}>
+            <h4 className={`${typography.panelMeta} text-text-body mb-2`}>
               Current value <span className="text-text-light">(optional)</span>
             </h4>
           </Tooltip>
@@ -625,7 +625,7 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
       {isOptionNode && optionAsUIOption && (
         <div className="pt-2 border-t border-panel-border">
           <Tooltip content="Define what causal changes this option makes" position="right">
-            <h4 className={`${typography.panelMeta} font-medium text-text-body mb-2`}>
+            <h4 className={`${typography.panelMeta} text-text-body mb-2`}>
               Interventions
             </h4>
           </Tooltip>

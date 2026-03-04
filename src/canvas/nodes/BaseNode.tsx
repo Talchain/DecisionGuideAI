@@ -24,11 +24,15 @@ import { typography } from '../../styles/typography'
 import { getControllabilityBorderStyle } from '../utils/graphDisplayCalculations'
 import { useNodeDisplayMetadata } from '../hooks/useNodeDisplayMetadata'
 import { isGoalDefined } from '../../utils/isGoalDefined'
+import { NodeShapeIndicator } from './NodeShapeIndicator'
+import { NODE_REGISTRY } from '../domain/nodes'
 
 interface BaseNodeProps extends NodeProps {
   nodeType: NodeType
   icon: LucideIcon
   children?: ReactNode
+  maxWidth?: number
+  headerSlot?: ReactNode
 }
 
 /**
@@ -36,7 +40,7 @@ interface BaseNodeProps extends NodeProps {
  * Includes connection handles and accessibility attributes
  * Click chevron icon to expand/collapse description
  */
-export const BaseNode = memo(({ id, nodeType, icon: Icon, data, selected, children }: BaseNodeProps) => {
+export const BaseNode = memo(({ id, nodeType, icon: Icon, data, selected, children, maxWidth, headerSlot }: BaseNodeProps) => {
   const label = data?.label || 'Untitled'
   const description = data?.description
 
@@ -162,19 +166,19 @@ export const BaseNode = memo(({ id, nodeType, icon: Icon, data, selected, childr
       aria-expanded={description ? isExpanded : undefined}
       {...(isIncomplete ? { 'data-testid': nodeType === 'goal' ? 'overlay-missing-threshold-node' : 'overlay-missing-value' } : {})}
       className={`
-        relative rounded-lg border-2 shadow-sm
+        relative rounded-lg border-2 shadow-1
         ${isIncomplete ? 'border-goal border-dashed' : `${colors.border} ${borderStyle}`}
         transition-all duration-200
         cursor-default
-        ${selected ? 'ring-2 ring-sky-500 ring-offset-2' : ''}
-        ${isHighlighted ? 'ring-4 ring-sun-500 ring-opacity-50' : ''}
+        ${selected ? 'ring-2 ring-info ring-offset-2' : ''}
+        ${isHighlighted ? 'ring-4 ring-goal/50' : ''}
         ${isDimmed ? 'opacity-40' : ''}
       `}
       style={{
         backgroundColor: '#FEFEFE', // Panel background color
         padding: '12px',
         minWidth: '140px',
-        maxWidth: isExpanded ? '300px' : '200px',
+        maxWidth: isExpanded ? '300px' : (maxWidth ? `${maxWidth}px` : '200px'),
         minHeight: isExpanded ? '120px' : undefined,
       }}
     >
@@ -189,7 +193,7 @@ export const BaseNode = memo(({ id, nodeType, icon: Icon, data, selected, childr
       {/* B.I.10: "?" badge for incomplete goal nodes */}
       {isIncomplete && nodeType === 'goal' && (
         <div
-          className="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-goal text-white flex items-center justify-center text-[10px] font-bold"
+          className={`absolute -top-2 -right-2 w-5 h-5 rounded-full bg-goal text-white flex items-center justify-center ${typography.nodeLabel} font-bold`}
           title="Set a success threshold to enable analysis"
           data-testid="overlay-missing-threshold"
         >
@@ -200,7 +204,7 @@ export const BaseNode = memo(({ id, nodeType, icon: Icon, data, selected, childr
       {/* Decision Graph Display v2 Task 5: Sensitivity rank badge (Results mode, top 3 factors) */}
       {displayMetadata.sensitivityRank && (
         <div
-          className="absolute top-1 right-1 text-xs font-semibold text-gray-400 bg-white/80 px-1.5 py-0.5 rounded"
+          className={`absolute top-1 right-1 ${typography.nodeLabel} font-semibold text-gray-400 bg-white/80 px-1.5 py-0.5 rounded`}
           style={{ pointerEvents: 'none' }}
           title={`Key driver #${displayMetadata.sensitivityRank}`}
         >
@@ -229,27 +233,22 @@ export const BaseNode = memo(({ id, nodeType, icon: Icon, data, selected, childr
           marginBottom: '8px',
         }}
       >
+        {/* T1: Shape indicator (Design System v3 §10.1) + sentence-case type label */}
+        <NodeShapeIndicator nodeKind={nodeType} size={12} />
         <span
-          className={colors.text}
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            lineHeight: 1,
-          }}
-          aria-hidden="true"
+          className={`${typography.nodeLabel} ${colors.text} font-semibold leading-none`}
         >
-          <Icon size={16} strokeWidth={2} />
-        </span>
-
-        <span
-          className={`${typography.caption} ${colors.text} uppercase tracking-wide font-semibold`}
-        >
-          {nodeType}
+          {NODE_REGISTRY[nodeType]?.label ?? nodeType}
         </span>
 
         {/* S1-UNK: Warning chip for unknown backend kinds */}
         {data?.unknownKind && data?.originalKind && (
           <UnknownKindWarning originalKind={data.originalKind} />
+        )}
+
+        {/* Optional right-aligned header content (e.g. category label) */}
+        {headerSlot && (
+          <span className="ml-auto">{headerSlot}</span>
         )}
 
         {/* Expand/collapse chevron for nodes with description */}

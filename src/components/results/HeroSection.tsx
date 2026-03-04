@@ -619,15 +619,22 @@ export function HeroSection({
   // =========================================================================
   // V14: Build entity lookup for linkifyCoachingText
   // =========================================================================
+  // Task 1: option GraphLinks use text-success for winner (non-indeterminate) or text-info for all (indeterminate)
   const linkEntities = useMemo<LinkEntity[]>(() => {
     const entities: LinkEntity[] = []
-    // Options
+    // Options — colour by decisionState and winner status
     if (optionWinShares) {
       for (const opt of optionWinShares) {
-        if (opt.label) entities.push({ label: opt.label, nodeId: opt.id })
+        if (opt.label) {
+          const isWinner = opt.id === winnerId
+          const optClassName = decisionState === 'indeterminate'
+            ? 'text-info'
+            : isWinner ? 'text-success' : 'text-info'
+          entities.push({ label: opt.label, nodeId: opt.id, className: optClassName })
+        }
       }
     }
-    // Top drivers (factors)
+    // Top drivers (factors) — always text-info (no winner emphasis for factors)
     if (topDrivers) {
       for (const d of topDrivers) {
         if (d.label && !entities.some(e => e.label === d.label)) {
@@ -636,7 +643,7 @@ export function HeroSection({
       }
     }
     return entities
-  }, [optionWinShares, topDrivers])
+  }, [optionWinShares, topDrivers, winnerId, decisionState])
 
   // =========================================================================
   // V14 Task 2: Near-tie headline
@@ -719,9 +726,18 @@ export function HeroSection({
   if (decisionState) {
     // Data layer sanitizes these — just null-guard for rendering
     const sanitizedDecisionStatement = coachingDecisionStatement || null
-    const sanitizedActionImplication = guardActionImplication(
+    const rawActionImplication = guardActionImplication(
       coachingActionImplication, decisionState, topFragileEdge?.fromLabel,
     ) || null
+    // Task 4: suppress action implication when coaching CTA target entity matches it
+    // (avoids "Gather evidence on X" appearing twice — once in executive, once in CTA)
+    const ctaTargetLabel = topNextAction?.targetLabel
+    const actionImplicationSuppressed = !!(
+      rawActionImplication
+      && ctaTargetLabel
+      && rawActionImplication.includes(ctaTargetLabel)
+    )
+    const sanitizedActionImplication = actionImplicationSuppressed ? null : rawActionImplication
     const sanitizedParagraph = coachingParagraph || null
 
     return (
@@ -730,26 +746,54 @@ export function HeroSection({
 
           {/* ── Task 2: Headline ─────────────────────────────────── */}
           {v14Headline.isNearTie ? (
-            <h2 className={`${typography.panelHeader} leading-snug`}>
-              <div><span className="text-text-header">Objective: </span><span className="text-text-header">{goalLabel || 'your goal'}</span></div>
-              <div>
-                <span className="text-text-header">Result: </span>
-                <GraphLink nodeId={v14Headline.idA} label={v14Headline.optA} className="text-info">
-                  {v14Headline.optA}
-                </GraphLink>
-                {' and '}
-                <GraphLink nodeId={v14Headline.idB} label={v14Headline.optB} className="text-info">
-                  {v14Headline.optB}
-                </GraphLink>
-                {' are too close to separate'}
+            <div className="space-y-0.5">
+              <div className="flex items-baseline gap-1.5">
+                <span className={`${typography.panelMeta} text-text-light flex-shrink-0`}>Goal</span>
+                {goalNodeId ? (
+                  <button
+                    type="button"
+                    onClick={() => focusNodeById(goalNodeId)}
+                    className={`${typography.panelHeader} text-info cursor-pointer hover:underline focus:outline-none text-left`}
+                  >
+                    {goalLabel || 'your goal'}
+                  </button>
+                ) : (
+                  <span className={`${typography.panelHeader} text-text-header`}>{goalLabel || 'your goal'}</span>
+                )}
               </div>
-            </h2>
+              <div className="flex items-baseline gap-1.5 flex-wrap">
+                <span className={`${typography.panelMeta} text-text-light flex-shrink-0`}>Result</span>
+                <span className={`${typography.panelHeader} text-text-header`}>
+                  <GraphLink nodeId={v14Headline.idA} label={v14Headline.optA} className="text-info">
+                    {v14Headline.optA}
+                  </GraphLink>
+                  {' and '}
+                  <GraphLink nodeId={v14Headline.idB} label={v14Headline.optB} className="text-info">
+                    {v14Headline.optB}
+                  </GraphLink>
+                  {' are too close to call'}
+                </span>
+              </div>
+            </div>
           ) : (
-            <h2 className={`${typography.panelHeader} leading-snug`}>
-              <div><span className="text-text-header">Objective: </span><span className="text-text-header">{goalLabel || 'your goal'}</span></div>
-              <div>
-                <span className="text-text-header">Result: </span>
-                <span className="text-text-header">
+            <div className="space-y-0.5">
+              <div className="flex items-baseline gap-1.5">
+                <span className={`${typography.panelMeta} text-text-light flex-shrink-0`}>Goal</span>
+                {goalNodeId ? (
+                  <button
+                    type="button"
+                    onClick={() => focusNodeById(goalNodeId)}
+                    className={`${typography.panelHeader} text-info cursor-pointer hover:underline focus:outline-none text-left`}
+                  >
+                    {goalLabel || 'your goal'}
+                  </button>
+                ) : (
+                  <span className={`${typography.panelHeader} text-text-header`}>{goalLabel || 'your goal'}</span>
+                )}
+              </div>
+              <div className="flex items-baseline gap-1.5 flex-wrap">
+                <span className={`${typography.panelMeta} text-text-light flex-shrink-0`}>Result</span>
+                <span className={`${typography.panelHeader} text-text-header`}>
                   {v14Headline.text ?? (
                     <>
                       <GraphLink nodeId={winnerId} label={winnerLabel} className="text-success">
@@ -760,7 +804,7 @@ export function HeroSection({
                   )}
                 </span>
               </div>
-            </h2>
+            </div>
           )}
 
 
@@ -812,7 +856,7 @@ export function HeroSection({
                   <GraphLink
                     nodeId={v14ConditionCard.altId}
                     label={v14ConditionCard.altLabel}
-                    className={`${typography.panelBody} inline`}
+                    className={`${typography.panelBody} inline ${decisionState === 'indeterminate' ? 'text-info' : 'text-success'}`}
                   >
                     {v14ConditionCard.altLabel}
                   </GraphLink>
@@ -1023,14 +1067,27 @@ export function HeroSection({
     <div className="space-y-4" data-testid="hero-section">
       {/* Main hero card */}
       <div className="p-4 bg-panel border border-panel-border rounded-lg">
-        {/* V9.2 Headline — Objective / Result format */}
-        <h2 className={`${typography.panelHeader} leading-snug`}>
-          <div><span className="text-text-header">Objective: </span><span className="text-text-header">{goalLabel || 'your goal'}</span></div>
-          <div>
-            <span className="text-text-header">Result: </span>
-            <span className={recommendationStability != null && recommendationStability < 0.55 ? 'text-text-header' : 'text-success'}>{headline.main}</span>
+        {/* V9.2 Headline — Goal / Result format */}
+        <div className="space-y-0.5">
+          <div className="flex items-baseline gap-1.5">
+            <span className={`${typography.panelMeta} text-text-light flex-shrink-0`}>Goal</span>
+            {goalNodeId ? (
+              <button
+                type="button"
+                onClick={() => focusNodeById(goalNodeId)}
+                className={`${typography.panelHeader} text-info cursor-pointer hover:underline focus:outline-none text-left`}
+              >
+                {goalLabel || 'your goal'}
+              </button>
+            ) : (
+              <span className={`${typography.panelHeader} text-text-header`}>{goalLabel || 'your goal'}</span>
+            )}
           </div>
-        </h2>
+          <div className="flex items-baseline gap-1.5 flex-wrap">
+            <span className={`${typography.panelMeta} text-text-light flex-shrink-0`}>Result</span>
+            <span className={`${typography.panelHeader} ${recommendationStability != null && recommendationStability < 0.55 ? 'text-text-header' : 'text-success'}`}>{headline.main}</span>
+          </div>
+        </div>
         {headline.sub && (
           <p className={`${typography.panelBody} text-text-body mt-1`}>
             {headline.sub}

@@ -51,9 +51,9 @@ const provenanceConfig: Record<ProvenanceType, {
   'template': {
     label: 'From Template',
     icon: RefreshCw,
-    bg: 'bg-info-50',
-    text: 'text-info-700',
-    border: 'border-info-200',
+    bg: 'bg-info-light',
+    text: 'text-info',
+    border: 'border-info/30',
   },
   'inferred': {
     label: 'Inferred',

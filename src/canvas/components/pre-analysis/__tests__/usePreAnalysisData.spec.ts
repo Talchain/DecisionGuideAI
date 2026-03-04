@@ -361,6 +361,21 @@ describe('usePreAnalysisData', () => {
       expect(result.current.evidenceQuality.level).toBe('high')
       expect(result.current.evidenceQuality.ratio).toBe(1)
     })
+
+    it('returns nonAiCount and totalCount for source distribution tooltip', () => {
+      mockUseCanvasStore.mockImplementation(createMockStore({
+        nodes: [
+          { id: 'f1', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'F1', observed_state: { source: 'user' } } },
+          { id: 'f2', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'F2', observed_state: { source: 'ai' } } },
+          { id: 'f3', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'F3', observed_state: { source: 'ai' } } },
+        ],
+      }))
+
+      const { result } = renderHook(() => usePreAnalysisData())
+
+      expect(result.current.evidenceQuality.nonAiCount).toBe(1)
+      expect(result.current.evidenceQuality.totalCount).toBe(3)
+    })
   })
 
   describe('Loading State', () => {
@@ -687,6 +702,7 @@ describe('usePreAnalysisData', () => {
 
     it('formats factor with cap=1, unit="" and raw_value as qualitative level', () => {
       // When raw_value is present but unit is empty and cap is 1, still qualitative
+      // 0.8 maps to 'very high' with the corrected boundaries (v11 boundary fix)
       mockUseCanvasStore.mockImplementation(createMockStore({
         nodes: [
           {
@@ -706,7 +722,7 @@ describe('usePreAnalysisData', () => {
       expect(result.current.improvementsByCategory.verify).toContainEqual(
         expect.objectContaining({
           key: 'verify_factor1',
-          detail: 'high',
+          detail: 'very high',
         })
       )
     })
@@ -1109,6 +1125,7 @@ describe('usePreAnalysisData', () => {
 
     it('displays qualitative level for binary factor with value 0.6', () => {
       // no raw_value, value in 0–1 range, no unit/cap → qualitative level
+      // 0.6 maps to 'high' with v11 corrected boundaries (>= 0.6 && < 0.8)
       mockUseCanvasStore.mockImplementation(createMockStore({
         nodes: [
           {
@@ -1128,7 +1145,7 @@ describe('usePreAnalysisData', () => {
       expect(result.current.improvementsByCategory.verify).toContainEqual(
         expect.objectContaining({
           key: 'verify_factor1',
-          detail: 'moderate',
+          detail: 'high',
         })
       )
     })
@@ -3000,6 +3017,339 @@ describe('usePreAnalysisData', () => {
         expect.objectContaining({ key: 'verify_factor1' })
       )
       expect(result.current.totalReviewableFactorsCount).toBe(0)
+    })
+  })
+
+  // Task 3: CEE coaching.summary as primary coaching line
+  describe('Task 3: coaching_summary from CEE', () => {
+    it('uses CEE coaching_summary as primary coaching line when present', () => {
+      mockUseCanvasStore.mockImplementation((selector: (state: unknown) => unknown) => {
+        const state = {
+          nodes: [
+            { id: 'opt1', type: 'option', position: { x: 0, y: 0 }, data: { label: 'Option A' } },
+            { id: 'opt2', type: 'option', position: { x: 0, y: 0 }, data: { label: 'Status Quo', is_baseline: true } },
+          ],
+          edges: [],
+          ceeAnalysisReady: {
+            status: 'ready',
+            goal_node_id: 'goal1',
+            options: [
+              { id: 'opt1', interventions: {} },
+              { id: 'opt2', interventions: {} },
+            ],
+            coaching_summary: 'Your decision hinges on the unverified impact of hiring on financial risk.',
+          },
+          runMeta: null,
+        }
+        return selector(state)
+      })
+
+      const { result } = renderHook(() => usePreAnalysisData())
+
+      expect(result.current.coachingSummary).toBe(
+        'Your decision hinges on the unverified impact of hiring on financial risk.'
+      )
+    })
+
+    it('returns null fallback when coaching_summary is absent and no graph is loaded', () => {
+      mockUseCanvasStore.mockImplementation((selector: (state: unknown) => unknown) => {
+        const state = {
+          nodes: [],
+          edges: [],
+          ceeAnalysisReady: {
+            status: 'ready',
+            goal_node_id: 'goal1',
+            options: [],
+            // No coaching_summary field
+          },
+          runMeta: null,
+        }
+        return selector(state)
+      })
+
+      const { result } = renderHook(() => usePreAnalysisData())
+
+      // No coaching_summary + no graph nodes → canRun=false → no ready message → null
+      // (count-based strings require tiers/quality data from an actual graph)
+      expect(result.current.coachingSummary).toBeNull()
+      // Crucially: it is NOT the CEE summary string
+      expect(result.current.coachingSummary).not.toBe(
+        'Your decision hinges on the unverified impact of hiring on financial risk.'
+      )
+    })
+
+    it('returns null coaching summary when coaching_summary is null', () => {
+      mockUseCanvasStore.mockImplementation((selector: (state: unknown) => unknown) => {
+        const state = {
+          nodes: [],
+          edges: [],
+          ceeAnalysisReady: {
+            status: 'ready',
+            goal_node_id: 'goal1',
+            options: [],
+            coaching_summary: null,
+          },
+          runMeta: null,
+        }
+        return selector(state)
+      })
+      mockExistingHook.mockReturnValue({
+        canRun: false,
+        hasBlockers: true,
+        allIssues: [{ type: 'blocker', message: 'Fix first', action: null }],
+        fixFirstIssues: [],
+        remainingCount: 0,
+        limitingFactor: null,
+        quality: null,
+        readyOptionsCount: 0,
+        totalOptionsCount: 0,
+        edgeProvenance: null,
+        isLoading: false,
+      })
+
+      const { result } = renderHook(() => usePreAnalysisData())
+
+      // Blockers present → coachingSummary is null (blockers section handles it)
+      expect(result.current.coachingSummary).toBeNull()
+    })
+  })
+
+  // Task 6: SAME_LEVER_OPTIONS detail field
+  describe('Task 1 (v12): goal_baseline_missing fires when goal has no observed_state', () => {
+    it('fires when goal node has NO observed_state at all', () => {
+      mockUseCanvasStore.mockImplementation((selector: (state: unknown) => unknown) => {
+        const state = {
+          nodes: [
+            // Goal node with no observed_state — matches the mid-market debug scenario
+            { id: 'goal1', type: 'goal', position: { x: 0, y: 0 }, data: { label: 'Reach 200 Mid-Market Customers' } },
+          ],
+          edges: [],
+          ceeAnalysisReady: {
+            status: 'ready',
+            goal_node_id: 'goal1',
+            options: [],
+          },
+          runMeta: null,
+        }
+        return selector(state)
+      })
+
+      const { result } = renderHook(() => usePreAnalysisData())
+
+      const check = result.current.qualityChecks.find(c => c.id === 'goal_baseline_missing')
+      expect(check).toBeDefined()
+      expect(check?.cta).toBe('Set baseline')
+    })
+
+    it('fires when goal has observed_state.value but no baseline', () => {
+      mockUseCanvasStore.mockImplementation((selector: (state: unknown) => unknown) => {
+        const state = {
+          nodes: [
+            { id: 'goal1', type: 'goal', position: { x: 0, y: 0 }, data: {
+              label: 'Goal',
+              observedState: { value: 0.5, baseline: null },
+            }},
+          ],
+          edges: [],
+          ceeAnalysisReady: {
+            status: 'ready',
+            goal_node_id: 'goal1',
+            options: [],
+          },
+          runMeta: null,
+        }
+        return selector(state)
+      })
+
+      const { result } = renderHook(() => usePreAnalysisData())
+
+      const check = result.current.qualityChecks.find(c => c.id === 'goal_baseline_missing')
+      expect(check).toBeDefined()
+    })
+
+    it('does NOT fire when goal has an explicit baseline different from value', () => {
+      mockUseCanvasStore.mockImplementation((selector: (state: unknown) => unknown) => {
+        const state = {
+          nodes: [
+            { id: 'goal1', type: 'goal', position: { x: 0, y: 0 }, data: {
+              label: 'Goal',
+              observedState: { value: 0.5, baseline: 0.2 }, // explicit baseline
+            }},
+          ],
+          edges: [],
+          ceeAnalysisReady: {
+            status: 'ready',
+            goal_node_id: 'goal1',
+            options: [],
+          },
+          runMeta: null,
+        }
+        return selector(state)
+      })
+
+      const { result } = renderHook(() => usePreAnalysisData())
+
+      const check = result.current.qualityChecks.find(c => c.id === 'goal_baseline_missing')
+      expect(check).toBeUndefined()
+    })
+  })
+
+  describe('Task 2 (v12): unchanged intervention suppression', () => {
+    it('omits intervention when qualitative value equals current value', () => {
+      mockUseCanvasStore.mockImplementation((selector: (state: unknown) => unknown) => {
+        const state = {
+          nodes: [
+            { id: 'opt1', type: 'option', position: { x: 0, y: 0 }, data: { label: 'Partner' } },
+            // factor with observedState.value = 0.5 (qualitative, no cap/unit)
+            { id: 'fac1', type: 'factor', position: { x: 0, y: 0 }, data: {
+              label: 'Integration Complexity',
+              observedState: { value: 0.5, cap: null, unit: null },
+            }},
+          ],
+          edges: [],
+          ceeAnalysisReady: {
+            status: 'ready',
+            goal_node_id: 'goal1',
+            options: [
+              { id: 'opt1', status: 'ready', interventions: { fac1: 0.5 } }, // same as current
+            ],
+          },
+          runMeta: null,
+        }
+        return selector(state)
+      })
+
+      const { result } = renderHook(() => usePreAnalysisData())
+
+      const option = result.current.optionPreviews.find(o => o.id === 'opt1')
+      expect(option).toBeDefined()
+      // Intervention should be filtered out (0.5 === 0.5)
+      expect(option?.interventions).toHaveLength(0)
+    })
+
+    it('keeps intervention when qualitative value differs from current', () => {
+      mockUseCanvasStore.mockImplementation((selector: (state: unknown) => unknown) => {
+        const state = {
+          nodes: [
+            { id: 'opt1', type: 'option', position: { x: 0, y: 0 }, data: { label: 'Option A' } },
+            { id: 'fac1', type: 'factor', position: { x: 0, y: 0 }, data: {
+              label: 'Sales Cycle',
+              observedState: { value: 0.3, cap: null, unit: null },
+            }},
+          ],
+          edges: [],
+          ceeAnalysisReady: {
+            status: 'ready',
+            goal_node_id: 'goal1',
+            options: [
+              { id: 'opt1', status: 'ready', interventions: { fac1: 0.7 } }, // differs from 0.3
+            ],
+          },
+          runMeta: null,
+        }
+        return selector(state)
+      })
+
+      const { result } = renderHook(() => usePreAnalysisData())
+
+      const option = result.current.optionPreviews.find(o => o.id === 'opt1')
+      expect(option?.interventions).toHaveLength(1)
+      expect(option?.interventions[0].factorId).toBe('fac1')
+    })
+
+    it('keeps intervention when current value is unknown (no observed_state)', () => {
+      mockUseCanvasStore.mockImplementation((selector: (state: unknown) => unknown) => {
+        const state = {
+          nodes: [
+            { id: 'opt1', type: 'option', position: { x: 0, y: 0 }, data: { label: 'Option A' } },
+            { id: 'fac1', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'Unknown Factor' } },
+          ],
+          edges: [],
+          ceeAnalysisReady: {
+            status: 'ready',
+            goal_node_id: 'goal1',
+            options: [
+              { id: 'opt1', status: 'ready', interventions: { fac1: 0.5 } },
+            ],
+          },
+          runMeta: null,
+        }
+        return selector(state)
+      })
+
+      const { result } = renderHook(() => usePreAnalysisData())
+
+      const option = result.current.optionPreviews.find(o => o.id === 'opt1')
+      // Unknown baseline → always show
+      expect(option?.interventions).toHaveLength(1)
+    })
+
+    it('shows only changed intervention when one matches baseline and one does not', () => {
+      mockUseCanvasStore.mockImplementation((selector: (state: unknown) => unknown) => {
+        const state = {
+          nodes: [
+            { id: 'opt1', type: 'option', position: { x: 0, y: 0 }, data: { label: 'Option A' } },
+            { id: 'fac1', type: 'factor', position: { x: 0, y: 0 }, data: {
+              label: 'Unchanged Factor',
+              observedState: { value: 0.5, cap: null, unit: null },
+            }},
+            { id: 'fac2', type: 'factor', position: { x: 0, y: 0 }, data: {
+              label: 'Changed Factor',
+              observedState: { value: 0.3, cap: null, unit: null },
+            }},
+          ],
+          edges: [],
+          ceeAnalysisReady: {
+            status: 'ready',
+            goal_node_id: 'goal1',
+            options: [
+              { id: 'opt1', status: 'ready', interventions: { fac1: 0.5, fac2: 0.7 } },
+            ],
+          },
+          runMeta: null,
+        }
+        return selector(state)
+      })
+
+      const { result } = renderHook(() => usePreAnalysisData())
+
+      const option = result.current.optionPreviews.find(o => o.id === 'opt1')
+      expect(option?.interventions).toHaveLength(1)
+      expect(option?.interventions[0].factorId).toBe('fac2')
+    })
+  })
+
+  describe('Task 6: same_levers quality check detail', () => {
+    it('includes detail text in same_levers quality check', () => {
+      // Create two options that share >80% of affected factors
+      mockUseCanvasStore.mockImplementation((selector: (state: unknown) => unknown) => {
+        const state = {
+          nodes: [
+            { id: 'opt1', type: 'option', position: { x: 0, y: 0 }, data: { label: 'Option A' } },
+            { id: 'opt2', type: 'option', position: { x: 0, y: 0 }, data: { label: 'Option B' } },
+            { id: 'fac1', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'Factor 1' } },
+          ],
+          edges: [],
+          ceeAnalysisReady: {
+            status: 'ready',
+            goal_node_id: 'goal1',
+            options: [
+              { id: 'opt1', status: 'ready', interventions: { fac1: 0.8 } },
+              { id: 'opt2', status: 'ready', interventions: { fac1: 0.3 } },
+            ],
+          },
+          runMeta: null,
+        }
+        return selector(state)
+      })
+
+      const { result } = renderHook(() => usePreAnalysisData())
+
+      const sameLeverCheck = result.current.qualityChecks.find(c => c.id === 'same_levers')
+      expect(sameLeverCheck).toBeDefined()
+      expect(sameLeverCheck?.detail).toBe(
+        'When options change the same drivers, results may cluster together \u2014 consider whether your options represent genuinely different approaches'
+      )
     })
   })
 })

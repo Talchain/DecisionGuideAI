@@ -39,7 +39,7 @@ export function GoalThresholdEditor() {
 
   return (
     <div className="pt-2 border-t border-panel-border">
-      <h4 className={`${typography.panelMeta} font-medium text-text-body mb-2`}>
+      <h4 className={`${typography.panelMeta} text-text-body mb-2`}>
         Success threshold
       </h4>
 

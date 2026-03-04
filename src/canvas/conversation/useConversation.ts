@@ -9,8 +9,20 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
 import { useCanvasStore } from '../store'
 import { callOrchestratorTurn, OrchestratorError } from './turnService'
-import { isOrchestratorV2Enabled } from '../../flags'
+import { isOrchestratorV2Enabled, isV3SystemEventsEnabled } from '../../flags'
 import { useGuidanceStore } from '../stores/guidanceStore'
+import { serializeSystemEvent } from './systemEvents'
+import {
+  isSuccessfulAnalysis,
+  sanitizeV2RunResponse,
+  validateV2RunResponseFull,
+} from '../../adapters/plot/v2'
+import {
+  mapV2ResponseToReportV1,
+  createEnrichmentFromV2Response,
+  synthesizeCeeReviewFromV2,
+  synthesizeCeeTraceFromV2,
+} from '../../adapters/plot/v2/responseMapper'
 import type {
   ConversationMessage,
   ConversationBlock,
@@ -251,14 +263,28 @@ export function useConversation(): UseConversationReturn {
     (text: string): OrchestratorTurnRequest => {
       const store = useCanvasStore.getState()
       const { nodeIds, edgeIds } = store.selection
+
+      // Dev assertion: full graph must include structural fields (kind on nodes,
+      // strength/weight on edges). Catches accidental compact-form regression.
+      if (import.meta.env.DEV) {
+        const hasKind = store.nodes.length === 0 || store.nodes.some((n) => n.data?.kind !== undefined)
+        const hasEdgeData = store.edges.length === 0 || store.edges.some((e) => e.data !== undefined)
+        if (!hasKind || !hasEdgeData) {
+          console.warn(
+            '[buildRequest] graph_state may be missing structural fields. ' +
+            'Nodes should have data.kind; edges should have data. Got:',
+            { hasKind, hasEdgeData, nodeCount: store.nodes.length, edgeCount: store.edges.length },
+          )
+        }
+      }
+
       return {
         scenario_id: store.currentScenarioId ?? `session-${Date.now()}`,
         message: text,
         conversation_history: buildHistory(messages, 5),
         graph_state: {
-          node_count: store.nodes.length,
-          edge_count: store.edges.length,
-          has_goal: store.nodes.some((n) => n.type === 'goal'),
+          nodes: store.nodes,
+          edges: store.edges,
         },
         analysis_state: {
           has_results: store.results.status === 'complete',
@@ -283,6 +309,51 @@ export function useConversation(): UseConversationReturn {
 
       // Update guidance items (replaces previous array; clears stale active ID)
       useGuidanceStore.getState().setGuidanceItems(envelope.guidance_items ?? [])
+
+      // A.9 Task 1: Hydrate results store when envelope carries analysis results
+      const store = useCanvasStore.getState()
+      if (envelope.analysis_response) {
+        const raw = envelope.analysis_response
+        // Guard: skip write if this response_hash is already in the store
+        if (raw.response_hash && raw.response_hash === store.results.hash) {
+          if (import.meta.env.DEV) {
+            console.log('[handleEnvelope] Skipping duplicate analysis response (same hash)', raw.response_hash)
+          }
+        } else if (isSuccessfulAnalysis(raw)) {
+          try {
+            // Apply the same validate → sanitize → map pipeline as the direct path
+            validateV2RunResponseFull(raw) // soft warnings only; don't block on them
+            const result = sanitizeV2RunResponse(raw)
+            const report = mapV2ResponseToReportV1(result, { seed: store.results.seed })
+            const enrichment = createEnrichmentFromV2Response(result)
+            const ceeReviewV1 = synthesizeCeeReviewFromV2(result)
+            const ceeTraceV1 = synthesizeCeeTraceFromV2(result, undefined, undefined)
+
+            store.resultsComplete({
+              report,
+              hash: result.response_hash,
+              enrichment,
+              ceeReviewV1,
+              ceeTraceV1,
+              resultsSource: 'conversation',
+            })
+          } catch (err) {
+            // Non-fatal: envelope analysis wiring failed — log and continue
+            // The conversation message will still be shown.
+            if (import.meta.env.DEV) {
+              console.error('[handleEnvelope] Failed to hydrate results from envelope:', err)
+            }
+          }
+        }
+      }
+
+      // A.9 Task 4: Propagate analysis error from envelope to results panel
+      if (envelope.analysis_error && !envelope.analysis_response) {
+        store.resultsError({
+          code: envelope.analysis_error.code,
+          message: envelope.analysis_error.message,
+        })
+      }
 
       // Build action chips from suggested_actions (enforced budget)
       const chips = enforceChipBudget([], envelope.suggested_actions ?? [])
@@ -395,11 +466,20 @@ export function useConversation(): UseConversationReturn {
 
       try {
         const request = buildRequest(message)
-        // Attach system_event when provided, including client_turn_id for correlation
+        // Attach system_event at the wire boundary.
+        // When ENABLE_V3_SYSTEM_EVENTS is ON: serialize to CEE v3 format
+        // { event_type, timestamp, event_id, details }. Unknown types are
+        // skipped by serializeSystemEvent (returns null) to prevent 400s.
+        // When OFF: send the raw internal { type, payload } shape.
         if (systemEvent) {
-          request.system_event = {
-            ...systemEvent,
-            payload: { ...systemEvent.payload, client_turn_id: request.client_turn_id },
+          if (isV3SystemEventsEnabled()) {
+            const wire = serializeSystemEvent(systemEvent)
+            if (wire !== null) {
+              request.system_event = wire
+            }
+            // null means unknown type — skipped, no system_event sent this turn
+          } else {
+            request.system_event = systemEvent
           }
         }
         const envelope = await callOrchestratorTurn(request, controller.signal)

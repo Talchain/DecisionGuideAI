@@ -1,12 +1,12 @@
 # Olumi Design System — Quick Reference
 
-> Full specification: [`docs/Design/Olumi_Design_System_v2_1.md`](docs/Design/Olumi_Design_System_v2_1.md)
+> Full specification: [`docs/Design/Olumi_Design_System_v3.md`](docs/Design/Olumi_Design_System_v3.md)
 
 ## Philosophy
 
-- **Brand-first**: Use brand palette colors, only stray when 100% necessary
-- **Two shades per color**: Main (text/icons) + Light (backgrounds)
-- **Borders via opacity**: Use main color at 30% opacity — never add extra shade tokens
+- **Three-channel visual system:** Shapes (nouns) = what something is · Colour (adjectives) = how it's doing · Icons (verbs) = what you can do. No channel should duplicate another.
+- **Two shades per colour**: Main (text/icons) + Light (backgrounds)
+- **Borders via opacity**: Use main colour at 30% opacity — never add extra shade tokens
 - **Single font**: Inter throughout the entire application
 
 ## Typography
@@ -61,18 +61,60 @@ All side panel UI (results, inspector, issues, templates) uses **only three size
 - **No font-weight overrides on panel tokens:** Each token defines its own weight. Do not add `font-medium`, `font-semibold`, or `font-bold` alongside a panel token. If you need semibold at 14px, use `panelHeader` — not `panelBody font-semibold`.
 - Max line length: 65–75 characters for readability
 
-## Color Reference
+## Iconography
 
-All colors defined in `src/styles/brand.css`, mapped in `tailwind.config.js`.
+**Library:** Lucide (`lucide-react`). No other icon libraries. No emoji in production UI.
 
-### Text Colors
+### Sizing
+
+| Context | Size | Tailwind |
+|---------|------|----------|
+| Canvas node badge / panel inline | 14px | `w-3.5 h-3.5` |
+| Panel section header | 16px | `w-4 h-4` |
+| Toolbar / navigation | 20px | `w-5 h-5` |
+| Empty state | 40px | `w-10 h-10` |
+
+### Colour rule
+
+Icons inherit colour from context — no fixed colours. Follow semantic layer: `text-success`, `text-danger`, `text-info`, `text-warning` for status contexts. `text-text-light` at rest for neutral contexts.
+
+### Visibility tiers
+
+- **Tier 1 — Navigation** (always visible): `ChevronDown`, `ChevronRight`, `X`
+- **Tier 2 — Actions** (hover/focus only, tooltip required): `Pencil`, `Link`, `Check`, `Plus`, `ExternalLink`
+- **Tier 3 — Status** (always visible, replaces text labels): `CheckCircle`, `AlertTriangle`, `Info`
+
+### Node-type icons (off-canvas use only)
+
+| Node type | Icon |
+|-----------|------|
+| Goal | `Target` |
+| Decision | `GitBranch` |
+| Option | `Lightbulb` |
+| Factor | `Settings` |
+| Risk | `AlertTriangle` |
+| Outcome | `TrendingUp` |
+
+On the canvas, shapes identify node type — icons are off-canvas only (panel lists, conversation blocks, search results).
+
+### Space rules
+
+- Icon-only buttons require tooltips (mandatory, 300ms delay). Minimum touch target 44×44px.
+- Maximum three icon actions per row — overflow to `MoreHorizontal` menu.
+- No icons in running text or descriptions.
+
+## Colour Reference
+
+All colours defined in `src/styles/brand.css`, mapped in `tailwind.config.js`.
+
+### Text Colours
 
 | Token | Hex | Tailwind | Usage |
 |-------|-----|----------|-------|
 | `--text-header` | #262626 | `text-text-header` | Headlines, emphasis |
 | `--text-body` | #3F3F3E | `text-text-body` | Body text, paragraphs |
 | `--text-light` | #908D8D | `text-text-light` | Muted text, captions |
-| `--text-on-color` | #FFFFFF | — | Text on colored backgrounds |
+| `--text-on-color` | #FFFFFF | — | Text on coloured backgrounds |
 
 ### Surfaces & Backgrounds
 
@@ -83,18 +125,18 @@ All colors defined in `src/styles/brand.css`, mapped in `tailwind.config.js`.
 | `--bg-panel-hover` | #FEF9F3 | `bg-panel-hover` | Hover state backgrounds |
 | `--border-default` | #EEE6D8 | `border-panel-border` | Default borders, dividers |
 
-### Semantic Colors
+### Semantic Colours
 
-Each color has exactly TWO shades: **main** (text/icons) + **light** (backgrounds). Borders use `border-{color}/30`.
+Each colour has exactly TWO shades: **main** (text/icons) + **light** (backgrounds). Borders use `border-{colour}/30`.
 
-| Color | Main | Light | Usage |
-|-------|------|-------|-------|
+| Colour | Main | Light | Usage |
+|--------|------|-------|-------|
 | **Danger** | #EA7B4B | #FFB393 | Errors, risks, critical |
 | **Success** | #67C89E | #B8E2D0 | Positive outcomes, confirmations |
 | **Info** | #63ADCF | #BAD7E4 | Informational, decisions, navigation |
 | **Warning** | #FFA656 | #FCC798 | Cautions, alerts |
 
-### Node-Specific Colors
+### Node-Specific Colours
 
 | Node Type | Main | Light | Usage |
 |-----------|------|-------|-------|
@@ -107,10 +149,10 @@ Each color has exactly TWO shades: **main** (text/icons) + **light** (background
 
 ### Interactive States
 
-Derived from main colors: `hover` (10% darker), `active` (20% darker), `disabled` (40% opacity).
+Derived from main colours: `hover` (10% darker), `active` (20% darker), `disabled` (40% opacity).
 
 ```tsx
-className="bg-primary hover:bg-primary-hover active:bg-primary-active disabled:bg-primary-disabled"
+className="bg-primary text-text-header hover:bg-primary-hover active:bg-primary-active disabled:bg-primary-disabled"
 ```
 
 ## Patterns
@@ -130,18 +172,18 @@ className="border-danger-200"  // DOESN'T EXIST
 
 ## Legacy Aliases (Migration In Progress)
 
-These aliases are defined in `brand.css` and `tailwind.config.js` for backward compatibility. They are still **heavily used** across the codebase (60-105 files each for the common ones). New code should use the semantic names.
+These aliases are defined in `brand.css` and `tailwind.config.js` for backward compatibility. **New code MUST use semantic names. When touching a file that uses legacy tokens, migrate those references.**
 
-| Legacy | Semantic Replacement |
-|--------|---------------------|
-| `ink-900` | `text-header` |
-| `paper-50` | `panel` |
-| `sand-200` | `panel-border` |
-| `sun-500` | `goal` |
-| `mint-500` | `success` |
-| `sky-500` | `info` |
-| `carrot-500` | `danger` |
-| `lilac-400` | `option` |
+| Legacy | Semantic Replacement (full Tailwind class) |
+|--------|---------------------------------------------|
+| `ink-900` | `text-text-header` |
+| `paper-50` | `bg-panel` |
+| `sand-200` | `border-panel-border` |
+| `sun-500` | `text-goal` / `bg-primary` |
+| `mint-500` | `text-success` |
+| `sky-500` | `text-info` |
+| `carrot-500` | `text-danger` |
+| `lilac-400` | `text-option` |
 
 ## Quick Reference
 
@@ -156,15 +198,28 @@ These aliases are defined in `brand.css` and `tailwind.config.js` for backward c
 | Warning background | `bg-warning-light` |
 | Info text | `text-info` |
 | Info background | `bg-info-light` |
-| Primary button | `bg-primary hover:bg-primary-hover` |
+| Primary button | `bg-primary text-text-header hover:bg-primary-hover` |
 | Body text | `text-text-body` |
 | Muted text | `text-text-light` |
 | Panel background | `bg-panel` |
 | Default border | `border-panel-border` |
 
+## Developer Checklist
+
+Before shipping any UI work:
+
+- [ ] No raw hex values in CSS/TSX
+- [ ] No raw font-size/font-weight utilities (use tokens)
+- [ ] No emoji — use Lucide icons
+- [ ] ARIA labels on all interactive elements (especially icon-only buttons)
+- [ ] Tooltips on all icon-only buttons (mandatory)
+- [ ] Colour is not the sole information channel
+- [ ] All 10–11px text accessible at 12–14px via tooltip/expand
+- [ ] Focus ring present on all interactive elements (`focus:ring-2 focus:ring-offset-2 focus:ring-info`)
+
 ## Key Files
 
-- `docs/Design/Olumi_Design_System_v2_1.md` — Full design system specification
+- `docs/Design/Olumi_Design_System_v3.md` — Full design system specification
 - `src/styles/brand.css` — CSS custom properties (colour source of truth)
 - `tailwind.config.js` — Tailwind colour mappings
 - `src/styles/typography.ts` — Typography tokens

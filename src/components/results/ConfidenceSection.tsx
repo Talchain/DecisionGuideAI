@@ -59,35 +59,35 @@ const SEVERITY_CONFIG: Record<CritiqueSeverity, {
 }> = {
   blocker: {
     icon: '⛔',
-    bgColor: 'bg-danger-50',
-    borderColor: 'border-danger-300',
-    textColor: 'text-danger-800',
+    bgColor: 'bg-danger-light',
+    borderColor: 'border-danger/30',
+    textColor: 'text-danger',
     label: 'Blocks analysis',  // Reserved for genuine pre-run validation blockers
   },
   critical: {
     icon: '⚠',
-    bgColor: 'bg-danger-50',
-    borderColor: 'border-danger-200',
-    textColor: 'text-danger-700',
+    bgColor: 'bg-danger-light',
+    borderColor: 'border-danger/30',
+    textColor: 'text-danger',
     label: 'Critical assumption',  // For high-severity fragile edges
   },
   error: {
     icon: '✕',
-    bgColor: 'bg-danger-50',
-    borderColor: 'border-danger-200',
-    textColor: 'text-danger-700',
+    bgColor: 'bg-danger-light',
+    borderColor: 'border-danger/30',
+    textColor: 'text-danger',
   },
   warning: {
     icon: '⚠',
-    bgColor: 'bg-warning-50',
-    borderColor: 'border-warning-200',
-    textColor: 'text-warning-700',
+    bgColor: 'bg-warning-light',
+    borderColor: 'border-warning/30',
+    textColor: 'text-warning',
   },
   info: {
     icon: 'ℹ',
-    bgColor: 'bg-slate-50',
-    borderColor: 'border-slate-200',
-    textColor: 'text-slate-600',
+    bgColor: 'bg-panel',
+    borderColor: 'border-panel-border',
+    textColor: 'text-text-body',
   },
 }
 
@@ -102,36 +102,36 @@ const TIER_CONFIG: Record<ConfidenceTier, {
 }> = {
   strong: {
     icon: '✓',
-    bgColor: 'bg-success-50',
-    borderColor: 'border-success-200',
-    textColor: 'text-success-800',
+    bgColor: 'bg-success-light',
+    borderColor: 'border-success/30',
+    textColor: 'text-success',
     label: 'Good foundation',
     descriptionWithItems: 'Your model captures this decision well.',
     descriptionWithoutItems: 'Your model captures this decision well.',
   },
   fair: {
     icon: '⚠',
-    bgColor: 'bg-warning-50',
-    borderColor: 'border-warning-200',
-    textColor: 'text-warning-800',
+    bgColor: 'bg-warning-light',
+    borderColor: 'border-warning/30',
+    textColor: 'text-warning',
     label: 'Fair',
     descriptionWithItems: 'Your model covers the basics. Address the items below.',
     descriptionWithoutItems: 'Your model covers the basics but could use more detail.',
   },
   needs_work: {
     icon: '⚠',
-    bgColor: 'bg-danger-50',
-    borderColor: 'border-danger-200',
-    textColor: 'text-danger-800',
+    bgColor: 'bg-danger-light',
+    borderColor: 'border-danger/30',
+    textColor: 'text-danger',
     label: 'Early sketch',
     descriptionWithItems: 'Add the missing elements below before relying on the recommendation.',
     descriptionWithoutItems: 'Add more factors and connections before relying on the recommendation.',
   },
   unknown: {
     icon: '?',
-    bgColor: 'bg-slate-50',
-    borderColor: 'border-slate-200',
-    textColor: 'text-slate-600',
+    bgColor: 'bg-panel',
+    borderColor: 'border-panel-border',
+    textColor: 'text-text-body',
     label: 'Unknown',
     descriptionWithItems: 'Unable to assess model quality.',
     descriptionWithoutItems: 'Unable to assess model quality.',
@@ -832,7 +832,7 @@ export function ConfidenceSection({
 
       {/* Task 6 (M1 Coaching): Assumptions transparency link and disclosure */}
       {assumptions && assumptions.length > 0 && (
-        <div className="space-y-2 pt-2 border-t border-slate-100">
+        <div className="space-y-2 pt-2 border-t border-panel-border/50">
           <button
             onClick={() => setShowAssumptions(!showAssumptions)}
             className={`${typography.panelBody} text-slate-500 hover:text-slate-700 flex items-center gap-1`}
@@ -845,10 +845,10 @@ export function ConfidenceSection({
             <div className="space-y-2 mt-2">
               {assumptions.map((assumption, index) => {
                 const severityConfig = {
-                  high: { icon: '⚠', bgColor: 'bg-danger-50', borderColor: 'border-danger-200', textColor: 'text-danger-700' },
-                  medium: { icon: '⚠', bgColor: 'bg-warning-50', borderColor: 'border-warning-200', textColor: 'text-warning-700' },
-                  low: { icon: 'ℹ', bgColor: 'bg-slate-50', borderColor: 'border-slate-200', textColor: 'text-slate-600' },
-                }[assumption.severity] ?? { icon: 'ℹ', bgColor: 'bg-slate-50', borderColor: 'border-slate-200', textColor: 'text-slate-600' }
+                  high: { icon: '⚠', bgColor: 'bg-danger-light', borderColor: 'border-danger/30', textColor: 'text-danger' },
+                  medium: { icon: '⚠', bgColor: 'bg-warning-light', borderColor: 'border-warning/30', textColor: 'text-warning' },
+                  low: { icon: 'ℹ', bgColor: 'bg-panel', borderColor: 'border-panel-border', textColor: 'text-text-body' },
+                }[assumption.severity] ?? { icon: 'ℹ', bgColor: 'bg-panel', borderColor: 'border-panel-border', textColor: 'text-text-body' }
 
                 const handleFocus = () => {
                   if (assumption.target) {

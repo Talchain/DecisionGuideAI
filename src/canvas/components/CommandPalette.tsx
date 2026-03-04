@@ -181,7 +181,7 @@ export function CommandPalette({ isOpen, onClose, onOpenInspector }: CommandPale
   return (
     <div className="fixed inset-0 z-[3000] flex items-start justify-center pt-32 bg-black/50" onClick={onClose}>
       <div 
-        className="bg-white rounded-2xl shadow-panel w-full max-w-2xl"
+        className="bg-white rounded-lg shadow-panel w-full max-w-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Search Input */}

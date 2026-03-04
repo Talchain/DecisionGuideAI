@@ -48,9 +48,9 @@ export function IssuesPanel({ issues, onFixIssue, onFixAll, onClose }: IssuesPan
   }
 
   return (
-    <div className="bg-panel border-l border-slate-200 w-80 flex flex-col h-full">
+    <div className="bg-panel border-l border-panel-border w-80 flex flex-col h-full">
       {/* Header */}
-      <div className="px-4 py-3 border-b border-slate-200">
+      <div className="px-4 py-3 border-b border-panel-border">
         <div className="flex items-center justify-between mb-3">
           <h3 className="font-semibold text-slate-900">Graph Issues</h3>
           <button onClick={onClose} className="p-1 hover:bg-slate-100 rounded" aria-label="Close issues panel">
@@ -182,7 +182,7 @@ function IssueCard({
           )}
 
           {showExplainer && explainer && (
-            <div className={`mt-2 px-2 py-1.5 bg-white bg-opacity-50 rounded ${typography.panelMeta} text-slate-700 border border-slate-200`}>
+            <div className={`mt-2 px-2 py-1.5 bg-white bg-opacity-50 rounded ${typography.panelMeta} text-slate-700 border border-panel-border`}>
               {explainer}
             </div>
           )}

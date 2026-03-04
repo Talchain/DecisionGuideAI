@@ -74,7 +74,7 @@ export function DegradedBanner() {
 
   return (
     <div className="fixed top-16 left-1/2 -translate-x-1/2 z-[1050] w-full max-w-2xl px-4">
-      <div className="flex items-start gap-3 px-4 py-3 rounded-lg border border-warning/30 bg-warning-light text-warning shadow-sm">
+      <div className="flex items-start gap-3 px-4 py-3 rounded-lg border border-warning/30 bg-warning-light text-warning shadow-1">
         <AlertTriangle className="w-4 h-4 mt-0.5" aria-hidden="true" />
         <div className={typography.body}>
           <p className="font-medium">

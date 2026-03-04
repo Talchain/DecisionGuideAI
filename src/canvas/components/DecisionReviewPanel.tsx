@@ -74,22 +74,22 @@ interface ReadinessHeaderProps {
 function ReadinessHeader({ readiness }: ReadinessHeaderProps) {
   const levelConfig: Record<ReadinessLevel, { bg: string; text: string; border: string; icon: React.ReactNode }> = {
     ready: {
-      bg: 'bg-success-50',
-      text: 'text-success-900',
-      border: 'border-success-200',
-      icon: <CheckCircle className="w-4 h-4 text-success-600" aria-hidden="true" />,
+      bg: 'bg-success-light',
+      text: 'text-success',
+      border: 'border-success/30',
+      icon: <CheckCircle className="w-4 h-4 text-success" aria-hidden="true" />,
     },
     caution: {
-      bg: 'bg-sun-50',
-      text: 'text-sun-900',
-      border: 'border-sun-200',
-      icon: <AlertTriangle className="w-4 h-4 text-sun-600" aria-hidden="true" />,
+      bg: 'bg-warning-light',
+      text: 'text-warning',
+      border: 'border-warning/30',
+      icon: <AlertTriangle className="w-4 h-4 text-warning" aria-hidden="true" />,
     },
     not_ready: {
-      bg: 'bg-danger-50',
-      text: 'text-danger-900',
-      border: 'border-danger-200',
-      icon: <XCircle className="w-4 h-4 text-danger-600" aria-hidden="true" />,
+      bg: 'bg-danger-light',
+      text: 'text-danger',
+      border: 'border-danger/30',
+      icon: <XCircle className="w-4 h-4 text-danger" aria-hidden="true" />,
     },
   }
 
@@ -113,10 +113,10 @@ function ReadinessHeader({ readiness }: ReadinessHeaderProps) {
               const statusIcon = factor.status === 'ok' ? '✓' : factor.status === 'warning' ? '!' : '✕'
               const statusColor =
                 factor.status === 'ok'
-                  ? 'text-success-600'
+                  ? 'text-success'
                   : factor.status === 'warning'
-                  ? 'text-sun-600'
-                  : 'text-danger-600'
+                  ? 'text-warning'
+                  : 'text-danger'
               return (
                 <li
                   key={idx}
@@ -266,9 +266,9 @@ function ReviewBlockCard({ block }: ReviewBlockCardProps) {
   }
 
   const severityConfig = {
-    low: { bg: 'bg-info-50', border: 'border-info-200', text: 'text-info-900' },
-    medium: { bg: 'bg-sun-50', border: 'border-sun-200', text: 'text-sun-900' },
-    high: { bg: 'bg-danger-50', border: 'border-danger-200', text: 'text-danger-900' },
+    low: { bg: 'bg-info-light', border: 'border-info/30', text: 'text-info' },
+    medium: { bg: 'bg-warning-light', border: 'border-warning/30', text: 'text-warning' },
+    high: { bg: 'bg-danger-light', border: 'border-danger/30', text: 'text-danger' },
   }
 
   const config = block.severity ? severityConfig[block.severity] : null
@@ -522,15 +522,15 @@ export function DecisionReviewPanel({
         <section
           aria-label="Decision review"
           data-testid="decision-review-timeout"
-          className={`p-3 ${typography.caption} bg-info-50 border border-info-200 rounded`}
+          className={`p-3 ${typography.caption} bg-info-light border border-info/30 rounded`}
         >
           <div className="flex items-start gap-2">
-            <Info className="w-4 h-4 text-info-600 flex-shrink-0 mt-0.5" aria-hidden="true" />
+            <Info className="w-4 h-4 text-info flex-shrink-0 mt-0.5" aria-hidden="true" />
             <div className="flex-1 min-w-0">
-              <h3 className={`${typography.label} text-info-900 mb-1`}>
+              <h3 className={`${typography.label} text-info mb-1`}>
                 AI review is taking longer than expected
               </h3>
-              <p className="text-info-900 mb-2">
+              <p className="text-info mb-2">
                 Your analysis is complete. The AI review will be available on your next run.
               </p>
 
@@ -618,15 +618,15 @@ export function DecisionReviewPanel({
         <section
           aria-label="Decision review"
           data-testid="decision-review-timeout"
-          className={`p-3 ${typography.caption} bg-info-50 border border-info-200 rounded`}
+          className={`p-3 ${typography.caption} bg-info-light border border-info/30 rounded`}
         >
           <div className="flex items-start gap-2">
-            <Info className="w-4 h-4 text-info-600 flex-shrink-0 mt-0.5" aria-hidden="true" />
+            <Info className="w-4 h-4 text-info flex-shrink-0 mt-0.5" aria-hidden="true" />
             <div className="flex-1 min-w-0">
-              <h3 className={`${typography.label} text-info-900 mb-1`}>
+              <h3 className={`${typography.label} text-info mb-1`}>
                 AI review is taking longer than expected
               </h3>
-              <p className="text-info-900 mb-2">
+              <p className="text-info mb-2">
                 Your analysis is complete. The AI review will be available on your next run.
               </p>
 
@@ -743,15 +743,15 @@ function LegacyDecisionReview({
         <section
           aria-label="Decision review"
           data-testid="decision-review-timeout"
-          className={`p-3 ${typography.caption} bg-info-50 border border-info-200 rounded`}
+          className={`p-3 ${typography.caption} bg-info-light border border-info/30 rounded`}
         >
           <div className="flex items-start gap-2">
-            <Info className="w-4 h-4 text-info-600 flex-shrink-0 mt-0.5" aria-hidden="true" />
+            <Info className="w-4 h-4 text-info flex-shrink-0 mt-0.5" aria-hidden="true" />
             <div className="flex-1 min-w-0">
-              <h3 className={`${typography.label} text-info-900 mb-1`}>
+              <h3 className={`${typography.label} text-info mb-1`}>
                 AI review is taking longer than expected
               </h3>
-              <p className="text-info-900">
+              <p className="text-info">
                 Your analysis is complete. The AI review will be available on your next run.
               </p>
             </div>

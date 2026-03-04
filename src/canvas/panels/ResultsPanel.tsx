@@ -318,7 +318,7 @@ import { trackCompareOpened } from '../utils/sandboxTelemetry'
     }
 
     return (
-      <span className={`px-2.5 py-1 rounded-full ${typography.panelMeta} font-medium ${className}`}>
+      <span className={`px-2.5 py-1 rounded-full ${typography.panelMeta} ${className}`}>
         {text}
       </span>
     )
@@ -326,7 +326,7 @@ import { trackCompareOpened } from '../utils/sandboxTelemetry'
 
   // Tabs component
   const tabs = (
-    <div className="flex border-b border-slate-200">
+    <div className="flex border-b border-panel-border">
       <TabButton
         active={activeTab === 'latest'}
         onClick={() => setActiveTab('latest')}
@@ -354,7 +354,7 @@ import { trackCompareOpened } from '../utils/sandboxTelemetry'
     <>
       <button
         onClick={handleRunAgain}
-        className={`flex-1 px-4 py-2 ${typography.panelBody} font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors`}
+        className={`flex-1 px-4 py-2 ${typography.panelBody} text-text-body bg-panel border border-panel-border rounded-lg hover:bg-panel-hover transition-colors`}
         type="button"
       >
         Analyse again
@@ -442,7 +442,7 @@ import { trackCompareOpened } from '../utils/sandboxTelemetry'
                     if (blockers.length === 0) return null
 
                     return (
-                      <div className="mb-4 p-4 rounded-lg border border-danger-300 bg-danger-50">
+                      <div className="mb-4 p-4 rounded-lg border border-danger/30 bg-danger-light">
                         <h3 className={`${typography.panelHeader} text-danger-700 mb-2`}>
                           Critical Issues Detected
                         </h3>
@@ -465,7 +465,7 @@ import { trackCompareOpened } from '../utils/sandboxTelemetry'
                         unitSymbol={resultUnitSymbol}
                       />
                       <div className="space-y-2">
-                        <div className={`${typography.panelMeta} text-slate-500 font-medium`}>Range</div>
+                        <div className={`${typography.panelMeta} text-text-light`}>Range</div>
                         <RangeChips
                           conservative={conservativeValue}
                           likely={mostLikelyValue}
@@ -541,7 +541,7 @@ import { trackCompareOpened } from '../utils/sandboxTelemetry'
                             <button
                               type="button"
                               onClick={() => setShowIssuesPanel(true)}
-                              className={`inline-flex items-center px-2 py-1 rounded border border-info-200 text-info-700 ${typography.panelMeta} font-medium hover:bg-info-50`}
+                              className={`inline-flex items-center px-2 py-1 rounded border border-info/30 text-info ${typography.panelMeta} hover:bg-info-light`}
                             >
                               Open graph issues
                             </button>
@@ -578,11 +578,11 @@ import { trackCompareOpened } from '../utils/sandboxTelemetry'
 
               {/* Error */}
               {isError && error && (
-                <div className="p-4 rounded-lg border border-danger-200 bg-danger-50">
-                  <h3 className={`${typography.panelHeader} text-danger-700 mb-2`}>
+                <div className="p-4 rounded-lg border border-danger/30 bg-danger-light">
+                  <h3 className={`${typography.panelHeader} text-danger mb-2`}>
                     {error.code}
                   </h3>
-                  <p className={`${typography.panelBody} text-slate-700 mb-3`}>
+                  <p className={`${typography.panelBody} text-text-body mb-3`}>
                     {error.message}
                   </p>
                   {error.retryAfter && (
@@ -611,7 +611,7 @@ import { trackCompareOpened } from '../utils/sandboxTelemetry'
 
               {/* Cancelled */}
               {isCancelled && (
-                <div className="p-4 rounded-lg border border-warning-300 bg-warning-100 text-center">
+                <div className="p-4 rounded-lg border border-warning/30 bg-warning-light text-center">
                   <p className={`${typography.panelBody} text-warning-700 mb-3`}>
                     Analysis cancelled
                   </p>
@@ -758,7 +758,7 @@ function ResultsTrustFooter({ seed, hash, showToast }: ResultsTrustFooterProps) 
   }
 
   return (
-    <div className={`mt-6 border-t border-slate-200 pt-3 ${typography.panelMeta} text-slate-600`} aria-label="Trust and reproducibility details">
+    <div className={`mt-6 border-t border-panel-border pt-3 ${typography.panelMeta} text-text-light`} aria-label="Trust and reproducibility details">
       <div className="flex flex-col gap-2">
         <div className="flex items-center justify-between">
           <span className="text-slate-500">Seed</span>
@@ -776,7 +776,7 @@ function ResultsTrustFooter({ seed, hash, showToast }: ResultsTrustFooterProps) 
               <button
                 type="button"
                 onClick={handleCopyHash}
-                className={`px-2 py-0.5 ${typography.panelMeta} font-medium text-info-600 bg-info-50 rounded hover:bg-info-100 transition-colors`}
+                className={`px-2 py-0.5 ${typography.panelMeta} text-info bg-info-light rounded hover:opacity-80 transition-colors`}
               >
                 Copy full hash
               </button>
@@ -811,8 +811,8 @@ function TabButton({ active, onClick, label, icon, disabled = false, badge }: Ta
       onClick={onClick}
       disabled={disabled}
       className={`
-        flex-1 px-4 py-2 ${typography.panelBody} font-medium transition-colors
-        ${active ? 'text-info-600 border-b-2 border-info-600 bg-info-50' : 'text-slate-600 border-b-2 border-transparent hover:text-slate-900 hover:bg-slate-50'}
+        flex-1 px-4 py-2 ${typography.panelBody} transition-colors
+        ${active ? 'text-info border-b-2 border-info bg-info-light' : 'text-text-body border-b-2 border-transparent hover:text-text-header hover:bg-panel-hover'}
         ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
       `}
       type="button"

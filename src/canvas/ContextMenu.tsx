@@ -154,7 +154,7 @@ export function ContextMenu({ x, y, onClose }: ContextMenuProps) {
         ref={menuRef}
         role="menu"
         aria-label="Select node type"
-        className="fixed bg-white rounded-xl shadow-panel border border-gray-200 py-1 z-[9999] min-w-[180px]"
+        className="fixed bg-white rounded-lg shadow-panel border border-panel-border py-1 z-[9999] min-w-[180px]"
         style={{ left: position.x, top: position.y }}
         onClick={(e) => e.stopPropagation()}
       >
@@ -187,7 +187,7 @@ export function ContextMenu({ x, y, onClose }: ContextMenuProps) {
       ref={menuRef}
       role="menu"
       aria-label="Canvas context menu"
-      className="fixed bg-white rounded-xl shadow-panel border border-gray-200 py-1 z-[9999] min-w-[200px]"
+      className="fixed bg-white rounded-lg shadow-panel border border-panel-border py-1 z-[9999] min-w-[200px]"
       style={{ left: position.x, top: position.y }}
       onClick={(e) => e.stopPropagation()}
     >

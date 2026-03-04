@@ -179,10 +179,10 @@ function SplitView({ snapshotA, snapshotB }: SplitViewProps) {
       <div className="flex-1 grid grid-cols-2 divide-x divide-gray-200">
         {/* Left: Snapshot A */}
         <div className="flex flex-col min-h-0">
-          <div className="px-4 py-2 bg-info-50 border-b border-info-200 flex items-center justify-between">
+          <div className="px-4 py-2 bg-info-light border-b border-info/30 flex items-center justify-between">
             <div>
-              <h4 className="font-medium text-info-900">{snapshotA.name}</h4>
-              <p className={`${typography.caption} text-info-700 mt-0.5`}>
+              <h4 className="font-medium text-info">{snapshotA.name}</h4>
+              <p className={`${typography.caption} text-info mt-0.5`}>
                 {snapshotA.nodes.length} nodes, {snapshotA.edges.length} edges
               </p>
             </div>

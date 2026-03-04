@@ -33,6 +33,9 @@ function CheckRow({
     <div className="flex items-start gap-2 py-1.5">
       <div className="flex-1 min-w-0 space-y-1">
         <p className="text-sm text-text-body">{check.message}</p>
+        {check.detail && (
+          <p className="text-xs text-text-light">{check.detail}</p>
+        )}
         <div className="flex items-center gap-2">
           {check.pill === 'framing' ? (
             <span className="inline-flex items-center rounded-full font-medium px-2 py-0.5 text-xs bg-option-light text-option">
@@ -44,7 +47,7 @@ function CheckRow({
           <button
             type="button"
             onClick={() => onAction?.(check.ctaAction)}
-            className="text-xs font-medium text-info border border-info/30 rounded-xl px-2.5 py-0.5 bg-transparent hover:border-info hover:bg-info/5 cursor-pointer"
+            className="text-xs font-medium text-info border border-info/30 rounded-md px-2.5 py-0.5 bg-transparent hover:border-info hover:bg-info/5 cursor-pointer"
           >
             {check.cta}
           </button>

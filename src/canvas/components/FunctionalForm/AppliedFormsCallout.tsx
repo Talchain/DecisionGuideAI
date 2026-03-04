@@ -30,11 +30,11 @@ const AppliedFormItem = memo(function AppliedFormItem({
   return (
     <li
       data-testid={`applied-form-${recommendation.edge_id}`}
-      className="flex items-start gap-3 p-2 rounded-lg bg-teal-50 border border-teal-200"
+      className="flex items-start gap-3 p-2 rounded-lg bg-info-light border border-info/30"
     >
       {/* Form icon */}
       <span
-        className="text-lg leading-none text-teal-600 font-mono"
+        className="text-lg leading-none text-info font-mono"
         aria-hidden="true"
       >
         {formInfo?.icon || '─'}
@@ -43,12 +43,12 @@ const AppliedFormItem = memo(function AppliedFormItem({
       {/* Content */}
       <div className="flex-1 min-w-0">
         {/* Edge labels */}
-        <p className={`${typography.caption} font-medium text-teal-800`}>
+        <p className={`${typography.caption} font-medium text-info`}>
           {recommendation.source_label} → {recommendation.target_label}
         </p>
 
         {/* Form name and rationale */}
-        <p className={`${typography.caption} text-teal-700 mt-0.5`}>
+        <p className={`${typography.caption} text-info mt-0.5`}>
           <span className="font-medium">{formInfo?.name || recommendation.recommended_form}</span>
           {' — '}
           {recommendation.rationale}
@@ -60,7 +60,7 @@ const AppliedFormItem = memo(function AppliedFormItem({
         <button
           type="button"
           onClick={() => onConfirm?.(recommendation.edge_id)}
-          className="p-1.5 rounded hover:bg-teal-200 text-teal-700 transition-colors"
+          className="p-1.5 rounded hover:bg-info-light text-info transition-colors"
           title="Confirm this form"
           aria-label={`Confirm ${formInfo?.name || recommendation.recommended_form} for ${recommendation.source_label} to ${recommendation.target_label}`}
         >
@@ -69,7 +69,7 @@ const AppliedFormItem = memo(function AppliedFormItem({
         <button
           type="button"
           onClick={() => onChange?.(recommendation.edge_id)}
-          className="p-1.5 rounded hover:bg-teal-200 text-teal-600 transition-colors"
+          className="p-1.5 rounded hover:bg-info-light text-info transition-colors"
           title="Change this form"
           aria-label={`Change form for ${recommendation.source_label} to ${recommendation.target_label}`}
         >
@@ -103,12 +103,12 @@ export const AppliedFormsCallout = memo(function AppliedFormsCallout({
   return (
     <div
       data-testid="applied-forms-callout"
-      className="rounded-lg border border-teal-300 bg-teal-50/50 overflow-hidden"
+      className="rounded-lg border border-info/30 bg-info-light/50 overflow-hidden"
       role="region"
       aria-label="Auto-applied relationship forms"
     >
       {/* Header */}
-      <div className="flex items-center justify-between p-3 bg-teal-100/50">
+      <div className="flex items-center justify-between p-3 bg-info-light/50">
         {collapsible ? (
           <button
             type="button"
@@ -118,31 +118,31 @@ export const AppliedFormsCallout = memo(function AppliedFormsCallout({
             aria-controls="applied-forms-content"
           >
             <span
-              className="w-6 h-6 rounded-full bg-teal-600 text-white flex items-center justify-center text-xs font-medium"
+              className="w-6 h-6 rounded-full bg-info text-white flex items-center justify-center text-xs font-medium"
               aria-hidden="true"
             >
               {formCount}
             </span>
-            <span className={`${typography.body} font-medium text-teal-800`}>
+            <span className={`${typography.body} font-medium text-info`}>
               {formCount === 1
                 ? 'Relationship form applied'
                 : `${formCount} relationship forms applied`}
             </span>
             {expanded ? (
-              <ChevronUp className="w-4 h-4 text-teal-600 ml-auto" />
+              <ChevronUp className="w-4 h-4 text-info ml-auto" />
             ) : (
-              <ChevronDown className="w-4 h-4 text-teal-600 ml-auto" />
+              <ChevronDown className="w-4 h-4 text-info ml-auto" />
             )}
           </button>
         ) : (
           <div className="flex items-center gap-2">
             <span
-              className="w-6 h-6 rounded-full bg-teal-600 text-white flex items-center justify-center text-xs font-medium"
+              className="w-6 h-6 rounded-full bg-info text-white flex items-center justify-center text-xs font-medium"
               aria-hidden="true"
             >
               {formCount}
             </span>
-            <span className={`${typography.body} font-medium text-teal-800`}>
+            <span className={`${typography.body} font-medium text-info`}>
               {formCount === 1
                 ? 'Relationship form applied'
                 : `${formCount} relationship forms applied`}
@@ -155,7 +155,7 @@ export const AppliedFormsCallout = memo(function AppliedFormsCallout({
           <button
             type="button"
             onClick={onDismiss}
-            className="p-1.5 rounded hover:bg-teal-200 text-teal-600 transition-colors ml-2"
+            className="p-1.5 rounded hover:bg-info-light text-info transition-colors ml-2"
             title="Dismiss all"
             aria-label="Dismiss all applied forms"
           >
@@ -168,7 +168,7 @@ export const AppliedFormsCallout = memo(function AppliedFormsCallout({
       {expanded && (
         <div id="applied-forms-content" className="p-3 pt-0">
           {/* Help text */}
-          <p className={`${typography.caption} text-teal-700 mb-3 mt-2`}>
+          <p className={`${typography.caption} text-info mb-3 mt-2`}>
             The AI detected likely relationship patterns and applied appropriate forms.
             Review below to confirm or adjust.
           </p>

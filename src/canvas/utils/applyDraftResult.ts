@@ -139,7 +139,11 @@ export function applyDraftResult(
 
   // Store analysis_ready for pre-analysis panel & run pipeline
   if (hasAnalysisReady(draftData)) {
-    useCanvasStore.getState().setCeeAnalysisReady(draftData.analysis_ready)
+    const coachingSummary = (draftData as any).coaching?.summary
+    const analysisReadyWithCoaching = coachingSummary
+      ? { ...draftData.analysis_ready, coaching_summary: coachingSummary }
+      : draftData.analysis_ready
+    useCanvasStore.getState().setCeeAnalysisReady(analysisReadyWithCoaching)
   }
 
   // Store quality dimensions

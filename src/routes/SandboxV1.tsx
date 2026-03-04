@@ -430,13 +430,13 @@ export default function SandboxV1() {
                     </div>
                   )}
                   {flowResult.results?.optimistic && (
-                    <div className="bg-teal-50 border border-teal-300 rounded-lg p-3">
-                      <div className="text-xs font-semibold text-teal-900 mb-1">Optimistic</div>
-                      <div className="text-lg font-bold text-teal-900">
+                    <div className="bg-success-light border border-success/30 rounded-lg p-3">
+                      <div className="text-xs font-semibold text-success mb-1">Optimistic</div>
+                      <div className="text-lg font-bold text-success">
                         {flowResult.results.optimistic.cost_delta || flowResult.results.optimistic.value}
                       </div>
                       {(flowResult.results.optimistic.risk || flowResult.results.optimistic.confidence) && (
-                        <div className="text-xs text-teal-700">
+                        <div className="text-xs text-success">
                           {flowResult.results.optimistic.confidence ? `Confidence: ${flowResult.results.optimistic.confidence}` : `Risk: ${flowResult.results.optimistic.risk}`}
                         </div>
                       )}
@@ -458,7 +458,7 @@ export default function SandboxV1() {
                         const scenarios = [
                           { label: 'Conservative', value: cons, color: 'bg-amber-400', textColor: 'text-amber-900' },
                           { label: 'Most Likely', value: likely, color: 'bg-indigo-500', textColor: 'text-indigo-900' },
-                          { label: 'Optimistic', value: opt, color: 'bg-teal-500', textColor: 'text-teal-900' }
+                          { label: 'Optimistic', value: opt, color: 'bg-success', textColor: 'text-success' }
                         ]
                         
                         return scenarios.map((s, i) => {

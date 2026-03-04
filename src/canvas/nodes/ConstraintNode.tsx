@@ -65,7 +65,7 @@ export const ConstraintNode = memo((props: NodeProps) => {
         relative px-4 py-3 rounded-lg min-w-[160px] max-w-[220px]
         border-2
         ${selected ? 'border-carrot-500 ring-2 ring-carrot-200' : 'border-carrot-400'}
-        shadow-sm hover:shadow-md transition-shadow
+        shadow-1 hover:shadow-2 transition-shadow
       `}
       style={{ backgroundColor: '#FEFEFE' }}
       data-testid="constraint-node"

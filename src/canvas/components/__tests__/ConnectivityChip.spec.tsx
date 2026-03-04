@@ -360,7 +360,7 @@ describe('ConnectivityChip', () => {
       const { container } = render(<ConnectivityChip />)
 
       await waitFor(() => {
-        const chip = container.querySelector('.bg-success-50')
+        const chip = container.querySelector('.bg-success-light')
         expect(chip).toBeInTheDocument()
       })
     })
@@ -371,7 +371,7 @@ describe('ConnectivityChip', () => {
       const { container } = render(<ConnectivityChip />)
 
       await waitFor(() => {
-        const chip = container.querySelector('.bg-warning-50')
+        const chip = container.querySelector('.bg-warning-light')
         expect(chip).toBeInTheDocument()
       })
     })
@@ -382,7 +382,7 @@ describe('ConnectivityChip', () => {
       const { container } = render(<ConnectivityChip />)
 
       await waitFor(() => {
-        const chip = container.querySelector('.bg-danger-50')
+        const chip = container.querySelector('.bg-danger-light')
         expect(chip).toBeInTheDocument()
       })
     })

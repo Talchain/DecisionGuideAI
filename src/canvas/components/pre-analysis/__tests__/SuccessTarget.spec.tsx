@@ -152,6 +152,67 @@ describe('SuccessTarget — edit input raw-vs-normalised', () => {
     expect(input).toHaveValue(200)
   })
 
+  // Task 2: currency symbol prefix tests
+  it('prefixes £ symbol before number (£30,000 not 30,000 £)', () => {
+    render(
+      <SuccessTarget
+        goalNode={makeGoalNode()}
+        successThreshold={0.3}
+        isThresholdAutoDerived={false}
+        isThresholdConfirmed={false}
+        goalThresholdRaw={30000}
+        goalThresholdUnit="£"
+        onThresholdChange={vi.fn()}
+      />,
+    )
+    expect(screen.getByText('£30,000')).toBeInTheDocument()
+  })
+
+  it('prefixes $ symbol before number', () => {
+    render(
+      <SuccessTarget
+        goalNode={makeGoalNode()}
+        successThreshold={0.3}
+        isThresholdAutoDerived={false}
+        isThresholdConfirmed={false}
+        goalThresholdRaw={50000}
+        goalThresholdUnit="$"
+        onThresholdChange={vi.fn()}
+      />,
+    )
+    expect(screen.getByText('$50,000')).toBeInTheDocument()
+  })
+
+  it('appends non-currency unit after number (30,000 customers)', () => {
+    render(
+      <SuccessTarget
+        goalNode={makeGoalNode()}
+        successThreshold={0.3}
+        isThresholdAutoDerived={false}
+        isThresholdConfirmed={false}
+        goalThresholdRaw={30000}
+        goalThresholdUnit="customers"
+        onThresholdChange={vi.fn()}
+      />,
+    )
+    expect(screen.getByText('30,000 customers')).toBeInTheDocument()
+  })
+
+  it('appends % after number', () => {
+    render(
+      <SuccessTarget
+        goalNode={makeGoalNode()}
+        successThreshold={0.5}
+        isThresholdAutoDerived={false}
+        isThresholdConfirmed={false}
+        goalThresholdRaw={50}
+        goalThresholdUnit="%"
+        onThresholdChange={vi.fn()}
+      />,
+    )
+    expect(screen.getByText('50 %')).toBeInTheDocument()
+  })
+
   it('shows edit label with unit when goalThresholdUnit is provided', () => {
     render(
       <SuccessTarget

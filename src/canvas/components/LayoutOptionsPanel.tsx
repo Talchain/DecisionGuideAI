@@ -61,7 +61,7 @@ export function LayoutOptionsPanel() {
   }
 
   return (
-    <div className="fixed top-24 right-6 w-80 bg-white rounded-2xl shadow-panel border border-gray-200 p-6 z-[2000]">
+    <div className="fixed top-24 right-6 w-80 bg-white rounded-lg shadow-panel border border-panel-border p-6 z-[2000]">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-lg font-semibold text-gray-900">Layout Options</h3>
         <button

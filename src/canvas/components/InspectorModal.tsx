@@ -147,7 +147,7 @@ export const InspectorModal = memo(({ nodeId, edgeId, onClose }: InspectorModalP
   return (
     <div
       ref={panelRef}
-      className="fixed z-[5000] bg-white rounded-xl shadow-2xl max-w-md w-full max-h-[80vh] overflow-hidden border border-gray-200"
+      className="fixed z-[5000] bg-white rounded-lg shadow-3 max-w-md w-full max-h-[80vh] overflow-hidden border border-panel-border"
       style={{
         left: position?.x ?? screenAnchor.x + 24,
         top: position?.y ?? screenAnchor.y,

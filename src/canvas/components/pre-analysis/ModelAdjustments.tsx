@@ -76,11 +76,15 @@ function getRepairCopy(type: string, count: number): string | null {
 
 /**
  * Strip internal engine language from raw detail/reason strings.
- * Removes field paths (strength.mean, effect_direction, nodes[...], edges[...])
- * and quoted field names that leak from CEE repair descriptions.
+ * Removes field paths (strength.mean, effect_direction, nodes[...], edges[...]),
+ * quoted field names, prior notation, and replaces engine terms with plain language.
  */
 function sanitiseDetail(detail: string): string {
   return detail
+    // Humanise engine verbs before other transforms
+    .replace(/\bReclassified unreachable factor\b/gi, 'Moved')
+    // Strip prior notation: "with synthesised prior [X, Y]"
+    .replace(/\s*with synthesised prior\s*\[[^\]]*\]/gi, '')
     // Remove quoted internal field names: "effect_direction", 'strength.mean'
     .replace(/["'][a-z_]+(\.[a-z_]+)*["']/g, '')
     // Remove nodes[fac_...] or edges[...] references
@@ -138,11 +142,11 @@ function groupAdjustments(adjustments: ModelAdjustment[]): GroupedAdjustment[] {
       // Clear detail so the render path uses headline instead
       representative.detail = undefined
     } else {
-      // Unmapped type: use generic fallback headline, raw detail behind toggle
+      // Unmapped type: use generic fallback headline, sanitised detail behind toggle
       representative.headline = group.length > 1
         ? `${GENERIC_REPAIR_FALLBACK} (${group.length} items)`
         : GENERIC_REPAIR_FALLBACK
-      representative.technicalDetail = rawDetail || undefined
+      representative.technicalDetail = rawDetail ? sanitiseDetail(rawDetail) : undefined
       representative.detail = undefined
     }
 

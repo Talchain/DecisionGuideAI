@@ -167,8 +167,8 @@ export default function DecisionGraphLayer({ nodes, edges, onNodeClick, onNodeDo
 
       // Node background (connect source gets teal highlight)
       if (isConnectSource) {
-        ctx.fillStyle = '#ccfbf1' // teal-100
-        ctx.strokeStyle = '#14b8a6' // teal-500
+        ctx.fillStyle = '#dcfce7' // success-light approx
+        ctx.strokeStyle = '#22c55e' // success approx
         ctx.lineWidth = 3
       } else if (isSelected) {
         ctx.fillStyle = '#e0e7ff' // indigo-100

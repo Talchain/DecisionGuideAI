@@ -117,7 +117,8 @@ beforeEach(() => {
     currentScenarioLastResultHash: 'hash-1',
     selection: { nodeIds: new Set(), edgeIds: new Set(), anchorPosition: null },
     results: { status: 'idle' } as any,
-  })
+    _externalMutationActive: 0,
+  } as any)
 })
 
 afterEach(() => {
@@ -170,9 +171,17 @@ describe('handlePatchAccept — validated graph preference', () => {
     // Atomicity: pushHistory called exactly once before setState
     expect(pushHistorySpy).toHaveBeenCalledTimes(1)
 
-    // patch_accepted system event dispatched
+    // patch_accepted system event dispatched with enriched payload (operations included)
     expect(sendSystemEvent).toHaveBeenCalledWith(
-      expect.objectContaining({ type: 'patch_accepted', payload: { patch_id: 'patch-1' } }),
+      expect.objectContaining({
+        type: 'patch_accepted',
+        payload: expect.objectContaining({
+          patch_id: 'patch-1',
+          operations: expect.arrayContaining([
+            expect.objectContaining({ op: 'add_node', target_id: 'n-new' }),
+          ]),
+        }),
+      }),
     )
 
     // validatePatch was called

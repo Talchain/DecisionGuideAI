@@ -8,11 +8,12 @@ DecisionGuideAI is a decision modeling tool with an interactive canvas interface
 
 ## Design System
 
-See [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md) for the full Olumi two-shade color system, Tailwind classes, and component patterns. Key rules:
+See [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md) for the quick reference. Full specification: [`docs/Design/Olumi_Design_System_v3.md`](docs/Design/Olumi_Design_System_v3.md). Key rules:
 
-- Two shades per color: main (text/icons) + light (backgrounds)
+- **Three-channel system**: Shapes (what it is) · Colour (how it's doing) · Icons (what you can do) — no channel duplicates another
+- Two shades per colour: main (text/icons) + light (backgrounds)
 - Borders via opacity (`border-danger/30`), never extra shade tokens
-- Font: Inter throughout
+- Font: Inter throughout. Icon library: Lucide only. No emoji in production UI.
 - New code should use semantic names (`text-info`, `bg-success-light`), not legacy aliases (`sky-500`, `mint-500`)
 
 ## Architecture: CEE → UI → PLoT Data Flow

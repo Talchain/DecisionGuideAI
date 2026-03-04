@@ -137,7 +137,7 @@ function FactorTooltip({
     <div
       ref={tooltipRef}
       id={id}
-      className={`absolute z-50 left-0 right-0 mt-1 p-3 bg-white border border-slate-200 rounded-lg shadow-lg ${typography.panelBody} text-slate-600 space-y-1.5`}
+      className={`absolute z-50 left-0 right-0 mt-1 p-3 bg-panel border border-panel-border rounded-lg shadow-3 ${typography.panelBody} text-text-body space-y-1.5`}
       role="tooltip"
     >
       {content}
@@ -261,7 +261,7 @@ function ExpandedDetails({
   const showQualityHint = typeof driver.valueOfInformation === 'number' && driver.valueOfInformation > 0.05
 
   return (
-    <div className={`px-4 pb-3 pt-1 border-t border-slate-100 bg-slate-50/50 ${typography.panelBody} text-slate-600 space-y-1.5`}>
+    <div className={`px-4 pb-3 pt-1 border-t border-panel-border/50 bg-panel/50 ${typography.panelBody} text-text-body space-y-1.5`}>
       {elasticityInsight && <p>{elasticityInsight}</p>}
       {/* Task 3.5: Direction-based fallback when no elasticity data */}
       {directionInterpretation && <p className="text-slate-500">{directionInterpretation}</p>}
@@ -415,7 +415,7 @@ function DriverRow({
       className={`rounded-lg border overflow-hidden bg-white relative transition-all duration-200 results-card-hover ${
         isHighlighted
           ? 'border-amber-400 ring-2 ring-amber-300 shadow-lg'
-          : 'border-slate-200'
+          : 'border-panel-border'
       }`}
       onMouseEnter={() => highlightNode(driver.matchedNodeId ?? driver.factorKey)}
       onMouseLeave={clearHighlight}
@@ -578,7 +578,7 @@ export function DriversSection({
   // Unavailable state
   if (driversStatus !== 'computed') {
     return (
-      <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg">
+      <div className="p-4 bg-panel border border-panel-border rounded-lg">
         <p className={`${typography.panelBody} text-slate-600 flex items-start gap-2`}>
           <span aria-hidden="true">ℹ️</span>
           {EMPTY_STATES.drivers}
@@ -590,7 +590,7 @@ export function DriversSection({
   // No drivers
   if (drivers.length === 0) {
     return (
-      <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg">
+      <div className="p-4 bg-panel border border-panel-border rounded-lg">
         <p className={`${typography.panelBody} text-slate-600 flex items-start gap-2`}>
           <span aria-hidden="true">ℹ️</span>
           {EMPTY_STATES.drivers}

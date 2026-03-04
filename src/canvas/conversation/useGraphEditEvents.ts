@@ -153,6 +153,13 @@ export function useGraphEditEvents(
       // Skip if same reference (no change)
       if (curr.nodes === prev.nodes && curr.edges === prev.edges) return
 
+      // A.7: Skip accumulation during external mutations (patch-apply, hydration, envelope-apply).
+      // Update snapshot so we don't diff against stale state once suppression ends.
+      if (curr._externalMutationActive > 0) {
+        snapshotRef.current = takeSnapshot(curr.nodes, curr.edges)
+        return
+      }
+
       const prevSnapshot = snapshotRef.current
       if (!prevSnapshot) {
         snapshotRef.current = takeSnapshot(curr.nodes, curr.edges)
@@ -193,9 +200,10 @@ export function useGraphEditEvents(
         const batchAcc = accRef.current
         accRef.current = null
 
-        // Cap IDs to prevent pathological payloads
-        const changedNodeIds = [...batchAcc.changedNodeIds].slice(0, MAX_IDS_PER_BATCH)
-        const changedEdgeIds = [...batchAcc.changedEdgeIds].slice(0, MAX_IDS_PER_BATCH)
+        // Cap IDs to prevent pathological payloads; sort for deterministic payloads
+        const changedNodeIds = [...batchAcc.changedNodeIds].sort().slice(0, MAX_IDS_PER_BATCH)
+        const changedEdgeIds = [...batchAcc.changedEdgeIds].sort().slice(0, MAX_IDS_PER_BATCH)
+        const operations = [...batchAcc.operations].sort()
 
         // Clear guidance when user makes a direct graph edit — prevents stale items
         useGuidanceStore.getState().clearGuidanceItems()
@@ -205,7 +213,7 @@ export function useGraphEditEvents(
           payload: {
             changed_node_ids: changedNodeIds,
             changed_edge_ids: changedEdgeIds,
-            operations: [...batchAcc.operations],
+            operations,
             summary: buildSummary(batchAcc),
           },
         })

@@ -246,4 +246,69 @@ describe('useGraphEditEvents', () => {
 
     unmount()
   })
+
+  it('does not accumulate during external mutation (_externalMutationActive > 0)', () => {
+    const { unmount } = renderHook(() => useGraphEditEvents(mockSendSystemEvent))
+
+    // Simulate external mutation (e.g. patch-apply or hydration)
+    act(() => {
+      useCanvasStore.setState({ _externalMutationActive: 1 } as any)
+      useCanvasStore.setState({
+        nodes: [{ id: 'n1', type: 'decision', position: { x: 0, y: 0 }, data: { label: 'Patched' } }] as any,
+      })
+    })
+
+    act(() => {
+      vi.advanceTimersByTime(2000)
+    })
+
+    expect(mockSendSystemEvent).not.toHaveBeenCalled()
+
+    // End suppression — subsequent direct edits should fire normally
+    act(() => {
+      useCanvasStore.setState({ _externalMutationActive: 0 } as any)
+    })
+
+    act(() => {
+      useCanvasStore.setState({
+        nodes: [
+          { id: 'n1', type: 'decision', position: { x: 0, y: 0 }, data: { label: 'UserEdit' } },
+        ] as any,
+      })
+    })
+
+    act(() => {
+      vi.advanceTimersByTime(1500)
+    })
+
+    expect(mockSendSystemEvent).toHaveBeenCalledTimes(1)
+    expect(mockSendSystemEvent.mock.calls[0][0].type).toBe('direct_graph_edit')
+
+    unmount()
+  })
+
+  it('sorts changed_node_ids and changed_edge_ids alphabetically in payload', () => {
+    const { unmount } = renderHook(() => useGraphEditEvents(mockSendSystemEvent))
+
+    // Add nodes with IDs that would sort differently if insertion order were used
+    act(() => {
+      useCanvasStore.setState({
+        nodes: [
+          { id: 'node-z', type: 'decision', position: { x: 0, y: 0 }, data: { label: 'Z' } },
+          { id: 'node-a', type: 'decision', position: { x: 0, y: 0 }, data: { label: 'A' } },
+          { id: 'node-m', type: 'decision', position: { x: 0, y: 0 }, data: { label: 'M' } },
+        ] as any,
+      })
+    })
+
+    act(() => {
+      vi.advanceTimersByTime(1500)
+    })
+
+    expect(mockSendSystemEvent).toHaveBeenCalledTimes(1)
+    const payload = mockSendSystemEvent.mock.calls[0][0].payload
+    expect(payload.changed_node_ids).toEqual(['node-a', 'node-m', 'node-z'])
+
+    unmount()
+  })
 })

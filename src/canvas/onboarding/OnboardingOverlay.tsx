@@ -118,7 +118,7 @@ const ONBOARDING_STEPS: OnboardingStep[] = [
     title: 'Know Your Limits',
     description:
       'The toolbar shows a “Using live limits” chip so you always know how much headroom remains.',
-    icon: <ShieldCheck className="w-8 h-8 text-teal-600" aria-hidden="true" />,
+    icon: <ShieldCheck className="w-8 h-8 text-info" aria-hidden="true" />,
     bullets: [
       'Graph size: 50 nodes / 200 edges per run.',
       'Payload guard: 96 KB max body (client-side check before sending).',

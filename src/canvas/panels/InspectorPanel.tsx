@@ -312,7 +312,7 @@ export function InspectorPanel({ isOpen, onClose }: InspectorPanelProps): JSX.El
                         const next = parseFloat(e.target.value)
                         setBelief(Number.isFinite(next) ? next : 0)
                       }}
-                      className={`w-24 px-2 py-1 ${typography.panelBody} text-right border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-info-600`}
+                      className={`w-24 px-2 py-1 ${typography.panelBody} text-right border border-panel-border rounded focus:outline-none focus:ring-2 focus:ring-info focus:ring-offset-2`}
                       min={0}
                       max={1}
                       step={0.01}
@@ -360,7 +360,7 @@ export function InspectorPanel({ isOpen, onClose }: InspectorPanelProps): JSX.El
                       type="number"
                       value={weight.toFixed(1)}
                       onChange={(e) => setWeight(parseFloat(e.target.value) || 1)}
-                      className={`w-20 px-2 py-1 ${typography.panelBody} text-right border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-info-600`}
+                      className={`w-20 px-2 py-1 ${typography.panelBody} text-right border border-panel-border rounded focus:outline-none focus:ring-2 focus:ring-info focus:ring-offset-2`}
                       min={EDGE_CONSTRAINTS.weight.min}
                       max={EDGE_CONSTRAINTS.weight.max}
                       step={EDGE_CONSTRAINTS.weight.step}
@@ -393,7 +393,7 @@ export function InspectorPanel({ isOpen, onClose }: InspectorPanelProps): JSX.El
                     value={provenance}
                     onChange={(e) => setProvenance(e.target.value)}
                     placeholder="Source or rationale for this connection..."
-                    className={`w-full px-3 py-2 ${typography.panelBody} border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-info-600 resize-none`}
+                    className={`w-full px-3 py-2 ${typography.panelBody} border border-panel-border rounded-lg focus:outline-none focus:ring-2 focus:ring-info focus:ring-offset-2 resize-none`}
                     rows={3}
                     maxLength={EDGE_CONSTRAINTS.provenance.maxLength}
                   />

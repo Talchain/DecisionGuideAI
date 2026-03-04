@@ -93,7 +93,7 @@ export function ErrorAlert({
           {action && (
             <button
               onClick={action.onClick}
-              className={`mt-2 inline-flex items-center px-3 py-1.5 rounded ${typography.panelMeta} font-medium ${config.text} hover:bg-white/50 transition-colors`}
+              className={`mt-2 inline-flex items-center px-3 py-1.5 rounded ${typography.panelMeta} ${config.text} hover:bg-white/50 transition-colors`}
               type="button"
             >
               {action.label}

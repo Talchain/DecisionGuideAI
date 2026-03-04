@@ -113,7 +113,7 @@ describe('PreAnalysisPanel', () => {
       tiers,
       totalImprovements: 0,
       topActions: [],
-      evidenceQuality: { level: 'medium', ratio: 0.5 },
+      evidenceQuality: { level: 'medium', ratio: 0.5, nonAiCount: 2, totalCount: 4 },
       isReady: true,
       hasBlockers: false,
       blockerCount: 0,
@@ -375,34 +375,37 @@ describe('PreAnalysisPanel', () => {
   })
 
   describe('Evidence Quality Display', () => {
-    it('shows Low evidence in danger colour', () => {
+    it('shows reviewed count in footer when totalReviewableFactorsCount > 0', () => {
       mockUsePreAnalysisData.mockReturnValue(createMockData({
-        evidenceQuality: { level: 'low', ratio: 0.2 },
+        evidenceQuality: { level: 'low', ratio: 0.2, nonAiCount: 0, totalCount: 5 },
+        reviewedFactorsCount: 0,
+        totalReviewableFactorsCount: 5,
       }))
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
-      const lowText = screen.getAllByText('Low')
-      expect(lowText.length).toBeGreaterThan(0)
+      expect(screen.getByText('0/5 reviewed')).toBeInTheDocument()
     })
 
-    it('shows Medium evidence in warning colour', () => {
+    it('shows "All reviewed" in footer when all factors reviewed', () => {
       mockUsePreAnalysisData.mockReturnValue(createMockData({
-        evidenceQuality: { level: 'medium', ratio: 0.5 },
+        evidenceQuality: { level: 'high', ratio: 1, nonAiCount: 5, totalCount: 5 },
+        reviewedFactorsCount: 5,
+        totalReviewableFactorsCount: 5,
       }))
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
-      const mediumText = screen.getAllByText('Medium')
-      expect(mediumText.length).toBeGreaterThan(0)
+      const footer = screen.getByTestId('sticky-footer')
+      const allReviewed = footer.querySelector('.cursor-help')
+      expect(allReviewed?.textContent).toBe('All reviewed')
     })
 
-    it('shows High evidence in success colour', () => {
+    it('does not show evidence tier label (Data confidence: removed)', () => {
       mockUsePreAnalysisData.mockReturnValue(createMockData({
-        evidenceQuality: { level: 'high', ratio: 0.8 },
+        evidenceQuality: { level: 'medium', ratio: 0.5, nonAiCount: 2, totalCount: 4 },
       }))
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
-      const highText = screen.getAllByText('High')
-      expect(highText.length).toBeGreaterThan(0)
+      expect(screen.queryByText(/Data confidence:/)).not.toBeInTheDocument()
     })
   })
 
@@ -604,8 +607,8 @@ describe('PreAnalysisPanel', () => {
 
       // Should show completion state with "3 of 3 done"
       expect(screen.getByText(/Review assumptions \(3 of 3 done\)/)).toBeInTheDocument()
-      // Should show "All reviewed" message when expanded
-      expect(screen.getByText('All reviewed')).toBeInTheDocument()
+      // Should show "All reviewed" message when expanded (may also appear in footer)
+      expect(screen.getAllByText('All reviewed').length).toBeGreaterThan(0)
     })
 
     it('Review assumptions tier shows checkmark badge when all reviewed', () => {
@@ -677,15 +680,19 @@ describe('PreAnalysisPanel', () => {
 
   describe('P2 Polish Tasks', () => {
     describe('Task 1: Inputs Reviewed Label', () => {
-      it('shows "Data:" label instead of "Input confidence:"', () => {
+      it('shows reviewed count in footer, no evidence tier label', () => {
         mockUsePreAnalysisData.mockReturnValue(createMockData({
-          evidenceQuality: { level: 'medium', ratio: 0.5 },
+          evidenceQuality: { level: 'medium', ratio: 0.5, nonAiCount: 2, totalCount: 4 },
+          reviewedFactorsCount: 2,
+          totalReviewableFactorsCount: 4,
         }))
 
         render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
 
-        // Should show "Data:" not "Input confidence:"
-        expect(screen.getByText(/Data:/)).toBeInTheDocument()
+        // Shows reviewed count — the primary trust signal
+        expect(screen.getByText('2/4 reviewed')).toBeInTheDocument()
+        // No evidence tier label in footer
+        expect(screen.queryByText(/Data confidence:/)).not.toBeInTheDocument()
         expect(screen.queryByText(/Input confidence:/)).not.toBeInTheDocument()
       })
     })

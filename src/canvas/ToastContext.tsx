@@ -143,7 +143,7 @@ function ToastContainer({ toasts, onRemove }: { toasts: Toast[]; onRemove: (id: 
         return (
           <div
             key={toast.id}
-            className="bg-panel rounded-xl shadow-2 flex items-center gap-3 px-4 py-3 max-w-[360px] animate-slideDown"
+            className="bg-panel rounded-lg shadow-2 flex items-center gap-3 px-4 py-3 max-w-[360px] animate-slideDown"
             style={{ borderLeft: `3px solid ${TOAST_BORDER_COLOR[toast.type]}` }}
             role="alert"
           >

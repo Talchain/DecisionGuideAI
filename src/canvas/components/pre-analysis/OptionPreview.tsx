@@ -65,14 +65,11 @@ function formatInterventionDisplay(
   let rawValue: number
 
   if (isQualitative) {
-    // Binary factors (0/1) show as integer, rest map to qualitative level
-    if (Number.isInteger(normalisedValue) && (normalisedValue === 0 || normalisedValue === 1)) {
-      rawValue = normalisedValue
-    } else if (normalisedValue >= 0 && normalisedValue <= 1) {
-      const level = normalisedValue <= 0.20 ? 'very low'
-        : normalisedValue <= 0.40 ? 'low'
-        : normalisedValue <= 0.60 ? 'moderate'
-        : normalisedValue <= 0.80 ? 'high'
+    if (normalisedValue >= 0 && normalisedValue <= 1) {
+      const level = normalisedValue < 0.2 ? 'very low'
+        : normalisedValue < 0.4 ? 'low'
+        : normalisedValue < 0.6 ? 'moderate'
+        : normalisedValue < 0.8 ? 'high'
         : 'very high'
       return `to ${level}`
     } else {
@@ -195,7 +192,7 @@ export function OptionPreview({
                   })
                 )}
                 {opt.interventions.length === 0 && !opt.isBaseline && (
-                  <span className="text-xs text-text-light">No interventions mapped</span>
+                  <span className="text-xs text-text-light">No factor changes</span>
                 )}
               </div>
             </div>

@@ -94,12 +94,17 @@ export function SuccessTarget({
   const toNormalised = (raw: number): number =>
     rawToNormFactor != null ? raw * rawToNormFactor : raw
 
+  // Currency symbols that prefix the number (e.g. £30,000 not 30,000 £)
+  const CURRENCY_SYMBOLS = new Set(['£', '$', '€', '¥', '₹', '₩', '฿', '₫', '₪', '₽', '₴', '₸', '₺', '₼', '₾'])
+
   // Format threshold value for display — prefer raw + unit for user-facing values
   const formatValue = (value: number | null): string => {
     if (value === null) return ''
-    // If we have a raw value + unit from CEE, show that (e.g. "200 customers")
+    // If we have a raw value + unit from CEE, show with correct position
     if (goalThresholdRaw != null && goalThresholdUnit) {
-      return `${goalThresholdRaw.toLocaleString()} ${goalThresholdUnit}`
+      const isCurrency = CURRENCY_SYMBOLS.has(goalThresholdUnit)
+      const formatted = goalThresholdRaw.toLocaleString()
+      return isCurrency ? `${goalThresholdUnit}${formatted}` : `${formatted} ${goalThresholdUnit}`
     }
     if (goalThresholdRaw != null) {
       return goalThresholdRaw.toLocaleString()
@@ -129,7 +134,7 @@ export function SuccessTarget({
           value={goalNode?.id ?? ''}
           onChange={(e) => onGoalChange(e.target.value)}
           title={goalLabel}
-          className="text-[14px] font-medium text-text-header bg-transparent border-none p-0 cursor-pointer focus:outline-none focus:ring-0 truncate max-w-full"
+          className="text-[14px] font-medium text-text-header bg-transparent border-none p-0 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-1 truncate max-w-full"
         >
           {goalNodes.map(g => (
             <option key={g.id} value={g.id}>{getNodeLabel(g)}</option>

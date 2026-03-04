@@ -9,6 +9,7 @@ import { memo } from 'react'
 import { typography } from '../../styles/typography'
 import { InlineBlocks } from './InlineBlocks'
 import { ActionChipRow } from './ActionChipRow'
+import { FeedbackRow } from './FeedbackRow'
 import { SYSTEM_MESSAGE_SENTINEL } from './useConversation'
 import type { ConversationMessage, ActionChip, GraphPatchBlock } from './types'
 import type { PatchBlockState, PatchRejectionInfo } from './useConversation'
@@ -21,6 +22,7 @@ interface MessageBubbleProps {
   patchRejections?: Map<string, PatchRejectionInfo>
   onPatchAccept?: (patchId: string, block: GraphPatchBlock) => void
   onPatchDismiss?: (patchId: string) => void
+  onFeedback?: (turnId: string, rating: 'up' | 'down') => void
 }
 
 export const MessageBubble = memo(function MessageBubble({
@@ -30,6 +32,7 @@ export const MessageBubble = memo(function MessageBubble({
   patchRejections,
   onPatchAccept,
   onPatchDismiss,
+  onFeedback,
 }: MessageBubbleProps) {
   const isUser = message.role === 'user'
 
@@ -54,6 +57,9 @@ export const MessageBubble = memo(function MessageBubble({
       )}
       {message.actionChips && message.actionChips.length > 0 && (
         <ActionChipRow chips={message.actionChips} onChipClick={onChipClick} />
+      )}
+      {!isUser && !message.synthetic && onFeedback && (
+        <FeedbackRow turnId={message.clientTurnId} onFeedback={onFeedback} />
       )}
     </div>
   )

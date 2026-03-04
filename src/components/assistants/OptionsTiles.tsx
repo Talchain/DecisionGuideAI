@@ -92,7 +92,7 @@ export function OptionsTiles({ context, onOptionSelect }: OptionsTilesProps) {
 
       {/* Error State */}
       {error && (
-        <div className="px-3 py-2 bg-danger-50 border border-danger-200 rounded-lg text-xs text-danger-900">
+        <div className="px-3 py-2 bg-danger-light border border-danger/30 rounded-lg text-xs text-danger">
           {error}
         </div>
       )}

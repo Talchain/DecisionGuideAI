@@ -128,7 +128,7 @@ export const NodeInspectorCompact = memo(({ nodeId, onClose, onExpandToFull }: N
 
   return (
     <div
-      className="p-3 bg-panel rounded-lg shadow-lg border border-panel-border"
+      className="p-3 bg-panel rounded-lg shadow-3 border border-panel-border"
       onKeyDown={handleKeyDown}
       role="dialog"
       aria-label="Node properties"

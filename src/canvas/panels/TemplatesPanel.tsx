@@ -612,7 +612,7 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
 
             {/* Insertion Error Banner (Sprint 2) */}
             {insertionError && (
-              <div className="mb-4 p-3 bg-danger-50 border border-danger-200 rounded-lg">
+              <div className="mb-4 p-3 bg-danger-light border border-danger/30 rounded-lg">
                 <div className="flex items-start gap-2">
                   <div className="flex-shrink-0 w-5 h-5 rounded-full bg-danger-100 flex items-center justify-center mt-0.5">
                     <span className={`${typography.panelMeta} text-danger-700 font-bold`}>!</span>
@@ -664,7 +664,7 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
 
               {/* Templates Load Error Banner */}
               {templatesLoadError && !templatesLoading && (
-                <div className="mb-4 p-4 bg-danger-50 border border-danger-200 rounded-lg">
+                <div className="mb-4 p-4 bg-danger-light border border-danger/30 rounded-lg">
                   <div className="flex items-start gap-3">
                     <div className="flex-shrink-0 w-5 h-5 rounded-full bg-danger-100 flex items-center justify-center mt-0.5">
                       <span className={`${typography.panelMeta} text-danger-700 font-bold`}>!</span>
@@ -758,7 +758,7 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
           {showDevControls && selectedBlueprintId && (
             <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 space-y-3">
               <div className="flex items-center justify-between">
-                <span className={`${typography.panelMeta} font-semibold text-yellow-800 uppercase tracking-wide`}>Dev Controls</span>
+                <span className={`${typography.panelMeta} text-yellow-800 uppercase tracking-wide`}>Dev Controls</span>
                 <span className={`${typography.code} bg-yellow-200 text-yellow-900 px-2 py-1 rounded`}>Adapter: {adapterName}</span>
               </div>
               <div className="space-y-3">

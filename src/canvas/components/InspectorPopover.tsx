@@ -161,7 +161,7 @@ export const InspectorPopover = memo(({ onExpandToFull }: InspectorPopoverProps)
   return (
     <div
       ref={popoverRef}
-      className="fixed z-[4000] transition-opacity duration-150"
+      className="fixed z-[4000] transition-opacity duration-200"
       style={{
         left: position?.x ?? screenAnchor.x + 20,
         top: position?.y ?? screenAnchor.y,

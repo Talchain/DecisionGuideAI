@@ -84,7 +84,7 @@ export function BuildingState(): JSX.Element {
         </div>
         <div className="h-2 bg-storm-100 rounded-full overflow-hidden">
           <div
-            className="h-full bg-gradient-to-r from-analytical-400 to-practical-500 transition-all duration-500"
+            className="h-full bg-gradient-to-r from-analytical-400 to-practical-500 transition-all duration-400"
             style={{ width: `${progress}%` }}
           />
         </div>

@@ -106,6 +106,8 @@ export interface QualityCheck {
   id: string
   /** One-sentence nudge text */
   message: string
+  /** Optional secondary explanation shown below message in lighter text */
+  detail?: string
   /** CTA button label */
   cta: string
   /** CTA action kind (matches improvement action kinds or custom) */
@@ -121,6 +123,10 @@ export type EvidenceQualityLevel = 'high' | 'medium' | 'low'
 export interface EvidenceQuality {
   level: EvidenceQualityLevel
   ratio: number
+  /** Factors NOT from AI sources (brief, user-confirmed, etc.) */
+  nonAiCount: number
+  /** Total factor count */
+  totalCount: number
 }
 
 /** Nodes grouped by kind */
@@ -452,10 +458,10 @@ function getAiEstimatedValue(node: Node): string | null {
  * Used for factors without cap/unit where numeric display is meaningless.
  */
 function toQualitativeLevel(v: number): string {
-  if (v <= 0.20) return 'very low'
-  if (v <= 0.40) return 'low'
-  if (v <= 0.60) return 'moderate'
-  if (v <= 0.80) return 'high'
+  if (v < 0.2) return 'very low'
+  if (v < 0.4) return 'low'
+  if (v < 0.6) return 'moderate'
+  if (v < 0.8) return 'high'
   return 'very high'
 }
 
@@ -867,7 +873,7 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
       if (process.env.NODE_ENV === 'development') {
         console.debug('[InputConfidence]', { totalFactors: 0, nonAiFactors: 0, ratio: 0, level: 'low' })
       }
-      return { level: 'low', ratio: 0 } // No factors = Low confidence (no data)
+      return { level: 'low', ratio: 0, nonAiCount: 0, totalCount: 0 }
     }
 
     // Count factors that are NOT AI-inferred (blocklist approach)
@@ -888,7 +894,7 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
       console.debug('[InputConfidence]', { totalFactors: total, nonAiFactors: nonAiCount, ratio, level })
     }
 
-    return { level, ratio }
+    return { level, ratio, nonAiCount, totalCount: total }
   }, [nodesByKind.factor])
 
   // Use existing readiness hook for canonical canRun/hasBlockers logic
@@ -1247,12 +1253,24 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
         return { factorId, factorLabel, interventionValue, currentValue, direction, cap: factorCap, unit: factorUnit, currentRawValue }
       })
 
+      // Suppress interventions that don't change the factor's current value.
+      // Qualitative factors (cap=null/1, no unit): compare normalised values directly
+      // (currentRawValue is null for these, so direction='same' default can't be used).
+      // Dimensional factors: direction='same' is only set when currentRawValue is known and matches.
+      const filteredInterventions = interventions.filter(iv => {
+        const isQualitative = !iv.unit && (iv.cap == null || iv.cap === 1)
+        if (isQualitative && iv.currentValue != null) {
+          return Math.round(iv.interventionValue * 1000) !== Math.round(iv.currentValue * 1000)
+        }
+        return iv.currentRawValue == null || iv.direction !== 'same'
+      })
+
       return {
         id: opt.id,
         label: opt.label,
         status: opt.status,
         isBaseline,
-        interventions,
+        interventions: filteredInterventions,
       }
     })
   }, [ceeAnalysisReady?.options, nodes])
@@ -1291,12 +1309,14 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
       })
     }
 
-    // 2b. Goal baseline missing — goal node has a value but no explicit baseline
+    // 2b. Goal baseline missing — goal node has no explicit current-state baseline.
+    // Fires whether or not the goal has an observed_state.value — the absence of a separate
+    // baseline (observed_state.baseline != null && baseline !== value) is the signal.
     // Without a baseline, PLoT can't tell how much each option improves on the current state.
     if (goalNode) {
       const goalOs = getObservedState(goalNode.data)
       const hasExplicitBaseline = goalOs.baseline != null && goalOs.baseline !== goalOs.value
-      if (goalOs.value != null && !hasExplicitBaseline) {
+      if (!hasExplicitBaseline) {
         checks.push({
           id: 'goal_baseline_missing',
           message: 'Goal has no current-state baseline \u2014 results show relative rankings only',
@@ -1337,6 +1357,7 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
           checks.push({
             id: 'same_levers',
             message: 'Options affect the same factors \u2014 may not represent different strategies',
+            detail: 'When options change the same drivers, results may cluster together \u2014 consider whether your options represent genuinely different approaches',
             cta: 'Review options',
             ctaAction: 'review_options',
             pill: 'verify',
@@ -1475,9 +1496,15 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
     }
   }, [edges])
 
-  // Coaching summary — one-line text synthesising the model's readiness state
+  // Coaching summary — one-line text synthesising the model's readiness state.
+  // Primary: CEE coaching.summary (decision-specific). Fallback: count-based string.
   const coachingSummary = useMemo<string | null>(() => {
     if (isLoading) return null
+
+    // Primary: use CEE-provided coaching summary when available (takes precedence over guards)
+    const ceeSummary = ceeAnalysisReady?.coaching_summary
+    if (ceeSummary) return ceeSummary
+
     if (!isReady && blockerCount > 0) return null // blockers section handles this
 
     const fixCount = tiers.mustAddress.count
@@ -1500,7 +1527,7 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
       return 'Model looks ready \u2014 no issues detected.'
     }
     return null
-  }, [isLoading, isReady, blockerCount, tiers, qualityChecks, totalImprovements])
+  }, [isLoading, isReady, blockerCount, ceeAnalysisReady?.coaching_summary, tiers, qualityChecks, totalImprovements])
 
   return {
     improvementsByCategory,

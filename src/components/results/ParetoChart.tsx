@@ -261,18 +261,18 @@ export function ParetoChart({
             key={optId}
             type="button"
             onClick={() => handleOptionClick(optId)}
-            className="w-full text-left p-3 rounded-lg bg-teal-50 border border-teal-200 hover:bg-teal-100 transition-colors"
+            className="w-full text-left p-3 rounded-lg bg-success-light border border-success/30 hover:opacity-90 transition-colors"
           >
             <div className="flex items-center gap-2">
-              <Award className="w-4 h-4 text-teal-600" />
-              <span className={`${typography.panelHeader} text-teal-800`}>
+              <Award className="w-4 h-4 text-success" />
+              <span className={`${typography.panelHeader} text-success`}>
                 {opt.label}
               </span>
-              <span className={`${typography.panelBody} ml-auto px-2 py-0.5 rounded-full bg-teal-200 text-teal-800`}>
+              <span className={`${typography.panelBody} ml-auto px-2 py-0.5 rounded-full bg-success-light text-success`}>
                 Frontier
               </span>
             </div>
-            <div className={`${typography.panelBody} text-teal-600 mt-1 grid grid-cols-2 gap-1`}>
+            <div className={`${typography.panelBody} text-success mt-1 grid grid-cols-2 gap-1`}>
               {criteria.map((c) => (
                 <span key={c}>
                   {c}: {formatScore(opt.scores[c] ?? 0)}
@@ -491,7 +491,7 @@ export function ParetoChart({
                 x={point.x}
                 y={point.y - 12}
                 textAnchor="middle"
-                className="text-xs fill-teal-800 font-medium pointer-events-none"
+                className="text-xs fill-success font-medium pointer-events-none"
               >
                 {point.label.length > 15
                   ? point.label.slice(0, 12) + '...'
@@ -563,7 +563,7 @@ export function ParetoChart({
       {/* Legend */}
       <div className="flex gap-4 mt-2 justify-center">
         <span className={`${typography.panelBody} text-ink-600 flex items-center gap-1`}>
-          <span className="w-3 h-3 rounded-full bg-teal-600" />
+          <span className="w-3 h-3 rounded-full bg-success" />
           Pareto optimal ({frontier.length})
         </span>
         <span className={`${typography.panelBody} text-ink-500 flex items-center gap-1`}>

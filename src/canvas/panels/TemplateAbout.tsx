@@ -22,17 +22,17 @@ export function TemplateAbout({ blueprint, version }: TemplateAboutProps): JSX.E
   // Normalize version string (remove 'v' prefix if already present)
   const normalizedVersion = version?.replace(/^v/, '')
   return (
-    <div className="rounded-lg p-4 bg-info-50 border border-info-200">
+    <div className="rounded-lg p-4 bg-info-light border border-info/30">
       <div className="flex items-start gap-3">
-        <Info className="w-5 h-5 flex-shrink-0 mt-0.5 text-info-600" />
+        <Info className="w-5 h-5 flex-shrink-0 mt-0.5 text-info" />
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-2 mb-2">
-            <h3 className={`${typography.panelHeader} text-info-900`}>
+            <h3 className={`${typography.panelHeader} text-info`}>
               About {blueprint.name}
             </h3>
             {/* v1.2: Version chip */}
             {normalizedVersion && (
-              <span className={`flex-shrink-0 px-2 py-0.5 ${typography.panelMeta} rounded-full bg-info-100 text-info-700 border border-info-200`}>
+              <span className={`flex-shrink-0 px-2 py-0.5 ${typography.panelMeta} rounded-full bg-info-light text-info border border-info/30`}>
                 v{normalizedVersion}
               </span>
             )}

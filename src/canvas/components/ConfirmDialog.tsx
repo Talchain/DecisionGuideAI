@@ -44,7 +44,7 @@ export function ConfirmDialog({
       aria-modal="true"
       aria-labelledby="confirm-title"
     >
-      <div className="bg-panel rounded-xl shadow-panel p-6 max-w-md mx-4">
+      <div className="bg-panel rounded-lg shadow-panel p-6 max-w-md mx-4">
         <div className="flex items-start gap-4 mb-4">
           <div className="flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center bg-danger-light">
             <XCircle className="w-5 h-5 text-danger" />

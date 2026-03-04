@@ -364,7 +364,7 @@ function StageCard({
 
       {/* Expanded content */}
       {isExpanded && (
-        <div className="px-4 pb-4 pl-11 space-y-3 animate-in fade-in-0 slide-in-from-top-1 duration-150">
+        <div className="px-4 pb-4 pl-11 space-y-3 animate-in fade-in-0 slide-in-from-top-1 duration-200">
           {/* What to do */}
           {explanation?.what_to_do && (
             <div className="p-3 bg-mint-50 border border-mint-200 rounded-lg">

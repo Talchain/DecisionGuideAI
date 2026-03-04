@@ -112,7 +112,7 @@ export default function ScoreComparison({ scores, onClose }: ScoreComparisonProp
                     </div>
                     <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
                       <div
-                        className={`h-full transition-all duration-500 ease-out ${
+                        className={`h-full transition-all duration-400 ease-out ${
                           score.totalScore > 0 ? 'bg-green-500' : 'bg-red-500'
                         }`}
                         style={{
@@ -193,7 +193,7 @@ export default function ScoreComparison({ scores, onClose }: ScoreComparisonProp
                         <div className="flex items-center gap-2">
                           <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
                             <div
-                              className="h-full bg-green-500 transition-all duration-500"
+                              className="h-full bg-green-500 transition-all duration-400"
                               style={{
                                 width: `${(score.prosScore / maxIndividualScore) * 100}%`
                               }}
@@ -208,7 +208,7 @@ export default function ScoreComparison({ scores, onClose }: ScoreComparisonProp
                         <div className="flex items-center gap-2">
                           <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
                             <div
-                              className="h-full bg-red-500 transition-all duration-500"
+                              className="h-full bg-red-500 transition-all duration-400"
                               style={{
                                 width: `${(score.consScore / maxIndividualScore) * 100}%`
                               }}

@@ -105,7 +105,7 @@ export function ThresholdInput({
             aria-hidden="true"
           />
           <div className="absolute left-0 bottom-full mb-1 hidden group-hover:block z-10">
-            <div className="px-2 py-1 bg-ink-800 text-white text-xs rounded shadow-lg whitespace-nowrap">
+            <div className="px-2 py-1 bg-text-header text-white text-xs rounded shadow-3 whitespace-nowrap">
               Define what success looks like in numbers
             </div>
           </div>
@@ -119,7 +119,7 @@ export function ThresholdInput({
           onChange={handleChange}
           onBlur={handleBlur}
           placeholder="e.g., 100000"
-          className="flex-1 px-3 py-2 border border-sand-200 rounded-lg bg-white text-ink-800 placeholder:text-ink-400 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-sky-500"
+          className="flex-1 px-3 py-2 border border-panel-border rounded-lg bg-white text-text-body placeholder:text-text-light focus:outline-none focus:ring-2 focus:ring-info focus:ring-offset-2"
           aria-describedby="threshold-help"
         />
         {unit && (

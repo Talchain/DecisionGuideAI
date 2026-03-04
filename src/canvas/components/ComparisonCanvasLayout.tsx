@@ -301,9 +301,9 @@ function ChangesView({ comparison }: { comparison: ComparisonResult }) {
 
       {/* Removed items */}
       {(comparison.removed.nodes.length > 0 || comparison.removed.edges.length > 0) && (
-        <div className="border border-danger-200 rounded-lg overflow-hidden">
-          <div className="px-3 py-2 bg-danger-50 border-b border-danger-200">
-            <h4 className={`${typography.body} font-medium text-danger-900`}>
+        <div className="border border-danger/30 rounded-lg overflow-hidden">
+          <div className="px-3 py-2 bg-danger-light border-b border-danger/30">
+            <h4 className={`${typography.body} font-medium text-danger`}>
               Removed ({comparison.removed.nodes.length + comparison.removed.edges.length})
             </h4>
           </div>

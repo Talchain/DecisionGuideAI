@@ -62,27 +62,27 @@ export function StreamingMonitor({ state, onRetry, showDebug = false }: Streamin
     <div className="space-y-2">
       {/* Status Banner */}
       {state.status === 'streaming' && (
-        <div className="flex items-center gap-2 px-3 py-2 bg-info-50 border border-info-200 rounded-lg text-xs">
-          <RefreshCw className="w-4 h-4 text-info-600 animate-spin" />
-          <span className="text-info-900 font-medium">Streaming response...</span>
-          <span className="text-info-700">{(timeElapsed / 1000).toFixed(1)}s</span>
+        <div className="flex items-center gap-2 px-3 py-2 bg-info-light border border-info/30 rounded-lg text-xs">
+          <RefreshCw className="w-4 h-4 text-info animate-spin" />
+          <span className="text-info font-medium">Streaming response...</span>
+          <span className="text-info">{(timeElapsed / 1000).toFixed(1)}s</span>
         </div>
       )}
 
       {state.status === 'complete' && (
-        <div className="flex items-center gap-2 px-3 py-2 bg-success-50 border border-success-200 rounded-lg text-xs">
-          <CheckCircle2 className="w-4 h-4 text-success-600" />
-          <span className="text-success-900 font-medium">Stream complete</span>
-          <span className="text-success-700">{state.eventCount} events</span>
+        <div className="flex items-center gap-2 px-3 py-2 bg-success-light border border-success/30 rounded-lg text-xs">
+          <CheckCircle2 className="w-4 h-4 text-success" />
+          <span className="text-success font-medium">Stream complete</span>
+          <span className="text-success">{state.eventCount} events</span>
         </div>
       )}
 
       {state.status === 'timeout' && (
-        <div className="flex items-start gap-2 px-3 py-2 bg-warning-50 border border-warning-200 rounded-lg text-xs">
-          <AlertTriangle className="w-4 h-4 text-warning-600 flex-shrink-0 mt-0.5" />
+        <div className="flex items-start gap-2 px-3 py-2 bg-warning-light border border-warning/30 rounded-lg text-xs">
+          <AlertTriangle className="w-4 h-4 text-warning flex-shrink-0 mt-0.5" />
           <div className="flex-1">
-            <p className="text-warning-900 font-medium">Stream incomplete</p>
-            <p className="text-warning-700 mt-0.5">
+            <p className="text-warning font-medium">Stream incomplete</p>
+            <p className="text-warning mt-0.5">
               No events received for 2.5s — response may be incomplete.
             </p>
           </div>
@@ -100,12 +100,12 @@ export function StreamingMonitor({ state, onRetry, showDebug = false }: Streamin
       )}
 
       {state.status === 'error' && (
-        <div className="flex items-start gap-2 px-3 py-2 bg-danger-50 border border-danger-200 rounded-lg text-xs">
-          <XCircle className="w-4 h-4 text-danger-600 flex-shrink-0 mt-0.5" />
+        <div className="flex items-start gap-2 px-3 py-2 bg-danger-light border border-danger/30 rounded-lg text-xs">
+          <XCircle className="w-4 h-4 text-danger flex-shrink-0 mt-0.5" />
           <div className="flex-1">
-            <p className="text-danger-900 font-medium">Stream failed</p>
+            <p className="text-danger font-medium">Stream failed</p>
             {state.error && (
-              <p className="text-danger-700 mt-0.5">{state.error}</p>
+              <p className="text-danger mt-0.5">{state.error}</p>
             )}
           </div>
           {onRetry && (

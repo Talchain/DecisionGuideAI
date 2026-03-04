@@ -198,7 +198,7 @@ export function RunHistory({ onViewRun, onCompare }: RunHistoryProps) {
       {selectedIds.size >= 2 && (
         <button
           onClick={handleCompare}
-          className={`w-full px-3 py-2 rounded-md border border-info-500 bg-info-500 hover:bg-info-600 text-white transition-colors flex items-center justify-center gap-2 ${typography.label}`}
+          className={`w-full px-3 py-2 rounded-md border border-info bg-info hover:opacity-90 text-white transition-colors flex items-center justify-center gap-2 ${typography.label}`}
         >
           <GitCompare className="w-4 h-4" />
           Compare {selectedIds.size} runs
@@ -283,7 +283,7 @@ export function RunHistory({ onViewRun, onCompare }: RunHistoryProps) {
                     position="bottom"
                   >
                     <span
-                      className={`inline-flex items-center gap-1 px-2 py-0.5 ${typography.caption} font-medium rounded-full bg-info-50 border border-info-200 text-info-700`}
+                      className={`inline-flex items-center gap-1 px-2 py-0.5 ${typography.caption} font-medium rounded-full bg-info-light border border-info/30 text-info`}
                     >
                       Re-run (identical × {run.duplicateCount})
                     </span>
