@@ -100,8 +100,4 @@ export function NodeShapeIndicator({ nodeKind, size = 12, className }: NodeShape
         </svg>
       )
   }
-
-  // TypeScript exhaustiveness — unreachable
-  const _: never = half
-  void _
 }
