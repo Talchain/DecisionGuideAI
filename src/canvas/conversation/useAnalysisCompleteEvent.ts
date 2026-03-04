@@ -13,6 +13,7 @@
 import { useEffect, useRef } from 'react'
 import { useCanvasStore, type ResultsStatus } from '../store'
 import { isOrchestratorV2Enabled } from '../../flags'
+import { useGuidanceStore } from '../stores/guidanceStore'
 import type { SystemEvent } from './types'
 
 /** States that represent an active user-initiated analysis run */
@@ -46,6 +47,12 @@ export function useAnalysisCompleteEvent(
       // streaming → complete). Transitions from 'idle' (e.g. hydration/restore) or
       // 'error'/'cancelled' are excluded to avoid false triggers.
       if (currStatus === 'complete' && ACTIVE_RUN_STATES.has(prevStatus)) {
+        // Evict guidance items whose analysis_hash no longer matches the new result.
+        // Done immediately (no delay) so stale items disappear as soon as the run
+        // completes. The new results.hash is already set in the store by this point.
+        const analysisHash = curr.results.hash ?? null
+        useGuidanceStore.getState().evictStaleItems({ currentAnalysisHash: analysisHash })
+
         // Small delay to ensure all resultsComplete side effects have settled
         // (e.g. addRun, graphHealth derivation)
         setTimeout(() => {

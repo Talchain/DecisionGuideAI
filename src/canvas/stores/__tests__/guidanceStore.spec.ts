@@ -217,3 +217,84 @@ describe('guidanceStore — selectActiveItem', () => {
     expect(active).toBeNull()
   })
 })
+
+// ---------------------------------------------------------------------------
+// evictStaleItems — valid_while staleness
+// ---------------------------------------------------------------------------
+
+describe('guidanceStore — evictStaleItems', () => {
+  it('clears item with valid_while.analysis_hash when analysis hash changes', () => {
+    const item = makeItem({
+      item_id: 'stale',
+      valid_while: { analysis_hash: 'abc' },
+    })
+    useGuidanceStore.getState().setGuidanceItems([item])
+    useGuidanceStore.getState().evictStaleItems({ currentAnalysisHash: 'def' })
+    expect(useGuidanceStore.getState().guidanceItems).toHaveLength(0)
+  })
+
+  it('clears item with valid_while.analysis_hash when currentAnalysisHash is null (unknown)', () => {
+    const item = makeItem({
+      item_id: 'stale',
+      valid_while: { analysis_hash: 'abc' },
+    })
+    useGuidanceStore.getState().setGuidanceItems([item])
+    useGuidanceStore.getState().evictStaleItems({ currentAnalysisHash: null })
+    expect(useGuidanceStore.getState().guidanceItems).toHaveLength(0)
+  })
+
+  it('keeps item with valid_while.analysis_hash when hash matches', () => {
+    const item = makeItem({
+      item_id: 'valid',
+      valid_while: { analysis_hash: 'abc' },
+    })
+    useGuidanceStore.getState().setGuidanceItems([item])
+    useGuidanceStore.getState().evictStaleItems({ currentAnalysisHash: 'abc' })
+    expect(useGuidanceStore.getState().guidanceItems).toHaveLength(1)
+  })
+
+  it('keeps item with no valid_while when graph hash changes', () => {
+    const item = makeItem({ item_id: 'no-vw' }) // no valid_while
+    useGuidanceStore.getState().setGuidanceItems([item])
+    useGuidanceStore.getState().evictStaleItems({ currentAnalysisHash: 'xyz', graphChanged: true })
+    expect(useGuidanceStore.getState().guidanceItems).toHaveLength(1)
+  })
+
+  it('clears item with valid_while.graph_hash when graphChanged is true', () => {
+    const item = makeItem({
+      item_id: 'graph-stale',
+      valid_while: { graph_hash: 'abc' },
+    })
+    useGuidanceStore.getState().setGuidanceItems([item])
+    useGuidanceStore.getState().evictStaleItems({ currentAnalysisHash: null, graphChanged: true })
+    expect(useGuidanceStore.getState().guidanceItems).toHaveLength(0)
+  })
+
+  it('does not clear item with valid_while.graph_hash when graphChanged is false', () => {
+    const item = makeItem({
+      item_id: 'graph-ok',
+      valid_while: { graph_hash: 'abc' },
+    })
+    useGuidanceStore.getState().setGuidanceItems([item])
+    useGuidanceStore.getState().evictStaleItems({ currentAnalysisHash: null, graphChanged: false })
+    // graph_hash only; no analysis_hash → kept when graphChanged=false
+    // But analysis_hash is undefined so that check is skipped
+    expect(useGuidanceStore.getState().guidanceItems).toHaveLength(1)
+  })
+
+  it('clears stale activeGuidanceItemId when evicted item was active', () => {
+    const item = makeItem({
+      item_id: 'active-stale',
+      valid_while: { analysis_hash: 'abc' },
+    })
+    useGuidanceStore.getState().setGuidanceItems([item])
+    useGuidanceStore.getState().setActiveGuidanceItem('active-stale')
+    useGuidanceStore.getState().evictStaleItems({ currentAnalysisHash: 'different' })
+    expect(useGuidanceStore.getState().activeGuidanceItemId).toBeNull()
+  })
+
+  it('is a no-op when store is empty', () => {
+    useGuidanceStore.getState().evictStaleItems({ currentAnalysisHash: 'xyz', graphChanged: true })
+    expect(useGuidanceStore.getState().guidanceItems).toHaveLength(0)
+  })
+})

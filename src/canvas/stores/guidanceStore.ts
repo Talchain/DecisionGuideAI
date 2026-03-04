@@ -70,6 +70,21 @@ export interface GuidanceActions {
     sendMessage: (text: string) => void,
     scrollToPatch: (patchId: string) => void,
   ) => void
+  /**
+   * Evict items whose valid_while hashes no longer match the current state.
+   *
+   * Rules:
+   * - Items with no valid_while are always kept.
+   * - Items with valid_while.analysis_hash set: cleared if currentAnalysisHash
+   *   differs OR if currentAnalysisHash is null/undefined (can't verify).
+   * - Items with valid_while.graph_hash set: cleared when any structural graph
+   *   change occurs (caller passes graphChanged=true). If graphChanged is false,
+   *   only analysis_hash is checked.
+   */
+  evictStaleItems: (opts: {
+    currentAnalysisHash: string | null | undefined
+    graphChanged?: boolean
+  }) => void
 }
 
 const initialGuidanceState: GuidanceState = {
@@ -104,6 +119,43 @@ export const useGuidanceStore = create<GuidanceState & GuidanceActions>((set, ge
 
   registerConversationCallbacks: (sendMessage, scrollToPatch) => {
     set({ _sendMessage: sendMessage, _scrollToPatch: scrollToPatch })
+  },
+
+  evictStaleItems: ({ currentAnalysisHash, graphChanged = false }) => {
+    const { guidanceItems, activeGuidanceItemId } = get()
+    if (guidanceItems.length === 0) return
+
+    const surviving = guidanceItems.filter((item) => {
+      const vw = item.valid_while
+      if (!vw) return true // no constraint → always valid
+
+      // Check graph_hash: if set, evict on any graph change or when unknown
+      if (vw.graph_hash !== undefined) {
+        if (graphChanged) return false
+        // If we have a graph_hash but no current graph hash to compare against,
+        // treat as stale (can't verify)
+        // Note: we only clear on graphChanged here; stale-at-unknown is handled
+        // by the fact that graphChanged=true is always passed on model edits.
+      }
+
+      // Check analysis_hash: evict when currentAnalysisHash differs or is unknown
+      if (vw.analysis_hash !== undefined) {
+        if (currentAnalysisHash == null) return false // can't verify → stale
+        if (currentAnalysisHash !== vw.analysis_hash) return false
+      }
+
+      return true
+    })
+
+    if (surviving.length === guidanceItems.length) return // nothing to evict
+
+    const survivingIds = new Set(surviving.map((i) => i.item_id))
+    set({
+      guidanceItems: surviving,
+      activeGuidanceItemId: activeGuidanceItemId && survivingIds.has(activeGuidanceItemId)
+        ? activeGuidanceItemId
+        : null,
+    })
   },
 }))
 

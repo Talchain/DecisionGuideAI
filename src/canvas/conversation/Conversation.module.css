@@ -193,7 +193,7 @@
  * ---------------------------------------------------------------------------*/
 
 .graphPatchBlock {
-  border-top: 3px solid var(--warning, #FFA656);
+  border-top: 3px solid var(--goal, #F5C433);
   background: var(--bg-panel, #FEFEFE);
   border-radius: 8px;
   padding: 12px;

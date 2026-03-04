@@ -14,6 +14,8 @@ import { typography } from '../../styles/typography'
 import type { ResultsSectionDataReturn } from './useResultsSectionData'
 import type { NextActionItem } from './types'
 import { buildResultsVM } from './buildResultsVM'
+import { GuidanceActionItemRow } from './GuidanceActionItemRow'
+import type { GuidanceItem } from '../../canvas/stores/guidanceStore'
 import { RecommendationSection } from './RecommendationSection'
 import { DriversSection } from './DriversSection'
 import type { TornadoRow } from './TornadoChart'
@@ -58,6 +60,15 @@ export interface ResultsBodyProps {
   identifiability?: string | null
   /** Goal direction for tornado bar colouring — maximize means higher outcome = good */
   goalDirection?: 'maximize' | 'minimize'
+  /**
+   * Orchestrator guidance items for the results surface.
+   * When present (length > 0), replaces NextActionItem list in "What to do next".
+   * Only items with target_object.type in {graph, option, framing} or no target_object
+   * are passed here — node/edge items are filtered out by the caller.
+   */
+  guidanceItems?: GuidanceItem[]
+  /** Callback to activate a guidance item (sets activeGuidanceItemId in store) */
+  onActivateGuidanceItem?: (itemId: string) => void
 }
 
 export function ResultsBody({
@@ -81,6 +92,8 @@ export function ResultsBody({
   edgeCount,
   identifiability,
   goalDirection,
+  guidanceItems,
+  onActivateGuidanceItem,
 }: ResultsBodyProps) {
   // V11: Build enriched view model — drives hero rows, colours, collapse behaviour
   // Evidence ratio: fragile / (fragile + robust) = robustness-assessed edges only
@@ -92,6 +105,9 @@ export function ResultsBody({
     }),
     [resultsSectionData, fragileEdgeCount, robustnessEdgeTotal],
   )
+
+  // Guidance items present → replace NextActionItem system throughout results panel
+  const hasGuidanceItems = (guidanceItems?.length ?? 0) > 0
 
   // Phase 2.3: Cross-highlight — flash an option card when a GraphLink references it
   const optionCardRefs = useRef<Map<string, HTMLDivElement>>(new Map())
@@ -124,7 +140,7 @@ export function ResultsBody({
           onAddStatusQuoBaseline={onAddStatusQuoBaseline}
           topDrivers={resultsSectionData.drivers.topDrivers}
           topFragileEdge={resultsSectionData.confidence.topFragileEdge}
-          topNextAction={resultsSectionData.confidence.topNextActions?.[0]}
+          topNextAction={hasGuidanceItems ? undefined : resultsSectionData.confidence.topNextActions?.[0]}
           nSamples={nSamples ?? undefined}
           seedUsed={seedUsed ?? undefined}
           fragileEdgeCount={fragileEdgeCount}
@@ -292,7 +308,7 @@ export function ResultsBody({
                   vm.decisionState === 'sensitive' || vm.decisionState === 'indeterminate'
                 }
                 testId="accordion-strengthen"
-                badgeCount={badgeCount}
+                badgeCount={hasGuidanceItems ? (guidanceItems?.length ?? 0) : badgeCount}
                 badgeVariant={
                   vm.decisionState === 'indeterminate'
                     ? 'critical'
@@ -301,8 +317,22 @@ export function ResultsBody({
                     : 'default'
                 }
               >
+                {/* Guidance items from orchestrator — replaces NextActionItem list when present */}
+                {hasGuidanceItems ? (
+                  <div className="flex flex-col gap-2 mb-3" data-testid="guidance-action-items">
+                    {guidanceItems!.map((item) => (
+                      <GuidanceActionItemRow
+                        key={item.item_id}
+                        item={item}
+                        onActivate={onActivateGuidanceItem ?? (() => {})}
+                      />
+                    ))}
+                  </div>
+                ) : null}
                 <ConfidenceSection
-                  data={resultsSectionData.confidence}
+                  data={hasGuidanceItems
+                    ? { ...resultsSectionData.confidence, nextActions: undefined, topNextActions: undefined }
+                    : resultsSectionData.confidence}
                   onFocusNode={onFocusNode}
                   topDriverLabel={resultsSectionData.drivers.topDrivers[0]?.factorLabel}
                   topDriverId={resultsSectionData.drivers.topDrivers[0]?.factorKey}

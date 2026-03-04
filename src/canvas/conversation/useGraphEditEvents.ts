@@ -175,6 +175,11 @@ export function useGraphEditEvents(
         return
       }
 
+      // Clear guidance immediately on structural change (before debounce fires).
+      // Direct model edits invalidate all guidance — drop everything now so stale
+      // items don't persist during the 1.5s debounce window.
+      useGuidanceStore.getState().clearGuidanceItems()
+
       // Accumulate changes
       if (!accRef.current) {
         accRef.current = {
@@ -204,9 +209,6 @@ export function useGraphEditEvents(
         const changedNodeIds = [...batchAcc.changedNodeIds].sort().slice(0, MAX_IDS_PER_BATCH)
         const changedEdgeIds = [...batchAcc.changedEdgeIds].sort().slice(0, MAX_IDS_PER_BATCH)
         const operations = [...batchAcc.operations].sort()
-
-        // Clear guidance when user makes a direct graph edit — prevents stale items
-        useGuidanceStore.getState().clearGuidanceItems()
 
         sendSystemEvent({
           type: 'direct_graph_edit',

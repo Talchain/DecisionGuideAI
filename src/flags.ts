@@ -285,6 +285,15 @@ const FLAGS_CONFIG = {
     envKey: 'VITE_ENABLE_V3_SYSTEM_EVENTS',
     storageKey: 'feature.v3SystemEvents',
   },
+  // Transition flag: flip OFF once orchestrator path is confirmed on staging.
+  // Pilot users should only get results via orchestrator.
+  // When OFF and orchestratorV2 is ON: Play button triggers only the orchestrator path.
+  // When ON (default): direct PLoT /v1/run call runs alongside orchestrator (for dual-path).
+  legacyDirectRun: {
+    envKey: 'VITE_ENABLE_LEGACY_DIRECT_RUN',
+    storageKey: 'feature.legacyDirectRun',
+    defaultValue: true,
+  },
 } as const
 
 // ============================================================================
@@ -352,6 +361,7 @@ const flags = {
   plotEnrichment: makeFlag(FLAGS_CONFIG.plotEnrichment),
   orchestratorV2: makeFlag(FLAGS_CONFIG.orchestratorV2),
   v3SystemEvents: makeFlag(FLAGS_CONFIG.v3SystemEvents),
+  legacyDirectRun: makeFlag(FLAGS_CONFIG.legacyDirectRun),
 }
 
 // Export with original naming convention for backward compatibility
@@ -414,6 +424,7 @@ export const isSchemaV2Enabled = flags.schemaV2
 export const isPlotEnrichmentEnabled = flags.plotEnrichment
 export const isOrchestratorV2Enabled = flags.orchestratorV2
 export const isV3SystemEventsEnabled = flags.v3SystemEvents
+export const isLegacyDirectRunEnabled = flags.legacyDirectRun
 
 // ============================================================================
 // POC FLAGS (special pattern - constant object, not functions)

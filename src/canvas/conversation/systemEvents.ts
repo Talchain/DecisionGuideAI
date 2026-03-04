@@ -8,8 +8,12 @@
  * Gated by ENABLE_V3_SYSTEM_EVENTS flag (default OFF). When OFF the
  * raw internal shape is sent, preserving backward-compat with older CEE.
  *
- * TODO: Once CEE Brief C v3 Zod schema is confirmed on staging, enable
- * the flag by default and migrate internal SystemEvent to match wire format.
+ * VERIFIED (2026-03-04): All 5 CEE v3 event types (patch_accepted, patch_dismissed,
+ * direct_graph_edit, direct_analysis_run, feedback_submitted) serialize correctly
+ * through serializeSystemEvent. session_resume and undo_draft are intentionally
+ * filtered by CEE_V3_KNOWN_TYPES. Tests: systemEvents.spec.ts (all passing).
+ * TODO: Enable v3SystemEvents flag by default once CEE Brief C v3 Zod schema is
+ * confirmed live on staging. Then migrate internal SystemEvent to match wire format.
  */
 
 import type { SystemEvent } from './types'

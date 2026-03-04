@@ -10,6 +10,8 @@ import { useRef, useEffect, useState, useCallback, memo } from 'react'
 import { typography } from '../../styles/typography'
 import { useCanvasStore } from '../store'
 import { useGuidanceStore } from '../stores/guidanceStore'
+import { useStagePill } from '../hooks/useStagePill'
+import type { ScenarioStage } from '../../types/scenario'
 import { MessageBubble } from './MessageBubble'
 import { GrowingInput } from './GrowingInput'
 import { GuidanceStrip } from './GuidanceStrip'
@@ -71,6 +73,17 @@ interface ConversationPanelProps {
 const WELCOME_TEXT =
   "Describe the decision you're facing \u2014 what you're trying to decide, the options you're considering, and what matters most."
 
+/** Per-stage placeholder text per Conversational Orchestrator v3 §14.3 */
+const STAGE_PLACEHOLDERS: Record<ScenarioStage, string> = {
+  frame:    'What decision are you facing?',
+  ideate:   'Add options, explore alternatives...',
+  evaluate: 'Say \'run it\' to analyse, or keep refining',
+  decide:   'Ask about results, or challenge the recommendation',
+  optimise: 'Edit the brief, share it, or start a new scenario',
+}
+
+const DEFAULT_PLACEHOLDER = 'What decision are you facing?'
+
 export const ConversationPanel = memo(function ConversationPanel({
   conversation,
   onCollapse,
@@ -87,6 +100,10 @@ export const ConversationPanel = memo(function ConversationPanel({
   const [showNewMessageIndicator, setShowNewMessageIndicator] = useState(false)
   const userScrolledUpRef = useRef(false)
   const nodeCount = useCanvasStore((s) => s.nodes.length)
+
+  // Stage-aware placeholder (§14.3)
+  const { stage } = useStagePill()
+  const inputPlaceholder = STAGE_PLACEHOLDERS[stage] ?? DEFAULT_PLACEHOLDER
 
   // Restore input text when a send fails so the user can edit and resend
   useEffect(() => {
@@ -387,6 +404,7 @@ export const ConversationPanel = memo(function ConversationPanel({
           onSend={handleSend}
           onCollapse={onCollapse}
           disabled={isThinking}
+          placeholder={inputPlaceholder}
         />
         <button
           type="button"

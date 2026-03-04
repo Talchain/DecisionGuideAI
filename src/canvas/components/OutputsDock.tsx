@@ -46,7 +46,7 @@ import { DecisionReviewPanel, type DecisionReviewStatus } from './DecisionReview
 import { DeltaInterpretation } from './DeltaInterpretation'
 // ISL client memoization bug fixed - ValidationSuggestionsSection now stable
 import { ValidationSuggestionsSection } from './ValidationSuggestions'
-import { isDecisionReviewEnabled } from '../../flags'
+import { isDecisionReviewEnabled, isOrchestratorV2Enabled, isLegacyDirectRunEnabled } from '../../flags'
 import { getObjectiveText, getGoalDirection } from '../utils/getObjectiveText'
 import { computeDelta, deriveVerdict } from '../utils/interpretOutcome'
 import { useDebugShortcut } from '../hooks/useDebugShortcut'
@@ -86,6 +86,8 @@ import { useResultsSectionData } from '../../components/results/useResultsSectio
 import type { TornadoRow } from '../../components/results/TornadoChart'
 import { useCanvasResultsSync } from '../../components/results/useCanvasResultsSync'
 import { ResultsBody } from '../../components/results/ResultsBody'
+import { useGuidanceStore } from '../stores/guidanceStore'
+import type { GuidanceItem } from '../stores/guidanceStore'
 import { executeAutoFix, determineFixType, type AutoFixParams } from '../utils/autoFix'
 import { getStrengthCorrections, type StrengthCorrection } from '../../adapters/plot/v2/adapter'
 import { computeCTA, type CTAConfig } from '../../lib/ctaStateMachine'
@@ -231,6 +233,17 @@ export function OutputsDock() {
   const setCeeAnalysisReady = useCanvasStore(s => s.setCeeAnalysisReady)
   // P2: Success target affordance - threshold update
   const setGoalThreshold = useCanvasStore(s => s.setGoalThreshold)
+
+  // Guidance items for results surface — filter to graph/option/framing targets only
+  const allGuidanceItems = useGuidanceStore(s => s.guidanceItems)
+  const setActiveGuidanceItem = useGuidanceStore(s => s.setActiveGuidanceItem)
+  const resultsGuidanceItems = useMemo<GuidanceItem[]>(() => {
+    if (allGuidanceItems.length === 0) return []
+    return allGuidanceItems.filter((item) => {
+      const t = item.target_object?.type
+      return !t || t === 'graph' || t === 'option' || t === 'framing'
+    })
+  }, [allGuidanceItems])
 
   // P0-UI-6: Pre-run validation hook
   const preRunValidation = usePreRunValidation()
@@ -413,7 +426,10 @@ export function OutputsDock() {
       option_count: comparison.optionNodes.length,
       template_id: (framing as any)?.templateId || 'canvas-graph',
     })
-    // P0-UI: Use V2 adapter (gets nodes, edges, outcomeNodeId from store)
+    // P0-UI: Use V2 adapter (gets nodes, edges, outcomeNodeId from store).
+    // Skip direct run when orchestratorV2 is on and legacyDirectRun is off
+    // (mirrors the gate in CanvasToolbar so both entry points behave identically).
+    if (isOrchestratorV2Enabled() && !isLegacyDirectRunEnabled()) return
     await runV2Analysis()
   }, [canRunAnalysis, runV2Analysis, framing, nodes, edges, comparison.optionNodes.length])
 
@@ -1356,6 +1372,8 @@ export function OutputsDock() {
                     edgeCount={edges.length}
                     identifiability={report?.model_card?.identifiability_tag}
                     goalDirection={goalDirection}
+                    guidanceItems={resultsGuidanceItems}
+                    onActivateGuidanceItem={setActiveGuidanceItem}
                   />
                 )}
               </div>

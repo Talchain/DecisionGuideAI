@@ -22,6 +22,7 @@ import { Tooltip } from './components/Tooltip'
 import { useRunEligibilityCheck } from './hooks/useRunEligibilityCheck'
 import { Spinner } from '../components/Spinner'
 import { EdgeLabelToggle } from './components/EdgeLabelToggle'
+import { isOrchestratorV2Enabled, isLegacyDirectRunEnabled } from '../flags'
 
 // Phase 3: Lazy load heavy components for better performance
 const GoalModePanel = lazy(() => import('./components/GoalModePanel').then(m => ({ default: m.GoalModePanel })))
@@ -133,13 +134,18 @@ export function CanvasToolbar() {
         }
       }
 
-      // Run analysis with default seed and outcome node (if set)
-      await run({
-        template_id: 'canvas-graph',
-        seed: 1337,
-        graph: { nodes, edges },
-        outcome_node: outcomeNodeId || undefined
-      })
+      // Transition flag: flip OFF once orchestrator path is confirmed on staging.
+      // Pilot users should only get results via orchestrator.
+      // When orchestratorV2 is ON and legacyDirectRun is OFF: skip direct PLoT call.
+      const skipDirectRun = isOrchestratorV2Enabled() && !isLegacyDirectRunEnabled()
+      if (!skipDirectRun) {
+        await run({
+          template_id: 'canvas-graph',
+          seed: 1337,
+          graph: { nodes, edges },
+          outcome_node: outcomeNodeId || undefined
+        })
+      }
     } catch (err: any) {
       console.error('[CanvasToolbar] Run failed:', err)
       setValidationErrors([{
