@@ -17,7 +17,7 @@ export function cleanFactorLabel(label: string): string {
   // Strip any parenthetical starting with "0" followed by –, -, or /
   // Covers: (0–1 scale), (0–1 qualitative scale), (0–1, share of N), (0/1), (0-1), etc.
   return label
-    .replace(/\s*\(0[–\-\/].*?\)\s*/g, '')
+    .replace(/\s*\(0[–\-/].*?\)\s*/g, '')
     .trim()
 }
 

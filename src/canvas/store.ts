@@ -2189,8 +2189,6 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     tryRestoreResultsFromHistory(scenario.last_result_hash, get().resultsLoadHistorical)
 
     return true
-    } catch (e) {
-      throw e
     } finally {
       // A.7: End suppression after hydration is complete (always, even on throw)
       set((s) => ({ _externalMutationActive: Math.max(0, s._externalMutationActive - 1) }))
