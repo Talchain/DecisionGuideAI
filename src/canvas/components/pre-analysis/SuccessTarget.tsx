@@ -308,10 +308,16 @@ export function SuccessTarget({
         <span className="text-[12px] text-text-light shrink-0">Success target:</span>
         <span className="text-[14px] font-semibold text-text-header">{formatValue(successThreshold)}</span>
         {thresholdSourceBadge === 'brief' && (
-          <span className="text-[11px] text-success bg-success-light rounded px-1.5 py-0.5 shrink-0">From brief</span>
+          <span className="inline-flex items-center gap-1 text-[11px] text-text-body bg-panel-hover rounded-full px-2 py-0.5 shrink-0">
+            <span className="w-1.5 h-1.5 rounded-full bg-success flex-shrink-0" aria-hidden="true" />
+            From brief
+          </span>
         )}
         {thresholdSourceBadge === 'ai' && (
-          <span className="text-[11px] text-info bg-info-light rounded px-1.5 py-0.5 shrink-0">AI estimate</span>
+          <span className="inline-flex items-center gap-1 text-[11px] text-text-body bg-panel-hover rounded-full px-2 py-0.5 shrink-0">
+            <span className="w-1.5 h-1.5 rounded-full bg-warning flex-shrink-0" aria-hidden="true" />
+            AI estimate
+          </span>
         )}
         <div className="flex items-center gap-1 ml-auto shrink-0">
           <button

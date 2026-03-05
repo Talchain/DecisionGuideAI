@@ -2897,9 +2897,9 @@ describe('usePreAnalysisData', () => {
       )
     })
 
-    it('suppresses many_ai_estimates when 0 reviewable assumptions', () => {
+    it('fires many_ai_estimates even when all factors are binary levers', () => {
       // All factors are binary levers (intervention values are 0 or 1 only)
-      // → totalReviewableFactorsCount === 0 → check should NOT fire
+      // → totalReviewableFactorsCount === 0, but AI-sourced factors still warrant a nudge
       mockUseCanvasStore.mockImplementation(createMockStore({
         nodes: [
           {
@@ -2957,10 +2957,10 @@ describe('usePreAnalysisData', () => {
 
       const { result } = renderHook(() => usePreAnalysisData())
 
-      // Both factors are binary levers → 0 reviewable
+      // Both factors are binary levers → 0 reviewable (unchanged)
       expect(result.current.totalReviewableFactorsCount).toBe(0)
-      // many_ai_estimates should NOT fire
-      expect(result.current.qualityChecks).not.toContainEqual(
+      // many_ai_estimates DOES fire — binary AI-sourced factors still warrant a nudge
+      expect(result.current.qualityChecks).toContainEqual(
         expect.objectContaining({ id: 'many_ai_estimates' })
       )
     })
@@ -3138,7 +3138,7 @@ describe('usePreAnalysisData', () => {
 
       const check = result.current.qualityChecks.find(c => c.id === 'goal_baseline_missing')
       expect(check).toBeDefined()
-      expect(check?.cta).toBe('Set baseline')
+      expect(check?.cta).toBe('Set current value')
     })
 
     it('does NOT fire when goal has observed_state.value (even without explicit baseline)', () => {

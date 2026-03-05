@@ -75,11 +75,10 @@ export function NodeShapeIndicator({ nodeKind, size = 12, className }: NodeShape
       )
 
     case 'outcome':
-      // Ringed circle (outer ring + inner fill)
+      // Upward triangle (positive result — outcome achieved)
       return (
-        <svg width={size} height={size} viewBox="0 0 12 12" fill="none" aria-hidden="true" className={className} style={{ flexShrink: 0 }}>
-          <circle cx="6" cy="6" r="5" fill={fill} opacity="0.35" />
-          <circle cx="6" cy="6" r="3" fill={fill} />
+        <svg width={size} height={size} viewBox="0 0 14 14" fill="none" aria-hidden="true" className={className} style={{ flexShrink: 0 }}>
+          <polygon points="7,1 13,13 1,13" fill={fill} />
         </svg>
       )
 

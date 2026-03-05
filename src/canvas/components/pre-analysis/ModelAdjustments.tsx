@@ -80,6 +80,11 @@ function getRepairCopy(type: string, count: number): string | null {
  * quoted field names, prior notation, and replaces engine terms with plain language.
  */
 function sanitiseDetail(detail: string): string {
+  // Replace the full sign-contradiction pattern before any other transforms
+  const signCorrectionPattern = /effect_direction\s+["']?\w+["']?\s+contradicts\s+strength_mean\s+sign\s*\([^)]*\)/gi
+  if (signCorrectionPattern.test(detail)) {
+    return "Relationship direction didn't match the stated effect \u2014 corrected automatically"
+  }
   return detail
     // Humanise engine verbs before other transforms
     .replace(/\bReclassified unreachable factor\b/gi, 'Moved')
@@ -89,8 +94,10 @@ function sanitiseDetail(detail: string): string {
     .replace(/["'][a-z_]+(\.[a-z_]+)*["']/g, '')
     // Remove nodes[fac_...] or edges[...] references
     .replace(/\b(nodes|edges)\[[^\]]*\]/g, '')
-    // Remove bare field paths: strength.mean, effect_direction
-    .replace(/\b(strength\.mean|effect_direction|observed_state\.\w+)\b/g, '')
+    // Remove bare field paths: strength.mean, effect_direction, strength_mean
+    .replace(/\b(strength\.mean|strength_mean|effect_direction|observed_state\.\w+)\b/g, '')
+    // Strip dangling numeric parameters like "(0.3)" at end
+    .replace(/\s*\(\s*-?[\d.]+\s*\)/g, '')
     // Collapse double spaces and trim
     .replace(/\s{2,}/g, ' ')
     .replace(/^\s*[—\-–]\s*/, '')
@@ -179,9 +186,7 @@ function AdjustmentRow({ adj }: { adj: GroupedAdjustment }) {
               {showDetail ? 'Hide details' : 'Details'}
             </button>
             {showDetail && (
-              <div className="bg-factor-light rounded-md p-2 mt-1">
-                <p className="text-text-light font-mono text-[11px] leading-tight">{adj.technicalDetail}</p>
-              </div>
+              <p className="text-text-light text-xs mt-1 ml-2">{adj.technicalDetail}</p>
             )}
           </>
         )}

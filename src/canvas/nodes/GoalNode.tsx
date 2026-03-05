@@ -34,9 +34,9 @@ export const GoalNode = memo((props: NodeProps) => {
   const stabilityBarColor = useMemo(() => {
     switch (robustnessData?.level) {
       case 'high':     return 'bg-success'
-      case 'moderate': return 'bg-info'
+      case 'moderate': return 'bg-goal'
       case 'low':      return 'bg-warning'
-      default:         return 'bg-info'
+      default:         return 'bg-goal'
     }
   }, [robustnessData])
 
@@ -61,7 +61,7 @@ export const GoalNode = memo((props: NodeProps) => {
               {Math.round(stabilityValue * 100)}%
             </span>
             {stabilityValue < 0.6 && (
-              <span className={`${typography.nodeLabel} bg-warning-light text-warning rounded-full px-1.5 py-0.5 ml-auto`}>
+              <span className={`${typography.nodeLabel} bg-warning-light text-text-body rounded-full px-1.5 py-0.5 ml-auto`}>
                 Marginal
               </span>
             )}

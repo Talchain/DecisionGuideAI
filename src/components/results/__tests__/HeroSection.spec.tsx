@@ -576,7 +576,7 @@ describe('HeroSection', () => {
         expect(screen.getByText(/performs best/)).toBeInTheDocument()
       })
 
-      it('V14: renders coaching next action with hinge target', () => {
+      it('V16: renders next action in insight-bullets (bullet 3)', () => {
         const onFocusNode = vi.fn()
 
         render(
@@ -595,12 +595,13 @@ describe('HeroSection', () => {
           />
         )
 
-        // V14: action lines replaced by coaching-next-action
-        const actionRow = screen.getByTestId('coaching-next-action')
-        expect(actionRow.textContent).toContain('Market Size')
+        // V16: action is now bullet 3 in insight-bullets (no standalone coaching-next-action)
+        const bullets = screen.getByTestId('insight-bullets')
+        expect(bullets.textContent).toContain('Market Size')
+        expect(screen.queryByTestId('coaching-next-action')).not.toBeInTheDocument()
       })
 
-      it('V14: omits coaching next action when not provided in robust state', () => {
+      it('V16: omits insight bullets when no sources provided', () => {
         render(
           <HeroSection
             {...v11Props}
@@ -608,6 +609,8 @@ describe('HeroSection', () => {
           />
         )
 
+        // No qualifier, no fragile edge, no next action → no bullets
+        expect(screen.queryByTestId('insight-bullets')).not.toBeInTheDocument()
         expect(screen.queryByTestId('coaching-next-action')).not.toBeInTheDocument()
       })
     })
@@ -638,7 +641,7 @@ describe('HeroSection', () => {
         expect(screen.queryByTestId('decision-state-dot')).not.toBeInTheDocument()
       })
 
-      it('V14: renders coaching next action when provided', () => {
+      it('V16: renders next action in insight-bullets for indeterminate state', () => {
         render(
           <HeroSection
             {...v11Props}
@@ -654,8 +657,10 @@ describe('HeroSection', () => {
           />
         )
 
-        const actionRow = screen.getByTestId('coaching-next-action')
-        expect(actionRow.textContent).toContain('Adoption Rate')
+        // V16: action is now bullet 3 in insight-bullets
+        const bullets = screen.getByTestId('insight-bullets')
+        expect(bullets.textContent).toContain('Adoption Rate')
+        expect(screen.queryByTestId('coaching-next-action')).not.toBeInTheDocument()
       })
 
       it('V14: headline does not use success colour for indeterminate state', () => {
@@ -832,8 +837,8 @@ describe('HeroSection', () => {
     })
   })
 
-  describe('V14: No coaching-next-action when not provided', () => {
-    it('sensitive state: no coaching-next-action when topNextAction absent', () => {
+  describe('V16: No insight bullets when all sources absent', () => {
+    it('sensitive state: no insight-bullets when no qualifier, no fragile edge, no action', () => {
       render(
         <HeroSection
           {...baseProps}
@@ -842,11 +847,12 @@ describe('HeroSection', () => {
         />
       )
 
-      // V14: action lines removed; coaching-next-action only renders when topNextAction is provided
+      // V16: insight-bullets only renders when at least one source is present
+      expect(screen.queryByTestId('insight-bullets')).not.toBeInTheDocument()
       expect(screen.queryByTestId('coaching-next-action')).not.toBeInTheDocument()
     })
 
-    it('indeterminate state: no coaching-next-action when topNextAction absent', () => {
+    it('indeterminate state: no insight-bullets when all sources absent', () => {
       render(
         <HeroSection
           {...baseProps}
@@ -855,12 +861,13 @@ describe('HeroSection', () => {
         />
       )
 
+      expect(screen.queryByTestId('insight-bullets')).not.toBeInTheDocument()
       expect(screen.queryByTestId('coaching-next-action')).not.toBeInTheDocument()
     })
   })
 
-  describe('V14: Coaching next action with target', () => {
-    it('shows coaching next action with Market Size target in robust state', () => {
+  describe('V16: Insight bullet 3 — next action with GraphLink', () => {
+    it('shows next action in insight-bullets with Market Size as GraphLink', () => {
       render(
         <HeroSection
           {...baseProps}
@@ -876,12 +883,13 @@ describe('HeroSection', () => {
         />
       )
 
-      const actionRow = screen.getByTestId('coaching-next-action')
-      expect(actionRow.textContent).toContain('Market Size')
+      const bullets = screen.getByTestId('insight-bullets')
+      expect(bullets.textContent).toContain('Market Size')
       expect(screen.getByRole('button', { name: /Focus on Market Size/ })).toBeInTheDocument()
+      expect(screen.queryByTestId('coaching-next-action')).not.toBeInTheDocument()
     })
 
-    it('shows coaching next action with Customer Growth target in sensitive state', () => {
+    it('shows next action in insight-bullets with Customer Growth as GraphLink', () => {
       render(
         <HeroSection
           {...baseProps}
@@ -897,9 +905,10 @@ describe('HeroSection', () => {
         />
       )
 
-      const actionRow = screen.getByTestId('coaching-next-action')
-      expect(actionRow.textContent).toContain('Customer Growth')
+      const bullets = screen.getByTestId('insight-bullets')
+      expect(bullets.textContent).toContain('Customer Growth')
       expect(screen.getByRole('button', { name: /Focus on Customer Growth/ })).toBeInTheDocument()
+      expect(screen.queryByTestId('coaching-next-action')).not.toBeInTheDocument()
     })
   })
 
@@ -932,41 +941,38 @@ describe('HeroSection', () => {
     })
   })
 
-  // V12: Executive summary fields in "More detail" expand
-  describe('V12: Executive summary in More detail', () => {
-    it('renders decision statement when expanded', () => {
+  // V16: Executive summary fields moved to insight bullets / More expand
+  describe('V16: Insight bullet 1 — key qualifier', () => {
+    it('renders key qualifier as bullet 1', () => {
       render(
         <HeroSection
           {...baseProps}
           decisionState="robust"
           recommendationStability={0.85}
-          coachingDecisionStatement="Acquire Competitor is the clear winner."
+          coachingKeyQualifier="The recommendation is sensitive to uncertainties around engineering resources."
         />
       )
 
-      // Click "More" to expand (high stability defaults to collapsed)
-      const moreButton = screen.getByRole('button', { name: /more/i })
-      fireEvent.click(moreButton)
-
-      expect(screen.getByText('Acquire Competitor is the clear winner.')).toBeInTheDocument()
+      const bullets = screen.getByTestId('insight-bullets')
+      expect(bullets.textContent).toContain('sensitive to uncertainties around engineering resources')
+      // No structured-executive in V16
+      expect(screen.queryByTestId('structured-executive')).not.toBeInTheDocument()
     })
 
-    it('V14: renders action implication in structured-executive (always visible)', () => {
+    it('no bullet 1 when key qualifier is absent', () => {
       render(
         <HeroSection
           {...baseProps}
           decisionState="robust"
           recommendationStability={0.85}
-          coachingActionImplication="Gather evidence on Engineering Capacity before deciding."
         />
       )
 
-      // V14: action implication renders in structured-executive, visible without expanding
-      const exec = screen.getByTestId('structured-executive')
-      expect(exec.textContent).toContain('Gather evidence on Engineering Capacity before deciding.')
+      // No sources → no bullets
+      expect(screen.queryByTestId('insight-bullets')).not.toBeInTheDocument()
     })
 
-    it('V14: falls back to coachingParagraph in structured-executive when no decision statement', () => {
+    it('coachingParagraph renders in More expand (not in default view)', () => {
       render(
         <HeroSection
           {...baseProps}
@@ -976,9 +982,14 @@ describe('HeroSection', () => {
         />
       )
 
-      // V14: coachingParagraph renders in structured-executive as fallback (always visible)
-      const exec = screen.getByTestId('structured-executive')
-      expect(exec.textContent).toContain('General coaching paragraph.')
+      // Not visible by default
+      expect(screen.queryByText('General coaching paragraph.')).not.toBeInTheDocument()
+      // Expand More
+      const moreButton = screen.getByRole('button', { name: /more/i })
+      fireEvent.click(moreButton)
+      expect(screen.getByText('General coaching paragraph.')).toBeInTheDocument()
+      // No structured-executive
+      expect(screen.queryByTestId('structured-executive')).not.toBeInTheDocument()
     })
   })
 
@@ -1106,12 +1117,13 @@ describe('HeroSection', () => {
         />
       )
 
-      // Find the stability badge (inside bg-panel-hover pill)
-      const badgePill = container.querySelector('.bg-panel-hover span')
-      expect(badgePill).toBeTruthy()
-      expect(badgePill!.textContent).toBe('Too close to call')
-      expect(badgePill!.className).toContain('text-info')
-      expect(badgePill!.className).not.toContain('text-danger')
+      // Find the stability badge label (second span inside pill — first is the dot)
+      const pill = screen.getByTestId('decision-state-pill')
+      const labelSpan = pill.querySelector('[class*="text-info"][class*="panelMeta"]') ?? pill.querySelectorAll('span')[pill.querySelectorAll('span').length - 1]
+      expect(labelSpan).toBeTruthy()
+      expect(labelSpan!.textContent).toBe('Too close to call')
+      expect(labelSpan!.className).toContain('text-info')
+      expect(labelSpan!.className).not.toContain('text-danger')
     })
 
     it('overrides "Stable result" to "Sensitive to assumptions" when readiness downgraded to sensitive', () => {
@@ -1145,7 +1157,7 @@ describe('HeroSection', () => {
     })
 
     it('uses text-warning colour for readiness-downgraded sensitive stability badge', () => {
-      const { container } = render(
+      render(
         <HeroSection
           {...baseProps}
           decisionState="sensitive"
@@ -1153,18 +1165,20 @@ describe('HeroSection', () => {
         />
       )
 
-      // Find the stability badge (inside bg-panel-hover pill)
-      const badgePill = container.querySelector('.bg-panel-hover span')
-      expect(badgePill).toBeTruthy()
-      expect(badgePill!.textContent).toBe('Sensitive to assumptions')
-      expect(badgePill!.className).toContain('text-warning')
-      expect(badgePill!.className).not.toContain('text-success')
+      // Find the stability badge label inside pill (dot is first span, label is last)
+      const pill = screen.getByTestId('decision-state-pill')
+      const spans = pill.querySelectorAll('span')
+      const labelSpan = spans[spans.length - 1]
+      expect(labelSpan).toBeTruthy()
+      expect(labelSpan!.textContent).toBe('Sensitive to assumptions')
+      expect(labelSpan!.className).toContain('text-warning')
+      expect(labelSpan!.className).not.toContain('text-success')
     })
 
     it('does NOT override when sensitive state matches natural stability tier', () => {
       // stability=0.60 → getStabilityTier returns "Sensitive to assumptions" (text-warning)
       // decisionState='sensitive' — no contradiction, no override needed
-      const { container } = render(
+      render(
         <HeroSection
           {...baseProps}
           decisionState="sensitive"
@@ -1172,10 +1186,12 @@ describe('HeroSection', () => {
         />
       )
 
-      const badgePill = container.querySelector('.bg-panel-hover span')
-      expect(badgePill).toBeTruthy()
-      expect(badgePill!.textContent).toBe('Sensitive to assumptions')
-      expect(badgePill!.className).toContain('text-warning')
+      const pill = screen.getByTestId('decision-state-pill')
+      const spans = pill.querySelectorAll('span')
+      const labelSpan = spans[spans.length - 1]
+      expect(labelSpan).toBeTruthy()
+      expect(labelSpan!.textContent).toBe('Sensitive to assumptions')
+      expect(labelSpan!.className).toContain('text-warning')
     })
   })
 
@@ -1247,129 +1263,205 @@ describe('HeroSection', () => {
   })
 
 
-  describe('V14 Task 1: Structured executive', () => {
-    it('renders decision_statement and action_implication', () => {
-      render(
-        <HeroSection
-          {...baseProps}
-          decisionState="robust"
-          recommendationStability={0.90}
-          coachingDecisionStatement="Option A is the clear winner for revenue growth."
-          coachingActionImplication="Proceed with confidence on Option A."
-        />
-      )
-
-      const exec = screen.getByTestId('structured-executive')
-      expect(exec).toBeInTheDocument()
-      expect(exec.textContent).toContain('Option A is the clear winner')
-      expect(exec.textContent).toContain('Proceed with confidence')
-    })
-
-    it('falls back to coachingParagraph when decision_statement is missing', () => {
-      render(
-        <HeroSection
-          {...baseProps}
-          decisionState="robust"
-          recommendationStability={0.90}
-          coachingParagraph="This is the M1 coaching summary paragraph."
-        />
-      )
-
-      const exec = screen.getByTestId('structured-executive')
-      expect(exec.textContent).toContain('M1 coaching summary paragraph')
-    })
-
-    it('hides executive block when no coaching data', () => {
-      render(
-        <HeroSection {...baseProps} decisionState="robust" recommendationStability={0.90} />
-      )
-
-      expect(screen.queryByTestId('structured-executive')).toBeNull()
-    })
-
-    it('renders pre-sanitized coaching text (sanitization happens at data layer)', () => {
-      // Data layer sanitizes arrows before passing to HeroSection
-      render(
-        <HeroSection
-          {...baseProps}
-          decisionState="robust"
-          recommendationStability={0.90}
-          coachingDecisionStatement="Factor A to Goal shows strong influence."
-        />
-      )
-
-      const exec = screen.getByTestId('structured-executive')
-      expect(exec.textContent).not.toContain('\u2192')
-      expect(exec.textContent).toContain('Factor A to Goal')
-    })
-  })
-
-  describe('V14.3: Executive copy guard', () => {
-    it('guards "proceed" text when decision state is sensitive', () => {
+  describe('V16 Task 1: Insight bullets — all combinations', () => {
+    it('renders 3 bullets when all sources present', () => {
       render(
         <HeroSection
           {...baseProps}
           decisionState="sensitive"
           recommendationStability={0.60}
-          coachingDecisionStatement="Option A leads on revenue growth."
-          coachingActionImplication="Proceed with implementation."
+          coachingKeyQualifier="The recommendation is sensitive to engineering estimates."
           topFragileEdge={{
-            fromId: 'fac-market', fromLabel: 'Market Size',
-            toId: 'fac-revenue', toLabel: 'Revenue',
+            fromId: 'fac-eng',
+            fromLabel: 'Engineering Capacity',
+            toId: 'out-rev',
+            toLabel: 'Revenue',
             alternativeWinnerLabel: 'Option B',
-            switchProbability: 0.45, labelsResolved: true,
+            alternativeWinnerId: 'option-b',
+            switchProbability: 0.40,
+            labelsResolved: true,
           }}
-        />,
+          topNextAction={{
+            action: 'Gather evidence on Market Size.',
+            rationale: 'Low confidence',
+            priority: 1,
+            targetId: 'fac-mkt',
+            targetLabel: 'Market Size',
+          }}
+        />
       )
-      const exec = screen.getByTestId('structured-executive')
-      expect(exec.textContent).not.toContain('Proceed')
-      expect(exec.textContent).toContain('Validate key assumptions before deciding')
-      expect(exec.textContent).toContain('Market Size')
+
+      const bullets = screen.getByTestId('insight-bullets')
+      const items = bullets.querySelectorAll('li')
+      expect(items.length).toBe(3)
+      expect(items[0].textContent).toContain('sensitive to engineering estimates')
+      expect(items[1].textContent).toContain('Could change if')
+      expect(items[1].textContent).toContain('Engineering Capacity')
+      expect(items[2].textContent).toContain('Market Size')
     })
 
-    it('guards "proceed" text when indeterminate, without hinge', () => {
-      render(
-        <HeroSection
-          {...baseProps}
-          decisionState="indeterminate"
-          recommendationStability={0.40}
-          coachingDecisionStatement="No clear winner."
-          coachingActionImplication="Move forward with Option A."
-        />,
-      )
-      const exec = screen.getByTestId('structured-executive')
-      expect(exec.textContent).not.toContain('Move forward')
-      expect(exec.textContent).toContain('Validate key assumptions before deciding.')
-    })
-
-    it('allows "proceed" text when decision state is robust', () => {
-      render(
-        <HeroSection
-          {...baseProps}
-          decisionState="robust"
-          recommendationStability={0.90}
-          coachingActionImplication="Proceed with confidence on Option A."
-        />,
-      )
-      const exec = screen.getByTestId('structured-executive')
-      expect(exec.textContent).toContain('Proceed with confidence')
-    })
-
-    it('passes through non-proceed text unchanged when sensitive', () => {
+    it('renders 2 bullets when qualifier missing', () => {
       render(
         <HeroSection
           {...baseProps}
           decisionState="sensitive"
           recommendationStability={0.60}
-          coachingActionImplication="Gather evidence on Engineering Capacity before deciding."
-        />,
+          topFragileEdge={{
+            fromId: 'fac-eng',
+            fromLabel: 'Engineering Capacity',
+            toId: 'out-rev',
+            toLabel: 'Revenue',
+            alternativeWinnerLabel: 'Option B',
+            switchProbability: 0.40,
+            labelsResolved: true,
+          }}
+          topNextAction={{
+            action: 'Gather evidence on Market Size.',
+            rationale: 'Low confidence',
+            priority: 1,
+            targetId: 'fac-mkt',
+            targetLabel: 'Market Size',
+          }}
+        />
       )
-      const exec = screen.getByTestId('structured-executive')
-      expect(exec.textContent).toContain('Gather evidence')
+
+      const bullets = screen.getByTestId('insight-bullets')
+      const items = bullets.querySelectorAll('li')
+      expect(items.length).toBe(2)
+      expect(items[0].textContent).toContain('Could change if')
+      expect(items[1].textContent).toContain('Market Size')
+    })
+
+    it('renders 1 bullet when only qualifier present', () => {
+      render(
+        <HeroSection
+          {...baseProps}
+          decisionState="robust"
+          recommendationStability={0.85}
+          coachingKeyQualifier="The recommendation holds under most conditions."
+        />
+      )
+
+      const bullets = screen.getByTestId('insight-bullets')
+      const items = bullets.querySelectorAll('li')
+      expect(items.length).toBe(1)
+    })
+
+    it('renders no bullet list when all sources empty', () => {
+      render(
+        <HeroSection
+          {...baseProps}
+          decisionState="robust"
+          recommendationStability={0.90}
+        />
+      )
+
+      expect(screen.queryByTestId('insight-bullets')).not.toBeInTheDocument()
+    })
+
+    it('no structured-executive in default view', () => {
+      render(
+        <HeroSection
+          {...baseProps}
+          decisionState="robust"
+          recommendationStability={0.90}
+          coachingKeyQualifier="Option A is the clear winner for revenue growth."
+        />
+      )
+
+      expect(screen.queryByTestId('structured-executive')).not.toBeInTheDocument()
     })
   })
 
-  describe('V14 Task 4: Condition card', () => {
+  describe('V16: Trust summary', () => {
+    it('always renders trust-summary in V16 path', () => {
+      render(
+        <HeroSection
+          {...baseProps}
+          decisionState="robust"
+          recommendationStability={0.90}
+        />
+      )
+
+      const trust = screen.getByTestId('trust-summary')
+      expect(trust).toBeInTheDocument()
+      expect(trust.textContent).toMatch(/Trust: \w+/)
+    })
+
+    it('trust level is "strong" when readiness is ready and robustness is high', () => {
+      render(
+        <HeroSection
+          {...baseProps}
+          decisionState="robust"
+          recommendationStability={0.90}
+          coachingReadiness="ready"
+          robustnessLevel="high"
+        />
+      )
+
+      const trust = screen.getByTestId('trust-summary')
+      expect(trust.textContent).toContain('Trust: strong')
+    })
+
+    it('trust level is "moderate" when readiness is ready (any robustness)', () => {
+      render(
+        <HeroSection
+          {...baseProps}
+          decisionState="robust"
+          coachingReadiness="ready"
+          robustnessLevel="moderate"
+        />
+      )
+
+      const trust = screen.getByTestId('trust-summary')
+      expect(trust.textContent).toContain('Trust: moderate')
+    })
+
+    it('trust level is "limited" when neither ready nor moderate/high robustness', () => {
+      render(
+        <HeroSection
+          {...baseProps}
+          decisionState="sensitive"
+          coachingReadiness="needs_evidence"
+          robustnessLevel="low"
+        />
+      )
+
+      const trust = screen.getByTestId('trust-summary')
+      expect(trust.textContent).toContain('Trust: limited')
+    })
+
+    it('trust reason uses default estimate count when provided', () => {
+      render(
+        <HeroSection
+          {...baseProps}
+          decisionState="sensitive"
+          defaultEstimateCount={3}
+          totalFactorCount={5}
+        />
+      )
+
+      const trust = screen.getByTestId('trust-summary')
+      expect(trust.textContent).toContain('3 of 5 factors use default estimates')
+    })
+
+    it('trust reason falls back to "review model assumptions"', () => {
+      render(
+        <HeroSection
+          {...baseProps}
+          decisionState="robust"
+          recommendationStability={0.90}
+          coachingReadiness="ready"
+          robustnessLevel="high"
+        />
+      )
+
+      const trust = screen.getByTestId('trust-summary')
+      expect(trust.textContent).toContain('review model assumptions')
+    })
+  })
+
+  describe('V16 Task 1+5: Condition card and hinge bullet', () => {
     const fragileEdge = {
       fromId: 'fac-eng',
       fromLabel: 'Engineering Capacity',
@@ -1381,7 +1473,23 @@ describe('HeroSection', () => {
       labelsResolved: true,
     }
 
-    it('renders factor-only condition card with direction-aware copy', () => {
+    it('hinge bullet 2 shows "Could change if {factor} shifts" when fragile edge present', () => {
+      render(
+        <HeroSection
+          {...baseProps}
+          decisionState="sensitive"
+          recommendationStability={0.60}
+          topFragileEdge={fragileEdge}
+        />
+      )
+
+      const bullets = screen.getByTestId('insight-bullets')
+      expect(bullets.textContent).toContain('Could change if')
+      expect(bullets.textContent).toContain('Engineering Capacity')
+      expect(bullets.textContent).toContain('shifts')
+    })
+
+    it('condition card is in "Show more" expansion when fragile edge present', () => {
       render(
         <HeroSection
           {...baseProps}
@@ -1392,15 +1500,23 @@ describe('HeroSection', () => {
         />
       )
 
-      const card = screen.getByTestId('condition-card')
-      expect(card.textContent).toContain('is weaker than expected')
-      expect(card.textContent).toContain('Engineering Capacity')
-      // No arrow notation
-      expect(card.textContent).not.toContain('\u2192')
-      expect(card.textContent).not.toContain('->')
+      // Show more button visible
+      const showMore = screen.getByTestId('show-more-bullets')
+      expect(showMore).toBeInTheDocument()
+
+      // No standalone condition-card in default view
+      expect(screen.queryByTestId('condition-card')).toBeNull()
+
+      // Click show more → condition card detail appears
+      fireEvent.click(showMore)
+      const expanded = screen.getByTestId('show-more-expanded')
+      expect(expanded.textContent).toContain('is weaker than expected')
+      expect(expanded.textContent).toContain('Engineering Capacity')
+      expect(expanded.textContent).not.toContain('\u2192')
+      expect(expanded.textContent).not.toContain('->')
     })
 
-    it('uses "differs" copy when direction is not positive', () => {
+    it('condition card uses "differs" copy when direction is not positive', () => {
       render(
         <HeroSection
           {...baseProps}
@@ -1411,11 +1527,25 @@ describe('HeroSection', () => {
         />
       )
 
-      const card = screen.getByTestId('condition-card')
-      expect(card.textContent).toContain('differs from your estimate')
+      fireEvent.click(screen.getByTestId('show-more-bullets'))
+      expect(screen.getByTestId('show-more-expanded').textContent).toContain('differs from your estimate')
     })
 
-    it('hides condition card when switchProbability <= 0.25', () => {
+    it('condition card detail in show-more when qualifying fragile edge exists', () => {
+      render(
+        <HeroSection
+          {...baseProps}
+          decisionState="sensitive"
+          recommendationStability={0.60}
+          topFragileEdge={fragileEdge}
+        />
+      )
+
+      // Qualifying fragile edge (switchProb > 0.25) → show-more button with detail
+      expect(screen.getByTestId('show-more-bullets')).toBeInTheDocument()
+    })
+
+    it('no show-more button when switchProbability <= 0.25', () => {
       render(
         <HeroSection
           {...baseProps}
@@ -1425,16 +1555,197 @@ describe('HeroSection', () => {
         />
       )
 
+      // switchProb <= 0.25 → v14ConditionCard is null → no hinge bullet, no show-more
+      expect(screen.queryByTestId('show-more-bullets')).not.toBeInTheDocument()
       expect(screen.queryByTestId('condition-card')).toBeNull()
     })
 
-    it('hides condition card when topFragileEdge is absent', () => {
+    it('no show-more button when topFragileEdge is absent', () => {
       render(
         <HeroSection {...baseProps} decisionState="robust" recommendationStability={0.90} />
       )
 
+      expect(screen.queryByTestId('show-more-bullets')).not.toBeInTheDocument()
       expect(screen.queryByTestId('condition-card')).toBeNull()
     })
+
+    it('promotes condition card to default bullets when switchProbability <= 0.25 but edge exists', () => {
+      render(
+        <HeroSection
+          {...baseProps}
+          decisionState="sensitive"
+          recommendationStability={0.60}
+          topFragileEdge={{
+            fromId: 'fac-eng',
+            fromLabel: 'Engineering Capacity',
+            toId: 'out-rev',
+            toLabel: 'Revenue',
+            alternativeWinnerLabel: 'Option B',
+            alternativeWinnerId: 'option-b',
+            switchProbability: 0.20,
+            labelsResolved: true,
+          }}
+          topDrivers={[{ id: 'fac-eng', label: 'Engineering Capacity', direction: 'positive' }]}
+        />
+      )
+
+      // No hinge bullet (switchProb <= 0.25) → no "Show more" button
+      expect(screen.queryByTestId('show-more-bullets')).not.toBeInTheDocument()
+      // Condition card promoted to default bullets
+      const bullets = screen.getByTestId('insight-bullets')
+      expect(bullets.textContent).toContain('Engineering Capacity')
+      expect(bullets.textContent).toContain('is weaker than expected')
+      expect(bullets.textContent).toContain('becomes the stronger option')
+    })
+
+    it('does not promote condition card when labels are unresolved', () => {
+      render(
+        <HeroSection
+          {...baseProps}
+          decisionState="sensitive"
+          recommendationStability={0.60}
+          topFragileEdge={{
+            fromId: 'fac-eng',
+            fromLabel: 'Engineering Capacity',
+            toId: 'out-rev',
+            toLabel: 'Revenue',
+            alternativeWinnerLabel: 'Option B',
+            switchProbability: 0.20,
+            labelsResolved: false,
+          }}
+        />
+      )
+
+      // Unresolved labels → no promotion
+      expect(screen.queryByTestId('insight-bullets')).not.toBeInTheDocument()
+    })
+  })
+
+  describe('V16: Trust summary — all reason branches', () => {
+    it('shows fragile edge ratio reason when > 70% fragile', () => {
+      render(
+        <HeroSection
+          {...baseProps}
+          decisionState="sensitive"
+          coachingReadiness="needs_evidence"
+          robustnessLevel="low"
+          fragileEdgeCount={8}
+          robustEdgeCount={2}
+        />
+      )
+
+      const trust = screen.getByTestId('trust-summary')
+      expect(trust.textContent).toContain('most causal links are fragile')
+    })
+
+    it('shows evidence quality reason when quality < 0.5', () => {
+      render(
+        <HeroSection
+          {...baseProps}
+          decisionState="sensitive"
+          coachingReadiness="needs_evidence"
+          robustnessLevel="low"
+          coachingReadinessDimensions={{ evidence: 0.3, robustness: 0.6, clarity: 0.7 }}
+        />
+      )
+
+      const trust = screen.getByTestId('trust-summary')
+      expect(trust.textContent).toContain('evidence quality is low')
+    })
+
+    it('default estimate reason takes priority over fragile edge ratio', () => {
+      render(
+        <HeroSection
+          {...baseProps}
+          decisionState="sensitive"
+          defaultEstimateCount={2}
+          totalFactorCount={4}
+          fragileEdgeCount={8}
+          robustEdgeCount={2}
+        />
+      )
+
+      const trust = screen.getByTestId('trust-summary')
+      expect(trust.textContent).toContain('2 of 4 factors use default estimates')
+    })
+
+    it('trust line has truncate class for single-line constraint', () => {
+      render(
+        <HeroSection
+          {...baseProps}
+          decisionState="robust"
+          recommendationStability={0.90}
+        />
+      )
+
+      const trust = screen.getByTestId('trust-summary')
+      expect(trust.className).toContain('truncate')
+    })
+  })
+
+  describe('V16: Layout order', () => {
+    it('baseline/target row renders before gauge', () => {
+      render(
+        <HeroSection
+          {...baseProps}
+          decisionState="robust"
+          recommendationStability={0.90}
+          goalThreshold={500}
+          optionWinShares={[
+            { id: 'option-a', label: 'Option A', winProbability: 0.6, isWinner: true },
+            { id: 'option-b', label: 'Option B', winProbability: 0.4, isWinner: false },
+          ]}
+        />
+      )
+
+      const heroSection = screen.getByTestId('hero-section')
+      const html = heroSection.innerHTML
+      const baselineIdx = html.indexOf('baseline-target-row')
+      const gaugeIdx = html.indexOf('Wins across scenarios')
+      expect(baselineIdx).toBeGreaterThan(-1)
+      expect(gaugeIdx).toBeGreaterThan(-1)
+      expect(baselineIdx).toBeLessThan(gaugeIdx)
+    })
+
+    it('decision-state pill has coloured dot', () => {
+      render(
+        <HeroSection
+          {...baseProps}
+          decisionState="robust"
+          recommendationStability={0.90}
+        />
+      )
+
+      const pill = screen.getByTestId('decision-state-pill')
+      const dot = pill.querySelector('.w-2.h-2.rounded-full')
+      expect(dot).toBeInTheDocument()
+    })
+  })
+
+  describe('V16: No standalone executive statement or coaching CTA in default view', () => {
+    it.each(['robust', 'sensitive', 'indeterminate'] as const)(
+      'decisionState="%s" — no standalone coaching-next-action or decision-statement',
+      (state) => {
+        render(
+          <HeroSection
+            {...baseProps}
+            decisionState={state}
+            recommendationStability={state === 'robust' ? 0.90 : 0.50}
+            topNextAction={{
+              action: 'Validate X before deciding.',
+              rationale: 'Test',
+              priority: 1,
+              targetType: 'factor',
+              targetId: 'f-x',
+              targetLabel: 'X',
+            }}
+          />
+        )
+
+        expect(screen.queryByTestId('coaching-next-action')).not.toBeInTheDocument()
+        expect(screen.queryByTestId('decision-statement')).not.toBeInTheDocument()
+      },
+    )
   })
 
   describe('V14 Task 5: More detail readiness bars', () => {
@@ -1503,7 +1814,7 @@ describe('HeroSection', () => {
       )
 
       expect(screen.queryByText('AI-enhanced analysis')).toBeNull()
-      // V14: M1 paragraph may appear in both structured-executive and "More" expand
+      // V16: M1 paragraph appears in "More" expand (auto-expanded since stability < 0.70)
       expect(screen.getAllByText(/M1 deterministic coaching/).length).toBeGreaterThanOrEqual(1)
     })
   })
@@ -1551,8 +1862,8 @@ describe('HeroSection', () => {
     })
   })
 
-  describe('V14 Task 8: Coaching next action', () => {
-    it('renders next action with GraphLink when target_label in text', () => {
+  describe('V16 Task 1: Bullet 3 — next action replaces standalone coaching CTA', () => {
+    it('renders next action with GraphLink in insight-bullets', () => {
       render(
         <HeroSection
           {...baseProps}
@@ -1569,13 +1880,13 @@ describe('HeroSection', () => {
         />
       )
 
-      const actionRow = screen.getByTestId('coaching-next-action')
-      expect(actionRow).toBeInTheDocument()
-      expect(actionRow.textContent).toContain('Gather evidence on')
-      expect(actionRow.textContent).toContain('Engineering Capacity')
+      const bullets = screen.getByTestId('insight-bullets')
+      expect(bullets.textContent).toContain('Gather evidence on')
+      expect(bullets.textContent).toContain('Engineering Capacity')
       // Target label should be a button (GraphLink)
-      const buttons = actionRow.querySelectorAll('button')
-      expect(buttons.length).toBeGreaterThanOrEqual(1)
+      expect(bullets.querySelectorAll('button').length).toBeGreaterThanOrEqual(1)
+      // No standalone coaching-next-action
+      expect(screen.queryByTestId('coaching-next-action')).not.toBeInTheDocument()
     })
 
     it('renders plain text when target_label not in action text', () => {
@@ -1592,19 +1903,19 @@ describe('HeroSection', () => {
         />
       )
 
-      const actionRow = screen.getByTestId('coaching-next-action')
-      expect(actionRow.textContent).toContain('Review your assumptions')
+      expect(screen.getByTestId('insight-bullets').textContent).toContain('Review your assumptions')
     })
 
-    it('hides next action when topNextAction is undefined', () => {
+    it('no bullets when topNextAction is undefined and other sources absent', () => {
       render(
         <HeroSection {...baseProps} decisionState="robust" recommendationStability={0.90} />
       )
 
-      expect(screen.queryByTestId('coaching-next-action')).toBeNull()
+      expect(screen.queryByTestId('insight-bullets')).not.toBeInTheDocument()
+      expect(screen.queryByTestId('coaching-next-action')).not.toBeInTheDocument()
     })
 
-    it('hides next action when action text is empty', () => {
+    it('no bullets when action text is empty and other sources absent', () => {
       render(
         <HeroSection
           {...baseProps}
@@ -1614,7 +1925,8 @@ describe('HeroSection', () => {
         />
       )
 
-      expect(screen.queryByTestId('coaching-next-action')).toBeNull()
+      expect(screen.queryByTestId('insight-bullets')).not.toBeInTheDocument()
+      expect(screen.queryByTestId('coaching-next-action')).not.toBeInTheDocument()
     })
   })
 
@@ -1669,8 +1981,8 @@ describe('HeroSection', () => {
       expect(optBBtn!.className).toContain('text-info')
     })
 
-    it('condition card alt option is text-success for non-indeterminate', () => {
-      const { container } = render(
+    it('V16: condition card alt option is text-success for non-indeterminate (in show-more expansion)', () => {
+      render(
         <HeroSection
           {...baseProps}
           decisionState="sensitive"
@@ -1688,15 +2000,16 @@ describe('HeroSection', () => {
         />
       )
 
-      const card = screen.getByTestId('condition-card')
-      // The alt option button (Option B) should have text-success class
-      const altBtn = card.querySelector('button[title="Option B"]')
+      // Expand show-more to access condition card detail
+      fireEvent.click(screen.getByTestId('show-more-bullets'))
+      const expanded = screen.getByTestId('show-more-expanded')
+      const altBtn = expanded.querySelector('button[title="Option B"]')
       expect(altBtn).toBeTruthy()
       expect(altBtn!.className).toContain('text-success')
     })
 
-    it('condition card alt option is text-info for indeterminate', () => {
-      const { container } = render(
+    it('V16: condition card alt option is text-info for indeterminate (in show-more expansion)', () => {
+      render(
         <HeroSection
           {...baseProps}
           decisionState="indeterminate"
@@ -1714,8 +2027,9 @@ describe('HeroSection', () => {
         />
       )
 
-      const card = screen.getByTestId('condition-card')
-      const altBtn = card.querySelector('button[title="Option B"]')
+      fireEvent.click(screen.getByTestId('show-more-bullets'))
+      const expanded = screen.getByTestId('show-more-expanded')
+      const altBtn = expanded.querySelector('button[title="Option B"]')
       expect(altBtn).toBeTruthy()
       expect(altBtn!.className).not.toContain('text-success')
       expect(altBtn!.className).toContain('text-info')
@@ -1792,67 +2106,51 @@ describe('HeroSection', () => {
     })
   })
 
-  describe('V15 Task 4: Deduplicate action implication vs coaching CTA', () => {
-    it('suppresses action implication when CTA target matches', () => {
+  describe('V16 Task 4: M2 narrative clamping in More expand', () => {
+    it('clamps long M2 narrative to first sentence with Read more button', () => {
       render(
         <HeroSection
           {...baseProps}
-          decisionState="robust"
-          recommendationStability={0.90}
-          coachingDecisionStatement="Option A is the clear winner."
-          coachingActionImplication="Gather evidence on Conversion Rate before deciding."
-          topNextAction={{
-            action: 'Gather evidence on Conversion Rate.',
-            rationale: 'Low confidence',
-            priority: 1,
-            targetId: 'fac-conv',
-            targetLabel: 'Conversion Rate',
-          }}
+          decisionState="sensitive"
+          recommendationStability={0.60}
+          m2NarrativeSummary="This is the first sentence of the AI analysis. This is additional context that should be hidden initially and only shown when the user clicks Read more."
         />
       )
 
-      const exec = screen.getByTestId('structured-executive')
-      // Decision statement renders
-      expect(exec.textContent).toContain('Option A is the clear winner')
-      // Action implication suppressed — same entity as CTA
-      expect(exec.textContent).not.toContain('Gather evidence on Conversion Rate before deciding')
-      // CTA still shows
-      expect(screen.getByTestId('coaching-next-action')).toBeInTheDocument()
+      // Auto-expanded (stability < 0.70)
+      expect(screen.getByText('AI-enhanced analysis')).toBeInTheDocument()
+      expect(screen.getByTestId('read-more-narrative')).toBeInTheDocument()
+      // First sentence visible
+      expect(screen.getByText(/This is the first sentence/)).toBeInTheDocument()
+      // Full text not yet visible
+      expect(screen.queryByText(/additional context that should be hidden/)).not.toBeInTheDocument()
     })
 
-    it('shows action implication when CTA target is different entity', () => {
+    it('expands to full paragraph when Read more clicked', () => {
       render(
         <HeroSection
           {...baseProps}
-          decisionState="robust"
-          recommendationStability={0.90}
-          coachingActionImplication="Gather evidence on Market Size before deciding."
-          topNextAction={{
-            action: 'Review Conversion Rate data.',
-            rationale: 'Different factor',
-            priority: 1,
-            targetId: 'fac-conv',
-            targetLabel: 'Conversion Rate',
-          }}
+          decisionState="sensitive"
+          recommendationStability={0.60}
+          m2NarrativeSummary="This is the first sentence of the AI analysis. This is additional context that should be hidden initially and only shown when the user clicks Read more."
         />
       )
 
-      const exec = screen.getByTestId('structured-executive')
-      expect(exec.textContent).toContain('Market Size before deciding')
+      fireEvent.click(screen.getByTestId('read-more-narrative'))
+      expect(screen.getByText(/additional context that should be hidden/)).toBeInTheDocument()
     })
 
-    it('shows action implication when no coaching CTA exists', () => {
+    it('no Read more button for short single-sentence narrative', () => {
       render(
         <HeroSection
           {...baseProps}
-          decisionState="robust"
-          recommendationStability={0.90}
-          coachingActionImplication="Gather evidence on Market Size before deciding."
+          decisionState="sensitive"
+          recommendationStability={0.60}
+          m2NarrativeSummary="Short narrative."
         />
       )
 
-      const exec = screen.getByTestId('structured-executive')
-      expect(exec.textContent).toContain('Market Size before deciding')
+      expect(screen.queryByTestId('read-more-narrative')).not.toBeInTheDocument()
     })
   })
 })

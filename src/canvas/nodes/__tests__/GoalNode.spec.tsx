@@ -253,4 +253,62 @@ describe('GoalNode', () => {
     renderGoal()
     expect(screen.queryByText(/% chance/)).toBeNull()
   })
+
+  // V5: Stability bar uses goal yellow (not info blue)
+  it('stability bar uses bg-goal for moderate level', () => {
+    const { container } = render(
+      <ReactFlowProvider>
+        <GoalNode
+          {...baseProps}
+          data={{ label: 'Increase revenue', type: 'goal' }}
+        />
+      </ReactFlowProvider>
+    )
+    // Set up with moderate robustness (no high/low)
+    vi.mocked(useCanvasStore).mockImplementation((selector) =>
+      selector(makeStoreState({
+        results: {
+          status: 'complete',
+          report: {
+            robustness: { recommendation_stability: 0.65, level: 'moderate' },
+          },
+        },
+      }) as any)
+    )
+    const { container: c2 } = render(
+      <ReactFlowProvider>
+        <GoalNode
+          {...baseProps}
+          data={{ label: 'Increase revenue', type: 'goal' }}
+        />
+      </ReactFlowProvider>
+    )
+    // The filled bar div should have bg-goal class
+    const filledBar = c2.querySelector('.bg-goal')
+    expect(filledBar).not.toBeNull()
+    // Must NOT use bg-info (old colour)
+    expect(c2.querySelector('.bg-info')).toBeNull()
+    void container // suppress unused var
+  })
+
+  // V4: Marginal badge uses text-text-body (not text-warning) for WCAG AA contrast
+  it('Marginal badge uses text-text-body class', () => {
+    vi.mocked(useCanvasStore).mockImplementation((selector) =>
+      selector(makeStoreState({
+        results: {
+          status: 'complete',
+          report: {
+            robustness: { recommendation_stability: 0.45, level: 'low' },
+          },
+        },
+      }) as any)
+    )
+    const { container } = renderGoal()
+    const badge = Array.from(container.querySelectorAll('span')).find(
+      el => el.textContent === 'Marginal'
+    )
+    expect(badge).toBeDefined()
+    expect(badge?.className).toContain('text-text-body')
+    expect(badge?.className).not.toContain('text-warning')
+  })
 })

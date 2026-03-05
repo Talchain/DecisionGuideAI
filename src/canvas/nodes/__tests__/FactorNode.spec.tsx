@@ -136,6 +136,46 @@ describe('FactorNode', () => {
     expect(screen.getByText('120 k')).toBeDefined()
   })
 
+  // J2: Currency raw_value prefix — £49 not 49 £
+  it('renders currency raw_value as prefix (£49), not suffix', () => {
+    renderFactor({
+      label: 'Revenue',
+      type: 'factor',
+      observedState: { raw_value: '49', unit: '£', value: 0.49 },
+    })
+    expect(screen.getByText('£49')).toBeDefined()
+    expect(screen.queryByText('49 £')).toBeNull()
+  })
+
+  it('renders dollar currency raw_value as prefix ($500)', () => {
+    renderFactor({
+      label: 'Cost',
+      type: 'factor',
+      observedState: { raw_value: '500', unit: '$' },
+    })
+    expect(screen.getByText('$500')).toBeDefined()
+  })
+
+  // J2 + Item 5: Numeric currency raw_value gets thousands separators
+  it('applies thousands separator to numeric currency raw_value (£1,200)', () => {
+    renderFactor({
+      label: 'Revenue',
+      type: 'factor',
+      observedState: { raw_value: '1200', unit: '£' },
+    })
+    expect(screen.getByText('£1,200')).toBeDefined()
+    expect(screen.queryByText('£1200')).toBeNull()
+  })
+
+  it('renders non-numeric currency raw_value as plain prefix (£approx 50)', () => {
+    renderFactor({
+      label: 'Cost',
+      type: 'factor',
+      observedState: { raw_value: 'approx 50', unit: '£' },
+    })
+    expect(screen.getByText('£approx 50')).toBeDefined()
+  })
+
   it('shows raw_value alone when no unit', () => {
     renderFactor({
       label: 'Score',
@@ -285,5 +325,125 @@ describe('FactorNode', () => {
     renderFactor({ label: 'X', type: 'factor', category: 'unknown_category' })
     expect(screen.queryByText('Controllable')).toBeNull()
     expect(screen.queryByText('Measurable')).toBeNull()
+  })
+
+  // P3: Rank badge in header row — DOM order and category icon co-existence
+  it('rank badge renders inline in header row: shape → badge → label, with category icon right-aligned (P3)', () => {
+    vi.mocked(useNodeDisplayMetadata).mockReturnValue({
+      sensitivityRank: 1,
+      influence: null,
+      confidence: null,
+      inSensitivityAnalysis: false,
+      achievementProbability: null,
+      stabilityPercentage: null,
+      winRate: null,
+      isResultsMode: false,
+    })
+    const { container } = renderFactor({
+      label: 'Revenue',
+      type: 'factor',
+      category: 'controllable',
+    })
+    // Badge renders with expected text
+    const badge = screen.getByText('#1')
+    expect(badge).toBeDefined()
+    // Badge must NOT use position:absolute (was old style — absolute top-1 right-1)
+    expect(badge.className).not.toContain('absolute')
+    // Category icon still present alongside the badge (right-aligned via ml-auto parent)
+    const icon = container.querySelector('[title="You control this factor"]')
+    expect(icon).not.toBeNull()
+    // Verify DOM order in the header row: SVG (shape) → badge span → type label span
+    // The header row is the flex div that contains NodeShapeIndicator
+    const svg = container.querySelector('svg[aria-hidden="true"]')
+    expect(svg).not.toBeNull()
+    const headerRow = svg?.parentElement
+    expect(headerRow).not.toBeNull()
+    const children = Array.from(headerRow!.children)
+    const svgIdx = children.indexOf(svg as Element)
+    const badgeIdx = children.indexOf(badge)
+    const labelSpan = children.find(el => el.textContent === 'Factor')
+    const labelIdx = labelSpan ? children.indexOf(labelSpan) : -1
+    // Shape comes before badge, badge comes before type label
+    expect(svgIdx).toBeLessThan(badgeIdx)
+    expect(badgeIdx).toBeLessThan(labelIdx)
+  })
+
+  // P2: Qualitative value display — no raw_value, no unit → tier label
+  it('shows tier label (Medium) for factor with no raw_value and no unit (P2)', () => {
+    renderFactor({
+      label: 'Product-market fit',
+      type: 'factor',
+      observedState: { value: 0.5 },
+    })
+    expect(screen.getByText('Medium')).toBeDefined()
+    // Must not show raw float
+    expect(screen.queryByText('0.5')).toBeNull()
+  })
+
+  it('shows raw value unchanged when unit is present (P2 — no regression)', () => {
+    renderFactor({
+      label: 'Engineering capacity',
+      type: 'factor',
+      observedState: { raw_value: '10', unit: 'engineers', value: 0.5 },
+    })
+    expect(screen.getByText('10 engineers')).toBeDefined()
+    expect(screen.queryByText('Medium')).toBeNull()
+  })
+
+  // P4: Evidence bar uses bg-info (not bg-factor)
+  it('evidence bar uses bg-info class (P4)', () => {
+    vi.mocked(useNodeDisplayMetadata).mockReturnValue({
+      sensitivityRank: null,
+      influence: 0.8,
+      confidence: 0.6,
+      inSensitivityAnalysis: true,
+      achievementProbability: null,
+      stabilityPercentage: null,
+      winRate: null,
+      isResultsMode: true,
+    })
+    const { container } = renderFactor({ label: 'Revenue', type: 'factor' })
+    const bars = container.querySelectorAll('.bg-info')
+    // Both sensitivity and evidence bars should be bg-info
+    expect(bars.length).toBeGreaterThanOrEqual(2)
+    expect(container.querySelector('.bg-factor')).toBeNull()
+  })
+
+  // P5: Estimated badge uses neutral colours (bg-panel-hover text-text-light, not orange)
+  it('estimated badge uses text-text-light not text-warning (P5)', () => {
+    renderFactor({
+      label: 'Salary',
+      type: 'factor',
+      observedState: { value: 0.5, extractionType: 'inferred' },
+    })
+    const badge = screen.getByText('estimated')
+    expect(badge.className).toContain('text-text-light')
+    expect(badge.className).not.toContain('text-warning')
+    expect(badge.className).toContain('bg-panel-hover')
+    expect(badge.className).not.toContain('bg-warning-light')
+  })
+
+  // V1: Incomplete factor (no value) must use factor stone border, not goal yellow
+  it('uses border-factor (not border-goal) for external factor with no observed value', () => {
+    const { container } = renderFactor({
+      label: 'Market rate',
+      type: 'factor',
+      category: 'external',
+      // No observedState.value — triggers isIncomplete in BaseNode
+    })
+    const nodeEl = container.querySelector('[role="group"]')
+    expect(nodeEl?.className).not.toContain('border-goal')
+    expect(nodeEl?.className).toContain('border-factor')
+  })
+
+  it('uses border-factor for any factor with no observed value (controllable)', () => {
+    const { container } = renderFactor({
+      label: 'Hiring rate',
+      type: 'factor',
+      category: 'controllable',
+      // No observedState.value
+    })
+    const nodeEl = container.querySelector('[role="group"]')
+    expect(nodeEl?.className).not.toContain('border-goal')
   })
 })

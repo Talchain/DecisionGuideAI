@@ -215,6 +215,76 @@ describe('OptionNode', () => {
     expect(OptionNode.displayName).toBe('OptionNode')
   })
 
+  // V2: Win probability number always uses text-option regardless of position
+  it('win probability text uses text-option class (not text-success)', () => {
+    vi.mocked(useNodeDisplayMetadata).mockReturnValue({
+      sensitivityRank: null,
+      influence: null,
+      confidence: null,
+      inSensitivityAnalysis: false,
+      achievementProbability: null,
+      stabilityPercentage: null,
+      winRate: 0.72,
+      isResultsMode: true,
+    })
+    vi.mocked(useCanvasStore).mockImplementation((selector) =>
+      selector(makeStoreState({
+        results: {
+          status: 'complete',
+          report: {
+            option_probabilities: {
+              'option-1': { goal_probability: 0.8, confidence: 0.5, win_probability: 0.72 },
+              'option-2': { goal_probability: 0.4, confidence: 0.5, win_probability: 0.28 },
+            },
+          },
+        },
+        nodes: [
+          { id: 'option-1', type: 'option', data: { type: 'option' } },
+          { id: 'option-2', type: 'option', data: { type: 'option' } },
+        ],
+      }) as any)
+    )
+    renderOption()
+    const percentEl = screen.getByText('72%')
+    expect(percentEl.className).toContain('text-option')
+    expect(percentEl.className).not.toContain('text-success')
+  })
+
+  // V3: Recommended badge uses text-text-body (WCAG AA contrast on bg-success-light)
+  it('Recommended badge uses text-text-body (not text-success)', () => {
+    vi.mocked(useNodeDisplayMetadata).mockReturnValue({
+      sensitivityRank: null,
+      influence: null,
+      confidence: null,
+      inSensitivityAnalysis: false,
+      achievementProbability: null,
+      stabilityPercentage: null,
+      winRate: 0.72,
+      isResultsMode: true,
+    })
+    vi.mocked(useCanvasStore).mockImplementation((selector) =>
+      selector(makeStoreState({
+        results: {
+          status: 'complete',
+          report: {
+            option_probabilities: {
+              'option-1': { goal_probability: 0.8, confidence: 0.5, win_probability: 0.72 },
+              'option-2': { goal_probability: 0.4, confidence: 0.5, win_probability: 0.28 },
+            },
+          },
+        },
+        nodes: [
+          { id: 'option-1', type: 'option', data: { type: 'option' } },
+          { id: 'option-2', type: 'option', data: { type: 'option' } },
+        ],
+      }) as any)
+    )
+    renderOption()
+    const badge = screen.getByText('Recommended')
+    expect(badge.className).toContain('text-text-body')
+    expect(badge.className).not.toContain('text-success')
+  })
+
   // Null-safe paths — most likely regression sources in production
   it('renders "Untitled" when data.label is absent', () => {
     render(
@@ -419,5 +489,55 @@ describe('OptionNode', () => {
     renderOption()
     // isRecommended requires length >= 2
     expect(screen.queryByText('Recommended')).toBeNull()
+  })
+
+  // P1: Intervention chip rows must have no background/padding/rounded (chip style removed)
+  it('intervention chip rows have no background, padding, or rounded classes (P1)', () => {
+    vi.mocked(useCanvasStore).mockImplementation((selector) =>
+      selector(makeStoreState({
+        ceeAnalysisReady: {
+          options: [{
+            id: 'option-1',
+            interventions: { 'factor-1': 0.6 },
+          }],
+        },
+        nodes: [{
+          id: 'factor-1',
+          data: { label: 'Hiring rate', observedState: { unit: 'fraction' } },
+        }],
+      }) as any)
+    )
+    const { container } = renderOption()
+    // Find all chip row divs by their known class (items-baseline from the chip div)
+    const chipRows = Array.from(container.querySelectorAll('div.inline-flex.items-baseline'))
+    expect(chipRows.length).toBeGreaterThan(0)
+    chipRows.forEach(row => {
+      // Must not have background, padding, or rounded classes from old chip style
+      expect(row.className).not.toMatch(/\bbg-factor/)
+      expect(row.className).not.toMatch(/\bpx-/)
+      expect(row.className).not.toMatch(/\bpy-/)
+      expect(row.className).not.toMatch(/\brounded/)
+    })
+    // Value span must be font-semibold
+    const valueSpan = container.querySelector('span.font-semibold')
+    expect(valueSpan).not.toBeNull()
+  })
+
+  // P7: Win bar uses max(8px, X%) for very low win probabilities
+  it('uses minimum 8px win bar for very low win probability (P7)', () => {
+    vi.mocked(useNodeDisplayMetadata).mockReturnValue({
+      sensitivityRank: null,
+      influence: null,
+      confidence: null,
+      inSensitivityAnalysis: false,
+      achievementProbability: null,
+      stabilityPercentage: null,
+      winRate: 0.02,
+      isResultsMode: true,
+    })
+    const { container } = renderOption()
+    const bar = container.querySelector('.bg-option.rounded-full') as HTMLElement | null
+    expect(bar).not.toBeNull()
+    expect(bar?.style.width).toBe('max(8px, 2%)')
   })
 })

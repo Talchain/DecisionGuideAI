@@ -278,6 +278,24 @@ export function useConversation(): UseConversationReturn {
         }
       }
 
+      // Build analysis_inputs from ceeAnalysisReady when options and a resolved goal are available.
+      // goal_node_id comes from ceeAnalysisReady (required field); omit analysis_inputs entirely
+      // if either options are absent or goal_node_id is falsy (partial context is worse than none).
+      const ceeReady = store.ceeAnalysisReady
+      const analysisInputs =
+        ceeReady && ceeReady.options.length > 0 && ceeReady.goal_node_id
+          ? {
+              // PLoT requires option_id; we use CEE option id as the canonical identifier on both fields for now.
+              options: ceeReady.options.map((opt) => ({
+                id: opt.id,
+                option_id: opt.id,
+                label: opt.label,
+                interventions: opt.interventions,
+              })),
+              goal_node_id: ceeReady.goal_node_id,
+            }
+          : undefined
+
       return {
         scenario_id: store.currentScenarioId ?? `session-${Date.now()}`,
         message: text,
@@ -294,6 +312,7 @@ export function useConversation(): UseConversationReturn {
           nodeIds.size > 0 || edgeIds.size > 0
             ? { node_ids: [...nodeIds], edge_ids: [...edgeIds] }
             : undefined,
+        analysis_inputs: analysisInputs,
         client_turn_id: crypto.randomUUID(),
       }
     },

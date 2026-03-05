@@ -61,10 +61,23 @@ describe('NodeShapeIndicator', () => {
     expect(container.querySelector('polygon')).not.toBeNull()
   })
 
-  it('renders two circles for outcome (ringed circle)', () => {
+  // V6: Outcome is now an upward triangle, not a ringed circle
+  it('renders polygon (upward triangle) for outcome', () => {
     const { container } = render(<NodeShapeIndicator nodeKind="outcome" />)
-    const circles = container.querySelectorAll('circle')
-    expect(circles.length).toBe(2)
+    const polygon = container.querySelector('polygon')
+    expect(polygon).not.toBeNull()
+    expect(container.querySelectorAll('circle').length).toBe(0)
+  })
+
+  it('outcome polygon points upward (apex at top)', () => {
+    const { container } = render(<NodeShapeIndicator nodeKind="outcome" />)
+    const polygon = container.querySelector('polygon')
+    // Points: "7,1 13,13 1,13" — apex y=1 (top), base y=13 (bottom)
+    const points = polygon?.getAttribute('points') ?? ''
+    const ys = points.split(' ').map(p => Number(p.split(',')[1]))
+    expect(Math.min(...ys)).toBeLessThan(Math.max(...ys))
+    // The minimum y (apex) should be at or near the top (small value)
+    expect(Math.min(...ys)).toBeLessThanOrEqual(2)
   })
 
   it('applies className prop', () => {

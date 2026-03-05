@@ -6,6 +6,7 @@
  */
 
 import type { ScenarioStage } from '../../types/scenario'
+import type { CEEInterventionV3 } from '../../adapters/cee/types'
 
 // ---------------------------------------------------------------------------
 // § 1 — Conversation messages
@@ -197,6 +198,13 @@ export interface SystemEvent {
 // § 5 — Orchestrator turn request
 // ---------------------------------------------------------------------------
 
+export interface AnalysisInputOption {
+  id: string
+  option_id: string
+  label: string
+  interventions: Record<string, CEEInterventionV3>
+}
+
 export interface OrchestratorTurnRequest {
   scenario_id: string
   message: string
@@ -216,6 +224,16 @@ export interface OrchestratorTurnRequest {
   selected_elements?: {
     node_ids?: string[]
     edge_ids?: string[]
+  }
+  /**
+   * Analysis inputs from ceeAnalysisReady — options with resolved interventions
+   * and goal_node_id. Present only when ceeAnalysisReady is available with options.
+   * Allows the orchestrator to pass goal/options directly to PLoT for run_analysis
+   * rather than inferring from graph structure alone.
+   */
+  analysis_inputs?: {
+    options: AnalysisInputOption[]
+    goal_node_id: string
   }
   /**
    * System event — wire format is SystemEventWire (CEE v3) when

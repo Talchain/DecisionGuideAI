@@ -71,6 +71,10 @@ interface RecommendationSectionProps {
   identifiabilityTag?: string | null
   /** V14: Top next action from M1 coaching (for hero coaching line) */
   topNextAction?: NextActionItem
+  /** V16: Count of factors using default estimates */
+  defaultEstimateCount?: number
+  /** V16: Total factor count */
+  totalFactorCount?: number
 }
 
 export function RecommendationSection({
@@ -95,6 +99,8 @@ export function RecommendationSection({
   hinge,
   identifiabilityTag,
   topNextAction,
+  defaultEstimateCount,
+  totalFactorCount,
 }: RecommendationSectionProps) {
   const {
     recommendedOption,
@@ -234,9 +240,7 @@ export function RecommendationSection({
         coachingReadinessScore={coachingReadinessScore}
         coachingHeadline={coachingHeadline}
         coachingParagraph={data.coachingParagraph}
-        coachingDecisionStatement={data.coachingDecisionStatement}
         coachingKeyQualifier={data.coachingKeyQualifier}
-        coachingActionImplication={data.coachingActionImplication}
         m2NarrativeSummary={data.m2NarrativeSummary}
         coachingReadinessDimensions={data.coachingReadinessDimensions}
         identifiabilityTag={identifiabilityTag}
@@ -253,6 +257,9 @@ export function RecommendationSection({
         nearTie={nearTie}
         topNextAction={topNextAction}
         goalNodeId={goalNodeId}
+        robustnessLevel={robustnessLevel}
+        defaultEstimateCount={defaultEstimateCount}
+        totalFactorCount={totalFactorCount}
       />
 
       {/* Single option CTA */}

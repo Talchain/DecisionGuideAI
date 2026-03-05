@@ -14,8 +14,8 @@
  * - Default hero: no jargon; "More" expand: light technical permitted
  */
 
-import { useState, useMemo } from 'react'
-import { AlertTriangle, ChevronDown, ChevronRight, Compass, Info } from 'lucide-react'
+import { useState, useMemo, type ReactNode } from 'react'
+import { AlertTriangle, ChevronDown, ChevronRight, Info } from 'lucide-react'
 import { typography } from '../../styles/typography'
 import { stripEncodingNotation } from './utils/cleanFactorLabel'
 import { formatPercent as formatPct } from '../../utils/formatPercent'
@@ -27,7 +27,7 @@ import { BaselineTargetRow } from './BaselineTargetRow'
 import { focusNodeById } from '../../canvas/utils/focusHelpers'
 import { highlightNode, clearHighlight } from '../../canvas/utils/highlightHelpers'
 import { GAP_THRESHOLD } from './buildResultsVM'
-import type { DecisionState, HingeInfo, NextActionItem } from './types'
+import type { DecisionState, HingeInfo, NextActionItem, RobustnessLevel } from './types'
 import type { NearTieInfo } from '../../lib/mappers/types'
 
 // =============================================================================
@@ -100,12 +100,8 @@ export interface HeroSectionProps {
   coachingHeadline?: string
   /** M1 coaching full narrative paragraph (for "More detail" expand) */
   coachingParagraph?: string
-  /** V12: Executive summary decision statement */
-  coachingDecisionStatement?: string
   /** V12: Executive summary key qualifier */
   coachingKeyQualifier?: string
-  /** V12: Executive summary action implication */
-  coachingActionImplication?: string
   /** V12 C1: M2 narrative summary for "Full analysis" expandable */
   m2NarrativeSummary?: string
   /** V12: Readiness dimensions for tooltip */
@@ -141,6 +137,12 @@ export interface HeroSectionProps {
   topNextAction?: NextActionItem
   /** V14.1: Goal node ID for "Add target" focus */
   goalNodeId?: string
+  /** V16: Robustness level from PLoT for trust summary */
+  robustnessLevel?: RobustnessLevel
+  /** V16: Count of factors using default estimates (ISL-sourced with sampling_stability === 0) */
+  defaultEstimateCount?: number
+  /** V16: Total factor count (for trust reason denominator) */
+  totalFactorCount?: number
 }
 
 // =============================================================================
@@ -194,27 +196,63 @@ function getStabilityTier(stability: number | undefined): {
   }
 }
 
-// ─── V14.3: Executive copy guard ─────────────────────────────────────────────
 
-/** Implementation-verb pattern — contradicts sensitive/indeterminate state */
-const PROCEED_PATTERN = /\b(proceed|implement|move ahead|move forward|go ahead|continue with|ready to decide|ship|launch|execute|roll out)\b/i
+// =============================================================================
+// V16 Helpers
+// =============================================================================
 
-/**
- * V14.3: Guard action implication text against misleading "proceed" language
- * when the decision state is sensitive or indeterminate.
- * Applies ONLY to action implication (line 2), not decision statement (line 1).
- */
-function guardActionImplication(
-  text: string | null | undefined,
-  decisionState: DecisionState | undefined,
-  topFragileEdgeFromLabel?: string,
-): string | null {
-  if (!text) return null
-  if (decisionState !== 'sensitive' && decisionState !== 'indeterminate') return text
-  if (!PROCEED_PATTERN.test(text)) return text
-  return topFragileEdgeFromLabel
-    ? `Validate key assumptions before deciding, starting with ${topFragileEdgeFromLabel}.`
-    : 'Validate key assumptions before deciding.'
+/** Derive trust level from readiness + robustness */
+function deriveTrustLevel(
+  readiness?: string,
+  robustnessLevel?: RobustnessLevel,
+): 'strong' | 'moderate' | 'limited' {
+  if (readiness === 'ready' && robustnessLevel === 'high') return 'strong'
+  if (readiness === 'ready' || robustnessLevel === 'high' || robustnessLevel === 'moderate') return 'moderate'
+  return 'limited'
+}
+
+/** Derive trust reason from available signals */
+function deriveTrustReason(opts: {
+  defaultEstimateCount?: number
+  totalFactorCount?: number
+  fragileEdgeCount?: number
+  robustEdgeCount?: number
+  evidenceQuality?: number
+}): string {
+  const { defaultEstimateCount, totalFactorCount, fragileEdgeCount, robustEdgeCount, evidenceQuality } = opts
+
+  // Priority 1: default estimates
+  if (defaultEstimateCount != null && totalFactorCount != null && defaultEstimateCount > 0) {
+    return `${defaultEstimateCount} of ${totalFactorCount} factors use default estimates`
+  }
+
+  // Priority 2: fragile edges ratio
+  const totalEdges = (fragileEdgeCount ?? 0) + (robustEdgeCount ?? 0)
+  if (totalEdges > 0 && fragileEdgeCount != null && fragileEdgeCount / totalEdges > 0.7) {
+    return 'most causal links are fragile'
+  }
+
+  // Priority 3: evidence quality
+  if (evidenceQuality != null && evidenceQuality < 0.5) {
+    return 'evidence quality is low'
+  }
+
+  return 'review model assumptions'
+}
+
+/** Extract first sentence from a paragraph (up to 150 chars) */
+function extractFirstSentence(text: string): { first: string; hasMore: boolean } {
+  // Find first sentence boundary: period/exclamation/question followed by whitespace + any next char,
+  // or followed by closing quote + whitespace. Minimum 10 chars to avoid splitting abbreviations.
+  const match = text.match(/^(.{10,150}[.!?]["']?)\s+(?:\S)/s)
+  if (match) {
+    return { first: match[1], hasMore: match[1].length < text.length }
+  }
+  // Fallback: first 150 chars
+  if (text.length > 150) {
+    return { first: text.slice(0, 150).trimEnd() + '…', hasMore: true }
+  }
+  return { first: text, hasMore: false }
 }
 
 // =============================================================================
@@ -501,9 +539,7 @@ export function HeroSection({
   coachingReadinessScore,
   coachingHeadline,
   coachingParagraph,
-  coachingDecisionStatement,
   coachingKeyQualifier,
-  coachingActionImplication,
   m2NarrativeSummary,
   coachingReadinessDimensions,
   identifiabilityTag,
@@ -524,12 +560,19 @@ export function HeroSection({
   nearTie,
   topNextAction,
   goalNodeId,
+  robustnessLevel,
+  defaultEstimateCount,
+  totalFactorCount,
 }: HeroSectionProps) {
   // v7.4 Task 6: Default expand state based on robustness level
   // low/very_low stability (< 0.70) defaults to expanded ("Sensitive" or "Highly sensitive")
   // moderate/high stability (>= 0.70) defaults to collapsed ("Mostly stable" or "Stable")
   const shouldDefaultExpand = recommendationStability != null && recommendationStability < 0.70
   const [isExpanded, setIsExpanded] = useState(shouldDefaultExpand)
+  // V16: "Show more" for insight bullet expansion (condition card detail)
+  const [showMoreBullets, setShowMoreBullets] = useState(false)
+  // V16: M2 narrative expansion in "More" panel
+  const [narrativeExpanded, setNarrativeExpanded] = useState(false)
 
   // =========================================================================
   // Headline — Objective / Result format
@@ -722,29 +765,150 @@ export function HeroSection({
     }
   }, [topFragileEdge, topDrivers])
 
-  // V14 path: structured hero with headline, dot, executive, condition card, gauge
+  // V16 Task 4: M2 narrative clamped — must be before conditional returns (Rules of Hooks)
+  const m2NarrativeClamped = useMemo(() => {
+    if (!m2NarrativeSummary) return null
+    return extractFirstSentence(m2NarrativeSummary)
+  }, [m2NarrativeSummary])
+
+  // V16 path: structured hero with headline, insight bullets, trust summary, gauge
   if (decisionState) {
-    // Data layer sanitizes these — just null-guard for rendering
-    const sanitizedDecisionStatement = coachingDecisionStatement || null
-    const rawActionImplication = guardActionImplication(
-      coachingActionImplication, decisionState, topFragileEdge?.fromLabel,
-    ) || null
-    // Task 4: suppress action implication when coaching CTA target entity matches it
-    // (avoids "Gather evidence on X" appearing twice — once in executive, once in CTA)
-    const ctaTargetLabel = topNextAction?.targetLabel
-    const actionImplicationSuppressed = !!(
-      rawActionImplication
-      && ctaTargetLabel
-      && rawActionImplication.includes(ctaTargetLabel)
-    )
-    const sanitizedActionImplication = actionImplicationSuppressed ? null : rawActionImplication
-    const sanitizedParagraph = coachingParagraph || null
+    // ── V16 Task 1: Build insight bullets ───────────────────────────────────
+    //
+    // Bullet 1: key qualifier from coachingKeyQualifier
+    // Bullet 2: hinge line — "Could change if {factor} shifts" (only when fragile edge exists)
+    // Bullet 3: next action from topNextAction.action (with GraphLink on entity name)
+    //
+    // Task 5: Separate hinge bullet (needs qualifying v14ConditionCard) from
+    // condition detail (any topFragileEdge with resolved labels).
+    // When hinge bullet exists → condition detail goes in "Show more".
+    // When no hinge bullet but condition detail exists → promote to default bullets.
+    const hasHingeBullet = !!v14ConditionCard
+    const hasConditionDetail = !!topFragileEdge
+      && topFragileEdge.labelsResolved !== false
+
+    const bullet1 = coachingKeyQualifier?.trim() || null
+    const bullet2 = hasHingeBullet && v14ConditionCard
+      ? v14ConditionCard.fromLabel
+      : null
+    const bullet3NextAction = topNextAction?.action?.trim() || null
+
+    // Condition card detail lives in "Show more" only when hinge bullet is also present.
+    // Otherwise it gets promoted into the default bullets (Task 5).
+    const showConditionCardInMore = hasHingeBullet && hasConditionDetail
+    const promoteConditionToDefault = !hasHingeBullet && hasConditionDetail
+
+    // Build bullets array — only non-null, max 3
+    const defaultBullets: Array<{ key: string; content: ReactNode }> = []
+
+    if (bullet1) {
+      defaultBullets.push({
+        key: 'qualifier',
+        content: <span>{linkifyCoachingText(bullet1, linkEntities)}</span>,
+      })
+    }
+
+    if (bullet2 && v14ConditionCard) {
+      defaultBullets.push({
+        key: 'hinge',
+        content: (
+          <>
+            {'Could change if '}
+            <GraphLink
+              edgeRef={{ fromId: v14ConditionCard.fromId, toId: v14ConditionCard.toId }}
+              fallbackNodeId={v14ConditionCard.fromId}
+              label={bullet2}
+              className={`${typography.panelBody} inline`}
+            >
+              {bullet2}
+            </GraphLink>
+            {' shifts'}
+          </>
+        ),
+      })
+    }
+
+    if (bullet3NextAction && defaultBullets.length < 3) {
+      const actionText = bullet3NextAction
+      const targetLabel = topNextAction?.targetLabel
+      const targetId = topNextAction?.targetId
+      const bulletContent = (targetLabel && targetId && actionText.includes(targetLabel))
+        ? (() => {
+            const idx = actionText.indexOf(targetLabel)
+            return (
+              <>
+                {actionText.slice(0, idx)}
+                <GraphLink
+                  nodeId={targetId}
+                  label={targetLabel}
+                  className={`${typography.panelBody} inline`}
+                >
+                  {targetLabel}
+                </GraphLink>
+                {actionText.slice(idx + targetLabel.length)}
+              </>
+            )
+          })()
+        : <span>{actionText}</span>
+      defaultBullets.push({ key: 'action', content: bulletContent })
+    }
+
+    // Task 5: Promote condition card to default bullets when no hinge bullet
+    if (promoteConditionToDefault && topFragileEdge && defaultBullets.length < 3) {
+      const fromLabel = stripEncodingNotation(topFragileEdge.fromLabel)
+      const altLabel = stripEncodingNotation(topFragileEdge.alternativeWinnerLabel)
+      const driverMatch = topDrivers?.find(d => d.id === topFragileEdge.fromId)
+      const isPositive = driverMatch?.direction === 'positive'
+      defaultBullets.push({
+        key: 'condition-promoted',
+        content: (
+          <>
+            {'If '}
+            <GraphLink
+              edgeRef={{ fromId: topFragileEdge.fromId, toId: topFragileEdge.toId }}
+              fallbackNodeId={topFragileEdge.fromId}
+              label={fromLabel}
+              className={`${typography.panelBody} inline`}
+            >
+              {fromLabel}
+            </GraphLink>
+            {isPositive
+              ? ' is weaker than expected, '
+              : ' differs from your estimate, '}
+            {topFragileEdge.alternativeWinnerId ? (
+              <GraphLink
+                nodeId={topFragileEdge.alternativeWinnerId}
+                label={altLabel}
+                className={`${typography.panelBody} inline ${decisionState === 'indeterminate' ? 'text-info' : 'text-success'}`}
+              >
+                {altLabel}
+              </GraphLink>
+            ) : (
+              altLabel
+            )}
+            {' becomes the stronger option'}
+          </>
+        ),
+      })
+    }
+
+    // ── V16 Task 3: Trust summary ─────────────────────────────────────────
+    const trustLevel = deriveTrustLevel(coachingReadiness, robustnessLevel)
+    const trustReason = deriveTrustReason({
+      defaultEstimateCount,
+      totalFactorCount,
+      fragileEdgeCount,
+      robustEdgeCount,
+      evidenceQuality: coachingReadinessDimensions?.evidence,
+    })
+
+    const sanitizedParagraphV16 = coachingParagraph || null
 
     return (
       <div className="space-y-4" data-testid="hero-section">
         <div className="p-4 bg-panel border border-panel-border rounded-lg space-y-3">
 
-          {/* ── Task 2: Headline ─────────────────────────────────── */}
+          {/* ── Headline: Goal / Result ──────────────────────── */}
           {v14Headline.isNearTie ? (
             <div className="space-y-0.5">
               <div className="flex items-baseline gap-1.5">
@@ -807,80 +971,82 @@ export function HeroSection({
             </div>
           )}
 
-
-          {/* ── Task 1: Structured executive ──────────────────── */}
-          {(sanitizedDecisionStatement || sanitizedActionImplication) ? (
-            <div className="mb-2" data-testid="structured-executive">
-              {sanitizedDecisionStatement && (
-                <p className={`${typography.panelBody} text-text-body`}>
-                  {linkifyCoachingText(sanitizedDecisionStatement, linkEntities)}
-                </p>
-              )}
-              {sanitizedActionImplication && (
-                <p className={`${typography.panelBody} text-text-light`}>
-                  {linkifyCoachingText(sanitizedActionImplication, linkEntities)}
-                </p>
-              )}
-            </div>
-          ) : sanitizedParagraph ? (
-            <div className="mb-2" data-testid="structured-executive">
-              <p className={`${typography.panelBody} text-text-body`}>
-                {linkifyCoachingText(sanitizedParagraph, linkEntities)}
-              </p>
-            </div>
-          ) : null}
-
-          {/* ── Task 4: Condition card ────────────────────────── */}
-          {v14ConditionCard && (
-            <div
-              className="mb-3 p-3 border border-danger/30 rounded-lg flex items-start gap-2 results-card-hover"
-              data-testid="condition-card"
-              onMouseEnter={() => highlightNode(v14ConditionCard.fromId)}
-              onMouseLeave={clearHighlight}
+          {/* ── V16 Task 1: Insight bullets ───────────────────── */}
+          {defaultBullets.length > 0 && (
+            <ul
+              className={`list-disc list-inside space-y-0.5 ${typography.panelBody} text-text-body`}
+              data-testid="insight-bullets"
             >
-              <AlertTriangle className="w-4 h-4 text-danger flex-shrink-0 mt-0.5" />
-              <p className={`${typography.panelBody} text-text-body`}>
-                {'If '}
-                <GraphLink
-                  edgeRef={{ fromId: v14ConditionCard.fromId, toId: v14ConditionCard.toId }}
-                  fallbackNodeId={v14ConditionCard.fromId}
-                  label={v14ConditionCard.fromLabel}
-                  className={`${typography.panelBody} inline`}
+              {defaultBullets.map(b => (
+                <li key={b.key}>{b.content}</li>
+              ))}
+            </ul>
+          )}
+
+          {/* Show more ▸ / expanded condition card detail */}
+          {showConditionCardInMore && v14ConditionCard && (
+            <div>
+              {!showMoreBullets ? (
+                <button
+                  type="button"
+                  onClick={() => setShowMoreBullets(true)}
+                  className={`${typography.panelBody} text-info hover:underline`}
+                  data-testid="show-more-bullets"
                 >
-                  {v14ConditionCard.fromLabel}
-                </GraphLink>
-                {v14ConditionCard.isPositive
-                  ? ' is weaker than expected, '
-                  : ' differs from your estimate, '}
-                {v14ConditionCard.altId ? (
-                  <GraphLink
-                    nodeId={v14ConditionCard.altId}
-                    label={v14ConditionCard.altLabel}
-                    className={`${typography.panelBody} inline ${decisionState === 'indeterminate' ? 'text-info' : 'text-success'}`}
+                  Show more ▸
+                </button>
+              ) : (
+                <div data-testid="show-more-expanded">
+                  <ul
+                    className={`list-disc list-inside space-y-0.5 ${typography.panelBody} text-text-body mb-1`}
+                    onMouseEnter={() => highlightNode(v14ConditionCard.fromId)}
+                    onMouseLeave={clearHighlight}
                   >
-                    {v14ConditionCard.altLabel}
-                  </GraphLink>
-                ) : (
-                  v14ConditionCard.altLabel
-                )}
-                {' becomes the stronger option'}
-              </p>
+                    <li>
+                      {'If '}
+                      <GraphLink
+                        edgeRef={{ fromId: v14ConditionCard.fromId, toId: v14ConditionCard.toId }}
+                        fallbackNodeId={v14ConditionCard.fromId}
+                        label={v14ConditionCard.fromLabel}
+                        className={`${typography.panelBody} inline`}
+                      >
+                        {v14ConditionCard.fromLabel}
+                      </GraphLink>
+                      {v14ConditionCard.isPositive
+                        ? ' is weaker than expected, '
+                        : ' differs from your estimate, '}
+                      {v14ConditionCard.altId ? (
+                        <GraphLink
+                          nodeId={v14ConditionCard.altId}
+                          label={v14ConditionCard.altLabel}
+                          className={`${typography.panelBody} inline ${decisionState === 'indeterminate' ? 'text-info' : 'text-success'}`}
+                        >
+                          {v14ConditionCard.altLabel}
+                        </GraphLink>
+                      ) : (
+                        v14ConditionCard.altLabel
+                      )}
+                      {' becomes the stronger option'}
+                    </li>
+                  </ul>
+                  <button
+                    type="button"
+                    onClick={() => setShowMoreBullets(false)}
+                    className={`${typography.panelBody} text-info hover:underline`}
+                  >
+                    Show less ▴
+                  </button>
+                </div>
+              )}
             </div>
           )}
 
-          {/* ── Task 6: Win gauge (no legend — already removed V12.4) ── */}
-          {optionWinShares && optionWinShares.length > 1 && (
-            <WinGauge shares={optionWinShares} decisionState={decisionState} />
-          )}
+          {/* ── V16 Task 3: Trust summary ─────────────────────── */}
+          <p className={`${typography.panelMeta} text-text-light truncate`} data-testid="trust-summary">
+            Trust: {trustLevel} — {trustReason}
+          </p>
 
-          {/* Goal probability line */}
-          {goalThreshold != null && winnerGoalProbability != null && (
-            <p className={`${typography.panelMeta} text-text-body`}>
-              {winnerLabel} has a {formatPct(winnerGoalProbability, { fromDecimal: true })} chance of reaching your target of {goalThreshold}
-            </p>
-          )}
-
-          {/* ── Task 7: Baseline + target row ────────────────── */}
+          {/* ── V16 Task 2: Baseline + target row (above gauge) ── */}
           <BaselineTargetRow
             baselineOptions={baselineOptions}
             baselineLabel={baselineLabel}
@@ -893,46 +1059,26 @@ export function HeroSection({
             onEditTarget={goalNodeId ? () => focusNodeById(goalNodeId) : undefined}
           />
 
-          {/* ── Task 8: Coaching next action ──────────────────── */}
-          {topNextAction && topNextAction.action && (
-            <div className="flex items-start gap-2" data-testid="coaching-next-action">
-              <Compass className="w-3.5 h-3.5 text-info flex-shrink-0 mt-0.5" />
-              <p className={`${typography.panelBody} text-text-body`}>
-                {(() => {
-                  const actionText = topNextAction.action
-                  const targetLabel = topNextAction.targetLabel
-                  const targetId = topNextAction.targetId
+          {/* ── Win gauge ────────────────────────────────────── */}
+          {optionWinShares && optionWinShares.length > 1 && (
+            <WinGauge shares={optionWinShares} decisionState={decisionState} />
+          )}
 
-                  // Wrap target_label in GraphLink if it appears in the action text.
-                  // For edge targets, targetId is already resolved to the from-node
-                  // by useResultsSectionData (splits "source->target" → "source").
-                  if (targetLabel && targetId && actionText.includes(targetLabel)) {
-                    const idx = actionText.indexOf(targetLabel)
-                    return (
-                      <>
-                        {actionText.slice(0, idx)}
-                        <GraphLink
-                          nodeId={targetId}
-                          label={targetLabel}
-                          className={`${typography.panelBody} inline`}
-                        >
-                          {targetLabel}
-                        </GraphLink>
-                        {actionText.slice(idx + targetLabel.length)}
-                      </>
-                    )
-                  }
-                  return actionText
-                })()}
-              </p>
-            </div>
+          {/* Goal probability line */}
+          {goalThreshold != null && winnerGoalProbability != null && (
+            <p className={`${typography.panelMeta} text-text-body`}>
+              {winnerLabel} has a {formatPct(winnerGoalProbability, { fromDecimal: true })} chance of reaching your target of {goalThreshold}
+            </p>
           )}
 
           {/* ── Stability badge + More / Less toggle ─────────── */}
           <div className="border-t border-panel-border pt-3">
             <div className="flex items-center gap-3">
               {stabilityTier.label && (
-                <span className="inline-flex items-center gap-1.5 bg-panel-hover px-2 py-0.5 rounded-full">
+                <span className="inline-flex items-center gap-1.5 bg-panel-hover px-2 py-0.5 rounded-full" data-testid="decision-state-pill">
+                  {decisionStateDot && (
+                    <span className={`w-2 h-2 rounded-full ${decisionStateDot.color.split(' ')[0]} flex-shrink-0`} />
+                  )}
                   <span className={`${typography.panelMeta} ${stabilityTier.colorClass}`}>
                     {stabilityTier.label}
                   </span>
@@ -956,23 +1102,48 @@ export function HeroSection({
             </div>
           </div>
 
-          {/* ── Task 5: "More detail" expand ──────────────────── */}
+          {/* ── "More" expand ─────────────────────────────────── */}
           {isExpanded && (
             <div
               id="hero-more-content"
               className="mt-3 pt-3 border-t border-panel-border space-y-3"
             >
-              {/* Narrative: M2 when available, M1 fallback */}
-              {m2NarrativeSummary ? (
+              {/* V16 Task 4: M2 narrative — clamped to first sentence with Read more toggle */}
+              {m2NarrativeClamped ? (
                 <div>
                   <p className={`${typography.panelMeta} text-text-light italic mb-1`}>AI-enhanced analysis</p>
                   <p className={`${typography.panelBody} text-text-body`}>
-                    {m2NarrativeSummary}
+                    {narrativeExpanded ? m2NarrativeSummary : m2NarrativeClamped.first}
+                    {m2NarrativeClamped.hasMore && !narrativeExpanded && (
+                      <>
+                        {' '}
+                        <button
+                          type="button"
+                          onClick={() => setNarrativeExpanded(true)}
+                          className={`${typography.panelBody} text-info cursor-pointer`}
+                          data-testid="read-more-narrative"
+                        >
+                          Read more ▾
+                        </button>
+                      </>
+                    )}
+                    {narrativeExpanded && (
+                      <>
+                        {' '}
+                        <button
+                          type="button"
+                          onClick={() => setNarrativeExpanded(false)}
+                          className={`${typography.panelBody} text-info cursor-pointer`}
+                        >
+                          Read less ▴
+                        </button>
+                      </>
+                    )}
                   </p>
                 </div>
-              ) : sanitizedParagraph ? (
+              ) : sanitizedParagraphV16 ? (
                 <p className={`${typography.panelBody} text-text-body`}>
-                  {sanitizedParagraph}
+                  {sanitizedParagraphV16}
                 </p>
               ) : null}
 

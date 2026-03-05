@@ -192,4 +192,28 @@ describe('DecisionNode', () => {
     // targetNode is undefined → filter returns false → optionCount = 0
     expect(screen.queryByText(/options? compared/)).toBeNull()
   })
+
+  // D1: Decision node must show its own label, not the recommended option label from results
+  it('renders data.label regardless of results (D1 regression guard)', () => {
+    vi.mocked(useCanvasStore).mockImplementation((selector) =>
+      selector(makeStoreState({
+        results: {
+          status: 'complete',
+          report: {
+            option_probabilities: {
+              'option-1': { win_probability: 0.8 },
+            },
+            robustness: { recommended_option_id: 'option-1', recommendation_stability: 0.9 },
+          },
+        },
+        nodes: [
+          { id: 'option-1', type: 'option', data: { label: 'Acquire Smaller Competitor', type: 'option' } },
+        ],
+      }) as any)
+    )
+    renderDecision({ data: { label: 'Mid-Market Expansion Strategy', type: 'decision' } as any })
+    expect(screen.getByText('Mid-Market Expansion Strategy')).toBeDefined()
+    // Option label must NOT bleed into the decision node
+    expect(screen.queryByText('Acquire Smaller Competitor')).toBeNull()
+  })
 })

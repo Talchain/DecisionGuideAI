@@ -488,15 +488,11 @@ function formatObservedStateDetail(os: ReturnType<typeof getObservedState>): str
     if (os.cap != null && !isQualitative) {
       // Suppress "of 100" for percentages — "50%" not "50% of 100"
       if (unit === '%' && Number(os.cap) === 100) return primary
+      // Suppress cap for currency units — "£49" not "£49 of £100"
+      // The cap is a normalisation ceiling, not a meaningful budget limit
+      if (unit === '$' || unit === '£' || unit === '€') return primary
       // Don't repeat suffix units — "9 months of 18" not "9 months of 18 months"
-      // Prefix currencies still shown: "$9,000 of $18,000"
-      let capStr: string
-      if (unit === '$' || unit === '£') {
-        capStr = `${unit}${Number(os.cap).toLocaleString()}`
-      } else {
-        capStr = String(os.cap)
-      }
-      return `${primary} of ${capStr}`
+      return `${primary} of ${String(os.cap)}`
     }
     return primary
   }
@@ -1318,8 +1314,8 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
       if (goalOs.value == null) {
         checks.push({
           id: 'goal_baseline_missing',
-          message: 'Goal has no current-state baseline \u2014 results show relative rankings only',
-          cta: 'Set baseline',
+          message: "Goal has no current value \u2014 results won\u2019t show how much your options improve on today",
+          cta: 'Set current value',
           ctaAction: 'set_goal_baseline',
           pill: 'framing',
         })
@@ -1386,9 +1382,10 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
     }
 
     // 5. Many AI estimates (AI-sourced > brief_extraction count)
-    // Suppress when no reviewable assumptions exist (all factors are intervention targets
-    // or binary levers — nothing for the user to review)
-    if (factors.length > 0 && totalReviewableFactorsCount > 0) {
+    // Fire whenever AI-sourced factors outnumber brief-sourced ones, regardless of whether
+    // those factors have observed_state.value set. Factors without a value are still AI
+    // estimates the user should validate.
+    if (factors.length > 0) {
       const aiCount = factors.filter(isAiSource).length
       const briefCount = factors.length - aiCount
       if (aiCount > briefCount) {

@@ -60,10 +60,11 @@ export const OptionNode = memo((props: NodeProps) => {
               /^[A-Z]{2,}$/.test(word) ? word : word.toLowerCase()
             )
           : stripped
-        const observedState = factorNode?.data?.observedState as { unit?: string; factor_type?: string } | undefined
+        const observedState = factorNode?.data?.observedState as { unit?: string; factor_type?: string; cap?: number } | undefined
         const unit = (factorNode?.data?.unit as string | undefined) ?? observedState?.unit
         const factorType = observedState?.factor_type
-        return { label: cleanedLabel, value, unit, factorType }
+        const cap = observedState?.cap
+        return { label: cleanedLabel, value, unit, factorType, cap }
       })
       .sort((a, b) => Math.abs(b.value) - Math.abs(a.value))
       .slice(0, 3)
@@ -98,7 +99,7 @@ export const OptionNode = memo((props: NodeProps) => {
               </span>
               <span className={`${typography.nodeLabel} text-text-light`}>win probability</span>
               {isRecommended && (
-                <span className={`${typography.nodeLabel} bg-success-light text-success rounded-full px-1.5 py-0.5 ml-auto`}>
+                <span className={`${typography.nodeLabel} bg-success-light text-text-body rounded-full px-1.5 py-0.5 ml-auto`}>
                   Recommended
                 </span>
               )}
@@ -106,7 +107,7 @@ export const OptionNode = memo((props: NodeProps) => {
             <div className="h-1.5 bg-panel-border rounded-full overflow-hidden">
               <div
                 className="h-full bg-option rounded-full transition-all duration-300"
-                style={{ width: `${Math.round(displayMetadata.winRate * 100)}%` }}
+                style={{ width: displayMetadata.winRate > 0 ? `max(8px, ${Math.round(displayMetadata.winRate * 100)}%)` : '0%' }}
               />
             </div>
           </div>
@@ -114,18 +115,17 @@ export const OptionNode = memo((props: NodeProps) => {
 
         {/* T8: Readable intervention chips */}
         {interventionChips.length > 0 && (
-          <div className={`${typography.nodeLabel} mt-1 flex flex-col gap-0.5`}>
+          <div className={`${typography.nodeLabel} mt-1 flex flex-col gap-1`}>
             {interventionChips.map((chip, idx) => (
               <div
                 key={idx}
-                className="bg-factor-light text-text-body inline-flex items-baseline gap-1"
-                style={{ padding: '2px 8px', borderRadius: '4px' }}
+                className="text-text-body inline-flex items-baseline gap-1"
               >
                 <span className="text-text-light truncate" style={{ maxWidth: '150px' }} title={chip.label}>
                   {chip.label}:
                 </span>
-                <span className="font-medium shrink-0">
-                  {formatInterventionValue(chip.value, chip.unit, chip.factorType)}
+                <span className="font-semibold shrink-0">
+                  {formatInterventionValue(chip.value, chip.unit, chip.factorType, chip.cap)}
                 </span>
               </div>
             ))}

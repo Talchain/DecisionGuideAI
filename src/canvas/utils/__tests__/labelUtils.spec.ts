@@ -12,6 +12,7 @@ import {
   evidenceTierLabel,
   formatInterventionValue,
   qualitativeTierLabel,
+  denormaliseInterventionValue,
 } from '../labelUtils'
 
 // ---------------------------------------------------------------------------
@@ -185,6 +186,32 @@ describe('qualitativeTierLabel', () => {
 })
 
 // ---------------------------------------------------------------------------
+// denormaliseInterventionValue (J1)
+// ---------------------------------------------------------------------------
+describe('denormaliseInterventionValue', () => {
+  it('multiplies by cap when cap > 1', () => {
+    expect(denormaliseInterventionValue(0.3, 18)).toBeCloseTo(5.4)
+    expect(denormaliseInterventionValue(0.7, 20)).toBeCloseTo(14)
+  })
+
+  it('returns value unchanged when cap is null', () => {
+    expect(denormaliseInterventionValue(0.5, null)).toBe(0.5)
+  })
+
+  it('returns value unchanged when cap is undefined', () => {
+    expect(denormaliseInterventionValue(0.5, undefined)).toBe(0.5)
+  })
+
+  it('returns value unchanged when cap = 1 (normalised ceiling, not a scale)', () => {
+    expect(denormaliseInterventionValue(0.5, 1)).toBe(0.5)
+  })
+
+  it('handles cap = 0 gracefully (returns value unchanged)', () => {
+    expect(denormaliseInterventionValue(0.5, 0)).toBe(0.5)
+  })
+})
+
+// ---------------------------------------------------------------------------
 // formatInterventionValue (T8)
 // ---------------------------------------------------------------------------
 describe('formatInterventionValue', () => {
@@ -284,6 +311,52 @@ describe('formatInterventionValue', () => {
 
     it('uses generic unit format when unit is present', () => {
       expect(formatInterventionValue(12, 'months', 'quality')).toBe('12 months')
+    })
+  })
+
+  // ---------------------------------------------------------------------------
+  // J1: cap-based denormalisation
+  // ---------------------------------------------------------------------------
+  describe('cap denormalisation (J1)', () => {
+    it('denormalises value × cap for cap > 1', () => {
+      // 0.3 × 18 = 5.4 → rounded → 5 months
+      expect(formatInterventionValue(0.3, 'months', undefined, 18)).toBe('5 months')
+    })
+
+    it('denormalises engineers: 0.7 × 20 = 14', () => {
+      expect(formatInterventionValue(0.7, 'engineers', undefined, 20)).toBe('14 engineers')
+    })
+
+    it('denormalises currency: 0.49 × 100 = 49 → £49', () => {
+      expect(formatInterventionValue(0.49, '£', undefined, 100)).toBe('£49')
+    })
+
+    it('denormalises $ currency: 0.5 × 200 = 100 → $100', () => {
+      expect(formatInterventionValue(0.5, '$', undefined, 200)).toBe('$100')
+    })
+
+    it('does not denormalise when cap is absent', () => {
+      // No cap — fraction behaviour unchanged
+      expect(formatInterventionValue(0.6, 'fraction', undefined, undefined)).toBe('60%')
+    })
+
+    it('does not denormalise when cap = 1 (normalised ceiling)', () => {
+      expect(formatInterventionValue(0.5, 'months', undefined, 1)).toBe('0.5 months')
+    })
+
+    it('rounds capped value to integer', () => {
+      // 0.333 × 12 = 3.996 → 4
+      expect(formatInterventionValue(0.333, 'months', undefined, 12)).toBe('4 months')
+    })
+
+    it('fraction/proportion unit ignores cap (already a ratio)', () => {
+      // fraction is already 0–1, cap is irrelevant
+      expect(formatInterventionValue(0.6, 'fraction', undefined, 18)).toBe('60%')
+    })
+
+    it('qualitative tier labels use original normalised value (cap ignored)', () => {
+      // 0.7 is "High" tier regardless of cap
+      expect(formatInterventionValue(0.7, undefined, 'quality', 10)).toBe('High')
     })
   })
 

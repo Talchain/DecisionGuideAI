@@ -731,7 +731,6 @@ export function PreAnalysisPanel({
         onRetryDraft={handleRetryDraft}
         reviewedCount={data.reviewedFactorsCount}
         totalReviewableCount={data.totalReviewableFactorsCount}
-        evidenceLevel={data.evidenceQuality.level}
         evidenceNonAiCount={data.evidenceQuality.nonAiCount}
         evidenceTotalCount={data.evidenceQuality.totalCount}
       />

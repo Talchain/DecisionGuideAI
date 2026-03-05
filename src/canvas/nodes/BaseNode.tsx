@@ -159,6 +159,13 @@ export const BaseNode = memo(({ id, nodeType, icon: Icon, data, selected, childr
     }, 100)
   }, [id, description, updateNodeInternals])
 
+  // P6: Factor border width — 1px baseline (no category), 2px when category is explicit
+  // All other node types always use border-2 (their category is inherent to their type)
+  const borderWidth = (() => {
+    if (nodeType === 'factor' && !controllability) return 'border'
+    return 'border-2'
+  })()
+
   return (
     <div
       role="group"
@@ -166,8 +173,8 @@ export const BaseNode = memo(({ id, nodeType, icon: Icon, data, selected, childr
       aria-expanded={description ? isExpanded : undefined}
       {...(isIncomplete ? { 'data-testid': nodeType === 'goal' ? 'overlay-missing-threshold-node' : 'overlay-missing-value' } : {})}
       className={`
-        relative rounded-lg border-2 shadow-1
-        ${isIncomplete ? 'border-goal border-dashed' : `${colors.border} ${borderStyle}`}
+        relative rounded-lg ${borderWidth} shadow-1
+        ${isIncomplete ? (nodeType === 'goal' ? 'border-goal border-dashed' : `${colors.border} border-dashed`) : `${colors.border} ${borderStyle}`}
         transition-all duration-200
         cursor-default
         ${selected ? 'ring-2 ring-info ring-offset-2' : ''}
@@ -201,16 +208,6 @@ export const BaseNode = memo(({ id, nodeType, icon: Icon, data, selected, childr
         </div>
       )}
 
-      {/* Decision Graph Display v2 Task 5: Sensitivity rank badge (Results mode, top 3 factors) */}
-      {displayMetadata.sensitivityRank && (
-        <div
-          className={`absolute top-1 right-1 ${typography.nodeLabel} font-semibold text-gray-400 bg-white/80 px-1.5 py-0.5 rounded`}
-          style={{ pointerEvents: 'none' }}
-          title={`Key driver #${displayMetadata.sensitivityRank}`}
-        >
-          #{displayMetadata.sensitivityRank}
-        </div>
-      )}
       {/* Connection handles */}
       <Handle
         type="target"
@@ -235,6 +232,16 @@ export const BaseNode = memo(({ id, nodeType, icon: Icon, data, selected, childr
       >
         {/* T1: Shape indicator (Design System v3 §10.1) + sentence-case type label */}
         <NodeShapeIndicator nodeKind={nodeType} size={12} />
+        {/* Decision Graph Display v2 Task 5: Sensitivity rank badge (Results mode, top 3 factors) */}
+        {displayMetadata.sensitivityRank && (
+          <span
+            className={`${typography.nodeLabel} font-semibold text-text-body bg-panel-border rounded-full flex items-center justify-center`}
+            style={{ minWidth: '20px', height: '20px', padding: '0 4px', pointerEvents: 'none' }}
+            title={`Key driver #${displayMetadata.sensitivityRank}`}
+          >
+            #{displayMetadata.sensitivityRank}
+          </span>
+        )}
         <span
           className={`${typography.nodeLabel} ${colors.text} font-semibold leading-none`}
         >

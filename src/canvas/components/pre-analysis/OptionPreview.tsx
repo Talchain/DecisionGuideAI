@@ -165,12 +165,14 @@ export function OptionPreview({
                 >
                   {opt.label}
                 </button>
-                <Pill
-                  size="small"
-                  variant={opt.status === 'ready' ? 'success' : 'danger'}
-                >
-                  {opt.status === 'ready' ? 'Ready' : 'Needs mapping'}
-                </Pill>
+                {opt.status === 'ready' ? (
+                  <span className="inline-flex items-center gap-1 text-xs text-text-body bg-panel-hover rounded-full px-2 py-0.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-success flex-shrink-0" aria-hidden="true" />
+                    Ready
+                  </span>
+                ) : (
+                  <Pill size="small" variant="danger">Needs mapping</Pill>
+                )}
               </div>
 
               {/* Interventions */}

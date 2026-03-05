@@ -107,8 +107,8 @@ describe('V12.3 Task 1: Evidence badge removed from hero', () => {
 // Task 2: "Action" label with bullet separator
 // ===========================================================================
 
-describe('V14: Coaching next action (replaces V12.5 action lines)', () => {
-  it('robust + topNextAction: shows coaching next action with link', () => {
+describe('V16: Next action in insight bullets (replaces coaching-next-action)', () => {
+  it('robust + topNextAction: shows action in insight-bullets with link', () => {
     render(
       <HeroSection
         {...heroBase}
@@ -124,12 +124,13 @@ describe('V14: Coaching next action (replaces V12.5 action lines)', () => {
       />
     )
 
-    const actionRow = screen.getByTestId('coaching-next-action')
-    expect(actionRow.textContent).toContain('Market Size')
+    const bullets = screen.getByTestId('insight-bullets')
+    expect(bullets.textContent).toContain('Market Size')
     expect(screen.getByRole('button', { name: /Focus on Market Size/ })).toBeInTheDocument()
+    expect(screen.queryByTestId('coaching-next-action')).not.toBeInTheDocument()
   })
 
-  it('robust + no topNextAction: coaching next action is absent', () => {
+  it('robust + no topNextAction: no insight-bullets', () => {
     render(
       <HeroSection
         {...heroBase}
@@ -138,9 +139,10 @@ describe('V14: Coaching next action (replaces V12.5 action lines)', () => {
     )
 
     expect(screen.queryByTestId('coaching-next-action')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('insight-bullets')).not.toBeInTheDocument()
   })
 
-  it('sensitive + topNextAction: shows coaching next action with link', () => {
+  it('sensitive + topNextAction: shows action in insight-bullets with link', () => {
     render(
       <HeroSection
         {...heroBase}
@@ -156,12 +158,13 @@ describe('V14: Coaching next action (replaces V12.5 action lines)', () => {
       />
     )
 
-    const actionRow = screen.getByTestId('coaching-next-action')
-    expect(actionRow.textContent).toContain('Customer Churn')
+    const bullets = screen.getByTestId('insight-bullets')
+    expect(bullets.textContent).toContain('Customer Churn')
     expect(screen.getByRole('button', { name: /Focus on Customer Churn/ })).toBeInTheDocument()
+    expect(screen.queryByTestId('coaching-next-action')).not.toBeInTheDocument()
   })
 
-  it('sensitive + no topNextAction: coaching next action is absent', () => {
+  it('sensitive + no topNextAction: no insight-bullets', () => {
     render(
       <HeroSection
         {...heroBase}
@@ -170,9 +173,10 @@ describe('V14: Coaching next action (replaces V12.5 action lines)', () => {
     )
 
     expect(screen.queryByTestId('coaching-next-action')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('insight-bullets')).not.toBeInTheDocument()
   })
 
-  it('indeterminate + topNextAction: shows coaching next action with link', () => {
+  it('indeterminate + topNextAction: shows action in insight-bullets with link', () => {
     render(
       <HeroSection
         {...heroBase}
@@ -188,12 +192,13 @@ describe('V14: Coaching next action (replaces V12.5 action lines)', () => {
       />
     )
 
-    const actionRow = screen.getByTestId('coaching-next-action')
-    expect(actionRow.textContent).toContain('Adoption Rate')
+    const bullets = screen.getByTestId('insight-bullets')
+    expect(bullets.textContent).toContain('Adoption Rate')
     expect(screen.getByRole('button', { name: /Focus on Adoption Rate/ })).toBeInTheDocument()
+    expect(screen.queryByTestId('coaching-next-action')).not.toBeInTheDocument()
   })
 
-  it('indeterminate + no topNextAction: coaching next action is absent', () => {
+  it('indeterminate + no topNextAction: no insight-bullets', () => {
     render(
       <HeroSection
         {...heroBase}
@@ -202,10 +207,11 @@ describe('V14: Coaching next action (replaces V12.5 action lines)', () => {
     )
 
     expect(screen.queryByTestId('coaching-next-action')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('insight-bullets')).not.toBeInTheDocument()
   })
 
-  it('V14: hero section uses <p> tags, no <dt>/<dd> layout', () => {
-    const { container } = render(
+  it('V16: hero section uses <ul>/<li> for insight bullets, no standalone action element', () => {
+    render(
       <HeroSection
         {...heroBase}
         decisionState="sensitive"
@@ -220,12 +226,12 @@ describe('V14: Coaching next action (replaces V12.5 action lines)', () => {
       />
     )
 
-    const heroSection = screen.getByTestId('hero-section')
-    // V14: No <dt>/<dd> in the hero section default view (only in "More" expand stats grid)
-    // The main content area uses <p> and <div> elements
-    const actionRow = screen.getByTestId('coaching-next-action')
-    const pElements = actionRow.querySelectorAll('p')
-    expect(pElements.length).toBeGreaterThanOrEqual(1)
+    screen.getByTestId('hero-section')
+    // V16: action is a <li> in insight-bullets, not a standalone coaching-next-action div
+    const bullets = screen.getByTestId('insight-bullets')
+    const liElements = bullets.querySelectorAll('li')
+    expect(liElements.length).toBeGreaterThanOrEqual(1)
+    expect(screen.queryByTestId('coaching-next-action')).not.toBeInTheDocument()
   })
 })
 

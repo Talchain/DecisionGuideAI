@@ -2,37 +2,33 @@
  * StickyFooter - 48px bar pinned to bottom of panel
  *
  * Left: CheckCircle/XCircle/Loader icon + "Ready"/"Blocked"/"Checking"
+ *       · X/Y reviewed (with source-distribution tooltip)
  * Right: CTA button(s)
- *   - Primary: "Analyse Now" (info bg, white text, pill shape)
- *   - Retry: "Retry Draft" appears when blocked due to incomplete draft (ANALYSIS_NOT_READY)
- *   - States: disabled "Checking..." → disabled "Fix N issues" → "Retry Draft" (when retryable) → enabled "Analyse Now" → "Analysing..." with spinner
+ *   - Primary: "Analyse Now" (brand green, pill shape)
+ *   - Retry: "Retry Draft" appears when blocked due to incomplete draft
+ *   - States: "Checking..." → "Fix N issues" → "Retry Draft" → "Analyse Now" → "Analysing..."
  *
- * "Quality: High/Medium/Low" label shows source-distribution tooltip
- * ("N from brief, M estimated by AI").
- * Reviewed count shows as secondary signal when reviewable factors exist.
+ * Source-distribution tooltip on reviewed count:
+ *   0% from brief  → "All values estimated by AI"
+ *   <50% from brief → "Most values estimated by AI"
+ *   ≥50% from brief → "Most values from your brief"
+ *   100% from brief → "All values from your brief"
  */
 
 import { CheckCircle, XCircle, Loader2, RefreshCw } from 'lucide-react'
 import { Tooltip } from '../Tooltip'
-import type { EvidenceQualityLevel } from './hooks/usePreAnalysisData'
 
 /** Derive source distribution tooltip from raw counts */
-function getEvidenceTooltip(nonAiCount?: number, totalCount?: number): string {
+function getReviewedTooltip(nonAiCount?: number, totalCount?: number): string {
   if (totalCount == null || totalCount === 0) {
-    return 'Proportion of inputs from your brief vs estimated by AI'
+    return "Number of factor values you've confirmed or marked as assumptions"
   }
-  const aiCount = totalCount - (nonAiCount ?? 0)
   const briefCount = nonAiCount ?? 0
-  if (aiCount === 0) return `All ${totalCount} values from your brief`
-  if (briefCount === 0) return `All ${totalCount} values estimated by AI`
-  return `${briefCount} from brief, ${aiCount} estimated by AI`
-}
-
-/** Colour class for Quality tier label */
-function qualityColour(level: EvidenceQualityLevel): string {
-  if (level === 'high') return 'text-success'
-  if (level === 'medium') return 'text-warning'
-  return 'text-danger'
+  const ratio = briefCount / totalCount
+  if (ratio === 0) return 'All values estimated by AI'
+  if (ratio < 0.5) return 'Most values estimated by AI'
+  if (ratio < 1) return 'Most values from your brief'
+  return 'All values from your brief'
 }
 
 interface StickyFooterProps {
@@ -58,8 +54,6 @@ interface StickyFooterProps {
   reviewedCount?: number
   /** Total number of reviewable factors */
   totalReviewableCount?: number
-  /** Evidence quality tier — drives "Quality: X" label */
-  evidenceLevel?: EvidenceQualityLevel
   /** Factors NOT from AI sources — used to build source-distribution tooltip */
   evidenceNonAiCount?: number
   /** Total factor count — used to build source-distribution tooltip */
@@ -78,11 +72,9 @@ export function StickyFooter({
   onRetryDraft,
   reviewedCount,
   totalReviewableCount,
-  evidenceLevel,
   evidenceNonAiCount,
   evidenceTotalCount,
 }: StickyFooterProps) {
-  // Determine primary button state
   const isDisabled = !isReady || isAnalysing || isLoading || isRetrying
 
   let buttonLabel: string
@@ -96,20 +88,18 @@ export function StickyFooter({
     buttonStyle = 'bg-factor-light text-text-light cursor-wait opacity-40'
   } else if (isAnalysing) {
     buttonLabel = 'Analysing...'
-    buttonStyle = 'bg-info text-white cursor-wait'
+    buttonStyle = 'bg-primary text-white cursor-wait'
   } else if (hasBlockers) {
     buttonLabel = `Fix ${blockerCount} issue${blockerCount !== 1 ? 's' : ''} first`
     buttonStyle = 'bg-factor-light text-text-light cursor-not-allowed opacity-40'
   } else if (!isReady) {
-    // isReady=false but hasBlockers=false (e.g., status !== 'ready')
     buttonLabel = 'Not ready'
     buttonStyle = 'bg-factor-light text-text-light cursor-not-allowed opacity-40'
   } else {
     buttonLabel = 'Analyse Now'
-    buttonStyle = 'bg-info hover:bg-info-hover text-white'
+    buttonStyle = 'bg-primary hover:bg-primary-hover text-white'
   }
 
-  // Status icon and text - loading shows spinner
   let StatusIcon: typeof CheckCircle | typeof XCircle | typeof Loader2
   let statusIconColor: string
   let statusText: string
@@ -120,7 +110,7 @@ export function StickyFooter({
     statusText = 'Checking'
   } else if (isRetrying) {
     StatusIcon = Loader2
-    statusIconColor = 'text-info animate-spin'
+    statusIconColor = 'text-primary animate-spin'
     statusText = 'Re-drafting'
   } else if (isReady) {
     StatusIcon = CheckCircle
@@ -132,45 +122,30 @@ export function StickyFooter({
     statusText = 'Blocked'
   }
 
-  // Show retry button when blocked due to incomplete draft and retry is available
   const showRetryButton = canRetryDraft && hasBlockers && !isLoading && !isAnalysing && !isRetrying
 
-  // "All reviewed" when every reviewable factor has been confirmed
   const allReviewed = totalReviewableCount != null && totalReviewableCount > 0 &&
     (reviewedCount ?? 0) >= totalReviewableCount
 
-  const evidenceTooltip = getEvidenceTooltip(evidenceNonAiCount, evidenceTotalCount)
+  const reviewedTooltip = getReviewedTooltip(evidenceNonAiCount, evidenceTotalCount)
 
   return (
     <div
       className="flex-shrink-0 h-12 px-3 flex items-center justify-between bg-panel border-t border-panel-border"
       data-testid="sticky-footer"
     >
-      {/* Left: Status + Quality label + Reviewed count */}
+      {/* Left: Status + Reviewed count */}
       <div className="flex items-center gap-2 text-sm">
         <StatusIcon className={`w-4 h-4 ${statusIconColor}`} aria-hidden="true" />
-        <span className="font-medium text-text-body">
-          {statusText}
-        </span>
-        {!isRetrying && evidenceLevel && (
-          <>
-            <span className="text-text-light">·</span>
-            <Tooltip content={evidenceTooltip}>
-              <span className="text-text-light cursor-help">
-                {'Quality: '}
-                <span className={`font-medium ${qualityColour(evidenceLevel)}`}>
-                  {evidenceLevel.charAt(0).toUpperCase() + evidenceLevel.slice(1)}
-                </span>
-              </span>
-            </Tooltip>
-          </>
-        )}
+        <span className="font-medium text-text-body">{statusText}</span>
         {!isRetrying && (totalReviewableCount != null && totalReviewableCount > 0) && (
           <>
             <span className="text-text-light">·</span>
-            <span className="text-text-body">
-              {allReviewed ? 'All reviewed' : `${reviewedCount ?? 0}/${totalReviewableCount} reviewed`}
-            </span>
+            <Tooltip content={reviewedTooltip}>
+              <span className="text-text-body cursor-help">
+                {allReviewed ? 'All reviewed' : `${reviewedCount ?? 0}/${totalReviewableCount} reviewed`}
+              </span>
+            </Tooltip>
           </>
         )}
       </div>
@@ -182,7 +157,7 @@ export function StickyFooter({
             <button
               type="button"
               onClick={onRetryDraft}
-              className="px-3 py-2 rounded-full text-[11px] font-medium transition-colors flex items-center gap-1.5 border border-info/30 text-info hover:bg-info-light"
+              className="px-3 py-2 rounded-full text-[11px] font-medium transition-colors flex items-center gap-1.5 border border-primary/30 text-primary hover:bg-primary-light"
               aria-label="Retry draft to fix blocked state"
               data-testid="retry-draft-button"
             >

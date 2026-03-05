@@ -152,7 +152,7 @@ function TierSection({
       >
         <span className="text-sm font-semibold text-text-body">{sectionTitle}</span>
         <div className="flex items-center gap-2">
-          <span className={`text-xs rounded-full px-2 py-0.5 ${showCompletionState ? 'text-success bg-success-light' : showEmptyState ? 'text-text-light bg-factor-light' : 'text-text-light bg-factor-light'}`}>
+          <span className={`text-xs rounded-full px-2 py-0.5 font-medium ${showCompletionState ? 'text-success bg-success/15' : showEmptyState ? 'text-text-light bg-factor-light' : isReviewTier ? 'text-warning bg-warning/15' : isOptionalTier ? 'text-info bg-info/15' : 'text-text-light bg-factor-light'}`}>
             {showCompletionState ? '✓' : showEmptyState ? '—' : (
               isReviewTier && totalCount != null ? totalCount : items.length
             )}
@@ -672,10 +672,16 @@ function ImprovementRow({ item, onFocus, actionHandlers, isRemoving, onHoverEnte
             )}
             {/* Source badge (Task 5) */}
             {item.sourceBadge === 'brief' && (
-              <span className="shrink-0 text-xs text-text-light bg-success-light rounded px-1.5 py-0.5 ml-1">From brief</span>
+              <span className="shrink-0 inline-flex items-center gap-1 text-xs text-text-body bg-panel-hover rounded-full px-2 py-0.5 ml-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-success flex-shrink-0" aria-hidden="true" />
+                From brief
+              </span>
             )}
             {item.sourceBadge === 'ai' && (
-              <span className="shrink-0 text-xs text-text-light bg-warning-light rounded px-1.5 py-0.5 ml-1">AI estimate</span>
+              <span className="shrink-0 inline-flex items-center gap-1 text-xs text-text-body bg-panel-hover rounded-full px-2 py-0.5 ml-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-warning flex-shrink-0" aria-hidden="true" />
+                AI estimate
+              </span>
             )}
           </div>
 

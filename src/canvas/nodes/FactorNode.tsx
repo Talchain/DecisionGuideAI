@@ -6,7 +6,7 @@ import { useCanvasStore } from '../store'
 import { deriveControllability, formatDisplayValue } from '../utils/graphDisplayCalculations'
 import { useNodeDisplayMetadata } from '../hooks/useNodeDisplayMetadata'
 import { typography } from '../../styles/typography'
-import { cleanFactorLabel, sensitivityTierLabel, evidenceTierLabel } from '../utils/labelUtils'
+import { cleanFactorLabel, sensitivityTierLabel, evidenceTierLabel, formatInterventionValue, qualitativeTierLabel, CURRENCY_SYMBOLS } from '../utils/labelUtils'
 import { SlidersHorizontal, Eye, Cloud } from 'lucide-react'
 
 interface ObservedState {
@@ -16,6 +16,8 @@ interface ObservedState {
   unit?: string
   source?: string
   extractionType?: 'explicit' | 'inferred'
+  factor_type?: string
+  cap?: number
 }
 
 export const FactorNode = memo((props: NodeProps) => {
@@ -68,7 +70,19 @@ export const FactorNode = memo((props: NodeProps) => {
 
     if (raw_value !== undefined && raw_value !== null && String(raw_value).trim() !== '') {
       const rawStr = String(raw_value).trim()
-      return unit ? `${rawStr} ${unit}` : rawStr
+      if (!unit) return rawStr
+      // J2: Currency symbols prefix the number.
+      // When raw_value is numeric, delegate to formatInterventionValue to get proper
+      // thousands separators (e.g. £1,200 not £1200). Non-numeric strings fall back
+      // to simple concatenation so text like "approx 50" renders unchanged.
+      const numericRaw = Number(rawStr)
+      if (CURRENCY_SYMBOLS.has(unit[0])) {
+        if (!isNaN(numericRaw) && rawStr !== '') {
+          return formatInterventionValue(numericRaw, unit, observedState?.factor_type)
+        }
+        return `${unit}${rawStr}`
+      }
+      return `${rawStr} ${unit}`
     }
 
     if (value === undefined) return null
@@ -76,6 +90,9 @@ export const FactorNode = memo((props: NodeProps) => {
     // Binary/discrete fallback
     if (value === 0) return 'None'
     if (value === 1) return 'Full'
+
+    // P2: When no raw_value and no unit, show qualitative tier label instead of raw float
+    if (!unit) return qualitativeTierLabel(value)
 
     return formatDisplayValue(value, unit)
   }, [observedState])
@@ -109,7 +126,7 @@ export const FactorNode = memo((props: NodeProps) => {
         {/* Intervention highlight when option hovered */}
         {isAffectedByHover && (
           <div className={`${typography.nodeTitle} text-info mb-1 bg-info-light px-1.5 py-0.5 rounded border border-info/30`}>
-            Intervention: {formatDisplayValue(interventionValue, observedState?.unit)}
+            Intervention: {formatInterventionValue(interventionValue, observedState?.unit, observedState?.factor_type, observedState?.cap)}
           </div>
         )}
 
@@ -123,7 +140,7 @@ export const FactorNode = memo((props: NodeProps) => {
             )}
             {isInferred && (
               <span
-                className={`${typography.nodeLabel} bg-warning-light text-warning rounded-full px-1.5 py-0.5`}
+                className={`${typography.nodeLabel} bg-panel-hover text-text-light rounded-full px-1.5 py-0.5`}
                 title="Estimated by Olumi — verify or update"
               >
                 estimated
@@ -159,7 +176,7 @@ export const FactorNode = memo((props: NodeProps) => {
                 <span className={`${typography.nodeLabel} text-text-light w-14 shrink-0 truncate`} title="Evidence">Evidence</span>
                 <div className="flex-1 h-1.5 bg-panel-border rounded-full overflow-hidden max-w-[60px]">
                   <div
-                    className="h-full bg-factor rounded-full transition-all duration-300"
+                    className="h-full bg-info rounded-full transition-all duration-300"
                     style={{ width: `${Math.round(displayMetadata.confidence * 100)}%` }}
                   />
                 </div>

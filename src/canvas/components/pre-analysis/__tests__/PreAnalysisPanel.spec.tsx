@@ -398,14 +398,13 @@ describe('PreAnalysisPanel', () => {
       expect(footer).toHaveTextContent('All reviewed')
     })
 
-    it('shows "Quality: X" tier label in footer', () => {
+    it('does not show Quality tier label in footer', () => {
       mockUsePreAnalysisData.mockReturnValue(createMockData({
         evidenceQuality: { level: 'medium', ratio: 0.5, nonAiCount: 2, totalCount: 4 },
       }))
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
-      expect(screen.getByText(/Quality:/)).toBeInTheDocument()
-      expect(screen.getByText('Medium')).toBeInTheDocument()
+      expect(screen.queryByText(/Quality:/)).not.toBeInTheDocument()
     })
   })
 
@@ -689,9 +688,9 @@ describe('PreAnalysisPanel', () => {
 
         render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
 
-        // Shows reviewed count and Quality label in footer
+        // Shows reviewed count in footer — no quality tier label
         expect(screen.getByText('2/4 reviewed')).toBeInTheDocument()
-        expect(screen.getByText(/Quality:/)).toBeInTheDocument()
+        expect(screen.queryByText(/Quality:/)).not.toBeInTheDocument()
         expect(screen.queryByText(/Data confidence:/)).not.toBeInTheDocument()
         expect(screen.queryByText(/Input confidence:/)).not.toBeInTheDocument()
       })

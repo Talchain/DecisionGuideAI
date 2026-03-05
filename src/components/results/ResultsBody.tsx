@@ -154,6 +154,12 @@ export function ResultsBody({
           decisionState={vm.decisionState}
           hinge={vm.hinge}
           identifiabilityTag={identifiability}
+          defaultEstimateCount={resultsSectionData.drivers.drivers.length > 0
+            ? resultsSectionData.drivers.drivers.filter(d => d.isDefaultedConfidence).length
+            : undefined}
+          totalFactorCount={resultsSectionData.drivers.drivers.length > 0
+            ? resultsSectionData.drivers.drivers.length
+            : undefined}
         />
       </div>
 
