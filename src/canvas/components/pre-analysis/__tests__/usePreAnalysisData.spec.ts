@@ -3415,5 +3415,78 @@ describe('usePreAnalysisData', () => {
         'When options change the same drivers, results may cluster together \u2014 consider whether your options represent genuinely different approaches'
       )
     })
+
+    it('Task 2 (v13) many_ai_estimates + goal_baseline_missing both fire with total count 2', () => {
+      mockUseCanvasStore.mockImplementation((selector: (state: unknown) => unknown) => {
+        const state = {
+          nodes: [
+            { id: 'goal1', type: 'goal', position: { x: 0, y: 0 }, data: { label: 'Revenue Growth' } },
+            { id: 'opt1', type: 'option', position: { x: 0, y: 0 }, data: { label: 'Option A' } },
+            { id: 'opt2', type: 'option', position: { x: 0, y: 0 }, data: { label: 'Option B' } },
+            { id: 'fac1', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'F1', observed_state: { value: 0.5, source: 'cee_inference' } } },
+            { id: 'fac2', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'F2', observed_state: { value: 0.3, source: 'cee_inference' } } },
+            { id: 'fac3', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'F3', observed_state: { value: 0.7, source: 'cee_inference' } } },
+            { id: 'fac4', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'F4', observed_state: { value: 0.2, source: 'brief_extraction' } } },
+            { id: 'fac5', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'F5', observed_state: { value: 0.9, source: 'cee_inference' } } },
+          ],
+          edges: [
+            { id: 'e1', source: 'fac1', target: 'goal1', data: { weight: 0.5, direction: 'positive' } },
+          ],
+          ceeAnalysisReady: {
+            status: 'ready',
+            goal_node_id: 'goal1',
+            options: [
+              { id: 'opt1', status: 'ready', interventions: {} },
+              { id: 'opt2', status: 'ready', interventions: {} },
+            ],
+          },
+          runMeta: null,
+        }
+        return selector(state)
+      })
+
+      const { result } = renderHook(() => usePreAnalysisData())
+
+      const goalBaselineMissing = result.current.qualityChecks.find(c => c.id === 'goal_baseline_missing')
+      const manyAiEstimates = result.current.qualityChecks.find(c => c.id === 'many_ai_estimates')
+
+      expect(goalBaselineMissing).toBeDefined()
+      expect(manyAiEstimates).toBeDefined()
+
+      const bothPresent = result.current.qualityChecks.filter(
+        c => c.id === 'goal_baseline_missing' || c.id === 'many_ai_estimates'
+      )
+      expect(bothPresent).toHaveLength(2)
+    })
+
+    it('Task 5 (v13) €49 currency suppression — shows €49 not €49 of 100', () => {
+      mockUseCanvasStore.mockImplementation((selector: (state: unknown) => unknown) => {
+        const state = {
+          nodes: [
+            { id: 'goal1', type: 'goal', position: { x: 0, y: 0 }, data: { label: 'Revenue' } },
+            { id: 'opt1', type: 'option', position: { x: 0, y: 0 }, data: { label: 'Option A' } },
+            { id: 'opt2', type: 'option', position: { x: 0, y: 0 }, data: { label: 'Option B' } },
+            {
+              id: 'fac1', type: 'factor', position: { x: 0, y: 0 },
+              data: {
+                label: 'Pro Plan Price',
+                observed_state: { value: 0.49, raw_value: 49, unit: '€', cap: 100, source: 'brief_extraction' },
+              },
+            },
+          ],
+          edges: [],
+          ceeAnalysisReady: null,
+          runMeta: null,
+        }
+        return selector(state)
+      })
+
+      const { result } = renderHook(() => usePreAnalysisData())
+
+      const verifyItem = result.current.improvementsByCategory.verify.find(i => i.key === 'verify_fac1')
+      expect(verifyItem).toBeDefined()
+      expect(verifyItem!.detail).toBe('€49')
+      expect(verifyItem!.detail).not.toContain('of')
+    })
   })
 })

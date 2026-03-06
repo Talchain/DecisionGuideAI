@@ -52,6 +52,32 @@ describe('ModelAdjustments — detail sanitisation (Task 4)', () => {
     expect(screen.getByText('Factor removed from model')).toBeInTheDocument()
   })
 
+  it('sanitises strength.mean (dot variant) sign correction detail', () => {
+    render(
+      <ModelAdjustments
+        adjustments={[{
+          code: 'risk_coefficient_corrected',
+          reason: 'effect_direction "negative" contradicts strength.mean sign (0.3)',
+        }]}
+      />,
+    )
+
+    // Known code → headline shown directly
+    expect(screen.getByText(/Corrected 1 relationship direction/)).toBeInTheDocument()
+
+    // Click "Details" to reveal technical detail
+    fireEvent.click(screen.getByText('Details'))
+
+    // Engine notation must NOT be visible
+    expect(screen.queryByText(/strength\.mean/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/strength_mean/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/effect_direction/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/\(0\.3\)/)).not.toBeInTheDocument()
+
+    // Human sentence should be shown
+    expect(screen.getByText("Relationship direction didn't match the stated effect \u2014 corrected automatically")).toBeInTheDocument()
+  })
+
   it('shows user-facing headline from REPAIR_COPY for known codes', () => {
     render(
       <ModelAdjustments

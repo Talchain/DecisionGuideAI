@@ -19,6 +19,20 @@ export interface Database {
           age_bracket: string | null
           gender: string | null
           contact_consent: boolean
+          email: string | null
+          display_name: string | null
+          avatar_url: string | null
+          onboarding_step: string | null
+          onboarding_state: Json
+          preferences: Json
+          pilot_metrics: Json
+          coaching_style: string | null
+          calibration_tendency: string | null
+          bias_susceptibility: Json
+          challenge_tolerance: string | null
+          decisions_completed: number
+          research_consent: boolean
+          consent_version: string | null
           created_at: string
           updated_at: string
         }
@@ -31,6 +45,20 @@ export interface Database {
           age_bracket?: string | null
           gender?: string | null
           contact_consent?: boolean
+          email?: string | null
+          display_name?: string | null
+          avatar_url?: string | null
+          onboarding_step?: string | null
+          onboarding_state?: Json
+          preferences?: Json
+          pilot_metrics?: Json
+          coaching_style?: string | null
+          calibration_tendency?: string | null
+          bias_susceptibility?: Json
+          challenge_tolerance?: string | null
+          decisions_completed?: number
+          research_consent?: boolean
+          consent_version?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -43,6 +71,20 @@ export interface Database {
           age_bracket?: string | null
           gender?: string | null
           contact_consent?: boolean
+          email?: string | null
+          display_name?: string | null
+          avatar_url?: string | null
+          onboarding_step?: string | null
+          onboarding_state?: Json
+          preferences?: Json
+          pilot_metrics?: Json
+          coaching_style?: string | null
+          calibration_tendency?: string | null
+          bias_susceptibility?: Json
+          challenge_tolerance?: string | null
+          decisions_completed?: number
+          research_consent?: boolean
+          consent_version?: string | null
           created_at?: string
           updated_at?: string
         }

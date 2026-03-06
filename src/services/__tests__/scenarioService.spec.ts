@@ -147,9 +147,10 @@ describe('scenarioService', () => {
         { id: '1', title: 'A', stage: 'frame', analysis_status: 'none', updated_at: '2026-01-01' },
       ]
 
-      // Rebuild mock chain for listScenarios: from().select().eq().order()
-      const orderFn = vi.fn().mockResolvedValue({ data: items, error: null })
-      const eqFn = vi.fn().mockReturnValue({ order: orderFn })
+      // Rebuild mock chain for listScenarios: from().select().eq().order().order()
+      const order2Fn = vi.fn().mockResolvedValue({ data: items, error: null })
+      const order1Fn = vi.fn().mockReturnValue({ order: order2Fn })
+      const eqFn = vi.fn().mockReturnValue({ order: order1Fn })
       const selectFn = vi.fn().mockReturnValue({ eq: eqFn })
       mockFrom.mockReturnValue({
         select: selectFn,
@@ -160,9 +161,10 @@ describe('scenarioService', () => {
 
       const result = await service.listScenarios(VALID_UUID)
 
-      expect(selectFn).toHaveBeenCalledWith('id, title, stage, analysis_status, updated_at, events')
+      expect(selectFn).toHaveBeenCalledWith('id, title, stage, analysis_status, updated_at, created_at, events, is_pinned, is_archived')
       expect(eqFn).toHaveBeenCalledWith('user_id', VALID_UUID)
-      expect(orderFn).toHaveBeenCalledWith('updated_at', { ascending: false })
+      expect(order1Fn).toHaveBeenCalledWith('is_pinned', { ascending: false })
+      expect(order2Fn).toHaveBeenCalledWith('updated_at', { ascending: false })
       expect(result).toEqual(items)
     })
 

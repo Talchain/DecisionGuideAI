@@ -33,6 +33,9 @@ export interface ScenarioRow {
   events: ScenarioEvent[]                 // JSONB array (append-only via RPC)
   event_seq: number
   brief: unknown                          // JSONB — DecisionBriefV1
+  is_pinned: boolean                      // Hub: pinned to top of list
+  is_archived: boolean                    // Hub: hidden from Active filter
+  source_scenario_id: string | null       // UUID of duplicated-from scenario
   created_at: string                      // ISO-8601 timestamptz
   updated_at: string                      // ISO-8601 timestamptz
 }
@@ -41,6 +44,7 @@ export interface ScenarioRow {
 export type ScenarioListItem = Pick<
   ScenarioRow,
   'id' | 'title' | 'stage' | 'analysis_status' | 'updated_at' | 'events'
+  | 'is_pinned' | 'is_archived' | 'created_at'
 >
 
 // ---------------------------------------------------------------------------

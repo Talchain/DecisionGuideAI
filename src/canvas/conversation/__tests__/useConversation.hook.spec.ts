@@ -219,3 +219,53 @@ describe('input restore on error (lastFailedInput)', () => {
     expect(result.current.lastFailedInput).toBeNull()
   })
 })
+
+// ---------------------------------------------------------------------------
+// Envelope stamping: graph_hash_at_proposal
+// ---------------------------------------------------------------------------
+
+describe('graph_hash_at_proposal stamping', () => {
+  it('stamps graph_hash_at_proposal on graph_patch blocks in envelope', async () => {
+    // Set up a graph so generateGraphHash produces a deterministic hash
+    useCanvasStore.setState({
+      currentScenarioId: 'test-scenario',
+      nodes: [{ id: 'n1', position: { x: 0, y: 0 }, data: { label: 'A' } }] as any,
+      edges: [] as any,
+      results: { status: 'idle' } as any,
+      currentScenarioLastResultHash: null,
+      selection: { nodeIds: new Set(), edgeIds: new Set(), anchorPosition: null },
+    })
+
+    // Mock envelope with a graph_patch block (no graph_hash_at_proposal initially)
+    mockCallTurn.mockResolvedValueOnce({
+      assistant_text: 'Here is a patch.',
+      client_turn_id: 'resp-patch',
+      blocks: [
+        {
+          type: 'graph_patch',
+          patch_id: 'p-stamp-test',
+          summary: 'Add a node',
+          operations: [{ op: 'add_node', target_id: 'n2', data: {} }],
+          target_graph_hash: 'cee-hash',
+        },
+      ],
+    })
+
+    const { result } = renderHook(() => useConversation())
+
+    await act(async () => {
+      await result.current.sendMessage('stamp test')
+    })
+
+    // Find the assistant message with the patch block
+    const assistantMsg = result.current.messages.find(
+      (m) => m.role === 'assistant' && m.blocks?.some((b) => b.type === 'graph_patch'),
+    )
+    expect(assistantMsg).toBeDefined()
+
+    const patchBlock = assistantMsg!.blocks!.find((b) => b.type === 'graph_patch') as any
+    expect(patchBlock.graph_hash_at_proposal).toBeDefined()
+    expect(typeof patchBlock.graph_hash_at_proposal).toBe('string')
+    expect(patchBlock.graph_hash_at_proposal.length).toBeGreaterThan(0)
+  })
+})

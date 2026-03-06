@@ -81,7 +81,7 @@ function getRepairCopy(type: string, count: number): string | null {
  */
 function sanitiseDetail(detail: string): string {
   // Replace the full sign-contradiction pattern before any other transforms
-  const signCorrectionPattern = /effect_direction\s+["']?\w+["']?\s+contradicts\s+strength_mean\s+sign\s*\([^)]*\)/gi
+  const signCorrectionPattern = /effect_direction\s+["']?\w+["']?\s+contradicts\s+strength[_.]mean\s+sign\s*\([^)]*\)/gi
   if (signCorrectionPattern.test(detail)) {
     return "Relationship direction didn't match the stated effect \u2014 corrected automatically"
   }

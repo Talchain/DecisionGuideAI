@@ -55,6 +55,47 @@ describe('ModelSnapshot', () => {
     expect(screen.queryByText('Tech Lead Hired (0/1)')).not.toBeInTheDocument()
   })
 
+  it('groups decision and option labels by kind', () => {
+    const nodesByKind = makeNodesByKind({
+      decision: [
+        {
+          id: 'dec1',
+          type: 'decision',
+          position: { x: 0, y: 0 },
+          data: { label: 'Mid-Market Expansion Strategy' },
+        } as Node,
+      ],
+      option: [
+        {
+          id: 'opt1',
+          type: 'option',
+          position: { x: 0, y: 0 },
+          data: { label: 'Acquire Smaller Competitor' },
+        } as Node,
+        {
+          id: 'opt2',
+          type: 'option',
+          position: { x: 0, y: 0 },
+          data: { label: 'Organic Growth' },
+        } as Node,
+      ],
+    })
+
+    render(<ModelSnapshot nodesByKind={nodesByKind} edgeCount={3} />)
+
+    // Expand the accordion
+    fireEvent.click(screen.getByTestId('model-snapshot-accordion'))
+
+    // Decision label should be present
+    expect(screen.getByText('Mid-Market Expansion Strategy')).toBeInTheDocument()
+    // Option labels should be present
+    expect(screen.getByText('Acquire Smaller Competitor')).toBeInTheDocument()
+    expect(screen.getByText('Organic Growth')).toBeInTheDocument()
+    // Both kind headers should render
+    expect(screen.getByText('Decisions')).toBeInTheDocument()
+    expect(screen.getByText('Options')).toBeInTheDocument()
+  })
+
   it('preserves non-factor labels without stripping', () => {
     const nodesByKind = makeNodesByKind({
       goal: [

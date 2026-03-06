@@ -134,6 +134,12 @@ export interface GraphPatchBlock {
   actions?: BlockAction[]
   /** Canonical block identifier from CEE */
   block_id?: string
+  /**
+   * Graph hash captured when this block was received by the UI.
+   * Used to detect staleness: if the graph changes after proposal,
+   * a warning is shown before accepting.
+   */
+  graph_hash_at_proposal?: string
 }
 
 // ---------------------------------------------------------------------------

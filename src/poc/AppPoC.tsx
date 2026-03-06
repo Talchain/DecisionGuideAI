@@ -25,11 +25,12 @@ const DecisionTemplates = lazy(() => import('../routes/templates/DecisionTemplat
 // C.1a: Scenario persistence routes
 const ScenarioListPage = lazy(() => import('../pages/ScenarioListPage'))
 const SharedBriefPage = lazy(() => import('../pages/SharedBriefPage'))
-const LoginForm = lazy(() => import('../components/auth/LoginForm'))
-const SignUpForm = lazy(() => import('../components/auth/SignUpForm'))
+const LoginPage = lazy(() => import('../components/auth/LoginPage'))
+const AuthCallback = lazy(() => import('../components/auth/AuthCallback'))
+const AuthGuard = lazy(() => import('../components/auth/AuthGuard'))
+const ProfileSettingsPage = lazy(() => import('../pages/ProfileSettingsPage'))
 import SandboxHeader, { type SandboxMode } from './components/SandboxHeader'
 import OnboardingHints from './components/OnboardingHints'
-import { BottomNav } from '../components/BottomNav'
 import { exportCanvas, formatSandboxPngName } from './export/exportCanvas'
 import { isTypingTarget } from './utils/inputGuards'
 import { initialHistory, push, doUndo, doRedo, type History as SamHistory, type SamState, type Op } from './state/history'
@@ -880,14 +881,22 @@ export default function AppPoC() {
             <Suspense fallback={<RouteLoadingFallback />}>
               <CanvasErrorBoundary>
                 <Routes>
-                <Route path="/canvas" element={<CanvasMVP />} />
-                {/* C.1a: Scenario persistence routes */}
-                <Route path="/scenario/:id" element={<CanvasMVP />} />
-                <Route path="/scenarios" element={<ScenarioListPage />} />
+                {/* Public routes */}
+                <Route path="/login" element={<LoginPage />} />
+                <Route path="/auth/callback" element={<AuthCallback />} />
                 <Route path="/brief/:slug" element={<SharedBriefPage />} />
-                <Route path="/login" element={<LoginForm />} />
-                <Route path="/signup" element={<SignUpForm />} />
-                <Route path="/templates" element={<DecisionTemplates />} />
+
+                {/* Auth-guarded routes */}
+                <Route element={<AuthGuard />}>
+                  <Route path="/" element={<ScenarioListPage />} />
+                  <Route path="/scenarios" element={<ScenarioListPage />} />
+                  <Route path="/scenario/:id" element={<CanvasMVP />} />
+                  <Route path="/canvas" element={<CanvasMVP />} />
+                  <Route path="/profile" element={<ProfileSettingsPage />} />
+                  <Route path="/templates" element={<DecisionTemplates />} />
+                </Route>
+
+                {/* Dev/POC routes */}
                 <Route path="/plot" element={<PlotWorkspace />} />
                 <Route path="/plot-legacy" element={<PlotShowcase />} />
                 <Route path="/plc" element={<PlcLab />} />
@@ -897,7 +906,6 @@ export default function AppPoC() {
                 </Routes>
               </CanvasErrorBoundary>
             </Suspense>
-            <BottomNav />
           </AuthProvider>
         </HashRouter>
       </QueryClientProvider>

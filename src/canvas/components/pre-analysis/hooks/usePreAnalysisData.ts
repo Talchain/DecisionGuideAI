@@ -239,6 +239,9 @@ export interface PreAnalysisData {
 
 // Category priority is implicit in iteration order: fix > verify > add_evidence > strengthen
 
+/** Currency symbols that prefix values and suppress "of <cap>" display */
+const CURRENCY_SYMBOLS = new Set(['$', '£', '€', '¥', '₹', '₩', '₽', 'CHF', 'kr', 'R$'])
+
 // ============================================================================
 // Helper Functions
 // ============================================================================
@@ -439,7 +442,7 @@ function getAiEstimatedValue(node: Node): string | null {
     const percentValue = value > 1 ? Math.round(value) : Math.round(value * 100)
     return percentValue + '%'
   }
-  if (unit === '£' || unit === '$') {
+  if (unit && CURRENCY_SYMBOLS.has(unit)) {
     // Prefer raw_value for currency - it's the actual amount, not normalized 0-1 value
     // Example: raw_value=100000 with unit="£" → "£100,000" (not "£0" from value=0.2)
     const displayValue = rawValue ?? value
@@ -473,7 +476,7 @@ function formatObservedStateDetail(os: ReturnType<typeof getObservedState>): str
   if (os.raw_value != null) {
     const unit = os.unit
     let primary: string
-    if (unit === '$' || unit === '£') {
+    if (unit && CURRENCY_SYMBOLS.has(unit)) {
       primary = `${unit}${Number(os.raw_value).toLocaleString()}`
     } else if (unit === '%') {
       primary = `${os.raw_value}%`
@@ -490,7 +493,7 @@ function formatObservedStateDetail(os: ReturnType<typeof getObservedState>): str
       if (unit === '%' && Number(os.cap) === 100) return primary
       // Suppress cap for currency units — "£49" not "£49 of £100"
       // The cap is a normalisation ceiling, not a meaningful budget limit
-      if (unit === '$' || unit === '£' || unit === '€') return primary
+      if (unit && CURRENCY_SYMBOLS.has(unit)) return primary
       // Don't repeat suffix units — "9 months of 18" not "9 months of 18 months"
       return `${primary} of ${String(os.cap)}`
     }

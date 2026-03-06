@@ -1000,4 +1000,25 @@ describe('PreAnalysisPanel', () => {
       expect(footer).toHaveTextContent('Analyse Now')
     })
   })
+
+  describe('Framing pill styling (v13 Task 7a)', () => {
+    it('renders Framing pill with border class and no bg-option-light', () => {
+      mockUsePreAnalysisData.mockReturnValue(createMockData({
+        qualityChecks: [{
+          id: 'no_risks',
+          message: 'No risks in your model',
+          cta: 'Add risk',
+          ctaAction: 'add_risk',
+          pill: 'framing' as const,
+        }],
+      }))
+
+      render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
+
+      const pill = screen.getByText('Framing')
+      expect(pill).toBeInTheDocument()
+      expect(pill.className).toContain('border')
+      expect(pill.className).not.toContain('bg-option-light')
+    })
+  })
 })

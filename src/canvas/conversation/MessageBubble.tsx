@@ -48,7 +48,7 @@ export const MessageBubble = memo(function MessageBubble({
       {message.blocks && message.blocks.length > 0 && (
         <InlineBlocks
           blocks={message.blocks}
-          turnId={message.clientTurnId}
+          turnId={message.id}
           patchBlockStates={patchBlockStates}
           patchRejections={patchRejections}
           onPatchAccept={onPatchAccept}

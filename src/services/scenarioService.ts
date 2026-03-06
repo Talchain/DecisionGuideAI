@@ -99,8 +99,9 @@ export async function listScenarios(
 
   const { data, error } = await supabase
     .from('scenarios')
-    .select('id, title, stage, analysis_status, updated_at, events')
+    .select('id, title, stage, analysis_status, updated_at, created_at, events, is_pinned, is_archived')
     .eq('user_id', userId)
+    .order('is_pinned', { ascending: false })
     .order('updated_at', { ascending: false })
 
   if (error) {
@@ -485,4 +486,62 @@ export async function getSharedBriefBySlug(
   }
 
   return (data as SharedBriefRow) ?? null
+}
+
+// ---------------------------------------------------------------------------
+// 16. Hub operations — pin, archive, duplicate
+// ---------------------------------------------------------------------------
+
+export async function pinScenario(
+  scenarioId: string,
+  isPinned: boolean,
+): Promise<void> {
+  const { error } = await supabase
+    .from('scenarios')
+    .update({ is_pinned: isPinned })
+    .eq('id', scenarioId)
+
+  if (error) {
+    throw new ScenarioPersistenceError(
+      `Failed to ${isPinned ? 'pin' : 'unpin'} scenario: ${error.message}`,
+      'PIN_FAILED',
+      error,
+    )
+  }
+}
+
+export async function archiveScenario(
+  scenarioId: string,
+  isArchived: boolean,
+): Promise<void> {
+  const { error } = await supabase
+    .from('scenarios')
+    .update({ is_archived: isArchived })
+    .eq('id', scenarioId)
+
+  if (error) {
+    throw new ScenarioPersistenceError(
+      `Failed to ${isArchived ? 'archive' : 'unarchive'} scenario: ${error.message}`,
+      'ARCHIVE_FAILED',
+      error,
+    )
+  }
+}
+
+export async function duplicateScenario(
+  scenarioId: string,
+): Promise<string> {
+  const { data, error } = await supabase.rpc('duplicate_scenario', {
+    p_scenario_id: scenarioId,
+  })
+
+  if (error) {
+    throw new ScenarioPersistenceError(
+      `Failed to duplicate scenario: ${error.message}`,
+      'DUPLICATE_FAILED',
+      error,
+    )
+  }
+
+  return data as string
 }

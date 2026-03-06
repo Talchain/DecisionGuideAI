@@ -85,6 +85,12 @@ export interface GuidanceActions {
     currentAnalysisHash: string | null | undefined
     graphChanged?: boolean
   }) => void
+  /**
+   * Remove guidance items whose target_object matches any of the provided IDs.
+   * Only clears items where target_object.type is 'node' or 'edge'.
+   * Items without target_object or with other target types are never cleared.
+   */
+  clearItemsByTargetIds: (ids: string[]) => void
 }
 
 const initialGuidanceState: GuidanceState = {
@@ -148,6 +154,33 @@ export const useGuidanceStore = create<GuidanceState & GuidanceActions>((set, ge
     })
 
     if (surviving.length === guidanceItems.length) return // nothing to evict
+
+    const survivingIds = new Set(surviving.map((i) => i.item_id))
+    set({
+      guidanceItems: surviving,
+      activeGuidanceItemId: activeGuidanceItemId && survivingIds.has(activeGuidanceItemId)
+        ? activeGuidanceItemId
+        : null,
+    })
+  },
+
+  clearItemsByTargetIds: (ids) => {
+    if (ids.length === 0) return
+    const { guidanceItems, activeGuidanceItemId } = get()
+    if (guidanceItems.length === 0) return
+
+    const idSet = new Set(ids)
+    const CLEARABLE_TYPES = new Set(['node', 'edge'])
+
+    const surviving = guidanceItems.filter((item) => {
+      const target = item.target_object
+      if (!target) return true // no target → never cleared by this mechanism
+      if (!CLEARABLE_TYPES.has(target.type)) return true // only clear node/edge targets
+      if (!target.id) return true // no id → can't match
+      return !idSet.has(target.id)
+    })
+
+    if (surviving.length === guidanceItems.length) return // nothing to clear
 
     const survivingIds = new Set(surviving.map((i) => i.item_id))
     set({

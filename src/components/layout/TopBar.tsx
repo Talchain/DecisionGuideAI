@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
-import { Save, Share2, MoreVertical, Check, BookOpen, Keyboard, HelpCircle, Users, Shield, ShieldAlert, Clock, Settings, ChevronRight, AlertTriangle } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { Save, Share2, MoreVertical, Check, BookOpen, Keyboard, HelpCircle, Users, Shield, ShieldAlert, Clock, Settings, ChevronRight, AlertTriangle, User } from 'lucide-react'
 import Tooltip from '../Tooltip'
 import { Spinner } from '../Spinner'
 import styles from './TopBar.module.css'
 import { useAnalysisMetadata } from '../../canvas/hooks/useAnalysisMetadata'
 import { useStagePill } from '../../canvas/hooks/useStagePill'
 import { useSettingsStore } from '../../canvas/settingsStore'
+import { UserAvatarMenu } from './UserAvatarMenu'
 
 // Custom events for help actions (communicated to ReactFlowGraph)
 export const HELP_EVENTS = {
@@ -538,6 +540,9 @@ export const TopBar = ({
             </div>
           )}
         </div>
+
+        {/* User avatar + account dropdown */}
+        <UserAvatarMenu />
       </div>
     </div>
   )

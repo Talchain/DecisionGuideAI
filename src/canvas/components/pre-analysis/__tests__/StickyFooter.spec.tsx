@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import { describe, it, expect } from 'vitest'
 import { StickyFooter } from '../StickyFooter'
 
@@ -114,5 +114,65 @@ describe('StickyFooter — reviewed count tooltip (source distribution)', () => 
       />,
     )
     expect(screen.queryByText(/reviewed/)).not.toBeInTheDocument()
+  })
+
+  it('tooltip shows "All values estimated by AI" when 0% from brief', () => {
+    render(
+      <StickyFooter
+        {...baseProps}
+        reviewedCount={0}
+        totalReviewableCount={5}
+        evidenceNonAiCount={0}
+        evidenceTotalCount={5}
+      />,
+    )
+    const trigger = screen.getByText('0/5 reviewed')
+    fireEvent.mouseEnter(trigger)
+    expect(screen.getByRole('tooltip')).toHaveTextContent('All values estimated by AI')
+  })
+
+  it('tooltip shows "Most values estimated by AI" when <50% from brief', () => {
+    render(
+      <StickyFooter
+        {...baseProps}
+        reviewedCount={1}
+        totalReviewableCount={5}
+        evidenceNonAiCount={1}
+        evidenceTotalCount={5}
+      />,
+    )
+    const trigger = screen.getByText('1/5 reviewed')
+    fireEvent.mouseEnter(trigger)
+    expect(screen.getByRole('tooltip')).toHaveTextContent('Most values estimated by AI')
+  })
+
+  it('tooltip shows "Most values from your brief" when ≥50% from brief', () => {
+    render(
+      <StickyFooter
+        {...baseProps}
+        reviewedCount={3}
+        totalReviewableCount={5}
+        evidenceNonAiCount={3}
+        evidenceTotalCount={5}
+      />,
+    )
+    const trigger = screen.getByText('3/5 reviewed')
+    fireEvent.mouseEnter(trigger)
+    expect(screen.getByRole('tooltip')).toHaveTextContent('Most values from your brief')
+  })
+
+  it('tooltip shows "All values from your brief" when 100% from brief', () => {
+    render(
+      <StickyFooter
+        {...baseProps}
+        reviewedCount={5}
+        totalReviewableCount={5}
+        evidenceNonAiCount={5}
+        evidenceTotalCount={5}
+      />,
+    )
+    const trigger = screen.getByText('All reviewed')
+    fireEvent.mouseEnter(trigger)
+    expect(screen.getByRole('tooltip')).toHaveTextContent('All values from your brief')
   })
 })

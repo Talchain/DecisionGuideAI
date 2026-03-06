@@ -38,7 +38,7 @@ function CheckRow({
         )}
         <div className="flex items-center gap-2">
           {check.pill === 'framing' ? (
-            <span className="inline-flex items-center rounded-full font-medium px-2 py-0.5 text-xs bg-option-light text-option">
+            <span className="inline-flex items-center rounded-full font-medium px-2 py-0.5 text-xs border border-option/30 text-text-body">
               Framing
             </span>
           ) : (

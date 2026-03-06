@@ -6,17 +6,27 @@
  * action chips, and a growing single-line input.
  */
 
-import { useRef, useEffect, useState, useCallback, memo } from 'react'
+import { useRef, useEffect, useState, useCallback, useMemo, memo } from 'react'
 import { typography } from '../../styles/typography'
 import { useCanvasStore } from '../store'
 import { useGuidanceStore } from '../stores/guidanceStore'
+import { usePanelsStore } from '../stores/panelsStore'
 import { useStagePill } from '../hooks/useStagePill'
 import type { ScenarioStage } from '../../types/scenario'
+import { useDebounce } from '../../hooks/useDebounce'
+import { extractRealtimeSignals } from '../../signals/realtime-signals'
+import { isFramingStage } from '../../signals/stage-helpers'
 import { MessageBubble } from './MessageBubble'
 import { GrowingInput } from './GrowingInput'
 import { GuidanceStrip } from './GuidanceStrip'
+import { ActionStrip } from './ActionStrip'
+import { ReadinessPill } from './ReadinessPill'
+import { BiasAlertIcon } from './BiasAlertIcon'
+import type { NavigateTarget } from './ActionStrip'
 import type { ActionChip, GraphPatchBlock, PatchOperation } from './types'
 import type { UseConversationReturn, PatchRejectionInfo } from './useConversation'
+import { extractTargetIdsFromPatch } from './utils/extractTargetIds'
+import { generateGraphHash } from '../utils/graphHash'
 import { plot } from '../../adapters/plot'
 import styles from './Conversation.module.css'
 
@@ -105,6 +115,18 @@ export const ConversationPanel = memo(function ConversationPanel({
   const { stage } = useStagePill()
   const inputPlaceholder = STAGE_PLACEHOLDERS[stage] ?? DEFAULT_PLACEHOLDER
 
+  // Brief readiness signals — 800ms debounce, framing stage only.
+  // Always compute during framing (even when empty) so the pill shows "Low"
+  // with all-missing feedback. Skip extraction only outside framing stage.
+  const debouncedInput = useDebounce(inputValue, 800)
+  const briefSignals = useMemo(() => {
+    if (!isFramingStage(stage)) return null
+    if (!debouncedInput || !debouncedInput.trim()) {
+      return extractRealtimeSignals('')
+    }
+    return extractRealtimeSignals(debouncedInput)
+  }, [debouncedInput, stage])
+
   // Restore input text when a send fails so the user can edit and resend
   useEffect(() => {
     if (lastFailedInput) setInputValue(lastFailedInput)
@@ -160,8 +182,7 @@ export const ConversationPanel = memo(function ConversationPanel({
 
   // GraphPatchBlock handlers
   const handlePatchAccept = useCallback(
-    async (patchId: string, block: GraphPatchBlock) => {
-      const stateKey = block.patch_id // turnId not available here, use patch_id
+    async (stateKey: string, block: GraphPatchBlock) => {
       try {
         // Check staleness: current graph hash vs target_graph_hash
         const state = useCanvasStore.getState()
@@ -187,7 +208,7 @@ export const ConversationPanel = memo(function ConversationPanel({
           })
           sendSystemEvent({
             type: 'patch_dismissed',
-            payload: { patch_id: patchId, reason: 'unsupported_operation' },
+            payload: { patch_id: block.patch_id, reason: 'unsupported_operation' },
           })
           return
         }
@@ -226,10 +247,18 @@ export const ConversationPanel = memo(function ConversationPanel({
             }
 
             setPatchBlockState(stateKey, 'accepted')
+
+            // Auto-clear guidance items targeting modified elements
+            const { nodeIds, edgeIds } = extractTargetIdsFromPatch(block.operations)
+            const allIds = [...nodeIds, ...edgeIds]
+            if (allIds.length > 0) {
+              useGuidanceStore.getState().clearItemsByTargetIds(allIds)
+            }
+
             sendSystemEvent({
               type: 'patch_accepted',
               payload: {
-                patch_id: patchId,
+                patch_id: block.patch_id,
                 operations: block.operations,
                 // Use only the confirmed field from PLoT validate-patch response
                 applied_graph_hash: typeof result.graph_hash === 'string' ? result.graph_hash : undefined,
@@ -248,7 +277,7 @@ export const ConversationPanel = memo(function ConversationPanel({
             })
             sendSystemEvent({
               type: 'patch_dismissed',
-              payload: { patch_id: patchId, reason: 'validation_failed' },
+              payload: { patch_id: block.patch_id, reason: 'validation_failed' },
             })
           }
         } else {
@@ -261,10 +290,18 @@ export const ConversationPanel = memo(function ConversationPanel({
             useCanvasStore.getState().endExternalGraphMutation()
           }
           setPatchBlockState(stateKey, 'accepted')
+
+          // Auto-clear guidance items targeting modified elements
+          const { nodeIds: nIds, edgeIds: eIds } = extractTargetIdsFromPatch(block.operations)
+          const ids = [...nIds, ...eIds]
+          if (ids.length > 0) {
+            useGuidanceStore.getState().clearItemsByTargetIds(ids)
+          }
+
           sendSystemEvent({
             type: 'patch_accepted',
             payload: {
-              patch_id: patchId,
+              patch_id: block.patch_id,
               operations: block.operations,
               applied_graph_hash: undefined,
             },
@@ -282,8 +319,10 @@ export const ConversationPanel = memo(function ConversationPanel({
   )
 
   const handlePatchDismiss = useCallback(
-    (patchId: string) => {
-      setPatchBlockState(patchId, 'dismissed')
+    (stateKey: string) => {
+      setPatchBlockState(stateKey, 'dismissed')
+      // Extract original patch_id from composite key (turnId:patchId or bare patchId)
+      const patchId = stateKey.includes(':') ? stateKey.split(':').slice(1).join(':') : stateKey
       sendSystemEvent({
         type: 'patch_dismissed',
         payload: { patch_id: patchId },
@@ -333,8 +372,64 @@ export const ConversationPanel = memo(function ConversationPanel({
     }
   }, [sendMessage, handleScrollToPatch])
 
+  // ActionStrip navigation handler
+  const handleNavigate = useCallback((target: NavigateTarget) => {
+    switch (target) {
+      case 'guidance':
+        usePanelsStore.getState().setShowIssuesPanel(true)
+        break
+      case 'patch': {
+        // Scroll to the first *pending* patch block (not any accepted/dismissed one)
+        let targetPatchId: string | null = null
+        for (const msg of messages) {
+          if (targetPatchId) break
+          if (!msg.blocks) continue
+          for (const block of msg.blocks) {
+            if (block.type !== 'graph_patch') continue
+            const pb = block as GraphPatchBlock
+            const key = msg.id ? `${msg.id}:${pb.patch_id}` : pb.patch_id
+            if ((patchBlockStates.get(key) ?? 'proposed') === 'proposed') {
+              targetPatchId = pb.patch_id
+              break
+            }
+          }
+        }
+        if (targetPatchId) {
+          const el = listRef.current?.querySelector(`[data-testid="block-graph-patch-${targetPatchId}"]`)
+          if (el) el.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+        }
+        break
+      }
+      case 'results':
+        usePanelsStore.getState().setShowResultsPanel(true)
+        break
+      case 'brief': {
+        // Scroll to last brief block in conversation
+        const briefs = listRef.current?.querySelectorAll('[data-testid="block-brief"]')
+        const last = briefs?.[briefs.length - 1]
+        if (last) last.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+        break
+      }
+    }
+  }, [messages, patchBlockStates])
+
   return (
     <>
+      {/* Action strip — ambient awareness bar above message list */}
+      <ActionStrip
+        messages={messages}
+        patchBlockStates={patchBlockStates}
+        onNavigate={handleNavigate}
+      />
+
+      {/* Brief readiness row — framing stage only, minimal vertical footprint */}
+      {isFramingStage(stage) && briefSignals && (
+        <div className="flex items-center gap-2 px-4 py-1" data-testid="readiness-row">
+          <ReadinessPill signals={briefSignals} briefText={debouncedInput} />
+          <BiasAlertIcon bias={briefSignals.bias_detected} />
+        </div>
+      )}
+
       {/* Message list */}
       <div
         ref={listRef}

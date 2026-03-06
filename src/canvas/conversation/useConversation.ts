@@ -8,6 +8,7 @@
 
 import { useState, useCallback, useRef, useEffect } from 'react'
 import { useCanvasStore } from '../store'
+import { generateGraphHash } from '../utils/graphHash'
 import { callOrchestratorTurn, OrchestratorError } from './turnService'
 import { isOrchestratorV2Enabled, isV3SystemEventsEnabled } from '../../flags'
 import { useGuidanceStore } from '../stores/guidanceStore'
@@ -380,6 +381,16 @@ export function useConversation(): UseConversationReturn {
       // Normalise CEE blocks and apply budget priority (proposed patches first)
       const rawBlocks = envelope.blocks ?? []
       const normalisedBlocks = rawBlocks.map(adaptCEEBlock)
+
+      // Stamp graph_hash_at_proposal on graph_patch blocks so the accept flow
+      // can detect staleness if the graph changes before the user clicks Accept.
+      const currentGraphHash = generateGraphHash(store.nodes, store.edges)
+      for (const block of normalisedBlocks) {
+        if (block.type === 'graph_patch') {
+          (block as import('./types').GraphPatchBlock).graph_hash_at_proposal = currentGraphHash
+        }
+      }
+
       const orderedBlocks = prioritiseBlocks(normalisedBlocks)
 
       const assistantMsg: ConversationMessage = {

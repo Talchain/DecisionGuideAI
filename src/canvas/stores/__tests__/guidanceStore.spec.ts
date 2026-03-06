@@ -298,3 +298,86 @@ describe('guidanceStore — evictStaleItems', () => {
     expect(useGuidanceStore.getState().guidanceItems).toHaveLength(0)
   })
 })
+
+// ---------------------------------------------------------------------------
+// clearItemsByTargetIds
+// ---------------------------------------------------------------------------
+
+describe('guidanceStore — clearItemsByTargetIds', () => {
+  it('removes matching items where target_object.type is node or edge', () => {
+    const items = [
+      makeItem({ item_id: 'a', target_object: { type: 'node', id: 'n1' } }),
+      makeItem({ item_id: 'b', target_object: { type: 'edge', id: 'e1' } }),
+      makeItem({ item_id: 'c', target_object: { type: 'node', id: 'n2' } }),
+    ]
+    useGuidanceStore.getState().setGuidanceItems(items)
+    useGuidanceStore.getState().clearItemsByTargetIds(['n1', 'e1'])
+    const remaining = useGuidanceStore.getState().guidanceItems
+    expect(remaining).toHaveLength(1)
+    expect(remaining[0].item_id).toBe('c')
+  })
+
+  it('non-matching items remain after clear', () => {
+    const items = [
+      makeItem({ item_id: 'a', target_object: { type: 'node', id: 'n1' } }),
+      makeItem({ item_id: 'b', target_object: { type: 'node', id: 'n99' } }),
+    ]
+    useGuidanceStore.getState().setGuidanceItems(items)
+    useGuidanceStore.getState().clearItemsByTargetIds(['n1'])
+    const remaining = useGuidanceStore.getState().guidanceItems
+    expect(remaining).toHaveLength(1)
+    expect(remaining[0].item_id).toBe('b')
+  })
+
+  it('empty target IDs array → no items cleared', () => {
+    const items = [makeItem({ item_id: 'a', target_object: { type: 'node', id: 'n1' } })]
+    useGuidanceStore.getState().setGuidanceItems(items)
+    useGuidanceStore.getState().clearItemsByTargetIds([])
+    expect(useGuidanceStore.getState().guidanceItems).toHaveLength(1)
+  })
+
+  it('GuidanceItem with no target_object → not cleared', () => {
+    const items = [
+      makeItem({ item_id: 'no-target' }), // no target_object
+      makeItem({ item_id: 'has-target', target_object: { type: 'node', id: 'n1' } }),
+    ]
+    useGuidanceStore.getState().setGuidanceItems(items)
+    useGuidanceStore.getState().clearItemsByTargetIds(['n1'])
+    const remaining = useGuidanceStore.getState().guidanceItems
+    expect(remaining).toHaveLength(1)
+    expect(remaining[0].item_id).toBe('no-target')
+  })
+
+  it('GuidanceItem with target_object.type not node/edge → not cleared', () => {
+    const items = [
+      makeItem({ item_id: 'graph-target', target_object: { type: 'graph', id: 'n1' } }),
+      makeItem({ item_id: 'framing-target', target_object: { type: 'framing', id: 'n1' } }),
+    ]
+    useGuidanceStore.getState().setGuidanceItems(items)
+    useGuidanceStore.getState().clearItemsByTargetIds(['n1'])
+    expect(useGuidanceStore.getState().guidanceItems).toHaveLength(2)
+  })
+
+  it('multiple matches → all cleared', () => {
+    const items = [
+      makeItem({ item_id: 'a', target_object: { type: 'node', id: 'shared' } }),
+      makeItem({ item_id: 'b', target_object: { type: 'edge', id: 'shared' } }),
+      makeItem({ item_id: 'c', target_object: { type: 'node', id: 'other' } }),
+    ]
+    useGuidanceStore.getState().setGuidanceItems(items)
+    useGuidanceStore.getState().clearItemsByTargetIds(['shared'])
+    const remaining = useGuidanceStore.getState().guidanceItems
+    expect(remaining).toHaveLength(1)
+    expect(remaining[0].item_id).toBe('c')
+  })
+
+  it('clears activeGuidanceItemId when cleared item was active', () => {
+    const items = [
+      makeItem({ item_id: 'target-item', target_object: { type: 'node', id: 'n1' } }),
+    ]
+    useGuidanceStore.getState().setGuidanceItems(items)
+    useGuidanceStore.getState().setActiveGuidanceItem('target-item')
+    useGuidanceStore.getState().clearItemsByTargetIds(['n1'])
+    expect(useGuidanceStore.getState().activeGuidanceItemId).toBeNull()
+  })
+})

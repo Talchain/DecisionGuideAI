@@ -23,6 +23,8 @@ import type {
 } from './types'
 import type { PatchBlockState, PatchRejectionInfo } from './useConversation'
 import { MAX_VISIBLE_BLOCKS_PER_TURN } from './types'
+import { useCanvasStore } from '../store'
+import { generateGraphHash } from '../utils/graphHash'
 import styles from './Conversation.module.css'
 
 // ---------------------------------------------------------------------------
@@ -522,8 +524,9 @@ function GraphPatchBlockRenderer({
   onDismiss,
 }: GraphPatchBlockRendererProps) {
   const [showViolations, setShowViolations] = useState(false)
+  const [showStalenessWarning, setShowStalenessWarning] = useState(false)
 
-  const stateKey = block.patch_id
+  const stateKey = turnId ? `${turnId}:${block.patch_id}` : block.patch_id
   const blockState = patchBlockStates?.get(stateKey) ?? 'proposed'
   const rejectionInfo = patchRejections?.get(stateKey) ?? null
   const isSettled = blockState !== 'proposed'
@@ -543,14 +546,37 @@ function GraphPatchBlockRenderer({
     return styles.graphPatchAccept
   }
 
+  // Staleness-aware accept: compare current graph hash against proposal hash
+  const handleAcceptWithStalenessCheck = useCallback(() => {
+    if (block.graph_hash_at_proposal) {
+      const { nodes, edges } = useCanvasStore.getState()
+      const currentHash = generateGraphHash(nodes, edges)
+      if (currentHash !== block.graph_hash_at_proposal) {
+        setShowStalenessWarning(true)
+        return
+      }
+    }
+    onAccept?.(stateKey, block)
+  }, [block, onAccept])
+
+  const handleApplyAnyway = useCallback(() => {
+    setShowStalenessWarning(false)
+    onAccept?.(stateKey, block)
+  }, [block, onAccept])
+
+  const handleDismissStale = useCallback(() => {
+    setShowStalenessWarning(false)
+    onDismiss?.(stateKey)
+  }, [block.patch_id, onDismiss])
+
   const handleActionClick = useCallback((action: BlockAction) => {
     if (action.action_type === 'accept') {
-      onAccept?.(block.patch_id, block)
+      handleAcceptWithStalenessCheck()
     } else if (action.action_type === 'dismiss') {
-      onDismiss?.(block.patch_id)
+      onDismiss?.(stateKey)
     }
     // 'view_details' and unknown action_types are no-ops for now
-  }, [block, onAccept, onDismiss])
+  }, [block.patch_id, handleAcceptWithStalenessCheck, onDismiss])
 
   return (
     <div
@@ -616,7 +642,7 @@ function GraphPatchBlockRenderer({
           <button
             type="button"
             className={styles.graphPatchRetry}
-            onClick={() => onAccept?.(block.patch_id, block)}
+            onClick={() => onAccept?.(stateKey, block)}
           >
             Try again
           </button>
@@ -629,7 +655,36 @@ function GraphPatchBlockRenderer({
         state machine remains the authority for status transitions. Unknown
         action_types are rendered as secondary buttons but have no handler.
       */}
-      {!isAutoApplied && !isSettled && rejectionInfo?.code !== 'NETWORK_ERROR' && (
+      {/* Staleness warning — shown when graph changed since proposal */}
+      {!isAutoApplied && !isSettled && showStalenessWarning && (
+        <>
+          <div className={styles.patchStalenessWarning} data-testid="patch-staleness-warning">
+            This was proposed before your last edit — still want to apply it?
+          </div>
+          <div className={styles.graphPatchActions}>
+            <button
+              type="button"
+              className={styles.graphPatchAccept}
+              onClick={handleApplyAnyway}
+              data-testid="patch-apply-anyway"
+              aria-label="Apply anyway"
+            >
+              Apply anyway
+            </button>
+            <button
+              type="button"
+              className={styles.graphPatchDismiss}
+              onClick={handleDismissStale}
+              data-testid="patch-dismiss-stale"
+              aria-label="Dismiss"
+            >
+              Dismiss
+            </button>
+          </div>
+        </>
+      )}
+
+      {!isAutoApplied && !isSettled && !showStalenessWarning && rejectionInfo?.code !== 'NETWORK_ERROR' && (
         <div className={styles.graphPatchActions}>
           {hasCustomActions ? (
             // Render CEE-provided action buttons
@@ -653,7 +708,7 @@ function GraphPatchBlockRenderer({
                 type="button"
                 className={styles.graphPatchAccept}
                 disabled={isSettled}
-                onClick={() => onAccept?.(block.patch_id, block)}
+                onClick={handleAcceptWithStalenessCheck}
                 data-testid="patch-accept"
                 aria-label="Accept this graph change"
               >
@@ -663,7 +718,7 @@ function GraphPatchBlockRenderer({
                 type="button"
                 className={styles.graphPatchDismiss}
                 disabled={isSettled}
-                onClick={() => onDismiss?.(block.patch_id)}
+                onClick={() => onDismiss?.(stateKey)}
                 data-testid="patch-dismiss"
                 aria-label="Dismiss this graph change"
               >

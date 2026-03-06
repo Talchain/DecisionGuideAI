@@ -309,9 +309,79 @@ function CategoryBadge({ category }: { category?: string }) {
   )
 }
 
+// ── Synthesised prior lookup ──────────────────────────────────────────────────
+
+interface SynthesisedPrior {
+  rangeMin: number
+  rangeMax: number
+}
+
+/**
+ * Parse repair actions from ceePipelineTrace to find synthesised priors.
+ * Actions look like: 'Reclassified unreachable factor "X" to external with synthesised prior [0, 0.14]'
+ * Returns a map from node ID → { rangeMin, rangeMax }.
+ */
+function buildSynthesisedPriorMap(
+  ceePipelineTrace: unknown,
+  nodes: Node[],
+): Map<string, SynthesisedPrior> {
+  const map = new Map<string, SynthesisedPrior>()
+  if (!ceePipelineTrace || typeof ceePipelineTrace !== 'object') return map
+
+  const trace = ceePipelineTrace as Record<string, unknown>
+  const repairSummary = trace.repair_summary ?? trace.repair
+  if (!repairSummary || typeof repairSummary !== 'object') return map
+
+  const summary = repairSummary as Record<string, unknown>
+  const repairs = summary.deterministic_repairs
+  if (!Array.isArray(repairs)) return map
+
+  // Build label→id lookup for matching
+  const labelToId = new Map<string, string>()
+  for (const n of nodes) {
+    const label = String((n.data as any)?.label ?? '').toLowerCase()
+    if (label) labelToId.set(label, n.id)
+  }
+
+  for (const r of repairs) {
+    if (!r || typeof r !== 'object') continue
+    const repair = r as Record<string, unknown>
+
+    // Structured fields (if CEE provides them)
+    if (repair.node_id && repair.synthesised_range && Array.isArray(repair.synthesised_range)) {
+      const [min, max] = repair.synthesised_range as number[]
+      if (typeof min === 'number' && typeof max === 'number') {
+        map.set(String(repair.node_id), { rangeMin: min, rangeMax: max })
+        continue
+      }
+    }
+
+    // Fallback: parse from action text
+    const action = typeof repair.action === 'string' ? repair.action : ''
+    const match = action.match(/synthesised prior\s*\[([^\]]+)\]/i)
+    if (!match) continue
+    const parts = match[1].split(',').map(s => parseFloat(s.trim()))
+    if (parts.length !== 2 || parts.some(isNaN)) continue
+
+    // Try to match by node_id first, then by quoted label in action text
+    let nodeId = repair.node_id ? String(repair.node_id) : undefined
+    if (!nodeId) {
+      const labelMatch = action.match(/"([^"]+)"/)
+      if (labelMatch) {
+        nodeId = labelToId.get(labelMatch[1].toLowerCase())
+      }
+    }
+    if (nodeId) {
+      map.set(nodeId, { rangeMin: parts[0], rangeMax: parts[1] })
+    }
+  }
+
+  return map
+}
+
 // ── Factor card ───────────────────────────────────────────────────────────────
 
-function FactorCard({ node }: { node: Node }) {
+function FactorCard({ node, synthesisedPrior }: { node: Node; synthesisedPrior?: SynthesisedPrior }) {
   const updateNode = useCanvasStore(s => s.updateNode)
 
   const data = node.data as any
@@ -320,11 +390,18 @@ function FactorCard({ node }: { node: Node }) {
   const obs: ObservedState = (data?.observedState ?? data?.observed_state ?? {}) as ObservedState
   const isExternal = category === 'external'
 
-  const priorRangeMin: number | undefined = data?.prior?.range_min ?? data?.priorRangeMin
-  const priorRangeMax: number | undefined = data?.prior?.range_max ?? data?.priorRangeMax
+  const explicitPriorMin: number | undefined = data?.prior?.range_min ?? data?.priorRangeMin
+  const explicitPriorMax: number | undefined = data?.prior?.range_max ?? data?.priorRangeMax
   const priorSource: string | undefined = data?.prior?.source
+  const hasExplicitPrior = explicitPriorMin !== undefined && explicitPriorMax !== undefined
+
+  // Fall back to synthesised prior from repair summary when node has no explicit prior
+  const priorRangeMin = hasExplicitPrior ? explicitPriorMin : synthesisedPrior?.rangeMin
+  const priorRangeMax = hasExplicitPrior ? explicitPriorMax : synthesisedPrior?.rangeMax
   const hasPriorRange = priorRangeMin !== undefined && priorRangeMax !== undefined
-  const isSynthesisedPrior = priorSource === 'synthesised_from_observed_state'
+  const isSynthesisedPrior = hasExplicitPrior
+    ? priorSource === 'synthesised_from_observed_state'
+    : synthesisedPrior !== undefined
 
   // Human-readable primary value: prefer raw_value+unit, then normalised value
   const primaryValue = obs.raw_value !== undefined && obs.unit
@@ -951,6 +1028,14 @@ export function ModelTabBody({
   critique,
 }: ModelTabBodyProps) {
   const [searchQuery, setSearchQuery] = useState('')
+  const ceePipelineTrace = useCanvasStore(s => s.ceePipelineTrace)
+
+  // ── Synthesised prior lookup from repair summary ───────────────────────────
+
+  const synthesisedPriorMap = useMemo(
+    () => buildSynthesisedPriorMap(ceePipelineTrace, nodes),
+    [ceePipelineTrace, nodes],
+  )
 
   // ── Node groups ───────────────────────────────────────────────────────────
 
@@ -1036,7 +1121,7 @@ export function ModelTabBody({
   const fragileEdgeCount = hasRobustnessData ? fragileEdgeIds.size : 0
 
   const showAttentionBanner = hasRobustnessData && (
-    fragileEdgeCount > 0 || factorsTrulyMissingSource > 0 || factorsAiEstimated > 0 || defaultedEdgeCount > 2
+    fragileEdgeCount > 0 || factorsTrulyMissingSource > 0 || factorsAiEstimated > 0
   )
 
   // ── Factor sort: needs-attention first, then alpha ─────────────────────────
@@ -1047,11 +1132,12 @@ export function ModelTabBody({
       const srcB = (b.data as any)?.observedState?.source ?? (b.data as any)?.observed_state?.source
       const extA = (a.data as any)?.category === 'external'
       const extB = (b.data as any)?.category === 'external'
-      const priorMinA = (a.data as any)?.prior?.range_min
-      const priorMaxA = (a.data as any)?.prior?.range_max
+      // Check explicit prior and synthesised prior fallback
+      const priorMinA = (a.data as any)?.prior?.range_min ?? synthesisedPriorMap.get(a.id)?.rangeMin
+      const priorMaxA = (a.data as any)?.prior?.range_max ?? synthesisedPriorMap.get(a.id)?.rangeMax
       const fullRangeA = extA && (priorMinA === undefined || priorMinA === 0) && (priorMaxA === undefined || priorMaxA === 1)
-      const priorMinB = (b.data as any)?.prior?.range_min
-      const priorMaxB = (b.data as any)?.prior?.range_max
+      const priorMinB = (b.data as any)?.prior?.range_min ?? synthesisedPriorMap.get(b.id)?.rangeMin
+      const priorMaxB = (b.data as any)?.prior?.range_max ?? synthesisedPriorMap.get(b.id)?.rangeMax
       const fullRangeB = extB && (priorMinB === undefined || priorMinB === 0) && (priorMaxB === undefined || priorMaxB === 1)
 
       const needsA = (!srcA || srcA === 'cee_inference' || fullRangeA) ? 0 : 1
@@ -1061,7 +1147,7 @@ export function ModelTabBody({
       const labelB = String((b.data as any)?.label ?? b.id)
       return labelA.localeCompare(labelB)
     })
-  }, [grouped.factor])
+  }, [grouped.factor, synthesisedPriorMap])
 
   // ── Edge sort: fragile by switchProbability desc, then low likelihood, then high |effect| ─
 
@@ -1093,6 +1179,11 @@ export function ModelTabBody({
       return !provenance || NON_EVIDENCE_PROVENANCE.includes(provenance)
     })
   }, [causalEdges])
+
+  // Edges without evidence, excluding those already shown under Fragile edges
+  const nonFragileEdgesWithoutEvidence = useMemo(() => {
+    return edgesWithoutEvidence.filter(e => !fragileEdgeIds.has(getDisplayEdgeId(e)))
+  }, [edgesWithoutEvidence, fragileEdgeIds])
 
   // Fragile edges sorted by switch_probability descending (for Strengthen section)
   const fragileSortedEdges = useMemo(() => {
@@ -1228,9 +1319,6 @@ export function ModelTabBody({
                 fragileEdgeCount > 0
                   ? `${fragileEdgeCount} fragile edge${fragileEdgeCount !== 1 ? 's' : ''}`
                   : null,
-                defaultedEdgeCount > 2
-                  ? `${defaultedEdgeCount} edges with default values`
-                  : null,
               ].filter(Boolean).join(' · ')}
             </div>
             <a
@@ -1258,7 +1346,7 @@ export function ModelTabBody({
             />
             <div>
               {visibleFactors.map(n => (
-                <FactorCard key={n.id} node={n} />
+                <FactorCard key={n.id} node={n} synthesisedPrior={synthesisedPriorMap.get(n.id)} />
               ))}
               {query && visibleFactors.length === 0 && (
                 <p className={`${typography.panelMeta} text-text-light`}>No matching factors.</p>
@@ -1408,11 +1496,11 @@ export function ModelTabBody({
           </div>
         )}
 
-        {/* ── Missing evidence: factors + remaining edges ── */}
-        {(factorsTrulyMissingSourceList.length > 0 || edgesWithoutEvidence.length > 0) ? (
+        {/* ── Missing evidence: factors + remaining edges (excludes fragile edges shown above) ── */}
+        {(factorsTrulyMissingSourceList.length > 0 || nonFragileEdgesWithoutEvidence.length > 0) ? (
           <div data-testid="strengthen-missing-evidence">
             <div className={`${typography.panelMeta} text-text-light mb-1`}>
-              Missing evidence ({factorsTrulyMissingSourceList.length + edgesWithoutEvidence.length})
+              Missing evidence ({factorsTrulyMissingSourceList.length + nonFragileEdgesWithoutEvidence.length})
             </div>
             <div className="space-y-1">
               {factorsTrulyMissingSourceList.map(n => {
@@ -1436,7 +1524,7 @@ export function ModelTabBody({
                   </div>
                 )
               })}
-              {edgesWithoutEvidence.slice(0, 5).map(edge => {
+              {nonFragileEdgesWithoutEvidence.slice(0, 5).map(edge => {
                 const edgeId = getDisplayEdgeId(edge)
                 const srcNode = nodes.find(n => n.id === edge.source)
                 const tgtNode = nodes.find(n => n.id === edge.target)
@@ -1462,14 +1550,14 @@ export function ModelTabBody({
                   </div>
                 )
               })}
-              {edgesWithoutEvidence.length > 5 && (
+              {nonFragileEdgesWithoutEvidence.length > 5 && (
                 <p className={`${typography.panelMeta} text-text-light pl-1`}>
-                  +{edgesWithoutEvidence.length - 5} more edges without evidence
+                  +{nonFragileEdgesWithoutEvidence.length - 5} more edges without evidence
                 </p>
               )}
             </div>
             {/* Warning when all causal edges lack user evidence */}
-            {edgesWithoutEvidence.length === causalEdges.length && causalEdges.length > 0 && (
+            {nonFragileEdgesWithoutEvidence.length === causalEdges.length && causalEdges.length > 0 && (
               <div
                 className={`${typography.panelBody} text-text-body bg-panel-hover rounded-sm px-2.5 py-2 mt-2.5 leading-relaxed`}
               >

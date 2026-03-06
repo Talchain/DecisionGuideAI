@@ -159,7 +159,7 @@ describe('handlePatchAccept — validated graph preference', () => {
     fireEvent.click(screen.getByTestId('patch-accept'))
 
     await waitFor(() => {
-      expect(patchStates.get('patch-1')).toBe('accepted')
+      expect(patchStates.get('msg-1:patch-1')).toBe('accepted')
     })
 
     // Store should have the validated graph — 3 nodes, 2 edges
@@ -214,7 +214,7 @@ describe('handlePatchAccept — validated graph preference', () => {
     fireEvent.click(screen.getByTestId('patch-accept'))
 
     await waitFor(() => {
-      expect(patchStates.get('patch-1')).toBe('accepted')
+      expect(patchStates.get('msg-1:patch-1')).toBe('accepted')
     })
 
     // Store should have the validated graph with n-alt
@@ -244,7 +244,7 @@ describe('handlePatchAccept — validated graph preference', () => {
     fireEvent.click(screen.getByTestId('patch-accept'))
 
     await waitFor(() => {
-      expect(patchStates.get('patch-1')).toBe('accepted')
+      expect(patchStates.get('msg-1:patch-1')).toBe('accepted')
     })
 
     // Op replay should have updated n2's data
@@ -272,7 +272,7 @@ describe('handlePatchAccept — unknown operation guard', () => {
     fireEvent.click(screen.getByTestId('patch-accept'))
 
     await waitFor(() => {
-      expect(patchStates.get('patch-1')).toBe('rejected')
+      expect(patchStates.get('msg-1:patch-1')).toBe('rejected')
     })
 
     // Store untouched
@@ -280,7 +280,7 @@ describe('handlePatchAccept — unknown operation guard', () => {
     expect(useCanvasStore.getState().edges).toEqual(INITIAL_EDGES)
 
     // Rejection info — assert on stable code, not human-readable message
-    const rejection = patchRejections.get('patch-1')
+    const rejection = patchRejections.get('msg-1:patch-1')
     expect(rejection?.code).toBe('UNSUPPORTED_OPERATION')
 
     // validatePatch was NOT called (guard fires before network call)
@@ -310,7 +310,7 @@ describe('handlePatchAccept — unknown operation guard', () => {
     fireEvent.click(screen.getByTestId('patch-accept'))
 
     await waitFor(() => {
-      expect(patchStates.get('patch-1')).toBe('rejected')
+      expect(patchStates.get('msg-1:patch-1')).toBe('rejected')
     })
 
     // No partial application — store untouched (no n3 added)
@@ -318,7 +318,7 @@ describe('handlePatchAccept — unknown operation guard', () => {
     expect(mockValidatePatch).not.toHaveBeenCalled()
 
     // Assert stable rejection code (not message string)
-    expect(patchRejections.get('patch-1')?.code).toBe('UNSUPPORTED_OPERATION')
+    expect(patchRejections.get('msg-1:patch-1')?.code).toBe('UNSUPPORTED_OPERATION')
   })
 })
 
@@ -336,7 +336,7 @@ describe('handlePatchDismiss', () => {
 
     fireEvent.click(screen.getByTestId('patch-dismiss'))
 
-    expect(patchStates.get('patch-1')).toBe('dismissed')
+    expect(patchStates.get('msg-1:patch-1')).toBe('dismissed')
     expect(sendSystemEvent).toHaveBeenCalledWith(
       expect.objectContaining({
         type: 'patch_dismissed',

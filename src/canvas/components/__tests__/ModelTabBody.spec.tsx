@@ -27,10 +27,11 @@ vi.mock('../../utils/focusHelpers', () => ({
 
 const mockUpdateNode = vi.fn()
 const mockUpdateEdge = vi.fn()
+let mockCeePipelineTrace: unknown = null
 
 vi.mock('../../store', () => ({
   useCanvasStore: vi.fn((selector: (s: any) => any) =>
-    selector({ updateNode: mockUpdateNode, updateEdge: mockUpdateEdge })
+    selector({ updateNode: mockUpdateNode, updateEdge: mockUpdateEdge, ceePipelineTrace: mockCeePipelineTrace })
   ),
 }))
 
@@ -98,6 +99,7 @@ const DEFAULT_PROPS = {
 
 beforeEach(() => {
   vi.clearAllMocks()
+  mockCeePipelineTrace = null
 })
 
 describe('Goal headline', () => {
@@ -564,6 +566,44 @@ describe('External factor — range display', () => {
     render(<ModelTabBody {...DEFAULT_PROPS} nodes={[node]} edges={[]} />)
     expect(screen.queryByTestId('factor-ef4-refine-range')).not.toBeInTheDocument()
   })
+
+  it('shows synthesised prior from repair_summary when node has no explicit prior', () => {
+    mockCeePipelineTrace = {
+      repair_summary: {
+        deterministic_repairs: [
+          {
+            action: 'Reclassified unreachable factor "Customer churn rate" to external with synthesised prior [0, 0.14]',
+          },
+        ],
+      },
+    }
+    const node = makeExternalNode('ef5', 'Customer churn rate')
+    render(<ModelTabBody {...DEFAULT_PROPS} nodes={[node]} edges={[]} />)
+    // Should show the synthesised range, not the default
+    expect(screen.getByTestId('factor-ef5-prior-min-display')).toHaveTextContent('0')
+    expect(screen.getByTestId('factor-ef5-prior-max-display')).toHaveTextContent('0.14')
+    expect(screen.queryByTestId('factor-ef5-default-range')).not.toBeInTheDocument()
+    // Should show "from model repair" provenance
+    expect(screen.getByText(/from model repair/)).toBeInTheDocument()
+  })
+
+  it('shows synthesised prior from structured node_id + synthesised_range fields', () => {
+    mockCeePipelineTrace = {
+      repair_summary: {
+        deterministic_repairs: [
+          {
+            node_id: 'ef6',
+            synthesised_range: [0.05, 0.25],
+            action: 'some repair action',
+          },
+        ],
+      },
+    }
+    const node = makeExternalNode('ef6', 'Market growth')
+    render(<ModelTabBody {...DEFAULT_PROPS} nodes={[node]} edges={[]} />)
+    expect(screen.getByTestId('factor-ef6-prior-min-display')).toHaveTextContent('0.05')
+    expect(screen.getByTestId('factor-ef6-prior-max-display')).toHaveTextContent('0.25')
+  })
 })
 
 describe('Strengthen section — sub-headers and constraint warnings', () => {
@@ -596,5 +636,100 @@ describe('Strengthen section — sub-headers and constraint warnings', () => {
     const nodes = [makeFactorNode('f1', 'Factor')]
     render(<ModelTabBody {...DEFAULT_PROPS} nodes={nodes} edges={[]} robustness={null} critique={[]} />)
     expect(screen.queryByTestId('strengthen-constraint-warnings')).not.toBeInTheDocument()
+  })
+
+  it('excludes fragile edges from Missing evidence (no double-listing)', () => {
+    const nodes = [
+      makeFactorNode('f1', 'Factor A', { source: 'user' }),
+      makeFactorNode('f2', 'Factor B', { source: 'user' }),
+      makeFactorNode('f3', 'Factor C', { source: 'user' }),
+    ]
+    // e1 is fragile AND lacks evidence; e2 only lacks evidence
+    const edges = [
+      makeEdge('e1', 'f1', 'f2', { provenance: 'assumption' }),
+      makeEdge('e2', 'f2', 'f3', { provenance: 'assumption' }),
+    ]
+    const robustness = {
+      fragileEdges: [{ edgeId: 'e1', fromId: 'f1', toId: 'f2', switchProbability: 0.75 }],
+      robustEdges: [],
+      stabilityScore: 0.4,
+    }
+    render(<ModelTabBody {...DEFAULT_PROPS} nodes={nodes} edges={edges} robustness={robustness} />)
+
+    // e1 should appear in fragile edges section
+    expect(screen.getByTestId('strengthen-fragile-edges')).toBeInTheDocument()
+
+    // Missing evidence should only show e2, not e1
+    const missingEvidence = screen.getByTestId('strengthen-missing-evidence')
+    expect(missingEvidence).toBeInTheDocument()
+    // Count should reflect de-duplication: only e2 (1 edge), not e1+e2 (2 edges)
+    expect(missingEvidence).toHaveTextContent('Missing evidence (1)')
+  })
+
+  it('renders Strengthen sections in priority order: constraint → fragile → missing evidence', () => {
+    const nodes = [
+      makeFactorNode('f1', 'Factor A', { source: undefined }),
+      makeFactorNode('f2', 'Factor B'),
+      makeFactorNode('f3', 'Factor C'),
+    ]
+    const edges = [
+      makeEdge('e1', 'f1', 'f2', { provenance: 'assumption' }),
+      makeEdge('e2', 'f2', 'f3', { provenance: 'assumption' }),
+    ]
+    const robustness = {
+      fragileEdges: [{ edgeId: 'e2', fromId: 'f2', toId: 'f3', switchProbability: 0.8 }],
+      robustEdges: [],
+      stabilityScore: 0.4,
+    }
+    const critique = [
+      { severity: 'WARNING' as const, message: 'constraint no baseline', code: 'CONSTRAINT_NO_BASELINE', node_id: 'f2' },
+    ]
+    render(<ModelTabBody {...DEFAULT_PROPS} nodes={nodes} edges={edges} robustness={robustness} critique={critique} />)
+
+    const strengthenSection = screen.getByTestId('model-strengthen-section')
+    const html = strengthenSection.innerHTML
+
+    // Constraint warnings should appear before fragile edges, which should appear before missing evidence
+    const constraintPos = html.indexOf('strengthen-constraint-warnings')
+    const fragilePos = html.indexOf('strengthen-fragile-edges')
+    const missingPos = html.indexOf('strengthen-missing-evidence')
+
+    expect(constraintPos).toBeGreaterThan(-1)
+    expect(fragilePos).toBeGreaterThan(-1)
+    expect(missingPos).toBeGreaterThan(-1)
+    expect(constraintPos).toBeLessThan(fragilePos)
+    expect(fragilePos).toBeLessThan(missingPos)
+  })
+})
+
+describe('Attention banner — no defaulted-edges bucket', () => {
+  it('does not show "edges with default values" in the attention banner', () => {
+    const nodes = [
+      makeFactorNode('f1', 'A', { source: 'user' }),
+      makeFactorNode('f2', 'B', { source: 'user' }),
+      makeFactorNode('f3', 'C', { source: 'user' }),
+      makeFactorNode('f4', 'D', { source: 'user' }),
+    ]
+    // 3 defaulted edges (weight=0.5, strengthStd=0.125)
+    const edges = [
+      makeEdge('e1', 'f1', 'f2', { weight: 0.5, strengthStd: 0.125 }),
+      makeEdge('e2', 'f2', 'f3', { weight: 0.5, strengthStd: 0.125 }),
+      makeEdge('e3', 'f3', 'f4', { weight: 0.5, strengthStd: 0.125 }),
+    ]
+    const robustness = { fragileEdges: [], robustEdges: [], stabilityScore: 0.9 }
+    render(<ModelTabBody {...DEFAULT_PROPS} nodes={nodes} edges={edges} robustness={robustness} />)
+    // Banner should NOT appear (no missing source, no AI-estimated, no fragile edges)
+    expect(screen.queryByTestId('model-attention-banner')).not.toBeInTheDocument()
+  })
+})
+
+describe('Inline edit — hover affordance classes', () => {
+  it('has cursor-text, hover:bg-panel-hover, and hover:border-panel-border on display element', () => {
+    const nodes = [makeFactorNode('f1', 'Budget', { source: 'user' })]
+    render(<ModelTabBody {...DEFAULT_PROPS} nodes={nodes} edges={[]} />)
+    const displayEl = screen.getByTestId('factor-f1-source-display')
+    expect(displayEl.className).toContain('cursor-text')
+    expect(displayEl.className).toContain('hover:bg-panel-hover')
+    expect(displayEl.className).toContain('hover:border-panel-border')
   })
 })

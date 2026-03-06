@@ -206,6 +206,7 @@ interface CanvasState {
   currentScenarioLastRunAt: string | null  // ISO timestamp of last analysis run for the active scenario
   currentScenarioLastRunSeed: string | null  // Seed used for last analysis run (stringified)
   hasCompletedFirstRun: boolean  // True after at least one successful or restored run in this session
+  graphEditedSinceLastRun: boolean  // True when graph has been structurally edited since last analysis run
   isDirty: boolean  // Has unsaved changes
   isSaving: boolean  // P0-2: Currently saving
   lastSavedAt: number | null  // P0-2: Timestamp of last successful save
@@ -576,7 +577,8 @@ function pushToHistory(get: () => CanvasState, set: (fn: (s: CanvasState) => Par
   const past = [...history.past, { nodes: cleanNodes, edges: cleanEdges }].slice(-MAX_HISTORY)
   set(() => ({
     history: { past, future: [] },
-    _internal: { lastHistoryHash: h }
+    _internal: { lastHistoryHash: h },
+    graphEditedSinceLastRun: true,
   }))
 }
 
@@ -821,6 +823,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   currentScenarioLastRunAt: null,
   currentScenarioLastRunSeed: null,
   hasCompletedFirstRun: false,
+  graphEditedSinceLastRun: false,
   isDirty: false,
   isSaving: false,  // P0-2: Initially not saving
   lastSavedAt: null,  // P0-2: No save yet
@@ -1656,6 +1659,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       results: { status: 'idle', progress: 0 },
       runMeta: {},
       hasCompletedFirstRun: false,
+      graphEditedSinceLastRun: false,
       // Clear validation state
       graphHealth: null,
       needleMovers: [],
@@ -1873,7 +1877,8 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       currentScenarioLastResultHash: hash ?? null,
       currentScenarioLastRunAt: completedAtIso,
       currentScenarioLastRunSeed: seedString,
-      hasCompletedFirstRun: true
+      hasCompletedFirstRun: true,
+      graphEditedSinceLastRun: false,
     }))
 
     // Persist last run metadata onto the active scenario record (if any)
@@ -2024,7 +2029,8 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
         return healthFromQuality
       })(),
       isDirty: false,
-      hasCompletedFirstRun: true
+      hasCompletedFirstRun: true,
+      graphEditedSinceLastRun: false,
     }))
   },
 
@@ -2062,6 +2068,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
         return healthFromQuality
       })(),
       hasCompletedFirstRun: true,
+      graphEditedSinceLastRun: false,
     }))
   },
 
