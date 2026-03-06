@@ -10,6 +10,10 @@ import { useViewport } from '@xyflow/react'
 import { useCanvasStore } from '../store'
 import { NodeInspector } from '../ui/NodeInspector'
 import { EdgeInspector } from '../ui/EdgeInspector'
+import { InspectorRouter } from '../ui/inspector-v2'
+
+/** Feature flag: when true, uses the new per-type inspector panels */
+const USE_INSPECTOR_V2 = true
 
 interface InspectorModalProps {
   nodeId: string | null
@@ -185,17 +189,27 @@ export const InspectorModal = memo(({ nodeId, edgeId, onClose }: InspectorModalP
 
       {/* Scrollable Content */}
       <div className="overflow-y-auto max-h-[calc(80vh-52px)]">
-        {nodeId && (
-          <NodeInspector
+        {USE_INSPECTOR_V2 ? (
+          <InspectorRouter
             nodeId={nodeId}
-            onClose={onClose}
-          />
-        )}
-        {edgeId && !nodeId && (
-          <EdgeInspector
             edgeId={edgeId}
             onClose={onClose}
           />
+        ) : (
+          <>
+            {nodeId && (
+              <NodeInspector
+                nodeId={nodeId}
+                onClose={onClose}
+              />
+            )}
+            {edgeId && !nodeId && (
+              <EdgeInspector
+                edgeId={edgeId}
+                onClose={onClose}
+              />
+            )}
+          </>
         )}
       </div>
     </div>

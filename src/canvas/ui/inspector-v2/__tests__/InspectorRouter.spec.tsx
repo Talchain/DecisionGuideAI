@@ -1,0 +1,123 @@
+/**
+ * InspectorRouter — resolves selection type and renders correct panel
+ */
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { render, screen } from '@testing-library/react'
+import { InspectorRouter } from '../InspectorRouter'
+import { useCanvasStore } from '../../../store'
+
+// Mock ReactFlow viewport hook
+vi.mock('@xyflow/react', () => ({
+  useViewport: () => ({ x: 0, y: 0, zoom: 1 }),
+}))
+
+function setStoreState(nodes: unknown[], edges: unknown[] = []) {
+  useCanvasStore.setState({
+    nodes: nodes as never[],
+    edges: edges as never[],
+    results: { status: 'idle' },
+    selection: { nodeIds: new Set(), edgeIds: new Set(), anchorPosition: null },
+  } as never)
+}
+
+describe('InspectorRouter', () => {
+  const onClose = vi.fn()
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    useCanvasStore.setState({
+      nodes: [],
+      edges: [],
+      results: { status: 'idle' },
+      selection: { nodeIds: new Set(), edgeIds: new Set(), anchorPosition: null },
+      goalThreshold: null,
+      confirmedNodeIds: new Set(),
+      _internal: {},
+    } as never)
+  })
+
+  it('renders nothing when no selection', () => {
+    setStoreState([])
+    const { container } = render(
+      <InspectorRouter nodeId={null} edgeId={null} onClose={onClose} />,
+    )
+    expect(container.innerHTML).toBe('')
+  })
+
+  it('renders goal panel for goal node', () => {
+    setStoreState([
+      { id: 'g1', type: 'goal', data: { label: 'Revenue target', kind: 'goal' }, position: { x: 0, y: 0 } },
+    ])
+    render(<InspectorRouter nodeId="g1" edgeId={null} onClose={onClose} />)
+    expect(screen.getByText('Revenue target')).toBeTruthy()
+    expect(screen.getByText('Goal')).toBeTruthy()
+  })
+
+  it('renders option panel for option node', () => {
+    setStoreState([
+      { id: 'o1', type: 'option', data: { label: 'Aggressive growth', kind: 'option' }, position: { x: 0, y: 0 } },
+    ])
+    render(<InspectorRouter nodeId="o1" edgeId={null} onClose={onClose} />)
+    expect(screen.getByText('Aggressive growth')).toBeTruthy()
+    expect(screen.getByText('Option')).toBeTruthy()
+  })
+
+  it('renders factor-controllable panel for controllable factor', () => {
+    setStoreState([
+      { id: 'f1', type: 'factor', data: { label: 'Budget', kind: 'factor', category: 'controllable' }, position: { x: 0, y: 0 } },
+    ])
+    render(<InspectorRouter nodeId="f1" edgeId={null} onClose={onClose} />)
+    expect(screen.getByText('Budget')).toBeTruthy()
+    expect(screen.getByText('You can change this')).toBeTruthy()
+  })
+
+  it('renders factor-external panel for external factor', () => {
+    setStoreState([
+      { id: 'f2', type: 'factor', data: { label: 'Competition', kind: 'factor', category: 'external' }, position: { x: 0, y: 0 } },
+    ])
+    render(<InspectorRouter nodeId="f2" edgeId={null} onClose={onClose} />)
+    expect(screen.getByText('Competition')).toBeTruthy()
+    expect(screen.getByText('Outside your control')).toBeTruthy()
+  })
+
+  it('renders edge panel when edge selected', () => {
+    setStoreState(
+      [
+        { id: 'f1', type: 'factor', data: { label: 'Marketing', kind: 'factor' }, position: { x: 0, y: 0 } },
+        { id: 'o1', type: 'outcome', data: { label: 'Revenue', kind: 'outcome' }, position: { x: 100, y: 0 } },
+      ],
+      [
+        { id: 'e1', source: 'f1', target: 'o1', data: { weight: 0.5, direction: 'positive', beliefExists: 0.7, strengthStd: 0.15 } },
+      ],
+    )
+    render(<InspectorRouter nodeId={null} edgeId="e1" onClose={onClose} />)
+    expect(screen.getByText('Relationship')).toBeTruthy()
+  })
+
+  it('renders decision panel for decision node', () => {
+    setStoreState([
+      { id: 'd1', type: 'decision', data: { label: 'Market strategy', kind: 'decision' }, position: { x: 0, y: 0 } },
+    ])
+    render(<InspectorRouter nodeId="d1" edgeId={null} onClose={onClose} />)
+    expect(screen.getByText('Market strategy')).toBeTruthy()
+    expect(screen.getByText('Decision')).toBeTruthy()
+  })
+
+  it('renders risk panel for risk node', () => {
+    setStoreState([
+      { id: 'r1', type: 'risk', data: { label: 'Operational risk', kind: 'risk' }, position: { x: 0, y: 0 } },
+    ])
+    render(<InspectorRouter nodeId="r1" edgeId={null} onClose={onClose} />)
+    expect(screen.getByText('Operational risk')).toBeTruthy()
+    expect(screen.getByText('Risk')).toBeTruthy()
+  })
+
+  it('renders outcome panel for outcome node', () => {
+    setStoreState([
+      { id: 'out1', type: 'outcome', data: { label: 'Revenue growth', kind: 'outcome' }, position: { x: 0, y: 0 } },
+    ])
+    render(<InspectorRouter nodeId="out1" edgeId={null} onClose={onClose} />)
+    expect(screen.getByText('Revenue growth')).toBeTruthy()
+    expect(screen.getByText('Outcome')).toBeTruthy()
+  })
+})
