@@ -64,6 +64,8 @@ export default defineConfig(({ mode, command }) => {
   },
   resolve: {
     alias: [
+      // @ → src/ path alias (used by 60+ files)
+      { find: /^@\//, replacement: path.resolve(__dirname, 'src') + '/' },
       // POC/test stubs for guest mode
       ...(isPoc ? [
         { find: '@supabase/supabase-js', replacement: path.resolve(__dirname, 'src/stubs/supabase-stub.mjs') },
