@@ -454,7 +454,7 @@ describe('HeroSection', () => {
 
       expect(screen.getByText('Stability')).toBeInTheDocument()
 
-      const collapseButton = screen.getByRole('button', { name: /Less/i })
+      const collapseButton = screen.getByRole('button', { name: /Hide/i })
       fireEvent.click(collapseButton)
 
       expect(screen.queryByText('Convergence')).not.toBeInTheDocument()
@@ -514,8 +514,8 @@ describe('HeroSection', () => {
       expect(expandButton).toHaveAttribute('aria-expanded', 'false')
 
       fireEvent.click(expandButton)
-      const lessButton = screen.getByRole('button', { name: /Less/i })
-      expect(lessButton).toHaveAttribute('aria-expanded', 'true')
+      const hideButton = screen.getByRole('button', { name: /Hide/i })
+      expect(hideButton).toHaveAttribute('aria-expanded', 'true')
     })
 
     it('has data-testid for component identification', () => {
@@ -1295,8 +1295,8 @@ describe('HeroSection', () => {
       const items = bullets.querySelectorAll('li')
       expect(items.length).toBe(3)
       expect(items[0].textContent).toContain('sensitive to engineering estimates')
-      expect(items[1].textContent).toContain('Could change if')
-      expect(items[1].textContent).toContain('Engineering Capacity')
+      expect(items[1].textContent).toContain('If Engineering Capacity is weaker')
+      expect(items[1].textContent).toContain('overtakes')
       expect(items[2].textContent).toContain('Market Size')
     })
 
@@ -1328,7 +1328,8 @@ describe('HeroSection', () => {
       const bullets = screen.getByTestId('insight-bullets')
       const items = bullets.querySelectorAll('li')
       expect(items.length).toBe(2)
-      expect(items[0].textContent).toContain('Could change if')
+      expect(items[0].textContent).toContain('is weaker')
+      expect(items[0].textContent).toContain('overtakes')
       expect(items[1].textContent).toContain('Market Size')
     })
 
@@ -1484,9 +1485,8 @@ describe('HeroSection', () => {
       )
 
       const bullets = screen.getByTestId('insight-bullets')
-      expect(bullets.textContent).toContain('Could change if')
-      expect(bullets.textContent).toContain('Engineering Capacity')
-      expect(bullets.textContent).toContain('shifts')
+      expect(bullets.textContent).toContain('If Engineering Capacity is weaker')
+      expect(bullets.textContent).toContain('overtakes')
     })
 
     it('condition card is in "Show more" expansion when fragile edge present', () => {
@@ -1881,15 +1881,16 @@ describe('HeroSection', () => {
       )
 
       const bullets = screen.getByTestId('insight-bullets')
-      expect(bullets.textContent).toContain('Gather evidence on')
+      expect(bullets.textContent).toContain('Next step')
+      expect(bullets.textContent).toContain('gather evidence on')
       expect(bullets.textContent).toContain('Engineering Capacity')
-      // Target label should be a button (GraphLink)
+      // "Next step" scroll button + GraphLink button
       expect(bullets.querySelectorAll('button').length).toBeGreaterThanOrEqual(1)
       // No standalone coaching-next-action
       expect(screen.queryByTestId('coaching-next-action')).not.toBeInTheDocument()
     })
 
-    it('renders plain text when target_label not in action text', () => {
+    it('suppresses bullet 3 when topNextAction has no targetLabel', () => {
       render(
         <HeroSection
           {...baseProps}
@@ -1903,7 +1904,8 @@ describe('HeroSection', () => {
         />
       )
 
-      expect(screen.getByTestId('insight-bullets').textContent).toContain('Review your assumptions')
+      // No targetLabel → bullet 3 must not appear (no free-text fabrication)
+      expect(screen.queryByTestId('insight-bullets')).not.toBeInTheDocument()
     })
 
     it('no bullets when topNextAction is undefined and other sources absent', () => {
@@ -1927,6 +1929,75 @@ describe('HeroSection', () => {
 
       expect(screen.queryByTestId('insight-bullets')).not.toBeInTheDocument()
       expect(screen.queryByTestId('coaching-next-action')).not.toBeInTheDocument()
+    })
+
+    it('P1-7: clicking "Next step" scrolls to #mvs-card', () => {
+      const scrollIntoView = vi.fn()
+      const mockEl = { scrollIntoView } as unknown as HTMLElement
+      vi.spyOn(document, 'getElementById').mockReturnValue(mockEl)
+
+      render(
+        <HeroSection
+          {...baseProps}
+          decisionState="robust"
+          recommendationStability={0.90}
+          topNextAction={{
+            action: 'Gather evidence on Market Size.',
+            rationale: 'Low confidence',
+            priority: 1,
+            targetId: 'fac-mkt',
+            targetLabel: 'Market Size',
+          }}
+        />
+      )
+
+      fireEvent.click(screen.getByRole('button', { name: 'Next step' }))
+      expect(document.getElementById).toHaveBeenCalledWith('mvs-card')
+      expect(scrollIntoView).toHaveBeenCalledWith({ behavior: 'smooth', block: 'center' })
+
+      vi.restoreAllMocks()
+    })
+  })
+
+  describe('P1-8: bullet suppression when source data absent', () => {
+    it('no bullet 2 when topFragileEdge absent (no v14ConditionCard)', () => {
+      render(
+        <HeroSection
+          {...baseProps}
+          decisionState="sensitive"
+          recommendationStability={0.60}
+          coachingKeyQualifier="Sensitive to engineering estimates."
+          // no topFragileEdge → no v14ConditionCard → no bullet 2
+        />
+      )
+
+      const bullets = screen.getByTestId('insight-bullets')
+      const items = bullets.querySelectorAll('li')
+      expect(items.length).toBe(1)
+      expect(items[0].textContent).toContain('Sensitive to engineering estimates')
+    })
+
+    it('no bullet 3 when topNextAction targetLabel absent', () => {
+      render(
+        <HeroSection
+          {...baseProps}
+          decisionState="robust"
+          recommendationStability={0.85}
+          coachingKeyQualifier="The recommendation holds."
+          topNextAction={{
+            action: 'General advice without a specific target.',
+            rationale: 'Coaching',
+            priority: 1,
+            // no targetLabel
+          }}
+        />
+      )
+
+      const bullets = screen.getByTestId('insight-bullets')
+      const items = bullets.querySelectorAll('li')
+      // Only qualifier bullet — bullet 3 suppressed due to absent targetLabel
+      expect(items.length).toBe(1)
+      expect(items[0].textContent).toContain('The recommendation holds')
     })
   })
 

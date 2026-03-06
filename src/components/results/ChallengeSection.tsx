@@ -14,7 +14,7 @@ import { typography } from '../../styles/typography'
 import type { ActionItem } from './utils/groupActionItems'
 import { CappedList } from './CappedList'
 import { GraphLink } from './GraphLink'
-import { EyeOff, Shield } from 'lucide-react'
+import { EyeOff, HelpCircle, Shield } from 'lucide-react'
 import { stripEncodingNotation } from './utils/cleanFactorLabel'
 import type { UncertaintyItem, DriverItem } from './types'
 
@@ -79,7 +79,8 @@ function ChallengeCard({
 
   return (
     <details className="border border-panel-border rounded-lg overflow-hidden">
-      <summary className={`px-3 py-2 cursor-pointer hover:bg-panel-hover ${typography.panelBody} text-text-body`}>
+      <summary className={`px-3 py-2 cursor-pointer hover:bg-panel-hover ${typography.panelBody} text-text-body list-none [&::-webkit-details-marker]:hidden flex items-center gap-2`}>
+        <HelpCircle className="w-3.5 h-3.5 text-text-light flex-shrink-0" aria-hidden="true" />
         {item.title}
       </summary>
       <div className="px-3 pb-2 space-y-1">

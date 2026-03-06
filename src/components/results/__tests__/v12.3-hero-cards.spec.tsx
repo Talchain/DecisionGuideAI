@@ -7,7 +7,7 @@
  */
 
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import {
   HeroSection,
   WIN_GAUGE_COLORS,
@@ -365,6 +365,9 @@ describe('V12.3 Task 3: Option card border colours match wins bar segments', () 
         />
       )
 
+      // Top 2 visible by default; expand to see all 4
+      fireEvent.click(screen.getByTestId('option-cards-toggle'))
+
       expect(screen.getByTestId('option-card-opt-a').style.borderLeftColor).toBe('var(--success)')
       expect(screen.getByTestId('option-card-opt-b').style.borderLeftColor).toBe('var(--info)')
       expect(screen.getByTestId('option-card-opt-c').style.borderLeftColor).toBe('var(--option)')
@@ -382,6 +385,9 @@ describe('V12.3 Task 3: Option card border colours match wins bar segments', () 
           segmentColorMap={colorMap}
         />
       )
+
+      // Top 2 visible by default; expand to see all 4
+      fireEvent.click(screen.getByTestId('option-cards-toggle'))
 
       expect(screen.getByTestId('option-card-opt-a').style.borderLeftColor).toBe('var(--info)')
       expect(screen.getByTestId('option-card-opt-b').style.borderLeftColor).toBe('var(--info-light)')
@@ -447,5 +453,75 @@ describe('V12.3 Task 3: Option card border colours match wins bar segments', () 
       // No border-success class on any card
       expect(winnerCard.className).not.toContain('border-success')
     })
+  })
+})
+
+// ===========================================================================
+// P1-10: OptionCards truncation UX (V16.1)
+// ===========================================================================
+
+describe('V16.1 P1-10: OptionCards truncation UX', () => {
+  it('shows only top 2 cards when 4 options are provided', () => {
+    render(<OptionCards options={fourOptions} winnerId="opt-a" />)
+
+    expect(screen.getByTestId('option-card-opt-a')).toBeInTheDocument()
+    expect(screen.getByTestId('option-card-opt-b')).toBeInTheDocument()
+    expect(screen.queryByTestId('option-card-opt-c')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('option-card-opt-d')).not.toBeInTheDocument()
+  })
+
+  it('toggle button reads "Show all (2 more)" when collapsed', () => {
+    render(<OptionCards options={fourOptions} winnerId="opt-a" />)
+
+    expect(screen.getByTestId('option-cards-toggle').textContent).toBe('Show all (2 more)')
+  })
+
+  it('clicking toggle shows all 4 cards', () => {
+    render(<OptionCards options={fourOptions} winnerId="opt-a" />)
+
+    fireEvent.click(screen.getByTestId('option-cards-toggle'))
+
+    expect(screen.getByTestId('option-card-opt-a')).toBeInTheDocument()
+    expect(screen.getByTestId('option-card-opt-b')).toBeInTheDocument()
+    expect(screen.getByTestId('option-card-opt-c')).toBeInTheDocument()
+    expect(screen.getByTestId('option-card-opt-d')).toBeInTheDocument()
+  })
+
+  it('toggle button reads "Show fewer" when expanded', () => {
+    render(<OptionCards options={fourOptions} winnerId="opt-a" />)
+
+    fireEvent.click(screen.getByTestId('option-cards-toggle'))
+    expect(screen.getByTestId('option-cards-toggle').textContent).toBe('Show fewer')
+  })
+
+  it('clicking toggle again collapses back to top 2', () => {
+    render(<OptionCards options={fourOptions} winnerId="opt-a" />)
+
+    fireEvent.click(screen.getByTestId('option-cards-toggle'))
+    fireEvent.click(screen.getByTestId('option-cards-toggle'))
+
+    expect(screen.queryByTestId('option-card-opt-c')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('option-card-opt-d')).not.toBeInTheDocument()
+  })
+
+  it('rank badge is globally consistent — opt-a=1, opt-b=2 in both collapsed and expanded', () => {
+    render(<OptionCards options={fourOptions} winnerId="opt-a" />)
+
+    // Collapsed: top 2 visible
+    expect(screen.getByTestId('rank-badge-opt-a').textContent).toBe('#1 of 4')
+    expect(screen.getByTestId('rank-badge-opt-b').textContent).toBe('#2 of 4')
+
+    // Expanded: ranks unchanged
+    fireEvent.click(screen.getByTestId('option-cards-toggle'))
+    expect(screen.getByTestId('rank-badge-opt-a').textContent).toBe('#1 of 4')
+    expect(screen.getByTestId('rank-badge-opt-b').textContent).toBe('#2 of 4')
+    expect(screen.getByTestId('rank-badge-opt-c').textContent).toBe('#3 of 4')
+    expect(screen.getByTestId('rank-badge-opt-d').textContent).toBe('#4 of 4')
+  })
+
+  it('no toggle button when fewer than 4 options', () => {
+    render(<OptionCards options={threeOptions} winnerId="opt-a" />)
+
+    expect(screen.queryByTestId('option-cards-toggle')).not.toBeInTheDocument()
   })
 })

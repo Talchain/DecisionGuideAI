@@ -124,11 +124,11 @@
      (Derived from main colors)
      ============================================ */
 
-  /* Primary (Goal Yellow) */
-  --primary: var(--goal);
-  --primary-hover: #E5B523;
-  --primary-active: #D4A41C;
-  --primary-disabled: rgba(245, 196, 51, 0.4);
+  /* Primary (Info Blue — §3 v3.1: yellow failed WCAG AA, replaced with info blue) */
+  --primary: var(--info);
+  --primary-hover: var(--info-hover);
+  --primary-active: #5290B0;
+  --primary-disabled: rgba(99, 173, 207, 0.4);
 
   /* Danger */
   --danger-hover: #D96A3A;

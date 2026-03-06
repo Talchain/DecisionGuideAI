@@ -268,7 +268,7 @@ export function ParetoChart({
               <span className={`${typography.panelHeader} text-success`}>
                 {opt.label}
               </span>
-              <span className={`${typography.panelBody} ml-auto px-2 py-0.5 rounded-full bg-success-light text-success`}>
+              <span className={`${typography.panelBody} ml-auto px-2 py-0.5 rounded-full bg-success-light text-text-body`}>
                 Frontier
               </span>
             </div>

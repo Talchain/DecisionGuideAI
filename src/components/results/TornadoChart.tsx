@@ -89,13 +89,17 @@ function formatValue(
 }
 
 /**
- * Format a bar-end value as relative change from expected.
- * Uses "pp" (percentage points) suffix to distinguish from outcome's own % unit.
- * Used when no structured unit is available.
- */
-/**
+ * Format a bar-end value as relative % change from expected.
+ * Formula: ((value - expected) / |expected|) × 100
+ * Example: if expected = 0.4 and value = 0.76 → +90%
+ *
+ * Data source: lowOutcome/highOutcome are derived from the recommended option's
+ * p10/p90 range × driver influence score (OutputsDock tornadoData). They are NOT
+ * raw elasticity values from factor_sensitivity. Large values (e.g. ±90%) are
+ * correct when the expected outcome is small and the uncertainty range is wide.
+ *
  * V14.2: Per-row value shows sign + magnitude only (no unit suffix).
- * Unit ("pp") is shown once in the axis helper text to declutter rows.
+ * Unit label is shown once in the axis clarification text to declutter rows.
  */
 function formatRelativeChange(value: number, expected: number): string {
   if (expected === 0) return value >= 0 ? '+∞' : '−∞'
@@ -520,20 +524,20 @@ export function TornadoChart({
           className={`${typography.panelMeta} text-text-light italic mt-1 ml-[158px]`}
           data-testid="tornado-pp-clarification"
         >
-          Values show relative change in percentage points (pp).
+          Values show % relative change from expected outcome.
         </p>
       )}
 
-      {/* Preview disclaimer + reset link */}
-      <div className="flex items-baseline justify-between mt-2">
-        <p className={`${typography.panelMeta} text-text-light italic leading-relaxed`}>
-          Drag to explore. Approximate, showing directional impact.
+      {/* Preview disclaimer + reset button */}
+      <div className="flex items-center justify-between mt-2">
+        <p className={`${typography.panelMeta} text-text-light italic`}>
+          Preview only
         </p>
         {dragState.hasUserDragged && (
           <button
             type="button"
             onClick={resetDrag}
-            className={`${typography.panelMeta} text-info hover:underline cursor-pointer flex-shrink-0 ml-2`}
+            className="rounded-full border border-panel-border bg-transparent px-[14px] py-[5px] text-[11px] font-medium cursor-pointer leading-none hover:bg-panel-hover hover:border-info hover:text-info transition-colors flex-shrink-0"
             data-testid="tornado-reset-preview"
           >
             Reset preview

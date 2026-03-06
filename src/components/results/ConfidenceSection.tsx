@@ -23,7 +23,7 @@ import { typography } from '../../styles/typography'
 import { MIN_STABLE_RECOMMENDATION_STABILITY, isStableRobustnessLevel } from './constants'
 import { stripEncodingNotation } from './utils/cleanFactorLabel'
 import { groupActionItems, type ActionGroup, type ActionItem } from './utils/groupActionItems'
-import { AlertTriangle, Search } from 'lucide-react'
+import { AlertTriangle, Lightbulb, Search } from 'lucide-react'
 
 interface ConfidenceSectionProps {
   data: ConfidenceSectionData
@@ -428,15 +428,25 @@ export function ConfidenceSection({
     <div className="space-y-4">
 
       {/* V11: VOI promoted block — "Most valuable next step" for sensitive/indeterminate */}
+      {/* §15 treatment: primary left border, shadow-1, Lightbulb icon */}
       {decisionState && decisionState !== 'robust' && hinge && (
         <div
+          id="mvs-card"
           className="p-4 border border-info/30 rounded-lg"
-          style={{ backgroundColor: 'rgba(99,173,207,0.04)' }}
+          style={{
+            backgroundColor: 'rgba(99,173,207,0.04)',
+            borderLeftWidth: '3px',
+            borderLeftColor: 'var(--primary)',
+            boxShadow: 'var(--shadow-1)',
+          }}
           data-testid="voi-promoted-block"
         >
-          <h4 className={`${typography.panelHeader} text-text-header mb-1`}>
-            Most valuable next step
-          </h4>
+          <div className="flex items-start gap-2 mb-1">
+            <Lightbulb className="w-4 h-4 text-info flex-shrink-0 mt-0.5" aria-hidden="true" />
+            <h4 className={`${typography.panelHeader} text-text-header`}>
+              Most valuable next step
+            </h4>
+          </div>
           <p className={`${typography.panelBody} text-text-body`}>
             Validate {hinge.label}.{' '}
             {hinge.reason === 'voi'
@@ -715,10 +725,11 @@ export function ConfidenceSection({
                           }
                         }
                         // Confidence pill
+                        // §8.5 semantic filled pill: light bg + text-text-body for readability (main-on-main fails contrast)
                         const pill = actionItem.confidenceLevel === 'low'
-                          ? { label: 'Low confidence', cls: 'bg-danger-light text-danger border-danger/30' }
+                          ? { label: 'Low confidence', cls: 'bg-danger-light text-text-body' }
                           : actionItem.confidenceLevel === 'medium'
-                          ? { label: 'Medium confidence', cls: 'bg-warning-light text-warning border-warning/30' }
+                          ? { label: 'Medium confidence', cls: 'bg-warning-light text-text-body' }
                           : null
 
                         // V14.1: VOI pill — "Check first" / "Check next"
@@ -845,8 +856,9 @@ export function ConfidenceSection({
             <div className="space-y-2 mt-2">
               {assumptions.map((assumption, index) => {
                 const severityConfig = {
-                  high: { icon: '⚠', bgColor: 'bg-danger-light', borderColor: 'border-danger/30', textColor: 'text-danger' },
-                  medium: { icon: '⚠', bgColor: 'bg-warning-light', borderColor: 'border-warning/30', textColor: 'text-warning' },
+                  // §8.5 semantic filled: light bg + text-text-body (main-on-light fails contrast)
+                  high: { icon: '⚠', bgColor: 'bg-danger-light', borderColor: 'border-danger/30', textColor: 'text-text-body' },
+                  medium: { icon: '⚠', bgColor: 'bg-warning-light', borderColor: 'border-warning/30', textColor: 'text-text-body' },
                   low: { icon: 'ℹ', bgColor: 'bg-panel', borderColor: 'border-panel-border', textColor: 'text-text-body' },
                 }[assumption.severity] ?? { icon: 'ℹ', bgColor: 'bg-panel', borderColor: 'border-panel-border', textColor: 'text-text-body' }
 

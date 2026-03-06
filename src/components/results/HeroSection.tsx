@@ -15,7 +15,8 @@
  */
 
 import { useState, useMemo, type ReactNode } from 'react'
-import { AlertTriangle, ChevronDown, ChevronRight, Info } from 'lucide-react'
+import { AlertTriangle, Info } from 'lucide-react'
+import { getThresholdColour } from './utils/getThresholdColour'
 import { typography } from '../../styles/typography'
 import { stripEncodingNotation } from './utils/cleanFactorLabel'
 import { formatPercent as formatPct } from '../../utils/formatPercent'
@@ -809,11 +810,13 @@ export function HeroSection({
     }
 
     if (bullet2 && v14ConditionCard) {
+      const hingeAltLabel = v14ConditionCard.altLabel
+      const hingeAltId = v14ConditionCard.altId
       defaultBullets.push({
         key: 'hinge',
         content: (
           <>
-            {'Could change if '}
+            {'If '}
             <GraphLink
               edgeRef={{ fromId: v14ConditionCard.fromId, toId: v14ConditionCard.toId }}
               fallbackNodeId={v14ConditionCard.fromId}
@@ -822,35 +825,55 @@ export function HeroSection({
             >
               {bullet2}
             </GraphLink>
-            {' shifts'}
+            {' is weaker, '}
+            {hingeAltId ? (
+              <GraphLink
+                nodeId={hingeAltId}
+                label={hingeAltLabel}
+                className={`${typography.panelBody} inline`}
+              >
+                {hingeAltLabel}
+              </GraphLink>
+            ) : hingeAltLabel}
+            {' overtakes'}
           </>
         ),
       })
     }
 
     if (bullet3NextAction && defaultBullets.length < 3) {
-      const actionText = bullet3NextAction
       const targetLabel = topNextAction?.targetLabel
       const targetId = topNextAction?.targetId
-      const bulletContent = (targetLabel && targetId && actionText.includes(targetLabel))
-        ? (() => {
-            const idx = actionText.indexOf(targetLabel)
-            return (
-              <>
-                {actionText.slice(0, idx)}
-                <GraphLink
-                  nodeId={targetId}
-                  label={targetLabel}
-                  className={`${typography.panelBody} inline`}
-                >
-                  {targetLabel}
-                </GraphLink>
-                {actionText.slice(idx + targetLabel.length)}
-              </>
-            )
-          })()
-        : <span>{actionText}</span>
-      defaultBullets.push({ key: 'action', content: bulletContent })
+      // Bullet 3: only render when a target label is available (avoid fabricating text from free-form action string)
+      if (targetLabel) {
+        const scrollToMvs = () => {
+          document.getElementById('mvs-card')?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        }
+        const bulletContent = (
+          <>
+            <button
+              type="button"
+              onClick={scrollToMvs}
+              className={`${typography.panelBody} text-info cursor-pointer [border-bottom:1px_dashed_currentColor] hover:[border-bottom-style:solid]`}
+            >
+              Next step
+            </button>
+            {': gather evidence on '}
+            {targetId ? (
+              <GraphLink
+                nodeId={targetId}
+                label={targetLabel}
+                className={`${typography.panelBody} inline`}
+              >
+                {targetLabel}
+              </GraphLink>
+            ) : (
+              <span>{targetLabel}</span>
+            )}
+          </>
+        )
+        defaultBullets.push({ key: 'action', content: bulletContent })
+      }
     }
 
     // Task 5: Promote condition card to default bullets when no hinge bullet
@@ -993,7 +1016,7 @@ export function HeroSection({
                   className={`${typography.panelBody} text-info hover:underline`}
                   data-testid="show-more-bullets"
                 >
-                  Show more ▸
+                  More ▸
                 </button>
               ) : (
                 <div data-testid="show-more-expanded">
@@ -1034,7 +1057,7 @@ export function HeroSection({
                     onClick={() => setShowMoreBullets(false)}
                     className={`${typography.panelBody} text-info hover:underline`}
                   >
-                    Show less ▴
+                    Hide ▾
                   </button>
                 </div>
               )}
@@ -1092,12 +1115,7 @@ export function HeroSection({
                 aria-expanded={isExpanded}
                 aria-controls="hero-more-content"
               >
-                <span>{isExpanded ? 'Less' : 'More'}</span>
-                {isExpanded ? (
-                  <ChevronDown className="w-3 h-3" />
-                ) : (
-                  <ChevronRight className="w-3 h-3" />
-                )}
+                {isExpanded ? 'Hide ▾' : 'More ▸'}
               </button>
             </div>
           </div>
@@ -1155,7 +1173,7 @@ export function HeroSection({
                     const value = coachingReadinessDimensions[dim]
                     if (value == null) return null
                     const pct = Math.round(value * 100)
-                    const fillColor = value < 0.4 ? 'bg-danger' : value < 0.7 ? 'bg-warning' : 'bg-success'
+                    const fillColor = getThresholdColour(value)
                     const label = dim === 'clarity' ? 'Framing' : dim.charAt(0).toUpperCase() + dim.slice(1)
                     return (
                       <div key={dim} className="flex items-center gap-2 mb-1">
@@ -1354,12 +1372,7 @@ export function HeroSection({
               aria-expanded={isExpanded}
               aria-controls="hero-more-content"
             >
-              <span>{isExpanded ? 'Less' : 'More'}</span>
-              {isExpanded ? (
-                <ChevronDown className="w-3 h-3" />
-              ) : (
-                <ChevronRight className="w-3 h-3" />
-              )}
+              {isExpanded ? 'Hide ▾' : 'More ▸'}
             </button>
           </div>
         </div>

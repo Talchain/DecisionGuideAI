@@ -475,7 +475,7 @@ function DriverRow({
           <div className={`${typography.panelBody} font-mono text-slate-400 w-9 text-right`}>-</div>
         )}
 
-        {/* Confidence bar + default estimate pill */}
+        {/* Confidence bar + glyph badge (§11.5) + default estimate icon */}
         <div className="flex items-center gap-1">
           {confidenceValue !== null ? (
             <ProgressBar
@@ -486,14 +486,36 @@ function DriverRow({
           ) : (
             <div className={`${typography.panelBody} font-mono text-slate-400 w-9 text-right`}>-</div>
           )}
+          {confidenceValue !== null && (() => {
+            const glyph = confidenceValue >= 0.7 ? '✓' : confidenceValue >= 0.4 ? '~' : '?'
+            const cls = confidenceValue >= 0.7 ? 'text-success' : confidenceValue >= 0.4 ? 'text-warning' : 'text-danger'
+            return (
+              <span
+                className={`text-[10px] font-medium flex-shrink-0 w-3 text-center ${cls}`}
+                aria-hidden="true"
+                data-testid={`confidence-glyph-${driver.factorKey}`}
+              >
+                {glyph}
+              </span>
+            )
+          })()}
           {driver.isDefaultedConfidence && (
-            <span
-              className={`${typography.panelMeta} text-text-light border border-border-default rounded-full px-2 py-0.5 whitespace-nowrap flex-shrink-0`}
-              data-testid="default-estimate-pill"
-              title="This confidence score is a default estimate, not based on evidence"
+            <svg
+              width="12"
+              height="12"
+              viewBox="0 0 12 12"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeDasharray="2 2"
+              className="flex-shrink-0 text-text-light"
+              role="img"
+              aria-label="Default estimate — not yet validated with evidence"
+              title="Default estimate — not yet validated with evidence"
+              data-testid="default-estimate-icon"
             >
-              Default
-            </span>
+              <circle cx="6" cy="6" r="4.5" />
+            </svg>
           )}
         </div>
       </div>
@@ -707,7 +729,7 @@ export function DriversSection({
         return filteredTornadoRows.length > 0 && (
           <details className="group" open>
             <summary className={`${typography.panelHeader} text-text-header cursor-pointer select-none list-none flex items-center justify-between`}>
-              <span>Explore your estimates</span>
+              <span>What could change the result</span>
               <span className={`${typography.panelBody} text-info group-open:hidden`}>Show ˅</span>
               <span className={`${typography.panelBody} text-info hidden group-open:inline`}>Hide ˄</span>
             </summary>

@@ -108,10 +108,11 @@ describe('Visual contract: Indeterminate state', () => {
     const badgeA = screen.getByTestId('rank-badge-opt-a')
     const badgeB = screen.getByTestId('rank-badge-opt-b')
 
-    expect(badgeA.className).toContain('bg-factor-light')
-    expect(badgeA.className).toContain('text-factor')
-    expect(badgeB.className).toContain('bg-factor-light')
-    expect(badgeB.className).toContain('text-factor')
+    // §8.5: outlined variant for metadata badges (border-factor/30 text-text-body)
+    expect(badgeA.className).toContain('border-factor/30')
+    expect(badgeA.className).toContain('text-text-body')
+    expect(badgeB.className).toContain('border-factor/30')
+    expect(badgeB.className).toContain('text-text-body')
   })
 
   it('rank badges show percentage not "#N of N"', () => {
@@ -203,9 +204,10 @@ describe('Visual contract: Robust state', () => {
       />
     )
 
+    // §8.5: outlined variant for metadata badges (border-success/30 text-text-body)
     const badge = screen.getByTestId('rank-badge-opt-a')
-    expect(badge.className).toContain('bg-success-light')
-    expect(badge.className).toContain('text-success')
+    expect(badge.className).toContain('border-success/30')
+    expect(badge.className).toContain('text-text-body')
   })
 
   it('VOI block hidden in ConfidenceSection', () => {

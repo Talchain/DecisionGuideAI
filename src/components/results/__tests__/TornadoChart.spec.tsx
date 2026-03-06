@@ -239,8 +239,7 @@ describe('TornadoChart', () => {
       />
     )
 
-    expect(screen.getByText(/Drag to explore/)).toBeInTheDocument()
-    expect(screen.getByText(/directional impact/)).toBeInTheDocument()
+    expect(screen.getByText(/Preview only/)).toBeInTheDocument()
   })
 
   it('renders preview disclaimer text', () => {
@@ -251,7 +250,7 @@ describe('TornadoChart', () => {
       />
     )
 
-    expect(screen.getByText(/Drag to explore/)).toBeInTheDocument()
+    expect(screen.getByText(/Preview only/)).toBeInTheDocument()
   })
 
   // ── Axis label tests ──
@@ -647,7 +646,7 @@ describe('TornadoChart', () => {
     )
 
     expect(screen.getByTestId('tornado-pp-clarification')).toBeInTheDocument()
-    expect(screen.getByText('Values show relative change in percentage points (pp).')).toBeInTheDocument()
+    expect(screen.getByText('Values show % relative change from expected outcome.')).toBeInTheDocument()
   })
 
   it('V14.2: shows pp clarification with count unit (bars show relative, not absolute)', () => {

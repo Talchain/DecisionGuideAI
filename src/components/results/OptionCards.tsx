@@ -15,7 +15,7 @@
  * Design rules: no background fills on cards (borders only).
  */
 
-import { useRef, type RefObject } from 'react'
+import { useRef, useState, type RefObject } from 'react'
 import { typography } from '../../styles/typography'
 import { formatPercent as formatPct } from '../../utils/formatPercent'
 import { stripEncodingNotation } from './utils/cleanFactorLabel'
@@ -174,11 +174,12 @@ function OptionCard({
     ? formatPct(option.winProbability, { fromDecimal: true })
     : rank != null ? `#${rank} of ${totalOptions}` : null
 
+  // §8.5 outlined variant: metadata labels use border + text-text-body (main-on-light fails contrast)
   const rankBadgeClass = neutralised
-    ? 'bg-factor-light text-factor'
+    ? 'border border-factor/30 text-text-body'
     : isWinner
-      ? 'bg-success-light text-success'
-      : 'bg-factor-light text-text-light'
+      ? 'border border-success/30 text-text-body'
+      : 'border border-factor/30 text-text-body'
 
   return (
     <div
@@ -279,11 +280,18 @@ export function OptionCards({
     return (b.winProbability ?? 0) - (a.winProbability ?? 0)
   })
 
+  // V16.1: Truncate to top 2 when there are 4+ options; show toggle below
+  const TOP_N = 2
+  const shouldTruncate = sorted.length >= 4
+  const [showAllOptions, setShowAllOptions] = useState(false)
+  const visibleOptions = shouldTruncate && !showAllOptions ? sorted.slice(0, TOP_N) : sorted
+  const hiddenCount = sorted.length - TOP_N
+
   if (sorted.length === 0) return null
 
   return (
     <div className="space-y-2" data-testid="option-cards">
-      {sorted.map((option, index) => {
+      {visibleOptions.map((option, index) => {
         const isWinner = option.id === winnerId
         const isRunnerUp = option.id === runnerId
         const headline = storyHeadlines?.[option.id]
@@ -320,6 +328,19 @@ export function OptionCards({
           />
         )
       })}
+      {/* V16.1: Show all / show fewer toggle (only when 4+ options) */}
+      {shouldTruncate && (
+        <button
+          type="button"
+          onClick={() => setShowAllOptions(prev => !prev)}
+          className={`${typography.panelBody} text-info hover:underline`}
+          data-testid="option-cards-toggle"
+        >
+          {showAllOptions
+            ? 'Show fewer'
+            : `Show all (${hiddenCount} more)`}
+        </button>
+      )}
     </div>
   )
 }
