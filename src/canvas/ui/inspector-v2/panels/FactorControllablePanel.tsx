@@ -16,6 +16,7 @@ import { shouldShowNormalised } from '../normalisedDisplay'
 import {
   SECTION_TITLES,
   getExtractionLabel,
+  getProvenanceLabel,
 } from '../inspectorStrings'
 import { SectionTitle } from '../shared/SectionTitle'
 import { ConnectionRow } from '../shared/ConnectionRow'
@@ -146,7 +147,7 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
       {source && (
         <div className="flex items-center gap-1">
           <Link size={12} className="text-info" />
-          <span className={`${typography.panelMeta} text-info`}>{source}</span>
+          <span className={`${typography.panelMeta} text-info`}>{getProvenanceLabel(source)}</span>
         </div>
       )}
       {uncertaintyDrivers && uncertaintyDrivers.length > 0 && (

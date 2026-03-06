@@ -34,6 +34,18 @@ export const OutcomePanel = memo(function OutcomePanel({
 
   const [driversOpen, setDriversOpen] = useState(false)
 
+  // Outbound edge to goal — for contribution bar
+  const goalContribution = useMemo(() => {
+    const goalEdge = edges.find(e => {
+      if (e.source !== nodeId) return false
+      const tgt = nodes.find(n => n.id === e.target)
+      const kind = tgt?.type || tgt?.data?.kind
+      return kind === 'goal'
+    })
+    if (!goalEdge || goalEdge.data?.weight == null) return null
+    return Math.round((goalEdge.data.weight as number) * 100)
+  }, [edges, nodes, nodeId])
+
   // Inbound factors
   const inboundFactors = useMemo(() => {
     return edges
@@ -75,13 +87,16 @@ export const OutcomePanel = memo(function OutcomePanel({
         ) : null}
       </StaleGuardBanner>
 
-      {/* Goal contribution bar — TODO: wire width to real contribution from results */}
-      <div className="flex items-center gap-2 mt-3 px-3 py-2 bg-panel border border-success/30 rounded-lg">
-        <span className={`${typography.panelHeader} text-xs`}>Contributes to your goal</span>
-        <div className="flex-1 h-1.5 bg-panel-border rounded-full overflow-hidden">
-          <div className="h-full bg-success rounded-full" style={{ width: '45%' }} />
+      {/* Goal contribution bar — sourced from outcome→goal edge weight */}
+      {goalContribution != null && (
+        <div className="flex items-center gap-2 mt-3 px-3 py-2 bg-panel border border-success/30 rounded-lg">
+          <span className={`${typography.panelHeader} text-xs`}>Contributes to your goal</span>
+          <div className="flex-1 h-1.5 bg-panel-border rounded-full overflow-hidden">
+            <div className="h-full bg-success rounded-full" style={{ width: `${Math.min(goalContribution, 100)}%` }} />
+          </div>
+          <span className={`${typography.panelHeader} text-sm`}>{goalContribution}%</span>
         </div>
-      </div>
+      )}
 
       {/* What drives this (behind disclosure for PoC) */}
       <button

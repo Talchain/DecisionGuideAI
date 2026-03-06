@@ -13,7 +13,7 @@ import { useNodeDisplayMetadata } from '../../../hooks/useNodeDisplayMetadata'
 import { typography } from '../../../../styles/typography'
 import { useStaleGuard } from '../useStaleGuard'
 import { shouldShowNormalised } from '../normalisedDisplay'
-import { SECTION_TITLES, getExtractionLabel } from '../inspectorStrings'
+import { SECTION_TITLES, getExtractionLabel, getProvenanceLabel } from '../inspectorStrings'
 import { SectionTitle } from '../shared/SectionTitle'
 import { ConnectionRow } from '../shared/ConnectionRow'
 import { CoachingCard } from '../shared/CoachingCard'
@@ -100,7 +100,7 @@ export const FactorObservablePanel = memo(function FactorObservablePanel({
       {source && (
         <div className="flex items-center gap-1">
           <Link size={12} className="text-info" />
-          <span className={`${typography.panelMeta} text-info`}>{source}</span>
+          <span className={`${typography.panelMeta} text-info`}>{getProvenanceLabel(source)}</span>
         </div>
       )}
 

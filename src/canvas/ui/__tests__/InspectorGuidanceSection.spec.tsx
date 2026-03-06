@@ -55,15 +55,15 @@ describe('InspectorGuidanceSection — filtering', () => {
     expect(screen.queryByText('Other item')).not.toBeInTheDocument()
   })
 
-  it('shows empty state when no items match', () => {
+  it('renders nothing when no items match', () => {
     useGuidanceStore.getState().setGuidanceItems([makeItem({ target_object: { type: 'node', id: 'different-node' } })])
-    render(<InspectorGuidanceSection elementId="node-a" />)
-    expect(screen.getByText(/no suggestions for this element/i)).toBeInTheDocument()
+    const { container } = render(<InspectorGuidanceSection elementId="node-a" />)
+    expect(container.innerHTML).toBe('')
   })
 
-  it('shows empty state when store is empty', () => {
-    render(<InspectorGuidanceSection elementId="node-a" />)
-    expect(screen.getByText(/no suggestions for this element/i)).toBeInTheDocument()
+  it('renders nothing when store is empty', () => {
+    const { container } = render(<InspectorGuidanceSection elementId="node-a" />)
+    expect(container.innerHTML).toBe('')
   })
 })
 

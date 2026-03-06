@@ -174,7 +174,9 @@ export const InspectorRouter = memo(function InspectorRouter({
 
   const nodeType = (node.type || node.data?.kind || 'decision') as NodeType
   const category = node.data?.category as FactorCategory | undefined
-  const label = String(node.data?.label ?? 'Untitled')
+  const rawLabel = String(node.data?.label ?? 'Untitled')
+  // Truncate normalised range notation like "(0-1, share of £..." from display
+  const label = /\(0[-–]1/.test(rawLabel) ? rawLabel.split(/\(0[-–]1/)[0].trim() : rawLabel
   const topColor = TOP_BAR_COLORS[nodeType] ?? TOP_BAR_COLORS.factor
   const pillColor = PILL_COLORS[nodeType]
   const typePill = getTypeLabel(nodeType, category)
@@ -229,6 +231,10 @@ export const InspectorRouter = memo(function InspectorRouter({
       onTechToggleChange={setTechMode}
       onClose={onClose}
     >
+      {/* Show full raw label in tech mode when truncated */}
+      {techMode && rawLabel !== label && (
+        <div className="text-[11px] text-text-light mt-1 break-words">System: raw_label: {rawLabel}</div>
+      )}
       <PanelComponent {...panelProps} />
     </InspectorShell>
   )

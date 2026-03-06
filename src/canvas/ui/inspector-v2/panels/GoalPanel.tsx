@@ -43,6 +43,7 @@ export const GoalPanel = memo(function GoalPanel({
   const { isStale } = useStaleGuard()
   const displayMetadata = useNodeDisplayMetadata(nodeId ?? '', 'goal')
 
+  const thresholdUnit = (node?.data as Record<string, unknown>)?.goal_threshold_unit as string | undefined
   const [description, setDescription] = useState(String(node?.data?.description ?? ''))
 
   // Inbound connections (outcomes/risks → goal)
@@ -86,15 +87,15 @@ export const GoalPanel = memo(function GoalPanel({
       {goalThreshold != null ? (
         <div className="bg-panel border border-panel-border rounded-lg p-2.5">
           <p className={`${typography.panelBody} text-text-body`}>
-            Success means reaching {'\u2265'} {goalThreshold}
+            Success means reaching {'\u2265'} {goalThreshold}{thresholdUnit ? ` ${thresholdUnit}` : ''}
           </p>
           <p className={`${typography.panelMeta} text-text-light mt-1`}>
-            This lets Olumi calculate the chance of each option actually succeeding
+            Analysis calculates the probability of reaching or exceeding this target
           </p>
         </div>
       ) : (
         <div className="mt-1">
-          <GoalThresholdEditor />
+          <GoalThresholdEditor unit={thresholdUnit} />
           <CoachingCard text="Adding a specific target unlocks probability calculations" action={{ label: 'Add target', onClick: () => {} }} />
         </div>
       )}

@@ -69,12 +69,15 @@ export function getProvenanceLabel(source?: string): string {
   if (!source) return 'No evidence yet'
   switch (source) {
     case 'brief_extraction': return 'Generated from your brief'
+    case 'explicit':         return 'From your brief'
     case 'cee_inference':    return 'Generated from your brief'
+    case 'inferred':         return 'Estimated by Olumi'
     case 'cee_repair':       return 'Generated from your brief (adjusted during validation)'
     case 'user':             return 'Set by you'
     case 'user_calibration': return 'Set by you'
     case 'ai-suggested':     return 'Generated from your brief'
-    default:                 return source.startsWith('evidence:') ? `Based on ${source.slice(9)}` : 'No evidence yet'
+    case 'default':          return 'No evidence yet'
+    default:                 return source.startsWith('evidence:') ? `Based on ${source.slice(9)}` : `Source: ${source}`
   }
 }
 

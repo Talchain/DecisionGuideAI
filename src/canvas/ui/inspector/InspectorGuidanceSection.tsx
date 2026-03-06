@@ -248,32 +248,29 @@ export const InspectorGuidanceSection = memo(function InspectorGuidanceSection({
     }
   }, [setActiveGuidanceItem, onSendMessage, onOpenInspector, onScrollToPatch])
 
+  // Don't render the section at all when there are no guidance items
+  if (visible.length === 0) return null
+
   return (
     <div className="mt-3 pt-2 border-t border-panel-border" data-testid="inspector-guidance-section">
       <p className={`${typography.panelMeta} font-medium text-text-body mb-2`}>Suggestions</p>
 
-      {visible.length === 0 ? (
-        <p className={`${typography.panelMeta} text-text-light italic`}>
-          No suggestions for this element
-        </p>
-      ) : (
-        <div className="space-y-2">
-          {visible.map((item) => (
-            <GuidanceCard
-              key={item.item_id}
-              item={item}
-              isActive={activeId === item.item_id}
-              onAction={handleAction}
-              onSetActive={setActiveGuidanceItem}
-            />
-          ))}
-          {extraCount > 0 && (
-            <p className={`${typography.panelMeta} text-text-light`}>
-              +{extraCount} more suggestion{extraCount !== 1 ? 's' : ''}
-            </p>
-          )}
-        </div>
-      )}
+      <div className="space-y-2">
+        {visible.map((item) => (
+          <GuidanceCard
+            key={item.item_id}
+            item={item}
+            isActive={activeId === item.item_id}
+            onAction={handleAction}
+            onSetActive={setActiveGuidanceItem}
+          />
+        ))}
+        {extraCount > 0 && (
+          <p className={`${typography.panelMeta} text-text-light`}>
+            +{extraCount} more suggestion{extraCount !== 1 ? 's' : ''}
+          </p>
+        )}
+      </div>
     </div>
   )
 })
