@@ -97,7 +97,7 @@ export function StickyFooter({
     buttonStyle = 'bg-factor-light text-text-light cursor-not-allowed opacity-40'
   } else {
     buttonLabel = 'Analyse Now'
-    buttonStyle = 'bg-primary hover:bg-primary-hover text-white'
+    buttonStyle = 'bg-info hover:bg-success text-white'
   }
 
   let StatusIcon: typeof CheckCircle | typeof XCircle | typeof Loader2

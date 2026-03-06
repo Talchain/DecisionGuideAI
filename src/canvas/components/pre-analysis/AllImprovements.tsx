@@ -612,7 +612,7 @@ function ImprovementRow({ item, onFocus, actionHandlers, isRemoving, onHoverEnte
               type="button"
               onClick={handleActionClick}
               disabled={!actionEnabled}
-              className="text-xs font-medium text-info border border-info/30 rounded-md px-2.5 py-0.5 bg-transparent hover:border-info hover:bg-info/5 disabled:opacity-50 cursor-pointer"
+              className="text-xs font-medium text-info border border-info/40 rounded-md px-2.5 py-0.5 bg-transparent hover:border-success/40 hover:text-success disabled:opacity-50 cursor-pointer"
             >
               {item.action.label}
             </button>
@@ -626,7 +626,7 @@ function ImprovementRow({ item, onFocus, actionHandlers, isRemoving, onHoverEnte
                   actionHandlers.onEdit(item.focus.id)
                 }
               }}
-              className="text-xs font-medium text-info border border-info/30 rounded-md px-2.5 py-0.5 bg-transparent hover:border-info hover:bg-info/5 cursor-pointer"
+              className="text-xs font-medium text-info border border-info/40 rounded-md px-2.5 py-0.5 bg-transparent hover:border-success/40 hover:text-success cursor-pointer"
             >
               Add a negative relationship
             </button>
@@ -824,7 +824,7 @@ function ImprovementRow({ item, onFocus, actionHandlers, isRemoving, onHoverEnte
           <button
             onClick={handleEvidenceSubmit}
             disabled={!evidenceValue.trim().replace(/\s+/g, ' ')}
-            className="px-2 py-1 text-xs bg-info text-white rounded disabled:opacity-50"
+            className="px-2 py-1 text-xs bg-info hover:bg-success text-white rounded disabled:opacity-50"
           >
             Save
           </button>

@@ -96,6 +96,43 @@ describe('ModelSnapshot', () => {
     expect(screen.getByText('Options')).toBeInTheDocument()
   })
 
+  it('shows decision nodes only in Decisions section, not in Options', () => {
+    const nodesByKind = makeNodesByKind({
+      decision: [
+        {
+          id: 'dec1',
+          type: 'decision',
+          position: { x: 0, y: 0 },
+          data: { label: 'Expand to Europe' },
+        } as Node,
+      ],
+      option: [
+        {
+          id: 'opt1',
+          type: 'option',
+          position: { x: 0, y: 0 },
+          data: { label: 'Expand to Europe via Acquisition' },
+        } as Node,
+      ],
+    })
+
+    render(<ModelSnapshot nodesByKind={nodesByKind} edgeCount={2} />)
+    fireEvent.click(screen.getByTestId('model-snapshot-accordion'))
+
+    // Both section headers should appear
+    expect(screen.getByText('Decisions')).toBeInTheDocument()
+    expect(screen.getByText('Options')).toBeInTheDocument()
+
+    // Decision label appears only in the Decisions section
+    expect(screen.getByText('Expand to Europe')).toBeInTheDocument()
+    // Option label appears separately
+    expect(screen.getByText('Expand to Europe via Acquisition')).toBeInTheDocument()
+
+    // Decision label must NOT appear in the Options section — verify by checking
+    // that there is exactly one element with this label text
+    expect(screen.getAllByText('Expand to Europe')).toHaveLength(1)
+  })
+
   it('preserves non-factor labels without stripping', () => {
     const nodesByKind = makeNodesByKind({
       goal: [

@@ -12,6 +12,7 @@
 import { useState, useCallback, useEffect } from 'react'
 import { Check, ChevronDown, ChevronRight, Pencil } from 'lucide-react'
 import type { Node } from '@xyflow/react'
+import { CURRENCY_SYMBOLS } from '../../utils/labelUtils'
 
 interface SuccessTargetProps {
   /** Currently selected goal node */
@@ -94,10 +95,8 @@ export function SuccessTarget({
   const toNormalised = (raw: number): number =>
     rawToNormFactor != null ? raw * rawToNormFactor : raw
 
-  // Currency symbols that prefix the number (e.g. £30,000 not 30,000 £)
-  const CURRENCY_SYMBOLS = new Set(['£', '$', '€', '¥', '₹', '₩', '฿', '₫', '₪', '₽', '₴', '₸', '₺', '₼', '₾'])
-
   // Format threshold value for display — prefer raw + unit for user-facing values
+  // CURRENCY_SYMBOLS imported from '../../utils/labelUtils'
   const formatValue = (value: number | null): string => {
     if (value === null) return ''
     // If we have a raw value + unit from CEE, show with correct position
@@ -224,7 +223,7 @@ export function SuccessTarget({
               <button
                 type="button"
                 onClick={onThresholdConfirm}
-                className="px-3 py-1.5 text-xs font-medium text-white bg-info rounded-lg hover:bg-info-hover"
+                className="px-3 py-1.5 text-xs font-medium text-white bg-info rounded-lg hover:bg-success"
               >
                 Confirm
               </button>
@@ -261,7 +260,7 @@ export function SuccessTarget({
               type="button"
               onClick={handleSubmit}
               disabled={!inputValue.trim()}
-              className="px-3 py-1.5 text-xs font-medium text-white bg-info rounded-lg hover:bg-info-hover disabled:opacity-50"
+              className="px-3 py-1.5 text-xs font-medium text-white bg-info rounded-lg hover:bg-success disabled:opacity-50"
             >
               Save
             </button>
@@ -373,7 +372,7 @@ export function SuccessTarget({
                 setIsExpanded(false)
                 onThresholdConfirm?.()
               }}
-              className="px-3 py-1.5 text-xs font-medium text-white bg-info rounded-lg hover:bg-info-hover"
+              className="px-3 py-1.5 text-xs font-medium text-white bg-info rounded-lg hover:bg-success"
             >
               Confirm
             </button>

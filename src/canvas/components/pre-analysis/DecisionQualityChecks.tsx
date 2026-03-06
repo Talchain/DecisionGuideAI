@@ -38,7 +38,7 @@ function CheckRow({
         )}
         <div className="flex items-center gap-2">
           {check.pill === 'framing' ? (
-            <span className="inline-flex items-center rounded-full font-medium px-2 py-0.5 text-xs border border-option/30 text-text-body">
+            <span className="inline-flex items-center rounded-full font-medium px-2 py-0.5 text-xs border border-option/30 text-text-body bg-transparent">
               Framing
             </span>
           ) : (
@@ -47,7 +47,7 @@ function CheckRow({
           <button
             type="button"
             onClick={() => onAction?.(check.ctaAction)}
-            className="text-xs font-medium text-info border border-info/30 rounded-md px-2.5 py-0.5 bg-transparent hover:border-info hover:bg-info/5 cursor-pointer"
+            className="text-xs font-medium text-info border border-info/40 rounded-md px-2.5 py-0.5 bg-transparent hover:border-success/40 hover:text-success cursor-pointer"
           >
             {check.cta}
           </button>

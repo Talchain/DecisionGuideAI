@@ -560,7 +560,7 @@ export function PreAnalysisPanel({
                 <button
                   type="button"
                   onClick={handleEditBrief}
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-info bg-panel border border-info/30 rounded-md hover:bg-info-light transition-colors"
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-info bg-transparent border border-info/40 rounded-md hover:border-success/40 hover:text-success transition-colors"
                   data-testid="draft-error-edit-brief"
                 >
                   <Pencil size={12} />
@@ -571,7 +571,7 @@ export function PreAnalysisPanel({
                   type="button"
                   onClick={handleRetryDraft}
                   disabled={isRetrying}
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-info bg-panel border border-info/30 rounded-md hover:bg-info-light disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-info bg-transparent border border-info/40 rounded-md hover:border-success/40 hover:text-success disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                   data-testid="draft-error-retry"
                 >
                   <RefreshCw size={12} className={isRetrying ? 'animate-spin' : ''} />
@@ -675,14 +675,14 @@ export function PreAnalysisPanel({
                   <button
                     type="button"
                     onClick={onAnalyse}
-                    className="text-xs font-medium text-info border border-info/30 rounded-md px-2.5 py-0.5 bg-transparent hover:border-info hover:bg-info/5 cursor-pointer"
+                    className="text-xs font-medium text-info border border-info/40 rounded-md px-2.5 py-0.5 bg-transparent hover:border-success/40 hover:text-success cursor-pointer"
                   >
                     Run with estimates
                   </button>
                   <button
                     type="button"
                     onClick={() => improvementsRef.current?.scrollIntoView({ behavior: 'smooth' })}
-                    className="text-xs font-medium text-info border border-info/30 rounded-md px-2.5 py-0.5 bg-transparent hover:border-info hover:bg-info/5 cursor-pointer"
+                    className="text-xs font-medium text-info border border-info/40 rounded-md px-2.5 py-0.5 bg-transparent hover:border-success/40 hover:text-success cursor-pointer"
                   >
                     Review in structure
                   </button>

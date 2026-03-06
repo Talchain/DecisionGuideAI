@@ -18,6 +18,7 @@
 import { useMemo } from 'react'
 import { useCanvasStore } from '../../../store'
 import { useShallow } from 'zustand/shallow'
+import { CURRENCY_SYMBOLS } from '../../../utils/labelUtils'
 import type { Node, Edge } from '@xyflow/react'
 import type { BiasType } from '../primitives/BiasIcon'
 // Import existing readiness hook for canonical canRun/hasBlockers logic
@@ -239,8 +240,7 @@ export interface PreAnalysisData {
 
 // Category priority is implicit in iteration order: fix > verify > add_evidence > strengthen
 
-/** Currency symbols that prefix values and suppress "of <cap>" display */
-const CURRENCY_SYMBOLS = new Set(['$', '£', '€', '¥', '₹', '₩', '₽', 'CHF', 'kr', 'R$'])
+// CURRENCY_SYMBOLS imported from '../../../utils/labelUtils'
 
 // ============================================================================
 // Helper Functions

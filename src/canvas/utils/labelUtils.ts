@@ -76,8 +76,11 @@ export function qualitativeTierLabel(value: number): string {
   return 'Very high'
 }
 
-/** Currency symbols that prefix the number (J2) */
-export const CURRENCY_SYMBOLS = new Set(['£', '$', '€', '¥'])
+/** Currency symbols that prefix the number (J2). Used for both char-prefix checks and full-unit-string checks. */
+export const CURRENCY_SYMBOLS = new Set([
+  '£', '$', '€', '¥', '₹', '₩', '₽', '฿', '₫', '₪', '₴', '₸', '₺', '₼', '₾',
+  'CHF', 'kr', 'R$',
+])
 
 /**
  * Denormalise a 0–1 intervention value using the factor's cap.
