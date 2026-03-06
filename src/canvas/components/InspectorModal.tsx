@@ -160,7 +160,10 @@ export const InspectorModal = memo(({ nodeId, edgeId, onClose }: InspectorModalP
       }}
       role="dialog"
       aria-modal="false"
-      aria-labelledby="inspector-panel-title"
+      {...(USE_INSPECTOR_V2
+        ? { 'aria-label': nodeId ? 'Node inspector' : 'Edge inspector' }
+        : { 'aria-labelledby': 'inspector-panel-title' }
+      )}
     >
       {/* Draggable Header — v2 shells provide their own header, so only render drag surface */}
       {USE_INSPECTOR_V2 ? (

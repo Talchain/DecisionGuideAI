@@ -3,6 +3,7 @@
  */
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
+import { getProvenanceLabel, getExtractionLabel } from '../inspectorStrings'
 import { ConfidenceBadge } from '../shared/ConfidenceBadge'
 import { CoachingCard } from '../shared/CoachingCard'
 import { StaleGuardBanner } from '../shared/StaleGuardBanner'
@@ -10,6 +11,37 @@ import { ProbabilityArc } from '../shared/ProbabilityArc'
 import { SectionTitle } from '../shared/SectionTitle'
 import { TechnicalDisclosure } from '../shared/TechnicalDisclosure'
 import { ConnectionRow } from '../shared/ConnectionRow'
+
+// ─── Provenance mapping regression tests ────────────────────────────
+describe('getProvenanceLabel', () => {
+  it('maps brief_extraction to user-facing label', () => {
+    expect(getProvenanceLabel('brief_extraction')).toBe('Generated from your brief')
+  })
+
+  it('maps explicit to user-facing label', () => {
+    expect(getProvenanceLabel('explicit')).toBe('From your brief')
+  })
+
+  it('maps inferred to user-facing label', () => {
+    expect(getProvenanceLabel('inferred')).toBe('Estimated by Olumi')
+  })
+
+  it('maps user_calibration to user-facing label', () => {
+    expect(getProvenanceLabel('user_calibration')).toBe('Set by you')
+  })
+
+  it('maps default to No evidence yet', () => {
+    expect(getProvenanceLabel('default')).toBe('No evidence yet')
+  })
+
+  it('prefixes unknown values with Source:', () => {
+    expect(getProvenanceLabel('some_unknown')).toBe('Source: some_unknown')
+  })
+
+  it('returns No evidence yet for undefined', () => {
+    expect(getProvenanceLabel(undefined)).toBe('No evidence yet')
+  })
+})
 
 describe('ConfidenceBadge', () => {
   it('renders high level with checkmark glyph', () => {

@@ -120,4 +120,46 @@ describe('InspectorRouter', () => {
     expect(screen.getByText('Revenue growth')).toBeTruthy()
     expect(screen.getByText('Outcome')).toBeTruthy()
   })
+
+  // ─── Regression: label truncation ─────────────────────────────────
+  it('truncates normalised range notation from display label', () => {
+    setStoreState([
+      { id: 'f1', type: 'factor', data: { label: 'Pro Plan Price (0-1, share of £100)', kind: 'factor', category: 'controllable' }, position: { x: 0, y: 0 } },
+    ])
+    render(<InspectorRouter nodeId="f1" edgeId={null} onClose={onClose} />)
+    expect(screen.getByText('Pro Plan Price')).toBeTruthy()
+    expect(screen.queryByText('Pro Plan Price (0-1, share of £100)')).toBeNull()
+  })
+
+  it('does not truncate labels without range notation', () => {
+    setStoreState([
+      { id: 'f1', type: 'factor', data: { label: 'Marketing Budget', kind: 'factor', category: 'controllable' }, position: { x: 0, y: 0 } },
+    ])
+    render(<InspectorRouter nodeId="f1" edgeId={null} onClose={onClose} />)
+    expect(screen.getByText('Marketing Budget')).toBeTruthy()
+  })
+
+  // ─── Regression: outcome contribution bar ─────────────────────────
+  it('shows contribution percentage when outcome has goal edge', () => {
+    setStoreState(
+      [
+        { id: 'out1', type: 'outcome', data: { label: 'Revenue', kind: 'outcome' }, position: { x: 0, y: 0 } },
+        { id: 'g1', type: 'goal', data: { label: 'Target', kind: 'goal' }, position: { x: 100, y: 0 } },
+      ],
+      [
+        { id: 'e1', source: 'out1', target: 'g1', data: { weight: 0.65, direction: 'positive' } },
+      ],
+    )
+    render(<InspectorRouter nodeId="out1" edgeId={null} onClose={onClose} />)
+    expect(screen.getByText('65%')).toBeTruthy()
+    expect(screen.getByText('Contributes to your goal')).toBeTruthy()
+  })
+
+  it('hides contribution bar when outcome has no goal edge', () => {
+    setStoreState([
+      { id: 'out1', type: 'outcome', data: { label: 'Revenue', kind: 'outcome' }, position: { x: 0, y: 0 } },
+    ])
+    render(<InspectorRouter nodeId="out1" edgeId={null} onClose={onClose} />)
+    expect(screen.queryByText('Contributes to your goal')).toBeNull()
+  })
 })

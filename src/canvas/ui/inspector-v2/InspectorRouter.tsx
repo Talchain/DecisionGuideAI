@@ -8,6 +8,7 @@ import { useCanvasStore } from '../../store'
 import type { NodeType, FactorCategory } from '../../domain/nodes'
 import { InspectorShell } from './InspectorShell'
 import { ConfidenceBadge } from './shared/ConfidenceBadge'
+import { TechnicalDisclosure } from './shared/TechnicalDisclosure'
 import { useTechToggle } from './useTechToggle'
 import { useNodeMutations } from './useInspectorMutations'
 import { getTypeLabel, EDGE_TYPE_LABEL } from './inspectorStrings'
@@ -231,9 +232,11 @@ export const InspectorRouter = memo(function InspectorRouter({
       onTechToggleChange={setTechMode}
       onClose={onClose}
     >
-      {/* Show full raw label in tech mode when truncated */}
-      {techMode && rawLabel !== label && (
-        <div className="text-[11px] text-text-light mt-1 break-words">System: raw_label: {rawLabel}</div>
+      {/* Full raw label in disclosure only when truncated */}
+      {rawLabel !== label && (
+        <TechnicalDisclosure visible={techMode}>
+          <div>System: raw_label: {rawLabel}</div>
+        </TechnicalDisclosure>
       )}
       <PanelComponent {...panelProps} />
     </InspectorShell>
