@@ -1,11 +1,12 @@
 # Olumi Design System — Quick Reference
 
-> Full specification: [`docs/Design/Olumi_Design_System_v3.md`](docs/Design/Olumi_Design_System_v3.md)
+> Full specification: [`docs/design/Olumi_Design_System_v4.md`](docs/design/Olumi_Design_System_v4.md)
 
 ## Philosophy
 
 - **Three-channel visual system:** Shapes (nouns) = what something is · Colour (adjectives) = how it's doing · Icons (verbs) = what you can do. No channel should duplicate another.
-- **Two shades per colour**: Main (text/icons) + Light (backgrounds)
+- **Two shades per colour**: Main (text/icons/borders) + Light (canvas node fills and panel entity-hover only)
+- **No coloured backgrounds on components**: Cards, banners, pills, coaching cards use `bg-panel` — never `bg-{colour}-light`
 - **Borders via opacity**: Use main colour at 30% opacity — never add extra shade tokens
 - **Single font**: Inter throughout the entire application
 
@@ -114,20 +115,20 @@ All colours defined in `src/styles/brand.css`, mapped in `tailwind.config.js`.
 | `--text-header` | #262626 | `text-text-header` | Headlines, emphasis |
 | `--text-body` | #3F3F3E | `text-text-body` | Body text, paragraphs |
 | `--text-light` | #908D8D | `text-text-light` | Muted text, captions |
-| `--text-on-color` | #FFFFFF | — | Text on coloured backgrounds |
+| `--text-on-color` | #FFFFFF | `text-text-on-color` | Text on primary/destructive buttons |
 
-### Surfaces & Backgrounds
+### Surfaces and Backgrounds
 
 | Token | Hex | Tailwind | Usage |
 |-------|-----|----------|-------|
 | `--bg-canvas` | #F4F0EA | `bg-canvas` | App/canvas background |
-| `--bg-panel` | #FEFEFE | `bg-panel` | Panel/card/node backgrounds |
-| `--bg-panel-hover` | #FEF9F3 | `bg-panel-hover` | Hover state backgrounds |
+| `--bg-panel` | #FEFEFE | `bg-panel` | Panel/card/node/banner backgrounds |
+| `--bg-panel-hover` | #FEF9F3 | `bg-panel-hover` | Default hover state backgrounds |
 | `--border-default` | #EEE6D8 | `border-panel-border` | Default borders, dividers |
 
 ### Semantic Colours
 
-Each colour has exactly TWO shades: **main** (text/icons) + **light** (backgrounds). Borders use `border-{colour}/30`.
+Each colour has exactly TWO shades: **main** (text/icons/borders) + **light** (canvas node fills and panel entity-hover only). Borders use `border-{colour}/30`.
 
 | Colour | Main | Light | Usage |
 |--------|------|-------|-------|
@@ -140,35 +141,85 @@ Each colour has exactly TWO shades: **main** (text/icons) + **light** (backgroun
 
 | Node Type | Main | Light | Usage |
 |-----------|------|-------|-------|
-| **Goal** | #F5C433 | #F4DB92 | `bg-goal-light text-goal` |
-| **Option** | #AAA7E4 | #DDDCF5 | `bg-option-light text-option` |
-| **Factor** | #B0A899 | #EEE6D8 | `bg-factor-light text-factor` |
+| **Goal** | #F5C433 | #F4DB92 | `bg-goal-light text-goal` (canvas only) |
+| **Option** | #AAA7E4 | #DDDCF5 | `bg-option-light text-option` (canvas only) |
+| **Factor** | #B0A899 | #EEE6D8 | `bg-factor-light text-factor` (canvas only) |
 | **Decision** | (uses Info) | | Decision nodes |
 | **Outcome** | (uses Success) | | Outcome nodes |
 | **Risk** | (uses Danger) | | Risk nodes |
 
+### Light Shade Restrictions (v4 §3.2)
+
+`bg-{colour}-light` is permitted in exactly two contexts:
+1. **Canvas node fills** — large-surface identification of node type
+2. **Panel entity-hover** — when hovering a panel row/card linked to a canvas node
+
+**Never** use `bg-{colour}-light` on cards, banners, coaching cards, pills, or any other component background. Use `bg-panel` instead.
+
 ### Interactive States
 
-Derived from main colours: `hover` (10% darker), `active` (20% darker), `disabled` (40% opacity).
+Primary buttons use info blue with a deliberate colour shift to success green on hover ("ready to act" signal).
 
 ```tsx
-className="bg-primary text-text-header hover:bg-primary-hover active:bg-primary-active disabled:bg-primary-disabled"
+className="bg-primary text-text-on-color hover:bg-primary-hover active:bg-primary-active disabled:bg-primary-disabled"
 ```
+
+## Pills and Badges (v4 §8.5)
+
+**One treatment only — outlined.** No filled backgrounds. Ever.
+
+```tsx
+// ✅ Correct — outlined pill, neutral text, coloured border
+className="bg-transparent border border-danger/30 text-text-body rounded-full px-3 py-1"
+
+// ❌ Wrong — filled background
+className="bg-danger-light text-danger"
+
+// ❌ Wrong — coloured text
+className="border border-danger/30 text-danger"
+```
+
+Text on pills is **always** `text-text-body` — never `text-{colour}`. Colour is carried by the border only.
 
 ## Patterns
 
 ```tsx
-// Standard component pattern: light bg + main text + opacity border
-<div className="bg-danger-light text-danger border border-danger/30 rounded-md px-3 py-2">
-  Error message
+// Standard component pattern: neutral bg + coloured border + dark text
+<div className="bg-panel text-text-body border border-danger/30 rounded-md px-3 py-2">
+  <span className="text-danger">Error message</span>
 </div>
 
 // ✅ Correct border — use opacity
 className="border border-info/30"
 
+// ❌ Wrong — coloured backgrounds on components (only on canvas nodes)
+className="bg-danger-light text-danger"
+
 // ❌ Wrong — extra shade tokens don't exist
 className="border-danger-200"  // DOESN'T EXIST
 ```
+
+### Coaching Cards (v4 §15)
+
+```tsx
+// ✅ Correct — neutral bg, coloured left border
+<div className="bg-panel border-l-[3px] border-info rounded-lg px-4 py-3">
+
+// ❌ Wrong — coloured background
+<div className="bg-info-light border-l-[3px] border-info rounded-lg px-4 py-3">
+```
+
+### Evaluative Colour Thresholds (v4 §11.6)
+
+Universal threshold system for quality metrics (readiness, stability, quality scores):
+
+| Range | Colour | Meaning |
+|-------|--------|---------|
+| 0–39% | `text-danger` | Needs attention |
+| 40–69% | `text-warning` | Moderate |
+| ≥ 70% | `text-success` | Strong |
+
+Does **not** apply to: driver influence bars (use `text-info`), win probability, count badges.
 
 ## Legacy Aliases (Migration In Progress)
 
@@ -179,7 +230,7 @@ These aliases are defined in `brand.css` and `tailwind.config.js` for backward c
 | `ink-900` | `text-text-header` |
 | `paper-50` | `bg-panel` |
 | `sand-200` | `border-panel-border` |
-| `sun-500` | `text-goal` / `bg-primary` |
+| `sun-500` | `text-goal` / `bg-goal` |
 | `mint-500` | `text-success` |
 | `sky-500` | `text-info` |
 | `carrot-500` | `text-danger` |
@@ -190,19 +241,21 @@ These aliases are defined in `brand.css` and `tailwind.config.js` for backward c
 | Need | Tailwind Class |
 |------|----------------|
 | Error text | `text-danger` |
-| Error background | `bg-danger-light` |
 | Error border | `border-danger/30` |
 | Success text | `text-success` |
-| Success background | `bg-success-light` |
+| Success border | `border-success/30` |
 | Warning text | `text-warning` |
-| Warning background | `bg-warning-light` |
+| Warning border | `border-warning/30` |
 | Info text | `text-info` |
-| Info background | `bg-info-light` |
-| Primary button | `bg-primary text-text-header hover:bg-primary-hover` |
+| Info border | `border-info/30` |
+| Primary button | `bg-primary text-text-on-color hover:bg-primary-hover` |
+| Destructive button | `bg-danger text-text-on-color` |
 | Body text | `text-text-body` |
 | Muted text | `text-text-light` |
 | Panel background | `bg-panel` |
 | Default border | `border-panel-border` |
+| Canvas node fill | `bg-{entity}-light` (canvas only) |
+| Panel entity hover | `bg-{entity}-light` (hover only) |
 
 ## Developer Checklist
 
@@ -211,6 +264,8 @@ Before shipping any UI work:
 - [ ] No raw hex values in CSS/TSX
 - [ ] No raw font-size/font-weight utilities (use tokens)
 - [ ] No emoji — use Lucide icons
+- [ ] No `bg-{colour}-light` on cards, banners, or pills (canvas/hover only)
+- [ ] Pill text is always `text-text-body` — never `text-{colour}`
 - [ ] ARIA labels on all interactive elements (especially icon-only buttons)
 - [ ] Tooltips on all icon-only buttons (mandatory)
 - [ ] Colour is not the sole information channel
@@ -219,7 +274,7 @@ Before shipping any UI work:
 
 ## Key Files
 
-- `docs/Design/Olumi_Design_System_v3.md` — Full design system specification
+- `docs/design/Olumi_Design_System_v4.md` — Full design system specification
 - `src/styles/brand.css` — CSS custom properties (colour source of truth)
 - `tailwind.config.js` — Tailwind colour mappings
 - `src/styles/typography.ts` — Typography tokens

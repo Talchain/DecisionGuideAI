@@ -3,7 +3,7 @@
  *
  * Features: filter tabs (Active/Archived/All), pin/unpin, duplicate,
  * archive/unarchive, delete, first-run welcome state, search.
- * Design System v3 compliant — all styling via semantic tokens.
+ * Design System v4 compliant — all styling via semantic tokens.
  */
 
 import { useEffect, useState, useCallback, useMemo } from 'react'
@@ -127,7 +127,7 @@ function DeleteConfirmDialog({
           </button>
           <button
             onClick={onConfirm}
-            className={`${typography.button} px-4 py-2 rounded-pill bg-danger text-on-color hover:bg-danger-hover transition-colors duration-fast`}
+            className={`${typography.button} px-4 py-2 rounded-pill bg-danger text-text-on-color hover:bg-danger-hover transition-colors duration-fast`}
           >
             Delete
           </button>
@@ -344,7 +344,7 @@ export default function ScenarioListPage() {
           </p>
           <button
             onClick={() => navigate('/login')}
-            className={`${typography.button} mt-6 px-6 py-3 rounded-pill bg-primary text-text-header shadow-1 hover:bg-primary-hover transition-all duration-fast`}
+            className={`${typography.button} mt-6 px-6 py-3 rounded-pill bg-primary text-text-on-color shadow-1 hover:bg-primary-hover transition-all duration-fast`}
           >
             Sign in
           </button>
@@ -376,7 +376,7 @@ export default function ScenarioListPage() {
             <button
               onClick={handleCreate}
               disabled={creating}
-              className={`${typography.button} mt-8 inline-flex items-center gap-2 px-6 py-3 rounded-pill bg-primary text-text-header shadow-1 hover:bg-primary-hover hover:-translate-y-px active:bg-primary-active active:translate-y-0 disabled:bg-primary-disabled disabled:cursor-not-allowed transition-all duration-fast`}
+              className={`${typography.button} mt-8 inline-flex items-center gap-2 px-6 py-3 rounded-pill bg-primary text-text-on-color shadow-1 hover:bg-primary-hover hover:-translate-y-px active:bg-primary-active active:translate-y-0 disabled:bg-primary-disabled disabled:cursor-not-allowed transition-all duration-fast`}
             >
               {creating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
               Start a new decision
@@ -390,7 +390,7 @@ export default function ScenarioListPage() {
               <button
                 onClick={handleCreate}
                 disabled={creating}
-                className={`${typography.button} inline-flex items-center gap-1.5 px-4 py-2 rounded-pill bg-primary text-text-header shadow-1 hover:bg-primary-hover hover:-translate-y-px active:bg-primary-active active:translate-y-0 disabled:bg-primary-disabled disabled:cursor-not-allowed transition-all duration-fast`}
+                className={`${typography.button} inline-flex items-center gap-1.5 px-4 py-2 rounded-pill bg-primary text-text-on-color shadow-1 hover:bg-primary-hover hover:-translate-y-px active:bg-primary-active active:translate-y-0 disabled:bg-primary-disabled disabled:cursor-not-allowed transition-all duration-fast`}
               >
                 {creating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
                 New decision

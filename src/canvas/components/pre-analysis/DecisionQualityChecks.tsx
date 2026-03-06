@@ -15,6 +15,7 @@ import { useState } from 'react'
 import { ChevronDown, ChevronRight, Shield } from 'lucide-react'
 import { Pill } from './primitives'
 import type { QualityCheck } from './hooks/usePreAnalysisData'
+import { typography } from '@/styles/typography'
 
 interface DecisionQualityChecksProps {
   checks: QualityCheck[]
@@ -32,13 +33,13 @@ function CheckRow({
   return (
     <div className="flex items-start gap-2 py-1.5">
       <div className="flex-1 min-w-0 space-y-1">
-        <p className="text-sm text-text-body">{check.message}</p>
+        <p className={`${typography.panelBody} text-text-body`}>{check.message}</p>
         {check.detail && (
-          <p className="text-xs text-text-light">{check.detail}</p>
+          <p className={`${typography.panelMeta} text-text-light`}>{check.detail}</p>
         )}
         <div className="flex items-center gap-2">
           {check.pill === 'framing' ? (
-            <span className="inline-flex items-center rounded-full font-medium px-2 py-0.5 text-xs border border-option/30 text-text-body bg-transparent">
+            <span className={`inline-flex items-center rounded-full px-2 py-0.5 ${typography.panelMeta} border border-option/30 text-text-body bg-transparent`}>
               Framing
             </span>
           ) : (
@@ -47,7 +48,7 @@ function CheckRow({
           <button
             type="button"
             onClick={() => onAction?.(check.ctaAction)}
-            className="text-xs font-medium text-info border border-info/40 rounded-md px-2.5 py-0.5 bg-transparent hover:border-success/40 hover:text-success cursor-pointer"
+            className={`${typography.panelMeta} text-info border border-info/40 rounded-md px-2.5 py-0.5 bg-transparent hover:border-success/40 hover:text-success cursor-pointer`}
           >
             {check.cta}
           </button>
@@ -77,7 +78,7 @@ export function DecisionQualityChecks({ checks, onAction }: DecisionQualityCheck
       >
         <div className="flex items-center gap-2">
           <Shield className="w-4 h-4 text-option" />
-          <span className="text-sm font-semibold text-text-body">Decision quality</span>
+          <span className={`${typography.panelHeader} text-text-body`}>Decision quality</span>
         </div>
         <div className="flex items-center gap-2">
           <Pill size="small" variant="warning">{checks.length}</Pill>
@@ -106,7 +107,7 @@ export function DecisionQualityChecks({ checks, onAction }: DecisionQualityCheck
             <button
               type="button"
               onClick={() => setShowAll(true)}
-              className="text-xs text-info hover:underline cursor-pointer mt-1"
+              className={`${typography.panelMeta} text-info hover:underline cursor-pointer mt-1`}
             >
               {hiddenCount} more
             </button>
@@ -115,7 +116,7 @@ export function DecisionQualityChecks({ checks, onAction }: DecisionQualityCheck
             <button
               type="button"
               onClick={() => setShowAll(false)}
-              className="text-xs text-info hover:underline cursor-pointer mt-1"
+              className={`${typography.panelMeta} text-info hover:underline cursor-pointer mt-1`}
             >
               Show less
             </button>

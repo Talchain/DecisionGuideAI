@@ -13,6 +13,7 @@ import { BiasIcon, IconBtn } from './primitives'
 import { Check, Pencil, HelpCircle, ChevronDown, ChevronRight } from 'lucide-react'
 import type { ImprovementItem, ImprovementCategory } from './hooks/usePreAnalysisData'
 import { cleanFactorLabel } from '../../../components/results/utils/cleanFactorLabel'
+import { typography } from '@/styles/typography'
 
 /** Badge colours by category */
 const categoryBadgeColors: Record<ImprovementCategory, string> = {
@@ -114,7 +115,7 @@ export function M1TopActions({ topActions, onAddEvidence, onConfirm, onAssumptio
                 className="w-full flex items-center gap-3 text-left cursor-pointer"
               >
                 {/* Numbered index */}
-                <span className={`flex-shrink-0 w-5 h-5 rounded-full ${badgeColor} text-white text-xs font-semibold flex items-center justify-center`}>
+                <span className={`flex-shrink-0 w-5 h-5 rounded-full ${badgeColor} text-white ${typography.panelMeta} flex items-center justify-center`}>
                   {index + 1}
                 </span>
                 {isReviewedExpanded ? (
@@ -122,9 +123,9 @@ export function M1TopActions({ topActions, onAddEvidence, onConfirm, onAssumptio
                 ) : (
                   <ChevronRight className="w-3.5 h-3.5 text-text-light shrink-0" />
                 )}
-                <span className="text-sm text-text-light truncate">{cleanFactorLabel(item.label).label}</span>
-                <span className="shrink-0 text-sm text-text-light">·</span>
-                <span className="shrink-0 text-sm text-success flex items-center gap-1">
+                <span className={`${typography.panelBody} text-text-light truncate`}>{cleanFactorLabel(item.label).label}</span>
+                <span className={`shrink-0 ${typography.panelBody} text-text-light`}>·</span>
+                <span className={`shrink-0 ${typography.panelBody} text-success flex items-center gap-1`}>
                   Reviewed <Check className="w-3.5 h-3.5" />
                 </span>
               </button>
@@ -133,7 +134,7 @@ export function M1TopActions({ topActions, onAddEvidence, onConfirm, onAssumptio
               {isReviewedExpanded && (
                 <div className="ml-8 pl-2 border-l-2 border-panel-border">
                   <div className="flex items-center gap-2 py-1">
-                    <span className="text-sm text-text-light">
+                    <span className={`${typography.panelBody} text-text-light`}>
                       {reviewedState === 'confirmed' ? 'Confirmed as correct' : 'Marked as assumption'}
                     </span>
                     <button
@@ -154,7 +155,7 @@ export function M1TopActions({ topActions, onAddEvidence, onConfirm, onAssumptio
                           return next
                         })
                       }}
-                      className="text-xs text-info hover:underline cursor-pointer"
+                      className={`${typography.panelMeta} text-info hover:underline cursor-pointer`}
                     >
                       Change
                     </button>
@@ -181,16 +182,16 @@ export function M1TopActions({ topActions, onAddEvidence, onConfirm, onAssumptio
           >
             <div className="flex items-start gap-3">
               {/* Numbered index - colour based on category */}
-              <span className={`flex-shrink-0 w-5 h-5 rounded-full ${badgeColor} text-white text-xs font-semibold flex items-center justify-center`}>
+              <span className={`flex-shrink-0 w-5 h-5 rounded-full ${badgeColor} text-white ${typography.panelMeta} flex items-center justify-center`}>
                 {index + 1}
               </span>
 
               {/* Content - flex-1 min-w-0 ensures text wraps within bounds */}
               <div className="flex-1 min-w-0 pr-2">
-                <p className="text-sm font-medium text-text-header">
+                <p className={`${typography.panelHeader} text-text-header`}>
                   {cleanFactorLabel(item.label).label}
                 </p>
-                <p className="text-sm text-text-light mt-0.5">
+                <p className={`${typography.panelBody} text-text-light mt-0.5`}>
                   {item.detail}
                 </p>
               </div>
@@ -249,7 +250,7 @@ export function M1TopActions({ topActions, onAddEvidence, onConfirm, onAssumptio
                       setActiveEvidenceInput(item.key)
                       setEvidenceValue('')
                     }}
-                    className="text-xs font-medium text-info hover:underline cursor-pointer"
+                    className={`${typography.panelMeta} text-info hover:underline cursor-pointer`}
                   >
                     + Source
                   </button>
@@ -274,7 +275,7 @@ export function M1TopActions({ topActions, onAddEvidence, onConfirm, onAssumptio
                   onChange={(e) => setEvidenceValue(e.target.value)}
                   placeholder="Enter evidence source (URL or description)"
                   maxLength={500}
-                  className="flex-1 px-2 py-1 text-xs border border-panel-border rounded bg-panel text-text-body focus:outline-none focus:ring-1 focus:ring-info"
+                  className={`flex-1 px-2 py-1 ${typography.panelMeta} border border-panel-border rounded bg-panel text-text-body focus:outline-none focus:ring-1 focus:ring-info`}
                   autoFocus
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' && item.action?.targetId) {
@@ -289,7 +290,7 @@ export function M1TopActions({ topActions, onAddEvidence, onConfirm, onAssumptio
                 <button
                   onClick={() => item.action?.targetId && handleEvidenceSubmit(item.action.targetId)}
                   disabled={!evidenceValue.trim()}
-                  className="px-2 py-1 text-xs bg-info hover:bg-success text-white rounded disabled:opacity-50"
+                  className={`px-2 py-1 ${typography.panelMeta} bg-info hover:bg-success text-white rounded disabled:opacity-50`}
                 >
                   Save
                 </button>
@@ -298,7 +299,7 @@ export function M1TopActions({ topActions, onAddEvidence, onConfirm, onAssumptio
                     setActiveEvidenceInput(null)
                     setEvidenceValue('')
                   }}
-                  className="px-2 py-1 text-xs text-text-light hover:text-text-body"
+                  className={`px-2 py-1 ${typography.panelMeta} text-text-light hover:text-text-body`}
                 >
                   Cancel
                 </button>

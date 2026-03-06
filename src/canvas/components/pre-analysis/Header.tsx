@@ -18,6 +18,8 @@
  * while Footer shows context-appropriate state. This split is intentional.
  */
 
+import { typography } from '@/styles/typography'
+
 interface HeaderProps {
   /** Whether analysis can run */
   isReady: boolean
@@ -41,7 +43,7 @@ export function Header({
   // Loading state: "◌ Checking..." while CEE data loads
   if (isLoading) {
     return (
-      <p className="text-sm font-semibold text-text-light">
+      <p className={`${typography.panelHeader} text-text-light`}>
         ◌ Checking...
       </p>
     )
@@ -50,7 +52,7 @@ export function Header({
   // Blocked state: has mustAddress items
   if (mustAddressCount > 0) {
     return (
-      <p className="text-sm font-semibold text-danger">
+      <p className={`${typography.panelHeader} text-danger`}>
         ⊘ Blocked · {mustAddressCount} to address
       </p>
     )
@@ -59,7 +61,7 @@ export function Header({
   // Not ready state: no mustAddress items but isReady is false (other gating reasons)
   if (!isReady) {
     return (
-      <p className="text-sm font-semibold text-warning">
+      <p className={`${typography.panelHeader} text-warning`}>
         ◌ Not ready
       </p>
     )
@@ -78,7 +80,7 @@ export function Header({
   const suffix = parts.length > 0 ? ` · ${parts.join(' · ')}` : ''
 
   return (
-    <p className="text-sm font-semibold text-success">
+    <p className={`${typography.panelHeader} text-success`}>
       ✓ Ready{suffix}
     </p>
   )

@@ -230,7 +230,7 @@ export const BaseNode = memo(({ id, nodeType, icon: Icon, data, selected, childr
           marginBottom: '8px',
         }}
       >
-        {/* T1: Shape indicator (Design System v3 §10.1) + sentence-case type label */}
+        {/* T1: Shape indicator (Design System v4 §10.1) + sentence-case type label */}
         <NodeShapeIndicator nodeKind={nodeType} size={12} />
         {/* Decision Graph Display v2 Task 5: Sensitivity rank badge (Results mode, top 3 factors) */}
         {displayMetadata.sensitivityRank && (

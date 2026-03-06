@@ -12,6 +12,7 @@
 
 import { useId, useState, useRef, useEffect, type ReactNode } from 'react'
 import { ChevronRight, ChevronDown } from 'lucide-react'
+import { typography } from '@/styles/typography'
 
 interface AccordionProps {
   /** Section title displayed in header */
@@ -111,13 +112,13 @@ export function Accordion({
           />
           <h3
             id={headingId}
-            className={titleClassName ?? "text-[14px] font-semibold text-text-header"}
+            className={titleClassName ?? `${typography.panelHeader} text-text-header`}
           >
             {title}
           </h3>
         </div>
         {rightContent && (
-          <div className="text-xs text-text-light">
+          <div className={`${typography.panelMeta} text-text-light`}>
             {rightContent}
           </div>
         )}

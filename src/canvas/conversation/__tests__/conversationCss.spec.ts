@@ -1,7 +1,7 @@
 /**
  * CSS token test for Conversation.module.css
  *
- * Verifies that GraphPatchBlock uses the --goal token (Design System v3 §19.2),
+ * Verifies that GraphPatchBlock uses the --goal token (Design System v4 §20.2),
  * not the --warning orange token.
  *
  * Note: CSS variables are not resolved in unit tests (jsdom doesn't parse computed

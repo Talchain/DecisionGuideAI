@@ -11,6 +11,7 @@
 
 import { Accordion } from './primitives'
 import type { Node } from '@xyflow/react'
+import { typography } from '@/styles/typography'
 
 interface AnalysisSettingsProps {
   /** All goal nodes */
@@ -50,7 +51,7 @@ export function AnalysisSettings({
           <div className="flex items-center gap-3">
             <label
               htmlFor="goal-selector"
-              className="text-sm text-text-light flex-shrink-0"
+              className={`${typography.panelBody} text-text-light flex-shrink-0`}
             >
               Goal
             </label>
@@ -71,7 +72,7 @@ export function AnalysisSettings({
         )}
 
         {/* Helper text */}
-        <p className="text-sm text-text-light">
+        <p className={`${typography.panelBody} text-text-light`}>
           Goal and success target are set above. Use this section to change goal selection.
         </p>
       </div>

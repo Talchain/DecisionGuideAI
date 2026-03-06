@@ -9,6 +9,7 @@
  */
 
 import type { ReactNode } from 'react'
+import { typography } from '@/styles/typography'
 
 type PillVariant = 'default' | 'info' | 'success' | 'warning' | 'danger'
 type PillSize = 'small' | 'regular'
@@ -26,25 +27,18 @@ interface PillProps {
   className?: string
 }
 
+// All variants: outlined (bg-transparent border), no filled backgrounds (DS v3.1)
 const variantStyles: Record<PillVariant, string> = {
-  default: 'bg-factor-light text-text-body',
-  info: 'bg-info-light text-info',
-  success: 'bg-success-light text-success',
-  warning: 'bg-warning-light text-warning',
-  danger: 'bg-danger-light text-danger',
-}
-
-const borderStyles: Record<PillVariant, string> = {
-  default: 'border-factor/30',
-  info: 'border-info/30',
-  success: 'border-success/30',
-  warning: 'border-warning/30',
-  danger: 'border-danger/30',
+  default: 'border-factor/30 text-text-body',
+  info: 'border-info/30 text-text-body',
+  success: 'border-success/30 text-text-body',
+  warning: 'border-warning/30 text-text-body',
+  danger: 'border-danger/30 text-text-body',
 }
 
 const sizeStyles: Record<PillSize, string> = {
-  small: 'px-2 py-0.5 text-xs',
-  regular: 'px-3 py-1 text-sm',
+  small: `px-2 py-0.5 ${typography.panelMeta}`,
+  regular: `px-3 py-1 ${typography.panelBody}`,
 }
 
 export function Pill({
@@ -57,10 +51,9 @@ export function Pill({
   return (
     <span
       className={`
-        inline-flex items-center rounded-full font-medium
+        inline-flex items-center rounded-full bg-transparent border
         ${variantStyles[variant]}
         ${sizeStyles[size]}
-        ${bordered ? `border ${borderStyles[variant]}` : ''}
         ${className}
       `}
     >

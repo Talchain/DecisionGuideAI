@@ -736,7 +736,7 @@ describe('PreAnalysisPanel', () => {
         expect(screen.getByText('Review assumptions')).toBeInTheDocument()
       })
 
-      it('shows dash badge when no assumptions to review', () => {
+      it('hides badge entirely when no assumptions to review', () => {
         mockUsePreAnalysisData.mockReturnValue(createMockData({
           isReady: true,
           tiers: {
@@ -750,8 +750,8 @@ describe('PreAnalysisPanel', () => {
 
         render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
 
-        // Should show dash badge, not checkmark or count
-        expect(screen.getByText('—')).toBeInTheDocument()
+        // Badge should not render at all for 0 items
+        expect(screen.queryByText('—')).not.toBeInTheDocument()
       })
     })
 

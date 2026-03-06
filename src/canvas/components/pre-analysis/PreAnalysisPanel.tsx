@@ -35,6 +35,7 @@ import { SOFT_BYPASS_STATUSES } from '../../hooks/usePreRunValidation'
 import { useShowToast } from '../../ToastContext'
 import { copyTextToClipboard } from '../../../utils/clipboard'
 import { RefreshCw, Copy, Pencil, ChevronDown, ChevronRight, AlertTriangle } from 'lucide-react'
+import { typography } from '@/styles/typography'
 
 /** Collapsible pre-mortem section from PLoT m1_review */
 function PreMortemSection({ preMortem }: { preMortem: { failure_scenario: string; warning_signs: string[]; mitigation: string } }) {
@@ -47,7 +48,7 @@ function PreMortemSection({ preMortem }: { preMortem: { failure_scenario: string
         onClick={() => setIsExpanded(prev => !prev)}
         className="w-full flex items-center justify-between px-3 py-2 cursor-pointer hover:bg-black/[0.02]"
       >
-        <span className="text-sm font-semibold text-text-body">Pre-mortem</span>
+        <span className={`${typography.panelHeader} text-text-body`}>Pre-mortem</span>
         {isExpanded ? (
           <ChevronDown className="w-4 h-4 text-text-light" />
         ) : (
@@ -55,14 +56,14 @@ function PreMortemSection({ preMortem }: { preMortem: { failure_scenario: string
         )}
       </button>
       {isExpanded && (
-        <div className="px-3 pb-3 space-y-2 text-sm text-text-body">
+        <div className={`px-3 pb-3 space-y-2 ${typography.panelBody} text-text-body`}>
           <div>
-            <div className="font-medium text-text-header mb-1">Failure scenario</div>
+            <div className={`${typography.panelHeader} text-text-header mb-1`}>Failure scenario</div>
             <p>{preMortem.failure_scenario}</p>
           </div>
           {preMortem.warning_signs.length > 0 && (
             <div>
-              <div className="font-medium text-text-header mb-1">Warning signs</div>
+              <div className={`${typography.panelHeader} text-text-header mb-1`}>Warning signs</div>
               <ul className="list-disc pl-4 space-y-0.5">
                 {preMortem.warning_signs.map((sign, i) => (
                   <li key={i}>{sign}</li>
@@ -71,7 +72,7 @@ function PreMortemSection({ preMortem }: { preMortem: { failure_scenario: string
             </div>
           )}
           <div>
-            <div className="font-medium text-text-header mb-1">Mitigation</div>
+            <div className={`${typography.panelHeader} text-text-header mb-1`}>Mitigation</div>
             <p>{preMortem.mitigation}</p>
           </div>
         </div>
@@ -508,18 +509,18 @@ export function PreAnalysisPanel({
 
         {/* Coaching summary — one-line text below header */}
         {data.coachingSummary && (
-          <p className="text-sm text-text-light -mt-2 line-clamp-1" title={data.coachingSummary}>{data.coachingSummary}</p>
+          <p className={`${typography.panelBody} text-text-light -mt-2 line-clamp-1`} title={data.coachingSummary}>{data.coachingSummary}</p>
         )}
 
         {/* Task P.3.2: Minimal graph coaching (pre-run guidance, not blocker) */}
         {isMinimalGraph && (
           <div
-            className="flex items-start gap-2 px-3 py-2.5 bg-info-light border border-info/30 rounded-md"
+            className="flex items-start gap-2 px-3 py-2.5 bg-panel border border-info/30 rounded-md"
             role="status"
             data-testid="minimal-graph-coaching"
           >
             <AlertTriangle className="w-4 h-4 text-info flex-shrink-0 mt-0.5" aria-hidden="true" />
-            <p className="text-sm text-info">
+            <p className={`${typography.panelBody} text-info`}>
               Your model needs more detail for a meaningful analysis. Try adding factors that influence your outcome.
             </p>
           </div>
@@ -548,10 +549,10 @@ export function PreAnalysisPanel({
             className="rounded-md bg-panel border border-panel-border border-l-[3px] border-l-danger px-3 py-2.5"
             data-testid="draft-error-card"
           >
-            <p className="text-sm font-semibold text-danger">Draft failed</p>
-            <p className="text-xs text-text-body mt-0.5">{lastDraftError.message}</p>
+            <p className={`${typography.panelHeader} text-danger`}>Draft failed</p>
+            <p className={`${typography.panelBody} text-text-body mt-0.5`}>{lastDraftError.message}</p>
             {lastDraftError.correlationId && (
-              <p className="text-xs text-text-light mt-0.5 font-mono">
+              <p className={`${typography.panelMeta} text-text-light mt-0.5 font-mono`}>
                 ID: {lastDraftError.correlationId}
               </p>
             )}
@@ -560,7 +561,7 @@ export function PreAnalysisPanel({
                 <button
                   type="button"
                   onClick={handleEditBrief}
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-info bg-transparent border border-info/40 rounded-md hover:border-success/40 hover:text-success transition-colors"
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 ${typography.panelMeta} text-info bg-transparent border border-info/40 rounded-md hover:border-success/40 hover:text-success transition-colors`}
                   data-testid="draft-error-edit-brief"
                 >
                   <Pencil size={12} />
@@ -571,7 +572,7 @@ export function PreAnalysisPanel({
                   type="button"
                   onClick={handleRetryDraft}
                   disabled={isRetrying}
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-info bg-transparent border border-info/40 rounded-md hover:border-success/40 hover:text-success disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 ${typography.panelMeta} text-info bg-transparent border border-info/40 rounded-md hover:border-success/40 hover:text-success disabled:opacity-50 disabled:cursor-not-allowed transition-colors`}
                   data-testid="draft-error-retry"
                 >
                   <RefreshCw size={12} className={isRetrying ? 'animate-spin' : ''} />
@@ -590,16 +591,16 @@ export function PreAnalysisPanel({
                   copyTextToClipboard(JSON.stringify(diagnostics, null, 2))
                   showToast('Diagnostics copied', 'success')
                 }}
-                className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-text-light bg-panel border border-panel-border rounded-md hover:bg-panel-hover transition-colors"
+                className={`inline-flex items-center gap-1.5 px-2.5 py-1 ${typography.panelMeta} text-text-light bg-panel border border-panel-border rounded-md hover:bg-panel-hover transition-colors`}
               >
                 <Copy size={12} />
                 Copy diagnostics
               </button>
             </div>
             {lastDraftError.retryable === false && (
-              <div className="mt-2 rounded-md bg-factor-light px-2.5 py-2">
-                <p className="text-xs font-medium text-text-body mb-1">Tips for a clearer brief</p>
-                <ul className="text-xs text-text-light space-y-0.5 list-disc pl-3.5">
+              <div className="mt-2 rounded-md bg-panel border border-panel-border px-2.5 py-2">
+                <p className={`${typography.panelMeta} text-text-body mb-1`}>Tips for a clearer brief</p>
+                <ul className={`${typography.panelMeta} text-text-light space-y-0.5 list-disc pl-3.5`}>
                   <li>State one clear goal</li>
                   <li>List 2–3 options you're considering</li>
                   <li>Mention key factors that matter to your decision</li>
@@ -665,24 +666,24 @@ export function PreAnalysisPanel({
             <div className="flex items-start gap-2">
               <AlertTriangle size={16} className="mt-0.5 flex-shrink-0 text-warning" />
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-warning">
+                <p className={`${typography.panelHeader} text-warning`}>
                   Relationship strengths are estimated
                 </p>
-                <p className="text-xs text-text-body mt-0.5">
+                <p className={`${typography.panelBody} text-text-body mt-0.5`}>
                   {data.defaultStrengthPercent}% of edges use default strength values. Results may be less precise.
                 </p>
                 <div className="flex items-center gap-2 mt-2">
                   <button
                     type="button"
                     onClick={onAnalyse}
-                    className="text-xs font-medium text-info border border-info/40 rounded-md px-2.5 py-0.5 bg-transparent hover:border-success/40 hover:text-success cursor-pointer"
+                    className={`${typography.panelMeta} text-info border border-info/40 rounded-md px-2.5 py-0.5 bg-transparent hover:border-success/40 hover:text-success cursor-pointer`}
                   >
                     Run with estimates
                   </button>
                   <button
                     type="button"
                     onClick={() => improvementsRef.current?.scrollIntoView({ behavior: 'smooth' })}
-                    className="text-xs font-medium text-info border border-info/40 rounded-md px-2.5 py-0.5 bg-transparent hover:border-success/40 hover:text-success cursor-pointer"
+                    className={`${typography.panelMeta} text-info border border-info/40 rounded-md px-2.5 py-0.5 bg-transparent hover:border-success/40 hover:text-success cursor-pointer`}
                   >
                     Review in structure
                   </button>

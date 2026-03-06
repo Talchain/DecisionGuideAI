@@ -6,6 +6,7 @@
  */
 
 import type { ReactNode } from 'react'
+import { typography } from '@/styles/typography'
 
 interface TextBtnProps {
   /** Button content */
@@ -30,7 +31,7 @@ export function TextBtn({
       onClick={onClick}
       disabled={disabled}
       className={`
-        text-sm text-info underline hover:text-info-hover transition-colors
+        ${typography.panelBody} text-info underline hover:text-info-hover transition-colors
         disabled:text-text-light disabled:no-underline disabled:cursor-not-allowed
         ${className}
       `}

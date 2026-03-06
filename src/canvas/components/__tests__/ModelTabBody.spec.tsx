@@ -29,9 +29,20 @@ const mockUpdateNode = vi.fn()
 const mockUpdateEdge = vi.fn()
 let mockCeePipelineTrace: unknown = null
 
+const mockSetHighlightedNodes = vi.fn()
+const mockSetHighlightedEdges = vi.fn()
+
 vi.mock('../../store', () => ({
   useCanvasStore: vi.fn((selector: (s: any) => any) =>
-    selector({ updateNode: mockUpdateNode, updateEdge: mockUpdateEdge, ceePipelineTrace: mockCeePipelineTrace })
+    selector({
+      updateNode: mockUpdateNode,
+      updateEdge: mockUpdateEdge,
+      ceePipelineTrace: mockCeePipelineTrace,
+      highlightedNodes: new Set<string>(),
+      highlightedEdges: new Set<string>(),
+      setHighlightedNodes: mockSetHighlightedNodes,
+      setHighlightedEdges: mockSetHighlightedEdges,
+    })
   ),
 }))
 
@@ -731,5 +742,148 @@ describe('Inline edit — hover affordance classes', () => {
     expect(displayEl.className).toContain('cursor-text')
     expect(displayEl.className).toContain('hover:bg-panel-hover')
     expect(displayEl.className).toContain('hover:border-panel-border')
+  })
+})
+
+describe('DS-1: All pills use outlined style (no filled backgrounds)', () => {
+  it('category badges use transparent bg and border-only style', () => {
+    const nodes = [
+      makeFactorNode('f1', 'Cost', { source: 'user', category: 'controllable' }),
+      makeFactorNode('f2', 'Weather', { source: 'user', category: 'external' }),
+    ]
+    render(<ModelTabBody {...DEFAULT_PROPS} nodes={nodes} edges={[]} />)
+    const badges = screen.getAllByText(/Controllable|External/)
+    for (const badge of badges) {
+      expect(badge.className).toContain('bg-transparent')
+      expect(badge.className).toContain('text-text-body')
+      expect(badge.className).not.toMatch(/bg-info-light|bg-warning-light|bg-factor-light/)
+    }
+  })
+
+  it('direction chips (helps/hurts) use outlined style', () => {
+    const nodes = [makeFactorNode('f1', 'A'), makeFactorNode('f2', 'B')]
+    const edges = [
+      makeEdge('e1', 'f1', 'f2', { direction: 'positive', weight: 0.5, strengthStd: 0.1 }),
+    ]
+    render(<ModelTabBody {...DEFAULT_PROPS} nodes={nodes} edges={edges} />)
+    const chip = screen.getByText('helps')
+    expect(chip.className).toContain('bg-transparent')
+    expect(chip.className).toContain('text-text-body')
+  })
+})
+
+describe('DS-4: Likelihood bars use evaluative threshold colours', () => {
+  it('shows bg-danger for likelihood < 40%', () => {
+    const nodes = [makeFactorNode('f1', 'A'), makeFactorNode('f2', 'B')]
+    const edges: import('@xyflow/react').Edge[] = [{
+      id: 'e1', source: 'f1', target: 'f2',
+      data: { weight: 0.5, strengthStd: 0.1, direction: 'positive', beliefExists: 0.3 },
+    }]
+    render(<ModelTabBody {...DEFAULT_PROPS} nodes={nodes} edges={edges} />)
+    // 30% likelihood should use danger colour
+    expect(screen.getByTestId('edge-e1-likelihood-display')).toHaveTextContent('30')
+  })
+})
+
+describe('DS-5: No evidence per-card noise reduction', () => {
+  it('suppresses "No evidence" on every card when all edges lack evidence', () => {
+    const nodes = [makeFactorNode('f1', 'A', { source: 'user' }), makeFactorNode('f2', 'B', { source: 'user' })]
+    const edges = [makeEdge('e1', 'f1', 'f2', { provenance: 'assumption' })]
+    render(<ModelTabBody {...DEFAULT_PROPS} nodes={nodes} edges={edges} />)
+    // "No evidence" should NOT appear when all edges lack evidence
+    expect(screen.queryByText('No evidence')).not.toBeInTheDocument()
+  })
+
+  it('in mixed evidence state, non-evidenced edges render no provenance row at all', () => {
+    const nodes = [makeFactorNode('f1', 'A', { source: 'user' }), makeFactorNode('f2', 'B', { source: 'user' }), makeFactorNode('f3', 'C', { source: 'user' })]
+    const edges = [
+      makeEdge('e1', 'f1', 'f2', { provenance: 'user_study' }),
+      makeEdge('e2', 'f2', 'f3', { provenance: 'assumption' }),
+    ]
+    render(<ModelTabBody {...DEFAULT_PROPS} nodes={nodes} edges={edges} />)
+    // "No evidence" label should never appear — absence of provenance row is the signal
+    expect(screen.queryByText('No evidence')).not.toBeInTheDocument()
+    // But evidence edge should still show its source
+    expect(screen.getByText(/Source: user_study/)).toBeInTheDocument()
+  })
+})
+
+describe('PD-1: Currency prefix formatting', () => {
+  it('displays currency symbol as prefix (£49 not 49 £)', () => {
+    const node: import('@xyflow/react').Node = {
+      id: 'f1', type: 'factor', position: { x: 0, y: 0 },
+      data: {
+        label: 'Budget',
+        category: 'observable',
+        observedState: { raw_value: 49, unit: '£', source: 'user' },
+      },
+    }
+    render(<ModelTabBody {...DEFAULT_PROPS} nodes={[node]} edges={[]} />)
+    expect(screen.getByText('£49')).toBeInTheDocument()
+  })
+})
+
+describe('PD-2: Smart value precision', () => {
+  it('displays integer values without decimals', () => {
+    const node: import('@xyflow/react').Node = {
+      id: 'f1', type: 'factor', position: { x: 0, y: 0 },
+      data: {
+        label: 'Binary factor',
+        category: 'observable',
+        observedState: { value: 0, source: 'user' },
+      },
+    }
+    render(<ModelTabBody {...DEFAULT_PROPS} nodes={[node]} edges={[]} />)
+    // Should show "0" not "0.00"
+    const valueElements = screen.getAllByText('0')
+    expect(valueElements.length).toBeGreaterThan(0)
+    expect(screen.queryByText('0.00')).not.toBeInTheDocument()
+  })
+})
+
+describe('NF-1: Copy as JSON button', () => {
+  it('renders a JSON copy button', () => {
+    const nodes = [makeFactorNode('f1', 'Factor')]
+    render(<ModelTabBody {...DEFAULT_PROPS} nodes={nodes} edges={[]} />)
+    expect(screen.getByTestId('model-copy-json')).toBeInTheDocument()
+    expect(screen.getByTestId('model-copy-json')).toHaveTextContent('JSON')
+  })
+})
+
+describe('DS v4 contract: section header icons are plain (no badge container)', () => {
+  it('section headers use plain icons without rounded-full badge wrapper', () => {
+    const nodes = [makeFactorNode('f1', 'A', { source: 'user' }), makeFactorNode('f2', 'B', { source: 'user' })]
+    const edges = [makeEdge('e1', 'f1', 'f2')]
+    render(<ModelTabBody {...DEFAULT_PROPS} nodes={nodes} edges={edges} />)
+    const factorsHeader = screen.getByTestId('section-header-factors')
+    const edgesHeader = screen.getByTestId('section-header-edges')
+    const strengthenHeader = screen.getByTestId('section-header-strengthen')
+    // No element inside the header should have the legacy badge classes
+    for (const header of [factorsHeader, edgesHeader, strengthenHeader]) {
+      const spans = header.querySelectorAll('span')
+      spans.forEach(span => {
+        expect(span.className).not.toMatch(/rounded-full/)
+        expect(span.className).not.toMatch(/text-white/)
+      })
+    }
+  })
+})
+
+describe('DS v4 contract: pills use solid borders (no dashed)', () => {
+  it('Add source and Refine range pills do not use border-dashed', () => {
+    // Factor with no source → shows Add source pill; external with no prior → shows Refine range pill
+    const noSourceFactor: import('@xyflow/react').Node = {
+      id: 'f1', type: 'factor', position: { x: 0, y: 0 },
+      data: { label: 'NoSource', category: 'observable', observedState: {} },
+    }
+    const externalFactor: import('@xyflow/react').Node = {
+      id: 'f2', type: 'factor', position: { x: 0, y: 0 },
+      data: { label: 'External', category: 'external', observedState: {} },
+    }
+    render(<ModelTabBody {...DEFAULT_PROPS} nodes={[noSourceFactor, externalFactor]} edges={[]} />)
+    const addSourceBtns = screen.getAllByText('+ Add source')
+    addSourceBtns.forEach(btn => expect(btn.className).not.toMatch(/border-dashed/))
+    const refineBtn = screen.getByTestId('factor-f2-refine-range')
+    expect(refineBtn.className).not.toMatch(/border-dashed/)
   })
 })

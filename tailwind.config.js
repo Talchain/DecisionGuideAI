@@ -140,11 +140,11 @@ export default {
         // NODE-SPECIFIC COLORS
         // ============================================
 
-        // Goal (Yellow) - Also used as primary
+        // Goal (Yellow) - Entity colour only (v4: decoupled from primary)
         goal: {
           DEFAULT: 'var(--goal)',
           light: 'var(--goal-light)',
-          hover: 'var(--primary-hover)',
+          hover: '#E5B523',  // Goal-specific hover (10% darker yellow)
           // Legacy numeric aliases
           50: 'var(--goal-light)',
           500: 'var(--goal)',
@@ -170,7 +170,7 @@ export default {
         },
 
         // ============================================
-        // PRIMARY (Maps to Goal)
+        // PRIMARY (Maps to Info Blue — v4 §3.10)
         // ============================================
         primary: {
           DEFAULT: 'var(--primary)',

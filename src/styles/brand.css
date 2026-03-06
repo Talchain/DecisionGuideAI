@@ -124,10 +124,10 @@
      (Derived from main colors)
      ============================================ */
 
-  /* Primary (Info Blue — §3 v3.1: yellow failed WCAG AA, replaced with info blue) */
+  /* Primary (Info Blue — v4 §3.10: hover shifts to success green "ready to act") */
   --primary: var(--info);
-  --primary-hover: var(--info-hover);
-  --primary-active: #5290B0;
+  --primary-hover: #67C89E;
+  --primary-active: #5AA88A;
   --primary-disabled: rgba(99, 173, 207, 0.4);
 
   /* Danger */

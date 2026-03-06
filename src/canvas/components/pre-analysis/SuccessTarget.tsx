@@ -13,6 +13,7 @@ import { useState, useCallback, useEffect } from 'react'
 import { Check, ChevronDown, ChevronRight, Pencil } from 'lucide-react'
 import type { Node } from '@xyflow/react'
 import { CURRENCY_SYMBOLS } from '../../utils/labelUtils'
+import { typography } from '@/styles/typography'
 
 interface SuccessTargetProps {
   /** Currently selected goal node */
@@ -133,7 +134,7 @@ export function SuccessTarget({
           value={goalNode?.id ?? ''}
           onChange={(e) => onGoalChange(e.target.value)}
           title={goalLabel}
-          className="text-[14px] font-medium text-text-header bg-transparent border-none p-0 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-1 truncate max-w-full"
+          className={`${typography.panelHeader} text-text-header bg-transparent border-none p-0 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-1 truncate max-w-full`}
         >
           {goalNodes.map(g => (
             <option key={g.id} value={g.id}>{getNodeLabel(g)}</option>
@@ -142,7 +143,7 @@ export function SuccessTarget({
       )
     }
     return (
-      <p className="text-[14px] font-medium text-text-header line-clamp-2" title={goalLabel}>{goalLabel}</p>
+      <p className={`${typography.panelHeader} text-text-header line-clamp-2`} title={goalLabel}>{goalLabel}</p>
     )
   }
 
@@ -168,9 +169,9 @@ export function SuccessTarget({
   // No goal node - show missing-goal card
   if (!goalNode) {
     return (
-      <div className={`rounded-lg border border-panel-border border-l-[3px] ${borderColor} bg-panel p-3`}>
+      <div className={`rounded-lg border border-panel-border border-l-[3px] ${borderColor} bg-panel p-3 hover:bg-panel-hover transition-colors`}>
         <div className="flex items-center justify-between">
-          <span className="text-sm text-text-light">No goal selected</span>
+          <span className={`${typography.panelBody} text-text-light`}>No goal selected</span>
         </div>
       </div>
     )
@@ -179,7 +180,7 @@ export function SuccessTarget({
   // Confirmed state - compact single line, expandable for editing
   if (isThresholdConfirmed && successThreshold !== null) {
     return (
-      <div className={`rounded-lg border border-panel-border border-l-[3px] ${borderColor} bg-panel p-3`}>
+      <div className={`rounded-lg border border-panel-border border-l-[3px] ${borderColor} bg-panel p-3 hover:bg-panel-hover transition-colors`}>
         <button
           type="button"
           onClick={() => setIsExpanded(!isExpanded)}
@@ -190,9 +191,9 @@ export function SuccessTarget({
           ) : (
             <ChevronRight className="w-3.5 h-3.5 text-text-light shrink-0" />
           )}
-          <span className="text-[14px] font-medium text-text-header truncate">{goalLabel}</span>
+          <span className={`${typography.panelHeader} text-text-header truncate`}>{goalLabel}</span>
           <span className="text-text-light shrink-0">·</span>
-          <span className="text-[14px] font-semibold text-text-header shrink-0">{formatValue(successThreshold)}</span>
+          <span className={`${typography.panelHeader} text-text-header shrink-0`}>{formatValue(successThreshold)}</span>
           <Check className="w-3.5 h-3.5 text-success shrink-0" />
         </button>
 
@@ -200,7 +201,7 @@ export function SuccessTarget({
         {isExpanded && (
           <div className="mt-3 pt-3 border-t border-panel-border">
             <div className="flex items-center gap-3">
-              <label className="text-sm text-text-light shrink-0">{editLabel}</label>
+              <label className={`${typography.panelBody} text-text-light shrink-0`}>{editLabel}</label>
               <input
                 type="number"
                 value={editDraft}
@@ -223,7 +224,7 @@ export function SuccessTarget({
               <button
                 type="button"
                 onClick={onThresholdConfirm}
-                className="px-3 py-1.5 text-xs font-medium text-white bg-info rounded-lg hover:bg-success"
+                className={`px-3 py-1.5 ${typography.panelMeta} text-white bg-info rounded-lg hover:bg-success`}
               >
                 Confirm
               </button>
@@ -237,10 +238,10 @@ export function SuccessTarget({
   // No target set - show add target CTA with hint
   if (successThreshold === null) {
     return (
-      <div className={`rounded-lg border border-panel-border border-l-[3px] ${borderColor} bg-panel p-3`}>
+      <div className={`rounded-lg border border-panel-border border-l-[3px] ${borderColor} bg-panel p-3 hover:bg-panel-hover transition-colors`}>
         {showInput ? (
           <div className="flex items-center gap-3">
-            <label className="text-sm text-text-light shrink-0">Target for {goalLabel}</label>
+            <label className={`${typography.panelBody} text-text-light shrink-0`}>Target for {goalLabel}</label>
             <input
               type="number"
               value={inputValue}
@@ -260,7 +261,7 @@ export function SuccessTarget({
               type="button"
               onClick={handleSubmit}
               disabled={!inputValue.trim()}
-              className="px-3 py-1.5 text-xs font-medium text-white bg-info rounded-lg hover:bg-success disabled:opacity-50"
+              className={`px-3 py-1.5 ${typography.panelMeta} text-white bg-info rounded-lg hover:bg-success disabled:opacity-50`}
             >
               Save
             </button>
@@ -270,7 +271,7 @@ export function SuccessTarget({
                 setShowInput(false)
                 setInputValue('')
               }}
-              className="px-2 py-1.5 text-xs text-text-light hover:text-text-body"
+              className={`px-2 py-1.5 ${typography.panelMeta} text-text-light hover:text-text-body`}
             >
               Cancel
             </button>
@@ -282,12 +283,12 @@ export function SuccessTarget({
               <button
                 type="button"
                 onClick={() => setShowInput(true)}
-                className="text-xs font-medium text-info hover:underline cursor-pointer"
+                className={`${typography.panelMeta} text-info hover:underline cursor-pointer`}
               >
                 Add target
               </button>
             </div>
-            <p className="text-xs text-text-light mt-1">
+            <p className={`${typography.panelMeta} text-text-light mt-1`}>
               Add a target to see each option's probability of success
             </p>
           </div>
@@ -304,16 +305,16 @@ export function SuccessTarget({
 
       {/* Success target line */}
       <div className="flex items-center gap-2 mt-1">
-        <span className="text-[12px] text-text-light shrink-0">Success target:</span>
-        <span className="text-[14px] font-semibold text-text-header">{formatValue(successThreshold)}</span>
+        <span className={`${typography.panelBody} text-text-light shrink-0`}>Success target:</span>
+        <span className={`${typography.panelHeader} text-text-header`}>{formatValue(successThreshold)}</span>
         {thresholdSourceBadge === 'brief' && (
-          <span className="inline-flex items-center gap-1 text-[11px] text-text-body bg-panel-hover rounded-full px-2 py-0.5 shrink-0">
+          <span className={`inline-flex items-center gap-1 ${typography.panelMeta} text-text-body bg-transparent border border-success/30 rounded-full px-2 py-0.5 shrink-0`}>
             <span className="w-1.5 h-1.5 rounded-full bg-success flex-shrink-0" aria-hidden="true" />
             From brief
           </span>
         )}
         {thresholdSourceBadge === 'ai' && (
-          <span className="inline-flex items-center gap-1 text-[11px] text-text-body bg-panel-hover rounded-full px-2 py-0.5 shrink-0">
+          <span className={`inline-flex items-center gap-1 ${typography.panelMeta} text-text-body bg-transparent border border-warning/30 rounded-full px-2 py-0.5 shrink-0`}>
             <span className="w-1.5 h-1.5 rounded-full bg-warning flex-shrink-0" aria-hidden="true" />
             AI estimate
           </span>
@@ -340,14 +341,14 @@ export function SuccessTarget({
 
       {/* Provenance text - only shown when threshold is auto-derived (not user-edited) */}
       {thresholdProvenance && isThresholdAutoDerived && (
-        <p className="text-xs text-text-light mt-1">Source: {thresholdProvenance}</p>
+        <p className={`${typography.panelMeta} text-text-light mt-1`}>Source: {thresholdProvenance}</p>
       )}
 
       {/* Inline edit when expanded */}
       {isExpanded && (
         <div className="mt-3 pt-3 border-t border-panel-border">
           <div className="flex items-center gap-3">
-            <label className="text-sm text-text-light shrink-0">{editLabel}</label>
+            <label className={`${typography.panelBody} text-text-light shrink-0`}>{editLabel}</label>
             <input
               type="number"
               value={editDraft}
@@ -372,7 +373,7 @@ export function SuccessTarget({
                 setIsExpanded(false)
                 onThresholdConfirm?.()
               }}
-              className="px-3 py-1.5 text-xs font-medium text-white bg-info rounded-lg hover:bg-success"
+              className={`px-3 py-1.5 ${typography.panelMeta} text-white bg-info rounded-lg hover:bg-success`}
             >
               Confirm
             </button>

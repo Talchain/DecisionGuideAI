@@ -21,6 +21,7 @@
 import { useState } from 'react'
 import { AlertTriangle, ChevronDown, ChevronRight, Info, RefreshCw, Pencil } from 'lucide-react'
 import type { EnrichedBlocker } from './blockerEnrichment'
+import { typography } from '@/styles/typography'
 
 interface BlockersSectionProps {
   /** Enriched blockers to render (blocking — prevent run) */
@@ -64,10 +65,10 @@ export function BlockersSection({
         <>
           {/* Section header with count badge */}
           <div className="flex items-center gap-2">
-            <span className="text-sm font-semibold text-danger">
+            <span className={`${typography.panelHeader} text-danger`}>
               Fix before running
             </span>
-            <span className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-danger-light text-danger text-xs font-semibold">
+            <span className={`inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-transparent border border-danger/30 text-text-body ${typography.panelMeta}`}>
               {blockers.length}
             </span>
           </div>
@@ -93,12 +94,12 @@ export function BlockersSection({
                     }`}
                   />
                   <div className="flex-1 min-w-0">
-                    <p className={`text-sm font-semibold ${
+                    <p className={`${typography.panelHeader} ${
                       isCritical ? 'text-danger' : 'text-warning'
                     }`}>
                       {display.title}
                     </p>
-                    <p className="text-xs text-text-body mt-0.5">
+                    <p className={`${typography.panelBody} text-text-body mt-0.5`}>
                       {display.description}
                     </p>
 
@@ -106,7 +107,7 @@ export function BlockersSection({
                     {display.suggestedActions?.length > 0 && (
                       <ul className="mt-1 space-y-0.5">
                         {display.suggestedActions.map((action) => (
-                          <li key={action} className="text-xs text-text-light flex items-center gap-1">
+                          <li key={action} className={`${typography.panelMeta} text-text-light flex items-center gap-1`}>
                             <span className="text-text-light/50">&bull;</span>
                             {action}
                           </li>
@@ -124,13 +125,13 @@ export function BlockersSection({
                               e.stopPropagation()
                               onEditBrief()
                             }}
-                            className="mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-info bg-transparent border border-info/40 rounded-md hover:border-success/40 hover:text-success transition-colors"
+                            className={`mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 ${typography.panelMeta} text-info bg-transparent border border-info/40 rounded-md hover:border-success/40 hover:text-success transition-colors`}
                             data-testid={`blocker-edit-brief-${blocker.code}`}
                           >
                             <Pencil size={12} />
                             Edit brief
                           </button>
-                          <p className="text-xs text-text-light mt-1">
+                          <p className={`${typography.panelMeta} text-text-light mt-1`}>
                             The previous draft couldn't be validated. Try rephrasing your decision brief.
                           </p>
                         </>
@@ -142,7 +143,7 @@ export function BlockersSection({
                             onRetryDraft()
                           }}
                           disabled={isRetrying}
-                          className="mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-info bg-transparent border border-info/40 rounded-md hover:border-success/40 hover:text-success disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                          className={`mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 ${typography.panelMeta} text-info bg-transparent border border-info/40 rounded-md hover:border-success/40 hover:text-success disabled:opacity-50 disabled:cursor-not-allowed transition-colors`}
                           data-testid={`blocker-retry-${blocker.code}`}
                         >
                           <RefreshCw size={12} className={isRetrying ? 'animate-spin' : ''} />
@@ -162,10 +163,10 @@ export function BlockersSection({
       {(constraintItems.length > 0 || otherInfoItems.length > 0) && (
         <>
           <div className="flex items-center gap-2">
-            <span className="text-sm font-semibold text-info">
+            <span className={`${typography.panelHeader} text-info`}>
               Notes
             </span>
-            <span className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-info-light text-info text-xs font-semibold">
+            <span className={`inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-transparent border border-info/30 text-text-body ${typography.panelMeta}`}>
               {constraintItems.length > 0 ? (otherInfoItems.length + 1) : otherInfoItems.length}
             </span>
           </div>
@@ -191,10 +192,10 @@ export function BlockersSection({
                     className="mt-0.5 flex-shrink-0 text-info"
                   />
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-info">
+                    <p className={`${typography.panelHeader} text-info`}>
                       {display.title}
                     </p>
-                    <p className="text-xs text-text-body mt-0.5">
+                    <p className={`${typography.panelBody} text-text-body mt-0.5`}>
                       {display.description}
                     </p>
                   </div>
@@ -240,14 +241,14 @@ function ConstraintGroupCard({ items }: { items: EnrichedBlocker[] }) {
         />
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            <p className="text-sm font-semibold text-info">
+            <p className={`${typography.panelHeader} text-info`}>
               Constraints not applied
             </p>
-            <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-info-light text-info text-xs font-semibold">
+            <span className={`inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-transparent border border-info/30 text-text-body ${typography.panelMeta}`}>
               {items.length}
             </span>
           </div>
-          <p className="text-xs text-text-body mt-0.5">
+          <p className={`${typography.panelBody} text-text-body mt-0.5`}>
             Some constraints from your brief couldn't be matched to factors in
             your model. The analysis will run without them. If you want them
             enforced, try adding them as explicit factors or set them as targets.
@@ -257,7 +258,7 @@ function ConstraintGroupCard({ items }: { items: EnrichedBlocker[] }) {
           <button
             type="button"
             onClick={() => setIsExpanded(!isExpanded)}
-            className="mt-1.5 inline-flex items-center gap-1 text-xs text-info hover:text-info-hover transition-colors"
+            className={`mt-1.5 inline-flex items-center gap-1 ${typography.panelMeta} text-info hover:text-info-hover transition-colors`}
             data-testid="constraint-group-toggle"
           >
             {isExpanded ? (
@@ -271,7 +272,7 @@ function ConstraintGroupCard({ items }: { items: EnrichedBlocker[] }) {
           {isExpanded && (
             <ul className="mt-1 space-y-0.5" data-testid="constraint-group-list">
               {constraintLabels.map((label, idx) => (
-                <li key={idx} className="text-xs text-text-light flex items-center gap-1">
+                <li key={idx} className={`${typography.panelMeta} text-text-light flex items-center gap-1`}>
                   <span className="text-text-light/50">&bull;</span>
                   {label}
                 </li>

@@ -26,7 +26,7 @@ import {
   type KeyboardEvent,
   type ChangeEvent,
 } from 'react'
-import { ChevronDown, ChevronRight, AlertTriangle, Settings2, ArrowUpRight } from 'lucide-react'
+import { ChevronDown, ChevronRight, AlertTriangle, Settings, ArrowUpRight, GitBranch, Lightbulb, Link, Copy, ClipboardCopy } from 'lucide-react'
 import type { Node, Edge } from '@xyflow/react'
 import { typography } from '../../styles/typography'
 import { useCanvasStore } from '../store'
@@ -87,7 +87,28 @@ function mapSourceToTooltip(source: string | undefined): string | undefined {
   return SOURCE_TOOLTIPS[source] ?? `Source: ${source}`
 }
 
-// ── Entity colours (Design System v2.1 §3.8) ─────────────────────────────────
+// ── Value formatting ─────────────────────────────────────────────────────────
+
+const CURRENCY_SYMBOLS = new Set(['£', '$', '€', '¥', '₹', '₩', '₽', '₺', '₴', '₦', '₫', '₿'])
+
+/** Format value+unit: currency symbols prefix ("£49"), everything else suffixes ("9 months") */
+function formatValueWithUnit(rawValue: number, unit: string): string {
+  const trimmedUnit = unit.trim()
+  if (CURRENCY_SYMBOLS.has(trimmedUnit) || /^[A-Z]{3}$/.test(trimmedUnit)) {
+    return `${trimmedUnit}${formatSmartNumber(rawValue)}`
+  }
+  return `${formatSmartNumber(rawValue)} ${trimmedUnit}`
+}
+
+/** Smart number formatting: integers stay integer, decimals use minimal precision (max 2dp, no trailing zeros) */
+function formatSmartNumber(n: number): string {
+  if (Number.isInteger(n)) return String(n)
+  // Up to 2 decimal places, strip trailing zeros
+  const fixed = n.toFixed(2)
+  return fixed.replace(/\.?0+$/, '')
+}
+
+// ── Entity colours (Design System v4 §3.8) ─────────────────────────────────
 
 // Inline colour values used in the breakdown bar segments (CSS variable references)
 const SEGMENT_COLOURS: Record<string, string> = {
@@ -281,7 +302,7 @@ function AddSourcePill({ onSave }: { onSave: (val: string) => void }) {
     <button
       type="button"
       onClick={handleClick}
-      className={`inline-flex items-center px-2 py-0.5 rounded-full border border-dashed border-info/40 text-info hover:bg-info-light/50 transition-colors ${typography.panelMeta}`}
+      className={`inline-flex items-center px-3 py-1 rounded-full border border-info/30 text-text-body hover:bg-panel-hover transition-colors ${typography.panelMeta} font-medium`}
     >
       + Add source
     </button>
@@ -290,10 +311,10 @@ function AddSourcePill({ onSave }: { onSave: (val: string) => void }) {
 
 // ── Category badge ────────────────────────────────────────────────────────────
 
-const CATEGORY_STYLES: Record<string, { bg: string; text: string; border: string; label: string }> = {
-  controllable: { bg: 'bg-info-light', text: 'text-info', border: 'border-info/20', label: 'Controllable' },
-  observable: { bg: 'bg-factor-light', text: 'text-factor', border: 'border-factor/20', label: 'Observable' },
-  external: { bg: 'bg-warning-light', text: 'text-warning', border: 'border-warning/20', label: 'External' },
+const CATEGORY_STYLES: Record<string, { border: string; label: string }> = {
+  controllable: { border: 'border-info/30', label: 'Controllable' },
+  observable: { border: 'border-factor/30', label: 'Observable' },
+  external: { border: 'border-warning/30', label: 'External' },
 }
 
 function CategoryBadge({ category }: { category?: string }) {
@@ -302,7 +323,7 @@ function CategoryBadge({ category }: { category?: string }) {
   if (!style) return null
   return (
     <span
-      className={`inline-flex items-center px-1.5 py-0.5 rounded-full ${typography.panelMeta} border ${style.bg} ${style.text} ${style.border}`}
+      className={`inline-flex items-center px-3 py-1 rounded-full ${typography.panelMeta} font-medium bg-transparent border ${style.border} text-text-body`}
     >
       {style.label}
     </span>
@@ -381,7 +402,13 @@ function buildSynthesisedPriorMap(
 
 // ── Factor card ───────────────────────────────────────────────────────────────
 
-function FactorCard({ node, synthesisedPrior }: { node: Node; synthesisedPrior?: SynthesisedPrior }) {
+function FactorCard({ node, synthesisedPrior, isHighlighted, onHover, onLeave }: {
+  node: Node
+  synthesisedPrior?: SynthesisedPrior
+  isHighlighted?: boolean
+  onHover?: (id: string) => void
+  onLeave?: () => void
+}) {
   const updateNode = useCanvasStore(s => s.updateNode)
 
   const data = node.data as any
@@ -405,12 +432,12 @@ function FactorCard({ node, synthesisedPrior }: { node: Node; synthesisedPrior?:
 
   // Human-readable primary value: prefer raw_value+unit, then normalised value
   const primaryValue = obs.raw_value !== undefined && obs.unit
-    ? `${obs.raw_value} ${obs.unit}`
+    ? formatValueWithUnit(obs.raw_value, obs.unit)
     : obs.raw_value !== undefined
-      ? String(obs.raw_value)
+      ? formatSmartNumber(obs.raw_value)
       : null
 
-  const normalisedValue = obs.value !== undefined ? obs.value.toFixed(2) : null
+  const normalisedValue = obs.value !== undefined ? formatSmartNumber(obs.value) : null
 
   // Derive scale description from label parenthetical e.g. "(0–1)" or "(0/1)"
   const scaleMatch = label.match(/\(([^)]+)\)/)
@@ -452,7 +479,13 @@ function FactorCard({ node, synthesisedPrior }: { node: Node; synthesisedPrior?:
   }, [node.id, data, updateNode])
 
   return (
-    <div className="bg-panel border border-panel-border rounded-sm p-2.5 mb-1.5 hover:border-info/30 transition-colors">
+    <div
+      className={`bg-panel border border-panel-border border-l-2 border-l-factor rounded-sm p-2.5 mb-1.5 hover:border-info/30 transition-all duration-200 ${
+        isHighlighted ? 'bg-factor-light shadow-2' : ''
+      }`}
+      onMouseEnter={() => onHover?.(node.id)}
+      onMouseLeave={onLeave}
+    >
       {/* Header row: label as focus link + category badge */}
       <div className="flex items-start gap-2 mb-1.5">
         <button
@@ -505,7 +538,7 @@ function FactorCard({ node, synthesisedPrior }: { node: Node; synthesisedPrior?:
                 <button
                   type="button"
                   onClick={() => focusNodeById(node.id)}
-                  className={`inline-flex items-center px-2 py-0.5 rounded-full border border-dashed border-info/40 text-info hover:bg-info-light/50 transition-colors ${typography.panelMeta}`}
+                  className={`inline-flex items-center px-3 py-1 rounded-full border border-info/30 text-text-body hover:bg-panel-hover transition-colors ${typography.panelMeta} font-medium`}
                   data-testid={`factor-${node.id}-refine-range`}
                 >
                   Refine range
@@ -616,12 +649,18 @@ function EdgeCard({
   fragileEdgeIds,
   fragileEdgeSwitchProbMap,
   hasRobustnessData,
+  isHighlighted,
+  onHover,
+  onLeave,
 }: {
   edge: Edge
   nodes: Node[]
   fragileEdgeIds: Set<string>
   fragileEdgeSwitchProbMap: Map<string, number>
   hasRobustnessData: boolean
+  isHighlighted?: boolean
+  onHover?: (id: string) => void
+  onLeave?: () => void
 }) {
   const updateEdge = useCanvasStore(s => s.updateEdge)
 
@@ -645,18 +684,18 @@ function EdgeCard({
   const beliefExists = data?.beliefExists ?? data?.exists_probability ?? data?.confidence ?? data?.belief ?? 0.7
   const likelihoodPct = Math.round(beliefExists * 100)
 
-  // Likelihood colour: success ≥70%, info 40–69%, factor <40%
+  // Likelihood colour: evaluative thresholds (§11.6) — success ≥70%, warning 40–69%, danger <40%
   const likelihoodColour = likelihoodPct >= 70
     ? 'bg-success'
     : likelihoodPct >= 40
-      ? 'bg-info'
-      : 'bg-factor'
+      ? 'bg-warning'
+      : 'bg-danger'
 
   // Direction chip
   const isPositive = signedMean >= 0
   const directionChip = isPositive
-    ? { label: 'helps', bg: 'bg-success-light', text: 'text-success' }
-    : { label: 'hurts', bg: 'bg-danger-light', text: 'text-danger' }
+    ? { label: 'helps', border: 'border-success/30' }
+    : { label: 'hurts', border: 'border-danger/30' }
 
   // Provenance
   const provenance = data?.provenance as string | undefined
@@ -695,9 +734,11 @@ function EdgeCard({
 
   return (
     <div
-      className={`bg-panel border border-panel-border rounded-sm p-2.5 mb-1.5 hover:border-info/30 transition-colors ${
-        isFragile ? 'border-l-[3px] border-l-warning' : ''
-      }`}
+      className={`bg-panel border border-panel-border rounded-sm p-2.5 mb-1.5 hover:border-info/30 transition-all duration-200 ${
+        isFragile ? 'border-l-[3px] border-l-warning' : isPositive ? 'border-l-2 border-l-success/30' : 'border-l-2 border-l-danger/30'
+      } ${isHighlighted ? (isPositive ? 'bg-success-light' : 'bg-danger-light') + ' shadow-2' : ''}`}
+      onMouseEnter={() => onHover?.(edgeId)}
+      onMouseLeave={onLeave}
     >
       {/* Label row — clickable focus link */}
       <div className="flex items-start gap-1.5 mb-1">
@@ -712,7 +753,7 @@ function EdgeCard({
         </button>
         {isFragile && (
           <span
-            className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded ${typography.panelMeta} bg-warning-light text-warning shrink-0`}
+            className={`inline-flex items-center gap-0.5 px-3 py-1 rounded-full ${typography.panelMeta} font-medium bg-transparent border border-warning/30 text-text-body shrink-0`}
             title={fragileTooltip}
           >
             <AlertTriangle className="w-2.5 h-2.5 shrink-0" aria-hidden="true" />
@@ -740,7 +781,7 @@ function EdgeCard({
           )}
         </div>
         <span
-          className={`inline-flex items-center px-1.5 py-0.5 rounded ${typography.panelMeta} font-semibold ${directionChip.bg} ${directionChip.text}`}
+          className={`inline-flex items-center px-3 py-1 rounded-full ${typography.panelMeta} font-medium bg-transparent border ${directionChip.border} text-text-body`}
         >
           {directionChip.label}
         </span>
@@ -772,17 +813,12 @@ function EdgeCard({
         </div>
       </div>
 
-      {/* Provenance row */}
-      <div className={`${typography.panelMeta} flex items-center gap-1`}>
-        {hasEvidence ? (
-          <span className="text-text-light">{provenance}{origin ? ` · origin: ${origin}` : ''}</span>
-        ) : (
-          <>
-            <span className="text-warning font-medium">No evidence</span>
-            {origin && <span className="text-text-light"> · origin: {origin}</span>}
-          </>
-        )}
-      </div>
+      {/* Provenance row — only show source when edge has evidence; absence is the signal */}
+      {hasEvidence && (
+        <div className={`${typography.panelMeta} flex items-center gap-1`}>
+          <span className="text-text-light">Source: {provenance}{origin ? ` · origin: ${origin}` : ''}</span>
+        </div>
+      )}
     </div>
   )
 }
@@ -853,7 +889,7 @@ function HealthCard({
   progressColour: string
 }) {
   return (
-    <div className="flex-1 min-w-0 bg-panel border border-panel-border rounded-sm px-2.5 py-2">
+    <div className="flex-1 min-w-0 bg-panel border border-panel-border rounded-xl px-2.5 py-2">
       <div className={`${typography.panelMeta} text-text-light mb-0.5`}>{label}</div>
       <div className={`${typography.panelHeader} text-text-header`}>{value}</div>
       <div className={`${typography.panelMeta} ${subtextColour} mt-0.5 mb-1`}>{subtext}</div>
@@ -980,7 +1016,7 @@ function ReferenceNodeList({ nodes: nodeList, label }: { nodes: Node[]; label: s
             <span className={`${typography.panelBody} text-text-header flex-1 truncate`}>
               {String((n.data as any)?.label ?? n.id)}
             </span>
-            <span className={`${typography.panelMeta} text-info`}>↗</span>
+            <ArrowUpRight className="w-3 h-3 text-info shrink-0" aria-hidden="true" />
           </button>
         ))}
       </div>
@@ -991,26 +1027,26 @@ function ReferenceNodeList({ nodes: nodeList, label }: { nodes: Node[]; label: s
 // ── Section header with coloured circle icon ──────────────────────────────────
 
 function SectionHeader({
-  iconBg,
+  iconColour,
   icon,
   title,
 }: {
-  iconBg: string
+  iconColour: string
   icon: ReactNode
   title: string
 }) {
   return (
-    <div className="flex items-center gap-2 mb-2">
-      <span
-        className={`inline-flex items-center justify-center w-4 h-4 rounded-full text-white ${iconBg} shrink-0`}
-        aria-hidden="true"
-      >
+    <div className="flex items-center gap-2 mb-2" data-testid={`section-header-${title.split(' ')[0].toLowerCase()}`}>
+      <span className={`w-4 h-4 shrink-0 ${iconColour}`} aria-hidden="true">
         {icon}
       </span>
       <span className={`${typography.panelHeader} text-text-header`}>{title}</span>
     </div>
   )
 }
+
+// ── Constraint critique codes (module-level to avoid react-hooks/exhaustive-deps warning)
+const CONSTRAINT_CRITIQUE_CODES = ['MISSING_BASELINE', 'CONSTRAINT_NO_BASELINE', 'CONSTRAINT_INTERCEPT_DEFAULT', 'constraint_missing_baseline', 'CONSTRAINT_TARGET_NO_OBSERVED_VALUE']
 
 // ── Main component ────────────────────────────────────────────────────────────
 
@@ -1029,6 +1065,10 @@ export function ModelTabBody({
 }: ModelTabBodyProps) {
   const [searchQuery, setSearchQuery] = useState('')
   const ceePipelineTrace = useCanvasStore(s => s.ceePipelineTrace)
+  const highlightedNodes = useCanvasStore(s => s.highlightedNodes)
+  const highlightedEdges = useCanvasStore(s => s.highlightedEdges)
+  const setHighlightedNodes = useCanvasStore(s => s.setHighlightedNodes)
+  const setHighlightedEdges = useCanvasStore(s => s.setHighlightedEdges)
 
   // ── Synthesised prior lookup from repair summary ───────────────────────────
 
@@ -1196,7 +1236,6 @@ export function ModelTabBody({
   }, [fragileEdgeIds, causalEdges, fragileEdgeSwitchProbMap])
 
   // Constraint warnings from PLoT critique — codes related to missing baseline or constraint issues
-  const CONSTRAINT_CRITIQUE_CODES = ['MISSING_BASELINE', 'CONSTRAINT_NO_BASELINE', 'CONSTRAINT_INTERCEPT_DEFAULT', 'constraint_missing_baseline']
   const constraintWarnings = useMemo(() => {
     if (!critique?.length) return []
     return critique.filter(c =>
@@ -1244,9 +1283,15 @@ export function ModelTabBody({
 
   // ── Copy as text ──────────────────────────────────────────────────────────
 
-  const [copied, setCopied] = useState(false)
+  // ── Hover highlight dispatch (bidirectional: Model tab ↔ canvas) ──────────
+  const handleNodeHover = useCallback((id: string) => setHighlightedNodes([id]), [setHighlightedNodes])
+  const handleEdgeHover = useCallback((id: string) => setHighlightedEdges([id]), [setHighlightedEdges])
+  const handleNodeLeave = useCallback(() => setHighlightedNodes([]), [setHighlightedNodes])
+  const handleEdgeLeave = useCallback(() => setHighlightedEdges([]), [setHighlightedEdges])
 
-  const handleCopy = useCallback(() => {
+  const [copied, setCopied] = useState<'text' | 'json' | false>(false)
+
+  const handleCopyText = useCallback(() => {
     const lines: string[] = []
     if (goalLabel) lines.push(`Goal: ${goalLabel}`)
     lines.push('')
@@ -1268,10 +1313,37 @@ export function ModelTabBody({
     }
     const text = lines.join('\n')
     navigator.clipboard?.writeText(text).then(() => {
-      setCopied(true)
+      setCopied('text')
       setTimeout(() => setCopied(false), 2000)
     }).catch(() => {})
   }, [goalLabel, sortedFactors, sortedEdges, nodes])
+
+  const handleCopyJson = useCallback(() => {
+    const payload = {
+      goal: goalLabel ?? null,
+      factors: sortedFactors.map(n => ({
+        id: n.id,
+        label: String((n.data as any)?.label ?? n.id),
+        category: (n.data as any)?.category ?? null,
+        observedState: (n.data as any)?.observedState ?? (n.data as any)?.observed_state ?? null,
+        prior: (n.data as any)?.prior ?? null,
+      })),
+      edges: sortedEdges.map(e => ({
+        id: getDisplayEdgeId(e),
+        source: e.source,
+        target: e.target,
+        weight: (e.data as any)?.weight ?? null,
+        direction: (e.data as any)?.direction ?? null,
+        beliefExists: (e.data as any)?.beliefExists ?? (e.data as any)?.exists_probability ?? null,
+        provenance: (e.data as any)?.provenance ?? null,
+      })),
+    }
+    const json = JSON.stringify(payload, null, 2)
+    navigator.clipboard?.writeText(json).then(() => {
+      setCopied('json')
+      setTimeout(() => setCopied(false), 2000)
+    }).catch(() => {})
+  }, [goalLabel, sortedFactors, sortedEdges])
 
   // ── Render ────────────────────────────────────────────────────────────────
 
@@ -1340,13 +1412,20 @@ export function ModelTabBody({
         <SectionErrorBoundary section="factors">
           <div data-testid="model-factors-section">
             <SectionHeader
-              iconBg="bg-factor"
-              icon={<Settings2 className="w-2.5 h-2.5" />}
+              iconColour="text-text-light"
+              icon={<Settings className="w-4 h-4" />}
               title={`Factors (${sortedFactors.length})`}
             />
             <div>
               {visibleFactors.map(n => (
-                <FactorCard key={n.id} node={n} synthesisedPrior={synthesisedPriorMap.get(n.id)} />
+                <FactorCard
+                  key={n.id}
+                  node={n}
+                  synthesisedPrior={synthesisedPriorMap.get(n.id)}
+                  isHighlighted={highlightedNodes.has(n.id)}
+                  onHover={handleNodeHover}
+                  onLeave={handleNodeLeave}
+                />
               ))}
               {query && visibleFactors.length === 0 && (
                 <p className={`${typography.panelMeta} text-text-light`}>No matching factors.</p>
@@ -1361,8 +1440,8 @@ export function ModelTabBody({
         <SectionErrorBoundary section="edges">
           <div data-testid="model-edges-section">
             <SectionHeader
-              iconBg="bg-text-light"
-              icon={<ArrowUpRight className="w-2.5 h-2.5" />}
+              iconColour="text-text-light"
+              icon={<GitBranch className="w-4 h-4" />}
               title={`Edges (${sortedEdges.length})`}
             />
             <div>
@@ -1374,6 +1453,9 @@ export function ModelTabBody({
                   fragileEdgeIds={fragileEdgeIds}
                   fragileEdgeSwitchProbMap={fragileEdgeSwitchProbMap}
                   hasRobustnessData={hasRobustnessData}
+                  isHighlighted={highlightedEdges.has(getDisplayEdgeId(e))}
+                  onHover={handleEdgeHover}
+                  onLeave={handleEdgeLeave}
                 />
               ))}
               {query && visibleEdges.length === 0 && (
@@ -1403,7 +1485,11 @@ export function ModelTabBody({
 
       {/* ── Strengthen section ────────────────────────────────────────────── */}
       <div id="model-strengthen" className="border-t border-panel-border pt-3" data-testid="model-strengthen-section">
-        <div className={`${typography.panelHeader} text-text-header mb-0.5`}>Strengthen</div>
+        <SectionHeader
+          iconColour="text-info"
+          icon={<Lightbulb className="w-4 h-4" />}
+          title="Strengthen"
+        />
         <div className={`${typography.panelMeta} text-text-light mb-3`}>
           Improve your model with evidence and refinements
         </div>
@@ -1435,7 +1521,7 @@ export function ModelTabBody({
                     className="flex items-center gap-2 p-1.5 bg-panel border border-panel-border rounded-sm"
                     data-testid={`strengthen-constraint-${c.code ?? i}`}
                   >
-                    <span className="w-2 h-2 rounded-full bg-warning shrink-0" aria-hidden="true" />
+                    <AlertTriangle className="w-3.5 h-3.5 text-danger shrink-0" aria-hidden="true" />
                     <span className={`${typography.panelBody} text-text-header flex-1 min-w-0`}>
                       {factorLabel} has a constraint but no baseline value — add an estimate
                     </span>
@@ -1443,7 +1529,7 @@ export function ModelTabBody({
                       <button
                         type="button"
                         onClick={() => focusNodeById(c.node_id!)}
-                        className={`inline-flex items-center px-2 py-0.5 rounded-full bg-warning-light text-warning border border-warning/20 ${typography.panelMeta} hover:bg-warning/20 transition-colors shrink-0`}
+                        className={`inline-flex items-center px-3 py-1 rounded-full bg-transparent border border-warning/30 text-text-body ${typography.panelMeta} font-medium hover:bg-panel-hover transition-colors shrink-0`}
                       >
                         Add estimate
                       </button>
@@ -1473,7 +1559,7 @@ export function ModelTabBody({
                     key={rfId}
                     className="flex items-center gap-2 p-1.5 bg-panel border border-panel-border rounded-sm"
                   >
-                    <span className="w-2 h-2 rounded-full bg-warning shrink-0" aria-hidden="true" />
+                    <AlertTriangle className="w-3.5 h-3.5 text-warning shrink-0" aria-hidden="true" />
                     <span className={`${typography.panelBody} text-text-header flex-1 min-w-0 truncate`}>
                       {edgeLabel}
                     </span>
@@ -1485,7 +1571,7 @@ export function ModelTabBody({
                     <button
                       type="button"
                       onClick={() => focusEdgeById(rfId)}
-                      className={`inline-flex items-center px-2 py-0.5 rounded-full bg-info-light text-info border border-info/20 ${typography.panelMeta} hover:bg-info/20 transition-colors shrink-0`}
+                      className={`inline-flex items-center px-3 py-1 rounded-full bg-transparent border border-info/30 text-text-body ${typography.panelMeta} font-medium hover:bg-panel-hover transition-colors shrink-0`}
                     >
                       Add evidence
                     </button>
@@ -1510,14 +1596,14 @@ export function ModelTabBody({
                     key={n.id}
                     className="flex items-center gap-2 p-1.5 bg-panel border border-panel-border rounded-sm"
                   >
-                    <span className="text-text-light shrink-0" aria-hidden="true">◐</span>
+                    <Link className="w-3.5 h-3.5 text-text-light shrink-0" aria-hidden="true" />
                     <span className={`${typography.panelBody} text-text-header flex-1 min-w-0 truncate`}>
                       {lbl}
                     </span>
                     <button
                       type="button"
                       onClick={() => focusNodeById(n.id)}
-                      className={`inline-flex items-center px-2 py-0.5 rounded-full bg-info-light text-info border border-info/20 ${typography.panelMeta} hover:bg-info/20 transition-colors shrink-0`}
+                      className={`inline-flex items-center px-3 py-1 rounded-full bg-transparent border border-info/30 text-text-body ${typography.panelMeta} font-medium hover:bg-panel-hover transition-colors shrink-0`}
                     >
                       Add source
                     </button>
@@ -1536,14 +1622,14 @@ export function ModelTabBody({
                     key={edgeId}
                     className="flex items-center gap-2 p-1.5 bg-panel border border-panel-border rounded-sm"
                   >
-                    <span className="text-text-light shrink-0" aria-hidden="true">◐</span>
+                    <Link className="w-3.5 h-3.5 text-text-light shrink-0" aria-hidden="true" />
                     <span className={`${typography.panelBody} text-text-header flex-1 min-w-0 truncate`}>
                       {edgeLabel}
                     </span>
                     <button
                       type="button"
                       onClick={() => focusEdgeById(edgeId)}
-                      className={`inline-flex items-center px-2 py-0.5 rounded-full bg-info-light text-info border border-info/20 ${typography.panelMeta} hover:bg-info/20 transition-colors shrink-0`}
+                      className={`inline-flex items-center px-3 py-1 rounded-full bg-transparent border border-info/30 text-text-body ${typography.panelMeta} font-medium hover:bg-panel-hover transition-colors shrink-0`}
                     >
                       Add evidence
                     </button>
@@ -1653,12 +1739,21 @@ export function ModelTabBody({
         />
         <button
           type="button"
-          onClick={handleCopy}
-          className={`inline-flex items-center gap-1 px-2 py-1 rounded border border-panel-border ${typography.panelBody} text-text-light hover:bg-sand-50 transition-colors shrink-0`}
+          onClick={handleCopyText}
+          className={`inline-flex items-center gap-1 px-2 py-1 rounded border border-panel-border ${typography.panelMeta} text-text-body hover:bg-panel-hover transition-colors shrink-0`}
           data-testid="model-copy"
         >
-          <span aria-hidden="true">⎘</span>
-          {copied ? 'Copied!' : 'Copy as text'}
+          <Copy className="w-3 h-3 shrink-0" aria-hidden="true" />
+          {copied === 'text' ? 'Copied!' : 'Text'}
+        </button>
+        <button
+          type="button"
+          onClick={handleCopyJson}
+          className={`inline-flex items-center gap-1 px-2 py-1 rounded border border-panel-border ${typography.panelMeta} text-text-body hover:bg-panel-hover transition-colors shrink-0`}
+          data-testid="model-copy-json"
+        >
+          <ClipboardCopy className="w-3 h-3 shrink-0" aria-hidden="true" />
+          {copied === 'json' ? 'Copied!' : 'JSON'}
         </button>
       </div>
     </div>

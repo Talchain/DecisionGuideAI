@@ -1,7 +1,7 @@
 /**
  * NodeShapeIndicator
  * Renders a small inline SVG shape representing the node type.
- * Design System v3 §10.1 — Three-channel system: Shapes (what it is).
+ * Design System v4 §10.1 — Three-channel system: Shapes (what it is).
  *
  * Sizes: 12–14px. Colours match entity colour tokens.
  */
@@ -15,7 +15,7 @@ interface NodeShapeIndicatorProps {
 }
 
 /**
- * Shared fill colours per node type (Design System v3 entity colours).
+ * Shared fill colours per node type (Design System v4 entity colours).
  * Using CSS custom properties defined by Tailwind colour tokens.
  */
 const SHAPE_FILLS: Record<NodeType, string> = {

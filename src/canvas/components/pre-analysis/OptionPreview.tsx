@@ -11,6 +11,7 @@ import { useState } from 'react'
 import { ChevronDown, ChevronRight, ClipboardList, ArrowUp, ArrowDown, Minus } from 'lucide-react'
 import { Pill } from './primitives'
 import type { OptionPreviewData } from './hooks/usePreAnalysisData'
+import { typography } from '@/styles/typography'
 
 interface OptionPreviewProps {
   options: OptionPreviewData[]
@@ -134,7 +135,7 @@ export function OptionPreview({
       >
         <div className="flex items-center gap-2">
           <ClipboardList className="w-4 h-4 text-text-light" />
-          <span className="text-sm font-semibold text-text-body">Your options</span>
+          <span className={`${typography.panelHeader} text-text-body`}>Your options</span>
         </div>
         <div className="flex items-center gap-2">
           <Pill size="small" variant="success">{options.length}</Pill>
@@ -152,7 +153,7 @@ export function OptionPreview({
           {options.map((opt, idx) => (
             <div
               key={opt.id}
-              className={`py-2 ${idx > 0 ? 'border-t border-panel-border' : ''}`}
+              className={`py-2 rounded hover:bg-option-light transition-colors ${idx > 0 ? 'border-t border-panel-border' : ''}`}
               onMouseEnter={() => onHoverEnter?.('node', opt.id)}
               onMouseLeave={() => onHoverLeave?.()}
             >
@@ -161,12 +162,12 @@ export function OptionPreview({
                 <button
                   type="button"
                   onClick={() => onFocusNode?.(opt.id)}
-                  className="text-sm font-semibold text-text-header hover:underline cursor-pointer text-left"
+                  className={`${typography.panelHeader} text-text-header hover:underline cursor-pointer text-left`}
                 >
                   {opt.label}
                 </button>
                 {opt.status === 'ready' ? (
-                  <span className="inline-flex items-center gap-1 text-xs text-text-body bg-panel-hover rounded-full px-2 py-0.5">
+                  <span className={`inline-flex items-center gap-1 ${typography.panelMeta} text-text-body bg-transparent border border-success/30 rounded-full px-2 py-0.5`}>
                     <span className="w-1.5 h-1.5 rounded-full bg-success flex-shrink-0" aria-hidden="true" />
                     Ready
                   </span>
@@ -178,14 +179,14 @@ export function OptionPreview({
               {/* Interventions */}
               <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1">
                 {opt.isBaseline && opt.interventions.length > 0 ? (
-                  <span className="text-xs text-text-light">
+                  <span className={`${typography.panelMeta} text-text-light`}>
                     No changes — compare against current state
                   </span>
                 ) : (
                   opt.interventions.map(iv => {
                     const display = formatInterventionDisplay(iv.interventionValue, iv.cap, iv.unit, iv.direction, iv.currentRawValue)
                     return (
-                      <span key={iv.factorId} className="inline-flex items-center gap-1 text-xs text-text-body">
+                      <span key={iv.factorId} className={`inline-flex items-center gap-1 ${typography.panelMeta} text-text-body`}>
                         <InterventionArrow direction={iv.direction} />
                         <span>{iv.factorLabel}</span>
                         <span className="text-text-light">{display}</span>
@@ -194,7 +195,7 @@ export function OptionPreview({
                   })
                 )}
                 {opt.interventions.length === 0 && !opt.isBaseline && (
-                  <span className="text-xs text-text-light">No factor changes</span>
+                  <span className={`${typography.panelMeta} text-text-light`}>No factor changes</span>
                 )}
               </div>
             </div>

@@ -1,5 +1,5 @@
 /**
- * §11.6 — Evaluative colour thresholds (Design System v3.1)
+ * §11.6 — Evaluative colour thresholds (Design System v4)
  *
  * Universal threshold system for metrics judged as good/moderate/poor.
  * Returns a Tailwind background-colour class for use on bar fills.

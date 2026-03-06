@@ -1,8 +1,8 @@
 /**
- * Olumi Typography System (Design System v3)
+ * Olumi Typography System (Design System v4)
  *
  * Single font family: Inter for all text.
- * Full specification: docs/Design/Olumi_Design_System_v3.md
+ * Full specification: docs/design/Olumi_Design_System_v4.md
  *
  * Usage:
  * import { typography } from '@/styles/typography'

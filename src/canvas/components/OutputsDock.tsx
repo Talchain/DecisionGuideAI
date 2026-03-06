@@ -1073,7 +1073,7 @@ export function OutputsDock() {
       )}
 
       {state.isOpen && (
-        <div className={`flex-1 min-h-0 ${typography.caption} text-ink-900/70 ${isPreRun && nodes.length > 0 ? 'flex flex-col overflow-hidden' : 'px-3 py-3 space-y-4 overflow-y-auto'}`} data-testid="outputs-dock-body">
+        <div className={`flex-1 min-h-0 ${typography.caption} text-ink-900/70 ${isPreRun && nodes.length > 0 && state.activeTab === 'results' ? 'flex flex-col overflow-hidden' : 'px-3 py-3 space-y-4 overflow-y-auto'}`} data-testid="outputs-dock-body">
             {state.activeTab === 'results' && (
               <div className={isPreRun && nodes.length > 0 ? 'flex-1 min-h-0 flex flex-col' : 'space-y-6'}>
                 {/* P0.6: User-friendly error display */}
@@ -1455,12 +1455,11 @@ export function OutputsDock() {
               type="button"
               onClick={handleRunAnalysis}
               disabled={isRunning}
-              className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-pill text-xs font-semibold transition-colors ${
+              className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-pill text-xs font-semibold transition-colors shadow-sm ${
                 isRunning
                   ? 'bg-sand-200 text-text-light cursor-not-allowed'
-                  : 'text-text-header hover:opacity-90'
+                  : 'bg-info text-white hover:opacity-90'
               }`}
-              style={isRunning ? undefined : { backgroundColor: 'var(--goal)' }}
               data-testid="outputs-rerun-button"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${isRunning ? 'animate-spin' : ''}`} aria-hidden="true" />

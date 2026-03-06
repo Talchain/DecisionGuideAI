@@ -17,6 +17,7 @@
 
 import { CheckCircle, XCircle, Loader2, RefreshCw } from 'lucide-react'
 import { Tooltip } from '../Tooltip'
+import { typography } from '@/styles/typography'
 
 /** Derive source distribution tooltip from raw counts */
 function getReviewedTooltip(nonAiCount?: number, totalCount?: number): string {
@@ -82,22 +83,22 @@ export function StickyFooter({
 
   if (isLoading) {
     buttonLabel = 'Checking...'
-    buttonStyle = 'bg-factor-light text-text-light cursor-wait opacity-40'
+    buttonStyle = 'bg-panel text-text-light cursor-wait opacity-40'
   } else if (isRetrying) {
     buttonLabel = 'Re-drafting...'
-    buttonStyle = 'bg-factor-light text-text-light cursor-wait opacity-40'
+    buttonStyle = 'bg-panel text-text-light cursor-wait opacity-40'
   } else if (isAnalysing) {
     buttonLabel = 'Analysing...'
     buttonStyle = 'bg-primary text-white cursor-wait'
   } else if (hasBlockers) {
     buttonLabel = `Fix ${blockerCount} issue${blockerCount !== 1 ? 's' : ''} first`
-    buttonStyle = 'bg-factor-light text-text-light cursor-not-allowed opacity-40'
+    buttonStyle = 'bg-panel text-text-light cursor-not-allowed opacity-40'
   } else if (!isReady) {
     buttonLabel = 'Not ready'
-    buttonStyle = 'bg-factor-light text-text-light cursor-not-allowed opacity-40'
+    buttonStyle = 'bg-panel text-text-light cursor-not-allowed opacity-40'
   } else {
     buttonLabel = 'Analyse Now'
-    buttonStyle = 'bg-info hover:bg-success text-white'
+    buttonStyle = 'bg-primary hover:bg-primary-hover text-white'
   }
 
   let StatusIcon: typeof CheckCircle | typeof XCircle | typeof Loader2
@@ -135,9 +136,9 @@ export function StickyFooter({
       data-testid="sticky-footer"
     >
       {/* Left: Status + Reviewed count */}
-      <div className="flex items-center gap-2 text-sm">
+      <div className={`flex items-center gap-2 ${typography.panelBody}`}>
         <StatusIcon className={`w-4 h-4 ${statusIconColor}`} aria-hidden="true" />
-        <span className="font-medium text-text-body">{statusText}</span>
+        <span className="text-text-body">{statusText}</span>
         {!isRetrying && (totalReviewableCount != null && totalReviewableCount > 0) && (
           <>
             <span className="text-text-light">·</span>
@@ -157,7 +158,7 @@ export function StickyFooter({
             <button
               type="button"
               onClick={onRetryDraft}
-              className="px-3 py-2 rounded-full text-[11px] font-medium transition-colors flex items-center gap-1.5 border border-primary/30 text-primary hover:bg-primary-light"
+              className={`px-3 py-2 rounded-full ${typography.panelMeta} transition-colors flex items-center gap-1.5 border border-primary/30 text-primary hover:bg-primary-light`}
               aria-label="Retry draft to fix blocked state"
               data-testid="retry-draft-button"
             >
@@ -173,7 +174,7 @@ export function StickyFooter({
           disabled={isDisabled}
           aria-disabled={isDisabled ? 'true' : 'false'}
           className={`
-            px-4 py-2 rounded-full text-[11px] font-medium transition-colors
+            px-4 py-2 rounded-full ${typography.panelMeta} transition-colors
             flex items-center gap-2
             ${buttonStyle}
           `}

@@ -182,7 +182,7 @@ export default function ProfileSettingsPage() {
           type="button"
           onClick={handleSave}
           disabled={saving}
-          className={`inline-flex items-center gap-2 rounded-pill bg-primary px-5 py-2.5 ${typography.button} text-text-header transition-transform duration-fast hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50`}
+          className={`inline-flex items-center gap-2 rounded-pill bg-primary px-5 py-2.5 ${typography.button} text-text-on-color transition-transform duration-fast hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50`}
         >
           {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
           {saving ? 'Saving...' : 'Save changes'}

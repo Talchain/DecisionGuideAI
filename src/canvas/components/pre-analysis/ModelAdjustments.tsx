@@ -12,6 +12,7 @@
 
 import { useState } from 'react'
 import { ChevronDown, ChevronRight, Wrench } from 'lucide-react'
+import { typography } from '@/styles/typography'
 
 interface ModelAdjustment {
   /** Legacy type identifier */
@@ -169,10 +170,10 @@ function AdjustmentRow({ adj }: { adj: GroupedAdjustment }) {
   const headline = adj.headline ?? GENERIC_REPAIR_FALLBACK
 
   return (
-    <div className="flex items-start gap-2 text-xs">
+    <div className={`flex items-start gap-2 ${typography.panelMeta}`}>
       <span className="text-text-light mt-0.5 flex-shrink-0">&bull;</span>
       <div>
-        <span className="font-medium text-text-body">{headline}</span>
+        <span className="text-text-body">{headline}</span>
         {adj.target && (
           <p className="text-text-light mt-0.5">{adj.target}</p>
         )}
@@ -181,12 +182,14 @@ function AdjustmentRow({ adj }: { adj: GroupedAdjustment }) {
             <button
               type="button"
               onClick={() => setShowDetail(!showDetail)}
-              className="text-info hover:underline cursor-pointer mt-0.5 block"
+              className={`${typography.panelMeta} text-info hover:underline cursor-pointer mt-0.5 block`}
             >
               {showDetail ? 'Hide details' : 'Details'}
             </button>
             {showDetail && (
-              <p className="text-text-light text-xs mt-1 ml-2">{adj.technicalDetail}</p>
+              <div className="mt-2 pl-3 border-l-2 border-panel-border">
+                <p className={`${typography.panelBody} text-text-light`}>{adj.technicalDetail}</p>
+              </div>
             )}
           </>
         )}
@@ -215,7 +218,7 @@ export function ModelAdjustments({ adjustments, repairActions = [] }: ModelAdjus
             {singleAdj ? (
               <AdjustmentRow adj={singleAdj} />
             ) : (
-              <span className="text-xs text-text-body">{singleRepair}</span>
+              <span className={`${typography.panelMeta} text-text-body`}>{singleRepair}</span>
             )}
           </div>
         </div>
@@ -233,10 +236,10 @@ export function ModelAdjustments({ adjustments, repairActions = [] }: ModelAdjus
       >
         <Wrench size={14} className="text-text-light flex-shrink-0" />
         <div className="flex-1 min-w-0">
-          <span className="text-xs font-semibold text-text-body">
+          <span className={`${typography.panelHeader} text-text-body`}>
             {totalCount} auto-fixes applied
           </span>
-          <p className="text-xs text-text-light leading-tight">
+          <p className={`${typography.panelMeta} text-text-light leading-tight`}>
             We fixed small issues without changing your intent.
           </p>
         </div>
@@ -265,7 +268,7 @@ export function ModelAdjustments({ adjustments, repairActions = [] }: ModelAdjus
               {repairActions.map((action, idx) => (
                 <div
                   key={`repair-${idx}`}
-                  className="flex items-start gap-2 text-xs"
+                  className={`flex items-start gap-2 ${typography.panelMeta}`}
                 >
                   <span className="text-text-light mt-0.5 flex-shrink-0">&bull;</span>
                   <span className="text-text-body">{action}</span>

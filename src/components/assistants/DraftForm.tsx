@@ -176,7 +176,7 @@ export function DraftForm({ onSubmit, isSubmitting }: DraftFormProps) {
       <button
         type="submit"
         disabled={isSubmitting || !prompt.trim()}
-        className="w-full px-4 py-2 min-h-[44px] bg-primary text-ink-900 rounded-md hover:bg-primary-hover disabled:bg-primary-disabled disabled:cursor-not-allowed font-medium"
+        className="w-full px-4 py-2 min-h-[44px] bg-primary text-text-on-color rounded-md hover:bg-primary-hover disabled:bg-primary-disabled disabled:cursor-not-allowed font-medium"
       >
         {isSubmitting ? 'Generating draft...' : 'Draft my model'}
       </button>

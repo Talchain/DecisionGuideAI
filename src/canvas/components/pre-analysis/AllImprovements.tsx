@@ -18,6 +18,7 @@ import { useState, useCallback } from 'react'
 import { Accordion, Pill, NodeLink, IconBtn, BiasIcon } from './primitives'
 import { Check, Pencil, Plus, HelpCircle, ChevronDown, ChevronRight } from 'lucide-react'
 import type { ImprovementItem, ImprovementCategory, TiersData } from './hooks/usePreAnalysisData'
+import { typography } from '@/styles/typography'
 
 /** Action handlers for improvement items */
 export interface ImprovementActionHandlers {
@@ -150,13 +151,15 @@ function TierSection({
         onClick={onToggleExpand}
         className="w-full flex items-center justify-between px-3 py-2 cursor-pointer hover:bg-black/[0.02]"
       >
-        <span className="text-sm font-semibold text-text-body">{sectionTitle}</span>
+        <span className={`${typography.panelHeader} text-text-body`}>{sectionTitle}</span>
         <div className="flex items-center gap-2">
-          <span className={`text-xs rounded-full px-2 py-0.5 font-medium ${showCompletionState ? 'text-success bg-success/15' : showEmptyState ? 'text-text-light bg-factor-light' : isReviewTier ? 'text-warning bg-warning/15' : isOptionalTier ? 'text-info bg-info/15' : 'text-text-light bg-factor-light'}`}>
-            {showCompletionState ? '✓' : showEmptyState ? '—' : (
-              isReviewTier && totalCount != null ? totalCount : items.length
-            )}
-          </span>
+          {!showEmptyState && (
+            <span className={`${typography.panelMeta} rounded-full px-1.5 py-0.5 bg-transparent border ${showCompletionState ? 'border-success/30 text-text-body' : isReviewTier ? 'border-warning/30 text-text-body' : isOptionalTier ? 'border-info/30 text-text-body' : 'border-panel-border text-text-light'}`}>
+              {showCompletionState ? '✓' : (
+                isReviewTier && totalCount != null ? totalCount : items.length
+              )}
+            </span>
+          )}
           {isExpanded ? (
             <ChevronDown className="w-4 h-4 text-text-light" />
           ) : (
@@ -168,9 +171,9 @@ function TierSection({
       {/* Progress bar for reviewAssumptions tier (v1.1) */}
       {isReviewTier && reviewedCount !== undefined && totalCount !== undefined && totalCount > 0 && (
         <div className="px-3 pb-1">
-          <div className="w-full h-1.5 bg-factor-light rounded-full overflow-hidden">
+          <div className="w-full h-1.5 bg-panel-border rounded-full overflow-hidden">
             <div
-              className="h-full bg-success rounded-full transition-all duration-300"
+              className="h-full bg-goal rounded-full transition-all duration-300"
               style={{ width: `${Math.round((reviewedCount / totalCount) * 100)}%` }}
             />
           </div>
@@ -181,9 +184,9 @@ function TierSection({
       {isExpanded && (
         <div className="px-3 pb-3 space-y-2">
           {showCompletionState ? (
-            <p className="text-sm text-success py-1">All reviewed</p>
+            <p className={`${typography.panelBody} text-success py-1`}>All reviewed</p>
           ) : showEmptyState ? (
-            <p className="text-sm text-text-light py-1">
+            <p className={`${typography.panelBody} text-text-light py-1`}>
               All values came from your brief or are set by your options. Nothing needs review.
             </p>
           ) : (
@@ -217,13 +220,13 @@ function TierSection({
                 >
                   {/* Summary line — always visible on expand */}
                   <div className="flex items-center justify-between">
-                    <p className="text-sm text-text-body">
+                    <p className={`${typography.panelBody} text-text-body`}>
                       {evidenceItems.length} edge{evidenceItems.length !== 1 ? 's' : ''} without evidence
                     </p>
                     <button
                       type="button"
                       onClick={() => setEvidenceExpanded(!evidenceExpanded)}
-                      className="text-xs font-medium text-info hover:underline cursor-pointer"
+                      className={`${typography.panelMeta} text-info hover:underline cursor-pointer`}
                     >
                       {evidenceExpanded ? 'Collapse' : 'View all'}
                     </button>
@@ -324,12 +327,12 @@ function CategorySection({ category, items, onFocus, actionHandlers, removingIte
     return (
       <div className={`rounded-lg border ${config.containerBorder} border-l-[3px] ${config.border} py-2 px-2.5`}>
         <div className="flex items-center justify-between">
-          <p className="text-sm text-text-body">
+          <p className={`${typography.panelBody} text-text-body`}>
             {items.length} edge{items.length !== 1 ? 's' : ''} without evidence
           </p>
           <button
             onClick={onToggleExpand}
-            className="text-xs font-medium text-info hover:underline cursor-pointer"
+            className={`${typography.panelMeta} text-info hover:underline cursor-pointer`}
           >
             View all
           </button>
@@ -342,14 +345,14 @@ function CategorySection({ category, items, onFocus, actionHandlers, removingIte
     <div className={`rounded-lg border ${config.containerBorder} border-l-[3px] ${config.border} py-2 px-2.5`}>
       {/* Category label - sentence case, no uppercase transform */}
       <div className="flex items-center justify-between mb-2">
-        <p className="text-sm font-semibold text-text-light tracking-wide">
+        <p className={`${typography.panelHeader} text-text-light tracking-wide`}>
           {config.label}
         </p>
         {/* Show collapse button for expanded add_evidence */}
         {category === 'add_evidence' && isExpanded && onToggleExpand && (
           <button
             onClick={onToggleExpand}
-            className="text-xs font-medium text-info hover:underline cursor-pointer"
+            className={`${typography.panelMeta} text-info hover:underline cursor-pointer`}
           >
             Collapse
           </button>
@@ -537,7 +540,7 @@ function ImprovementRow({ item, onFocus, actionHandlers, isRemoving, onHoverEnte
   if (isRemoving || (exitLabel && item.category !== 'verify')) {
     return (
       <div className="flex items-center gap-2 opacity-50 transition-opacity duration-400">
-        <span className="text-sm text-text-body">{item.label}</span>
+        <span className={`${typography.panelBody} text-text-body`}>{item.label}</span>
         <Pill size="small" variant={exitLabel === 'Confirmed' ? 'success' : 'info'}>
           {exitLabel || 'Removed'}
         </Pill>
@@ -560,9 +563,9 @@ function ImprovementRow({ item, onFocus, actionHandlers, isRemoving, onHoverEnte
           ) : (
             <ChevronRight className="w-3.5 h-3.5 text-text-light shrink-0" />
           )}
-          <span className="text-sm text-text-light line-clamp-2">{item.label}</span>
-          <span className="shrink-0 text-sm text-text-light">·</span>
-          <span className="shrink-0 text-sm text-success flex items-center gap-1">
+          <span className={`${typography.panelBody} text-text-light line-clamp-2`}>{item.label}</span>
+          <span className={`shrink-0 ${typography.panelBody} text-text-light`}>·</span>
+          <span className={`shrink-0 ${typography.panelBody} text-success flex items-center gap-1`}>
             Reviewed <Check className="w-3.5 h-3.5" />
           </span>
         </button>
@@ -571,7 +574,7 @@ function ImprovementRow({ item, onFocus, actionHandlers, isRemoving, onHoverEnte
         {isReviewedExpanded && (
           <div className="mt-2 ml-5 pl-1 border-l-2 border-panel-border">
             <div className="flex items-center gap-2 py-1">
-              <span className="text-sm text-text-light">
+              <span className={`${typography.panelBody} text-text-light`}>
                 {reviewedState === 'confirmed' ? 'Confirmed as correct' : 'Marked as assumption'}
               </span>
               <button
@@ -584,7 +587,7 @@ function ImprovementRow({ item, onFocus, actionHandlers, isRemoving, onHoverEnte
                   setReviewedState(null)
                   setIsReviewedExpanded(false)
                 }}
-                className="text-xs text-info hover:underline cursor-pointer"
+                className={`${typography.panelMeta} text-info hover:underline cursor-pointer`}
               >
                 Change
               </button>
@@ -604,7 +607,7 @@ function ImprovementRow({ item, onFocus, actionHandlers, isRemoving, onHoverEnte
         onMouseLeave={handleRowMouseLeave}
       >
         {/* Merged question + context */}
-        <p className="text-sm text-text-header text-left">{item.label}</p>
+        <p className={`${typography.panelBody} text-text-header text-left`}>{item.label}</p>
         {/* CTA pill buttons */}
         <div className="flex items-center gap-2">
           {item.action && (
@@ -612,7 +615,7 @@ function ImprovementRow({ item, onFocus, actionHandlers, isRemoving, onHoverEnte
               type="button"
               onClick={handleActionClick}
               disabled={!actionEnabled}
-              className="text-xs font-medium text-info border border-info/40 rounded-md px-2.5 py-0.5 bg-transparent hover:border-success/40 hover:text-success disabled:opacity-50 cursor-pointer"
+              className={`${typography.panelMeta} text-info border border-info/40 rounded-md px-2.5 py-0.5 bg-transparent hover:border-success/40 hover:text-success disabled:opacity-50 cursor-pointer`}
             >
               {item.action.label}
             </button>
@@ -626,7 +629,7 @@ function ImprovementRow({ item, onFocus, actionHandlers, isRemoving, onHoverEnte
                   actionHandlers.onEdit(item.focus.id)
                 }
               }}
-              className="text-xs font-medium text-info border border-info/40 rounded-md px-2.5 py-0.5 bg-transparent hover:border-success/40 hover:text-success cursor-pointer"
+              className={`${typography.panelMeta} text-info border border-info/40 rounded-md px-2.5 py-0.5 bg-transparent hover:border-success/40 hover:text-success cursor-pointer`}
             >
               Add a negative relationship
             </button>
@@ -644,13 +647,13 @@ function ImprovementRow({ item, onFocus, actionHandlers, isRemoving, onHoverEnte
 
     return (
       <div
-        className="cursor-pointer hover:bg-black/[0.02] rounded-md -mx-1 px-1"
+        className="cursor-pointer hover:bg-factor-light rounded-md -mx-1 px-1"
         onMouseEnter={handleRowMouseEnter}
         onMouseLeave={handleRowMouseLeave}
       >
         <div className="flex items-center gap-2">
           {/* Text content - flex-1 min-w-0, label wraps (v1.1: no truncation) */}
-          <div className="flex-1 min-w-0 flex items-baseline flex-wrap text-sm" title={fullText}>
+          <div className={`flex-1 min-w-0 flex items-baseline flex-wrap ${typography.panelBody}`} title={fullText}>
             {/* Label: line-clamp-2 for long factor labels */}
             <span className="text-text-body line-clamp-2">
               {item.focus ? (
@@ -672,21 +675,21 @@ function ImprovementRow({ item, onFocus, actionHandlers, isRemoving, onHoverEnte
             )}
             {/* Source badge (Task 5) */}
             {item.sourceBadge === 'brief' && (
-              <span className="shrink-0 inline-flex items-center gap-1 text-xs text-text-body bg-panel-hover rounded-full px-2 py-0.5 ml-1">
+              <span className={`shrink-0 inline-flex items-center gap-1 ${typography.panelMeta} text-text-body bg-transparent border border-success/30 rounded-full px-2 py-0.5 ml-1`}>
                 <span className="w-1.5 h-1.5 rounded-full bg-success flex-shrink-0" aria-hidden="true" />
                 From brief
               </span>
             )}
             {item.sourceBadge === 'ai' && (
-              <span className="shrink-0 inline-flex items-center gap-1 text-xs text-text-body bg-panel-hover rounded-full px-2 py-0.5 ml-1">
+              <span className={`shrink-0 inline-flex items-center gap-1 ${typography.panelMeta} text-text-body bg-transparent border border-warning/30 rounded-full px-2 py-0.5 ml-1`}>
                 <span className="w-1.5 h-1.5 rounded-full bg-warning flex-shrink-0" aria-hidden="true" />
                 AI estimate
               </span>
             )}
           </div>
 
-          {/* Fixed action column - anchored bottom-right */}
-          <div className="flex items-center gap-0.5 shrink-0 ml-auto self-end">
+          {/* Fixed action column - always visible on touch/narrow (Task 8) */}
+          <div className="assumption-actions flex items-center gap-0.5 shrink-0 ml-auto self-end">
             <>
               {actionHandlers?.onConfirm && (
                   <IconBtn
@@ -738,13 +741,13 @@ function ImprovementRow({ item, onFocus, actionHandlers, isRemoving, onHoverEnte
 
         {/* Uncertainty drivers sub-line (Task 5a) */}
         {item.uncertaintyDrivers && item.uncertaintyDrivers.length > 0 && (
-          <p className="text-xs text-text-light italic mt-0.5 ml-0.5">
+          <p className={`${typography.panelMeta} text-text-light italic mt-0.5 ml-0.5`}>
             ⤷ {item.uncertaintyDrivers.join(', ')}
           </p>
         )}
         {/* Verification hint (secondary to raw_value) */}
         {item.hint && (
-          <p className="text-xs text-text-light mt-0.5 ml-0.5">
+          <p className={`${typography.panelMeta} text-text-light mt-0.5 ml-0.5`}>
             {item.hint}
           </p>
         )}
@@ -767,15 +770,15 @@ function ImprovementRow({ item, onFocus, actionHandlers, isRemoving, onHoverEnte
               targetId={item.focus.id}
               targetType={item.focus.type}
               onClick={handleFocusClick}
-              className="text-sm text-left hover:underline"
+              className={`${typography.panelBody} text-left hover:underline`}
             >
               {item.label}
             </NodeLink>
           ) : (
-            <span className="text-sm text-text-body text-left">{item.label}</span>
+            <span className={`${typography.panelBody} text-text-body text-left`}>{item.label}</span>
           )}
           {item.detail && (
-            <p className="text-sm text-text-light mt-0.5 text-left">{item.detail}</p>
+            <p className={`${typography.panelBody} text-text-light mt-0.5 text-left`}>{item.detail}</p>
           )}
         </div>
 
@@ -824,7 +827,7 @@ function ImprovementRow({ item, onFocus, actionHandlers, isRemoving, onHoverEnte
           <button
             onClick={handleEvidenceSubmit}
             disabled={!evidenceValue.trim().replace(/\s+/g, ' ')}
-            className="px-2 py-1 text-xs bg-info hover:bg-success text-white rounded disabled:opacity-50"
+            className={`px-2 py-1 ${typography.panelMeta} bg-info hover:bg-success text-white rounded disabled:opacity-50`}
           >
             Save
           </button>
@@ -833,7 +836,7 @@ function ImprovementRow({ item, onFocus, actionHandlers, isRemoving, onHoverEnte
               setShowEvidenceInput(false)
               setEvidenceValue('')
             }}
-            className="px-2 py-1 text-xs text-text-light hover:text-text-body"
+            className={`px-2 py-1 ${typography.panelMeta} text-text-light hover:text-text-body`}
           >
             Cancel
           </button>

@@ -30,6 +30,7 @@ import { stripEncodingNotation } from '../../../components/results/utils/cleanFa
 import type { NodesByKind } from './hooks/usePreAnalysisData'
 import type { CeeQualityDimensions } from '../../store'
 import type { Node } from '@xyflow/react'
+import { typography } from '@/styles/typography'
 
 interface ModelSnapshotProps {
   /** Nodes grouped by kind */
@@ -97,7 +98,7 @@ function SnapshotRow({ kind, nodes, onFocusNode, onHoverNode, onHoverClear }: Sn
       {/* Kind header: icon + label */}
       <div className="flex items-center gap-2">
         <Icon className={`w-4 h-4 flex-shrink-0 ${config.colorClass}`} aria-hidden="true" />
-        <span className={`text-sm font-medium ${config.colorClass}`}>
+        <span className={`${typography.panelBody} ${config.colorClass}`}>
           {config.label}
         </span>
       </div>
@@ -115,7 +116,7 @@ function SnapshotRow({ kind, nodes, onFocusNode, onHoverNode, onHoverClear }: Sn
               targetId={node.id}
               targetType="node"
               onClick={() => onFocusNode?.(node.id)}
-              className="text-sm"
+              className={typography.panelBody}
             >
               {getNodeLabel(node)}
             </NodeLink>
@@ -127,7 +128,7 @@ function SnapshotRow({ kind, nodes, onFocusNode, onHoverNode, onHoverClear }: Sn
           <button
             type="button"
             onClick={handleToggleExpand}
-            className="text-xs text-info hover:underline cursor-pointer py-0.5"
+            className={`${typography.panelMeta} text-info hover:underline cursor-pointer py-0.5`}
           >
             +{hiddenCount} more
           </button>
@@ -136,7 +137,7 @@ function SnapshotRow({ kind, nodes, onFocusNode, onHoverNode, onHoverClear }: Sn
           <button
             type="button"
             onClick={handleToggleExpand}
-            className="text-xs text-info hover:underline cursor-pointer py-0.5"
+            className={`${typography.panelMeta} text-info hover:underline cursor-pointer py-0.5`}
           >
             Show less
           </button>
@@ -187,7 +188,7 @@ export function ModelSnapshot({
         ))}
 
         {presentKinds.length === 0 && (
-          <p className="text-sm text-text-light py-2">
+          <p className={`${typography.panelBody} text-text-light py-2`}>
             No nodes in the model yet
           </p>
         )}
@@ -196,9 +197,9 @@ export function ModelSnapshot({
       {/* Quality scores from CEE (Task 7) */}
       {ceeQuality && ceeQuality.overall != null && (
         <div className="mt-2 pt-2 border-t border-panel-border">
-          <p className="text-xs text-text-body">
-            <span className="font-medium">Quality: </span>
-            <span className={`font-semibold ${scoreColor(ceeQuality.overall)}`}>
+          <p className={`${typography.panelMeta} text-text-body`}>
+            <span>Quality: </span>
+            <span className={scoreColor(ceeQuality.overall)}>
               {ceeQuality.overall}/10
             </span>
             {ceeQuality.structure != null && (

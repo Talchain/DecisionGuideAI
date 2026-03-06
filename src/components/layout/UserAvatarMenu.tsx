@@ -53,7 +53,7 @@ export function UserAvatarMenu() {
       <button
         type="button"
         onClick={() => setOpen(o => !o)}
-        className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-text-header transition-transform duration-fast hover:scale-105"
+        className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-text-on-color transition-transform duration-fast hover:scale-105"
         aria-label="Account menu"
         aria-expanded={open}
         aria-haspopup="true"
