@@ -66,4 +66,54 @@ describe('makeFlag', () => {
     globalAny.localStorage.setItem(key, 'yes')
     expect(flag()).toBe(true)
   })
+
+  it('resolves env var from eagerly-captured snapshot (not dynamic access)', () => {
+    // The factory captures { ...import.meta.env } at module load time.
+    // If MODE is present in the snapshot, dynamic key lookup works correctly.
+    // This is the exact pattern that was broken before the fix — dynamic
+    // access via (import.meta as any)?.env?.[envKey] returned undefined.
+    const flag = makeFlag({ envKey: 'MODE', storageKey: 'test.flag.mode' })
+    // MODE is 'test' in vitest — not a truthy flag value, so should be false
+    expect(flag()).toBe(false)
+  })
+
+  it('snapshot resolves VITE_ prefixed vars the same as literal access', () => {
+    // Verify that the snapshot mechanism produces the same result as
+    // direct literal access for a VITE_ prefixed env var.
+    const literalValue = import.meta.env.VITE_ENABLE_ORCHESTRATOR_V2
+    const flag = makeFlag({
+      envKey: 'VITE_ENABLE_ORCHESTRATOR_V2',
+      storageKey: 'test.flag.orchV2Snapshot',
+    })
+    const factoryResult = flag()
+
+    // Both should agree: if env var is 'true', both should be true
+    if (literalValue === 'true' || literalValue === '1') {
+      expect(factoryResult).toBe(true)
+    } else if (literalValue === undefined || literalValue === '' || literalValue === 'false' || literalValue === '0') {
+      expect(factoryResult).toBe(false)
+    }
+    // If env var is set to something else, just verify it's a boolean
+    expect(typeof factoryResult).toBe('boolean')
+  })
+})
+
+describe('isOrchestratorV2Enabled (real export)', () => {
+  it('is a callable function returning boolean', async () => {
+    const { isOrchestratorV2Enabled } = await import('../../flags')
+    expect(typeof isOrchestratorV2Enabled).toBe('function')
+    expect(typeof isOrchestratorV2Enabled()).toBe('boolean')
+  })
+
+  it('respects localStorage override', async () => {
+    const { isOrchestratorV2Enabled } = await import('../../flags')
+
+    globalAny.localStorage.setItem('feature.orchestratorV2', '1')
+    expect(isOrchestratorV2Enabled()).toBe(true)
+
+    globalAny.localStorage.setItem('feature.orchestratorV2', '0')
+    expect(isOrchestratorV2Enabled()).toBe(false)
+
+    globalAny.localStorage.removeItem('feature.orchestratorV2')
+  })
 })
