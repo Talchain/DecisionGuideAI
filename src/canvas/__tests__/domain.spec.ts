@@ -51,10 +51,10 @@ describe('Edge Schema Validation', () => {
     const minimal = {}
 
     const result = EdgeDataSchema.parse(minimal)
-    expect(result.weight).toBe(0.5)  // Updated default: 0-1 scale
+    expect(result.weight).toBe(0.5)  // Default weight
     expect(result.style).toBe('solid')
     expect(result.curvature).toBe(0.15)
-    expect(result.schemaVersion).toBe(3)  // Schema v3: weight scale 0-1
+    expect(result.schemaVersion).toBe(4)  // Schema v4: dual beliefs
   })
   
   it('validates edge data with all properties', () => {
@@ -72,7 +72,7 @@ describe('Edge Schema Validation', () => {
   
   it('rejects out-of-range weight', () => {
     const invalid = {
-      weight: 1.5, // Max is 1.0
+      weight: 2.5, // Max is 2.0
     }
 
     const result = EdgeDataSchema.safeParse(invalid)

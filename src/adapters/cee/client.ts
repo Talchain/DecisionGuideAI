@@ -11,6 +11,7 @@ import { isCEEv2Response, isCEEv3Response, isCeePipelineTrace } from './types'
 import { withObservabilityHeaders, recordBffResponse, recordBffError, recordBffResponsePayload } from '../../lib/observability-headers'
 import { useGateStore } from '../../lib/gate-state'
 import { CEEDraftResponseSchema, warnOnInvalidApiResponse } from '../../lib/api-schemas'
+import { withRetry } from '../../lib/fetchWithRetry'
 
 const CEE_BASE_URL = (import.meta as any).env?.VITE_CEE_BFF_BASE || '/bff/cee'
 // CEE Draft Engine base URL
@@ -403,6 +404,13 @@ export class CEEClient {
     return this.fetchWithBase<T>(this.baseURL, endpoint, options)
   }
 
+  /** Fetch with retry — use only for idempotent/read-only endpoints (not draft-graph) */
+  private async fetchIdempotent<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+    return withRetry(
+      () => this.fetchWithBase<T>(this.baseURL, endpoint, options),
+    )
+  }
+
   private async fetchWithBase<T>(
     baseURL: string,
     endpoint: string,
@@ -542,6 +550,7 @@ export class CEEClient {
     }
 
     // Debug: Log schema version request
+    /* eslint-disable no-restricted-syntax, no-console -- grandfathered DEV diagnostics */
     if (import.meta.env.DEV) {
       console.log('[CEE] draftModel request:', {
         endpoint,
@@ -549,6 +558,7 @@ export class CEEClient {
         raw_output: options?.raw_output ?? false,
       })
     }
+    /* eslint-enable no-restricted-syntax, no-console */
 
     // Intended UI path is same-origin → Plot engine proxy → CEE.
     // In the browser, always prefer the engine proxy for draft-graph to avoid CORS fragility
@@ -564,6 +574,7 @@ export class CEEClient {
     warnOnInvalidApiResponse(CEEDraftResponseSchema, raw, 'CEE draft')
 
     // Debug: Log response schema details
+    /* eslint-disable no-restricted-syntax, no-console -- grandfathered DEV diagnostics */
     if (import.meta.env.DEV) {
       // P0 INVESTIGATION: Check BOTH root-level AND nested graph.edges
       const rootEdges = raw?.edges || []
@@ -648,6 +659,7 @@ export class CEEClient {
       console.log('[CEE] isCEEv2Response result:', isCEEv2Response(raw))
       console.log('[CEE] === END DIAGNOSTIC ===')
     }
+    /* eslint-enable no-restricted-syntax, no-console */
 
     // Update graph_readiness gate on successful response
     useGateStore.getState().setGate('graph_readiness', 'pass', { message: 'Draft graph received' })
@@ -723,7 +735,7 @@ export class CEEClient {
     },
     archetype?: string
   ): Promise<CEEInsightsResponse> {
-    return this.fetch<CEEInsightsResponse>('/bias-check', {
+    return this.fetchIdempotent<CEEInsightsResponse>('/bias-check', {
       method: 'POST',
       body: JSON.stringify({ graph, archetype }),
     })
@@ -743,7 +755,7 @@ export class CEEClient {
     },
     inference: Record<string, unknown>
   ): Promise<CEEInsightsResponse> {
-    return this.fetch<CEEInsightsResponse>('/sensitivity-coach', {
+    return this.fetchIdempotent<CEEInsightsResponse>('/sensitivity-coach', {
       method: 'POST',
       body: JSON.stringify({ graph, inference }),
     })

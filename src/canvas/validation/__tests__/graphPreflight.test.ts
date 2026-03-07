@@ -284,7 +284,7 @@ describe('graphPreflight', () => {
         expect(result.violations[0].message).toContain('-100 and 100')
       })
 
-      it('should accept edge with weight = 100', () => {
+      it('should emit STRENGTH_OUT_OF_RANGE warning for weight = 100', () => {
         const graph: UiGraph = {
           nodes: [
             { id: 'n1', label: 'Node 1', data: { label: 'Node 1' } },
@@ -295,10 +295,15 @@ describe('graphPreflight', () => {
 
         const result = validateGraph(graph)
 
-        expect(result.valid).toBe(true)
+        // Weight 100 → strength 99, exceeds CEE [-1,+1] bounds → STRENGTH_OUT_OF_RANGE
+        expect(result.valid).toBe(false)
+        expect(result.violations[0]).toMatchObject({
+          code: 'STRENGTH_OUT_OF_RANGE',
+          field: 'edges[0].weight',
+        })
       })
 
-      it('should accept edge with weight = -1 (negative allowed)', () => {
+      it('should emit STRENGTH_OUT_OF_RANGE warning for weight = -1', () => {
         const graph: UiGraph = {
           nodes: [
             { id: 'n1', label: 'Node 1', data: { label: 'Node 1' } },
@@ -309,7 +314,12 @@ describe('graphPreflight', () => {
 
         const result = validateGraph(graph)
 
-        expect(result.valid).toBe(true)
+        // Weight -1 → strength -2, exceeds CEE [-1,+1] bounds → STRENGTH_OUT_OF_RANGE
+        expect(result.valid).toBe(false)
+        expect(result.violations[0]).toMatchObject({
+          code: 'STRENGTH_OUT_OF_RANGE',
+          field: 'edges[0].weight',
+        })
       })
 
       it('should accept edge with no weight', () => {

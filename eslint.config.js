@@ -179,6 +179,11 @@ export default [
       'no-unused-vars': 'off',
       '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],
 
+      // @typescript-eslint/no-explicit-any is 'off' globally due to 667 existing violations.
+      // New code should use 'unknown' with type narrowing instead of 'as any'.
+      // Target: eliminate existing violations incrementally post-pilot.
+      // Tracked: pilot readiness review, 6 March 2026.
+
       // Rely on TypeScript & tests rather than ESLint's no-undef for TS/TSX
       'no-undef': 'off',
 
@@ -194,6 +199,14 @@ export default [
       // Use eslint-disable-next-line no-console for justified exceptions
       'no-console': ['warn', { allow: ['warn', 'error'] }],
 
+      // Block NEW console.log additions. console.warn/error remain allowed.
+      // Existing violations are grandfathered — only new additions fail lint.
+      // Tracked: pilot readiness review, 6 March 2026.
+      'no-restricted-syntax': ['error', {
+        selector: "CallExpression[callee.object.name='console'][callee.property.name='log']",
+        message: 'Use structured logging (e.g., console.warn/error or a logger) instead of console.log.'
+      }],
+
       // Keep security guardrails as hard errors
       'security/no-payload-logging': 'error',
       'security/no-dangerous-browser': 'error',
@@ -201,12 +214,13 @@ export default [
       'security/no-old-imports': 'error',
     },
   },
-  // Tests: allow raw colors and console (used in assertions and test output)
+  // Tests: allow raw colors, console, and restricted syntax (used in assertions and test output)
   {
     files: ['tests/**/*.{ts,tsx}', '**/*.spec.ts', '**/*.spec.tsx', '**/*.test.ts', '**/*.test.tsx'],
     rules: {
       'brand-tokens/no-raw-colors': 'off',
       'no-console': 'off',
+      'no-restricted-syntax': 'off',
     },
   },
   // Type definition and stub files: ignore unused variable rules
