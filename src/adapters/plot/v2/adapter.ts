@@ -253,7 +253,7 @@ export function ceeOptionToUIOption(ceeOption: CEEOptionV3): UIOption {
  */
 export function ceeOptionToV2Option(ceeOption: CEEOptionV3): V2Option {
   if (import.meta.env.DEV) {
-    console.log('[V2Adapter] ceeOptionToV2Option input:', {
+    console.warn('[V2Adapter] ceeOptionToV2Option input:', {
       id: ceeOption.id,
       label: ceeOption.label,
       interventionKeys: Object.keys(ceeOption.interventions || {}),
@@ -276,7 +276,7 @@ export function ceeOptionToV2Option(ceeOption: CEEOptionV3): V2Option {
   }
 
   if (import.meta.env.DEV) {
-    console.log('[V2Adapter] ceeOptionToV2Option output:', {
+    console.warn('[V2Adapter] ceeOptionToV2Option output:', {
       id: result.id,
       interventionKeys: Object.keys(result.interventions),
       interventions: result.interventions,
@@ -575,7 +575,7 @@ function computeSignedMean(data: CanvasEdgeData | undefined, edgeId?: string, fr
     })
 
     if (import.meta.env.DEV) {
-      console.log('[Adapter] Strength clamped:', {
+      console.warn('[Adapter] Strength clamped:', {
         edge: `${from} → ${to}`,
         original: result.original,
         clamped: result.clamped,
@@ -615,7 +615,7 @@ export function transformEdgeToV2(edge: Edge<CanvasEdgeData>): V2Edge {
 
   // Diagnostic logging for edge uncertainty data flow
   if (import.meta.env.DEV) {
-    console.log('[Adapter] Edge to PLoT:', {
+    console.warn('[Adapter] Edge to PLoT:', {
       edge: `${edge.source} → ${edge.target}`,
       canvas_beliefExists: data.beliefExists,
       canvas_confidence: data.confidence,
@@ -722,7 +722,7 @@ export function buildV2Request(
   )
 
   if (normalised.hasChanges && import.meta.env.DEV) {
-    console.log('[V2Adapter] Node IDs were normalised:', {
+    console.warn('[V2Adapter] Node IDs were normalised:', {
       changes: [...normalised.idMap.entries()].filter(([a, b]) => a !== b),
     })
   }
@@ -854,7 +854,7 @@ export function buildV2RequestFromAnalysisReady(
   )
 
   if (normalised.hasChanges && import.meta.env.DEV) {
-    console.log('[V2Adapter] Node IDs were normalised from analysis_ready:', {
+    console.warn('[V2Adapter] Node IDs were normalised from analysis_ready:', {
       changes: [...normalised.idMap.entries()].filter(([a, b]) => a !== b),
     })
   }
@@ -1130,7 +1130,7 @@ export async function executeV2Run(
   }
 
   if (import.meta.env.DEV) {
-    console.log('[V2Adapter] Sending request:', {
+    console.warn('[V2Adapter] Sending request:', {
       requestId: request.request_id,
       nodeCount: request.graph.nodes.length,
       edgeCount: request.graph.edges.length,
@@ -1146,7 +1146,7 @@ export async function executeV2Run(
   const translated = translateV2Response(result, reverseIdMap)
 
   if (import.meta.env.DEV) {
-    console.log('[V2Adapter] Response:', {
+    console.warn('[V2Adapter] Response:', {
       requestId: translated.request_id,
       status: translated.analysis_status,
       isBlocked: isBlockedResponse(translated),
@@ -1226,7 +1226,7 @@ export async function executeV2RunWithAnalysisReady(
   }
 
   if (import.meta.env.DEV) {
-    console.log('[V2Adapter] Sending request (via analysisReady path):', {
+    console.warn('[V2Adapter] Sending request (via analysisReady path):', {
       requestId: request.request_id,
       nodeCount: request.graph.nodes.length,
       edgeCount: request.graph.edges.length,
@@ -1239,7 +1239,7 @@ export async function executeV2RunWithAnalysisReady(
     })
 
     // Detailed options logging for debugging empty interventions
-    console.log('[V2Adapter] Final request options:', request.options.map((o) => ({
+    console.warn('[V2Adapter] Final request options:', request.options.map((o) => ({
       id: o.id,
       label: o.label,
       interventionKeys: Object.keys(o.interventions),
@@ -1254,7 +1254,7 @@ export async function executeV2RunWithAnalysisReady(
   const translated = translateV2Response(result, reverseIdMap)
 
   if (import.meta.env.DEV) {
-    console.log('[V2Adapter] Response:', {
+    console.warn('[V2Adapter] Response:', {
       requestId: translated.request_id,
       status: translated.analysis_status,
       isBlocked: isBlockedResponse(translated),

@@ -778,7 +778,7 @@ export function usePreRunValidation(): ValidationResult {
         lastLogKey.canRun !== currentLogKey.canRun ||
         lastLogKey.blockerCount !== currentLogKey.blockerCount
       ) {
-        console.log('[PreRunValidation] Validation result changed:', {
+        console.warn('[PreRunValidation] Validation result changed:', {
           canRun: result.canRun,
           blockers: result.blockers.length,
           usingCEE: Boolean(ceeAnalysisReady?.options?.length),
@@ -795,7 +795,7 @@ export function usePreRunValidation(): ValidationResult {
     if (validation.recommendedFixes?.length) {
       for (const fix of validation.recommendedFixes) {
         if (import.meta.env.DEV) {
-          console.log(`[Validation] Applying recommended fix: ${fix.reason}`)
+          console.warn(`[Validation] Applying recommended fix: ${fix.reason}`)
         }
 
         // Apply the fix based on type
