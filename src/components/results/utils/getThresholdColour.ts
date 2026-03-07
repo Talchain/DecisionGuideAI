@@ -13,7 +13,10 @@
  * (entity-coloured per option).
  */
 export function getThresholdColour(value: number): string {
-  if (value >= 0.7) return 'bg-success'
-  if (value >= 0.4) return 'bg-warning'
+  // Round to integer percentage to avoid floating-point boundary issues
+  // (e.g. 0.6999999 should be treated as 70%, not 69%)
+  const pct = Math.round(value * 100)
+  if (pct >= 70) return 'bg-success'
+  if (pct >= 40) return 'bg-warning'
   return 'bg-danger'
 }

@@ -56,6 +56,8 @@ export interface TornadoChartProps {
   isNormalised?: boolean
   /** Goal direction — determines bar colour semantics (higher outcome = green for maximize, orange for minimize) */
   goalDirection?: 'maximize' | 'minimize'
+  /** Callback to apply drag adjustments and rerun analysis */
+  onApplyAndRerun?: () => void
 }
 
 /** Whether structured unit data is available (not just normalised model scores). */
@@ -154,6 +156,7 @@ export function TornadoChart({
   onFocusNode,
   isNormalised,
   goalDirection,
+  onApplyAndRerun,
 }: TornadoChartProps) {
   // P0.2: Use relative % change when no structured unit is available
   const useRelativePct = !isNormalised && !hasStructuredUnit(outcomeUnit, outcomeUnitSymbol)
@@ -528,21 +531,33 @@ export function TornadoChart({
         </p>
       )}
 
-      {/* Preview disclaimer + reset button */}
+      {/* Preview disclaimer + action buttons */}
       <div className="flex items-center justify-between mt-2">
         <p className={`${typography.panelMeta} text-text-light italic`}>
           Preview only
         </p>
-        {dragState.hasUserDragged && (
-          <button
-            type="button"
-            onClick={resetDrag}
-            className="rounded-full border border-panel-border bg-transparent px-[14px] py-[5px] text-[11px] font-medium cursor-pointer leading-none hover:bg-panel-hover hover:border-info hover:text-info transition-colors flex-shrink-0"
-            data-testid="tornado-reset-preview"
-          >
-            Reset preview
-          </button>
-        )}
+        <div className="flex items-center gap-2">
+          {dragState.hasUserDragged && (
+            <button
+              type="button"
+              onClick={resetDrag}
+              className="rounded-full border border-panel-border bg-transparent px-[14px] py-[5px] text-[11px] font-medium cursor-pointer leading-none hover:bg-panel-hover hover:border-info hover:text-info transition-colors flex-shrink-0"
+              data-testid="tornado-reset-preview"
+            >
+              Reset preview
+            </button>
+          )}
+          {onApplyAndRerun && (
+            <button
+              type="button"
+              onClick={onApplyAndRerun}
+              className="rounded-full border border-panel-border bg-transparent px-[14px] py-[5px] text-[11px] font-medium cursor-pointer leading-none hover:bg-panel-hover hover:border-info hover:text-info transition-colors flex-shrink-0"
+              data-testid="tornado-apply-rerun"
+            >
+              Apply and rerun
+            </button>
+          )}
+        </div>
       </div>
     </div>
   )

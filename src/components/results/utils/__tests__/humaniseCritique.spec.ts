@@ -157,4 +157,44 @@ describe('humaniseCritique', () => {
       expect(result.factorId).toBeUndefined()
     })
   })
+
+  describe('V16.2: CONSTRAINT_NO_DERIVABLE_RANGE', () => {
+    it('maps explicit code to humanised template', () => {
+      const result = humaniseCritique(
+        makeItem({ code: 'CONSTRAINT_NO_DERIVABLE_RANGE', affectedNodes: ['fac_risk_churn'] }),
+        new Map([['fac_risk_churn', 'Risk Churn']]),
+      )
+      expect(result.title).toBe('Risk Churn has no estimate set')
+      expect(result.description).toContain('less precise')
+      expect(result.suggestion).toBe('Set estimate')
+      expect(result.factorId).toBe('fac_risk_churn')
+    })
+
+    it('detects "no derivable range" in GENERAL code message', () => {
+      const result = humaniseCritique(
+        makeItem({
+          code: 'GENERAL',
+          message: 'Constraint "constraint_risk_churn_max" target node "risk_churn" has no derivable range. Constraint value will be compared as-is by ISL.',
+          affectedNodes: ['risk_churn'],
+        }),
+        new Map([['risk_churn', 'Risk Churn']]),
+      )
+      expect(result.title).toBe('Risk Churn has no estimate set')
+      expect(result.displayText).toBe('Risk Churn has no estimate set')
+      expect(result.suggestion).toBe('Set estimate')
+    })
+
+    it('returns null displayText when resolved label contains internal tokens', () => {
+      const result = humaniseCritique(
+        makeItem({
+          code: 'GENERAL',
+          message: 'target node "fac_churn" has no derivable range.',
+          affectedNodes: ['fac_churn'],
+        }),
+      )
+      // factorIdToLabel derives "Churn" which is clean → displayText should be set
+      expect(result.title).toBe('Churn has no estimate set')
+      expect(result.displayText).toBe('Churn has no estimate set')
+    })
+  })
 })

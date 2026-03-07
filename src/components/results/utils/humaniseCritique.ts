@@ -103,12 +103,17 @@ const CODE_TEMPLATES: Record<string, TemplateFactory> = {
     description: 'The target for this constraint falls outside the range the model can assess.',
     suggestion: 'Review',
   }),
+  CONSTRAINT_NO_DERIVABLE_RANGE: (label) => ({
+    title: `${label} has no estimate set`,
+    description: 'Constraint results may be less precise. Set a value to sharpen the analysis.',
+    suggestion: 'Set estimate',
+  }),
 }
 
 // ─── Internal token detection ────────────────────────────────────────────────
 
 /** V14.3: Consolidated internal-token regex. If resolved text trips this, displayText = null. */
-const INTERNAL_TOKEN_REGEX = /constraint_fac_|observed_state\.|intercept\s*=|fac_[a-z_]+|blocks_analysis|node_id\s*=|edge_id\s*=|opt_[a-z_]+|goal_[a-z_]+/i
+const INTERNAL_TOKEN_REGEX = /constraint_[a-z_]+|observed_state\.|intercept\s*=|fac_[a-z_]+|blocks_analysis|node_id\s*=|edge_id\s*=|opt_[a-z_]+|goal_[a-z_]+|compared as-is by ISL|no derivable range/i
 
 // ─── Label resolution ────────────────────────────────────────────────────────
 
@@ -167,6 +172,13 @@ export function humaniseCritique(
   const template = CODE_TEMPLATES[item.code]
   if (template) {
     const result = template(factorLabel)
+    const displayText = INTERNAL_TOKEN_REGEX.test(result.title) ? null : result.title
+    return { ...result, displayText, factorId }
+  }
+
+  // V16.2: Message-based detection for known ISL patterns sent as GENERAL code
+  if (/no derivable range/i.test(item.message)) {
+    const result = CODE_TEMPLATES.CONSTRAINT_NO_DERIVABLE_RANGE(factorLabel)
     const displayText = INTERNAL_TOKEN_REGEX.test(result.title) ? null : result.title
     return { ...result, displayText, factorId }
   }

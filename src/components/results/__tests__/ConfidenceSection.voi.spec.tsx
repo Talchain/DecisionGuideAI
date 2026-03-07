@@ -83,7 +83,7 @@ describe('ConfidenceSection: V11 VOI promoted block', () => {
     expect(screen.getByText('Most valuable next step')).toBeInTheDocument()
   })
 
-  it('hides VOI block for robust state', () => {
+  it('V16.2: shows VOI block for robust state (scroll-link target)', () => {
     render(
       <ConfidenceSection
         data={baseData}
@@ -93,7 +93,8 @@ describe('ConfidenceSection: V11 VOI promoted block', () => {
       />
     )
 
-    expect(screen.queryByTestId('voi-promoted-block')).not.toBeInTheDocument()
+    // V16.2: MVS card renders for all states so bullet-3 scroll-link target exists
+    expect(screen.getByTestId('voi-promoted-block')).toBeInTheDocument()
   })
 
   it('hides VOI block when hinge is null', () => {

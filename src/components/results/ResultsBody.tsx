@@ -283,8 +283,8 @@ export function ResultsBody({
           return humanisedKeys.has(key)
         }).length
 
-        // VOI block visible when sensitive/indeterminate + hinge
-        const voiBlockVisible = (vm.decisionState === 'sensitive' || vm.decisionState === 'indeterminate') && vm.hinge != null
+        // V16.2: VOI block visible for all decision states when hinge exists
+        const voiBlockVisible = vm.decisionState != null && vm.hinge != null
 
         // Total badge = rendered items across all groups + VOI
         let badgeCount = visibleFragileCount + nextActionCount + actionGroups[1].items.length + worthRefiningCount
@@ -312,6 +312,7 @@ export function ResultsBody({
                 title="What to do next"
                 defaultExpanded={
                   vm.decisionState === 'sensitive' || vm.decisionState === 'indeterminate'
+                  || (vm.decisionState === 'robust' && badgeCount > 0)
                 }
                 testId="accordion-strengthen"
                 badgeCount={hasGuidanceItems ? (guidanceItems?.length ?? 0) : badgeCount}
@@ -353,7 +354,8 @@ export function ResultsBody({
                 />
               </Accordion>
               {/* V11: Robust compact VOI affordance — below collapsed accordion */}
-              {vm.decisionState === 'robust' && vm.hinge && (
+              {/* V16.2: Only show when there are genuinely zero action items */}
+              {vm.decisionState === 'robust' && vm.hinge && badgeCount === 0 && (
                 <p
                   className={`${typography.panelMeta} text-text-light mt-1.5 px-3`}
                   data-testid="robust-voi-compact"

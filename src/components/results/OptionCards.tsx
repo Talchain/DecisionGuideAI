@@ -193,7 +193,7 @@ function OptionCard({
     >
       {/* Header: name + rank badge + win percentage */}
       <div className="flex items-center gap-2">
-        <span className={`${typography.panelHeader} text-text-header truncate`}>
+        <span className={`${typography.panelHeader} text-text-header`}>
           {stripEncodingNotation(option.label)}
         </span>
         {rank != null && totalOptions > 1 && (

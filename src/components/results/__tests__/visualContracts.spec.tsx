@@ -210,7 +210,7 @@ describe('Visual contract: Robust state', () => {
     expect(badge.className).toContain('text-text-body')
   })
 
-  it('VOI block hidden in ConfidenceSection', () => {
+  it('V16.2: VOI block shown for robust state (scroll-link target)', () => {
     render(
       <ConfidenceSection
         data={baseConfidenceData}
@@ -220,7 +220,8 @@ describe('Visual contract: Robust state', () => {
       />
     )
 
-    expect(screen.queryByTestId('voi-promoted-block')).not.toBeInTheDocument()
+    // V16.2: MVS card renders for all states so bullet-3 scroll-link target exists
+    expect(screen.getByTestId('voi-promoted-block')).toBeInTheDocument()
   })
 })
 

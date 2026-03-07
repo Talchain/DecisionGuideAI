@@ -427,9 +427,10 @@ export function ConfidenceSection({
   return (
     <div className="space-y-4">
 
-      {/* V11: VOI promoted block — "Most valuable next step" for sensitive/indeterminate */}
+      {/* V11: VOI promoted block — "Most valuable next step" */}
       {/* §15 treatment: primary left border, shadow-1, Lightbulb icon */}
-      {decisionState && decisionState !== 'robust' && hinge && (
+      {/* V16.2: Show for ALL states (not just sensitive/indeterminate) so scroll-link target exists */}
+      {decisionState && hinge && (
         <div
           id="mvs-card"
           className="p-4 border border-info/30 rounded-lg"
@@ -618,31 +619,32 @@ export function ConfidenceSection({
               const { group } = entry
               const IconComponent = ICON_MAP[group.icon]
 
-              return (
-                <div key={group.key}>
-                  {/* Group divider — between groups, not above first */}
-                  {groupIdx > 0 && (
-                    <div className="border-t border-panel-border mb-4" />
-                  )}
+              // V16.2: Validate group always expanded, other groups collapsed by default
+              const isAlwaysExpanded = group.key === 'validate'
+              const itemCount = group.key === 'validate'
+                ? (entry.fragileEdgeItems?.length ?? 0) + nextActionGroupItems.length
+                : group.items.length + (entry.refinementItems?.length ?? 0)
 
-                  {/* Group header */}
-                  <div className="flex items-center gap-2 mb-1.5">
-                    {IconComponent && (
-                      <IconComponent className={`w-4 h-4 ${group.iconColour} flex-shrink-0`} />
-                    )}
-                    <h4 className={`${typography.panelHeader} text-text-header`}>
-                      {group.label}
-                    </h4>
-                    {(group.items.length > 0 || (entry.fragileEdgeItems?.length ?? 0) > 0) && (
-                      <span className={`${typography.panelMeta} text-text-light`}>
-                        {group.key === 'validate'
-                          ? (entry.fragileEdgeItems?.length ?? 0) + nextActionGroupItems.length
-                          : group.items.length + (entry.refinementItems?.length ?? 0)}
-                      </span>
-                    )}
-                  </div>
+              const groupHeader = (
+                <div className="flex items-center gap-2">
+                  {IconComponent && (
+                    <IconComponent className={`w-4 h-4 ${group.iconColour} flex-shrink-0`} />
+                  )}
+                  <h4 className={`${typography.panelHeader} text-text-header`}>
+                    {group.label}
+                  </h4>
+                  {itemCount > 0 && (
+                    <span className={`${typography.panelMeta} text-text-light`}>
+                      {itemCount}
+                    </span>
+                  )}
+                </div>
+              )
+
+              const groupContent = (
+                <>
                   {group.intro && (
-                    <p className={`${typography.panelMeta} text-text-light mb-2`}>
+                    <p className={`${typography.panelMeta} text-text-light mb-2 mt-1.5`}>
                       {group.intro}
                     </p>
                   )}
@@ -821,6 +823,32 @@ export function ConfidenceSection({
                   )}
 
                   {/* Groups 3/4 (M2) moved to ChallengeSection */}
+                </>
+              )
+
+              return (
+                <div key={group.key}>
+                  {/* Group divider — between groups, not above first */}
+                  {groupIdx > 0 && (
+                    <div className="border-t border-panel-border mb-4" />
+                  )}
+
+                  {/* V16.2: Non-validate groups are collapsible (collapsed by default) */}
+                  {isAlwaysExpanded ? (
+                    <div>
+                      <div className="mb-1.5">{groupHeader}</div>
+                      {groupContent}
+                    </div>
+                  ) : (
+                    <details className="group" data-testid={`group-${group.key}-details`}>
+                      <summary className="cursor-pointer select-none list-none flex items-center justify-between mb-1.5">
+                        {groupHeader}
+                        <span className={`${typography.panelBody} text-info group-open:hidden`}>Show ˅</span>
+                        <span className={`${typography.panelBody} text-info hidden group-open:inline`}>Hide ˄</span>
+                      </summary>
+                      {groupContent}
+                    </details>
+                  )}
                 </div>
               )
             })}

@@ -67,15 +67,17 @@ function BannerItem({
 
 /** Runtime guard patterns to reject internal field leaks (defence in depth) */
 const INTERNAL_LEAK_PATTERNS = [
-  /constraint_fac_/i,
+  /constraint_[a-z_]+/i,   // any constraint internal ID (V16.2: broadened from constraint_fac_ only)
   /observed_state\./i,
   /intercept\s*=/i,
-  /fac_[a-z_]+/,          // raw factor IDs (V12.2: broadened to catch all patterns)
+  /fac_[a-z_]+/,           // raw factor IDs (V12.2: broadened to catch all patterns)
   /blocks_analysis/i,
   /node_id\s*=/i,
   /edge_id\s*=/i,
   /opt_[a-z_]+/i,          // raw option IDs
   /goal_[a-z_]+/i,         // raw goal IDs
+  /compared as-is by ISL/i, // V16.2: ISL comparison fallback message
+  /no derivable range/i,    // V16.2: ISL range resolution message
 ]
 
 export function AttentionBanner({ items, onFocusNode }: AttentionBannerProps) {

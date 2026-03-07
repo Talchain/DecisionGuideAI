@@ -218,7 +218,7 @@ describe('TornadoChart', () => {
     expect(screen.queryByTestId('tornado-flip-indicator')).not.toBeInTheDocument()
   })
 
-  it('apply-and-rerun button is not rendered (disabled)', () => {
+  it('apply-and-rerun button hidden when no callback', () => {
     render(
       <TornadoChart
         rows={[positiveRow]}
@@ -227,6 +227,23 @@ describe('TornadoChart', () => {
     )
 
     expect(screen.queryByTestId('tornado-apply-rerun')).not.toBeInTheDocument()
+  })
+
+  it('apply-and-rerun button renders when callback provided', () => {
+    const onApply = vi.fn()
+    render(
+      <TornadoChart
+        rows={[positiveRow]}
+        expectedOutcome={100}
+        onApplyAndRerun={onApply}
+      />
+    )
+
+    const btn = screen.getByTestId('tornado-apply-rerun')
+    expect(btn).toBeInTheDocument()
+    expect(btn).toHaveTextContent('Apply and rerun')
+    fireEvent.click(btn)
+    expect(onApply).toHaveBeenCalledOnce()
   })
 
   // ── Disclaimer tests ──

@@ -20,7 +20,7 @@ export interface Warning {
 }
 
 /** V14.3b: Defence-in-depth — filter out warnings containing internal ISL field names. */
-const INTERNAL_PATTERN = /constraint_fac_|observed_state\.|intercept\s*=|fac_[a-z_]+|blocks_analysis|node_id\s*=|edge_id\s*=|opt_[a-z_]+|goal_[a-z_]+/i
+const INTERNAL_PATTERN = /constraint_[a-z_]+|observed_state\.|intercept\s*=|fac_[a-z_]+|blocks_analysis|node_id\s*=|edge_id\s*=|opt_[a-z_]+|goal_[a-z_]+|compared as-is by ISL|no derivable range/i
 
 interface WarningBannerProps {
   warnings: Warning[]
