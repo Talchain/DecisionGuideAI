@@ -105,7 +105,7 @@ export function DraftChat() {
   // Brief validation
   const [isInputFocused, setIsInputFocused] = useState(false)
   const briefValidation = validateBrief(description)
-  const canSubmit = briefValidation.isValid && !loading
+  const canSubmit = briefValidation.isValid && !loading && !conversation.isThinking
 
   // Auto-resize textarea based on content
   const adjustTextareaHeight = useCallback(() => {
@@ -183,6 +183,21 @@ export function DraftChat() {
       resetCanvas()
       setShowDraftChat(true)
     }
+
+    // A.5+: When orchestrator V2 is enabled, route initial brief through the
+    // orchestrator conversation path (POST /orchestrate/v1/turn) instead of
+    // the legacy /bff/cee/draft-graph endpoint.
+    if (isOrchestratorV2Enabled()) {
+      console.info('[handleDraft] orchestrator V2 path — routing brief to /orchestrate/v1/turn')
+      setLastDraftDescription(description)
+      const briefText = description
+      setDescription('')
+      // Keep panel expanded so the user sees the conversation response and
+      // can interact with graph_patch blocks (Accept/Dismiss).
+      await conversation.sendMessage(briefText)
+      return
+    }
+    console.info('[handleDraft] legacy path — routing brief to /bff/cee/draft-graph')
 
     try {
       // Store description for persistence across panel close/reopen

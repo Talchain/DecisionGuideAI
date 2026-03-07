@@ -32,6 +32,8 @@ import type {
   OrchestratorTurnRequest,
   OrchestratorResponseEnvelopeV2,
   ConversationTurnPair,
+  GraphPatchBlock,
+  PatchOperation,
 } from './types'
 import { MAX_CHIPS_PER_TURN, MAX_SUGGESTED_ACTIONS } from './types'
 
@@ -387,7 +389,54 @@ export function useConversation(): UseConversationReturn {
       const currentGraphHash = generateGraphHash(store.nodes, store.edges)
       for (const block of normalisedBlocks) {
         if (block.type === 'graph_patch') {
-          (block as import('./types').GraphPatchBlock).graph_hash_at_proposal = currentGraphHash
+          (block as GraphPatchBlock).graph_hash_at_proposal = currentGraphHash
+        }
+      }
+
+      // Auto-apply graph_patch blocks with auto_apply=true (e.g. initial brief
+      // response from orchestrator). Apply operations directly to the canvas
+      // without user interaction — matches the legacy draft-graph auto-apply UX.
+      for (const block of normalisedBlocks) {
+        if (block.type === 'graph_patch' && (block as GraphPatchBlock).auto_apply === true) {
+          const patchBlock = block as GraphPatchBlock
+          try {
+            store.beginExternalGraphMutation?.('patch_apply')
+            for (const op of patchBlock.operations) {
+              const s = useCanvasStore.getState()
+              switch (op.op) {
+                case 'add_node': {
+                  s.addNode(undefined, (op.data.type as string) || 'decision')
+                  const nodes = useCanvasStore.getState().nodes
+                  const newNode = nodes[nodes.length - 1]
+                  if (newNode) {
+                    s.updateNode(newNode.id, { id: op.target_id, data: op.data } as any)
+                  }
+                  break
+                }
+                case 'remove_node':
+                  s.deleteNodeById(op.target_id)
+                  break
+                case 'update_node':
+                  s.updateNode(op.target_id, { data: op.data } as any)
+                  break
+                case 'add_edge':
+                  s.addEdge({
+                    source: op.data.source as string,
+                    target: op.data.target as string,
+                    data: op.data,
+                  } as any)
+                  break
+                case 'remove_edge':
+                  s.deleteEdgeById(op.target_id)
+                  break
+                case 'update_edge':
+                  s.updateEdgeData(op.target_id, op.data as any)
+                  break
+              }
+            }
+          } finally {
+            useCanvasStore.getState().endExternalGraphMutation?.()
+          }
         }
       }
 
