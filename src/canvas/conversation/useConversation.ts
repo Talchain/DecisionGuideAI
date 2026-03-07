@@ -33,7 +33,6 @@ import type {
   OrchestratorResponseEnvelopeV2,
   ConversationTurnPair,
   GraphPatchBlock,
-  PatchOperation,
 } from './types'
 import { MAX_CHIPS_PER_TURN, MAX_SUGGESTED_ACTIONS } from './types'
 import { extractTargetIdsFromPatch } from './utils/extractTargetIds'
@@ -45,13 +44,33 @@ export const SYSTEM_MESSAGE_SENTINEL = '[system]'
 // Constants
 // ---------------------------------------------------------------------------
 
-const LONG_RUNNING_THRESHOLD_MS = 10_000
-const STILL_WORKING_THRESHOLD_MS = 20_000
-const TIMEOUT_MS = 30_000
+const LONG_RUNNING_THRESHOLD_MS = 15_000
+const STILL_WORKING_THRESHOLD_MS = 30_000
+const TIMEOUT_MS = 60_000
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+
+/** Build a user-facing error message from a caught error */
+export function buildErrorMessage(err: unknown): string {
+  if (!(err instanceof OrchestratorError)) {
+    return 'Something went wrong. Try again or rephrase your message.'
+  }
+  const ref = err.requestId ? ` [ref: ${err.requestId}]` : ''
+  switch (true) {
+    case err.status === 401:
+      return `Authentication error.${ref} Please refresh and try again.`
+    case err.status === 429:
+      return `Too many requests.${ref} Please wait a moment and try again.`
+    case err.status === 400:
+      return `Request error (400).${ref} Try rephrasing your message.`
+    case err.status !== undefined && err.status >= 500:
+      return `Service temporarily unavailable (${err.status}).${ref} Please try again shortly.`
+    default:
+      return `Something went wrong (${err.status}).${ref} Try again or rephrase your message.`
+  }
+}
 
 /** Extract last N turn pairs (user+assistant = 1 pair) from messages */
 export function buildHistory(
@@ -632,10 +651,7 @@ export function useConversation(): UseConversationReturn {
 
         if (mode === 'user') setLastFailedInput(message)
 
-        const errorMessage =
-          err instanceof OrchestratorError
-            ? `Something went wrong (${err.status}).${err.requestId ? ` [ref: ${err.requestId}]` : ''} Try again or rephrase your message.`
-            : 'Something went wrong. Try again or rephrase your message.'
+        const errorMessage = buildErrorMessage(err)
 
         addMessage({
           id: crypto.randomUUID(),

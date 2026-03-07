@@ -84,29 +84,13 @@ describe('timeout progression (10s / 20s / 30s)', () => {
     })
 
     act(() => {
-      vi.advanceTimersByTime(10_000)
+      vi.advanceTimersByTime(15_000)
     })
 
     expect(result.current.longRunningHint).toBe('Running analysis\u2026')
   })
 
-  it('shows "Still working\u2026" at 20s', async () => {
-    mockCallTurn.mockReturnValue(new Promise(() => {}))
-
-    const { result } = renderHook(() => useConversation())
-
-    await act(async () => {
-      result.current.sendMessage('test message')
-    })
-
-    act(() => {
-      vi.advanceTimersByTime(20_000)
-    })
-
-    expect(result.current.longRunningHint).toBe('Still working\u2026')
-  })
-
-  it('aborts and shows error at 30s', async () => {
+  it('shows "Still working\u2026" at 30s', async () => {
     mockCallTurn.mockReturnValue(new Promise(() => {}))
 
     const { result } = renderHook(() => useConversation())
@@ -117,6 +101,22 @@ describe('timeout progression (10s / 20s / 30s)', () => {
 
     act(() => {
       vi.advanceTimersByTime(30_000)
+    })
+
+    expect(result.current.longRunningHint).toBe('Still working\u2026')
+  })
+
+  it('aborts and shows error at 60s', async () => {
+    mockCallTurn.mockReturnValue(new Promise(() => {}))
+
+    const { result } = renderHook(() => useConversation())
+
+    await act(async () => {
+      result.current.sendMessage('test message')
+    })
+
+    act(() => {
+      vi.advanceTimersByTime(60_000)
     })
 
     expect(result.current.isThinking).toBe(false)
@@ -155,7 +155,7 @@ describe('input restore on error (lastFailedInput)', () => {
     })
 
     act(() => {
-      vi.advanceTimersByTime(30_000)
+      vi.advanceTimersByTime(60_000)
     })
 
     expect(result.current.lastFailedInput).toBe('timeout question')

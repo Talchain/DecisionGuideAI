@@ -23,57 +23,12 @@ import { ActionStrip } from './ActionStrip'
 import { ReadinessPill } from './ReadinessPill'
 import { BiasAlertIcon } from './BiasAlertIcon'
 import type { NavigateTarget } from './ActionStrip'
-import type { ActionChip, GraphPatchBlock, PatchOperation } from './types'
-import type { UseConversationReturn, PatchRejectionInfo } from './useConversation'
+import type { ActionChip, GraphPatchBlock } from './types'
+import type { UseConversationReturn } from './useConversation'
+import { applyAutoApplyPatch } from './utils/applyPatch'
 import { extractTargetIdsFromPatch } from './utils/extractTargetIds'
-import { generateGraphHash } from '../utils/graphHash'
 import { plot } from '../../adapters/plot'
 import styles from './Conversation.module.css'
-
-// ---------------------------------------------------------------------------
-// Patch apply helper — shared by validated and optimistic branches
-// ---------------------------------------------------------------------------
-
-function applyPatchOperations(
-  operations: PatchOperation[],
-  getState: () => ReturnType<typeof useCanvasStore.getState>,
-): void {
-  for (const op of operations) {
-    const s = getState()
-    switch (op.op) {
-      case 'add_node': {
-        // Store generates its own ID via addNode; we immediately patch the
-        // new node with the orchestrator-provided target_id and full data.
-        s.addNode(undefined, (op.data.type as string) || 'decision')
-        const nodes = getState().nodes
-        const newNode = nodes[nodes.length - 1]
-        if (newNode) {
-          s.updateNode(newNode.id, { id: op.target_id, data: op.data } as any)
-        }
-        break
-      }
-      case 'remove_node':
-        s.deleteNodeById(op.target_id)
-        break
-      case 'update_node':
-        s.updateNode(op.target_id, { data: op.data } as any)
-        break
-      case 'add_edge':
-        s.addEdge({
-          source: op.data.source as string,
-          target: op.data.target as string,
-          data: op.data,
-        } as any)
-        break
-      case 'remove_edge':
-        s.deleteEdgeById(op.target_id)
-        break
-      case 'update_edge':
-        s.updateEdgeData(op.target_id, op.data as any)
-        break
-    }
-  }
-}
 
 interface ConversationPanelProps {
   conversation: UseConversationReturn
@@ -240,7 +195,7 @@ export const ConversationPanel = memo(function ConversationPanel({
                 if (import.meta.env.DEV) {
                   console.warn('[olumi] op-replay fallback: PLoT did not return full graph, applying operations individually')
                 }
-                applyPatchOperations(block.operations, () => useCanvasStore.getState())
+                applyAutoApplyPatch(block)
               }
             } finally {
               useCanvasStore.getState().endExternalGraphMutation()
@@ -285,7 +240,7 @@ export const ConversationPanel = memo(function ConversationPanel({
           // A.7: Suppress direct_graph_edit during patch-apply
           useCanvasStore.getState().beginExternalGraphMutation('patch_apply')
           try {
-            applyPatchOperations(block.operations, () => useCanvasStore.getState())
+            applyAutoApplyPatch(block)
           } finally {
             useCanvasStore.getState().endExternalGraphMutation()
           }
