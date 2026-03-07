@@ -92,6 +92,49 @@ describe('adaptCEEBlock — wrapped CEE format', () => {
     expect(result.block_id).toBe('b2')
   })
 
+  it('normalises operations from CEE V2 path/value to target_id/data', () => {
+    const raw = {
+      block_type: 'graph_patch',
+      block_id: 'b-v2',
+      data: {
+        operations: [
+          { op: 'add_node', path: '/nodes/dec_x', value: { id: 'dec_x', kind: 'decision', label: 'X' } },
+          { op: 'add_edge', path: '/edges/dec_x->fac_y', value: { from: 'dec_x', to: 'fac_y', strength: { mean: 0.5 } } },
+        ],
+        auto_apply: true,
+      },
+    }
+    const result = adaptCEEBlock(raw) as any
+    expect(result.operations).toHaveLength(2)
+
+    // Node op normalised
+    expect(result.operations[0].target_id).toBe('dec_x')
+    expect(result.operations[0].data.kind).toBe('decision')
+    expect(result.operations[0].path).toBeUndefined()
+    expect(result.operations[0].value).toBeUndefined()
+
+    // Edge op normalised — target_id derived from path tail since value has no .id
+    expect(result.operations[1].target_id).toBeTruthy()
+    expect(result.operations[1].data.from).toBe('dec_x')
+    expect(result.operations[1].data.to).toBe('fac_y')
+  })
+
+  it('passes through legacy target_id/data operations unchanged', () => {
+    const raw = {
+      block_type: 'graph_patch',
+      block_id: 'b-legacy',
+      data: {
+        operations: [
+          { op: 'add_node', target_id: 'n1', data: { kind: 'factor', label: 'F' } },
+        ],
+        auto_apply: false,
+      },
+    }
+    const result = adaptCEEBlock(raw) as any
+    expect(result.operations[0].target_id).toBe('n1')
+    expect(result.operations[0].data.kind).toBe('factor')
+  })
+
   it('maps fact block_type with template fields', () => {
     const raw = {
       block_type: 'fact',

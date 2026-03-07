@@ -221,6 +221,351 @@ describe('input restore on error (lastFailedInput)', () => {
 })
 
 // ---------------------------------------------------------------------------
+// buildRequest payload integration (P1-1)
+// Captures actual request sent to callOrchestratorTurn to verify
+// RF → CEE transform happens in the real code path.
+// ---------------------------------------------------------------------------
+
+describe('buildRequest payload — RF → CEE graph_state transform', () => {
+  beforeEach(() => {
+    // Seed store with realistic React Flow format nodes and edges
+    useCanvasStore.setState({
+      currentScenarioId: 'test-scenario',
+      nodes: [
+        {
+          id: 'goal-1',
+          type: 'goal',
+          position: { x: 100, y: 50 },
+          data: {
+            label: 'Revenue Target',
+            kind: 'goal',
+            category: 'outcome',
+            observedState: { value: 1000, baseline: 800, unit: 'USD' },
+            // RF internals that must be stripped
+            selected: true,
+            dragging: false,
+            measured: { width: 200, height: 100 },
+          },
+        },
+        {
+          id: 'factor-1',
+          type: 'factor',
+          position: { x: 300, y: 200 },
+          data: {
+            label: 'Marketing Spend',
+            kind: 'factor',
+            category: 'controllable',
+            prior: { range_min: 0, range_max: 5000 },
+            // UI-only fields that must be stripped
+            uncertainty: { high: true },
+            interventions: { opt1: { value: 2000 } },
+          },
+        },
+      ] as any,
+      edges: [
+        {
+          id: 'e1',
+          source: 'factor-1',
+          target: 'goal-1',
+          type: 'styled',
+          data: {
+            weight: 0.8,
+            direction: 'positive',
+            beliefExists: 0.9,
+            strengthStd: 0.1,
+          },
+        },
+        {
+          id: 'e2',
+          source: 'factor-1',
+          target: 'goal-1',
+          type: 'styled',
+          data: {
+            weight: 0.6,
+            direction: 'negative',
+            // no beliefExists — should omit exists_probability
+          },
+        },
+      ] as any,
+      results: { status: 'idle' } as any,
+      currentScenarioLastResultHash: null,
+      selection: { nodeIds: new Set(), edgeIds: new Set(), anchorPosition: null },
+    })
+  })
+
+  it('transforms nodes to CEE format (kind, label, no RF internals)', async () => {
+    mockCallTurn.mockResolvedValue({
+      assistant_text: 'OK',
+      client_turn_id: 'resp-1',
+    })
+
+    const { result } = renderHook(() => useConversation())
+    await act(async () => {
+      await result.current.sendMessage('test')
+    })
+
+    expect(mockCallTurn).toHaveBeenCalledTimes(1)
+    const request = mockCallTurn.mock.calls[0][0]
+    const nodes = request.graph_state.nodes
+
+    expect(nodes).toHaveLength(2)
+
+    // Goal node
+    const goalNode = nodes.find((n: any) => n.id === 'goal-1')
+    expect(goalNode.kind).toBe('goal')
+    expect(goalNode.label).toBe('Revenue Target')
+    expect(goalNode.category).toBe('outcome')
+    // observedState → observed_state rename
+    expect(goalNode.observed_state).toEqual({ value: 1000, baseline: 800, unit: 'USD' })
+    expect(goalNode.observedState).toBeUndefined()
+    // RF internals stripped
+    expect(goalNode.selected).toBeUndefined()
+    expect(goalNode.dragging).toBeUndefined()
+    expect(goalNode.measured).toBeUndefined()
+    expect(goalNode.position).toBeUndefined()
+    expect(goalNode.type).toBeUndefined()
+
+    // Factor node
+    const factorNode = nodes.find((n: any) => n.id === 'factor-1')
+    expect(factorNode.kind).toBe('factor')
+    expect(factorNode.label).toBe('Marketing Spend')
+    // UI-only fields stripped
+    expect(factorNode.uncertainty).toBeUndefined()
+    expect(factorNode.interventions).toBeUndefined()
+    // CEE-relevant field preserved
+    expect(factorNode.prior).toEqual({ range_min: 0, range_max: 5000 })
+  })
+
+  it('transforms edges to CEE format (from/to, signed strength)', async () => {
+    mockCallTurn.mockResolvedValue({
+      assistant_text: 'OK',
+      client_turn_id: 'resp-2',
+    })
+
+    const { result } = renderHook(() => useConversation())
+    await act(async () => {
+      await result.current.sendMessage('test')
+    })
+
+    const request = mockCallTurn.mock.calls[0][0]
+    const edges = request.graph_state.edges
+
+    expect(edges).toHaveLength(2)
+
+    // Positive edge
+    const e1 = edges.find((e: any) => e.from === 'factor-1' && e.strength.mean > 0)
+    expect(e1.from).toBe('factor-1')
+    expect(e1.to).toBe('goal-1')
+    expect(e1.strength.mean).toBeCloseTo(0.8)
+    expect(e1.strength.std).toBeCloseTo(0.1)
+    expect(e1.exists_probability).toBeCloseTo(0.9)
+    expect(e1.effect_direction).toBe('positive')
+    // Must NOT have RF fields
+    expect(e1.source).toBeUndefined()
+    expect(e1.target).toBeUndefined()
+    expect(e1.id).toBeUndefined()
+    expect(e1.type).toBeUndefined()
+
+    // Negative edge
+    const e2 = edges.find((e: any) => e.from === 'factor-1' && e.strength.mean < 0)
+    expect(e2.strength.mean).toBeCloseTo(-0.6)
+    expect(e2.exists_probability).toBeUndefined() // no beliefExists on this edge
+    expect(e2.effect_direction).toBe('negative')
+    expect(e2.strength.std).toBeUndefined() // no strengthStd on this edge
+  })
+
+  it('includes all required top-level fields in request', async () => {
+    mockCallTurn.mockResolvedValue({
+      assistant_text: 'OK',
+      client_turn_id: 'resp-3',
+    })
+
+    const { result } = renderHook(() => useConversation())
+    await act(async () => {
+      await result.current.sendMessage('hello')
+    })
+
+    const request = mockCallTurn.mock.calls[0][0]
+    expect(request.scenario_id).toBe('test-scenario')
+    expect(request.message).toBe('hello')
+    expect(request.client_turn_id).toBeTruthy()
+    expect(Array.isArray(request.conversation_history)).toBe(true)
+    expect(request.graph_state).toBeDefined()
+    expect(Array.isArray(request.graph_state.nodes)).toBe(true)
+    expect(Array.isArray(request.graph_state.edges)).toBe(true)
+    expect(request.analysis_state).toEqual({
+      has_results: false,
+      last_run_hash: null,
+    })
+  })
+
+  it('system event turn also transforms graph_state correctly', async () => {
+    mockCallTurn.mockResolvedValue({
+      assistant_text: 'Noted.',
+      client_turn_id: 'resp-sys',
+    })
+
+    const { result } = renderHook(() => useConversation())
+    await act(async () => {
+      await result.current.sendSystemEvent({
+        type: 'direct_graph_edit',
+        payload: { changed_node_ids: ['goal-1'] },
+      })
+    })
+
+    const request = mockCallTurn.mock.calls[0][0]
+    const nodes = request.graph_state.nodes
+    // Same transform applies to system event turns
+    const goalNode = nodes.find((n: any) => n.id === 'goal-1')
+    expect(goalNode.kind).toBe('goal')
+    expect(goalNode.observed_state).toEqual({ value: 1000, baseline: 800, unit: 'USD' })
+    expect(goalNode.selected).toBeUndefined()
+
+    // Edges also transformed
+    const edges = request.graph_state.edges
+    expect(edges[0].from).toBeDefined()
+    expect(edges[0].to).toBeDefined()
+    expect(edges[0].source).toBeUndefined()
+  })
+
+  it('conversation_history has correct turn pairs', async () => {
+    // First turn
+    mockCallTurn.mockResolvedValueOnce({
+      assistant_text: 'First response',
+      client_turn_id: 'resp-1',
+    })
+    // Second turn
+    mockCallTurn.mockResolvedValueOnce({
+      assistant_text: 'Second response',
+      client_turn_id: 'resp-2',
+    })
+
+    const { result } = renderHook(() => useConversation())
+
+    // Turn 1
+    await act(async () => {
+      await result.current.sendMessage('first question')
+    })
+
+    // Turn 2 — should include history from turn 1
+    await act(async () => {
+      await result.current.sendMessage('follow up')
+    })
+
+    const request2 = mockCallTurn.mock.calls[1][0]
+    expect(request2.conversation_history.length).toBeGreaterThanOrEqual(2)
+    // History entries are { role, content } pairs
+    const userEntry = request2.conversation_history.find(
+      (h: any) => h.role === 'user' && h.content === 'first question',
+    )
+    expect(userEntry).toBeDefined()
+    const assistantEntry = request2.conversation_history.find(
+      (h: any) => h.role === 'assistant' && h.content === 'First response',
+    )
+    expect(assistantEntry).toBeDefined()
+  })
+
+  it('clamps probability and weight values to valid ranges', async () => {
+    useCanvasStore.setState({
+      currentScenarioId: 'test-scenario',
+      nodes: [
+        { id: 'n1', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'A', kind: 'factor' } },
+        { id: 'n2', type: 'goal', position: { x: 0, y: 0 }, data: { label: 'B', kind: 'goal' } },
+      ] as any,
+      edges: [
+        {
+          id: 'e-over',
+          source: 'n1',
+          target: 'n2',
+          type: 'styled',
+          data: { weight: 3.0, direction: 'positive', beliefExists: 1.5 },
+        },
+        {
+          id: 'e-under',
+          source: 'n2',
+          target: 'n1',
+          type: 'styled',
+          data: { weight: -1.0, direction: 'negative', beliefExists: -0.5 },
+        },
+      ] as any,
+      results: { status: 'idle' } as any,
+      currentScenarioLastResultHash: null,
+      selection: { nodeIds: new Set(), edgeIds: new Set(), anchorPosition: null },
+    })
+    mockCallTurn.mockResolvedValue({ assistant_text: 'OK', client_turn_id: 'r' })
+
+    const { result } = renderHook(() => useConversation())
+    await act(async () => { await result.current.sendMessage('test') })
+
+    const edges = mockCallTurn.mock.calls[0][0].graph_state.edges
+    // exists_probability clamped to [0, 1]
+    expect(edges[0].exists_probability).toBeLessThanOrEqual(1)
+    expect(edges[0].exists_probability).toBeGreaterThanOrEqual(0)
+    expect(edges[1].exists_probability).toBeGreaterThanOrEqual(0)
+  })
+
+  it('falls back unknown kind to factor', async () => {
+    useCanvasStore.setState({
+      currentScenarioId: 'test-scenario',
+      nodes: [
+        { id: 'n1', type: 'customWeirdType', position: { x: 0, y: 0 }, data: { label: 'A', kind: 'banana' } },
+      ] as any,
+      edges: [] as any,
+      results: { status: 'idle' } as any,
+      currentScenarioLastResultHash: null,
+      selection: { nodeIds: new Set(), edgeIds: new Set(), anchorPosition: null },
+    })
+    mockCallTurn.mockResolvedValue({ assistant_text: 'OK', client_turn_id: 'r' })
+
+    const { result } = renderHook(() => useConversation())
+    await act(async () => { await result.current.sendMessage('test') })
+
+    const nodes = mockCallTurn.mock.calls[0][0].graph_state.nodes
+    expect(nodes[0].kind).toBe('factor') // invalid 'banana' falls back
+  })
+
+  it('omits effect_direction for invalid direction values', async () => {
+    useCanvasStore.setState({
+      currentScenarioId: 'test-scenario',
+      nodes: [
+        { id: 'n1', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'A', kind: 'factor' } },
+        { id: 'n2', type: 'goal', position: { x: 0, y: 0 }, data: { label: 'B', kind: 'goal' } },
+      ] as any,
+      edges: [
+        { id: 'e1', source: 'n1', target: 'n2', type: 'styled', data: { weight: 0.5, direction: 'sideways' } },
+      ] as any,
+      results: { status: 'idle' } as any,
+      currentScenarioLastResultHash: null,
+      selection: { nodeIds: new Set(), edgeIds: new Set(), anchorPosition: null },
+    })
+    mockCallTurn.mockResolvedValue({ assistant_text: 'OK', client_turn_id: 'r' })
+
+    const { result } = renderHook(() => useConversation())
+    await act(async () => { await result.current.sendMessage('test') })
+
+    const edges = mockCallTurn.mock.calls[0][0].graph_state.edges
+    expect(edges[0].effect_direction).toBeUndefined()
+  })
+
+  it('empty graph sends empty arrays, not undefined', async () => {
+    useCanvasStore.setState({ nodes: [], edges: [] })
+    mockCallTurn.mockResolvedValue({
+      assistant_text: 'OK',
+      client_turn_id: 'resp-empty',
+    })
+
+    const { result } = renderHook(() => useConversation())
+    await act(async () => {
+      await result.current.sendMessage('empty graph')
+    })
+
+    const request = mockCallTurn.mock.calls[0][0]
+    expect(request.graph_state.nodes).toEqual([])
+    expect(request.graph_state.edges).toEqual([])
+  })
+})
+
+// ---------------------------------------------------------------------------
 // Envelope stamping: graph_hash_at_proposal
 // ---------------------------------------------------------------------------
 
@@ -267,5 +612,86 @@ describe('graph_hash_at_proposal stamping', () => {
     expect(patchBlock.graph_hash_at_proposal).toBeDefined()
     expect(typeof patchBlock.graph_hash_at_proposal).toBe('string')
     expect(patchBlock.graph_hash_at_proposal.length).toBeGreaterThan(0)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// handleEnvelope — real CEE wire shapes
+// ---------------------------------------------------------------------------
+
+describe('handleEnvelope — CEE wire shape handling', () => {
+  it('handles assistant_text: null (graph-only response) without crash', async () => {
+    mockCallTurn.mockResolvedValue({
+      assistant_text: null,
+      client_turn_id: 'resp-null-text',
+      blocks: [
+        { type: 'commentary', text: 'Graph built.' },
+      ],
+    })
+
+    const { result } = renderHook(() => useConversation())
+    await act(async () => {
+      await result.current.sendMessage('build graph')
+    })
+
+    expect(result.current.messages).toHaveLength(2) // user + assistant
+    const assistantMsg = result.current.messages.find((m) => m.role === 'assistant')
+    expect(assistantMsg).toBeDefined()
+    // content falls back to empty string, not null
+    expect(assistantMsg!.content).toBe('')
+    expect(assistantMsg!.blocks).toHaveLength(1)
+  })
+
+  it('extracts stage from object stage_indicator { stage, confidence, source }', async () => {
+    const setCurrentStage = vi.fn()
+    useCanvasStore.setState({ setCurrentStage } as any)
+
+    mockCallTurn.mockResolvedValue({
+      assistant_text: 'Here is your model.',
+      client_turn_id: 'resp-stage-obj',
+      stage_indicator: { stage: 'ideate', confidence: 'high', source: 'inferred' },
+    })
+
+    const { result } = renderHook(() => useConversation())
+    await act(async () => {
+      await result.current.sendMessage('build model')
+    })
+
+    expect(setCurrentStage).toHaveBeenCalledWith('ideate')
+  })
+
+  it('handles plain string stage_indicator', async () => {
+    const setCurrentStage = vi.fn()
+    useCanvasStore.setState({ setCurrentStage } as any)
+
+    mockCallTurn.mockResolvedValue({
+      assistant_text: 'Running analysis.',
+      client_turn_id: 'resp-stage-str',
+      stage_indicator: 'evaluate',
+    })
+
+    const { result } = renderHook(() => useConversation())
+    await act(async () => {
+      await result.current.sendMessage('run analysis')
+    })
+
+    expect(setCurrentStage).toHaveBeenCalledWith('evaluate')
+  })
+
+  it('skips stage update when stage_indicator is absent', async () => {
+    const setCurrentStage = vi.fn()
+    useCanvasStore.setState({ setCurrentStage } as any)
+
+    mockCallTurn.mockResolvedValue({
+      assistant_text: 'OK',
+      client_turn_id: 'resp-no-stage',
+    })
+
+    const { result } = renderHook(() => useConversation())
+    await act(async () => {
+      await result.current.sendMessage('hello')
+    })
+
+    expect(setCurrentStage).not.toHaveBeenCalled()
   })
 })

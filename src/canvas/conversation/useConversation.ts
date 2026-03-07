@@ -10,7 +10,7 @@ import { useState, useCallback, useRef, useEffect } from 'react'
 import { useCanvasStore } from '../store'
 import { generateGraphHash } from '../utils/graphHash'
 import { callOrchestratorTurn, OrchestratorError } from './turnService'
-import { isOrchestratorV2Enabled, isV3SystemEventsEnabled } from '../../flags'
+import { isOrchestratorV2Enabled } from '../../flags'
 import { useGuidanceStore } from '../stores/guidanceStore'
 import { serializeSystemEvent } from './systemEvents'
 import {
@@ -35,7 +35,7 @@ import type {
   GraphPatchBlock,
 } from './types'
 import { MAX_CHIPS_PER_TURN, MAX_SUGGESTED_ACTIONS } from './types'
-import { extractTargetIdsFromPatch } from './utils/extractTargetIds'
+import { applyAutoApplyPatch } from './utils/applyPatch'
 
 /** Sentinel message content used for system events — must never render as a user bubble */
 export const SYSTEM_MESSAGE_SENTINEL = '[system]'
@@ -47,6 +47,33 @@ export const SYSTEM_MESSAGE_SENTINEL = '[system]'
 const LONG_RUNNING_THRESHOLD_MS = 15_000
 const STILL_WORKING_THRESHOLD_MS = 30_000
 const TIMEOUT_MS = 60_000
+
+/**
+ * Fields to strip from node.data before sending to CEE.
+ *
+ * - RF internals (selected, dragging, measured, etc.) — React Flow rendering state
+ * - label, kind, type — extracted as top-level keys in the CEE node shape
+ * - uncertainty — UI-computed display field, not part of CEE node schema
+ * - interventions — rebuilt from ceeAnalysisReady.options; sending the
+ *   canvas-side copy would conflict with CEE's authoritative version
+ */
+const RF_NODE_BLOCKLIST = new Set([
+  'selected', 'dragging', 'measured', 'resizing',
+  'position', 'positionAbsolute', 'draggable', 'selectable',
+  'deletable', 'connectable', 'focusable', 'parentId', 'extent',
+  'expandParent', 'ariaLabel', 'zIndex', 'hidden',
+  'label', 'kind', 'type', 'uncertainty', 'interventions',
+])
+
+/** Valid CEE node kinds — unknown kinds fall back to 'factor' */
+const CEE_VALID_KINDS = new Set([
+  'decision', 'event', 'outcome', 'goal', 'option', 'factor', 'risk', 'action',
+])
+
+/** Clamp a number to [0, 1] */
+function clamp01(v: number): number {
+  return Math.max(0, Math.min(1, v))
+}
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -69,6 +96,39 @@ export function buildErrorMessage(err: unknown): string {
       return `Service temporarily unavailable (${err.status}).${ref} Please try again shortly.`
     default:
       return `Something went wrong (${err.status}).${ref} Try again or rephrase your message.`
+  }
+}
+
+/**
+ * Dev-mode post-adaptation validator. Warns if critical fields are missing
+ * on adapted blocks. Catches adapter regressions before they reach the browser.
+ * No-op in production builds.
+ */
+function validateAdaptedBlock(block: ConversationBlock, index: number): void {
+  if (!import.meta.env.DEV) return
+
+  if (block.type === 'graph_patch') {
+    const patch = block as GraphPatchBlock
+    if (!Array.isArray(patch.operations) || patch.operations.length === 0) {
+      console.warn(`[validateAdaptedBlock] blocks[${index}] graph_patch has 0 operations`)
+    }
+    for (let i = 0; i < (patch.operations?.length ?? 0); i++) {
+      const op = patch.operations[i]
+      if (!op.target_id) {
+        console.warn(`[validateAdaptedBlock] blocks[${index}].operations[${i}] missing target_id`, { op: op.op })
+      }
+      if (op.op.startsWith('add_') && op.data == null) {
+        console.warn(`[validateAdaptedBlock] blocks[${index}].operations[${i}] add op missing data`, { op: op.op, target_id: op.target_id })
+      }
+    }
+  }
+
+  if (block.type === 'commentary' && !(block as any).text) {
+    console.warn(`[validateAdaptedBlock] blocks[${index}] commentary has empty text`)
+  }
+
+  if (block.type === 'fact' && !(block as any).label) {
+    console.warn(`[validateAdaptedBlock] blocks[${index}] fact has empty label`)
   }
 }
 
@@ -100,11 +160,62 @@ export function enforceChipBudget(
 }
 
 /**
+ * Normalise a single patch operation from CEE wire format to UI PatchOperation.
+ *
+ * CEE sends operations in two formats:
+ *   V2 (current): { op, path, value }
+ *     - path: "/nodes/<id>" or "/edges/<from>-><to>"
+ *     - value: the node/edge data object
+ *     - target_id is derived from value.id or the path tail
+ *   Legacy: { op, target_id, data }
+ *     - Already in UI format, pass through
+ */
+function normalisePatchOp(raw: Record<string, unknown>): Record<string, unknown> {
+  // Already in UI format (has target_id)
+  if (typeof raw.target_id === 'string') return raw
+
+  // V2 format: { op, path, value }
+  if ('value' in raw || 'path' in raw) {
+    const value = (raw.value != null && typeof raw.value === 'object' ? raw.value : {}) as Record<string, unknown>
+    const path = typeof raw.path === 'string' ? raw.path : ''
+    // Derive target_id: prefer value.id, fall back to last segment of path
+    const pathTail = path.split('/').pop() ?? ''
+    const targetId = typeof value.id === 'string' ? value.id : pathTail
+
+    if (import.meta.env.DEV) {
+      if (!targetId) {
+        console.warn('[normalisePatchOp] empty target_id — no value.id and path has no usable tail', { op: raw.op, path })
+      }
+      if (typeof raw.op === 'string' && raw.op.startsWith('add_') && Object.keys(value).length === 0) {
+        console.warn('[normalisePatchOp] add op has empty data (value was null/undefined)', { op: raw.op, path })
+      }
+    }
+
+    return {
+      op: raw.op,
+      target_id: targetId,
+      data: value,
+    }
+  }
+
+  // Unknown shape — pass through, buildNode/buildEdge will guard on missing fields
+  if (import.meta.env.DEV) {
+    console.warn('[normalisePatchOp] unknown op shape — no target_id, no path/value', { op: raw.op, keys: Object.keys(raw) })
+  }
+  return raw
+}
+
+/**
  * Normalise a block as received from CEE's wire format into the flat UI type.
  *
  * CEE may send blocks in two shapes:
- *  1. Wrapped: { block_id, block_type, data: {...}, actions: [...] }
- *  2. Flat (legacy): { type, ...fields } — already in UI format
+ *  1. Wrapped (V2): { block_id, block_type, data: { operations: [{op, path, value}], auto_apply, ... }, provenance }
+ *  2. Flat (legacy): { type, operations: [{op, target_id, data}], ...fields } — already in UI format
+ *
+ * Within graph_patch, operations may use either:
+ *  - V2 format: { op, path: "/nodes/<id>", value: {...} }
+ *  - Legacy format: { op, target_id: "<id>", data: {...} }
+ * Both are normalised to { op, target_id, data } for applyAutoApplyPatch.
  *
  * Unknown block_type values are passed through as-is; InlineBlocks renders a
  * fallback for them. Unknown enum values within known block types degrade
@@ -117,6 +228,11 @@ export function adaptCEEBlock(raw: unknown): ConversationBlock {
   }
 
   const obj = raw as Record<string, unknown>
+
+  // Defensive: warn if block has neither type identifier
+  if (import.meta.env.DEV && typeof obj.block_type !== 'string' && typeof obj.type !== 'string') {
+    console.warn('[adaptCEEBlock] Block missing type identifier:', Object.keys(obj))
+  }
 
   // Wrapped CEE format: { block_type, data, ... }
   if (typeof obj.block_type === 'string' && 'data' in obj) {
@@ -133,17 +249,41 @@ export function adaptCEEBlock(raw: unknown): ConversationBlock {
           key_risks: Array.isArray(dataObj.key_risks) ? dataObj.key_risks.map(String) : undefined,
         }
 
-      case 'graph_patch':
+      case 'graph_patch': {
+        const rawOps = Array.isArray(dataObj.operations) ? dataObj.operations : []
+        const normOps = rawOps.map((op: unknown) =>
+          op != null && typeof op === 'object' ? normalisePatchOp(op as Record<string, unknown>) : op
+        )
+
+        if (import.meta.env.DEV) {
+          if (rawOps.length > 0 && normOps.length > 0) {
+            const firstOp = normOps[0] as Record<string, unknown>
+            const hadPathValue = rawOps.some((o: any) => 'path' in o || 'value' in o)
+            if (hadPathValue) {
+              console.log('[adaptCEEBlock] Normalised graph_patch ops from path/value → target_id/data', {
+                rawCount: rawOps.length,
+                sampleTargetId: firstOp.target_id,
+                sampleOp: firstOp.op,
+              })
+            }
+          }
+          // Warn: operations resolved to empty but block had data
+          if (normOps.length === 0 && Object.keys(dataObj).length > 0) {
+            console.warn('[adaptCEEBlock] graph_patch has 0 operations but data keys:', Object.keys(dataObj))
+          }
+        }
+
         return {
           type: 'graph_patch',
           patch_id: String(dataObj.patch_id ?? block_id ?? ''),
           summary: String(dataObj.description ?? dataObj.summary ?? ''),
-          operations: Array.isArray(dataObj.operations) ? dataObj.operations as any : [],
+          operations: normOps as any,
           target_graph_hash: String(dataObj.applied_graph_hash ?? dataObj.target_graph_hash ?? ''),
           auto_apply: dataObj.auto_apply === true,
           actions: Array.isArray(actions) ? actions as any : undefined,
           block_id: typeof block_id === 'string' ? block_id : undefined,
         }
+      }
 
       case 'fact':
         return {
@@ -186,7 +326,16 @@ export function adaptCEEBlock(raw: unknown): ConversationBlock {
     }
   }
 
-  // Flat format (legacy / already-normalised) — pass through as-is
+  // Flat format (legacy / already-normalised)
+  // Still normalise graph_patch operations in case they use path/value format
+  if (obj.type === 'graph_patch' && Array.isArray(obj.operations)) {
+    return {
+      ...obj,
+      operations: obj.operations.map((op: unknown) =>
+        op != null && typeof op === 'object' ? normalisePatchOp(op as Record<string, unknown>) : op
+      ),
+    } as unknown as ConversationBlock
+  }
   return raw as ConversationBlock
 }
 
@@ -319,13 +468,53 @@ export function useConversation(): UseConversationReturn {
             }
           : undefined
 
+      // Transform React Flow nodes → CEE schema: { id, kind, label, category?, observed_state?, ... }
+      // CEE rejects React Flow internal fields (type, position, data wrapper).
+      // Uses a blocklist to strip RF internals while passing through CEE-relevant fields.
+      const ceeNodes = store.nodes.map((n) => {
+        const d = n.data ?? {}
+        const rawKind = (d as any).kind ?? n.type ?? 'factor'
+        const out: Record<string, unknown> = {
+          id: n.id,
+          kind: CEE_VALID_KINDS.has(rawKind) ? rawKind : 'factor',
+          label: (d as any).label ?? n.id,
+        }
+        // Pass through CEE-relevant fields, skip RF internals
+        for (const [key, value] of Object.entries(d as Record<string, unknown>)) {
+          if (RF_NODE_BLOCKLIST.has(key) || value === undefined) continue
+          // Rename observedState → observed_state for CEE
+          if (key === 'observedState') { out.observed_state = value; continue }
+          out[key] = value
+        }
+        return out
+      })
+
+      // Transform React Flow edges → CEE schema: { from, to, strength?, exists_probability?, ... }
+      const ceeEdges = store.edges.map((e) => {
+        const d = e.data ?? {}
+        const weight = typeof d.weight === 'number' ? clamp01(d.weight / 2) * 2 : 0.5
+        const direction = d.direction === 'negative' ? -1 : 1
+        const mean = direction * weight
+        const std = typeof d.strengthStd === 'number' ? Math.max(0, d.strengthStd) : undefined
+        const rawExistsProb = d.beliefExists ?? d.confidence ?? d.belief
+        const existsProb = typeof rawExistsProb === 'number' ? clamp01(rawExistsProb) : undefined
+        const effectDir = d.direction === 'positive' || d.direction === 'negative' ? d.direction : undefined
+        return {
+          from: e.source,
+          to: e.target,
+          strength: { mean, ...(std !== undefined ? { std } : {}) },
+          ...(existsProb !== undefined ? { exists_probability: existsProb } : {}),
+          ...(effectDir ? { effect_direction: effectDir } : {}),
+        }
+      })
+
       return {
         scenario_id: store.currentScenarioId ?? `session-${Date.now()}`,
         message: text,
         conversation_history: buildHistory(messages, 5),
         graph_state: {
-          nodes: store.nodes,
-          edges: store.edges,
+          nodes: ceeNodes,
+          edges: ceeEdges,
         },
         analysis_state: {
           has_results: store.results.status === 'complete',
@@ -344,9 +533,14 @@ export function useConversation(): UseConversationReturn {
 
   const handleEnvelope = useCallback(
     (envelope: OrchestratorResponseEnvelopeV2) => {
-      // Update stage if provided
+      // Update stage if provided. CEE sends either a plain string or
+      // { stage, confidence, source } — extract the stage string.
       if (envelope.stage_indicator) {
-        useCanvasStore.getState().setCurrentStage(envelope.stage_indicator)
+        const raw = envelope.stage_indicator
+        const stage = typeof raw === 'string' ? raw : raw.stage
+        if (stage) {
+          useCanvasStore.getState().setCurrentStage(stage)
+        }
       }
 
       // NOTE: guidance items are set AFTER auto-apply patches (below) so that
@@ -405,6 +599,9 @@ export function useConversation(): UseConversationReturn {
       const rawBlocks = envelope.blocks ?? []
       const normalisedBlocks = rawBlocks.map(adaptCEEBlock)
 
+      // Dev-mode validation: catch adapter regressions before they reach the UI
+      normalisedBlocks.forEach(validateAdaptedBlock)
+
       // Stamp graph_hash_at_proposal on graph_patch blocks so the accept flow
       // can detect staleness if the graph changes before the user clicks Accept.
       const currentGraphHash = generateGraphHash(store.nodes, store.edges)
@@ -415,95 +612,31 @@ export function useConversation(): UseConversationReturn {
       }
 
       // Auto-apply graph_patch blocks with auto_apply=true (e.g. initial brief
-      // response from orchestrator). Apply operations directly to the canvas
-      // without user interaction — matches the legacy draft-graph auto-apply UX.
-      //
-      // Hardened with: pre-validation, per-operation error handling, batched
-      // history (single undo entry), and post-apply guidance clearing.
+      // response from orchestrator). Delegates to applyAutoApplyPatch which
+      // handles field normalisation (kind→type, from/to→source/target), bulk
+      // setState, ELK layout, and post-apply invalidation.
       const autoApplyModifiedIds: string[] = []
 
       for (const block of normalisedBlocks) {
         if (block.type === 'graph_patch' && (block as GraphPatchBlock).auto_apply === true) {
           const patchBlock = block as GraphPatchBlock
           try {
-            // Single history snapshot before all operations, then suppress
+            // Single history snapshot before bulk mutation, then suppress
             // per-operation pushToHistory calls to avoid undo-stack bloat.
             useCanvasStore.getState().pushHistory?.()
             useCanvasStore.getState().beginExternalGraphMutation?.('patch_apply', { suppressHistory: true })
 
-            for (const op of patchBlock.operations) {
-              try {
-                const s = useCanvasStore.getState()
-                const nodeMap = new Set(s.nodes.map(n => n.id))
-                const edgeMap = new Set(s.edges.map(e => e.id))
+            const patchResult = applyAutoApplyPatch(patchBlock)
+            autoApplyModifiedIds.push(...patchResult.modifiedIds)
 
-                switch (op.op) {
-                  case 'add_node': {
-                    // Create node with the orchestrator's target_id directly
-                    // by adding then updating — avoids nodes[length-1] race.
-                    const preCount = s.nodes.length
-                    s.addNode(undefined, (op.data.type as string) || 'decision')
-                    const postState = useCanvasStore.getState()
-                    // Find the newly added node (it will have a higher index)
-                    const newNode = postState.nodes.length > preCount
-                      ? postState.nodes[postState.nodes.length - 1]
-                      : null
-                    if (newNode) {
-                      postState.updateNode(newNode.id, { id: op.target_id, data: op.data } as any)
-                    } else if (import.meta.env.DEV) {
-                      console.warn('[handleEnvelope] add_node: failed to find newly created node')
-                    }
-                    break
-                  }
-                  case 'remove_node':
-                    if (!nodeMap.has(op.target_id)) {
-                      if (import.meta.env.DEV) console.warn(`[handleEnvelope] remove_node: node "${op.target_id}" not found, skipping`)
-                      break
-                    }
-                    s.deleteNodeById(op.target_id)
-                    break
-                  case 'update_node':
-                    if (!nodeMap.has(op.target_id)) {
-                      if (import.meta.env.DEV) console.warn(`[handleEnvelope] update_node: node "${op.target_id}" not found, skipping`)
-                      break
-                    }
-                    s.updateNode(op.target_id, { data: op.data } as any)
-                    break
-                  case 'add_edge':
-                    s.addEdge({
-                      source: op.data.source as string,
-                      target: op.data.target as string,
-                      data: op.data,
-                    } as any)
-                    break
-                  case 'remove_edge':
-                    if (!edgeMap.has(op.target_id)) {
-                      if (import.meta.env.DEV) console.warn(`[handleEnvelope] remove_edge: edge "${op.target_id}" not found, skipping`)
-                      break
-                    }
-                    s.deleteEdgeById(op.target_id)
-                    break
-                  case 'update_edge':
-                    if (!edgeMap.has(op.target_id)) {
-                      if (import.meta.env.DEV) console.warn(`[handleEnvelope] update_edge: edge "${op.target_id}" not found, skipping`)
-                      break
-                    }
-                    s.updateEdgeData(op.target_id, op.data as any)
-                    break
-                  default:
-                    if (import.meta.env.DEV) console.warn(`[handleEnvelope] unknown patch op: "${(op as any).op}"`)
-                }
-              } catch (opErr) {
-                // Per-operation error: log and continue with remaining operations
-                if (import.meta.env.DEV) {
-                  console.error(`[handleEnvelope] patch op "${op.op}" on "${op.target_id}" failed:`, opErr)
-                }
-              }
+            if (import.meta.env.DEV) {
+              // eslint-disable-next-line no-console, no-restricted-syntax
+              console.log('[handleEnvelope] auto-apply:', {
+                nodes: patchResult.addedNodeCount,
+                edges: patchResult.addedEdgeCount,
+                modified: patchResult.modifiedIds.length,
+              })
             }
-
-            // Collect modified IDs for post-apply guidance clearing
-            const { nodeIds, edgeIds } = extractTargetIdsFromPatch(patchBlock.operations)
-            autoApplyModifiedIds.push(...nodeIds, ...edgeIds)
           } catch (patchErr) {
             if (import.meta.env.DEV) {
               console.error('[handleEnvelope] auto-apply patch failed:', patchErr)
@@ -528,7 +661,7 @@ export function useConversation(): UseConversationReturn {
       const assistantMsg: ConversationMessage = {
         id: crypto.randomUUID(),
         role: 'assistant',
-        content: envelope.assistant_text,
+        content: envelope.assistant_text ?? '',
         blocks: orderedBlocks.length > 0 ? orderedBlocks : undefined,
         actionChips: chips.length > 0 ? chips : undefined,
         timestamp: new Date(),
@@ -628,20 +761,12 @@ export function useConversation(): UseConversationReturn {
 
       try {
         const request = buildRequest(message)
-        // Attach system_event at the wire boundary.
-        // When ENABLE_V3_SYSTEM_EVENTS is ON: serialize to CEE v3 format
-        // { event_type, timestamp, event_id, details }. Unknown types are
-        // skipped by serializeSystemEvent (returns null) to prevent 400s.
-        // When OFF: send the raw internal { type, payload } shape.
+        // Attach system_event in CEE v3 wire format. Unknown types already
+        // filtered by sendSystemEvent pre-check; null here is a safety net.
         if (systemEvent) {
-          if (isV3SystemEventsEnabled()) {
-            const wire = serializeSystemEvent(systemEvent)
-            if (wire !== null) {
-              request.system_event = wire
-            }
-            // null means unknown type — skipped, no system_event sent this turn
-          } else {
-            request.system_event = systemEvent
+          const wire = serializeSystemEvent(systemEvent)
+          if (wire !== null) {
+            request.system_event = wire
           }
         }
         const envelope = await callOrchestratorTurn(request, controller.signal)
@@ -649,20 +774,29 @@ export function useConversation(): UseConversationReturn {
       } catch (err) {
         if ((err as Error).name === 'AbortError') return // timeout already handled
 
-        if (mode === 'user') setLastFailedInput(message)
+        if (mode === 'user') {
+          setLastFailedInput(message)
 
-        const errorMessage = buildErrorMessage(err)
+          const errorMessage = buildErrorMessage(err)
 
-        addMessage({
-          id: crypto.randomUUID(),
-          role: 'assistant',
-          content: errorMessage,
-          synthetic: true,
-          actionChips: mode === 'user'
-            ? [{ id: 'retry', label: 'Try again', intent: 'primary' }]
-            : undefined,
-          timestamp: new Date(),
-        })
+          addMessage({
+            id: crypto.randomUUID(),
+            role: 'assistant',
+            content: errorMessage,
+            synthetic: true,
+            actionChips: [{ id: 'retry', label: 'Try again', intent: 'primary' }],
+            timestamp: new Date(),
+          })
+        }
+        // System events fail silently — the user didn't initiate these,
+        // so showing an error message would be confusing. Logged in turnService.
+        if (mode === 'system' && import.meta.env.DEV) {
+          const status = err instanceof OrchestratorError ? err.status : 'network'
+          console.warn(`[sendTurn] System event failed: ${status}`, {
+            eventType: systemEvent?.type,
+            error: (err as Error).message,
+          })
+        }
       } finally {
         clearTimeout(longRunningTimerRef.current)
         clearTimeout(stillWorkingTimerRef.current)
@@ -689,6 +823,19 @@ export function useConversation(): UseConversationReturn {
     async (event: SystemEvent) => {
       // No-op when orchestrator V2 is OFF
       if (!isOrchestratorV2Enabled()) return
+
+      // Pre-check: skip the entire network turn if the event type is not
+      // supported by the CEE v3 schema. Prevents phantom [system] turns
+      // with no wire event payload (wasted tokens, confusing context).
+      const wire = serializeSystemEvent(event)
+      if (wire === null) {
+        if (import.meta.env.DEV) {
+          // eslint-disable-next-line no-console, no-restricted-syntax
+          console.log(`[sendSystemEvent] Dropped unsupported event: ${event.type}`)
+        }
+        return
+      }
+
       await sendTurn({
         message: SYSTEM_MESSAGE_SENTINEL,
         systemEvent: event,

@@ -2,18 +2,12 @@
  * systemEvents — Wire serialisation adapter for CEE v3 system event contract
  *
  * The internal SystemEvent shape { type, payload } is preserved for all
- * in-UI code. This module converts to the CEE Brief C v3 Zod wire format
+ * in-UI code. This module converts to the CEE v3 Zod wire format
  * { event_type, timestamp, event_id, details } at the HTTP boundary.
  *
- * Gated by ENABLE_V3_SYSTEM_EVENTS flag (default OFF). When OFF the
- * raw internal shape is sent, preserving backward-compat with older CEE.
- *
- * VERIFIED (2026-03-04): All 5 CEE v3 event types (patch_accepted, patch_dismissed,
- * direct_graph_edit, direct_analysis_run, feedback_submitted) serialize correctly
- * through serializeSystemEvent. session_resume and undo_draft are intentionally
- * filtered by CEE_V3_KNOWN_TYPES. Tests: systemEvents.spec.ts (all passing).
- * TODO: Enable v3SystemEvents flag by default once CEE Brief C v3 Zod schema is
- * confirmed live on staging. Then migrate internal SystemEvent to match wire format.
+ * V3 format is always used — CEE staging requires the discriminated union
+ * on `event_type`. Events not in CEE_V3_KNOWN_TYPES are dropped before
+ * reaching the network (see sendSystemEvent pre-filter in useConversation).
  */
 
 import type { SystemEvent } from './types'
@@ -29,10 +23,7 @@ export type CeeV3EventType =
   | 'direct_analysis_run'
   | 'feedback_submitted'
 
-/**
- * Wire format matching CEE Brief C v3 Zod schema.
- * Only sent when ENABLE_V3_SYSTEM_EVENTS flag is ON.
- */
+/** Wire format matching CEE v3 Zod schema (always used). */
 export interface SystemEventWire {
   event_type: CeeV3EventType
   timestamp: string       // ISO-8601

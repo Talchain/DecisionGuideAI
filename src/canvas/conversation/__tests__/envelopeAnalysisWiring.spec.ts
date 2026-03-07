@@ -37,7 +37,6 @@ vi.mock('../turnService', () => ({
 
 vi.mock('../../../flags', () => ({
   isOrchestratorV2Enabled: () => true,
-  isV3SystemEventsEnabled: () => false,
 }))
 
 // Mock the v2 adapter — provide all functions used by handleEnvelope.

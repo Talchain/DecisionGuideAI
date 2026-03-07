@@ -241,10 +241,7 @@ export interface OrchestratorTurnRequest {
     options: AnalysisInputOption[]
     goal_node_id: string
   }
-  /**
-   * System event — wire format is SystemEventWire (CEE v3) when
-   * ENABLE_V3_SYSTEM_EVENTS is ON, or raw SystemEvent when OFF.
-   */
+  /** System event in CEE v3 wire format (SystemEventWire). Always serialized via serializeSystemEvent(). */
   system_event?: unknown
   /** Nonce for idempotency */
   turn_nonce?: string
@@ -264,15 +261,25 @@ export const MAX_HISTORY_PAIRS = 5
 // § 6 — Orchestrator response envelope
 // ---------------------------------------------------------------------------
 
+/**
+ * CEE stage_indicator wire format — may be a plain string or an object.
+ * The object form includes confidence and source metadata from the orchestrator.
+ */
+export type StageIndicatorWire =
+  | ScenarioStage
+  | { stage: ScenarioStage; confidence?: string; source?: string }
+
 export interface OrchestratorResponseEnvelopeV2 {
-  assistant_text: string
+  /** Main response text. Null on graph-only responses (e.g. initial draft). */
+  assistant_text: string | null
   blocks?: ConversationBlock[]
   suggested_actions?: ActionChip[]
-  stage_indicator?: ScenarioStage
+  /** Plain string or object with .stage field — normalised in handleEnvelope */
+  stage_indicator?: StageIndicatorWire
   /** Guidance items for cross-surface display (strip, inspector, canvas highlight) */
   guidance_items?: import('../stores/guidanceStore').GuidanceItem[]
   /** Debug/trace field — not displayed to user */
-  turn_plan?: string
+  turn_plan?: unknown
   /** Echoed client_turn_id for deduplication */
   client_turn_id?: string
   /**

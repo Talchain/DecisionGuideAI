@@ -34,10 +34,8 @@ vi.mock('../turnService', () => ({
 }))
 
 let flagValue = true
-let v3FlagValue = false
 vi.mock('../../../flags', () => ({
   isOrchestratorV2Enabled: () => flagValue,
-  isV3SystemEventsEnabled: () => v3FlagValue,
 }))
 
 // ---------------------------------------------------------------------------
@@ -48,7 +46,6 @@ beforeEach(() => {
   vi.useFakeTimers()
   mockCallTurn.mockReset()
   flagValue = true
-  v3FlagValue = false
 
   useCanvasStore.setState({
     currentScenarioId: 'test-scenario',
@@ -87,8 +84,9 @@ describe('sendSystemEvent', () => {
     expect(mockCallTurn).toHaveBeenCalledTimes(1)
     const request = mockCallTurn.mock.calls[0][0]
     expect(request.message).toBe(SYSTEM_MESSAGE_SENTINEL)
-    expect(request.system_event.type).toBe('direct_graph_edit')
-    expect(request.system_event.payload.changed_node_ids).toEqual(['n1'])
+    // V3 wire format: event_type instead of type, details instead of payload
+    expect(request.system_event.event_type).toBe('direct_graph_edit')
+    expect(request.system_event.details.changed_node_ids).toEqual(['n1'])
   })
 
   it('does NOT append a user message bubble', async () => {
@@ -101,19 +99,19 @@ describe('sendSystemEvent', () => {
 
     await act(async () => {
       await result.current.sendSystemEvent({
-        type: 'session_resume',
-        payload: {},
+        type: 'direct_graph_edit',
+        payload: { changed_node_ids: ['n2'] },
       })
     })
 
-    // Only the assistant response should be in messages
+    // Only the assistant response should be in messages — no user bubble
     const userMessages = result.current.messages.filter((m) => m.role === 'user')
     expect(userMessages).toHaveLength(0)
   })
 
   it('does append the assistant response', async () => {
     mockCallTurn.mockResolvedValue({
-      assistant_text: 'Welcome back!',
+      assistant_text: 'Graph updated.',
       client_turn_id: 'resp-3',
     })
 
@@ -121,14 +119,14 @@ describe('sendSystemEvent', () => {
 
     await act(async () => {
       await result.current.sendSystemEvent({
-        type: 'session_resume',
-        payload: {},
+        type: 'direct_graph_edit',
+        payload: { changed_node_ids: ['n3'] },
       })
     })
 
     expect(result.current.messages).toHaveLength(1)
     expect(result.current.messages[0].role).toBe('assistant')
-    expect(result.current.messages[0].content).toBe('Welcome back!')
+    expect(result.current.messages[0].content).toBe('Graph updated.')
   })
 
   it('is a no-op when flag is OFF', async () => {
@@ -138,8 +136,8 @@ describe('sendSystemEvent', () => {
 
     await act(async () => {
       await result.current.sendSystemEvent({
-        type: 'session_resume',
-        payload: {},
+        type: 'direct_graph_edit',
+        payload: { changed_node_ids: ['n1'] },
       })
     })
 
@@ -147,7 +145,7 @@ describe('sendSystemEvent', () => {
     expect(result.current.messages).toHaveLength(0)
   })
 
-  it('shows error in conversation on failure (without retry chip)', async () => {
+  it('fails silently on system event error (no error message shown)', async () => {
     mockCallTurn.mockRejectedValue(new Error('Network error'))
 
     const { result } = renderHook(() => useConversation())
@@ -159,12 +157,9 @@ describe('sendSystemEvent', () => {
       })
     })
 
-    // Should show an error message
-    const lastMsg = result.current.messages[result.current.messages.length - 1]
-    expect(lastMsg.synthetic).toBe(true)
-    expect(lastMsg.content).toMatch(/Something went wrong/)
-    // System events don't get a retry chip (no user input to restore)
-    expect(lastMsg.actionChips).toBeUndefined()
+    // System events fail silently — no error message added to conversation
+    // because the user didn't initiate these and showing errors would be confusing
+    expect(result.current.messages).toHaveLength(0)
   })
 
   it('does not set lastFailedInput on system event failure', async () => {
@@ -231,8 +226,7 @@ describe('sendSystemEvent', () => {
     expect(request.client_turn_id).toBeTruthy()
   })
 
-  it('sends v3 wire format when ENABLE_V3_SYSTEM_EVENTS is ON', async () => {
-    v3FlagValue = true
+  it('always sends v3 wire format (event_type, timestamp, event_id, details)', async () => {
     mockCallTurn.mockResolvedValue({
       assistant_text: 'Acknowledged.',
       client_turn_id: 'resp-v3',
@@ -259,8 +253,7 @@ describe('sendSystemEvent', () => {
     expect(request.system_event.payload).toBeUndefined()
   })
 
-  it('skips system_event entirely when v3 is ON and type is unknown to CEE', async () => {
-    v3FlagValue = true
+  it('drops unsupported event types entirely (no network turn)', async () => {
     mockCallTurn.mockResolvedValue({ assistant_text: 'ok' })
 
     const { result } = renderHook(() => useConversation())
@@ -269,8 +262,9 @@ describe('sendSystemEvent', () => {
       await result.current.sendSystemEvent({ type: 'session_resume', payload: {} })
     })
 
-    const request = mockCallTurn.mock.calls[0][0]
-    expect(request.system_event).toBeUndefined()
+    // Pre-filter drops session_resume before sendTurn — no network call
+    expect(mockCallTurn).not.toHaveBeenCalled()
+    expect(result.current.messages).toHaveLength(0)
   })
 
   it('sends full graph_state (nodes + edges arrays)', async () => {

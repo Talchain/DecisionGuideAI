@@ -423,7 +423,6 @@ export const isOnboardingTourEnabled = flags.onboardingTour
 export const isSchemaV2Enabled = flags.schemaV2
 export const isPlotEnrichmentEnabled = flags.plotEnrichment
 export const isOrchestratorV2Enabled = flags.orchestratorV2
-export const isV3SystemEventsEnabled = flags.v3SystemEvents
 export const isLegacyDirectRunEnabled = flags.legacyDirectRun
 
 // ============================================================================

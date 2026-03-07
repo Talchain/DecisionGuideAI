@@ -8,6 +8,8 @@
 
 import { describe, it, expect } from 'vitest'
 import type { OrchestratorTurnRequest, ConversationTurnPair } from '../types'
+import { serializeSystemEvent } from '../systemEvents'
+import type { SystemEvent } from '../types'
 
 // ---------------------------------------------------------------------------
 // Reproduce the buildHistory logic from useConversation (not exported)
@@ -202,5 +204,394 @@ describe('OrchestratorTurnRequest payload shape', () => {
         'scenario_id',
       ])
     })
+  })
+})
+
+// ---------------------------------------------------------------------------
+// RF_NODE_BLOCKLIST — same as useConversation module-level constant
+// Reproduced here for testing the transform logic independently.
+// ---------------------------------------------------------------------------
+const RF_NODE_BLOCKLIST = new Set([
+  'selected', 'dragging', 'measured', 'resizing',
+  'position', 'positionAbsolute', 'draggable', 'selectable',
+  'deletable', 'connectable', 'focusable', 'parentId', 'extent',
+  'expandParent', 'ariaLabel', 'zIndex', 'hidden',
+  'label', 'kind', 'type', 'uncertainty', 'interventions',
+])
+
+/**
+ * Reproduce the node transform from useConversation.buildRequest
+ * to test independently of the React hook.
+ */
+function transformNodeToCEE(n: { id: string; type?: string; data?: Record<string, unknown> }) {
+  const d = n.data ?? {}
+  const out: Record<string, unknown> = {
+    id: n.id,
+    kind: d.kind ?? n.type ?? 'factor',
+    label: d.label ?? n.id,
+  }
+  for (const [key, value] of Object.entries(d)) {
+    if (RF_NODE_BLOCKLIST.has(key) || value === undefined) continue
+    if (key === 'observedState') { out.observed_state = value; continue }
+    out[key] = value
+  }
+  return out
+}
+
+/** Reproduce the edge transform from useConversation.buildRequest */
+function transformEdgeToCEE(e: { source: string; target: string; data?: Record<string, unknown> }) {
+  const d = e.data ?? {}
+  const weight = typeof d.weight === 'number' ? d.weight : 0.5
+  const direction = d.direction === 'negative' ? -1 : 1
+  const mean = direction * weight
+  const std = typeof d.strengthStd === 'number' ? d.strengthStd : undefined
+  const existsProb = d.beliefExists ?? d.confidence ?? d.belief
+  return {
+    from: e.source,
+    to: e.target,
+    strength: { mean, ...(std !== undefined ? { std } : {}) },
+    ...(existsProb !== undefined ? { exists_probability: existsProb } : {}),
+    ...(d.direction ? { effect_direction: d.direction } : {}),
+  }
+}
+
+// ---------------------------------------------------------------------------
+// graph_state transformation (RF → CEE)
+// ---------------------------------------------------------------------------
+
+describe('graph_state node transformation (RF → CEE)', () => {
+  it('transforms id, kind, label from React Flow node', () => {
+    const node = transformNodeToCEE({
+      id: 'goal_1',
+      type: 'goal',
+      data: { label: 'Maximise Revenue', kind: 'goal' },
+    })
+    expect(node.id).toBe('goal_1')
+    expect(node.kind).toBe('goal')
+    expect(node.label).toBe('Maximise Revenue')
+  })
+
+  it('falls back to node.type when data.kind is missing', () => {
+    const node = transformNodeToCEE({
+      id: 'f1',
+      type: 'factor',
+      data: { label: 'Price' },
+    })
+    expect(node.kind).toBe('factor')
+  })
+
+  it('falls back to node.id when data.label is missing', () => {
+    const node = transformNodeToCEE({ id: 'unnamed_1', type: 'factor', data: {} })
+    expect(node.label).toBe('unnamed_1')
+  })
+
+  it('strips React Flow internal fields', () => {
+    const node = transformNodeToCEE({
+      id: 'n1',
+      type: 'factor',
+      data: {
+        label: 'Price',
+        kind: 'factor',
+        selected: true,
+        dragging: false,
+        measured: { width: 200, height: 50 },
+        resizing: false,
+        position: { x: 100, y: 200 },
+        positionAbsolute: { x: 100, y: 200 },
+        draggable: true,
+        selectable: true,
+        deletable: true,
+        connectable: true,
+        focusable: true,
+        parentId: null,
+        zIndex: 0,
+        hidden: false,
+      },
+    })
+    expect(node).toEqual({ id: 'n1', kind: 'factor', label: 'Price' })
+    expect(node).not.toHaveProperty('selected')
+    expect(node).not.toHaveProperty('dragging')
+    expect(node).not.toHaveProperty('position')
+    expect(node).not.toHaveProperty('measured')
+  })
+
+  it('renames observedState → observed_state', () => {
+    const node = transformNodeToCEE({
+      id: 'f1',
+      type: 'factor',
+      data: {
+        label: 'Price',
+        kind: 'factor',
+        observedState: { value: 100, baseline: 80, unit: 'USD' },
+      },
+    })
+    expect(node.observed_state).toEqual({ value: 100, baseline: 80, unit: 'USD' })
+    expect(node).not.toHaveProperty('observedState')
+  })
+
+  it('passes through CEE-relevant fields (category, prior)', () => {
+    const node = transformNodeToCEE({
+      id: 'f1',
+      type: 'factor',
+      data: {
+        label: 'Market Cap',
+        kind: 'factor',
+        category: 'external',
+        prior: { range_min: 0, range_max: 100 },
+        goal_threshold_type: 'above',
+      },
+    })
+    expect(node.category).toBe('external')
+    expect(node.prior).toEqual({ range_min: 0, range_max: 100 })
+    expect(node.goal_threshold_type).toBe('above')
+  })
+
+  it('does not include undefined values', () => {
+    const node = transformNodeToCEE({
+      id: 'f1',
+      type: 'factor',
+      data: { label: 'Test', kind: 'factor', category: undefined },
+    })
+    const keys = Object.keys(node)
+    expect(keys).not.toContain('category')
+  })
+
+  it('never includes type, position, or data wrapper', () => {
+    const node = transformNodeToCEE({
+      id: 'n1',
+      type: 'goal',
+      data: { label: 'Goal', kind: 'goal' },
+    })
+    const json = JSON.stringify(node)
+    expect(json).not.toContain('"type"')
+    expect(json).not.toContain('"position"')
+    expect(json).not.toContain('"data"')
+  })
+})
+
+describe('graph_state edge transformation (RF → CEE)', () => {
+  it('transforms source/target → from/to', () => {
+    const edge = transformEdgeToCEE({
+      source: 'opt_a',
+      target: 'goal_1',
+      data: { weight: 0.7, direction: 'positive' },
+    })
+    expect(edge.from).toBe('opt_a')
+    expect(edge.to).toBe('goal_1')
+    expect(edge).not.toHaveProperty('source')
+    expect(edge).not.toHaveProperty('target')
+  })
+
+  it('computes signed strength.mean from weight and direction', () => {
+    const pos = transformEdgeToCEE({
+      source: 'a', target: 'b',
+      data: { weight: 0.8, direction: 'positive' },
+    })
+    expect(pos.strength.mean).toBeCloseTo(0.8)
+
+    const neg = transformEdgeToCEE({
+      source: 'a', target: 'b',
+      data: { weight: 0.6, direction: 'negative' },
+    })
+    expect(neg.strength.mean).toBeCloseTo(-0.6)
+  })
+
+  it('defaults weight to 0.5 when missing', () => {
+    const edge = transformEdgeToCEE({ source: 'a', target: 'b', data: {} })
+    expect(edge.strength.mean).toBeCloseTo(0.5)
+  })
+
+  it('includes exists_probability from beliefExists', () => {
+    const edge = transformEdgeToCEE({
+      source: 'a', target: 'b',
+      data: { weight: 0.5, beliefExists: 0.9 },
+    })
+    expect(edge.exists_probability).toBe(0.9)
+  })
+
+  it('omits exists_probability when not available', () => {
+    const edge = transformEdgeToCEE({
+      source: 'a', target: 'b',
+      data: { weight: 0.5 },
+    })
+    expect(edge).not.toHaveProperty('exists_probability')
+  })
+
+  it('includes effect_direction when present', () => {
+    const edge = transformEdgeToCEE({
+      source: 'a', target: 'b',
+      data: { weight: 0.5, direction: 'negative' },
+    })
+    expect(edge.effect_direction).toBe('negative')
+  })
+
+  it('includes strengthStd when available', () => {
+    const edge = transformEdgeToCEE({
+      source: 'a', target: 'b',
+      data: { weight: 0.5, strengthStd: 0.15 },
+    })
+    expect(edge.strength.std).toBe(0.15)
+  })
+
+  it('never includes React Flow id or type', () => {
+    const edge = transformEdgeToCEE({
+      source: 'a', target: 'b',
+      data: { weight: 0.5 },
+    })
+    expect(edge).not.toHaveProperty('id')
+    expect(edge).not.toHaveProperty('type')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Multi-turn conversation lifecycle
+// ---------------------------------------------------------------------------
+
+describe('multi-turn conversation lifecycle', () => {
+  it('Turn 1: fresh brief has empty history and empty graph', () => {
+    const req = buildTestRequest({
+      message: 'Should I invest in stocks or bonds?',
+      conversation_history: [],
+      graph_state: { nodes: [], edges: [] },
+    })
+    expect(req.conversation_history).toHaveLength(0)
+    expect(req.graph_state.nodes).toHaveLength(0)
+    expect(req.graph_state.edges).toHaveLength(0)
+    expect(req.system_event).toBeUndefined()
+  })
+
+  it('Turn 2: follow-up has history and CEE-format graph', () => {
+    const ceeNodes = [
+      transformNodeToCEE({ id: 'g1', type: 'goal', data: { label: 'Goal', kind: 'goal' } }),
+      transformNodeToCEE({ id: 'o1', type: 'option', data: { label: 'Opt A', kind: 'option' } }),
+    ]
+    const ceeEdges = [
+      transformEdgeToCEE({ source: 'o1', target: 'g1', data: { weight: 0.7, direction: 'positive' } }),
+    ]
+    const history = buildHistory([
+      { role: 'user', content: 'Should I invest?' },
+      { role: 'assistant', content: 'Created model.' },
+    ], 5)
+
+    const req = buildTestRequest({
+      message: 'What about inflation?',
+      conversation_history: history,
+      graph_state: { nodes: ceeNodes, edges: ceeEdges },
+    })
+
+    expect(req.conversation_history).toHaveLength(2)
+    // Nodes are CEE format (kind, not type; no position/data wrapper)
+    const node = req.graph_state.nodes[0] as Record<string, unknown>
+    expect(node.kind).toBe('goal')
+    expect(node).not.toHaveProperty('type')
+    expect(node).not.toHaveProperty('position')
+    // Edges are CEE format (from/to, not source/target)
+    const edge = req.graph_state.edges[0] as Record<string, unknown>
+    expect(edge.from).toBe('o1')
+    expect(edge.to).toBe('g1')
+    expect(edge).not.toHaveProperty('source')
+    expect(edge).not.toHaveProperty('target')
+  })
+
+  it('Turn 3: longer history is capped at 10 entries', () => {
+    const messages = Array.from({ length: 12 }, (_, i) => ({
+      role: (i % 2 === 0 ? 'user' : 'assistant') as 'user' | 'assistant',
+      content: `msg ${i}`,
+    }))
+    const history = buildHistory(messages, 5)
+    expect(history.length).toBeLessThanOrEqual(10)
+  })
+
+  it('Turn 4: system event serialized to V3 wire format', () => {
+    const event: SystemEvent = { type: 'patch_accepted', payload: { patch_id: 'p1' } }
+    const wire = serializeSystemEvent(event)
+    expect(wire).not.toBeNull()
+    expect(wire!.event_type).toBe('patch_accepted')
+    expect(typeof wire!.timestamp).toBe('string')
+    expect(typeof wire!.event_id).toBe('string')
+    expect(wire!.details).toEqual({ patch_id: 'p1' })
+    // Must NOT have 'type' or 'payload' (internal format)
+    expect(wire).not.toHaveProperty('type')
+    expect(wire).not.toHaveProperty('payload')
+  })
+
+  it('Turn 4: unknown system event types are filtered out', () => {
+    const event: SystemEvent = { type: 'session_resume' }
+    const wire = serializeSystemEvent(event)
+    expect(wire).toBeNull()
+  })
+
+  it('Turn 5: analysis request includes analysis_inputs', () => {
+    const req = buildTestRequest({
+      message: 'Run the analysis',
+      analysis_inputs: {
+        goal_node_id: 'g1',
+        options: [
+          { id: 'o1', option_id: 'o1', label: 'Opt A', interventions: {} },
+        ],
+      },
+    })
+    expect(req.analysis_inputs).toBeDefined()
+    expect(req.analysis_inputs!.goal_node_id).toBe('g1')
+    expect(req.analysis_inputs!.options).toHaveLength(1)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// CEE schema conformance assertions
+// ---------------------------------------------------------------------------
+
+describe('CEE schema conformance', () => {
+  it('graph_state.nodes never contain React Flow wrapper fields', () => {
+    // Simulate what buildRequest would produce with a populated graph
+    const rfNode = {
+      id: 'n1', type: 'factor',
+      data: {
+        label: 'Test', kind: 'factor', category: 'external',
+        selected: true, dragging: false, measured: { w: 100 },
+        observedState: { value: 42 },
+      },
+    }
+    const ceeNode = transformNodeToCEE(rfNode)
+    const json = JSON.stringify(ceeNode)
+
+    // Must have CEE fields
+    expect(ceeNode.id).toBe('n1')
+    expect(ceeNode.kind).toBe('factor')
+    expect(ceeNode.label).toBe('Test')
+    expect(ceeNode.category).toBe('external')
+    expect(ceeNode.observed_state).toEqual({ value: 42 })
+
+    // Must NOT have RF fields
+    expect(json).not.toContain('"selected"')
+    expect(json).not.toContain('"dragging"')
+    expect(json).not.toContain('"measured"')
+    expect(json).not.toContain('"observedState"')
+  })
+
+  it('graph_state.edges use from/to and strength, not source/target', () => {
+    const rfEdge = {
+      source: 'a', target: 'b',
+      data: { weight: 0.8, direction: 'negative' as const, strengthStd: 0.1, beliefExists: 0.9 },
+    }
+    const ceeEdge = transformEdgeToCEE(rfEdge)
+
+    expect(ceeEdge.from).toBe('a')
+    expect(ceeEdge.to).toBe('b')
+    expect(ceeEdge.strength.mean).toBeCloseTo(-0.8)
+    expect(ceeEdge.strength.std).toBe(0.1)
+    expect(ceeEdge.exists_probability).toBe(0.9)
+    expect(ceeEdge.effect_direction).toBe('negative')
+    expect(ceeEdge).not.toHaveProperty('source')
+    expect(ceeEdge).not.toHaveProperty('target')
+    expect(ceeEdge).not.toHaveProperty('weight')
+    expect(ceeEdge).not.toHaveProperty('direction')
+  })
+
+  it('system_event uses event_type discriminator, not type', () => {
+    const event: SystemEvent = { type: 'direct_graph_edit', payload: { modified_ids: ['n1'] } }
+    const wire = serializeSystemEvent(event)
+    expect(wire!.event_type).toBe('direct_graph_edit')
+    expect(wire).not.toHaveProperty('type')
   })
 })
