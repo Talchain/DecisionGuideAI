@@ -4,8 +4,9 @@
 import '../styles/plot.css'
 import { useEffect, useState, lazy, Suspense, useCallback, useRef } from 'react'
 import { useParams } from 'react-router-dom'
-import ReactFlowGraph, { type BlueprintEventBus, type BlueprintInsertResult } from '../canvas/ReactFlowGraph'
+import ReactFlowGraph from '../canvas/ReactFlowGraph'
 import type { Blueprint } from '../templates/blueprints/types'
+import { blueprintEventBus } from '../canvas/blueprints/eventBus'
 import { useCanvasStore } from '../canvas/store'
 import { useResultsRun } from '../canvas/hooks/useResultsRun'
 import { useDebugShortcut } from '../canvas/hooks/useDebugShortcut'
@@ -18,33 +19,12 @@ import { useScenario } from '../hooks/useScenario'
 
 const TemplatesPanel = lazy(() => import('../canvas/panels/TemplatesPanel').then(m => ({ default: m.TemplatesPanel })))
 
-interface LocalBlueprintEventBus extends BlueprintEventBus {
-  listeners: ((blueprint: Blueprint) => BlueprintInsertResult)[]
-  emit: (blueprint: Blueprint) => BlueprintInsertResult
-}
-
-// Event bus for blueprint insertion with result support
-const blueprintEventBus: LocalBlueprintEventBus = {
-  listeners: [] as ((blueprint: Blueprint) => BlueprintInsertResult)[],
-  emit(blueprint: Blueprint): BlueprintInsertResult {
-    // Call all listeners and collect results
-    const results = this.listeners.map(fn => fn(blueprint))
-    // Return first result (should only be one listener in practice)
-    return results[0] || {}
-  },
-  subscribe(fn: (blueprint: Blueprint) => BlueprintInsertResult) {
-    this.listeners.push(fn)
-    return () => {
-      this.listeners = this.listeners.filter(l => l !== fn)
-    }
-  }
-}
-
 export default function CanvasMVP() {
   // Brief 37 Task 3: Render counter to detect if parent is causing re-renders
   const renderCountRef = useRef(0)
   renderCountRef.current++
   if (import.meta.env.DEV) {
+    // eslint-disable-next-line no-console, no-restricted-syntax
     console.log(`[CanvasMVP] Render #${renderCountRef.current}`)
   }
 
@@ -92,7 +72,7 @@ export default function CanvasMVP() {
 
     // Dev-only console log
     if (import.meta.env.DEV) {
-      // eslint-disable-next-line no-console
+      // eslint-disable-next-line no-console, no-restricted-syntax
       console.log('[CANVAS]', { route: '/canvas', mode: 'RF+Templates' })
     }
   }, [])
@@ -109,6 +89,7 @@ export default function CanvasMVP() {
       setInsertionError(null)
 
       if (import.meta.env.DEV) {
+        // eslint-disable-next-line no-console, no-restricted-syntax
         console.log('[CanvasMVP] Template inserted:', blueprint.name)
       }
 
@@ -144,6 +125,7 @@ export default function CanvasMVP() {
       })
 
       if (import.meta.env.DEV) {
+        // eslint-disable-next-line no-console, no-restricted-syntax
         console.log('[CanvasMVP] Auto-run started for template:', blueprint.name)
       }
     }
@@ -152,7 +134,7 @@ export default function CanvasMVP() {
   const handlePinToCanvas = useCallback((data: { template_id: string; seed: number; response_hash: string; likely_value: number }) => {
     // TODO: Create result badge node
     if (import.meta.env.DEV) {
-      // eslint-disable-next-line no-console
+      // eslint-disable-next-line no-console, no-restricted-syntax
       console.log('[Canvas] Pin to canvas:', data)
     }
   }, [])
@@ -301,5 +283,3 @@ export default function CanvasMVP() {
     </div>
   )
 }
-
-export { blueprintEventBus }
