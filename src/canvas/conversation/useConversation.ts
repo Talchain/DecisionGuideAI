@@ -341,7 +341,7 @@ export function useConversation(): UseConversationReturn {
         // Guard: skip write if this response_hash is already in the store
         if (raw.response_hash && raw.response_hash === store.results.hash) {
           if (import.meta.env.DEV) {
-            console.log('[handleEnvelope] Skipping duplicate analysis response (same hash)', raw.response_hash)
+            console.warn('[handleEnvelope] Skipping duplicate analysis response (same hash)', raw.response_hash)
           }
         } else if (isSuccessfulAnalysis(raw)) {
           try {
@@ -634,7 +634,7 @@ export function useConversation(): UseConversationReturn {
 
         const errorMessage =
           err instanceof OrchestratorError
-            ? `Something went wrong (${err.status}). Try again or rephrase your message.`
+            ? `Something went wrong (${err.status}).${err.requestId ? ` [ref: ${err.requestId}]` : ''} Try again or rephrase your message.`
             : 'Something went wrong. Try again or rephrase your message.'
 
         addMessage({

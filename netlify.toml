@@ -31,6 +31,8 @@
   # When "0": UI calls ISL directly (legacy behavior)
   # Enable via Netlify dashboard for staged rollout, monitor error rates via PostHog/Sentry
   VITE_USE_PLOT_ENRICHMENT = "1"
+  # Orchestrator V2 — AI conversation pipeline
+  VITE_ENABLE_ORCHESTRATOR_V2 = "true"
 
 # =============================================================================
 # Security Headers (P0 - Enterprise Compliance)
@@ -110,3 +112,9 @@
 [[edge_functions]]
   function = "isl-proxy"
   path = "/bff/isl/*"
+
+# Orchestrator proxy - handles CORS for CEE orchestrator endpoint
+# CEE backend lacks CORS middleware on /orchestrate/* routes
+[[edge_functions]]
+  function = "orchestrator-proxy"
+  path = "/bff/orchestrate/*"

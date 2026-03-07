@@ -219,11 +219,11 @@ export interface OrchestratorTurnRequest {
    * Full graph sent on every turn. CEE needs nodes/edges for guidance refresh
    * and validate-patch. The compact summary (node_count etc.) is insufficient.
    */
-  graph_state?: {
+  graph_state: {
     nodes: unknown[]
     edges: unknown[]
   }
-  analysis_state?: {
+  analysis_state: {
     has_results: boolean
     last_run_hash: string | null
   }
