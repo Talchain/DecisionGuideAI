@@ -33,7 +33,7 @@ export const InspectorShell = memo(function InspectorShell({
 
   return (
     <div
-      className="w-[340px] bg-panel rounded-xl border border-panel-border shadow-1 overflow-hidden font-sans"
+      className="w-full h-full flex flex-col bg-panel rounded-xl border border-panel-border shadow-1 overflow-hidden font-sans"
       role="region"
       aria-label="Inspector panel"
       onKeyDown={handleKeyDown}
@@ -91,8 +91,8 @@ export const InspectorShell = memo(function InspectorShell({
         </div>
       </div>
 
-      {/* Scrollable body */}
-      <div className="px-4 pb-4 max-h-[520px] overflow-y-auto">
+      {/* Scrollable body — flex-1 fills remaining height in docked layout */}
+      <div className="px-4 pb-4 flex-1 min-h-0 overflow-y-auto">
         {children}
       </div>
     </div>

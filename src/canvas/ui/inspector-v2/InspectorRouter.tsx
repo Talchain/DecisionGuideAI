@@ -3,7 +3,7 @@
  * inside an InspectorShell.
  */
 
-import { memo, useMemo, useCallback } from 'react'
+import { memo, useMemo, useCallback, useEffect } from 'react'
 import { useCanvasStore } from '../../store'
 import type { NodeType, FactorCategory } from '../../domain/nodes'
 import { InspectorShell } from './InspectorShell'
@@ -106,6 +106,15 @@ export const InspectorRouter = memo(function InspectorRouter({
   const edges = useCanvasStore(s => s.edges)
   const { techMode, setTechMode } = useTechToggle()
   const nodeMutations = useNodeMutations(nodeId ?? '')
+
+  // Global Escape-to-close (works regardless of focus)
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose()
+    }
+    document.addEventListener('keydown', handleEscape)
+    return () => document.removeEventListener('keydown', handleEscape)
+  }, [onClose])
 
   const panelType = useMemo(
     () => resolvePanelType(nodeId, edgeId, nodes as { id: string; type?: string; data?: Record<string, unknown> }[]),

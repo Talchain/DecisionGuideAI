@@ -10,10 +10,6 @@ import { useViewport } from '@xyflow/react'
 import { useCanvasStore } from '../store'
 import { NodeInspector } from '../ui/NodeInspector'
 import { EdgeInspector } from '../ui/EdgeInspector'
-import { InspectorRouter } from '../ui/inspector-v2'
-
-/** Feature flag: when true, uses the new per-type inspector panels */
-const USE_INSPECTOR_V2 = true
 
 interface InspectorModalProps {
   nodeId: string | null
@@ -160,71 +156,46 @@ export const InspectorModal = memo(({ nodeId, edgeId, onClose }: InspectorModalP
       }}
       role="dialog"
       aria-modal="false"
-      {...(USE_INSPECTOR_V2
-        ? { 'aria-label': nodeId ? 'Node inspector' : 'Edge inspector' }
-        : { 'aria-labelledby': 'inspector-panel-title' }
-      )}
+      aria-labelledby="inspector-panel-title"
     >
-      {/* Draggable Header — v2 shells provide their own header, so only render drag surface */}
-      {USE_INSPECTOR_V2 ? (
-        <div
-          className={`sticky top-0 h-2 rounded-t-xl select-none ${
-            isDragging ? 'cursor-grabbing' : 'cursor-grab'
-          }`}
-          onPointerDown={handleDragStart}
-          onPointerMove={handleDragMove}
-          onPointerUp={handleDragEnd}
-          onPointerCancel={handleDragEnd}
-        />
-      ) : (
-        <div
-          className={`sticky top-0 bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between rounded-t-xl select-none ${
-            isDragging ? 'cursor-grabbing' : 'cursor-grab'
-          }`}
-          onPointerDown={handleDragStart}
-          onPointerMove={handleDragMove}
-          onPointerUp={handleDragEnd}
-          onPointerCancel={handleDragEnd}
-        >
-          <div className="flex items-center gap-2">
-            <GripVertical size={16} className="text-gray-400" aria-hidden="true" />
-            <h2 id="inspector-panel-title" className="text-sm font-semibold text-gray-900">
-              {nodeId ? 'Node Properties' : 'Edge Properties'}
-            </h2>
-          </div>
-          <button
-            onClick={onClose}
-            className="p-1 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 transition-colors"
-            aria-label="Close inspector"
-          >
-            <X size={18} />
-          </button>
+      {/* Draggable Header */}
+      <div
+        className={`sticky top-0 bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between rounded-t-xl select-none ${
+          isDragging ? 'cursor-grabbing' : 'cursor-grab'
+        }`}
+        onPointerDown={handleDragStart}
+        onPointerMove={handleDragMove}
+        onPointerUp={handleDragEnd}
+        onPointerCancel={handleDragEnd}
+      >
+        <div className="flex items-center gap-2">
+          <GripVertical size={16} className="text-gray-400" aria-hidden="true" />
+          <h2 id="inspector-panel-title" className="text-sm font-semibold text-gray-900">
+            {nodeId ? 'Node Properties' : 'Edge Properties'}
+          </h2>
         </div>
-      )}
+        <button
+          onClick={onClose}
+          className="p-1 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 transition-colors"
+          aria-label="Close inspector"
+        >
+          <X size={18} />
+        </button>
+      </div>
 
       {/* Scrollable Content */}
       <div className="overflow-y-auto max-h-[calc(80vh-52px)]">
-        {USE_INSPECTOR_V2 ? (
-          <InspectorRouter
+        {nodeId && (
+          <NodeInspector
             nodeId={nodeId}
+            onClose={onClose}
+          />
+        )}
+        {edgeId && !nodeId && (
+          <EdgeInspector
             edgeId={edgeId}
             onClose={onClose}
           />
-        ) : (
-          <>
-            {nodeId && (
-              <NodeInspector
-                nodeId={nodeId}
-                onClose={onClose}
-              />
-            )}
-            {edgeId && !nodeId && (
-              <EdgeInspector
-                edgeId={edgeId}
-                onClose={onClose}
-              />
-            )}
-          </>
         )}
       </div>
     </div>
