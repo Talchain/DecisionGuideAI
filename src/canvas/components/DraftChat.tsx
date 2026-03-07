@@ -187,7 +187,21 @@ export function DraftChat() {
     // A.5+: When orchestrator V2 is enabled, route initial brief through the
     // orchestrator conversation path (POST /orchestrate/v1/turn) instead of
     // the legacy /bff/cee/draft-graph endpoint.
-    if (isOrchestratorV2Enabled()) {
+    // DEBUG: dump flag sources so we can trace why the flag may be OFF
+    const orchFlag = isOrchestratorV2Enabled()
+    const envVal = (import.meta as any)?.env?.VITE_ENABLE_ORCHESTRATOR_V2
+    let lsVal: string | null = null
+    try { lsVal = localStorage.getItem('feature.orchestratorV2') } catch {}
+    console.info('[handleDraft] orchestratorV2 flag:', { orchFlag, envVal, lsVal })
+    if (!orchFlag && (envVal === 'true' || envVal === '1')) {
+      console.warn(
+        '[handleDraft] VITE_ENABLE_ORCHESTRATOR_V2 is set but flag resolved false. ' +
+        'localStorage override? lsVal=' + lsVal + '. ' +
+        'Fix: localStorage.removeItem("feature.orchestratorV2") then reload, ' +
+        'or restart the dev server if env var was added recently.'
+      )
+    }
+    if (orchFlag) {
       console.info('[handleDraft] orchestrator V2 path — routing brief to /orchestrate/v1/turn')
       setLastDraftDescription(description)
       const briefText = description
