@@ -192,7 +192,7 @@ const KNOWN_OPTION_STATUSES = new Set(['ready', 'needs_user_mapping', 'needs_use
 /**
  * Normalise CEEOptionV3 status to UIOption status.
  * Defensive alias: 'needs_user_input' -> 'needs_user_mapping'
- * Unknown statuses default to 'needs_user_mapping' with a warning.
+ * Unknown/undefined statuses → 'incomplete' (blocks analysis, never silently defaults to a valid status).
  */
 function normaliseOptionStatus(status: CEEOptionV3['status']): UIOption['status'] {
   // Handle known alias
@@ -200,12 +200,10 @@ function normaliseOptionStatus(status: CEEOptionV3['status']): UIOption['status'
     return 'needs_user_mapping'
   }
 
-  // Validate known status
+  // Unknown or undefined → 'incomplete' (defense-in-depth; contract validator rejects upstream)
   if (!KNOWN_OPTION_STATUSES.has(status)) {
-    if (import.meta.env.DEV) {
-      console.warn(`[V2Adapter] Unknown option status "${status}", defaulting to 'needs_user_mapping'`)
-    }
-    return 'needs_user_mapping'
+    console.error(`[V2Adapter] Unknown option status "${String(status)}", returning 'incomplete'`)
+    return 'incomplete'
   }
 
   return status as UIOption['status']
@@ -381,6 +379,8 @@ const V2_NODE_BLOCKLIST = new Set([
   'label', 'kind', 'type', 'observedState', 'category',
   // Fields that are UI-only (not for PLoT)
   'uncertainty', 'interventions',
+  // Context menu annotation fields (Hard rule 3: UI-only state not for PLoT)
+  'flagged_as_assumption', '_baseline_snapshot',
 ])
 
 /**

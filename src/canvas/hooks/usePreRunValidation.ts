@@ -22,6 +22,7 @@ import { validateAllEdges, ceeOptionToUIOption } from '../../adapters/plot/v2'
 import type { CEEAnalysisReady } from '../../adapters/cee/types'
 import { detectBaseline } from '../utils/baselineDetection'
 import { DEFAULT_EDGE_DATA } from '../domain/edges'
+import { getEdgeKey } from '../domain/edgeUtils'
 import type { ValidationWarning, ValidationBlocker } from '@talchain/schemas'
 
 /**
@@ -43,6 +44,7 @@ const RECOGNISED_STATUSES: ReadonlySet<string> = new Set([
   'needs_user_mapping',
   'needs_encoding',
   'needs_user_input',
+  'incomplete',
 ])
 
 // ============================================================================
@@ -309,6 +311,17 @@ function validateOptions(
           label: 'Configure options',
           optionId: needsMappingOptions[0].id,
         },
+      })
+    }
+
+    // Check for incomplete options (unknown/undefined status from CEE)
+    const incompleteOptions = options.filter((o) => o.status === 'incomplete')
+    if (incompleteOptions.length > 0) {
+      blockers.push({
+        code: 'OPTIONS_INCOMPLETE',
+        message: `${incompleteOptions.length} option(s) have invalid status. Please re-draft.`,
+        affectedIds: incompleteOptions.map((o) => o.id),
+        action: { type: 'retry_draft', label: 'Retry Draft' },
       })
     }
 
@@ -710,7 +723,7 @@ function createValidationFingerprint(
     .join(',')
 
   const edgeFingerprint = edges
-    .map((e) => `${e.source}->${e.target}`)
+    .map((e) => getEdgeKey(e))
     .sort()
     .join(',')
 

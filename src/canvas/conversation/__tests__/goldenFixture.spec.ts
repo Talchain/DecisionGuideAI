@@ -463,3 +463,126 @@ describe('golden fixture — CEE-provided analysis_ready', () => {
     expect(adapted.analysis_ready).toBeUndefined()
   })
 })
+
+// ---------------------------------------------------------------------------
+// § 6 — Contract validation integration (end-to-end)
+// ---------------------------------------------------------------------------
+
+describe('golden fixture — contract validation integration', () => {
+  const validAnalysisReady = {
+    status: 'ready' as const,
+    goal_node_id: 'goal_maximise_revenue',
+    options: [
+      {
+        id: 'opt_keep_price',
+        label: 'Keep Price at £49',
+        status: 'ready' as const,
+        interventions: {
+          fac_subscription_price: {
+            value: 0.49,
+            source: 'cee_resolved',
+            target_match: { node_id: 'fac_subscription_price', match_type: 'exact_id', confidence: 'high' },
+          },
+        },
+      },
+    ],
+  }
+
+  it('valid CEE analysis_ready passes contract validation end-to-end', () => {
+    const block = JSON.parse(JSON.stringify(rawFixture.blocks[0]))
+    block.data.analysis_ready = validAnalysisReady
+
+    const adapted = adaptCEEBlock(block) as GraphPatchBlock
+    applyAutoApplyPatch(adapted)
+    useCanvasStore.getState().setCeeAnalysisReady(adapted.analysis_ready!)
+
+    const store = useCanvasStore.getState()
+    const validation = validateBeforeRun(
+      store.outcomeNodeId,
+      store.nodes,
+      store.edges,
+      store.ceeAnalysisReady,
+    )
+
+    expect(validation.canRun).toBe(true)
+    expect(validation.blockers).toHaveLength(0)
+  })
+
+  it('CEE analysis_ready with missing option status triggers synthesis fallback', () => {
+    const block = JSON.parse(JSON.stringify(rawFixture.blocks[0]))
+    // CEE omits status on option — contract validator should reject
+    block.data.analysis_ready = {
+      status: 'ready',
+      goal_node_id: 'goal_maximise_revenue',
+      options: [
+        {
+          id: 'opt_keep_price',
+          label: 'Keep Price',
+          // status missing — contract validator rejects
+          interventions: { fac_subscription_price: { value: 0.49, source: 'cee_resolved' } },
+        },
+      ],
+    }
+
+    const adapted = adaptCEEBlock(block) as GraphPatchBlock
+    // Contract validation in normaliseAnalysisReady should have rejected this
+    expect(adapted.analysis_ready).toBeUndefined()
+  })
+
+  it('CEE analysis_ready with empty interventions triggers synthesis fallback', () => {
+    const block = JSON.parse(JSON.stringify(rawFixture.blocks[0]))
+    block.data.analysis_ready = {
+      status: 'ready',
+      goal_node_id: 'goal_maximise_revenue',
+      options: [
+        {
+          id: 'opt_keep_price',
+          label: 'Keep Price',
+          status: 'ready',
+          interventions: {},  // empty — contract validator rejects
+        },
+      ],
+    }
+
+    const adapted = adaptCEEBlock(block) as GraphPatchBlock
+    expect(adapted.analysis_ready).toBeUndefined()
+  })
+
+  it('incomplete option status blocks analysis in usePreRunValidation', () => {
+    // Simulate a scenario where normaliseOptionStatus returns 'incomplete'
+    const adapted = adaptCEEBlock(rawFixture.blocks[0]) as GraphPatchBlock
+    applyAutoApplyPatch(adapted)
+
+    // Set analysis_ready with an option that has an unrecognised status
+    // normaliseOptionStatus will map it to 'incomplete'
+    useCanvasStore.setState({
+      ceeAnalysisReady: {
+        status: 'ready',
+        goal_node_id: 'goal_maximise_revenue',
+        options: [
+          {
+            id: 'opt_keep_price',
+            label: 'Keep Price',
+            status: 'banana' as any,  // unrecognised → normaliseOptionStatus → 'incomplete'
+            interventions: {
+              fac_subscription_price: { value: 0.49, source: 'cee_resolved' },
+            },
+          },
+        ],
+      },
+    })
+
+    const store = useCanvasStore.getState()
+    const validation = validateBeforeRun(
+      store.outcomeNodeId,
+      store.nodes,
+      store.edges,
+      store.ceeAnalysisReady,
+    )
+
+    // Should have an OPTIONS_INCOMPLETE blocker, not OPTIONS_NEED_MAPPING
+    const incompleteBlocker = validation.blockers.find((b) => b.code === 'OPTIONS_INCOMPLETE')
+    expect(incompleteBlocker).toBeDefined()
+    expect(validation.canRun).toBe(false)
+  })
+})

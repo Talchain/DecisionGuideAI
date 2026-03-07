@@ -36,6 +36,7 @@ import type {
 } from './types'
 import { MAX_CHIPS_PER_TURN, MAX_SUGGESTED_ACTIONS } from './types'
 import { applyAutoApplyPatch, synthesiseCeeAnalysisReady } from './utils/applyPatch'
+import { validateAnalysisReadyContract } from './validateAnalysisReadyContract'
 import type { CEEAnalysisReady } from '../../adapters/cee/types'
 
 /** Sentinel message content used for system events — must never render as a user bubble */
@@ -244,10 +245,10 @@ function normaliseAnalysisReady(raw: unknown): CEEAnalysisReady | undefined {
 
   if (options.length === 0) return undefined
 
-  return {
-    ...obj,
-    options,
-  } as CEEAnalysisReady
+  const mapped = { ...obj, options } as CEEAnalysisReady
+
+  // Boundary validation — rejects entire payload if any field fails contract
+  return validateAnalysisReadyContract(mapped)
 }
 
 export function adaptCEEBlock(raw: unknown): ConversationBlock {
