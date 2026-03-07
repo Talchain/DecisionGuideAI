@@ -6,7 +6,7 @@
  */
 
 import type { ScenarioStage } from '../../types/scenario'
-import type { CEEInterventionV3 } from '../../adapters/cee/types'
+import type { CEEAnalysisReady, CEEInterventionV3 } from '../../adapters/cee/types'
 
 // ---------------------------------------------------------------------------
 // § 1 — Conversation messages
@@ -140,6 +140,12 @@ export interface GraphPatchBlock {
    * a warning is shown before accepting.
    */
   graph_hash_at_proposal?: string
+  /**
+   * CEE-provided analysis_ready payload on full_draft patches.
+   * When present, used directly for setCeeAnalysisReady instead of
+   * edge-based synthesis fallback.
+   */
+  analysis_ready?: CEEAnalysisReady
 }
 
 // ---------------------------------------------------------------------------

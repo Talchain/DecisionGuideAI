@@ -15,6 +15,7 @@ import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useCanvasStore } from '../store'
 import { useShallow } from 'zustand/shallow'
 import type { Node, Edge } from '@xyflow/react'
+import { getEdgeKey } from '../domain/edgeUtils'
 
 const CEE_BASE_URL = (import.meta as any).env?.VITE_CEE_BFF_BASE || '/bff/cee'
 
@@ -30,36 +31,60 @@ const BACKOFF_MULTIPLIER = 2
 // Multiple components mount useGraphReadiness independently. Without
 // a shared cache each instance fires its own POST. This singleton
 // ensures identical payloads within DEDUP_WINDOW_MS reuse the same
-// in-flight promise.
+// parsed result — not the raw Response (which can only be read once).
 const DEDUP_WINDOW_MS = 250
+
+/**
+ * Pre-parsed response shared between dedup consumers.
+ * The Response body is consumed exactly once; all consumers read from this.
+ */
+export interface DeduplicatedResponse {
+  ok: boolean
+  status: number
+  statusText: string
+  /** Parsed JSON body on success, null on error */
+  data: any
+  /** Text body for error responses */
+  errorBody: string
+  /** Retry-After header value (for 429 handling) */
+  retryAfterHeader: string | null
+}
+
 interface InflightEntry {
-  promise: Promise<Response>
+  promise: Promise<DeduplicatedResponse>
   timestamp: number
   controller: AbortController
   /** Number of hook instances sharing this entry */
   refCount: number
+  /** True once the fetch promise has settled (resolved or rejected) */
+  settled: boolean
 }
 const inflightCache = new Map<string, InflightEntry>()
 
 /**
  * Deduplicated fetch: reuses an in-flight (or recently resolved) request
- * for the same endpoint + payload body. Uses refCount to prevent one
- * consumer's unmount from aborting a request shared by other consumers.
+ * for the same endpoint + payload body. Returns a pre-parsed response so
+ * multiple consumers can safely read the result without "body stream already
+ * read" errors. Uses refCount to prevent one consumer's unmount from
+ * aborting a request shared by other consumers.
  */
 function deduplicatedFetch(
   url: string,
   payloadJson: string,
   correlationId: string,
-): { promise: Promise<Response>; entry: InflightEntry; isReused: boolean } {
+): { promise: Promise<DeduplicatedResponse>; entry: InflightEntry; isReused: boolean } {
   // Key on endpoint + full payload body so distinct payloads never collide
   const cacheKey = `${url}:${payloadJson}`
   const existing = inflightCache.get(cacheKey)
-  if (existing && Date.now() - existing.timestamp < DEDUP_WINDOW_MS) {
+  // Reuse if still in-flight, or if settled within the dedup window
+  if (existing && (!existing.settled || Date.now() - existing.timestamp < DEDUP_WINDOW_MS)) {
     existing.refCount++
     return { promise: existing.promise, entry: existing, isReused: true }
   }
 
   const controller = new AbortController()
+
+  // Parse the response body exactly once, then share the parsed result
   const promise = fetch(url, {
     method: 'POST',
     headers: {
@@ -68,11 +93,33 @@ function deduplicatedFetch(
     },
     body: payloadJson,
     signal: controller.signal,
+  }).then(async (response): Promise<DeduplicatedResponse> => {
+    if (response.ok) {
+      const data = await response.json()
+      return {
+        ok: true,
+        status: response.status,
+        statusText: response.statusText,
+        data,
+        errorBody: '',
+        retryAfterHeader: null,
+      }
+    }
+    const errorBody = await response.text().catch(() => 'Unable to read response body')
+    return {
+      ok: false,
+      status: response.status,
+      statusText: response.statusText,
+      data: null,
+      errorBody,
+      retryAfterHeader: response.headers.get('Retry-After'),
+    }
   })
 
-  const entry: InflightEntry = { promise, timestamp: Date.now(), controller, refCount: 1 }
+  const entry: InflightEntry = { promise, timestamp: Date.now(), controller, refCount: 1, settled: false }
   inflightCache.set(cacheKey, entry)
   promise.finally(() => {
+    entry.settled = true
     setTimeout(() => {
       // Only delete if it's still our entry (not replaced by a newer request)
       if (inflightCache.get(cacheKey) === entry) {
@@ -211,7 +258,7 @@ function createGraphFingerprint(
   const edgeFingerprint = edges
     .map((e) => {
       const conf = (e.data as any)?.confidence
-      return `${e.source}->${e.target}:${conf !== undefined ? conf.toFixed(3) : 'x'}`
+      return `${getEdgeKey(e)}:${conf !== undefined ? conf.toFixed(3) : 'x'}`
     })
     .sort()
     .join(',')
@@ -389,13 +436,10 @@ export function useGraphReadiness() {
       const response = await promise
 
       if (!response.ok) {
-        const errorBody = await response.text().catch(() => 'Unable to read response body')
-
         // Handle rate limiting (429) with exponential backoff
         if (response.status === 429) {
-          const retryAfter = response.headers.get('Retry-After')
-          const backoffDelay = retryAfter
-            ? parseInt(retryAfter, 10) * 1000
+          const backoffDelay = response.retryAfterHeader
+            ? parseInt(response.retryAfterHeader, 10) * 1000
             : Math.min(
                 backoffRef.current.delay > 0
                   ? backoffRef.current.delay * BACKOFF_MULTIPLIER
@@ -435,15 +479,15 @@ export function useGraphReadiness() {
         console.error('[useGraphReadiness] CEE error response:', {
           status: response.status,
           statusText: response.statusText,
-          body: errorBody,
+          body: response.errorBody,
         })
-        throw new Error(`HTTP ${response.status} - ${errorBody}`)
+        throw new Error(`HTTP ${response.status} - ${response.errorBody}`)
       }
 
       // Reset backoff on success
       backoffRef.current = { delay: 0, until: 0 }
 
-      const data = await response.json()
+      const data = response.data
 
       // Validate and normalize response
       const normalized: GraphReadiness = {

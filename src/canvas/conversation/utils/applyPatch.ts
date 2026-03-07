@@ -10,7 +10,7 @@ import { useCanvasStore } from '../../store'
 import { DEFAULT_EDGE_DATA } from '../../domain/edges'
 import { saveAutosave } from '../../store/scenarios'
 import type { PatchOperation, GraphPatchBlock } from '../types'
-import type { EffectDirection, CEEAnalysisReady } from '../../../adapters/cee/types'
+import type { EffectDirection, CEEAnalysisReady, CEEInterventionV3 } from '../../../adapters/cee/types'
 
 // ---------------------------------------------------------------------------
 // Operation sort order — ensures nodes exist before edges reference them,
@@ -332,4 +332,82 @@ export function applyAutoApplyPatch(patchBlock: GraphPatchBlock): ApplyPatchResu
   }
 
   return result
+}
+
+// ---------------------------------------------------------------------------
+// FALLBACK: Edge synthesis used only when CEE block lacks analysis_ready.
+// Remove once all CEE paths guaranteed to include it.
+// The primary path (handleEnvelope) now consumes block.analysis_ready
+// directly when CEE provides it. This synthesis is the fallback for
+// older CEE versions that don't include analysis_ready on graph_patch.
+// ---------------------------------------------------------------------------
+
+/**
+ * Synthesise a minimal CEEAnalysisReady from the current graph state.
+ *
+ * Called after applyAutoApplyPatch when the CEE block lacks analysis_ready.
+ * Extracts option nodes, builds interventions from outgoing option→factor
+ * edges, and populates the store so usePreRunValidation sees mapped options.
+ */
+export function synthesiseCeeAnalysisReady(): CEEAnalysisReady | null {
+  const { nodes, edges, outcomeNodeId } = useCanvasStore.getState()
+
+  // Find goal node
+  const goalNode = nodes.find((n: any) => n.type === 'goal')
+  const goalNodeId = outcomeNodeId ?? goalNode?.id
+  if (!goalNodeId) return null
+
+  // Find option nodes
+  const optionNodes = nodes.filter((n: any) => n.type === 'option')
+  if (optionNodes.length === 0) return null
+
+  // Build a set of factor/outcome/risk node IDs (valid intervention targets)
+  const factorKinds = new Set(['factor', 'outcome', 'risk'])
+  const factorNodeIds = new Set(
+    nodes
+      .filter((n: any) => factorKinds.has(n.type ?? (n.data as any)?.kind ?? ''))
+      .map((n) => n.id)
+  )
+
+  // For each option, find outgoing edges to factor nodes and build interventions
+  const options = optionNodes.map((optNode) => {
+    const interventions: Record<string, CEEInterventionV3> = {}
+
+    // Find edges where this option is the source and target is a factor
+    const outgoingEdges = edges.filter(
+      (e) => e.source === optNode.id && factorNodeIds.has(e.target)
+    )
+
+    for (const edge of outgoingEdges) {
+      // Value: reconstruct signed value from unsigned weight + direction
+      // (buildEdge stores Math.abs(rawWeight) as weight, sign in direction)
+      const edgeData = edge.data as Record<string, unknown> | undefined
+      const weight = typeof edgeData?.weight === 'number' ? edgeData.weight : 1
+      const direction = edgeData?.direction as string | undefined
+      const signedValue = direction === 'negative' ? -weight : weight
+
+      interventions[edge.target] = {
+        value: signedValue,
+        source: 'cee_hypothesis',
+        target_match: {
+          node_id: edge.target,
+          match_type: 'exact_id',
+          confidence: 'high',
+        },
+      }
+    }
+
+    return {
+      id: optNode.id,
+      label: (optNode.data as any)?.label ?? optNode.id,
+      status: 'ready' as const,
+      interventions,
+    }
+  })
+
+  return {
+    status: 'ready',
+    goal_node_id: goalNodeId,
+    options,
+  }
 }

@@ -35,7 +35,8 @@ import type {
   GraphPatchBlock,
 } from './types'
 import { MAX_CHIPS_PER_TURN, MAX_SUGGESTED_ACTIONS } from './types'
-import { applyAutoApplyPatch } from './utils/applyPatch'
+import { applyAutoApplyPatch, synthesiseCeeAnalysisReady } from './utils/applyPatch'
+import type { CEEAnalysisReady } from '../../adapters/cee/types'
 
 /** Sentinel message content used for system events — must never render as a user bubble */
 export const SYSTEM_MESSAGE_SENTINEL = '[system]'
@@ -63,6 +64,8 @@ const RF_NODE_BLOCKLIST = new Set([
   'deletable', 'connectable', 'focusable', 'parentId', 'extent',
   'expandParent', 'ariaLabel', 'zIndex', 'hidden',
   'label', 'kind', 'type', 'uncertainty', 'interventions',
+  // UI-only snapshot (not for CEE); flagged_as_assumption intentionally passes through
+  '_baseline_snapshot',
 ])
 
 /** Valid CEE node kinds — unknown kinds fall back to 'factor' */
@@ -221,6 +224,32 @@ function normalisePatchOp(raw: Record<string, unknown>): Record<string, unknown>
  * fallback for them. Unknown enum values within known block types degrade
  * gracefully — never crash.
  */
+/**
+ * Normalise a CEE analysis_ready payload from graph_patch block data.
+ * Maps option_id → id if CEE sends option_id instead of id.
+ * Returns undefined if the payload is absent or structurally invalid.
+ */
+function normaliseAnalysisReady(raw: unknown): CEEAnalysisReady | undefined {
+  if (raw == null || typeof raw !== 'object') return undefined
+  const obj = raw as Record<string, unknown>
+  if (!Array.isArray(obj.options) || typeof obj.goal_node_id !== 'string') return undefined
+
+  const options = obj.options
+    .map((opt: any) => ({
+      ...opt,
+      // CEE may send option_id instead of id — normalise to id
+      id: opt.id ?? opt.option_id,
+    }))
+    .filter((opt: any) => typeof opt.id === 'string' && opt.id.length > 0)
+
+  if (options.length === 0) return undefined
+
+  return {
+    ...obj,
+    options,
+  } as CEEAnalysisReady
+}
+
 export function adaptCEEBlock(raw: unknown): ConversationBlock {
   if (raw == null || typeof raw !== 'object') {
     // Return a minimal unknown block so InlineBlocks can show fallback
@@ -282,6 +311,7 @@ export function adaptCEEBlock(raw: unknown): ConversationBlock {
           auto_apply: dataObj.auto_apply === true,
           actions: Array.isArray(actions) ? actions as any : undefined,
           block_id: typeof block_id === 'string' ? block_id : undefined,
+          analysis_ready: normaliseAnalysisReady(dataObj.analysis_ready),
         }
       }
 
@@ -334,6 +364,7 @@ export function adaptCEEBlock(raw: unknown): ConversationBlock {
       operations: obj.operations.map((op: unknown) =>
         op != null && typeof op === 'object' ? normalisePatchOp(op as Record<string, unknown>) : op
       ),
+      analysis_ready: normaliseAnalysisReady(obj.analysis_ready),
     } as unknown as ConversationBlock
   }
   return raw as ConversationBlock
@@ -616,6 +647,7 @@ export function useConversation(): UseConversationReturn {
       // handles field normalisation (kind→type, from/to→source/target), bulk
       // setState, ELK layout, and post-apply invalidation.
       const autoApplyModifiedIds: string[] = []
+      let ceeProvidedAnalysisReady: CEEAnalysisReady | undefined
 
       for (const block of normalisedBlocks) {
         if (block.type === 'graph_patch' && (block as GraphPatchBlock).auto_apply === true) {
@@ -628,6 +660,11 @@ export function useConversation(): UseConversationReturn {
 
             const patchResult = applyAutoApplyPatch(patchBlock)
             autoApplyModifiedIds.push(...patchResult.modifiedIds)
+
+            // Track analysis_ready from the last applied block.
+            // Reset on each block so only the final block's analysis_ready
+            // (or synthesis fallback) matches the post-mutation graph state.
+            ceeProvidedAnalysisReady = patchBlock.analysis_ready
 
             if (import.meta.env.DEV) {
               // eslint-disable-next-line no-console, no-restricted-syntax
@@ -643,6 +680,35 @@ export function useConversation(): UseConversationReturn {
             }
           } finally {
             useCanvasStore.getState().endExternalGraphMutation?.()
+          }
+        }
+      }
+
+      // Set ceeAnalysisReady from the auto-applied blocks.
+      // Primary path: use CEE-provided analysis_ready directly.
+      // FALLBACK: Edge synthesis used only when CEE block lacks analysis_ready.
+      // Remove fallback once all CEE paths guaranteed to include it.
+      if (autoApplyModifiedIds.length > 0) {
+        if (ceeProvidedAnalysisReady) {
+          useCanvasStore.getState().setCeeAnalysisReady(ceeProvidedAnalysisReady)
+          if (import.meta.env.DEV) {
+            console.warn('[handleEnvelope] Using CEE-provided analysis_ready', {
+              options: ceeProvidedAnalysisReady.options.length,
+              goal: ceeProvidedAnalysisReady.goal_node_id,
+            })
+          }
+        } else {
+          // FALLBACK: Edge synthesis used only when CEE block lacks analysis_ready.
+          // Remove once all CEE paths guaranteed to include it.
+          const synthesised = synthesiseCeeAnalysisReady()
+          if (synthesised) {
+            useCanvasStore.getState().setCeeAnalysisReady(synthesised)
+            if (import.meta.env.DEV) {
+              console.warn('[handleEnvelope] Fallback: synthesised ceeAnalysisReady from graph', {
+                options: synthesised.options.length,
+                goal: synthesised.goal_node_id,
+              })
+            }
           }
         }
       }

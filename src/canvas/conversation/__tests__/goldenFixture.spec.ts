@@ -13,8 +13,9 @@ import { describe, it, expect, beforeEach } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { adaptCEEBlock } from '../useConversation'
-import { applyAutoApplyPatch } from '../utils/applyPatch'
+import { applyAutoApplyPatch, synthesiseCeeAnalysisReady } from '../utils/applyPatch'
 import { useCanvasStore } from '../../store'
+import { validateBeforeRun } from '../../hooks/usePreRunValidation'
 import type { GraphPatchBlock } from '../types'
 
 const rawFixture = JSON.parse(
@@ -213,5 +214,252 @@ describe('golden fixture — envelope shape', () => {
     // Raw CEE ops do NOT have target_id or data
     expect(firstOp.target_id).toBeUndefined()
     expect(firstOp.data).toBeUndefined()
+  })
+})
+
+// ---------------------------------------------------------------------------
+// § 4 — synthesiseCeeAnalysisReady (Fix 2)
+// ---------------------------------------------------------------------------
+
+describe('golden fixture — synthesiseCeeAnalysisReady', () => {
+  it('populates ceeAnalysisReady after applyAutoApplyPatch', () => {
+    const adapted = adaptCEEBlock(rawFixture.blocks[0]) as GraphPatchBlock
+    applyAutoApplyPatch(adapted)
+
+    const result = synthesiseCeeAnalysisReady()
+
+    expect(result).not.toBeNull()
+    expect(result!.status).toBe('ready')
+    expect(result!.goal_node_id).toBe('goal_maximise_revenue')
+    expect(result!.options).toHaveLength(2)
+  })
+
+  it('options have interventions derived from option→factor edges', () => {
+    const adapted = adaptCEEBlock(rawFixture.blocks[0]) as GraphPatchBlock
+    applyAutoApplyPatch(adapted)
+
+    const result = synthesiseCeeAnalysisReady()!
+    const optKeep = result.options.find((o) => o.id === 'opt_keep_price')
+    const optRaise = result.options.find((o) => o.id === 'opt_raise_price')
+
+    expect(optKeep).toBeDefined()
+    expect(optKeep!.status).toBe('ready')
+    // opt_keep_price → fac_subscription_price edge exists in fixture
+    expect(Object.keys(optKeep!.interventions)).toContain('fac_subscription_price')
+
+    expect(optRaise).toBeDefined()
+    expect(optRaise!.status).toBe('ready')
+    expect(Object.keys(optRaise!.interventions)).toContain('fac_subscription_price')
+  })
+
+  it('usePreRunValidation no longer returns OPTIONS_NEED_MAPPING', () => {
+    const adapted = adaptCEEBlock(rawFixture.blocks[0]) as GraphPatchBlock
+    applyAutoApplyPatch(adapted)
+
+    const synthesised = synthesiseCeeAnalysisReady()
+    expect(synthesised).not.toBeNull()
+
+    // Simulate what handleEnvelope does: set it in the store
+    useCanvasStore.setState({ ceeAnalysisReady: synthesised })
+
+    const store = useCanvasStore.getState()
+    const validation = validateBeforeRun(
+      store.outcomeNodeId,
+      store.nodes,
+      store.edges,
+      store.ceeAnalysisReady,
+    )
+
+    // Should NOT have OPTIONS_NEED_MAPPING or EMPTY_INTERVENTIONS blockers
+    const mappingBlocker = validation.blockers.find((b) => b.code === 'OPTIONS_NEED_MAPPING')
+    const emptyBlocker = validation.blockers.find((b) => b.code === 'EMPTY_INTERVENTIONS')
+    expect(mappingBlocker).toBeUndefined()
+    expect(emptyBlocker).toBeUndefined()
+    expect(validation.canRun).toBe(true)
+  })
+
+  it('returns null when no goal node exists', () => {
+    // Apply patch but clear the outcome node
+    const adapted = adaptCEEBlock(rawFixture.blocks[0]) as GraphPatchBlock
+    applyAutoApplyPatch(adapted)
+
+    // Remove goal node and outcome reference
+    useCanvasStore.setState({
+      nodes: useCanvasStore.getState().nodes.filter((n) => n.type !== 'goal'),
+      outcomeNodeId: null,
+    })
+
+    const result = synthesiseCeeAnalysisReady()
+    expect(result).toBeNull()
+  })
+
+  it('returns null when no option nodes exist', () => {
+    const adapted = adaptCEEBlock(rawFixture.blocks[0]) as GraphPatchBlock
+    applyAutoApplyPatch(adapted)
+
+    // Remove all option nodes
+    useCanvasStore.setState({
+      nodes: useCanvasStore.getState().nodes.filter((n) => n.type !== 'option'),
+    })
+
+    const result = synthesiseCeeAnalysisReady()
+    expect(result).toBeNull()
+  })
+
+  it('preserves negative sign from edge direction on intervention value', () => {
+    const adapted = adaptCEEBlock(rawFixture.blocks[0]) as GraphPatchBlock
+    applyAutoApplyPatch(adapted)
+
+    // Manually add a negative option→factor edge to test sign preservation
+    const store = useCanvasStore.getState()
+    useCanvasStore.setState({
+      edges: [
+        ...store.edges,
+        {
+          id: 'opt_raise_price->fac_churn_risk',
+          source: 'opt_raise_price',
+          target: 'fac_churn_risk',
+          type: 'styled',
+          data: { weight: 0.4, direction: 'negative' },
+        },
+      ],
+    })
+
+    const result = synthesiseCeeAnalysisReady()!
+    const optRaise = result.options.find((o) => o.id === 'opt_raise_price')!
+    const churnIntervention = optRaise.interventions['fac_churn_risk']
+
+    expect(churnIntervention).toBeDefined()
+    expect(churnIntervention.value).toBe(-0.4) // negative direction → negative value
+  })
+})
+
+// ---------------------------------------------------------------------------
+// § 5 — CEE-provided analysis_ready (primary path vs fallback)
+// ---------------------------------------------------------------------------
+
+describe('golden fixture — CEE-provided analysis_ready', () => {
+  const ceeAnalysisReady = {
+    status: 'ready' as const,
+    goal_node_id: 'goal_maximise_revenue',
+    options: [
+      {
+        id: 'opt_keep_price',
+        label: 'Keep Price at £49 (Status Quo)',
+        status: 'ready' as const,
+        interventions: {
+          fac_subscription_price: {
+            value: 0.49,
+            source: 'cee_resolved',
+            target_match: { node_id: 'fac_subscription_price', match_type: 'exact_id', confidence: 'high' },
+          },
+        },
+      },
+      {
+        id: 'opt_raise_price',
+        label: 'Raise Price to £59',
+        status: 'ready' as const,
+        interventions: {
+          fac_subscription_price: {
+            value: 0.59,
+            source: 'cee_resolved',
+            target_match: { node_id: 'fac_subscription_price', match_type: 'exact_id', confidence: 'high' },
+          },
+        },
+      },
+    ],
+  }
+
+  function makeFixtureWithAnalysisReady() {
+    const block = JSON.parse(JSON.stringify(rawFixture.blocks[0]))
+    block.data.analysis_ready = ceeAnalysisReady
+    return block
+  }
+
+  it('adaptCEEBlock passes through analysis_ready from block data', () => {
+    const block = makeFixtureWithAnalysisReady()
+    const adapted = adaptCEEBlock(block) as GraphPatchBlock
+
+    expect(adapted.analysis_ready).toBeDefined()
+    expect(adapted.analysis_ready!.goal_node_id).toBe('goal_maximise_revenue')
+    expect(adapted.analysis_ready!.options).toHaveLength(2)
+    expect(adapted.analysis_ready!.options[0].id).toBe('opt_keep_price')
+  })
+
+  it('adaptCEEBlock normalises option_id → id', () => {
+    const block = makeFixtureWithAnalysisReady()
+    // Simulate CEE sending option_id instead of id
+    block.data.analysis_ready.options[0] = {
+      option_id: 'opt_keep_price',
+      label: 'Keep Price at £49 (Status Quo)',
+      status: 'ready',
+      interventions: ceeAnalysisReady.options[0].interventions,
+    }
+    delete block.data.analysis_ready.options[0].id
+
+    const adapted = adaptCEEBlock(block) as GraphPatchBlock
+    expect(adapted.analysis_ready!.options[0].id).toBe('opt_keep_price')
+  })
+
+  it('CEE-provided analysis_ready is used directly (not synthesis)', () => {
+    const block = makeFixtureWithAnalysisReady()
+    const adapted = adaptCEEBlock(block) as GraphPatchBlock
+    applyAutoApplyPatch(adapted)
+
+    // Simulate handleEnvelope primary path
+    useCanvasStore.getState().setCeeAnalysisReady(adapted.analysis_ready!)
+
+    const store = useCanvasStore.getState()
+    expect(store.ceeAnalysisReady).toBeDefined()
+    // CEE-provided values should be used (0.49, 0.59), not edge weights (1.0)
+    const optKeep = store.ceeAnalysisReady!.options.find((o) => o.id === 'opt_keep_price')
+    expect(optKeep!.interventions.fac_subscription_price.value).toBe(0.49)
+    expect(optKeep!.interventions.fac_subscription_price.source).toBe('cee_resolved')
+  })
+
+  it('usePreRunValidation produces no OPTIONS_NEED_MAPPING with CEE-provided data', () => {
+    const block = makeFixtureWithAnalysisReady()
+    const adapted = adaptCEEBlock(block) as GraphPatchBlock
+    applyAutoApplyPatch(adapted)
+
+    useCanvasStore.getState().setCeeAnalysisReady(adapted.analysis_ready!)
+
+    const store = useCanvasStore.getState()
+    const validation = validateBeforeRun(
+      store.outcomeNodeId,
+      store.nodes,
+      store.edges,
+      store.ceeAnalysisReady,
+    )
+
+    const mappingBlocker = validation.blockers.find((b) => b.code === 'OPTIONS_NEED_MAPPING')
+    const emptyBlocker = validation.blockers.find((b) => b.code === 'EMPTY_INTERVENTIONS')
+    expect(mappingBlocker).toBeUndefined()
+    expect(emptyBlocker).toBeUndefined()
+    expect(validation.canRun).toBe(true)
+  })
+
+  it('falls back to synthesis when analysis_ready is absent', () => {
+    // Original fixture has no analysis_ready — fallback should fire
+    const adapted = adaptCEEBlock(rawFixture.blocks[0]) as GraphPatchBlock
+    expect(adapted.analysis_ready).toBeUndefined()
+
+    applyAutoApplyPatch(adapted)
+
+    // Simulate handleEnvelope fallback path
+    const synthesised = synthesiseCeeAnalysisReady()
+    expect(synthesised).not.toBeNull()
+    expect(synthesised!.options).toHaveLength(2)
+    // Synthesis derives from edge weights, not CEE-resolved values
+    expect(synthesised!.options[0].interventions.fac_subscription_price.source).toBe('cee_hypothesis')
+  })
+
+  it('adaptCEEBlock returns undefined analysis_ready for invalid payload', () => {
+    const block = JSON.parse(JSON.stringify(rawFixture.blocks[0]))
+    // Missing goal_node_id — should be treated as invalid
+    block.data.analysis_ready = { options: [] }
+
+    const adapted = adaptCEEBlock(block) as GraphPatchBlock
+    expect(adapted.analysis_ready).toBeUndefined()
   })
 })
