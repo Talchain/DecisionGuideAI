@@ -308,7 +308,7 @@ export function useGraphReadiness() {
     const now = Date.now()
     if (backoffRef.current.until > now) {
       if (import.meta.env.DEV) {
-        console.log(
+        console.warn(
           `[useGraphReadiness] Rate limited, waiting ${Math.ceil((backoffRef.current.until - now) / 1000)}s`
         )
       }
@@ -390,6 +390,7 @@ export function useGraphReadiness() {
       // Strip model_adjustments — CEE produced them and doesn't need them back;
       // forwarding them can cause 400s if CEE rejects unrecognised adjustment types.
       if (currentCeeAnalysisReady?.options?.length) {
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const { model_adjustments: _strip, ...analysisReadyForPayload } = currentCeeAnalysisReady
         payload.analysis_ready = analysisReadyForPayload
       }
@@ -409,13 +410,13 @@ export function useGraphReadiness() {
       // Rate-limited logging (max once per 5 seconds)
       const now = Date.now()
       if (import.meta.env.DEV && now - lastLogTimeRef.current > 5000) {
-        console.log('[useGraphReadiness] Fetching readiness:', {
+        console.warn('[useGraphReadiness] Fetching readiness:', {
           nodes: currentNodes.length,
           edges: currentEdges.length,
           hasAnalysisReady: Boolean(currentCeeAnalysisReady?.options?.length),
         })
         // P0 DIAGNOSTIC: Log full payload structure
-        console.log('[useGraphReadiness] Payload being sent:', {
+        console.warn('[useGraphReadiness] Payload being sent:', {
           graphNodes: (payload.graph as any)?.nodes?.length,
           sampleNode: (payload.graph as any)?.nodes?.[0],
           graphEdges: (payload.graph as any)?.edges?.length,
