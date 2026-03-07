@@ -16,7 +16,6 @@ import type { CEEDraftResponse, CEEv2Response, EffectDirection } from '../../ada
 import { validateBrief } from '../utils/briefValidation'
 import { formatCEEError } from '../utils/formatCEEError'
 import { EXAMPLE_BRIEF_CHIPS } from '../../constants/validation'
-import { isOrchestratorV2Enabled } from '../../flags'
 import { ConversationPanel } from '../conversation/ConversationPanel'
 import { useConversation } from '../conversation/useConversation'
 import { useGraphEditEvents } from '../conversation/useGraphEditEvents'
@@ -27,7 +26,24 @@ import { useSessionResumeEvent } from '../conversation/useSessionResumeEvent'
 const DRAFT_PANEL_WIDTH_KEY = 'canvas.draftChat.width'
 const DRAFT_PANEL_HEIGHT_KEY = 'canvas.draftChat.height'
 
+/** Read orchestrator flag directly from env + localStorage.
+ *  The makeFlag factory uses dynamic key access (`env?.[envKey]`) which Vite
+ *  may not resolve in dev mode. This direct-read fallback guarantees the flag
+ *  is available regardless of Vite's transform behaviour. */
+function useOrchestratorV2Flag(): boolean {
+  // localStorage override (same precedence as makeFlag)
+  try {
+    const ls = localStorage.getItem('feature.orchestratorV2')
+    if (ls != null) return !(ls === '0' || ls === 'false')
+  } catch {}
+  // Direct env access with literal key — Vite can resolve this
+  const env = import.meta.env.VITE_ENABLE_ORCHESTRATOR_V2
+  return env === 'true' || env === '1' || env === true
+}
+
 export function DraftChat() {
+  const isOrchV2 = useOrchestratorV2Flag()
+
   // Initialize description from stored value to maintain context across panel close/reopen
   const lastDraftDescription = useCanvasStore(s => s.lastDraftDescription)
   const [description, setDescription] = useState(lastDraftDescription || '')
@@ -187,21 +203,7 @@ export function DraftChat() {
     // A.5+: When orchestrator V2 is enabled, route initial brief through the
     // orchestrator conversation path (POST /orchestrate/v1/turn) instead of
     // the legacy /bff/cee/draft-graph endpoint.
-    // DEBUG: dump flag sources so we can trace why the flag may be OFF
-    const orchFlag = isOrchestratorV2Enabled()
-    const envVal = (import.meta as any)?.env?.VITE_ENABLE_ORCHESTRATOR_V2
-    let lsVal: string | null = null
-    try { lsVal = localStorage.getItem('feature.orchestratorV2') } catch {}
-    console.info('[handleDraft] orchestratorV2 flag:', { orchFlag, envVal, lsVal })
-    if (!orchFlag && (envVal === 'true' || envVal === '1')) {
-      console.warn(
-        '[handleDraft] VITE_ENABLE_ORCHESTRATOR_V2 is set but flag resolved false. ' +
-        'localStorage override? lsVal=' + lsVal + '. ' +
-        'Fix: localStorage.removeItem("feature.orchestratorV2") then reload, ' +
-        'or restart the dev server if env var was added recently.'
-      )
-    }
-    if (orchFlag) {
+    if (isOrchV2) {
       console.info('[handleDraft] orchestrator V2 path — routing brief to /orchestrate/v1/turn')
       setLastDraftDescription(description)
       const briefText = description
@@ -937,7 +939,7 @@ export function DraftChat() {
               </div>
             </div>
 
-            {isOrchestratorV2Enabled() ? (
+            {isOrchV2 ? (
               <ConversationPanel
                 conversation={conversation}
                 onCollapse={() => setIsMinimized(true)}
