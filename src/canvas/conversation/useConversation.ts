@@ -260,7 +260,7 @@ export function adaptCEEBlock(raw: unknown): ConversationBlock {
             const firstOp = normOps[0] as Record<string, unknown>
             const hadPathValue = rawOps.some((o: any) => 'path' in o || 'value' in o)
             if (hadPathValue) {
-              console.log('[adaptCEEBlock] Normalised graph_patch ops from path/value → target_id/data', {
+              console.warn('[adaptCEEBlock] Normalised graph_patch ops from path/value → target_id/data', {
                 rawCount: rawOps.length,
                 sampleTargetId: firstOp.target_id,
                 sampleOp: firstOp.op,
