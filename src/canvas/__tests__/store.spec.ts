@@ -65,12 +65,14 @@ describe('Canvas Store', () => {
   })
 
   it('supports multiple edges between same nodes', () => {
+    seedDemoGraph()
     const { addEdge } = useCanvasStore.getState()
     addEdge({ source: '1', target: '2' })
     addEdge({ source: '1', target: '2' })
     const { edges } = useCanvasStore.getState()
     const between1and2 = edges.filter(e => e.source === '1' && e.target === '2')
-    expect(between1and2.length).toBeGreaterThanOrEqual(2)
+    // seedDemoGraph already has one edge from 1→2, plus 2 new ones = 3
+    expect(between1and2.length).toBeGreaterThanOrEqual(3)
   })
 
   it('reseeds IDs on hydrate', () => {

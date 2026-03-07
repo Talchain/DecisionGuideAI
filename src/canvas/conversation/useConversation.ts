@@ -36,6 +36,7 @@ import type {
   PatchOperation,
 } from './types'
 import { MAX_CHIPS_PER_TURN, MAX_SUGGESTED_ACTIONS } from './types'
+import { extractTargetIdsFromPatch } from './utils/extractTargetIds'
 
 /** Sentinel message content used for system events — must never render as a user bubble */
 export const SYSTEM_MESSAGE_SENTINEL = '[system]'
@@ -329,8 +330,9 @@ export function useConversation(): UseConversationReturn {
         useCanvasStore.getState().setCurrentStage(envelope.stage_indicator)
       }
 
-      // Update guidance items (replaces previous array; clears stale active ID)
-      useGuidanceStore.getState().setGuidanceItems(envelope.guidance_items ?? [])
+      // NOTE: guidance items are set AFTER auto-apply patches (below) so that
+      // if patches fail, we don't leave stale guidance referencing unmodified elements.
+      // See "Move guidance setGuidanceItems after auto-apply" fix.
 
       // A.9 Task 1: Hydrate results store when envelope carries analysis results
       const store = useCanvasStore.getState()
@@ -396,48 +398,110 @@ export function useConversation(): UseConversationReturn {
       // Auto-apply graph_patch blocks with auto_apply=true (e.g. initial brief
       // response from orchestrator). Apply operations directly to the canvas
       // without user interaction — matches the legacy draft-graph auto-apply UX.
+      //
+      // Hardened with: pre-validation, per-operation error handling, batched
+      // history (single undo entry), and post-apply guidance clearing.
+      const autoApplyModifiedIds: string[] = []
+
       for (const block of normalisedBlocks) {
         if (block.type === 'graph_patch' && (block as GraphPatchBlock).auto_apply === true) {
           const patchBlock = block as GraphPatchBlock
           try {
-            store.beginExternalGraphMutation?.('patch_apply')
+            // Single history snapshot before all operations, then suppress
+            // per-operation pushToHistory calls to avoid undo-stack bloat.
+            useCanvasStore.getState().pushHistory?.()
+            useCanvasStore.getState().beginExternalGraphMutation?.('patch_apply', { suppressHistory: true })
+
             for (const op of patchBlock.operations) {
-              const s = useCanvasStore.getState()
-              switch (op.op) {
-                case 'add_node': {
-                  s.addNode(undefined, (op.data.type as string) || 'decision')
-                  const nodes = useCanvasStore.getState().nodes
-                  const newNode = nodes[nodes.length - 1]
-                  if (newNode) {
-                    s.updateNode(newNode.id, { id: op.target_id, data: op.data } as any)
+              try {
+                const s = useCanvasStore.getState()
+                const nodeMap = new Set(s.nodes.map(n => n.id))
+                const edgeMap = new Set(s.edges.map(e => e.id))
+
+                switch (op.op) {
+                  case 'add_node': {
+                    // Create node with the orchestrator's target_id directly
+                    // by adding then updating — avoids nodes[length-1] race.
+                    const preCount = s.nodes.length
+                    s.addNode(undefined, (op.data.type as string) || 'decision')
+                    const postState = useCanvasStore.getState()
+                    // Find the newly added node (it will have a higher index)
+                    const newNode = postState.nodes.length > preCount
+                      ? postState.nodes[postState.nodes.length - 1]
+                      : null
+                    if (newNode) {
+                      postState.updateNode(newNode.id, { id: op.target_id, data: op.data } as any)
+                    } else if (import.meta.env.DEV) {
+                      console.warn('[handleEnvelope] add_node: failed to find newly created node')
+                    }
+                    break
                   }
-                  break
+                  case 'remove_node':
+                    if (!nodeMap.has(op.target_id)) {
+                      if (import.meta.env.DEV) console.warn(`[handleEnvelope] remove_node: node "${op.target_id}" not found, skipping`)
+                      break
+                    }
+                    s.deleteNodeById(op.target_id)
+                    break
+                  case 'update_node':
+                    if (!nodeMap.has(op.target_id)) {
+                      if (import.meta.env.DEV) console.warn(`[handleEnvelope] update_node: node "${op.target_id}" not found, skipping`)
+                      break
+                    }
+                    s.updateNode(op.target_id, { data: op.data } as any)
+                    break
+                  case 'add_edge':
+                    s.addEdge({
+                      source: op.data.source as string,
+                      target: op.data.target as string,
+                      data: op.data,
+                    } as any)
+                    break
+                  case 'remove_edge':
+                    if (!edgeMap.has(op.target_id)) {
+                      if (import.meta.env.DEV) console.warn(`[handleEnvelope] remove_edge: edge "${op.target_id}" not found, skipping`)
+                      break
+                    }
+                    s.deleteEdgeById(op.target_id)
+                    break
+                  case 'update_edge':
+                    if (!edgeMap.has(op.target_id)) {
+                      if (import.meta.env.DEV) console.warn(`[handleEnvelope] update_edge: edge "${op.target_id}" not found, skipping`)
+                      break
+                    }
+                    s.updateEdgeData(op.target_id, op.data as any)
+                    break
+                  default:
+                    if (import.meta.env.DEV) console.warn(`[handleEnvelope] unknown patch op: "${(op as any).op}"`)
                 }
-                case 'remove_node':
-                  s.deleteNodeById(op.target_id)
-                  break
-                case 'update_node':
-                  s.updateNode(op.target_id, { data: op.data } as any)
-                  break
-                case 'add_edge':
-                  s.addEdge({
-                    source: op.data.source as string,
-                    target: op.data.target as string,
-                    data: op.data,
-                  } as any)
-                  break
-                case 'remove_edge':
-                  s.deleteEdgeById(op.target_id)
-                  break
-                case 'update_edge':
-                  s.updateEdgeData(op.target_id, op.data as any)
-                  break
+              } catch (opErr) {
+                // Per-operation error: log and continue with remaining operations
+                if (import.meta.env.DEV) {
+                  console.error(`[handleEnvelope] patch op "${op.op}" on "${op.target_id}" failed:`, opErr)
+                }
               }
+            }
+
+            // Collect modified IDs for post-apply guidance clearing
+            const { nodeIds, edgeIds } = extractTargetIdsFromPatch(patchBlock.operations)
+            autoApplyModifiedIds.push(...nodeIds, ...edgeIds)
+          } catch (patchErr) {
+            if (import.meta.env.DEV) {
+              console.error('[handleEnvelope] auto-apply patch failed:', patchErr)
             }
           } finally {
             useCanvasStore.getState().endExternalGraphMutation?.()
           }
         }
+      }
+
+      // Set guidance items AFTER auto-apply patches complete, so items
+      // reference the post-patch graph state (not pre-patch).
+      useGuidanceStore.getState().setGuidanceItems(envelope.guidance_items ?? [])
+
+      // Clear guidance items targeting elements modified by auto-apply patches
+      if (autoApplyModifiedIds.length > 0) {
+        useGuidanceStore.getState().clearItemsByTargetIds(autoApplyModifiedIds)
       }
 
       const orderedBlocks = prioritiseBlocks(normalisedBlocks)

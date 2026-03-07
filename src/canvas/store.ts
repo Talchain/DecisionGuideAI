@@ -486,7 +486,9 @@ interface CanvasState {
   // during patch-apply, envelope-applied changes, scenario hydration, etc.
   /** Reference count: >0 while a non-user graph mutation is in progress */
   _externalMutationActive: number
-  beginExternalGraphMutation: (source: 'envelope_apply' | 'patch_apply' | 'hydrate') => void
+  /** When true, mutation methods skip pushToHistory calls (for batched operations) */
+  _suppressHistory: boolean
+  beginExternalGraphMutation: (source: 'envelope_apply' | 'patch_apply' | 'hydrate', opts?: { suppressHistory?: boolean }) => void
   endExternalGraphMutation: () => void
   // Week 3: AI Clarifier actions
   setShowAIClarifier: (show: boolean) => void
@@ -558,6 +560,9 @@ function historyHash(nodes: Node[], edges: Edge[]): string {
 }
 
 function pushToHistory(get: () => CanvasState, set: (fn: (s: CanvasState) => Partial<CanvasState>) => void) {
+  // Skip history during batched external mutations (e.g. auto-apply patches)
+  if (get()._suppressHistory) return
+
   const { nodes, edges, history, _internal } = get()
 
   // Guard: only push if state actually changed (unless history is empty - always push first snapshot)
@@ -898,6 +903,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   currentDecisionRationale: null,
   // A.7: External mutation suppression reference count (0 = inactive)
   _externalMutationActive: 0,
+  _suppressHistory: false,
   // Week 3: AI Clarifier initial state
   showAIClarifier: false,
   clarifierSession: null,
@@ -1190,6 +1196,18 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   },
 
   addEdge: (edge) => {
+    // Validate source/target nodes exist to prevent dangling edges
+    const { nodes } = get()
+    const nodeIds = new Set(nodes.map(n => n.id))
+    if (!nodeIds.has(edge.source)) {
+      if (import.meta.env.DEV) console.warn(`[Canvas] addEdge: source node "${edge.source}" not found`)
+      return
+    }
+    if (!nodeIds.has(edge.target)) {
+      if (import.meta.env.DEV) console.warn(`[Canvas] addEdge: target node "${edge.target}" not found`)
+      return
+    }
+
     pushToHistory(get, set)
     // Note: Adding edges does NOT invalidate ceeAnalysisReady
     // Only deletion of critical nodes (goal, option, intervention targets) invalidates
@@ -3241,15 +3259,21 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
 
   // A.7: External mutation suppression — reference-counted so nested calls
   // don't prematurely clear suppression when two callers overlap.
-  beginExternalGraphMutation: (source) => {
+  beginExternalGraphMutation: (source, opts) => {
     if (import.meta.env.DEV) {
       console.debug(`[canvas] beginExternalGraphMutation(${source})`)
     }
-    set((s) => ({ _externalMutationActive: s._externalMutationActive + 1 }))
+    set((s) => ({
+      _externalMutationActive: s._externalMutationActive + 1,
+      ...(opts?.suppressHistory ? { _suppressHistory: true } : {}),
+    }))
   },
 
   endExternalGraphMutation: () => {
-    set((s) => ({ _externalMutationActive: Math.max(0, s._externalMutationActive - 1) }))
+    set((s) => ({
+      _externalMutationActive: Math.max(0, s._externalMutationActive - 1),
+      _suppressHistory: false,
+    }))
   },
 
   updateScenarioFraming: (partial) => {
