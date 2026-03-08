@@ -109,7 +109,7 @@ export function DraftChat() {
   const captureErrorDetail = useCanvasStore(s => s.captureErrorDetail)
   const nodeCount = useCanvasStore(s => s.nodes.length)
   const edgeCount = useCanvasStore(s => s.edges.length)
-  const showResultsPanel = useCanvasStore(s => s.showResultsPanel)
+
 
   // A.5+ Conversation mode (feature-flagged)
   const conversation = useConversation()
@@ -122,7 +122,7 @@ export function DraftChat() {
   // useSessionResumeEvent(conversation.sendSystemEvent, conversation.messages)
 
   // Brief validation
-  const [isInputFocused, setIsInputFocused] = useState(false)
+  const [, setIsInputFocused] = useState(false)
   const briefValidation = validateBrief(description)
   const canSubmit = briefValidation.isValid && !loading && !conversation.isThinking
 
@@ -299,7 +299,7 @@ export function DraftChat() {
           const { setCeePipelineTrace } = useCanvasStore.getState()
           setCeePipelineTrace(pipelineTrace)
           if (import.meta.env.DEV) {
-            console.log('[DraftChat] Extracted pipeline trace from error response:', {
+            console.warn('[DraftChat] Extracted pipeline trace from error response:', {
               stages: pipelineTrace.stages?.length,
               status: pipelineTrace.status,
               httpStatus: err.status,
@@ -307,7 +307,7 @@ export function DraftChat() {
           }
         } else if (import.meta.env.DEV) {
           // Log what we found to help debug extraction issues
-          console.log('[DraftChat] No pipeline trace in error response:', {
+          console.warn('[DraftChat] No pipeline trace in error response:', {
             httpStatus: err.status,
             detailsKeys: details ? Object.keys(details) : [],
             hasTrace: !!details?.trace,
@@ -337,22 +337,22 @@ export function DraftChat() {
 
     // P0 DIAGNOSTIC: Log CEE response structure for debugging analysis_ready flow
     if (import.meta.env.DEV) {
-      console.log('[DraftChat] === CEE RESPONSE DIAGNOSTIC ===')
-      console.log('[DraftChat] Response keys:', Object.keys(draftData || {}))
-      console.log('[DraftChat] Has analysis_ready key:', 'analysis_ready' in (draftData || {}))
-      console.log('[DraftChat] analysis_ready value:', (draftData as any)?.analysis_ready)
-      console.log('[DraftChat] hasAnalysisReady() result:', hasAnalysisReady(draftData))
-      console.log('[DraftChat] Nodes location:', draftData?.nodes ? 'root' : (draftData as any)?.graph?.nodes ? 'graph.nodes' : 'none')
-      console.log('[DraftChat] Edges location:', draftData?.edges ? 'root' : (draftData as any)?.graph?.edges ? 'graph.edges' : 'none')
+      console.warn('[DraftChat] === CEE RESPONSE DIAGNOSTIC ===')
+      console.warn('[DraftChat] Response keys:', Object.keys(draftData || {}))
+      console.warn('[DraftChat] Has analysis_ready key:', 'analysis_ready' in (draftData || {}))
+      console.warn('[DraftChat] analysis_ready value:', (draftData as any)?.analysis_ready)
+      console.warn('[DraftChat] hasAnalysisReady() result:', hasAnalysisReady(draftData))
+      console.warn('[DraftChat] Nodes location:', draftData?.nodes ? 'root' : (draftData as any)?.graph?.nodes ? 'graph.nodes' : 'none')
+      console.warn('[DraftChat] Edges location:', draftData?.edges ? 'root' : (draftData as any)?.graph?.edges ? 'graph.edges' : 'none')
 
       // P0 INVESTIGATION: Log edge structure received by DraftChat
       const firstEdge = rawEdgesForCheck[0]
-      console.log('[DraftChat] === EDGE STRUCTURE AT DRAFTCHAT ===')
-      console.log('[DraftChat] edges array length:', rawEdgesForCheck.length)
+      console.warn('[DraftChat] === EDGE STRUCTURE AT DRAFTCHAT ===')
+      console.warn('[DraftChat] edges array length:', rawEdgesForCheck.length)
       if (firstEdge) {
-        console.log('[DraftChat] First edge ALL KEYS:', Object.keys(firstEdge))
-        console.log('[DraftChat] First edge RAW:', JSON.stringify(firstEdge, null, 2))
-        console.log('[DraftChat] First edge field check:', {
+        console.warn('[DraftChat] First edge ALL KEYS:', Object.keys(firstEdge))
+        console.warn('[DraftChat] First edge RAW:', JSON.stringify(firstEdge, null, 2))
+        console.warn('[DraftChat] First edge field check:', {
           'weight (direct)': firstEdge.weight,
           'strength_mean (direct)': firstEdge.strength_mean,
           'strength.mean (nested)': firstEdge.strength?.mean,
@@ -360,22 +360,22 @@ export function DraftChat() {
           'belief': firstEdge.belief,
         })
       } else {
-        console.log('[DraftChat] No edges received - checked both draftData.edges and draftData.graph.edges')
+        console.warn('[DraftChat] No edges received - checked both draftData.edges and draftData.graph.edges')
       }
-      console.log('[DraftChat] === END EDGE INVESTIGATION ===')
+      console.warn('[DraftChat] === END EDGE INVESTIGATION ===')
 
       // Detailed type guard checks
       const ar = (draftData as any).analysis_ready
       if (ar) {
-        console.log('[DraftChat] analysis_ready.options:', ar.options)
-        console.log('[DraftChat] analysis_ready.options is array:', Array.isArray(ar.options))
-        console.log('[DraftChat] analysis_ready.options.length:', ar.options?.length)
-        console.log('[DraftChat] analysis_ready.goal_node_id:', ar.goal_node_id)
-        console.log('[DraftChat] goal_node_id is string:', typeof ar.goal_node_id === 'string')
+        console.warn('[DraftChat] analysis_ready.options:', ar.options)
+        console.warn('[DraftChat] analysis_ready.options is array:', Array.isArray(ar.options))
+        console.warn('[DraftChat] analysis_ready.options.length:', ar.options?.length)
+        console.warn('[DraftChat] analysis_ready.goal_node_id:', ar.goal_node_id)
+        console.warn('[DraftChat] goal_node_id is string:', typeof ar.goal_node_id === 'string')
 
         // Detailed intervention logging for debugging empty interventions issue
         ar.options?.forEach((opt: any, i: number) => {
-          console.log(`[DraftChat] Option ${i} "${opt.label}":`, {
+          console.warn(`[DraftChat] Option ${i} "${opt.label}":`, {
             id: opt.id,
             status: opt.status,
             interventionKeys: Object.keys(opt.interventions || {}),
@@ -383,7 +383,7 @@ export function DraftChat() {
           })
         })
       }
-      console.log('[DraftChat] === END DIAGNOSTIC ===')
+      console.warn('[DraftChat] === END DIAGNOSTIC ===')
     }
 
     // Convert CEE nodes to canvas nodes
@@ -490,7 +490,7 @@ export function DraftChat() {
         // Calculate what ISL will compute for verification
         const islSign = direction === 'negative' ? -1 : 1
         const islSignedWeight = islSign * weight
-        console.log('[DraftChat] Edge coefficient:', {
+        console.warn('[DraftChat] Edge coefficient:', {
           from: e.from,
           to: e.to,
           'strength (nested)': e.strength, // CEE v3 nested object
@@ -522,7 +522,7 @@ export function DraftChat() {
       // Diagnostic logging for edge uncertainty data flow
       if (import.meta.env.DEV) {
         const canvasBelief = beliefExistsValue ?? confidence
-        console.log('[DraftChat] Edge uncertainty from CEE:', {
+        console.warn('[DraftChat] Edge uncertainty from CEE:', {
           edge: `${e.from} → ${e.to}`,
           cee_belief_exists: e.belief_exists,
           cee_belief: e.belief,
@@ -580,7 +580,7 @@ export function DraftChat() {
     // Always apply layout for AI drafts since all nodes start at (0,0)
     // This ensures proper positioning whether starting fresh or replacing an existing graph
     if (import.meta.env.DEV) {
-      console.log('[DraftChat] Applying ELK layout after draft insertion', {
+      console.warn('[DraftChat] Applying ELK layout after draft insertion', {
         addedNodes: nodes.length,
         addedEdges: edges.length,
         totalNodes: useCanvasStore.getState().nodes.length,
@@ -606,7 +606,7 @@ export function DraftChat() {
         edges: currentState.edges,
       })
       if (import.meta.env.DEV) {
-        console.log('[DraftChat] Immediate autosave after draft applied', {
+        console.warn('[DraftChat] Immediate autosave after draft applied', {
           nodes: currentState.nodes.length,
           edges: currentState.edges.length,
         })
@@ -622,10 +622,10 @@ export function DraftChat() {
       const { setOutcomeNode } = useCanvasStore.getState()
       setOutcomeNode(goalNodes[0].id)
       if (import.meta.env.DEV) {
-        console.log('[DraftChat] Auto-selected goal node:', goalNodes[0].id)
+        console.warn('[DraftChat] Auto-selected goal node:', goalNodes[0].id)
       }
     } else if (goalNodes.length > 1 && import.meta.env.DEV) {
-      console.log('[DraftChat] Multiple goal nodes found, user must select:', goalNodes.map((n: any) => n.id))
+      console.warn('[DraftChat] Multiple goal nodes found, user must select:', goalNodes.map((n: any) => n.id))
     }
 
     // CEE V3: Store analysis_ready payload for V2 run if present
@@ -638,7 +638,7 @@ export function DraftChat() {
         : draftData.analysis_ready
       setCeeAnalysisReady(analysisReadyWithCoaching)
       if (import.meta.env.DEV) {
-        console.log('[DraftChat] Stored analysis_ready:', {
+        console.warn('[DraftChat] Stored analysis_ready:', {
           options: draftData.analysis_ready.options.length,
           goal_node_id: draftData.analysis_ready.goal_node_id,
         })
@@ -652,7 +652,7 @@ export function DraftChat() {
     if (Array.isArray(rawGoalConstraints) && rawGoalConstraints.length > 0) {
       setGoalConstraints(rawGoalConstraints)
       if (import.meta.env.DEV) {
-        console.log('[DraftChat] Stored goal_constraints:', rawGoalConstraints.length)
+        console.warn('[DraftChat] Stored goal_constraints:', rawGoalConstraints.length)
       }
     } else {
       // Clear stale constraints when CEE omits or returns empty goal_constraints
@@ -681,7 +681,7 @@ export function DraftChat() {
         safety: rawQuality.safety ?? rawQuality.overall ?? 5,
       })
       if (import.meta.env.DEV) {
-        console.log('[DraftChat] Stored CEE quality dimensions:', rawQuality)
+        console.warn('[DraftChat] Stored CEE quality dimensions:', rawQuality)
       }
     }
 
