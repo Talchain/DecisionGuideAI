@@ -1,0 +1,276 @@
+/**
+ * ChatComposer — Zone 3: coaching tip + guidance strip + readiness row + input.
+ *
+ * Layers (top to bottom):
+ * 1. CoachingTip (conditional, on guidance pill click)
+ * 2. BriefGuidanceStrip (framing stage only, when any element detected)
+ * 3. Readiness row: BriefReadinessPill + inline Generate model button (framing stage)
+ * 4. GuidanceStrip (orchestrator coaching items — non-framing stages)
+ * 5. Input container: textarea + send button
+ */
+
+import { useState, useCallback, useImperativeHandle, useEffect, forwardRef, memo } from 'react'
+import { ArrowUp, Play } from 'lucide-react'
+import { useGuidanceStore } from '../../stores/guidanceStore'
+import { useStagePill } from '../../hooks/useStagePill'
+import { isFramingStage } from '../../../signals/stage-helpers'
+import { useComposerState } from '../hooks/useComposerState'
+import { useBriefSignals } from '../hooks/useBriefSignals'
+import { GuidanceStrip } from '../GuidanceStrip'
+import { CoachingTip } from './CoachingTip'
+import { BriefGuidanceStrip } from './BriefGuidanceStrip'
+import { BriefReadinessPill } from './BriefReadinessPill'
+import type { BriefElementKind } from '../primitives/NodeShape'
+import type { BriefReadiness } from '../hooks/useBriefSignals'
+import type { UseConversationReturn } from '../useConversation'
+import type { GenerateState } from './ChatTopBar'
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Imperative handle for text insertion from ChatTopBar
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface ChatComposerHandle {
+  replaceText: (text: string) => void
+  /** Extract brief text and reset composer. Returns null if empty. */
+  consumeBrief: () => string | null
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Component
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface ChatComposerProps {
+  conversation: UseConversationReturn
+  generateState: GenerateState
+  onCollapse: () => void
+  onScrollToPatch: (patchId: string) => void
+  onOpenInspector: (nodeId: string) => void
+  onGenerateModel: () => void
+  onBriefStateChange?: (readiness: BriefReadiness | null, hasText: boolean) => void
+}
+
+const PLACEHOLDER = 'Describe your decision, the options you\u2019re weighing, and what a good outcome looks like.'
+
+export const ChatComposer = memo(forwardRef<ChatComposerHandle, ChatComposerProps>(
+  function ChatComposer({ conversation, generateState, onCollapse, onScrollToPatch, onOpenInspector, onGenerateModel, onBriefStateChange }, ref) {
+    const { sendMessage, isThinking } = conversation
+    const { stage } = useStagePill()
+    const setActiveGuidanceItem = useGuidanceStore(s => s.setActiveGuidanceItem)
+
+    // Composer state
+    const handleSend = useCallback(
+      (text: string) => { sendMessage(text) },
+      [sendMessage],
+    )
+
+    const composer = useComposerState({
+      onSend: handleSend,
+      onCollapse,
+      disabled: isThinking,
+    })
+
+    // Expose replaceText and consumeBrief to parent via ref
+    useImperativeHandle(ref, () => ({
+      replaceText: composer.replaceText,
+      consumeBrief: () => {
+        const text = composer.value.trim()
+        if (!text) return null
+        composer.reset()
+        return text
+      },
+    }), [composer.replaceText, composer.value, composer.reset])
+
+    // Brief signals (framing stage only)
+    const briefSignals = useBriefSignals(composer.value, stage)
+
+    // Notify parent of readiness / text state changes (derived booleans, not raw value)
+    const currentReadiness = briefSignals?.readiness ?? null
+    const currentHasText = composer.value.trim().length > 0
+    useEffect(() => {
+      onBriefStateChange?.(currentReadiness, currentHasText)
+    }, [currentReadiness, currentHasText, onBriefStateChange])
+
+    // Coaching tip state
+    const [activeTip, setActiveTip] = useState<string | null>(null)
+    const [stripExpanded, setStripExpanded] = useState(true)
+
+    const handleElementClick = useCallback((kind: BriefElementKind) => {
+      if (!briefSignals) return
+      const el = briefSignals.elements.find(e => e.kind === kind)
+      if (el) {
+        setActiveTip(prev => (prev === el.coachingTip ? null : el.coachingTip))
+      }
+    }, [briefSignals])
+
+    const showBriefStrip = isFramingStage(stage) && briefSignals && briefSignals.elements.some(e => e.detected)
+
+    return (
+      <div
+        className="flex flex-col bg-panel flex-shrink-0"
+        style={{ padding: '8px 12px 10px', gap: 6, borderTop: '1px solid var(--border-default, #EEE6D8)' }}
+        data-testid="chat-composer"
+      >
+        {/* 1. Coaching tip */}
+        {activeTip && (
+          <CoachingTip tip={activeTip} onDismiss={() => setActiveTip(null)} />
+        )}
+
+        {/* 2. Guidance strip (framing only, when elements detected) */}
+        {showBriefStrip && stripExpanded && (
+          <BriefGuidanceStrip
+            elements={briefSignals!.elements}
+            onElementClick={handleElementClick}
+          />
+        )}
+
+        {/* 3. Readiness row (framing only): readiness pill + inline Generate model */}
+        {showBriefStrip && (
+          <div className="flex items-center" style={{ gap: 6 }}>
+            <BriefReadinessPill
+              readiness={briefSignals!.readiness}
+              expanded={stripExpanded}
+              onToggle={() => setStripExpanded(prev => !prev)}
+            />
+            <InlineGenerateButton state={generateState} onClick={onGenerateModel} />
+          </div>
+        )}
+
+        {/* 4. Orchestrator guidance strip (post-framing coaching items) */}
+        {!isFramingStage(stage) && (
+          <GuidanceStrip
+            onSendMessage={sendMessage}
+            onSetActive={setActiveGuidanceItem}
+            onScrollToPatch={onScrollToPatch}
+            onOpenInspector={onOpenInspector}
+          />
+        )}
+
+        {/* 5. Input container */}
+        <div
+          className="composer-input-box flex items-end bg-panel"
+          style={{
+            gap: 8,
+            borderRadius: 20,
+            border: '1px solid var(--border-default, #EEE6D8)',
+            padding: '4px 5px 4px 12px',
+            transition: 'border-color 200ms, box-shadow 200ms',
+          }}
+          data-composer-input=""
+        >
+          <textarea
+            ref={composer.textareaRef}
+            value={composer.value}
+            onChange={composer.handleChange}
+            onKeyDown={composer.handleKeyDown}
+            placeholder={PLACEHOLDER}
+            disabled={isThinking}
+            rows={1}
+            aria-label="Message input"
+            className="flex-1 bg-transparent border-none outline-none resize-none text-text-body placeholder:text-text-light"
+            style={{
+              fontSize: 14,
+              lineHeight: 1.5,
+              fontFamily: 'inherit',
+              padding: '9px 4px',
+              minHeight: 42,
+              maxHeight: 180,
+            }}
+          />
+
+          {/* Send button */}
+          <button
+            type="button"
+            onClick={() => { if (composer.canSend) { handleSend(composer.value.trim()); composer.reset() } }}
+            disabled={!composer.canSend}
+            aria-label="Send message"
+            className="send-btn flex-shrink-0 flex items-center justify-center"
+            style={{
+              width: 34,
+              height: 34,
+              borderRadius: '50%',
+              marginBottom: 2,
+              transition: 'all 200ms cubic-bezier(0.4, 0, 0.2, 1)',
+              background: composer.canSend ? 'var(--primary, #63ADCF)' : 'var(--bg-panel-hover, #FEF9F3)',
+              border: composer.canSend ? 'none' : '1px solid var(--border-default, #E8E5E1)',
+              boxShadow: composer.canSend ? '0 1px 2px rgba(38,38,38,0.06)' : 'none',
+              cursor: composer.canSend ? 'pointer' : 'default',
+            }}
+            data-testid="send-button"
+          >
+            <ArrowUp
+              className="w-[15px] h-[15px]"
+              strokeWidth={2.2}
+              style={{ stroke: composer.canSend ? 'var(--text-on-color, #FFFFFF)' : 'var(--text-light, #908D8D)' }}
+              aria-hidden="true"
+            />
+          </button>
+        </div>
+
+        <style>{`
+          .composer-input-box:focus-within {
+            border-color: var(--info, #63ADCF) !important;
+            box-shadow: 0 0 0 2px rgba(99,173,207,0.09) !important;
+          }
+          .send-btn:not(:disabled):hover {
+            background: var(--primary-hover, #67C89E) !important;
+            transform: translateY(-1px);
+          }
+          .send-btn:not(:disabled):active {
+            transform: scale(0.92);
+          }
+        `}</style>
+      </div>
+    )
+  },
+))
+
+/* ─────────────────────────────────────────────────────────────────────────── */
+
+/** Inline Generate model button — 26px height, matches readiness pill. */
+function InlineGenerateButton({ state, onClick }: { state: GenerateState; onClick: () => void }) {
+  const isActive = state === 'active'
+
+  return (
+    <button
+      type="button"
+      disabled={!isActive}
+      onClick={isActive ? onClick : undefined}
+      className="inline-gen-btn flex-shrink-0"
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 4,
+        height: 26,
+        padding: '0 10px',
+        borderRadius: 999,
+        marginLeft: 'auto',
+        fontSize: 11,
+        fontWeight: 600,
+        whiteSpace: 'nowrap' as const,
+        transition: 'all 200ms cubic-bezier(0.4, 0, 0.2, 1)',
+        background: isActive ? 'var(--primary, #63ADCF)' : 'transparent',
+        border: isActive ? 'none' : '1px solid rgba(176,168,153,0.3)',
+        color: isActive ? 'var(--text-on-color, #FFFFFF)' : 'var(--text-light, #908D8D)',
+        boxShadow: isActive ? '0 1px 2px rgba(38,38,38,0.06)' : 'none',
+        opacity: isActive ? 1 : 0.55,
+        cursor: isActive ? 'pointer' : 'default',
+      }}
+      data-testid="inline-generate-btn"
+    >
+      <Play
+        className="w-[11px] h-[11px] flex-shrink-0"
+        strokeWidth={2}
+        style={{ stroke: isActive ? 'var(--text-on-color, #FFFFFF)' : 'var(--text-light, #908D8D)' }}
+        aria-hidden="true"
+      />
+      <span>Generate model</span>
+
+      <style>{`
+        .inline-gen-btn:not(:disabled):hover {
+          background: var(--primary-hover, #67C89E) !important;
+          transform: translateY(-1px);
+        }
+      `}</style>
+    </button>
+  )
+}

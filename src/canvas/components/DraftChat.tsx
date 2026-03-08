@@ -20,7 +20,8 @@ import { ConversationPanel } from '../conversation/ConversationPanel'
 import { useConversation } from '../conversation/useConversation'
 import { useGraphEditEvents } from '../conversation/useGraphEditEvents'
 import { useAnalysisCompleteEvent } from '../conversation/useAnalysisCompleteEvent'
-import { useSessionResumeEvent } from '../conversation/useSessionResumeEvent'
+// useSessionResumeEvent disabled — session_resume not in CEE v3 schema
+// import { useSessionResumeEvent } from '../conversation/useSessionResumeEvent'
 
 // Storage keys for panel dimension persistence
 const DRAFT_PANEL_WIDTH_KEY = 'canvas.draftChat.width'
@@ -116,7 +117,9 @@ export function DraftChat() {
   // A.5+ Phase 2: Wire system event hooks (all no-ops when flag is OFF)
   useGraphEditEvents(conversation.sendSystemEvent)
   useAnalysisCompleteEvent(conversation.sendSystemEvent)
-  useSessionResumeEvent(conversation.sendSystemEvent, conversation.messages)
+  // session_resume is not in CEE v3 schema (CEE_V3_KNOWN_TYPES) — disabled
+  // until CEE adds support. Re-enable when session_resume is accepted by CEE.
+  // useSessionResumeEvent(conversation.sendSystemEvent, conversation.messages)
 
   // Brief validation
   const [isInputFocused, setIsInputFocused] = useState(false)
@@ -811,6 +814,30 @@ export function DraftChat() {
           anchorRef={settingsButtonRef}
         />
         {isMinimized ? (
+          isOrchV2 ? (
+          /* Orchestrator V2 minimized bar — clean rounded pill matching new design */
+          <div
+            className="flex items-center gap-2 rounded-[20px] border border-panel-border px-4 py-2.5 bg-panel"
+            style={{ boxShadow: 'var(--shadow-2, 0 4px 12px rgba(0,0,0,0.08))' }}
+            data-testid="chat-minimized"
+          >
+            <button
+              type="button"
+              onClick={() => setIsMinimized(false)}
+              className={`${typography.body} text-text-light flex-1 text-left cursor-pointer bg-transparent border-none outline-none`}
+              aria-label="Expand panel"
+            >
+              Describe your decision…
+            </button>
+            <div
+              className="w-[34px] h-[34px] flex-shrink-0 rounded-full flex items-center justify-center bg-panel-hover text-text-light"
+              style={{ border: '1px solid var(--border-default, #E8E5E1)' }}
+              aria-hidden="true"
+            >
+              <ChevronUp className="w-4 h-4" />
+            </div>
+          </div>
+          ) : (
           <>
           <div
             className="flex gap-3 rounded-lg border border-panel-border px-4 py-3 shadow-2"
@@ -898,9 +925,11 @@ export function DraftChat() {
             </div>
           </div>
           </>
+          )
         ) : (
-          <div className="flex flex-col rounded-[20px] border border-sand-200 shadow-2 overflow-hidden relative" style={{ backgroundColor: '#FEFEFE', maxHeight: '80vh' }}>
-            {/* Header */}
+          <div className="flex flex-col rounded-[20px] border border-sand-200 shadow-2 overflow-hidden relative" style={{ backgroundColor: '#FEFEFE', maxHeight: '80vh' }} data-chat-panel="">
+            {/* Header — hidden when orchestrator V2 is active (ChatTopBar replaces it) */}
+            {!isOrchV2 && (
             <div className="flex items-center justify-between px-4 py-3 border-b border-sand-100" style={{ backgroundColor: '#FEFEFE' }}>
               <div className="flex items-center gap-2">
                 <div className="w-8 h-8 rounded-lg bg-mint-500 flex items-center justify-center">
@@ -938,11 +967,13 @@ export function DraftChat() {
                 </button>
               </div>
             </div>
+            )}
 
             {isOrchV2 ? (
               <ConversationPanel
                 conversation={conversation}
                 onCollapse={() => setIsMinimized(true)}
+                onAttach={() => fileInputRef.current?.click()}
               />
             ) : (
             <>
@@ -983,7 +1014,7 @@ export function DraftChat() {
 
                     if (formatted.isUnavailable) {
                       return (
-                        <div className="p-3 bg-warning-light border border-warning/30 rounded-lg space-y-2" data-testid="cee-unavailable-banner">
+                        <div className="p-3 bg-panel border border-warning/30 rounded-lg space-y-2" data-testid="cee-unavailable-banner">
                           <p className={`${typography.body} text-warning font-medium`}>
                             {formatted.message}
                           </p>
@@ -1011,7 +1042,7 @@ export function DraftChat() {
 
                     if (formatted.isTimeout) {
                       return (
-                        <div className="p-3 bg-warning-light border border-warning/30 rounded-lg space-y-2" data-testid="draft-timeout-error">
+                        <div className="p-3 bg-panel border border-warning/30 rounded-lg space-y-2" data-testid="draft-timeout-error">
                           <p className="text-sm font-semibold text-warning">
                             {formatted.title}
                           </p>
@@ -1050,7 +1081,7 @@ export function DraftChat() {
 
                     if (formatted.isGraphInvalid) {
                       return (
-                        <div className="p-3 bg-danger-light border border-danger/30 rounded-lg space-y-2" data-testid="draft-graph-invalid-error">
+                        <div className="p-3 bg-panel border border-danger/30 rounded-lg space-y-2" data-testid="draft-graph-invalid-error">
                           <p className="text-sm font-semibold text-danger">
                             {formatted.title}
                           </p>
@@ -1085,7 +1116,7 @@ export function DraftChat() {
 
                     if (formatted.isValidationFailed) {
                       return (
-                        <div className="max-w-lg px-4 py-3 bg-danger-light border border-danger/30 rounded-md" data-testid="draft-validation-error">
+                        <div className="max-w-lg px-4 py-3 bg-panel border border-danger/30 rounded-md" data-testid="draft-validation-error">
                           <p className="text-sm font-semibold text-danger">
                             {formatted.title}
                           </p>

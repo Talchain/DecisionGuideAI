@@ -217,6 +217,7 @@ const RF_NODE_BLOCKLIST = new Set([
   'deletable', 'connectable', 'focusable', 'parentId', 'extent',
   'expandParent', 'ariaLabel', 'zIndex', 'hidden',
   'label', 'kind', 'type', 'uncertainty', 'interventions',
+  '_baseline_snapshot',
 ])
 
 /**

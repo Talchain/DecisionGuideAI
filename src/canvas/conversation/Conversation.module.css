@@ -29,8 +29,9 @@
 .messageBubbleUser {
   composes: messageBubble;
   align-self: flex-end;
-  background: var(--info, #63ADCF);
-  color: var(--text-on-color, #FFFFFF);
+  background: var(--bg-panel, #FEFEFE);
+  color: var(--text-body, #3F3F3E);
+  box-shadow: 0 1px 2px rgba(38, 38, 38, 0.06);
 }
 
 .messageBubbleAssistant {

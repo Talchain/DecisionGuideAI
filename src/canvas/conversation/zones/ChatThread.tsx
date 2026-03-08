@@ -1,0 +1,148 @@
+/**
+ * ChatThread — Zone 2: scrollable conversation thread.
+ *
+ * Renders EmptyState (no messages + no graph), ChatMessage list,
+ * ThinkingIndicator, SuggestedChips, and "New messages" pill.
+ * Custom scrollbar: 4px, themed. Smart scroll via useSmartScroll.
+ */
+
+import { memo } from 'react'
+import { ArrowDown } from 'lucide-react'
+import { typography } from '../../../styles/typography'
+import { useSmartScroll } from '../hooks/useSmartScroll'
+import { EmptyState } from './EmptyState'
+import { ChatMessage } from './ChatMessage'
+import { ThinkingIndicator } from './ThinkingIndicator'
+import { SuggestedChips } from './SuggestedChips'
+import type { ConversationMessage, ActionChip, GraphPatchBlock } from '../types'
+import type { PatchBlockState, PatchRejectionInfo } from '../useConversation'
+
+interface ChatThreadProps {
+  messages: ConversationMessage[]
+  isThinking: boolean
+  longRunningHint: string | null
+  nodeCount: number
+  patchBlockStates: Map<string, PatchBlockState>
+  patchRejections: Map<string, PatchRejectionInfo>
+  onChipClick: (chip: ActionChip) => void
+  onPatchAccept: (key: string, block: GraphPatchBlock) => void
+  onPatchDismiss: (key: string) => void
+  onFeedback: (turnId: string, rating: 'up' | 'down') => void
+  onRetry: () => void
+}
+
+/** Derive a thinking label from the hint. */
+function thinkingLabel(hint: string | null): string {
+  if (hint) return hint
+  return 'Thinking\u2026'
+}
+
+export const ChatThread = memo(function ChatThread({
+  messages,
+  isThinking,
+  longRunningHint,
+  nodeCount,
+  patchBlockStates,
+  patchRejections,
+  onChipClick,
+  onPatchAccept,
+  onPatchDismiss,
+  onFeedback,
+  onRetry,
+}: ChatThreadProps) {
+  const { listRef, listEndRef, showNewMessageIndicator, handleScroll, scrollToBottom } =
+    useSmartScroll({ messageCount: messages.length, isThinking })
+
+  const showEmpty = messages.length === 0 && nodeCount === 0
+
+  // Get suggested chips from last assistant message
+  const lastAssistantMsg = [...messages].reverse().find(m => m.role === 'assistant')
+  const suggestedChips = lastAssistantMsg?.actionChips ?? []
+
+  return (
+    <div
+      ref={listRef}
+      className="chat-thread flex flex-col flex-1 min-h-0 overflow-y-auto bg-panel"
+      style={{ padding: '20px 16px 8px' }}
+      onScroll={handleScroll}
+      role="log"
+      aria-label="Conversation"
+      aria-live="polite"
+      data-testid="chat-thread"
+    >
+      {showEmpty && <EmptyState />}
+
+      {messages.map((msg, i) => (
+        <ChatMessage
+          key={msg.id}
+          message={msg}
+          isFirst={i === 0}
+          onChipClick={onChipClick}
+          onRetry={onRetry}
+          patchBlockStates={patchBlockStates}
+          patchRejections={patchRejections}
+          onPatchAccept={onPatchAccept}
+          onPatchDismiss={onPatchDismiss}
+          onFeedback={onFeedback}
+        />
+      ))}
+
+      {/* Suggested chips after last assistant message */}
+      {!isThinking && suggestedChips.length > 0 && (
+        <SuggestedChips chips={suggestedChips} onChipClick={onChipClick} />
+      )}
+
+      {isThinking && (
+        <ThinkingIndicator label={thinkingLabel(longRunningHint)} />
+      )}
+
+      {/* New messages pill */}
+      {showNewMessageIndicator && (
+        <button
+          type="button"
+          onClick={scrollToBottom}
+          className={`
+            sticky bottom-2 self-center z-10
+            inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full
+            bg-transparent border border-info/30 text-text-body
+            ${typography.panelMeta} font-medium
+            cursor-pointer
+          `}
+          style={{ boxShadow: 'var(--shadow-2, 0 4px 12px rgba(0,0,0,0.08))' }}
+          data-testid="new-messages-pill"
+        >
+          <ArrowDown className="w-3 h-3" aria-hidden="true" />
+          New messages
+        </button>
+      )}
+
+      <div ref={listEndRef} />
+
+      <style>{`
+        .chat-thread::-webkit-scrollbar {
+          width: 4px;
+        }
+        .chat-thread::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        .chat-thread::-webkit-scrollbar-thumb {
+          background: transparent;
+          border-radius: 999px;
+        }
+        .chat-thread:hover::-webkit-scrollbar-thumb {
+          background: var(--border-default, #EEE6D8);
+        }
+        .chat-thread::-webkit-scrollbar-thumb:hover {
+          background: var(--text-light, #908D8D);
+        }
+        .chat-thread {
+          scrollbar-width: thin;
+          scrollbar-color: transparent transparent;
+        }
+        .chat-thread:hover {
+          scrollbar-color: var(--border-default, #EEE6D8) transparent;
+        }
+      `}</style>
+    </div>
+  )
+})
