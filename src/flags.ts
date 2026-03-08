@@ -294,6 +294,22 @@ const FLAGS_CONFIG = {
     storageKey: 'feature.legacyDirectRun',
     defaultValue: true,
   },
+  // Context menu v2: context-sensitive right-click menu with DS v4 compliance
+  contextMenu: {
+    envKey: 'VITE_FEATURE_CONTEXT_MENU',
+    storageKey: 'feature.contextMenu',
+    defaultValue: true,
+  },
+  // Track 1: Decision Journey tab in OutputsDock right panel
+  journeyTab: {
+    envKey: 'VITE_FEATURE_JOURNEY_TAB',
+    storageKey: 'feature.journeyTab',
+  },
+  // Track 2: Thread persistence (conversation -> Supabase)
+  threadPersist: {
+    envKey: 'VITE_FEATURE_THREAD_PERSIST',
+    storageKey: 'feature.threadPersist',
+  },
 } as const
 
 // ============================================================================
@@ -362,6 +378,9 @@ const flags = {
   orchestratorV2: makeFlag(FLAGS_CONFIG.orchestratorV2),
   v3SystemEvents: makeFlag(FLAGS_CONFIG.v3SystemEvents),
   legacyDirectRun: makeFlag(FLAGS_CONFIG.legacyDirectRun),
+  contextMenu: makeFlag(FLAGS_CONFIG.contextMenu),
+  journeyTab: makeFlag(FLAGS_CONFIG.journeyTab),
+  threadPersist: makeFlag(FLAGS_CONFIG.threadPersist),
 }
 
 // Export with original naming convention for backward compatibility
@@ -424,6 +443,9 @@ export const isSchemaV2Enabled = flags.schemaV2
 export const isPlotEnrichmentEnabled = flags.plotEnrichment
 export const isOrchestratorV2Enabled = flags.orchestratorV2
 export const isLegacyDirectRunEnabled = flags.legacyDirectRun
+export const isContextMenuEnabled = flags.contextMenu
+export const isJourneyTabEnabled = flags.journeyTab
+export const isThreadPersistEnabled = flags.threadPersist
 
 // ============================================================================
 // POC FLAGS (special pattern - constant object, not functions)
