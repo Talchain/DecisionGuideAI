@@ -691,6 +691,9 @@ export function useConversation(): UseConversationReturn {
 
             // BIL Phase 1: create immutable snapshot of graph + analysis state.
             // One snapshot per analysis run, cached in resultsStore for linking turns.
+            // Note: async fire-and-forget — the assistant message (addMessage below)
+            // may trigger useThreadPersistence before this resolves. If so, the
+            // assistant turn persists without a snapshot link (acceptable best-effort).
             void (async () => {
               try {
                 const graphHash = generateGraphHash(store.nodes, store.edges)
