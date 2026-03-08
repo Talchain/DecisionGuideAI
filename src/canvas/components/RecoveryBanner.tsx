@@ -53,7 +53,7 @@ export function RecoveryBanner() {
       if (goalNodes.length === 1) {
         goalNodeId = goalNodes[0].id
         if (import.meta.env.DEV) {
-          console.log('[RecoveryBanner] Auto-selected goal node:', goalNodeId)
+          console.warn('[RecoveryBanner] Auto-selected goal node:', goalNodeId)
         }
       }
     }

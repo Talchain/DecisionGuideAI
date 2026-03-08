@@ -225,7 +225,7 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
         // v1.2: Capture template version with diagnostic logging (dev only)
         const capturedVersion = templateDetail.version || graph.version
         if (import.meta.env.DEV) {
-          console.log('[VersionCapture]', {
+          console.warn('[VersionCapture]', {
             templateId,
             templateDetailVersion: templateDetail.version,
             graphVersion: graph.version,

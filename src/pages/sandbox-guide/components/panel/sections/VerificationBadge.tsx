@@ -118,7 +118,7 @@ export function VerificationBadge({ verification }: VerificationBadgeProps): JSX
                 onClick={(e) => {
                   e.stopPropagation()
                   // TODO: Implement show all issues modal
-                  console.log('Show all issues:', criticalIssues)
+                  console.warn('Show all issues:', criticalIssues)
                 }}
               >
                 Show all {criticalIssues.length} issues

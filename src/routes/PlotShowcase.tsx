@@ -23,7 +23,7 @@ const ScenarioDrawer = lazySafe(() => import('../components/ScenarioDrawer'), 'S
 
 export default function PlotShowcase() {
   // BOOT DIAGNOSTIC: visible in browser console on /#/plot
-  console.log(
+  console.warn(
     '[BOOT] mode=POC route=#/plot PLC_LAB=%s POC_ONLY=%s PLOT_PLC_CANVAS=%s',
     String(import.meta.env?.VITE_PLC_LAB),
     String(import.meta.env?.VITE_POC_ONLY),

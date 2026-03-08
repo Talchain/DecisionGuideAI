@@ -8,7 +8,7 @@ interface AnalysisContentProps {
 export default function AnalysisContent({ text }: AnalysisContentProps) {
   // Add debug logging
   useEffect(() => {
-    console.log('AnalysisContent props:', {
+    console.warn('AnalysisContent props:', {
       hasText: !!text,
       textType: typeof text,
       textLength: typeof text === 'string' ? text?.length : 'N/A',
@@ -18,7 +18,7 @@ export default function AnalysisContent({ text }: AnalysisContentProps) {
   }, [text]);
 
   if (!text) {
-    console.log('AnalysisContent: No text provided');
+    console.warn('AnalysisContent: No text provided');
     return null;
   }
 
@@ -31,7 +31,7 @@ export default function AnalysisContent({ text }: AnalysisContentProps) {
     const formattedContent = formatAnalysis(textContent);
 
     // Log formatted content result
-    console.log('AnalysisContent: Formatting complete', {
+    console.warn('AnalysisContent: Formatting complete', {
       hasContent: !!formattedContent,
       timestamp: new Date().toISOString()
     });

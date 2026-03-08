@@ -220,14 +220,14 @@ function SuggestionCard({ suggestion }: SuggestionCardProps) {
     // Phase 1A.4: Highlight affected nodes visually
     // This would ideally update node styling, but for now we show the button state
     if (import.meta.env.DEV && suggestion.affectedNodes.length > 0) {
-      console.log('Highlighting nodes:', suggestion.affectedNodes)
+      console.warn('Highlighting nodes:', suggestion.affectedNodes)
     }
   }
 
   const handleQuickFix = () => {
     if (!suggestion.quickFix) return
     if (import.meta.env.DEV) {
-      console.log('Quick fix:', suggestion.quickFix)
+      console.warn('Quick fix:', suggestion.quickFix)
     }
     // TODO: Implement quick fix actions
     // - add_edge: Create edge between nodes

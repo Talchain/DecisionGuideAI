@@ -17,7 +17,7 @@ export function formatAnalysis(content: string | null): React.ReactNode {
   if (!content) return null;
 
   // Add debug logging
-  console.log('Formatting analysis content:', {
+  console.warn('Formatting analysis content:', {
     type: typeof content,
     length: content?.length,
     isJson: isJsonString(content),
@@ -77,7 +77,7 @@ function renderStructuredContent(sections: ContentSection[]): React.ReactNode {
   }
 
   // Add debug logging for sections
-  console.log('Rendering sections:', {
+  console.warn('Rendering sections:', {
     count: sections.length,
     types: sections.map(s => s.type),
     timestamp: new Date().toISOString()
@@ -225,7 +225,7 @@ function formatTextContent(content: string): React.ReactNode {
   }
 
   // Add debug logging for text content
-  console.log('Formatting text content:', {
+  console.warn('Formatting text content:', {
     length: content.length,
     lines: content.split('\n').length,
     timestamp: new Date().toISOString()

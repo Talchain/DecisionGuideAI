@@ -189,8 +189,8 @@ export function CanvasContextMenu({ target, onClose, screenToFlowPosition }: Can
   return (
     <>
       {/* Invisible backdrop catches all outside clicks/right-clicks to dismiss menu */}
-      {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions */}
       <div
+        role="presentation"
         className="fixed inset-0 z-[99]"
         onMouseDown={onClose}
         onContextMenu={(e) => { e.preventDefault(); onClose() }}

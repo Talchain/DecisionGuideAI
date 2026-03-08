@@ -60,7 +60,7 @@ export function TemplateCard({ template, nodes, edges, onInsert, onMerge, onLear
             const now = Date.now()
             if (now - lastClickTime.current < 500) {
               if (import.meta.env.DEV) {
-                console.log('[TemplateCard] Debounced duplicate click on:', template.name)
+                console.warn('[TemplateCard] Debounced duplicate click on:', template.name)
               }
               return
             }
@@ -82,7 +82,7 @@ export function TemplateCard({ template, nodes, edges, onInsert, onMerge, onLear
                 const now = Date.now()
                 if (now - lastMergeClickTime.current < 500) {
                   if (import.meta.env.DEV) {
-                    console.log('[TemplateCard] Debounced duplicate merge click on:', template.name)
+                    console.warn('[TemplateCard] Debounced duplicate merge click on:', template.name)
                   }
                   return
                 }

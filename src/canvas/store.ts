@@ -657,9 +657,9 @@ function invalidateAnalysisReady(
   const { ceeAnalysisReady } = get()
   if (ceeAnalysisReady) {
     if (import.meta.env.DEV) {
-      console.log('[Canvas] === INVALIDATE ANALYSIS_READY ===')
-      console.log('[Canvas] Reason:', reason ?? 'unspecified')
-      console.log('[Canvas] Had options:', ceeAnalysisReady.options?.length)
+      console.warn('[Canvas] === INVALIDATE ANALYSIS_READY ===')
+      console.warn('[Canvas] Reason:', reason ?? 'unspecified')
+      console.warn('[Canvas] Had options:', ceeAnalysisReady.options?.length)
       console.trace('[Canvas] invalidateAnalysisReady call stack')
     }
     set(() => ({
@@ -2240,7 +2240,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       if (validation.isValid) {
         get().setCeeAnalysisReady(scenario.ceeAnalysisReady)
         if (import.meta.env.DEV) {
-          console.log('[loadScenario] Restored ceeAnalysisReady:', {
+          console.warn('[loadScenario] Restored ceeAnalysisReady:', {
             options: scenario.ceeAnalysisReady.options.length,
             goal: scenario.ceeAnalysisReady.goal_node_id,
           })
@@ -2547,11 +2547,11 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
 
   setCeeAnalysisReady: (analysisReady: CEEAnalysisReady | null) => {
     if (import.meta.env.DEV) {
-      console.log('[Canvas] === SET CEE_ANALYSIS_READY ===')
-      console.log('[Canvas] setCeeAnalysisReady called with:', analysisReady ? 'payload' : 'null')
+      console.warn('[Canvas] === SET CEE_ANALYSIS_READY ===')
+      console.warn('[Canvas] setCeeAnalysisReady called with:', analysisReady ? 'payload' : 'null')
       if (analysisReady) {
-        console.log('[Canvas] options count:', analysisReady.options?.length)
-        console.log('[Canvas] goal_node_id:', analysisReady.goal_node_id)
+        console.warn('[Canvas] options count:', analysisReady.options?.length)
+        console.warn('[Canvas] goal_node_id:', analysisReady.goal_node_id)
       }
       console.trace('[Canvas] setCeeAnalysisReady call stack')
     }
@@ -2590,7 +2590,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
 
   setCeePipelineTrace: (trace: CeePipelineTrace | null) => {
     if (import.meta.env.DEV && trace) {
-      console.log('[Canvas] setCeePipelineTrace:', {
+      console.warn('[Canvas] setCeePipelineTrace:', {
         status: trace.status,
         total_duration_ms: trace.total_duration_ms,
         llm_call_count: trace.llm_call_count,
@@ -2602,7 +2602,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
 
   setCeeQuality: (quality: CeeQualityDimensions | null) => {
     if (import.meta.env.DEV && quality) {
-      console.log('[Canvas] setCeeQuality:', quality)
+      console.warn('[Canvas] setCeeQuality:', quality)
     }
     set({ ceeQuality: quality })
   },
@@ -2610,28 +2610,28 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   // Phase 1b actions
   setCeeExtendedWarnings: (warnings: CEEDraftWarning[] | null) => {
     if (import.meta.env.DEV && warnings) {
-      console.log('[Canvas] setCeeExtendedWarnings:', warnings.length, 'warnings')
+      console.warn('[Canvas] setCeeExtendedWarnings:', warnings.length, 'warnings')
     }
     set({ ceeExtendedWarnings: warnings })
   },
 
   setCeeGoalConnectivity: (connectivity: CEEGoalConnectivity | null) => {
     if (import.meta.env.DEV && connectivity) {
-      console.log('[Canvas] setCeeGoalConnectivity:', connectivity.status)
+      console.warn('[Canvas] setCeeGoalConnectivity:', connectivity.status)
     }
     set({ ceeGoalConnectivity: connectivity })
   },
 
   setCeeModelQualityFactors: (factors: CEEModelQualityFactors | null) => {
     if (import.meta.env.DEV && factors) {
-      console.log('[Canvas] setCeeModelQualityFactors:', factors)
+      console.warn('[Canvas] setCeeModelQualityFactors:', factors)
     }
     set({ ceeModelQualityFactors: factors })
   },
 
   setCeeInterventionHints: (hints: Record<string, CEEInterventionHint> | null) => {
     if (import.meta.env.DEV && hints) {
-      console.log('[Canvas] setCeeInterventionHints:', Object.keys(hints).length, 'hints')
+      console.warn('[Canvas] setCeeInterventionHints:', Object.keys(hints).length, 'hints')
     }
     set({ ceeInterventionHints: hints })
   },
@@ -2994,7 +2994,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   // Debug: Raw CEE output mode setter
   setDebugRawCeeOutput: (value: boolean) => {
     if (value) {
-      console.log('[CEE] Raw output mode enabled')
+      console.warn('[CEE] Raw output mode enabled')
     }
     set({ debugRawCeeOutput: value })
   },
@@ -3147,7 +3147,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
 
       // Auto-layout to arrange nodes using ELK layered algorithm (top-down)
       if (import.meta.env.DEV) {
-        console.log('[applyClarifierGraph] Applying ELK layout after clarifier insertion (preview)', {
+        console.warn('[applyClarifierGraph] Applying ELK layout after clarifier insertion (preview)', {
           addedNodes: previewNodes.length,
           addedEdges: previewEdges.length,
           totalNodes: get().nodes.length,
@@ -3233,7 +3233,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
 
       // Auto-layout to arrange nodes using ELK layered algorithm (top-down)
       if (import.meta.env.DEV) {
-        console.log('[applyClarifierGraph] Applying ELK layout after clarifier insertion (finalize)', {
+        console.warn('[applyClarifierGraph] Applying ELK layout after clarifier insertion (finalize)', {
           addedNodes: finalNodes.length,
           addedEdges: finalEdges.length,
           totalNodes: get().nodes.length,

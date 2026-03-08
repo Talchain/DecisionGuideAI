@@ -62,7 +62,7 @@ async function checkAllowlist(hash: string): Promise<boolean> {
   try {
     // TODO: Implement actual API call to /v1/allowlist endpoint
     // For now, mock response
-    console.log('[ShareView] Checking allowlist for hash:', hash)
+    console.warn('[ShareView] Checking allowlist for hash:', hash)
 
     // Simulated check (replace with real API)
     await new Promise(resolve => setTimeout(resolve, 300))
@@ -84,7 +84,7 @@ async function fetchSharedData(hash: string, templateId?: string): Promise<Share
     // Backend returns: { hash, seed, graph, drivers, template_id }
     // NEVER includes: debug, preview, interim data
 
-    console.log('[ShareView] Fetching shared data:', { hash, templateId })
+    console.warn('[ShareView] Fetching shared data:', { hash, templateId })
 
     // Simulated fetch (replace with real API)
     await new Promise(resolve => setTimeout(resolve, 500))

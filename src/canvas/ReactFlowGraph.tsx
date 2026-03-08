@@ -72,7 +72,6 @@ import { FocusModeChip } from './components/FocusModeChip'
 // EdgeLabelToggle moved to CanvasToolbar for cleaner UI
 import { LimitsPanel } from './components/LimitsPanel'
 import { BottomSheet } from './components/BottomSheet'
-import type { NodeType } from './domain/nodes'
 import { OutputsDock } from './components/OutputsDock'
 import { ComparisonCanvasLayout } from './components/ComparisonCanvasLayout'
 import { isInputsOutputsEnabled, isCommandPaletteEnabled, isDegradedBannerEnabled, isOnboardingTourEnabled, pocFlags } from '../flags'
@@ -122,9 +121,9 @@ function logCanvasBreadcrumb(message: string, data?: Record<string, any>) {
     if (!logs || logs.length >= 2000) return
     logs.push({ t: Date.now(), m: `canvas:trace:${message}`, data })
     const mode = getCanvasDebugMode()
-    if (mode !== 'normal' && typeof console !== 'undefined' && console.log) {
+    if (mode !== 'normal' && typeof console !== 'undefined' && console.warn) {
       // eslint-disable-next-line no-console
-      console.log('[CANVAS TRACE]', message, data || {})
+      console.warn('[CANVAS TRACE]', message, data || {})
     }
   } catch {}
 }
@@ -138,7 +137,7 @@ const USE_NEW_LAYOUT = (import.meta as any)?.env?.VITE_FEATURE_CONTEXT_BAR !== '
 
 // Debug: Log layout mode once on module load
 if (typeof window !== 'undefined') {
-  console.log('[LAYOUT]', USE_NEW_LAYOUT ? 'NEW (canvas-first)' : 'OLD (docks)')
+  console.warn('[LAYOUT]', USE_NEW_LAYOUT ? 'NEW (canvas-first)' : 'OLD (docks)')
 }
 
 export interface BlueprintInsertResult {
@@ -226,7 +225,7 @@ function restoreCeeAnalysisReady(
     if (validation.isValid) {
       useCanvasStore.getState().setCeeAnalysisReady(ceeAnalysisReady)
       if (import.meta.env.DEV) {
-        console.log('[canvas:init] Restored ceeAnalysisReady:', {
+        console.warn('[canvas:init] Restored ceeAnalysisReady:', {
           source,
           loadSource,
           aligned: source === loadSource || loadSource === 'none',
@@ -661,13 +660,13 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
       // This prevents the infinite loop: effect → setState → render → effect.
       if (appliedShareHashRef.current === runHash) {
         if (import.meta.env.DEV) {
-          console.log('[ReactFlowGraph] Share link already applied, skipping:', runHash.slice(0, 8))
+          console.warn('[ReactFlowGraph] Share link already applied, skipping:', runHash.slice(0, 8))
         }
         return
       }
 
       if (import.meta.env.DEV) {
-        console.log('[ReactFlowGraph] Share link detected, loading run:', runHash.slice(0, 8))
+        console.warn('[ReactFlowGraph] Share link detected, loading run:', runHash.slice(0, 8))
       }
 
       // Load all runs from localStorage (local-device only)
@@ -690,7 +689,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
         }
 
         if (import.meta.env.DEV) {
-          console.log('[ReactFlowGraph] Run loaded successfully:', run.summary)
+          console.warn('[ReactFlowGraph] Run loaded successfully:', run.summary)
         }
       } else {
         // Run not found - still mark hash as "processed" to avoid repeated toasts
@@ -706,7 +705,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
         )
 
         if (import.meta.env.DEV) {
-          console.log('[ReactFlowGraph] Run not found in local history.')
+          console.warn('[ReactFlowGraph] Run not found in local history.')
         }
       }
     }
@@ -723,7 +722,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
         appliedShareHashRef.current = null
       }
       if (import.meta.env.DEV) {
-        console.log('[ReactFlowGraph] Hash changed, re-resolving share link')
+        console.warn('[ReactFlowGraph] Hash changed, re-resolving share link')
       }
       resolveShareLink()
     }
@@ -1391,9 +1390,9 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
     })
 
     if (changes.length > 0) {
-      console.log(`[RFG] #${renderCountRef.current}:`, changes.join(', '))
+      console.warn(`[RFG] #${renderCountRef.current}:`, changes.join(', '))
     } else {
-      console.log(`[RFG] #${renderCountRef.current}: no store changes`)
+      console.warn(`[RFG] #${renderCountRef.current}: no store changes`)
     }
 
     prevStateRef.current = { ...currentState }
@@ -1535,7 +1534,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
           }
         }
 
-        console.log('[SCENARIO_STATE]', {
+        console.warn('[SCENARIO_STATE]', {
           source: 'autosave',
           autosaveTimestamp: autosave.timestamp,
           scenarioUpdatedAt: scenario?.updatedAt,
@@ -1545,7 +1544,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
       } else if (loadSource === 'scenario' && currentId) {
         // Load from scenario (existing behaviour)
         const loaded = useCanvasStore.getState().loadScenario(currentId)
-        console.log('[SCENARIO_STATE]', {
+        console.warn('[SCENARIO_STATE]', {
           scenarioId: currentId,
           loaded,
           source: 'scenario',

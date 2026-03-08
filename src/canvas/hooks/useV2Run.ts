@@ -216,7 +216,7 @@ export function useV2Run(persistence?: V2RunPersistence): UseV2RunReturn {
     const requestId = generateRequestId()
 
     if (import.meta.env.DEV) {
-      console.log('[useV2Run] Request ID:', requestId)
+      console.warn('[useV2Run] Request ID:', requestId)
     }
 
     // C.1b: Mark analysis as running in Supabase (fire-and-forget, non-blocking)
@@ -277,7 +277,7 @@ export function useV2Run(persistence?: V2RunPersistence): UseV2RunReturn {
       }
 
       if (import.meta.env.DEV) {
-        console.log('[useV2Run] Starting V2 analysis', {
+        console.warn('[useV2Run] Starting V2 analysis', {
           nodeCount: nodes.length,
           edgeCount: edges.length,
           goalNodeId: outcomeNodeId,
@@ -314,7 +314,7 @@ export function useV2Run(persistence?: V2RunPersistence): UseV2RunReturn {
       if (isBlockedResponse(result)) {
         const errorResult = result as V2RunError
         if (import.meta.env.DEV) {
-          console.log('[useV2Run] Analysis blocked', {
+          console.warn('[useV2Run] Analysis blocked', {
             requestId,
             serverRequestId: errorResult.request_id,
             reason: errorResult.status_reason,
@@ -352,7 +352,7 @@ export function useV2Run(persistence?: V2RunPersistence): UseV2RunReturn {
       if (isFailedAnalysis(result)) {
         const failedResult = result as V2RunResponse
         if (import.meta.env.DEV) {
-          console.log('[useV2Run] Analysis failed', {
+          console.warn('[useV2Run] Analysis failed', {
             requestId,
             serverRequestId: failedResult.request_id,
           })
@@ -407,7 +407,7 @@ export function useV2Run(persistence?: V2RunPersistence): UseV2RunReturn {
         const successResult = sanitizeV2RunResponse(rawSuccessResult)
 
         if (import.meta.env.DEV) {
-          console.log('[useV2Run] Analysis complete', {
+          console.warn('[useV2Run] Analysis complete', {
             requestId,
             serverRequestId: successResult.request_id,
             status: successResult.analysis_status,
@@ -430,7 +430,7 @@ export function useV2Run(persistence?: V2RunPersistence): UseV2RunReturn {
 
         // Debug: Log raw M1 fields from V2 response before extraction
         if (import.meta.env.DEV) {
-          console.log('[useV2Run] Raw M1 Review fields from V2 response:', {
+          console.warn('[useV2Run] Raw M1 Review fields from V2 response:', {
             cee_status: successResult.cee_status,
             has_decision_quality: !!successResult.decision_quality,
             insights_count: successResult.insights?.length ?? 'missing',
@@ -456,7 +456,7 @@ export function useV2Run(persistence?: V2RunPersistence): UseV2RunReturn {
         const m1ReviewAssumptions = successResult.m1_review ?? null
 
         if (import.meta.env.DEV) {
-          console.log('[useV2Run] Extracted M1 Review:', {
+          console.warn('[useV2Run] Extracted M1 Review:', {
             hasCeeReview: !!ceeReviewV1,
             blockCount: ceeReviewV1?.blocks?.length ?? 0,
             readinessLevel: ceeReviewV1?.readiness?.level,
@@ -467,7 +467,7 @@ export function useV2Run(persistence?: V2RunPersistence): UseV2RunReturn {
             insightsCount: m1Review?.insights?.length ?? 0,
             guidanceCount: m1Review?.improvement_guidance?.length ?? 0,
           })
-          console.log('[useV2Run] Extracted M1 Coaching:', {
+          console.warn('[useV2Run] Extracted M1 Coaching:', {
             hasM1Coaching: !!m1Coaching,
             hasHeadline: !!m1Coaching?.executive_summary?.headline,
             readiness: m1Coaching?.readiness,

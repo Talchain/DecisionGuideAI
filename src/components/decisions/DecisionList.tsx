@@ -288,7 +288,7 @@ export default function DecisionList() {
   // Handle bulk actions
   const handleBulkAction = (action: string) => {
     // Implement bulk actions (delete, archive, etc.)
-    console.log(`Bulk action: ${action} on decisions:`, selectedDecisions);
+    console.warn(`Bulk action: ${action} on decisions:`, selectedDecisions);
     // Reset selection after action
     setSelectedDecisions([]);
     setSelectAll(false);
@@ -659,7 +659,7 @@ export default function DecisionList() {
                               className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                               role="menuitem"
                               onClick={() => {
-                                console.log('Duplicate', decision.id);
+                                console.warn('Duplicate', decision.id);
                                 setActionMenuOpen(null);
                               }}
                             >
@@ -670,7 +670,7 @@ export default function DecisionList() {
                               className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                               role="menuitem"
                               onClick={() => {
-                                console.log('Share', decision.id);
+                                console.warn('Share', decision.id);
                                 setActionMenuOpen(null);
                               }}
                             >
@@ -681,7 +681,7 @@ export default function DecisionList() {
                               className="flex items-center w-full px-4 py-2 text-sm text-danger hover:bg-panel-hover"
                               role="menuitem"
                               onClick={() => {
-                                console.log('Delete', decision.id);
+                                console.warn('Delete', decision.id);
                                 setActionMenuOpen(null);
                               }}
                             >

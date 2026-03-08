@@ -14,7 +14,7 @@ export default function BiasesCarousel({ biases, isLoading = false, error = null
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    console.log('BiasesCarousel rendered with:', {
+    console.warn('BiasesCarousel rendered with:', {
       biasesCount: biases?.length,
       isLoading,
       error,

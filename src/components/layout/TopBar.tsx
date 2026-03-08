@@ -394,7 +394,7 @@ export const TopBar = ({
                 type="button"
                 role="menuitem"
                 className={styles.dropdownMenuButton}
-                onClick={() => console.log('Export')}
+                onClick={() => console.warn('Export')}
               >
                 Export
               </button>
@@ -402,7 +402,7 @@ export const TopBar = ({
                 type="button"
                 role="menuitem"
                 className={styles.dropdownMenuButton}
-                onClick={() => console.log('Version history')}
+                onClick={() => console.warn('Version history')}
               >
                 Version history
               </button>

@@ -583,7 +583,7 @@ export function DriversSection({
   // Diagnostic logging for data issues (debug mode only)
   useEffect(() => {
     if (typeof window !== 'undefined' && (window as any).__OLUMI_DEBUG && drivers.length > 0) {
-      console.log('[DriversSection] Data diagnostic:', {
+      console.warn('[DriversSection] Data diagnostic:', {
         driverCount: drivers.length,
         driversStatus,
         hasMagnitudeData,
