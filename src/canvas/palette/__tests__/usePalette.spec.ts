@@ -227,7 +227,7 @@ describe('usePalette', () => {
       result.current.executeItem({
         id: 'action:results',
         kind: 'action',
-        label: 'Open Results',
+        label: 'Open Analysis',
       } as any)
     })
 

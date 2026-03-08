@@ -187,7 +187,7 @@ export function indexActions(): PaletteItem[] {
     {
       id: 'action:results',
       kind: 'action',
-      label: 'Open Results',
+      label: 'Open Analysis',
       description: 'Show analysis results',
       keywords: ['results', 'report', 'output'],
     },

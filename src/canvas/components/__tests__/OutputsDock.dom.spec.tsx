@@ -20,6 +20,9 @@
    isDecisionReviewEnabled: vi.fn(() => true),
    isTelemetryEnabled: () => true,
    isCompareEnabled: () => true,
+   isOrchestratorV2Enabled: () => false,
+   isLegacyDirectRunEnabled: () => true,
+   isJourneyTabEnabled: vi.fn(() => false),
  }))
 
 function ensureMatchMedia() {
@@ -90,7 +93,7 @@ describe('OutputsDock DOM', () => {
 
     expect(screen.queryByTestId('outputs-dock-body')).toBeNull()
 
-    const resultsIcon = screen.getByRole('button', { name: 'Results' })
+    const resultsIcon = screen.getByRole('button', { name: 'Analysis' })
     const compareIcon = screen.getByRole('button', { name: 'Compare' })
     const modelIcon = screen.getByRole('button', { name: 'Model' })
 
@@ -155,7 +158,7 @@ describe('OutputsDock DOM', () => {
     expect(params.get('tab')).toBe('diagnostics')
 
     // Switch back to Results tab, which should clear the tab parameter
-    const resultsTab = screen.getByRole('button', { name: 'Results' })
+    const resultsTab = screen.getByRole('button', { name: 'Analysis' })
     fireEvent.click(resultsTab)
 
     params = new URLSearchParams(window.location.search)
@@ -244,7 +247,7 @@ describe('OutputsDock DOM', () => {
       } as any)
     })
 
-    const resultsHeader = screen.getByText('Results', {
+    const resultsHeader = screen.getByText('Analysis', {
       selector: 'span[aria-live="polite"]',
     })
     expect(resultsHeader).toBeInTheDocument()
@@ -1371,7 +1374,7 @@ describe('I.1: Model tab auto-switch guard', () => {
     })
 
     // Should auto-switch to Results tab
-    expect(screen.getByText('Results', {
+    expect(screen.getByText('Analysis', {
       selector: 'span[aria-live="polite"]',
     })).toBeInTheDocument()
   })
@@ -1507,5 +1510,52 @@ describe('I.2a: Secondary action button interaction', () => {
 
     // After click, dock should close — the error banner should no longer be visible
     expect(screen.queryByTestId('outputs-error-banner')).not.toBeInTheDocument()
+  })
+
+  it('falls back to Results when persisted activeTab is journey but flag is OFF (regression)', () => {
+    // Seed sessionStorage with journey tab persisted
+    sessionStorage.setItem(STORAGE_KEY, JSON.stringify({ isOpen: true, activeTab: 'journey' }))
+
+    render(<OutputsDock />)
+
+    // Journey tab should NOT appear in the tab bar
+    expect(screen.queryByRole('button', { name: 'Journey' })).not.toBeInTheDocument()
+
+    // Should fall back to Results
+    const headerLabel = screen.getByText('Analysis', {
+      selector: 'span[aria-live="polite"]',
+    })
+    expect(headerLabel).toBeInTheDocument()
+  })
+
+  it('shows Journey tab when flag is ON', async () => {
+    const { isJourneyTabEnabled } = await import('../../../flags')
+    vi.mocked(isJourneyTabEnabled).mockReturnValue(true)
+
+    // Need to re-evaluate OUTPUT_TABS with flag on — use dynamic import
+    vi.resetModules()
+
+    // Re-mock flags with journey enabled
+    vi.doMock('../../../flags', () => ({
+      isDecisionReviewEnabled: vi.fn(() => true),
+      isTelemetryEnabled: () => true,
+      isCompareEnabled: () => true,
+      isOrchestratorV2Enabled: () => false,
+      isLegacyDirectRunEnabled: () => true,
+      isJourneyTabEnabled: vi.fn(() => true),
+    }))
+
+    const { OutputsDock: FreshOutputsDock } = await import('../OutputsDock')
+    render(<FreshOutputsDock />)
+
+    const tabs = screen.getAllByRole('button', {
+      name: /Results|Compare|Model|Journey/,
+    })
+    expect(tabs.map(tab => tab.textContent)).toEqual([
+      'Results',
+      'Compare',
+      'Model',
+      'Journey',
+    ])
   })
 })

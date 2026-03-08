@@ -81,6 +81,8 @@ import { buildFragileEdgeIdSet, buildRobustEdgeIdSet, getDisplayEdgeId } from '.
 import { NON_EVIDENCE_PROVENANCE } from '../utils/evidenceCoverage'
 import { LensContainer } from './LensContainer'
 import { ModelTabBody } from './ModelTabBody'
+import { JourneyTabBody } from '../journey/JourneyTabBody'
+import { isJourneyTabEnabled } from '../../flags'
 // Results Panel Redesign: v7 four-section layout components
 import { useResultsSectionData } from '../../components/results/useResultsSectionData'
 import type { TornadoRow } from '../../components/results/TornadoChart'
@@ -137,7 +139,7 @@ function mapCritiqueToValidation(critique: CritiqueItemV1[] | undefined): Critiq
   }))
 }
 
-type OutputsDockTab = 'results' | 'compare' | 'diagnostics'
+type OutputsDockTab = 'results' | 'compare' | 'diagnostics' | 'journey'
 
 interface OutputsDockState {
   isOpen: boolean
@@ -150,9 +152,10 @@ const STORAGE_KEY = 'canvas.outputsDock.v1'
 const SHOW_VERDICT_FEATURES = import.meta.env.VITE_SHOW_VERDICT_CARD === 'true'
 
 const OUTPUT_TABS: { id: OutputsDockTab; label: string }[] = [
-  { id: 'results', label: 'Results' },
+  { id: 'results', label: 'Analysis' },
   { id: 'compare', label: 'Compare' },
   { id: 'diagnostics', label: 'Model' },
+  ...(isJourneyTabEnabled() ? [{ id: 'journey' as const, label: 'Journey' }] : []),
 ]
 
 export function OutputsDock() {
@@ -161,6 +164,13 @@ export function OutputsDock() {
     isOpen: true,
     activeTab: 'results',
   })
+
+  // Journey tab guard: if persisted tab is 'journey' but flag is off, reset to 'results'
+  useEffect(() => {
+    if (state.activeTab === 'journey' && !isJourneyTabEnabled()) {
+      setState(prev => ({ ...prev, activeTab: 'results' }))
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps -- one-time init guard
 
   // Phase 1A.5: Debug controls visibility (Shift+D shortcut)
   const { showDebug } = useDebugShortcut()
@@ -268,10 +278,6 @@ export function OutputsDock() {
   // Empty state: hide panel when canvas has no nodes
   const hasGraphContent = nodes.length > 0
 
-  // DEBUG: Log node count on every render to diagnose empty state issue
-  if (import.meta.env.DEV) {
-    console.log('[OutputsDock] nodes.length:', nodes.length, 'hasGraphContent:', hasGraphContent)
-  }
   const resultsStatus = useCanvasStore(selectResultsStatus)
   const report = useCanvasStore(selectReport)
   const error = useCanvasStore(selectError)
@@ -1051,6 +1057,8 @@ export function OutputsDock() {
                 ? BarChart3
                 : tab.id === 'compare'
                 ? Shuffle
+                : tab.id === 'journey'
+                ? Clock
                 : Activity
             return (
               <button
@@ -1095,10 +1103,10 @@ export function OutputsDock() {
                     <div
                       className={`flex flex-col gap-2 px-3 py-3 rounded-lg border ${
                         friendlyError.severity === 'error'
-                          ? 'bg-danger-light border-danger/30'
+                          ? 'bg-panel border-danger/30'
                           : friendlyError.severity === 'warning'
-                            ? 'bg-warning-light border-warning/30'
-                            : 'bg-info-light border-info/30'
+                            ? 'bg-panel border-warning/30'
+                            : 'bg-panel border-info/30'
                       }`}
                       role="alert"
                       aria-live="polite"
@@ -1125,7 +1133,7 @@ export function OutputsDock() {
                               disabled={isRunning}
                               className={`${typography.caption} font-medium px-3 py-1.5 rounded ${
                                 friendlyError.severity === 'error'
-                                  ? 'bg-danger-600 text-white hover:bg-danger-700'
+                                  ? 'bg-danger-600 text-text-on-color hover:bg-danger-700'
                                   : friendlyError.severity === 'warning'
                                     ? 'bg-sun-600 text-white hover:bg-sun-700'
                                     : 'bg-sky-600 text-white hover:bg-sky-700'
@@ -1315,7 +1323,7 @@ export function OutputsDock() {
                     edited after the last successful analysis */}
                 {analysisStale && !isError && report && (
                   <div
-                    className="flex items-center gap-2 px-3 py-2 bg-warning-light border border-warning/30 rounded"
+                    className="flex items-center gap-2 px-3 py-2 bg-panel border border-warning/30 rounded"
                     role="status"
                     data-testid="graph-stale-banner"
                   >
@@ -1396,6 +1404,9 @@ export function OutputsDock() {
                 critique={report?.run?.critique}
               />
             )}
+            {state.activeTab === 'journey' && (
+              <JourneyTabBody />
+            )}
           </div>
         )}
 
@@ -1419,7 +1430,7 @@ export function OutputsDock() {
         {/* M6: Error display for comparison */}
         {scenarioComparison.error && (
           <div
-            className="fixed bottom-24 right-4 z-[1000] bg-danger-light border border-danger/30 px-4 py-3 rounded-lg shadow-3 max-w-sm"
+            className="fixed bottom-24 right-4 z-[1000] bg-panel border border-danger/30 px-4 py-3 rounded-lg shadow-3 max-w-sm"
             role="alert"
             data-testid="scenario-comparison-error"
           >
@@ -1458,7 +1469,7 @@ export function OutputsDock() {
               className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-pill text-xs font-semibold transition-colors shadow-sm ${
                 isRunning
                   ? 'bg-sand-200 text-text-light cursor-not-allowed'
-                  : 'bg-info text-white hover:opacity-90'
+                  : 'bg-info text-text-on-color hover:opacity-90'
               }`}
               data-testid="outputs-rerun-button"
             >
