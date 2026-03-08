@@ -315,6 +315,13 @@ const FLAGS_CONFIG = {
     envKey: 'VITE_FEATURE_THREAD_HYDRATE',
     storageKey: 'feature.threadHydrate',
   },
+  // BIL: Brief Intelligence Layer local preview in ChatComposer
+  // Gates only the UI preview (extract + summary line). Persistence
+  // (snapshots, conversation_turns, analysis_summary wiring) runs regardless.
+  bil: {
+    envKey: 'VITE_FEATURE_BIL',
+    storageKey: 'feature.bil',
+  },
 } as const
 
 // ============================================================================
@@ -387,6 +394,7 @@ const flags = {
   journeyTab: makeFlag(FLAGS_CONFIG.journeyTab),
   threadPersist: makeFlag(FLAGS_CONFIG.threadPersist),
   threadHydrate: makeFlag(FLAGS_CONFIG.threadHydrate),
+  bil: makeFlag(FLAGS_CONFIG.bil),
 }
 
 // Export with original naming convention for backward compatibility
@@ -453,6 +461,7 @@ export const isContextMenuEnabled = flags.contextMenu
 export const isJourneyTabEnabled = flags.journeyTab
 export const isThreadPersistEnabled = flags.threadPersist
 export const isThreadHydrateEnabled = flags.threadHydrate
+export const isBilPreviewEnabled = flags.bil
 
 // ============================================================================
 // POC FLAGS (special pattern - constant object, not functions)

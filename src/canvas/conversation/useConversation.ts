@@ -11,6 +11,8 @@ import { useCanvasStore } from '../store'
 import { generateGraphHash } from '../utils/graphHash'
 import { callOrchestratorTurn, OrchestratorError } from './turnService'
 import { isOrchestratorV2Enabled, isThreadHydrateEnabled, isThreadPersistEnabled } from '../../flags'
+import { assembleAnalysisInputsSummary } from '../analysis/assembleAnalysisInputsSummary'
+import { useResultsStore } from '../stores/resultsStore'
 import { hydrateMessagesFromThread, formatSessionBoundary } from './utils/hydrateThread'
 import { appendThreadEntries } from '../../services/threadService'
 import type { ThreadEntry } from '../journey/threadTypes'
@@ -618,6 +620,10 @@ export function useConversation(): UseConversationReturn {
         analysis_state: {
           has_results: store.results.status === 'complete',
           last_run_hash: store.currentScenarioLastResultHash,
+          // BIL Phase 1: include assembled analysis summary when available (always-on)
+          ...(useResultsStore.getState().results.analysisSummary
+            ? { analysis_summary: useResultsStore.getState().results.analysisSummary }
+            : {}),
         },
         selected_elements:
           nodeIds.size > 0 || edgeIds.size > 0
@@ -673,6 +679,15 @@ export function useConversation(): UseConversationReturn {
               ceeTraceV1,
               resultsSource: 'conversation',
             })
+
+            // BIL Phase 1: cache assembled analysis summary for subsequent turn requests.
+            // Always-on persistence — not gated behind BIL preview flag.
+            try {
+              const summary = assembleAnalysisInputsSummary(result)
+              useResultsStore.getState().setAnalysisSummary(summary)
+            } catch {
+              // Non-fatal: summary assembly failed
+            }
           } catch (err) {
             // Non-fatal: envelope analysis wiring failed — log and continue
             // The conversation message will still be shown.

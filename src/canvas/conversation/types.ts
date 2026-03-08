@@ -7,6 +7,7 @@
 
 import type { ScenarioStage } from '../../types/scenario'
 import type { CEEAnalysisReady, CEEInterventionV3 } from '../../adapters/cee/types'
+import type { AnalysisInputsSummary } from '../../types/analysis-inputs-summary'
 
 // ---------------------------------------------------------------------------
 // § 1 — Conversation messages
@@ -253,6 +254,8 @@ export interface OrchestratorTurnRequest {
   analysis_state: {
     has_results: boolean
     last_run_hash: string | null
+    /** Assembled analysis summary from last V2RunResponse (always-on persistence) */
+    analysis_summary?: AnalysisInputsSummary
   }
   selected_elements?: {
     node_ids?: string[]

@@ -124,8 +124,20 @@ const COACHING_TIPS: Record<BriefElementKind, string> = {
 // Hook
 // ─────────────────────────────────────────────────────────────────────────────
 
-export function useBriefSignals(text: string, stage: ScenarioStage): BriefSignalsResult | null {
-  const debouncedText = useDebounce(text, 800)
+/**
+ * @param text Raw composer text (debounced internally at 500ms if no externalDebouncedText provided).
+ * @param stage Current scenario stage.
+ * @param externalDebouncedText Optional pre-debounced value from the caller. When provided,
+ *   the internal debounce timer is bypassed and this value is used directly. This allows
+ *   ChatComposer to share a single 500ms debounce across both useBriefSignals and extractLocalBIL.
+ */
+export function useBriefSignals(
+  text: string,
+  stage: ScenarioStage,
+  externalDebouncedText?: string,
+): BriefSignalsResult | null {
+  const internalDebounced = useDebounce(text, 500)
+  const debouncedText = externalDebouncedText ?? internalDebounced
 
   return useMemo(() => {
     if (!isFramingStage(stage)) return null

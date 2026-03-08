@@ -9,13 +9,16 @@
  * 5. Input container: textarea + send button
  */
 
-import { useState, useCallback, useImperativeHandle, useEffect, forwardRef, memo } from 'react'
+import { useState, useCallback, useImperativeHandle, useEffect, useMemo, forwardRef, memo } from 'react'
 import { ArrowUp, Play } from 'lucide-react'
 import { useGuidanceStore } from '../../stores/guidanceStore'
 import { useStagePill } from '../../hooks/useStagePill'
 import { isFramingStage } from '../../../signals/stage-helpers'
+import { useDebounce } from '../../../hooks/useDebounce'
 import { useComposerState } from '../hooks/useComposerState'
 import { useBriefSignals } from '../hooks/useBriefSignals'
+import { isBilPreviewEnabled } from '../../../flags'
+import { extractLocalBIL } from '../../brief-intelligence/extract'
 import { GuidanceStrip } from '../GuidanceStrip'
 import { CoachingTip } from './CoachingTip'
 import { BriefGuidanceStrip } from './BriefGuidanceStrip'
@@ -87,8 +90,39 @@ export const ChatComposer = memo(forwardRef<ChatComposerHandle, ChatComposerProp
       },
     }), [composer.replaceText, composer.value, composer.reset])
 
-    // Brief signals (framing stage only)
-    const briefSignals = useBriefSignals(composer.value, stage)
+    // Unified 500ms debounce — shared by useBriefSignals and BIL extraction
+    const debouncedValue = useDebounce(composer.value, 500)
+
+    // Brief signals (framing stage only) — consume the shared debounced value
+    const briefSignals = useBriefSignals(composer.value, stage, debouncedValue)
+
+    // BIL local preview (flag-gated, framing stage only) — pure derived state, no side effects
+    const bilResult = useMemo(() => {
+      if (!isBilPreviewEnabled() || !isFramingStage(stage)) return null
+      return extractLocalBIL(debouncedValue)
+    }, [debouncedValue, stage])
+
+    // Human-readable summary of missing elements for BIL display
+    const bilSummaryLine = useMemo(() => {
+      if (!bilResult) return null
+      const MISSING_LABELS: Record<string, string> = {
+        goal: 'No goal.',
+        constraints: 'No constraints.',
+        time_horizon: 'No time horizon.',
+        success_metric: 'No success metric.',
+        status_quo_option: 'No status quo option.',
+        risk_factors: 'No risk factors.',
+      }
+      const missingText = bilResult.missing_elements
+        .map(el => MISSING_LABELS[el])
+        .filter(Boolean)
+        .join(' ')
+      const parts: string[] = []
+      if (bilResult.options.length > 0) parts.push(`${bilResult.options.length} option${bilResult.options.length !== 1 ? 's' : ''}`)
+      if (bilResult.factors.length > 0) parts.push(`${bilResult.factors.length} factor${bilResult.factors.length !== 1 ? 's' : ''}`)
+      const detected = parts.length > 0 ? `${parts.join(', ')} detected.` : ''
+      return [detected, missingText].filter(Boolean).join(' ')
+    }, [bilResult])
 
     // Notify parent of readiness / text state changes (derived booleans, not raw value)
     const currentReadiness = briefSignals?.readiness ?? null
@@ -140,6 +174,19 @@ export const ChatComposer = memo(forwardRef<ChatComposerHandle, ChatComposerProp
             />
             <InlineGenerateButton state={generateState} onClick={onGenerateModel} />
           </div>
+        )}
+
+        {/* 3b. BIL summary line (flag-gated, soft guidance only) */}
+        {bilSummaryLine && (
+          <p
+            className="text-text-light"
+            style={{ fontSize: 11, lineHeight: 1.4, margin: 0, padding: '0 2px' }}
+            role="status"
+            aria-live="polite"
+            data-testid="bil-summary"
+          >
+            {bilSummaryLine}
+          </p>
         )}
 
         {/* 4. Orchestrator guidance strip (post-framing coaching items) */}
