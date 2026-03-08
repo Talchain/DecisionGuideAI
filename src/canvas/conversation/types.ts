@@ -46,6 +46,7 @@ export type ConversationBlock =
   | GraphPatchBlock
   | FramingBlock
   | BriefBlock
+  | ModelReceiptBlockType
 
 // ---------------------------------------------------------------------------
 // Citation marker (optional on CommentaryBlock)
@@ -175,6 +176,19 @@ export interface BriefBlock {
   title: string
   summary: string
   brief_url?: string
+}
+
+// Phase 2B: Model receipt block — structured summary after graph generation
+export interface ModelReceiptBlockType {
+  type: 'model_receipt'
+  factorCount: number
+  edgeCount: number
+  optionCount: number
+  goalLabel: string | null
+  topInsight: string | null
+  topEvidenceGap: string | null
+  readiness: 'ready' | 'blocked' | 'incomplete' | 'unknown'
+  adjustments: Array<{ label: string; action: string; before?: string; after?: string; reason?: string }>
 }
 
 // ---------------------------------------------------------------------------

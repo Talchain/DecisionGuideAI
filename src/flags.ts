@@ -322,6 +322,21 @@ const FLAGS_CONFIG = {
     envKey: 'VITE_FEATURE_BIL',
     storageKey: 'feature.bil',
   },
+  // Phase 2A: Model Card Lite + Results trust strip
+  modelCardLite: {
+    envKey: 'VITE_FEATURE_MODEL_CARD_LITE',
+    storageKey: 'feature.modelCardLite',
+  },
+  // Phase 2B: Pre-analysis enrichment (receipt block, evidence gaps, model notes, one-click fixes)
+  preAnalysisEnriched: {
+    envKey: 'VITE_FEATURE_PRE_ANALYSIS_ENRICHED',
+    storageKey: 'feature.preAnalysisEnriched',
+  },
+  // Phase 2A: Causal claims in edge inspector
+  causalClaims: {
+    envKey: 'VITE_FEATURE_CAUSAL_CLAIMS',
+    storageKey: 'feature.causalClaims',
+  },
 } as const
 
 // ============================================================================
@@ -395,6 +410,9 @@ const flags = {
   threadPersist: makeFlag(FLAGS_CONFIG.threadPersist),
   threadHydrate: makeFlag(FLAGS_CONFIG.threadHydrate),
   bil: makeFlag(FLAGS_CONFIG.bil),
+  modelCardLite: makeFlag(FLAGS_CONFIG.modelCardLite),
+  preAnalysisEnriched: makeFlag(FLAGS_CONFIG.preAnalysisEnriched),
+  causalClaims: makeFlag(FLAGS_CONFIG.causalClaims),
 }
 
 // Export with original naming convention for backward compatibility
@@ -462,6 +480,9 @@ export const isJourneyTabEnabled = flags.journeyTab
 export const isThreadPersistEnabled = flags.threadPersist
 export const isThreadHydrateEnabled = flags.threadHydrate
 export const isBilPreviewEnabled = flags.bil
+export const isModelCardLiteEnabled = flags.modelCardLite
+export const isPreAnalysisEnrichedEnabled = flags.preAnalysisEnriched
+export const isCausalClaimsEnabled = flags.causalClaims
 
 // ============================================================================
 // POC FLAGS (special pattern - constant object, not functions)

@@ -21,6 +21,8 @@ import type {
   FactEntry,
   BlockAction,
 } from './types'
+import { isPreAnalysisEnrichedEnabled } from '../../flags'
+import { ModelReceiptBlock } from './ModelReceiptBlock'
 import type { PatchBlockState, PatchRejectionInfo } from './useConversation'
 import { MAX_VISIBLE_BLOCKS_PER_TURN } from './types'
 import { useCanvasStore } from '../store'
@@ -156,6 +158,10 @@ function BlockRenderer({
 
     case 'brief':
       return <BriefBlockRenderer block={block} />
+
+    case 'model_receipt':
+      if (!isPreAnalysisEnrichedEnabled()) return null
+      return <ModelReceiptBlock data={block} />
 
     default: {
       // Unknown block type — log raw type for diagnosability, render fallback

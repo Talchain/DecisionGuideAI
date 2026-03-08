@@ -36,6 +36,9 @@ import { countEdgesWithEvidence, NON_EVIDENCE_PROVENANCE } from '../utils/eviden
 import { SectionErrorBoundary } from './GraphTextView'
 import type { MappedRobustness } from '../../lib/mappers/types'
 import type { CritiqueItemV1 } from '../../adapters/plot/types'
+import { isModelCardLiteEnabled } from '../../flags'
+import { ModelCardLite } from './ModelCardLite'
+import { selectModelCardData } from '../adapters/modelCardAdapter'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -1065,6 +1068,21 @@ export function ModelTabBody({
 }: ModelTabBodyProps) {
   const [searchQuery, setSearchQuery] = useState('')
   const ceePipelineTrace = useCanvasStore(s => s.ceePipelineTrace)
+  // Phase 2A: Model Card Lite data from store
+  const hasCompletedFirstRun = useCanvasStore(s => s.hasCompletedFirstRun)
+  const currentGraphHash = useCanvasStore(s => s.currentGraphHash)
+  const lastAnalysisSeed = useCanvasStore(s => s.lastAnalysisSeed)
+  const lastQualityMode = useCanvasStore(s => s.lastQualityMode)
+  const repairsApplied = useCanvasStore(s => s.repairsApplied)
+  const results = useCanvasStore(s => s.results)
+  const modelCardData = useMemo(
+    () => selectModelCardData({
+      nodes, edges, currentGraphHash,
+      lastAnalysisSeed, lastQualityMode, repairsApplied,
+      results, hasCompletedFirstRun,
+    }),
+    [nodes, edges, currentGraphHash, lastAnalysisSeed, lastQualityMode, repairsApplied, results, hasCompletedFirstRun],
+  )
   const highlightedNodes = useCanvasStore(s => s.highlightedNodes)
   const highlightedEdges = useCanvasStore(s => s.highlightedEdges)
   const setHighlightedNodes = useCanvasStore(s => s.setHighlightedNodes)
@@ -1349,6 +1367,13 @@ export function ModelTabBody({
 
   return (
     <div className="space-y-4 pb-4" data-testid="model-tab">
+
+      {/* ── Model Card Lite (Phase 2A) ────────────────────────────────────── */}
+      {isModelCardLiteEnabled() && nodes.length > 0 && (
+        <SectionErrorBoundary section="model card">
+          <ModelCardLite data={modelCardData} />
+        </SectionErrorBoundary>
+      )}
 
       {/* ── Goal headline ─────────────────────────────────────────────────── */}
       {goalLabel && (

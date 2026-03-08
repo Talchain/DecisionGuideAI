@@ -1382,6 +1382,8 @@ export function OutputsDock() {
                     goalDirection={goalDirection}
                     guidanceItems={resultsGuidanceItems}
                     onActivateGuidanceItem={setActiveGuidanceItem}
+                    onViewModelDetails={() => setState(prev => ({ ...prev, isOpen: true, activeTab: 'diagnostics' }))}
+                    robustnessData={(report as any)?.robustness}
                   />
                 )}
               </div>

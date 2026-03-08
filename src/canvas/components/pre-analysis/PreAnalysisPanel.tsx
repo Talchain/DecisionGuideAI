@@ -36,6 +36,11 @@ import { useShowToast } from '../../ToastContext'
 import { copyTextToClipboard } from '../../../utils/clipboard'
 import { RefreshCw, Copy, Pencil, ChevronDown, ChevronRight, AlertTriangle } from 'lucide-react'
 import { typography } from '@/styles/typography'
+import { isPreAnalysisEnrichedEnabled } from '../../../flags'
+import { WorthInvestigating, deriveEvidenceGaps } from './WorthInvestigating'
+import { ModelNotes, type ModelNote } from './ModelNotes'
+import { trackEvent } from '../../../lib/posthog'
+import { formatRepairs } from '../../adapters/modelCardAdapter'
 
 /** Collapsible pre-mortem section from PLoT m1_review */
 function PreMortemSection({ preMortem }: { preMortem: { failure_scenario: string; warning_signs: string[]; mitigation: string } }) {
@@ -110,6 +115,46 @@ export function PreAnalysisPanel({
 
   // Draft error state for error card
   const lastDraftError = useCanvasStore(s => s.lastDraftError)
+
+  // Phase 2B: Evidence gaps + model notes (enriched pre-analysis)
+  const ceeAnalysisReady = useCanvasStore(s => s.ceeAnalysisReady)
+  const evidenceGaps = useMemo(
+    () => isPreAnalysisEnrichedEnabled() ? deriveEvidenceGaps(nodes, edges) : [],
+    [nodes, edges],
+  )
+  const modelNotes = useMemo<ModelNote[]>(() => {
+    if (!isPreAnalysisEnrichedEnabled()) return []
+    const critiques = (ceeAnalysisReady as any)?.model_critiques as Array<{ message: string; severity?: string; suggested_action?: string }> | undefined
+    if (!critiques || critiques.length === 0) return []
+    return critiques.map(c => ({
+      message: c.message,
+      severity: (c.severity === 'warning' ? 'warning' : 'info') as 'warning' | 'info',
+      suggestedAction: c.suggested_action,
+    }))
+  }, [ceeAnalysisReady])
+
+  // Phase 2B: Post-run repairs from store (populated in resultsComplete)
+  const repairsApplied = useCanvasStore(s => s.repairsApplied)
+  const postRunRepairs = useMemo(
+    () => isPreAnalysisEnrichedEnabled() && repairsApplied ? formatRepairs(repairsApplied, nodes) : [],
+    [repairsApplied, nodes],
+  )
+
+  // Phase 2B: Intervention coverage for ModelSnapshot enrichment
+  const interventionCoverage = useMemo(() => {
+    if (!isPreAnalysisEnrichedEnabled() || data.optionPreviews.length === 0) return null
+    const mapped = data.optionPreviews.filter(op => op.interventions.length > 0).length
+    return { mapped, total: data.optionPreviews.length }
+  }, [data.optionPreviews])
+
+  // Phase 2B: One-click fix — "Set value" opens the inspector for a factor (non-destructive)
+  const selectNodeWithoutHistory = useCanvasStore(s => s.selectNodeWithoutHistory)
+  const handleSetValueForGap = useCallback((factorId: string) => {
+    trackEvent('fix_clicked', { fix_id: `set_value_${factorId}` })
+    // Select the factor node to open inspector — non-destructive, no undo needed
+    selectNodeWithoutHistory(factorId)
+    focusNodeById(factorId)
+  }, [selectNodeWithoutHistory])
 
   // Retry handler with toast feedback
   const handleRetryDraft = useCallback(async () => {
@@ -693,11 +738,25 @@ export function PreAnalysisPanel({
           </div>
         )}
 
+        {/* Phase 2B: Worth investigating — evidence gaps */}
+        {isPreAnalysisEnrichedEnabled() && (
+          <WorthInvestigating
+            gaps={evidenceGaps}
+            onSetValue={handleSetValueForGap}
+          />
+        )}
+
+        {/* Phase 2B: Model notes — pipeline critiques */}
+        {isPreAnalysisEnrichedEnabled() && (
+          <ModelNotes notes={modelNotes} />
+        )}
+
         {/* Model adjustments — transparency for CEE automatic fixes */}
-        {(data.modelAdjustments.length > 0 || data.repairActions.length > 0) && (
+        {(data.modelAdjustments.length > 0 || data.repairActions.length > 0 || postRunRepairs.length > 0) && (
           <ModelAdjustments
             adjustments={data.modelAdjustments}
             repairActions={data.repairActions}
+            postRunRepairs={postRunRepairs}
           />
         )}
 
@@ -714,6 +773,9 @@ export function PreAnalysisPanel({
           onHoverNode={handleHoverElement}
           onHoverClear={handleHoverClear}
           ceeQuality={data.ceeQuality}
+          interventionCoverage={isPreAnalysisEnrichedEnabled() ? interventionCoverage : null}
+          goalLabel={isPreAnalysisEnrichedEnabled() ? (data.goalNode?.data as { label?: string })?.label ?? null : null}
+          goalMeasurable={isPreAnalysisEnrichedEnabled() ? (data.successThreshold != null) : undefined}
         />
 
         {/* Goal selector now lives in SuccessTarget hero — AnalysisSettings removed */}

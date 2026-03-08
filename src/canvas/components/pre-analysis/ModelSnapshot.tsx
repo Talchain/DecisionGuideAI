@@ -32,6 +32,14 @@ import type { CeeQualityDimensions } from '../../store'
 import type { Node } from '@xyflow/react'
 import { typography } from '@/styles/typography'
 
+/** Phase 2B: Intervention coverage summary */
+export interface InterventionCoverage {
+  /** Options with at least one mapped effect */
+  mapped: number
+  /** Total options */
+  total: number
+}
+
 interface ModelSnapshotProps {
   /** Nodes grouped by kind */
   nodesByKind: NodesByKind
@@ -45,6 +53,12 @@ interface ModelSnapshotProps {
   onHoverClear?: () => void
   /** CEE quality scores (Task 7) */
   ceeQuality?: CeeQualityDimensions | null
+  /** Phase 2B: Intervention coverage (gated on isPreAnalysisEnrichedEnabled) */
+  interventionCoverage?: InterventionCoverage | null
+  /** Phase 2B: Goal label for measurability row */
+  goalLabel?: string | null
+  /** Phase 2B: Whether the goal has a measurable threshold */
+  goalMeasurable?: boolean
 }
 
 /** Node kind configuration */
@@ -161,6 +175,9 @@ export function ModelSnapshot({
   onHoverNode,
   onHoverClear,
   ceeQuality,
+  interventionCoverage,
+  goalLabel,
+  goalMeasurable,
 }: ModelSnapshotProps) {
   // Calculate total node count
   const totalNodes = Object.values(nodesByKind).reduce((sum, nodes) => sum + nodes.length, 0)
@@ -193,6 +210,24 @@ export function ModelSnapshot({
           </p>
         )}
       </div>
+
+      {/* Phase 2B: Enrichment rows */}
+      {interventionCoverage != null && interventionCoverage.total > 0 && interventionCoverage.mapped < interventionCoverage.total && (
+        <p className={`${typography.panelMeta} text-text-light mt-1`} data-testid="intervention-coverage">
+          {interventionCoverage.mapped} of {interventionCoverage.total} options have mapped effects
+        </p>
+      )}
+
+      {goalLabel && (
+        <p className={`${typography.panelMeta} text-text-light mt-1`} data-testid="goal-measurability">
+          {goalLabel}
+          {goalMeasurable != null && (
+            <span className={goalMeasurable ? 'text-success' : 'text-warning'}>
+              {' · '}{goalMeasurable ? 'Measurable' : 'Not yet measurable'}
+            </span>
+          )}
+        </p>
+      )}
 
       {/* Quality scores from CEE (Task 7) */}
       {ceeQuality && ceeQuality.overall != null && (

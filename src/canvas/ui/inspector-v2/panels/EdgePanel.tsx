@@ -4,7 +4,7 @@
  */
 
 import { memo, useState, useMemo, useCallback, useRef, useEffect } from 'react'
-import { ArrowRight, AlertTriangle } from 'lucide-react'
+import { ArrowRight, AlertTriangle, Beaker, ChevronDown, ChevronRight } from 'lucide-react'
 import { useCanvasStore } from '../../../store'
 import { getEdgeConfidence, EDGE_CONSTRAINTS, DEFAULT_EDGE_DATA } from '../../../domain/edges'
 import type { NodeType } from '../../../domain/nodes'
@@ -26,6 +26,8 @@ import { StaleGuardBanner } from '../shared/StaleGuardBanner'
 import { TechnicalDisclosure } from '../shared/TechnicalDisclosure'
 import { UncertaintyBand } from '../shared/UncertaintyBand'
 import type { InspectorPanelProps } from '../types'
+import { isCausalClaimsEnabled } from '../../../../flags'
+import { extractCausalClaims, claimTypeLabel } from '../../../adapters/causalClaimsAdapter'
 
 // ─── Slider component for confidence and uncertainty ───────────────
 function InspectorSlider({
@@ -285,6 +287,11 @@ export const EdgePanel = memo(function EdgePanel({
             )}
           </div>
 
+          {/* §10.5b Scientific basis — causal claims from pipeline */}
+          {isCausalClaimsEnabled() && (
+            <CausalClaimsSection edgeData={edge.data as Record<string, unknown>} />
+          )}
+
           {/* §10.6 Fragility — only when edge in robustness.fragile_edges */}
           {isFragile && isResultsMode && (
             <>
@@ -329,3 +336,67 @@ export const EdgePanel = memo(function EdgePanel({
     </div>
   )
 })
+
+// ---------------------------------------------------------------------------
+// CausalClaimsSection — Scientific basis for an edge (Phase 2A)
+// ---------------------------------------------------------------------------
+
+const MAX_CLAIMS_VISIBLE = 3
+
+function CausalClaimsSection({ edgeData }: { edgeData: Record<string, unknown> }) {
+  const claims = useMemo(() => extractCausalClaims(edgeData), [edgeData])
+  const [expanded, setExpanded] = useState(false)
+
+  const visible = expanded ? claims : claims.slice(0, MAX_CLAIMS_VISIBLE)
+  const remaining = claims.length - MAX_CLAIMS_VISIBLE
+
+  return (
+    <>
+      <SectionTitle icon={SECTION_TITLES.scientificBasis.icon} label={SECTION_TITLES.scientificBasis.label} />
+
+      {claims.length === 0 ? (
+        <p className={`${typography.panelMeta} text-text-light`}>
+          No scientific claims attached to this relationship.
+        </p>
+      ) : (
+        <div className="space-y-2">
+          {visible.map((claim) => (
+            <div key={`${claim.claim_type}-${claim.statement.slice(0, 40)}`} className="bg-panel border border-panel-border rounded-lg p-2.5 space-y-1">
+              <span
+                className={`${typography.panelMeta} font-medium inline-flex items-center px-1.5 py-0.5 rounded-full bg-transparent border border-info/30 text-text-body`}
+              >
+                {claimTypeLabel(claim.claim_type)}
+              </span>
+              <p className={`${typography.panelBody} text-text-body`}>{claim.statement}</p>
+              {claim.source && (
+                <p className={`${typography.panelMeta} text-text-light`}>{claim.source}</p>
+              )}
+            </div>
+          ))}
+
+          {remaining > 0 && !expanded && (
+            <button
+              type="button"
+              onClick={() => setExpanded(true)}
+              className={`${typography.panelMeta} text-info hover:underline inline-flex items-center gap-1`}
+            >
+              and {remaining} more
+              <ChevronDown className="w-3 h-3" aria-hidden="true" />
+            </button>
+          )}
+
+          {expanded && remaining > 0 && (
+            <button
+              type="button"
+              onClick={() => setExpanded(false)}
+              className={`${typography.panelMeta} text-info hover:underline inline-flex items-center gap-1`}
+            >
+              Show fewer
+              <ChevronRight className="w-3 h-3" aria-hidden="true" />
+            </button>
+          )}
+        </div>
+      )}
+    </>
+  )
+}

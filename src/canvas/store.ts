@@ -321,6 +321,10 @@ interface CanvasState {
   _hydratedThread: unknown[] | null
   // Track 3: Hydrated scenario events from scenario row (consumed by Journey tab)
   _hydratedEvents: unknown[] | null
+  // Phase 2A: Analysis metadata for Model Card Lite and trust surfaces
+  lastAnalysisSeed: number | null
+  lastQualityMode: string | null
+  repairsApplied: Array<{ code?: string; type?: string; layer?: string; field_path?: string; before?: unknown; after?: unknown; severity?: string; node_id?: string; value?: unknown; source?: string; reason?: string }> | null
   // Debug: Raw CEE output mode (bypasses post-processing repairs)
   // Set via URL param ?rawCee=1 or Debug Panel checkbox
   debugRawCeeOutput: boolean
@@ -925,6 +929,10 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   // Track 3: Hydrated thread/events (transient, consumed once)
   _hydratedThread: null,
   _hydratedEvents: null,
+  // Phase 2A: Analysis metadata for Model Card Lite
+  lastAnalysisSeed: null,
+  lastQualityMode: null,
+  repairsApplied: null,
   // Debug: Raw CEE output mode (initialized from URL param ?rawCee=1)
   debugRawCeeOutput: getInitialRawCeeMode(),
 
@@ -1743,6 +1751,10 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       currentStage: null,
       // A.5+: Clear draft snapshot
       draftChatPreDraftSnapshot: null,
+      // Phase 2A: Clear analysis metadata
+      lastAnalysisSeed: null,
+      lastQualityMode: null,
+      repairsApplied: null,
     })
   },
 
@@ -1942,6 +1954,10 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       currentScenarioLastRunSeed: seedString,
       hasCompletedFirstRun: true,
       graphEditedSinceLastRun: false,
+      // Phase 2A: Persist analysis metadata for Model Card Lite / trust strip
+      lastAnalysisSeed: (report as any)?.meta?.seed_used ?? (report as any)?.meta?.seed ?? null,
+      lastQualityMode: (report as any)?.meta?.detail_level ?? null,
+      repairsApplied: (report as any)?.repairs_applied ?? null,
     }))
 
     // Persist last run metadata onto the active scenario record (if any)

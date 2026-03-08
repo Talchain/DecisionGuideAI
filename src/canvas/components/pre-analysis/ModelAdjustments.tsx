@@ -29,10 +29,21 @@ interface ModelAdjustment {
   [key: string]: unknown
 }
 
+/** Phase 2B: Post-run repair from PLoT repairs_applied */
+export interface PostRunRepair {
+  label: string
+  action: string
+  before?: string
+  after?: string
+  reason?: string
+}
+
 interface ModelAdjustmentsProps {
   adjustments: ModelAdjustment[]
   /** Repair actions from trace.pipeline.repair_summary (Task 6b) */
   repairActions?: string[]
+  /** Phase 2B: Post-run repairs from PLoT repairs_applied, formatted via modelCardAdapter */
+  postRunRepairs?: PostRunRepair[]
 }
 
 /**
@@ -198,10 +209,11 @@ function AdjustmentRow({ adj }: { adj: GroupedAdjustment }) {
   )
 }
 
-export function ModelAdjustments({ adjustments, repairActions = [] }: ModelAdjustmentsProps) {
+export function ModelAdjustments({ adjustments, repairActions = [], postRunRepairs = [] }: ModelAdjustmentsProps) {
   const [isExpanded, setIsExpanded] = useState(false)
+  const [showPostRun, setShowPostRun] = useState(false)
 
-  if (adjustments.length === 0 && repairActions.length === 0) return null
+  if (adjustments.length === 0 && repairActions.length === 0 && postRunRepairs.length === 0) return null
 
   const grouped = groupAdjustments(adjustments)
   const totalCount = grouped.length + repairActions.length
@@ -275,6 +287,47 @@ export function ModelAdjustments({ adjustments, repairActions = [] }: ModelAdjus
                 </div>
               ))}
             </>
+          )}
+        </div>
+      )}
+
+      {/* Phase 2B: Post-run repairs from PLoT repairs_applied */}
+      {postRunRepairs.length > 0 && (
+        <div className="border-t border-panel-border">
+          <button
+            type="button"
+            onClick={() => setShowPostRun(!showPostRun)}
+            className="flex items-center gap-2 w-full px-3 py-2 text-left hover:bg-panel-hover transition-colors"
+            aria-expanded={showPostRun}
+            aria-controls="post-run-repairs-list"
+            data-testid="post-run-repairs-toggle"
+          >
+            <span className={`${typography.panelMeta} text-text-light flex-1`}>
+              {postRunRepairs.length} analysis-time {postRunRepairs.length === 1 ? 'adjustment' : 'adjustments'}
+            </span>
+            {showPostRun ? (
+              <ChevronDown size={14} className="text-text-light" />
+            ) : (
+              <ChevronRight size={14} className="text-text-light" />
+            )}
+          </button>
+          {showPostRun && (
+            <div className="px-3 pb-2 space-y-1" id="post-run-repairs-list" data-testid="post-run-repairs-list">
+              {postRunRepairs.map((repair) => (
+                <div key={`${repair.label}-${repair.action}`} className={`flex items-start gap-2 ${typography.panelMeta} text-text-light`}>
+                  <span className="mt-0.5 flex-shrink-0">&bull;</span>
+                  <div>
+                    <span>{repair.label}: {repair.action}</span>
+                    {repair.before != null && repair.after != null && (
+                      <span className="ml-1">({repair.before} → {repair.after})</span>
+                    )}
+                    {repair.reason && (
+                      <p className="text-text-light mt-0.5">{repair.reason}</p>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
           )}
         </div>
       )}

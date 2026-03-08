@@ -218,6 +218,13 @@ export const EdgeDataSchema = z.object({
   formProvenance: FormProvenanceEnum.optional(),          // How the form was selected
   formRationale: z.string().max(200).optional(),          // CEE's explanation for the recommendation
 
+  // Phase 2A: Causal claims from pipeline (snake_case, matches pipeline output)
+  causal_claims: z.array(z.object({
+    claim_type: z.string(),
+    statement: z.string(),
+    source: z.string().optional(),
+  })).optional(),
+
   // Template tracking
   templateId: z.string().optional(),
 
