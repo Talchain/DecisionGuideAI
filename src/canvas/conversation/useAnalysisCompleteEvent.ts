@@ -14,7 +14,7 @@ import { useEffect, useRef } from 'react'
 import { useCanvasStore, type ResultsStatus } from '../store'
 import { isOrchestratorV2Enabled } from '../../flags'
 import { useGuidanceStore } from '../stores/guidanceStore'
-import type { SystemEvent } from './types'
+import type { WireSystemEvent } from './types'
 
 /** States that represent an active user-initiated analysis run */
 const ACTIVE_RUN_STATES: ReadonlySet<ResultsStatus> = new Set([
@@ -29,7 +29,7 @@ const ACTIVE_RUN_STATES: ReadonlySet<ResultsStatus> = new Set([
  * @param sendSystemEvent - The sendSystemEvent function from useConversation
  */
 export function useAnalysisCompleteEvent(
-  sendSystemEvent: (event: SystemEvent) => Promise<void>,
+  sendSystemEvent: (event: WireSystemEvent) => Promise<void>,
 ): void {
   const prevStatusRef = useRef<string | undefined>(undefined)
 

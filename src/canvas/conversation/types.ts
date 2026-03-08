@@ -192,15 +192,27 @@ export const MAX_VISIBLE_BLOCKS_PER_TURN = 4
 // § 4 — System events (type-defined now, wired in follow-up PR)
 // ---------------------------------------------------------------------------
 
-export type SystemEventType =
+/** Event types accepted by CEE's v3 Zod schema — safe to send over the wire. */
+export type WireSystemEventType =
   | 'direct_graph_edit'
   | 'direct_analysis_run'
   | 'patch_accepted'
   | 'patch_dismissed'
   | 'feedback_submitted'
-  | 'session_resume'
-  | 'undo_draft'
 
+/** Event types used only within the UI — never sent to CEE. */
+export type InternalSystemEventType = 'session_resume' | 'undo_draft'
+
+/** All system event types (wire + internal). */
+export type SystemEventType = WireSystemEventType | InternalSystemEventType
+
+/** Wire-safe system event — the only shape accepted by sendSystemEvent. */
+export interface WireSystemEvent {
+  type: WireSystemEventType
+  payload?: Record<string, unknown>
+}
+
+/** Any system event (wire or internal). */
 export interface SystemEvent {
   type: SystemEventType
   payload?: Record<string, unknown>

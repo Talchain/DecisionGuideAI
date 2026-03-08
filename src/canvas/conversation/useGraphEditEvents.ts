@@ -11,9 +11,11 @@
 
 import { useEffect, useRef } from 'react'
 import { useCanvasStore } from '../store'
-import { isOrchestratorV2Enabled } from '../../flags'
+import { isOrchestratorV2Enabled, isJourneyTabEnabled } from '../../flags'
 import { useGuidanceStore } from '../stores/guidanceStore'
-import type { SystemEvent } from './types'
+import { appendEvent } from '../../services/scenarioService'
+import { resolveElementLabel } from './utils/resolveElementLabel'
+import type { WireSystemEvent } from './types'
 import type { Node, Edge } from '@xyflow/react'
 
 const DEBOUNCE_MS = 1500
@@ -45,10 +47,15 @@ function takeSnapshot(nodes: Node[], edges: Edge[]): GraphSnapshot {
   return { nodes: nodeMap, edges: edgeMap }
 }
 
+type ElementOp = 'add' | 'update' | 'remove'
+
 interface DiffAccumulator {
   changedNodeIds: Set<string>
   changedEdgeIds: Set<string>
-  operations: Set<'add' | 'update' | 'remove'>
+  operations: Set<ElementOp>
+  /** Per-element operation for deterministic change_type in scenario events */
+  nodeOps: Map<string, ElementOp>
+  edgeOps: Map<string, ElementOp>
 }
 
 function diffSnapshots(prev: GraphSnapshot, curr: GraphSnapshot): DiffAccumulator | null {
@@ -56,6 +63,8 @@ function diffSnapshots(prev: GraphSnapshot, curr: GraphSnapshot): DiffAccumulato
     changedNodeIds: new Set(),
     changedEdgeIds: new Set(),
     operations: new Set(),
+    nodeOps: new Map(),
+    edgeOps: new Map(),
   }
 
   // Node diffs
@@ -63,15 +72,18 @@ function diffSnapshots(prev: GraphSnapshot, curr: GraphSnapshot): DiffAccumulato
     if (!prev.nodes.has(id)) {
       diff.changedNodeIds.add(id)
       diff.operations.add('add')
+      diff.nodeOps.set(id, 'add')
     } else if (prev.nodes.get(id) !== data) {
       diff.changedNodeIds.add(id)
       diff.operations.add('update')
+      diff.nodeOps.set(id, 'update')
     }
   }
   for (const id of prev.nodes.keys()) {
     if (!curr.nodes.has(id)) {
       diff.changedNodeIds.add(id)
       diff.operations.add('remove')
+      diff.nodeOps.set(id, 'remove')
     }
   }
 
@@ -80,15 +92,18 @@ function diffSnapshots(prev: GraphSnapshot, curr: GraphSnapshot): DiffAccumulato
     if (!prev.edges.has(id)) {
       diff.changedEdgeIds.add(id)
       diff.operations.add('add')
+      diff.edgeOps.set(id, 'add')
     } else if (prev.edges.get(id) !== data) {
       diff.changedEdgeIds.add(id)
       diff.operations.add('update')
+      diff.edgeOps.set(id, 'update')
     }
   }
   for (const id of prev.edges.keys()) {
     if (!curr.edges.has(id)) {
       diff.changedEdgeIds.add(id)
       diff.operations.add('remove')
+      diff.edgeOps.set(id, 'remove')
     }
   }
 
@@ -122,7 +137,7 @@ function buildSummary(acc: DiffAccumulator): string {
  * @param sendSystemEvent - The sendSystemEvent function from useConversation
  */
 export function useGraphEditEvents(
-  sendSystemEvent: (event: SystemEvent) => Promise<void>,
+  sendSystemEvent: (event: WireSystemEvent) => Promise<void>,
 ): void {
   const snapshotRef = useRef<GraphSnapshot | null>(null)
   const accRef = useRef<DiffAccumulator | null>(null)
@@ -186,12 +201,16 @@ export function useGraphEditEvents(
           changedNodeIds: new Set(),
           changedEdgeIds: new Set(),
           operations: new Set(),
+          nodeOps: new Map(),
+          edgeOps: new Map(),
         }
       }
       const acc = accRef.current
       for (const id of diff.changedNodeIds) acc.changedNodeIds.add(id)
       for (const id of diff.changedEdgeIds) acc.changedEdgeIds.add(id)
       for (const op of diff.operations) acc.operations.add(op)
+      for (const [id, op] of diff.nodeOps) acc.nodeOps.set(id, op)
+      for (const [id, op] of diff.edgeOps) acc.edgeOps.set(id, op)
 
       // Update snapshot for next comparison
       snapshotRef.current = currSnapshot
@@ -219,6 +238,45 @@ export function useGraphEditEvents(
             summary: buildSummary(batchAcc),
           },
         })
+
+        // Emit direct_edit scenario events with target_label (Journey tab data).
+        // Gated on journeyTab flag, not threadPersist — these feed the timeline.
+        // Best-effort: errors are caught and logged, never affect the UI.
+        if (isJourneyTabEnabled() && scenarioIdRef.current) {
+          const sid = scenarioIdRef.current
+          const { nodes: currentNodes, edges: currentEdges } = useCanvasStore.getState()
+
+          // Emit per-element events, capped at 5 total
+          const MAX_EVENTS = 5
+          let emitted = 0
+
+          for (const nodeId of changedNodeIds) {
+            if (emitted >= MAX_EVENTS) break
+            const nodeOp = batchAcc.nodeOps.get(nodeId) ?? 'update'
+            const changeType = nodeOp === 'add' ? 'add_node'
+              : nodeOp === 'remove' ? 'remove_node'
+              : 'update_node'
+            void appendEvent(sid, crypto.randomUUID(), 'direct_edit', {
+              change_type: changeType,
+              target_id: nodeId,
+              target_label: resolveElementLabel(nodeId, currentNodes, currentEdges),
+            }).catch(() => {/* best-effort */})
+            emitted++
+          }
+          for (const edgeId of changedEdgeIds) {
+            if (emitted >= MAX_EVENTS) break
+            const edgeOp = batchAcc.edgeOps.get(edgeId) ?? 'update'
+            const changeType = edgeOp === 'add' ? 'add_edge'
+              : edgeOp === 'remove' ? 'remove_edge'
+              : 'update_edge'
+            void appendEvent(sid, crypto.randomUUID(), 'direct_edit', {
+              change_type: changeType,
+              target_id: edgeId,
+              target_label: resolveElementLabel(edgeId, currentNodes, currentEdges),
+            }).catch(() => {/* best-effort */})
+            emitted++
+          }
+        }
       }, DEBOUNCE_MS)
     })
 

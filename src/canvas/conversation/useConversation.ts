@@ -29,6 +29,7 @@ import type {
   ConversationBlock,
   ActionChip,
   SystemEvent,
+  WireSystemEvent,
   OrchestratorTurnRequest,
   OrchestratorResponseEnvelopeV2,
   ConversationTurnPair,
@@ -407,7 +408,7 @@ export interface UseConversationReturn {
   /** The user's last input text, restored on error so they can edit and resend */
   lastFailedInput: string | null
   sendMessage: (text: string) => Promise<void>
-  sendSystemEvent: (event: SystemEvent) => Promise<void>
+  sendSystemEvent: (event: WireSystemEvent) => Promise<void>
   sendChip: (chip: ActionChip) => Promise<void>
   clearHistory: () => void
   retryLast: () => Promise<void>
@@ -427,8 +428,9 @@ export function useConversation(): UseConversationReturn {
   const [patchBlockStates, setPatchBlockStates] = useState<Map<string, PatchBlockState>>(new Map())
   const [patchRejections, setPatchRejectionsMap] = useState<Map<string, PatchRejectionInfo>>(new Map())
 
-  // Refs for timers and abort
+  // Refs for timers, abort, and in-flight lock
   const abortRef = useRef<AbortController | null>(null)
+  const inFlightRef = useRef(false)
   const longRunningTimerRef = useRef<ReturnType<typeof setTimeout>>()
   const stillWorkingTimerRef = useRef<ReturnType<typeof setTimeout>>()
   const timeoutTimerRef = useRef<ReturnType<typeof setTimeout>>()
@@ -701,12 +703,17 @@ export function useConversation(): UseConversationReturn {
           // Remove once all CEE paths guaranteed to include it.
           const synthesised = synthesiseCeeAnalysisReady()
           if (synthesised) {
-            useCanvasStore.getState().setCeeAnalysisReady(synthesised)
-            if (import.meta.env.DEV) {
-              console.warn('[handleEnvelope] Fallback: synthesised ceeAnalysisReady from graph', {
-                options: synthesised.options.length,
-                goal: synthesised.goal_node_id,
-              })
+            const validated = validateAnalysisReadyContract(synthesised)
+            if (validated) {
+              useCanvasStore.getState().setCeeAnalysisReady(validated)
+              if (import.meta.env.DEV) {
+                console.warn('[handleEnvelope] Fallback: synthesised ceeAnalysisReady from graph', {
+                  options: validated.options.length,
+                  goal: validated.goal_node_id,
+                })
+              }
+            } else if (import.meta.env.DEV) {
+              console.warn('[handleEnvelope] Synthesised ceeAnalysisReady failed validation — skipping')
             }
           }
         }
@@ -766,8 +773,13 @@ export function useConversation(): UseConversationReturn {
     }) => {
       const { message, systemEvent, mode } = opts
 
+      // Synchronous in-flight lock — prevents duplicate dispatch from rapid
+      // clicks before React re-renders the isThinking state guard.
+      if (inFlightRef.current) return
+      inFlightRef.current = true
+
       if (mode === 'user') {
-        if (!message.trim() || isThinking) return
+        if (!message.trim() || isThinking) { inFlightRef.current = false; return }
         lastUserInputRef.current = message
         setLastFailedInput(null)
 
@@ -782,7 +794,7 @@ export function useConversation(): UseConversationReturn {
         // System events: no user bubble, but still guard against concurrent sends.
         // Note: '[system]' sentinel turns must be excluded when conversation persistence
         // is implemented. They are infrastructure turns, not user content.
-        if (isThinking) return
+        if (isThinking) { inFlightRef.current = false; return }
       }
 
       // Start thinking state
@@ -794,7 +806,7 @@ export function useConversation(): UseConversationReturn {
       const controller = new AbortController()
       abortRef.current = controller
 
-      // 10s → "Running analysis…", 20s → "Still working…"
+      // 15s → "Running analysis…", 30s → "Still working…"
       longRunningTimerRef.current = setTimeout(() => {
         setLongRunningHint('Running analysis\u2026')
       }, LONG_RUNNING_THRESHOLD_MS)
@@ -803,7 +815,7 @@ export function useConversation(): UseConversationReturn {
         setLongRunningHint('Still working\u2026')
       }, STILL_WORKING_THRESHOLD_MS)
 
-      // 30s timeout
+      // 60s timeout
       const inputForRestore = mode === 'user' ? message : null
       timeoutTimerRef.current = setTimeout(() => {
         controller.abort()
@@ -868,6 +880,7 @@ export function useConversation(): UseConversationReturn {
         clearTimeout(timeoutTimerRef.current)
         setIsThinking(false)
         setLongRunningHint(null)
+        inFlightRef.current = false
       }
     },
     [isThinking, addMessage, buildRequest, handleEnvelope],
@@ -885,7 +898,7 @@ export function useConversation(): UseConversationReturn {
   )
 
   const sendSystemEvent = useCallback(
-    async (event: SystemEvent) => {
+    async (event: WireSystemEvent) => {
       // No-op when orchestrator V2 is OFF
       if (!isOrchestratorV2Enabled()) return
 

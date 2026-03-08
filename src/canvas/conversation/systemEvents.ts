@@ -10,18 +10,13 @@
  * reaching the network (see sendSystemEvent pre-filter in useConversation).
  */
 
-import type { SystemEvent } from './types'
+import type { SystemEvent, WireSystemEventType } from './types'
 
 /**
- * The subset of SystemEventType values accepted by CEE's v3 Zod schema.
- * session_resume and undo_draft are internal UI events only — not sent over the wire.
+ * Alias for WireSystemEventType — the subset accepted by CEE's v3 Zod schema.
+ * Canonical definition lives in types.ts as WireSystemEventType.
  */
-export type CeeV3EventType =
-  | 'patch_accepted'
-  | 'patch_dismissed'
-  | 'direct_graph_edit'
-  | 'direct_analysis_run'
-  | 'feedback_submitted'
+export type CeeV3EventType = WireSystemEventType
 
 /** Wire format matching CEE v3 Zod schema (always used). */
 export interface SystemEventWire {
