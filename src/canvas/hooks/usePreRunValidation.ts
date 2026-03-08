@@ -44,7 +44,7 @@ const RECOGNISED_STATUSES: ReadonlySet<string> = new Set([
   'needs_user_mapping',
   'needs_encoding',
   'needs_user_input',
-  'incomplete',
+  'unknown',
 ])
 
 // ============================================================================
@@ -314,13 +314,13 @@ function validateOptions(
       })
     }
 
-    // Check for incomplete options (unknown/undefined status from CEE)
-    const incompleteOptions = options.filter((o) => o.status === 'incomplete')
-    if (incompleteOptions.length > 0) {
+    // Check for options with unknown status (not in CEE's contract)
+    const unknownStatusOptions = options.filter((o) => o.status === 'unknown')
+    if (unknownStatusOptions.length > 0) {
       blockers.push({
-        code: 'OPTIONS_INCOMPLETE',
-        message: `${incompleteOptions.length} option(s) have invalid status. Please re-draft.`,
-        affectedIds: incompleteOptions.map((o) => o.id),
+        code: 'OPTIONS_UNKNOWN_STATUS',
+        message: `${unknownStatusOptions.length} option(s) have invalid status. Please re-draft.`,
+        affectedIds: unknownStatusOptions.map((o) => o.id),
         action: { type: 'retry_draft', label: 'Retry Draft' },
       })
     }

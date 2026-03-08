@@ -548,13 +548,13 @@ describe('golden fixture — contract validation integration', () => {
     expect(adapted.analysis_ready).toBeUndefined()
   })
 
-  it('incomplete option status blocks analysis in usePreRunValidation', () => {
-    // Simulate a scenario where normaliseOptionStatus returns 'incomplete'
+  it('unknown option status blocks analysis in usePreRunValidation', () => {
+    // Simulate a scenario where normaliseOptionStatus returns 'unknown'
     const adapted = adaptCEEBlock(rawFixture.blocks[0]) as GraphPatchBlock
     applyAutoApplyPatch(adapted)
 
     // Set analysis_ready with an option that has an unrecognised status
-    // normaliseOptionStatus will map it to 'incomplete'
+    // normaliseOptionStatus will map it to 'unknown'
     useCanvasStore.setState({
       ceeAnalysisReady: {
         status: 'ready',
@@ -563,7 +563,7 @@ describe('golden fixture — contract validation integration', () => {
           {
             id: 'opt_keep_price',
             label: 'Keep Price',
-            status: 'banana' as any,  // unrecognised → normaliseOptionStatus → 'incomplete'
+            status: 'banana' as any,  // unrecognised → normaliseOptionStatus → 'unknown'
             interventions: {
               fac_subscription_price: { value: 0.49, source: 'cee_resolved' },
             },
@@ -580,9 +580,9 @@ describe('golden fixture — contract validation integration', () => {
       store.ceeAnalysisReady,
     )
 
-    // Should have an OPTIONS_INCOMPLETE blocker, not OPTIONS_NEED_MAPPING
-    const incompleteBlocker = validation.blockers.find((b) => b.code === 'OPTIONS_INCOMPLETE')
-    expect(incompleteBlocker).toBeDefined()
+    // Should have an OPTIONS_UNKNOWN_STATUS blocker, not OPTIONS_NEED_MAPPING
+    const unknownBlocker = validation.blockers.find((b) => b.code === 'OPTIONS_UNKNOWN_STATUS')
+    expect(unknownBlocker).toBeDefined()
     expect(validation.canRun).toBe(false)
   })
 })

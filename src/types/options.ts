@@ -29,7 +29,7 @@ export interface UIOption {
    * - 'ready': Option has valid interventions and can be analysed
    * - 'needs_user_mapping': Option needs user input to resolve interventions
    */
-  status: 'ready' | 'needs_user_mapping' | 'needs_encoding' | 'incomplete'
+  status: 'ready' | 'needs_user_mapping' | 'needs_encoding' | 'unknown'
 
   /**
    * What this option does causally.
