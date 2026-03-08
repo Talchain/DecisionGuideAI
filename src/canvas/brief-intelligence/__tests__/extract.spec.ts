@@ -210,4 +210,46 @@ describe('extractLocalBIL', () => {
     // CEE expected: status_quo_option missing
     expect(result.missing_elements).toContain('status_quo_option')
   })
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // 13. Debounce contract — rapid calls produce consistent results
+  //
+  // extractLocalBIL is a pure function. The 500ms debounce is the caller's
+  // responsibility (ChatComposer uses useDebounce). This test verifies that
+  // repeated rapid calls with the same text produce identical output —
+  // confirming the function is safe to debounce (idempotent, no side effects).
+  // ─────────────────────────────────────────────────────────────────────────
+  it('is idempotent: rapid successive calls with the same text produce identical results', () => {
+    const brief = 'I want to achieve 30% growth. Option A: expand. Option B: focus. We must not exceed $1M budget.'
+
+    // Simulate rapid successive calls (as if debounce hasn't fired yet)
+    const results = Array.from({ length: 5 }, () => extractLocalBIL(brief))
+
+    // All calls should produce the same completeness band
+    const bands = results.map(r => r.completeness_band)
+    expect(new Set(bands).size).toBe(1) // all identical
+
+    // goal detection must be stable
+    const goalDetected = results.map(r => r.goal !== null)
+    expect(new Set(goalDetected).size).toBe(1)
+
+    // options count must be stable
+    const optCounts = results.map(r => r.options.length)
+    expect(new Set(optCounts).size).toBe(1)
+  })
+
+  it('produces different results when text changes — debounce fires on stabilised value', () => {
+    // Initial partial brief
+    const partial = 'I want to improve sales.'
+    const r1 = extractLocalBIL(partial)
+    expect(r1.completeness_band).toBe('low') // no options yet
+
+    // Final stable brief after typing stops
+    const stable = 'I want to improve sales. Option A: expand. Option B: focus. We must not exceed $500K.'
+    const r2 = extractLocalBIL(stable)
+    expect(r2.completeness_band).not.toBe('low') // medium or high
+
+    // The two extractions differ — which is why we debounce to the final value
+    expect(r1.options.length).not.toBe(r2.options.length)
+  })
 })
