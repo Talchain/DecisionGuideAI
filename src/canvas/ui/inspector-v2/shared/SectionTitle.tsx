@@ -7,7 +7,7 @@ import type { LucideIcon } from 'lucide-react'
 import {
   Target, BarChart3, GitBranch, Layers, FileText, Zap, Gauge,
   FileSearch, Sliders, Activity, ShieldQuestion, Maximize2,
-  AlertTriangle,
+  AlertTriangle, Beaker,
 } from 'lucide-react'
 import { typography } from '../../../../styles/typography'
 
@@ -15,7 +15,7 @@ import { typography } from '../../../../styles/typography'
 const ICON_MAP: Record<string, LucideIcon> = {
   Target, BarChart3, GitBranch, Layers, FileText, Zap, Gauge,
   FileSearch, Sliders, Activity, ShieldQuestion, Maximize2,
-  AlertTriangle,
+  AlertTriangle, Beaker,
 }
 
 interface SectionTitleProps {

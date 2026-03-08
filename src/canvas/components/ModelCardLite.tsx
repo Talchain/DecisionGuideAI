@@ -11,6 +11,7 @@
 import { memo, useState, useCallback, useMemo } from 'react'
 import { Copy, Check, ChevronDown, ChevronRight, Info } from 'lucide-react'
 import { typography } from '../../styles/typography'
+import Tooltip from '../../components/Tooltip'
 import type { ModelCardData, RepairDisplay } from '../adapters/modelCardAdapter'
 import { formatNodeCounts } from '../adapters/modelCardAdapter'
 import { trackEvent } from '../../lib/posthog'
@@ -142,12 +143,11 @@ export const ModelCardLite = memo(function ModelCardLite({ data }: ModelCardLite
         <dt className={`${typography.panelMeta} text-text-light`}>Linearity</dt>
         <dd className={`${typography.panelMeta} inline-flex items-center gap-1`}>
           Linear (PoC)
-          <span
-            className="cursor-help"
-            title="The PoC uses linear causal models. Non-linear mechanisms are planned."
-          >
-            <Info className="w-3 h-3 text-text-light" aria-hidden="true" />
-          </span>
+          <Tooltip content="The PoC uses linear causal models. Non-linear mechanisms are planned.">
+            <span className="cursor-help" tabIndex={0} aria-label="Linearity information">
+              <Info className="w-3 h-3 text-text-light" aria-hidden="true" />
+            </span>
+          </Tooltip>
         </dd>
 
         {/* Adjustments */}

@@ -343,7 +343,8 @@ export const EdgePanel = memo(function EdgePanel({
 
 const MAX_CLAIMS_VISIBLE = 3
 
-function CausalClaimsSection({ edgeData }: { edgeData: Record<string, unknown> }) {
+/** @internal Exported for testing only */
+export function CausalClaimsSection({ edgeData }: { edgeData: Record<string, unknown> }) {
   const claims = useMemo(() => extractCausalClaims(edgeData), [edgeData])
   const [expanded, setExpanded] = useState(false)
 
