@@ -45,8 +45,6 @@ import type { Blueprint } from '../templates/blueprints/types'
 import { blueprintToGraph } from '../templates/mapper/blueprintToGraph'
 import { InfluenceExplainer, useInfluenceExplainer } from '../components/assistants/InfluenceExplainer'
 import { DraftChat } from './components/DraftChat'
-// N5: Code-split heavy panels with named chunks
-const InspectorPanel = lazy(() => import(/* webpackChunkName: "inspector-panel" */ './panels/InspectorPanel').then(m => ({ default: m.InspectorPanel })))
 import { useResultsRun } from './hooks/useResultsRun'
 import { HighlightLayer } from './highlight/HighlightLayer'
 import { registerFocusHelpers, unregisterFocusHelpers } from './utils/focusHelpers'
@@ -266,7 +264,6 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
   const nodes = useCanvasStore(s => s.nodes)
   const edges = useCanvasStore(s => s.edges)
   const showResultsPanel = useCanvasStore(s => s.showResultsPanel)
-  const showInspectorPanel = useCanvasStore(s => s.showInspectorPanel)
   const graphHealth = useCanvasStore(s => s.graphHealth)
   const showIssuesPanel = useCanvasStore(s => s.showIssuesPanel)
   // needleMovers selector removed - consolidated into DriversSignal
@@ -393,8 +390,6 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
   const createNodeId = useCanvasStore(s => s.createNodeId)
   const createEdgeId = useCanvasStore(s => s.createEdgeId)
   const setShowResultsPanel = useCanvasStore(s => s.setShowResultsPanel)
-  const setShowInspectorPanel = useCanvasStore(s => s.setShowInspectorPanel)
-
   // State declarations
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null)
   const [contextMenuTarget, setContextMenuTarget] = useState<ContextTarget | null>(null)
@@ -466,11 +461,6 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
     // Cmd/Ctrl+3: ensure Results are visible in the Outputs dock.
     setShowResultsPanel(true)
   }, [setShowResultsPanel])
-
-  const handleToggleInspector = useCallback(() => {
-    const next = !useCanvasStore.getState().showInspectorPanel
-    setShowInspectorPanel(next)
-  }, [setShowInspectorPanel])
 
   // P0-8: Auto-connect state
   const [connectPrompt, setConnectPrompt] = useState<{
@@ -1047,7 +1037,6 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
     onFocusNode: handleFocusNode,
     onRunSimulation: handleRunSimulation,
     onToggleResults: handleToggleResults,
-    onToggleInspector: handleToggleInspector,
     onToggleDocuments: showDocuments,
     onShowToast: showToast,
     onOpenContextMenu: handleKeyboardContextMenu,
@@ -1359,7 +1348,6 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
       graphHealthRef: graphHealth,
       // Store values (UI state)
       showResultsPanel,
-      showInspectorPanel,
       showIssuesPanel,
       showDocumentsDrawer,
       showProvenanceHub,
@@ -2065,12 +2053,10 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
         <CommandPalette
           isOpen={showCommandPalette}
           onClose={() => setShowCommandPalette(false)}
-          onOpenInspector={() => { /* InspectorPanel removed — no-op */ }}
         />
       )}
       {degradedBannerEnabled && <DegradedBanner />}
       <KeyboardLegend isOpen={isKeyboardLegendOpen} onClose={closeKeyboardLegend} />
-      {/* InspectorPanel (right-side edge dock) removed — all inspection via floating InspectorModal */}
       {showIssuesPanel && graphHealth && (
         <Suspense fallback={<div className="fixed inset-0 flex items-center justify-center bg-black/20"><div className="text-sm text-white">Loading...</div></div>}>
           <IssuesPanel

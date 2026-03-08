@@ -25,7 +25,7 @@ import { FactorExternalPanel } from './panels/FactorExternalPanel'
 import { OutcomePanel } from './panels/OutcomePanel'
 import { RiskPanel } from './panels/RiskPanel'
 
-// Entity colour map for the 3px top bar
+// Entity colour map — used as fallback for inspector header entity colour
 const TOP_BAR_COLORS: Record<string, string> = {
   goal:       'var(--color-goal,    #F5C433)',
   decision:   'var(--color-info,    #63ADCF)',
@@ -108,7 +108,6 @@ export const InspectorRouter = memo(function InspectorRouter({
   const edges = useCanvasStore(s => s.edges)
   const { techMode, setTechMode } = useTechToggle()
   const nodeMutations = useNodeMutations(nodeId ?? '')
-
 
   const panelType = useMemo(
     () => resolvePanelType(nodeId, edgeId, nodes as { id: string; type?: string; data?: Record<string, unknown> }[]),
