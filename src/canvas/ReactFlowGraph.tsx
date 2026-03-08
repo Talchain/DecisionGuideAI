@@ -26,10 +26,6 @@ import { LeftSidebar } from '../components/layout/LeftSidebar'
 import { RightPanel } from '../components/layout/RightPanel'
 import { AlignmentGuides } from './components/AlignmentGuides'
 import { InspectorModal } from './components/InspectorModal'
-import { InspectorRouter } from './ui/inspector-v2'
-
-/** Feature flag: when true, uses the new right-docked per-type inspector panels */
-const USE_INSPECTOR_V2 = true
 import { CommandPalette } from './components/CommandPalette'
 import { ReconnectBanner } from './components/ReconnectBanner'
 import { KeyboardLegend, useKeyboardLegend } from './help/KeyboardLegend'
@@ -2049,34 +2045,13 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
           <InfluenceExplainer forceShow={isInfluenceExplainerForced} onDismiss={hideInfluenceExplainer} compact />
         </div>
       )}
-      {/* S.1: Inspector — v2 renders as fixed right dock, v1 as floating modal */}
-      {showFullInspector && !USE_INSPECTOR_V2 && (
+      {/* S.1: Compact popover removed — single-click now opens full inspector directly */}
+      {showFullInspector && (
         <InspectorModal
           nodeId={selectedNodeId}
           edgeId={selectedEdgeId}
           onClose={() => setShowFullInspector(false)}
         />
-      )}
-      {showFullInspector && USE_INSPECTOR_V2 && (selectedNodeId || selectedEdgeId) && (
-        <aside
-          className="flex flex-col pointer-events-auto"
-          style={{
-            position: 'fixed',
-            width: 340,
-            right: 12,
-            top: 12,
-            bottom: 'calc(var(--bottombar-h, 48px) + 1rem)',
-            zIndex: 950,
-            overflow: 'hidden',
-          }}
-          aria-label={selectedNodeId ? 'Node inspector' : 'Edge inspector'}
-        >
-          <InspectorRouter
-            nodeId={selectedNodeId}
-            edgeId={selectedEdgeId}
-            onClose={() => setShowFullInspector(false)}
-          />
-        </aside>
       )}
       {/* SettingsPanel moved to TopBar dropdown menu */}
       {/* ValidationChip removed - consolidated into OutputsDock */}
@@ -2090,16 +2065,12 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
         <CommandPalette
           isOpen={showCommandPalette}
           onClose={() => setShowCommandPalette(false)}
-          onOpenInspector={() => setShowInspectorPanel(true)}
+          onOpenInspector={() => { /* InspectorPanel removed — no-op */ }}
         />
       )}
       {degradedBannerEnabled && <DegradedBanner />}
       <KeyboardLegend isOpen={isKeyboardLegendOpen} onClose={closeKeyboardLegend} />
-      {showInspectorPanel && (
-        <Suspense fallback={<div className="fixed inset-0 flex items-center justify-center bg-black/20"><div className="text-sm text-white">Loading...</div></div>}>
-          <InspectorPanel isOpen={showInspectorPanel} onClose={() => setShowInspectorPanel(false)} />
-        </Suspense>
-      )}
+      {/* InspectorPanel (right-side edge dock) removed — all inspection via floating InspectorModal */}
       {showIssuesPanel && graphHealth && (
         <Suspense fallback={<div className="fixed inset-0 flex items-center justify-center bg-black/20"><div className="text-sm text-white">Loading...</div></div>}>
           <IssuesPanel

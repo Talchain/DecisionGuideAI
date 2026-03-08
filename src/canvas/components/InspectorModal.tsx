@@ -10,6 +10,10 @@ import { useViewport } from '@xyflow/react'
 import { useCanvasStore } from '../store'
 import { NodeInspector } from '../ui/NodeInspector'
 import { EdgeInspector } from '../ui/EdgeInspector'
+import { InspectorRouter } from '../ui/inspector-v2'
+
+/** Feature flag: when true, uses the new per-type inspector panels */
+const USE_INSPECTOR_V2 = true
 
 interface InspectorModalProps {
   nodeId: string | null
@@ -102,7 +106,7 @@ export const InspectorModal = memo(({ nodeId, edgeId, onClose }: InspectorModalP
     return () => document.removeEventListener('keydown', handleEscape)
   }, [onClose])
 
-  // Drag handlers
+  // Drag handlers — passed to InspectorShell header in v2 mode
   const handleDragStart = useCallback((event: React.PointerEvent) => {
     event.preventDefault()
     event.stopPropagation()
@@ -144,6 +148,40 @@ export const InspectorModal = memo(({ nodeId, edgeId, onClose }: InspectorModalP
   // Calculate initial position from anchor while waiting for measured position
   const screenAnchor = anchorPosition ? canvasToScreen(anchorPosition) : { x: 200, y: 200 }
 
+  const dragHandlers = {
+    onPointerDown: handleDragStart,
+    onPointerMove: handleDragMove,
+    onPointerUp: handleDragEnd,
+    onPointerCancel: handleDragEnd,
+    isDragging,
+  }
+
+  if (USE_INSPECTOR_V2) {
+    return (
+      <div
+        ref={panelRef}
+        className="fixed z-[5000]"
+        style={{
+          left: position?.x ?? screenAnchor.x + 24,
+          top: position?.y ?? screenAnchor.y,
+          opacity: position ? 1 : 0,
+          transition: isDragging ? 'none' : 'opacity 150ms ease-out',
+        }}
+        role="dialog"
+        aria-modal="false"
+        aria-label={nodeId ? 'Node inspector' : 'Edge inspector'}
+      >
+        <InspectorRouter
+          nodeId={nodeId}
+          edgeId={edgeId}
+          onClose={onClose}
+          dragHandlers={dragHandlers}
+        />
+      </div>
+    )
+  }
+
+  // Legacy v1 path
   return (
     <div
       ref={panelRef}
@@ -158,7 +196,6 @@ export const InspectorModal = memo(({ nodeId, edgeId, onClose }: InspectorModalP
       aria-modal="false"
       aria-labelledby="inspector-panel-title"
     >
-      {/* Draggable Header */}
       <div
         className={`sticky top-0 bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between rounded-t-xl select-none ${
           isDragging ? 'cursor-grabbing' : 'cursor-grab'
@@ -183,7 +220,6 @@ export const InspectorModal = memo(({ nodeId, edgeId, onClose }: InspectorModalP
         </button>
       </div>
 
-      {/* Scrollable Content */}
       <div className="overflow-y-auto max-h-[calc(80vh-52px)]">
         {nodeId && (
           <NodeInspector

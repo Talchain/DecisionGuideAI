@@ -13,6 +13,7 @@
  * Undo: each write is an independent history entry via pushToHistory()
  */
 
+import type React from 'react'
 import type { ReactNode } from 'react'
 import type { Node, Edge } from '@xyflow/react'
 import type { NodeType, FactorCategory } from '../../domain/nodes'
@@ -29,6 +30,15 @@ export interface InspectorPanelProps {
   onClose: () => void
   /** Navigate selection to a different node/edge */
   onNavigate: (id: string) => void
+}
+
+// ─── Drag handlers (from InspectorModal) ──────────────────────────
+export interface DragHandlers {
+  onPointerDown: (e: React.PointerEvent) => void
+  onPointerMove: (e: React.PointerEvent) => void
+  onPointerUp: (e: React.PointerEvent) => void
+  onPointerCancel: (e: React.PointerEvent) => void
+  isDragging: boolean
 }
 
 // ─── Shell props ───────────────────────────────────────────────────
@@ -51,6 +61,8 @@ export interface InspectorShellProps {
   onTechToggleChange: (v: boolean) => void
   /** Close inspector */
   onClose: () => void
+  /** Drag handlers from InspectorModal — makes the header draggable */
+  dragHandlers?: DragHandlers
   children: ReactNode
 }
 

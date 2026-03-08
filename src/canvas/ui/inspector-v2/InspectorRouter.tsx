@@ -3,7 +3,7 @@
  * inside an InspectorShell.
  */
 
-import { memo, useMemo, useCallback, useEffect } from 'react'
+import { memo, useMemo, useCallback } from 'react'
 import { useCanvasStore } from '../../store'
 import type { NodeType, FactorCategory } from '../../domain/nodes'
 import { InspectorShell } from './InspectorShell'
@@ -50,6 +50,7 @@ interface InspectorRouterProps {
   nodeId: string | null
   edgeId: string | null
   onClose: () => void
+  dragHandlers?: import('./types').DragHandlers
 }
 
 type PanelType =
@@ -101,20 +102,13 @@ export const InspectorRouter = memo(function InspectorRouter({
   nodeId,
   edgeId,
   onClose,
+  dragHandlers,
 }: InspectorRouterProps) {
   const nodes = useCanvasStore(s => s.nodes)
   const edges = useCanvasStore(s => s.edges)
   const { techMode, setTechMode } = useTechToggle()
   const nodeMutations = useNodeMutations(nodeId ?? '')
 
-  // Global Escape-to-close (works regardless of focus)
-  useEffect(() => {
-    const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
-    }
-    document.addEventListener('keydown', handleEscape)
-    return () => document.removeEventListener('keydown', handleEscape)
-  }, [onClose])
 
   const panelType = useMemo(
     () => resolvePanelType(nodeId, edgeId, nodes as { id: string; type?: string; data?: Record<string, unknown> }[]),
@@ -166,6 +160,7 @@ export const InspectorRouter = memo(function InspectorRouter({
         techMode={techMode}
         onTechToggleChange={setTechMode}
         onClose={onClose}
+        dragHandlers={dragHandlers}
       >
         <EdgePanel
           edgeId={edgeId}
@@ -240,6 +235,7 @@ export const InspectorRouter = memo(function InspectorRouter({
       techMode={techMode}
       onTechToggleChange={setTechMode}
       onClose={onClose}
+      dragHandlers={dragHandlers}
     >
       {/* Full raw label in disclosure only when truncated */}
       {rawLabel !== label && (
