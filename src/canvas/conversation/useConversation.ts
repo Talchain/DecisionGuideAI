@@ -14,7 +14,7 @@ import { isOrchestratorV2Enabled, isThreadHydrateEnabled, isThreadPersistEnabled
 import { assembleAnalysisInputsSummary } from '../analysis/assembleAnalysisInputsSummary'
 import { useResultsStore } from '../stores/resultsStore'
 import { hydrateMessagesFromThread, formatSessionBoundary } from './utils/hydrateThread'
-import { appendThreadEntries } from '../../services/threadService'
+import { appendThreadEntries, createSnapshot } from '../../services/threadService'
 import type { ThreadEntry } from '../journey/threadTypes'
 import { useGuidanceStore } from '../stores/guidanceStore'
 import { serializeSystemEvent } from './systemEvents'
@@ -688,6 +688,27 @@ export function useConversation(): UseConversationReturn {
             } catch {
               // Non-fatal: summary assembly failed
             }
+
+            // BIL Phase 1: create immutable snapshot of graph + analysis state.
+            // One snapshot per analysis run, cached in resultsStore for linking turns.
+            void (async () => {
+              try {
+                const graphHash = generateGraphHash(store.nodes, store.edges)
+                const snapshotId = await createSnapshot({
+                  scenarioId: store.currentScenarioId ?? '',
+                  graph: { nodes: store.nodes, edges: store.edges },
+                  graphHash,
+                  analysis: result,
+                  seed: store.results.seed,
+                  qualityMode: result.meta?.detail_level,
+                })
+                if (snapshotId) {
+                  useResultsStore.getState().setLastSnapshotId(snapshotId)
+                }
+              } catch {
+                // Non-fatal: snapshot creation is best-effort
+              }
+            })()
           } catch (err) {
             // Non-fatal: envelope analysis wiring failed — log and continue
             // The conversation message will still be shown.

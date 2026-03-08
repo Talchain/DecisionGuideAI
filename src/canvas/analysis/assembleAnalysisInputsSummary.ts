@@ -164,11 +164,13 @@ function buildConstraintsStatus(
 
   const ca = firstWithConstraints.constraint_analysis
   const constraints = Array.isArray(ca.constraints) ? ca.constraints : []
-  return constraints.slice(0, max).map(c => ({
-    label: c.label ?? 'unknown',
-    satisfied: c.prob_satisfied >= 0.5,
-    ...(c.prob_satisfied != null ? { probability: c.prob_satisfied } : {}),
-  }))
+  return constraints.slice(0, max)
+    .filter(c => c.label != null && c.label !== '')
+    .map(c => ({
+      label: c.label,
+      satisfied: c.prob_satisfied >= 0.5,
+      ...(c.prob_satisfied != null ? { probability: c.prob_satisfied } : {}),
+    }))
 }
 
 function enforceByteLimit(result: AnalysisInputsSummary): AnalysisInputsSummary | null {

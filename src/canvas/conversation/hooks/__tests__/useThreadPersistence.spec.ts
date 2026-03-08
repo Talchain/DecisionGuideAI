@@ -21,9 +21,18 @@ vi.mock('../../../../flags', () => ({
 // Mock thread service
 const mockAppendThreadEntries = vi.fn()
 const mockUpdateThreadBlockState = vi.fn()
+const mockInsertConversationTurn = vi.fn().mockResolvedValue(null)
 vi.mock('../../../../services/threadService', () => ({
   appendThreadEntries: (...args: unknown[]) => mockAppendThreadEntries(...args),
   updateThreadBlockState: (...args: unknown[]) => mockUpdateThreadBlockState(...args),
+  insertConversationTurn: (...args: unknown[]) => mockInsertConversationTurn(...args),
+}))
+
+// Mock results store (used by normalised persistence path)
+vi.mock('../../../stores/resultsStore', () => ({
+  useResultsStore: {
+    getState: () => ({ results: { lastSnapshotId: null } }),
+  },
 }))
 
 // Mock getUserId
@@ -309,5 +318,75 @@ describe('useThreadPersistence', () => {
     expect(chipEntry).toBeDefined()
     expect(chipEntry?.actor_user_id).toBe('user-abc-123')
     expect(chipEntry?.role).toBe('user')
+  })
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Normalised persistence (always-on, not gated by threadPersist flag)
+  // ─────────────────────────────────────────────────────────────────────────
+
+  it('fires insertConversationTurn for user messages regardless of threadPersist flag', async () => {
+    vi.mocked(isThreadPersistEnabled).mockReturnValue(false)
+
+    const msg = makeUserMessage('Hello', { clientTurnId: 'turn-1' })
+    const { rerender } = renderHook(
+      ({ msgs }) => useThreadPersistence('scenario-1', msgs),
+      { initialProps: { msgs: [] as ConversationMessage[] } },
+    )
+
+    rerender({ msgs: [msg] })
+    await act(async () => { await vi.advanceTimersByTimeAsync(0) })
+
+    // Legacy path should NOT be called
+    expect(mockAppendThreadEntries).not.toHaveBeenCalled()
+    // Normalised path should fire
+    expect(mockInsertConversationTurn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        scenarioId: 'scenario-1',
+        role: 'user',
+        content: 'Hello',
+        clientTurnId: 'turn-1',
+      }),
+    )
+  })
+
+  it('fires insertConversationTurn for assistant messages with blocks', async () => {
+    const msg = makeAssistantMessage('Analysis complete', {
+      clientTurnId: 'turn-2',
+      blocks: [{
+        type: 'commentary',
+        text: 'Here is the analysis',
+      }],
+    })
+
+    const { rerender } = renderHook(
+      ({ msgs }) => useThreadPersistence('scenario-1', msgs),
+      { initialProps: { msgs: [] as ConversationMessage[] } },
+    )
+
+    rerender({ msgs: [msg] })
+    await act(async () => { await vi.advanceTimersByTimeAsync(0) })
+
+    expect(mockInsertConversationTurn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        scenarioId: 'scenario-1',
+        role: 'assistant',
+        content: 'Analysis complete',
+        structuredBlocks: msg.blocks,
+        clientTurnId: 'turn-2',
+      }),
+    )
+  })
+
+  it('does not fire insertConversationTurn for synthetic messages', async () => {
+    const msg = makeUserMessage('Welcome', { synthetic: true })
+    const { rerender } = renderHook(
+      ({ msgs }) => useThreadPersistence('scenario-1', msgs),
+      { initialProps: { msgs: [] as ConversationMessage[] } },
+    )
+
+    rerender({ msgs: [msg] })
+    await act(async () => { await vi.advanceTimersByTimeAsync(0) })
+
+    expect(mockInsertConversationTurn).not.toHaveBeenCalled()
   })
 })

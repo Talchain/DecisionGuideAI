@@ -1,9 +1,11 @@
 /**
  * Thread Persistence Service -- Track 2 of 3
  *
- * Wraps the append_thread_entries and update_thread_block_state RPCs.
+ * Wraps the append_thread_entries and update_thread_block_state RPCs
+ * plus BIL Phase 1 normalised persistence (create_snapshot, insert_conversation_turn).
  * Best-effort: logs errors and returns null/void, never throws.
- * All calls are gated by the threadPersist feature flag.
+ * Legacy thread calls are gated by the threadPersist feature flag.
+ * Normalised persistence (snapshots, turns) is always-on.
  */
 
 import { supabase } from '../lib/supabase'
@@ -13,6 +15,7 @@ import type {
   ThreadEntryInput,
   BlockState,
 } from '../canvas/journey/threadTypes'
+import type { ConversationBlock } from '../canvas/conversation/types'
 
 // ---------------------------------------------------------------------------
 // append_thread_entries
@@ -80,5 +83,90 @@ export async function updateThreadBlockState(
     }
   } catch (err) {
     console.warn('[ThreadService] update_thread_block_state exception:', err)
+  }
+}
+
+// ---------------------------------------------------------------------------
+// BIL Phase 1: Normalised persistence (always-on, not flag-gated)
+// ---------------------------------------------------------------------------
+
+/**
+ * Create an immutable snapshot of graph + analysis state.
+ * Returns the snapshot UUID, or null on failure.
+ * Best-effort: never throws.
+ */
+export async function createSnapshot(params: {
+  scenarioId: string
+  graph: unknown
+  graphHash: string
+  analysis?: unknown
+  briefText?: string
+  briefHash?: string
+  seed?: number
+  qualityMode?: string
+}): Promise<string | null> {
+  if (!params.scenarioId) return null
+
+  try {
+    const { data, error } = await supabase.rpc('create_snapshot', {
+      p_scenario_id: params.scenarioId,
+      p_graph: params.graph as Record<string, unknown>,
+      p_graph_hash: params.graphHash,
+      p_analysis: (params.analysis as Record<string, unknown>) ?? null,
+      p_brief_text: params.briefText ?? null,
+      p_brief_hash: params.briefHash ?? null,
+      p_seed: params.seed ?? null,
+      p_quality_mode: params.qualityMode ?? null,
+    })
+
+    if (error) {
+      console.warn('[ThreadService] create_snapshot failed:', error.message)
+      return null
+    }
+
+    return (data as string) ?? null
+  } catch (err) {
+    console.warn('[ThreadService] create_snapshot exception:', err)
+    return null
+  }
+}
+
+/**
+ * Insert a single conversation turn into the normalised table.
+ * Uses client_turn_id for idempotency (ON CONFLICT DO NOTHING).
+ * Returns the turn UUID (null if deduplicated or on failure).
+ * Best-effort: never throws.
+ */
+export async function insertConversationTurn(params: {
+  scenarioId: string
+  role: 'user' | 'assistant' | 'system'
+  content?: string
+  structuredBlocks?: ConversationBlock[]
+  snapshotId?: string
+  analysisSnapshotId?: string
+  clientTurnId?: string
+}): Promise<string | null> {
+  if (!params.scenarioId) return null
+
+  try {
+    const { data, error } = await supabase.rpc('insert_conversation_turn', {
+      p_scenario_id: params.scenarioId,
+      p_role: params.role,
+      p_content: params.content ?? null,
+      p_structured_blocks: (params.structuredBlocks as unknown as Record<string, unknown>) ?? null,
+      p_snapshot_id: params.snapshotId ?? null,
+      p_analysis_snapshot_id: params.analysisSnapshotId ?? null,
+      p_client_turn_id: params.clientTurnId ?? null,
+    })
+
+    if (error) {
+      console.warn('[ThreadService] insert_conversation_turn failed:', error.message)
+      return null
+    }
+
+    return (data as string) ?? null
+  } catch (err) {
+    console.warn('[ThreadService] insert_conversation_turn exception:', err)
+    return null
   }
 }

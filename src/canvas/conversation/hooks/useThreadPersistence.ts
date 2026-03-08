@@ -12,7 +12,8 @@
 import { useRef, useEffect, useCallback } from 'react'
 import { isThreadPersistEnabled } from '../../../flags'
 import { getUserId } from '../../../lib/supabase'
-import { appendThreadEntries, updateThreadBlockState } from '../../../services/threadService'
+import { appendThreadEntries, updateThreadBlockState, insertConversationTurn } from '../../../services/threadService'
+import { useResultsStore } from '../../stores/resultsStore'
 import type {
   ThreadEntryInput,
   PersistedBlock,
@@ -137,7 +138,7 @@ export function useThreadPersistence(
 
   // Observe new messages via count diff
   useEffect(() => {
-    if (!isThreadPersistEnabled() || !scenarioId) return
+    if (!scenarioId) return
     if (messages.length <= prevMessageCountRef.current) {
       prevMessageCountRef.current = messages.length
       return
@@ -149,6 +150,7 @@ export function useThreadPersistence(
     // Process new messages async (need user ID)
     void (async () => {
       const userId = await resolveUserId()
+      const legacyEnabled = isThreadPersistEnabled()
 
       for (const msg of newMessages) {
         // Skip synthetic messages (welcome, error, undo confirmations)
@@ -167,35 +169,63 @@ export function useThreadPersistence(
         messageToEntryIdRef.current.set(msg.id, entryId)
 
         if (msg.role === 'user') {
-          enqueue({
-            entry_id: entryId,
-            entry_schema_version: 1,
+          // Legacy thread path (flag-gated)
+          if (legacyEnabled) {
+            enqueue({
+              entry_id: entryId,
+              entry_schema_version: 1,
+              role: 'user',
+              origin: 'conversation',
+              actor_user_id: userId,
+              entry_status: 'complete',
+              user_message: msg.content,
+              turn_id: msg.clientTurnId,
+              redaction_state: 'full',
+            })
+          }
+
+          // Normalised turn (always-on, best-effort, fire-and-forget)
+          void insertConversationTurn({
+            scenarioId,
             role: 'user',
-            origin: 'conversation',
-            actor_user_id: userId,
-            entry_status: 'complete',
-            user_message: msg.content,
-            turn_id: msg.clientTurnId,
-            redaction_state: 'full',
+            content: msg.content,
+            clientTurnId: msg.clientTurnId,
+            snapshotId: useResultsStore.getState().results.lastSnapshotId ?? undefined,
           })
         } else if (msg.role === 'assistant') {
-          const blocks = msg.blocks?.map(toPersistedBlock)
-          const suggestedActions = msg.actionChips?.map(toSuggestedAction)
+          // Legacy thread path (flag-gated)
+          if (legacyEnabled) {
+            const blocks = msg.blocks?.map(toPersistedBlock)
+            const suggestedActions = msg.actionChips?.map(toSuggestedAction)
 
-          enqueue({
-            entry_id: entryId,
-            entry_schema_version: 1,
+            enqueue({
+              entry_id: entryId,
+              entry_schema_version: 1,
+              role: 'assistant',
+              origin: 'conversation',
+              entry_status: 'complete',
+              assistant_text: msg.content || undefined,
+              blocks: blocks && blocks.length > 0 ? blocks : undefined,
+              suggested_actions:
+                suggestedActions && suggestedActions.length > 0
+                  ? suggestedActions
+                  : undefined,
+              turn_id: msg.clientTurnId,
+              redaction_state: 'full',
+            })
+          }
+
+          // Normalised turn (always-on, best-effort)
+          // Link analysis_snapshot_id when the most recent analysis produced a snapshot
+          const resultsState = useResultsStore.getState().results
+          void insertConversationTurn({
+            scenarioId,
             role: 'assistant',
-            origin: 'conversation',
-            entry_status: 'complete',
-            assistant_text: msg.content || undefined,
-            blocks: blocks && blocks.length > 0 ? blocks : undefined,
-            suggested_actions:
-              suggestedActions && suggestedActions.length > 0
-                ? suggestedActions
-                : undefined,
-            turn_id: msg.clientTurnId,
-            redaction_state: 'full',
+            content: msg.content || undefined,
+            structuredBlocks: msg.blocks,
+            clientTurnId: msg.clientTurnId,
+            snapshotId: resultsState.lastSnapshotId ?? undefined,
+            analysisSnapshotId: resultsState.lastSnapshotId ?? undefined,
           })
         }
       }

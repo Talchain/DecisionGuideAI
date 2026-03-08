@@ -22,7 +22,7 @@ vi.mock('../../lib/supabase', () => ({
   },
 }))
 
-import { appendThreadEntries, updateThreadBlockState } from '../threadService'
+import { appendThreadEntries, updateThreadBlockState, createSnapshot, insertConversationTurn } from '../threadService'
 import { isThreadPersistEnabled } from '../../flags'
 import type { ThreadEntryInput } from '../../canvas/journey/threadTypes'
 
@@ -167,6 +167,197 @@ describe('threadService', () => {
       await updateThreadBlockState('', 'entry-1', 'block-1', 'accepted')
 
       expect(mockRpc).not.toHaveBeenCalled()
+    })
+  })
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // BIL Phase 1: Normalised persistence (always-on, not flag-gated)
+  // ─────────────────────────────────────────────────────────────────────────
+
+  describe('createSnapshot', () => {
+    it('calls create_snapshot RPC with correct params and returns snapshot ID', async () => {
+      mockRpc.mockResolvedValue({ data: 'snap-uuid-1', error: null })
+
+      const result = await createSnapshot({
+        scenarioId: 'scenario-1',
+        graph: { nodes: [], edges: [] },
+        graphHash: 'hash-abc',
+        analysis: { status: 'computed' },
+        seed: 42,
+        qualityMode: 'deep',
+      })
+
+      expect(result).toBe('snap-uuid-1')
+      expect(mockRpc).toHaveBeenCalledWith('create_snapshot', {
+        p_scenario_id: 'scenario-1',
+        p_graph: { nodes: [], edges: [] },
+        p_graph_hash: 'hash-abc',
+        p_analysis: { status: 'computed' },
+        p_brief_text: null,
+        p_brief_hash: null,
+        p_seed: 42,
+        p_quality_mode: 'deep',
+      })
+    })
+
+    it('returns null on RPC error (no throw)', async () => {
+      mockRpc.mockResolvedValue({ data: null, error: { message: 'ownership check failed' } })
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+      const result = await createSnapshot({
+        scenarioId: 'scenario-1',
+        graph: { nodes: [] },
+        graphHash: 'hash',
+      })
+
+      expect(result).toBeNull()
+      expect(warnSpy).toHaveBeenCalledWith(
+        '[ThreadService] create_snapshot failed:',
+        'ownership check failed',
+      )
+      warnSpy.mockRestore()
+    })
+
+    it('returns null on exception (no throw)', async () => {
+      mockRpc.mockRejectedValue(new Error('Network'))
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+      const result = await createSnapshot({
+        scenarioId: 'scenario-1',
+        graph: {},
+        graphHash: 'hash',
+      })
+
+      expect(result).toBeNull()
+      expect(warnSpy).toHaveBeenCalled()
+      warnSpy.mockRestore()
+    })
+
+    it('returns null for empty scenarioId', async () => {
+      const result = await createSnapshot({
+        scenarioId: '',
+        graph: {},
+        graphHash: 'hash',
+      })
+
+      expect(result).toBeNull()
+      expect(mockRpc).not.toHaveBeenCalled()
+    })
+
+    it('is not gated by threadPersist flag', async () => {
+      vi.mocked(isThreadPersistEnabled).mockReturnValue(false)
+      mockRpc.mockResolvedValue({ data: 'snap-uuid-2', error: null })
+
+      const result = await createSnapshot({
+        scenarioId: 'scenario-1',
+        graph: {},
+        graphHash: 'hash',
+      })
+
+      expect(result).toBe('snap-uuid-2')
+      expect(mockRpc).toHaveBeenCalled()
+    })
+  })
+
+  describe('insertConversationTurn', () => {
+    it('calls insert_conversation_turn RPC with correct params and returns turn ID', async () => {
+      mockRpc.mockResolvedValue({ data: 'turn-uuid-1', error: null })
+
+      const result = await insertConversationTurn({
+        scenarioId: 'scenario-1',
+        role: 'user',
+        content: 'Hello',
+        clientTurnId: 'client-1',
+        snapshotId: 'snap-1',
+      })
+
+      expect(result).toBe('turn-uuid-1')
+      expect(mockRpc).toHaveBeenCalledWith('insert_conversation_turn', {
+        p_scenario_id: 'scenario-1',
+        p_role: 'user',
+        p_content: 'Hello',
+        p_structured_blocks: null,
+        p_snapshot_id: 'snap-1',
+        p_analysis_snapshot_id: null,
+        p_client_turn_id: 'client-1',
+      })
+    })
+
+    it('returns null on idempotent duplicate (no throw)', async () => {
+      // ON CONFLICT DO NOTHING → RETURNING yields null
+      mockRpc.mockResolvedValue({ data: null, error: null })
+
+      const result = await insertConversationTurn({
+        scenarioId: 'scenario-1',
+        role: 'user',
+        content: 'Hello',
+        clientTurnId: 'client-1',
+      })
+
+      expect(result).toBeNull()
+    })
+
+    it('returns null on RPC error (no throw)', async () => {
+      mockRpc.mockResolvedValue({ data: null, error: { message: 'forbidden' } })
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+      const result = await insertConversationTurn({
+        scenarioId: 'scenario-1',
+        role: 'assistant',
+        content: 'Response',
+      })
+
+      expect(result).toBeNull()
+      expect(warnSpy).toHaveBeenCalledWith(
+        '[ThreadService] insert_conversation_turn failed:',
+        'forbidden',
+      )
+      warnSpy.mockRestore()
+    })
+
+    it('returns null for empty scenarioId', async () => {
+      const result = await insertConversationTurn({
+        scenarioId: '',
+        role: 'user',
+      })
+
+      expect(result).toBeNull()
+      expect(mockRpc).not.toHaveBeenCalled()
+    })
+
+    it('is not gated by threadPersist flag', async () => {
+      vi.mocked(isThreadPersistEnabled).mockReturnValue(false)
+      mockRpc.mockResolvedValue({ data: 'turn-uuid-3', error: null })
+
+      const result = await insertConversationTurn({
+        scenarioId: 'scenario-1',
+        role: 'assistant',
+        content: 'Hi',
+      })
+
+      expect(result).toBe('turn-uuid-3')
+      expect(mockRpc).toHaveBeenCalled()
+    })
+
+    it('passes structured blocks for assistant turns', async () => {
+      mockRpc.mockResolvedValue({ data: 'turn-uuid-4', error: null })
+
+      const blocks = [
+        { type: 'commentary' as const, text: 'Analysis complete' },
+      ]
+
+      await insertConversationTurn({
+        scenarioId: 'scenario-1',
+        role: 'assistant',
+        content: 'Done',
+        structuredBlocks: blocks,
+        analysisSnapshotId: 'snap-analysis-1',
+      })
+
+      expect(mockRpc).toHaveBeenCalledWith('insert_conversation_turn', expect.objectContaining({
+        p_structured_blocks: blocks,
+        p_analysis_snapshot_id: 'snap-analysis-1',
+      }))
     })
   })
 })

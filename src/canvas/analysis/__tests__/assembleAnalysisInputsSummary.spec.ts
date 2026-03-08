@@ -187,4 +187,32 @@ describe('assembleAnalysisInputsSummary', () => {
     expect(result!.top_drivers).toEqual([])
     expect(result!.sensitivity_concentration).toBe(0)
   })
+
+  it('filters out constraints with missing or empty labels instead of fabricating', () => {
+    const response = makeValidResponse({
+      option_comparison: [
+        {
+          option_id: 'opt_a',
+          option_label: 'Option A',
+          confidence_interval: [0.3, 0.7] as [number, number],
+          win_probability: 0.65,
+          expected_outcome: 1.2,
+          constraint_analysis: {
+            constraints: [
+              { label: 'Budget limit', prob_satisfied: 0.8 },
+              { label: null as unknown as string, prob_satisfied: 0.5 },
+              { label: '', prob_satisfied: 0.9 },
+              { label: 'Timeline', prob_satisfied: 0.7 },
+            ],
+          },
+        },
+      ],
+    })
+
+    const result = assembleAnalysisInputsSummary(response)
+    expect(result).not.toBeNull()
+    // Should only include constraints with valid labels
+    expect(result!.constraints_status).toHaveLength(2)
+    expect(result!.constraints_status.map(c => c.label)).toEqual(['Budget limit', 'Timeline'])
+  })
 })
