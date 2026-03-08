@@ -235,15 +235,13 @@ function normaliseAnalysisReady(raw: unknown): CEEAnalysisReady | undefined {
   const obj = raw as Record<string, unknown>
   if (!Array.isArray(obj.options) || typeof obj.goal_node_id !== 'string') return undefined
 
+  // Map option_id → id but preserve ALL options (including malformed ones)
+  // so validateAnalysisReadyContract can enforce all-or-nothing rejection.
   const options = obj.options
     .map((opt: any) => ({
       ...opt,
-      // CEE may send option_id instead of id — normalise to id
       id: opt.id ?? opt.option_id,
     }))
-    .filter((opt: any) => typeof opt.id === 'string' && opt.id.length > 0)
-
-  if (options.length === 0) return undefined
 
   const mapped = { ...obj, options } as CEEAnalysisReady
 

@@ -1,30 +1,76 @@
 /**
  * Contract tests for CEE analysis_ready boundary validation.
  *
- * These tests verify that validateAnalysisReadyContract correctly accepts
- * valid CEE payloads and rejects malformed ones. The canonical fixture
- * (analysis-ready.fixture.json) represents the CEE contract; any shape
- * change requires simultaneous updates to:
- * 1. CEE schema version bump
- * 2. Fixture regeneration
- * 3. This test + validator update
+ * The canonical fixture (analysis-ready.fixture.json) is a single valid
+ * CEE payload representing the contract shape. Malformed variants are
+ * built inline to keep the canonical artifact clean for cross-service
+ * governance (CEE regenerates one fixture on schema changes).
+ *
+ * Tests verify:
+ * 1. validateAnalysisReadyContract accepts/rejects correctly
+ * 2. The full pipeline (adaptCEEBlock → normaliseAnalysisReady → validator) works end-to-end
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { validateAnalysisReadyContract } from '../../canvas/conversation/validateAnalysisReadyContract'
-import fixture from '../analysis-ready.fixture.json'
+import { adaptCEEBlock } from '../../canvas/conversation/useConversation'
+import type { GraphPatchBlock } from '../../canvas/conversation/types'
+import canonicalFixture from '../analysis-ready.fixture.json'
 
 beforeEach(() => {
   vi.restoreAllMocks()
 })
 
+// ---------------------------------------------------------------------------
+// Test data builders — malformed variants for negative tests
+// ---------------------------------------------------------------------------
+
+function makeValidPayload(overrides?: Record<string, unknown>) {
+  return {
+    status: 'ready',
+    goal_node_id: 'goal_1',
+    options: [
+      {
+        id: 'opt_a',
+        label: 'Option A',
+        status: 'ready',
+        interventions: { f1: { value: 1, source: 'brief_extraction' } },
+      },
+    ],
+    ...overrides,
+  }
+}
+
+function makeOption(overrides?: Record<string, unknown>) {
+  return {
+    id: 'opt_a',
+    label: 'Option A',
+    status: 'ready',
+    interventions: { f1: { value: 1, source: 'brief_extraction' } },
+    ...overrides,
+  }
+}
+
+/** Wrap an analysis_ready payload in a CEE block for adaptCEEBlock */
+function wrapInBlock(analysisReady: unknown) {
+  return {
+    block_type: 'graph_patch',
+    block_id: 'test-block',
+    data: {
+      operations: [],
+      auto_apply: true,
+      analysis_ready: analysisReady,
+    },
+  }
+}
+
 describe('analysisReadyContract', () => {
   // =========================================================================
-  // § 1: Shape validation — valid fixture passes
+  // § 1: Shape validation — canonical fixture passes
   // =========================================================================
 
-  it('accepts the canonical valid fixture', () => {
-    const result = validateAnalysisReadyContract(fixture.valid)
+  it('accepts the canonical fixture', () => {
+    const result = validateAnalysisReadyContract(canonicalFixture)
     expect(result).toBeDefined()
     expect(result!.status).toBe('ready')
     expect(result!.goal_node_id).toBe('goal_hiring_success')
@@ -34,7 +80,7 @@ describe('analysisReadyContract', () => {
   })
 
   it('preserves intervention values through validation', () => {
-    const result = validateAnalysisReadyContract(fixture.valid)
+    const result = validateAnalysisReadyContract(canonicalFixture)
     expect(result).toBeDefined()
     const seniorInterventions = result!.options[0].interventions
     expect(seniorInterventions.factor_experience.value).toBe(0.9)
@@ -58,7 +104,7 @@ describe('analysisReadyContract', () => {
 
   it('rejects empty goal_node_id', () => {
     const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
-    const result = validateAnalysisReadyContract(fixture.missing_goal_node_id)
+    const result = validateAnalysisReadyContract(makeValidPayload({ goal_node_id: '' }))
     expect(result).toBeUndefined()
     expect(spy).toHaveBeenCalledWith(
       '[validateAnalysisReadyContract] CEE payload rejected',
@@ -68,14 +114,15 @@ describe('analysisReadyContract', () => {
 
   it('rejects missing status (not "ready")', () => {
     const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
-    const result = validateAnalysisReadyContract(fixture.missing_status)
+    const { status: _, ...noStatus } = makeValidPayload()
+    const result = validateAnalysisReadyContract(noStatus)
     expect(result).toBeUndefined()
     expect(spy).toHaveBeenCalled()
   })
 
   it('rejects empty options array', () => {
     const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
-    const result = validateAnalysisReadyContract(fixture.empty_options)
+    const result = validateAnalysisReadyContract(makeValidPayload({ options: [] }))
     expect(result).toBeUndefined()
     expect(spy).toHaveBeenCalled()
   })
@@ -86,7 +133,8 @@ describe('analysisReadyContract', () => {
 
   it('rejects when any option is missing id', () => {
     const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
-    const result = validateAnalysisReadyContract(fixture.option_missing_id)
+    const { id: _, ...noId } = makeOption()
+    const result = validateAnalysisReadyContract(makeValidPayload({ options: [noId] }))
     expect(result).toBeUndefined()
     expect(spy).toHaveBeenCalledWith(
       '[validateAnalysisReadyContract] CEE payload rejected',
@@ -99,82 +147,100 @@ describe('analysisReadyContract', () => {
 
   it('rejects when any option is missing status', () => {
     const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
-    const result = validateAnalysisReadyContract(fixture.option_missing_status)
+    const { status: _, ...noStatus } = makeOption()
+    const result = validateAnalysisReadyContract(makeValidPayload({ options: [noStatus] }))
     expect(result).toBeUndefined()
     expect(spy).toHaveBeenCalled()
   })
 
   it('rejects when any option has empty interventions', () => {
     const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
-    const result = validateAnalysisReadyContract(fixture.option_empty_interventions)
+    const result = validateAnalysisReadyContract(
+      makeValidPayload({ options: [makeOption({ interventions: {} })] })
+    )
     expect(result).toBeUndefined()
     expect(spy).toHaveBeenCalled()
   })
 
   it('rejects entire payload when one option of many is malformed (all-or-nothing)', () => {
     const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
-    const result = validateAnalysisReadyContract(fixture.partial_malformation)
+    const result = validateAnalysisReadyContract(
+      makeValidPayload({
+        options: [
+          makeOption({ id: 'opt_good' }),
+          makeOption({ id: 'opt_bad', interventions: {} }),
+        ],
+      })
+    )
     expect(result).toBeUndefined()
-    // The good option (index 0) should still cause full rejection because the bad one (index 1) fails
     expect(spy).toHaveBeenCalledWith(
       '[validateAnalysisReadyContract] CEE payload rejected',
-      expect.objectContaining({
-        failing_option_indices: [1],
-      })
+      expect.objectContaining({ failing_option_indices: [1] })
     )
   })
 
   // =========================================================================
-  // § 4: Field mapping — option_id → id handled upstream
+  // § 4: Field mapping — option_id → id via adaptCEEBlock production path
   // =========================================================================
 
-  it('rejects option_id field (mapping happens in normaliseAnalysisReady, not here)', () => {
-    // validateAnalysisReadyContract runs AFTER normaliseAnalysisReady maps option_id → id.
-    // If option_id slips through unmapped, the validator should reject it.
-    const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
-    const result = validateAnalysisReadyContract(fixture.option_id_via_option_id_field)
-    expect(result).toBeUndefined()
-    expect(spy).toHaveBeenCalled()
+  it('option_id → id mapping works through adaptCEEBlock production path', () => {
+    const payload = makeValidPayload({
+      options: [
+        {
+          option_id: 'opt_mapped',
+          label: 'Mapped option',
+          status: 'ready',
+          interventions: { f1: { value: 1, source: 'brief_extraction' } },
+        },
+      ],
+    })
+    // Remove id field — only option_id present
+    delete (payload.options[0] as any).id
+
+    const adapted = adaptCEEBlock(wrapInBlock(payload)) as GraphPatchBlock
+    expect(adapted.analysis_ready).toBeDefined()
+    expect(adapted.analysis_ready!.options[0].id).toBe('opt_mapped')
+  })
+
+  it('rejects option with neither id nor option_id through adaptCEEBlock', () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    const payload = makeValidPayload({
+      options: [
+        {
+          label: 'No ID at all',
+          status: 'ready',
+          interventions: { f1: { value: 1, source: 'brief_extraction' } },
+        },
+      ],
+    })
+
+    const adapted = adaptCEEBlock(wrapInBlock(payload)) as GraphPatchBlock
+    // Should be rejected because option has no id after mapping
+    expect(adapted.analysis_ready).toBeUndefined()
+  })
+
+  it('rejects entire payload when one option lacks id (all-or-nothing via adaptCEEBlock)', () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    const payload = makeValidPayload({
+      options: [
+        makeOption({ id: 'opt_good' }),
+        { label: 'No ID option', status: 'ready', interventions: { f1: { value: 1, source: 'brief_extraction' } } },
+      ],
+    })
+
+    const adapted = adaptCEEBlock(wrapInBlock(payload)) as GraphPatchBlock
+    // All-or-nothing: even the good option is rejected
+    expect(adapted.analysis_ready).toBeUndefined()
   })
 
   // =========================================================================
-  // § 5: Full pipeline — normaliseAnalysisReady + validateAnalysisReadyContract
+  // § 5: adaptCEEBlock passes valid canonical fixture through
   // =========================================================================
 
-  it('option_id → id mapping works when normaliseAnalysisReady is called first', async () => {
-    // Dynamically import to avoid circular dependency issues in test
-    const { normaliseAnalysisReady } = await getNormaliseAnalysisReady()
-    const result = normaliseAnalysisReady(fixture.option_id_via_option_id_field)
-    // After normalisation, the id should be mapped from option_id
-    // But the fixture has no 'id' field — normaliseAnalysisReady maps option_id → id
-    // Then validateAnalysisReadyContract runs and should accept it
-    expect(result).toBeDefined()
-    expect(result!.options[0].id).toBe('opt_mapped')
+  it('canonical fixture passes through adaptCEEBlock end-to-end', () => {
+    const adapted = adaptCEEBlock(wrapInBlock(canonicalFixture)) as GraphPatchBlock
+    expect(adapted.analysis_ready).toBeDefined()
+    expect(adapted.analysis_ready!.goal_node_id).toBe('goal_hiring_success')
+    expect(adapted.analysis_ready!.options).toHaveLength(2)
   })
 })
-
-/**
- * Helper to access the module-scoped normaliseAnalysisReady function.
- * It's not exported, so we re-implement the logic here for the pipeline test.
- */
-async function getNormaliseAnalysisReady() {
-  // Re-implement normaliseAnalysisReady inline since it's not exported from useConversation
-  const normaliseAnalysisReady = (raw: unknown) => {
-    if (raw == null || typeof raw !== 'object') return undefined
-    const obj = raw as Record<string, unknown>
-    if (!Array.isArray(obj.options) || typeof obj.goal_node_id !== 'string') return undefined
-
-    const options = (obj.options as any[])
-      .map((opt: any) => ({
-        ...opt,
-        id: opt.id ?? opt.option_id,
-      }))
-      .filter((opt: any) => typeof opt.id === 'string' && opt.id.length > 0)
-
-    if (options.length === 0) return undefined
-
-    const mapped = { ...obj, options }
-    return validateAnalysisReadyContract(mapped)
-  }
-  return { normaliseAnalysisReady }
-}
