@@ -80,7 +80,7 @@ function ActionButton({ icon, label, onClick, disabled, variant, tooltip }: Acti
         className={`
           flex items-center justify-center gap-2 px-4 py-2.5 rounded-md ${typography.body} font-medium
           transition-all duration-200
-          ${isPrimary ? 'flex-1 bg-info hover:opacity-90 text-white border-none' : 'flex-none bg-info-light hover:opacity-80 text-info border border-info/30'}
+          ${isPrimary ? 'flex-1 bg-info hover:opacity-90 text-text-on-color border-none' : 'flex-none bg-panel hover:opacity-80 text-info border border-info/30'}
           ${disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer hover:-translate-y-0.5 hover:shadow-md'}
         `}
       >

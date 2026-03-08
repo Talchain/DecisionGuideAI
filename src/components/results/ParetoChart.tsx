@@ -261,14 +261,14 @@ export function ParetoChart({
             key={optId}
             type="button"
             onClick={() => handleOptionClick(optId)}
-            className="w-full text-left p-3 rounded-lg bg-success-light border border-success/30 hover:opacity-90 transition-colors"
+            className="w-full text-left p-3 rounded-lg bg-panel border border-success/30 hover:opacity-90 transition-colors"
           >
             <div className="flex items-center gap-2">
               <Award className="w-4 h-4 text-success" />
               <span className={`${typography.panelHeader} text-success`}>
                 {opt.label}
               </span>
-              <span className={`${typography.panelBody} ml-auto px-2 py-0.5 rounded-full bg-success-light text-text-body`}>
+              <span className={`${typography.panelBody} ml-auto px-2 py-0.5 rounded-full bg-panel text-text-body`}>
                 Frontier
               </span>
             </div>

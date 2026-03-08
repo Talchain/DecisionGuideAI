@@ -116,13 +116,13 @@ export function SnapshotPanel({ enabled = false, onCompare }: SnapshotPanelProps
           <button
             onClick={handleSave}
             disabled={saving || !snapshotName.trim()}
-            className="px-3 py-1 text-sm font-medium bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-3 py-1 text-sm font-medium bg-primary text-text-on-color rounded hover:bg-primary-hover disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {saving ? 'Saving...' : 'Save'}
           </button>
         </div>
         {isAtMaxCapacity() && (
-          <p className="text-xs text-amber-600 mt-1">
+          <p className="text-xs text-warning mt-1">
             At max capacity. Oldest snapshot will be rotated out.
           </p>
         )}
@@ -151,7 +151,7 @@ export function SnapshotPanel({ enabled = false, onCompare }: SnapshotPanelProps
                 {onCompare && (
                   <button
                     onClick={() => onCompare(snapshot.meta.id)}
-                    className="px-2 py-1 text-xs font-medium bg-blue-50 text-blue-700 rounded hover:bg-blue-100"
+                    className="px-2 py-1 text-xs font-medium bg-panel text-info rounded hover:bg-panel-hover"
                     title="Compare with current canvas (press D to toggle)"
                   >
                     Compare
@@ -159,14 +159,14 @@ export function SnapshotPanel({ enabled = false, onCompare }: SnapshotPanelProps
                 )}
                 <button
                   onClick={() => handleRestore(snapshot.meta.id)}
-                  className="px-2 py-1 text-xs font-medium bg-green-50 text-green-700 rounded hover:bg-green-100"
+                  className="px-2 py-1 text-xs font-medium bg-panel text-success rounded hover:bg-panel"
                   title="Restore this snapshot"
                 >
                   Restore
                 </button>
                 <button
                   onClick={() => handleDelete(snapshot.meta.id)}
-                  className="px-2 py-1 text-xs font-medium bg-red-50 text-red-700 rounded hover:bg-red-100"
+                  className="px-2 py-1 text-xs font-medium bg-panel text-danger rounded hover:bg-panel-hover"
                   title="Delete this snapshot"
                 >
                   Delete

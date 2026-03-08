@@ -183,7 +183,7 @@ interface GateDemotionProps {
  *   gate="robustness"
  *   demotedClassName="opacity-50"
  *   demotedWrapper={(children) => (
- *     <div className="border-dashed border-amber-500">{children}</div>
+ *     <div className="border-dashed border-warning">{children}</div>
  *   )}
  * >
  *   <ConfidenceBadge />

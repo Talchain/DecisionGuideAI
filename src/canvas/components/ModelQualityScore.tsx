@@ -53,25 +53,25 @@ function getScoreColor(score: number): {
   // Use paper-50 background for all states - semantic colors only for text/icons
   if (score >= 0.8) {
     return {
-      text: 'text-green-700',
+      text: 'text-success',
       bg: 'bg-paper-50',
       border: 'border-sand-200',
-      progress: 'bg-green-500',
+      progress: 'bg-success',
     }
   }
   if (score >= 0.6) {
     return {
-      text: 'text-amber-700',
+      text: 'text-warning',
       bg: 'bg-paper-50',
       border: 'border-sand-200',
-      progress: 'bg-amber-500',
+      progress: 'bg-warning',
     }
   }
   return {
-    text: 'text-red-700',
+    text: 'text-danger',
     bg: 'bg-paper-50',
     border: 'border-sand-200',
-    progress: 'bg-red-500',
+    progress: 'bg-danger',
   }
 }
 
@@ -216,7 +216,7 @@ export function ModelQualityScore({
             {/* Issues badge */}
             {issues_count > 0 && (
               <span
-                className={`${typography.caption} px-1.5 py-0.5 rounded bg-red-100 text-red-700`}
+                className={`${typography.caption} px-1.5 py-0.5 rounded bg-panel text-danger`}
                 data-testid="issues-count"
               >
                 {issues_count} issue{issues_count !== 1 ? 's' : ''}
@@ -262,7 +262,7 @@ export function ModelQualityScore({
               <div className={`flex items-center justify-between py-0.5 pl-4 ${typography.caption} text-ink-900/60`}>
                 <span>{localEvidenceCounts.evidenced}/{localEvidenceCounts.total} edges documented</span>
                 {localEvidencePercent !== null && Math.abs(localEvidencePercent - evidence_coverage) > 0.05 && (
-                  <span className="text-amber-600" title="Local count differs from engine assessment">
+                  <span className="text-warning" title="Local count differs from engine assessment">
                     (local: {formatPercent(localEvidencePercent)})
                   </span>
                 )}
@@ -283,7 +283,7 @@ export function ModelQualityScore({
             >
               <div className="flex items-start gap-2">
                 <Lightbulb
-                  className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5"
+                  className="w-4 h-4 text-warning flex-shrink-0 mt-0.5"
                   aria-hidden="true"
                 />
                 <span className={`${typography.bodySmall} text-ink-900/80`}>
@@ -343,7 +343,7 @@ export function ModelQualityScoreCompact({
         </span>
         {issues_count > 0 && (
           <span
-            className={`${typography.caption} px-1 py-0.5 rounded bg-red-200/50 text-red-700`}
+            className={`${typography.caption} px-1 py-0.5 rounded bg-panel/50 text-danger`}
           >
             {issues_count}
           </span>

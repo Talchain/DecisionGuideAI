@@ -154,6 +154,15 @@ export function useThreadPersistence(
         // Skip synthetic messages (welcome, error, undo confirmations)
         if (msg.synthetic) continue
 
+        // Track 3: Skip hydrated messages (already persisted).
+        // Pre-populate idempotency set and messageToEntryId map so
+        // block actions on hydrated messages still work correctly.
+        if (msg._threadMeta?.entryId) {
+          persistedIdsRef.current.add(msg._threadMeta.entryId)
+          messageToEntryIdRef.current.set(msg.id, msg._threadMeta.entryId)
+          continue
+        }
+
         const entryId = crypto.randomUUID()
         messageToEntryIdRef.current.set(msg.id, entryId)
 

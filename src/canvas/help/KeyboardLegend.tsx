@@ -197,14 +197,14 @@ export function KeyboardLegend({ isOpen, onClose }: KeyboardLegendProps) {
       >
         <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
           <div>
-            <p className="text-xs font-medium uppercase tracking-wide text-blue-600">Shortcuts</p>
+            <p className="text-xs font-medium uppercase tracking-wide text-info">Shortcuts</p>
             <h2 id="keyboard-legend-title" className="text-xl font-semibold text-gray-900">
               Keyboard legend
             </h2>
           </div>
           <button
             onClick={onClose}
-            className="p-2 rounded-md text-gray-500 hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 transition-colors"
+            className="p-2 rounded-md text-gray-500 hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info transition-colors"
             aria-label="Close keyboard legend"
             title="Close (Esc)"
           >
@@ -252,7 +252,7 @@ export function KeyboardLegend({ isOpen, onClose }: KeyboardLegendProps) {
           </span>
           <button
             onClick={onClose}
-            className="text-blue-600 hover:text-blue-800 font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded"
+            className="text-info hover:text-info font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info rounded"
           >
             Got it
           </button>

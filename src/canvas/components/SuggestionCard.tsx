@@ -82,14 +82,14 @@ export function SuggestionCard<T>({
       >
         <div className="flex items-start gap-3">
           <Sparkles
-            className="w-5 h-5 text-violet-500 flex-shrink-0 mt-0.5"
+            className="w-5 h-5 text-option flex-shrink-0 mt-0.5"
             aria-hidden="true"
           />
           <div className="flex-1 space-y-3">
             {/* AI badge */}
             <div className="flex items-center gap-2">
               <span
-                className={`${typography.caption} px-2 py-0.5 rounded-full bg-violet-100 text-violet-700 font-medium`}
+                className={`${typography.caption} px-2 py-0.5 rounded-full bg-panel text-text-body font-medium`}
               >
                 AI suggested
               </span>
@@ -131,7 +131,7 @@ export function SuggestionCard<T>({
     >
       <div className="flex items-start gap-3">
         <Sparkles
-          className="w-5 h-5 text-violet-500 flex-shrink-0 mt-0.5"
+          className="w-5 h-5 text-option flex-shrink-0 mt-0.5"
           aria-hidden="true"
         />
         <div className="flex-1 space-y-3">
@@ -139,7 +139,7 @@ export function SuggestionCard<T>({
           <div className="flex items-center justify-between flex-wrap gap-2">
             <div className="flex items-center gap-2">
               <span
-                className={`${typography.caption} px-2 py-0.5 rounded-full bg-violet-100 text-violet-700 font-medium`}
+                className={`${typography.caption} px-2 py-0.5 rounded-full bg-panel text-text-body font-medium`}
               >
                 AI suggested
               </span>

@@ -394,7 +394,7 @@ export function ScenarioSwitcher() {
               <button
                 onClick={handleSaveDialogSubmit}
                 disabled={!inputValue.trim()}
-                className="flex-1 px-4 py-2 text-white bg-info-600 hover:bg-info-700 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="flex-1 px-4 py-2 text-text-on-color bg-info-600 hover:bg-info-700 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 type="button"
               >
                 Save
@@ -438,7 +438,7 @@ export function ScenarioSwitcher() {
               <button
                 onClick={handleRenameDialogSubmit}
                 disabled={!inputValue.trim()}
-                className="flex-1 px-4 py-2 text-white bg-info-600 hover:bg-info-700 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="flex-1 px-4 py-2 text-text-on-color bg-info-600 hover:bg-info-700 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 type="button"
               >
                 Rename

@@ -175,7 +175,7 @@ describe('InspectorPanel', () => {
       fireEvent.change(provenanceTextarea, { target: { value: longText } })
 
       const counter = screen.getByText('95/100')
-      expect(counter).toHaveClass('text-amber-600')
+      expect(counter).toHaveClass('text-warning')
     })
   })
 

@@ -66,13 +66,13 @@ export function RangeChips({
 
     return (
       <div
-        className="flex items-center gap-2 px-3 py-2.5 rounded-lg bg-green-50 border border-green-200"
+        className="flex items-center gap-2 px-3 py-2.5 rounded-lg bg-panel border border-success/30"
         role="status"
         aria-label="High certainty outcome"
         data-testid="range-high-certainty"
       >
-        <CheckCircle2 className="w-4 h-4 text-green-600" aria-hidden="true" />
-        <span className={`${typography.bodySmall} text-green-700`}>
+        <CheckCircle2 className="w-4 h-4 text-success" aria-hidden="true" />
+        <span className={`${typography.bodySmall} text-success`}>
           High certainty — outcome tightly clustered around <strong>{formattedValue}</strong>
         </span>
       </div>
@@ -126,9 +126,9 @@ function RangeChip({ label, technicalLabel, value, variant, units, unitSymbol }:
   const formattedValue = value === null ? '—' : formatValue(value, units, unitSymbol)
 
   const variantClasses = {
-    conservative: 'bg-warning-light border-warning/30 text-warning',
-    likely: 'bg-info-light border-info/30 text-info',
-    optimistic: 'bg-success-light border-success/30 text-success'
+    conservative: 'bg-panel border-warning/30 text-warning',
+    likely: 'bg-panel border-info/30 text-info',
+    optimistic: 'bg-panel border-success/30 text-success'
   }
 
   return (

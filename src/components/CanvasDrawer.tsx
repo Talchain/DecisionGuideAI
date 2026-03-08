@@ -241,7 +241,7 @@ export default function CanvasDrawer({ open, onClose, onReady, inline, seed, mod
           <button type="button" className="text-xs px-2 py-1 rounded border border-gray-300" data-testid="canvas-clear-btn" onClick={onClear}>Clear</button>
           <input ref={fileRef} type="file" accept="application/json" className="hidden" onChange={onImportFile} />
           {exportTextFlag && exported && (
-            <div data-testid="canvas-export-text-toast" aria-hidden="true" className="text-xs text-emerald-700">Downloaded</div>
+            <div data-testid="canvas-export-text-toast" aria-hidden="true" className="text-xs text-success">Downloaded</div>
           )}
         </div>
       </div>

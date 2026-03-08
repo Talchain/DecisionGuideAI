@@ -109,7 +109,7 @@ function OptionRangeBar({
   const barWidth = p90Pct - p10Pct
 
   const barColor = isWinner ? 'bg-success' : 'bg-option'
-  const markerColor = isWinner ? 'bg-success-light' : 'bg-option-light'
+  const markerColor = isWinner ? 'bg-panel' : 'bg-panel'
 
   // C10: Per-option probability text with fallback
   const probabilityText = (() => {

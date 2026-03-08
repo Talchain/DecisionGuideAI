@@ -262,7 +262,7 @@ export const EdgeInspector = memo(({ edgeId, onClose }: EdgeInspectorProps) => {
 
           {/* S.3: Fragile edge warning pill (post-analysis) */}
           {isFragileEdge && (
-            <span className={`inline-flex items-center mt-2 px-2 py-0.5 rounded-full ${typography.panelMeta} bg-danger-light text-danger`}>
+            <span className={`inline-flex items-center mt-2 px-2 py-0.5 rounded-full ${typography.panelMeta} bg-panel text-text-body`}>
               Fragile
             </span>
           )}
@@ -276,7 +276,7 @@ export const EdgeInspector = memo(({ edgeId, onClose }: EdgeInspectorProps) => {
 
           {/* D.3: Coaching card — rank #1 + fragile + low confidence */}
           {isResultsMode && shouldShowInfluenceCoaching(sensitivityRank, isFragileEdge, edgeConfidence) && (
-            <div className="mt-2 p-2 rounded bg-warning-light border border-warning/30">
+            <div className="mt-2 p-2 rounded bg-panel border border-warning/30">
               <p className={`${typography.panelMeta} text-warning`}>
                 This is your model's most influential path, and it's fragile. Strengthening confidence here would improve result reliability.
               </p>
@@ -290,7 +290,7 @@ export const EdgeInspector = memo(({ edgeId, onClose }: EdgeInspectorProps) => {
               onClick={() => toggleConfirmedNode(edgeId)}
               className={`w-7 h-7 flex items-center justify-center rounded transition-colors ${
                 isConfirmed
-                  ? 'bg-success-light text-success'
+                  ? 'bg-panel text-success'
                   : 'bg-transparent text-text-light hover:bg-panel-hover'
               }`}
               aria-label={isConfirmed ? 'Unmark as reviewed' : 'Mark as reviewed'}
@@ -320,7 +320,7 @@ export const EdgeInspector = memo(({ edgeId, onClose }: EdgeInspectorProps) => {
       {/* Weight Suggestion Banner */}
       {weightSuggestion && !suggestionAlreadyApplied && (
         <div
-          className="p-3 rounded-lg bg-info-light border border-info/30"
+          className="p-3 rounded-lg bg-panel border border-info/30"
           role="region"
           aria-label="AI weight suggestion"
           data-testid="weight-suggestion-banner"
@@ -334,8 +334,8 @@ export const EdgeInspector = memo(({ edgeId, onClose }: EdgeInspectorProps) => {
                 </span>
                 <span className={`
                   ${typography.panelMeta} px-1.5 py-0.5 rounded
-                  ${weightSuggestion.confidence === 'high' ? 'bg-success-light text-success' : ''}
-                  ${weightSuggestion.confidence === 'medium' ? 'bg-warning-light text-warning' : ''}
+                  ${weightSuggestion.confidence === 'high' ? 'bg-panel text-success' : ''}
+                  ${weightSuggestion.confidence === 'medium' ? 'bg-panel text-warning' : ''}
                   ${weightSuggestion.confidence === 'low' ? 'bg-panel text-text-light' : ''}
                 `}>
                   {weightSuggestion.confidence} confidence
@@ -346,7 +346,7 @@ export const EdgeInspector = memo(({ edgeId, onClose }: EdgeInspectorProps) => {
               </p>
               <button
                 onClick={handleApplySuggestion}
-                className={`inline-flex items-center gap-1.5 px-3 py-1.5 ${typography.panelBody} rounded bg-info text-white hover:opacity-90 transition-opacity`}
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 ${typography.panelBody} rounded bg-info text-text-on-color hover:opacity-90 transition-opacity`}
                 data-testid="btn-apply-weight-suggestion"
               >
                 <Check className="w-3 h-3" aria-hidden="true" />
@@ -451,8 +451,8 @@ export const EdgeInspector = memo(({ edgeId, onClose }: EdgeInspectorProps) => {
           <div className="flex items-center gap-2">
             <span className={`
               inline-flex items-center px-2 py-1 rounded ${typography.panelBody}
-              ${provenance === 'template' ? 'bg-info-light text-info border border-info/30' : ''}
-              ${provenance === 'user' ? 'bg-danger-light text-danger border border-danger/30' : ''}
+              ${provenance === 'template' ? 'bg-panel text-info border border-info/30' : ''}
+              ${provenance === 'user' ? 'bg-panel text-danger border border-danger/30' : ''}
               ${provenance === 'inferred' || provenance === 'ai-suggested' ? 'bg-panel text-text-body border border-panel-border' : ''}
               ${!['template', 'user', 'inferred', 'ai-suggested'].includes(provenance) ? 'bg-panel text-text-body border border-panel-border' : ''}
             `}>
@@ -531,7 +531,7 @@ export const EdgeInspector = memo(({ edgeId, onClose }: EdgeInspectorProps) => {
       <div>
         <button
           onClick={handleDelete}
-          className={`w-full px-3 py-2 ${typography.panelHeader} text-white rounded bg-danger hover:opacity-90 transition-opacity`}
+          className={`w-full px-3 py-2 ${typography.panelHeader} text-text-on-color rounded bg-danger hover:opacity-90 transition-opacity`}
           data-testid="btn-edge-delete"
         >
           Delete connector

@@ -89,15 +89,15 @@ const CONFIDENCE_CONFIG: Record<
 > = {
   high: {
     label: 'High Confidence',
-    className: 'text-green-700 bg-paper-50 border border-sand-200',
+    className: 'text-success bg-paper-50 border border-sand-200',
   },
   medium: {
     label: 'Medium Confidence',
-    className: 'text-amber-700 bg-paper-50 border border-sand-200',
+    className: 'text-warning bg-paper-50 border border-sand-200',
   },
   low: {
     label: 'Low Confidence',
-    className: 'text-red-700 bg-paper-50 border border-sand-200',
+    className: 'text-danger bg-paper-50 border border-sand-200',
   },
 }
 
@@ -139,15 +139,15 @@ export function DecisionReadinessBadge({
             {/* Ready/Not Ready indicator */}
             {ready ? (
               <CheckCircle2
-                className="w-5 h-5 text-green-600"
+                className="w-5 h-5 text-success"
                 aria-hidden="true"
               />
             ) : (
-              <XCircle className="w-5 h-5 text-red-600" aria-hidden="true" />
+              <XCircle className="w-5 h-5 text-danger" aria-hidden="true" />
             )}
             <span
               className={`${typography.label} ${
-                ready ? 'text-green-700' : 'text-red-700'
+                ready ? 'text-success' : 'text-danger'
               }`}
               role="status"
               aria-label={`Decision readiness: ${ready ? 'Ready' : 'Not Ready'}`}
@@ -208,8 +208,8 @@ export function DecisionReadinessBadge({
           {blockers.length > 0 && (
             <div className="pt-2">
               <div className="flex items-center gap-1.5 mb-1">
-                <XCircle className="w-3.5 h-3.5 text-red-600" aria-hidden="true" />
-                <span className={`${typography.labelSmall} text-red-700`}>
+                <XCircle className="w-3.5 h-3.5 text-danger" aria-hidden="true" />
+                <span className={`${typography.labelSmall} text-danger`}>
                   Blockers ({blockers.length})
                 </span>
               </div>
@@ -222,7 +222,7 @@ export function DecisionReadinessBadge({
                 {blockers.map((blocker, index) => (
                   <li
                     key={index}
-                    className={`${typography.bodySmall} text-red-700 list-disc`}
+                    className={`${typography.bodySmall} text-danger list-disc`}
                   >
                     {blocker}
                   </li>
@@ -236,10 +236,10 @@ export function DecisionReadinessBadge({
             <div className="pt-2">
               <div className="flex items-center gap-1.5 mb-1">
                 <AlertTriangle
-                  className="w-3.5 h-3.5 text-amber-600"
+                  className="w-3.5 h-3.5 text-warning"
                   aria-hidden="true"
                 />
-                <span className={`${typography.labelSmall} text-amber-700`}>
+                <span className={`${typography.labelSmall} text-warning`}>
                   Warnings ({warnings.length})
                 </span>
               </div>
@@ -252,7 +252,7 @@ export function DecisionReadinessBadge({
                 {warnings.map((warning, index) => (
                   <li
                     key={index}
-                    className={`${typography.bodySmall} text-amber-700 list-disc`}
+                    className={`${typography.bodySmall} text-warning list-disc`}
                   >
                     {warning}
                   </li>
@@ -266,10 +266,10 @@ export function DecisionReadinessBadge({
             <div className="pt-2">
               <div className="flex items-center gap-1.5 mb-1">
                 <CheckCircle2
-                  className="w-3.5 h-3.5 text-green-600"
+                  className="w-3.5 h-3.5 text-success"
                   aria-hidden="true"
                 />
-                <span className={`${typography.labelSmall} text-green-700`}>
+                <span className={`${typography.labelSmall} text-success`}>
                   Passed ({passed.length})
                 </span>
               </div>
@@ -282,7 +282,7 @@ export function DecisionReadinessBadge({
                 {passed.map((check, index) => (
                   <li
                     key={index}
-                    className={`${typography.bodySmall} text-green-700 list-disc`}
+                    className={`${typography.bodySmall} text-success list-disc`}
                   >
                     {check}
                   </li>
@@ -313,7 +313,7 @@ export function DecisionReadinessBadgeCompact({
     <Tooltip content={tooltipContent} position="bottom">
       <div
         className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-sand-200 bg-paper-50 ${
-          ready ? 'text-green-700' : 'text-red-700'
+          ready ? 'text-success' : 'text-danger'
         } ${className}`}
         role="status"
         aria-label={`Decision readiness: ${ready ? 'Ready' : 'Not Ready'}`}

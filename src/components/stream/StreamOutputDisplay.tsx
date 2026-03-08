@@ -116,7 +116,7 @@ function StreamOutputDisplay({
               aria-label={o.lang ? `Copy ${o.lang} code` : 'Copy code'}
               data-copied={copiedId === o.id ? 'true' : undefined}
               data-failed={failedId === o.id ? 'true' : undefined}
-              className="absolute text-[11px] px-2 py-0.5 rounded border bg-white shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="absolute text-[11px] px-2 py-0.5 rounded border bg-white shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-info"
               style={{ top: `${o.top}px`, left: `${o.left}px`, transform: 'translate(-100%, 0)' }}
               onClick={() => onCopyCode?.(o.id, o.code)}
             >
@@ -137,7 +137,7 @@ function StreamOutputDisplay({
       {typeof metrics?.cost === 'number' && (
         <div
           data-testid="cost-badge"
-          className="text-xs px-2 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 mt-2"
+          className="text-xs px-2 py-1 rounded-full bg-panel text-text-body border border-success/30 mt-2"
           title="Estimated in-flight cost. Final cost appears on 'Done'."
         >
           {formatUSD(metrics.cost)}

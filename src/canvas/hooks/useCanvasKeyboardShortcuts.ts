@@ -22,6 +22,8 @@ interface UseCanvasKeyboardShortcutsOptions {
   onToggleInspector?: () => void
   onToggleDocuments?: () => void
   onShowToast?: (message: string, type?: 'info' | 'success' | 'warning' | 'error') => void
+  /** Shift+F10: open context menu at the focused element's position */
+  onOpenContextMenu?: (screenPos: { x: number; y: number }) => void
 }
 
 export function useCanvasKeyboardShortcuts({
@@ -30,7 +32,8 @@ export function useCanvasKeyboardShortcuts({
   onToggleResults,
   onToggleInspector,
   onToggleDocuments,
-  onShowToast
+  onShowToast,
+  onOpenContextMenu,
 }: UseCanvasKeyboardShortcutsOptions = {}) {
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     // Ignore plain-key shortcuts when typing in text inputs/areas or editable content
@@ -169,7 +172,40 @@ export function useCanvasKeyboardShortcuts({
 
       return
     }
-  }, [onFocusNode, onRunSimulation, onToggleResults, onToggleInspector, onToggleDocuments, onShowToast])
+
+    // Shift+F10: Open context menu at selected element position
+    if (e.shiftKey && e.key === 'F10') {
+      e.preventDefault()
+
+      if (onOpenContextMenu) {
+        const state = useCanvasStore.getState()
+        const { selection } = state
+
+        // Find the DOM element for the selected node/edge to get screen position
+        let screenPos = { x: window.innerWidth / 2, y: window.innerHeight / 2 }
+
+        if (selection.nodeIds.size > 0) {
+          const nodeId = [...selection.nodeIds][0]
+          const el = document.querySelector(`[data-id="${nodeId}"]`)
+          if (el) {
+            const rect = el.getBoundingClientRect()
+            screenPos = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 }
+          }
+        } else if (selection.edgeIds.size > 0) {
+          const edgeId = [...selection.edgeIds][0]
+          const el = document.querySelector(`[data-testid="rf__edge-${edgeId}"]`)
+          if (el) {
+            const rect = el.getBoundingClientRect()
+            screenPos = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 }
+          }
+        }
+
+        onOpenContextMenu(screenPos)
+      }
+
+      return
+    }
+  }, [onFocusNode, onRunSimulation, onToggleResults, onToggleInspector, onToggleDocuments, onShowToast, onOpenContextMenu])
 
   useEffect(() => {
     window.addEventListener('keydown', handleKeyDown)

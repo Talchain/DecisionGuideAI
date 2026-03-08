@@ -167,7 +167,7 @@ export function CommandPalette({ enabled = false }: CommandPaletteProps) {
                           data-selected={isSelected}
                           className={`
                             w-full px-4 py-3 text-left transition-colors
-                            ${isSelected ? 'bg-blue-50 text-blue-900' : 'text-gray-900 hover:bg-gray-50'}
+                            ${isSelected ? 'bg-panel text-info' : 'text-gray-900 hover:bg-gray-50'}
                           `}
                           onClick={() => executeSelected()}
                           onMouseEnter={() => {

@@ -71,7 +71,7 @@ export function ProvenanceChip({ documents, redacted = true, onToggleRedaction }
       {/* Main chip */}
       <button
         onClick={() => setExpanded(!expanded)}
-        className="inline-flex items-center gap-1.5 px-2 py-1 bg-purple-50 text-purple-700 rounded-md text-xs font-medium hover:bg-purple-100 border border-purple-200"
+        className="inline-flex items-center gap-1.5 px-2 py-1 bg-panel text-option rounded-md text-xs font-medium hover:bg-panel border border-option/30"
         title={`Sources: ${displayDocuments.map((d) => d.name).join(', ')}`}
       >
         <FileText className="w-3 h-3" />
@@ -97,7 +97,7 @@ export function ProvenanceChip({ documents, redacted = true, onToggleRedaction }
 
           <div className="space-y-2">
             {displayDocuments.map((doc) => (
-              <div key={doc.id} className="border-l-2 border-purple-300 pl-2">
+              <div key={doc.id} className="border-l-2 border-option/30 pl-2">
                 <div className="font-medium text-xs text-gray-900">{doc.name}</div>
                 {doc.snippet && (
                   <div className="text-xs text-gray-600 mt-0.5 italic">

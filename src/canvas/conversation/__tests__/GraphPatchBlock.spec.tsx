@@ -46,7 +46,7 @@ describe('GraphPatchBlock', () => {
     )
 
     expect(screen.getByText("Add 'competitor response' as a risk factor")).toBeInTheDocument()
-    expect(screen.getByText('1 operation')).toBeInTheDocument()
+    expect(screen.getByText('1 risk')).toBeInTheDocument()
     expect(screen.getByTestId('patch-accept')).toBeInTheDocument()
     expect(screen.getByTestId('patch-dismiss')).toBeInTheDocument()
   })
@@ -157,7 +157,7 @@ describe('GraphPatchBlock', () => {
       <InlineBlocks blocks={[block]} />,
     )
 
-    expect(screen.getByText('3 operations')).toBeInTheDocument()
+    expect(screen.getByText('2 nodes, 1 edge')).toBeInTheDocument()
   })
 
   it('shows retry button on network error (block stays proposed)', () => {

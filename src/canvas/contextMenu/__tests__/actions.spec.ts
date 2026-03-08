@@ -10,6 +10,8 @@ import {
 } from '../actions'
 import type { NodeTarget, EdgeTarget, MultiTarget, PaneTarget } from '../types'
 import type { Node, Edge } from '@xyflow/react'
+import { useCanvasStore } from '../../store'
+import { useGuidanceStore } from '../../stores/guidanceStore'
 import type { EdgeData } from '../../domain/edges'
 import { DEFAULT_EDGE_DATA } from '../../domain/edges'
 
@@ -201,6 +203,62 @@ describe('askAI', () => {
     expect(mockStore.selectNodeWithoutHistory).toHaveBeenCalledWith('f1')
     expect(mockStore.setShowDraftChat).toHaveBeenCalledWith(true)
   })
+
+  it('preserves both nodeIds and edgeIds for multi-select target', () => {
+    const target: MultiTarget = {
+      kind: 'multi',
+      nodeIds: ['f1', 'g1'],
+      edgeIds: ['e1'],
+      screenPos: { x: 0, y: 0 },
+    }
+    askAI(target, 'explain_subgraph')
+    // setState is called with an updater function — invoke it to get the result
+    const setStateCalls = (useCanvasStore.setState as any).mock.calls
+    const updaterCall = setStateCalls.find((c: any) => typeof c[0] === 'function')
+    expect(updaterCall).toBeDefined()
+    const result = updaterCall[0]({ nodes: mockStore.nodes })
+    expect([...result.selection.nodeIds]).toEqual(['f1', 'g1'])
+    expect([...result.selection.edgeIds]).toEqual(['e1'])
+    // Verify node.selected flags are also set
+    const selectedIds = result.nodes.filter((n: any) => n.selected).map((n: any) => n.id)
+    expect(selectedIds).toEqual(['f1', 'g1'])
+  })
+
+  it('shows warning toast when _sendMessage is unavailable after polling budget', () => {
+    vi.useFakeTimers({ shouldAdvanceTime: false, toFake: ['setTimeout', 'clearTimeout'] })
+    try {
+      // Override guidance store mock to return null _sendMessage
+      const origGetState = useGuidanceStore.getState
+      ;(useGuidanceStore as any).getState = () => ({ _sendMessage: null })
+
+      // Stub requestAnimationFrame to call callback synchronously
+      const origRaf = globalThis.requestAnimationFrame
+      globalThis.requestAnimationFrame = (cb: FrameRequestCallback) => { cb(0); return 0 }
+
+      const target: NodeTarget = {
+        kind: 'node',
+        nodeId: 'f1',
+        nodeType: 'factor',
+        node: mockStore.nodes[0],
+        screenPos: { x: 0, y: 0 },
+      }
+      askAI(target, 'explain_element', showToast)
+
+      // Exhaust all 20 polling attempts (50ms × 20 = 1000ms)
+      vi.advanceTimersByTime(1100)
+
+      expect(showToast).toHaveBeenCalledWith(
+        'Could not send message — try typing your question directly.',
+        'warning',
+      )
+
+      // Restore
+      globalThis.requestAnimationFrame = origRaf
+      ;(useGuidanceStore as any).getState = origGetState
+    } finally {
+      vi.useRealTimers()
+    }
+  })
 })
 
 describe('clipboard operations', () => {
@@ -212,6 +270,40 @@ describe('clipboard operations', () => {
   it('duplicateAction calls duplicateSelected', async () => {
     await duplicateAction(showToast)
     expect(mockStore.duplicateSelected).toHaveBeenCalled()
+  })
+})
+
+describe('paste/duplicate include edge ops in patch', () => {
+  it('pasteAction includes add_edge ops for clipboard edges', async () => {
+    const { commitValidatedMutation } = await import('../../mutations/commitValidatedMutation')
+    // Set clipboard with both nodes and edges
+    mockStore.clipboard = {
+      nodes: [mockStore.nodes[0], mockStore.nodes[1]],
+      edges: [mockStore.edges[0]],
+    } as any
+    const { pasteAction } = await import('../actions')
+    await pasteAction({ x: 0, y: 0 }, showToast)
+    const calls = (commitValidatedMutation as any).mock.calls
+    const lastOps = calls[calls.length - 1][0]
+    const opTypes = lastOps.map((o: any) => o.op)
+    expect(opTypes).toContain('add_node')
+    expect(opTypes).toContain('add_edge')
+    // Cleanup
+    mockStore.clipboard = null
+  })
+
+  it('duplicateAction includes add_edge ops for internal edges', async () => {
+    const { commitValidatedMutation } = await import('../../mutations/commitValidatedMutation')
+    // Both endpoints in selection → edge should be included
+    mockStore.selection = { nodeIds: new Set(['f1', 'g1']), edgeIds: new Set<string>(), anchorPosition: null }
+    await duplicateAction(showToast)
+    const calls = (commitValidatedMutation as any).mock.calls
+    const lastOps = calls[calls.length - 1][0]
+    const opTypes = lastOps.map((o: any) => o.op)
+    expect(opTypes).toContain('add_node')
+    expect(opTypes).toContain('add_edge')
+    // Restore
+    mockStore.selection = { nodeIds: new Set(['f1']), edgeIds: new Set<string>(), anchorPosition: null }
   })
 })
 

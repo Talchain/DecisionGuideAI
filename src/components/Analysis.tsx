@@ -549,13 +549,13 @@ export default function Analysis() {
           <div className="flex items-center gap-2">
             <button 
               onClick={() => setShowCollaborationPanel(!showCollaborationPanel)}
-              className="flex items-center px-4 py-2 text-indigo-600 bg-indigo-50 rounded-lg hover:bg-indigo-100 disabled:opacity-50 transition-colors border border-indigo-200"
+              className="flex items-center px-4 py-2 text-info bg-panel rounded-lg hover:bg-panel disabled:opacity-50 transition-colors border border-info/30"
             >
               <Users className="h-4 w-4 mr-2" />
               Collaboration
             </button>
           {/* Save Button - Disable if no permanentId state */}
-          <button onClick={handleSave} disabled={saveInProgress || analysisLoading || !!analysisHookError || optionsLoading || !!optionsError || !permanentId} className="flex items-center px-4 py-2 text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition-colors border" >
+          <button onClick={handleSave} disabled={saveInProgress || analysisLoading || !!analysisHookError || optionsLoading || !!optionsError || !permanentId} className="flex items-center px-4 py-2 text-text-on-color bg-primary rounded-lg hover:bg-primary-hover disabled:opacity-50 transition-colors border" >
             {saveInProgress ? ( <> <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving... </> ) : ( 'Save and Finalize Analysis' )}
           </button>
           </div>
@@ -571,10 +571,10 @@ export default function Analysis() {
            {!permanentId ? ( <div className="text-sm text-gray-500 italic">Collaboration features available after analysis is generated.</div>
            ) : collaboratorsLoading ? ( <div className="flex items-center text-gray-500"><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Loading collaborators...</div>
            ) : collaborationError ? (
-             <div className="bg-red-50 p-3 rounded-lg">
+             <div className="bg-panel p-3 rounded-lg">
                  <div className="flex items-center gap-2">
-                   <AlertCircle className="h-5 w-5 text-red-500 flex-shrink-0" />
-                   <p className="text-sm text-red-700">{collaborationError}</p>
+                   <AlertCircle className="h-5 w-5 text-danger flex-shrink-0" />
+                   <p className="text-sm text-danger">{collaborationError}</p>
                  </div>
              </div>
            ) : collaborators.length > 0 ? (
@@ -593,21 +593,21 @@ export default function Analysis() {
         <BiasesCarousel biases={biases} isLoading={optionsLoading} error={optionsError} />
 
         {/* Save Error Display */}
-        {saveError && ( <div className="bg-red-50 p-4 rounded-lg"><p className="text-red-700">Save Error: {saveError}</p></div> )}
+        {saveError && ( <div className="bg-panel p-4 rounded-lg"><p className="text-danger">Save Error: {saveError}</p></div> )}
 
         {/* Main Analysis Display */}
         <div>
             <h3 className="text-lg font-semibold mb-2">AI Analysis</h3>
             {analysisLoading || optionsLoading ? ( <div className="flex items-center justify-center p-8 text-gray-500"><Loader2 className="mr-2 h-6 w-6 animate-spin" /> Loading Analysis Data...</div>
             ) : analysisHookError || optionsError ? (
-                 ( <div className="bg-red-50 p-4 rounded-lg">
+                 ( <div className="bg-panel p-4 rounded-lg">
                      <div className="flex items-center gap-2 mb-2">
-                        <AlertCircle className="h-5 w-5 text-red-500 flex-shrink-0" />
-                        <p className="text-red-700 font-medium">{analysisHookError ? 'Error loading AI analysis:' : 'Error loading options/biases:'}</p>
+                        <AlertCircle className="h-5 w-5 text-danger flex-shrink-0" />
+                        <p className="text-danger font-medium">{analysisHookError ? 'Error loading AI analysis:' : 'Error loading options/biases:'}</p>
                      </div>
-                     <p className="text-red-600 text-sm pl-7">{analysisHookError || optionsError}</p>
+                     <p className="text-danger text-sm pl-7">{analysisHookError || optionsError}</p>
                      {analysisHookError && typeof retry === 'function' && retryCount < 3 && (
-                        <button onClick={retry} className="mt-2 text-sm text-indigo-600 hover:text-indigo-700 font-medium pl-7">Try Again</button>
+                        <button onClick={retry} className="mt-2 text-sm text-info hover:text-info font-medium pl-7">Try Again</button>
                      )}
                  </div> )
             ) : aiAnalysis ? ( <AnalysisContent text={aiAnalysis} />
@@ -625,7 +625,7 @@ export default function Analysis() {
         
         {showCollaborationPanel && permanentId && (
           <div className="w-96 min-h-0 bg-white rounded-xl shadow-lg overflow-hidden">
-            <div className="p-4 bg-indigo-50 border-b border-indigo-100">
+            <div className="p-4 bg-panel border-b border-info/30">
               <h3 className="text-lg font-semibold text-gray-900">Collaboration Hub</h3>
               <p className="text-sm text-gray-600">Invite others to collaborate on this decision</p>
             </div>
@@ -637,12 +637,12 @@ export default function Analysis() {
                   <h4 className="text-md font-medium text-gray-800 mb-3">Current Collaborators</h4>
                   {collaboratorsLoading ? (
                     <div className="flex items-center justify-center p-4">
-                      <Loader2 className="h-5 w-5 text-indigo-500 animate-spin mr-2" />
+                      <Loader2 className="h-5 w-5 text-info animate-spin mr-2" />
                       <span className="text-gray-500">Loading collaborators...</span>
                     </div>
                   ) : collaborationError ? (
-                    <div className="bg-red-50 p-3 rounded-lg">
-                      <p className="text-sm text-red-600">{collaborationError}</p>
+                    <div className="bg-panel p-3 rounded-lg">
+                      <p className="text-sm text-danger">{collaborationError}</p>
                     </div>
                   ) : collaborators.length > 0 ? (
                     <div className="space-y-2">
@@ -657,7 +657,7 @@ export default function Analysis() {
                             </div>
                             <button 
                               onClick={() => removeCollaborator(collab.id)}
-                              className="p-1 text-gray-400 hover:text-red-500 rounded-full hover:bg-gray-100"
+                              className="p-1 text-gray-400 hover:text-danger rounded-full hover:bg-gray-100"
                             />
                           </div>
                         </div>
@@ -689,7 +689,7 @@ export default function Analysis() {
                           id="email"
                           name="email"
                           required
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-info focus:border-info/30"
                           placeholder="Enter email address"
                         />
                       </div>
@@ -701,7 +701,7 @@ export default function Analysis() {
                         <select
                           id="role"
                           name="role"
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-info focus:border-info/30"
                         >
                           <option value="collaborator">Collaborator (can edit)</option>
                           <option value="viewer">Viewer (read-only)</option>
@@ -710,7 +710,7 @@ export default function Analysis() {
                       
                       <button
                         type="submit"
-                        className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                        className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-text-on-color bg-primary hover:bg-primary-hover focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-info"
                       >
                         Send Invitation
                       </button>
@@ -733,7 +733,7 @@ export default function Analysis() {
                           allow_suggestions: !state.collaboration_settings?.allow_suggestions
                         })}
                         className={`relative inline-flex h-6 w-11 items-center rounded-full ${
-                          state.collaboration_settings?.allow_suggestions ? 'bg-indigo-600' : 'bg-gray-200'
+                          state.collaboration_settings?.allow_suggestions ? 'bg-primary' : 'bg-gray-200'
                         }`}
                       >
                         <span
@@ -755,7 +755,7 @@ export default function Analysis() {
                           require_approval: !state.collaboration_settings?.require_approval
                         })}
                         className={`relative inline-flex h-6 w-11 items-center rounded-full ${
-                          state.collaboration_settings?.require_approval ? 'bg-indigo-600' : 'bg-gray-200'
+                          state.collaboration_settings?.require_approval ? 'bg-primary' : 'bg-gray-200'
                         }`}
                       >
                         <span
@@ -777,7 +777,7 @@ export default function Analysis() {
                           auto_notify: !state.collaboration_settings?.auto_notify
                         })}
                         className={`relative inline-flex h-6 w-11 items-center rounded-full ${
-                          state.collaboration_settings?.auto_notify ? 'bg-indigo-600' : 'bg-gray-200'
+                          state.collaboration_settings?.auto_notify ? 'bg-primary' : 'bg-gray-200'
                         }`}
                       >
                         <span

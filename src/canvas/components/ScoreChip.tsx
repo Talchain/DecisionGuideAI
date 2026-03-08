@@ -26,20 +26,20 @@ function getColorClass(value: number, type: 'confidence' | 'influence'): {
     // Confidence: 0-100%
     if (value >= 70) {
       return {
-        bg: 'bg-success-light',
+        bg: 'bg-panel',
         border: 'border-success/30',
         text: 'text-success',
       }
     }
     if (value >= 40) {
       return {
-        bg: 'bg-warning-light',
+        bg: 'bg-panel',
         border: 'border-warning/30',
         text: 'text-warning',
       }
     }
     return {
-      bg: 'bg-danger-light',
+      bg: 'bg-panel',
       border: 'border-danger/30',
       text: 'text-danger',
     }
@@ -47,20 +47,20 @@ function getColorClass(value: number, type: 'confidence' | 'influence'): {
     // Influence: 0-1
     if (value >= 0.7) {
       return {
-        bg: 'bg-success-light',
+        bg: 'bg-panel',
         border: 'border-success/30',
         text: 'text-success',
       }
     }
     if (value >= 0.4) {
       return {
-        bg: 'bg-warning-light',
+        bg: 'bg-panel',
         border: 'border-warning/30',
         text: 'text-warning',
       }
     }
     return {
-      bg: 'bg-danger-light',
+      bg: 'bg-panel',
       border: 'border-danger/30',
       text: 'text-danger',
     }

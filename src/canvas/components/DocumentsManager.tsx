@@ -128,7 +128,7 @@ export function DocumentsManager({ onUpload, onDownload, onDelete }: DocumentsMa
               placeholder="Search documents..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className={`w-full pl-9 pr-8 py-1.5 ${typography.body} border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent`}
+              className={`w-full pl-9 pr-8 py-1.5 ${typography.body} border border-gray-300 rounded-md focus:ring-2 focus:ring-info focus:border-transparent`}
               aria-label="Search documents"
             />
             {searchQuery && (
@@ -152,7 +152,7 @@ export function DocumentsManager({ onUpload, onDownload, onDelete }: DocumentsMa
                 onClick={() => toggleSort(field)}
                 className={`px-2 py-1 rounded capitalize ${
                   sortField === field
-                    ? 'bg-blue-100 text-blue-700 font-medium'
+                    ? 'bg-panel text-info font-medium'
                     : 'text-gray-600 hover:bg-gray-100'
                 }`}
                 aria-label={`Sort by ${field}${sortField === field ? `, currently ${sortDirection === 'asc' ? 'ascending' : 'descending'}` : ''}`}
@@ -185,7 +185,7 @@ export function DocumentsManager({ onUpload, onDownload, onDelete }: DocumentsMa
         <p className={`${typography.body} text-ink-900/80 mb-2`}>
           Drag and drop files here, or click to browse
         </p>
-        <label className={`inline-block px-4 py-2 bg-info-500 text-white rounded-md cursor-pointer hover:bg-info-600 ${typography.button}`}>
+        <label className={`inline-block px-4 py-2 bg-info-500 text-text-on-color rounded-md cursor-pointer hover:bg-info-600 ${typography.button}`}>
           Browse Files
           <input
             type="file"
@@ -335,7 +335,7 @@ function DocumentCard({
                   onBlur={handleRename}
                   autoFocus
                   maxLength={120}
-                  className={`flex-1 px-2 py-1 ${typography.body} border border-blue-500 rounded focus:ring-2 focus:ring-blue-500 focus:outline-none`}
+                  className={`flex-1 px-2 py-1 ${typography.body} border border-info rounded focus:ring-2 focus:ring-info focus:outline-none`}
                   aria-label={`Rename document ${document.name}`}
                   aria-invalid={!!validationError}
                   aria-describedby={validationError ? `error-${document.id}` : undefined}
@@ -345,28 +345,28 @@ function DocumentCard({
                     e.stopPropagation()
                     handleRename()
                   }}
-                  className="p-1 hover:bg-green-100 rounded"
+                  className="p-1 hover:bg-panel rounded"
                   title="Save (Enter)"
                   aria-label="Save rename"
                 >
-                  <Check className="w-3 h-3 text-green-600" />
+                  <Check className="w-3 h-3 text-success" />
                 </button>
                 <button
                   onClick={(e) => {
                     e.stopPropagation()
                     handleCancel()
                   }}
-                  className="p-1 hover:bg-red-100 rounded"
+                  className="p-1 hover:bg-panel-hover rounded"
                   title="Cancel (Escape)"
                   aria-label="Cancel rename"
                 >
-                  <X className="w-3 h-3 text-red-600" />
+                  <X className="w-3 h-3 text-danger" />
                 </button>
               </div>
               {validationError && (
                 <div
                   id={`error-${document.id}`}
-                  className={`${typography.caption} text-red-600`}
+                  className={`${typography.caption} text-danger`}
                   role="alert"
                 >
                   {validationError.message}
@@ -385,7 +385,7 @@ function DocumentCard({
             {document.truncated && (
               <>
                 <span aria-hidden="true">•</span>
-                <span className="text-amber-600 font-medium" title="Content truncated to 5K chars">
+                <span className="text-warning font-medium" title="Content truncated to 5K chars">
                   Truncated
                 </span>
               </>
@@ -446,11 +446,11 @@ function DocumentCard({
           )}
           <button
             onClick={() => onDelete(document.id)}
-            className="p-1 hover:bg-red-100 rounded"
+            className="p-1 hover:bg-panel-hover rounded"
             title="Delete"
             aria-label="Delete document"
           >
-            <Trash2 className="w-4 h-4 text-red-600" />
+            <Trash2 className="w-4 h-4 text-danger" />
           </button>
         </div>
       </div>

@@ -56,19 +56,19 @@ const STATUS_CONFIG: Record<
   identifiable: {
     label: 'Identifiable',
     icon: CheckCircle2,
-    className: 'bg-paper-50 border-sand-200 text-green-700',
+    className: 'bg-paper-50 border-sand-200 text-success',
     description: 'Model has a unique solution. Analysis results are reliable.',
   },
   underidentified: {
     label: 'Under-identified',
     icon: AlertTriangle,
-    className: 'bg-paper-50 border-sand-200 text-amber-700',
+    className: 'bg-paper-50 border-sand-200 text-warning',
     description: 'Model lacks constraints. Consider adding more edges or evidence.',
   },
   overidentified: {
     label: 'Over-identified',
     icon: XCircle,
-    className: 'bg-paper-50 border-sand-200 text-red-700',
+    className: 'bg-paper-50 border-sand-200 text-danger',
     description: 'Model has conflicting constraints. Review edge weights and probabilities.',
   },
   unknown: {

@@ -290,7 +290,7 @@ export function M1TopActions({ topActions, onAddEvidence, onConfirm, onAssumptio
                 <button
                   onClick={() => item.action?.targetId && handleEvidenceSubmit(item.action.targetId)}
                   disabled={!evidenceValue.trim()}
-                  className={`px-2 py-1 ${typography.panelMeta} bg-info hover:bg-success text-white rounded disabled:opacity-50`}
+                  className={`px-2 py-1 ${typography.panelMeta} bg-info hover:bg-success text-text-on-color rounded disabled:opacity-50`}
                 >
                   Save
                 </button>

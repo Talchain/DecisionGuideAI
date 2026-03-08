@@ -132,7 +132,7 @@ export default function ShareView() {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-6">
           <div className="flex items-center gap-3 mb-4">
-            <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center">
+            <div className="w-12 h-12 rounded-full bg-panel flex items-center justify-center">
               <span className="text-2xl" aria-hidden="true">🔗</span>
             </div>
             <h1 className="text-xl font-semibold text-gray-900">Share Links Coming Soon</h1>
@@ -142,7 +142,7 @@ export default function ShareView() {
           </p>
           <Link
             to="/plot"
-            className="block w-full text-center px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+            className="block w-full text-center px-4 py-2 bg-primary text-text-on-color rounded hover:bg-primary-hover transition-colors"
           >
             Go to PLoT Workspace
           </Link>
@@ -195,7 +195,7 @@ export default function ShareView() {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-blue-500 border-t-transparent" aria-hidden="true" />
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-info border-t-transparent" aria-hidden="true" />
           <p className="mt-4 text-gray-600">
             {status === 'loading' ? 'Loading shared analysis...' : 'Validating share link...'}
           </p>
@@ -210,7 +210,7 @@ export default function ShareView() {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-6">
           <div className="flex items-center gap-3 mb-4">
-            <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center">
+            <div className="w-12 h-12 rounded-full bg-panel flex items-center justify-center">
               <span className="text-2xl" aria-hidden="true">✗</span>
             </div>
             <h1 className="text-xl font-semibold text-gray-900">Access Denied</h1>
@@ -220,7 +220,7 @@ export default function ShareView() {
           </p>
           <Link
             to="/plot"
-            className="block w-full text-center px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+            className="block w-full text-center px-4 py-2 bg-primary text-text-on-color rounded hover:bg-primary-hover transition-colors"
           >
             Go to PLoT Workspace
           </Link>
@@ -235,7 +235,7 @@ export default function ShareView() {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-6">
           <div className="flex items-center gap-3 mb-4">
-            <div className="w-12 h-12 rounded-full bg-yellow-100 flex items-center justify-center">
+            <div className="w-12 h-12 rounded-full bg-panel flex items-center justify-center">
               <span className="text-2xl" aria-hidden="true">⚠</span>
             </div>
             <h1 className="text-xl font-semibold text-gray-900">
@@ -247,7 +247,7 @@ export default function ShareView() {
           </p>
           <Link
             to="/plot"
-            className="block w-full text-center px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+            className="block w-full text-center px-4 py-2 bg-primary text-text-on-color rounded hover:bg-primary-hover transition-colors"
           >
             Go to PLoT Workspace
           </Link>
@@ -271,7 +271,7 @@ export default function ShareView() {
             </div>
             <Link
               to="/plot"
-              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors text-sm font-medium"
+              className="px-4 py-2 bg-primary text-text-on-color rounded hover:bg-primary-hover transition-colors text-sm font-medium"
             >
               Open in Workspace
             </Link>
@@ -335,8 +335,8 @@ export default function ShareView() {
 
           {/* Template Info */}
           {data.template_id && (
-            <section className="bg-blue-50 rounded-lg p-4">
-              <p className="text-sm text-blue-900">
+            <section className="bg-panel rounded-lg p-4">
+              <p className="text-sm text-info">
                 <span className="font-medium">Template:</span> {sanitizeLabel(data.template_id)}
               </p>
             </section>
@@ -345,7 +345,7 @@ export default function ShareView() {
           {/* Read-only notice */}
           <div className="text-center text-sm text-gray-500 py-4">
             This is a read-only view of a shared analysis. To edit or run new analyses,{' '}
-            <Link to="/plot" className="text-blue-600 hover:underline">
+            <Link to="/plot" className="text-info hover:underline">
               open the PLoT Workspace
             </Link>
             .

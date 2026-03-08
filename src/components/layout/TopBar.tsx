@@ -254,7 +254,7 @@ export const TopBar = ({
         )}
         {isPersisted && showSavedPill && (
           <div
-            className="flex items-center gap-1 px-2 py-0.5 text-[11px] text-green-700 bg-green-50 rounded-full transition-opacity duration-300"
+            className="flex items-center gap-1 px-2 py-0.5 text-[11px] text-text-body bg-panel rounded-full transition-opacity duration-300"
             role="status"
             aria-live="polite"
           >
@@ -264,7 +264,7 @@ export const TopBar = ({
         )}
         {isPersisted && saveStatus === 'error' && (
           <div
-            className="flex items-center gap-1 px-2 py-0.5 text-[11px] text-amber-700 bg-amber-50 rounded-full"
+            className="flex items-center gap-1 px-2 py-0.5 text-[11px] text-warning bg-panel rounded-full"
             role="status"
             aria-live="polite"
             title={saveError ?? 'Save failed'}

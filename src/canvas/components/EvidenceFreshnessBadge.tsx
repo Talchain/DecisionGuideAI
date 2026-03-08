@@ -41,7 +41,7 @@ const LEVEL_CONFIG: Record<
   fresh: {
     label: 'Fresh',
     icon: CheckCircle2,
-    className: 'text-green-700',
+    className: 'text-success',
     bgClassName: 'bg-paper-50 border-sand-200',
     description: 'Evidence was reviewed or updated recently.',
   },
@@ -55,14 +55,14 @@ const LEVEL_CONFIG: Record<
   aging: {
     label: 'Aging',
     icon: AlertTriangle,
-    className: 'text-amber-700',
+    className: 'text-warning',
     bgClassName: 'bg-paper-50 border-sand-200',
     description: 'Evidence may need review. Consider updating sources.',
   },
   stale: {
     label: 'Stale',
     icon: AlertCircle,
-    className: 'text-red-700',
+    className: 'text-danger',
     bgClassName: 'bg-paper-50 border-sand-200',
     description: 'Evidence is outdated. Review and update sources.',
   },

@@ -67,14 +67,14 @@ export class SectionErrorBoundary extends Component<
   render() {
     if (this.state.hasError) {
       return (
-        <div className="p-3 bg-amber-50 border border-amber-200 rounded-md">
-          <p className="text-sm text-amber-800">
+        <div className="p-3 bg-panel border border-warning/30 rounded-md">
+          <p className="text-sm text-warning">
             Unable to display {this.props.section}.
           </p>
           <button
             type="button"
             onClick={() => this.setState({ hasError: false, error: null })}
-            className="mt-1 text-xs text-amber-600 hover:text-amber-800 underline"
+            className="mt-1 text-xs text-warning hover:text-warning underline"
           >
             Retry
           </button>
@@ -95,12 +95,12 @@ interface GroupedNodes {
 }
 
 const NODE_TYPE_CONFIG: Record<NodeType, { icon: typeof Target; label: string; order: number; color: string }> = {
-  goal: { icon: Target, label: 'Goals', order: 0, color: 'bg-amber-500' },
+  goal: { icon: Target, label: 'Goals', order: 0, color: 'bg-warning' },
   decision: { icon: Crosshair, label: 'Decisions', order: 1, color: 'bg-sky-500' },
-  option: { icon: Lightbulb, label: 'Options', order: 2, color: 'bg-purple-500' },
+  option: { icon: Lightbulb, label: 'Options', order: 2, color: 'bg-option' },
   factor: { icon: Settings, label: 'Factors', order: 3, color: 'bg-sand-400' },
-  risk: { icon: AlertTriangle, label: 'Risks', order: 4, color: 'bg-red-500' },
-  outcome: { icon: TrendingUp, label: 'Outcomes', order: 5, color: 'bg-emerald-500' },
+  risk: { icon: AlertTriangle, label: 'Risks', order: 4, color: 'bg-danger' },
+  outcome: { icon: TrendingUp, label: 'Outcomes', order: 5, color: 'bg-success' },
 }
 
 /**
@@ -388,7 +388,7 @@ export function GraphTextView({
           >
             {copied ? (
               <>
-                <Check className="w-4 h-4 text-green-600" aria-hidden="true" />
+                <Check className="w-4 h-4 text-success" aria-hidden="true" />
                 <span>Copied</span>
               </>
             ) : (
@@ -563,7 +563,7 @@ export function GraphTextView({
                                   {/* Fragile badge */}
                                   {isFragile && (
                                     <span
-                                      className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-700 border border-amber-200`}
+                                      className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-xs font-medium bg-panel text-warning border border-warning/30`}
                                       title="This edge is fragile - changes here could affect the recommendation"
                                     >
                                       <AlertTriangle className="w-3 h-3" aria-hidden="true" />
@@ -573,7 +573,7 @@ export function GraphTextView({
                                   {/* Robust badge */}
                                   {isRobust && !isFragile && (
                                     <span
-                                      className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-xs font-medium bg-emerald-100 text-emerald-700 border border-emerald-200`}
+                                      className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-xs font-medium bg-panel text-success border border-success/30`}
                                       title="This edge is robust - stable under uncertainty"
                                     >
                                       ✓ Robust

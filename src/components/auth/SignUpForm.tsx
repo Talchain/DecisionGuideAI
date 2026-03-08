@@ -129,14 +129,14 @@ export default function SignUpForm() {
         <div className="relative">
           {error && (
             <div 
-              className="mb-6 bg-red-50 border border-red-200 rounded-xl p-4 animate-fade-in" 
+              className="mb-6 bg-panel border border-danger/30 rounded-xl p-4 animate-fade-in" 
               role="alert"
             >
               <div className="flex">
-                <AlertTriangle className="h-5 w-5 text-red-400 mt-0.5" />
+                <AlertTriangle className="h-5 w-5 text-danger mt-0.5" />
                 <div className="ml-3">
-                  <h3 className="text-sm font-medium text-red-800">Sign up failed</h3>
-                  <div className="mt-2 text-sm text-red-700">{error}</div>
+                  <h3 className="text-sm font-medium text-danger">Sign up failed</h3>
+                  <div className="mt-2 text-sm text-danger">{error}</div>
                 </div>
               </div>
             </div>
@@ -145,26 +145,26 @@ export default function SignUpForm() {
           <form className="space-y-6" onSubmit={handleSubmit}>
             <div className="space-y-4">
               <div className="relative group">
-                <Mail className="absolute left-3 top-3.5 h-5 w-5 text-gray-400 group-hover:text-indigo-500 transition-colors" />
+                <Mail className="absolute left-3 top-3.5 h-5 w-5 text-gray-400 group-hover:text-info transition-colors" />
                 <input
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="Enter your email"
-                  className="pl-10 w-full px-4 py-3.5 text-base border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 group-hover:border-indigo-300"
+                  className="pl-10 w-full px-4 py-3.5 text-base border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-info focus:border-info/30 transition-all duration-200 group-hover:border-info/30"
                   required
                   disabled={loading}
                 />
               </div>
 
               <div className="relative group">
-                <Lock className="absolute left-3 top-3.5 h-5 w-5 text-gray-400 group-hover:text-indigo-500 transition-colors" />
+                <Lock className="absolute left-3 top-3.5 h-5 w-5 text-gray-400 group-hover:text-info transition-colors" />
                 <input
                   type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="Create a password"
-                  className="pl-10 pr-10 w-full px-4 py-3.5 text-base border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 group-hover:border-indigo-300"
+                  className="pl-10 pr-10 w-full px-4 py-3.5 text-base border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-info focus:border-info/30 transition-all duration-200 group-hover:border-info/30"
                   required
                   disabled={loading}
                 />
@@ -186,7 +186,7 @@ export default function SignUpForm() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full flex items-center justify-center px-6 py-3.5 text-base font-medium text-white bg-gradient-to-r from-indigo-600 to-purple-600 rounded-lg hover:from-purple-600 hover:to-indigo-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 transform hover:-translate-y-0.5 transition-all duration-200">
+              className="w-full flex items-center justify-center px-6 py-3.5 text-base font-medium text-white bg-gradient-to-r from-indigo-600 to-purple-600 rounded-lg hover:from-purple-600 hover:to-indigo-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-info disabled:opacity-50 transform hover:-translate-y-0.5 transition-all duration-200">
               {loading ? (
                 <>
                   <Loader className="animate-spin h-5 w-5 mr-2" />
@@ -205,7 +205,7 @@ export default function SignUpForm() {
                 Already have an account?{' '}
                 <Link
                   to="/login"
-                  className="font-medium text-indigo-600 hover:text-indigo-500 transition-colors"
+                  className="font-medium text-info hover:text-info transition-colors"
                 >
                   Sign in
                   <ArrowRight className="inline-block ml-1 h-4 w-4" />

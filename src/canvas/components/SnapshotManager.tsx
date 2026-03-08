@@ -146,7 +146,7 @@ export function SnapshotManager({ isOpen, onClose }: SnapshotManagerProps) {
           <div className="mb-6">
             <button
               onClick={handleSave}
-              className="w-full px-4 py-3 bg-primary text-white rounded-lg hover:bg-primary-hover transition-colors font-medium"
+              className="w-full px-4 py-3 bg-primary text-text-on-color rounded-lg hover:bg-primary-hover transition-colors font-medium"
             >
               💾 Save Current Canvas
             </button>
@@ -206,7 +206,7 @@ export function SnapshotManager({ isOpen, onClose }: SnapshotManagerProps) {
                   <div className="mt-3 flex items-center gap-2">
                     <button
                       onClick={() => handleRestore(snapshot.key)}
-                      className={`px-3 py-1.5 ${typography.body} bg-primary text-white rounded hover:bg-primary-hover transition-colors`}
+                      className={`px-3 py-1.5 ${typography.body} bg-primary text-text-on-color rounded hover:bg-primary-hover transition-colors`}
                     >
                       Restore
                     </button>
@@ -230,7 +230,7 @@ export function SnapshotManager({ isOpen, onClose }: SnapshotManagerProps) {
                     </button>
                     <button
                       onClick={() => handleDelete(snapshot.key)}
-                      className={`ml-auto px-3 py-1.5 ${typography.body} bg-red-50 text-red-600 rounded hover:bg-red-100 transition-colors`}
+                      className={`ml-auto px-3 py-1.5 ${typography.body} bg-panel text-danger rounded hover:bg-panel-hover transition-colors`}
                     >
                       Delete
                     </button>

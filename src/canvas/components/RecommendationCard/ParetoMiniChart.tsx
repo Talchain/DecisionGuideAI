@@ -97,14 +97,14 @@ export const ParetoMiniChart = memo(function ParetoMiniChart({
             key={optId}
             type="button"
             onClick={() => onOptionClick?.(optId)}
-            className="w-full text-left p-2 rounded-lg bg-success-light border border-success/30 hover:opacity-90 transition-colors"
+            className="w-full text-left p-2 rounded-lg bg-panel border border-success/30 hover:opacity-90 transition-colors"
           >
             <div className="flex items-center gap-2">
               <Award className="w-3.5 h-3.5 text-success" aria-hidden="true" />
               <span className={`${typography.caption} font-medium text-success`}>
                 {optionLabels[optId] || optId}
               </span>
-              <span className={`${typography.caption} ml-auto px-1.5 py-0.5 rounded bg-success-light text-success`}>
+              <span className={`${typography.caption} ml-auto px-1.5 py-0.5 rounded bg-panel text-success`}>
                 Optimal
               </span>
             </div>

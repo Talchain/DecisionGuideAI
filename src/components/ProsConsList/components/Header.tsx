@@ -43,13 +43,13 @@ export default function Header({
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           {saveStatus === 'success' && (
-            <div className="flex items-center gap-2 text-green-600 bg-green-50 px-3 py-1.5 rounded-lg">
+            <div className="flex items-center gap-2 text-success bg-panel px-3 py-1.5 rounded-lg">
               <Check className="h-4 w-4" />
               <span className="text-sm">Saved successfully</span>
             </div>
           )}
           {saveStatus === 'error' && (
-            <div className="flex items-center gap-2 text-red-600 bg-red-50 px-3 py-1.5 rounded-lg">
+            <div className="flex items-center gap-2 text-danger bg-panel px-3 py-1.5 rounded-lg">
               <AlertCircle className="h-4 w-4" />
               <span className="text-sm">{saveError}</span>
             </div>
@@ -63,7 +63,7 @@ export default function Header({
                 <Tooltip content="Undo last action">
                   <button
                     onClick={onUndo}
-                    className="flex items-center gap-2 px-3 py-1.5 text-sm text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition-colors"
+                    className="flex items-center gap-2 px-3 py-1.5 text-sm text-text-on-color bg-primary rounded-lg hover:bg-primary-hover transition-colors"
                   >
                     <RotateCcw className="h-4 w-4" />
                     Undo
@@ -74,7 +74,7 @@ export default function Header({
                 <Tooltip content="Redo last undone action">
                   <button
                     onClick={onRedo}
-                    className="flex items-center gap-2 px-3 py-1.5 text-sm text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition-colors"
+                    className="flex items-center gap-2 px-3 py-1.5 text-sm text-text-on-color bg-primary rounded-lg hover:bg-primary-hover transition-colors"
                   >
                     <RotateCw className="h-4 w-4" />
                     Redo
@@ -87,7 +87,7 @@ export default function Header({
             <Tooltip content="Review option scores">
               <button
                 onClick={onShowScores}
-                className="flex items-center gap-2 px-3 py-1.5 text-sm text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition-colors"
+                className="flex items-center gap-2 px-3 py-1.5 text-sm text-text-on-color bg-primary rounded-lg hover:bg-primary-hover transition-colors"
               >
                 <BarChart2 className="h-4 w-4" />
                 Review Scores
@@ -98,7 +98,7 @@ export default function Header({
             <button
               onClick={onSave}
               disabled={saveStatus === 'saving'}
-              className="flex items-center gap-2 px-3 py-1.5 text-sm text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex items-center gap-2 px-3 py-1.5 text-sm text-text-on-color bg-primary rounded-lg hover:bg-primary-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Save className="h-4 w-4" />
               {saveStatus === 'saving' ? 'Saving...' : 'Save'}
@@ -107,7 +107,7 @@ export default function Header({
           <Tooltip content="Add a new option">
             <button
               onClick={onAddOption}
-              className="flex items-center gap-2 px-3 py-1.5 text-sm text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition-colors"
+              className="flex items-center gap-2 px-3 py-1.5 text-sm text-text-on-color bg-primary rounded-lg hover:bg-primary-hover transition-colors"
             >
               <Plus className="h-4 w-4" />
               Add Option

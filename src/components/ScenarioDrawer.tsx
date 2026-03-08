@@ -105,7 +105,7 @@ export default function ScenarioDrawer({ open, onClose, restoreFocusRef, seed, b
             <button type="button" data-testid="scenario-save-btn" className="text-xs px-2 py-1 rounded border border-sand-200" onClick={onSave} disabled={!name.trim()}>Save</button>
           </div>
           {toast && (
-            <div data-testid="scenarios-toast" aria-hidden="true" className="text-xs text-emerald-700">{toast}</div>
+            <div data-testid="scenarios-toast" aria-hidden="true" className="text-xs text-success">{toast}</div>
           )}
         </div>
 
@@ -117,7 +117,7 @@ export default function ScenarioDrawer({ open, onClose, restoreFocusRef, seed, b
               return (
                 <li key={s.id} className="flex items-center justify-between gap-2 border rounded p-2">
                   <div className="min-w-0">
-                    <div className="text-sm font-medium truncate" title={s.name}>{s.name}{last && <span className="ml-1 text-[10px] text-emerald-700" aria-hidden="true">• last</span>}</div>
+                    <div className="text-sm font-medium truncate" title={s.name}>{s.name}{last && <span className="ml-1 text-[10px] text-success" aria-hidden="true">• last</span>}</div>
                     {s.desc && <div className="text-xs text-gray-500 truncate">{s.desc}</div>}
                   </div>
                   <div className="flex items-center gap-2">

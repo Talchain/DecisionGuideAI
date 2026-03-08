@@ -414,7 +414,7 @@ function DriverRow({
       ref={registerRef}
       className={`rounded-lg border overflow-hidden bg-white relative transition-all duration-200 results-card-hover ${
         isHighlighted
-          ? 'border-amber-400 ring-2 ring-amber-300 shadow-lg'
+          ? 'border-warning ring-2 ring-warning/30 shadow-lg'
           : 'border-panel-border'
       }`}
       onMouseEnter={() => highlightNode(driver.matchedNodeId ?? driver.factorKey)}
@@ -545,15 +545,15 @@ function DriverRow({
 // Error state component
 function ErrorState({ message, onRetry }: { message: string; onRetry?: () => void }) {
   return (
-    <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg text-center">
-      <p className={`${typography.panelHeader} text-amber-800 mb-2`}>
+    <div className="p-4 bg-panel border border-warning/30 rounded-lg text-center">
+      <p className={`${typography.panelHeader} text-warning mb-2`}>
         Unable to calculate factor sensitivity — service unavailable
       </p>
-      <p className={`${typography.panelBody} text-amber-600 mb-3`}>{message}</p>
+      <p className={`${typography.panelBody} text-warning mb-3`}>{message}</p>
       {onRetry && (
         <button
           onClick={onRetry}
-          className={`px-4 py-2 ${typography.panelHeader} text-amber-700 bg-white border border-amber-300 rounded-lg hover:bg-amber-50 transition-colors`}
+          className={`px-4 py-2 ${typography.panelHeader} text-warning bg-white border border-warning/30 rounded-lg hover:bg-panel-hover transition-colors`}
         >
           Retry
         </button>

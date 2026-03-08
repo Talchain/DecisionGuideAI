@@ -23,7 +23,7 @@ export function CompareSummary({ runA, runB }: CompareSummaryProps) {
   const counts = computeDiffCounts(runA, runB)
 
   return (
-    <div className="px-4 py-3 bg-info-light border-b border-info/30">
+    <div className="px-4 py-3 bg-panel border-b border-info/30">
       <div className="flex items-center gap-4 text-sm">
         <span className="font-semibold text-info">Summary:</span>
         <div className="flex items-center gap-3 text-info">

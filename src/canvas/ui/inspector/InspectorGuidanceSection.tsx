@@ -48,10 +48,10 @@ function cardBgClass(category: GuidanceItem['category']): string {
   switch (category) {
     case 'must_fix':
     case 'should_fix':
-      return 'bg-danger-light'
+      return 'bg-panel'
     case 'could_fix':
     case 'technique':
-      return 'bg-info-light'
+      return 'bg-panel'
   }
 }
 

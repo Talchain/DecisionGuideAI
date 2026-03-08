@@ -17,7 +17,7 @@
 
 import { memo, useMemo, useState } from 'react'
 import { BaseEdge, EdgeLabelRenderer, getBezierPath, getSmoothStepPath, getStraightPath, type EdgeProps, useReactFlow } from '@xyflow/react'
-import { Lightbulb, AlertTriangle } from 'lucide-react'
+import { Lightbulb, AlertTriangle, Flag } from 'lucide-react'
 import type { EdgeData, EdgePathType } from '../domain/edges'
 import { applyEdgeVisualProps } from '../theme/edges'
 import { formatConfidence, shouldShowLabel, getEdgeConfidence, computeSignedMean } from '../domain/edges'
@@ -363,7 +363,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
               padding: '2px 6px',
               borderRadius: '4px',
             }}
-            className={`${isDark ? 'bg-orange-900/90 text-orange-200' : 'bg-warning-light text-text-body'} border border-warning/30 shadow-sm`}
+            className={`${isDark ? 'bg-warning/90 text-warning' : 'bg-panel text-text-body'} border border-warning/30 shadow-sm`}
             title="Sensitive assumption - outcome may flip if this relationship changes"
           >
             <AlertTriangle size={12} />
@@ -440,7 +440,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
                       }}
                       className={
                         provenance === 'template' ? 'bg-info-500' :
-                        provenance === 'user' ? 'bg-orange-500' :
+                        provenance === 'user' ? 'bg-warning' :
                         'bg-gray-400'
                       }
                       title={`Provenance: ${provenance}`}
@@ -450,6 +450,23 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
                 </>
               )
             })()}
+          </div>
+        </EdgeLabelRenderer>
+      )}
+
+      {/* Context menu: Assumption flag badge on edge */}
+      {data?.flagged_as_assumption && (
+        <EdgeLabelRenderer>
+          <div
+            style={{
+              position: 'absolute',
+              transform: `translate(-50%, -50%) translate(${labelX + 20}px,${labelY - 14}px)`,
+              pointerEvents: 'none',
+            }}
+            title="Flagged as assumption"
+            data-testid="edge-assumption-badge"
+          >
+            <Flag size={12} className="text-warning" />
           </div>
         </EdgeLabelRenderer>
       )}

@@ -34,7 +34,7 @@ export default function ProfileForm() {
   if (authLoading) {
     return (
       <div className="flex items-center justify-center p-8">
-        <Loader className="animate-spin h-8 w-8 text-indigo-600" />
+        <Loader className="animate-spin h-8 w-8 text-info" />
       </div>
     )
   }
@@ -45,7 +45,7 @@ export default function ProfileForm() {
       <div className="flex items-center justify-center p-8 text-center">
         <p className="text-gray-600">
           Your session has expired. Please{' '}
-          <Link to="/login" className="text-indigo-600 hover:underline">
+          <Link to="/login" className="text-info hover:underline">
             sign in
           </Link>{' '}
           to continue.
@@ -98,8 +98,8 @@ export default function ProfileForm() {
     <form onSubmit={handleSubmit} className="space-y-6">
       <div className="bg-white shadow rounded-lg p-6">
         <div className="flex items-center gap-3 mb-6">
-          <div className="p-2 bg-indigo-50 rounded-lg">
-            <User className="h-5 w-5 text-indigo-600" />
+          <div className="p-2 bg-panel rounded-lg">
+            <User className="h-5 w-5 text-info" />
           </div>
           <div>
             <h2 className="text-lg font-medium text-gray-900">Profile Information</h2>
@@ -108,12 +108,12 @@ export default function ProfileForm() {
         </div>
 
         {error && (
-          <div className="mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
+          <div className="mb-4 bg-panel border border-danger/30 text-danger px-4 py-3 rounded">
             {error}
           </div>
         )}
         {success && (
-          <div className="mb-4 bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded">
+          <div className="mb-4 bg-panel border border-success/30 text-success px-4 py-3 rounded">
             Profile updated successfully!
           </div>
         )}
@@ -129,7 +129,7 @@ export default function ProfileForm() {
               id="first_name"
               value={formData.first_name}
               onChange={handleChange}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-info/30 focus:ring-info sm:text-sm"
             />
           </div>
           {/** Last Name **/}
@@ -142,7 +142,7 @@ export default function ProfileForm() {
               id="last_name"
               value={formData.last_name}
               onChange={handleChange}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-info/30 focus:ring-info sm:text-sm"
             />
           </div>
           {/** Phone **/}
@@ -155,7 +155,7 @@ export default function ProfileForm() {
               id="phone_number"
               value={formData.phone_number}
               onChange={handleChange}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-info/30 focus:ring-info sm:text-sm"
             />
           </div>
           {/** Age **/}
@@ -168,7 +168,7 @@ export default function ProfileForm() {
               id="age_bracket"
               value={formData.age_bracket}
               onChange={handleChange}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-info/30 focus:ring-info sm:text-sm"
             >
               <option value="">Select age bracket</option>
               {AGE_BRACKETS.map(b => <option key={b} value={b}>{b}</option>)}
@@ -184,7 +184,7 @@ export default function ProfileForm() {
               id="gender"
               value={formData.gender}
               onChange={handleChange}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-info/30 focus:ring-info sm:text-sm"
             >
               <option value="">Select gender</option>
               {GENDER_OPTIONS.map(g => <option key={g} value={g}>{g}</option>)}
@@ -200,7 +200,7 @@ export default function ProfileForm() {
               id="address"
               value={formData.address}
               onChange={handleChange}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-info/30 focus:ring-info sm:text-sm"
             />
           </div>
           {/** Consent **/}
@@ -211,7 +211,7 @@ export default function ProfileForm() {
                 name="contact_consent"
                 checked={formData.contact_consent}
                 onChange={handleChange}
-                className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                className="h-4 w-4 rounded border-gray-300 text-info focus:ring-info"
               />
               <span className="ml-3 text-sm text-gray-700">
                 I agree to receive updates and notifications about my decisions and account.
@@ -224,7 +224,7 @@ export default function ProfileForm() {
           <button
             type="submit"
             disabled={loading}
-            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 transition"
+            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded shadow-sm text-text-on-color bg-primary hover:bg-primary-hover disabled:opacity-50 transition"
           >
             {loading
               ? <Loader className="animate-spin h-4 w-4 mr-2" />

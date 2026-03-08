@@ -116,7 +116,7 @@ function StatBar({
       ? 'bg-factor'
       : isLeader
         ? (color === 'success' ? 'bg-success' : 'bg-info')
-        : 'bg-factor-light'
+        : 'bg-panel'
 
   return (
     <div className="flex items-center gap-2">

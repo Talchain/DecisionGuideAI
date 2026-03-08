@@ -170,10 +170,10 @@ describe('SeverityStyledCritiques', () => {
       )
 
       const button = screen.getByLabelText('Critical issues')
-      expect(button).toHaveClass('bg-red-50')
+      expect(button).toHaveClass('bg-panel')
 
       const criticalLabel = screen.getByText('Critical')
-      expect(criticalLabel).toHaveClass('text-red-600')
+      expect(criticalLabel).toHaveClass('text-danger')
     })
   })
 
@@ -247,10 +247,10 @@ describe('SeverityStyledCritiques', () => {
       )
 
       const button = screen.getByLabelText('Warning issues')
-      expect(button).toHaveClass('bg-amber-50')
+      expect(button).toHaveClass('bg-panel')
 
       const warningLabel = screen.getByText('Warning')
-      expect(warningLabel).toHaveClass('text-amber-600')
+      expect(warningLabel).toHaveClass('text-warning')
     })
   })
 
@@ -302,10 +302,10 @@ describe('SeverityStyledCritiques', () => {
       )
 
       const button = screen.getByLabelText('Info issues')
-      expect(button).toHaveClass('bg-blue-50')
+      expect(button).toHaveClass('bg-panel')
 
       const infoLabel = screen.getByText('Info')
-      expect(infoLabel).toHaveClass('text-blue-600')
+      expect(infoLabel).toHaveClass('text-info')
     })
   })
 

@@ -179,10 +179,10 @@ export const RiskTolerancePanel = memo(function RiskTolerancePanel({
                 // Clarification mode - show options
                 <div className="p-4 rounded-lg border border-sand-200 bg-sand-50">
                   <div className="flex items-start gap-3">
-                    <Sparkles className="w-5 h-5 text-violet-500 flex-shrink-0 mt-0.5" aria-hidden="true" />
+                    <Sparkles className="w-5 h-5 text-option flex-shrink-0 mt-0.5" aria-hidden="true" />
                     <div className="flex-1 space-y-3">
                       <div className="flex items-center gap-2">
-                        <span className={`${typography.caption} px-2 py-0.5 rounded-full bg-violet-100 text-violet-700 font-medium`}>
+                        <span className={`${typography.caption} px-2 py-0.5 rounded-full bg-panel text-text-body font-medium`}>
                           AI asks
                         </span>
                       </div>
@@ -226,7 +226,7 @@ export const RiskTolerancePanel = memo(function RiskTolerancePanel({
           {/* Loading state */}
           {suggestionLoading && !suggestion && !profile && (
             <div className="flex items-center gap-2 p-3 rounded-lg bg-sand-50 border border-sand-200">
-              <Sparkles className="w-4 h-4 text-violet-500 animate-pulse" aria-hidden="true" />
+              <Sparkles className="w-4 h-4 text-option animate-pulse" aria-hidden="true" />
               <span className={`${typography.caption} text-ink-500`}>
                 Analyzing decision context...
               </span>

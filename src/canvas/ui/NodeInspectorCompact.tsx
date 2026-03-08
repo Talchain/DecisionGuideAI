@@ -188,7 +188,7 @@ export const NodeInspectorCompact = memo(({ nodeId, onClose, onExpandToFull }: N
           <h4 className={`${typography.panelMeta} text-text-body mb-2 flex items-center gap-2`}>
             Insights
             {displayMetadata.sensitivityRank !== null && (
-              <span className={`inline-flex items-center px-1.5 py-0.5 rounded ${typography.panelMeta} bg-warning-light text-warning`}>
+              <span className={`inline-flex items-center px-1.5 py-0.5 rounded ${typography.panelMeta} bg-panel text-warning`}>
                 #{displayMetadata.sensitivityRank}
               </span>
             )}
@@ -247,7 +247,7 @@ export const NodeInspectorCompact = memo(({ nodeId, onClose, onExpandToFull }: N
                displayMetadata.confidence !== null &&
                displayMetadata.influence >= 0.7 &&
                displayMetadata.confidence < 0.5 && (
-                <div className={`flex items-start gap-1.5 p-2 bg-warning-light border border-warning/30 rounded ${typography.panelMeta} text-warning`}>
+                <div className={`flex items-start gap-1.5 p-2 bg-panel border border-warning/30 rounded ${typography.panelMeta} text-warning`}>
                   <AlertTriangle size={12} className="flex-shrink-0 mt-0.5" />
                   <span>High influence but low confidence. Consider gathering more data to reduce uncertainty.</span>
                 </div>

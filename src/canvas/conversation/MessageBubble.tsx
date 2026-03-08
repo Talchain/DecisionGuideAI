@@ -7,6 +7,7 @@
 
 import { memo } from 'react'
 import { typography } from '../../styles/typography'
+import { sanitizeMarkdown } from '../utils/markdown'
 import { InlineBlocks } from './InlineBlocks'
 import { ActionChipRow } from './ActionChipRow'
 import { FeedbackRow } from './FeedbackRow'
@@ -17,6 +18,8 @@ import styles from './Conversation.module.css'
 
 interface MessageBubbleProps {
   message: ConversationMessage
+  /** When true, suppress inline ActionChipRow (chips rendered externally) */
+  hideChips?: boolean
   onChipClick: (chip: ActionChip) => void
   patchBlockStates?: Map<string, PatchBlockState>
   patchRejections?: Map<string, PatchRejectionInfo>
@@ -27,6 +30,7 @@ interface MessageBubbleProps {
 
 export const MessageBubble = memo(function MessageBubble({
   message,
+  hideChips,
   onChipClick,
   patchBlockStates,
   patchRejections,
@@ -44,7 +48,10 @@ export const MessageBubble = memo(function MessageBubble({
       className={isUser ? styles.messageBubbleUser : styles.messageBubbleAssistant}
       data-testid={`message-${message.role}`}
     >
-      <p className={typography.body}>{message.content}</p>
+      <div
+        className={`${typography.body} ${styles.markdownContent}`}
+        dangerouslySetInnerHTML={{ __html: sanitizeMarkdown(message.content) }}
+      />
       {message.blocks && message.blocks.length > 0 && (
         <InlineBlocks
           blocks={message.blocks}
@@ -55,7 +62,7 @@ export const MessageBubble = memo(function MessageBubble({
           onPatchDismiss={onPatchDismiss}
         />
       )}
-      {message.actionChips && message.actionChips.length > 0 && (
+      {!hideChips && message.actionChips && message.actionChips.length > 0 && (
         <ActionChipRow chips={message.actionChips} onChipClick={onChipClick} />
       )}
       {!isUser && !message.synthetic && onFeedback && (

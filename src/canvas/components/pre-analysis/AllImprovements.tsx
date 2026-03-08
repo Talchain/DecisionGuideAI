@@ -827,7 +827,7 @@ function ImprovementRow({ item, onFocus, actionHandlers, isRemoving, onHoverEnte
           <button
             onClick={handleEvidenceSubmit}
             disabled={!evidenceValue.trim().replace(/\s+/g, ' ')}
-            className={`px-2 py-1 ${typography.panelMeta} bg-info hover:bg-success text-white rounded disabled:opacity-50`}
+            className={`px-2 py-1 ${typography.panelMeta} bg-info hover:bg-success text-text-on-color rounded disabled:opacity-50`}
           >
             Save
           </button>

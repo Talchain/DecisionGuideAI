@@ -163,7 +163,7 @@ export const FormOnboardingTooltip = memo(function FormOnboardingTooltip({
         <button
           type="button"
           onClick={onDismiss}
-          className="px-4 py-2 rounded-lg bg-info text-white text-sm font-medium hover:opacity-90 transition-colors"
+          className="px-4 py-2 rounded-lg bg-info text-text-on-color text-sm font-medium hover:opacity-90 transition-colors"
         >
           Got it!
         </button>

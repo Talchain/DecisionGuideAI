@@ -31,14 +31,14 @@ const getErrorMessage = (error: ErrorV1): string => {
 const getBannerStyle = (code: string): string => {
   switch (code) {
     case 'BAD_INPUT':
-      return 'bg-yellow-50 border-yellow-300 text-yellow-800'
+      return 'bg-panel border-warning/30 text-warning'
     case 'LIMIT_EXCEEDED':
-      return 'bg-blue-50 border-blue-300 text-blue-800'
+      return 'bg-panel border-info/30 text-info'
     case 'RATE_LIMITED':
-      return 'bg-orange-50 border-orange-300 text-orange-800'
+      return 'bg-panel border-warning/30 text-warning'
     case 'UNAUTHORIZED':
     case 'SERVER_ERROR':
-      return 'bg-red-50 border-red-300 text-red-800'
+      return 'bg-panel border-danger/30 text-danger'
     default:
       return 'bg-gray-50 border-gray-300 text-gray-800'
   }

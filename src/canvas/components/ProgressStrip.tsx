@@ -33,11 +33,11 @@ export const ProgressStrip = memo<ProgressStripProps>(({
 
   return (
     <div className="mb-4" data-testid="progress-strip">
-      <div className="border border-blue-200 rounded-lg p-4 bg-blue-50">
+      <div className="border border-info/30 rounded-lg p-4 bg-panel">
         <div className="flex items-start gap-3">
           {/* Spinner */}
           <div className="flex-shrink-0 mt-0.5">
-            <Loader2 className="w-4 h-4 text-blue-600 animate-spin" />
+            <Loader2 className="w-4 h-4 text-info animate-spin" />
           </div>
 
           {/* Content */}
@@ -50,7 +50,7 @@ export const ProgressStrip = memo<ProgressStripProps>(({
                 {message}
               </span>
               {showProgress && (
-                <span className={`${typography.caption} font-semibold text-blue-600 tabular-nums`}>
+                <span className={`${typography.caption} font-semibold text-info tabular-nums`}>
                   {Math.round(progress)}%
                 </span>
               )}
@@ -58,9 +58,9 @@ export const ProgressStrip = memo<ProgressStripProps>(({
 
             {/* Progress bar */}
             {showProgress && (
-              <div className="w-full h-2 rounded-full overflow-hidden bg-blue-100">
+              <div className="w-full h-2 rounded-full overflow-hidden bg-panel">
                 <div
-                  className="h-full transition-all duration-300 ease-out bg-blue-600"
+                  className="h-full transition-all duration-300 ease-out bg-primary"
                   style={{ width: `${progress}%` }}
                   aria-valuenow={Math.round(progress)}
                   aria-valuemin={0}
@@ -83,7 +83,7 @@ export const ProgressStrip = memo<ProgressStripProps>(({
           {canCancel && onCancel && (
             <button
               onClick={onCancel}
-              className="flex-shrink-0 p-1.5 rounded-md hover:bg-blue-100 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-1"
+              className="flex-shrink-0 p-1.5 rounded-md hover:bg-panel-hover transition-colors focus:outline-none focus:ring-2 focus:ring-info focus:ring-offset-1"
               aria-label="Cancel analysis"
               title="Cancel analysis"
               type="button"

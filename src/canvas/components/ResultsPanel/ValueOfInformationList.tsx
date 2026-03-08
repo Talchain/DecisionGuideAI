@@ -57,11 +57,11 @@ export function ValueOfInformationList({
   return (
     <div className="space-y-2 p-3" data-testid="voi-list">
       <div className="flex items-center gap-2 mb-2">
-        <Lightbulb className="h-4 w-4 text-violet-500" aria-hidden="true" />
+        <Lightbulb className="h-4 w-4 text-option" aria-hidden="true" />
         <span className={`${typography.caption} font-medium text-ink-700`}>
           Worth Investigating
         </span>
-        <span className={`${typography.caption} text-violet-600`}>
+        <span className={`${typography.caption} text-option`}>
           High value of information
         </span>
       </div>
@@ -77,20 +77,20 @@ export function ValueOfInformationList({
             key={voi.node_id}
             type="button"
             onClick={() => handleClick(voi.node_id, voi.suggested_action)}
-            className="w-full p-3 rounded-lg bg-violet-50 border border-violet-200 hover:bg-violet-100 transition-colors text-left"
+            className="w-full p-3 rounded-lg bg-panel border border-option/30 hover:bg-panel transition-colors text-left"
             data-testid={`voi-${voi.node_id}`}
           >
             {/* Header */}
             <div className="flex items-center justify-between mb-1.5">
               <div className="flex items-center gap-2">
-                <Search className="h-4 w-4 text-violet-600" aria-hidden="true" />
+                <Search className="h-4 w-4 text-option" aria-hidden="true" />
                 <span className={`${typography.bodySmall} font-medium text-ink-800`}>
                   {voi.label}
                 </span>
               </div>
               <div className="flex items-center gap-1">
-                <TrendingUp className="h-3.5 w-3.5 text-violet-600" aria-hidden="true" />
-                <span className={`${typography.caption} font-semibold text-violet-700`}>
+                <TrendingUp className="h-3.5 w-3.5 text-option" aria-hidden="true" />
+                <span className={`${typography.caption} font-semibold text-option`}>
                   Worth {evpiDisplay}
                 </span>
               </div>
@@ -98,7 +98,7 @@ export function ValueOfInformationList({
 
             {/* Suggested action */}
             {voi.suggested_action && (
-              <p className={`${typography.caption} text-violet-700 mb-1.5`}>
+              <p className={`${typography.caption} text-option mb-1.5`}>
                 {voi.suggested_action}
               </p>
             )}

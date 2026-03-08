@@ -64,15 +64,6 @@ export function CanvasContextMenu({ target, onClose, screenToFlowPosition }: Can
     setPosition({ x, y })
   }, [target.screenPos])
 
-  // Close on outside click
-  useEffect(() => {
-    const handleClick = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) onClose()
-    }
-    document.addEventListener('mousedown', handleClick)
-    return () => document.removeEventListener('mousedown', handleClick)
-  }, [onClose])
-
   // Keyboard navigation
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
@@ -197,13 +188,19 @@ export function CanvasContextMenu({ target, onClose, screenToFlowPosition }: Can
 
   return (
     <>
+      {/* Invisible backdrop catches all outside clicks/right-clicks to dismiss menu */}
+      {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions */}
+      <div
+        className="fixed inset-0 z-[99]"
+        onMouseDown={onClose}
+        onContextMenu={(e) => { e.preventDefault(); onClose() }}
+      />
       <div
         ref={menuRef}
         role="menu"
         aria-label="Canvas context menu"
         className="fixed z-[100] min-w-[220px] max-w-[320px] rounded-xl border border-panel-border bg-panel py-2 shadow-2"
         style={{ left: position.x, top: position.y }}
-        onClick={(e) => e.stopPropagation()}
       >
         {items.map((entry, i) => {
           if (isDivider(entry)) {

@@ -35,11 +35,11 @@ const stageLabels: Record<ScenarioStage, string> = {
 }
 
 const stageStyles: Record<ScenarioStage, string> = {
-  frame: 'bg-info-light text-info',
-  ideate: 'bg-factor-light text-text-body',
-  evaluate: 'bg-warning-light text-warning',
-  decide: 'bg-success-light text-success',
-  optimise: 'bg-info-light text-info',
+  frame: 'bg-panel text-info',
+  ideate: 'bg-panel text-text-body',
+  evaluate: 'bg-panel text-warning',
+  decide: 'bg-panel text-success',
+  optimise: 'bg-panel text-info',
 }
 
 // ---------------------------------------------------------------------------
@@ -418,7 +418,7 @@ export default function ScenarioListPage() {
 
             {/* ---- Error banner ---- */}
             {error && (
-              <div className="mb-4 p-3 rounded-md bg-danger-light text-danger flex items-center gap-2">
+              <div className="mb-4 p-3 rounded-md bg-panel text-danger flex items-center gap-2">
                 <AlertTriangle className="w-4 h-4 flex-shrink-0" />
                 <span className={typography.bodySmall}>{error}</span>
                 <button onClick={fetchScenarios} className={`${typography.bodySmall} ml-auto underline hover:no-underline`}>

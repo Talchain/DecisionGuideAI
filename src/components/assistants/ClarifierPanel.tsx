@@ -93,14 +93,14 @@ export function ClarifierPanel({ clarifier, onSubmit, onSkip, isSubmitting, prev
   const canProceed = allRequiredAnswered || clarifier.round >= 3 // M3: ≤3 rounds, allow skip after
 
   return (
-    <div className="bg-white rounded-lg border border-blue-200 shadow-sm overflow-hidden">
+    <div className="bg-white rounded-lg border border-info/30 shadow-sm overflow-hidden">
       {/* Header */}
-      <div className="px-4 py-3 bg-blue-50 border-b border-blue-200">
+      <div className="px-4 py-3 bg-panel border-b border-info/30">
         <div className="flex items-center gap-2">
-          <HelpCircle className="w-5 h-5 text-blue-600" />
-          <h3 className="font-semibold text-blue-900">Help us clarify your model</h3>
+          <HelpCircle className="w-5 h-5 text-info" />
+          <h3 className="font-semibold text-info">Help us clarify your model</h3>
         </div>
-        <p className="text-sm text-blue-700 mt-1" role="status" aria-live="polite">
+        <p className="text-sm text-info mt-1" role="status" aria-live="polite">
           Round {clarifier.round} of 3 • Answer these questions to improve your draft
         </p>
       </div>
@@ -116,11 +116,11 @@ export function ClarifierPanel({ clarifier, onSubmit, onSkip, isSubmitting, prev
               <div className="flex items-center justify-between">
                 <label className="block font-medium text-gray-900 text-sm">
                   {idx + 1}. {question.text}
-                  {question.required && <span className="text-red-500 ml-1">*</span>}
+                  {question.required && <span className="text-danger ml-1">*</span>}
                 </label>
                 {/* S7-PERSIST: Show indicator if question was previously answered */}
                 {wasPreviouslyAnswered && (
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700 border border-blue-200">
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-panel text-info border border-info/30">
                     <History className="w-3 h-3" />
                     Pre-filled
                   </span>
@@ -130,12 +130,12 @@ export function ClarifierPanel({ clarifier, onSubmit, onSkip, isSubmitting, prev
               {/* S7-HINTS: Show impact hint if provided */}
               {question.impact_hint && (
                 <div
-                  className="flex items-start gap-1.5 px-3 py-2 bg-blue-50 rounded-md border border-blue-100"
+                  className="flex items-start gap-1.5 px-3 py-2 bg-panel rounded-md border border-info/30"
                   role="note"
                   aria-label="Impact hint"
                 >
-                  <Info className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
-                  <p className="text-xs text-blue-800 leading-relaxed">
+                  <Info className="w-4 h-4 text-info mt-0.5 flex-shrink-0" />
+                  <p className="text-xs text-info leading-relaxed">
                     {question.impact_hint}
                   </p>
                 </div>
@@ -161,7 +161,7 @@ export function ClarifierPanel({ clarifier, onSubmit, onSkip, isSubmitting, prev
                         name={question.id}
                         checked={isChecked}
                         onChange={() => handleMcqChange(question.id, option, isMultiple)}
-                        className="w-4 h-4 text-blue-600 focus:ring-2 focus:ring-blue-500"
+                        className="w-4 h-4 text-info focus:ring-2 focus:ring-info"
                         disabled={isSubmitting}
                       />
                       <span className="text-sm text-gray-700">{option}</span>
@@ -175,7 +175,7 @@ export function ClarifierPanel({ clarifier, onSubmit, onSkip, isSubmitting, prev
                 onChange={(e) => handleTextChange(question.id, e.target.value)}
                 placeholder="Type your answer here..."
                 rows={3}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-info focus:border-transparent text-sm"
                 disabled={isSubmitting}
                 required={question.required}
               />
@@ -190,7 +190,7 @@ export function ClarifierPanel({ clarifier, onSubmit, onSkip, isSubmitting, prev
         <button
           onClick={handleSubmit}
           disabled={!canProceed || isSubmitting}
-          className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed font-medium"
+          className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-primary text-text-on-color rounded-md hover:bg-primary-hover disabled:bg-gray-300 disabled:cursor-not-allowed font-medium"
           aria-live="polite"
         >
           {isSubmitting ? (
@@ -219,7 +219,7 @@ export function ClarifierPanel({ clarifier, onSubmit, onSkip, isSubmitting, prev
             <div
               key={round}
               className={`flex-1 h-1 rounded ${
-                round <= clarifier.round ? 'bg-blue-600' : 'bg-gray-300'
+                round <= clarifier.round ? 'bg-primary' : 'bg-gray-300'
               }`}
             />
           ))}

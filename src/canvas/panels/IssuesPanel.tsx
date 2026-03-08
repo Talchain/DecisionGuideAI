@@ -24,9 +24,9 @@ const severityIcons: Record<IssueSeverity, JSX.Element> = {
 }
 
 const severityColors: Record<IssueSeverity, string> = {
-  error: 'bg-danger-light border-danger/30',
-  warning: 'bg-warning-light border-warning/30',
-  info: 'bg-info-light border-info/30',
+  error: 'bg-panel border-danger/30',
+  warning: 'bg-panel border-warning/30',
+  info: 'bg-panel border-info/30',
 }
 
 export function IssuesPanel({ issues, onFixIssue, onFixAll, onClose }: IssuesPanelProps) {
@@ -63,7 +63,7 @@ export function IssuesPanel({ issues, onFixIssue, onFixAll, onClose }: IssuesPan
           <div className="flex gap-2">
             <button
               onClick={handleFixNext}
-              className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 bg-info-600 text-white rounded-lg ${typography.panelBody} hover:bg-info-700 transition-colors`}
+              className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 bg-info-600 text-text-on-color rounded-lg ${typography.panelBody} hover:bg-info-700 transition-colors`}
               type="button"
               aria-label="Fix next issue"
             >
@@ -203,7 +203,7 @@ function IssueCard({
           {issue.suggestedFix && (
             <button
               onClick={() => onFix(issue)}
-              className={`mt-2 flex items-center gap-1 px-2 py-1 bg-info-600 text-white rounded ${typography.panelMeta} hover:bg-info-700`}
+              className={`mt-2 flex items-center gap-1 px-2 py-1 bg-info-600 text-text-on-color rounded ${typography.panelMeta} hover:bg-info-700`}
               type="button"
               aria-label="Apply quick fix"
             >

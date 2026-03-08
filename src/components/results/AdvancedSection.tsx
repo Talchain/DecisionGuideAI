@@ -111,7 +111,7 @@ export function AdvancedSection({
                     flex-1 px-2 py-1.5 rounded-md border text-center transition-colors
                     ${typography.panelBody}
                     ${isSelected
-                      ? 'border-info bg-info-light text-text-header'
+                      ? 'border-info bg-panel text-text-header'
                       : 'border-panel-border text-text-light hover:border-info/50'
                     }
                     disabled:opacity-50

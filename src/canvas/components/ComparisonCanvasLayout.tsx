@@ -188,8 +188,8 @@ function ComparisonStatsBar({ comparison }: { comparison: ComparisonResult | nul
       label: 'Added',
       count: added,
       icon: Plus,
-      color: 'text-emerald-600',
-      bgColor: 'bg-emerald-50',
+      color: 'text-success',
+      bgColor: 'bg-panel',
     },
     {
       label: 'Removed',
@@ -202,8 +202,8 @@ function ComparisonStatsBar({ comparison }: { comparison: ComparisonResult | nul
       label: 'Modified',
       count: modified,
       icon: RefreshCw,
-      color: 'text-amber-600',
-      bgColor: 'bg-amber-50',
+      color: 'text-warning',
+      bgColor: 'bg-panel',
     },
     {
       label: 'Unchanged',
@@ -276,22 +276,22 @@ function ChangesView({ comparison }: { comparison: ComparisonResult }) {
     <div className="flex-1 overflow-auto p-4 space-y-4">
       {/* Added items */}
       {(comparison.added.nodes.length > 0 || comparison.added.edges.length > 0) && (
-        <div className="border border-emerald-200 rounded-lg overflow-hidden">
-          <div className="px-3 py-2 bg-emerald-50 border-b border-emerald-200">
-            <h4 className={`${typography.body} font-medium text-emerald-900`}>
+        <div className="border border-success/30 rounded-lg overflow-hidden">
+          <div className="px-3 py-2 bg-panel border-b border-success/30">
+            <h4 className={`${typography.body} font-medium text-success`}>
               Added ({comparison.added.nodes.length + comparison.added.edges.length})
             </h4>
           </div>
           <div className="p-3 space-y-1">
             {comparison.added.nodes.map((node) => (
               <div key={node.id} className={`${typography.body} text-ink-700`}>
-                <Plus className="w-3.5 h-3.5 inline mr-1.5 text-emerald-600" />
+                <Plus className="w-3.5 h-3.5 inline mr-1.5 text-success" />
                 Node: {(node.data as { label?: string })?.label || node.id}
               </div>
             ))}
             {comparison.added.edges.map((edge, i) => (
               <div key={`${edge.source}-${edge.target}-${i}`} className={`${typography.body} text-ink-700`}>
-                <Plus className="w-3.5 h-3.5 inline mr-1.5 text-emerald-600" />
+                <Plus className="w-3.5 h-3.5 inline mr-1.5 text-success" />
                 Edge: {edge.source} → {edge.target}
               </div>
             ))}
@@ -302,7 +302,7 @@ function ChangesView({ comparison }: { comparison: ComparisonResult }) {
       {/* Removed items */}
       {(comparison.removed.nodes.length > 0 || comparison.removed.edges.length > 0) && (
         <div className="border border-danger/30 rounded-lg overflow-hidden">
-          <div className="px-3 py-2 bg-danger-light border-b border-danger/30">
+          <div className="px-3 py-2 bg-panel border-b border-danger/30">
             <h4 className={`${typography.body} font-medium text-danger`}>
               Removed ({comparison.removed.nodes.length + comparison.removed.edges.length})
             </h4>
@@ -326,22 +326,22 @@ function ChangesView({ comparison }: { comparison: ComparisonResult }) {
 
       {/* Modified items */}
       {(comparison.modified.nodes.length > 0 || comparison.modified.edges.length > 0) && (
-        <div className="border border-amber-200 rounded-lg overflow-hidden">
-          <div className="px-3 py-2 bg-amber-50 border-b border-amber-200">
-            <h4 className={`${typography.body} font-medium text-amber-900`}>
+        <div className="border border-warning/30 rounded-lg overflow-hidden">
+          <div className="px-3 py-2 bg-panel border-b border-warning/30">
+            <h4 className={`${typography.body} font-medium text-warning`}>
               Modified ({comparison.modified.nodes.length + comparison.modified.edges.length})
             </h4>
           </div>
           <div className="p-3 space-y-1">
             {comparison.modified.nodes.map((node) => (
               <div key={node.id} className={`${typography.body} text-ink-700`}>
-                <RefreshCw className="w-3.5 h-3.5 inline mr-1.5 text-amber-600" />
+                <RefreshCw className="w-3.5 h-3.5 inline mr-1.5 text-warning" />
                 Node: {(node.data as { label?: string })?.label || node.id}
               </div>
             ))}
             {comparison.modified.edges.map((edge, i) => (
               <div key={`${edge.source}-${edge.target}-${i}`} className={`${typography.body} text-ink-700`}>
-                <RefreshCw className="w-3.5 h-3.5 inline mr-1.5 text-amber-600" />
+                <RefreshCw className="w-3.5 h-3.5 inline mr-1.5 text-warning" />
                 Edge: {edge.source} → {edge.target}
               </div>
             ))}

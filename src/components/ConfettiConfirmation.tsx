@@ -108,8 +108,8 @@ export default function ConfettiConfirmation({ email }: ConfettiConfirmationProp
         className="absolute inset-0 pointer-events-none z-10"
       />
       <div className="relative z-20 h-full flex flex-col items-center justify-center text-center px-6">
-        <div className="p-3 bg-green-100 rounded-full mb-6 animate-bounce">
-          <CheckCircle className="h-12 w-12 text-green-600" />
+        <div className="p-3 bg-panel rounded-full mb-6 animate-bounce">
+          <CheckCircle className="h-12 w-12 text-success" />
         </div>
         <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4 animate-fade-in">
           Registration Successful!

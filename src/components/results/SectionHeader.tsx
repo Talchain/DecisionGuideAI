@@ -32,7 +32,7 @@ export function SectionHeader({ title, count, testId }: SectionHeaderProps) {
       </h3>
       {count != null && count > 0 && (
         <span
-          className={`${typography.panelMeta} text-white bg-info px-1.5 py-0.5 rounded-full leading-none`}
+          className={`${typography.panelMeta} text-text-on-color bg-info px-1.5 py-0.5 rounded-full leading-none`}
           aria-label={`${count} items`}
         >
           {count}

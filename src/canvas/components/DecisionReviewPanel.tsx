@@ -74,19 +74,19 @@ interface ReadinessHeaderProps {
 function ReadinessHeader({ readiness }: ReadinessHeaderProps) {
   const levelConfig: Record<ReadinessLevel, { bg: string; text: string; border: string; icon: React.ReactNode }> = {
     ready: {
-      bg: 'bg-success-light',
+      bg: 'bg-panel',
       text: 'text-success',
       border: 'border-success/30',
       icon: <CheckCircle className="w-4 h-4 text-success" aria-hidden="true" />,
     },
     caution: {
-      bg: 'bg-warning-light',
+      bg: 'bg-panel',
       text: 'text-warning',
       border: 'border-warning/30',
       icon: <AlertTriangle className="w-4 h-4 text-warning" aria-hidden="true" />,
     },
     not_ready: {
-      bg: 'bg-danger-light',
+      bg: 'bg-panel',
       text: 'text-danger',
       border: 'border-danger/30',
       icon: <XCircle className="w-4 h-4 text-danger" aria-hidden="true" />,
@@ -266,9 +266,9 @@ function ReviewBlockCard({ block }: ReviewBlockCardProps) {
   }
 
   const severityConfig = {
-    low: { bg: 'bg-info-light', border: 'border-info/30', text: 'text-info' },
-    medium: { bg: 'bg-warning-light', border: 'border-warning/30', text: 'text-warning' },
-    high: { bg: 'bg-danger-light', border: 'border-danger/30', text: 'text-danger' },
+    low: { bg: 'bg-panel', border: 'border-info/30', text: 'text-info' },
+    medium: { bg: 'bg-panel', border: 'border-warning/30', text: 'text-warning' },
+    high: { bg: 'bg-panel', border: 'border-danger/30', text: 'text-danger' },
   }
 
   const config = block.severity ? severityConfig[block.severity] : null
@@ -522,7 +522,7 @@ export function DecisionReviewPanel({
         <section
           aria-label="Decision review"
           data-testid="decision-review-timeout"
-          className={`p-3 ${typography.caption} bg-info-light border border-info/30 rounded`}
+          className={`p-3 ${typography.caption} bg-panel border border-info/30 rounded`}
         >
           <div className="flex items-start gap-2">
             <Info className="w-4 h-4 text-info flex-shrink-0 mt-0.5" aria-hidden="true" />
@@ -538,7 +538,7 @@ export function DecisionReviewPanel({
                 <button
                   type="button"
                   onClick={handleRetry}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-info-600 text-white rounded hover:bg-info-700 transition-colors"
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-info-600 text-text-on-color rounded hover:bg-info-700 transition-colors"
                   data-testid="decision-review-retry"
                 >
                   <RefreshCw className="w-3.5 h-3.5" aria-hidden="true" />
@@ -618,7 +618,7 @@ export function DecisionReviewPanel({
         <section
           aria-label="Decision review"
           data-testid="decision-review-timeout"
-          className={`p-3 ${typography.caption} bg-info-light border border-info/30 rounded`}
+          className={`p-3 ${typography.caption} bg-panel border border-info/30 rounded`}
         >
           <div className="flex items-start gap-2">
             <Info className="w-4 h-4 text-info flex-shrink-0 mt-0.5" aria-hidden="true" />
@@ -634,7 +634,7 @@ export function DecisionReviewPanel({
                 <button
                   type="button"
                   onClick={handleRetry}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-info-600 text-white rounded hover:bg-info-700 transition-colors"
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-info-600 text-text-on-color rounded hover:bg-info-700 transition-colors"
                   data-testid="decision-review-retry"
                 >
                   <RefreshCw className="w-3.5 h-3.5" aria-hidden="true" />
@@ -743,7 +743,7 @@ function LegacyDecisionReview({
         <section
           aria-label="Decision review"
           data-testid="decision-review-timeout"
-          className={`p-3 ${typography.caption} bg-info-light border border-info/30 rounded`}
+          className={`p-3 ${typography.caption} bg-panel border border-info/30 rounded`}
         >
           <div className="flex items-start gap-2">
             <Info className="w-4 h-4 text-info flex-shrink-0 mt-0.5" aria-hidden="true" />

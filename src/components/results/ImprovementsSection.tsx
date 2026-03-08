@@ -34,16 +34,16 @@ const SOURCE_CONFIG: Record<
   }
 > = {
   bias: {
-    bgColor: 'bg-purple-50',
-    borderColor: 'border-purple-200',
-    textColor: 'text-purple-800',
+    bgColor: 'bg-panel',
+    borderColor: 'border-option/30',
+    textColor: 'text-option',
     icon: '🎯',
     label: 'Bias finding',
   },
   quality_factor: {
-    bgColor: 'bg-blue-50',
-    borderColor: 'border-blue-200',
-    textColor: 'text-blue-800',
+    bgColor: 'bg-panel',
+    borderColor: 'border-info/30',
+    textColor: 'text-info',
     icon: '📊',
     label: 'Quality factor',
   },
@@ -66,7 +66,7 @@ function ImprovementRow({ item }: { item: ImprovementItem }) {
         <div className="flex-1 min-w-0">
           {/* Source badge for bias findings */}
           {item.source === 'bias' && (
-            <span className={`inline-block ${typography.panelBody} px-1.5 py-0.5 bg-purple-100 text-purple-700 rounded mb-1`}>
+            <span className={`inline-block ${typography.panelBody} px-1.5 py-0.5 bg-panel text-option rounded mb-1`}>
               {config.label}
             </span>
           )}
@@ -85,7 +85,7 @@ function ImprovementRow({ item }: { item: ImprovementItem }) {
               <span className={`${typography.panelBody} text-slate-500`}>~{item.effortMinutes} min</span>
             )}
             {item.potentialImprovement && (
-              <span className={`${typography.panelBody} text-emerald-600`}>{item.potentialImprovement}</span>
+              <span className={`${typography.panelBody} text-success`}>{item.potentialImprovement}</span>
             )}
           </div>
         </div>
@@ -127,7 +127,7 @@ export function ImprovementsSection({
           <h3 className={`${typography.panelHeader} text-slate-700`}>Strengthen your analysis</h3>
           <span
             className={`${typography.panelBody} px-2 py-0.5 rounded-full ${
-              hasHighPriority ? 'bg-purple-100 text-purple-700' : 'bg-slate-100 text-slate-600'
+              hasHighPriority ? 'bg-panel text-option' : 'bg-slate-100 text-slate-600'
             }`}
           >
             {count} {count === 1 ? 'way' : 'ways'} to improve

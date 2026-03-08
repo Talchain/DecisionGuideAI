@@ -5,6 +5,7 @@
 
 import type { Node, Edge } from '@xyflow/react'
 import type { EdgeData } from '../domain/edges'
+import { getEdgeKey } from '../domain/edgeUtils'
 import type { ValidationIssue, GraphHealth, IssueType, IssueSeverity } from './types'
 
 /**
@@ -159,7 +160,7 @@ function detectDuplicateEdges(edges: Edge[]): ValidationIssue[] {
   const edgeMap = new Map<string, string[]>()
 
   for (const edge of edges) {
-    const key = `${edge.source}->${edge.target}`
+    const key = getEdgeKey(edge)
     if (!edgeMap.has(key)) {
       edgeMap.set(key, [])
     }

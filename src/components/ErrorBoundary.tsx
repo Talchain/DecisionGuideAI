@@ -32,7 +32,7 @@ export default class ErrorBoundary extends Component<Props, State> {
     if (this.state.hasError) {
       return (
         <div className="min-h-[200px] flex items-center justify-center p-8">
-          <div className="bg-danger-light border border-danger/30 rounded-lg p-6 max-w-lg w-full">
+          <div className="bg-panel border border-danger/30 rounded-lg p-6 max-w-lg w-full">
             <div className="flex items-start gap-4">
               <div className="flex-shrink-0">
                 <AlertTriangle className="h-6 w-6 text-danger" />
@@ -46,7 +46,7 @@ export default class ErrorBoundary extends Component<Props, State> {
                 </p>
                 <button
                   onClick={() => window.location.reload()}
-                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-danger hover:bg-danger/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-danger/50"
+                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-text-on-color bg-danger hover:bg-danger/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-danger/50"
                 >
                   Refresh Page
                 </button>

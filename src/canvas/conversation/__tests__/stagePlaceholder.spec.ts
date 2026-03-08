@@ -1,5 +1,5 @@
 /**
- * Tests for stage-aware placeholder text in ConversationPanel.
+ * Tests for stage-aware placeholder text in ChatComposer.
  *
  * Verifies that the STAGE_PLACEHOLDERS map covers all ScenarioStage values
  * and that the fallback is the default placeholder.
@@ -8,17 +8,17 @@
 import { describe, it, expect } from 'vitest'
 import type { ScenarioStage } from '../../../types/scenario'
 
-// Mirror the map from ConversationPanel — tested independently to avoid
+// Mirror the map from ChatComposer — tested independently to avoid
 // rendering the full component tree (canvas store deps make that expensive).
 const STAGE_PLACEHOLDERS: Record<ScenarioStage, string> = {
-  frame:    'What decision are you facing?',
-  ideate:   'Tell me more about your goals and constraints...',
-  evaluate: "Say 'run it' to analyse, or keep refining",
-  decide:   'Ask about results, or challenge the recommendation',
-  optimise: 'Edit the brief, share it, or start a new scenario',
+  frame:    'Describe your decision, the options you\u2019re weighing, and what a good outcome looks like.',
+  ideate:   'Explore options, add factors, or challenge assumptions...',
+  evaluate: 'Ask about the results, challenge assumptions, or refine the model...',
+  decide:   'Challenge the recommendation, or generate your brief...',
+  optimise: 'Plan your next steps...',
 }
 
-const DEFAULT_PLACEHOLDER = 'What decision are you facing?'
+const DEFAULT_PLACEHOLDER = STAGE_PLACEHOLDERS.frame
 
 const ALL_STAGES: ScenarioStage[] = ['frame', 'ideate', 'evaluate', 'decide', 'optimise']
 
@@ -37,16 +37,16 @@ describe('Stage-aware placeholder text', () => {
     expect(STAGE_PLACEHOLDERS.ideate).not.toBe(STAGE_PLACEHOLDERS.frame)
   })
 
-  it('evaluate stage mentions running or refining', () => {
-    expect(STAGE_PLACEHOLDERS.evaluate.toLowerCase()).toMatch(/run|refin/)
+  it('evaluate stage mentions results or refining', () => {
+    expect(STAGE_PLACEHOLDERS.evaluate.toLowerCase()).toMatch(/result|refin/)
   })
 
-  it('decide stage mentions results or recommendation', () => {
-    expect(STAGE_PLACEHOLDERS.decide.toLowerCase()).toMatch(/result|recommend/)
+  it('decide stage mentions recommendation or brief', () => {
+    expect(STAGE_PLACEHOLDERS.decide.toLowerCase()).toMatch(/recommend|brief/)
   })
 
-  it('optimise stage mentions brief or scenario', () => {
-    expect(STAGE_PLACEHOLDERS.optimise.toLowerCase()).toMatch(/brief|scenario/)
+  it('optimise stage mentions steps', () => {
+    expect(STAGE_PLACEHOLDERS.optimise.toLowerCase()).toMatch(/step/)
   })
 
   it('unknown stage falls back to default placeholder', () => {

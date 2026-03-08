@@ -66,7 +66,7 @@ function FramingSection() {
             <input
               id="framing-title"
               type="text"
-              className={`w-full rounded border border-sand-300 px-2 py-1 ${typography.caption} text-ink-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
+              className={`w-full rounded border border-sand-300 px-2 py-1 ${typography.caption} text-ink-900 focus:outline-none focus:ring-2 focus:ring-info focus:border-info`}
               value={framing?.title ?? ''}
               onChange={handleChange('title')}
               placeholder="What decision are you making?"
@@ -80,7 +80,7 @@ function FramingSection() {
             <textarea
               id="framing-goal"
               rows={2}
-              className={`w-full rounded border border-sand-300 px-2 py-1 ${typography.caption} text-ink-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none`}
+              className={`w-full rounded border border-sand-300 px-2 py-1 ${typography.caption} text-ink-900 focus:outline-none focus:ring-2 focus:ring-info focus:border-info resize-none`}
               value={framing?.goal ?? ''}
               onChange={handleChange('goal')}
               placeholder="What does a good outcome look like?"
@@ -94,7 +94,7 @@ function FramingSection() {
             <input
               id="framing-timeline"
               type="text"
-              className={`w-full rounded border border-sand-300 px-2 py-1 ${typography.caption} text-ink-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
+              className={`w-full rounded border border-sand-300 px-2 py-1 ${typography.caption} text-ink-900 focus:outline-none focus:ring-2 focus:ring-info focus:border-info`}
               value={framing?.timeline ?? ''}
               onChange={handleChange('timeline')}
               placeholder="For example: next quarter, 12–18 months."
@@ -106,7 +106,7 @@ function FramingSection() {
           <button
             type="button"
             onClick={() => setShowAdvanced(v => !v)}
-            className={`inline-flex items-center ${typography.code} font-medium text-blue-700 hover:text-blue-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded`}
+            className={`inline-flex items-center ${typography.code} font-medium text-info hover:text-info focus:outline-none focus-visible:ring-2 focus-visible:ring-info rounded`}
             data-testid="framing-toggle-advanced"
           >
             {showAdvanced ? 'Hide extra structure' : 'Add more structure'}
@@ -121,7 +121,7 @@ function FramingSection() {
                 <textarea
                   id="framing-constraints"
                   rows={2}
-                  className={`w-full rounded border border-sand-300 px-2 py-1 ${typography.caption} text-ink-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none`}
+                  className={`w-full rounded border border-sand-300 px-2 py-1 ${typography.caption} text-ink-900 focus:outline-none focus:ring-2 focus:ring-info focus:border-info resize-none`}
                   value={framing?.constraints ?? ''}
                   onChange={handleChange('constraints')}
                   placeholder="Key constraints or non-negotiables."
@@ -135,7 +135,7 @@ function FramingSection() {
                 <textarea
                   id="framing-risks"
                   rows={2}
-                  className={`w-full rounded border border-sand-300 px-2 py-1 ${typography.caption} text-ink-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none`}
+                  className={`w-full rounded border border-sand-300 px-2 py-1 ${typography.caption} text-ink-900 focus:outline-none focus:ring-2 focus:ring-info focus:border-info resize-none`}
                   value={framing?.risks ?? ''}
                   onChange={handleChange('risks')}
                   placeholder="What could go wrong or be costly?"
@@ -149,7 +149,7 @@ function FramingSection() {
                 <textarea
                   id="framing-uncertainties"
                   rows={2}
-                  className={`w-full rounded border border-sand-300 px-2 py-1 ${typography.caption} text-ink-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none`}
+                  className={`w-full rounded border border-sand-300 px-2 py-1 ${typography.caption} text-ink-900 focus:outline-none focus:ring-2 focus:ring-info focus:border-info resize-none`}
                   value={framing?.uncertainties ?? ''}
                   onChange={handleChange('uncertainties')}
                   placeholder="Unknowns, assumptions, or information gaps."
@@ -251,7 +251,7 @@ function ScenarioRunSummary() {
       <button
         type="button"
         onClick={() => setShowResultsPanel(true)}
-        className={`mt-1 inline-flex items-center px-2 py-1 rounded border border-blue-200 text-blue-700 ${typography.code} font-medium hover:bg-blue-50`}
+        className={`mt-1 inline-flex items-center px-2 py-1 rounded border border-info/30 text-info ${typography.code} font-medium hover:bg-panel-hover`}
       >
         Open latest results
       </button>
@@ -274,7 +274,7 @@ function LimitsTabBody({ currentNodes, currentEdges }: { currentNodes: number; c
         <button
           type="button"
           onClick={retry}
-          className={`inline-flex items-center px-2 py-1 rounded border border-blue-200 text-blue-700 ${typography.code} font-medium hover:bg-blue-50`}
+          className={`inline-flex items-center px-2 py-1 rounded border border-info/30 text-info ${typography.code} font-medium hover:bg-panel-hover`}
         >
           Retry fetching limits
         </button>
@@ -444,10 +444,10 @@ function AskInput() {
       {/* Preflight error (graph too large) */}
       {isPreflightError && (
         <div
-          className="mb-2 p-2 rounded-lg bg-amber-50 border border-amber-200"
+          className="mb-2 p-2 rounded-lg bg-panel border border-warning/30"
           data-testid="preflight-error"
         >
-          <p className={`${typography.caption} text-amber-700`}>
+          <p className={`${typography.caption} text-warning`}>
             {error.message}
           </p>
         </div>

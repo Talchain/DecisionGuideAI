@@ -36,6 +36,7 @@ export interface ScenarioRow {
   is_pinned: boolean                      // Hub: pinned to top of list
   is_archived: boolean                    // Hub: hidden from Active filter
   source_scenario_id: string | null       // UUID of duplicated-from scenario
+  thread: unknown                         // JSONB array — ThreadEntry[] (Track 2 persistence)
   created_at: string                      // ISO-8601 timestamptz
   updated_at: string                      // ISO-8601 timestamptz
 }

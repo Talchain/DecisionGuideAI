@@ -79,9 +79,9 @@ export function PlotHealthPill({ pause = false }: PlotHealthPillProps): JSX.Elem
 
   const getStatusColor = () => {
     if (status === null) return 'bg-gray-300'
-    if (status === 'ok') return 'bg-emerald-500'
-    if (status === 'degraded') return 'bg-yellow-500'
-    return 'bg-red-500'
+    if (status === 'ok') return 'bg-success'
+    if (status === 'degraded') return 'bg-warning'
+    return 'bg-danger'
   }
 
   const getStatusText = () => {

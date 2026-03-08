@@ -28,6 +28,22 @@ import { generateGraphHash } from '../utils/graphHash'
 import styles from './Conversation.module.css'
 
 // ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+/** Human-readable one-line summary of patch operations (e.g. "3 factors, 2 options, 1 goal"). */
+function summarisePatchOps(operations: { op: string; data?: Record<string, unknown> }[]): string {
+  const counts: Record<string, number> = {}
+  for (const op of operations) {
+    // Prefer domain labels: data.kind (canvas convention) or data.type (CEE convention)
+    const kind = (op.data?.kind as string) ?? (op.data?.type as string) ?? op.op.replace(/^(add|remove|update)_/, '')
+    counts[kind] = (counts[kind] || 0) + 1
+  }
+  const parts = Object.entries(counts).map(([k, v]) => `${v} ${k}${v > 1 ? 's' : ''}`)
+  return parts.length > 0 ? parts.join(', ') : `${operations.length} operation${operations.length !== 1 ? 's' : ''}`
+}
+
+// ---------------------------------------------------------------------------
 // Container
 // ---------------------------------------------------------------------------
 
@@ -531,8 +547,7 @@ function GraphPatchBlockRenderer({
   const rejectionInfo = patchRejections?.get(stateKey) ?? null
   const isSettled = blockState !== 'proposed'
 
-  const opCount = block.operations.length
-  const opSummary = `${opCount} operation${opCount !== 1 ? 's' : ''}`
+  const opSummary = summarisePatchOps(block.operations)
 
   // auto_apply: CEE already applied the graph — render as applied, no actions, no event dispatch
   const isAutoApplied = block.auto_apply === true

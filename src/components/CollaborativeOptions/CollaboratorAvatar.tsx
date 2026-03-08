@@ -16,12 +16,12 @@ export default function CollaboratorAvatar({ userId, isTyping }: CollaboratorAva
       <div className={`
         relative w-8 h-8 rounded-full 
         flex items-center justify-center
-        bg-indigo-100 text-indigo-600
-        ${isTyping ? 'ring-2 ring-indigo-500 ring-offset-2' : ''}
+        bg-panel text-info
+        ${isTyping ? 'ring-2 ring-info ring-offset-2' : ''}
       `}>
         <User className="h-4 w-4" />
         {isTyping && (
-          <span className="absolute -bottom-1 -right-1 w-3 h-3 bg-green-500 rounded-full border-2 border-white" />
+          <span className="absolute -bottom-1 -right-1 w-3 h-3 bg-success rounded-full border-2 border-white" />
         )}
       </div>
     </Tooltip>

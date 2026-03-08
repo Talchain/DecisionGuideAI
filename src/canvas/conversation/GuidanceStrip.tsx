@@ -175,6 +175,7 @@ export const GuidanceStrip = memo(function GuidanceStrip({
       onMouseLeave={handleMouseLeave}
       data-testid="guidance-strip"
       data-item-id={topItem.item_id}
+      data-severity={topItem.category}
     >
       {/* Category badge */}
       <span className={`${styles.guidanceBadge} ${categoryBadgeClass(topItem.category)}`}>

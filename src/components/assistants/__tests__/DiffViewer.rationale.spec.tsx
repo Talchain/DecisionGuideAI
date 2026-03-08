@@ -466,10 +466,10 @@ describe('S7-RATIONALE: DiffViewer Inline Rationales', () => {
       const rationaleContainer = container.querySelector('[role="note"]')
 
       // Should have blue background
-      expect(rationaleContainer).toHaveClass('bg-blue-50')
+      expect(rationaleContainer).toHaveClass('bg-panel')
 
       // Should have border
-      expect(rationaleContainer).toHaveClass('border-blue-100')
+      expect(rationaleContainer).toHaveClass('border-info/30')
 
       // Should have padding
       expect(rationaleContainer).toHaveClass('px-3')

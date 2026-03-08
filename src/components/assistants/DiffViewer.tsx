@@ -83,7 +83,7 @@ export function DiffViewer({ draft, onApply, onReject }: DiffViewerProps) {
         >
           <div className="flex items-center gap-2">
             {showNodes ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
-            <Plus className="w-4 h-4 text-green-600" />
+            <Plus className="w-4 h-4 text-success" />
             <span className="font-medium">
               {nodeItems.length} nodes ({selectedNodeCount} selected)
             </span>
@@ -94,7 +94,7 @@ export function DiffViewer({ draft, onApply, onReject }: DiffViewerProps) {
                 e.stopPropagation()
                 toggleAll('node', true)
               }}
-              className="text-xs px-2 py-1 text-blue-600 hover:bg-blue-50 rounded"
+              className="text-xs px-2 py-1 text-info hover:bg-panel-hover rounded"
             >
               Select all
             </button>
@@ -119,9 +119,9 @@ export function DiffViewer({ draft, onApply, onReject }: DiffViewerProps) {
                     type="checkbox"
                     checked={item.selected}
                     onChange={() => toggleItem(item.id)}
-                    className="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
+                    className="w-4 h-4 text-info rounded focus:ring-2 focus:ring-info"
                   />
-                  <Plus className="w-3 h-3 text-green-600" />
+                  <Plus className="w-3 h-3 text-success" />
                   <span className="flex-1 text-sm">{item.label}</span>
                   {item.data.type && (
                     <span className="text-xs px-2 py-0.5 bg-gray-100 text-gray-600 rounded">
@@ -132,12 +132,12 @@ export function DiffViewer({ draft, onApply, onReject }: DiffViewerProps) {
                 {/* S7-RATIONALE: Show inline rationale if provided */}
                 {item.data.rationale && (
                   <div
-                    className="mx-4 mb-2 flex items-start gap-1.5 px-3 py-2 bg-blue-50 rounded-md border border-blue-100"
+                    className="mx-4 mb-2 flex items-start gap-1.5 px-3 py-2 bg-panel rounded-md border border-info/30"
                     role="note"
                     aria-label="Rationale"
                   >
-                    <Info className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
-                    <p className="text-xs text-blue-800 leading-relaxed">
+                    <Info className="w-4 h-4 text-info mt-0.5 flex-shrink-0" />
+                    <p className="text-xs text-info leading-relaxed">
                       {item.data.rationale}
                     </p>
                   </div>
@@ -156,7 +156,7 @@ export function DiffViewer({ draft, onApply, onReject }: DiffViewerProps) {
         >
           <div className="flex items-center gap-2">
             {showEdges ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
-            <Plus className="w-4 h-4 text-green-600" />
+            <Plus className="w-4 h-4 text-success" />
             <span className="font-medium">
               {edgeItems.length} edges ({selectedEdgeCount} selected)
             </span>
@@ -167,7 +167,7 @@ export function DiffViewer({ draft, onApply, onReject }: DiffViewerProps) {
                 e.stopPropagation()
                 toggleAll('edge', true)
               }}
-              className="text-xs px-2 py-1 text-blue-600 hover:bg-blue-50 rounded"
+              className="text-xs px-2 py-1 text-info hover:bg-panel-hover rounded"
             >
               Select all
             </button>
@@ -192,20 +192,20 @@ export function DiffViewer({ draft, onApply, onReject }: DiffViewerProps) {
                     type="checkbox"
                     checked={item.selected}
                     onChange={() => toggleItem(item.id)}
-                    className="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
+                    className="w-4 h-4 text-info rounded focus:ring-2 focus:ring-info"
                   />
-                  <Plus className="w-3 h-3 text-green-600" />
+                  <Plus className="w-3 h-3 text-success" />
                   <span className="flex-1 text-sm font-mono text-xs">{item.label}</span>
                 </label>
                 {/* S7-RATIONALE: Show inline rationale if provided */}
                 {item.data.rationale && (
                   <div
-                    className="mx-4 mb-2 flex items-start gap-1.5 px-3 py-2 bg-blue-50 rounded-md border border-blue-100"
+                    className="mx-4 mb-2 flex items-start gap-1.5 px-3 py-2 bg-panel rounded-md border border-info/30"
                     role="note"
                     aria-label="Rationale"
                   >
-                    <Info className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
-                    <p className="text-xs text-blue-800 leading-relaxed">
+                    <Info className="w-4 h-4 text-info mt-0.5 flex-shrink-0" />
+                    <p className="text-xs text-info leading-relaxed">
                       {item.data.rationale}
                     </p>
                   </div>
@@ -221,7 +221,7 @@ export function DiffViewer({ draft, onApply, onReject }: DiffViewerProps) {
         <button
           onClick={handleApply}
           disabled={selectedNodeCount === 0 && selectedEdgeCount === 0}
-          className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed font-medium"
+          className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-success text-text-on-color rounded-md hover:bg-success disabled:bg-gray-300 disabled:cursor-not-allowed font-medium"
         >
           <Check className="w-4 h-4" />
           Apply Changes ({selectedNodeCount + selectedEdgeCount})

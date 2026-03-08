@@ -141,7 +141,7 @@ export function RecommendationSection({
   // Error state
   if (analysisStatus === 'failed' || analysisStatus === 'blocked') {
     return (
-      <div className="p-4 bg-danger-light border border-danger/30 rounded-lg">
+      <div className="p-4 bg-panel border border-danger/30 rounded-lg">
         <div className={`flex items-center gap-2 ${typography.panelBody} text-danger mb-2`}>
           <span>Analysis could not complete</span>
         </div>

@@ -62,7 +62,7 @@ export function StreamingMonitor({ state, onRetry, showDebug = false }: Streamin
     <div className="space-y-2">
       {/* Status Banner */}
       {state.status === 'streaming' && (
-        <div className="flex items-center gap-2 px-3 py-2 bg-info-light border border-info/30 rounded-lg text-xs">
+        <div className="flex items-center gap-2 px-3 py-2 bg-panel border border-info/30 rounded-lg text-xs">
           <RefreshCw className="w-4 h-4 text-info animate-spin" />
           <span className="text-info font-medium">Streaming response...</span>
           <span className="text-info">{(timeElapsed / 1000).toFixed(1)}s</span>
@@ -70,7 +70,7 @@ export function StreamingMonitor({ state, onRetry, showDebug = false }: Streamin
       )}
 
       {state.status === 'complete' && (
-        <div className="flex items-center gap-2 px-3 py-2 bg-success-light border border-success/30 rounded-lg text-xs">
+        <div className="flex items-center gap-2 px-3 py-2 bg-panel border border-success/30 rounded-lg text-xs">
           <CheckCircle2 className="w-4 h-4 text-success" />
           <span className="text-success font-medium">Stream complete</span>
           <span className="text-success">{state.eventCount} events</span>
@@ -78,7 +78,7 @@ export function StreamingMonitor({ state, onRetry, showDebug = false }: Streamin
       )}
 
       {state.status === 'timeout' && (
-        <div className="flex items-start gap-2 px-3 py-2 bg-warning-light border border-warning/30 rounded-lg text-xs">
+        <div className="flex items-start gap-2 px-3 py-2 bg-panel border border-warning/30 rounded-lg text-xs">
           <AlertTriangle className="w-4 h-4 text-warning flex-shrink-0 mt-0.5" />
           <div className="flex-1">
             <p className="text-warning font-medium">Stream incomplete</p>
@@ -89,7 +89,7 @@ export function StreamingMonitor({ state, onRetry, showDebug = false }: Streamin
           {onRetry && (
             <button
               onClick={onRetry}
-              className="px-2 py-1 bg-warning-600 text-white rounded hover:bg-warning-700 transition-colors flex items-center gap-1"
+              className="px-2 py-1 bg-warning-600 text-text-on-color rounded hover:bg-warning-700 transition-colors flex items-center gap-1"
               aria-label="Retry streaming request"
             >
               <RefreshCw className="w-3 h-3" />
@@ -100,7 +100,7 @@ export function StreamingMonitor({ state, onRetry, showDebug = false }: Streamin
       )}
 
       {state.status === 'error' && (
-        <div className="flex items-start gap-2 px-3 py-2 bg-danger-light border border-danger/30 rounded-lg text-xs">
+        <div className="flex items-start gap-2 px-3 py-2 bg-panel border border-danger/30 rounded-lg text-xs">
           <XCircle className="w-4 h-4 text-danger flex-shrink-0 mt-0.5" />
           <div className="flex-1">
             <p className="text-danger font-medium">Stream failed</p>
@@ -111,7 +111,7 @@ export function StreamingMonitor({ state, onRetry, showDebug = false }: Streamin
           {onRetry && (
             <button
               onClick={onRetry}
-              className="px-2 py-1 bg-danger-600 text-white rounded hover:bg-danger-700 transition-colors flex items-center gap-1"
+              className="px-2 py-1 bg-danger-600 text-text-on-color rounded hover:bg-danger-700 transition-colors flex items-center gap-1"
               aria-label="Retry streaming request"
             >
               <RefreshCw className="w-3 h-3" />

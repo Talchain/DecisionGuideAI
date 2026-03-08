@@ -6,6 +6,7 @@
  */
 
 import type { Node, Edge } from '@xyflow/react'
+import { getEdgeKey } from '../domain/edgeUtils'
 
 /**
  * Generate a stable hash for the current graph state
@@ -18,7 +19,7 @@ import type { Node, Edge } from '@xyflow/react'
 export function generateGraphHash(nodes: Node[], edges: Edge[]): string {
   // Sort for stability
   const sortedNodeIds = nodes.map(n => n.id).sort()
-  const sortedEdgeIds = edges.map(e => `${e.source}->${e.target}`).sort()
+  const sortedEdgeIds = edges.map(e => getEdgeKey(e)).sort()
 
   // Include node data that affects analysis
   const nodeData = nodes.map(n => {
@@ -29,7 +30,7 @@ export function generateGraphHash(nodes: Node[], edges: Edge[]): string {
   // Include edge data that affects analysis
   const edgeData = edges.map(e => {
     const data = e.data as Record<string, unknown> | undefined
-    return `${e.source}->${e.target}:${data?.confidence ?? ''}:${data?.weight ?? ''}:${data?.belief ?? ''}`
+    return `${getEdgeKey(e)}:${data?.confidence ?? ''}:${data?.weight ?? ''}:${data?.belief ?? ''}`
   }).sort().join('|')
 
   return `n:${sortedNodeIds.join(',')}|e:${sortedEdgeIds.join(',')}|nd:${nodeData}|ed:${edgeData}`

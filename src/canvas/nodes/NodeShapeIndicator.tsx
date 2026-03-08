@@ -12,6 +12,7 @@ interface NodeShapeIndicatorProps {
   nodeKind: NodeType
   size?: number
   className?: string
+  fillOverride?: string
 }
 
 /**
@@ -29,8 +30,8 @@ const SHAPE_FILLS: Record<NodeType, string> = {
   constraint: 'var(--color-text-light, #94A3B8)',
 }
 
-export function NodeShapeIndicator({ nodeKind, size = 12, className }: NodeShapeIndicatorProps) {
-  const fill = SHAPE_FILLS[nodeKind] ?? SHAPE_FILLS.factor
+export function NodeShapeIndicator({ nodeKind, size = 12, className, fillOverride }: NodeShapeIndicatorProps) {
+  const fill = fillOverride ?? SHAPE_FILLS[nodeKind] ?? SHAPE_FILLS.factor
   const half = size / 2
 
   switch (nodeKind) {

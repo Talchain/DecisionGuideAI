@@ -14,7 +14,7 @@ export function CritiquePanel({ blockers, improvements, observations, onFix }: a
       <div className="flex border-b">
         {(['blockers', 'improvements', 'observations'] as Tab[]).map(tab => (
           <button key={tab} onClick={() => setActiveTab(tab)} 
-            className={`flex-1 px-4 py-2 text-sm ${activeTab === tab ? 'bg-indigo-50 text-indigo-700' : 'text-gray-600'}`}>
+            className={`flex-1 px-4 py-2 text-sm ${activeTab === tab ? 'bg-panel text-info' : 'text-gray-600'}`}>
             {tab.charAt(0).toUpperCase() + tab.slice(1)}
           </button>
         ))}
@@ -27,7 +27,7 @@ export function CritiquePanel({ blockers, improvements, observations, onFix }: a
                 <div className="text-sm font-medium">{item.title}</div>
                 <div className="text-xs text-gray-600">{item.rationale}</div>
                 {item.fixAction && onFix && (
-                  <button onClick={() => onFix(item)} className="mt-2 px-2 py-1 text-xs bg-indigo-600 text-white rounded">Fix</button>
+                  <button onClick={() => onFix(item)} className="mt-2 px-2 py-1 text-xs bg-primary text-text-on-color rounded">Fix</button>
                 )}
               </div>
             ))}

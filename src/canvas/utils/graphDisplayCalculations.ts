@@ -163,15 +163,15 @@ export function getRiskSeverityColors(
       }
     case 'high':
       return {
-        bg: 'bg-red-100',
-        border: 'border-red-500',
-        text: 'text-red-900',
+        bg: 'bg-panel',
+        border: 'border-danger',
+        text: 'text-danger',
       }
     case 'critical':
       return {
-        bg: 'bg-red-200',
-        border: 'border-red-600',
-        text: 'text-red-950',
+        bg: 'bg-panel',
+        border: 'border-danger',
+        text: 'text-danger',
       }
     default:
       return {

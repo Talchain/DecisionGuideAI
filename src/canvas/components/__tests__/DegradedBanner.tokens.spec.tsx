@@ -24,7 +24,7 @@ describe('DegradedBanner design tokens', () => {
     if (!flexContainer) return
 
     expect(flexContainer.className).toContain('border-warning/30')
-    expect(flexContainer.className).toContain('bg-warning-light')
+    expect(flexContainer.className).toContain('bg-panel')
     expect(flexContainer.className).toContain('text-warning')
 
     fetchHealthSpy.mockRestore()

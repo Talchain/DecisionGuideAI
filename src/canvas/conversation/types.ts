@@ -23,6 +23,15 @@ export interface ConversationMessage {
   clientTurnId?: string
   /** Whether this is a synthetic UI-only message (e.g. welcome, error) */
   synthetic?: boolean
+  /** Track 3: Session boundary divider text (rendered as centred divider, not a chat bubble) */
+  sessionDivider?: string
+  /** Track 3: Thread hydration metadata (present only on messages hydrated from persisted thread) */
+  _threadMeta?: {
+    entryId: string
+    origin: string
+    entryStatus: string
+    redactionState: string
+  }
 }
 
 // ---------------------------------------------------------------------------

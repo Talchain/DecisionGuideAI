@@ -105,7 +105,7 @@ export function RecoveryBanner() {
       role="alert"
       aria-live="assertive"
     >
-      <div className="flex items-start gap-3 p-4 bg-warning-light border-2 border-warning rounded-lg shadow-panel">
+      <div className="flex items-start gap-3 p-4 bg-panel border-2 border-warning rounded-lg shadow-panel">
         <AlertCircle className="w-5 h-5 text-warning flex-shrink-0 mt-0.5" />
         <div className="flex-1 min-w-0">
           <p className={`${typography.label} text-warning-900`}>
@@ -117,7 +117,7 @@ export function RecoveryBanner() {
           <div className="flex gap-2 mt-3">
             <button
               onClick={handleRecover}
-              className={`px-3 py-1.5 ${typography.label} text-white bg-warning-600 hover:bg-warning-700 rounded-lg transition-colors`}
+              className={`px-3 py-1.5 ${typography.label} text-text-on-color bg-warning-600 hover:bg-warning-700 rounded-lg transition-colors`}
               data-testid="btn-recover-autosave"
               type="button"
             >

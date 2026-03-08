@@ -224,7 +224,7 @@ export function SuccessTarget({
               <button
                 type="button"
                 onClick={onThresholdConfirm}
-                className={`px-3 py-1.5 ${typography.panelMeta} text-white bg-info rounded-lg hover:bg-success`}
+                className={`px-3 py-1.5 ${typography.panelMeta} text-text-on-color bg-info rounded-lg hover:bg-success`}
               >
                 Confirm
               </button>
@@ -261,7 +261,7 @@ export function SuccessTarget({
               type="button"
               onClick={handleSubmit}
               disabled={!inputValue.trim()}
-              className={`px-3 py-1.5 ${typography.panelMeta} text-white bg-info rounded-lg hover:bg-success disabled:opacity-50`}
+              className={`px-3 py-1.5 ${typography.panelMeta} text-text-on-color bg-info rounded-lg hover:bg-success disabled:opacity-50`}
             >
               Save
             </button>
@@ -373,7 +373,7 @@ export function SuccessTarget({
                 setIsExpanded(false)
                 onThresholdConfirm?.()
               }}
-              className={`px-3 py-1.5 ${typography.panelMeta} text-white bg-info rounded-lg hover:bg-success`}
+              className={`px-3 py-1.5 ${typography.panelMeta} text-text-on-color bg-info rounded-lg hover:bg-success`}
             >
               Confirm
             </button>

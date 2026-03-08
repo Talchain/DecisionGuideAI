@@ -316,10 +316,10 @@ export function ImportExportDialog({ isOpen, onClose, mode }: ImportExportDialog
                   <h3 className="font-medium text-gray-900 mb-2">Validation Issues</h3>
                   <div className="space-y-1">
                     {validationIssues.map((issue, i) => (
-                      <div key={i} className={`${typography.body} flex items-start gap-2 ${issue.type === 'error' ? 'text-red-600' : 'text-yellow-600'}`}>
+                      <div key={i} className={`${typography.body} flex items-start gap-2 ${issue.type === 'error' ? 'text-danger' : 'text-warning'}`}>
                         <span>{issue.type === 'error' ? '❌' : '⚠️'}</span>
                         <span>{issue.message}</span>
-                        {issue.fixable && <span className="text-green-600">(fixable)</span>}
+                        {issue.fixable && <span className="text-success">(fixable)</span>}
                       </div>
                     ))}
                   </div>
@@ -339,7 +339,7 @@ export function ImportExportDialog({ isOpen, onClose, mode }: ImportExportDialog
                   {canAutoFix && (
                     <button
                       onClick={() => handleImport(true)}
-                      className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                      className="flex-1 px-4 py-2 bg-success text-text-on-color rounded-lg hover:bg-success transition-colors"
                     >
                       Auto-Fix and Import
                     </button>
@@ -399,7 +399,7 @@ export function ImportExportDialog({ isOpen, onClose, mode }: ImportExportDialog
               </div>
 
               {/* Export Info */}
-              <div className={`bg-blue-50 border border-blue-200 rounded-lg p-4 ${typography.body} text-blue-800`}>
+              <div className={`bg-panel border border-info/30 rounded-lg p-4 ${typography.body} text-info`}>
                 <p><strong>Current canvas:</strong> {nodes.length} nodes, {edges.length} edges</p>
                 {exportFormat === 'json' && <p className="mt-1">File will be editable and re-importable</p>}
                 {exportFormat === 'png' && <p className="mt-1">File will be 2x resolution for clarity</p>}

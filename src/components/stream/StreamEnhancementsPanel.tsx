@@ -175,7 +175,7 @@ function StreamEnhancementsPanel({
               ))}
             </ul>
             {shareNote && (
-              <div data-testid="share-cap-note" role="status" aria-live="polite" className="mt-2 text-[11px] text-amber-700">
+              <div data-testid="share-cap-note" role="status" aria-live="polite" className="mt-2 text-[11px] text-warning">
                 {shareNote}
               </div>
             )}

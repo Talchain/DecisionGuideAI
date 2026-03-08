@@ -10,7 +10,10 @@ import { useState, useCallback, useRef, useEffect } from 'react'
 import { useCanvasStore } from '../store'
 import { generateGraphHash } from '../utils/graphHash'
 import { callOrchestratorTurn, OrchestratorError } from './turnService'
-import { isOrchestratorV2Enabled } from '../../flags'
+import { isOrchestratorV2Enabled, isThreadHydrateEnabled, isThreadPersistEnabled } from '../../flags'
+import { hydrateMessagesFromThread, formatSessionBoundary } from './utils/hydrateThread'
+import { appendThreadEntries } from '../../services/threadService'
+import type { ThreadEntry } from '../journey/threadTypes'
 import { useGuidanceStore } from '../stores/guidanceStore'
 import { serializeSystemEvent } from './systemEvents'
 import {
@@ -145,6 +148,13 @@ export function buildHistory(
   const pairs: ConversationTurnPair[] = []
   for (const msg of messages) {
     if (msg.synthetic) continue
+    // Track 3: Exclude hydrated entries that are not suitable for LLM context.
+    // Only conversation-origin, complete, full-redaction entries should reach the LLM.
+    if (msg._threadMeta) {
+      if (msg._threadMeta.origin !== 'conversation') continue
+      if (msg._threadMeta.entryStatus !== 'complete') continue
+      if (msg._threadMeta.redactionState !== 'full') continue
+    }
     pairs.push({ role: msg.role, content: msg.content })
   }
   // Keep last maxPairs * 2 entries (each pair = user + assistant)
@@ -407,7 +417,7 @@ export interface UseConversationReturn {
   longRunningHint: string | null
   /** The user's last input text, restored on error so they can edit and resend */
   lastFailedInput: string | null
-  sendMessage: (text: string) => Promise<void>
+  sendMessage: (text: string, opts?: { hidden?: boolean }) => Promise<void>
   sendSystemEvent: (event: WireSystemEvent) => Promise<void>
   sendChip: (chip: ActionChip) => Promise<void>
   clearHistory: () => void
@@ -446,12 +456,69 @@ export function useConversation(): UseConversationReturn {
     }
   }, [])
 
-  // Clear conversation when scenario changes
+  // Clear conversation when scenario changes (with Track 3 thread hydration)
   const scenarioId = useCanvasStore((s) => s.currentScenarioId)
   const prevScenarioRef = useRef(scenarioId)
   useEffect(() => {
     if (scenarioId !== prevScenarioRef.current) {
       prevScenarioRef.current = scenarioId
+
+      // Track 3: Hydrate conversation from persisted thread on scenario resume
+      if (isThreadHydrateEnabled() && scenarioId) {
+        const store = useCanvasStore.getState()
+        const rawThread = store._hydratedThread as ThreadEntry[] | null
+        if (rawThread && rawThread.length > 0) {
+          try {
+            // Use current graph structure hash (not last analysis hash) for
+            // like-for-like stale detection against graph_hash_at_proposal.
+            const graphHash = generateGraphHash(store.nodes, store.edges)
+            const result = hydrateMessagesFromThread(rawThread, graphHash || undefined)
+
+            // Append session boundary divider
+            const boundaryMsg: ConversationMessage = {
+              id: `boundary-${crypto.randomUUID().slice(0, 8)}`,
+              role: 'assistant',
+              content: '',
+              timestamp: new Date(),
+              synthetic: true,
+              sessionDivider: formatSessionBoundary(new Date()),
+            }
+
+            setMessages([...result.messages, boundaryMsg])
+            setPatchBlockStates(result.blockStates)
+            setIsThinking(false)
+            setLongRunningHint(null)
+            setLastFailedInput(null)
+
+            // Persist session boundary entry (best-effort)
+            if (isThreadPersistEnabled()) {
+              void appendThreadEntries(scenarioId, [{
+                entry_id: crypto.randomUUID(),
+                entry_schema_version: 1,
+                role: 'system',
+                origin: 'session_boundary',
+                entry_status: 'complete',
+                system_event_type: 'session_resumed',
+                system_event_detail: formatSessionBoundary(new Date()),
+                redaction_state: 'full',
+              }])
+            }
+          } catch (err) {
+            console.error('[useConversation] Thread hydration failed — starting fresh', err)
+            // Reset to clean state so the user sees an empty conversation, not
+            // stale messages from the previous scenario.
+            setMessages([])
+            setIsThinking(false)
+            setLongRunningHint(null)
+            setLastFailedInput(null)
+          } finally {
+            // Clear from store to prevent re-hydration (even on error)
+            useCanvasStore.setState({ _hydratedThread: null })
+          }
+          return
+        }
+      }
+
       setMessages([])
       setIsThinking(false)
       setLongRunningHint(null)
@@ -730,11 +797,39 @@ export function useConversation(): UseConversationReturn {
 
       const orderedBlocks = prioritiseBlocks(normalisedBlocks)
 
+      // Strip trailing text lines that duplicate chip labels (LLM sometimes
+      // echoes suggested actions as plain text at the end of assistant_text).
+      // Only strip lines that look like a list item (bulleted/numbered prefix)
+      // to avoid removing semantically valid prose endings.
+      let assistantText = envelope.assistant_text ?? ''
+      if (chips.length > 0) {
+        const chipLabels = new Set(chips.map(c => c.label.toLowerCase().trim()))
+        const LIST_PREFIX = /^[-•*\d.)\u2022\u2013\u2014]\s*/
+        const lines = assistantText.split('\n')
+        while (lines.length > 0) {
+          const raw = lines[lines.length - 1].trim()
+          // Allow stripping trailing blank lines
+          if (!raw) { lines.pop(); continue }
+          // Only strip lines with a list-item prefix that match a chip label
+          if (LIST_PREFIX.test(raw) && chipLabels.has(raw.replace(LIST_PREFIX, '').toLowerCase())) {
+            lines.pop()
+          } else {
+            break
+          }
+        }
+        assistantText = lines.join('\n').trimEnd()
+      }
+
+      // Guard: skip empty assistant messages (no visible content and no blocks)
+      const hasContent = assistantText.trim().length > 0
+      const hasBlocks = orderedBlocks.length > 0
+      if (!hasContent && !hasBlocks) return
+
       const assistantMsg: ConversationMessage = {
         id: crypto.randomUUID(),
         role: 'assistant',
-        content: envelope.assistant_text ?? '',
-        blocks: orderedBlocks.length > 0 ? orderedBlocks : undefined,
+        content: assistantText,
+        blocks: hasBlocks ? orderedBlocks : undefined,
         actionChips: chips.length > 0 ? chips : undefined,
         timestamp: new Date(),
         clientTurnId: envelope.client_turn_id,
@@ -770,8 +865,10 @@ export function useConversation(): UseConversationReturn {
       message: string
       systemEvent?: SystemEvent
       mode: 'user' | 'system'
+      /** When true, send the request but don't show a user bubble (e.g. programmatic "run it") */
+      hidden?: boolean
     }) => {
-      const { message, systemEvent, mode } = opts
+      const { message, systemEvent, mode, hidden } = opts
 
       // Synchronous in-flight lock — prevents duplicate dispatch from rapid
       // clicks before React re-renders the isThinking state guard.
@@ -780,16 +877,19 @@ export function useConversation(): UseConversationReturn {
 
       if (mode === 'user') {
         if (!message.trim() || isThinking) { inFlightRef.current = false; return }
-        lastUserInputRef.current = message
-        setLastFailedInput(null)
 
-        // Add user message bubble
-        addMessage({
-          id: crypto.randomUUID(),
-          role: 'user',
-          content: message,
-          timestamp: new Date(),
-        })
+        // Hidden sends (e.g. "run it") must not pollute user-facing recovery state
+        if (!hidden) {
+          lastUserInputRef.current = message
+          setLastFailedInput(null)
+
+          addMessage({
+            id: crypto.randomUUID(),
+            role: 'user',
+            content: message,
+            timestamp: new Date(),
+          })
+        }
       } else {
         // System events: no user bubble, but still guard against concurrent sends.
         // Note: '[system]' sentinel turns must be excluded when conversation persistence
@@ -815,8 +915,8 @@ export function useConversation(): UseConversationReturn {
         setLongRunningHint('Still working\u2026')
       }, STILL_WORKING_THRESHOLD_MS)
 
-      // 60s timeout
-      const inputForRestore = mode === 'user' ? message : null
+      // 60s timeout — hidden sends must not restore input or show retry chips
+      const inputForRestore = (mode === 'user' && !hidden) ? message : null
       timeoutTimerRef.current = setTimeout(() => {
         controller.abort()
         clearTimeout(longRunningTimerRef.current)
@@ -824,16 +924,18 @@ export function useConversation(): UseConversationReturn {
         setIsThinking(false)
         setLongRunningHint(null)
         if (inputForRestore) setLastFailedInput(inputForRestore)
-        addMessage({
-          id: crypto.randomUUID(),
-          role: 'assistant',
-          content: 'This is taking longer than expected. Try again or rephrase your message.',
-          synthetic: true,
-          actionChips: mode === 'user'
-            ? [{ id: 'retry', label: 'Try again', intent: 'primary' }]
-            : undefined,
-          timestamp: new Date(),
-        })
+        // Only visible user sends show a timeout error bubble.
+        // Hidden sends and system events time out silently (matches catch block).
+        if (mode === 'user' && !hidden) {
+          addMessage({
+            id: crypto.randomUUID(),
+            role: 'assistant',
+            content: 'This is taking longer than expected. Try again or rephrase your message.',
+            synthetic: true,
+            actionChips: [{ id: 'retry', label: 'Try again', intent: 'primary' }],
+            timestamp: new Date(),
+          })
+        }
       }, TIMEOUT_MS)
 
       try {
@@ -851,7 +953,7 @@ export function useConversation(): UseConversationReturn {
       } catch (err) {
         if ((err as Error).name === 'AbortError') return // timeout already handled
 
-        if (mode === 'user') {
+        if (mode === 'user' && !hidden) {
           setLastFailedInput(message)
 
           const errorMessage = buildErrorMessage(err)
@@ -865,8 +967,8 @@ export function useConversation(): UseConversationReturn {
             timestamp: new Date(),
           })
         }
-        // System events fail silently — the user didn't initiate these,
-        // so showing an error message would be confusing. Logged in turnService.
+        // System events and hidden sends fail silently — the user didn't
+        // initiate these, so showing an error would be confusing. Logged in turnService.
         if (mode === 'system' && import.meta.env.DEV) {
           const status = err instanceof OrchestratorError ? err.status : 'network'
           console.warn(`[sendTurn] System event failed: ${status}`, {
@@ -891,8 +993,8 @@ export function useConversation(): UseConversationReturn {
   // ---------------------------------------------------------------------------
 
   const sendMessage = useCallback(
-    async (text: string) => {
-      await sendTurn({ message: text, mode: 'user' })
+    async (text: string, opts?: { hidden?: boolean }) => {
+      await sendTurn({ message: text, mode: 'user', hidden: opts?.hidden })
     },
     [sendTurn],
   )

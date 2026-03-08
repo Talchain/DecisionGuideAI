@@ -23,25 +23,25 @@ const CATEGORY_CONFIG: Record<GuidanceCategory, {
   must_fix: {
     icon: AlertTriangle,
     textColor: 'text-danger',
-    bgColor: 'bg-danger-light',
+    bgColor: 'bg-panel',
     borderColor: 'border-danger/30',
   },
   should_fix: {
     icon: AlertTriangle,
     textColor: 'text-info',
-    bgColor: 'bg-info-light',
+    bgColor: 'bg-panel',
     borderColor: 'border-info/30',
   },
   could_fix: {
     icon: Lightbulb,
     textColor: 'text-info',
-    bgColor: 'bg-info-light',
+    bgColor: 'bg-panel',
     borderColor: 'border-info/30',
   },
   technique: {
     icon: Lightbulb,
     textColor: 'text-option',
-    bgColor: 'bg-option-light',
+    bgColor: 'bg-panel',
     borderColor: 'border-option/30',
   },
 }

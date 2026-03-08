@@ -54,7 +54,7 @@ export default function KeyboardShortcuts({ isOpen, onClose }: KeyboardShortcuts
         <div className="space-y-4">
           {shortcuts.map((section) => (
             <div key={section.category}>
-              <h3 className="text-sm font-semibold text-indigo-600 mb-2">{section.category}</h3>
+              <h3 className="text-sm font-semibold text-info mb-2">{section.category}</h3>
               <div className="space-y-2">
                 {section.items.map((shortcut, i) => (
                   <div key={i} className="flex items-center justify-between">

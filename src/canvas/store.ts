@@ -317,12 +317,23 @@ interface CanvasState {
   // Pending fit view request (set by AI graph insertion, cleared by ReactFlowGraph)
   pendingFitView: boolean
   setPendingFitView: (value: boolean) => void
+  // Track 3: Hydrated thread entries from scenario row (consumed once by useConversation, then cleared)
+  _hydratedThread: unknown[] | null
+  // Track 3: Hydrated scenario events from scenario row (consumed by Journey tab)
+  _hydratedEvents: unknown[] | null
   // Debug: Raw CEE output mode (bypasses post-processing repairs)
   // Set via URL param ?rawCee=1 or Debug Panel checkbox
   debugRawCeeOutput: boolean
   setDebugRawCeeOutput: (value: boolean) => void
   updateScenarioFraming: (partial: ScenarioFraming) => void
   addNode: (pos?: { x: number; y: number }, type?: NodeType) => void
+  /** Create a new node with an edge connecting it to an existing node. Returns the new node ID. */
+  addNodeWithEdge: (
+    pos: { x: number; y: number },
+    type: NodeType,
+    connectTo: string,
+    edgeDirection: 'to-target' | 'from-target',
+  ) => string
   updateNodeLabel: (id: string, label: string) => void
   updateNode: (id: string, updates: Partial<Node>) => void
   updateEdge: (id: string, updates: Partial<Edge<EdgeData>>) => void
@@ -911,6 +922,9 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   clarifierPreviewEdgeIds: [],
   // Pending fit view request (set by AI graph insertion, cleared by ReactFlowGraph)
   pendingFitView: false,
+  // Track 3: Hydrated thread/events (transient, consumed once)
+  _hydratedThread: null,
+  _hydratedEvents: null,
   // Debug: Raw CEE output mode (initialized from URL param ?rawCee=1)
   debugRawCeeOutput: getInitialRawCeeMode(),
 
@@ -941,6 +955,37 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     // Only deletion of critical nodes (goal, option, intervention targets) invalidates
     const id = get().createNodeId()
     set((s) => ({ nodes: [...s.nodes, { id, type, position: pos || { x: 200, y: 200 }, data: { label: `Node ${id}` } }] }))
+  },
+
+  addNodeWithEdge: (pos, type, connectTo, edgeDirection) => {
+    pushToHistory(get, set)
+    const nodeId = get().createNodeId()
+    const edgeId = get().createEdgeId()
+    const [source, target] =
+      edgeDirection === 'to-target' ? [nodeId, connectTo] : [connectTo, nodeId]
+    set((s) => ({
+      nodes: [
+        ...s.nodes,
+        {
+          id: nodeId,
+          type,
+          position: pos,
+          data: { label: `New ${type}`, kind: type, category: 'controllable' },
+        },
+      ],
+      edges: [
+        ...s.edges,
+        {
+          id: edgeId,
+          source,
+          target,
+          type: 'styled' as const,
+          data: { ...DEFAULT_EDGE_DATA },
+        },
+      ],
+      selection: { nodeIds: new Set([nodeId]), edgeIds: new Set<string>(), anchorPosition: null },
+    }))
+    return nodeId
   },
 
   updateNodeLabel: (id, label) => {
@@ -2251,7 +2296,16 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
         })
         // Clear autosave since work is now saved to scenario
         scenarios.clearAutosave()
+        // Clear _baseline_snapshot from all nodes (transient session state)
+        const cleansedNodes = get().nodes.map((n) => {
+          if (n.data?._baseline_snapshot != null) {
+            const { _baseline_snapshot, ...rest } = n.data as any
+            return { ...n, data: rest }
+          }
+          return n
+        })
         set({
+          nodes: cleansedNodes,
           isDirty: false,
           isSaving: false,
           lastSavedAt: Date.now()
@@ -2276,8 +2330,17 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
         })
         // Clear autosave since work is now saved to scenario
         scenarios.clearAutosave()
+        // Clear _baseline_snapshot from all nodes (transient session state)
+        const newCleansedNodes = get().nodes.map((n) => {
+          if (n.data?._baseline_snapshot != null) {
+            const { _baseline_snapshot, ...rest } = n.data as any
+            return { ...n, data: rest }
+          }
+          return n
+        })
 
         set({
+          nodes: newCleansedNodes,
           currentScenarioId: scenario.id,
           isDirty: false,
           isSaving: false,

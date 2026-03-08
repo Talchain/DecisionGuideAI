@@ -126,8 +126,8 @@ export default function ProfileSettingsPage() {
           <div
             className={`mb-6 rounded-lg px-4 py-3 ${typography.bodySmall} ${
               feedback.type === 'success'
-                ? 'bg-success-light text-success'
-                : 'bg-danger-light text-danger'
+                ? 'bg-panel text-success'
+                : 'bg-panel text-danger'
             }`}
           >
             {feedback.message}
@@ -198,7 +198,7 @@ export default function ProfileSettingsPage() {
             <button
               type="button"
               onClick={() => setShowDeleteModal(true)}
-              className={`inline-flex items-center gap-2 rounded-pill border border-danger/30 bg-danger-light px-5 py-2.5 ${typography.button} text-danger transition-colors duration-fast hover:bg-danger hover:text-white`}
+              className={`inline-flex items-center gap-2 rounded-pill border border-danger/30 bg-panel px-5 py-2.5 ${typography.button} text-text-body transition-colors duration-fast hover:bg-danger hover:text-text-on-color`}
             >
               <Trash2 className="h-4 w-4" />
               Delete account
@@ -239,7 +239,7 @@ export default function ProfileSettingsPage() {
                 type="button"
                 onClick={handleDeleteAccount}
                 disabled={!deleteEnabled || deleting}
-                className={`inline-flex items-center gap-2 rounded-pill bg-danger px-4 py-2 ${typography.button} text-white disabled:opacity-50 transition-transform duration-fast hover:scale-[1.02] active:scale-[0.98]`}
+                className={`inline-flex items-center gap-2 rounded-pill bg-danger px-4 py-2 ${typography.button} text-text-on-color disabled:opacity-50 transition-transform duration-fast hover:scale-[1.02] active:scale-[0.98]`}
               >
                 {deleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
                 {deleting ? 'Deleting...' : 'Delete permanently'}

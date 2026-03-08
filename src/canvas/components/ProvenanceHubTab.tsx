@@ -86,7 +86,7 @@ export function ProvenanceHubTab({
             placeholder="Search citations..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className={`w-full pl-9 pr-3 py-2 border border-gray-300 rounded-md ${typography.body} focus:ring-2 focus:ring-blue-500 focus:border-transparent`}
+            className={`w-full pl-9 pr-3 py-2 border border-gray-300 rounded-md ${typography.body} focus:ring-2 focus:ring-info focus:border-transparent`}
           />
         </div>
       </div>
@@ -98,7 +98,7 @@ export function ProvenanceHubTab({
             onClick={() => setSelectedDocId(null)}
             className={`px-3 py-1 rounded-full ${typography.caption} font-medium whitespace-nowrap ${
               selectedDocId === null
-                ? 'bg-blue-600 text-white'
+                ? 'bg-primary text-text-on-color'
                 : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
             }`}
           >
@@ -112,7 +112,7 @@ export function ProvenanceHubTab({
                 onClick={() => setSelectedDocId(doc.id)}
                 className={`px-3 py-1 rounded-full ${typography.caption} font-medium whitespace-nowrap ${
                   selectedDocId === doc.id
-                    ? 'bg-blue-600 text-white'
+                    ? 'bg-primary text-text-on-color'
                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                 }`}
               >
@@ -132,7 +132,7 @@ export function ProvenanceHubTab({
             {searchQuery && (
               <button
                 onClick={() => setSearchQuery('')}
-                className={`${typography.caption} text-blue-600 hover:underline mt-1`}
+                className={`${typography.caption} text-info hover:underline mt-1`}
               >
                 Clear search
               </button>
@@ -173,14 +173,14 @@ function CitationCard({
       {/* Node reference */}
       <button
         onClick={() => onFocusNode(citation.nodeId)}
-        className={`${typography.body} font-medium text-blue-600 hover:underline mb-2`}
+        className={`${typography.body} font-medium text-info hover:underline mb-2`}
       >
         → {citation.nodeId}
         {citation.edgeId && ` (edge: ${citation.edgeId})`}
       </button>
 
       {/* Snippet */}
-      <div className={`${typography.body} text-gray-700 italic border-l-2 border-purple-300 pl-3 mb-2`}>
+      <div className={`${typography.body} text-gray-700 italic border-l-2 border-option/30 pl-3 mb-2`}>
         "{snippet}"
       </div>
 
@@ -192,7 +192,7 @@ function CitationCard({
           {document.truncated && (
             <>
               <span>•</span>
-              <span className="text-amber-600 font-medium" title="Content was truncated to 5K chars">
+              <span className="text-warning font-medium" title="Content was truncated to 5K chars">
                 Truncated
               </span>
             </>

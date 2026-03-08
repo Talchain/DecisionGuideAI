@@ -14,6 +14,8 @@ import type { PatchBlockState, PatchRejectionInfo } from '../useConversation'
 interface ChatMessageProps {
   message: ConversationMessage
   isFirst: boolean
+  /** When true, suppress inline ActionChipRow (chips rendered externally by SuggestedChips) */
+  hideChips?: boolean
   onChipClick: (chip: ActionChip) => void
   onRetry: () => void
   patchBlockStates?: Map<string, PatchBlockState>
@@ -26,6 +28,7 @@ interface ChatMessageProps {
 export const ChatMessage = memo(function ChatMessage({
   message,
   isFirst,
+  hideChips,
   onChipClick,
   onRetry,
   patchBlockStates,
@@ -59,6 +62,7 @@ export const ChatMessage = memo(function ChatMessage({
 
       <MessageBubble
         message={message}
+        hideChips={hideChips}
         onChipClick={onChipClick}
         patchBlockStates={patchBlockStates}
         patchRejections={patchRejections}

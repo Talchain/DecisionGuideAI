@@ -210,17 +210,17 @@ export function ShareDrawer({ isOpen, onClose, seed: propSeed, hash: propHash }:
             <div className="flex items-center gap-2">
               <span className="text-sm font-medium text-gray-700">Allowlist Status:</span>
               {allowlistStatus === 'checking' && (
-                <span className="text-xs px-2 py-1 rounded bg-blue-100 text-blue-700">Checking...</span>
+                <span className="text-xs px-2 py-1 rounded bg-panel text-info">Checking...</span>
               )}
               {allowlistStatus === 'allowed' && (
-                <span className="text-xs px-2 py-1 rounded bg-green-100 text-green-700">✓ Allowed</span>
+                <span className="text-xs px-2 py-1 rounded bg-panel text-success">✓ Allowed</span>
               )}
               {allowlistStatus === 'not-allowed' && (
-                <span className="text-xs px-2 py-1 rounded bg-red-100 text-red-700">✗ Not Allowed</span>
+                <span className="text-xs px-2 py-1 rounded bg-panel text-danger">✗ Not Allowed</span>
               )}
             </div>
             {allowlistStatus === 'not-allowed' && (
-              <p className="text-xs text-red-600 mt-1">
+              <p className="text-xs text-danger mt-1">
                 This hash is not on the allowlist. Share link may not work.
               </p>
             )}
@@ -232,7 +232,7 @@ export function ShareDrawer({ isOpen, onClose, seed: propSeed, hash: propHash }:
           <button
             onClick={handleCopyLink}
             disabled={!hash}
-            className="flex-1 px-4 py-2 text-sm font-medium bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex-1 px-4 py-2 text-sm font-medium bg-primary text-text-on-color rounded hover:bg-primary-hover disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {copied ? 'Copied!' : 'Copy Link'}
           </button>

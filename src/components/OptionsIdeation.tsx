@@ -104,13 +104,13 @@ export default function OptionsIdeation() {
           <div className="flex gap-2">
             <button
               onClick={() => setShowInviteModal(true)}
-              className="px-4 py-2 bg-indigo-50 text-indigo-600 rounded hover:bg-indigo-100"
+              className="px-4 py-2 bg-panel text-info rounded hover:bg-panel"
             >
               Invite Collaborators
             </button>
             <button
               onClick={() => setShowCollaborative(!showCollaborative)}
-              className="px-4 py-2 bg-indigo-50 text-indigo-600 rounded hover:bg-indigo-100"
+              className="px-4 py-2 bg-panel text-info rounded hover:bg-panel"
             >
               <Users className="h-5 w-5 inline mr-2"/>
               {showCollaborative ? 'Hide Collaborative' : 'Show Collaborative'}
@@ -118,7 +118,7 @@ export default function OptionsIdeation() {
             <button
               onClick={generate}
               disabled={loading}
-              className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 disabled:opacity-50"
+              className="px-4 py-2 bg-primary text-text-on-color rounded hover:bg-primary-hover disabled:opacity-50"
             >
               {loading
                 ? <><Loader2 className="animate-spin h-5 w-5 inline mr-2"/> Generating…</>
@@ -129,9 +129,9 @@ export default function OptionsIdeation() {
         </div>
 
         {error && (
-          <div className="flex items-center gap-2 bg-red-50 p-4 rounded">
-            <AlertTriangle className="h-5 w-5 text-red-500"/>
-            <p className="text-red-700">{error}</p>
+          <div className="flex items-center gap-2 bg-panel p-4 rounded">
+            <AlertTriangle className="h-5 w-5 text-danger"/>
+            <p className="text-danger">{error}</p>
           </div>
         )}
 
@@ -165,7 +165,7 @@ export default function OptionsIdeation() {
                     </button>
                     <button
                       onClick={() => deleteOption(i)}
-                      className="p-1 text-gray-400 hover:text-red-600"
+                      className="p-1 text-gray-400 hover:text-danger"
                     >
                       <Trash2 className="h-4 w-4"/>
                     </button>
@@ -183,19 +183,19 @@ export default function OptionsIdeation() {
                     placeholder="Option label"
                     value={newOption.label}
                     onChange={e => setNewOption(n => ({ ...n, label: e.target.value }))}
-                    className="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-indigo-500"
+                    className="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-info"
                   />
                   <textarea
                     placeholder="Description (optional)"
                     value={newOption.description}
                     onChange={e => setNewOption(n => ({ ...n, description: e.target.value }))}
-                    className="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-indigo-500"
+                    className="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-info"
                     rows={3}
                   />
                   <button
                     onClick={editingIdx !== null ? saveEdit : addOption}
                     disabled={!newOption.label.trim()}
-                    className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 disabled:opacity-50"
+                    className="px-4 py-2 bg-primary text-text-on-color rounded hover:bg-primary-hover disabled:opacity-50"
                   >
                     {editingIdx !== null ? 'Save Changes' : 'Add Option'}
                   </button>
@@ -230,7 +230,7 @@ export default function OptionsIdeation() {
         <div className="flex justify-end pt-6">
           <button
             onClick={next}
-            className="inline-flex items-center px-6 py-3 bg-indigo-600 text-white rounded hover:bg-indigo-700"
+            className="inline-flex items-center px-6 py-3 bg-primary text-text-on-color rounded hover:bg-primary-hover"
           >
             Continue to Criteria <ArrowRight className="ml-2 h-5 w-5"/>
           </button>

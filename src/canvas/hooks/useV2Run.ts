@@ -8,6 +8,7 @@
 import { useCallback, useRef, useState } from 'react'
 import { useCanvasStore } from '../store'
 import type { Node, Edge } from '@xyflow/react'
+import { getEdgeKey } from '../domain/edgeUtils'
 import {
   executeV2RunWithAnalysisReady,
   isBlockedResponse,
@@ -199,7 +200,7 @@ export function useV2Run(persistence?: V2RunPersistence): UseV2RunReturn {
 
     if (seed === undefined && nodes.length > 0) {
       // Derive stable seed from graph structure hash
-      const graphKey = nodes.map(n => n.id).sort().join('|') + '::' + edges.map(e => `${e.source}->${e.target}`).sort().join('|')
+      const graphKey = nodes.map(n => n.id).sort().join('|') + '::' + edges.map(e => getEdgeKey(e)).sort().join('|')
       seed = deriveNumericSeedFromString(graphKey)
     }
 

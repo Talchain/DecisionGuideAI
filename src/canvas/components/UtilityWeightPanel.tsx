@@ -141,7 +141,7 @@ export function UtilityWeightPanel({
           className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors
             ${disabled || loading || !graph
               ? 'bg-sand-100 text-sand-400 cursor-not-allowed'
-              : 'bg-violet-100 text-violet-700 hover:bg-violet-200'
+              : 'bg-panel text-option hover:bg-panel-hover'
             }`}
           aria-label="Get AI-suggested weights"
         >
@@ -204,7 +204,7 @@ export function UtilityWeightPanel({
         <button
           type="button"
           onClick={() => setShowSuggestion(true)}
-          className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-violet-50 border border-violet-200 text-violet-700 hover:bg-violet-100 transition-colors"
+          className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-panel border border-option/30 text-option hover:bg-panel transition-colors"
         >
           <Sparkles className="h-4 w-4" aria-hidden="true" />
           <span className={typography.caption}>

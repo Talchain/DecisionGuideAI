@@ -68,12 +68,11 @@ export async function addNodeAction(
     () => store.addNode(flowPos, type),
     showToast,
   )
-  // Select new node and open inspector for label editing
+  // Select new node for immediate editing
   const afterStore = useCanvasStore.getState()
   if (afterStore.nodes.length > nodesBefore) {
     const newNode = afterStore.nodes[afterStore.nodes.length - 1]
     afterStore.selectNodeWithoutHistory(newNode.id)
-    afterStore.setShowInspectorPanel(true)
   }
 }
 
@@ -143,8 +142,7 @@ export async function addConnectedFactorAction(
     () => store.addNodeWithEdge(pos, 'factor', target.nodeId, edgeDirection),
     showToast,
   )
-  // addNodeWithEdge already selects the new node — open inspector for label editing
-  useCanvasStore.getState().setShowInspectorPanel(true)
+  // addNodeWithEdge already selects the new node
 }
 
 // ---------------------------------------------------------------------------
@@ -381,6 +379,7 @@ function buildAskAIPrompt(target: ContextTarget, intent: string): string {
 export function askAI(
   target: ContextTarget,
   intent: string,
+  showToast?: ShowToastFn,
 ): void {
   const store = useCanvasStore.getState()
 
@@ -397,20 +396,42 @@ export function askAI(
       },
     })
   } else if (target.kind === 'multi') {
-    store.selectNodes(target.nodeIds)
+    // Preserve both node and edge selection for multi-target context.
+    // Must also update node.selected flags for React Flow visual highlighting.
+    const nodeIdSet = new Set(target.nodeIds)
+    useCanvasStore.setState((s) => ({
+      nodes: s.nodes.map((n) => ({ ...n, selected: nodeIdSet.has(n.id) })),
+      selection: {
+        nodeIds: nodeIdSet,
+        edgeIds: new Set(target.edgeIds),
+        anchorPosition: null,
+      },
+    }))
   }
 
   // 2. Open conversation panel
   store.setShowDraftChat(true)
 
-  // 3. Send message via registered callback (after panel mount)
+  // 3. Send message once ConversationPanel has mounted and registered _sendMessage.
+  //    The panel needs multiple frames to render + run effects, so poll with a timeout.
   const prompt = buildAskAIPrompt(target, intent)
-  requestAnimationFrame(() => {
+  let attempts = 0
+  const MAX_ATTEMPTS = 20 // ~1s max wait (50ms × 20)
+  const tryToSend = () => {
     const sendMessage = useGuidanceStore.getState()._sendMessage
     if (sendMessage) {
       sendMessage(prompt)
+      return
     }
-  })
+    attempts++
+    if (attempts < MAX_ATTEMPTS) {
+      setTimeout(tryToSend, 50)
+    } else {
+      showToast?.('Could not send message — try typing your question directly.', 'warning')
+    }
+  }
+  // Start after first frame to give React a chance to commit
+  requestAnimationFrame(tryToSend)
 }
 
 // ---------------------------------------------------------------------------
@@ -441,12 +462,17 @@ export async function pasteAction(
   const store = useCanvasStore.getState()
   if (!store.clipboard || store.clipboard.nodes.length === 0) return
 
-  const ops: PatchOperation[] = store.clipboard.nodes.map((n) => ({
+  const nodeOps: PatchOperation[] = store.clipboard.nodes.map((n) => ({
     op: 'add_node' as const,
     target_id: n.id,
     data: { kind: (n.data as any)?.kind ?? n.type, label: (n.data as any)?.label ?? '' },
   }))
-  await commitValidatedMutation(ops, () => store.pasteClipboard(), showToast)
+  const edgeOps: PatchOperation[] = store.clipboard.edges.map((e) => ({
+    op: 'add_edge' as const,
+    target_id: e.id,
+    data: { from: e.source, to: e.target },
+  }))
+  await commitValidatedMutation([...nodeOps, ...edgeOps], () => store.pasteClipboard(), showToast)
 }
 
 export async function duplicateAction(showToast: ShowToastFn): Promise<void> {
@@ -454,7 +480,7 @@ export async function duplicateAction(showToast: ShowToastFn): Promise<void> {
   const { nodeIds, edgeIds } = store.selection
   if (nodeIds.size === 0 && edgeIds.size === 0) return
 
-  const ops: PatchOperation[] = [...nodeIds].map((id) => {
+  const nodeOps: PatchOperation[] = [...nodeIds].map((id) => {
     const node = store.nodes.find((n) => n.id === id)
     return {
       op: 'add_node' as const,
@@ -462,5 +488,13 @@ export async function duplicateAction(showToast: ShowToastFn): Promise<void> {
       data: { kind: (node?.data as any)?.kind ?? 'factor', label: (node?.data as any)?.label ?? '' },
     }
   })
-  await commitValidatedMutation(ops, () => store.duplicateSelected(), showToast)
+  // Include edges whose both endpoints are in the selection (they'll be duplicated too)
+  const edgeOps: PatchOperation[] = store.edges
+    .filter((e) => nodeIds.has(e.source) && nodeIds.has(e.target))
+    .map((e) => ({
+      op: 'add_edge' as const,
+      target_id: `dup-${e.id}`,
+      data: { from: `dup-${e.source}`, to: `dup-${e.target}` },
+    }))
+  await commitValidatedMutation([...nodeOps, ...edgeOps], () => store.duplicateSelected(), showToast)
 }

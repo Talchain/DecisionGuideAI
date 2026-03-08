@@ -28,10 +28,10 @@ export function ErrorBanner({
   )
 
   const variantStyles = {
-    error: 'bg-red-50 border-red-200 text-red-900',
-    warning: 'bg-amber-50 border-amber-200 text-amber-900',
-    info: 'bg-blue-50 border-blue-200 text-blue-900',
-    'rate-limit': 'bg-purple-50 border-purple-200 text-purple-900'
+    error: 'bg-panel border-danger/30 text-danger',
+    warning: 'bg-panel border-warning/30 text-warning',
+    info: 'bg-panel border-info/30 text-info',
+    'rate-limit': 'bg-panel border-option/30 text-option'
   }
 
   const iconMap = {
@@ -61,7 +61,7 @@ export function ErrorBanner({
           {variant === 'rate-limit' && rateLimitDetails && (
             <button
               onClick={() => setShowDetails(!showDetails)}
-              className="text-xs underline mt-2 hover:no-underline focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 rounded"
+              className="text-xs underline mt-2 hover:no-underline focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-option rounded"
               aria-expanded={showDetails}
             >
               {showDetails ? 'Hide' : 'Show'} details
@@ -81,7 +81,7 @@ export function ErrorBanner({
             <button
               onClick={onRetry}
               disabled={!isExpired}
-              className="px-3 py-1 text-sm font-medium rounded bg-purple-600 text-white hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
+              className="px-3 py-1 text-sm font-medium rounded bg-option text-text-on-color hover:bg-option disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-option"
               aria-label={isExpired ? 'Try again' : `Try again in ${formatted.display}`}
             >
               Try again

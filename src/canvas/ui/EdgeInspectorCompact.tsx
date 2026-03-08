@@ -202,7 +202,7 @@ export const EdgeInspectorCompact = memo(({ edgeId, onClose, onExpandToFull }: E
               onClick={() => handleStyleChange(s)}
               className={`flex-1 px-2 py-1 ${typography.panelMeta} font-medium rounded border transition-colors ${
                 style === s
-                  ? 'bg-info-light border-info/30 text-info'
+                  ? 'bg-panel border-info/30 text-info'
                   : 'bg-panel border-panel-border text-text-body hover:bg-panel-hover'
               }`}
               role="radio"

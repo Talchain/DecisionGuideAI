@@ -17,7 +17,7 @@ describe('IdentifiabilityBadge', () => {
     const badge = screen.getByTestId('identifiability-badge')
     expect(badge).toBeInTheDocument()
     expect(screen.getByText('Identifiable')).toBeInTheDocument()
-    expect(badge).toHaveClass('bg-paper-50', 'border-sand-200', 'text-green-700')
+    expect(badge).toHaveClass('bg-paper-50', 'border-sand-200', 'text-success')
   })
 
   it('renders underidentified status with neutral background and semantic text color', () => {
@@ -26,7 +26,7 @@ describe('IdentifiabilityBadge', () => {
     const badge = screen.getByTestId('identifiability-badge')
     expect(badge).toBeInTheDocument()
     expect(screen.getByText('Under-identified')).toBeInTheDocument()
-    expect(badge).toHaveClass('bg-paper-50', 'border-sand-200', 'text-amber-700')
+    expect(badge).toHaveClass('bg-paper-50', 'border-sand-200', 'text-warning')
   })
 
   it('renders overidentified status with neutral background and semantic text color', () => {
@@ -35,7 +35,7 @@ describe('IdentifiabilityBadge', () => {
     const badge = screen.getByTestId('identifiability-badge')
     expect(badge).toBeInTheDocument()
     expect(screen.getByText('Over-identified')).toBeInTheDocument()
-    expect(badge).toHaveClass('bg-paper-50', 'border-sand-200', 'text-red-700')
+    expect(badge).toHaveClass('bg-paper-50', 'border-sand-200', 'text-danger')
   })
 
   it('renders unknown status with neutral background and muted text color', () => {

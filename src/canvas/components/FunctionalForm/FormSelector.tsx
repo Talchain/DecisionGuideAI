@@ -82,7 +82,7 @@ const FormOption = memo(function FormOption({
       className={`
         w-full flex items-start gap-3 p-2.5 rounded-lg text-left transition-colors
         ${selected
-          ? 'bg-success-light border border-success/30'
+          ? 'bg-panel border border-success/30'
           : 'hover:bg-sand-100 border border-transparent'
         }
       `}
@@ -94,7 +94,7 @@ const FormOption = memo(function FormOption({
       <div
         className={`
           flex-shrink-0 w-8 h-8 rounded flex items-center justify-center
-          ${selected ? 'bg-success-light text-success' : 'bg-sand-200 text-sand-600'}
+          ${selected ? 'bg-panel text-success' : 'bg-sand-200 text-sand-600'}
         `}
       >
         <FormCurvePreview form={form} size={20} />

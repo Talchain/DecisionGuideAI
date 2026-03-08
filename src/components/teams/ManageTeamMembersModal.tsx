@@ -230,7 +230,7 @@ export default function ManageTeamMembersModal({ team, onClose }: ManageTeamMemb
                 key={tab}
                 onClick={() => setActiveTab(tab)}
                 className={`flex-1 py-2 px-4 rounded-lg transition ${
-                  activeTab === tab ? 'bg-indigo-100 text-indigo-700' : 'hover:bg-gray-100'
+                  activeTab === tab ? 'bg-panel text-info' : 'hover:bg-gray-100'
                 }`}
               >
                 {tab === 'email' && <Mail className="inline mr-1 h-4 w-4" />}
@@ -250,18 +250,18 @@ export default function ManageTeamMembersModal({ team, onClose }: ManageTeamMemb
 
           {/* GLOBAL FEEDBACK */}
           {error && (
-            <div className="mb-4 bg-red-50 text-red-700 p-3 rounded flex items-start gap-2">
+            <div className="mb-4 bg-panel text-danger p-3 rounded flex items-start gap-2">
               <AlertCircle className="h-5 w-5 flex-shrink-0" />
               <p>{error}</p>
             </div>
           )}
           {successMessage && (
-            <div className="mb-4 bg-green-50 text-green-700 p-3 rounded">
+            <div className="mb-4 bg-panel text-success p-3 rounded">
               {successMessage}
             </div>
           )}
           {infoMessage && (
-            <div className="mb-4 bg-blue-50 text-blue-700 p-3 rounded">
+            <div className="mb-4 bg-panel text-info p-3 rounded">
               {infoMessage}
             </div>
           )}
@@ -269,7 +269,7 @@ export default function ManageTeamMembersModal({ team, onClose }: ManageTeamMemb
           {/* HEALTH & TEST */}
           {activeTab === 'email' && edgeFunctionStatus && (
             <div className={`mb-4 p-3 rounded-lg flex items-center gap-2 ${
-              edgeFunctionStatus === 'ok' ? 'bg-green-50 text-green-700' : 'bg-blue-50 text-blue-700'
+              edgeFunctionStatus === 'ok' ? 'bg-panel text-success' : 'bg-panel text-info'
             }`}>
               {edgeFunctionStatus === 'ok' ? (
                 <CheckCircle className="h-5 w-5" />
@@ -294,13 +294,13 @@ export default function ManageTeamMembersModal({ team, onClose }: ManageTeamMemb
                     <button
                       type="submit"
                       disabled={sendingTestEmail}
-                      className="px-3 py-1 bg-indigo-600 text-white rounded disabled:opacity-50"
+                      className="px-3 py-1 bg-primary text-text-on-color rounded disabled:opacity-50"
                     >
                       {sendingTestEmail ? 'Sending…' : 'Send Test Email'}
                     </button>
                   </form>
                 )}
-                {edgeFunctionError && <p className="text-sm mt-1 text-red-600">{edgeFunctionError}</p>}
+                {edgeFunctionError && <p className="text-sm mt-1 text-danger">{edgeFunctionError}</p>}
               </div>
             </div>
           )}
@@ -314,7 +314,7 @@ export default function ManageTeamMembersModal({ team, onClose }: ManageTeamMemb
                 <select
                   value={teamRole}
                   onChange={e => setTeamRole(e.target.value as TeamRole)}
-                  className="w-full px-3 py-2 border rounded-lg focus:ring-indigo-500"
+                  className="w-full px-3 py-2 border rounded-lg focus:ring-info"
                 >
                   {TEAM_ROLES.map(r => (
                     <option key={r.id} value={r.id}>
@@ -329,7 +329,7 @@ export default function ManageTeamMembersModal({ team, onClose }: ManageTeamMemb
                 <select
                   value={decisionRole}
                   onChange={e => setDecisionRole(e.target.value as DecisionRole)}
-                  className="w-full px-3 py-2 border rounded-lg focus:ring-indigo-500"
+                  className="w-full px-3 py-2 border rounded-lg focus:ring-info"
                 >
                   {DECISION_ROLES.map(r => (
                     <option key={r.id} value={r.id}>
@@ -345,14 +345,14 @@ export default function ManageTeamMembersModal({ team, onClose }: ManageTeamMemb
                   value={emails}
                   onChange={e => setEmails(e.target.value)}
                   rows={4}
-                  className="w-full px-3 py-2 border rounded-lg focus:ring-indigo-500"
+                  className="w-full px-3 py-2 border rounded-lg focus:ring-info"
                   placeholder="One per line or comma-separated"
                 />
               </div>
               <button
                 type="submit"
                 disabled={loading || !emails.trim()}
-                className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded disabled:opacity-50"
+                className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-primary text-text-on-color rounded disabled:opacity-50"
               >
                 {loading ? <Loader2 className="animate-spin h-5 w-5" /> : <UserPlus className="h-5 w-5" />}
                 {loading ? 'Adding…' : 'Add Members'}
@@ -373,7 +373,7 @@ export default function ManageTeamMembersModal({ team, onClose }: ManageTeamMemb
             <div className="space-y-4">
               {loadingInvitations ? (
                 <div className="flex items-center justify-center p-8">
-                  <Loader2 className="animate-spin h-6 w-6 text-indigo-500 mr-2" />
+                  <Loader2 className="animate-spin h-6 w-6 text-info mr-2" />
                   <span>Loading invitations…</span>
                 </div>
               ) : pendingCount === 0 ? (
@@ -396,7 +396,7 @@ export default function ManageTeamMembersModal({ team, onClose }: ManageTeamMemb
                         <button
                           disabled={processingInvitationId === inv.id}
                           onClick={() => handleResendInvitation(inv)}
-                          className="p-1.5 text-gray-400 hover:text-indigo-600 rounded disabled:opacity-50"
+                          className="p-1.5 text-gray-400 hover:text-info rounded disabled:opacity-50"
                         >
                           {processingInvitationId === inv.id ? (
                             <Loader2 className="animate-spin h-4 w-4" />
@@ -409,7 +409,7 @@ export default function ManageTeamMembersModal({ team, onClose }: ManageTeamMemb
                         <button
                           disabled={processingInvitationId === inv.id}
                           onClick={() => handleRevokeInvitation(inv.id)}
-                          className="p-1.5 text-gray-400 hover:text-red-600 rounded disabled:opacity-50"
+                          className="p-1.5 text-gray-400 hover:text-danger rounded disabled:opacity-50"
                         >
                           {processingInvitationId === inv.id ? (
                             <Loader2 className="animate-spin h-4 w-4" />
@@ -437,7 +437,7 @@ export default function ManageTeamMembersModal({ team, onClose }: ManageTeamMemb
                     </div>
                     <button
                       onClick={() => /* optionally remove member */ null}
-                      className="p-2 text-gray-400 hover:text-red-600 rounded"
+                      className="p-2 text-gray-400 hover:text-danger rounded"
                     >
                       <UserMinus className="h-5 w-5" />
                     </button>

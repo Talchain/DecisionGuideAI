@@ -251,7 +251,7 @@ export const ConversationPanel = memo(function ConversationPanel({
 
   // ── Top bar callbacks ─────────────────────────────────────────────────
   const handleRunAnalysis = useCallback(() => {
-    sendMessage('run it')
+    sendMessage('run it', { hidden: true })
   }, [sendMessage])
 
   const handleInsertText = useCallback((text: string) => {
@@ -290,11 +290,9 @@ export const ConversationPanel = memo(function ConversationPanel({
       <ChatTopBar
         stage={stage}
         isThinking={isThinking}
-        generateState={generateState}
         onCollapse={onCollapse}
         onAttach={onAttach}
         onRunAnalysis={handleRunAnalysis}
-        onGenerateModel={handleGenerateModel}
         onInsertText={handleInsertText}
       />
 

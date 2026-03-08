@@ -20,7 +20,7 @@ const verdictConfig = {
   supports: {
     icon: CheckCircle,
     title: 'Supports your objective',
-    bgColor: 'bg-success-light',
+    bgColor: 'bg-panel',
     borderColor: 'border-success/30',
     iconColor: 'text-success',
     textColor: 'text-success',
@@ -28,7 +28,7 @@ const verdictConfig = {
   mixed: {
     icon: AlertTriangle,
     title: 'Mixed outcome',
-    bgColor: 'bg-warning-light',
+    bgColor: 'bg-panel',
     borderColor: 'border-warning/30',
     iconColor: 'text-warning',
     textColor: 'text-warning',
@@ -36,7 +36,7 @@ const verdictConfig = {
   opposes: {
     icon: XCircle,
     title: 'Works against your objective',
-    bgColor: 'bg-danger-light',
+    bgColor: 'bg-panel',
     borderColor: 'border-danger/30',
     iconColor: 'text-danger',
     textColor: 'text-danger',

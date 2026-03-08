@@ -48,9 +48,9 @@ export const SummaryCard = memo<SummaryCardProps>(({ report, onCopyHash }) => {
       <div className="flex items-center justify-center gap-3">
         <div 
           className={`px-3 py-1 rounded-full text-sm font-medium ${
-            confidence.level === 'high' ? 'bg-green-100 text-green-800' :
-            confidence.level === 'medium' ? 'bg-yellow-100 text-yellow-800' :
-            'bg-red-100 text-red-800'
+            confidence.level === 'high' ? 'bg-panel text-success' :
+            confidence.level === 'medium' ? 'bg-panel text-warning' :
+            'bg-panel text-danger'
           }`}
           data-testid="confidence-badge"
           title={`Why: ${confidence.why}`}
@@ -61,7 +61,7 @@ export const SummaryCard = memo<SummaryCardProps>(({ report, onCopyHash }) => {
         {hasHash && (
           <button
             onClick={onCopyHash}
-            className="px-3 py-1 text-xs bg-gray-100 hover:bg-gray-200 rounded-full text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
+            className="px-3 py-1 text-xs bg-gray-100 hover:bg-gray-200 rounded-full text-gray-700 focus:outline-none focus:ring-2 focus:ring-info focus:ring-offset-1"
             data-testid="hash-pill"
             aria-label="Copy verification hash"
           >

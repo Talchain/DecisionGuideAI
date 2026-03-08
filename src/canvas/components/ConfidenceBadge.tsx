@@ -33,17 +33,17 @@ export function ConfidenceBadge({ level, reason, score }: ConfidenceBadgeProps) 
   const config = {
     low: {
       label: 'Low Confidence',
-      classes: 'bg-danger-light border-danger/30 text-danger',
+      classes: 'bg-panel border-danger/30 text-danger',
       iconColor: 'text-danger'
     },
     medium: {
       label: 'Medium Confidence',
-      classes: 'bg-warning-light border-warning/30 text-warning',
+      classes: 'bg-panel border-warning/30 text-warning',
       iconColor: 'text-warning'
     },
     high: {
       label: 'High Confidence',
-      classes: 'bg-success-light border-success/30 text-success',
+      classes: 'bg-panel border-success/30 text-success',
       iconColor: 'text-success'
     }
   }

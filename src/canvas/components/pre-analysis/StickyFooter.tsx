@@ -89,7 +89,7 @@ export function StickyFooter({
     buttonStyle = 'bg-panel text-text-light cursor-wait opacity-40'
   } else if (isAnalysing) {
     buttonLabel = 'Analysing...'
-    buttonStyle = 'bg-primary text-white cursor-wait'
+    buttonStyle = 'bg-primary text-text-on-color cursor-wait'
   } else if (hasBlockers) {
     buttonLabel = `Fix ${blockerCount} issue${blockerCount !== 1 ? 's' : ''} first`
     buttonStyle = 'bg-panel text-text-light cursor-not-allowed opacity-40'
@@ -98,7 +98,7 @@ export function StickyFooter({
     buttonStyle = 'bg-panel text-text-light cursor-not-allowed opacity-40'
   } else {
     buttonLabel = 'Analyse Now'
-    buttonStyle = 'bg-primary hover:bg-primary-hover text-white'
+    buttonStyle = 'bg-primary hover:bg-primary-hover text-text-on-color'
   }
 
   let StatusIcon: typeof CheckCircle | typeof XCircle | typeof Loader2

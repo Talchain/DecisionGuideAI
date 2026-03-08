@@ -223,12 +223,12 @@ export default function RunReportDrawer({ open, sessionId, org, onClose, seed, b
             )}
           </div>
           {copyFlag && copied && (
-            <div data-testid="report-copy-toast" aria-hidden="true" className="mt-2 text-xs text-emerald-700">
+            <div data-testid="report-copy-toast" aria-hidden="true" className="mt-2 text-xs text-success">
               Copied
             </div>
           )}
           {downloadFlag && downloaded && (
-            <div data-testid="report-download-toast" aria-hidden="true" className="mt-2 text-xs text-emerald-700">
+            <div data-testid="report-download-toast" aria-hidden="true" className="mt-2 text-xs text-success">
               Downloaded
             </div>
           )}

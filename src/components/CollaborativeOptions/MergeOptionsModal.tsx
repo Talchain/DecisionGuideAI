@@ -64,7 +64,7 @@ export default function MergeOptionsModal({
               id="mergedText"
               value={mergedText}
               onChange={(e) => setMergedText(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-info focus:border-info/30"
               rows={6}
             />
           </div>
@@ -80,7 +80,7 @@ export default function MergeOptionsModal({
             <button
               type="submit"
               disabled={!mergedText.trim()}
-              className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50"
+              className="px-4 py-2 bg-primary text-text-on-color rounded-lg hover:bg-primary-hover disabled:opacity-50"
             >
               Merge Options
             </button>

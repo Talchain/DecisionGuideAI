@@ -76,9 +76,9 @@ export function DecisionRationaleForm({
   }
 
   const decisionIcons = {
-    approved: <CheckCircle2 className="w-4 h-4 text-green-600" />,
-    rejected: <XCircle className="w-4 h-4 text-red-600" />,
-    pending: <Clock className="w-4 h-4 text-yellow-600" />,
+    approved: <CheckCircle2 className="w-4 h-4 text-success" />,
+    rejected: <XCircle className="w-4 h-4 text-danger" />,
+    pending: <Clock className="w-4 h-4 text-warning" />,
   }
 
   return (
@@ -97,7 +97,7 @@ export function DecisionRationaleForm({
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           placeholder="e.g., Approve Product Launch Strategy"
-          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-info focus:border-transparent"
           required
         />
       </div>
@@ -113,7 +113,7 @@ export function DecisionRationaleForm({
           onChange={(e) => setReasoning(e.target.value)}
           placeholder="Explain the rationale for this decision..."
           rows={4}
-          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-info focus:border-transparent"
           required
         />
       </div>
@@ -129,7 +129,7 @@ export function DecisionRationaleForm({
                 value={pro}
                 onChange={(e) => handleProChange(index, e.target.value)}
                 placeholder="Enter a positive aspect..."
-                className={`flex-1 px-3 py-2 border border-gray-300 rounded-md ${typography.body} focus:ring-2 focus:ring-blue-500 focus:border-transparent`}
+                className={`flex-1 px-3 py-2 border border-gray-300 rounded-md ${typography.body} focus:ring-2 focus:ring-info focus:border-transparent`}
               />
               <button
                 type="button"
@@ -143,7 +143,7 @@ export function DecisionRationaleForm({
           <button
             type="button"
             onClick={handleAddPro}
-            className={`flex items-center gap-1 ${typography.body} text-blue-600 hover:text-blue-700`}
+            className={`flex items-center gap-1 ${typography.body} text-info hover:text-info`}
           >
             <Plus className="w-4 h-4" />
             Add Pro
@@ -162,7 +162,7 @@ export function DecisionRationaleForm({
                 value={con}
                 onChange={(e) => handleConChange(index, e.target.value)}
                 placeholder="Enter a negative aspect..."
-                className={`flex-1 px-3 py-2 border border-gray-300 rounded-md ${typography.body} focus:ring-2 focus:ring-blue-500 focus:border-transparent`}
+                className={`flex-1 px-3 py-2 border border-gray-300 rounded-md ${typography.body} focus:ring-2 focus:ring-info focus:border-transparent`}
               />
               <button
                 type="button"
@@ -176,7 +176,7 @@ export function DecisionRationaleForm({
           <button
             type="button"
             onClick={handleAddCon}
-            className={`flex items-center gap-1 ${typography.body} text-blue-600 hover:text-blue-700`}
+            className={`flex items-center gap-1 ${typography.body} text-info hover:text-info`}
           >
             <Plus className="w-4 h-4" />
             Add Con
@@ -197,7 +197,7 @@ export function DecisionRationaleForm({
                 value={alt}
                 onChange={(e) => handleAlternativeChange(index, e.target.value)}
                 placeholder="Enter an alternative option..."
-                className={`flex-1 px-3 py-2 border border-gray-300 rounded-md ${typography.body} focus:ring-2 focus:ring-blue-500 focus:border-transparent`}
+                className={`flex-1 px-3 py-2 border border-gray-300 rounded-md ${typography.body} focus:ring-2 focus:ring-info focus:border-transparent`}
               />
               <button
                 type="button"
@@ -211,7 +211,7 @@ export function DecisionRationaleForm({
           <button
             type="button"
             onClick={handleAddAlternative}
-            className={`flex items-center gap-1 ${typography.body} text-blue-600 hover:text-blue-700`}
+            className={`flex items-center gap-1 ${typography.body} text-info hover:text-info`}
           >
             <Plus className="w-4 h-4" />
             Add Alternative
@@ -228,7 +228,7 @@ export function DecisionRationaleForm({
               key={status}
               className={`flex items-center gap-2 px-4 py-2 border rounded-md cursor-pointer ${
                 decision === status
-                  ? 'border-blue-500 bg-blue-50'
+                  ? 'border-info bg-panel'
                   : 'border-gray-300 hover:bg-gray-50'
               }`}
             >
@@ -258,7 +258,7 @@ export function DecisionRationaleForm({
           value={decidedBy}
           onChange={(e) => setDecidedBy(e.target.value)}
           placeholder="Name or role of decision maker"
-          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-info focus:border-transparent"
         />
       </div>
 
@@ -266,7 +266,7 @@ export function DecisionRationaleForm({
       <div className="flex gap-2 pt-4 border-t border-gray-200">
         <button
           type="submit"
-          className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 font-medium"
+          className="flex-1 px-4 py-2 bg-primary text-text-on-color rounded-md hover:bg-primary-hover font-medium"
         >
           Save Decision
         </button>

@@ -4,7 +4,6 @@
  * Verifies:
  * - Run analysis chip visible only in ideate/evaluate stages
  * - Collapse, attach callbacks fire correctly
- * - Generate model chip renders in correct states
  * - Guide and Thinking mode dropdowns open/close
  */
 
@@ -20,11 +19,9 @@ function makeProps(overrides: Partial<Parameters<typeof ChatTopBar>[0]> = {}) {
   return {
     stage: 'frame' as const,
     isThinking: false,
-    generateState: 'disabled' as const,
     onCollapse: vi.fn(),
     onAttach: vi.fn(),
     onRunAnalysis: vi.fn(),
-    onGenerateModel: vi.fn(),
     onInsertText: vi.fn(),
     ...overrides,
   }
@@ -76,26 +73,6 @@ describe('ChatTopBar', () => {
     expect(screen.queryByTestId('run-analysis-chip')).not.toBeInTheDocument()
   })
 
-  it('renders generate model chip in disabled state', () => {
-    render(<ChatTopBar {...makeProps({ generateState: 'disabled' })} />)
-    expect(screen.getByTestId('generate-model-chip')).toBeInTheDocument()
-    expect(screen.getByTestId('generate-model-chip')).toBeDisabled()
-  })
-
-  it('renders generate model chip in active state and fires callback', () => {
-    const onGenerateModel = vi.fn()
-    render(<ChatTopBar {...makeProps({ generateState: 'active', onGenerateModel })} />)
-    const chip = screen.getByTestId('generate-model-chip')
-    expect(chip).not.toBeDisabled()
-    fireEvent.click(chip)
-    expect(onGenerateModel).toHaveBeenCalledOnce()
-  })
-
-  it('renders generate model chip in loading state with spinner', () => {
-    render(<ChatTopBar {...makeProps({ generateState: 'loading' })} />)
-    expect(screen.getByText('Generating…')).toBeInTheDocument()
-  })
-
   it('opens guide dropdown on click', () => {
     render(<ChatTopBar {...makeProps()} />)
     fireEvent.click(screen.getByTestId('guide-chip'))
@@ -108,15 +85,4 @@ describe('ChatTopBar', () => {
     expect(screen.getByTestId('thinking-mode-dropdown')).toBeInTheDocument()
   })
 
-  it('generate model chip disabled does not fire callback', () => {
-    const onGenerateModel = vi.fn()
-    render(<ChatTopBar {...makeProps({ generateState: 'disabled', onGenerateModel })} />)
-    fireEvent.click(screen.getByTestId('generate-model-chip'))
-    expect(onGenerateModel).not.toHaveBeenCalled()
-  })
-
-  it('generate model chip loading is disabled', () => {
-    render(<ChatTopBar {...makeProps({ generateState: 'loading' })} />)
-    expect(screen.getByTestId('generate-model-chip')).toBeDisabled()
-  })
 })

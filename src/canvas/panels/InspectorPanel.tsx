@@ -399,7 +399,7 @@ export function InspectorPanel({ isOpen, onClose }: InspectorPanelProps): JSX.El
                   />
                   <div className={`flex justify-between ${typography.panelMeta}`}>
                     <span className="text-slate-500">Source/rationale</span>
-                    <span className={provenance.length > EDGE_CONSTRAINTS.provenance.maxLength * 0.9 ? 'text-amber-600 font-medium' : 'text-slate-500'}>
+                    <span className={provenance.length > EDGE_CONSTRAINTS.provenance.maxLength * 0.9 ? 'text-warning font-medium' : 'text-slate-500'}>
                       {provenance.length}/{EDGE_CONSTRAINTS.provenance.maxLength}
                     </span>
                   </div>
@@ -408,9 +408,9 @@ export function InspectorPanel({ isOpen, onClose }: InspectorPanelProps): JSX.El
 
               {/* Validation errors */}
               {validationErrors.length > 0 && (
-                <div className="p-3 rounded-lg bg-amber-50 border border-amber-200">
-                  <div className={`${typography.panelMeta} text-amber-800 mb-2`}>Validation Issues:</div>
-                  <ul className={`space-y-1 ${typography.panelMeta} text-amber-700`}>
+                <div className="p-3 rounded-lg bg-panel border border-warning/30">
+                  <div className={`${typography.panelMeta} text-warning mb-2`}>Validation Issues:</div>
+                  <ul className={`space-y-1 ${typography.panelMeta} text-warning`}>
                     {validationErrors.map((error, i) => (
                       <li key={i} className="flex items-start gap-2">
                         <span>•</span>

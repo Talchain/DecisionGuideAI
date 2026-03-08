@@ -100,8 +100,8 @@ export default function ImportanceSelector() {
             className="bg-white p-6 rounded-xl shadow-sm hover:shadow-md transition-shadow duration-200 text-left group"
           >
             <div className="flex items-start space-x-4">
-              <div className="bg-indigo-50 p-3 rounded-lg group-hover:bg-indigo-100 transition-colors">
-                <Icon className="h-6 w-6 text-indigo-600" />
+              <div className="bg-panel p-3 rounded-lg group-hover:bg-panel transition-colors">
+                <Icon className="h-6 w-6 text-info" />
               </div>
               <div className="flex-1">
                 <h3 className="font-semibold text-gray-900 mb-1">{label}</h3>

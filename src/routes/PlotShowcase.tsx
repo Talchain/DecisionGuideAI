@@ -248,9 +248,9 @@ export default function PlotShowcase() {
             checkFixtures === 'fail' ? 'fixtures' : 
             checkVersion === 'fail' ? 'version.json' : null
           
-          const bannerClass = allOk ? 'bg-green-50 border-green-200 text-green-900' : 
-                             allPending ? 'bg-blue-50 border-blue-200 text-blue-900' :
-                             'bg-amber-50 border-amber-200 text-amber-900'
+          const bannerClass = allOk ? 'bg-panel border-success/30 text-success' : 
+                             allPending ? 'bg-panel border-info/30 text-info' :
+                             'bg-panel border-warning/30 text-warning'
           
           return (
             <div className={`rounded-lg p-3 mb-4 text-sm border ${bannerClass}`}>
@@ -260,13 +260,13 @@ export default function PlotShowcase() {
                     {allPending ? '🔄 Checking...' : allOk ? '✓ Showcase Ready' : `⚠ ${firstFailure}: FAIL`}
                   </span>
                   <div className="flex items-center gap-3 text-xs">
-                    <span className={checkEngine === 'ok' ? 'text-green-700' : checkEngine === 'fail' ? 'text-amber-700' : 'text-gray-500'}>
+                    <span className={checkEngine === 'ok' ? 'text-success' : checkEngine === 'fail' ? 'text-warning' : 'text-gray-500'}>
                       engine: {checkEngine === 'ok' ? 'OK' : checkEngine === 'fail' ? 'FAIL' : '...'}
                     </span>
-                    <span className={checkFixtures === 'ok' ? 'text-green-700' : checkFixtures === 'fail' ? 'text-amber-700' : 'text-gray-500'}>
+                    <span className={checkFixtures === 'ok' ? 'text-success' : checkFixtures === 'fail' ? 'text-warning' : 'text-gray-500'}>
                       fixtures: {checkFixtures === 'ok' ? 'OK' : checkFixtures === 'fail' ? 'FAIL' : '...'}
                     </span>
-                    <span className={checkVersion === 'ok' ? 'text-green-700' : checkVersion === 'fail' ? 'text-amber-700' : 'text-gray-500'}>
+                    <span className={checkVersion === 'ok' ? 'text-success' : checkVersion === 'fail' ? 'text-warning' : 'text-gray-500'}>
                       version.json: {checkVersion === 'ok' ? 'OK' : checkVersion === 'fail' ? 'FAIL' : '...'}
                     </span>
                   </div>
@@ -298,7 +298,7 @@ export default function PlotShowcase() {
               <div><span className="font-semibold">Deployed:</span> {new Date(deployTimestamp).toLocaleString('en-GB')}</div>
             )}
           </div>
-          <div className="text-xs text-indigo-600">
+          <div className="text-xs text-info">
             💡 <strong>Quick start:</strong> Run a scenario, sketch on the whiteboard, then review results and thresholds.
           </div>
         </div>
@@ -323,7 +323,7 @@ export default function PlotShowcase() {
                 type="text"
                 value={template}
                 onChange={(e) => setTemplate(e.target.value)}
-                className="px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
+                className="px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-info focus:border-info/30"
                 style={{ minWidth: '200px' }}
               />
             </div>
@@ -333,13 +333,13 @@ export default function PlotShowcase() {
                 type="number"
                 value={seed}
                 onChange={(e) => setSeed(Number(e.target.value))}
-                className="px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
+                className="px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-info focus:border-info/30"
                 style={{ width: '100px' }}
               />
             </div>
             <button
               onClick={runFlow}
-              className="px-6 py-2 bg-indigo-600 text-white font-semibold rounded-md shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="px-6 py-2 bg-primary text-text-on-color font-semibold rounded-md shadow-sm hover:bg-primary-hover focus:outline-none focus:ring-2 focus:ring-info"
             >
               Run
             </button>
@@ -348,7 +348,7 @@ export default function PlotShowcase() {
                 type="checkbox"
                 checked={liveStream}
                 onChange={toggleLiveStream}
-                className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                className="rounded border-gray-300 text-info focus:ring-info"
               />
               <span className="text-sm font-medium text-gray-700">Live stream</span>
             </label>
@@ -387,16 +387,16 @@ export default function PlotShowcase() {
 
         {/* Info Notice (Demo Fallback) */}
         {flowError && flowError.includes('demo data') && (
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-            <div className="text-sm text-blue-900">
+          <div className="bg-panel border border-info/30 rounded-lg p-4 mb-6">
+            <div className="text-sm text-info">
               <strong>ℹ️ Demo Mode:</strong> {flowError}
             </div>
           </div>
         )}
         {/* Error (True Failures) */}
         {flowError && !flowError.includes('demo data') && (
-          <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-6">
-            <div className="text-sm text-amber-900">
+          <div className="bg-panel border border-warning/30 rounded-lg p-4 mb-6">
+            <div className="text-sm text-warning">
               <strong>⚠️ Notice:</strong> {flowError}
             </div>
           </div>
@@ -412,40 +412,40 @@ export default function PlotShowcase() {
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-lg font-semibold text-gray-900">Results</h3>
                   {isLiveData ? (
-                    <span className="px-2 py-1 text-xs font-medium bg-green-100 text-green-800 rounded">Live</span>
+                    <span className="px-2 py-1 text-xs font-medium bg-panel text-success rounded">Live</span>
                   ) : (
-                    <span className="px-2 py-1 text-xs font-medium bg-amber-100 text-amber-800 rounded">Demo data</span>
+                    <span className="px-2 py-1 text-xs font-medium bg-panel text-warning rounded">Demo data</span>
                   )}
                 </div>
                 <div className="grid grid-cols-3 gap-3 mb-4">
                   {flowResult.results?.conservative && (
-                    <div className="bg-amber-50 border border-amber-300 rounded-lg p-3">
-                      <div className="text-xs font-semibold text-amber-900 mb-1">Conservative</div>
-                      <div className="text-lg font-bold text-amber-900">
+                    <div className="bg-panel border border-warning/30 rounded-lg p-3">
+                      <div className="text-xs font-semibold text-warning mb-1">Conservative</div>
+                      <div className="text-lg font-bold text-warning">
                         {flowResult.results.conservative.cost_delta || flowResult.results.conservative.value}
                       </div>
                       {(flowResult.results.conservative.risk || flowResult.results.conservative.confidence) && (
-                        <div className="text-xs text-amber-700">
+                        <div className="text-xs text-warning">
                           {flowResult.results.conservative.confidence ? `Confidence: ${flowResult.results.conservative.confidence}` : `Risk: ${flowResult.results.conservative.risk}`}
                         </div>
                       )}
                     </div>
                   )}
                   {flowResult.results?.most_likely && (
-                    <div className="bg-indigo-50 border border-indigo-300 rounded-lg p-3">
-                      <div className="text-xs font-semibold text-indigo-900 mb-1">Most Likely</div>
-                      <div className="text-lg font-bold text-indigo-900">
+                    <div className="bg-panel border border-info/30 rounded-lg p-3">
+                      <div className="text-xs font-semibold text-info mb-1">Most Likely</div>
+                      <div className="text-lg font-bold text-info">
                         {flowResult.results.most_likely.cost_delta || flowResult.results.most_likely.value}
                       </div>
                       {(flowResult.results.most_likely.risk || flowResult.results.most_likely.confidence) && (
-                        <div className="text-xs text-indigo-700">
+                        <div className="text-xs text-info">
                           {flowResult.results.most_likely.confidence ? `Confidence: ${flowResult.results.most_likely.confidence}` : `Risk: ${flowResult.results.most_likely.risk}`}
                         </div>
                       )}
                     </div>
                   )}
                   {flowResult.results?.optimistic && (
-                    <div className="bg-success-light border border-success/30 rounded-lg p-3">
+                    <div className="bg-panel border border-success/30 rounded-lg p-3">
                       <div className="text-xs font-semibold text-success mb-1">Optimistic</div>
                       <div className="text-lg font-bold text-success">
                         {flowResult.results.optimistic.cost_delta || flowResult.results.optimistic.value}
@@ -471,8 +471,8 @@ export default function PlotShowcase() {
                         const max = Math.max(Math.abs(cons), Math.abs(likely), Math.abs(opt), 1)
                         
                         const scenarios = [
-                          { label: 'Conservative', value: cons, color: 'bg-amber-400', textColor: 'text-amber-900' },
-                          { label: 'Most Likely', value: likely, color: 'bg-indigo-500', textColor: 'text-indigo-900' },
+                          { label: 'Conservative', value: cons, color: 'bg-warning', textColor: 'text-warning' },
+                          { label: 'Most Likely', value: likely, color: 'bg-primary', textColor: 'text-info' },
                           { label: 'Optimistic', value: opt, color: 'bg-success', textColor: 'text-success' }
                         ]
                         
@@ -511,8 +511,8 @@ export default function PlotShowcase() {
                             key={i}
                             className={`inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded border mr-2 mb-2 ${
                               t.crossed
-                                ? 'bg-red-50 border-red-200 text-red-800'
-                                : 'bg-green-50 border-green-200 text-green-800'
+                                ? 'bg-panel border-danger/30 text-danger'
+                                : 'bg-panel border-success/30 text-success'
                             }`}
                           >
                             {displayText}{t.crossed ? ' (crossed)' : ''}
@@ -530,17 +530,17 @@ export default function PlotShowcase() {
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-semibold text-gray-900">Cognitive Biases</h3>
                 {biasesSource === 'demo' && (
-                  <span className="px-2 py-1 text-xs font-medium bg-amber-100 text-amber-800 rounded">Demo</span>
+                  <span className="px-2 py-1 text-xs font-medium bg-panel text-warning rounded">Demo</span>
                 )}
               </div>
               {biases.length > 0 ? (
                 <div className="space-y-3">
                   {biases.slice(0, 5).map((bias: any, i: number) => (
-                    <div key={i} className="p-3 bg-gradient-to-r from-amber-50 to-orange-50 rounded-lg border border-amber-200">
+                    <div key={i} className="p-3 bg-gradient-to-r from-amber-50 to-orange-50 rounded-lg border border-warning/30">
                       <div className="font-semibold text-sm text-gray-900 mb-1">{bias.name}</div>
                       <div className="text-xs text-gray-700 mb-2">{bias.description}</div>
                       {bias.mitigation && (
-                        <div className="text-xs text-indigo-700 font-medium">
+                        <div className="text-xs text-info font-medium">
                           💡 <span className="font-semibold">Counter it:</span> {bias.mitigation}
                         </div>
                       )}
@@ -557,15 +557,15 @@ export default function PlotShowcase() {
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-semibold text-gray-900">Live Stream</h3>
                 <div className="flex items-center gap-3">
-                  <span className={`text-xs font-medium ${liveStream ? 'text-green-600' : 'text-gray-500'}`}>
+                  <span className={`text-xs font-medium ${liveStream ? 'text-success' : 'text-gray-500'}`}>
                     {liveStream ? 'On' : 'Off'}
                   </span>
                   <button
                     onClick={toggleLiveStream}
                     className={`px-4 py-2 text-sm font-medium rounded-md ${
                       liveStream
-                        ? 'bg-red-100 text-red-700 hover:bg-red-200'
-                        : 'bg-indigo-600 text-white hover:bg-indigo-700'
+                        ? 'bg-panel text-danger hover:bg-panel-hover'
+                        : 'bg-primary text-text-on-color hover:bg-primary-hover'
                     }`}
                   >
                     {liveStream ? 'Stop' : 'Start'}
@@ -581,7 +581,7 @@ export default function PlotShowcase() {
             {!flowResult && flowError && (
               <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
                 <h3 className="text-lg font-semibold text-gray-900 mb-3">Debug</h3>
-                <div className="mb-2 text-sm text-red-700">Error: {flowError}</div>
+                <div className="mb-2 text-sm text-danger">Error: {flowError}</div>
               </div>
             )}
           </div>
@@ -710,11 +710,11 @@ export default function PlotShowcase() {
         <div className="mt-8 text-center text-sm text-gray-500">
           <p>
             Other PoC surfaces:{' '}
-            <a href="/poc" className="text-indigo-600 hover:text-indigo-800 underline">
+            <a href="/poc" className="text-info hover:text-info underline">
               Static PoC
             </a>
             {' • '}
-            <a href="/#/sandbox" className="text-indigo-600 hover:text-indigo-800 underline">
+            <a href="/#/sandbox" className="text-info hover:text-info underline">
               Main Sandbox
             </a>
           </p>

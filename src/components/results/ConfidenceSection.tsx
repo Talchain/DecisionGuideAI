@@ -59,27 +59,27 @@ const SEVERITY_CONFIG: Record<CritiqueSeverity, {
 }> = {
   blocker: {
     icon: '⛔',
-    bgColor: 'bg-danger-light',
+    bgColor: 'bg-panel',
     borderColor: 'border-danger/30',
     textColor: 'text-danger',
     label: 'Blocks analysis',  // Reserved for genuine pre-run validation blockers
   },
   critical: {
     icon: '⚠',
-    bgColor: 'bg-danger-light',
+    bgColor: 'bg-panel',
     borderColor: 'border-danger/30',
     textColor: 'text-danger',
     label: 'Critical assumption',  // For high-severity fragile edges
   },
   error: {
     icon: '✕',
-    bgColor: 'bg-danger-light',
+    bgColor: 'bg-panel',
     borderColor: 'border-danger/30',
     textColor: 'text-danger',
   },
   warning: {
     icon: '⚠',
-    bgColor: 'bg-warning-light',
+    bgColor: 'bg-panel',
     borderColor: 'border-warning/30',
     textColor: 'text-warning',
   },
@@ -102,7 +102,7 @@ const TIER_CONFIG: Record<ConfidenceTier, {
 }> = {
   strong: {
     icon: '✓',
-    bgColor: 'bg-success-light',
+    bgColor: 'bg-panel',
     borderColor: 'border-success/30',
     textColor: 'text-success',
     label: 'Good foundation',
@@ -111,7 +111,7 @@ const TIER_CONFIG: Record<ConfidenceTier, {
   },
   fair: {
     icon: '⚠',
-    bgColor: 'bg-warning-light',
+    bgColor: 'bg-panel',
     borderColor: 'border-warning/30',
     textColor: 'text-warning',
     label: 'Fair',
@@ -120,7 +120,7 @@ const TIER_CONFIG: Record<ConfidenceTier, {
   },
   needs_work: {
     icon: '⚠',
-    bgColor: 'bg-danger-light',
+    bgColor: 'bg-panel',
     borderColor: 'border-danger/30',
     textColor: 'text-danger',
     label: 'Early sketch',
@@ -729,9 +729,9 @@ export function ConfidenceSection({
                         // Confidence pill
                         // §8.5 semantic filled pill: light bg + text-text-body for readability (main-on-main fails contrast)
                         const pill = actionItem.confidenceLevel === 'low'
-                          ? { label: 'Low confidence', cls: 'bg-danger-light text-text-body' }
+                          ? { label: 'Low confidence', cls: 'bg-panel text-text-body' }
                           : actionItem.confidenceLevel === 'medium'
-                          ? { label: 'Medium confidence', cls: 'bg-warning-light text-text-body' }
+                          ? { label: 'Medium confidence', cls: 'bg-panel text-text-body' }
                           : null
 
                         // V14.1: VOI pill — "Check first" / "Check next"
@@ -885,8 +885,8 @@ export function ConfidenceSection({
               {assumptions.map((assumption, index) => {
                 const severityConfig = {
                   // §8.5 semantic filled: light bg + text-text-body (main-on-light fails contrast)
-                  high: { icon: '⚠', bgColor: 'bg-danger-light', borderColor: 'border-danger/30', textColor: 'text-text-body' },
-                  medium: { icon: '⚠', bgColor: 'bg-warning-light', borderColor: 'border-warning/30', textColor: 'text-text-body' },
+                  high: { icon: '⚠', bgColor: 'bg-panel', borderColor: 'border-danger/30', textColor: 'text-text-body' },
+                  medium: { icon: '⚠', bgColor: 'bg-panel', borderColor: 'border-warning/30', textColor: 'text-text-body' },
                   low: { icon: 'ℹ', bgColor: 'bg-panel', borderColor: 'border-panel-border', textColor: 'text-text-body' },
                 }[assumption.severity] ?? { icon: 'ℹ', bgColor: 'bg-panel', borderColor: 'border-panel-border', textColor: 'text-text-body' }
 

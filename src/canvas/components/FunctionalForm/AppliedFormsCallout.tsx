@@ -30,7 +30,7 @@ const AppliedFormItem = memo(function AppliedFormItem({
   return (
     <li
       data-testid={`applied-form-${recommendation.edge_id}`}
-      className="flex items-start gap-3 p-2 rounded-lg bg-info-light border border-info/30"
+      className="flex items-start gap-3 p-2 rounded-lg bg-panel border border-info/30"
     >
       {/* Form icon */}
       <span
@@ -103,12 +103,12 @@ export const AppliedFormsCallout = memo(function AppliedFormsCallout({
   return (
     <div
       data-testid="applied-forms-callout"
-      className="rounded-lg border border-info/30 bg-info-light/50 overflow-hidden"
+      className="rounded-lg border border-info/30 bg-panel overflow-hidden"
       role="region"
       aria-label="Auto-applied relationship forms"
     >
       {/* Header */}
-      <div className="flex items-center justify-between p-3 bg-info-light/50">
+      <div className="flex items-center justify-between p-3 bg-panel">
         {collapsible ? (
           <button
             type="button"
@@ -118,7 +118,7 @@ export const AppliedFormsCallout = memo(function AppliedFormsCallout({
             aria-controls="applied-forms-content"
           >
             <span
-              className="w-6 h-6 rounded-full bg-info text-white flex items-center justify-center text-xs font-medium"
+              className="w-6 h-6 rounded-full bg-info text-text-on-color flex items-center justify-center text-xs font-medium"
               aria-hidden="true"
             >
               {formCount}
@@ -137,7 +137,7 @@ export const AppliedFormsCallout = memo(function AppliedFormsCallout({
         ) : (
           <div className="flex items-center gap-2">
             <span
-              className="w-6 h-6 rounded-full bg-info text-white flex items-center justify-center text-xs font-medium"
+              className="w-6 h-6 rounded-full bg-info text-text-on-color flex items-center justify-center text-xs font-medium"
               aria-hidden="true"
             >
               {formCount}

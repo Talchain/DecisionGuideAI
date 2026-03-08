@@ -310,6 +310,11 @@ const FLAGS_CONFIG = {
     envKey: 'VITE_FEATURE_THREAD_PERSIST',
     storageKey: 'feature.threadPersist',
   },
+  // Track 3: Thread hydration on scenario resume + stale block revalidation
+  threadHydrate: {
+    envKey: 'VITE_FEATURE_THREAD_HYDRATE',
+    storageKey: 'feature.threadHydrate',
+  },
 } as const
 
 // ============================================================================
@@ -381,6 +386,7 @@ const flags = {
   contextMenu: makeFlag(FLAGS_CONFIG.contextMenu),
   journeyTab: makeFlag(FLAGS_CONFIG.journeyTab),
   threadPersist: makeFlag(FLAGS_CONFIG.threadPersist),
+  threadHydrate: makeFlag(FLAGS_CONFIG.threadHydrate),
 }
 
 // Export with original naming convention for backward compatibility
@@ -446,6 +452,7 @@ export const isLegacyDirectRunEnabled = flags.legacyDirectRun
 export const isContextMenuEnabled = flags.contextMenu
 export const isJourneyTabEnabled = flags.journeyTab
 export const isThreadPersistEnabled = flags.threadPersist
+export const isThreadHydrateEnabled = flags.threadHydrate
 
 // ============================================================================
 // POC FLAGS (special pattern - constant object, not functions)

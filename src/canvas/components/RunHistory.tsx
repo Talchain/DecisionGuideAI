@@ -198,7 +198,7 @@ export function RunHistory({ onViewRun, onCompare }: RunHistoryProps) {
       {selectedIds.size >= 2 && (
         <button
           onClick={handleCompare}
-          className={`w-full px-3 py-2 rounded-md border border-info bg-info hover:opacity-90 text-white transition-colors flex items-center justify-center gap-2 ${typography.label}`}
+          className={`w-full px-3 py-2 rounded-md border border-info bg-info hover:opacity-90 text-text-on-color transition-colors flex items-center justify-center gap-2 ${typography.label}`}
         >
           <GitCompare className="w-4 h-4" />
           Compare {selectedIds.size} runs
@@ -223,8 +223,8 @@ export function RunHistory({ onViewRun, onCompare }: RunHistoryProps) {
               key={run.id}
               className={`p-2 rounded border transition-colors cursor-pointer ${
                 isSelected
-                  ? 'bg-blue-100 border-blue-400'
-                  : 'bg-blue-50 border-blue-200 hover:bg-blue-100'
+                  ? 'bg-panel border-info'
+                  : 'bg-panel border-info/30 hover:bg-panel-hover'
               }`}
               onClick={() => handleToggleSelect(run.id)}
             >
@@ -268,7 +268,7 @@ export function RunHistory({ onViewRun, onCompare }: RunHistoryProps) {
 
               {isScenarioLastRun && scenarioTitle && (
                 <div
-                  className={`mt-1 ${typography.caption} font-medium text-blue-700`}
+                  className={`mt-1 ${typography.caption} font-medium text-info`}
                   data-testid="run-history-scenario-last-run"
                 >
                   Last run for this decision
@@ -283,7 +283,7 @@ export function RunHistory({ onViewRun, onCompare }: RunHistoryProps) {
                     position="bottom"
                   >
                     <span
-                      className={`inline-flex items-center gap-1 px-2 py-0.5 ${typography.caption} font-medium rounded-full bg-info-light border border-info/30 text-info`}
+                      className={`inline-flex items-center gap-1 px-2 py-0.5 ${typography.caption} font-medium rounded-full bg-panel border border-info/30 text-text-body`}
                     >
                       Re-run (identical × {run.duplicateCount})
                     </span>
@@ -345,7 +345,7 @@ export function RunHistory({ onViewRun, onCompare }: RunHistoryProps) {
                 <Tooltip content="Delete" position="bottom">
                   <button
                     onClick={(e) => handleDelete(run.id, e)}
-                    className={`px-2 py-1 rounded ${typography.caption} bg-red-100 text-red-600 hover:bg-red-200 transition-colors`}
+                    className={`px-2 py-1 rounded ${typography.caption} bg-panel text-danger hover:bg-panel-hover transition-colors`}
                     aria-label="Delete"
                   >
                     <Trash2 className="w-3 h-3" />

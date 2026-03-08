@@ -113,7 +113,7 @@ export function BaselineToggleCard({
           <button
             onClick={handleSetBaseline}
             disabled={!selectedOptionId || isRunning}
-            className={`${typography.panelMeta} px-3 py-1 bg-primary text-white rounded-full hover:bg-primary-hover disabled:opacity-40 transition-colors flex-shrink-0`}
+            className={`${typography.panelMeta} px-3 py-1 bg-primary text-text-on-color rounded-full hover:bg-primary-hover disabled:opacity-40 transition-colors flex-shrink-0`}
             type="button"
           >
             Set

@@ -45,8 +45,8 @@ export function ValidationBanner({ errors, violations, onDismiss, onFixNow, clas
         aria-live="polite"
         className={`flex items-start gap-3 px-4 py-3 rounded-lg border ${
           isWarning
-            ? 'bg-warning-light border-warning/30'
-            : 'bg-danger-light border-danger/30'
+            ? 'bg-panel border-warning/30'
+            : 'bg-panel border-danger/30'
         } ${className}`}
       >
         {/* Icon */}
@@ -115,7 +115,7 @@ export function ValidationBanner({ errors, violations, onDismiss, onFixNow, clas
       <div
         role="status"
         aria-live="polite"
-        className={`flex items-start gap-3 px-4 py-3 rounded-lg border bg-info-light border-info/30 ${className}`}
+        className={`flex items-start gap-3 px-4 py-3 rounded-lg border bg-panel border-info/30 ${className}`}
       >
         {/* Icon */}
         <Info className="w-5 h-5 flex-shrink-0 mt-0.5 text-info" />

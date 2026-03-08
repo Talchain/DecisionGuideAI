@@ -148,7 +148,7 @@ export function CompareState(): JSX.Element {
   if (error) {
     return (
       <div className="p-6">
-        <div className="text-sm text-red-600">Error: {error}</div>
+        <div className="text-sm text-danger">Error: {error}</div>
         <Button variant="ghost" onClick={handleChangeSelection} className="mt-4">
           ← Change selection
         </Button>

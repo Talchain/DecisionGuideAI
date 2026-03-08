@@ -48,9 +48,9 @@ const badgeVariants = {
 }
 
 const tierVariants = {
-  strong: 'bg-success-light text-text-header',
-  fair: 'bg-warning-light text-text-header',
-  needs_work: 'bg-danger-light text-text-header',
+  strong: 'bg-panel text-text-header',
+  fair: 'bg-panel text-text-header',
+  needs_work: 'bg-panel text-text-header',
 }
 
 export function Accordion({

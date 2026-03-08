@@ -553,10 +553,10 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
       <button
         onClick={handleRun}
         disabled={loading}
-        className={`w-full px-6 py-3 ${typography.panelHeader} rounded-lg transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-600 disabled:opacity-50 disabled:cursor-not-allowed ${
+        className={`w-full px-6 py-3 ${typography.panelHeader} rounded-lg transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-info disabled:opacity-50 disabled:cursor-not-allowed ${
           result
             ? 'text-gray-700 bg-white border border-gray-300 hover:bg-gray-50'
-            : 'text-white bg-blue-600 hover:bg-blue-700 shadow-sm hover:shadow-md'
+            : 'text-white bg-primary hover:bg-primary-hover shadow-sm hover:shadow-md'
         }`}
         type="button"
       >
@@ -612,7 +612,7 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
 
             {/* Insertion Error Banner (Sprint 2) */}
             {insertionError && (
-              <div className="mb-4 p-3 bg-danger-light border border-danger/30 rounded-lg">
+              <div className="mb-4 p-3 bg-panel border border-danger/30 rounded-lg">
                 <div className="flex items-start gap-2">
                   <div className="flex-shrink-0 w-5 h-5 rounded-full bg-danger-100 flex items-center justify-center mt-0.5">
                     <span className={`${typography.panelMeta} text-danger-700 font-bold`}>!</span>
@@ -639,7 +639,7 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
                         onClick={() => setSelectedCategory(cat)}
                         className={`px-3 py-1.5 ${typography.panelMeta} font-medium rounded-full transition-colors ${
                           selectedCategory === cat
-                            ? 'bg-info-500 text-white'
+                            ? 'bg-info-500 text-text-on-color'
                             : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                         }`}
                         type="button"
@@ -664,7 +664,7 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
 
               {/* Templates Load Error Banner */}
               {templatesLoadError && !templatesLoading && (
-                <div className="mb-4 p-4 bg-danger-light border border-danger/30 rounded-lg">
+                <div className="mb-4 p-4 bg-panel border border-danger/30 rounded-lg">
                   <div className="flex items-start gap-3">
                     <div className="flex-shrink-0 w-5 h-5 rounded-full bg-danger-100 flex items-center justify-center mt-0.5">
                       <span className={`${typography.panelMeta} text-danger-700 font-bold`}>!</span>
@@ -721,7 +721,7 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
                   setSelectedBlueprint(null)
                   setTemplateVersion(undefined)
                 }}
-                className={`${typography.panelHeader} text-blue-600 hover:text-blue-700 transition-colors`}
+                className={`${typography.panelHeader} text-info hover:text-info transition-colors`}
                 type="button"
               >
                 ← Back to templates
@@ -756,10 +756,10 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
 
           {/* Dev Toolbar (collapsible) */}
           {showDevControls && selectedBlueprintId && (
-            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 space-y-3">
+            <div className="bg-panel border border-warning/30 rounded-lg p-4 space-y-3">
               <div className="flex items-center justify-between">
-                <span className={`${typography.panelMeta} text-yellow-800 uppercase tracking-wide`}>Dev Controls</span>
-                <span className={`${typography.code} bg-yellow-200 text-yellow-900 px-2 py-1 rounded`}>Adapter: {adapterName}</span>
+                <span className={`${typography.panelMeta} text-warning uppercase tracking-wide`}>Dev Controls</span>
+                <span className={`${typography.code} bg-panel text-warning px-2 py-1 rounded`}>Adapter: {adapterName}</span>
               </div>
               <div className="space-y-3">
                 <div>
@@ -779,7 +779,7 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
                   <button
                     onClick={handleRun}
                     disabled={loading || !selectedBlueprintId}
-                    className={`flex-1 px-4 py-2 ${typography.panelBody} text-white bg-info-500 hover:bg-info-600 rounded-md focus:outline-none focus:ring-2 focus:ring-info-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors`}
+                    className={`flex-1 px-4 py-2 ${typography.panelBody} text-text-on-color bg-info-500 hover:bg-info-600 rounded-md focus:outline-none focus:ring-2 focus:ring-info-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors`}
                   >
                     {loading ? 'Running…' : 'Run'}
                   </button>
@@ -835,7 +835,7 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
               {onPinToCanvas && (
                 <button
                   onClick={handlePinToCanvas}
-                  className="w-full px-4 py-2 text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-1"
+                  className="w-full px-4 py-2 text-white bg-primary hover:bg-primary-hover rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-info focus:ring-offset-1"
                   type="button"
                 >
                   Pin to Canvas

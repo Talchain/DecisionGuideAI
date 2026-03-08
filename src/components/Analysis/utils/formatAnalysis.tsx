@@ -168,11 +168,11 @@ function renderStructuredContent(sections: ContentSection[]): React.ReactNode {
             
             case 'warning':
               return (
-                <div key={index} className="flex items-start gap-2 p-4 bg-yellow-50 rounded-lg">
-                  <AlertTriangle className="h-5 w-5 text-yellow-400" />
+                <div key={index} className="flex items-start gap-2 p-4 bg-panel rounded-lg">
+                  <AlertTriangle className="h-5 w-5 text-warning" />
                   <div className="flex-1">
-                    <h4 className="font-medium text-yellow-800">Warning</h4>
-                    <p className="text-yellow-700">
+                    <h4 className="font-medium text-warning">Warning</h4>
+                    <p className="text-warning">
                       {safeToString(section.content)}
                     </p>
                   </div>
@@ -181,11 +181,11 @@ function renderStructuredContent(sections: ContentSection[]): React.ReactNode {
             
             case 'info':
               return (
-                <div key={index} className="flex items-start gap-2 p-4 bg-blue-50 rounded-lg">
-                  <Info className="h-5 w-5 text-blue-400" />
+                <div key={index} className="flex items-start gap-2 p-4 bg-panel rounded-lg">
+                  <Info className="h-5 w-5 text-info" />
                   <div className="flex-1">
-                    <h4 className="font-medium text-blue-800">Information</h4>
-                    <p className="text-blue-700">
+                    <h4 className="font-medium text-info">Information</h4>
+                    <p className="text-info">
                       {safeToString(section.content)}
                     </p>
                   </div>
@@ -194,11 +194,11 @@ function renderStructuredContent(sections: ContentSection[]): React.ReactNode {
             
             case 'success':
               return (
-                <div key={index} className="flex items-start gap-2 p-4 bg-green-50 rounded-lg">
-                  <CheckCircle className="h-5 w-5 text-green-400" />
+                <div key={index} className="flex items-start gap-2 p-4 bg-panel rounded-lg">
+                  <CheckCircle className="h-5 w-5 text-success" />
                   <div className="flex-1">
-                    <h4 className="font-medium text-green-800">Success</h4>
-                    <p className="text-green-700">
+                    <h4 className="font-medium text-success">Success</h4>
+                    <p className="text-success">
                       {safeToString(section.content)}
                     </p>
                   </div>

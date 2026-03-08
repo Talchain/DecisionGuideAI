@@ -16,6 +16,11 @@ import type { Scenario } from './store/scenarios'
 import { validateCeeAnalysisReady } from './utils/ceeAnalysisReadyValidation'
 import type { CEEAnalysisReady } from '../adapters/cee/types'
 import { ContextMenu } from './ContextMenu'
+import { CanvasContextMenu } from './contextMenu/CanvasContextMenu'
+import { isStructuralEdge } from './domain/edgeUtils'
+import { isContextMenuEnabled } from '../flags'
+import type { ContextTarget } from './contextMenu/types'
+import type { NodeType } from './domain/nodes'
 import { CanvasToolbar } from './CanvasToolbar'
 import { LeftSidebar } from '../components/layout/LeftSidebar'
 import { RightPanel } from '../components/layout/RightPanel'
@@ -285,7 +290,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
 
   // Week 3: AI Coaching moved to GuidancePanel in OutputsDock
 
-  const { getViewport, setCenter, fitView, zoomIn, zoomOut } = useReactFlow()
+  const { getViewport, setCenter, fitView, zoomIn, zoomOut, screenToFlowPosition } = useReactFlow()
 
   // Brief 36 Fix: Stabilize ReactFlow function references via refs
   // These functions may have unstable references in some ReactFlow versions
@@ -397,6 +402,8 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
 
   // State declarations
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null)
+  const [contextMenuTarget, setContextMenuTarget] = useState<ContextTarget | null>(null)
+  const useNewContextMenu = isContextMenuEnabled()
   const [draggingNodeIds, setDraggingNodeIds] = useState<Set<string>>(new Set())
   const [isDragging, setIsDragging] = useState(false)
   const [showCommandPalette, setShowCommandPalette] = useState(false)
@@ -994,14 +1001,61 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
     })
   }, [dockLayoutEnabled, setShowDocumentsDrawer])
 
-  // Setup keyboard shortcuts (P, Alt+V, Cmd/Ctrl+Enter, Cmd/Ctrl+3, Cmd/Ctrl+I, Cmd/Ctrl+D, ?)
+  // Shift+F10: Open context menu at focused element position
+  const handleKeyboardContextMenu = useCallback((screenPos: { x: number; y: number }) => {
+    if (!useNewContextMenu) return
+    const { selection, nodes: storeNodes } = useCanvasStore.getState()
+
+    if (selection.nodeIds.size > 1 || (selection.nodeIds.size > 0 && selection.edgeIds.size > 0) || selection.edgeIds.size > 1) {
+      setContextMenuTarget({
+        kind: 'multi',
+        nodeIds: [...selection.nodeIds],
+        edgeIds: [...selection.edgeIds],
+        screenPos,
+      })
+    } else if (selection.nodeIds.size === 1) {
+      const nodeId = [...selection.nodeIds][0]
+      const node = storeNodes.find((n: any) => n.id === nodeId)
+      if (node) {
+        setContextMenuTarget({
+          kind: 'node',
+          nodeId,
+          nodeType: ((node.data as any)?.kind ?? node.type ?? 'factor') as NodeType,
+          node,
+          screenPos,
+        })
+      }
+    } else if (selection.edgeIds.size === 1) {
+      const edgeId = [...selection.edgeIds][0]
+      const edge = useCanvasStore.getState().edges.find((e: any) => e.id === edgeId)
+      if (edge) {
+        const getNodeKind = (id: string) => {
+          const n = storeNodes.find((nd: any) => nd.id === id)
+          return (n?.data as any)?.kind ?? n?.type
+        }
+        setContextMenuTarget({
+          kind: 'edge',
+          edgeId,
+          edge,
+          isStructural: isStructuralEdge(edge, getNodeKind),
+          screenPos,
+        })
+      }
+    } else {
+      setContextMenuTarget({ kind: 'pane', screenPos })
+    }
+    setContextMenu(screenPos)
+  }, [useNewContextMenu])
+
+  // Setup keyboard shortcuts (P, Alt+V, Cmd/Ctrl+Enter, Cmd/Ctrl+3, Cmd/Ctrl+I, Cmd/Ctrl+D, Shift+F10)
   useCanvasKeyboardShortcuts({
     onFocusNode: handleFocusNode,
     onRunSimulation: handleRunSimulation,
     onToggleResults: handleToggleResults,
     onToggleInspector: handleToggleInspector,
     onToggleDocuments: showDocuments,
-    onShowToast: showToast
+    onShowToast: showToast,
+    onOpenContextMenu: handleKeyboardContextMenu,
   })
 
   // P0-7: Q key to toggle quick-add mode
@@ -1610,13 +1664,77 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
 
   const onPaneContextMenu = useCallback((event: React.MouseEvent | MouseEvent) => {
     event.preventDefault()
-    setContextMenu({ x: event.clientX, y: event.clientY })
-  }, [])
+    const screenPos = { x: event.clientX, y: event.clientY }
+    setContextMenu(screenPos)
 
-  const onNodeContextMenu = useCallback((event: React.MouseEvent | MouseEvent) => {
+    if (useNewContextMenu) {
+      const { selection } = useCanvasStore.getState()
+      const isMulti = selection.nodeIds.size > 1
+        || selection.edgeIds.size > 1
+        || (selection.nodeIds.size > 0 && selection.edgeIds.size > 0)
+      if (isMulti) {
+        setContextMenuTarget({
+          kind: 'multi',
+          nodeIds: [...selection.nodeIds],
+          edgeIds: [...selection.edgeIds],
+          screenPos,
+        })
+      } else {
+        setContextMenuTarget({ kind: 'pane', screenPos })
+      }
+    }
+  }, [useNewContextMenu])
+
+  const onNodeContextMenu = useCallback((event: React.MouseEvent | MouseEvent, node?: any) => {
     event.preventDefault()
-    setContextMenu({ x: event.clientX, y: event.clientY })
-  }, [])
+    const screenPos = { x: event.clientX, y: event.clientY }
+    setContextMenu(screenPos)
+
+    if (useNewContextMenu && node) {
+      const { selection } = useCanvasStore.getState()
+      if (selection.nodeIds.size > 1) {
+        setContextMenuTarget({
+          kind: 'multi',
+          nodeIds: [...selection.nodeIds],
+          edgeIds: [...selection.edgeIds],
+          screenPos,
+        })
+      } else {
+        // Select this node if not already selected
+        if (!selection.nodeIds.has(node.id)) {
+          useCanvasStore.getState().selectNodeWithoutHistory(node.id)
+        }
+        setContextMenuTarget({
+          kind: 'node',
+          nodeId: node.id,
+          nodeType: ((node.data?.kind ?? node.type ?? 'factor') as NodeType),
+          node,
+          screenPos,
+        })
+      }
+    }
+  }, [useNewContextMenu])
+
+  const onEdgeContextMenu = useCallback((event: React.MouseEvent | MouseEvent, edge?: any) => {
+    event.preventDefault()
+    const screenPos = { x: event.clientX, y: event.clientY }
+    setContextMenu(screenPos)
+
+    if (useNewContextMenu && edge) {
+      const { nodes } = useCanvasStore.getState()
+      const getNodeKind = (id: string) => {
+        const n = nodes.find((nd: any) => nd.id === id)
+        return (n?.data as any)?.kind ?? n?.type
+      }
+      setContextMenuTarget({
+        kind: 'edge',
+        edgeId: edge.id,
+        edge,
+        isStructural: isStructuralEdge(edge, getNodeKind),
+        screenPos,
+      })
+    }
+  }, [useNewContextMenu])
 
   const onNodeDragStart = useCallback((_: React.MouseEvent | MouseEvent, node: any) => {
     setDraggingNodeIds(prev => new Set([...prev, node.id]))
@@ -1628,7 +1746,10 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
     setIsDragging(false)
   }, [])
 
-  const handleCloseContextMenu = useCallback(() => setContextMenu(null), [])
+  const handleCloseContextMenu = useCallback(() => {
+    setContextMenu(null)
+    setContextMenuTarget(null)
+  }, [])
 
   // Canvas debug mode: 'blank' short-circuits the full canvas UI so we can
   // quickly determine whether React 185 is coming from inside the canvas
@@ -1829,6 +1950,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
             onPaneClick={handlePaneClick}
             onPaneContextMenu={onPaneContextMenu}
             onNodeContextMenu={onNodeContextMenu}
+            onEdgeContextMenu={onEdgeContextMenu}
             onNodeDragStart={onNodeDragStart}
             onNodeDragStop={onNodeDragStop}
             nodeTypes={nodeTypes}
@@ -1866,7 +1988,9 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
       <HighlightLayer isResultsOpen={showResultsPanel} />
 
       {showAlignmentGuides && isDragging && <AlignmentGuides nodes={nodes} draggingNodeIds={draggingNodeIds} isActive={isDragging} />}
-      {contextMenu && <ContextMenu x={contextMenu.x} y={contextMenu.y} onClose={handleCloseContextMenu} />}
+      {useNewContextMenu && contextMenuTarget
+        ? <CanvasContextMenu target={contextMenuTarget} onClose={handleCloseContextMenu} screenToFlowPosition={screenToFlowPosition} />
+        : contextMenu && <ContextMenu x={contextMenu.x} y={contextMenu.y} onClose={handleCloseContextMenu} />}
       {reconnecting && <ReconnectBanner />}
 
       {!USE_NEW_LAYOUT && <CanvasToolbar />}
@@ -2126,7 +2250,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
                 setShowResetConfirm(false)
                 showToast('Canvas reset.', 'success')
               }}
-              className="flex-1 px-4 py-2 bg-danger-600 text-white rounded hover:bg-danger-700"
+              className="flex-1 px-4 py-2 bg-danger-600 text-text-on-color rounded hover:bg-danger-700"
               data-testid="btn-confirm-reset-sidebar"
             >
               Reset everything

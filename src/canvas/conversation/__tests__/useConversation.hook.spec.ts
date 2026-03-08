@@ -695,3 +695,155 @@ describe('handleEnvelope — CEE wire shape handling', () => {
     expect(setCurrentStage).not.toHaveBeenCalled()
   })
 })
+
+// ---------------------------------------------------------------------------
+// Hidden send lifecycle
+// ---------------------------------------------------------------------------
+
+describe('hidden send lifecycle', () => {
+  it('does not create a user message bubble for hidden sends', async () => {
+    mockCallTurn.mockResolvedValue({
+      assistant_text: 'Analysis started',
+      client_turn_id: 'resp-hidden',
+    })
+
+    const { result } = renderHook(() => useConversation())
+
+    await act(async () => {
+      await result.current.sendMessage('run it', { hidden: true })
+    })
+
+    // No user bubble — only the assistant response
+    const userMessages = result.current.messages.filter(m => m.role === 'user')
+    expect(userMessages).toHaveLength(0)
+    const assistantMessages = result.current.messages.filter(m => m.role === 'assistant')
+    expect(assistantMessages.length).toBeGreaterThanOrEqual(1)
+  })
+
+  it('does not set lastFailedInput on hidden send error', async () => {
+    mockCallTurn.mockRejectedValue(new Error('Network error'))
+
+    const { result } = renderHook(() => useConversation())
+
+    await act(async () => {
+      await result.current.sendMessage('run it', { hidden: true })
+    })
+
+    expect(result.current.lastFailedInput).toBeNull()
+    // No error bubble should appear
+    const syntheticMessages = result.current.messages.filter(m => m.synthetic)
+    expect(syntheticMessages).toHaveLength(0)
+  })
+
+  it('does not set lastFailedInput on hidden send timeout', async () => {
+    mockCallTurn.mockReturnValue(new Promise(() => {}))
+
+    const { result } = renderHook(() => useConversation())
+
+    await act(async () => {
+      result.current.sendMessage('run it', { hidden: true })
+    })
+
+    act(() => {
+      vi.advanceTimersByTime(60_000)
+    })
+
+    expect(result.current.lastFailedInput).toBeNull()
+    // No timeout error bubble
+    const syntheticMessages = result.current.messages.filter(m => m.synthetic)
+    expect(syntheticMessages).toHaveLength(0)
+  })
+
+  it('does not pollute retryLast with hidden send text', async () => {
+    // First: normal send that succeeds
+    mockCallTurn.mockResolvedValueOnce({
+      assistant_text: 'first response',
+      client_turn_id: 'resp-1',
+    })
+    // Second: hidden send that fails
+    mockCallTurn.mockRejectedValueOnce(new Error('fail'))
+    // Third: retry should replay the normal send, not 'run it'
+    mockCallTurn.mockResolvedValueOnce({
+      assistant_text: 'retry response',
+      client_turn_id: 'resp-retry',
+    })
+
+    const { result } = renderHook(() => useConversation())
+
+    // Normal send
+    await act(async () => {
+      await result.current.sendMessage('my real question')
+    })
+
+    // Hidden send fails — should not overwrite lastUserInputRef
+    await act(async () => {
+      await result.current.sendMessage('run it', { hidden: true })
+    })
+
+    // Retry should replay 'my real question', not 'run it'
+    await act(async () => {
+      await result.current.retryLast()
+    })
+
+    // Verify the retry call used the original user message
+    const lastCall = mockCallTurn.mock.calls[mockCallTurn.mock.calls.length - 1]
+    expect(lastCall[0].message).toBe('my real question')
+  })
+
+  it('retryLast is a no-op when only hidden sends have been made', async () => {
+    mockCallTurn.mockResolvedValue({
+      assistant_text: 'OK',
+      client_turn_id: 'resp-1',
+    })
+
+    const { result } = renderHook(() => useConversation())
+
+    // Only hidden sends — lastUserInputRef stays at initial ''
+    await act(async () => {
+      await result.current.sendMessage('run it', { hidden: true })
+    })
+
+    const callCountBefore = mockCallTurn.mock.calls.length
+
+    await act(async () => {
+      await result.current.retryLast()
+    })
+
+    // No additional call should have been made
+    expect(mockCallTurn.mock.calls.length).toBe(callCountBefore)
+  })
+
+  it('normal send works correctly after a hidden send', async () => {
+    // Hidden send succeeds
+    mockCallTurn.mockResolvedValueOnce({
+      assistant_text: 'Hidden response',
+      client_turn_id: 'resp-hidden',
+    })
+    // Normal send succeeds
+    mockCallTurn.mockResolvedValueOnce({
+      assistant_text: 'Normal response',
+      client_turn_id: 'resp-normal',
+    })
+
+    const { result } = renderHook(() => useConversation())
+
+    // Hidden send
+    await act(async () => {
+      await result.current.sendMessage('run it', { hidden: true })
+    })
+
+    expect(result.current.isThinking).toBe(false)
+
+    // Normal send after hidden — should work normally
+    await act(async () => {
+      await result.current.sendMessage('my question')
+    })
+
+    expect(result.current.isThinking).toBe(false)
+    // Should have user bubble + both assistant responses
+    const userMsgs = result.current.messages.filter(m => m.role === 'user')
+    expect(userMsgs).toHaveLength(1)
+    expect(userMsgs[0].content).toBe('my question')
+    expect(result.current.lastFailedInput).toBeNull()
+  })
+})

@@ -48,7 +48,7 @@ export function ScenarioComparison({
           >
             <ChevronLeft className="w-5 h-5 text-gray-600" />
           </button>
-          <GitCompare className="w-5 h-5 text-blue-600" />
+          <GitCompare className="w-5 h-5 text-info" />
           <div>
             <h3 className="font-semibold text-gray-900">Compare Scenarios</h3>
             <p className={`${typography.caption} text-gray-600`}>
@@ -84,7 +84,7 @@ export function ScenarioComparison({
           {onExport && (
             <button
               onClick={onExport}
-              className={`flex items-center gap-1 px-3 py-1 bg-blue-600 text-white rounded ${typography.button} hover:bg-blue-700`}
+              className={`flex items-center gap-1 px-3 py-1 bg-primary text-text-on-color rounded ${typography.button} hover:bg-primary-hover`}
             >
               <Download className="w-4 h-4" />
               Export
@@ -96,15 +96,15 @@ export function ScenarioComparison({
       {/* Stats bar */}
       <div className={`px-4 py-2 bg-gray-50 border-b border-gray-200 flex gap-4 ${typography.caption}`}>
         <div className="flex items-center gap-1">
-          <div className="w-2 h-2 rounded-full bg-green-500" />
+          <div className="w-2 h-2 rounded-full bg-success" />
           <span className="font-medium">{stats.added} added</span>
         </div>
         <div className="flex items-center gap-1">
-          <div className="w-2 h-2 rounded-full bg-red-500" />
+          <div className="w-2 h-2 rounded-full bg-danger" />
           <span className="font-medium">{stats.removed} removed</span>
         </div>
         <div className="flex items-center gap-1">
-          <div className="w-2 h-2 rounded-full bg-yellow-500" />
+          <div className="w-2 h-2 rounded-full bg-warning" />
           <span className="font-medium">{stats.modified} modified</span>
         </div>
         <div className="flex items-center gap-1">
@@ -179,7 +179,7 @@ function SplitView({ snapshotA, snapshotB }: SplitViewProps) {
       <div className="flex-1 grid grid-cols-2 divide-x divide-gray-200">
         {/* Left: Snapshot A */}
         <div className="flex flex-col min-h-0">
-          <div className="px-4 py-2 bg-info-light border-b border-info/30 flex items-center justify-between">
+          <div className="px-4 py-2 bg-panel border-b border-info/30 flex items-center justify-between">
             <div>
               <h4 className="font-medium text-info">{snapshotA.name}</h4>
               <p className={`${typography.caption} text-info mt-0.5`}>
@@ -238,9 +238,9 @@ function ChangesView({ comparison }: { comparison: ComparisonResult }) {
     <div className="h-full overflow-auto p-4 space-y-4">
       {/* Added items */}
       {(comparison.added.nodes.length > 0 || comparison.added.edges.length > 0) && (
-        <div className="border border-green-200 rounded-lg overflow-hidden">
-          <div className="px-3 py-2 bg-green-50 border-b border-green-200">
-            <h4 className={`font-medium text-green-900 ${typography.body}`}>
+        <div className="border border-success/30 rounded-lg overflow-hidden">
+          <div className="px-3 py-2 bg-panel border-b border-success/30">
+            <h4 className={`font-medium text-success ${typography.body}`}>
               Added ({comparison.added.nodes.length + comparison.added.edges.length})
             </h4>
           </div>
@@ -261,9 +261,9 @@ function ChangesView({ comparison }: { comparison: ComparisonResult }) {
 
       {/* Removed items */}
       {(comparison.removed.nodes.length > 0 || comparison.removed.edges.length > 0) && (
-        <div className="border border-red-200 rounded-lg overflow-hidden">
-          <div className="px-3 py-2 bg-red-50 border-b border-red-200">
-            <h4 className={`font-medium text-red-900 ${typography.body}`}>
+        <div className="border border-danger/30 rounded-lg overflow-hidden">
+          <div className="px-3 py-2 bg-panel border-b border-danger/30">
+            <h4 className={`font-medium text-danger ${typography.body}`}>
               Removed ({comparison.removed.nodes.length + comparison.removed.edges.length})
             </h4>
           </div>
@@ -284,9 +284,9 @@ function ChangesView({ comparison }: { comparison: ComparisonResult }) {
 
       {/* Modified items */}
       {(comparison.modified.nodes.length > 0 || comparison.modified.edges.length > 0) && (
-        <div className="border border-yellow-200 rounded-lg overflow-hidden">
-          <div className="px-3 py-2 bg-yellow-50 border-b border-yellow-200">
-            <h4 className={`font-medium text-yellow-900 ${typography.body}`}>
+        <div className="border border-warning/30 rounded-lg overflow-hidden">
+          <div className="px-3 py-2 bg-panel border-b border-warning/30">
+            <h4 className={`font-medium text-warning ${typography.body}`}>
               Modified ({comparison.modified.nodes.length + comparison.modified.edges.length})
             </h4>
           </div>

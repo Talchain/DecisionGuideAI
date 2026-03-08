@@ -55,7 +55,7 @@ export function VerificationBadge({ verification }: VerificationBadgeProps): JSX
       icon: CheckCircle,
       label: 'Verified',
       description: 'All analysis numbers verified against engine',
-      colorClasses: 'text-green-600 bg-green-50 border-green-200',
+      colorClasses: 'text-success bg-panel border-success/30',
     }
   } else if (score >= 0.80) {
     variant = 'review'
@@ -63,7 +63,7 @@ export function VerificationBadge({ verification }: VerificationBadgeProps): JSX
       icon: AlertTriangle,
       label: 'Review Recommended',
       description: 'Some unverified content detected',
-      colorClasses: 'text-amber-600 bg-amber-50 border-amber-200',
+      colorClasses: 'text-warning bg-panel border-warning/30',
     }
   } else {
     variant = 'issues'
@@ -71,7 +71,7 @@ export function VerificationBadge({ verification }: VerificationBadgeProps): JSX
       icon: XCircle,
       label: 'Verification Issues',
       description: 'Significant unverified content',
-      colorClasses: 'text-red-600 bg-red-50 border-red-200',
+      colorClasses: 'text-danger bg-panel border-danger/30',
     }
   }
 

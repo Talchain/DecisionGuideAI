@@ -80,13 +80,13 @@ export default function GoalClarificationScreen() {
           <div className="flex gap-2">
             <button
               onClick={() => setInviteOpen(true)}
-              className="px-4 py-2 bg-indigo-50 text-indigo-600 rounded hover:bg-indigo-100"
+              className="px-4 py-2 bg-panel text-info rounded hover:bg-panel"
             >
               Invite Collaborators
             </button>
             <button
               onClick={() => alert('Coming soon!')}
-              className="px-4 py-2 bg-green-50 text-green-600 rounded hover:bg-green-100"
+              className="px-4 py-2 bg-panel text-success rounded hover:bg-panel"
             >
               Generate Goals
             </button>
@@ -104,7 +104,7 @@ export default function GoalClarificationScreen() {
               {goals.map((g,i) => (
                 <li key={i} className="flex justify-between p-2 bg-gray-50 rounded">
                   <span>{g}</span>
-                  <button onClick={() => remove(i)} className="text-gray-400 hover:text-red-500">
+                  <button onClick={() => remove(i)} className="text-gray-400 hover:text-danger">
                     <X className="h-4 w-4" />
                   </button>
                 </li>
@@ -119,26 +119,26 @@ export default function GoalClarificationScreen() {
               onChange={e => setNewGoal(e.target.value)}
               onKeyDown={e => e.key==='Enter' && (e.preventDefault(), add())}
               placeholder="Enter a goal…"
-              className="flex-1 px-3 py-2 border rounded focus:ring-2 focus:ring-indigo-500"
+              className="flex-1 px-3 py-2 border rounded focus:ring-2 focus:ring-info"
             />
             <button
               onClick={add}
               disabled={!newGoal.trim()}
-              className="px-4 py-2 bg-indigo-600 text-white rounded disabled:opacity-50"
+              className="px-4 py-2 bg-primary text-text-on-color rounded disabled:opacity-50"
             >
               <Plus className="h-5 w-5"/>
             </button>
           </div>
 
           {skipConfirm && (
-            <div className="bg-yellow-50 p-4 rounded mb-4">
+            <div className="bg-panel p-4 rounded mb-4">
               <div className="flex items-start gap-3">
-                <AlertTriangle className="h-5 w-5 text-yellow-500 mt-0.5"/>
+                <AlertTriangle className="h-5 w-5 text-warning mt-0.5"/>
                 <div>
-                  <p className="font-medium text-yellow-800">Skip setting goals?</p>
-                  <p className="text-yellow-700">Goals help keep your analysis on track.</p>
+                  <p className="font-medium text-warning">Skip setting goals?</p>
+                  <p className="text-warning">Goals help keep your analysis on track.</p>
                   <div className="mt-3 flex gap-2">
-                    <button onClick={skip} className="px-4 py-2 bg-yellow-100 rounded">Yes, skip</button>
+                    <button onClick={skip} className="px-4 py-2 bg-panel rounded">Yes, skip</button>
                     <button onClick={() => setSkipConfirm(false)} className="px-4 py-2 bg-white border rounded">No, add</button>
                   </div>
                 </div>
@@ -150,7 +150,7 @@ export default function GoalClarificationScreen() {
             <button
               onClick={next}
               disabled={goals.length===0}
-              className="px-6 py-2 bg-indigo-600 text-white rounded disabled:opacity-50"
+              className="px-6 py-2 bg-primary text-text-on-color rounded disabled:opacity-50"
             >
               Continue
             </button>

@@ -12,6 +12,7 @@ import { typography } from '../../../styles/typography'
 import { useSmartScroll } from '../hooks/useSmartScroll'
 import { EmptyState } from './EmptyState'
 import { ChatMessage } from './ChatMessage'
+import { SessionDivider } from '../primitives/SessionDivider'
 import { ThinkingIndicator } from './ThinkingIndicator'
 import { SuggestedChips } from './SuggestedChips'
 import type { ConversationMessage, ActionChip, GraphPatchBlock } from '../types'
@@ -72,20 +73,25 @@ export const ChatThread = memo(function ChatThread({
     >
       {showEmpty && <EmptyState />}
 
-      {messages.map((msg, i) => (
-        <ChatMessage
-          key={msg.id}
-          message={msg}
-          isFirst={i === 0}
-          onChipClick={onChipClick}
-          onRetry={onRetry}
-          patchBlockStates={patchBlockStates}
-          patchRejections={patchRejections}
-          onPatchAccept={onPatchAccept}
-          onPatchDismiss={onPatchDismiss}
-          onFeedback={onFeedback}
-        />
-      ))}
+      {messages.map((msg, i) =>
+        msg.sessionDivider ? (
+          <SessionDivider key={msg.id} text={msg.sessionDivider} />
+        ) : (
+          <ChatMessage
+            key={msg.id}
+            message={msg}
+            isFirst={i === 0}
+            hideChips={!isThinking && msg === lastAssistantMsg && suggestedChips.length > 0}
+            onChipClick={onChipClick}
+            onRetry={onRetry}
+            patchBlockStates={patchBlockStates}
+            patchRejections={patchRejections}
+            onPatchAccept={onPatchAccept}
+            onPatchDismiss={onPatchDismiss}
+            onFeedback={onFeedback}
+          />
+        ),
+      )}
 
       {/* Suggested chips after last assistant message */}
       {!isThinking && suggestedChips.length > 0 && (

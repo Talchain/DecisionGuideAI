@@ -25,7 +25,7 @@ export default function DirectoryUserCard({ user, isSelected, onSelect }: Direct
       onKeyDown={handleKeyDown}
       className={`flex items-center justify-between p-3 rounded-lg cursor-pointer transition-colors ${
         isSelected 
-          ? 'bg-indigo-50 border border-indigo-200' 
+          ? 'bg-panel border border-info/30' 
           : 'bg-white border border-gray-200 hover:bg-gray-50'
       }`}
       onClick={() => onSelect(user)}
@@ -55,8 +55,8 @@ export default function DirectoryUserCard({ user, isSelected, onSelect }: Direct
         <button
           className={`p-1.5 rounded-full ${
             isSelected
-              ? 'bg-indigo-100 text-indigo-600'
-              : 'bg-gray-100 text-gray-600 hover:bg-indigo-50 hover:text-indigo-600'
+              ? 'bg-panel text-info'
+              : 'bg-gray-100 text-gray-600 hover:bg-panel hover:text-info'
           }`}
           aria-label="Add to team"
         >

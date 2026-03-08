@@ -207,7 +207,7 @@ export class CanvasErrorBoundary extends Component<Props, State> {
     if (this.state.hasError && this.state.dismissed) {
       return (
         <>
-          <div className="fixed top-0 left-0 right-0 z-[9998] bg-warning-light border-b border-warning/30 text-warning px-4 py-2 flex items-center justify-between text-sm">
+          <div className="fixed top-0 left-0 right-0 z-[9998] bg-panel border-b border-warning/30 text-warning px-4 py-2 flex items-center justify-between text-sm">
             <div className="flex items-center gap-2">
               <AlertTriangle className="w-4 h-4" aria-hidden="true" />
               <span>Running in degraded mode after an error. Some features may not work.</span>
@@ -231,7 +231,7 @@ export class CanvasErrorBoundary extends Component<Props, State> {
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-gray-900/95 backdrop-blur-sm">
           <div className="bg-panel rounded-lg shadow-panel p-8 max-w-lg mx-4 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center gap-3 mb-4">
-              <div className="w-12 h-12 bg-danger-light rounded-full flex items-center justify-center flex-shrink-0">
+              <div className="w-12 h-12 bg-panel rounded-full flex items-center justify-center flex-shrink-0">
                 <XCircle className="w-6 h-6 text-danger" aria-hidden="true" />
               </div>
               <div>
@@ -246,7 +246,7 @@ export class CanvasErrorBoundary extends Component<Props, State> {
 
             {/* Recurring error warning */}
             {isRecurring && (
-              <div className="bg-warning-light border border-warning/30 rounded-lg p-3 mb-4">
+              <div className="bg-panel border border-warning/30 rounded-lg p-3 mb-4">
                 <p className="text-sm text-warning">
                   This error is recurring and cannot be dismissed. The page needs to be reloaded to recover.
                 </p>
@@ -289,7 +289,7 @@ export class CanvasErrorBoundary extends Component<Props, State> {
             <div className="space-y-3">
               <button
                 onClick={this.handleRecover}
-                className="w-full px-4 py-3 bg-primary text-white rounded-lg hover:bg-primary-hover transition-colors font-medium flex items-center justify-center gap-2"
+                className="w-full px-4 py-3 bg-primary text-text-on-color rounded-lg hover:bg-primary-hover transition-colors font-medium flex items-center justify-center gap-2"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />

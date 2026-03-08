@@ -316,8 +316,8 @@ export function RecommendationCard({
         {/* AI badge and help */}
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
-            <Sparkles className="h-4 w-4 text-violet-500" aria-hidden="true" />
-            <span className={`${typography.caption} font-medium text-violet-700 uppercase tracking-wide`}>
+            <Sparkles className="h-4 w-4 text-option" aria-hidden="true" />
+            <span className={`${typography.caption} font-medium text-option uppercase tracking-wide`}>
               Recommended Action
             </span>
           </div>
@@ -434,37 +434,37 @@ export function RecommendationCard({
         {/* Brief 4.2+4.3: Exploratory analysis warning for non-identifiable models */}
         {identifiability && (identifiability === 'underidentified' || identifiability === 'overidentified') && (
           <div
-            className="mt-3 p-3 bg-violet-50 border border-violet-200 rounded-lg"
+            className="mt-3 p-3 bg-panel border border-option/30 rounded-lg"
             data-testid="exploratory-warning"
             role="alert"
           >
             <div className="flex items-start gap-2">
-              <FlaskConical className="h-4 w-4 text-violet-600 mt-0.5 flex-shrink-0" aria-hidden="true" />
+              <FlaskConical className="h-4 w-4 text-option mt-0.5 flex-shrink-0" aria-hidden="true" />
               <div>
                 {/* Brief 4.5: Tooltip explanation */}
                 <Tooltip
                   content="Causal effects cannot be uniquely determined from this model structure. Use results for exploration, not definitive conclusions."
                   position="bottom"
                 >
-                  <p className={`${typography.bodySmall} font-medium text-violet-800 cursor-help inline-flex items-center gap-1`}>
+                  <p className={`${typography.bodySmall} font-medium text-option cursor-help inline-flex items-center gap-1`}>
                     Exploratory Analysis
-                    <HelpCircle className="h-3 w-3 text-violet-500" aria-hidden="true" />
+                    <HelpCircle className="h-3 w-3 text-option" aria-hidden="true" />
                   </p>
                 </Tooltip>
-                <p className={`${typography.caption} text-violet-700 mt-1`}>
+                <p className={`${typography.caption} text-option mt-1`}>
                   {identifiability === 'underidentified'
                     ? 'Model may have unmeasured confounders. Results show directional trends but causal effects are uncertain.'
                     : 'Model has conflicting constraints. Some relationships may need review before relying on precise estimates.'}
                 </p>
                 {/* Brief 4.3: Suggested improvements */}
-                <div className="mt-2 pt-2 border-t border-violet-200">
+                <div className="mt-2 pt-2 border-t border-option/30">
                   <div className="flex items-center gap-1 mb-1">
-                    <Lightbulb className="h-3 w-3 text-violet-600" aria-hidden="true" />
-                    <span className={`${typography.caption} font-medium text-violet-700`}>
+                    <Lightbulb className="h-3 w-3 text-option" aria-hidden="true" />
+                    <span className={`${typography.caption} font-medium text-option`}>
                       To strengthen this analysis:
                     </span>
                   </div>
-                  <ul className={`${typography.caption} text-violet-600 list-disc pl-5 space-y-0.5`}>
+                  <ul className={`${typography.caption} text-option list-disc pl-5 space-y-0.5`}>
                     {identifiability === 'underidentified' ? (
                       <>
                         <li>Add edges representing potential confounding factors</li>

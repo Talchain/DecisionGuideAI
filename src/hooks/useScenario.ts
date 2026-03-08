@@ -415,6 +415,16 @@ export function useScenario(): UseScenarioReturn {
         }
       }
 
+      // Track 3: Store thread and events on canvas store for consumption by
+      // useConversation (hydration) and JourneyTabBody (timeline).
+      // These are transient — consumed once, then cleared.
+      const rawThread = row.thread as unknown[] | null
+      const rawEvents = Array.isArray(row.events) ? row.events : null
+      useCanvasStore.setState({
+        _hydratedThread: rawThread && Array.isArray(rawThread) && rawThread.length > 0 ? rawThread : null,
+        _hydratedEvents: rawEvents,
+      })
+
       // Hydrate error state when analysis previously failed
       if (row.analysis_status === 'failed' && row.analysis_error != null) {
         const errorPayload = row.analysis_error as {

@@ -46,7 +46,7 @@ export function ConfirmDialog({
     >
       <div className="bg-panel rounded-lg shadow-panel p-6 max-w-md mx-4">
         <div className="flex items-start gap-4 mb-4">
-          <div className="flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center bg-danger-light">
+          <div className="flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center bg-panel">
             <XCircle className="w-5 h-5 text-danger" />
           </div>
           <div className="flex-1">
@@ -68,7 +68,7 @@ export function ConfirmDialog({
           </button>
           <button
             onClick={onConfirm}
-            className={`px-4 py-2 ${typography.label} text-white bg-danger hover:bg-danger/90 rounded-lg focus:outline-none focus:ring-2 focus:ring-danger/50 transition-colors`}
+            className={`px-4 py-2 ${typography.label} text-text-on-color bg-danger hover:bg-danger/90 rounded-lg focus:outline-none focus:ring-2 focus:ring-danger/50 transition-colors`}
             autoFocus
           >
             {confirmLabel}

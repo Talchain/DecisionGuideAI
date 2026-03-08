@@ -143,7 +143,7 @@ export function WhatChangedChip() {
 
   return (
     <div
-      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-blue-50 border border-blue-200 text-blue-700 ${typography.caption} font-medium`}
+      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-panel border border-info/30 text-info ${typography.caption} font-medium`}
       role="status"
       aria-label={`Graph changed: ${parts.join(' • ')}`}
       data-testid="what-changed-chip"

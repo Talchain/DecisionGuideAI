@@ -46,9 +46,9 @@ export default function AnalysisContent({ text }: AnalysisContentProps) {
   } catch (error) {
     console.error('Error in AnalysisContent:', error);
     return (
-      <div className="bg-red-50 p-4 rounded-lg">
-        <p className="text-red-600">Failed to render analysis content. Please try again.</p>
-        <p className="text-xs text-red-400 mt-2">{error instanceof Error ? error.message : 'Unknown error'}</p>
+      <div className="bg-panel p-4 rounded-lg">
+        <p className="text-danger">Failed to render analysis content. Please try again.</p>
+        <p className="text-xs text-danger mt-2">{error instanceof Error ? error.message : 'Unknown error'}</p>
       </div>
     );
   }

@@ -86,7 +86,7 @@ export default function LoginPage() {
       <div className="w-full max-w-[400px] rounded-[20px] bg-panel p-6 shadow-1">
         {/* Expired-link banner */}
         {pageState === 'expired-link' && (
-          <div className="mb-4 rounded-md bg-info-light px-4 py-3 text-info">
+          <div className="mb-4 rounded-md bg-panel px-4 py-3 text-info">
             <p className={typography.bodySmall}>
               This sign-in link has expired. Please request a new one.
             </p>
@@ -98,7 +98,7 @@ export default function LoginPage() {
         {pageState === 'link-sent' ? (
           /* ---- Link-sent state ---- */
           <div className="mt-6 flex flex-col items-center gap-4 text-center">
-            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-info-light">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-panel">
               <Mail className="h-6 w-6 text-info" />
             </div>
             <p className={`${typography.body} text-text-body`}>

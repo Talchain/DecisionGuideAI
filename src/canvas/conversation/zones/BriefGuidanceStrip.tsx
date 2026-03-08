@@ -62,6 +62,7 @@ export function BriefGuidanceStrip({ elements, onElementClick }: BriefGuidanceSt
               ? 'var(--text-body, #3F3F3E)'
               : 'var(--text-light, #908D8D)',
           }}
+          title={el.coachingTip}
           aria-label={`${el.label}: ${el.detected ? 'detected' : 'not detected'}`}
           data-testid={`brief-pill-${el.kind}`}
         >

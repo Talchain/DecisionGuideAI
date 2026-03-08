@@ -45,7 +45,7 @@ function TeamCard({
           <Tooltip content="Manage team members">
             <button
               onClick={onManageMembers}
-              className="p-1.5 text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 rounded-lg"
+              className="p-1.5 text-info hover:text-info hover:bg-panel rounded-lg"
             >
               <UserPlus className="h-4 w-4" />
             </button>
@@ -59,7 +59,7 @@ function TeamCard({
           <button
             onClick={onDelete}
             disabled={deleting}
-            className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg disabled:opacity-50"
+            className="p-1.5 text-gray-400 hover:text-danger hover:bg-panel-hover rounded-lg disabled:opacity-50"
           >
             <Trash2 className="h-4 w-4" />
           </button>
@@ -71,7 +71,7 @@ function TeamCard({
           {members.slice(0, 4).map((m) => (
             <div
               key={m.id}
-              className="w-8 h-8 rounded-full bg-indigo-100 border-2 border-white flex items-center justify-center text-sm font-medium text-indigo-600"
+              className="w-8 h-8 rounded-full bg-panel border-2 border-white flex items-center justify-center text-sm font-medium text-info"
             >
               {m.email?.charAt(0).toUpperCase() || 'U'}
             </div>
@@ -116,19 +116,19 @@ export default function MyTeams() {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
-        <Loader2 className="h-8 w-8 text-indigo-600 animate-spin" />
+        <Loader2 className="h-8 w-8 text-info animate-spin" />
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="bg-red-50 p-4 rounded-xl">
+      <div className="bg-panel p-4 rounded-xl">
         <div className="flex items-start gap-3">
-          <AlertTriangle className="h-5 w-5 text-red-500 mt-0.5" />
+          <AlertTriangle className="h-5 w-5 text-danger mt-0.5" />
           <div>
-            <h3 className="font-medium text-red-800">Error loading teams</h3>
-            <p className="text-sm text-red-700 mt-1">{error}</p>
+            <h3 className="font-medium text-danger">Error loading teams</h3>
+            <p className="text-sm text-danger mt-1">{error}</p>
           </div>
         </div>
       </div>
@@ -144,7 +144,7 @@ export default function MyTeams() {
         <h1 className="text-2xl font-bold text-gray-900">My Teams</h1>
         <button
           onClick={() => setShowCreateModal(true)}
-          className="inline-flex items-center px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+          className="inline-flex items-center px-4 py-2 bg-primary text-text-on-color rounded-lg hover:bg-primary-hover focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-info"
         >
           <PlusCircle className="h-5 w-5 mr-2" />
           Create Team
@@ -158,7 +158,7 @@ export default function MyTeams() {
           <p className="text-gray-500 mb-4">Create your first team to start collaborating</p>
           <button
             onClick={() => setShowCreateModal(true)}
-            className="inline-flex items-center px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+            className="inline-flex items-center px-4 py-2 bg-primary text-text-on-color rounded-lg hover:bg-primary-hover"
           >
             <PlusCircle className="h-5 w-5 mr-2" />
             Create Team

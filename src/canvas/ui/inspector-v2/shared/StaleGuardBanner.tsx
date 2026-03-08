@@ -39,7 +39,7 @@ export function StaleGuardBanner({ isStale, hasResults, onRerun, children }: Sta
           {onRerun && (
             <button
               onClick={onRerun}
-              className={`${typography.panelMeta} ml-auto px-2.5 py-0.5 rounded-full border border-info/30 bg-transparent text-info hover:bg-panel-hover transition-colors flex-shrink-0`}
+              className={`${typography.panelMeta} ml-auto px-2.5 py-0.5 rounded-full border border-info/30 bg-transparent text-text-body hover:bg-panel-hover transition-colors flex-shrink-0`}
             >
               Re-run
             </button>

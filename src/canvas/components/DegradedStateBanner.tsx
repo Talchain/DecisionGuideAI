@@ -46,14 +46,14 @@ export function DegradedStateBanner({
     <div
       role="alert"
       aria-live="polite"
-      className="flex items-start gap-3 px-4 py-3 rounded-lg border bg-amber-50 border-amber-200"
+      className="flex items-start gap-3 px-4 py-3 rounded-lg border bg-panel border-warning/30"
       data-testid="degraded-state-banner"
     >
       {/* Icon */}
       {ceeDegraded ? (
-        <Clock className="w-5 h-5 flex-shrink-0 mt-0.5 text-amber-600" aria-hidden="true" />
+        <Clock className="w-5 h-5 flex-shrink-0 mt-0.5 text-warning" aria-hidden="true" />
       ) : (
-        <AlertTriangle className="w-5 h-5 flex-shrink-0 mt-0.5 text-amber-600" aria-hidden="true" />
+        <AlertTriangle className="w-5 h-5 flex-shrink-0 mt-0.5 text-warning" aria-hidden="true" />
       )}
 
       {/* Content */}
@@ -61,11 +61,11 @@ export function DegradedStateBanner({
         {/* CEE Degraded Message */}
         {ceeDegraded && (
           <div className="mb-2">
-            <p className={`${typography.panelHeader} text-amber-900`}>
+            <p className={`${typography.panelHeader} text-warning`}>
               CEE timed out — review may be incomplete
             </p>
             {ceeTimeoutReason && (
-              <p className={`${typography.panelMeta} text-amber-700 mt-1`}>
+              <p className={`${typography.panelMeta} text-warning mt-1`}>
                 {ceeTimeoutReason}
               </p>
             )}
@@ -75,7 +75,7 @@ export function DegradedStateBanner({
         {/* ISL Partial Message */}
         {islPartial && (
           <div>
-            <p className={`${typography.panelHeader} text-amber-900`}>
+            <p className={`${typography.panelHeader} text-warning`}>
               Some analysis features unavailable
             </p>
             {analysisTypes && analysisTypes.length > 0 && (
@@ -85,7 +85,7 @@ export function DegradedStateBanner({
                     key={type.name}
                     className={`inline-flex items-center gap-1 ${typography.panelMeta} px-2 py-0.5 rounded ${
                       type.available
-                        ? 'bg-emerald-100 text-emerald-700'
+                        ? 'bg-panel text-success'
                         : 'bg-slate-100 text-slate-500'
                     }`}
                   >
@@ -108,7 +108,7 @@ export function DegradedStateBanner({
         <button
           type="button"
           onClick={onDismiss}
-          className="flex-shrink-0 p-1 rounded hover:bg-amber-100 text-amber-600 hover:text-amber-800 transition-colors"
+          className="flex-shrink-0 p-1 rounded hover:bg-panel-hover text-warning hover:text-warning transition-colors"
           aria-label="Dismiss warning"
         >
           <X className="w-4 h-4" />

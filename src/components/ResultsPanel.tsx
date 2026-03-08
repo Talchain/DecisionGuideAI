@@ -13,8 +13,8 @@ interface ResultsPanelProps {
 // Mini chart component for scenario visualization
 function ScenarioChart({ results }: { results: any }) {
   const scenarios = [
-    { key: 'conservative', label: RANGE_TERMINOLOGY.conservative.userLabel, color: 'bg-amber-400', textColor: 'text-amber-900' },
-    { key: 'most_likely', label: RANGE_TERMINOLOGY.likely.userLabel, color: 'bg-indigo-400', textColor: 'text-indigo-900' },
+    { key: 'conservative', label: RANGE_TERMINOLOGY.conservative.userLabel, color: 'bg-warning', textColor: 'text-warning' },
+    { key: 'most_likely', label: RANGE_TERMINOLOGY.likely.userLabel, color: 'bg-info', textColor: 'text-info' },
     { key: 'optimistic', label: RANGE_TERMINOLOGY.optimistic.userLabel, color: 'bg-success', textColor: 'text-success' }
   ]
 
@@ -85,9 +85,9 @@ export default function ResultsPanel({ flowResult, isLiveData, biases, biasesSou
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-base font-semibold text-gray-900">Results</h3>
           {isLiveData ? (
-            <span className="px-2 py-0.5 text-xs font-medium bg-green-100 text-green-800 rounded">Live</span>
+            <span className="px-2 py-0.5 text-xs font-medium bg-panel text-success rounded">Live</span>
           ) : (
-            <span className="px-2 py-0.5 text-xs font-medium bg-blue-100 text-blue-800 rounded" title="Using demo data">Demo</span>
+            <span className="px-2 py-0.5 text-xs font-medium bg-panel text-info rounded" title="Using demo data">Demo</span>
           )}
         </div>
 
@@ -101,13 +101,13 @@ export default function ResultsPanel({ flowResult, isLiveData, biases, biasesSou
             {/* Detailed Cards */}
             <div className="space-y-2">
               {flowResult.results.conservative && (
-                <div className="bg-amber-50 border border-amber-200 rounded-lg p-2">
-                  <div className="text-[10px] font-semibold text-amber-900 mb-0.5">{RANGE_TERMINOLOGY.conservative.userLabel}</div>
-                  <div className="text-sm font-bold text-amber-900">
+                <div className="bg-panel border border-warning/30 rounded-lg p-2">
+                  <div className="text-[10px] font-semibold text-warning mb-0.5">{RANGE_TERMINOLOGY.conservative.userLabel}</div>
+                  <div className="text-sm font-bold text-warning">
                     {flowResult.results.conservative.cost_delta || flowResult.results.conservative.value}
                   </div>
                   {(flowResult.results.conservative.risk || flowResult.results.conservative.confidence) && (
-                    <div className="text-[10px] text-amber-700 mt-0.5">
+                    <div className="text-[10px] text-warning mt-0.5">
                       {flowResult.results.conservative.confidence 
                         ? `Confidence: ${flowResult.results.conservative.confidence}` 
                         : `Risk: ${flowResult.results.conservative.risk}`}
@@ -117,13 +117,13 @@ export default function ResultsPanel({ flowResult, isLiveData, biases, biasesSou
               )}
 
               {flowResult.results.most_likely && (
-                <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-2">
-                  <div className="text-[10px] font-semibold text-indigo-900 mb-0.5">{RANGE_TERMINOLOGY.likely.userLabel}</div>
-                  <div className="text-sm font-bold text-indigo-900">
+                <div className="bg-panel border border-info/30 rounded-lg p-2">
+                  <div className="text-[10px] font-semibold text-info mb-0.5">{RANGE_TERMINOLOGY.likely.userLabel}</div>
+                  <div className="text-sm font-bold text-info">
                     {flowResult.results.most_likely.cost_delta || flowResult.results.most_likely.value}
                   </div>
                   {(flowResult.results.most_likely.risk || flowResult.results.most_likely.confidence) && (
-                    <div className="text-[10px] text-indigo-700 mt-0.5">
+                    <div className="text-[10px] text-info mt-0.5">
                       {flowResult.results.most_likely.confidence 
                         ? `Confidence: ${flowResult.results.most_likely.confidence}` 
                         : `Risk: ${flowResult.results.most_likely.risk}`}
@@ -133,7 +133,7 @@ export default function ResultsPanel({ flowResult, isLiveData, biases, biasesSou
               )}
 
               {flowResult.results.optimistic && (
-                <div className="bg-success-light border border-success/30 rounded-lg p-2">
+                <div className="bg-panel border border-success/30 rounded-lg p-2">
                   <div className="text-[10px] font-semibold text-success mb-0.5">{RANGE_TERMINOLOGY.optimistic.userLabel}</div>
                   <div className="text-sm font-bold text-success">
                     {flowResult.results.optimistic.cost_delta || flowResult.results.optimistic.value}
@@ -165,8 +165,8 @@ export default function ResultsPanel({ flowResult, isLiveData, biases, biasesSou
                   key={i}
                   className={`px-2 py-1 text-xs font-medium rounded ${
                     isCrossed
-                      ? 'bg-red-100 text-red-800 border border-red-300'
-                      : 'bg-green-100 text-green-800 border border-green-300'
+                      ? 'bg-panel text-danger border border-danger/30'
+                      : 'bg-panel text-success border border-success/30'
                   }`}
                 >
                   {displayText}{t.crossed ? ' ✕' : ' ✓'}
@@ -183,16 +183,16 @@ export default function ResultsPanel({ flowResult, isLiveData, biases, biasesSou
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-base font-semibold text-gray-900">Biases</h3>
             {biasesSource === 'demo' && (
-              <span className="px-2 py-0.5 text-xs font-medium bg-amber-100 text-amber-800 rounded">Demo</span>
+              <span className="px-2 py-0.5 text-xs font-medium bg-panel text-warning rounded">Demo</span>
             )}
           </div>
           <div className="space-y-2">
             {biases.slice(0, 3).map((bias: any, i: number) => (
-              <div key={i} className="p-2 bg-gradient-to-r from-amber-50 to-orange-50 rounded border border-amber-200">
+              <div key={i} className="p-2 bg-gradient-to-r from-amber-50 to-orange-50 rounded border border-warning/30">
                 <div className="font-semibold text-xs text-gray-900 mb-0.5">{bias.name}</div>
                 <div className="text-[10px] text-gray-700">{bias.description}</div>
                 {bias.mitigation && (
-                  <div className="text-[10px] text-indigo-700 font-medium mt-1">
+                  <div className="text-[10px] text-info font-medium mt-1">
                     💡 {bias.mitigation}
                   </div>
                 )}

@@ -108,18 +108,18 @@ function getUnifiedStatus(
 const VARIANT_STYLES: Record<StatusVariant, { container: string; text: string; icon: string }> = {
   success: {
     container: 'border-sand-200 bg-paper-50',
-    text: 'text-green-700',
-    icon: 'text-green-600',
+    text: 'text-success',
+    icon: 'text-success',
   },
   warning: {
     container: 'border-sand-200 bg-paper-50',
-    text: 'text-amber-700',
-    icon: 'text-amber-600',
+    text: 'text-warning',
+    icon: 'text-warning',
   },
   error: {
     container: 'border-sand-200 bg-paper-50',
-    text: 'text-red-700',
-    icon: 'text-red-600',
+    text: 'text-danger',
+    icon: 'text-danger',
   },
 }
 

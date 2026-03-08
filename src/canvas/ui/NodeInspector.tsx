@@ -239,7 +239,7 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
             onClick={() => toggleConfirmedNode(nodeId)}
             className={`w-7 h-7 flex items-center justify-center rounded transition-colors ${
               isConfirmed
-                ? 'bg-success-light text-success'
+                ? 'bg-panel text-success'
                 : 'bg-transparent text-text-light hover:bg-panel-hover'
             }`}
             aria-label={isConfirmed ? 'Unmark as reviewed' : 'Mark as reviewed'}
@@ -354,7 +354,7 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
         <div className="mt-3 pt-2 border-t border-panel-border">
           {/* Fragile badge */}
           {isFragileTarget && (
-            <span className={`inline-flex items-center px-2 py-0.5 rounded-full ${typography.panelMeta} bg-danger-light text-danger mb-2`}>
+            <span className={`inline-flex items-center px-2 py-0.5 rounded-full ${typography.panelMeta} bg-panel text-text-body mb-2`}>
               Fragile link
             </span>
           )}
@@ -362,7 +362,7 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
           {/* S.3 + F.5: Priority rule — coaching card OR insight bars, never both.
               If coaching card applies, show it alone. Otherwise show bars automatically. */}
           {hasCoachingCard ? (
-            <div className={`flex items-start gap-1.5 p-2 bg-warning-light border border-warning/30 rounded ${typography.panelMeta} text-warning mb-2`}>
+            <div className={`flex items-start gap-1.5 p-2 bg-panel border border-warning/30 rounded ${typography.panelMeta} text-warning mb-2`}>
               <AlertTriangle size={12} className="flex-shrink-0 mt-0.5" />
               <span>High influence but low confidence. Consider gathering more data to reduce uncertainty.</span>
             </div>
@@ -375,7 +375,7 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
                     <span className={`${typography.panelMeta} text-text-light flex items-center gap-1.5`}>
                       Influence
                       {displayMetadata.sensitivityRank !== null && (
-                        <span className={`inline-flex items-center px-1.5 py-0.5 rounded ${typography.panelMeta} bg-warning-light text-warning`}>
+                        <span className={`inline-flex items-center px-1.5 py-0.5 rounded ${typography.panelMeta} bg-panel text-warning`}>
                           #{displayMetadata.sensitivityRank}
                         </span>
                       )}
@@ -727,7 +727,7 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
 
       {/* E.6: Analysis goal pill — only for goal/outcome nodes */}
       {(isGoalNode || currentType === 'outcome') && (
-        <span className={`inline-flex items-center px-2 py-0.5 rounded-full ${typography.panelMeta} bg-info-light text-info`}>
+        <span className={`inline-flex items-center px-2 py-0.5 rounded-full ${typography.panelMeta} bg-panel text-text-body`}>
           Analysis goal
         </span>
       )}

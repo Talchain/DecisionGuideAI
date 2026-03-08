@@ -47,7 +47,7 @@ export function WarningBanner({ warnings, onDismiss, onViewAffected }: WarningBa
     <div
       role="alert"
       aria-live="polite"
-      className="flex items-start gap-3 px-4 py-3 rounded-lg border bg-warning-light border-warning/30"
+      className="flex items-start gap-3 px-4 py-3 rounded-lg border bg-panel border-warning/30"
       data-testid="warning-banner"
     >
       {/* Icon */}

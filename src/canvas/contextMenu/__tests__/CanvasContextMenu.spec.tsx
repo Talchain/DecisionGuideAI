@@ -220,17 +220,17 @@ describe('CanvasContextMenu', () => {
   describe('visual fix regressions', () => {
     const paneTarget: PaneTarget = { kind: 'pane', screenPos: { x: 100, y: 200 } }
 
-    it('Decision glyph renders \u2B21 text (not a Lucide icon)', () => {
-      const { container } = render(
+    it('Decision glyph renders \u2B22 text (not a Lucide icon)', () => {
+      render(
         <CanvasContextMenu target={paneTarget} onClose={onClose} screenToFlowPosition={screenToFlowPosition} />,
       )
       // Open Add node submenu by clicking
       fireEvent.click(screen.getByText('Add node'))
 
-      // The Decision item should render the \u2B21 glyph as text, not an SVG icon
+      // The Decision item should render the solid hexagon glyph as text, not an SVG icon
       const decisionBtn = screen.getByText('Decision').closest('button')!
-      // Should contain the hexagon glyph character
-      expect(decisionBtn.textContent).toContain('\u2B21')
+      // Should contain the solid hexagon glyph character
+      expect(decisionBtn.textContent).toContain('\u2B22')
       // Should NOT have an SVG element (Lucide icons render as SVG)
       expect(decisionBtn.querySelector('svg')).toBeNull()
     })

@@ -7,6 +7,7 @@ import { Spinner } from '../../components/Spinner'
 import type { ISLValidationSuggestion } from '../../adapters/isl/types'
 import { buildRichGraphPayload } from '../utils/graphPayload'
 import { getSeverityClasses } from '../utils/severityMapping'
+import { getEdgeKey } from '../domain/edgeUtils'
 
 /**
  * Simple hash of graph structure for change detection
@@ -15,7 +16,7 @@ import { getSeverityClasses } from '../utils/severityMapping'
 function computeGraphHash(nodes: unknown[], edges: unknown[]): string {
   // Use JSON stringify of IDs and key data for lightweight hashing
   const nodeIds = nodes.map((n: any) => `${n.id}:${n.type}:${n.data?.label ?? ''}`).sort().join('|')
-  const edgeIds = edges.map((e: any) => `${e.source}->${e.target}`).sort().join('|')
+  const edgeIds = edges.map((e: any) => getEdgeKey(e)).sort().join('|')
   return `${nodeIds}::${edgeIds}`
 }
 

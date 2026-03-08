@@ -24,6 +24,7 @@ import type { BriefElementKind } from '../primitives/NodeShape'
 import type { BriefReadiness } from '../hooks/useBriefSignals'
 import type { UseConversationReturn } from '../useConversation'
 import type { GenerateState } from './ChatTopBar'
+import type { ScenarioStage } from '../../../types/scenario'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Imperative handle for text insertion from ChatTopBar
@@ -49,7 +50,13 @@ interface ChatComposerProps {
   onBriefStateChange?: (readiness: BriefReadiness | null, hasText: boolean) => void
 }
 
-const PLACEHOLDER = 'Describe your decision, the options you\u2019re weighing, and what a good outcome looks like.'
+const STAGE_PLACEHOLDERS: Record<ScenarioStage, string> = {
+  frame:    'Describe your decision, the options you\u2019re weighing, and what a good outcome looks like.',
+  ideate:   'Explore options, add factors, or challenge assumptions...',
+  evaluate: 'Ask about the results, challenge assumptions, or refine the model...',
+  decide:   'Challenge the recommendation, or generate your brief...',
+  optimise: 'Plan your next steps...',
+}
 
 export const ChatComposer = memo(forwardRef<ChatComposerHandle, ChatComposerProps>(
   function ChatComposer({ conversation, generateState, onCollapse, onScrollToPatch, onOpenInspector, onGenerateModel, onBriefStateChange }, ref) {
@@ -162,7 +169,7 @@ export const ChatComposer = memo(forwardRef<ChatComposerHandle, ChatComposerProp
             value={composer.value}
             onChange={composer.handleChange}
             onKeyDown={composer.handleKeyDown}
-            placeholder={PLACEHOLDER}
+            placeholder={STAGE_PLACEHOLDERS[stage] ?? STAGE_PLACEHOLDERS.frame}
             disabled={isThinking}
             rows={1}
             aria-label="Message input"
@@ -171,8 +178,8 @@ export const ChatComposer = memo(forwardRef<ChatComposerHandle, ChatComposerProp
               fontSize: 14,
               lineHeight: 1.5,
               fontFamily: 'inherit',
-              padding: '9px 4px',
-              minHeight: 42,
+              padding: '12px 4px',
+              minHeight: 88,
               maxHeight: 180,
             }}
           />
@@ -209,7 +216,6 @@ export const ChatComposer = memo(forwardRef<ChatComposerHandle, ChatComposerProp
         <style>{`
           .composer-input-box:focus-within {
             border-color: var(--info, #63ADCF) !important;
-            box-shadow: 0 0 0 2px rgba(99,173,207,0.09) !important;
           }
           .send-btn:not(:disabled):hover {
             background: var(--primary-hover, #67C89E) !important;

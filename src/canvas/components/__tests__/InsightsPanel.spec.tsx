@@ -115,7 +115,7 @@ describe('InsightsPanel', () => {
       render(<InsightsPanel insights={mockFullInsights} />)
 
       expect(screen.getByText('Risks to Consider')).toBeInTheDocument()
-      expect(screen.getByText('Risks to Consider')).toHaveClass('text-amber-700')
+      expect(screen.getByText('Risks to Consider')).toHaveClass('text-warning')
     })
 
     it('does not show risks section when empty', () => {
@@ -140,7 +140,7 @@ describe('InsightsPanel', () => {
 
       expect(screen.getByText('Recommended Next Steps')).toBeInTheDocument()
       expect(screen.getByText('Recommended Next Steps')).toHaveClass(
-        'text-green-700'
+        'text-success'
       )
     })
 

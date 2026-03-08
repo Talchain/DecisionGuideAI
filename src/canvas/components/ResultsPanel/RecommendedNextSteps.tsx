@@ -130,9 +130,9 @@ export function RecommendedNextSteps({
     <div className="space-y-4" data-testid="recommended-next-steps">
       {/* Key insight at top */}
       {keyInsight && (
-        <div className="p-3 bg-violet-50 border border-violet-200 rounded-lg">
+        <div className="p-3 bg-panel border border-option/30 rounded-lg">
           <div className="flex items-start gap-2">
-            <Lightbulb className="h-4 w-4 text-violet-600 flex-shrink-0 mt-0.5" aria-hidden="true" />
+            <Lightbulb className="h-4 w-4 text-option flex-shrink-0 mt-0.5" aria-hidden="true" />
             <p className={`${typography.bodySmall} text-ink-700`}>
               {keyInsight}
             </p>

@@ -100,7 +100,7 @@ export function HelpMenu({ onShowOnboarding, onShowKeyboardLegend, onShowInfluen
                 key={item.label}
                 role="menuitem"
                 onClick={() => handleAction(item.action)}
-                className="text-left px-4 py-3 hover:bg-paper-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                className="text-left px-4 py-3 hover:bg-paper-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info"
               >
                 <span className={`block ${typography.label} text-ink-900`}>{item.label}</span>
                 <span className={`block ${typography.caption} text-ink-900/70`}>{item.description}</span>

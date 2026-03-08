@@ -144,12 +144,12 @@ export default function ResetPasswordForm() {
 
       <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
         {error && (
-          <div className="bg-red-50 border border-red-200 rounded-lg p-4" role="alert">
+          <div className="bg-panel border border-danger/30 rounded-lg p-4" role="alert">
             <div className="flex">
-              <AlertTriangle className="h-5 w-5 text-red-400 flex-shrink-0" />
+              <AlertTriangle className="h-5 w-5 text-danger flex-shrink-0" />
               <div className="ml-3">
-                <h3 className="text-sm font-medium text-red-800">Reset failed</h3>
-                <div className="mt-2 text-sm text-red-700">{error}</div>
+                <h3 className="text-sm font-medium text-danger">Reset failed</h3>
+                <div className="mt-2 text-sm text-danger">{error}</div>
               </div>
             </div>
           </div>
@@ -171,7 +171,7 @@ export default function ResetPasswordForm() {
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="block w-full pl-10 pr-10 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                className="block w-full pl-10 pr-10 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:ring-info focus:border-info/30 sm:text-sm"
                 placeholder="New password"
                 disabled={!hasValidSession}
               />
@@ -204,7 +204,7 @@ export default function ResetPasswordForm() {
                 required
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
-                className="block w-full pl-10 pr-10 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                className="block w-full pl-10 pr-10 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:ring-info focus:border-info/30 sm:text-sm"
                 placeholder="Confirm new password"
                 disabled={!hasValidSession}
               />
@@ -216,7 +216,7 @@ export default function ResetPasswordForm() {
           <button
             type="submit"
             disabled={loading || !hasValidSession}
-            className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-text-on-color bg-primary hover:bg-primary-hover focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-info disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading ? 'Resetting...' : 'Reset Password'}
           </button>

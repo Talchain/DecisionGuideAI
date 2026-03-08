@@ -249,7 +249,7 @@ export function CoachMarks({ show, onComplete, steps = DEFAULT_STEPS }: CoachMar
             <div
               key={idx}
               className={`h-1 flex-1 rounded ${
-                idx === currentStep ? 'bg-blue-600' : 'bg-gray-200'
+                idx === currentStep ? 'bg-primary' : 'bg-gray-200'
               }`}
               aria-hidden="true"
             />
@@ -286,7 +286,7 @@ export function CoachMarks({ show, onComplete, steps = DEFAULT_STEPS }: CoachMar
             )}
             <button
               onClick={handleNext}
-              className="px-3 py-1.5 text-sm font-medium bg-blue-600 text-white rounded hover:bg-blue-700"
+              className="px-3 py-1.5 text-sm font-medium bg-primary text-text-on-color rounded hover:bg-primary-hover"
             >
               {currentStep < steps.length - 1 ? 'Next' : 'Finish'}
             </button>

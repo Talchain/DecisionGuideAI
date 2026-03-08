@@ -12,7 +12,7 @@
 import { memo, useState, useCallback, type ReactNode } from 'react'
 import { Handle, Position, type NodeProps, useUpdateNodeInternals } from '@xyflow/react'
 import type { NodeType, Controllability } from '../domain/nodes'
-import { ChevronDown, ChevronUp, type LucideIcon } from 'lucide-react'
+import { ChevronDown, ChevronUp, Flag as FlagIcon, type LucideIcon } from 'lucide-react'
 import { sanitizeMarkdown } from '../../lib/renderSafeRichText'
 import { UnknownKindWarning } from '../components/UnknownKindWarning'
 import { NodeBadge } from '../components/NodeBadge'
@@ -196,6 +196,17 @@ export const BaseNode = memo(({ id, nodeType, icon: Icon, data, selected, childr
         islAffected={islAffected}
         onClick={handleBadgeClick}
       />
+
+      {/* Context menu: Assumption flag badge (Hard rule 3 — UI-only annotation) */}
+      {data?.flagged_as_assumption && (
+        <div
+          className="absolute -top-2 -left-2 flex h-5 w-5 items-center justify-center rounded-full bg-panel shadow-1"
+          title="Flagged as assumption"
+          data-testid="assumption-badge"
+        >
+          <FlagIcon size={12} className="text-warning" />
+        </div>
+      )}
 
       {/* B.I.10: "?" badge for incomplete goal nodes */}
       {isIncomplete && nodeType === 'goal' && (

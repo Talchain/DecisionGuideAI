@@ -357,33 +357,36 @@ describe('ConnectivityChip', () => {
     it('uses success colors for "ok" status', async () => {
       mockProbeCapability.mockResolvedValueOnce(createProbeResult({ healthStatus: 'ok' }))
 
-      const { container } = render(<ConnectivityChip />)
+      const { getByTestId } = render(<ConnectivityChip />)
 
       await waitFor(() => {
-        const chip = container.querySelector('.bg-success-light')
-        expect(chip).toBeInTheDocument()
+        const chip = getByTestId('connectivity-chip')
+        expect(chip.className).toContain('bg-panel')
+        expect(chip.className).toContain('text-success')
       })
     })
 
     it('uses warning colors for "degraded" status', async () => {
       mockProbeCapability.mockResolvedValueOnce(createProbeResult({ healthStatus: 'degraded' }))
 
-      const { container } = render(<ConnectivityChip />)
+      const { getByTestId } = render(<ConnectivityChip />)
 
       await waitFor(() => {
-        const chip = container.querySelector('.bg-warning-light')
-        expect(chip).toBeInTheDocument()
+        const chip = getByTestId('connectivity-chip')
+        expect(chip.className).toContain('bg-panel')
+        expect(chip.className).toContain('text-warning')
       })
     })
 
     it('uses danger colors for "offline" status', async () => {
       mockProbeCapability.mockResolvedValueOnce(createProbeResult({ available: false }))
 
-      const { container } = render(<ConnectivityChip />)
+      const { getByTestId } = render(<ConnectivityChip />)
 
       await waitFor(() => {
-        const chip = container.querySelector('.bg-danger-light')
-        expect(chip).toBeInTheDocument()
+        const chip = getByTestId('connectivity-chip')
+        expect(chip.className).toContain('bg-panel')
+        expect(chip.className).toContain('text-danger')
       })
     })
 

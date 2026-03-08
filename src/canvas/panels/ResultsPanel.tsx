@@ -362,7 +362,7 @@ import { trackCompareOpened } from '../utils/sandboxTelemetry'
       <Tooltip content={hash ? 'Share this analysis' : 'Share requires a completed analysis'}>
         <button
           onClick={handleShare}
-          className={`px-4 py-2 ${typography.panelBody} font-medium text-white bg-info-600 rounded-lg hover:bg-info-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed`}
+          className={`px-4 py-2 ${typography.panelBody} font-medium text-text-on-color bg-info-600 rounded-lg hover:bg-info-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed`}
           type="button"
           disabled={!hash}
         >
@@ -442,7 +442,7 @@ import { trackCompareOpened } from '../utils/sandboxTelemetry'
                     if (blockers.length === 0) return null
 
                     return (
-                      <div className="mb-4 p-4 rounded-lg border border-danger/30 bg-danger-light">
+                      <div className="mb-4 p-4 rounded-lg border border-danger/30 bg-panel">
                         <h3 className={`${typography.panelHeader} text-danger-700 mb-2`}>
                           Critical Issues Detected
                         </h3>
@@ -578,7 +578,7 @@ import { trackCompareOpened } from '../utils/sandboxTelemetry'
 
               {/* Error */}
               {isError && error && (
-                <div className="p-4 rounded-lg border border-danger/30 bg-danger-light">
+                <div className="p-4 rounded-lg border border-danger/30 bg-panel">
                   <h3 className={`${typography.panelHeader} text-danger mb-2`}>
                     {error.code}
                   </h3>
@@ -602,7 +602,7 @@ import { trackCompareOpened } from '../utils/sandboxTelemetry'
                   )}
                   <button
                     onClick={handleReset}
-                    className={`mt-3 px-4 py-2 ${typography.panelBody} rounded-md border-none bg-danger-600 hover:bg-danger-700 text-white cursor-pointer font-medium transition-colors`}
+                    className={`mt-3 px-4 py-2 ${typography.panelBody} rounded-md border-none bg-danger-600 hover:bg-danger-700 text-text-on-color cursor-pointer font-medium transition-colors`}
                   >
                     Retry
                   </button>
@@ -611,13 +611,13 @@ import { trackCompareOpened } from '../utils/sandboxTelemetry'
 
               {/* Cancelled */}
               {isCancelled && (
-                <div className="p-4 rounded-lg border border-warning/30 bg-warning-light text-center">
+                <div className="p-4 rounded-lg border border-warning/30 bg-panel text-center">
                   <p className={`${typography.panelBody} text-warning-700 mb-3`}>
                     Analysis cancelled
                   </p>
                   <button
                     onClick={handleReset}
-                    className={`px-4 py-2 ${typography.panelBody} rounded-md border-none bg-info-500 hover:bg-info-600 text-white cursor-pointer font-medium transition-colors`}
+                    className={`px-4 py-2 ${typography.panelBody} rounded-md border-none bg-info-500 hover:bg-info-600 text-text-on-color cursor-pointer font-medium transition-colors`}
                   >
                     Start New Run
                   </button>
@@ -671,7 +671,7 @@ import { trackCompareOpened } from '../utils/sandboxTelemetry'
                       <button
                         onClick={handleRunAnalysis}
                         disabled={nodes.length === 0 || isRunning}
-                        className={`px-6 py-3 ${typography.panelBody} font-medium text-white bg-info rounded-lg hover:bg-info/90 transition-colors focus:outline-none focus:ring-2 focus:ring-info focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2`}
+                        className={`px-6 py-3 ${typography.panelBody} font-medium text-text-on-color bg-info rounded-lg hover:bg-info/90 transition-colors focus:outline-none focus:ring-2 focus:ring-info focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2`}
                       >
                         {isRunning ? (
                           <>
@@ -776,7 +776,7 @@ function ResultsTrustFooter({ seed, hash, showToast }: ResultsTrustFooterProps) 
               <button
                 type="button"
                 onClick={handleCopyHash}
-                className={`px-2 py-0.5 ${typography.panelMeta} text-info bg-info-light rounded hover:opacity-80 transition-colors`}
+                className={`px-2 py-0.5 ${typography.panelMeta} text-info bg-panel rounded hover:opacity-80 transition-colors`}
               >
                 Copy full hash
               </button>
@@ -812,7 +812,7 @@ function TabButton({ active, onClick, label, icon, disabled = false, badge }: Ta
       disabled={disabled}
       className={`
         flex-1 px-4 py-2 ${typography.panelBody} transition-colors
-        ${active ? 'text-info border-b-2 border-info bg-info-light' : 'text-text-body border-b-2 border-transparent hover:text-text-header hover:bg-panel-hover'}
+        ${active ? 'text-info border-b-2 border-info bg-panel' : 'text-text-body border-b-2 border-transparent hover:text-text-header hover:bg-panel-hover'}
         ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
       `}
       type="button"
@@ -821,7 +821,7 @@ function TabButton({ active, onClick, label, icon, disabled = false, badge }: Ta
         {icon}
         {label}
         {badge && (
-          <span className={`px-1.5 py-0.5 ${typography.panelMeta} font-semibold text-white bg-info-600 rounded-full`}>
+          <span className={`px-1.5 py-0.5 ${typography.panelMeta} font-semibold text-text-on-color bg-info-600 rounded-full`}>
             {badge}
           </span>
         )}

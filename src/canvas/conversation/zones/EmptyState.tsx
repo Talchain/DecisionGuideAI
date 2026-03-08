@@ -2,14 +2,24 @@
  * EmptyState — shown when no messages and no graph nodes.
  *
  * Six node shapes (Goal → Decision → Option → Factor → Risk → Outcome)
- * in a pipeline with dashed arrows. Container at 0.14 opacity so shapes
- * keep full entity colour. Gentle alternating float animation.
+ * in a pipeline with dashed arrows. Light-fill colours at 0.25 opacity
+ * for subtle ambient decoration. Gentle alternating float animation.
  */
 
 import { NodeShape } from '../primitives/NodeShape'
 import type { NodeType } from '../../domain/nodes'
 
 const SHAPES: NodeType[] = ['goal', 'decision', 'option', 'factor', 'risk', 'outcome']
+
+/** Light colour fills per node type (DS v4 -light variants). */
+const LIGHT_FILLS: Record<string, string> = {
+  goal:     '#F4DB92',
+  decision: '#BAD7E4',
+  option:   '#DDDCF5',
+  factor:   '#EEE6D8',
+  risk:     '#FFB393',
+  outcome:  '#B8E2D0',
+}
 
 function DashedArrow() {
   return (
@@ -29,8 +39,8 @@ export function EmptyState() {
       style={{ gap: 24, padding: '40px 20px' }}
       data-testid="empty-state"
     >
-      {/* Shape pipeline — opacity at container level so shapes keep full entity colour */}
-      <div className="flex items-center" style={{ gap: 0, opacity: 0.14 }}>
+      {/* Shape pipeline — light fills at 0.25 opacity for subtle ambient decoration */}
+      <div className="flex items-center" style={{ gap: 0, opacity: 0.25 }}>
         {SHAPES.map((kind, i) => (
           <div key={kind} className="flex items-center" style={{ gap: 0 }}>
             <div
@@ -42,20 +52,12 @@ export function EmptyState() {
                 animationDelay: `${i * 0.3}s`,
               }}
             >
-              <NodeShape kind={kind} size={22} />
+              <NodeShape kind={kind} size={22} fill={LIGHT_FILLS[kind]} />
             </div>
             {i < SHAPES.length - 1 && <DashedArrow />}
           </div>
         ))}
       </div>
-
-      {/* Heading */}
-      <p
-        className="text-text-body text-center"
-        style={{ fontSize: 15, fontWeight: 500, letterSpacing: '-0.01em' }}
-      >
-        What are you deciding?
-      </p>
 
       <style>{`
         @keyframes emptyStateFloat {

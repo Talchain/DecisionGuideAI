@@ -49,7 +49,7 @@ export function ExplainDiffButton({ patch, context, onExplanation }: ExplainDiff
       <button
         onClick={handleExplain}
         disabled={loading}
-        className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-info bg-info-light border border-info/30 rounded-lg hover:opacity-80 transition-colors disabled:opacity-50"
+        className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-info bg-panel border border-info/30 rounded-lg hover:opacity-80 transition-colors disabled:opacity-50"
         type="button"
         aria-label="Explain this diff"
       >
@@ -62,13 +62,13 @@ export function ExplainDiffButton({ patch, context, onExplanation }: ExplainDiff
       </button>
 
       {explanation && (
-        <div className="px-3 py-2 bg-info-light border border-info/30 rounded-lg text-sm text-info">
+        <div className="px-3 py-2 bg-panel border border-info/30 rounded-lg text-sm text-info">
           {explanation}
         </div>
       )}
 
       {error && (
-        <div className="px-3 py-2 bg-danger-light border border-danger/30 rounded-lg text-sm text-danger">
+        <div className="px-3 py-2 bg-panel border border-danger/30 rounded-lg text-sm text-danger">
           {error}
         </div>
       )}

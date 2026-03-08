@@ -256,21 +256,21 @@ describe('graphDisplayCalculations', () => {
       })
     })
 
-    it('returns red classes for high severity', () => {
+    it('returns danger classes for high severity', () => {
       const colors = getRiskSeverityColors('high')
       expect(colors).toEqual({
-        bg: 'bg-red-100',
-        border: 'border-red-500',
-        text: 'text-red-900',
+        bg: 'bg-panel',
+        border: 'border-danger',
+        text: 'text-danger',
       })
     })
 
-    it('returns darker red classes for critical severity', () => {
+    it('returns danger classes for critical severity', () => {
       const colors = getRiskSeverityColors('critical')
       expect(colors).toEqual({
-        bg: 'bg-red-200',
-        border: 'border-red-600',
-        text: 'text-red-950',
+        bg: 'bg-panel',
+        border: 'border-danger',
+        text: 'text-danger',
       })
     })
 

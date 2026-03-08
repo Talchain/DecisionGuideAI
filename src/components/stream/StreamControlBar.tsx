@@ -51,7 +51,7 @@ export const StreamControlBar = React.memo<StreamControlBarProps>(({
           type="button"
           data-testid="start-btn"
           onClick={onStart}
-          className="px-2 py-1 rounded bg-blue-600 text-white disabled:opacity-50"
+          className="px-2 py-1 rounded bg-primary text-text-on-color disabled:opacity-50"
           disabled={startDisabled}
           title={startTitle}
         >

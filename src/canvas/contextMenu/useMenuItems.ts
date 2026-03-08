@@ -39,10 +39,10 @@ type ShowToastFn = (message: string, type: 'error' | 'info' | 'success' | 'warni
 
 const NODE_TYPE_ITEMS: { type: NodeType; label: string; glyph?: string; icon?: ComponentType<{ className?: string; size?: number }>; color: string; tooltip: string }[] = [
   { type: 'factor', label: 'Factor', glyph: '\u25CF', color: 'text-factor', tooltip: 'Causal variable that can be measured or influenced' },
-  { type: 'risk', label: 'Risk', glyph: '\u25BD', color: 'text-danger', tooltip: 'Potential negative outcome' },
-  { type: 'outcome', label: 'Outcome', glyph: '\u25B3', color: 'text-success', tooltip: 'Observable result or measurement' },
+  { type: 'risk', label: 'Risk', glyph: '\u25BC', color: 'text-danger', tooltip: 'Potential negative outcome' },
+  { type: 'outcome', label: 'Outcome', glyph: '\u25B2', color: 'text-success', tooltip: 'Observable result or measurement' },
   { type: 'goal', label: 'Goal', glyph: '\u25C6', color: 'text-goal', tooltip: 'Target outcome for optimisation' },
-  { type: 'decision', label: 'Decision', glyph: '\u2B21', color: 'text-info', tooltip: 'Choice point between options' },
+  { type: 'decision', label: 'Decision', glyph: '\u2B22', color: 'text-info', tooltip: 'Choice point between options' },
 ]
 
 // ---------------------------------------------------------------------------
@@ -152,7 +152,7 @@ function buildPaneMenu(
           icon: Sparkles,
           tooltip: 'AI reviews the graph for structural gaps',
           enabled: true,
-          action: wrap(() => askAI(target, 'review_model_gaps')),
+          action: wrap(() => askAI(target, 'review_model_gaps', showToast)),
         },
       ],
       action: () => {},
@@ -201,7 +201,7 @@ function buildNodeMenu(
       icon: Sparkles,
       tooltip: "Plain-English summary of this element's role in the model",
       enabled: true,
-      action: wrap(() => askAI(target, 'explain_element')),
+      action: wrap(() => askAI(target, 'explain_element', showToast)),
     },
   ]
   if (isFull || isGoal) {
@@ -211,7 +211,7 @@ function buildNodeMenu(
       icon: Zap,
       tooltip: "Ask AI to argue against this element's current setup",
       enabled: true,
-      action: wrap(() => askAI(target, 'challenge_element')),
+      action: wrap(() => askAI(target, 'challenge_element', showToast)),
     })
   }
   items.push({
@@ -399,7 +399,7 @@ function buildEdgeMenu(
         ? 'What this structural connection means'
         : 'Why this relationship exists and how strong it is',
       enabled: true,
-      action: wrap(() => askAI(target, 'explain_element')),
+      action: wrap(() => askAI(target, 'explain_element', showToast)),
     },
   ]
   if (!target.isStructural) {
@@ -409,7 +409,7 @@ function buildEdgeMenu(
       icon: Zap,
       tooltip: 'Ask AI to argue this link is wrong or overweighted',
       enabled: true,
-      action: wrap(() => askAI(target, 'challenge_element')),
+      action: wrap(() => askAI(target, 'challenge_element', showToast)),
     })
   }
   items.push({
@@ -478,7 +478,7 @@ function buildMultiMenu(
           icon: MessageSquare,
           tooltip: 'Explain the relationship between these selected elements',
           enabled: true,
-          action: wrap(() => askAI(target, 'explain_subgraph')),
+          action: wrap(() => askAI(target, 'explain_subgraph', showToast)),
         },
       ],
       action: () => {},

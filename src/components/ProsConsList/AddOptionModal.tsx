@@ -40,7 +40,7 @@ export default function AddOptionModal({ onAdd, onClose }: AddOptionModalProps) 
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Enter option name..."
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-info focus:border-info/30"
               autoFocus
             />
           </div>
@@ -56,7 +56,7 @@ export default function AddOptionModal({ onAdd, onClose }: AddOptionModalProps) 
             <button
               type="submit"
               disabled={!name.trim()}
-              className="px-4 py-2 text-sm text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 disabled:opacity-50"
+              className="px-4 py-2 text-sm text-text-on-color bg-primary rounded-lg hover:bg-primary-hover disabled:opacity-50"
             >
               Add Option
             </button>

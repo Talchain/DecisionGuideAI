@@ -70,14 +70,14 @@ export default function UserDirectoryTab({ onAddUser }: UserDirectoryTabProps) {
           placeholder="Search by name or email..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
-          className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+          className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:ring-info focus:border-info/30 sm:text-sm"
           aria-label="Search directory"
         />
       </div>
 
       {/* Error Message */}
       {error && (
-        <div className="bg-red-50 text-red-700 p-3 rounded-lg flex items-start gap-2">
+        <div className="bg-panel text-danger p-3 rounded-lg flex items-start gap-2">
           <AlertCircle className="h-5 w-5 flex-shrink-0" />
           <p>{error}</p>
         </div>
@@ -85,13 +85,13 @@ export default function UserDirectoryTab({ onAddUser }: UserDirectoryTabProps) {
 
       {/* Add User Error */}
       {addError && (
-        <div className="bg-red-50 text-red-700 p-3 rounded-lg flex items-start gap-2">
+        <div className="bg-panel text-danger p-3 rounded-lg flex items-start gap-2">
           <AlertCircle className="h-5 w-5 flex-shrink-0" />
           <p>{addError}</p>
         </div>
       )}
       {addSuccess && (
-        <div className="bg-green-50 text-green-700 p-3 rounded-lg mb-4">
+        <div className="bg-panel text-success p-3 rounded-lg mb-4">
           User added successfully!
         </div>
       )}
@@ -103,10 +103,10 @@ export default function UserDirectoryTab({ onAddUser }: UserDirectoryTabProps) {
         <>
           {/* User Selection Form */}
           {selectedUser && (
-            <div className="bg-indigo-50 p-4 rounded-lg space-y-3">
+            <div className="bg-panel p-4 rounded-lg space-y-3">
               <div className="flex items-center gap-3">
-                <div className="bg-indigo-100 p-2 rounded-full">
-                  <User className="h-5 w-5 text-indigo-600" />
+                <div className="bg-panel p-2 rounded-full">
+                  <User className="h-5 w-5 text-info" />
                 </div>
                 <div>
                   <h4 className="font-medium text-gray-900">{selectedUser.email}</h4>
@@ -126,7 +126,7 @@ export default function UserDirectoryTab({ onAddUser }: UserDirectoryTabProps) {
                   <select
                     value={teamRole}
                     onChange={(e) => setTeamRole(e.target.value)}
-                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500"
+                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-info"
                   >
                     <option value="admin">Admin</option>
                     <option value="member">Member</option>
@@ -140,7 +140,7 @@ export default function UserDirectoryTab({ onAddUser }: UserDirectoryTabProps) {
                   <select
                     value={decisionRole}
                     onChange={(e) => setDecisionRole(e.target.value)}
-                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500"
+                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-info"
                   >
                     <option value="owner">Decision Lead</option>
                     <option value="approver">Approver</option>
@@ -160,7 +160,7 @@ export default function UserDirectoryTab({ onAddUser }: UserDirectoryTabProps) {
                 <button
                   onClick={handleSubmitAdd}
                   disabled={addingUser}
-                  className="px-3 py-1.5 bg-indigo-600 text-white rounded hover:bg-indigo-700 disabled:opacity-50 flex items-center gap-1"
+                  className="px-3 py-1.5 bg-primary text-text-on-color rounded hover:bg-primary-hover disabled:opacity-50 flex items-center gap-1"
                 >
                   {addingUser ? (
                     <>

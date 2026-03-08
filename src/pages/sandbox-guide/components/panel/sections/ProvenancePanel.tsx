@@ -61,7 +61,7 @@ export function ProvenancePanel({ provenance, evidenceFreshness }: ProvenancePan
         <div className="flex items-center gap-2">
           <span
             className={`text-sm font-medium ${
-              isLowCoverage ? 'text-amber-600' : 'text-green-600'
+              isLowCoverage ? 'text-warning' : 'text-success'
             }`}
           >
             {provenance.edges_with_provenance}/{provenance.edges_total} edges
@@ -83,7 +83,7 @@ export function ProvenancePanel({ provenance, evidenceFreshness }: ProvenancePan
             <div className="h-2 bg-storm-200 rounded-full overflow-hidden" role="progressbar" aria-valuenow={Math.round(coverage)} aria-valuemin={0} aria-valuemax={100}>
               <div
                 className={`h-full transition-all ${
-                  isLowCoverage ? 'bg-amber-500' : 'bg-green-500'
+                  isLowCoverage ? 'bg-warning' : 'bg-success'
                 }`}
                 style={{ width: `${coverage}%` }}
               />
@@ -159,16 +159,16 @@ export function ProvenancePanel({ provenance, evidenceFreshness }: ProvenancePan
               </ul>
             </div>
           ) : (
-            <div className="flex items-start gap-2 p-3 bg-amber-50 border border-amber-200 rounded">
+            <div className="flex items-start gap-2 p-3 bg-panel border border-warning/30 rounded">
               <AlertTriangle
-                className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5"
+                className="w-4 h-4 text-warning flex-shrink-0 mt-0.5"
                 aria-hidden="true"
               />
               <div className="space-y-1">
-                <p className="text-xs font-medium text-amber-900">
+                <p className="text-xs font-medium text-warning">
                   No external evidence
                 </p>
-                <p className="text-xs text-amber-700">
+                <p className="text-xs text-warning">
                   Model based on assumptions only. Consider gathering supporting data.
                 </p>
               </div>
