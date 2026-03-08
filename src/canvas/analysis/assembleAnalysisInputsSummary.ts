@@ -34,12 +34,15 @@ export function assembleAnalysisInputsSummary(
   const recommendation = findRecommendation(report.option_comparison)
   if (!recommendation) return null
 
-  // Map options — allowlist only
-  const options = report.option_comparison.map(oc => ({
-    id: oc.option_id,
-    label: oc.option_label,
-    win_probability: oc.win_probability ?? 0,
-  }))
+  // Map options — allowlist only. Options without win_probability are excluded
+  // rather than fabricated — callers must not infer 0 means "least likely".
+  const options = report.option_comparison
+    .filter(oc => oc.win_probability != null)
+    .map(oc => ({
+      id: oc.option_id,
+      label: oc.option_label,
+      win_probability: oc.win_probability as number,
+    }))
 
   // Top drivers — capped at MAX_TOP_DRIVERS
   const topDrivers = buildTopDrivers(report.drivers, MAX_TOP_DRIVERS)
@@ -52,8 +55,9 @@ export function assembleAnalysisInputsSummary(
   // (Derivation: computed robustness + drivers → 'medium'; otherwise 'low')
   const confidenceBand = deriveConfidenceBand(report)
 
-  // Robustness
+  // Robustness — null when neither stability field is present (no fabrication)
   const robustness = buildRobustness(report.robustness)
+  if (!robustness) return null
 
   // Constraints status — from first option's constraint_analysis
   const constraintsStatus = buildConstraintsStatus(report.option_comparison, MAX_CONSTRAINTS)
@@ -91,17 +95,19 @@ export function assembleAnalysisInputsSummary(
 function findRecommendation(
   comparisons: V2OptionComparison[],
 ): AnalysisInputsSummary['recommendation'] | null {
-  let best: V2OptionComparison | null = null
-  for (const oc of comparisons) {
-    if (!best || (oc.win_probability ?? 0) > (best.win_probability ?? 0)) {
+  // Only consider options with an actual win_probability — never fabricate 0
+  const withProb = comparisons.filter(oc => oc.win_probability != null)
+  if (withProb.length === 0) return null
+  let best = withProb[0]
+  for (const oc of withProb.slice(1)) {
+    if ((oc.win_probability as number) > (best.win_probability as number)) {
       best = oc
     }
   }
-  if (!best) return null
   return {
     option_id: best.option_id,
     option_label: best.option_label,
-    win_probability: best.win_probability ?? 0,
+    win_probability: best.win_probability as number,
   }
 }
 
@@ -145,8 +151,11 @@ function deriveConfidenceBand(report: V2RunResponse): AnalysisInputsSummary['con
 
 function buildRobustness(
   robustness: V2RobustnessActual,
-): AnalysisInputsSummary['robustness'] {
-  const stability = robustness.recommendation_stability ?? robustness.ranking_stability ?? 0
+): AnalysisInputsSummary['robustness'] | null {
+  // recommendation_stability is preferred; ranking_stability is a legitimate alias.
+  // If neither is present, return null rather than fabricating 0.
+  const stability = robustness.recommendation_stability ?? robustness.ranking_stability
+  if (stability == null) return null
   let level: 'robust' | 'moderate' | 'fragile'
   if (stability >= 0.7) level = 'robust'
   else if (stability >= 0.4) level = 'moderate'

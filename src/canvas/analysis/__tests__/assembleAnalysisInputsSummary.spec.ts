@@ -215,4 +215,81 @@ describe('assembleAnalysisInputsSummary', () => {
     expect(result!.constraints_status).toHaveLength(2)
     expect(result!.constraints_status.map(c => c.label)).toEqual(['Budget limit', 'Timeline'])
   })
+
+  // ── No-fabrication contract ───────────────────────────────────────────────
+
+  it('excludes options with missing win_probability rather than defaulting to 0', () => {
+    const response = makeValidResponse({
+      option_comparison: [
+        {
+          option_id: 'opt_a',
+          option_label: 'Option A',
+          confidence_interval: [0.3, 0.7] as [number, number],
+          win_probability: 0.65,
+          expected_outcome: 1.2,
+        },
+        {
+          option_id: 'opt_b',
+          option_label: 'Option B (no probability)',
+          confidence_interval: [0.2, 0.6] as [number, number],
+          // win_probability intentionally absent
+          expected_outcome: 0.8,
+        },
+      ],
+    })
+
+    const result = assembleAnalysisInputsSummary(response)
+    expect(result).not.toBeNull()
+    // opt_b excluded — no fabricated 0
+    expect(result!.options).toHaveLength(1)
+    expect(result!.options[0].id).toBe('opt_a')
+    expect(result!.options[0].win_probability).toBe(0.65)
+  })
+
+  it('returns null when no options have win_probability (cannot determine recommendation)', () => {
+    const response = makeValidResponse({
+      option_comparison: [
+        {
+          option_id: 'opt_a',
+          option_label: 'Option A',
+          confidence_interval: [0.3, 0.7] as [number, number],
+          // win_probability absent on all
+          expected_outcome: 1.2,
+        },
+      ],
+    })
+
+    const result = assembleAnalysisInputsSummary(response)
+    // No recommendation can be determined without fabricating — null is correct
+    expect(result).toBeNull()
+  })
+
+  it('returns null when robustness has neither recommendation_stability nor ranking_stability', () => {
+    const response = makeValidResponse({
+      robustness: {
+        fragile_edges: [],
+        robust_edges: [],
+        // Neither stability field present — no fabrication allowed
+      } as any,
+    })
+
+    const result = assembleAnalysisInputsSummary(response)
+    expect(result).toBeNull()
+  })
+
+  it('accepts ranking_stability as a legitimate alias for recommendation_stability', () => {
+    const response = makeValidResponse({
+      robustness: {
+        fragile_edges: [],
+        robust_edges: [],
+        ranking_stability: 0.75,
+        // recommendation_stability absent — ranking_stability is the fallback
+      },
+    })
+
+    const result = assembleAnalysisInputsSummary(response)
+    expect(result).not.toBeNull()
+    expect(result!.robustness.recommendation_stability).toBe(0.75)
+    expect(result!.robustness.level).toBe('robust')
+  })
 })

@@ -122,3 +122,25 @@ describe('conversation_turns migration contract', () => {
     expect(sql).toContain('ON DELETE CASCADE')
   })
 })
+
+describe('scenarios_analysis_summary migration contract', () => {
+  const sql = readFileSync(resolve(MIGRATIONS_DIR, '20260309000002_scenarios_analysis_summary.sql'), 'utf-8')
+
+  it('adds latest_analysis_summary column', () => {
+    expect(sql).toContain('latest_analysis_summary')
+    expect(sql).toContain('jsonb')
+  })
+
+  it('uses ADD COLUMN IF NOT EXISTS for idempotency', () => {
+    expect(sql).toMatch(/ADD\s+COLUMN\s+IF\s+NOT\s+EXISTS/i)
+  })
+
+  it('column is nullable (no NOT NULL constraint)', () => {
+    // The column definition must not force NOT NULL
+    expect(sql).not.toMatch(/latest_analysis_summary\s+jsonb\s+NOT\s+NULL/i)
+  })
+
+  it('documents the column purpose via COMMENT', () => {
+    expect(sql).toContain('COMMENT ON COLUMN scenarios.latest_analysis_summary')
+  })
+})
