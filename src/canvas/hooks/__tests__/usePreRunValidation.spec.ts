@@ -118,17 +118,58 @@ describe('validateBeforeRun', () => {
       expect(result.canRun).toBe(false)
     })
 
-    it('falls back to canvas nodes when ceeAnalysisReady is null', () => {
+    it('falls back to canvas nodes when ceeAnalysisReady is null (no edges → blocker)', () => {
       const nodes: Node[] = [
         makeNode('factor_price', 'factor'),
         makeNode('goal_revenue', 'goal'),
-        // Option node WITHOUT interventions → should trigger blocker
+        // Option node WITHOUT interventions and NO edges → genuine missing model
         makeNode('option_a', 'option'),
       ]
 
       const result = validateBeforeRun('goal_revenue', nodes, [], null)
 
-      // Should have OPTIONS_NEED_MAPPING blocker from canvas node extraction
+      // Should have OPTIONS_NEED_MAPPING blocker with "Generate a model" message
+      const optionBlockers = result.blockers.filter((b) => b.code === 'OPTIONS_NEED_MAPPING')
+      expect(optionBlockers).toHaveLength(1)
+      expect(optionBlockers[0].message).toBe('Generate a model to configure options')
+      expect(result.canRun).toBe(false)
+    })
+
+    it('no blocker when ceeAnalysisReady is null but options have intervention edges', () => {
+      const nodes: Node[] = [
+        makeNode('factor_price', 'factor'),
+        makeNode('goal_revenue', 'goal'),
+        // Option node WITHOUT interventions data, but HAS edges to factors
+        makeNode('option_a', 'option'),
+      ]
+
+      // option_a → factor_price edge exists (CEE model was generated)
+      const edges: Edge[] = [makeEdge('e1', 'option_a', 'factor_price')]
+
+      const result = validateBeforeRun('goal_revenue', nodes, edges, null)
+
+      // Should NOT produce OPTIONS_NEED_MAPPING — provisionally ready
+      const optionBlockers = result.blockers.filter((b) => b.code === 'OPTIONS_NEED_MAPPING')
+      expect(optionBlockers).toHaveLength(0)
+    })
+
+    it('blocks when ceeAnalysisReady has options needing mapping (CEE path)', () => {
+      const nodes: Node[] = [
+        makeNode('factor_price', 'factor'),
+        makeNode('goal_revenue', 'goal'),
+        makeNode('option_a', 'option'),
+      ]
+
+      const ceeAnalysisReady = makeCEEAnalysisReady(
+        [
+          { id: 'option_a', label: 'Option A', status: 'needs_user_mapping', interventions: {} },
+        ],
+        'goal_revenue'
+      )
+
+      const result = validateBeforeRun('goal_revenue', nodes, [], ceeAnalysisReady)
+
+      // CEE path: genuine blocker
       const optionBlockers = result.blockers.filter((b) => b.code === 'OPTIONS_NEED_MAPPING')
       expect(optionBlockers).toHaveLength(1)
       expect(result.canRun).toBe(false)
