@@ -30,19 +30,22 @@ export function assembleAnalysisInputsSummary(
   // Guard: robustness is a required field
   if (report.robustness_status !== 'computed' || !report.robustness) return null
 
+  // Filter to options with an actual win_probability once — shared by both
+  // recommendation selection and options list. Never fabricate 0.
+  const comparisonsWithProb = report.option_comparison.filter(oc => oc.win_probability != null)
+  if (comparisonsWithProb.length === 0) return null
+
   // Find recommendation: option with highest win_probability
-  const recommendation = findRecommendation(report.option_comparison)
+  const recommendation = findRecommendation(comparisonsWithProb)
   if (!recommendation) return null
 
-  // Map options — allowlist only. Options without win_probability are excluded
-  // rather than fabricated — callers must not infer 0 means "least likely".
-  const options = report.option_comparison
-    .filter(oc => oc.win_probability != null)
-    .map(oc => ({
-      id: oc.option_id,
-      label: oc.option_label,
-      win_probability: oc.win_probability as number,
-    }))
+  // Map options — allowlist only. Same pre-filtered array as recommendation so
+  // recommendation.option_id is guaranteed to appear in options[].
+  const options = comparisonsWithProb.map(oc => ({
+    id: oc.option_id,
+    label: oc.option_label,
+    win_probability: oc.win_probability as number,
+  }))
 
   // Top drivers — capped at MAX_TOP_DRIVERS
   const topDrivers = buildTopDrivers(report.drivers, MAX_TOP_DRIVERS)
@@ -95,11 +98,10 @@ export function assembleAnalysisInputsSummary(
 function findRecommendation(
   comparisons: V2OptionComparison[],
 ): AnalysisInputsSummary['recommendation'] | null {
-  // Only consider options with an actual win_probability — never fabricate 0
-  const withProb = comparisons.filter(oc => oc.win_probability != null)
-  if (withProb.length === 0) return null
-  let best = withProb[0]
-  for (const oc of withProb.slice(1)) {
+  // Caller guarantees comparisons is pre-filtered to options with win_probability != null.
+  if (comparisons.length === 0) return null
+  let best = comparisons[0]
+  for (const oc of comparisons.slice(1)) {
     if ((oc.win_probability as number) > (best.win_probability as number)) {
       best = oc
     }
@@ -173,8 +175,9 @@ function buildConstraintsStatus(
 
   const ca = firstWithConstraints.constraint_analysis
   const constraints = Array.isArray(ca.constraints) ? ca.constraints : []
-  return constraints.slice(0, max)
+  return constraints
     .filter(c => c.label != null && c.label !== '')
+    .slice(0, max)
     .map(c => ({
       label: c.label,
       satisfied: c.prob_satisfied >= 0.5,
