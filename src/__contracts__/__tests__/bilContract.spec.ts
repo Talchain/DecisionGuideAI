@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { BIL_CONTRACT_VERSION } from '../../types/brief-intelligence'
 import { ANALYSIS_INPUTS_CONTRACT_VERSION } from '../../types/analysis-inputs-summary'
-import { extractLocalBIL } from '../../canvas/brief-intelligence/extract'
+import { extractLocalBIL, CAUSAL_PHRASES, SPECIFICITY_PATTERNS } from '../../canvas/brief-intelligence/extract'
 import type { BriefIntelligence } from '../../types/brief-intelligence'
 import type { AnalysisInputsSummary } from '../../types/analysis-inputs-summary'
 import fixture from '../analysis-inputs-summary.fixture.json'
@@ -11,12 +11,36 @@ describe('BIL Contract', () => {
   // Contract versions
   // ─────────────────────────────────────────────────────────────────────────
 
-  it('BIL_CONTRACT_VERSION is 1.0.0', () => {
-    expect(BIL_CONTRACT_VERSION).toBe('1.0.0')
+  it('BIL_CONTRACT_VERSION is 1.1.0', () => {
+    expect(BIL_CONTRACT_VERSION).toBe('1.1.0')
   })
 
   it('ANALYSIS_INPUTS_CONTRACT_VERSION is 1.0.0', () => {
     expect(ANALYSIS_INPUTS_CONTRACT_VERSION).toBe('1.0.0')
+  })
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Causal / specificity banks — must stay in sync with CEE
+  // ─────────────────────────────────────────────────────────────────────────
+
+  it('CAUSAL_PHRASES matches CEE constant exactly', () => {
+    expect([...CAUSAL_PHRASES]).toEqual([
+      'because', 'leads to', 'causes', 'results in', 'drives', 'affects',
+      'increases', 'reduces', 'prevents', 'depends on',
+    ])
+  })
+
+  it('SPECIFICITY_PATTERNS matches CEE constant exactly', () => {
+    const sources = SPECIFICITY_PATTERNS.map(p => p.source)
+    expect(sources).toEqual([
+      '\\d+%',
+      '[£$€]\\s?\\d+',
+      '\\d{1,3}(?:,\\d{3})+',
+      '\\d+k\\b',
+      '\\d+m\\b',
+      '\\b(?:Q[1-4]|H[12])\\s?\\d{4}\\b',
+      '\\b(202[0-9]|2030)\\b',
+    ])
   })
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -72,6 +96,14 @@ describe('BIL Contract', () => {
     for (const el of typed.missing_elements) {
       expect(validMissing).toContain(el)
     }
+
+    // causal_framing_score
+    expect(typed).toHaveProperty('causal_framing_score')
+    expect(['strong', 'moderate', 'weak']).toContain(typed.causal_framing_score)
+
+    // specificity_score
+    expect(typed).toHaveProperty('specificity_score')
+    expect(['specific', 'moderate', 'vague']).toContain(typed.specificity_score)
 
     // dsk_cues always empty
     expect(typed.dsk_cues).toEqual([])

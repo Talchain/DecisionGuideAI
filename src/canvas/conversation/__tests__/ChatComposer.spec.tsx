@@ -9,7 +9,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import { createRef } from 'react'
 import { ChatComposer } from '../zones/ChatComposer'
 import type { ChatComposerHandle } from '../zones/ChatComposer'
@@ -67,6 +67,22 @@ vi.mock('../zones/CoachingTip', () => ({
   },
 }))
 
+// BIL flag + extraction mocks — default off, overridden per test
+let mockBilEnabled = false
+vi.mock('../../../flags', () => ({
+  isBilPreviewEnabled: () => mockBilEnabled,
+}))
+
+let mockBilResult: any = null
+vi.mock('../../brief-intelligence/extract', () => ({
+  extractLocalBIL: () => mockBilResult,
+}))
+
+// useDebounce passthrough (no delay in tests)
+vi.mock('../../../hooks/useDebounce', () => ({
+  useDebounce: (v: string) => v,
+}))
+
 function makeConversation(overrides: Record<string, any> = {}) {
   return {
     sendMessage: vi.fn(),
@@ -84,6 +100,8 @@ describe('ChatComposer', () => {
   beforeEach(() => {
     mockStage = 'frame'
     mockBriefSignals = null
+    mockBilEnabled = false
+    mockBilResult = null
   })
 
   it('renders textarea with placeholder', () => {
@@ -312,5 +330,114 @@ describe('ChatComposer', () => {
     )
 
     expect(ref.current?.consumeBrief()).toBeNull()
+  })
+
+  // ── BIL causal framing coaching tip ──────────────────────────────────
+
+  it('shows causal framing tip when weak + >50 chars + bil flag on', () => {
+    mockStage = 'frame'
+    mockBilEnabled = true
+    mockBilResult = {
+      goal: null, options: [], constraints: [], factors: [],
+      completeness_band: 'low', ambiguity_flags: [], missing_elements: [],
+      causal_framing_score: 'weak', specificity_score: 'vague', dsk_cues: [],
+    }
+
+    const ref = createRef<ChatComposerHandle>()
+    render(
+      <ChatComposer
+        ref={ref}
+        conversation={makeConversation()}
+        generateState="disabled"
+        onCollapse={vi.fn()}
+        onScrollToPatch={vi.fn()}
+        onOpenInspector={vi.fn()}
+        onGenerateModel={vi.fn()}
+      />,
+    )
+
+    // Type >50 chars into the textarea so debouncedValue.length > 50
+    const textarea = screen.getByLabelText('Message input')
+    fireEvent.change(textarea, { target: { value: 'A'.repeat(51) } })
+
+    expect(screen.getByTestId('bil-causal-tip')).toBeInTheDocument()
+    expect(screen.getByTestId('bil-causal-tip').textContent).toContain(
+      'Tip: try describing how factors cause outcomes',
+    )
+  })
+
+  it('hides causal framing tip when brief is short (<= 50 chars)', () => {
+    mockStage = 'frame'
+    mockBilEnabled = true
+    mockBilResult = {
+      goal: null, options: [], constraints: [], factors: [],
+      completeness_band: 'low', ambiguity_flags: [], missing_elements: [],
+      causal_framing_score: 'weak', specificity_score: 'vague', dsk_cues: [],
+    }
+
+    const ref = createRef<ChatComposerHandle>()
+    render(
+      <ChatComposer
+        ref={ref}
+        conversation={makeConversation()}
+        generateState="disabled"
+        onCollapse={vi.fn()}
+        onScrollToPatch={vi.fn()}
+        onOpenInspector={vi.fn()}
+        onGenerateModel={vi.fn()}
+      />,
+    )
+
+    // Type exactly 50 chars — should NOT show tip
+    const textarea = screen.getByLabelText('Message input')
+    fireEvent.change(textarea, { target: { value: 'A'.repeat(50) } })
+
+    expect(screen.queryByTestId('bil-causal-tip')).not.toBeInTheDocument()
+  })
+
+  it('hides causal framing tip when causal_framing_score is strong', () => {
+    mockStage = 'frame'
+    mockBilEnabled = true
+    mockBilResult = {
+      goal: null, options: [], constraints: [], factors: [],
+      completeness_band: 'low', ambiguity_flags: [], missing_elements: [],
+      causal_framing_score: 'strong', specificity_score: 'vague', dsk_cues: [],
+    }
+
+    const ref = createRef<ChatComposerHandle>()
+    render(
+      <ChatComposer
+        ref={ref}
+        conversation={makeConversation()}
+        generateState="disabled"
+        onCollapse={vi.fn()}
+        onScrollToPatch={vi.fn()}
+        onOpenInspector={vi.fn()}
+        onGenerateModel={vi.fn()}
+      />,
+    )
+
+    expect(screen.queryByTestId('bil-causal-tip')).not.toBeInTheDocument()
+  })
+
+  it('hides causal framing tip when bil flag is off', () => {
+    mockStage = 'frame'
+    mockBilEnabled = false
+    mockBilResult = null // flag off → bilResult is null
+
+    const ref = createRef<ChatComposerHandle>()
+    render(
+      <ChatComposer
+        ref={ref}
+        conversation={makeConversation()}
+        generateState="disabled"
+        onCollapse={vi.fn()}
+        onScrollToPatch={vi.fn()}
+        onOpenInspector={vi.fn()}
+        onGenerateModel={vi.fn()}
+      />,
+    )
+
+    expect(screen.queryByTestId('bil-causal-tip')).not.toBeInTheDocument()
   })
 })

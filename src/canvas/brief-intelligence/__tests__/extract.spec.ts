@@ -166,6 +166,8 @@ describe('extractLocalBIL', () => {
     expect(typed).toHaveProperty('completeness_band')
     expect(typed).toHaveProperty('ambiguity_flags')
     expect(typed).toHaveProperty('missing_elements')
+    expect(typed).toHaveProperty('causal_framing_score')
+    expect(typed).toHaveProperty('specificity_score')
     expect(typed).toHaveProperty('dsk_cues')
   })
 
@@ -236,6 +238,66 @@ describe('extractLocalBIL', () => {
     // options count must be stable
     const optCounts = results.map(r => r.options.length)
     expect(new Set(optCounts).size).toBe(1)
+  })
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // 14. Causal framing score
+  // ─────────────────────────────────────────────────────────────────────────
+
+  it('causal_framing_score: strong when 3+ distinct causal phrases', () => {
+    const brief = 'Revenue increases because demand drives growth and pricing affects margins.'
+    const result = extractLocalBIL(brief)
+    expect(result.causal_framing_score).toBe('strong')
+  })
+
+  it('causal_framing_score: moderate when 1 causal phrase', () => {
+    const brief = 'We should expand because the market is growing.'
+    const result = extractLocalBIL(brief)
+    expect(result.causal_framing_score).toBe('moderate')
+  })
+
+  it('causal_framing_score: weak when no causal language', () => {
+    const brief = 'We need to pick a pricing strategy for Q3.'
+    const result = extractLocalBIL(brief)
+    expect(result.causal_framing_score).toBe('weak')
+  })
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // 15. Specificity score
+  // ─────────────────────────────────────────────────────────────────────────
+
+  it('specificity_score: specific when 2+ patterns match ("£49 to £59 by Q3 2026")', () => {
+    const brief = 'We want to raise prices from £49 to £59 by Q3 2026.'
+    const result = extractLocalBIL(brief)
+    expect(result.specificity_score).toBe('specific')
+  })
+
+  it('specificity_score: moderate with exactly one numeric pattern ("20%")', () => {
+    const brief = 'We need to save 20% on operational costs next quarter.'
+    const result = extractLocalBIL(brief)
+    expect(result.specificity_score).toBe('moderate')
+  })
+
+  it('specificity_score: vague when no concrete data ("improve pricing")', () => {
+    const brief = 'We should improve pricing to be more competitive.'
+    const result = extractLocalBIL(brief)
+    expect(result.specificity_score).toBe('vague')
+  })
+
+  it('specificity_score: vague for borderline "do better this year" (no concrete date)', () => {
+    const brief = 'We should do better this year with our strategy.'
+    const result = extractLocalBIL(brief)
+    expect(result.specificity_score).toBe('vague')
+  })
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // 16. New fields present in empty-string case
+  // ─────────────────────────────────────────────────────────────────────────
+
+  it('empty string returns weak causal framing and vague specificity', () => {
+    const result = extractLocalBIL('')
+    expect(result.causal_framing_score).toBe('weak')
+    expect(result.specificity_score).toBe('vague')
   })
 
   it('produces different results when text changes — debounce fires on stabilised value', () => {

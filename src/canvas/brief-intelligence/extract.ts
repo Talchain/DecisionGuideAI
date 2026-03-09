@@ -2,7 +2,11 @@
  * extractLocalBIL — client-side Brief Intelligence Layer preview.
  *
  * Local preview — intentionally lighter than CEE's authoritative extraction.
- * No DSK cues, simpler regex. May diverge from CEE results.
+ * No DSK cues, simpler regex for goal/option/constraint/factor detection —
+ * these heuristics may diverge from CEE results.
+ *
+ * CAUSAL_PHRASES and SPECIFICITY_PATTERNS (v1.1.0) are **identical** to CEE's
+ * constants and must stay in sync. See JSDoc on each constant.
  *
  * Pure function, synchronous, < 10ms on a 500-word brief.
  * The 500ms debounce is the caller's responsibility.
@@ -85,6 +89,31 @@ const RISK_PATTERNS = [
   /\bworst[\s-]case\b/i,
   /\bfailure\b/i,
   /\bdanger\b/i,
+]
+
+/**
+ * Causal phrases — must be identical to CEE's `CAUSAL_PHRASES` constant.
+ * @internal Exported for contract tests only.
+ * @see CEE cee/brief_intelligence/causal.py::CAUSAL_PHRASES
+ */
+export const CAUSAL_PHRASES = [
+  'because', 'leads to', 'causes', 'results in', 'drives', 'affects',
+  'increases', 'reduces', 'prevents', 'depends on',
+] as const
+
+/**
+ * Specificity patterns — must be identical to CEE's `SPECIFICITY_PATTERNS` constant.
+ * @internal Exported for contract tests only.
+ * @see CEE cee/brief_intelligence/specificity.py::SPECIFICITY_PATTERNS
+ */
+export const SPECIFICITY_PATTERNS: RegExp[] = [
+  /\d+%/,
+  /[£$€]\s?\d+/,
+  /\d{1,3}(?:,\d{3})+/,
+  /\d+k\b/i,
+  /\d+m\b/i,
+  /\b(?:Q[1-4]|H[12])\s?\d{4}\b/,
+  /\b(202[0-9]|2030)\b/,
 ]
 
 const AMBIGUITY_PATTERNS: Array<{ pattern: RegExp; flag: string }> = [
@@ -207,6 +236,27 @@ function extractFactors(text: string): Array<{ label: string; confidence: number
   return factors.slice(0, 10)
 }
 
+function scoreCausalFraming(text: string): BriefIntelligence['causal_framing_score'] {
+  let count = 0
+  for (const phrase of CAUSAL_PHRASES) {
+    const re = new RegExp(`\\b${phrase}\\b`, 'i')
+    if (re.test(text)) count++
+  }
+  if (count >= 3) return 'strong'
+  if (count >= 1) return 'moderate'
+  return 'weak'
+}
+
+function scoreSpecificity(text: string): BriefIntelligence['specificity_score'] {
+  let count = 0
+  for (const pattern of SPECIFICITY_PATTERNS) {
+    if (pattern.test(text)) count++
+  }
+  if (count >= 2) return 'specific'
+  if (count === 1) return 'moderate'
+  return 'vague'
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Main extractor
 // ─────────────────────────────────────────────────────────────────────────────
@@ -223,6 +273,8 @@ export function extractLocalBIL(briefText: string): BriefIntelligence {
       completeness_band: 'low',
       ambiguity_flags: [],
       missing_elements: ['goal', 'constraints', 'time_horizon', 'success_metric', 'status_quo_option', 'risk_factors'],
+      causal_framing_score: 'weak',
+      specificity_score: 'vague',
       dsk_cues: [],
     }
   }
@@ -284,6 +336,8 @@ export function extractLocalBIL(briefText: string): BriefIntelligence {
     completeness_band,
     ambiguity_flags,
     missing_elements: missing,
+    causal_framing_score: scoreCausalFraming(text),
+    specificity_score: scoreSpecificity(text),
     dsk_cues: [], // Always empty client-side — no DSK bundle access
   }
 }

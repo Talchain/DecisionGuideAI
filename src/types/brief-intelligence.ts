@@ -6,7 +6,7 @@
  * canonical version used in prompts and downstream services.
  */
 
-export const BIL_CONTRACT_VERSION = '1.0.0'
+export const BIL_CONTRACT_VERSION = '1.1.0'
 
 export interface BriefIntelligence {
   goal: { label: string; measurable: boolean; confidence: number } | null
@@ -22,6 +22,8 @@ export interface BriefIntelligence {
   missing_elements: Array<
     'goal' | 'constraints' | 'time_horizon' | 'success_metric' | 'status_quo_option' | 'risk_factors'
   >
+  causal_framing_score: 'strong' | 'moderate' | 'weak'
+  specificity_score: 'specific' | 'moderate' | 'vague'
   dsk_cues: Array<{
     bias_type: string
     signal: string

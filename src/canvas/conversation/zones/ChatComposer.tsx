@@ -189,6 +189,17 @@ export const ChatComposer = memo(forwardRef<ChatComposerHandle, ChatComposerProp
           </p>
         )}
 
+        {/* 3c. Causal framing coaching tip (weak framing + sufficient text) */}
+        {bilResult?.causal_framing_score === 'weak' && debouncedValue.length > 50 && (
+          <p
+            className="text-text-light"
+            style={{ fontSize: 11, lineHeight: 1.4, margin: 0, padding: '0 2px', fontStyle: 'italic' }}
+            data-testid="bil-causal-tip"
+          >
+            Tip: try describing how factors cause outcomes, not just listing them.
+          </p>
+        )}
+
         {/* 4. Orchestrator guidance strip (post-framing coaching items) */}
         {!isFramingStage(stage) && (
           <GuidanceStrip
@@ -261,9 +272,6 @@ export const ChatComposer = memo(forwardRef<ChatComposerHandle, ChatComposerProp
         </div>
 
         <style>{`
-          .composer-input-box:focus-within {
-            border-color: var(--info, #63ADCF) !important;
-          }
           .send-btn:not(:disabled):hover {
             background: var(--primary-hover, #67C89E) !important;
             transform: translateY(-1px);
