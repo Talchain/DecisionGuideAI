@@ -23,6 +23,7 @@ import { useCanvasStore } from '../../store'
 let flagValue = true
 vi.mock('../../../flags', () => ({
   isOrchestratorV2Enabled: () => flagValue,
+  isJourneyTabEnabled: () => false,
 }))
 
 // ---------------------------------------------------------------------------
