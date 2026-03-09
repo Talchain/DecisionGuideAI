@@ -485,7 +485,7 @@ function FactorCard({ node, synthesisedPrior, isHighlighted, onHover, onLeave }:
 
   return (
     <div
-      className={`bg-panel border border-panel-border border-l-2 border-l-factor rounded-sm p-2.5 mb-1.5 hover:border-info/30 transition-all duration-200 ${
+      className={`bg-panel border border-factor/30 rounded-sm p-2.5 mb-1.5 hover:border-info/30 transition-all duration-200 ${
         isHighlighted ? 'bg-panel shadow-2' : ''
       }`}
       onMouseEnter={() => onHover?.(node.id)}
@@ -740,8 +740,8 @@ function EdgeCard({
   return (
     <div
       className={`bg-panel border border-panel-border rounded-sm p-2.5 mb-1.5 hover:border-info/30 transition-all duration-200 ${
-        isFragile ? 'border-l-[3px] border-l-warning' : isPositive ? 'border-l-2 border-l-success/30' : 'border-l-2 border-l-danger/30'
-      } ${isHighlighted ? (isPositive ? 'bg-panel' : 'bg-panel') + ' shadow-2' : ''}`}
+        isHighlighted ? 'shadow-2' : ''
+      }`}
       onMouseEnter={() => onHover?.(edgeId)}
       onMouseLeave={onLeave}
     >
