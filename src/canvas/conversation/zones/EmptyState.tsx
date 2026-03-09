@@ -58,6 +58,14 @@ export function EmptyState() {
       style={{ gap: 24, padding: '40px 20px' }}
       data-testid="empty-state"
     >
+      {/* Welcome heading */}
+      <h2
+        className="text-text-body text-center"
+        style={{ fontSize: 24, fontWeight: 600, margin: 0 }}
+      >
+        What&rsquo;s on your mind?
+      </h2>
+
       {/* Shape pipeline — main colours with left-to-right flash wave */}
       <div className="flex items-center" style={{ gap: 0 }}>
         {SHAPES.map((kind, i) => {

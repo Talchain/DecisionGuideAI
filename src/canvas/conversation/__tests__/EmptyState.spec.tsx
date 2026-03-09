@@ -13,12 +13,13 @@ import { EmptyState } from '../zones/EmptyState'
 describe('EmptyState', () => {
   it('renders heading text', () => {
     render(<EmptyState />)
-    expect(screen.getByText('What are you deciding?')).toBeInTheDocument()
+    expect(screen.getByText('What\u2019s on your mind?')).toBeInTheDocument()
   })
 
   it('renders 6 node shapes', () => {
     const { container } = render(<EmptyState />)
-    const shapes = container.querySelectorAll('.empty-state-shape')
+    // Each shape has a main colour layer with class empty-state-main
+    const shapes = container.querySelectorAll('.empty-state-main')
     expect(shapes.length).toBe(6)
   })
 
