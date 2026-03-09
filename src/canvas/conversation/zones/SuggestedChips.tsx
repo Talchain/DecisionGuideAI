@@ -28,9 +28,9 @@ export function SuggestedChips({ chips, onChipClick }: SuggestedChipsProps) {
             padding: '5px 12px',
             borderRadius: 999,
             border: '1px solid var(--border-default, #EEE6D8)',
-            fontSize: 13,
+            fontSize: 12, // panelBody token
             fontFamily: 'inherit',
-            lineHeight: 1,
+            lineHeight: 1.33, // 16/12 — matches panelBody
             transition: 'all 200ms cubic-bezier(0.4, 0, 0.2, 1)',
             animationDelay: `${i * 70}ms`,
           }}
