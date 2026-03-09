@@ -974,10 +974,6 @@
   color: var(--text-light, #908D8D);
 }
 
-.growingInput:focus {
-  border-color: var(--info, #63ADCF);
-}
-
 .sendButton {
   display: flex;
   align-items: center;

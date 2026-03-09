@@ -6,7 +6,8 @@
  * Matches prototype: 14px padding, no header border, 12px mode name.
  */
 
-import { useRef, useEffect } from 'react'
+import { useRef, useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { ChevronDown } from 'lucide-react'
 import { NodeShape } from '../primitives/NodeShape'
 import type { NodeType } from '../../domain/nodes'
@@ -88,6 +89,17 @@ export function ThinkingModeDropdown({
   isOpen, onClose, selectedMode, onSelectMode, anchorRef,
 }: ThinkingModeDropdownProps) {
   const popoverRef = useRef<HTMLDivElement>(null)
+  const [pos, setPos] = useState({ bottom: 0, right: 0 })
+
+  // Compute anchor position when opening
+  useEffect(() => {
+    if (!isOpen || !anchorRef.current) return
+    const r = anchorRef.current.getBoundingClientRect()
+    setPos({
+      bottom: window.innerHeight - r.top + 6,
+      right: window.innerWidth - r.right,
+    })
+  }, [isOpen, anchorRef])
 
   useEffect(() => {
     if (!isOpen) return
@@ -116,13 +128,17 @@ export function ThinkingModeDropdown({
 
   if (!isOpen) return null
 
-  return (
+  return createPortal(
     <div
       ref={popoverRef}
       role="menu"
       aria-label="Thinking mode"
-      className="absolute top-full right-0 mt-1 z-[9000] bg-panel"
+      className="bg-panel"
       style={{
+        position: 'fixed',
+        bottom: pos.bottom,
+        right: pos.right,
+        zIndex: 9000,
         padding: 14,
         minWidth: 240,
         borderRadius: 12,
@@ -214,6 +230,7 @@ export function ThinkingModeDropdown({
           }
         }
       `}</style>
-    </div>
+    </div>,
+    document.body,
   )
 }

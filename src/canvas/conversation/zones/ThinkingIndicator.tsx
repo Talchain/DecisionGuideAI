@@ -41,7 +41,7 @@ interface ThinkingIndicatorProps {
 export function ThinkingIndicator({ label }: ThinkingIndicatorProps) {
   return (
     <div
-      className="flex flex-col self-start"
+      className="flex flex-col self-center items-center"
       style={{ gap: 8, marginBottom: 20 }}
       data-testid="thinking-indicator"
     >

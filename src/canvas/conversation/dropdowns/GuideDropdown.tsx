@@ -6,6 +6,7 @@
  */
 
 import { useRef, useEffect, useCallback, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { Layout, HelpCircle, Sparkles } from 'lucide-react'
 import { typography } from '../../../styles/typography'
 
@@ -50,12 +51,23 @@ export function GuideDropdown({ isOpen, onClose, onInsertText, anchorRef }: Guid
   const menuRef = useRef<HTMLDivElement>(null)
   const [focusIndex, setFocusIndex] = useState(0)
   const [showHelp, setShowHelp] = useState(false)
+  const [pos, setPos] = useState({ bottom: 0, right: 0 })
 
   const items: MenuItem[] = [
     { id: 'scaffold', icon: Layout,     label: 'Use a decision scaffold', action: () => { onInsertText(SCAFFOLD_TEXT); onClose() } },
     { id: 'help',     icon: HelpCircle, label: 'What makes a good brief?', action: () => setShowHelp(prev => !prev) },
     { id: 'example',  icon: Sparkles,   label: 'Show me an example',       action: () => { onInsertText(EXAMPLE_TEXT); onClose() } },
   ]
+
+  // Compute anchor position when opening
+  useEffect(() => {
+    if (!isOpen || !anchorRef.current) return
+    const r = anchorRef.current.getBoundingClientRect()
+    setPos({
+      bottom: window.innerHeight - r.top + 6,
+      right: window.innerWidth - r.right,
+    })
+  }, [isOpen, anchorRef])
 
   // Close on click outside
   useEffect(() => {
@@ -111,14 +123,21 @@ export function GuideDropdown({ isOpen, onClose, onInsertText, anchorRef }: Guid
 
   if (!isOpen) return null
 
-  return (
+  return createPortal(
     <div
       ref={menuRef}
       role="menu"
       aria-label="Guide menu"
       onKeyDown={handleKeyDown}
-      className="absolute top-full right-0 mt-1 z-[9000] bg-panel rounded-lg border border-panel-border py-1 min-w-[240px]"
-      style={{ boxShadow: 'var(--shadow-2, 0 4px 12px rgba(0,0,0,0.08))' }}
+      className="bg-panel rounded-lg border border-panel-border py-1 min-w-[240px]"
+      style={{
+        position: 'fixed',
+        bottom: pos.bottom,
+        right: pos.right,
+        zIndex: 9000,
+        boxShadow: 'var(--shadow-2, 0 4px 12px rgba(0,0,0,0.08))',
+        animation: 'guideDropIn 120ms cubic-bezier(0,0,0.2,1) both',
+      }}
       data-testid="guide-dropdown"
     >
       {items.map((item, idx) => {
@@ -162,6 +181,17 @@ export function GuideDropdown({ isOpen, onClose, onInsertText, anchorRef }: Guid
           <span className="pr-5">{HELP_TEXT}</span>
         </div>
       )}
-    </div>
+
+      <style>{`
+        @keyframes guideDropIn {
+          from { opacity: 0; transform: translateY(4px) scale(0.97); }
+          to   { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          @keyframes guideDropIn { from { opacity: 1; } to { opacity: 1; } }
+        }
+      `}</style>
+    </div>,
+    document.body,
   )
 }
