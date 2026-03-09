@@ -8,7 +8,7 @@
  * - Fallback to canvas nodes when ceeAnalysisReady is cleared
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { validateBeforeRun } from '../usePreRunValidation'
 import type { Node, Edge } from '@xyflow/react'
 import type { CEEAnalysisReady } from '../../../adapters/cee/types'

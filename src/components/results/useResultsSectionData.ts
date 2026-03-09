@@ -932,7 +932,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       // P0-1: Denormalise — convert effect sizes (0–1) to user units
       // Guards: skip scaling when cap is invalid or values already appear denormalized
       if (import.meta.env.DEV && nodeId === optionNodes[0]?.id) {
-        console.log('[Results] Denorm trace:', { goalThresholdCap, rawP10, rawP50, rawP90, normP10: norm.p10, normP90: norm.p90 })
+        console.warn('[Results] Denorm trace:', { goalThresholdCap, rawP10, rawP50, rawP90, normP10: norm.p10, normP90: norm.p90 })
       }
       const maxRaw = Math.max(
         Math.abs(norm.p90 ?? 0), Math.abs(norm.p10 ?? 0), Math.abs(norm.expected ?? 0)
@@ -1234,7 +1234,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     // P0 DIAGNOSTIC: Log raw factor_sensitivity data to verify field mapping
     // Fix 3: Guard window access for SSR, Fix 5: Gate behind debug toggle
     if (typeof window !== 'undefined' && (window as any).__OLUMI_DEBUG && factorSensitivity.length > 0) {
-      console.log('[useResultsSectionData] Raw factor_sensitivity from PLoT:', {
+      console.warn('[useResultsSectionData] Raw factor_sensitivity from PLoT:', {
         count: factorSensitivity.length,
         sample: factorSensitivity[0],
         allFields: factorSensitivity.map((f: any) => ({
@@ -1654,7 +1654,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     const fragileEdgesRaw = safeArray((report as any)?.robustness?.fragile_edges)
     const firstFragileEdge = fragileEdgesRaw[0] as any
     if (import.meta.env.DEV && typeof window !== 'undefined' && (window as any).__OLUMI_DEBUG) {
-      console.log('[REPORT_SOURCE_DEBUG]', {
+      console.warn('[REPORT_SOURCE_DEBUG]', {
         hasReport: !!report,
         reportKeys: report ? Object.keys(report).slice(0, 10) : [],
         hasRobustness: !!(report as any)?.robustness,
@@ -1664,7 +1664,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
         firstEdgeKeys: firstFragileEdge ? Object.keys(firstFragileEdge) : [],
         firstEdgeHasFromLabel: !!firstFragileEdge?.from_label,
       })
-      console.log('[FRAGILE_EDGES_SOURCE]', {
+      console.warn('[FRAGILE_EDGES_SOURCE]', {
         source: 'report.robustness.fragile_edges',
         count: fragileEdgesRaw.length,
         firstEdgeKeys: firstFragileEdge ? Object.keys(firstFragileEdge) : [],
@@ -1849,7 +1849,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       const isEdgeObject = typeof fe === 'object' && fe !== null
 
       if (import.meta.env.DEV && typeof window !== 'undefined' && (window as any).__OLUMI_DEBUG) {
-        console.log('[UNCERTAINTY_DEBUG]', {
+        console.warn('[UNCERTAINTY_DEBUG]', {
           rawEdge: fe,
           hasFromLabel: isEdgeObject && 'from_label' in fe,
           hasToLabel: isEdgeObject && 'to_label' in fe,
@@ -1861,7 +1861,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       }
 
       if (typeof window !== 'undefined' && (window as any).__OLUMI_DEBUG) {
-        console.log('[FragileEdge:RAW]', {
+        console.warn('[FragileEdge:RAW]', {
           edge_id: fe.edge_id ?? fe.edgeId ?? edgeId,
           from_label: fe.from_label,
           fromLabel: fe.fromLabel,
@@ -1915,7 +1915,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       )
 
       if (typeof window !== 'undefined' && (window as any).__OLUMI_DEBUG) {
-        console.log('[FragileEdge:RESOLVED]', {
+        console.warn('[FragileEdge:RESOLVED]', {
           fromLabel: sourceName,
           toLabel: targetName,
           alternativeLabel: alternativeWinnerLabel,
