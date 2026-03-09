@@ -1095,11 +1095,11 @@ export function HeroSection({
           <div className="border-t border-panel-border pt-3">
             <div className="flex items-center gap-3">
               {stabilityTier.label && (
-                <span className="inline-flex items-center gap-1.5 bg-panel-hover px-2 py-0.5 rounded-full" data-testid="decision-state-pill">
+                <span className={`inline-flex items-center gap-1.5 bg-transparent border border-current/30 px-2 py-0.5 rounded-full ${stabilityTier.colorClass}`} data-testid="decision-state-pill">
                   {decisionStateDot && (
                     <span className={`w-2 h-2 rounded-full ${decisionStateDot.color.split(' ')[0]} flex-shrink-0`} />
                   )}
-                  <span className={`${typography.panelMeta} ${stabilityTier.colorClass}`}>
+                  <span className={`${typography.panelMeta} text-text-body`}>
                     {stabilityTier.label}
                   </span>
                 </span>
@@ -1355,8 +1355,8 @@ export function HeroSection({
         <div className="border-t border-panel-border pt-3">
           <div className="flex items-center gap-3">
             {stabilityTier.label && (
-              <span className="inline-flex items-center gap-1.5 bg-panel-hover px-2 py-0.5 rounded-full">
-                <span className={`${typography.panelMeta} ${stabilityTier.colorClass}`}>
+              <span className={`inline-flex items-center gap-1.5 bg-transparent border border-current/30 px-2 py-0.5 rounded-full ${stabilityTier.colorClass}`}>
+                <span className={`${typography.panelMeta} text-text-body`}>
                   {stabilityTier.label}
                 </span>
               </span>

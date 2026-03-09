@@ -201,16 +201,16 @@ function UncertaintyRow({
     if (item.factorConfidence < 0.5) {
       return {
         label: 'Low confidence',
-        bgClass: 'bg-danger-bg',
-        textClass: 'text-danger',
-        borderClass: 'border-danger',
+        bgClass: 'bg-transparent',
+        textClass: 'text-text-body',
+        borderClass: 'border-danger/30',
       }
     }
     return {
       label: 'Medium confidence',
-      bgClass: 'bg-warning-bg',
-      textClass: 'text-warning',
-      borderClass: 'border-warning',
+      bgClass: 'bg-transparent',
+      textClass: 'text-text-body',
+      borderClass: 'border-warning/30',
     }
   })()
 
@@ -433,13 +433,7 @@ export function ConfidenceSection({
       {decisionState && hinge && (
         <div
           id="mvs-card"
-          className="p-4 border border-info/30 rounded-lg"
-          style={{
-            backgroundColor: 'rgba(99,173,207,0.04)',
-            borderLeftWidth: '3px',
-            borderLeftColor: 'var(--primary)',
-            boxShadow: 'var(--shadow-1)',
-          }}
+          className="p-4 border border-info/30 border-l-[3px] border-l-info rounded-lg shadow-1 bg-info/[0.04]"
           data-testid="voi-promoted-block"
         >
           <div className="flex items-start gap-2 mb-1">
@@ -726,12 +720,11 @@ export function ConfidenceSection({
                             else focusNodeById(actionItem.targetId)
                           }
                         }
-                        // Confidence pill
-                        // §8.5 semantic filled pill: light bg + text-text-body for readability (main-on-main fails contrast)
+                        // Confidence pill — outlined only per design system
                         const pill = actionItem.confidenceLevel === 'low'
-                          ? { label: 'Low confidence', cls: 'bg-panel text-text-body' }
+                          ? { label: 'Low confidence', cls: 'bg-transparent text-text-body border-danger/30' }
                           : actionItem.confidenceLevel === 'medium'
-                          ? { label: 'Medium confidence', cls: 'bg-panel text-text-body' }
+                          ? { label: 'Medium confidence', cls: 'bg-transparent text-text-body border-warning/30' }
                           : null
 
                         // V14.1: VOI pill — "Check first" / "Check next"

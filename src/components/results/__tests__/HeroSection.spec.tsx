@@ -1117,13 +1117,11 @@ describe('HeroSection', () => {
         />
       )
 
-      // Find the stability badge label (second span inside pill — first is the dot)
+      // Pill wrapper carries the semantic colour class; inner span uses text-text-body
       const pill = screen.getByTestId('decision-state-pill')
-      const labelSpan = pill.querySelector('[class*="text-info"][class*="panelMeta"]') ?? pill.querySelectorAll('span')[pill.querySelectorAll('span').length - 1]
-      expect(labelSpan).toBeTruthy()
-      expect(labelSpan!.textContent).toBe('Too close to call')
-      expect(labelSpan!.className).toContain('text-info')
-      expect(labelSpan!.className).not.toContain('text-danger')
+      expect(pill.textContent).toContain('Too close to call')
+      expect(pill.className).toContain('text-info')
+      expect(pill.className).not.toContain('text-danger')
     })
 
     it('overrides "Stable result" to "Sensitive to assumptions" when readiness downgraded to sensitive', () => {
@@ -1165,14 +1163,11 @@ describe('HeroSection', () => {
         />
       )
 
-      // Find the stability badge label inside pill (dot is first span, label is last)
+      // Pill wrapper carries the semantic colour class; inner span uses text-text-body
       const pill = screen.getByTestId('decision-state-pill')
-      const spans = pill.querySelectorAll('span')
-      const labelSpan = spans[spans.length - 1]
-      expect(labelSpan).toBeTruthy()
-      expect(labelSpan!.textContent).toBe('Sensitive to assumptions')
-      expect(labelSpan!.className).toContain('text-warning')
-      expect(labelSpan!.className).not.toContain('text-success')
+      expect(pill.textContent).toContain('Sensitive to assumptions')
+      expect(pill.className).toContain('text-warning')
+      expect(pill.className).not.toContain('text-success')
     })
 
     it('does NOT override when sensitive state matches natural stability tier', () => {
@@ -1186,12 +1181,10 @@ describe('HeroSection', () => {
         />
       )
 
+      // Pill wrapper carries the semantic colour class; inner span uses text-text-body
       const pill = screen.getByTestId('decision-state-pill')
-      const spans = pill.querySelectorAll('span')
-      const labelSpan = spans[spans.length - 1]
-      expect(labelSpan).toBeTruthy()
-      expect(labelSpan!.textContent).toBe('Sensitive to assumptions')
-      expect(labelSpan!.className).toContain('text-warning')
+      expect(pill.textContent).toContain('Sensitive to assumptions')
+      expect(pill.className).toContain('text-warning')
     })
   })
 

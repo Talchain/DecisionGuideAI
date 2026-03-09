@@ -490,7 +490,7 @@ function DriverRow({
         <div className="flex items-center gap-1 justify-start">
           {confidenceValue !== null && (() => {
             const glyph = confidenceValue >= 0.7 ? '✓' : confidenceValue >= 0.4 ? '~' : '?'
-            const cls = confidenceValue >= 0.7 ? 'text-success' : confidenceValue >= 0.4 ? 'text-warning' : 'text-danger'
+            const cls = confidenceValue >= 0.7 ? 'text-success' : confidenceValue >= 0.4 ? 'text-info' : 'text-factor'
             const label = confidenceValue >= 0.7 ? 'High confidence' : confidenceValue >= 0.4 ? 'Moderate confidence' : 'Low confidence'
             return (
               <span
