@@ -2002,6 +2002,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     const hasRobustnessData = robustness && (
       safeArray(robustness.fragile_edges).length > 0 ||
       safeArray(robustness.robust_edges).length > 0 ||
+      robustness.recommendation_stability !== undefined ||
       robustness.ranking_stability !== undefined
     )
     const robustnessStatus = hasRobustnessData ? 'computed' : 'unavailable'
@@ -2029,7 +2030,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       topUncertainties: uncertainties.slice(0, 3),
       // Task 1: Track total high-risk edges for disclosure
       totalHighRiskEdges,
-      rankingStability: (report as any)?.robustness?.ranking_stability,
+      rankingStability: (report as any)?.robustness?.recommendation_stability ?? (report as any)?.robustness?.ranking_stability,
       robustnessLevel,
       evidenceCoverage,
       improvements,
