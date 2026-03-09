@@ -7,6 +7,8 @@ import { memo, useState, useMemo, useCallback } from 'react'
 import { useCanvasStore } from '../../../store'
 import type { NodeType } from '../../../domain/nodes'
 import { InspectorGuidanceSection } from '../../inspector/InspectorGuidanceSection'
+import { IntelligenceSection } from '../shared/IntelligenceSection'
+import { isNodeIntelligenceEnabled } from '../../../../flags'
 import { useNodeDisplayMetadata } from '../../../hooks/useNodeDisplayMetadata'
 import { typography } from '../../../../styles/typography'
 import { useNodeMutations } from '../useInspectorMutations'
@@ -240,6 +242,11 @@ export const FactorExternalPanel = memo(function FactorExternalPanel({
       />
 
       <InspectorGuidanceSection elementId={nodeId} />
+
+      {/* Intelligence (Phase 3A) */}
+      {isNodeIntelligenceEnabled() && (
+        <IntelligenceSection nodeId={nodeId} />
+      )}
 
       <TechnicalDisclosure visible={techMode}>
         <div>System: node_id: {nodeId}</div>

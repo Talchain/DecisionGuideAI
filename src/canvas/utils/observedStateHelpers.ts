@@ -58,6 +58,29 @@ export function hasObservedState(nodeData: unknown): boolean {
 }
 
 /**
+ * Check whether a factor node has actual observed data — i.e., the observed_state
+ * object is present AND its `value` field is a number (not null or undefined).
+ *
+ * Evidence gap badge semantics:
+ * - `observedState === null`      → no data (badge shows)
+ * - `observedState === undefined` → no data (badge shows)
+ * - `observedState.value === 0`   → valid data (badge hidden — 0 is "None" for binary factors)
+ * - `observedState.value === 1`   → valid data (badge hidden)
+ * - `observedState.value === 0.5` → valid data (badge hidden)
+ * - `observedState.value == null` → no value yet (badge shows)
+ *
+ * Note: the pipeline does not produce `observedState.value === ''` (string). The
+ * `value` field is always typed as `number | undefined`. Treating empty-string as
+ * "no data" is therefore moot; `typeof '' !== 'number'` would catch it anyway.
+ */
+export function hasObservedData(nodeData: unknown): boolean {
+  const obs = getObservedState(nodeData)
+  // Empty object returned when key is absent — no keys means no data
+  if (Object.keys(obs).length === 0) return false
+  return typeof obs.value === 'number'
+}
+
+/**
  * Build a node data patch that writes observed_state updates to BOTH keys.
  * Spreads existing state, then overlays the updates.
  *

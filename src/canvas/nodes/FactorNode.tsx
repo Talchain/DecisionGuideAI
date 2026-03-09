@@ -1,12 +1,15 @@
 import { memo, useMemo } from 'react'
 import type { NodeProps } from '@xyflow/react'
 import { BaseNode } from './BaseNode'
+import { EvidenceGapBadge } from './EvidenceGapBadge'
 import { NODE_REGISTRY } from '../domain/nodes'
 import { useCanvasStore } from '../store'
 import { deriveControllability, formatDisplayValue } from '../utils/graphDisplayCalculations'
 import { useNodeDisplayMetadata } from '../hooks/useNodeDisplayMetadata'
+import { hasObservedData } from '../utils/observedStateHelpers'
 import { typography } from '../../styles/typography'
 import { cleanFactorLabel, sensitivityTierLabel, evidenceTierLabel, formatInterventionValue, qualitativeTierLabel, CURRENCY_SYMBOLS } from '../utils/labelUtils'
+import { isGraphBadgesEnabled } from '../../flags'
 import { SlidersHorizontal, Eye, Cloud } from 'lucide-react'
 
 interface ObservedState {
@@ -100,8 +103,21 @@ export const FactorNode = memo((props: NodeProps) => {
   // T5: Show "estimated" pill only for inferred values
   const isInferred = observedState?.extractionType === 'inferred'
 
+  /**
+   * Evidence gap badge semantics:
+   * - Badge shows when factor has NO observed data (hasObservedData returns false).
+   * - `observedState.value === 0` is valid data (binary "None") — badge hidden.
+   * - External factors with a prior range set are excluded: prior.range_min/max
+   *   is their form of evidence; they should not show the gap badge.
+   * - Badge is never shown when VITE_FEATURE_GRAPH_BADGES is off.
+   */
+  const externalWithPrior = nodeCategory === 'external' && props.data?.prior != null
+  const showEvidenceGapBadge =
+    isGraphBadgesEnabled() && !hasObservedData(props.data) && !externalWithPrior
+
   return (
     <div style={{ position: 'relative' }}>
+      {showEvidenceGapBadge && <EvidenceGapBadge label={cleanedLabel} />}
       {isAffectedByHover && (
         <div
           className="absolute -inset-1 rounded-xl border-2 border-info pointer-events-none -z-10"

@@ -68,7 +68,8 @@ import { LimitsPanel } from './components/LimitsPanel'
 import { BottomSheet } from './components/BottomSheet'
 import { OutputsDock } from './components/OutputsDock'
 import { ComparisonCanvasLayout } from './components/ComparisonCanvasLayout'
-import { isInputsOutputsEnabled, isCommandPaletteEnabled, isDegradedBannerEnabled, isOnboardingTourEnabled, pocFlags } from '../flags'
+import { isInputsOutputsEnabled, isCommandPaletteEnabled, isDegradedBannerEnabled, isOnboardingTourEnabled, isCrossHighlightEnabled, pocFlags } from '../flags'
+import { HighlightProvider, useHighlightContext } from './highlighting/HighlightContext'
 import { useEngineLimits } from './hooks/useEngineLimits'
 import { useRunEligibilityCheck } from './hooks/useRunEligibilityCheck'
 import { useAutosave } from './hooks/useAutosave'
@@ -409,6 +410,15 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
     show: showInfluenceExplainer,
     hide: hideInfluenceExplainer
   } = useInfluenceExplainer()
+
+  // Phase 3A: Cross-surface highlight — canvas → panel direction.
+  // ReactFlowGraphInner is mounted INSIDE <HighlightProvider> (see ReactFlowGraph outer wrapper).
+  // useHighlightContext() is safe to call here as a consumer below the provider.
+  // We use a stable ref so the onNodeMouseEnter/Leave callbacks don't change identity
+  // on every render, preventing unnecessary ReactFlow reconciliation.
+  const { setHoveredFromCanvas } = useHighlightContext()
+  const setHoveredFromCanvasRef = useRef(setHoveredFromCanvas)
+  setHoveredFromCanvasRef.current = setHoveredFromCanvas
 
   // Listen for help events from TopBar dropdown
   useEffect(() => {
@@ -1936,6 +1946,12 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
             onEdgeContextMenu={onEdgeContextMenu}
             onNodeDragStart={onNodeDragStart}
             onNodeDragStop={onNodeDragStop}
+            onNodeMouseEnter={isCrossHighlightEnabled() ? (_, node) => {
+              setHoveredFromCanvasRef.current(node.id)
+            } : undefined}
+            onNodeMouseLeave={isCrossHighlightEnabled() ? () => {
+              setHoveredFromCanvasRef.current(null)
+            } : undefined}
             nodeTypes={nodeTypes}
             edgeTypes={edgeTypes}
             defaultEdgeOptions={defaultEdgeOpts}
@@ -2471,7 +2487,11 @@ export default function ReactFlowGraph(props: ReactFlowGraphProps) {
       <ToastProvider>
         <LayerProvider>
           <ReactFlowProvider>
-            <ReactFlowGraphInner {...props} />
+            {/* HighlightProvider wraps ReactFlowGraphInner so canvas hover handlers
+                inside the inner component are consumers, not creators, of the context. */}
+            <HighlightProvider>
+              <ReactFlowGraphInner {...props} />
+            </HighlightProvider>
           </ReactFlowProvider>
         </LayerProvider>
       </ToastProvider>

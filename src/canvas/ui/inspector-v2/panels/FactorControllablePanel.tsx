@@ -8,6 +8,8 @@ import { Link } from 'lucide-react'
 import { useCanvasStore } from '../../../store'
 import type { NodeType } from '../../../domain/nodes'
 import { InspectorGuidanceSection } from '../../inspector/InspectorGuidanceSection'
+import { IntelligenceSection } from '../shared/IntelligenceSection'
+import { isNodeIntelligenceEnabled } from '../../../../flags'
 import { useNodeDisplayMetadata } from '../../../hooks/useNodeDisplayMetadata'
 import { typography } from '../../../../styles/typography'
 import { useNodeMutations } from '../useInspectorMutations'
@@ -229,6 +231,11 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
 
       {/* Guidance */}
       <InspectorGuidanceSection elementId={nodeId} />
+
+      {/* Intelligence (Phase 3A) */}
+      {isNodeIntelligenceEnabled() && (
+        <IntelligenceSection nodeId={nodeId} />
+      )}
 
       {/* Technical disclosure */}
       <TechnicalDisclosure visible={techMode}>

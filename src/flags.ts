@@ -337,6 +337,21 @@ const FLAGS_CONFIG = {
     envKey: 'VITE_FEATURE_CAUSAL_CLAIMS',
     storageKey: 'feature.causalClaims',
   },
+  // Phase 3A: Evidence gap badge on factor nodes with no observed data
+  graphBadges: {
+    envKey: 'VITE_FEATURE_GRAPH_BADGES',
+    storageKey: 'feature.graphBadges',
+  },
+  // Phase 3A: Intelligence section in node inspector (connectivity, driver status)
+  nodeIntelligence: {
+    envKey: 'VITE_FEATURE_NODE_INTELLIGENCE',
+    storageKey: 'feature.nodeIntelligence',
+  },
+  // Phase 3A: Cross-surface bidirectional hover highlighting (canvas ↔ panel)
+  crossHighlight: {
+    envKey: 'VITE_FEATURE_CROSS_HIGHLIGHT',
+    storageKey: 'feature.crossHighlight',
+  },
 } as const
 
 // ============================================================================
@@ -413,6 +428,9 @@ const flags = {
   modelCardLite: makeFlag(FLAGS_CONFIG.modelCardLite),
   preAnalysisEnriched: makeFlag(FLAGS_CONFIG.preAnalysisEnriched),
   causalClaims: makeFlag(FLAGS_CONFIG.causalClaims),
+  graphBadges: makeFlag(FLAGS_CONFIG.graphBadges),
+  nodeIntelligence: makeFlag(FLAGS_CONFIG.nodeIntelligence),
+  crossHighlight: makeFlag(FLAGS_CONFIG.crossHighlight),
 }
 
 // Export with original naming convention for backward compatibility
@@ -483,6 +501,9 @@ export const isBilPreviewEnabled = flags.bil
 export const isModelCardLiteEnabled = flags.modelCardLite
 export const isPreAnalysisEnrichedEnabled = flags.preAnalysisEnriched
 export const isCausalClaimsEnabled = flags.causalClaims
+export const isGraphBadgesEnabled = flags.graphBadges
+export const isNodeIntelligenceEnabled = flags.nodeIntelligence
+export const isCrossHighlightEnabled = flags.crossHighlight
 
 // ============================================================================
 // POC FLAGS (special pattern - constant object, not functions)

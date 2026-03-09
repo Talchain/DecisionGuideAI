@@ -7,10 +7,12 @@
  * Phase 2B: Pre-analysis enrichment (Task 4b).
  */
 
-import { memo, useState } from 'react'
+import { memo, useEffect, useState } from 'react'
 import { ChevronDown, ChevronRight, Search } from 'lucide-react'
 import { typography } from '../../../styles/typography'
 import { trackEvent } from '../../../lib/posthog'
+import { useHighlightContext } from '../../highlighting/HighlightContext'
+import { isCrossHighlightEnabled } from '../../../flags'
 import type { Node, Edge } from '@xyflow/react'
 
 // ---------------------------------------------------------------------------
@@ -137,13 +139,34 @@ export const WorthInvestigating = memo(function WorthInvestigating({ gaps, onSet
 // ---------------------------------------------------------------------------
 
 function GapRow({ gap, onSetValue }: { gap: EvidenceGap; onSetValue?: (id: string) => void }) {
+  const { setHoveredFromPanel, hoveredElementId } = useHighlightContext()
+  const crossHighlight = isCrossHighlightEnabled()
+
+  // Highlight active when this item's factorId matches the current hovered element.
+  // Works bidirectionally: panel hover or canvas hover both set hoveredElementId.
+  const isHighlighted = crossHighlight && hoveredElementId === gap.factorId
+
+  // Cleanup on unmount: prevent stale highlight if component is removed while hovered.
+  useEffect(() => {
+    if (!crossHighlight) return
+    return () => {
+      setHoveredFromPanel(null)
+    }
+  }, [crossHighlight, setHoveredFromPanel])
+
   const handleClick = () => {
     trackEvent('fix_shown', { fix_id: `set_value_${gap.factorId}` })
     onSetValue?.(gap.factorId)
   }
 
   return (
-    <li className="bg-panel border border-panel-border rounded-lg p-2.5 space-y-1">
+    <li
+      className={`bg-panel border border-panel-border rounded-lg p-2.5 space-y-1 transition-colors ${
+        isHighlighted ? 'ring-1 ring-info/50 bg-info/5' : ''
+      }`}
+      onMouseEnter={crossHighlight ? () => setHoveredFromPanel(gap.factorId) : undefined}
+      onMouseLeave={crossHighlight ? () => setHoveredFromPanel(null) : undefined}
+    >
       <p className={`${typography.panelBody} font-medium text-text-body`}>
         {gap.factorLabel}
       </p>

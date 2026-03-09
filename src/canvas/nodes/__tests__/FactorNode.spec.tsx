@@ -53,8 +53,17 @@ vi.mock('../../../hooks/useISLValidation', () => ({
   useISLValidation: vi.fn(() => ({ data: null })),
 }))
 
+// Default: graph badges OFF. Individual tests override as needed.
+vi.mock('../../../flags', () => ({
+  isGraphBadgesEnabled: vi.fn(() => false),
+  isNodeIntelligenceEnabled: vi.fn(() => false),
+  isCrossHighlightEnabled: vi.fn(() => false),
+  isContextMenuEnabled: vi.fn(() => false),
+}))
+
 import { useCanvasStore } from '../../store'
 import { useNodeDisplayMetadata } from '../../hooks/useNodeDisplayMetadata'
+import { isGraphBadgesEnabled } from '../../../flags'
 
 const baseProps = {
   id: 'factor-1',
@@ -445,5 +454,78 @@ describe('FactorNode', () => {
     })
     const nodeEl = container.querySelector('[role="group"]')
     expect(nodeEl?.className).not.toContain('border-goal')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Evidence gap badge (Phase 3A)
+// ---------------------------------------------------------------------------
+
+describe('FactorNode — evidence gap badge', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  it('shows badge when observedState is undefined and flag is ON', () => {
+    vi.mocked(isGraphBadgesEnabled).mockReturnValue(true)
+    const { container } = renderFactor({ label: 'Revenue', type: 'factor' })
+    expect(container.querySelector('[data-testid="evidence-gap-badge"]')).not.toBeNull()
+  })
+
+  it('shows badge when observedState has only unit (no value) and flag is ON', () => {
+    vi.mocked(isGraphBadgesEnabled).mockReturnValue(true)
+    const { container } = renderFactor({
+      label: 'Revenue',
+      type: 'factor',
+      observedState: { unit: 'k' },
+    })
+    expect(container.querySelector('[data-testid="evidence-gap-badge"]')).not.toBeNull()
+  })
+
+  it('does NOT show badge when observedState.value === 0 (valid binary data)', () => {
+    vi.mocked(isGraphBadgesEnabled).mockReturnValue(true)
+    const { container } = renderFactor({
+      label: 'Hired',
+      type: 'factor',
+      observedState: { value: 0 },
+    })
+    expect(container.querySelector('[data-testid="evidence-gap-badge"]')).toBeNull()
+  })
+
+  it('does NOT show badge when observedState.value is set', () => {
+    vi.mocked(isGraphBadgesEnabled).mockReturnValue(true)
+    const { container } = renderFactor({
+      label: 'Revenue',
+      type: 'factor',
+      observedState: { value: 0.8 },
+    })
+    expect(container.querySelector('[data-testid="evidence-gap-badge"]')).toBeNull()
+  })
+
+  it('does NOT show badge when flag is OFF (even with no observed data)', () => {
+    // Default: isGraphBadgesEnabled returns false
+    const { container } = renderFactor({ label: 'Revenue', type: 'factor' })
+    expect(container.querySelector('[data-testid="evidence-gap-badge"]')).toBeNull()
+  })
+
+  it('does NOT show badge for external factor with prior range set', () => {
+    vi.mocked(isGraphBadgesEnabled).mockReturnValue(true)
+    const { container } = renderFactor({
+      label: 'Market rate',
+      type: 'factor',
+      category: 'external',
+      prior: { range_min: 0.2, range_max: 0.8 },
+      // No observedState
+    })
+    expect(container.querySelector('[data-testid="evidence-gap-badge"]')).toBeNull()
+  })
+
+  it('shows badge for external factor WITHOUT prior when flag ON', () => {
+    vi.mocked(isGraphBadgesEnabled).mockReturnValue(true)
+    const { container } = renderFactor({
+      label: 'Market rate',
+      type: 'factor',
+      category: 'external',
+      // No prior, no observedState
+    })
+    expect(container.querySelector('[data-testid="evidence-gap-badge"]')).not.toBeNull()
   })
 })
