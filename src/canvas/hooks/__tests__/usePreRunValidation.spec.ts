@@ -153,6 +153,27 @@ describe('validateBeforeRun', () => {
       expect(optionBlockers).toHaveLength(0)
     })
 
+    it('blocks when some options have edges but others do not (mixed case)', () => {
+      const nodes: Node[] = [
+        makeNode('factor_price', 'factor'),
+        makeNode('factor_volume', 'factor'),
+        makeNode('goal_revenue', 'goal'),
+        makeNode('option_a', 'option'), // Has edge to factor
+        makeNode('option_b', 'option'), // NO edge to any factor
+      ]
+
+      // Only option_a has an intervention edge; option_b has none
+      const edges: Edge[] = [makeEdge('e1', 'option_a', 'factor_price')]
+
+      const result = validateBeforeRun('goal_revenue', nodes, edges, null)
+
+      // option_b lacks edges → model incomplete → should block
+      const optionBlockers = result.blockers.filter((b) => b.code === 'OPTIONS_NEED_MAPPING')
+      expect(optionBlockers).toHaveLength(1)
+      expect(optionBlockers[0].message).toBe('Generate a model to configure options')
+      expect(result.canRun).toBe(false)
+    })
+
     it('blocks when ceeAnalysisReady has options needing mapping (CEE path)', () => {
       const nodes: Node[] = [
         makeNode('factor_price', 'factor'),

@@ -385,15 +385,16 @@ function validateOptions(
   })
   if (needsMappingOptions.length > 0) {
     if (!ceeAnalysisReady && edges) {
-      // Check if option nodes have outgoing edges to non-option nodes
-      // (intervention edges created by CEE model generation)
+      // Check if EVERY non-baseline option needing mapping has at least one
+      // outgoing edge to a non-option node (intervention edge from CEE model
+      // generation). If any option lacks edges, the model is incomplete.
       const optionIds = new Set(optionNodes.map((n) => n.id))
-      const hasInterventionEdges = needsMappingOptions.some((o) =>
+      const allOptionsHaveEdges = needsMappingOptions.every((o) =>
         edges.some((e) => e.source === o.id && !optionIds.has(e.target))
       )
 
-      if (hasInterventionEdges) {
-        // Options have intervention edges — provisionally ready. CEE hasn't
+      if (allOptionsHaveEdges) {
+        // Every option has intervention edges — provisionally ready. CEE hasn't
         // provided analysis_ready yet but the graph structure is sound.
         // Skip the blocker; the next CEE envelope will gate authoritatively.
       } else {
