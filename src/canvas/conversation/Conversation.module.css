@@ -98,6 +98,28 @@
   color: var(--text-body, #3F3F3E);
 }
 
+/* Progressive disclosure — clamp long assistant text to ~6 lines */
+.markdownContentClamped {
+  display: -webkit-box;
+  -webkit-line-clamp: 6;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.showMoreTextToggle {
+  font-size: 11px; /* panelMeta */
+  color: var(--info, #63ADCF);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px 0;
+  margin-top: 4px;
+}
+
+.showMoreTextToggle:hover {
+  text-decoration: underline;
+}
+
 /* ---------------------------------------------------------------------------
  * § 3 — Typing indicator (three bouncing dots)
  * ---------------------------------------------------------------------------*/
@@ -140,7 +162,7 @@
 }
 
 .longRunningHint {
-  font-size: 12px;
+  font-size: 12px; /* panelBody */
   color: var(--text-light, #908D8D);
   margin-top: 4px;
 }
@@ -216,23 +238,23 @@
 
 .factValue {
   font-weight: 600;
-  font-size: 18px;
+  font-size: 18px; /* one-off display value */
   color: var(--text-header, #262626);
 }
 
 .factLabel {
-  font-size: 12px;
+  font-size: 12px; /* panelBody */
   color: var(--text-light, #908D8D);
 }
 
 .factSource {
-  font-size: 11px;
+  font-size: 11px; /* panelMeta */
   color: var(--text-light, #908D8D);
   font-style: italic;
 }
 
 .showMoreToggle {
-  font-size: 12px;
+  font-size: 12px; /* panelBody */
   color: var(--info, #63ADCF);
   background: none;
   border: none;
@@ -265,7 +287,7 @@
 }
 
 .graphPatchMeta {
-  font-size: 12px;
+  font-size: 12px; /* panelBody */
   color: var(--text-light, #908D8D);
 }
 
@@ -284,7 +306,7 @@
   min-height: 44px;
   border-radius: 8px;
   border: none;
-  font-size: 14px;
+  font-size: 14px; /* panelHeader */
   font-weight: 500;
   cursor: pointer;
   background: var(--info, #63ADCF);
@@ -311,7 +333,7 @@
   min-height: 44px;
   border-radius: 8px;
   border: 1px solid var(--border-default, #EEE6D8);
-  font-size: 14px;
+  font-size: 14px; /* panelHeader */
   font-weight: 500;
   cursor: pointer;
   background: var(--bg-panel, #FEFEFE);
@@ -329,7 +351,7 @@
 }
 
 .graphPatchStatus {
-  font-size: 12px;
+  font-size: 12px; /* panelBody */
   font-weight: 500;
   display: flex;
   align-items: center;
@@ -352,7 +374,7 @@
 }
 
 .graphPatchError {
-  font-size: 12px;
+  font-size: 12px; /* panelBody */
   color: var(--danger, #EA7B4B);
   margin-top: 4px;
 }
@@ -365,7 +387,7 @@
   border: 1px solid var(--danger, #EA7B4B);
   background: none;
   color: var(--danger, #EA7B4B);
-  font-size: 12px;
+  font-size: 12px; /* panelBody */
   cursor: pointer;
   margin-top: 4px;
 }
@@ -375,13 +397,13 @@
 }
 
 .graphPatchViolations {
-  font-size: 12px;
+  font-size: 12px; /* panelBody */
   color: var(--text-body, #3F3F3E);
   margin-top: 4px;
 }
 
 .graphPatchShowDetails {
-  font-size: 11px;
+  font-size: 11px; /* panelMeta */
   color: var(--info, #63ADCF);
   background: none;
   border: none;
@@ -409,7 +431,7 @@
 
 .framingGoal {
   font-weight: 600;
-  font-size: 14px;
+  font-size: 14px; /* panelHeader */
   color: var(--text-header, #262626);
 }
 
@@ -424,7 +446,7 @@
   border-radius: 999px;
   background: var(--info-light, #BAD7E4);
   color: var(--info, #63ADCF);
-  font-size: 12px;
+  font-size: 12px; /* panelBody */
   font-weight: 500;
   border: 1px solid color-mix(in srgb, var(--info, #63ADCF) 30%, transparent);
 }
@@ -436,14 +458,14 @@
 }
 
 .framingSectionLabel {
-  font-size: 11px;
+  font-size: 11px; /* panelMeta */
   font-weight: 600;
   color: var(--text-light, #908D8D);
   letter-spacing: 0.04em;
 }
 
 .framingItem {
-  font-size: 13px;
+  font-size: 13px; /* between panelBody 12px and panelHeader 14px — intentional */
   color: var(--text-body, #3F3F3E);
   padding-left: 8px;
   border-left: 2px solid var(--border-default, #EEE6D8);
@@ -487,7 +509,7 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  font-size: 12px;
+  font-size: 12px; /* panelBody */
   color: var(--info, #63ADCF);
   background: none;
   border: none;
@@ -504,7 +526,7 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  font-size: 12px;
+  font-size: 12px; /* panelBody */
   color: var(--info, #63ADCF);
   text-decoration: none;
 }
@@ -543,14 +565,14 @@
 }
 
 .factBarLabel {
-  font-size: 12px;
+  font-size: 12px; /* panelBody */
   color: var(--text-body, #3F3F3E);
   min-width: 80px;
   flex-shrink: 0;
 }
 
 .factBarValue {
-  font-size: 12px;
+  font-size: 12px; /* panelBody */
   color: var(--text-light, #908D8D);
   flex-shrink: 0;
   min-width: 36px;
@@ -576,7 +598,7 @@
 }
 
 .factConstraintBadgePass {
-  font-size: 11px;
+  font-size: 11px; /* panelMeta */
   font-weight: 600;
   padding: 2px 6px;
   border-radius: 4px;
@@ -587,7 +609,7 @@
 }
 
 .factConstraintBadgeFail {
-  font-size: 11px;
+  font-size: 11px; /* panelMeta */
   font-weight: 600;
   padding: 2px 6px;
   border-radius: 4px;
@@ -598,7 +620,7 @@
 }
 
 .factLineage {
-  font-size: 11px;
+  font-size: 11px; /* panelMeta */
   color: var(--text-light, #908D8D);
   font-style: italic;
   margin-top: 4px;
@@ -609,7 +631,7 @@
  * ---------------------------------------------------------------------------*/
 
 .priorityBadge {
-  font-size: 10px;
+  font-size: 10px; /* one-off badge */
   font-weight: 700;
   padding: 1px 6px;
   border-radius: 3px;
@@ -650,7 +672,7 @@
  * ---------------------------------------------------------------------------*/
 
 .citationLegend {
-  font-size: 11px;
+  font-size: 11px; /* panelMeta */
   color: var(--text-light, #908D8D);
   margin-top: 6px;
   border-top: 1px solid var(--border-default, #EEE6D8);
@@ -701,20 +723,50 @@
 }
 
 /* ---------------------------------------------------------------------------
- * § 4h — Unknown block fallback
+ * § 4h — EvidenceBlock
  * ---------------------------------------------------------------------------*/
 
-.unknownBlock {
-  border: 1px dashed var(--border-default, #EEE6D8);
+.evidenceBlock {
+  border-top: 3px solid var(--success, #67C89E);
   border-radius: 8px;
-  padding: 8px 12px;
+  padding: 10px 12px;
   background: var(--bg-panel, #FEFEFE);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 
-.unknownBlockLabel {
-  font-size: 11px;
+.evidenceTitle {
+  color: var(--text-header, #262626);
+}
+
+.evidenceFinding {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.evidenceSource {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px; /* panelMeta */
+  color: var(--info, #63ADCF);
+  text-decoration: none;
+}
+
+.evidenceSource:hover {
+  text-decoration: underline;
+}
+
+.evidenceConfidence {
+  color: var(--text-light, #908D8D);
+}
+
+.evidenceQuery {
   color: var(--text-light, #908D8D);
   font-style: italic;
+  margin-top: 4px;
 }
 
 /* ---------------------------------------------------------------------------
@@ -730,7 +782,7 @@
   min-height: 44px;
   border-radius: 8px;
   border: 1px solid var(--danger, #EA7B4B);
-  font-size: 14px;
+  font-size: 14px; /* panelHeader */
   font-weight: 500;
   cursor: pointer;
   background: none;
@@ -766,7 +818,7 @@
   border-radius: 999px;
   border-width: 1px;
   border-style: solid;
-  font-size: 14px;
+  font-size: 12px; /* panelBody token */
   font-weight: 500;
   cursor: pointer;
   min-height: 44px;
@@ -809,6 +861,65 @@
 }
 
 /* ---------------------------------------------------------------------------
+ * § 5a-focus — Interactive states: focus-visible + active for all clickable elements
+ * ---------------------------------------------------------------------------*/
+
+/* Action chips */
+.chipPrimary:focus-visible,
+.chipSecondary:focus-visible,
+.chipUndo:focus-visible {
+  outline: 2px solid var(--info, #63ADCF);
+  outline-offset: 2px;
+}
+
+.chipPrimary:active,
+.chipSecondary:active,
+.chipUndo:active {
+  transform: scale(0.97);
+  opacity: 0.85;
+}
+
+/* Graph patch action buttons */
+.graphPatchAccept:focus-visible,
+.graphPatchDismiss:focus-visible,
+.graphPatchDanger:focus-visible,
+.graphPatchRetry:focus-visible {
+  outline: 2px solid var(--info, #63ADCF);
+  outline-offset: 2px;
+}
+
+.graphPatchAccept:active:not(:disabled),
+.graphPatchDismiss:active:not(:disabled),
+.graphPatchDanger:active:not(:disabled),
+.graphPatchRetry:active {
+  transform: scale(0.97);
+  opacity: 0.85;
+}
+
+/* Toggles and details */
+.showMoreToggle:focus-visible,
+.showMoreTextToggle:focus-visible,
+.graphPatchShowDetails:focus-visible,
+.briefExpandToggle:focus-visible {
+  outline: 2px solid var(--info, #63ADCF);
+  outline-offset: 2px;
+}
+
+/* Citation entries */
+.citationEntry:focus-visible {
+  outline: 2px solid var(--info, #63ADCF);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chipPrimary:active, .chipSecondary:active, .chipUndo:active,
+  .graphPatchAccept:active, .graphPatchDismiss:active, .graphPatchDanger:active,
+  .graphPatchRetry:active {
+    transform: none;
+  }
+}
+
+/* ---------------------------------------------------------------------------
  * § 5b — Guidance strip (next best step)
  * ---------------------------------------------------------------------------*/
 
@@ -847,7 +958,7 @@
   gap: 3px;
   padding: 2px 7px;
   border-radius: 999px;
-  font-size: 11px;
+  font-size: 11px; /* panelMeta */
   font-weight: 500;
   white-space: nowrap;
   flex-shrink: 0;
@@ -881,7 +992,7 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   color: var(--text-body, #3F3F3E);
-  font-size: 13px;
+  font-size: 12px; /* panelBody token */
   min-width: 0;
 }
 
@@ -894,7 +1005,7 @@
   border: 1px solid var(--info, #63ADCF);
   background: transparent;
   color: var(--info, #63ADCF);
-  font-size: 12px;
+  font-size: 12px; /* panelBody */
   font-weight: 500;
   cursor: pointer;
   transition: background 150ms;
@@ -963,7 +1074,7 @@
   background: var(--bg-panel, #FEFEFE);
   color: var(--text-body, #3F3F3E);
   font-family: 'Inter', sans-serif;
-  font-size: 16px;
+  font-size: 16px; /* input field — intentionally larger */
   line-height: 1.5;
   resize: none;
   outline: none;
@@ -1041,7 +1152,7 @@
   border-radius: 999px;
   background: var(--info, #63ADCF);
   color: var(--text-on-color, #FFFFFF);
-  font-size: 12px;
+  font-size: 12px; /* panelBody */
   font-weight: 500;
   border: none;
   cursor: pointer;
@@ -1113,7 +1224,7 @@
   border: 1px solid var(--border-default, #EEE6D8);
   background: var(--bg-panel, #FEFEFE);
   color: var(--text-body, #3F3F3E);
-  font-size: 12px;
+  font-size: 12px; /* panelBody */
   font-weight: 500;
   cursor: pointer;
   white-space: nowrap;
@@ -1125,7 +1236,7 @@
 }
 
 .actionStripBadge {
-  font-size: 11px;
+  font-size: 11px; /* panelMeta */
   font-weight: 500;
   padding: 2px 7px;
   border-radius: 999px;
@@ -1150,7 +1261,7 @@
 
 /* Patch staleness warning */
 .patchStalenessWarning {
-  font-size: 12px;
+  font-size: 12px; /* panelBody */
   color: var(--warning, #FFA656);
   margin-top: 4px;
   padding: 6px 8px;

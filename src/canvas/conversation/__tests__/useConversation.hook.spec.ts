@@ -74,7 +74,7 @@ describe('timeout progression (10s / 20s / 30s)', () => {
     expect(result.current.longRunningHint).toBeNull()
   })
 
-  it('shows "Running analysis\u2026" at 10s', async () => {
+  it('shows task-specific hint at 15s (inferred from message + graph state)', async () => {
     mockCallTurn.mockReturnValue(new Promise(() => {}))
 
     const { result } = renderHook(() => useConversation())
@@ -87,7 +87,8 @@ describe('timeout progression (10s / 20s / 30s)', () => {
       vi.advanceTimersByTime(15_000)
     })
 
-    expect(result.current.longRunningHint).toBe('Running analysis\u2026')
+    // With 0 nodes (empty graph) and generic message, inferLoadingHint returns "Building your decision model…"
+    expect(result.current.longRunningHint).toBe('Building your decision model\u2026')
   })
 
   it('shows "Still working\u2026" at 30s', async () => {
@@ -693,6 +694,106 @@ describe('handleEnvelope — CEE wire shape handling', () => {
     })
 
     expect(setCurrentStage).not.toHaveBeenCalled()
+  })
+})
+
+// ---------------------------------------------------------------------------
+// retryLast — idempotent client_turn_id + no duplicate user bubble
+// ---------------------------------------------------------------------------
+
+describe('retryLast — client_turn_id preservation and bubble semantics', () => {
+  it('retry reuses the same client_turn_id from the original send', async () => {
+    // First call fails
+    mockCallTurn.mockRejectedValueOnce(new Error('Server error'))
+    // Second call (retry) succeeds
+    mockCallTurn.mockResolvedValueOnce({
+      assistant_text: 'OK',
+      client_turn_id: 'resp-retry',
+    })
+
+    const { result } = renderHook(() => useConversation())
+
+    // Send a message that fails
+    await act(async () => {
+      await result.current.sendMessage('important question')
+    })
+
+    // Capture the client_turn_id from the first (failed) call
+    const firstCallRequest = mockCallTurn.mock.calls[0][0]
+    const originalTurnId = firstCallRequest.client_turn_id
+    expect(originalTurnId).toBeTruthy()
+
+    // Retry
+    await act(async () => {
+      await result.current.retryLast()
+    })
+
+    // Second call should reuse the same client_turn_id
+    const retryRequest = mockCallTurn.mock.calls[1][0]
+    expect(retryRequest.client_turn_id).toBe(originalTurnId)
+  })
+
+  it('retry does not create a duplicate user bubble', async () => {
+    // First call fails
+    mockCallTurn.mockRejectedValueOnce(new Error('Server error'))
+    // Retry succeeds
+    mockCallTurn.mockResolvedValueOnce({
+      assistant_text: 'Now it works',
+      client_turn_id: 'resp-2',
+    })
+
+    const { result } = renderHook(() => useConversation())
+
+    await act(async () => {
+      await result.current.sendMessage('my question')
+    })
+
+    // After failure: user bubble + synthetic error bubble
+    const userBubbles = result.current.messages.filter((m) => m.role === 'user')
+    expect(userBubbles).toHaveLength(1)
+    expect(userBubbles[0].content).toBe('my question')
+
+    // Retry
+    await act(async () => {
+      await result.current.retryLast()
+    })
+
+    // After retry: still only one user bubble, synthetic error replaced by real response
+    const userBubblesAfter = result.current.messages.filter((m) => m.role === 'user')
+    expect(userBubblesAfter).toHaveLength(1)
+    expect(userBubblesAfter[0].content).toBe('my question')
+
+    // Should have user + assistant (no synthetic error)
+    const syntheticMessages = result.current.messages.filter((m) => m.synthetic)
+    expect(syntheticMessages).toHaveLength(0)
+  })
+
+  it('retry removes the synthetic error message before re-sending', async () => {
+    mockCallTurn.mockRejectedValueOnce(new Error('fail'))
+    mockCallTurn.mockResolvedValueOnce({
+      assistant_text: 'recovered',
+      client_turn_id: 'resp-recover',
+    })
+
+    const { result } = renderHook(() => useConversation())
+
+    await act(async () => {
+      await result.current.sendMessage('test')
+    })
+
+    // Synthetic error exists
+    expect(result.current.messages.some((m) => m.synthetic)).toBe(true)
+
+    await act(async () => {
+      await result.current.retryLast()
+    })
+
+    // After successful retry, no synthetic messages remain
+    expect(result.current.messages.every((m) => !m.synthetic)).toBe(true)
+    // Final assistant message has real content
+    const lastMsg = result.current.messages[result.current.messages.length - 1]
+    expect(lastMsg.role).toBe('assistant')
+    expect(lastMsg.content).toBe('recovered')
   })
 })
 

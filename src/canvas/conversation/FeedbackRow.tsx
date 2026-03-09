@@ -12,6 +12,8 @@
 
 import { useState, memo } from 'react'
 
+const feedbackBtnFocusClass = 'feedback-btn'
+
 interface FeedbackRowProps {
   /** clientTurnId echoed from orchestrator envelope; undefined for synthetic messages */
   turnId: string | undefined
@@ -46,6 +48,7 @@ export const FeedbackRow = memo(function FeedbackRow({ turnId, onFeedback }: Fee
         disabled={voted !== null}
         aria-label="Helpful"
         aria-pressed={voted === 'up'}
+        className={feedbackBtnFocusClass}
         style={{
           minWidth: '44px',
           minHeight: '44px',
@@ -72,6 +75,7 @@ export const FeedbackRow = memo(function FeedbackRow({ turnId, onFeedback }: Fee
         disabled={voted !== null}
         aria-label="Not helpful"
         aria-pressed={voted === 'down'}
+        className={feedbackBtnFocusClass}
         style={{
           minWidth: '44px',
           minHeight: '44px',
@@ -92,6 +96,12 @@ export const FeedbackRow = memo(function FeedbackRow({ turnId, onFeedback }: Fee
           <path d="M17 2h2.67A2.31 2.31 0 0 1 22 4v7a2.31 2.31 0 0 1-2.33 2H17" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       </button>
+      <style>{`
+        .feedback-btn:focus-visible {
+          outline: 2px solid var(--info, #63ADCF);
+          outline-offset: 2px;
+        }
+      `}</style>
     </div>
   )
 })

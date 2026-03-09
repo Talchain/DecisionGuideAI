@@ -26,6 +26,10 @@ export interface ConversationMessage {
   synthetic?: boolean
   /** Track 3: Session boundary divider text (rendered as centred divider, not a chat bubble) */
   sessionDivider?: string
+  /** Visible text in conversation bubble (may differ from submittedPrompt for chip-originated turns) */
+  displayContent?: string
+  /** Actual prompt sent to orchestrator (stored for retry). Absent on assistant messages. */
+  submittedPrompt?: string
   /** Track 3: Thread hydration metadata (present only on messages hydrated from persisted thread) */
   _threadMeta?: {
     entryId: string
@@ -47,6 +51,7 @@ export type ConversationBlock =
   | FramingBlock
   | BriefBlock
   | ModelReceiptBlockType
+  | EvidenceBlock
 
 // ---------------------------------------------------------------------------
 // Citation marker (optional on CommentaryBlock)
@@ -176,6 +181,20 @@ export interface BriefBlock {
   title: string
   summary: string
   brief_url?: string
+}
+
+// Evidence block — research findings from orchestrator
+export interface EvidenceFinding {
+  text: string
+  source_url?: string
+  confidence?: number
+}
+
+export interface EvidenceBlock {
+  type: 'evidence'
+  title?: string
+  findings: EvidenceFinding[]
+  query: string
 }
 
 // Phase 2B: Model receipt block — structured summary after graph generation

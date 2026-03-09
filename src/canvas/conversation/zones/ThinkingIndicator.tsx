@@ -7,6 +7,7 @@
  */
 
 import { NodeShape } from '../primitives/NodeShape'
+import { typography } from '../../../styles/typography'
 import type { NodeType } from '../../domain/nodes'
 
 const SHAPES: NodeType[] = ['goal', 'decision', 'option', 'factor', 'risk', 'outcome']
@@ -81,8 +82,7 @@ export function ThinkingIndicator({ label }: ThinkingIndicatorProps) {
       {/* Status label */}
       {label && (
         <span
-          className="text-text-light"
-          style={{ fontSize: 12 }}
+          className={`text-text-light ${typography.panelMeta}`}
           data-testid="thinking-label"
         >
           {label}

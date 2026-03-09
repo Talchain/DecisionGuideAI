@@ -24,11 +24,13 @@ export const ActionChipRow = memo(function ActionChipRow({
   chips,
   onChipClick,
 }: ActionChipRowProps) {
-  if (chips.length === 0) return null
+  // Central guard: only render chips that can actually dispatch
+  const dispatchable = chips.filter(c => c.intent === 'undo' || !!c.message)
+  if (dispatchable.length === 0) return null
 
   return (
     <div className={styles.chipRow} role="group" aria-label="Suggested actions">
-      {chips.map((chip) => (
+      {dispatchable.map((chip) => (
         <button
           key={chip.id}
           type="button"

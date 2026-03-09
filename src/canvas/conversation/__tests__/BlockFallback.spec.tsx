@@ -2,8 +2,7 @@
  * Tests for InlineBlocks unknown block type fallback
  *
  * Verifies:
- * - Unknown block_type renders fallback card, no crash
- * - data-testid uses raw block_type value (diagnosable)
+ * - Unknown block_type renders nothing visible (suppressed)
  * - Known blocks still render normally alongside unknown ones
  * - Block budget "Show more" toggle works with 5 blocks
  * - graph_patch with proposed status appears in first 4 visible slots
@@ -16,16 +15,17 @@ import type { ConversationBlock, GraphPatchBlock } from '../types'
 import type { PatchBlockState } from '../useConversation'
 
 describe('InlineBlocks — unknown block type fallback', () => {
-  it('renders fallback card for unknown block_type, does not throw', () => {
+  it('renders nothing visible for unknown block_type, does not throw', () => {
     const unknownBlock = { type: 'future_block_v99', some_field: 'value' } as unknown as ConversationBlock
-    render(<InlineBlocks blocks={[unknownBlock]} />)
-    expect(screen.getByTestId('block-unknown-future_block_v99')).toBeInTheDocument()
+    const { container } = render(<InlineBlocks blocks={[unknownBlock]} />)
+    // Unknown blocks are suppressed — no visible content rendered
+    expect(container.querySelector('[data-testid^="block-unknown"]')).toBeNull()
   })
 
-  it('renders "Unsupported block:" label with raw type', () => {
+  it('does not render "Unsupported block:" text for unknown types', () => {
     const unknownBlock = { type: 'super_fancy_block' } as unknown as ConversationBlock
     render(<InlineBlocks blocks={[unknownBlock]} />)
-    expect(screen.getByText(/Unsupported block: super_fancy_block/)).toBeInTheDocument()
+    expect(screen.queryByText(/Unsupported block/)).not.toBeInTheDocument()
   })
 
   it('known blocks still render alongside unknown blocks', () => {
@@ -35,7 +35,8 @@ describe('InlineBlocks — unknown block type fallback', () => {
     ]
     render(<InlineBlocks blocks={blocks} />)
     expect(screen.getByText('Hello world')).toBeInTheDocument()
-    expect(screen.getByTestId('block-unknown-unknown_type_xyz')).toBeInTheDocument()
+    // Unknown block suppressed
+    expect(screen.queryByText(/unknown_type_xyz/)).not.toBeInTheDocument()
   })
 })
 

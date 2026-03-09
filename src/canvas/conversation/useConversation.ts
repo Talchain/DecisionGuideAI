@@ -57,6 +57,20 @@ const STILL_WORKING_THRESHOLD_MS = 30_000
 const TIMEOUT_MS = 60_000
 
 /**
+ * Infer a task-specific loading hint from the user message and graph state.
+ * Used as the first long-running hint (15s) to give users a sense of what's happening.
+ */
+export function inferLoadingHint(message: string, nodeCount: number): string {
+  const lower = message.toLowerCase()
+  if (lower.includes('analys') || lower.includes('evaluat') || lower.includes('compare') || lower.includes('run')) return 'Analysing your options\u2026'
+  if (lower.includes('research') || lower.includes('evidence') || lower.includes('find')) return 'Researching evidence\u2026'
+  if (lower.includes('brief')) return 'Assembling your decision brief\u2026'
+  if (lower.includes('explain') || lower.includes('why')) return 'Preparing explanation\u2026'
+  if (nodeCount === 0 || lower.includes('build') || lower.includes('model') || lower.includes('create')) return 'Building your decision model\u2026'
+  return 'Thinking\u2026'
+}
+
+/**
  * Fields to strip from node.data before sending to CEE.
  *
  * - RF internals (selected, dragging, measured, etc.) — React Flow rendering state
@@ -362,6 +376,14 @@ export function adaptCEEBlock(raw: unknown): ConversationBlock {
           brief_url: dataObj.shareable_url != null ? String(dataObj.shareable_url) : undefined,
         }
 
+      case 'evidence':
+        return {
+          type: 'evidence',
+          title: dataObj.title != null ? String(dataObj.title) : undefined,
+          findings: Array.isArray(dataObj.findings) ? dataObj.findings : [],
+          query: String(dataObj.query ?? ''),
+        }
+
       default:
         // Unknown block_type — pass raw type through for InlineBlocks fallback
         return { type: block_type as any, ...dataObj } as unknown as ConversationBlock
@@ -446,7 +468,7 @@ export function useConversation(): UseConversationReturn {
   const longRunningTimerRef = useRef<ReturnType<typeof setTimeout>>()
   const stillWorkingTimerRef = useRef<ReturnType<typeof setTimeout>>()
   const timeoutTimerRef = useRef<ReturnType<typeof setTimeout>>()
-  const lastUserInputRef = useRef<string>('')
+  const lastUserInputRef = useRef<{ message: string; clientTurnId?: string }>({ message: '' })
 
   // Cleanup timers on unmount
   useEffect(() => {
@@ -533,7 +555,7 @@ export function useConversation(): UseConversationReturn {
   }, [])
 
   const buildRequest = useCallback(
-    (text: string): OrchestratorTurnRequest => {
+    (text: string, opts?: { clientTurnId?: string }): OrchestratorTurnRequest => {
       const store = useCanvasStore.getState()
       const { nodeIds, edgeIds } = store.selection
 
@@ -630,7 +652,7 @@ export function useConversation(): UseConversationReturn {
             ? { node_ids: [...nodeIds], edge_ids: [...edgeIds] }
             : undefined,
         analysis_inputs: analysisInputs,
-        client_turn_id: crypto.randomUUID(),
+        client_turn_id: opts?.clientTurnId ?? crypto.randomUUID(),
       }
     },
     [messages],
@@ -902,32 +924,45 @@ export function useConversation(): UseConversationReturn {
   const sendTurn = useCallback(
     async (opts: {
       message: string
+      /** Text shown in conversation bubble (defaults to message) */
+      displayText?: string
       systemEvent?: SystemEvent
       mode: 'user' | 'system'
       /** When true, send the request but don't show a user bubble (e.g. programmatic "run it") */
       hidden?: boolean
+      /** When true, skip adding a user bubble but keep error handling active (retry path) */
+      skipUserBubble?: boolean
+      /** Reuse a previous client_turn_id for idempotent retry */
+      retryClientTurnId?: string
     }) => {
-      const { message, systemEvent, mode, hidden } = opts
+      const { message, systemEvent, mode, hidden, displayText, skipUserBubble, retryClientTurnId } = opts
 
       // Synchronous in-flight lock — prevents duplicate dispatch from rapid
       // clicks before React re-renders the isThinking state guard.
       if (inFlightRef.current) return
       inFlightRef.current = true
 
+      // Generate or reuse a stable client_turn_id for idempotent retry
+      const turnClientId = retryClientTurnId ?? crypto.randomUUID()
+
       if (mode === 'user') {
         if (!message.trim() || isThinking) { inFlightRef.current = false; return }
 
         // Hidden sends (e.g. "run it") must not pollute user-facing recovery state
         if (!hidden) {
-          lastUserInputRef.current = message
+          lastUserInputRef.current = { message, clientTurnId: turnClientId }
           setLastFailedInput(null)
 
-          addMessage({
-            id: crypto.randomUUID(),
-            role: 'user',
-            content: message,
-            timestamp: new Date(),
-          })
+          if (!skipUserBubble) {
+            addMessage({
+              id: crypto.randomUUID(),
+              role: 'user',
+              content: displayText ?? message,
+              displayContent: displayText,
+              submittedPrompt: message,
+              timestamp: new Date(),
+            })
+          }
         }
       } else {
         // System events: no user bubble, but still guard against concurrent sends.
@@ -945,9 +980,10 @@ export function useConversation(): UseConversationReturn {
       const controller = new AbortController()
       abortRef.current = controller
 
-      // 15s → "Running analysis…", 30s → "Still working…"
+      // 15s → task-specific hint, 30s → "Still working…"
+      const hint = inferLoadingHint(message, useCanvasStore.getState().nodes.length)
       longRunningTimerRef.current = setTimeout(() => {
-        setLongRunningHint('Running analysis\u2026')
+        setLongRunningHint(hint)
       }, LONG_RUNNING_THRESHOLD_MS)
 
       stillWorkingTimerRef.current = setTimeout(() => {
@@ -978,7 +1014,7 @@ export function useConversation(): UseConversationReturn {
       }, TIMEOUT_MS)
 
       try {
-        const request = buildRequest(message)
+        const request = buildRequest(message, { clientTurnId: turnClientId })
         // Attach system_event in CEE v3 wire format. Unknown types already
         // filtered by sendSystemEvent pre-check; null here is a safety net.
         if (systemEvent) {
@@ -1080,23 +1116,32 @@ export function useConversation(): UseConversationReturn {
       }
 
       if (chip.message) {
-        await sendMessage(chip.message)
+        // Show chip.label in conversation bubble, send chip.message to orchestrator
+        await sendTurn({ message: chip.message, displayText: chip.label, mode: 'user' })
       }
     },
-    [sendMessage, addMessage],
+    [sendTurn, addMessage],
   )
 
   const retryLast = useCallback(async () => {
-    if (lastUserInputRef.current) {
-      // Remove the error message before retrying
+    const last = lastUserInputRef.current
+    if (last.message) {
+      // Remove the error/timeout synthetic message; keep original user bubble
       setMessages((prev) => {
-        const last = prev[prev.length - 1]
-        if (last?.synthetic) return prev.slice(0, -1)
+        const tail = prev[prev.length - 1]
+        if (tail?.synthetic) return prev.slice(0, -1)
         return prev
       })
-      await sendMessage(lastUserInputRef.current)
+      // Re-send without creating a new user bubble (original is already in thread).
+      // Reuse the original client_turn_id for idempotent retry.
+      await sendTurn({
+        message: last.message,
+        mode: 'user',
+        skipUserBubble: true,
+        retryClientTurnId: last.clientTurnId,
+      })
     }
-  }, [sendMessage])
+  }, [sendTurn])
 
   const clearHistory = useCallback(() => {
     setMessages([])

@@ -18,6 +18,7 @@ import type {
   FactBlock as FactBlockType,
   CommentaryBlock as CommentaryBlockType,
   ReviewCardBlock as ReviewCardBlockType,
+  EvidenceBlock as EvidenceBlockType,
   FactEntry,
   BlockAction,
 } from './types'
@@ -163,13 +164,16 @@ function BlockRenderer({
       if (!isPreAnalysisEnrichedEnabled()) return null
       return <ModelReceiptBlock data={block} />
 
+    case 'evidence':
+      return <EvidenceBlockRenderer block={block} />
+
     default: {
-      // Unknown block type — log raw type for diagnosability, render fallback
+      // Unknown block type — suppress from user view, log for dev diagnostics
       const rawType = (block as { type: string }).type
       if (import.meta.env.DEV) {
-        console.warn('[InlineBlocks] Unknown block type received from CEE:', rawType, block)
+        console.warn('[InlineBlocks] Suppressed unknown block type:', rawType, block)
       }
-      return <UnknownBlockFallback rawType={rawType} />
+      return null
     }
   }
 }
@@ -204,7 +208,7 @@ const CommentaryBlockRenderer = memo(function CommentaryBlockRenderer({
 
   return (
     <div>
-      <p className={`${typography.body} ${toneClass}`}>{block.text}</p>
+      <p className={`${typography.panelBody} ${toneClass}`}>{block.text}</p>
       {block.citations && block.citations.length > 0 && (
         <div className={styles.citationLegend} aria-label="Citations">
           {block.citations.map((c) => (
@@ -269,14 +273,14 @@ const ReviewCardBlockRenderer = memo(function ReviewCardBlockRenderer({
       )}
       <div className={styles.reviewCardContent}>
         <div className={styles.reviewCardBadgeRow}>
-          <div className={`${typography.label} ${styles.reviewCardTitle}`}>{block.title}</div>
+          <div className={`${typography.panelHeader} ${styles.reviewCardTitle}`}>{block.title}</div>
           {priorityClass && priorityLabel && (
             <span className={priorityClass} data-testid={`priority-badge-${block.priority}`}>
               {priorityLabel}
             </span>
           )}
         </div>
-        <p className={typography.body}>{block.body}</p>
+        <p className={typography.panelBody}>{block.body}</p>
       </div>
     </div>
   )
@@ -471,7 +475,7 @@ const BriefBlockRenderer = memo(function BriefBlockRenderer({
 
   return (
     <div className={styles.briefBlock} data-testid="block-brief" aria-label="Brief">
-      <div className={`${typography.label} ${styles.briefTitle}`}>{block.title}</div>
+      <div className={`${typography.panelHeader} ${styles.briefTitle}`}>{block.title}</div>
       <p
         className={expanded ? styles.briefSummaryExpanded : styles.briefSummaryCollapsed}
         data-testid="brief-summary"
@@ -508,21 +512,61 @@ const BriefBlockRenderer = memo(function BriefBlockRenderer({
 })
 
 // ---------------------------------------------------------------------------
-// UnknownBlockFallback
+// EvidenceBlock
 // ---------------------------------------------------------------------------
 
-function UnknownBlockFallback({ rawType }: { rawType: string }) {
+const EvidenceBlockRenderer = memo(function EvidenceBlockRenderer({
+  block,
+}: {
+  block: EvidenceBlockType
+}) {
+  const hasFindings = Array.isArray(block.findings) && block.findings.length > 0
+
+  // Malformed payload: known type but broken data → neutral fallback card
+  if (!hasFindings) {
+    return (
+      <div className={styles.evidenceBlock} data-testid="block-evidence">
+        <div className={`${typography.panelHeader} ${styles.evidenceTitle}`}>
+          {block.title || 'Research findings'}
+        </div>
+        <p className={typography.panelBody}>Research findings available</p>
+      </div>
+    )
+  }
+
   return (
-    <div
-      className={styles.unknownBlock}
-      data-testid={`block-unknown-${rawType}`}
-      role="note"
-      aria-label={`Unsupported block type: ${rawType}`}
-    >
-      <span className={styles.unknownBlockLabel}>Unsupported block: {rawType}</span>
+    <div className={styles.evidenceBlock} data-testid="block-evidence" aria-label="Evidence">
+      <div className={`${typography.panelHeader} ${styles.evidenceTitle}`}>
+        {block.title || 'Research findings'}
+      </div>
+      {block.findings.map((f, i) => (
+        <div key={i} className={styles.evidenceFinding}>
+          <p className={typography.panelBody}>{f.text}</p>
+          {f.source_url && (
+            <a
+              href={f.source_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={styles.evidenceSource}
+            >
+              <ExternalLink size={12} aria-hidden="true" /> Source
+            </a>
+          )}
+          {f.confidence != null && (
+            <span className={`${typography.panelMeta} ${styles.evidenceConfidence}`}>
+              {Math.round(f.confidence * 100)}% confidence
+            </span>
+          )}
+        </div>
+      ))}
+      {block.query && (
+        <div className={`${typography.panelMeta} ${styles.evidenceQuery}`}>
+          Query: {block.query}
+        </div>
+      )}
     </div>
   )
-}
+})
 
 // ---------------------------------------------------------------------------
 // GraphPatchBlock renderer

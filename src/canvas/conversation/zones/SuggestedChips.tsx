@@ -5,6 +5,7 @@
  * Max 2 chips. DS v4 outlined pills: bg-transparent, hover bg-panel-hover + info border.
  */
 
+import { typography } from '../../../styles/typography'
 import type { ActionChip } from '../types'
 
 interface SuggestedChipsProps {
@@ -23,15 +24,13 @@ export function SuggestedChips({ chips, onChipClick }: SuggestedChipsProps) {
           key={chip.id}
           type="button"
           onClick={() => onChipClick(chip)}
-          className="suggested-chip chip-stagger-in bg-transparent text-text-body cursor-pointer"
+          className={`suggested-chip chip-stagger-in bg-transparent text-text-body cursor-pointer ${typography.panelBody}`}
           style={{
             padding: '5px 12px',
             borderRadius: 999,
             border: '1px solid var(--border-default, #EEE6D8)',
-            fontSize: 12, // panelBody token
             fontFamily: 'inherit',
-            lineHeight: 1.33, // 16/12 — matches panelBody
-            transition: 'all 200ms cubic-bezier(0.4, 0, 0.2, 1)',
+            transition: 'all 150ms ease',
             animationDelay: `${i * 70}ms`,
           }}
           data-testid={`suggested-chip-${chip.id}`}
@@ -52,8 +51,17 @@ export function SuggestedChips({ chips, onChipClick }: SuggestedChipsProps) {
           background: var(--bg-panel-hover, #FEF9F3);
           border-color: var(--info, #63ADCF) !important;
         }
+        .suggested-chip:focus-visible {
+          outline: 2px solid var(--info, #63ADCF);
+          outline-offset: 2px;
+        }
+        .suggested-chip:active {
+          transform: scale(0.97);
+          opacity: 0.85;
+        }
         @media (prefers-reduced-motion: reduce) {
           .chip-stagger-in { animation: none; opacity: 1; }
+          .suggested-chip:active { transform: none; }
         }
       `}</style>
     </div>

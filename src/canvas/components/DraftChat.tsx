@@ -73,18 +73,20 @@ export function DraftChat() {
     return 676 // default width (30% increase from 520)
   })
 
-  // Panel height state (persisted to localStorage)
+  // Panel height state (persisted to localStorage, clamped to 120px–60vh)
+  const DEFAULT_PANEL_HEIGHT = 864
   const [panelHeight, setPanelHeight] = useState<number>(() => {
+    const maxH = typeof window !== 'undefined' ? Math.floor(window.innerHeight * 0.6) : 864
     if (typeof localStorage !== 'undefined') {
       const stored = localStorage.getItem(DRAFT_PANEL_HEIGHT_KEY)
       if (stored) {
         const parsed = parseInt(stored, 10)
-        if (Number.isFinite(parsed) && parsed >= 200 && parsed <= 1200) {
-          return parsed
+        if (Number.isFinite(parsed)) {
+          return Math.max(120, Math.min(maxH, parsed))
         }
       }
     }
-    return 864 // default height (60% taller than 540)
+    return Math.min(DEFAULT_PANEL_HEIGHT, maxH)
   })
 
   // Track dock offset for dynamic positioning (avoid results panel overlap)
@@ -728,25 +730,38 @@ export function DraftChat() {
 
     const startY = event.clientY
     const startHeight = panelHeight
+    const maxH = Math.floor(window.innerHeight * 0.6)
+
+    let latestHeight = startHeight
 
     const handleMove = (e: MouseEvent) => {
       // Dragging up increases height (negative deltaY = taller)
       const deltaY = startY - e.clientY
-      const newHeight = Math.max(200, Math.min(600, startHeight + deltaY))
-      setPanelHeight(newHeight)
+      latestHeight = Math.max(120, Math.min(maxH, startHeight + deltaY))
+      setPanelHeight(latestHeight)
     }
 
     const handleUp = () => {
       window.removeEventListener('mousemove', handleMove)
       window.removeEventListener('mouseup', handleUp)
       try {
-        localStorage.setItem(DRAFT_PANEL_HEIGHT_KEY, String(panelHeight))
+        localStorage.setItem(DRAFT_PANEL_HEIGHT_KEY, String(latestHeight))
       } catch {}
     }
 
     window.addEventListener('mousemove', handleMove)
     window.addEventListener('mouseup', handleUp)
   }, [panelHeight])
+
+  // Double-click drag handle → reset to default height
+  const handleHeightDoubleClick = useCallback(() => {
+    const maxH = typeof window !== 'undefined' ? Math.floor(window.innerHeight * 0.6) : DEFAULT_PANEL_HEIGHT
+    const resetHeight = Math.min(DEFAULT_PANEL_HEIGHT, maxH)
+    setPanelHeight(resetHeight)
+    try {
+      localStorage.setItem(DRAFT_PANEL_HEIGHT_KEY, String(resetHeight))
+    } catch {}
+  }, [])
 
   // Persist panel height when it changes
   useEffect(() => {
@@ -927,7 +942,20 @@ export function DraftChat() {
           </>
           )
         ) : (
-          <div className="flex flex-col rounded-[20px] border border-sand-200 shadow-2 overflow-hidden relative" style={{ backgroundColor: '#FEFEFE', maxHeight: '80vh' }} data-chat-panel="">
+          <div className="flex flex-col rounded-[20px] border border-sand-200 shadow-2 overflow-hidden relative" style={{ backgroundColor: '#FEFEFE', height: panelHeight, maxHeight: '80vh' }} data-chat-panel="">
+            {/* Drag handle — visible grip at top edge for height resize */}
+            <div
+              aria-hidden="true"
+              onMouseDown={handleHeightResizeStart}
+              onDoubleClick={handleHeightDoubleClick}
+              className="absolute top-0 left-0 right-0 h-2 cursor-row-resize flex items-center justify-center z-10"
+              data-testid="panel-drag-handle"
+            >
+              <div
+                className="w-10 rounded-full"
+                style={{ height: 2, background: 'var(--border-default, #EEE6D8)' }}
+              />
+            </div>
             {/* Header — hidden when orchestrator V2 is active (ChatTopBar replaces it) */}
             {!isOrchV2 && (
             <div className="flex items-center justify-between px-4 py-3 border-b border-sand-100" style={{ backgroundColor: '#FEFEFE' }}>
