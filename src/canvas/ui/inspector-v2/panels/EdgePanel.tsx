@@ -29,7 +29,6 @@ import type { InspectorPanelProps } from '../types'
 import { isCausalClaimsEnabled } from '../../../../flags'
 import { extractCausalClaims, claimTypeLabel } from '../../../adapters/causalClaimsAdapter'
 import { trackGuidance } from '../../../../telemetry/guidanceEvents'
-import { useCanvasStore } from '../../../store'
 
 // ─── Slider component for confidence and uncertainty ───────────────
 function InspectorSlider({

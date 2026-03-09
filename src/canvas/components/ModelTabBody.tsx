@@ -1080,7 +1080,6 @@ export function ModelTabBody({
       scenario_id: state.currentScenarioId ?? undefined,
       profile_stage: (state.currentStage ?? undefined) as 'frame' | 'ideate' | 'evaluate' | 'decide' | undefined,
     })
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const ceePipelineTrace = useCanvasStore(s => s.ceePipelineTrace)
