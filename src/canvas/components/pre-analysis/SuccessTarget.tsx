@@ -69,12 +69,12 @@ export function SuccessTarget({
 
   const goalLabel = goalNode ? ((goalNode.data as { label?: string })?.label ?? goalNode.id) : 'Goal'
 
-  // Left-border state: mint (confirmed), sky (unconfirmed), carrot (no goal)
+  // Full border colour: danger (no goal), success (confirmed), info (unconfirmed)
   const borderColor = !goalNode
-    ? 'border-l-danger'
+    ? 'border-danger/30'
     : isThresholdConfirmed
-      ? 'border-l-success'
-      : 'border-l-info'
+      ? 'border-success/30'
+      : 'border-info/30'
 
   // Raw→normalised conversion factor: normalised = raw × factor
   // e.g. raw=200, normalised=0.2 → factor=0.001
@@ -169,7 +169,7 @@ export function SuccessTarget({
   // No goal node - show missing-goal card
   if (!goalNode) {
     return (
-      <div className={`rounded-lg border border-panel-border border-l-[3px] ${borderColor} bg-panel p-3 hover:bg-panel-hover transition-colors`}>
+      <div className={`rounded-lg border ${borderColor} bg-panel p-3 hover:bg-panel-hover transition-colors`}>
         <div className="flex items-center justify-between">
           <span className={`${typography.panelBody} text-text-light`}>No goal selected</span>
         </div>
@@ -180,7 +180,7 @@ export function SuccessTarget({
   // Confirmed state - compact single line, expandable for editing
   if (isThresholdConfirmed && successThreshold !== null) {
     return (
-      <div className={`rounded-lg border border-panel-border border-l-[3px] ${borderColor} bg-panel p-3 hover:bg-panel-hover transition-colors`}>
+      <div className={`rounded-lg border ${borderColor} bg-panel p-3 hover:bg-panel-hover transition-colors`}>
         <button
           type="button"
           onClick={() => setIsExpanded(!isExpanded)}
@@ -238,7 +238,7 @@ export function SuccessTarget({
   // No target set - show add target CTA with hint
   if (successThreshold === null) {
     return (
-      <div className={`rounded-lg border border-panel-border border-l-[3px] ${borderColor} bg-panel p-3 hover:bg-panel-hover transition-colors`}>
+      <div className={`rounded-lg border ${borderColor} bg-panel p-3 hover:bg-panel-hover transition-colors`}>
         {showInput ? (
           <div className="flex items-center gap-3">
             <label className={`${typography.panelBody} text-text-light shrink-0`}>Target for {goalLabel}</label>
@@ -261,7 +261,7 @@ export function SuccessTarget({
               type="button"
               onClick={handleSubmit}
               disabled={!inputValue.trim()}
-              className={`px-3 py-1.5 ${typography.panelMeta} text-text-on-color bg-info rounded-lg hover:bg-success disabled:opacity-50`}
+              className={`px-3 py-1.5 ${typography.panelMeta} text-text-on-color bg-primary rounded-lg hover:bg-primary-hover disabled:opacity-50`}
             >
               Save
             </button>
@@ -299,7 +299,7 @@ export function SuccessTarget({
 
   // Value present but not confirmed - show edit and confirm CTAs
   return (
-    <div className={`rounded-lg border border-panel-border border-l-[3px] ${borderColor} bg-panel p-3`}>
+    <div className={`rounded-lg border ${borderColor} bg-panel p-3`}>
       {/* Goal name — dropdown when multiple, static when single */}
       {renderGoalName()}
 

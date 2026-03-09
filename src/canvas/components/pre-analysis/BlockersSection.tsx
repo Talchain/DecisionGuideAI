@@ -81,8 +81,8 @@ export function BlockersSection({
             return (
               <div
                 key={`${blocker.code}-${idx}`}
-                className={`rounded-md bg-panel border-l-[3px] border border-panel-border px-3 py-2.5 ${
-                  isCritical ? 'border-l-danger' : 'border-l-warning'
+                className={`rounded-md bg-panel border px-3 py-2.5 ${
+                  isCritical ? 'border-danger/30' : 'border-warning/30'
                 }`}
                 data-testid={`blocker-card-${blocker.code}`}
               >
@@ -183,7 +183,7 @@ export function BlockersSection({
             return (
               <div
                 key={`${blocker.code}-${idx}`}
-                className="rounded-md bg-panel border-l-[3px] border-l-info border border-panel-border px-3 py-2.5"
+                className="rounded-md bg-panel border border-info/30 px-3 py-2.5"
                 data-testid={`info-card-${blocker.code}`}
               >
                 <div className="flex items-start gap-2">
@@ -231,7 +231,7 @@ function ConstraintGroupCard({ items }: { items: EnrichedBlocker[] }) {
 
   return (
     <div
-      className="rounded-md bg-panel border-l-[3px] border-l-info border border-panel-border px-3 py-2.5"
+      className="rounded-md bg-panel border border-info/30 px-3 py-2.5"
       data-testid="constraint-group-card"
     >
       <div className="flex items-start gap-2">

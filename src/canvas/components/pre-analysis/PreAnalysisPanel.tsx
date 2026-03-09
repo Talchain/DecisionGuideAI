@@ -46,7 +46,7 @@ function PreMortemSection({ preMortem }: { preMortem: { failure_scenario: string
   const [isExpanded, setIsExpanded] = useState(false)
 
   return (
-    <div className="rounded-lg border border-panel-border border-l-[3px] border-l-warning">
+    <div className="rounded-lg border border-panel-border border-t-[3px] border-t-warning">
       <button
         type="button"
         onClick={() => setIsExpanded(prev => !prev)}
@@ -591,7 +591,7 @@ export function PreAnalysisPanel({
         {/* Draft error card */}
         {lastDraftError && (
           <div
-            className="rounded-md bg-panel border border-panel-border border-l-[3px] border-l-danger px-3 py-2.5"
+            className="rounded-md bg-panel border border-panel-border border-t-[3px] border-t-danger px-3 py-2.5"
             data-testid="draft-error-card"
           >
             <p className={`${typography.panelHeader} text-danger`}>Draft failed</p>
@@ -705,7 +705,7 @@ export function PreAnalysisPanel({
         {/* Strength warning (Pattern C, Task 8) — between assumptions and draft notes */}
         {data.hasDefaultStrengths && (
           <div
-            className="rounded-md bg-panel border border-panel-border border-l-[3px] border-l-warning px-3 py-2.5"
+            className="rounded-md bg-panel border border-panel-border border-t-[3px] border-t-warning px-3 py-2.5"
             data-testid="strength-warning-card"
           >
             <div className="flex items-start gap-2">

@@ -35,7 +35,7 @@ describe('BlockersSection', () => {
 
   // ── Fix 1: Card styling ──────────────────────────────────────────
 
-  describe('Card styling (left border only)', () => {
+  describe('Card styling (full semantic border)', () => {
     it('renders critical blocker with left danger border and neutral bg', () => {
       const blockers = [makeBlocker('MISSING_GOAL_NODE', 'critical')]
       render(
@@ -50,7 +50,7 @@ describe('BlockersSection', () => {
 
       const card = screen.getByTestId('blocker-card-MISSING_GOAL_NODE')
       expect(card.className).toContain('bg-panel')
-      expect(card.className).toContain('border-l-danger')
+      expect(card.className).toContain('border-danger/30')
       expect(card.className).not.toContain('bg-danger-light')
       expect(card.className).not.toContain('bg-warning-light')
     })
@@ -69,7 +69,7 @@ describe('BlockersSection', () => {
 
       const card = screen.getByTestId('blocker-card-ANALYSIS_NOT_READY')
       expect(card.className).toContain('bg-panel')
-      expect(card.className).toContain('border-l-warning')
+      expect(card.className).toContain('border-warning/30')
       expect(card.className).not.toContain('bg-danger-light')
       expect(card.className).not.toContain('bg-warning-light')
     })
