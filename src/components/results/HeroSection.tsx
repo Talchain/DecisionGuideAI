@@ -565,11 +565,8 @@ export function HeroSection({
   defaultEstimateCount,
   totalFactorCount,
 }: HeroSectionProps) {
-  // v7.4 Task 6: Default expand state based on robustness level
-  // low/very_low stability (< 0.70) defaults to expanded ("Sensitive" or "Highly sensitive")
-  // moderate/high stability (>= 0.70) defaults to collapsed ("Mostly stable" or "Stable")
-  const shouldDefaultExpand = recommendationStability != null && recommendationStability < 0.70
-  const [isExpanded, setIsExpanded] = useState(shouldDefaultExpand)
+  // Always collapsed on first load — user expands via "More ▸" toggle
+  const [isExpanded, setIsExpanded] = useState(false)
   // V16: "Show more" for insight bullet expansion (condition card detail)
   const [showMoreBullets, setShowMoreBullets] = useState(false)
   // V16: M2 narrative expansion in "More" panel
@@ -997,7 +994,7 @@ export function HeroSection({
           {/* ── V16 Task 1: Insight bullets ───────────────────── */}
           {defaultBullets.length > 0 && (
             <ul
-              className={`list-disc list-inside space-y-0.5 ${typography.panelBody} text-text-body`}
+              className={`list-disc list-outside pl-4 space-y-0.5 ${typography.panelBody} text-text-body`}
               data-testid="insight-bullets"
             >
               {defaultBullets.map(b => (
@@ -1021,7 +1018,7 @@ export function HeroSection({
               ) : (
                 <div data-testid="show-more-expanded">
                   <ul
-                    className={`list-disc list-inside space-y-0.5 ${typography.panelBody} text-text-body mb-1`}
+                    className={`list-disc list-outside pl-4 space-y-0.5 ${typography.panelBody} text-text-body mb-1`}
                     onMouseEnter={() => highlightNode(v14ConditionCard.fromId)}
                     onMouseLeave={clearHighlight}
                   >

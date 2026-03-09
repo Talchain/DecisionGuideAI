@@ -1759,7 +1759,9 @@ describe('HeroSection', () => {
         />
       )
 
-      // Auto-expanded because stability < 0.70
+      // Expand "More" to see readiness bars
+      const moreButton = screen.getByRole('button', { name: /more/i })
+      fireEvent.click(moreButton)
       const bars = screen.getByTestId('readiness-bars')
       expect(bars).toBeInTheDocument()
       expect(bars.textContent).toContain('Evidence')
@@ -1799,6 +1801,7 @@ describe('HeroSection', () => {
         />
       )
 
+      fireEvent.click(screen.getByRole('button', { name: /more/i }))
       expect(screen.getByText('AI-enhanced analysis')).toBeInTheDocument()
       expect(screen.getByText(/M2 enhanced analysis/)).toBeInTheDocument()
     })
@@ -1814,7 +1817,8 @@ describe('HeroSection', () => {
       )
 
       expect(screen.queryByText('AI-enhanced analysis')).toBeNull()
-      // V16: M1 paragraph appears in "More" expand (auto-expanded since stability < 0.70)
+      // V16: M1 paragraph appears in "More" expand — click to open
+      fireEvent.click(screen.getByRole('button', { name: /more/i }))
       expect(screen.getAllByText(/M1 deterministic coaching/).length).toBeGreaterThanOrEqual(1)
     })
   })
@@ -2188,7 +2192,8 @@ describe('HeroSection', () => {
         />
       )
 
-      // Auto-expanded (stability < 0.70)
+      // Open More section first
+      fireEvent.click(screen.getByRole('button', { name: /more/i }))
       expect(screen.getByText('AI-enhanced analysis')).toBeInTheDocument()
       expect(screen.getByTestId('read-more-narrative')).toBeInTheDocument()
       // First sentence visible
@@ -2207,6 +2212,7 @@ describe('HeroSection', () => {
         />
       )
 
+      fireEvent.click(screen.getByRole('button', { name: /more/i }))
       fireEvent.click(screen.getByTestId('read-more-narrative'))
       expect(screen.getByText(/additional context that should be hidden/)).toBeInTheDocument()
     })

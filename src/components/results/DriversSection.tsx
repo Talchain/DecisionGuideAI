@@ -58,8 +58,8 @@ const BAR_COLORS = {
 }
 
 // Grid columns constant - shared between header and rows to avoid alignment drift
-// Two data columns: Sensitivity (direction-colored) + Confidence (always blue)
-const GRID_COLS = 'grid-cols-[minmax(120px,1fr)_85px_85px]'
+// Two data columns: Sensitivity + Confidence (same width), plus icon column for glyphs
+const GRID_COLS = 'grid-cols-[minmax(120px,1fr)_85px_85px_28px]'
 
 // Zero reason display messages - explains why sensitivity is zero
 const ZERO_REASON_MESSAGES: Record<string, string> = {
@@ -475,24 +475,27 @@ function DriverRow({
           <div className={`${typography.panelBody} font-mono text-slate-400 w-9 text-right`}>-</div>
         )}
 
-        {/* Confidence bar + glyph badge (§11.5) + default estimate icon */}
-        <div className="flex items-center gap-1">
-          {confidenceValue !== null ? (
-            <ProgressBar
-              value={confidenceValue}
-              color="blue"
-              aria-label={`${cleanedLabel} confidence: ${Math.round(confidenceValue * 100)}%`}
-            />
-          ) : (
-            <div className={`${typography.panelBody} font-mono text-slate-400 w-9 text-right`}>-</div>
-          )}
+        {/* Confidence bar — same width as Sensitivity bar (icons moved to 4th column) */}
+        {confidenceValue !== null ? (
+          <ProgressBar
+            value={confidenceValue}
+            color="blue"
+            aria-label={`${cleanedLabel} confidence: ${Math.round(confidenceValue * 100)}%`}
+          />
+        ) : (
+          <div className={`${typography.panelBody} font-mono text-slate-400 w-9 text-right`}>-</div>
+        )}
+
+        {/* Icons column: confidence glyph + default-estimate indicator */}
+        <div className="flex items-center gap-1 justify-start">
           {confidenceValue !== null && (() => {
             const glyph = confidenceValue >= 0.7 ? '✓' : confidenceValue >= 0.4 ? '~' : '?'
             const cls = confidenceValue >= 0.7 ? 'text-success' : confidenceValue >= 0.4 ? 'text-warning' : 'text-danger'
+            const label = confidenceValue >= 0.7 ? 'High confidence' : confidenceValue >= 0.4 ? 'Moderate confidence' : 'Low confidence'
             return (
               <span
                 className={`text-[10px] font-medium flex-shrink-0 w-3 text-center ${cls}`}
-                aria-hidden="true"
+                title={label}
                 data-testid={`confidence-glyph-${driver.factorKey}`}
               >
                 {glyph}
@@ -656,6 +659,8 @@ export function DriversSection({
         >
           Confidence
         </div>
+        {/* Empty cell for icon column */}
+        <div />
       </div>
 
       {/* v7.10 T9: Equal-influence note when all visible drivers are within ±0.01 */}
