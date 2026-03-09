@@ -398,7 +398,22 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
   const [draggingNodeIds, setDraggingNodeIds] = useState<Set<string>>(new Set())
   const [isDragging, setIsDragging] = useState(false)
   const [showCommandPalette, setShowCommandPalette] = useState(false)
-  const [showFullInspector, setShowFullInspector] = useState(false)
+  const [showFullInspector, setShowFullInspectorRaw] = useState(false)
+
+  // Wrapper: when inspector opens, signal dock to collapse
+  const setShowFullInspector = useCallback((show: boolean) => {
+    setShowFullInspectorRaw(show)
+    if (show) {
+      window.dispatchEvent(new Event('inspector-panel-opened'))
+    }
+  }, [])
+
+  // Mutual exclusion: close inspector when OutputsDock opens
+  useEffect(() => {
+    const handleDockOpened = () => setShowFullInspectorRaw(false)
+    window.addEventListener('outputs-dock-opened', handleDockOpened)
+    return () => window.removeEventListener('outputs-dock-opened', handleDockOpened)
+  }, [])
   const [pendingBlueprint, setPendingBlueprint] = useState<Blueprint | null>(null)
   const [existingTemplate, setExistingTemplate] = useState<{ id: string; name: string } | null>(null)
   const { isOpen: isKeyboardLegendOpen, open: openKeyboardLegend, close: closeKeyboardLegend } = useKeyboardLegend()

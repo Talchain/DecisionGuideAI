@@ -172,6 +172,15 @@ export function OutputsDock() {
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps -- one-time init guard
 
+  // Mutual exclusion: collapse dock when inspector panel opens
+  useEffect(() => {
+    const handleInspectorOpened = () => {
+      setState(prev => (prev.isOpen ? { ...prev, isOpen: false } : prev))
+    }
+    window.addEventListener('inspector-panel-opened', handleInspectorOpened)
+    return () => window.removeEventListener('inspector-panel-opened', handleInspectorOpened)
+  }, [setState])
+
   // Phase 1A.5: Debug controls visibility (Shift+D shortcut)
   const { showDebug } = useDebugShortcut()
 
@@ -780,6 +789,10 @@ export function OutputsDock() {
       if (prev.isOpen && prev.activeTab === 'results') {
         return prev // No change needed
       }
+      // Mutual exclusion: close inspector when dock auto-opens
+      if (!prev.isOpen) {
+        window.dispatchEvent(new Event('outputs-dock-opened'))
+      }
       return { ...prev, isOpen: true, activeTab: 'results' }
     })
     // We intentionally depend on both triggers. setState from useDockState is stable.
@@ -793,6 +806,10 @@ export function OutputsDock() {
     setState(prev => {
       if (prev.isOpen && prev.activeTab === 'compare') {
         return prev // Already on compare tab
+      }
+      // Mutual exclusion: close inspector when dock auto-opens
+      if (!prev.isOpen) {
+        window.dispatchEvent(new Event('outputs-dock-opened'))
       }
       return { ...prev, isOpen: true, activeTab: 'compare' }
     })
@@ -903,12 +920,18 @@ export function OutputsDock() {
           setShowResultsPanel(shouldShowResults)
         }
       })
+      // Mutual exclusion: close inspector when dock expands
+      if (nextIsOpen) {
+        window.dispatchEvent(new Event('outputs-dock-opened'))
+      }
       return { ...prev, isOpen: nextIsOpen }
     })
   }
 
   const handleTabClick = (tab: OutputsDockTab) => {
     setState(prev => ({ ...prev, isOpen: true, activeTab: tab }))
+    // Mutual exclusion: close inspector when dock opens via tab click
+    window.dispatchEvent(new Event('outputs-dock-opened'))
 
     // Treat the Results tab as the canonical "results visible" state for
     // highlight overlays and results-viewed telemetry.
