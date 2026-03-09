@@ -18,7 +18,13 @@ const MAX_CONSTRAINTS = 5
 
 /**
  * Assemble a structured analysis summary from a V2RunResponse.
- * Returns null if required fields are missing or assembly fails validation.
+ *
+ * Returns null (never fabricates) when:
+ *   - option_comparison_status is not 'computed', or no options are present
+ *   - no option has a win_probability (cannot determine recommendation)
+ *   - robustness_status is not 'computed', robustness is absent, or neither
+ *     recommendation_stability nor ranking_stability is present
+ *   - serialised output exceeds 2048 bytes after full progressive truncation
  */
 export function assembleAnalysisInputsSummary(
   report: V2RunResponse,
