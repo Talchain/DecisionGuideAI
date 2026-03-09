@@ -1049,9 +1049,10 @@ export function OutputsDock() {
                   data-testid={tab.id === 'diagnostics' ? 'outputs-dock-tab-diagnostics' : undefined}
                   className={`flex-1 px-2 py-1 rounded ${typography.caption} font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-1 ${
                     state.activeTab === tab.id
-                      ? 'bg-sky-200 text-sky-600 border-b-2 border-sky-500'
+                      ? 'text-info border-b-2 border-info'
                       : 'text-ink-900/70 hover:bg-paper-50 hover:text-ink-900 border-b-2 border-transparent'
                   }`}
+                  style={state.activeTab === tab.id ? { backgroundColor: 'rgba(99,173,207,0.15)' } : undefined}
                 >
                   {tab.label}
                 </button>
@@ -1090,9 +1091,10 @@ export function OutputsDock() {
                 onClick={() => handleTabClick(tab.id)}
                 className={`flex items-center justify-center w-7 h-7 rounded-full border ${typography.caption} focus:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-1 ${
                   state.activeTab === tab.id
-                    ? 'bg-sky-200 text-sky-600 border-sky-500'
+                    ? 'text-info border-info'
                     : 'text-ink-900/70 bg-paper-50 border-sand-200 hover:bg-paper-50 hover:text-ink-900'
                 }`}
+                style={state.activeTab === tab.id ? { backgroundColor: 'rgba(99,173,207,0.15)' } : undefined}
                 aria-label={tab.label}
                 title={tab.label}
               >
