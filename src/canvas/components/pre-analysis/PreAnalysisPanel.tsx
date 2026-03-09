@@ -39,7 +39,6 @@ import { typography } from '@/styles/typography'
 import { isPreAnalysisEnrichedEnabled } from '../../../flags'
 import { WorthInvestigating, deriveEvidenceGaps } from './WorthInvestigating'
 import { ModelNotes, type ModelNote } from './ModelNotes'
-import { trackEvent } from '../../../lib/posthog'
 import { formatRepairs } from '../../adapters/modelCardAdapter'
 
 /** Collapsible pre-mortem section from PLoT m1_review */
@@ -150,7 +149,8 @@ export function PreAnalysisPanel({
   // Phase 2B: One-click fix — "Set value" opens the inspector for a factor (non-destructive)
   const selectNodeWithoutHistory = useCanvasStore(s => s.selectNodeWithoutHistory)
   const handleSetValueForGap = useCallback((factorId: string) => {
-    trackEvent('fix_clicked', { fix_id: `set_value_${factorId}` })
+    // Note: FIX_CLICKED is also fired in GapRow.handleClick; PreAnalysisPanel is the
+    // logical orchestrator so we skip double-firing here.
     // Select the factor node to open inspector — non-destructive, no undo needed
     selectNodeWithoutHistory(factorId)
     focusNodeById(factorId)

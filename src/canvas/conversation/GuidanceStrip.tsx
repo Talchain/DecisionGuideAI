@@ -10,6 +10,8 @@ import { X as XIcon, AlertTriangle, Lightbulb } from 'lucide-react'
 import { typography } from '../../styles/typography'
 import { useGuidanceStore, selectTopItem, type GuidanceItem, type GuidanceAction } from '../stores/guidanceStore'
 import styles from './Conversation.module.css'
+import { trackGuidance, type GuidanceEventPayload } from '../../telemetry/guidanceEvents'
+import { useCanvasStore } from '../store'
 
 const FOCUS_DEBOUNCE_MS = 150
 
@@ -61,6 +63,21 @@ function actionLabel(action: GuidanceAction): string {
 }
 
 // ---------------------------------------------------------------------------
+// Telemetry helpers
+// ---------------------------------------------------------------------------
+
+function coachingItemType(cat: GuidanceItem['category']): GuidanceEventPayload['item_type'] {
+  switch (cat) {
+    case 'must_fix':
+    case 'should_fix':
+      return 'bias_alert'
+    case 'could_fix':
+    case 'technique':
+      return 'technique_rec'
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Props
 // ---------------------------------------------------------------------------
 
@@ -96,6 +113,22 @@ export const GuidanceStrip = memo(function GuidanceStrip({
     }
   }, [guidanceItems])
 
+  // Telemetry: deduplicate COACHING_SHOWN — fire once per item_id per session
+  const shownIdsRef = useRef<Set<string>>(new Set())
+  useEffect(() => {
+    if (!topItem || topItem.item_id === dismissedId) return
+    if (shownIdsRef.current.has(topItem.item_id)) return
+    shownIdsRef.current.add(topItem.item_id)
+    const state = useCanvasStore.getState()
+    trackGuidance('COACHING_SHOWN', {
+      item_id: topItem.item_id,
+      item_type: coachingItemType(topItem.category),
+      surface: 'guidance_panel',
+      scenario_id: state.currentScenarioId ?? undefined,
+      profile_stage: (state.currentStage ?? undefined) as GuidanceEventPayload['profile_stage'] | undefined,
+    })
+  }, [topItem, dismissedId])
+
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const handleMouseEnter = useCallback(() => {
@@ -122,6 +155,14 @@ export const GuidanceStrip = memo(function GuidanceStrip({
 
   const handleDismiss = useCallback(() => {
     if (!topItem) return
+    const state = useCanvasStore.getState()
+    trackGuidance('COACHING_DISMISSED', {
+      item_id: topItem.item_id,
+      item_type: coachingItemType(topItem.category),
+      surface: 'guidance_panel',
+      scenario_id: state.currentScenarioId ?? undefined,
+      profile_stage: (state.currentStage ?? undefined) as GuidanceEventPayload['profile_stage'] | undefined,
+    })
     setDismissedId(topItem.item_id)
     onSetActive(null)
   }, [topItem, onSetActive])
@@ -129,6 +170,14 @@ export const GuidanceStrip = memo(function GuidanceStrip({
   const handleAction = useCallback(() => {
     if (!topItem) return
     const action = topItem.primary_action
+    const state = useCanvasStore.getState()
+    trackGuidance('COACHING_CLICKED', {
+      item_id: topItem.item_id,
+      item_type: coachingItemType(topItem.category),
+      surface: 'guidance_panel',
+      scenario_id: state.currentScenarioId ?? undefined,
+      profile_stage: (state.currentStage ?? undefined) as GuidanceEventPayload['profile_stage'] | undefined,
+    })
     onSetActive(topItem.item_id)
 
     switch (action.type) {

@@ -13,12 +13,18 @@
 
 import { useEffect, useRef } from 'react'
 import { useGuidanceStore, selectActiveItem, type GuidanceCategory } from '../stores/guidanceStore'
+import { trackGuidance } from '../../telemetry/guidanceEvents'
+import { useCanvasStore } from '../store'
 
 const GUIDANCE_PULSE_CLASS = 'guidance-pulse-ring'
+/** Minimum ms between HIGHLIGHT_TRIGGERED events for the same item_id */
+const HIGHLIGHT_COOLDOWN_MS = 2000
 
 export function useGuidancePulseHighlight(): void {
   const prevTargetIdRef = useRef<string | null>(null)
   const prevCategoryRef = useRef<GuidanceCategory | null>(null)
+  /** Cooldown map: item_id → timestamp of last HIGHLIGHT_TRIGGERED fire */
+  const cooldownMapRef = useRef<Map<string, number>>(new Map())
 
   useEffect(() => {
     const unsubscribe = useGuidanceStore.subscribe((state) => {
@@ -46,9 +52,23 @@ export function useGuidancePulseHighlight(): void {
         removeRing(prevTargetIdRef.current)
       }
 
-      // Apply ring to new target
+      // Apply ring to new target and fire telemetry (once per item_id within 2s)
       if (newTargetId) {
         applyRing(newTargetId, newCategory ?? 'could_fix')
+
+        const now = Date.now()
+        const lastFired = cooldownMapRef.current.get(newTargetId) ?? 0
+        if (now - lastFired >= HIGHLIGHT_COOLDOWN_MS) {
+          cooldownMapRef.current.set(newTargetId, now)
+          const storeState = useCanvasStore.getState()
+          trackGuidance('HIGHLIGHT_TRIGGERED', {
+            item_id: newTargetId,
+            item_type: 'highlight',
+            surface: 'canvas',
+            scenario_id: storeState.currentScenarioId ?? undefined,
+            profile_stage: (storeState.currentStage ?? undefined) as 'frame' | 'ideate' | 'evaluate' | 'decide' | undefined,
+          })
+        }
       }
 
       prevTargetIdRef.current = newTargetId

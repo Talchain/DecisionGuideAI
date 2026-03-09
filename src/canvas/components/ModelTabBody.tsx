@@ -22,6 +22,7 @@ import {
   useMemo,
   useCallback,
   useRef,
+  useEffect,
   type ReactNode,
   type KeyboardEvent,
   type ChangeEvent,
@@ -39,6 +40,7 @@ import type { CritiqueItemV1 } from '../../adapters/plot/types'
 import { isModelCardLiteEnabled } from '../../flags'
 import { ModelCardLite } from './ModelCardLite'
 import { selectModelCardData } from '../adapters/modelCardAdapter'
+import { trackGuidance } from '../../telemetry/guidanceEvents'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -1067,6 +1069,20 @@ export function ModelTabBody({
   critique,
 }: ModelTabBodyProps) {
   const [searchQuery, setSearchQuery] = useState('')
+
+  // Telemetry: fire MODEL_CARD_VIEWED once when the tab mounts
+  useEffect(() => {
+    const state = useCanvasStore.getState()
+    trackGuidance('MODEL_CARD_VIEWED', {
+      item_id: 'model_tab',
+      item_type: 'trust',
+      surface: 'model_tab',
+      scenario_id: state.currentScenarioId ?? undefined,
+      profile_stage: (state.currentStage ?? undefined) as 'frame' | 'ideate' | 'evaluate' | 'decide' | undefined,
+    })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   const ceePipelineTrace = useCanvasStore(s => s.ceePipelineTrace)
   // Phase 2A: Model Card Lite data from store
   const hasCompletedFirstRun = useCanvasStore(s => s.hasCompletedFirstRun)

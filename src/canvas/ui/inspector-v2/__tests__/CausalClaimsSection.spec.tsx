@@ -5,19 +5,28 @@
  * Tests actual DOM rendering, expand/collapse, and empty state.
  */
 
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { CausalClaimsSection } from '../panels/EdgePanel'
 
+vi.mock('../../../../telemetry/guidanceEvents', () => ({ trackGuidance: vi.fn() }))
+vi.mock('../../../store', () => ({
+  useCanvasStore: Object.assign(
+    () => null,
+    { getState: () => ({ currentScenarioId: null, currentStage: null }) },
+  ),
+}))
+
 describe('CausalClaimsSection — component rendering', () => {
   it('renders empty state when no claims', () => {
-    render(<CausalClaimsSection edgeData={{}} />)
+    render(<CausalClaimsSection edgeId="edge-1" edgeData={{}} />)
     expect(screen.getByText('No scientific claims attached to this relationship.')).toBeTruthy()
   })
 
   it('renders claims with type pill and statement', () => {
     render(
       <CausalClaimsSection
+        edgeId="edge-1"
         edgeData={{
           causal_claims: [
             { claim_type: 'empirical', statement: 'Evidence from RCT', source: 'Jones 2024' },
@@ -33,6 +42,7 @@ describe('CausalClaimsSection — component rendering', () => {
   it('shows max 3 claims with expand button', () => {
     render(
       <CausalClaimsSection
+        edgeId="edge-1"
         edgeData={{
           causal_claims: [
             { claim_type: 'empirical', statement: 'Claim 1' },
@@ -56,6 +66,7 @@ describe('CausalClaimsSection — component rendering', () => {
   it('expands to show all claims on click', () => {
     render(
       <CausalClaimsSection
+        edgeId="edge-1"
         edgeData={{
           causal_claims: [
             { claim_type: 'a', statement: 'Claim 1' },
@@ -76,6 +87,7 @@ describe('CausalClaimsSection — component rendering', () => {
   it('collapses back to max 3 on "Show fewer"', () => {
     render(
       <CausalClaimsSection
+        edgeId="edge-1"
         edgeData={{
           causal_claims: [
             { claim_type: 'a', statement: 'Claim 1' },
@@ -95,6 +107,7 @@ describe('CausalClaimsSection — component rendering', () => {
   it('does not show source when absent', () => {
     render(
       <CausalClaimsSection
+        edgeId="edge-1"
         edgeData={{
           causal_claims: [
             { claim_type: 'empirical', statement: 'No source claim' },

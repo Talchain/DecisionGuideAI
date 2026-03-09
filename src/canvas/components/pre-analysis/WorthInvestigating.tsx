@@ -7,12 +7,13 @@
  * Phase 2B: Pre-analysis enrichment (Task 4b).
  */
 
-import { memo, useEffect, useState } from 'react'
+import { memo, useEffect, useRef, useState } from 'react'
 import { ChevronDown, ChevronRight, Search } from 'lucide-react'
 import { typography } from '../../../styles/typography'
-import { trackEvent } from '../../../lib/posthog'
 import { useHighlightContext } from '../../highlighting/HighlightContext'
 import { isCrossHighlightEnabled } from '../../../flags'
+import { trackGuidance } from '../../../telemetry/guidanceEvents'
+import { useCanvasStore } from '../../store'
 import type { Node, Edge } from '@xyflow/react'
 
 // ---------------------------------------------------------------------------
@@ -146,6 +147,24 @@ function GapRow({ gap, onSetValue }: { gap: EvidenceGap; onSetValue?: (id: strin
   // Works bidirectionally: panel hover or canvas hover both set hoveredElementId.
   const isHighlighted = crossHighlight && hoveredElementId === gap.factorId
 
+  // Telemetry: fire EVIDENCE_GAP_SHOWN and FIX_SHOWN once per factorId on first render
+  const shownRef = useRef(false)
+  useEffect(() => {
+    if (shownRef.current) return
+    shownRef.current = true
+    const state = useCanvasStore.getState()
+    const basePayload = {
+      item_id: gap.factorId,
+      surface: 'pre_analysis' as const,
+      scenario_id: state.currentScenarioId ?? undefined,
+      profile_stage: (state.currentStage ?? undefined) as 'frame' | 'ideate' | 'evaluate' | 'decide' | undefined,
+    }
+    trackGuidance('EVIDENCE_GAP_SHOWN', { ...basePayload, item_type: 'evidence_gap' })
+    if (onSetValue) {
+      trackGuidance('FIX_SHOWN', { ...basePayload, item_id: `set_value_${gap.factorId}`, item_type: 'fix' })
+    }
+  }, [gap.factorId, onSetValue])
+
   // Cleanup on unmount: prevent stale highlight if component is removed while hovered.
   useEffect(() => {
     if (!crossHighlight) return
@@ -154,8 +173,26 @@ function GapRow({ gap, onSetValue }: { gap: EvidenceGap; onSetValue?: (id: strin
     }
   }, [crossHighlight, setHoveredFromPanel])
 
+  const handleTechniqueClick = () => {
+    const state = useCanvasStore.getState()
+    trackGuidance('EVIDENCE_GAP_TECHNIQUE_CLICKED', {
+      item_id: gap.factorId,
+      item_type: 'evidence_gap',
+      surface: 'pre_analysis',
+      scenario_id: state.currentScenarioId ?? undefined,
+      profile_stage: (state.currentStage ?? undefined) as 'frame' | 'ideate' | 'evaluate' | 'decide' | undefined,
+    })
+  }
+
   const handleClick = () => {
-    trackEvent('fix_shown', { fix_id: `set_value_${gap.factorId}` })
+    const state = useCanvasStore.getState()
+    trackGuidance('FIX_CLICKED', {
+      item_id: `set_value_${gap.factorId}`,
+      item_type: 'fix',
+      surface: 'pre_analysis',
+      scenario_id: state.currentScenarioId ?? undefined,
+      profile_stage: (state.currentStage ?? undefined) as 'frame' | 'ideate' | 'evaluate' | 'decide' | undefined,
+    })
     onSetValue?.(gap.factorId)
   }
 
@@ -175,9 +212,13 @@ function GapRow({ gap, onSetValue }: { gap: EvidenceGap; onSetValue?: (id: strin
       </p>
 
       {gap.techniqueSuggestion && (
-        <span className={`${typography.panelMeta} text-info border border-info/30 bg-transparent px-1.5 py-0.5 rounded-full inline-block`}>
+        <button
+          type="button"
+          onClick={handleTechniqueClick}
+          className={`${typography.panelMeta} text-info border border-info/30 bg-transparent px-1.5 py-0.5 rounded-full inline-block cursor-pointer hover:bg-info/5 transition-colors`}
+        >
           Try: {gap.techniqueSuggestion}
-        </span>
+        </button>
       )}
 
       {onSetValue && (

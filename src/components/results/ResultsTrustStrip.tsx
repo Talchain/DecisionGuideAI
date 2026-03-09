@@ -9,7 +9,7 @@
 
 import { memo } from 'react'
 import { typography } from '../../styles/typography'
-import { trackEvent } from '../../lib/posthog'
+import { trackGuidance } from '../../telemetry/guidanceEvents'
 
 export interface ResultsTrustStripProps {
   nSamples?: number | null
@@ -45,7 +45,11 @@ export const ResultsTrustStrip = memo(function ResultsTrustStrip({
   if (parts.length === 0) return null
 
   const handleClick = () => {
-    trackEvent('trust_strip_link_clicked')
+    trackGuidance('TRUST_STRIP_CLICKED', {
+      item_id: 'trust_strip',
+      item_type: 'trust',
+      surface: 'results',
+    })
     onViewModelDetails?.()
   }
 

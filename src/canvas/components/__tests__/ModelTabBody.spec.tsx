@@ -25,6 +25,8 @@ vi.mock('../../utils/focusHelpers', () => ({
   focusEdgeById: vi.fn(),
 }))
 
+vi.mock('../../../telemetry/guidanceEvents', () => ({ trackGuidance: vi.fn() }))
+
 const mockUpdateNode = vi.fn()
 const mockUpdateEdge = vi.fn()
 let mockCeePipelineTrace: unknown = null
@@ -32,17 +34,24 @@ let mockCeePipelineTrace: unknown = null
 const mockSetHighlightedNodes = vi.fn()
 const mockSetHighlightedEdges = vi.fn()
 
+function getMockState() {
+  return {
+    updateNode: mockUpdateNode,
+    updateEdge: mockUpdateEdge,
+    ceePipelineTrace: mockCeePipelineTrace,
+    highlightedNodes: new Set<string>(),
+    highlightedEdges: new Set<string>(),
+    setHighlightedNodes: mockSetHighlightedNodes,
+    setHighlightedEdges: mockSetHighlightedEdges,
+    currentScenarioId: null,
+    currentStage: null,
+  }
+}
+
 vi.mock('../../store', () => ({
-  useCanvasStore: vi.fn((selector: (s: any) => any) =>
-    selector({
-      updateNode: mockUpdateNode,
-      updateEdge: mockUpdateEdge,
-      ceePipelineTrace: mockCeePipelineTrace,
-      highlightedNodes: new Set<string>(),
-      highlightedEdges: new Set<string>(),
-      setHighlightedNodes: mockSetHighlightedNodes,
-      setHighlightedEdges: mockSetHighlightedEdges,
-    })
+  useCanvasStore: Object.assign(
+    vi.fn((selector: (s: any) => any) => selector(getMockState())),
+    { getState: getMockState },
   ),
 }))
 

@@ -28,6 +28,8 @@ import { UncertaintyBand } from '../shared/UncertaintyBand'
 import type { InspectorPanelProps } from '../types'
 import { isCausalClaimsEnabled } from '../../../../flags'
 import { extractCausalClaims, claimTypeLabel } from '../../../adapters/causalClaimsAdapter'
+import { trackGuidance } from '../../../../telemetry/guidanceEvents'
+import { useCanvasStore } from '../../../store'
 
 // ─── Slider component for confidence and uncertainty ───────────────
 function InspectorSlider({
@@ -289,7 +291,7 @@ export const EdgePanel = memo(function EdgePanel({
 
           {/* §10.5b Scientific basis — causal claims from pipeline */}
           {isCausalClaimsEnabled() && (
-            <CausalClaimsSection edgeData={edge.data as Record<string, unknown>} />
+            <CausalClaimsSection edgeId={edge.id} edgeData={edge.data as Record<string, unknown>} />
           )}
 
           {/* §10.6 Fragility — only when edge in robustness.fragile_edges */}
@@ -344,12 +346,24 @@ export const EdgePanel = memo(function EdgePanel({
 const MAX_CLAIMS_VISIBLE = 3
 
 /** @internal Exported for testing only */
-export function CausalClaimsSection({ edgeData }: { edgeData: Record<string, unknown> }) {
+export function CausalClaimsSection({ edgeId, edgeData }: { edgeId: string; edgeData: Record<string, unknown> }) {
   const claims = useMemo(() => extractCausalClaims(edgeData), [edgeData])
   const [expanded, setExpanded] = useState(false)
 
   const visible = expanded ? claims : claims.slice(0, MAX_CLAIMS_VISIBLE)
   const remaining = claims.length - MAX_CLAIMS_VISIBLE
+
+  const handleExpand = () => {
+    setExpanded(true)
+    const state = useCanvasStore.getState()
+    trackGuidance('CAUSAL_CLAIM_EXPANDED', {
+      item_id: edgeId,
+      item_type: 'claim',
+      surface: 'inspector',
+      scenario_id: state.currentScenarioId ?? undefined,
+      profile_stage: (state.currentStage ?? undefined) as 'frame' | 'ideate' | 'evaluate' | 'decide' | undefined,
+    })
+  }
 
   return (
     <>
@@ -378,7 +392,7 @@ export function CausalClaimsSection({ edgeData }: { edgeData: Record<string, unk
           {remaining > 0 && !expanded && (
             <button
               type="button"
-              onClick={() => setExpanded(true)}
+              onClick={handleExpand}
               className={`${typography.panelMeta} text-info hover:underline inline-flex items-center gap-1`}
             >
               and {remaining} more
