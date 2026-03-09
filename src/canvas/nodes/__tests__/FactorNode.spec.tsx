@@ -418,18 +418,19 @@ describe('FactorNode', () => {
     expect(container.querySelector('.bg-factor')).toBeNull()
   })
 
-  // P5: Estimated badge uses neutral colours (bg-panel-hover text-text-light, not orange)
-  it('estimated badge uses text-text-light not text-warning (P5)', () => {
+  // P5: Estimated badge is outlined pill (bg-panel + border-warning/30 + text-text-body, not filled orange)
+  it('estimated badge uses outlined pill style (P5)', () => {
     renderFactor({
       label: 'Salary',
       type: 'factor',
       observedState: { value: 0.5, extractionType: 'inferred' },
     })
     const badge = screen.getByText('estimated')
-    expect(badge.className).toContain('text-text-light')
+    expect(badge.className).toContain('text-text-body')
     expect(badge.className).not.toContain('text-warning')
-    expect(badge.className).toContain('bg-panel-hover')
+    expect(badge.className).toContain('bg-panel')
     expect(badge.className).not.toContain('bg-warning-light')
+    expect(badge.className).not.toContain('bg-panel-hover')
   })
 
   // V1: Incomplete factor (no value) must use factor stone border, not goal yellow

@@ -33,6 +33,8 @@ interface BaseNodeProps extends NodeProps {
   children?: ReactNode
   maxWidth?: number
   headerSlot?: ReactNode
+  /** Override border colour + style classes (e.g. 'border-info border-dashed'). Replaces entity colour. */
+  borderClassOverride?: string
 }
 
 /**
@@ -40,7 +42,7 @@ interface BaseNodeProps extends NodeProps {
  * Includes connection handles and accessibility attributes
  * Click chevron icon to expand/collapse description
  */
-export const BaseNode = memo(({ id, nodeType, icon: Icon, data, selected, children, maxWidth, headerSlot }: BaseNodeProps) => {
+export const BaseNode = memo(({ id, nodeType, icon: Icon, data, selected, children, maxWidth, headerSlot, borderClassOverride }: BaseNodeProps) => {
   const label = data?.label || 'Untitled'
   const description = data?.description
 
@@ -174,7 +176,7 @@ export const BaseNode = memo(({ id, nodeType, icon: Icon, data, selected, childr
       {...(isIncomplete ? { 'data-testid': nodeType === 'goal' ? 'overlay-missing-threshold-node' : 'overlay-missing-value' } : {})}
       className={`
         relative rounded-lg ${borderWidth} shadow-1
-        ${isIncomplete ? (nodeType === 'goal' ? 'border-goal border-dashed' : `${colors.border} border-dashed`) : `${colors.border} ${borderStyle}`}
+        ${isIncomplete ? (nodeType === 'goal' ? 'border-goal border-dashed' : `${colors.border} border-dashed`) : borderClassOverride ?? `${colors.border} ${borderStyle}`}
         transition-all duration-200
         cursor-default
         ${selected ? 'ring-2 ring-info ring-offset-2' : ''}

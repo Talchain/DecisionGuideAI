@@ -141,7 +141,7 @@ export const FactorNode = memo((props: NodeProps) => {
 
         {/* Intervention highlight when option hovered */}
         {isAffectedByHover && (
-          <div className={`${typography.nodeTitle} text-info mb-1 bg-info-light px-1.5 py-0.5 rounded border border-info/30`}>
+          <div className={`${typography.nodeTitle} text-info mb-1 bg-panel px-1.5 py-0.5 rounded border border-info/30`}>
             Intervention: {formatInterventionValue(interventionValue, observedState?.unit, observedState?.factor_type, observedState?.cap)}
           </div>
         )}
@@ -156,7 +156,7 @@ export const FactorNode = memo((props: NodeProps) => {
             )}
             {isInferred && (
               <span
-                className={`${typography.nodeLabel} bg-panel-hover text-text-light rounded-full px-1.5 py-0.5`}
+                className={`${typography.nodeLabel} bg-panel border border-warning/30 text-text-body rounded-full px-1.5 py-0.5`}
                 title="Estimated by Olumi — verify or update"
               >
                 estimated

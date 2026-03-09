@@ -99,7 +99,7 @@ export const OptionNode = memo((props: NodeProps) => {
               </span>
               <span className={`${typography.nodeLabel} text-text-light`}>win probability</span>
               {isRecommended && (
-                <span className={`${typography.nodeLabel} bg-success-light text-text-body rounded-full px-1.5 py-0.5 ml-auto`}>
+                <span className={`${typography.nodeLabel} bg-panel border border-success/30 text-text-body rounded-full px-1.5 py-0.5 ml-auto`}>
                   Recommended
                 </span>
               )}

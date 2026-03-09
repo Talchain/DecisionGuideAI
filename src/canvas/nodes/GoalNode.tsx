@@ -43,8 +43,19 @@ export const GoalNode = memo((props: NodeProps) => {
   // Prefer report-level stability over displayMetadata fallback
   const stabilityValue = robustnessData?.stability ?? displayMetadata.stabilityPercentage
 
+  // §11.3: Goal node border reflects confidence/stability level (post-analysis only)
+  // high → solid goal (default, no override), moderate → info dashed, low → danger dashed
+  const goalBorderOverride = useMemo(() => {
+    if (!robustnessData) return undefined
+    switch (robustnessData.level) {
+      case 'moderate': return 'border-info border-dashed'
+      case 'low':      return 'border-danger border-dashed'
+      default:         return undefined // high or unknown → entity colour, solid
+    }
+  }, [robustnessData])
+
   return (
-    <BaseNode {...props} nodeType="goal" icon={metadata.icon}>
+    <BaseNode {...props} nodeType="goal" icon={metadata.icon} borderClassOverride={goalBorderOverride}>
       {/* Achievement probability */}
       {displayMetadata.achievementProbability !== null && (
         <div className={`${typography.nodeTitle} mb-1 text-success`}>
@@ -61,7 +72,7 @@ export const GoalNode = memo((props: NodeProps) => {
               {Math.round(stabilityValue * 100)}%
             </span>
             {stabilityValue < 0.6 && (
-              <span className={`${typography.nodeLabel} bg-warning-light text-text-body rounded-full px-1.5 py-0.5 ml-auto`}>
+              <span className={`${typography.nodeLabel} bg-panel border border-warning/30 text-text-body rounded-full px-1.5 py-0.5 ml-auto`}>
                 Marginal
               </span>
             )}

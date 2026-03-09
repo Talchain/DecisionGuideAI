@@ -363,7 +363,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
               padding: '2px 6px',
               borderRadius: '4px',
             }}
-            className={`${isDark ? 'bg-warning/90 text-warning' : 'bg-panel text-text-body'} border border-warning/30 shadow-sm`}
+            className="bg-panel text-text-body border border-warning/30 shadow-sm"
             title="Sensitive assumption - outcome may flip if this relationship changes"
           >
             <AlertTriangle size={12} />
