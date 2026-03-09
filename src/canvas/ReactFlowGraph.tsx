@@ -398,19 +398,11 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
   const [draggingNodeIds, setDraggingNodeIds] = useState<Set<string>>(new Set())
   const [isDragging, setIsDragging] = useState(false)
   const [showCommandPalette, setShowCommandPalette] = useState(false)
-  const [showFullInspector, setShowFullInspectorRaw] = useState(false)
+  const [showFullInspector, setShowFullInspector] = useState(false)
 
-  // Wrapper: when inspector opens, signal dock to collapse
-  const setShowFullInspector = useCallback((show: boolean) => {
-    setShowFullInspectorRaw(show)
-    if (show) {
-      window.dispatchEvent(new Event('inspector-panel-opened'))
-    }
-  }, [])
-
-  // Mutual exclusion: close inspector when OutputsDock opens
+  // Close inspector when OutputsDock opens
   useEffect(() => {
-    const handleDockOpened = () => setShowFullInspectorRaw(false)
+    const handleDockOpened = () => setShowFullInspector(false)
     window.addEventListener('outputs-dock-opened', handleDockOpened)
     return () => window.removeEventListener('outputs-dock-opened', handleDockOpened)
   }, [])

@@ -172,14 +172,6 @@ export function OutputsDock() {
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps -- one-time init guard
 
-  // Mutual exclusion: collapse dock when inspector panel opens
-  useEffect(() => {
-    const handleInspectorOpened = () => {
-      setState(prev => (prev.isOpen ? { ...prev, isOpen: false } : prev))
-    }
-    window.addEventListener('inspector-panel-opened', handleInspectorOpened)
-    return () => window.removeEventListener('inspector-panel-opened', handleInspectorOpened)
-  }, [setState])
 
   // Phase 1A.5: Debug controls visibility (Shift+D shortcut)
   const { showDebug } = useDebugShortcut()
