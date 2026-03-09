@@ -37,12 +37,19 @@ function saveDebugVisibility(visible: boolean): void {
 }
 
 /**
- * Hook for debug controls visibility with Shift+D toggle
+ * Hook for debug controls visibility with Shift+D toggle.
+ * Only registers the keyboard listener in development builds.
+ * In production builds this is a no-op that always returns false.
  */
 export function useDebugShortcut() {
-  const [showDebug, setShowDebug] = useState<boolean>(loadDebugVisibility)
+  const [showDebug, setShowDebug] = useState<boolean>(
+    import.meta.env.DEV ? loadDebugVisibility : false
+  )
 
   useEffect(() => {
+    // Production builds: no debug shortcut
+    if (!import.meta.env.DEV) return
+
     const handleKeyDown = (event: KeyboardEvent) => {
       // Shift+D to toggle debug controls
       if (event.shiftKey && event.key === 'D') {
