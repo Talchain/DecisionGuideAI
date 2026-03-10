@@ -40,7 +40,7 @@ export function useResultsRun(): UseResultsRunReturn {
     if (options?.forceRerun) {
       seed = seed + 1
       if (import.meta.env.DEV) {
-        console.log('[useResultsRun] Force re-run: seed bumped from', request.seed, 'to', seed)
+        console.warn('[useResultsRun] Force re-run: seed bumped from', request.seed, 'to', seed)
       }
     }
 
