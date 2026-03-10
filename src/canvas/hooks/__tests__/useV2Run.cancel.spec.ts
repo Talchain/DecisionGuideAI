@@ -9,6 +9,7 @@ import { describe, it, expect, beforeEach, vi, type Mock } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
 import { useV2Run } from '../useV2Run'
 import { useCanvasStore } from '../../store'
+import { useResultsStore } from '../../stores/resultsStore'
 
 // Mock the V2 adapter module — only executeV2RunWithAnalysisReady is called by the hook
 vi.mock('../../../adapters/plot/v2', async (importOriginal) => {
@@ -72,10 +73,60 @@ function setupMinimalCanvasState() {
   } as any)
 }
 
+function makeSuccessfulV2Response(overrides: Record<string, unknown> = {}) {
+  return {
+    analysis_status: 'computed',
+    option_comparison_status: 'computed',
+    robustness_status: 'computed',
+    drivers_status: 'computed',
+    option_comparison: [
+      {
+        option_id: 'opt_a',
+        option_label: 'Option A',
+        confidence_interval: [0.3, 0.7],
+        win_probability: 0.65,
+        expected_outcome: 1.2,
+      },
+      {
+        option_id: 'opt_b',
+        option_label: 'Option B',
+        confidence_interval: [0.2, 0.6],
+        win_probability: 0.35,
+        expected_outcome: 0.8,
+      },
+    ],
+    critiques: [],
+    drivers: [
+      { node_id: 'fac-1', label: 'Revenue growth', contribution: 0.45, direction: 'positive' },
+    ],
+    robustness: {
+      fragile_edges: [],
+      robust_edges: ['e1'],
+      recommendation_stability: 0.82,
+    },
+    response_hash: 'hash-success',
+    meta: {
+      seed_used: '42',
+      n_samples: 10000,
+      detail_level: 'deep',
+      latency_ms: 1200,
+    },
+    ...overrides,
+  } as any
+}
+
 describe('useV2Run cancel behavior', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     setupMinimalCanvasState()
+    useResultsStore.setState({
+      results: {
+        status: 'idle',
+        progress: 0,
+        analysisSummary: { stale: true } as any,
+        lastSnapshotId: undefined,
+      },
+    } as any)
   })
 
   it('calls resultsCancelled (not resultsError) when cancelRun() is invoked', async () => {
@@ -258,5 +309,20 @@ describe('useV2Run cancel behavior', () => {
     // Hook settled without error; resetAnalysisStatus was attempted
     expect(mockResetAnalysisStatus).toHaveBeenCalledTimes(1)
     expect(useCanvasStore.getState().results.status).toBe('cancelled')
+  })
+
+  it('clears stale summary on start and refreshes it on successful V2 completion', async () => {
+    mockExecute.mockResolvedValue(makeSuccessfulV2Response())
+
+    const { result } = renderHook(() => useV2Run())
+
+    await act(async () => {
+      await result.current.runV2Analysis()
+    })
+
+    const summary = useResultsStore.getState().results.analysisSummary
+    expect(summary).not.toBeNull()
+    expect(summary?.recommendation.option_id).toBe('opt_a')
+    expect(summary?.run_metadata.seed).toBe('42')
   })
 })

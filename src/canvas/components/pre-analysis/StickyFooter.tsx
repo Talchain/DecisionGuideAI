@@ -43,6 +43,8 @@ interface StickyFooterProps {
   isAnalysing: boolean
   /** Click handler for analyse button */
   onAnalyse: () => void
+  /** Human-readable reason when Analyse is blocked */
+  blockedReason?: string
   /** Whether CEE data is still loading */
   isLoading?: boolean
   /** Whether retry draft is available (blocked due to incomplete draft) */
@@ -67,6 +69,7 @@ export function StickyFooter({
   blockerCount,
   isAnalysing,
   onAnalyse,
+  blockedReason,
   isLoading = false,
   canRetryDraft = false,
   isRetrying = false,
@@ -184,12 +187,12 @@ export function StickyFooter({
               : isAnalysing
                 ? 'Analysis in progress'
                 : hasBlockers
-                  ? 'Fix issues before analysing'
+                  ? `Fix issues before analysing${blockedReason ? `: ${blockedReason}` : ''}`
                   : !isReady
-                    ? 'Analysis not ready'
+                    ? `Analysis not ready${blockedReason ? `: ${blockedReason}` : ''}`
                     : 'Run analysis'
           }
-          title={isDisabled && !isAnalysing && !isLoading && !isRetrying ? 'Complete required actions before analysing' : undefined}
+          title={isDisabled && !isAnalysing && !isLoading && !isRetrying ? (blockedReason || 'Complete required actions before analysing') : undefined}
         >
           {(isAnalysing || isRetrying) && <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />}
           {buttonLabel}

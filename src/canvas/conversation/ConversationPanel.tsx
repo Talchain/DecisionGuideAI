@@ -253,15 +253,6 @@ export const ConversationPanel = memo(function ConversationPanel({
     useCanvasStore.getState().setShowInspectorPanel(true)
   }, [])
 
-  useEffect(() => {
-    const sendChipByLabelMessage = (label: string, message: string) =>
-      sendChip({ id: `evidence-apply-${Date.now()}`, label, message, intent: 'primary' })
-    useGuidanceStore.getState().registerConversationCallbacks(sendMessage, handleScrollToPatch, sendChipByLabelMessage)
-    return () => {
-      useGuidanceStore.setState({ _sendMessage: null, _sendChip: null, _scrollToPatch: null })
-    }
-  }, [sendMessage, handleScrollToPatch, sendChip])
-
   // ── Unified run gating (mirrors OutputsDock) ─────────────────────────
   const resultsStatus = useCanvasStore(selectResultsStatus)
   const graphHealth = useCanvasStore((s) => s.graphHealth)
@@ -287,6 +278,20 @@ export const ConversationPanel = memo(function ConversationPanel({
     if (!runGateResult.allowed) return
     sendMessage('run it', { hidden: true, debugSource: 'right_panel_action' })
   }, [sendMessage, runGateResult.allowed])
+
+  useEffect(() => {
+    const sendChipByLabelMessage = (label: string, message: string) =>
+      sendChip({ id: `evidence-apply-${Date.now()}`, label, message, intent: 'primary' })
+    useGuidanceStore.getState().registerConversationCallbacks(
+      sendMessage,
+      handleScrollToPatch,
+      sendChipByLabelMessage,
+      handleRunAnalysis,
+    )
+    return () => {
+      useGuidanceStore.setState({ _sendMessage: null, _runAnalysis: null, _sendChip: null, _scrollToPatch: null })
+    }
+  }, [sendMessage, handleScrollToPatch, sendChip, handleRunAnalysis])
 
   const handleInsertText = useCallback((text: string) => {
     composerRef.current?.replaceText(text)

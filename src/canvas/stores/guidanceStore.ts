@@ -56,6 +56,8 @@ export interface GuidanceState {
   inspectorDeepLinkField: string | null
   /** Registered by ConversationPanel so inspector actions can send messages */
   _sendMessage: ((text: string) => void) | null
+  /** Registered by ConversationPanel so cross-surface Analyse CTAs can trigger the hidden run path */
+  _runAnalysis: (() => void) | null
   /** Registered by ConversationPanel so evidence blocks can send chip-style turns (display/submitted separation) */
   _sendChip: ((label: string, message: string) => void) | null
   /** Registered by ConversationPanel so inspector actions can scroll to a patch block */
@@ -74,6 +76,7 @@ export interface GuidanceActions {
     sendMessage: (text: string) => void,
     scrollToPatch: (patchId: string) => void,
     sendChip?: (label: string, message: string) => void,
+    runAnalysis?: () => void,
   ) => void
   /**
    * Evict items whose valid_while hashes no longer match the current state.
@@ -103,6 +106,7 @@ const initialGuidanceState: GuidanceState = {
   activeGuidanceItemId: null,
   inspectorDeepLinkField: null,
   _sendMessage: null,
+  _runAnalysis: null,
   _sendChip: null,
   _scrollToPatch: null,
 }
@@ -130,8 +134,13 @@ export const useGuidanceStore = create<GuidanceState & GuidanceActions>((set, ge
     set({ activeGuidanceItemId: itemId })
   },
 
-  registerConversationCallbacks: (sendMessage, scrollToPatch, sendChip) => {
-    set({ _sendMessage: sendMessage, _scrollToPatch: scrollToPatch, _sendChip: sendChip ?? null })
+  registerConversationCallbacks: (sendMessage, scrollToPatch, sendChip, runAnalysis) => {
+    set({
+      _sendMessage: sendMessage,
+      _runAnalysis: runAnalysis ?? null,
+      _scrollToPatch: scrollToPatch,
+      _sendChip: sendChip ?? null,
+    })
   },
 
   evictStaleItems: ({ currentAnalysisHash, graphChanged = false }) => {

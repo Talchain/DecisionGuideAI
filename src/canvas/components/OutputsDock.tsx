@@ -80,6 +80,7 @@ import { useScenario } from '../../hooks/useScenario'
 import { focusNodeById, focusEdgeById } from '../utils/focusHelpers'
 import { buildFragileEdgeIdSet, buildRobustEdgeIdSet, getDisplayEdgeId } from '../utils/edgeIdentity'
 import { NON_EVIDENCE_PROVENANCE } from '../utils/evidenceCoverage'
+import { useShowToast } from '../ToastContext'
 import { LensContainer } from './LensContainer'
 import { ModelTabBody } from './ModelTabBody'
 import { JourneyTabBody } from '../journey/JourneyTabBody'
@@ -162,6 +163,7 @@ const OUTPUT_TABS: { id: OutputsDockTab; label: string }[] = [
 
 export function OutputsDock() {
   const prefersReducedMotion = usePrefersReducedMotion()
+  const showToast = useShowToast()
   const [state, setState] = useDockState<OutputsDockState>(STORAGE_KEY, {
     isOpen: true,
     activeTab: 'results',
@@ -181,6 +183,9 @@ export function OutputsDock() {
   // Phase 2 Sprint 1B: Slow-run UX feedback (20s/40s thresholds)
   const [slowRunMessage, setSlowRunMessage] = useState<string | null>(null)
   const runStartTimeRef = useRef<number | null>(null)
+  const runAnalysisRetryTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const runAnalysisRetryAnimationFrameRef = useRef<number | null>(null)
+  const runAnalysisRetryCancelledRef = useRef(false)
 
   // M6: Comparison prompt state (dismissed persists in sessionStorage)
   const [comparisonDismissed, setComparisonDismissed] = useState<boolean>(() => {
@@ -237,6 +242,7 @@ export function OutputsDock() {
   const setShowIssuesPanel = useCanvasStore(s => s.setShowIssuesPanel)
   const setShowResultsPanel = useCanvasStore(s => s.setShowResultsPanel)
   const setShowComparePanel = useCanvasStore(s => s.setShowComparePanel)
+  const setShowDraftChat = useCanvasStore(s => s.setShowDraftChat)
   const setHighlightedNodes = useCanvasStore(s => s.setHighlightedNodes)
   const applyAutoFixChanges = useCanvasStore(s => s.applyAutoFixChanges)
   // P0 Results Brief: Store actions for Status Quo baseline creation
@@ -431,8 +437,34 @@ export function OutputsDock() {
     })
   }, [resultsStatus, nodes, edges, graphHealth, runMeta?.degraded, error?.message, comparison.optionNodes.length, comparison.canCompare, report?.drivers_payload, report?.confidence?.level])
 
+  const dispatchConversationRunAnalysis = useCallback(() => {
+    const runAnalysis = useGuidanceStore.getState()._runAnalysis
+    if (runAnalysis) {
+      runAnalysis()
+      return true
+    }
+    return false
+  }, [])
+
+  const clearPendingRunAnalysisRetry = useCallback(() => {
+    runAnalysisRetryCancelledRef.current = true
+    if (runAnalysisRetryTimeoutRef.current !== null) {
+      clearTimeout(runAnalysisRetryTimeoutRef.current)
+      runAnalysisRetryTimeoutRef.current = null
+    }
+    if (runAnalysisRetryAnimationFrameRef.current !== null) {
+      cancelAnimationFrame(runAnalysisRetryAnimationFrameRef.current)
+      runAnalysisRetryAnimationFrameRef.current = null
+    }
+  }, [])
+
+  useEffect(() => () => {
+    clearPendingRunAnalysisRetry()
+  }, [clearPendingRunAnalysisRetry])
+
   // Handle Run button click
   const handleRunAnalysis = useCallback(async () => {
+    clearPendingRunAnalysisRetry()
     if (!canRunAnalysis) return
     // P0.8: Track run started
     trackRunStarted({
@@ -441,7 +473,7 @@ export function OutputsDock() {
       edge_count: edges.length,
     })
     // P0: Log graph used for observability
-    console.info('[GRAPH_USED_FOR_RUN]', {
+    console.warn('[GRAPH_USED_FOR_RUN]', {
       node_count: nodes.length,
       edge_count: edges.length,
       option_count: comparison.optionNodes.length,
@@ -450,9 +482,36 @@ export function OutputsDock() {
     // P0-UI: Use V2 adapter (gets nodes, edges, outcomeNodeId from store).
     // Skip direct run when orchestratorV2 is on and legacyDirectRun is off
     // (mirrors the gate in CanvasToolbar so both entry points behave identically).
-    if (isOrchestratorV2Enabled() && !isLegacyDirectRunEnabled()) return
+    if (isOrchestratorV2Enabled() && !isLegacyDirectRunEnabled()) {
+      if (dispatchConversationRunAnalysis()) return
+
+      runAnalysisRetryCancelledRef.current = false
+      setShowDraftChat(true)
+      let attempts = 0
+      const MAX_ATTEMPTS = 20
+      const tryDispatch = () => {
+        if (runAnalysisRetryCancelledRef.current) return
+        if (dispatchConversationRunAnalysis()) {
+          runAnalysisRetryCancelledRef.current = true
+          runAnalysisRetryTimeoutRef.current = null
+          return
+        }
+        attempts += 1
+        if (attempts < MAX_ATTEMPTS) {
+          runAnalysisRetryTimeoutRef.current = setTimeout(tryDispatch, 50)
+          return
+        }
+        clearPendingRunAnalysisRetry()
+        showToast('Could not start analysis. Open the AI panel and try again.', 'warning')
+      }
+      runAnalysisRetryAnimationFrameRef.current = requestAnimationFrame(() => {
+        runAnalysisRetryAnimationFrameRef.current = null
+        tryDispatch()
+      })
+      return
+    }
     await runV2Analysis()
-  }, [canRunAnalysis, runV2Analysis, framing, nodes, edges, comparison.optionNodes.length])
+  }, [canRunAnalysis, runV2Analysis, framing, nodes, edges, comparison.optionNodes.length, dispatchConversationRunAnalysis, setShowDraftChat, clearPendingRunAnalysisRetry, showToast])
 
   // M6: Handle comparison prompt dismissal
   const handleDismissComparison = useCallback(() => {
@@ -514,7 +573,7 @@ export function OutputsDock() {
     // Invalidate CEE analysis ready cache so next run re-extracts options
     setCeeAnalysisReady(null)
 
-    console.info('[OutputsDock] Added Status Quo baseline option:', newNode.id)
+    console.warn('[OutputsDock] Added Status Quo baseline option:', newNode.id)
   }, [nodes, addNode, updateNode, addEdge, setCeeAnalysisReady])
 
   // P2 Task 1: Handle threshold change and trigger re-run
@@ -1229,6 +1288,7 @@ export function OutputsDock() {
                     <PreAnalysisPanel
                       onAnalyse={handleRunAnalysis}
                       isAnalysing={isRunning}
+                      blockedReason={runBlockedTooltip}
                     />
                   </div>
                 )}

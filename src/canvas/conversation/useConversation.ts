@@ -587,6 +587,11 @@ export function useConversation(): UseConversationReturn {
     (text: string, opts?: { clientTurnId?: string }): OrchestratorTurnRequest => {
       const store = useCanvasStore.getState()
       const { nodeIds, edgeIds } = store.selection
+      const latestAnalysisHash = store.results.hash ?? store.currentScenarioLastResultHash ?? null
+      const hasCompletedAnalysis = store.results.status === 'complete' && latestAnalysisHash !== null
+      const analysisSummary = hasCompletedAnalysis
+        ? useResultsStore.getState().results.analysisSummary ?? undefined
+        : undefined
 
       // Dev assertion: full graph must include structural fields (kind on nodes,
       // strength/weight on edges). Catches accidental compact-form regression.
@@ -669,12 +674,10 @@ export function useConversation(): UseConversationReturn {
           edges: ceeEdges,
         },
         analysis_state: {
-          has_results: store.results.status === 'complete',
-          last_run_hash: store.currentScenarioLastResultHash,
+          has_results: hasCompletedAnalysis,
+          last_run_hash: hasCompletedAnalysis ? latestAnalysisHash : null,
           // BIL Phase 1: include assembled analysis summary when available (always-on)
-          ...(useResultsStore.getState().results.analysisSummary
-            ? { analysis_summary: useResultsStore.getState().results.analysisSummary }
-            : {}),
+          ...(analysisSummary ? { analysis_summary: analysisSummary } : {}),
         },
         selected_elements:
           nodeIds.size > 0 || edgeIds.size > 0

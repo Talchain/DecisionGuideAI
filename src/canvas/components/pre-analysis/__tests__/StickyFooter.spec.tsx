@@ -175,4 +175,17 @@ describe('StickyFooter — reviewed count tooltip (source distribution)', () => 
     fireEvent.mouseEnter(trigger)
     expect(screen.getByRole('tooltip')).toHaveTextContent('All values from your brief')
   })
+
+  it('uses the shared blocked reason for the disabled Analyse CTA tooltip', () => {
+    render(
+      <StickyFooter
+        {...baseProps}
+        isReady={false}
+        blockedReason="Select a goal node before running analysis"
+      />,
+    )
+
+    const button = screen.getByRole('button', { name: /analysis not ready/i })
+    expect(button).toHaveAttribute('title', 'Select a goal node before running analysis')
+  })
 })

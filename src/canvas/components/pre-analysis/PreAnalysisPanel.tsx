@@ -90,11 +90,14 @@ interface PreAnalysisPanelProps {
   onAnalyse: () => void
   /** Whether analysis is currently running */
   isAnalysing?: boolean
+  /** Shared blocked reason for the Analyse CTA */
+  blockedReason?: string
 }
 
 export function PreAnalysisPanel({
   onAnalyse,
   isAnalysing = false,
+  blockedReason,
 }: PreAnalysisPanelProps) {
   // Get all panel data from hook (includes derived progress counts)
   const data = usePreAnalysisData()
@@ -788,6 +791,7 @@ export function PreAnalysisPanel({
         blockerCount={data.blockerCount}
         isAnalysing={isAnalysing}
         onAnalyse={onAnalyse}
+        blockedReason={blockedReason}
         isLoading={data.isLoading}
         canRetryDraft={canRetryDraft}
         isRetrying={isRetrying}

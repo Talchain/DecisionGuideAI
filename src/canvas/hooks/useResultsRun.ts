@@ -1,5 +1,6 @@
 import { useCallback, useRef } from 'react'
 import { useCanvasStore } from '../store'
+import { useResultsStore } from '../stores/resultsStore'
 import { plot } from '../../adapters/plot'
 import type { RunRequest, ErrorV1, ReportV1 } from '../../adapters/plot/types'
 import { generateIdempotencyKey, isCeeIdempotencyEnabled } from '../../utils/idempotency'
@@ -45,6 +46,7 @@ export function useResultsRun(): UseResultsRunReturn {
 
     // Start preparing
     resultsStart({ seed, wasForced: options?.forceRerun })
+    useResultsStore.getState().setAnalysisSummary(null)
 
     // Reset run metadata for new run
     setRunMeta({

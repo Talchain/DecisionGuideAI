@@ -11,6 +11,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
 import { useConversation } from '../useConversation'
 import { useCanvasStore } from '../../store'
+import { useResultsStore } from '../../stores/resultsStore'
 
 // ---------------------------------------------------------------------------
 // Mocks
@@ -39,6 +40,14 @@ vi.mock('../turnService', () => ({
 beforeEach(() => {
   vi.useFakeTimers()
   mockCallTurn.mockReset()
+  useResultsStore.setState({
+    results: {
+      status: 'idle',
+      progress: 0,
+      analysisSummary: undefined,
+      lastSnapshotId: undefined,
+    },
+  } as any)
 
   // Minimal store state the hook reads
   useCanvasStore.setState({
@@ -397,6 +406,52 @@ describe('buildRequest payload — RF → CEE graph_state transform', () => {
     expect(request.analysis_state).toEqual({
       has_results: false,
       last_run_hash: null,
+    })
+  })
+
+  it('includes the fresh compact post-analysis context on the next normal turn', async () => {
+    const analysisSummary = {
+      contract_version: '1.0.0',
+      recommendation: { option_id: 'opt_a', option_label: 'Option A', win_probability: 0.65 },
+      options: [
+        { id: 'opt_a', label: 'Option A', win_probability: 0.65 },
+        { id: 'opt_b', label: 'Option B', win_probability: 0.35 },
+      ],
+      top_drivers: [
+        { factor_id: 'f1', factor_label: 'Revenue growth', elasticity: 0.45 },
+      ],
+      sensitivity_concentration: 0.45,
+      confidence_band: 'high',
+      robustness: { level: 'robust', recommendation_stability: 0.82 },
+      constraints_status: [],
+      run_metadata: {
+        seed: '42',
+        quality_mode: 'deep',
+        timestamp: '2025-01-01T00:00:00.000Z',
+      },
+    } as const
+
+    useCanvasStore.setState({
+      results: { status: 'complete', hash: 'hash-fresh' } as any,
+      currentScenarioLastResultHash: 'hash-stale',
+    })
+    useResultsStore.getState().setAnalysisSummary(analysisSummary as any)
+
+    mockCallTurn.mockResolvedValue({
+      assistant_text: 'Follow-up acknowledged',
+      client_turn_id: 'resp-followup',
+    })
+
+    const { result } = renderHook(() => useConversation())
+    await act(async () => {
+      await result.current.sendMessage('What should I do next?')
+    })
+
+    const request = mockCallTurn.mock.calls[0][0]
+    expect(request.analysis_state).toEqual({
+      has_results: true,
+      last_run_hash: 'hash-fresh',
+      analysis_summary: analysisSummary,
     })
   })
 

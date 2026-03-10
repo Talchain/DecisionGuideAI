@@ -7,6 +7,7 @@
 
 import { useCallback, useRef, useState } from 'react'
 import { useCanvasStore } from '../store'
+import { useResultsStore } from '../stores/resultsStore'
 import type { Node, Edge } from '@xyflow/react'
 import { getEdgeKey } from '../domain/edgeUtils'
 import {
@@ -38,6 +39,7 @@ import type { M1Review, M1Coaching } from '../../types/cee'
 import { useGateStore, updateRobustnessGate, updateRobustnessGateFromV2 } from '../../lib/gate-state'
 import { buildRawErrorData, hashStackTrace } from '../../utils/payloadRedaction'
 import { extractM1ReviewFromV2, extractM1CoachingFromV2 } from '../../hooks/hydrateAnalysis'
+import { assembleAnalysisInputsSummary } from '../analysis/assembleAnalysisInputsSummary'
 
 /**
  * P0 Fix: Derive a stable numeric seed from a string.
@@ -228,6 +230,7 @@ export function useV2Run(persistence?: V2RunPersistence): UseV2RunReturn {
 
     // Signal run start
     resultsStart({ seed })
+    useResultsStore.getState().setAnalysisSummary(null)
 
     // Reset run metadata
     setRunMeta({
@@ -516,6 +519,12 @@ export function useV2Run(persistence?: V2RunPersistence): UseV2RunReturn {
           ceeReviewV1,
           ceeTraceV1,
         })
+
+        try {
+          useResultsStore.getState().setAnalysisSummary(assembleAnalysisInputsSummary(successResult))
+        } catch {
+          useResultsStore.getState().setAnalysisSummary(null)
+        }
 
         // C.1b: Persist analysis results to Supabase (non-blocking)
         if (persistence) {

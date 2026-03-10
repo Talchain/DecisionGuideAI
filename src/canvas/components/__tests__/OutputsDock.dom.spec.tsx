@@ -1,29 +1,39 @@
  import { describe, it, expect, beforeEach, vi } from 'vitest'
- import '@testing-library/jest-dom/vitest'
- import { render, screen, fireEvent, act } from '@testing-library/react'
- import { OutputsDock } from '../OutputsDock'
- import { useCanvasStore } from '../../store'
- import { STORAGE_KEY as RUN_HISTORY_STORAGE_KEY, type StoredRun } from '../../store/runHistory'
- import { __resetTelemetryCounters, __getTelemetryCounters } from '../../../lib/telemetry'
+import '@testing-library/jest-dom/vitest'
+import { render, screen, fireEvent, act } from '@testing-library/react'
+import { OutputsDock } from '../OutputsDock'
+import { useCanvasStore } from '../../store'
+import { STORAGE_KEY as RUN_HISTORY_STORAGE_KEY, type StoredRun } from '../../store/runHistory'
+import { __resetTelemetryCounters, __getTelemetryCounters } from '../../../lib/telemetry'
+import { useGuidanceStore } from '../../stores/guidanceStore'
 
- // Mock react-router-dom (useScenario calls useNavigate)
- vi.mock('react-router-dom', async (importOriginal) => {
-   const actual = await importOriginal<typeof import('react-router-dom')>()
-   return {
-     ...actual,
-     useNavigate: vi.fn(() => vi.fn()),
-   }
- })
+const mockIsDecisionReviewEnabled = vi.fn(() => true)
+const mockIsOrchestratorV2Enabled = vi.fn(() => false)
+const mockIsLegacyDirectRunEnabled = vi.fn(() => true)
+const mockUseV2Run = vi.fn(() => ({ runV2Analysis: vi.fn(), cancelRun: vi.fn() }))
 
- // Mock flags module with all required exports
- vi.mock('../../../flags', () => ({
-   isDecisionReviewEnabled: vi.fn(() => true),
-   isTelemetryEnabled: () => true,
-   isCompareEnabled: () => true,
-   isOrchestratorV2Enabled: () => false,
-   isLegacyDirectRunEnabled: () => true,
-   isJourneyTabEnabled: vi.fn(() => false),
- }))
+// Mock react-router-dom (useScenario calls useNavigate)
+vi.mock('react-router-dom', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('react-router-dom')>()
+  return {
+    ...actual,
+    useNavigate: vi.fn(() => vi.fn()),
+  }
+})
+
+// Mock flags module with all required exports
+vi.mock('../../../flags', () => ({
+  isDecisionReviewEnabled: mockIsDecisionReviewEnabled,
+  isTelemetryEnabled: () => true,
+  isCompareEnabled: () => true,
+  isOrchestratorV2Enabled: mockIsOrchestratorV2Enabled,
+  isLegacyDirectRunEnabled: mockIsLegacyDirectRunEnabled,
+  isJourneyTabEnabled: vi.fn(() => false),
+}))
+
+vi.mock('../../hooks/useV2Run', () => ({
+  useV2Run: (...args: unknown[]) => mockUseV2Run(...args),
+}))
 
 function ensureMatchMedia() {
   if (typeof window.matchMedia !== 'function') {
@@ -62,6 +72,19 @@ describe('OutputsDock DOM', () => {
       currentScenarioLastResultHash: null,
       hasCompletedFirstRun: false,
     } as any)
+    useGuidanceStore.setState({
+      guidanceItems: [],
+      activeGuidanceItemId: null,
+      inspectorDeepLinkField: null,
+      _sendMessage: null,
+      _runAnalysis: null,
+      _sendChip: null,
+      _scrollToPatch: null,
+    })
+    mockIsDecisionReviewEnabled.mockReturnValue(true)
+    mockIsOrchestratorV2Enabled.mockReturnValue(false)
+    mockIsLegacyDirectRunEnabled.mockReturnValue(true)
+    mockUseV2Run.mockReturnValue({ runV2Analysis: vi.fn(), cancelRun: vi.fn() })
 
     // Reset the flag mock to default (true) before each test
     const { isDecisionReviewEnabled } = await import('../../../flags')
@@ -225,6 +248,35 @@ describe('OutputsDock DOM', () => {
     // has graph: { nodes, edges } in its runAnalysis call
     // Since mocking useResultsRun changes module state, we verify the component renders correctly
     expect(runButton).toHaveTextContent('Run')
+  })
+
+  it('routes Analyse through the shared hidden conversation path in orchestrator-v2 mode', () => {
+    const runViaConversation = vi.fn()
+    const runV2Analysis = vi.fn()
+
+    mockIsOrchestratorV2Enabled.mockReturnValue(true)
+    mockIsLegacyDirectRunEnabled.mockReturnValue(false)
+    mockUseV2Run.mockReturnValue({ runV2Analysis, cancelRun: vi.fn() })
+
+    useCanvasStore.setState({
+      nodes: [
+        { id: 'goal-1', type: 'goal', data: { label: 'Goal', kind: 'goal' }, position: { x: 0, y: 0 } },
+        { id: 'factor-1', type: 'factor', data: { label: 'Factor', kind: 'factor' }, position: { x: 100, y: 0 } },
+      ],
+      edges: [{ id: 'e1', source: 'factor-1', target: 'goal-1', data: { weight: 0.7, direction: 'positive' } }],
+      graphHealth: { status: 'healthy', score: 100, issues: [] },
+      ceeAnalysisReady: { goal_node_id: 'goal-1', options: [{ id: 'opt-a', label: 'Option A', interventions: {} }] },
+      hasCompletedFirstRun: false,
+      results: { status: 'idle' } as any,
+    } as any)
+    useGuidanceStore.setState({ _runAnalysis: runViaConversation } as any)
+
+    render(<OutputsDock />)
+
+    fireEvent.click(screen.getByTestId('outputs-run-button'))
+
+    expect(runViaConversation).toHaveBeenCalledTimes(1)
+    expect(runV2Analysis).not.toHaveBeenCalled()
   })
 
   it('auto-switches back to Results tab when results become active', () => {
