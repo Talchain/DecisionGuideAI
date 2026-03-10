@@ -73,10 +73,10 @@ export function DraftChat() {
     return 676 // default width (30% increase from 520)
   })
 
-  // Panel height state (persisted to localStorage, clamped to 120px–60vh)
+  // Panel height state (persisted to localStorage, clamped to 120px – 90vh)
   const DEFAULT_PANEL_HEIGHT = 864
   const [panelHeight, setPanelHeight] = useState<number>(() => {
-    const maxH = typeof window !== 'undefined' ? Math.floor(window.innerHeight * 0.6) : 864
+    const maxH = typeof window !== 'undefined' ? Math.floor(window.innerHeight * 0.9) : 864
     if (typeof localStorage !== 'undefined') {
       const stored = localStorage.getItem(DRAFT_PANEL_HEIGHT_KEY)
       if (stored) {
@@ -730,7 +730,7 @@ export function DraftChat() {
 
     const startY = event.clientY
     const startHeight = panelHeight
-    const maxH = Math.floor(window.innerHeight * 0.6)
+    const maxH = Math.floor(window.innerHeight * 0.9)
 
     let latestHeight = startHeight
 
@@ -755,7 +755,7 @@ export function DraftChat() {
 
   // Double-click drag handle → reset to default height
   const handleHeightDoubleClick = useCallback(() => {
-    const maxH = typeof window !== 'undefined' ? Math.floor(window.innerHeight * 0.6) : DEFAULT_PANEL_HEIGHT
+    const maxH = typeof window !== 'undefined' ? Math.floor(window.innerHeight * 0.9) : DEFAULT_PANEL_HEIGHT
     const resetHeight = Math.min(DEFAULT_PANEL_HEIGHT, maxH)
     setPanelHeight(resetHeight)
     try {
@@ -942,7 +942,7 @@ export function DraftChat() {
           </>
           )
         ) : (
-          <div className="flex flex-col rounded-[20px] border border-sand-200 shadow-2 overflow-hidden relative" style={{ backgroundColor: '#FEFEFE', height: panelHeight, maxHeight: '80vh' }} data-chat-panel="">
+          <div className="flex flex-col rounded-[20px] border border-sand-200 shadow-2 overflow-clip relative" style={{ backgroundColor: '#FEFEFE', height: panelHeight, maxHeight: '90vh' }} data-chat-panel="">
             {/* Drag handle — visible grip at top edge for height resize */}
             <div
               aria-hidden="true"

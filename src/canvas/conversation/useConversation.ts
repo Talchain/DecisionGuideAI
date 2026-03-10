@@ -939,14 +939,20 @@ export function useConversation(): UseConversationReturn {
 
       // Synchronous in-flight lock — prevents duplicate dispatch from rapid
       // clicks before React re-renders the isThinking state guard.
-      if (inFlightRef.current) return
+      if (inFlightRef.current) {
+        if (import.meta.env.DEV) console.warn('[sendTurn] Blocked by in-flight lock (rapid double-click?)')
+        return
+      }
       inFlightRef.current = true
 
       // Generate or reuse a stable client_turn_id for idempotent retry
       const turnClientId = retryClientTurnId ?? crypto.randomUUID()
 
       if (mode === 'user') {
-        if (!message.trim() || isThinking) { inFlightRef.current = false; return }
+        if (!message.trim() || isThinking) {
+          if (import.meta.env.DEV) console.warn('[sendTurn] Blocked:', !message.trim() ? 'empty message' : 'isThinking=true')
+          inFlightRef.current = false; return
+        }
 
         // Hidden sends (e.g. "run it") must not pollute user-facing recovery state
         if (!hidden) {
@@ -968,7 +974,10 @@ export function useConversation(): UseConversationReturn {
         // System events: no user bubble, but still guard against concurrent sends.
         // Note: '[system]' sentinel turns must be excluded when conversation persistence
         // is implemented. They are infrastructure turns, not user content.
-        if (isThinking) { inFlightRef.current = false; return }
+        if (isThinking) {
+          if (import.meta.env.DEV) console.warn('[sendTurn] System event blocked: isThinking=true')
+          inFlightRef.current = false; return
+        }
       }
 
       // Start thinking state
@@ -1118,6 +1127,8 @@ export function useConversation(): UseConversationReturn {
       if (chip.message) {
         // Show chip.label in conversation bubble, send chip.message to orchestrator
         await sendTurn({ message: chip.message, displayText: chip.label, mode: 'user' })
+      } else if (import.meta.env.DEV) {
+        console.warn('[sendChip] Chip clicked but has no message field — no-op:', chip)
       }
     },
     [sendTurn, addMessage],

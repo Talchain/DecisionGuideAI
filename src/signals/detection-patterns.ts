@@ -153,6 +153,7 @@ export const METRIC_TOKENS: string[] = [
   'uptime',
   'latency',
   'satisfaction',
+  'productivity',
 ]
 
 // ---------------------------------------------------------------------------

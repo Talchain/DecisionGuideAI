@@ -10,6 +10,7 @@
 
 import { describe, it, expect } from 'vitest'
 import { detectGoal } from '../hooks/useBriefSignals'
+import { extractRealtimeSignals } from '../../../signals/realtime-signals'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // detectGoal (exported for testing)
@@ -69,6 +70,33 @@ describe('detectGoal', () => {
       'My goal is: reach £20k MRR',
     ].join('\n')
     expect(detectGoal(filled)).toBe(true)
+  })
+})
+
+// ─────────────────────────────────────────────────────────────────────────────
+// "Should I [verb] X or Y" — natural two-option framing
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('detectAlternative — verb-before-or only', () => {
+  it('detects options in "Should I hire a Tech lead or two developers"', () => {
+    const signals = extractRealtimeSignals('Should I hire a Tech lead or two developers to increase productivity?')
+    expect(signals.has_alternative).toBe(true)
+  })
+
+  it('detects options in "Should we build in-house or outsource"', () => {
+    const signals = extractRealtimeSignals('Should we build in-house or outsource this feature?')
+    expect(signals.has_alternative).toBe(true)
+  })
+})
+
+// ─────────────────────────────────────────────────────────────────────────────
+// "productivity" as a metric token
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('detectMeasurableOutcome — productivity token', () => {
+  it('detects metric when productivity is mentioned with a number', () => {
+    const signals = extractRealtimeSignals('We want to increase productivity by 20%')
+    expect(signals.has_measurable_outcome).toBe(true)
   })
 })
 

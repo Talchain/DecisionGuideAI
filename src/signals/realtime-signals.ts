@@ -143,12 +143,20 @@ function detectAlternative(text: string): boolean {
 
   // Stage B: "or"-joined verb phrases (verb ... or ... verb)
   // Match patterns like "raise prices or stay", "expand or consolidate"
+  // Also matches "Should I hire X or Y" where the verb only appears before "or".
   const COMMON_VERBS = /\b(?:raise|lower|stay|keep|expand|consolidate|hire|fire|build|buy|sell|launch|delay|invest|cut|grow|move|wait|switch|change|continue|stop|start|merge|split|enter|exit|close|open|adopt|drop|partner|acquire|outsource|insource|pivot|scale|downsize|upgrade|maintain|replace|retain|remove)\b/i
   const orParts = lower.split(/\bor\b/)
   if (orParts.length >= 2) {
     const hasVerbBefore = COMMON_VERBS.test(orParts[0])
     const hasVerbAfter = orParts.slice(1).some(part => COMMON_VERBS.test(part))
     if (hasVerbBefore && hasVerbAfter) return true
+    // "Should I [verb] X or Y" — verb governs both sides; Y need not repeat a verb.
+    // Guard: if the verb is followed by a preposition + article ("for the", "in the",
+    // "to the"), the "or" is splitting noun modifiers inside one prepositional object
+    // rather than two distinct alternatives (e.g. "hire for the sales or marketing team").
+    const VERB_PREP_ARTICLE = /\b(?:hire|build|buy|sell|invest|move|partner|acquire|outsource|insource|replace|retain|remove)\b[^.!?]*\b(?:for|in|to|at|on|from|into|with|of)\s+(?:the|a|an)\b/i
+    if (hasVerbBefore && orParts.length === 2 && orParts[1].trim().length > 0
+        && !VERB_PREP_ARTICLE.test(orParts[0])) return true
   }
 
   return false
