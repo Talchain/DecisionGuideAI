@@ -22,7 +22,7 @@ export interface GuidanceTargetObject {
 
 export type GuidanceAction =
   | { type: 'approve_patch'; operations: Record<string, unknown>[] }
-  | { type: 'open_inspector'; node_id: string }
+  | { type: 'open_inspector'; node_id: string; field?: string }
   | { type: 'discuss'; prompt: string }
   | { type: 'run_exercise'; exercise: 'pre_mortem' | 'devil_advocate' | 'disconfirmation' }
   | { type: 'navigate'; target: string }
@@ -52,8 +52,12 @@ export interface GuidanceItem {
 export interface GuidanceState {
   guidanceItems: GuidanceItem[]
   activeGuidanceItemId: string | null
+  /** Task 3: Deep-link field target for inspector scroll-to-field */
+  inspectorDeepLinkField: string | null
   /** Registered by ConversationPanel so inspector actions can send messages */
   _sendMessage: ((text: string) => void) | null
+  /** Registered by ConversationPanel so evidence blocks can send chip-style turns (display/submitted separation) */
+  _sendChip: ((label: string, message: string) => void) | null
   /** Registered by ConversationPanel so inspector actions can scroll to a patch block */
   _scrollToPatch: ((patchId: string) => void) | null
 }
@@ -69,6 +73,7 @@ export interface GuidanceActions {
   registerConversationCallbacks: (
     sendMessage: (text: string) => void,
     scrollToPatch: (patchId: string) => void,
+    sendChip?: (label: string, message: string) => void,
   ) => void
   /**
    * Evict items whose valid_while hashes no longer match the current state.
@@ -96,7 +101,9 @@ export interface GuidanceActions {
 const initialGuidanceState: GuidanceState = {
   guidanceItems: [],
   activeGuidanceItemId: null,
+  inspectorDeepLinkField: null,
   _sendMessage: null,
+  _sendChip: null,
   _scrollToPatch: null,
 }
 
@@ -123,8 +130,8 @@ export const useGuidanceStore = create<GuidanceState & GuidanceActions>((set, ge
     set({ activeGuidanceItemId: itemId })
   },
 
-  registerConversationCallbacks: (sendMessage, scrollToPatch) => {
-    set({ _sendMessage: sendMessage, _scrollToPatch: scrollToPatch })
+  registerConversationCallbacks: (sendMessage, scrollToPatch, sendChip) => {
+    set({ _sendMessage: sendMessage, _scrollToPatch: scrollToPatch, _sendChip: sendChip ?? null })
   },
 
   evictStaleItems: ({ currentAnalysisHash, graphChanged = false }) => {

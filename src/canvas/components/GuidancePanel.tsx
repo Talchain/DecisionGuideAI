@@ -111,13 +111,17 @@ export function GuidancePanel() {
     }
 
     // 2. Validation issues from graphHealth
+    // Task 6: Humanize validation codes — convert SNAKE_CASE to readable titles
     if (graphHealth?.issues) {
       for (const issue of graphHealth.issues) {
+        const rawTitle = issue.title || (issue.code ? issue.code.replace(/_/g, ' ') : 'Validation issue')
+        // Capitalize first letter, lowercase rest for a clean sentence-case title
+        const title = rawTitle.charAt(0).toUpperCase() + rawTitle.slice(1).toLowerCase()
         items.push({
           id: `validation-${issue.code || 'unknown'}-${issue.nodeId || issue.edgeId || 'global'}`,
           type: 'validation',
           severity: mapValidationSeverity(issue.severity),
-          title: issue.title || (issue.code ? issue.code.replace(/_/g, ' ') : 'Validation issue'),
+          title,
           message: issue.message || 'A validation issue was detected',
           affectedNodes: issue.nodeId ? [issue.nodeId] : undefined,
           affectedEdges: issue.edgeId ? [issue.edgeId] : undefined,
@@ -143,7 +147,7 @@ export function GuidancePanel() {
                   label: item.suggested_action,
                   onClick: () => {
                     // Weight application would be handled here
-                    console.log('[GuidancePanel] Apply weight:', item)
+                    if (import.meta.env.DEV) console.warn('[GuidancePanel] Apply weight:', item)
                   },
                 }
               : undefined,
@@ -160,7 +164,10 @@ export function GuidancePanel() {
           id: `bias-${bias.code || bias.type || 'unknown'}`,
           type: 'bias',
           severity: mapBiasSeverity(bias.severity || 'info'),
-          title: (bias.code || bias.type || 'Cognitive bias').replace(/_/g, ' '),
+          title: (() => {
+            const raw = (bias.code || bias.type || 'Cognitive bias').replace(/_/g, ' ')
+            return raw.charAt(0).toUpperCase() + raw.slice(1).toLowerCase()
+          })(),
           message: bias.message || bias.description || 'A potential bias was detected in your model',
           affectedNodes: bias.affected_node_ids,
           microIntervention: bias.micro_intervention
@@ -230,13 +237,13 @@ export function GuidancePanel() {
   if (allGuidance.length === 0) {
     return (
       <div className="p-12 text-center">
-        <CheckCircle className="h-12 w-12 text-mint-500 mx-auto mb-3" aria-hidden="true" />
-        <h3 className={`${typography.h4} text-ink-900 mb-1`}>Looking good!</h3>
-        <p className={`${typography.body} text-ink-600`}>
+        <CheckCircle className="h-12 w-12 text-success mx-auto mb-3" aria-hidden="true" />
+        <h3 className={`${typography.h4} text-text-body mb-1`}>Looking good!</h3>
+        <p className={`${typography.body} text-text-secondary`}>
           No issues detected in your model.
         </p>
         {nodes.length === 0 && (
-          <p className={`${typography.caption} text-ink-500 mt-2`}>
+          <p className={`${typography.caption} text-text-light mt-2`}>
             Add some nodes to get started.
           </p>
         )}
@@ -253,7 +260,7 @@ export function GuidancePanel() {
       tabIndex={0}
       onKeyDown={handleKeyDown}
     >
-      <div className={`${typography.caption} text-ink-500 mb-2`}>
+      <div className={`${typography.caption} text-text-light mb-2`}>
         {allGuidance.length} item{allGuidance.length !== 1 ? 's' : ''} to review
         <span className="sr-only">. Use arrow keys to navigate, Enter to focus on canvas.</span>
       </div>
@@ -264,7 +271,7 @@ export function GuidancePanel() {
           role="option"
           aria-selected={focusedIndex === index}
           tabIndex={focusedIndex === index ? 0 : -1}
-          className={focusedIndex === index ? 'ring-2 ring-sky-500 ring-offset-2 rounded-xl' : ''}
+          className={focusedIndex === index ? 'ring-2 ring-info/60 ring-offset-2 rounded-xl' : ''}
           onFocus={() => setFocusedIndex(index)}
         >
           <GuidanceCard item={item} onClick={() => handleFocusItem(item)} />

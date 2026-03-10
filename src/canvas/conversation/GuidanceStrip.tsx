@@ -12,6 +12,7 @@ import { useGuidanceStore, selectTopItem, type GuidanceItem, type GuidanceAction
 import styles from './Conversation.module.css'
 import { trackGuidance, type GuidanceEventPayload } from '../../telemetry/guidanceEvents'
 import { useCanvasStore } from '../store'
+import { scrollToField } from './utils/scrollToField'
 
 const FOCUS_DEBOUNCE_MS = 150
 
@@ -182,7 +183,14 @@ export const GuidanceStrip = memo(function GuidanceStrip({
 
     switch (action.type) {
       case 'open_inspector':
+        // Task 3: Store deep-link field target before opening inspector
+        if (action.field) {
+          useGuidanceStore.setState({ inspectorDeepLinkField: action.field })
+        }
         onOpenInspector(action.node_id)
+        if (action.field) {
+          scrollToField(action.field)
+        }
         break
       case 'discuss':
         onSendMessage(action.prompt)

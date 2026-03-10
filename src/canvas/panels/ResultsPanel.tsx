@@ -46,6 +46,7 @@ import { Tooltip } from '../components/Tooltip'
 import { useEngineLimits } from '../hooks/useEngineLimits'
 import { deriveLimitsStatus } from '../utils/limitsStatus'
 import { useRunEligibilityCheck } from '../hooks/useRunEligibilityCheck'
+import { canRunAnalysis as canRunAnalysisUtil, getRunButtonTooltip } from '../utils/canRunAnalysis'
 import { trackCompareOpened } from '../utils/sandboxTelemetry'
  import { typography } from '../../styles/typography'
  import { buildHealthStrings } from '../utils/graphHealthStrings'
@@ -100,6 +101,21 @@ import { trackCompareOpened } from '../utils/sandboxTelemetry'
   const [isRunning, setIsRunning] = useState(false)
   const [validationErrors, setValidationErrors] = useState<ValidationError[]>([])
   const [validationViolations, setValidationViolations] = useState<ValidationError[]>([]) // v1.2: coaching warnings
+
+  // Unified run gate — same function used by ConversationPanel and OutputsDock
+  const ceeAnalysisReady = useCanvasStore(s => s.ceeAnalysisReady)
+  const hasValidationBlockers = graphHealth?.issues?.some(
+    (i: { severity: string }) => i.severity === 'error' || i.severity === 'blocker'
+  ) ?? false
+  const runGateResult = canRunAnalysisUtil({
+    graphHealth: graphHealth ?? null,
+    readiness: ceeAnalysisReady ? { can_run_analysis: true, readiness_level: 'strong', confidence_explanation: '' } : null,
+    hasBlockers: hasValidationBlockers,
+    nodeCount: nodes.length,
+    isRunning,
+  })
+  const unifiedRunAllowed = runGateResult.allowed
+  const unifiedRunTooltip = getRunButtonTooltip(runGateResult)
 
   // Tab state
   const [activeTab, setActiveTab] = useState<TabId>('latest')
@@ -222,8 +238,9 @@ import { trackCompareOpened } from '../utils/sandboxTelemetry'
   }, [hash, showToast])
 
   const handleRunAnalysis = useCallback(async () => {
-    const eligibility = checkRunEligibility()
-    if (!eligibility.canRun) {
+    // Unified gate — same check used by ChatTopBar and OutputsDock
+    if (!unifiedRunAllowed) {
+      checkRunEligibility() // call for toast side-effect only
       return
     }
 
@@ -273,7 +290,7 @@ import { trackCompareOpened } from '../utils/sandboxTelemetry'
     } finally {
       setIsRunning(false)
     }
-  }, [limits, run, formatErrors, showToast, outcomeNodeId, nodes, edges])
+  }, [limits, run, formatErrors, showToast, outcomeNodeId, nodes, edges, unifiedRunAllowed, checkRunEligibility])
 
   if (!isOpen) return null
 
@@ -661,16 +678,14 @@ import { trackCompareOpened } from '../utils/sandboxTelemetry'
                     </p>
                     <Tooltip
                       content={
-                        nodes.length === 0
-                          ? 'Add nodes to canvas to run analysis'
-                          : isRunning
+                        isRunning
                           ? 'Analysis in progress...'
-                          : 'Run analysis on current graph'
+                          : unifiedRunTooltip ?? 'Run analysis on current graph'
                       }
                     >
                       <button
                         onClick={handleRunAnalysis}
-                        disabled={nodes.length === 0 || isRunning}
+                        disabled={!unifiedRunAllowed}
                         className={`px-6 py-3 ${typography.panelBody} font-medium text-text-on-color bg-info rounded-lg hover:bg-info/90 transition-colors focus:outline-none focus:ring-2 focus:ring-info focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2`}
                       >
                         {isRunning ? (

@@ -15,6 +15,7 @@ import {
   type GuidanceAction,
 } from '../../stores/guidanceStore'
 import { useCanvasStore } from '../../store'
+import { scrollToField } from '../../conversation/utils/scrollToField'
 
 const MAX_VISIBLE = 2
 const FOCUS_DEBOUNCE_MS = 150
@@ -227,12 +228,19 @@ export const InspectorGuidanceSection = memo(function InspectorGuidanceSection({
         sendMsg?.(`/exercise ${action.exercise}`)
         break
       case 'open_inspector':
+        // Task 3: Store deep-link field target before opening inspector
+        if (action.field) {
+          useGuidanceStore.setState({ inspectorDeepLinkField: action.field })
+        }
         if (onOpenInspector) {
           onOpenInspector(action.node_id)
         } else {
           // Fallback: inspector is already open — just select the target node
           useCanvasStore.getState().selectNodeWithoutHistory(action.node_id)
           useCanvasStore.getState().setShowInspectorPanel(true)
+        }
+        if (action.field) {
+          scrollToField(action.field)
         }
         break
       case 'approve_patch': {

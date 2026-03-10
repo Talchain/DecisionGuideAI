@@ -89,6 +89,10 @@ export function DraftChat() {
     return Math.min(DEFAULT_PANEL_HEIGHT, maxH)
   })
 
+  // Task 2: Track whether user has manually resized this session.
+  // When false, auto-collapse to compact height after first full_draft graph generation.
+  const userHasResizedRef = useRef(false)
+
   // Track dock offset for dynamic positioning (avoid results panel overlap)
   const [dockOffset, setDockOffset] = useState(0)
 
@@ -111,6 +115,8 @@ export function DraftChat() {
   const captureErrorDetail = useCanvasStore(s => s.captureErrorDetail)
   const nodeCount = useCanvasStore(s => s.nodes.length)
   const edgeCount = useCanvasStore(s => s.edges.length)
+  // Task 2: Watch for full_draft signal (set by useConversation when ≥3 nodes added at once)
+  const fullDraftAppliedAt = useCanvasStore(s => s.fullDraftAppliedAt)
 
 
   // A.5+ Conversation mode (feature-flagged)
@@ -151,6 +157,27 @@ export function DraftChat() {
       setIsMinimized(false)
     }
   }, [showDraftChat, nodeCount, edgeCount])
+
+  // Task 2: Auto-collapse to compact height after first full_draft graph generation.
+  // Fires when useConversation signals a full_draft patch (≥3 nodes added at once),
+  // not on every incremental 0→>0 node transition.
+  const prevFullDraftAppliedAtRef = useRef(fullDraftAppliedAt)
+  useEffect(() => {
+    const prev = prevFullDraftAppliedAtRef.current
+    prevFullDraftAppliedAtRef.current = fullDraftAppliedAt
+    if (!showDraftChat || !isOrchV2) return
+    // Only fire when fullDraftAppliedAt changes to a new (non-null) value
+    if (fullDraftAppliedAt !== null && fullDraftAppliedAt !== prev && !userHasResizedRef.current && !isMinimized) {
+      const COMPACT_HEIGHT = 120
+      setPanelHeight(COMPACT_HEIGHT)
+      try {
+        localStorage.setItem(DRAFT_PANEL_HEIGHT_KEY, String(COMPACT_HEIGHT))
+      } catch {}
+      if (import.meta.env.DEV) {
+        console.info('[DraftChat] Auto-collapsed to compact height after full_draft graph generation')
+      }
+    }
+  }, [fullDraftAppliedAt, showDraftChat, isOrchV2, isMinimized])
 
   // Auto-resize expanded textarea when switching from minimized mode with content
   useEffect(() => {
@@ -706,6 +733,7 @@ export function DraftChat() {
     const handleUp = () => {
       window.removeEventListener('mousemove', handleMove)
       window.removeEventListener('mouseup', handleUp)
+      userHasResizedRef.current = true
       // Persist width to localStorage
       try {
         localStorage.setItem(DRAFT_PANEL_WIDTH_KEY, String(panelWidth))
@@ -744,6 +772,7 @@ export function DraftChat() {
     const handleUp = () => {
       window.removeEventListener('mousemove', handleMove)
       window.removeEventListener('mouseup', handleUp)
+      userHasResizedRef.current = true
       try {
         localStorage.setItem(DRAFT_PANEL_HEIGHT_KEY, String(latestHeight))
       } catch {}
@@ -752,6 +781,43 @@ export function DraftChat() {
     window.addEventListener('mousemove', handleMove)
     window.addEventListener('mouseup', handleUp)
   }, [panelHeight])
+
+  // Task 7: Corner resize — drag top-right corner to resize both width and height
+  const handleCornerResizeStart = useCallback((event: React.MouseEvent) => {
+    if (typeof window === 'undefined') return
+    event.preventDefault()
+
+    const startX = event.clientX
+    const startY = event.clientY
+    const startWidth = panelWidth
+    const startHeight = panelHeight
+    const maxH = Math.floor(window.innerHeight * 0.9)
+
+    let latestWidth = startWidth
+    let latestHeight = startHeight
+
+    const handleMove = (e: MouseEvent) => {
+      const deltaX = e.clientX - startX
+      const deltaY = startY - e.clientY // up = taller
+      latestWidth = Math.max(320, Math.min(1014, startWidth + deltaX))
+      latestHeight = Math.max(120, Math.min(maxH, startHeight + deltaY))
+      setPanelWidth(latestWidth)
+      setPanelHeight(latestHeight)
+    }
+
+    const handleUp = () => {
+      window.removeEventListener('mousemove', handleMove)
+      window.removeEventListener('mouseup', handleUp)
+      userHasResizedRef.current = true
+      try {
+        localStorage.setItem(DRAFT_PANEL_WIDTH_KEY, String(latestWidth))
+        localStorage.setItem(DRAFT_PANEL_HEIGHT_KEY, String(latestHeight))
+      } catch {}
+    }
+
+    window.addEventListener('mousemove', handleMove)
+    window.addEventListener('mouseup', handleUp)
+  }, [panelWidth, panelHeight])
 
   // Double-click drag handle → reset to default height
   const handleHeightDoubleClick = useCallback(() => {
@@ -822,6 +888,13 @@ export function DraftChat() {
           onMouseDown={handleResizeStart}
           className="absolute inset-y-0 right-0 w-1.5 cursor-col-resize bg-transparent hover:bg-sky-200/60 transition-colors z-10"
           title="Drag to resize panel"
+        />
+        {/* Task 7: Corner resize handle — top-right for diagonal resize */}
+        <div
+          aria-hidden="true"
+          onMouseDown={handleCornerResizeStart}
+          className="absolute top-0 right-0 w-3 h-3 cursor-ne-resize z-20"
+          title="Drag corner to resize"
         />
         <ThinkingModePopover
           isOpen={showSettingsPopover}

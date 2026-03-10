@@ -55,6 +55,9 @@ import type {
   OrchestratorTurnRequest,
   OrchestratorResponseEnvelopeV2,
 } from './types'
+import { computePayloadHash } from '../../lib/canonical-hash'
+import { recordRequest, recordResponse } from '../../lib/debug-state'
+import { recordRequestPayload, recordResponsePayload } from '../../lib/payload-trace-store'
 
 // In production/staging, route through Netlify edge function proxy at /bff/orchestrate
 // to avoid CORS issues (CEE backend lacks CORS on /orchestrate/* routes).
@@ -116,6 +119,7 @@ export async function callOrchestratorTurn(
   request: OrchestratorTurnRequest,
   signal?: AbortSignal,
 ): Promise<OrchestratorResponseEnvelopeV2> {
+  const startTime = Date.now()
   const controller = new AbortController()
   const timeoutId = setTimeout(() => controller.abort(), ORCHESTRATOR_TIMEOUT_MS)
 
@@ -125,6 +129,23 @@ export async function callOrchestratorTurn(
     : controller.signal
 
   const requestBody = JSON.stringify(request)
+  const requestId = request.client_turn_id
+  const payloadHash = await computePayloadHash(request)
+
+  recordRequest({
+    requestId,
+    endpoint: ORCHESTRATOR_URL,
+    method: 'POST',
+    payloadHash,
+  })
+
+  recordRequestPayload({
+    id: requestId,
+    endpoint: ORCHESTRATOR_URL,
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: request,
+  })
 
   // Log request diagnostics (shape only — no user content)
   console.warn(LOG_PREFIX, 'Request', {
@@ -147,6 +168,25 @@ export async function callOrchestratorTurn(
       const text = await response.text().catch(() => '')
       let body: unknown
       try { body = text ? JSON.parse(text) : {} } catch { body = { raw: text } }
+      const elapsedMs = Math.max(1, Date.now() - startTime)
+
+      recordResponse(requestId, {
+        status: response.status,
+        elapsedMs,
+        error: typeof (body as Record<string, unknown>)?.error === 'object'
+          ? String(((body as Record<string, unknown>).error as Record<string, unknown>)?.message ?? response.statusText)
+          : String((body as Record<string, unknown>)?.message ?? response.statusText),
+      })
+      recordResponsePayload({
+        id: requestId,
+        status: response.status,
+        headers: Object.fromEntries(response.headers.entries()),
+        body,
+        duration: elapsedMs,
+        error: typeof (body as Record<string, unknown>)?.message === 'string'
+          ? (body as Record<string, unknown>).message as string
+          : response.statusText,
+      })
 
       // Log full error response — this is critical for debugging 400s
       console.error(LOG_PREFIX, `Error ${response.status}`, {
@@ -177,6 +217,20 @@ export async function callOrchestratorTurn(
     }
 
     const envelope = (await response.json()) as OrchestratorResponseEnvelopeV2
+    const elapsedMs = Math.max(1, Date.now() - startTime)
+
+    recordResponse(requestId, {
+      status: response.status,
+      elapsedMs,
+      error: undefined,
+    })
+    recordResponsePayload({
+      id: requestId,
+      status: response.status,
+      headers: Object.fromEntries(response.headers.entries()),
+      body: envelope,
+      duration: elapsedMs,
+    })
 
     console.warn(LOG_PREFIX, 'Response OK', {
       status: response.status,
@@ -193,6 +247,20 @@ export async function callOrchestratorTurn(
 
     // Network / timeout errors
     const isTimeout = (err as Error).name === 'AbortError'
+    const elapsedMs = Math.max(1, Date.now() - startTime)
+    recordResponse(requestId, {
+      status: 0,
+      elapsedMs,
+      error: (err as Error).message,
+    })
+    recordResponsePayload({
+      id: requestId,
+      status: 0,
+      headers: {},
+      body: null,
+      duration: elapsedMs,
+      error: (err as Error).message,
+    })
     console.error(LOG_PREFIX, isTimeout ? 'Timeout' : 'Network error', {
       url: ORCHESTRATOR_URL,
       error: (err as Error).message,

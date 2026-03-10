@@ -64,6 +64,7 @@ import { PreAnalysisHealth } from './PreAnalysisHealth'
 import { PreAnalysisPanel } from './pre-analysis'
 import { usePreRunValidation } from '../hooks/usePreRunValidation'
 import { usePreAnalysisData } from './pre-analysis/hooks/usePreAnalysisData'
+import { canRunAnalysis as canRunAnalysisUtil, getRunButtonTooltip } from '../utils/canRunAnalysis'
 import { ActionsSignal } from './ActionsSignal'
 import { WarningBanner } from './WarningBanner'
 import { DegradedStateBanner } from './DegradedStateBanner'
@@ -380,9 +381,21 @@ export function OutputsDock() {
 
   const isRunning = resultsStatus === 'preparing' || resultsStatus === 'connecting' || resultsStatus === 'streaming'
 
-  // Unified run eligibility: canonical readiness from usePreAnalysisData AND pre-run validation
-  // P0-UI-6: Added preRunValidation.canRun check
-  const canRunAnalysis = preAnalysisReadiness.isReady && preRunValidation.canRun && !isRunning
+  // Unified run gating — same function used by ConversationPanel/ChatTopBar.
+  // Reads ceeAnalysisReady directly from store (snapshot) to avoid prop threading.
+  const ceeAnalysisReady = useCanvasStore(s => s.ceeAnalysisReady)
+  const hasValidationBlockers = useCanvasStore(s =>
+    s.graphHealth?.issues?.some((i: { severity: string }) => i.severity === 'error' || i.severity === 'blocker') ?? false
+  )
+  const runGateResult = canRunAnalysisUtil({
+    graphHealth: graphHealth ?? null,
+    readiness: ceeAnalysisReady ? { can_run_analysis: true, readiness_level: 'strong', confidence_explanation: '' } : null,
+    hasBlockers: hasValidationBlockers,
+    nodeCount: nodes.length,
+    isRunning,
+  })
+  const canRunAnalysis = runGateResult.allowed
+  const runBlockedTooltip = getRunButtonTooltip(runGateResult)
 
   // R3: CTA state machine for primary analysis button
   // P0.3: Enhanced with option count, driver informativeness, confidence level
@@ -1481,9 +1494,10 @@ export function OutputsDock() {
             <button
               type="button"
               onClick={handleRunAnalysis}
-              disabled={isRunning}
+              disabled={isRunning || !canRunAnalysis}
+              title={!isRunning && runBlockedTooltip ? runBlockedTooltip : undefined}
               className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-pill text-xs font-semibold transition-colors shadow-sm ${
-                isRunning
+                isRunning || !canRunAnalysis
                   ? 'bg-sand-200 text-text-light cursor-not-allowed'
                   : 'bg-info text-text-on-color hover:opacity-90'
               }`}

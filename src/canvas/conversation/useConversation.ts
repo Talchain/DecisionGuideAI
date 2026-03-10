@@ -45,6 +45,13 @@ import { applyAutoApplyPatch, synthesiseCeeAnalysisReady } from './utils/applyPa
 import { validateAnalysisReadyContract } from './validateAnalysisReadyContract'
 import { validateResponse } from './validateResponse'
 import type { CEEAnalysisReady } from '../../adapters/cee/types'
+import {
+  recordConversationRenderTrace,
+  recordCrossSurfaceEvent,
+  recordRequestContext,
+  recordResponseRepair,
+  recordUserAction,
+} from '../../lib/debug-state'
 
 /** Sentinel message content used for system events — must never render as a user bubble */
 export const SYSTEM_MESSAGE_SENTINEL = '[system]'
@@ -442,7 +449,7 @@ export interface UseConversationReturn {
   longRunningHint: string | null
   /** The user's last input text, restored on error so they can edit and resend */
   lastFailedInput: string | null
-  sendMessage: (text: string, opts?: { hidden?: boolean }) => Promise<void>
+  sendMessage: (text: string, opts?: { hidden?: boolean; debugSource?: string }) => Promise<void>
   sendSystemEvent: (event: WireSystemEvent) => Promise<void>
   sendChip: (chip: ActionChip) => Promise<void>
   clearHistory: () => void
@@ -472,6 +479,27 @@ export function useConversation(): UseConversationReturn {
   const lastUserInputRef = useRef<{ message: string; clientTurnId?: string }>({ message: '' })
 
   // Cleanup timers on unmount
+  useEffect(() => {
+    const visibleBlockCountByType = messages.reduce<Record<string, number>>((acc, message) => {
+      for (const block of message.blocks ?? []) {
+        acc[block.type] = (acc[block.type] ?? 0) + 1
+      }
+      return acc
+    }, {})
+    const visibleChipsCount = messages.reduce((sum, message) => sum + (message.actionChips?.length ?? 0), 0)
+    const timeoutOrRetryStateShown = messages.some((message) =>
+      message.synthetic === true && (message.actionChips?.some((chip) => chip.id === 'retry') ?? false)
+    )
+    recordConversationRenderTrace({
+      messagesRenderedCount: messages.length,
+      syntheticMessagesCount: messages.filter((message) => message.synthetic).length,
+      visibleChipsCount,
+      visibleBlockCountByType,
+      thinkingIndicatorShown: isThinking || longRunningHint !== null,
+      timeoutOrRetryStateShown,
+    })
+  }, [messages, isThinking, longRunningHint])
+
   useEffect(() => {
     return () => {
       clearTimeout(longRunningTimerRef.current)
@@ -663,8 +691,45 @@ export function useConversation(): UseConversationReturn {
     (envelope: OrchestratorResponseEnvelopeV2, requestId?: string) => {
       // Defensive validation: repair incomplete CEE responses before processing.
       // Non-mutating — original envelope preserved; cleaned copy used below.
-      const { cleaned } = validateResponse(envelope, requestId)
+      const rawEnvelope = envelope
+      const { cleaned, repairs } = validateResponse(envelope, requestId)
       envelope = cleaned
+      const rawBlocks = rawEnvelope.blocks ?? []
+      const rawChips = rawEnvelope.suggested_actions ?? []
+      const cleanedBlocks = envelope.blocks ?? []
+      const cleanedChips = envelope.suggested_actions ?? []
+      const renderableCount = (envelope.assistant_text?.trim().length ?? 0) > 0 || cleanedBlocks.length > 0 ? 1 : 0
+      const rawUnknownBlockTypes = rawBlocks.flatMap((block) => {
+        const type = typeof (block as Record<string, unknown>)?.block_type === 'string'
+          ? (block as Record<string, unknown>).block_type as string
+          : typeof (block as Record<string, unknown>)?.type === 'string'
+            ? (block as Record<string, unknown>).type as string
+            : null
+        return type && !['commentary', 'review_card', 'fact', 'graph_patch', 'framing', 'brief', 'model_receipt', 'evidence'].includes(type)
+          ? [type]
+          : []
+      })
+      if (requestId) {
+        recordResponseRepair({
+          requestId,
+          validatorRepairs: repairs,
+          emptyTextFallbackInjected: repairs.includes('empty_text') || repairs.includes('nothing_renderable'),
+          chipsDropped: [
+            { reason: 'missing_chip_label', count: repairs.filter((repair) => repair === 'missing_chip_label').length },
+            { reason: 'missing_chip_message', count: repairs.filter((repair) => repair === 'missing_chip_message').length },
+          ].filter((item) => item.count > 0),
+          blocksDropped: [
+            { reason: 'missing_block_type', count: repairs.filter((repair) => repair === 'missing_block_type').length },
+          ].filter((item) => item.count > 0),
+          unknownBlockTypes: [...new Set(rawUnknownBlockTypes)],
+          rawChipCount: rawChips.length,
+          cleanedChipCount: cleanedChips.length,
+          rawBlockCount: rawBlocks.length,
+          cleanedBlockCount: cleanedBlocks.length,
+          renderableCount,
+          nonRenderableCount: Math.max(0, rawBlocks.length - cleanedBlocks.length),
+        })
+      }
 
       // Update stage if provided. CEE sends either a plain string or
       // { stage, confidence, source } — extract the stage string.
@@ -706,6 +771,14 @@ export function useConversation(): UseConversationReturn {
               ceeReviewV1,
               ceeTraceV1,
               resultsSource: 'conversation',
+            })
+            recordCrossSurfaceEvent({
+              eventType: 'analysis_completed',
+              summary: 'Analysis response received and results hydrated',
+              payloadSummary: {
+                response_hash: result.response_hash,
+                source: 'conversation',
+              },
             })
 
             // BIL Phase 1: cache assembled analysis summary for subsequent turn requests.
@@ -756,14 +829,21 @@ export function useConversation(): UseConversationReturn {
           code: envelope.analysis_error.code,
           message: envelope.analysis_error.message,
         })
+        recordCrossSurfaceEvent({
+          eventType: 'analysis_blocked',
+          summary: envelope.analysis_error.message,
+          payloadSummary: {
+            code: envelope.analysis_error.code,
+          },
+        })
       }
 
       // Build action chips from suggested_actions (enforced budget)
       const chips = enforceChipBudget([], envelope.suggested_actions ?? [])
 
       // Normalise CEE blocks and apply budget priority (proposed patches first)
-      const rawBlocks = envelope.blocks ?? []
-      const normalisedBlocks = rawBlocks.map(adaptCEEBlock)
+      const responseBlocks = envelope.blocks ?? []
+      const normalisedBlocks = responseBlocks.map(adaptCEEBlock)
 
       // Dev-mode validation: catch adapter regressions before they reach the UI
       normalisedBlocks.forEach(validateAdaptedBlock)
@@ -801,6 +881,13 @@ export function useConversation(): UseConversationReturn {
             // (or synthesis fallback) matches the post-mutation graph state.
             ceeProvidedAnalysisReady = patchBlock.analysis_ready
 
+            // Task 2: Signal full_draft to DraftChat for auto-collapse.
+            // A "full draft" is a patch that adds ≥3 nodes — distinguishes initial
+            // graph generation from small incremental edits.
+            if (patchResult.addedNodeCount >= 3) {
+              useCanvasStore.getState().setFullDraftAppliedAt?.(Date.now())
+            }
+
             if (import.meta.env.DEV) {
               // eslint-disable-next-line no-console, no-restricted-syntax
               console.log('[handleEnvelope] auto-apply:', {
@@ -809,6 +896,14 @@ export function useConversation(): UseConversationReturn {
                 modified: patchResult.modifiedIds.length,
               })
             }
+            recordCrossSurfaceEvent({
+              eventType: autoApplyModifiedIds.length === 0 ? 'graph_drafted' : 'graph_edited',
+              summary: patchBlock.summary || 'Auto-applied graph patch',
+              payloadSummary: {
+                patch_id: patchBlock.patch_id,
+                operations: patchBlock.operations.length,
+              },
+            })
           } catch (patchErr) {
             if (import.meta.env.DEV) {
               console.error('[handleEnvelope] auto-apply patch failed:', patchErr)
@@ -887,6 +982,21 @@ export function useConversation(): UseConversationReturn {
         assistantText = lines.join('\n').trimEnd()
       }
 
+      // Task 4 (defensive): Intercept raw structural violation text that CEE should
+      // not send. Replace with a safe, neutral message and log for CEE-side tracking.
+      const STRUCTURAL_VIOLATION_PATTERNS = [
+        /this change would leave a node/i,
+        /cannot reach the goal/i,
+        /structural validation failed/i,
+        /would leave a node that/i,
+      ]
+      if (STRUCTURAL_VIOLATION_PATTERNS.some((p) => p.test(assistantText))) {
+        if (import.meta.env.DEV || import.meta.env.VITE_VERBOSE_LOG === 'true') {
+          console.warn('[useConversation] Task4: Suppressed raw structural violation text:', assistantText.slice(0, 200))
+        }
+        assistantText = "I wasn't able to make that change safely. Let me try a simpler approach."
+      }
+
       // Guard: skip empty assistant messages (no visible content and no blocks)
       const hasContent = assistantText.trim().length > 0
       const hasBlocks = orderedBlocks.length > 0
@@ -940,8 +1050,9 @@ export function useConversation(): UseConversationReturn {
       skipUserBubble?: boolean
       /** Reuse a previous client_turn_id for idempotent retry */
       retryClientTurnId?: string
+      source?: string
     }) => {
-      const { message, systemEvent, mode, hidden, displayText, skipUserBubble, retryClientTurnId } = opts
+      const { message, systemEvent, mode, hidden, displayText, skipUserBubble, retryClientTurnId, source } = opts
 
       // Synchronous in-flight lock — prevents duplicate dispatch from rapid
       // clicks before React re-renders the isThinking state guard.
@@ -962,6 +1073,17 @@ export function useConversation(): UseConversationReturn {
 
         // Hidden sends (e.g. "run it") must not pollute user-facing recovery state
         if (!hidden) {
+          recordUserAction({
+            actionType: source === 'chip'
+              ? 'clicked chip'
+              : source === 'retry'
+                ? 'clicked retry'
+                : 'sent chat message',
+            payloadSummary: {
+              display_text: displayText ?? message,
+              raw_message: message,
+            },
+          })
           lastUserInputRef.current = { message, clientTurnId: turnClientId }
           setLastFailedInput(null)
 
@@ -975,6 +1097,13 @@ export function useConversation(): UseConversationReturn {
               timestamp: new Date(),
             })
           }
+        } else if (source === 'right_panel_action') {
+          recordUserAction({
+            actionType: 'clicked run analysis',
+            payloadSummary: {
+              raw_message: message,
+            },
+          })
         }
       } else {
         // System events: no user bubble, but still guard against concurrent sends.
@@ -1030,6 +1159,16 @@ export function useConversation(): UseConversationReturn {
 
       try {
         const request = buildRequest(message, { clientTurnId: turnClientId })
+        recordRequestContext({
+          requestId: turnClientId,
+          source: source ?? (mode === 'system' ? 'system_event' : hidden ? 'right_panel_action' : 'chat'),
+          scenarioId: request.scenario_id,
+          clientTurnId: request.client_turn_id,
+          latestUserVisibleMessageText: hidden ? null : (displayText ?? message),
+          rawMessageSent: message,
+          stageSystemEventSummary: systemEvent?.type ?? null,
+          systemEventType: systemEvent?.type ?? null,
+        })
         // Attach system_event in CEE v3 wire format. Unknown types already
         // filtered by sendSystemEvent pre-check; null here is a safety net.
         if (systemEvent) {
@@ -1083,8 +1222,8 @@ export function useConversation(): UseConversationReturn {
   // ---------------------------------------------------------------------------
 
   const sendMessage = useCallback(
-    async (text: string, opts?: { hidden?: boolean }) => {
-      await sendTurn({ message: text, mode: 'user', hidden: opts?.hidden })
+    async (text: string, opts?: { hidden?: boolean; debugSource?: string }) => {
+      await sendTurn({ message: text, mode: 'user', hidden: opts?.hidden, source: opts?.debugSource })
     },
     [sendTurn],
   )
@@ -1106,10 +1245,17 @@ export function useConversation(): UseConversationReturn {
         return
       }
 
+      recordCrossSurfaceEvent({
+        eventType: event.type,
+        summary: typeof event.payload?.summary === 'string' ? event.payload.summary : event.type,
+        payloadSummary: event.payload,
+      })
+
       await sendTurn({
         message: SYSTEM_MESSAGE_SENTINEL,
         systemEvent: event,
         mode: 'system',
+        source: 'system_event',
       })
     },
     [sendTurn],
@@ -1119,6 +1265,10 @@ export function useConversation(): UseConversationReturn {
     async (chip: ActionChip) => {
       // Undo draft: restore pre-draft snapshot via store action
       if (chip.intent === 'undo') {
+        recordUserAction({
+          actionType: 'clicked chip',
+          payloadSummary: { chip_label: chip.label, intent: chip.intent },
+        })
         useCanvasStore.getState().undoDraft()
         addMessage({
           id: crypto.randomUUID(),
@@ -1131,8 +1281,12 @@ export function useConversation(): UseConversationReturn {
       }
 
       if (chip.message) {
+        recordUserAction({
+          actionType: 'clicked chip',
+          payloadSummary: { chip_label: chip.label, intent: chip.intent },
+        })
         // Show chip.label in conversation bubble, send chip.message to orchestrator
-        await sendTurn({ message: chip.message, displayText: chip.label, mode: 'user' })
+        await sendTurn({ message: chip.message, displayText: chip.label, mode: 'user', source: 'chip' })
       } else {
         // Chip has no message and is not an undo — this should not happen in practice
         // (validateResponse and render filters both block messageless chips), but if it
@@ -1146,6 +1300,13 @@ export function useConversation(): UseConversationReturn {
   const retryLast = useCallback(async () => {
     const last = lastUserInputRef.current
     if (last.message) {
+      recordUserAction({
+        actionType: 'clicked retry',
+        payloadSummary: {
+          raw_message: last.message,
+          client_turn_id: last.clientTurnId ?? null,
+        },
+      })
       // Remove the error/timeout synthetic message; keep original user bubble
       setMessages((prev) => {
         const tail = prev[prev.length - 1]
@@ -1159,6 +1320,7 @@ export function useConversation(): UseConversationReturn {
         mode: 'user',
         skipUserBubble: true,
         retryClientTurnId: last.clientTurnId,
+        source: 'retry',
       })
     }
   }, [sendTurn])

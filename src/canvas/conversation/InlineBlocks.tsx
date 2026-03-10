@@ -8,8 +8,10 @@
  */
 
 import { useState, useEffect, useRef, useCallback, memo } from 'react'
-import { Lightbulb, AlertTriangle, Check, X as XIcon, ChevronDown, ChevronUp, ExternalLink } from 'lucide-react'
+import { Lightbulb, AlertTriangle, Check, X as XIcon, ChevronDown, ChevronUp, ExternalLink, Wand2 } from 'lucide-react'
 import { typography } from '../../styles/typography'
+import { useGuidanceStore } from '../stores/guidanceStore'
+import { useCanvasStore } from '../store'
 import type {
   ConversationBlock,
   GraphPatchBlock as GraphPatchBlockType,
@@ -26,7 +28,6 @@ import { isPreAnalysisEnrichedEnabled } from '../../flags'
 import { ModelReceiptBlock } from './ModelReceiptBlock'
 import type { PatchBlockState, PatchRejectionInfo } from './useConversation'
 import { MAX_VISIBLE_BLOCKS_PER_TURN } from './types'
-import { useCanvasStore } from '../store'
 import { generateGraphHash } from '../utils/graphHash'
 import styles from './Conversation.module.css'
 
@@ -515,31 +516,64 @@ const BriefBlockRenderer = memo(function BriefBlockRenderer({
 // EvidenceBlock
 // ---------------------------------------------------------------------------
 
+/** Task 5: Normalise a raw finding object — CEE may use text, summary, content, or description */
+function normaliseFindingText(f: Record<string, unknown>): string | null {
+  const raw = f.text ?? f.summary ?? f.content ?? f.description
+  if (typeof raw === 'string' && raw.trim().length > 0) return raw.trim()
+  return null
+}
+
 const EvidenceBlockRenderer = memo(function EvidenceBlockRenderer({
   block,
 }: {
   block: EvidenceBlockType
 }) {
-  const hasFindings = Array.isArray(block.findings) && block.findings.length > 0
+  // Task 3: Hooks must come before any conditional returns (Rules of Hooks)
+  const nodeCount = useCanvasStore(s => s.nodes.length)
+  // Use _sendChip for display/submitted separation: bubble shows "Apply to model",
+  // orchestrator receives the full findings payload.
+  const sendChip = useGuidanceStore(s => s._sendChip)
 
-  // Malformed payload: known type but broken data → neutral fallback card
-  if (!hasFindings) {
-    return (
-      <div className={styles.evidenceBlock} data-testid="block-evidence">
-        <div className={`${typography.panelHeader} ${styles.evidenceTitle}`}>
-          {block.title || 'Research findings'}
-        </div>
-        <p className={typography.panelBody}>Research findings available</p>
-      </div>
-    )
-  }
+  // Task 5: Normalise findings — skip entries with no displayable text
+  const normalisedFindings = Array.isArray(block.findings)
+    ? block.findings
+        .map((f) => {
+          const text = normaliseFindingText(f as unknown as Record<string, unknown>)
+          return text ? { ...f, text } : null
+        })
+        .filter(Boolean) as Array<EvidenceBlockType['findings'][number]>
+    : []
+
+  const handleApplyToModel = useCallback(() => {
+    if (!sendChip) return
+    // Recompute summary at call time — avoids stale normalisedFindings in deps
+    const findings = Array.isArray(block.findings) ? block.findings : []
+    const summary = findings
+      .slice(0, 3)
+      .map(f => {
+        const raw = (f as Record<string, unknown>)
+        const text = raw.text ?? raw.summary ?? raw.content ?? raw.description
+        return typeof text === 'string' && text.trim() ? `- ${text.trim()}` : null
+      })
+      .filter(Boolean)
+      .join('\n')
+    const title = block.title ? ` (${block.title})` : ''
+    sendChip('Apply to model', `Apply these research findings to the model${title}:\n${summary}`)
+  }, [sendChip, block.findings, block.title])
+
+  const hasFindings = normalisedFindings.length > 0
+
+  // Malformed or empty payload — suppress entirely (do not show dead card)
+  if (!hasFindings) return null
+
+  const hasGraph = nodeCount > 0
 
   return (
     <div className={styles.evidenceBlock} data-testid="block-evidence" aria-label="Evidence">
       <div className={`${typography.panelHeader} ${styles.evidenceTitle}`}>
         {block.title || 'Research findings'}
       </div>
-      {block.findings.map((f, i) => (
+      {normalisedFindings.map((f, i) => (
         <div key={i} className={styles.evidenceFinding}>
           <p className={typography.panelBody}>{f.text}</p>
           {f.source_url && (
@@ -562,6 +596,19 @@ const EvidenceBlockRenderer = memo(function EvidenceBlockRenderer({
       {block.query && (
         <div className={`${typography.panelMeta} ${styles.evidenceQuery}`}>
           Query: {block.query}
+        </div>
+      )}
+      {hasGraph && sendChip && (
+        <div className="mt-2 flex">
+          <button
+            type="button"
+            onClick={handleApplyToModel}
+            className={`inline-flex items-center gap-1.5 px-2.5 py-1 ${typography.panelMeta} font-medium bg-transparent border border-info/40 text-info rounded-full hover:border-info hover:bg-info-light transition-colors`}
+            data-testid="apply-to-model-chip"
+          >
+            <Wand2 size={11} aria-hidden="true" />
+            Apply to model
+          </button>
         </div>
       )}
     </div>

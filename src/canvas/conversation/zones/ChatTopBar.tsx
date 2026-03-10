@@ -18,6 +18,10 @@ export type GenerateState = 'disabled' | 'active' | 'loading'
 interface ChatTopBarProps {
   stage: ScenarioStage
   isThinking: boolean
+  /** Unified readiness gate — mirrors OutputsDock canRunAnalysis */
+  canRunAnalysis?: boolean
+  /** Human-readable reason when run is blocked */
+  runBlockedReason?: string
   onCollapse: () => void
   onAttach: () => void
   onRunAnalysis: () => void
@@ -27,6 +31,8 @@ interface ChatTopBarProps {
 export function ChatTopBar({
   stage,
   isThinking,
+  canRunAnalysis: canRun,
+  runBlockedReason,
   onCollapse,
   onAttach,
   onRunAnalysis,
@@ -67,35 +73,40 @@ export function ChatTopBar({
       <IconButton icon={Paperclip} label="Attach evidence" onClick={onAttach} />
       <IconButton icon={Mic} label="Voice input" disabled />
 
-      {/* Run analysis chip — ideate/evaluate only */}
-      {showRunAnalysis && (
-        <button
-          type="button"
-          onClick={onRunAnalysis}
-          disabled={isThinking}
-          className="top-bar-chip cursor-pointer"
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 5,
-            height: 30,
-            padding: '0 10px',
-            borderRadius: 999,
-            background: 'transparent',
-            border: '1px solid var(--border-default, #EEE6D8)',
-            color: 'var(--text-body, #3F3F3E)',
-            fontSize: 13,
-            fontWeight: 500,
-            whiteSpace: 'nowrap' as const,
-            transition: 'all 100ms',
-            opacity: isThinking ? 0.5 : 1,
-          }}
-          data-testid="run-analysis-chip"
-        >
-          <Play className="w-3.5 h-3.5 text-text-light" strokeWidth={1.8} aria-hidden="true" />
-          <span>Run analysis</span>
-        </button>
-      )}
+      {/* Run analysis chip — ideate/evaluate only, unified gating */}
+      {showRunAnalysis && (() => {
+        const isDisabled = isThinking || canRun === false
+        return (
+          <button
+            type="button"
+            onClick={onRunAnalysis}
+            disabled={isDisabled}
+            title={isDisabled && runBlockedReason ? runBlockedReason : undefined}
+            aria-label={isDisabled && runBlockedReason ? `Run analysis (blocked: ${runBlockedReason})` : 'Run analysis'}
+            className="top-bar-chip cursor-pointer"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 5,
+              height: 30,
+              padding: '0 10px',
+              borderRadius: 999,
+              background: 'transparent',
+              border: '1px solid var(--border-default, #EEE6D8)',
+              color: 'var(--text-body, #3F3F3E)',
+              fontSize: 13,
+              fontWeight: 500,
+              whiteSpace: 'nowrap' as const,
+              transition: 'all 100ms',
+              opacity: isDisabled ? 0.5 : 1,
+            }}
+            data-testid="run-analysis-chip"
+          >
+            <Play className="w-3.5 h-3.5 text-text-light" strokeWidth={1.8} aria-hidden="true" />
+            <span>Run analysis</span>
+          </button>
+        )
+      })()}
 
       {/* Spacer */}
       <div className="flex-1" />

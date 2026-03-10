@@ -105,6 +105,57 @@ export interface RequestTrace {
   traceReceived?: TraceReceived
 }
 
+export interface UserActionTrace {
+  actionType: string
+  timestamp: string
+  payloadSummary?: Record<string, unknown>
+}
+
+export interface CrossSurfaceEventTrace {
+  eventType: string
+  timestamp: string
+  summary: string
+  payloadSummary?: Record<string, unknown>
+}
+
+export interface RequestContextTrace {
+  requestId: string
+  timestamp: string
+  source: string
+  scenarioId?: string | null
+  clientTurnId?: string | null
+  latestUserVisibleMessageText?: string | null
+  rawMessageSent?: string | null
+  stageSystemEventSummary?: string | null
+  systemEventType?: string | null
+}
+
+export interface ResponseRepairTrace {
+  requestId: string
+  timestamp: string
+  validatorRepairs: string[]
+  emptyTextFallbackInjected: boolean
+  chipsDropped: Array<{ reason: string; count: number }>
+  blocksDropped: Array<{ reason: string; count: number }>
+  unknownBlockTypes: string[]
+  rawChipCount: number
+  cleanedChipCount: number
+  rawBlockCount: number
+  cleanedBlockCount: number
+  renderableCount: number
+  nonRenderableCount: number
+}
+
+export interface ConversationRenderTrace {
+  timestamp: string
+  messagesRenderedCount: number
+  syntheticMessagesCount: number
+  visibleChipsCount: number
+  visibleBlockCountByType: Record<string, number>
+  thinkingIndicatorShown: boolean
+  timeoutOrRetryStateShown: boolean
+}
+
 /** Maximum number of traces to keep (expanded from 20 for better debugging during sustained traffic) */
 const MAX_TRACES = 50
 
@@ -113,6 +164,14 @@ const traces: RequestTrace[] = []
 
 /** Map for quick lookup by request ID */
 const traceMap = new Map<string, RequestTrace>()
+const sessionStartedAt = Date.now()
+const sessionId = crypto.randomUUID()
+const userActions: UserActionTrace[] = []
+const crossSurfaceEvents: CrossSurfaceEventTrace[] = []
+const requestContexts = new Map<string, RequestContextTrace>()
+const responseRepairs = new Map<string, ResponseRepairTrace>()
+let conversationRenderTrace: ConversationRenderTrace | null = null
+const MAX_EVENTS = 200
 
 /**
  * Record the start of a request.
@@ -258,6 +317,103 @@ export function getFailedTraces(): RequestTrace[] {
 export function clearTraces(): void {
   traces.length = 0
   traceMap.clear()
+  userActions.length = 0
+  crossSurfaceEvents.length = 0
+  requestContexts.clear()
+  responseRepairs.clear()
+  conversationRenderTrace = null
+}
+
+function pushBounded<T>(list: T[], value: T): void {
+  list.push(value)
+  if (list.length > MAX_EVENTS) {
+    list.splice(0, list.length - MAX_EVENTS)
+  }
+}
+
+export function recordUserAction(action: {
+  actionType: string
+  payloadSummary?: Record<string, unknown>
+}): void {
+  pushBounded(userActions, {
+    actionType: action.actionType,
+    timestamp: new Date().toISOString(),
+    payloadSummary: action.payloadSummary,
+  })
+}
+
+export function getUserActions(): UserActionTrace[] {
+  return [...userActions]
+}
+
+export function recordCrossSurfaceEvent(event: {
+  eventType: string
+  summary: string
+  payloadSummary?: Record<string, unknown>
+}): void {
+  pushBounded(crossSurfaceEvents, {
+    eventType: event.eventType,
+    timestamp: new Date().toISOString(),
+    summary: event.summary,
+    payloadSummary: event.payloadSummary,
+  })
+}
+
+export function getCrossSurfaceEvents(): CrossSurfaceEventTrace[] {
+  return [...crossSurfaceEvents]
+}
+
+export function recordRequestContext(context: Omit<RequestContextTrace, 'timestamp'>): void {
+  requestContexts.set(context.requestId, {
+    ...context,
+    timestamp: new Date().toISOString(),
+  })
+}
+
+export function getRequestContext(requestId: string): RequestContextTrace | undefined {
+  return requestContexts.get(requestId)
+}
+
+export function getAllRequestContexts(): RequestContextTrace[] {
+  return [...requestContexts.values()]
+}
+
+export function recordResponseRepair(trace: Omit<ResponseRepairTrace, 'timestamp'>): void {
+  responseRepairs.set(trace.requestId, {
+    ...trace,
+    timestamp: new Date().toISOString(),
+  })
+}
+
+export function getResponseRepair(requestId: string): ResponseRepairTrace | undefined {
+  return responseRepairs.get(requestId)
+}
+
+export function getAllResponseRepairs(): ResponseRepairTrace[] {
+  return [...responseRepairs.values()]
+}
+
+export function recordConversationRenderTrace(trace: Omit<ConversationRenderTrace, 'timestamp'>): void {
+  conversationRenderTrace = {
+    ...trace,
+    timestamp: new Date().toISOString(),
+  }
+}
+
+export function getConversationRenderTrace(): ConversationRenderTrace | null {
+  return conversationRenderTrace
+}
+
+export function getDebugSessionMeta(): {
+  sessionId: string
+  startedAt: string
+  durationMs: number
+} {
+  return {
+    sessionId,
+    startedAt: new Date(sessionStartedAt).toISOString(),
+    durationMs: Math.max(0, Date.now() - sessionStartedAt),
+  }
 }
 
 /**

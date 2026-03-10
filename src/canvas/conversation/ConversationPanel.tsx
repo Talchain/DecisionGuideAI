@@ -9,7 +9,7 @@
  */
 
 import { useRef, useState, useEffect, useCallback, useMemo, memo } from 'react'
-import { useCanvasStore } from '../store'
+import { useCanvasStore, selectResultsStatus } from '../store'
 import { useGuidanceStore } from '../stores/guidanceStore'
 import { useStagePill } from '../hooks/useStagePill'
 import type { ActionChip, GraphPatchBlock } from './types'
@@ -22,6 +22,8 @@ import { ChatThread } from './zones/ChatThread'
 import { ChatComposer, type ChatComposerHandle } from './zones/ChatComposer'
 import type { BriefReadiness } from './hooks/useBriefSignals'
 import { useThreadPersistence } from './hooks/useThreadPersistence'
+import { recordCrossSurfaceEvent, recordUserAction } from '../../lib/debug-state'
+import { canRunAnalysis as canRunAnalysisUtil, getRunButtonTooltip } from '../utils/canRunAnalysis'
 
 interface ConversationPanelProps {
   conversation: UseConversationReturn
@@ -238,21 +240,53 @@ export const ConversationPanel = memo(function ConversationPanel({
   }, [])
 
   const handleOpenInspector = useCallback((nodeId: string) => {
+    recordUserAction({
+      actionType: 'opened inspector',
+      payloadSummary: { node_id: nodeId },
+    })
+    recordCrossSurfaceEvent({
+      eventType: 'inspector_opened_from_recommendation',
+      summary: `Inspector opened for ${nodeId}`,
+      payloadSummary: { node_id: nodeId },
+    })
     useCanvasStore.getState().selectNodeWithoutHistory(nodeId)
     useCanvasStore.getState().setShowInspectorPanel(true)
   }, [])
 
   useEffect(() => {
-    useGuidanceStore.getState().registerConversationCallbacks(sendMessage, handleScrollToPatch)
+    const sendChipByLabelMessage = (label: string, message: string) =>
+      sendChip({ id: `evidence-apply-${Date.now()}`, label, message, intent: 'primary' })
+    useGuidanceStore.getState().registerConversationCallbacks(sendMessage, handleScrollToPatch, sendChipByLabelMessage)
     return () => {
-      useGuidanceStore.setState({ _sendMessage: null, _scrollToPatch: null })
+      useGuidanceStore.setState({ _sendMessage: null, _sendChip: null, _scrollToPatch: null })
     }
-  }, [sendMessage, handleScrollToPatch])
+  }, [sendMessage, handleScrollToPatch, sendChip])
+
+  // ── Unified run gating (mirrors OutputsDock) ─────────────────────────
+  const resultsStatus = useCanvasStore(selectResultsStatus)
+  const graphHealth = useCanvasStore((s) => s.graphHealth)
+  const hasBlockers = useCanvasStore((s) => {
+    const health = s.graphHealth
+    return health?.issues?.some((i: any) => i.severity === 'error' || i.severity === 'blocker') ?? false
+  })
+  const ceeReadiness = useCanvasStore((s) => s.ceeAnalysisReady)
+  const isAnalysisRunning = resultsStatus === 'preparing' || resultsStatus === 'connecting' || resultsStatus === 'streaming'
+
+  const runGateResult = useMemo(() => canRunAnalysisUtil({
+    graphHealth: graphHealth ?? null,
+    readiness: ceeReadiness ? { can_run_analysis: true, readiness_level: 'strong', confidence_explanation: '' } : null,
+    hasBlockers,
+    nodeCount,
+    isRunning: isAnalysisRunning,
+  }), [graphHealth, ceeReadiness, hasBlockers, nodeCount, isAnalysisRunning])
+
+  const runBlockedReason = getRunButtonTooltip(runGateResult) ?? undefined
 
   // ── Top bar callbacks ─────────────────────────────────────────────────
   const handleRunAnalysis = useCallback(() => {
-    sendMessage('run it', { hidden: true })
-  }, [sendMessage])
+    if (!runGateResult.allowed) return
+    sendMessage('run it', { hidden: true, debugSource: 'right_panel_action' })
+  }, [sendMessage, runGateResult.allowed])
 
   const handleInsertText = useCallback((text: string) => {
     composerRef.current?.replaceText(text)
@@ -290,6 +324,8 @@ export const ConversationPanel = memo(function ConversationPanel({
       <ChatTopBar
         stage={stage}
         isThinking={isThinking}
+        canRunAnalysis={runGateResult.allowed}
+        runBlockedReason={runBlockedReason}
         onCollapse={onCollapse}
         onAttach={onAttach}
         onRunAnalysis={handleRunAnalysis}

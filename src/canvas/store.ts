@@ -36,6 +36,7 @@ import type { CeeDebugHeaders } from './utils/ceeDebugHeaders'
 import { loadSearchQuery, loadSortPreferences, saveSearchQuery, saveSortPreferences, __test__ as docsTest } from './store/documents'
 import { loadUIPreferences, saveUIPreference } from './store/uiPreferences'
 import { validateCeeAnalysisReady } from './utils/ceeAnalysisReadyValidation'
+import { recordCrossSurfaceEvent, recordUserAction } from '../lib/debug-state'
 
 // Brief 37 Optimization: Stable empty array to prevent re-renders
 // graphHealthFromQuality() returns this when no issues exist, avoiding new array allocation
@@ -325,6 +326,11 @@ interface CanvasState {
   lastAnalysisSeed: number | null
   lastQualityMode: string | null
   repairsApplied: Array<{ code?: string; type?: string; layer?: string; field_path?: string; before?: unknown; after?: unknown; severity?: string; node_id?: string; value?: unknown; source?: string; reason?: string }> | null
+  // Task 2: Signal for AI panel auto-collapse. Set when a full_draft auto_apply patch
+  // is applied for the first time. DraftChat watches this to collapse without
+  // reacting to every incremental node change.
+  fullDraftAppliedAt: number | null
+  setFullDraftAppliedAt: (ts: number) => void
   // Debug: Raw CEE output mode (bypasses post-processing repairs)
   // Set via URL param ?rawCee=1 or Debug Panel checkbox
   debugRawCeeOutput: boolean
@@ -933,6 +939,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   lastAnalysisSeed: null,
   lastQualityMode: null,
   repairsApplied: null,
+  fullDraftAppliedAt: null,
   // Debug: Raw CEE output mode (initialized from URL param ?rawCee=1)
   debugRawCeeOutput: getInitialRawCeeMode(),
 
@@ -2443,6 +2450,11 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     }
     set({ showResultsPanel: show })
     saveUIPreference('showResultsPanel', show)
+    recordCrossSurfaceEvent({
+      eventType: show ? 'results_panel_opened' : 'results_panel_closed',
+      summary: show ? 'Results panel opened' : 'Results panel closed',
+      payloadSummary: { previous: prev, next: show },
+    })
 
     if (typeof window !== 'undefined') {
       try {
@@ -2464,6 +2476,17 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   setShowInspectorPanel: (show: boolean) => {
     set({ showInspectorPanel: show })
     saveUIPreference('showInspectorPanel', show)
+    if (show) {
+      const selection = get().selection
+      recordCrossSurfaceEvent({
+        eventType: 'inspector_opened',
+        summary: 'Inspector panel opened',
+        payloadSummary: {
+          node_ids: [...selection.nodeIds],
+          edge_ids: [...selection.edgeIds],
+        },
+      })
+    }
   },
 
   openTemplatesPanel: (invoker?: HTMLElement) => {
@@ -2497,6 +2520,10 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   setShowDraftChat: (show: boolean) => {
     set({ showDraftChat: show })
     saveUIPreference('showDraftChat', show)
+    recordUserAction({
+      actionType: show ? 'expanded AI panel' : 'collapsed AI panel',
+      payloadSummary: { next: show },
+    })
   },
 
   // AI Model Selection setters (session-only, no localStorage persistence)
@@ -3005,6 +3032,10 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   // Pending fit view setter
   setPendingFitView: (value: boolean) => {
     set({ pendingFitView: value })
+  },
+
+  setFullDraftAppliedAt: (ts: number) => {
+    set({ fullDraftAppliedAt: ts })
   },
 
   // Debug: Raw CEE output mode setter

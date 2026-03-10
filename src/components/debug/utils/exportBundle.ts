@@ -279,6 +279,59 @@ interface DebugBundle {
   cee_observability?: Omit<CEEObservabilityData, 'llm_calls'> & {
     llm_calls: Array<Omit<CEEObservabilityData['llm_calls'][number], 'raw_prompt' | 'raw_response'>>
   } | null
+  export_summary_schema: {
+    derivation: 'export_time_from_debugdata_only'
+    runtime_capture_included: false
+    note: string
+  }
+  session: {
+    timestamp: string
+    request_id: string | null
+    build_info: {
+      client_build: string | null
+      client_version: string
+      environment: string
+    }
+    feature_flags: Record<string, unknown> | null
+    scenario_id: null
+    current_route: null
+    session_id: null
+    session_started_at: null
+    session_duration_ms: null
+  }
+  user_actions: []
+  request_summary: Array<{
+    request_id: string | null
+    ui_generated_request_id: string | null
+    plot_request_id: string | null
+    isl_request_id: string | null
+    cee_trace_id: string | null
+    request_chain_present: boolean
+  }>
+  response_summary: Array<{
+    service: 'cee' | 'plot' | 'isl'
+    status: number | null
+    duration_ms: number | null
+    success: boolean | null
+    error: string | null
+    payload_present: boolean
+  }>
+  repair_and_filter_summary: Array<{
+    source: string
+    available: boolean
+    repairs_applied: number | null
+    repair_types: string[] | null
+    retries: number | null
+  }>
+  render_summary: {
+    available: boolean
+    source: null
+  }
+  panel_state: {
+    available: boolean
+    source: null
+  }
+  cross_surface_events: []
 }
 
 // =============================================================================
@@ -334,6 +387,53 @@ function formatTimestamp(): string {
 
 function formatShortTimestamp(): string {
   return new Date().toISOString().slice(0, 19).replace(/[:-]/g, '')
+}
+
+function buildRequestSummaries(data: DebugData): DebugBundle['request_summary'] {
+  return [{
+    request_id: data.overall.request_id ?? null,
+    ui_generated_request_id: data.request_id_chain?.ui_generated ?? null,
+    plot_request_id: data.request_id_chain?.from_plot?.plot ?? null,
+    isl_request_id: data.request_id_chain?.from_plot?.isl ?? null,
+    cee_trace_id: data.request_id_chain?.draft_trace?.cee_trace ?? null,
+    request_chain_present: Boolean(data.request_id_chain?.plot_chain_present || data.request_id_chain?.from_plot),
+  }]
+}
+
+function buildResponseSummaries(data: DebugData): DebugBundle['response_summary'] {
+  return ([
+    ['cee', data.services.cee, data.payloads.cee_response],
+    ['plot', data.services.plot, data.payloads.plot_response],
+    ['isl', data.services.isl, data.payloads.isl_response],
+  ] as const).map(([service, serviceData, payload]) => ({
+    service,
+    status: serviceData?.status ?? null,
+    duration_ms: serviceData?.duration_ms ?? null,
+    success: serviceData?.success ?? null,
+    error: serviceData?.error ?? null,
+    payload_present: payload != null,
+  }))
+}
+
+function buildRepairSummaries(data: DebugData): DebugBundle['repair_and_filter_summary'] {
+  const repairSummary = asRecord(data.cee_observability?.repair_summary)
+  const validation = data.cee_observability?.validation ?? null
+
+  return [{
+    source: 'cee_observability.repair_summary',
+    available: repairSummary !== null || validation !== null,
+    repairs_applied: typeof repairSummary?.repairs_applied === 'number'
+      ? repairSummary.repairs_applied
+      : validation?.repairs_triggered
+        ? validation.repair_types.length
+        : null,
+    repair_types: Array.isArray(repairSummary?.repair_types)
+      ? repairSummary.repair_types.filter((item): item is string => typeof item === 'string')
+      : validation?.repair_types ?? null,
+    retries: validation
+      ? (validation.retry_triggered ? validation.attempts - 1 : 0)
+      : null,
+  }]
 }
 
 function generateReadme(data: DebugData): string {
@@ -491,6 +591,9 @@ export function buildDebugBundle(data: DebugData, options: ExportOptions = {}): 
   const timestamp = formatTimestamp()
   const versionInfo = getVersionInfo()
   const clientBuild = getClientBuild()
+  const requestSummary = buildRequestSummaries(data)
+  const responseSummary = buildResponseSummaries(data)
+  const repairAndFilterSummary = buildRepairSummaries(data)
 
   // Transform graph data if requested
   const fullGraph =
@@ -525,6 +628,11 @@ export function buildDebugBundle(data: DebugData, options: ExportOptions = {}): 
         truncation_applied: true,
         truncation_message: 'Large graph — arrays capped at 100 items',
       }),
+    },
+    export_summary_schema: {
+      derivation: 'export_time_from_debugdata_only',
+      runtime_capture_included: false,
+      note: 'Structured summary sections are derived only from DebugData at export time and do not imply that runtime chronology or UI event capture was recorded.',
     },
     diagnostic: {
       timestamp,
@@ -616,6 +724,34 @@ export function buildDebugBundle(data: DebugData, options: ExportOptions = {}): 
     diagnostic_checks: data.diagnostics,
     readme: generateReadme(data),
     ...(fullGraph && { full_graph: fullGraph }),
+    session: {
+      timestamp,
+      request_id: data.overall.request_id,
+      build_info: {
+        client_build: clientBuild,
+        client_version: versionInfo?.short ?? 'unknown',
+        environment: getEnvironment(),
+      },
+      feature_flags: (data.feature_flags_at_request as Record<string, unknown> | null) ?? null,
+      scenario_id: null,
+      current_route: null,
+      session_id: null,
+      session_started_at: null,
+      session_duration_ms: null,
+    },
+    user_actions: [],
+    request_summary: requestSummary,
+    response_summary: responseSummary,
+    repair_and_filter_summary: repairAndFilterSummary,
+    render_summary: {
+      available: false,
+      source: null,
+    },
+    panel_state: {
+      available: false,
+      source: null,
+    },
+    cross_surface_events: [],
 
     // Enhancement sections (Debug Panel V2.1)
     orchestrator: data.orchestrator,
