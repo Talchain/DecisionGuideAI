@@ -73,16 +73,20 @@ export function DraftChat() {
     return 676 // default width (30% increase from 520)
   })
 
-  // Panel height state (persisted to localStorage, clamped to 120px – 90vh)
+  // Panel height state (persisted to localStorage, clamped to 20vh – 90vh)
   const DEFAULT_PANEL_HEIGHT = 864
+  // Compact height = 20% of viewport height (recalculated at runtime so it
+  // adapts to the actual browser window size)
+  const COMPACT_HEIGHT = typeof window !== 'undefined' ? Math.floor(window.innerHeight * 0.2) : 160
   const [panelHeight, setPanelHeight] = useState<number>(() => {
+    const minH = typeof window !== 'undefined' ? Math.floor(window.innerHeight * 0.2) : 160
     const maxH = typeof window !== 'undefined' ? Math.floor(window.innerHeight * 0.9) : 864
     if (typeof localStorage !== 'undefined') {
       const stored = localStorage.getItem(DRAFT_PANEL_HEIGHT_KEY)
       if (stored) {
         const parsed = parseInt(stored, 10)
         if (Number.isFinite(parsed)) {
-          return Math.max(120, Math.min(maxH, parsed))
+          return Math.max(minH, Math.min(maxH, parsed))
         }
       }
     }
@@ -168,7 +172,6 @@ export function DraftChat() {
     if (!showDraftChat || !isOrchV2) return
     // Only fire when fullDraftAppliedAt changes to a new (non-null) value
     if (fullDraftAppliedAt !== null && fullDraftAppliedAt !== prev && !userHasResizedRef.current && !isMinimized) {
-      const COMPACT_HEIGHT = 120
       setPanelHeight(COMPACT_HEIGHT)
       try {
         localStorage.setItem(DRAFT_PANEL_HEIGHT_KEY, String(COMPACT_HEIGHT))
@@ -765,7 +768,8 @@ export function DraftChat() {
     const handleMove = (e: MouseEvent) => {
       // Dragging up increases height (negative deltaY = taller)
       const deltaY = startY - e.clientY
-      latestHeight = Math.max(120, Math.min(maxH, startHeight + deltaY))
+      const minH = Math.floor(window.innerHeight * 0.2)
+      latestHeight = Math.max(minH, Math.min(maxH, startHeight + deltaY))
       setPanelHeight(latestHeight)
     }
 
@@ -799,8 +803,9 @@ export function DraftChat() {
     const handleMove = (e: MouseEvent) => {
       const deltaX = e.clientX - startX
       const deltaY = startY - e.clientY // up = taller
+      const minH = Math.floor(window.innerHeight * 0.2)
       latestWidth = Math.max(320, Math.min(1014, startWidth + deltaX))
-      latestHeight = Math.max(120, Math.min(maxH, startHeight + deltaY))
+      latestHeight = Math.max(minH, Math.min(maxH, startHeight + deltaY))
       setPanelWidth(latestWidth)
       setPanelHeight(latestHeight)
     }
