@@ -177,7 +177,7 @@ export function DraftChat() {
         localStorage.setItem(DRAFT_PANEL_HEIGHT_KEY, String(COMPACT_HEIGHT))
       } catch {}
       if (import.meta.env.DEV) {
-        console.info('[DraftChat] Auto-collapsed to compact height after full_draft graph generation')
+        console.warn('[DraftChat] Auto-collapsed to compact height after full_draft graph generation')
       }
     }
   }, [fullDraftAppliedAt, showDraftChat, isOrchV2, isMinimized])

@@ -195,7 +195,7 @@ export function recordRequest(params: {
     }
     traceMap.delete(params.requestId)
     if (import.meta.env.DEV) {
-      console.log('[debug-state] Replacing existing trace for retry:', params.requestId)
+      console.warn('[debug-state] Replacing existing trace for retry:', params.requestId)
     }
   }
 

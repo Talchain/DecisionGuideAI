@@ -889,8 +889,7 @@ export function useConversation(): UseConversationReturn {
             }
 
             if (import.meta.env.DEV) {
-              // eslint-disable-next-line no-console, no-restricted-syntax
-              console.log('[handleEnvelope] auto-apply:', {
+              console.warn('[handleEnvelope] auto-apply:', {
                 nodes: patchResult.addedNodeCount,
                 edges: patchResult.addedEdgeCount,
                 modified: patchResult.modifiedIds.length,
@@ -1239,8 +1238,7 @@ export function useConversation(): UseConversationReturn {
       const wire = serializeSystemEvent(event)
       if (wire === null) {
         if (import.meta.env.DEV) {
-          // eslint-disable-next-line no-console, no-restricted-syntax
-          console.log(`[sendSystemEvent] Dropped unsupported event: ${event.type}`)
+          console.warn(`[sendSystemEvent] Dropped unsupported event: ${event.type}`)
         }
         return
       }
