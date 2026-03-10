@@ -16,7 +16,11 @@ export const DECISION_FRAMING_PHRASES: string[] = [
   'whether to',
   'whether we should',
   'deciding between',
+  'decide between',
+  'need to decide',
   'trying to decide',
+  'choosing between',
+  'choice between',
   'considering whether',
   'debating whether',
   'weighing up',
@@ -57,6 +61,11 @@ export const ALTERNATIVE_MARKERS: string[] = [
   'instead of',
   'on the other hand',
   'alternatively',
+  'choosing between',
+  'choice between',
+  'decide between',
+  'trade-off between',
+  'tradeoff between',
 ]
 
 // ---------------------------------------------------------------------------
@@ -154,6 +163,9 @@ export const METRIC_TOKENS: string[] = [
   'latency',
   'satisfaction',
   'productivity',
+  'efficiency',
+  'performance',
+  'growth',
 ]
 
 // ---------------------------------------------------------------------------

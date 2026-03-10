@@ -51,9 +51,9 @@ export const ConversationPanel = memo(function ConversationPanel({
 
   // ── Chip handler ──────────────────────────────────────────────────────
   const handleChipClick = useCallback(
-    (chip: ActionChip) => {
+    async (chip: ActionChip): Promise<void> => {
       if (chip.id === 'retry') { retryLast(); return }
-      sendChip(chip)
+      await sendChip(chip)
 
       // Track 2: mark suggested action as taken
       let lastAssistant: typeof messages[number] | undefined

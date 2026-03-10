@@ -278,6 +278,11 @@ export function hydrateMessagesFromThread(
         }
       }
 
+      // Note: actionChips are intentionally NOT hydrated here.
+      // The persisted SuggestedAction schema stores only { action_id, label, taken } —
+      // the `message` field (wire dispatch payload) is not persisted to the database.
+      // Without `message`, chips cannot be dispatched and would be filtered by both
+      // ActionChipRow and SuggestedChips render guards. Chips only appear on live responses.
       messages.push({
         id: msgId,
         role: 'assistant',

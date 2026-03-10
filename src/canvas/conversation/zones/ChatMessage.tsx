@@ -38,7 +38,7 @@ interface ChatMessageProps {
   isFirst: boolean
   /** When true, suppress inline ActionChipRow (chips rendered externally by SuggestedChips) */
   hideChips?: boolean
-  onChipClick: (chip: ActionChip) => void
+  onChipClick: (chip: ActionChip) => Promise<void>
   onRetry: () => void
   patchBlockStates?: Map<string, PatchBlockState>
   patchRejections?: Map<string, PatchRejectionInfo>

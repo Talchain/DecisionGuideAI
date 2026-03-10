@@ -26,7 +26,7 @@ interface MessageBubbleProps {
   message: ConversationMessage
   /** When true, suppress inline ActionChipRow (chips rendered externally) */
   hideChips?: boolean
-  onChipClick: (chip: ActionChip) => void
+  onChipClick: (chip: ActionChip) => Promise<void>
   patchBlockStates?: Map<string, PatchBlockState>
   patchRejections?: Map<string, PatchRejectionInfo>
   onPatchAccept?: (patchId: string, block: GraphPatchBlock) => void

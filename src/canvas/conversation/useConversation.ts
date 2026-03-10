@@ -43,6 +43,7 @@ import type {
 import { MAX_CHIPS_PER_TURN, MAX_SUGGESTED_ACTIONS } from './types'
 import { applyAutoApplyPatch, synthesiseCeeAnalysisReady } from './utils/applyPatch'
 import { validateAnalysisReadyContract } from './validateAnalysisReadyContract'
+import { validateResponse } from './validateResponse'
 import type { CEEAnalysisReady } from '../../adapters/cee/types'
 
 /** Sentinel message content used for system events — must never render as a user bubble */
@@ -659,7 +660,12 @@ export function useConversation(): UseConversationReturn {
   )
 
   const handleEnvelope = useCallback(
-    (envelope: OrchestratorResponseEnvelopeV2) => {
+    (envelope: OrchestratorResponseEnvelopeV2, requestId?: string) => {
+      // Defensive validation: repair incomplete CEE responses before processing.
+      // Non-mutating — original envelope preserved; cleaned copy used below.
+      const { cleaned } = validateResponse(envelope, requestId)
+      envelope = cleaned
+
       // Update stage if provided. CEE sends either a plain string or
       // { stage, confidence, source } — extract the stage string.
       if (envelope.stage_indicator) {
@@ -1033,7 +1039,7 @@ export function useConversation(): UseConversationReturn {
           }
         }
         const envelope = await callOrchestratorTurn(request, controller.signal)
-        handleEnvelope(envelope)
+        handleEnvelope(envelope, turnClientId)
       } catch (err) {
         if ((err as Error).name === 'AbortError') return // timeout already handled
 
@@ -1127,8 +1133,11 @@ export function useConversation(): UseConversationReturn {
       if (chip.message) {
         // Show chip.label in conversation bubble, send chip.message to orchestrator
         await sendTurn({ message: chip.message, displayText: chip.label, mode: 'user' })
-      } else if (import.meta.env.DEV) {
-        console.warn('[sendChip] Chip clicked but has no message field — no-op:', chip)
+      } else {
+        // Chip has no message and is not an undo — this should not happen in practice
+        // (validateResponse and render filters both block messageless chips), but if it
+        // does, throw so the .catch() handler in SuggestedChips can show an inline error.
+        throw new Error(`Chip "${chip.label}" has no message field`)
       }
     },
     [sendTurn, addMessage],

@@ -22,6 +22,7 @@ import { validateAllEdges, ceeOptionToUIOption } from '../../adapters/plot/v2'
 import type { CEEAnalysisReady } from '../../adapters/cee/types'
 import { detectBaseline } from '../utils/baselineDetection'
 import { DEFAULT_EDGE_DATA } from '../domain/edges'
+import { verboseWarn } from '../../utils/verboseLog'
 import { getEdgeKey } from '../domain/edgeUtils'
 import type { ValidationWarning, ValidationBlocker } from '@talchain/schemas'
 
@@ -811,7 +812,7 @@ export function usePreRunValidation(): ValidationResult {
         lastLogKey.canRun !== currentLogKey.canRun ||
         lastLogKey.blockerCount !== currentLogKey.blockerCount
       ) {
-        console.warn('[PreRunValidation] Validation result changed:', {
+        verboseWarn('[PreRunValidation] Validation result changed:', {
           canRun: result.canRun,
           blockers: result.blockers.length,
           usingCEE: Boolean(ceeAnalysisReady?.options?.length),

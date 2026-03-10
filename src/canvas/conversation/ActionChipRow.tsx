@@ -11,7 +11,7 @@ import styles from './Conversation.module.css'
 
 interface ActionChipRowProps {
   chips: ActionChip[]
-  onChipClick: (chip: ActionChip) => void
+  onChipClick: (chip: ActionChip) => Promise<void>
 }
 
 const INTENT_STYLES: Record<ActionChip['intent'], string> = {
@@ -30,9 +30,9 @@ export const ActionChipRow = memo(function ActionChipRow({
 
   return (
     <div className={styles.chipRow} role="group" aria-label="Suggested actions">
-      {dispatchable.map((chip) => (
+      {dispatchable.map((chip, i) => (
         <button
-          key={chip.id}
+          key={chip.id ?? `chip-${i}`}
           type="button"
           className={INTENT_STYLES[chip.intent]}
           onClick={() => onChipClick(chip)}

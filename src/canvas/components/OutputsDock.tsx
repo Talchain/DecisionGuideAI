@@ -118,6 +118,7 @@ import { EvidencePackExport } from './ResultsPanel/EvidencePackExport'
 // ScenarioComparison modal removed - now rendered as ComparisonCanvasLayout in ReactFlowGraph
 import type { CritiqueItemV1 } from '../../adapters/plot/types'
 import type { Node, Edge } from '@xyflow/react'
+import { verboseDebug } from '../../utils/verboseLog'
 
 /**
  * Map API critique format (CritiqueItemV1) to ValidationPanel format
@@ -660,18 +661,14 @@ export function OutputsDock() {
   const hasBlockers = hasDecisionReadiness && decisionReadiness!.blockers.length > 0
   const isReadyForOutcome = hasDecisionReadiness && decisionReadiness!.ready && !hasBlockers
 
-  if (import.meta.env.DEV) {
-    // Dev-only instrumentation for trust signals visibility and gating
-    // eslint-disable-next-line no-console
-    console.debug('[TrustSignals] OutputsDock', {
-      isPreRun,
-      hasReport: !!report,
-      hasDecisionReadiness: !!decisionReadiness,
-      fromConfidence: !!readinessFromConfidence,
-      hasGraphQuality: !!report?.graph_quality,
-      hasInsights: !!report?.insights,
-    })
-  }
+  verboseDebug('[TrustSignals] OutputsDock', {
+    isPreRun,
+    hasReport: !!report,
+    hasDecisionReadiness: !!decisionReadiness,
+    fromConfidence: !!readinessFromConfidence,
+    hasGraphQuality: !!report?.graph_quality,
+    hasInsights: !!report?.insights,
+  })
 
   // Phase 0.3: Normalize response and check for degeneracy
   const normalisedResponse = useMemo(() => normaliseResponse(report), [report])

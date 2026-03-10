@@ -74,6 +74,7 @@ import { useEngineLimits } from './hooks/useEngineLimits'
 import { useRunEligibilityCheck } from './hooks/useRunEligibilityCheck'
 import { useAutosave } from './hooks/useAutosave'
 import { DebugPanel } from '../components/DebugPanel'
+import { verboseWarn } from '../utils/verboseLog'
 
 type CanvasDebugMode = 'normal' | 'blank' | 'no-reactflow' | 'rf-only' | 'rf-bare' | 'rf-minimal' | 'rf-empty' | 'rf-no-fitview' | 'rf-no-bg' | 'rf-store' | 'provider-only' | 'no-provider'
 
@@ -1391,15 +1392,15 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
     })
 
     if (changes.length > 0) {
-      console.warn(`[RFG] #${renderCountRef.current}:`, changes.join(', '))
+      verboseWarn(`[RFG] #${renderCountRef.current}:`, changes.join(', '))
     } else {
-      console.warn(`[RFG] #${renderCountRef.current}: no store changes`)
+      verboseWarn(`[RFG] #${renderCountRef.current}: no store changes`)
     }
 
     prevStateRef.current = { ...currentState }
 
     if (renderCountRef.current > 10) {
-      console.warn(`[RFG] Storm: ${renderCountRef.current} renders`)
+      verboseWarn(`[RFG] Storm: ${renderCountRef.current} renders`)
     }
   }
 

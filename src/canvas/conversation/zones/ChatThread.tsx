@@ -25,7 +25,7 @@ interface ChatThreadProps {
   nodeCount: number
   patchBlockStates: Map<string, PatchBlockState>
   patchRejections: Map<string, PatchRejectionInfo>
-  onChipClick: (chip: ActionChip) => void
+  onChipClick: (chip: ActionChip) => Promise<void>
   onPatchAccept: (key: string, block: GraphPatchBlock) => void
   onPatchDismiss: (key: string) => void
   onFeedback: (turnId: string, rating: 'up' | 'down') => void
@@ -99,7 +99,7 @@ export const ChatThread = memo(function ChatThread({
       )}
 
       {isThinking && (
-        <ThinkingIndicator label={thinkingLabel(longRunningHint)} />
+        <ThinkingIndicator label={thinkingLabel(longRunningHint)} onRetry={onRetry} />
       )}
 
       {/* New messages pill */}

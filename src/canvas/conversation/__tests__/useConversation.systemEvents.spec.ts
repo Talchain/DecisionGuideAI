@@ -182,7 +182,7 @@ describe('sendSystemEvent', () => {
     mockCallTurn.mockResolvedValue({
       assistant_text: 'Analysis complete.',
       blocks: [{ type: 'fact', label: 'Winner', value: 'Option A' }],
-      suggested_actions: [{ id: 'explore', label: 'Explore', intent: 'primary' }],
+      suggested_actions: [{ id: 'explore', label: 'Explore', intent: 'primary', message: 'explore options' }],
       stage_indicator: 'evaluate',
       client_turn_id: 'resp-4',
     })
