@@ -37,11 +37,7 @@ function DashedArrow() {
 
 interface ThinkingIndicatorProps {
   label?: string | null
-  onRetry?: () => void
 }
-
-/** Sentinel value emitted by useConversation at 30s — used to trigger retry affordance */
-export const STILL_WORKING_LABEL = 'Still working\u2026'
 
 export function ThinkingIndicator({ label }: ThinkingIndicatorProps) {
   return (

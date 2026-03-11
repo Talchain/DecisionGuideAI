@@ -12,7 +12,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, act } from '@testing-library/react'
 import { InlineBlocks } from '../InlineBlocks'
 import type { GraphPatchBlock } from '../types'
 import type { PatchBlockState, PatchRejectionInfo } from '../useConversation'
@@ -126,6 +126,53 @@ describe('GraphPatchBlock', () => {
     expect(storeMocks.mockSelectNodeWithoutHistory).toHaveBeenCalledWith('n-new')
     expect(storeMocks.mockSetShowInspectorPanel).toHaveBeenCalledWith(true)
     expect(storeMocks.mockSetHighlightedNodes).toHaveBeenCalledWith(['n-new'])
+  })
+
+  it('cancels prior highlight reset timers when show changes is triggered repeatedly', () => {
+    vi.useFakeTimers()
+
+    const block = makePatchBlock()
+    const states = new Map<string, PatchBlockState>([['patch-1', 'accepted']])
+    render(
+      <InlineBlocks blocks={[block]} patchBlockStates={states} />,
+    )
+
+    fireEvent.click(screen.getByTestId('patch-show-changes'))
+    act(() => {
+      vi.advanceTimersByTime(1000)
+    })
+    fireEvent.click(screen.getByTestId('patch-show-changes'))
+    act(() => {
+      vi.advanceTimersByTime(1000)
+    })
+
+    expect(storeMocks.mockSetHighlightedNodes).not.toHaveBeenCalledWith([])
+
+    act(() => {
+      vi.advanceTimersByTime(1000)
+    })
+
+    expect(storeMocks.mockSetHighlightedNodes).toHaveBeenCalledWith([])
+    vi.useRealTimers()
+  })
+
+  it('clears pending highlight reset timers on unmount', () => {
+    vi.useFakeTimers()
+
+    const block = makePatchBlock()
+    const states = new Map<string, PatchBlockState>([['patch-1', 'accepted']])
+    const { unmount } = render(
+      <InlineBlocks blocks={[block]} patchBlockStates={states} />,
+    )
+
+    fireEvent.click(screen.getByTestId('patch-show-changes'))
+    unmount()
+    act(() => {
+      vi.advanceTimersByTime(2000)
+    })
+
+    expect(storeMocks.mockSetHighlightedNodes).not.toHaveBeenCalledWith([])
+    vi.useRealTimers()
   })
 
   it('shows "Dismissed" status and hides buttons when dismissed', () => {

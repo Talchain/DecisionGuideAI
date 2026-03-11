@@ -99,7 +99,7 @@ export const ChatThread = memo(function ChatThread({
       )}
 
       {isThinking && (
-        <ThinkingIndicator label={thinkingLabel(longRunningHint)} onRetry={onRetry} />
+        <ThinkingIndicator label={thinkingLabel(longRunningHint)} />
       )}
 
       {/* New messages pill */}

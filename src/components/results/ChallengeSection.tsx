@@ -16,7 +16,7 @@ import { CappedList } from './CappedList'
 import { GraphLink } from './GraphLink'
 import { EyeOff, HelpCircle, Shield } from 'lucide-react'
 import { stripEncodingNotation } from './utils/cleanFactorLabel'
-import type { UncertaintyItem, DriverItem } from './types'
+import type { EvidenceGapItem, DriverItem } from './types'
 
 export interface ChallengeSectionProps {
   /** M2 bias findings (Group 3: "Worth reflecting on") */
@@ -26,7 +26,7 @@ export interface ChallengeSectionProps {
   /** V12 B4: Focus handler for graph links on affected elements */
   onFocusNode?: (nodeId: string) => void
   /** V12.2: Factor lookup data for resolving IDs to labels */
-  evidenceGaps?: UncertaintyItem[]
+  evidenceGaps?: EvidenceGapItem[]
   drivers?: DriverItem[]
 }
 
@@ -39,7 +39,7 @@ export interface ChallengeSectionProps {
  */
 function resolveFactorLabel(
   factorId: string,
-  evidenceGaps?: UncertaintyItem[],
+  evidenceGaps?: EvidenceGapItem[],
   drivers?: DriverItem[]
 ): string {
   // Look up in evidence gaps
@@ -64,7 +64,7 @@ function ChallengeCard({
 }: {
   item: ActionItem
   onFocusNode?: (nodeId: string) => void
-  evidenceGaps?: UncertaintyItem[]
+  evidenceGaps?: EvidenceGapItem[]
   drivers?: DriverItem[]
 }): ReactNode {
   const hasExpandContent = item.whatCouldHappen || item.whatToDo || item.subtitle || item.affectedNodeIds

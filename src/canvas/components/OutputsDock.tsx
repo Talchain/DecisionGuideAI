@@ -24,7 +24,7 @@
  */
 
 import { useEffect, useState, useRef, useMemo, useCallback, type ChangeEvent } from 'react'
-import { BarChart3, Shuffle, Activity, Clock, PlayCircle, RefreshCw, AlertTriangle, GitCompare, XCircle, MessageCircle } from 'lucide-react'
+import { BarChart3, Shuffle, Activity, Clock, AlertTriangle, XCircle, MessageCircle, CheckCircle } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
 import { useDockState } from '../hooks/useDockState'
 import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion'
@@ -32,8 +32,6 @@ import { useCanvasStore, selectResultsStatus, selectReport, selectError, selectR
 import { loadRuns, type StoredRun } from '../store/runHistory'
 import * as runsBus from '../store/runsBus'
 import { typography } from '../../styles/typography'
-import { buildHealthStrings } from '../utils/graphHealthStrings'
-import type { GraphHealth } from '../validation/types'
 import { selectScenarioLastRun } from '../shared/lastRun'
 import {
   trackCompareOpened,
@@ -41,47 +39,23 @@ import {
   trackAutoFixSuccess,
   trackAutoFixFailed,
 } from '../utils/sandboxTelemetry'
-import { VerdictCard } from './VerdictCard'
-import { DecisionReviewPanel, type DecisionReviewStatus } from './DecisionReviewPanel'
 import { DeltaInterpretation } from './DeltaInterpretation'
-// ISL client memoization bug fixed - ValidationSuggestionsSection now stable
-import { ValidationSuggestionsSection } from './ValidationSuggestions'
-import { isDecisionReviewEnabled, isOrchestratorV2Enabled, isLegacyDirectRunEnabled } from '../../flags'
+import { isOrchestratorV2Enabled, isLegacyDirectRunEnabled } from '../../flags'
 import { getObjectiveText, getGoalDirection } from '../utils/getObjectiveText'
 import { computeDelta, deriveVerdict } from '../utils/interpretOutcome'
 import { useDebugShortcut } from '../hooks/useDebugShortcut'
 import { RANGE_TERMINOLOGY } from '../../config/terminology'
 import { IdentifiabilityBadge, normalizeIdentifiabilityTag } from './IdentifiabilityBadge'
-import { EvidenceCoverageCompact } from './EvidenceCoverage'
-// DecisionReadinessBadge import removed — readiness content absorbed into Hero "More" expand
-import { ModelQualityScore } from './ModelQualityScore'
-import { UnifiedStatusBadge } from './UnifiedStatusBadge'
-import { InsightsPanel } from './InsightsPanel'
 import { ValidationPanel, type CritiqueItem } from './ValidationPanel'
-import { GraphTextView, SectionErrorBoundary } from './GraphTextView'
-import { PreAnalysisGuidance } from './PreAnalysisGuidance'
-import { PreAnalysisHealth } from './PreAnalysisHealth'
 import { PreAnalysisPanel } from './pre-analysis'
-import { usePreRunValidation } from '../hooks/usePreRunValidation'
-import { usePreAnalysisData } from './pre-analysis/hooks/usePreAnalysisData'
 import { canRunAnalysis as canRunAnalysisUtil, getRunButtonTooltip } from '../utils/canRunAnalysis'
-import { ActionsSignal } from './ActionsSignal'
 import { WarningBanner } from './WarningBanner'
 import { DegradedStateBanner } from './DegradedStateBanner'
-import { OutcomesSignal } from './OutcomesSignal'
-import { TrustSignal } from './TrustSignal'
-import { DriversSignal } from './DriversSignal'
-import { DecisionSummary } from './DecisionSummary'
-import { DecisionQuality } from './DecisionQuality'
-import { AdvancedSettingsPanel } from './AdvancedSettingsPanel'
 import { mapConfidenceToReadiness } from '../utils/mapConfidenceToReadiness'
 import { useV2Run, type V2RunPersistence } from '../hooks/useV2Run'
 import { useScenario } from '../../hooks/useScenario'
-import { focusNodeById, focusEdgeById } from '../utils/focusHelpers'
-import { buildFragileEdgeIdSet, buildRobustEdgeIdSet, getDisplayEdgeId } from '../utils/edgeIdentity'
-import { NON_EVIDENCE_PROVENANCE } from '../utils/evidenceCoverage'
+import { focusNodeById } from '../utils/focusHelpers'
 import { useShowToast } from '../ToastContext'
-import { LensContainer } from './LensContainer'
 import { ModelTabBody } from './ModelTabBody'
 import { JourneyTabBody } from '../journey/JourneyTabBody'
 import { isJourneyTabEnabled } from '../../flags'
@@ -93,34 +67,26 @@ import { ResultsBody } from '../../components/results/ResultsBody'
 import { useGuidanceStore } from '../stores/guidanceStore'
 import type { GuidanceItem } from '../stores/guidanceStore'
 import { executeAutoFix, determineFixType, type AutoFixParams } from '../utils/autoFix'
-import { getStrengthCorrections, type StrengthCorrection } from '../../adapters/plot/v2/adapter'
-import { computeCTA, type CTAConfig } from '../../lib/ctaStateMachine'
-import { computeReadiness } from '../../lib/readiness'
-// P0.1: Driver gating utilities
-import { areDriversInformative, getDriversGatingState } from '../../lib/driversGating'
+import { getStrengthCorrections } from '../../adapters/plot/v2/adapter'
 // P0.6: User-friendly error messages
 import { getUserFriendlyError } from '../../lib/userFriendlyErrors'
-// Phase 0.3: Response normalisation and degeneracy detection
-import { normaliseResponse, checkOutcomeDegeneracy } from '../../lib/responseNormalisation'
-import { DegeneracyWarning, useDegeneracyDismissal } from './DegeneracyWarning'
+import { areDriversInformative } from '../../lib/driversGating'
+import { useDegeneracyDismissal } from './DegeneracyWarning'
 // P0.7: Loading skeletons
 import { ResultsPanelSkeleton } from './ResultsPanelSkeleton'
 // P0.8: Instrumentation
 import { trackRunStarted, trackRunCompleted, trackRunFailed } from '../../lib/resultsInstrumentation'
-// P0-2: Mixed messaging gating
-import { getAnalysisDisplayState, type EnrichmentForDisplayState } from '../../lib/analysisDisplayState'
 import { useComparisonDetection } from '../hooks/useComparisonDetection'
 import { useScenarioComparison } from '../hooks/useScenarioComparison'
-import { useOptionRanking } from '../hooks/useOptionRanking'
 import { useRobustness } from '../hooks/useRobustness'
 import { mapRobustness } from '../../lib/mappers/mapRobustness'
 import type { MappedRobustness } from '../../lib/mappers/types'
-import { RobustnessBlock } from './RecommendationCard/RobustnessBlock'
-import { EvidencePackExport } from './ResultsPanel/EvidencePackExport'
 // ScenarioComparison modal removed - now rendered as ComparisonCanvasLayout in ReactFlowGraph
 import type { CritiqueItemV1 } from '../../adapters/plot/types'
-import type { Node, Edge } from '@xyflow/react'
 import { verboseDebug } from '../../utils/verboseLog'
+import { AnalysisFooter } from '../shared/AnalysisFooter'
+import { DEFAULT_EDGE_DATA } from '../domain/edges'
+import type { GraphReadiness } from '../hooks/useGraphReadiness'
 
 /**
  * Map API critique format (CritiqueItemV1) to ValidationPanel format
@@ -187,19 +153,12 @@ export function OutputsDock() {
   const runAnalysisRetryAnimationFrameRef = useRef<number | null>(null)
   const runAnalysisRetryCancelledRef = useRef(false)
 
-  // M6: Comparison prompt state (dismissed persists in sessionStorage)
-  const [comparisonDismissed, setComparisonDismissed] = useState<boolean>(() => {
-    if (typeof sessionStorage === 'undefined') return false
-    return sessionStorage.getItem('comparison-prompt-dismissed') === 'true'
-  })
-
   // Phase 2: Response warnings banner dismissal state
   const [warningsDismissed, setWarningsDismissed] = useState(false)
   // P2: Degraded/partial state banner dismissal
   const [degradedBannerDismissed, setDegradedBannerDismissed] = useState(false)
   const comparison = useComparisonDetection()
   const scenarioComparison = useScenarioComparison()
-  const optionRanking = useOptionRanking()
 
   // Brief 25: Fetch robustness data for sensitivity, VoI, robustness bounds
   // Uses runMeta.runId and results hash when available
@@ -239,7 +198,6 @@ export function OutputsDock() {
   )
 
   // Actions don't need shallow - they're stable references
-  const setShowIssuesPanel = useCanvasStore(s => s.setShowIssuesPanel)
   const setShowResultsPanel = useCanvasStore(s => s.setShowResultsPanel)
   const setShowComparePanel = useCanvasStore(s => s.setShowComparePanel)
   const setShowDraftChat = useCanvasStore(s => s.setShowDraftChat)
@@ -264,12 +222,6 @@ export function OutputsDock() {
     })
   }, [allGuidanceItems])
 
-  // P0-UI-6: Pre-run validation hook
-  const preRunValidation = usePreRunValidation()
-
-  // Pre-run readiness from canonical usePreAnalysisData hook
-  const preAnalysisReadiness = usePreAnalysisData()
-
   // Derived values from runMeta
   const diagnostics = runMeta.diagnostics
   const correlationIdHeader = runMeta.correlationIdHeader
@@ -282,7 +234,6 @@ export function OutputsDock() {
     diagnostics.correlation_id !== correlationIdHeader
   )
 
-  const healthView = buildHealthStrings(graphHealth ?? null)
   const isPreRun = !hasCompletedFirstRun
   // Empty state: hide panel when canvas has no nodes
   const hasGraphContent = nodes.length > 0
@@ -393,49 +344,25 @@ export function OutputsDock() {
   const hasValidationBlockers = useCanvasStore(s =>
     s.graphHealth?.issues?.some((i: { severity: string }) => i.severity === 'error' || i.severity === 'blocker') ?? false
   )
+  const readinessSnapshot: GraphReadiness | null = ceeAnalysisReady
+    ? {
+        readiness_score: 100,
+        readiness_level: 'strong',
+        can_run_analysis: true,
+        confidence_explanation: '',
+        improvements: [],
+      }
+    : null
+
   const runGateResult = canRunAnalysisUtil({
     graphHealth: graphHealth ?? null,
-    readiness: ceeAnalysisReady ? { can_run_analysis: true, readiness_level: 'strong', confidence_explanation: '' } : null,
+    readiness: readinessSnapshot,
     hasBlockers: hasValidationBlockers,
     nodeCount: nodes.length,
     isRunning,
   })
   const canRunAnalysis = runGateResult.allowed
   const runBlockedTooltip = getRunButtonTooltip(runGateResult)
-
-  // R3: CTA state machine for primary analysis button
-  // P0.3: Enhanced with option count, driver informativeness, confidence level
-  const ctaConfig: CTAConfig = useMemo(() => {
-    // Compute readiness from current state
-    const hasOutcome = nodes.some(n => n.type === 'outcome')
-    const hasDecision = nodes.some(n => n.type === 'decision')
-    const readinessResult = computeReadiness({
-      nodeCount: nodes.length,
-      edgeCount: edges.length,
-      graphHealth,
-      hasOutcome,
-      hasDecision,
-    })
-
-    // P0.1: Check if drivers are informative for CTA decisions
-    const driversInformative = areDriversInformative(report?.drivers_payload)
-    // P0.3: Get fallback message for "Strengthen Model" tooltip context
-    const gatingState = getDriversGatingState(report?.drivers_payload)
-
-    return computeCTA({
-      resultsStatus,
-      hasGraph: nodes.length > 0,
-      readinessLevel: readinessResult.level,
-      isDegraded: runMeta?.degraded,
-      errorMessage: error?.message,
-      // P0.3: Enhanced CTA inputs
-      optionCount: comparison.optionNodes.length,
-      driversInformative,
-      confidenceLevel: report?.confidence?.level as 'high' | 'medium' | 'low' | undefined,
-      canCompare: comparison.canCompare && resultsStatus === 'complete',
-      driversFallbackMessage: gatingState.fallbackMessage,
-    })
-  }, [resultsStatus, nodes, edges, graphHealth, runMeta?.degraded, error?.message, comparison.optionNodes.length, comparison.canCompare, report?.drivers_payload, report?.confidence?.level])
 
   const dispatchConversationRunAnalysis = useCallback(() => {
     const runAnalysis = useGuidanceStore.getState()._runAnalysis
@@ -513,14 +440,6 @@ export function OutputsDock() {
     await runV2Analysis()
   }, [canRunAnalysis, runV2Analysis, framing, nodes, edges, comparison.optionNodes.length, dispatchConversationRunAnalysis, setShowDraftChat, clearPendingRunAnalysisRetry, showToast])
 
-  // M6: Handle comparison prompt dismissal
-  const handleDismissComparison = useCallback(() => {
-    setComparisonDismissed(true)
-    try {
-      sessionStorage.setItem('comparison-prompt-dismissed', 'true')
-    } catch {}
-  }, [])
-
   // P0 Results Brief: Add Status Quo baseline option
   // Creates a new option node with is_baseline=true, empty interventions, and connects it to a decision node
   const addStatusQuoBaseline = useCallback(() => {
@@ -565,6 +484,7 @@ export function OutputsDock() {
         target: newNode.id,
         type: 'default',
         data: {
+          ...DEFAULT_EDGE_DATA,
           confidence: 0, // No confidence needed for decision→option edge
         },
       })
@@ -588,14 +508,6 @@ export function OutputsDock() {
   const handleAddBaseline = useCallback(() => {
     addStatusQuoBaseline()
   }, [addStatusQuoBaseline])
-
-  // M6: Handle compare now action - triggers scenario comparison
-  const handleCompareNow = useCallback(async () => {
-    handleDismissComparison()
-    trackCompareOpened()
-    // Start scenario comparison workflow
-    await scenarioComparison.startComparison()
-  }, [handleDismissComparison, scenarioComparison])
 
   // Handle auto-fix for validation issues
   const handleAutoFix = useCallback(async (item: CritiqueItem): Promise<boolean> => {
@@ -646,55 +558,13 @@ export function OutputsDock() {
 
   const canonicalBands = report?.run?.bands ?? null
   const mostLikelyValue = canonicalBands ? canonicalBands.p50 : report?.results.likely ?? null
-  const resultUnitSymbol = report?.results.unitSymbol
   const hasInlineSummary = Boolean(report && resultsStatus === 'complete')
-
-  // P0.2: Compute evidence coverage from local edge provenance for consistency
-  // This ensures Results and Diagnostics tabs show the same numbers
-  // Memoized to prevent recomputation on unrelated state changes
-  const totalEdges = edges.length
-  const evidencedEdges = useMemo(
-    () => edges.filter(e => e.data?.provenance && e.data.provenance.trim() !== '').length,
-    [edges]
-  )
-  const objectiveText = getObjectiveText({ framing, nodes })
   const goalDirection = getGoalDirection(framing, nodes)
   const isError = resultsStatus === 'error'
 
   // Phase 1A.1: Compute verdict for VerdictCard
   // Use baseline from framing or default to 0 ("do nothing" scenario)
   const baselineValue = framing?.baseline ?? 0
-
-  // Brief 31 Task 6: Memoize topDrivers to prevent InsightsPanel re-render loop
-  const topDrivers = useMemo(() => {
-    if (!report?.drivers) return undefined
-    return report.drivers.slice(0, 3).map(d => ({
-      label: d.label,
-      polarity: d.polarity,
-      strength: d.strength,
-      contribution: d.contribution,
-    }))
-  }, [report?.drivers])
-
-  // P0.1: Driver gating state for contradiction prevention
-  const driversGating = useMemo(
-    () => getDriversGatingState(report?.drivers_payload),
-    [report?.drivers_payload]
-  )
-
-  // P0-2: Mixed messaging gating - compute display state based on critical issues
-  // Uses stable primitive deps to prevent render loops
-  const analysisDisplayState = useMemo(() => {
-    const enrichmentData: EnrichmentForDisplayState = {
-      critique: report?.run?.critique,
-      identifiability_tag: report?.model_card?.identifiability_tag as 'identifiable' | 'not_identifiable' | 'partially_identifiable' | 'unknown' | undefined,
-    }
-    return getAnalysisDisplayState(enrichmentData)
-  }, [
-    // Use stable primitive deps - array lengths rather than object references
-    report?.run?.critique?.length,
-    report?.model_card?.identifiability_tag,
-  ])
 
   const verdict = mostLikelyValue !== null
     ? deriveVerdict({
@@ -704,15 +574,10 @@ export function OutputsDock() {
       })
     : null
 
-  const decisionReviewFlagOn = isDecisionReviewEnabled()
   // Legacy CEE types (deprecated)
-  const ceeReview = runMeta.ceeReview ?? null
   const ceeTrace = runMeta.ceeTrace ?? null
-  const ceeError = runMeta.ceeError ?? null
   // M1 CEE Orchestrator types (preferred)
-  const ceeReviewV1 = runMeta.ceeReviewV1 ?? null
   const ceeTraceV1 = runMeta.ceeTraceV1 ?? null
-  const ceeErrorV1 = runMeta.ceeErrorV1 ?? null
 
   // Phase 1 Section 3: CEE degraded state (non-blocking overlay behaviour)
   const ceeDegraded = ceeTrace?.degraded === true || ceeTraceV1?.id_mismatch === true
@@ -729,9 +594,15 @@ export function OutputsDock() {
     : null
 
   const decisionReadiness = report?.decision_readiness || readinessFromConfidence
-  const hasDecisionReadiness = !isPreRun && !!decisionReadiness
-  const hasBlockers = hasDecisionReadiness && decisionReadiness!.blockers.length > 0
-  const isReadyForOutcome = hasDecisionReadiness && decisionReadiness!.ready && !hasBlockers
+  const recommendationStability = (report as any)?.robustness?.recommendation_stability ?? (report as any)?.robustness?.ranking_stability
+  const postRunFooter = recommendationStability != null && recommendationStability >= 0.7
+    ? { icon: CheckCircle, iconClass: 'text-success', label: 'Robust result' }
+    : recommendationStability != null && recommendationStability >= 0.4
+      ? { icon: AlertTriangle, iconClass: 'text-warning', label: 'Moderate confidence' }
+      : { icon: XCircle, iconClass: 'text-danger', label: 'Fragile result' }
+  const postRunMetaText = comparison.canCompare
+    ? 'Compare available in the tab bar'
+    : 'Review the model before relying on this result'
 
   verboseDebug('[TrustSignals] OutputsDock', {
     isPreRun,
@@ -742,9 +613,6 @@ export function OutputsDock() {
     hasInsights: !!report?.insights,
   })
 
-  // Phase 0.3: Normalize response and check for degeneracy
-  const normalisedResponse = useMemo(() => normaliseResponse(report), [report])
-  const degeneracyCheck = useMemo(() => checkOutcomeDegeneracy(normalisedResponse), [normalisedResponse])
   useDegeneracyDismissal(robustnessRunId)
 
   const mappedRobustness: MappedRobustness | null = useMemo(() => {
@@ -752,25 +620,6 @@ export function OutputsDock() {
     if (!raw) return null
     return mapRobustness(raw, { sourcePath: 'top_level' })
   }, [report])
-
-  let decisionReviewStatus: DecisionReviewStatus | null = null
-  if (decisionReviewFlagOn) {
-    if (resultsStatus === 'preparing' || resultsStatus === 'connecting' || resultsStatus === 'streaming') {
-      decisionReviewStatus = 'loading'
-    } else if (resultsStatus === 'complete' && report) {
-      // Check both V1 types (preferred) and legacy types for backwards compatibility
-      // V1 types come from synthesized data when using V2 endpoint
-      if (ceeErrorV1 || ceeError) {
-        decisionReviewStatus = 'error'
-      } else if (ceeReviewV1 || ceeReview) {
-        decisionReviewStatus = 'ready'
-      } else if (ceeTraceV1 || ceeTrace) {
-        // CEE was engaged for this run (trace present) but no review/error was returned.
-        // Treat this as an "empty" Decision Review state.
-        decisionReviewStatus = 'empty'
-      }
-    }
-  }
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -1167,9 +1016,10 @@ export function OutputsDock() {
       )}
 
       {state.isOpen && (
-        <div className={`flex-1 min-h-0 ${typography.caption} text-ink-900/70 ${isPreRun && nodes.length > 0 && state.activeTab === 'results' ? 'flex flex-col overflow-hidden' : 'px-3 py-3 space-y-4 overflow-y-auto'}`} data-testid="outputs-dock-body">
+        <div className={`flex-1 min-h-0 ${typography.caption} text-ink-900/70 ${state.activeTab === 'results' ? 'flex flex-col overflow-hidden' : 'px-3 py-3 space-y-4 overflow-y-auto'}`} data-testid="outputs-dock-body">
             {state.activeTab === 'results' && (
-              <div className={isPreRun && nodes.length > 0 ? 'flex-1 min-h-0 flex flex-col' : 'space-y-6'}>
+              <div className="flex-1 min-h-0 flex flex-col">
+                <div className={`flex-1 min-h-0 ${isPreRun && nodes.length > 0 ? 'flex flex-col' : 'overflow-y-auto px-3 py-3 space-y-6'}`}>
                 {/* P0.6: User-friendly error display */}
                 {isError && error && (() => {
                   const friendlyError = getUserFriendlyError({
@@ -1416,7 +1266,7 @@ export function OutputsDock() {
                   >
                     <AlertTriangle className="w-4 h-4 text-warning flex-shrink-0" aria-hidden="true" />
                     <span className={`${typography.caption} text-warning`}>
-                      Results may be outdated — run analysis again
+                      Results may be outdated. Run analysis again.
                     </span>
                   </div>
                 )}
@@ -1471,6 +1321,22 @@ export function OutputsDock() {
                     onActivateGuidanceItem={setActiveGuidanceItem}
                     onViewModelDetails={() => setState(prev => ({ ...prev, isOpen: true, activeTab: 'diagnostics' }))}
                     robustnessData={(report as any)?.robustness}
+                  />
+                )}
+                </div>
+                {!isPreRun && hasInlineSummary && resultsSectionData && (
+                  <AnalysisFooter
+                    statusIcon={postRunFooter.icon}
+                    statusIconClassName={postRunFooter.iconClass}
+                    statusText={postRunFooter.label}
+                    metaText={postRunMetaText}
+                    actionLabel={isRunning ? 'Analysing...' : 'Rerun analysis'}
+                    onAction={handleRunAnalysis}
+                    actionDisabled={isRunning || !canRunAnalysis}
+                    actionLoading={isRunning}
+                    actionAriaLabel={isRunning ? 'Analysis in progress' : 'Rerun analysis'}
+                    actionTitle={!canRunAnalysis && !isRunning ? runBlockedTooltip : undefined}
+                    testId="results-analysis-footer"
                   />
                 )}
               </div>
@@ -1539,51 +1405,7 @@ export function OutputsDock() {
           </div>
         )}
 
-        {/* ── v7 STICKY FOOTER: Rerun + Compare ──────────────────────────── */}
-        {/* Fixed to bottom of dock. Visible post-run only. */}
-        {state.isOpen && !isPreRun && (
-          <div
-            className="sticky bottom-0 z-10 flex gap-1.5 px-2 py-2 rounded-b-2xl"
-            style={{
-              background: 'var(--bg-panel)',
-              borderTop: '1px solid var(--border-default)',
-              boxShadow: '0 -2px 8px rgba(38,38,38,0.06)',
-            }}
-            data-testid="outputs-sticky-footer"
-          >
-            <button
-              type="button"
-              onClick={handleRunAnalysis}
-              disabled={isRunning || !canRunAnalysis}
-              title={!isRunning && runBlockedTooltip ? runBlockedTooltip : undefined}
-              className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-pill text-xs font-semibold transition-colors shadow-sm ${
-                isRunning || !canRunAnalysis
-                  ? 'bg-sand-200 text-text-light cursor-not-allowed'
-                  : 'bg-info text-text-on-color hover:opacity-90'
-              }`}
-              data-testid="outputs-rerun-button"
-            >
-              <RefreshCw className={`w-3.5 h-3.5 ${isRunning ? 'animate-spin' : ''}`} aria-hidden="true" />
-              {isRunning ? 'Running...' : 'Rerun'}
-            </button>
-            {comparison.canCompare && (
-              <button
-                type="button"
-                onClick={handleCompareNow}
-                disabled={scenarioComparison.loading}
-                className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-pill text-xs font-semibold transition-colors border ${
-                  scenarioComparison.loading
-                    ? 'bg-sand-200 text-text-light border-sand-200 cursor-not-allowed'
-                    : 'bg-panel text-text-header border-panel-border hover:bg-panel-hover'
-                }`}
-                data-testid="outputs-compare-button"
-              >
-                <GitCompare className="w-3.5 h-3.5" aria-hidden="true" />
-                {scenarioComparison.loading ? 'Comparing...' : 'Compare'}
-              </button>
-            )}
-          </div>
-        )}
+        {/* Legacy v7 sticky footer removed — superseded by AnalysisFooter above */}
     </aside>
   )
 }

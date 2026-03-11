@@ -25,7 +25,6 @@ import { DecisionQualityChecks } from './DecisionQualityChecks'
 import { ModelAdjustments } from './ModelAdjustments'
 import { AllImprovements, type ImprovementActionHandlers } from './AllImprovements'
 import { ModelSnapshot } from './ModelSnapshot'
-import { AnalysisSettings } from './AnalysisSettings'
 import { StickyFooter } from './StickyFooter'
 import { focusNodeById, focusEdgeById } from '../../utils/focusHelpers'
 import { getObservedState, withObservedStateUpdate } from '../../utils/observedStateHelpers'
@@ -40,6 +39,7 @@ import { isPreAnalysisEnrichedEnabled } from '../../../flags'
 import { WorthInvestigating, deriveEvidenceGaps } from './WorthInvestigating'
 import { ModelNotes, type ModelNote } from './ModelNotes'
 import { formatRepairs } from '../../adapters/modelCardAdapter'
+import { DEFAULT_EDGE_DATA } from '../../domain/edges'
 
 /** Collapsible pre-mortem section from PLoT m1_review */
 function PreMortemSection({ preMortem }: { preMortem: { failure_scenario: string; warning_signs: string[]; mitigation: string } }) {
@@ -333,14 +333,12 @@ export function PreAnalysisPanel({
 
   // Add evidence action - store evidence on edge metadata
   const handleAddEvidence = useCallback((edgeId: string, evidence: string) => {
-    const { updateEdge } = useCanvasStore.getState()
+    const { updateEdgeData } = useCanvasStore.getState()
 
-    updateEdge(edgeId, {
-      data: {
-        evidence: {
-          source: evidence,
-          added_at: new Date().toISOString(),
-        },
+    updateEdgeData(edgeId, {
+      evidence: {
+        source: evidence,
+        added_at: new Date().toISOString(),
       },
     })
   }, [])
@@ -359,7 +357,7 @@ export function PreAnalysisPanel({
       setHighlightedNodes([existingBaseline.id])
       focusNodeById(existingBaseline.id)
       setTimeout(() => setHighlightedNodes([]), 3000)
-      console.info('[PreAnalysisPanel] Baseline already exists, focusing:', existingBaseline.id)
+      console.warn('[PreAnalysisPanel] Baseline already exists, focusing:', existingBaseline.id)
       return
     }
 
@@ -414,14 +412,14 @@ export function PreAnalysisPanel({
         source: decisionNode.id,
         target: newNode.id,
         type: 'default',
-        data: { confidence: 0 },
+        data: { ...DEFAULT_EDGE_DATA, confidence: 0 },
       })
     }
 
     // Invalidate CEE analysis ready state
     setCeeAnalysisReady(null)
 
-    console.info('[PreAnalysisPanel] Added baseline option:', newNode.id)
+    console.warn('[PreAnalysisPanel] Added baseline option:', newNode.id)
   }, [setHighlightedNodes])
 
   // Add option action - create a new option node
@@ -453,7 +451,7 @@ export function PreAnalysisPanel({
       setTimeout(() => setHighlightedNodes([]), 3000)
     }
 
-    console.info('[PreAnalysisPanel] Added option node')
+    console.warn('[PreAnalysisPanel] Added option node')
   }, [setHighlightedNodes])
 
   // Add risk action - create a new risk node
@@ -485,7 +483,7 @@ export function PreAnalysisPanel({
       setTimeout(() => setHighlightedNodes([]), 3000)
     }
 
-    console.info('[PreAnalysisPanel] Added risk node')
+    console.warn('[PreAnalysisPanel] Added risk node')
   }, [setHighlightedNodes])
 
 
@@ -521,7 +519,7 @@ export function PreAnalysisPanel({
       default:
         break
     }
-  }, [handleAddRisk, handleAddBaseline, handleAddOption])
+  }, [data.goalNode, handleAddRisk, handleAddBaseline, handleAddOption, handleFocusNode])
 
   // Memoize action handlers object to prevent unnecessary re-renders
   const actionHandlers: ImprovementActionHandlers = useMemo(() => ({
@@ -793,9 +791,7 @@ export function PreAnalysisPanel({
         onAnalyse={onAnalyse}
         blockedReason={blockedReason}
         isLoading={data.isLoading}
-        canRetryDraft={canRetryDraft}
         isRetrying={isRetrying}
-        onRetryDraft={handleRetryDraft}
         reviewedCount={data.reviewedFactorsCount}
         totalReviewableCount={data.totalReviewableFactorsCount}
         evidenceNonAiCount={data.evidenceQuality.nonAiCount}

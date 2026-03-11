@@ -221,10 +221,10 @@ describe('PreAnalysisPanel', () => {
       mockUsePreAnalysisData.mockReturnValue(createMockData({ isReady: true, hasBlockers: false }))
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
-      expect(screen.getByRole('button', { name: /run analysis/i })).toHaveTextContent('Analyse Now')
+      expect(screen.getByRole('button', { name: /run analysis/i })).toHaveTextContent('Analyse now')
     })
 
-    it('shows "Fix N issues first" when has blockers', () => {
+    it('shows "Analyse now" CTA (disabled, aria-label signals blockers) when has blockers', () => {
       mockUsePreAnalysisData.mockReturnValue(createMockData({
         isReady: false,
         hasBlockers: true,
@@ -241,7 +241,7 @@ describe('PreAnalysisPanel', () => {
       }))
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
-      expect(screen.getByRole('button', { name: /fix issues/i })).toHaveTextContent('Fix 2 issues first')
+      expect(screen.getByRole('button', { name: /fix issues/i })).toHaveTextContent('Analyse now')
     })
 
     it('shows "Analysing..." when isAnalysing is true', () => {
@@ -266,7 +266,7 @@ describe('PreAnalysisPanel', () => {
       expect(screen.getByRole('button', { name: /fix issues/i })).toBeDisabled()
     })
 
-    it('shows "Not ready" when isReady=false but hasBlockers=false', () => {
+    it('shows "Analyse now" CTA (disabled) when isReady=false and hasBlockers=false', () => {
       mockUsePreAnalysisData.mockReturnValue(createMockData({
         isReady: false,
         hasBlockers: false,
@@ -280,7 +280,7 @@ describe('PreAnalysisPanel', () => {
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
       const button = screen.getByRole('button', { name: /analysis not ready/i })
-      expect(button).toHaveTextContent('Not ready')
+      expect(button).toHaveTextContent('Analyse now')
       expect(button).toBeDisabled()
     })
   })
@@ -669,7 +669,7 @@ describe('PreAnalysisPanel', () => {
 
       // Button should be enabled with "Analyse Now"
       const button = screen.getByRole('button', { name: /run analysis/i })
-      expect(button).toHaveTextContent('Analyse Now')
+      expect(button).toHaveTextContent('Analyse now')
       expect(button).not.toBeDisabled()
 
       // Optional tier should be visible with count in title
@@ -798,8 +798,9 @@ describe('PreAnalysisPanel', () => {
   })
 
   describe('Retry Draft Button', () => {
-    it('shows retry button when blocked with needs_user_mapping status', () => {
+    it('shows retry button in draft error card with needs_user_mapping status', () => {
       mockCeeStatus = 'needs_user_mapping'
+      mockLastDraftError = { message: 'Draft failed', retryable: true }
       mockUsePreAnalysisData.mockReturnValue(createMockData({
         isReady: false,
         hasBlockers: true,
@@ -807,12 +808,14 @@ describe('PreAnalysisPanel', () => {
       }))
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
-      expect(screen.getByTestId('retry-draft-button')).toBeInTheDocument()
-      expect(screen.getByTestId('retry-draft-button')).toHaveTextContent('Retry Draft')
+      expect(screen.getByTestId('draft-error-retry')).toBeInTheDocument()
+      expect(screen.getByTestId('draft-error-retry')).toHaveTextContent('Retry Draft')
+      mockLastDraftError = null
     })
 
-    it('shows retry button when blocked with needs_encoding status', () => {
+    it('shows retry button in draft error card with needs_encoding status', () => {
       mockCeeStatus = 'needs_encoding'
+      mockLastDraftError = { message: 'Draft failed', retryable: true }
       mockUsePreAnalysisData.mockReturnValue(createMockData({
         isReady: false,
         hasBlockers: true,
@@ -820,22 +823,25 @@ describe('PreAnalysisPanel', () => {
       }))
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
-      expect(screen.getByTestId('retry-draft-button')).toBeInTheDocument()
+      expect(screen.getByTestId('draft-error-retry')).toBeInTheDocument()
+      mockLastDraftError = null
     })
 
-    it('does not show retry button when status is ready', () => {
+    it('does not show draft error card when status is ready', () => {
       mockCeeStatus = 'ready'
+      mockLastDraftError = null
       mockUsePreAnalysisData.mockReturnValue(createMockData({
         isReady: true,
         hasBlockers: false,
       }))
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
-      expect(screen.queryByTestId('retry-draft-button')).not.toBeInTheDocument()
+      expect(screen.queryByTestId('draft-error-retry')).not.toBeInTheDocument()
     })
 
     it('does not show retry button when status is an unknown value', () => {
       mockCeeStatus = 'some_unknown_status'
+      mockLastDraftError = { message: 'Draft failed', retryable: true }
       mockUsePreAnalysisData.mockReturnValue(createMockData({
         isReady: false,
         hasBlockers: true,
@@ -843,11 +849,14 @@ describe('PreAnalysisPanel', () => {
       }))
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
-      expect(screen.queryByTestId('retry-draft-button')).not.toBeInTheDocument()
+      // canRetryDraft requires ceeStatus in SOFT_BYPASS_STATUSES — unknown status means no retry button
+      expect(screen.queryByTestId('draft-error-retry')).not.toBeInTheDocument()
+      mockLastDraftError = null
     })
 
     it('does not show retry button when no CEE status (loading)', () => {
       mockCeeStatus = undefined
+      mockLastDraftError = null
       mockUsePreAnalysisData.mockReturnValue(createMockData({
         isReady: false,
         hasBlockers: true,
@@ -856,11 +865,12 @@ describe('PreAnalysisPanel', () => {
       }))
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
-      expect(screen.queryByTestId('retry-draft-button')).not.toBeInTheDocument()
+      expect(screen.queryByTestId('draft-error-retry')).not.toBeInTheDocument()
     })
 
     it('calls retryDraft when retry button is clicked', async () => {
       mockCeeStatus = 'needs_user_mapping'
+      mockLastDraftError = { message: 'Draft failed', retryable: true }
       mockRetryDraft.mockResolvedValue({ success: true })
       mockUsePreAnalysisData.mockReturnValue(createMockData({
         isReady: false,
@@ -869,8 +879,9 @@ describe('PreAnalysisPanel', () => {
       }))
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
-      fireEvent.click(screen.getByTestId('retry-draft-button'))
+      fireEvent.click(screen.getByTestId('draft-error-retry'))
       expect(mockRetryDraft).toHaveBeenCalledTimes(1)
+      mockLastDraftError = null
     })
   })
 
@@ -997,7 +1008,7 @@ describe('PreAnalysisPanel', () => {
 
       // Footer should show "Ready" not "Blocked"
       const footer = screen.getByTestId('sticky-footer')
-      expect(footer).toHaveTextContent('Analyse Now')
+      expect(footer).toHaveTextContent('Analyse now')
     })
   })
 

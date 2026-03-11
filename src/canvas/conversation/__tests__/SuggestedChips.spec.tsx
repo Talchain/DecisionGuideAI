@@ -91,4 +91,16 @@ describe('SuggestedChips', () => {
     fireEvent.click(screen.getByTestId('suggested-chip-c1'))
     expect(onChipClick).toHaveBeenCalledWith(chip())
   })
+
+  it('renders the user-facing chip label rather than the technical id', () => {
+    render(
+      <SuggestedChips
+        chips={[chip({ id: 'clarify_option_a_internal', label: 'Tell me more about Option A' })]}
+        onChipClick={vi.fn().mockResolvedValue(undefined)}
+      />,
+    )
+
+    expect(screen.getByRole('button', { name: 'Tell me more about Option A' })).toBeInTheDocument()
+    expect(screen.queryByText('clarify_option_a_internal')).not.toBeInTheDocument()
+  })
 })

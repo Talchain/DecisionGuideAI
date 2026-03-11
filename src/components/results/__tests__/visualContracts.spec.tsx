@@ -10,7 +10,6 @@ import { describe, it, expect, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { OptionCards } from '../OptionCards'
 import { ConfidenceSection } from '../ConfidenceSection'
-import { buildSegmentColorMap } from '../HeroSection'
 import type { OptionResult, ConfidenceSectionData, HingeInfo, TopAction } from '../types'
 
 vi.mock('../../../canvas/utils/focusHelpers', () => ({
@@ -162,22 +161,18 @@ describe('Visual contract: Indeterminate state', () => {
 // ── Robust contracts ──────────────────────────────────────────────────────
 
 describe('Visual contract: Robust state', () => {
-  it('V12.3: winner card uses border-panel-border (colour via inline borderLeftColor)', () => {
-    const colorMap = buildSegmentColorMap(twoOptions, 'opt-a', 'robust')
+  it('winner card uses a full success border', () => {
     render(
       <OptionCards
         options={twoOptions}
         winnerId="opt-a"
         decisionState="robust"
         runnerId="opt-b"
-        segmentColorMap={colorMap}
       />
     )
 
     const winnerCard = screen.getByTestId('option-card-opt-a')
-    // V12.3: border colour applied via inline style, not class
-    expect(winnerCard.className).toContain('border-panel-border')
-    expect(winnerCard.style.borderLeftColor).toBe('var(--success)')
+    expect(winnerCard.className).toContain('border-success/30')
   })
 
   it('rank badges show "#N of N" not percentage', () => {
@@ -228,21 +223,18 @@ describe('Visual contract: Robust state', () => {
 // ── Sensitive contracts ───────────────────────────────────────────────────
 
 describe('Visual contract: Sensitive state', () => {
-  it('V12.3: winner card uses border-panel-border (colour via inline borderLeftColor)', () => {
-    const colorMap = buildSegmentColorMap(twoOptions, 'opt-a', 'sensitive')
+  it('winner card keeps a full bordered treatment', () => {
     render(
       <OptionCards
         options={twoOptions}
         winnerId="opt-a"
         decisionState="sensitive"
         runnerId="opt-b"
-        segmentColorMap={colorMap}
       />
     )
 
     const winnerCard = screen.getByTestId('option-card-opt-a')
-    expect(winnerCard.className).toContain('border-panel-border')
-    expect(winnerCard.style.borderLeftColor).toBe('var(--success)')
+    expect(winnerCard.className).toContain('border-success/30')
   })
 
   it('VOI block visible in ConfidenceSection', () => {

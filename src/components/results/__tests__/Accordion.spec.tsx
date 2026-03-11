@@ -172,7 +172,7 @@ describe('Accordion', () => {
   })
 
   describe('badge variants', () => {
-    it('applies default variant styling', () => {
+    it('applies default variant styling (outlined, border-warning/30)', () => {
       render(
         <Accordion title="Test Section" badgeCount={3} badgeVariant="default">
           <p>Content</p>
@@ -180,10 +180,11 @@ describe('Accordion', () => {
       )
 
       const badge = screen.getByText('3')
-      expect(badge).toHaveClass('bg-slate-100')
+      expect(badge).toHaveClass('bg-transparent')
+      expect(badge).toHaveClass('border')
     })
 
-    it('applies warning variant styling', () => {
+    it('applies warning variant styling (outlined, border-warning/30)', () => {
       render(
         <Accordion title="Test Section" badgeCount={3} badgeVariant="warning">
           <p>Content</p>
@@ -191,10 +192,11 @@ describe('Accordion', () => {
       )
 
       const badge = screen.getByText('3')
-      expect(badge).toHaveClass('bg-warning-100')
+      expect(badge).toHaveClass('bg-transparent')
+      expect(badge).toHaveClass('border')
     })
 
-    it('applies critical variant styling', () => {
+    it('applies critical variant styling (outlined, border-danger/30)', () => {
       render(
         <Accordion title="Test Section" badgeCount={3} badgeVariant="critical">
           <p>Content</p>
@@ -202,7 +204,8 @@ describe('Accordion', () => {
       )
 
       const badge = screen.getByText('3')
-      expect(badge).toHaveClass('bg-danger-100')
+      expect(badge).toHaveClass('bg-transparent')
+      expect(badge).toHaveClass('border')
     })
   })
 

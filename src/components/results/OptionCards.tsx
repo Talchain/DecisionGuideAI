@@ -41,8 +41,6 @@ export interface OptionCardsProps {
   hinge?: HingeInfo | null
   /** V11: Runner-up option ID for hinge-aware descriptions */
   runnerId?: string
-  /** V12.3: Segment colour per option ID (keyed by option ID, CSS custom property values) */
-  segmentColorMap?: Record<string, string>
 }
 
 /** Fallback description when no story headline is available */
@@ -148,7 +146,6 @@ function OptionCard({
   description,
   cardRef,
   neutralised = false,
-  segmentColor,
   sortedRank,
 }: {
   option: OptionResult
@@ -159,13 +156,14 @@ function OptionCard({
   cardRef?: (el: HTMLDivElement | null) => void
   /** V11: When true, neutralise all colour semantics (indeterminate state) */
   neutralised?: boolean
-  /** V12.3: CSS colour value for left border + bar fill (from wins bar segment) */
-  segmentColor?: string
   /** V14.2: 1-indexed rank derived from win probability sort order */
   sortedRank?: number
 }) {
-  // V12.3: Use segment colour for left border when provided
-  const borderClass = 'border-panel-border'
+  const borderClass = neutralised
+    ? 'border-panel-border'
+    : isWinner
+      ? 'border-success/30'
+      : 'border-panel-border'
   // V14.2: Prefer sort-derived rank, fallback to option.rank or winner inference
   const rank = sortedRank ?? option.rank ?? (isWinner ? 1 : undefined)
 
@@ -185,7 +183,6 @@ function OptionCard({
     <div
       ref={cardRef}
       className={`p-3 border ${borderClass} rounded-lg space-y-2 results-card-hover`}
-      style={segmentColor ? { borderLeftWidth: '3px', borderLeftColor: segmentColor } : undefined}
       data-testid={`option-card-${option.id}`}
       data-option-id={option.id}
       onMouseEnter={() => highlightNode(option.id)}
@@ -262,7 +259,6 @@ export function OptionCards({
   decisionState,
   hinge,
   runnerId,
-  segmentColorMap,
 }: OptionCardsProps) {
   // Internal ref map if none provided externally
   const internalRefMap = useRef<Map<string, HTMLDivElement>>(new Map())
@@ -305,8 +301,6 @@ export function OptionCards({
             : fallbackDescription(option, options.length)
 
         // V12.3: Segment colour from wins bar palette (keyed by option ID)
-        const segmentColor = segmentColorMap?.[option.id]
-
         return (
           <OptionCard
             key={option.id}
@@ -316,13 +310,14 @@ export function OptionCards({
             hasGoalThreshold={showHitsTarget}
             description={description}
             neutralised={neutralised}
-            segmentColor={segmentColor}
             sortedRank={index + 1}
             cardRef={(el) => {
+              const currentMap = refMap.current
+              if (!currentMap) return
               if (el) {
-                refMap.current.set(option.id, el)
+                currentMap.set(option.id, el)
               } else {
-                refMap.current.delete(option.id)
+                currentMap.delete(option.id)
               }
             }}
           />

@@ -12,7 +12,6 @@
 import { useRef, useCallback, useMemo } from 'react'
 import { typography } from '../../styles/typography'
 import type { ResultsSectionDataReturn } from './useResultsSectionData'
-import type { NextActionItem } from './types'
 import { buildResultsVM } from './buildResultsVM'
 import { GuidanceActionItemRow } from './GuidanceActionItemRow'
 import type { GuidanceItem } from '../../canvas/stores/guidanceStore'
@@ -23,7 +22,6 @@ import { ConfidenceSection } from './ConfidenceSection'
 import { Accordion } from './Accordion'
 import { SectionHeader } from './SectionHeader'
 import { OptionCards } from './OptionCards'
-import { buildSegmentColorMap } from './HeroSection'
 import { TippingPoints } from './TippingPoints'
 import { AdvancedSection } from './AdvancedSection'
 import { AttentionBanner } from './AttentionBanner'
@@ -32,6 +30,7 @@ import { groupActionItems, type ActionItem } from './utils/groupActionItems'
 import { isModelCardLiteEnabled } from '../../flags'
 import { ResultsTrustStrip } from './ResultsTrustStrip'
 import { deriveConfidenceLabel } from '../../canvas/adapters/modelCardAdapter'
+import type { EvidenceGapItem } from './types'
 
 export interface StrengthCorrectionDisplay {
   edgeId: string
@@ -45,12 +44,12 @@ export interface ResultsBodyProps {
   resultsSectionData: ResultsSectionDataReturn
   tornadoData: { rows: TornadoRow[]; expectedOutcome: number | null }
   highlightedDriverId?: string | null
-  registerDriverRef?: (factorKey: string, el: HTMLElement | null) => void
+  registerDriverRef?: (factorKey: string, el: HTMLDivElement | null) => void
   strengthCorrections?: StrengthCorrectionDisplay[]
   onFocusNode?: (nodeId: string) => void
   isRunning?: boolean
   onAddStatusQuoBaseline?: () => void
-  onApplyThreshold?: (threshold: number) => void
+  onApplyThreshold?: (threshold: number | null) => void
   onAddBaseline?: () => void
   onSetBaseline?: (optionId: string) => void
   nSamples?: number | null
@@ -204,11 +203,6 @@ export function ResultsBody({
                 .filter(o => o.id !== resultsSectionData.recommendation.recommendedOption?.id)
                 .sort((a, b) => (b.winProbability ?? 0) - (a.winProbability ?? 0))[0]?.id
             }
-            segmentColorMap={buildSegmentColorMap(
-              resultsSectionData.recommendation.allOptions,
-              resultsSectionData.recommendation.recommendedOption?.id,
-              vm.decisionState,
-            )}
           />
           {/* Tipping points below option cards (kept until Phase 3.4 ships) */}
           <TippingPoints
@@ -226,6 +220,7 @@ export function ResultsBody({
         <SectionHeader
           title="What's driving this"
           count={resultsSectionData.drivers.totalCount}
+          badgeState={resultsSectionData.drivers.totalCount > 0 ? 'unresolved' : undefined}
           testId="section-header-drivers"
         />
         <DriversSection
@@ -335,12 +330,12 @@ export function ResultsBody({
                 }
                 testId="accordion-strengthen"
                 badgeCount={hasGuidanceItems ? (guidanceItems?.length ?? 0) : badgeCount}
-                badgeVariant={
+                badgeState={
                   vm.decisionState === 'indeterminate'
                     ? 'critical'
-                    : vm.decisionState === 'sensitive'
-                    ? 'warning'
-                    : 'default'
+                    : (hasGuidanceItems ? (guidanceItems?.length ?? 0) : badgeCount) > 0
+                      ? 'unresolved'
+                      : 'resolved'
                 }
               >
                 {/* Guidance items from orchestrator — replaces NextActionItem list when present */}
@@ -392,12 +387,13 @@ export function ResultsBody({
                   defaultExpanded={false}
                   testId="accordion-challenge"
                   badgeCount={biasFindings.length + preMortemItems.length}
+                  badgeState={biasFindings.length + preMortemItems.length > 0 ? 'unresolved' : undefined}
                 >
                   <ChallengeSection
                     biasFindings={biasFindings}
                     preMortemItems={preMortemItems}
                     onFocusNode={onFocusNode}
-                    evidenceGaps={resultsSectionData.confidence.evidenceGaps}
+                    evidenceGaps={resultsSectionData.confidence.evidenceGaps as EvidenceGapItem[] | undefined}
                     drivers={resultsSectionData.drivers.drivers}
                   />
                 </Accordion>

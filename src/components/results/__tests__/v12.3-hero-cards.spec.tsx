@@ -309,103 +309,91 @@ describe('V12.3 Task 3: Option card border colours match wins bar segments', () 
     })
   })
 
-  describe('Sensitive/Robust cards — left border colours', () => {
-    it('winner gets success left border, runner-up gets info, third gets option', () => {
-      const colorMap = buildSegmentColorMap(threeOptions, 'opt-a', 'sensitive')
+  describe('Sensitive and robust cards use full borders', () => {
+    it('winner gets success full border, others keep neutral borders', () => {
       render(
         <OptionCards
           options={threeOptions}
           winnerId="opt-a"
           decisionState="sensitive"
           runnerId="opt-b"
-          segmentColorMap={colorMap}
         />
       )
 
-      // ID-based assertions: resilient to card sort order changes
       const winner = screen.getByTestId('option-card-opt-a')
-      expect(winner.style.borderLeftColor).toBe('var(--success)')
-      expect(winner.style.borderLeftWidth).toBe('3px')
+      expect(winner.className).toContain('border-success/30')
       const runner = screen.getByTestId('option-card-opt-b')
-      expect(runner.style.borderLeftColor).toBe('var(--info)')
+      expect(runner.className).toContain('border-panel-border')
       const third = screen.getByTestId('option-card-opt-c')
-      expect(third.style.borderLeftColor).toBe('var(--option)')
+      expect(third.className).toContain('border-panel-border')
     })
   })
 
-  describe('Indeterminate cards — left border colours', () => {
-    it('top gets info, second gets info-light, third gets border-default', () => {
-      const colorMap = buildSegmentColorMap(threeOptions, 'opt-a', 'indeterminate')
+  describe('Indeterminate cards keep neutral borders', () => {
+    it('all cards use neutral full borders', () => {
       render(
         <OptionCards
           options={threeOptions}
           winnerId="opt-a"
           decisionState="indeterminate"
           runnerId="opt-b"
-          segmentColorMap={colorMap}
         />
       )
 
-      expect(screen.getByTestId('option-card-opt-a').style.borderLeftColor).toBe('var(--info)')
-      expect(screen.getByTestId('option-card-opt-b').style.borderLeftColor).toBe('var(--info-light)')
-      expect(screen.getByTestId('option-card-opt-c').style.borderLeftColor).toBe('var(--border-default)')
+      expect(screen.getByTestId('option-card-opt-a').className).toContain('border-panel-border')
+      expect(screen.getByTestId('option-card-opt-b').className).toContain('border-panel-border')
+      expect(screen.getByTestId('option-card-opt-c').className).toContain('border-panel-border')
     })
   })
 
   describe('4-option colour mapping', () => {
-    it('robust: 4th option gets border-default', () => {
-      const colorMap = buildSegmentColorMap(fourOptions, 'opt-a', 'robust')
+    it('robust: lower-ranked options keep neutral borders', () => {
       render(
         <OptionCards
           options={fourOptions}
           winnerId="opt-a"
           decisionState="robust"
           runnerId="opt-b"
-          segmentColorMap={colorMap}
         />
       )
 
       // Top 2 visible by default; expand to see all 4
       fireEvent.click(screen.getByTestId('option-cards-toggle'))
 
-      expect(screen.getByTestId('option-card-opt-a').style.borderLeftColor).toBe('var(--success)')
-      expect(screen.getByTestId('option-card-opt-b').style.borderLeftColor).toBe('var(--info)')
-      expect(screen.getByTestId('option-card-opt-c').style.borderLeftColor).toBe('var(--option)')
-      expect(screen.getByTestId('option-card-opt-d').style.borderLeftColor).toBe('var(--border-default)')
+      expect(screen.getByTestId('option-card-opt-a').className).toContain('border-success/30')
+      expect(screen.getByTestId('option-card-opt-b').className).toContain('border-panel-border')
+      expect(screen.getByTestId('option-card-opt-c').className).toContain('border-panel-border')
+      expect(screen.getByTestId('option-card-opt-d').className).toContain('border-panel-border')
     })
 
-    it('indeterminate: 3rd and 4th options both get border-default', () => {
-      const colorMap = buildSegmentColorMap(fourOptions, 'opt-a', 'indeterminate')
+    it('indeterminate: all options keep neutral full borders', () => {
       render(
         <OptionCards
           options={fourOptions}
           winnerId="opt-a"
           decisionState="indeterminate"
           runnerId="opt-b"
-          segmentColorMap={colorMap}
         />
       )
 
       // Top 2 visible by default; expand to see all 4
       fireEvent.click(screen.getByTestId('option-cards-toggle'))
 
-      expect(screen.getByTestId('option-card-opt-a').style.borderLeftColor).toBe('var(--info)')
-      expect(screen.getByTestId('option-card-opt-b').style.borderLeftColor).toBe('var(--info-light)')
-      expect(screen.getByTestId('option-card-opt-c').style.borderLeftColor).toBe('var(--border-default)')
-      expect(screen.getByTestId('option-card-opt-d').style.borderLeftColor).toBe('var(--border-default)')
+      expect(screen.getByTestId('option-card-opt-a').className).toContain('border-panel-border')
+      expect(screen.getByTestId('option-card-opt-b').className).toContain('border-panel-border')
+      expect(screen.getByTestId('option-card-opt-c').className).toContain('border-panel-border')
+      expect(screen.getByTestId('option-card-opt-d').className).toContain('border-panel-border')
     })
   })
 
   describe('V12.4: Per-card wins bars removed', () => {
-    it('no per-card wins bar fill — win percentage as text only', () => {
-      const colorMap = buildSegmentColorMap(threeOptions, 'opt-a', 'robust')
+    it('no per-card wins bar fill, win percentage as text only', () => {
       render(
         <OptionCards
           options={threeOptions}
           winnerId="opt-a"
           decisionState="robust"
           runnerId="opt-b"
-          segmentColorMap={colorMap}
         />
       )
 
@@ -416,8 +404,8 @@ describe('V12.3 Task 3: Option card border colours match wins bar segments', () 
     })
   })
 
-  describe('No segmentColorMap prop', () => {
-    it('cards render without left border when segmentColorMap is omitted', () => {
+  describe('Cards without segment colour props', () => {
+    it('cards render without inline left-border styles', () => {
       const { container } = render(
         <OptionCards
           options={threeOptions}
@@ -433,25 +421,21 @@ describe('V12.3 Task 3: Option card border colours match wins bar segments', () 
     })
   })
 
-  describe('All cards use border-panel-border class', () => {
-    it('winner and non-winner both have border-panel-border', () => {
-      const colorMap = buildSegmentColorMap(threeOptions, 'opt-a', 'robust')
+  describe('All cards keep bordered card styling', () => {
+    it('winner and non-winner remain bordered cards', () => {
       render(
         <OptionCards
           options={threeOptions}
           winnerId="opt-a"
           decisionState="robust"
           runnerId="opt-b"
-          segmentColorMap={colorMap}
         />
       )
 
       const winnerCard = screen.getByTestId('option-card-opt-a')
       const otherCard = screen.getByTestId('option-card-opt-b')
-      expect(winnerCard.className).toContain('border-panel-border')
+      expect(winnerCard.className).toContain('border-success/30')
       expect(otherCard.className).toContain('border-panel-border')
-      // No border-success class on any card
-      expect(winnerCard.className).not.toContain('border-success')
     })
   })
 })

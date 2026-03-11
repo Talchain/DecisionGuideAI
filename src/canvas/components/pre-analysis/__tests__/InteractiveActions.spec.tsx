@@ -12,7 +12,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { PreAnalysisPanel } from '../PreAnalysisPanel'
 import * as usePreAnalysisDataModule from '../hooks/usePreAnalysisData'
-import type { PreAnalysisData, ImprovementItem } from '../hooks/usePreAnalysisData'
+import type { PreAnalysisData } from '../hooks/usePreAnalysisData'
 import { useCanvasStore } from '../../../store'
 
 // Mock the hook
@@ -25,6 +25,7 @@ const mockUsePreAnalysisData = usePreAnalysisDataModule.usePreAnalysisData as Re
 // Store action spies
 const mockUpdateNode = vi.fn()
 const mockUpdateEdge = vi.fn()
+const mockUpdateEdgeData = vi.fn()
 const mockAddNode = vi.fn()
 const mockAddEdge = vi.fn()
 const mockSetCeeAnalysisReady = vi.fn()
@@ -108,6 +109,7 @@ describe('Interactive Actions Hardening', () => {
       enrichedBlockers: [],
       informationalBlockers: [],
       thresholdProvenance: null,
+      thresholdSourceBadge: null,
       modelAdjustments: [],
       reviewedFactorsCount: 0,
       totalReviewableFactorsCount: 0,
@@ -121,6 +123,7 @@ describe('Interactive Actions Hardening', () => {
       ceeQuality: null,
       hasDefaultStrengths: false,
       defaultStrengthPercent: 0,
+      coachingSummary: null,
       ...overrides,
     }
   }
@@ -140,6 +143,7 @@ describe('Interactive Actions Hardening', () => {
       ],
       updateNode: mockUpdateNode,
       updateEdge: mockUpdateEdge,
+      updateEdgeData: mockUpdateEdgeData,
       addNode: mockAddNode,
       addEdge: mockAddEdge,
       setCeeAnalysisReady: mockSetCeeAnalysisReady,
@@ -418,12 +422,10 @@ describe('Interactive Actions Hardening', () => {
       const saveButton = screen.getByRole('button', { name: /save/i })
       fireEvent.click(saveButton)
 
-      // Verify updateEdge was called with sanitised value
-      expect(mockUpdateEdge).toHaveBeenCalledWith('e1', expect.objectContaining({
-        data: expect.objectContaining({
-          evidence: expect.objectContaining({
-            source: 'source with spaces', // Trimmed and collapsed
-          }),
+      // Verify updateEdgeData was called with sanitised value
+      expect(mockUpdateEdgeData).toHaveBeenCalledWith('e1', expect.objectContaining({
+        evidence: expect.objectContaining({
+          source: 'source with spaces', // Trimmed and collapsed
         }),
       }))
     })
@@ -601,6 +603,7 @@ describe('Interactive Actions Hardening', () => {
         edges: [edgeWithData],
         updateNode: mockUpdateNode,
         updateEdge: mockUpdateEdge,
+        updateEdgeData: mockUpdateEdgeData,
         addNode: mockAddNode,
         addEdge: mockAddEdge,
         setCeeAnalysisReady: mockSetCeeAnalysisReady,
@@ -655,22 +658,20 @@ describe('Interactive Actions Hardening', () => {
       const saveButton = screen.getByRole('button', { name: /save/i })
       fireEvent.click(saveButton)
 
-      // Verify updateEdge was called (store merges data, so only evidence field is passed)
-      expect(mockUpdateEdge).toHaveBeenCalledWith('e1', {
-        data: {
-          evidence: {
-            source: 'Research paper',
-            added_at: expect.any(String),
-          },
+      // Verify updateEdgeData was called with only the evidence field (Partial<EdgeData>)
+      expect(mockUpdateEdgeData).toHaveBeenCalledWith('e1', {
+        evidence: {
+          source: 'Research paper',
+          added_at: expect.any(String),
         },
       })
 
       // Verify that the call only adds evidence, doesn't overwrite other fields
-      // (The store's shallow merge handles this - we're just verifying the caller's shape)
-      const callArg = mockUpdateEdge.mock.calls[0][1]
-      expect(callArg.data).not.toHaveProperty('confidence')
-      expect(callArg.data).not.toHaveProperty('belief')
-      expect(callArg.data).not.toHaveProperty('weight')
+      // (updateEdgeData takes Partial<EdgeData> — callers must not spread DEFAULT_EDGE_DATA here)
+      const callArg = mockUpdateEdgeData.mock.calls[0][1]
+      expect(callArg).not.toHaveProperty('confidence')
+      expect(callArg).not.toHaveProperty('belief')
+      expect(callArg).not.toHaveProperty('weight')
     })
   })
 })

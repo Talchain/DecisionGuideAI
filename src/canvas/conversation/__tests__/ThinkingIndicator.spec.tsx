@@ -8,9 +8,9 @@
  * - Does not show retry while the request is still in flight
  */
 
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect } from 'vitest'
 import { render, screen } from '@testing-library/react'
-import { ThinkingIndicator, STILL_WORKING_LABEL } from '../zones/ThinkingIndicator'
+import { ThinkingIndicator } from '../zones/ThinkingIndicator'
 
 describe('ThinkingIndicator', () => {
   it('renders 6 node shapes (17 SVGs: 2 layers per shape + 5 dashed arrows)', () => {
@@ -36,15 +36,8 @@ describe('ThinkingIndicator', () => {
     expect(screen.queryByTestId('thinking-label')).not.toBeInTheDocument()
   })
 
-  it('does not show retry button at "Still working…" stage when onRetry provided', () => {
-    const onRetry = vi.fn()
-    render(<ThinkingIndicator label={STILL_WORKING_LABEL} onRetry={onRetry} />)
-    expect(screen.queryByTestId('thinking-retry')).not.toBeInTheDocument()
-  })
-
-  it('does not show retry button when label differs from STILL_WORKING_LABEL', () => {
-    const onRetry = vi.fn()
-    render(<ThinkingIndicator label="Thinking…" onRetry={onRetry} />)
+  it('does not render any retry affordance for long-running labels', () => {
+    render(<ThinkingIndicator label="Still working…" />)
     expect(screen.queryByTestId('thinking-retry')).not.toBeInTheDocument()
   })
 

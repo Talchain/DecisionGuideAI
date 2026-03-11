@@ -22,7 +22,6 @@ import { stripEncodingNotation } from './utils/cleanFactorLabel'
 import { formatPercent as formatPct } from '../../utils/formatPercent'
 import { GraphLink } from './GraphLink'
 import { linkifyCoachingText, type LinkEntity } from './utils/linkifyCoachingText'
-import { normaliseGoalLabel } from '../../utils/normaliseGoalLabel'
 import { BaselineToggleCard, type BaselineOption } from './BaselineToggleCard'
 import { BaselineTargetRow } from './BaselineTargetRow'
 import { focusNodeById } from '../../canvas/utils/focusHelpers'
@@ -241,6 +240,18 @@ function deriveTrustReason(opts: {
   return 'review model assumptions'
 }
 
+function getHeroBorderClass(robustnessLevel?: RobustnessLevel, recommendationStability?: number): string {
+  if (robustnessLevel === 'high') return 'border-success/30'
+  if (robustnessLevel === 'moderate') return 'border-info/30'
+  if (robustnessLevel === 'low' || robustnessLevel === 'very_low') return 'border-factor/30'
+  if (recommendationStability != null) {
+    if (recommendationStability >= 0.7) return 'border-success/30'
+    if (recommendationStability >= 0.4) return 'border-info/30'
+    return 'border-factor/30'
+  }
+  return 'border-panel-border'
+}
+
 /** Extract first sentence from a paragraph (up to 150 chars) */
 function extractFirstSentence(text: string): { first: string; hasMore: boolean } {
   // Find first sentence boundary: period/exclamation/question followed by whitespace + any next char,
@@ -279,7 +290,7 @@ export const WIN_GAUGE_COLORS_INDETERMINATE = [
 /**
  * Build a colour map from option ID → CSS colour, using the same sort order
  * as WinGauge (winner first, then winProbability descending). This ensures
- * OptionCards left-border colours match the corresponding WinGauge segment
+ * OptionCards colours match the corresponding WinGauge segment ordering
  * regardless of how cards are independently sorted.
  */
 export function buildSegmentColorMap(
@@ -356,159 +367,6 @@ function WinGauge({
 
 
 // =============================================================================
-// V11: MetaStrip — single-row baseline + target
-// =============================================================================
-
-function MetaStrip({
-  baselineLabel,
-  goalThreshold,
-  onSetBaseline,
-  onAddBaseline,
-  baselineOptions,
-  isRunning,
-}: {
-  baselineLabel?: string
-  goalThreshold?: number | null
-  onSetBaseline?: (id: string) => void
-  onAddBaseline?: () => void
-  baselineOptions?: BaselineOption[]
-  isRunning?: boolean
-}) {
-  return (
-    <div className="flex items-center gap-4 flex-wrap" data-testid="meta-strip">
-      {/* Baseline */}
-      {baselineOptions && baselineOptions.length > 0 && (
-        <BaselineToggleCard
-          show={true}
-          isRunning={isRunning}
-          onAddBaseline={onAddBaseline}
-          onSetBaseline={onSetBaseline}
-          options={baselineOptions}
-          baselineLabel={baselineLabel}
-        />
-      )}
-      {/* Target — show value when set, omit prompt when unset (V12.5) */}
-      {goalThreshold != null && (
-        <span className={`${typography.panelMeta} text-text-light`}>
-          Target: <span className="text-text-body">{goalThreshold}</span>
-        </span>
-      )}
-    </div>
-  )
-}
-
-// =============================================================================
-// V11: HeroRows — per-state structured rows
-// =============================================================================
-
-function HeroRows({
-  decisionState,
-  goalLabel,
-  goalThreshold,
-  winnerLabel,
-  winnerId,
-  winnerWinProbability,
-  runnerUpLabel,
-  runnerUpWinProbability,
-  hinge,
-  onFocusNode,
-  outcomeUnit,
-  outcomeUnitSymbol,
-}: {
-  decisionState: DecisionState
-  goalLabel?: string
-  goalThreshold?: number | null
-  winnerLabel: string
-  winnerId: string
-  winnerWinProbability?: number | null
-  runnerUpLabel?: string
-  runnerUpWinProbability?: number | null
-  hinge?: HingeInfo | null
-  onFocusNode?: (nodeId: string) => void
-  outcomeUnit?: 'currency' | 'percent' | 'count'
-  outcomeUnitSymbol?: string
-}) {
-  // Goal row: threshold with unit, or goal label
-  const goalDisplay = (() => {
-    if (goalThreshold != null) {
-      if (outcomeUnit === 'currency' && outcomeUnitSymbol) {
-        return `${outcomeUnitSymbol}${goalThreshold.toLocaleString()}`
-      }
-      if (outcomeUnit === 'percent') {
-        return `${goalThreshold}%`
-      }
-      return `${goalThreshold}`
-    }
-    return goalLabel && goalLabel !== 'your goal'
-      ? normaliseGoalLabel(goalLabel)
-      : 'your goal'
-  })()
-
-  const winPct = winnerWinProbability != null
-    ? Math.round(winnerWinProbability * 100)
-    : null
-
-  const runnerUpPct = runnerUpWinProbability != null
-    ? Math.round(runnerUpWinProbability * 100)
-    : null
-
-  const hingeLink = hinge ? (
-    <GraphLink
-      nodeId={hinge.nodeId}
-      label={hinge.label}
-      onFocus={onFocusNode}
-      className={`${typography.panelBody} inline`}
-    />
-  ) : null
-
-  // V12.5: Row 3 action content
-  const actionContent = (() => {
-    if (decisionState === 'robust') {
-      if (!hingeLink) return null
-      return <>Validate: {hingeLink}</>
-    }
-    if (decisionState === 'sensitive') {
-      return hingeLink ? <>Validate first: {hingeLink}</> : 'Review key assumptions before committing.'
-    }
-    // indeterminate
-    return hingeLink ? <>Resolve first: {hingeLink}</> : 'Review key assumptions to distinguish the options.'
-  })()
-
-  // V12.5: Three-line prose hero (replaces dl/dt/dd table)
-  return (
-    <div className="space-y-1" data-testid="hero-rows">
-      {/* Line 1: Goal */}
-      <p className={`${typography.panelMeta} text-text-light`}>
-        {goalDisplay}
-      </p>
-
-      {/* Line 2: Result / Leader */}
-      {decisionState === 'indeterminate' ? (
-        <p className={`${typography.panelBody} text-text-header`}>
-          No clear winner{winPct != null && runnerUpPct != null && (
-            <> ({winPct}% vs {runnerUpPct}%)</>
-          )}
-        </p>
-      ) : (
-        <p className={`${typography.panelBody} text-text-header`}>
-          <span className="text-success">{winnerLabel}</span>
-          {winPct != null && (
-            <span className="text-text-light"> ({winPct}% win likelihood)</span>
-          )}
-        </p>
-      )}
-
-      {/* Line 3: Action */}
-      {actionContent && (
-        <p className={`${typography.panelBody} text-text-body`}>
-          {actionContent}
-        </p>
-      )}
-    </div>
-  )
-}
-
-// =============================================================================
 // Main Component
 // =============================================================================
 
@@ -517,12 +375,7 @@ export function HeroSection({
   winnerId,
   winnerGoalProbability,
   winnerWinProbability,
-  runnerUpLabel,
-  runnerUpId,
-  runnerUpGoalProbability,
-  runnerUpWinProbability,
   optionCount,
-  hasBaseline,
   recommendationStability,
   analysisStatus,
   topDrivers,
@@ -531,13 +384,10 @@ export function HeroSection({
   fragileEdgeCount,
   goalLabel,
   goalThreshold,
-  expectedOutcome,
   outcomeUnit,
   outcomeUnitSymbol,
-  isNormalised,
   optionWinShares,
   coachingReadiness,
-  coachingReadinessScore,
   coachingHeadline,
   coachingParagraph,
   coachingKeyQualifier,
@@ -545,18 +395,13 @@ export function HeroSection({
   coachingReadinessDimensions,
   identifiabilityTag,
   m2Headline,
-  m2Bullets,
-  m2CoachingParagraph,
-  m2BiasInsights,
   onFocusNode,
-  onFlashOption,
   isRunning,
   onAddBaseline,
   onSetBaseline,
   baselineOptions,
   baselineLabel,
   decisionState,
-  hinge,
   robustEdgeCount,
   nearTie,
   topNextAction,
@@ -921,12 +766,13 @@ export function HeroSection({
       robustEdgeCount,
       evidenceQuality: coachingReadinessDimensions?.evidence,
     })
+    const heroBorderClass = getHeroBorderClass(robustnessLevel, recommendationStability)
 
     const sanitizedParagraphV16 = coachingParagraph || null
 
     return (
       <div className="space-y-4" data-testid="hero-section">
-        <div className="p-4 bg-panel border border-panel-border rounded-lg space-y-3">
+        <div className={`bg-panel border rounded-lg px-3 py-2 space-y-3 ${heroBorderClass}`}>
 
           {/* ── Headline: Goal / Result ──────────────────────── */}
           {v14Headline.isNearTie ? (
@@ -1063,7 +909,7 @@ export function HeroSection({
 
           {/* ── V16 Task 3: Trust summary ─────────────────────── */}
           <p className={`${typography.panelMeta} text-text-light truncate`} data-testid="trust-summary">
-            Trust: {trustLevel} — {trustReason}
+            Trust: {trustLevel}. {trustReason.charAt(0).toUpperCase()}{trustReason.slice(1)}
           </p>
 
           {/* ── V16 Task 2: Baseline + target row (above gauge) ── */}
@@ -1252,6 +1098,8 @@ export function HeroSection({
   return (
     <div className="space-y-4" data-testid="hero-section">
       {/* Main hero card */}
+      {/* TODO: Legacy V9.2 fallback — use getHeroBorderClass() when decisionState
+          is guaranteed. Low risk: decisionState is always provided in production. */}
       <div className="p-4 bg-panel border border-panel-border rounded-lg">
         {/* V9.2 Headline — Goal / Result format */}
         <div className="space-y-0.5">

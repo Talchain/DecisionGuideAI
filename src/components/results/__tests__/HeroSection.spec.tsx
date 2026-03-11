@@ -1451,7 +1451,7 @@ describe('HeroSection', () => {
       )
 
       const trust = screen.getByTestId('trust-summary')
-      expect(trust.textContent).toContain('review model assumptions')
+      expect(trust.textContent).toContain('Review model assumptions')
     })
   })
 
@@ -1628,7 +1628,7 @@ describe('HeroSection', () => {
       )
 
       const trust = screen.getByTestId('trust-summary')
-      expect(trust.textContent).toContain('most causal links are fragile')
+      expect(trust.textContent).toContain('Most causal links are fragile')
     })
 
     it('shows evidence quality reason when quality < 0.5', () => {
@@ -1643,7 +1643,7 @@ describe('HeroSection', () => {
       )
 
       const trust = screen.getByTestId('trust-summary')
-      expect(trust.textContent).toContain('evidence quality is low')
+      expect(trust.textContent).toContain('Evidence quality is low')
     })
 
     it('default estimate reason takes priority over fragile edge ratio', () => {

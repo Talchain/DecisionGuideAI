@@ -15,9 +15,9 @@
  *   100% from brief → "All values from your brief"
  */
 
-import { CheckCircle, XCircle, Loader2, RefreshCw } from 'lucide-react'
+import { CheckCircle, XCircle, Loader2, AlertTriangle } from 'lucide-react'
 import { Tooltip } from '../Tooltip'
-import { typography } from '@/styles/typography'
+import { AnalysisFooter } from '../../shared/AnalysisFooter'
 
 /** Derive source distribution tooltip from raw counts */
 function getReviewedTooltip(nonAiCount?: number, totalCount?: number): string {
@@ -47,12 +47,8 @@ interface StickyFooterProps {
   blockedReason?: string
   /** Whether CEE data is still loading */
   isLoading?: boolean
-  /** Whether retry draft is available (blocked due to incomplete draft) */
-  canRetryDraft?: boolean
   /** Whether retry is in progress */
   isRetrying?: boolean
-  /** Click handler for retry draft button */
-  onRetryDraft?: () => void
   /** Number of reviewed (user-confirmed) factors */
   reviewedCount?: number
   /** Total number of reviewable factors */
@@ -71,9 +67,7 @@ export function StickyFooter({
   onAnalyse,
   blockedReason,
   isLoading = false,
-  canRetryDraft = false,
   isRetrying = false,
-  onRetryDraft,
   reviewedCount,
   totalReviewableCount,
   evidenceNonAiCount,
@@ -81,30 +75,7 @@ export function StickyFooter({
 }: StickyFooterProps) {
   const isDisabled = !isReady || isAnalysing || isLoading || isRetrying
 
-  let buttonLabel: string
-  let buttonStyle: string
-
-  if (isLoading) {
-    buttonLabel = 'Checking...'
-    buttonStyle = 'bg-panel text-text-light cursor-wait opacity-40'
-  } else if (isRetrying) {
-    buttonLabel = 'Re-drafting...'
-    buttonStyle = 'bg-panel text-text-light cursor-wait opacity-40'
-  } else if (isAnalysing) {
-    buttonLabel = 'Analysing...'
-    buttonStyle = 'bg-primary text-text-on-color cursor-wait'
-  } else if (hasBlockers) {
-    buttonLabel = `Fix ${blockerCount} issue${blockerCount !== 1 ? 's' : ''} first`
-    buttonStyle = 'bg-panel text-text-light cursor-not-allowed opacity-40'
-  } else if (!isReady) {
-    buttonLabel = 'Not ready'
-    buttonStyle = 'bg-panel text-text-light cursor-not-allowed opacity-40'
-  } else {
-    buttonLabel = 'Analyse Now'
-    buttonStyle = 'bg-primary hover:bg-primary-hover text-text-on-color'
-  }
-
-  let StatusIcon: typeof CheckCircle | typeof XCircle | typeof Loader2
+  let StatusIcon: typeof CheckCircle | typeof XCircle | typeof Loader2 | typeof AlertTriangle
   let statusIconColor: string
   let statusText: string
 
@@ -115,90 +86,58 @@ export function StickyFooter({
   } else if (isRetrying) {
     StatusIcon = Loader2
     statusIconColor = 'text-primary animate-spin'
-    statusText = 'Re-drafting'
+    statusText = 'Updating draft'
   } else if (isReady) {
     StatusIcon = CheckCircle
     statusIconColor = 'text-success'
     statusText = 'Ready'
-  } else {
+  } else if (hasBlockers) {
     StatusIcon = XCircle
     statusIconColor = 'text-danger'
     statusText = 'Blocked'
+  } else {
+    StatusIcon = AlertTriangle
+    statusIconColor = 'text-warning'
+    statusText = 'Not ready'
   }
-
-  const showRetryButton = canRetryDraft && hasBlockers && !isLoading && !isAnalysing && !isRetrying
 
   const allReviewed = totalReviewableCount != null && totalReviewableCount > 0 &&
     (reviewedCount ?? 0) >= totalReviewableCount
 
   const reviewedTooltip = getReviewedTooltip(evidenceNonAiCount, evidenceTotalCount)
+  const metaText = !isRetrying && totalReviewableCount != null && totalReviewableCount > 0 ? (
+    <Tooltip content={reviewedTooltip}>
+      <span className="cursor-help">
+        {allReviewed ? 'All reviewed' : `${reviewedCount ?? 0}/${totalReviewableCount} reviewed`}
+      </span>
+    </Tooltip>
+  ) : hasBlockers ? `${blockerCount} to address` : undefined
 
   return (
-    <div
-      className="flex-shrink-0 h-12 px-3 flex items-center justify-between bg-panel border-t border-panel-border"
-      data-testid="sticky-footer"
-    >
-      {/* Left: Status + Reviewed count */}
-      <div className={`flex items-center gap-2 ${typography.panelBody}`}>
-        <StatusIcon className={`w-4 h-4 ${statusIconColor}`} aria-hidden="true" />
-        <span className="text-text-body">{statusText}</span>
-        {!isRetrying && (totalReviewableCount != null && totalReviewableCount > 0) && (
-          <>
-            <span className="text-text-light">·</span>
-            <Tooltip content={reviewedTooltip}>
-              <span className="text-text-body cursor-help">
-                {allReviewed ? 'All reviewed' : `${reviewedCount ?? 0}/${totalReviewableCount} reviewed`}
-              </span>
-            </Tooltip>
-          </>
-        )}
-      </div>
-
-      {/* Right: CTA Button(s) */}
-      <div className="flex items-center gap-2">
-        {showRetryButton && onRetryDraft && (
-          <Tooltip content="Re-run the AI draft to fix missing data">
-            <button
-              type="button"
-              onClick={onRetryDraft}
-              className={`px-3 py-2 rounded-full ${typography.panelMeta} transition-colors flex items-center gap-1.5 border border-primary/30 text-primary hover:bg-primary-light`}
-              aria-label="Retry draft to fix blocked state"
-              data-testid="retry-draft-button"
-            >
-              <RefreshCw className="w-3.5 h-3.5" aria-hidden="true" />
-              Retry Draft
-            </button>
-          </Tooltip>
-        )}
-
-        <button
-          type="button"
-          onClick={onAnalyse}
-          disabled={isDisabled}
-          aria-disabled={isDisabled ? 'true' : 'false'}
-          className={`
-            px-4 py-2 rounded-full ${typography.panelMeta} transition-colors
-            flex items-center gap-2
-            ${buttonStyle}
-          `}
-          aria-label={
-            isRetrying
-              ? 'Re-drafting in progress'
-              : isAnalysing
-                ? 'Analysis in progress'
-                : hasBlockers
-                  ? `Fix issues before analysing${blockedReason ? `: ${blockedReason}` : ''}`
-                  : !isReady
-                    ? `Analysis not ready${blockedReason ? `: ${blockedReason}` : ''}`
-                    : 'Run analysis'
-          }
-          title={isDisabled && !isAnalysing && !isLoading && !isRetrying ? (blockedReason || 'Complete required actions before analysing') : undefined}
-        >
-          {(isAnalysing || isRetrying) && <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />}
-          {buttonLabel}
-        </button>
-      </div>
-    </div>
+    <AnalysisFooter
+      statusIcon={StatusIcon}
+      statusIconClassName={statusIconColor}
+      statusText={statusText}
+      metaText={metaText}
+      actionLabel={isAnalysing ? 'Analysing...' : 'Analyse now'}
+      onAction={onAnalyse}
+      actionDisabled={isDisabled}
+      actionLoading={isAnalysing || isRetrying}
+      actionAriaLabel={
+        isRetrying
+          ? 'Draft update in progress'
+          : isAnalysing
+            ? 'Analysis in progress'
+            : hasBlockers
+              ? `Fix issues before analysing${blockedReason ? `: ${blockedReason}` : ''}`
+              : !isReady
+                ? `Analysis not ready${blockedReason ? `: ${blockedReason}` : ''}`
+                : 'Run analysis'
+      }
+      actionTitle={isDisabled && !isAnalysing && !isLoading && !isRetrying
+        ? (blockedReason || 'Complete required actions before analysing')
+        : undefined}
+    />
   )
 }
 

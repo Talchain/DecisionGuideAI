@@ -641,11 +641,16 @@ function GraphPatchBlockRenderer({
   const [showStalenessWarning, setShowStalenessWarning] = useState(false)
   const highlightTimeoutsRef = useRef<ReturnType<typeof setTimeout>[]>([])
 
+  const clearHighlightTimeouts = useCallback(() => {
+    highlightTimeoutsRef.current.forEach(clearTimeout)
+    highlightTimeoutsRef.current = []
+  }, [])
+
   useEffect(() => {
     return () => {
-      highlightTimeoutsRef.current.forEach(clearTimeout)
+      clearHighlightTimeouts()
     }
-  }, [])
+  }, [clearHighlightTimeouts])
 
   const stateKey = turnId ? `${turnId}:${block.patch_id}` : block.patch_id
   const blockState = patchBlockStates?.get(stateKey) ?? 'proposed'
@@ -679,17 +684,17 @@ function GraphPatchBlockRenderer({
       }
     }
     onAccept?.(stateKey, block)
-  }, [block, onAccept])
+  }, [block, onAccept, stateKey])
 
   const handleApplyAnyway = useCallback(() => {
     setShowStalenessWarning(false)
     onAccept?.(stateKey, block)
-  }, [block, onAccept])
+  }, [block, onAccept, stateKey])
 
   const handleDismissStale = useCallback(() => {
     setShowStalenessWarning(false)
     onDismiss?.(stateKey)
-  }, [block.patch_id, onDismiss])
+  }, [onDismiss, stateKey])
 
   const handleActionClick = useCallback((action: BlockAction) => {
     if (action.action_type === 'accept') {
@@ -698,10 +703,11 @@ function GraphPatchBlockRenderer({
       onDismiss?.(stateKey)
     }
     // 'view_details' and unknown action_types are no-ops for now
-  }, [block.patch_id, handleAcceptWithStalenessCheck, onDismiss])
+  }, [handleAcceptWithStalenessCheck, onDismiss, stateKey])
 
   const handleRevealChanges = useCallback(() => {
     const store = useCanvasStore.getState()
+    clearHighlightTimeouts()
 
     if (nodeIds.length === 1) {
       store.selectNodeWithoutHistory(nodeIds[0])
@@ -723,7 +729,7 @@ function GraphPatchBlockRenderer({
         useCanvasStore.getState().setHighlightedEdges([])
       }, 2000))
     }
-  }, [edgeIds, nodeIds])
+  }, [clearHighlightTimeouts, edgeIds, nodeIds])
 
   return (
     <div
