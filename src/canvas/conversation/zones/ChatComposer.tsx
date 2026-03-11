@@ -100,7 +100,7 @@ export const ChatComposer = memo(forwardRef<ChatComposerHandle, ChatComposerProp
 
     // BIL local preview (flag-gated, framing stage only) — pure derived state, no side effects
     const bilResult = useMemo(() => {
-      if (!isBilPreviewEnabled() || !isFramingStage(stage)) return null
+      if (!isBilPreviewEnabled() || !isFramingStage(stage) || debouncedValue.trim().length === 0) return null
       return extractLocalBIL(debouncedValue)
     }, [debouncedValue, stage])
 
@@ -168,7 +168,7 @@ export const ChatComposer = memo(forwardRef<ChatComposerHandle, ChatComposerProp
 
         {/* 3. Readiness row (framing only): readiness pill + inline Generate model */}
         {showBriefStrip && (
-          <div className="flex items-center" style={{ gap: 6 }}>
+          <div className="flex items-end" style={{ gap: 6 }}>
             <BriefReadinessPill
               readiness={briefSignals!.readiness}
               expanded={stripExpanded}
