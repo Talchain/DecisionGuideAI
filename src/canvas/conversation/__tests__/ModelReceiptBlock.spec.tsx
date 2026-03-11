@@ -36,7 +36,7 @@ describe('ModelReceiptBlock', () => {
     expect(screen.getByText(/8 relationships/)).toBeInTheDocument()
     expect(screen.getByText(/Revenue growth/)).toBeInTheDocument()
     expect(screen.getByText(/Missing time horizon/)).toBeInTheDocument()
-    expect(screen.getByText(/Marketing spend/)).toBeInTheDocument()
+    expect(screen.getByText(/Next step: add evidence for Marketing spend/)).toBeInTheDocument()
   })
 
   it('renders with partial data without crashing', () => {
@@ -60,6 +60,21 @@ describe('ModelReceiptBlock', () => {
     expect(screen.getByText(/2 factors/)).toBeInTheDocument()
     // No insight or gap text
     expect(screen.queryByText(/Missing/)).not.toBeInTheDocument()
+  })
+
+  it('shows a ready next-step when there is no evidence gap', () => {
+    render(
+      <ModelReceiptBlock
+        data={{
+          ...fullData,
+          topEvidenceGap: null,
+          topInsight: null,
+          adjustments: [],
+        }}
+      />,
+    )
+
+    expect(screen.getByText('Next step: run analysis when you are ready.')).toBeInTheDocument()
   })
 
   it('renders adjustments collapsed by default', () => {

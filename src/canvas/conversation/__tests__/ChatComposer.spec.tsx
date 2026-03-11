@@ -22,6 +22,12 @@ vi.mock('../../hooks/useStagePill', () => ({
   useStagePill: () => ({ stage: mockStage }),
 }))
 
+let mockCanvasState = { nodes: [] as Array<{ id: string }>, edges: [] as Array<{ id: string }> }
+
+vi.mock('../../store', () => ({
+  useCanvasStore: (selector: (s: any) => any) => selector(mockCanvasState),
+}))
+
 vi.mock('../../stores/guidanceStore', () => ({
   useGuidanceStore: (selector: (s: any) => any) => {
     const state = {
@@ -102,6 +108,7 @@ describe('ChatComposer', () => {
     mockBriefSignals = null
     mockBilEnabled = false
     mockBilResult = null
+    mockCanvasState = { nodes: [], edges: [] }
   })
 
   it('renders textarea with placeholder', () => {
@@ -279,6 +286,39 @@ describe('ChatComposer', () => {
 
     expect(screen.getByTestId('inline-generate-btn')).toBeInTheDocument()
     expect(screen.getByTestId('inline-generate-btn')).toBeDisabled()
+  })
+
+  it('hides first-draft guidance and generate controls once a graph exists', () => {
+    mockStage = 'frame'
+    mockCanvasState = { nodes: [{ id: 'node-1' }], edges: [] }
+    mockBriefSignals = {
+      elements: [
+        { kind: 'goal', detected: true, label: 'Goal', coachingTip: 'State your goal.' },
+        { kind: 'options', detected: true, label: 'Options', coachingTip: 'List options.' },
+        { kind: 'metric', detected: false, label: 'Metric', coachingTip: 'Add a metric.' },
+        { kind: 'constraints', detected: false, label: 'Constraints', coachingTip: 'Note constraints.' },
+        { kind: 'risks', detected: false, label: 'Risks', coachingTip: 'Note risks.' },
+      ],
+      readiness: 'high',
+      bias: null,
+    }
+
+    const ref = createRef<ChatComposerHandle>()
+    render(
+      <ChatComposer
+        ref={ref}
+        conversation={makeConversation()}
+        generateState="active"
+        onCollapse={vi.fn()}
+        onScrollToPatch={vi.fn()}
+        onOpenInspector={vi.fn()}
+        onGenerateModel={vi.fn()}
+      />,
+    )
+
+    expect(screen.queryByTestId('brief-guidance-strip')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('brief-readiness-pill')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('inline-generate-btn')).not.toBeInTheDocument()
   })
 
   it('inline generate button is active when generateState is active', () => {

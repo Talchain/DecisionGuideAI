@@ -7,7 +7,7 @@
  * always stay visible — budget is enforced upstream in useConversation).
  */
 
-import { useState, useEffect, useRef, useCallback, memo } from 'react'
+import { useState, useCallback, useEffect, useRef, memo } from 'react'
 import { Lightbulb, AlertTriangle, Check, X as XIcon, ChevronDown, ChevronUp, ExternalLink, Wand2 } from 'lucide-react'
 import { typography } from '../../styles/typography'
 import { useGuidanceStore } from '../stores/guidanceStore'
@@ -28,6 +28,7 @@ import { isPreAnalysisEnrichedEnabled } from '../../flags'
 import { ModelReceiptBlock } from './ModelReceiptBlock'
 import type { PatchBlockState, PatchRejectionInfo } from './useConversation'
 import { MAX_VISIBLE_BLOCKS_PER_TURN } from './types'
+import { extractTargetIdsFromPatch } from './utils/extractTargetIds'
 import { generateGraphHash } from '../utils/graphHash'
 import styles from './Conversation.module.css'
 
@@ -551,7 +552,7 @@ const EvidenceBlockRenderer = memo(function EvidenceBlockRenderer({
     const summary = findings
       .slice(0, 3)
       .map(f => {
-        const raw = (f as Record<string, unknown>)
+        const raw = (f as unknown as Record<string, unknown>)
         const text = raw.text ?? raw.summary ?? raw.content ?? raw.description
         return typeof text === 'string' && text.trim() ? `- ${text.trim()}` : null
       })
@@ -638,6 +639,13 @@ function GraphPatchBlockRenderer({
 }: GraphPatchBlockRendererProps) {
   const [showViolations, setShowViolations] = useState(false)
   const [showStalenessWarning, setShowStalenessWarning] = useState(false)
+  const highlightTimeoutsRef = useRef<ReturnType<typeof setTimeout>[]>([])
+
+  useEffect(() => {
+    return () => {
+      highlightTimeoutsRef.current.forEach(clearTimeout)
+    }
+  }, [])
 
   const stateKey = turnId ? `${turnId}:${block.patch_id}` : block.patch_id
   const blockState = patchBlockStates?.get(stateKey) ?? 'proposed'
@@ -645,6 +653,8 @@ function GraphPatchBlockRenderer({
   const isSettled = blockState !== 'proposed'
 
   const opSummary = summarisePatchOps(block.operations)
+  const { nodeIds, edgeIds } = extractTargetIdsFromPatch(block.operations)
+  const hasRevealTargets = nodeIds.length > 0 || edgeIds.length > 0
 
   // auto_apply: CEE already applied the graph — render as applied, no actions, no event dispatch
   const isAutoApplied = block.auto_apply === true
@@ -690,6 +700,31 @@ function GraphPatchBlockRenderer({
     // 'view_details' and unknown action_types are no-ops for now
   }, [block.patch_id, handleAcceptWithStalenessCheck, onDismiss])
 
+  const handleRevealChanges = useCallback(() => {
+    const store = useCanvasStore.getState()
+
+    if (nodeIds.length === 1) {
+      store.selectNodeWithoutHistory(nodeIds[0])
+      store.setShowInspectorPanel(true)
+    } else if (nodeIds.length > 1) {
+      store.selectNodes(nodeIds)
+    }
+
+    if (nodeIds.length > 0) {
+      store.setHighlightedNodes(nodeIds)
+      highlightTimeoutsRef.current.push(setTimeout(() => {
+        useCanvasStore.getState().setHighlightedNodes([])
+      }, 2000))
+    }
+
+    if (edgeIds.length > 0) {
+      store.setHighlightedEdges(edgeIds)
+      highlightTimeoutsRef.current.push(setTimeout(() => {
+        useCanvasStore.getState().setHighlightedEdges([])
+      }, 2000))
+    }
+  }, [edgeIds, nodeIds])
+
   return (
     <div
       className={styles.graphPatchBlock}
@@ -701,16 +736,46 @@ function GraphPatchBlockRenderer({
 
       {/* auto_apply: render as applied immediately (no actions, no event) */}
       {isAutoApplied && (
-        <div className={styles.graphPatchStatusApplied} data-testid="patch-status-auto-applied">
-          <Check size={14} aria-hidden="true" /> Applied
-        </div>
+        <>
+          <div className={styles.graphPatchStatusApplied} data-testid="patch-status-auto-applied">
+            <Check size={14} aria-hidden="true" /> Applied
+          </div>
+          {hasRevealTargets && (
+            <div className={styles.graphPatchActions}>
+              <button
+                type="button"
+                className={styles.graphPatchDismiss}
+                onClick={handleRevealChanges}
+                data-testid="patch-show-changes"
+                aria-label="Show changes on canvas"
+              >
+                Show changes
+              </button>
+            </div>
+          )}
+        </>
       )}
 
       {/* Status indicators for settled states (non-auto_apply) */}
       {!isAutoApplied && blockState === 'accepted' && (
-        <div className={styles.graphPatchStatusApplied} data-testid="patch-status-applied">
-          <Check size={14} aria-hidden="true" /> Applied
-        </div>
+        <>
+          <div className={styles.graphPatchStatusApplied} data-testid="patch-status-applied">
+            <Check size={14} aria-hidden="true" /> Applied
+          </div>
+          {hasRevealTargets && (
+            <div className={styles.graphPatchActions}>
+              <button
+                type="button"
+                className={styles.graphPatchDismiss}
+                onClick={handleRevealChanges}
+                data-testid="patch-show-changes"
+                aria-label="Show changes on canvas"
+              >
+                Show changes
+              </button>
+            </div>
+          )}
+        </>
       )}
       {!isAutoApplied && blockState === 'rejected' && (
         <div className={styles.graphPatchStatusRejected} data-testid="patch-status-rejected">

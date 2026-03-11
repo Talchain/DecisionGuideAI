@@ -50,6 +50,11 @@ export const ModelReceiptBlock = memo(function ModelReceiptBlock({ data }: Model
   ].filter(Boolean).join(', ')
 
   const targetLine = data.goalLabel ? ` targeting ${data.goalLabel}` : ''
+  const nextStepLine = data.topEvidenceGap
+    ? `Next step: add evidence for ${data.topEvidenceGap}`
+    : data.readiness === 'ready'
+      ? 'Next step: run analysis when you are ready.'
+      : null
 
   return (
     <div
@@ -78,9 +83,9 @@ export const ModelReceiptBlock = memo(function ModelReceiptBlock({ data }: Model
       )}
 
       {/* Top evidence gap */}
-      {data.topEvidenceGap && (
+      {nextStepLine && (
         <p className={`${typography.panelMeta} text-text-light`}>
-          Evidence gap: {data.topEvidenceGap}
+          {nextStepLine}
         </p>
       )}
 

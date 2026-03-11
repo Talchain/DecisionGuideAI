@@ -119,6 +119,7 @@ export function DraftChat() {
   const captureErrorDetail = useCanvasStore(s => s.captureErrorDetail)
   const nodeCount = useCanvasStore(s => s.nodes.length)
   const edgeCount = useCanvasStore(s => s.edges.length)
+  const hasGraph = nodeCount > 0 || edgeCount > 0
   // Task 2: Watch for full_draft signal (set by useConversation when ≥3 nodes added at once)
   const fullDraftAppliedAt = useCanvasStore(s => s.fullDraftAppliedAt)
 
@@ -920,7 +921,7 @@ export function DraftChat() {
               className={`${typography.body} text-text-light flex-1 text-left cursor-pointer bg-transparent border-none outline-none`}
               aria-label="Expand panel"
             >
-              Describe your decision…
+              {hasGraph ? 'Describe changes or rebuild…' : 'Describe your decision…'}
             </button>
             <div
               className="w-[34px] h-[34px] flex-shrink-0 rounded-full flex items-center justify-center bg-panel-hover text-text-light"
@@ -956,7 +957,7 @@ export function DraftChat() {
                     handleDraft()
                   }
                 }}
-                placeholder="Describe your decision..."
+                placeholder={hasGraph ? 'Describe changes to your model...' : 'Describe your decision...'}
                 className={`${typography.body} w-full h-full pr-12 bg-transparent resize-none placeholder:text-ink-400`}
                 style={{
                   minHeight: '24px',
@@ -966,7 +967,7 @@ export function DraftChat() {
                   overflow: 'hidden'
                 }}
                 rows={1}
-                aria-label="Describe your decision"
+                aria-label={hasGraph ? 'Describe changes to your model' : 'Describe your decision'}
               />
               {/* Submit button inside textarea area - anchored to bottom right */}
               <button
@@ -978,7 +979,7 @@ export function DraftChat() {
                   color: canSubmit ? '#FFFFFF' : '#9B9B9B',
                   cursor: canSubmit ? 'pointer' : 'not-allowed'
                 }}
-                aria-label="Generate draft"
+                aria-label={hasGraph ? 'Rebuild model' : 'Generate draft'}
                 title="Press Enter to send"
               >
                 {loading ? (
@@ -1344,7 +1345,9 @@ export function DraftChat() {
                       handleDraft()
                     }
                   }}
-                  placeholder="Describe your decision... e.g., We're deciding whether to expand into the European market. Key factors include regulatory costs, market size, and competition..."
+                  placeholder={hasGraph
+                    ? 'Describe the changes you want... e.g., Rebuild this model with fewer factors, clearer options, and stronger evidence for market size.'
+                    : "Describe your decision... e.g., We're deciding whether to expand into the European market. Key factors include regulatory costs, market size, and competition..."}
                   className={`
                     ${typography.body} w-full p-3 pb-12 rounded-xl border border-sand-200
                     focus:border-sand-200 focus:outline-none focus:ring-0 focus:shadow-none
@@ -1372,7 +1375,7 @@ export function DraftChat() {
                     color: canSubmit ? '#FFFFFF' : '#9B9B9B',
                     cursor: canSubmit ? 'pointer' : 'not-allowed'
                   }}
-                  aria-label="Generate draft (Enter to send, Shift+Enter for new line)"
+                  aria-label={`${hasGraph ? 'Rebuild model' : 'Generate draft'} (Enter to send, Shift+Enter for new line)`}
                   title="Press Enter to send • Shift+Enter for new line"
                 >
                   {loading ? (

@@ -11,11 +11,35 @@
  * - Respects DS v2.1 tokens (CSS variables, not raw Tailwind)
  */
 
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { InlineBlocks } from '../InlineBlocks'
 import type { GraphPatchBlock } from '../types'
 import type { PatchBlockState, PatchRejectionInfo } from '../useConversation'
+
+const storeMocks = vi.hoisted(() => ({
+  mockSelectNodeWithoutHistory: vi.fn(),
+  mockSelectNodes: vi.fn(),
+  mockSetShowInspectorPanel: vi.fn(),
+  mockSetHighlightedNodes: vi.fn(),
+  mockSetHighlightedEdges: vi.fn(),
+}))
+
+vi.mock('../../store', () => {
+  const mockState = {
+    selectNodeWithoutHistory: storeMocks.mockSelectNodeWithoutHistory,
+    selectNodes: storeMocks.mockSelectNodes,
+    setShowInspectorPanel: storeMocks.mockSetShowInspectorPanel,
+    setHighlightedNodes: storeMocks.mockSetHighlightedNodes,
+    setHighlightedEdges: storeMocks.mockSetHighlightedEdges,
+  }
+  return {
+    useCanvasStore: Object.assign(
+      (selector: (s: any) => any) => selector(mockState),
+      { getState: () => mockState },
+    ),
+  }
+})
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -39,6 +63,10 @@ function makePatchBlock(overrides?: Partial<GraphPatchBlock>): GraphPatchBlock {
 // ---------------------------------------------------------------------------
 
 describe('GraphPatchBlock', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
   it('renders with summary text, Accept, and Dismiss buttons', () => {
     const block = makePatchBlock()
     render(
@@ -83,6 +111,21 @@ describe('GraphPatchBlock', () => {
     expect(screen.getByTestId('patch-status-applied')).toBeInTheDocument()
     expect(screen.queryByTestId('patch-accept')).not.toBeInTheDocument()
     expect(screen.queryByTestId('patch-dismiss')).not.toBeInTheDocument()
+    expect(screen.getByTestId('patch-show-changes')).toBeInTheDocument()
+  })
+
+  it('reveals applied node changes using existing canvas focus/highlight hooks', () => {
+    const block = makePatchBlock()
+    const states = new Map<string, PatchBlockState>([['patch-1', 'accepted']])
+    render(
+      <InlineBlocks blocks={[block]} patchBlockStates={states} />,
+    )
+
+    fireEvent.click(screen.getByTestId('patch-show-changes'))
+
+    expect(storeMocks.mockSelectNodeWithoutHistory).toHaveBeenCalledWith('n-new')
+    expect(storeMocks.mockSetShowInspectorPanel).toHaveBeenCalledWith(true)
+    expect(storeMocks.mockSetHighlightedNodes).toHaveBeenCalledWith(['n-new'])
   })
 
   it('shows "Dismissed" status and hides buttons when dismissed', () => {

@@ -11,11 +11,35 @@
  * - patch_dismissed payload includes block_id (patch_id)
  */
 
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { InlineBlocks } from '../InlineBlocks'
 import type { GraphPatchBlock, BlockAction } from '../types'
-import type { PatchBlockState, PatchRejectionInfo } from '../useConversation'
+import type { PatchBlockState } from '../useConversation'
+
+const storeMocks = vi.hoisted(() => ({
+  mockSelectNodeWithoutHistory: vi.fn(),
+  mockSelectNodes: vi.fn(),
+  mockSetShowInspectorPanel: vi.fn(),
+  mockSetHighlightedNodes: vi.fn(),
+  mockSetHighlightedEdges: vi.fn(),
+}))
+
+vi.mock('../../store', () => {
+  const mockState = {
+    selectNodeWithoutHistory: storeMocks.mockSelectNodeWithoutHistory,
+    selectNodes: storeMocks.mockSelectNodes,
+    setShowInspectorPanel: storeMocks.mockSetShowInspectorPanel,
+    setHighlightedNodes: storeMocks.mockSetHighlightedNodes,
+    setHighlightedEdges: storeMocks.mockSetHighlightedEdges,
+  }
+  return {
+    useCanvasStore: Object.assign(
+      (selector: (s: any) => any) => selector(mockState),
+      { getState: () => mockState },
+    ),
+  }
+})
 
 function makePatchBlock(overrides?: Partial<GraphPatchBlock>): GraphPatchBlock {
   return {
@@ -35,12 +59,27 @@ function makePatchBlock(overrides?: Partial<GraphPatchBlock>): GraphPatchBlock {
 // ---------------------------------------------------------------------------
 
 describe('GraphPatchBlock — auto_apply', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
   it('renders as applied immediately when auto_apply=true (no Accept/Dismiss buttons)', () => {
     render(<InlineBlocks blocks={[makePatchBlock({ auto_apply: true })]} />)
 
     expect(screen.getByTestId('patch-status-auto-applied')).toBeInTheDocument()
     expect(screen.queryByTestId('patch-accept')).not.toBeInTheDocument()
     expect(screen.queryByTestId('patch-dismiss')).not.toBeInTheDocument()
+    expect(screen.getByTestId('patch-show-changes')).toBeInTheDocument()
+  })
+
+  it('reveals auto-applied changes on canvas', () => {
+    render(<InlineBlocks blocks={[makePatchBlock({ auto_apply: true })]} />)
+
+    fireEvent.click(screen.getByTestId('patch-show-changes'))
+
+    expect(storeMocks.mockSelectNodeWithoutHistory).toHaveBeenCalledWith('n-new')
+    expect(storeMocks.mockSetShowInspectorPanel).toHaveBeenCalledWith(true)
+    expect(storeMocks.mockSetHighlightedNodes).toHaveBeenCalledWith(['n-new'])
   })
 
   it('renders Accept/Dismiss when auto_apply=false', () => {

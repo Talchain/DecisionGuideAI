@@ -37,16 +37,13 @@ function DashedArrow() {
 
 interface ThinkingIndicatorProps {
   label?: string | null
-  /** Called when the user requests to abort and retry (shown at 30s "Still working" stage) */
   onRetry?: () => void
 }
 
 /** Sentinel value emitted by useConversation at 30s — used to trigger retry affordance */
 export const STILL_WORKING_LABEL = 'Still working\u2026'
 
-export function ThinkingIndicator({ label, onRetry }: ThinkingIndicatorProps) {
-  const showRetry = !!onRetry && label === STILL_WORKING_LABEL
-
+export function ThinkingIndicator({ label }: ThinkingIndicatorProps) {
   return (
     <div
       className="flex flex-col self-center items-center"
@@ -94,19 +91,6 @@ export function ThinkingIndicator({ label, onRetry }: ThinkingIndicatorProps) {
         >
           {label}
         </span>
-      )}
-
-      {/* Retry affordance — shown only at 30s "Still working" stage */}
-      {showRetry && (
-        <button
-          type="button"
-          onClick={onRetry}
-          className={`text-info bg-transparent border-none cursor-pointer ${typography.panelMeta}`}
-          style={{ padding: '2px 0', fontFamily: 'inherit', textDecoration: 'underline' }}
-          data-testid="thinking-retry"
-        >
-          Try again
-        </button>
       )}
 
       <style>{`

@@ -5,7 +5,7 @@
  * - Renders 6 node shapes (17 SVGs total: 2 layers per shape + 5 dashed arrows)
  * - Shows label text when provided
  * - Hides label when not provided
- * - Shows retry button only at "Still working…" stage with onRetry prop
+ * - Does not show retry while the request is still in flight
  */
 
 import { describe, it, expect, vi } from 'vitest'
@@ -36,10 +36,10 @@ describe('ThinkingIndicator', () => {
     expect(screen.queryByTestId('thinking-label')).not.toBeInTheDocument()
   })
 
-  it('shows retry button at "Still working…" stage when onRetry provided', () => {
+  it('does not show retry button at "Still working…" stage when onRetry provided', () => {
     const onRetry = vi.fn()
     render(<ThinkingIndicator label={STILL_WORKING_LABEL} onRetry={onRetry} />)
-    expect(screen.getByTestId('thinking-retry')).toBeInTheDocument()
+    expect(screen.queryByTestId('thinking-retry')).not.toBeInTheDocument()
   })
 
   it('does not show retry button when label differs from STILL_WORKING_LABEL', () => {
@@ -48,8 +48,4 @@ describe('ThinkingIndicator', () => {
     expect(screen.queryByTestId('thinking-retry')).not.toBeInTheDocument()
   })
 
-  it('does not show retry button when onRetry not provided', () => {
-    render(<ThinkingIndicator label={STILL_WORKING_LABEL} />)
-    expect(screen.queryByTestId('thinking-retry')).not.toBeInTheDocument()
-  })
 })

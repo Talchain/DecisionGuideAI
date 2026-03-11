@@ -13,6 +13,7 @@ import { useState, useCallback, useImperativeHandle, useEffect, useMemo, forward
 import { ArrowUp, Play } from 'lucide-react'
 import { useGuidanceStore } from '../../stores/guidanceStore'
 import { useStagePill } from '../../hooks/useStagePill'
+import { useCanvasStore } from '../../store'
 import { isFramingStage } from '../../../signals/stage-helpers'
 import { useDebounce } from '../../../hooks/useDebounce'
 import { useComposerState } from '../hooks/useComposerState'
@@ -66,6 +67,7 @@ export const ChatComposer = memo(forwardRef<ChatComposerHandle, ChatComposerProp
     const { sendMessage, isThinking } = conversation
     const { stage } = useStagePill()
     const setActiveGuidanceItem = useGuidanceStore(s => s.setActiveGuidanceItem)
+    const hasGraph = useCanvasStore(s => s.nodes.length > 0 || s.edges.length > 0)
 
     // Composer state
     const handleSend = useCallback(
@@ -143,7 +145,7 @@ export const ChatComposer = memo(forwardRef<ChatComposerHandle, ChatComposerProp
       }
     }, [briefSignals])
 
-    const showBriefStrip = isFramingStage(stage) && briefSignals && briefSignals.elements.some(e => e.detected)
+    const showBriefStrip = !hasGraph && isFramingStage(stage) && briefSignals && briefSignals.elements.some(e => e.detected)
 
     return (
       <div
