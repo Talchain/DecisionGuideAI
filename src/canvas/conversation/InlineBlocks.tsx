@@ -23,6 +23,8 @@ import type {
   EvidenceBlock as EvidenceBlockType,
   FactEntry,
   BlockAction,
+  ProposalReviewItem,
+  RelatedElementRef,
 } from './types'
 import { isPreAnalysisEnrichedEnabled } from '../../flags'
 import { ModelReceiptBlock } from './ModelReceiptBlock'
@@ -30,6 +32,7 @@ import type { PatchBlockState, PatchRejectionInfo } from './useConversation'
 import { MAX_VISIBLE_BLOCKS_PER_TURN } from './types'
 import { extractTargetIdsFromPatch } from './utils/extractTargetIds'
 import { generateGraphHash } from '../utils/graphHash'
+import { resolvePatchBlockState } from './selectors'
 import styles from './Conversation.module.css'
 
 // ---------------------------------------------------------------------------
@@ -46,6 +49,23 @@ function summarisePatchOps(operations: { op: string; data?: Record<string, unkno
   }
   const parts = Object.entries(counts).map(([k, v]) => `${v} ${k}${v > 1 ? 's' : ''}`)
   return parts.length > 0 ? parts.join(', ') : `${operations.length} operation${operations.length !== 1 ? 's' : ''}`
+}
+
+function getProposalItems(block: GraphPatchBlockType): ProposalReviewItem[] {
+  return Array.isArray(block.proposal_items) ? block.proposal_items.filter((item) => !!item?.description) : []
+}
+
+function extractGroundedTargets(relatedElements: RelatedElementRef[] | undefined): { nodeIds: string[]; edgeIds: string[] } {
+  if (!Array.isArray(relatedElements) || relatedElements.length === 0) {
+    return { nodeIds: [], edgeIds: [] }
+  }
+  const nodeIds = relatedElements
+    .map((item) => item.node_id)
+    .filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
+  const edgeIds = relatedElements
+    .map((item) => item.edge_id)
+    .filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
+  return { nodeIds: [...new Set(nodeIds)], edgeIds: [...new Set(edgeIds)] }
 }
 
 // ---------------------------------------------------------------------------
@@ -193,7 +213,9 @@ const CommentaryBlockRenderer = memo(function CommentaryBlockRenderer({
     // Scroll to the referenced block element by citation index
     const target = document.querySelector(`[data-citation-target="${index}"]`)
     if (!target) return
-    target.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+    if ('scrollIntoView' in target && typeof target.scrollIntoView === 'function') {
+      target.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+    }
     target.classList.add(styles.citationHighlightPulse)
     const timer = setTimeout(() => {
       target.classList.remove(styles.citationHighlightPulse)
@@ -564,9 +586,6 @@ const EvidenceBlockRenderer = memo(function EvidenceBlockRenderer({
 
   const hasFindings = normalisedFindings.length > 0
 
-  // Malformed or empty payload — suppress entirely (do not show dead card)
-  if (!hasFindings) return null
-
   const hasGraph = nodeCount > 0
 
   return (
@@ -574,6 +593,9 @@ const EvidenceBlockRenderer = memo(function EvidenceBlockRenderer({
       <div className={`${typography.panelHeader} ${styles.evidenceTitle}`}>
         {block.title || 'Research findings'}
       </div>
+      {!hasFindings && (
+        <p className={typography.panelBody}>Research findings available</p>
+      )}
       {normalisedFindings.map((f, i) => (
         <div key={i} className={styles.evidenceFinding}>
           <p className={typography.panelBody}>{f.text}</p>
@@ -653,16 +675,23 @@ function GraphPatchBlockRenderer({
   }, [clearHighlightTimeouts])
 
   const stateKey = turnId ? `${turnId}:${block.patch_id}` : block.patch_id
-  const blockState = patchBlockStates?.get(stateKey) ?? 'proposed'
+  const blockState = resolvePatchBlockState(block, patchBlockStates, stateKey)
   const rejectionInfo = patchRejections?.get(stateKey) ?? null
-  const isSettled = blockState !== 'proposed'
+  const isAutoApplied = block.auto_apply === true
+  const resolvedState: PatchBlockState = blockState
+  const isSettled = resolvedState !== 'proposed'
 
   const opSummary = summarisePatchOps(block.operations)
-  const { nodeIds, edgeIds } = extractTargetIdsFromPatch(block.operations)
+  const proposalItems = getProposalItems(block)
+  const opTargets = extractTargetIdsFromPatch(block.operations)
+  const relatedTargets = extractGroundedTargets(block.related_elements)
+  const nodeIds = relatedTargets.nodeIds.length > 0 ? relatedTargets.nodeIds : opTargets.nodeIds
+  const edgeIds = relatedTargets.edgeIds.length > 0 ? relatedTargets.edgeIds : opTargets.edgeIds
   const hasRevealTargets = nodeIds.length > 0 || edgeIds.length > 0
-
-  // auto_apply: CEE already applied the graph — render as applied, no actions, no event dispatch
-  const isAutoApplied = block.auto_apply === true
+  const isApplied = isAutoApplied || resolvedState === 'accepted'
+  const statusLabel = 'Applied'
+  const primaryActionLabel = proposalItems.length > 0 ? 'Apply' : 'Accept'
+  const secondaryActionLabel = proposalItems.length > 0 ? 'Not what I meant' : 'Dismiss'
 
   // Determine which action buttons to render
   const hasCustomActions = block.actions && block.actions.length > 0
@@ -671,6 +700,15 @@ function GraphPatchBlockRenderer({
     if (action.variant === 'danger') return styles.graphPatchDanger
     if (action.variant === 'secondary') return styles.graphPatchDismiss
     return styles.graphPatchAccept
+  }
+
+  // For custom CEE action arrays, prefer the CEE-provided label.
+  // Only fall back to generic labels if the label is absent.
+  const getActionLabel = (action: BlockAction): string => {
+    if (action.label?.trim()) return action.label
+    if (action.action_type === 'accept') return primaryActionLabel
+    if (action.action_type === 'dismiss') return secondaryActionLabel
+    return action.label
   }
 
   // Staleness-aware accept: compare current graph hash against proposal hash
@@ -733,18 +771,49 @@ function GraphPatchBlockRenderer({
 
   return (
     <div
-      className={styles.graphPatchBlock}
+      className={`${styles.graphPatchBlock} ${isApplied ? styles.graphPatchBlockApplied : ''}`}
       data-testid={`block-graph-patch-${block.patch_id}`}
-      aria-label={`Graph change: ${block.summary}`}
+      aria-label={`${isApplied ? 'Applied changes' : 'Proposed changes'}: ${block.summary}`}
     >
-      <div className={styles.graphPatchSummary}>{block.summary}</div>
-      <div className={styles.graphPatchMeta}>{opSummary}</div>
+      <div className={styles.graphPatchHeader}>
+        <div className={styles.graphPatchTitleRow}>
+          <span className={`${typography.panelMeta} ${isApplied ? styles.graphPatchReceiptEyebrow : styles.graphPatchProposalEyebrow}`}>
+            {isApplied ? 'Changes applied' : 'Review suggested changes'}
+          </span>
+        </div>
+        <div className={styles.graphPatchSummary}>{block.summary}</div>
+        <div className={styles.graphPatchMeta}>{opSummary}</div>
+      </div>
+
+      {proposalItems.length > 0 && (
+        <div className={styles.graphPatchProposalList} data-testid="patch-proposal-list">
+          {proposalItems.map((item, index) => (
+            <div key={`${item.description}-${index}`} className={styles.graphPatchProposalItem}>
+              <div className={styles.graphPatchProposalCopy}>
+                <span className={`${typography.panelBody} ${styles.graphPatchProposalDescription}`}>
+                  {item.description}
+                </span>
+                {item.elementLabel && (
+                  <span className={`${typography.panelMeta} ${styles.graphPatchProposalLabel}`}>
+                    {item.elementLabel}
+                  </span>
+                )}
+              </div>
+              {item.changeLabel && (
+                <span className={`${typography.panelMeta} ${styles.graphPatchProposalBadge}`}>
+                  {item.changeLabel}
+                </span>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* auto_apply: render as applied immediately (no actions, no event) */}
       {isAutoApplied && (
         <>
           <div className={styles.graphPatchStatusApplied} data-testid="patch-status-auto-applied">
-            <Check size={14} aria-hidden="true" /> Applied
+            <Check size={14} aria-hidden="true" /> {statusLabel}
           </div>
           {hasRevealTargets && (
             <div className={styles.graphPatchActions}>
@@ -753,9 +822,9 @@ function GraphPatchBlockRenderer({
                 className={styles.graphPatchDismiss}
                 onClick={handleRevealChanges}
                 data-testid="patch-show-changes"
-                aria-label="Show changes on canvas"
+                aria-label="Show on graph"
               >
-                Show changes
+                Show on graph
               </button>
             </div>
           )}
@@ -763,10 +832,10 @@ function GraphPatchBlockRenderer({
       )}
 
       {/* Status indicators for settled states (non-auto_apply) */}
-      {!isAutoApplied && blockState === 'accepted' && (
+      {!isAutoApplied && resolvedState === 'accepted' && (
         <>
           <div className={styles.graphPatchStatusApplied} data-testid="patch-status-applied">
-            <Check size={14} aria-hidden="true" /> Applied
+            <Check size={14} aria-hidden="true" /> {statusLabel}
           </div>
           {hasRevealTargets && (
             <div className={styles.graphPatchActions}>
@@ -775,15 +844,15 @@ function GraphPatchBlockRenderer({
                 className={styles.graphPatchDismiss}
                 onClick={handleRevealChanges}
                 data-testid="patch-show-changes"
-                aria-label="Show changes on canvas"
+                aria-label="Show on graph"
               >
-                Show changes
+                Show on graph
               </button>
             </div>
           )}
         </>
       )}
-      {!isAutoApplied && blockState === 'rejected' && (
+      {!isAutoApplied && resolvedState === 'rejected' && (
         <div className={styles.graphPatchStatusRejected} data-testid="patch-status-rejected">
           <XIcon size={14} aria-hidden="true" /> Rejected
           {rejectionInfo && (
@@ -812,14 +881,14 @@ function GraphPatchBlockRenderer({
           )}
         </div>
       )}
-      {!isAutoApplied && blockState === 'dismissed' && (
+      {!isAutoApplied && resolvedState === 'dismissed' && (
         <div className={styles.graphPatchStatusDismissed} data-testid="patch-status-dismissed">
           Dismissed
         </div>
       )}
 
       {/* Network failure — retry button (block stays in 'proposed' state) */}
-      {!isAutoApplied && blockState === 'proposed' && rejectionInfo?.code === 'NETWORK_ERROR' && (
+      {!isAutoApplied && resolvedState === 'proposed' && rejectionInfo?.code === 'NETWORK_ERROR' && (
         <div className={styles.graphPatchError} data-testid="patch-retry-error">
           {rejectionInfo.message}
           <button
@@ -879,9 +948,9 @@ function GraphPatchBlockRenderer({
                 disabled={isSettled}
                 onClick={() => handleActionClick(action)}
                 data-testid={`patch-action-${action.action_type}`}
-                aria-label={action.label}
+                aria-label={getActionLabel(action)}
               >
-                {action.label}
+                {getActionLabel(action)}
               </button>
             ))
           ) : (
@@ -895,7 +964,7 @@ function GraphPatchBlockRenderer({
                 data-testid="patch-accept"
                 aria-label="Accept this graph change"
               >
-                Accept
+                {primaryActionLabel}
               </button>
               <button
                 type="button"
@@ -905,7 +974,7 @@ function GraphPatchBlockRenderer({
                 data-testid="patch-dismiss"
                 aria-label="Dismiss this graph change"
               >
-                Dismiss
+                {secondaryActionLabel}
               </button>
             </>
           )}

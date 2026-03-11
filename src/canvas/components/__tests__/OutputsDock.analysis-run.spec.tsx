@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { OutputsDock } from '../OutputsDock'
 import { useCanvasStore } from '../../store'
 import { useGuidanceStore } from '../../stores/guidanceStore'
+import { _clearTraces, getInteractionChains } from '../../../lib/debug-state'
 
 const {
   mockIsOrchestratorV2Enabled,
@@ -86,6 +87,7 @@ describe('OutputsDock analyse convergence', () => {
   beforeEach(() => {
     ensureMatchMedia()
     vi.clearAllMocks()
+    _clearTraces()
 
     mockIsOrchestratorV2Enabled.mockReturnValue(true)
     mockIsLegacyDirectRunEnabled.mockReturnValue(false)
@@ -121,9 +123,10 @@ describe('OutputsDock analyse convergence', () => {
   afterEach(() => {
     vi.useRealTimers()
     vi.restoreAllMocks()
+    _clearTraces()
   })
 
-  it('dispatches the shared hidden conversation run path instead of direct V2 run', () => {
+  it('dispatches direct V2 run instead of the shared conversation callback', () => {
     const runViaConversation = vi.fn()
     const runV2Analysis = vi.fn()
 
@@ -134,11 +137,11 @@ describe('OutputsDock analyse convergence', () => {
 
     fireEvent.click(screen.getByTestId('outputs-run-button'))
 
-    expect(runViaConversation).toHaveBeenCalledTimes(1)
-    expect(runV2Analysis).not.toHaveBeenCalled()
+    expect(runV2Analysis).toHaveBeenCalledTimes(1)
+    expect(runViaConversation).not.toHaveBeenCalled()
   })
 
-  it('opens the AI panel and shows a warning when the shared hidden conversation path is unavailable', () => {
+  it('runs directly without opening the AI panel or warning toast when no conversation callback is registered', () => {
     const runV2Analysis = vi.fn()
     mockUseV2Run.mockReturnValue({ runV2Analysis, cancelRun: vi.fn() })
 
@@ -146,13 +149,12 @@ describe('OutputsDock analyse convergence', () => {
 
     fireEvent.click(screen.getByTestId('outputs-run-button'))
 
-    expect(runV2Analysis).not.toHaveBeenCalled()
-    expect(mockShowToast).toHaveBeenCalledTimes(1)
-    expect(mockShowToast).toHaveBeenCalledWith(
-      'Open the AI panel to continue analysis.',
-      'warning',
-    )
-    expect(useCanvasStore.getState().showDraftChat).toBe(true)
+    expect(runV2Analysis).toHaveBeenCalledTimes(1)
+    expect(mockShowToast).not.toHaveBeenCalled()
+    expect(useCanvasStore.getState().showDraftChat).toBe(false)
+    expect(
+      getInteractionChains().flatMap((chain) => chain.timeline).some((event) => event.kind === 'opened_ai_panel_from_right_panel')
+    ).toBe(false)
   })
 
   it('does not emit a warning on unmount before analyse is clicked', () => {

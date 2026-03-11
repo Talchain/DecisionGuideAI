@@ -129,7 +129,7 @@ export function DraftChat() {
 
   // A.5+ Phase 2: Wire system event hooks (all no-ops when flag is OFF)
   useGraphEditEvents(conversation.sendSystemEvent)
-  useAnalysisCompleteEvent(conversation.sendSystemEvent)
+  useAnalysisCompleteEvent()
   // session_resume is not in CEE v3 schema (CEE_V3_KNOWN_TYPES) — disabled
   // until CEE adds support. Re-enable when session_resume is accepted by CEE.
   // useSessionResumeEvent(conversation.sendSystemEvent, conversation.messages)

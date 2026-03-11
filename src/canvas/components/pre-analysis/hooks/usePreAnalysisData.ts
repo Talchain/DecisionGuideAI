@@ -900,16 +900,11 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
   // This ensures we don't create a second source of truth for run-gating
   const existingReadiness = useExistingPreAnalysisData()
 
-  // isReady uses existing hook for canonical run-gating logic
-  // hasBlockers and blockerCount sync with Header (which uses mustAddress.count)
-  // This ensures both Header and Footer show consistent blocked/ready state
-  const isReady = existingReadiness.canRun && tiers.mustAddress.count === 0
-  const hasBlockers = tiers.mustAddress.count > 0
-  const blockerCount = tiers.mustAddress.count
-
-  // Loading state: CEE data hasn't arrived yet but we have nodes (expecting CEE data)
-  // This prevents showing misleading "Blocked" during initial load
-  const isLoading = ceeAnalysisReady === null && nodes.length > 0
+  const canonicalBlockerCount = existingReadiness.allIssues.filter((issue) => issue.severity === 'blocker').length
+  const isReady = existingReadiness.canRun
+  const hasBlockers = existingReadiness.hasBlockers
+  const blockerCount = canonicalBlockerCount
+  const isLoading = existingReadiness.isLoading || (ceeAnalysisReady === null && nodes.length > 0 && !hasBlockers)
 
   // Enriched blockers from usePreRunValidation — structured cards for BlockersSection
   // Pipeline: enrich → sort → hydrate labels from graph nodes → deduplicate by factor_id
@@ -1453,7 +1448,7 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
   const repairActions = useMemo<string[]>(() => {
     if (!ceePipelineTrace) return []
     // repair_summary may be nested under different paths depending on CEE version
-    const trace = ceePipelineTrace as Record<string, unknown>
+    const trace = ceePipelineTrace as unknown as Record<string, unknown>
     const repairSummary = trace.repair_summary ?? trace.repair
     if (!repairSummary || typeof repairSummary !== 'object') return []
 

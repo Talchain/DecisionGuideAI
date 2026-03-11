@@ -15,7 +15,7 @@ import {
   getDiagnosticBundleString,
   type DiagnosticBundle,
 } from '../diagnostic-bundle'
-import { recordRequest, recordResponse, _clearTraces } from '../debug-state'
+import { beginInteractionChain, recordRequest, recordResponse, _clearTraces } from '../debug-state'
 import { _resetGateStore, useGateStore } from '../gate-state'
 
 // Mock version-cache
@@ -188,7 +188,7 @@ describe('diagnostic-bundle', () => {
       const trace = bundle.traces.recent[0]
 
       // Sanitized trace should not include the error field
-      expect(trace.error).toBeUndefined()
+      expect('error' in trace).toBe(false)
     })
 
     it('sanitizes page URL to remove sensitive query params', async () => {
@@ -292,6 +292,26 @@ describe('diagnostic-bundle', () => {
     })
   })
 
+  describe('interaction export', () => {
+    it('includes compact interaction repro chains', async () => {
+      beginInteractionChain({
+        chainId: 'chain-1',
+        triggerSurface: 'generate_model',
+        sourceSurface: 'ai_panel',
+        initiatedBy: 'user',
+        visibleTextSubmitted: 'Create a model',
+        submittedText: 'Create a model',
+        scenarioId: 'scenario-1',
+        stagePill: 'frame',
+      })
+
+      const bundle = await createDiagnosticBundle()
+      expect(bundle.interactions).toHaveLength(1)
+      expect(bundle.interactions[0]?.triggerSurface).toBe('generate_model')
+      expect(bundle.interactions[0]?.sourceSurface).toBe('ai_panel')
+    })
+  })
+
   describe('merged export pipeline trace passthrough', () => {
     it('preserves cee_provenance, enrich, repair, and strp from trace.pipeline', async () => {
       const mockPipelineTrace = {
@@ -320,7 +340,7 @@ describe('diagnostic-bundle', () => {
       }
 
       const merged = await createMergedDebugExport({ ceePipelineTrace: mockPipelineTrace as any })
-      const pipeline = merged.ceePipelineTrace as Record<string, unknown>
+      const pipeline = merged.ceePipelineTrace as unknown as Record<string, unknown>
 
       expect(pipeline).toBeTruthy()
       expect((pipeline.cee_provenance as Record<string, unknown>)?.pipeline_path).toBe('unified')

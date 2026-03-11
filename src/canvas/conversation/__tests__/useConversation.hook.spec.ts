@@ -12,6 +12,7 @@ import { renderHook, act } from '@testing-library/react'
 import { useConversation } from '../useConversation'
 import { useCanvasStore } from '../../store'
 import { useResultsStore } from '../../stores/resultsStore'
+import { _clearTraces, getInteractionChains, recordUiSurfaceState } from '../../../lib/debug-state'
 
 // ---------------------------------------------------------------------------
 // Mocks
@@ -40,6 +41,7 @@ vi.mock('../turnService', () => ({
 beforeEach(() => {
   vi.useFakeTimers()
   mockCallTurn.mockReset()
+  _clearTraces()
   useResultsStore.setState({
     results: {
       status: 'idle',
@@ -62,6 +64,7 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.useRealTimers()
+  _clearTraces()
 })
 
 // ---------------------------------------------------------------------------
@@ -1001,5 +1004,87 @@ describe('hidden send lifecycle', () => {
     expect(userMsgs).toHaveLength(1)
     expect(userMsgs[0].content).toBe('my question')
     expect(result.current.lastFailedInput).toBeNull()
+  })
+
+  it('records generate_model trigger source and request summary', async () => {
+    mockCallTurn.mockResolvedValue({
+      assistant_text: 'Created a model',
+      client_turn_id: 'resp-generate',
+      blocks: [],
+      suggested_actions: [],
+      guidance_items: [],
+    })
+
+    const { result } = renderHook(() => useConversation())
+
+    await act(async () => {
+      await result.current.sendMessage('Build a pricing model', {
+        debugSource: 'generate_model',
+        debugSourceSurface: 'ai_panel',
+      })
+    })
+
+    const chains = getInteractionChains()
+    expect(chains).toHaveLength(1)
+    expect(chains[0]?.triggerSurface).toBe('generate_model')
+    expect(chains[0]?.sourceSurface).toBe('ai_panel')
+    expect(chains[0]?.requests[0]?.payloadShapeSummary?.graph_nodes).toBe(0)
+    expect(chains[0]?.requests[0]?.responseStatus).toBe(200)
+  })
+
+  it('captures stale first-draft readiness visibility in state snapshot', async () => {
+    recordUiSurfaceState('conversation', {
+      firstDraftControlsVisible: true,
+      staleFirstDraftGuidanceVisible: true,
+      aiPanelOpen: true,
+      composerHasText: true,
+      composerTextLength: 18,
+      guidanceItemsVisible: 2,
+    })
+    mockCallTurn.mockResolvedValue({
+      assistant_text: 'OK',
+      client_turn_id: 'resp-stale',
+      blocks: [],
+      suggested_actions: [],
+      guidance_items: [],
+    })
+
+    const { result } = renderHook(() => useConversation())
+
+    await act(async () => {
+      await result.current.sendMessage('keep going')
+    })
+
+    const chain = getInteractionChains()[0]
+    expect(chain?.stateBefore?.firstDraftControlsVisible).toBe(true)
+    expect(chain?.stateBefore?.staleFirstDraftGuidanceVisible).toBe(true)
+    expect(chain?.stateBefore?.composerHasText).toBe(true)
+  })
+
+  it('records analyse_now as a right-panel hidden request without composer leakage', async () => {
+    mockCallTurn.mockResolvedValue({
+      assistant_text: 'Analysis started',
+      client_turn_id: 'resp-analyse',
+      blocks: [],
+      suggested_actions: [],
+      guidance_items: [],
+    })
+
+    const { result } = renderHook(() => useConversation())
+
+    await act(async () => {
+      await result.current.sendMessage('run it', {
+        hidden: true,
+        debugSource: 'analyse_now',
+        debugSourceSurface: 'right_panel',
+        debugRightPanelComposerLeak: false,
+      })
+    })
+
+    const chain = getInteractionChains()[0]
+    expect(chain?.triggerSurface).toBe('analyse_now')
+    expect(chain?.sourceSurface).toBe('right_panel')
+    expect(chain?.requests[0]?.rightPanelAccidentallySubmittedComposerContent).toBe(false)
+    expect(chain?.requests[0]?.visibleTextSubmitted).toBeNull()
   })
 })

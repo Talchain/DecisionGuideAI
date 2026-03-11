@@ -13,6 +13,8 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
 import { useAnalysisCompleteEvent } from '../useAnalysisCompleteEvent'
 import { useCanvasStore } from '../../store'
+import { useGuidanceStore } from '../../stores/guidanceStore'
+import { _clearTraces, setLastAnalysisInteractionChainId } from '../../../lib/debug-state'
 
 // ---------------------------------------------------------------------------
 // Mocks
@@ -39,11 +41,15 @@ beforeEach(() => {
   vi.useFakeTimers()
   mockSendSystemEvent.mockClear()
   flagValue = true
+  _clearTraces()
+  setLastAnalysisInteractionChainId(null)
   setResultsStatus('idle')
+  useGuidanceStore.setState({ guidanceItems: [] } as any)
 })
 
 afterEach(() => {
   vi.useRealTimers()
+  _clearTraces()
   setResultsStatus('idle')
 })
 
@@ -52,47 +58,47 @@ afterEach(() => {
 // ---------------------------------------------------------------------------
 
 describe('useAnalysisCompleteEvent', () => {
-  it('fires on streaming → complete transition', () => {
+  it('evicts stale guidance on streaming → complete transition without sending a follow-up system event', () => {
     setResultsStatus('streaming')
+    useGuidanceStore.setState({
+      guidanceItems: [
+        {
+          id: 'guidance-1',
+          target_object: { type: 'graph' },
+          content: { title: 'Old guidance', body: 'Outdated', priority: 1 },
+          valid_while: { analysis_hash: 'old-hash' },
+        },
+      ],
+    } as any)
 
-    renderHook(() => useAnalysisCompleteEvent(mockSendSystemEvent))
+    renderHook(() => useAnalysisCompleteEvent())
 
     act(() => {
-      setResultsStatus('complete')
+      useCanvasStore.setState({
+        results: { status: 'complete', hash: 'new-hash' } as any,
+      })
     })
 
-    // Advance past the 100ms debounce
-    act(() => {
-      vi.advanceTimersByTime(150)
-    })
-
-    expect(mockSendSystemEvent).toHaveBeenCalledTimes(1)
-    expect(mockSendSystemEvent).toHaveBeenCalledWith({
-      type: 'direct_analysis_run',
-      payload: { trigger: 'play_button' },
-    })
+    expect(mockSendSystemEvent).not.toHaveBeenCalled()
+    expect(useGuidanceStore.getState().guidanceItems).toHaveLength(0)
   })
 
-  it('fires on preparing → complete transition', () => {
+  it('does not send a follow-up system event on preparing → complete transition', () => {
     setResultsStatus('preparing')
 
-    renderHook(() => useAnalysisCompleteEvent(mockSendSystemEvent))
+    renderHook(() => useAnalysisCompleteEvent())
 
     act(() => {
       setResultsStatus('complete')
     })
 
-    act(() => {
-      vi.advanceTimersByTime(150)
-    })
-
-    expect(mockSendSystemEvent).toHaveBeenCalledTimes(1)
+    expect(mockSendSystemEvent).not.toHaveBeenCalled()
   })
 
-  it('fires on connecting → complete transition', () => {
+  it('does not send a follow-up system event on connecting → complete transition', () => {
     setResultsStatus('connecting')
 
-    renderHook(() => useAnalysisCompleteEvent(mockSendSystemEvent))
+    renderHook(() => useAnalysisCompleteEvent())
 
     act(() => {
       setResultsStatus('complete')
@@ -102,13 +108,13 @@ describe('useAnalysisCompleteEvent', () => {
       vi.advanceTimersByTime(150)
     })
 
-    expect(mockSendSystemEvent).toHaveBeenCalledTimes(1)
+    expect(mockSendSystemEvent).not.toHaveBeenCalled()
   })
 
   it('does NOT fire on idle → complete (hydration/restore)', () => {
     setResultsStatus('idle')
 
-    renderHook(() => useAnalysisCompleteEvent(mockSendSystemEvent))
+    renderHook(() => useAnalysisCompleteEvent())
 
     act(() => {
       setResultsStatus('complete')
@@ -124,7 +130,7 @@ describe('useAnalysisCompleteEvent', () => {
   it('does NOT fire on error → complete', () => {
     setResultsStatus('error')
 
-    renderHook(() => useAnalysisCompleteEvent(mockSendSystemEvent))
+    renderHook(() => useAnalysisCompleteEvent())
 
     act(() => {
       setResultsStatus('complete')
@@ -140,7 +146,7 @@ describe('useAnalysisCompleteEvent', () => {
   it('does NOT fire on cancelled → complete', () => {
     setResultsStatus('cancelled')
 
-    renderHook(() => useAnalysisCompleteEvent(mockSendSystemEvent))
+    renderHook(() => useAnalysisCompleteEvent())
 
     act(() => {
       setResultsStatus('complete')
@@ -157,7 +163,7 @@ describe('useAnalysisCompleteEvent', () => {
     flagValue = false
     setResultsStatus('streaming')
 
-    renderHook(() => useAnalysisCompleteEvent(mockSendSystemEvent))
+    renderHook(() => useAnalysisCompleteEvent())
 
     act(() => {
       setResultsStatus('complete')
@@ -173,17 +179,12 @@ describe('useAnalysisCompleteEvent', () => {
   it('does NOT fire on complete → complete (no-op)', () => {
     setResultsStatus('complete')
 
-    renderHook(() => useAnalysisCompleteEvent(mockSendSystemEvent))
+    renderHook(() => useAnalysisCompleteEvent())
 
-    // Trigger re-subscribe with same status
     act(() => {
       useCanvasStore.setState({
         results: { status: 'complete', data: 'updated' } as any,
       })
-    })
-
-    act(() => {
-      vi.advanceTimersByTime(150)
     })
 
     expect(mockSendSystemEvent).not.toHaveBeenCalled()

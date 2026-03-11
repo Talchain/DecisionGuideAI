@@ -22,13 +22,44 @@ import { ChatThread } from './zones/ChatThread'
 import { ChatComposer, type ChatComposerHandle } from './zones/ChatComposer'
 import type { BriefReadiness } from './hooks/useBriefSignals'
 import { useThreadPersistence } from './hooks/useThreadPersistence'
-import { recordCrossSurfaceEvent, recordUserAction } from '../../lib/debug-state'
+import { beginInteractionChain, getUiSurfaceState, recordCrossSurfaceEvent, recordInteractionEvent, recordUserAction, type InteractionStateSnapshot } from '../../lib/debug-state'
 import { canRunAnalysis as canRunAnalysisUtil, getRunButtonTooltip } from '../utils/canRunAnalysis'
+import { useV2Run } from '../hooks/useV2Run'
+import { useGraphReadiness } from '../hooks/useGraphReadiness'
 
 interface ConversationPanelProps {
   conversation: UseConversationReturn
   onCollapse: () => void
   onAttach: () => void
+}
+
+function createPanelInteractionSnapshot(messagesCount: number): InteractionStateSnapshot {
+  const store = useCanvasStore.getState()
+  const ui = getUiSurfaceState('conversation')
+  return {
+    scenarioId: store.currentScenarioId ?? null,
+    stagePill: store.currentStage ?? null,
+    hasGraph: store.nodes.length > 0 || store.edges.length > 0,
+    hasAnalysis: store.results.status === 'complete' && Boolean(store.results.hash ?? store.currentScenarioLastResultHash),
+    hasAnalysisReady: Boolean(store.ceeAnalysisReady),
+    firstDraftControlsVisible: ui?.firstDraftControlsVisible ?? false,
+    staleFirstDraftGuidanceVisible: ui?.staleFirstDraftGuidanceVisible ?? false,
+    aiPanelOpen: ui?.aiPanelOpen ?? true,
+    composerHasText: ui?.composerHasText ?? false,
+    composerTextLength: ui?.composerTextLength ?? 0,
+    guidanceItemsVisible: ui?.guidanceItemsVisible ?? useGuidanceStore.getState().guidanceItems.length,
+    chatMessagesCount: messagesCount,
+  }
+}
+
+function extractTurnIdFromStateKey(stateKey: string, patchId: string): string {
+  const suffix = `:${patchId}`
+  if (stateKey.endsWith(suffix)) {
+    return stateKey.slice(0, -suffix.length)
+  }
+  const separatorIndex = stateKey.indexOf(':')
+  if (separatorIndex === -1) return stateKey
+  return stateKey.slice(0, separatorIndex)
 }
 
 export const ConversationPanel = memo(function ConversationPanel({
@@ -47,6 +78,8 @@ export const ConversationPanel = memo(function ConversationPanel({
   const scenarioId = useCanvasStore((s) => s.currentScenarioId)
   const { stage } = useStagePill()
   const composerRef = useRef<ChatComposerHandle>(null)
+  const { runV2Analysis } = useV2Run()
+  const { readiness } = useGraphReadiness()
 
   // Track 2: Thread persistence (best-effort, flag-gated)
   const { onBlockAction, onChipTaken } = useThreadPersistence(scenarioId, messages)
@@ -72,6 +105,15 @@ export const ConversationPanel = memo(function ConversationPanel({
   // ── Patch handlers (unchanged from previous version) ──────────────────
   const handlePatchAccept = useCallback(
     async (stateKey: string, block: GraphPatchBlock) => {
+      const chainId = beginInteractionChain({
+        triggerSurface: 'proposal_accept',
+        sourceSurface: 'ai_panel',
+        initiatedBy: 'user',
+        visibleTextSubmitted: block.summary ?? null,
+        submittedText: block.summary ?? null,
+        stateBefore: createPanelInteractionSnapshot(messages.length),
+        setPending: true,
+      })
       try {
         const state = useCanvasStore.getState()
         const currentHash = state.currentScenarioLastResultHash
@@ -128,6 +170,12 @@ export const ConversationPanel = memo(function ConversationPanel({
             }
 
             setPatchBlockState(stateKey, 'accepted')
+            recordInteractionEvent({
+              chainId,
+              kind: 'changes_applied',
+              summary: block.patch_id,
+              stateAfter: createPanelInteractionSnapshot(messages.length),
+            })
 
             const { nodeIds, edgeIds } = extractTargetIdsFromPatch(block.operations)
             const allIds = [...nodeIds, ...edgeIds]
@@ -145,7 +193,7 @@ export const ConversationPanel = memo(function ConversationPanel({
             })
 
             // Track 2: persist block state change
-            const turnId = stateKey.includes(':') ? stateKey.split(':')[0] : stateKey
+            const turnId = extractTurnIdFromStateKey(stateKey, block.patch_id)
             void onBlockAction(turnId, block.patch_id, 'accepted', `Accepted: "${block.summary}"`)
           } else {
             const violations = (result.violations ?? []).map(
@@ -163,7 +211,7 @@ export const ConversationPanel = memo(function ConversationPanel({
             })
 
             // Track 2: persist block rejection
-            const rejTurnId = stateKey.includes(':') ? stateKey.split(':')[0] : stateKey
+            const rejTurnId = extractTurnIdFromStateKey(stateKey, block.patch_id)
             void onBlockAction(rejTurnId, block.patch_id, 'rejected', 'Validation failed')
           }
         } else {
@@ -174,6 +222,12 @@ export const ConversationPanel = memo(function ConversationPanel({
             useCanvasStore.getState().endExternalGraphMutation()
           }
           setPatchBlockState(stateKey, 'accepted')
+          recordInteractionEvent({
+            chainId,
+            kind: 'changes_applied',
+            summary: block.patch_id,
+            stateAfter: createPanelInteractionSnapshot(messages.length),
+          })
 
           const { nodeIds: nIds, edgeIds: eIds } = extractTargetIdsFromPatch(block.operations)
           const ids = [...nIds, ...eIds]
@@ -191,7 +245,7 @@ export const ConversationPanel = memo(function ConversationPanel({
           })
 
           // Track 2: persist block state change
-          const fbTurnId = stateKey.includes(':') ? stateKey.split(':')[0] : stateKey
+          const fbTurnId = extractTurnIdFromStateKey(stateKey, block.patch_id)
           void onBlockAction(fbTurnId, block.patch_id, 'accepted', `Accepted: "${block.summary}"`)
         }
       } catch {
@@ -206,18 +260,29 @@ export const ConversationPanel = memo(function ConversationPanel({
 
   const handlePatchDismiss = useCallback(
     (stateKey: string) => {
+      beginInteractionChain({
+        chainId: stateKey,
+        triggerSurface: 'proposal_dismiss',
+        sourceSurface: 'ai_panel',
+        initiatedBy: 'user',
+        visibleTextSubmitted: stateKey,
+        submittedText: stateKey,
+        stateBefore: createPanelInteractionSnapshot(messages.length),
+        setPending: true,
+      })
       setPatchBlockState(stateKey, 'dismissed')
-      const patchId = stateKey.includes(':') ? stateKey.split(':').slice(1).join(':') : stateKey
+      const message = messages.find((candidate) => candidate.id && stateKey.startsWith(`${candidate.id}:`))
+      const patchId = message?.id ? stateKey.slice(message.id.length + 1) : stateKey
       sendSystemEvent({
         type: 'patch_dismissed',
         payload: { patch_id: patchId },
       })
 
       // Track 2: persist block dismissal
-      const turnId = stateKey.includes(':') ? stateKey.split(':')[0] : stateKey
+      const turnId = extractTurnIdFromStateKey(stateKey, patchId)
       void onBlockAction(turnId, patchId, 'dismissed', `Dismissed suggestion`)
     },
-    [setPatchBlockState, sendSystemEvent, onBlockAction],
+    [messages.length, setPatchBlockState, sendSystemEvent, onBlockAction],
   )
 
   const handleFeedback = useCallback(
@@ -260,24 +325,36 @@ export const ConversationPanel = memo(function ConversationPanel({
     const health = s.graphHealth
     return health?.issues?.some((i: any) => i.severity === 'error' || i.severity === 'blocker') ?? false
   })
-  const ceeReadiness = useCanvasStore((s) => s.ceeAnalysisReady)
   const isAnalysisRunning = resultsStatus === 'preparing' || resultsStatus === 'connecting' || resultsStatus === 'streaming'
 
   const runGateResult = useMemo(() => canRunAnalysisUtil({
     graphHealth: graphHealth ?? null,
-    readiness: ceeReadiness ? { can_run_analysis: true, readiness_level: 'strong', confidence_explanation: '' } : null,
+    readiness,
     hasBlockers,
     nodeCount,
     isRunning: isAnalysisRunning,
-  }), [graphHealth, ceeReadiness, hasBlockers, nodeCount, isAnalysisRunning])
+  }), [graphHealth, readiness, hasBlockers, nodeCount, isAnalysisRunning])
 
   const runBlockedReason = getRunButtonTooltip(runGateResult) ?? undefined
 
   // ── Top bar callbacks ─────────────────────────────────────────────────
   const handleRunAnalysis = useCallback(() => {
     if (!runGateResult.allowed) return
-    sendMessage('run it', { hidden: true, debugSource: 'right_panel_action' })
-  }, [sendMessage, runGateResult.allowed])
+    const composerText = composerRef.current?.peekText().trim() ?? ''
+    beginInteractionChain({
+      triggerSurface: 'analyse_now',
+      sourceSurface: 'ai_panel',
+      initiatedBy: 'user',
+      visibleTextSubmitted: null,
+      submittedText: '[direct analysis run]',
+      stateBefore: createPanelInteractionSnapshot(messages.length),
+      payloadSummary: {
+        composer_has_text: composerText.length > 0,
+        composer_text_length: composerText.length,
+      },
+    })
+    void runV2Analysis()
+  }, [messages.length, runGateResult.allowed, runV2Analysis])
 
   useEffect(() => {
     const sendChipByLabelMessage = (label: string, message: string) =>
@@ -315,13 +392,22 @@ export const ConversationPanel = memo(function ConversationPanel({
   const handleGenerateModel = useCallback(() => {
     const brief = composerRef.current?.consumeBrief()
     if (brief) {
+      beginInteractionChain({
+        triggerSurface: 'generate_model',
+        sourceSurface: 'ai_panel',
+        initiatedBy: 'user',
+        visibleTextSubmitted: brief,
+        submittedText: brief,
+        stateBefore: createPanelInteractionSnapshot(messages.length),
+        setPending: true,
+      })
       // Send as a user message — the orchestrator processes framing-stage
       // messages as model generation input and responds with auto-apply
       // graph patches. Using sendMessage (not sendSystemEvent) because
       // CEE's v3 Zod schema does not include a 'generate_model' event type.
-      sendMessage(brief)
+      sendMessage(brief, { debugSource: 'generate_model', debugSourceSurface: 'ai_panel' })
     }
-  }, [sendMessage])
+  }, [messages.length, sendMessage])
 
   // ── Render three zones ────────────────────────────────────────────────
   return (

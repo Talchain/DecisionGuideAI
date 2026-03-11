@@ -39,6 +39,8 @@ import type {
   OrchestratorResponseEnvelopeV2,
   ConversationTurnPair,
   GraphPatchBlock,
+  ProposalReviewItem,
+  RelatedElementRef,
 } from './types'
 import { MAX_CHIPS_PER_TURN, MAX_SUGGESTED_ACTIONS } from './types'
 import { applyAutoApplyPatch, synthesiseCeeAnalysisReady } from './utils/applyPatch'
@@ -46,11 +48,18 @@ import { validateAnalysisReadyContract } from './validateAnalysisReadyContract'
 import { validateResponse } from './validateResponse'
 import type { CEEAnalysisReady } from '../../adapters/cee/types'
 import {
+  beginInteractionChain,
+  bindRequestToInteraction,
+  consumePendingInteractionContext,
+  getUiSurfaceState,
   recordConversationRenderTrace,
   recordCrossSurfaceEvent,
   recordRequestContext,
   recordResponseRepair,
   recordUserAction,
+  setLastAnalysisInteractionChainId,
+  updateInteractionResponse,
+  type InteractionStateSnapshot,
 } from '../../lib/debug-state'
 
 /** Sentinel message content used for system events — must never render as a user bubble */
@@ -63,6 +72,74 @@ export const SYSTEM_MESSAGE_SENTINEL = '[system]'
 const LONG_RUNNING_THRESHOLD_MS = 15_000
 const STILL_WORKING_THRESHOLD_MS = 30_000
 const TIMEOUT_MS = 60_000
+
+function summariseRequestPayload(request: OrchestratorTurnRequest, source: string, hidden: boolean, systemEventType?: string): Record<string, unknown> {
+  return {
+    source,
+    hidden,
+    message_length: request.message.length,
+    conversation_pairs: request.conversation_history.length,
+    graph_nodes: request.graph_state.nodes.length,
+    graph_edges: request.graph_state.edges.length,
+    has_analysis_results: request.analysis_state.has_results,
+    analysis_hash: request.analysis_state.last_run_hash,
+    has_analysis_summary: 'analysis_summary' in request.analysis_state,
+    selected_node_count: request.selected_elements?.node_ids?.length ?? 0,
+    selected_edge_count: request.selected_elements?.edge_ids?.length ?? 0,
+    analysis_input_option_count: request.analysis_inputs?.options?.length ?? 0,
+    system_event_type: systemEventType ?? null,
+  }
+}
+
+function summariseEnvelope(envelope: OrchestratorResponseEnvelopeV2): Record<string, unknown> {
+  return {
+    assistant_text_length: typeof envelope.assistant_text === 'string' ? envelope.assistant_text.length : 0,
+    block_count: envelope.blocks?.length ?? 0,
+    guidance_count: envelope.guidance_items?.length ?? 0,
+    suggested_action_count: envelope.suggested_actions?.length ?? 0,
+    has_analysis_response: Boolean(envelope.analysis_response),
+    has_analysis_error: Boolean(envelope.analysis_error),
+    stage_indicator: typeof envelope.stage_indicator === 'string'
+      ? envelope.stage_indicator
+      : envelope.stage_indicator?.stage ?? null,
+    client_turn_id: envelope.client_turn_id ?? null,
+  }
+}
+
+function createInteractionSnapshot(messagesCount: number): InteractionStateSnapshot {
+  const store = useCanvasStore.getState()
+  const ui = getUiSurfaceState('conversation')
+  const guidanceItemsVisible = ui?.guidanceItemsVisible ?? useGuidanceStore.getState().guidanceItems.length
+  return {
+    scenarioId: store.currentScenarioId ?? null,
+    stagePill: store.currentStage ?? null,
+    hasGraph: store.nodes.length > 0 || store.edges.length > 0,
+    hasAnalysis: store.results.status === 'complete' && Boolean(store.results.hash ?? store.currentScenarioLastResultHash),
+    hasAnalysisReady: Boolean(store.ceeAnalysisReady),
+    firstDraftControlsVisible: ui?.firstDraftControlsVisible ?? false,
+    staleFirstDraftGuidanceVisible: ui?.staleFirstDraftGuidanceVisible ?? false,
+    aiPanelOpen: ui?.aiPanelOpen ?? Boolean((store as any).showDraftChat),
+    composerHasText: ui?.composerHasText ?? false,
+    composerTextLength: ui?.composerTextLength ?? 0,
+    guidanceItemsVisible,
+    chatMessagesCount: messagesCount,
+  }
+}
+
+function mapTriggerSurface(source: string | undefined, mode: 'user' | 'system', hidden: boolean, systemEvent?: SystemEvent): string {
+  if (source) return source
+  if (mode === 'system') {
+    return systemEvent?.type === 'direct_analysis_run' ? 'analysis_complete_followup' : 'system_event'
+  }
+  if (hidden) return 'analyse_now'
+  return 'composer_submit'
+}
+
+function mapSourceSurface(triggerSurface: string, mode: 'user' | 'system'): string {
+  if (triggerSurface === 'analyse_now' || triggerSurface === 'discuss_button') return 'right_panel'
+  if (triggerSurface === 'analysis_complete_followup' || mode === 'system') return 'automatic_followup'
+  return 'ai_panel'
+}
 
 /**
  * Infer a task-specific loading hint from the user message and graph state.
@@ -284,6 +361,133 @@ function normaliseAnalysisReady(raw: unknown): CEEAnalysisReady | undefined {
   return validateAnalysisReadyContract(mapped)
 }
 
+function asOptionalString(value: unknown): string | undefined {
+  if (typeof value !== 'string') return undefined
+  const trimmed = value.trim()
+  return trimmed.length > 0 ? trimmed : undefined
+}
+
+function humaniseToken(token: string): string {
+  const words = token
+    .replace(/[_-]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .split(' ')
+    .filter(Boolean)
+  if (words.length === 0) return ''
+  return words
+    .map((word, index) => {
+      const lower = word.toLowerCase()
+      return index === 0 ? `${lower.charAt(0).toUpperCase()}${lower.slice(1)}` : lower
+    })
+    .join(' ')
+}
+
+function normaliseRelatedElements(raw: unknown): RelatedElementRef[] | undefined {
+  if (!Array.isArray(raw)) return undefined
+  const related = raw
+    .map((item) => {
+      if (item == null || typeof item !== 'object') return null
+      const obj = item as Record<string, unknown>
+      const node_id = asOptionalString(obj.node_id)
+      const edge_id = asOptionalString(obj.edge_id)
+      const label = asOptionalString(obj.label)
+      const type = asOptionalString(obj.type)
+      if (!node_id && !edge_id && !label) return null
+      return { ...(node_id ? { node_id } : {}), ...(edge_id ? { edge_id } : {}), ...(label ? { label } : {}), ...(type ? { type } : {}) }
+    })
+    .filter(Boolean) as RelatedElementRef[]
+
+  return related.length > 0 ? related : undefined
+}
+
+function deriveProposalItemFromOperation(raw: unknown): ProposalReviewItem | null {
+  if (raw == null || typeof raw !== 'object') return null
+  const op = raw as Record<string, unknown>
+  const action = asOptionalString(op.op) ?? 'change'
+  const data = (op.data != null && typeof op.data === 'object' ? op.data : {}) as Record<string, unknown>
+  const rawKind = asOptionalString(data.kind) ?? asOptionalString(data.type)
+  const kind = rawKind ? humaniseToken(rawKind) : (action.includes('edge') ? 'connection' : 'item')
+  const elementLabel = asOptionalString(data.label)
+  const verb = action.startsWith('add_')
+    ? 'Add'
+    : action.startsWith('remove_')
+      ? 'Remove'
+      : action.startsWith('update_')
+        ? 'Update'
+        : 'Change'
+  const description = elementLabel
+    ? `${verb} ${elementLabel}`
+    : `${verb} ${kind.toLowerCase()}`
+
+  return {
+    description,
+    ...(elementLabel ? { elementLabel } : {}),
+    changeLabel: humaniseToken(action),
+  }
+}
+
+function normaliseProposalReviewItems(raw: unknown): ProposalReviewItem[] {
+  if (!Array.isArray(raw)) return []
+  return raw
+    .map((item) => {
+      if (item == null || typeof item !== 'object') return null
+      const obj = item as Record<string, unknown>
+      const description =
+        asOptionalString(obj.description)
+        ?? asOptionalString(obj.summary)
+        ?? asOptionalString(obj.text)
+        ?? asOptionalString(obj.title)
+        ?? asOptionalString(obj.message)
+      if (!description) return null
+
+      const elementLabel =
+        asOptionalString(obj.affected_element_label)
+        ?? asOptionalString(obj.element_label)
+        ?? asOptionalString(obj.target_label)
+        ?? asOptionalString(obj.affected_label)
+        ?? asOptionalString(obj.label)
+      const changeToken =
+        asOptionalString(obj.change_type)
+        ?? asOptionalString(obj.action)
+        ?? asOptionalString(obj.operation)
+        ?? asOptionalString(obj.type)
+
+      return {
+        description,
+        ...(elementLabel && elementLabel !== description ? { elementLabel } : {}),
+        ...(changeToken ? { changeLabel: humaniseToken(changeToken) } : {}),
+      }
+    })
+    .filter(Boolean) as ProposalReviewItem[]
+}
+
+function mergeProposalReviewIntoBlocks(
+  blocks: ConversationBlock[],
+  proposalItems: ProposalReviewItem[],
+): ConversationBlock[] {
+  if (proposalItems.length === 0) return blocks
+  if (blocks.some((block) => block.type === 'graph_patch')) return blocks
+
+  return [
+    {
+      type: 'review_card',
+      title: 'Suggested changes',
+      body: proposalItems.map((item) => item.description).join(' · '),
+      variant: 'info',
+    },
+    ...blocks,
+  ]
+}
+
+function extractRawBlockType(block: unknown): string | null {
+  if (block == null || typeof block !== 'object') return null
+  const obj = block as Record<string, unknown>
+  if (typeof obj.block_type === 'string') return obj.block_type
+  if (typeof obj.type === 'string') return obj.type
+  return null
+}
+
 export function adaptCEEBlock(raw: unknown): ConversationBlock {
   if (raw == null || typeof raw !== 'object') {
     // Return a minimal unknown block so InlineBlocks can show fallback
@@ -342,10 +546,13 @@ export function adaptCEEBlock(raw: unknown): ConversationBlock {
           summary: String(dataObj.description ?? dataObj.summary ?? ''),
           operations: normOps as any,
           target_graph_hash: String(dataObj.applied_graph_hash ?? dataObj.target_graph_hash ?? ''),
+          status: asOptionalString(dataObj.status),
           auto_apply: dataObj.auto_apply === true,
           actions: Array.isArray(actions) ? actions as any : undefined,
           block_id: typeof block_id === 'string' ? block_id : undefined,
           analysis_ready: normaliseAnalysisReady(dataObj.analysis_ready),
+          related_elements: normaliseRelatedElements(dataObj.related_elements),
+          proposal_items: normaliseProposalReviewItems(dataObj.proposed_changes),
         }
       }
 
@@ -401,12 +608,18 @@ export function adaptCEEBlock(raw: unknown): ConversationBlock {
   // Flat format (legacy / already-normalised)
   // Still normalise graph_patch operations in case they use path/value format
   if (obj.type === 'graph_patch' && Array.isArray(obj.operations)) {
+    const status = asOptionalString(obj.status)
+    const relatedElements = normaliseRelatedElements(obj.related_elements)
+    const proposalItems = normaliseProposalReviewItems(obj.proposed_changes)
     return {
       ...obj,
       operations: obj.operations.map((op: unknown) =>
         op != null && typeof op === 'object' ? normalisePatchOp(op as Record<string, unknown>) : op
       ),
       analysis_ready: normaliseAnalysisReady(obj.analysis_ready),
+      ...(status ? { status } : {}),
+      ...(relatedElements ? { related_elements: relatedElements } : {}),
+      ...(proposalItems.length > 0 ? { proposal_items: proposalItems } : {}),
     } as unknown as ConversationBlock
   }
   return raw as ConversationBlock
@@ -414,20 +627,14 @@ export function adaptCEEBlock(raw: unknown): ConversationBlock {
 
 /**
  * Budget-aware block selection: keep original CEE array order.
- * Moves all graph_patch blocks to the front so that if the visible-set slice
- * is applied (MAX_VISIBLE_BLOCKS_PER_TURN), patch blocks are never hidden
- * behind the "Show more" toggle.
  *
- * NOTE: This returns the FULL reordered array. InlineBlocks applies the visual
- * slice. Block settlement state (proposed/accepted/rejected/dismissed) is
- * managed separately in patchBlockStates and is not available here.
+ * Returns a shallow copy so downstream consumers can apply visual slicing
+ * without mutating the original block list. Patch settlement state
+ * (proposed/accepted/rejected/dismissed) is managed separately in
+ * `patchBlockStates` and is not available here.
  */
 export function prioritiseBlocks(blocks: ConversationBlock[]): ConversationBlock[] {
-  // Separate graph_patch blocks from the rest (preserve sub-order within each group)
-  const patchBlocks = blocks.filter((b) => b.type === 'graph_patch')
-  const others = blocks.filter((b) => b.type !== 'graph_patch')
-  // Patch blocks first, then everything else in original order
-  return [...patchBlocks, ...others]
+  return [...blocks]
 }
 
 // ---------------------------------------------------------------------------
@@ -449,8 +656,22 @@ export interface UseConversationReturn {
   longRunningHint: string | null
   /** The user's last input text, restored on error so they can edit and resend */
   lastFailedInput: string | null
-  sendMessage: (text: string, opts?: { hidden?: boolean; debugSource?: string }) => Promise<void>
-  sendSystemEvent: (event: WireSystemEvent) => Promise<void>
+  sendMessage: (text: string, opts?: {
+    hidden?: boolean
+    debugSource?: string
+    debugVisibleText?: string | null
+    debugParentChainId?: string | null
+    debugInitiatedBy?: 'user' | 'automatic'
+    debugSourceSurface?: string
+    debugRightPanelComposerLeak?: boolean
+  }) => Promise<void>
+  sendSystemEvent: (event: WireSystemEvent, opts?: {
+    debugSource?: string
+    debugVisibleText?: string | null
+    debugParentChainId?: string | null
+    debugInitiatedBy?: 'user' | 'automatic'
+    debugSourceSurface?: string
+  }) => Promise<void>
   sendChip: (chip: ActionChip) => Promise<void>
   clearHistory: () => void
   retryLast: () => Promise<void>
@@ -648,14 +869,17 @@ export function useConversation(): UseConversationReturn {
 
       // Transform React Flow edges → CEE schema: { from, to, strength?, exists_probability?, ... }
       const ceeEdges = store.edges.map((e) => {
-        const d = e.data ?? {}
-        const weight = typeof d.weight === 'number' ? clamp01(d.weight / 2) * 2 : 0.5
-        const direction = d.direction === 'negative' ? -1 : 1
+        const d = (e.data ?? {}) as Record<string, unknown>
+        const weightValue = d.weight
+        const directionValue = d.direction
+        const strengthStdValue = d.strengthStd
+        const weight = typeof weightValue === 'number' ? clamp01(weightValue / 2) * 2 : 0.5
+        const direction = directionValue === 'negative' ? -1 : 1
         const mean = direction * weight
-        const std = typeof d.strengthStd === 'number' ? Math.max(0, d.strengthStd) : undefined
+        const std = typeof strengthStdValue === 'number' ? Math.max(0, strengthStdValue) : undefined
         const rawExistsProb = d.beliefExists ?? d.confidence ?? d.belief
         const existsProb = typeof rawExistsProb === 'number' ? clamp01(rawExistsProb) : undefined
-        const effectDir = d.direction === 'positive' || d.direction === 'negative' ? d.direction : undefined
+        const effectDir = directionValue === 'positive' || directionValue === 'negative' ? directionValue : undefined
         return {
           from: e.source,
           to: e.target,
@@ -703,11 +927,7 @@ export function useConversation(): UseConversationReturn {
       const cleanedChips = envelope.suggested_actions ?? []
       const renderableCount = (envelope.assistant_text?.trim().length ?? 0) > 0 || cleanedBlocks.length > 0 ? 1 : 0
       const rawUnknownBlockTypes = rawBlocks.flatMap((block) => {
-        const type = typeof (block as Record<string, unknown>)?.block_type === 'string'
-          ? (block as Record<string, unknown>).block_type as string
-          : typeof (block as Record<string, unknown>)?.type === 'string'
-            ? (block as Record<string, unknown>).type as string
-            : null
+        const type = extractRawBlockType(block)
         return type && !['commentary', 'review_card', 'fact', 'graph_patch', 'framing', 'brief', 'model_receipt', 'evidence'].includes(type)
           ? [type]
           : []
@@ -762,10 +982,11 @@ export function useConversation(): UseConversationReturn {
             // Apply the same validate → sanitize → map pipeline as the direct path
             validateV2RunResponseFull(raw) // soft warnings only; don't block on them
             const result = sanitizeV2RunResponse(raw)
-            const report = mapV2ResponseToReportV1(result, { seed: store.results.seed })
-            const enrichment = createEnrichmentFromV2Response(result)
+            const seedUsed = typeof store.results.seed === 'number' ? store.results.seed : 0
+            const report = mapV2ResponseToReportV1(result, { seed: seedUsed })
+            const enrichment = createEnrichmentFromV2Response(result) as any
             const ceeReviewV1 = synthesizeCeeReviewFromV2(result)
-            const ceeTraceV1 = synthesizeCeeTraceFromV2(result, undefined, undefined)
+            const ceeTraceV1 = synthesizeCeeTraceFromV2(result, result.response_hash, 0)
 
             store.resultsComplete({
               report,
@@ -846,7 +1067,21 @@ export function useConversation(): UseConversationReturn {
 
       // Normalise CEE blocks and apply budget priority (proposed patches first)
       const responseBlocks = envelope.blocks ?? []
-      const normalisedBlocks = responseBlocks.map(adaptCEEBlock)
+      const proposalItems = normaliseProposalReviewItems(envelope.proposed_changes)
+      const normalisedBlocks = mergeProposalReviewIntoBlocks(
+        responseBlocks.map(adaptCEEBlock).map((block) => {
+          if (block.type !== 'graph_patch') return block
+          const patch = block as GraphPatchBlock
+          if ((patch.proposal_items?.length ?? 0) > 0) return patch
+          const fallbackItems = patch.operations
+            .map(deriveProposalItemFromOperation)
+            .filter(Boolean) as ProposalReviewItem[]
+          return fallbackItems.length > 0
+            ? { ...patch, proposal_items: fallbackItems }
+            : patch
+        }),
+        proposalItems,
+      )
 
       // Dev-mode validation: catch adapter regressions before they reach the UI
       normalisedBlocks.forEach(validateAdaptedBlock)
@@ -1053,8 +1288,25 @@ export function useConversation(): UseConversationReturn {
       /** Reuse a previous client_turn_id for idempotent retry */
       retryClientTurnId?: string
       source?: string
+      sourceSurface?: string
+      parentChainId?: string | null
+      initiatedBy?: 'user' | 'automatic'
+      rightPanelAccidentallySubmittedComposerContent?: boolean
     }) => {
-      const { message, systemEvent, mode, hidden, displayText, skipUserBubble, retryClientTurnId, source } = opts
+      const {
+        message,
+        systemEvent,
+        mode,
+        hidden,
+        displayText,
+        skipUserBubble,
+        retryClientTurnId,
+        source,
+        sourceSurface,
+        parentChainId,
+        initiatedBy,
+        rightPanelAccidentallySubmittedComposerContent,
+      } = opts
 
       // Synchronous in-flight lock — prevents duplicate dispatch from rapid
       // clicks before React re-renders the isThinking state guard.
@@ -1065,7 +1317,21 @@ export function useConversation(): UseConversationReturn {
       inFlightRef.current = true
 
       // Generate or reuse a stable client_turn_id for idempotent retry
-      const turnClientId = retryClientTurnId ?? crypto.randomUUID()
+      const pendingContext = consumePendingInteractionContext()
+      const turnClientId = retryClientTurnId ?? pendingContext?.chainId ?? crypto.randomUUID()
+      const triggerSurface = pendingContext?.triggerSurface ?? mapTriggerSurface(source, mode, hidden === true, systemEvent)
+      const resolvedSourceSurface = sourceSurface ?? pendingContext?.sourceSurface ?? mapSourceSurface(triggerSurface, mode)
+      const interactionStateBefore = pendingContext?.stateBefore ?? createInteractionSnapshot(messages.length)
+      const interactionChainId = beginInteractionChain({
+        chainId: turnClientId,
+        parentChainId: parentChainId ?? pendingContext?.parentChainId,
+        triggerSurface,
+        sourceSurface: resolvedSourceSurface,
+        initiatedBy: initiatedBy ?? pendingContext?.initiatedBy ?? (mode === 'system' ? 'automatic' : hidden ? 'user' : 'user'),
+        visibleTextSubmitted: hidden ? null : (displayText ?? message),
+        submittedText: message,
+        stateBefore: interactionStateBefore,
+      })
 
       if (mode === 'user') {
         if (!message.trim() || isThinking) {
@@ -1076,7 +1342,7 @@ export function useConversation(): UseConversationReturn {
         // Hidden sends (e.g. "run it") must not pollute user-facing recovery state
         if (!hidden) {
           recordUserAction({
-            actionType: source === 'chip'
+            actionType: source === 'chip' || source === 'chip_click'
               ? 'clicked chip'
               : source === 'retry'
                 ? 'clicked retry'
@@ -1161,6 +1427,19 @@ export function useConversation(): UseConversationReturn {
 
       try {
         const request = buildRequest(message, { clientTurnId: turnClientId })
+        const payloadSummary = summariseRequestPayload(request, triggerSurface, hidden === true, systemEvent?.type)
+        bindRequestToInteraction(turnClientId, {
+          chainId: interactionChainId,
+          endpoint: '/bff/orchestrate/v1/turn',
+          triggerSurface,
+          sourceSurface: resolvedSourceSurface,
+          initiatedBy: initiatedBy ?? (mode === 'system' ? 'automatic' : 'user'),
+          visibleTextSubmitted: hidden ? null : (displayText ?? message),
+          submittedText: message,
+          payloadShapeSummary: payloadSummary,
+          rightPanelAccidentallySubmittedComposerContent,
+          stateBefore: interactionStateBefore,
+        })
         recordRequestContext({
           requestId: turnClientId,
           source: source ?? (mode === 'system' ? 'system_event' : hidden ? 'right_panel_action' : 'chat'),
@@ -1181,6 +1460,21 @@ export function useConversation(): UseConversationReturn {
         }
         const envelope = await callOrchestratorTurn(request, controller.signal)
         handleEnvelope(envelope, turnClientId)
+        const interactionStateAfter = createInteractionSnapshot(messages.length + (hidden || mode === 'system' ? 1 : 2))
+        updateInteractionResponse(turnClientId, {
+          responseStatus: 200,
+          responseSummary: summariseEnvelope(envelope),
+          mutatedGraph: (envelope.blocks ?? []).some((block: any) => {
+            const type = typeof block?.block_type === 'string' ? block.block_type : block?.type
+            return type === 'graph_patch'
+          }),
+          mutatedAnalysis: Boolean(envelope.analysis_response),
+          mutatedChat: Boolean((envelope.assistant_text?.trim().length ?? 0) > 0 || (envelope.blocks?.length ?? 0) > 0),
+          stateAfter: interactionStateAfter,
+        })
+        if (triggerSurface === 'analyse_now') {
+          setLastAnalysisInteractionChainId(interactionChainId)
+        }
       } catch (err) {
         if ((err as Error).name === 'AbortError') return // timeout already handled
 
@@ -1198,6 +1492,17 @@ export function useConversation(): UseConversationReturn {
             timestamp: new Date(),
           })
         }
+        updateInteractionResponse(turnClientId, {
+          responseStatus: err instanceof OrchestratorError ? err.status : 0,
+          responseSummary: err instanceof OrchestratorError && err.body && typeof err.body === 'object'
+            ? { body_keys: Object.keys(err.body as Record<string, unknown>) }
+            : undefined,
+          responseError: (err as Error).message,
+          mutatedGraph: false,
+          mutatedAnalysis: false,
+          mutatedChat: mode === 'user' && !hidden,
+          stateAfter: createInteractionSnapshot(messages.length + (mode === 'user' && !hidden ? 1 : 0)),
+        })
         // System events and hidden sends fail silently — the user didn't
         // initiate these, so showing an error would be confusing. Logged in turnService.
         if (mode === 'system' && import.meta.env.DEV) {
@@ -1224,14 +1529,38 @@ export function useConversation(): UseConversationReturn {
   // ---------------------------------------------------------------------------
 
   const sendMessage = useCallback(
-    async (text: string, opts?: { hidden?: boolean; debugSource?: string }) => {
-      await sendTurn({ message: text, mode: 'user', hidden: opts?.hidden, source: opts?.debugSource })
+    async (text: string, opts?: {
+      hidden?: boolean
+      debugSource?: string
+      debugVisibleText?: string | null
+      debugParentChainId?: string | null
+      debugInitiatedBy?: 'user' | 'automatic'
+      debugSourceSurface?: string
+      debugRightPanelComposerLeak?: boolean
+    }) => {
+      await sendTurn({
+        message: text,
+        mode: 'user',
+        hidden: opts?.hidden,
+        source: opts?.debugSource,
+        displayText: opts?.debugVisibleText ?? undefined,
+        parentChainId: opts?.debugParentChainId,
+        initiatedBy: opts?.debugInitiatedBy,
+        sourceSurface: opts?.debugSourceSurface,
+        rightPanelAccidentallySubmittedComposerContent: opts?.debugRightPanelComposerLeak,
+      })
     },
     [sendTurn],
   )
 
   const sendSystemEvent = useCallback(
-    async (event: WireSystemEvent) => {
+    async (event: WireSystemEvent, opts?: {
+      debugSource?: string
+      debugVisibleText?: string | null
+      debugParentChainId?: string | null
+      debugInitiatedBy?: 'user' | 'automatic'
+      debugSourceSurface?: string
+    }) => {
       // No-op when orchestrator V2 is OFF
       if (!isOrchestratorV2Enabled()) return
 
@@ -1256,7 +1585,11 @@ export function useConversation(): UseConversationReturn {
         message: SYSTEM_MESSAGE_SENTINEL,
         systemEvent: event,
         mode: 'system',
-        source: 'system_event',
+        source: opts?.debugSource ?? 'system_event',
+        displayText: opts?.debugVisibleText ?? undefined,
+        parentChainId: opts?.debugParentChainId,
+        initiatedBy: opts?.debugInitiatedBy ?? 'automatic',
+        sourceSurface: opts?.debugSourceSurface,
       })
     },
     [sendTurn],
@@ -1287,7 +1620,7 @@ export function useConversation(): UseConversationReturn {
           payloadSummary: { chip_label: chip.label, intent: chip.intent },
         })
         // Show chip.label in conversation bubble, send chip.message to orchestrator
-        await sendTurn({ message: chip.message, displayText: chip.label, mode: 'user', source: 'chip' })
+        await sendTurn({ message: chip.message, displayText: chip.label, mode: 'user', source: 'chip_click' })
       } else {
         // Chip has no message and is not an undo — this should not happen in practice
         // (validateResponse and render filters both block messageless chips), but if it

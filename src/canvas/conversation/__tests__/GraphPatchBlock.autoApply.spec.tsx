@@ -70,6 +70,8 @@ describe('GraphPatchBlock — auto_apply', () => {
     expect(screen.queryByTestId('patch-accept')).not.toBeInTheDocument()
     expect(screen.queryByTestId('patch-dismiss')).not.toBeInTheDocument()
     expect(screen.getByTestId('patch-show-changes')).toBeInTheDocument()
+    expect(screen.getByText('Changes applied')).toBeInTheDocument()
+    expect(screen.getByText('Applied')).toBeInTheDocument()
   })
 
   it('reveals auto-applied changes on canvas', () => {
@@ -108,9 +110,10 @@ describe('GraphPatchBlock — custom actions[]', () => {
     { action_type: 'dismiss', label: 'Skip this', variant: 'secondary' },
   ]
 
-  it('renders CEE-provided action buttons when actions[] present', () => {
+  it('renders CEE-provided action labels when actions[] present', () => {
     render(<InlineBlocks blocks={[makePatchBlock({ actions: customActions })]} />)
 
+    // CEE-provided labels take precedence
     expect(screen.getByText('Apply changes')).toBeInTheDocument()
     expect(screen.getByText('Skip this')).toBeInTheDocument()
     // Default buttons should NOT appear

@@ -16,6 +16,7 @@ import {
 } from '../../stores/guidanceStore'
 import { useCanvasStore } from '../../store'
 import { scrollToField } from '../../conversation/utils/scrollToField'
+import { beginInteractionChain } from '../../../lib/debug-state'
 
 const MAX_VISIBLE = 2
 const FOCUS_DEBOUNCE_MS = 150
@@ -222,6 +223,16 @@ export const InspectorGuidanceSection = memo(function InspectorGuidanceSection({
 
     switch (action.type) {
       case 'discuss':
+        beginInteractionChain({
+          triggerSurface: 'discuss_button',
+          sourceSurface: 'right_panel',
+          initiatedBy: 'user',
+          visibleTextSubmitted: action.prompt,
+          submittedText: action.prompt,
+          scenarioId: useCanvasStore.getState().currentScenarioId ?? null,
+          stagePill: useCanvasStore.getState().currentStage ?? null,
+          setPending: true,
+        })
         sendMsg?.(action.prompt)
         break
       case 'run_exercise':

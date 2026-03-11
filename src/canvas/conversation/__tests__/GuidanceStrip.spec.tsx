@@ -12,9 +12,10 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
+import { render, screen, fireEvent, act } from '@testing-library/react'
 import { GuidanceStrip } from '../GuidanceStrip'
 import { useGuidanceStore, type GuidanceItem } from '../../stores/guidanceStore'
+import { _clearTraces, getInteractionChains } from '../../../lib/debug-state'
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -50,6 +51,7 @@ function makeProps(overrides: Partial<Parameters<typeof GuidanceStrip>[0]> = {})
 
 beforeEach(() => {
   useGuidanceStore.getState().clearGuidanceItems()
+  _clearTraces()
   vi.useFakeTimers()
 })
 
@@ -93,6 +95,8 @@ describe('GuidanceStrip — action button behaviour', () => {
     render(<GuidanceStrip {...props} />)
     fireEvent.click(screen.getByRole('button', { name: /discuss/i }))
     expect(props.onSendMessage).toHaveBeenCalledWith('Let us discuss.')
+    expect(getInteractionChains()[0]?.triggerSurface).toBe('discuss_button')
+    expect(getInteractionChains()[0]?.sourceSurface).toBe('ai_panel')
   })
 
   it('open_inspector action calls onOpenInspector with node_id', () => {

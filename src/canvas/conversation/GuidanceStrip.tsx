@@ -13,6 +13,7 @@ import styles from './Conversation.module.css'
 import { trackGuidance, type GuidanceEventPayload } from '../../telemetry/guidanceEvents'
 import { useCanvasStore } from '../store'
 import { scrollToField } from './utils/scrollToField'
+import { beginInteractionChain } from '../../lib/debug-state'
 
 const FOCUS_DEBOUNCE_MS = 150
 
@@ -193,6 +194,16 @@ export const GuidanceStrip = memo(function GuidanceStrip({
         }
         break
       case 'discuss':
+        beginInteractionChain({
+          triggerSurface: 'discuss_button',
+          sourceSurface: 'ai_panel',
+          initiatedBy: 'user',
+          visibleTextSubmitted: action.prompt,
+          submittedText: action.prompt,
+          scenarioId: state.currentScenarioId ?? null,
+          stagePill: state.currentStage ?? null,
+          setPending: true,
+        })
         onSendMessage(action.prompt)
         break
       case 'run_exercise':

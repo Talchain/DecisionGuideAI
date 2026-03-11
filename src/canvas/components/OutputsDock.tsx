@@ -40,7 +40,7 @@ import {
   trackAutoFixFailed,
 } from '../utils/sandboxTelemetry'
 import { DeltaInterpretation } from './DeltaInterpretation'
-import { isOrchestratorV2Enabled, isLegacyDirectRunEnabled } from '../../flags'
+import { isJourneyTabEnabled } from '../../flags'
 import { getObjectiveText, getGoalDirection } from '../utils/getObjectiveText'
 import { computeDelta, deriveVerdict } from '../utils/interpretOutcome'
 import { useDebugShortcut } from '../hooks/useDebugShortcut'
@@ -55,10 +55,8 @@ import { mapConfidenceToReadiness } from '../utils/mapConfidenceToReadiness'
 import { useV2Run, type V2RunPersistence } from '../hooks/useV2Run'
 import { useScenario } from '../../hooks/useScenario'
 import { focusNodeById } from '../utils/focusHelpers'
-import { useShowToast } from '../ToastContext'
 import { ModelTabBody } from './ModelTabBody'
 import { JourneyTabBody } from '../journey/JourneyTabBody'
-import { isJourneyTabEnabled } from '../../flags'
 // Results Panel Redesign: v7 four-section layout components
 import { useResultsSectionData } from '../../components/results/useResultsSectionData'
 import type { TornadoRow } from '../../components/results/TornadoChart'
@@ -81,12 +79,13 @@ import { useScenarioComparison } from '../hooks/useScenarioComparison'
 import { useRobustness } from '../hooks/useRobustness'
 import { mapRobustness } from '../../lib/mappers/mapRobustness'
 import type { MappedRobustness } from '../../lib/mappers/types'
+import { getUiSurfaceState, type InteractionStateSnapshot } from '../../lib/debug-state'
 // ScenarioComparison modal removed - now rendered as ComparisonCanvasLayout in ReactFlowGraph
 import type { CritiqueItemV1 } from '../../adapters/plot/types'
 import { verboseDebug } from '../../utils/verboseLog'
 import { AnalysisFooter } from '../shared/AnalysisFooter'
 import { DEFAULT_EDGE_DATA } from '../domain/edges'
-import type { GraphReadiness } from '../hooks/useGraphReadiness'
+import { useGraphReadiness } from '../hooks/useGraphReadiness'
 
 /**
  * Map API critique format (CritiqueItemV1) to ValidationPanel format
@@ -129,7 +128,6 @@ const OUTPUT_TABS: { id: OutputsDockTab; label: string }[] = [
 
 export function OutputsDock() {
   const prefersReducedMotion = usePrefersReducedMotion()
-  const showToast = useShowToast()
   const [state, setState] = useDockState<OutputsDockState>(STORAGE_KEY, {
     isOpen: true,
     activeTab: 'results',
@@ -197,7 +195,6 @@ export function OutputsDock() {
   // Actions don't need shallow - they're stable references
   const setShowResultsPanel = useCanvasStore(s => s.setShowResultsPanel)
   const setShowComparePanel = useCanvasStore(s => s.setShowComparePanel)
-  const setShowDraftChat = useCanvasStore(s => s.setShowDraftChat)
   const setHighlightedNodes = useCanvasStore(s => s.setHighlightedNodes)
   const applyAutoFixChanges = useCanvasStore(s => s.applyAutoFixChanges)
   // P0 Results Brief: Store actions for Status Quo baseline creation
@@ -334,41 +331,22 @@ export function OutputsDock() {
   })
 
   const isRunning = resultsStatus === 'preparing' || resultsStatus === 'connecting' || resultsStatus === 'streaming'
+  const { readiness } = useGraphReadiness()
 
   // Unified run gating — same function used by ConversationPanel/ChatTopBar.
-  // Reads ceeAnalysisReady directly from store (snapshot) to avoid prop threading.
-  const ceeAnalysisReady = useCanvasStore(s => s.ceeAnalysisReady)
   const hasValidationBlockers = useCanvasStore(s =>
     s.graphHealth?.issues?.some((i: { severity: string }) => i.severity === 'error' || i.severity === 'blocker') ?? false
   )
-  const readinessSnapshot: GraphReadiness | null = ceeAnalysisReady
-    ? {
-        readiness_score: 100,
-        readiness_level: 'strong',
-        can_run_analysis: true,
-        confidence_explanation: '',
-        improvements: [],
-      }
-    : null
 
   const runGateResult = canRunAnalysisUtil({
     graphHealth: graphHealth ?? null,
-    readiness: readinessSnapshot,
+    readiness,
     hasBlockers: hasValidationBlockers,
     nodeCount: nodes.length,
     isRunning,
   })
   const canRunAnalysis = runGateResult.allowed
   const runBlockedTooltip = getRunButtonTooltip(runGateResult)
-
-  const dispatchConversationRunAnalysis = useCallback(() => {
-    const runAnalysis = useGuidanceStore.getState()._runAnalysis
-    if (runAnalysis) {
-      runAnalysis()
-      return true
-    }
-    return false
-  }, [])
 
   // Handle Run button click
   const handleRunAnalysis = useCallback(async () => {
@@ -386,17 +364,8 @@ export function OutputsDock() {
       option_count: comparison.optionNodes.length,
       template_id: (framing as any)?.templateId || 'canvas-graph',
     })
-    // P0-UI: Use V2 adapter (gets nodes, edges, outcomeNodeId from store).
-    // Skip direct run when orchestratorV2 is on and legacyDirectRun is off
-    // (mirrors the gate in CanvasToolbar so both entry points behave identically).
-    if (isOrchestratorV2Enabled() && !isLegacyDirectRunEnabled()) {
-      if (dispatchConversationRunAnalysis()) return
-      setShowDraftChat(true)
-      showToast('Open the AI panel to continue analysis.', 'warning')
-      return
-    }
     await runV2Analysis()
-  }, [canRunAnalysis, runV2Analysis, framing, nodes, edges, comparison.optionNodes.length, dispatchConversationRunAnalysis, setShowDraftChat, showToast])
+  }, [canRunAnalysis, runV2Analysis, framing, nodes, edges, comparison.optionNodes.length])
 
   // P0 Results Brief: Add Status Quo baseline option
   // Creates a new option node with is_baseline=true, empty interventions, and connects it to a decision node

@@ -282,6 +282,35 @@
   gap: 8px;
 }
 
+.graphPatchBlockApplied {
+  border-top-color: var(--success, #67C89E);
+}
+
+.graphPatchHeader {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.graphPatchTitleRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.graphPatchProposalEyebrow {
+  color: var(--info, #63ADCF);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.graphPatchReceiptEyebrow {
+  color: var(--success, #67C89E);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
 .graphPatchSummary {
   font-weight: 500;
   color: var(--text-header, #262626);
@@ -290,6 +319,48 @@
 .graphPatchMeta {
   font-size: 12px; /* panelBody */
   color: var(--text-light, #908D8D);
+}
+
+.graphPatchProposalList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.graphPatchProposalItem {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--bg-panel-hover, #FEF9F3);
+  border: 1px solid var(--border-default, #EEE6D8);
+}
+
+.graphPatchProposalCopy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.graphPatchProposalDescription {
+  color: var(--text-body, #3F3F3E);
+}
+
+.graphPatchProposalLabel {
+  color: var(--text-light, #908D8D);
+}
+
+.graphPatchProposalBadge {
+  flex-shrink: 0;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: transparent;
+  border: 1px solid rgba(99, 173, 207, 0.3);
+  color: var(--text-light, #908D8D);
+  font-weight: 500;
 }
 
 .graphPatchActions {

@@ -64,6 +64,27 @@ export interface ConversationStatusInput {
 // Helpers
 // ---------------------------------------------------------------------------
 
+export function resolvePatchBlockState(
+  block: GraphPatchBlock,
+  patchBlockStates: Map<string, PatchBlockState> | undefined,
+  stateKey: string,
+): PatchBlockState {
+  if (block.auto_apply === true) return 'accepted'
+
+  const localState = patchBlockStates?.get(stateKey)
+  if (localState && localState !== 'proposed') return localState
+
+  const backendStatus = typeof block.status === 'string' ? block.status.toLowerCase() : null
+  if (backendStatus === 'accepted' || backendStatus === 'applied') return 'accepted'
+  if (backendStatus === 'rejected') return 'rejected'
+  if (backendStatus === 'dismissed') return 'dismissed'
+  if (import.meta.env.DEV && backendStatus !== null && backendStatus !== 'proposed') {
+    console.warn('[resolvePatchBlockState] Unrecognized backend patch status "%s" for %s', backendStatus, stateKey)
+  }
+
+  return localState ?? 'proposed'
+}
+
 function hasPendingPatch(
   messages: ConversationMessage[],
   patchBlockStates: Map<string, PatchBlockState>,
@@ -75,7 +96,7 @@ function hasPendingPatch(
       const patchBlock = block as GraphPatchBlock
       // Composite key matches InlineBlocks: turnId:patchId (or bare patchId if no turnId)
       const stateKey = msg.id ? `${msg.id}:${patchBlock.patch_id}` : patchBlock.patch_id
-      const state = patchBlockStates.get(stateKey) ?? 'proposed'
+      const state = resolvePatchBlockState(patchBlock, patchBlockStates, stateKey)
       if (state === 'proposed') return true
     }
   }

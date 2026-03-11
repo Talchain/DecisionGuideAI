@@ -74,9 +74,26 @@ describe('GraphPatchBlock', () => {
     )
 
     expect(screen.getByText("Add 'competitor response' as a risk factor")).toBeInTheDocument()
+    expect(screen.getByText('Review suggested changes')).toBeInTheDocument()
     expect(screen.getByText('1 risk')).toBeInTheDocument()
     expect(screen.getByTestId('patch-accept')).toBeInTheDocument()
     expect(screen.getByTestId('patch-dismiss')).toBeInTheDocument()
+  })
+
+  it('renders proposal review rows when proposal items are present', () => {
+    const block = makePatchBlock({
+      proposal_items: [
+        { description: 'Add competitor response as a tracked risk', changeLabel: 'Add node', elementLabel: 'Competitor response' },
+      ],
+    })
+    render(<InlineBlocks blocks={[block]} />)
+
+    expect(screen.getByTestId('patch-proposal-list')).toBeInTheDocument()
+    expect(screen.getByText('Add competitor response as a tracked risk')).toBeInTheDocument()
+    expect(screen.getByText('Add node')).toBeInTheDocument()
+    expect(screen.getByText('Competitor response')).toBeInTheDocument()
+    expect(screen.getByText('Apply')).toBeInTheDocument()
+    expect(screen.getByText('Not what I meant')).toBeInTheDocument()
   })
 
   it('calls onPatchAccept when Accept is clicked', () => {
@@ -112,6 +129,16 @@ describe('GraphPatchBlock', () => {
     expect(screen.queryByTestId('patch-accept')).not.toBeInTheDocument()
     expect(screen.queryByTestId('patch-dismiss')).not.toBeInTheDocument()
     expect(screen.getByTestId('patch-show-changes')).toBeInTheDocument()
+    expect(screen.getByText('Changes applied')).toBeInTheDocument()
+  })
+
+  it('renders accepted receipt when backend marks the patch accepted', () => {
+    const block = makePatchBlock({ status: 'accepted' })
+    render(<InlineBlocks blocks={[block]} />)
+
+    expect(screen.getByTestId('patch-status-applied')).toBeInTheDocument()
+    expect(screen.queryByTestId('patch-accept')).not.toBeInTheDocument()
+    expect(screen.getByText('Changes applied')).toBeInTheDocument()
   })
 
   it('reveals applied node changes using existing canvas focus/highlight hooks', () => {

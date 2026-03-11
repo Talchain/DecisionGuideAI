@@ -40,6 +40,10 @@ const STAGE_BORDER: Record<ScenarioStage, string> = {
   optimise: 'var(--success, #67C89E)',
 }
 
+function isKnownStage(stage: string | null): stage is ScenarioStage {
+  return stage !== null && Object.prototype.hasOwnProperty.call(STAGE_LABELS, stage)
+}
+
 // UI-SEM-020: Stage derivation from canvas state
 // Remove when orchestrator provides envelope.stage_indicator
 export function deriveStageFromState(
@@ -55,9 +59,17 @@ export function useStagePill(): StagePillData {
   const currentStage = useCanvasStore((s) => s.currentStage)
   const nodeCount = useCanvasStore((s) => s.nodes.length)
   const resultsStatus = useCanvasStore((s) => s.results.status)
+  const hasCompletedFirstRun = useCanvasStore((s) => s.hasCompletedFirstRun)
 
   return useMemo(() => {
-    if (currentStage !== null) {
+    const hasNodes = nodeCount > 0
+    const isComplete = resultsStatus === 'complete' || hasCompletedFirstRun
+    const shouldTrustStoredStage =
+      isKnownStage(currentStage)
+      && !(currentStage === 'frame' && hasNodes)
+      && !((currentStage === 'frame' || currentStage === 'ideate') && isComplete)
+
+    if (shouldTrustStoredStage && isKnownStage(currentStage)) {
       if (import.meta.env.DEV) {
         console.debug('[useStagePill] source=store stage=%s', currentStage)
       }
@@ -70,8 +82,6 @@ export function useStagePill(): StagePillData {
     }
 
     // UI-SEM-020: Fallback derivation
-    const hasNodes = nodeCount > 0
-    const isComplete = resultsStatus === 'complete'
     const derived = deriveStageFromState(hasNodes, isComplete)
 
     if (import.meta.env.DEV) {
@@ -84,5 +94,5 @@ export function useStagePill(): StagePillData {
       borderColor: STAGE_BORDER[derived],
       source: 'fallback' as const,
     }
-  }, [currentStage, nodeCount, resultsStatus])
+  }, [currentStage, nodeCount, resultsStatus, hasCompletedFirstRun])
 }

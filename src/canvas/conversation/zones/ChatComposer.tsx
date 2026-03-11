@@ -24,6 +24,7 @@ import { GuidanceStrip } from '../GuidanceStrip'
 import { CoachingTip } from './CoachingTip'
 import { BriefGuidanceStrip } from './BriefGuidanceStrip'
 import { BriefReadinessPill } from './BriefReadinessPill'
+import { recordUiSurfaceState } from '../../../lib/debug-state'
 import type { BriefElementKind } from '../primitives/NodeShape'
 import type { BriefReadiness } from '../hooks/useBriefSignals'
 import type { UseConversationReturn } from '../useConversation'
@@ -38,6 +39,7 @@ export interface ChatComposerHandle {
   replaceText: (text: string) => void
   /** Extract brief text and reset composer. Returns null if empty. */
   consumeBrief: () => string | null
+  peekText: () => string
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -68,6 +70,9 @@ export const ChatComposer = memo(forwardRef<ChatComposerHandle, ChatComposerProp
     const { stage } = useStagePill()
     const setActiveGuidanceItem = useGuidanceStore(s => s.setActiveGuidanceItem)
     const hasGraph = useCanvasStore(s => s.nodes.length > 0 || s.edges.length > 0)
+    const hasAnalysis = useCanvasStore(s => s.results?.status === 'complete' && Boolean(s.results?.hash ?? s.currentScenarioLastResultHash))
+    const hasAnalysisReady = useCanvasStore(s => Boolean(s.ceeAnalysisReady))
+    const guidanceItemsVisible = useGuidanceStore(s => s.guidanceItems.length)
 
     // Composer state
     const handleSend = useCallback(
@@ -90,6 +95,7 @@ export const ChatComposer = memo(forwardRef<ChatComposerHandle, ChatComposerProp
         composer.reset()
         return text
       },
+      peekText: () => composer.value,
     }), [composer.replaceText, composer.value, composer.reset])
 
     // Unified 500ms debounce — shared by useBriefSignals and BIL extraction
@@ -145,7 +151,18 @@ export const ChatComposer = memo(forwardRef<ChatComposerHandle, ChatComposerProp
       }
     }, [briefSignals])
 
-    const showBriefStrip = !hasGraph && isFramingStage(stage) && briefSignals && briefSignals.elements.some(e => e.detected)
+    const showBriefStrip = Boolean(!hasGraph && isFramingStage(stage) && briefSignals && briefSignals.elements.some(e => e.detected))
+
+    useEffect(() => {
+      recordUiSurfaceState('conversation', {
+        firstDraftControlsVisible: showBriefStrip,
+        staleFirstDraftGuidanceVisible: Boolean(showBriefStrip && (hasAnalysis || hasAnalysisReady)),
+        aiPanelOpen: true,
+        composerHasText: composer.value.trim().length > 0,
+        composerTextLength: composer.value.trim().length,
+        guidanceItemsVisible,
+      })
+    }, [showBriefStrip, hasAnalysis, hasAnalysisReady, composer.value, guidanceItemsVisible])
 
     return (
       <div

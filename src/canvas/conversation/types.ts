@@ -135,12 +135,26 @@ export interface BlockAction {
   variant?: 'primary' | 'secondary' | 'danger'
 }
 
+export interface ProposalReviewItem {
+  description: string
+  elementLabel?: string
+  changeLabel?: string
+}
+
+export interface RelatedElementRef {
+  node_id?: string
+  edge_id?: string
+  label?: string
+  type?: string
+}
+
 export interface GraphPatchBlock {
   type: 'graph_patch'
   patch_id: string
   summary: string
   operations: PatchOperation[]
   target_graph_hash: string
+  status?: string
   /**
    * When true, CEE has already applied the graph via envelope side_effects.
    * Render as applied state immediately — no Accept/Dismiss, no system event.
@@ -162,6 +176,8 @@ export interface GraphPatchBlock {
    * edge-based synthesis fallback.
    */
   analysis_ready?: CEEAnalysisReady
+  related_elements?: RelatedElementRef[]
+  proposal_items?: ProposalReviewItem[]
 }
 
 // ---------------------------------------------------------------------------
@@ -336,6 +352,7 @@ export interface OrchestratorResponseEnvelopeV2 {
   /** Main response text. Null on graph-only responses (e.g. initial draft). */
   assistant_text: string | null
   blocks?: ConversationBlock[]
+  proposed_changes?: unknown[]
   suggested_actions?: ActionChip[]
   /** Plain string or object with .stage field — normalised in handleEnvelope */
   stage_indicator?: StageIndicatorWire

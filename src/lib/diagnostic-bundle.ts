@@ -23,7 +23,7 @@
  * ```
  */
 
-import { getRecentTraces, getPendingTraces, getFailedTraces, type RequestTrace, type DownstreamCall } from './debug-state'
+import { getRecentTraces, getPendingTraces, getFailedTraces, getInteractionChains, type RequestTrace, type DownstreamCall, type InteractionChain } from './debug-state'
 import { useGateStore, ALL_GATES, type GateName } from './gate-state'
 import { getClientBuild, getVersionInfo } from './version-cache'
 import { getAllServiceHealthArray, type ServiceHealthInfo } from './service-health'
@@ -124,6 +124,25 @@ interface IntegrationVerification {
   issues: string[]
 }
 
+interface SanitizedInteractionChain {
+  chainId: string
+  parentChainId?: string | null
+  triggerSurface: string
+  sourceSurface: string
+  initiatedBy: 'user' | 'automatic'
+  visibleTextSubmitted: string | null
+  submittedText: string | null
+  startedAt: string
+  scenarioId: string | null
+  stagePill: string | null
+  requestIds: string[]
+  requests: InteractionChain['requests']
+  timeline: InteractionChain['timeline']
+  stateBefore?: InteractionChain['stateBefore']
+  stateAfter?: InteractionChain['stateAfter']
+  childChainIds: string[]
+}
+
 /**
  * Full diagnostic bundle structure
  */
@@ -154,6 +173,8 @@ export interface DiagnosticBundle {
   services: ServiceHealth[]
   /** Integration verification summary */
   integration: IntegrationVerification
+  /** Compact UI repro chains */
+  interactions: SanitizedInteractionChain[]
   /** Session metadata */
   session: {
     durationMs: number
@@ -211,6 +232,27 @@ function sanitizeTrace(trace: RequestTrace): SanitizedTrace {
     downstream: sanitizeDownstreamCalls(trace.downstream),
     traceReceived: sanitizeTraceReceived(trace),
     // Intentionally omit: error (may contain stack traces), upstreamHost (internal infra)
+  }
+}
+
+function sanitizeInteractionChain(chain: InteractionChain): SanitizedInteractionChain {
+  return {
+    chainId: chain.chainId,
+    parentChainId: chain.parentChainId,
+    triggerSurface: chain.triggerSurface,
+    sourceSurface: chain.sourceSurface,
+    initiatedBy: chain.initiatedBy,
+    visibleTextSubmitted: chain.visibleTextSubmitted,
+    submittedText: chain.submittedText,
+    startedAt: chain.startedAt,
+    scenarioId: chain.scenarioId,
+    stagePill: chain.stagePill,
+    requestIds: [...chain.requestIds],
+    requests: chain.requests.map((request) => ({ ...request })),
+    timeline: chain.timeline.map((event) => ({ ...event })),
+    stateBefore: chain.stateBefore ? { ...chain.stateBefore } : undefined,
+    stateAfter: chain.stateAfter ? { ...chain.stateAfter } : undefined,
+    childChainIds: [...chain.childChainIds],
   }
 }
 
@@ -336,6 +378,7 @@ export async function createDiagnosticBundle(): Promise<DiagnosticBundle> {
   const recentTraces = getRecentTraces()
   const pendingTraces = getPendingTraces()
   const failedTraces = getFailedTraces()
+  const interactionChains = getInteractionChains()
 
   // Build gate snapshots
   const gates: GateSnapshot[] = ALL_GATES.map((gate) => {
@@ -391,6 +434,7 @@ export async function createDiagnosticBundle(): Promise<DiagnosticBundle> {
     },
     services,
     integration: computeIntegrationVerification(recentTraces),
+    interactions: interactionChains.map(sanitizeInteractionChain),
     session: {
       durationMs: Date.now() - sessionStart,
       pageUrl: pageUrl.pathname + pageUrl.search,

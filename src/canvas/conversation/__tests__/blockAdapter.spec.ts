@@ -224,7 +224,7 @@ describe('adaptCEEBlock — wrapped CEE format', () => {
 // ---------------------------------------------------------------------------
 
 describe('prioritiseBlocks', () => {
-  it('moves graph_patch blocks to front, preserves relative order', () => {
+  it('preserves original block order', () => {
     const blocks: ConversationBlock[] = [
       { type: 'commentary', text: 'C1' },
       { type: 'graph_patch', patch_id: 'p1', summary: 'P1', operations: [], target_graph_hash: 'h' },
@@ -234,12 +234,12 @@ describe('prioritiseBlocks', () => {
 
     const result = prioritiseBlocks(blocks)
 
-    expect(result[0].type).toBe('graph_patch')
-    expect((result[0] as any).patch_id).toBe('p1')
+    expect(result[0].type).toBe('commentary')
     expect(result[1].type).toBe('graph_patch')
-    expect((result[1] as any).patch_id).toBe('p2')
-    expect(result[2].type).toBe('commentary')
-    expect(result[3].type).toBe('fact')
+    expect((result[1] as any).patch_id).toBe('p1')
+    expect(result[2].type).toBe('fact')
+    expect(result[3].type).toBe('graph_patch')
+    expect((result[3] as any).patch_id).toBe('p2')
   })
 
   it('returns original array unchanged when no graph_patch blocks', () => {

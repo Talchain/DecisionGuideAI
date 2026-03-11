@@ -872,8 +872,20 @@ describe('usePreAnalysisData', () => {
   })
 
   describe('P0-1: Header/Footer Blocked State Sync', () => {
-    it('hasBlockers is true when mustAddress tier has items', () => {
-      // When there's only 1 option, mustAddress.count > 0
+    it('hasBlockers is true when the canonical readiness hook reports blockers', () => {
+      mockExistingHook.mockReturnValue({
+        canRun: false,
+        hasBlockers: true,
+        allIssues: [{ severity: 'blocker' }],
+        fixFirstIssues: [],
+        remainingCount: 0,
+        limitingFactor: null,
+        quality: null,
+        readyOptionsCount: 0,
+        totalOptionsCount: 0,
+        edgeProvenance: null,
+        isLoading: false,
+      })
       mockUseCanvasStore.mockImplementation(createMockStore({
         nodes: [
           { id: 'opt1', type: 'option', position: { x: 0, y: 0 }, data: { label: 'Option 1' } },
@@ -884,7 +896,7 @@ describe('usePreAnalysisData', () => {
 
       expect(result.current.tiers.mustAddress.count).toBeGreaterThan(0)
       expect(result.current.hasBlockers).toBe(true)
-      expect(result.current.blockerCount).toBe(result.current.tiers.mustAddress.count)
+      expect(result.current.blockerCount).toBe(1)
     })
 
     it('hasBlockers is false when mustAddress tier is empty', () => {
@@ -921,7 +933,7 @@ describe('usePreAnalysisData', () => {
       expect(result.current.blockerCount).toBe(0)
     })
 
-    it('isReady is false when mustAddress tier has items even if canRun is true', () => {
+    it('isReady remains true when the canonical readiness hook allows running even if mustAddress tier has items', () => {
       mockExistingHook.mockReturnValue({
         canRun: true,
         hasBlockers: false,
@@ -947,7 +959,7 @@ describe('usePreAnalysisData', () => {
       const { result } = renderHook(() => usePreAnalysisData())
 
       expect(result.current.tiers.mustAddress.count).toBeGreaterThan(0)
-      expect(result.current.isReady).toBe(false)
+      expect(result.current.isReady).toBe(true)
     })
   })
 
@@ -3069,9 +3081,8 @@ describe('usePreAnalysisData', () => {
 
       const { result } = renderHook(() => usePreAnalysisData())
 
-      // No coaching_summary + no graph nodes → canRun=false → no ready message → null
-      // (count-based strings require tiers/quality data from an actual graph)
-      expect(result.current.coachingSummary).toBeNull()
+      // No coaching_summary falls back to the derived blocker summary
+      expect(result.current.coachingSummary).toBe('2 issues to fix before running analysis.')
       // Crucially: it is NOT the CEE summary string
       expect(result.current.coachingSummary).not.toBe(
         'Your decision hinges on the unverified impact of hiring on financial risk.'
@@ -3109,8 +3120,7 @@ describe('usePreAnalysisData', () => {
 
       const { result } = renderHook(() => usePreAnalysisData())
 
-      // Blockers present → coachingSummary is null (blockers section handles it)
-      expect(result.current.coachingSummary).toBeNull()
+      expect(result.current.coachingSummary).toBe('2 issues to fix before running analysis.')
     })
   })
 
