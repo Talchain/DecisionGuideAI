@@ -182,7 +182,7 @@ function OptionCard({
   return (
     <div
       ref={cardRef}
-      className={`p-3 border ${borderClass} rounded-lg space-y-2 results-card-hover`}
+      className={`bg-panel p-3 border ${borderClass} rounded-lg space-y-2 results-card-hover`}
       data-testid={`option-card-${option.id}`}
       data-option-id={option.id}
       onMouseEnter={() => highlightNode(option.id)}

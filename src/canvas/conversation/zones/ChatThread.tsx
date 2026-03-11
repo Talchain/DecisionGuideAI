@@ -63,7 +63,7 @@ export const ChatThread = memo(function ChatThread({
   return (
     <div
       ref={listRef}
-      className="chat-thread flex flex-col flex-1 min-h-0 overflow-y-auto bg-panel"
+      className="chat-thread olumi-scrollbar flex flex-col flex-1 min-h-0 overflow-y-auto bg-panel"
       style={{ padding: '20px 16px 8px' }}
       onScroll={handleScroll}
       role="log"
@@ -123,32 +123,6 @@ export const ChatThread = memo(function ChatThread({
       )}
 
       <div ref={listEndRef} />
-
-      <style>{`
-        .chat-thread::-webkit-scrollbar {
-          width: 4px;
-        }
-        .chat-thread::-webkit-scrollbar-track {
-          background: transparent;
-        }
-        .chat-thread::-webkit-scrollbar-thumb {
-          background: transparent;
-          border-radius: 999px;
-        }
-        .chat-thread:hover::-webkit-scrollbar-thumb {
-          background: var(--border-default, #EEE6D8);
-        }
-        .chat-thread::-webkit-scrollbar-thumb:hover {
-          background: var(--text-light, #908D8D);
-        }
-        .chat-thread {
-          scrollbar-width: thin;
-          scrollbar-color: transparent transparent;
-        }
-        .chat-thread:hover {
-          scrollbar-color: var(--border-default, #EEE6D8) transparent;
-        }
-      `}</style>
     </div>
   )
 })

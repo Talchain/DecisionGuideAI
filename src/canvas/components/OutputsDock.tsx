@@ -149,9 +149,6 @@ export function OutputsDock() {
   // Phase 2 Sprint 1B: Slow-run UX feedback (20s/40s thresholds)
   const [slowRunMessage, setSlowRunMessage] = useState<string | null>(null)
   const runStartTimeRef = useRef<number | null>(null)
-  const runAnalysisRetryTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const runAnalysisRetryAnimationFrameRef = useRef<number | null>(null)
-  const runAnalysisRetryCancelledRef = useRef(false)
 
   // Phase 2: Response warnings banner dismissal state
   const [warningsDismissed, setWarningsDismissed] = useState(false)
@@ -373,25 +370,8 @@ export function OutputsDock() {
     return false
   }, [])
 
-  const clearPendingRunAnalysisRetry = useCallback(() => {
-    runAnalysisRetryCancelledRef.current = true
-    if (runAnalysisRetryTimeoutRef.current !== null) {
-      clearTimeout(runAnalysisRetryTimeoutRef.current)
-      runAnalysisRetryTimeoutRef.current = null
-    }
-    if (runAnalysisRetryAnimationFrameRef.current !== null) {
-      cancelAnimationFrame(runAnalysisRetryAnimationFrameRef.current)
-      runAnalysisRetryAnimationFrameRef.current = null
-    }
-  }, [])
-
-  useEffect(() => () => {
-    clearPendingRunAnalysisRetry()
-  }, [clearPendingRunAnalysisRetry])
-
   // Handle Run button click
   const handleRunAnalysis = useCallback(async () => {
-    clearPendingRunAnalysisRetry()
     if (!canRunAnalysis) return
     // P0.8: Track run started
     trackRunStarted({
@@ -411,34 +391,12 @@ export function OutputsDock() {
     // (mirrors the gate in CanvasToolbar so both entry points behave identically).
     if (isOrchestratorV2Enabled() && !isLegacyDirectRunEnabled()) {
       if (dispatchConversationRunAnalysis()) return
-
-      runAnalysisRetryCancelledRef.current = false
       setShowDraftChat(true)
-      let attempts = 0
-      const MAX_ATTEMPTS = 20
-      const tryDispatch = () => {
-        if (runAnalysisRetryCancelledRef.current) return
-        if (dispatchConversationRunAnalysis()) {
-          runAnalysisRetryCancelledRef.current = true
-          runAnalysisRetryTimeoutRef.current = null
-          return
-        }
-        attempts += 1
-        if (attempts < MAX_ATTEMPTS) {
-          runAnalysisRetryTimeoutRef.current = setTimeout(tryDispatch, 50)
-          return
-        }
-        clearPendingRunAnalysisRetry()
-        showToast('Could not start analysis. Open the AI panel and try again.', 'warning')
-      }
-      runAnalysisRetryAnimationFrameRef.current = requestAnimationFrame(() => {
-        runAnalysisRetryAnimationFrameRef.current = null
-        tryDispatch()
-      })
+      showToast('Open the AI panel to continue analysis.', 'warning')
       return
     }
     await runV2Analysis()
-  }, [canRunAnalysis, runV2Analysis, framing, nodes, edges, comparison.optionNodes.length, dispatchConversationRunAnalysis, setShowDraftChat, clearPendingRunAnalysisRetry, showToast])
+  }, [canRunAnalysis, runV2Analysis, framing, nodes, edges, comparison.optionNodes.length, dispatchConversationRunAnalysis, setShowDraftChat, showToast])
 
   // P0 Results Brief: Add Status Quo baseline option
   // Creates a new option node with is_baseline=true, empty interventions, and connects it to a decision node
@@ -600,9 +558,9 @@ export function OutputsDock() {
     : recommendationStability != null && recommendationStability >= 0.4
       ? { icon: AlertTriangle, iconClass: 'text-warning', label: 'Moderate confidence' }
       : { icon: XCircle, iconClass: 'text-danger', label: 'Fragile result' }
-  const postRunMetaText = comparison.canCompare
-    ? 'Compare available in the tab bar'
-    : 'Review the model before relying on this result'
+  const postRunMetaText = recommendationStability != null
+    ? `${Math.round(recommendationStability * 100)}% stability`
+    : null
 
   verboseDebug('[TrustSignals] OutputsDock', {
     isPreRun,
@@ -1016,10 +974,10 @@ export function OutputsDock() {
       )}
 
       {state.isOpen && (
-        <div className={`flex-1 min-h-0 ${typography.caption} text-ink-900/70 ${state.activeTab === 'results' ? 'flex flex-col overflow-hidden' : 'px-3 py-3 space-y-4 overflow-y-auto'}`} data-testid="outputs-dock-body">
+        <div className={`flex-1 min-h-0 ${typography.caption} text-ink-900/70 ${state.activeTab === 'results' ? 'flex flex-col overflow-hidden' : 'olumi-scrollbar px-3 py-3 space-y-4 overflow-y-auto'}`} data-testid="outputs-dock-body">
             {state.activeTab === 'results' && (
               <div className="flex-1 min-h-0 flex flex-col">
-                <div className={`flex-1 min-h-0 ${isPreRun && nodes.length > 0 ? 'flex flex-col' : 'overflow-y-auto px-3 py-3 space-y-6'}`}>
+                <div className={`flex-1 min-h-0 ${isPreRun && nodes.length > 0 ? 'flex flex-col' : 'olumi-scrollbar overflow-y-auto px-3 py-3 space-y-6'}`}>
                 {/* P0.6: User-friendly error display */}
                 {isError && error && (() => {
                   const friendlyError = getUserFriendlyError({

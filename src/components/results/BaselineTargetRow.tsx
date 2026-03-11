@@ -72,7 +72,7 @@ export function BaselineTargetRow({
 
       {/* Separator */}
       {hasBaselineOptions && (
-        <div className="border-l border-panel-border self-stretch my-0.5" aria-hidden="true" />
+        <div className="w-px bg-panel-border self-stretch my-0.5" aria-hidden="true" />
       )}
 
       {/* Target section */}

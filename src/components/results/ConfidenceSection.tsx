@@ -433,11 +433,11 @@ export function ConfidenceSection({
       {decisionState && hinge && (
         <div
           id="mvs-card"
-          className="p-4 border border-info/30 border-l-[3px] border-l-info rounded-lg shadow-1 bg-info/[0.04]"
+          className="bg-panel p-4 border border-success/30 border-l-[3px] border-l-success rounded-lg shadow-1"
           data-testid="voi-promoted-block"
         >
           <div className="flex items-start gap-2 mb-1">
-            <Lightbulb className="w-4 h-4 text-info flex-shrink-0 mt-0.5" aria-hidden="true" />
+            <Lightbulb className="w-4 h-4 text-success flex-shrink-0 mt-0.5" aria-hidden="true" />
             <h4 className={`${typography.panelHeader} text-text-header`}>
               Most valuable next step
             </h4>
@@ -738,6 +738,9 @@ export function ConfidenceSection({
                           : null
 
                         const hasEnrichment = actionItem.whatToDo || actionItem.whatCouldHappen
+                        const investigateBorderClass = actionItem.confidenceLevel === 'low'
+                          ? 'border-warning/30'
+                          : 'border-panel-border'
 
                         const cardContent = (
                           <div className="flex items-start gap-2">
@@ -782,7 +785,7 @@ export function ConfidenceSection({
                           return (
                             <details
                               key={actionItem.id}
-                              className="border border-panel-border rounded-lg overflow-hidden results-card-hover"
+                              className={`bg-panel border ${investigateBorderClass} rounded-lg overflow-hidden results-card-hover`}
                               onMouseEnter={() => actionItem.targetId && highlightNode(actionItem.targetId)}
                               onMouseLeave={clearHighlight}
                             >
@@ -804,7 +807,7 @@ export function ConfidenceSection({
                         return (
                           <div
                             key={actionItem.id}
-                            className={`p-3 border border-panel-border rounded-lg ${actionItem.targetId ? 'results-card-hover' : ''}`}
+                            className={`bg-panel p-3 border ${investigateBorderClass} rounded-lg ${actionItem.targetId ? 'results-card-hover' : ''}`}
                             onMouseEnter={() => actionItem.targetId && highlightNode(actionItem.targetId)}
                             onMouseLeave={clearHighlight}
                           >

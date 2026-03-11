@@ -58,6 +58,39 @@
   .animate-pulse {
     animation: pulse-fade 2s ease-in-out infinite;
   }
+
+  .olumi-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: transparent transparent;
+  }
+
+  .olumi-scrollbar::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+
+  .olumi-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .olumi-scrollbar::-webkit-scrollbar-thumb {
+    background: transparent;
+    border-radius: 999px;
+  }
+
+  .olumi-scrollbar:hover,
+  .olumi-scrollbar:focus-within {
+    scrollbar-color: var(--border-default, #EEE6D8) transparent;
+  }
+
+  .olumi-scrollbar:hover::-webkit-scrollbar-thumb,
+  .olumi-scrollbar:focus-within::-webkit-scrollbar-thumb {
+    background: var(--border-default, #EEE6D8);
+  }
+
+  .olumi-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: var(--text-light, #908D8D);
+  }
 }
 
 @keyframes fadeIn {

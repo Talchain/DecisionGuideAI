@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom/vitest'
-import { act, fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { OutputsDock } from '../OutputsDock'
 import { useCanvasStore } from '../../store'
@@ -41,7 +41,7 @@ vi.mock('../../../flags', async (importOriginal) => {
 })
 
 vi.mock('../../hooks/useV2Run', () => ({
-  useV2Run: (...args: unknown[]) => mockUseV2Run(...args),
+  useV2Run: () => mockUseV2Run(),
 }))
 
 vi.mock('../../ToastContext', async (importOriginal) => {
@@ -53,7 +53,7 @@ vi.mock('../../ToastContext', async (importOriginal) => {
 })
 
 vi.mock('../pre-analysis/hooks/usePreAnalysisData', () => ({
-  usePreAnalysisData: (...args: unknown[]) => mockUsePreAnalysisData(...args),
+  usePreAnalysisData: () => mockUsePreAnalysisData(),
 }))
 
 vi.mock('../pre-analysis', () => ({
@@ -138,16 +138,7 @@ describe('OutputsDock analyse convergence', () => {
     expect(runV2Analysis).not.toHaveBeenCalled()
   })
 
-  it('shows a warning when the shared hidden conversation path never becomes available', () => {
-    vi.useFakeTimers()
-
-    vi.spyOn(window, 'requestAnimationFrame').mockImplementation((callback: FrameRequestCallback) => {
-      return window.setTimeout(() => callback(0), 0)
-    })
-    vi.spyOn(window, 'cancelAnimationFrame').mockImplementation((id: number) => {
-      window.clearTimeout(id)
-    })
-
+  it('opens the AI panel and shows a warning when the shared hidden conversation path is unavailable', () => {
     const runV2Analysis = vi.fn()
     mockUseV2Run.mockReturnValue({ runV2Analysis, cancelRun: vi.fn() })
 
@@ -155,37 +146,55 @@ describe('OutputsDock analyse convergence', () => {
 
     fireEvent.click(screen.getByTestId('outputs-run-button'))
 
-    act(() => {
-      vi.runAllTimers()
-    })
-
     expect(runV2Analysis).not.toHaveBeenCalled()
     expect(mockShowToast).toHaveBeenCalledTimes(1)
     expect(mockShowToast).toHaveBeenCalledWith(
-      'Could not start analysis. Open the AI panel and try again.',
+      'Open the AI panel to continue analysis.',
       'warning',
     )
+    expect(useCanvasStore.getState().showDraftChat).toBe(true)
   })
 
-  it('cancels pending shared hidden conversation polling on unmount', () => {
-    vi.useFakeTimers()
-
-    vi.spyOn(window, 'requestAnimationFrame').mockImplementation((callback: FrameRequestCallback) => {
-      return window.setTimeout(() => callback(0), 0)
-    })
-    vi.spyOn(window, 'cancelAnimationFrame').mockImplementation((id: number) => {
-      window.clearTimeout(id)
-    })
-
+  it('does not emit a warning on unmount before analyse is clicked', () => {
     const { unmount } = render(<OutputsDock />)
-
-    fireEvent.click(screen.getByTestId('outputs-run-button'))
     unmount()
 
-    act(() => {
-      vi.runAllTimers()
-    })
-
     expect(mockShowToast).not.toHaveBeenCalled()
+  })
+
+  it('renders factual footer status copy without compare navigation text', () => {
+    const baseResults = useCanvasStore.getState().results
+    const fakeReport: any = {
+      results: {
+        conservative: 10,
+        likely: 20,
+        optimistic: 30,
+        units: 'percent',
+        unitSymbol: '%',
+      },
+      run: {
+        bands: { p10: 10, p50: 20, p90: 30 },
+      },
+      robustness: {
+        recommendation_stability: 0.87,
+      },
+    }
+
+    useCanvasStore.setState({
+      hasCompletedFirstRun: true,
+      results: {
+        ...baseResults,
+        status: 'complete',
+        report: fakeReport,
+      },
+    } as any)
+
+    render(<OutputsDock />)
+
+    const footer = screen.getByTestId('results-analysis-footer')
+    expect(footer).toBeInTheDocument()
+    expect(footer).toHaveTextContent('Robust result')
+    expect(footer).toHaveTextContent('87% stability')
+    expect(screen.queryByText('Compare available in the tab bar')).not.toBeInTheDocument()
   })
 })

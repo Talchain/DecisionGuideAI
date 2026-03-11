@@ -248,7 +248,7 @@ export function RangeVisualization({
       {thresholdPct != null && thresholdPct >= 0 && thresholdPct <= 100 && (
         <div className="relative h-4">
           <div
-            className="absolute w-0 h-4 border-l-2 border-dashed border-primary"
+            className="absolute w-px h-4 bg-primary"
             style={{
               left: `${thresholdPct}%`,
               transform: 'translateX(-50%)',

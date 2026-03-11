@@ -298,7 +298,7 @@ export function TornadoChart({
       data-testid="tornado-chart"
     >
       {/* Tornado rows */}
-      <div className="space-y-2">
+      <div className="divide-y divide-panel-border/70">
         {rows.map((row) => {
           // Is this row actively being dragged or previously modified?
           const isActiveRow = dragState.isDragging && dragState.activeFactorId === row.factorKey
@@ -379,7 +379,7 @@ export function TornadoChart({
           }
 
           return (
-            <div key={row.factorKey} className="flex items-center gap-3">
+            <div key={row.factorKey} className="flex items-center gap-3 py-2 first:pt-0 last:pb-0">
               {/* Label */}
               <div className="w-[150px] flex-shrink-0 text-right">
                 {row.canFocus ? (

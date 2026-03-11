@@ -412,7 +412,7 @@ function DriverRow({
   return (
     <div
       ref={registerRef}
-      className={`rounded-lg border overflow-hidden bg-white relative transition-all duration-200 results-card-hover ${
+      className={`rounded-lg border overflow-hidden bg-panel relative transition-all duration-200 results-card-hover ${
         isHighlighted
           ? 'border-warning ring-2 ring-warning/30 shadow-lg'
           : 'border-panel-border'
@@ -514,9 +514,9 @@ function DriverRow({
               className="flex-shrink-0 text-text-light"
               role="img"
               aria-label="Default estimate — not yet validated with evidence"
-              title="Default estimate — not yet validated with evidence"
               data-testid="default-estimate-icon"
             >
+              <title>Default estimate — not yet validated with evidence</title>
               <circle cx="6" cy="6" r="4.5" />
             </svg>
           )}
