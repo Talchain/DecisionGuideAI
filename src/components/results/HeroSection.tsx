@@ -252,6 +252,17 @@ function getHeroBorderClass(robustnessLevel?: RobustnessLevel, recommendationSta
   return 'border-panel-border'
 }
 
+// UI-SEM-021: Suppress coaching copy that contradicts low robustness (e.g. "robust", "ready to proceed")
+// when the analysis robustness level is low/very_low. Prevents misleading executive-level messaging.
+// Remove when PLoT/CEE provides robustness-conditioned coaching copy directly.
+function shouldSuppressContradictoryExecutiveCopy(
+  text: string | null | undefined,
+  robustnessLevel?: RobustnessLevel,
+): boolean {
+  if (!text || (robustnessLevel !== 'low' && robustnessLevel !== 'very_low')) return false
+  return /\brobust\b|ready to proceed/i.test(text)
+}
+
 /** Extract first sentence from a paragraph (up to 150 chars) */
 function extractFirstSentence(text: string): { first: string; hasMore: boolean } {
   // Find first sentence boundary: period/exclamation/question followed by whitespace + any next char,
@@ -630,7 +641,9 @@ export function HeroSection({
     const hasConditionDetail = !!topFragileEdge
       && topFragileEdge.labelsResolved !== false
 
-    const bullet1 = coachingKeyQualifier?.trim() || null
+    const bullet1 = shouldSuppressContradictoryExecutiveCopy(coachingKeyQualifier?.trim() || null, robustnessLevel)
+      ? null
+      : coachingKeyQualifier?.trim() || null
     const bullet2 = hasHingeBullet && v14ConditionCard
       ? v14ConditionCard.fromLabel
       : null
@@ -768,7 +781,9 @@ export function HeroSection({
     })
     const heroBorderClass = getHeroBorderClass(robustnessLevel, recommendationStability)
 
-    const sanitizedParagraphV16 = coachingParagraph || null
+    const sanitizedParagraphV16 = shouldSuppressContradictoryExecutiveCopy(coachingParagraph || null, robustnessLevel)
+      ? null
+      : coachingParagraph || null
 
     return (
       <div className="space-y-4" data-testid="hero-section">
@@ -1164,7 +1179,7 @@ export function HeroSection({
         )}
 
         {/* V9.2: 1-line coaching narrative (hidden when More is expanded) */}
-        {coachingHeadline && !isExpanded && (
+        {coachingHeadline && !isExpanded && !shouldSuppressContradictoryExecutiveCopy(coachingHeadline, robustnessLevel) && (
           <p
             className={`${typography.panelMeta} text-text-light mb-3 line-clamp-1`}
             style={{ fontSize: 11 }}

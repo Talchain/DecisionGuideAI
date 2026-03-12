@@ -42,9 +42,9 @@ interface BaseNodeProps extends NodeProps {
  * Includes connection handles and accessibility attributes
  * Click chevron icon to expand/collapse description
  */
-export const BaseNode = memo(({ id, nodeType, icon: Icon, data, selected, children, maxWidth, headerSlot, borderClassOverride }: BaseNodeProps) => {
-  const label = data?.label || 'Untitled'
-  const description = data?.description
+export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, children, maxWidth, headerSlot, borderClassOverride }: BaseNodeProps) => {
+  const label = typeof data?.label === 'string' && data.label ? data.label : 'Untitled'
+  const description = typeof data?.description === 'string' ? data.description : undefined
 
   // Phase 3: Get node colours from new system
   const colors = nodeColors[nodeType as keyof typeof nodeColors] || nodeColors.factor
@@ -105,7 +105,7 @@ export const BaseNode = memo(({ id, nodeType, icon: Icon, data, selected, childr
   }
 
   // Phase 2: Uncertain node styling
-  const isUncertain = (data?.uncertainty ?? 0) > 0.4
+  const isUncertain = Number(data?.uncertainty ?? 0) > 0.4
 
   // B.I.10: Pre-run overlay — show dashed goal border for incomplete nodes
   const resultsStatus = useCanvasStore(s => s.results?.status)
@@ -200,7 +200,7 @@ export const BaseNode = memo(({ id, nodeType, icon: Icon, data, selected, childr
       />
 
       {/* Context menu: Assumption flag badge (Hard rule 3 — UI-only annotation) */}
-      {data?.flagged_as_assumption && (
+      {Boolean(data?.flagged_as_assumption) && (
         <div
           className="absolute -top-2 -left-2 flex h-5 w-5 items-center justify-center rounded-full bg-panel shadow-1"
           title="Flagged as assumption"
@@ -246,11 +246,11 @@ export const BaseNode = memo(({ id, nodeType, icon: Icon, data, selected, childr
         {/* T1: Shape indicator (Design System v4 §10.1) + sentence-case type label */}
         <NodeShapeIndicator nodeKind={nodeType} size={12} />
         {/* Decision Graph Display v2 Task 5: Sensitivity rank badge (Results mode, top 3 factors) */}
-        {displayMetadata.sensitivityRank && (
+        {typeof displayMetadata.sensitivityRank === 'number' && (
           <span
             className={`${typography.nodeLabel} font-semibold text-text-body bg-panel-border rounded-full flex items-center justify-center`}
             style={{ minWidth: '20px', height: '20px', padding: '0 4px', pointerEvents: 'none' }}
-            title={`Key driver #${displayMetadata.sensitivityRank}`}
+            title={`Key driver #${displayMetadata.sensitivityRank}: ranked by influence on the outcome`}
           >
             #{displayMetadata.sensitivityRank}
           </span>
@@ -262,14 +262,14 @@ export const BaseNode = memo(({ id, nodeType, icon: Icon, data, selected, childr
         </span>
 
         {/* S1-UNK: Warning chip for unknown backend kinds */}
-        {data?.unknownKind && data?.originalKind && (
+        {Boolean(data?.unknownKind) && typeof data?.originalKind === 'string' && (
           <UnknownKindWarning originalKind={data.originalKind} />
         )}
 
         {/* Optional right-aligned header content (e.g. category label) */}
-        {headerSlot && (
-          <span className="ml-auto">{headerSlot}</span>
-        )}
+        {headerSlot ? (
+          <span className="ml-auto">{headerSlot as ReactNode}</span>
+        ) : null}
 
         {/* Expand/collapse chevron for nodes with description */}
         {description && (
@@ -305,11 +305,11 @@ export const BaseNode = memo(({ id, nodeType, icon: Icon, data, selected, childr
       )}
 
       {/* Optional children (description, metrics, etc.) */}
-      {children && (
+      {children ? (
         <div className={`${typography.nodeLabel} text-text-body opacity-80 mt-2`}>
-          {children}
+          {children as ReactNode}
         </div>
-      )}
+      ) : null}
       
       <Handle
         type="source"

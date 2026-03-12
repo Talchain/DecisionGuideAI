@@ -55,6 +55,12 @@ function getProposalItems(block: GraphPatchBlockType): ProposalReviewItem[] {
   return Array.isArray(block.proposal_items) ? block.proposal_items.filter((item) => !!item?.description) : []
 }
 
+function getProposalItemsSource(block: GraphPatchBlockType): 'backend' | 'derived_ops' | null {
+  return block.proposal_items_source === 'backend' || block.proposal_items_source === 'derived_ops'
+    ? block.proposal_items_source
+    : null
+}
+
 function extractGroundedTargets(relatedElements: RelatedElementRef[] | undefined): { nodeIds: string[]; edgeIds: string[] } {
   if (!Array.isArray(relatedElements) || relatedElements.length === 0) {
     return { nodeIds: [], edgeIds: [] }
@@ -661,6 +667,7 @@ function GraphPatchBlockRenderer({
 }: GraphPatchBlockRendererProps) {
   const [showViolations, setShowViolations] = useState(false)
   const [showStalenessWarning, setShowStalenessWarning] = useState(false)
+  const [showProposalDetails, setShowProposalDetails] = useState(false)
   const highlightTimeoutsRef = useRef<ReturnType<typeof setTimeout>[]>([])
 
   const clearHighlightTimeouts = useCallback(() => {
@@ -683,6 +690,7 @@ function GraphPatchBlockRenderer({
 
   const opSummary = summarisePatchOps(block.operations)
   const proposalItems = getProposalItems(block)
+  const proposalItemsSource = getProposalItemsSource(block)
   const opTargets = extractTargetIdsFromPatch(block.operations)
   const relatedTargets = extractGroundedTargets(block.related_elements)
   const nodeIds = relatedTargets.nodeIds.length > 0 ? relatedTargets.nodeIds : opTargets.nodeIds
@@ -690,8 +698,15 @@ function GraphPatchBlockRenderer({
   const hasRevealTargets = nodeIds.length > 0 || edgeIds.length > 0
   const isApplied = isAutoApplied || resolvedState === 'accepted'
   const statusLabel = 'Applied'
-  const primaryActionLabel = proposalItems.length > 0 ? 'Apply' : 'Accept'
-  const secondaryActionLabel = proposalItems.length > 0 ? 'Not what I meant' : 'Dismiss'
+  const shouldCollapseProposalItems =
+    proposalItems.length > 2
+    || proposalItemsSource === 'derived_ops'
+    || isApplied
+  const showProposalItemsInline = proposalItems.length > 0 && !shouldCollapseProposalItems
+  const showProposalDisclosure = proposalItems.length > 0 && shouldCollapseProposalItems
+  // Action labels: only use proposal-aware labels when items are inline-visible to the user
+  const primaryActionLabel = showProposalItemsInline ? 'Apply' : 'Accept'
+  const secondaryActionLabel = showProposalItemsInline ? 'Not what I meant' : 'Dismiss'
 
   // Determine which action buttons to render
   const hasCustomActions = block.actions && block.actions.length > 0
@@ -781,11 +796,11 @@ function GraphPatchBlockRenderer({
             {isApplied ? 'Changes applied' : 'Review suggested changes'}
           </span>
         </div>
-        <div className={styles.graphPatchSummary}>{block.summary}</div>
-        <div className={styles.graphPatchMeta}>{opSummary}</div>
+        <div className={styles.graphPatchSummary}>{block.summary || opSummary}</div>
+        {block.summary && block.operations.length > 0 && <div className={styles.graphPatchMeta}>{opSummary}</div>}
       </div>
 
-      {proposalItems.length > 0 && (
+      {showProposalItemsInline && (
         <div className={styles.graphPatchProposalList} data-testid="patch-proposal-list">
           {proposalItems.map((item, index) => (
             <div key={`${item.description}-${index}`} className={styles.graphPatchProposalItem}>
@@ -806,6 +821,43 @@ function GraphPatchBlockRenderer({
               )}
             </div>
           ))}
+        </div>
+      )}
+
+      {showProposalDisclosure && (
+        <div>
+          <button
+            type="button"
+            className={styles.graphPatchShowDetails}
+            onClick={() => setShowProposalDetails((value) => !value)}
+            aria-expanded={showProposalDetails}
+            data-testid="patch-proposal-details-toggle"
+          >
+            {showProposalDetails ? 'Hide details' : 'Show details'}
+          </button>
+          {showProposalDetails && (
+            <div className={styles.graphPatchProposalList} data-testid="patch-proposal-list">
+              {proposalItems.map((item, index) => (
+                <div key={`${item.description}-${index}`} className={styles.graphPatchProposalItem}>
+                  <div className={styles.graphPatchProposalCopy}>
+                    <span className={`${typography.panelBody} ${styles.graphPatchProposalDescription}`}>
+                      {item.description}
+                    </span>
+                    {item.elementLabel && (
+                      <span className={`${typography.panelMeta} ${styles.graphPatchProposalLabel}`}>
+                        {item.elementLabel}
+                      </span>
+                    )}
+                  </div>
+                  {item.changeLabel && (
+                    <span className={`${typography.panelMeta} ${styles.graphPatchProposalBadge}`}>
+                      {item.changeLabel}
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 

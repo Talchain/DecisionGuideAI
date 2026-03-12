@@ -427,6 +427,21 @@ export function computeSignedMean(
 }
 
 /**
+ * Convert a signed edge coefficient into a qualitative influence label.
+ * Used on Outcome and Risk nodes to avoid exposing raw β coefficients.
+ */
+export function describeEdgeInfluence(strength: number): string {
+  const magnitude = Math.abs(strength)
+  if (magnitude < 0.05) return 'Minimal influence on goal'
+  if (strength >= 0.5) return 'Strong positive influence on goal'
+  if (strength >= 0.2) return 'Moderate positive influence on goal'
+  if (strength > 0) return 'Weak positive influence on goal'
+  if (strength <= -0.5) return 'Strong negative influence on goal'
+  if (strength <= -0.2) return 'Moderate negative influence on goal'
+  return 'Weak negative influence on goal'
+}
+
+/**
  * Determine if an edge label should be shown and how it should be styled
  * Implements tiered visibility system:
  * - Custom labels: Always visible, prominent

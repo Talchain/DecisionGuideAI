@@ -178,6 +178,7 @@ export interface GraphPatchBlock {
   analysis_ready?: CEEAnalysisReady
   related_elements?: RelatedElementRef[]
   proposal_items?: ProposalReviewItem[]
+  proposal_items_source?: 'backend' | 'derived_ops'
 }
 
 // ---------------------------------------------------------------------------

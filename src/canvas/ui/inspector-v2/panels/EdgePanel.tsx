@@ -97,7 +97,7 @@ export const EdgePanel = memo(function EdgePanel({
 }: InspectorPanelProps) {
   const edges = useCanvasStore(s => s.edges)
   const nodes = useCanvasStore(s => s.nodes)
-  const robustness = useCanvasStore(s => s.results?.report?.robustness)
+  const robustness = useCanvasStore(s => (s.results?.report as any)?.robustness)
   const resultsStatus = useCanvasStore(s => s.results?.status)
   const isResultsMode = resultsStatus === 'complete'
 
@@ -114,7 +114,8 @@ export const EdgePanel = memo(function EdgePanel({
   const targetKind = (targetNode?.type || targetNode?.data?.kind || 'factor') as NodeType
 
   // Organisational edge gate
-  const isOrganisational = sourceKind === 'decision' || sourceKind === 'option'
+  const isOrganisational = sourceKind === 'decision' && targetKind === 'option'
+  const isIntervention = sourceKind === 'option' && targetKind === 'factor'
 
   // Current values
   const weight = edge?.data?.weight ?? 0.5
@@ -179,6 +180,13 @@ export const EdgePanel = memo(function EdgePanel({
           <p className={`${typography.panelMeta} text-text-light`}>Organisational link</p>
           <p className={`${typography.panelMeta} text-text-light mt-1`}>
             This connection shows how options relate to the decision. It does not affect analysis.
+          </p>
+        </div>
+      ) : isIntervention ? (
+        <div className="mt-3" data-testid="intervention-edge-notice">
+          <p className={`${typography.panelMeta} text-text-light`}>Intervention link</p>
+          <p className={`${typography.panelMeta} text-text-light mt-1`}>
+            This connection shows how {sourceLabel} sets {targetLabel} in the analysed scenario. It affects analysis.
           </p>
         </div>
       ) : (

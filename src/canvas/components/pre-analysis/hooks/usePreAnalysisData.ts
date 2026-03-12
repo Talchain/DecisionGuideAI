@@ -1312,7 +1312,7 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
       if (goalOs.value == null) {
         checks.push({
           id: 'goal_baseline_missing',
-          message: "Goal has no current value \u2014 results won\u2019t show how much your options improve on today",
+          message: 'No current baseline set — analysis will show target reach likelihood, not improvement from today',
           cta: 'Set current value',
           ctaAction: 'set_goal_baseline',
           pill: 'framing',

@@ -82,6 +82,38 @@ export const CURRENCY_SYMBOLS = new Set([
   'CHF', 'kr', 'R$',
 ])
 
+function toFiniteNumber(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) return value
+  if (typeof value === 'string' && value.trim() !== '') {
+    const parsed = Number(value)
+    if (Number.isFinite(parsed)) return parsed
+  }
+  return null
+}
+
+export function inferInterventionScaleBase(
+  cap: number | null | undefined,
+  observedValue?: number | null,
+  observedRawValue?: string | number | null,
+): number | null {
+  const capScale = cap != null && cap > 1 ? cap : null
+  const raw = toFiniteNumber(observedRawValue)
+  const normalised = typeof observedValue === 'number' && Number.isFinite(observedValue) && observedValue > 0
+    ? observedValue
+    : null
+
+  if (raw != null && normalised != null) {
+    const inferredScale = raw / normalised
+    if (Number.isFinite(inferredScale) && inferredScale > 1) {
+      if (capScale == null) return inferredScale
+      const drift = Math.abs(inferredScale - capScale) / Math.max(inferredScale, capScale)
+      return drift > 0.15 ? inferredScale : capScale
+    }
+  }
+
+  return capScale
+}
+
 /**
  * Denormalise a 0–1 intervention value using the factor's cap.
  * When cap > 1, the CEE normalised the value to [0, 1] — multiply back.
@@ -91,8 +123,16 @@ export const CURRENCY_SYMBOLS = new Set([
  * @param cap   - Factor cap (the ceiling of the original scale)
  * @returns Denormalised value
  */
-export function denormaliseInterventionValue(value: number, cap: number | null | undefined): number {
-  return (cap != null && cap > 1) ? value * cap : value
+export function denormaliseInterventionValue(
+  value: number,
+  cap: number | null | undefined,
+  observedValue?: number | null,
+  observedRawValue?: string | number | null,
+): number {
+  const scaleBase = inferInterventionScaleBase(cap, observedValue, observedRawValue)
+  if (scaleBase == null) return value
+  if (Number.isInteger(value) && value >= 0 && value <= scaleBase) return value
+  return value * scaleBase
 }
 
 /**
@@ -109,10 +149,18 @@ export function denormaliseInterventionValue(value: number, cap: number | null |
  * @param cap        - Optional factor cap for denormalisation (J1)
  * @returns Human-readable string
  */
-export function formatInterventionValue(value: number, unit?: string, factorType?: string, cap?: number): string {
+export function formatInterventionValue(
+  value: number,
+  unit?: string,
+  factorType?: string,
+  cap?: number,
+  observedValue?: number | null,
+  observedRawValue?: string | number | null,
+): string {
   // J1: Denormalise using cap before any formatting
-  const v = denormaliseInterventionValue(value, cap)
-  const hasCap = cap != null && cap > 1
+  const v = denormaliseInterventionValue(value, cap, observedValue, observedRawValue)
+  const scaleBase = inferInterventionScaleBase(cap, observedValue, observedRawValue)
+  const hasScaleBase = scaleBase != null && scaleBase > 1
 
   if (unit === 'fraction' || unit === 'proportion') {
     // Fraction/proportion: always treat as 0–1 scale (cap doesn't apply — already a ratio)
@@ -124,12 +172,12 @@ export function formatInterventionValue(value: number, unit?: string, factorType
   }
   // J2: Currency symbols prefix the number
   if (unit && CURRENCY_SYMBOLS.has(unit[0])) {
-    const rounded = hasCap ? Math.round(v) : v
+    const rounded = hasScaleBase ? Math.round(v) : v
     return `${unit}${rounded.toLocaleString('en-GB')}`
   }
   if (unit) {
     // J1: Round to integer when cap was applied; otherwise preserve existing precision
-    const display = hasCap ? Math.round(v) : v
+    const display = hasScaleBase ? Math.round(v) : v
     return `${display} ${unit}`
   }
   // No unit — check if this is a qualitative factor type (case-insensitive)

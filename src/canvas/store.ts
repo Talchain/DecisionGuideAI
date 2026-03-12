@@ -474,6 +474,8 @@ interface CanvasState {
   setDimmedNodes: (ids: string[]) => void
   // S.4: Toggle "user-reviewed" confirmation on a node (session-only)
   toggleConfirmedNode: (nodeId: string) => void
+  // Decision Graph Display v2 Task 11: Option hover for intervention highlighting
+  setHoveredOption: (optionId: string | null) => void
   // M5: Provenance actions
   addDocument: (document: Omit<Document, 'id' | 'uploadedAt'>) => string
   removeDocument: (id: string) => void

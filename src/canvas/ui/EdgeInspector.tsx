@@ -33,7 +33,7 @@ export const EdgeInspector = memo(({ edgeId, onClose }: EdgeInspectorProps) => {
   // S.3: Post-analysis robustness data for fragile edge detection
   const resultsStatus = useCanvasStore(s => s.results?.status)
   const isResultsMode = resultsStatus === 'complete'
-  const robustness = useCanvasStore(s => s.results?.report?.robustness)
+  const robustness = useCanvasStore(s => (s.results?.report as any)?.robustness)
   // P.1: Edge confirm tracking (edges have assumptions worth confirming)
   const confirmedNodeIds = useCanvasStore(s => s.confirmedNodeIds)
   const toggleConfirmedNode = useCanvasStore(s => s.toggleConfirmedNode)
@@ -78,11 +78,15 @@ export const EdgeInspector = memo(({ edgeId, onClose }: EdgeInspectorProps) => {
 
   // D.3: Source node type — only look up sensitivity rank for factor nodes
   const sourceNode = nodes.find(n => n.id === edge?.source)
+  const targetNode = nodes.find(n => n.id === edge?.target)
   const sourceNodeType = (sourceNode?.data?.kind ?? sourceNode?.type) as string | undefined
+  const targetNodeType = (targetNode?.data?.kind ?? targetNode?.type) as string | undefined
   const sourceIsFactor = sourceNodeType === 'factor'
 
-  // F.1: Organisational edge gate — Decision→Option and Option→* are organisational (non-causal)
-  const isOrganisationalEdge = sourceNodeType === 'decision' || sourceNodeType === 'option'
+  // F.1: Organisational edges are structural decision→option links only.
+  // Option→factor links are intervention edges and do affect analysis.
+  const isOrganisationalEdge = sourceNodeType === 'decision' && targetNodeType === 'option'
+  const isInterventionEdge = sourceNodeType === 'option' && targetNodeType === 'factor'
   // Hook must be called unconditionally; passing empty ID for non-factor sources
   // ensures sensitivityRank is null for goal, option, decision, etc.
   const { sensitivityRank } = useNodeDisplayMetadata(
@@ -137,7 +141,7 @@ export const EdgeInspector = memo(({ edgeId, onClose }: EdgeInspectorProps) => {
   const handleApplySuggestion = useCallback(() => {
     if (!weightSuggestion) return
     const current = edge?.data ?? DEFAULT_EDGE_DATA
-    const updates: Record<string, number | string | undefined> = {
+    const updates: any = {
       ...current,
       weight: weightSuggestion.suggested_weight,
       provenance: 'ai-suggested',
@@ -201,8 +205,8 @@ export const EdgeInspector = memo(({ edgeId, onClose }: EdgeInspectorProps) => {
     )
   }
 
-  const sourceLabel = nodes.find(n => n.id === edge.source)?.data?.label || edge.source
-  const targetLabel = nodes.find(n => n.id === edge.target)?.data?.label || edge.target
+  const sourceLabel = String(sourceNode?.data?.label ?? edge.source)
+  const targetLabel = String(targetNode?.data?.label ?? edge.target)
 
   // Derive direction from canonical edge.data.direction + weight, not local slider state
   const canonicalDirection = edge.data?.direction
@@ -241,6 +245,13 @@ export const EdgeInspector = memo(({ edgeId, onClose }: EdgeInspectorProps) => {
           <p className={`${typography.panelMeta} text-text-light`}>Organisational link</p>
           <p className={`${typography.panelMeta} text-text-light mt-1`}>
             This connection shows how options relate to the decision. It does not affect analysis.
+          </p>
+        </div>
+      ) : isInterventionEdge ? (
+        <div className="mt-2" data-testid="intervention-edge-notice">
+          <p className={`${typography.panelMeta} text-text-light`}>Intervention link</p>
+          <p className={`${typography.panelMeta} text-text-light mt-1`}>
+            This connection shows how {sourceLabel} sets {targetLabel} in the analysed scenario. It affects analysis.
           </p>
         </div>
       ) : (
@@ -550,9 +561,9 @@ export const EdgeInspector = memo(({ edgeId, onClose }: EdgeInspectorProps) => {
     >
       <InspectorAccordion
         summary={summaryContent}
-        assumptions={isOrganisationalEdge ? undefined : assumptionsContent}
+        assumptions={isOrganisationalEdge || isInterventionEdge ? undefined : assumptionsContent}
         advanced={advancedContent}
-        defaultOpen={isOrganisationalEdge ? 'advanced' : 'assumptions'}
+        defaultOpen={isOrganisationalEdge || isInterventionEdge ? 'advanced' : 'assumptions'}
         testId="edge-inspector"
       />
     </div>

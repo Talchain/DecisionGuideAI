@@ -66,7 +66,7 @@ const baseProps = {
 const renderRisk = (data: Record<string, unknown> = {}) =>
   render(
     <ReactFlowProvider>
-      <RiskNode {...baseProps} data={{ label: 'Key person dependency', type: 'risk', ...data }} />
+      <RiskNode {...(baseProps as any)} data={{ label: 'Key person dependency', type: 'risk', ...data }} />
     </ReactFlowProvider>
   )
 
@@ -110,7 +110,7 @@ describe('RiskNode', () => {
   // T9: Bridge edge data
   it('does not show bridge edge data when results status is not complete', () => {
     renderRisk()
-    expect(screen.queryByText(/impact on goal/)).toBeNull()
+    expect(screen.queryByText(/influence on goal/)).toBeNull()
   })
 
   it('shows bridge edge impact on goal in results mode', () => {
@@ -132,7 +132,7 @@ describe('RiskNode', () => {
       }) as any)
     )
     renderRisk()
-    expect(screen.getByText(/impact on goal/)).toBeDefined()
+    expect(screen.getByText('Strong negative influence on goal')).toBeDefined()
   })
 
   it('shows certainty when beliefExists is present', () => {
@@ -210,6 +210,6 @@ describe('RiskNode', () => {
       }) as any)
     )
     renderRisk()
-    expect(screen.queryByText(/impact on goal/)).toBeNull()
+    expect(screen.queryByText(/influence on goal/)).toBeNull()
   })
 })

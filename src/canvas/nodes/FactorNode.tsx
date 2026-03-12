@@ -23,6 +23,18 @@ interface ObservedState {
   cap?: number
 }
 
+function formatPriorRangeValue(value: number, unit?: string): string {
+  if (unit && CURRENCY_SYMBOLS.has(unit[0])) {
+    return `${unit}${Math.round(value).toLocaleString('en-GB')}`
+  }
+  if (unit === '%') {
+    const pct = Math.abs(value) <= 1 ? Math.round(value * 100) : Math.round(value)
+    return `${pct}%`
+  }
+  const display = Number.isInteger(value) ? String(value) : value.toFixed(2).replace(/\.?0+$/, '')
+  return unit ? `${display} ${unit}` : display
+}
+
 export const FactorNode = memo((props: NodeProps) => {
   const metadata = NODE_REGISTRY.factor
   const observedState = props.data?.observedState as ObservedState | undefined
@@ -36,6 +48,7 @@ export const FactorNode = memo((props: NodeProps) => {
   const edges = useCanvasStore(state => state.edges)
   const ceeAnalysisReady = useCanvasStore(state => state.ceeAnalysisReady)
   const resultsStatus = useCanvasStore(state => state.results.status)
+  const resultsReport = useCanvasStore(state => state.results.report)
 
   // Derive controllability from graph structure or CEE category
   const nodeCategory = props.data?.category as string | undefined
@@ -100,6 +113,41 @@ export const FactorNode = memo((props: NodeProps) => {
     return formatDisplayValue(value, unit)
   }, [observedState])
 
+  const priorRangeDisplay = useMemo(() => {
+    const prior = props.data?.prior as { range_min?: number; range_max?: number } | undefined
+    const min = prior?.range_min
+    const max = prior?.range_max
+    if (nodeCategory !== 'external' || min == null || max == null) return null
+    return `Variable: ${formatPriorRangeValue(min, observedState?.unit)}–${formatPriorRangeValue(max, observedState?.unit)}`
+  }, [nodeCategory, observedState?.unit, props.data?.prior])
+
+  const sensitivityBarWidth = useMemo(() => {
+    const influence = displayMetadata.influence
+    if (influence == null) return null
+    const factorSensitivity = (resultsReport as any)?.enrichment?.sensitivity_analysis?.factors
+      ?? (resultsReport as any)?.factor_sensitivity
+      ?? []
+    const rawValues = factorSensitivity
+      .map((factor: any) => factor.elasticity ?? factor.sensitivity_score ?? factor.importance_score)
+      .filter((value: unknown): value is number => typeof value === 'number' && Number.isFinite(value))
+      .map((value: number) => Math.abs(value))
+      .filter((value: number) => value > 0)
+    if (rawValues.length < 2) return Math.round(influence * 100)
+
+    const factorData = factorSensitivity.find((factor: any) =>
+      (factor.factor_id || factor.factorId || factor.node_id || factor.nodeId) === props.id
+    )
+    const rawCurrent = factorData?.elasticity ?? factorData?.sensitivity_score ?? factorData?.importance_score
+    if (typeof rawCurrent !== 'number' || !Number.isFinite(rawCurrent)) return Math.round(influence * 100)
+
+    const min = Math.min(...rawValues)
+    const max = Math.max(...rawValues)
+    if (max <= min) return Math.round(influence * 100)
+
+    const normalised = (Math.abs(rawCurrent) - min) / (max - min)
+    return Math.round((0.25 + normalised * 0.75) * 100)
+  }, [displayMetadata.influence, props.id, resultsReport])
+
   // T5: Show "estimated" pill only for inferred values
   const isInferred = observedState?.extractionType === 'inferred'
 
@@ -130,27 +178,36 @@ export const FactorNode = memo((props: NodeProps) => {
         nodeType="factor"
         icon={metadata.icon}
         headerSlot={categoryIcon ? (
-          <categoryIcon.Icon
-            className="w-3.5 h-3.5 text-text-light"
-            aria-hidden="false"
-            aria-label={categoryIcon.tooltip}
-            title={categoryIcon.tooltip}
-          />
+          <span title={categoryIcon.tooltip} aria-label={categoryIcon.tooltip}>
+            <categoryIcon.Icon
+              className="w-3.5 h-3.5 text-text-light"
+              aria-hidden="true"
+            />
+          </span>
         ) : undefined}
       >
 
         {/* Intervention highlight when option hovered */}
         {isAffectedByHover && (
           <div className={`${typography.nodeTitle} text-info mb-1 bg-panel px-1.5 py-0.5 rounded border border-info/30`}>
-            Intervention: {formatInterventionValue(interventionValue, observedState?.unit, observedState?.factor_type, observedState?.cap)}
+            Intervention: {formatInterventionValue(
+              interventionValue,
+              observedState?.unit,
+              observedState?.factor_type,
+              observedState?.cap,
+              observedState?.value,
+              observedState?.raw_value,
+            )}
           </div>
         )}
 
         {/* T4: Human-readable value row + T5: estimated pill */}
-        {(valueDisplay !== null || (observedState && observedState.value === undefined) || (!observedState && nodeCategory === 'external')) && (
+        {(valueDisplay !== null || (observedState != null && observedState.value === undefined) || (!observedState && nodeCategory === 'external')) && (
           <div className={`${typography.nodeLabel} mt-1.5 flex items-center gap-1.5 flex-wrap`}>
             {valueDisplay !== null ? (
               <span className="font-semibold text-text-body">{valueDisplay}</span>
+            ) : priorRangeDisplay ? (
+              <span className="text-text-light">{priorRangeDisplay}</span>
             ) : (
               <span className="italic text-text-light">No baseline</span>
             )}
@@ -178,7 +235,7 @@ export const FactorNode = memo((props: NodeProps) => {
                 <div className="flex-1 h-1.5 bg-panel-border rounded-full overflow-hidden max-w-[60px]">
                   <div
                     className="h-full bg-info rounded-full transition-all duration-300"
-                    style={{ width: `${Math.round(displayMetadata.influence * 100)}%` }}
+                    style={{ width: `${sensitivityBarWidth ?? Math.round(displayMetadata.influence * 100)}%` }}
                   />
                 </div>
                 <span className={`${typography.nodeLabel} text-text-light w-8 text-right shrink-0`}>
@@ -204,7 +261,7 @@ export const FactorNode = memo((props: NodeProps) => {
           </div>
         )}
 
-        {props.data?.description && (
+        {typeof props.data?.description === 'string' && props.data.description && (
           <div className={`${typography.nodeLabel} opacity-70 mt-0.5`}>
             {props.data.description}
           </div>

@@ -521,6 +521,7 @@ export function adaptCEEBlock(raw: unknown): ConversationBlock {
         const normOps = rawOps.map((op: unknown) =>
           op != null && typeof op === 'object' ? normalisePatchOp(op as Record<string, unknown>) : op
         )
+        const proposalItems = normaliseProposalReviewItems(dataObj.proposed_changes)
 
         if (import.meta.env.DEV) {
           if (rawOps.length > 0 && normOps.length > 0) {
@@ -552,7 +553,8 @@ export function adaptCEEBlock(raw: unknown): ConversationBlock {
           block_id: typeof block_id === 'string' ? block_id : undefined,
           analysis_ready: normaliseAnalysisReady(dataObj.analysis_ready),
           related_elements: normaliseRelatedElements(dataObj.related_elements),
-          proposal_items: normaliseProposalReviewItems(dataObj.proposed_changes),
+          proposal_items: proposalItems,
+          ...(proposalItems.length > 0 ? { proposal_items_source: 'backend' as const } : {}),
         }
       }
 
@@ -1077,7 +1079,7 @@ export function useConversation(): UseConversationReturn {
             .map(deriveProposalItemFromOperation)
             .filter(Boolean) as ProposalReviewItem[]
           return fallbackItems.length > 0
-            ? { ...patch, proposal_items: fallbackItems }
+            ? { ...patch, proposal_items: fallbackItems, proposal_items_source: 'derived_ops' as const }
             : patch
         }),
         proposalItems,

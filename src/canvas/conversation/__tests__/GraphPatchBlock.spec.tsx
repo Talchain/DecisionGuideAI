@@ -85,6 +85,7 @@ describe('GraphPatchBlock', () => {
       proposal_items: [
         { description: 'Add competitor response as a tracked risk', changeLabel: 'Add node', elementLabel: 'Competitor response' },
       ],
+      proposal_items_source: 'backend',
     })
     render(<InlineBlocks blocks={[block]} />)
 
@@ -94,6 +95,53 @@ describe('GraphPatchBlock', () => {
     expect(screen.getByText('Competitor response')).toBeInTheDocument()
     expect(screen.getByText('Apply')).toBeInTheDocument()
     expect(screen.getByText('Not what I meant')).toBeInTheDocument()
+  })
+
+  it('keeps op-derived proposal details behind disclosure by default', () => {
+    const block = makePatchBlock({
+      proposal_items: [
+        { description: 'Add competitor response', changeLabel: 'Add node', elementLabel: 'Competitor response' },
+      ],
+      proposal_items_source: 'derived_ops',
+    })
+    render(<InlineBlocks blocks={[block]} />)
+
+    expect(screen.queryByTestId('patch-proposal-list')).not.toBeInTheDocument()
+    expect(screen.getByTestId('patch-proposal-details-toggle')).toHaveTextContent('Show details')
+
+    fireEvent.click(screen.getByTestId('patch-proposal-details-toggle'))
+
+    expect(screen.getByTestId('patch-proposal-list')).toBeInTheDocument()
+    expect(screen.getByText('Add competitor response')).toBeInTheDocument()
+  })
+
+  it('uses generic action labels when derived_ops items are hidden behind disclosure', () => {
+    const block = makePatchBlock({
+      proposal_items: [
+        { description: 'Add competitor response', changeLabel: 'Add node', elementLabel: 'Competitor response' },
+      ],
+      proposal_items_source: 'derived_ops',
+    })
+    render(<InlineBlocks blocks={[block]} />)
+
+    // Items hidden → should use generic Accept/Dismiss labels, not Apply/Not what I meant
+    expect(screen.getByTestId('patch-accept')).toHaveTextContent('Accept')
+    expect(screen.getByTestId('patch-dismiss')).toHaveTextContent('Dismiss')
+  })
+
+  it('keeps applied change details behind disclosure even when proposal items are present', () => {
+    const block = makePatchBlock({
+      auto_apply: true,
+      proposal_items: [
+        { description: 'Added competitor response as a tracked risk', changeLabel: 'Add node', elementLabel: 'Competitor response' },
+      ],
+      proposal_items_source: 'backend',
+    })
+    render(<InlineBlocks blocks={[block]} />)
+
+    expect(screen.getByText('Changes applied')).toBeInTheDocument()
+    expect(screen.queryByTestId('patch-proposal-list')).not.toBeInTheDocument()
+    expect(screen.getByTestId('patch-proposal-details-toggle')).toBeInTheDocument()
   })
 
   it('calls onPatchAccept when Accept is clicked', () => {
@@ -275,6 +323,21 @@ describe('GraphPatchBlock', () => {
     )
 
     expect(screen.getByText('2 nodes, 1 edge')).toBeInTheDocument()
+  })
+
+  it('falls back to op-summary as primary text when block summary is empty', () => {
+    const block = makePatchBlock({
+      summary: '',
+      operations: [
+        { op: 'add_node', target_id: 'n1', data: { kind: 'factor', label: 'Revenue' } },
+        { op: 'add_node', target_id: 'n2', data: { kind: 'factor', label: 'Churn' } },
+        { op: 'add_node', target_id: 'n3', data: { kind: 'option', label: 'Option A' } },
+      ],
+    })
+    render(<InlineBlocks blocks={[block]} />)
+
+    // Op summary should appear as the primary text (since summary is empty)
+    expect(screen.getByText('2 factors, 1 option')).toBeInTheDocument()
   })
 
   it('shows retry button on network error (block stays proposed)', () => {

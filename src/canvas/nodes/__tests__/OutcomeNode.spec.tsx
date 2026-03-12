@@ -66,7 +66,7 @@ const baseProps = {
 const renderOutcome = (data: Record<string, unknown> = {}) =>
   render(
     <ReactFlowProvider>
-      <OutcomeNode {...baseProps} data={{ label: 'Revenue growth', type: 'outcome', ...data }} />
+      <OutcomeNode {...(baseProps as any)} data={{ label: 'Revenue growth', type: 'outcome', ...data }} />
     </ReactFlowProvider>
   )
 
@@ -103,7 +103,7 @@ describe('OutcomeNode', () => {
   // T9: Bridge edge data
   it('does not show bridge edge data when results status is not complete', () => {
     renderOutcome()
-    expect(screen.queryByText(/impact on goal/)).toBeNull()
+    expect(screen.queryByText(/influence on goal/)).toBeNull()
   })
 
   it('shows bridge edge impact on goal in results mode', () => {
@@ -125,7 +125,7 @@ describe('OutcomeNode', () => {
       }) as any)
     )
     renderOutcome()
-    expect(screen.getByText(/impact on goal/)).toBeDefined()
+    expect(screen.getByText('Strong positive influence on goal')).toBeDefined()
   })
 
   it('shows certainty when beliefExists is present', () => {
@@ -209,7 +209,7 @@ describe('OutcomeNode', () => {
       }) as any)
     )
     renderOutcome()
-    expect(screen.queryByText(/impact on goal/)).toBeNull()
+    expect(screen.queryByText(/influence on goal/)).toBeNull()
   })
 
   it('does not show bridge edge when no goal node exists', () => {
@@ -221,7 +221,7 @@ describe('OutcomeNode', () => {
       }) as any)
     )
     renderOutcome()
-    expect(screen.queryByText(/impact on goal/)).toBeNull()
+    expect(screen.queryByText(/influence on goal/)).toBeNull()
   })
 
   it('shows achievement probability when available', () => {

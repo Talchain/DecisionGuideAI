@@ -6,7 +6,7 @@ import type { RiskImpact } from '../domain/nodes'
 import { calculateRiskSeverity, getRiskSeverityColors, cleanDisplayLabel } from '../utils/graphDisplayCalculations'
 import { useCanvasStore } from '../store'
 import { typography } from '../../styles/typography'
-import { computeSignedMean } from '../domain/edges'
+import { computeSignedMean, describeEdgeInfluence } from '../domain/edges'
 
 export const RiskNode = memo((props: NodeProps) => {
   const metadata = NODE_REGISTRY.risk
@@ -51,16 +51,15 @@ export const RiskNode = memo((props: NodeProps) => {
       {bridgeEdgeData && (
         <div className={`${typography.nodeLabel} mt-1 text-text-light`}>
           <span className={`${typography.nodeTitle} font-semibold text-danger`}>
-            {bridgeEdgeData.signedMean >= 0 ? '+' : ''}{bridgeEdgeData.signedMean.toFixed(2)}
+            {describeEdgeInfluence(bridgeEdgeData.signedMean)}
           </span>
-          {' '}impact on goal
           {bridgeEdgeData.existsProbability !== null && (
             <> · {Math.round(bridgeEdgeData.existsProbability * 100)}% certain</>
           )}
         </div>
       )}
 
-      {props.data?.description && (
+      {typeof props.data?.description === 'string' && props.data.description && (
         <div className={`${typography.nodeLabel} opacity-70 mt-1`}>
           {props.data.description}
         </div>

@@ -358,6 +358,10 @@ describe('formatInterventionValue', () => {
       // 0.7 is "High" tier regardless of cap
       expect(formatInterventionValue(0.7, undefined, 'quality', 10)).toBe('High')
     })
+
+    it('prefers observed raw value scale when it materially differs from cap', () => {
+      expect(formatInterventionValue(0.5, '£', undefined, 100, 0.5, 250)).toBe('£250')
+    })
   })
 
   describe('factorType case-insensitive normalization (P1-4)', () => {

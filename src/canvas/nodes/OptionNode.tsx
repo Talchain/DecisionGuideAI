@@ -7,6 +7,16 @@ import { useCanvasStore } from '../store'
 import { typography } from '../../styles/typography'
 import { cleanFactorLabel, formatInterventionValue } from '../utils/labelUtils'
 
+interface InterventionChip {
+  label: string
+  value: number
+  unit?: string
+  factorType?: string
+  cap?: number
+  observedValue?: number
+  observedRawValue?: string | number
+}
+
 export const OptionNode = memo((props: NodeProps) => {
   const metadata = NODE_REGISTRY.option
 
@@ -37,7 +47,7 @@ export const OptionNode = memo((props: NodeProps) => {
   const setHoveredOption = useCanvasStore(state => state.setHoveredOption)
 
   // T8: Readable intervention chips with cleaned labels and formatted values
-  const interventionChips = useMemo(() => {
+  const interventionChips = useMemo<InterventionChip[]>(() => {
     const ceeOption = ceeAnalysisReady?.options?.find(opt => opt.id === props.id)
     const interventions = ceeOption?.interventions
     if (!interventions || typeof interventions !== 'object') return []
@@ -60,11 +70,25 @@ export const OptionNode = memo((props: NodeProps) => {
               /^[A-Z]{2,}$/.test(word) ? word : word.toLowerCase()
             )
           : stripped
-        const observedState = factorNode?.data?.observedState as { unit?: string; factor_type?: string; cap?: number } | undefined
+        const observedState = factorNode?.data?.observedState as {
+          unit?: string
+          factor_type?: string
+          cap?: number
+          value?: number
+          raw_value?: string | number
+        } | undefined
         const unit = (factorNode?.data?.unit as string | undefined) ?? observedState?.unit
         const factorType = observedState?.factor_type
         const cap = observedState?.cap
-        return { label: cleanedLabel, value, unit, factorType, cap }
+        return {
+          label: cleanedLabel,
+          value,
+          unit,
+          factorType,
+          cap,
+          observedValue: observedState?.value,
+          observedRawValue: observedState?.raw_value,
+        }
       })
       .sort((a, b) => Math.abs(b.value) - Math.abs(a.value))
       .slice(0, 3)
@@ -125,14 +149,21 @@ export const OptionNode = memo((props: NodeProps) => {
                   {chip.label}:
                 </span>
                 <span className="font-semibold shrink-0">
-                  {formatInterventionValue(chip.value, chip.unit, chip.factorType, chip.cap)}
+                  {formatInterventionValue(
+                    chip.value,
+                    chip.unit,
+                    chip.factorType,
+                    chip.cap,
+                    chip.observedValue,
+                    chip.observedRawValue,
+                  )}
                 </span>
               </div>
             ))}
           </div>
         )}
 
-        {props.data?.description && (
+        {typeof props.data?.description === 'string' && props.data.description && (
           <div className={`${typography.nodeLabel} opacity-70 mt-1`}>
             {props.data.description}
           </div>

@@ -991,6 +991,27 @@ describe('HeroSection', () => {
       // No structured-executive
       expect(screen.queryByTestId('structured-executive')).not.toBeInTheDocument()
     })
+
+    it('suppresses contradictory executive copy when robustness is low', () => {
+      render(
+        <HeroSection
+          {...baseProps}
+          decisionState="sensitive"
+          recommendationStability={0.35}
+          robustnessLevel="low"
+          coachingKeyQualifier="This looks robust enough to proceed."
+          coachingHeadline="This looks robust enough to proceed."
+          coachingParagraph="This looks robust enough to proceed."
+        />
+      )
+
+      expect(screen.queryByTestId('insight-bullets')).not.toBeInTheDocument()
+      expect(screen.queryByText('This looks robust enough to proceed.')).not.toBeInTheDocument()
+
+      const moreButton = screen.getByRole('button', { name: /more/i })
+      fireEvent.click(moreButton)
+      expect(screen.queryByText('This looks robust enough to proceed.')).not.toBeInTheDocument()
+    })
   })
 
   // V12: Identifiability advisory
