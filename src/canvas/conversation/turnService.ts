@@ -52,12 +52,12 @@
  */
 
 import type {
-  OrchestratorTurnRequest,
   OrchestratorResponseEnvelopeV2,
 } from './types'
 import { computePayloadHash } from '../../lib/canonical-hash'
 import { recordRequest, recordResponse } from '../../lib/debug-state'
 import { recordRequestPayload, recordResponsePayload } from '../../lib/payload-trace-store'
+import { stripDevTurnType, validateTurnRequestBoundary, type TurnRequestPayload } from '../../services/turn-request-builder'
 
 // In production/staging, route through Netlify edge function proxy at /bff/orchestrate
 // to avoid CORS issues (CEE backend lacks CORS on /orchestrate/* routes).
@@ -116,7 +116,7 @@ function describePayloadShape(obj: Record<string, unknown>): Record<string, stri
  * @throws OrchestratorError on non-2xx responses
  */
 export async function callOrchestratorTurn(
-  request: OrchestratorTurnRequest,
+  request: TurnRequestPayload,
   signal?: AbortSignal,
 ): Promise<OrchestratorResponseEnvelopeV2> {
   const startTime = Date.now()
@@ -128,9 +128,11 @@ export async function callOrchestratorTurn(
     ? combineSignals(signal, controller.signal)
     : controller.signal
 
-  const requestBody = JSON.stringify(request)
+  validateTurnRequestBoundary(request)
+  const wireRequest = stripDevTurnType(request)
+  const requestBody = JSON.stringify(wireRequest)
   const requestId = request.client_turn_id
-  const payloadHash = await computePayloadHash(request)
+  const payloadHash = await computePayloadHash(wireRequest)
 
   recordRequest({
     requestId,
@@ -144,7 +146,7 @@ export async function callOrchestratorTurn(
     endpoint: ORCHESTRATOR_URL,
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: request,
+    body: wireRequest,
   })
 
   // Log request diagnostics (shape only — no user content)
@@ -152,7 +154,7 @@ export async function callOrchestratorTurn(
     url: ORCHESTRATOR_URL,
     method: 'POST',
     bodyBytes: requestBody.length,
-    payloadShape: describePayloadShape(request as unknown as Record<string, unknown>),
+    payloadShape: describePayloadShape(wireRequest as unknown as Record<string, unknown>),
     clientTurnId: request.client_turn_id,
   })
 
@@ -194,7 +196,7 @@ export async function callOrchestratorTurn(
         statusText: response.statusText,
         url: ORCHESTRATOR_URL,
         responseBody: body,
-        requestPayloadShape: describePayloadShape(request as unknown as Record<string, unknown>),
+        requestPayloadShape: describePayloadShape(wireRequest as unknown as Record<string, unknown>),
         clientTurnId: request.client_turn_id,
         responseHeaders: {
           'x-request-id': response.headers.get('x-request-id'),

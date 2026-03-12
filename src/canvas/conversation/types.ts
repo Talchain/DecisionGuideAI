@@ -7,7 +7,6 @@
 
 import type { ScenarioStage } from '../../types/scenario'
 import type { CEEAnalysisReady, CEEInterventionV3 } from '../../adapters/cee/types'
-import type { AnalysisInputsSummary } from '../../types/analysis-inputs-summary'
 
 // ---------------------------------------------------------------------------
 // § 1 — Conversation messages
@@ -291,21 +290,17 @@ export interface AnalysisInputOption {
 
 export interface OrchestratorTurnRequest {
   scenario_id: string
-  message: string
+  message?: string
   conversation_history: ConversationTurnPair[]
-  /**
-   * Full graph sent on every turn. CEE needs nodes/edges for guidance refresh
-   * and validate-patch. The compact summary (node_count etc.) is insufficient.
-   */
-  graph_state: {
+  graph_state?: {
     nodes: unknown[]
     edges: unknown[]
   }
-  analysis_state: {
-    has_results: boolean
-    last_run_hash: string | null
-    /** Assembled analysis summary from last V2RunResponse (always-on persistence) */
-    analysis_summary?: AnalysisInputsSummary
+  analysis_state?: {
+    analysis_status: string
+    meta: { response_hash: string; [key: string]: unknown }
+    results: unknown
+    [key: string]: unknown
   }
   selected_elements?: {
     node_ids?: string[]
@@ -326,6 +321,15 @@ export interface OrchestratorTurnRequest {
   /** Nonce for idempotency */
   turn_nonce?: string
   client_turn_id: string
+  /** Dev-mode only: request-builder turn discriminator, stripped before network send. */
+  _turn_type?:
+    | 'conversation'
+    | 'explicit_generate'
+    | 'run_analysis'
+    | 'system_event'
+    | 'patch_followup'
+    | 'explain'
+    | 'clarification_response'
 }
 
 /** A user+assistant turn pair for conversation_history (max 5 pairs sent) */

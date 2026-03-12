@@ -405,7 +405,11 @@ export const ConversationPanel = memo(function ConversationPanel({
       // messages as model generation input and responds with auto-apply
       // graph patches. Using sendMessage (not sendSystemEvent) because
       // CEE's v3 Zod schema does not include a 'generate_model' event type.
-      sendMessage(brief, { debugSource: 'generate_model', debugSourceSurface: 'ai_panel' })
+      sendMessage(brief, {
+        turnType: 'explicit_generate',
+        debugSource: 'generate_model',
+        debugSourceSurface: 'ai_panel',
+      })
     }
   }, [messages.length, sendMessage])
 

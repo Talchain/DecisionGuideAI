@@ -35,7 +35,6 @@ import type {
   ActionChip,
   SystemEvent,
   WireSystemEvent,
-  OrchestratorTurnRequest,
   OrchestratorResponseEnvelopeV2,
   ConversationTurnPair,
   GraphPatchBlock,
@@ -61,6 +60,21 @@ import {
   updateInteractionResponse,
   type InteractionStateSnapshot,
 } from '../../lib/debug-state'
+import {
+  buildClarificationResponseTurnRequest,
+  buildConversationTurnRequest,
+  buildExplicitGenerateTurnRequest,
+  buildExplainTurnRequest,
+  buildPatchFollowupTurnRequest,
+  buildRunAnalysisTurnRequest,
+  buildSystemEventTurnRequest,
+  isValidExplainAnalysisState,
+  type ExplainAnalysisStatePayload,
+  type GraphStatePayload,
+  type SelectedElementsPayload,
+  type TurnRequestPayload,
+  type TurnType,
+} from '../../services/turn-request-builder'
 
 /** Sentinel message content used for system events — must never render as a user bubble */
 export const SYSTEM_MESSAGE_SENTINEL = '[system]'
@@ -73,17 +87,20 @@ const LONG_RUNNING_THRESHOLD_MS = 15_000
 const STILL_WORKING_THRESHOLD_MS = 30_000
 const TIMEOUT_MS = 60_000
 
-function summariseRequestPayload(request: OrchestratorTurnRequest, source: string, hidden: boolean, systemEventType?: string): Record<string, unknown> {
+function summariseRequestPayload(request: TurnRequestPayload, source: string, hidden: boolean, systemEventType?: string): Record<string, unknown> {
   return {
     source,
     hidden,
-    message_length: request.message.length,
+    turn_type: request._turn_type ?? 'unknown',
+    message_length: request.message?.length ?? 0,
     conversation_pairs: request.conversation_history.length,
-    graph_nodes: request.graph_state.nodes.length,
-    graph_edges: request.graph_state.edges.length,
-    has_analysis_results: request.analysis_state.has_results,
-    analysis_hash: request.analysis_state.last_run_hash,
-    has_analysis_summary: 'analysis_summary' in request.analysis_state,
+    graph_nodes: request.graph_state?.nodes?.length ?? 0,
+    graph_edges: request.graph_state?.edges?.length ?? 0,
+    has_analysis_state: Boolean(request.analysis_state),
+    analysis_hash:
+      request.analysis_state && typeof request.analysis_state.meta === 'object'
+        ? (request.analysis_state.meta as { response_hash?: unknown }).response_hash ?? null
+        : null,
     selected_node_count: request.selected_elements?.node_ids?.length ?? 0,
     selected_edge_count: request.selected_elements?.edge_ids?.length ?? 0,
     analysis_input_option_count: request.analysis_inputs?.options?.length ?? 0,
@@ -652,6 +669,29 @@ export interface PatchRejectionInfo {
   violations?: string[]
 }
 
+function inferChipTurnType(chip: ActionChip): Exclude<TurnType, 'system_event' | 'explicit_generate' | 'run_analysis'> {
+  const token = `${chip.id} ${chip.label} ${chip.message ?? ''}`.toLowerCase()
+  if (token.includes('clarif')) return 'clarification_response'
+  if (token.includes('explain') || token.includes('why')) return 'explain'
+  if (token.includes('patch') || token.includes('proposal')) return 'patch_followup'
+  return 'conversation'
+}
+
+function resolveUserTurnType(
+  source: string | undefined,
+  hidden: boolean | undefined,
+  explicitTurnType: Exclude<TurnType, 'system_event'> | undefined,
+): Exclude<TurnType, 'system_event'> {
+  if (explicitTurnType) return explicitTurnType
+  if (source === 'generate_model') return 'explicit_generate'
+  if (source === 'analyse_now' || source === 'right_panel_action') return 'run_analysis'
+  if (source === 'patch_followup') return 'patch_followup'
+  if (source === 'explain') return 'explain'
+  if (source === 'clarification_response') return 'clarification_response'
+  if (hidden) return 'run_analysis'
+  return 'conversation'
+}
+
 export interface UseConversationReturn {
   messages: ConversationMessage[]
   isThinking: boolean
@@ -660,6 +700,7 @@ export interface UseConversationReturn {
   lastFailedInput: string | null
   sendMessage: (text: string, opts?: {
     hidden?: boolean
+    turnType?: Exclude<TurnType, 'system_event'>
     debugSource?: string
     debugVisibleText?: string | null
     debugParentChainId?: string | null
@@ -807,14 +848,20 @@ export function useConversation(): UseConversationReturn {
   }, [])
 
   const buildRequest = useCallback(
-    (text: string, opts?: { clientTurnId?: string }): OrchestratorTurnRequest => {
+    (opts: {
+      text: string
+      clientTurnId?: string
+      turnType: TurnType
+      systemEventWire?: WireSystemEvent
+    }): TurnRequestPayload => {
       const store = useCanvasStore.getState()
       const { nodeIds, edgeIds } = store.selection
-      const latestAnalysisHash = store.results.hash ?? store.currentScenarioLastResultHash ?? null
-      const hasCompletedAnalysis = store.results.status === 'complete' && latestAnalysisHash !== null
-      const analysisSummary = hasCompletedAnalysis
-        ? useResultsStore.getState().results.analysisSummary ?? undefined
-        : undefined
+      const scenarioId = store.currentScenarioId ?? `session-${Date.now()}`
+      const conversationHistory = buildHistory(messages, 5)
+      const selectedElements: SelectedElementsPayload | undefined =
+        nodeIds.size > 0 || edgeIds.size > 0
+          ? { node_ids: [...nodeIds], edge_ids: [...edgeIds] }
+          : undefined
 
       // Dev assertion: full graph must include structural fields (kind on nodes,
       // strength/weight on edges). Catches accidental compact-form regression.
@@ -891,27 +938,98 @@ export function useConversation(): UseConversationReturn {
         }
       })
 
-      return {
-        scenario_id: store.currentScenarioId ?? `session-${Date.now()}`,
-        message: text,
-        conversation_history: buildHistory(messages, 5),
-        graph_state: {
-          nodes: ceeNodes,
-          edges: ceeEdges,
-        },
-        analysis_state: {
-          has_results: hasCompletedAnalysis,
-          last_run_hash: hasCompletedAnalysis ? latestAnalysisHash : null,
-          // BIL Phase 1: include assembled analysis summary when available (always-on)
-          ...(analysisSummary ? { analysis_summary: analysisSummary } : {}),
-        },
-        selected_elements:
-          nodeIds.size > 0 || edgeIds.size > 0
-            ? { node_ids: [...nodeIds], edge_ids: [...edgeIds] }
-            : undefined,
-        analysis_inputs: analysisInputs,
-        client_turn_id: opts?.clientTurnId ?? crypto.randomUUID(),
+      const graphState: GraphStatePayload = {
+        nodes: ceeNodes,
+        edges: ceeEdges,
       }
+
+      const analysisCandidate = useResultsStore.getState().results.analysis as unknown
+      const validExplainAnalysisState = analysisCandidate && isValidExplainAnalysisState(analysisCandidate)
+        ? (analysisCandidate as ExplainAnalysisStatePayload)
+        : undefined
+
+      if (opts.turnType === 'system_event') {
+        return buildSystemEventTurnRequest({
+          scenario_id: scenarioId,
+          conversation_history: conversationHistory,
+          message: opts.text,
+          graph_state: graphState,
+          client_turn_id: opts.clientTurnId,
+          system_event: opts.systemEventWire ?? { type: 'direct_graph_edit', payload: {} },
+        })
+      }
+
+      if (opts.turnType === 'explicit_generate') {
+        return buildExplicitGenerateTurnRequest({
+          scenario_id: scenarioId,
+          conversation_history: conversationHistory,
+          message: opts.text,
+          graph_state: graphState,
+          client_turn_id: opts.clientTurnId,
+        })
+      }
+
+      if (opts.turnType === 'run_analysis') {
+        if (!analysisInputs) {
+          if (import.meta.env.DEV) {
+            console.warn('[buildRequest] run_analysis turn requested but ceeAnalysisReady is unavailable — falling back to conversation turn')
+          }
+          return buildConversationTurnRequest({
+            scenario_id: scenarioId,
+            conversation_history: conversationHistory,
+            message: opts.text,
+            graph_state: graphState,
+            selected_elements: selectedElements,
+            client_turn_id: opts.clientTurnId,
+          })
+        }
+        return buildRunAnalysisTurnRequest({
+          scenario_id: scenarioId,
+          conversation_history: conversationHistory,
+          graph_state: graphState,
+          analysis_inputs: analysisInputs,
+          client_turn_id: opts.clientTurnId,
+        })
+      }
+
+      if (opts.turnType === 'patch_followup') {
+        return buildPatchFollowupTurnRequest({
+          scenario_id: scenarioId,
+          conversation_history: conversationHistory,
+          graph_state: graphState,
+          client_turn_id: opts.clientTurnId,
+        })
+      }
+
+      if (opts.turnType === 'explain') {
+        return buildExplainTurnRequest({
+          scenario_id: scenarioId,
+          conversation_history: conversationHistory,
+          message: opts.text,
+          graph_state: graphState,
+          selected_elements: selectedElements,
+          analysis_state: validExplainAnalysisState,
+          client_turn_id: opts.clientTurnId,
+        })
+      }
+
+      if (opts.turnType === 'clarification_response') {
+        return buildClarificationResponseTurnRequest({
+          scenario_id: scenarioId,
+          conversation_history: conversationHistory,
+          message: opts.text,
+          client_turn_id: opts.clientTurnId,
+        })
+      }
+
+      return buildConversationTurnRequest({
+        scenario_id: scenarioId,
+        conversation_history: conversationHistory,
+        message: opts.text,
+        graph_state: graphState,
+        selected_elements: selectedElements,
+        client_turn_id: opts.clientTurnId,
+      })
     },
     [messages],
   )
@@ -1294,6 +1412,7 @@ export function useConversation(): UseConversationReturn {
       parentChainId?: string | null
       initiatedBy?: 'user' | 'automatic'
       rightPanelAccidentallySubmittedComposerContent?: boolean
+      turnType?: Exclude<TurnType, 'system_event'>
     }) => {
       const {
         message,
@@ -1308,6 +1427,7 @@ export function useConversation(): UseConversationReturn {
         parentChainId,
         initiatedBy,
         rightPanelAccidentallySubmittedComposerContent,
+        turnType,
       } = opts
 
       // Synchronous in-flight lock — prevents duplicate dispatch from rapid
@@ -1428,7 +1548,16 @@ export function useConversation(): UseConversationReturn {
       }, TIMEOUT_MS)
 
       try {
-        const request = buildRequest(message, { clientTurnId: turnClientId })
+        const resolvedTurnType: TurnType = mode === 'system'
+          ? 'system_event'
+          : resolveUserTurnType(source, hidden, turnType)
+        const systemEventWire = mode === 'system' && systemEvent ? serializeSystemEvent(systemEvent) : undefined
+        const request = buildRequest({
+          text: message,
+          clientTurnId: turnClientId,
+          turnType: resolvedTurnType,
+          systemEventWire: systemEventWire ?? undefined,
+        })
         const payloadSummary = summariseRequestPayload(request, triggerSurface, hidden === true, systemEvent?.type)
         bindRequestToInteraction(turnClientId, {
           chainId: interactionChainId,
@@ -1452,14 +1581,6 @@ export function useConversation(): UseConversationReturn {
           stageSystemEventSummary: systemEvent?.type ?? null,
           systemEventType: systemEvent?.type ?? null,
         })
-        // Attach system_event in CEE v3 wire format. Unknown types already
-        // filtered by sendSystemEvent pre-check; null here is a safety net.
-        if (systemEvent) {
-          const wire = serializeSystemEvent(systemEvent)
-          if (wire !== null) {
-            request.system_event = wire
-          }
-        }
         const envelope = await callOrchestratorTurn(request, controller.signal)
         handleEnvelope(envelope, turnClientId)
         const interactionStateAfter = createInteractionSnapshot(messages.length + (hidden || mode === 'system' ? 1 : 2))
@@ -1533,6 +1654,7 @@ export function useConversation(): UseConversationReturn {
   const sendMessage = useCallback(
     async (text: string, opts?: {
       hidden?: boolean
+      turnType?: Exclude<TurnType, 'system_event'>
       debugSource?: string
       debugVisibleText?: string | null
       debugParentChainId?: string | null
@@ -1544,6 +1666,7 @@ export function useConversation(): UseConversationReturn {
         message: text,
         mode: 'user',
         hidden: opts?.hidden,
+        turnType: opts?.turnType,
         source: opts?.debugSource,
         displayText: opts?.debugVisibleText ?? undefined,
         parentChainId: opts?.debugParentChainId,
@@ -1622,7 +1745,13 @@ export function useConversation(): UseConversationReturn {
           payloadSummary: { chip_label: chip.label, intent: chip.intent },
         })
         // Show chip.label in conversation bubble, send chip.message to orchestrator
-        await sendTurn({ message: chip.message, displayText: chip.label, mode: 'user', source: 'chip_click' })
+        await sendTurn({
+          message: chip.message,
+          displayText: chip.label,
+          mode: 'user',
+          source: 'chip_click',
+          turnType: inferChipTurnType(chip),
+        })
       } else {
         // Chip has no message and is not an undo — this should not happen in practice
         // (validateResponse and render filters both block messageless chips), but if it

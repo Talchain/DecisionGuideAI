@@ -246,7 +246,7 @@ export function DraftChat() {
       setDescription('')
       // Keep panel expanded so the user sees the conversation response and
       // can interact with graph_patch blocks (Accept/Dismiss).
-      await conversation.sendMessage(briefText)
+      await conversation.sendMessage(briefText, { turnType: 'explicit_generate', debugSource: 'generate_model' })
       return
     }
     console.info('[handleDraft] legacy path — routing brief to /bff/cee/draft-graph')

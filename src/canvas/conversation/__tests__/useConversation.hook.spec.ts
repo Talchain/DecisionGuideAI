@@ -406,39 +406,16 @@ describe('buildRequest payload — RF → CEE graph_state transform', () => {
     expect(request.graph_state).toBeDefined()
     expect(Array.isArray(request.graph_state.nodes)).toBe(true)
     expect(Array.isArray(request.graph_state.edges)).toBe(true)
-    expect(request.analysis_state).toEqual({
-      has_results: false,
-      last_run_hash: null,
-    })
+    // analysis_state must NOT be sent on conversation turns (brief contract: CEE-owned, forbidden on conversation)
+    expect(request.analysis_state).toBeUndefined()
   })
 
-  it('includes the fresh compact post-analysis context on the next normal turn', async () => {
-    const analysisSummary = {
-      contract_version: '1.0.0',
-      recommendation: { option_id: 'opt_a', option_label: 'Option A', win_probability: 0.65 },
-      options: [
-        { id: 'opt_a', label: 'Option A', win_probability: 0.65 },
-        { id: 'opt_b', label: 'Option B', win_probability: 0.35 },
-      ],
-      top_drivers: [
-        { factor_id: 'f1', factor_label: 'Revenue growth', elasticity: 0.45 },
-      ],
-      sensitivity_concentration: 0.45,
-      confidence_band: 'high',
-      robustness: { level: 'robust', recommendation_stability: 0.82 },
-      constraints_status: [],
-      run_metadata: {
-        seed: '42',
-        quality_mode: 'deep',
-        timestamp: '2025-01-01T00:00:00.000Z',
-      },
-    } as const
-
+  it('does not include analysis_state on conversation turns even after analysis completes', async () => {
+    // Regression guard: analysis_state is forbidden on conversation turns regardless of results state
     useCanvasStore.setState({
       results: { status: 'complete', hash: 'hash-fresh' } as any,
       currentScenarioLastResultHash: 'hash-stale',
     })
-    useResultsStore.getState().setAnalysisSummary(analysisSummary as any)
 
     mockCallTurn.mockResolvedValue({
       assistant_text: 'Follow-up acknowledged',
@@ -451,11 +428,7 @@ describe('buildRequest payload — RF → CEE graph_state transform', () => {
     })
 
     const request = mockCallTurn.mock.calls[0][0]
-    expect(request.analysis_state).toEqual({
-      has_results: true,
-      last_run_hash: 'hash-fresh',
-      analysis_summary: analysisSummary,
-    })
+    expect(request.analysis_state).toBeUndefined()
   })
 
   it('system event turn also transforms graph_state correctly', async () => {

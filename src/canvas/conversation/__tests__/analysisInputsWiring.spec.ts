@@ -90,14 +90,14 @@ afterEach(() => {
 // ---------------------------------------------------------------------------
 
 describe('analysis_inputs in turn request', () => {
-  it('includes analysis_inputs when ceeAnalysisReady has options', async () => {
+  it('includes analysis_inputs on run_analysis turn when ceeAnalysisReady has options', async () => {
     useCanvasStore.setState({ ceeAnalysisReady: mockCeeAnalysisReady })
 
     mockCallTurn.mockResolvedValue({ assistant_text: 'ok', client_turn_id: 'r1' })
 
     const { result } = renderHook(() => useConversation())
     await act(async () => {
-      await result.current.sendMessage('run the analysis')
+      await result.current.sendMessage('run the analysis', { turnType: 'run_analysis' })
     })
 
     expect(mockCallTurn).toHaveBeenCalledTimes(1)
@@ -108,13 +108,13 @@ describe('analysis_inputs in turn request', () => {
     expect(request.analysis_inputs.options).toHaveLength(2)
   })
 
-  it('maps both id and option_id on each option', async () => {
+  it('maps both id and option_id on each option on run_analysis turn', async () => {
     useCanvasStore.setState({ ceeAnalysisReady: mockCeeAnalysisReady })
     mockCallTurn.mockResolvedValue({ assistant_text: 'ok', client_turn_id: 'r1' })
 
     const { result } = renderHook(() => useConversation())
     await act(async () => {
-      await result.current.sendMessage('analyse')
+      await result.current.sendMessage('analyse', { turnType: 'run_analysis' })
     })
 
     const [request] = mockCallTurn.mock.calls[0] as [any]
@@ -128,6 +128,20 @@ describe('analysis_inputs in turn request', () => {
     expect(opts[1].id).toBe('option-b')
     expect(opts[1].option_id).toBe('option-b')
     expect(opts[1].label).toBe('Option B')
+  })
+
+  it('omits analysis_inputs on plain conversation turns even when ceeAnalysisReady has options', async () => {
+    // analysis_inputs is run_analysis-only — must not leak onto conversation turns
+    useCanvasStore.setState({ ceeAnalysisReady: mockCeeAnalysisReady })
+    mockCallTurn.mockResolvedValue({ assistant_text: 'ok', client_turn_id: 'r1' })
+
+    const { result } = renderHook(() => useConversation())
+    await act(async () => {
+      await result.current.sendMessage('what should I consider?')
+    })
+
+    const [request] = mockCallTurn.mock.calls[0] as [any]
+    expect(request.analysis_inputs).toBeUndefined()
   })
 
   it('omits analysis_inputs when ceeAnalysisReady is null', async () => {
@@ -161,13 +175,13 @@ describe('analysis_inputs in turn request', () => {
     expect(request.analysis_inputs).toBeUndefined()
   })
 
-  it('uses ceeAnalysisReady.goal_node_id as primary goal source', async () => {
+  it('uses ceeAnalysisReady.goal_node_id as primary goal source on run_analysis turn', async () => {
     useCanvasStore.setState({ ceeAnalysisReady: mockCeeAnalysisReady })
     mockCallTurn.mockResolvedValue({ assistant_text: 'ok', client_turn_id: 'r1' })
 
     const { result } = renderHook(() => useConversation())
     await act(async () => {
-      await result.current.sendMessage('go')
+      await result.current.sendMessage('go', { turnType: 'run_analysis' })
     })
 
     const [request] = mockCallTurn.mock.calls[0] as [any]
