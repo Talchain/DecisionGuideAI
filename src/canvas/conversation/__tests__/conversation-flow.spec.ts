@@ -347,3 +347,64 @@ describe('Scenario 8: valid text + malformed chips + malformed blocks', () => {
     )
   })
 })
+
+// ---------------------------------------------------------------------------
+// Scenario 9: chip message leakage stripping
+// ---------------------------------------------------------------------------
+
+describe('Scenario 9: chip message text stripped from assistant_text', () => {
+  it('strips chip message text (not just label) from trailing list lines in assistant_text', async () => {
+    // CEE echoes the chip's raw message text as a list item in assistant_text — must be stripped
+    mockCallTurn.mockResolvedValueOnce({
+      assistant_text: 'Here are your options:\n- What other approaches could you take?',
+      suggested_actions: [
+        {
+          id: 'chip-alt',
+          label: 'What other approaches could you take?',
+          intent: 'primary',
+          message: 'what other approaches could you take?',
+        },
+      ],
+    })
+    mockCallTurn.mockResolvedValueOnce({ assistant_text: 'Here is more.' })
+
+    const { result } = renderHook(() => useConversation())
+
+    await act(async () => { await result.current.sendMessage('hello') })
+
+    const assistant = [...result.current.messages].reverse().find(m => m.role === 'assistant')
+    // The echoed chip label line should be stripped from assistant text
+    expect(assistant!.content).not.toMatch(/what other approaches could you take\?/i)
+    expect(assistant!.content.trim()).toBe('Here are your options:')
+  })
+
+  it('chip click dispatches as a user turn (not assistant message)', async () => {
+    mockCallTurn.mockResolvedValueOnce({
+      assistant_text: 'What would you like?',
+      suggested_actions: [
+        { id: 'chip-1', label: 'What other approaches could you take?', intent: 'primary', message: 'Please suggest alternative approaches in detail' },
+      ],
+    })
+    mockCallTurn.mockResolvedValueOnce({ assistant_text: 'Here are alternatives.' })
+
+    const { result } = renderHook(() => useConversation())
+
+    await act(async () => { await result.current.sendMessage('hello') })
+
+    const lastAssistant = [...result.current.messages].reverse().find(m => m.role === 'assistant')
+    const chip = lastAssistant?.actionChips?.[0]
+    expect(chip).toBeDefined()
+
+    await act(async () => { await result.current.sendChip(chip!) })
+
+    // User bubble shows the chip LABEL (not the message)
+    const userMessages = result.current.messages.filter(m => m.role === 'user')
+    const chipBubble = userMessages[userMessages.length - 1]
+    expect(chipBubble.role).toBe('user')
+    expect(chipBubble.content).toBe('What other approaches could you take?')
+
+    // Orchestrator was called with chip.message (the actual wire message)
+    const lastCallArgs = mockCallTurn.mock.calls[mockCallTurn.mock.calls.length - 1]
+    expect(lastCallArgs[0].message).toBe('Please suggest alternative approaches in detail')
+  })
+})

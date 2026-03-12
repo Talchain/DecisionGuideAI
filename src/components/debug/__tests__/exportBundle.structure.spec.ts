@@ -266,3 +266,51 @@ describe('buildDebugBundle structured debug sections', () => {
     expect(bundle.cross_surface_events).toEqual([])
   })
 })
+
+// ---------------------------------------------------------------------------
+// Debug bundle — resolved_model and resolved_provider (Task 3)
+// ---------------------------------------------------------------------------
+
+describe('buildDebugBundle — cee_trace model fields', () => {
+  it('includes resolved_model and resolved_provider from _route_metadata (primary source)', () => {
+    const bundle = buildDebugBundle(makeDebugData({
+      ceeTrace: {
+        degraded: false,
+        resolved_model: 'claude-sonnet-4-6',
+        resolved_provider: 'anthropic',
+      },
+    }))
+    expect(bundle.cee_trace?.resolved_model).toBe('claude-sonnet-4-6')
+    expect(bundle.cee_trace?.resolved_provider).toBe('anthropic')
+  })
+
+  it('falls back to trace.model when _route_metadata is absent (extractCeeTrace precedence)', () => {
+    // When extractCeeTrace fills resolved_model from trace.model, the bundle passes it through
+    const bundle = buildDebugBundle(makeDebugData({
+      ceeTrace: {
+        degraded: false,
+        resolved_model: 'claude-haiku-4-5',  // populated by extractCeeTrace fallback
+        resolved_provider: null,
+      },
+    }))
+    expect(bundle.cee_trace?.resolved_model).toBe('claude-haiku-4-5')
+    expect(bundle.cee_trace?.resolved_provider).toBeNull()
+  })
+
+  it('includes null for model fields when ceeTrace has no routing fields', () => {
+    const bundle = buildDebugBundle(makeDebugData({
+      ceeTrace: {
+        degraded: false,
+        resolved_model: null,
+        resolved_provider: null,
+      },
+    }))
+    expect(bundle.cee_trace?.resolved_model).toBeNull()
+    expect(bundle.cee_trace?.resolved_provider).toBeNull()
+  })
+
+  it('sets cee_trace to null when ceeTrace is null', () => {
+    const bundle = buildDebugBundle(makeDebugData({ ceeTrace: null }))
+    expect(bundle.cee_trace).toBeNull()
+  })
+})

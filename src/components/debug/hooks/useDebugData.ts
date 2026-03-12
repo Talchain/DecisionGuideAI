@@ -280,6 +280,10 @@ export interface CeeTraceData {
   latency_ms?: number
   /** Source of the response */
   source?: string
+  /** LLM model that served the request (from _route_metadata) */
+  resolved_model?: string | null
+  /** LLM provider that served the request (from _route_metadata) */
+  resolved_provider?: string | null
 }
 
 /**
@@ -1947,13 +1951,27 @@ function extractCeeTrace(ceeResponse: unknown): CeeTraceData | null {
     ?? cee.trace as Record<string, unknown>
     ?? (cee.meta as Record<string, unknown>)?.trace as Record<string, unknown>
 
-  if (!trace) return null
+  const routeMeta = cee._route_metadata as Record<string, unknown> | undefined
+
+  if (!trace && !routeMeta) return null
+
+  // Precedence: _route_metadata > ceeTrace/trace model fields > null
+  const resolvedModel =
+    (routeMeta?.resolved_model as string | null | undefined)
+    ?? (trace?.model as string | null | undefined)
+    ?? null
+  const resolvedProvider =
+    (routeMeta?.resolved_provider as string | null | undefined)
+    ?? (trace?.provider as string | null | undefined)
+    ?? null
 
   return {
-    degraded: (trace.degraded as boolean) ?? false,
-    reason: trace.reason as string | undefined,
-    latency_ms: trace.latency_ms as number | undefined,
-    source: trace.source as string | undefined,
+    degraded: (trace?.degraded as boolean) ?? false,
+    reason: trace?.reason as string | undefined,
+    latency_ms: trace?.latency_ms as number | undefined,
+    source: trace?.source as string | undefined,
+    resolved_model: resolvedModel,
+    resolved_provider: resolvedProvider,
   }
 }
 

@@ -379,4 +379,14 @@ export interface OrchestratorResponseEnvelopeV2 {
    * Present only when analysis was attempted but failed.
    */
   analysis_error?: { code: string; message: string }
+  /**
+   * CEE routing metadata — present when CEE lands support.
+   * Includes the resolved LLM model and provider used to serve the request.
+   * Read-only debug metadata; never displayed to users.
+   */
+  _route_metadata?: {
+    resolved_model?: string | null
+    resolved_provider?: string | null
+    [key: string]: unknown
+  }
 }

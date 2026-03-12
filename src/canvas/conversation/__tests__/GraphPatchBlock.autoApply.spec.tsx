@@ -23,10 +23,12 @@ const storeMocks = vi.hoisted(() => ({
   mockSetShowInspectorPanel: vi.fn(),
   mockSetHighlightedNodes: vi.fn(),
   mockSetHighlightedEdges: vi.fn(),
+  canvasNodes: [] as Array<{ id: string }>,
 }))
 
 vi.mock('../../store', () => {
   const mockState = {
+    get nodes() { return storeMocks.canvasNodes },
     selectNodeWithoutHistory: storeMocks.mockSelectNodeWithoutHistory,
     selectNodes: storeMocks.mockSelectNodes,
     setShowInspectorPanel: storeMocks.mockSetShowInspectorPanel,
@@ -61,9 +63,12 @@ function makePatchBlock(overrides?: Partial<GraphPatchBlock>): GraphPatchBlock {
 describe('GraphPatchBlock — auto_apply', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    storeMocks.canvasNodes = []
   })
 
   it('renders as applied immediately when auto_apply=true (no Accept/Dismiss buttons)', () => {
+    // n-new is the target; provide enough canvas nodes so coverage < 80%
+    storeMocks.canvasNodes = [{ id: 'n-new' }, { id: 'n-x1' }, { id: 'n-x2' }, { id: 'n-x3' }]
     render(<InlineBlocks blocks={[makePatchBlock({ auto_apply: true })]} />)
 
     expect(screen.getByTestId('patch-status-auto-applied')).toBeInTheDocument()
@@ -75,6 +80,7 @@ describe('GraphPatchBlock — auto_apply', () => {
   })
 
   it('reveals auto-applied changes on canvas', () => {
+    storeMocks.canvasNodes = [{ id: 'n-new' }, { id: 'n-x1' }, { id: 'n-x2' }, { id: 'n-x3' }]
     render(<InlineBlocks blocks={[makePatchBlock({ auto_apply: true })]} />)
 
     fireEvent.click(screen.getByTestId('patch-show-changes'))

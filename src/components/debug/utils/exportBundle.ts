@@ -8,6 +8,7 @@
 import type {
   DebugData,
   BuildVersions,
+  CeeTraceData,
   DiagnosticChecks,
   LlmRawData,
   ValidationIssue,
@@ -279,6 +280,8 @@ interface DebugBundle {
   cee_observability?: Omit<CEEObservabilityData, 'llm_calls'> & {
     llm_calls: Array<Omit<CEEObservabilityData['llm_calls'][number], 'raw_prompt' | 'raw_response'>>
   } | null
+  /** CEE routing + trace metadata including resolved LLM model/provider */
+  cee_trace?: CeeTraceData | null
   export_summary_schema: {
     derivation: 'export_time_from_debugdata_only'
     runtime_capture_included: false
@@ -760,6 +763,9 @@ export function buildDebugBundle(data: DebugData, options: ExportOptions = {}): 
     feature_flags_at_request: data.feature_flags_at_request,
     timing: data.timing,
     schema_versions: data.schema_versions,
+
+    // CEE routing + trace metadata (resolved model/provider from _route_metadata)
+    cee_trace: data.ceeTrace ?? null,
 
     // CEE Observability (sanitized - raw I/O always stripped for security)
     cee_observability: data.cee_observability

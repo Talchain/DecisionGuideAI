@@ -23,10 +23,13 @@ const storeMocks = vi.hoisted(() => ({
   mockSetShowInspectorPanel: vi.fn(),
   mockSetHighlightedNodes: vi.fn(),
   mockSetHighlightedEdges: vi.fn(),
+  // Canvas node list — set per test by assigning an array of { id } objects
+  canvasNodes: [] as Array<{ id: string }>,
 }))
 
 vi.mock('../../store', () => {
   const mockState = {
+    get nodes() { return storeMocks.canvasNodes },
     selectNodeWithoutHistory: storeMocks.mockSelectNodeWithoutHistory,
     selectNodes: storeMocks.mockSelectNodes,
     setShowInspectorPanel: storeMocks.mockSetShowInspectorPanel,
@@ -62,9 +65,15 @@ function makePatchBlock(overrides?: Partial<GraphPatchBlock>): GraphPatchBlock {
 // Tests
 // ---------------------------------------------------------------------------
 
+// Helper: build a canvas node list from IDs
+function canvasNodes(...ids: string[]): Array<{ id: string }> {
+  return ids.map(id => ({ id }))
+}
+
 describe('GraphPatchBlock', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    storeMocks.canvasNodes = []
   })
 
   it('renders with summary text, Accept, and Dismiss buttons', () => {
@@ -167,6 +176,8 @@ describe('GraphPatchBlock', () => {
   })
 
   it('shows "Applied" status and hides buttons when accepted', () => {
+    // n-new is the target; provide enough canvas nodes so coverage < 80%
+    storeMocks.canvasNodes = canvasNodes('n-new', 'n-existing-1', 'n-existing-2', 'n-existing-3')
     const block = makePatchBlock()
     const states = new Map<string, PatchBlockState>([['patch-1', 'accepted']])
     render(
@@ -190,6 +201,7 @@ describe('GraphPatchBlock', () => {
   })
 
   it('reveals applied node changes using existing canvas focus/highlight hooks', () => {
+    storeMocks.canvasNodes = canvasNodes('n-new', 'n-existing-1', 'n-existing-2', 'n-existing-3')
     const block = makePatchBlock()
     const states = new Map<string, PatchBlockState>([['patch-1', 'accepted']])
     render(
@@ -204,6 +216,7 @@ describe('GraphPatchBlock', () => {
   })
 
   it('cancels prior highlight reset timers when show changes is triggered repeatedly', () => {
+    storeMocks.canvasNodes = canvasNodes('n-new', 'n-existing-1', 'n-existing-2', 'n-existing-3')
     vi.useFakeTimers()
 
     const block = makePatchBlock()
@@ -232,6 +245,7 @@ describe('GraphPatchBlock', () => {
   })
 
   it('clears pending highlight reset timers on unmount', () => {
+    storeMocks.canvasNodes = canvasNodes('n-new', 'n-existing-1', 'n-existing-2', 'n-existing-3')
     vi.useFakeTimers()
 
     const block = makePatchBlock()
@@ -361,5 +375,133 @@ describe('GraphPatchBlock', () => {
 
     fireEvent.click(screen.getByText('Try again'))
     expect(onAccept).toHaveBeenCalledWith('patch-1', block)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Show on graph — full-graph suppression (Task 2)
+// ---------------------------------------------------------------------------
+
+describe('Show on graph — full-graph suppression', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    storeMocks.canvasNodes = []
+  })
+
+  it('hides Show on graph when target set covers ≥80% of canvas nodes (only counting in-graph IDs)', () => {
+    // Canvas has n1..n5; patch updates all 5 → 100% → hide
+    storeMocks.canvasNodes = canvasNodes('n1', 'n2', 'n3', 'n4', 'n5')
+    const block = makePatchBlock({
+      auto_apply: true,
+      operations: [
+        { op: 'update_node', target_id: 'n1', data: {} },
+        { op: 'update_node', target_id: 'n2', data: {} },
+        { op: 'update_node', target_id: 'n3', data: {} },
+        { op: 'update_node', target_id: 'n4', data: {} },
+        { op: 'update_node', target_id: 'n5', data: {} },
+      ],
+    })
+    const states = new Map<string, PatchBlockState>([['patch-1', 'accepted']])
+    render(<InlineBlocks blocks={[block]} patchBlockStates={states} />)
+    expect(screen.queryByTestId('patch-show-changes')).not.toBeInTheDocument()
+  })
+
+  it('shows Show on graph when target set is a meaningful in-graph subset (<80%)', () => {
+    // Canvas has 10 nodes; patch updates 2 known nodes → 20% → show
+    storeMocks.canvasNodes = canvasNodes('n1', 'n2', 'n3', 'n4', 'n5', 'n6', 'n7', 'n8', 'n9', 'n10')
+    const block = makePatchBlock({
+      auto_apply: true,
+      operations: [
+        { op: 'update_node', target_id: 'n1', data: {} },
+        { op: 'update_node', target_id: 'n2', data: {} },
+      ],
+    })
+    const states = new Map<string, PatchBlockState>([['patch-1', 'accepted']])
+    render(<InlineBlocks blocks={[block]} patchBlockStates={states} />)
+    expect(screen.getByTestId('patch-show-changes')).toBeInTheDocument()
+  })
+
+  it('hides Show on graph when exactly 80% of canvas nodes are targeted', () => {
+    // Canvas has 5 nodes; patch targets 4 known nodes → 80% boundary → hide
+    storeMocks.canvasNodes = canvasNodes('n1', 'n2', 'n3', 'n4', 'n5')
+    const block = makePatchBlock({
+      auto_apply: true,
+      operations: [
+        { op: 'update_node', target_id: 'n1', data: {} },
+        { op: 'update_node', target_id: 'n2', data: {} },
+        { op: 'update_node', target_id: 'n3', data: {} },
+        { op: 'update_node', target_id: 'n4', data: {} },
+      ],
+    })
+    const states = new Map<string, PatchBlockState>([['patch-1', 'accepted']])
+    render(<InlineBlocks blocks={[block]} patchBlockStates={states} />)
+    expect(screen.queryByTestId('patch-show-changes')).not.toBeInTheDocument()
+  })
+
+  it('stale IDs (not on canvas) are not counted toward coverage, keeping subset visible', () => {
+    // Canvas has n1..n10; patch references n1 + stale-id that no longer exists → 10% → show
+    storeMocks.canvasNodes = canvasNodes('n1', 'n2', 'n3', 'n4', 'n5', 'n6', 'n7', 'n8', 'n9', 'n10')
+    const block = makePatchBlock({
+      auto_apply: true,
+      operations: [
+        { op: 'update_node', target_id: 'n1', data: {} },
+        { op: 'update_node', target_id: 'stale-deleted-id', data: {} },
+      ],
+    })
+    const states = new Map<string, PatchBlockState>([['patch-1', 'accepted']])
+    render(<InlineBlocks blocks={[block]} patchBlockStates={states} />)
+    // Only n1 is valid; 1/10 = 10% → show
+    expect(screen.getByTestId('patch-show-changes')).toBeInTheDocument()
+  })
+
+  it('hides Show on graph for generative draft (auto_apply with ≥3 add_node ops as majority)', () => {
+    // Initial draft: 4 add_node, 1 add_edge → 4/5 ops are add_node → generative draft → hide
+    storeMocks.canvasNodes = canvasNodes('n1', 'n2', 'n3', 'n4')
+    const block = makePatchBlock({
+      auto_apply: true,
+      operations: [
+        { op: 'add_node', target_id: 'n1', data: {} },
+        { op: 'add_node', target_id: 'n2', data: {} },
+        { op: 'add_node', target_id: 'n3', data: {} },
+        { op: 'add_node', target_id: 'n4', data: {} },
+        { op: 'add_edge', target_id: 'e1', data: {} },
+      ],
+    })
+    const states = new Map<string, PatchBlockState>([['patch-1', 'accepted']])
+    render(<InlineBlocks blocks={[block]} patchBlockStates={states} />)
+    expect(screen.queryByTestId('patch-show-changes')).not.toBeInTheDocument()
+  })
+
+  it('shows Show on graph for a non-draft auto_apply edit (update ops, not add_node majority)', () => {
+    // Auto-applied edit that updates 2 out of 10 nodes → not a draft → show
+    storeMocks.canvasNodes = canvasNodes('n1', 'n2', 'n3', 'n4', 'n5', 'n6', 'n7', 'n8', 'n9', 'n10')
+    const block = makePatchBlock({
+      auto_apply: true,
+      operations: [
+        { op: 'update_node', target_id: 'n1', data: {} },
+        { op: 'update_node', target_id: 'n2', data: {} },
+      ],
+    })
+    const states = new Map<string, PatchBlockState>([['patch-1', 'accepted']])
+    render(<InlineBlocks blocks={[block]} patchBlockStates={states} />)
+    expect(screen.getByTestId('patch-show-changes')).toBeInTheDocument()
+  })
+
+  it('highlights only the subset nodes (deduped, in-graph) when Show on graph is clicked', () => {
+    storeMocks.canvasNodes = canvasNodes('node-a', 'node-b', 'node-c', 'node-d', 'node-e',
+      'node-f', 'node-g', 'node-h', 'node-i', 'node-j')
+    const block = makePatchBlock({
+      auto_apply: true,
+      operations: [
+        { op: 'update_node', target_id: 'node-a', data: {} },
+        { op: 'update_node', target_id: 'node-b', data: {} },
+        // Duplicate — must not appear twice in highlight call
+        { op: 'update_node', target_id: 'node-a', data: {} },
+      ],
+    })
+    const states = new Map<string, PatchBlockState>([['patch-1', 'accepted']])
+    render(<InlineBlocks blocks={[block]} patchBlockStates={states} />)
+    fireEvent.click(screen.getByTestId('patch-show-changes'))
+    expect(storeMocks.mockSetHighlightedNodes).toHaveBeenCalledWith(['node-a', 'node-b'])
   })
 })

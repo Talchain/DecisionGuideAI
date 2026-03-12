@@ -1316,21 +1316,23 @@ export function useConversation(): UseConversationReturn {
 
       const orderedBlocks = prioritiseBlocks(normalisedBlocks)
 
-      // Strip trailing text lines that duplicate chip labels (LLM sometimes
-      // echoes suggested actions as plain text at the end of assistant_text).
-      // Only strip lines that look like a list item (bulleted/numbered prefix)
-      // to avoid removing semantically valid prose endings.
+      // Strip trailing text lines that duplicate chip labels or messages (LLM sometimes
+      // echoes suggested actions — either the display label or the raw prompt — as plain
+      // text at the end of assistant_text). Only strip lines that look like a list item
+      // (bulleted/numbered prefix) to avoid removing semantically valid prose endings.
       let assistantText = envelope.assistant_text ?? ''
       if (chips.length > 0) {
         const chipLabels = new Set(chips.map(c => c.label.toLowerCase().trim()))
+        const chipMessages = new Set(chips.flatMap(c => c.message ? [c.message.toLowerCase().trim()] : []))
         const LIST_PREFIX = /^[-•*\d.)\u2022\u2013\u2014]\s*/
         const lines = assistantText.split('\n')
         while (lines.length > 0) {
           const raw = lines[lines.length - 1].trim()
           // Allow stripping trailing blank lines
           if (!raw) { lines.pop(); continue }
-          // Only strip lines with a list-item prefix that match a chip label
-          if (LIST_PREFIX.test(raw) && chipLabels.has(raw.replace(LIST_PREFIX, '').toLowerCase())) {
+          // Strip lines with a list-item prefix that match a chip label or chip message
+          const stripped = raw.replace(LIST_PREFIX, '').toLowerCase()
+          if (LIST_PREFIX.test(raw) && (chipLabels.has(stripped) || chipMessages.has(stripped))) {
             lines.pop()
           } else {
             break

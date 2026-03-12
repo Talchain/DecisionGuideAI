@@ -7,7 +7,7 @@
  * always stay visible — budget is enforced upstream in useConversation).
  */
 
-import { useState, useCallback, useEffect, useRef, memo } from 'react'
+import { useState, useCallback, useEffect, useRef, memo, useMemo } from 'react'
 import { Lightbulb, AlertTriangle, Check, X as XIcon, ChevronDown, ChevronUp, ExternalLink, Wand2 } from 'lucide-react'
 import { typography } from '../../styles/typography'
 import { useGuidanceStore } from '../stores/guidanceStore'
@@ -688,6 +688,8 @@ function GraphPatchBlockRenderer({
   const resolvedState: PatchBlockState = blockState
   const isSettled = resolvedState !== 'proposed'
 
+  const canvasNodes = useCanvasStore(s => s.nodes)
+  const canvasNodeIds = useMemo(() => new Set(canvasNodes.map((n: { id: string }) => n.id)), [canvasNodes])
   const opSummary = summarisePatchOps(block.operations)
   const proposalItems = getProposalItems(block)
   const proposalItemsSource = getProposalItemsSource(block)
@@ -695,7 +697,15 @@ function GraphPatchBlockRenderer({
   const relatedTargets = extractGroundedTargets(block.related_elements)
   const nodeIds = relatedTargets.nodeIds.length > 0 ? relatedTargets.nodeIds : opTargets.nodeIds
   const edgeIds = relatedTargets.edgeIds.length > 0 ? relatedTargets.edgeIds : opTargets.edgeIds
-  const hasRevealTargets = nodeIds.length > 0 || edgeIds.length > 0
+  // Deduplicate and validate: only count target IDs that exist on the current canvas
+  const uniqueTargetNodeIds = [...new Set(nodeIds)].filter(id => canvasNodeIds.has(id))
+  const totalNodeCount = canvasNodeIds.size
+  // Hide "Show on graph" when target set covers ≥80% of the graph (whole-graph highlight is useless)
+  const isWholeGraphTarget = totalNodeCount > 0 && uniqueTargetNodeIds.length / totalNodeCount >= 0.8
+  // Hide "Show on graph" for generative drafts (auto_apply + majority add_node ops = new graph appeared)
+  const addNodeOpCount = block.operations.filter(op => op.op === 'add_node').length
+  const isGenerativeDraft = isAutoApplied && addNodeOpCount >= 3 && addNodeOpCount > block.operations.length / 2
+  const hasRevealTargets = !isWholeGraphTarget && !isGenerativeDraft && (uniqueTargetNodeIds.length > 0 || edgeIds.length > 0)
   const isApplied = isAutoApplied || resolvedState === 'accepted'
   const statusLabel = 'Applied'
   const shouldCollapseProposalItems =
@@ -762,15 +772,15 @@ function GraphPatchBlockRenderer({
     const store = useCanvasStore.getState()
     clearHighlightTimeouts()
 
-    if (nodeIds.length === 1) {
-      store.selectNodeWithoutHistory(nodeIds[0])
+    if (uniqueTargetNodeIds.length === 1) {
+      store.selectNodeWithoutHistory(uniqueTargetNodeIds[0])
       store.setShowInspectorPanel(true)
-    } else if (nodeIds.length > 1) {
-      store.selectNodes(nodeIds)
+    } else if (uniqueTargetNodeIds.length > 1) {
+      store.selectNodes(uniqueTargetNodeIds)
     }
 
-    if (nodeIds.length > 0) {
-      store.setHighlightedNodes(nodeIds)
+    if (uniqueTargetNodeIds.length > 0) {
+      store.setHighlightedNodes(uniqueTargetNodeIds)
       highlightTimeoutsRef.current.push(setTimeout(() => {
         useCanvasStore.getState().setHighlightedNodes([])
       }, 2000))
