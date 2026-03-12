@@ -299,6 +299,50 @@ export const WIN_GAUGE_COLORS_INDETERMINATE = [
 ]
 
 /**
+ * Tailwind border classes that correspond 1-to-1 with WIN_GAUGE_COLORS by index.
+ * Option cards use these to match their WinGauge segment colour without string-matching CSS vars.
+ */
+export const WIN_GAUGE_BORDER_CLASSES = [
+  'border-success/30',   // Winner — matches var(--success)
+  'border-info/30',      // Runner-up — matches var(--info)
+  'border-option/30',    // Third — matches var(--option)
+  'border-panel-border', // Fourth+ — matches var(--border-default)
+]
+
+/** Indeterminate palette border classes, parallel to WIN_GAUGE_COLORS_INDETERMINATE. */
+export const WIN_GAUGE_BORDER_CLASSES_INDETERMINATE = [
+  'border-info/30',      // Top option — matches var(--info)
+  'border-info/20',      // Second option — matches var(--info-light)
+  'border-panel-border', // Third — matches var(--border-default)
+  'border-panel-border', // Fourth — matches var(--border-default)
+]
+
+/**
+ * Build a border-class map from option ID → Tailwind border class, using the same
+ * sort order as buildSegmentColorMap. Derived from the palette arrays by index so
+ * border and segment colours cannot drift independently.
+ */
+export function buildSegmentBorderClassMap(
+  options: Array<{ id: string; winProbability?: number | null }>,
+  winnerId: string | undefined,
+  decisionState?: DecisionState,
+): Record<string, string> {
+  const classes = decisionState === 'indeterminate'
+    ? WIN_GAUGE_BORDER_CLASSES_INDETERMINATE
+    : WIN_GAUGE_BORDER_CLASSES
+  const sorted = [...options].sort((a, b) => {
+    if (a.id === winnerId && b.id !== winnerId) return -1
+    if (a.id !== winnerId && b.id === winnerId) return 1
+    return (b.winProbability ?? 0) - (a.winProbability ?? 0)
+  })
+  const map: Record<string, string> = {}
+  sorted.forEach((opt, i) => {
+    map[opt.id] = classes[Math.min(i, classes.length - 1)]
+  })
+  return map
+}
+
+/**
  * Build a colour map from option ID → CSS colour, using the same sort order
  * as WinGauge (winner first, then winProbability descending). This ensures
  * OptionCards colours match the corresponding WinGauge segment ordering

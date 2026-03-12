@@ -3422,7 +3422,7 @@ describe('usePreAnalysisData', () => {
       const sameLeverCheck = result.current.qualityChecks.find(c => c.id === 'same_levers')
       expect(sameLeverCheck).toBeDefined()
       expect(sameLeverCheck?.detail).toBe(
-        'When options change the same drivers, results may cluster together \u2014 consider whether your options represent genuinely different approaches'
+        'When options change the same drivers, results may cluster together; consider whether your options represent genuinely different approaches'
       )
     })
 

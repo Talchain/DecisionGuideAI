@@ -58,10 +58,10 @@ interface ModelAdjustmentsProps {
  * - strength_defaulted / observed_state_defaulted / baseline_created
  */
 const REPAIR_COPY: Record<string, { singular: string; plural: string }> = {
-  'factor_reclassified': { singular: 'Moved 1 factor outside your control \u2014 treated as an external condition', plural: 'Moved {count} factors outside your control \u2014 treated as external conditions' },
-  'category_reclassified': { singular: 'Moved 1 factor outside your control \u2014 treated as an external condition', plural: 'Moved {count} factors outside your control \u2014 treated as external conditions' },
-  'category_inferred': { singular: 'Moved 1 factor outside your control \u2014 treated as an external condition', plural: 'Moved {count} factors outside your control \u2014 treated as external conditions' },
-  'category_infer': { singular: 'Moved 1 factor outside your control \u2014 treated as an external condition', plural: 'Moved {count} factors outside your control \u2014 treated as external conditions' },
+  'factor_reclassified': { singular: 'Moved 1 factor outside your control, treated as an external condition', plural: 'Moved {count} factors outside your control, treated as external conditions' },
+  'category_reclassified': { singular: 'Moved 1 factor outside your control, treated as an external condition', plural: 'Moved {count} factors outside your control, treated as external conditions' },
+  'category_inferred': { singular: 'Moved 1 factor outside your control, treated as an external condition', plural: 'Moved {count} factors outside your control, treated as external conditions' },
+  'category_infer': { singular: 'Moved 1 factor outside your control, treated as an external condition', plural: 'Moved {count} factors outside your control, treated as external conditions' },
   'risk_coefficient_corrected': { singular: 'Corrected 1 relationship direction where the sign didn\u2019t match the effect', plural: 'Corrected {count} relationship directions where the sign didn\u2019t match the effect' },
   'deterministic_repair': { singular: 'Repaired 1 structural issue in your model', plural: 'Repaired {count} structural issues in your model' },
   'strp_repair': { singular: 'Repaired 1 structural issue in your model', plural: 'Repaired {count} structural issues in your model' },
@@ -95,7 +95,7 @@ function sanitiseDetail(detail: string): string {
   // Replace the full sign-contradiction pattern before any other transforms
   const signCorrectionPattern = /effect_direction\s+["']?\w+["']?\s+contradicts\s+strength[_.]mean\s+sign\s*\([^)]*\)/gi
   if (signCorrectionPattern.test(detail)) {
-    return "Relationship direction didn't match the stated effect \u2014 corrected automatically"
+    return "Relationship direction didn't match the stated effect. Corrected automatically"
   }
   return detail
     // Humanise engine verbs before other transforms
@@ -198,7 +198,7 @@ function AdjustmentRow({ adj }: { adj: GroupedAdjustment }) {
               {showDetail ? 'Hide details' : 'Details'}
             </button>
             {showDetail && (
-              <div className="mt-2 pl-3 border-l-2 border-panel-border">
+              <div className="mt-2 pl-3">
                 <p className={`${typography.panelBody} text-text-light`}>{adj.technicalDetail}</p>
               </div>
             )}

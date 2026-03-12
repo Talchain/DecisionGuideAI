@@ -42,21 +42,6 @@ interface M1TopActionsProps {
   onHoverLeave?: () => void
 }
 
-/** Category styling - border colors only, no background tints */
-const categoryStyles: Record<ImprovementCategory, { border: string }> = {
-  fix: {
-    border: 'border-l-danger',
-  },
-  verify: {
-    border: 'border-l-warning',
-  },
-  add_evidence: {
-    border: 'border-l-panel-border',
-  },
-  strengthen: {
-    border: 'border-l-panel-border',
-  },
-}
 
 export function M1TopActions({ topActions, onAddEvidence, onConfirm, onAssumption, onEdit, onResetSource, onHoverEnter, onHoverLeave }: M1TopActionsProps) {
   // Track which evidence item is showing the input
@@ -84,7 +69,6 @@ export function M1TopActions({ topActions, onAddEvidence, onConfirm, onAssumptio
   return (
     <div className="space-y-2">
       {topActions.map((item, index) => {
-        const styles = categoryStyles[item.category]
         const badgeColor = categoryBadgeColors[item.category]
         const isEvidenceItem = item.category === 'add_evidence'
         const showInput = activeEvidenceInput === item.key
@@ -103,10 +87,7 @@ export function M1TopActions({ topActions, onAddEvidence, onConfirm, onAssumptio
           return (
             <div
               key={item.key}
-              className={`
-                relative flex flex-col gap-2 p-3 rounded-lg border border-panel-border border-l-[3px]
-                ${styles.border}
-              `}
+              className="relative flex flex-col gap-2 p-3 rounded-lg border border-panel-border"
             >
               {/* Collapsed row */}
               <button
@@ -132,7 +113,7 @@ export function M1TopActions({ topActions, onAddEvidence, onConfirm, onAssumptio
 
               {/* Expanded content */}
               {isReviewedExpanded && (
-                <div className="ml-8 pl-2 border-l-2 border-panel-border">
+                <div className="ml-8 pl-2">
                   <div className="flex items-center gap-2 py-1">
                     <span className={`${typography.panelBody} text-text-light`}>
                       {reviewedState === 'confirmed' ? 'Confirmed as correct' : 'Marked as assumption'}
@@ -169,10 +150,7 @@ export function M1TopActions({ topActions, onAddEvidence, onConfirm, onAssumptio
         return (
           <div
             key={item.key}
-            className={`
-              relative flex flex-col gap-2 p-3 rounded-lg border border-panel-border border-l-[3px] cursor-pointer
-              hover:bg-black/[0.02] ${styles.border}
-            `}
+            className="relative flex flex-col gap-2 p-3 rounded-lg border border-panel-border cursor-pointer hover:bg-black/[0.02]"
             onMouseEnter={() => {
               if (hoverTarget && onHoverEnter) {
                 onHoverEnter(hoverTarget.type as 'node' | 'edge', hoverTarget.id)
@@ -217,7 +195,7 @@ export function M1TopActions({ topActions, onAddEvidence, onConfirm, onAssumptio
                     {onAssumption && (
                       <IconBtn
                         icon={HelpCircle}
-                        tooltip={"Accept as assumption \u2014 won\u2019t ask again"}
+                        tooltip={"Accept as assumption. Won\u2019t ask again"}
                         variant="assume"
                         onClick={() => {
                           if (item.action?.targetId) {

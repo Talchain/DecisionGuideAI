@@ -75,7 +75,7 @@ describe('ModelAdjustments — detail sanitisation (Task 4)', () => {
     expect(screen.queryByText(/\(0\.3\)/)).not.toBeInTheDocument()
 
     // Human sentence should be shown
-    expect(screen.getByText("Relationship direction didn't match the stated effect \u2014 corrected automatically")).toBeInTheDocument()
+    expect(screen.getByText("Relationship direction didn't match the stated effect. Corrected automatically")).toBeInTheDocument()
   })
 
   it('shows user-facing headline from REPAIR_COPY for known codes', () => {

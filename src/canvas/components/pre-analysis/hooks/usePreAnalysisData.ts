@@ -1280,7 +1280,7 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
     if (nodesByKind.risk.length === 0) {
       checks.push({
         id: 'no_risks',
-        message: 'No risks in your model \u2014 what could go wrong?',
+        message: 'No risks in your model: what could go wrong?',
         cta: 'Add risk',
         ctaAction: 'add_risk',
         pill: 'framing',
@@ -1296,7 +1296,7 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
     if (!hasBaselineOption && optionNodes.length >= 2) {
       checks.push({
         id: 'no_baseline',
-        message: "No 'do nothing' option \u2014 can't tell if action beats inaction",
+        message: "No 'do nothing' option. Can't tell if action beats inaction",
         cta: 'Add baseline',
         ctaAction: 'add_baseline',
         pill: 'framing',
@@ -1312,7 +1312,7 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
       if (goalOs.value == null) {
         checks.push({
           id: 'goal_baseline_missing',
-          message: 'No current baseline set — analysis will show target reach likelihood, not improvement from today',
+          message: 'No current baseline set. Analysis will show target reach likelihood, not improvement from today',
           cta: 'Set current value',
           ctaAction: 'set_goal_baseline',
           pill: 'framing',
@@ -1325,7 +1325,7 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
     if (!hasNegative && edges.length > 0) {
       checks.push({
         id: 'all_positive_edges',
-        message: 'No trade-offs captured \u2014 every factor helps. Is that realistic?',
+        message: 'No trade-offs captured: every factor helps. Is that realistic?',
         cta: 'Review structure',
         ctaAction: 'review_structure',
         pill: 'framing',
@@ -1349,8 +1349,8 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
         if (overlapRatio > 0.8) {
           checks.push({
             id: 'same_levers',
-            message: 'Options affect the same factors \u2014 may not represent different strategies',
-            detail: 'When options change the same drivers, results may cluster together \u2014 consider whether your options represent genuinely different approaches',
+            message: 'Options affect the same factors: may not represent different strategies',
+            detail: 'When options change the same drivers, results may cluster together; consider whether your options represent genuinely different approaches',
             cta: 'Review options',
             ctaAction: 'review_options',
             pill: 'verify',
@@ -1371,7 +1371,7 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
       if (!hasExternal) {
         checks.push({
           id: 'zero_external_factors',
-          message: 'No external factors \u2014 what market or environmental conditions could affect the outcome?',
+          message: 'No external factors: what market or environmental conditions could affect the outcome?',
           cta: 'Review structure',
           ctaAction: 'review_structure',
           pill: 'framing',
@@ -1389,7 +1389,7 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
       if (aiCount > briefCount) {
         checks.push({
           id: 'many_ai_estimates',
-          message: 'Most values estimated by AI \u2014 consider validating the top 2\u20133',
+          message: 'Most values estimated by AI. Consider validating the top 2\u20133',
           cta: 'Review assumptions',
           ctaAction: 'review_assumptions',
           pill: 'verify',
@@ -1411,7 +1411,7 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
     if (successThreshold === null && (hasQuantitativeGoalHint || userClearedTarget)) {
       checks.push({
         id: 'no_target',
-        message: 'No success target \u2014 results rank options but can\'t show probability of success',
+        message: "No success target: results rank options but can't show probability of success",
         cta: 'Set target',
         ctaAction: 'set_target',
         pill: 'framing',
@@ -1518,7 +1518,7 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
       return `${qCheckCount} quality suggestion${qCheckCount !== 1 ? 's' : ''} to consider.`
     }
     if (isReady && totalImprovements === 0) {
-      return 'Model looks ready \u2014 no issues detected.'
+      return 'Model looks ready; no issues detected.'
     }
     return null
   }, [isLoading, isReady, blockerCount, ceeAnalysisReady?.coaching_summary, tiers, qualityChecks, totalImprovements])

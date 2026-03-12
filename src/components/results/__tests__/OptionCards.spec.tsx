@@ -183,11 +183,12 @@ describe('OptionCards', () => {
       expect(winnerCard.className).toContain('border-success/30')
     })
 
-    it('applies border-panel-border to non-winner card', () => {
+    it('applies ordinal chart colour border to non-winner card', () => {
       render(<OptionCards options={mockOptions} winnerId="option-1" />)
 
+      // Runner-up (option-2) gets the second ordinal colour: border-info/30
       const otherCard = screen.getByTestId('option-card-option-2')
-      expect(otherCard.className).toContain('border-panel-border')
+      expect(otherCard.className).toContain('border-info/30')
     })
   })
 

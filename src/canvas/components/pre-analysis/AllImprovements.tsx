@@ -64,7 +64,6 @@ interface AllImprovementsProps {
 /** Tier configuration for three-tier hierarchy */
 interface TierConfig {
   title: string
-  border: string
   defaultExpanded: boolean
 }
 
@@ -72,17 +71,14 @@ interface TierConfig {
 const tierConfig: Record<string, TierConfig> = {
   mustAddress: {
     title: 'Must address',
-    border: 'border-l-danger', // carrot
     defaultExpanded: true,
   },
   reviewAssumptions: {
     title: 'Review assumptions',
-    border: 'border-l-goal', // sun
     defaultExpanded: true,
   },
   optional: {
     title: 'More improvements',
-    border: 'border-l-info', // sky
     defaultExpanded: false,
   },
 }
@@ -144,7 +140,7 @@ function TierSection({
   }
 
   return (
-    <div className={`rounded-lg border border-panel-border border-l-[3px] ${config.border}`}>
+    <div className="rounded-lg border border-panel-border">
       {/* Section header - clickable accordion */}
       <button
         type="button"
@@ -267,33 +263,23 @@ function TierSection({
 /** Category display config - no backgrounds, sentence case labels */
 const categoryConfig: Record<ImprovementCategory, {
   label: string
-  border: string
-  containerBorder: string
   rowBorderColor: string
 }> = {
   fix: {
     label: 'Fix',
-    border: 'border-l-danger',
-    containerBorder: 'border-panel-border', // Keep default for Fix
     rowBorderColor: 'rgba(234, 123, 75, 0.2)', // danger at 20%
   },
   verify: {
     label: 'Verify',
-    border: 'border-l-warning',
-    containerBorder: 'border-panel-border',
     rowBorderColor: 'rgba(255, 166, 86, 0.2)', // warning at 20%
   },
   add_evidence: {
     label: 'Add evidence',
-    border: 'border-l-panel-border',
-    containerBorder: 'border-panel-border',
-    rowBorderColor: 'rgba(225, 216, 199, 0.4)', // #E1D8C7 at 40%
+    rowBorderColor: 'rgba(225, 216, 199, 0.4)', // panel-border at 40%
   },
   strengthen: {
     label: 'Strengthen',
-    border: 'border-l-panel-border',
-    containerBorder: 'border-panel-border',
-    rowBorderColor: 'rgba(170, 167, 228, 0.2)', // option color at 20%
+    rowBorderColor: 'rgba(170, 167, 228, 0.2)', // option at 20%
   },
 }
 
@@ -325,7 +311,7 @@ function CategorySection({ category, items, onFocus, actionHandlers, removingIte
   // For add_evidence, show collapsed summary by default
   if (category === 'add_evidence' && !isExpanded) {
     return (
-      <div className={`rounded-lg border ${config.containerBorder} border-l-[3px] ${config.border} py-2 px-2.5`}>
+      <div className="rounded-lg border border-panel-border py-2 px-2.5">
         <div className="flex items-center justify-between">
           <p className={`${typography.panelBody} text-text-body`}>
             {items.length} edge{items.length !== 1 ? 's' : ''} without evidence
@@ -342,7 +328,7 @@ function CategorySection({ category, items, onFocus, actionHandlers, removingIte
   }
 
   return (
-    <div className={`rounded-lg border ${config.containerBorder} border-l-[3px] ${config.border} py-2 px-2.5`}>
+    <div className="rounded-lg border border-panel-border py-2 px-2.5">
       {/* Category label - sentence case, no uppercase transform */}
       <div className="flex items-center justify-between mb-2">
         <p className={`${typography.panelHeader} text-text-light tracking-wide`}>
@@ -572,7 +558,7 @@ function ImprovementRow({ item, onFocus, actionHandlers, isRemoving, onHoverEnte
 
         {/* Expanded content - ability to change response */}
         {isReviewedExpanded && (
-          <div className="mt-2 ml-5 pl-1 border-l-2 border-panel-border">
+          <div className="mt-2 ml-5 pl-1">
             <div className="flex items-center gap-2 py-1">
               <span className={`${typography.panelBody} text-text-light`}>
                 {reviewedState === 'confirmed' ? 'Confirmed as correct' : 'Marked as assumption'}
@@ -707,7 +693,7 @@ function ImprovementRow({ item, onFocus, actionHandlers, isRemoving, onHoverEnte
                 {actionHandlers?.onAssumption && (
                   <IconBtn
                     icon={HelpCircle}
-                    tooltip={"Accept as assumption \u2014 won\u2019t ask again"}
+                    tooltip={"Accept as assumption. Won\u2019t ask again"}
                     variant="assume"
                     onClick={() => {
                       if (item.action?.targetId) {

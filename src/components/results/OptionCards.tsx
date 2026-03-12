@@ -25,6 +25,7 @@ import {
   constraintConfidenceColour,
   jointProbabilityLabel,
 } from '../../types/constraints'
+import { buildSegmentBorderClassMap } from './HeroSection'
 
 export interface OptionCardsProps {
   options: OptionResult[]
@@ -147,6 +148,7 @@ function OptionCard({
   cardRef,
   neutralised = false,
   sortedRank,
+  segmentBorderClass,
 }: {
   option: OptionResult
   isWinner: boolean
@@ -158,12 +160,12 @@ function OptionCard({
   neutralised?: boolean
   /** V14.2: 1-indexed rank derived from win probability sort order */
   sortedRank?: number
+  /** Ordinal border class matching this option's WinGauge segment colour */
+  segmentBorderClass?: string
 }) {
   const borderClass = neutralised
     ? 'border-panel-border'
-    : isWinner
-      ? 'border-success/30'
-      : 'border-panel-border'
+    : (segmentBorderClass ?? 'border-panel-border')
   // V14.2: Prefer sort-derived rank, fallback to option.rank or winner inference
   const rank = sortedRank ?? option.rank ?? (isWinner ? 1 : undefined)
 
@@ -276,6 +278,9 @@ export function OptionCards({
     return (b.winProbability ?? 0) - (a.winProbability ?? 0)
   })
 
+  // Ordinal border class map: derived from same palette arrays as WinGauge by index
+  const segmentBorderClassMap = buildSegmentBorderClassMap(options, winnerId, decisionState)
+
   // V16.1: Truncate to top 2 when there are 4+ options; show toggle below
   const TOP_N = 2
   const shouldTruncate = sorted.length >= 4
@@ -300,7 +305,8 @@ export function OptionCards({
             ? headline
             : fallbackDescription(option, options.length)
 
-        // V12.3: Segment colour from wins bar palette (keyed by option ID)
+        // Ordinal border class: index-derived from same palette as WinGauge segment
+        const segmentBorderClass = segmentBorderClassMap[option.id] ?? 'border-panel-border'
         return (
           <OptionCard
             key={option.id}
@@ -311,6 +317,7 @@ export function OptionCards({
             description={description}
             neutralised={neutralised}
             sortedRank={index + 1}
+            segmentBorderClass={segmentBorderClass}
             cardRef={(el) => {
               const currentMap = refMap.current
               if (!currentMap) return
