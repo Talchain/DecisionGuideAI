@@ -436,6 +436,20 @@ export function OutputsDock() {
     addStatusQuoBaseline()
   }, [addStatusQuoBaseline])
 
+  // Set an existing option as the baseline by ID — clears is_baseline on all others first.
+  const handleSetBaseline = useCallback((optionId: string) => {
+    const optionNodes = nodes.filter(n => n.type === 'option' || n.data?.kind === 'option')
+    for (const n of optionNodes) {
+      if (n.data?.is_baseline && n.id !== optionId) {
+        updateNode(n.id, { data: { ...n.data, is_baseline: false } })
+      }
+    }
+    const target = optionNodes.find(n => n.id === optionId)
+    if (target) {
+      updateNode(optionId, { data: { ...target.data, is_baseline: true } })
+    }
+  }, [nodes, updateNode])
+
   // Handle auto-fix for validation issues
   const handleAutoFix = useCallback(async (item: CritiqueItem): Promise<boolean> => {
     // Track that auto-fix was clicked
@@ -1235,6 +1249,7 @@ export function OutputsDock() {
                     onAddStatusQuoBaseline={addStatusQuoBaseline}
                     onApplyThreshold={handleApplyThreshold}
                     onAddBaseline={handleAddBaseline}
+                    onSetBaseline={handleSetBaseline}
                     nSamples={(report as any)?.summary?.n_samples_used ?? (report as any)?.meta?.n_samples}
                     seedUsed={(report as any)?.meta?.seed}
                     fragileEdgeCount={(report as any)?.robustness?.fragile_edges?.length}

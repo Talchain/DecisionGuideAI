@@ -701,13 +701,13 @@ export function DriversSection({
         })}
       </div>
 
-      {/* Expand/collapse */}
-      {hiddenCount > 0 && (
+      {/* Expand/collapse — always show when there are more drivers than the default count */}
+      {visibleDrivers.length > TOP_DRIVERS_COUNT && (
         <button
           onClick={() => setShowAll(!showAll)}
           className={`${typography.panelBody} text-sky-600 hover:text-sky-700`}
         >
-          {showAll ? 'Show fewer factors' : `See all factors (+${hiddenCount} more)`}
+          {showAll ? 'Show fewer factors' : `See all factors (+${visibleDrivers.length - TOP_DRIVERS_COUNT} more)`}
         </button>
       )}
 
