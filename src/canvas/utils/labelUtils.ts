@@ -131,7 +131,9 @@ export function denormaliseInterventionValue(
 ): number {
   const scaleBase = inferInterventionScaleBase(cap, observedValue, observedRawValue)
   if (scaleBase == null) return value
-  if (Number.isInteger(value) && value >= 0 && value <= scaleBase) return value
+  // Guard: if value is an integer > 1 and within the scale, it's likely already denormalised.
+  // Values ≤ 1 (including 0 and 1.0) are always treated as normalised — note Number.isInteger(1.0) === true in JS.
+  if (Number.isInteger(value) && value > 1 && value <= scaleBase) return value
   return value * scaleBase
 }
 

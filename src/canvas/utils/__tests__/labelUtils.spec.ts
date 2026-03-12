@@ -14,6 +14,7 @@ import {
   qualitativeTierLabel,
   denormaliseInterventionValue,
 } from '../labelUtils'
+import { describeEdgeInfluence } from '../../domain/edges'
 
 // ---------------------------------------------------------------------------
 // cleanFactorLabel (T2)
@@ -209,6 +210,15 @@ describe('denormaliseInterventionValue', () => {
   it('handles cap = 0 gracefully (returns value unchanged)', () => {
     expect(denormaliseInterventionValue(0.5, 0)).toBe(0.5)
   })
+
+  it('denormalises value=1.0 (normalised max) instead of treating as already-denormalised integer', () => {
+    // Number.isInteger(1.0) === true in JS — guard must not catch this
+    expect(denormaliseInterventionValue(1.0, 100)).toBe(100)
+  })
+
+  it('passes through integer value > 1 within scale (already denormalised)', () => {
+    expect(denormaliseInterventionValue(49, 100)).toBe(49)
+  })
 })
 
 // ---------------------------------------------------------------------------
@@ -362,6 +372,20 @@ describe('formatInterventionValue', () => {
     it('prefers observed raw value scale when it materially differs from cap', () => {
       expect(formatInterventionValue(0.5, '£', undefined, 100, 0.5, 250)).toBe('£250')
     })
+
+    // Brief scenario: raw_value: 49, cap: 59, value: 0.49, intervention: 0.59
+    // The scale is inferred from raw/normalised (49/0.49 = 100), not cap (59).
+    it('displays £49 for status quo and £59 for increase in brief pricing scenario', () => {
+      // Status quo: intervention = 0.49, factor has raw_value 49, cap 59, value 0.49
+      expect(formatInterventionValue(0.49, '£', undefined, 59, 0.49, 49)).toBe('£49')
+      // Increase: intervention = 0.59
+      expect(formatInterventionValue(0.59, '£', undefined, 59, 0.49, 49)).toBe('£59')
+    })
+
+    it('denormalises value=1.0 correctly (full scale, not raw 1)', () => {
+      // value=1.0 is normalised max — should produce scaleBase, not 1
+      expect(formatInterventionValue(1.0, '£', undefined, 100)).toBe('£100')
+    })
   })
 
   describe('factorType case-insensitive normalization (P1-4)', () => {
@@ -384,5 +408,30 @@ describe('formatInterventionValue', () => {
     it('treats whitespace-padded " quality " as qualitative', () => {
       expect(formatInterventionValue(0.7, undefined, ' quality ')).toBe('High')
     })
+  })
+})
+
+// ---------------------------------------------------------------------------
+// describeEdgeInfluence (Fix 2 — brief test requirement)
+// ---------------------------------------------------------------------------
+describe('describeEdgeInfluence', () => {
+  it('returns "Strong positive influence on goal" for strength 0.5', () => {
+    expect(describeEdgeInfluence(0.5)).toBe('Strong positive influence on goal')
+  })
+
+  it('returns "Moderate negative influence on goal" for strength -0.3', () => {
+    expect(describeEdgeInfluence(-0.3)).toBe('Moderate negative influence on goal')
+  })
+
+  it('returns "Weak positive influence on goal" for strength 0.1', () => {
+    expect(describeEdgeInfluence(0.1)).toBe('Weak positive influence on goal')
+  })
+
+  it('returns "Minimal influence on goal" for near-zero strength', () => {
+    expect(describeEdgeInfluence(0.02)).toBe('Minimal influence on goal')
+  })
+
+  it('returns "Strong negative influence on goal" for strength -0.5', () => {
+    expect(describeEdgeInfluence(-0.5)).toBe('Strong negative influence on goal')
   })
 })
