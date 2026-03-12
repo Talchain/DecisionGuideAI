@@ -1734,7 +1734,7 @@ function extractWinningOption(
 
   // Debug logging (dev/staging only)
   if (import.meta.env.DEV) {
-    console.log('[Winner Debug] ISL options search:', {
+    console.warn('[Winner Debug] ISL options search:', {
       path1_option_comparison: plot?.option_comparison,
       path2_downstream_calls: (islEntry?.response as Record<string, unknown>)?.option_comparison,
       path3_response_downstream: (rIslEntry?.response as Record<string, unknown>)?.option_comparison,
