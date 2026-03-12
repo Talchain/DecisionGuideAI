@@ -477,7 +477,7 @@ export async function exportDiagnosticBundle(): Promise<void> {
 
   // Log export for debugging
   if (import.meta.env.DEV) {
-    console.log('[diagnostic-bundle] Exported:', filename)
+    console.warn('[diagnostic-bundle] Exported:', filename)
   }
 }
 
@@ -990,7 +990,7 @@ export async function exportMergedDebugBundle(extras?: {
   URL.revokeObjectURL(url)
 
   if (import.meta.env.DEV) {
-    console.log('[diagnostic-bundle] Exported merged:', filename)
+    console.warn('[diagnostic-bundle] Exported merged:', filename)
   }
 }
 
