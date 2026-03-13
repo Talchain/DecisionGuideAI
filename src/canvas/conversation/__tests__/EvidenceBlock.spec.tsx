@@ -9,9 +9,11 @@
  * - Malformed payload renders neutral fallback card
  */
 
-import { describe, it, expect } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { render, screen, fireEvent } from '@testing-library/react'
 import { InlineBlocks } from '../InlineBlocks'
+import { useCanvasStore } from '../../store'
+import { useGuidanceStore } from '../../stores/guidanceStore'
 import type { ConversationBlock, EvidenceBlock } from '../types'
 
 function makeEvidence(overrides: Partial<EvidenceBlock> = {}): EvidenceBlock {
@@ -89,5 +91,67 @@ describe('EvidenceBlockRenderer', () => {
     expect(link).toHaveAttribute('target', '_blank')
     expect(link).toHaveAttribute('rel', 'noopener noreferrer')
     expect(link).toHaveAttribute('href', 'https://example.com/1')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Apply to model button — disabled/enabled states
+// ---------------------------------------------------------------------------
+
+describe('Apply to model button', () => {
+  const mockSendChip = vi.fn()
+
+  beforeEach(() => {
+    mockSendChip.mockReset()
+    // Register sendChip so the button renders
+    useGuidanceStore.setState({ _sendChip: mockSendChip })
+  })
+
+  afterEach(() => {
+    // Reset stores
+    useGuidanceStore.setState({ _sendChip: null })
+    useCanvasStore.setState({ nodes: [] })
+  })
+
+  it('renders disabled with tooltip when no graph exists', () => {
+    useCanvasStore.setState({ nodes: [] })
+    render(<InlineBlocks blocks={[makeEvidence()]} />)
+
+    const btn = screen.getByTestId('apply-to-model-chip')
+    expect(btn).toBeDisabled()
+    expect(btn).toHaveAttribute('title', 'Generate a model first')
+  })
+
+  it('renders enabled without tooltip when graph exists', () => {
+    useCanvasStore.setState({ nodes: [{ id: 'n1' }] as any })
+    render(<InlineBlocks blocks={[makeEvidence()]} />)
+
+    const btn = screen.getByTestId('apply-to-model-chip')
+    expect(btn).not.toBeDisabled()
+    expect(btn).not.toHaveAttribute('title')
+  })
+
+  it('dispatches sendChip with findings when clicked and graph exists', () => {
+    useCanvasStore.setState({ nodes: [{ id: 'n1' }] as any })
+    render(<InlineBlocks blocks={[makeEvidence()]} />)
+
+    const btn = screen.getByTestId('apply-to-model-chip')
+    fireEvent.click(btn)
+
+    expect(mockSendChip).toHaveBeenCalledTimes(1)
+    expect(mockSendChip).toHaveBeenCalledWith(
+      'Apply to model',
+      expect.stringContaining('Finding one'),
+    )
+  })
+
+  it('does not dispatch sendChip when clicked and no graph exists', () => {
+    useCanvasStore.setState({ nodes: [] })
+    render(<InlineBlocks blocks={[makeEvidence()]} />)
+
+    const btn = screen.getByTestId('apply-to-model-chip')
+    fireEvent.click(btn)
+
+    expect(mockSendChip).not.toHaveBeenCalled()
   })
 })

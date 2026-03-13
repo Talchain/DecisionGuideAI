@@ -146,8 +146,8 @@ describe('inferLoadingHint', () => {
     expect(inferLoadingHint('some generic text', 0, 'explicit_generate')).toBe('Building your decision model\u2026')
   })
 
-  it('returns "Building…" when message contains "build"', () => {
-    expect(inferLoadingHint('build a model for me', 5)).toBe('Building your decision model\u2026')
+  it('returns "Thinking…" when message contains "build" but turnType is not explicit_generate', () => {
+    expect(inferLoadingHint('build a model for me', 5)).toBe('Thinking\u2026')
   })
 
   it('returns "Thinking…" for generic message with no graph and no turnType', () => {

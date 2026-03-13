@@ -181,7 +181,7 @@ export function inferLoadingHint(message: string, nodeCount: number, turnType?: 
   if (lower.includes('research') || lower.includes('evidence') || lower.includes('find')) return 'Researching evidence\u2026'
   if (lower.includes('brief')) return 'Assembling your decision brief\u2026'
   if (lower.includes('explain') || lower.includes('why')) return 'Preparing explanation\u2026'
-  if (turnType === 'explicit_generate' || lower.includes('build') || lower.includes('model') || lower.includes('create')) return 'Building your decision model\u2026'
+  if (turnType === 'explicit_generate') return 'Building your decision model\u2026'
   return 'Thinking\u2026'
 }
 

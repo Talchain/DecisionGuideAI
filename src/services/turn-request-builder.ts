@@ -305,7 +305,6 @@ export function validateTurnRequestBoundary(request: TurnRequestPayload): void {
       value === undefined
       || value === null
       || (typeof value === 'string' && value.trim().length === 0)
-      || (Array.isArray(value) && value.length === 0)
     if (missing) {
       console.error('[BOUNDARY]', {
         turn_type: turnType,

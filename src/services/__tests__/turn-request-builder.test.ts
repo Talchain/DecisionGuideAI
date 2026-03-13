@@ -317,4 +317,28 @@ describe('validateTurnRequestBoundary (dev-mode)', () => {
       expect.objectContaining({ field: 'graph_state', violation: 'graph_state_requires_nodes_and_edges_arrays' }),
     )
   })
+
+  it('accepts first-turn explicit_generate with empty conversation_history (no violations)', () => {
+    const req = buildExplicitGenerateTurnRequest({
+      scenario_id: 's16',
+      conversation_history: [],
+      message: 'Build a decision model for choosing a car',
+      graph_state: { nodes: [], edges: [] },
+    })
+
+    validateTurnRequestBoundary(req)
+    expect(consoleErrorSpy).not.toHaveBeenCalled()
+  })
+
+  it('accepts multi-turn explicit_generate with populated conversation_history (no violations)', () => {
+    const req = buildExplicitGenerateTurnRequest({
+      scenario_id: 's17',
+      conversation_history: [...history],
+      message: 'Now generate the model',
+      graph_state: graphState,
+    })
+
+    validateTurnRequestBoundary(req)
+    expect(consoleErrorSpy).not.toHaveBeenCalled()
+  })
 })
