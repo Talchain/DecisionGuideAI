@@ -175,13 +175,13 @@ function mapSourceSurface(triggerSurface: string, mode: 'user' | 'system'): stri
  * Infer a task-specific loading hint from the user message and graph state.
  * Used as the first long-running hint (15s) to give users a sense of what's happening.
  */
-export function inferLoadingHint(message: string, nodeCount: number): string {
+export function inferLoadingHint(message: string, nodeCount: number, turnType?: string): string {
   const lower = message.toLowerCase()
   if (lower.includes('analys') || lower.includes('evaluat') || lower.includes('compare') || lower.includes('run')) return 'Analysing your options\u2026'
   if (lower.includes('research') || lower.includes('evidence') || lower.includes('find')) return 'Researching evidence\u2026'
   if (lower.includes('brief')) return 'Assembling your decision brief\u2026'
   if (lower.includes('explain') || lower.includes('why')) return 'Preparing explanation\u2026'
-  if (nodeCount === 0 || lower.includes('build') || lower.includes('model') || lower.includes('create')) return 'Building your decision model\u2026'
+  if (turnType === 'explicit_generate' || lower.includes('build') || lower.includes('model') || lower.includes('create')) return 'Building your decision model\u2026'
   return 'Thinking\u2026'
 }
 
@@ -1591,7 +1591,7 @@ export function useConversation(): UseConversationReturn {
       abortRef.current = controller
 
       // 15s → task-specific hint, 30s → "Still working…"
-      const hint = inferLoadingHint(message, useCanvasStore.getState().nodes.length)
+      const hint = inferLoadingHint(message, useCanvasStore.getState().nodes.length, turnType)
       longRunningTimerRef.current = setTimeout(() => {
         setLongRunningHint(hint)
       }, LONG_RUNNING_THRESHOLD_MS)

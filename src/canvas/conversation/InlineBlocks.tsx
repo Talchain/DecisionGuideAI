@@ -627,12 +627,18 @@ const EvidenceBlockRenderer = memo(function EvidenceBlockRenderer({
           Query: {block.query}
         </div>
       )}
-      {hasGraph && sendChip && (
+      {sendChip && (
         <div className="mt-2 flex">
           <button
             type="button"
-            onClick={handleApplyToModel}
-            className={`inline-flex items-center gap-1.5 px-2.5 py-1 ${typography.panelMeta} font-medium bg-transparent border border-info/40 text-info rounded-full hover:border-info hover:bg-info-light transition-colors`}
+            onClick={hasGraph ? handleApplyToModel : undefined}
+            disabled={!hasGraph}
+            title={!hasGraph ? 'Generate a model first' : undefined}
+            className={`inline-flex items-center gap-1.5 px-2.5 py-1 ${typography.panelMeta} font-medium bg-transparent border rounded-full transition-colors ${
+              hasGraph
+                ? 'border-info/40 text-info hover:border-info hover:bg-info-light cursor-pointer'
+                : 'border-border text-text-muted cursor-not-allowed opacity-60'
+            }`}
             data-testid="apply-to-model-chip"
           >
             <Wand2 size={11} aria-hidden="true" />

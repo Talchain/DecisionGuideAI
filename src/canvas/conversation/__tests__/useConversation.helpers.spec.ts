@@ -5,7 +5,7 @@
  */
 
 import { describe, it, expect } from 'vitest'
-import { buildHistory, enforceChipBudget } from '../useConversation'
+import { buildHistory, enforceChipBudget, inferLoadingHint } from '../useConversation'
 import { MAX_CHIPS_PER_TURN, MAX_SUGGESTED_ACTIONS } from '../types'
 import type { ConversationMessage, ActionChip } from '../types'
 
@@ -134,5 +134,35 @@ describe('enforceChipBudget', () => {
     // 1 coaching + min(3 remaining, 2 sub-cap) = 3
     expect(result).toHaveLength(3)
     expect(result.map((c) => c.id)).toEqual(['c1', 'a1', 'a2'])
+  })
+})
+
+// ---------------------------------------------------------------------------
+// inferLoadingHint
+// ---------------------------------------------------------------------------
+
+describe('inferLoadingHint', () => {
+  it('returns "Building…" for explicit_generate turn type', () => {
+    expect(inferLoadingHint('some generic text', 0, 'explicit_generate')).toBe('Building your decision model\u2026')
+  })
+
+  it('returns "Building…" when message contains "build"', () => {
+    expect(inferLoadingHint('build a model for me', 5)).toBe('Building your decision model\u2026')
+  })
+
+  it('returns "Thinking…" for generic message with no graph and no turnType', () => {
+    expect(inferLoadingHint('what budget should I use', 0)).toBe('Thinking\u2026')
+  })
+
+  it('returns "Analysing…" for analysis keywords', () => {
+    expect(inferLoadingHint('analyse my options', 3)).toBe('Analysing your options\u2026')
+  })
+
+  it('returns "Researching…" for research keywords', () => {
+    expect(inferLoadingHint('find evidence on this', 3)).toBe('Researching evidence\u2026')
+  })
+
+  it('returns "Thinking…" as default fallback', () => {
+    expect(inferLoadingHint('hello there', 5)).toBe('Thinking\u2026')
   })
 })

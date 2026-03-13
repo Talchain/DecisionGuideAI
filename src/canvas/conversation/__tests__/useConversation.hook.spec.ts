@@ -99,8 +99,9 @@ describe('timeout progression (10s / 20s / 30s)', () => {
       vi.advanceTimersByTime(15_000)
     })
 
-    // With 0 nodes (empty graph) and generic message, inferLoadingHint returns "Building your decision model…"
-    expect(result.current.longRunningHint).toBe('Building your decision model\u2026')
+    // With 0 nodes (empty graph) and generic message (no explicit_generate turn type),
+    // inferLoadingHint returns "Thinking…" — "Building…" only for explicit_generate or keyword match
+    expect(result.current.longRunningHint).toBe('Thinking\u2026')
   })
 
   it('shows "Still working\u2026" at 30s', async () => {
