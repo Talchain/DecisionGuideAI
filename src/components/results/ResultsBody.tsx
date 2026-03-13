@@ -27,9 +27,6 @@ import { AdvancedSection } from './AdvancedSection'
 import { AttentionBanner } from './AttentionBanner'
 import { ChallengeSection } from './ChallengeSection'
 import { groupActionItems, type ActionItem } from './utils/groupActionItems'
-import { isModelCardLiteEnabled } from '../../flags'
-import { ResultsTrustStrip } from './ResultsTrustStrip'
-import { deriveConfidenceLabel } from '../../canvas/adapters/modelCardAdapter'
 import type { EvidenceGapItem } from './types'
 
 export interface StrengthCorrectionDisplay {
@@ -71,10 +68,6 @@ export interface ResultsBodyProps {
   guidanceItems?: GuidanceItem[]
   /** Callback to activate a guidance item (sets activeGuidanceItemId in store) */
   onActivateGuidanceItem?: (itemId: string) => void
-  /** Phase 2A: Navigate to Model tab to view model details */
-  onViewModelDetails?: () => void
-  /** Phase 2A: Robustness data for confidence label derivation */
-  robustnessData?: { ranking_stability?: number; recommendation_stability?: number } | null
 }
 
 export function ResultsBody({
@@ -100,8 +93,6 @@ export function ResultsBody({
   goalDirection,
   guidanceItems,
   onActivateGuidanceItem,
-  onViewModelDetails,
-  robustnessData,
 }: ResultsBodyProps) {
   // V11: Build enriched view model — drives hero rows, colours, collapse behaviour
   // Evidence ratio: fragile / (fragile + robust) = robustness-assessed edges only
@@ -138,16 +129,6 @@ export function ResultsBody({
         )}
         onFocusNode={onFocusNode}
       />
-
-      {/* ── TRUST STRIP (Phase 2A) ────────────────────────────────── */}
-      {isModelCardLiteEnabled() && (
-        <ResultsTrustStrip
-          nSamples={nSamples}
-          seedUsed={seedUsed}
-          confidenceLabel={deriveConfidenceLabel(robustnessData)}
-          onViewModelDetails={onViewModelDetails}
-        />
-      )}
 
       {/* ── SECTION 1: HERO ─────────────────────────────────────── */}
       {/* V11: Structured hero rows driven by decisionState from VM */}

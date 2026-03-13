@@ -12,7 +12,7 @@ import { extractCausalClaims, claimTypeLabel } from '../../../adapters/causalCla
 
 // Re-export adapter tests as edge panel causal claims tests
 // (component rendering is tested via the adapter contract; UI rendering
-//  is validated by the ModelCardLite and ResultsTrustStrip component tests pattern)
+//  is validated by the ModelCardLite component tests pattern)
 
 describe('EdgePanel causal claims — data contract', () => {
   it('extracts claims from edge with causal_claims', () => {

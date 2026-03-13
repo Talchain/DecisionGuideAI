@@ -27,7 +27,6 @@ export const GUIDANCE_EVENTS = {
   FIX_UNDONE: 'guidance_fix_undone',
 
   // Trust surfaces
-  TRUST_STRIP_CLICKED: 'guidance_trust_strip_clicked',
   MODEL_CARD_VIEWED: 'guidance_model_card_viewed',
   CAUSAL_CLAIM_EXPANDED: 'guidance_causal_claim_expanded',
 

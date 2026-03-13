@@ -1,8 +1,7 @@
 /**
  * Model Card Lite — data adapters and selectors
  *
- * Produces stable view-models for ModelCardLite, ModelReceiptBlock,
- * and ResultsTrustStrip from canvas store state.
+ * Produces stable view-models for ModelCardLite and ModelReceiptBlock from canvas store state.
  *
  * Phase 2A: trust surfaces + pre-analysis enrichment.
  */

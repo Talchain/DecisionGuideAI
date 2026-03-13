@@ -321,12 +321,12 @@ describe('V12.3 Task 3: Option card border colours match wins bar segments', () 
       )
 
       const winner = screen.getByTestId('option-card-opt-a')
-      expect(winner.className).toContain('border-success/30')
+      expect(winner.className).toContain('border-success/60')
       // Runner-up and third get their ordinal chart colour borders
       const runner = screen.getByTestId('option-card-opt-b')
-      expect(runner.className).toContain('border-info/30')
+      expect(runner.className).toContain('border-info/60')
       const third = screen.getByTestId('option-card-opt-c')
-      expect(third.className).toContain('border-option/30')
+      expect(third.className).toContain('border-option/60')
     })
   })
 
@@ -361,10 +361,10 @@ describe('V12.3 Task 3: Option card border colours match wins bar segments', () 
       // Top 2 visible by default; expand to see all 4
       fireEvent.click(screen.getByTestId('option-cards-toggle'))
 
-      // Ordinal borders: winner=success/30, runner-up=info/30, third=option/30, fourth+=panel-border
-      expect(screen.getByTestId('option-card-opt-a').className).toContain('border-success/30')
-      expect(screen.getByTestId('option-card-opt-b').className).toContain('border-info/30')
-      expect(screen.getByTestId('option-card-opt-c').className).toContain('border-option/30')
+      // Ordinal borders: winner=success/60 border-2, runner-up=info/60, third=option/60, fourth+=panel-border
+      expect(screen.getByTestId('option-card-opt-a').className).toContain('border-success/60')
+      expect(screen.getByTestId('option-card-opt-b').className).toContain('border-info/60')
+      expect(screen.getByTestId('option-card-opt-c').className).toContain('border-option/60')
       expect(screen.getByTestId('option-card-opt-d').className).toContain('border-panel-border')
     })
 
@@ -436,9 +436,9 @@ describe('V12.3 Task 3: Option card border colours match wins bar segments', () 
 
       const winnerCard = screen.getByTestId('option-card-opt-a')
       const otherCard = screen.getByTestId('option-card-opt-b')
-      expect(winnerCard.className).toContain('border-success/30')
+      expect(winnerCard.className).toContain('border-success/60')
       // Runner-up gets its ordinal chart colour border (info = second position)
-      expect(otherCard.className).toContain('border-info/30')
+      expect(otherCard.className).toContain('border-info/60')
     })
   })
 })

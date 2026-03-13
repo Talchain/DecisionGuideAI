@@ -1,18 +1,17 @@
 /**
  * OptionCards — V9.2 card-based option comparison.
  *
- * Replaces RangeVisualization (p10/p50/p90 range bars) with:
  * - Option name + rank badge ("#1 of N") + win percentage text
  * - 1-2 line contextual description (story headline or fallback)
  * - "Hits target" stat row: horizontal bar + percentage (conditional on target set)
  * V12.4: Per-card "Wins" bars removed; win % shown as text in card header.
- *
- * All cards use border-panel-border. Leading option card gets a coloured
- * left border (3px) matching its WinGauge segment colour via inline style.
+ * V14.2: Ordinal full-border palette (no left-accent). Winner gets border-2 border-success/60;
+ *   runner-up border-info/60; third border-option/60; fourth+ border-panel-border.
+ *   Border classes derived from WIN_GAUGE_BORDER_CLASSES in HeroSection — coupled to win-bar palette.
  *
  * V11: Indeterminate neutralisation — stone colours, percentage badges, muted text.
  *
- * Design rules: no background fills on cards (borders only).
+ * Design rules: no background fills on cards (full borders only, no left-accent).
  */
 
 import { useRef, useState, type RefObject } from 'react'
@@ -184,7 +183,7 @@ function OptionCard({
   return (
     <div
       ref={cardRef}
-      className={`bg-panel p-3 border ${borderClass} rounded-lg space-y-2 results-card-hover`}
+      className={`bg-panel p-3 border ${borderClass} rounded-lg space-y-2 shadow-1 results-card-hover`}
       data-testid={`option-card-${option.id}`}
       data-option-id={option.id}
       onMouseEnter={() => highlightNode(option.id)}

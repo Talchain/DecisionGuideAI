@@ -262,23 +262,6 @@ describe('Fix instrumentation', () => {
 // ---------------------------------------------------------------------------
 
 describe('Trust instrumentation', () => {
-  it('fires TRUST_STRIP_CLICKED when "View model details" is clicked', async () => {
-    const { ResultsTrustStrip } = await import('../../components/results/ResultsTrustStrip')
-    const onViewModelDetails = vi.fn()
-    render(
-      <ResultsTrustStrip
-        nSamples={1000}
-        onViewModelDetails={onViewModelDetails}
-      />,
-    )
-    fireEvent.click(screen.getByRole('button', { name: /view model details/i }))
-    expect(mockCapture).toHaveBeenCalledWith(
-      GUIDANCE_EVENTS.TRUST_STRIP_CLICKED,
-      expect.objectContaining({ item_id: 'trust_strip', item_type: 'trust', surface: 'results' }),
-    )
-    expect(onViewModelDetails).toHaveBeenCalled()
-  })
-
   it('fires MODEL_CARD_VIEWED on mount of ModelTabBody', async () => {
     // ModelTabBody has heavy canvas deps — mock the store subscriptions
     vi.mock('../../canvas/components/ModelCardLite', () => ({ ModelCardLite: () => null }))

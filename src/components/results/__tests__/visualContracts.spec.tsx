@@ -172,7 +172,7 @@ describe('Visual contract: Robust state', () => {
     )
 
     const winnerCard = screen.getByTestId('option-card-opt-a')
-    expect(winnerCard.className).toContain('border-success/30')
+    expect(winnerCard.className).toContain('border-success/60')
   })
 
   it('rank badges show "#N of N" not percentage', () => {
@@ -234,7 +234,7 @@ describe('Visual contract: Sensitive state', () => {
     )
 
     const winnerCard = screen.getByTestId('option-card-opt-a')
-    expect(winnerCard.className).toContain('border-success/30')
+    expect(winnerCard.className).toContain('border-success/60')
   })
 
   it('VOI block visible in ConfidenceSection', () => {

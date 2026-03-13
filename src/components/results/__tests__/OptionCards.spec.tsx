@@ -176,19 +176,20 @@ describe('OptionCards', () => {
   })
 
   describe('Winner styling', () => {
-    it('winner card uses border-success/30 (full-border, no left-accent)', () => {
+    it('winner card uses border-2 border-success/60 (full-border, no left-accent)', () => {
       render(<OptionCards options={mockOptions} winnerId="option-1" />)
 
       const winnerCard = screen.getByTestId('option-card-option-1')
-      expect(winnerCard.className).toContain('border-success/30')
+      expect(winnerCard.className).toContain('border-2')
+      expect(winnerCard.className).toContain('border-success/60')
     })
 
     it('applies ordinal chart colour border to non-winner card', () => {
       render(<OptionCards options={mockOptions} winnerId="option-1" />)
 
-      // Runner-up (option-2) gets the second ordinal colour: border-info/30
+      // Runner-up (option-2) gets the second ordinal colour: border-info/60
       const otherCard = screen.getByTestId('option-card-option-2')
-      expect(otherCard.className).toContain('border-info/30')
+      expect(otherCard.className).toContain('border-info/60')
     })
   })
 
@@ -332,7 +333,7 @@ describe('OptionCards', () => {
       expect(screen.getByTestId('win-pct-option-1')).toBeInTheDocument()
     })
 
-    it('winner card uses border-success/30 when robust (full-border)', () => {
+    it('winner card uses border-2 border-success/60 when robust (full-border)', () => {
       render(
         <OptionCards
           options={mockOptions}
@@ -342,7 +343,8 @@ describe('OptionCards', () => {
       )
 
       const winnerCard = screen.getByTestId('option-card-option-1')
-      expect(winnerCard.className).toContain('border-success/30')
+      expect(winnerCard.className).toContain('border-2')
+      expect(winnerCard.className).toContain('border-success/60')
     })
 
     it('preserves normal "#1 of N" badges when sensitive', () => {
