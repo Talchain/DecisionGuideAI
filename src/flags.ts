@@ -305,6 +305,13 @@ const FLAGS_CONFIG = {
     envKey: 'VITE_FEATURE_JOURNEY_TAB',
     storageKey: 'feature.journeyTab',
   },
+  // Orchestrator streaming: SSE progressive rendering of turn responses
+  // When ON, POST /orchestrate/v1/turn/stream is used instead of /turn.
+  // Text deltas render incrementally; stores commit only on turn_complete.
+  orchestratorStreaming: {
+    envKey: 'VITE_FEATURE_ORCHESTRATOR_STREAMING',
+    storageKey: 'feature.orchestratorStreaming',
+  },
   // Track 2: Thread persistence (conversation -> Supabase)
   threadPersist: {
     envKey: 'VITE_FEATURE_THREAD_PERSIST',
@@ -420,6 +427,7 @@ const flags = {
   orchestratorV2: makeFlag(FLAGS_CONFIG.orchestratorV2),
   v3SystemEvents: makeFlag(FLAGS_CONFIG.v3SystemEvents),
   legacyDirectRun: makeFlag(FLAGS_CONFIG.legacyDirectRun),
+  orchestratorStreaming: makeFlag(FLAGS_CONFIG.orchestratorStreaming),
   contextMenu: makeFlag(FLAGS_CONFIG.contextMenu),
   journeyTab: makeFlag(FLAGS_CONFIG.journeyTab),
   threadPersist: makeFlag(FLAGS_CONFIG.threadPersist),
@@ -493,6 +501,7 @@ export const isSchemaV2Enabled = flags.schemaV2
 export const isPlotEnrichmentEnabled = flags.plotEnrichment
 export const isOrchestratorV2Enabled = flags.orchestratorV2
 export const isLegacyDirectRunEnabled = flags.legacyDirectRun
+export const isOrchestratorStreamingEnabled = flags.orchestratorStreaming
 export const isContextMenuEnabled = flags.contextMenu
 export const isJourneyTabEnabled = flags.journeyTab
 export const isThreadPersistEnabled = flags.threadPersist
@@ -519,6 +528,7 @@ const on = (v?: string) => v === '1' || (isPoc && v !== '0')
 // PoC-aware flags - default to ON in PoC mode
 export const pocFlags = {
   sse: on(env?.VITE_FEATURE_SSE),
+  orchestratorStreaming: on(env?.VITE_FEATURE_ORCHESTRATOR_STREAMING),
   scenarioSandbox: on(env?.VITE_FEATURE_SCENARIO_SANDBOX),
   decisionCta: on(env?.VITE_FEATURE_SANDBOX_DECISION_CTA),
   mapping: on(env?.VITE_FEATURE_SANDBOX_MAPPING),

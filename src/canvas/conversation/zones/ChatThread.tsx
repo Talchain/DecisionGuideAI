@@ -98,7 +98,8 @@ export const ChatThread = memo(function ChatThread({
         <SuggestedChips chips={suggestedChips} onChipClick={onChipClick} />
       )}
 
-      {isThinking && (
+      {/* Suppress standalone ThinkingIndicator when a streaming message is already visible */}
+      {isThinking && !messages.some(m => m.isStreaming) && (
         <ThinkingIndicator label={thinkingLabel(longRunningHint)} />
       )}
 

@@ -9,6 +9,12 @@
  * Environment Variables:
  * - ASSIST_API_KEY: API key for CEE service authentication (X-Olumi-Assist-Key header)
  *
+ * SSE STREAMING:
+ * This proxy supports SSE streaming responses (e.g. /orchestrate/v1/turn/stream).
+ * The `duplex: 'half'` option on fetch and direct `response.body` passthrough
+ * ensure chunked transfer encoding is preserved without buffering.
+ * Verified 2026-03-13 — no additional configuration needed.
+ *
  * SECURITY:
  * - Uses explicit origin allow-list (no wildcard CORS)
  * See SECURITY.md for compliance requirements.

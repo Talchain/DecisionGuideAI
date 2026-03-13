@@ -36,6 +36,12 @@ export interface ConversationMessage {
     entryStatus: string
     redactionState: string
   }
+  /** True while the message is being progressively streamed (text_delta events arriving) */
+  isStreaming?: boolean
+  /** True during tool-backed turns until turn_complete — pre-tool prose may change */
+  isProvisional?: boolean
+  /** Inline status text shown during tool execution (e.g. "Running simulations...") */
+  toolLoadingState?: string | null
 }
 
 // ---------------------------------------------------------------------------
@@ -390,3 +396,21 @@ export interface OrchestratorResponseEnvelopeV2 {
     [key: string]: unknown
   }
 }
+
+// ---------------------------------------------------------------------------
+// § 7 — Orchestrator SSE stream events
+// ---------------------------------------------------------------------------
+
+/**
+ * Discriminated union of SSE events emitted by POST /orchestrate/v1/turn/stream.
+ * Each event carries a monotonically increasing `seq` for ordering.
+ * Canonical schema — must match CEE's streaming wire format exactly.
+ */
+export type OrchestratorStreamEvent =
+  | { type: 'turn_start'; seq: number; turn_id: string; routing: 'deterministic' | 'llm'; stage: string }
+  | { type: 'text_delta'; seq: number; delta: string }
+  | { type: 'tool_start'; seq: number; tool_name: string; long_running: boolean }
+  | { type: 'block'; seq: number; block: ConversationBlock }
+  | { type: 'tool_result'; seq: number; tool_name: string; success: boolean; duration_ms?: number }
+  | { type: 'turn_complete'; seq: number; envelope: OrchestratorResponseEnvelopeV2 }
+  | { type: 'error'; seq: number; error: { code: string; message: string }; recoverable: boolean }

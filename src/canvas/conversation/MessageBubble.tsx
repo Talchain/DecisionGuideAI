@@ -6,6 +6,10 @@
  *
  * Progressive disclosure: long assistant text (>300 chars, no blocks, not
  * synthetic) is clamped to ~6 lines with a "Show more" toggle.
+ *
+ * Streaming: when `message.isStreaming` is true, text renders incrementally
+ * with a blinking cursor. Provisional tool-backed turns render at reduced
+ * opacity until `turn_complete`.
  */
 
 import { memo, useState, useRef, useEffect } from 'react'
@@ -49,8 +53,13 @@ export const MessageBubble = memo(function MessageBubble({
   // Defensive guard: never render the [system] sentinel as a user bubble
   if (isUser && message.content === SYSTEM_MESSAGE_SENTINEL) return null
 
-  // Progressive disclosure for long assistant prose
+  const isStreaming = message.isStreaming === true
+  const isProvisional = message.isProvisional === true
+  const hasToolLoading = Boolean(message.toolLoadingState)
+
+  // Progressive disclosure for long assistant prose (disabled during streaming)
   const needsClamp = !isUser
+    && !isStreaming
     && !message.synthetic
     && message.content.length > CLAMP_CHAR_THRESHOLD
     && (!message.blocks || message.blocks.length === 0)
@@ -65,6 +74,22 @@ export const MessageBubble = memo(function MessageBubble({
     }
   }, [needsClamp, message.content])
 
+  // Streaming with no text yet — show thinking indicator placeholder
+  if (isStreaming && !message.content && !hasToolLoading) {
+    return (
+      <div
+        className={styles.messageBubbleAssistant}
+        data-testid="message-assistant"
+      >
+        <div className={styles.streamingThinking} data-testid="streaming-thinking">
+          <span className={styles.streamingDot} />
+          <span className={styles.streamingDot} />
+          <span className={styles.streamingDot} />
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div
       className={isUser ? styles.messageBubbleUser : styles.messageBubbleAssistant}
@@ -74,9 +99,18 @@ export const MessageBubble = memo(function MessageBubble({
         ref={needsClamp ? contentRef : undefined}
         className={`${typography.panelBody} ${styles.markdownContent} ${
           needsClamp && !expanded ? styles.markdownContentClamped : ''
-        }`}
-        dangerouslySetInnerHTML={{ __html: sanitizeMarkdown(message.content) }}
+        } ${isProvisional ? styles.provisionalText : ''}`}
+        data-streaming={isStreaming || undefined}
+        dangerouslySetInnerHTML={{
+          __html: sanitizeMarkdown(message.content) + (isStreaming ? '<span class="streaming-cursor" aria-hidden="true">|</span>' : ''),
+        }}
       />
+      {hasToolLoading && (
+        <div className={styles.toolLoadingState} data-testid="tool-loading-state">
+          <span className={styles.toolLoadingDot} />
+          {message.toolLoadingState}
+        </div>
+      )}
       {needsClamp && isOverflowing && (
         <button
           type="button"

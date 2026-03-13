@@ -9,8 +9,8 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
 import { useCanvasStore } from '../store'
 import { generateGraphHash } from '../utils/graphHash'
-import { callOrchestratorTurn, OrchestratorError } from './turnService'
-import { isOrchestratorV2Enabled, isThreadHydrateEnabled, isThreadPersistEnabled } from '../../flags'
+import { callOrchestratorTurn, streamOrchestratorTurn, OrchestratorError } from './turnService'
+import { isOrchestratorV2Enabled, isOrchestratorStreamingEnabled, isThreadHydrateEnabled, isThreadPersistEnabled } from '../../flags'
 import { assembleAnalysisInputsSummary } from '../analysis/assembleAnalysisInputsSummary'
 import { useResultsStore } from '../stores/resultsStore'
 import { hydrateMessagesFromThread, formatSessionBoundary } from './utils/hydrateThread'
@@ -36,6 +36,7 @@ import type {
   SystemEvent,
   WireSystemEvent,
   OrchestratorResponseEnvelopeV2,
+  OrchestratorStreamEvent,
   ConversationTurnPair,
   GraphPatchBlock,
   ProposalReviewItem,
@@ -86,6 +87,18 @@ export const SYSTEM_MESSAGE_SENTINEL = '[system]'
 const LONG_RUNNING_THRESHOLD_MS = 15_000
 const STILL_WORKING_THRESHOLD_MS = 30_000
 const TIMEOUT_MS = 60_000
+
+/** Map CEE tool names to user-facing loading labels */
+function mapToolLoadingLabel(toolName: string): string {
+  switch (toolName) {
+    case 'draft_graph': return 'Building your decision model\u2026'
+    case 'edit_graph': return 'Updating the model\u2026'
+    case 'run_analysis': return 'Running simulations\u2026'
+    case 'explain_results': return 'Analysing results\u2026'
+    case 'research_topic': return 'Researching\u2026'
+    default: return 'Working\u2026'
+  }
+}
 
 function summariseRequestPayload(request: TurnRequestPayload, source: string, hidden: boolean, systemEventType?: string): Record<string, unknown> {
   return {
@@ -769,8 +782,10 @@ export function useConversation(): UseConversationReturn {
       clearTimeout(longRunningTimerRef.current)
       clearTimeout(stillWorkingTimerRef.current)
       clearTimeout(timeoutTimerRef.current)
+      cleanupStreamRefs()
       abortRef.current?.abort()
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // Clear conversation when scenario changes (with Track 3 thread hydration)
@@ -845,6 +860,53 @@ export function useConversation(): UseConversationReturn {
 
   const addMessage = useCallback((msg: ConversationMessage) => {
     setMessages((prev) => [...prev, msg])
+  }, [])
+
+  /** Update an existing message in-place by id (used by streaming path) */
+  const updateMessage = useCallback((id: string, patch: Partial<ConversationMessage>) => {
+    setMessages((prev) => prev.map((m) => (m.id === id ? { ...m, ...patch } : m)))
+  }, [])
+
+  // Streaming state — refs to avoid stale closures in RAF callbacks
+  const streamingMsgIdRef = useRef<string | null>(null)
+  const streamTextRef = useRef('')
+  const streamBlocksRef = useRef<ConversationBlock[]>([])
+  const frameBufRef = useRef<string[]>([])
+  const rafIdRef = useRef<number | null>(null)
+
+  /** Flush accumulated text_delta tokens to the streaming message */
+  const flushStreamFrame = useCallback(() => {
+    rafIdRef.current = null
+    const buf = frameBufRef.current
+    const msgId = streamingMsgIdRef.current
+    if (!buf.length || !msgId) return
+    frameBufRef.current = []
+    streamTextRef.current += buf.join('')
+    updateMessage(msgId, { content: streamTextRef.current })
+  }, [updateMessage])
+
+  /** Schedule a RAF-batched flush (prevents duplicate scheduling) */
+  const scheduleStreamFlush = useCallback(() => {
+    if (rafIdRef.current != null) return
+    if (typeof requestAnimationFrame === 'function') {
+      rafIdRef.current = requestAnimationFrame(flushStreamFrame)
+    } else {
+      // SSR / test fallback
+      rafIdRef.current = -1 as unknown as number
+      Promise.resolve().then(flushStreamFrame)
+    }
+  }, [flushStreamFrame])
+
+  /** Cancel any pending RAF and reset streaming refs */
+  const cleanupStreamRefs = useCallback(() => {
+    if (rafIdRef.current != null && rafIdRef.current !== -1 && typeof cancelAnimationFrame === 'function') {
+      cancelAnimationFrame(rafIdRef.current)
+    }
+    rafIdRef.current = null
+    streamingMsgIdRef.current = null
+    streamTextRef.current = ''
+    streamBlocksRef.current = []
+    frameBufRef.current = []
   }, [])
 
   const buildRequest = useCallback(
@@ -1361,19 +1423,31 @@ export function useConversation(): UseConversationReturn {
       const hasBlocks = orderedBlocks.length > 0
       if (!hasContent && !hasBlocks) return
 
-      const assistantMsg: ConversationMessage = {
-        id: crypto.randomUUID(),
-        role: 'assistant',
-        content: assistantText,
-        blocks: hasBlocks ? orderedBlocks : undefined,
-        actionChips: chips.length > 0 ? chips : undefined,
-        timestamp: new Date(),
-        clientTurnId: envelope.client_turn_id,
+      // Streaming guard: if a streaming message already exists for this turn,
+      // update it in place instead of creating a duplicate.
+      if (streamingMsgIdRef.current) {
+        updateMessage(streamingMsgIdRef.current, {
+          content: assistantText,
+          blocks: hasBlocks ? orderedBlocks : undefined,
+          actionChips: chips.length > 0 ? chips : undefined,
+          isStreaming: false,
+          isProvisional: false,
+          toolLoadingState: null,
+        })
+      } else {
+        const assistantMsg: ConversationMessage = {
+          id: crypto.randomUUID(),
+          role: 'assistant',
+          content: assistantText,
+          blocks: hasBlocks ? orderedBlocks : undefined,
+          actionChips: chips.length > 0 ? chips : undefined,
+          timestamp: new Date(),
+          clientTurnId: envelope.client_turn_id,
+        }
+        addMessage(assistantMsg)
       }
-
-      addMessage(assistantMsg)
     },
-    [addMessage],
+    [addMessage, updateMessage],
   )
 
   const setPatchBlockState = useCallback((key: string, state: PatchBlockState) => {
@@ -1583,22 +1657,157 @@ export function useConversation(): UseConversationReturn {
           stageSystemEventSummary: systemEvent?.type ?? null,
           systemEventType: systemEvent?.type ?? null,
         })
-        const envelope = await callOrchestratorTurn(request, controller.signal)
-        handleEnvelope(envelope, turnClientId)
-        const interactionStateAfter = createInteractionSnapshot(messages.length + (hidden || mode === 'system' ? 1 : 2))
-        updateInteractionResponse(turnClientId, {
-          responseStatus: 200,
-          responseSummary: summariseEnvelope(envelope),
-          mutatedGraph: (envelope.blocks ?? []).some((block: any) => {
-            const type = typeof block?.block_type === 'string' ? block.block_type : block?.type
-            return type === 'graph_patch'
-          }),
-          mutatedAnalysis: Boolean(envelope.analysis_response),
-          mutatedChat: Boolean((envelope.assistant_text?.trim().length ?? 0) > 0 || (envelope.blocks?.length ?? 0) > 0),
-          stateAfter: interactionStateAfter,
-        })
-        if (triggerSurface === 'analyse_now') {
-          setLastAnalysisInteractionChainId(interactionChainId)
+        if (isOrchestratorStreamingEnabled()) {
+          // --- STREAMING PATH ---
+          const msgId = crypto.randomUUID()
+          streamingMsgIdRef.current = msgId
+          streamTextRef.current = ''
+          streamBlocksRef.current = []
+          frameBufRef.current = []
+
+          // Create placeholder streaming message
+          addMessage({
+            id: msgId,
+            role: 'assistant',
+            content: '',
+            isStreaming: true,
+            timestamp: new Date(),
+            clientTurnId: request.client_turn_id,
+          })
+
+          let streamEnvelope: OrchestratorResponseEnvelopeV2 | undefined
+
+          for await (const event of streamOrchestratorTurn(request, controller.signal)) {
+            switch (event.type) {
+              case 'turn_start':
+                // Stream is live — clear progressive loading hints
+                clearTimeout(longRunningTimerRef.current)
+                clearTimeout(stillWorkingTimerRef.current)
+                setLongRunningHint(null)
+                break
+
+              case 'text_delta':
+                frameBufRef.current.push(event.delta)
+                scheduleStreamFlush()
+                break
+
+              case 'tool_start': {
+                const toolLabel = mapToolLoadingLabel(event.tool_name)
+                updateMessage(msgId, { isProvisional: true, toolLoadingState: toolLabel })
+                break
+              }
+
+              case 'block':
+                streamBlocksRef.current = [...streamBlocksRef.current, event.block]
+                updateMessage(msgId, { blocks: streamBlocksRef.current })
+                break
+
+              case 'tool_result':
+                updateMessage(msgId, { toolLoadingState: null })
+                break
+
+              case 'turn_complete':
+                // Final flush of any pending RAF buffer
+                if (rafIdRef.current != null) {
+                  if (typeof cancelAnimationFrame === 'function' && rafIdRef.current !== -1) {
+                    cancelAnimationFrame(rafIdRef.current)
+                  }
+                  rafIdRef.current = null
+                }
+                streamEnvelope = event.envelope
+                handleEnvelope(event.envelope, turnClientId)
+                streamingMsgIdRef.current = null
+                break
+
+              case 'error': {
+                // Flush any pending RAF buffer so priorText is complete
+                if (frameBufRef.current.length > 0) {
+                  streamTextRef.current += frameBufRef.current.join('')
+                  frameBufRef.current = []
+                }
+                const priorText = streamTextRef.current
+                cleanupStreamRefs()
+                const errText = event.error.message || 'Something went wrong.'
+                // When non-provisional text was already streamed, append the
+                // error so the user keeps the partial content. When the message
+                // is still provisional (tool-backed placeholder), replace.
+                const content = priorText.length > 0
+                  ? `${priorText}\n\n---\n\n${errText}`
+                  : errText
+                updateMessage(msgId, {
+                  content,
+                  isStreaming: false,
+                  isProvisional: false,
+                  toolLoadingState: null,
+                  synthetic: priorText.length === 0,
+                  actionChips: event.recoverable
+                    ? [{ id: 'retry', label: 'Try again', intent: 'primary' as const }]
+                    : undefined,
+                })
+                break
+              }
+            }
+          }
+
+          // Terminal guarantee: if the stream ended without turn_complete or
+          // error, the pre-created message is stuck with isStreaming: true.
+          // Finalise it so one settled assistant message always remains.
+          if (streamingMsgIdRef.current) {
+            // Flush any pending RAF buffer
+            if (frameBufRef.current.length > 0) {
+              streamTextRef.current += frameBufRef.current.join('')
+              frameBufRef.current = []
+            }
+            const settledContent = streamTextRef.current || 'The response ended unexpectedly.'
+            updateMessage(msgId, {
+              content: settledContent,
+              isStreaming: false,
+              isProvisional: false,
+              toolLoadingState: null,
+              synthetic: !streamTextRef.current,
+              actionChips: [{ id: 'retry', label: 'Try again', intent: 'primary' as const }],
+            })
+            streamingMsgIdRef.current = null
+          }
+
+          // Use the envelope for interaction logging if available
+          if (streamEnvelope) {
+            const interactionStateAfterStream = createInteractionSnapshot(messages.length + (hidden || mode === 'system' ? 0 : 1))
+            updateInteractionResponse(turnClientId, {
+              responseStatus: 200,
+              responseSummary: summariseEnvelope(streamEnvelope),
+              mutatedGraph: (streamEnvelope.blocks ?? []).some((block: any) => {
+                const btype = typeof block?.block_type === 'string' ? block.block_type : block?.type
+                return btype === 'graph_patch'
+              }),
+              mutatedAnalysis: Boolean(streamEnvelope.analysis_response),
+              mutatedChat: Boolean((streamEnvelope.assistant_text?.trim().length ?? 0) > 0 || (streamEnvelope.blocks?.length ?? 0) > 0),
+              stateAfter: interactionStateAfterStream,
+            })
+          }
+
+          if (triggerSurface === 'analyse_now') {
+            setLastAnalysisInteractionChainId(interactionChainId)
+          }
+        } else {
+          // --- NON-STREAMING PATH (unchanged) ---
+          const envelope = await callOrchestratorTurn(request, controller.signal)
+          handleEnvelope(envelope, turnClientId)
+          const interactionStateAfter = createInteractionSnapshot(messages.length + (hidden || mode === 'system' ? 1 : 2))
+          updateInteractionResponse(turnClientId, {
+            responseStatus: 200,
+            responseSummary: summariseEnvelope(envelope),
+            mutatedGraph: (envelope.blocks ?? []).some((block: any) => {
+              const type = typeof block?.block_type === 'string' ? block.block_type : block?.type
+              return type === 'graph_patch'
+            }),
+            mutatedAnalysis: Boolean(envelope.analysis_response),
+            mutatedChat: Boolean((envelope.assistant_text?.trim().length ?? 0) > 0 || (envelope.blocks?.length ?? 0) > 0),
+            stateAfter: interactionStateAfter,
+          })
+          if (triggerSurface === 'analyse_now') {
+            setLastAnalysisInteractionChainId(interactionChainId)
+          }
         }
       } catch (err) {
         if ((err as Error).name === 'AbortError') return // timeout already handled
@@ -1608,14 +1817,28 @@ export function useConversation(): UseConversationReturn {
 
           const errorMessage = buildErrorMessage(err)
 
-          addMessage({
-            id: crypto.randomUUID(),
-            role: 'assistant',
-            content: errorMessage,
-            synthetic: true,
-            actionChips: [{ id: 'retry', label: 'Try again', intent: 'primary' }],
-            timestamp: new Date(),
-          })
+          // If the streaming path pre-created a message, reuse it instead
+          // of creating a duplicate.
+          if (streamingMsgIdRef.current) {
+            updateMessage(streamingMsgIdRef.current, {
+              content: errorMessage,
+              isStreaming: false,
+              isProvisional: false,
+              toolLoadingState: null,
+              synthetic: true,
+              actionChips: [{ id: 'retry', label: 'Try again', intent: 'primary' as const }],
+            })
+            streamingMsgIdRef.current = null
+          } else {
+            addMessage({
+              id: crypto.randomUUID(),
+              role: 'assistant',
+              content: errorMessage,
+              synthetic: true,
+              actionChips: [{ id: 'retry', label: 'Try again', intent: 'primary' }],
+              timestamp: new Date(),
+            })
+          }
         }
         updateInteractionResponse(turnClientId, {
           responseStatus: err instanceof OrchestratorError ? err.status : 0,
@@ -1641,12 +1864,28 @@ export function useConversation(): UseConversationReturn {
         clearTimeout(longRunningTimerRef.current)
         clearTimeout(stillWorkingTimerRef.current)
         clearTimeout(timeoutTimerRef.current)
+        // Finalise any stuck streaming message before clearing refs
+        if (streamingMsgIdRef.current) {
+          if (frameBufRef.current.length > 0) {
+            streamTextRef.current += frameBufRef.current.join('')
+          }
+          const content = streamTextRef.current || 'The response was interrupted.'
+          updateMessage(streamingMsgIdRef.current, {
+            content,
+            isStreaming: false,
+            isProvisional: false,
+            toolLoadingState: null,
+            synthetic: !streamTextRef.current,
+            actionChips: [{ id: 'retry', label: 'Try again', intent: 'primary' as const }],
+          })
+        }
+        cleanupStreamRefs()
         setIsThinking(false)
         setLongRunningHint(null)
         inFlightRef.current = false
       }
     },
-    [isThinking, addMessage, buildRequest, handleEnvelope],
+    [isThinking, addMessage, updateMessage, buildRequest, handleEnvelope, scheduleStreamFlush, cleanupStreamRefs],
   )
 
   // ---------------------------------------------------------------------------

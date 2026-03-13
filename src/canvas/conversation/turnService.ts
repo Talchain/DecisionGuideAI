@@ -53,6 +53,7 @@
 
 import type {
   OrchestratorResponseEnvelopeV2,
+  OrchestratorStreamEvent,
 } from './types'
 import { computePayloadHash } from '../../lib/canonical-hash'
 import { recordRequest, recordResponse } from '../../lib/debug-state'
@@ -70,6 +71,12 @@ const ORCHESTRATOR_URL =
     : '/bff/orchestrate/v1/turn'
 
 const ORCHESTRATOR_TIMEOUT_MS = 60_000
+const STREAM_TIMEOUT_MS = 120_000
+const STREAM_HEARTBEAT_MS = 30_000
+
+// Streaming endpoint: override via env, or derive from base by appending /stream
+const ORCHESTRATOR_STREAM_URL =
+  import.meta.env.VITE_ORCHESTRATOR_STREAM_BASE || `${ORCHESTRATOR_URL}/stream`
 
 const LOG_PREFIX = '[turnService]'
 
@@ -285,4 +292,334 @@ function combineSignals(a: AbortSignal, b: AbortSignal): AbortSignal {
   a.addEventListener('abort', abort, { once: true })
   b.addEventListener('abort', abort, { once: true })
   return controller.signal
+}
+
+// ---------------------------------------------------------------------------
+// Streaming turn service
+// ---------------------------------------------------------------------------
+
+/** Status codes that trigger automatic fallback to non-streaming */
+const STREAM_FALLBACK_STATUSES = new Set([404, 501])
+
+/** Completion status for observability */
+type StreamCompletionStatus = 'complete' | 'error' | 'disconnect' | 'fallback' | 'timeout'
+
+interface StreamTelemetry {
+  time_to_first_byte_ms: number | null
+  time_to_first_token_ms: number | null
+  time_to_first_block_ms: number | null
+  total_stream_duration_ms: number
+  completion_status: StreamCompletionStatus
+  event_count: number
+  text_delta_count: number
+  text_diff: boolean
+  fallback_reason?: string
+}
+
+/**
+ * Parse a raw SSE text chunk into structured events.
+ *
+ * Handles multi-line `data:` fields per the SSE spec (consecutive data lines
+ * joined with `\n`) and `:` comment lines as heartbeat signals.
+ *
+ * @returns An array of parsed events and a boolean indicating heartbeat activity
+ */
+export function parseSSELines(
+  lines: string[],
+  /** When true, flush any buffered event at the end even without a trailing
+   *  blank line. Only set this when processing the final chunk of a stream. */
+  flush = false,
+): { events: Array<{ eventType: string; data: string }>; hadActivity: boolean } {
+  const events: Array<{ eventType: string; data: string }> = []
+  let currentEventType = ''
+  let dataLines: string[] = []
+  let hadActivity = false
+
+  for (const rawLine of lines) {
+    // Normalise CRLF / bare CR — servers may use \r\n line endings
+    const line = rawLine.replace(/\r$/, '')
+
+    if (line === '') {
+      // Empty line = event boundary per SSE spec
+      if (dataLines.length > 0) {
+        events.push({ eventType: currentEventType, data: dataLines.join('\n') })
+        dataLines = []
+        currentEventType = ''
+      }
+      continue
+    }
+    if (line.startsWith(':')) {
+      // Comment line = heartbeat signal
+      hadActivity = true
+      continue
+    }
+    if (line.startsWith('event: ')) {
+      currentEventType = line.slice(7).trim()
+      hadActivity = true
+    } else if (line.startsWith('data: ')) {
+      dataLines.push(line.slice(6))
+      hadActivity = true
+    } else if (line.startsWith('data:')) {
+      // `data:` with no space — still valid per SSE spec
+      dataLines.push(line.slice(5))
+      hadActivity = true
+    }
+  }
+
+  // Flush trailing buffered event on EOF (stream ended without final blank line)
+  if (flush && dataLines.length > 0) {
+    events.push({ eventType: currentEventType, data: dataLines.join('\n') })
+  }
+
+  return { events, hadActivity }
+}
+
+/**
+ * Stream an orchestrator turn via SSE (POST /orchestrate/v1/turn/stream).
+ *
+ * Returns an async iterable of typed stream events. On 404/501 before the
+ * first event, transparently falls back to the non-streaming
+ * `callOrchestratorTurn()` and yields a synthetic `turn_complete`.
+ *
+ * SSE parser adapted from src/adapters/plot/v1/sseClient.ts.
+ * Heartbeat pattern from src/adapters/plot/reconnection.ts.
+ */
+export async function* streamOrchestratorTurn(
+  request: TurnRequestPayload,
+  signal?: AbortSignal,
+): AsyncGenerator<OrchestratorStreamEvent> {
+  const startTime = Date.now()
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), STREAM_TIMEOUT_MS)
+  const combinedSignal = signal
+    ? combineSignals(signal, controller.signal)
+    : controller.signal
+
+  validateTurnRequestBoundary(request)
+  const wireRequest = stripDevTurnType(request)
+  const requestBody = JSON.stringify(wireRequest)
+  const requestId = request.client_turn_id
+
+  // Telemetry bookkeeping
+  let firstByteMs: number | null = null
+  let firstTokenMs: number | null = null
+  let firstBlockMs: number | null = null
+  let eventCount = 0
+  let textDeltaCount = 0
+  let accumulatedText = ''
+  let completionStatus: StreamCompletionStatus = 'disconnect'
+  let fallbackReason: string | undefined
+  let finalAssistantText: string | null = null
+
+  // Heartbeat timer
+  let heartbeatTimeout: ReturnType<typeof setTimeout> | null = null
+  const clearHeartbeat = () => {
+    if (heartbeatTimeout) { clearTimeout(heartbeatTimeout); heartbeatTimeout = null }
+  }
+  const resetHeartbeat = () => {
+    clearHeartbeat()
+    heartbeatTimeout = setTimeout(() => {
+      completionStatus = 'timeout'
+      controller.abort()
+    }, STREAM_HEARTBEAT_MS)
+  }
+
+  const logTelemetry = () => {
+    const telemetry: StreamTelemetry = {
+      time_to_first_byte_ms: firstByteMs,
+      time_to_first_token_ms: firstTokenMs,
+      time_to_first_block_ms: firstBlockMs,
+      total_stream_duration_ms: Date.now() - startTime,
+      completion_status: completionStatus,
+      event_count: eventCount,
+      text_delta_count: textDeltaCount,
+      text_diff: finalAssistantText != null && finalAssistantText !== accumulatedText,
+      ...(fallbackReason ? { fallback_reason: fallbackReason } : {}),
+    }
+    console.warn(LOG_PREFIX, 'streaming.telemetry', {
+      clientTurnId: requestId,
+      ...telemetry,
+    })
+  }
+
+  console.warn(LOG_PREFIX, 'Stream request', {
+    url: ORCHESTRATOR_STREAM_URL,
+    method: 'POST',
+    bodyBytes: requestBody.length,
+    clientTurnId: requestId,
+  })
+
+  let response: Response
+  try {
+    response = await fetch(ORCHESTRATOR_STREAM_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'text/event-stream',
+      },
+      body: requestBody,
+      signal: combinedSignal,
+    })
+  } catch (err) {
+    clearTimeout(timeoutId)
+    clearHeartbeat()
+
+    if ((err as Error).name === 'AbortError') {
+      completionStatus = completionStatus === 'timeout' ? 'timeout' : 'disconnect'
+      logTelemetry()
+      throw err
+    }
+
+    // Network error before first byte — fall back to non-streaming
+    console.warn(LOG_PREFIX, 'streaming.client_fallback', { reason: 'network_error', error: (err as Error).message })
+    fallbackReason = 'network_error'
+    completionStatus = 'fallback'
+    const envelope = await callOrchestratorTurn(request, signal)
+    logTelemetry()
+    yield { type: 'turn_complete', seq: 0, envelope }
+    return
+  }
+
+  // Check for fallback conditions before reading stream
+  if (!response.ok && STREAM_FALLBACK_STATUSES.has(response.status)) {
+    clearTimeout(timeoutId)
+    clearHeartbeat()
+    console.warn(LOG_PREFIX, 'streaming.client_fallback', { reason: `status_${response.status}` })
+    fallbackReason = `status_${response.status}`
+    completionStatus = 'fallback'
+    const envelope = await callOrchestratorTurn(request, signal)
+    logTelemetry()
+    yield { type: 'turn_complete', seq: 0, envelope }
+    return
+  }
+
+  if (!response.ok) {
+    clearTimeout(timeoutId)
+    clearHeartbeat()
+    const text = await response.text().catch(() => '')
+    let body: unknown
+    try { body = text ? JSON.parse(text) : {} } catch { body = { raw: text } }
+    completionStatus = 'error'
+    logTelemetry()
+    throw new OrchestratorError(
+      (body as Record<string, any>)?.error?.message ||
+      (body as Record<string, any>)?.message ||
+      `Orchestrator stream returned ${response.status}`,
+      response.status,
+      body,
+      response.headers.get('x-request-id') ?? undefined,
+    )
+  }
+
+  // JSON response fallback (CEE cache hit)
+  const contentType = response.headers.get('content-type') ?? ''
+  if (contentType.includes('application/json')) {
+    clearTimeout(timeoutId)
+    clearHeartbeat()
+    const envelope = (await response.json()) as OrchestratorResponseEnvelopeV2
+    completionStatus = 'complete'
+    fallbackReason = 'json_cache_hit'
+    logTelemetry()
+    yield { type: 'turn_complete', seq: 0, envelope }
+    return
+  }
+
+  // Unexpected content-type (e.g. text/html from proxy error page) — fall back
+  if (!contentType.includes('text/event-stream')) {
+    clearTimeout(timeoutId)
+    clearHeartbeat()
+    console.warn(LOG_PREFIX, 'streaming.client_fallback', { reason: 'unexpected_content_type', contentType })
+    fallbackReason = `content_type_${contentType || 'empty'}`
+    completionStatus = 'fallback'
+    const envelope = await callOrchestratorTurn(request, signal)
+    logTelemetry()
+    yield { type: 'turn_complete', seq: 0, envelope }
+    return
+  }
+
+  if (!response.body) {
+    clearTimeout(timeoutId)
+    clearHeartbeat()
+    completionStatus = 'error'
+    logTelemetry()
+    throw new OrchestratorError('No response body on stream', 0, null, requestId)
+  }
+
+  // Begin SSE consumption
+  firstByteMs = Date.now() - startTime
+  resetHeartbeat()
+
+  const reader = response.body.getReader()
+  const decoder = new TextDecoder()
+  let buffer = ''
+
+  const processEvents = function* (lines: string[], flush = false) {
+    const { events, hadActivity } = parseSSELines(lines, flush)
+    if (hadActivity) resetHeartbeat()
+
+    for (const { eventType, data } of events) {
+      let parsed: Record<string, unknown>
+      try {
+        parsed = JSON.parse(data)
+      } catch {
+        console.warn(LOG_PREFIX, 'Failed to parse SSE data:', data.slice(0, 200))
+        continue
+      }
+
+      const event = { ...parsed, type: eventType || parsed.type } as OrchestratorStreamEvent
+      eventCount++
+
+      // Track telemetry milestones
+      if (event.type === 'text_delta') {
+        textDeltaCount++
+        accumulatedText += (event as { delta: string }).delta
+        if (firstTokenMs === null) firstTokenMs = Date.now() - startTime
+      } else if (event.type === 'block' && firstBlockMs === null) {
+        firstBlockMs = Date.now() - startTime
+      } else if (event.type === 'turn_complete') {
+        completionStatus = 'complete'
+        finalAssistantText = (event as { envelope: OrchestratorResponseEnvelopeV2 }).envelope.assistant_text
+      } else if (event.type === 'error') {
+        completionStatus = 'error'
+      }
+
+      yield event
+    }
+  }
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+
+      resetHeartbeat()
+      buffer += decoder.decode(value, { stream: true })
+      const lines = buffer.split('\n')
+      buffer = lines.pop() || ''
+
+      yield* processEvents(lines)
+    }
+
+    // Flush TextDecoder internal state (trailing multi-byte sequence)
+    const decoderTail = decoder.decode()
+    if (decoderTail) buffer += decoderTail
+
+    // Flush any remaining buffer content (stream ended without trailing newline)
+    if (buffer.length > 0) {
+      const tailLines = buffer.split('\n')
+      yield* processEvents(tailLines, true)
+    }
+  } catch (err) {
+    if ((err as Error).name === 'AbortError') {
+      if (completionStatus !== 'timeout') completionStatus = 'disconnect'
+    } else {
+      completionStatus = 'error'
+      throw err
+    }
+  } finally {
+    clearTimeout(timeoutId)
+    clearHeartbeat()
+    try { reader.releaseLock() } catch { /* already released */ }
+    logTelemetry()
+  }
 }

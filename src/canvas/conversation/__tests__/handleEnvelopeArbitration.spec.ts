@@ -33,6 +33,7 @@ vi.mock('../turnService', () => ({
 
 vi.mock('../../../flags', () => ({
   isOrchestratorV2Enabled: () => true,
+  isOrchestratorStreamingEnabled: () => false,
 }))
 
 vi.mock('../../../adapters/plot/v2', () => ({

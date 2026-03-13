@@ -36,6 +36,7 @@ vi.mock('../turnService', () => ({
 let flagValue = true
 vi.mock('../../../flags', () => ({
   isOrchestratorV2Enabled: () => flagValue,
+  isOrchestratorStreamingEnabled: () => false,
 }))
 
 // ---------------------------------------------------------------------------

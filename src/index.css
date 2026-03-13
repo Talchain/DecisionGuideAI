@@ -537,3 +537,22 @@
     filter: drop-shadow(0 0 3px var(--danger, #EA7B4B));
   }
 }
+
+/* Streaming cursor — injected via dangerouslySetInnerHTML in MessageBubble */
+.streaming-cursor {
+  display: inline;
+  font-weight: 600;
+  color: var(--text-muted, #9CA3AF);
+  animation: streamCursorBlink 1s step-end infinite;
+}
+
+@keyframes streamCursorBlink {
+  50% { opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .streaming-cursor {
+    animation: none;
+    opacity: 0.6;
+  }
+}
