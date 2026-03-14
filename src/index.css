@@ -33,8 +33,15 @@
     @apply bg-canvas text-text-header;
   }
 
-  *:focus {
-    @apply outline-none;
+  /* A11y: Hide focus ring on mouse click, show on keyboard navigation.
+     focus-visible fires only for keyboard/programmatic focus. */
+  *:focus:not(:focus-visible) {
+    outline: none;
+  }
+  *:focus-visible {
+    outline: 2px solid var(--focus-color, var(--info));
+    outline-offset: 2px;
+    border-radius: 4px;
   }
 
   ::selection {
@@ -329,7 +336,7 @@
 /* Canvas Focus Animation */
 .node-focused,
 .react-flow__node.node-focused {
-  outline: 3px solid var(--sky-500, #63ADCF);
+  outline: 3px solid var(--sky-500, #2B7FA2);
   outline-offset: 4px;
   animation: focus-pulse 0.6s ease-in-out;
   z-index: 1000;
@@ -337,7 +344,7 @@
 
 .edge-focused,
 .react-flow__edge.edge-focused path {
-  stroke: var(--sky-500, #63ADCF) !important;
+  stroke: var(--sky-500, #2B7FA2) !important;
   stroke-width: 3px !important;
   animation: focus-pulse 0.6s ease-in-out;
 }
@@ -442,16 +449,16 @@
  * ---------------------------------------------------------------------------*/
 
 .guidance-pulse-ring > * {
-  outline: 2.5px solid var(--info, #63ADCF);
+  outline: 2.5px solid var(--info, #2B7FA2);
   outline-offset: 3px;
   border-radius: 8px;
   animation: guidance-pulse 600ms ease-out 1 forwards;
 }
 
 .react-flow__edge.guidance-pulse-ring .react-flow__edge-path {
-  stroke: var(--info, #63ADCF);
+  stroke: var(--info, #2B7FA2);
   stroke-width: 3;
-  filter: drop-shadow(0 0 3px var(--info, #63ADCF));
+  filter: drop-shadow(0 0 3px var(--info, #2B7FA2));
   animation: guidance-edge-pulse 600ms ease-out 1 forwards;
 }
 
@@ -461,11 +468,11 @@
     outline-width: 4px;
   }
   30% {
-    outline-color: var(--info, #63ADCF);
+    outline-color: var(--info, #2B7FA2);
     outline-width: 4px;
   }
   100% {
-    outline-color: var(--info, #63ADCF);
+    outline-color: var(--info, #2B7FA2);
     outline-width: 2.5px;
   }
 }
@@ -494,7 +501,7 @@
 
 /* should_fix variant — info colour (advisory, not critical) */
 .guidance-pulse-ring[data-guidance-category="should_fix"] > * {
-  outline-color: var(--info, #63ADCF);
+  outline-color: var(--info, #2B7FA2);
   animation-name: guidance-pulse;
 }
 
@@ -516,7 +523,7 @@
 @media (prefers-reduced-motion: reduce) {
   .guidance-pulse-ring > * {
     animation: none;
-    outline: 2.5px solid var(--info, #63ADCF);
+    outline: 2.5px solid var(--info, #2B7FA2);
     outline-offset: 3px;
   }
 
@@ -525,7 +532,7 @@
   }
 
   .guidance-pulse-ring[data-guidance-category="should_fix"] > * {
-    outline-color: var(--info, #63ADCF);
+    outline-color: var(--info, #2B7FA2);
   }
 
   .react-flow__edge.guidance-pulse-ring .react-flow__edge-path {

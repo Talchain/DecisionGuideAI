@@ -117,7 +117,8 @@ export const EdgePanel = memo(function EdgePanel({
   const isOrganisational = sourceKind === 'decision' && targetKind === 'option'
   const isIntervention = sourceKind === 'option' && targetKind === 'factor'
 
-  // Current values
+  // UI-SEM-029: Edge weight/direction defaults for display (0.5 / 'positive').
+  // Keep — display fallback; does not affect analysis data.
   const weight = edge?.data?.weight ?? 0.5
   const direction = edge?.data?.direction ?? 'positive'
   const signedValue = direction === 'negative' ? -weight : weight

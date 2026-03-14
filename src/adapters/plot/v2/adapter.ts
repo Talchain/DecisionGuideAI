@@ -594,6 +594,8 @@ function computeSignedMean(data: CanvasEdgeData | undefined, edgeId?: string, fr
  */
 function computeDefaultStd(data: CanvasEdgeData | undefined): number {
   const magnitude = data?.weight ?? 0.5
+  // UI-SEM-031: Default exists_probability (0.8) for std computation when belief is missing.
+  // Keep — adapter concern; same class as UI-SEM-002/003.
   const belief = data?.beliefExists ?? data?.confidence ?? data?.belief ?? DEFAULT_EXISTS_PROBABILITY
   const cv = 0.3 * (1 - belief) + 0.1
   return Math.max(STD_FLOOR, cv * magnitude)

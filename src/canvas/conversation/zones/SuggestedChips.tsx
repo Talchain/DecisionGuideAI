@@ -83,10 +83,10 @@ export function SuggestedChips({ chips, onChipClick }: SuggestedChipsProps) {
         }
         .suggested-chip:hover {
           background: var(--bg-panel-hover, #FEF9F3);
-          border-color: var(--info, #63ADCF) !important;
+          border-color: var(--info, #2B7FA2) !important;
         }
         .suggested-chip:focus-visible {
-          outline: 2px solid var(--info, #63ADCF);
+          outline: 2px solid var(--info, #2B7FA2);
           outline-offset: 2px;
         }
         .suggested-chip:active {

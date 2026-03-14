@@ -73,7 +73,8 @@ import { HighlightProvider, useHighlightContext } from './highlighting/Highlight
 import { useEngineLimits } from './hooks/useEngineLimits'
 import { useRunEligibilityCheck } from './hooks/useRunEligibilityCheck'
 import { useAutosave } from './hooks/useAutosave'
-import { DebugPanel } from '../components/DebugPanel'
+// Lazy-load debug panel — excludes ~6.8k lines of debug UI from the main bundle
+const LazyDebugPanel = lazy(() => import('../components/DebugPanel').then(m => ({ default: m.DebugPanel })))
 import { verboseWarn } from '../utils/verboseLog'
 
 type CanvasDebugMode = 'normal' | 'blank' | 'no-reactflow' | 'rf-only' | 'rf-bare' | 'rf-minimal' | 'rf-empty' | 'rf-no-fitview' | 'rf-no-bg' | 'rf-store' | 'provider-only' | 'no-provider'
@@ -2239,8 +2240,8 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
         </div>
       </BottomSheet>
 
-      {/* Debug Panel - activated via ?diag=1 in staging/dev */}
-      <DebugPanel />
+      {/* Debug Panel - activated via ?diag=1 in staging/dev (lazy-loaded) */}
+      <Suspense fallback={null}><LazyDebugPanel /></Suspense>
     </div>
   )
 })

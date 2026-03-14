@@ -32,6 +32,8 @@ import type { Node, Edge } from '@xyflow/react'
 import { typography } from '../../styles/typography'
 import type { NodeType } from '../domain/nodes'
 import { getDisplayEdgeId } from '../utils/edgeIdentity'
+import { qualitativeTierLabel, formatInterventionValue, CURRENCY_SYMBOLS } from '../utils/labelUtils'
+import { getProvenanceLabel } from '../ui/inspector-v2/inspectorStrings'
 
 interface GraphTextViewProps {
   nodes: Node[]
@@ -208,18 +210,32 @@ function getObservedStateInfo(node: Node): { value: string | null; unit: string 
     return { value: null, unit: null, source: null }
   }
 
-  // Support both numeric and string values
+  // Format value for human comprehension (no raw floats)
   let value: string | null = null
-  if (typeof observedState.value === 'number') {
-    value = observedState.value.toString()
-  } else if (typeof observedState.value === 'string' && observedState.value.trim()) {
-    value = observedState.value
+  const rawVal = observedState.raw_value
+  const unit = typeof observedState.unit === 'string' ? observedState.unit : null
+  const numValue = typeof observedState.value === 'number' ? observedState.value : null
+
+  if (rawVal != null && String(rawVal).trim() !== '') {
+    const numeric = Number(rawVal)
+    if (unit && CURRENCY_SYMBOLS.has(unit[0]) && !isNaN(numeric)) {
+      value = formatInterventionValue(numeric, unit, observedState.factor_type)
+    } else {
+      value = unit ? `${rawVal} ${unit}` : String(rawVal)
+    }
+  } else if (numValue !== null) {
+    if (unit) {
+      value = formatInterventionValue(numValue, unit, observedState.factor_type)
+    } else {
+      value = qualitativeTierLabel(numValue)
+    }
   }
 
-  const unit = typeof observedState.unit === 'string' ? observedState.unit : null
-  const source = typeof observedState.source === 'string' ? observedState.source : null
+  // Map raw source token to user-friendly label
+  const rawSource = typeof observedState.source === 'string' ? observedState.source : null
+  const source = rawSource ? getProvenanceLabel(rawSource) : null
 
-  return { value, unit, source }
+  return { value, unit: null, source }
 }
 
 /**
@@ -507,13 +523,12 @@ export function GraphTextView({
                           {label}
                         </button>
 
-                        {/* Factor observed state (value, unit, source) */}
+                        {/* Factor observed state — human-readable value + provenance */}
                         {observedInfo && observedInfo.value && (
                           <div className={`ml-4 ${typography.caption} text-ink-500`}>
-                            <span className="text-ink-600">Value: {observedInfo.value}</span>
-                            {observedInfo.unit && <span className="ml-1">({observedInfo.unit})</span>}
+                            <span className="text-ink-600">{observedInfo.value}</span>
                             {observedInfo.source && (
-                              <span className="ml-2 text-ink-400">• Source: {observedInfo.source}</span>
+                              <span className="ml-2 text-ink-400">• {observedInfo.source}</span>
                             )}
                           </div>
                         )}

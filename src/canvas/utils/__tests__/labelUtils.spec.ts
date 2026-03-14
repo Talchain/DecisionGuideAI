@@ -412,6 +412,32 @@ describe('formatInterventionValue', () => {
 })
 
 // ---------------------------------------------------------------------------
+// Wave 1: Observed value formatting patterns (Task 3)
+// Ensures inspector/panel surfaces never show raw floats or technical tokens
+// ---------------------------------------------------------------------------
+describe('observed value formatting (no raw data)', () => {
+  it('qualitativeTierLabel(0.5) returns "Medium" not "0.5"', () => {
+    expect(qualitativeTierLabel(0.5)).toBe('Medium')
+  })
+
+  it('qualitativeTierLabel(0) returns "None"', () => {
+    expect(qualitativeTierLabel(0)).toBe('None')
+  })
+
+  it('qualitativeTierLabel(1) returns "Very high"', () => {
+    expect(qualitativeTierLabel(1)).toBe('Very high')
+  })
+
+  it('currency value formatted with symbol: £40,000', () => {
+    expect(formatInterventionValue(40000, '£')).toBe('£40,000')
+  })
+
+  it('percentage formatted from decimal', () => {
+    expect(formatInterventionValue(0.75, '%')).toBe('75%')
+  })
+})
+
+// ---------------------------------------------------------------------------
 // describeEdgeInfluence (Fix 2 — brief test requirement)
 // ---------------------------------------------------------------------------
 describe('describeEdgeInfluence', () => {

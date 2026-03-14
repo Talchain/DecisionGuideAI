@@ -166,6 +166,19 @@ npm run build
 | UI-SEM-019 | `src/components/results/useResultsSectionData.ts:537` | Readiness/confidence taxonomy mapping (varied PLoT labels → strong/fair/needs_work) | Remove when PLoT provides canonical tier enum |
 | UI-SEM-020 | `src/canvas/hooks/useStagePill.ts` | Stage derivation from canvas state (no graph=frame, graph=ideate, complete=evaluate) | Remove when orchestrator provides envelope.stage_indicator |
 | UI-SEM-021 | `src/components/results/HeroSection.tsx:258` | Suppress coaching copy containing "robust"/"ready to proceed" when robustness level is low/very_low | Remove when PLoT/CEE provides robustness-conditioned coaching copy |
+| UI-SEM-022 | `src/canvas/components/DraftChat.tsx:505` | Direction inference from signed weight when CEE omits effect_direction | Keep — defensive fallback (remove when CEE guarantees direction) |
+| UI-SEM-023 | `src/canvas/components/DraftChat.tsx:519` | Weight magnitude clamped to [0, 2] range | Keep — prevents out-of-range values |
+| UI-SEM-024 | `src/canvas/components/DraftChat.tsx:543` | Belief confidence clamped to [0, 1] | Keep — normalisation |
+| UI-SEM-025 | `src/canvas/components/DraftChat.tsx:553` | belief_exists clamped to [0, 1] | Keep — normalisation |
+| UI-SEM-026 | `src/adapters/cee/client.ts:255` | CEE edge weight clamped to [0, 1] | Keep — normalisation (CIL 0.2) |
+| UI-SEM-027 | `src/adapters/cee/client.ts:261` | CEE edge belief clamped to [0, 1] | Keep — normalisation (CIL 0.2) |
+| UI-SEM-028 | `src/adapters/cee/client.ts:307` | CEE belief_exists clamped to [0, 1] | Keep — normalisation (CIL 0.2) |
+| UI-SEM-029 | `src/canvas/ui/inspector-v2/panels/EdgePanel.tsx:121` | Edge weight/direction display defaults (0.5 / 'positive') | Keep — display-only fallback |
+| UI-SEM-030 | `src/canvas/hooks/useGraphReadiness.ts:382` | Edge defaults for CEE coaching (weight 0.5, belief 0.7, direction 'positive') | Keep — pre-analysis defaults (same class as UI-SEM-011) |
+| UI-SEM-031 | `src/adapters/plot/v2/adapter.ts:597` | Default exists_probability (0.8) for std computation | Keep — adapter concern (same class as UI-SEM-002) |
+| UI-SEM-032 | `src/canvas/adapters/islRequestAdapter.ts:169` | Default exists_probability (0.8) for std computation — mirrors UI-SEM-031 | Keep — adapter concern |
+| UI-SEM-033 | `src/canvas/components/ModelTabBody.tsx:683` | Edge display defaults (weight 0.5, direction 'positive', belief 0.7) | Keep — display-only fallback |
+| UI-SEM-034 | `src/adapters/plot/v1/mapper.ts:207` | V1 adapter belief clamped to [0, 1] | Keep — normalisation |
 
 - Check for stale `.js` files co-located with `.ts`/`.tsx` source files in `src/` when debugging unexpected behaviour.
 - This is a React app — check for stale component state, missing dependency arrays in hooks, and incorrect memoisation when debugging rendering issues.

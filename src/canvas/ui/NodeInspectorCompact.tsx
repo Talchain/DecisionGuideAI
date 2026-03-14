@@ -18,6 +18,7 @@ import type { NodeType } from '../domain/nodes'
 import { renderIcon } from '../helpers/renderIcon'
 import { useNodeDisplayMetadata } from '../hooks/useNodeDisplayMetadata'
 import { typography } from '../../styles/typography'
+import { qualitativeTierLabel, formatInterventionValue, CURRENCY_SYMBOLS } from '../utils/labelUtils'
 
 interface NodeInspectorCompactProps {
   nodeId: string
@@ -97,9 +98,9 @@ export const NodeInspectorCompact = memo(({ nodeId, onClose, onExpandToFull }: N
     }
   }, [])
 
-  // Format intervention value with unit
+  // Format intervention chip value with unit (distinct from labelUtils.formatInterventionValue)
   // Task 4: "sets to [value]" format when no unit
-  const formatInterventionValue = useCallback((value: number, unit: string): string => {
+  const formatChipValue = useCallback((value: number, unit: string): string => {
     if (!unit) {
       return `sets to ${value.toLocaleString(undefined, { maximumFractionDigits: 2 })}`
     }
@@ -172,15 +173,34 @@ export const NodeInspectorCompact = memo(({ nodeId, onClose, onExpandToFull }: N
         {node.data?.label || 'Untitled'}
       </p>
 
-      {/* Key metric: Factor current value */}
-      {currentType === 'factor' && (node.data?.observedState as any)?.value !== undefined && (
-        <div className="flex items-center justify-between px-2 py-1 bg-panel rounded border border-panel-border mb-2">
-          <span className={`${typography.panelMeta} text-text-light`}>Current value</span>
-          <span className={`${typography.panelMeta} text-text-body tabular-nums`}>
-            {(node.data?.observedState as any).value}
-          </span>
-        </div>
-      )}
+      {/* Key metric: Factor current value — formatted for human comprehension */}
+      {currentType === 'factor' && (node.data?.observedState as any)?.value !== undefined && (() => {
+        const obs = node.data?.observedState as any
+        const rawVal = obs?.raw_value
+        const unit = obs?.unit as string | undefined
+        const numValue = obs?.value as number
+        let display: string
+        if (rawVal != null && String(rawVal).trim() !== '') {
+          const numeric = Number(rawVal)
+          if (unit && CURRENCY_SYMBOLS.has(unit[0]) && !isNaN(numeric)) {
+            display = formatInterventionValue(numeric, unit, obs?.factor_type)
+          } else {
+            display = unit ? `${rawVal} ${unit}` : String(rawVal)
+          }
+        } else if (unit) {
+          display = formatInterventionValue(numValue, unit, obs?.factor_type)
+        } else {
+          display = qualitativeTierLabel(numValue)
+        }
+        return (
+          <div className="flex items-center justify-between px-2 py-1 bg-panel rounded border border-panel-border mb-2">
+            <span className={`${typography.panelMeta} text-text-light`}>Current value</span>
+            <span className={`${typography.panelMeta} text-text-body tabular-nums`}>
+              {display}
+            </span>
+          </div>
+        )
+      })()}
 
       {/* Factor Insights (only for factors in Results mode) */}
       {currentType === 'factor' && displayMetadata.isResultsMode && (
@@ -283,7 +303,7 @@ export const NodeInspectorCompact = memo(({ nodeId, onClose, onExpandToFull }: N
                     {row.factorLabel}
                   </span>
                   <span className={`${typography.panelBody} text-text-body flex-shrink-0`}>
-                    {formatInterventionValue(row.value, row.unit)}
+                    {formatChipValue(row.value, row.unit)}
                   </span>
                 </div>
               ))}

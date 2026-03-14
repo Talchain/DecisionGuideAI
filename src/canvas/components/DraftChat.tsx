@@ -501,7 +501,8 @@ export function DraftChat() {
         weightSource = 'default'
       }
 
-      // Infer direction when missing to preserve sign (negative mean -> negative direction)
+      // UI-SEM-022: Direction inference from signed weight when CEE omits effect_direction.
+      // Keep — defensive fallback; remove when CEE guarantees effect_direction on all edges.
       const direction: EffectDirection = directionFromEdge ?? (rawWeight < 0 ? 'negative' : 'positive')
 
       if (import.meta.env.DEV && directionFromEdge === undefined) {
@@ -514,8 +515,8 @@ export function DraftChat() {
         })
       }
 
-      // Clamp to valid range (0-2 for magnitude)
-      // Store unsigned magnitude in weight - ISL adapter applies sign from direction
+      // UI-SEM-023: Weight magnitude clamped to [0, 2] range.
+      // Keep — prevents out-of-range values from reaching PLoT; store unsigned magnitude.
       const weight = Math.max(0, Math.min(2, Math.abs(rawWeight)))
 
       // Diagnostic logging for edge coefficients
@@ -539,6 +540,8 @@ export function DraftChat() {
         })
       }
 
+      // UI-SEM-024: Belief confidence clamped to [0, 1].
+      // Keep — normalises out-of-range CEE values.
       const confidence =
         typeof e.belief === 'number' ? Math.max(0, Math.min(1, e.belief)) : undefined
 
@@ -549,6 +552,8 @@ export function DraftChat() {
         : typeof e.exists_probability === 'number'
           ? e.exists_probability
           : undefined
+      // UI-SEM-025: belief_exists clamped to [0, 1].
+      // Keep — normalises out-of-range CEE values.
       const beliefExistsValue =
         beliefExistsRaw !== undefined ? Math.max(0, Math.min(1, beliefExistsRaw)) : undefined
 
@@ -975,7 +980,7 @@ export function DraftChat() {
                 disabled={!canSubmit}
                 className="absolute right-1 bottom-0 p-2 rounded-full transition-colors"
                 style={{
-                  backgroundColor: canSubmit ? '#63ADCF' : '#E8E5E1',
+                  backgroundColor: canSubmit ? 'var(--primary, #2B7FA2)' : '#E8E5E1',
                   color: canSubmit ? '#FFFFFF' : '#9B9B9B',
                   cursor: canSubmit ? 'pointer' : 'not-allowed'
                 }}
@@ -1371,7 +1376,7 @@ export function DraftChat() {
                   style={{
                     right: '12px',
                     bottom: '12px',
-                    backgroundColor: canSubmit ? '#63ADCF' : '#E8E5E1',
+                    backgroundColor: canSubmit ? 'var(--primary, #2B7FA2)' : '#E8E5E1',
                     color: canSubmit ? '#FFFFFF' : '#9B9B9B',
                     cursor: canSubmit ? 'pointer' : 'not-allowed'
                   }}

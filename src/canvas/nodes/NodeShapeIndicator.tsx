@@ -23,7 +23,7 @@ const SHAPE_FILLS: Record<NodeType, string> = {
   factor:     'var(--color-factor,     #B0A899)',
   option:     'var(--color-option,     #AAA7E4)',
   goal:       'var(--color-goal,       #F5C433)',
-  decision:   'var(--color-info,       #63ADCF)',
+  decision:   'var(--color-info,       #2B7FA2)',
   risk:       'var(--color-danger,     #EA7B4B)',
   outcome:    'var(--color-success,    #67C89E)',
   action:     'var(--color-success,    #67C89E)',

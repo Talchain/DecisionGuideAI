@@ -248,13 +248,14 @@ export function adaptDraftResponse(raw: any): CEEDraftResponse {
       const idRaw = raw.id
       const id = typeof idRaw === 'string' && (idRaw as string).trim().length > 0 ? idRaw : undefined
 
-      // CIL 0.2: reject NaN/Infinity — JSON.stringify converts to null
-      // Clamp weight to [0,1]
+      // UI-SEM-026: CEE edge weight clamped to [0, 1].
+      // Keep — normalises out-of-range CEE values (CIL 0.2: reject NaN/Infinity).
       const weightRaw = raw.weight
       const weight =
         Number.isFinite(weightRaw) ? Math.max(0, Math.min(1, weightRaw as number)) : undefined
 
-      // Clamp belief to [0,1]
+      // UI-SEM-027: CEE edge belief clamped to [0, 1].
+      // Keep — normalises out-of-range CEE values.
       const beliefRaw = raw.belief
       const belief =
         Number.isFinite(beliefRaw) ? Math.max(0, Math.min(1, beliefRaw as number)) : undefined
@@ -299,8 +300,8 @@ export function adaptDraftResponse(raw: any): CEEDraftResponse {
       const effectDirRaw = raw.effect_direction
       const effect_direction = effectDirRaw === 'positive' || effectDirRaw === 'negative' ? effectDirRaw : undefined
 
-      // P0 Fix: belief_exists - structural certainty (0-1), distinct from parametric belief
-      // CIL 0.2: reject NaN/Infinity — JSON.stringify converts to null
+      // UI-SEM-028: CEE belief_exists clamped to [0, 1].
+      // Keep — normalises out-of-range structural certainty (CIL 0.2: reject NaN/Infinity).
       const beliefExistsRaw = raw.belief_exists
       const belief_exists =
         Number.isFinite(beliefExistsRaw) ? Math.max(0, Math.min(1, beliefExistsRaw as number)) : undefined

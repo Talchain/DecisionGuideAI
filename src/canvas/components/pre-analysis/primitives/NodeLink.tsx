@@ -1,7 +1,7 @@
 /**
  * NodeLink - Clickable node reference link
  *
- * Renders node/edge references as #63ADCF (info) coloured text.
+ * Renders node/edge references as #2B7FA2 (info) coloured text.
  * Click handler is a no-op placeholder for M1 — will navigate to canvas in M2.
  *
  * This is the ONLY coloured text permitted outside Model Snapshot.

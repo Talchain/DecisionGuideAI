@@ -273,8 +273,9 @@ describe('GraphTextView', () => {
     )
 
     expect(screen.getByText('Market Share')).toBeInTheDocument()
-    expect(screen.getByText('Value: 42')).toBeInTheDocument()
-    expect(screen.getByText('(%)')).toBeInTheDocument()
+    // Wave 1: values are now human-formatted (no "Value:" prefix)
+    expect(screen.getByText('42%')).toBeInTheDocument()
+    // Source mapped through getProvenanceLabel; unknown sources keep "Source: X" default
     expect(screen.getByText(/Source: Market research/)).toBeInTheDocument()
   })
 

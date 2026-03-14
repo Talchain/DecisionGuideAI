@@ -35,8 +35,8 @@ const STAGE_LABELS: Record<ScenarioStage, string> = {
 const STAGE_BORDER: Record<ScenarioStage, string> = {
   frame: 'var(--border-default, #EEE6D8)',
   ideate: 'var(--border-default, #EEE6D8)',
-  evaluate: 'var(--info, #63ADCF)',
-  decide: 'var(--info, #63ADCF)',
+  evaluate: 'var(--info, #2B7FA2)',
+  decide: 'var(--info, #2B7FA2)',
   optimise: 'var(--success, #67C89E)',
 }
 

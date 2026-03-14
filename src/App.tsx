@@ -27,8 +27,8 @@ import AuthNavigationGuard from './components/auth/AuthNavigationGuard'
 import { DecisionProvider } from './contexts/DecisionContext'
 import { TeamsProvider }  from './contexts/TeamsContext'
 import { TemplatesErrorBoundary } from './routes/templates/TemplatesErrorBoundary'
-// P0.8: Debug drawer for results instrumentation
-import { DebugDrawer } from './canvas/components/DebugDrawer'
+// P0.8: Debug drawer for results instrumentation — lazy-loaded to exclude from main bundle
+const LazyDebugDrawer = lazy(() => import('./canvas/components/DebugDrawer').then(m => ({ default: m.DebugDrawer })))
 
 // Lazy load heavy routes for code splitting (P1.2 Bundle Optimization)
 const LazySandboxStreamPanel = lazy(() => import('./components/SandboxStreamPanel'))
@@ -298,8 +298,8 @@ export default function App() {
                 </Routes>
               </ErrorBoundary>
             </main>
-            {/* P0.8: Debug drawer - Cmd+Shift+D to toggle */}
-            <DebugDrawer />
+            {/* P0.8: Debug drawer - Cmd+Shift+D to toggle (lazy-loaded) */}
+            <Suspense fallback={null}><LazyDebugDrawer /></Suspense>
           </div>
         </TeamsProvider>
       </DecisionProvider>

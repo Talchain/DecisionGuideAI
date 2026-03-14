@@ -14,7 +14,7 @@ const SHAPES: NodeType[] = ['goal', 'decision', 'option', 'factor', 'risk', 'out
 /** Main brand fill colours (matches NodeShapeIndicator SHAPE_FILLS). */
 const MAIN_FILLS: Record<string, string> = {
   goal:     '#F5C433',
-  decision: '#63ADCF',
+  decision: '#2B7FA2',
   option:   '#AAA7E4',
   factor:   '#B0A899',
   risk:     '#EA7B4B',

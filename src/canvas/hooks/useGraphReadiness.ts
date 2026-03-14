@@ -378,7 +378,8 @@ export function useGraphReadiness() {
             id: e.id,
             from: e.source,
             to: e.target,
-            // Include edge weight/strength data in CEE format
+            // UI-SEM-030: Edge defaults for CEE coaching request (weight 0.5, belief 0.7, direction 'positive').
+            // Keep — pre-analysis defaults; same class as UI-SEM-011.
             weight: (e.data as any)?.weight ?? 0.5,
             belief: (e.data as any)?.beliefExists ?? (e.data as any)?.belief ?? 0.7,
             effect_direction: (e.data as any)?.direction ?? 'positive',

@@ -93,7 +93,7 @@
   font-size: 14px;
   font-weight: 400;
   padding: 4px 8px;
-  border: 2px solid var(--info, #63ADCF);
+  border: 2px solid var(--info, #2B7FA2);
   border-radius: 6px;
   background: white;
   max-width: 200px;
@@ -178,7 +178,7 @@
 }
 
 .saveButton:hover:not(:disabled) {
-  border-color: var(--info, #63ADCF);
+  border-color: var(--info, #2B7FA2);
   background: var(--info-light, #BAD7E4);
   color: var(--text-header, #262626);
 }
@@ -354,7 +354,7 @@
 .settingsCheckbox {
   width: 14px;
   height: 14px;
-  accent-color: var(--info, #63ADCF);
+  accent-color: var(--info, #2B7FA2);
   cursor: pointer;
 }
 
@@ -372,7 +372,7 @@
   height: 4px;
   border-radius: 2px;
   background: var(--border-default, #EEE6D8);
-  accent-color: var(--info, #63ADCF);
+  accent-color: var(--info, #2B7FA2);
   cursor: pointer;
 }
 
@@ -437,13 +437,13 @@
 }
 
 .metadataChip[data-status="running"] {
-  border-color: var(--info, #63ADCF);
+  border-color: var(--info, #2B7FA2);
   background: var(--info-light, #BAD7E4);
   color: var(--text-header, #262626);
 }
 
 .metadataChip[data-status="running"] svg {
-  color: var(--info, #63ADCF);
+  color: var(--info, #2B7FA2);
 }
 
 .metadataChip[data-status="error"] {

@@ -67,11 +67,13 @@
   --success-bg: #F0FAF5;
   /* Border: rgba(103, 200, 158, 0.3) */
 
-  /* Info / Decision / Navigation (Blue) */
-  --info: #63ADCF;
+  /* Info / Decision / Navigation (Blue)
+     A11y: Darkened from #63ADCF to #2B7FA2 for WCAG AA 4.5:1 contrast on white.
+     Light shade kept for canvas node fills and selection backgrounds. */
+  --info: #2B7FA2;
   --info-light: #BAD7E4;
   --info-bg: #F0F7FB;
-  /* Border: rgba(99, 173, 207, 0.3) */
+  /* Border: rgba(43, 127, 162, 0.3) */
 
   /* Warning (Orange) - Separate from Danger */
   --warning: #FFA656;
@@ -128,17 +130,17 @@
   --primary: var(--info);
   --primary-hover: #67C89E;
   --primary-active: #5AA88A;
-  --primary-disabled: rgba(99, 173, 207, 0.4);
+  --primary-disabled: rgba(43, 127, 162, 0.4);
 
   /* Danger */
   --danger-hover: #D96A3A;
   --danger-active: #C85A2A;
   --danger-disabled: rgba(234, 123, 75, 0.4);
 
-  /* Info */
-  --info-hover: #5299BA;
-  --info-active: #4289A8;
-  --info-disabled: rgba(99, 173, 207, 0.4);
+  /* Info — derived from updated --info (#2B7FA2) */
+  --info-hover: #236E8E;
+  --info-active: #1D6280;
+  --info-disabled: rgba(43, 127, 162, 0.4);
 
   /* Success */
   --success-hover: #5AB88D;

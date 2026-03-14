@@ -680,6 +680,8 @@ function EdgeCard({
   const fromLabel = String((sourceNode?.data as any)?.label ?? edge.source)
   const toLabel = String((targetNode?.data as any)?.label ?? edge.target)
 
+  // UI-SEM-033: Edge display defaults (weight 0.5, direction 'positive', belief 0.7).
+  // Keep — display-only fallbacks; does not affect analysis data.
   const weight = data?.weight ?? 0.5
   const direction = data?.direction ?? 'positive'
   const signedMean = direction === 'negative' ? -weight : weight
@@ -796,7 +798,7 @@ function EdgeCard({
       <div className="flex items-center gap-2 mb-0.5">
         <span
           className={`${typography.panelMeta} text-text-light`}
-          title="Probability this relationship exists (exists_probability)"
+          title="How confident you are that this relationship exists"
         >
           Likelihood
         </span>

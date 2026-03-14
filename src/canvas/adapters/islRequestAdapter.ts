@@ -166,6 +166,7 @@ export function computeSignedMean(data: UIEdge['data']): number {
  */
 export function computeDefaultStd(data: UIEdge['data']): number {
   const magnitude = data?.weight ?? 0.5
+  // UI-SEM-032: Default exists_probability (0.8) for std computation — mirrors UI-SEM-031.
   const belief = data?.beliefExists ?? data?.confidence ?? data?.belief ?? DEFAULT_EXISTS_PROBABILITY
   const cv = 0.3 * (1 - belief) + 0.1
   return Math.max(STD_FLOOR, cv * magnitude)

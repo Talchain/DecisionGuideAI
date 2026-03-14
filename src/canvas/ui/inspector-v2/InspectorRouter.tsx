@@ -28,7 +28,7 @@ import { RiskPanel } from './panels/RiskPanel'
 // Entity colour map — used as fallback for inspector header entity colour
 const TOP_BAR_COLORS: Record<string, string> = {
   goal:       'var(--color-goal,    #F5C433)',
-  decision:   'var(--color-info,    #63ADCF)',
+  decision:   'var(--color-info,    #2B7FA2)',
   option:     'var(--color-option,  #AAA7E4)',
   factor:     'var(--color-factor,  #B0A899)',
   outcome:    'var(--color-success, #67C89E)',
@@ -39,7 +39,7 @@ const TOP_BAR_COLORS: Record<string, string> = {
 // Pill border colour classes (30% opacity via hex suffix)
 const PILL_COLORS: Record<string, string> = {
   goal:       'var(--color-goal,    #F5C433)',
-  decision:   'var(--color-info,    #63ADCF)',
+  decision:   'var(--color-info,    #2B7FA2)',
   option:     'var(--color-option,  #AAA7E4)',
   factor:     'var(--color-factor,  #B0A899)',
   outcome:    'var(--color-success, #67C89E)',
