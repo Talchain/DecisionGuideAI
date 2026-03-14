@@ -1,3 +1,4 @@
+/* eslint-disable no-restricted-syntax -- pre-existing diagnostic console.log */
 import { useEffect, lazy, Suspense } from 'react'
 import {
   Routes,

@@ -1,3 +1,4 @@
+/* eslint-disable no-restricted-syntax -- pre-existing diagnostic console.log calls behind DEV guards */
 /**
  * ISL Request Adapter
  *
