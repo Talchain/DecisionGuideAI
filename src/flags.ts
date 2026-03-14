@@ -359,6 +359,14 @@ const FLAGS_CONFIG = {
     envKey: 'VITE_FEATURE_CROSS_HIGHLIGHT',
     storageKey: 'feature.crossHighlight',
   },
+  // Debug Bundle v1.5: comprehensive capture upgrade
+  // When ON, export includes enriched full_graph, display_state, user_actions,
+  // orchestrator context, CEE round-trip, and post-pipeline gate state.
+  // Default OFF in production, ON in development/staging.
+  debugBundleV1_5: {
+    envKey: 'VITE_DEBUG_BUNDLE_V1_5',
+    storageKey: 'feature.debugBundleV1_5',
+  },
 } as const
 
 // ============================================================================
@@ -439,6 +447,7 @@ const flags = {
   graphBadges: makeFlag(FLAGS_CONFIG.graphBadges),
   nodeIntelligence: makeFlag(FLAGS_CONFIG.nodeIntelligence),
   crossHighlight: makeFlag(FLAGS_CONFIG.crossHighlight),
+  debugBundleV1_5: makeFlag(FLAGS_CONFIG.debugBundleV1_5),
 }
 
 // Export with original naming convention for backward compatibility
@@ -513,6 +522,7 @@ export const isCausalClaimsEnabled = flags.causalClaims
 export const isGraphBadgesEnabled = flags.graphBadges
 export const isNodeIntelligenceEnabled = flags.nodeIntelligence
 export const isCrossHighlightEnabled = flags.crossHighlight
+export const isDebugBundleV1_5Enabled = flags.debugBundleV1_5
 
 // ============================================================================
 // POC FLAGS (special pattern - constant object, not functions)

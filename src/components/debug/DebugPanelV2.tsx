@@ -13,7 +13,8 @@ import { useState, useCallback, useMemo, CSSProperties } from 'react'
 import { useDebugData } from './hooks/useDebugData'
 import { SummaryTab, DataFlowTab, PipelineTab, RawTab, LLMCallsTab, ContractIntegrityTab } from './tabs'
 import { PayloadLabTab } from './PayloadLabTab'
-import { exportDebugBundle, copyRequestId } from './utils/exportBundle'
+import { exportDebugBundle, exportDebugBundleAsync, copyRequestId } from './utils/exportBundle'
+import { isDebugBundleV1_5Enabled } from '../../flags'
 import type { ISLTestResponse } from './types'
 import { ISLClient } from '../../adapters/isl/client'
 import { useCanvasStore } from '../../canvas/store'
@@ -75,7 +76,7 @@ export function DebugPanelV2({ onClose, width, height, expanded, onToggleExpande
   }, [data.overall.request_id])
 
   // Handle export all (fetch graph data at export time to avoid subscription issues)
-  const handleExportAll = useCallback(() => {
+  const handleExportAll = useCallback(async () => {
     setExporting(true)
     try {
       // Get current graph data from store only when needed for export
@@ -86,10 +87,14 @@ export function DebugPanelV2({ onClose, width, height, expanded, onToggleExpande
           }
         : undefined
 
-      exportDebugBundle(data, {
-        includeFullGraph,
-        graphData,
-      })
+      const options = { includeFullGraph, graphData }
+
+      // V1.5: Use async path for full capture (display_state, panel_state, orchestrator)
+      if (isDebugBundleV1_5Enabled()) {
+        await exportDebugBundleAsync(data, options)
+      } else {
+        exportDebugBundle(data, options)
+      }
     } finally {
       setExporting(false)
     }

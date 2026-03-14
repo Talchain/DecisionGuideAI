@@ -510,6 +510,10 @@ export interface SchemaVersions {
   plot_request: string | null
   /** PLoT response schema version */
   plot_response: string | null
+  /** ISL request schema version */
+  isl_request?: string | null
+  /** ISL response schema version */
+  isl_response?: string | null
   /** Whether versions are consistent */
   consistent: boolean
 }
