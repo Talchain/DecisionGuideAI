@@ -5,7 +5,7 @@
  * Covers: malformed responses, timeouts, HTTP errors, network failures.
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect } from 'vitest'
 import { mapV2ResponseToReportV1, createErrorReport } from '../plot/v2/responseMapper'
 import type { V2RunResponse } from '../plot/v2/types'
 import { adaptDraftResponse } from '../cee/client'
