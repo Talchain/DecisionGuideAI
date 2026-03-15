@@ -21,7 +21,7 @@
 // See also: src/lib/featureFlags.ts for infrastructure/environment flags
 // ============================================================================
 
-import { makeFlag } from './lib/flagFactory'
+import { makeFlag, diagnoseFlagState } from './lib/flagFactory'
 
 // ============================================================================
 // FLAG CONFIGURATIONS (centralized, type-safe)
@@ -502,6 +502,7 @@ export const isPlotEnrichmentEnabled = flags.plotEnrichment
 export const isOrchestratorV2Enabled = flags.orchestratorV2
 export const isLegacyDirectRunEnabled = flags.legacyDirectRun
 export const isOrchestratorStreamingEnabled = flags.orchestratorStreaming
+export const diagnoseOrchestratorStreaming = () => diagnoseFlagState(FLAGS_CONFIG.orchestratorStreaming)
 export const isContextMenuEnabled = flags.contextMenu
 export const isJourneyTabEnabled = flags.journeyTab
 export const isThreadPersistEnabled = flags.threadPersist

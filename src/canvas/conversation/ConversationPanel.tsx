@@ -78,6 +78,7 @@ export const ConversationPanel = memo(function ConversationPanel({
   const scenarioId = useCanvasStore((s) => s.currentScenarioId)
   const { stage } = useStagePill()
   const composerRef = useRef<ChatComposerHandle>(null)
+  const pendingBriefRef = useRef<string | null>(null)
   const { runV2Analysis } = useV2Run()
   const { readiness } = useGraphReadiness()
 
@@ -381,6 +382,8 @@ export const ConversationPanel = memo(function ConversationPanel({
   const handleBriefStateChange = useCallback((readiness: BriefReadiness | null, ht: boolean) => {
     setBriefReadiness(readiness)
     setHasText(ht)
+    // User started typing — cancel any pending brief restore from a failed generate
+    if (ht) pendingBriefRef.current = null
   }, [])
 
   const generateState: GenerateState = useMemo(() => {
@@ -392,6 +395,7 @@ export const ConversationPanel = memo(function ConversationPanel({
   const handleGenerateModel = useCallback(() => {
     const brief = composerRef.current?.consumeBrief()
     if (brief) {
+      pendingBriefRef.current = brief // save for restore if CEE returns no draft
       beginInteractionChain({
         triggerSurface: 'generate_model',
         sourceSurface: 'ai_panel',
@@ -412,6 +416,18 @@ export const ConversationPanel = memo(function ConversationPanel({
       })
     }
   }, [messages.length, sendMessage])
+
+  // Restore brief text if Generate Model completed without producing a graph
+  useEffect(() => {
+    if (!isThinking && pendingBriefRef.current) {
+      const savedBrief = pendingBriefRef.current
+      pendingBriefRef.current = null
+      // Graph still empty → CEE didn't draft; restore so user can retry
+      if (nodeCount === 0) {
+        composerRef.current?.replaceText(savedBrief)
+      }
+    }
+  }, [isThinking, nodeCount])
 
   // ── Render three zones ────────────────────────────────────────────────
   return (

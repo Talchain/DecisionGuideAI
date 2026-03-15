@@ -77,6 +77,45 @@ export function makeFlag(config: FlagConfig): () => boolean {
 }
 
 /**
+ * Returns diagnostic info about how a flag resolved — useful for debugging
+ * staging issues where localStorage overrides may mask the env var.
+ */
+export function diagnoseFlagState(config: FlagConfig): {
+  resolved: boolean
+  source: 'localStorage' | 'env' | 'default'
+  localStorageRaw: string | null
+  envRaw: unknown
+} {
+  const { envKey, storageKey, defaultValue = false } = config
+
+  let localStorageRaw: string | null = null
+  try {
+    if (typeof localStorage !== 'undefined') {
+      localStorageRaw = localStorage.getItem(storageKey)
+    }
+  } catch { /* noop */ }
+
+  const envRaw = envSnapshot[envKey] ?? null
+
+  // Mirror the resolution logic from makeFlag
+  if (localStorageRaw != null) {
+    const resolved = localStorageRaw !== '0' && localStorageRaw !== 'false'
+    return { resolved, source: 'localStorage', localStorageRaw, envRaw }
+  }
+
+  if (envKey && envRaw != null) {
+    if (envRaw === '1' || envRaw === 1 || envRaw === true || envRaw === 'true') {
+      return { resolved: true, source: 'env', localStorageRaw, envRaw }
+    }
+    if (envRaw === '0' || envRaw === 0 || envRaw === false || envRaw === 'false') {
+      return { resolved: false, source: 'env', localStorageRaw, envRaw }
+    }
+  }
+
+  return { resolved: defaultValue, source: 'default', localStorageRaw, envRaw }
+}
+
+/**
  * Batch create multiple flags from a config map.
  *
  * @example

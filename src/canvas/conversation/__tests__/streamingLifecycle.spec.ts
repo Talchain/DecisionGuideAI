@@ -13,6 +13,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
 import { useConversation } from '../useConversation'
 import { useCanvasStore } from '../../store'
+import { getCrossSurfaceEvents, _clearTraces } from '../../../lib/debug-state'
 import type { OrchestratorStreamEvent } from '../types'
 
 // ---------------------------------------------------------------------------
@@ -40,6 +41,7 @@ vi.mock('../turnService', () => ({
 vi.mock('../../../flags', () => ({
   isOrchestratorV2Enabled: () => true,
   isOrchestratorStreamingEnabled: () => true,
+  diagnoseOrchestratorStreaming: () => ({ resolved: true, source: 'env', localStorageRaw: null, envRaw: '1' }),
 }))
 
 const mockTrackEvent = vi.fn()
@@ -64,6 +66,7 @@ beforeEach(() => {
   mockCallTurn.mockReset()
   mockStreamTurn.mockReset()
   mockTrackEvent.mockReset()
+  _clearTraces()
 
   useCanvasStore.setState({
     currentScenarioId: 'test-scenario',
@@ -262,5 +265,76 @@ describe('streaming lifecycle', () => {
     expect(mockStreamTurn).toHaveBeenCalledTimes(1)
     const request = mockStreamTurn.mock.calls[0][0]
     expect(request).toHaveProperty('generate_model', true)
+  })
+
+  it('emits generate_model_no_draft telemetry when explicit_generate returns no graph_patch', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+    const events: OrchestratorStreamEvent[] = [
+      { type: 'turn_start', seq: 1, turn_id: 't-1', routing: 'llm', stage: 'ideate' },
+      { type: 'turn_complete', seq: 2, envelope: {
+        assistant_text: 'Tell me more about your decision.',
+        blocks: [],  // no graph_patch
+      } as any },
+    ]
+
+    mockStreamTurn.mockReturnValue(fakeStream(events))
+
+    const { result } = renderHook(() => useConversation())
+
+    await act(async () => {
+      await result.current.sendMessage('Build a decision model', {
+        turnType: 'explicit_generate',
+      })
+    })
+
+    // console.warn emitted
+    expect(warnSpy).toHaveBeenCalledWith(
+      '[sendTurn] generate_model.no_draft_returned',
+      expect.objectContaining({ requestId: expect.any(String) }),
+    )
+
+    // Cross-surface telemetry event recorded
+    const events2 = getCrossSurfaceEvents()
+    const noDraftEvent = events2.find(e => e.eventType === 'generate_model_no_draft')
+    expect(noDraftEvent).toBeDefined()
+    expect(noDraftEvent!.payloadSummary).toMatchObject({
+      request_id: expect.any(String),
+      path: 'streaming',
+    })
+
+    warnSpy.mockRestore()
+  })
+
+  it('does NOT emit no_draft telemetry when explicit_generate returns a graph_patch', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+    const events: OrchestratorStreamEvent[] = [
+      { type: 'turn_start', seq: 1, turn_id: 't-1', routing: 'llm', stage: 'ideate' },
+      { type: 'turn_complete', seq: 2, envelope: {
+        assistant_text: 'Here is your model.',
+        blocks: [{ block_type: 'graph_patch', operations: [] }],
+      } as any },
+    ]
+
+    mockStreamTurn.mockReturnValue(fakeStream(events))
+
+    const { result } = renderHook(() => useConversation())
+
+    await act(async () => {
+      await result.current.sendMessage('Build a decision model', {
+        turnType: 'explicit_generate',
+      })
+    })
+
+    expect(warnSpy).not.toHaveBeenCalledWith(
+      '[sendTurn] generate_model.no_draft_returned',
+      expect.anything(),
+    )
+
+    const noDraftEvent = getCrossSurfaceEvents().find(e => e.eventType === 'generate_model_no_draft')
+    expect(noDraftEvent).toBeUndefined()
+
+    warnSpy.mockRestore()
   })
 })

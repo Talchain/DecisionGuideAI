@@ -84,6 +84,9 @@ export const SYSTEM_MESSAGE_SENTINEL = '[system]'
 // Constants
 // ---------------------------------------------------------------------------
 
+/** Log streaming flag diagnosis once per page load (always in dev) */
+let _streamingDiagLogged = false
+
 const LONG_RUNNING_THRESHOLD_MS = 15_000
 const STILL_WORKING_THRESHOLD_MS = 30_000
 const TIMEOUT_MS = 60_000
@@ -1657,6 +1660,16 @@ export function useConversation(): UseConversationReturn {
           stageSystemEventSummary: systemEvent?.type ?? null,
           systemEventType: systemEvent?.type ?? null,
         })
+        if (!_streamingDiagLogged) {
+          _streamingDiagLogged = true
+          import('../../flags').then((mod) => {
+            if (typeof mod.diagnoseOrchestratorStreaming === 'function') {
+              const diag = mod.diagnoseOrchestratorStreaming()
+              console.warn('[sendTurn] streaming flag:', diag.resolved, '| source:', diag.source,
+                '| localStorage:', diag.localStorageRaw, '| env:', diag.envRaw)
+            }
+          }).catch(() => { /* noop in test */ })
+        }
         if (isOrchestratorStreamingEnabled()) {
           // --- STREAMING PATH ---
           const msgId = crypto.randomUUID()
@@ -1772,18 +1785,29 @@ export function useConversation(): UseConversationReturn {
 
           // Use the envelope for interaction logging if available
           if (streamEnvelope) {
+            const streamMutatedGraph = (streamEnvelope.blocks ?? []).some((block: any) => {
+              const btype = typeof block?.block_type === 'string' ? block.block_type : block?.type
+              return btype === 'graph_patch'
+            })
             const interactionStateAfterStream = createInteractionSnapshot(messages.length + (hidden || mode === 'system' ? 0 : 1))
             updateInteractionResponse(turnClientId, {
               responseStatus: 200,
               responseSummary: summariseEnvelope(streamEnvelope),
-              mutatedGraph: (streamEnvelope.blocks ?? []).some((block: any) => {
-                const btype = typeof block?.block_type === 'string' ? block.block_type : block?.type
-                return btype === 'graph_patch'
-              }),
+              mutatedGraph: streamMutatedGraph,
               mutatedAnalysis: Boolean(streamEnvelope.analysis_response),
               mutatedChat: Boolean((streamEnvelope.assistant_text?.trim().length ?? 0) > 0 || (streamEnvelope.blocks?.length ?? 0) > 0),
               stateAfter: interactionStateAfterStream,
             })
+
+            // Detect generate_model turns that got a conversational response instead of a draft
+            if (resolvedTurnType === 'explicit_generate' && !streamMutatedGraph) {
+              console.warn('[sendTurn] generate_model.no_draft_returned', { requestId: turnClientId })
+              recordCrossSurfaceEvent({
+                eventType: 'generate_model_no_draft',
+                summary: 'CEE returned conversational response for explicit_generate turn (streaming)',
+                payloadSummary: { request_id: turnClientId, path: 'streaming' },
+              })
+            }
           }
 
           if (triggerSurface === 'analyse_now') {
@@ -1793,18 +1817,29 @@ export function useConversation(): UseConversationReturn {
           // --- NON-STREAMING PATH (unchanged) ---
           const envelope = await callOrchestratorTurn(request, controller.signal)
           handleEnvelope(envelope, turnClientId)
+          const nonStreamMutatedGraph = (envelope.blocks ?? []).some((block: any) => {
+            const btype = typeof block?.block_type === 'string' ? block.block_type : block?.type
+            return btype === 'graph_patch'
+          })
           const interactionStateAfter = createInteractionSnapshot(messages.length + (hidden || mode === 'system' ? 1 : 2))
           updateInteractionResponse(turnClientId, {
             responseStatus: 200,
             responseSummary: summariseEnvelope(envelope),
-            mutatedGraph: (envelope.blocks ?? []).some((block: any) => {
-              const type = typeof block?.block_type === 'string' ? block.block_type : block?.type
-              return type === 'graph_patch'
-            }),
+            mutatedGraph: nonStreamMutatedGraph,
             mutatedAnalysis: Boolean(envelope.analysis_response),
             mutatedChat: Boolean((envelope.assistant_text?.trim().length ?? 0) > 0 || (envelope.blocks?.length ?? 0) > 0),
             stateAfter: interactionStateAfter,
           })
+          // Detect generate_model turns that got a conversational response instead of a draft
+          if (resolvedTurnType === 'explicit_generate' && !nonStreamMutatedGraph) {
+            console.warn('[sendTurn] generate_model.no_draft_returned', { requestId: turnClientId })
+            recordCrossSurfaceEvent({
+              eventType: 'generate_model_no_draft',
+              summary: 'CEE returned conversational response for explicit_generate turn (non-streaming)',
+              payloadSummary: { request_id: turnClientId, path: 'non-streaming' },
+            })
+          }
+
           if (triggerSurface === 'analyse_now') {
             setLastAnalysisInteractionChainId(interactionChainId)
           }

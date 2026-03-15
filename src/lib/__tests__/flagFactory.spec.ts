@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import { makeFlag } from '../flagFactory'
+import { makeFlag, diagnoseFlagState } from '../flagFactory'
 
 // Simple in-memory localStorage shim for Node/test environments
 const globalAny: any = globalThis as any
@@ -95,6 +95,35 @@ describe('makeFlag', () => {
     }
     // If env var is set to something else, just verify it's a boolean
     expect(typeof factoryResult).toBe('boolean')
+  })
+})
+
+describe('diagnoseFlagState', () => {
+  it('reports source as localStorage when override is present', () => {
+    const key = 'test.flag.diag.ls'
+    globalAny.localStorage.setItem(key, '0')
+    const diag = diagnoseFlagState({ envKey: '', storageKey: key })
+    expect(diag).toMatchObject({ resolved: false, source: 'localStorage', localStorageRaw: '0' })
+  })
+
+  it('reports source as default when no override or env', () => {
+    const diag = diagnoseFlagState({ envKey: '', storageKey: 'test.flag.diag.none' })
+    expect(diag).toMatchObject({ resolved: false, source: 'default', localStorageRaw: null })
+  })
+
+  it('reports source as default with custom defaultValue', () => {
+    const diag = diagnoseFlagState({ envKey: '', storageKey: 'test.flag.diag.defTrue', defaultValue: true })
+    expect(diag).toMatchObject({ resolved: true, source: 'default' })
+  })
+
+  it('localStorage override masks env value and reports correctly', () => {
+    const key = 'test.flag.diag.mask'
+    globalAny.localStorage.setItem(key, 'false')
+    // Even if env were '1', localStorage '0'/'false' wins
+    const diag = diagnoseFlagState({ envKey: 'MODE', storageKey: key })
+    expect(diag.resolved).toBe(false)
+    expect(diag.source).toBe('localStorage')
+    expect(diag.localStorageRaw).toBe('false')
   })
 })
 
