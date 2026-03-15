@@ -743,8 +743,9 @@ function collectFeatureFlagsSnapshot(): Record<string, boolean> {
 // =============================================================================
 
 function collectSchemaVersions(data: DebugData): SchemaVersions {
-  const ceeReq = asRecord(data.payloads.cee_request)
-  const ceeRes = asRecord(data.payloads.cee_response)
+  // Fall back to downstream CEE when direct payloads are null (orchestrator flow)
+  const ceeReq = asRecord(data.payloads.cee_request) ?? asRecord(data.payloads.cee_downstream_request)
+  const ceeRes = asRecord(data.payloads.cee_response) ?? asRecord(data.payloads.cee_downstream_response)
   const plotReq = asRecord(data.payloads.plot_request)
   const plotRes = asRecord(data.payloads.plot_response)
   const islReq = asRecord(data.payloads.isl_request)
@@ -779,14 +780,36 @@ function collectUserActions(): UserActionEntry[] {
   try {
     const actions = getUserActions()
     // Map from debug-state format to bundle format, cap at 50
+    // Redact raw_message/display_text (user content) → replace with message_length
     return actions.slice(-50).map((a) => ({
       action: a.actionType,
       timestamp: a.timestamp,
-      detail: a.payloadSummary,
+      detail: redactUserActionDetail(a.payloadSummary),
     }))
   } catch {
     return []
   }
+}
+
+/** Strip user-authored text from action detail, preserving structural metadata */
+function redactUserActionDetail(
+  detail: Record<string, unknown> | undefined,
+): Record<string, unknown> | undefined {
+  if (!detail) return detail
+  const redacted = { ...detail }
+  let hasRedaction = false
+  for (const key of ['raw_message', 'display_text'] as const) {
+    if (key in redacted) {
+      const val = redacted[key]
+      const len = typeof val === 'string' ? val.length : null
+      delete redacted[key]
+      if (!hasRedaction) {
+        redacted.message_length = len
+        hasRedaction = true
+      }
+    }
+  }
+  return redacted
 }
 
 // =============================================================================
@@ -799,21 +822,33 @@ async function buildOrchestratorContext(): Promise<OrchestratorContext> {
     const { useCanvasStore } = await import('../../../canvas/store')
     const state = useCanvasStore.getState()
 
-    // Count conversation turns from the conversation panel if available
-    // The orchestrator state is scattered — gather what we can
     const runMeta = state.runMeta
     const ceeAnalysisReady = runMeta?.ceeAnalysisReady
 
+    // Derive turn count from user actions (conversation messages are in React
+    // state, not a Zustand store, so we approximate from the debug-state ring buffer)
+    const actions = getUserActions()
+    const chatActions = actions.filter((a) =>
+      a.actionType === 'sent chat message' ||
+      a.actionType === 'clicked chip' ||
+      a.actionType === 'clicked retry' ||
+      a.actionType === 'clicked run analysis'
+    )
+    const turnCount = chatActions.length
+    const conversationLength = actions.length
+
     return {
-      turn_count: 0, // Not directly available — would need conversation store
+      turn_count: turnCount,
       current_turn_type: ceeAnalysisReady ? 'explicit_generate' : null,
       last_turn_id: null,
       active_coaching_signals: [],
       last_response_blocks: null,
-      conversation_length: 0,
+      conversation_length: conversationLength,
       zone1_prompt_id: null,
       zone2_assembly_keys: null,
-      _unavailable_reason: 'Orchestrator state is distributed across conversation store (not accessible from bundle assembly). turn_count and conversation_length require conversation panel integration.',
+      ...(turnCount === 0 && {
+        _unavailable_reason: 'Turn count derived from user action ring buffer (may undercount if buffer wrapped).',
+      }),
     }
   } catch {
     return {
@@ -862,6 +897,65 @@ async function buildPanelState(): Promise<PanelStateV1_5> {
 // =============================================================================
 // V1.5: Capture display state from canvas store at export time
 // =============================================================================
+
+/**
+ * Derive the hero headline that HeroSection.tsx would display.
+ * Mirrors the M1 headline logic: "{Winner} performs best" when analysis
+ * succeeded with multiple options, or status-based fallbacks.
+ */
+function deriveHeroHeadline(
+  results: Record<string, unknown> | null | undefined,
+  optionCount: number,
+): string | null {
+  if (!results) return null
+  const status = results.status as string | undefined
+  if (status !== 'success' && status !== 'computed') return status ? `Analysis ${status}` : null
+  if (optionCount === 0) return 'No options to evaluate'
+
+  // Find winner from option_comparison (same source as HeroSection)
+  const apiResponse = results.apiResponse as Record<string, unknown> | undefined
+  const comparison = apiResponse?.option_comparison as
+    Array<{ option_label?: string; win_probability?: number }> | undefined
+  if (comparison && comparison.length > 0) {
+    const sorted = [...comparison].sort(
+      (a, b) => (b.win_probability ?? 0) - (a.win_probability ?? 0),
+    )
+    const winnerLabel = sorted[0]?.option_label
+    if (winnerLabel) {
+      if (optionCount === 1) return `${winnerLabel} is your only option`
+      return `${winnerLabel} performs best`
+    }
+  }
+
+  return null
+}
+
+/** Extract rendered factor state from canvas nodes for display_state */
+function extractRenderedFactors(
+  nodes: Array<{ id: string; data: unknown }>,
+): DisplayState['rendered_factors'] {
+  const factorNodes = nodes.filter((n) => {
+    const d = n.data as Record<string, unknown> | undefined
+    return d?.kind === 'factor' || d?.type === 'factor'
+  })
+  if (factorNodes.length === 0) return null
+
+  return factorNodes.map((n) => {
+    const d = n.data as Record<string, unknown>
+    const obs = d?.observedState as Record<string, unknown> | undefined
+    const value = obs?.value
+    const unit = obs?.unit as string | undefined
+    const valueStr = typeof value === 'number'
+      ? (unit ? `${value} ${unit}` : String(value))
+      : null
+    return {
+      id: n.id,
+      label_displayed: (d?.label as string) ?? null,
+      value_displayed: valueStr,
+      sensitivity_displayed: null, // Sensitivity is computed at results time, not stored on nodes
+    }
+  })
+}
 
 /**
  * Capture what the UI is currently rendering: node/edge counts, node type
@@ -922,9 +1016,9 @@ export async function captureDisplayState(): Promise<DisplayState> {
       canvas_edge_count: edges.length,
       canvas_node_types: nodeTypes,
       rendered_options: renderedOptions,
-      rendered_factors: null, // Factor rendering state not tracked centrally
+      rendered_factors: extractRenderedFactors(nodes),
       analysis_status_displayed: analysisStatus,
-      hero_headline_displayed: null, // Computed in UI components, not stored centrally
+      hero_headline_displayed: deriveHeroHeadline(results, optionNodes.length),
     }
   } catch {
     return {
@@ -1044,8 +1138,10 @@ export function buildDebugBundle(data: DebugData, options: ExportOptions = {}): 
     },
     builds: data.builds,
     payloads: {
-      cee_request: data.payloads.cee_request ?? null,
-      cee_response: data.payloads.cee_response ?? null,
+      // Fall back to downstream CEE calls (extracted from PLoT response) when
+      // CEE wasn't called directly (orchestrator flow nests CEE inside PLoT)
+      cee_request: data.payloads.cee_request ?? data.payloads.cee_downstream_request ?? null,
+      cee_response: data.payloads.cee_response ?? data.payloads.cee_downstream_response ?? null,
       plot_request: data.payloads.plot_request ?? null,
       plot_response: data.payloads.plot_response ?? null,
       isl_request: data.payloads.isl_request ?? null,

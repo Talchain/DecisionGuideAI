@@ -333,6 +333,105 @@ describe('Debug Bundle V1.5', () => {
     expect(bundle.payloads.cee_response).toEqual(ceeError)
   })
 
+  // CEE downstream fallback (Task 1)
+  it('falls back to cee_downstream_* when direct CEE payloads are null', () => {
+    const downstreamReq = { brief: 'downstream test', schema_version: 'v3' }
+    const downstreamRes = { trace: { schema_version: 'v3' }, result: 'ok' }
+    const bundle = buildDebugBundle(makeDebugData({
+      payloads: {
+        cee_request: null,
+        cee_response: null,
+        cee_downstream_request: downstreamReq,
+        cee_downstream_response: downstreamRes,
+        plot_request: null,
+        plot_response: null,
+        isl_request: null,
+        isl_response: null,
+      },
+    }))
+    expect(bundle.payloads.cee_request).toEqual(downstreamReq)
+    expect(bundle.payloads.cee_response).toEqual(downstreamRes)
+  })
+
+  it('prefers direct CEE payloads over downstream when both exist', () => {
+    const directReq = { brief: 'direct' }
+    const directRes = { result: 'direct' }
+    const bundle = buildDebugBundle(makeDebugData({
+      payloads: {
+        cee_request: directReq,
+        cee_response: directRes,
+        cee_downstream_request: { brief: 'downstream' },
+        cee_downstream_response: { result: 'downstream' },
+        plot_request: null,
+        plot_response: null,
+        isl_request: null,
+        isl_response: null,
+      },
+    }))
+    expect(bundle.payloads.cee_request).toEqual(directReq)
+    expect(bundle.payloads.cee_response).toEqual(directRes)
+  })
+
+  // User action redaction (Task 3)
+  it('redacts raw_message and display_text from user actions', () => {
+    mockUserActions.push({
+      actionType: 'sent chat message',
+      timestamp: '2024-01-01T00:00:00.000Z',
+      payloadSummary: { raw_message: 'my secret decision', display_text: 'my secret' },
+    })
+    const bundle = buildDebugBundle(makeDebugData())
+    expect(bundle.user_actions).toHaveLength(1)
+    const detail = bundle.user_actions[0].detail as Record<string, unknown>
+    expect(detail.raw_message).toBeUndefined()
+    expect(detail.display_text).toBeUndefined()
+    expect(detail.message_length).toBe(18) // 'my secret decision'.length
+  })
+
+  it('preserves non-sensitive user action fields', () => {
+    mockUserActions.push({
+      actionType: 'clicked chip',
+      timestamp: '2024-01-01T00:00:00.000Z',
+      payloadSummary: { chip_label: 'Run Analysis', intent: 'run' },
+    })
+    const bundle = buildDebugBundle(makeDebugData())
+    const detail = bundle.user_actions[0].detail as Record<string, unknown>
+    expect(detail.chip_label).toBe('Run Analysis')
+    expect(detail.intent).toBe('run')
+  })
+
+  it('redacts raw_message from retry action but keeps client_turn_id', () => {
+    mockUserActions.push({
+      actionType: 'clicked retry',
+      timestamp: '2024-01-01T00:00:00.000Z',
+      payloadSummary: { raw_message: 'sensitive text', client_turn_id: 'turn-123' },
+    })
+    const bundle = buildDebugBundle(makeDebugData())
+    const detail = bundle.user_actions[0].detail as Record<string, unknown>
+    expect(detail.raw_message).toBeUndefined()
+    expect(detail.message_length).toBe(14)
+    expect(detail.client_turn_id).toBe('turn-123')
+  })
+
+  // Schema versions from downstream CEE (Task 2)
+  it('extracts CEE schema versions from downstream responses', () => {
+    const bundle = buildDebugBundle(makeDebugData({
+      schema_versions: null,
+      payloads: {
+        cee_request: null,
+        cee_response: null,
+        cee_downstream_request: { schema_version: 'v4' },
+        cee_downstream_response: { trace: { schema_version: 'v4' } },
+        plot_request: { schema_version: 'v4' },
+        plot_response: { meta: { schema_version: 'v4' } },
+        isl_request: null,
+        isl_response: null,
+      },
+    }))
+    expect(bundle.schema_versions!.cee_request).toBe('v4')
+    expect(bundle.schema_versions!.cee_response).toBe('v4')
+    expect(bundle.schema_versions!.consistent).toBe(true)
+  })
+
   // Empty state: graceful nulls
   it('handles empty state without crashes', () => {
     const bundle = buildDebugBundle(makeDebugData({
