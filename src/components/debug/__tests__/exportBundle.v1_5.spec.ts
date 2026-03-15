@@ -1,16 +1,5 @@
-import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
+import { describe, expect, it, vi, beforeEach } from 'vitest'
 import type { DebugData, RequestIdChain } from '../hooks/useDebugData'
-
-// Mock feature flag — default OFF, tests toggle via localStorage
-vi.mock('../../../flags', () => ({
-  isDebugBundleV1_5Enabled: () => {
-    try {
-      return localStorage.getItem('feature.debugBundleV1_5') === '1'
-    } catch {
-      return false
-    }
-  },
-}))
 
 vi.mock('../../../lib/version-cache', () => ({
   getClientBuild: () => 'test-build',
@@ -27,7 +16,7 @@ vi.mock('../../../lib/debug-state', () => ({
   getUserActions: () => [...mockUserActions],
 }))
 
-import { buildDebugBundle, type ExportOptions, type FullGraphData } from '../utils/exportBundle'
+import { buildDebugBundle, type FullGraphData } from '../utils/exportBundle'
 
 function makeDebugData(overrides: Partial<DebugData> = {}): DebugData {
   return {
@@ -148,60 +137,19 @@ function makeGraphData(): FullGraphData {
   }
 }
 
-describe('Debug Bundle V1.5 — flag OFF produces v1.4', () => {
+describe('Debug Bundle V1.5', () => {
   beforeEach(() => {
-    localStorage.removeItem('feature.debugBundleV1_5')
     mockUserActions.length = 0
   })
 
-  it('produces v1.4 when flag is OFF', () => {
-    const bundle = buildDebugBundle(makeDebugData())
-    expect(bundle.meta.version).toBe('1.4')
-    expect(bundle.export_summary_schema.runtime_capture_included).toBe(false)
-    expect(bundle.user_actions).toEqual([])
-    expect(bundle.display_state).toBeUndefined()
-  })
-
-  it('full_graph uses stripped format in v1.4', () => {
-    const bundle = buildDebugBundle(makeDebugData(), {
-      includeFullGraph: true,
-      graphData: makeGraphData(),
-    })
-    expect(bundle.meta.version).toBe('1.4')
-    expect(bundle.full_graph).toBeDefined()
-    expect(bundle.full_graph!._meta).toBeUndefined()
-    // v1.4 nodes should NOT have observed_state
-    const factor = bundle.full_graph!.factors[0] as Record<string, unknown>
-    expect(factor.observed_state).toBeUndefined()
-    expect(factor.category).toBeUndefined()
-  })
-
-  it('gates are passed through without correction in v1.4', () => {
-    const bundle = buildDebugBundle(makeDebugData())
-    expect(bundle.meta.version).toBe('1.4')
-    const grGate = bundle.gates.find(g => g.name === 'graph_readiness')
-    expect(grGate?.status).toBe('fail') // Not corrected in v1.4
-  })
-})
-
-describe('Debug Bundle V1.5 — flag ON', () => {
-  beforeEach(() => {
-    localStorage.setItem('feature.debugBundleV1_5', '1')
-    mockUserActions.length = 0
-  })
-
-  afterEach(() => {
-    localStorage.removeItem('feature.debugBundleV1_5')
-  })
-
-  it('produces v1.5 with correct meta', () => {
+  it('always produces v1.5 with correct meta', () => {
     const bundle = buildDebugBundle(makeDebugData())
     expect(bundle.meta.version).toBe('1.5')
     expect(bundle.export_summary_schema.runtime_capture_included).toBe(true)
     expect(bundle.export_summary_schema.note).toContain('V1.5')
   })
 
-  it('display_state is null by default when no displayState provided', () => {
+  it('display_state is null when no displayState provided', () => {
     const bundle = buildDebugBundle(makeDebugData())
     expect(bundle.display_state).toBeNull()
   })
@@ -224,7 +172,7 @@ describe('Debug Bundle V1.5 — flag ON', () => {
     expect(bundle.display_state!.canvas_node_count).toBe(5)
   })
 
-  // Task 2: Enriched full_graph
+  // Enriched full_graph
   it('full_graph uses enriched format with observed_state, category, interventions', () => {
     const bundle = buildDebugBundle(makeDebugData(), {
       includeFullGraph: true,
@@ -256,7 +204,7 @@ describe('Debug Bundle V1.5 — flag ON', () => {
     expect(edge.belief_exists).toBe(0.9)
   })
 
-  // Task 5a: User actions
+  // User actions
   it('user_actions populated from debug-state ring buffer', () => {
     mockUserActions.push(
       { actionType: 'analyse_triggered', timestamp: '2024-01-01T00:00:00.000Z' },
@@ -284,7 +232,7 @@ describe('Debug Bundle V1.5 — flag ON', () => {
     expect(bundle.user_actions.length).toBeLessThanOrEqual(50)
   })
 
-  // Task 6: Gate timing fix
+  // Gate timing fix
   it('corrects graph_readiness gate when pipeline succeeded', () => {
     const bundle = buildDebugBundle(makeDebugData({
       overall: { status: 'success', total_duration_ms: 1000, request_id: 'req-1' },
@@ -309,7 +257,7 @@ describe('Debug Bundle V1.5 — flag ON', () => {
     expect(grGate?.status).toBe('fail')
   })
 
-  // Task 7: schema_versions populated
+  // Schema versions
   it('populates schema_versions from payloads when data.schema_versions is null', () => {
     const bundle = buildDebugBundle(makeDebugData({
       schema_versions: null,
@@ -327,7 +275,7 @@ describe('Debug Bundle V1.5 — flag ON', () => {
     expect(bundle.schema_versions!.consistent).toBe(true)
   })
 
-  // Task 7: v12_4_checks passthrough
+  // v12_4_checks passthrough
   it('passes through v12_4_checks when present', () => {
     const checks = {
       category_field_present: true,
@@ -344,36 +292,15 @@ describe('Debug Bundle V1.5 — flag ON', () => {
     expect(bundle.v12_4_checks).toBeNull()
   })
 
-  // Task 8: Version and readme
-  it('readme mentions V1.5 sections', () => {
+  // Readme
+  it('readme documents V1.5 sections', () => {
     const bundle = buildDebugBundle(makeDebugData())
     expect(bundle.readme).toContain('Version: 1.5')
     expect(bundle.readme).toContain('display_state')
     expect(bundle.readme).toContain('user_actions')
-    expect(bundle.readme).toContain('VITE_DEBUG_BUNDLE_V1_5')
   })
 
-  // Empty state: graceful nulls
-  it('handles empty state without crashes', () => {
-    const bundle = buildDebugBundle(makeDebugData({
-      services: { cee: null, plot: null, isl: null },
-      payloads: { cee_request: null, cee_response: null, plot_request: null, plot_response: null, isl_request: null, isl_response: null },
-      request_id_chain: null,
-      cee_observability: null,
-      schema_versions: null,
-      v12_4_checks: null,
-      feature_flags_at_request: null,
-      orchestrator: null,
-    }))
-    expect(bundle.meta.version).toBe('1.5')
-    expect(bundle.display_state).toBeNull()
-    expect(bundle.user_actions).toEqual([])
-    expect(bundle.orchestrator).toBeNull()
-    expect(bundle.v12_4_checks).toBeNull()
-    expect(bundle.schema_versions).toBeDefined()
-  })
-
-  // CEE payloads passthrough (Task 1)
+  // CEE payloads passthrough
   it('CEE payloads are passed through from DebugData', () => {
     const ceeReq = { brief: 'test brief', schema: 'v3' }
     const ceeRes = { trace: { pipeline: { status: 'success' } }, _error: false }
@@ -404,5 +331,139 @@ describe('Debug Bundle V1.5 — flag ON', () => {
       },
     }))
     expect(bundle.payloads.cee_response).toEqual(ceeError)
+  })
+
+  // Empty state: graceful nulls
+  it('handles empty state without crashes', () => {
+    const bundle = buildDebugBundle(makeDebugData({
+      services: { cee: null, plot: null, isl: null },
+      payloads: { cee_request: null, cee_response: null, plot_request: null, plot_response: null, isl_request: null, isl_response: null },
+      request_id_chain: null,
+      cee_observability: null,
+      schema_versions: null,
+      v12_4_checks: null,
+      feature_flags_at_request: null,
+      orchestrator: null,
+    }))
+    expect(bundle.meta.version).toBe('1.5')
+    expect(bundle.display_state).toBeNull()
+    expect(bundle.user_actions).toEqual([])
+    expect(bundle.orchestrator).toBeNull()
+    expect(bundle.v12_4_checks).toBeNull()
+    expect(bundle.schema_versions).toBeDefined()
+  })
+
+  // Task 2: Comprehensive section verification
+  it('populates all v1.5 sections when data is available', () => {
+    mockUserActions.push(
+      { actionType: 'analyse_triggered', timestamp: '2024-01-01T00:00:00.000Z' },
+    )
+    const displayState = {
+      active_panel: 'results',
+      active_tab: 'outcomes',
+      active_section: null,
+      canvas_node_count: 3,
+      canvas_edge_count: 1,
+      canvas_node_types: { factor: 1, option: 1, goal: 1 },
+      rendered_options: [{ id: 'o1', label_displayed: 'Plan A', win_probability_displayed: '96%', rank_displayed: 1 }],
+      rendered_factors: null,
+      analysis_status_displayed: 'complete',
+      hero_headline_displayed: 'Plan A is recommended',
+    }
+    const orchestratorData = {
+      turn_count: 3,
+      blocks: [{ type: 'analysis', id: 'b1' }],
+      coaching_signals: ['ready_to_analyse'],
+    }
+    const bundle = buildDebugBundle(makeDebugData({
+      payloads: {
+        cee_request: { brief: 'test', schema_version: 'v3' },
+        cee_response: { trace: { schema_version: 'v3', pipeline: { status: 'success' } } },
+        plot_request: { prompt: 'analyze', schema_version: 'v3' },
+        plot_response: { result: 'ok', meta: { schema_version: 'v3' } },
+        isl_request: { data: 'isl', schema_version: 'v3' },
+        isl_response: { stability: 0.9, meta: { schema_version: 'v3' } },
+      },
+      ceeTrace: { model: 'gpt-4', provider: 'openai' } as never,
+      cee_observability: {
+        llm_calls: [{ model: 'gpt-4', duration_ms: 100, raw_prompt: 'secret', raw_response: 'secret' }],
+        validation: null,
+        orchestrator: null,
+        totals: { total_llm_calls: 1 },
+        graph_metrics: null,
+        graph_diffs: null,
+        request_id: 'req-1',
+        repair_summary: null,
+      } as never,
+      orchestrator: orchestratorData as never,
+      v12_4_checks: { category_field_present: true, nodes_with_category: ['f1'], nodes_missing_category: [], category_values: { f1: 'controllable' } },
+    }), {
+      includeFullGraph: true,
+      graphData: makeGraphData(),
+      displayState,
+    })
+
+    // meta
+    expect(bundle.meta.version).toBe('1.5')
+
+    // payloads
+    expect(bundle.payloads.cee_request).toBeDefined()
+    expect(bundle.payloads.cee_response).toBeDefined()
+
+    // cee_trace
+    expect(bundle.cee_trace).toBeDefined()
+
+    // cee_observability (raw I/O stripped)
+    expect(bundle.cee_observability).toBeDefined()
+    const llmCall = bundle.cee_observability!.llm_calls[0] as Record<string, unknown>
+    expect(llmCall.raw_prompt).toBeUndefined()
+    expect(llmCall.raw_response).toBeUndefined()
+
+    // full_graph (enriched)
+    expect(bundle.full_graph).toBeDefined()
+    expect(bundle.full_graph!._meta).toEqual({ node_type_field: 'type', enriched: true })
+    const factor = bundle.full_graph!.factors[0] as Record<string, unknown>
+    expect(factor.observed_state).toBeDefined()
+    expect(factor.category).toBeDefined()
+    expect(factor.kind).toBeDefined()
+    const option = bundle.full_graph!.options[0] as Record<string, unknown>
+    expect(option.interventions).toBeDefined()
+    const edge = bundle.full_graph!.edges[0] as Record<string, unknown>
+    expect(edge.strength_mean).toBeDefined()
+
+    // display_state
+    expect(bundle.display_state).toEqual(displayState)
+
+    // orchestrator
+    expect(bundle.orchestrator).toEqual(orchestratorData)
+
+    // user_actions
+    expect(bundle.user_actions).toHaveLength(1)
+    expect(bundle.user_actions[0].action).toBe('analyse_triggered')
+
+    // panel_state (sync path — not populated, available: false)
+    expect(bundle.panel_state).toBeDefined()
+
+    // schema_versions (extracted from payloads)
+    expect(bundle.schema_versions).toBeDefined()
+    expect(bundle.schema_versions!.cee_request).toBe('v3')
+    expect(bundle.schema_versions!.isl_request).toBe('v3')
+    expect(bundle.schema_versions!.isl_response).toBe('v3')
+    expect(bundle.schema_versions!.consistent).toBe(true)
+
+    // feature_flags_at_request
+    expect(bundle.feature_flags_at_request).toBeDefined()
+
+    // gates (corrected — pipeline succeeded so graph_readiness should be pass)
+    const grGate = bundle.gates.find(g => g.name === 'graph_readiness')
+    expect(grGate?.status).toBe('pass')
+    expect(grGate?.message).toContain('corrected')
+
+    // v12_4_checks
+    expect(bundle.v12_4_checks).toBeDefined()
+    expect(bundle.v12_4_checks!.category_field_present).toBe(true)
+
+    // export_summary_schema
+    expect(bundle.export_summary_schema.runtime_capture_included).toBe(true)
   })
 })

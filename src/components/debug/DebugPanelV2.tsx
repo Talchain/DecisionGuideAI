@@ -13,8 +13,7 @@ import { useState, useCallback, useMemo, CSSProperties } from 'react'
 import { useDebugData } from './hooks/useDebugData'
 import { SummaryTab, DataFlowTab, PipelineTab, RawTab, LLMCallsTab, ContractIntegrityTab } from './tabs'
 import { PayloadLabTab } from './PayloadLabTab'
-import { exportDebugBundle, exportDebugBundleAsync, copyRequestId } from './utils/exportBundle'
-import { isDebugBundleV1_5Enabled } from '../../flags'
+import { exportDebugBundleAsync, copyRequestId } from './utils/exportBundle'
 import type { ISLTestResponse } from './types'
 import { ISLClient } from '../../adapters/isl/client'
 import { useCanvasStore } from '../../canvas/store'
@@ -87,14 +86,7 @@ export function DebugPanelV2({ onClose, width, height, expanded, onToggleExpande
           }
         : undefined
 
-      const options = { includeFullGraph, graphData }
-
-      // V1.5: Use async path for full capture (display_state, panel_state, orchestrator)
-      if (isDebugBundleV1_5Enabled()) {
-        await exportDebugBundleAsync(data, options)
-      } else {
-        exportDebugBundle(data, options)
-      }
+      await exportDebugBundleAsync(data, { includeFullGraph, graphData })
     } finally {
       setExporting(false)
     }

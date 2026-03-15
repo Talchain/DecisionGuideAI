@@ -4,8 +4,7 @@
  * Exports all debug data as a comprehensive JSON bundle or individual files.
  * Creates a structured bundle containing all payloads and diagnostic info.
  *
- * v1.5: Comprehensive capture upgrade (gated by VITE_DEBUG_BUNDLE_V1_5).
- * When flag is OFF, produces identical v1.4 bundles.
+ * v1.5: Comprehensive capture upgrade — always-on.
  */
 
 import type {
@@ -27,7 +26,6 @@ import type {
 import { getVersionInfo, getClientBuild } from '../../../lib/version-cache'
 import { getBufferedLogs, type BufferedLog } from '../../../utils/debugLogBuffer'
 import { DEBUG_LLM_RAW_MAX_CHARS } from '../../../utils/payloadRedaction'
-import { isDebugBundleV1_5Enabled } from '../../../flags'
 import { getUserActions } from '../../../lib/debug-state'
 
 // =============================================================================
@@ -257,7 +255,7 @@ export interface PanelStateV1_5 {
 interface DebugBundle {
   /** Bundle metadata */
   meta: {
-    version: '1.4' | '1.5'
+    version: '1.5'
     created_at: string
     request_id: string | null
     client_build: string | null
@@ -438,9 +436,8 @@ interface DebugBundle {
   }
   cross_surface_events: []
 
-  // V1.5 sections (only populated when VITE_DEBUG_BUNDLE_V1_5 is ON)
-  /** V1.5: Display state snapshot — what the UI actually rendered at export time */
-  display_state?: DisplayState | null
+  /** Display state snapshot — what the UI actually rendered at export time */
+  display_state: DisplayState | null
 }
 
 // =============================================================================
@@ -555,33 +552,17 @@ function buildRepairSummaries(data: DebugData): DebugBundle['repair_and_filter_s
   }]
 }
 
-function generateReadme(data: DebugData, isV1_5: boolean): string {
+function generateReadme(data: DebugData): string {
   const timestamp = formatTimestamp()
   const requestId = data.overall.request_id ?? 'unknown'
   const environment = getEnvironment()
-
-  const v15Sections = isV1_5
-    ? `
-## V1.5 Sections
-
-- display_state — Snapshot of what the UI was rendering at export time
-- user_actions — Ring buffer of recent user interactions (max 50)
-- panel_state.panels — Visibility state of all panels
-- full_graph (enriched) — Full node/edge data including observed_state, category, interventions
-- orchestrator — Conversation orchestrator context (turn count, blocks, coaching signals)
-- schema_versions — Schema versions used for CEE/PLoT requests/responses
-- feature_flags_at_request — All VITE_ENABLE_/VITE_FEATURE_ flags at export time
-
-These sections are available when VITE_DEBUG_BUNDLE_V1_5=1.
-`
-    : ''
 
   return `# Olumi Debug Bundle
 
 Generated: ${timestamp}
 Request ID: ${requestId}
 Environment: ${environment}
-Version: ${isV1_5 ? '1.5' : '1.4'}
+Version: 1.5
 
 ## Contents
 
@@ -603,7 +584,17 @@ Payloads are REDACTED at capture time:
 
 Despite redaction, payloads may still contain decision content
 (factor names, option labels, goal descriptions).
-${v15Sections}
+
+## V1.5 Sections
+
+- display_state — Snapshot of what the UI was rendering at export time
+- user_actions — Ring buffer of recent user interactions (max 50)
+- panel_state.panels — Visibility state of all panels
+- full_graph (enriched) — Full node/edge data including observed_state, category, interventions
+- orchestrator — Conversation orchestrator context (turn count, blocks, coaching signals)
+- schema_versions — Schema versions used for CEE/PLoT requests/responses
+- feature_flags_at_request — All VITE_ENABLE_/VITE_FEATURE_ flags at export time
+
 ## Usage
 
 1. Share this bundle with the engineering team for debugging
@@ -631,55 +622,7 @@ function downloadFile(content: string, filename: string, type = 'application/jso
 }
 
 /**
- * Transform canvas graph data into export format (v1.4 — stripped summary)
- *
- * Node kind priority: data.kind > data.type (lowercased) > 'factor'
- * Edge strength priority: data.strength_mean > data.strength > data.confidence
- */
-function transformGraphData(graphData: FullGraphData): NonNullable<DebugBundle['full_graph']> {
-  const factors: Array<Record<string, unknown>> = []
-  const options: Array<Record<string, unknown>> = []
-
-  for (const node of graphData.nodes) {
-    // Use kind (preferred) or fall back to type
-    const nodeKind = (node.data?.kind ?? node.data?.type ?? 'factor').toLowerCase()
-    const entry = {
-      id: node.id,
-      label: node.data?.label ?? '',
-      type: nodeKind,
-      description: node.data?.description,
-    }
-
-    if (nodeKind === 'option') {
-      options.push(entry)
-    } else {
-      // All non-option nodes go into factors (goals, decisions, factors, risks, etc.)
-      factors.push(entry)
-    }
-  }
-
-  const edges: Array<Record<string, unknown>> = graphData.edges.map((edge) => {
-    // Extract strength with priority: strength_mean > strength > confidence
-    const strength = edge.data?.strength_mean ?? edge.data?.strength ?? edge.data?.confidence
-    return {
-      id: edge.id,
-      source: edge.source,
-      target: edge.target,
-      label: edge.data?.label ?? edge.label,
-      strength,
-      // Include additional edge metadata for analysis
-      strength_mean: edge.data?.strength_mean,
-      strength_std: edge.data?.strength_std,
-      belief_exists: edge.data?.belief_exists ?? edge.data?.beliefExists,
-      effect_direction: edge.data?.effect_direction ?? edge.data?.direction,
-    }
-  })
-
-  return { factors, edges, options }
-}
-
-/**
- * V1.5: Transform canvas graph data into enriched export format.
+ * Transform canvas graph data into enriched export format.
  * Captures the full node/edge data from the store for data-produced-vs-displayed comparison.
  */
 function transformGraphDataEnriched(graphData: FullGraphData): EnrichedFullGraph {
@@ -784,7 +727,7 @@ function collectFeatureFlagsSnapshot(): Record<string, boolean> {
   try {
     const env = import.meta.env
     for (const key of Object.keys(env)) {
-      if (key.startsWith('VITE_ENABLE_') || key.startsWith('VITE_FEATURE_') || key === 'VITE_DEBUG_BUNDLE_V1_5') {
+      if (key.startsWith('VITE_ENABLE_') || key.startsWith('VITE_FEATURE_')) {
         const val = env[key]
         flags[key] = val === '1' || val === 'true' || val === true
       }
@@ -1031,11 +974,9 @@ function buildGatesPostPipeline(data: DebugData): DebugBundle['gates'] {
 
 /**
  * Build a complete debug bundle from DebugData.
- * When VITE_DEBUG_BUNDLE_V1_5 is ON, produces v1.5 with enriched data.
- * When OFF, produces identical v1.4 bundles.
+ * Always produces v1.5 bundles with enriched data.
  */
 export function buildDebugBundle(data: DebugData, options: ExportOptions = {}): DebugBundle {
-  const isV1_5 = isDebugBundleV1_5Enabled()
   const timestamp = formatTimestamp()
   const versionInfo = getVersionInfo()
   const clientBuild = getClientBuild()
@@ -1043,12 +984,10 @@ export function buildDebugBundle(data: DebugData, options: ExportOptions = {}): 
   const responseSummary = buildResponseSummaries(data)
   const repairAndFilterSummary = buildRepairSummaries(data)
 
-  // Transform graph data if requested
+  // Transform graph data if requested (always enriched)
   let fullGraph: DebugBundle['full_graph'] | undefined
   if (options.includeFullGraph && options.graphData) {
-    fullGraph = isV1_5
-      ? transformGraphDataEnriched(options.graphData)
-      : transformGraphData(options.graphData)
+    fullGraph = transformGraphDataEnriched(options.graphData)
   }
 
   // Detect if any payloads or full_graph were truncated during capture
@@ -1059,27 +998,21 @@ export function buildDebugBundle(data: DebugData, options: ExportOptions = {}): 
   const causalClaimsDiagnostic = extractCausalClaimsDiagnostic(data.payloads.cee_response)
   const islRawFields = extractIslRawFields(data.payloads.isl_response)
 
-  // V1.5: User actions from debug-state ring buffer
-  const userActions: UserActionEntry[] | [] = isV1_5 ? collectUserActions() : []
+  // User actions from debug-state ring buffer
+  const userActions = collectUserActions()
 
-  // V1.5: Feature flags snapshot
-  const featureFlagsAtRequest = isV1_5
-    ? collectFeatureFlagsSnapshot()
-    : data.feature_flags_at_request
+  // Feature flags snapshot
+  const featureFlagsAtRequest = collectFeatureFlagsSnapshot()
 
-  // V1.5: Schema versions from payloads (fallback to data if already extracted)
-  const schemaVersions = isV1_5
-    ? (data.schema_versions ?? collectSchemaVersions(data))
-    : data.schema_versions
+  // Schema versions from payloads (fallback to data if already extracted)
+  const schemaVersions = data.schema_versions ?? collectSchemaVersions(data)
 
-  // V1.5: Gate state with post-pipeline correction
-  const gates = isV1_5
-    ? buildGatesPostPipeline(data)
-    : data.gates.map((g) => ({ name: g.name, status: g.status, message: g.message }))
+  // Gate state with post-pipeline correction
+  const gates = buildGatesPostPipeline(data)
 
   return {
     meta: {
-      version: isV1_5 ? '1.5' : '1.4',
+      version: '1.5',
       created_at: timestamp,
       request_id: data.overall.request_id,
       client_build: clientBuild,
@@ -1099,10 +1032,8 @@ export function buildDebugBundle(data: DebugData, options: ExportOptions = {}): 
     },
     export_summary_schema: {
       derivation: 'export_time_from_debugdata_only',
-      runtime_capture_included: isV1_5,
-      note: isV1_5
-        ? 'V1.5: Includes runtime capture (user_actions, display_state). Enriched full_graph captures all store fields.'
-        : 'Structured summary sections are derived only from DebugData at export time and do not imply that runtime chronology or UI event capture was recorded.',
+      runtime_capture_included: true,
+      note: 'V1.5: Includes runtime capture (user_actions, display_state). Enriched full_graph captures all store fields.',
     },
     diagnostic: {
       timestamp,
@@ -1188,7 +1119,7 @@ export function buildDebugBundle(data: DebugData, options: ExportOptions = {}): 
     },
     console_logs: getBufferedLogs(),
     diagnostic_checks: data.diagnostics,
-    readme: generateReadme(data, isV1_5),
+    readme: generateReadme(data),
     ...(fullGraph && { full_graph: fullGraph }),
     session: {
       timestamp,
@@ -1247,8 +1178,8 @@ export function buildDebugBundle(data: DebugData, options: ExportOptions = {}): 
         }
       : null,
 
-    // V1.5: Display state (provided by caller at export time)
-    ...(isV1_5 && { display_state: options.displayState ?? null }),
+    // Display state (provided by caller at export time)
+    display_state: options.displayState ?? null,
   }
 }
 
@@ -1258,8 +1189,8 @@ export function buildDebugBundle(data: DebugData, options: ExportOptions = {}): 
  * Use this from the export handler in DebugPanelV2.
  */
 export async function buildDebugBundleAsync(data: DebugData, options: ExportOptions = {}): Promise<DebugBundle> {
-  // V1.5: Capture display state from store before building bundle
-  if (isDebugBundleV1_5Enabled() && !options.displayState) {
+  // Capture display state from store before building bundle
+  if (!options.displayState) {
     try {
       options = { ...options, displayState: await captureDisplayState() }
     } catch {
@@ -1269,24 +1200,22 @@ export async function buildDebugBundleAsync(data: DebugData, options: ExportOpti
 
   const bundle = buildDebugBundle(data, options)
 
-  if (isDebugBundleV1_5Enabled()) {
-    // Populate async sections: panel_state, orchestrator context
-    try {
-      const panelState = await buildPanelState()
-      bundle.panel_state = panelState
-    } catch {
-      // Keep default
-    }
+  // Populate async sections: panel_state, orchestrator context
+  try {
+    const panelState = await buildPanelState()
+    bundle.panel_state = panelState
+  } catch {
+    // Keep default
+  }
 
-    try {
-      const orchContext = await buildOrchestratorContext()
-      // Only override if the original orchestrator was null
-      if (!bundle.orchestrator) {
-        bundle.orchestrator = orchContext
-      }
-    } catch {
-      // Keep default
+  try {
+    const orchContext = await buildOrchestratorContext()
+    // Only override if the original orchestrator was null
+    if (!bundle.orchestrator) {
+      bundle.orchestrator = orchContext
     }
+  } catch {
+    // Keep default
   }
 
   return bundle
@@ -1294,8 +1223,7 @@ export async function buildDebugBundleAsync(data: DebugData, options: ExportOpti
 
 /**
  * Export all debug data as a single JSON bundle file (async).
- * When V1.5 flag is ON, uses the async path to capture display_state,
- * panel_state, and orchestrator context from stores.
+ * Captures display_state, panel_state, and orchestrator context from stores.
  *
  * Filename format: olumi-debug-{short_request_id}-{date}.json
  */
@@ -1311,9 +1239,9 @@ export async function exportDebugBundleAsync(data: DebugData, options: ExportOpt
 }
 
 /**
- * Export all debug data as a single JSON bundle file (sync — v1.4 path).
- * Kept for backwards compatibility. When V1.5 flag is ON, callers should
- * prefer exportDebugBundleAsync for full capture.
+ * Export all debug data as a single JSON bundle file (sync).
+ * Does not capture display_state or panel_state from stores — use
+ * exportDebugBundleAsync for full capture.
  *
  * Filename format: olumi-debug-{short_request_id}-{date}.json
  */
