@@ -75,6 +75,7 @@ export type ConversationTurnRequest = TurnBase & {
 export type ExplicitGenerateTurnRequest = TurnBase & {
   message: string
   graph_state: GraphStatePayload
+  generate_model: true
 }
 
 export type RunAnalysisTurnRequest = TurnBase & {
@@ -114,7 +115,7 @@ export type TurnRequestPayload =
 
 const TURN_ALLOW_LIST: Record<TurnType, readonly string[]> = {
   conversation: ['scenario_id', 'client_turn_id', 'conversation_history', 'message', 'graph_state', 'selected_elements', '_turn_type'],
-  explicit_generate: ['scenario_id', 'client_turn_id', 'conversation_history', 'message', 'graph_state', '_turn_type'],
+  explicit_generate: ['scenario_id', 'client_turn_id', 'conversation_history', 'message', 'graph_state', 'generate_model', '_turn_type'],
   run_analysis: ['scenario_id', 'client_turn_id', 'conversation_history', 'graph_state', 'analysis_inputs', '_turn_type'],
   system_event: ['scenario_id', 'client_turn_id', 'conversation_history', 'message', 'graph_state', 'system_event', '_turn_type'],
   patch_followup: ['scenario_id', 'client_turn_id', 'conversation_history', 'graph_state', '_turn_type'],
@@ -124,7 +125,7 @@ const TURN_ALLOW_LIST: Record<TurnType, readonly string[]> = {
 
 const TURN_REQUIRED_FIELDS: Record<TurnType, readonly string[]> = {
   conversation: ['scenario_id', 'client_turn_id', 'conversation_history', 'message', 'graph_state'],
-  explicit_generate: ['scenario_id', 'client_turn_id', 'conversation_history', 'message', 'graph_state'],
+  explicit_generate: ['scenario_id', 'client_turn_id', 'conversation_history', 'message', 'graph_state', 'generate_model'],
   run_analysis: ['scenario_id', 'client_turn_id', 'conversation_history', 'graph_state', 'analysis_inputs'],
   system_event: ['scenario_id', 'client_turn_id', 'conversation_history', 'message', 'graph_state', 'system_event'],
   patch_followup: ['scenario_id', 'client_turn_id', 'conversation_history', 'graph_state'],
@@ -194,6 +195,7 @@ export function buildExplicitGenerateTurnRequest(input: {
     conversation_history: input.conversation_history,
     message: input.message,
     graph_state: input.graph_state,
+    generate_model: true,
   }, 'explicit_generate')
 }
 

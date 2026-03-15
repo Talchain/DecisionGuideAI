@@ -16,7 +16,7 @@ describe('Decision Brief Export', () => {
     summary: '',
     ts: Date.now(),
     report: {
-      summary: {
+      results: {
         conservative: 10,
         likely: 50,
         optimistic: 90,
@@ -38,7 +38,7 @@ describe('Decision Brief Export', () => {
     summary: '',
     ts: Date.now(),
     report: {
-      summary: {
+      results: {
         conservative: 15,
         likely: 55,
         optimistic: 95,

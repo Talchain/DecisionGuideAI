@@ -24,16 +24,22 @@ describe('useCanvasKeyboardShortcuts', () => {
 
   describe('Alt+V: Cycle through validation errors', () => {
     it('calls onFocusNode with first invalid node when Alt+V pressed', () => {
-      const { resetCanvas, addNode, addEdge } = useCanvasStore.getState()
+      const { resetCanvas, addNode, addEdge, updateNode } = useCanvasStore.getState()
       const onFocusNode = vi.fn()
 
       resetCanvas()
-      addNode({ x: 0, y: 0 })
-      addNode({ x: 100, y: 0 })
-      addNode({ x: 100, y: 100 })
+      addNode({ x: 0, y: 0 })    // Node 1 - decision
+      addNode({ x: 100, y: 0 })   // Node 2 - option
+      addNode({ x: 100, y: 100 }) // Node 3 - option
 
-      addEdge(createEdgeWithConfidence('1', '2', 0.4))
-      addEdge(createEdgeWithConfidence('1', '3', 0.5))
+      // Set node kinds so validation recognises decision→option edges
+      const nodes = useCanvasStore.getState().nodes
+      updateNode(nodes[0].id, { data: { ...nodes[0].data, kind: 'decision' } })
+      updateNode(nodes[1].id, { data: { ...nodes[1].data, kind: 'option' } })
+      updateNode(nodes[2].id, { data: { ...nodes[2].data, kind: 'option' } })
+
+      addEdge(createEdgeWithConfidence(nodes[0].id, nodes[1].id, 0.4))
+      addEdge(createEdgeWithConfidence(nodes[0].id, nodes[2].id, 0.5))
 
       renderHook(() => useCanvasKeyboardShortcuts({ onFocusNode }))
 
@@ -41,41 +47,51 @@ describe('useCanvasKeyboardShortcuts', () => {
       const event = new KeyboardEvent('keydown', { altKey: true, key: 'v' })
       window.dispatchEvent(event)
 
-      expect(onFocusNode).toHaveBeenCalledWith('1')
+      expect(onFocusNode).toHaveBeenCalledWith(nodes[0].id)
     })
 
     it('cycles to next invalid node when Alt+V pressed with current selection', () => {
-      const { resetCanvas, addNode, addEdge, onSelectionChange } = useCanvasStore.getState()
+      const { resetCanvas, addNode, addEdge, onSelectionChange, updateNode } = useCanvasStore.getState()
       const onFocusNode = vi.fn()
 
       resetCanvas()
 
-      // Add two invalid nodes
-      addNode({ x: 0, y: 0 })    // Node 1
-      addNode({ x: 100, y: 0 })  // Node 2
-      addNode({ x: 200, y: 0 })  // Node 3
-      addNode({ x: 0, y: 100 })  // Node 4
-      addNode({ x: 100, y: 100 }) // Node 5
+      // Add two invalid decision nodes and their option targets
+      addNode({ x: 0, y: 0 })    // Node 0 - decision
+      addNode({ x: 100, y: 0 })  // Node 1 - option
+      addNode({ x: 200, y: 0 })  // Node 2 - option
+      addNode({ x: 0, y: 100 })  // Node 3 - decision
+      addNode({ x: 100, y: 100 }) // Node 4 - option
 
-      // Node 1 -> 2, 3 (invalid)
-      addEdge(createEdgeWithConfidence('1', '2', 0.4))
-      addEdge(createEdgeWithConfidence('1', '3', 0.5))
+      const nodes = useCanvasStore.getState().nodes
 
-      // Node 4 -> 2, 5 (invalid)
-      addEdge(createEdgeWithConfidence('4', '2', 0.4))
-      addEdge(createEdgeWithConfidence('4', '5', 0.5))
+      // Set node kinds so validation recognises decision→option edges
+      updateNode(nodes[0].id, { data: { ...nodes[0].data, kind: 'decision' } })
+      updateNode(nodes[1].id, { data: { ...nodes[1].data, kind: 'option' } })
+      updateNode(nodes[2].id, { data: { ...nodes[2].data, kind: 'option' } })
+      updateNode(nodes[3].id, { data: { ...nodes[3].data, kind: 'decision' } })
+      updateNode(nodes[4].id, { data: { ...nodes[4].data, kind: 'option' } })
 
-      // Select node 1
-      const node1 = useCanvasStore.getState().nodes.find(n => n.id === '1')!
-      onSelectionChange({ nodes: [node1], edges: [] })
+      // Decision node[0] -> node[1], node[2] (invalid: 0.4+0.5=0.9 ≠ 1.0)
+      addEdge(createEdgeWithConfidence(nodes[0].id, nodes[1].id, 0.4))
+      addEdge(createEdgeWithConfidence(nodes[0].id, nodes[2].id, 0.5))
+
+      // Decision node[3] -> node[1], node[4] (invalid: 0.4+0.5=0.9 ≠ 1.0)
+      addEdge(createEdgeWithConfidence(nodes[3].id, nodes[1].id, 0.4))
+      addEdge(createEdgeWithConfidence(nodes[3].id, nodes[4].id, 0.5))
+
+      // Select first decision node
+      const updatedNodes = useCanvasStore.getState().nodes
+      const firstDecision = updatedNodes.find(n => n.id === nodes[0].id)!
+      onSelectionChange({ nodes: [firstDecision], edges: [] })
 
       renderHook(() => useCanvasKeyboardShortcuts({ onFocusNode }))
 
-      // Press Alt+V -> should cycle to node 4
+      // Press Alt+V -> should cycle to the other invalid decision node
       const event = new KeyboardEvent('keydown', { altKey: true, key: 'v' })
       window.dispatchEvent(event)
 
-      expect(onFocusNode).toHaveBeenCalledWith('4')
+      expect(onFocusNode).toHaveBeenCalledWith(nodes[3].id)
     })
 
     it('does nothing when Alt+V pressed but no validation errors', () => {

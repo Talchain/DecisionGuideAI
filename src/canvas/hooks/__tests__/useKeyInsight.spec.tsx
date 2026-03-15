@@ -99,6 +99,8 @@ describe('useKeyInsight', () => {
           run_id: 'hash-456',
           scenario_name: 'Scenario A',
           include_drivers: true,
+          graph: { nodes: [], edges: [] },
+          results: undefined,
         })
       })
     })

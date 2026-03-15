@@ -408,3 +408,46 @@ describe('Scenario 9: chip message text stripped from assistant_text', () => {
     expect(lastCallArgs[0].message).toBe('Please suggest alternative approaches in detail')
   })
 })
+
+// ---------------------------------------------------------------------------
+// Scenario 9: explicit_generate turn sends generate_model: true
+// ---------------------------------------------------------------------------
+
+describe('Scenario 9: generate_model field on explicit_generate turn', () => {
+  it('sendMessage with turnType explicit_generate includes generate_model: true in request', async () => {
+    mockCallTurn.mockResolvedValueOnce({
+      assistant_text: 'Here is your model.',
+      blocks: [],
+    })
+
+    const { result } = renderHook(() => useConversation())
+
+    await act(async () => {
+      await result.current.sendMessage('Build a model for choosing a car', {
+        turnType: 'explicit_generate',
+      })
+    })
+
+    expect(mockCallTurn).toHaveBeenCalledTimes(1)
+    const request = mockCallTurn.mock.calls[0][0]
+    expect(request).toHaveProperty('generate_model', true)
+    expect(request.message).toBe('Build a model for choosing a car')
+  })
+
+  it('sendMessage without turnType does NOT include generate_model', async () => {
+    mockCallTurn.mockResolvedValueOnce({
+      assistant_text: 'Normal response.',
+      blocks: [],
+    })
+
+    const { result } = renderHook(() => useConversation())
+
+    await act(async () => {
+      await result.current.sendMessage('Just a question')
+    })
+
+    expect(mockCallTurn).toHaveBeenCalledTimes(1)
+    const request = mockCallTurn.mock.calls[0][0]
+    expect(request).not.toHaveProperty('generate_model')
+  })
+})

@@ -51,7 +51,7 @@ describe('turn request builders', () => {
     expect(req).not.toHaveProperty('selected_elements')
   })
 
-  it('explicit_generate request includes graph_state and excludes analysis/system fields', () => {
+  it('explicit_generate request includes graph_state, generate_model and excludes analysis/system fields', () => {
     const req = buildExplicitGenerateTurnRequest({
       scenario_id: 's2',
       conversation_history: [...history],
@@ -61,9 +61,36 @@ describe('turn request builders', () => {
 
     expect(req).toHaveProperty('graph_state')
     expect(req).toHaveProperty('message', 'generate')
+    expect(req).toHaveProperty('generate_model', true)
     expect(req).not.toHaveProperty('analysis_state')
     expect(req).not.toHaveProperty('analysis_inputs')
     expect(req).not.toHaveProperty('system_event')
+  })
+
+  it('explicit_generate wire payload includes generate_model: true after stripping dev fields', () => {
+    const req = buildExplicitGenerateTurnRequest({
+      scenario_id: 's2b',
+      conversation_history: [...history],
+      message: 'build model',
+      graph_state: graphState,
+    })
+    const wire = stripDevTurnType(req)
+
+    expect(wire).toHaveProperty('generate_model', true)
+    expect(wire).not.toHaveProperty('_turn_type')
+  })
+
+  it('conversation request does NOT include generate_model', () => {
+    const req = buildConversationTurnRequest({
+      scenario_id: 's2c',
+      conversation_history: [...history],
+      message: 'hello',
+      graph_state: graphState,
+    })
+
+    expect(req).not.toHaveProperty('generate_model')
+    const wire = stripDevTurnType(req)
+    expect(wire).not.toHaveProperty('generate_model')
   })
 
   it('run_analysis request includes analysis_inputs and excludes message', () => {

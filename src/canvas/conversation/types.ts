@@ -322,6 +322,8 @@ export interface OrchestratorTurnRequest {
     options: AnalysisInputOption[]
     goal_node_id: string
   }
+  /** Signal for CEE V2 deterministic draft routing. Set to true on explicit_generate turns. */
+  generate_model?: boolean
   /** System event in CEE v3 wire format (SystemEventWire). Always serialized via serializeSystemEvent(). */
   system_event?: unknown
   /** Nonce for idempotency */

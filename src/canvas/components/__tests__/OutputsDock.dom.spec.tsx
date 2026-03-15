@@ -7,10 +7,12 @@ import { STORAGE_KEY as RUN_HISTORY_STORAGE_KEY, type StoredRun } from '../../st
 import { __resetTelemetryCounters, __getTelemetryCounters } from '../../../lib/telemetry'
 import { useGuidanceStore } from '../../stores/guidanceStore'
 
-const mockIsDecisionReviewEnabled = vi.fn(() => true)
-const mockIsOrchestratorV2Enabled = vi.fn(() => false)
-const mockIsLegacyDirectRunEnabled = vi.fn(() => true)
-const mockUseV2Run = vi.fn(() => ({ runV2Analysis: vi.fn(), cancelRun: vi.fn() }))
+const { mockIsDecisionReviewEnabled, mockIsOrchestratorV2Enabled, mockIsLegacyDirectRunEnabled, mockUseV2Run } = vi.hoisted(() => ({
+  mockIsDecisionReviewEnabled: vi.fn(() => true),
+  mockIsOrchestratorV2Enabled: vi.fn(() => false),
+  mockIsLegacyDirectRunEnabled: vi.fn(() => true),
+  mockUseV2Run: vi.fn(() => ({ runV2Analysis: vi.fn(), cancelRun: vi.fn() })),
+}))
 
 // Mock react-router-dom (useScenario calls useNavigate)
 vi.mock('react-router-dom', async (importOriginal) => {

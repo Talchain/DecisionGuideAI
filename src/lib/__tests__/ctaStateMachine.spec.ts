@@ -21,7 +21,7 @@ describe('computeCTA', () => {
         readinessLevel: 'ready',
       })
       expect(result.state).toBe('idle')
-      expect(result.text).toBe('Analyse')
+      expect(result.text).toBe('Run Analysis')
       expect(result.enabled).toBe(true)
       expect(result.variant).toBe('primary')
     })
@@ -85,7 +85,7 @@ describe('computeCTA', () => {
         readinessLevel: 'ready',
       })
       expect(result.state).toBe('done')
-      expect(result.text).toBe('Analyse again')
+      expect(result.text).toBe('Rerun')
       expect(result.enabled).toBe(true)
       expect(result.icon).toBe('refresh')
     })
@@ -98,7 +98,7 @@ describe('computeCTA', () => {
         isDegraded: true,
       })
       expect(result.state).toBe('degraded')
-      expect(result.text).toBe('Retry')
+      expect(result.text).toBe('Rerun')
       expect(result.variant).toBe('warning')
     })
   })
@@ -112,7 +112,7 @@ describe('computeCTA', () => {
         errorMessage: 'Connection failed',
       })
       expect(result.state).toBe('error')
-      expect(result.text).toBe('Retry')
+      expect(result.text).toBe('Try Again')
       expect(result.enabled).toBe(true)
       expect(result.variant).toBe('warning')
       expect(result.tooltip).toBe('Connection failed')
@@ -127,7 +127,7 @@ describe('computeCTA', () => {
         readinessLevel: 'ready',
       })
       expect(result.state).toBe('idle')
-      expect(result.text).toBe('Analyse')
+      expect(result.text).toBe('Run Analysis')
     })
   })
 
@@ -193,7 +193,7 @@ describe('getCTAButtonText', () => {
       resultsStatus: 'idle',
       hasGraph: true,
       readinessLevel: 'ready',
-    })).toBe('Analyse')
+    })).toBe('Run Analysis')
 
     expect(getCTAButtonText({
       resultsStatus: 'streaming',
@@ -205,12 +205,12 @@ describe('getCTAButtonText', () => {
       resultsStatus: 'complete',
       hasGraph: true,
       readinessLevel: 'ready',
-    })).toBe('Analyse again')
+    })).toBe('Rerun')
 
     expect(getCTAButtonText({
       resultsStatus: 'error',
       hasGraph: true,
       readinessLevel: 'ready',
-    })).toBe('Retry')
+    })).toBe('Try Again')
   })
 })

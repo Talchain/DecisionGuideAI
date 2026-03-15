@@ -239,4 +239,28 @@ describe('streaming lifecycle', () => {
     expect(allAssistant[0].isStreaming).toBeFalsy()
     expect(allAssistant[0].synthetic).toBe(true)
   })
+
+  it('explicit_generate streaming request includes generate_model: true', async () => {
+    const events: OrchestratorStreamEvent[] = [
+      { type: 'turn_start', seq: 1, turn_id: 't-1', routing: 'llm', stage: 'ideate' },
+      { type: 'turn_complete', seq: 2, envelope: {
+        assistant_text: 'Model built.',
+        blocks: [],
+      } as any },
+    ]
+
+    mockStreamTurn.mockReturnValue(fakeStream(events))
+
+    const { result } = renderHook(() => useConversation())
+
+    await act(async () => {
+      await result.current.sendMessage('Build a decision model', {
+        turnType: 'explicit_generate',
+      })
+    })
+
+    expect(mockStreamTurn).toHaveBeenCalledTimes(1)
+    const request = mockStreamTurn.mock.calls[0][0]
+    expect(request).toHaveProperty('generate_model', true)
+  })
 })
