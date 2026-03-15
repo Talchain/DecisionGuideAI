@@ -101,6 +101,7 @@ export const MessageBubble = memo(function MessageBubble({
           needsClamp && !expanded ? styles.markdownContentClamped : ''
         } ${isProvisional ? styles.provisionalText : ''}`}
         data-streaming={isStreaming || undefined}
+        // eslint-disable-next-line no-restricted-syntax -- sanitised via DOMPurify (sanitizeMarkdown)
         dangerouslySetInnerHTML={{
           __html: sanitizeMarkdown(message.content) + (isStreaming ? '<span class="streaming-cursor" aria-hidden="true">|</span>' : ''),
         }}

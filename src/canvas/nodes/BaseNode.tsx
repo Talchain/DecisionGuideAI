@@ -298,6 +298,7 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
       {isExpanded && description && (
         <div
           className={`${typography.nodeLabel} text-text-body opacity-85 mt-3 max-h-[200px] overflow-y-auto node-description`}
+          // eslint-disable-next-line no-restricted-syntax -- sanitised via DOMPurify (sanitizeMarkdown)
           dangerouslySetInnerHTML={{
             __html: sanitizeMarkdown(description)
           }}

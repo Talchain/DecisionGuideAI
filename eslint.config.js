@@ -205,6 +205,9 @@ export default [
       'no-restricted-syntax': ['error', {
         selector: "CallExpression[callee.object.name='console'][callee.property.name='log']",
         message: 'Use structured logging (e.g., console.warn/error or a logger) instead of console.log.'
+      }, {
+        selector: "JSXAttribute[name.name='dangerouslySetInnerHTML']",
+        message: 'dangerouslySetInnerHTML requires DOMPurify sanitisation. Add /* eslint-disable-next-line no-restricted-syntax -- sanitised via DOMPurify */ if mitigated.'
       }],
 
       // Keep security guardrails as hard errors

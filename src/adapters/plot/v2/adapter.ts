@@ -411,6 +411,8 @@ export function transformNodeToV2(node: Node<CanvasNodeData>): V2Node {
   return {
     ...passThrough,                              // V3 fields pass through (goal_threshold_*, prior, etc.)
     id: node.id,                                 // Override: always use node.id
+    // Canonical kind resolution: data.kind (canvas) > data.type (CEE legacy) > 'factor'
+    // NOTE: data.type here is the CEE domain type, NOT ReactFlow's node.type
     kind: data.kind ?? data.type ?? 'factor',
     label: data.label ?? node.id,
     observed_state: extractObservedState(data),   // snake_case for PLoT payload

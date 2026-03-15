@@ -10,6 +10,8 @@
 import type { FactorEnrichment, NearTieInfo } from '../../lib/mappers/types'
 import type { ConstraintAnalysis } from '../../types/constraints'
 import type { M1CoachingReadiness } from '../../types/cee'
+import type { ReportV1, OptionProbability } from '../../adapters/plot/types'
+import type { V2FactorSensitivity, V2OptionComparison } from '../../adapters/plot/v2/types'
 
 // Re-export M1 coaching type for component use
 export type { M1CoachingReadiness }
@@ -608,4 +610,109 @@ export interface ResultsVM {
   topAction: TopAction | null
   /** Pass-through to underlying data */
   raw: import('./useResultsSectionData').ResultsSectionDataReturn
+}
+
+// =============================================================================
+// Trust Boundary Types
+// =============================================================================
+// These types capture the actual runtime shape of data consumed by
+// useResultsSectionData. They replace `as any` casts at the trust boundary
+// between backend responses and UI components.
+
+/**
+ * Extended report type representing the actual shape of `results.report`
+ * as produced by `mapV2ResponseToReportV1()` in the response mapper.
+ *
+ * The mapper returns a `ReportV1` plus additional V2 pass-through fields
+ * that are not declared on the base interface. This type makes those
+ * fields explicitly typed so consumers don't need `as any`.
+ */
+export interface ResultsReport extends Omit<ReportV1, 'option_probabilities'> {
+  /** Widened option_probabilities with V2 pass-through fields */
+  option_probabilities?: Record<string, ResultsOptionProbability>
+  // V2 pass-through fields from responseMapper
+  factor_sensitivity?: V2FactorSensitivity[]
+  robustness?: {
+    fragile_edges: Array<Record<string, unknown>>
+    robust_edges: Array<Record<string, unknown>>
+    ranking_stability?: number
+    recommendation_stability?: number
+    is_robust?: boolean
+    level?: string
+    recommended_option_id?: string
+    near_tie?: Record<string, unknown>
+    nearTie?: Record<string, unknown>
+    flip_thresholds?: Array<Record<string, unknown>>
+    _truncation?: {
+      fragile_truncated: boolean
+      fragile_total: number
+      robust_truncated: boolean
+      robust_total: number
+    }
+  }
+  robustness_status?: 'computed' | 'unavailable' | 'skipped' | 'error'
+  option_comparison?: V2OptionComparison[]
+
+  // Fields accessed by useResultsSectionData that may appear on report
+  flip_thresholds?: Array<Record<string, unknown>>
+  recommendation?: { option_id?: string; selected_option?: string }
+  selected_option_id?: string
+  evidence_quality?: Record<string, unknown>
+  bias_findings?: Array<Record<string, unknown>>
+  quality_factors?: Array<Record<string, unknown>>
+  improvement_guidance?: Array<Record<string, unknown>>
+  analysis_state?: string
+  drivers_error?: string
+  sensitivity?: { factors?: Array<Record<string, unknown>>; error?: string }
+  isl_error?: string
+  downstream_calls?: unknown
+  factors?: Array<Record<string, unknown>>
+  factor_enrichments?: Array<Record<string, unknown>>
+}
+
+/**
+ * Extended option probability with all fields the mapper may add.
+ * Widens the base OptionProbability from plot/types.
+ */
+export interface ResultsOptionProbability extends OptionProbability {
+  expected_outcome?: number
+  expected?: number
+  outcome?: {
+    mean?: number | null
+    p10?: number | null
+    p50?: number | null
+    p90?: number | null
+  }
+  bands?: { p10?: number | null; p50?: number | null; p90?: number | null }
+  constraint_analysis?: ConstraintAnalysis
+}
+
+/**
+ * Canvas node data shape as accessed by results hooks.
+ * Captures the subset of node.data fields needed for results computation.
+ */
+export interface ResultsCanvasNodeData {
+  kind?: string
+  label?: string
+  is_baseline?: boolean
+  observedState?: { value?: number; unit?: string; [key: string]: unknown }
+  observed_state?: { value?: number; unit?: string; [key: string]: unknown }
+  goal_threshold_unit?: string
+  goal_threshold_raw?: number
+  goal_threshold?: number
+  success_threshold?: number
+  threshold?: number
+  threshold_cap?: number
+  scale_max?: number
+  [key: string]: unknown
+}
+
+/**
+ * Canvas edge data shape as accessed by results hooks.
+ */
+export interface ResultsCanvasEdgeData {
+  effect_direction?: string
+  direction?: string
+  beliefExists?: number
+  [key: string]: unknown
 }

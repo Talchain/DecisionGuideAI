@@ -40,6 +40,9 @@ import type {
   WinnerDeterminedBy,
   RobustnessLevel,
   RobustnessLabel,
+  ResultsReport,
+  ResultsCanvasNodeData,
+  ResultsCanvasEdgeData,
 } from './types'
 import type { FactorEnrichment, NearTieInfo } from '../../lib/mappers/types'
 import { normaliseFactorFields } from '../../lib/mappers/mapFactorSensitivity'
@@ -128,7 +131,7 @@ export function resolveBaselineId(
   userSelectedBaselineId?: string | null
 ): string | null {
   // 1. PLoT-provided baseline (option with is_baseline: true)
-  const plotBaseline = optionNodes.find(node => (node.data as any)?.is_baseline === true)
+  const plotBaseline = optionNodes.find(node => node.data?.is_baseline === true)
   if (plotBaseline) return plotBaseline.id
 
   // 2. User-selected baseline
@@ -248,7 +251,8 @@ function getRawElasticity(factor: RawFactorSensitivity | UiFactorSensitivity): n
 }
 
 function normalizeFactorSensitivity(raw: unknown, nodeLabelMap: Map<string, string>): UiFactorSensitivity {
-  const typed = (raw ?? {}) as Record<string, any>
+  if (raw == null || typeof raw !== 'object') return { factorId: '', label: 'Unknown factor', elasticity: 0, direction: 'positive' as const, confidence: null, importanceRank: 0 }
+  const typed = raw as Record<string, unknown>
   const nf = normaliseFactorFields(typed)
   const rawId = nf.node_id
   const labelFromNodes = rawId ? nodeLabelMap.get(rawId) : undefined
@@ -724,16 +728,17 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       nodes: s.nodes,
       edges: s.edges,
       hasCompletedFirstRun: s.hasCompletedFirstRun,
-      currentScenarioFraming: (s as any).currentScenarioFraming,
+      currentScenarioFraming: s.currentScenarioFraming,
       m1Coaching: s.runMeta?.m1Coaching ?? null,
       reviewStatus: s.runMeta?.reviewStatus,
       m1ReviewAssumptions: s.runMeta?.m1ReviewAssumptions ?? null,
-      goalThreshold: (s as any).goalThreshold,
+      goalThreshold: s.goalThreshold,
       ceeAnalysisReady: s.ceeAnalysisReady,
     }))
   )
 
-  const report = results?.report
+  // Cast report once at trust boundary — responseMapper returns ReportV1 with V2 pass-through fields
+  const report = results?.report as ResultsReport | null | undefined
   const resultsStatus = results?.status
 
   const isLoading = resultsStatus === 'preparing' || resultsStatus === 'connecting' || resultsStatus === 'streaming'
@@ -741,7 +746,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
 
   // Find goal node for label and click-to-focus
   const goalNode = useMemo(
-    () => nodes.find((n) => n.type === 'goal' || (n.data as any)?.kind === 'goal'),
+    () => nodes.find((n) => n.type === 'goal' || (n.data as ResultsCanvasNodeData)?.kind === 'goal'),
     [nodes]
   )
 
@@ -751,8 +756,8 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     let raw = 'your goal'
     if (currentScenarioFraming?.goal) {
       raw = currentScenarioFraming.goal
-    } else if (goalNode?.data && typeof (goalNode.data as any).label === 'string') {
-      raw = (goalNode.data as any).label
+    } else if (goalNode?.data && typeof (goalNode.data as ResultsCanvasNodeData).label === 'string') {
+      raw = (goalNode.data as ResultsCanvasNodeData).label
     }
     if (raw === 'your goal') return raw
 
@@ -764,10 +769,10 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     // read awkwardly as "To Cat" — prefix with context → "the best outcome for Cat"
     // Multi-word verb phrases ("increase revenue") read fine as-is.
     const optionLabels = new Set(
-      nodes.filter(n => (n.data as any)?.kind === 'option').map(n => (n.data as any)?.label as string).filter(Boolean)
+      nodes.filter(n => (n.data as ResultsCanvasNodeData)?.kind === 'option').map(n => (n.data as ResultsCanvasNodeData)?.label as string).filter(Boolean)
     )
     const factorLabels = new Set(
-      nodes.filter(n => (n.data as any)?.kind === 'factor').map(n => (n.data as any)?.label as string).filter(Boolean)
+      nodes.filter(n => (n.data as ResultsCanvasNodeData)?.kind === 'factor').map(n => (n.data as ResultsCanvasNodeData)?.label as string).filter(Boolean)
     )
     const wordCount = cleaned.split(/\s+/).length
     if (wordCount < 2 || optionLabels.has(cleaned) || factorLabels.has(cleaned)) {
@@ -783,9 +788,9 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
   // The goal node's observed_state.unit tells us whether values are currency, percent, or count
   // V11.2 Fix 3: goal_threshold_unit fallback + pass raw unit string for count types
   const { outcomeUnit, outcomeUnitSymbol } = useMemo(() => {
-    const observedState = (goalNode?.data as any)?.observedState ?? (goalNode?.data as any)?.observed_state
+    const observedState = (goalNode?.data as ResultsCanvasNodeData | undefined)?.observedState ?? (goalNode?.data as ResultsCanvasNodeData | undefined)?.observed_state
     const rawUnit = observedState?.unit
-      ?? (goalNode?.data as any)?.goal_threshold_unit
+      ?? (goalNode?.data as ResultsCanvasNodeData | undefined)?.goal_threshold_unit
       ?? ceeAnalysisReady?.goal_threshold_unit
 
     if (!rawUnit) return { outcomeUnit: undefined, outcomeUnitSymbol: undefined }
@@ -815,7 +820,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     // 1. CEE analysis_ready is the canonical source
     if (typeof ceeAnalysisReady?.goal_threshold_cap === 'number') return ceeAnalysisReady.goal_threshold_cap
     // 2. Goal node data (spread from CEE node via DraftChat)
-    const data = goalNode?.data as any
+    const data = goalNode?.data as ResultsCanvasNodeData | undefined
     if (typeof data?.goal_threshold_cap === 'number') return data.goal_threshold_cap
     if (typeof data?.threshold_cap === 'number') return data.threshold_cap
     if (typeof data?.scale_max === 'number') return data.scale_max
@@ -827,7 +832,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     if (goalThreshold != null) return goalThreshold
     // CEE analysis_ready has goal_threshold_raw in user units
     if (typeof ceeAnalysisReady?.goal_threshold_raw === 'number') return ceeAnalysisReady.goal_threshold_raw
-    const data = goalNode?.data as any
+    const data = goalNode?.data as ResultsCanvasNodeData | undefined
     return data?.goal_threshold_raw
       ?? data?.goal_threshold
       ?? data?.observedState?.value
@@ -840,7 +845,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
   const nodeLabelMap = useMemo(() => {
     const map = new Map<string, string>()
     nodes.forEach((node) => {
-      const label = (node.data as any)?.label
+      const label = (node.data as ResultsCanvasNodeData)?.label
       if (typeof label === 'string' && label.trim().length > 0) {
         map.set(node.id, label)
       }
@@ -851,7 +856,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
   // Get outcome node IDs for direction derivation
   const outcomeNodeIds = useMemo(
     () => nodes
-      .filter(n => n.type === 'outcome' || (n.data as any)?.kind === 'outcome')
+      .filter(n => n.type === 'outcome' || (n.data as ResultsCanvasNodeData)?.kind === 'outcome')
       .map(n => n.id),
     [nodes]
   )
@@ -872,20 +877,20 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     }
 
     // Get option probabilities from report
-    const optionProbs = (report as any).option_probabilities || {}
-    const optionNodes = nodes.filter((n) => (n.data as any)?.kind === 'option')
+    const optionProbs = report.option_probabilities || {}
+    const optionNodes = nodes.filter((n) => (n.data as ResultsCanvasNodeData)?.kind === 'option')
 
     // Determine recommended option ID - prefer backend-provided, fall back to deterministic tie-breaker
     // Task 2.4: Primary is robustness.recommended_option_id
     const backendRecommendedId =
-      (report as any)?.robustness?.recommended_option_id ??
-      (report as any)?.recommendation?.option_id ??
-      (report as any)?.recommendation?.selected_option ??
-      (report as any)?.selected_option_id ??
+      report?.robustness?.recommended_option_id ??
+      report?.recommendation?.option_id ??
+      report?.recommendation?.selected_option ??
+      report?.selected_option_id ??
       null
 
     // Build option results with percentile extraction
-    const sharedBands = (report as any).run?.bands
+    const sharedBands = report.run?.bands
 
     // v7: Pre-scan all options to detect already-denormalized values.
     // If any option has raw outcome magnitudes > 2, the data is already in user units
@@ -952,7 +957,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
 
       return {
         id: nodeId,
-        label: (node.data as any)?.label || nodeId,
+        label: (node.data as ResultsCanvasNodeData)?.label || nodeId,
         // Explicit expected value (mean) — primary value for "Expected" display
         expected: scaledExpected,
         // Full outcome distribution (mean = expected, for consistency)
@@ -1019,7 +1024,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     const recommendedOption = allOptions.find((o) => o.isRecommended) || null
 
     // Extract recommendation stability from robustness (0-1 score)
-    const robustness = (report as any)?.robustness
+    const robustness = report?.robustness
     const recommendationStability = typeof robustness?.recommendation_stability === 'number'
       ? robustness.recommendation_stability
       : typeof robustness?.recommendationStability === 'number'
@@ -1093,9 +1098,9 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     // C2: Defensive adaptor for flip_thresholds — PLoT hasn't confirmed final location.
     // Check all possible paths. Simplify once PLoT confirms the canonical location.
     const flipThresholds: FlipThreshold[] = safeArray(
-      (report as any)?.flip_thresholds
-      ?? (report as any)?.report?.robustness?.flip_thresholds
-      ?? (report as any)?.robustness?.flip_thresholds
+      report?.flip_thresholds
+      ?? report?.report?.robustness?.flip_thresholds
+      ?? report?.robustness?.flip_thresholds
     )
       .map((ft: any) => {
         const nf = normaliseFactorFields(ft)
@@ -1206,13 +1211,13 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       // Check if there are warnings/uncertainties that need attention
       hasWarnings: (() => {
         // Check for warning/blocker critiques
-        const critiques = (report as any)?.run?.critique || []
+        const critiques = report?.run?.critique || []
         const hasWarningCritiques = critiques.some((c: any) =>
           c.severity === 'WARNING' || c.severity === 'BLOCKER' ||
           c.severity === 'warning' || c.severity === 'blocker'
         )
         // Check for fragile edges
-        const fragileEdges = safeArray((report as any)?.robustness?.fragile_edges)
+        const fragileEdges = safeArray(report?.robustness?.fragile_edges)
         const hasFragileEdges = fragileEdges.length > 0
         return hasWarningCritiques || hasFragileEdges
       })(),
@@ -1223,13 +1228,13 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
   // Drivers Section Data (with dynamic normalisation)
   // ==========================================================================
   const drivers = useMemo<DriversSectionData>(() => {
-    const driversStatus = (report as any)?.drivers_status || 'unavailable'
+    const driversStatus = report?.drivers_status || 'unavailable'
 
     // Collect raw factors from multiple sources
     const rawFactors: RawFactorSensitivity[] = []
 
     // Source 1: factor_sensitivity (PLoT v2)
-    const factorSensitivity = (report as any)?.factor_sensitivity || []
+    const factorSensitivity = report?.factor_sensitivity || []
 
     // P0 DIAGNOSTIC: Log raw factor_sensitivity data to verify field mapping
     // Fix 3: Guard window access for SSR, Fix 5: Gate behind debug toggle
@@ -1257,7 +1262,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
 
     // Source 2: drivers array (legacy)
     // Fix 2: Use getFactorKey for canonical de-dupe (not d.nodeId || d.id)
-    const legacyDrivers = (report as any)?.drivers || []
+    const legacyDrivers = report?.drivers || []
     legacyDrivers.forEach((d: any, idx: number) => {
       const candidate: RawFactorSensitivity = {
         node_id: d.nodeId,
@@ -1274,7 +1279,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     })
 
     // Source 3: drivers_payload
-    const driversPayload = (report as any)?.drivers_payload?.drivers || []
+    const driversPayload = report?.drivers_payload?.drivers || []
     driversPayload.forEach((pd: any, idx: number) => {
       const key = getFactorKey(pd, rawFactors.length + idx)
       if (!seenKeys.has(key)) {
@@ -1284,7 +1289,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     })
 
     // Source 4: sensitivity.factors (alternative path)
-    const sensitivityFactors = (report as any)?.sensitivity?.factors || []
+    const sensitivityFactors = report?.sensitivity?.factors || []
     sensitivityFactors.forEach((sf: any, idx: number) => {
       const key = getFactorKey(sf, rawFactors.length + idx)
       if (!seenKeys.has(key)) {
@@ -1294,7 +1299,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     })
 
     // Source 5: factors array (direct)
-    const directFactors = (report as any)?.factors || []
+    const directFactors = report?.factors || []
     directFactors.forEach((df: any, idx: number) => {
       const key = getFactorKey(df, rawFactors.length + idx)
       if (!seenKeys.has(key)) {
@@ -1334,15 +1339,15 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     const edgesForDirection: EdgeForDirection[] = edges.map(e => ({
       source: e.source,
       target: e.target,
-      effect_direction: (e.data as any)?.effect_direction,
-      direction: (e.data as any)?.direction,
+      effect_direction: (e.data as ResultsCanvasEdgeData)?.effect_direction,
+      direction: (e.data as ResultsCanvasEdgeData)?.direction,
     }))
 
     // Step 4b: Build fragile edges lookup for factor-to-goal edges
     // RULE: When a factor has multiple fragile edges, keep the one with highest switchProbability (most risky)
     // - Prefer defined values over undefined (undefined means "no data", not "zero risk")
     // - When both defined, keep the higher value (more risky edge dominates)
-    const fragileEdgesRaw = safeArray((report as any)?.robustness?.fragile_edges)
+    const fragileEdgesRaw = safeArray(report?.robustness?.fragile_edges)
     const fragileEdgesMap = new Map<string, { switchProbability?: number; alternativeWinnerLabel?: string }>()
     fragileEdgesRaw.forEach((fe: any) => {
       const fromId = fe.from_id ?? fe.fromId ?? fe.source
@@ -1373,7 +1378,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
 
     // Step 4c: Build enrichments lookup (CEE-generated insights)
     // Matching rule: Use factor_id only (never match by label)
-    const factorEnrichmentsRaw = safeArray((report as any)?.factor_enrichments)
+    const factorEnrichmentsRaw = safeArray(report?.factor_enrichments)
     const enrichmentsByFactorId = new Map<string, FactorEnrichment>()
     factorEnrichmentsRaw.forEach((e: any) => {
       const factorId = e.factor_id
@@ -1430,7 +1435,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
 
         // Format label for display - prefer canvas node label, then raw label, then formatted key
         const matchedNode = matchedNodeId ? nodes.find(n => n.id === matchedNodeId) : null
-        const canvasLabel = (matchedNode?.data as any)?.label
+        const canvasLabel = (matchedNode?.data as ResultsCanvasNodeData | undefined)?.label
         const displayLabel = canvasLabel || f.raw.label ||
           f.key
             .replace(/^(fac_|out_|goal_|risk_|factor_)/, '')
@@ -1447,7 +1452,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
         const edgeToGoal = goalNodeId
           ? edges.find(e => e.source === factorNodeId && e.target === goalNodeId)
           : undefined
-        const edgeConfidence = (edgeToGoal?.data as any)?.beliefExists ?? undefined
+        const edgeConfidence = (edgeToGoal?.data as ResultsCanvasEdgeData | undefined)?.beliefExists ?? undefined
         // Fix 3: Clamp confidence to [0,1] range
         const rawConfidence = factorConfidence ?? edgeConfidence
         const confidence = typeof rawConfidence === 'number'
@@ -1519,9 +1524,9 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     // Fix 1: Only set islError when we have NO driver items to show
     // If we have data, prefer showing it even if drivers_status indicates error
     const islErrorMessage = driverItems.length === 0 && (driversStatus === 'error' || driversStatus === 'unavailable')
-      ? ((report as any)?.drivers_error ??
-         (report as any)?.sensitivity?.error ??
-         (report as any)?.isl_error ??
+      ? (report?.drivers_error ??
+         report?.sensitivity?.error ??
+         report?.isl_error ??
          (driversStatus === 'error' ? 'Factor sensitivity service unavailable' : undefined))
       : undefined
 
@@ -1583,22 +1588,22 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
   // ==========================================================================
   const confidence = useMemo<ConfidenceSectionData>(() => {
     // Get graph readiness from CEE review V1
-    const ceeReviewV1 = (runMeta as any)?.ceeReviewV1
+    const ceeReviewV1 = runMeta?.ceeReviewV1
     const graphReadiness = ceeReviewV1?.readiness ? {
       readiness_level: ceeReviewV1.readiness.level,
       readiness_score: ceeReviewV1.readiness.score,
     } : undefined
 
     // Get confidence tier with full fallback chain
-    const tier = getConfidenceTier(graphReadiness, report as any)
+    const tier = getConfidenceTier(graphReadiness, report ?? undefined)
 
     // Derive quality score - only use actual computed values, never fabricate
     // When only tier is known, qualityScore remains null and UI shows tier label only
     let qualityScore: number | null = null
     if (typeof graphReadiness?.readiness_score === 'number') {
       qualityScore = graphReadiness.readiness_score
-    } else if (typeof (report as any)?.graph_quality?.score === 'number') {
-      qualityScore = (report as any).graph_quality.score
+    } else if (typeof report?.graph_quality?.score === 'number') {
+      qualityScore = report.graph_quality.score
     }
     // Note: Do NOT fabricate scores from tier (80/50/20) - display tier label only when score is unavailable
 
@@ -1623,7 +1628,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     }
 
     // Get warnings as uncertainties from critiques
-    const critiques = (report as any)?.run?.critique || []
+    const critiques = report?.run?.critique || []
     const warnings = critiques.filter((c: any) => c.severity === 'WARNING')
 
     // V14.3b: Internal-token guard — messages matching this are NOT safe for JSX render.
@@ -1651,16 +1656,16 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     // UI-SEM-013: Fragile edge filter threshold (0.3). Estimated — PLoT does not provide a visibility gate.
     // Filter to only show high-risk fragile edges (switch_probability > 0.3)
     // P0 Fix: Use safeArray to handle truncated wrapper format
-    const fragileEdgesRaw = safeArray((report as any)?.robustness?.fragile_edges)
-    const firstFragileEdge = fragileEdgesRaw[0] as any
+    const fragileEdgesRaw = safeArray(report?.robustness?.fragile_edges)
+    const firstFragileEdge = fragileEdgesRaw[0] as Record<string, unknown> | undefined
     if (import.meta.env.DEV && typeof window !== 'undefined' && (window as any).__OLUMI_DEBUG) {
       console.warn('[REPORT_SOURCE_DEBUG]', {
         hasReport: !!report,
         reportKeys: report ? Object.keys(report).slice(0, 10) : [],
-        hasRobustness: !!(report as any)?.robustness,
-        hasFragileEdges: !!(report as any)?.robustness?.fragile_edges,
+        hasRobustness: !!report?.robustness,
+        hasFragileEdges: !!report?.robustness?.fragile_edges,
         fragileEdgesLength: fragileEdgesRaw.length,
-        hasDownstreamCalls: !!(report as any)?.downstream_calls,
+        hasDownstreamCalls: !!report?.downstream_calls,
         firstEdgeKeys: firstFragileEdge ? Object.keys(firstFragileEdge) : [],
         firstEdgeHasFromLabel: !!firstFragileEdge?.from_label,
       })
@@ -1731,7 +1736,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     // P2 Fix: Build option label lookup from report.option_comparison
     // This provides an additional fallback when PLoT doesn't enrich alternative_winner_label
     // and the canvas node lookup fails
-    const optionComparison = safeArray((report as any)?.option_comparison)
+    const optionComparison = safeArray(report?.option_comparison)
     const optionLabelMap = new Map<string, string>()
     optionComparison.forEach((opt: any) => {
       const optId = opt?.option_id
@@ -1977,7 +1982,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
 
     // Get evidence coverage from multiple sources
     const rawEvidenceQuality = ceeReviewV1?.evidence_quality
-      ?? (report as any)?.evidence_quality
+      ?? report?.evidence_quality
       ?? null
 
     const evidenceCoverage = rawEvidenceQuality ? {
@@ -1986,19 +1991,19 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     } : undefined
 
     // Normalise improvements from multiple sources
-    const biasFindings = (report as any)?.bias_findings || ceeReviewV1?.bias_findings || []
-    const qualityFactors = (report as any)?.quality_factors || ceeReviewV1?.quality_factors || []
-    const improvementGuidance = (report as any)?.improvement_guidance || ceeReviewV1?.improvement_guidance || []
+    const biasFindings = report?.bias_findings || ceeReviewV1?.bias_findings || []
+    const qualityFactors = report?.quality_factors || ceeReviewV1?.quality_factors || []
+    const improvementGuidance = report?.improvement_guidance || ceeReviewV1?.improvement_guidance || []
 
     const improvements = normaliseImprovements(biasFindings, qualityFactors, improvementGuidance)
 
     // Wire status signals from report (not runMeta) for degraded banner
     // P2 Fix: These fields are set by responseMapper from V2 response
-    const analysisStatus = (report as any)?.analysis_state === 'partial' ? 'partial' : 'computed'
-    const driversStatus = (report as any)?.drivers_status ?? 'computed'
+    const analysisStatus = report?.analysis_state === 'partial' ? 'partial' : 'computed'
+    const driversStatus = report?.drivers_status ?? 'computed'
     // Check for robustness data: fragile_edges or robust_edges indicates computed
     // P0 Fix: Use safeArray to handle truncated wrapper format { __truncated: true, items: [...] }
-    const robustness = (report as any)?.robustness
+    const robustness = report?.robustness
     const hasRobustnessData = robustness && (
       safeArray(robustness.fragile_edges).length > 0 ||
       safeArray(robustness.robust_edges).length > 0 ||
@@ -2017,7 +2022,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     } : undefined
 
     // Bug 2 fix: Extract robustness level for "Good foundation" logic
-    const robustnessLevel = (report as any)?.robustness?.level as RobustnessLevel | undefined
+    const robustnessLevel = report?.robustness?.level as RobustnessLevel | undefined
 
     // P0.1: Humanise non-SENSITIVE_ASSUMPTION critiques for attention banner
     const plotCritiques = uncertainties.filter(u => u.code !== 'SENSITIVE_ASSUMPTION')
@@ -2030,7 +2035,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       topUncertainties: uncertainties.slice(0, 3),
       // Task 1: Track total high-risk edges for disclosure
       totalHighRiskEdges,
-      rankingStability: (report as any)?.robustness?.recommendation_stability ?? (report as any)?.robustness?.ranking_stability,
+      rankingStability: report?.robustness?.recommendation_stability ?? report?.robustness?.ranking_stability,
       robustnessLevel,
       evidenceCoverage,
       improvements,
@@ -2088,7 +2093,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
 
         // Build a set of fragile edge factor IDs for deduplication
         const fragileFactorIds = new Set<string>()
-        safeArray((report as any)?.robustness?.fragile_edges).forEach((fe: any) => {
+        safeArray(report?.robustness?.fragile_edges).forEach((fe: any) => {
           const factorId = fe.from_id ?? fe.fromId ?? fe.source
           if (factorId) fragileFactorIds.add(factorId)
         })

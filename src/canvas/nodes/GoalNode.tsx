@@ -5,6 +5,7 @@ import { NODE_REGISTRY } from '../domain/nodes'
 import { useNodeDisplayMetadata } from '../hooks/useNodeDisplayMetadata'
 import { useCanvasStore } from '../store'
 import { typography } from '../../styles/typography'
+import { formatTargetValue } from '../../components/results/utils/formatTargetValue'
 
 export const GoalNode = memo((props: NodeProps) => {
   const metadata = NODE_REGISTRY.goal
@@ -93,12 +94,19 @@ export const GoalNode = memo((props: NodeProps) => {
         </div>
       )}
 
-      {/* T10: Threshold context */}
+      {/* T10: Threshold context — formatted via shared formatTargetValue */}
       {(thresholdRaw !== undefined || thresholdCap !== undefined) && (
         <div className={`${typography.nodeLabel} text-text-light mt-1`}>
-          Target: {thresholdRaw !== undefined ? String(thresholdRaw) : '—'}
-          {thresholdUnit ? ` ${thresholdUnit}` : ''}
-          {thresholdCap !== undefined ? ` of ${String(thresholdCap)} modelled range` : ''}
+          Target: {thresholdRaw !== undefined ? (() => {
+            const raw = typeof thresholdRaw === 'number' ? thresholdRaw : Number(thresholdRaw)
+            if (Number.isNaN(raw)) return String(thresholdRaw)
+            const u = typeof thresholdUnit === 'string' ? thresholdUnit.toLowerCase() : ''
+            if (u === '%' || u === 'percent' || u === 'percentage') return formatTargetValue(raw, 'percent')
+            if (u === 'count' || u === '') return formatTargetValue(raw)
+            // Currency-like unit (e.g. "USD", "£", "GBP") — use unit as symbol
+            return formatTargetValue(raw, 'currency', thresholdUnit!)
+          })() : '—'}
+          {thresholdCap !== undefined ? ` of ${typeof thresholdCap === 'number' ? thresholdCap.toLocaleString() : String(thresholdCap)} modelled range` : ''}
         </div>
       )}
 

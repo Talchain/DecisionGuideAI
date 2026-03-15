@@ -21,6 +21,7 @@ import { InspectorGuidanceSection } from './inspector/InspectorGuidanceSection'
 import { typography } from '../../styles/typography'
 import { detectBaseline } from '../utils/baselineDetection'
 import { useNodeDisplayMetadata } from '../hooks/useNodeDisplayMetadata'
+import { formatTargetValue } from '../../components/results/utils/formatTargetValue'
 
 interface ObservedState {
   value: number
@@ -316,7 +317,14 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
       )}
       {isGoalNode && goalThreshold != null && (
         <p className={`${typography.panelBody} text-text-body mt-2`}>
-          Target: \u2265 {goalThreshold}
+          Target: \u2265 {(() => {
+            const unit = (node?.data as Record<string, unknown>)?.goal_threshold_unit
+              ?? ((node?.data as Record<string, unknown>)?.observedState as Record<string, unknown> | undefined)?.unit
+            const unitStr = typeof unit === 'string' ? unit.toLowerCase() : ''
+            if (unitStr === '%' || unitStr === 'percent' || unitStr === 'percentage') return formatTargetValue(goalThreshold, 'percent')
+            if (unitStr && unitStr !== 'count') return formatTargetValue(goalThreshold, 'currency', typeof unit === 'string' ? unit : undefined)
+            return formatTargetValue(goalThreshold)
+          })()}
         </p>
       )}
 

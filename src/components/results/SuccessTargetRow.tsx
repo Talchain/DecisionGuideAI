@@ -15,6 +15,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
 import { Check, CheckCircle, AlertTriangle, Info } from 'lucide-react'
 import { typography } from '../../styles/typography'
+import { formatTargetValue } from './utils/formatTargetValue'
 import type { ConstraintAnalysis, ConstraintItem } from '../../types/constraints'
 import {
   constraintConfidenceColour,
@@ -32,6 +33,10 @@ export interface SuccessTargetRowProps {
   constraintAnalysis?: ConstraintAnalysis
   /** Whether "Hits target" bars are visible (all options have probability_of_goal) */
   showHitsTarget?: boolean
+  /** Outcome unit type for display formatting */
+  outcomeUnit?: 'currency' | 'percent' | 'count'
+  /** Currency symbol when outcomeUnit is 'currency' */
+  outcomeUnitSymbol?: string
 }
 
 /** Render ASCII operator as unicode for display */
@@ -94,6 +99,8 @@ export function SuccessTargetRow({
   onApplyThreshold,
   constraintAnalysis,
   showHitsTarget = true,
+  outcomeUnit,
+  outcomeUnitSymbol,
 }: SuccessTargetRowProps) {
   const [isEditing, setIsEditing] = useState(false)
   const [editValue, setEditValue] = useState('')
@@ -190,7 +197,7 @@ export function SuccessTargetRow({
               className={`${typography.panelBody} text-info hover:underline cursor-pointer tabular-nums disabled:opacity-50 disabled:cursor-not-allowed`}
               aria-label={`Edit success target: ${goalThreshold}`}
             >
-              {goalThreshold}
+              {formatTargetValue(goalThreshold!, outcomeUnit, outcomeUnitSymbol)}
             </button>
           </>
         )}

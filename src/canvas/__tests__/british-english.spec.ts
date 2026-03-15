@@ -41,7 +41,12 @@ describe('S4-COPY: British English Verification', () => {
     'favorites': 'favourites',
     'center': 'centre',
     'centers': 'centres',
-    'centered': 'centred'
+    'centered': 'centred',
+    'customize': 'customise',
+    'customizes': 'customises',
+    'customized': 'customised',
+    'customizing': 'customising',
+    'customizable': 'customisable'
   }
 
   // Exceptions: Technical terms, APIs, library names that must use American spelling
@@ -65,6 +70,12 @@ describe('S4-COPY: British English Verification', () => {
     'justify-center', // Tailwind utility class
     'transition-colors', // Tailwind utility class
     'Center above cursor', // Technical layout comment in EdgeEditPopover
+    'colorClass', // Variable name for colour CSS class
+    'thresholdColour', // Import/function name (already British in code)
+    'getThresholdColour', // Import/function name (already British in code)
+    'constraintConfidenceColour', // Import/function name (already British in code)
+    'text-center', // Tailwind utility class
+    'Color', // React/CSS type name (e.g., CSSProperties.color)
   ]
 
   /**
@@ -138,10 +149,28 @@ describe('S4-COPY: British English Verification', () => {
     return fileList
   }
 
+  // Directories containing user-facing copy
+  const userFacingDirs = [
+    join(process.cwd(), 'src/canvas'),
+    join(process.cwd(), 'src/components/results'),
+    join(process.cwd(), 'src/components/assistants'),
+  ]
+
+  function getAllUserFacingFiles(): string[] {
+    const allFiles: string[] = []
+    for (const dir of userFacingDirs) {
+      try {
+        getCanvasFiles(dir, allFiles)
+      } catch {
+        // Directory may not exist
+      }
+    }
+    return allFiles
+  }
+
   describe('User-Facing Copy', () => {
     it('should use British spelling for "visualisation"', () => {
-      const canvasDir = join(process.cwd(), 'src/canvas')
-      const files = getCanvasFiles(canvasDir)
+      const files = getAllUserFacingFiles()
 
       const violations: Array<{ file: string; line: number; text: string }> = []
 
@@ -170,8 +199,7 @@ describe('S4-COPY: British English Verification', () => {
     })
 
     it('should use British spelling for "analyse"', () => {
-      const canvasDir = join(process.cwd(), 'src/canvas')
-      const files = getCanvasFiles(canvasDir)
+      const files = getAllUserFacingFiles()
 
       const violations: Array<{ file: string; line: number; text: string }> = []
 
@@ -200,8 +228,7 @@ describe('S4-COPY: British English Verification', () => {
     })
 
     it('should use British spelling for "optimise"', () => {
-      const canvasDir = join(process.cwd(), 'src/canvas')
-      const files = getCanvasFiles(canvasDir)
+      const files = getAllUserFacingFiles()
 
       const violations: Array<{ file: string; line: number; text: string }> = []
 
@@ -230,8 +257,7 @@ describe('S4-COPY: British English Verification', () => {
     })
 
     it('should use British spelling for "behaviour"', () => {
-      const canvasDir = join(process.cwd(), 'src/canvas')
-      const files = getCanvasFiles(canvasDir)
+      const files = getAllUserFacingFiles()
 
       const violations: Array<{ file: string; line: number; text: string }> = []
 

@@ -106,6 +106,7 @@ function StreamOutputDisplay({
           className="prose prose-sm max-w-none p-2 mt-2 border rounded bg-white relative"
           aria-hidden="true"
         >
+          {/* eslint-disable-next-line no-restricted-syntax -- sanitised via DOMPurify by caller (see JSDoc) */}
           <div dangerouslySetInnerHTML={{ __html: mdHtml }} />
           {copyEnabled && copyOverlays.map((o) => (
             <button

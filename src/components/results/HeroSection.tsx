@@ -24,6 +24,7 @@ import { GraphLink } from './GraphLink'
 import { linkifyCoachingText, type LinkEntity } from './utils/linkifyCoachingText'
 import { BaselineToggleCard, type BaselineOption } from './BaselineToggleCard'
 import { BaselineTargetRow } from './BaselineTargetRow'
+import { formatTargetValue } from './utils/formatTargetValue'
 import { focusNodeById } from '../../canvas/utils/focusHelpers'
 import { highlightNode, clearHighlight } from '../../canvas/utils/highlightHelpers'
 import { GAP_THRESHOLD } from './buildResultsVM'
@@ -992,7 +993,7 @@ export function HeroSection({
           {/* Goal probability line */}
           {goalThreshold != null && winnerGoalProbability != null && (
             <p className={`${typography.panelMeta} text-text-body`}>
-              {winnerLabel} has a {formatPct(winnerGoalProbability, { fromDecimal: true })} chance of reaching your target of {goalThreshold}
+              {winnerLabel} has a {formatPct(winnerGoalProbability, { fromDecimal: true })} chance of reaching your target of {formatTargetValue(goalThreshold!, outcomeUnit, outcomeUnitSymbol)}
             </p>
           )}
 
@@ -1240,7 +1241,7 @@ export function HeroSection({
         {/* V9.2: Goal probability line — bridges "which wins most" and "does it hit my target" */}
         {goalThreshold != null && winnerGoalProbability != null && (
           <p className={`${typography.panelMeta} text-text-body mb-3`}>
-            {winnerLabel} has a {formatPct(winnerGoalProbability, { fromDecimal: true })} chance of reaching your target of {goalThreshold}
+            {winnerLabel} has a {formatPct(winnerGoalProbability, { fromDecimal: true })} chance of reaching your target of {formatTargetValue(goalThreshold!, outcomeUnit, outcomeUnitSymbol)}
           </p>
         )}
 

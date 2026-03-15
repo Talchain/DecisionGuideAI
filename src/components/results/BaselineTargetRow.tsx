@@ -9,6 +9,7 @@ import { Info } from 'lucide-react'
 import { typography } from '../../styles/typography'
 import { BaselineToggleCard, type BaselineOption } from './BaselineToggleCard'
 import Tooltip from '../Tooltip'
+import { formatTargetValue } from './utils/formatTargetValue'
 
 export interface BaselineTargetRowProps {
   /** Available options for baseline selection */
@@ -29,16 +30,6 @@ export interface BaselineTargetRowProps {
   outcomeUnitSymbol?: string
   /** Callback to navigate to target input (SuccessTargetRow in Options Compare) */
   onEditTarget?: () => void
-}
-
-function formatTargetValue(
-  value: number,
-  unit?: 'currency' | 'percent' | 'count',
-  symbol?: string,
-): string {
-  if (unit === 'currency' && symbol) return `${symbol}${value.toLocaleString()}`
-  if (unit === 'percent') return `${value}%`
-  return String(value)
 }
 
 export function BaselineTargetRow({

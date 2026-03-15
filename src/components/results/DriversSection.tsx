@@ -248,7 +248,7 @@ function ExpandedDetails({
     // No risk text for negligible factors
     decisionChangeRisk = null
   } else {
-    // Fallback: use existing behavior when category is undefined (old PLoT)
+    // Fallback: use existing behaviour when category is undefined (old PLoT)
     // Uses formatFlipRiskMessage which handles edge cases: p<=0, p>1, NaN, null
     decisionChangeRisk = formatFlipRiskMessage(
       driver.fragileEdgeInfo?.switchProbability,
