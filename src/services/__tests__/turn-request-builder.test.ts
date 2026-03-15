@@ -35,7 +35,6 @@ describe('turn request builders', () => {
       graph_state: graphState,
       selected_elements: { node_ids: ['n1'] },
     })
-    expect(req).not.toHaveProperty('analysis_state')
     expect(req).not.toHaveProperty('analysis_inputs')
     expect(req).not.toHaveProperty('system_event')
   })
@@ -62,7 +61,6 @@ describe('turn request builders', () => {
     expect(req).toHaveProperty('graph_state')
     expect(req).toHaveProperty('message', 'generate')
     expect(req).toHaveProperty('generate_model', true)
-    expect(req).not.toHaveProperty('analysis_state')
     expect(req).not.toHaveProperty('analysis_inputs')
     expect(req).not.toHaveProperty('system_event')
   })
@@ -119,7 +117,6 @@ describe('turn request builders', () => {
     expect(req).toHaveProperty('system_event')
     expect(req).toHaveProperty('message', '[system]')
     expect(req).toHaveProperty('graph_state')
-    expect(req).not.toHaveProperty('analysis_state')
   })
 
   it('patch_followup request includes graph_state without message/system_event', () => {
@@ -132,7 +129,84 @@ describe('turn request builders', () => {
     expect(req).toHaveProperty('graph_state')
     expect(req).not.toHaveProperty('message')
     expect(req).not.toHaveProperty('system_event')
+  })
+
+  it('conversation request includes analysis_state when valid', () => {
+    const req = buildConversationTurnRequest({
+      scenario_id: 's5b',
+      conversation_history: [...history],
+      message: 'what does the analysis show?',
+      graph_state: graphState,
+      analysis_state: validAnalysisState,
+    })
+
+    expect(req).toHaveProperty('analysis_state')
+    expect(req.analysis_state).toMatchObject({
+      analysis_status: 'complete',
+      meta: { response_hash: 'hash-1' },
+    })
+  })
+
+  it('conversation request omits analysis_state when invalid', () => {
+    const req = buildConversationTurnRequest({
+      scenario_id: 's5c',
+      conversation_history: [...history],
+      message: 'hello',
+      graph_state: graphState,
+      analysis_state: { analysis_status: 'complete', meta: {} } as unknown,
+    })
+
     expect(req).not.toHaveProperty('analysis_state')
+  })
+
+  it('conversation request omits analysis_state when undefined', () => {
+    const req = buildConversationTurnRequest({
+      scenario_id: 's5d',
+      conversation_history: [...history],
+      message: 'hello',
+      graph_state: graphState,
+    })
+
+    expect(req).not.toHaveProperty('analysis_state')
+  })
+
+  it('explicit_generate request includes analysis_state when valid', () => {
+    const req = buildExplicitGenerateTurnRequest({
+      scenario_id: 's5e',
+      conversation_history: [...history],
+      message: 'generate',
+      graph_state: graphState,
+      analysis_state: validAnalysisState,
+    })
+
+    expect(req).toHaveProperty('analysis_state')
+    expect(req).toHaveProperty('generate_model', true)
+  })
+
+  it('system_event request includes analysis_state when valid', () => {
+    const req = buildSystemEventTurnRequest({
+      scenario_id: 's5f',
+      conversation_history: [...history],
+      message: '[system]',
+      graph_state: graphState,
+      system_event: { type: 'direct_graph_edit', payload: {} },
+      analysis_state: validAnalysisState,
+    })
+
+    expect(req).toHaveProperty('analysis_state')
+    expect(req).toHaveProperty('system_event')
+  })
+
+  it('patch_followup request includes analysis_state when valid', () => {
+    const req = buildPatchFollowupTurnRequest({
+      scenario_id: 's5g',
+      conversation_history: [...history],
+      graph_state: graphState,
+      analysis_state: validAnalysisState,
+    })
+
+    expect(req).toHaveProperty('analysis_state')
+    expect(req).toHaveProperty('graph_state')
   })
 
   it('explain request includes analysis_state when valid', () => {
@@ -208,8 +282,7 @@ describe('turn request builders', () => {
     expect(req.client_turn_id).toBe('fixed-id')
   })
 
-  it('analysis_state is structurally absent on conversation turns (builder never produces it)', () => {
-    // Regression guard for the root bug: analysis_state must never appear on conversation turns
+  it('analysis_state is absent on conversation turns when no analysis available', () => {
     const req = buildConversationTurnRequest({
       scenario_id: 's9',
       conversation_history: [...history],
@@ -274,21 +347,34 @@ describe('validateTurnRequestBoundary (dev-mode)', () => {
     )
   })
 
-  it('logs analysis_state_forbidden_on_conversation_turn when analysis_state is present on conversation', () => {
+  it('accepts valid analysis_state on conversation turns (no violation)', () => {
+    const req = buildConversationTurnRequest({
+      scenario_id: 's12b',
+      conversation_history: [...history],
+      message: 'hello',
+      graph_state: graphState,
+      analysis_state: validAnalysisState,
+    })
+
+    validateTurnRequestBoundary(req)
+    expect(consoleErrorSpy).not.toHaveBeenCalled()
+  })
+
+  it('logs structural violation when analysis_state is malformed on any turn type', () => {
     const req = {
       ...buildConversationTurnRequest({
-        scenario_id: 's12b',
+        scenario_id: 's12c',
         conversation_history: [...history],
         message: 'hello',
         graph_state: graphState,
       }),
-      analysis_state: validAnalysisState,
+      analysis_state: { analysis_status: 'complete', meta: {} },
     } as any
 
     validateTurnRequestBoundary(req)
     expect(consoleErrorSpy).toHaveBeenCalledWith(
       '[BOUNDARY]',
-      expect.objectContaining({ field: 'analysis_state', violation: 'analysis_state_forbidden_on_conversation_turn' }),
+      expect.objectContaining({ field: 'analysis_state', violation: 'analysis_state_requires_analysis_status_meta_response_hash_results' }),
     )
   })
 

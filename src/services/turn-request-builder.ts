@@ -70,12 +70,14 @@ export type ConversationTurnRequest = TurnBase & {
   message: string
   graph_state: GraphStatePayload
   selected_elements?: SelectedElementsPayload
+  analysis_state?: ExplainAnalysisStatePayload
 }
 
 export type ExplicitGenerateTurnRequest = TurnBase & {
   message: string
   graph_state: GraphStatePayload
   generate_model: true
+  analysis_state?: ExplainAnalysisStatePayload
 }
 
 export type RunAnalysisTurnRequest = TurnBase & {
@@ -87,10 +89,12 @@ export type SystemEventTurnRequest = TurnBase & {
   message: string
   graph_state: GraphStatePayload
   system_event: WireSystemEvent
+  analysis_state?: ExplainAnalysisStatePayload
 }
 
 export type PatchFollowupTurnRequest = TurnBase & {
   graph_state: GraphStatePayload
+  analysis_state?: ExplainAnalysisStatePayload
 }
 
 export type ExplainTurnRequest = TurnBase & {
@@ -114,11 +118,11 @@ export type TurnRequestPayload =
   | ClarificationResponseTurnRequest
 
 const TURN_ALLOW_LIST: Record<TurnType, readonly string[]> = {
-  conversation: ['scenario_id', 'client_turn_id', 'conversation_history', 'message', 'graph_state', 'selected_elements', '_turn_type'],
-  explicit_generate: ['scenario_id', 'client_turn_id', 'conversation_history', 'message', 'graph_state', 'generate_model', '_turn_type'],
+  conversation: ['scenario_id', 'client_turn_id', 'conversation_history', 'message', 'graph_state', 'selected_elements', 'analysis_state', '_turn_type'],
+  explicit_generate: ['scenario_id', 'client_turn_id', 'conversation_history', 'message', 'graph_state', 'generate_model', 'analysis_state', '_turn_type'],
   run_analysis: ['scenario_id', 'client_turn_id', 'conversation_history', 'graph_state', 'analysis_inputs', '_turn_type'],
-  system_event: ['scenario_id', 'client_turn_id', 'conversation_history', 'message', 'graph_state', 'system_event', '_turn_type'],
-  patch_followup: ['scenario_id', 'client_turn_id', 'conversation_history', 'graph_state', '_turn_type'],
+  system_event: ['scenario_id', 'client_turn_id', 'conversation_history', 'message', 'graph_state', 'system_event', 'analysis_state', '_turn_type'],
+  patch_followup: ['scenario_id', 'client_turn_id', 'conversation_history', 'graph_state', 'analysis_state', '_turn_type'],
   explain: ['scenario_id', 'client_turn_id', 'conversation_history', 'message', 'graph_state', 'selected_elements', 'analysis_state', '_turn_type'],
   clarification_response: ['scenario_id', 'client_turn_id', 'conversation_history', 'message', '_turn_type'],
 }
@@ -170,8 +174,10 @@ export function buildConversationTurnRequest(input: {
   message: string
   graph_state: GraphStatePayload
   selected_elements?: SelectedElementsPayload
+  analysis_state?: unknown
   client_turn_id?: string
 }): ConversationTurnRequest {
+  const validAnalysisState = isValidExplainAnalysisState(input.analysis_state) ? input.analysis_state : undefined
   return withDevTurnType({
     scenario_id: input.scenario_id,
     client_turn_id: createClientTurnId(input.client_turn_id),
@@ -179,6 +185,7 @@ export function buildConversationTurnRequest(input: {
     message: input.message,
     graph_state: input.graph_state,
     ...(input.selected_elements ? { selected_elements: input.selected_elements } : {}),
+    ...(validAnalysisState ? { analysis_state: validAnalysisState } : {}),
   }, 'conversation')
 }
 
@@ -187,8 +194,10 @@ export function buildExplicitGenerateTurnRequest(input: {
   conversation_history: ConversationTurnPair[]
   message: string
   graph_state: GraphStatePayload
+  analysis_state?: unknown
   client_turn_id?: string
 }): ExplicitGenerateTurnRequest {
+  const validAnalysisState = isValidExplainAnalysisState(input.analysis_state) ? input.analysis_state : undefined
   return withDevTurnType({
     scenario_id: input.scenario_id,
     client_turn_id: createClientTurnId(input.client_turn_id),
@@ -196,6 +205,7 @@ export function buildExplicitGenerateTurnRequest(input: {
     message: input.message,
     graph_state: input.graph_state,
     generate_model: true,
+    ...(validAnalysisState ? { analysis_state: validAnalysisState } : {}),
   }, 'explicit_generate')
 }
 
@@ -221,8 +231,10 @@ export function buildSystemEventTurnRequest(input: {
   message: string
   graph_state: GraphStatePayload
   system_event: WireSystemEvent
+  analysis_state?: unknown
   client_turn_id?: string
 }): SystemEventTurnRequest {
+  const validAnalysisState = isValidExplainAnalysisState(input.analysis_state) ? input.analysis_state : undefined
   return withDevTurnType({
     scenario_id: input.scenario_id,
     client_turn_id: createClientTurnId(input.client_turn_id),
@@ -230,6 +242,7 @@ export function buildSystemEventTurnRequest(input: {
     message: input.message,
     graph_state: input.graph_state,
     system_event: input.system_event,
+    ...(validAnalysisState ? { analysis_state: validAnalysisState } : {}),
   }, 'system_event')
 }
 
@@ -237,13 +250,16 @@ export function buildPatchFollowupTurnRequest(input: {
   scenario_id: string
   conversation_history: ConversationTurnPair[]
   graph_state: GraphStatePayload
+  analysis_state?: unknown
   client_turn_id?: string
 }): PatchFollowupTurnRequest {
+  const validAnalysisState = isValidExplainAnalysisState(input.analysis_state) ? input.analysis_state : undefined
   return withDevTurnType({
     scenario_id: input.scenario_id,
     client_turn_id: createClientTurnId(input.client_turn_id),
     conversation_history: input.conversation_history,
     graph_state: input.graph_state,
+    ...(validAnalysisState ? { analysis_state: validAnalysisState } : {}),
   }, 'patch_followup')
 }
 
@@ -345,21 +361,7 @@ export function validateTurnRequestBoundary(request: TurnRequestPayload): void {
   }
 
   if (
-    request._turn_type === 'conversation'
-    && 'analysis_state' in request
-    && request.analysis_state !== undefined
-  ) {
-    console.error('[BOUNDARY]', {
-      turn_type: turnType,
-      field: 'analysis_state',
-      violation: 'analysis_state_forbidden_on_conversation_turn',
-      payload_keys: payloadKeys,
-    })
-  }
-
-  if (
-    request._turn_type === 'explain'
-    && 'analysis_state' in request
+    'analysis_state' in request
     && request.analysis_state !== undefined
     && !isValidExplainAnalysisState(request.analysis_state)
   ) {

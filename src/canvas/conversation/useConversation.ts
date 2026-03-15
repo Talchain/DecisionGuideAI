@@ -69,7 +69,6 @@ import {
   buildPatchFollowupTurnRequest,
   buildRunAnalysisTurnRequest,
   buildSystemEventTurnRequest,
-  isValidExplainAnalysisState,
   type ExplainAnalysisStatePayload,
   type GraphStatePayload,
   type SelectedElementsPayload,
@@ -151,7 +150,7 @@ function createInteractionSnapshot(messagesCount: number): InteractionStateSnaps
     hasAnalysisReady: Boolean(store.ceeAnalysisReady),
     firstDraftControlsVisible: ui?.firstDraftControlsVisible ?? false,
     staleFirstDraftGuidanceVisible: ui?.staleFirstDraftGuidanceVisible ?? false,
-    aiPanelOpen: ui?.aiPanelOpen ?? Boolean((store as any).showDraftChat),
+    aiPanelOpen: ui?.aiPanelOpen ?? Boolean(store.showDraftChat),
     composerHasText: ui?.composerHasText ?? false,
     composerTextLength: ui?.composerTextLength ?? 0,
     guidanceItemsVisible,
@@ -895,7 +894,7 @@ export function useConversation(): UseConversationReturn {
       rafIdRef.current = requestAnimationFrame(flushStreamFrame)
     } else {
       // SSR / test fallback
-      rafIdRef.current = -1 as unknown as number
+      rafIdRef.current = -1
       Promise.resolve().then(flushStreamFrame)
     }
   }, [flushStreamFrame])
@@ -1008,10 +1007,14 @@ export function useConversation(): UseConversationReturn {
         edges: ceeEdges,
       }
 
-      const analysisCandidate = useResultsStore.getState().results.analysis as unknown
-      const validExplainAnalysisState = analysisCandidate && isValidExplainAnalysisState(analysisCandidate)
-        ? (analysisCandidate as ExplainAnalysisStatePayload)
-        : undefined
+      // Assemble analysis_state from resultsStore fields.
+      // Omit when graph has been edited since the last analysis — stale results are worse than none.
+      const { status: analysisStatus, hash: analysisHash, analysisSummary } = useResultsStore.getState().results
+      const graphIsStale = store.graphEditedSinceLastRun
+      const analysisState: ExplainAnalysisStatePayload | undefined =
+        !graphIsStale && analysisStatus === 'complete' && analysisHash && analysisSummary
+          ? { analysis_status: analysisStatus, meta: { response_hash: analysisHash }, results: analysisSummary }
+          : undefined
 
       if (opts.turnType === 'system_event') {
         return buildSystemEventTurnRequest({
@@ -1019,6 +1022,7 @@ export function useConversation(): UseConversationReturn {
           conversation_history: conversationHistory,
           message: opts.text,
           graph_state: graphState,
+          analysis_state: analysisState,
           client_turn_id: opts.clientTurnId,
           system_event: opts.systemEventWire ?? { type: 'direct_graph_edit', payload: {} },
         })
@@ -1030,6 +1034,7 @@ export function useConversation(): UseConversationReturn {
           conversation_history: conversationHistory,
           message: opts.text,
           graph_state: graphState,
+          analysis_state: analysisState,
           client_turn_id: opts.clientTurnId,
         })
       }
@@ -1045,6 +1050,7 @@ export function useConversation(): UseConversationReturn {
             message: opts.text,
             graph_state: graphState,
             selected_elements: selectedElements,
+            analysis_state: analysisState,
             client_turn_id: opts.clientTurnId,
           })
         }
@@ -1062,6 +1068,7 @@ export function useConversation(): UseConversationReturn {
           scenario_id: scenarioId,
           conversation_history: conversationHistory,
           graph_state: graphState,
+          analysis_state: analysisState,
           client_turn_id: opts.clientTurnId,
         })
       }
@@ -1073,7 +1080,7 @@ export function useConversation(): UseConversationReturn {
           message: opts.text,
           graph_state: graphState,
           selected_elements: selectedElements,
-          analysis_state: validExplainAnalysisState,
+          analysis_state: analysisState,
           client_turn_id: opts.clientTurnId,
         })
       }
@@ -1093,6 +1100,7 @@ export function useConversation(): UseConversationReturn {
         message: opts.text,
         graph_state: graphState,
         selected_elements: selectedElements,
+        analysis_state: analysisState,
         client_turn_id: opts.clientTurnId,
       })
     },

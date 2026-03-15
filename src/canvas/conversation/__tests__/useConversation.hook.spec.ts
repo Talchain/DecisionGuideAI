@@ -407,20 +407,56 @@ describe('buildRequest payload — RF → CEE graph_state transform', () => {
     expect(request.graph_state).toBeDefined()
     expect(Array.isArray(request.graph_state.nodes)).toBe(true)
     expect(Array.isArray(request.graph_state.edges)).toBe(true)
-    // analysis_state must NOT be sent on conversation turns (brief contract: CEE-owned, forbidden on conversation)
+    // analysis_state absent when no analysis has been run
     expect(request.analysis_state).toBeUndefined()
   })
 
-  it('does not include analysis_state on conversation turns even after analysis completes', async () => {
-    // Regression guard: analysis_state is forbidden on conversation turns regardless of results state
-    useCanvasStore.setState({
-      results: { status: 'complete', hash: 'hash-fresh' } as any,
-      currentScenarioLastResultHash: 'hash-stale',
-    })
+  it('includes analysis_state on conversation turns when analysis is complete and graph is fresh', async () => {
+    // resultsStore has complete analysis
+    useResultsStore.setState({
+      results: {
+        status: 'complete',
+        progress: 100,
+        hash: 'hash-abc',
+        analysisSummary: { contract_version: '1.0.0', recommendation: { option_id: 'o1', option_label: 'Opt A', win_probability: 0.7 } },
+      },
+    } as any)
+    // graph has NOT been edited since last analysis
+    useCanvasStore.setState({ graphEditedSinceLastRun: false })
 
     mockCallTurn.mockResolvedValue({
       assistant_text: 'Follow-up acknowledged',
       client_turn_id: 'resp-followup',
+    })
+
+    const { result } = renderHook(() => useConversation())
+    await act(async () => {
+      await result.current.sendMessage('What does the analysis show?')
+    })
+
+    const request = mockCallTurn.mock.calls[0][0]
+    expect(request.analysis_state).toBeDefined()
+    expect(request.analysis_state.analysis_status).toBe('complete')
+    expect(request.analysis_state.meta.response_hash).toBe('hash-abc')
+    expect(request.analysis_state.results).toBeDefined()
+  })
+
+  it('omits analysis_state when graph has been edited since last analysis (stale guard)', async () => {
+    // resultsStore has complete analysis
+    useResultsStore.setState({
+      results: {
+        status: 'complete',
+        progress: 100,
+        hash: 'hash-abc',
+        analysisSummary: { contract_version: '1.0.0', recommendation: { option_id: 'o1', option_label: 'Opt A', win_probability: 0.7 } },
+      },
+    } as any)
+    // graph HAS been edited since last analysis — stale
+    useCanvasStore.setState({ graphEditedSinceLastRun: true })
+
+    mockCallTurn.mockResolvedValue({
+      assistant_text: 'Graph changed',
+      client_turn_id: 'resp-stale',
     })
 
     const { result } = renderHook(() => useConversation())

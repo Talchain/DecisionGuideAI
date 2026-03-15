@@ -38,13 +38,15 @@ function buildTestRequest(overrides: Partial<OrchestratorTurnRequest> = {}): Orc
       nodes: [],
       edges: [],
     },
-    analysis_state: {
-      has_results: false,
-      last_run_hash: null,
-    },
     client_turn_id: 'test-uuid-1234',
     ...overrides,
   }
+}
+
+const validAnalysisState = {
+  analysis_status: 'complete',
+  meta: { response_hash: 'hash-abc' },
+  results: { summary: 'ok' },
 }
 
 describe('OrchestratorTurnRequest payload shape', () => {
@@ -78,10 +80,17 @@ describe('OrchestratorTurnRequest payload shape', () => {
       expect(Array.isArray(req.graph_state.edges)).toBe(true)
     })
 
-    it('includes analysis_state with has_results and last_run_hash', () => {
+    it('analysis_state is optional and omitted when no analysis available', () => {
       const req = buildTestRequest()
-      expect(typeof req.analysis_state.has_results).toBe('boolean')
-      expect(req.analysis_state.last_run_hash === null || typeof req.analysis_state.last_run_hash === 'string').toBe(true)
+      expect(req.analysis_state).toBeUndefined()
+    })
+
+    it('analysis_state includes analysis_status, meta.response_hash, and results when present', () => {
+      const req = buildTestRequest({ analysis_state: validAnalysisState })
+      expect(req.analysis_state).toBeDefined()
+      expect(typeof req.analysis_state!.analysis_status).toBe('string')
+      expect(typeof req.analysis_state!.meta.response_hash).toBe('string')
+      expect(req.analysis_state!.results).toBeDefined()
     })
   })
 
@@ -180,21 +189,36 @@ describe('OrchestratorTurnRequest payload shape', () => {
       expect(Array.isArray(parsed.graph_state.edges)).toBe(true)
     })
 
-    it('preserves null values (last_run_hash)', () => {
-      const req = buildTestRequest()
+    it('preserves analysis_state structure through serialization', () => {
+      const req = buildTestRequest({ analysis_state: validAnalysisState })
       const parsed = JSON.parse(JSON.stringify(req))
-      expect(parsed.analysis_state.last_run_hash).toBeNull()
+      expect(parsed.analysis_state.analysis_status).toBe('complete')
+      expect(parsed.analysis_state.meta.response_hash).toBe('hash-abc')
+      expect(parsed.analysis_state.results).toEqual({ summary: 'ok' })
     })
   })
 
   describe('top-level key inventory', () => {
-    it('fresh conversation request has exactly the expected keys', () => {
+    it('fresh conversation request has exactly the expected keys (no analysis)', () => {
       const req = buildTestRequest()
       const serialised = JSON.parse(JSON.stringify(req))
       const keys = Object.keys(serialised).sort()
 
-      // These are the keys that buildRequest in useConversation sends
-      // on a fresh conversation (no selection, no analysis inputs).
+      // Fresh conversation with no analysis results — analysis_state is absent
+      expect(keys).toEqual([
+        'client_turn_id',
+        'conversation_history',
+        'graph_state',
+        'message',
+        'scenario_id',
+      ])
+    })
+
+    it('conversation request with analysis includes analysis_state key', () => {
+      const req = buildTestRequest({ analysis_state: validAnalysisState })
+      const serialised = JSON.parse(JSON.stringify(req))
+      const keys = Object.keys(serialised).sort()
+
       expect(keys).toEqual([
         'analysis_state',
         'client_turn_id',
