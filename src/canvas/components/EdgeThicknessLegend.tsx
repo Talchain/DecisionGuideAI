@@ -2,10 +2,13 @@ import { useState, useEffect, useRef } from 'react'
 import { X } from 'lucide-react'
 import { typography } from '../../styles/typography'
 
+// Stroke widths aligned with importanceToStrokeWidth() in graphDisplayCalculations.ts
+// which maps normalised importance [0,1] → [1,8] linearly.
+// Weak ≈ 0.15 → 2, Moderate ≈ 0.5 → 4.5, Strong ≈ 1.0 → 8
 const LEGEND_ITEMS = [
   { label: 'Weak influence', width: 2 },
-  { label: 'Moderate influence', width: 4 },
-  { label: 'Strong influence', width: 7 },
+  { label: 'Moderate influence', width: 4.5 },
+  { label: 'Strong influence', width: 8 },
 ]
 
 interface EdgeThicknessLegendProps {
@@ -29,7 +32,7 @@ export function EdgeThicknessLegend({ visible }: EdgeThicknessLegendProps) {
 
   return (
     <div
-      className={`absolute bottom-4 left-4 z-10 bg-panel border border-panel-border rounded-lg shadow-sm p-3 transition-opacity duration-500 ${faded ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}
+      className={`absolute bottom-4 left-4 z-10 bg-panel border border-panel-border rounded-lg shadow-sm p-3 transition-opacity duration-500 motion-reduce:transition-none ${faded ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}
       data-testid="edge-thickness-legend"
       role="figure"
       aria-label="Edge thickness legend"

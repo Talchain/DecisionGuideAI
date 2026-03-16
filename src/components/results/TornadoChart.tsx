@@ -128,6 +128,53 @@ function formatExpectedLabel(
   return `Expected: ${formatted}`
 }
 
+// ─── FlipMarker (A4) ────────────────────────────────────────────────────────
+
+interface FlipMarkerProps {
+  row: TornadoRow
+  flipThresholds: FlipThreshold[] | undefined
+  totalRange: number
+  minVal: number
+}
+
+function FlipMarker({ row, flipThresholds, totalRange, minVal }: FlipMarkerProps) {
+  const flipThreshold = flipThresholds?.find(ft => ft.node_id === row.factorKey)
+  const hasFlip = flipThreshold?.flip_value != null
+    && flipThreshold.flip_reason !== 'heuristic'
+    && flipThreshold.flip_reason !== 'no_bracket'
+  if (!hasFlip || flipThreshold?.flip_value == null) return null
+
+  const flipVal = flipThreshold.flip_value
+  const range = row.highOutcome - row.lowOutcome
+  if (range === 0) return null
+
+  const rawPct = ((flipVal - row.lowOutcome) / range) * 100
+  const rowLowPct = totalRange > 0 ? ((row.lowOutcome - minVal) / totalRange) * 100 : 0
+  const rowHighPct = totalRange > 0 ? ((row.highOutcome - minVal) / totalRange) * 100 : 0
+  const clampedLocalPct = Math.max(0, Math.min(100, rawPct))
+  const chartPct = rowLowPct + (clampedLocalPct / 100) * (rowHighPct - rowLowPct)
+
+  const formattedFlip = flipThreshold.unit
+    ? `${flipThreshold.unit}${Math.round(flipVal).toLocaleString()}`
+    : Math.abs(flipVal) >= 10
+      ? Math.round(flipVal).toLocaleString()
+      : flipVal.toFixed(1)
+
+  return (
+    <div
+      className="absolute top-1/2 -translate-y-1/2 flex flex-col items-center pointer-events-none z-10"
+      style={{ left: `${chartPct}%` }}
+      data-testid="flip-marker"
+      title={`Flips at ${formattedFlip}`}
+    >
+      <div className="w-[6px] h-[6px] bg-danger rotate-45" aria-hidden="true" />
+      <span className={`${typography.panelMeta} text-danger whitespace-nowrap absolute top-full mt-0.5`}>
+        Flips at {formattedFlip}
+      </span>
+    </div>
+  )
+}
+
 // ─── Drag state management ──────────────────────────────────────────────────
 
 interface DragState {
@@ -477,51 +524,7 @@ export function TornadoChart({
                 )}
 
                 {/* A4: Flip-point marker — diamond on bar showing where recommendation changes */}
-                {(() => {
-                  const flipThreshold = flipThresholds?.find(ft => ft.node_id === row.factorKey)
-                  const hasFlip = flipThreshold?.flip_value != null
-                    && flipThreshold.flip_reason !== 'heuristic'
-                    && flipThreshold.flip_reason !== 'no_bracket'
-                  if (!hasFlip || flipThreshold?.flip_value == null) return null
-
-                  const flipVal = flipThreshold.flip_value
-                  const range = row.highOutcome - row.lowOutcome
-                  if (range === 0) return null
-
-                  const rawPct = ((flipVal - row.lowOutcome) / range) * 100
-                  // Map from row-local 0-100% to chart-global position
-                  const rowLowPct = totalRange > 0 ? ((row.lowOutcome - minVal) / totalRange) * 100 : 0
-                  const rowHighPct = totalRange > 0 ? ((row.highOutcome - minVal) / totalRange) * 100 : 0
-                  const clampedLocalPct = Math.max(0, Math.min(100, rawPct))
-                  const chartPct = rowLowPct + (clampedLocalPct / 100) * (rowHighPct - rowLowPct)
-
-                  const formattedFlip = flipThreshold.unit
-                    ? `${flipThreshold.unit}${Math.round(flipVal).toLocaleString()}`
-                    : Math.abs(flipVal) >= 10
-                      ? Math.round(flipVal).toLocaleString()
-                      : flipVal.toFixed(1)
-
-                  return (
-                    <div
-                      className="absolute top-1/2 -translate-y-1/2 flex flex-col items-center pointer-events-none z-10"
-                      style={{ left: `${chartPct}%` }}
-                      data-testid="flip-marker"
-                      title={`Flips at ${formattedFlip}`}
-                    >
-                      {/* Diamond marker */}
-                      <div
-                        className="w-[6px] h-[6px] bg-danger rotate-45"
-                        aria-hidden="true"
-                      />
-                      {/* Label */}
-                      <span
-                        className={`${typography.panelMeta} text-danger whitespace-nowrap absolute top-full mt-0.5`}
-                      >
-                        Flips at {formattedFlip}
-                      </span>
-                    </div>
-                  )
-                })()}
+                <FlipMarker row={row} flipThresholds={flipThresholds} totalRange={totalRange} minVal={minVal} />
 
                 {/* Low value label — hidden when left bar is collapsed */}
                 {leftWidth > 0.5 && (

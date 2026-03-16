@@ -863,15 +863,16 @@ export function OutputsDock() {
   const activeRightPanel = useUIStore(s => s.activeRightPanel)
   const isOverlayPanelActive = activeRightPanel === 'provenance' || activeRightPanel === 'clarifier'
 
-  // Empty state: hide panel completely when canvas has no nodes
-  // Return null to completely unmount - no DOM element, no visual footprint
-  if (!hasGraphContent || isOverlayPanelActive) {
+  // Empty state: unmount when canvas has no nodes (nothing to show)
+  if (!hasGraphContent) {
     return null
   }
+  // When an overlay panel is active, keep mounted (preserve scroll position,
+  // tab state, effect continuity) but hide visually via CSS.
 
   return (
     <aside
-      className={`${transitionClass} flex flex-col transition-shadow pointer-events-auto`}
+      className={`${transitionClass} flex flex-col transition-shadow pointer-events-auto${isOverlayPanelActive ? ' hidden' : ''}`}
       style={{
         position: 'fixed',
         width: state.isOpen ? 'var(--dock-right-expanded, 24rem)' : 'var(--dock-right-collapsed, 2.5rem)',
