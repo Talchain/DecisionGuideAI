@@ -650,6 +650,9 @@ export function OutputsDock() {
     }
     lastDockOpenRef.current = now
 
+    // Task F: Auto-open results — close overlay panels so OutputsDock becomes visible
+    useUIStore.getState().openRightPanel('results')
+
     setState(prev => {
       // Guard: only update if state actually needs to change
       if (prev.isOpen && prev.activeTab === 'results') {
