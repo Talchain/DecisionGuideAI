@@ -412,17 +412,19 @@ describe('buildRequest payload — RF → CEE graph_state transform', () => {
   })
 
   it('includes analysis_state on conversation turns when analysis is complete and graph is fresh', async () => {
-    // resultsStore has complete analysis
+    // Canvas store holds status + hash (set by resultsComplete)
+    useCanvasStore.setState({
+      results: { status: 'complete', progress: 100, hash: 'hash-abc' } as any,
+      graphEditedSinceLastRun: false,
+    })
+    // resultsStore holds analysisSummary (set by setAnalysisSummary)
     useResultsStore.setState({
       results: {
-        status: 'complete',
-        progress: 100,
-        hash: 'hash-abc',
+        status: 'idle', // not used by buildRequest
+        progress: 0,
         analysisSummary: { contract_version: '1.0.0', recommendation: { option_id: 'o1', option_label: 'Opt A', win_probability: 0.7 } },
       },
     } as any)
-    // graph has NOT been edited since last analysis
-    useCanvasStore.setState({ graphEditedSinceLastRun: false })
 
     mockCallTurn.mockResolvedValue({
       assistant_text: 'Follow-up acknowledged',
@@ -442,17 +444,19 @@ describe('buildRequest payload — RF → CEE graph_state transform', () => {
   })
 
   it('omits analysis_state when graph has been edited since last analysis (stale guard)', async () => {
-    // resultsStore has complete analysis
+    // Canvas store: analysis complete but graph was edited (stale)
+    useCanvasStore.setState({
+      results: { status: 'complete', progress: 100, hash: 'hash-abc' } as any,
+      graphEditedSinceLastRun: true,
+    })
+    // resultsStore holds analysisSummary
     useResultsStore.setState({
       results: {
-        status: 'complete',
-        progress: 100,
-        hash: 'hash-abc',
+        status: 'idle',
+        progress: 0,
         analysisSummary: { contract_version: '1.0.0', recommendation: { option_id: 'o1', option_label: 'Opt A', win_probability: 0.7 } },
       },
     } as any)
-    // graph HAS been edited since last analysis — stale
-    useCanvasStore.setState({ graphEditedSinceLastRun: true })
 
     mockCallTurn.mockResolvedValue({
       assistant_text: 'Graph changed',
@@ -466,6 +470,56 @@ describe('buildRequest payload — RF → CEE graph_state transform', () => {
 
     const request = mockCallTurn.mock.calls[0][0]
     expect(request.analysis_state).toBeUndefined()
+  })
+
+  it('includes analysis_state with computed status and non-empty option_comparison after V2 analysis completes', async () => {
+    // Simulate post-analysis state: canvas store has complete results,
+    // resultsStore has assembled summary with options (as set by useV2Run).
+    useCanvasStore.setState({
+      results: { status: 'complete', progress: 100, hash: 'resp-hash-123' } as any,
+      graphEditedSinceLastRun: false,
+    })
+    useResultsStore.setState({
+      results: {
+        status: 'idle',
+        progress: 0,
+        analysisSummary: {
+          contract_version: '1.0.0',
+          recommendation: { option_id: 'opt-a', option_label: 'Option A', win_probability: 0.65 },
+          options: [
+            { id: 'opt-a', label: 'Option A', win_probability: 0.65 },
+            { id: 'opt-b', label: 'Option B', win_probability: 0.35 },
+          ],
+          top_drivers: [{ factor_id: 'f1', factor_label: 'Revenue', elasticity: 0.4 }],
+          sensitivity_concentration: 0.6,
+          confidence_band: 'medium',
+          robustness: { level: 'moderate', recommendation_stability: 0.55 },
+          constraints_status: [],
+          run_metadata: { seed: '42', quality_mode: 'standard', timestamp: null },
+        },
+      },
+    } as any)
+
+    mockCallTurn.mockResolvedValue({
+      assistant_text: 'Here is the analysis summary.',
+      client_turn_id: 'resp-explain',
+    })
+
+    const { result } = renderHook(() => useConversation())
+    await act(async () => {
+      await result.current.sendMessage('explain the results')
+    })
+
+    const request = mockCallTurn.mock.calls[0][0]
+    expect(request.analysis_state).toBeDefined()
+    expect(request.analysis_state.analysis_status).toBe('complete')
+    expect(request.analysis_state.meta.response_hash).toBe('resp-hash-123')
+    // results contains the full AnalysisInputsSummary with options
+    const summary = request.analysis_state.results as any
+    expect(summary.contract_version).toBe('1.0.0')
+    expect(summary.options).toHaveLength(2)
+    expect(summary.options[0].win_probability).toBe(0.65)
+    expect(summary.robustness.level).toBe('moderate')
   })
 
   it('system event turn also transforms graph_state correctly', async () => {

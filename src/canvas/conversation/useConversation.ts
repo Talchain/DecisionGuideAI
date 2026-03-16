@@ -1019,14 +1019,32 @@ export function useConversation(): UseConversationReturn {
         edges: ceeEdges,
       }
 
-      // Assemble analysis_state from resultsStore fields.
+      // Assemble analysis_state from store fields.
+      // status and hash live on the canvas store (set by resultsComplete); analysisSummary
+      // lives on useResultsStore (set by setAnalysisSummary after assembly).
       // Omit when graph has been edited since the last analysis — stale results are worse than none.
-      const { status: analysisStatus, hash: analysisHash, analysisSummary } = useResultsStore.getState().results
+      const analysisStatus = store.results.status
+      const analysisHash = store.results.hash
+      const { analysisSummary } = useResultsStore.getState().results
       const graphIsStale = store.graphEditedSinceLastRun
       const analysisState: ExplainAnalysisStatePayload | undefined =
         !graphIsStale && analysisStatus === 'complete' && analysisHash && analysisSummary
           ? { analysis_status: analysisStatus, meta: { response_hash: analysisHash }, results: analysisSummary }
           : undefined
+
+      if (import.meta.env.DEV) {
+        const optionCount = analysisState
+          ? ((analysisState.results as Record<string, unknown>)?.options as unknown[] | undefined)?.length ?? 0
+          : 0
+        console.warn('[buildRequest] analysis_state present:', !!analysisState, {
+          turnType: opts.turnType,
+          analysisStatus,
+          hasHash: !!analysisHash,
+          hasSummary: !!analysisSummary,
+          graphIsStale,
+          optionCount,
+        })
+      }
 
       if (opts.turnType === 'system_event') {
         return buildSystemEventTurnRequest({
