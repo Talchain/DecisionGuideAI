@@ -1,5 +1,5 @@
 /**
- * UI Store — E1 cross-tab navigation tests
+ * UI Store — E1 cross-tab navigation tests + Task C panel coordination
  */
 
 import { describe, it, expect, beforeEach } from 'vitest'
@@ -8,7 +8,11 @@ import { useUIStore } from '../uiStore'
 describe('uiStore', () => {
   beforeEach(() => {
     // Reset store to default state
-    useUIStore.setState({ activeOutputTab: 'results', hoveredElementId: null })
+    useUIStore.setState({
+      activeOutputTab: 'results',
+      hoveredElementId: null,
+      activeRightPanel: null,
+    })
   })
 
   it('default tab is results', () => {
@@ -35,5 +39,40 @@ describe('uiStore', () => {
 
     useUIStore.getState().setHoveredElementId(null)
     expect(useUIStore.getState().hoveredElementId).toBeNull()
+  })
+})
+
+describe('uiStore — Task C: right-panel coordination', () => {
+  beforeEach(() => {
+    useUIStore.setState({ activeRightPanel: null })
+  })
+
+  it('default activeRightPanel is null', () => {
+    expect(useUIStore.getState().activeRightPanel).toBeNull()
+  })
+
+  it('openRightPanel sets the active panel', () => {
+    useUIStore.getState().openRightPanel('provenance')
+    expect(useUIStore.getState().activeRightPanel).toBe('provenance')
+  })
+
+  it('openRightPanel replaces previous panel (mutual exclusion)', () => {
+    useUIStore.getState().openRightPanel('provenance')
+    expect(useUIStore.getState().activeRightPanel).toBe('provenance')
+
+    useUIStore.getState().openRightPanel('clarifier')
+    expect(useUIStore.getState().activeRightPanel).toBe('clarifier')
+  })
+
+  it('closeRightPanel resets to null', () => {
+    useUIStore.getState().openRightPanel('results')
+    useUIStore.getState().closeRightPanel()
+    expect(useUIStore.getState().activeRightPanel).toBeNull()
+  })
+
+  it('openRightPanel(null) closes all panels', () => {
+    useUIStore.getState().openRightPanel('clarifier')
+    useUIStore.getState().openRightPanel(null)
+    expect(useUIStore.getState().activeRightPanel).toBeNull()
   })
 })

@@ -2129,12 +2129,13 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
         </div>
       )}
 
-      {/* M5: Provenance Hub panel (right side) */}
+      {/* Task C: Unified right-panel orchestrator — only one overlay panel at a time */}
       {showProvenanceHub && (
         <RightPanel
           width="32rem"
           title="Provenance Hub"
           onClose={() => setShowProvenanceHub(false)}
+          data-testid="right-panel-provenance"
         >
           <ProvenanceHubTab
             citations={citations}
@@ -2145,13 +2146,12 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
           />
         </RightPanel>
       )}
-
-      {/* Week 3: AI Clarifier panel */}
-      {showAIClarifier && (
+      {!showProvenanceHub && showAIClarifier && (
         <RightPanel
           width="400px"
           title="Olumi AI"
           onClose={() => setShowAIClarifier(false)}
+          data-testid="right-panel-clarifier"
         >
           <Suspense fallback={<div className="flex items-center justify-center p-8"><div className="text-sm text-gray-500">Loading...</div></div>}>
             <AIClarifierChat />
