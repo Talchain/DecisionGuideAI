@@ -856,9 +856,13 @@ export function OutputsDock() {
     window.addEventListener('mouseup', handleUp)
   }
 
+  // Task C: Panel coordination — hide OutputsDock when an overlay panel is active
+  const activeRightPanel = useUIStore(s => s.activeRightPanel)
+  const isOverlayPanelActive = activeRightPanel === 'provenance' || activeRightPanel === 'clarifier'
+
   // Empty state: hide panel completely when canvas has no nodes
   // Return null to completely unmount - no DOM element, no visual footprint
-  if (!hasGraphContent) {
+  if (!hasGraphContent || isOverlayPanelActive) {
     return null
   }
 

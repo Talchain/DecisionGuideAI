@@ -51,6 +51,7 @@ import { registerFocusHelpers, unregisterFocusHelpers } from './utils/focusHelpe
 import { usePathHighlight } from './hooks/usePathHighlight'
 import { useLensFilter } from './hooks/useLensFilter'
 import { useGuidancePulseHighlight } from './hooks/useGuidancePulseHighlight'
+import { useEscapePanel } from './hooks/useEscapePanel'
 import { loadRuns, generateGraphHash } from './store/runHistory'
 // HealthStatusBar removed - validation consolidated into OutputsDock panel
 import { DegradedBanner } from './components/DegradedBanner'
@@ -1412,6 +1413,9 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
   }
 
   useKeyboardShortcuts({ onModeChange: setInteractionMode })
+
+  // Task C: Escape key closes active right panel (Provenance, AI Clarifier)
+  useEscapePanel()
 
   useEffect(() => {
     // Always load visual/settings preferences (grid, snap, etc.)

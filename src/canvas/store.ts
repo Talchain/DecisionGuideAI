@@ -37,6 +37,8 @@ import { loadSearchQuery, loadSortPreferences, saveSearchQuery, saveSortPreferen
 import { loadUIPreferences, saveUIPreference } from './store/uiPreferences'
 import { validateCeeAnalysisReady } from './utils/ceeAnalysisReadyValidation'
 import { recordCrossSurfaceEvent, recordUserAction } from '../lib/debug-state'
+// Task C: Panel coordination — opening one right panel closes others
+import { useUIStore } from '../stores/uiStore'
 
 /** A1: Lightweight snapshot of key values for delta display between analysis runs */
 export interface OptionSnapshot {
@@ -2557,6 +2559,13 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     }
     set({ showResultsPanel: show })
     saveUIPreference('showResultsPanel', show)
+    // Task C: Panel coordination — results panel closes overlay panels
+    if (show) {
+      useUIStore.getState().openRightPanel('results')
+      set({ showProvenanceHub: false, showAIClarifier: false })
+    } else if (useUIStore.getState().activeRightPanel === 'results') {
+      useUIStore.getState().closeRightPanel()
+    }
     recordCrossSurfaceEvent({
       eventType: show ? 'results_panel_opened' : 'results_panel_closed',
       summary: show ? 'Results panel opened' : 'Results panel closed',
@@ -3132,6 +3141,13 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   setShowProvenanceHub: (show: boolean) => {
     set({ showProvenanceHub: show })
     saveUIPreference('showProvenanceHub', show)
+    // Task C: Panel coordination — opening provenance closes other right panels
+    if (show) {
+      useUIStore.getState().openRightPanel('provenance')
+      set({ showAIClarifier: false })
+    } else if (useUIStore.getState().activeRightPanel === 'provenance') {
+      useUIStore.getState().closeRightPanel()
+    }
   },
 
   setShowDocumentsDrawer: (show: boolean) => {
@@ -3242,10 +3258,16 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     // Close draft chat when opening clarifier
     if (show) {
       set({ showDraftChat: false })
+      // Task C: Panel coordination — opening clarifier closes other right panels
+      useUIStore.getState().openRightPanel('clarifier')
+      set({ showProvenanceHub: false })
     }
     // Clean up clarifier state when closing
     if (!show) {
       get().completeClarifierSession()
+      if (useUIStore.getState().activeRightPanel === 'clarifier') {
+        useUIStore.getState().closeRightPanel()
+      }
     }
   },
 
