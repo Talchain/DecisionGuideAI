@@ -6,7 +6,7 @@
  * 0.3 switch_probability threshold. See UI-SEM-013.
  */
 
-interface FragileEdgeCandidate {
+export interface FragileEdgeCandidate {
   edge_id?: string
   edgeId?: string
   from_id?: string

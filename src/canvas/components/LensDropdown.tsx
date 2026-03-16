@@ -177,7 +177,7 @@ export function LensDropdown({ isOpen, onClose, onToggle }: LensDropdownProps) {
               ;(items[next] as HTMLElement).focus()
             }
           }}
-          className="border border-panel-border bg-panel shadow-2 rounded-xl"
+          className="border border-panel-border bg-panel shadow-2 rounded-md motion-reduce:!animate-none"
           style={{
             position: 'fixed',
             top: pos.top,

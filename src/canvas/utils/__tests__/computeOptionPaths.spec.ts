@@ -130,4 +130,26 @@ describe('computeOptionPaths', () => {
     // But nothing else significant
     expect(result.activeNodeIds.size).toBe(1)
   })
+
+  it('handles empty graph (no nodes, no edges)', () => {
+    const result = computeOptionPaths([], [], 'optionA', ceeOptions)
+
+    // optionId + intervention targets from ceeOptions (factorX)
+    expect(result.activeNodeIds.has('optionA')).toBe(true)
+    expect(result.activeNodeIds.has('factorX')).toBe(true)
+    expect(result.activeEdgeKeys.size).toBe(0)
+  })
+
+  it('handles single-node graph (option only, no edges)', () => {
+    const result = computeOptionPaths(
+      [{ id: 'optionA', type: 'option' }],
+      [],
+      'optionA',
+      [{ id: 'optionA' }],
+    )
+
+    expect(result.activeNodeIds.has('optionA')).toBe(true)
+    expect(result.activeNodeIds.size).toBe(1)
+    expect(result.activeEdgeKeys.size).toBe(0)
+  })
 })

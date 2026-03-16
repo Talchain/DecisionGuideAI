@@ -42,15 +42,17 @@ import { recordCrossSurfaceEvent, recordUserAction } from '../lib/debug-state'
 // graphHealthFromQuality() returns this when no issues exist, avoiding new array allocation
 const EMPTY_VALIDATION_ISSUES: ValidationIssue[] = []
 
-// Graph Lens: Default (reset) lens state constant
-const DEFAULT_LENS_STATE = {
-  active: 'full' as const,
-  selectedOptionId: null,
-  _dimmedNodeIds: new Set<string>(),
-  _dimmedEdgeIds: new Set<string>(),
-  _sensitivityWeights: new Map<string, number>(),
-  _sensitivityQuartiles: null,
-  _fragileEdgeIds: new Set<string>(),
+// Graph Lens: Factory for fresh lens state (avoids shared mutable Set/Map references across resets)
+function createDefaultLensState() {
+  return {
+    active: 'full' as const,
+    selectedOptionId: null as string | null,
+    _dimmedNodeIds: new Set<string>(),
+    _dimmedEdgeIds: new Set<string>(),
+    _sensitivityWeights: new Map<string, number>(),
+    _sensitivityQuartiles: null as { q25: number; q75: number } | null,
+    _fragileEdgeIds: new Set<string>(),
+  }
 }
 
 /**
@@ -642,7 +644,7 @@ function pushToHistory(get: () => CanvasState, set: (fn: (s: CanvasState) => Par
     _internal: { lastHistoryHash: h },
     graphEditedSinceLastRun: true,
     // Graph Lens: auto-reset on graph edit
-    lens: { ...DEFAULT_LENS_STATE },
+    lens: createDefaultLensState(),
   }))
 }
 
@@ -1351,7 +1353,8 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     const past = history.past.slice(0, -1)
     const future = [{ nodes, edges }, ...history.future]
     // Invalidate ceeAnalysisReady so panel re-evaluates from restored graph state
-    set({ nodes: prev.nodes, edges: prev.edges, history: { past, future }, ceeAnalysisReady: null, goalConstraints: null })
+    // Graph Lens: auto-reset on undo (graph shape changed)
+    set({ nodes: prev.nodes, edges: prev.edges, history: { past, future }, ceeAnalysisReady: null, goalConstraints: null, lens: createDefaultLensState() })
     // Reset hash after undo
     const { nodes: newNodes, edges: newEdges } = get()
     set(() => ({ _internal: { lastHistoryHash: historyHash(newNodes, newEdges) } }))
@@ -1364,7 +1367,8 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     const past = [...history.past, { nodes, edges }]
     const future = history.future.slice(1)
     // Invalidate ceeAnalysisReady so panel re-evaluates from restored graph state
-    set({ nodes: next.nodes, edges: next.edges, history: { past, future }, ceeAnalysisReady: null, goalConstraints: null })
+    // Graph Lens: auto-reset on redo (graph shape changed)
+    set({ nodes: next.nodes, edges: next.edges, history: { past, future }, ceeAnalysisReady: null, goalConstraints: null, lens: createDefaultLensState() })
     // Reset hash after redo
     const { nodes: newNodes, edges: newEdges } = get()
     set(() => ({ _internal: { lastHistoryHash: historyHash(newNodes, newEdges) } }))
@@ -1625,6 +1629,8 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       selectedGenerationModel: null,
       selectedRepairModel: null,
       selectedEnrichmentModel: null,
+      // Graph Lens: auto-reset on canvas import (full graph replaced)
+      lens: createDefaultLensState(),
     })
     
     return true
@@ -1811,7 +1817,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       lastQualityMode: null,
       repairsApplied: null,
       // Graph Lens: reset on canvas clear
-      lens: { ...DEFAULT_LENS_STATE },
+      lens: createDefaultLensState(),
     })
   },
 
@@ -1951,7 +1957,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
         isDuplicateRun: undefined
       },
       // Graph Lens: auto-reset on new analysis run
-      lens: { ...DEFAULT_LENS_STATE },
+      lens: createDefaultLensState(),
     })
   },
 
@@ -2216,6 +2222,9 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
         status: 'idle',
         progress: 0
       },
+      // Graph Lens: auto-reset on results clear (prevents stale lens reactivating on next run)
+      lens: createDefaultLensState(),
+      hoveredOptionId: null,
       // Clear all runMeta including V1 CEE fields to prevent stale Decision Review
       runMeta: {
         diagnostics: undefined,
@@ -2621,6 +2630,8 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       ceeAnalysisReadyNodeIds: null,
       ceePipelineTrace: null,
       ceeQuality: null,
+      // Graph Lens: auto-reset on draft undo (graph shape changed)
+      lens: createDefaultLensState(),
     })
 
     // Crash resilience
@@ -2920,27 +2931,29 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     const state = get()
     if (state.lens.active !== 'option') return
     const options = state.results.report?.option_comparison
-    if (!options || options.length === 0) return
+    if (!Array.isArray(options) || options.length === 0) return
 
     const currentId = state.lens.selectedOptionId
     const currentIndex = currentId
-      ? options.findIndex((o: { option_id: string }) => o.option_id === currentId)
+      ? options.findIndex((o: { option_id: string }) => o != null && typeof o === 'object' && o.option_id === currentId)
       : -1
     const len = options.length
     const nextIndex = direction === 'next'
       ? (currentIndex + 1) % len
       : (currentIndex - 1 + len) % len
-    const nextOption = options[nextIndex] as { option_id: string }
+    const nextOption = options[nextIndex] as { option_id?: string } | undefined
+    const nextId = nextOption?.option_id
+    if (!nextId) return
     set({
-      lens: { ...state.lens, active: 'option', selectedOptionId: nextOption.option_id },
-      hoveredOptionId: nextOption.option_id,
+      lens: { ...state.lens, active: 'option', selectedOptionId: nextId },
+      hoveredOptionId: nextId,
     })
   },
 
   resetLens: () => {
     const { lens } = get()
     if (lens.active === 'full' && lens.selectedOptionId === null && lens._dimmedNodeIds.size === 0) return
-    set({ lens: { ...DEFAULT_LENS_STATE } })
+    set({ lens: createDefaultLensState(), hoveredOptionId: null })
   },
 
   setLensVisuals: (visuals) => {
@@ -3130,7 +3143,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
         apiResponse,
       },
       // Graph Lens: auto-reset on comparison mode entry
-      lens: { ...DEFAULT_LENS_STATE },
+      lens: createDefaultLensState(),
     })
   },
 
@@ -3156,7 +3169,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
         apiResponse: null,
       },
       // Graph Lens: reset on comparison mode exit (mirrors enterComparisonMode reset)
-      lens: { ...DEFAULT_LENS_STATE },
+      lens: createDefaultLensState(),
     })
   },
 

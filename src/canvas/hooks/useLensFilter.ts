@@ -10,6 +10,7 @@
 import { useMemo, useEffect, useRef } from 'react'
 import { useCanvasStore } from '../store'
 import { computeOptionPaths } from '../utils/computeOptionPaths'
+import type { FragileEdgeCandidate } from '../utils/fragileEdgeMatch'
 
 // ─── Sensitivity helpers ─────────────────────────────────────────────────────
 
@@ -46,23 +47,10 @@ function computeQuartiles(values: number[]): { q25: number; q75: number } {
 
 // ─── Fragile edge helpers ────────────────────────────────────────────────────
 
-interface FragileEdgeEntry {
-  edge_id?: string
-  edgeId?: string
-  from_id?: string
-  fromId?: string
-  source?: string
-  to_id?: string
-  toId?: string
-  target?: string
-  switch_probability?: number
-  switchProbability?: number
-  marginal_switch_probability?: number
-  marginalSwitchProbability?: number
-}
+// FragileEdgeCandidate type imported from ../utils/fragileEdgeMatch (shared with StyledEdge, useMenuItems)
 
 function buildFragileEdgeSet(
-  fragileEdges: FragileEdgeEntry[],
+  fragileEdges: FragileEdgeCandidate[],
   graphEdges: Array<{ id: string; source: string; target: string }>,
 ): Set<string> {
   const fragileIds = new Set<string>()
@@ -194,7 +182,7 @@ export function useLensFilter(): void {
       const reportAny = report as Record<string, unknown>
       const robustness = reportAny.robustness as Record<string, unknown> | undefined
       const rawFragile = robustness?.fragile_edges
-      const fragileEdgesData: FragileEdgeEntry[] = Array.isArray(rawFragile) ? rawFragile : []
+      const fragileEdgesData: FragileEdgeCandidate[] = Array.isArray(rawFragile) ? rawFragile : []
       const graphEdges = edges.map(e => ({ id: e.id, source: e.source, target: e.target }))
 
       const fragileIds = buildFragileEdgeSet(fragileEdgesData, graphEdges)
