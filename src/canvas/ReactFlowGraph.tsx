@@ -49,6 +49,7 @@ import { useResultsRun } from './hooks/useResultsRun'
 import { HighlightLayer } from './highlight/HighlightLayer'
 import { registerFocusHelpers, unregisterFocusHelpers } from './utils/focusHelpers'
 import { usePathHighlight } from './hooks/usePathHighlight'
+import { useLensFilter } from './hooks/useLensFilter'
 import { useGuidancePulseHighlight } from './hooks/useGuidancePulseHighlight'
 import { loadRuns, generateGraphHash } from './store/runHistory'
 // HealthStatusBar removed - validation consolidated into OutputsDock panel
@@ -874,6 +875,9 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
   // Graph Interaction P1: Enable path highlighting based on node selection
   // Highlights causal paths from selected factor to goal, dims unrelated nodes
   usePathHighlight()
+
+  // Graph Lens: Compute lens visuals and push to store
+  useLensFilter()
 
   // A.2: Guidance pulse highlight for active GuidanceItem target
   useGuidancePulseHighlight()

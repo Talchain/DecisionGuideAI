@@ -5,6 +5,9 @@ import Tooltip from '../Tooltip'
 import { Spinner } from '../Spinner'
 import styles from './TopBar.module.css'
 import { useAnalysisMetadata } from '../../canvas/hooks/useAnalysisMetadata'
+import { isGraphLensEnabled } from '../../flags'
+import { LensDropdown } from '../../canvas/components/LensDropdown'
+import { LENS_TOGGLE_EVENT } from '../../canvas/hooks/useCanvasKeyboardShortcuts'
 import { useStagePill } from '../../canvas/hooks/useStagePill'
 import { useSettingsStore } from '../../canvas/settingsStore'
 import { UserAvatarMenu } from './UserAvatarMenu'
@@ -47,6 +50,15 @@ export const TopBar = ({
   const [showMenu, setShowMenu] = useState(false)
   const [settingsExpanded, setSettingsExpanded] = useState(false)
   const [showSavedPill, setShowSavedPill] = useState(false)
+  const [lensOpen, setLensOpen] = useState(false)
+
+  // Listen for L key toggle event from useCanvasKeyboardShortcuts
+  useEffect(() => {
+    const handler = () => setLensOpen(v => !v)
+    window.addEventListener(LENS_TOGGLE_EVENT, handler)
+    return () => window.removeEventListener(LENS_TOGGLE_EVENT, handler)
+  }, [])
+
   const menuRef = useRef<HTMLDivElement | null>(null)
 
   // C.1a: Auto-fade "Saved" pill after 2s
@@ -327,6 +339,15 @@ export const TopBar = ({
               </span>
             </div>
           </Tooltip>
+        )}
+
+        {/* Graph Lens dropdown (post-analysis only) */}
+        {isGraphLensEnabled() && (
+          <LensDropdown
+            isOpen={lensOpen}
+            onClose={() => setLensOpen(false)}
+            onToggle={() => setLensOpen(v => !v)}
+          />
         )}
       </div>
 

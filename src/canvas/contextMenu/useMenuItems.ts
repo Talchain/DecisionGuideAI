@@ -9,10 +9,11 @@ import { useMemo } from 'react'
 import {
   Sparkles, Zap, Crosshair, SlidersHorizontal, ArrowUpToLine, ArrowDownToLine,
   RotateCcw, Pencil, Plus, Flag, Scissors, Copy, ClipboardPaste, CopyPlus,
-  Trash2, MessageSquare,
+  Trash2, MessageSquare, Layers,
 } from 'lucide-react'
 import type { ComponentType } from 'react'
-import { useCanvasStore } from '../store'
+import { useCanvasStore, selectResultsStatus, selectReport } from '../store'
+import { isGraphLensEnabled } from '../../flags'
 import type { ContextTarget, MenuEntry, MenuItemDef } from './types'
 import type { NodeType } from '../domain/nodes'
 import {
@@ -332,6 +333,40 @@ function buildNodeMenu(
     })
   }
 
+  // --- Graph Lens items (post-analysis only) ---
+  if (isGraphLensEnabled()) {
+    const state = useCanvasStore.getState()
+    const resultsComplete = selectResultsStatus(state) === 'complete'
+
+    if (resultsComplete && kind === 'option') {
+      items.push({
+        id: 'lens-isolate-option',
+        label: "Isolate this option's paths",
+        icon: Layers,
+        tooltip: 'Show only the causal paths for this option',
+        enabled: true,
+        action: wrap(() => state.setLens('option', target.nodeId)),
+      })
+    }
+
+    if (resultsComplete && kind === 'factor') {
+      const report = selectReport(state) as Record<string, unknown> | null | undefined
+      const factorSensitivity = report?.factor_sensitivity as Array<{ node_id: string }> | undefined
+      const hasSensitivity = factorSensitivity?.some(f => f.node_id === target.nodeId)
+
+      if (hasSensitivity) {
+        items.push({
+          id: 'lens-sensitivity',
+          label: 'Show sensitivity view',
+          icon: Layers,
+          tooltip: 'Highlight edges by sensitivity weight',
+          enabled: true,
+          action: wrap(() => state.setLens('sensitivity')),
+        })
+      }
+    }
+  }
+
   items.push(DIV)
 
   // --- Standard clipboard + delete ---
@@ -436,6 +471,33 @@ function buildEdgeMenu(
       enabled: true,
       action: wrap(() => markAsAssumption(target.edgeId, 'edge', showToast)),
     })
+  }
+
+  // --- Graph Lens: fragile edge item (post-analysis only) ---
+  if (isGraphLensEnabled()) {
+    const state = useCanvasStore.getState()
+    const resultsComplete = selectResultsStatus(state) === 'complete'
+
+    if (resultsComplete) {
+      const report = selectReport(state) as Record<string, unknown> | null | undefined
+      const robustness = report?.robustness as { fragile_edges?: Array<{ edge_id?: string; from_id?: string; to_id?: string }> } | undefined
+      const fragileEdges = robustness?.fragile_edges
+      const isFragile = fragileEdges?.some(fe =>
+        fe.edge_id === target.edgeId ||
+        (fe.from_id === target.edge.source && fe.to_id === target.edge.target)
+      )
+
+      if (isFragile) {
+        items.push({
+          id: 'lens-fragile',
+          label: 'Show all fragile edges',
+          icon: Layers,
+          tooltip: 'Highlight all edges that could flip the recommendation',
+          enabled: true,
+          action: wrap(() => state.setLens('fragile')),
+        })
+      }
+    }
   }
 
   // Delete
