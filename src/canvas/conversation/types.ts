@@ -329,7 +329,7 @@ export interface OrchestratorTurnRequest {
   /** Nonce for idempotency */
   turn_nonce?: string
   client_turn_id: string
-  /** Dev-mode only: request-builder turn discriminator, stripped before network send. */
+  /** Request-builder turn discriminator, stripped before network send. */
   _turn_type?:
     | 'conversation'
     | 'explicit_generate'

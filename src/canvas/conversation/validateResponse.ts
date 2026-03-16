@@ -19,7 +19,7 @@
  */
 
 import { trackEvent } from '../../lib/posthog'
-import type { OrchestratorResponseEnvelopeV2 } from './types'
+import type { OrchestratorResponseEnvelopeV2, OrchestratorStreamEvent } from './types'
 
 export type RepairType =
   | 'empty_text'
@@ -94,4 +94,102 @@ export function validateResponse(
   }
 
   return { cleaned, repairs }
+}
+
+// ---------------------------------------------------------------------------
+// § 2 — Envelope shape validation (Brief 4, Task 1)
+// ---------------------------------------------------------------------------
+
+const SHAPE_FALLBACK_TEXT =
+  'Something went wrong processing the response.'
+
+/**
+ * Validate the gross structural shape of a raw JSON value before it is used
+ * as an `OrchestratorResponseEnvelopeV2`.
+ *
+ * This is a shape guard, not a full Zod schema. It catches:
+ *   - `null`, arrays, strings, numbers, booleans (not an object)
+ *   - `assistant_text` that is not `string | null | undefined`
+ *   - `blocks` that is not `undefined | null | array`
+ *   - `suggested_actions` that is not `undefined | null | array`
+ *
+ * On failure: logs a structured warning, emits telemetry, and returns a safe
+ * fallback envelope instead of throwing.
+ */
+export function validateEnvelopeShape(raw: unknown): OrchestratorResponseEnvelopeV2 {
+  // Must be a non-null, non-array object
+  if (raw == null || typeof raw !== 'object' || Array.isArray(raw)) {
+    const rawType = raw === null ? 'null' : Array.isArray(raw) ? 'array' : typeof raw
+    console.warn('[validateEnvelopeShape] Envelope is not an object', { rawType, preview: String(raw).slice(0, 200) })
+    trackEvent('ui.envelope_shape_invalid', { violation: 'not_object', raw_type: rawType })
+    return { assistant_text: SHAPE_FALLBACK_TEXT }
+  }
+
+  const obj = raw as Record<string, unknown>
+  const violations: string[] = []
+
+  // assistant_text must be string | null | undefined
+  if (obj.assistant_text !== undefined && obj.assistant_text !== null && typeof obj.assistant_text !== 'string') {
+    violations.push('assistant_text_not_string_or_null')
+    obj.assistant_text = null
+  }
+
+  // blocks must be undefined | null | array
+  if (obj.blocks !== undefined && obj.blocks !== null && !Array.isArray(obj.blocks)) {
+    violations.push('blocks_not_array')
+    obj.blocks = undefined
+  }
+
+  // suggested_actions must be undefined | null | array
+  if (obj.suggested_actions !== undefined && obj.suggested_actions !== null && !Array.isArray(obj.suggested_actions)) {
+    violations.push('suggested_actions_not_array')
+    obj.suggested_actions = undefined
+  }
+
+  if (violations.length > 0) {
+    console.warn('[validateEnvelopeShape] Envelope shape violations repaired', { violations })
+    trackEvent('ui.envelope_shape_invalid', { violations })
+  }
+
+  return raw as OrchestratorResponseEnvelopeV2
+}
+
+// ---------------------------------------------------------------------------
+// § 3 — Stream event shape validation (Brief 4, Task 1)
+// ---------------------------------------------------------------------------
+
+const KNOWN_STREAM_EVENT_TYPES = new Set([
+  'turn_start', 'text_delta', 'tool_start', 'block', 'tool_result', 'turn_complete', 'error',
+])
+
+/**
+ * Validate the shape of a parsed SSE event before it is used as an
+ * `OrchestratorStreamEvent`. Returns `null` for events that should be skipped.
+ */
+export function validateStreamEventShape(parsed: Record<string, unknown>, resolvedType: string | undefined): OrchestratorStreamEvent | null {
+  if (!resolvedType || typeof resolvedType !== 'string') {
+    console.warn('[validateStreamEventShape] SSE event missing type', { keys: Object.keys(parsed) })
+    trackEvent('ui.stream_event_shape_invalid', { violation: 'missing_type' })
+    return null
+  }
+
+  // Warn on unknown event types (forward-compatible: pass through, don't reject)
+  if (!KNOWN_STREAM_EVENT_TYPES.has(resolvedType)) {
+    console.warn('[validateStreamEventShape] Unknown SSE event type', { type: resolvedType })
+    trackEvent('ui.stream_event_shape_invalid', { violation: 'unknown_type', type: resolvedType })
+  }
+
+  // For turn_complete, validate the nested envelope (inject fallback if missing)
+  if (resolvedType === 'turn_complete') {
+    const envelope = parsed.envelope
+    if (envelope == null) {
+      console.warn('[validateStreamEventShape] turn_complete missing envelope')
+      trackEvent('ui.stream_event_shape_invalid', { violation: 'missing_envelope' })
+      parsed.envelope = { assistant_text: SHAPE_FALLBACK_TEXT }
+    } else {
+      parsed.envelope = validateEnvelopeShape(envelope)
+    }
+  }
+
+  return { ...parsed, type: resolvedType } as OrchestratorStreamEvent
 }

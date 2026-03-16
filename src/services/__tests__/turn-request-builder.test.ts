@@ -7,9 +7,14 @@ import {
   buildPatchFollowupTurnRequest,
   buildRunAnalysisTurnRequest,
   buildSystemEventTurnRequest,
-  stripDevTurnType,
+  stripTurnType,
   validateTurnRequestBoundary,
 } from '../turn-request-builder'
+
+const mockTrackEvent = vi.fn()
+vi.mock('../../lib/posthog', () => ({
+  trackEvent: (...args: unknown[]) => mockTrackEvent(...args),
+}))
 
 const history = [{ role: 'user', content: 'hello' }] as const
 const graphState = { nodes: [{ id: 'n1' }], edges: [{ from: 'n1', to: 'n2' }] }
@@ -72,7 +77,7 @@ describe('turn request builders', () => {
       message: 'build model',
       graph_state: graphState,
     })
-    const wire = stripDevTurnType(req)
+    const wire = stripTurnType(req)
 
     expect(wire).toHaveProperty('generate_model', true)
     expect(wire).not.toHaveProperty('_turn_type')
@@ -87,7 +92,7 @@ describe('turn request builders', () => {
     })
 
     expect(req).not.toHaveProperty('generate_model')
-    const wire = stripDevTurnType(req)
+    const wire = stripTurnType(req)
     expect(wire).not.toHaveProperty('generate_model')
   })
 
@@ -292,7 +297,7 @@ describe('turn request builders', () => {
 
     expect(req).not.toHaveProperty('analysis_state')
     // Verify after wire stripping too
-    const wire = stripDevTurnType(req)
+    const wire = stripTurnType(req)
     expect(wire).not.toHaveProperty('analysis_state')
   })
 
@@ -316,6 +321,27 @@ describe('turn request builders', () => {
 
     expect(req).not.toHaveProperty('system_event')
   })
+
+  it('all builders attach _turn_type for production validation', () => {
+    const conversation = buildConversationTurnRequest({ scenario_id: 's', conversation_history: [...history], message: 'm', graph_state: graphState })
+    const explicitGen = buildExplicitGenerateTurnRequest({ scenario_id: 's', conversation_history: [...history], message: 'm', graph_state: graphState })
+    const runAnalysis = buildRunAnalysisTurnRequest({ scenario_id: 's', conversation_history: [...history], graph_state: graphState, analysis_inputs: { options: [] } as any })
+    const systemEvt = buildSystemEventTurnRequest({ scenario_id: 's', conversation_history: [...history], message: 'm', graph_state: graphState, system_event: { event_type: 'test' } as any })
+    const patchFollowup = buildPatchFollowupTurnRequest({ scenario_id: 's', conversation_history: [...history], graph_state: graphState })
+    const explain = buildExplainTurnRequest({ scenario_id: 's', conversation_history: [...history], message: 'm', graph_state: graphState })
+    const clarification = buildClarificationResponseTurnRequest({ scenario_id: 's', conversation_history: [...history], message: 'm' })
+
+    expect(conversation._turn_type).toBe('conversation')
+    expect(explicitGen._turn_type).toBe('explicit_generate')
+    expect(runAnalysis._turn_type).toBe('run_analysis')
+    expect(systemEvt._turn_type).toBe('system_event')
+    expect(patchFollowup._turn_type).toBe('patch_followup')
+    expect(explain._turn_type).toBe('explain')
+    expect(clarification._turn_type).toBe('clarification_response')
+
+    // stripTurnType still removes it before wire
+    expect(stripTurnType(conversation)).not.toHaveProperty('_turn_type')
+  })
 })
 
 describe('validateTurnRequestBoundary (dev-mode)', () => {
@@ -323,6 +349,7 @@ describe('validateTurnRequestBoundary (dev-mode)', () => {
 
   beforeEach(() => {
     consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    mockTrackEvent.mockReset()
   })
 
   afterEach(() => {
@@ -453,5 +480,37 @@ describe('validateTurnRequestBoundary (dev-mode)', () => {
 
     validateTurnRequestBoundary(req)
     expect(consoleErrorSpy).not.toHaveBeenCalled()
+  })
+
+  it('emits telemetry on validation failure', () => {
+    const req = buildConversationTurnRequest({
+      scenario_id: 's18',
+      conversation_history: [...history],
+      message: '',
+      graph_state: graphState,
+    })
+
+    validateTurnRequestBoundary(req)
+    expect(mockTrackEvent).toHaveBeenCalledWith(
+      'ui.turn_request_validation_failure',
+      expect.objectContaining({
+        turn_type: 'conversation',
+        violations: expect.arrayContaining([
+          expect.objectContaining({ field: 'message', violation: 'missing_required_field' }),
+        ]),
+      }),
+    )
+  })
+
+  it('does not emit telemetry when all fields are valid', () => {
+    const req = buildConversationTurnRequest({
+      scenario_id: 's19',
+      conversation_history: [...history],
+      message: 'valid message',
+      graph_state: graphState,
+    })
+
+    validateTurnRequestBoundary(req)
+    expect(mockTrackEvent).not.toHaveBeenCalled()
   })
 })

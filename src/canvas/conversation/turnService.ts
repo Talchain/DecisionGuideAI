@@ -55,10 +55,11 @@ import type {
   OrchestratorResponseEnvelopeV2,
   OrchestratorStreamEvent,
 } from './types'
+import { validateEnvelopeShape, validateStreamEventShape } from './validateResponse'
 import { computePayloadHash } from '../../lib/canonical-hash'
 import { recordRequest, recordResponse } from '../../lib/debug-state'
 import { recordRequestPayload, recordResponsePayload } from '../../lib/payload-trace-store'
-import { stripDevTurnType, validateTurnRequestBoundary, type TurnRequestPayload } from '../../services/turn-request-builder'
+import { stripTurnType, validateTurnRequestBoundary, type TurnRequestPayload } from '../../services/turn-request-builder'
 
 // In production/staging, route through Netlify edge function proxy at /bff/orchestrate
 // to avoid CORS issues (CEE backend lacks CORS on /orchestrate/* routes).
@@ -136,7 +137,7 @@ export async function callOrchestratorTurn(
     : controller.signal
 
   validateTurnRequestBoundary(request)
-  const wireRequest = stripDevTurnType(request)
+  const wireRequest = stripTurnType(request)
   const requestBody = JSON.stringify(wireRequest)
   const requestId = request.client_turn_id
   const payloadHash = await computePayloadHash(wireRequest)
@@ -225,7 +226,8 @@ export async function callOrchestratorTurn(
       )
     }
 
-    const envelope = (await response.json()) as OrchestratorResponseEnvelopeV2
+    const raw = await response.json()
+    const envelope = validateEnvelopeShape(raw)
     const elapsedMs = Math.max(1, Date.now() - startTime)
 
     recordResponse(requestId, {
@@ -396,7 +398,7 @@ export async function* streamOrchestratorTurn(
     : controller.signal
 
   validateTurnRequestBoundary(request)
-  const wireRequest = stripDevTurnType(request)
+  const wireRequest = stripTurnType(request)
   const requestBody = JSON.stringify(wireRequest)
   const requestId = request.client_turn_id
 
@@ -516,7 +518,8 @@ export async function* streamOrchestratorTurn(
   if (contentType.includes('application/json')) {
     clearTimeout(timeoutId)
     clearHeartbeat()
-    const envelope = (await response.json()) as OrchestratorResponseEnvelopeV2
+    const rawJson = await response.json()
+    const envelope = validateEnvelopeShape(rawJson)
     completionStatus = 'complete'
     fallbackReason = 'json_cache_hit'
     logTelemetry()
@@ -566,7 +569,9 @@ export async function* streamOrchestratorTurn(
         continue
       }
 
-      const event = { ...parsed, type: eventType || parsed.type } as OrchestratorStreamEvent
+      const resolvedType = (eventType || parsed.type) as string | undefined
+      const event = validateStreamEventShape(parsed, resolvedType)
+      if (!event) continue
       eventCount++
 
       // Track telemetry milestones

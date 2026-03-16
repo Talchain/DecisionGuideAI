@@ -6,7 +6,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { validateResponse } from '../validateResponse'
+import { validateResponse, validateEnvelopeShape, validateStreamEventShape } from '../validateResponse'
 import type { OrchestratorResponseEnvelopeV2, ActionChip, ConversationBlock } from '../types'
 
 // ---------------------------------------------------------------------------
@@ -189,5 +189,147 @@ describe('validateResponse', () => {
 
     expect(envelope.suggested_actions).toBe(originalActions)
     expect(envelope.assistant_text).toBe('')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// validateEnvelopeShape (Brief 4, Task 1)
+// ---------------------------------------------------------------------------
+
+describe('validateEnvelopeShape', () => {
+  it('passes through a valid envelope object unchanged', () => {
+    const raw = { assistant_text: 'Hello', blocks: [{ type: 'commentary', text: 'ok' }] }
+    const result = validateEnvelopeShape(raw)
+    expect(result.assistant_text).toBe('Hello')
+    expect(result.blocks).toHaveLength(1)
+    expect(mockTrackEvent).not.toHaveBeenCalled()
+  })
+
+  it('returns fallback for null input', () => {
+    const result = validateEnvelopeShape(null)
+    expect(result.assistant_text).toContain('Something went wrong')
+    expect(mockTrackEvent).toHaveBeenCalledWith('ui.envelope_shape_invalid', expect.objectContaining({ violation: 'not_object' }))
+  })
+
+  it('returns fallback for a bare string', () => {
+    const result = validateEnvelopeShape('some html or error page')
+    expect(result.assistant_text).toContain('Something went wrong')
+    expect(mockTrackEvent).toHaveBeenCalledWith('ui.envelope_shape_invalid', expect.objectContaining({ violation: 'not_object', raw_type: 'string' }))
+  })
+
+  it('returns fallback for an array', () => {
+    const result = validateEnvelopeShape([1, 2, 3])
+    expect(result.assistant_text).toContain('Something went wrong')
+    expect(mockTrackEvent).toHaveBeenCalledWith('ui.envelope_shape_invalid', expect.objectContaining({ raw_type: 'array' }))
+  })
+
+  it('returns fallback for a number', () => {
+    const result = validateEnvelopeShape(42)
+    expect(result.assistant_text).toContain('Something went wrong')
+  })
+
+  it('repairs assistant_text that is a number', () => {
+    const result = validateEnvelopeShape({ assistant_text: 123 })
+    expect(result.assistant_text).toBeNull()
+    expect(mockTrackEvent).toHaveBeenCalledWith('ui.envelope_shape_invalid', expect.objectContaining({
+      violations: expect.arrayContaining(['assistant_text_not_string_or_null']),
+    }))
+  })
+
+  it('repairs blocks that is a string instead of array', () => {
+    const result = validateEnvelopeShape({ assistant_text: 'ok', blocks: 'not-an-array' })
+    expect(result.blocks).toBeUndefined()
+    expect(mockTrackEvent).toHaveBeenCalledWith('ui.envelope_shape_invalid', expect.objectContaining({
+      violations: expect.arrayContaining(['blocks_not_array']),
+    }))
+  })
+
+  it('repairs suggested_actions that is an object instead of array', () => {
+    const result = validateEnvelopeShape({ assistant_text: 'ok', suggested_actions: { bad: true } })
+    expect(result.suggested_actions).toBeUndefined()
+    expect(mockTrackEvent).toHaveBeenCalledWith('ui.envelope_shape_invalid', expect.objectContaining({
+      violations: expect.arrayContaining(['suggested_actions_not_array']),
+    }))
+  })
+
+  it('allows null assistant_text (valid per type)', () => {
+    const result = validateEnvelopeShape({ assistant_text: null })
+    expect(result.assistant_text).toBeNull()
+    expect(mockTrackEvent).not.toHaveBeenCalled()
+  })
+
+  it('allows undefined blocks and suggested_actions (valid per type)', () => {
+    const result = validateEnvelopeShape({ assistant_text: 'hi' })
+    expect(result.blocks).toBeUndefined()
+    expect(result.suggested_actions).toBeUndefined()
+    expect(mockTrackEvent).not.toHaveBeenCalled()
+  })
+})
+
+// ---------------------------------------------------------------------------
+// validateStreamEventShape (Brief 4, Task 1)
+// ---------------------------------------------------------------------------
+
+describe('validateStreamEventShape', () => {
+  it('passes through a valid event', () => {
+    const parsed = { seq: 1, delta: 'Hello ' }
+    const result = validateStreamEventShape(parsed, 'text_delta')
+    expect(result).not.toBeNull()
+    expect(result!.type).toBe('text_delta')
+    expect(mockTrackEvent).not.toHaveBeenCalled()
+  })
+
+  it('returns null for event with missing type', () => {
+    const parsed = { seq: 1, delta: 'Hello ' }
+    const result = validateStreamEventShape(parsed, undefined)
+    expect(result).toBeNull()
+    expect(mockTrackEvent).toHaveBeenCalledWith('ui.stream_event_shape_invalid', expect.objectContaining({ violation: 'missing_type' }))
+  })
+
+  it('returns null for event with empty string type', () => {
+    const parsed = { seq: 1 }
+    const result = validateStreamEventShape(parsed, '')
+    expect(result).toBeNull()
+    expect(mockTrackEvent).toHaveBeenCalled()
+  })
+
+  it('validates nested envelope on turn_complete events', () => {
+    const parsed = {
+      seq: 5,
+      envelope: { assistant_text: 'done', blocks: [{ type: 'commentary', text: 'ok' }] },
+    }
+    const result = validateStreamEventShape(parsed, 'turn_complete')
+    expect(result).not.toBeNull()
+    expect(result!.type).toBe('turn_complete')
+    // envelope should pass through validated
+    expect((result as any).envelope.assistant_text).toBe('done')
+  })
+
+  it('repairs malformed nested envelope on turn_complete', () => {
+    const parsed = {
+      seq: 5,
+      envelope: 'not-an-object',
+    }
+    const result = validateStreamEventShape(parsed, 'turn_complete')
+    expect(result).not.toBeNull()
+    // The nested envelope should be replaced with fallback
+    expect((result as any).envelope.assistant_text).toContain('Something went wrong')
+    expect(mockTrackEvent).toHaveBeenCalled()
+  })
+
+  it('injects fallback envelope when turn_complete has no envelope field', () => {
+    const parsed = { seq: 5 }
+    const result = validateStreamEventShape(parsed, 'turn_complete')
+    expect(result).not.toBeNull()
+    expect((result as any).envelope.assistant_text).toContain('Something went wrong')
+    expect(mockTrackEvent).toHaveBeenCalledWith('ui.stream_event_shape_invalid', expect.objectContaining({ violation: 'missing_envelope' }))
+  })
+
+  it('warns on unknown event type but passes through', () => {
+    const parsed = { seq: 1, data: 'something' }
+    const result = validateStreamEventShape(parsed, 'some_future_event')
+    expect(result).not.toBeNull()
+    expect(result!.type).toBe('some_future_event')
+    expect(mockTrackEvent).toHaveBeenCalledWith('ui.stream_event_shape_invalid', expect.objectContaining({ violation: 'unknown_type', type: 'some_future_event' }))
   })
 })

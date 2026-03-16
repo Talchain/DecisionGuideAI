@@ -23,6 +23,7 @@ import type {
   ConversationTurnPair,
   WireSystemEvent,
 } from '../canvas/conversation/types'
+import { trackEvent } from '../lib/posthog'
 
 export type TurnType =
   | 'conversation'
@@ -142,8 +143,8 @@ function createClientTurnId(clientTurnId?: string): string {
   return crypto.randomUUID()
 }
 
-function withDevTurnType<T extends Omit<TurnBase, '_turn_type'>>(base: T, turnType: TurnType): T & { _turn_type?: TurnType } {
-  return import.meta.env.DEV ? { ...base, _turn_type: turnType } : base
+function withTurnType<T extends Omit<TurnBase, '_turn_type'>>(base: T, turnType: TurnType): T & { _turn_type: TurnType } {
+  return { ...base, _turn_type: turnType }
 }
 
 function isNonEmptyString(value: unknown): value is string {
@@ -178,7 +179,7 @@ export function buildConversationTurnRequest(input: {
   client_turn_id?: string
 }): ConversationTurnRequest {
   const validAnalysisState = isValidExplainAnalysisState(input.analysis_state) ? input.analysis_state : undefined
-  return withDevTurnType({
+  return withTurnType({
     scenario_id: input.scenario_id,
     client_turn_id: createClientTurnId(input.client_turn_id),
     conversation_history: input.conversation_history,
@@ -198,7 +199,7 @@ export function buildExplicitGenerateTurnRequest(input: {
   client_turn_id?: string
 }): ExplicitGenerateTurnRequest {
   const validAnalysisState = isValidExplainAnalysisState(input.analysis_state) ? input.analysis_state : undefined
-  return withDevTurnType({
+  return withTurnType({
     scenario_id: input.scenario_id,
     client_turn_id: createClientTurnId(input.client_turn_id),
     conversation_history: input.conversation_history,
@@ -216,7 +217,7 @@ export function buildRunAnalysisTurnRequest(input: {
   analysis_inputs: AnalysisInputsPayload
   client_turn_id?: string
 }): RunAnalysisTurnRequest {
-  return withDevTurnType({
+  return withTurnType({
     scenario_id: input.scenario_id,
     client_turn_id: createClientTurnId(input.client_turn_id),
     conversation_history: input.conversation_history,
@@ -235,7 +236,7 @@ export function buildSystemEventTurnRequest(input: {
   client_turn_id?: string
 }): SystemEventTurnRequest {
   const validAnalysisState = isValidExplainAnalysisState(input.analysis_state) ? input.analysis_state : undefined
-  return withDevTurnType({
+  return withTurnType({
     scenario_id: input.scenario_id,
     client_turn_id: createClientTurnId(input.client_turn_id),
     conversation_history: input.conversation_history,
@@ -254,7 +255,7 @@ export function buildPatchFollowupTurnRequest(input: {
   client_turn_id?: string
 }): PatchFollowupTurnRequest {
   const validAnalysisState = isValidExplainAnalysisState(input.analysis_state) ? input.analysis_state : undefined
-  return withDevTurnType({
+  return withTurnType({
     scenario_id: input.scenario_id,
     client_turn_id: createClientTurnId(input.client_turn_id),
     conversation_history: input.conversation_history,
@@ -273,7 +274,7 @@ export function buildExplainTurnRequest(input: {
   client_turn_id?: string
 }): ExplainTurnRequest {
   const analysisState = isValidExplainAnalysisState(input.analysis_state) ? input.analysis_state : undefined
-  return withDevTurnType({
+  return withTurnType({
     scenario_id: input.scenario_id,
     client_turn_id: createClientTurnId(input.client_turn_id),
     conversation_history: input.conversation_history,
@@ -290,7 +291,7 @@ export function buildClarificationResponseTurnRequest(input: {
   message: string
   client_turn_id?: string
 }): ClarificationResponseTurnRequest {
-  return withDevTurnType({
+  return withTurnType({
     scenario_id: input.scenario_id,
     client_turn_id: createClientTurnId(input.client_turn_id),
     conversation_history: input.conversation_history,
@@ -299,21 +300,15 @@ export function buildClarificationResponseTurnRequest(input: {
 }
 
 export function validateTurnRequestBoundary(request: TurnRequestPayload): void {
-  if (!import.meta.env.DEV) return
-
   const turnType = request._turn_type ?? 'conversation'
   const payloadKeys = Object.keys(request)
   const allowed = new Set(TURN_ALLOW_LIST[turnType])
   const required = TURN_REQUIRED_FIELDS[turnType]
+  const violations: Array<{ field: string; violation: string }> = []
 
   for (const key of payloadKeys) {
     if (!allowed.has(key)) {
-      console.error('[BOUNDARY]', {
-        turn_type: turnType,
-        field: key,
-        violation: 'forbidden_field',
-        payload_keys: payloadKeys,
-      })
+      violations.push({ field: key, violation: 'forbidden_field' })
     }
   }
 
@@ -324,40 +319,20 @@ export function validateTurnRequestBoundary(request: TurnRequestPayload): void {
       || value === null
       || (typeof value === 'string' && value.trim().length === 0)
     if (missing) {
-      console.error('[BOUNDARY]', {
-        turn_type: turnType,
-        field: key,
-        violation: 'missing_required_field',
-        payload_keys: payloadKeys,
-      })
+      violations.push({ field: key, violation: 'missing_required_field' })
     }
   }
 
   if (!isNonEmptyString(request.client_turn_id)) {
-    console.error('[BOUNDARY]', {
-      turn_type: turnType,
-      field: 'client_turn_id',
-      violation: 'client_turn_id_must_be_non_empty_string',
-      payload_keys: payloadKeys,
-    })
+    violations.push({ field: 'client_turn_id', violation: 'client_turn_id_must_be_non_empty_string' })
   }
 
   if (!isNonEmptyString(request.scenario_id)) {
-    console.error('[BOUNDARY]', {
-      turn_type: turnType,
-      field: 'scenario_id',
-      violation: 'scenario_id_must_be_non_empty_string',
-      payload_keys: payloadKeys,
-    })
+    violations.push({ field: 'scenario_id', violation: 'scenario_id_must_be_non_empty_string' })
   }
 
   if ('graph_state' in request && request.graph_state !== undefined && !hasGraphState(request.graph_state)) {
-    console.error('[BOUNDARY]', {
-      turn_type: turnType,
-      field: 'graph_state',
-      violation: 'graph_state_requires_nodes_and_edges_arrays',
-      payload_keys: payloadKeys,
-    })
+    violations.push({ field: 'graph_state', violation: 'graph_state_requires_nodes_and_edges_arrays' })
   }
 
   if (
@@ -365,16 +340,30 @@ export function validateTurnRequestBoundary(request: TurnRequestPayload): void {
     && request.analysis_state !== undefined
     && !isValidExplainAnalysisState(request.analysis_state)
   ) {
-    console.error('[BOUNDARY]', {
+    violations.push({ field: 'analysis_state', violation: 'analysis_state_requires_analysis_status_meta_response_hash_results' })
+  }
+
+  if (violations.length > 0) {
+    if (import.meta.env.DEV) {
+      for (const v of violations) {
+        console.error('[BOUNDARY]', {
+          turn_type: turnType,
+          field: v.field,
+          violation: v.violation,
+          payload_keys: payloadKeys,
+        })
+      }
+    }
+    // Emit telemetry in all environments (including production)
+    trackEvent('ui.turn_request_validation_failure', {
       turn_type: turnType,
-      field: 'analysis_state',
-      violation: 'analysis_state_requires_analysis_status_meta_response_hash_results',
+      violations,
       payload_keys: payloadKeys,
     })
   }
 }
 
-export function stripDevTurnType<T extends TurnRequestPayload>(request: T): Omit<T, '_turn_type'> {
+export function stripTurnType<T extends TurnRequestPayload>(request: T): Omit<T, '_turn_type'> {
   const { _turn_type: _ignored, ...rest } = request
   return rest
 }
