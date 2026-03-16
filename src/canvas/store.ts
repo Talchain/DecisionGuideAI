@@ -42,6 +42,17 @@ import { recordCrossSurfaceEvent, recordUserAction } from '../lib/debug-state'
 // graphHealthFromQuality() returns this when no issues exist, avoiding new array allocation
 const EMPTY_VALIDATION_ISSUES: ValidationIssue[] = []
 
+// Graph Lens: Default (reset) lens state constant
+const DEFAULT_LENS_STATE = {
+  active: 'full' as const,
+  selectedOptionId: null,
+  _dimmedNodeIds: new Set<string>(),
+  _dimmedEdgeIds: new Set<string>(),
+  _sensitivityWeights: new Map<string, number>(),
+  _sensitivityQuartiles: null,
+  _fragileEdgeIds: new Set<string>(),
+}
+
 /**
  * Generate deterministic content hash using FNV-1a algorithm
  * Fast, simple, and produces consistent hashes for content integrity checks
@@ -273,6 +284,17 @@ interface CanvasState {
   confirmedNodeIds: Set<string>
   // Decision Graph Display v2 Task 11: Option hover state for intervention highlighting
   hoveredOptionId: string | null
+  // Graph Lens: ephemeral canvas filtering state (post-analysis only)
+  lens: {
+    active: 'full' | 'option' | 'sensitivity' | 'fragile'
+    selectedOptionId: string | null
+    // Computed sets — written by useLensFilter, read by BaseNode/StyledEdge
+    _dimmedNodeIds: Set<string>
+    _dimmedEdgeIds: Set<string>
+    _sensitivityWeights: Map<string, number>
+    _sensitivityQuartiles: { q25: number; q75: number } | null
+    _fragileEdgeIds: Set<string>
+  }
   // M5: Grounding & Provenance
   documents: Document[]
   citations: Citation[]
@@ -476,6 +498,18 @@ interface CanvasState {
   toggleConfirmedNode: (nodeId: string) => void
   // Decision Graph Display v2 Task 11: Option hover for intervention highlighting
   setHoveredOption: (optionId: string | null) => void
+  // Graph Lens actions
+  setLens: (mode: 'full' | 'option' | 'sensitivity' | 'fragile', optionId?: string | null) => void
+  cycleLensOption: (direction: 'next' | 'prev') => void
+  resetLens: () => void
+  /** Update computed lens visuals (called by useLensFilter effect) */
+  setLensVisuals: (visuals: {
+    dimmedNodeIds: Set<string>
+    dimmedEdgeIds: Set<string>
+    sensitivityWeights: Map<string, number>
+    sensitivityQuartiles: { q25: number; q75: number } | null
+    fragileEdgeIds: Set<string>
+  }) => void
   // M5: Provenance actions
   addDocument: (document: Omit<Document, 'id' | 'uploadedAt'>) => string
   removeDocument: (id: string) => void
@@ -607,6 +641,8 @@ function pushToHistory(get: () => CanvasState, set: (fn: (s: CanvasState) => Par
     history: { past, future: [] },
     _internal: { lastHistoryHash: h },
     graphEditedSinceLastRun: true,
+    // Graph Lens: auto-reset on graph edit
+    lens: { ...DEFAULT_LENS_STATE },
   }))
 }
 
@@ -914,6 +950,16 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   dimmedNodeIds: new Set<string>(),
   confirmedNodeIds: new Set<string>(),
   hoveredOptionId: null,
+  // Graph Lens: ephemeral canvas filtering state
+  lens: {
+    active: 'full' as const,
+    selectedOptionId: null,
+    _dimmedNodeIds: new Set<string>(),
+    _dimmedEdgeIds: new Set<string>(),
+    _sensitivityWeights: new Map<string, number>(),
+    _sensitivityQuartiles: null,
+    _fragileEdgeIds: new Set<string>(),
+  },
   // M5: Grounding & Provenance
   documents: [],
   citations: [],
@@ -1764,6 +1810,8 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       lastAnalysisSeed: null,
       lastQualityMode: null,
       repairsApplied: null,
+      // Graph Lens: reset on canvas clear
+      lens: { ...DEFAULT_LENS_STATE },
     })
   },
 
@@ -1901,7 +1949,9 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
         runId: undefined,
         finishedAt: undefined,
         isDuplicateRun: undefined
-      }
+      },
+      // Graph Lens: auto-reset on new analysis run
+      lens: { ...DEFAULT_LENS_STATE },
     })
   },
 
@@ -2840,7 +2890,79 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   },
   // Decision Graph Display v2 Task 11: Option hover for intervention highlighting
   setHoveredOption: (optionId: string | null) => {
+    // Correction #1: When lens option isolation is active, suppress hover updates
+    // so the panel highlight stays on the lens-selected option.
+    const { lens } = get()
+    if (lens.active === 'option' && lens.selectedOptionId && optionId !== null) {
+      return
+    }
     set({ hoveredOptionId: optionId })
+  },
+
+  // Graph Lens actions
+  setLens: (mode, optionId) => {
+    const { lens: prev } = get()
+    const updates: Partial<CanvasState> = {
+      lens: { ...prev, active: mode, selectedOptionId: optionId ?? null },
+    }
+    // Panel sync: when selecting an option lens, update hoveredOptionId
+    if (mode === 'option' && optionId) {
+      updates.hoveredOptionId = optionId
+    }
+    // When switching away from option mode, clear hoveredOptionId
+    if (mode !== 'option') {
+      updates.hoveredOptionId = null
+    }
+    set(updates)
+  },
+
+  cycleLensOption: (direction) => {
+    const state = get()
+    if (state.lens.active !== 'option') return
+    const options = state.results.report?.option_comparison
+    if (!options || options.length === 0) return
+
+    const currentId = state.lens.selectedOptionId
+    const currentIndex = currentId
+      ? options.findIndex((o: { option_id: string }) => o.option_id === currentId)
+      : -1
+    const len = options.length
+    const nextIndex = direction === 'next'
+      ? (currentIndex + 1) % len
+      : (currentIndex - 1 + len) % len
+    const nextOption = options[nextIndex] as { option_id: string }
+    set({
+      lens: { ...state.lens, active: 'option', selectedOptionId: nextOption.option_id },
+      hoveredOptionId: nextOption.option_id,
+    })
+  },
+
+  resetLens: () => {
+    const { lens } = get()
+    if (lens.active === 'full' && lens.selectedOptionId === null) return
+    set({ lens: { ...DEFAULT_LENS_STATE } })
+  },
+
+  setLensVisuals: (visuals) => {
+    const { lens } = get()
+    // Skip no-op updates to avoid re-renders (use setsEqual for Set comparison)
+    if (
+      setsEqual(lens._dimmedNodeIds, visuals.dimmedNodeIds) &&
+      setsEqual(lens._dimmedEdgeIds, visuals.dimmedEdgeIds) &&
+      setsEqual(lens._fragileEdgeIds, visuals.fragileEdgeIds)
+    ) {
+      return
+    }
+    set({
+      lens: {
+        ...lens,
+        _dimmedNodeIds: visuals.dimmedNodeIds,
+        _dimmedEdgeIds: visuals.dimmedEdgeIds,
+        _sensitivityWeights: visuals.sensitivityWeights,
+        _sensitivityQuartiles: visuals.sensitivityQuartiles,
+        _fragileEdgeIds: visuals.fragileEdgeIds,
+      },
+    })
   },
 
   // M5: Provenance actions
@@ -3004,6 +3126,8 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
         comparison,
         apiResponse,
       },
+      // Graph Lens: auto-reset on comparison mode entry
+      lens: { ...DEFAULT_LENS_STATE },
     })
   },
 
@@ -3457,3 +3581,10 @@ export const selectSeed = (state: CanvasState): number | undefined => state.resu
 export const selectHash = (state: CanvasState): string | undefined => state.results.hash
 /** A.9: Provenance of the current results — 'direct' | 'conversation' | undefined */
 export const selectResultsSource = (state: CanvasState): 'direct' | 'conversation' | undefined => state.results.resultsSource
+
+/**
+ * Graph Lens selectors
+ */
+export type LensMode = 'full' | 'option' | 'sensitivity' | 'fragile'
+export const selectLensMode = (state: CanvasState): LensMode => state.lens.active
+export const selectLensOptionId = (state: CanvasState): string | null => state.lens.selectedOptionId

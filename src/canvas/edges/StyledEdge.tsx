@@ -26,6 +26,7 @@ import { getEdgeLabel } from '../domain/edgeLabels'
 import { useEdgeLabelMode } from '../store/edgeLabelMode'
 import { EdgeEditPopover } from './EdgeEditPopover'
 import { useCanvasStore } from '../store'
+import { isGraphLensEnabled } from '../../flags'
 import { existenceCertaintyToLineStyle, calculateEdgeImportance, importanceToStrokeWidth, weightMagnitudeToStrokeWidth } from '../utils/graphDisplayCalculations'
 import { typography } from '../../styles/typography'
 import { useEdgeEditHint } from '../hooks/useFirstTimeHints'
@@ -68,6 +69,41 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
   // Graph Interaction P1: Path highlighting for selected node
   // React #185 FIX: Use primitive boolean selector to prevent infinite re-renders
   const isHighlightedEdge = useCanvasStore(state => state.highlightedEdges.has(id))
+
+  // Graph Lens: edge dimming and styling
+  const isLensDimmed = useCanvasStore(s =>
+    isGraphLensEnabled() && s.lens._dimmedEdgeIds.has(id)
+  )
+  const lensMode = useCanvasStore(s => isGraphLensEnabled() ? s.lens.active : 'full')
+  const lensSensWeight = useCanvasStore(s => {
+    if (!isGraphLensEnabled() || s.lens.active !== 'sensitivity') return null
+    return s.lens._sensitivityWeights.get(id) ?? null
+  })
+  const lensQuartiles = useCanvasStore(s => {
+    if (!isGraphLensEnabled() || s.lens.active !== 'sensitivity') return null
+    return s.lens._sensitivityQuartiles
+  })
+  const isLensFragile = useCanvasStore(s =>
+    isGraphLensEnabled() && s.lens.active === 'fragile' && s.lens._fragileEdgeIds.has(id)
+  )
+
+  // Graph Lens: alternative winner label for fragile edge hover
+  const lensFragileLabel = useMemo(() => {
+    if (!isLensFragile || !report) return ''
+    const reportAny = report as Record<string, unknown>
+    const robustness = reportAny.robustness as Record<string, unknown> | undefined
+    const fragileEdges = (robustness?.fragile_edges ?? []) as Array<Record<string, unknown>>
+    for (const fe of fragileEdges) {
+      const feEdgeId = (fe.edge_id ?? fe.edgeId) as string | undefined
+      const fromId = (fe.from_id ?? fe.fromId ?? fe.source) as string | undefined
+      const toId = (fe.to_id ?? fe.toId ?? fe.target) as string | undefined
+      if (feEdgeId === id || (fromId === source && toId === target)) {
+        const altLabel = (fe.alternative_winner_label ?? fe.alternativeWinnerLabel) as string | undefined
+        return altLabel ? `If wrong → ${altLabel}` : 'Fragile'
+      }
+    }
+    return 'Fragile'
+  }, [isLensFragile, report, id, source, target])
 
   // Check if this edge is fragile (switch_probability > 0.3)
   // P0 Fix: Match by from_id/to_id (source/target) OR edge_id
@@ -310,7 +346,17 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
         path={edgePath}
         style={{
           // Graph Interaction P1: Highlighted edges get thicker stroke
-          strokeWidth: isHighlightedEdge ? Math.max(edgeStrokeWidth, 3) : edgeStrokeWidth,
+          strokeWidth: (() => {
+            // Graph Lens: sensitivity mode adjusts stroke width by quartile
+            if (lensMode === 'sensitivity' && lensSensWeight !== null && lensQuartiles) {
+              if (lensSensWeight >= lensQuartiles.q75) return 3
+              if (lensSensWeight <= lensQuartiles.q25) return 1
+              return 1.5
+            }
+            // Graph Lens: fragile mode thickens fragile edges
+            if (isLensFragile) return 3
+            return isHighlightedEdge ? Math.max(edgeStrokeWidth, 3) : edgeStrokeWidth
+          })(),
           // Fix 1: Use existence certainty for line style, fallback to visual props
           // B.I.10: Pre-run incomplete edges get dashed stroke to indicate "needs attention"
           strokeDasharray: isPreRunIncompleteEdge ? '6 3' : (dashArray ?? visualProps.strokeDasharray),
@@ -318,12 +364,20 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
           // F.2: Direction colour always applies — yellow only for truly uninitialised edges
           // Pre-run overlay controls dash pattern only, not colour
           stroke: isHighlightedEdge ? 'var(--semantic-info)' : (directionStroke ?? visualProps.stroke),
+          // Graph Lens: opacity for dimmed edges
+          opacity: isLensDimmed ? 0.2
+            : (lensMode === 'sensitivity' && lensSensWeight !== null && lensQuartiles && lensSensWeight <= lensQuartiles.q25) ? 0.4
+            : undefined,
+          // Graph Lens: subtle glow for high-sensitivity edges
+          filter: (lensMode === 'sensitivity' && lensSensWeight !== null && lensQuartiles && lensSensWeight >= lensQuartiles.q75)
+            ? 'drop-shadow(0 0 2px var(--semantic-info, #3b82f6))'
+            : undefined,
           // Performance: use will-change for frequent updates
           willChange: selected || isHighlightedEdge ? 'stroke, stroke-width, stroke-dasharray' : undefined,
           // D.1: Smooth transitions for live styling; respect prefers-reduced-motion (§7.4)
           transition: prefersReducedMotion
             ? 'none'
-            : 'stroke 200ms ease, stroke-width 200ms ease, stroke-dasharray 200ms ease',
+            : 'stroke 200ms ease, stroke-width 200ms ease, stroke-dasharray 200ms ease, opacity 300ms ease',
         }}
       />
       
@@ -370,6 +424,28 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
             <span style={{ fontSize: '10px', fontWeight: 600 }}>
               Fragile
             </span>
+          </div>
+        </EdgeLabelRenderer>
+      )}
+
+      {/* Graph Lens: Alternative winner label on fragile edges (hover/selection only) */}
+      {/* Correction #2: component-local state, no store update, no rerender of other edges */}
+      {isLensFragile && (isHovered || selected) && (
+        <EdgeLabelRenderer>
+          <div
+            style={{
+              position: 'absolute',
+              transform: `translate(-50%, -50%) translate(${labelX}px,${labelY + 20}px)`,
+              pointerEvents: 'none',
+              padding: '2px 8px',
+              borderRadius: '4px',
+              fontSize: '11px',
+              fontWeight: 500,
+              whiteSpace: 'nowrap',
+            }}
+            className="bg-panel text-text-body border border-warning/30 shadow-sm"
+          >
+            {lensFragileLabel}
           </div>
         </EdgeLabelRenderer>
       )}

@@ -14,11 +14,13 @@
  * Design rules: no background fills on cards (full borders only, no left-accent).
  */
 
-import { useRef, useState, type RefObject } from 'react'
+import { useRef, useState, useCallback, type RefObject } from 'react'
 import { typography } from '../../styles/typography'
 import { formatPercent as formatPct } from '../../utils/formatPercent'
 import { stripEncodingNotation } from './utils/cleanFactorLabel'
 import { highlightNode, clearHighlight } from '../../canvas/utils/highlightHelpers'
+import { useCanvasStore, selectResultsStatus } from '../../canvas/store'
+import { isGraphLensEnabled } from '../../flags'
 import type { OptionResult, DecisionState, HingeInfo } from './types'
 import {
   constraintConfidenceColour,
@@ -148,6 +150,7 @@ function OptionCard({
   neutralised = false,
   sortedRank,
   segmentBorderClass,
+  onClick,
 }: {
   option: OptionResult
   isWinner: boolean
@@ -161,6 +164,7 @@ function OptionCard({
   sortedRank?: number
   /** Ordinal border class matching this option's WinGauge segment colour */
   segmentBorderClass?: string
+  onClick?: () => void
 }) {
   const borderClass = neutralised
     ? 'border-panel-border'
@@ -188,6 +192,8 @@ function OptionCard({
       data-option-id={option.id}
       onMouseEnter={() => highlightNode(option.id)}
       onMouseLeave={clearHighlight}
+      onClick={onClick}
+      style={onClick ? { cursor: 'pointer' } : undefined}
     >
       {/* Header: name + rank badge + win percentage */}
       <div className="flex items-center gap-2">
@@ -287,6 +293,22 @@ export function OptionCards({
   const visibleOptions = shouldTruncate && !showAllOptions ? sorted.slice(0, TOP_N) : sorted
   const hiddenCount = sorted.length - TOP_N
 
+  // Graph Lens: reverse panel sync — click option card to toggle lens isolation
+  const lensEnabled = isGraphLensEnabled()
+  const resultsComplete = useCanvasStore(s => selectResultsStatus(s) === 'complete')
+  const lensSelectedOptionId = useCanvasStore(s => s.lens.selectedOptionId)
+  const setLens = useCanvasStore(s => s.setLens)
+  const resetLens = useCanvasStore(s => s.resetLens)
+
+  const handleLensClick = useCallback((optionId: string) => {
+    if (!lensEnabled || !resultsComplete) return
+    if (lensSelectedOptionId === optionId) {
+      resetLens()
+    } else {
+      setLens('option', optionId)
+    }
+  }, [lensEnabled, resultsComplete, lensSelectedOptionId, setLens, resetLens])
+
   if (sorted.length === 0) return null
 
   return (
@@ -317,6 +339,7 @@ export function OptionCards({
             neutralised={neutralised}
             sortedRank={index + 1}
             segmentBorderClass={segmentBorderClass}
+            onClick={lensEnabled && resultsComplete ? () => handleLensClick(option.id) : undefined}
             cardRef={(el) => {
               const currentMap = refMap.current
               if (!currentMap) return

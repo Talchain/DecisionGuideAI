@@ -359,6 +359,11 @@ const FLAGS_CONFIG = {
     envKey: 'VITE_FEATURE_CROSS_HIGHLIGHT',
     storageKey: 'feature.crossHighlight',
   },
+  // Graph Lens: post-analysis canvas filtering modes (option isolation, sensitivity, fragile edges)
+  graphLens: {
+    envKey: 'VITE_FEATURE_GRAPH_LENS',
+    storageKey: 'feature.graphLens',
+  },
 } as const
 
 // ============================================================================
@@ -439,6 +444,7 @@ const flags = {
   graphBadges: makeFlag(FLAGS_CONFIG.graphBadges),
   nodeIntelligence: makeFlag(FLAGS_CONFIG.nodeIntelligence),
   crossHighlight: makeFlag(FLAGS_CONFIG.crossHighlight),
+  graphLens: makeFlag(FLAGS_CONFIG.graphLens),
 }
 
 // Export with original naming convention for backward compatibility
@@ -514,6 +520,7 @@ export const isCausalClaimsEnabled = flags.causalClaims
 export const isGraphBadgesEnabled = flags.graphBadges
 export const isNodeIntelligenceEnabled = flags.nodeIntelligence
 export const isCrossHighlightEnabled = flags.crossHighlight
+export const isGraphLensEnabled = flags.graphLens
 
 
 // ============================================================================

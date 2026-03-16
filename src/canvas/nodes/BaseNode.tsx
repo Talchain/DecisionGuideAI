@@ -24,6 +24,7 @@ import { typography } from '../../styles/typography'
 import { getControllabilityBorderStyle } from '../utils/graphDisplayCalculations'
 import { useNodeDisplayMetadata } from '../hooks/useNodeDisplayMetadata'
 import { isGoalDefined } from '../../utils/isGoalDefined'
+import { isGraphLensEnabled } from '../../flags'
 import { NodeShapeIndicator } from './NodeShapeIndicator'
 import { NODE_REGISTRY } from '../domain/nodes'
 
@@ -66,6 +67,12 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
   // Graph Interaction P1: Node dimming for path highlighting
   // Nodes not on the highlighted path are dimmed (opacity ~0.4)
   const isDimmed = useCanvasStore(s => s.dimmedNodeIds.has(id))
+
+  // Graph Lens: lens-mode dimming (20% opacity for inactive nodes in option mode)
+  // Uses primitive boolean selector (React #185 pattern) to avoid re-render loops
+  const isLensDimmed = useCanvasStore(s =>
+    isGraphLensEnabled() && s.lens._dimmedNodeIds.has(id)
+  )
 
   // Decision Graph Display v2: Get Results-mode display metadata
   const displayMetadata = useNodeDisplayMetadata(id, nodeType)
@@ -181,7 +188,7 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
         cursor-default
         ${selected ? 'ring-2 ring-info ring-offset-2' : ''}
         ${isHighlighted ? 'ring-4 ring-goal/50' : ''}
-        ${isDimmed ? 'opacity-40' : ''}
+        ${isLensDimmed ? 'opacity-20' : isDimmed ? 'opacity-40' : ''}
       `}
       style={{
         backgroundColor: '#FEFEFE', // Panel background color
