@@ -138,8 +138,19 @@ const TURN_REQUIRED_FIELDS: Record<TurnType, readonly string[]> = {
   clarification_response: ['scenario_id', 'client_turn_id', 'conversation_history', 'message'],
 }
 
+// UUID pattern (hex 8-4-4-4-12, any version, case-insensitive)
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+/** Check whether a value is a valid UUID string. Exported for use by callers that
+ *  need to normalise scenario_id or client_turn_id before building a request. */
+export function isUUID(value: unknown): value is string {
+  return typeof value === 'string' && UUID_RE.test(value)
+}
+
 function createClientTurnId(clientTurnId?: string): string {
-  if (typeof clientTurnId === 'string' && clientTurnId.trim().length > 0) return clientTurnId
+  // Only reuse caller-provided IDs that are valid UUIDs — interaction chain keys
+  // (e.g. composite stateKeys like "{uuid}:{patch_id}") must not leak onto the wire.
+  if (typeof clientTurnId === 'string' && isUUID(clientTurnId)) return clientTurnId
   return crypto.randomUUID()
 }
 
@@ -323,12 +334,12 @@ export function validateTurnRequestBoundary(request: TurnRequestPayload): void {
     }
   }
 
-  if (!isNonEmptyString(request.client_turn_id)) {
-    violations.push({ field: 'client_turn_id', violation: 'client_turn_id_must_be_non_empty_string' })
+  if (!isUUID(request.client_turn_id)) {
+    violations.push({ field: 'client_turn_id', violation: 'client_turn_id_must_be_uuid' })
   }
 
-  if (!isNonEmptyString(request.scenario_id)) {
-    violations.push({ field: 'scenario_id', violation: 'scenario_id_must_be_non_empty_string' })
+  if (!isUUID(request.scenario_id)) {
+    violations.push({ field: 'scenario_id', violation: 'scenario_id_must_be_uuid' })
   }
 
   if ('graph_state' in request && request.graph_state !== undefined && !hasGraphState(request.graph_state)) {

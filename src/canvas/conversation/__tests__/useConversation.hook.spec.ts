@@ -53,7 +53,7 @@ beforeEach(() => {
 
   // Minimal store state the hook reads
   useCanvasStore.setState({
-    currentScenarioId: 'test-scenario',
+    currentScenarioId: 'a0a0a0a0-b1b1-4c2c-8d3d-e4e4e4e4e4e4',
     nodes: [],
     edges: [],
     results: { status: 'idle' } as any,
@@ -227,7 +227,7 @@ describe('input restore on error (lastFailedInput)', () => {
 
     // Simulate scenario switch
     act(() => {
-      useCanvasStore.setState({ currentScenarioId: 'new-scenario' })
+      useCanvasStore.setState({ currentScenarioId: 'b1b1b1b1-c2c2-4d3d-9e4e-f5f5f5f5f5f5' })
     })
 
     expect(result.current.lastFailedInput).toBeNull()
@@ -244,7 +244,7 @@ describe('buildRequest payload — RF → CEE graph_state transform', () => {
   beforeEach(() => {
     // Seed store with realistic React Flow format nodes and edges
     useCanvasStore.setState({
-      currentScenarioId: 'test-scenario',
+      currentScenarioId: 'a0a0a0a0-b1b1-4c2c-8d3d-e4e4e4e4e4e4',
       nodes: [
         {
           id: 'goal-1',
@@ -400,9 +400,9 @@ describe('buildRequest payload — RF → CEE graph_state transform', () => {
     })
 
     const request = mockCallTurn.mock.calls[0][0]
-    expect(request.scenario_id).toBe('test-scenario')
+    expect(request.scenario_id).toBe('a0a0a0a0-b1b1-4c2c-8d3d-e4e4e4e4e4e4')
     expect(request.message).toBe('hello')
-    expect(request.client_turn_id).toBeTruthy()
+    expect(request.client_turn_id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)
     expect(Array.isArray(request.conversation_history)).toBe(true)
     expect(request.graph_state).toBeDefined()
     expect(Array.isArray(request.graph_state.nodes)).toBe(true)
@@ -536,7 +536,7 @@ describe('buildRequest payload — RF → CEE graph_state transform', () => {
 
   it('clamps probability and weight values to valid ranges', async () => {
     useCanvasStore.setState({
-      currentScenarioId: 'test-scenario',
+      currentScenarioId: 'a0a0a0a0-b1b1-4c2c-8d3d-e4e4e4e4e4e4',
       nodes: [
         { id: 'n1', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'A', kind: 'factor' } },
         { id: 'n2', type: 'goal', position: { x: 0, y: 0 }, data: { label: 'B', kind: 'goal' } },
@@ -575,7 +575,7 @@ describe('buildRequest payload — RF → CEE graph_state transform', () => {
 
   it('falls back unknown kind to factor', async () => {
     useCanvasStore.setState({
-      currentScenarioId: 'test-scenario',
+      currentScenarioId: 'a0a0a0a0-b1b1-4c2c-8d3d-e4e4e4e4e4e4',
       nodes: [
         { id: 'n1', type: 'customWeirdType', position: { x: 0, y: 0 }, data: { label: 'A', kind: 'banana' } },
       ] as any,
@@ -595,7 +595,7 @@ describe('buildRequest payload — RF → CEE graph_state transform', () => {
 
   it('omits effect_direction for invalid direction values', async () => {
     useCanvasStore.setState({
-      currentScenarioId: 'test-scenario',
+      currentScenarioId: 'a0a0a0a0-b1b1-4c2c-8d3d-e4e4e4e4e4e4',
       nodes: [
         { id: 'n1', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'A', kind: 'factor' } },
         { id: 'n2', type: 'goal', position: { x: 0, y: 0 }, data: { label: 'B', kind: 'goal' } },
@@ -642,7 +642,7 @@ describe('graph_hash_at_proposal stamping', () => {
   it('stamps graph_hash_at_proposal on graph_patch blocks in envelope', async () => {
     // Set up a graph so generateGraphHash produces a deterministic hash
     useCanvasStore.setState({
-      currentScenarioId: 'test-scenario',
+      currentScenarioId: 'a0a0a0a0-b1b1-4c2c-8d3d-e4e4e4e4e4e4',
       nodes: [{ id: 'n1', position: { x: 0, y: 0 }, data: { label: 'A' } }] as any,
       edges: [] as any,
       results: { status: 'idle' } as any,
@@ -1096,5 +1096,61 @@ describe('hidden send lifecycle', () => {
     expect(chain?.sourceSurface).toBe('right_panel')
     expect(chain?.requests[0]?.rightPanelAccidentallySubmittedComposerContent).toBe(false)
     expect(chain?.requests[0]?.visibleTextSubmitted).toBeNull()
+  })
+})
+
+// ---------------------------------------------------------------------------
+// null-initial scenario_id lifecycle
+// ---------------------------------------------------------------------------
+
+describe('null-initial scenario_id lifecycle', () => {
+  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+  it('lazily allocates a UUID scenario_id on first send when store starts with null', async () => {
+    useCanvasStore.setState({ currentScenarioId: null as any })
+    mockCallTurn.mockResolvedValueOnce({ assistant_text: 'ok', client_turn_id: 'resp-lazy' })
+
+    const { result } = renderHook(() => useConversation())
+    await act(async () => { await result.current.sendMessage('hello') })
+
+    const request = mockCallTurn.mock.calls[0][0]
+    expect(UUID_RE.test(request.scenario_id)).toBe(true)
+    expect(UUID_RE.test(useCanvasStore.getState().currentScenarioId)).toBe(true)
+  })
+
+  it('reuses the same scenario_id across multiple sends after lazy allocation', async () => {
+    useCanvasStore.setState({ currentScenarioId: null as any })
+    mockCallTurn.mockResolvedValue({ assistant_text: 'ok', client_turn_id: 'resp-multi' })
+
+    const { result } = renderHook(() => useConversation())
+    await act(async () => { await result.current.sendMessage('first') })
+    await act(async () => { await result.current.sendMessage('second') })
+
+    const first = mockCallTurn.mock.calls[0][0].scenario_id
+    const second = mockCallTurn.mock.calls[1][0].scenario_id
+    expect(first).toBe(second)
+    expect(UUID_RE.test(first)).toBe(true)
+  })
+
+  it('replaces legacy non-UUID scenario_id with a fresh UUID', async () => {
+    useCanvasStore.setState({ currentScenarioId: 'scenario-1709827200000-abc' as any })
+    mockCallTurn.mockResolvedValueOnce({ assistant_text: 'ok', client_turn_id: 'resp-legacy' })
+
+    const { result } = renderHook(() => useConversation())
+    await act(async () => { await result.current.sendMessage('hello') })
+
+    const request = mockCallTurn.mock.calls[0][0]
+    expect(UUID_RE.test(request.scenario_id)).toBe(true)
+    expect(request.scenario_id).not.toBe('scenario-1709827200000-abc')
+  })
+
+  it('always sends a UUID client_turn_id even when pendingContext has non-UUID chainId', async () => {
+    mockCallTurn.mockResolvedValueOnce({ assistant_text: 'ok', client_turn_id: 'resp-chain' })
+
+    const { result } = renderHook(() => useConversation())
+    await act(async () => { await result.current.sendMessage('hello') })
+
+    const request = mockCallTurn.mock.calls[0][0]
+    expect(UUID_RE.test(request.client_turn_id)).toBe(true)
   })
 })

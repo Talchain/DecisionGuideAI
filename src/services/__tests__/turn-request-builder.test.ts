@@ -7,6 +7,7 @@ import {
   buildPatchFollowupTurnRequest,
   buildRunAnalysisTurnRequest,
   buildSystemEventTurnRequest,
+  isUUID,
   stripTurnType,
   validateTurnRequestBoundary,
 } from '../turn-request-builder'
@@ -18,6 +19,8 @@ vi.mock('../../lib/posthog', () => ({
 
 const history = [{ role: 'user', content: 'hello' }] as const
 const graphState = { nodes: [{ id: 'n1' }], edges: [{ from: 'n1', to: 'n2' }] }
+const VALID_UUID = 'a0a0a0a0-b1b1-4c2c-8d3d-e4e4e4e4e4e4'
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const validAnalysisState = {
   analysis_status: 'complete',
   meta: { response_hash: 'hash-1' },
@@ -275,16 +278,45 @@ describe('turn request builders', () => {
     expect(a.client_turn_id).not.toBe(b.client_turn_id)
   })
 
-  it('preserves caller-provided client_turn_id', () => {
+  it('preserves caller-provided client_turn_id when it is a valid UUID', () => {
+    const callerUUID = 'deadbeef-1234-5678-abcd-ef0123456789'
     const req = buildConversationTurnRequest({
       scenario_id: 's8',
       conversation_history: [...history],
       message: 'm',
       graph_state: graphState,
-      client_turn_id: 'fixed-id',
+      client_turn_id: callerUUID,
     })
 
-    expect(req.client_turn_id).toBe('fixed-id')
+    expect(req.client_turn_id).toBe(callerUUID)
+  })
+
+  it('generates a fresh UUID when caller-provided client_turn_id is not a UUID', () => {
+    const req = buildConversationTurnRequest({
+      scenario_id: 's8b',
+      conversation_history: [...history],
+      message: 'm',
+      graph_state: graphState,
+      client_turn_id: 'deadbeef-1234-5678-abcd-ef0123456789:patch_42',
+    })
+
+    expect(req.client_turn_id).not.toBe('deadbeef-1234-5678-abcd-ef0123456789:patch_42')
+    expect(UUID_RE.test(req.client_turn_id)).toBe(true)
+  })
+
+  it('all builder functions always produce a valid UUID client_turn_id', () => {
+    const builders = [
+      () => buildConversationTurnRequest({ scenario_id: 'x', conversation_history: [...history], message: 'm', graph_state: graphState }),
+      () => buildExplicitGenerateTurnRequest({ scenario_id: 'x', conversation_history: [...history], message: 'm', graph_state: graphState }),
+      () => buildRunAnalysisTurnRequest({ scenario_id: 'x', conversation_history: [...history], graph_state: graphState, analysis_inputs: { options: [], goal_node_id: 'g1' } }),
+      () => buildSystemEventTurnRequest({ scenario_id: 'x', conversation_history: [...history], message: 'm', graph_state: graphState, system_event: { type: 'direct_graph_edit', payload: {} } }),
+      () => buildPatchFollowupTurnRequest({ scenario_id: 'x', conversation_history: [...history], graph_state: graphState }),
+      () => buildExplainTurnRequest({ scenario_id: 'x', conversation_history: [...history], message: 'm', graph_state: graphState }),
+      () => buildClarificationResponseTurnRequest({ scenario_id: 'x', conversation_history: [...history], message: 'm' }),
+    ]
+    for (const build of builders) {
+      expect(UUID_RE.test(build().client_turn_id)).toBe(true)
+    }
   })
 
   it('analysis_state is absent on conversation turns when no analysis available', () => {
@@ -376,7 +408,7 @@ describe('validateTurnRequestBoundary (dev-mode)', () => {
 
   it('accepts valid analysis_state on conversation turns (no violation)', () => {
     const req = buildConversationTurnRequest({
-      scenario_id: 's12b',
+      scenario_id: VALID_UUID,
       conversation_history: [...history],
       message: 'hello',
       graph_state: graphState,
@@ -460,7 +492,7 @@ describe('validateTurnRequestBoundary (dev-mode)', () => {
 
   it('accepts first-turn explicit_generate with empty conversation_history (no violations)', () => {
     const req = buildExplicitGenerateTurnRequest({
-      scenario_id: 's16',
+      scenario_id: VALID_UUID,
       conversation_history: [],
       message: 'Build a decision model for choosing a car',
       graph_state: { nodes: [], edges: [] },
@@ -472,7 +504,7 @@ describe('validateTurnRequestBoundary (dev-mode)', () => {
 
   it('accepts multi-turn explicit_generate with populated conversation_history (no violations)', () => {
     const req = buildExplicitGenerateTurnRequest({
-      scenario_id: 's17',
+      scenario_id: VALID_UUID,
       conversation_history: [...history],
       message: 'Now generate the model',
       graph_state: graphState,
@@ -480,6 +512,54 @@ describe('validateTurnRequestBoundary (dev-mode)', () => {
 
     validateTurnRequestBoundary(req)
     expect(consoleErrorSpy).not.toHaveBeenCalled()
+  })
+
+  it('flags non-UUID scenario_id (legacy format) as a validation violation', () => {
+    const req = buildConversationTurnRequest({
+      scenario_id: 'scenario-1709827200000-abc',
+      conversation_history: [...history],
+      message: 'hello',
+      graph_state: graphState,
+    })
+
+    validateTurnRequestBoundary(req)
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      '[BOUNDARY]',
+      expect.objectContaining({ field: 'scenario_id', violation: 'scenario_id_must_be_uuid' }),
+    )
+  })
+
+  it('flags empty scenario_id as a UUID validation violation', () => {
+    const req = buildConversationTurnRequest({
+      scenario_id: '',
+      conversation_history: [...history],
+      message: 'hello',
+      graph_state: graphState,
+    })
+
+    validateTurnRequestBoundary(req)
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      '[BOUNDARY]',
+      expect.objectContaining({ field: 'scenario_id', violation: 'scenario_id_must_be_uuid' }),
+    )
+  })
+
+  it('flags non-UUID client_turn_id as a validation violation', () => {
+    const req = {
+      ...buildConversationTurnRequest({
+        scenario_id: VALID_UUID,
+        conversation_history: [...history],
+        message: 'hello',
+        graph_state: graphState,
+      }),
+      client_turn_id: 'not-a-uuid',
+    } as any
+
+    validateTurnRequestBoundary(req)
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      '[BOUNDARY]',
+      expect.objectContaining({ field: 'client_turn_id', violation: 'client_turn_id_must_be_uuid' }),
+    )
   })
 
   it('emits telemetry on validation failure', () => {
@@ -504,7 +584,7 @@ describe('validateTurnRequestBoundary (dev-mode)', () => {
 
   it('does not emit telemetry when all fields are valid', () => {
     const req = buildConversationTurnRequest({
-      scenario_id: 's19',
+      scenario_id: VALID_UUID,
       conversation_history: [...history],
       message: 'valid message',
       graph_state: graphState,

@@ -59,7 +59,7 @@ import { validateEnvelopeShape, validateStreamEventShape } from './validateRespo
 import { computePayloadHash } from '../../lib/canonical-hash'
 import { recordRequest, recordResponse } from '../../lib/debug-state'
 import { recordRequestPayload, recordResponsePayload } from '../../lib/payload-trace-store'
-import { stripTurnType, validateTurnRequestBoundary, type TurnRequestPayload } from '../../services/turn-request-builder'
+import { isUUID, stripTurnType, validateTurnRequestBoundary, type TurnRequestPayload } from '../../services/turn-request-builder'
 
 // In production/staging, route through Netlify edge function proxy at /bff/orchestrate
 // to avoid CORS issues (CEE backend lacks CORS on /orchestrate/* routes).
@@ -135,6 +135,14 @@ export async function callOrchestratorTurn(
   const combinedSignal = signal
     ? combineSignals(signal, controller.signal)
     : controller.signal
+
+  // Hard guards: reject non-UUID IDs before any network call (all environments).
+  if (!isUUID(request.scenario_id)) {
+    throw new OrchestratorError(`scenario_id must be a UUID, got: ${String(request.scenario_id).slice(0, 60)}`, 0, null)
+  }
+  if (!isUUID(request.client_turn_id)) {
+    throw new OrchestratorError(`client_turn_id must be a UUID, got: ${String(request.client_turn_id).slice(0, 60)}`, 0, null)
+  }
 
   validateTurnRequestBoundary(request)
   const wireRequest = stripTurnType(request)
@@ -396,6 +404,14 @@ export async function* streamOrchestratorTurn(
   const combinedSignal = signal
     ? combineSignals(signal, controller.signal)
     : controller.signal
+
+  // Hard guards: reject non-UUID IDs before any network call (all environments).
+  if (!isUUID(request.scenario_id)) {
+    throw new OrchestratorError(`scenario_id must be a UUID, got: ${String(request.scenario_id).slice(0, 60)}`, 0, null)
+  }
+  if (!isUUID(request.client_turn_id)) {
+    throw new OrchestratorError(`client_turn_id must be a UUID, got: ${String(request.client_turn_id).slice(0, 60)}`, 0, null)
+  }
 
   validateTurnRequestBoundary(request)
   const wireRequest = stripTurnType(request)

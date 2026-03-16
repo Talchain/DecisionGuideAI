@@ -95,7 +95,7 @@ beforeEach(() => {
   mockResultsError.mockReset()
 
   useCanvasStore.setState({
-    currentScenarioId: 'test-scenario',
+    currentScenarioId: 'a0a0a0a0-b1b1-4c2c-8d3d-e4e4e4e4e4e4',
     nodes: [],
     edges: [],
     results: { status: 'idle', hash: undefined } as any,

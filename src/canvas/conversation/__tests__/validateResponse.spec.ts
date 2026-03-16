@@ -190,6 +190,21 @@ describe('validateResponse', () => {
     expect(envelope.suggested_actions).toBe(originalActions)
     expect(envelope.assistant_text).toBe('')
   })
+
+  it('does NOT inject fallback when assistant_text is null but blocks contain graph_patch', () => {
+    const graphPatchBlock = {
+      type: 'graph_patch',
+      operations: [{ op: 'add_node', data: { id: 'n1', kind: 'factor', label: 'Test' } }],
+    } as unknown as ConversationBlock
+    const envelope = makeEnvelope({ assistant_text: null, blocks: [graphPatchBlock] })
+
+    const { cleaned, repairs } = validateResponse(envelope, 'req-graph-patch')
+
+    expect(repairs).toHaveLength(0)
+    expect(cleaned.assistant_text).toBe('')
+    expect(cleaned.blocks).toHaveLength(1)
+    expect(mockTrackEvent).not.toHaveBeenCalled()
+  })
 })
 
 // ---------------------------------------------------------------------------

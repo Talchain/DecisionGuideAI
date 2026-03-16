@@ -72,6 +72,7 @@ import {
   type ExplainAnalysisStatePayload,
   type GraphStatePayload,
   type SelectedElementsPayload,
+  isUUID,
   type TurnRequestPayload,
   type TurnType,
 } from '../../services/turn-request-builder'
@@ -920,7 +921,18 @@ export function useConversation(): UseConversationReturn {
     }): TurnRequestPayload => {
       const store = useCanvasStore.getState()
       const { nodeIds, edgeIds } = store.selection
-      const scenarioId = store.currentScenarioId ?? `session-${Date.now()}`
+      // Lazy UUID allocation: generate a fresh UUID when store has no scenario_id or a
+      // legacy non-UUID format (e.g. "scenario-1709827200000-abc"). Persist to store so
+      // subsequent turns in the same session reuse the same ID.
+      let scenarioId = store.currentScenarioId
+      if (!scenarioId || !isUUID(scenarioId)) {
+        const newId = crypto.randomUUID()
+        if (import.meta.env.DEV) {
+          console.warn('[buildRequest] Replaced non-UUID scenario_id:', scenarioId, '→', newId)
+        }
+        scenarioId = newId
+        useCanvasStore.setState({ currentScenarioId: scenarioId })
+      }
       const conversationHistory = buildHistory(messages, 5)
       const selectedElements: SelectedElementsPayload | undefined =
         nodeIds.size > 0 || edgeIds.size > 0

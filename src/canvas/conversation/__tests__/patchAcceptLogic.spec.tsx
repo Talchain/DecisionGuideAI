@@ -113,7 +113,7 @@ beforeEach(() => {
   useCanvasStore.setState({
     nodes: [...INITIAL_NODES],
     edges: [...INITIAL_EDGES],
-    currentScenarioId: 'test-scenario',
+    currentScenarioId: 'a0a0a0a0-b1b1-4c2c-8d3d-e4e4e4e4e4e4',
     currentScenarioLastResultHash: 'hash-1',
     selection: { nodeIds: new Set(), edgeIds: new Set(), anchorPosition: null },
     results: { status: 'idle' } as any,

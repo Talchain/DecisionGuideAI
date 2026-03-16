@@ -31,14 +31,14 @@ function buildHistory(
 // ---------------------------------------------------------------------------
 function buildTestRequest(overrides: Partial<OrchestratorTurnRequest> = {}): OrchestratorTurnRequest {
   return {
-    scenario_id: 'session-1709827200000',
+    scenario_id: 'a0a0a0a0-b1b1-4c2c-8d3d-e4e4e4e4e4e4',
     message: 'Should I invest in stocks or bonds?',
     conversation_history: [],
     graph_state: {
       nodes: [],
       edges: [],
     },
-    client_turn_id: 'test-uuid-1234',
+    client_turn_id: 'deadbeef-1234-5678-abcd-ef0123456789',
     ...overrides,
   }
 }
