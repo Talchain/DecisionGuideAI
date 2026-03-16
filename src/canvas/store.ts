@@ -38,6 +38,19 @@ import { loadUIPreferences, saveUIPreference } from './store/uiPreferences'
 import { validateCeeAnalysisReady } from './utils/ceeAnalysisReadyValidation'
 import { recordCrossSurfaceEvent, recordUserAction } from '../lib/debug-state'
 
+/** A1: Lightweight snapshot of key values for delta display between analysis runs */
+export interface OptionSnapshot {
+  winProbability?: number
+  outcomeMean?: number
+  goalProbability?: number
+}
+
+export interface PreviousReportSnapshot {
+  options: Record<string, OptionSnapshot>
+  rankingStability?: number
+  driverInfluences?: Record<string, number>
+}
+
 // Brief 37 Optimization: Stable empty array to prevent re-renders
 // graphHealthFromQuality() returns this when no issues exist, avoiding new array allocation
 const EMPTY_VALIDATION_ISSUES: ValidationIssue[] = []
@@ -211,6 +224,8 @@ interface CanvasState {
   _internal: { lastHistoryHash: string }
   results: ResultsState  // Analysis results panel state
   runMeta: RunMetaState
+  /** A1: Snapshot of key values from the previous analysis run for delta display */
+  previousReport: PreviousReportSnapshot | null
   // Scenario state
   currentScenarioId: string | null  // Active scenario ID
   currentScenarioFraming: ScenarioFraming | null
@@ -883,6 +898,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     progress: 0
   },
   runMeta: {},
+  previousReport: null,
   // Scenario state
   currentScenarioId: scenarios.getCurrentScenarioId(),
   currentScenarioFraming: null,
@@ -1792,6 +1808,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       ceeModelQualityFactors: null,
       ceeInterventionHints: null,
       // Clear results and analysis state
+      previousReport: null, // A1: Clear stale deltas on canvas reset
       results: { status: 'idle', progress: 0 },
       runMeta: {},
       hasCompletedFirstRun: false,
@@ -1997,7 +2014,30 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     // Brief 37: Pass existing health to avoid creating new objects when unchanged
     const healthFromQuality = graphHealthFromQuality(report.graph_quality, existingHealth)
 
+    // A1: Snapshot current report values before overwriting
+    const currentReport = get().results.report
+    let snapshot: PreviousReportSnapshot | null = null
+    if (currentReport && get().results.status === 'complete') {
+      const options: Record<string, OptionSnapshot> = {}
+      const optionResults = (currentReport as any)?.option_comparison ?? (currentReport as any)?.results ?? []
+      for (const opt of optionResults) {
+        if (opt.option_id || opt.id) {
+          options[opt.option_id ?? opt.id] = {
+            winProbability: opt.win_probability ?? opt.winProbability,
+            outcomeMean: opt.expected_outcome ?? opt.outcome?.mean ?? opt.expected,
+            goalProbability: opt.probability_of_goal ?? opt.goalProbability,
+          }
+        }
+      }
+      const robustness = (currentReport as any)?.robustness
+      snapshot = {
+        options,
+        rankingStability: robustness?.recommendation_stability ?? robustness?.ranking_stability,
+      }
+    }
+
     set(s => ({
+      previousReport: snapshot,
       results: {
         ...s.results,
         status: 'complete',
@@ -2222,6 +2262,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
 
   resultsReset: () => {
     set({
+      previousReport: null,
       results: {
         status: 'idle',
         progress: 0
@@ -2299,6 +2340,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       currentScenarioLastResultHash: scenario.last_result_hash ?? null,
       currentScenarioLastRunAt: scenario.last_run_at ?? null,
       currentScenarioLastRunSeed: scenario.last_run_seed ?? null,
+      previousReport: null, // A1: Clear stale deltas on scenario switch
       isDirty: false,
       history: { past: [], future: [] },
       selection: { nodeIds: new Set(), edgeIds: new Set(), anchorPosition: null },
@@ -3603,6 +3645,8 @@ export const selectSeed = (state: CanvasState): number | undefined => state.resu
 export const selectHash = (state: CanvasState): string | undefined => state.results.hash
 /** A.9: Provenance of the current results — 'direct' | 'conversation' | undefined */
 export const selectResultsSource = (state: CanvasState): 'direct' | 'conversation' | undefined => state.results.resultsSource
+/** A1: Previous report snapshot for delta display */
+export const selectPreviousReport = (state: CanvasState): PreviousReportSnapshot | null => state.previousReport
 
 /**
  * Graph Lens selectors

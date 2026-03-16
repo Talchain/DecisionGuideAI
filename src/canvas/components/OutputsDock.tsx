@@ -26,6 +26,7 @@
 import { useEffect, useState, useRef, useMemo, useCallback, type ChangeEvent } from 'react'
 import { BarChart3, Shuffle, Activity, Clock, AlertTriangle, XCircle, MessageCircle, CheckCircle } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
+import { useUIStore, type OutputTab } from '../../stores/uiStore'
 import { useDockState } from '../hooks/useDockState'
 import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion'
 import { useCanvasStore, selectResultsStatus, selectReport, selectError, selectResultsSource } from '../store'
@@ -84,6 +85,7 @@ import { getUiSurfaceState, type InteractionStateSnapshot } from '../../lib/debu
 import type { CritiqueItemV1 } from '../../adapters/plot/types'
 import { verboseDebug } from '../../utils/verboseLog'
 import { AnalysisFooter } from '../shared/AnalysisFooter'
+import { StabilityGauge } from '../../components/shared/StabilityGauge'
 import { DEFAULT_EDGE_DATA } from '../domain/edges'
 import { useGraphReadiness } from '../hooks/useGraphReadiness'
 
@@ -139,6 +141,19 @@ export function OutputsDock() {
       setState(prev => ({ ...prev, activeTab: 'results' }))
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps -- one-time init guard
+
+  // E1: Sync external tab changes from Zustand store (programmatic navigation)
+  const externalTab = useUIStore(s => s.activeOutputTab)
+  const prevExternalTabRef = useRef(externalTab)
+  useEffect(() => {
+    if (externalTab !== prevExternalTabRef.current) {
+      prevExternalTabRef.current = externalTab
+      setState(prev => {
+        if (prev.activeTab === externalTab && prev.isOpen) return prev
+        return { ...prev, isOpen: true, activeTab: externalTab as OutputsDockTab }
+      })
+    }
+  }, [externalTab, setState])
 
 
   // Phase 1A.5: Debug controls visibility (Shift+D shortcut)
@@ -542,7 +557,7 @@ export function OutputsDock() {
       ? { icon: AlertTriangle, iconClass: 'text-warning', label: 'Moderate confidence' }
       : { icon: XCircle, iconClass: 'text-danger', label: 'Fragile result' }
   const postRunMetaText = recommendationStability != null
-    ? `${Math.round(recommendationStability * 100)}% stability`
+    ? <StabilityGauge value={recommendationStability} />
     : null
 
   verboseDebug('[TrustSignals] OutputsDock', {
@@ -781,6 +796,8 @@ export function OutputsDock() {
 
   const handleTabClick = (tab: OutputsDockTab) => {
     setState(prev => ({ ...prev, isOpen: true, activeTab: tab }))
+    // E1: Sync tab state to Zustand store for cross-component navigation
+    useUIStore.getState().setActiveOutputTab(tab as OutputTab)
     // Mutual exclusion: close inspector when dock opens via tab click
     window.dispatchEvent(new Event('outputs-dock-opened'))
 

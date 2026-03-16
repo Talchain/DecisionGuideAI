@@ -23,6 +23,8 @@ import { typography } from '../../styles/typography'
 import { formatPercent as formatPct } from '../../utils/formatPercent'
 import { stripEncodingNotation } from './utils/cleanFactorLabel'
 import { focusNodeById } from '../../canvas/utils/focusHelpers'
+import { useUIStore } from '../../stores/uiStore'
+import type { FlipThreshold } from './types'
 
 export interface TornadoRow {
   /** Factor key / node ID */
@@ -58,6 +60,8 @@ export interface TornadoChartProps {
   goalDirection?: 'maximize' | 'minimize'
   /** Callback to apply drag adjustments and rerun analysis */
   onApplyAndRerun?: () => void
+  /** A4: Flip threshold data for marker annotations */
+  flipThresholds?: FlipThreshold[]
 }
 
 /** Whether structured unit data is available (not just normalised model scores). */
@@ -157,6 +161,7 @@ export function TornadoChart({
   isNormalised,
   goalDirection,
   onApplyAndRerun,
+  flipThresholds,
 }: TornadoChartProps) {
   // P0.2: Use relative % change when no structured unit is available
   const useRelativePct = !isNormalised && !hasStructuredUnit(outcomeUnit, outcomeUnitSymbol)
@@ -371,6 +376,8 @@ export function TornadoChart({
 
           const handleClick = () => {
             const nodeId = row.matchedNodeId ?? row.factorKey
+            // E1: Switch to Model tab before focusing node
+            useUIStore.getState().setActiveOutputTab('diagnostics')
             if (onFocusNode) {
               onFocusNode(nodeId)
             } else {
@@ -468,6 +475,53 @@ export function TornadoChart({
                     </div>
                   </div>
                 )}
+
+                {/* A4: Flip-point marker — diamond on bar showing where recommendation changes */}
+                {(() => {
+                  const flipThreshold = flipThresholds?.find(ft => ft.node_id === row.factorKey)
+                  const hasFlip = flipThreshold?.flip_value != null
+                    && flipThreshold.flip_reason !== 'heuristic'
+                    && flipThreshold.flip_reason !== 'no_bracket'
+                  if (!hasFlip || flipThreshold?.flip_value == null) return null
+
+                  const flipVal = flipThreshold.flip_value
+                  const range = row.highOutcome - row.lowOutcome
+                  if (range === 0) return null
+
+                  const rawPct = ((flipVal - row.lowOutcome) / range) * 100
+                  // Map from row-local 0-100% to chart-global position
+                  const rowLowPct = totalRange > 0 ? ((row.lowOutcome - minVal) / totalRange) * 100 : 0
+                  const rowHighPct = totalRange > 0 ? ((row.highOutcome - minVal) / totalRange) * 100 : 0
+                  const clampedLocalPct = Math.max(0, Math.min(100, rawPct))
+                  const chartPct = rowLowPct + (clampedLocalPct / 100) * (rowHighPct - rowLowPct)
+
+                  const formattedFlip = flipThreshold.unit
+                    ? `${flipThreshold.unit}${Math.round(flipVal).toLocaleString()}`
+                    : Math.abs(flipVal) >= 10
+                      ? Math.round(flipVal).toLocaleString()
+                      : flipVal.toFixed(1)
+
+                  return (
+                    <div
+                      className="absolute top-1/2 -translate-y-1/2 flex flex-col items-center pointer-events-none z-10"
+                      style={{ left: `${chartPct}%` }}
+                      data-testid="flip-marker"
+                      title={`Flips at ${formattedFlip}`}
+                    >
+                      {/* Diamond marker */}
+                      <div
+                        className="w-[6px] h-[6px] bg-danger rotate-45"
+                        aria-hidden="true"
+                      />
+                      {/* Label */}
+                      <span
+                        className={`${typography.panelMeta} text-danger whitespace-nowrap absolute top-full mt-0.5`}
+                      >
+                        Flips at {formattedFlip}
+                      </span>
+                    </div>
+                  )
+                })()}
 
                 {/* Low value label — hidden when left bar is collapsed */}
                 {leftWidth > 0.5 && (

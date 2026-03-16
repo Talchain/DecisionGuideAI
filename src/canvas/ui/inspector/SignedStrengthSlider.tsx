@@ -22,6 +22,8 @@ interface SignedStrengthSliderProps {
   debounceMs?: number
   /** Disabled state */
   disabled?: boolean
+  /** C1: Standard deviation for uncertainty band overlay */
+  std?: number
 }
 
 export function SignedStrengthSlider({
@@ -29,6 +31,7 @@ export function SignedStrengthSlider({
   onChange,
   debounceMs = 120,
   disabled = false,
+  std,
 }: SignedStrengthSliderProps) {
   const [localValue, setLocalValue] = useState(value)
   const timerRef = useRef<ReturnType<typeof setTimeout>>()
@@ -82,6 +85,25 @@ export function SignedStrengthSlider({
       <div className="relative h-6 flex items-center">
         {/* Background track */}
         <div className="absolute inset-x-0 h-1.5 bg-panel-border rounded-full" />
+        {/* C1: Uncertainty band — shows +/- std around current value */}
+        {std != null && std > 0 && (() => {
+          const bandLow = Math.max(-1, localValue - std)
+          const bandHigh = Math.min(1, localValue + std)
+          // Map from [-1, 1] to [0%, 100%]
+          const bandLeftPct = ((bandLow + 1) / 2) * 100
+          const bandWidthPct = ((bandHigh - bandLow) / 2) * 100
+          return (
+            <div
+              className="absolute h-3 rounded-full bg-info/20"
+              style={{
+                left: `${bandLeftPct}%`,
+                width: `${bandWidthPct}%`,
+              }}
+              aria-hidden="true"
+              data-testid="uncertainty-band"
+            />
+          )
+        })()}
         {/* Centre marker */}
         <div className="absolute left-1/2 -translate-x-px w-0.5 h-3 bg-text-light rounded-full" />
         {/* Fill from centre */}

@@ -14,8 +14,9 @@
  */
 
 import { useState, useCallback, useEffect, useRef } from 'react'
-import type { DriversSectionData, DriverItem } from './types'
+import type { DriversSectionData, DriverItem, FlipThreshold } from './types'
 import { focusNodeById } from '../../canvas/utils/focusHelpers'
+import { useUIStore } from '../../stores/uiStore'
 import { highlightNode, clearHighlight } from '../../canvas/utils/highlightHelpers'
 import { EMPTY_STATES } from './emptyStates'
 import { formatFlipRiskMessage } from './utils/formatScenarioRatio'
@@ -47,6 +48,8 @@ interface DriversSectionProps {
   isNormalised?: boolean
   /** Goal direction for tornado bar colouring — maximize means higher outcome = good */
   goalDirection?: 'maximize' | 'minimize'
+  /** A4: Flip threshold data for tornado chart markers */
+  flipThresholds?: FlipThreshold[]
 }
 
 // Bar colors — use design system tokens, no hex literals
@@ -196,6 +199,8 @@ function ExpandedDetails({
   const handleFocusClick = useCallback(() => {
     if (driver.canFocus) {
       const nodeId = driver.matchedNodeId ?? driver.factorKey
+      // E1: Switch to Model tab before focusing node
+      useUIStore.getState().setActiveOutputTab('diagnostics')
       if (onFocus) {
         onFocus(nodeId)
       } else {
@@ -578,6 +583,7 @@ export function DriversSection({
   outcomeUnitSymbol,
   isNormalised,
   goalDirection,
+  flipThresholds,
 }: DriversSectionProps) {
   const [showAll, setShowAll] = useState(false)
   const { drivers, driversStatus, topDrivers, hasMagnitudeData, islError, hiddenZeroImpactCount } = data
@@ -747,6 +753,7 @@ export function DriversSection({
                 onFocusNode={onFocusNode}
                 isNormalised={isNormalised}
                 goalDirection={goalDirection}
+                flipThresholds={flipThresholds}
               />
             </div>
           </details>

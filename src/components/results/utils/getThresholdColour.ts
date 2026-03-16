@@ -20,3 +20,15 @@ export function getThresholdColour(value: number): string {
   if (pct >= 40) return 'bg-warning'
   return 'bg-danger'
 }
+
+/**
+ * Returns the raw semantic colour token for a 0-1 metric value.
+ * Same thresholds as getThresholdColour but without the `bg-` prefix,
+ * suitable for CSS custom properties (e.g. `var(--${token})`).
+ */
+export function getThresholdToken(value: number): 'success' | 'warning' | 'danger' {
+  const pct = Math.round(value * 100)
+  if (pct >= 70) return 'success'
+  if (pct >= 40) return 'warning'
+  return 'danger'
+}
