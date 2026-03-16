@@ -27,6 +27,7 @@ import { useEdgeLabelMode } from '../store/edgeLabelMode'
 import { EdgeEditPopover } from './EdgeEditPopover'
 import { useCanvasStore } from '../store'
 import { isGraphLensEnabled } from '../../flags'
+import { isEdgeFragile as isEdgeFragileFn } from '../utils/fragileEdgeMatch'
 import { existenceCertaintyToLineStyle, calculateEdgeImportance, importanceToStrokeWidth, weightMagnitudeToStrokeWidth } from '../utils/graphDisplayCalculations'
 import { typography } from '../../styles/typography'
 import { useEdgeEditHint } from '../hooks/useFirstTimeHints'
@@ -79,9 +80,13 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
     if (!isGraphLensEnabled() || s.lens.active !== 'sensitivity') return null
     return s.lens._sensitivityWeights.get(id) ?? null
   })
-  const lensQuartiles = useCanvasStore(s => {
+  const lensQ25 = useCanvasStore(s => {
     if (!isGraphLensEnabled() || s.lens.active !== 'sensitivity') return null
-    return s.lens._sensitivityQuartiles
+    return s.lens._sensitivityQuartiles?.q25 ?? null
+  })
+  const lensQ75 = useCanvasStore(s => {
+    if (!isGraphLensEnabled() || s.lens.active !== 'sensitivity') return null
+    return s.lens._sensitivityQuartiles?.q75 ?? null
   })
   const isLensFragile = useCanvasStore(s =>
     isGraphLensEnabled() && s.lens.active === 'fragile' && s.lens._fragileEdgeIds.has(id)
@@ -106,24 +111,11 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
   }, [isLensFragile, report, id, source, target])
 
   // Check if this edge is fragile (switch_probability > 0.3)
-  // P0 Fix: Match by from_id/to_id (source/target) OR edge_id
-  // API returns from_id/to_id pairs, not edge_id in most cases
+  // Uses shared utility for consistent matching across StyledEdge, useMenuItems, useLensFilter
   const isFragileEdge = useMemo(() => {
     if (!isResultsMode || !report?.robustness) return false
     const fragileEdges = report.robustness.fragile_edges || []
-    return fragileEdges.some((fe: any) => {
-      const switchProb = fe.switch_probability ?? fe.switchProbability ?? fe.marginal_switch_probability ?? fe.marginalSwitchProbability
-      if (typeof switchProb !== 'number' || switchProb <= 0.3) return false
-
-      // Try matching by edge_id first
-      const edgeId = fe.edge_id || fe.edgeId
-      if (edgeId === id) return true
-
-      // P0 Fix: Match by from_id/to_id (source/target) - primary matching method
-      const fromId = fe.from_id ?? fe.fromId ?? fe.source
-      const toId = fe.to_id ?? fe.toId ?? fe.target
-      return fromId === source && toId === target
-    })
+    return isEdgeFragileFn(id, source, target, fragileEdges)
   }, [isResultsMode, report, id, source, target])
 
   // Extract edge data with defaults
@@ -348,9 +340,9 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
           // Graph Interaction P1: Highlighted edges get thicker stroke
           strokeWidth: (() => {
             // Graph Lens: sensitivity mode adjusts stroke width by quartile
-            if (lensMode === 'sensitivity' && lensSensWeight !== null && lensQuartiles) {
-              if (lensSensWeight >= lensQuartiles.q75) return 3
-              if (lensSensWeight <= lensQuartiles.q25) return 1
+            if (lensMode === 'sensitivity' && lensSensWeight !== null && lensQ25 !== null && lensQ75 !== null) {
+              if (lensSensWeight >= lensQ75) return 3
+              if (lensSensWeight <= lensQ25) return 1
               return 1.5
             }
             // Graph Lens: fragile mode thickens fragile edges
@@ -366,10 +358,10 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
           stroke: isHighlightedEdge ? 'var(--semantic-info)' : (directionStroke ?? visualProps.stroke),
           // Graph Lens: opacity for dimmed edges
           opacity: isLensDimmed ? 0.2
-            : (lensMode === 'sensitivity' && lensSensWeight !== null && lensQuartiles && lensSensWeight <= lensQuartiles.q25) ? 0.4
+            : (lensMode === 'sensitivity' && lensSensWeight !== null && lensQ25 !== null && lensSensWeight <= lensQ25) ? 0.4
             : undefined,
           // Graph Lens: subtle glow for high-sensitivity edges
-          filter: (lensMode === 'sensitivity' && lensSensWeight !== null && lensQuartiles && lensSensWeight >= lensQuartiles.q75)
+          filter: (lensMode === 'sensitivity' && lensSensWeight !== null && lensQ75 !== null && lensSensWeight >= lensQ75)
             ? 'drop-shadow(0 0 2px var(--semantic-info, #3b82f6))'
             : undefined,
           // Performance: use will-change for frequent updates

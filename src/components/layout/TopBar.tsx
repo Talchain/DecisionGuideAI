@@ -6,6 +6,7 @@ import { Spinner } from '../Spinner'
 import styles from './TopBar.module.css'
 import { useAnalysisMetadata } from '../../canvas/hooks/useAnalysisMetadata'
 import { isGraphLensEnabled } from '../../flags'
+import { useCanvasStore } from '../../canvas/store'
 import { LensDropdown } from '../../canvas/components/LensDropdown'
 import { LENS_TOGGLE_EVENT } from '../../canvas/hooks/useCanvasKeyboardShortcuts'
 import { useStagePill } from '../../canvas/hooks/useStagePill'
@@ -58,6 +59,12 @@ export const TopBar = ({
     window.addEventListener(LENS_TOGGLE_EVENT, handler)
     return () => window.removeEventListener(LENS_TOGGLE_EVENT, handler)
   }, [])
+
+  // Close lens dropdown when comparison mode hides the chip
+  const comparisonActive = useCanvasStore(s => s.comparisonMode.active)
+  useEffect(() => {
+    if (comparisonActive) setLensOpen(false)
+  }, [comparisonActive])
 
   const menuRef = useRef<HTMLDivElement | null>(null)
 

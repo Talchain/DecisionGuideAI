@@ -39,7 +39,7 @@ function computeQuartiles(values: number[]): { q25: number; q75: number } {
   const q25Idx = Math.floor(sorted.length * 0.25)
   const q75Idx = Math.floor(sorted.length * 0.75)
   return {
-    q25: sorted[q25Idx],
+    q25: sorted[Math.min(q25Idx, sorted.length - 1)],
     q75: sorted[Math.min(q75Idx, sorted.length - 1)],
   }
 }
@@ -159,11 +159,11 @@ export function useLensFilter(): void {
       const reportAny = report as Record<string, unknown>
       const enrichment = reportAny.enrichment as Record<string, unknown> | undefined
       const sensitivityAnalysis = enrichment?.sensitivity_analysis as Record<string, unknown> | undefined
-      const factorSensitivity: FactorSensitivityEntry[] = (
-        (sensitivityAnalysis?.factors as FactorSensitivityEntry[]) ??
-        (reportAny.factor_sensitivity as FactorSensitivityEntry[]) ??
+      const rawFactors = sensitivityAnalysis?.factors
+      const factorSensitivity: FactorSensitivityEntry[] =
+        Array.isArray(rawFactors) ? rawFactors :
+        Array.isArray(reportAny.factor_sensitivity) ? (reportAny.factor_sensitivity as FactorSensitivityEntry[]) :
         []
-      )
 
       const factorSensMap = new Map<string, number>()
       for (const f of factorSensitivity) {
@@ -193,7 +193,8 @@ export function useLensFilter(): void {
     if (lensActive === 'fragile') {
       const reportAny = report as Record<string, unknown>
       const robustness = reportAny.robustness as Record<string, unknown> | undefined
-      const fragileEdgesData: FragileEdgeEntry[] = (robustness?.fragile_edges as FragileEdgeEntry[]) ?? []
+      const rawFragile = robustness?.fragile_edges
+      const fragileEdgesData: FragileEdgeEntry[] = Array.isArray(rawFragile) ? rawFragile : []
       const graphEdges = edges.map(e => ({ id: e.id, source: e.source, target: e.target }))
 
       const fragileIds = buildFragileEdgeSet(fragileEdgesData, graphEdges)

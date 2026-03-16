@@ -193,6 +193,9 @@ function OptionCard({
       onMouseEnter={() => highlightNode(option.id)}
       onMouseLeave={clearHighlight}
       onClick={onClick}
+      onKeyDown={onClick ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick() } } : undefined}
+      role={onClick ? 'button' : undefined}
+      tabIndex={onClick ? 0 : undefined}
       style={onClick ? { cursor: 'pointer' } : undefined}
     >
       {/* Header: name + rank badge + win percentage */}

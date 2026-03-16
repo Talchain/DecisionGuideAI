@@ -84,6 +84,30 @@ describe('buildFragileEdgeSet', () => {
     expect(result.has('e3')).toBe(true)
   })
 
+  it('excludes edges with switch_probability exactly 0.3 (boundary)', () => {
+    const fragile = [
+      { edge_id: 'e1', switch_probability: 0.3 },
+    ]
+    const result = buildFragileEdgeSet(fragile, graphEdges)
+    expect(result.size).toBe(0)
+  })
+
+  it('includes edges with switch_probability just above 0.3', () => {
+    const fragile = [
+      { edge_id: 'e1', switch_probability: 0.31 },
+    ]
+    const result = buildFragileEdgeSet(fragile, graphEdges)
+    expect(result.has('e1')).toBe(true)
+  })
+
+  it('matches via marginalSwitchProbability (camelCase fallback)', () => {
+    const fragile = [
+      { edgeId: 'e2', marginalSwitchProbability: 0.65 },
+    ]
+    const result = buildFragileEdgeSet(fragile, graphEdges)
+    expect(result.has('e2')).toBe(true)
+  })
+
   it('returns empty set for empty fragile edges', () => {
     const result = buildFragileEdgeSet([], graphEdges)
     expect(result.size).toBe(0)

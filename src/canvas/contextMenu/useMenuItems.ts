@@ -14,6 +14,7 @@ import {
 import type { ComponentType } from 'react'
 import { useCanvasStore, selectResultsStatus, selectReport } from '../store'
 import { isGraphLensEnabled } from '../../flags'
+import { isEdgeFragile as isEdgeFragileFn } from '../utils/fragileEdgeMatch'
 import type { ContextTarget, MenuEntry, MenuItemDef } from './types'
 import type { NodeType } from '../domain/nodes'
 import {
@@ -480,12 +481,9 @@ function buildEdgeMenu(
 
     if (resultsComplete) {
       const report = selectReport(state) as Record<string, unknown> | null | undefined
-      const robustness = report?.robustness as { fragile_edges?: Array<{ edge_id?: string; from_id?: string; to_id?: string }> } | undefined
-      const fragileEdges = robustness?.fragile_edges
-      const isFragile = fragileEdges?.some(fe =>
-        fe.edge_id === target.edgeId ||
-        (fe.from_id === target.edge.source && fe.to_id === target.edge.target)
-      )
+      const robustness = report?.robustness as { fragile_edges?: Array<Record<string, unknown>> } | undefined
+      const fragileEdges = robustness?.fragile_edges ?? []
+      const isFragile = isEdgeFragileFn(target.edgeId, target.edge.source, target.edge.target, fragileEdges)
 
       if (isFragile) {
         items.push({

@@ -16,6 +16,18 @@ export function setsEqual<T>(a: Set<T>, b: Set<T>): boolean {
 }
 
 /**
+ * Compare two Maps by value (not reference)
+ * @returns true if Maps contain the same key-value pairs
+ */
+export function mapsEqual<K, V>(a: Map<K, V>, b: Map<K, V>): boolean {
+  if (a.size !== b.size) return false
+  for (const [k, v] of a) {
+    if (!Object.is(b.get(k), v)) return false
+  }
+  return true
+}
+
+/**
  * Compare two arrays by value (shallow comparison)
  * @returns true if arrays have same length and same values in same order
  */

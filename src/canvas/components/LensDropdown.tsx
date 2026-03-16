@@ -32,41 +32,35 @@ function LensChip({ isActive, onClick, chipRef }: LensChipProps) {
       aria-haspopup="true"
       aria-label="Graph lens"
       title="Graph lens (L)"
-      className="top-bar-chip cursor-pointer"
+      className="top-bar-chip cursor-pointer inline-flex items-center border border-panel-border bg-transparent rounded-full relative"
       style={{
-        display: 'inline-flex',
-        alignItems: 'center',
         gap: 4,
         height: 30,
         padding: '0 8px',
-        borderRadius: 999,
-        background: 'transparent',
-        border: '1px solid var(--border-default, #EEE6D8)',
         color: isActive ? 'var(--semantic-info, #3b82f6)' : 'var(--text-light, #908D8D)',
         fontSize: 13,
         fontWeight: 500,
         whiteSpace: 'nowrap' as const,
         transition: 'color 200ms ease',
-        position: 'relative',
       }}
       data-testid="lens-chip"
     >
       <Layers size={16} strokeWidth={1.8} aria-hidden="true" />
-      {/* Active indicator dot */}
-      {isActive && (
-        <span
-          style={{
-            position: 'absolute',
-            top: 3,
-            right: 3,
-            width: 6,
-            height: 6,
-            borderRadius: '50%',
-            background: 'var(--semantic-info, #3b82f6)',
-          }}
-          aria-hidden="true"
-        />
-      )}
+      {/* Active indicator dot — always rendered, fades via opacity for smooth transition */}
+      <span
+        style={{
+          position: 'absolute',
+          top: 3,
+          right: 3,
+          width: 6,
+          height: 6,
+          borderRadius: '50%',
+          background: 'var(--semantic-info, #3b82f6)',
+          opacity: isActive ? 1 : 0,
+          transition: 'opacity 200ms ease',
+        }}
+        aria-hidden="true"
+      />
       <ChevronDown size={14} strokeWidth={1.8} aria-hidden="true" />
     </button>
   )
@@ -99,13 +93,32 @@ export function LensDropdown({ isOpen, onClose, onToggle }: LensDropdownProps) {
   const isActive = lensMode !== 'full'
   const isVisible = resultsStatus === 'complete' && !comparisonActive
 
-  // Position dropdown below the chip
+  // Position dropdown below the chip, clamped to viewport
   useEffect(() => {
     if (!isOpen || !chipRef.current) return
     const r = chipRef.current.getBoundingClientRect()
-    setPos({
-      top: r.bottom + 6,
-      left: r.left,
+    const dropdownHeight = 280 // approximate max height
+    const dropdownWidth = 200  // minWidth from style
+
+    let top = r.bottom + 6
+    let left = r.left
+
+    // Flip above if it would overflow bottom
+    if (top + dropdownHeight > window.innerHeight) {
+      top = r.top - dropdownHeight - 6
+    }
+    // Clamp right edge
+    if (left + dropdownWidth > window.innerWidth) {
+      left = window.innerWidth - dropdownWidth - 8
+    }
+
+    setPos({ top, left })
+
+    // Auto-focus the active (or first) menu item for keyboard navigation
+    requestAnimationFrame(() => {
+      const active = popoverRef.current?.querySelector('[role="menuitem"][data-active="true"]') as HTMLElement | null
+      const first = popoverRef.current?.querySelector('[role="menuitem"]') as HTMLElement | null
+      ;(active ?? first)?.focus()
     })
   }, [isOpen])
 
@@ -151,6 +164,20 @@ export function LensDropdown({ isOpen, onClose, onToggle }: LensDropdownProps) {
           ref={popoverRef}
           role="menu"
           aria-label="Graph lens"
+          onKeyDown={(e) => {
+            if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+              e.preventDefault()
+              const items = popoverRef.current?.querySelectorAll('[role="menuitem"]')
+              if (!items?.length) return
+              const focused = document.activeElement
+              const idx = Array.from(items).indexOf(focused as Element)
+              const next = e.key === 'ArrowDown'
+                ? (idx + 1) % items.length
+                : (idx - 1 + items.length) % items.length
+              ;(items[next] as HTMLElement).focus()
+            }
+          }}
+          className="border border-panel-border bg-panel shadow-2 rounded-xl"
           style={{
             position: 'fixed',
             top: pos.top,
@@ -158,10 +185,6 @@ export function LensDropdown({ isOpen, onClose, onToggle }: LensDropdownProps) {
             zIndex: 9000,
             padding: '4px 0',
             minWidth: 200,
-            borderRadius: 12,
-            border: '1px solid var(--border-default, #EEE6D8)',
-            boxShadow: '0 8px 24px rgba(38,38,38,0.14)',
-            background: 'var(--bg-panel, #FEFEFE)',
             animation: 'thinkingModeIn 150ms cubic-bezier(0.0, 0, 0.2, 1) both',
           }}
           data-testid="lens-dropdown"
@@ -175,7 +198,7 @@ export function LensDropdown({ isOpen, onClose, onToggle }: LensDropdownProps) {
 
           {/* Separator */}
           {options && options.length >= 2 && (
-            <div style={{ height: 1, margin: '4px 0', background: 'var(--border-default, #EEE6D8)' }} />
+            <div className="h-px my-1" style={{ background: 'var(--border-default, #EEE6D8)' }} />
           )}
 
           {/* Option items */}
@@ -190,7 +213,7 @@ export function LensDropdown({ isOpen, onClose, onToggle }: LensDropdownProps) {
           ))}
 
           {/* Separator */}
-          <div style={{ height: 1, margin: '4px 0', background: 'var(--border-default, #EEE6D8)' }} />
+          <div className="h-px my-1" style={{ background: 'var(--border-default, #EEE6D8)' }} />
 
           {/* Sensitivity */}
           <LensMenuItem
@@ -244,6 +267,7 @@ function LensMenuItem({ label, isActive, onClick, dotColor }: LensMenuItemProps)
       }}
       className="hover:bg-panel-hover"
       data-testid={`lens-item-${label.toLowerCase().replace(/\s+/g, '-')}`}
+      data-active={isActive ? 'true' : undefined}
     >
       {dotColor && (
         <span
