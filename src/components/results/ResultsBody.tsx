@@ -216,6 +216,7 @@ export function ResultsBody({
           outcomeUnitSymbol={resultsSectionData.recommendation.outcomeUnitSymbol}
           isNormalised={resultsSectionData.recommendation.isNormalised}
           goalDirection={goalDirection}
+          flipThresholds={resultsSectionData.recommendation.flipThresholds}
         />
       </div>
 

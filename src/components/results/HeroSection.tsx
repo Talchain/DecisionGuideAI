@@ -56,6 +56,13 @@ export interface OptionWinShare {
   isWinner: boolean
 }
 
+/** Goal probability per option for the goal-achievement display */
+export interface OptionGoalProbability {
+  id: string
+  label: string
+  goalProbability: number
+}
+
 /** Props for HeroSection */
 export interface HeroSectionProps {
   winnerLabel: string
@@ -144,6 +151,8 @@ export interface HeroSectionProps {
   defaultEstimateCount?: number
   /** V16: Total factor count (for trust reason denominator) */
   totalFactorCount?: number
+  /** A3: Goal-achievement probabilities for all options (shown when goal threshold set) */
+  allOptionGoalProbabilities?: OptionGoalProbability[]
 }
 
 // =============================================================================
@@ -465,6 +474,7 @@ export function HeroSection({
   robustnessLevel,
   defaultEstimateCount,
   totalFactorCount,
+  allOptionGoalProbabilities,
 }: HeroSectionProps) {
   // Always collapsed on first load — user expands via "More ▸" toggle
   const [isExpanded, setIsExpanded] = useState(false)
@@ -990,10 +1000,29 @@ export function HeroSection({
             <WinGauge shares={optionWinShares} decisionState={decisionState} />
           )}
 
-          {/* Goal probability line */}
-          {goalThreshold != null && winnerGoalProbability != null && (
-            <p className={`${typography.panelMeta} text-text-body`}>
-              {winnerLabel} has a {formatPct(winnerGoalProbability, { fromDecimal: true })} chance of reaching your target of {formatTargetValue(goalThreshold!, outcomeUnit, outcomeUnitSymbol)}
+          {/* A3: Goal-achievement probability — comparative display for all options */}
+          {goalThreshold != null && allOptionGoalProbabilities && allOptionGoalProbabilities.length > 0 && (
+            <div className="space-y-0.5" data-testid="goal-probability-display">
+              {allOptionGoalProbabilities.length === 1 ? (
+                <p className={`${typography.panelBody} text-text-body`}>
+                  <span className="inline-block w-1.5 h-1.5 rounded-full mr-1.5 align-middle" style={{ backgroundColor: 'var(--goal)' }} />
+                  {allOptionGoalProbabilities[0].label} has a {formatPct(allOptionGoalProbabilities[0].goalProbability, { fromDecimal: true })} chance of reaching your target of {formatTargetValue(goalThreshold, outcomeUnit, outcomeUnitSymbol)}
+                </p>
+              ) : (
+                allOptionGoalProbabilities.map(opt => (
+                  <p key={opt.id} className={`${typography.panelBody} text-text-body`}>
+                    <span className="inline-block w-1.5 h-1.5 rounded-full mr-1.5 align-middle" style={{ backgroundColor: 'var(--goal)' }} />
+                    {opt.label}: {formatPct(opt.goalProbability, { fromDecimal: true })} chance of reaching your target of {formatTargetValue(goalThreshold, outcomeUnit, outcomeUnitSymbol)}
+                  </p>
+                ))
+              )}
+            </div>
+          )}
+          {/* Fallback: winner-only display when allOptionGoalProbabilities not provided */}
+          {goalThreshold != null && winnerGoalProbability != null && !allOptionGoalProbabilities?.length && (
+            <p className={`${typography.panelBody} text-text-body`}>
+              <span className="inline-block w-1.5 h-1.5 rounded-full mr-1.5 align-middle" style={{ backgroundColor: 'var(--goal)' }} />
+              {winnerLabel} has a {formatPct(winnerGoalProbability, { fromDecimal: true })} chance of reaching your target of {formatTargetValue(goalThreshold, outcomeUnit, outcomeUnitSymbol)}
             </p>
           )}
 
@@ -1238,10 +1267,22 @@ export function HeroSection({
           <WinGauge shares={optionWinShares} />
         )}
 
-        {/* V9.2: Goal probability line — bridges "which wins most" and "does it hit my target" */}
-        {goalThreshold != null && winnerGoalProbability != null && (
-          <p className={`${typography.panelMeta} text-text-body mb-3`}>
-            {winnerLabel} has a {formatPct(winnerGoalProbability, { fromDecimal: true })} chance of reaching your target of {formatTargetValue(goalThreshold!, outcomeUnit, outcomeUnitSymbol)}
+        {/* A3: Goal-achievement probability — comparative display for all options */}
+        {goalThreshold != null && allOptionGoalProbabilities && allOptionGoalProbabilities.length > 0 && (
+          <div className="space-y-0.5 mb-3" data-testid="goal-probability-display">
+            {allOptionGoalProbabilities.map(opt => (
+              <p key={opt.id} className={`${typography.panelBody} text-text-body`}>
+                <span className="inline-block w-1.5 h-1.5 rounded-full mr-1.5 align-middle" style={{ backgroundColor: 'var(--goal)' }} />
+                {opt.label}: {formatPct(opt.goalProbability, { fromDecimal: true })} chance of reaching your target of {formatTargetValue(goalThreshold, outcomeUnit, outcomeUnitSymbol)}
+              </p>
+            ))}
+          </div>
+        )}
+        {/* Fallback: winner-only display when allOptionGoalProbabilities not provided */}
+        {goalThreshold != null && winnerGoalProbability != null && !allOptionGoalProbabilities?.length && (
+          <p className={`${typography.panelBody} text-text-body mb-3`}>
+            <span className="inline-block w-1.5 h-1.5 rounded-full mr-1.5 align-middle" style={{ backgroundColor: 'var(--goal)' }} />
+            {winnerLabel} has a {formatPct(winnerGoalProbability, { fromDecimal: true })} chance of reaching your target of {formatTargetValue(goalThreshold, outcomeUnit, outcomeUnitSymbol)}
           </p>
         )}
 

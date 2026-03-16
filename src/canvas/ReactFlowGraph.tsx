@@ -53,6 +53,7 @@ import { useGuidancePulseHighlight } from './hooks/useGuidancePulseHighlight'
 import { loadRuns, generateGraphHash } from './store/runHistory'
 // HealthStatusBar removed - validation consolidated into OutputsDock panel
 import { DegradedBanner } from './components/DegradedBanner'
+import { EdgeThicknessLegend } from './components/EdgeThicknessLegend'
 import { LayoutProgressBanner } from './components/LayoutProgressBanner'
 const IssuesPanel = lazy(() => import(/* webpackChunkName: "issues-panel" */ './panels/IssuesPanel').then(m => ({ default: m.IssuesPanel })))
 const AIClarifierChat = lazy(() => import(/* webpackChunkName: "ai-clarifier" */ './panels/AIClarifierChat').then(m => ({ default: m.AIClarifierChat })))
@@ -276,6 +277,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
   const showProvenanceHub = useCanvasStore(s => s.showProvenanceHub)
   const provenanceRedactionEnabled = useCanvasStore(s => s.provenanceRedactionEnabled)
   const reconnecting = useCanvasStore(s => s.reconnecting)
+  const resultsStatus = useCanvasStore(s => s.results.status)
   // Week 3: AI Clarifier
   const showAIClarifier = useCanvasStore(s => s.showAIClarifier)
   const setShowAIClarifier = useCanvasStore(s => s.setShowAIClarifier)
@@ -1994,6 +1996,9 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
 
       {/* Highlight layer for Results drivers (keyed off global showResultsPanel flag) */}
       <HighlightLayer isResultsOpen={showResultsPanel} />
+
+      {/* D3: Edge thickness legend — post-analysis only */}
+      <EdgeThicknessLegend visible={resultsStatus === 'complete'} />
 
       {showAlignmentGuides && isDragging && <AlignmentGuides nodes={nodes} draggingNodeIds={draggingNodeIds} isActive={isDragging} />}
       {useNewContextMenu && contextMenuTarget

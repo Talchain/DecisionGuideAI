@@ -16,7 +16,7 @@ import { useMemo } from 'react'
 import type { RecommendationSectionData, DriverItem, DecisionState, HingeInfo, NextActionItem } from './types'
 import { EMPTY_STATES } from './emptyStates'
 import { typography } from '../../styles/typography'
-import { HeroSection, type OptionWinShare } from './HeroSection'
+import { HeroSection, type OptionWinShare, type OptionGoalProbability } from './HeroSection'
 
 /** Top fragile edge data for HeroSection */
 export interface TopFragileEdge {
@@ -184,6 +184,17 @@ export function RecommendationSection({
     return shares
   }, [allOptions])
 
+  // A3: Build goal-achievement probabilities for all options
+  const allOptionGoalProbabilities = useMemo<OptionGoalProbability[]>(() => {
+    return allOptions
+      .filter(o => typeof o.goalProbability === 'number' && o.goalProbability != null)
+      .map(o => ({
+        id: o.id,
+        label: o.label,
+        goalProbability: o.goalProbability!,
+      }))
+  }, [allOptions])
+
   // V12.2 Fix 1: Runner-up is highest by win_probability excluding winner
   const runnerUp = useMemo(() => {
     if (allOptions.length < 2) return null
@@ -236,6 +247,7 @@ export function RecommendationSection({
         outcomeUnitSymbol={outcomeUnitSymbol}
         isNormalised={isNormalised}
         optionWinShares={optionWinShares}
+        allOptionGoalProbabilities={allOptionGoalProbabilities.length > 0 ? allOptionGoalProbabilities : undefined}
         coachingReadiness={coachingReadiness}
         coachingReadinessScore={coachingReadinessScore}
         coachingHeadline={coachingHeadline}

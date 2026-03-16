@@ -38,6 +38,7 @@ function InspectorSlider({
   step,
   onChange,
   color,
+  trackFillColor,
   'aria-label': ariaLabel,
 }: {
   value: number
@@ -46,6 +47,8 @@ function InspectorSlider({
   step: number
   onChange: (v: number) => void
   color?: string
+  /** C2: Coloured track fill behind the slider */
+  trackFillColor?: string
   'aria-label': string
 }) {
   const debounceRef = useRef<NodeJS.Timeout>()
@@ -63,6 +66,17 @@ function InspectorSlider({
   return (
     <div className="flex items-center gap-2">
       <div className="flex-1 relative">
+        {trackFillColor && (
+          <div className="absolute inset-y-0 flex items-center pointer-events-none" style={{ left: 0, right: 0 }}>
+            <div className="w-full h-1 bg-panel-border rounded-full overflow-hidden">
+              <div
+                className="h-full rounded-full transition-all duration-100"
+                style={{ width: `${pct}%`, backgroundColor: trackFillColor }}
+                data-testid="inspector-slider-track-fill"
+              />
+            </div>
+          </div>
+        )}
         <input
           type="range"
           min={min}
@@ -74,7 +88,7 @@ function InspectorSlider({
           aria-valuemin={min}
           aria-valuemax={max}
           aria-valuenow={value}
-          className="w-full"
+          className={`w-full ${trackFillColor ? 'relative z-10' : ''}`}
           style={color ? { accentColor: color } : undefined}
         />
       </div>
@@ -87,6 +101,13 @@ function thresholdColor(v: number): string {
   if (v >= 0.7) return 'text-success'
   if (v >= 0.4) return 'text-warning'
   return 'text-danger'
+}
+
+/** C2: CSS variable for threshold-based track fill */
+function thresholdTrackVar(v: number): string {
+  if (v >= 0.7) return 'var(--success)'
+  if (v >= 0.4) return 'var(--warning)'
+  return 'var(--danger)'
 }
 
 export const EdgePanel = memo(function EdgePanel({
@@ -197,7 +218,7 @@ export const EdgePanel = memo(function EdgePanel({
           <div className="px-1">
             <div className="relative mb-2">
               <UncertaintyBand strength={localStrength} std={localStd} />
-              <SignedStrengthSlider value={localStrength} onChange={handleStrengthChange} />
+              <SignedStrengthSlider value={localStrength} onChange={handleStrengthChange} std={localStd} />
             </div>
             <div className="flex justify-between mt-1">
               {techMode ? (
@@ -241,6 +262,7 @@ export const EdgePanel = memo(function EdgePanel({
                   max={1}
                   step={0.05}
                   onChange={handleBeliefChange}
+                  trackFillColor={thresholdTrackVar(localBelief)}
                   aria-label="Connection existence probability"
                 />
               </div>
