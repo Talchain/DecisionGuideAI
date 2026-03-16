@@ -53,12 +53,13 @@ vi.mock('../../../hooks/useISLValidation', () => ({
   useISLValidation: vi.fn(() => ({ data: null })),
 }))
 
-// Default: graph badges OFF. Individual tests override as needed.
+// Default: graph badges OFF, lens OFF. Individual tests override as needed.
 vi.mock('../../../flags', () => ({
   isGraphBadgesEnabled: vi.fn(() => false),
   isNodeIntelligenceEnabled: vi.fn(() => false),
   isCrossHighlightEnabled: vi.fn(() => false),
   isContextMenuEnabled: vi.fn(() => false),
+  isGraphLensEnabled: vi.fn(() => false),
 }))
 
 import { useCanvasStore } from '../../store'
