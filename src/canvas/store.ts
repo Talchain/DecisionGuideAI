@@ -2,7 +2,7 @@
 import { create } from 'zustand'
 import { Node, Edge, applyNodeChanges, applyEdgeChanges, NodeChange, EdgeChange } from '@xyflow/react'
 import { saveSnapshot as persistSnapshot, importCanvas as persistImport, exportCanvas as persistExport } from './persist'
-import { setsEqual } from './store/utils'
+import { setsEqual, mapsEqual } from './store/utils'
 import { DEFAULT_EDGE_DATA, type EdgeData } from './domain/edges'
 import { NODE_REGISTRY, type NodeType } from './domain/nodes'
 import { applyLayout, applyLayoutWithPolicy } from './layout'
@@ -2939,17 +2939,20 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
 
   resetLens: () => {
     const { lens } = get()
-    if (lens.active === 'full' && lens.selectedOptionId === null) return
+    if (lens.active === 'full' && lens.selectedOptionId === null && lens._dimmedNodeIds.size === 0) return
     set({ lens: { ...DEFAULT_LENS_STATE } })
   },
 
   setLensVisuals: (visuals) => {
     const { lens } = get()
-    // Skip no-op updates to avoid re-renders (use setsEqual for Set comparison)
+    // Skip no-op updates to avoid re-renders (use setsEqual/mapsEqual for collection comparison)
     if (
       setsEqual(lens._dimmedNodeIds, visuals.dimmedNodeIds) &&
       setsEqual(lens._dimmedEdgeIds, visuals.dimmedEdgeIds) &&
-      setsEqual(lens._fragileEdgeIds, visuals.fragileEdgeIds)
+      setsEqual(lens._fragileEdgeIds, visuals.fragileEdgeIds) &&
+      mapsEqual(lens._sensitivityWeights, visuals.sensitivityWeights) &&
+      lens._sensitivityQuartiles?.q25 === visuals.sensitivityQuartiles?.q25 &&
+      lens._sensitivityQuartiles?.q75 === visuals.sensitivityQuartiles?.q75
     ) {
       return
     }
@@ -3152,6 +3155,8 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
         comparison: null,
         apiResponse: null,
       },
+      // Graph Lens: reset on comparison mode exit (mirrors enterComparisonMode reset)
+      lens: { ...DEFAULT_LENS_STATE },
     })
   },
 

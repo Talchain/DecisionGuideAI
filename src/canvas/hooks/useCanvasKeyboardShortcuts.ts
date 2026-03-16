@@ -189,13 +189,14 @@ export function useCanvasKeyboardShortcuts({
     }
 
     // ArrowLeft/ArrowRight: Cycle lens option (when option isolation is active)
+    // Only consume the event when lens actually handles it — otherwise let React Flow process arrows
     if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && !e.metaKey && !e.ctrlKey && !e.altKey && !e.shiftKey) {
       const state = useCanvasStore.getState()
       if (isGraphLensEnabled() && state.lens.active === 'option') {
         e.preventDefault()
         state.cycleLensOption(e.key === 'ArrowLeft' ? 'prev' : 'next')
+        return
       }
-      return
     }
 
     // Shift+F10: Open context menu at selected element position
