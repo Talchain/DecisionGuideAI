@@ -224,11 +224,6 @@ export function useThreadPersistence(
             console.error('[ThreadPersistence] XML envelope detected in msg.content — should be plain text:', msg.content.slice(0, 100))
           }
 
-          // DEV guard: verify no XML envelope leaks into persistence
-          if (import.meta.env.DEV && msg.content && msg.content.includes('<envelope')) {
-            console.error('[ThreadPersistence] XML envelope detected in msg.content — should be plain text:', msg.content.slice(0, 100))
-          }
-
           // Normalised turn (always-on, best-effort)
           // Skip if scenario not persisted to Supabase
           if (useCanvasStore.getState().scenarioPersistedToDb) {

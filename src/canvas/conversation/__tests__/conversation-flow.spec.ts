@@ -198,9 +198,9 @@ describe('Scenario 5: timeout progression', () => {
     expect(result.current.isThinking).toBe(true)
     expect(result.current.longRunningHint).toBeNull()
 
-    // At 30s: "Still working…"
+    // At 30s: elapsed time indicator (replaces "Still working…")
     act(() => { vi.advanceTimersByTime(30_000) })
-    expect(result.current.longRunningHint).toBe('Still working\u2026')
+    expect(result.current.longRunningHint).toBe('Thinking... 30s')
 
     // At 60s: timeout error bubble
     act(() => { vi.advanceTimersByTime(30_000) })

@@ -104,7 +104,7 @@ describe('timeout progression (10s / 20s / 30s)', () => {
     expect(result.current.longRunningHint).toBe('Thinking\u2026')
   })
 
-  it('shows "Still working\u2026" at 30s', async () => {
+  it('shows elapsed time at 30s', async () => {
     mockCallTurn.mockReturnValue(new Promise(() => {}))
 
     const { result } = renderHook(() => useConversation())
@@ -117,7 +117,8 @@ describe('timeout progression (10s / 20s / 30s)', () => {
       vi.advanceTimersByTime(30_000)
     })
 
-    expect(result.current.longRunningHint).toBe('Still working\u2026')
+    // After 15s the hint fires, then every 5s the elapsed timer updates it
+    expect(result.current.longRunningHint).toBe('Thinking... 30s')
   })
 
   it('aborts and shows error at 60s', async () => {

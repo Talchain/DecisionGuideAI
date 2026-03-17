@@ -88,8 +88,18 @@ export const SYSTEM_MESSAGE_SENTINEL = '[system]'
 let _streamingDiagLogged = false
 
 const LONG_RUNNING_THRESHOLD_MS = 15_000
-const STILL_WORKING_THRESHOLD_MS = 30_000
-const TIMEOUT_MS = 60_000
+const DEFAULT_TIMEOUT_MS = 60_000
+const EXTENDED_TIMEOUT_MS = 120_000
+
+/** Longer timeout for turns that invoke heavy CEE pipelines (draft_graph, analysis). */
+function getTimeoutMs(turnType?: string, triggerSurface?: string): number {
+  if (
+    turnType === 'explicit_generate' ||
+    turnType === 'run_analysis' ||
+    triggerSurface === 'analyse_now'
+  ) return EXTENDED_TIMEOUT_MS
+  return DEFAULT_TIMEOUT_MS
+}
 
 /** Map CEE tool names to user-facing loading labels */
 function mapToolLoadingLabel(toolName: string): string {
@@ -760,9 +770,13 @@ export function useConversation(): UseConversationReturn {
   const abortRef = useRef<AbortController | null>(null)
   const inFlightRef = useRef(false)
   const longRunningTimerRef = useRef<ReturnType<typeof setTimeout>>()
-  const stillWorkingTimerRef = useRef<ReturnType<typeof setTimeout>>()
   const timeoutTimerRef = useRef<ReturnType<typeof setTimeout>>()
+  const elapsedIntervalRef = useRef<ReturnType<typeof setInterval>>()
   const lastUserInputRef = useRef<{ message: string; clientTurnId?: string }>({ message: '' })
+  // Mirror messages state into a ref so buildRequest always reads the latest
+  // committed value — avoids stale closure when addMessage + buildRequest run
+  // in the same synchronous block (React batches the state update).
+  const messagesRef = useRef<ConversationMessage[]>([])
 
   // Cleanup timers on unmount
   useEffect(() => {
@@ -789,8 +803,8 @@ export function useConversation(): UseConversationReturn {
   useEffect(() => {
     return () => {
       clearTimeout(longRunningTimerRef.current)
-      clearTimeout(stillWorkingTimerRef.current)
       clearTimeout(timeoutTimerRef.current)
+      clearInterval(elapsedIntervalRef.current)
       cleanupStreamRefs()
       abortRef.current?.abort()
     }
@@ -825,7 +839,9 @@ export function useConversation(): UseConversationReturn {
               sessionDivider: formatSessionBoundary(new Date()),
             }
 
-            setMessages([...result.messages, boundaryMsg])
+            const hydrated = [...result.messages, boundaryMsg]
+            messagesRef.current = hydrated
+            setMessages(hydrated)
             setPatchBlockStates(result.blockStates)
             setIsThinking(false)
             setLongRunningHint(null)
@@ -848,6 +864,7 @@ export function useConversation(): UseConversationReturn {
             console.error('[useConversation] Thread hydration failed — starting fresh', err)
             // Reset to clean state so the user sees an empty conversation, not
             // stale messages from the previous scenario.
+            messagesRef.current = []
             setMessages([])
             setIsThinking(false)
             setLongRunningHint(null)
@@ -860,6 +877,7 @@ export function useConversation(): UseConversationReturn {
         }
       }
 
+      messagesRef.current = []
       setMessages([])
       setIsThinking(false)
       setLongRunningHint(null)
@@ -868,12 +886,20 @@ export function useConversation(): UseConversationReturn {
   }, [scenarioId])
 
   const addMessage = useCallback((msg: ConversationMessage) => {
-    setMessages((prev) => [...prev, msg])
+    setMessages((prev) => {
+      const next = [...prev, msg]
+      messagesRef.current = next
+      return next
+    })
   }, [])
 
   /** Update an existing message in-place by id (used by streaming path) */
   const updateMessage = useCallback((id: string, patch: Partial<ConversationMessage>) => {
-    setMessages((prev) => prev.map((m) => (m.id === id ? { ...m, ...patch } : m)))
+    setMessages((prev) => {
+      const next = prev.map((m) => (m.id === id ? { ...m, ...patch } : m))
+      messagesRef.current = next
+      return next
+    })
   }, [])
 
   // Streaming state — refs to avoid stale closures in RAF callbacks
@@ -939,7 +965,7 @@ export function useConversation(): UseConversationReturn {
         scenarioId = newId
         useCanvasStore.setState({ currentScenarioId: scenarioId })
       }
-      const conversationHistory = buildHistory(messages, 5)
+      const conversationHistory = buildHistory(messagesRef.current, 5)
       const selectedElements: SelectedElementsPayload | undefined =
         nodeIds.size > 0 || edgeIds.size > 0
           ? { node_ids: [...nodeIds], edge_ids: [...edgeIds] }
@@ -1143,7 +1169,8 @@ export function useConversation(): UseConversationReturn {
         client_turn_id: opts.clientTurnId,
       })
     },
-    [messages],
+    [], // messagesRef (stable ref) + useCanvasStore.getState() — no state/prop deps
+
   )
 
   const handleEnvelope = useCallback(
@@ -1640,22 +1667,30 @@ export function useConversation(): UseConversationReturn {
       const controller = new AbortController()
       abortRef.current = controller
 
-      // 15s → task-specific hint, 30s → "Still working…"
+      // Resolve turn type early — needed for dynamic timeout computation
+      const resolvedTurnType: TurnType = mode === 'system'
+        ? 'system_event'
+        : resolveUserTurnType(source, hidden, turnType)
+      const dynamicTimeout = getTimeoutMs(resolvedTurnType, triggerSurface)
+
+      // 15s → task-specific hint, then update every 5s with elapsed time
       const hint = inferLoadingHint(message, useCanvasStore.getState().nodes.length, turnType)
+      const sendStartTime = Date.now()
       longRunningTimerRef.current = setTimeout(() => {
         setLongRunningHint(hint)
+        // Update hint with elapsed time every 5s
+        elapsedIntervalRef.current = setInterval(() => {
+          const elapsed = Math.round((Date.now() - sendStartTime) / 1000)
+          setLongRunningHint(`${hint.replace(/\u2026$/, '')}... ${elapsed}s`)
+        }, 5_000)
       }, LONG_RUNNING_THRESHOLD_MS)
 
-      stillWorkingTimerRef.current = setTimeout(() => {
-        setLongRunningHint('Still working\u2026')
-      }, STILL_WORKING_THRESHOLD_MS)
-
-      // 60s timeout — hidden sends must not restore input or show retry chips
+      // Dynamic timeout — hidden sends must not restore input or show retry chips
       const inputForRestore = (mode === 'user' && !hidden) ? message : null
       timeoutTimerRef.current = setTimeout(() => {
         controller.abort()
         clearTimeout(longRunningTimerRef.current)
-        clearTimeout(stillWorkingTimerRef.current)
+        clearInterval(elapsedIntervalRef.current)
         setIsThinking(false)
         setLongRunningHint(null)
         if (inputForRestore) setLastFailedInput(inputForRestore)
@@ -1671,12 +1706,9 @@ export function useConversation(): UseConversationReturn {
             timestamp: new Date(),
           })
         }
-      }, TIMEOUT_MS)
+      }, dynamicTimeout)
 
       try {
-        const resolvedTurnType: TurnType = mode === 'system'
-          ? 'system_event'
-          : resolveUserTurnType(source, hidden, turnType)
         const systemEventWire = mode === 'system' && systemEvent ? serializeSystemEvent(systemEvent) : undefined
         const request = buildRequest({
           text: message,
@@ -1742,7 +1774,7 @@ export function useConversation(): UseConversationReturn {
               case 'turn_start':
                 // Stream is live — clear progressive loading hints
                 clearTimeout(longRunningTimerRef.current)
-                clearTimeout(stillWorkingTimerRef.current)
+                clearInterval(elapsedIntervalRef.current)
                 setLongRunningHint(null)
                 break
 
@@ -1944,7 +1976,7 @@ export function useConversation(): UseConversationReturn {
         }
       } finally {
         clearTimeout(longRunningTimerRef.current)
-        clearTimeout(stillWorkingTimerRef.current)
+        clearInterval(elapsedIntervalRef.current)
         clearTimeout(timeoutTimerRef.current)
         // Finalise any stuck streaming message before clearing refs
         if (streamingMsgIdRef.current) {
@@ -2098,8 +2130,9 @@ export function useConversation(): UseConversationReturn {
       // Remove the error/timeout synthetic message; keep original user bubble
       setMessages((prev) => {
         const tail = prev[prev.length - 1]
-        if (tail?.synthetic) return prev.slice(0, -1)
-        return prev
+        const next = tail?.synthetic ? prev.slice(0, -1) : prev
+        messagesRef.current = next
+        return next
       })
       // Re-send without creating a new user bubble (original is already in thread).
       // Reuse the original client_turn_id for idempotent retry.
@@ -2114,6 +2147,7 @@ export function useConversation(): UseConversationReturn {
   }, [sendTurn])
 
   const clearHistory = useCallback(() => {
+    messagesRef.current = []
     setMessages([])
     setIsThinking(false)
     setLongRunningHint(null)
@@ -2122,7 +2156,6 @@ export function useConversation(): UseConversationReturn {
     setPatchRejectionsMap(new Map())
     abortRef.current?.abort()
     clearTimeout(longRunningTimerRef.current)
-    clearTimeout(stillWorkingTimerRef.current)
     clearTimeout(timeoutTimerRef.current)
   }, [])
 
