@@ -230,6 +230,8 @@ interface CanvasState {
   previousReport: PreviousReportSnapshot | null
   // Scenario state
   currentScenarioId: string | null  // Active scenario ID
+  /** True when the scenario has been confirmed to exist in Supabase (created or loaded from DB) */
+  scenarioPersistedToDb: boolean
   currentScenarioFraming: ScenarioFraming | null
   // A.15: Decision lifecycle stage (hydrated from Supabase, updated by orchestrator)
   currentStage: ScenarioStage | null
@@ -247,6 +249,8 @@ interface CanvasState {
   showTemplatesPanel: boolean
   templatesPanelInvoker: HTMLElement | null
   showDraftChat: boolean
+  // Current brief textarea content (synced from ChatComposer for graph-readiness requests)
+  currentBriefText: string | null
   // Current brief textarea content (synced from ChatComposer for graph-readiness requests)
   currentBriefText: string | null
   // AI Model Selection (session-only, not persisted to localStorage)
@@ -903,6 +907,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   previousReport: null,
   // Scenario state
   currentScenarioId: scenarios.getCurrentScenarioId(),
+  scenarioPersistedToDb: false,
   currentScenarioFraming: null,
   currentStage: null,
   currentScenarioLastResultHash: null,
@@ -919,6 +924,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     showInspectorPanel: false,
     showTemplatesPanel: false,
     showDraftChat: false,
+    currentBriefText: null,
     currentBriefText: null,
     // AI Model Selection (session-only, start with defaults)
     selectedGenerationModel: null,
@@ -2344,6 +2350,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       nodes,
       edges,
       currentScenarioId: id,
+      scenarioPersistedToDb: true,
       currentScenarioFraming: scenario.framing ?? null,
       currentScenarioLastResultHash: scenario.last_result_hash ?? null,
       currentScenarioLastRunAt: scenario.last_run_at ?? null,

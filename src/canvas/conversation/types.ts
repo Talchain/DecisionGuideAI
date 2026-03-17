@@ -165,6 +165,8 @@ export interface GraphPatchBlock {
    * Render as applied state immediately — no Accept/Dismiss, no system event.
    */
   auto_apply?: boolean
+  /** CEE patch classification — 'full_draft' for initial graph generation, 'incremental' for targeted edits */
+  patch_type?: 'full_draft' | 'incremental'
   /** CEE-provided action buttons; overrides default Accept/Dismiss when present */
   actions?: BlockAction[]
   /** Canonical block identifier from CEE */

@@ -14,6 +14,7 @@ import { isThreadPersistEnabled } from '../../../flags'
 import { getUserId } from '../../../lib/supabase'
 import { appendThreadEntries, updateThreadBlockState, insertConversationTurn } from '../../../services/threadService'
 import { useResultsStore } from '../../stores/resultsStore'
+import { useCanvasStore } from '../../store'
 import type {
   ThreadEntryInput,
   PersistedBlock,
@@ -185,13 +186,16 @@ export function useThreadPersistence(
           }
 
           // Normalised turn (always-on, best-effort, fire-and-forget)
-          void insertConversationTurn({
-            scenarioId,
-            role: 'user',
-            content: msg.content,
-            clientTurnId: msg.clientTurnId,
-            snapshotId: useResultsStore.getState().results.lastSnapshotId ?? undefined,
-          })
+          // Skip if scenario not persisted to Supabase
+          if (useCanvasStore.getState().scenarioPersistedToDb) {
+            void insertConversationTurn({
+              scenarioId,
+              role: 'user',
+              content: msg.content,
+              clientTurnId: msg.clientTurnId,
+              snapshotId: useResultsStore.getState().results.lastSnapshotId ?? undefined,
+            })
+          }
         } else if (msg.role === 'assistant') {
           // Legacy thread path (flag-gated)
           if (legacyEnabled) {
@@ -220,18 +224,25 @@ export function useThreadPersistence(
             console.error('[ThreadPersistence] XML envelope detected in msg.content — should be plain text:', msg.content.slice(0, 100))
           }
 
+          // DEV guard: verify no XML envelope leaks into persistence
+          if (import.meta.env.DEV && msg.content && msg.content.includes('<envelope')) {
+            console.error('[ThreadPersistence] XML envelope detected in msg.content — should be plain text:', msg.content.slice(0, 100))
+          }
+
           // Normalised turn (always-on, best-effort)
-          // Link analysis_snapshot_id when the most recent analysis produced a snapshot
-          const resultsState = useResultsStore.getState().results
-          void insertConversationTurn({
-            scenarioId,
-            role: 'assistant',
-            content: msg.content || undefined,
-            structuredBlocks: msg.blocks,
-            clientTurnId: msg.clientTurnId,
-            snapshotId: resultsState.lastSnapshotId ?? undefined,
-            analysisSnapshotId: resultsState.lastSnapshotId ?? undefined,
-          })
+          // Skip if scenario not persisted to Supabase
+          if (useCanvasStore.getState().scenarioPersistedToDb) {
+            const resultsState = useResultsStore.getState().results
+            void insertConversationTurn({
+              scenarioId,
+              role: 'assistant',
+              content: msg.content || undefined,
+              structuredBlocks: msg.blocks,
+              clientTurnId: msg.clientTurnId,
+              snapshotId: resultsState.lastSnapshotId ?? undefined,
+              analysisSnapshotId: resultsState.lastSnapshotId ?? undefined,
+            })
+          }
         }
       }
     })()

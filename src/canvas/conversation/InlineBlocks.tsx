@@ -708,9 +708,10 @@ function GraphPatchBlockRenderer({
   const totalNodeCount = canvasNodeIds.size
   // Hide "Show on graph" when target set covers ≥80% of the graph (whole-graph highlight is useless)
   const isWholeGraphTarget = totalNodeCount > 0 && uniqueTargetNodeIds.length / totalNodeCount >= 0.8
-  // Hide "Show on graph" for generative drafts (auto_apply + majority add_node ops = new graph appeared)
+  // Classify as generative draft: prefer explicit patch_type from CEE, fall back to heuristic
   const addNodeOpCount = block.operations.filter(op => op.op === 'add_node').length
-  const isGenerativeDraft = isAutoApplied && addNodeOpCount >= 3 && addNodeOpCount > block.operations.length / 2
+  const isGenerativeDraft = block.patch_type === 'full_draft'
+    || (block.patch_type == null && isAutoApplied && addNodeOpCount >= 3 && addNodeOpCount > block.operations.length / 2)
   const hasRevealTargets = !isWholeGraphTarget && !isGenerativeDraft && (uniqueTargetNodeIds.length > 0 || edgeIds.length > 0)
   const isApplied = isAutoApplied || resolvedState === 'accepted'
   const statusLabel = 'Applied'

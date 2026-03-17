@@ -14,6 +14,7 @@
  */
 
 import { supabase } from '../lib/supabase'
+import { clearSuppressedScenarioId } from './threadService'
 import type {
   ScenarioRow,
   ScenarioListItem,
@@ -84,6 +85,9 @@ export async function createScenario(
       eventError,
     )
   }
+
+  // Clear turn insert suppression so conversation turns can persist for this scenario
+  clearSuppressedScenarioId(data.id)
 
   return data as ScenarioRow
 }

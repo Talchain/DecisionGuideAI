@@ -574,6 +574,11 @@ export function adaptCEEBlock(raw: unknown): ConversationBlock {
           }
         }
 
+        // Preserve patch_type from CEE wire format for rendering classification
+        const patchType = dataObj.patch_type === 'full_draft' || dataObj.patch_type === 'incremental'
+          ? dataObj.patch_type
+          : undefined
+
         return {
           type: 'graph_patch',
           patch_id: String(dataObj.patch_id ?? block_id ?? ''),
@@ -582,6 +587,7 @@ export function adaptCEEBlock(raw: unknown): ConversationBlock {
           target_graph_hash: String(dataObj.applied_graph_hash ?? dataObj.target_graph_hash ?? ''),
           status: asOptionalString(dataObj.status),
           auto_apply: dataObj.auto_apply === true,
+          ...(patchType ? { patch_type: patchType } : {}),
           actions: Array.isArray(actions) ? actions as any : undefined,
           block_id: typeof block_id === 'string' ? block_id : undefined,
           analysis_ready: normaliseAnalysisReady(dataObj.analysis_ready),

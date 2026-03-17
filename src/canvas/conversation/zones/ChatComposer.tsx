@@ -161,10 +161,11 @@ export const ChatComposer = memo(forwardRef<ChatComposerHandle, ChatComposerProp
     }, [briefSignals])
 
     const showBriefStrip = Boolean(!hasGraph && isFramingStage(stage) && briefSignals && briefSignals.elements.some(e => e.detected))
-
+    // Show Generate Model CTA when brief strip is visible OR when user has typed enough prose
+    const showGenerateCta = showBriefStrip || Boolean(!hasGraph && isFramingStage(stage) && composer.value.trim().length >= 50)
     useEffect(() => {
       recordUiSurfaceState('conversation', {
-        firstDraftControlsVisible: showBriefStrip,
+        firstDraftControlsVisible: showGenerateCta,
         staleFirstDraftGuidanceVisible: Boolean(showBriefStrip && (hasAnalysis || hasAnalysisReady)),
         aiPanelOpen: true,
         composerHasText: composer.value.trim().length > 0,
@@ -193,13 +194,15 @@ export const ChatComposer = memo(forwardRef<ChatComposerHandle, ChatComposerProp
         )}
 
         {/* 3. Readiness row (framing only): readiness pill + inline Generate model */}
-        {showBriefStrip && (
+        {showGenerateCta && (
           <div className="flex items-end" style={{ gap: 6 }}>
-            <BriefReadinessPill
-              readiness={briefSignals!.readiness}
-              expanded={stripExpanded}
-              onToggle={() => setStripExpanded(prev => !prev)}
-            />
+            {showBriefStrip && (
+              <BriefReadinessPill
+                readiness={briefSignals!.readiness}
+                expanded={stripExpanded}
+                onToggle={() => setStripExpanded(prev => !prev)}
+              />
+            )}
             <InlineGenerateButton state={generateState} onClick={onGenerateModel} />
           </div>
         )}
