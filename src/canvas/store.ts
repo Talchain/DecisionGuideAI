@@ -1834,6 +1834,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       },
       // Clear scenario tracking in store state
       currentScenarioId: null,
+      scenarioPersistedToDb: false,
       // A.15: Clear lifecycle stage
       currentStage: null,
       // A.5+: Clear draft snapshot
@@ -2484,6 +2485,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
         set({
           nodes: newCleansedNodes,
           currentScenarioId: scenario.id,
+          scenarioPersistedToDb: true,
           isDirty: false,
           isSaving: false,
           lastSavedAt: Date.now()
@@ -2510,6 +2512,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
 
     set({
       currentScenarioId: scenario.id,
+      scenarioPersistedToDb: true,
       isDirty: false,
       showDraftChat: false,
     })
@@ -2549,7 +2552,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
 
     // If we deleted the current scenario, clear the current ID
     if (currentScenarioId === id) {
-      set({ currentScenarioId: null })
+      set({ currentScenarioId: null, scenarioPersistedToDb: false })
     }
   },
 

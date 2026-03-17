@@ -172,7 +172,7 @@ export const ChatComposer = memo(forwardRef<ChatComposerHandle, ChatComposerProp
         composerTextLength: composer.value.trim().length,
         guidanceItemsVisible,
       })
-    }, [showBriefStrip, hasAnalysis, hasAnalysisReady, composer.value, guidanceItemsVisible])
+    }, [showBriefStrip, showGenerateCta, hasAnalysis, hasAnalysisReady, composer.value, guidanceItemsVisible])
 
     return (
       <div
