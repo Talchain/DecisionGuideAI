@@ -327,8 +327,8 @@ describe('PreAnalysisPanel', () => {
       // Each tier shows its count in pill badges
       const countBadges = screen.getAllByText('1')
       expect(countBadges.length).toBeGreaterThanOrEqual(1)
-      // Verify the optional tier count
-      expect(screen.getByText('3')).toBeInTheDocument()
+      // Verify the optional tier count (excludes evidence items from badge)
+      expect(screen.getByText('2')).toBeInTheDocument()
     })
   })
 
@@ -1026,10 +1026,11 @@ describe('PreAnalysisPanel', () => {
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
 
-      const pill = screen.getByText('Framing')
-      expect(pill).toBeInTheDocument()
-      expect(pill.className).toContain('border')
-      expect(pill.className).not.toContain('bg-option-light')
+      const pills = screen.getAllByText('Framing')
+      expect(pills.length).toBeGreaterThanOrEqual(1)
+      // Check the first Framing pill (from the quality check) has correct styling
+      expect(pills[0].className).toContain('border')
+      expect(pills[0].className).not.toContain('bg-option-light')
     })
   })
 })

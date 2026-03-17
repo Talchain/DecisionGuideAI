@@ -533,9 +533,11 @@ export function TornadoChart({
 
       {/* Preview disclaimer + action buttons */}
       <div className="flex items-center justify-between mt-2">
-        <p className={`${typography.panelMeta} text-text-light italic`}>
-          Preview only
-        </p>
+        {dragState.hasUserDragged && (
+          <p className={`${typography.panelMeta} text-text-light italic`}>
+            Preview only
+          </p>
+        )}
         <div className="flex items-center gap-2">
           {dragState.hasUserDragged && (
             <button

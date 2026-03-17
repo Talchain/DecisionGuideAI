@@ -67,8 +67,8 @@ describe('assembleAnalysisInputsSummary', () => {
     expect(result!.recommendation.win_probability).toBe(0.65)
     expect(result!.options).toHaveLength(2)
     expect(result!.top_drivers).toHaveLength(3) // capped at 3
-    expect(result!.robustness.level).toBe('robust') // 0.82 >= 0.7
-    expect(result!.robustness.recommendation_stability).toBe(0.82)
+    expect(result!.robustness!.level).toBe('robust') // 0.82 >= 0.7
+    expect(result!.robustness!.recommendation_stability).toBe(0.82)
   })
 
   it('serialised output is ≤ 2048 bytes', () => {
@@ -89,14 +89,18 @@ describe('assembleAnalysisInputsSummary', () => {
     expect(assembleAnalysisInputsSummary(response)).toBeNull()
   })
 
-  it('returns null when robustness_status is not computed', () => {
+  it('returns summary without robustness when robustness_status is not computed', () => {
     const response = makeValidResponse({ robustness_status: 'unavailable' })
-    expect(assembleAnalysisInputsSummary(response)).toBeNull()
+    const result = assembleAnalysisInputsSummary(response)
+    expect(result).not.toBeNull()
+    expect(result!.robustness).toBeUndefined()
   })
 
-  it('returns null when robustness is missing', () => {
+  it('returns summary without robustness when robustness is missing', () => {
     const response = makeValidResponse({ robustness: undefined })
-    expect(assembleAnalysisInputsSummary(response)).toBeNull()
+    const result = assembleAnalysisInputsSummary(response)
+    expect(result).not.toBeNull()
+    expect(result!.robustness).toBeUndefined()
   })
 
   it('caps top_drivers at 3', () => {
@@ -164,7 +168,7 @@ describe('assembleAnalysisInputsSummary', () => {
     })
     const result = assembleAnalysisInputsSummary(response)
     expect(result).not.toBeNull()
-    expect(result!.robustness.level).toBe('moderate')
+    expect(result!.robustness!.level).toBe('moderate')
   })
 
   it('derives fragile robustness for stability below 0.4', () => {
@@ -177,7 +181,7 @@ describe('assembleAnalysisInputsSummary', () => {
     })
     const result = assembleAnalysisInputsSummary(response)
     expect(result).not.toBeNull()
-    expect(result!.robustness.level).toBe('fragile')
+    expect(result!.robustness!.level).toBe('fragile')
   })
 
   it('handles empty drivers gracefully', () => {
@@ -296,7 +300,7 @@ describe('assembleAnalysisInputsSummary', () => {
     expect(result).toBeNull()
   })
 
-  it('returns null when robustness has neither recommendation_stability nor ranking_stability', () => {
+  it('omits robustness when neither recommendation_stability nor ranking_stability present', () => {
     const response = makeValidResponse({
       robustness: {
         fragile_edges: [],
@@ -306,7 +310,9 @@ describe('assembleAnalysisInputsSummary', () => {
     })
 
     const result = assembleAnalysisInputsSummary(response)
-    expect(result).toBeNull()
+    // Summary is still returned (for analysis_state propagation) but without robustness
+    expect(result).not.toBeNull()
+    expect(result!.robustness).toBeUndefined()
   })
 
   it('accepts ranking_stability as a legitimate alias for recommendation_stability', () => {
@@ -321,7 +327,7 @@ describe('assembleAnalysisInputsSummary', () => {
 
     const result = assembleAnalysisInputsSummary(response)
     expect(result).not.toBeNull()
-    expect(result!.robustness.recommendation_stability).toBe(0.75)
-    expect(result!.robustness.level).toBe('robust')
+    expect(result!.robustness!.recommendation_stability).toBe(0.75)
+    expect(result!.robustness!.level).toBe('robust')
   })
 })

@@ -15,7 +15,7 @@ export interface AnalysisInputsSummary {
   top_drivers: Array<{ factor_id: string; factor_label: string; elasticity: number }> // max 3
   sensitivity_concentration: number
   confidence_band: 'low' | 'medium' | 'high'
-  robustness: { level: 'robust' | 'moderate' | 'fragile'; recommendation_stability: number }
+  robustness?: { level: 'robust' | 'moderate' | 'fragile'; recommendation_stability: number } | null
   constraints_status: Array<{ label: string; satisfied: boolean; probability?: number }> // max 5
   run_metadata: {
     seed: string | number | null

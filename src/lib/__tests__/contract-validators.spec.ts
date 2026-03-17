@@ -1099,6 +1099,7 @@ describe('Contract Validators', () => {
       expect(detectService('/bff/cee/draft-graph')).toBe('CEE')
       expect(detectService('/cee/assist')).toBe('CEE')
       expect(detectService('/api/draft-graph')).toBe('CEE')
+      expect(detectService('/bff/orchestrate/v1/turn')).toBe('CEE')
     })
 
     it('detects PLoT endpoints', () => {

@@ -248,7 +248,7 @@ describe('TornadoChart', () => {
 
   // ── Disclaimer tests ──
 
-  it('renders preview disclaimer', () => {
+  it('hides preview disclaimer when user has not dragged', () => {
     render(
       <TornadoChart
         rows={[positiveRow]}
@@ -256,18 +256,7 @@ describe('TornadoChart', () => {
       />
     )
 
-    expect(screen.getByText(/Preview only/)).toBeInTheDocument()
-  })
-
-  it('renders preview disclaimer text', () => {
-    render(
-      <TornadoChart
-        rows={[positiveRow]}
-        expectedOutcome={100}
-      />
-    )
-
-    expect(screen.getByText(/Preview only/)).toBeInTheDocument()
+    expect(screen.queryByText(/Preview only/)).not.toBeInTheDocument()
   })
 
   // ── Axis label tests ──

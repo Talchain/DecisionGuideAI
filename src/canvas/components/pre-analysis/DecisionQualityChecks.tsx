@@ -11,7 +11,7 @@
  * Data source: usePreAnalysisData().qualityChecks
  */
 
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { ChevronDown, ChevronRight, Shield } from 'lucide-react'
 import { Pill } from './primitives'
 import type { QualityCheck } from './hooks/usePreAnalysisData'
@@ -21,6 +21,10 @@ interface DecisionQualityChecksProps {
   checks: QualityCheck[]
   /** CTA action handler — routes action string to parent */
   onAction?: (action: string) => void
+  /** Optional slot replacing the goal_baseline_missing check with custom inline UI */
+  goalBaselineSlot?: ReactNode
+  /** Total count including replaced checks (for header pill) */
+  totalCheckCount?: number
 }
 
 function CheckRow({
@@ -58,15 +62,24 @@ function CheckRow({
   )
 }
 
-export function DecisionQualityChecks({ checks, onAction }: DecisionQualityChecksProps) {
+export function DecisionQualityChecks({ checks, onAction, goalBaselineSlot, totalCheckCount }: DecisionQualityChecksProps) {
   const [isExpanded, setIsExpanded] = useState(true)
   const [showAll, setShowAll] = useState(false)
 
-  if (checks.length === 0) return null
+  // Filter out goal_baseline_missing when slot replaces it
+  const filteredChecks = goalBaselineSlot
+    ? checks.filter(c => c.id !== 'goal_baseline_missing')
+    : checks
+
+  // Use totalCheckCount for the header pill when provided (accounts for replaced checks)
+  const displayCount = totalCheckCount ?? filteredChecks.length
+
+  // Hide section only when no checks AND no baseline slot
+  if (filteredChecks.length === 0 && !goalBaselineSlot) return null
 
   const maxVisible = 3
-  const visibleChecks = showAll ? checks : checks.slice(0, maxVisible)
-  const hiddenCount = checks.length - maxVisible
+  const visibleChecks = showAll ? filteredChecks : filteredChecks.slice(0, maxVisible)
+  const hiddenCount = filteredChecks.length - maxVisible
 
   return (
     <div className="rounded-lg border border-panel-border" data-testid="decision-quality-checks">
@@ -81,7 +94,9 @@ export function DecisionQualityChecks({ checks, onAction }: DecisionQualityCheck
           <span className={`${typography.panelHeader} text-text-body`}>Decision quality</span>
         </div>
         <div className="flex items-center gap-2">
-          <Pill size="small" variant="warning">{checks.length}</Pill>
+          {displayCount > 0 && (
+            <Pill size="small" variant="warning">{displayCount}</Pill>
+          )}
           {isExpanded ? (
             <ChevronDown className="w-4 h-4 text-text-light" />
           ) : (
@@ -93,10 +108,17 @@ export function DecisionQualityChecks({ checks, onAction }: DecisionQualityCheck
       {/* Content */}
       {isExpanded && (
         <div className="px-3 pb-3">
+          {/* Goal baseline slot — always first when present */}
+          {goalBaselineSlot && (
+            <div data-testid="goal-baseline-slot">
+              {goalBaselineSlot}
+            </div>
+          )}
+
           {visibleChecks.map((check, idx) => (
             <div
               key={check.id}
-              className={idx > 0 ? 'border-t border-panel-border' : ''}
+              className={(idx > 0 || goalBaselineSlot) ? 'border-t border-panel-border' : ''}
             >
               <CheckRow check={check} onAction={onAction} />
             </div>

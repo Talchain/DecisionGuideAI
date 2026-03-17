@@ -199,9 +199,9 @@ export function SuccessTarget({
 
         {/* Expanded content - edit option */}
         {isExpanded && (
-          <div className="mt-3 pt-3 border-t border-panel-border">
-            <div className="flex items-center gap-3">
-              <label className={`${typography.panelBody} text-text-light shrink-0`}>{editLabel}</label>
+          <div className="mt-3 pt-3 border-t border-panel-border flex flex-col gap-2">
+            <label className={`${typography.panelBody} text-text-light`}>{editLabel}</label>
+            <div className="flex items-center gap-2">
               <input
                 type="number"
                 value={editDraft}
@@ -219,12 +219,12 @@ export function SuccessTarget({
                   // Clear confirmed status when editing
                   onThresholdEdit?.()
                 }}
-                className="flex-1 px-2 py-1.5 text-sm border border-panel-border rounded-lg bg-panel text-text-body focus:outline-none focus:ring-2 focus:ring-info"
+                className="flex-1 min-w-0 px-2 py-1.5 text-sm border border-panel-border rounded-lg bg-panel text-text-body focus:outline-none focus:ring-2 focus:ring-info"
               />
               <button
                 type="button"
                 onClick={onThresholdConfirm}
-                className={`px-3 py-1.5 ${typography.panelMeta} text-text-on-color bg-info rounded-lg hover:bg-success`}
+                className={`px-3 py-1.5 ${typography.panelMeta} text-text-on-color bg-info rounded-lg hover:bg-success shrink-0`}
               >
                 Confirm
               </button>
@@ -240,41 +240,43 @@ export function SuccessTarget({
     return (
       <div className={`rounded-lg border ${borderColor} bg-panel p-3 hover:bg-panel-hover transition-colors`}>
         {showInput ? (
-          <div className="flex items-center gap-3">
-            <label className={`${typography.panelBody} text-text-light shrink-0`}>Target for {goalLabel}</label>
-            <input
-              type="number"
-              value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
-              placeholder={inputPlaceholder}
-              autoFocus
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') handleSubmit()
-                if (e.key === 'Escape') {
+          <div className="flex flex-col gap-2">
+            <label className={`${typography.panelBody} text-text-light`}>Target for {goalLabel}</label>
+            <div className="flex items-center gap-2">
+              <input
+                type="number"
+                value={inputValue}
+                onChange={(e) => setInputValue(e.target.value)}
+                placeholder={inputPlaceholder}
+                autoFocus
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleSubmit()
+                  if (e.key === 'Escape') {
+                    setShowInput(false)
+                    setInputValue('')
+                  }
+                }}
+                className="flex-1 min-w-0 px-2 py-1.5 text-sm border border-panel-border rounded-lg bg-panel text-text-body focus:outline-none focus:ring-2 focus:ring-info"
+              />
+              <button
+                type="button"
+                onClick={handleSubmit}
+                disabled={!inputValue.trim()}
+                className={`px-3 py-1.5 ${typography.panelMeta} text-text-on-color bg-primary rounded-lg hover:bg-primary-hover disabled:opacity-50 shrink-0`}
+              >
+                Save
+              </button>
+              <button
+                type="button"
+                onClick={() => {
                   setShowInput(false)
                   setInputValue('')
-                }
-              }}
-              className="flex-1 px-2 py-1.5 text-sm border border-panel-border rounded-lg bg-panel text-text-body focus:outline-none focus:ring-2 focus:ring-info"
-            />
-            <button
-              type="button"
-              onClick={handleSubmit}
-              disabled={!inputValue.trim()}
-              className={`px-3 py-1.5 ${typography.panelMeta} text-text-on-color bg-primary rounded-lg hover:bg-primary-hover disabled:opacity-50`}
-            >
-              Save
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setShowInput(false)
-                setInputValue('')
-              }}
-              className={`px-2 py-1.5 ${typography.panelMeta} text-text-light hover:text-text-body`}
-            >
-              Cancel
-            </button>
+                }}
+                className={`px-2 py-1.5 ${typography.panelMeta} text-text-light hover:text-text-body shrink-0`}
+              >
+                Cancel
+              </button>
+            </div>
           </div>
         ) : (
           <div>
@@ -346,9 +348,9 @@ export function SuccessTarget({
 
       {/* Inline edit when expanded */}
       {isExpanded && (
-        <div className="mt-3 pt-3 border-t border-panel-border">
-          <div className="flex items-center gap-3">
-            <label className={`${typography.panelBody} text-text-light shrink-0`}>{editLabel}</label>
+        <div className="mt-3 pt-3 border-t border-panel-border flex flex-col gap-2">
+          <label className={`${typography.panelBody} text-text-light`}>{editLabel}</label>
+          <div className="flex items-center gap-2">
             <input
               type="number"
               value={editDraft}
@@ -365,7 +367,7 @@ export function SuccessTarget({
                 }
               }}
               autoFocus
-              className="flex-1 px-2 py-1.5 text-sm border border-panel-border rounded-lg bg-panel text-text-body focus:outline-none focus:ring-2 focus:ring-info"
+              className="flex-1 min-w-0 px-2 py-1.5 text-sm border border-panel-border rounded-lg bg-panel text-text-body focus:outline-none focus:ring-2 focus:ring-info"
             />
             <button
               type="button"
@@ -373,7 +375,7 @@ export function SuccessTarget({
                 setIsExpanded(false)
                 onThresholdConfirm?.()
               }}
-              className={`px-3 py-1.5 ${typography.panelMeta} text-text-on-color bg-info rounded-lg hover:bg-success`}
+              className={`px-3 py-1.5 ${typography.panelMeta} text-text-on-color bg-info rounded-lg hover:bg-success shrink-0`}
             >
               Confirm
             </button>

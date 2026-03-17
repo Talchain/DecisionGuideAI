@@ -22,6 +22,7 @@ import { SuccessTarget } from './SuccessTarget'
 import { BlockersSection } from './BlockersSection'
 import { OptionPreview } from './OptionPreview'
 import { DecisionQualityChecks } from './DecisionQualityChecks'
+import { GoalBaselineInput } from './GoalBaselineInput'
 import { ModelAdjustments } from './ModelAdjustments'
 import { AllImprovements, type ImprovementActionHandlers } from './AllImprovements'
 import { ModelSnapshot } from './ModelSnapshot'
@@ -521,6 +522,69 @@ export function PreAnalysisPanel({
     }
   }, [data.goalNode, handleAddRisk, handleAddBaseline, handleAddOption, handleFocusNode])
 
+  // Goal baseline inline input handlers
+  const handleBaselineConfirm = useCallback((value: number) => {
+    const { updateNode, setCeeAnalysisReady } = useCanvasStore.getState()
+    const goalNode = data.goalNode
+    if (!goalNode) return
+
+    // Write value to goal node's observedState.value
+    const updatedData = withObservedStateUpdate(goalNode.data, { value })
+    updateNode(goalNode.id, { data: updatedData })
+
+    // Invalidate analysis cache — baseline change affects run inputs
+    setCeeAnalysisReady(null)
+  }, [data.goalNode])
+
+  const handleBaselineClear = useCallback(() => {
+    const { updateNode, setCeeAnalysisReady } = useCanvasStore.getState()
+    const goalNode = data.goalNode
+    if (!goalNode) return
+
+    // Clear value from goal node's observedState by spreading without value
+    const existing = getObservedState(goalNode.data)
+    const { value: _removed, ...rest } = existing
+    const nodeData = goalNode.data as Record<string, unknown>
+    updateNode(goalNode.id, {
+      data: {
+        ...nodeData,
+        observedState: rest,
+        observed_state: rest,
+      },
+    })
+
+    // Invalidate analysis cache — baseline change affects run inputs
+    setCeeAnalysisReady(null)
+  }, [data.goalNode])
+
+  const handleBaselineInputOpen = useCallback(() => {
+    if (data.goalNode) {
+      setHighlightedNodes([data.goalNode.id])
+      focusNodeById(data.goalNode.id)
+    }
+  }, [data.goalNode, setHighlightedNodes])
+
+  const handleBaselineInputClose = useCallback(() => {
+    setHighlightedNodes([])
+  }, [setHighlightedNodes])
+
+  // Derive goal baseline value from observedState
+  const goalBaselineValue = useMemo(() => {
+    if (!data.goalNode) return null
+    const os = getObservedState(data.goalNode.data)
+    return typeof os.value === 'number' ? os.value : null
+  }, [data.goalNode])
+
+  const goalLabel = useMemo(() => {
+    if (!data.goalNode) return 'Goal'
+    return (data.goalNode.data as { label?: string })?.label ?? data.goalNode.id
+  }, [data.goalNode])
+
+  const goalUnit = useMemo(() => {
+    if (!data.goalNode) return null
+    return (data.goalNode.data as { goal_threshold_unit?: string })?.goal_threshold_unit ?? null
+  }, [data.goalNode])
+
   // Memoize action handlers object to prevent unnecessary re-renders
   const actionHandlers: ImprovementActionHandlers = useMemo(() => ({
     onConfirm: handleConfirm,
@@ -680,11 +744,26 @@ export function PreAnalysisPanel({
           />
         )}
 
-        {/* 6. Decision quality checks (Task 4) */}
-        {data.qualityChecks.length > 0 && (
+        {/* 6. Decision quality checks (Task 4) — with inline goal baseline input */}
+        {(data.qualityChecks.length > 0 || data.goalNode) && (
           <DecisionQualityChecks
             checks={data.qualityChecks}
             onAction={handleQualityCheckAction}
+            totalCheckCount={data.qualityChecks.length}
+            goalBaselineSlot={
+              data.goalNode ? (
+                <GoalBaselineInput
+                  currentValue={goalBaselineValue}
+                  goalLabel={goalLabel}
+                  unit={goalUnit}
+                  hasGoalNode={!!data.goalNode}
+                  onConfirm={handleBaselineConfirm}
+                  onClear={handleBaselineClear}
+                  onInputOpen={handleBaselineInputOpen}
+                  onInputClose={handleBaselineInputClose}
+                />
+              ) : undefined
+            }
           />
         )}
 
