@@ -73,7 +73,7 @@ jobs:
         if: steps.cache-nm.outputs.cache-hit != 'true'
         run: npm ci
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.PACKAGES_READ_TOKEN }}
 
       - name: Sync CEE contracts (strict when CEE repo available)
         run: |
