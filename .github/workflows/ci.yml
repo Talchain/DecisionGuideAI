@@ -19,6 +19,7 @@ on:
 
 permissions:
   contents: read
+  packages: read
 
 # Cancel older runs of the same branch/PR to save time.
 concurrency:
