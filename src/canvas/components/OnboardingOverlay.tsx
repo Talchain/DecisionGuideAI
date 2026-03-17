@@ -79,7 +79,7 @@ export function OnboardingOverlay({
       aria-labelledby="onboarding-title"
       aria-modal="true"
     >
-      <div className="bg-white rounded-2xl shadow-panel max-w-2xl w-full overflow-hidden">
+      <div className="bg-white rounded-lg shadow-panel max-w-2xl w-full overflow-hidden">
         {/* Header */}
         <div className="bg-gradient-to-r from-info-500 to-info-600 p-6 text-white">
           <div className="flex items-start justify-between">
@@ -109,7 +109,7 @@ export function OnboardingOverlay({
             {/* CTA 1: Browse templates */}
             <button
               onClick={handleBrowseTemplates}
-              className="flex flex-col items-center gap-3 p-4 border-2 border-gray-200 rounded-lg hover:border-info-500 hover:bg-info-50 transition-all text-center group"
+              className="flex flex-col items-center gap-3 p-4 border-2 border-panel-border rounded-lg hover:border-info hover:bg-info-light transition-all text-center group"
               type="button"
             >
               <div className="w-12 h-12 rounded-full bg-info-100 group-hover:bg-info-200 flex items-center justify-center transition-colors">
@@ -126,7 +126,7 @@ export function OnboardingOverlay({
             {/* CTA 2: Create from scratch */}
             <button
               onClick={() => handleCTA(onCreateNew)}
-              className="flex flex-col items-center gap-3 p-4 border-2 border-gray-200 rounded-lg hover:border-success-500 hover:bg-success-50 transition-all text-center group"
+              className="flex flex-col items-center gap-3 p-4 border-2 border-panel-border rounded-lg hover:border-success hover:bg-success-light transition-all text-center group"
               type="button"
             >
               <div className="w-12 h-12 rounded-full bg-success-100 group-hover:bg-success-200 flex items-center justify-center transition-colors">
@@ -143,7 +143,7 @@ export function OnboardingOverlay({
             {/* CTA 3: Learn shortcuts */}
             <button
               onClick={() => handleCTA(onShowShortcuts)}
-              className="flex flex-col items-center gap-3 p-4 border-2 border-gray-200 rounded-lg hover:border-warning-500 hover:bg-warning-50 transition-all text-center group"
+              className="flex flex-col items-center gap-3 p-4 border-2 border-panel-border rounded-lg hover:border-warning hover:bg-warning-light transition-all text-center group"
               type="button"
             >
               <div className="w-12 h-12 rounded-full bg-warning-100 group-hover:bg-warning-200 flex items-center justify-center transition-colors">
@@ -159,7 +159,7 @@ export function OnboardingOverlay({
           </div>
 
           {/* Keyboard Shortcuts Legend */}
-          <div className="border-t border-gray-200 pt-6">
+          <div className="border-t border-panel-border pt-6">
             <h3 className={`${typography.label} text-gray-700 mb-3`}>Essential shortcuts</h3>
             <div className={`grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2 ${typography.body}`}>
               <ShortcutRow keys={['⌘', 'K']} action="Command palette" />
@@ -174,13 +174,13 @@ export function OnboardingOverlay({
           </div>
 
           {/* Footer */}
-          <div className="flex items-center justify-between pt-4 border-t border-gray-200">
+          <div className="flex items-center justify-between pt-4 border-t border-panel-border">
             <label className={`flex items-center gap-2 ${typography.body} text-gray-600 cursor-pointer`}>
               <input
                 type="checkbox"
                 checked={dontShowAgain}
                 onChange={(e) => setDontShowAgain(e.target.checked)}
-                className="rounded border-gray-300 text-info-600 focus:ring-info-500"
+                className="rounded border-panel-border text-info focus:ring-info"
               />
               Don't show this again
             </label>

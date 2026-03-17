@@ -5,8 +5,10 @@
  * Covers dynamic normalisation, field fallback chains, rank computation, etc.
  */
 
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, beforeEach } from 'vitest'
+import { renderHook } from '@testing-library/react'
 import {
+  useResultsSectionData,
   normaliseLabel,
   getFactorKey,
   getRawElasticity,
@@ -21,7 +23,9 @@ import {
   normaliseImprovements,
   normalizeOutcomeValues,
   determineWinnerSelection,
+  resolveBaselineId,
 } from '../useResultsSectionData'
+import { useCanvasStore } from '../../../canvas/store'
 import { formatFlipRiskMessage } from '../utils/formatScenarioRatio'
 import type { RawFactorSensitivity, EdgeForDirection } from '../types'
 
@@ -192,14 +196,14 @@ describe('getRawElasticity', () => {
 // =============================================================================
 
 describe('getFactorKey', () => {
-  it('prefers factor_id (PLoT canonical field)', () => {
+  it('prefers node_id (graph-canonical field)', () => {
     const factor: RawFactorSensitivity = {
       factor_id: 'factor_456',
       node_id: 'node_123',
       id: 'id_789',
       label: 'My Factor',
     }
-    expect(getFactorKey(factor, 0)).toBe('factor_456')
+    expect(getFactorKey(factor, 0)).toBe('node_123')
   })
 
   it('falls back to node_id when factor_id missing', () => {
@@ -1039,10 +1043,92 @@ describe('determineWinnerSelection', () => {
 })
 
 // =============================================================================
-// Baseline Resolution Tests (Task 2.1)
+// Hook Runtime Regression Tests (V12)
 // =============================================================================
 
-import { resolveBaselineId } from '../useResultsSectionData'
+describe('useResultsSectionData runtime safety', () => {
+  beforeEach(() => {
+    useCanvasStore.setState({
+      results: {
+        status: 'idle',
+        progress: 0,
+      } as any,
+      runMeta: {},
+      nodes: [],
+      edges: [],
+      hasCompletedFirstRun: false,
+      currentScenarioFraming: null,
+      ceeAnalysisReady: undefined,
+    })
+  })
+
+  it('does not throw when reviewStatus and m1ReviewAssumptions are absent', () => {
+    const { result } = renderHook(() => useResultsSectionData())
+
+    expect(result.current.isError).toBe(false)
+    expect(result.current.confidence.reviewStatus).toBeUndefined()
+    expect(result.current.confidence.m2NarrativeSummary).toBeUndefined()
+  })
+
+  it('gates m2NarrativeSummary when reviewStatus is not complete', () => {
+    useCanvasStore.setState({
+      results: {
+        status: 'complete',
+        progress: 100,
+        report: {
+          run: { critique: [] },
+          robustness: { fragile_edges: [] },
+          option_comparison: [],
+        },
+      } as any,
+      hasCompletedFirstRun: true,
+      runMeta: {
+        reviewStatus: 'in_progress',
+        m1ReviewAssumptions: {
+          key_assumptions: [],
+          narrative_summary: 'Should be hidden',
+        },
+      } as any,
+    })
+
+    const { result } = renderHook(() => useResultsSectionData())
+
+    expect(result.current.confidence.reviewStatus).toBe('in_progress')
+    expect(result.current.confidence.m2NarrativeSummary).toBeUndefined()
+    expect(result.current.recommendation.m2NarrativeSummary).toBeUndefined()
+  })
+
+  it('exposes m2NarrativeSummary when reviewStatus is complete', () => {
+    useCanvasStore.setState({
+      results: {
+        status: 'complete',
+        progress: 100,
+        report: {
+          run: { critique: [] },
+          robustness: { fragile_edges: [] },
+          option_comparison: [],
+        },
+      } as any,
+      hasCompletedFirstRun: true,
+      runMeta: {
+        reviewStatus: 'complete',
+        m1ReviewAssumptions: {
+          key_assumptions: [],
+          narrative_summary: 'Visible summary',
+        },
+      } as any,
+    })
+
+    const { result } = renderHook(() => useResultsSectionData())
+
+    expect(result.current.confidence.m2NarrativeSummary).toBe('Visible summary')
+    expect(result.current.recommendation.m2NarrativeSummary).toBe('Visible summary')
+  })
+})
+
+// =============================================================================
+// Baseline Resolution Tests (Task 2.1)
+// =============================================================================
 
 describe('resolveBaselineId', () => {
   const makeOptions = (labels: string[]) =>
@@ -1087,22 +1173,13 @@ describe('resolveBaselineId', () => {
     expect(result).toBeNull()
   })
 
-  it('falls back to Status Quo heuristic', () => {
+  it('returns null when label contains Status Quo but no explicit baseline (v7.5)', () => {
     const options = makeOptions(['Option A', 'Status Quo', 'Option C'])
     const nodes = makeNodes(['opt-0', 'opt-1', 'opt-2'])
 
     const result = resolveBaselineId(options, nodes as any, undefined)
 
-    expect(result).toBe('opt-1') // Status Quo
-  })
-
-  it('Status Quo match is case-insensitive', () => {
-    const options = makeOptions(['Option A', 'KEEP STATUS QUO'])
-    const nodes = makeNodes(['opt-0', 'opt-1'])
-
-    const result = resolveBaselineId(options, nodes as any, undefined)
-
-    expect(result).toBe('opt-1')
+    expect(result).toBeNull() // v7.5: label heuristic removed — only explicit flags
   })
 
   it('PLoT baseline takes precedence over user selection', () => {
@@ -1112,15 +1189,6 @@ describe('resolveBaselineId', () => {
     const result = resolveBaselineId(options, nodes as any, 'opt-1') // User selected opt-1
 
     expect(result).toBe('opt-0') // PLoT wins
-  })
-
-  it('PLoT baseline takes precedence over Status Quo heuristic', () => {
-    const options = makeOptions(['Option A', 'Status Quo'])
-    const nodes = makeNodes(['opt-0', 'opt-1'], 0) // opt-0 is PLoT baseline
-
-    const result = resolveBaselineId(options, nodes as any, undefined)
-
-    expect(result).toBe('opt-0') // PLoT wins over Status Quo heuristic
   })
 
   it('returns null when no baseline can be resolved', () => {

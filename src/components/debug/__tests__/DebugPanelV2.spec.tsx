@@ -103,7 +103,7 @@ const defaultMockData = {
 
 // Mock the export utils
 vi.mock('../utils/exportBundle', () => ({
-  exportDebugBundle: vi.fn(),
+  exportDebugBundleAsync: vi.fn().mockResolvedValue(undefined),
   copyRequestId: vi.fn().mockResolvedValue(true),
 }))
 
@@ -176,13 +176,16 @@ describe('DebugPanelV2', () => {
   })
 
   it('handles Export All click', async () => {
-    const { exportDebugBundle } = await import('../utils/exportBundle')
+    const { exportDebugBundleAsync } = await import('../utils/exportBundle')
     render(<DebugPanelV2 />)
 
     const exportButton = screen.getByRole('button', { name: 'Export all debug data' })
     fireEvent.click(exportButton)
 
-    expect(exportDebugBundle).toHaveBeenCalled()
+    // Async export — wait for it to be called
+    await vi.waitFor(() => {
+      expect(exportDebugBundleAsync).toHaveBeenCalled()
+    })
   })
 
   it('renders close button when onClose provided', () => {
@@ -209,7 +212,7 @@ describe('DebugPanelV2', () => {
     expect(tablist).toBeInTheDocument()
 
     const tabs = screen.getAllByRole('tab')
-    expect(tabs).toHaveLength(5) // Summary, Data Flow, Pipeline, Captured, Payload Lab
+    expect(tabs).toHaveLength(7) // Summary, Data Flow, Pipeline, LLM Calls, Contract Integrity, Captured, Payload Lab
 
     // Each tab should have aria-controls
     tabs.forEach((tab) => {

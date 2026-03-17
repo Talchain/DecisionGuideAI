@@ -26,6 +26,43 @@ export function buildFragileEdgeIdSet(fragileEdges: MappedFragileEdge[]): Set<st
 }
 
 /**
+ * Match an RF edge against a list of fragile edges.
+ *
+ * PLoT robustness uses canonical edge IDs like "fac_pmf->out_cac" (fromId->toId),
+ * while RF edges use React Flow IDs like "e-5". When the string edgeId doesn't
+ * match the RF edge.id, fall back to matching on source/target node IDs.
+ */
+export function findFragileEdge(
+  edge: Edge,
+  fragileEdges: MappedFragileEdge[]
+): MappedFragileEdge | undefined {
+  const rfId = edge.id
+  // 1. Try direct edgeId match (future-proof: when PLoT edgeId === RF edge.id)
+  const byId = fragileEdges.find(fe => fe.edgeId === rfId)
+  if (byId) return byId
+  // 2. Fall back to source + target match
+  return fragileEdges.find(
+    fe => fe.fromId === edge.source && fe.toId === edge.target
+  )
+}
+
+/**
+ * Build a lookup that maps RF edge.id to its fragile edge entry, using
+ * source+target matching as fallback for PLoT canonical IDs.
+ */
+export function buildFragileEdgeLookup(
+  rfEdges: Edge[],
+  fragileEdges: MappedFragileEdge[]
+): Map<string, MappedFragileEdge> {
+  const map = new Map<string, MappedFragileEdge>()
+  for (const edge of rfEdges) {
+    const match = findFragileEdge(edge, fragileEdges)
+    if (match) map.set(edge.id, match)
+  }
+  return map
+}
+
+/**
  * Build Set of edge IDs from robust edges array
  */
 export function buildRobustEdgeIdSet(robustEdges: string[]): Set<string> {

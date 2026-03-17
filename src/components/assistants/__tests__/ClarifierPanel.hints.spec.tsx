@@ -485,10 +485,10 @@ describe('S7-HINTS: ClarifierPanel Impact Hints', () => {
       const hintContainer = container.querySelector('[role="note"]')
 
       // Should have blue background
-      expect(hintContainer).toHaveClass('bg-blue-50')
+      expect(hintContainer).toHaveClass('bg-panel')
 
       // Should have border
-      expect(hintContainer).toHaveClass('border-blue-100')
+      expect(hintContainer).toHaveClass('border-info/30')
 
       // Should have padding
       expect(hintContainer).toHaveClass('px-3')

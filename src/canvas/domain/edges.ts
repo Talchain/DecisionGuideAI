@@ -184,7 +184,7 @@ export const EdgeDataSchema = z.object({
 
   // Semantic properties
   kind: EdgeKindEnum.default('decision-probability'),
-  label: z.string().max(50).optional(),
+  label: z.string().max(120).optional(),
   // confidence: interpreted as branch probability (0-1). For decision nodes,
   // NodeInspectorCompact treats confidence on outgoing edges as a probability
   // distribution that should sum to ~1 across all branches.
@@ -218,13 +218,20 @@ export const EdgeDataSchema = z.object({
   formProvenance: FormProvenanceEnum.optional(),          // How the form was selected
   formRationale: z.string().max(200).optional(),          // CEE's explanation for the recommendation
 
+  // Phase 2A: Causal claims from pipeline (snake_case, matches pipeline output)
+  causal_claims: z.array(z.object({
+    claim_type: z.string(),
+    statement: z.string(),
+    source: z.string().optional(),
+  })).optional(),
+
   // Template tracking
   templateId: z.string().optional(),
 
   // Schema version for migrations
   // Accept legacy v2, v3, and current v4 values for backwards-compatible imports
   schemaVersion: z.union([z.literal(2), z.literal(3), z.literal(4)]).default(4),
-})
+}).passthrough() // CIL 0.2: passthrough preserves additive CIL fields through Zod parse
 
 export type EdgeData = z.infer<typeof EdgeDataSchema>
 
@@ -374,6 +381,17 @@ export function clampBelief(belief: number): number {
 }
 
 /**
+ * S.3: Get edge confidence, checking beliefExists then legacy belief.
+ * Prevents dual-field inconsistency — use this everywhere confidence is needed.
+ */
+export function getEdgeConfidence(edgeData: Record<string, unknown> | undefined): number | null {
+  if (!edgeData) return null
+  if (typeof edgeData.beliefExists === 'number') return edgeData.beliefExists
+  if (typeof edgeData.belief === 'number') return edgeData.belief
+  return null
+}
+
+/**
  * Trim provenance to max length
  */
 export function trimProvenance(provenance: string): string {
@@ -386,6 +404,41 @@ export function trimProvenance(provenance: string): string {
 export function formatConfidence(confidence: number | undefined): string {
   if (confidence === undefined) return 'Unknown'
   return `${Math.round(confidence * 100)}%`
+}
+
+/**
+ * D.1: Compute signed strength mean from edge data (domain-level).
+ *
+ * Priority: strength_mean (already signed) > weight + direction (legacy).
+ * Used for visual encoding (stroke width) — not for adapter payloads.
+ */
+export function computeSignedMean(
+  data: Record<string, unknown> | undefined,
+): number {
+  const strengthMean = (data as any)?.strength_mean
+  if (typeof strengthMean === 'number') return strengthMean
+
+  const magnitude = (typeof (data as any)?.weight === 'number')
+    ? (data as any).weight as number
+    : 0.5
+  const direction = (data as any)?.direction ?? (data as any)?.effect_direction
+  const sign = direction === 'negative' ? -1 : 1
+  return sign * magnitude
+}
+
+/**
+ * Convert a signed edge coefficient into a qualitative influence label.
+ * Used on Outcome and Risk nodes to avoid exposing raw β coefficients.
+ */
+export function describeEdgeInfluence(strength: number): string {
+  const magnitude = Math.abs(strength)
+  if (magnitude < 0.05) return 'Minimal influence on goal'
+  if (strength >= 0.5) return 'Strong positive influence on goal'
+  if (strength >= 0.2) return 'Moderate positive influence on goal'
+  if (strength > 0) return 'Weak positive influence on goal'
+  if (strength <= -0.5) return 'Strong negative influence on goal'
+  if (strength <= -0.2) return 'Moderate negative influence on goal'
+  return 'Weak negative influence on goal'
 }
 
 /**

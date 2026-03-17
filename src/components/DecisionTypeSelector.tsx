@@ -105,11 +105,11 @@ export default function DecisionTypeSelector() {
           >
             <div className="relative z-10">
               <div className="flex items-start gap-4 mb-4">
-                <div className="p-2 bg-indigo-50 rounded-lg group-hover:bg-indigo-100 transition-colors duration-300">
-                  <Icon className="h-4 w-4 text-indigo-600" />
+                <div className="p-2 bg-panel rounded-lg group-hover:bg-panel transition-colors duration-300">
+                  <Icon className="h-4 w-4 text-info" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2 group-hover:text-indigo-600 transition-colors">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2 group-hover:text-info transition-colors">
                     {label}
                   </h3>
                   <p className="text-sm text-gray-500 mb-2">{description}</p>

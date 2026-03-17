@@ -24,13 +24,13 @@ export default function PlotToolbar({ currentTool, onToolChange, onAddNode, onAd
   ]
 
   const nodeTypes: { type: NodeType; icon: string; label: string; color: string }[] = [
-    { type: 'goal', icon: '🎯', label: 'Goal', color: 'bg-teal-100 border-teal-300' },
-    { type: 'decision', icon: '⚖️', label: 'Decision', color: 'bg-indigo-100 border-indigo-300' },
-    { type: 'option', icon: '🔷', label: 'Option', color: 'bg-blue-100 border-blue-300' },
-    { type: 'factor', icon: '⚙️', label: 'Factor', color: 'bg-slate-100 border-slate-300' },
-    { type: 'risk', icon: '⚠️', label: 'Risk', color: 'bg-amber-100 border-amber-300' },
-    { type: 'outcome', icon: '📊', label: 'Outcome', color: 'bg-green-100 border-green-300' },
-    { type: 'action', icon: '⚡', label: 'Action', color: 'bg-emerald-100 border-emerald-300' },
+    { type: 'goal', icon: '🎯', label: 'Goal', color: 'bg-panel border-success/30' },
+    { type: 'decision', icon: '⚖️', label: 'Decision', color: 'bg-panel border-info/30' },
+    { type: 'option', icon: '🔷', label: 'Option', color: 'bg-panel border-info/30' },
+    { type: 'factor', icon: '⚙️', label: 'Factor', color: 'bg-panel border-panel-border' },
+    { type: 'risk', icon: '⚠️', label: 'Risk', color: 'bg-panel border-warning/30' },
+    { type: 'outcome', icon: '📊', label: 'Outcome', color: 'bg-panel border-success/30' },
+    { type: 'action', icon: '⚡', label: 'Action', color: 'bg-panel border-success/30' },
   ]
 
   return (
@@ -43,7 +43,7 @@ export default function PlotToolbar({ currentTool, onToolChange, onAddNode, onAd
             onClick={() => onToolChange(tool.id)}
             className={`w-12 h-12 rounded-lg flex flex-col items-center justify-center transition-colors ${
               currentTool === tool.id
-                ? 'bg-indigo-100 border-2 border-indigo-400'
+                ? 'bg-panel border-2 border-info/30'
                 : 'bg-white border border-gray-200 hover:bg-gray-50'
             }`}
             title={`${tool.label} (${tool.key})`}
@@ -62,7 +62,7 @@ export default function PlotToolbar({ currentTool, onToolChange, onAddNode, onAd
             onClick={() => setShowNodeMenu(!showNodeMenu)}
             className={`w-12 h-12 rounded-lg flex flex-col items-center justify-center transition-colors ${
               currentTool === 'add-node'
-                ? 'bg-teal-100 border-2 border-teal-400'
+                ? 'bg-panel border-2 border-success'
                 : 'bg-white border border-gray-200 hover:bg-gray-50'
             }`}
             title="Add Node (N)"
@@ -101,7 +101,7 @@ export default function PlotToolbar({ currentTool, onToolChange, onAddNode, onAd
           }}
           className={`w-12 h-12 rounded-lg flex flex-col items-center justify-center transition-colors ${
             currentTool === 'add-note'
-              ? 'bg-amber-100 border-2 border-amber-400'
+              ? 'bg-panel border-2 border-warning'
               : 'bg-white border border-gray-200 hover:bg-gray-50'
           }`}
           title="Add Note (M)"
@@ -122,7 +122,7 @@ export default function PlotToolbar({ currentTool, onToolChange, onAddNode, onAd
 
       {/* Mode state chip */}
       <div className="mt-3 bg-white border border-gray-300 rounded-lg px-3 py-2 text-xs font-medium text-gray-700">
-        Mode: <span className="text-indigo-600">
+        Mode: <span className="text-info">
           {currentTool === 'select' ? 'Select' : 
            currentTool === 'pan' ? 'Pan' : 
            currentTool === 'connect' ? 'Connect' :
@@ -132,7 +132,7 @@ export default function PlotToolbar({ currentTool, onToolChange, onAddNode, onAd
       </div>
 
       {/* Hint chip */}
-      <div className="mt-2 bg-indigo-50 border border-indigo-200 rounded-lg px-3 py-2 text-xs text-indigo-900 max-w-[180px]">
+      <div className="mt-2 bg-panel border border-info/30 rounded-lg px-3 py-2 text-xs text-info max-w-[180px]">
         <div className="font-semibold mb-1">💡 Tip</div>
         <div>
           {currentTool === 'connect'

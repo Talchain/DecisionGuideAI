@@ -1,4 +1,4 @@
-import { X, AlertCircle, Info } from 'lucide-react'
+import { X, AlertTriangle, Info } from 'lucide-react'
 import { typography } from '../../styles/typography'
 
 export interface ValidationError {
@@ -45,14 +45,14 @@ export function ValidationBanner({ errors, violations, onDismiss, onFixNow, clas
         aria-live="polite"
         className={`flex items-start gap-3 px-4 py-3 rounded-lg border ${
           isWarning
-            ? 'bg-warning-50 border-warning-200'
-            : 'bg-danger-50 border-danger-200'
+            ? 'bg-panel border-warning/30'
+            : 'bg-panel border-danger/30'
         } ${className}`}
       >
         {/* Icon */}
-        <AlertCircle
+        <AlertTriangle
           className={`w-5 h-5 flex-shrink-0 mt-0.5 ${
-            isWarning ? 'text-warning-600' : 'text-danger-600'
+            isWarning ? 'text-warning' : 'text-danger'
           }`}
         />
 
@@ -60,7 +60,7 @@ export function ValidationBanner({ errors, violations, onDismiss, onFixNow, clas
         <div className="flex-1 min-w-0">
           <p
             className={`${typography.label} ${
-              isWarning ? 'text-warning-900' : 'text-danger-900'
+              isWarning ? 'text-warning' : 'text-danger'
             }`}
           >
             {firstError.message}
@@ -68,7 +68,7 @@ export function ValidationBanner({ errors, violations, onDismiss, onFixNow, clas
           {hasMultiple && (
             <p
               className={`${typography.caption} mt-1 ${
-                isWarning ? 'text-warning-700' : 'text-danger-700'
+                isWarning ? 'text-warning/80' : 'text-danger/80'
               }`}
             >
               +{errors.length - 1} more {errors.length === 2 ? 'issue' : 'issues'}
@@ -79,8 +79,8 @@ export function ValidationBanner({ errors, violations, onDismiss, onFixNow, clas
               onClick={() => onFixNow(firstError)}
               className={`mt-2 ${typography.caption} font-medium underline ${
                 isWarning
-                  ? 'text-warning-800 hover:text-warning-900'
-                  : 'text-danger-800 hover:text-danger-900'
+                  ? 'text-warning hover:text-warning/80'
+                  : 'text-danger hover:text-danger/80'
               }`}
               type="button"
             >
@@ -94,7 +94,7 @@ export function ValidationBanner({ errors, violations, onDismiss, onFixNow, clas
           <button
             onClick={onDismiss}
             className={`flex-shrink-0 p-1 rounded hover:bg-black/5 transition-colors ${
-              isWarning ? 'text-warning-600' : 'text-danger-600'
+              isWarning ? 'text-warning' : 'text-danger'
             }`}
             aria-label="Dismiss validation error"
             type="button"
@@ -115,33 +115,33 @@ export function ValidationBanner({ errors, violations, onDismiss, onFixNow, clas
       <div
         role="status"
         aria-live="polite"
-        className={`flex items-start gap-3 px-4 py-3 rounded-lg border bg-info-50 border-info-200 ${className}`}
+        className={`flex items-start gap-3 px-4 py-3 rounded-lg border bg-panel border-info/30 ${className}`}
       >
         {/* Icon */}
-        <Info className="w-5 h-5 flex-shrink-0 mt-0.5 text-info-600" />
+        <Info className="w-5 h-5 flex-shrink-0 mt-0.5 text-info" />
 
         {/* Content */}
         <div className="flex-1 min-w-0">
-          <p className={`${typography.label} text-info-900`}>
+          <p className={`${typography.label} text-info`}>
             {firstViolation.message}
           </p>
           {firstViolation.suggestion && (
-            <p className={`${typography.caption} mt-1 text-info-700`}>
+            <p className={`${typography.caption} mt-1 text-info/80`}>
               Suggestion: {firstViolation.suggestion}
             </p>
           )}
           {hasMultiple && (
-            <p className={`${typography.caption} mt-1 text-info-700`}>
+            <p className={`${typography.caption} mt-1 text-info/80`}>
               +{violations.length - 1} more {violations.length === 2 ? 'suggestion' : 'suggestions'}
             </p>
           )}
-          <p className={`${typography.caption} mt-1.5 text-info-600 font-medium`}>
+          <p className={`${typography.caption} mt-1.5 text-info font-medium`}>
             This is advisory only — you can still run your analysis.
           </p>
           {onFixNow && (firstViolation.node_id || firstViolation.edge_id) && (
             <button
               onClick={() => onFixNow(firstViolation)}
-              className={`mt-2 ${typography.caption} font-medium underline text-info-800 hover:text-info-900`}
+              className={`mt-2 ${typography.caption} font-medium underline text-info hover:text-info/80`}
               type="button"
             >
               View in canvas
@@ -153,7 +153,7 @@ export function ValidationBanner({ errors, violations, onDismiss, onFixNow, clas
         {onDismiss && (
           <button
             onClick={onDismiss}
-            className="flex-shrink-0 p-1 rounded hover:bg-black/5 transition-colors text-info-600"
+            className="flex-shrink-0 p-1 rounded hover:bg-black/5 transition-colors text-info"
             aria-label="Dismiss coaching suggestion"
             type="button"
           >

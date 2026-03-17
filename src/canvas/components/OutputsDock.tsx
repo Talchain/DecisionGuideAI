@@ -24,16 +24,15 @@
  */
 
 import { useEffect, useState, useRef, useMemo, useCallback, type ChangeEvent } from 'react'
-import { BarChart3, Shuffle, Activity, Clock, PlayCircle, RefreshCw, AlertTriangle, GitCompare } from 'lucide-react'
+import { BarChart3, Shuffle, Activity, Clock, AlertTriangle, XCircle, MessageCircle, CheckCircle } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
+import { useUIStore, type OutputTab } from '../../stores/uiStore'
 import { useDockState } from '../hooks/useDockState'
 import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion'
-import { useCanvasStore, selectResultsStatus, selectReport, selectError } from '../store'
+import { useCanvasStore, selectResultsStatus, selectReport, selectError, selectResultsSource, selectPreviousReport } from '../store'
 import { loadRuns, type StoredRun } from '../store/runHistory'
 import * as runsBus from '../store/runsBus'
 import { typography } from '../../styles/typography'
-import { buildHealthStrings } from '../utils/graphHealthStrings'
-import type { GraphHealth } from '../validation/types'
 import { selectScenarioLastRun } from '../shared/lastRun'
 import {
   trackCompareOpened,
@@ -41,79 +40,55 @@ import {
   trackAutoFixSuccess,
   trackAutoFixFailed,
 } from '../utils/sandboxTelemetry'
-import { VerdictCard } from './VerdictCard'
-import { DecisionReviewPanel, type DecisionReviewStatus } from './DecisionReviewPanel'
 import { DeltaInterpretation } from './DeltaInterpretation'
-// ISL client memoization bug fixed - ValidationSuggestionsSection now stable
-import { ValidationSuggestionsSection } from './ValidationSuggestions'
-import { isDecisionReviewEnabled } from '../../flags'
+import { isJourneyTabEnabled } from '../../flags'
 import { getObjectiveText, getGoalDirection } from '../utils/getObjectiveText'
 import { computeDelta, deriveVerdict } from '../utils/interpretOutcome'
 import { useDebugShortcut } from '../hooks/useDebugShortcut'
 import { RANGE_TERMINOLOGY } from '../../config/terminology'
 import { IdentifiabilityBadge, normalizeIdentifiabilityTag } from './IdentifiabilityBadge'
-import { EvidenceCoverageCompact } from './EvidenceCoverage'
-import { DecisionReadinessBadge } from './DecisionReadinessBadge'
-import { ModelQualityScore } from './ModelQualityScore'
-import { UnifiedStatusBadge } from './UnifiedStatusBadge'
-import { InsightsPanel } from './InsightsPanel'
 import { ValidationPanel, type CritiqueItem } from './ValidationPanel'
-import { GraphTextView } from './GraphTextView'
-import { PreAnalysisGuidance } from './PreAnalysisGuidance'
-import { PreAnalysisHealth } from './PreAnalysisHealth'
 import { PreAnalysisPanel } from './pre-analysis'
-import { usePreRunValidation } from '../hooks/usePreRunValidation'
-import { usePreAnalysisData } from './pre-analysis/hooks/usePreAnalysisData'
-import { ActionsSignal } from './ActionsSignal'
+import { canRunAnalysis as canRunAnalysisUtil, getRunButtonTooltip } from '../utils/canRunAnalysis'
 import { WarningBanner } from './WarningBanner'
 import { DegradedStateBanner } from './DegradedStateBanner'
-import { OutcomesSignal } from './OutcomesSignal'
-import { TrustSignal } from './TrustSignal'
-import { DriversSignal } from './DriversSignal'
-import { DecisionSummary } from './DecisionSummary'
-import { DecisionQuality } from './DecisionQuality'
-import { AdvancedSettingsPanel } from './AdvancedSettingsPanel'
 import { mapConfidenceToReadiness } from '../utils/mapConfidenceToReadiness'
-import { useV2Run } from '../hooks/useV2Run'
-import { focusNodeById, focusEdgeById } from '../utils/focusHelpers'
-import { buildFragileEdgeIdSet, buildRobustEdgeIdSet, getDisplayEdgeId } from '../utils/edgeIdentity'
-import { NON_EVIDENCE_PROVENANCE } from '../utils/evidenceCoverage'
-import { LensContainer } from './LensContainer'
-// Results Panel Redesign: New section components
+import { useV2Run, type V2RunPersistence } from '../hooks/useV2Run'
+import { useScenario } from '../../hooks/useScenario'
+import { focusNodeById } from '../utils/focusHelpers'
+import { ModelTabBody } from './ModelTabBody'
+import { JourneyTabBody } from '../journey/JourneyTabBody'
+// Results Panel Redesign: v7 four-section layout components
 import { useResultsSectionData } from '../../components/results/useResultsSectionData'
-import { RecommendationSection } from '../../components/results/RecommendationSection'
-import { DriversSection } from '../../components/results/DriversSection'
-import { ConfidenceSection } from '../../components/results/ConfidenceSection'
-import { Accordion } from '../../components/results/Accordion'
+import type { TornadoRow } from '../../components/results/TornadoChart'
 import { useCanvasResultsSync } from '../../components/results/useCanvasResultsSync'
+import { ResultsBody } from '../../components/results/ResultsBody'
+import { useGuidanceStore } from '../stores/guidanceStore'
+import type { GuidanceItem } from '../stores/guidanceStore'
 import { executeAutoFix, determineFixType, type AutoFixParams } from '../utils/autoFix'
-import { getStrengthCorrections, type StrengthCorrection } from '../../adapters/plot/v2/adapter'
-import { computeCTA, type CTAConfig } from '../../lib/ctaStateMachine'
-import { computeReadiness } from '../../lib/readiness'
-// P0.1: Driver gating utilities
-import { areDriversInformative, getDriversGatingState } from '../../lib/driversGating'
+import { getStrengthCorrections } from '../../adapters/plot/v2/adapter'
 // P0.6: User-friendly error messages
 import { getUserFriendlyError } from '../../lib/userFriendlyErrors'
-// Phase 0.3: Response normalisation and degeneracy detection
-import { normaliseResponse, checkOutcomeDegeneracy } from '../../lib/responseNormalisation'
-import { DegeneracyWarning, useDegeneracyDismissal } from './DegeneracyWarning'
+import { areDriversInformative } from '../../lib/driversGating'
+import { useDegeneracyDismissal } from './DegeneracyWarning'
 // P0.7: Loading skeletons
 import { ResultsPanelSkeleton } from './ResultsPanelSkeleton'
 // P0.8: Instrumentation
 import { trackRunStarted, trackRunCompleted, trackRunFailed } from '../../lib/resultsInstrumentation'
-// P0-2: Mixed messaging gating
-import { getAnalysisDisplayState, type EnrichmentForDisplayState } from '../../lib/analysisDisplayState'
 import { useComparisonDetection } from '../hooks/useComparisonDetection'
 import { useScenarioComparison } from '../hooks/useScenarioComparison'
-import { useOptionRanking } from '../hooks/useOptionRanking'
 import { useRobustness } from '../hooks/useRobustness'
 import { mapRobustness } from '../../lib/mappers/mapRobustness'
 import type { MappedRobustness } from '../../lib/mappers/types'
-import { RobustnessBlock } from './RecommendationCard/RobustnessBlock'
-import { EvidencePackExport } from './ResultsPanel/EvidencePackExport'
+import { getUiSurfaceState, type InteractionStateSnapshot } from '../../lib/debug-state'
 // ScenarioComparison modal removed - now rendered as ComparisonCanvasLayout in ReactFlowGraph
 import type { CritiqueItemV1 } from '../../adapters/plot/types'
-import type { Node, Edge } from '@xyflow/react'
+import { verboseDebug } from '../../utils/verboseLog'
+import { AnalysisFooter } from '../shared/AnalysisFooter'
+import { StabilityGauge } from '../../components/shared/StabilityGauge'
+import { DeltaIndicator } from '../../components/shared/DeltaIndicator'
+import { DEFAULT_EDGE_DATA } from '../domain/edges'
+import { useGraphReadiness } from '../hooks/useGraphReadiness'
 
 /**
  * Map API critique format (CritiqueItemV1) to ValidationPanel format
@@ -135,7 +110,7 @@ function mapCritiqueToValidation(critique: CritiqueItemV1[] | undefined): Critiq
   }))
 }
 
-type OutputsDockTab = 'results' | 'compare' | 'diagnostics'
+type OutputsDockTab = 'results' | 'compare' | 'diagnostics' | 'journey'
 
 interface OutputsDockState {
   isOpen: boolean
@@ -148,9 +123,10 @@ const STORAGE_KEY = 'canvas.outputsDock.v1'
 const SHOW_VERDICT_FEATURES = import.meta.env.VITE_SHOW_VERDICT_CARD === 'true'
 
 const OUTPUT_TABS: { id: OutputsDockTab; label: string }[] = [
-  { id: 'results', label: 'Results' },
+  { id: 'results', label: 'Analysis' },
   { id: 'compare', label: 'Compare' },
-  { id: 'diagnostics', label: 'Structure' },
+  { id: 'diagnostics', label: 'Model' },
+  ...(isJourneyTabEnabled() ? [{ id: 'journey' as const, label: 'Journey' }] : []),
 ]
 
 export function OutputsDock() {
@@ -160,6 +136,27 @@ export function OutputsDock() {
     activeTab: 'results',
   })
 
+  // Journey tab guard: if persisted tab is 'journey' but flag is off, reset to 'results'
+  useEffect(() => {
+    if (state.activeTab === 'journey' && !isJourneyTabEnabled()) {
+      setState(prev => ({ ...prev, activeTab: 'results' }))
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps -- one-time init guard
+
+  // E1: Sync external tab changes from Zustand store (programmatic navigation)
+  const externalTab = useUIStore(s => s.activeOutputTab)
+  const prevExternalTabRef = useRef(externalTab)
+  useEffect(() => {
+    if (externalTab !== prevExternalTabRef.current) {
+      prevExternalTabRef.current = externalTab
+      setState(prev => {
+        if (prev.activeTab === externalTab && prev.isOpen) return prev
+        return { ...prev, isOpen: true, activeTab: externalTab as OutputsDockTab }
+      })
+    }
+  }, [externalTab, setState])
+
+
   // Phase 1A.5: Debug controls visibility (Shift+D shortcut)
   const { showDebug } = useDebugShortcut()
 
@@ -167,19 +164,12 @@ export function OutputsDock() {
   const [slowRunMessage, setSlowRunMessage] = useState<string | null>(null)
   const runStartTimeRef = useRef<number | null>(null)
 
-  // M6: Comparison prompt state (dismissed persists in sessionStorage)
-  const [comparisonDismissed, setComparisonDismissed] = useState<boolean>(() => {
-    if (typeof sessionStorage === 'undefined') return false
-    return sessionStorage.getItem('comparison-prompt-dismissed') === 'true'
-  })
-
   // Phase 2: Response warnings banner dismissal state
   const [warningsDismissed, setWarningsDismissed] = useState(false)
   // P2: Degraded/partial state banner dismissal
   const [degradedBannerDismissed, setDegradedBannerDismissed] = useState(false)
   const comparison = useComparisonDetection()
   const scenarioComparison = useScenarioComparison()
-  const optionRanking = useOptionRanking()
 
   // Brief 25: Fetch robustness data for sensitivity, VoI, robustness bounds
   // Uses runMeta.runId and results hash when available
@@ -219,7 +209,6 @@ export function OutputsDock() {
   )
 
   // Actions don't need shallow - they're stable references
-  const setShowIssuesPanel = useCanvasStore(s => s.setShowIssuesPanel)
   const setShowResultsPanel = useCanvasStore(s => s.setShowResultsPanel)
   const setShowComparePanel = useCanvasStore(s => s.setShowComparePanel)
   const setHighlightedNodes = useCanvasStore(s => s.setHighlightedNodes)
@@ -231,12 +220,19 @@ export function OutputsDock() {
   const setCeeAnalysisReady = useCanvasStore(s => s.setCeeAnalysisReady)
   // P2: Success target affordance - threshold update
   const setGoalThreshold = useCanvasStore(s => s.setGoalThreshold)
+  // A1: Delta indicators between analysis runs
+  const previousReport = useCanvasStore(selectPreviousReport)
 
-  // P0-UI-6: Pre-run validation hook
-  const preRunValidation = usePreRunValidation()
-
-  // Pre-run readiness from canonical usePreAnalysisData hook
-  const preAnalysisReadiness = usePreAnalysisData()
+  // Guidance items for results surface — filter to graph/option/framing targets only
+  const allGuidanceItems = useGuidanceStore(s => s.guidanceItems)
+  const setActiveGuidanceItem = useGuidanceStore(s => s.setActiveGuidanceItem)
+  const resultsGuidanceItems = useMemo<GuidanceItem[]>(() => {
+    if (allGuidanceItems.length === 0) return []
+    return allGuidanceItems.filter((item) => {
+      const t = item.target_object?.type
+      return !t || t === 'graph' || t === 'option' || t === 'framing'
+    })
+  }, [allGuidanceItems])
 
   // Derived values from runMeta
   const diagnostics = runMeta.diagnostics
@@ -250,72 +246,125 @@ export function OutputsDock() {
     diagnostics.correlation_id !== correlationIdHeader
   )
 
-  const healthView = buildHealthStrings(graphHealth ?? null)
   const isPreRun = !hasCompletedFirstRun
   // Empty state: hide panel when canvas has no nodes
   const hasGraphContent = nodes.length > 0
 
-  // DEBUG: Log node count on every render to diagnose empty state issue
-  if (import.meta.env.DEV) {
-    console.log('[OutputsDock] nodes.length:', nodes.length, 'hasGraphContent:', hasGraphContent)
-  }
   const resultsStatus = useCanvasStore(selectResultsStatus)
   const report = useCanvasStore(selectReport)
   const error = useCanvasStore(selectError)
+  const resultsSource = useCanvasStore(selectResultsSource)
+
+  // A.9: Auto-dismiss conversation indicator after 5 seconds
+  const [convIndicatorVisible, setConvIndicatorVisible] = useState(false)
+  const prevResultsSourceRef = useRef<'direct' | 'conversation' | undefined>(undefined)
+  useEffect(() => {
+    if (resultsSource === 'conversation' && prevResultsSourceRef.current !== 'conversation') {
+      setConvIndicatorVisible(true)
+      const id = setTimeout(() => setConvIndicatorVisible(false), 5000)
+      return () => clearTimeout(id)
+    }
+    prevResultsSourceRef.current = resultsSource
+    return undefined
+  }, [resultsSource])
+
+  // C.1b: Supabase persistence callbacks for analysis results
+  const {
+    setAnalysisRunning,
+    resetAnalysisStatus,
+    persistAnalysisSuccess,
+    persistAnalysisFailure,
+    isPersistenceActive: _isPersistenceActive,
+    analysisStale,
+  } = useScenario()
+
+  // Build persistence object only when Supabase persistence is active
+  const v2Persistence = useMemo<V2RunPersistence | undefined>(() => {
+    if (!_isPersistenceActive) return undefined
+    return {
+      setAnalysisRunning,
+      resetAnalysisStatus,
+      persistAnalysisSuccess,
+      persistAnalysisFailure,
+    }
+  }, [_isPersistenceActive, setAnalysisRunning, resetAnalysisStatus, persistAnalysisSuccess, persistAnalysisFailure])
 
   // P0-UI: V2 run hook for /v2/run endpoint
-  const { runV2Analysis } = useV2Run()
+  const { runV2Analysis, cancelRun } = useV2Run(v2Persistence)
 
   // Results Panel Redesign: Section data hook for RecommendationSection, DriversSection, ConfidenceSection
   const resultsSectionData = useResultsSectionData()
 
-  // Graph Interaction P1: Canvas → Results sync for DriversSection accordion
-  const [driversAccordionExpanded, setDriversAccordionExpanded] = useState(false)
+  // Tornado chart: Derive per-factor outcome bounds from driver influence and recommended option range.
+  // Each factor's contribution to the outcome swing is proportional to its normalised influence.
+  const tornadoData = useMemo<{ rows: TornadoRow[]; expectedOutcome: number | null }>(() => {
+    const rec = resultsSectionData?.recommendation
+    const drv = resultsSectionData?.drivers
+    if (!rec?.recommendedOption || !drv?.drivers?.length) {
+      return { rows: [], expectedOutcome: null }
+    }
+    const expected = rec.recommendedOption.expected
+    const p10 = rec.recommendedOption.outcome?.p10
+    const p90 = rec.recommendedOption.outcome?.p90
+    if (expected == null || p10 == null || p90 == null) {
+      return { rows: [], expectedOutcome: null }
+    }
+    const downRange = expected - p10  // distance from expected to pessimistic
+    const upRange = p90 - expected    // distance from expected to optimistic
+
+    // Build rows from top drivers, sorted by influence descending
+    const rows: TornadoRow[] = [...drv.drivers]
+      .filter(d => (d.influenceScore ?? d.normalisedInfluence) > 0.01)
+      .sort((a, b) => (b.influenceScore ?? b.normalisedInfluence) - (a.influenceScore ?? a.normalisedInfluence))
+      .slice(0, 5) // Cap at 5 rows for readability
+      .map(d => {
+        const influence = d.influenceScore ?? d.normalisedInfluence
+        // NOTE: lowOutcome/highOutcome represent outcome at the factor's low/high
+        // raw value, NOT "worse/better" from the user's perspective.
+        // For negative-direction factors (e.g. churn), low factor value = better
+        // outcome, but the rendering assumes lowOutcome < expected < highOutcome.
+        // Fixing the semantic mapping requires adding direction to TornadoRow and
+        // making the render layer direction-aware (swap bar colours). Deferred to
+        // Phase 3.3 alongside drag interaction work.
+        return {
+          factorKey: d.factorKey,
+          label: d.factorLabel,
+          lowOutcome: expected - influence * downRange,
+          highOutcome: expected + influence * upRange,
+          canFocus: d.canFocus,
+          matchedNodeId: d.matchedNodeId,
+          direction: d.direction === 'negative' ? 'negative' as const : 'positive' as const,
+        }
+      })
+
+    return { rows, expectedOutcome: expected }
+  }, [resultsSectionData?.recommendation, resultsSectionData?.drivers])
+
+  // Graph Interaction P1: Canvas → Results sync for DriversSection
+  // v7 layout: Drivers are always visible (no accordion), so isAccordionExpanded is always true
   const { highlightedDriverId, registerDriverRef } = useCanvasResultsSync({
     drivers: resultsSectionData.drivers.drivers,
-    isAccordionExpanded: driversAccordionExpanded,
-    onExpandAccordion: () => setDriversAccordionExpanded(true),
+    isAccordionExpanded: true,
+    onExpandAccordion: () => { /* no-op: drivers always visible in v7 layout */ },
   })
 
   const isRunning = resultsStatus === 'preparing' || resultsStatus === 'connecting' || resultsStatus === 'streaming'
+  const { readiness } = useGraphReadiness()
 
-  // Unified run eligibility: canonical readiness from usePreAnalysisData AND pre-run validation
-  // P0-UI-6: Added preRunValidation.canRun check
-  const canRunAnalysis = preAnalysisReadiness.isReady && preRunValidation.canRun && !isRunning
+  // Unified run gating — same function used by ConversationPanel/ChatTopBar.
+  const hasValidationBlockers = useCanvasStore(s =>
+    s.graphHealth?.issues?.some((i: { severity: string }) => i.severity === 'error' || i.severity === 'blocker') ?? false
+  )
 
-  // R3: CTA state machine for primary analysis button
-  // P0.3: Enhanced with option count, driver informativeness, confidence level
-  const ctaConfig: CTAConfig = useMemo(() => {
-    // Compute readiness from current state
-    const hasOutcome = nodes.some(n => n.type === 'outcome')
-    const hasDecision = nodes.some(n => n.type === 'decision')
-    const readinessResult = computeReadiness({
-      nodeCount: nodes.length,
-      edgeCount: edges.length,
-      graphHealth,
-      hasOutcome,
-      hasDecision,
-    })
-
-    // P0.1: Check if drivers are informative for CTA decisions
-    const driversInformative = areDriversInformative(report?.drivers_payload)
-    // P0.3: Get fallback message for "Strengthen Model" tooltip context
-    const gatingState = getDriversGatingState(report?.drivers_payload)
-
-    return computeCTA({
-      resultsStatus,
-      hasGraph: nodes.length > 0,
-      readinessLevel: readinessResult.level,
-      isDegraded: runMeta?.degraded,
-      errorMessage: error?.message,
-      // P0.3: Enhanced CTA inputs
-      optionCount: comparison.optionNodes.length,
-      driversInformative,
-      confidenceLevel: report?.confidence?.level as 'high' | 'medium' | 'low' | undefined,
-      canCompare: comparison.canCompare && resultsStatus === 'complete',
-      driversFallbackMessage: gatingState.fallbackMessage,
-    })
-  }, [resultsStatus, nodes, edges, graphHealth, runMeta?.degraded, error?.message, comparison.optionNodes.length, comparison.canCompare, report?.drivers_payload, report?.confidence?.level])
+  const runGateResult = canRunAnalysisUtil({
+    graphHealth: graphHealth ?? null,
+    readiness,
+    hasBlockers: hasValidationBlockers,
+    nodeCount: nodes.length,
+    isRunning,
+  })
+  const canRunAnalysis = runGateResult.allowed
+  const runBlockedTooltip = getRunButtonTooltip(runGateResult)
 
   // Handle Run button click
   const handleRunAnalysis = useCallback(async () => {
@@ -327,23 +376,14 @@ export function OutputsDock() {
       edge_count: edges.length,
     })
     // P0: Log graph used for observability
-    console.info('[GRAPH_USED_FOR_RUN]', {
+    console.warn('[GRAPH_USED_FOR_RUN]', {
       node_count: nodes.length,
       edge_count: edges.length,
       option_count: comparison.optionNodes.length,
       template_id: (framing as any)?.templateId || 'canvas-graph',
     })
-    // P0-UI: Use V2 adapter (gets nodes, edges, outcomeNodeId from store)
     await runV2Analysis()
   }, [canRunAnalysis, runV2Analysis, framing, nodes, edges, comparison.optionNodes.length])
-
-  // M6: Handle comparison prompt dismissal
-  const handleDismissComparison = useCallback(() => {
-    setComparisonDismissed(true)
-    try {
-      sessionStorage.setItem('comparison-prompt-dismissed', 'true')
-    } catch {}
-  }, [])
 
   // P0 Results Brief: Add Status Quo baseline option
   // Creates a new option node with is_baseline=true, empty interventions, and connects it to a decision node
@@ -389,6 +429,7 @@ export function OutputsDock() {
         target: newNode.id,
         type: 'default',
         data: {
+          ...DEFAULT_EDGE_DATA,
           confidence: 0, // No confidence needed for decision→option edge
         },
       })
@@ -397,7 +438,7 @@ export function OutputsDock() {
     // Invalidate CEE analysis ready cache so next run re-extracts options
     setCeeAnalysisReady(null)
 
-    console.info('[OutputsDock] Added Status Quo baseline option:', newNode.id)
+    console.warn('[OutputsDock] Added Status Quo baseline option:', newNode.id)
   }, [nodes, addNode, updateNode, addEdge, setCeeAnalysisReady])
 
   // P2 Task 1: Handle threshold change and trigger re-run
@@ -407,20 +448,25 @@ export function OutputsDock() {
     runV2Analysis()
   }, [setGoalThreshold, runV2Analysis])
 
-  // P2 Task 2: Handle add baseline and trigger re-run
-  const handleAddBaselineAndRerun = useCallback(() => {
+  // C1: Baseline addition does NOT trigger rerun — mutates draft only.
+  // User must manually rerun to generate comparison data.
+  const handleAddBaseline = useCallback(() => {
     addStatusQuoBaseline()
-    // Trigger re-run after baseline added
-    runV2Analysis()
-  }, [addStatusQuoBaseline, runV2Analysis])
+  }, [addStatusQuoBaseline])
 
-  // M6: Handle compare now action - triggers scenario comparison
-  const handleCompareNow = useCallback(async () => {
-    handleDismissComparison()
-    trackCompareOpened()
-    // Start scenario comparison workflow
-    await scenarioComparison.startComparison()
-  }, [handleDismissComparison, scenarioComparison])
+  // Set an existing option as the baseline by ID — clears is_baseline on all others first.
+  const handleSetBaseline = useCallback((optionId: string) => {
+    const optionNodes = nodes.filter(n => n.type === 'option' || n.data?.kind === 'option')
+    for (const n of optionNodes) {
+      if (n.data?.is_baseline && n.id !== optionId) {
+        updateNode(n.id, { data: { ...n.data, is_baseline: false } })
+      }
+    }
+    const target = optionNodes.find(n => n.id === optionId)
+    if (target) {
+      updateNode(optionId, { data: { ...target.data, is_baseline: true } })
+    }
+  }, [nodes, updateNode])
 
   // Handle auto-fix for validation issues
   const handleAutoFix = useCallback(async (item: CritiqueItem): Promise<boolean> => {
@@ -471,55 +517,13 @@ export function OutputsDock() {
 
   const canonicalBands = report?.run?.bands ?? null
   const mostLikelyValue = canonicalBands ? canonicalBands.p50 : report?.results.likely ?? null
-  const resultUnitSymbol = report?.results.unitSymbol
   const hasInlineSummary = Boolean(report && resultsStatus === 'complete')
-
-  // P0.2: Compute evidence coverage from local edge provenance for consistency
-  // This ensures Results and Diagnostics tabs show the same numbers
-  // Memoized to prevent recomputation on unrelated state changes
-  const totalEdges = edges.length
-  const evidencedEdges = useMemo(
-    () => edges.filter(e => e.data?.provenance && e.data.provenance.trim() !== '').length,
-    [edges]
-  )
-  const objectiveText = getObjectiveText({ framing, nodes })
   const goalDirection = getGoalDirection(framing, nodes)
   const isError = resultsStatus === 'error'
 
   // Phase 1A.1: Compute verdict for VerdictCard
   // Use baseline from framing or default to 0 ("do nothing" scenario)
   const baselineValue = framing?.baseline ?? 0
-
-  // Brief 31 Task 6: Memoize topDrivers to prevent InsightsPanel re-render loop
-  const topDrivers = useMemo(() => {
-    if (!report?.drivers) return undefined
-    return report.drivers.slice(0, 3).map(d => ({
-      label: d.label,
-      polarity: d.polarity,
-      strength: d.strength,
-      contribution: d.contribution,
-    }))
-  }, [report?.drivers])
-
-  // P0.1: Driver gating state for contradiction prevention
-  const driversGating = useMemo(
-    () => getDriversGatingState(report?.drivers_payload),
-    [report?.drivers_payload]
-  )
-
-  // P0-2: Mixed messaging gating - compute display state based on critical issues
-  // Uses stable primitive deps to prevent render loops
-  const analysisDisplayState = useMemo(() => {
-    const enrichmentData: EnrichmentForDisplayState = {
-      critique: report?.run?.critique,
-      identifiability_tag: report?.model_card?.identifiability_tag as 'identifiable' | 'not_identifiable' | 'partially_identifiable' | 'unknown' | undefined,
-    }
-    return getAnalysisDisplayState(enrichmentData)
-  }, [
-    // Use stable primitive deps - array lengths rather than object references
-    report?.run?.critique?.length,
-    report?.model_card?.identifiability_tag,
-  ])
 
   const verdict = mostLikelyValue !== null
     ? deriveVerdict({
@@ -529,15 +533,10 @@ export function OutputsDock() {
       })
     : null
 
-  const decisionReviewFlagOn = isDecisionReviewEnabled()
   // Legacy CEE types (deprecated)
-  const ceeReview = runMeta.ceeReview ?? null
   const ceeTrace = runMeta.ceeTrace ?? null
-  const ceeError = runMeta.ceeError ?? null
   // M1 CEE Orchestrator types (preferred)
-  const ceeReviewV1 = runMeta.ceeReviewV1 ?? null
   const ceeTraceV1 = runMeta.ceeTraceV1 ?? null
-  const ceeErrorV1 = runMeta.ceeErrorV1 ?? null
 
   // Phase 1 Section 3: CEE degraded state (non-blocking overlay behaviour)
   const ceeDegraded = ceeTrace?.degraded === true || ceeTraceV1?.id_mismatch === true
@@ -554,26 +553,25 @@ export function OutputsDock() {
     : null
 
   const decisionReadiness = report?.decision_readiness || readinessFromConfidence
-  const hasDecisionReadiness = !isPreRun && !!decisionReadiness
-  const hasBlockers = hasDecisionReadiness && decisionReadiness!.blockers.length > 0
-  const isReadyForOutcome = hasDecisionReadiness && decisionReadiness!.ready && !hasBlockers
+  const recommendationStability = (report as any)?.robustness?.recommendation_stability ?? (report as any)?.robustness?.ranking_stability
+  const postRunFooter = recommendationStability != null && recommendationStability >= 0.7
+    ? { icon: CheckCircle, iconClass: 'text-success', label: 'Robust result' }
+    : recommendationStability != null && recommendationStability >= 0.4
+      ? { icon: AlertTriangle, iconClass: 'text-warning', label: 'Moderate confidence' }
+      : { icon: XCircle, iconClass: 'text-danger', label: 'Fragile result' }
+  const postRunMetaText = recommendationStability != null
+    ? <><StabilityGauge value={recommendationStability} />{' '}<DeltaIndicator currentValue={recommendationStability} previousValue={previousReport?.rankingStability} format="percent" /></>
+    : null
 
-  if (import.meta.env.DEV) {
-    // Dev-only instrumentation for trust signals visibility and gating
-    // eslint-disable-next-line no-console
-    console.debug('[TrustSignals] OutputsDock', {
-      isPreRun,
-      hasReport: !!report,
-      hasDecisionReadiness: !!decisionReadiness,
-      fromConfidence: !!readinessFromConfidence,
-      hasGraphQuality: !!report?.graph_quality,
-      hasInsights: !!report?.insights,
-    })
-  }
+  verboseDebug('[TrustSignals] OutputsDock', {
+    isPreRun,
+    hasReport: !!report,
+    hasDecisionReadiness: !!decisionReadiness,
+    fromConfidence: !!readinessFromConfidence,
+    hasGraphQuality: !!report?.graph_quality,
+    hasInsights: !!report?.insights,
+  })
 
-  // Phase 0.3: Normalize response and check for degeneracy
-  const normalisedResponse = useMemo(() => normaliseResponse(report), [report])
-  const degeneracyCheck = useMemo(() => checkOutcomeDegeneracy(normalisedResponse), [normalisedResponse])
   useDegeneracyDismissal(robustnessRunId)
 
   const mappedRobustness: MappedRobustness | null = useMemo(() => {
@@ -581,25 +579,6 @@ export function OutputsDock() {
     if (!raw) return null
     return mapRobustness(raw, { sourcePath: 'top_level' })
   }, [report])
-
-  let decisionReviewStatus: DecisionReviewStatus | null = null
-  if (decisionReviewFlagOn) {
-    if (resultsStatus === 'preparing' || resultsStatus === 'connecting' || resultsStatus === 'streaming') {
-      decisionReviewStatus = 'loading'
-    } else if (resultsStatus === 'complete' && report) {
-      // Check both V1 types (preferred) and legacy types for backwards compatibility
-      // V1 types come from synthesized data when using V2 endpoint
-      if (ceeErrorV1 || ceeError) {
-        decisionReviewStatus = 'error'
-      } else if (ceeReviewV1 || ceeReview) {
-        decisionReviewStatus = 'ready'
-      } else if (ceeTraceV1 || ceeTrace) {
-        // CEE was engaged for this run (trace present) but no review/error was returned.
-        // Treat this as an "empty" Decision Review state.
-        decisionReviewStatus = 'empty'
-      }
-    }
-  }
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -641,20 +620,31 @@ export function OutputsDock() {
   // MERGED EFFECT: Handles both resultsStatus and showResultsPanel dock opening
   // Fix for React #185: Previously two separate effects could cascade and cause infinite loops.
   // Now unified with ref-based debounce to prevent rapid state updates.
+  //
+  // I.1 Fix: Only auto-switch to Results tab when status *transitions* from
+  // idle/cancelled into an active state — not on every render where status is
+  // already non-idle. This prevents yanking users off the Structure/Compare tab
+  // when they navigate there post-analysis.
   const lastDockOpenRef = useRef<number>(0)
+  const prevAutoSwitchStatusRef = useRef(resultsStatus)
 
   useEffect(() => {
-    // Determine if dock should open based on either trigger
-    const shouldOpenForResults =
+    const prevStatus = prevAutoSwitchStatusRef.current
+    prevAutoSwitchStatusRef.current = resultsStatus
+
+    const wasInactive = prevStatus === 'idle' || prevStatus === 'cancelled'
+    const isNowActive =
       resultsStatus === 'preparing' ||
       resultsStatus === 'connecting' ||
       resultsStatus === 'streaming' ||
       resultsStatus === 'complete' ||
       resultsStatus === 'error'
 
-    const shouldOpen = shouldOpenForResults || showResultsPanel
-
-    if (!shouldOpen) return
+    // Auto-switch to Results tab only when:
+    // 1. Status transitions from idle/cancelled → active (user started a run)
+    // 2. showResultsPanel flag is explicitly set (external trigger)
+    const statusTransitioned = wasInactive && isNowActive
+    if (!statusTransitioned && !showResultsPanel) return
 
     // Debounce: prevent rapid updates within 50ms (React #185 fix)
     const now = Date.now()
@@ -663,10 +653,17 @@ export function OutputsDock() {
     }
     lastDockOpenRef.current = now
 
+    // Task F: Auto-open results — close overlay panels so OutputsDock becomes visible
+    useUIStore.getState().openRightPanel('results')
+
     setState(prev => {
       // Guard: only update if state actually needs to change
       if (prev.isOpen && prev.activeTab === 'results') {
         return prev // No change needed
+      }
+      // Mutual exclusion: close inspector when dock auto-opens
+      if (!prev.isOpen) {
+        window.dispatchEvent(new Event('outputs-dock-opened'))
       }
       return { ...prev, isOpen: true, activeTab: 'results' }
     })
@@ -681,6 +678,10 @@ export function OutputsDock() {
     setState(prev => {
       if (prev.isOpen && prev.activeTab === 'compare') {
         return prev // Already on compare tab
+      }
+      // Mutual exclusion: close inspector when dock auto-opens
+      if (!prev.isOpen) {
+        window.dispatchEvent(new Event('outputs-dock-opened'))
       }
       return { ...prev, isOpen: true, activeTab: 'compare' }
     })
@@ -791,12 +792,20 @@ export function OutputsDock() {
           setShowResultsPanel(shouldShowResults)
         }
       })
+      // Mutual exclusion: close inspector when dock expands
+      if (nextIsOpen) {
+        window.dispatchEvent(new Event('outputs-dock-opened'))
+      }
       return { ...prev, isOpen: nextIsOpen }
     })
   }
 
   const handleTabClick = (tab: OutputsDockTab) => {
     setState(prev => ({ ...prev, isOpen: true, activeTab: tab }))
+    // E1: Sync tab state to Zustand store for cross-component navigation
+    useUIStore.getState().setActiveOutputTab(tab as OutputTab)
+    // Mutual exclusion: close inspector when dock opens via tab click
+    window.dispatchEvent(new Event('outputs-dock-opened'))
 
     // Treat the Results tab as the canonical "results visible" state for
     // highlight overlays and results-viewed telemetry.
@@ -853,15 +862,20 @@ export function OutputsDock() {
     window.addEventListener('mouseup', handleUp)
   }
 
-  // Empty state: hide panel completely when canvas has no nodes
-  // Return null to completely unmount - no DOM element, no visual footprint
+  // Task C: Panel coordination — hide OutputsDock when an overlay panel is active
+  const activeRightPanel = useUIStore(s => s.activeRightPanel)
+  const isOverlayPanelActive = activeRightPanel === 'provenance' || activeRightPanel === 'clarifier'
+
+  // Empty state: unmount when canvas has no nodes (nothing to show)
   if (!hasGraphContent) {
     return null
   }
+  // When an overlay panel is active, keep mounted (preserve scroll position,
+  // tab state, effect continuity) but hide visually via CSS.
 
   return (
     <aside
-      className={`${transitionClass} flex flex-col transition-shadow pointer-events-auto`}
+      className={`${transitionClass} flex flex-col transition-shadow pointer-events-auto${isOverlayPanelActive ? ' hidden' : ''}`}
       style={{
         position: 'fixed',
         width: state.isOpen ? 'var(--dock-right-expanded, 24rem)' : 'var(--dock-right-collapsed, 2.5rem)',
@@ -912,11 +926,12 @@ export function OutputsDock() {
                   type="button"
                   onClick={() => handleTabClick(tab.id)}
                   data-testid={tab.id === 'diagnostics' ? 'outputs-dock-tab-diagnostics' : undefined}
-                  className={`flex-1 px-2 py-1 rounded ${typography.caption} font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-info-500 focus-visible:ring-offset-1 ${
+                  className={`flex-1 px-2 py-1 rounded ${typography.caption} font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-1 ${
                     state.activeTab === tab.id
-                      ? 'bg-sky-200 text-sky-600 border-b-2 border-sky-500'
+                      ? 'text-info border-b-2 border-info'
                       : 'text-ink-900/70 hover:bg-paper-50 hover:text-ink-900 border-b-2 border-transparent'
                   }`}
+                  style={state.activeTab === tab.id ? { backgroundColor: 'rgba(99,173,207,0.15)' } : undefined}
                 >
                   {tab.label}
                 </button>
@@ -945,17 +960,20 @@ export function OutputsDock() {
                 ? BarChart3
                 : tab.id === 'compare'
                 ? Shuffle
+                : tab.id === 'journey'
+                ? Clock
                 : Activity
             return (
               <button
                 key={tab.id}
                 type="button"
                 onClick={() => handleTabClick(tab.id)}
-                className={`flex items-center justify-center w-7 h-7 rounded-full border ${typography.caption} focus:outline-none focus-visible:ring-2 focus-visible:ring-info-500 focus-visible:ring-offset-1 ${
+                className={`flex items-center justify-center w-7 h-7 rounded-full border ${typography.caption} focus:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-1 ${
                   state.activeTab === tab.id
-                    ? 'bg-sky-200 text-sky-600 border-sky-500'
+                    ? 'text-info border-info'
                     : 'text-ink-900/70 bg-paper-50 border-sand-200 hover:bg-paper-50 hover:text-ink-900'
                 }`}
+                style={state.activeTab === tab.id ? { backgroundColor: 'rgba(99,173,207,0.15)' } : undefined}
                 aria-label={tab.label}
                 title={tab.label}
               >
@@ -967,9 +985,10 @@ export function OutputsDock() {
       )}
 
       {state.isOpen && (
-        <div className={`flex-1 min-h-0 ${typography.caption} text-ink-900/70 ${isPreRun && nodes.length > 0 ? 'flex flex-col overflow-hidden' : 'px-3 py-3 space-y-4 overflow-y-auto'}`} data-testid="outputs-dock-body">
+        <div className={`flex-1 min-h-0 ${typography.caption} text-ink-900/70 ${state.activeTab === 'results' ? 'flex flex-col overflow-hidden' : 'olumi-scrollbar px-3 py-3 space-y-4 overflow-y-auto'}`} data-testid="outputs-dock-body">
             {state.activeTab === 'results' && (
-              <div className={isPreRun && nodes.length > 0 ? 'flex-1 min-h-0 flex flex-col' : 'space-y-6'}>
+              <div className="flex-1 min-h-0 flex flex-col">
+                <div className={`flex-1 min-h-0 ${isPreRun && nodes.length > 0 ? 'flex flex-col' : 'olumi-scrollbar overflow-y-auto px-3 py-3 space-y-6'}`}>
                 {/* P0.6: User-friendly error display */}
                 {isError && error && (() => {
                   const friendlyError = getUserFriendlyError({
@@ -977,14 +996,22 @@ export function OutputsDock() {
                     message: error.message,
                     hasPartialResults: Boolean(report),
                   })
+
+                  // Task P.3.4: CEE timeout with complexity context (>15 nodes)
+                  const isCeeTimeout = error.code === 'CEE_TIMEOUT' || error.code === 'TIMEOUT'
+                  const isComplexGraph = nodes.length > 15
+                  if (isCeeTimeout && isComplexGraph) {
+                    friendlyError.explanation = 'Your decision has many factors. Try simplifying to the 8-10 most important ones, then add detail after your first analysis.'
+                  }
+
                   return (
                     <div
                       className={`flex flex-col gap-2 px-3 py-3 rounded-lg border ${
                         friendlyError.severity === 'error'
-                          ? 'bg-danger-50 border-danger-200'
+                          ? 'bg-panel border-danger/30'
                           : friendlyError.severity === 'warning'
-                            ? 'bg-sun-50 border-sun-200'
-                            : 'bg-sky-50 border-sky-200'
+                            ? 'bg-panel border-warning/30'
+                            : 'bg-panel border-info/30'
                       }`}
                       role="alert"
                       aria-live="polite"
@@ -992,47 +1019,70 @@ export function OutputsDock() {
                     >
                       <div className={`${typography.body} font-medium ${
                         friendlyError.severity === 'error'
-                          ? 'text-danger-800'
+                          ? 'text-danger'
                           : friendlyError.severity === 'warning'
-                            ? 'text-sun-800'
-                            : 'text-sky-800'
+                            ? 'text-warning'
+                            : 'text-info'
                       }`}>
                         {friendlyError.headline}
                       </div>
                       <div className={`${typography.caption} text-ink-900/80`}>
                         {friendlyError.explanation}
                       </div>
-                      <div className="flex gap-2 mt-1">
-                        {friendlyError.canRetry && (
+                      <div className="flex flex-col gap-2 mt-1">
+                        <div className="flex gap-2">
+                          {friendlyError.canRetry && (
+                            <button
+                              type="button"
+                              onClick={handleRunAnalysis}
+                              disabled={isRunning}
+                              className={`${typography.caption} font-medium px-3 py-1.5 rounded ${
+                                friendlyError.severity === 'error'
+                                  ? 'bg-danger-600 text-text-on-color hover:bg-danger-700'
+                                  : friendlyError.severity === 'warning'
+                                    ? 'bg-sun-600 text-white hover:bg-sun-700'
+                                    : 'bg-sky-600 text-white hover:bg-sky-700'
+                              } disabled:opacity-50`}
+                            >
+                              {friendlyError.actionText}
+                            </button>
+                          )}
+                          {/* Task P.3.5: Edit model button (secondary action) */}
                           <button
                             type="button"
-                            onClick={handleRunAnalysis}
-                            disabled={isRunning}
-                            className={`${typography.caption} font-medium px-3 py-1.5 rounded ${
-                              friendlyError.severity === 'error'
-                                ? 'bg-danger-600 text-white hover:bg-danger-700'
-                                : friendlyError.severity === 'warning'
-                                  ? 'bg-sun-600 text-white hover:bg-sun-700'
-                                  : 'bg-sky-600 text-white hover:bg-sky-700'
-                            } disabled:opacity-50`}
-                          >
-                            {friendlyError.actionText}
-                          </button>
-                        )}
-                        {friendlyError.secondaryActionText && (
-                          <button
-                            type="button"
+                            onClick={() => setState(prev => ({ ...prev, isOpen: false }))}
                             className={`${typography.caption} font-medium px-3 py-1.5 rounded border ${
                               friendlyError.severity === 'error'
-                                ? 'border-danger-300 text-danger-700 hover:bg-danger-100'
+                                ? 'border-danger/30 text-danger hover:bg-danger-light'
                                 : friendlyError.severity === 'warning'
-                                  ? 'border-sun-300 text-sun-700 hover:bg-sun-100'
-                                  : 'border-sky-300 text-sky-700 hover:bg-sky-100'
+                                  ? 'border-warning/30 text-warning hover:bg-warning-light'
+                                  : 'border-info/30 text-info hover:bg-info-light'
                             }`}
+                            data-testid="edit-model-button"
                           >
-                            {friendlyError.secondaryActionText}
+                            Edit model
                           </button>
-                        )}
+                          {friendlyError.secondaryActionText && (
+                            <button
+                              type="button"
+                              onClick={() => setState(prev => ({ ...prev, isOpen: false }))}
+                              className={`${typography.caption} font-medium px-3 py-1.5 rounded border ${
+                                friendlyError.severity === 'error'
+                                  ? 'border-danger/30 text-danger hover:opacity-80'
+                                  : friendlyError.severity === 'warning'
+                                    ? 'border-warning/30 text-warning hover:opacity-80'
+                                    : 'border-info/30 text-info hover:opacity-80'
+                              }`}
+                              data-testid="error-secondary-action"
+                            >
+                              {friendlyError.secondaryActionText}
+                            </button>
+                          )}
+                        </div>
+                        {/* Task P.3.5: Coaching text for repeated failures */}
+                        <p className={`${typography.caption} text-ink-900/70`}>
+                          If analysis keeps failing, try simplifying to 8-10 of the most important factors.
+                        </p>
                       </div>
                       {/* Debug info (only in dev mode) */}
                       {import.meta.env.DEV && (
@@ -1048,41 +1098,7 @@ export function OutputsDock() {
                     </div>
                   )
                 })()}
-                {/* Post-run: Rerun analysis + Compare buttons row */}
-                {!isPreRun && (
-                  <div className="flex gap-2" data-testid="outputs-action-buttons">
-                    <button
-                      type="button"
-                      onClick={handleRunAnalysis}
-                      disabled={isRunning}
-                      className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg font-medium transition-colors ${
-                        isRunning
-                          ? 'bg-sand-200 text-ink-500 cursor-not-allowed'
-                          : 'bg-sky-500 text-white hover:bg-sky-600'
-                      }`}
-                      data-testid="outputs-rerun-button"
-                    >
-                      <RefreshCw className={`w-5 h-5 ${isRunning ? 'animate-spin' : ''}`} aria-hidden="true" />
-                      {isRunning ? 'Running...' : 'Rerun'}
-                    </button>
-                    {comparison.canCompare && (
-                      <button
-                        type="button"
-                        onClick={handleCompareNow}
-                        disabled={scenarioComparison.loading}
-                        className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg font-medium transition-colors ${
-                          scenarioComparison.loading
-                            ? 'bg-sand-200 text-ink-500 cursor-not-allowed'
-                            : 'bg-paper-50 text-sky-700 border border-sky-300 hover:bg-sky-50'
-                        }`}
-                        data-testid="outputs-compare-button"
-                      >
-                        <GitCompare className="w-5 h-5" aria-hidden="true" />
-                        {scenarioComparison.loading ? 'Comparing...' : 'Compare'}
-                      </button>
-                    )}
-                  </div>
-                )}
+                {/* v7: Rerun + Compare buttons moved to sticky footer below */}
                 {/* Pre-run state: Show consolidated guidance and Run button */}
                 {isPreRun && nodes.length > 0 && (
                   <div className="flex-1 min-h-0 flex flex-col" data-testid="outputs-pre-run">
@@ -1091,6 +1107,7 @@ export function OutputsDock() {
                     <PreAnalysisPanel
                       onAnalyse={handleRunAnalysis}
                       isAnalysing={isRunning}
+                      blockedReason={runBlockedTooltip}
                     />
                   </div>
                 )}
@@ -1104,6 +1121,20 @@ export function OutputsDock() {
                   >
                     <Clock className="w-4 h-4 flex-shrink-0" aria-hidden="true" />
                     <span className={`${typography.caption} text-sky-900`}>{slowRunMessage}</span>
+                  </div>
+                )}
+                {/* I.2b: Cancel button during active analysis */}
+                {isRunning && (
+                  <div className="flex justify-end px-3">
+                    <button
+                      type="button"
+                      onClick={cancelRun}
+                      className={`${typography.caption} font-medium px-3 py-1.5 rounded border border-ink-200 text-ink-600 hover:bg-sand-100 flex items-center gap-1.5`}
+                      data-testid="cancel-analysis-button"
+                    >
+                      <XCircle className="w-3.5 h-3.5" aria-hidden="true" />
+                      Cancel
+                    </button>
                   </div>
                 )}
                 {/* P0.7: Loading skeleton during analysis (when streaming without report) */}
@@ -1180,202 +1211,101 @@ export function OutputsDock() {
                     onDismiss={() => setDegradedBannerDismissed(true)}
                   />
                 )}
-                {/* OLD VerdictCard and DecisionSummary REMOVED - Replaced by RecommendationSection below */}
-
+                {/* I.2c: Stale results indicator — shown when current run errored
+                    but previous results are still visible */}
+                {isError && report && (
+                  <div
+                    className="flex items-center gap-2 px-3 py-2 bg-sun-50 border border-sun-200 rounded"
+                    role="status"
+                    data-testid="stale-results-banner"
+                  >
+                    <AlertTriangle className="w-4 h-4 text-sun-600 flex-shrink-0" aria-hidden="true" />
+                    <span className={`${typography.caption} text-sun-800`}>
+                      Showing results from previous analysis
+                    </span>
+                  </div>
+                )}
+                {/* C.1b: Graph-staleness indicator — shown when graph has been
+                    edited after the last successful analysis */}
+                {analysisStale && !isError && report && (
+                  <div
+                    className="flex items-center gap-2 px-3 py-2 bg-panel border border-warning/30 rounded"
+                    role="status"
+                    data-testid="graph-stale-banner"
+                  >
+                    <AlertTriangle className="w-4 h-4 text-warning flex-shrink-0" aria-hidden="true" />
+                    <span className={`${typography.caption} text-warning`}>
+                      Results may be outdated. Run analysis again.
+                    </span>
+                  </div>
+                )}
+                {/* A.9: Conversation-triggered analysis indicator — auto-dismisses after 5s */}
+                {convIndicatorVisible && !isPreRun && report && (
+                  <div
+                    className="flex items-center gap-1.5 px-3 py-1.5"
+                    role="status"
+                    aria-live="polite"
+                    data-testid="conv-results-indicator"
+                    onClick={() => setConvIndicatorVisible(false)}
+                  >
+                    <MessageCircle className="w-3 h-3 text-text-light flex-shrink-0" aria-hidden="true" />
+                    <span className={`${typography.caption} text-text-light`}>
+                      Updated from conversation
+                    </span>
+                  </div>
+                )}
                 {/* ======================================================================
-                    Results Panel Redesign: Accordion Layout (Phase 3)
-                    Three collapsible sections: Analysis, Confidence, Next Steps
-                    "Coaching over gates" approach with semantic labels and dynamic normalisation
+                    Results Panel v7: Four-Section Flat Layout
+                    Sections: 1. Hero  2. Options comparison  3. Drivers  4. Strengthen
+                    18px gaps between sections, no accordion wrappers on Drivers.
+                    Legacy blocks (InsightsPanel, AdvancedSettings, variance warning) removed
+                    from Results tab — they are not in the v7 prototype.
                     ====================================================================== */}
                 {!isPreRun && hasInlineSummary && resultsSectionData && (
-                  <div className="space-y-2" data-testid="outputs-results-redesign">
-                    {/* ============================================================
-                        ANALYSIS ACCORDION (expanded by default)
-                        Contents: Objective + Recommendation card
-                        ============================================================ */}
-                    <Accordion
-                      title="Analysis"
-                      defaultExpanded={true}
-                      testId="accordion-analysis"
-                    >
-                      {/* Objective */}
-                      <div className="mb-4">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <span className={`${typography.caption} text-text-light block`}>
-                              Your objective
-                            </span>
-                            <button
-                              onClick={() => {
-                                if (resultsSectionData.goalNodeId) {
-                                  setHighlightedNodes([resultsSectionData.goalNodeId])
-                                  focusNodeById(resultsSectionData.goalNodeId)
-                                  setTimeout(() => setHighlightedNodes([]), 3000)
-                                }
-                              }}
-                              disabled={!resultsSectionData.goalNodeId}
-                              className={`${typography.body} font-medium mt-0.5 text-left block ${
-                                resultsSectionData.goalNodeId
-                                  ? 'text-info hover:text-info-hover cursor-pointer'
-                                  : 'text-text-header cursor-default'
-                              }`}
-                            >
-                              {resultsSectionData.goalLabel}
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Recommendation */}
-                      <RecommendationSection
-                        data={resultsSectionData.recommendation}
-                        onFocusNode={(nodeId) => {
-                          setHighlightedNodes([nodeId])
-                          focusNodeById(nodeId)
-                          setTimeout(() => setHighlightedNodes([]), 3000)
-                        }}
-                        onAddStatusQuoBaseline={addStatusQuoBaseline}
-                        topDrivers={resultsSectionData.drivers.topDrivers}
-                        topFragileEdge={resultsSectionData.confidence.topFragileEdge}
-                        nSamples={(report as any)?.summary?.n_samples_used ?? (report as any)?.meta?.n_samples}
-                        seedUsed={(report as any)?.meta?.seed_used}
-                        fragileEdgeCount={(report as any)?.robustness?.fragile_edges?.length}
-                        robustEdgeCount={(report as any)?.robustness?.robust_edges?.length}
-                        // P2: New coaching card props
-                        responseHash={results?.hash}
-                        onApplyThreshold={handleApplyThreshold}
-                        isRunning={isRunning}
-                        isThresholdFromBrief={preAnalysisReadiness.isThresholdAutoDerived}
-                        onAddBaselineAndRerun={handleAddBaselineAndRerun}
-                      />
-                    </Accordion>
-
-                    {/* ============================================================
-                        CONFIDENCE ACCORDION (collapsed by default)
-                        Contents: Drivers (factor sensitivity) + tier badge
-                        Graph Interaction P1: Controlled expansion for Canvas → Results sync
-                        ============================================================ */}
-                    <Accordion
-                      title="What's influencing this"
-                      isExpanded={driversAccordionExpanded}
-                      onExpandChange={setDriversAccordionExpanded}
-                      testId="accordion-confidence"
-                      badgeCount={resultsSectionData.drivers.totalCount}
-                    >
-                      <DriversSection
-                        data={resultsSectionData.drivers}
-                        onFocusNode={(nodeId) => {
-                          setHighlightedNodes([nodeId])
-                          focusNodeById(nodeId)
-                          setTimeout(() => setHighlightedNodes([]), 3000)
-                        }}
-                        goalLabel={resultsSectionData.goalLabel}
-                        highlightedDriverId={highlightedDriverId}
-                        registerDriverRef={registerDriverRef}
-                      />
-                    </Accordion>
-
-                    {/* ============================================================
-                        NEXT STEPS ACCORDION (collapsed by default)
-                        Contents: Uncertainties + improvements + filtered edges disclosure
-                        ============================================================ */}
-                    <Accordion
-                      title={
-                        resultsSectionData.confidence.assumptions?.length
-                          ? `What needs attention (${resultsSectionData.confidence.assumptions.length} assumptions)`
-                          : 'What needs attention'
-                      }
-                      defaultExpanded={false}
-                      testId="accordion-next-steps"
-                      badgeCount={
-                        resultsSectionData.confidence.uncertainties.length +
-                        resultsSectionData.confidence.improvements.length
-                      }
-                      badgeVariant={
-                        resultsSectionData.confidence.tier.tier === 'needs_work'
-                          ? 'critical'
-                          : resultsSectionData.confidence.tier.tier === 'fair'
-                          ? 'warning'
-                          : 'default'
-                      }
-                    >
-                      <ConfidenceSection
-                        data={resultsSectionData.confidence}
-                        onFocusNode={(nodeId) => {
-                          setHighlightedNodes([nodeId])
-                          focusNodeById(nodeId)
-                          setTimeout(() => setHighlightedNodes([]), 3000)
-                        }}
-                      />
-                    </Accordion>
-
-                    {/* Adjustments Made: Show any strength corrections applied during this run */}
-                    {(() => {
-                      const corrections = getStrengthCorrections()
-                      if (corrections.length === 0) return null
-                      return (
-                        <details className="border border-sand-200 rounded-lg overflow-hidden">
-                          <summary className={`px-3 py-2 bg-sand-50 cursor-pointer hover:bg-sand-100 ${typography.caption} text-ink-600`}>
-                            {corrections.length} edge strength{corrections.length > 1 ? 's' : ''} adjusted
-                          </summary>
-                          <div className="p-3 space-y-1">
-                            {corrections.map((c, idx) => (
-                              <div key={idx} className={`${typography.code} text-ink-500 text-xs`}>
-                                "{c.from} → {c.to}": {c.original.toFixed(2)} → {c.clamped.toFixed(1)}
-                              </div>
-                            ))}
-                          </div>
-                        </details>
-                      )
-                    })()}
-                  </div>
+                  <ResultsBody
+                    resultsSectionData={resultsSectionData}
+                    tornadoData={tornadoData}
+                    highlightedDriverId={highlightedDriverId}
+                    registerDriverRef={registerDriverRef}
+                    strengthCorrections={getStrengthCorrections()}
+                    onFocusNode={(nodeId) => {
+                      setHighlightedNodes([nodeId])
+                      focusNodeById(nodeId)
+                      setTimeout(() => setHighlightedNodes([]), 3000)
+                    }}
+                    isRunning={isRunning}
+                    onAddStatusQuoBaseline={addStatusQuoBaseline}
+                    onApplyThreshold={handleApplyThreshold}
+                    onAddBaseline={handleAddBaseline}
+                    onSetBaseline={handleSetBaseline}
+                    nSamples={(report as any)?.summary?.n_samples_used ?? (report as any)?.meta?.n_samples}
+                    seedUsed={(report as any)?.meta?.seed}
+                    fragileEdgeCount={(report as any)?.robustness?.fragile_edges?.length}
+                    robustEdgeCount={(report as any)?.robustness?.robust_edges?.length}
+                    responseHash={results?.hash}
+                    nodeCount={nodes.length}
+                    edgeCount={edges.length}
+                    identifiability={report?.model_card?.identifiability_tag}
+                    goalDirection={goalDirection}
+                    guidanceItems={resultsGuidanceItems}
+                    onActivateGuidanceItem={setActiveGuidanceItem}
+                  />
                 )}
-
-                {/* OLD Four-Panel Structure REMOVED - Replaced by Results Panel Redesign above */}
-
-                {/* Additional context - kept from original inline summary */}
-                {!isPreRun && hasInlineSummary && (
-                  <div className="space-y-4" data-testid="outputs-additional-context">
-                    {/* Variance Warning: Alert when outcome range is too narrow */}
-                    {graphHealth?.variance_status === 'limited' && (
-                      <div
-                        className="p-3 bg-sun-50 border border-sun-200 rounded-lg flex items-start gap-2"
-                        role="alert"
-                        aria-live="polite"
-                        data-testid="variance-warning-banner"
-                      >
-                        <AlertTriangle className="w-4 h-4 text-sun-600 flex-shrink-0 mt-0.5" aria-hidden="true" />
-                        <div>
-                          <p className={`${typography.bodySmall} font-medium text-sun-900`}>
-                            Limited outcome variance
-                          </p>
-                          <p className={`${typography.caption} text-sun-700 mt-0.5`}>
-                            Results show little spread between scenarios. Consider adding more factors or adjusting edge weights to explore uncertainty.
-                          </p>
-                        </div>
-                      </div>
-                    )}
-                    {/* Insights: interpretation of results ("what does this mean?") */}
-                    {/* P0.1: Pass driversInformative to gate driver-based insight generation */}
-                    {report?.insights && (
-                      <InsightsPanel
-                        insights={report.insights}
-                        outcomeValue={mostLikelyValue}
-                        baselineValue={baselineValue}
-                        goalDirection={goalDirection}
-                        topDrivers={topDrivers}
-                        driversInformative={driversGating.showDriverNarratives}
-                      />
-                    )}
-                    {/* OLD DecisionReviewPanel REMOVED - Now merged into ConfidenceSection above */}
-                  </div>
-                )}
-
-                {/* Advanced Settings - Risk Tolerance & Structural Uncertainty */}
-                {!isPreRun && (
-                  <div className="mt-4">
-                    <AdvancedSettingsPanel />
-                  </div>
+                </div>
+                {!isPreRun && hasInlineSummary && resultsSectionData && (
+                  <AnalysisFooter
+                    statusIcon={postRunFooter.icon}
+                    statusIconClassName={postRunFooter.iconClass}
+                    statusText={postRunFooter.label}
+                    metaText={postRunMetaText}
+                    actionLabel={isRunning ? 'Analysing...' : 'Rerun analysis'}
+                    onAction={handleRunAnalysis}
+                    actionDisabled={isRunning || !canRunAnalysis}
+                    actionLoading={isRunning}
+                    actionAriaLabel={isRunning ? 'Analysis in progress' : 'Rerun analysis'}
+                    actionTitle={!canRunAnalysis && !isRunning ? runBlockedTooltip : undefined}
+                    testId="results-analysis-footer"
+                  />
                 )}
               </div>
             )}
@@ -1383,10 +1313,7 @@ export function OutputsDock() {
               <CompareTabBody />
             )}
             {state.activeTab === 'diagnostics' && (
-              <DiagnosticsTabBody
-                healthView={healthView}
-                graphHealth={graphHealth}
-                setShowIssuesPanel={setShowIssuesPanel}
+              <ModelTabBody
                 showDebug={showDebug}
                 hasDiagnostics={hasDiagnostics}
                 diagnostics={diagnostics}
@@ -1397,8 +1324,11 @@ export function OutputsDock() {
                 nodes={nodes}
                 edges={edges}
                 robustness={mappedRobustness}
-                robustnessSynthesis={ceeReviewV1?.robustness_synthesis ?? null}
+                critique={report?.run?.critique}
               />
+            )}
+            {state.activeTab === 'journey' && (
+              <JourneyTabBody />
             )}
           </div>
         )}
@@ -1413,7 +1343,7 @@ export function OutputsDock() {
             aria-label="Generating scenario comparison"
             data-testid="scenario-comparison-loading"
           >
-            <div className="bg-white px-6 py-4 rounded-lg shadow-lg flex items-center gap-3">
+            <div className="bg-white px-6 py-4 rounded-lg shadow-3 flex items-center gap-3">
               <div className="w-5 h-5 border-2 border-sky-500 border-t-transparent rounded-full animate-spin" />
               <span className={`${typography.body} text-ink-900`}>Generating comparison...</span>
             </div>
@@ -1423,7 +1353,7 @@ export function OutputsDock() {
         {/* M6: Error display for comparison */}
         {scenarioComparison.error && (
           <div
-            className="fixed bottom-24 right-4 z-[1000] bg-danger-50 border border-danger-200 px-4 py-3 rounded-lg shadow-lg max-w-sm"
+            className="fixed bottom-24 right-4 z-[1000] bg-panel border border-danger/30 px-4 py-3 rounded-lg shadow-3 max-w-sm"
             role="alert"
             data-testid="scenario-comparison-error"
           >
@@ -1442,350 +1372,11 @@ export function OutputsDock() {
             </button>
           </div>
         )}
+
+        {/* Legacy v7 sticky footer removed — superseded by AnalysisFooter above */}
     </aside>
   )
 }
-
-/**
- * Diagnostics tab body - extracted for clarity
- */
-function DiagnosticsTabBody({
-  healthView,
-  graphHealth,
-  setShowIssuesPanel,
-  showDebug,
-  hasDiagnostics,
-  diagnostics,
-  hasTrim,
-  effectiveCorrelationId,
-  correlationMismatch,
-  correlationIdHeader,
-  nodes,
-  edges,
-  robustness,
-  robustnessSynthesis,
-}: {
-  healthView: { label: string; detail: string }
-  graphHealth: GraphHealth | null
-  setShowIssuesPanel: (show: boolean) => void
-  showDebug: boolean
-  hasDiagnostics: boolean
-  diagnostics: any
-  hasTrim: boolean
-  effectiveCorrelationId: string | null | undefined
-  correlationMismatch: boolean
-  correlationIdHeader: string | null | undefined
-  nodes: Node[]
-  edges: Edge[]
-  robustness: MappedRobustness | null
-  robustnessSynthesis: {
-    headline?: string
-    assumption_explanations?: Array<{ node_id: string; label: string; explanation: string }>
-    investigation_suggestions?: string[]
-  } | null
-}) {
-  // Build fragile and robust edge ID sets for badges using adapter
-  const fragileEdgeIds = useMemo(() => {
-    if (!robustness?.fragileEdges) return new Set<string>()
-    return buildFragileEdgeIdSet(robustness.fragileEdges)
-  }, [robustness?.fragileEdges])
-
-  const robustEdgeIds = useMemo(() => {
-    if (!robustness?.robustEdges) return new Set<string>()
-    return buildRobustEdgeIdSet(robustness.robustEdges)
-  }, [robustness?.robustEdges])
-
-  // Determine analysis state for banner
-  // Check if robustness object exists (analysis completed), not if arrays have content
-  // Empty/undefined arrays are valid (model may be fully robust with no fragile edges)
-  const hasRobustnessData = !!robustness
-  const hasSynthesis = !!robustnessSynthesis?.headline
-  const hasPartialData = hasRobustnessData && !hasSynthesis
-  const needsAnalysis = !hasRobustnessData && !hasSynthesis
-
-  // Find edges without real evidence (missing provenance or non-evidence markers)
-  // Uses canonical NON_EVIDENCE_PROVENANCE for consistency with countEdgesWithEvidence
-  const edgesWithoutEvidence = useMemo(() => {
-    return edges.filter(edge => {
-      const provenance = (edge.data as any)?.provenance
-      return !provenance || NON_EVIDENCE_PROVENANCE.includes(provenance)
-    })
-  }, [edges])
-
-  return (
-    <div className="space-y-0" data-testid="diagnostics-tab">
-      {/* ===== LENS 1: CAUSAL LOGIC (default OPEN) ===== */}
-      <LensContainer title="Causal Logic" defaultOpen={true} testId="lens-causal-logic">
-        {/* A. Analysis State Banner */}
-        {needsAnalysis && (
-          <div className="mb-4 p-3 bg-sand-50 border border-sand-200 rounded-lg">
-            <p className={`${typography.body} text-ink-600`}>
-              Run analysis to see causal explanations.
-            </p>
-          </div>
-        )}
-        {hasPartialData && (
-          <div className="mb-4 p-3 bg-sun-50 border border-sun-200 rounded-lg">
-            <p className={`${typography.body} text-sun-800`}>
-              Analysis incomplete — some insights unavailable.
-            </p>
-          </div>
-        )}
-
-        {/* B. Key Assumptions - Fragile edges with explanations */}
-        {robustness?.fragileEdges && robustness.fragileEdges.length > 0 && (
-          <div className="mb-4" data-testid="key-assumptions-section">
-            <div className={`${typography.label} text-ink-700 mb-2`}>Key Assumptions</div>
-            <div className="space-y-2">
-              {robustness.fragileEdges.map((fragileEdge, idx) => {
-                const edgeId = fragileEdge.edgeId
-                const edgeLabel = fragileEdge.fromLabel && fragileEdge.toLabel
-                  ? `${fragileEdge.fromLabel} → ${fragileEdge.toLabel}`
-                  : edgeId
-                // Find matching assumption explanation if available
-                const explanation = robustnessSynthesis?.assumption_explanations?.find(
-                  ae => ae.node_id === edgeId || ae.label === edgeLabel
-                )
-
-                return (
-                  <div key={edgeId || idx} className="p-2 bg-amber-50 border border-amber-200 rounded">
-                    <button
-                      type="button"
-                      onClick={() => focusEdgeById(edgeId)}
-                      className="flex items-center gap-2 text-left w-full hover:bg-amber-100 rounded p-1 -m-1 transition-colors"
-                    >
-                      <span className="text-amber-600">⚠️</span>
-                      <span className={`${typography.body} text-amber-800 flex-1`}>
-                        {edgeLabel}
-                      </span>
-                      <span className={`${typography.caption} text-amber-600`}>click to focus</span>
-                    </button>
-                    {explanation && (
-                      <p className={`${typography.caption} text-amber-700 mt-1 pl-6`}>
-                        {explanation.explanation}
-                      </p>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* Robust edges */}
-        {robustness?.robustEdges && robustness.robustEdges.length > 0 && (
-          <div className="mb-4" data-testid="robust-edges-section">
-            <div className={`${typography.label} text-ink-700 mb-2`}>Stable Assumptions</div>
-            <div className="space-y-1">
-              {robustness.robustEdges.slice(0, 5).map((edgeId, idx) => {
-                // Try to find the edge to get labels
-                const edge = edges.find(e => getDisplayEdgeId(e) === edgeId)
-                const sourceNode = edge ? nodes.find(n => n.id === edge.source) : null
-                const targetNode = edge ? nodes.find(n => n.id === edge.target) : null
-                const edgeLabel = sourceNode && targetNode
-                  ? `${(sourceNode.data as any)?.label || sourceNode.id} → ${(targetNode.data as any)?.label || targetNode.id}`
-                  : edgeId
-
-                return (
-                  <button
-                    key={edgeId || idx}
-                    type="button"
-                    onClick={() => focusEdgeById(edgeId)}
-                    className="flex items-center gap-2 p-2 bg-emerald-50 border border-emerald-200 rounded w-full text-left hover:bg-emerald-100 transition-colors"
-                  >
-                    <span className="text-emerald-600">✓</span>
-                    <span className={`${typography.body} text-emerald-800 flex-1`}>
-                      {edgeLabel}
-                    </span>
-                  </button>
-                )
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* C. Investigation Suggestions */}
-        {robustnessSynthesis?.investigation_suggestions && robustnessSynthesis.investigation_suggestions.length > 0 && (
-          <div className="mb-4" data-testid="investigation-suggestions-section">
-            <div className={`${typography.label} text-ink-700 mb-2`}>Suggested Next Steps</div>
-            <div className="space-y-1">
-              {robustnessSynthesis.investigation_suggestions.map((suggestion, idx) => (
-                <div key={idx} className="flex items-start gap-2">
-                  <span className="text-sky-500 mt-0.5">→</span>
-                  <p className={`${typography.body} text-ink-700`}>{suggestion}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* D. Closure - What this decision hinges on */}
-        <div data-testid="closure-section">
-          <div className={`${typography.label} text-ink-700 mb-2`}>What this decision hinges on</div>
-          {robustnessSynthesis?.headline ? (
-            <p className={`${typography.body} text-ink-700`}>
-              {robustnessSynthesis.headline}
-            </p>
-          ) : (
-            <p className={`${typography.body} text-ink-500`}>
-              Run analysis to generate a summary of what matters most.
-            </p>
-          )}
-        </div>
-      </LensContainer>
-
-      {/* ===== LENS 2: MODEL STRUCTURE (default COLLAPSED) ===== */}
-      <LensContainer title="Model Structure" defaultOpen={false} testId="lens-model-structure">
-        {/* Group headers with microcopy */}
-        <div className="mb-3">
-          <div className={`${typography.label} text-ink-700 mb-1`}>Organisational Structure</div>
-          <p className={`${typography.caption} text-ink-500 mb-2`}>
-            Decisions and options organise alternatives; factors and edges drive inference.
-          </p>
-        </div>
-
-        {/* Full GraphTextView with all P1 functionality */}
-        <GraphTextView
-          nodes={nodes}
-          edges={edges}
-          onNodeClick={focusNodeById}
-          onEdgeClick={focusEdgeById}
-          fragileEdgeIds={fragileEdgeIds}
-          robustEdgeIds={robustEdgeIds}
-        />
-      </LensContainer>
-
-      {/* ===== LENS 3: IMPROVEMENTS (default COLLAPSED) ===== */}
-      <LensContainer title="Improvements" defaultOpen={false} testId="lens-improvements">
-        {/* A. Evidence Gaps */}
-        {edgesWithoutEvidence.length > 0 && (
-          <div className="mb-4" data-testid="evidence-gaps-section">
-            <div className={`${typography.label} text-ink-700 mb-2`}>Strengthen Your Model</div>
-            <div className="space-y-1">
-              {edgesWithoutEvidence.slice(0, 5).map(edge => {
-                const edgeId = getDisplayEdgeId(edge)
-                const sourceNode = nodes.find(n => n.id === edge.source)
-                const targetNode = nodes.find(n => n.id === edge.target)
-                const edgeLabel = sourceNode && targetNode
-                  ? `${(sourceNode.data as any)?.label || sourceNode.id} → ${(targetNode.data as any)?.label || targetNode.id}`
-                  : edgeId
-
-                return (
-                  <button
-                    key={edgeId}
-                    type="button"
-                    onClick={() => focusEdgeById(edgeId)}
-                    className="flex items-center gap-2 p-2 bg-paper-50 border border-sand-200 rounded w-full text-left hover:bg-sand-50 transition-colors"
-                  >
-                    <span className="text-sand-500">◐</span>
-                    <span className={`${typography.body} text-ink-700 flex-1`}>
-                      {edgeLabel}
-                    </span>
-                    <span className={`${typography.caption} text-ink-500`}>Add evidence to increase confidence</span>
-                  </button>
-                )
-              })}
-              {edgesWithoutEvidence.length > 5 && (
-                <p className={`${typography.caption} text-ink-500 pl-6`}>
-                  +{edgesWithoutEvidence.length - 5} more edges without evidence
-                </p>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* B. Gated Validation */}
-        <div data-testid="isl-validation-section">
-          <div className={`${typography.label} text-ink-700 mb-2`}>Validation</div>
-          <p className={`${typography.body} text-ink-500`}>
-            Validation suggestions not available in this environment
-          </p>
-        </div>
-      </LensContainer>
-
-      {/* Phase 1A.5: Streaming Diagnostics - Hidden by default, Shift+D to show */}
-      {showDebug && (
-        <>
-          <div className={`${typography.label} text-ink-900 pt-2 border-t border-sand-200`}>
-            Streaming diagnostics
-          </div>
-
-          <div className="space-y-1">
-            <div className="flex items-center justify-between" data-testid="diag-resumes" title="Resumes: times the stream reconnected.">
-              <span className="text-ink-900/70">Resumes</span>
-              <span className="tabular-nums text-ink-900">{hasDiagnostics ? diagnostics?.resumes ?? 0 : 0}</span>
-            </div>
-            <div className="flex items-center justify-between" data-testid="diag-recovered" title="Recovered events: events caught up after a resume.">
-              <span className="text-ink-900/70">Recovered events</span>
-              <span className="tabular-nums text-ink-900">{hasDiagnostics ? diagnostics?.recovered_events ?? 0 : 0}</span>
-            </div>
-            <div className="flex items-center justify-between" data-testid="diag-trims" title="Buffer trimmed: older events were dropped to keep streaming responsive.">
-              <span className="text-ink-900/70">Buffer trimmed</span>
-              <span className={`inline-flex items-center px-1.5 py-0.5 rounded ${typography.code} font-medium border`} aria-label={hasTrim ? 'Buffer was trimmed' : 'Buffer was not trimmed'}>
-                {hasTrim ? (
-                  <span className="bg-sun-50 text-sun-800 border-sun-200 px-1.5 py-0.5 rounded">Yes</span>
-                ) : (
-                  <span className="text-ink-900/80 border-sand-200 px-1.5 py-0.5 rounded">No</span>
-                )}
-              </span>
-            </div>
-          </div>
-
-          <div className="space-y-1 pt-2 border-t border-sand-200">
-            <div className="flex items-center justify-between" title="Correlation ID: include this when reporting issues.">
-              <span className="text-ink-900/70">Correlation ID</span>
-              <div className="flex items-center gap-2">
-                <span
-                  className={`font-mono ${typography.code} text-ink-900 max-w-[10rem] truncate`}
-                  data-testid="diag-correlation-value"
-                >
-                  {effectiveCorrelationId ?? '—'}
-                </span>
-                {effectiveCorrelationId && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      try {
-                        if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
-                          navigator.clipboard.writeText(effectiveCorrelationId)
-                        }
-                      } catch {}
-                    }}
-                    className={`inline-flex items-center px-1.5 py-0.5 rounded border border-sand-200 ${typography.code} text-ink-900/80 hover:bg-paper-50`}
-                    data-testid="diag-correlation-copy"
-                  >
-                    Copy
-                  </button>
-                )}
-              </div>
-            </div>
-            {correlationMismatch && (
-              <p
-                className={`${typography.code} text-sun-700`}
-                data-testid="diag-correlation-mismatch"
-              >
-                Correlation ID in diagnostics ({diagnostics?.correlation_id}) does not match header ({correlationIdHeader}).
-              </p>
-            )}
-          </div>
-
-          <p className={`${typography.code} text-ink-900/60`}>
-            For deeper engine instrumentation, use the on-canvas diagnostics overlay via
-            <code className="mx-1">?diag=1</code> and the debug tray configuration when needed.
-          </p>
-        </>
-      )}
-
-      {/* Hint to show debug controls */}
-      {!showDebug && (
-        <p className={`${typography.caption} text-ink-900/50 pt-2 border-t border-sand-200`}>
-          Press <kbd className={`px-1.5 py-0.5 bg-sand-100 rounded ${typography.caption} font-mono`}>Shift+D</kbd> for streaming diagnostics
-        </p>
-      )}
-    </div>
-  )
-}
-
 type CompareSelection = {
   baselineId: string | null
   currentId: string | null

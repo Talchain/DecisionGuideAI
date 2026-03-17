@@ -1,0 +1,32 @@
+{
+  "contract_version": "1.0.0",
+  "recommendation": {
+    "option_id": "opt_senior_hire",
+    "option_label": "Hire senior engineer",
+    "win_probability": 0.72
+  },
+  "options": [
+    { "id": "opt_senior_hire", "label": "Hire senior engineer", "win_probability": 0.72 },
+    { "id": "opt_promote", "label": "Promote from within", "win_probability": 0.28 }
+  ],
+  "top_drivers": [
+    { "factor_id": "f_team_velocity", "factor_label": "Team velocity", "elasticity": 0.42 },
+    { "factor_id": "f_retention", "factor_label": "Employee retention", "elasticity": 0.28 },
+    { "factor_id": "f_ramp_time", "factor_label": "Ramp-up time", "elasticity": 0.18 }
+  ],
+  "sensitivity_concentration": 0.477,
+  "confidence_band": "medium",
+  "robustness": {
+    "level": "moderate",
+    "recommendation_stability": 0.61
+  },
+  "constraints_status": [
+    { "label": "Headcount budget", "satisfied": true, "probability": 0.88 },
+    { "label": "Time to productivity", "satisfied": true, "probability": 0.65 }
+  ],
+  "run_metadata": {
+    "seed": "42",
+    "quality_mode": "deep",
+    "timestamp": null
+  }
+}

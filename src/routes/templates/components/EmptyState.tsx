@@ -26,7 +26,7 @@ export function EmptyState({ onRetry, isRetrying }: EmptyStateProps) {
         <button
           onClick={onRetry}
           disabled={isRetrying}
-          className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2"
+          className="px-4 py-2 bg-primary hover:bg-primary-hover text-white rounded disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2"
           aria-label="Retry loading templates"
         >
           <RefreshCw className={`h-4 w-4 ${isRetrying ? 'animate-spin' : ''}`} />

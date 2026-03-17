@@ -1,3 +1,4 @@
+/* eslint-disable no-restricted-syntax -- pre-existing diagnostic console.log calls behind DEV guards */
 /**
  * ISL Request Adapter
  *
@@ -27,7 +28,7 @@ import type {
   ISLParameterUncertainty,
   LegacyISLRobustnessRequest,
 } from '../../adapters/isl/types'
-import { STD_FLOOR } from '../../adapters/plot/v2/types'
+import { STD_FLOOR, DEFAULT_EXISTS_PROBABILITY } from '../../adapters/plot/v2/types'
 
 // =============================================================================
 // UI Graph Types (internal format)
@@ -160,15 +161,16 @@ export function computeSignedMean(data: UIEdge['data']): number {
 
 /**
  * Compute default std when not provided by CEE.
- * Uses same formula as CEE for consistency:
+ * Uses same formula as V2 adapter for consistency:
  * cv = 0.3 * (1 - belief) + 0.1
- * std = max(0.05, cv * magnitude)
+ * std = max(STD_FLOOR, cv * magnitude)
  */
 export function computeDefaultStd(data: UIEdge['data']): number {
   const magnitude = data?.weight ?? 0.5
-  const belief = data?.beliefExists ?? data?.confidence ?? data?.belief ?? 0.5
+  // UI-SEM-032: Default exists_probability (0.8) for std computation — mirrors UI-SEM-031.
+  const belief = data?.beliefExists ?? data?.confidence ?? data?.belief ?? DEFAULT_EXISTS_PROBABILITY
   const cv = 0.3 * (1 - belief) + 0.1
-  return Math.max(0.05, cv * magnitude)
+  return Math.max(STD_FLOOR, cv * magnitude)
 }
 
 /**
@@ -180,10 +182,13 @@ export function transformEdgesToISLv2(edges: UIEdge[]): ISLGraphEdgeV2[] {
   return edges.map(e => {
     const data = e.data
 
+    const existsProb = data?.beliefExists ?? data?.confidence ?? data?.belief
+
     return {
       from: e.source,
       to: e.target,
-      exists_probability: data?.beliefExists ?? data?.confidence ?? data?.belief ?? 0.5,
+      // When omitted, ISL defaults to 0.8 (matches PLoT DEFAULT_EXISTS_PROBABILITY)
+      ...(existsProb !== undefined ? { exists_probability: existsProb } : {}),
       strength: {
         mean: computeSignedMean(data),
         std: data?.strengthStd ?? computeDefaultStd(data)
@@ -639,6 +644,13 @@ export function buildISLConformalRequest(
     const sourceId = edge.source
     const targetId = edge.target
 
+    /**
+     * UI-SEM-004: Risk→goal sign heuristic (last-resort fallback).
+     * When an edge lacks signed strength_mean and effect_direction, auto-negates
+     * the coefficient for risk→goal/outcome edges. Same class as UI-SEM-001
+     * (adapter concern: translating causal semantics to ISL wire format).
+     * Classification: adapter concern — legitimate.
+     */
     // P0-4: Priority order for sign handling (canonical rule: direction encoded via signed strength_mean)
     // 1. Use signed strength_mean if present (canonical source of truth)
     // 2. Apply effect_direction if coefficient is positive/unsigned

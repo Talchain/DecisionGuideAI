@@ -61,7 +61,7 @@ function isNonEmptyString(value: unknown): value is string {
 // CEE Response Validators
 // ============================================================================
 
-const VALID_CEE_STATUSES = ['ready', 'needs_encoding', 'needs_user_mapping'] as const
+const VALID_CEE_STATUSES = ['ready', 'needs_encoding', 'needs_user_mapping', 'needs_user_input'] as const
 const VALID_NODE_KINDS = ['goal', 'factor', 'outcome', 'decision', 'risk', 'action', 'option'] as const
 
 /**
@@ -522,9 +522,10 @@ export function validatePLoTResponse(response: unknown, sentRequestId?: string):
 /**
  * Detect which service a request is for based on endpoint
  */
-export function detectService(endpoint: string): 'CEE' | 'PLoT' | 'ISL' | 'BFF' | 'unknown' {
+export function detectService(endpoint: string): 'CEE' | 'PLoT' | 'ISL' | 'BFF' | 'M2' | 'unknown' {
   const lower = endpoint.toLowerCase()
-  if (lower.includes('/cee/') || lower.includes('assist') || lower.includes('draft-graph')) {
+  // CEE / orchestrator endpoints — includes /bff/orchestrate/ proxy path
+  if (lower.includes('/cee/') || lower.includes('assist') || lower.includes('draft-graph') || lower.includes('orchestrate')) {
     return 'CEE'
   }
   if (lower.includes('/plot/') || lower.includes('/engine/') || lower.includes('/v2/run') || lower.includes('/v1/run')) {
@@ -532,6 +533,10 @@ export function detectService(endpoint: string): 'CEE' | 'PLoT' | 'ISL' | 'BFF' 
   }
   if (lower.includes('/isl/') || lower.includes('validate') || lower.includes('robustness')) {
     return 'ISL'
+  }
+  // M2 Decision Review (LLM-enhanced coaching)
+  if (lower.includes('/v2/review')) {
+    return 'M2'
   }
   if (lower.includes('/bff/')) {
     return 'BFF'

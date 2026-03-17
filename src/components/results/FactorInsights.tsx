@@ -15,7 +15,9 @@
 
 import { useState, useId } from 'react'
 import { ChevronRight, ChevronDown, Lightbulb } from 'lucide-react'
+import { typography } from '../../styles/typography'
 import type { FactorEnrichment } from '../../lib/mappers/types'
+import { stripEncodingNotation } from './utils/cleanFactorLabel'
 
 interface FactorInsightsProps {
   enrichment: FactorEnrichment
@@ -60,29 +62,29 @@ export function FactorInsights({ enrichment }: FactorInsightsProps) {
         onClick={() => setIsExpanded(!isExpanded)}
         aria-expanded={isExpanded}
         aria-controls={contentId}
-        className="flex items-center gap-1 text-xs text-slate-500 hover:text-slate-700 transition-colors w-full text-left"
+        className={`flex items-center gap-1 ${typography.panelBody} text-slate-500 hover:text-slate-700 transition-colors w-full text-left`}
       >
         {isExpanded ? (
           <ChevronDown size={14} className="shrink-0" />
         ) : (
           <ChevronRight size={14} className="shrink-0" />
         )}
-        <span className="font-medium">Insights</span>
+        <span>Insights</span>
       </button>
 
       {/* Content region */}
       {isExpanded && (
         <div
           id={contentId}
-          className="mt-2 space-y-3 text-xs text-slate-600"
+          className={`mt-2 space-y-3 ${typography.panelBody} text-slate-600`}
         >
           {/* Observations */}
           {hasObservations && (
             <div>
-              <div className="font-medium text-slate-500 mb-1">Observations</div>
+              <div className="text-slate-500 mb-1">Observations</div>
               <ul className="list-disc list-inside space-y-0.5 pl-1">
                 {enrichment.observations.map((obs, idx) => (
-                  <li key={idx} className="leading-relaxed">{obs}</li>
+                  <li key={idx} className="leading-relaxed">{stripEncodingNotation(obs)}</li>
                 ))}
               </ul>
             </div>
@@ -91,10 +93,10 @@ export function FactorInsights({ enrichment }: FactorInsightsProps) {
           {/* Perspectives */}
           {hasPerspectives && (
             <div>
-              <div className="font-medium text-slate-500 mb-1">Perspectives</div>
+              <div className="text-slate-500 mb-1">Perspectives</div>
               <ul className="list-disc list-inside space-y-0.5 pl-1">
                 {enrichment.perspectives.map((persp, idx) => (
-                  <li key={idx} className="leading-relaxed">{persp}</li>
+                  <li key={idx} className="leading-relaxed">{stripEncodingNotation(persp)}</li>
                 ))}
               </ul>
             </div>
@@ -102,9 +104,9 @@ export function FactorInsights({ enrichment }: FactorInsightsProps) {
 
           {/* Confidence question callout */}
           {hasConfidenceQuestion && (
-            <div className="bg-info-50 border border-info-200 rounded-md p-2 flex items-start gap-2">
-              <Lightbulb size={14} className="text-info-500 shrink-0 mt-0.5" />
-              <span className="leading-relaxed">{enrichment.confidence_question}</span>
+            <div className="bg-panel border border-info/30 rounded-md p-2 flex items-start gap-2">
+              <Lightbulb size={14} className="text-info shrink-0 mt-0.5" />
+              <span className="leading-relaxed">{stripEncodingNotation(enrichment.confidence_question!)}</span>
             </div>
           )}
         </div>

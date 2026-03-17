@@ -203,7 +203,7 @@ export function graphToV1Request(
 
         // v1.2: belief and provenance
         if (e.data?.belief !== undefined) {
-          // Clamp to 0-1 range
+          // UI-SEM-034: V1 adapter belief clamped to [0, 1]. Keep — normalisation.
           edge.belief = Math.max(0, Math.min(1, e.data.belief))
         }
 

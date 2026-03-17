@@ -37,8 +37,31 @@ interface UnifiedStatus {
   label: string
   variant: StatusVariant
   confidence: string
-  confidenceScore: number
   details: string[]
+}
+
+// Audit F-57: Removed UI-SEM-018 numeric confidence score fabrication (F.6 violation).
+// Status is now derived from quality score (numeric, from PLoT) and categorical confidence
+// level (from readiness). No numeric scores are fabricated from categorical labels.
+
+/** Map categorical confidence to a status tier without fabricating a number. */
+type ConfidenceTier = 'high' | 'medium' | 'low'
+
+function resolveConfidenceTier(
+  readiness?: DecisionReadiness | null,
+  confidenceScore?: number,
+): ConfidenceTier {
+  // If a real numeric score was provided, derive tier from it
+  if (confidenceScore !== undefined) {
+    if (confidenceScore >= 0.7) return 'high'
+    if (confidenceScore >= 0.4) return 'medium'
+    return 'low'
+  }
+  // Otherwise use the categorical label directly
+  const level = readiness?.confidence
+  if (level === 'high') return 'high'
+  if (level === 'medium') return 'medium'
+  return 'low'
 }
 
 function getUnifiedStatus(
@@ -46,9 +69,8 @@ function getUnifiedStatus(
   quality?: GraphQuality | null,
   confidenceScore?: number
 ): UnifiedStatus {
-  // Calculate effective scores
   const qualityScore = quality?.score ?? 0
-  const confScore = confidenceScore ?? (readiness?.confidence === 'high' ? 0.8 : readiness?.confidence === 'medium' ? 0.5 : 0.3)
+  const confTier = resolveConfidenceTier(readiness, confidenceScore)
 
   // Collect details for expanded view
   const details: string[] = []
@@ -69,25 +91,23 @@ function getUnifiedStatus(
   }
 
   // Ready to Review: high quality AND high confidence
-  if (qualityScore >= 0.7 && confScore >= 0.7) {
+  if (qualityScore >= 0.7 && confTier === 'high') {
     return {
       icon: CheckCircle2,
       label: 'Ready to Review',
       variant: 'success',
       confidence: 'High Confidence',
-      confidenceScore: Math.round(confScore * 100),
       details: details.length > 0 ? details : ['Model is ready for decision-making'],
     }
   }
 
-  // Ready with Caveats: moderate quality OR moderate confidence
-  if (qualityScore >= 0.5 || confScore >= 0.4) {
+  // Ready with Caveats: moderate quality OR medium+ confidence
+  if (qualityScore >= 0.5 || confTier !== 'low') {
     return {
       icon: AlertTriangle,
       label: 'Ready with Caveats',
       variant: 'warning',
-      confidence: confScore >= 0.6 ? 'Medium-High Confidence' : 'Medium Confidence',
-      confidenceScore: Math.round(confScore * 100),
+      confidence: confTier === 'high' ? 'Medium-High Confidence' : 'Medium Confidence',
       details: details.length > 0 ? details : ['Review key assumptions before proceeding'],
     }
   }
@@ -98,7 +118,6 @@ function getUnifiedStatus(
     label: 'Needs Improvement',
     variant: 'error',
     confidence: 'Low Confidence',
-    confidenceScore: Math.round(confScore * 100),
     details: details.length > 0 ? details : ['Add more factors or evidence to improve analysis'],
   }
 }
@@ -106,18 +125,18 @@ function getUnifiedStatus(
 const VARIANT_STYLES: Record<StatusVariant, { container: string; text: string; icon: string }> = {
   success: {
     container: 'border-sand-200 bg-paper-50',
-    text: 'text-green-700',
-    icon: 'text-green-600',
+    text: 'text-success',
+    icon: 'text-success',
   },
   warning: {
     container: 'border-sand-200 bg-paper-50',
-    text: 'text-amber-700',
-    icon: 'text-amber-600',
+    text: 'text-warning',
+    icon: 'text-warning',
   },
   error: {
     container: 'border-sand-200 bg-paper-50',
-    text: 'text-red-700',
-    icon: 'text-red-600',
+    text: 'text-danger',
+    icon: 'text-danger',
   },
 }
 
@@ -143,7 +162,7 @@ export function UnifiedStatusBadge({
     >
       {/* Main status header */}
       <Tooltip
-        content={`${status.label}: ${status.confidence} (${status.confidenceScore}%)`}
+        content={`${status.label}: ${status.confidence}`}
         position="bottom"
       >
         <button
@@ -168,7 +187,7 @@ export function UnifiedStatusBadge({
                 |
               </span>
               <span className={`${typography.caption} ${styles.text}`}>
-                {status.confidence} ({status.confidenceScore}%)
+                {status.confidence}
               </span>
             </div>
           </div>
@@ -223,7 +242,7 @@ export function UnifiedStatusBadgeCompact({
 
   return (
     <Tooltip
-      content={`${status.label}: ${status.confidence} (${status.confidenceScore}%)`}
+      content={`${status.label}: ${status.confidence}`}
       position="bottom"
     >
       <div
@@ -236,7 +255,7 @@ export function UnifiedStatusBadgeCompact({
           {status.label}
         </span>
         <span className={`${typography.caption} ${styles.text} opacity-70`}>
-          ({status.confidenceScore}%)
+          {status.confidence}
         </span>
       </div>
     </Tooltip>

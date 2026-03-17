@@ -378,7 +378,7 @@ describe('InputsDock DOM', () => {
       const emptySummary = screen.getByTestId('scenario-run-summary-empty')
       expect(emptySummary).toBeInTheDocument()
       // Phase 3: Updated to actionable empty state text
-      expect(emptySummary).toHaveTextContent('Ready to analyze')
+      expect(emptySummary).toHaveTextContent('Ready to analyse')
     })
 
     it('renders last run metadata when present', () => {

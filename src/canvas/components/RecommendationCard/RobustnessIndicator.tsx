@@ -63,7 +63,7 @@ const robustnessConfig: Record<RobustnessLevel, {
 }
 
 /**
- * Robustness meter visualization (5 segments)
+ * Robustness meter visualisation (5 segments)
  */
 function RobustnessMeter({ level }: { level: RobustnessLevel }) {
   const config = robustnessConfig[level]

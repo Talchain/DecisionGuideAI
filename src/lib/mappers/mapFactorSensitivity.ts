@@ -25,6 +25,32 @@ import {
 } from './utils'
 
 // =============================================================================
+// ISL Field Name Normalisation
+// =============================================================================
+
+/**
+ * Normalise ISL factor field names to canonical form.
+ *
+ * ISL uses `factor_id` / `factor_label`; the canonical UI representation
+ * uses `node_id` / `label`. This utility resolves both naming conventions
+ * so downstream code can always use the canonical names.
+ *
+ * Returns { node_id, label } with fallback chains:
+ *   node_id: factor.node_id || factor.factor_id || factor.id
+ *   label:   factor.factor_label || factor.label
+ *
+ * Uses || (not ??) so empty strings fall through to the next candidate.
+ */
+export function normaliseFactorFields(
+  factor: Record<string, unknown>
+): { node_id: string | undefined; label: string | undefined } {
+  return {
+    node_id: asOptionalString(factor.node_id) || asOptionalString(factor.factor_id) || asOptionalString(factor.id),
+    label: asOptionalString(factor.factor_label) || asOptionalString(factor.label),
+  }
+}
+
+// =============================================================================
 // Factor ID Extraction
 // =============================================================================
 
@@ -33,19 +59,11 @@ import {
  * Priority: node_id > factor_id > id > normalised(label) > fallback index
  */
 function getFactorId(factor: RawFactor, index: number): string {
-  // Check all possible ID fields
-  const nodeId = asOptionalString(factor.node_id)
-  if (nodeId) return nodeId
-
-  const factorId = asOptionalString(factor.factor_id)
-  if (factorId) return factorId
-
-  const id = asOptionalString(factor.id)
-  if (id) return id
+  const { node_id, label: resolvedLabel } = normaliseFactorFields(factor as Record<string, unknown>)
+  if (node_id) return node_id
 
   // Fall back to normalised label
-  const label = asOptionalString(factor.label)
-  if (label) return normaliseLabel(label)
+  if (resolvedLabel) return normaliseLabel(resolvedLabel)
 
   // Last resort: generate unique key
   return `factor_${index}`
@@ -154,7 +172,8 @@ export function mapFactorSensitivity(
 ): MappedFactor[] {
   return factors.map((factor, index): MappedFactor => {
     const factorId = getFactorId(factor, index)
-    const label = asOptionalString(factor.label) ?? factorId
+    const { label: resolvedLabel } = normaliseFactorFields(factor as Record<string, unknown>)
+    const label = resolvedLabel || factorId
     const rawInfluence = getRawInfluence(factor)
     const direction = normaliseDirection(asOptionalString(factor.direction))
     const confidence = getConfidence(factor)

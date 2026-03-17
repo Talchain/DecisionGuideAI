@@ -14,9 +14,69 @@ import { PreAnalysisPanel } from '../PreAnalysisPanel'
 import * as usePreAnalysisDataModule from '../hooks/usePreAnalysisData'
 import type { PreAnalysisData } from '../hooks/usePreAnalysisData'
 
-// Mock the hook
+// Mock the data hook
 vi.mock('../hooks/usePreAnalysisData', () => ({
   usePreAnalysisData: vi.fn(),
+}))
+
+// Mock useRetryDraft hook
+const mockRetryDraft = vi.fn().mockResolvedValue({ success: true })
+vi.mock('../../../hooks/useRetryDraft', () => ({
+  useRetryDraft: () => ({
+    retryDraft: mockRetryDraft,
+    canRetry: true,
+    isRetrying: false,
+    retryError: null,
+  }),
+}))
+
+// Mock usePreRunValidation — only need the SOFT_BYPASS_STATUSES constant
+vi.mock('../../../hooks/usePreRunValidation', () => ({
+  SOFT_BYPASS_STATUSES: new Set(['needs_user_mapping', 'needs_encoding']),
+}))
+
+// Mock useShowToast
+const mockShowToast = vi.fn()
+vi.mock('../../../ToastContext', () => ({
+  useShowToast: () => mockShowToast,
+}))
+
+// Mock clipboard utility
+vi.mock('../../../../utils/clipboard', () => ({
+  copyTextToClipboard: vi.fn().mockResolvedValue(true),
+}))
+
+// Mock useCanvasStore — return ceeAnalysisReady.status via selector
+let mockCeeStatus: string | undefined = undefined
+let mockLastDraftError: any = null
+vi.mock('../../../store', () => ({
+  useCanvasStore: Object.assign(
+    (selector: (state: any) => any) => {
+      const state = {
+        ceeAnalysisReady: mockCeeStatus ? { status: mockCeeStatus } : null,
+        lastDraftError: mockLastDraftError,
+        setHighlightedNodes: vi.fn(),
+        setHighlightedEdges: vi.fn(),
+      }
+      return selector(state)
+    },
+    {
+      getState: () => ({
+        ceeAnalysisReady: mockCeeStatus ? { status: mockCeeStatus } : null,
+        lastDraftError: mockLastDraftError,
+        setHighlightedNodes: vi.fn(),
+        setHighlightedEdges: vi.fn(),
+        updateNode: vi.fn(),
+        setGoalThreshold: vi.fn(),
+        setCeeAnalysisReady: vi.fn(),
+        setOutcomeNode: vi.fn(),
+        nodes: [],
+        addNode: vi.fn(),
+        updateEdge: vi.fn(),
+        addEdge: vi.fn(),
+      }),
+    }
+  ),
 }))
 
 const mockUsePreAnalysisData = usePreAnalysisDataModule.usePreAnalysisData as ReturnType<typeof vi.fn>
@@ -24,39 +84,80 @@ const mockUsePreAnalysisData = usePreAnalysisDataModule.usePreAnalysisData as Re
 describe('PreAnalysisPanel', () => {
   const mockOnAnalyse = vi.fn()
 
-  const createMockData = (overrides: Partial<PreAnalysisData> = {}): PreAnalysisData => ({
-    improvementsByCategory: {
+  const createMockData = (overrides: Partial<PreAnalysisData> = {}): PreAnalysisData => {
+    const improvementsByCategory = overrides.improvementsByCategory ?? {
       fix: [],
       verify: [],
       add_evidence: [],
       strengthen: [],
-    },
-    totalImprovements: 0,
-    topActions: [],
-    evidenceQuality: { level: 'medium', ratio: 0.5 },
-    isReady: true,
-    hasBlockers: false,
-    blockerCount: 0,
-    nodesByKind: {
-      goal: [{ id: 'g1', type: 'goal', position: { x: 0, y: 0 }, data: { label: 'Goal' } }],
-      decision: [],
-      option: [
-        { id: 'o1', type: 'option', position: { x: 0, y: 0 }, data: { label: 'Option 1' } },
-        { id: 'o2', type: 'option', position: { x: 0, y: 0 }, data: { label: 'Option 2' } },
-      ],
-      factor: [],
-      risk: [],
-      outcome: [],
-    },
-    edgeCount: 2,
-    goalNode: { id: 'g1', type: 'goal', position: { x: 0, y: 0 }, data: { label: 'Goal' } },
-    successThreshold: null,
-    isThresholdAutoDerived: false,
-    ...overrides,
-  })
+    }
+
+    // Build tiers from improvementsByCategory
+    const tiers = overrides.tiers ?? {
+      mustAddress: {
+        items: improvementsByCategory.fix,
+        count: improvementsByCategory.fix.length,
+      },
+      reviewAssumptions: {
+        items: improvementsByCategory.verify,
+        count: improvementsByCategory.verify.length,
+      },
+      optional: {
+        items: [...improvementsByCategory.add_evidence, ...improvementsByCategory.strengthen],
+        count: improvementsByCategory.add_evidence.length + improvementsByCategory.strengthen.length,
+      },
+    }
+
+    return {
+      improvementsByCategory,
+      tiers,
+      totalImprovements: 0,
+      topActions: [],
+      evidenceQuality: { level: 'medium', ratio: 0.5, nonAiCount: 2, totalCount: 4 },
+      isReady: true,
+      hasBlockers: false,
+      blockerCount: 0,
+      nodesByKind: {
+        goal: [{ id: 'g1', type: 'goal', position: { x: 0, y: 0 }, data: { label: 'Goal' } }],
+        decision: [],
+        option: [
+          { id: 'o1', type: 'option', position: { x: 0, y: 0 }, data: { label: 'Option 1' } },
+          { id: 'o2', type: 'option', position: { x: 0, y: 0 }, data: { label: 'Option 2' } },
+        ],
+        factor: [],
+        risk: [],
+        outcome: [],
+      },
+      edgeCount: 2,
+      goalNode: { id: 'g1', type: 'goal', position: { x: 0, y: 0 }, data: { label: 'Goal' } },
+      successThreshold: null,
+      isThresholdAutoDerived: false,
+      isThresholdConfirmed: false,
+      thresholdProvenance: null,
+      isLoading: false,
+      reviewedFactorsCount: 0,
+      totalReviewableFactorsCount: 0,
+      enrichedBlockers: [],
+      informationalBlockers: [],
+      modelAdjustments: [],
+      preMortem: null,
+      goalThresholdRaw: null,
+      goalThresholdUnit: null,
+      isGoalConfirmed: false,
+      optionPreviews: [],
+      qualityChecks: [],
+      repairActions: [],
+      ceeQuality: null,
+      hasDefaultStrengths: false,
+      defaultStrengthPercent: 0,
+      ...overrides,
+    }
+  }
 
   beforeEach(() => {
     vi.clearAllMocks()
+    mockCeeStatus = undefined
+    mockLastDraftError = null
   })
 
   describe('State Transitions', () => {
@@ -84,19 +185,34 @@ describe('PreAnalysisPanel', () => {
     })
 
     it('shows ready status when isReady is true', () => {
-      mockUsePreAnalysisData.mockReturnValue(createMockData({ isReady: true, totalImprovements: 5 }))
+      mockUsePreAnalysisData.mockReturnValue(createMockData({
+        isReady: true,
+        tiers: {
+          mustAddress: { items: [], count: 0 },
+          reviewAssumptions: { items: [], count: 3 },
+          optional: { items: [], count: 2 },
+        },
+      }))
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
-      // New inline status line format: "✓ Ready · {n} optional improvements"
-      expect(screen.getByText(/✓ Ready · 5 optional improvements/)).toBeInTheDocument()
+      // New header format: "✓ Ready · {review} to review · Improvements available"
+      expect(screen.getByText(/✓ Ready · 3 to review · Improvements available/)).toBeInTheDocument()
     })
 
     it('shows blocked status in header when isReady is false', () => {
-      mockUsePreAnalysisData.mockReturnValue(createMockData({ isReady: false, blockerCount: 2 }))
+      mockUsePreAnalysisData.mockReturnValue(createMockData({
+        isReady: false,
+        blockerCount: 2,
+        tiers: {
+          mustAddress: { items: [], count: 2 },
+          reviewAssumptions: { items: [], count: 0 },
+          optional: { items: [], count: 0 },
+        },
+      }))
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
-      // New inline status line format: "⊘ Blocked · {n} issues to fix"
-      expect(screen.getByText(/⊘ Blocked · 2 issues to fix/)).toBeInTheDocument()
+      // New header format: "⊘ Blocked · {mustAddress.count} to address"
+      expect(screen.getByText(/⊘ Blocked · 2 to address/)).toBeInTheDocument()
     })
   })
 
@@ -105,10 +221,10 @@ describe('PreAnalysisPanel', () => {
       mockUsePreAnalysisData.mockReturnValue(createMockData({ isReady: true, hasBlockers: false }))
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
-      expect(screen.getByRole('button', { name: /run analysis/i })).toHaveTextContent('Analyse Now')
+      expect(screen.getByRole('button', { name: /run analysis/i })).toHaveTextContent('Analyse now')
     })
 
-    it('shows "Fix N issues first" when has blockers', () => {
+    it('shows "Analyse now" CTA (disabled, aria-label signals blockers) when has blockers', () => {
       mockUsePreAnalysisData.mockReturnValue(createMockData({
         isReady: false,
         hasBlockers: true,
@@ -125,7 +241,7 @@ describe('PreAnalysisPanel', () => {
       }))
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
-      expect(screen.getByRole('button', { name: /fix issues/i })).toHaveTextContent('Fix 2 issues first')
+      expect(screen.getByRole('button', { name: /fix issues/i })).toHaveTextContent('Analyse now')
     })
 
     it('shows "Analysing..." when isAnalysing is true', () => {
@@ -150,7 +266,7 @@ describe('PreAnalysisPanel', () => {
       expect(screen.getByRole('button', { name: /fix issues/i })).toBeDisabled()
     })
 
-    it('shows "Not ready" when isReady=false but hasBlockers=false', () => {
+    it('shows "Analyse now" CTA (disabled) when isReady=false and hasBlockers=false', () => {
       mockUsePreAnalysisData.mockReturnValue(createMockData({
         isReady: false,
         hasBlockers: false,
@@ -164,17 +280,17 @@ describe('PreAnalysisPanel', () => {
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
       const button = screen.getByRole('button', { name: /analysis not ready/i })
-      expect(button).toHaveTextContent('Not ready')
+      expect(button).toHaveTextContent('Analyse now')
       expect(button).toBeDisabled()
     })
   })
 
   describe('Accordion Behaviour', () => {
-    it('renders All Improvements accordion', () => {
+    it('renders tier sections container', () => {
       mockUsePreAnalysisData.mockReturnValue(createMockData())
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
-      expect(screen.getByTestId('all-improvements-accordion')).toBeInTheDocument()
+      expect(screen.getByTestId('all-improvements-tiers')).toBeInTheDocument()
     })
 
     it('renders Model Snapshot accordion', () => {
@@ -184,7 +300,7 @@ describe('PreAnalysisPanel', () => {
       expect(screen.getByTestId('model-snapshot-accordion')).toBeInTheDocument()
     })
 
-    it('shows total improvements count in accordion header', () => {
+    it('shows tier item counts in section headers', () => {
       mockUsePreAnalysisData.mockReturnValue(createMockData({
         totalImprovements: 5,
         improvementsByCategory: {
@@ -196,69 +312,99 @@ describe('PreAnalysisPanel', () => {
             { key: 's2', category: 'strengthen', label: 'Strengthen 2', detail: '' },
           ],
         },
+        tiers: {
+          mustAddress: { items: [{ key: 'f1', category: 'fix', label: 'Fix', detail: '' }], count: 1 },
+          reviewAssumptions: { items: [{ key: 'v1', category: 'verify', label: 'Verify', detail: '' }], count: 1 },
+          optional: { items: [
+            { key: 'a1', category: 'add_evidence', label: 'Add', detail: '' },
+            { key: 's1', category: 'strengthen', label: 'Strengthen 1', detail: '' },
+            { key: 's2', category: 'strengthen', label: 'Strengthen 2', detail: '' },
+          ], count: 3 },
+        },
       }))
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
-      expect(screen.getByText('5')).toBeInTheDocument()
+      // Each tier shows its count in pill badges
+      const countBadges = screen.getAllByText('1')
+      expect(countBadges.length).toBeGreaterThanOrEqual(1)
+      // Verify the optional tier count (excludes evidence items from badge)
+      expect(screen.getByText('2')).toBeInTheDocument()
     })
   })
 
-  describe('M1 Top Actions', () => {
-    it('renders top actions when present', () => {
+  describe('Tier Sections', () => {
+    it('renders Must address tier when items present', () => {
       mockUsePreAnalysisData.mockReturnValue(createMockData({
-        topActions: [
-          { key: 'ta1', category: 'fix', label: 'Add baseline', detail: 'Compare against doing nothing', bias: 'anchoring' },
-        ],
+        tiers: {
+          mustAddress: { items: [{ key: 'f1', category: 'fix', label: 'Add goal', detail: 'Define what you want to achieve' }], count: 1 },
+          reviewAssumptions: { items: [], count: 0 },
+          optional: { items: [], count: 0 },
+        },
+        improvementsByCategory: {
+          fix: [{ key: 'f1', category: 'fix', label: 'Add goal', detail: 'Define what you want to achieve' }],
+          verify: [],
+          add_evidence: [],
+          strengthen: [],
+        },
       }))
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
-      expect(screen.getByText('Add baseline')).toBeInTheDocument()
-      expect(screen.getByText('Compare against doing nothing')).toBeInTheDocument()
+      expect(screen.getByText('Must address')).toBeInTheDocument()
+      expect(screen.getByText('Add goal')).toBeInTheDocument()
     })
 
-    it('renders top action item in list', () => {
+    it('renders Review assumptions tier with items', () => {
       mockUsePreAnalysisData.mockReturnValue(createMockData({
-        topActions: [
-          { key: 'ta1', category: 'fix', label: 'Test', detail: 'Detail' },
-        ],
+        tiers: {
+          mustAddress: { items: [], count: 0 },
+          reviewAssumptions: { items: [{ key: 'v1', category: 'verify', label: 'Test Factor', detail: '5.0' }], count: 1 },
+          optional: { items: [], count: 0 },
+        },
+        improvementsByCategory: {
+          fix: [],
+          verify: [{ key: 'v1', category: 'verify', label: 'Test Factor', detail: '5.0' }],
+          add_evidence: [],
+          strengthen: [],
+        },
       }))
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
-      // Top actions render without coaching sentence (replaced by inline status)
-      expect(screen.getByText('Test')).toBeInTheDocument()
-      expect(screen.getByText('Detail')).toBeInTheDocument()
+      expect(screen.getByText(/Review assumptions/)).toBeInTheDocument()
+      expect(screen.getByText('Test Factor')).toBeInTheDocument()
     })
   })
 
   describe('Evidence Quality Display', () => {
-    it('shows Low evidence in danger colour', () => {
+    it('shows reviewed count in footer when totalReviewableFactorsCount > 0', () => {
       mockUsePreAnalysisData.mockReturnValue(createMockData({
-        evidenceQuality: { level: 'low', ratio: 0.2 },
+        evidenceQuality: { level: 'low', ratio: 0.2, nonAiCount: 0, totalCount: 5 },
+        reviewedFactorsCount: 0,
+        totalReviewableFactorsCount: 5,
       }))
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
-      const lowText = screen.getAllByText('Low')
-      expect(lowText.length).toBeGreaterThan(0)
+      expect(screen.getByText('0/5 reviewed')).toBeInTheDocument()
     })
 
-    it('shows Medium evidence in warning colour', () => {
+    it('shows "All reviewed" in footer when all factors reviewed', () => {
       mockUsePreAnalysisData.mockReturnValue(createMockData({
-        evidenceQuality: { level: 'medium', ratio: 0.5 },
+        evidenceQuality: { level: 'high', ratio: 1, nonAiCount: 5, totalCount: 5 },
+        reviewedFactorsCount: 5,
+        totalReviewableFactorsCount: 5,
       }))
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
-      const mediumText = screen.getAllByText('Medium')
-      expect(mediumText.length).toBeGreaterThan(0)
+      const footer = screen.getByTestId('sticky-footer')
+      expect(footer).toHaveTextContent('All reviewed')
     })
 
-    it('shows High evidence in success colour', () => {
+    it('does not show Quality tier label in footer', () => {
       mockUsePreAnalysisData.mockReturnValue(createMockData({
-        evidenceQuality: { level: 'high', ratio: 0.8 },
+        evidenceQuality: { level: 'medium', ratio: 0.5, nonAiCount: 2, totalCount: 4 },
       }))
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
-      const highText = screen.getAllByText('High')
-      expect(highText.length).toBeGreaterThan(0)
+      expect(screen.queryByText(/Quality:/)).not.toBeInTheDocument()
     })
   })
 
@@ -267,47 +413,49 @@ describe('PreAnalysisPanel', () => {
       mockUsePreAnalysisData.mockReturnValue(createMockData())
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
-      // Goal selector is inside Analysis Settings accordion - need to expand it first
-      const accordion = screen.getByTestId('analysis-settings-accordion')
-      const button = accordion.querySelector('button')
-      if (button) fireEvent.click(button)
 
-      // Should have exactly one goal selector
-      const goalSelectors = screen.getAllByLabelText(/goal/i)
-      expect(goalSelectors.length).toBe(1)
+      // Goal selector now lives in the SuccessTarget hero section
+      // With a single goal, it renders as static text (no dropdown)
+      // Verify goal label is present (appears in SuccessTarget + ModelSnapshot)
+      const goalTexts = screen.getAllByText('Goal')
+      expect(goalTexts.length).toBeGreaterThanOrEqual(1)
     })
 
-    it('renders sections in correct order: Header → TopActions → AllImprovements → ModelSnapshot → AnalysisSettings', () => {
+    it('renders sections in correct order: Header → SuccessTarget → Tiers → ModelSnapshot', () => {
       mockUsePreAnalysisData.mockReturnValue(createMockData({
-        topActions: [{ key: 'ta1', category: 'fix', label: 'Test Action', detail: 'Detail' }],
-        totalImprovements: 5,
+        tiers: {
+          mustAddress: { items: [{ key: 'f1', category: 'fix', label: 'Test Fix', detail: 'Detail' }], count: 1 },
+          reviewAssumptions: { items: [], count: 0 },
+          optional: { items: [], count: 0 },
+        },
+        improvementsByCategory: {
+          fix: [{ key: 'f1', category: 'fix', label: 'Test Fix', detail: 'Detail' }],
+          verify: [],
+          add_evidence: [],
+          strengthen: [],
+        },
+        totalImprovements: 1,
       }))
 
       const { container } = render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
       const panel = container.querySelector('[data-testid="pre-analysis-panel"]')
       expect(panel).toBeInTheDocument()
 
-      // Verify all required sections exist
-      expect(screen.getByText(/✓ Ready/)).toBeInTheDocument() // Header inline status
-      expect(screen.getByTestId('all-improvements-accordion')).toBeInTheDocument()
+      // Verify all required sections exist (goal selector moved to SuccessTarget hero)
+      expect(screen.getByText(/Blocked · 1 to address/)).toBeInTheDocument() // Header with tier counts
+      expect(screen.getByTestId('all-improvements-tiers')).toBeInTheDocument()
       expect(screen.getByTestId('model-snapshot-accordion')).toBeInTheDocument()
-      expect(screen.getByTestId('analysis-settings-accordion')).toBeInTheDocument()
 
       // Verify order by comparing positions in the DOM
       const scrollableContent = panel?.querySelector('.overflow-y-auto')
       const html = scrollableContent?.innerHTML ?? ''
 
-      // Check that sections appear in correct order in the HTML
-      const headerPos = html.indexOf('✓ Ready')
-      const topActionsPos = html.indexOf('Test Action') // M1 Top Actions item label
-      const allImprovementsPos = html.indexOf('all-improvements-accordion')
+      const headerPos = html.indexOf('Blocked')
+      const tiersPos = html.indexOf('all-improvements-tiers')
       const modelSnapshotPos = html.indexOf('model-snapshot-accordion')
-      const analysisSettingsPos = html.indexOf('analysis-settings-accordion')
 
-      expect(headerPos).toBeLessThan(topActionsPos)
-      expect(topActionsPos).toBeLessThan(allImprovementsPos)
-      expect(allImprovementsPos).toBeLessThan(modelSnapshotPos)
-      expect(modelSnapshotPos).toBeLessThan(analysisSettingsPos)
+      expect(headerPos).toBeLessThan(tiersPos)
+      expect(tiersPos).toBeLessThan(modelSnapshotPos)
     })
 
     it('sticky footer uses flex layout for pinning', () => {
@@ -336,7 +484,7 @@ describe('PreAnalysisPanel', () => {
               key: 'v1',
               category: 'verify',
               label: 'Test Factor',
-              detail: 'AI estimate: 5.0',
+              detail: '5.0',
               action: { label: 'Confirm', kind: 'confirm', targetId: 'n1', targetType: 'node' },
               focus: { type: 'node', id: 'n1', label: 'Test' },
             },
@@ -372,7 +520,7 @@ describe('PreAnalysisPanel', () => {
               key: 'v1',
               category: 'verify',
               label: 'Test Factor',
-              detail: 'AI estimate: 5.0',
+              detail: '5.0',
               action: { label: 'Confirm', kind: 'confirm' },
               focus: { type: 'node', id: 'n1', label: 'Test' },
             },
@@ -396,13 +544,493 @@ describe('PreAnalysisPanel', () => {
     })
 
     it('status text uses semantic colour for ready/blocked state', () => {
-      mockUsePreAnalysisData.mockReturnValue(createMockData({ isReady: true, totalImprovements: 3 }))
+      mockUsePreAnalysisData.mockReturnValue(createMockData({
+        isReady: true,
+        tiers: {
+          mustAddress: { items: [], count: 0 },
+          reviewAssumptions: { items: [], count: 3 },
+          optional: { items: [], count: 0 },
+        },
+      }))
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
 
       // New inline status uses semantic colours: text-success for ready
       const statusText = screen.getByText(/✓ Ready/)
       expect(statusText).toHaveClass('text-success')
+    })
+  })
+
+  describe('P0/P1 Bug Fixes', () => {
+    it('Header shows "Not ready" when isReady=false but mustAddressCount=0', () => {
+      // Scenario: existingReadiness.canRun is false for reasons outside mustAddress tier
+      mockUsePreAnalysisData.mockReturnValue(createMockData({
+        isReady: false,
+        hasBlockers: false,
+        blockerCount: 0,
+        tiers: {
+          mustAddress: { items: [], count: 0 },
+          reviewAssumptions: { items: [], count: 2 },
+          optional: { items: [], count: 0 },
+        },
+      }))
+
+      render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
+
+      // Header should show "Not ready" instead of "Ready"
+      expect(screen.getByText(/◌ Not ready/)).toBeInTheDocument()
+      expect(screen.queryByText(/✓ Ready/)).not.toBeInTheDocument()
+    })
+
+    it('Review assumptions tier shows completion state when all items reviewed', () => {
+      // Scenario: All verify items have been reviewed (source changed from ai to user_confirmed)
+      // Items array is empty but totalReviewableFactorsCount > 0
+      mockUsePreAnalysisData.mockReturnValue(createMockData({
+        isReady: true,
+        tiers: {
+          mustAddress: { items: [], count: 0 },
+          reviewAssumptions: { items: [], count: 0 }, // Empty - all reviewed
+          optional: { items: [], count: 0 },
+        },
+        improvementsByCategory: {
+          fix: [],
+          verify: [], // Empty
+          add_evidence: [],
+          strengthen: [],
+        },
+        reviewedFactorsCount: 3,
+        totalReviewableFactorsCount: 3, // Had 3 items, all reviewed
+      }))
+
+      render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
+
+      // Should show completion state with "3 of 3 done"
+      expect(screen.getByText(/Review assumptions \(3 of 3 done\)/)).toBeInTheDocument()
+      // Should show "All reviewed" message when expanded (may also appear in footer)
+      expect(screen.getAllByText('All reviewed').length).toBeGreaterThan(0)
+    })
+
+    it('Review assumptions tier shows checkmark badge when all reviewed', () => {
+      mockUsePreAnalysisData.mockReturnValue(createMockData({
+        isReady: true,
+        tiers: {
+          mustAddress: { items: [], count: 0 },
+          reviewAssumptions: { items: [], count: 0 },
+          optional: { items: [], count: 0 },
+        },
+        reviewedFactorsCount: 2,
+        totalReviewableFactorsCount: 2,
+      }))
+
+      render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
+
+      // Should show checkmark badge instead of count
+      expect(screen.getByText('✓')).toBeInTheDocument()
+    })
+
+    it('shows Ready and enables button when only optional improvements present', () => {
+      // Scenario: optional strengthen item, no blockers
+      // Optional improvements should NOT block analysis
+      mockUsePreAnalysisData.mockReturnValue(createMockData({
+        isReady: true,
+        hasBlockers: false,
+        blockerCount: 0,
+        tiers: {
+          mustAddress: { items: [], count: 0 }, // No blockers
+          reviewAssumptions: { items: [], count: 0 },
+          optional: {
+            items: [{
+              key: 'only_2_options',
+              category: 'strengthen',
+              label: 'Consider adding a third option',
+              detail: 'More options can reveal better alternatives',
+            }],
+            count: 1,
+          },
+        },
+        improvementsByCategory: {
+          fix: [],
+          verify: [],
+          add_evidence: [],
+          strengthen: [{
+            key: 'only_2_options',
+            category: 'strengthen',
+            label: 'Consider adding a third option',
+            detail: 'More options can reveal better alternatives',
+          }],
+        },
+      }))
+
+      render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
+
+      // Header should show Ready with improvements available, not Blocked
+      expect(screen.getByText(/✓ Ready · Improvements available/)).toBeInTheDocument()
+      expect(screen.queryByText(/Blocked/)).not.toBeInTheDocument()
+
+      // Button should be enabled with "Analyse Now"
+      const button = screen.getByRole('button', { name: /run analysis/i })
+      expect(button).toHaveTextContent('Analyse now')
+      expect(button).not.toBeDisabled()
+
+      // Optional tier should be visible with count in title
+      expect(screen.getByText(/More improvements/)).toBeInTheDocument()
+    })
+  })
+
+  describe('P2 Polish Tasks', () => {
+    describe('Task 1: Inputs Reviewed Label', () => {
+      it('shows reviewed count in footer, no evidence tier label', () => {
+        mockUsePreAnalysisData.mockReturnValue(createMockData({
+          evidenceQuality: { level: 'medium', ratio: 0.5, nonAiCount: 2, totalCount: 4 },
+          reviewedFactorsCount: 2,
+          totalReviewableFactorsCount: 4,
+        }))
+
+        render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
+
+        // Shows reviewed count in footer — no quality tier label
+        expect(screen.getByText('2/4 reviewed')).toBeInTheDocument()
+        expect(screen.queryByText(/Quality:/)).not.toBeInTheDocument()
+        expect(screen.queryByText(/Data confidence:/)).not.toBeInTheDocument()
+        expect(screen.queryByText(/Input confidence:/)).not.toBeInTheDocument()
+      })
+    })
+
+    describe('Task 2: Empty Review Tier Message', () => {
+      it('shows empty state message when review tier has 0 items and 0 totalCount', () => {
+        mockUsePreAnalysisData.mockReturnValue(createMockData({
+          isReady: true,
+          tiers: {
+            mustAddress: { items: [], count: 0 },
+            reviewAssumptions: { items: [], count: 0 },
+            optional: { items: [], count: 0 },
+          },
+          reviewedFactorsCount: 0,
+          totalReviewableFactorsCount: 0, // No assumptions to review at all
+        }))
+
+        render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
+
+        // Review tier should be visible with empty state message
+        expect(screen.getByText('Review assumptions')).toBeInTheDocument()
+        expect(screen.getByText(/Nothing needs review/)).toBeInTheDocument()
+      })
+
+      it('hides progress counter when no assumptions to review', () => {
+        mockUsePreAnalysisData.mockReturnValue(createMockData({
+          isReady: true,
+          tiers: {
+            mustAddress: { items: [], count: 0 },
+            reviewAssumptions: { items: [], count: 0 },
+            optional: { items: [], count: 0 },
+          },
+          reviewedFactorsCount: 0,
+          totalReviewableFactorsCount: 0,
+        }))
+
+        render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
+
+        // Should NOT show "(0 of 0 done)"
+        expect(screen.queryByText(/\(0 of 0 done\)/)).not.toBeInTheDocument()
+        // Should show plain "Review assumptions"
+        expect(screen.getByText('Review assumptions')).toBeInTheDocument()
+      })
+
+      it('hides badge entirely when no assumptions to review', () => {
+        mockUsePreAnalysisData.mockReturnValue(createMockData({
+          isReady: true,
+          tiers: {
+            mustAddress: { items: [], count: 0 },
+            reviewAssumptions: { items: [], count: 0 },
+            optional: { items: [], count: 0 },
+          },
+          reviewedFactorsCount: 0,
+          totalReviewableFactorsCount: 0,
+        }))
+
+        render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
+
+        // Badge should not render at all for 0 items
+        expect(screen.queryByText('—')).not.toBeInTheDocument()
+      })
+    })
+
+    describe('Task 3: Success Target Provenance', () => {
+      it('shows provenance text when available', () => {
+        mockUsePreAnalysisData.mockReturnValue(createMockData({
+          successThreshold: 1000000,
+          isThresholdAutoDerived: true,
+          thresholdProvenance: 'Target Revenue of $1M',
+        }))
+
+        render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
+
+        // Should show provenance text below threshold
+        expect(screen.getByText(/Source: Target Revenue of \$1M/)).toBeInTheDocument()
+      })
+
+      it('does not show provenance text when not available', () => {
+        mockUsePreAnalysisData.mockReturnValue(createMockData({
+          successThreshold: 5000,
+          isThresholdAutoDerived: false,
+          thresholdProvenance: null,
+        }))
+
+        render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
+
+        // Should NOT show "Source:"
+        expect(screen.queryByText(/Source:/)).not.toBeInTheDocument()
+      })
+
+      it('does not show provenance text when user has edited threshold (not auto-derived)', () => {
+        mockUsePreAnalysisData.mockReturnValue(createMockData({
+          successThreshold: 5000,
+          isThresholdAutoDerived: false, // User edited the threshold
+          thresholdProvenance: 'Original target from brief', // Stale provenance still exists
+        }))
+
+        render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
+
+        // Should NOT show stale provenance after user edit
+        expect(screen.queryByText(/Extracted from:/)).not.toBeInTheDocument()
+      })
+    })
+  })
+
+  describe('Retry Draft Button', () => {
+    it('shows retry button in draft error card with needs_user_mapping status', () => {
+      mockCeeStatus = 'needs_user_mapping'
+      mockLastDraftError = { message: 'Draft failed', retryable: true }
+      mockUsePreAnalysisData.mockReturnValue(createMockData({
+        isReady: false,
+        hasBlockers: true,
+        blockerCount: 1,
+      }))
+
+      render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
+      expect(screen.getByTestId('draft-error-retry')).toBeInTheDocument()
+      expect(screen.getByTestId('draft-error-retry')).toHaveTextContent('Retry Draft')
+      mockLastDraftError = null
+    })
+
+    it('shows retry button in draft error card with needs_encoding status', () => {
+      mockCeeStatus = 'needs_encoding'
+      mockLastDraftError = { message: 'Draft failed', retryable: true }
+      mockUsePreAnalysisData.mockReturnValue(createMockData({
+        isReady: false,
+        hasBlockers: true,
+        blockerCount: 1,
+      }))
+
+      render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
+      expect(screen.getByTestId('draft-error-retry')).toBeInTheDocument()
+      mockLastDraftError = null
+    })
+
+    it('does not show draft error card when status is ready', () => {
+      mockCeeStatus = 'ready'
+      mockLastDraftError = null
+      mockUsePreAnalysisData.mockReturnValue(createMockData({
+        isReady: true,
+        hasBlockers: false,
+      }))
+
+      render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
+      expect(screen.queryByTestId('draft-error-retry')).not.toBeInTheDocument()
+    })
+
+    it('does not show retry button when status is an unknown value', () => {
+      mockCeeStatus = 'some_unknown_status'
+      mockLastDraftError = { message: 'Draft failed', retryable: true }
+      mockUsePreAnalysisData.mockReturnValue(createMockData({
+        isReady: false,
+        hasBlockers: true,
+        blockerCount: 1,
+      }))
+
+      render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
+      // canRetryDraft requires ceeStatus in SOFT_BYPASS_STATUSES — unknown status means no retry button
+      expect(screen.queryByTestId('draft-error-retry')).not.toBeInTheDocument()
+      mockLastDraftError = null
+    })
+
+    it('does not show retry button when no CEE status (loading)', () => {
+      mockCeeStatus = undefined
+      mockLastDraftError = null
+      mockUsePreAnalysisData.mockReturnValue(createMockData({
+        isReady: false,
+        hasBlockers: true,
+        blockerCount: 1,
+        isLoading: true,
+      }))
+
+      render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
+      expect(screen.queryByTestId('draft-error-retry')).not.toBeInTheDocument()
+    })
+
+    it('calls retryDraft when retry button is clicked', async () => {
+      mockCeeStatus = 'needs_user_mapping'
+      mockLastDraftError = { message: 'Draft failed', retryable: true }
+      mockRetryDraft.mockResolvedValue({ success: true })
+      mockUsePreAnalysisData.mockReturnValue(createMockData({
+        isReady: false,
+        hasBlockers: true,
+        blockerCount: 1,
+      }))
+
+      render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
+      fireEvent.click(screen.getByTestId('draft-error-retry'))
+      expect(mockRetryDraft).toHaveBeenCalledTimes(1)
+      mockLastDraftError = null
+    })
+  })
+
+  describe('Model Adjustments', () => {
+    it('renders model-adjustments section when adjustments are present', () => {
+      mockUsePreAnalysisData.mockReturnValue(createMockData({
+        modelAdjustments: [
+          { type: 'factor_reclassified', target: 'Market Conditions', detail: 'Reclassified from controllable to external' },
+          { type: 'edge_added', target: 'Price → Revenue' },
+        ],
+      }))
+
+      render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
+
+      expect(screen.getByTestId('model-adjustments')).toBeInTheDocument()
+      expect(screen.getByText('2 auto-fixes applied')).toBeInTheDocument()
+    })
+
+    it('does not render model-adjustments section when adjustments are empty', () => {
+      mockUsePreAnalysisData.mockReturnValue(createMockData({
+        modelAdjustments: [],
+      }))
+
+      render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
+
+      expect(screen.queryByTestId('model-adjustments')).not.toBeInTheDocument()
+    })
+
+    it('renders single adjustment inline with headline and details toggle', () => {
+      mockUsePreAnalysisData.mockReturnValue(createMockData({
+        modelAdjustments: [
+          { type: 'factor_reclassified', target: 'Market Size', detail: 'Changed to external' },
+        ],
+      }))
+
+      render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
+
+      // Single fix renders inline — headline visible immediately (no expand needed)
+      expect(screen.getByText(/Moved 1 factor outside your control/)).toBeInTheDocument()
+      // Target label visible
+      expect(screen.getByText('Market Size')).toBeInTheDocument()
+      // Raw detail behind "Details" toggle
+      expect(screen.getByText('Details')).toBeInTheDocument()
+    })
+
+    it('renders adjustment with code/reason (no type/detail) without crash', () => {
+      mockUsePreAnalysisData.mockReturnValue(createMockData({
+        modelAdjustments: [
+          { code: 'deterministic_repair', field: 'nodes[fac_x].category', reason: 'Reclassified unreachable factor' },
+        ],
+      }))
+
+      render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
+
+      expect(screen.getByTestId('model-adjustments')).toBeInTheDocument()
+
+      // Single fix renders inline — headline visible immediately
+      expect(screen.getByText('Repaired 1 structural issue in your model')).toBeInTheDocument()
+      // Raw reason is behind "Details" toggle
+      expect(screen.getByText('Details')).toBeInTheDocument()
+    })
+
+    it('renders "System adjustment" fallback when both type and code are missing', () => {
+      mockUsePreAnalysisData.mockReturnValue(createMockData({
+        modelAdjustments: [
+          { field: 'nodes[fac_x].category' },
+        ],
+      }))
+
+      render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
+
+      // Single fix renders inline — generic fallback visible immediately
+      expect(screen.getByText(/We corrected an internal inconsistency/)).toBeInTheDocument()
+    })
+  })
+
+  describe('Informational Blockers', () => {
+    it('renders informational blockers with info styling when ready', () => {
+      mockUsePreAnalysisData.mockReturnValue(createMockData({
+        isReady: true,
+        hasBlockers: false,
+        blockerCount: 0,
+        enrichedBlockers: [],
+        informationalBlockers: [
+          {
+            blocker: { code: 'CONSTRAINT_DROPPED', message: 'No matching factor', affectedIds: ['constraint_budget'] },
+            display: {
+              title: 'Constraint not applied: "Budget"',
+              description: "The system couldn't match this constraint to a factor in your model. The analysis will run without it.",
+              severity: 'info' as const,
+              supportsRetry: false,
+              suggestedActions: [],
+            },
+            sortOrder: 40,
+          },
+        ],
+      }))
+
+      render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
+
+      // Should show "Notes" section, not "Fix before running"
+      expect(screen.getByText('Notes')).toBeInTheDocument()
+      expect(screen.queryByText('Fix before running')).not.toBeInTheDocument()
+
+      // Should show the grouped constraint card
+      expect(screen.getByTestId('constraint-group-card')).toBeInTheDocument()
+    })
+
+    it('does not count informational blockers in footer badge', () => {
+      mockUsePreAnalysisData.mockReturnValue(createMockData({
+        isReady: true,
+        hasBlockers: false,
+        blockerCount: 0,
+        informationalBlockers: [
+          {
+            blocker: { code: 'CONSTRAINT_DROPPED', message: 'No matching factor', affectedIds: ['c1'] },
+            display: { title: 'Test', description: 'Test', severity: 'info' as const, supportsRetry: false, suggestedActions: [] },
+            sortOrder: 40,
+          },
+        ],
+      }))
+
+      render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
+
+      // Footer should show "Ready" not "Blocked"
+      const footer = screen.getByTestId('sticky-footer')
+      expect(footer).toHaveTextContent('Analyse now')
+    })
+  })
+
+  describe('Framing pill styling (v13 Task 7a)', () => {
+    it('renders Framing pill with border class and no bg-option-light', () => {
+      mockUsePreAnalysisData.mockReturnValue(createMockData({
+        qualityChecks: [{
+          id: 'no_risks',
+          message: 'No risks in your model',
+          cta: 'Add risk',
+          ctaAction: 'add_risk',
+          pill: 'framing' as const,
+        }],
+      }))
+
+      render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
+
+      const pills = screen.getAllByText('Framing')
+      expect(pills.length).toBeGreaterThanOrEqual(1)
+      // Check the first Framing pill (from the quality check) has correct styling
+      expect(pills[0].className).toContain('border')
+      expect(pills[0].className).not.toContain('bg-option-light')
     })
   })
 })

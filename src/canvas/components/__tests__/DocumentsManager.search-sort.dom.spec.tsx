@@ -277,7 +277,7 @@ describe('DocumentsManager - Search and sort (S7-FILEOPS)', () => {
       render(<DocumentsManager onUpload={vi.fn()} />)
 
       const dateButton = screen.getByRole('button', { name: /sort by date.*descending/i })
-      expect(dateButton).toHaveClass('bg-blue-100', 'text-blue-700')
+      expect(dateButton).toHaveClass('bg-panel', 'text-info')
     })
 
     it('shows sort direction indicator on active field', () => {
@@ -428,7 +428,7 @@ describe('DocumentsManager - Search and sort (S7-FILEOPS)', () => {
 
       // Verify size button is highlighted
       const sizeButton = screen.getByRole('button', { name: /sort by size.*descending/i })
-      expect(sizeButton).toHaveClass('bg-blue-100', 'text-blue-700')
+      expect(sizeButton).toHaveClass('bg-panel', 'text-info')
       expect(sizeButton.textContent).toContain('↓')
 
       // All documents should be displayed
@@ -543,7 +543,7 @@ describe('DocumentsManager - Search and sort (S7-FILEOPS)', () => {
 
       // Verify type button is highlighted
       const typeButton = screen.getByRole('button', { name: /sort by type.*ascending/i })
-      expect(typeButton).toHaveClass('bg-blue-100', 'text-blue-700')
+      expect(typeButton).toHaveClass('bg-panel', 'text-info')
 
       // All documents should be displayed
       expect(screen.getByText('a.pdf')).toBeInTheDocument()

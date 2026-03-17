@@ -21,7 +21,7 @@
 // See also: src/lib/featureFlags.ts for infrastructure/environment flags
 // ============================================================================
 
-import { makeFlag } from './lib/flagFactory'
+import { makeFlag, diagnoseFlagState } from './lib/flagFactory'
 
 // ============================================================================
 // FLAG CONFIGURATIONS (centralized, type-safe)
@@ -271,6 +271,99 @@ const FLAGS_CONFIG = {
     envKey: 'VITE_USE_PLOT_ENRICHMENT',
     storageKey: 'feature.plotEnrichment',
   },
+  // A.5+: Orchestrator V2 conversation panel
+  // When ON, all DraftChat sends go through POST /orchestrate/v1/turn.
+  // When OFF, existing draft-graph flow is preserved unchanged.
+  orchestratorV2: {
+    envKey: 'VITE_ENABLE_ORCHESTRATOR_V2',
+    storageKey: 'feature.orchestratorV2',
+  },
+  // A.7: CEE v3 system event wire format
+  // When ON, system_event is serialised to { event_type, timestamp, event_id, details }
+  // matching CEE Brief C v3 Zod schema. Default OFF until CEE Brief C is on staging.
+  v3SystemEvents: {
+    envKey: 'VITE_ENABLE_V3_SYSTEM_EVENTS',
+    storageKey: 'feature.v3SystemEvents',
+  },
+  // Transition flag: flip OFF once orchestrator path is confirmed on staging.
+  // Pilot users should only get results via orchestrator.
+  // When OFF and orchestratorV2 is ON: Play button triggers only the orchestrator path.
+  // When ON (default): direct PLoT /v1/run call runs alongside orchestrator (for dual-path).
+  legacyDirectRun: {
+    envKey: 'VITE_ENABLE_LEGACY_DIRECT_RUN',
+    storageKey: 'feature.legacyDirectRun',
+    defaultValue: true,
+  },
+  // Context menu v2: context-sensitive right-click menu with DS v4 compliance
+  contextMenu: {
+    envKey: 'VITE_FEATURE_CONTEXT_MENU',
+    storageKey: 'feature.contextMenu',
+    defaultValue: true,
+  },
+  // Track 1: Decision Journey tab in OutputsDock right panel
+  journeyTab: {
+    envKey: 'VITE_FEATURE_JOURNEY_TAB',
+    storageKey: 'feature.journeyTab',
+  },
+  // Orchestrator streaming: SSE progressive rendering of turn responses
+  // When ON, POST /orchestrate/v1/turn/stream is used instead of /turn.
+  // Text deltas render incrementally; stores commit only on turn_complete.
+  orchestratorStreaming: {
+    envKey: 'VITE_FEATURE_ORCHESTRATOR_STREAMING',
+    storageKey: 'feature.orchestratorStreaming',
+  },
+  // Track 2: Thread persistence (conversation -> Supabase)
+  threadPersist: {
+    envKey: 'VITE_FEATURE_THREAD_PERSIST',
+    storageKey: 'feature.threadPersist',
+  },
+  // Track 3: Thread hydration on scenario resume + stale block revalidation
+  threadHydrate: {
+    envKey: 'VITE_FEATURE_THREAD_HYDRATE',
+    storageKey: 'feature.threadHydrate',
+  },
+  // BIL: Brief Intelligence Layer local preview in ChatComposer
+  // Gates only the UI preview (extract + summary line). Persistence
+  // (snapshots, conversation_turns, analysis_summary wiring) runs regardless.
+  bil: {
+    envKey: 'VITE_FEATURE_BIL',
+    storageKey: 'feature.bil',
+  },
+  // Phase 2A: Model Card Lite + Results trust strip
+  modelCardLite: {
+    envKey: 'VITE_FEATURE_MODEL_CARD_LITE',
+    storageKey: 'feature.modelCardLite',
+  },
+  // Phase 2B: Pre-analysis enrichment (receipt block, evidence gaps, model notes, one-click fixes)
+  preAnalysisEnriched: {
+    envKey: 'VITE_FEATURE_PRE_ANALYSIS_ENRICHED',
+    storageKey: 'feature.preAnalysisEnriched',
+  },
+  // Phase 2A: Causal claims in edge inspector
+  causalClaims: {
+    envKey: 'VITE_FEATURE_CAUSAL_CLAIMS',
+    storageKey: 'feature.causalClaims',
+  },
+  // Phase 3A: Evidence gap badge on factor nodes with no observed data
+  graphBadges: {
+    envKey: 'VITE_FEATURE_GRAPH_BADGES',
+    storageKey: 'feature.graphBadges',
+  },
+  // Phase 3A: Intelligence section in node inspector (connectivity, driver status)
+  nodeIntelligence: {
+    envKey: 'VITE_FEATURE_NODE_INTELLIGENCE',
+    storageKey: 'feature.nodeIntelligence',
+  },
+  // Phase 3A: Cross-surface bidirectional hover highlighting (canvas ↔ panel)
+  crossHighlight: {
+    envKey: 'VITE_FEATURE_CROSS_HIGHLIGHT',
+    storageKey: 'feature.crossHighlight',
+  },
+  // Graph Lens: post-analysis canvas filtering modes (option isolation, sensitivity, fragile edges)
+  graphLens: {
+    envKey: 'VITE_FEATURE_GRAPH_LENS',
+    storageKey: 'feature.graphLens',
+  },
 } as const
 
 // ============================================================================
@@ -336,6 +429,22 @@ const flags = {
   onboardingTour: makeFlag(FLAGS_CONFIG.onboardingTour),
   schemaV2: makeFlag(FLAGS_CONFIG.schemaV2),
   plotEnrichment: makeFlag(FLAGS_CONFIG.plotEnrichment),
+  orchestratorV2: makeFlag(FLAGS_CONFIG.orchestratorV2),
+  v3SystemEvents: makeFlag(FLAGS_CONFIG.v3SystemEvents),
+  legacyDirectRun: makeFlag(FLAGS_CONFIG.legacyDirectRun),
+  orchestratorStreaming: makeFlag(FLAGS_CONFIG.orchestratorStreaming),
+  contextMenu: makeFlag(FLAGS_CONFIG.contextMenu),
+  journeyTab: makeFlag(FLAGS_CONFIG.journeyTab),
+  threadPersist: makeFlag(FLAGS_CONFIG.threadPersist),
+  threadHydrate: makeFlag(FLAGS_CONFIG.threadHydrate),
+  bil: makeFlag(FLAGS_CONFIG.bil),
+  modelCardLite: makeFlag(FLAGS_CONFIG.modelCardLite),
+  preAnalysisEnriched: makeFlag(FLAGS_CONFIG.preAnalysisEnriched),
+  causalClaims: makeFlag(FLAGS_CONFIG.causalClaims),
+  graphBadges: makeFlag(FLAGS_CONFIG.graphBadges),
+  nodeIntelligence: makeFlag(FLAGS_CONFIG.nodeIntelligence),
+  crossHighlight: makeFlag(FLAGS_CONFIG.crossHighlight),
+  graphLens: makeFlag(FLAGS_CONFIG.graphLens),
 }
 
 // Export with original naming convention for backward compatibility
@@ -396,6 +505,23 @@ export const isSnapshotsV2Enabled = flags.snapshotsV2
 export const isOnboardingTourEnabled = flags.onboardingTour
 export const isSchemaV2Enabled = flags.schemaV2
 export const isPlotEnrichmentEnabled = flags.plotEnrichment
+export const isOrchestratorV2Enabled = flags.orchestratorV2
+export const isLegacyDirectRunEnabled = flags.legacyDirectRun
+export const isOrchestratorStreamingEnabled = flags.orchestratorStreaming
+export const diagnoseOrchestratorStreaming = () => diagnoseFlagState(FLAGS_CONFIG.orchestratorStreaming)
+export const isContextMenuEnabled = flags.contextMenu
+export const isJourneyTabEnabled = flags.journeyTab
+export const isThreadPersistEnabled = flags.threadPersist
+export const isThreadHydrateEnabled = flags.threadHydrate
+export const isBilPreviewEnabled = flags.bil
+export const isModelCardLiteEnabled = flags.modelCardLite
+export const isPreAnalysisEnrichedEnabled = flags.preAnalysisEnriched
+export const isCausalClaimsEnabled = flags.causalClaims
+export const isGraphBadgesEnabled = flags.graphBadges
+export const isNodeIntelligenceEnabled = flags.nodeIntelligence
+export const isCrossHighlightEnabled = flags.crossHighlight
+export const isGraphLensEnabled = flags.graphLens
+
 
 // ============================================================================
 // POC FLAGS (special pattern - constant object, not functions)
@@ -411,6 +537,7 @@ const on = (v?: string) => v === '1' || (isPoc && v !== '0')
 // PoC-aware flags - default to ON in PoC mode
 export const pocFlags = {
   sse: on(env?.VITE_FEATURE_SSE),
+  orchestratorStreaming: on(env?.VITE_FEATURE_ORCHESTRATOR_STREAMING),
   scenarioSandbox: on(env?.VITE_FEATURE_SCENARIO_SANDBOX),
   decisionCta: on(env?.VITE_FEATURE_SANDBOX_DECISION_CTA),
   mapping: on(env?.VITE_FEATURE_SANDBOX_MAPPING),

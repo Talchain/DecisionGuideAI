@@ -2,7 +2,7 @@
 import { create } from 'zustand'
 import { Node, Edge, applyNodeChanges, applyEdgeChanges, NodeChange, EdgeChange } from '@xyflow/react'
 import { saveSnapshot as persistSnapshot, importCanvas as persistImport, exportCanvas as persistExport } from './persist'
-import { setsEqual } from './store/utils'
+import { setsEqual, mapsEqual } from './store/utils'
 import { DEFAULT_EDGE_DATA, type EdgeData } from './domain/edges'
 import { NODE_REGISTRY, type NodeType } from './domain/nodes'
 import { applyLayout, applyLayoutWithPolicy } from './layout'
@@ -23,19 +23,52 @@ import type { CeeDecisionReviewPayloadV1, CeeTrace, CeeError, M1Review, M1Coachi
 import { sanitizeCeeReviewPayload, sanitizeM1Review } from './utils/ceeDataAdapter'
 import type {
   CEEAnalysisReady,
+  CEEGoalConstraint,
   CeePipelineTrace,
   CEEDraftWarning,
   CEEGoalConnectivity,
   CEEModelQualityFactors,
   CEEInterventionHint,
 } from '../adapters/cee/types'
+import type { LimitsV1 } from '../adapters/plot/types'
+import type { ScenarioStage } from '../types/scenario'
 import type { CeeDebugHeaders } from './utils/ceeDebugHeaders'
 import { loadSearchQuery, loadSortPreferences, saveSearchQuery, saveSortPreferences, __test__ as docsTest } from './store/documents'
 import { loadUIPreferences, saveUIPreference } from './store/uiPreferences'
+import { validateCeeAnalysisReady } from './utils/ceeAnalysisReadyValidation'
+import { recordCrossSurfaceEvent, recordUserAction } from '../lib/debug-state'
+// Task C: Panel coordination — opening one right panel closes others
+import { useUIStore } from '../stores/uiStore'
+
+/** A1: Lightweight snapshot of key values for delta display between analysis runs */
+export interface OptionSnapshot {
+  winProbability?: number
+  outcomeMean?: number
+  goalProbability?: number
+}
+
+export interface PreviousReportSnapshot {
+  options: Record<string, OptionSnapshot>
+  rankingStability?: number
+  driverInfluences?: Record<string, number>
+}
 
 // Brief 37 Optimization: Stable empty array to prevent re-renders
 // graphHealthFromQuality() returns this when no issues exist, avoiding new array allocation
 const EMPTY_VALIDATION_ISSUES: ValidationIssue[] = []
+
+// Graph Lens: Factory for fresh lens state (avoids shared mutable Set/Map references across resets)
+function createDefaultLensState() {
+  return {
+    active: 'full' as const,
+    selectedOptionId: null as string | null,
+    _dimmedNodeIds: new Set<string>(),
+    _dimmedEdgeIds: new Set<string>(),
+    _sensitivityWeights: new Map<string, number>(),
+    _sensitivityQuartiles: null as { q25: number; q75: number } | null,
+    _fragileEdgeIds: new Set<string>(),
+  }
+}
 
 /**
  * Generate deterministic content hash using FNV-1a algorithm
@@ -108,6 +141,11 @@ export interface ResultsState {
   // Phase 1B: PLoT enrichment data (ISL results bundled with PLoT response)
   // When VITE_USE_PLOT_ENRICHMENT is enabled, robustness/validation data comes from here
   enrichment?: PLoTEnrichment | null
+  /**
+   * A.9: Provenance of the current results — 'direct' (Play button) or 'conversation'
+   * (arrived via orchestrator envelope). Used by the conversation indicator badge.
+   */
+  resultsSource?: 'direct' | 'conversation'
 }
 
 export type SseDiagnostics = {
@@ -133,6 +171,17 @@ export type RunMetaState = {
   m1Review?: M1Review | null
   // M1 Coaching - deterministic coaching fields from /v2/run (not LLM-generated)
   m1Coaching?: M1Coaching | null
+  // V12: PLoT review_status — gates M2 progressive enrichment ('complete' enables M2 data)
+  reviewStatus?: string
+  // M1 Review assumptions + pre-mortem from PLoT /v2/run (V12: widened for M2 fields)
+  m1ReviewAssumptions?: {
+    key_assumptions: string[]
+    pre_mortem?: { failure_scenario: string; warning_signs: string[]; mitigation: string } | null
+    decision_quality_prompts?: unknown[]
+    bias_findings?: unknown[]
+    evidence_enhancements?: Record<string, unknown>
+    narrative_summary?: string
+  } | null
   ceeDebugHeaders?: CeeDebugHeaders // Phase 1 Section 4.1: Dev-only debug headers
   // Raw error data for debugging malformed responses
   rawErrorData?: {
@@ -177,13 +226,18 @@ interface CanvasState {
   _internal: { lastHistoryHash: string }
   results: ResultsState  // Analysis results panel state
   runMeta: RunMetaState
+  /** A1: Snapshot of key values from the previous analysis run for delta display */
+  previousReport: PreviousReportSnapshot | null
   // Scenario state
   currentScenarioId: string | null  // Active scenario ID
   currentScenarioFraming: ScenarioFraming | null
+  // A.15: Decision lifecycle stage (hydrated from Supabase, updated by orchestrator)
+  currentStage: ScenarioStage | null
   currentScenarioLastResultHash: string | null  // Most recent analysis hash for the active scenario
   currentScenarioLastRunAt: string | null  // ISO timestamp of last analysis run for the active scenario
   currentScenarioLastRunSeed: string | null  // Seed used for last analysis run (stringified)
   hasCompletedFirstRun: boolean  // True after at least one successful or restored run in this session
+  graphEditedSinceLastRun: boolean  // True when graph has been structurally edited since last analysis run
   isDirty: boolean  // Has unsaved changes
   isSaving: boolean  // P0-2: Currently saving
   lastSavedAt: number | null  // P0-2: Timestamp of last successful save
@@ -193,19 +247,34 @@ interface CanvasState {
   showTemplatesPanel: boolean
   templatesPanelInvoker: HTMLElement | null
   showDraftChat: boolean
+  // Current brief textarea content (synced from ChatComposer for graph-readiness requests)
+  currentBriefText: string | null
   // AI Model Selection (session-only, not persisted to localStorage)
   // Only non-default models are sent to API to keep payloads clean
   selectedGenerationModel: string | null  // null = use default (gpt-4o)
   selectedRepairModel: string | null      // null = use default (claude-sonnet-4-20250514)
   selectedEnrichmentModel: string | null  // null = use default (claude-sonnet-4-20250514)
+  // A.5+: Pre-draft canvas snapshot for undo-draft capability
+  draftChatPreDraftSnapshot: { nodes: Node[]; edges: Edge<EdgeData>[] } | null
   // Last draft description (persisted to maintain context across panel close/reopen)
   lastDraftDescription: string
+  // Last draft error (NOT cleared in resetCanvas — survives retry cycles)
+  lastDraftError: {
+    message: string
+    status?: number
+    correlationId?: string
+    timestamp: number
+    /** Whether the error is retryable. false = deterministic validation failure. */
+    retryable?: boolean
+  } | null
   // CEE V3: analysis_ready payload from last draft
   // Used by useV2Run to build requests with resolved interventions
   ceeAnalysisReady: CEEAnalysisReady | null
   // Node IDs that existed when ceeAnalysisReady was stored
   // Used to detect stale analysis_ready after graph edits
   ceeAnalysisReadyNodeIds: string[] | null
+  // CEE goal constraints from draft-graph response root (for PLoT multi-constraint analysis)
+  goalConstraints: CEEGoalConstraint[] | null
   // CEE Pipeline trace from last draft-graph response (for debug panel)
   ceePipelineTrace: CeePipelineTrace | null
   // CEE quality dimensions from draft-graph response (for pre-analysis readiness display)
@@ -218,6 +287,12 @@ interface CanvasState {
   ceeModelQualityFactors: CEEModelQualityFactors | null
   // Phase 1b: Intervention hints keyed by factor node ID
   ceeInterventionHints: Record<string, CEEInterventionHint> | null
+  // Engine limits (session-scoped singleton — NOT cleared in resetCanvas)
+  engineLimits: LimitsV1 | null
+  engineLimitsSource: 'live' | 'fallback' | null
+  engineLimitsLoading: boolean
+  engineLimitsError: Error | null
+  engineLimitsFetchedAt: number | null
   // M4: Graph Health & Repair
   graphHealth: GraphHealth | null
   showIssuesPanel: boolean
@@ -226,8 +301,21 @@ interface CanvasState {
   highlightedNodes: Set<string>
   highlightedEdges: Set<string>
   dimmedNodeIds: Set<string>
+  // S.4: Session-only "user-reviewed" tracking — resets on page refresh
+  confirmedNodeIds: Set<string>
   // Decision Graph Display v2 Task 11: Option hover state for intervention highlighting
   hoveredOptionId: string | null
+  // Graph Lens: ephemeral canvas filtering state (post-analysis only)
+  lens: {
+    active: 'full' | 'option' | 'sensitivity' | 'fragile'
+    selectedOptionId: string | null
+    // Computed sets — written by useLensFilter, read by BaseNode/StyledEdge
+    _dimmedNodeIds: Set<string>
+    _dimmedEdgeIds: Set<string>
+    _sensitivityWeights: Map<string, number>
+    _sensitivityQuartiles: { q25: number; q75: number } | null
+    _fragileEdgeIds: Set<string>
+  }
   // M5: Grounding & Provenance
   documents: Document[]
   citations: Citation[]
@@ -273,12 +361,32 @@ interface CanvasState {
   // Pending fit view request (set by AI graph insertion, cleared by ReactFlowGraph)
   pendingFitView: boolean
   setPendingFitView: (value: boolean) => void
+  // Track 3: Hydrated thread entries from scenario row (consumed once by useConversation, then cleared)
+  _hydratedThread: unknown[] | null
+  // Track 3: Hydrated scenario events from scenario row (consumed by Journey tab)
+  _hydratedEvents: unknown[] | null
+  // Phase 2A: Analysis metadata for Model Card Lite and trust surfaces
+  lastAnalysisSeed: number | null
+  lastQualityMode: string | null
+  repairsApplied: Array<{ code?: string; type?: string; layer?: string; field_path?: string; before?: unknown; after?: unknown; severity?: string; node_id?: string; value?: unknown; source?: string; reason?: string }> | null
+  // Task 2: Signal for AI panel auto-collapse. Set when a full_draft auto_apply patch
+  // is applied for the first time. DraftChat watches this to collapse without
+  // reacting to every incremental node change.
+  fullDraftAppliedAt: number | null
+  setFullDraftAppliedAt: (ts: number) => void
   // Debug: Raw CEE output mode (bypasses post-processing repairs)
   // Set via URL param ?rawCee=1 or Debug Panel checkbox
   debugRawCeeOutput: boolean
   setDebugRawCeeOutput: (value: boolean) => void
   updateScenarioFraming: (partial: ScenarioFraming) => void
   addNode: (pos?: { x: number; y: number }, type?: NodeType) => void
+  /** Create a new node with an edge connecting it to an existing node. Returns the new node ID. */
+  addNodeWithEdge: (
+    pos: { x: number; y: number },
+    type: NodeType,
+    connectTo: string,
+    edgeDirection: 'to-target' | 'from-target',
+  ) => string
   updateNodeLabel: (id: string, label: string) => void
   updateNode: (id: string, updates: Partial<Node>) => void
   updateEdge: (id: string, updates: Partial<Edge<EdgeData>>) => void
@@ -342,6 +450,8 @@ interface CanvasState {
     ceeTraceV1?: CeeTrace | null
     ceeErrorV1?: CeeError | null
     enrichment?: PLoTEnrichment | null // Phase 1B: ISL data bundled from PLoT
+    /** A.9: Provenance — 'direct' (Play button) or 'conversation' (envelope path). Defaults to 'direct'. */
+    resultsSource?: 'direct' | 'conversation'
   }) => void
   resultsError: (params: { code: string; message: string; retryAfter?: number; request_id?: string; canRetry?: boolean }) => void
   /** Capture detailed error information for Debug Panel */
@@ -351,6 +461,11 @@ interface CanvasState {
   resultsCancelled: () => void
   resultsReset: () => void
   resultsLoadHistorical: (run: StoredRun) => void
+  /** Hydrate results from Supabase row.analysis (V2RunResponse already mapped to store shape) */
+  resultsHydrateFromSupabase: (hydrated: {
+    results: Partial<ResultsState>
+    runMeta: Partial<RunMetaState>
+  }) => void
   setRunMeta: (meta: RunMetaState) => void
   // Scenario actions
   loadScenario: (id: string) => boolean
@@ -371,8 +486,15 @@ interface CanvasState {
   setSelectedRepairModel: (modelId: string | null) => void
   setSelectedEnrichmentModel: (modelId: string | null) => void
   resetModelToDefault: (operation: 'generation' | 'repair' | 'enrichment') => void
+  // A.15: Stage setter
+  setCurrentStage: (stage: ScenarioStage | null) => void
+  // A.5+: Draft snapshot + undo
+  setDraftChatPreDraftSnapshot: (snapshot: { nodes: Node[]; edges: Edge<EdgeData>[] } | null) => void
+  undoDraft: () => void
   setLastDraftDescription: (description: string) => void
+  setLastDraftError: (error: { message: string; status?: number; correlationId?: string; timestamp: number } | null) => void
   setCeeAnalysisReady: (analysisReady: CEEAnalysisReady | null) => void
+  setGoalConstraints: (constraints: CEEGoalConstraint[] | null) => void
   setCeePipelineTrace: (trace: CeePipelineTrace | null) => void
   setCeeQuality: (quality: CeeQualityDimensions | null) => void
   // Phase 1b actions
@@ -380,6 +502,8 @@ interface CanvasState {
   setCeeGoalConnectivity: (connectivity: CEEGoalConnectivity | null) => void
   setCeeModelQualityFactors: (factors: CEEModelQualityFactors | null) => void
   setCeeInterventionHints: (hints: Record<string, CEEInterventionHint> | null) => void
+  setEngineLimits: (limits: LimitsV1 | null, source: 'live' | 'fallback' | null, fetchedAt: number | null, error?: Error | null) => void
+  setEngineLimitsLoading: (loading: boolean) => void
   // M4: Graph Health actions
   validateGraph: () => void
   setShowIssuesPanel: (show: boolean) => void
@@ -391,6 +515,22 @@ interface CanvasState {
   setHighlightedNodes: (ids: string[]) => void
   setHighlightedEdges: (ids: string[]) => void
   setDimmedNodes: (ids: string[]) => void
+  // S.4: Toggle "user-reviewed" confirmation on a node (session-only)
+  toggleConfirmedNode: (nodeId: string) => void
+  // Decision Graph Display v2 Task 11: Option hover for intervention highlighting
+  setHoveredOption: (optionId: string | null) => void
+  // Graph Lens actions
+  setLens: (mode: 'full' | 'option' | 'sensitivity' | 'fragile', optionId?: string | null) => void
+  cycleLensOption: (direction: 'next' | 'prev') => void
+  resetLens: () => void
+  /** Update computed lens visuals (called by useLensFilter effect) */
+  setLensVisuals: (visuals: {
+    dimmedNodeIds: Set<string>
+    dimmedEdgeIds: Set<string>
+    sensitivityWeights: Map<string, number>
+    sensitivityQuartiles: { q25: number; q75: number } | null
+    fragileEdgeIds: Set<string>
+  }) => void
   // M5: Provenance actions
   addDocument: (document: Omit<Document, 'id' | 'uploadedAt'>) => string
   removeDocument: (id: string) => void
@@ -420,6 +560,14 @@ interface CanvasState {
   exitComparisonMode: () => void
   // P2: Hydration hygiene
   hydrateGraphSlice: (loaded: { nodes?: Node[]; edges?: Edge<EdgeData>[]; currentScenarioId?: string | null }) => void
+  // A.7: External mutation suppression — prevents direct_graph_edit events firing
+  // during patch-apply, envelope-applied changes, scenario hydration, etc.
+  /** Reference count: >0 while a non-user graph mutation is in progress */
+  _externalMutationActive: number
+  /** When true, mutation methods skip pushToHistory calls (for batched operations) */
+  _suppressHistory: boolean
+  beginExternalGraphMutation: (source: 'envelope_apply' | 'patch_apply' | 'hydrate', opts?: { suppressHistory?: boolean }) => void
+  endExternalGraphMutation: () => void
   // Week 3: AI Clarifier actions
   setShowAIClarifier: (show: boolean) => void
   startClarifierSession: (prompt: string, context: string) => void
@@ -490,6 +638,9 @@ function historyHash(nodes: Node[], edges: Edge[]): string {
 }
 
 function pushToHistory(get: () => CanvasState, set: (fn: (s: CanvasState) => Partial<CanvasState>) => void) {
+  // Skip history during batched external mutations (e.g. auto-apply patches)
+  if (get()._suppressHistory) return
+
   const { nodes, edges, history, _internal } = get()
 
   // Guard: only push if state actually changed (unless history is empty - always push first snapshot)
@@ -509,7 +660,10 @@ function pushToHistory(get: () => CanvasState, set: (fn: (s: CanvasState) => Par
   const past = [...history.past, { nodes: cleanNodes, edges: cleanEdges }].slice(-MAX_HISTORY)
   set(() => ({
     history: { past, future: [] },
-    _internal: { lastHistoryHash: h }
+    _internal: { lastHistoryHash: h },
+    graphEditedSinceLastRun: true,
+    // Graph Lens: auto-reset on graph edit
+    lens: createDefaultLensState(),
   }))
 }
 
@@ -572,15 +726,16 @@ function invalidateAnalysisReady(
   const { ceeAnalysisReady } = get()
   if (ceeAnalysisReady) {
     if (import.meta.env.DEV) {
-      console.log('[Canvas] === INVALIDATE ANALYSIS_READY ===')
-      console.log('[Canvas] Reason:', reason ?? 'unspecified')
-      console.log('[Canvas] Had options:', ceeAnalysisReady.options?.length)
+      console.warn('[Canvas] === INVALIDATE ANALYSIS_READY ===')
+      console.warn('[Canvas] Reason:', reason ?? 'unspecified')
+      console.warn('[Canvas] Had options:', ceeAnalysisReady.options?.length)
       console.trace('[Canvas] invalidateAnalysisReady call stack')
     }
     set(() => ({
       ceeAnalysisReady: null,
       ceeAnalysisReadyNodeIds: null,
       ceeQuality: null,
+      goalConstraints: null,
       // Phase 1b: Clear extended CEE data
       ceeExtendedWarnings: null,
       ceeGoalConnectivity: null,
@@ -745,13 +900,16 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     progress: 0
   },
   runMeta: {},
+  previousReport: null,
   // Scenario state
   currentScenarioId: scenarios.getCurrentScenarioId(),
   currentScenarioFraming: null,
+  currentStage: null,
   currentScenarioLastResultHash: null,
   currentScenarioLastRunAt: null,
   currentScenarioLastRunSeed: null,
   hasCompletedFirstRun: false,
+  graphEditedSinceLastRun: false,
   isDirty: false,
   isSaving: false,  // P0-2: Initially not saving
   lastSavedAt: null,  // P0-2: No save yet
@@ -761,11 +919,14 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     showInspectorPanel: false,
     showTemplatesPanel: false,
     showDraftChat: false,
+    currentBriefText: null,
     // AI Model Selection (session-only, start with defaults)
     selectedGenerationModel: null,
     selectedRepairModel: null,
     selectedEnrichmentModel: null,
+    draftChatPreDraftSnapshot: null,
     lastDraftDescription: '',
+    lastDraftError: null,
     showIssuesPanel: false,
     showProvenanceHub: false,
     showDocumentsDrawer: false,
@@ -775,6 +936,8 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   // CEE V3: analysis_ready payload
   ceeAnalysisReady: null,
   ceeAnalysisReadyNodeIds: null,
+  // CEE goal constraints from draft-graph response root
+  goalConstraints: null,
   // CEE Pipeline trace from last draft
   ceePipelineTrace: null,
   // CEE quality dimensions from draft-graph response
@@ -784,6 +947,12 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   ceeGoalConnectivity: null,
   ceeModelQualityFactors: null,
   ceeInterventionHints: null,
+  // Engine limits (session-scoped singleton)
+  engineLimits: null,
+  engineLimitsSource: null,
+  engineLimitsLoading: true,
+  engineLimitsError: null,
+  engineLimitsFetchedAt: null,
   // M6: Scenario Comparison Mode
   comparisonMode: {
     active: false,
@@ -802,7 +971,18 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   highlightedNodes: new Set<string>(),
   highlightedEdges: new Set<string>(),
   dimmedNodeIds: new Set<string>(),
+  confirmedNodeIds: new Set<string>(),
   hoveredOptionId: null,
+  // Graph Lens: ephemeral canvas filtering state
+  lens: {
+    active: 'full' as const,
+    selectedOptionId: null,
+    _dimmedNodeIds: new Set<string>(),
+    _dimmedEdgeIds: new Set<string>(),
+    _sensitivityWeights: new Map<string, number>(),
+    _sensitivityQuartiles: null,
+    _fragileEdgeIds: new Set<string>(),
+  },
   // M5: Grounding & Provenance
   documents: [],
   citations: [],
@@ -813,6 +993,9 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   // M6: Compare & Decision Rationale
   selectedSnapshotsForComparison: [],
   currentDecisionRationale: null,
+  // A.7: External mutation suppression reference count (0 = inactive)
+  _externalMutationActive: 0,
+  _suppressHistory: false,
   // Week 3: AI Clarifier initial state
   showAIClarifier: false,
   clarifierSession: null,
@@ -820,6 +1003,14 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   clarifierPreviewEdgeIds: [],
   // Pending fit view request (set by AI graph insertion, cleared by ReactFlowGraph)
   pendingFitView: false,
+  // Track 3: Hydrated thread/events (transient, consumed once)
+  _hydratedThread: null,
+  _hydratedEvents: null,
+  // Phase 2A: Analysis metadata for Model Card Lite
+  lastAnalysisSeed: null,
+  lastQualityMode: null,
+  repairsApplied: null,
+  fullDraftAppliedAt: null,
   // Debug: Raw CEE output mode (initialized from URL param ?rawCee=1)
   debugRawCeeOutput: getInitialRawCeeMode(),
 
@@ -850,6 +1041,37 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     // Only deletion of critical nodes (goal, option, intervention targets) invalidates
     const id = get().createNodeId()
     set((s) => ({ nodes: [...s.nodes, { id, type, position: pos || { x: 200, y: 200 }, data: { label: `Node ${id}` } }] }))
+  },
+
+  addNodeWithEdge: (pos, type, connectTo, edgeDirection) => {
+    pushToHistory(get, set)
+    const nodeId = get().createNodeId()
+    const edgeId = get().createEdgeId()
+    const [source, target] =
+      edgeDirection === 'to-target' ? [nodeId, connectTo] : [connectTo, nodeId]
+    set((s) => ({
+      nodes: [
+        ...s.nodes,
+        {
+          id: nodeId,
+          type,
+          position: pos,
+          data: { label: `New ${type}`, kind: type, category: 'controllable' },
+        },
+      ],
+      edges: [
+        ...s.edges,
+        {
+          id: edgeId,
+          source,
+          target,
+          type: 'styled' as const,
+          data: { ...DEFAULT_EDGE_DATA },
+        },
+      ],
+      selection: { nodeIds: new Set([nodeId]), edgeIds: new Set<string>(), anchorPosition: null },
+    }))
+    return nodeId
   },
 
   updateNodeLabel: (id, label) => {
@@ -1105,6 +1327,18 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   },
 
   addEdge: (edge) => {
+    // Validate source/target nodes exist to prevent dangling edges
+    const { nodes } = get()
+    const nodeIds = new Set(nodes.map(n => n.id))
+    if (!nodeIds.has(edge.source)) {
+      if (import.meta.env.DEV) console.warn(`[Canvas] addEdge: source node "${edge.source}" not found`)
+      return
+    }
+    if (!nodeIds.has(edge.target)) {
+      if (import.meta.env.DEV) console.warn(`[Canvas] addEdge: target node "${edge.target}" not found`)
+      return
+    }
+
     pushToHistory(get, set)
     // Note: Adding edges does NOT invalidate ceeAnalysisReady
     // Only deletion of critical nodes (goal, option, intervention targets) invalidates
@@ -1140,7 +1374,8 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     const past = history.past.slice(0, -1)
     const future = [{ nodes, edges }, ...history.future]
     // Invalidate ceeAnalysisReady so panel re-evaluates from restored graph state
-    set({ nodes: prev.nodes, edges: prev.edges, history: { past, future }, ceeAnalysisReady: null })
+    // Graph Lens: auto-reset on undo (graph shape changed)
+    set({ nodes: prev.nodes, edges: prev.edges, history: { past, future }, ceeAnalysisReady: null, goalConstraints: null, lens: createDefaultLensState() })
     // Reset hash after undo
     const { nodes: newNodes, edges: newEdges } = get()
     set(() => ({ _internal: { lastHistoryHash: historyHash(newNodes, newEdges) } }))
@@ -1153,7 +1388,8 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     const past = [...history.past, { nodes, edges }]
     const future = history.future.slice(1)
     // Invalidate ceeAnalysisReady so panel re-evaluates from restored graph state
-    set({ nodes: next.nodes, edges: next.edges, history: { past, future }, ceeAnalysisReady: null })
+    // Graph Lens: auto-reset on redo (graph shape changed)
+    set({ nodes: next.nodes, edges: next.edges, history: { past, future }, ceeAnalysisReady: null, goalConstraints: null, lens: createDefaultLensState() })
     // Reset hash after redo
     const { nodes: newNodes, edges: newEdges } = get()
     set(() => ({ _internal: { lastHistoryHash: historyHash(newNodes, newEdges) } }))
@@ -1410,10 +1646,13 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       history: { past: [], future: [] },
       selection: { nodeIds: new Set(), edgeIds: new Set(), anchorPosition: null },
       showDraftChat: false,
+      currentBriefText: null,
       // Reset model selection on import
       selectedGenerationModel: null,
       selectedRepairModel: null,
       selectedEnrichmentModel: null,
+      // Graph Lens: auto-reset on canvas import (full graph replaced)
+      lens: createDefaultLensState(),
     })
     
     return true
@@ -1559,9 +1798,10 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       selectedGenerationModel: null,
       selectedRepairModel: null,
       selectedEnrichmentModel: null,
-      // Clear CEE analysis_ready payload, pipeline trace, and quality
+      // Clear CEE analysis_ready payload, pipeline trace, quality, and constraints
       ceeAnalysisReady: null,
       ceeAnalysisReadyNodeIds: null,
+      goalConstraints: null,
       ceePipelineTrace: null,
       ceeQuality: null,
       // Phase 1b: Clear extended CEE data
@@ -1570,9 +1810,11 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       ceeModelQualityFactors: null,
       ceeInterventionHints: null,
       // Clear results and analysis state
+      previousReport: null, // A1: Clear stale deltas on canvas reset
       results: { status: 'idle', progress: 0 },
       runMeta: {},
       hasCompletedFirstRun: false,
+      graphEditedSinceLastRun: false,
       // Clear validation state
       graphHealth: null,
       needleMovers: [],
@@ -1589,6 +1831,16 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       },
       // Clear scenario tracking in store state
       currentScenarioId: null,
+      // A.15: Clear lifecycle stage
+      currentStage: null,
+      // A.5+: Clear draft snapshot
+      draftChatPreDraftSnapshot: null,
+      // Phase 2A: Clear analysis metadata
+      lastAnalysisSeed: null,
+      lastQualityMode: null,
+      repairsApplied: null,
+      // Graph Lens: reset on canvas clear
+      lens: createDefaultLensState(),
     })
   },
 
@@ -1726,7 +1978,9 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
         runId: undefined,
         finishedAt: undefined,
         isDuplicateRun: undefined
-      }
+      },
+      // Graph Lens: auto-reset on new analysis run
+      lens: createDefaultLensState(),
     })
   },
 
@@ -1752,7 +2006,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     }))
   },
 
-  resultsComplete: ({ report, hash, drivers, ceeReview, ceeTrace, ceeError, ceeReviewV1, ceeTraceV1, ceeErrorV1, enrichment }) => {
+  resultsComplete: ({ report, hash, drivers, ceeReview, ceeTrace, ceeError, ceeReviewV1, ceeTraceV1, ceeErrorV1, enrichment, resultsSource }) => {
     const { nodes, edges, results, currentScenarioId, graphHealth: existingHealth } = get()
 
     const finishedAt = Date.now()
@@ -1762,7 +2016,36 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     // Brief 37: Pass existing health to avoid creating new objects when unchanged
     const healthFromQuality = graphHealthFromQuality(report.graph_quality, existingHealth)
 
+    // A1: Snapshot current report values before overwriting
+    const currentReport = get().results.report
+    let snapshot: PreviousReportSnapshot | null = null
+    if (currentReport && get().results.status === 'complete') {
+      const options: Record<string, OptionSnapshot> = {}
+      // ReportV1.option_probabilities: Record<string, OptionProbability>
+      const optionProbs = currentReport.option_probabilities
+      if (optionProbs) {
+        for (const [optId, prob] of Object.entries(optionProbs)) {
+          options[optId] = {
+            winProbability: prob.win_probability,
+            goalProbability: prob.goal_probability,
+          }
+        }
+      }
+      // Robustness accessed via index signature (not typed on ReportV1)
+      const reportRecord = currentReport as Record<string, unknown>
+      const robustness = reportRecord.robustness as Record<string, unknown> | undefined
+      const rankingStability =
+        typeof robustness?.recommendation_stability === 'number' ? robustness.recommendation_stability :
+        typeof robustness?.ranking_stability === 'number' ? robustness.ranking_stability :
+        undefined
+      snapshot = {
+        options,
+        rankingStability,
+      }
+    }
+
     set(s => ({
+      previousReport: snapshot,
       results: {
         ...s.results,
         status: 'complete',
@@ -1773,6 +2056,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
         finishedAt,
         error: undefined,
         enrichment: enrichment ?? null, // Phase 1B: Persist enrichment from PLoT
+        resultsSource: resultsSource ?? 'direct', // A.9: provenance
       },
       graphHealth: (() => {
         if (!healthFromQuality) return s.graphHealth ?? null
@@ -1785,7 +2069,12 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       currentScenarioLastResultHash: hash ?? null,
       currentScenarioLastRunAt: completedAtIso,
       currentScenarioLastRunSeed: seedString,
-      hasCompletedFirstRun: true
+      hasCompletedFirstRun: true,
+      graphEditedSinceLastRun: false,
+      // Phase 2A: Persist analysis metadata for Model Card Lite / trust strip
+      lastAnalysisSeed: (report as any)?.meta?.seed_used ?? (report as any)?.meta?.seed ?? null,
+      lastQualityMode: (report as any)?.meta?.detail_level ?? null,
+      repairsApplied: (report as any)?.repairs_applied ?? null,
     }))
 
     // Persist last run metadata onto the active scenario record (if any)
@@ -1847,6 +2136,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       results: {
         ...s.results,
         status: 'error',
+        // retryAfter: reserved for future rate-limit handling, not currently displayed
         error: { code, message, retryAfter, request_id, canRetry },
         finishedAt: Date.now()
       }
@@ -1935,16 +2225,59 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
         return healthFromQuality
       })(),
       isDirty: false,
-      hasCompletedFirstRun: true
+      hasCompletedFirstRun: true,
+      graphEditedSinceLastRun: false,
+    }))
+  },
+
+  resultsHydrateFromSupabase: (hydrated) => {
+    const { results: hydratedResults, runMeta: hydratedRunMeta } = hydrated
+
+    // Invariant: status must be 'complete' for hydration to proceed
+    if (hydratedResults.status !== 'complete' || !hydratedResults.report) {
+      if (import.meta.env.DEV) {
+        console.warn('[store] resultsHydrateFromSupabase: invariant violation — status is not complete or report missing, skipping')
+      }
+      return
+    }
+
+    // Brief 37: Pass existing health to avoid creating new objects when unchanged
+    const existingHealth = get().graphHealth
+    const healthFromQuality = graphHealthFromQuality(
+      hydratedResults.report?.graph_quality,
+      existingHealth,
+    )
+
+    set(s => ({
+      results: {
+        ...s.results,
+        ...hydratedResults,
+      },
+      runMeta: {
+        ...s.runMeta,
+        ...hydratedRunMeta,
+      },
+      graphHealth: (() => {
+        if (!healthFromQuality) return s.graphHealth ?? null
+        if (!s.graphHealth) return healthFromQuality
+        if (s.graphHealth.issues.length > 0) return s.graphHealth
+        return healthFromQuality
+      })(),
+      hasCompletedFirstRun: true,
+      graphEditedSinceLastRun: false,
     }))
   },
 
   resultsReset: () => {
     set({
+      previousReport: null,
       results: {
         status: 'idle',
         progress: 0
       },
+      // Graph Lens: auto-reset on results clear (prevents stale lens reactivating on next run)
+      lens: createDefaultLensState(),
+      hoveredOptionId: null,
       // Clear all runMeta including V1 CEE fields to prevent stale Decision Review
       runMeta: {
         diagnostics: undefined,
@@ -2004,6 +2337,9 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     // Reseed IDs to avoid conflicts
     get().reseedIds(nodes, edges)
 
+    // A.7: Suppress direct_graph_edit events during scenario hydration
+    set((s) => ({ _externalMutationActive: s._externalMutationActive + 1 }))
+    try {
     set({
       nodes,
       edges,
@@ -2012,6 +2348,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       currentScenarioLastResultHash: scenario.last_result_hash ?? null,
       currentScenarioLastRunAt: scenario.last_run_at ?? null,
       currentScenarioLastRunSeed: scenario.last_run_seed ?? null,
+      previousReport: null, // A1: Clear stale deltas on scenario switch
       isDirty: false,
       history: { past: [], future: [] },
       selection: { nodeIds: new Set(), edgeIds: new Set(), anchorPosition: null },
@@ -2030,10 +2367,40 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
 
     scenarios.setCurrentScenarioId(id)
 
+    // Validate and restore ceeAnalysisReady if present
+    if (scenario.ceeAnalysisReady) {
+      const validation = validateCeeAnalysisReady(
+        scenario.ceeAnalysisReady,
+        scenario.ceeAnalysisReadyNodeIds ?? null,
+        nodes
+      )
+
+      if (validation.isValid) {
+        get().setCeeAnalysisReady(scenario.ceeAnalysisReady)
+        if (import.meta.env.DEV) {
+          console.warn('[loadScenario] Restored ceeAnalysisReady:', {
+            options: scenario.ceeAnalysisReady.options.length,
+            goal: scenario.ceeAnalysisReady.goal_node_id,
+          })
+        }
+      } else {
+        if (import.meta.env.DEV) {
+          console.warn('[loadScenario] Stale ceeAnalysisReady discarded:', validation)
+        }
+        get().setCeeAnalysisReady(null)
+      }
+    } else {
+      get().setCeeAnalysisReady(null)
+    }
+
     // Restore results from run history if this scenario has a last run
     tryRestoreResultsFromHistory(scenario.last_result_hash, get().resultsLoadHistorical)
 
     return true
+    } finally {
+      // A.7: End suppression after hydration is complete (always, even on throw)
+      set((s) => ({ _externalMutationActive: Math.max(0, s._externalMutationActive - 1) }))
+    }
   },
 
   saveCurrentScenario: (name?: string) => {
@@ -2045,6 +2412,8 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       currentScenarioLastResultHash,
       currentScenarioLastRunAt,
       currentScenarioLastRunSeed,
+      ceeAnalysisReady,
+      ceeAnalysisReadyNodeIds,
     } = get()
 
     // P0-2: Set saving state
@@ -2060,10 +2429,21 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
           last_result_hash: currentScenarioLastResultHash || undefined,
           last_run_at: currentScenarioLastRunAt || undefined,
           last_run_seed: currentScenarioLastRunSeed || undefined,
+          ceeAnalysisReady: ceeAnalysisReady ?? null,
+          ceeAnalysisReadyNodeIds: ceeAnalysisReadyNodeIds ?? null,
         })
         // Clear autosave since work is now saved to scenario
         scenarios.clearAutosave()
+        // Clear _baseline_snapshot from all nodes (transient session state)
+        const cleansedNodes = get().nodes.map((n) => {
+          if (n.data?._baseline_snapshot != null) {
+            const { _baseline_snapshot, ...rest } = n.data as any
+            return { ...n, data: rest }
+          }
+          return n
+        })
         set({
+          nodes: cleansedNodes,
           isDirty: false,
           isSaving: false,
           lastSavedAt: Date.now()
@@ -2083,11 +2463,22 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
           last_result_hash: currentScenarioLastResultHash || undefined,
           last_run_at: currentScenarioLastRunAt || undefined,
           last_run_seed: currentScenarioLastRunSeed || undefined,
+          ceeAnalysisReady: ceeAnalysisReady ?? null,
+          ceeAnalysisReadyNodeIds: ceeAnalysisReadyNodeIds ?? null,
         })
         // Clear autosave since work is now saved to scenario
         scenarios.clearAutosave()
+        // Clear _baseline_snapshot from all nodes (transient session state)
+        const newCleansedNodes = get().nodes.map((n) => {
+          if (n.data?._baseline_snapshot != null) {
+            const { _baseline_snapshot, ...rest } = n.data as any
+            return { ...n, data: rest }
+          }
+          return n
+        })
 
         set({
+          nodes: newCleansedNodes,
           currentScenarioId: scenario.id,
           isDirty: false,
           isSaving: false,
@@ -2174,6 +2565,18 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     }
     set({ showResultsPanel: show })
     saveUIPreference('showResultsPanel', show)
+    // Task C: Panel coordination — results panel closes overlay panels
+    if (show) {
+      useUIStore.getState().openRightPanel('results')
+      set({ showProvenanceHub: false, showAIClarifier: false })
+    } else if (useUIStore.getState().activeRightPanel === 'results') {
+      useUIStore.getState().closeRightPanel()
+    }
+    recordCrossSurfaceEvent({
+      eventType: show ? 'results_panel_opened' : 'results_panel_closed',
+      summary: show ? 'Results panel opened' : 'Results panel closed',
+      payloadSummary: { previous: prev, next: show },
+    })
 
     if (typeof window !== 'undefined') {
       try {
@@ -2195,6 +2598,17 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   setShowInspectorPanel: (show: boolean) => {
     set({ showInspectorPanel: show })
     saveUIPreference('showInspectorPanel', show)
+    if (show) {
+      const selection = get().selection
+      recordCrossSurfaceEvent({
+        eventType: 'inspector_opened',
+        summary: 'Inspector panel opened',
+        payloadSummary: {
+          node_ids: [...selection.nodeIds],
+          edge_ids: [...selection.edgeIds],
+        },
+      })
+    }
   },
 
   openTemplatesPanel: (invoker?: HTMLElement) => {
@@ -2228,6 +2642,10 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   setShowDraftChat: (show: boolean) => {
     set({ showDraftChat: show })
     saveUIPreference('showDraftChat', show)
+    recordUserAction({
+      actionType: show ? 'expanded AI panel' : 'collapsed AI panel',
+      payloadSummary: { next: show },
+    })
   },
 
   // AI Model Selection setters (session-only, no localStorage persistence)
@@ -2253,19 +2671,54 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     set(resetMap[operation])
   },
 
+  // A.15: Stage setter
+  setCurrentStage: (stage) => set({ currentStage: stage }),
+
+  // A.5+: Draft snapshot + undo
+  setDraftChatPreDraftSnapshot: (snapshot) => set({ draftChatPreDraftSnapshot: snapshot }),
+  undoDraft: () => {
+    const { draftChatPreDraftSnapshot } = get()
+    if (!draftChatPreDraftSnapshot) return
+
+    pushToHistory(get, set)
+
+    set({
+      nodes: draftChatPreDraftSnapshot.nodes,
+      edges: draftChatPreDraftSnapshot.edges,
+      draftChatPreDraftSnapshot: null,
+      // Clear analysis state from the undone draft
+      ceeAnalysisReady: null,
+      ceeAnalysisReadyNodeIds: null,
+      ceePipelineTrace: null,
+      ceeQuality: null,
+      // Graph Lens: auto-reset on draft undo (graph shape changed)
+      lens: createDefaultLensState(),
+    })
+
+    // Crash resilience
+    saveAutosave(
+      draftChatPreDraftSnapshot.nodes,
+      draftChatPreDraftSnapshot.edges,
+    )
+  },
+
   // Store last draft description for persistence across panel close/reopen
   setLastDraftDescription: (description: string) => {
     set({ lastDraftDescription: description })
     saveUIPreference('lastDraftDescription', description)
   },
 
+  setLastDraftError: (error) => {
+    set({ lastDraftError: error })
+  },
+
   setCeeAnalysisReady: (analysisReady: CEEAnalysisReady | null) => {
     if (import.meta.env.DEV) {
-      console.log('[Canvas] === SET CEE_ANALYSIS_READY ===')
-      console.log('[Canvas] setCeeAnalysisReady called with:', analysisReady ? 'payload' : 'null')
+      console.warn('[Canvas] === SET CEE_ANALYSIS_READY ===')
+      console.warn('[Canvas] setCeeAnalysisReady called with:', analysisReady ? 'payload' : 'null')
       if (analysisReady) {
-        console.log('[Canvas] options count:', analysisReady.options?.length)
-        console.log('[Canvas] goal_node_id:', analysisReady.goal_node_id)
+        console.warn('[Canvas] options count:', analysisReady.options?.length)
+        console.warn('[Canvas] goal_node_id:', analysisReady.goal_node_id)
       }
       console.trace('[Canvas] setCeeAnalysisReady call stack')
     }
@@ -2274,23 +2727,37 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       const { nodes } = get()
       const nodeIds = nodes.map((n) => n.id)
       set({ ceeAnalysisReady: analysisReady, ceeAnalysisReadyNodeIds: nodeIds })
+      // Persist to sessionStorage for tab-refresh survival (with node IDs for validation)
+      try {
+        sessionStorage.setItem('olumi-cee-analysis-ready', JSON.stringify(analysisReady))
+        sessionStorage.setItem('olumi-cee-analysis-ready-node-ids', JSON.stringify(nodeIds))
+      } catch {}
     } else {
       set({
         ceeAnalysisReady: null,
         ceeAnalysisReadyNodeIds: null,
         ceeQuality: null,
+        goalConstraints: null,
         // Phase 1b: Clear extended CEE data
         ceeExtendedWarnings: null,
         ceeGoalConnectivity: null,
         ceeModelQualityFactors: null,
         ceeInterventionHints: null,
       })
+      try {
+        sessionStorage.removeItem('olumi-cee-analysis-ready')
+        sessionStorage.removeItem('olumi-cee-analysis-ready-node-ids')
+      } catch {}
     }
+  },
+
+  setGoalConstraints: (constraints: CEEGoalConstraint[] | null) => {
+    set({ goalConstraints: constraints })
   },
 
   setCeePipelineTrace: (trace: CeePipelineTrace | null) => {
     if (import.meta.env.DEV && trace) {
-      console.log('[Canvas] setCeePipelineTrace:', {
+      console.warn('[Canvas] setCeePipelineTrace:', {
         status: trace.status,
         total_duration_ms: trace.total_duration_ms,
         llm_call_count: trace.llm_call_count,
@@ -2302,7 +2769,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
 
   setCeeQuality: (quality: CeeQualityDimensions | null) => {
     if (import.meta.env.DEV && quality) {
-      console.log('[Canvas] setCeeQuality:', quality)
+      console.warn('[Canvas] setCeeQuality:', quality)
     }
     set({ ceeQuality: quality })
   },
@@ -2310,30 +2777,44 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   // Phase 1b actions
   setCeeExtendedWarnings: (warnings: CEEDraftWarning[] | null) => {
     if (import.meta.env.DEV && warnings) {
-      console.log('[Canvas] setCeeExtendedWarnings:', warnings.length, 'warnings')
+      console.warn('[Canvas] setCeeExtendedWarnings:', warnings.length, 'warnings')
     }
     set({ ceeExtendedWarnings: warnings })
   },
 
   setCeeGoalConnectivity: (connectivity: CEEGoalConnectivity | null) => {
     if (import.meta.env.DEV && connectivity) {
-      console.log('[Canvas] setCeeGoalConnectivity:', connectivity.status)
+      console.warn('[Canvas] setCeeGoalConnectivity:', connectivity.status)
     }
     set({ ceeGoalConnectivity: connectivity })
   },
 
   setCeeModelQualityFactors: (factors: CEEModelQualityFactors | null) => {
     if (import.meta.env.DEV && factors) {
-      console.log('[Canvas] setCeeModelQualityFactors:', factors)
+      console.warn('[Canvas] setCeeModelQualityFactors:', factors)
     }
     set({ ceeModelQualityFactors: factors })
   },
 
   setCeeInterventionHints: (hints: Record<string, CEEInterventionHint> | null) => {
     if (import.meta.env.DEV && hints) {
-      console.log('[Canvas] setCeeInterventionHints:', Object.keys(hints).length, 'hints')
+      console.warn('[Canvas] setCeeInterventionHints:', Object.keys(hints).length, 'hints')
     }
     set({ ceeInterventionHints: hints })
+  },
+
+  setEngineLimits: (limits, source, fetchedAt, error) => {
+    set({
+      engineLimits: limits,
+      engineLimitsSource: source,
+      engineLimitsLoading: false,
+      engineLimitsError: error ?? null,
+      engineLimitsFetchedAt: fetchedAt,
+    })
+  },
+
+  setEngineLimitsLoading: (loading) => {
+    set({ engineLimitsLoading: loading })
   },
 
   // M4: Graph Health actions
@@ -2468,9 +2949,97 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   setDimmedNodes: (ids: string[]) => {
     set({ dimmedNodeIds: new Set(ids) })
   },
+  // S.4: Toggle "user-reviewed" confirmation (session-only, resets on refresh)
+  toggleConfirmedNode: (nodeId: string) => {
+    const current = get().confirmedNodeIds
+    const next = new Set(current)
+    if (next.has(nodeId)) {
+      next.delete(nodeId)
+    } else {
+      next.add(nodeId)
+    }
+    set({ confirmedNodeIds: next })
+  },
   // Decision Graph Display v2 Task 11: Option hover for intervention highlighting
   setHoveredOption: (optionId: string | null) => {
+    // Correction #1: When lens option isolation is active, suppress hover updates
+    // so the panel highlight stays on the lens-selected option.
+    const { lens } = get()
+    if (lens.active === 'option' && lens.selectedOptionId && optionId !== null) {
+      return
+    }
     set({ hoveredOptionId: optionId })
+  },
+
+  // Graph Lens actions
+  setLens: (mode, optionId) => {
+    const { lens: prev } = get()
+    const updates: Partial<CanvasState> = {
+      lens: { ...prev, active: mode, selectedOptionId: optionId ?? null },
+    }
+    // Panel sync: when selecting an option lens, update hoveredOptionId
+    if (mode === 'option' && optionId) {
+      updates.hoveredOptionId = optionId
+    }
+    // When switching away from option mode, clear hoveredOptionId
+    if (mode !== 'option') {
+      updates.hoveredOptionId = null
+    }
+    set(updates)
+  },
+
+  cycleLensOption: (direction) => {
+    const state = get()
+    if (state.lens.active !== 'option') return
+    const options = state.results.report?.option_comparison
+    if (!Array.isArray(options) || options.length === 0) return
+
+    const currentId = state.lens.selectedOptionId
+    const currentIndex = currentId
+      ? options.findIndex((o: { option_id: string }) => o != null && typeof o === 'object' && o.option_id === currentId)
+      : -1
+    const len = options.length
+    const nextIndex = direction === 'next'
+      ? (currentIndex + 1) % len
+      : (currentIndex - 1 + len) % len
+    const nextOption = options[nextIndex] as { option_id?: string } | undefined
+    const nextId = nextOption?.option_id
+    if (!nextId) return
+    set({
+      lens: { ...state.lens, active: 'option', selectedOptionId: nextId },
+      hoveredOptionId: nextId,
+    })
+  },
+
+  resetLens: () => {
+    const { lens } = get()
+    if (lens.active === 'full' && lens.selectedOptionId === null && lens._dimmedNodeIds.size === 0) return
+    set({ lens: createDefaultLensState(), hoveredOptionId: null })
+  },
+
+  setLensVisuals: (visuals) => {
+    const { lens } = get()
+    // Skip no-op updates to avoid re-renders (use setsEqual/mapsEqual for collection comparison)
+    if (
+      setsEqual(lens._dimmedNodeIds, visuals.dimmedNodeIds) &&
+      setsEqual(lens._dimmedEdgeIds, visuals.dimmedEdgeIds) &&
+      setsEqual(lens._fragileEdgeIds, visuals.fragileEdgeIds) &&
+      mapsEqual(lens._sensitivityWeights, visuals.sensitivityWeights) &&
+      lens._sensitivityQuartiles?.q25 === visuals.sensitivityQuartiles?.q25 &&
+      lens._sensitivityQuartiles?.q75 === visuals.sensitivityQuartiles?.q75
+    ) {
+      return
+    }
+    set({
+      lens: {
+        ...lens,
+        _dimmedNodeIds: visuals.dimmedNodeIds,
+        _dimmedEdgeIds: visuals.dimmedEdgeIds,
+        _sensitivityWeights: visuals.sensitivityWeights,
+        _sensitivityQuartiles: visuals.sensitivityQuartiles,
+        _fragileEdgeIds: visuals.fragileEdgeIds,
+      },
+    })
   },
 
   // M5: Provenance actions
@@ -2578,6 +3147,13 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   setShowProvenanceHub: (show: boolean) => {
     set({ showProvenanceHub: show })
     saveUIPreference('showProvenanceHub', show)
+    // Task C: Panel coordination — opening provenance closes other right panels
+    if (show) {
+      useUIStore.getState().openRightPanel('provenance')
+      set({ showAIClarifier: false })
+    } else if (useUIStore.getState().activeRightPanel === 'provenance') {
+      useUIStore.getState().closeRightPanel()
+    }
   },
 
   setShowDocumentsDrawer: (show: boolean) => {
@@ -2634,6 +3210,8 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
         comparison,
         apiResponse,
       },
+      // Graph Lens: auto-reset on comparison mode entry
+      lens: createDefaultLensState(),
     })
   },
 
@@ -2658,6 +3236,8 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
         comparison: null,
         apiResponse: null,
       },
+      // Graph Lens: reset on comparison mode exit (mirrors enterComparisonMode reset)
+      lens: createDefaultLensState(),
     })
   },
 
@@ -2666,10 +3246,14 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     set({ pendingFitView: value })
   },
 
+  setFullDraftAppliedAt: (ts: number) => {
+    set({ fullDraftAppliedAt: ts })
+  },
+
   // Debug: Raw CEE output mode setter
   setDebugRawCeeOutput: (value: boolean) => {
     if (value) {
-      console.log('[CEE] Raw output mode enabled')
+      console.warn('[CEE] Raw output mode enabled')
     }
     set({ debugRawCeeOutput: value })
   },
@@ -2680,10 +3264,16 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     // Close draft chat when opening clarifier
     if (show) {
       set({ showDraftChat: false })
+      // Task C: Panel coordination — opening clarifier closes other right panels
+      useUIStore.getState().openRightPanel('clarifier')
+      set({ showProvenanceHub: false })
     }
     // Clean up clarifier state when closing
     if (!show) {
       get().completeClarifierSession()
+      if (useUIStore.getState().activeRightPanel === 'clarifier') {
+        useUIStore.getState().closeRightPanel()
+      }
     }
   },
 
@@ -2822,7 +3412,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
 
       // Auto-layout to arrange nodes using ELK layered algorithm (top-down)
       if (import.meta.env.DEV) {
-        console.log('[applyClarifierGraph] Applying ELK layout after clarifier insertion (preview)', {
+        console.warn('[applyClarifierGraph] Applying ELK layout after clarifier insertion (preview)', {
           addedNodes: previewNodes.length,
           addedEdges: previewEdges.length,
           totalNodes: get().nodes.length,
@@ -2908,7 +3498,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
 
       // Auto-layout to arrange nodes using ELK layered algorithm (top-down)
       if (import.meta.env.DEV) {
-        console.log('[applyClarifierGraph] Applying ELK layout after clarifier insertion (finalize)', {
+        console.warn('[applyClarifierGraph] Applying ELK layout after clarifier insertion (finalize)', {
           addedNodes: finalNodes.length,
           addedEdges: finalEdges.length,
           totalNodes: get().nodes.length,
@@ -2980,15 +3570,39 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     }
 
     // Apply updates without clobbering panels/results/other slices
-    set(updates)
-
-    // Reseed IDs to prevent collisions
-    if (loaded.nodes && loaded.edges) {
-      get().reseedIds(loaded.nodes, loaded.edges)
+    // A.7: Increment suppression counter before mutating
+    set((s) => ({ ...updates, _externalMutationActive: s._externalMutationActive + 1 }))
+    try {
+      // Reseed IDs to prevent collisions
+      if (loaded.nodes && loaded.edges) {
+        get().reseedIds(loaded.nodes, loaded.edges)
+      }
+    } finally {
+      // A.7: End suppression after hydration (always, even on throw)
+      set((s) => ({ _externalMutationActive: Math.max(0, s._externalMutationActive - 1) }))
     }
   },
 
   cleanup: clearTimers,
+
+  // A.7: External mutation suppression — reference-counted so nested calls
+  // don't prematurely clear suppression when two callers overlap.
+  beginExternalGraphMutation: (source, opts) => {
+    if (import.meta.env.DEV) {
+      console.debug(`[canvas] beginExternalGraphMutation(${source})`)
+    }
+    set((s) => ({
+      _externalMutationActive: s._externalMutationActive + 1,
+      ...(opts?.suppressHistory ? { _suppressHistory: true } : {}),
+    }))
+  },
+
+  endExternalGraphMutation: () => {
+    set((s) => ({
+      _externalMutationActive: Math.max(0, s._externalMutationActive - 1),
+      _suppressHistory: false,
+    }))
+  },
 
   updateScenarioFraming: (partial) => {
     set(s => ({
@@ -3057,3 +3671,14 @@ export const selectError = (state: CanvasState): { code: string; message: string
 export const selectRunId = (state: CanvasState): string | undefined => state.results.runId
 export const selectSeed = (state: CanvasState): number | undefined => state.results.seed
 export const selectHash = (state: CanvasState): string | undefined => state.results.hash
+/** A.9: Provenance of the current results — 'direct' | 'conversation' | undefined */
+export const selectResultsSource = (state: CanvasState): 'direct' | 'conversation' | undefined => state.results.resultsSource
+/** A1: Previous report snapshot for delta display */
+export const selectPreviousReport = (state: CanvasState): PreviousReportSnapshot | null => state.previousReport
+
+/**
+ * Graph Lens selectors
+ */
+export type LensMode = 'full' | 'option' | 'sensitivity' | 'fragile'
+export const selectLensMode = (state: CanvasState): LensMode => state.lens.active
+export const selectLensOptionId = (state: CanvasState): string | null => state.lens.selectedOptionId

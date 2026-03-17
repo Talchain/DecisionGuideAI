@@ -50,12 +50,12 @@ const NODE_ICONS: Record<string, LucideIcon> = {
 
 // Node color mapping (matches canvas nodes - brand compliant)
 const NODE_COLORS: Record<string, { bg: string; border: string; text: string }> = {
-  goal: { bg: 'bg-amber-100', border: 'border-amber-400', text: 'text-amber-900' },
+  goal: { bg: 'bg-panel', border: 'border-warning', text: 'text-warning' },
   decision: { bg: 'bg-sky-100', border: 'border-sky-400', text: 'text-sky-900' },
-  option: { bg: 'bg-purple-100', border: 'border-purple-400', text: 'text-purple-900' },
+  option: { bg: 'bg-panel', border: 'border-option/30', text: 'text-option' },
   factor: { bg: 'bg-sand-100', border: 'border-sand-300', text: 'text-ink-900' },
-  risk: { bg: 'bg-red-100', border: 'border-red-400', text: 'text-red-900' },
-  outcome: { bg: 'bg-emerald-100', border: 'border-emerald-400', text: 'text-emerald-900' },
+  risk: { bg: 'bg-panel', border: 'border-danger', text: 'text-danger' },
+  outcome: { bg: 'bg-panel', border: 'border-success/30', text: 'text-success' },
 }
 
 // Causal node types (Risk and Factor are causal factors)
@@ -366,7 +366,7 @@ export function DriverChips({ drivers }: DriverChipsProps) {
         {driver.polarity && driver.polarity !== 'neutral' && (
           <span
             className={`flex-shrink-0 ${
-              driver.polarity === 'up' ? 'text-emerald-500' : 'text-red-500'
+              driver.polarity === 'up' ? 'text-success' : 'text-danger'
             }`}
             title={driver.polarity === 'up' ? 'Positive influence' : 'Negative influence'}
           >
@@ -391,7 +391,7 @@ export function DriverChips({ drivers }: DriverChipsProps) {
         {/* Evidence status - compact */}
         {!hasEvidence && matchCount > 0 && (
           <span
-            className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded ${typography.caption} font-medium bg-amber-100 text-amber-700 flex-shrink-0`}
+            className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded ${typography.caption} font-medium bg-panel text-warning flex-shrink-0`}
             title="No evidence supporting this driver - consider adding data"
           >
             <AlertTriangle className="w-3 h-3" aria-hidden="true" />
@@ -410,8 +410,8 @@ export function DriverChips({ drivers }: DriverChipsProps) {
     return (
       <div className="p-4 bg-paper-50 rounded-xl border border-sand-200">
         <div className="flex items-center gap-2 mb-3">
-          <div className="p-1.5 bg-amber-100 rounded-lg">
-            <Zap className="w-4 h-4 text-amber-600" aria-hidden="true" />
+          <div className="p-1.5 bg-panel rounded-lg">
+            <Zap className="w-4 h-4 text-warning" aria-hidden="true" />
           </div>
           <h4 className={`${typography.label} font-semibold text-ink-900`}>
             Top causal factors
@@ -437,8 +437,8 @@ export function DriverChips({ drivers }: DriverChipsProps) {
     >
       {/* Header */}
       <div className="flex items-center gap-2">
-        <div className="p-1.5 bg-amber-100 rounded-lg">
-          <Zap className="w-4 h-4 text-amber-600" aria-hidden="true" />
+        <div className="p-1.5 bg-panel rounded-lg">
+          <Zap className="w-4 h-4 text-warning" aria-hidden="true" />
         </div>
         <h4 className={`${typography.label} font-semibold text-ink-900`}>
           Top causal factors

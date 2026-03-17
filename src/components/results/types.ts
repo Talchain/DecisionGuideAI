@@ -8,7 +8,10 @@
  */
 
 import type { FactorEnrichment, NearTieInfo } from '../../lib/mappers/types'
+import type { ConstraintAnalysis } from '../../types/constraints'
 import type { M1CoachingReadiness } from '../../types/cee'
+import type { ReportV1, OptionProbability } from '../../adapters/plot/types'
+import type { V2FactorSensitivity, V2OptionComparison } from '../../adapters/plot/v2/types'
 
 // Re-export M1 coaching type for component use
 export type { M1CoachingReadiness }
@@ -24,6 +27,49 @@ export interface ConfidenceTierInfo {
   icon: string
   label: string
   description: string
+}
+
+// =============================================================================
+// Goal Constraint Types (Task 2 — Success Targets)
+// =============================================================================
+
+/** A single goal constraint for success target display */
+export interface GoalConstraint {
+  /** Unique identifier */
+  id: string
+  /** Display label (e.g., "MRR", "Churn rate") */
+  label: string
+  /** Comparison operator */
+  operator: '>=' | '<=' | '>' | '<' | '='
+  /** Threshold value */
+  value: number
+  /** Probability of achieving this individual constraint (0-1) */
+  probability?: number | null
+}
+
+// =============================================================================
+// Flip Threshold Types (Task 6 — Tipping Points)
+// =============================================================================
+
+/** Reason why a flip value could not be determined */
+export type FlipReason = 'no_bracket' | 'timeout' | 'isl_error'
+
+/** A single tipping-point entry from PLoT's robustness.flip_thresholds */
+export interface FlipThreshold {
+  /** Display label for the factor */
+  label: string
+  /** Canvas node ID for click-to-focus */
+  node_id: string
+  /** Current assumed value of the factor */
+  current_value: number
+  /** Value at which the recommendation changes (null if undetermined) */
+  flip_value: number | null
+  /** Why flip_value is null */
+  flip_reason?: FlipReason
+  /** Unit string for formatting (e.g., '$', '%') */
+  unit?: string
+  /** Label of the option that would become winner */
+  alternative_winner_label?: string
 }
 
 // =============================================================================
@@ -69,6 +115,8 @@ export interface OptionResult {
   deltaFromBaseline?: number | null
   /** Task 8: Rank of this option (1 = best, 2 = second best, etc.) for display */
   rank?: number
+  /** Multi-constraint analysis: per-option constraint satisfaction from ISL */
+  constraintAnalysis?: ConstraintAnalysis
 }
 
 /** Outcome unit type for formatting - from goal node observed_state.unit */
@@ -117,6 +165,8 @@ export interface RecommendationSectionData {
   baselineOutcome?: number | null
   /** Near-tie detection: when top options are too close to call */
   nearTie?: NearTieInfo
+  /** Task 6: Flip thresholds for tipping points visualisation */
+  flipThresholds?: FlipThreshold[]
 
   // ==========================================================================
   // M1 Coaching Fields (deterministic, not LLM-generated)
@@ -124,12 +174,24 @@ export interface RecommendationSectionData {
 
   /** M1 Coaching headline from executive_summary */
   coachingHeadline?: string
+  /** M1 Coaching paragraph from executive_summary (full narrative) */
+  coachingParagraph?: string
   /** M1 Coaching readiness level */
   coachingReadiness?: M1CoachingReadiness
   /** M1 Coaching readiness score (0-100) */
   coachingReadinessScore?: number
+  /** V12: Readiness signal dimensions for tooltip */
+  coachingReadinessDimensions?: { evidence: number; robustness: number; clarity: number }
   /** M1 Coaching story headlines: optionId → summary */
   storyHeadlines?: Record<string, string>
+  /** V12: Executive summary decision statement */
+  coachingDecisionStatement?: string
+  /** V12: Executive summary key qualifier */
+  coachingKeyQualifier?: string
+  /** V12: Executive summary action implication */
+  coachingActionImplication?: string
+  /** V12 C1: M2 narrative summary for "Full analysis" expandable */
+  m2NarrativeSummary?: string
 
   // ==========================================================================
   // M1 Coaching: Dominant Factor Warning
@@ -141,6 +203,11 @@ export interface RecommendationSectionData {
   dominantFactorLabel?: string
   /** Whether there are warnings/uncertainties that need attention (for Ready + warnings consistency) */
   hasWarnings?: boolean
+  /**
+   * v7: True when outcome values are normalised model scores (scale=1, no goalThresholdCap).
+   * When true, UI must label values as "Relative score" with tooltip, never as user units.
+   */
+  isNormalised?: boolean
 }
 
 // =============================================================================
@@ -200,6 +267,8 @@ export interface DriverItem {
   flipRiskCategory?: FlipRiskCategory
   /** CEE-generated enrichment (observations, perspectives, confidence question) */
   enrichment?: FactorEnrichment
+  /** V14.1: confidence is a default estimate (isl_default), not user-provided */
+  isDefaultedConfidence?: boolean
 }
 
 export interface DriversSectionData {
@@ -234,10 +303,16 @@ export type CritiqueSeverity = 'blocker' | 'critical' | 'error' | 'warning' | 'i
 export interface UncertaintyItem {
   code: string
   message: string
+  /** Humanised message from PLoT (preferred over raw `message` for user-facing UI) */
+  userMessage?: string
+  /** V14.3b: Pre-sanitised text for JSX render fallback. Computed at data layer via internal-token guard. */
+  displayText?: string
   suggestion?: string
   affectedNodes?: string[]
   /** Severity level for visual styling - defaults to 'warning' if not specified */
   severity?: CritiqueSeverity
+  /** Factor confidence (0-1) for confidence pill display. Derived from edge exists_probability. */
+  factorConfidence?: number | null
   /** For sensitivity thresholds (when small changes flip the recommendation) */
   threshold?: {
     variable: string
@@ -360,6 +435,42 @@ export interface ConfidenceSectionData {
   topNextActions?: NextActionItem[]
   /** M1 Coaching assumptions from ledger */
   assumptions?: AssumptionItem[]
+  /** Humanised critique items for attention banner (non-SENSITIVE_ASSUMPTION only) */
+  humanisedCritiques?: Array<{ title: string; description: string; displayText: string | null; suggestion?: string; factorId?: string }>
+
+  // ==========================================================================
+  // V12: M1 Coaching Top Fragile Edge + M2 Fields
+  // ==========================================================================
+
+  /** V12: M1 coaching's pick for the single most decision-relevant sensitivity (Priority 0 hinge) */
+  m1CoachingTopFragileEdge?: {
+    fromId: string
+    fromLabel: string
+    toId: string
+    toLabel: string
+    switchProbability: number
+    alternativeWinnerLabel: string | null
+  }
+  /** V12: Review status for M2 gate ('complete' enables M2 data) */
+  reviewStatus?: string
+  /** V12: M2 bias findings (structured) */
+  m2BiasFindings?: Array<{
+    type: string
+    source: string
+    description: string
+    affectedElements: string[]
+    linkedCritiqueCode: string
+  }>
+  /** V12: M2 decision quality prompts (structured) */
+  m2DecisionQualityPrompts?: Array<{
+    principle: string
+    appliesBecause: string
+    question: string
+  }>
+  /** V12: M2 evidence enhancements per factor_id */
+  m2EvidenceEnhancements?: Record<string, { specific_action: string; decision_hygiene: string }>
+  /** V12: M2 narrative summary paragraph */
+  m2NarrativeSummary?: string
 }
 
 // =============================================================================
@@ -411,6 +522,11 @@ export interface RawFactorSensitivity {
   value_of_information?: number
   /** Confidence in this factor's influence (0-1), from PLoT factor_sensitivity */
   confidence?: number
+  /** Breakdown of confidence into structural and sampling components */
+  confidence_components?: {
+    structural_certainty: number
+    sampling_stability: number | null
+  }
 }
 
 export interface UiFactorSensitivity {
@@ -441,4 +557,162 @@ export interface EdgeForDirection {
   to?: string
   effect_direction?: string
   direction?: string
+}
+
+// =============================================================================
+// V11: Results View Model Types
+// =============================================================================
+
+/** Tri-state decision classification driving hero, colours, and collapse behaviour */
+export type DecisionState = 'robust' | 'sensitive' | 'indeterminate'
+
+/** Evidence quality derived from decision state + fragile ratio */
+export type EvidenceLevel = 'good' | 'fair' | 'needs_work'
+
+/** Deterministic single-uncertainty selection for coaching copy */
+export interface HingeInfo {
+  /** The uncertainty FACTOR name (from_label), NOT the edge or option */
+  label: string
+  /** Always from_id — the input factor the user can edit */
+  nodeId: string
+  /** 'edge' if from fragile_edges, 'node' if from VOI/heuristic */
+  kind: 'edge' | 'node'
+  /** How the hinge was selected */
+  reason: 'fragile_edge' | 'voi' | 'heuristic' | 'none'
+  /** Full edge description "X → Y" — for tooltip / "More detail" only */
+  edgeDetail: string | null
+  /** Label of the option that would win if this assumption shifts */
+  alternativeWinnerLabel: string | null
+}
+
+/** VOI-driven top action recommendation */
+export interface TopAction {
+  /** Factor label for display */
+  label: string
+  /** Node ID for focus */
+  nodeId: string
+  /** True when this factor could flip the recommendation */
+  couldFlip: boolean
+}
+
+/** Extra metadata not in ResultsSectionDataReturn (passed from parent) */
+export interface BuildResultsVMMeta {
+  fragileEdgeCount?: number
+  totalEdgeCount?: number
+}
+
+/** Enriched view model layered on top of ResultsSectionDataReturn */
+export interface ResultsVM {
+  decisionState: DecisionState
+  gapTop2: number
+  hinge: HingeInfo | null
+  evidenceLevel: EvidenceLevel
+  topAction: TopAction | null
+  /** Pass-through to underlying data */
+  raw: import('./useResultsSectionData').ResultsSectionDataReturn
+}
+
+// =============================================================================
+// Trust Boundary Types
+// =============================================================================
+// These types capture the actual runtime shape of data consumed by
+// useResultsSectionData. They replace `as any` casts at the trust boundary
+// between backend responses and UI components.
+
+/**
+ * Extended report type representing the actual shape of `results.report`
+ * as produced by `mapV2ResponseToReportV1()` in the response mapper.
+ *
+ * The mapper returns a `ReportV1` plus additional V2 pass-through fields
+ * that are not declared on the base interface. This type makes those
+ * fields explicitly typed so consumers don't need `as any`.
+ */
+export interface ResultsReport extends Omit<ReportV1, 'option_probabilities'> {
+  /** Widened option_probabilities with V2 pass-through fields */
+  option_probabilities?: Record<string, ResultsOptionProbability>
+  // V2 pass-through fields from responseMapper
+  factor_sensitivity?: V2FactorSensitivity[]
+  robustness?: {
+    fragile_edges: Array<Record<string, unknown>>
+    robust_edges: Array<Record<string, unknown>>
+    ranking_stability?: number
+    recommendation_stability?: number
+    is_robust?: boolean
+    level?: string
+    recommended_option_id?: string
+    near_tie?: Record<string, unknown>
+    nearTie?: Record<string, unknown>
+    flip_thresholds?: Array<Record<string, unknown>>
+    _truncation?: {
+      fragile_truncated: boolean
+      fragile_total: number
+      robust_truncated: boolean
+      robust_total: number
+    }
+  }
+  robustness_status?: 'computed' | 'unavailable' | 'skipped' | 'error'
+  option_comparison?: V2OptionComparison[]
+
+  // Fields accessed by useResultsSectionData that may appear on report
+  flip_thresholds?: Array<Record<string, unknown>>
+  recommendation?: { option_id?: string; selected_option?: string }
+  selected_option_id?: string
+  evidence_quality?: Record<string, unknown>
+  bias_findings?: Array<Record<string, unknown>>
+  quality_factors?: Array<Record<string, unknown>>
+  improvement_guidance?: Array<Record<string, unknown>>
+  analysis_state?: string
+  drivers_error?: string
+  sensitivity?: { factors?: Array<Record<string, unknown>>; error?: string }
+  isl_error?: string
+  downstream_calls?: unknown
+  factors?: Array<Record<string, unknown>>
+  factor_enrichments?: Array<Record<string, unknown>>
+}
+
+/**
+ * Extended option probability with all fields the mapper may add.
+ * Widens the base OptionProbability from plot/types.
+ */
+export interface ResultsOptionProbability extends OptionProbability {
+  expected_outcome?: number
+  expected?: number
+  outcome?: {
+    mean?: number | null
+    p10?: number | null
+    p50?: number | null
+    p90?: number | null
+  }
+  bands?: { p10?: number | null; p50?: number | null; p90?: number | null }
+  constraint_analysis?: ConstraintAnalysis
+}
+
+/**
+ * Canvas node data shape as accessed by results hooks.
+ * Captures the subset of node.data fields needed for results computation.
+ */
+export interface ResultsCanvasNodeData {
+  kind?: string
+  label?: string
+  is_baseline?: boolean
+  observedState?: { value?: number; unit?: string; [key: string]: unknown }
+  observed_state?: { value?: number; unit?: string; [key: string]: unknown }
+  goal_threshold_unit?: string
+  goal_threshold_raw?: number
+  goal_threshold?: number
+  success_threshold?: number
+  threshold?: number
+  threshold_cap?: number
+  scale_max?: number
+  [key: string]: unknown
+}
+
+/**
+ * Canvas edge data shape as accessed by results hooks.
+ */
+export interface ResultsCanvasEdgeData {
+  effect_direction?: string
+  direction?: string
+  beliefExists?: number
+  [key: string]: unknown
 }

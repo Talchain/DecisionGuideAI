@@ -1,10 +1,17 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
-import { Save, Share2, MoreVertical, Check, BookOpen, Keyboard, HelpCircle, Activity, Users, Shield, ShieldAlert, Clock, Settings, ChevronRight } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { Save, Share2, MoreVertical, Check, BookOpen, Keyboard, HelpCircle, Users, Shield, ShieldAlert, Clock, Settings, ChevronRight, AlertTriangle, User } from 'lucide-react'
 import Tooltip from '../Tooltip'
 import { Spinner } from '../Spinner'
 import styles from './TopBar.module.css'
 import { useAnalysisMetadata } from '../../canvas/hooks/useAnalysisMetadata'
+import { isGraphLensEnabled } from '../../flags'
+import { useCanvasStore } from '../../canvas/store'
+import { LensDropdown } from '../../canvas/components/LensDropdown'
+import { LENS_TOGGLE_EVENT } from '../../canvas/hooks/useCanvasKeyboardShortcuts'
+import { useStagePill } from '../../canvas/hooks/useStagePill'
 import { useSettingsStore } from '../../canvas/settingsStore'
+import { UserAvatarMenu } from './UserAvatarMenu'
 
 // Custom events for help actions (communicated to ReactFlowGraph)
 export const HELP_EVENTS = {
@@ -20,6 +27,10 @@ interface TopBarProps {
   onShare?: () => void
   isDirty?: boolean
   lastSaved?: Date | null
+  // C.1a: Supabase persistence status
+  saveStatus?: 'saved' | 'saving' | 'error'
+  saveError?: string | null
+  isPersisted?: boolean
 }
 
 export const TopBar = ({
@@ -29,6 +40,9 @@ export const TopBar = ({
   onShare,
   isDirty = false,
   lastSaved = null,
+  saveStatus,
+  saveError,
+  isPersisted = false,
 }: TopBarProps) => {
   const [isEditing, setIsEditing] = useState(false)
   const [editValue, setEditValue] = useState(scenarioTitle)
@@ -36,7 +50,37 @@ export const TopBar = ({
   const [showSavedConfirmation, setShowSavedConfirmation] = useState(false)
   const [showMenu, setShowMenu] = useState(false)
   const [settingsExpanded, setSettingsExpanded] = useState(false)
+  const [showSavedPill, setShowSavedPill] = useState(false)
+  const [lensOpen, setLensOpen] = useState(false)
+
+  // Listen for L key toggle event from useCanvasKeyboardShortcuts
+  useEffect(() => {
+    const handler = () => setLensOpen(v => !v)
+    window.addEventListener(LENS_TOGGLE_EVENT, handler)
+    return () => window.removeEventListener(LENS_TOGGLE_EVENT, handler)
+  }, [])
+
+  // Close lens dropdown when comparison mode hides the chip
+  const comparisonActive = useCanvasStore(s => s.comparisonMode.active)
+  useEffect(() => {
+    if (comparisonActive) setLensOpen(false)
+  }, [comparisonActive])
+
   const menuRef = useRef<HTMLDivElement | null>(null)
+
+  // C.1a: Auto-fade "Saved" pill after 2s
+  const prevSaveStatusRef = useRef(saveStatus)
+  useEffect(() => {
+    if (saveStatus === 'saved' && prevSaveStatusRef.current === 'saving') {
+      setShowSavedPill(true)
+      const timer = setTimeout(() => setShowSavedPill(false), 2000)
+      return () => clearTimeout(timer)
+    }
+    if (saveStatus === 'saving') {
+      setShowSavedPill(false)
+    }
+    prevSaveStatusRef.current = saveStatus
+  }, [saveStatus])
 
   // Floating pill TopBar - set topbar-h to pill bottom (12px top + 45px height = 57px)
   // This ensures LeftSidebar and other elements position correctly below the pill
@@ -141,6 +185,8 @@ export const TopBar = ({
 
   // Decision Graph Display v2 Task 13: Analysis metadata
   const analysisMetadata = useAnalysisMetadata()
+  // A.15: Stage lifecycle pill
+  const stagePill = useStagePill()
 
   // Canvas settings from store
   const {
@@ -209,21 +255,56 @@ export const TopBar = ({
           </button>
         )}
 
-        {/* Dirty indicator */}
-        {isDirty && !isSaving && (
+        {/* Dirty indicator (localStorage mode only) */}
+        {!isPersisted && isDirty && !isSaving && (
           <span className={styles.dirtyIndicator} aria-label="Unsaved changes" />
+        )}
+
+        {/* C.1a: Supabase persistence save status */}
+        {isPersisted && saveStatus === 'saving' && (
+          <div
+            className="flex items-center gap-1 px-2 py-0.5 text-[11px] text-gray-500 bg-gray-100 rounded-full"
+            role="status"
+            aria-live="polite"
+          >
+            <Clock className="w-3 h-3 animate-pulse" />
+            <span>Saving…</span>
+          </div>
+        )}
+        {isPersisted && showSavedPill && (
+          <div
+            className="flex items-center gap-1 px-2 py-0.5 text-[11px] text-text-body bg-panel rounded-full transition-opacity duration-300"
+            role="status"
+            aria-live="polite"
+          >
+            <Check className="w-3 h-3" />
+            <span>Saved</span>
+          </div>
+        )}
+        {isPersisted && saveStatus === 'error' && (
+          <div
+            className="flex items-center gap-1 px-2 py-0.5 text-[11px] text-warning bg-panel rounded-full"
+            role="status"
+            aria-live="polite"
+            title={saveError ?? 'Save failed'}
+          >
+            <AlertTriangle className="w-3 h-3" />
+            <span>Save failed — retrying</span>
+          </div>
         )}
       </div>
 
       {/* Decision Graph Display v2 Task 13: Analysis metadata chips */}
       <div className={styles.topBarCenter}>
-        {/* Run Status */}
-        <Tooltip content={analysisMetadata.runStatus === 'complete' ? 'Analysis complete' : analysisMetadata.runStatus === 'running' ? 'Analysis in progress' : analysisMetadata.runStatus === 'error' ? 'Analysis failed' : 'Draft (not analyzed)'}>
-          <div className={styles.metadataChip} data-status={analysisMetadata.runStatus}>
-            <Activity size={12} aria-hidden="true" />
-            <span className={styles.metadataLabel}>
-              {analysisMetadata.runStatus === 'complete' ? 'Complete' : analysisMetadata.runStatus === 'running' ? 'Running...' : analysisMetadata.runStatus === 'error' ? 'Error' : 'Draft'}
-            </span>
+        {/* A.15: Stage lifecycle pill */}
+        <Tooltip content={`Decision stage: ${stagePill.label}`}>
+          <div
+            className={styles.stagePill}
+            style={{ borderColor: stagePill.borderColor }}
+            data-stage={stagePill.stage}
+            data-stage-source={stagePill.source}
+          >
+            <span className={styles.metadataLabel}>{stagePill.label}</span>
           </div>
         </Tooltip>
 
@@ -265,6 +346,15 @@ export const TopBar = ({
               </span>
             </div>
           </Tooltip>
+        )}
+
+        {/* Graph Lens dropdown (post-analysis only) */}
+        {isGraphLensEnabled() && (
+          <LensDropdown
+            isOpen={lensOpen}
+            onClose={() => setLensOpen(false)}
+            onToggle={() => setLensOpen(v => !v)}
+          />
         )}
       </div>
 
@@ -332,7 +422,7 @@ export const TopBar = ({
                 type="button"
                 role="menuitem"
                 className={styles.dropdownMenuButton}
-                onClick={() => console.log('Export')}
+                onClick={() => console.warn('Export')}
               >
                 Export
               </button>
@@ -340,7 +430,7 @@ export const TopBar = ({
                 type="button"
                 role="menuitem"
                 className={styles.dropdownMenuButton}
-                onClick={() => console.log('Version history')}
+                onClick={() => console.warn('Version history')}
               >
                 Version history
               </button>
@@ -478,6 +568,9 @@ export const TopBar = ({
             </div>
           )}
         </div>
+
+        {/* User avatar + account dropdown */}
+        <UserAvatarMenu />
       </div>
     </div>
   )

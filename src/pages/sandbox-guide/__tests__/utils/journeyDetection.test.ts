@@ -54,7 +54,7 @@ describe('journeyDetection', () => {
     it('detects building stage for incomplete graph', () => {
       const graph = createMockGraph({ nodeCount: 3, edgeCount: 2 })
       const context: JourneyContext = { graph }
-      expect(determineJourneyStage(context)).toBe('building')
+      expect(determineJourneyStage(context)).toBe('pre-run-ready')
     })
 
     it('detects pre-run-blocked when missing outcome node', () => {

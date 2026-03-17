@@ -1,0 +1,9 @@
+
+ RUN  v1.6.1 /Users/paulslee/Documents/GitHub/DecisionGuideAI
+
+
+ Test Files  no tests
+      Tests  no tests
+   Start at  05:35:35
+   Duration  159ms (transform 0ms, setup 0ms, collect 0ms, tests 0ms, environment 0ms, prepare 0ms)
+

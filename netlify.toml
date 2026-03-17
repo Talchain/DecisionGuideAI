@@ -31,6 +31,8 @@
   # When "0": UI calls ISL directly (legacy behavior)
   # Enable via Netlify dashboard for staged rollout, monitor error rates via PostHog/Sentry
   VITE_USE_PLOT_ENRICHMENT = "1"
+  # Orchestrator V2 — AI conversation pipeline
+  VITE_ENABLE_ORCHESTRATOR_V2 = "true"
 
 # =============================================================================
 # Security Headers (P0 - Enterprise Compliance)
@@ -44,7 +46,10 @@
   #   The edge function injects cryptographic nonces into inline scripts and updates CSP header
   # style-src 'unsafe-inline': Required for Tailwind CSS and React CSS-in-JS (cannot be nonce-protected)
   #   Tailwind and component libraries inject runtime styles that cannot use nonces
-  Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https://*.onrender.com https://*.supabase.co https://api.openai.com wss://*.supabase.co; frame-ancestors 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests"
+  # connect-src: Pinned to specific Render subdomains (tightened from *.onrender.com).
+  # In production, all service calls route through /bff/* (same-origin) via Netlify redirects/edge functions.
+  # These explicit entries cover local dev overrides (VITE_CEE_DRAFT_BASE, VITE_ISL_BFF_BASE).
+  Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https://plot-lite-service-staging.onrender.com https://olumi-assistants-service.onrender.com https://cee-staging.onrender.com https://isl-staging.onrender.com https://*.supabase.co https://api.openai.com wss://*.supabase.co; frame-ancestors 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests"
   # Prevent clickjacking
   X-Frame-Options = "DENY"
   # Prevent MIME sniffing
@@ -110,3 +115,9 @@
 [[edge_functions]]
   function = "isl-proxy"
   path = "/bff/isl/*"
+
+# Orchestrator proxy - handles CORS for CEE orchestrator endpoint
+# CEE backend lacks CORS middleware on /orchestrate/* routes
+[[edge_functions]]
+  function = "orchestrator-proxy"
+  path = "/bff/orchestrate/*"

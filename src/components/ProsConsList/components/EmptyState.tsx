@@ -15,7 +15,7 @@ export default function EmptyState({ onAddOption }: EmptyStateProps) {
       <Tooltip content="Start by adding your first option">
         <button
           onClick={onAddOption}
-          className="inline-flex items-center gap-2 px-4 py-2 text-sm text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition-colors"
+          className="inline-flex items-center gap-2 px-4 py-2 text-sm text-text-on-color bg-primary rounded-lg hover:bg-primary-hover transition-colors"
         >
           <Plus className="h-4 w-4" />
           Add Your First Option

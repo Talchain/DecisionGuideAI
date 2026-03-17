@@ -6,12 +6,23 @@
  */
 
 import { useState, useMemo, CSSProperties } from 'react'
-import { KpiCard, ServiceChain, type ChainNode, type KpiStatus, type PipelineStepData } from '../components'
+import { KpiCard, ServiceChain, type ChainNode, type ChainNodeStatus, type KpiStatus, type PipelineStepData } from '../components'
 import type { DebugData, ValidationIssue } from '../hooks/useDebugData'
 import { formatDuration } from '../utils'
 import { getErrorInfo } from '../constants/errorCodes'
 
 type SeverityFilter = 'all' | 'error' | 'warning' | 'info'
+
+// Timeout budget constants (ms). Must match backend configuration:
+// CEE: ENDPOINT_TIMEOUTS['/draft-graph'] = 120000 (src/adapters/cee/client.ts:386)
+// PLoT: config.timeouts.syncRequest = 30000 (src/lib/config.ts:119)
+// ISL: default timeout = 30000 (src/adapters/isl/client.ts:45)
+// See: Platform Contract §4.9 Timeout Hierarchy
+const SERVICE_BUDGETS = {
+  CEE: 120_000,
+  PLoT: 30_000,
+  ISL: 30_000,
+}
 
 // Severity icon and color mapping
 const SEVERITY_CONFIG = {
@@ -142,6 +153,44 @@ function countIssues(gates: DebugData['gates']): number {
   return gates.filter((g) => g.status === 'fail').length
 }
 
+function getPipelinePathPill(path: string | undefined): {
+  label: string
+  style: CSSProperties
+} {
+  const normalized = path?.toLowerCase()
+
+  if (normalized === 'unified') {
+    return {
+      label: 'Unified pipeline',
+      style: {
+        background: '#ecfeff',
+        border: '1px solid #67e8f9',
+        color: '#0f766e',
+      },
+    }
+  }
+
+  if (normalized === 'a' || normalized === 'b') {
+    return {
+      label: `Legacy (${normalized.toUpperCase()})`,
+      style: {
+        background: '#f1f5f9',
+        border: '1px solid #cbd5e1',
+        color: '#334155',
+      },
+    }
+  }
+
+  return {
+    label: 'Unknown pipeline',
+    style: {
+      background: '#f8fafc',
+      border: '1px solid #e2e8f0',
+      color: '#64748b',
+    },
+  }
+}
+
 /**
  * Transform CEE observability data into pipeline steps for Service Chain display.
  * Uses timestamps for proper chronological ordering when available.
@@ -200,8 +249,6 @@ function buildCEEPipelineSteps(data: DebugData): PipelineStepData[] {
 
   // Strip timestamp from output (not part of PipelineStepData interface)
   return allSteps.map(({ timestamp, ...step }) => step)
-
-  return steps
 }
 
 export function SummaryTab({
@@ -265,10 +312,32 @@ export function SummaryTab({
         statusCode: previousFailed ? null : islData?.status,
         onClick: onNavigateToDataFlow,
       })
+      if (islData && !islData.success) previousFailed = true
+    }
+
+    // M2 Review (LLM-Enhanced Decision Review)
+    // Show M2 node when: extraction succeeded OR payload was captured (fallback for extraction failures)
+    const hasM2Payload = data.payloads.m2_request !== undefined || data.payloads.m2_response !== undefined
+    if (data.m2_review || hasM2Payload) {
+      const m2Status: ChainNodeStatus =
+        previousFailed ? 'skipped' :
+        !data.m2_review ? 'unavailable' : // Payload exists but extraction failed
+        data.m2_review.status === 'success' ? 'success' :
+        data.m2_review.status === 'failed' ? 'error' :
+        data.m2_review.status === 'skipped' ? 'skipped' :
+        data.m2_review.status === 'pending' ? 'pending' : 'unavailable'
+
+      nodes.push({
+        name: 'M2 Review',
+        duration_ms: previousFailed ? null : data.m2_review?.duration_ms ?? null,
+        status: m2Status,
+        statusCode: null,
+        onClick: onNavigateToPipeline,
+      })
     }
 
     return nodes
-  }, [data.services, data.cee_observability, ceePipelineSteps, onNavigateToDataFlow])
+  }, [data.services, data.cee_observability, data.m2_review, data.payloads, ceePipelineSteps, onNavigateToDataFlow, onNavigateToPipeline])
 
   // Validation filter state
   const [severityFilter, setSeverityFilter] = useState<SeverityFilter>('all')
@@ -303,7 +372,6 @@ export function SummaryTab({
   const sectionTitleStyle: CSSProperties = {
     fontSize: 11,
     fontWeight: 700,
-    textTransform: 'uppercase',
     letterSpacing: '0.05em',
     color: '#64748b',
     marginBottom: 12,
@@ -314,6 +382,51 @@ export function SummaryTab({
   const temperatureDisplay = temperature != null && !Number.isNaN(temperature)
     ? temperature
     : 'N/A'
+
+  const pipelinePathPill = getPipelinePathPill(data.pipeline.cee_provenance?.pipeline_path)
+
+  // Timeout budget computation
+  const budgetEntries = useMemo(() => {
+    const services = [
+      { name: 'CEE', duration: data.services.cee?.duration_ms, budget: SERVICE_BUDGETS.CEE },
+      { name: 'PLoT', duration: data.services.plot?.duration_ms, budget: SERVICE_BUDGETS.PLoT },
+      { name: 'ISL', duration: data.services.isl?.duration_ms, budget: SERVICE_BUDGETS.ISL },
+    ]
+    return services
+      .filter(s => s.duration != null)
+      .map(s => {
+        const pct = (s.duration! / s.budget) * 100
+        const color = pct > 95 ? '#dc2626' : pct >= 80 ? '#d97706' : '#16a34a'
+        return { name: s.name, pct, pctLabel: `${Math.round(pct)}%`, color }
+      })
+  }, [data.services])
+
+  // Constraint status badge
+  const constraintStatusBadge = useMemo(() => {
+    const plotResponse = data.payloads.plot_response as Record<string, unknown> | undefined
+    if (!plotResponse) return null
+    const cs = plotResponse.constraints_status as string | undefined
+    if (!cs) return null
+    const kpiStatus: KpiStatus = cs === 'computed' ? 'ok' : cs === 'error' ? 'error' : 'neutral'
+    const label = cs.charAt(0).toUpperCase() + cs.slice(1)
+    return { label, kpiStatus }
+  }, [data.payloads.plot_response])
+
+  // Review status badge
+  const reviewStatusBadge = useMemo(() => {
+    if (!data.m2_review) return null
+    const statusMap: Record<string, { label: string; kpiStatus: KpiStatus }> = {
+      success: { label: 'Complete', kpiStatus: 'ok' },
+      failed: { label: 'Failed', kpiStatus: 'error' },
+      skipped: { label: 'Skipped', kpiStatus: 'neutral' },
+      pending: { label: 'Pending', kpiStatus: 'info' as KpiStatus },
+    }
+    const mapped = statusMap[data.m2_review.status] ?? { label: data.m2_review.status, kpiStatus: 'neutral' as KpiStatus }
+    return {
+      ...mapped,
+      tooltip: data.m2_review.error ?? data.m2_review.skip_reason ?? undefined,
+    }
+  }, [data.m2_review])
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16, padding: 12 }}>
@@ -361,7 +474,7 @@ export function SummaryTab({
 
       {/* Row 1: KPI Cards */}
       <div style={sectionStyle}>
-        <div style={sectionTitleStyle}>Health Overview</div>
+        <div style={sectionTitleStyle}>Health overview</div>
         <div
           style={{
             display: 'grid',
@@ -417,6 +530,23 @@ export function SummaryTab({
             tooltip={issueCount > 0 ? 'Click to investigate' : 'All gates passing'}
             compact
           />
+          {constraintStatusBadge && (
+            <KpiCard
+              label="Constraints"
+              value={constraintStatusBadge.label}
+              status={constraintStatusBadge.kpiStatus}
+              compact
+            />
+          )}
+          {reviewStatusBadge && (
+            <KpiCard
+              label="Review"
+              value={reviewStatusBadge.label}
+              status={reviewStatusBadge.kpiStatus}
+              tooltip={reviewStatusBadge.tooltip}
+              compact
+            />
+          )}
         </div>
       </div>
 
@@ -442,9 +572,54 @@ export function SummaryTab({
 
       {/* Row 3: Service Chain */}
       <div style={sectionStyle}>
-        <div style={sectionTitleStyle}>Service Chain</div>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+          <div style={{ ...sectionTitleStyle, marginBottom: 0 }}>Service chain</div>
+          <span
+            data-testid="summary-pipeline-path-pill"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              padding: '2px 8px',
+              borderRadius: 999,
+              fontSize: 10,
+              fontWeight: 600,
+              ...pipelinePathPill.style,
+            }}
+          >
+            {pipelinePathPill.label}
+          </span>
+        </div>
         <ServiceChain nodes={chainNodes} />
       </div>
+
+      {/* Timeout budget indicator */}
+      {budgetEntries.length > 0 && (
+        <div style={sectionStyle} data-testid="timeout-budget-section">
+          <div style={sectionTitleStyle}>Timeout budget</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {budgetEntries.map(entry => (
+              <div key={entry.name} style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: 12 }}>
+                <div style={{ width: 40, fontWeight: 600, color: '#334155', flexShrink: 0 }}>{entry.name}</div>
+                <div style={{ flex: 1, height: 8, background: '#f1f5f9', borderRadius: 4, overflow: 'hidden' }}>
+                  <div
+                    data-testid={`budget-bar-${entry.name.toLowerCase()}`}
+                    style={{
+                      width: `${Math.min(entry.pct, 100)}%`,
+                      height: '100%',
+                      borderRadius: 4,
+                      background: entry.color,
+                      transition: 'width 0.3s ease',
+                    }}
+                  />
+                </div>
+                <div style={{ width: 50, textAlign: 'right', fontFamily: 'monospace', fontSize: 11, color: entry.color, fontWeight: 600, flexShrink: 0 }}>
+                  {entry.pctLabel}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Row 3: Graph Validation */}
       {data.hasData && (
@@ -467,7 +642,7 @@ export function SummaryTab({
                 {validationExpanded ? '▼' : '▶'}
               </button>
               <span style={sectionTitleStyle as CSSProperties & { marginBottom: 0 }}>
-                Graph Validation
+                Graph validation
               </span>
               {/* Severity counts badge */}
               <div style={{ display: 'flex', gap: 8, marginLeft: 8 }}>
@@ -644,7 +819,7 @@ export function SummaryTab({
 
       {/* Row 4: Quick Stats - Dense Row */}
       <div style={sectionStyle}>
-        <div style={sectionTitleStyle}>Quick Stats</div>
+        <div style={sectionTitleStyle}>Quick stats</div>
         <div
           style={{
             display: 'flex',

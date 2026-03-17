@@ -31,7 +31,11 @@ export class PlotStreamClient {
     const url = `${API_BASE}/v1/stream?enhanced=1&token=${this.token}`
     
     this.eventSource = new EventSource(url)
-    
+
+    this.eventSource.onopen = () => {
+      this.reconnectAttempts = 0
+    }
+
     this.eventSource.onmessage = (e) => {
       if (e.data === ':keepalive') {
         console.debug('[plotStream] Keepalive received')

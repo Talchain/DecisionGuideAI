@@ -1,0 +1,45 @@
+{
+  "analysis_status": "computed",
+  "option_comparison": [
+    {
+      "option_id": "opt_a",
+      "option_label": "Option A",
+      "outcome": {
+        "mean": 0.05,
+        "std": 0.15,
+        "p10": -0.12,
+        "p50": 0.04,
+        "p90": 0.23
+      },
+      "win_probability": 0.55,
+      "probability_of_goal": null
+    },
+    {
+      "option_id": "opt_b",
+      "option_label": "Option B",
+      "outcome": {
+        "mean": -0.02,
+        "std": 0.08,
+        "p10": -0.14,
+        "p50": -0.02,
+        "p90": 0.10
+      },
+      "win_probability": 0.45,
+      "probability_of_goal": null
+    }
+  ],
+  "robustness": {
+    "recommendation_stability": 0.50,
+    "level": "moderate",
+    "is_robust": true,
+    "recommended_option_id": "opt_a",
+    "recommended_option_label": "Option A",
+    "fragile_edges": []
+  },
+  "factor_sensitivity": [],
+  "meta": {
+    "seed_used": "90378",
+    "n_samples": 1000,
+    "goal_threshold_used": null
+  }
+}

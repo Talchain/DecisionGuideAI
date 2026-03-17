@@ -160,13 +160,13 @@ export default function DecisionDetails() {
             disabled={loading}
             aria-describedby={error ? 'decision-error' : undefined}
             className={`w-full px-4 py-3 rounded-lg border ${
-              error ? 'border-red-300' : 'border-gray-300'
-            } focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500`}
+              error ? 'border-danger/30' : 'border-gray-300'
+            } focus:ring-2 focus:ring-info focus:border-info/30`}
           />
           {error && (
             <p
               id="decision-error"
-              className="mt-2 text-sm text-red-600"
+              className="mt-2 text-sm text-danger"
               role="alert"
             >
               • {error}
@@ -177,7 +177,7 @@ export default function DecisionDetails() {
         <button
           type="submit"
           disabled={!localDecision.trim() || loading}
-          className="w-full flex items-center justify-center px-6 py-3 text-base font-medium rounded-lg text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 transition-colors"
+          className="w-full flex items-center justify-center px-6 py-3 text-base font-medium rounded-lg text-text-on-color bg-primary hover:bg-primary-hover disabled:opacity-50 transition-colors"
         >
           {loading ? (
             <span className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />

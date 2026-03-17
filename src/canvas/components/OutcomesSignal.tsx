@@ -5,7 +5,7 @@
  * - Objective description at top
  * - Success likelihood as primary value with label
  * - Comparison to baseline with direction/magnitude
- * - 70% confidence range (p15-p85)
+ * - 80% confidence range (p10-p90)
  *
  * Features:
  * - Collapsed: objective + main value + comparison
@@ -100,7 +100,7 @@ export function OutcomesSignal({
     const spread = (raw.p90 ?? 0) - (raw.p10 ?? 0)
     const isNarrowRange = spread < 0.05 || (raw.p90 ?? 0) > 0.95
     if (import.meta.env.DEV && isNarrowRange) {
-      console.log('[OutcomeRange] Narrow range detected:', {
+      console.warn('[OutcomeRange] Narrow range detected:', {
         p10: raw.p10,
         p50: raw.p50,
         p90: raw.p90,
@@ -125,18 +125,13 @@ export function OutcomesSignal({
     const p10 = raw.p10
     const p50 = raw.p50
 
-    // Brief 26 Task 2: Ensure 70% range is consistent with percentiles
-    // p15 must be >= p10, p85 must be <= p90
-    // Use linear interpolation but clamp to valid bounds
-    const p15 = Math.max(p10, p10 + (p50 - p10) * 0.5)
-    const p85 = Math.min(p90, p50 + (p90 - p50) * 0.5)
+    // Audit F-55: Removed p15/p85 interpolation (F.6 violation).
+    // ISL only provides p10/p50/p90. UI must not fabricate intermediate percentiles.
 
     return {
       p10,
       p50,
       p90,
-      p15,
-      p85,
       units,
       unitSymbol: report.results.unitSymbol,
       confidence: report.confidence,
@@ -290,14 +285,14 @@ export function OutcomesSignal({
       {/* Expanded content */}
       {isExpanded && (
         <div className="border-t border-sand-200 px-4 py-4 space-y-4">
-          {/* 70% Confidence Range - main takeaway */}
+          {/* 80% Confidence Range (p10–p90) — real percentiles from ISL */}
           <div className="p-3 bg-sky-50 rounded-lg">
             <div className="flex items-center justify-between mb-1">
               <span className={`${typography.bodySmall} font-medium text-sky-800`}>
-                70% Confidence Range
+                80% Confidence Range
               </span>
               <span className={`${typography.body} font-semibold text-sky-700`}>
-                {formatOutcomeValueCompact(outcomes.p15, outcomes.units, outcomes.unitSymbol)} – {formatOutcomeValueCompact(outcomes.p85, outcomes.units, outcomes.unitSymbol)}
+                {formatOutcomeValueCompact(outcomes.p10, outcomes.units, outcomes.unitSymbol)} – {formatOutcomeValueCompact(outcomes.p90, outcomes.units, outcomes.unitSymbol)}
               </span>
             </div>
             <p className={`${typography.caption} text-sky-600`}>
@@ -326,7 +321,7 @@ export function OutcomesSignal({
             </div>
           </div>
 
-          {/* Brief 26 Task 7: Improved range visualization with connected success value */}
+          {/* Brief 26 Task 7: Improved range visualisation with connected success value */}
           <div className="space-y-2">
             {/* Range labels */}
             <div className="flex justify-between text-xs text-ink-400">
@@ -336,16 +331,8 @@ export function OutcomesSignal({
               </span>
               <span>{formatOutcomeValueCompact(outcomes.p90, outcomes.units, outcomes.unitSymbol)}</span>
             </div>
-            {/* Range bar */}
-            <div className="relative h-3 bg-sand-200 rounded-full overflow-hidden">
-              {/* 70% confidence range highlight */}
-              <div
-                className="absolute inset-y-0 bg-sky-200 rounded-full"
-                style={{
-                  left: `${((outcomes.p15 - outcomes.p10) / (outcomes.p90 - outcomes.p10)) * 100}%`,
-                  right: `${((outcomes.p90 - outcomes.p85) / (outcomes.p90 - outcomes.p10)) * 100}%`,
-                }}
-              />
+            {/* Range bar — full p10-p90 range */}
+            <div className="relative h-3 bg-sky-200 rounded-full overflow-hidden">
               {/* Expected value marker */}
               <div
                 className="absolute top-1/2 -translate-y-1/2 w-4 h-4 bg-sky-600 rounded-full border-2 border-white shadow-md"

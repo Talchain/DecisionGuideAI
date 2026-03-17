@@ -12,7 +12,7 @@
 import { memo, useState, useCallback, type ReactNode } from 'react'
 import { Handle, Position, type NodeProps, useUpdateNodeInternals } from '@xyflow/react'
 import type { NodeType, Controllability } from '../domain/nodes'
-import { ChevronDown, ChevronUp, type LucideIcon } from 'lucide-react'
+import { ChevronDown, ChevronUp, Flag as FlagIcon, type LucideIcon } from 'lucide-react'
 import { sanitizeMarkdown } from '../../lib/renderSafeRichText'
 import { UnknownKindWarning } from '../components/UnknownKindWarning'
 import { NodeBadge } from '../components/NodeBadge'
@@ -23,11 +23,19 @@ import { nodeColors } from './colors'
 import { typography } from '../../styles/typography'
 import { getControllabilityBorderStyle } from '../utils/graphDisplayCalculations'
 import { useNodeDisplayMetadata } from '../hooks/useNodeDisplayMetadata'
+import { isGoalDefined } from '../../utils/isGoalDefined'
+import { isGraphLensEnabled } from '../../flags'
+import { NodeShapeIndicator } from './NodeShapeIndicator'
+import { NODE_REGISTRY } from '../domain/nodes'
 
 interface BaseNodeProps extends NodeProps {
   nodeType: NodeType
   icon: LucideIcon
   children?: ReactNode
+  maxWidth?: number
+  headerSlot?: ReactNode
+  /** Override border colour + style classes (e.g. 'border-info border-dashed'). Replaces entity colour. */
+  borderClassOverride?: string
 }
 
 /**
@@ -35,9 +43,9 @@ interface BaseNodeProps extends NodeProps {
  * Includes connection handles and accessibility attributes
  * Click chevron icon to expand/collapse description
  */
-export const BaseNode = memo(({ id, nodeType, icon: Icon, data, selected, children }: BaseNodeProps) => {
-  const label = data?.label || 'Untitled'
-  const description = data?.description
+export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, children, maxWidth, headerSlot, borderClassOverride }: BaseNodeProps) => {
+  const label = typeof data?.label === 'string' && data.label ? data.label : 'Untitled'
+  const description = typeof data?.description === 'string' ? data.description : undefined
 
   // Phase 3: Get node colours from new system
   const colors = nodeColors[nodeType as keyof typeof nodeColors] || nodeColors.factor
@@ -59,6 +67,12 @@ export const BaseNode = memo(({ id, nodeType, icon: Icon, data, selected, childr
   // Graph Interaction P1: Node dimming for path highlighting
   // Nodes not on the highlighted path are dimmed (opacity ~0.4)
   const isDimmed = useCanvasStore(s => s.dimmedNodeIds.has(id))
+
+  // Graph Lens: lens-mode dimming (20% opacity for inactive nodes in option mode)
+  // Uses primitive boolean selector (React #185 pattern) to avoid re-render loops
+  const isLensDimmed = useCanvasStore(s =>
+    isGraphLensEnabled() && s.lens._dimmedNodeIds.has(id)
+  )
 
   // Decision Graph Display v2: Get Results-mode display metadata
   const displayMetadata = useNodeDisplayMetadata(id, nodeType)
@@ -98,7 +112,29 @@ export const BaseNode = memo(({ id, nodeType, icon: Icon, data, selected, childr
   }
 
   // Phase 2: Uncertain node styling
-  const isUncertain = (data?.uncertainty ?? 0) > 0.4
+  const isUncertain = Number(data?.uncertainty ?? 0) > 0.4
+
+  // B.I.10: Pre-run overlay — show dashed goal border for incomplete nodes
+  const resultsStatus = useCanvasStore(s => s.results?.status)
+  const goalThreshold = useCanvasStore(s => s.goalThreshold)
+  const goalConstraints = useCanvasStore(s => s.goalConstraints)
+  const edges = useCanvasStore(s => s.edges)
+  const isPreRunMode = resultsStatus !== 'complete'
+  const isIncomplete = (() => {
+    if (!isPreRunMode) return false
+    if (nodeType === 'factor') {
+      const obs = data?.observedState as { value?: number } | undefined
+      return obs?.value === undefined
+    }
+    if (nodeType === 'goal') {
+      return !isGoalDefined(goalThreshold, goalConstraints)
+    }
+    if (nodeType === 'decision') {
+      const hasOptions = edges.some(e => e.source === id)
+      return !hasOptions
+    }
+    return false
+  })()
 
   // Decision Graph Display v2 Task 6 + P1 Hotfix: Controllability-based border style for factors
   // P1 Hotfix: Don't default factors to dashed — only show dashed when explicitly 'partial'
@@ -132,25 +168,33 @@ export const BaseNode = memo(({ id, nodeType, icon: Icon, data, selected, childr
     }, 100)
   }, [id, description, updateNodeInternals])
 
+  // P6: Factor border width — 1px baseline (no category), 2px when category is explicit
+  // All other node types always use border-2 (their category is inherent to their type)
+  const borderWidth = (() => {
+    if (nodeType === 'factor' && !controllability) return 'border'
+    return 'border-2'
+  })()
+
   return (
     <div
       role="group"
       aria-label={accessibleName}
       aria-expanded={description ? isExpanded : undefined}
+      {...(isIncomplete ? { 'data-testid': nodeType === 'goal' ? 'overlay-missing-threshold-node' : 'overlay-missing-value' } : {})}
       className={`
-        relative rounded-lg border-2 shadow-sm
-        ${colors.border} ${borderStyle}
+        relative rounded-lg ${borderWidth} shadow-1
+        ${isIncomplete ? (nodeType === 'goal' ? 'border-goal border-dashed' : `${colors.border} border-dashed`) : borderClassOverride ?? `${colors.border} ${borderStyle}`}
         transition-all duration-200
         cursor-default
-        ${selected ? 'ring-2 ring-sky-500 ring-offset-2' : ''}
-        ${isHighlighted ? 'ring-4 ring-sun-500 ring-opacity-50' : ''}
-        ${isDimmed ? 'opacity-40' : ''}
+        ${selected ? 'ring-2 ring-info ring-offset-2' : ''}
+        ${isHighlighted ? 'ring-4 ring-goal/50' : ''}
+        ${isLensDimmed ? 'opacity-20' : isDimmed ? 'opacity-40' : ''}
       `}
       style={{
         backgroundColor: '#FEFEFE', // Panel background color
         padding: '12px',
         minWidth: '140px',
-        maxWidth: isExpanded ? '300px' : '200px',
+        maxWidth: isExpanded ? '300px' : (maxWidth ? `${maxWidth}px` : '200px'),
         minHeight: isExpanded ? '120px' : undefined,
       }}
     >
@@ -162,16 +206,28 @@ export const BaseNode = memo(({ id, nodeType, icon: Icon, data, selected, childr
         onClick={handleBadgeClick}
       />
 
-      {/* Decision Graph Display v2 Task 5: Sensitivity rank badge (Results mode, top 3 factors) */}
-      {displayMetadata.sensitivityRank && (
+      {/* Context menu: Assumption flag badge (Hard rule 3 — UI-only annotation) */}
+      {Boolean(data?.flagged_as_assumption) && (
         <div
-          className="absolute top-1 right-1 text-xs font-semibold text-gray-400 bg-white/80 px-1.5 py-0.5 rounded"
-          style={{ pointerEvents: 'none' }}
-          title={`Key driver #${displayMetadata.sensitivityRank}`}
+          className="absolute -top-2 -left-2 flex h-5 w-5 items-center justify-center rounded-full bg-panel shadow-1"
+          title="Flagged as assumption"
+          data-testid="assumption-badge"
         >
-          #{displayMetadata.sensitivityRank}
+          <FlagIcon size={12} className="text-warning" />
         </div>
       )}
+
+      {/* B.I.10: "?" badge for incomplete goal nodes */}
+      {isIncomplete && nodeType === 'goal' && (
+        <div
+          className={`absolute -top-2 -right-2 w-5 h-5 rounded-full bg-goal text-white flex items-center justify-center ${typography.nodeLabel} font-bold`}
+          title="Set a success threshold to enable analysis"
+          data-testid="overlay-missing-threshold"
+        >
+          ?
+        </div>
+      )}
+
       {/* Connection handles */}
       <Handle
         type="target"
@@ -194,28 +250,33 @@ export const BaseNode = memo(({ id, nodeType, icon: Icon, data, selected, childr
           marginBottom: '8px',
         }}
       >
+        {/* T1: Shape indicator (Design System v4 §10.1) + sentence-case type label */}
+        <NodeShapeIndicator nodeKind={nodeType} size={12} />
+        {/* Decision Graph Display v2 Task 5: Sensitivity rank badge (Results mode, top 3 factors) */}
+        {typeof displayMetadata.sensitivityRank === 'number' && (
+          <span
+            className={`${typography.nodeLabel} font-semibold text-text-body bg-panel-border rounded-full flex items-center justify-center`}
+            style={{ minWidth: '20px', height: '20px', padding: '0 4px', pointerEvents: 'none' }}
+            title={`Key driver #${displayMetadata.sensitivityRank}: ranked by influence on the outcome`}
+          >
+            #{displayMetadata.sensitivityRank}
+          </span>
+        )}
         <span
-          className={colors.text}
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            lineHeight: 1,
-          }}
-          aria-hidden="true"
+          className={`${typography.nodeLabel} ${colors.text} font-semibold leading-none`}
         >
-          <Icon size={16} strokeWidth={2} />
-        </span>
-
-        <span
-          className={`${typography.caption} ${colors.text} uppercase tracking-wide font-semibold`}
-        >
-          {nodeType}
+          {NODE_REGISTRY[nodeType]?.label ?? nodeType}
         </span>
 
         {/* S1-UNK: Warning chip for unknown backend kinds */}
-        {data?.unknownKind && data?.originalKind && (
+        {Boolean(data?.unknownKind) && typeof data?.originalKind === 'string' && (
           <UnknownKindWarning originalKind={data.originalKind} />
         )}
+
+        {/* Optional right-aligned header content (e.g. category label) */}
+        {headerSlot ? (
+          <span className="ml-auto">{headerSlot as ReactNode}</span>
+        ) : null}
 
         {/* Expand/collapse chevron for nodes with description */}
         {description && (
@@ -244,6 +305,7 @@ export const BaseNode = memo(({ id, nodeType, icon: Icon, data, selected, childr
       {isExpanded && description && (
         <div
           className={`${typography.nodeLabel} text-text-body opacity-85 mt-3 max-h-[200px] overflow-y-auto node-description`}
+          // eslint-disable-next-line no-restricted-syntax -- sanitised via DOMPurify (sanitizeMarkdown)
           dangerouslySetInnerHTML={{
             __html: sanitizeMarkdown(description)
           }}
@@ -251,11 +313,11 @@ export const BaseNode = memo(({ id, nodeType, icon: Icon, data, selected, childr
       )}
 
       {/* Optional children (description, metrics, etc.) */}
-      {children && (
+      {children ? (
         <div className={`${typography.nodeLabel} text-text-body opacity-80 mt-2`}>
-          {children}
+          {children as ReactNode}
         </div>
-      )}
+      ) : null}
       
       <Handle
         type="source"

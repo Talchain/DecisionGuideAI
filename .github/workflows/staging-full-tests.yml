@@ -1,0 +1,158 @@
+# Full test suite for staging pushes.
+#
+# The local pre-push hook (scripts/validate-prepush.sh) runs only fast checks
+# (typecheck, lint on changed files, smoke tests). This workflow runs the
+# complete 6,900+ test suite after every push to staging, so regressions are
+# caught before any merge to main.
+#
+# Branch protection: configure "Staging Gate" as a required status check on
+# main to block merges when any job fails. (Requires repo admin access.)
+
+name: Staging Tests
+
+on:
+  push:
+    branches: [ staging ]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  TZ: UTC
+  CI: "1"
+  VITE_OPENAI_API_KEY: "test"
+  VITE_SUPABASE_URL: "http://localhost"
+  VITE_SUPABASE_ANON_KEY: "test"
+  VITE_FEATURE_SSE: "0"
+  VITE_EDGE_GATEWAY_URL: "http://localhost:3001"
+  VITE_PLOT_LITE_BASE_URL: "/plot-lite"
+
+jobs:
+  # ── Install & cache (shared by all downstream jobs) ──────────────────
+  install:
+    name: Install & Cache
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use Node.js from .nvmrc
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          registry-url: https://npm.pkg.github.com
+          cache: "npm"
+
+      - name: Cache node_modules
+        id: cache-nm
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: nm-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
+      - name: Install dependencies
+        if: steps.cache-nm.outputs.cache-hit != 'true'
+        run: npm ci
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # ── TypeScript + Lint ────────────────────────────────────────────────
+  tsc:
+    name: TypeScript + Lint
+    needs: install
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use Node.js from .nvmrc
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: "npm"
+
+      - name: Restore node_modules cache
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: nm-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Type check
+        run: npm run typecheck
+
+  # ── Full test suite ──────────────────────────────────────────────────
+  vitest:
+    name: Full Test Suite
+    needs: install
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use Node.js from .nvmrc
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: "npm"
+
+      - name: Restore node_modules cache
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: nm-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
+      - name: Run full test suite
+        run: npx vitest run --reporter=verbose --bail=1
+        env:
+          NODE_OPTIONS: "--max-old-space-size=7168"
+
+  # ── Build ────────────────────────────────────────────────────────────
+  build:
+    name: Production Build
+    needs: install
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use Node.js from .nvmrc
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: "npm"
+
+      - name: Restore node_modules cache
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: nm-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
+      - name: Build
+        run: npm run build
+
+  # ── Gate (single required check for branch protection) ───────────────
+  gate:
+    name: Staging Gate
+    needs: [tsc, vitest, build]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check all jobs passed
+        run: |
+          if [ "${{ needs.tsc.result }}" != "success" ] || \
+             [ "${{ needs.vitest.result }}" != "success" ] || \
+             [ "${{ needs.build.result }}" != "success" ]; then
+            echo "One or more jobs failed:"
+            echo "  tsc:    ${{ needs.tsc.result }}"
+            echo "  vitest: ${{ needs.vitest.result }}"
+            echo "  build:  ${{ needs.build.result }}"
+            exit 1
+          fi
+          echo "All jobs passed."

@@ -30,7 +30,15 @@ export interface CleanedLabel {
  * - \u2014 = em-dash (—)
  * - \/ = forward slash (for 0/1 boolean)
  */
-const ENCODING_PATTERN = /\s*\(0[\u002D\u2013\u2014\/]1[^)]*\)\s*/g
+const ENCODING_PATTERN = /\s*\(0[\u002D\u2013\u2014/]1[^)]*\)\s*/g
+
+/**
+ * Discrete encoding pattern: (0=Label, 1=Label) or (0=Cat, 0.94=Dog)
+ * Matches any parenthetical containing digit[.digit]=label assignments.
+ * Covers integer keys (0=Cat, 1=Dog), decimal keys (0=Cat, 0.94=Dog),
+ * and multi-entry lists (0=A, 1=B, 2=C).
+ */
+const DISCRETE_ENCODING_PATTERN = /\s*\([^)]*\d+\.?\d*\s*=\s*[^)]+\)\s*/g
 
 /**
  * Strip parenthetical encoding notation from a label.
@@ -68,6 +76,9 @@ export function cleanFactorLabel(rawLabel: string): CleanedLabel {
   // First, handle the master encoding pattern (0-1, 0–1, 0/1 with anything after)
   let cleanedLabel = rawLabel.replace(ENCODING_PATTERN, ' ')
 
+  // Discrete encoding: (0=Developers, 1=Tech Lead)
+  cleanedLabel = cleanedLabel.replace(DISCRETE_ENCODING_PATTERN, ' ')
+
   // Also handle other boolean text patterns
   const otherPatterns = [
     /\s*\(0 or 1\)\s*/gi,
@@ -94,6 +105,25 @@ export function cleanFactorLabel(rawLabel: string): CleanedLabel {
  */
 export function stripEncodingNotation(rawLabel: string): string {
   return cleanFactorLabel(rawLabel).label
+}
+
+/**
+ * Sanitize coaching text: strip arrow characters and encoding notation.
+ * Single function for ALL coaching-facing text cleanup.
+ * Use for any M1/M2 text surfaced in the coaching UI (next_actions, narrative snippets,
+ * factor labels, Validate/Investigate titles, VOI block, option card descriptions).
+ *
+ * @param text - Raw coaching text from PLoT
+ * @returns Cleaned text suitable for display
+ */
+export function sanitizeCoachingText(text: string): string {
+  if (!text) return ''
+  return stripEncodingNotation(
+    text
+      .replace(/\s*[\u2192]\s*/g, ' to ')   // Unicode right arrow →
+      .replace(/\s*->\s*/g, ' to ')          // ASCII arrow ->
+      .replace(/\s*\u2014\s*/g, ', ')        // Em dash — to comma
+  ).trim()
 }
 
 export default cleanFactorLabel

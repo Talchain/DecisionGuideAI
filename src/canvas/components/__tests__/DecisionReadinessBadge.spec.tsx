@@ -39,7 +39,7 @@ describe('DecisionReadinessBadge', () => {
 
       const confidence = screen.getByTestId('confidence-indicator')
       expect(confidence).toHaveTextContent('High Confidence')
-      expect(confidence).toHaveClass('text-green-700', 'bg-paper-50')
+      expect(confidence).toHaveClass('text-success', 'bg-paper-50')
     })
   })
 
@@ -57,7 +57,7 @@ describe('DecisionReadinessBadge', () => {
 
       const confidence = screen.getByTestId('confidence-indicator')
       expect(confidence).toHaveTextContent('Low Confidence')
-      expect(confidence).toHaveClass('text-red-700', 'bg-paper-50')
+      expect(confidence).toHaveClass('text-danger', 'bg-paper-50')
     })
   })
 
@@ -210,7 +210,7 @@ describe('DecisionReadinessBadge', () => {
 
       const confidence = screen.getByTestId('confidence-indicator')
       expect(confidence).toHaveTextContent('Medium Confidence')
-      expect(confidence).toHaveClass('text-amber-700', 'bg-paper-50')
+      expect(confidence).toHaveClass('text-warning', 'bg-paper-50')
     })
   })
 
@@ -230,7 +230,7 @@ describe('DecisionReadinessBadgeCompact', () => {
 
     const badge = screen.getByTestId('decision-readiness-compact')
     expect(badge).toBeInTheDocument()
-    expect(badge).toHaveClass('bg-paper-50', 'border-sand-200', 'text-green-700')
+    expect(badge).toHaveClass('bg-paper-50', 'border-sand-200', 'text-success')
     expect(screen.getByText('Ready')).toBeInTheDocument()
   })
 
@@ -238,7 +238,7 @@ describe('DecisionReadinessBadgeCompact', () => {
     render(<DecisionReadinessBadgeCompact readiness={mockNotReadyData} />)
 
     const badge = screen.getByTestId('decision-readiness-compact')
-    expect(badge).toHaveClass('bg-paper-50', 'border-sand-200', 'text-red-700')
+    expect(badge).toHaveClass('bg-paper-50', 'border-sand-200', 'text-danger')
     expect(screen.getByText('Not Ready')).toBeInTheDocument()
     expect(screen.getByText('(2)')).toBeInTheDocument() // 2 blockers
   })

@@ -9,9 +9,9 @@ export function FocusToggle({ isFocusMode, onToggle }: FocusToggleProps) {
     <button
       onClick={onToggle}
       aria-pressed={isFocusMode}
-      className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 ${
+      className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-info ${
         isFocusMode
-          ? 'bg-indigo-600 text-white hover:bg-indigo-700'
+          ? 'bg-primary text-text-on-color hover:bg-primary-hover'
           : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
       }`}
       title="Toggle focus mode (F)"

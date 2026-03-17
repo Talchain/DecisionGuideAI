@@ -18,7 +18,7 @@ export function BottomNav() {
   const linkClass = (path: string) => `
     flex flex-col items-center justify-center py-2 px-4 text-xs
     ${isActive(path) 
-      ? 'text-blue-600 font-medium' 
+      ? 'text-info font-medium' 
       : 'text-gray-600 hover:text-gray-900'}
   `
   

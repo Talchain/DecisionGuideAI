@@ -1,0 +1,173 @@
+/**
+ * Wave 2 Task 8 (P0 feedback): UI-Contract Replay Gate Spec
+ *
+ * Validates cross-cutting UI contracts that must hold after Wave 2 remediation:
+ * 1. Formatter behaviour (formatTargetValue, formatPercent)
+ * 2. Trust-boundary cast budget (useResultsSectionData.ts ≤ 6 debug-only casts)
+ * 3. ESLint rule activation (dangerouslySetInnerHTML)
+ * 4. British English pass (customize/customise family present)
+ * 5. No technical-string leakage in results surface helpers
+ */
+
+import { describe, it, expect } from 'vitest'
+import { readFileSync } from 'fs'
+import { join } from 'path'
+import { formatTargetValue } from '../components/results/utils/formatTargetValue'
+import { formatPercent } from '../utils/formatPercent'
+
+// =============================================================================
+// 1. Formatter behaviour contracts
+// =============================================================================
+describe('formatTargetValue — contract', () => {
+  it('currency: symbol + commas', () => {
+    expect(formatTargetValue(1200, 'currency', '$')).toBe('$1,200')
+    expect(formatTargetValue(1000000, 'currency', '£')).toBe('£1,000,000')
+  })
+
+  it('percent: appends % with no commas', () => {
+    expect(formatTargetValue(85, 'percent')).toBe('85%')
+    expect(formatTargetValue(0, 'percent')).toBe('0%')
+  })
+
+  it('count: formats with commas (no unit suffix)', () => {
+    expect(formatTargetValue(200000)).toBe('200,000')
+    expect(formatTargetValue(42)).toBe('42')
+  })
+
+  it('count explicit: same as default', () => {
+    expect(formatTargetValue(200000, 'count')).toBe('200,000')
+  })
+
+  it('currency without symbol falls through to count format', () => {
+    // When currency has no symbol, should still produce a readable number
+    expect(formatTargetValue(5000, 'currency')).toBe('5,000')
+  })
+})
+
+describe('formatPercent — contract', () => {
+  it('decimal → integer percentage', () => {
+    expect(formatPercent(0.58, { fromDecimal: true })).toBe('58%')
+    expect(formatPercent(0.9615, { fromDecimal: true })).toBe('96%')
+  })
+
+  it('rounds correctly (no decimals by default)', () => {
+    expect(formatPercent(0.505, { fromDecimal: true })).toBe('51%')
+    expect(formatPercent(0.994, { fromDecimal: true })).toBe('99%')
+  })
+
+  it('sign prefix for positive deltas', () => {
+    expect(formatPercent(10, { sign: true })).toBe('+10%')
+    expect(formatPercent(-5, { sign: true })).toBe('-5%')
+  })
+
+  it('zero stays unsigned', () => {
+    expect(formatPercent(0, { sign: true })).toBe('0%')
+  })
+})
+
+// =============================================================================
+// 2. Trust-boundary cast budget
+// =============================================================================
+describe('Trust boundary — cast budget', () => {
+  const filePath = join(process.cwd(), 'src/components/results/useResultsSectionData.ts')
+  const content = readFileSync(filePath, 'utf-8')
+
+  it('useResultsSectionData.ts has ≤ 6 "as any" casts (debug-only window access)', () => {
+    const matches = content.match(/as any/g) || []
+    expect(matches.length).toBeLessThanOrEqual(6)
+  })
+
+  it('all remaining "as any" casts are debug window access', () => {
+    const lines = content.split('\n')
+    const castLines = lines.filter(line => line.includes('as any'))
+    for (const line of castLines) {
+      expect(line).toContain('__OLUMI_DEBUG')
+    }
+  })
+
+  it('no Record<string, any> casts remain', () => {
+    expect(content).not.toContain('Record<string, any>')
+  })
+})
+
+// =============================================================================
+// 3. ESLint rule activation (static check)
+// =============================================================================
+describe('ESLint dangerouslySetInnerHTML rule', () => {
+  const eslintConfig = readFileSync(join(process.cwd(), 'eslint.config.js'), 'utf-8')
+
+  it('eslint.config.js contains dangerouslySetInnerHTML restriction', () => {
+    expect(eslintConfig).toContain('dangerouslySetInnerHTML')
+    expect(eslintConfig).toContain('DOMPurify')
+  })
+
+  it('mitigated usages have eslint-disable comments', () => {
+    const mitigatedFiles = [
+      'src/canvas/nodes/BaseNode.tsx',
+      'src/canvas/conversation/MessageBubble.tsx',
+      'src/components/stream/StreamOutputDisplay.tsx',
+    ]
+    for (const relPath of mitigatedFiles) {
+      const fileContent = readFileSync(join(process.cwd(), relPath), 'utf-8')
+      if (fileContent.includes('dangerouslySetInnerHTML')) {
+        expect(fileContent).toContain('eslint-disable')
+        expect(fileContent).toContain('DOMPurify')
+      }
+    }
+  })
+})
+
+// =============================================================================
+// 4. British English — customize/customise pair present
+// =============================================================================
+describe('British English spec coverage', () => {
+  const specPath = join(process.cwd(), 'src/canvas/__tests__/british-english.spec.ts')
+  const specContent = readFileSync(specPath, 'utf-8')
+
+  it('dictionary includes customize/customise family', () => {
+    expect(specContent).toContain("'customize': 'customise'")
+    expect(specContent).toContain("'customized': 'customised'")
+    expect(specContent).toContain("'customizable': 'customisable'")
+  })
+
+  it('dictionary includes all required pairs from spec', () => {
+    const requiredPairs = [
+      ['visualization', 'visualisation'],
+      ['analyze', 'analyse'],
+      ['color', 'colour'],
+      ['behavior', 'behaviour'],
+      ['optimize', 'optimise'],
+      ['customize', 'customise'],
+    ]
+    for (const [american, british] of requiredPairs) {
+      expect(specContent).toContain(american)
+      expect(specContent).toContain(british)
+    }
+  })
+})
+
+// =============================================================================
+// 5. No technical-string leakage in formatters
+// =============================================================================
+describe('No technical-string leakage', () => {
+  it('formatTargetValue never returns "undefined", "null", "NaN"', () => {
+    const outputs = [
+      formatTargetValue(0),
+      formatTargetValue(100, 'currency', '$'),
+      formatTargetValue(50, 'percent'),
+      formatTargetValue(1000, 'count'),
+    ]
+    for (const out of outputs) {
+      expect(out).not.toBe('undefined')
+      expect(out).not.toBe('null')
+      expect(out).not.toBe('NaN')
+    }
+  })
+
+  it('formatPercent never returns "NaN%" or "undefined%"', () => {
+    // Edge cases
+    expect(formatPercent(0)).toBe('0%')
+    expect(formatPercent(100)).toBe('100%')
+    expect(formatPercent(0.5, { fromDecimal: true })).toBe('50%')
+  })
+})

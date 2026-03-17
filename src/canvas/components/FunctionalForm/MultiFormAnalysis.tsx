@@ -35,9 +35,9 @@ const SensitivityResultItem = memo(function SensitivityResultItem({
         : 'low'
 
   const impactColors = {
-    high: 'text-red-700 bg-red-100',
-    medium: 'text-amber-700 bg-amber-100',
-    low: 'text-green-700 bg-green-100',
+    high: 'text-danger bg-panel',
+    medium: 'text-warning bg-panel',
+    low: 'text-success bg-panel',
   }
 
   return (
@@ -45,7 +45,7 @@ const SensitivityResultItem = memo(function SensitivityResultItem({
       data-testid={`sensitivity-result-${result.edge_id}`}
       className={`
         p-3 rounded-lg border
-        ${result.causes_flip ? 'border-red-300 bg-red-50' : 'border-sand-200 bg-white'}
+        ${result.causes_flip ? 'border-danger/30 bg-panel' : 'border-sand-200 bg-white'}
       `}
     >
       {/* Header */}
@@ -79,7 +79,7 @@ const SensitivityResultItem = memo(function SensitivityResultItem({
 
       {/* Flip warning */}
       {result.causes_flip && (
-        <div className="flex items-center gap-2 mt-2 px-2 py-1.5 rounded bg-red-100 text-red-700">
+        <div className="flex items-center gap-2 mt-2 px-2 py-1.5 rounded bg-panel text-danger">
           <AlertTriangle className="w-4 h-4 flex-shrink-0" />
           <p className={`${typography.caption} font-medium`}>
             This alternative would change the recommended option
@@ -99,7 +99,7 @@ const SensitivityResultItem = memo(function SensitivityResultItem({
         <button
           type="button"
           onClick={() => onApplyAlternative(result.edge_id, result.alternative_form)}
-          className="mt-2 text-xs text-teal-700 hover:text-teal-800 font-medium hover:underline"
+          className="mt-2 text-xs text-info hover:text-info font-medium hover:underline"
         >
           Apply {alternativeInfo?.name || result.alternative_form} to this edge
         </button>
@@ -138,7 +138,7 @@ export const MultiFormAnalysis = memo(function MultiFormAnalysis({
       {/* Header */}
       <div className="flex items-center justify-between p-3 border-b border-sand-200">
         <div className="flex items-center gap-2">
-          <FlaskConical className="w-5 h-5 text-violet-600" aria-hidden="true" />
+          <FlaskConical className="w-5 h-5 text-option" aria-hidden="true" />
           <span className={`${typography.body} font-medium text-ink-700`}>
             Form Sensitivity Analysis
           </span>
@@ -149,7 +149,7 @@ export const MultiFormAnalysis = memo(function MultiFormAnalysis({
             type="button"
             onClick={onRunAnalysis}
             disabled={loading}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-violet-100 text-violet-700 text-sm font-medium hover:bg-violet-200 disabled:opacity-50 transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-panel text-option text-sm font-medium hover:bg-panel-hover disabled:opacity-50 transition-colors"
           >
             {loading ? (
               <Loader2 className="w-4 h-4 animate-spin" />
@@ -165,16 +165,16 @@ export const MultiFormAnalysis = memo(function MultiFormAnalysis({
       <div className="p-3">
         {/* Error state */}
         {error && (
-          <div className="flex items-center gap-2 p-3 rounded-lg bg-red-50 border border-red-200">
-            <AlertTriangle className="w-5 h-5 text-red-600" />
-            <p className={`${typography.caption} text-red-700`}>{error}</p>
+          <div className="flex items-center gap-2 p-3 rounded-lg bg-panel border border-danger/30">
+            <AlertTriangle className="w-5 h-5 text-danger" />
+            <p className={`${typography.caption} text-danger`}>{error}</p>
           </div>
         )}
 
         {/* Loading state */}
         {loading && !error && (
           <div className="flex items-center justify-center py-8">
-            <Loader2 className="w-6 h-6 text-violet-500 animate-spin" />
+            <Loader2 className="w-6 h-6 text-option animate-spin" />
             <span className={`${typography.body} text-ink-500 ml-2`}>
               Testing alternative forms...
             </span>
@@ -200,13 +200,13 @@ export const MultiFormAnalysis = memo(function MultiFormAnalysis({
             {/* Summary */}
             <div className="flex items-center gap-4 mb-3">
               {flipCount > 0 && (
-                <span className="flex items-center gap-1.5 px-2 py-1 rounded bg-red-100 text-red-700 text-xs font-medium">
+                <span className="flex items-center gap-1.5 px-2 py-1 rounded bg-panel text-danger text-xs font-medium">
                   <AlertTriangle className="w-3 h-3" />
                   {flipCount} potential flip{flipCount > 1 ? 's' : ''}
                 </span>
               )}
               {highImpactCount > 0 && (
-                <span className="px-2 py-1 rounded bg-amber-100 text-amber-700 text-xs font-medium">
+                <span className="px-2 py-1 rounded bg-panel text-warning text-xs font-medium">
                   {highImpactCount} high impact
                 </span>
               )}
@@ -231,7 +231,7 @@ export const MultiFormAnalysis = memo(function MultiFormAnalysis({
               <button
                 type="button"
                 onClick={() => setShowAll(!showAll)}
-                className={`${typography.caption} text-violet-600 hover:text-violet-700 mt-3`}
+                className={`${typography.caption} text-option hover:text-option mt-3`}
               >
                 {showAll
                   ? `Show only significant (${significantResults.length})`

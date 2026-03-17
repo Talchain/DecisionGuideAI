@@ -13,7 +13,19 @@ import type {
 } from './types'
 import { withObservabilityHeaders, recordBffResponse, recordBffError } from '../../lib/observability-headers'
 import { useGateStore } from '../../lib/gate-state'
+import { withRetry } from '../../lib/fetchWithRetry'
 
+/**
+ * ISL routing chain (architecturally acceptable — BFF proxy, not direct):
+ *   Browser → /bff/isl/* → Netlify edge function (isl-proxy.ts)
+ *     → injects Authorization: Bearer ${ISL_API_KEY}
+ *     → proxies to https://isl-staging.onrender.com/*
+ *
+ * The API key is stored in Netlify environment variables and never exposed
+ * to client code. CORS is validated against an explicit origin allow-list.
+ * See: netlify.toml [[edge_functions]] path="/bff/isl/*"
+ *      netlify/edge-functions/isl-proxy.ts
+ */
 const ISL_BASE_URL = (import.meta as any).env?.VITE_ISL_BFF_BASE || '/bff/isl'
 
 /**
@@ -45,7 +57,15 @@ export class ISLClient {
     this.timeout = config.timeout ?? 30000
   }
 
+  /** All ISL endpoints are idempotent — retry with exponential backoff on transient failures */
   private async fetch<T>(
+    endpoint: string,
+    options: RequestInit = {}
+  ): Promise<T> {
+    return withRetry(() => this.fetchOnce<T>(endpoint, options))
+  }
+
+  private async fetchOnce<T>(
     endpoint: string,
     options: RequestInit = {}
   ): Promise<T> {

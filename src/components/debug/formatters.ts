@@ -133,32 +133,32 @@ export function getStatusDisplay(
   // Status 0 = network error, abort, or CORS issue
   if (status === 0) {
     if (hasError) {
-      return { label: 'Network Error', color: 'text-red-600', isError: true }
+      return { label: 'Network Error', color: 'text-danger', isError: true }
     }
     if (!isComplete) {
-      return { label: 'In Flight', color: 'text-amber-600', isError: false }
+      return { label: 'In Flight', color: 'text-warning', isError: false }
     }
     return { label: 'Aborted', color: 'text-stone-500', isError: true }
   }
 
   // No status yet = pending
   if (status == null) {
-    return { label: 'Pending', color: 'text-amber-600', isError: false }
+    return { label: 'Pending', color: 'text-warning', isError: false }
   }
 
   // Success (2xx)
   if (status >= 200 && status < 300) {
-    return { label: `${status} OK`, color: 'text-green-600', isError: false }
+    return { label: `${status} OK`, color: 'text-success', isError: false }
   }
 
   // Client error (4xx)
   if (status >= 400 && status < 500) {
-    return { label: `${status} Error`, color: 'text-red-600', isError: true }
+    return { label: `${status} Error`, color: 'text-danger', isError: true }
   }
 
   // Server error (5xx)
   if (status >= 500) {
-    return { label: `${status} Error`, color: 'text-red-600', isError: true }
+    return { label: `${status} Error`, color: 'text-danger', isError: true }
   }
 
   // Other (1xx, 3xx)

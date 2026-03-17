@@ -21,37 +21,39 @@ import { normaliseOptionFromLegacyNode, type LegacyOptionNode } from '../../type
 import { validateAllEdges, ceeOptionToUIOption } from '../../adapters/plot/v2'
 import type { CEEAnalysisReady } from '../../adapters/cee/types'
 import { detectBaseline } from '../utils/baselineDetection'
+import { DEFAULT_EDGE_DATA } from '../domain/edges'
+import { verboseWarn } from '../../utils/verboseLog'
+import { getEdgeKey } from '../domain/edgeUtils'
+import type { ValidationWarning, ValidationBlocker } from '@talchain/schemas'
+
+/**
+ * CEE statuses that the LLM produces when it drops metadata (e.g. `category`).
+ * These can be soft-bypassed when the actual option data is resolved.
+ * Also used by PreAnalysisPanel to determine retry eligibility.
+ */
+export const SOFT_BYPASS_STATUSES: ReadonlySet<string> = new Set([
+  'needs_user_mapping',
+  'needs_encoding',
+])
+
+/**
+ * All recognised analysis_ready.status values.
+ * Unrecognised values trigger a defensive hard block.
+ */
+const RECOGNISED_STATUSES: ReadonlySet<string> = new Set([
+  'ready',
+  'needs_user_mapping',
+  'needs_encoding',
+  'needs_user_input',
+  'unknown',
+])
 
 // ============================================================================
 // Types
 // ============================================================================
 
-export interface ValidationBlocker {
-  /** Unique code for this blocker type */
-  code: string
-  /** Human-readable message */
-  message: string
-  /** Affected node/option IDs */
-  affectedIds?: string[]
-  /** Suggested action */
-  action?: {
-    type: string
-    label: string
-    nodeId?: string
-    optionId?: string
-  }
-}
-
-export interface ValidationWarning {
-  /** Unique code for this warning type */
-  code: string
-  /** Human-readable message */
-  message: string
-  /** Additional suggestion */
-  suggestion?: string
-  /** Affected node/option ID */
-  affectedId?: string
-}
+// Re-export shared types for existing consumers
+export type { ValidationWarning, ValidationBlocker } from '@talchain/schemas'
 
 export interface RecommendedFix {
   /** Type of fix */
@@ -62,11 +64,22 @@ export interface RecommendedFix {
   reason: string
 }
 
+/**
+ * CEE blocker types that are informational — they do NOT block analysis.
+ * constraint_dropped: phantom constraint references that CEE couldn't match
+ * to a factor in the user's model. The analysis runs without them.
+ */
+export const NON_BLOCKING_CEE_TYPES: ReadonlySet<string> = new Set([
+  'constraint_dropped',
+])
+
 export interface ValidationResult {
   /** Whether analysis can proceed */
   canRun: boolean
   /** Issues that prevent running */
   blockers: ValidationBlocker[]
+  /** Non-blocking issues shown as informational warnings (e.g. constraint_dropped) */
+  informationalBlockers: ValidationBlocker[]
   /** Issues that should be addressed but don't block */
   warnings: ValidationWarning[]
   /** Recommended state changes (caller decides whether to apply) */
@@ -133,40 +146,131 @@ function validateGoalNode(
 /**
  * Validate overall analysis_ready status.
  *
- * Checks the top-level status field which indicates if the graph
- * has structural issues (e.g., no causal path to goal).
+ * analysis_ready is the SINGLE SOURCE OF TRUTH for run gating.
+ * Top-level cee_response.options[] is for display only — never used for gating.
+ *
+ * Status handling:
+ * - 'ready': proceed
+ * - 'needs_user_input': hard block (deterministic, no bypass)
+ * - 'needs_user_mapping' / 'needs_encoding': soft-bypassable when options are resolved
+ * - unrecognised: defensive hard block
  */
 function validateOverallStatus(
   ceeAnalysisReady?: CEEAnalysisReady | null
-): { blockers: ValidationBlocker[]; userQuestions: string[] } {
+): { blockers: ValidationBlocker[]; warnings: ValidationWarning[]; userQuestions: string[] } {
   const blockers: ValidationBlocker[] = []
+  const warnings: ValidationWarning[] = []
   const userQuestions: string[] = []
 
   // If no ceeAnalysisReady or no status, don't block (legacy fallback path)
   if (!ceeAnalysisReady?.status) {
-    return { blockers, userQuestions }
+    return { blockers, warnings, userQuestions }
+  }
+
+  // Defensive: reject unrecognised status values
+  if (!RECOGNISED_STATUSES.has(ceeAnalysisReady.status)) {
+    blockers.push({
+      code: 'ANALYSIS_NOT_READY',
+      message: `Unrecognised analysis status "${ceeAnalysisReady.status}". Please re-draft.`,
+      action: { type: 'retry_draft', label: 'Retry Draft' },
+    })
+    return { blockers, warnings, userQuestions }
   }
 
   // Check overall status
   if (ceeAnalysisReady.status !== 'ready') {
-    const statusMessages: Record<string, string> = {
-      needs_user_mapping: 'Graph has structural issues that need your input',
-      needs_encoding: 'Some options have categorical values that need encoding',
+    // needs_user_input: deterministic user action required — always hard block
+    if (ceeAnalysisReady.status === 'needs_user_input') {
+      blockers.push({
+        code: 'ANALYSIS_NOT_READY',
+        message: 'Your decision brief needs changes before analysis can run.',
+        action: { type: 'retry_draft', label: 'Edit brief' },
+      })
+      if (ceeAnalysisReady.user_questions?.length) {
+        userQuestions.push(...ceeAnalysisReady.user_questions)
+      }
+      return { blockers, warnings, userQuestions }
     }
 
-    blockers.push({
-      code: 'ANALYSIS_NOT_READY',
-      message: statusMessages[ceeAnalysisReady.status] || 'Analysis not ready',
-      action: { type: 'review_graph', label: 'Review graph' },
-    })
+    // LLM omission resilience: For known soft statuses that the LLM produces when
+    // it drops `category` on factor nodes, check if options are actually
+    // resolved. If so, the status was downgraded due to missing metadata —
+    // not a genuine structural problem.
+    const isSoftStatus = SOFT_BYPASS_STATUSES.has(ceeAnalysisReady.status)
 
-    // Capture user_questions from CEE
+    // Baseline options correctly have empty interventions ("do nothing").
+    // Exclude them from the intervention requirement in the soft bypass check.
+    const allOptionsResolved = isSoftStatus && (ceeAnalysisReady.options?.every(
+      o => {
+        if (o.status !== 'ready') return false
+        const isBaseline = detectBaseline(o.label ?? '').isBaseline
+        return isBaseline || Object.keys(o.interventions || {}).length > 0
+      }
+    ) ?? false)
+
+    if (!allOptionsResolved) {
+      const statusMessages: Record<string, string> = {
+        needs_user_mapping: 'Options are missing intervention values. Re-draft your model to resolve.',
+        needs_encoding: 'Some options have categorical values that need encoding',
+      }
+
+      // Layer 1 gate relaxation (amendment #1): When interventions ARE populated
+      // but allOptionsResolved failed (e.g. some options still need mapping),
+      // downgrade to warning instead of hard blocker.
+      const anyInterventionsPopulated = isSoftStatus && (ceeAnalysisReady.options?.some(
+        o => !detectBaseline(o.label ?? '').isBaseline && Object.keys(o.interventions || {}).length > 0
+      ) ?? false)
+
+      if (anyInterventionsPopulated) {
+        // Downgrade to warning — interventions exist but status disagrees
+        warnings.push({
+          code: 'ANALYSIS_NOT_READY',
+          message: statusMessages[ceeAnalysisReady.status] || 'Analysis not ready',
+          suggestion: 'Some options have interventions but the model flagged issues. Consider re-drafting.',
+        })
+      } else {
+        blockers.push({
+          code: 'ANALYSIS_NOT_READY',
+          message: statusMessages[ceeAnalysisReady.status] || 'Analysis not ready',
+          action: { type: 'retry_draft', label: 'Retry Draft' },
+        })
+      }
+    }
+
+    // Capture user_questions from CEE regardless of blocker
     if (ceeAnalysisReady.user_questions?.length) {
       userQuestions.push(...ceeAnalysisReady.user_questions)
     }
   }
 
-  return { blockers, userQuestions }
+  return { blockers, warnings, userQuestions }
+}
+
+/**
+ * Validate that analysis_ready has required shape when present.
+ *
+ * Structural invariant: analysis_ready.options must be present and non-empty.
+ * Per-option invariants (status, interventions) are enforced by validateOptions().
+ */
+function validateAnalysisReadyInvariants(
+  ceeAnalysisReady?: CEEAnalysisReady | null
+): { blockers: ValidationBlocker[] } {
+  const blockers: ValidationBlocker[] = []
+
+  // Only check when analysis_ready is present (no check for legacy fallback path)
+  if (!ceeAnalysisReady) return { blockers }
+
+  // Invariant: options must be present and non-empty
+  if (!ceeAnalysisReady.options || ceeAnalysisReady.options.length === 0) {
+    blockers.push({
+      code: 'ANALYSIS_READY_INVALID',
+      message: 'Analysis response is missing option data. Please re-draft.',
+      action: { type: 'retry_draft', label: 'Retry Draft' },
+    })
+    return { blockers }
+  }
+
+  return { blockers }
 }
 
 /**
@@ -178,6 +282,7 @@ function validateOverallStatus(
  */
 function validateOptions(
   nodes: Node[],
+  edges?: Edge[],
   ceeAnalysisReady?: CEEAnalysisReady | null
 ): { options: UIOption[]; blockers: ValidationBlocker[]; warnings: ValidationWarning[] } {
   const blockers: ValidationBlocker[] = []
@@ -195,7 +300,7 @@ function validateOptions(
     const needsMappingOptions = options.filter((o) => {
       if (o.status !== 'needs_user_mapping') return false
       const isBaselineEmpty =
-        detectBaseline(o.label).isBaseline && Object.keys(o.interventions).length === 0
+        detectBaseline(o.label ?? '').isBaseline && Object.keys(o.interventions).length === 0
       return !isBaselineEmpty
     })
     if (needsMappingOptions.length > 0) {
@@ -211,11 +316,22 @@ function validateOptions(
       })
     }
 
+    // Check for options with unknown status (not in CEE's contract)
+    const unknownStatusOptions = options.filter((o) => o.status === 'unknown')
+    if (unknownStatusOptions.length > 0) {
+      blockers.push({
+        code: 'OPTIONS_UNKNOWN_STATUS',
+        message: `${unknownStatusOptions.length} option(s) have invalid status. Please re-draft.`,
+        affectedIds: unknownStatusOptions.map((o) => o.id),
+        action: { type: 'retry_draft', label: 'Retry Draft' },
+      })
+    }
+
     // Check for options with empty interventions
     const emptyInterventionOptions = options.filter((o) => {
       if (o.status !== 'ready') return false
       if (Object.keys(o.interventions).length !== 0) return false
-      return !detectBaseline(o.label).isBaseline
+      return !detectBaseline(o.label ?? '').isBaseline
     })
     if (emptyInterventionOptions.length > 0) {
       blockers.push({
@@ -234,6 +350,10 @@ function validateOptions(
   }
 
   // Priority 2: Extract from canvas nodes (legacy fallback)
+  //
+  // This fallback is a safety net. The canonical source is CEE's analysis_ready
+  // in the orchestrator envelope. Remove this fallback once all paths reliably
+  // provide analysis_ready.
   const optionNodes = nodes.filter(
     (n) => n.type === 'option' || n.type === 'decision'
   )
@@ -253,35 +373,63 @@ function validateOptions(
     normaliseOptionFromLegacyNode(node as unknown as LegacyOptionNode, validNodeIds)
   )
 
-  // Note: Logging moved to usePreRunValidation hook to reduce noise
-  // Only logs when validation result actually changes
-
-  // Check for options needing mapping
-  // P0: Block analysis until options have interventions configured
+  // When ceeAnalysisReady is null, check whether option nodes have intervention
+  // edges (option→factor) on the graph. If they do, the model was generated by
+  // CEE and the options are provisionally configured — don't produce a misleading
+  // OPTIONS_NEED_MAPPING blocker. If they have NO edges, the user hasn't
+  // generated a model yet, so show an accurate message.
   const needsMappingOptions = options.filter((o) => {
     if (o.status !== 'needs_user_mapping') return false
     const isBaselineEmpty =
-      detectBaseline(o.label).isBaseline && Object.keys(o.interventions).length === 0
+      detectBaseline(o.label ?? '').isBaseline && Object.keys(o.interventions).length === 0
     return !isBaselineEmpty
   })
   if (needsMappingOptions.length > 0) {
-    blockers.push({
-      code: 'OPTIONS_NEED_MAPPING',
-      message: `${needsMappingOptions.length} option(s) need intervention values`,
-      affectedIds: needsMappingOptions.map((o) => o.id),
-      action: {
-        type: 'configure_option',
-        label: 'Configure options',
-        optionId: needsMappingOptions[0].id,
-      },
-    })
+    if (!ceeAnalysisReady && edges) {
+      // Check if EVERY non-baseline option needing mapping has at least one
+      // outgoing edge to a non-option node (intervention edge from CEE model
+      // generation). If any option lacks edges, the model is incomplete.
+      const optionIds = new Set(optionNodes.map((n) => n.id))
+      const allOptionsHaveEdges = needsMappingOptions.every((o) =>
+        edges.some((e) => e.source === o.id && !optionIds.has(e.target))
+      )
+
+      if (allOptionsHaveEdges) {
+        // Every option has intervention edges — provisionally ready. CEE hasn't
+        // provided analysis_ready yet but the graph structure is sound.
+        // Skip the blocker; the next CEE envelope will gate authoritatively.
+      } else {
+        // No intervention edges — user hasn't generated a model yet
+        blockers.push({
+          code: 'OPTIONS_NEED_MAPPING',
+          message: 'Generate a model to configure options',
+          affectedIds: needsMappingOptions.map((o) => o.id),
+          action: {
+            type: 'retry_draft',
+            label: 'Generate model',
+          },
+        })
+      }
+    } else {
+      // CEE path present but options still need mapping — genuine blocker
+      blockers.push({
+        code: 'OPTIONS_NEED_MAPPING',
+        message: `${needsMappingOptions.length} option(s) need intervention values`,
+        affectedIds: needsMappingOptions.map((o) => o.id),
+        action: {
+          type: 'configure_option',
+          label: 'Configure options',
+          optionId: needsMappingOptions[0].id,
+        },
+      })
+    }
   }
 
   // Check for options with empty interventions (marked ready but no interventions)
   const emptyInterventionOptions = options.filter((o) => {
     if (o.status !== 'ready') return false
     if (Object.keys(o.interventions).length !== 0) return false
-    return !detectBaseline(o.label).isBaseline
+    return !detectBaseline(o.label ?? '').isBaseline
   })
   if (emptyInterventionOptions.length > 0) {
     blockers.push({
@@ -394,6 +542,32 @@ function validateEdges(
 }
 
 /**
+ * Detect when most edges still have default weight.
+ * Fires when >80% of edges use DEFAULT_EDGE_DATA.weight and total >5.
+ * Per user amendment #6: specific copy for the warning.
+ */
+function checkDefaultStrengths(
+  edges: Edge[]
+): ValidationWarning | null {
+  if (edges.length <= 5) return null
+
+  const defaultWeight = DEFAULT_EDGE_DATA.weight
+  const defaultCount = edges.filter((e) => {
+    const w = (e.data as { weight?: number })?.weight
+    return w === defaultWeight || w === undefined || w === null
+  }).length
+
+  const ratio = defaultCount / edges.length
+  if (ratio <= 0.8) return null
+
+  return {
+    code: 'STRENGTH_DEFAULTS_DOMINANT',
+    message: `${defaultCount} of ${edges.length} relationships use default strength — results may lack differentiation`,
+    suggestion: 'Click relationships to set custom strengths for more accurate analysis.',
+  }
+}
+
+/**
  * Check for potentially identical options.
  */
 function checkIdenticalOptions(
@@ -450,7 +624,12 @@ export function validateBeforeRun(
   // This catches structural issues like "no causal path to goal"
   const overallValidation = validateOverallStatus(ceeAnalysisReady)
   allBlockers.push(...overallValidation.blockers)
+  allWarnings.push(...overallValidation.warnings)
   userQuestions = overallValidation.userQuestions
+
+  // 0b. Pre-run invariants: validate analysis_ready shape when present
+  const invariantValidation = validateAnalysisReadyInvariants(ceeAnalysisReady)
+  allBlockers.push(...invariantValidation.blockers)
 
   // 1. Validate goal node
   const goalValidation = validateGoalNode(goalNodeId, nodes)
@@ -458,7 +637,7 @@ export function validateBeforeRun(
   allFixes.push(...goalValidation.fixes)
 
   // 2. Validate options (ceeAnalysisReady takes priority when available)
-  const { options, blockers: optBlockers, warnings: optWarnings } = validateOptions(nodes, ceeAnalysisReady)
+  const { options, blockers: optBlockers, warnings: optWarnings } = validateOptions(nodes, edges, ceeAnalysisReady)
   allBlockers.push(...optBlockers)
   allWarnings.push(...optWarnings)
 
@@ -479,11 +658,78 @@ export function validateBeforeRun(
   if (edges && edges.length > 0) {
     const edgeValidation = validateEdges(edges)
     allWarnings.push(...edgeValidation.warnings)
+
+    // 6. Check for dominant default strengths
+    const strengthWarning = checkDefaultStrengths(edges)
+    if (strengthWarning) {
+      allWarnings.push(strengthWarning)
+    }
+  }
+
+  // 7. Merge CEE-provided blockers (supplement graph-derived blockers)
+  // CEE blockers have richer pipeline context; deduplicate by factor_id, preferring CEE version.
+  // External factors are excluded — they legitimately have no option→factor edges.
+  // Non-blocking types (constraint_dropped) are separated into informationalBlockers.
+  const allInformationalBlockers: ValidationBlocker[] = []
+
+  if (ceeAnalysisReady?.blockers?.length) {
+    // Build node lookup for category checks
+    const nodeById = new Map(nodes.map(n => [n.id, n]))
+
+    // Dedupe CEE blockers by factor_id (keep first occurrence)
+    // Exclude external factors — they represent environmental conditions outside user control
+    const seenCeeFactorIds = new Set<string>()
+    const dedupedCeeBlockers = ceeAnalysisReady.blockers.filter(b => {
+      if (seenCeeFactorIds.has(b.factor_id)) return false
+      seenCeeFactorIds.add(b.factor_id)
+
+      // Tolerate unreachable external factors (category === 'external')
+      const factorNode = nodeById.get(b.factor_id)
+      const category = (factorNode?.data as { category?: string } | undefined)?.category
+      if (category === 'external') return false
+
+      return true
+    })
+
+    // Partition CEE blockers into blocking vs informational
+    const blockingCeeBlockers = dedupedCeeBlockers.filter(b => !NON_BLOCKING_CEE_TYPES.has(b.blocker_type ?? ''))
+    const informationalCeeBlockers = dedupedCeeBlockers.filter(b => NON_BLOCKING_CEE_TYPES.has(b.blocker_type ?? ''))
+
+    const ceeFactorIds = new Set(blockingCeeBlockers.map(b => b.factor_id))
+
+    // Remove graph-derived blockers that overlap with CEE blockers (check ALL affectedIds entries)
+    for (let i = allBlockers.length - 1; i >= 0; i--) {
+      const existing = allBlockers[i]
+      if (existing.affectedIds?.some(id => ceeFactorIds.has(id))) {
+        allBlockers.splice(i, 1)
+      }
+    }
+
+    // Add blocking CEE blockers
+    for (const ceeBlocker of blockingCeeBlockers) {
+      allBlockers.push({
+        code: 'CEE_BLOCKER',
+        message: ceeBlocker.reason,
+        affectedIds: [ceeBlocker.factor_id],
+        action: { type: 'retry_draft', label: ceeBlocker.factor_label ?? ceeBlocker.factor_id },
+      })
+    }
+
+    // Add informational CEE blockers (shown but don't block run)
+    for (const ceeBlocker of informationalCeeBlockers) {
+      allInformationalBlockers.push({
+        code: 'CONSTRAINT_DROPPED',
+        message: ceeBlocker.reason,
+        affectedIds: [ceeBlocker.factor_id],
+        action: { type: 'info', label: ceeBlocker.factor_label ?? ceeBlocker.factor_id },
+      })
+    }
   }
 
   return {
     canRun: allBlockers.length === 0,
     blockers: allBlockers,
+    informationalBlockers: allInformationalBlockers,
     warnings: allWarnings,
     recommendedFixes: allFixes.length > 0 ? allFixes : undefined,
     userQuestions: userQuestions.length > 0 ? userQuestions : undefined,
@@ -511,7 +757,7 @@ function createValidationFingerprint(
     .join(',')
 
   const edgeFingerprint = edges
-    .map((e) => `${e.source}->${e.target}`)
+    .map((e) => getEdgeKey(e))
     .sort()
     .join(',')
 
@@ -566,7 +812,7 @@ export function usePreRunValidation(): ValidationResult {
         lastLogKey.canRun !== currentLogKey.canRun ||
         lastLogKey.blockerCount !== currentLogKey.blockerCount
       ) {
-        console.log('[PreRunValidation] Validation result changed:', {
+        verboseWarn('[PreRunValidation] Validation result changed:', {
           canRun: result.canRun,
           blockers: result.blockers.length,
           usingCEE: Boolean(ceeAnalysisReady?.options?.length),
@@ -583,7 +829,7 @@ export function usePreRunValidation(): ValidationResult {
     if (validation.recommendedFixes?.length) {
       for (const fix of validation.recommendedFixes) {
         if (import.meta.env.DEV) {
-          console.log(`[Validation] Applying recommended fix: ${fix.reason}`)
+          console.warn(`[Validation] Applying recommended fix: ${fix.reason}`)
         }
 
         // Apply the fix based on type

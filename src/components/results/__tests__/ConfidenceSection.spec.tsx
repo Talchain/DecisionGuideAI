@@ -1,7 +1,8 @@
 /**
  * ConfidenceSection Tests
  *
- * Tests for the "What needs attention" panel - merged confidence + improvements.
+ * Tests for the "What to do next" panel — grouped action items layout.
+ * V9.2 Phase 4: Replaces two-tier uncertainty display with grouped layout.
  */
 
 import { describe, it, expect, vi } from 'vitest'
@@ -12,6 +13,7 @@ import type { ConfidenceSectionData } from '../types'
 // Mock focusNodeById
 vi.mock('../../../canvas/utils/focusHelpers', () => ({
   focusNodeById: vi.fn(),
+  focusByTarget: vi.fn(),
 }))
 
 describe('ConfidenceSection', () => {
@@ -27,6 +29,7 @@ describe('ConfidenceSection', () => {
       {
         code: 'SENSITIVE_ASSUMPTION',
         message: 'Some assumptions may significantly affect results',
+        displayText: 'Some assumptions may significantly affect results',
         suggestion: 'Consider validating with additional data',
       },
     ],
@@ -34,6 +37,7 @@ describe('ConfidenceSection', () => {
       {
         code: 'SENSITIVE_ASSUMPTION',
         message: 'Some assumptions may significantly affect results',
+        displayText: 'Some assumptions may significantly affect results',
         suggestion: 'Consider validating with additional data',
       },
     ],
@@ -56,13 +60,13 @@ describe('ConfidenceSection', () => {
     rankingStability: 0.85,
   }
 
-  it('renders the component with content', () => {
+  it('renders the component with grouped layout', () => {
     render(<ConfidenceSection data={mockData} />)
 
-    // Component should render - title is now in parent panel header
-    // Check that some expected content is present (P2: two-tier uncertainty display)
-    expect(screen.getByText('Worth refining')).toBeInTheDocument()
-    expect(screen.getByText('Improvements')).toBeInTheDocument()
+    // V9.2: Group 1 header "Validate before committing" shown for fragile edges
+    expect(screen.getByText('Validate before committing')).toBeInTheDocument()
+    // Uncertainty message should be rendered via UncertaintyRow
+    expect(screen.getByText('Some assumptions may significantly affect results')).toBeInTheDocument()
   })
 
   it('renders strong confidence tier with items correctly', () => {
@@ -87,8 +91,9 @@ describe('ConfidenceSection', () => {
 
     render(<ConfidenceSection data={fairData} />)
 
-    expect(screen.getByText('Partial picture')).toBeInTheDocument()
-    expect(screen.getByText('Your model covers the basics. Address the items below.')).toBeInTheDocument()
+    // V9.2: Tier info now in Accordion header, not inline. But fair tier shows
+    // grouped content. Check that the Group 1 heading renders.
+    expect(screen.getByText('Validate before committing')).toBeInTheDocument()
   })
 
   it('renders needs_work confidence tier correctly', () => {
@@ -105,14 +110,15 @@ describe('ConfidenceSection', () => {
 
     render(<ConfidenceSection data={needsWorkData} />)
 
-    expect(screen.getByText('Early sketch')).toBeInTheDocument()
+    // Has fragile edges, so Group 1 renders
+    expect(screen.getByText('Validate before committing')).toBeInTheDocument()
   })
 
-  it('renders uncertainties', () => {
+  it('renders fragile edge uncertainties in Group 1', () => {
     render(<ConfidenceSection data={mockData} />)
 
-    // P2: Two-tier display - mock data has no severity, defaults to 'warning' → "Worth refining"
-    expect(screen.getByText('Worth refining')).toBeInTheDocument()
+    // V9.2: Fragile edges render in Group 1 via UncertaintyRow
+    expect(screen.getByText('Validate before committing')).toBeInTheDocument()
     expect(screen.getByText('Some assumptions may significantly affect results')).toBeInTheDocument()
   })
 
@@ -120,13 +126,6 @@ describe('ConfidenceSection', () => {
     render(<ConfidenceSection data={mockData} />)
 
     expect(screen.getByText(/Consider validating/)).toBeInTheDocument()
-  })
-
-  it('renders improvements section', () => {
-    render(<ConfidenceSection data={mockData} />)
-
-    expect(screen.getByText('Improvements')).toBeInTheDocument()
-    expect(screen.getByText('Add more data sources')).toBeInTheDocument()
   })
 
   it('shows "ready to decide" message when strong tier with no issues', () => {
@@ -154,7 +153,7 @@ describe('ConfidenceSection', () => {
 
     render(<ConfidenceSection data={strongWithUncertaintiesData} />)
 
-    expect(screen.getByText(/Good foundation — a few items to consider below/)).toBeInTheDocument()
+    expect(screen.getByText(/Good foundation, a few items to consider below/)).toBeInTheDocument()
   })
 
   it('shows "items to consider" when strong tier has improvements', () => {
@@ -166,7 +165,7 @@ describe('ConfidenceSection', () => {
 
     render(<ConfidenceSection data={strongWithImprovementsData} />)
 
-    expect(screen.getByText(/Good foundation — a few items to consider below/)).toBeInTheDocument()
+    expect(screen.getByText(/Good foundation, a few items to consider below/)).toBeInTheDocument()
   })
 
   it('renders evidence coverage when available', () => {
@@ -184,47 +183,27 @@ describe('ConfidenceSection', () => {
     expect(screen.getByText(/3 need validation/)).toBeInTheDocument()
   })
 
-  it('expands to show more uncertainties', () => {
-    const manyUncertaintiesData: ConfidenceSectionData = {
+  it('shows "Show more" when more than 3 fragile edges', () => {
+    const manyFragileEdges: ConfidenceSectionData = {
       ...mockData,
       uncertainties: [
-        { code: 'A', message: 'Uncertainty 1' },
-        { code: 'B', message: 'Uncertainty 2' },
-        { code: 'C', message: 'Uncertainty 3' },
-        { code: 'D', message: 'Uncertainty 4' },
+        { code: 'SENSITIVE_ASSUMPTION', message: 'Edge 1', displayText: 'Edge 1' },
+        { code: 'SENSITIVE_ASSUMPTION', message: 'Edge 2', displayText: 'Edge 2' },
+        { code: 'SENSITIVE_ASSUMPTION', message: 'Edge 3', displayText: 'Edge 3' },
+        { code: 'SENSITIVE_ASSUMPTION', message: 'Edge 4', displayText: 'Edge 4' },
       ],
       topUncertainties: [
-        { code: 'A', message: 'Uncertainty 1' },
-        { code: 'B', message: 'Uncertainty 2' },
-        { code: 'C', message: 'Uncertainty 3' },
+        { code: 'SENSITIVE_ASSUMPTION', message: 'Edge 1', displayText: 'Edge 1' },
+        { code: 'SENSITIVE_ASSUMPTION', message: 'Edge 2', displayText: 'Edge 2' },
+        { code: 'SENSITIVE_ASSUMPTION', message: 'Edge 3', displayText: 'Edge 3' },
       ],
       robustnessStatus: 'computed',
     }
 
-    render(<ConfidenceSection data={manyUncertaintiesData} />)
+    render(<ConfidenceSection data={manyFragileEdges} />)
 
-    // Should show "+1 more items" button
-    expect(screen.getByText('+1 more items')).toBeInTheDocument()
-  })
-
-  it('expands to show more improvements', () => {
-    const manyImprovementsData: ConfidenceSectionData = {
-      ...mockData,
-      improvements: [
-        { action: 'A', reason: '', priority: 1, source: 'bias' },
-        { action: 'B', reason: '', priority: 2, source: 'bias' },
-        { action: 'C', reason: '', priority: 3, source: 'bias' },
-      ],
-      topImprovements: [
-        { action: 'A', reason: '', priority: 1, source: 'bias' },
-        { action: 'B', reason: '', priority: 2, source: 'bias' },
-      ],
-    }
-
-    render(<ConfidenceSection data={manyImprovementsData} />)
-
-    // Should show "+1 more items" button
-    expect(screen.getByText('+1 more items')).toBeInTheDocument()
+    // V9.2: Show more button for Group 1 fragile edges (capped at 3)
+    expect(screen.getByText('Show 1 more')).toBeInTheDocument()
   })
 
   it('renders threshold message for sensitive assumptions', () => {
@@ -234,6 +213,7 @@ describe('ConfidenceSection', () => {
         {
           code: 'SENSITIVE_ASSUMPTION',
           message: 'Cost sensitivity',
+          displayText: 'Cost sensitivity',
           threshold: {
             variable: 'Project Cost',
             direction: 'positive',
@@ -246,6 +226,7 @@ describe('ConfidenceSection', () => {
         {
           code: 'SENSITIVE_ASSUMPTION',
           message: 'Cost sensitivity',
+          displayText: 'Cost sensitivity',
           threshold: {
             variable: 'Project Cost',
             direction: 'positive',
@@ -261,22 +242,6 @@ describe('ConfidenceSection', () => {
 
     expect(screen.getByText(/Project Cost.*drops below.*150000/)).toBeInTheDocument()
     expect(screen.getByText(/Hire Contractors.*becomes the better choice/)).toBeInTheDocument()
-  })
-
-  it('renders effort estimate when available', () => {
-    const dataWithEffort: ConfidenceSectionData = {
-      ...mockData,
-      improvements: [
-        { action: 'Quick fix', reason: '', priority: 1, source: 'bias', effortMinutes: 15 },
-      ],
-      topImprovements: [
-        { action: 'Quick fix', reason: '', priority: 1, source: 'bias', effortMinutes: 15 },
-      ],
-    }
-
-    render(<ConfidenceSection data={dataWithEffort} />)
-
-    expect(screen.getByText('~15 min')).toBeInTheDocument()
   })
 
   // =============================================================================
@@ -407,19 +372,22 @@ describe('ConfidenceSection', () => {
   })
 
   // =============================================================================
-  // M1 Coaching: Evidence Gaps VOI handling
+  // V9.2: Evidence Gaps in grouped layout
   // =============================================================================
 
-  describe('M1 Coaching: Evidence Gaps VOI impact labels', () => {
-    it('renders VOI impact label when VOI is valid', () => {
+  describe('V9.2: Evidence Gaps in grouped layout', () => {
+    it('renders evidence gap in Group 2 with confidence pill', () => {
       const dataWithEvidenceGaps: ConfidenceSectionData = {
         ...mockData,
+        uncertainties: [],
+        topUncertainties: [],
         evidenceGaps: [
           {
             factorId: 'factor-1',
             factorLabel: 'Market Size',
             suggestion: 'Research market trends',
             voi: 0.75,
+            confidence: 30, // low confidence
           },
         ],
         topEvidenceGaps: [
@@ -428,6 +396,7 @@ describe('ConfidenceSection', () => {
             factorLabel: 'Market Size',
             suggestion: 'Research market trends',
             voi: 0.75,
+            confidence: 30,
           },
         ],
       }
@@ -435,17 +404,23 @@ describe('ConfidenceSection', () => {
       render(<ConfidenceSection data={dataWithEvidenceGaps} />)
 
       expect(screen.getByText('Market Size')).toBeInTheDocument()
-      expect(screen.getByText('High impact if resolved')).toBeInTheDocument()
+      // V9.2: Group 2 header
+      expect(screen.getByText('Investigate')).toBeInTheDocument()
+      // V9.2: Confidence pill instead of VOI label
+      expect(screen.getByText('Low confidence')).toBeInTheDocument()
     })
 
-    it('renders medium impact label for VOI >= 0.4', () => {
-      const dataWithMediumVOI: ConfidenceSectionData = {
+    it('renders medium confidence pill for evidence gap', () => {
+      const dataWithMediumConfidence: ConfidenceSectionData = {
         ...mockData,
+        uncertainties: [],
+        topUncertainties: [],
         evidenceGaps: [
           {
             factorId: 'factor-1',
             factorLabel: 'Competition',
             voi: 0.5,
+            confidence: 55, // medium confidence (55/100 = 0.55)
           },
         ],
         topEvidenceGaps: [
@@ -453,50 +428,28 @@ describe('ConfidenceSection', () => {
             factorId: 'factor-1',
             factorLabel: 'Competition',
             voi: 0.5,
+            confidence: 55,
           },
         ],
       }
 
-      render(<ConfidenceSection data={dataWithMediumVOI} />)
+      render(<ConfidenceSection data={dataWithMediumConfidence} />)
 
       expect(screen.getByText('Competition')).toBeInTheDocument()
-      expect(screen.getByText('Medium impact if resolved')).toBeInTheDocument()
+      expect(screen.getByText('Medium confidence')).toBeInTheDocument()
     })
 
-    it('renders lower impact label for VOI < 0.4', () => {
-      const dataWithLowVOI: ConfidenceSectionData = {
-        ...mockData,
-        evidenceGaps: [
-          {
-            factorId: 'factor-1',
-            factorLabel: 'Minor Factor',
-            voi: 0.2,
-          },
-        ],
-        topEvidenceGaps: [
-          {
-            factorId: 'factor-1',
-            factorLabel: 'Minor Factor',
-            voi: 0.2,
-          },
-        ],
-      }
-
-      render(<ConfidenceSection data={dataWithLowVOI} />)
-
-      expect(screen.getByText('Minor Factor')).toBeInTheDocument()
-      expect(screen.getByText('Lower impact if resolved')).toBeInTheDocument()
-    })
-
-    it('does not render VOI label when VOI is undefined', () => {
+    it('renders factor label cleanly when VOI is undefined', () => {
       const dataWithUndefinedVOI: ConfidenceSectionData = {
         ...mockData,
+        uncertainties: [],
+        topUncertainties: [],
         evidenceGaps: [
           {
             factorId: 'factor-1',
             factorLabel: 'Unknown Factor',
             suggestion: 'Investigate this',
-            voi: undefined as unknown as number, // Simulating undefined VOI
+            voi: undefined as unknown as number,
           },
         ],
         topEvidenceGaps: [
@@ -511,18 +464,14 @@ describe('ConfidenceSection', () => {
 
       render(<ConfidenceSection data={dataWithUndefinedVOI} />)
 
-      // Row should render cleanly
       expect(screen.getByText('Unknown Factor')).toBeInTheDocument()
-      expect(screen.getByText('Investigate this')).toBeInTheDocument()
-      // Task 2: "Focus in model" link removed - factor label is now clickable instead
-
-      // But VOI label should NOT be present
-      expect(screen.queryByText(/impact if resolved/)).not.toBeInTheDocument()
     })
 
-    it('does not render VOI label when VOI is NaN', () => {
+    it('renders factor label cleanly when VOI is NaN', () => {
       const dataWithNaNVOI: ConfidenceSectionData = {
         ...mockData,
+        uncertainties: [],
+        topUncertainties: [],
         evidenceGaps: [
           {
             factorId: 'factor-1',
@@ -541,11 +490,142 @@ describe('ConfidenceSection', () => {
 
       render(<ConfidenceSection data={dataWithNaNVOI} />)
 
-      // Row should render cleanly
       expect(screen.getByText('NaN Factor')).toBeInTheDocument()
+    })
+  })
 
-      // But VOI label should NOT be present
-      expect(screen.queryByText(/impact if resolved/)).not.toBeInTheDocument()
+  // =========================================================================
+  // V11.2 Fix 1+4: Humanised suggestion CTA for constraint items
+  // =========================================================================
+
+  describe('V11.2: Constraint item humanised CTA', () => {
+    it('renders humanised suggestion as CTA text for clickable constraint items', () => {
+      const constraintData: ConfidenceSectionData = {
+        ...mockData,
+        uncertainties: [
+          {
+            code: 'CONSTRAINT_TARGET_NO_OBSERVED_VALUE',
+            message: 'observed_state.value is missing for constraint_fac_budget_max',
+            affectedNodes: ['fac_budget'],
+            severity: 'warning',
+          },
+        ],
+        topUncertainties: [],
+        humanisedCritiques: [
+          {
+            title: 'Budget has no estimate set',
+            displayText: 'Budget has no estimate set',
+            description: 'Results may be unreliable without a current value for this constraint.',
+            suggestion: 'Set estimate \u2192',
+            factorId: 'fac_budget',
+          },
+        ],
+      }
+
+      render(<ConfidenceSection data={constraintData} />)
+
+      // Humanised title should render instead of raw message
+      expect(screen.getByText('Budget has no estimate set')).toBeInTheDocument()
+      // CTA should render inline
+      expect(screen.getByText('Set estimate \u2192')).toBeInTheDocument()
+      // Raw internal strings should NOT appear
+      expect(screen.queryByText(/observed_state/)).not.toBeInTheDocument()
+      expect(screen.queryByText(/constraint_fac_/)).not.toBeInTheDocument()
+    })
+
+    it('never exposes raw critique message for unknown codes', () => {
+      const unknownCodeData: ConfidenceSectionData = {
+        ...mockData,
+        uncertainties: [
+          {
+            code: 'BRAND_NEW_CODE',
+            message: 'constraint_fac_churn_max observed_state.value intercept=0',
+            affectedNodes: ['fac_churn'],
+            severity: 'warning',
+          },
+        ],
+        topUncertainties: [],
+        humanisedCritiques: [
+          {
+            title: "Review this factor's inputs",
+            displayText: "Review this factor's inputs",
+            description: "Some information needed to assess this factor isn't available yet.",
+            suggestion: 'Check and update this factor',
+            factorId: 'fac_churn',
+          },
+        ],
+      }
+
+      render(<ConfidenceSection data={unknownCodeData} />)
+
+      // Raw internal strings should never appear
+      expect(screen.queryByText(/constraint_fac_/)).not.toBeInTheDocument()
+      expect(screen.queryByText(/observed_state/)).not.toBeInTheDocument()
+      expect(screen.queryByText(/intercept=0/)).not.toBeInTheDocument()
+    })
+  })
+
+  // V12: Next actions ungated
+  // V12.1 Fix 3: Next actions merged into Validate group (no separate section)
+  describe('V12.1: Next actions merged into Validate', () => {
+    it('renders next actions within Validate group (no Recommended actions heading)', () => {
+      const dataWithActions: ConfidenceSectionData = {
+        ...mockData,
+        nextActions: [
+          { action: 'Validate pricing model', rationale: 'High uncertainty', priority: 1, targetId: 'fac-price' },
+          { action: 'Check market size data', rationale: 'Low confidence', priority: 2, targetId: 'fac-market' },
+        ],
+      }
+
+      render(<ConfidenceSection data={dataWithActions} />)
+
+      // V12.1 Fix 3: No separate "Recommended actions" heading
+      expect(screen.queryByText('Recommended actions')).not.toBeInTheDocument()
+      // Items appear under "Validate before committing"
+      expect(screen.getByText('Validate before committing')).toBeInTheDocument()
+      expect(screen.getByText('Validate pricing model')).toBeInTheDocument()
+      expect(screen.getByText('Check market size data')).toBeInTheDocument()
+    })
+
+    it('renders pre-sanitized action text (sanitization happens at data layer)', () => {
+      // Data layer sanitizes arrows before passing to ConfidenceSection
+      const dataWithCleanActions: ConfidenceSectionData = {
+        ...mockData,
+        nextActions: [
+          { action: 'Price to Revenue relationship', rationale: '', priority: 1, targetId: 'fac-price' },
+        ],
+      }
+
+      render(<ConfidenceSection data={dataWithCleanActions} />)
+
+      expect(screen.getByText('Price to Revenue relationship')).toBeInTheDocument()
+    })
+
+    it('excludes actions targeting the hinge factor', () => {
+      const dataWithActions: ConfidenceSectionData = {
+        ...mockData,
+        nextActions: [
+          { action: 'Validate pricing model', rationale: '', priority: 1, targetId: 'fac-price' },
+          { action: 'Check market size', rationale: '', priority: 2, targetId: 'fac-market' },
+        ],
+      }
+
+      render(
+        <ConfidenceSection
+          data={dataWithActions}
+          hinge={{ label: 'Price', nodeId: 'fac-price', kind: 'node', reason: 'voi', edgeDetail: null, alternativeWinnerLabel: null }}
+        />
+      )
+
+      // fac-price should be excluded (matches hinge nodeId)
+      expect(screen.queryByText('Validate pricing model')).not.toBeInTheDocument()
+      // fac-market should still render in Validate group
+      expect(screen.getByText('Check market size')).toBeInTheDocument()
+    })
+
+    it('does not render Recommended actions section when no next actions', () => {
+      render(<ConfidenceSection data={mockData} />)
+      expect(screen.queryByText('Recommended actions')).not.toBeInTheDocument()
     })
   })
 })

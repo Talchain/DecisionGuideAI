@@ -14,7 +14,7 @@ describe('ObjectiveBanner', () => {
     expect(screen.getByTestId('objective-banner')).toBeInTheDocument()
     expect(screen.getByText(/Your objective/i)).toBeInTheDocument()
     expect(screen.getByText(/Increase customer satisfaction/i)).toBeInTheDocument()
-    expect(screen.getByText(/Maximize/i)).toBeInTheDocument()
+    expect(screen.getByText(/Maximise/i)).toBeInTheDocument()
   })
 
   it('renders with minimize goal direction', () => {
@@ -26,7 +26,7 @@ describe('ObjectiveBanner', () => {
     )
 
     expect(screen.getByText(/Reduce operational costs/i)).toBeInTheDocument()
-    expect(screen.getByText(/Minimize/i)).toBeInTheDocument()
+    expect(screen.getByText(/Minimise/i)).toBeInTheDocument()
   })
 
   it('displays Target icon', () => {

@@ -78,7 +78,7 @@ export default function JobsProgressPanel() {
               <div className="ml-auto flex items-center gap-2">
                 {typeof j.progress === 'number' && (
                   <div className="w-24 bg-sand-200 rounded h-2" aria-hidden="true">
-                    <div className="h-2 rounded bg-emerald-500" style={{ width: `${j.progress}%` }} />
+                    <div className="h-2 rounded bg-success" style={{ width: `${j.progress}%` }} />
                   </div>
                 )}
                 {isActive && (

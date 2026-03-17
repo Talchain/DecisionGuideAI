@@ -23,13 +23,12 @@
  * ```
  */
 
-import { getRecentTraces, getPendingTraces, getFailedTraces, type RequestTrace, type DownstreamCall } from './debug-state'
+import { getRecentTraces, getPendingTraces, getFailedTraces, getInteractionChains, type RequestTrace, type DownstreamCall, type InteractionChain } from './debug-state'
 import { useGateStore, ALL_GATES, type GateName } from './gate-state'
 import { getClientBuild, getVersionInfo } from './version-cache'
 import { getAllServiceHealthArray, type ServiceHealthInfo } from './service-health'
 import type { CeePipelineTrace } from '../adapters/cee/types'
 import type { ErrorDetail } from '../types/cee'
-import { redactPayload } from '../utils/payloadRedaction'
 
 /**
  * Sanitized downstream call for export
@@ -125,6 +124,25 @@ interface IntegrationVerification {
   issues: string[]
 }
 
+interface SanitizedInteractionChain {
+  chainId: string
+  parentChainId?: string | null
+  triggerSurface: string
+  sourceSurface: string
+  initiatedBy: 'user' | 'automatic'
+  visibleTextSubmitted: string | null
+  submittedText: string | null
+  startedAt: string
+  scenarioId: string | null
+  stagePill: string | null
+  requestIds: string[]
+  requests: InteractionChain['requests']
+  timeline: InteractionChain['timeline']
+  stateBefore?: InteractionChain['stateBefore']
+  stateAfter?: InteractionChain['stateAfter']
+  childChainIds: string[]
+}
+
 /**
  * Full diagnostic bundle structure
  */
@@ -155,6 +173,8 @@ export interface DiagnosticBundle {
   services: ServiceHealth[]
   /** Integration verification summary */
   integration: IntegrationVerification
+  /** Compact UI repro chains */
+  interactions: SanitizedInteractionChain[]
   /** Session metadata */
   session: {
     durationMs: number
@@ -212,6 +232,27 @@ function sanitizeTrace(trace: RequestTrace): SanitizedTrace {
     downstream: sanitizeDownstreamCalls(trace.downstream),
     traceReceived: sanitizeTraceReceived(trace),
     // Intentionally omit: error (may contain stack traces), upstreamHost (internal infra)
+  }
+}
+
+function sanitizeInteractionChain(chain: InteractionChain): SanitizedInteractionChain {
+  return {
+    chainId: chain.chainId,
+    parentChainId: chain.parentChainId,
+    triggerSurface: chain.triggerSurface,
+    sourceSurface: chain.sourceSurface,
+    initiatedBy: chain.initiatedBy,
+    visibleTextSubmitted: chain.visibleTextSubmitted,
+    submittedText: chain.submittedText,
+    startedAt: chain.startedAt,
+    scenarioId: chain.scenarioId,
+    stagePill: chain.stagePill,
+    requestIds: [...chain.requestIds],
+    requests: chain.requests.map((request) => ({ ...request })),
+    timeline: chain.timeline.map((event) => ({ ...event })),
+    stateBefore: chain.stateBefore ? { ...chain.stateBefore } : undefined,
+    stateAfter: chain.stateAfter ? { ...chain.stateAfter } : undefined,
+    childChainIds: [...chain.childChainIds],
   }
 }
 
@@ -337,6 +378,7 @@ export async function createDiagnosticBundle(): Promise<DiagnosticBundle> {
   const recentTraces = getRecentTraces()
   const pendingTraces = getPendingTraces()
   const failedTraces = getFailedTraces()
+  const interactionChains = getInteractionChains()
 
   // Build gate snapshots
   const gates: GateSnapshot[] = ALL_GATES.map((gate) => {
@@ -392,6 +434,7 @@ export async function createDiagnosticBundle(): Promise<DiagnosticBundle> {
     },
     services,
     integration: computeIntegrationVerification(recentTraces),
+    interactions: interactionChains.map(sanitizeInteractionChain),
     session: {
       durationMs: Date.now() - sessionStart,
       pageUrl: pageUrl.pathname + pageUrl.search,
@@ -434,7 +477,7 @@ export async function exportDiagnosticBundle(): Promise<void> {
 
   // Log export for debugging
   if (import.meta.env.DEV) {
-    console.log('[diagnostic-bundle] Exported:', filename)
+    console.warn('[diagnostic-bundle] Exported:', filename)
   }
 }
 
@@ -484,16 +527,64 @@ export interface EdgeValueSummary {
   divergence: string | null
 }
 
+/**
+ * Structured error data extracted from CEE error responses.
+ * Captures trace/provenance even when the main pipeline fails.
+ */
+export interface CeeErrorResponse {
+  /** HTTP status code */
+  httpStatus: number
+  /** Error message from response body */
+  message?: string
+  /** Error code from response body */
+  code?: string
+  /** CEE request_id from trace (CEE-generated, distinct from UI correlationId) */
+  cee_request_id?: string
+  /** Pipeline provenance (version/commit of CEE that generated the error) */
+  cee_provenance?: {
+    version?: string
+    commit?: string
+    [key: string]: unknown
+  }
+  /** Pipeline checkpoints reached before failure */
+  checkpoints?: unknown[]
+  /** Pipeline status at time of error */
+  pipeline_status?: string
+  /** Raw error body keys (for debugging missing fields) */
+  body_keys?: string[]
+}
+
+/**
+ * Request ID labels for cross-service correlation.
+ * Multiple IDs may exist; all are included with clear labels.
+ */
+export interface RequestIdLabels {
+  /** UI-generated correlationId — sent to CEE via x-correlation-id header.
+   *  Same as boundary log request_id and payload trace id. */
+  ui_correlation_id: string | null
+  /** CEE-internal request_id — from error/success response trace.request_id.
+   *  Generated by CEE, different from ui_correlation_id. */
+  cee_request_id: string | null
+  /** Whether both IDs are present and can be correlated */
+  cross_service_correlation: boolean
+}
+
 export interface MergedDebugExport {
   meta: {
     timestamp: string
     environment: string
     uiBuild: string
     branch?: string
+    /** Primary request ID for this bundle (UI correlationId) */
+    request_id: string | null
+    /** All request IDs with clear labels for cross-service correlation */
+    request_ids: RequestIdLabels
   }
   diagnostic: DiagnosticBundle
   ceePipelineTrace?: CeePipelineTrace | null
   errorDetails?: ErrorDetail[]
+  /** Structured error data from CEE error responses (non-2xx) */
+  ceeErrorResponse?: CeeErrorResponse | null
   contractTrace: {
     payloadCount: number
     payloads: unknown[]
@@ -647,6 +738,123 @@ async function computeEdgeValueSummary(
 }
 
 /**
+ * Find the most recent CEE payload from the trace store.
+ * Prefers completed draft-graph payloads.
+ */
+function findCeePayload(payloads: { id: string; service: string; endpoint: string; status?: number; completed: boolean; response?: { body: unknown } }[]): typeof payloads[number] | undefined {
+  // Prefer completed CEE draft-graph
+  const draftGraph = payloads.find(
+    p => p.service === 'CEE' && p.completed && p.endpoint.includes('draft-graph')
+  )
+  if (draftGraph) return draftGraph
+  // Any completed CEE payload
+  return payloads.find(p => p.service === 'CEE' && p.completed)
+}
+
+/**
+ * Extract structured error data from a CEE error response body.
+ * CEE may include trace.pipeline.cee_provenance, checkpoints, and error details
+ * even when the main pipeline fails (non-2xx).
+ */
+function extractCeeErrorResponse(ceePayload: { status?: number; response?: { body: unknown } } | undefined): CeeErrorResponse | null {
+  if (!ceePayload) return null
+  const status = ceePayload.status
+  // Only extract from error responses (non-2xx)
+  if (!status || (status >= 200 && status < 300)) return null
+
+  const body = ceePayload.response?.body
+  if (!body || typeof body !== 'object') return null
+
+  const b = body as Record<string, unknown>
+
+  // Extract structured error fields
+  const message = (b.message as string) ?? (b.error as string) ?? undefined
+  const code = (b.code as string) ?? ((b.details as Record<string, unknown>)?.code as string) ?? undefined
+
+  // Extract trace data from both shapes:
+  // Shape A — direct passthrough: body.trace.pipeline (PLoT relays CEE error as-is)
+  // Shape B — PLoT-wrapped:       body.details.trace.pipeline (PLoT wraps CEE error in details envelope)
+  const directTrace = b.trace as Record<string, unknown> | undefined
+  const wrappedDetails = b.details as Record<string, unknown> | undefined
+  const wrappedTrace = wrappedDetails?.trace as Record<string, unknown> | undefined
+  // Use whichever trace has a pipeline object
+  const trace = (directTrace?.pipeline ? directTrace : wrappedTrace?.pipeline ? wrappedTrace : directTrace) ?? undefined
+  const pipeline = trace?.pipeline as Record<string, unknown> | undefined
+
+  const cee_request_id = (directTrace?.request_id as string)
+    ?? (wrappedTrace?.request_id as string)
+    ?? undefined
+  const cee_provenance = pipeline?.cee_provenance as CeeErrorResponse['cee_provenance'] | undefined
+  const checkpoints = Array.isArray(pipeline?.checkpoints) ? pipeline.checkpoints : undefined
+  const pipeline_status = (pipeline?.status as string) ?? undefined
+
+  return {
+    httpStatus: status,
+    message,
+    code,
+    cee_request_id,
+    cee_provenance: cee_provenance ?? undefined,
+    checkpoints,
+    pipeline_status,
+    body_keys: Object.keys(b),
+  }
+}
+
+/**
+ * Extract all request IDs with labels for cross-service correlation.
+ */
+function extractRequestIdLabels(
+  ceePayload: { id: string; response?: { body: unknown } } | undefined
+): RequestIdLabels {
+  const ui_correlation_id = ceePayload?.id ?? null
+
+  // CEE-generated request_id from response trace
+  // Check both direct passthrough (body.trace) and PLoT-wrapped (body.details.trace)
+  let cee_request_id: string | null = null
+  if (ceePayload?.response?.body && typeof ceePayload.response.body === 'object') {
+    const body = ceePayload.response.body as Record<string, unknown>
+    const directTrace = body.trace as Record<string, unknown> | undefined
+    const wrappedTrace = (body.details as Record<string, unknown>)?.trace as Record<string, unknown> | undefined
+    cee_request_id = (directTrace?.request_id as string)
+      ?? (wrappedTrace?.request_id as string)
+      ?? null
+  }
+
+  return {
+    ui_correlation_id,
+    cee_request_id,
+    cross_service_correlation: ui_correlation_id !== null && cee_request_id !== null,
+  }
+}
+
+/**
+ * Auto-extract ceePipelineTrace from the CEE payload in the trace store.
+ * Falls back to error response paths when the main pipeline trace is absent.
+ */
+function extractPipelineTraceFromPayload(ceePayload: { response?: { body: unknown } } | undefined): CeePipelineTrace | null {
+  if (!ceePayload?.response?.body || typeof ceePayload.response.body !== 'object') return null
+
+  const body = ceePayload.response.body as Record<string, unknown>
+
+  // Success path: response.trace.pipeline
+  const trace = body.trace as Record<string, unknown> | undefined
+  const pipeline = trace?.pipeline
+  if (pipeline && typeof pipeline === 'object' && 'status' in (pipeline as Record<string, unknown>)) {
+    return pipeline as CeePipelineTrace
+  }
+
+  // Error response paths (CEE may nest trace differently)
+  const errorDetails = body.details as Record<string, unknown> | undefined
+  const errorTrace = errorDetails?.trace as Record<string, unknown> | undefined
+  const errorPipeline = errorTrace?.pipeline
+  if (errorPipeline && typeof errorPipeline === 'object' && 'status' in (errorPipeline as Record<string, unknown>)) {
+    return errorPipeline as CeePipelineTrace
+  }
+
+  return null
+}
+
+/**
  * Create merged debug export with all available data
  */
 export async function createMergedDebugExport(extras?: {
@@ -672,18 +880,11 @@ export async function createMergedDebugExport(extras?: {
       status: p.status,
       completed: p.completed,
       error: p.error,
-      request: p.request
-        ? {
-            headers: redactPayload(p.request.headers) as Record<string, string>,
-            body: redactPayload(p.request.body),
-          }
-        : undefined,
-      response: p.response
-        ? {
-            headers: redactPayload(p.response.headers) as Record<string, string>,
-            body: redactPayload(p.response.body),
-          }
-        : undefined,
+      // Payloads are already redacted at capture time by payload-trace-store
+      // (with neverTruncateKeys: ['text'] to preserve llm_raw.text).
+      // Do NOT re-redact here — it would strip the neverTruncateKeys exemption.
+      request: p.request ?? undefined,
+      response: p.response ?? undefined,
       contractValidation: p.contractValidation,
     })),
   }
@@ -701,9 +902,36 @@ export async function createMergedDebugExport(extras?: {
   const versionInfo = getVersionInfo()
   const clientBuild = getClientBuild()
 
+  // Find the most recent CEE payload for error/ID extraction
+  const ceePayload = findCeePayload(payloadState.payloads)
+
+  // Extract request IDs with labels
+  const requestIds = extractRequestIdLabels(ceePayload)
+
+  // Auto-extract ceePipelineTrace from payload store if not provided in extras
+  const ceePipelineTrace = extras?.ceePipelineTrace
+    ?? extractPipelineTraceFromPayload(ceePayload)
+
+  // Auto-extract errorDetails from canvas store if not provided in extras
+  let errorDetails = extras?.errorDetails
+  if (!errorDetails) {
+    try {
+      const { useCanvasStore } = await import('../canvas/store')
+      const storeErrorDetails = useCanvasStore.getState().runMeta?.errorDetails
+      if (storeErrorDetails && storeErrorDetails.length > 0) {
+        errorDetails = storeErrorDetails
+      }
+    } catch {
+      // Canvas store not available
+    }
+  }
+
+  // Extract structured error data from CEE error responses
+  const ceeErrorResponse = extractCeeErrorResponse(ceePayload)
+
   // Compute edge value summary for transformation debugging
   const edgeValueSummary = await computeEdgeValueSummary(
-    extras?.ceePipelineTrace,
+    ceePipelineTrace,
     payloadState.payloads
   )
 
@@ -713,10 +941,13 @@ export async function createMergedDebugExport(extras?: {
       environment: String(import.meta.env.VITE_APP_ENV || 'development'),
       uiBuild: clientBuild,
       branch: versionInfo?.branch,
+      request_id: requestIds.ui_correlation_id,
+      request_ids: requestIds,
     },
     diagnostic,
-    ceePipelineTrace: extras?.ceePipelineTrace,
-    errorDetails: extras?.errorDetails,
+    ceePipelineTrace,
+    errorDetails,
+    ceeErrorResponse,
     contractTrace,
     dataShapeAnomalies,
     boundaryEvents: [], // Boundary events logged to console, not stored in-memory
@@ -759,7 +990,7 @@ export async function exportMergedDebugBundle(extras?: {
   URL.revokeObjectURL(url)
 
   if (import.meta.env.DEV) {
-    console.log('[diagnostic-bundle] Exported merged:', filename)
+    console.warn('[diagnostic-bundle] Exported merged:', filename)
   }
 }
 

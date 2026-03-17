@@ -206,12 +206,13 @@ describe('mapV2ResponseToReportV1', () => {
 
     const report = mapV2ResponseToReportV1(v2Response, { seed: 42 })
 
-    // goal_probability = midpoint of confidence_interval
+    // goal_probability is null when probability_of_goal not in V2 response (Fix A)
     // expected and outcome contain distribution data
     expect(report.option_probabilities).toEqual({
       opt1: {
-        goal_probability: 50, // (30+70)/2 = 50
+        goal_probability: null, // No probability_of_goal in input (Fix A: no CI midpoint fallback)
         confidence: 0.5,
+        constraint_analysis: undefined,
         win_probability: undefined,
         expected: 50, // Falls back to CI midpoint when no mean
         outcome: {
@@ -222,8 +223,9 @@ describe('mapV2ResponseToReportV1', () => {
         },
       },
       opt2: {
-        goal_probability: 60, // (45+75)/2 = 60
+        goal_probability: null, // No probability_of_goal in input
         confidence: 0.5,
+        constraint_analysis: undefined,
         win_probability: undefined,
         expected: 60, // Falls back to CI midpoint
         outcome: {
@@ -313,6 +315,22 @@ describe('mapV2ResponseToReportV1', () => {
     const report = mapV2ResponseToReportV1(v2Response, { seed: 42 })
 
     expect(report.warnings).toEqual(['Warning message', 'Info message'])
+  })
+
+  it('V14.3b: filters internal-token warnings from report.warnings', () => {
+    const v2Response = makeSuccessResponse({
+      critiques: [
+        { code: 'WARN1', severity: 'warning', message: 'Constraint "constraint_fac_customer_churn_max" targets factor node "fac_customer_churn" which has no observed_state.value.' },
+        { code: 'WARN2', severity: 'warning', message: 'Clean user-facing warning' },
+        { code: 'WARN3', severity: 'warning', message: 'fac_budget has intercept=0 and blocks_analysis pipeline' },
+        { code: 'WARN4', severity: 'info', message: '1 temporal constraint(s) filtered: [constraint_goal_mid_market_success_max]' },
+      ],
+    })
+
+    const report = mapV2ResponseToReportV1(v2Response, { seed: 42 })
+
+    // Only the clean warning should survive
+    expect(report.warnings).toEqual(['Clean user-facing warning'])
   })
 
   it('handles empty option_comparison array', () => {
@@ -557,6 +575,30 @@ describe('mapDriversFromResponse (factor_sensitivity)', () => {
 
     expect(report.drivers).toHaveLength(0)
   })
+
+  // Regression: factor_label → label → formatNodeName fallback chain
+  it('prefers factor_label over label and formatNodeName', () => {
+    const v2Response = makeSuccessResponse({
+      drivers: [],
+      edge_sensitivity: [],
+      factor_sensitivity: [
+        // Sorted by elasticity magnitude: 0.7, 0.5, 0.3
+        { factor_id: 'market_size', factor_label: 'Market Size (adjusted)', label: 'Market Size', elasticity: 0.7 },
+        { factor_id: 'growth_rate', elasticity: 0.5 },
+        { factor_id: 'competitor_count', label: 'Competitors', elasticity: -0.3 },
+      ],
+    })
+
+    const report = mapV2ResponseToReportV1(v2Response, { seed: 42 })
+
+    expect(report.drivers).toHaveLength(3)
+    // factor_label takes precedence (highest elasticity = first)
+    expect(report.drivers[0].label).toBe('Market Size (adjusted)')
+    // formatNodeName fallback when neither factor_label nor label present
+    expect(report.drivers[1].label).toBe('Growth Rate')
+    // label fallback when no factor_label
+    expect(report.drivers[2].label).toBe('Competitors')
+  })
 })
 
 // ============================================================================
@@ -696,13 +738,13 @@ describe('probability_of_goal and win_probability mapping', () => {
     expect(report.option_probabilities!['opt1'].goal_probability).toBe(0.75)
   })
 
-  it('falls back to CI midpoint when probability_of_goal not provided', () => {
+  it('returns null goal_probability when probability_of_goal not provided (Fix A)', () => {
     const v2Response = makeSuccessResponse({
       option_comparison: [
         {
           option_id: 'opt1',
           option_label: 'Option A',
-          confidence_interval: [30, 70], // midpoint = 50
+          confidence_interval: [30, 70],
         },
       ],
     })
@@ -710,7 +752,8 @@ describe('probability_of_goal and win_probability mapping', () => {
     const report = mapV2ResponseToReportV1(v2Response, { seed: 42 })
 
     expect(report.option_probabilities).toBeDefined()
-    expect(report.option_probabilities!['opt1'].goal_probability).toBe(50) // CI midpoint
+    // Fix A: no CI midpoint fallback — null means "not available"
+    expect(report.option_probabilities!['opt1'].goal_probability).toBeNull()
   })
 
   it('maps win_probability from V2 option_comparison', () => {

@@ -94,7 +94,7 @@ const OptionColumn = memo(({
                 onChange={(e) => setEditedName(e.target.value)}
                 onBlur={handleSave}
                 onKeyPress={(e) => e.key === 'Enter' && handleSave()}
-                className="flex-1 px-2 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                className="flex-1 px-2 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-info focus:border-info/30"
                 autoFocus
               />
             </Tooltip>
@@ -149,7 +149,7 @@ const OptionColumn = memo(({
                 <Tooltip content="Remove this option and all its pros/cons">
                   <button
                     onClick={() => onDelete()}
-                    className="flex items-center w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50"
+                    className="flex items-center w-full px-4 py-2 text-sm text-danger hover:bg-panel-hover"
                   >
                     <Trash2 className="h-4 w-4 mr-2" />
                     Delete Option
@@ -166,7 +166,7 @@ const OptionColumn = memo(({
           <div className="flex items-center gap-2 mb-2">
             <Tooltip content="Positive aspects of this option">
               <div className="flex items-center gap-2">
-                <ThumbsUp className="h-4 w-4 text-green-600" />
+                <ThumbsUp className="h-4 w-4 text-success" />
                 <h5 className="font-medium text-gray-900">Pros</h5>
               </div>
             </Tooltip>
@@ -199,7 +199,7 @@ const OptionColumn = memo(({
                   onChange={(e) => setNewItemText(e.target.value)}
                   onKeyPress={handleKeyPress}
                   placeholder="Add a new pro..."
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 resize-none"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-info focus:border-info/30 resize-none"
                   rows={2}
                   autoFocus
                 />
@@ -217,7 +217,7 @@ const OptionColumn = memo(({
                   <button
                     onClick={() => handleAddItem('pros')}
                     disabled={!newItemText.trim()}
-                    className="px-3 py-1 text-sm text-white bg-indigo-600 rounded hover:bg-indigo-700 disabled:opacity-50"
+                    className="px-3 py-1 text-sm text-text-on-color bg-primary rounded hover:bg-primary-hover disabled:opacity-50"
                   >
                     Add
                   </button>
@@ -228,7 +228,7 @@ const OptionColumn = memo(({
             <Tooltip content="Click to add a new positive aspect">
               <button
                 onClick={() => setNewItemType('pros')}
-                className="mt-2 w-full px-3 py-2 text-sm text-green-700 bg-green-50 rounded-lg hover:bg-green-100 transition-colors"
+                className="mt-2 w-full px-3 py-2 text-sm text-success bg-panel rounded-lg hover:bg-panel transition-colors"
               >
                 + Add Pro
               </button>
@@ -240,7 +240,7 @@ const OptionColumn = memo(({
           <div className="flex items-center gap-2 mb-2">
             <Tooltip content="Negative aspects of this option">
               <div className="flex items-center gap-2">
-                <ThumbsDown className="h-4 w-4 text-red-600" />
+                <ThumbsDown className="h-4 w-4 text-danger" />
                 <h5 className="font-medium text-gray-900">Cons</h5>
               </div>
             </Tooltip>
@@ -273,7 +273,7 @@ const OptionColumn = memo(({
                   onChange={(e) => setNewItemText(e.target.value)}
                   onKeyPress={handleKeyPress}
                   placeholder="Add a new con..."
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 resize-none"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-info focus:border-info/30 resize-none"
                   rows={2}
                   autoFocus
                 />
@@ -291,7 +291,7 @@ const OptionColumn = memo(({
                   <button
                     onClick={() => handleAddItem('cons')}
                     disabled={!newItemText.trim()}
-                    className="px-3 py-1 text-sm text-white bg-indigo-600 rounded hover:bg-indigo-700 disabled:opacity-50"
+                    className="px-3 py-1 text-sm text-text-on-color bg-primary rounded hover:bg-primary-hover disabled:opacity-50"
                   >
                     Add
                   </button>
@@ -302,7 +302,7 @@ const OptionColumn = memo(({
             <Tooltip content="Click to add a new negative aspect">
               <button
                 onClick={() => setNewItemType('cons')}
-                className="mt-2 w-full px-3 py-2 text-sm text-red-700 bg-red-50 rounded-lg hover:bg-red-100 transition-colors"
+                className="mt-2 w-full px-3 py-2 text-sm text-danger bg-panel rounded-lg hover:bg-panel-hover transition-colors"
               >
                 + Add Con
               </button>

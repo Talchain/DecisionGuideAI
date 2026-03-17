@@ -29,6 +29,15 @@ export interface RedactionOptions {
   safeKeys?: string[]
   /** Per-field array limits for diagnostic-critical fields */
   fieldArrayLimits?: Record<string, number>
+  /** Keys whose string values bypass maxStringLength (e.g., 'text' for llm_raw.text in debug).
+   *  Still subject to neverTruncateMaxLength as a safety cap. */
+  neverTruncateKeys?: string[]
+  /** Safety cap for neverTruncateKeys strings (default: 200_000 chars ~200KB). Prevents memory blowout. */
+  neverTruncateMaxLength?: number
+  /** Keys whose subtrees bypass max-depth redaction.
+   *  When a key matches, depth resets so the subtree gets maxDepth more levels.
+   *  Sensitive-key masking, string truncation, and array capping still apply. */
+  neverRedactKeys?: string[]
 }
 
 const DEFAULT_OPTIONS: Required<RedactionOptions> = {
@@ -48,6 +57,33 @@ const DEFAULT_OPTIONS: Required<RedactionOptions> = {
     warnings: 30,
     errors: 30,
   },
+  neverTruncateKeys: [],
+  neverTruncateMaxLength: 200_000,
+  neverRedactKeys: [],
+}
+
+function getDebugLlmRawMaxChars(): number {
+  const envValue =
+    import.meta.env.DEBUG_LLM_RAW_MAX_CHARS ??
+    import.meta.env.VITE_DEBUG_LLM_RAW_MAX_CHARS
+  const parsed = Number(envValue)
+  return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : 8000
+}
+
+export const DEBUG_LLM_RAW_MAX_CHARS = getDebugLlmRawMaxChars()
+
+/**
+ * Redaction options for debug bundles.
+ * Higher limits than defaults to preserve diagnostic data.
+ * Shared between payload-trace-store and buildRawErrorData.
+ */
+export const DEBUG_BUNDLE_REDACTION_OPTIONS: RedactionOptions = {
+  maxDepth: 8,
+  maxArrayItems: 100,
+  maxStringLength: 1000,
+  neverTruncateKeys: ['text', 'output_preview', 'output', 'content'],
+  neverTruncateMaxLength: DEBUG_LLM_RAW_MAX_CHARS,
+  neverRedactKeys: ['constraint_analysis', 'observed_state', 'goal_constraints'],
 }
 
 /** Maximum size for raw error data storage (50KB) */
@@ -95,6 +131,31 @@ export function redactPayload(
   return redactValue(payload, opts, 0, undefined, visited)
 }
 
+/**
+ * Bounded recursive check: does this value's subtree contain any key in exemptKeys?
+ * Scans up to EXEMPT_SCAN_DEPTH levels to avoid unbounded traversal on large payloads.
+ */
+const EXEMPT_SCAN_DEPTH = 4
+
+function containsExemptDescendant(
+  value: unknown,
+  exemptKeys: string[],
+  scanDepth = 0,
+): boolean {
+  if (exemptKeys.length === 0 || scanDepth > EXEMPT_SCAN_DEPTH) return false
+  if (value === null || value === undefined || typeof value !== 'object') return false
+
+  if (Array.isArray(value)) {
+    return value.some(item => containsExemptDescendant(item, exemptKeys, scanDepth + 1))
+  }
+
+  const keys = Object.keys(value as object)
+  if (keys.some(k => exemptKeys.includes(k))) return true
+  return keys.some(k =>
+    containsExemptDescendant((value as Record<string, unknown>)[k], exemptKeys, scanDepth + 1)
+  )
+}
+
 function redactValue(
   value: unknown,
   opts: Required<RedactionOptions>,
@@ -112,23 +173,40 @@ function redactValue(
     return value
   }
 
-  // Strings - truncate if too long
+  // Strings - truncate if too long (unless key is exempt via neverTruncateKeys)
   if (typeof value === 'string') {
+    const isExempt = currentKey != null && opts.neverTruncateKeys.includes(currentKey)
+    if (isExempt) {
+      // Exempt keys bypass maxStringLength but still have a safety cap
+      if (value.length > opts.neverTruncateMaxLength) {
+        return `${value.slice(0, opts.neverTruncateMaxLength)}... [truncated_by: bundle_redaction_safety_cap, ${value.length} chars total]`
+      }
+      return value
+    }
     if (value.length > opts.maxStringLength) {
-      return `${value.slice(0, opts.maxStringLength)}... (truncated, ${value.length} chars total)`
+      return `${value.slice(0, opts.maxStringLength)}... [truncated_by: bundle_redaction, ${value.length} chars total]`
     }
     return value
   }
 
-  // Max depth check
-  if (depth >= opts.maxDepth) {
-    if (Array.isArray(value)) {
-      return { __redacted: true, type: 'array', length: value.length }
+  // Depth-exempt check: if currentKey is in neverRedactKeys, reset depth
+  const isDepthExempt = currentKey != null && opts.neverRedactKeys.includes(currentKey)
+  const effectiveDepth = isDepthExempt ? 0 : depth
+
+  // Max depth check (skipped for exempt keys via depth reset)
+  if (effectiveDepth >= opts.maxDepth) {
+    // Before redacting, check if this subtree contains any neverRedactKeys descendant.
+    // If so, fall through to process so exempt descendants can be preserved.
+    if (!containsExemptDescendant(value, opts.neverRedactKeys)) {
+      if (Array.isArray(value)) {
+        return { __redacted: true, type: 'array', length: value.length }
+      }
+      if (typeof value === 'object') {
+        return { __redacted: true, type: 'object', keys: Object.keys(value as object).slice(0, 10) }
+      }
+      return { __redacted: true, type: typeof value }
     }
-    if (typeof value === 'object') {
-      return { __redacted: true, type: 'object', keys: Object.keys(value as object).slice(0, 10) }
-    }
-    return { __redacted: true, type: typeof value }
+    // Has exempt descendant: fall through — process normally, exempt keys get depth reset
   }
 
   // Circular reference check for objects and arrays
@@ -145,7 +223,7 @@ function redactValue(
     const effectiveLimit = typeof fieldLimit === 'number' ? fieldLimit : opts.maxArrayItems
 
     const items = value.slice(0, effectiveLimit).map(item =>
-      redactValue(item, opts, depth + 1, undefined, visited)
+      redactValue(item, opts, effectiveDepth + 1, undefined, visited)
     )
 
     if (value.length > effectiveLimit) {
@@ -177,7 +255,7 @@ function redactValue(
       }
 
       // Pass key name to enable per-field array limits
-      redacted[key] = redactValue(obj[key], opts, depth + 1, key, visited)
+      redacted[key] = redactValue(obj[key], opts, effectiveDepth + 1, key, visited)
     }
 
     return redacted
@@ -237,6 +315,8 @@ export interface RawErrorDataInput {
   expectedShape?: string
   validationErrors?: string[]
   validationWarnings?: string[]
+  /** Custom redaction options. Defaults to DEBUG_BUNDLE_REDACTION_OPTIONS. */
+  redactionOptions?: RedactionOptions
 }
 
 /**
@@ -267,7 +347,7 @@ export function buildRawErrorData(input: RawErrorDataInput): {
 
   // Dev/staging: capture with redaction
   const redactedPayload = input.payload !== undefined
-    ? redactPayload(input.payload)
+    ? redactPayload(input.payload, input.redactionOptions ?? DEBUG_BUNDLE_REDACTION_OPTIONS)
     : undefined
 
   const rawData = {

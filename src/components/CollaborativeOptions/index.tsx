@@ -66,18 +66,18 @@ export default function CollaborativeOptions({ decisionId, onGenerateAI }: Colla
   if (loading) {
     return (
       <div className="flex items-center justify-center p-8">
-        <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
+        <Loader2 className="h-8 w-8 animate-spin text-info" />
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="bg-red-50 p-4 rounded-lg flex items-start gap-2">
-        <AlertTriangle className="h-5 w-5 text-red-500 flex-shrink-0" />
+      <div className="bg-panel p-4 rounded-lg flex items-start gap-2">
+        <AlertTriangle className="h-5 w-5 text-danger flex-shrink-0" />
         <div>
-          <h3 className="font-medium text-red-800">Error loading options</h3>
-          <p className="text-sm text-red-700 mt-1">{error}</p>
+          <h3 className="font-medium text-danger">Error loading options</h3>
+          <p className="text-sm text-danger mt-1">{error}</p>
         </div>
       </div>
     );
@@ -100,7 +100,7 @@ export default function CollaborativeOptions({ decisionId, onGenerateAI }: Colla
         {onGenerateAI && (
           <button
             onClick={onGenerateAI}
-            className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+            className="px-4 py-2 text-sm font-medium text-text-on-color bg-primary rounded-lg hover:bg-primary-hover focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-info"
           >
             Generate AI Suggestions
           </button>
@@ -115,12 +115,12 @@ export default function CollaborativeOptions({ decisionId, onGenerateAI }: Colla
             value={newOptionText}
             onChange={(e) => setNewOptionText(e.target.value)}
             placeholder="Add a new option..."
-            className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+            className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-info focus:border-info/30"
           />
           <button
             type="submit"
             disabled={!newOptionText.trim() || isSubmitting}
-            className="px-4 py-2 text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 disabled:opacity-50 flex items-center gap-2"
+            className="px-4 py-2 text-text-on-color bg-primary rounded-lg hover:bg-primary-hover disabled:opacity-50 flex items-center gap-2"
           >
             {isSubmitting ? (
               <Loader2 className="h-5 w-5 animate-spin" />
@@ -152,7 +152,7 @@ export default function CollaborativeOptions({ decisionId, onGenerateAI }: Colla
         <div className="fixed bottom-4 right-4">
           <button
             onClick={() => setShowMergeModal(true)}
-            className="px-4 py-2 text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 shadow-lg"
+            className="px-4 py-2 text-text-on-color bg-primary rounded-lg hover:bg-primary-hover shadow-lg"
           >
             Merge {selectedOptions.length} Options
           </button>

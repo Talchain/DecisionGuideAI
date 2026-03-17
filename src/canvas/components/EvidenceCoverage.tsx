@@ -43,8 +43,8 @@ const LEVEL_CONFIG: Record<
   full: {
     label: 'Full Coverage',
     icon: FileCheck2,
-    className: 'text-green-700',
-    progressColor: 'bg-green-500',
+    className: 'text-success',
+    progressColor: 'bg-success',
     description: 'All connections have documented evidence sources.',
   },
   partial: {
@@ -57,15 +57,15 @@ const LEVEL_CONFIG: Record<
   minimal: {
     label: 'Minimal Coverage',
     icon: FileWarning,
-    className: 'text-amber-700',
-    progressColor: 'bg-amber-500',
+    className: 'text-warning',
+    progressColor: 'bg-warning',
     description: 'Few connections have evidence. Consider adding sources.',
   },
   none: {
     label: 'No Coverage',
     icon: FileX,
-    className: 'text-red-700',
-    progressColor: 'bg-red-500',
+    className: 'text-danger',
+    progressColor: 'bg-danger',
     description: 'No connections have evidence sources documented.',
   },
 }

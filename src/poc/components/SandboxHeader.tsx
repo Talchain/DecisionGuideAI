@@ -35,7 +35,7 @@ export function SandboxHeader({
       onClick={() => onModeChange(value)}
       aria-pressed={mode === value}
       className={`px-2 py-1 text-xs rounded border ${
-        mode === value ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-gray-700 border-gray-300'
+        mode === value ? 'bg-primary text-text-on-color border-info/30' : 'bg-white text-gray-700 border-gray-300'
       }`}
       data-testid={`mode-${value}`}
     >
@@ -90,7 +90,7 @@ export function SandboxHeader({
         <button
           type="button"
           onClick={onClear}
-          className="px-2 py-1 text-xs rounded border bg-white text-red-600 border-red-300"
+          className="px-2 py-1 text-xs rounded border bg-white text-danger border-danger/30"
           aria-label="Clear sandbox"
           data-testid="clear-btn"
           title="Clear sandbox (local)"

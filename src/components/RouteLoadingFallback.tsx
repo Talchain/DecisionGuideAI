@@ -38,7 +38,7 @@ export default function RouteLoadingFallback({
     >
       <div className="text-center">
         <div 
-          className="inline-block h-12 w-12 animate-spin rounded-full border-4 border-solid border-indigo-600 border-r-transparent motion-reduce:animate-none"
+          className="inline-block h-12 w-12 animate-spin rounded-full border-4 border-solid border-info/30 border-r-transparent motion-reduce:animate-none"
           aria-hidden="true"
         />
         <p className="mt-4 text-sm text-gray-600">

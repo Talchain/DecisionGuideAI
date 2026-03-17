@@ -79,10 +79,23 @@ export function useValidationFeedback() {
   }, [getNode, getEdge])
 
   /**
-   * Format all validation errors with context
+   * Task 4: Codes for violations that are auto-handled internally and
+   * should never surface in the ValidationBanner. The adapter clamps
+   * out-of-range strengths automatically, so showing this to users
+   * is confusing noise.
+   */
+  const SUPPRESSED_CODES = new Set([
+    'STRENGTH_OUT_OF_RANGE',
+  ])
+
+  /**
+   * Format all validation errors with context.
+   * Task 4: Also filters out suppressed structural violations.
    */
   const formatErrors = useCallback((errors: ValidationError[]): ValidationError[] => {
-    return errors.map(formatError)
+    return errors
+      .filter((e) => !SUPPRESSED_CODES.has(e.code))
+      .map(formatError)
   }, [formatError])
 
   return {

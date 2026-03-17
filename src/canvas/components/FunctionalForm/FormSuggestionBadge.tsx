@@ -29,17 +29,17 @@ export const FormSuggestionBadge = memo(function FormSuggestionBadge({
     return (
       <div
         data-testid={`form-suggestion-badge-${recommendation.edge_id}`}
-        className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full bg-amber-100 border border-amber-300"
+        className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full bg-panel border border-warning/30"
         title={`Suggestion: ${formInfo?.name || recommendation.recommended_form}`}
       >
-        <Lightbulb className="w-3 h-3 text-amber-600" aria-hidden="true" />
-        <span className={`${typography.caption} text-amber-800 font-medium`}>
+        <Lightbulb className="w-3 h-3 text-warning" aria-hidden="true" />
+        <span className={`${typography.caption} text-warning font-medium`}>
           {formInfo?.name || recommendation.recommended_form}
         </span>
         <button
           type="button"
           onClick={() => onApply?.(recommendation.edge_id, recommendation.recommended_form)}
-          className="p-0.5 rounded-full hover:bg-amber-200 text-amber-700 transition-colors"
+          className="p-0.5 rounded-full hover:bg-panel-hover text-warning transition-colors"
           aria-label={`Apply ${formInfo?.name || recommendation.recommended_form}`}
         >
           <Check className="w-3 h-3" />
@@ -47,7 +47,7 @@ export const FormSuggestionBadge = memo(function FormSuggestionBadge({
         <button
           type="button"
           onClick={() => onDismiss?.(recommendation.edge_id)}
-          className="p-0.5 rounded-full hover:bg-amber-200 text-amber-600 transition-colors"
+          className="p-0.5 rounded-full hover:bg-panel-hover text-warning transition-colors"
           aria-label="Dismiss suggestion"
         >
           <X className="w-3 h-3" />
@@ -60,19 +60,19 @@ export const FormSuggestionBadge = memo(function FormSuggestionBadge({
   return (
     <div
       data-testid={`form-suggestion-badge-${recommendation.edge_id}`}
-      className="rounded-lg border border-amber-300 bg-amber-50 overflow-hidden"
+      className="rounded-lg border border-warning/30 bg-panel overflow-hidden"
       role="region"
       aria-label="Form suggestion"
     >
       {/* Header */}
       <div className="flex items-center gap-2 p-2.5">
-        <Lightbulb className="w-4 h-4 text-amber-600 flex-shrink-0" aria-hidden="true" />
+        <Lightbulb className="w-4 h-4 text-warning flex-shrink-0" aria-hidden="true" />
 
         <div className="flex-1 min-w-0">
-          <p className={`${typography.caption} font-medium text-amber-800`}>
+          <p className={`${typography.caption} font-medium text-warning`}>
             Suggestion: Use <span className="font-semibold">{formInfo?.name || recommendation.recommended_form}</span>
           </p>
-          <p className={`${typography.caption} text-amber-700 truncate`}>
+          <p className={`${typography.caption} text-warning truncate`}>
             {recommendation.source_label} → {recommendation.target_label}
           </p>
         </div>
@@ -82,7 +82,7 @@ export const FormSuggestionBadge = memo(function FormSuggestionBadge({
           <button
             type="button"
             onClick={() => onApply?.(recommendation.edge_id, recommendation.recommended_form)}
-            className="px-2 py-1 rounded bg-amber-200 hover:bg-amber-300 text-amber-800 text-xs font-medium transition-colors"
+            className="px-2 py-1 rounded bg-panel hover:bg-panel-hover text-warning text-xs font-medium transition-colors"
             aria-label={`Apply ${formInfo?.name || recommendation.recommended_form}`}
           >
             Apply
@@ -90,7 +90,7 @@ export const FormSuggestionBadge = memo(function FormSuggestionBadge({
           <button
             type="button"
             onClick={() => onDismiss?.(recommendation.edge_id)}
-            className="p-1 rounded hover:bg-amber-200 text-amber-600 transition-colors"
+            className="p-1 rounded hover:bg-panel-hover text-warning transition-colors"
             aria-label="Dismiss suggestion"
           >
             <X className="w-4 h-4" />
@@ -102,7 +102,7 @@ export const FormSuggestionBadge = memo(function FormSuggestionBadge({
       <button
         type="button"
         onClick={() => setShowRationale(!showRationale)}
-        className="w-full flex items-center justify-center gap-1 py-1.5 bg-amber-100/50 text-amber-700 text-xs hover:bg-amber-100 transition-colors"
+        className="w-full flex items-center justify-center gap-1 py-1.5 bg-panel/50 text-warning text-xs hover:bg-panel-hover transition-colors"
         aria-expanded={showRationale}
       >
         {showRationale ? (
@@ -120,12 +120,12 @@ export const FormSuggestionBadge = memo(function FormSuggestionBadge({
 
       {/* Rationale content */}
       {showRationale && (
-        <div className="px-3 py-2 bg-amber-50 border-t border-amber-200">
-          <p className={`${typography.caption} text-amber-800`}>
+        <div className="px-3 py-2 bg-panel border-t border-warning/30">
+          <p className={`${typography.caption} text-warning`}>
             {recommendation.rationale}
           </p>
           {formInfo?.shortDescription && (
-            <p className={`${typography.caption} text-amber-700 mt-1.5 italic`}>
+            <p className={`${typography.caption} text-warning mt-1.5 italic`}>
               {formInfo.shortDescription}
             </p>
           )}

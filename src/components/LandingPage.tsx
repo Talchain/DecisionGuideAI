@@ -172,7 +172,7 @@ export default function LandingPage() {
             transform hover:-translate-y-0.5
             transition-all duration-200
             border border-gray-200
-            focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500
+            focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-option
           "
         >
           Sign in
@@ -229,19 +229,19 @@ export default function LandingPage() {
                   <form onSubmit={handleEmailSubmit} className="mt-auto flex flex-col gap-4">
                     <div className="relative">
                       <div className="relative group">
-                        <Mail className="absolute left-3 top-3.5 h-5 w-5 text-gray-400 group-hover:text-indigo-500 transition-colors" />
+                        <Mail className="absolute left-3 top-3.5 h-5 w-5 text-gray-400 group-hover:text-info transition-colors" />
                         <input
                           type="email"
                           name="email"
                           value={formState.email}
                           onChange={handleInputChange}
                           placeholder="Enter your email"
-                          className="pl-10 w-full px-4 py-3.5 text-base border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 group-hover:border-indigo-300"
+                          className="pl-10 w-full px-4 py-3.5 text-base border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-info focus:border-info/30 transition-all duration-200 group-hover:border-info/30"
                           disabled={isSubmitting}
                         />
                       </div>
                       {errors.email && (
-                        <p className="mt-2 text-sm text-red-600 flex items-center gap-1">
+                        <p className="mt-2 text-sm text-danger flex items-center gap-1">
                           <AlertTriangle className="h-4 w-4 flex-shrink-0" />
                           <span>{errors.email}</span>
                         </p>
@@ -250,7 +250,7 @@ export default function LandingPage() {
                     <button
                       type="submit"
                       disabled={isSubmitting}
-                      className="w-full flex items-center justify-center px-6 py-3.5 text-base font-medium text-white bg-gradient-to-r from-indigo-600 to-purple-600 rounded-lg hover:from-purple-600 hover:to-indigo-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 transform hover:-translate-y-0.5 transition-all duration-200"
+                      className="w-full flex items-center justify-center px-6 py-3.5 text-base font-medium text-white bg-gradient-to-r from-indigo-600 to-purple-600 rounded-lg hover:from-purple-600 hover:to-indigo-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-info disabled:opacity-50 transform hover:-translate-y-0.5 transition-all duration-200"
                     >
                       {isSubmitting ? 'Processing...' : 'Request Early Access'}
                       <ArrowRight className="ml-2 h-5 w-5" />
@@ -275,20 +275,20 @@ export default function LandingPage() {
               <form onSubmit={handleAccessSubmit} className="mt-auto flex flex-col gap-4">
                 <div className="relative">
                   <div className="relative group">
-                    <Lock className="absolute left-3 top-3.5 h-5 w-5 text-gray-400 group-hover:text-indigo-500 transition-colors" />
+                    <Lock className="absolute left-3 top-3.5 h-5 w-5 text-gray-400 group-hover:text-info transition-colors" />
                     <input
                       type={showAccessCode ? 'text' : 'password'}
                       name="accessCode"
                       value={formState.accessCode}
                       onChange={handleInputChange}
                       placeholder="Enter access code"
-                      className="pl-10 pr-10 w-full px-4 py-3.5 text-base border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 group-hover:border-indigo-300"
+                      className="pl-10 pr-10 w-full px-4 py-3.5 text-base border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-info focus:border-info/30 transition-all duration-200 group-hover:border-info/30"
                       disabled={isSubmitting}
                     />
                     <button
                       type="button"
                       onClick={() => setShowAccessCode(!showAccessCode)}
-                      className="absolute right-3 top-3.5 text-gray-400 hover:text-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-1 rounded-full p-1"
+                      className="absolute right-3 top-3.5 text-gray-400 hover:text-gray-600 focus:outline-none focus:ring-2 focus:ring-info focus:ring-offset-1 rounded-full p-1"
                       aria-label={showAccessCode ? 'Hide access code' : 'Show access code'}
                     >
                       {showAccessCode ? (
@@ -299,7 +299,7 @@ export default function LandingPage() {
                     </button>
                   </div>
                   {errors.accessCode && (
-                    <p className="mt-2 text-sm text-red-600 flex items-center gap-1">
+                    <p className="mt-2 text-sm text-danger flex items-center gap-1">
                       <AlertTriangle className="h-4 w-4 flex-shrink-0" />
                       <span>{errors.accessCode}</span>
                     </p>
@@ -308,7 +308,7 @@ export default function LandingPage() {
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="w-full flex items-center justify-center px-6 py-3.5 text-base font-medium text-white bg-gradient-to-r from-indigo-600 to-purple-600 rounded-lg hover:from-purple-600 hover:to-indigo-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 transform hover:-translate-y-0.5 transition-all duration-200"
+                  className="w-full flex items-center justify-center px-6 py-3.5 text-base font-medium text-white bg-gradient-to-r from-indigo-600 to-purple-600 rounded-lg hover:from-purple-600 hover:to-indigo-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-info disabled:opacity-50 transform hover:-translate-y-0.5 transition-all duration-200"
                 >
                   {isSubmitting ? 'Verifying...' : 'Enter DecisionGuide.AI'}
                   <ArrowRight className="ml-2 h-5 w-5" />
@@ -320,9 +320,9 @@ export default function LandingPage() {
           {/* Success Message */}
           {success && (
             <div className="max-w-md mx-auto mt-8">
-              <div className="p-4 bg-green-50 rounded-lg flex items-start gap-2 animate-fade-in">
-                <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0 mt-0.5" />
-                <p className="text-green-700">{success}</p>
+              <div className="p-4 bg-panel rounded-lg flex items-start gap-2 animate-fade-in">
+                <CheckCircle className="h-5 w-5 text-success flex-shrink-0 mt-0.5" />
+                <p className="text-success">{success}</p>
               </div>
             </div>
           )}
@@ -334,8 +334,8 @@ export default function LandingPage() {
         <div className="container mx-auto px-4">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
             <div className="p-6 bg-white rounded-xl shadow-sm hover:shadow-md transition-all duration-300 transform hover:-translate-y-1 group">
-              <div className="p-3 bg-indigo-50 rounded-lg w-12 h-12 flex items-center justify-center mb-4">
-                <CodeBranch className="h-6 w-6 text-indigo-600 transition-transform duration-300 ease-in-out group-hover:scale-110 group-hover:rotate-45" />
+              <div className="p-3 bg-panel rounded-lg w-12 h-12 flex items-center justify-center mb-4">
+                <CodeBranch className="h-6 w-6 text-info transition-transform duration-300 ease-in-out group-hover:scale-110 group-hover:rotate-45" />
               </div>
               <h3 className="text-lg font-semibold text-gray-900 mb-2">
                 Science-backed
@@ -347,8 +347,8 @@ export default function LandingPage() {
             </div>
 
             <div className="p-6 bg-white rounded-xl shadow-sm hover:shadow-md transition-all duration-300 transform hover:-translate-y-1 group">
-              <div className="p-3 bg-green-50 rounded-lg w-12 h-12 flex items-center justify-center mb-4">
-                <Brain className="h-6 w-6 text-green-600 transition-transform duration-300 ease-in-out group-hover:scale-110 group-hover:animate-pulse" />
+              <div className="p-3 bg-panel rounded-lg w-12 h-12 flex items-center justify-center mb-4">
+                <Brain className="h-6 w-6 text-success transition-transform duration-300 ease-in-out group-hover:scale-110 group-hover:animate-pulse" />
               </div>
               <h3 className="text-lg font-semibold text-gray-900 mb-2">
                 Bias mitigation
@@ -360,8 +360,8 @@ export default function LandingPage() {
             </div>
 
             <div className="p-6 bg-white rounded-xl shadow-sm hover:shadow-md transition-all duration-300 transform hover:-translate-y-1 group">
-              <div className="p-3 bg-purple-50 rounded-lg w-12 h-12 flex items-center justify-center mb-4">
-                <Sparkles className="h-6 w-6 text-purple-600 transition-transform duration-300 ease-in-out group-hover:animate-[sparkle_0.5s_ease-in-out]" />
+              <div className="p-3 bg-panel rounded-lg w-12 h-12 flex items-center justify-center mb-4">
+                <Sparkles className="h-6 w-6 text-option transition-transform duration-300 ease-in-out group-hover:animate-[sparkle_0.5s_ease-in-out]" />
               </div>
               <h3 className="text-lg font-semibold text-gray-900 mb-2">
                 AI-powered
@@ -373,8 +373,8 @@ export default function LandingPage() {
             </div>
 
             <div className="p-6 bg-white rounded-xl shadow-sm hover:shadow-md transition-all duration-300 transform hover:-translate-y-1 group">
-              <div className="p-3 bg-blue-50 rounded-lg w-12 h-12 flex items-center justify-center mb-4">
-                <UserCog className="h-6 w-6 text-blue-600 transition-transform duration-300 ease-in-out group-hover:animate-[usercog_0.5s_ease-in-out]" />
+              <div className="p-3 bg-panel rounded-lg w-12 h-12 flex items-center justify-center mb-4">
+                <UserCog className="h-6 w-6 text-info transition-transform duration-300 ease-in-out group-hover:animate-[usercog_0.5s_ease-in-out]" />
               </div>
               <h3 className="text-lg font-semibold text-gray-900 mb-2">
                 Personalised guidance

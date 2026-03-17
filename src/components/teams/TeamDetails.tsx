@@ -26,19 +26,19 @@ export default function TeamDetails() {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
-        <Loader2 className="h-8 w-8 text-indigo-600 animate-spin" />
+        <Loader2 className="h-8 w-8 text-info animate-spin" />
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="bg-red-50 p-4 rounded-xl">
+      <div className="bg-panel p-4 rounded-xl">
         <div className="flex items-start gap-3">
-          <AlertTriangle className="h-5 w-5 text-red-500 mt-0.5" />
+          <AlertTriangle className="h-5 w-5 text-danger mt-0.5" />
           <div>
-            <h3 className="font-medium text-red-800">Error loading team</h3>
-            <p className="text-sm text-red-700 mt-1">{error}</p>
+            <h3 className="font-medium text-danger">Error loading team</h3>
+            <p className="text-sm text-danger mt-1">{error}</p>
           </div>
         </div>
       </div>
@@ -51,7 +51,7 @@ export default function TeamDetails() {
         <p className="text-gray-600">Team not found</p>
         <button
           onClick={() => navigate('/teams')}
-          className="mt-4 text-indigo-600 hover:text-indigo-700"
+          className="mt-4 text-info hover:text-info"
         >
           Back to Teams
         </button>
@@ -75,7 +75,7 @@ export default function TeamDetails() {
         <div className="flex gap-2">
           <button
             onClick={() => setShowMembersModal(true)}
-            className="inline-flex items-center px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+            className="inline-flex items-center px-4 py-2 bg-primary text-text-on-color rounded-lg hover:bg-primary-hover"
           >
             <UserPlus className="h-5 w-5 mr-2" />
             Manage Members
@@ -120,7 +120,7 @@ export default function TeamDetails() {
             <h2 className="text-lg font-medium text-gray-900">Members</h2>
             <button
               onClick={() => setShowMembersModal(true)}
-              className="text-sm text-indigo-600 hover:text-indigo-700"
+              className="text-sm text-info hover:text-info"
             >
               Manage Members
             </button>
@@ -142,7 +142,7 @@ export default function TeamDetails() {
                 </div>
                 <button
                   onClick={() => {/* Handle remove */}}
-                  className="p-1 text-gray-400 hover:text-red-600 rounded"
+                  className="p-1 text-gray-400 hover:text-danger rounded"
                 >
                   <Trash2 className="h-4 w-4" />
                 </button>

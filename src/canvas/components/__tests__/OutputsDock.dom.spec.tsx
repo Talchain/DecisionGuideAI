@@ -1,17 +1,41 @@
  import { describe, it, expect, beforeEach, vi } from 'vitest'
- import '@testing-library/jest-dom/vitest'
- import { render, screen, fireEvent, act } from '@testing-library/react'
- import { OutputsDock } from '../OutputsDock'
- import { useCanvasStore } from '../../store'
- import { STORAGE_KEY as RUN_HISTORY_STORAGE_KEY, type StoredRun } from '../../store/runHistory'
- import { __resetTelemetryCounters, __getTelemetryCounters } from '../../../lib/telemetry'
+import '@testing-library/jest-dom/vitest'
+import { render, screen, fireEvent, act } from '@testing-library/react'
+import { OutputsDock } from '../OutputsDock'
+import { useCanvasStore } from '../../store'
+import { STORAGE_KEY as RUN_HISTORY_STORAGE_KEY, type StoredRun } from '../../store/runHistory'
+import { __resetTelemetryCounters, __getTelemetryCounters } from '../../../lib/telemetry'
+import { useGuidanceStore } from '../../stores/guidanceStore'
 
- // Mock flags module with all required exports
- vi.mock('../../../flags', () => ({
-   isDecisionReviewEnabled: vi.fn(() => true),
-   isTelemetryEnabled: () => true,
-   isCompareEnabled: () => true,
- }))
+const { mockIsDecisionReviewEnabled, mockIsOrchestratorV2Enabled, mockIsLegacyDirectRunEnabled, mockUseV2Run } = vi.hoisted(() => ({
+  mockIsDecisionReviewEnabled: vi.fn(() => true),
+  mockIsOrchestratorV2Enabled: vi.fn(() => false),
+  mockIsLegacyDirectRunEnabled: vi.fn(() => true),
+  mockUseV2Run: vi.fn(() => ({ runV2Analysis: vi.fn(), cancelRun: vi.fn() })),
+}))
+
+// Mock react-router-dom (useScenario calls useNavigate)
+vi.mock('react-router-dom', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('react-router-dom')>()
+  return {
+    ...actual,
+    useNavigate: vi.fn(() => vi.fn()),
+  }
+})
+
+// Mock flags module with all required exports
+vi.mock('../../../flags', () => ({
+  isDecisionReviewEnabled: mockIsDecisionReviewEnabled,
+  isTelemetryEnabled: () => true,
+  isCompareEnabled: () => true,
+  isOrchestratorV2Enabled: mockIsOrchestratorV2Enabled,
+  isLegacyDirectRunEnabled: mockIsLegacyDirectRunEnabled,
+  isJourneyTabEnabled: vi.fn(() => false),
+}))
+
+vi.mock('../../hooks/useV2Run', () => ({
+  useV2Run: (...args: unknown[]) => mockUseV2Run(...args),
+}))
 
 function ensureMatchMedia() {
   if (typeof window.matchMedia !== 'function') {
@@ -50,6 +74,19 @@ describe('OutputsDock DOM', () => {
       currentScenarioLastResultHash: null,
       hasCompletedFirstRun: false,
     } as any)
+    useGuidanceStore.setState({
+      guidanceItems: [],
+      activeGuidanceItemId: null,
+      inspectorDeepLinkField: null,
+      _sendMessage: null,
+      _runAnalysis: null,
+      _sendChip: null,
+      _scrollToPatch: null,
+    })
+    mockIsDecisionReviewEnabled.mockReturnValue(true)
+    mockIsOrchestratorV2Enabled.mockReturnValue(false)
+    mockIsLegacyDirectRunEnabled.mockReturnValue(true)
+    mockUseV2Run.mockReturnValue({ runV2Analysis: vi.fn(), cancelRun: vi.fn() })
 
     // Reset the flag mock to default (true) before each test
     const { isDecisionReviewEnabled } = await import('../../../flags')
@@ -63,13 +100,13 @@ describe('OutputsDock DOM', () => {
     expect(aside).toBeInTheDocument()
 
     const tabs = screen.getAllByRole('button', {
-      name: /Results|Compare|Structure/,
+      name: /Results|Compare|Model/,
     })
 
     expect(tabs.map(tab => tab.textContent)).toEqual([
       'Results',
       'Compare',
-      'Structure',
+      'Model',
     ])
   })
 
@@ -81,17 +118,17 @@ describe('OutputsDock DOM', () => {
 
     expect(screen.queryByTestId('outputs-dock-body')).toBeNull()
 
-    const resultsIcon = screen.getByRole('button', { name: 'Results' })
+    const resultsIcon = screen.getByRole('button', { name: 'Analysis' })
     const compareIcon = screen.getByRole('button', { name: 'Compare' })
-    const structureIcon = screen.getByRole('button', { name: 'Structure' })
+    const modelIcon = screen.getByRole('button', { name: 'Model' })
 
     expect(resultsIcon).toBeInTheDocument()
     expect(compareIcon).toBeInTheDocument()
-    expect(structureIcon).toBeInTheDocument()
+    expect(modelIcon).toBeInTheDocument()
 
-    fireEvent.click(structureIcon)
+    fireEvent.click(modelIcon)
 
-    const headerLabel = screen.getByText('Structure', {
+    const headerLabel = screen.getByText('Model', {
       selector: 'span[aria-live="polite"]',
     })
     expect(headerLabel).toBeInTheDocument()
@@ -129,7 +166,7 @@ describe('OutputsDock DOM', () => {
 
     render(<OutputsDock />)
 
-    const headerLabel = screen.getByText('Structure', {
+    const headerLabel = screen.getByText('Model', {
       selector: 'span[aria-live="polite"]',
     })
     expect(headerLabel).toBeInTheDocument()
@@ -138,15 +175,15 @@ describe('OutputsDock DOM', () => {
   it('updates ?tab= query parameter when tabs are clicked', () => {
     render(<OutputsDock />)
 
-    // Switch to Structure tab
-    const structureTab = screen.getByRole('button', { name: 'Structure' })
+    // Switch to Model tab
+    const structureTab = screen.getByRole('button', { name: 'Model' })
     fireEvent.click(structureTab)
 
     let params = new URLSearchParams(window.location.search)
     expect(params.get('tab')).toBe('diagnostics')
 
     // Switch back to Results tab, which should clear the tab parameter
-    const resultsTab = screen.getByRole('button', { name: 'Results' })
+    const resultsTab = screen.getByRole('button', { name: 'Analysis' })
     fireEvent.click(resultsTab)
 
     params = new URLSearchParams(window.location.search)
@@ -215,14 +252,43 @@ describe('OutputsDock DOM', () => {
     expect(runButton).toHaveTextContent('Run')
   })
 
+  it('routes Analyse through the shared hidden conversation path in orchestrator-v2 mode', () => {
+    const runViaConversation = vi.fn()
+    const runV2Analysis = vi.fn()
+
+    mockIsOrchestratorV2Enabled.mockReturnValue(true)
+    mockIsLegacyDirectRunEnabled.mockReturnValue(false)
+    mockUseV2Run.mockReturnValue({ runV2Analysis, cancelRun: vi.fn() })
+
+    useCanvasStore.setState({
+      nodes: [
+        { id: 'goal-1', type: 'goal', data: { label: 'Goal', kind: 'goal' }, position: { x: 0, y: 0 } },
+        { id: 'factor-1', type: 'factor', data: { label: 'Factor', kind: 'factor' }, position: { x: 100, y: 0 } },
+      ],
+      edges: [{ id: 'e1', source: 'factor-1', target: 'goal-1', data: { weight: 0.7, direction: 'positive' } }],
+      graphHealth: { status: 'healthy', score: 100, issues: [] },
+      ceeAnalysisReady: { goal_node_id: 'goal-1', options: [{ id: 'opt-a', label: 'Option A', interventions: {} }] },
+      hasCompletedFirstRun: false,
+      results: { status: 'idle' } as any,
+    } as any)
+    useGuidanceStore.setState({ _runAnalysis: runViaConversation } as any)
+
+    render(<OutputsDock />)
+
+    fireEvent.click(screen.getByTestId('outputs-run-button'))
+
+    expect(runViaConversation).toHaveBeenCalledTimes(1)
+    expect(runV2Analysis).not.toHaveBeenCalled()
+  })
+
   it('auto-switches back to Results tab when results become active', () => {
     render(<OutputsDock />)
 
     // Move away from Results tab
-    const structureTab = screen.getByRole('button', { name: 'Structure' })
+    const structureTab = screen.getByRole('button', { name: 'Model' })
     fireEvent.click(structureTab)
 
-    const structureHeader = screen.getByText('Structure', {
+    const structureHeader = screen.getByText('Model', {
       selector: 'span[aria-live="polite"]',
     })
     expect(structureHeader).toBeInTheDocument()
@@ -235,7 +301,7 @@ describe('OutputsDock DOM', () => {
       } as any)
     })
 
-    const resultsHeader = screen.getByText('Results', {
+    const resultsHeader = screen.getByText('Analysis', {
       selector: 'span[aria-live="polite"]',
     })
     expect(resultsHeader).toBeInTheDocument()
@@ -614,7 +680,7 @@ describe('OutputsDock DOM', () => {
     expect(banner).toHaveTextContent('Something went wrong.')
   })
 
-  it('renders retryAfter and request_id details in the error banner when provided', () => {
+  it('renders user-friendly error and request_id in error banner when provided', () => {
     const baseResults = useCanvasStore.getState().results
 
     useCanvasStore.setState({
@@ -625,6 +691,7 @@ describe('OutputsDock DOM', () => {
         error: {
           code: 'RATE_LIMITED',
           message: 'Too many requests.',
+          // retryAfter: reserved for future rate-limit handling, not currently displayed
           retryAfter: 42,
           request_id: 'req-error-123',
         },
@@ -635,10 +702,10 @@ describe('OutputsDock DOM', () => {
 
     const banner = screen.getByTestId('outputs-error-banner')
     expect(banner).toBeInTheDocument()
-    expect(banner).toHaveTextContent('RATE_LIMITED')
-    expect(banner).toHaveTextContent('Too many requests.')
-    expect(banner).toHaveTextContent('Retry after 42 seconds')
-    expect(banner).toHaveTextContent('PLoT Request ID: req-error-123')
+    // User-friendly headline from userFriendlyErrors mapping
+    expect(banner).toHaveTextContent('Too many requests')
+    // Debug section shows code and request_id in DEV mode
+    expect(banner).toHaveTextContent('Request ID: req-error-123')
   })
 
   it('shows empty compare state when there are no runs yet', () => {
@@ -1253,6 +1320,296 @@ function openCompareTab() {
 }
 
 function openStructureTab() {
-  const structureTab = screen.getByRole('button', { name: 'Structure' })
+  const structureTab = screen.getByRole('button', { name: 'Model' })
   fireEvent.click(structureTab)
 }
+
+// I.1 & I.2: Phase 1 UI fix tests
+// These tests use consistent node setup to ensure OutputsDock renders properly.
+const testNodes = [
+  { id: 'goal-1', type: 'goal', data: { label: 'Test Goal' }, position: { x: 0, y: 0 } },
+  { id: 'decision-1', type: 'decision', data: { label: 'Test Decision' }, position: { x: 100, y: 100 } },
+]
+const testEdges = [{ id: 'e1', source: 'goal-1', target: 'decision-1' }]
+const fakeReportForTests: any = {
+  results: { conservative: 10, likely: 20, optimistic: 30, units: 'percent', unitSymbol: '%' },
+  run: { bands: { p10: 10, p50: 20, p90: 30 } },
+}
+
+function cleanupDockState() {
+  ensureMatchMedia()
+  try { sessionStorage.removeItem('canvas.outputsDock.v1') } catch {}
+  try { window.history.replaceState({}, '', '/canvas') } catch {}
+  try { localStorage.removeItem(RUN_HISTORY_STORAGE_KEY) } catch {}
+  useCanvasStore.setState({
+    currentScenarioFraming: null,
+    currentScenarioLastResultHash: null,
+    hasCompletedFirstRun: false,
+  } as any)
+}
+
+describe('I.1: Model tab auto-switch guard', () => {
+  beforeEach(cleanupDockState)
+  it('does NOT auto-switch away from Model tab when status remains complete', () => {
+    const baseResults = useCanvasStore.getState().results
+
+    useCanvasStore.setState({
+      nodes: testNodes,
+      edges: testEdges,
+      hasCompletedFirstRun: true,
+      results: {
+        ...baseResults,
+        status: 'complete',
+        report: fakeReportForTests,
+      },
+    } as any)
+
+    render(<OutputsDock />)
+
+    // User navigates to Model tab
+    openStructureTab()
+
+    const structureHeader = screen.getByText('Model', {
+      selector: 'span[aria-live="polite"]',
+    })
+    expect(structureHeader).toBeInTheDocument()
+
+    // Trigger a re-render with status still 'complete' (simulates React re-render)
+    act(() => {
+      useCanvasStore.setState({
+        results: {
+          ...useCanvasStore.getState().results,
+          status: 'complete',
+        },
+      } as any)
+    })
+
+    // Should remain on Model tab — not yanked back to Results
+    const structureHeaderAfter = screen.getByText('Model', {
+      selector: 'span[aria-live="polite"]',
+    })
+    expect(structureHeaderAfter).toBeInTheDocument()
+  })
+
+  it('auto-switches to Results tab on idle → preparing transition', () => {
+    const baseResults = useCanvasStore.getState().results
+
+    useCanvasStore.setState({
+      nodes: testNodes,
+      edges: testEdges,
+      hasCompletedFirstRun: true,
+      results: {
+        ...baseResults,
+        status: 'complete',
+        report: fakeReportForTests,
+      },
+    } as any)
+
+    render(<OutputsDock />)
+
+    // User navigates to Model tab after a completed run
+    openStructureTab()
+    expect(screen.getByText('Model', {
+      selector: 'span[aria-live="polite"]',
+    })).toBeInTheDocument()
+
+    // Reset status to idle (simulates resultsReset), then start a new run
+    act(() => {
+      useCanvasStore.setState({
+        results: { ...useCanvasStore.getState().results, status: 'idle' },
+      } as any)
+    })
+
+    // Now start a new analysis (idle → preparing)
+    act(() => {
+      useCanvasStore.setState({
+        results: { ...useCanvasStore.getState().results, status: 'preparing' },
+      } as any)
+    })
+
+    // Should auto-switch to Results tab
+    expect(screen.getByText('Analysis', {
+      selector: 'span[aria-live="polite"]',
+    })).toBeInTheDocument()
+  })
+})
+
+describe('I.2b: Cancel button during analysis', () => {
+  beforeEach(cleanupDockState)
+  it('shows cancel button when analysis is running', () => {
+    const baseResults = useCanvasStore.getState().results
+
+    useCanvasStore.setState({
+      nodes: testNodes,
+      edges: testEdges,
+      hasCompletedFirstRun: true,
+      results: {
+        ...baseResults,
+        status: 'streaming',
+        report: fakeReportForTests,
+      },
+    } as any)
+
+    render(<OutputsDock />)
+
+    const cancelButton = screen.getByTestId('cancel-analysis-button')
+    expect(cancelButton).toBeInTheDocument()
+    expect(cancelButton).toHaveTextContent('Cancel')
+  })
+
+  it('hides cancel button when analysis is complete', () => {
+    const baseResults = useCanvasStore.getState().results
+
+    useCanvasStore.setState({
+      nodes: testNodes,
+      edges: testEdges,
+      hasCompletedFirstRun: true,
+      results: {
+        ...baseResults,
+        status: 'complete',
+        report: fakeReportForTests,
+      },
+    } as any)
+
+    render(<OutputsDock />)
+
+    expect(screen.queryByTestId('cancel-analysis-button')).not.toBeInTheDocument()
+  })
+})
+
+describe('I.2c: Stale results indicator', () => {
+  beforeEach(cleanupDockState)
+  it('shows stale results banner when error occurs with previous results', () => {
+    const baseResults = useCanvasStore.getState().results
+
+    useCanvasStore.setState({
+      nodes: testNodes,
+      edges: testEdges,
+      hasCompletedFirstRun: true,
+      results: {
+        ...baseResults,
+        status: 'error',
+        report: fakeReportForTests,
+        error: {
+          code: 'NETWORK_ERROR',
+          message: 'Failed to fetch',
+          canRetry: true,
+        },
+      },
+    } as any)
+
+    render(<OutputsDock />)
+
+    const banner = screen.getByTestId('stale-results-banner')
+    expect(banner).toBeInTheDocument()
+    expect(banner).toHaveTextContent('Showing results from previous analysis')
+  })
+
+  it('does NOT show stale results banner on first-run error (no previous results)', () => {
+    const baseResults = useCanvasStore.getState().results
+
+    useCanvasStore.setState({
+      nodes: testNodes,
+      edges: testEdges,
+      hasCompletedFirstRun: true,
+      results: {
+        ...baseResults,
+        status: 'error',
+        report: null,
+        error: {
+          code: 'NETWORK_ERROR',
+          message: 'Failed to fetch',
+          canRetry: true,
+        },
+      },
+    } as any)
+
+    render(<OutputsDock />)
+
+    expect(screen.queryByTestId('stale-results-banner')).not.toBeInTheDocument()
+  })
+})
+
+describe('I.2a: Secondary action button interaction', () => {
+  beforeEach(cleanupDockState)
+  it('clicking secondary action button closes the dock', () => {
+    const baseResults = useCanvasStore.getState().results
+
+    // SERVICE_UNAVAILABLE has secondaryActionText: 'Continue Without'
+    useCanvasStore.setState({
+      nodes: testNodes,
+      edges: testEdges,
+      hasCompletedFirstRun: true,
+      results: {
+        ...baseResults,
+        status: 'error',
+        report: null,
+        error: {
+          code: 'SERVICE_UNAVAILABLE',
+          message: 'Service is down.',
+          canRetry: true,
+        },
+      },
+    } as any)
+
+    render(<OutputsDock />)
+
+    // Verify secondary button is rendered with expected text
+    const secondaryButton = screen.getByTestId('error-secondary-action')
+    expect(secondaryButton).toBeInTheDocument()
+    expect(secondaryButton).toHaveTextContent('Continue Without')
+
+    // Click the secondary action
+    fireEvent.click(secondaryButton)
+
+    // After click, dock should close — the error banner should no longer be visible
+    expect(screen.queryByTestId('outputs-error-banner')).not.toBeInTheDocument()
+  })
+
+  it('falls back to Results when persisted activeTab is journey but flag is OFF (regression)', () => {
+    // Seed sessionStorage with journey tab persisted
+    sessionStorage.setItem(STORAGE_KEY, JSON.stringify({ isOpen: true, activeTab: 'journey' }))
+
+    render(<OutputsDock />)
+
+    // Journey tab should NOT appear in the tab bar
+    expect(screen.queryByRole('button', { name: 'Journey' })).not.toBeInTheDocument()
+
+    // Should fall back to Results
+    const headerLabel = screen.getByText('Analysis', {
+      selector: 'span[aria-live="polite"]',
+    })
+    expect(headerLabel).toBeInTheDocument()
+  })
+
+  it('shows Journey tab when flag is ON', async () => {
+    const { isJourneyTabEnabled } = await import('../../../flags')
+    vi.mocked(isJourneyTabEnabled).mockReturnValue(true)
+
+    // Need to re-evaluate OUTPUT_TABS with flag on — use dynamic import
+    vi.resetModules()
+
+    // Re-mock flags with journey enabled
+    vi.doMock('../../../flags', () => ({
+      isDecisionReviewEnabled: vi.fn(() => true),
+      isTelemetryEnabled: () => true,
+      isCompareEnabled: () => true,
+      isOrchestratorV2Enabled: () => false,
+      isLegacyDirectRunEnabled: () => true,
+      isJourneyTabEnabled: vi.fn(() => true),
+    }))
+
+    const { OutputsDock: FreshOutputsDock } = await import('../OutputsDock')
+    render(<FreshOutputsDock />)
+
+    const tabs = screen.getAllByRole('button', {
+      name: /Results|Compare|Model|Journey/,
+    })
+    expect(tabs.map(tab => tab.textContent)).toEqual([
+      'Results',
+      'Compare',
+      'Model',
+      'Journey',
+    ])
+  })
+})

@@ -478,10 +478,10 @@ function PlotWorkspaceInner() {
     checkVersion === 'fail' ? 'version.json' : null
 
   // Determine banner appearance
-  const bannerClass = allPending ? 'bg-blue-50 border-blue-200 text-blue-900' :
-                     allOk && isLiveData ? 'bg-green-50 border-green-200 text-green-900' : 
-                     allOk && !isLiveData ? 'bg-teal-50 border-teal-200 text-teal-900' :
-                     'bg-amber-50 border-amber-200 text-amber-900'
+  const bannerClass = allPending ? 'bg-panel border-info/30 text-info' :
+                     allOk && isLiveData ? 'bg-panel border-success/30 text-success' : 
+                     allOk && !isLiveData ? 'bg-panel border-info/30 text-info' :
+                     'bg-panel border-warning/30 text-warning'
   
   const bannerMessage = allPending ? '🔄 Checking...' :
                        hasFailure ? `⚠ ${firstFailure}: FAIL` :
@@ -491,7 +491,7 @@ function PlotWorkspaceInner() {
   return (
     <>
       {/* Informative badge */}
-      <div className="fixed left-2 top-2 z-[9999] rounded bg-black/80 px-2 py-1 text-[11px] text-cyan-300">
+      <div className="fixed left-2 top-2 z-[9999] rounded bg-black/80 px-2 py-1 text-[11px] text-info">
         CANVAS={sel.usePlc ? 'PLC' : 'Legacy'} • SRC={sel.source}
       </div>
       <BuildBadge />
@@ -506,10 +506,10 @@ function PlotWorkspaceInner() {
                 {bannerMessage}
               </span>
               <div className="flex items-center gap-2 text-[10px]">
-                <span className={checkEngine === 'ok' ? 'text-green-700' : checkEngine === 'fail' ? 'text-amber-700' : 'text-gray-500'}>
+                <span className={checkEngine === 'ok' ? 'text-success' : checkEngine === 'fail' ? 'text-warning' : 'text-gray-500'}>
                   engine: {checkEngine === 'ok' ? 'OK' : checkEngine === 'fail' ? 'FAIL' : '...'}
                 </span>
-                <span className={checkFixtures === 'ok' ? 'text-green-700' : checkFixtures === 'fail' ? 'text-amber-700' : 'text-gray-500'}>
+                <span className={checkFixtures === 'ok' ? 'text-success' : checkFixtures === 'fail' ? 'text-warning' : 'text-gray-500'}>
                   fixtures: {checkFixtures === 'ok' ? 'OK' : checkFixtures === 'fail' ? 'FAIL' : '...'}
                 </span>
               </div>
@@ -662,7 +662,7 @@ function PlotWorkspaceInner() {
             </div>
             <button
               onClick={runFlow}
-              className="px-3 py-1 text-xs font-medium bg-indigo-600 text-white rounded hover:bg-indigo-700 transition-colors"
+              className="px-3 py-1 text-xs font-medium bg-primary text-text-on-color rounded hover:bg-primary-hover transition-colors"
             >
               Run Scenario
             </button>
@@ -676,7 +676,7 @@ function PlotWorkspaceInner() {
             </button>
             <button
               onClick={handleClearWorkspace}
-              className="px-3 py-1 text-xs font-medium bg-red-50 text-red-700 rounded hover:bg-red-100 transition-colors"
+              className="px-3 py-1 text-xs font-medium bg-panel text-danger rounded hover:bg-panel-hover transition-colors"
               title="Clear all workspace data"
             >
               Clear
@@ -727,7 +727,7 @@ function PlotWorkspaceInner() {
             >
               <div
                 className={`w-full h-full p-3 rounded-lg shadow-lg border-2 ${
-                  isSelected ? 'border-amber-500' : 'border-amber-200'
+                  isSelected ? 'border-warning' : 'border-warning/30'
                 }`}
                 style={{ backgroundColor: note.color }}
               >
@@ -778,7 +778,7 @@ function PlotWorkspaceInner() {
                 onChange={(e) => setEditingLabel(e.target.value)}
                 onBlur={handleCommitRename}
                 autoFocus
-                className="w-full px-3 py-2 text-sm font-semibold text-center bg-white border-2 border-indigo-500 rounded-lg shadow-lg focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                className="w-full px-3 py-2 text-sm font-semibold text-center bg-white border-2 border-info/30 rounded-lg shadow-lg focus:outline-none focus:ring-2 focus:ring-info/30"
                 placeholder="Node name..."
               />
             </div>

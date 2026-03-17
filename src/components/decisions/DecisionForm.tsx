@@ -28,17 +28,17 @@ const DECISION_TYPES = [
 ];
 
 const REVERSIBILITY_TYPES = [
-  { id: 'reversible', label: 'Easily Reversed', icon: RotateCcw, color: 'bg-green-50 text-green-600 hover:bg-green-100', description: 'Can be undone with minimal impact' },
-  { id: 'partially', label: 'Partially Reversible', icon: Shuffle, color: 'bg-yellow-50 text-yellow-600 hover:bg-yellow-100', description: 'Some aspects can be changed' },
-  { id: 'unsure', label: 'Uncertain', icon: HelpCircle, color: 'bg-orange-50 text-orange-600 hover:bg-orange-100', description: 'Unclear reversibility' },
-  { id: 'irreversible', label: 'Permanent', icon: Ban, color: 'bg-red-50 text-red-600 hover:bg-red-100', description: 'Cannot be undone' }
+  { id: 'reversible', label: 'Easily Reversed', icon: RotateCcw, color: 'bg-panel text-success hover:bg-panel', description: 'Can be undone with minimal impact' },
+  { id: 'partially', label: 'Partially Reversible', icon: Shuffle, color: 'bg-panel text-warning hover:bg-panel', description: 'Some aspects can be changed' },
+  { id: 'unsure', label: 'Uncertain', icon: HelpCircle, color: 'bg-panel text-warning hover:bg-panel', description: 'Unclear reversibility' },
+  { id: 'irreversible', label: 'Permanent', icon: Ban, color: 'bg-panel text-danger hover:bg-panel-hover', description: 'Cannot be undone' }
 ];
 
 const IMPORTANCE_LEVELS = [
-  { id: 'low_priority_quick_assessment', label: 'Low', icon: Zap, color: 'bg-blue-50 text-blue-600 hover:bg-blue-100', description: 'Quick assessment needed' },
-  { id: 'moderate_priority_thorough_quick', label: 'Moderate', icon: Shield, color: 'bg-indigo-50 text-indigo-600 hover:bg-indigo-100', description: 'Thorough but quick evaluation' },
-  { id: 'high_priority_urgent', label: 'High', icon: Clock, color: 'bg-purple-50 text-purple-600 hover:bg-purple-100', description: 'Important and urgent' },
-  { id: 'critical_in_depth_analysis', label: 'Critical', icon: Scale, color: 'bg-red-50 text-red-600 hover:bg-red-100', description: 'Requires in-depth analysis' }
+  { id: 'low_priority_quick_assessment', label: 'Low', icon: Zap, color: 'bg-panel text-info hover:bg-panel-hover', description: 'Quick assessment needed' },
+  { id: 'moderate_priority_thorough_quick', label: 'Moderate', icon: Shield, color: 'bg-panel text-info hover:bg-panel', description: 'Thorough but quick evaluation' },
+  { id: 'high_priority_urgent', label: 'High', icon: Clock, color: 'bg-panel text-option hover:bg-panel', description: 'Important and urgent' },
+  { id: 'critical_in_depth_analysis', label: 'Critical', icon: Scale, color: 'bg-panel text-danger hover:bg-panel-hover', description: 'Requires in-depth analysis' }
 ];
 
 export default function DecisionForm() {
@@ -146,7 +146,7 @@ export default function DecisionForm() {
             <p className="text-gray-600">Select the category that best matches your decision.</p>
           </div>
           {errors.type && (
-            <p className="text-sm text-red-600 flex items-center gap-1">
+            <p className="text-sm text-danger flex items-center gap-1">
               <AlertTriangle className="h-4 w-4" />
               {errors.type}
             </p>
@@ -162,7 +162,7 @@ export default function DecisionForm() {
                     flex flex-col items-center justify-center gap-3 p-4
                     rounded-xl border-2 transition-all duration-300
                     ${formData.type === id 
-                      ? 'border-indigo-500 bg-indigo-50 text-indigo-700' 
+                      ? 'border-info/30 bg-panel text-info' 
                       : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
                     }
                     transform hover:scale-[1.02] hover:shadow-md
@@ -170,7 +170,7 @@ export default function DecisionForm() {
                   `}
                 >
                   <Icon className={`h-6 w-6 transition-colors duration-300 ${
-                    formData.type === id ? 'text-indigo-500' : 'text-gray-400 group-hover:text-gray-500'
+                    formData.type === id ? 'text-info' : 'text-gray-400 group-hover:text-gray-500'
                   }`} />
                   <span className="text-sm font-medium text-center">{label}</span>
                 </button>
@@ -196,15 +196,15 @@ export default function DecisionForm() {
               className={`
                 w-full h-14 px-4
                 text-lg rounded-xl
-                border-2 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200
+                border-2 focus:border-info/30 focus:ring-2 focus:ring-info/30
                 transition-all duration-200
-                ${errors.title ? 'border-red-300' : 'border-gray-200'}
+                ${errors.title ? 'border-danger/30' : 'border-gray-200'}
               `}
               placeholder="Enter a clear, specific title for your decision"
             />
           </div>
           {errors.title && (
-            <p className="text-sm text-red-600 flex items-center gap-1">
+            <p className="text-sm text-danger flex items-center gap-1">
               <AlertTriangle className="h-4 w-4" />
               {errors.title}
             </p>
@@ -220,7 +220,7 @@ export default function DecisionForm() {
             <p className="text-gray-600">Consider how easily you can change course after making this decision.</p>
           </div>
           {errors.reversibility && (
-            <p className="text-sm text-red-600 flex items-center gap-1">
+            <p className="text-sm text-danger flex items-center gap-1">
               <AlertTriangle className="h-4 w-4" />
               {errors.reversibility}
             </p>
@@ -258,7 +258,7 @@ export default function DecisionForm() {
             <p className="text-gray-600">Select the level of analysis needed for this decision.</p>
           </div>
           {errors.importance && (
-            <p className="text-sm text-red-600 flex items-center gap-1">
+            <p className="text-sm text-danger flex items-center gap-1">
               <AlertTriangle className="h-4 w-4" />
               {errors.importance}
             </p>
@@ -301,7 +301,7 @@ export default function DecisionForm() {
                 <button
                   type="button"
                   onClick={handleAddGoal}
-                  className="p-2 text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 rounded-lg transition-colors"
+                  className="p-2 text-info hover:text-info hover:bg-panel rounded-lg transition-colors"
                 >
                   <Plus className="h-5 w-5" />
                 </button>
@@ -309,7 +309,7 @@ export default function DecisionForm() {
             )}
           </div>
           {errors.goals && (
-            <p className="text-sm text-red-600 flex items-center gap-1">
+            <p className="text-sm text-danger flex items-center gap-1">
               <AlertTriangle className="h-4 w-4" />
               {errors.goals}
             </p>
@@ -317,7 +317,7 @@ export default function DecisionForm() {
           <div className="space-y-4">
             {formData.goals.map((goal, index) => (
               <div key={index} className="flex gap-3">
-                <div className="flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-full bg-indigo-50 text-indigo-600 font-medium">
+                <div className="flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-full bg-panel text-info font-medium">
                   {index + 1}
                 </div>
                 <div className="flex-1 flex gap-2">
@@ -326,14 +326,14 @@ export default function DecisionForm() {
                     value={goal}
                     onChange={(e) => handleGoalChange(index, e.target.value)}
                     placeholder="What do you want to achieve with this decision?"
-                    className="flex-1 px-4 py-2 rounded-xl border-2 border-gray-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 transition-all duration-200"
+                    className="flex-1 px-4 py-2 rounded-xl border-2 border-gray-200 focus:border-info/30 focus:ring-2 focus:ring-info/30 transition-all duration-200"
                   />
                   {formData.goals.length > 1 && (
                     <Tooltip content="Remove this goal">
                       <button
                         type="button"
                         onClick={() => handleRemoveGoal(index)}
-                        className="p-2 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"
+                        className="p-2 text-danger hover:text-danger hover:bg-panel-hover rounded-lg transition-colors"
                       >
                         <Minus className="h-5 w-5" />
                       </button>
@@ -353,9 +353,9 @@ export default function DecisionForm() {
             className="
               w-[200px] h-12
               flex items-center justify-center gap-2
-              text-white bg-indigo-600 rounded-xl
-              hover:bg-indigo-700 active:bg-indigo-800
-              focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500
+              text-text-on-color bg-primary rounded-xl
+              hover:bg-primary-hover active:bg-primary-hover
+              focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-info
               disabled:opacity-50 disabled:cursor-not-allowed
               transform hover:-translate-y-0.5
               transition-all duration-200

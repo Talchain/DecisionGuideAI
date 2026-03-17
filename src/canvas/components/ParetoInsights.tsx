@@ -229,14 +229,14 @@ export const ParetoInsights = memo(function ParetoInsights({
           ) : (
             <ChevronRight className="h-4 w-4 text-ink-500" />
           )}
-          <Sparkles className="h-4 w-4 text-violet-500" aria-hidden="true" />
+          <Sparkles className="h-4 w-4 text-option" aria-hidden="true" />
           <span className={`${typography.body} font-medium text-ink-800`}>
             Pareto Insights
           </span>
         </div>
 
         <div className="flex items-center gap-2">
-          <span className={`${typography.caption} px-2 py-0.5 rounded-full bg-teal-100 text-teal-700`}>
+          <span className={`${typography.caption} px-2 py-0.5 rounded-full bg-panel text-text-body`}>
             {frontier.length} optimal
           </span>
         </div>
@@ -288,7 +288,7 @@ export const ParetoInsights = memo(function ParetoInsights({
                 <button
                   type="button"
                   onClick={() => handleOptionClick(tradeOffExplanation.option1.id)}
-                  className={`${typography.caption} px-2 py-1 rounded bg-teal-100 text-teal-700 hover:bg-teal-200 transition-colors`}
+                  className={`${typography.caption} px-2 py-1 rounded bg-panel text-success hover:opacity-80 transition-colors`}
                 >
                   {tradeOffExplanation.option1.label}
                 </button>
@@ -296,7 +296,7 @@ export const ParetoInsights = memo(function ParetoInsights({
                 <button
                   type="button"
                   onClick={() => handleOptionClick(tradeOffExplanation.option2.id)}
-                  className={`${typography.caption} px-2 py-1 rounded bg-teal-100 text-teal-700 hover:bg-teal-200 transition-colors`}
+                  className={`${typography.caption} px-2 py-1 rounded bg-panel text-success hover:opacity-80 transition-colors`}
                 >
                   {tradeOffExplanation.option2.label}
                 </button>
@@ -335,7 +335,7 @@ export const ParetoInsights = memo(function ParetoInsights({
                 <button
                   type="button"
                   onClick={() => handleOptionClick(dominationExplanation.dominator.id)}
-                  className="font-medium text-teal-700 hover:underline"
+                  className="font-medium text-success hover:underline"
                 >
                   {dominationExplanation.dominator.label}
                 </button>

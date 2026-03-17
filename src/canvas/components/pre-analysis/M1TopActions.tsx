@@ -10,9 +10,18 @@
 
 import { useState, useCallback } from 'react'
 import { BiasIcon, IconBtn } from './primitives'
-import { Check, Pencil, HelpCircle } from 'lucide-react'
+import { Check, Pencil, HelpCircle, ChevronDown, ChevronRight } from 'lucide-react'
 import type { ImprovementItem, ImprovementCategory } from './hooks/usePreAnalysisData'
 import { cleanFactorLabel } from '../../../components/results/utils/cleanFactorLabel'
+import { typography } from '@/styles/typography'
+
+/** Badge colours by category */
+const categoryBadgeColors: Record<ImprovementCategory, string> = {
+  fix: 'bg-danger',        // orange/carrot
+  verify: 'bg-goal',       // amber/sun
+  add_evidence: 'bg-info', // blue/sky
+  strengthen: 'bg-option', // purple/lilac
+}
 
 interface M1TopActionsProps {
   /** Top 3 priority items */
@@ -25,32 +34,23 @@ interface M1TopActionsProps {
   onAssumption?: (nodeId: string) => void
   /** Handler for editing a node on canvas */
   onEdit?: (nodeId: string) => void
+  /** Handler for resetting source back to AI for re-review */
+  onResetSource?: (nodeId: string) => void
   /** Handler for hovering over an element */
   onHoverEnter?: (type: 'node' | 'edge', id: string) => void
   /** Handler for clearing hover */
   onHoverLeave?: () => void
 }
 
-/** Category styling - border colors only, no background tints */
-const categoryStyles: Record<ImprovementCategory, { border: string }> = {
-  fix: {
-    border: 'border-l-danger',
-  },
-  verify: {
-    border: 'border-l-warning',
-  },
-  add_evidence: {
-    border: 'border-l-panel-border',
-  },
-  strengthen: {
-    border: 'border-l-panel-border',
-  },
-}
 
-export function M1TopActions({ topActions, onAddEvidence, onConfirm, onAssumption, onEdit, onHoverEnter, onHoverLeave }: M1TopActionsProps) {
+export function M1TopActions({ topActions, onAddEvidence, onConfirm, onAssumption, onEdit, onResetSource, onHoverEnter, onHoverLeave }: M1TopActionsProps) {
   // Track which evidence item is showing the input
   const [activeEvidenceInput, setActiveEvidenceInput] = useState<string | null>(null)
   const [evidenceValue, setEvidenceValue] = useState('')
+  // Track reviewed state per Verify item: { itemKey: 'confirmed' | 'assumption' }
+  const [reviewedItems, setReviewedItems] = useState<Record<string, 'confirmed' | 'assumption'>>({})
+  // Track which reviewed items are expanded
+  const [expandedReviewed, setExpandedReviewed] = useState<Record<string, boolean>>({})
 
   // Handle evidence submission
   const handleEvidenceSubmit = useCallback((edgeId: string) => {
@@ -69,9 +69,11 @@ export function M1TopActions({ topActions, onAddEvidence, onConfirm, onAssumptio
   return (
     <div className="space-y-2">
       {topActions.map((item, index) => {
-        const styles = categoryStyles[item.category]
+        const badgeColor = categoryBadgeColors[item.category]
         const isEvidenceItem = item.category === 'add_evidence'
         const showInput = activeEvidenceInput === item.key
+        const reviewedState = reviewedItems[item.key]
+        const isReviewedExpanded = expandedReviewed[item.key]
 
         // Determine hover target - use focus (node/edge) or action targetId (edge)
         const hoverTarget = item.focus
@@ -80,13 +82,75 @@ export function M1TopActions({ topActions, onAddEvidence, onConfirm, onAssumptio
             ? { type: item.action.targetType || 'edge' as const, id: item.action.targetId }
             : null
 
+        // Collapsed state for reviewed Verify items
+        if (item.category === 'verify' && reviewedState) {
+          return (
+            <div
+              key={item.key}
+              className="relative flex flex-col gap-2 p-3 rounded-lg border border-panel-border"
+            >
+              {/* Collapsed row */}
+              <button
+                type="button"
+                onClick={() => setExpandedReviewed(prev => ({ ...prev, [item.key]: !prev[item.key] }))}
+                className="w-full flex items-center gap-3 text-left cursor-pointer"
+              >
+                {/* Numbered index */}
+                <span className={`flex-shrink-0 w-5 h-5 rounded-full ${badgeColor} text-white ${typography.panelMeta} flex items-center justify-center`}>
+                  {index + 1}
+                </span>
+                {isReviewedExpanded ? (
+                  <ChevronDown className="w-3.5 h-3.5 text-text-light shrink-0" />
+                ) : (
+                  <ChevronRight className="w-3.5 h-3.5 text-text-light shrink-0" />
+                )}
+                <span className={`${typography.panelBody} text-text-light truncate`}>{cleanFactorLabel(item.label).label}</span>
+                <span className={`shrink-0 ${typography.panelBody} text-text-light`}>·</span>
+                <span className={`shrink-0 ${typography.panelBody} text-success flex items-center gap-1`}>
+                  Reviewed <Check className="w-3.5 h-3.5" />
+                </span>
+              </button>
+
+              {/* Expanded content */}
+              {isReviewedExpanded && (
+                <div className="ml-8 pl-2">
+                  <div className="flex items-center gap-2 py-1">
+                    <span className={`${typography.panelBody} text-text-light`}>
+                      {reviewedState === 'confirmed' ? 'Confirmed as correct' : 'Marked as assumption'}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        // Reset node source back to AI so item reappears for re-review
+                        if (item.action?.targetId && onResetSource) {
+                          onResetSource(item.action.targetId)
+                        }
+                        setReviewedItems(prev => {
+                          const next = { ...prev }
+                          delete next[item.key]
+                          return next
+                        })
+                        setExpandedReviewed(prev => {
+                          const next = { ...prev }
+                          delete next[item.key]
+                          return next
+                        })
+                      }}
+                      className={`${typography.panelMeta} text-info hover:underline cursor-pointer`}
+                    >
+                      Change
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )
+        }
+
         return (
           <div
             key={item.key}
-            className={`
-              relative flex flex-col gap-2 p-3 rounded-lg border border-panel-border border-l-[3px] cursor-pointer
-              hover:bg-black/[0.02] ${styles.border}
-            `}
+            className="relative flex flex-col gap-2 p-3 rounded-lg border border-panel-border cursor-pointer hover:bg-black/[0.02]"
             onMouseEnter={() => {
               if (hoverTarget && onHoverEnter) {
                 onHoverEnter(hoverTarget.type as 'node' | 'edge', hoverTarget.id)
@@ -95,23 +159,23 @@ export function M1TopActions({ topActions, onAddEvidence, onConfirm, onAssumptio
             onMouseLeave={() => onHoverLeave?.()}
           >
             <div className="flex items-start gap-3">
-              {/* Numbered index */}
-              <span className="flex-shrink-0 w-5 h-5 rounded-full bg-info text-white text-xs font-semibold flex items-center justify-center">
+              {/* Numbered index - colour based on category */}
+              <span className={`flex-shrink-0 w-5 h-5 rounded-full ${badgeColor} text-white ${typography.panelMeta} flex items-center justify-center`}>
                 {index + 1}
               </span>
 
               {/* Content - flex-1 min-w-0 ensures text wraps within bounds */}
               <div className="flex-1 min-w-0 pr-2">
-                <p className="text-sm font-medium text-text-header">
+                <p className={`${typography.panelHeader} text-text-header`}>
                   {cleanFactorLabel(item.label).label}
                 </p>
-                <p className="text-sm text-text-light mt-0.5">
+                <p className={`${typography.panelBody} text-text-light mt-0.5`}>
                   {item.detail}
                 </p>
               </div>
 
-              {/* Fixed action column - shrink-0 prevents collapse */}
-              <div className="flex items-center gap-1 shrink-0">
+              {/* Fixed action column - anchored bottom-right */}
+              <div className="flex items-center gap-0.5 shrink-0 ml-auto self-end">
                 {/* Verify items: show Confirm, Assumption, Edit icons */}
                 {item.category === 'verify' && (
                   <>
@@ -122,6 +186,7 @@ export function M1TopActions({ topActions, onAddEvidence, onConfirm, onAssumptio
                         variant="confirm"
                         onClick={() => {
                           if (item.action?.targetId) {
+                            setReviewedItems(prev => ({ ...prev, [item.key]: 'confirmed' }))
                             onConfirm(item.action.targetId)
                           }
                         }}
@@ -130,10 +195,11 @@ export function M1TopActions({ topActions, onAddEvidence, onConfirm, onAssumptio
                     {onAssumption && (
                       <IconBtn
                         icon={HelpCircle}
-                        tooltip="Mark as assumption"
+                        tooltip={"Accept as assumption. Won\u2019t ask again"}
                         variant="assume"
                         onClick={() => {
                           if (item.action?.targetId) {
+                            setReviewedItems(prev => ({ ...prev, [item.key]: 'assumption' }))
                             onAssumption(item.action.targetId)
                           }
                         }}
@@ -162,7 +228,7 @@ export function M1TopActions({ topActions, onAddEvidence, onConfirm, onAssumptio
                       setActiveEvidenceInput(item.key)
                       setEvidenceValue('')
                     }}
-                    className="text-xs font-medium text-info hover:underline cursor-pointer"
+                    className={`${typography.panelMeta} text-info hover:underline cursor-pointer`}
                   >
                     + Source
                   </button>
@@ -187,7 +253,7 @@ export function M1TopActions({ topActions, onAddEvidence, onConfirm, onAssumptio
                   onChange={(e) => setEvidenceValue(e.target.value)}
                   placeholder="Enter evidence source (URL or description)"
                   maxLength={500}
-                  className="flex-1 px-2 py-1 text-xs border border-panel-border rounded bg-panel text-text-body focus:outline-none focus:ring-1 focus:ring-info"
+                  className={`flex-1 px-2 py-1 ${typography.panelMeta} border border-panel-border rounded bg-panel text-text-body focus:outline-none focus:ring-1 focus:ring-info`}
                   autoFocus
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' && item.action?.targetId) {
@@ -202,7 +268,7 @@ export function M1TopActions({ topActions, onAddEvidence, onConfirm, onAssumptio
                 <button
                   onClick={() => item.action?.targetId && handleEvidenceSubmit(item.action.targetId)}
                   disabled={!evidenceValue.trim()}
-                  className="px-2 py-1 text-xs bg-info text-white rounded disabled:opacity-50"
+                  className={`px-2 py-1 ${typography.panelMeta} bg-info hover:bg-success text-text-on-color rounded disabled:opacity-50`}
                 >
                   Save
                 </button>
@@ -211,7 +277,7 @@ export function M1TopActions({ topActions, onAddEvidence, onConfirm, onAssumptio
                     setActiveEvidenceInput(null)
                     setEvidenceValue('')
                   }}
-                  className="px-2 py-1 text-xs text-text-light hover:text-text-body"
+                  className={`px-2 py-1 ${typography.panelMeta} text-text-light hover:text-text-body`}
                 >
                   Cancel
                 </button>

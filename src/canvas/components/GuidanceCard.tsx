@@ -81,7 +81,7 @@ const typeIconColors: Record<GuidanceType, string> = {
   coaching: 'text-sun-600',
   validation: 'text-carrot-600',
   weight: 'text-sky-600',
-  bias: 'text-purple-600',
+  bias: 'text-option',
   readiness: 'text-mint-600',
 }
 
@@ -90,7 +90,7 @@ const typeBadgeStyles: Record<GuidanceType, string> = {
   coaching: 'bg-sun-100 text-sun-800',
   validation: 'bg-carrot-100 text-carrot-800',
   weight: 'bg-sky-100 text-sky-800',
-  bias: 'bg-purple-100 text-purple-800',
+  bias: 'bg-panel text-option',
   readiness: 'bg-mint-100 text-mint-800',
 }
 

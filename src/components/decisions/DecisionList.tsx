@@ -288,7 +288,7 @@ export default function DecisionList() {
   // Handle bulk actions
   const handleBulkAction = (action: string) => {
     // Implement bulk actions (delete, archive, etc.)
-    console.log(`Bulk action: ${action} on decisions:`, selectedDecisions);
+    console.warn(`Bulk action: ${action} on decisions:`, selectedDecisions);
     // Reset selection after action
     setSelectedDecisions([]);
     setSelectAll(false);
@@ -318,18 +318,18 @@ export default function DecisionList() {
   // Render error state
   if (error) {
     return (
-      <div className="bg-red-50 border border-red-200 rounded-lg p-6">
+      <div className="bg-panel border border-danger/30 rounded-lg p-6">
         <div className="flex flex-col items-center gap-4">
-          <AlertTriangle className="h-8 w-8 text-red-400" />
+          <AlertTriangle className="h-8 w-8 text-danger" />
           <div className="text-center">
-            <h3 className="text-lg font-medium text-red-800 mb-2">Error loading decisions</h3>
-            <p className="text-sm text-red-700 mb-4">{error}</p>
+            <h3 className="text-lg font-medium text-danger mb-2">Error loading decisions</h3>
+            <p className="text-sm text-danger mb-4">{error}</p>
             <button
               onClick={() => {
                 setRetryCount(0);
                 fetchDecisions();
               }}
-              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-danger hover:bg-danger/80 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-danger"
             >
               <RefreshCw className="h-4 w-4 mr-2" />
               Try Again
@@ -348,7 +348,7 @@ export default function DecisionList() {
           <h2 className="text-2xl font-bold text-gray-900">Your Decisions</h2>
           <Link
             to="/decisions/new"
-            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-text-on-color bg-primary hover:bg-primary-hover focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-info"
           >
             <PlusCircle className="h-5 w-5 mr-2" />
             New Decision
@@ -362,7 +362,7 @@ export default function DecisionList() {
             
             <Link
               to="/decisions/new"
-              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-text-on-color bg-primary hover:bg-primary-hover focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-info"
             >
               <PlusCircle className="h-5 w-5 mr-2" />
               Create Decision
@@ -372,15 +372,15 @@ export default function DecisionList() {
               <h4 className="text-sm font-medium text-gray-700 mb-3">Getting Started Tips</h4>
               <ul className="text-sm text-gray-600 space-y-2">
                 <li className="flex items-start">
-                  <Check className="h-5 w-5 text-green-500 mr-2 flex-shrink-0" />
+                  <Check className="h-5 w-5 text-success mr-2 flex-shrink-0" />
                   <span>Create a new decision by clicking the button above</span>
                 </li>
                 <li className="flex items-start">
-                  <Check className="h-5 w-5 text-green-500 mr-2 flex-shrink-0" />
+                  <Check className="h-5 w-5 text-success mr-2 flex-shrink-0" />
                   <span>Fill in the details about your decision</span>
                 </li>
                 <li className="flex items-start">
-                  <Check className="h-5 w-5 text-green-500 mr-2 flex-shrink-0" />
+                  <Check className="h-5 w-5 text-success mr-2 flex-shrink-0" />
                   <span>Use our AI-powered analysis to help you make better choices</span>
                 </li>
               </ul>
@@ -405,7 +405,7 @@ export default function DecisionList() {
         </div>
         <Link
           to="/decisions/new"
-          className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+          className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-text-on-color bg-primary hover:bg-primary-hover focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-info"
         >
           <PlusCircle className="h-5 w-5 mr-2" />
           New Decision
@@ -427,14 +427,14 @@ export default function DecisionList() {
                 placeholder="Search decisions..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:ring-info focus:border-info/30 sm:text-sm"
               />
             </div>
 
             {/* Filter toggle button */}
             <button
               onClick={() => setShowFilters(!showFilters)}
-              className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+              className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-info"
             >
               <Filter className="h-4 w-4 mr-2" />
               Filters
@@ -450,7 +450,7 @@ export default function DecisionList() {
               <select
                 value={sortOption}
                 onChange={(e) => setSortOption(e.target.value)}
-                className="block w-full pl-3 pr-10 py-2 text-base border border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
+                className="block w-full pl-3 pr-10 py-2 text-base border border-gray-300 focus:outline-none focus:ring-info focus:border-info/30 sm:text-sm rounded-md"
               >
                 {SORT_OPTIONS.map((option) => (
                   <option key={option.value} value={option.value}>
@@ -473,7 +473,7 @@ export default function DecisionList() {
                   id="status-filter"
                   value={statusFilter}
                   onChange={(e) => setStatusFilter(e.target.value)}
-                  className="block w-full pl-3 pr-10 py-2 text-base border border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
+                  className="block w-full pl-3 pr-10 py-2 text-base border border-gray-300 focus:outline-none focus:ring-info focus:border-info/30 sm:text-sm rounded-md"
                 >
                   {STATUS_OPTIONS.map((option) => (
                     <option key={option.value} value={option.value}>
@@ -492,7 +492,7 @@ export default function DecisionList() {
                   id="type-filter"
                   value={typeFilter}
                   onChange={(e) => setTypeFilter(e.target.value)}
-                  className="block w-full pl-3 pr-10 py-2 text-base border border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
+                  className="block w-full pl-3 pr-10 py-2 text-base border border-gray-300 focus:outline-none focus:ring-info focus:border-info/30 sm:text-sm rounded-md"
                 >
                   {TYPE_OPTIONS.map((option) => (
                     <option key={option.value} value={option.value}>
@@ -513,13 +513,13 @@ export default function DecisionList() {
               <div className="flex gap-2">
                 <button
                   onClick={() => handleBulkAction('archive')}
-                  className="inline-flex items-center px-3 py-1.5 border border-gray-300 rounded-md text-xs font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                  className="inline-flex items-center px-3 py-1.5 border border-gray-300 rounded-md text-xs font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-info"
                 >
                   Archive
                 </button>
                 <button
                   onClick={() => handleBulkAction('delete')}
-                  className="inline-flex items-center px-3 py-1.5 border border-transparent rounded-md text-xs font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                  className="inline-flex items-center px-3 py-1.5 border border-transparent rounded-md text-xs font-medium text-white bg-danger hover:bg-danger/80 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-danger"
                 >
                   Delete
                 </button>
@@ -528,7 +528,7 @@ export default function DecisionList() {
                     setSelectedDecisions([]);
                     setSelectAll(false);
                   }}
-                  className="inline-flex items-center px-3 py-1.5 border border-gray-300 rounded-md text-xs font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                  className="inline-flex items-center px-3 py-1.5 border border-gray-300 rounded-md text-xs font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-info"
                 >
                   Cancel
                 </button>
@@ -548,7 +548,7 @@ export default function DecisionList() {
                       type="checkbox"
                       checked={selectAll}
                       onChange={handleSelectAllChange}
-                      className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                      className="h-4 w-4 text-info focus:ring-info border-gray-300 rounded"
                     />
                   </div>
                 </th>
@@ -576,14 +576,14 @@ export default function DecisionList() {
               {getCurrentPageDecisions().map((decision) => (
                 <tr 
                   key={decision.id} 
-                  className={`hover:bg-gray-50 ${selectedDecisions.includes(decision.id) ? 'bg-indigo-50' : ''}`}
+                  className={`hover:bg-gray-50 ${selectedDecisions.includes(decision.id) ? 'bg-panel' : ''}`}
                 >
                   <td className="px-6 py-4 whitespace-nowrap">
                     <input
                       type="checkbox"
                       checked={selectedDecisions.includes(decision.id)}
                       onChange={() => toggleDecisionSelection(decision.id)}
-                      className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                      className="h-4 w-4 text-info focus:ring-info border-gray-300 rounded"
                     />
                   </td>
                   <td className="px-6 py-4">
@@ -620,10 +620,10 @@ export default function DecisionList() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                      decision.status === 'in_progress' ? 'bg-yellow-100 text-yellow-800' :
-                      decision.status === 'completed' ? 'bg-green-100 text-green-800' :
+                      decision.status === 'in_progress' ? 'bg-panel text-warning' :
+                      decision.status === 'completed' ? 'bg-panel text-success' :
                       decision.status === 'archived' ? 'bg-gray-100 text-gray-800' :
-                      'bg-blue-100 text-blue-800'
+                      'bg-panel text-info'
                     }`}>
                       {decision.status === 'in_progress' ? 'In Progress' :
                        decision.status === 'completed' ? 'Completed' :
@@ -637,7 +637,7 @@ export default function DecisionList() {
                         <Tooltip content="Edit">
                           <Link
                             to={`/decisions/${decision.id}`}
-                            className="text-indigo-600 hover:text-indigo-900 p-1.5 rounded-full hover:bg-gray-100"
+                            className="text-info hover:text-info p-1.5 rounded-full hover:bg-gray-100"
                           >
                             <Edit className="h-4 w-4" />
                           </Link>
@@ -659,7 +659,7 @@ export default function DecisionList() {
                               className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                               role="menuitem"
                               onClick={() => {
-                                console.log('Duplicate', decision.id);
+                                console.warn('Duplicate', decision.id);
                                 setActionMenuOpen(null);
                               }}
                             >
@@ -670,7 +670,7 @@ export default function DecisionList() {
                               className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                               role="menuitem"
                               onClick={() => {
-                                console.log('Share', decision.id);
+                                console.warn('Share', decision.id);
                                 setActionMenuOpen(null);
                               }}
                             >
@@ -678,10 +678,10 @@ export default function DecisionList() {
                               Share
                             </button>
                             <button
-                              className="flex items-center w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50"
+                              className="flex items-center w-full px-4 py-2 text-sm text-danger hover:bg-panel-hover"
                               role="menuitem"
                               onClick={() => {
-                                console.log('Delete', decision.id);
+                                console.warn('Delete', decision.id);
                                 setActionMenuOpen(null);
                               }}
                             >
@@ -714,7 +714,7 @@ export default function DecisionList() {
                   id="itemsPerPage"
                   value={itemsPerPage}
                   onChange={(e) => setItemsPerPage(Number(e.target.value))}
-                  className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
+                  className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-info focus:border-info/30 sm:text-sm rounded-md"
                 >
                   {ITEMS_PER_PAGE_OPTIONS.map((option) => (
                     <option key={option} value={option}>

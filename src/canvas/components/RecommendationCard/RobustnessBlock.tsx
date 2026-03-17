@@ -139,7 +139,7 @@ const robustnessConfig: Record<RobustnessLabel, {
 // ============================================================================
 
 /**
- * Robustness meter visualization (5 segments)
+ * Robustness meter visualisation (5 segments)
  */
 function RobustnessMeter({ label }: { label: RobustnessLabel }) {
   const config = robustnessConfig[label]
@@ -259,22 +259,22 @@ function VoiRow({
     <button
       type="button"
       onClick={() => onClick?.(voi.node_id, voi.suggested_action || 'investigate')}
-      className="w-full text-left p-2.5 rounded-lg bg-violet-50 border border-violet-200 hover:bg-violet-100 transition-colors"
+      className="w-full text-left p-2.5 rounded-lg bg-panel border border-option/30 hover:bg-panel transition-colors"
       data-testid={`voi-${voi.node_id}`}
     >
       <div className="flex items-center justify-between mb-1">
         <div className="flex items-center gap-2">
-          <Search className="h-3.5 w-3.5 text-violet-600" aria-hidden="true" />
+          <Search className="h-3.5 w-3.5 text-option" aria-hidden="true" />
           <span className={`${typography.bodySmall} font-medium text-ink-800`}>
             {voi.label}
           </span>
         </div>
-        <span className={`${typography.caption} font-medium text-violet-700`}>
+        <span className={`${typography.caption} font-medium text-option`}>
           EVPI: {evpiDisplay}
         </span>
       </div>
       {voi.suggested_action && (
-        <p className={`${typography.caption} text-violet-700 mb-1`}>
+        <p className={`${typography.caption} text-option mb-1`}>
           {voi.suggested_action}
         </p>
       )}
@@ -507,11 +507,11 @@ export const RobustnessBlock = memo(function RobustnessBlock({
           {worthInvestigatingVoi.length > 0 && (
             <div className="px-4 py-3">
               <div className="flex items-center gap-2 mb-2">
-                <Lightbulb className="h-4 w-4 text-violet-600" aria-hidden="true" />
+                <Lightbulb className="h-4 w-4 text-option" aria-hidden="true" />
                 <span className={`${typography.label} text-ink-700`}>
                   Worth Investigating
                 </span>
-                <span className={`${typography.caption} text-violet-600`}>
+                <span className={`${typography.caption} text-option`}>
                   High value of information
                 </span>
               </div>
@@ -527,15 +527,15 @@ export const RobustnessBlock = memo(function RobustnessBlock({
             </div>
           )}
 
-          {/* Task 6: Pareto analysis visualization (if multi-goal) */}
+          {/* Task 6: Pareto analysis visualisation (if multi-goal) */}
           {displayMode === 'multi-goal' && robustness.pareto && (
             <div className="px-4 py-3">
               <div className="flex items-center gap-2 mb-2">
-                <Scale className="h-4 w-4 text-teal-600" aria-hidden="true" />
+                <Scale className="h-4 w-4 text-success" aria-hidden="true" />
                 <span className={`${typography.label} text-ink-700`}>
                   Multi-Goal Trade-offs
                 </span>
-                <span className={`${typography.caption} px-2 py-0.5 rounded-full bg-teal-100 text-teal-700`}>
+                <span className={`${typography.caption} px-2 py-0.5 rounded-full bg-panel text-text-body`}>
                   {robustness.pareto.frontier.length} optimal options
                 </span>
               </div>

@@ -126,7 +126,7 @@ describe('ProvenancePanel', () => {
       )
 
       const edgesText = screen.getByText('8/10 edges')
-      expect(edgesText).toHaveClass('text-green-600')
+      expect(edgesText).toHaveClass('text-success')
     })
 
     it('shows amber for low coverage (<50%)', () => {
@@ -142,7 +142,7 @@ describe('ProvenancePanel', () => {
       )
 
       const edgesText = screen.getByText('3/10 edges')
-      expect(edgesText).toHaveClass('text-amber-600')
+      expect(edgesText).toHaveClass('text-warning')
     })
 
     it('shows amber at exactly 49% coverage', () => {
@@ -158,7 +158,7 @@ describe('ProvenancePanel', () => {
       )
 
       const edgesText = screen.getByText('49/100 edges')
-      expect(edgesText).toHaveClass('text-amber-600')
+      expect(edgesText).toHaveClass('text-warning')
     })
 
     it('shows green at exactly 50% coverage', () => {
@@ -174,7 +174,7 @@ describe('ProvenancePanel', () => {
       )
 
       const edgesText = screen.getByText('50/100 edges')
-      expect(edgesText).toHaveClass('text-green-600')
+      expect(edgesText).toHaveClass('text-success')
     })
   })
 

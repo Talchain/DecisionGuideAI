@@ -40,7 +40,7 @@ const CollaboratorAvatar = memo(({ email, role }: CollaboratorAvatarProps) => {
     .slice(0, 2);
   return (
     <Tooltip content={`${email} (${role})`}>
-      <div className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center text-sm font-medium">
+      <div className="w-8 h-8 rounded-full bg-panel text-info flex items-center justify-center text-sm font-medium">
         {initials}
       </div>
     </Tooltip>
@@ -178,14 +178,14 @@ export default function Navbar() {
             <>
               <NavLink
                 to="/login"
-                className={`${authButtonStyles} text-indigo-600 bg-indigo-50 hover:bg-indigo-100`}
+                className={`${authButtonStyles} text-info bg-panel hover:bg-panel`}
               >
                 <LogIn className="h-4 w-4 mr-2" />
                 <span>Sign In</span>
               </NavLink>
               <NavLink
                 to="/signup"
-                className={`${authButtonStyles} text-white bg-indigo-600 hover:bg-indigo-700`}
+                className={`${authButtonStyles} text-text-on-color bg-primary hover:bg-primary-hover`}
               >
                 <UserPlus className="h-4 w-4 mr-2" />
                 <span>Create Account</span>
@@ -222,7 +222,7 @@ export default function Navbar() {
               className="flex-shrink-0 flex items-center"
               aria-label="DecisionGuide.AI Home"
             >
-              <Brain className="h-8 w-8 text-indigo-600" />
+              <Brain className="h-8 w-8 text-info" />
               <span className="ml-2 text-xl font-bold text-gray-900">DecisionGuide.AI</span>
             </Link>
           </div>

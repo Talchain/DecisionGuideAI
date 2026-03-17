@@ -6,20 +6,21 @@ import { toHaveNoViolations } from 'vitest-axe/matchers'
 expect.extend(matchers)
 expect.extend(toHaveNoViolations)
 
-// Mock window.matchMedia for theme detection and reduced motion hooks
-// Must be defined before any modules that use matchMedia are imported
+// Mock window.matchMedia for theme detection and reduced motion hooks.
+// Uses a plain function (not vi.fn()) so vitest's mockReset: true doesn't
+// strip the implementation between tests.
 Object.defineProperty(window, 'matchMedia', {
   writable: true,
-  value: vi.fn().mockImplementation((query: string) => ({
-    matches: query === '(prefers-reduced-motion: reduce)',
+  value: (query: string) => ({
+    matches: false,
     media: query,
     onchange: null,
-    addListener: vi.fn(),
-    removeListener: vi.fn(),
-    addEventListener: vi.fn(),
-    removeEventListener: vi.fn(),
-    dispatchEvent: vi.fn(() => true),
-  })),
+    addListener: () => {},
+    removeListener: () => {},
+    addEventListener: () => {},
+    removeEventListener: () => {},
+    dispatchEvent: () => true,
+  }),
 })
 
 // Mock ResizeObserver for ReactFlow and other components
@@ -38,10 +39,11 @@ if (typeof HTMLCanvasElement !== 'undefined') {
 }
 
 // Always start on real timers; opt-in to fakes per-test only
-beforeEach(() => vi.useRealTimers())
+beforeEach(() => {
+  vi.useRealTimers()
+})
 afterEach(() => {
   cleanup()        // unmount everything
-  vi.resetModules() // clear module state
   vi.clearAllMocks()
   vi.useRealTimers()
 })

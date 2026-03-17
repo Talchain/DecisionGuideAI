@@ -52,7 +52,7 @@ export function NodeBadge({ nodeId, label, onClick, className = '' }: NodeBadgeP
         bg-analytical-50 hover:bg-analytical-100
         text-analytical-700 hover:text-analytical-900
         border border-analytical-200 hover:border-analytical-400
-        transition-all duration-150
+        transition-all duration-200
         ${className}
       `}
       title={`Click to view ${displayLabel} (${nodeId})`}
@@ -102,7 +102,7 @@ export function EdgeBadge({ edgeId, label, onClick, className = '' }: EdgeBadgeP
         bg-storm-50 hover:bg-storm-100
         text-storm-700 hover:text-storm-900
         border border-storm-200 hover:border-storm-400
-        transition-all duration-150
+        transition-all duration-200
         ${className}
       `}
       title={`Click to view ${displayLabel} (${edgeId})`}

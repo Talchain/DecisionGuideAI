@@ -36,12 +36,18 @@ import type {
   EdgeForDirection,
   CritiqueSeverity,
   FlipRiskCategory,
+  FlipThreshold,
   WinnerDeterminedBy,
   RobustnessLevel,
   RobustnessLabel,
+  ResultsReport,
+  ResultsCanvasNodeData,
+  ResultsCanvasEdgeData,
 } from './types'
 import type { FactorEnrichment, NearTieInfo } from '../../lib/mappers/types'
-import { stripEncodingNotation } from './utils/cleanFactorLabel'
+import { normaliseFactorFields } from '../../lib/mappers/mapFactorSensitivity'
+import { stripEncodingNotation, sanitizeCoachingText } from './utils/cleanFactorLabel'
+import { humaniseCritique } from './utils/humaniseCritique'
 
 // =============================================================================
 // Winner Selection Helper
@@ -125,7 +131,7 @@ export function resolveBaselineId(
   userSelectedBaselineId?: string | null
 ): string | null {
   // 1. PLoT-provided baseline (option with is_baseline: true)
-  const plotBaseline = optionNodes.find(node => (node.data as any)?.is_baseline === true)
+  const plotBaseline = optionNodes.find(node => node.data?.is_baseline === true)
   if (plotBaseline) return plotBaseline.id
 
   // 2. User-selected baseline
@@ -135,11 +141,8 @@ export function resolveBaselineId(
     if (userOption) return userSelectedBaselineId
   }
 
-  // 3. Heuristic: option label contains "status quo" (case-insensitive)
-  const statusQuoOption = options.find(o =>
-    o.label.toLowerCase().includes('status quo')
-  )
-  if (statusQuoOption) return statusQuoOption.id
+  // v7.5: Removed label heuristic — only honour explicit baseline flags.
+  // Heuristic caused baseline row to hide when option contained "Status Quo".
 
   return null
 }
@@ -169,15 +172,16 @@ function normaliseSeverity(severity: string | undefined): CritiqueSeverity {
 
 /**
  * Get canonical factor key from various ID fields.
- * Priority: factor_id > node_id > id > normalised(label)
- * Note: PLoT uses factor_id as the canonical field name.
+ * Pre-mapped data: uses factorId (already resolved).
+ * Raw data: delegates to normaliseFactorFields (node_id > factor_id > id > label).
  */
 function getFactorKey(factor: RawFactorSensitivity | UiFactorSensitivity, index: number): string {
+  // Pre-mapped UiFactorSensitivity has factorId already resolved
   if ('factorId' in factor && factor.factorId) return factor.factorId
-  if ('factor_id' in factor && factor.factor_id) return factor.factor_id
-  if ('node_id' in factor && factor.node_id) return factor.node_id
-  if ('id' in factor && factor.id) return factor.id
-  if (factor.label) return normaliseLabel(factor.label)
+  // Raw data — use centralised field resolution
+  const { node_id, label: resolvedLabel } = normaliseFactorFields(factor as Record<string, unknown>)
+  if (node_id) return node_id
+  if (resolvedLabel) return normaliseLabel(resolvedLabel)
   // Fallback: generate unique key using index
   return `factor_${index}`
 }
@@ -247,10 +251,12 @@ function getRawElasticity(factor: RawFactorSensitivity | UiFactorSensitivity): n
 }
 
 function normalizeFactorSensitivity(raw: unknown, nodeLabelMap: Map<string, string>): UiFactorSensitivity {
-  const typed = (raw ?? {}) as Record<string, any>
-  const rawId = typed.factor_id ?? typed.node_id ?? typed.id
+  if (raw == null || typeof raw !== 'object') return { factorId: '', label: 'Unknown factor', elasticity: 0, direction: 'positive' as const, confidence: null, importanceRank: 0 }
+  const typed = raw as Record<string, unknown>
+  const nf = normaliseFactorFields(typed)
+  const rawId = nf.node_id
   const labelFromNodes = rawId ? nodeLabelMap.get(rawId) : undefined
-  const label = typed.label ?? typed.node_label ?? labelFromNodes ?? rawId ?? 'Unknown factor'
+  const label = nf.label ?? typed.node_label ?? labelFromNodes ?? rawId ?? 'Unknown factor'
   const elasticity =
     typeof typed.elasticity === 'number' ? typed.elasticity
       : typeof typed.sensitivity_score === 'number' ? typed.sensitivity_score
@@ -287,6 +293,14 @@ function normalizeFactorSensitivity(raw: unknown, nodeLabelMap: Map<string, stri
       ? rawFlipRiskCategory
       : undefined
 
+  // V14.1: confidence_source — 'isl' or 'isl_default' indicates placeholder confidence
+  const confidenceSource = typeof typed.confidence_source === 'string'
+    ? typed.confidence_source
+    : undefined
+
+  // V14.2: sampling_stability from confidence_components (0 for ISL-defaulted, null for graph-sourced)
+  const samplingStability = typed.confidence_components?.sampling_stability ?? undefined
+
   return {
     factorId: rawId ?? label,
     label,
@@ -298,6 +312,8 @@ function normalizeFactorSensitivity(raw: unknown, nodeLabelMap: Map<string, stri
     zeroReason,
     valueOfInformation,
     flipRiskCategory,
+    confidenceSource,
+    samplingStability,
   }
 }
 
@@ -526,7 +542,9 @@ function getSemanticLabel(rank: number, normalisedValue: number): DriverSemantic
 // =============================================================================
 
 /**
- * Map readiness level to confidence tier.
+ * UI-SEM-019: Readiness/confidence level taxonomy mapping. PLoT uses varied labels
+ * (ready/caution/not_ready, high/medium/low); this normalises to strong/fair/needs_work.
+ * Estimated — PLoT does not provide a canonical tier enum.
  */
 function mapReadinessLevel(level: string): ConfidenceTier {
   const mapping: Record<string, ConfidenceTier> = {
@@ -539,9 +557,6 @@ function mapReadinessLevel(level: string): ConfidenceTier {
   return mapping[level.toLowerCase()] ?? 'unknown'
 }
 
-/**
- * Map confidence level to tier.
- */
 function mapConfidenceLevel(level: string): ConfidenceTier {
   const normalised = String(level).toLowerCase().trim()
   const mapping: Record<string, ConfidenceTier> = {
@@ -567,6 +582,9 @@ function getConfidenceTier(
   if (graphReadiness?.readiness_level) {
     return mapReadinessLevel(graphReadiness.readiness_level)
   }
+
+  // UI-SEM-015: Confidence tier score-based fallback (>=70 strong, >=40 fair, else needs_work).
+  // Estimated — PLoT does not provide tier thresholds for numeric readiness/quality scores.
 
   // 2. Fallback: Graph readiness readiness_score (0-100)
   if (typeof graphReadiness?.readiness_score === 'number') {
@@ -699,7 +717,10 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     hasCompletedFirstRun,
     currentScenarioFraming,
     m1Coaching,
+    reviewStatus,
+    m1ReviewAssumptions,
     goalThreshold,
+    ceeAnalysisReady,
   } = useCanvasStore(
     useShallow((s) => ({
       results: s.results,
@@ -707,13 +728,17 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       nodes: s.nodes,
       edges: s.edges,
       hasCompletedFirstRun: s.hasCompletedFirstRun,
-      currentScenarioFraming: (s as any).currentScenarioFraming,
-      m1Coaching: (s.runMeta as any)?.m1Coaching ?? null,
-      goalThreshold: (s as any).goalThreshold,
+      currentScenarioFraming: s.currentScenarioFraming,
+      m1Coaching: s.runMeta?.m1Coaching ?? null,
+      reviewStatus: s.runMeta?.reviewStatus,
+      m1ReviewAssumptions: s.runMeta?.m1ReviewAssumptions ?? null,
+      goalThreshold: s.goalThreshold,
+      ceeAnalysisReady: s.ceeAnalysisReady,
     }))
   )
 
-  const report = results?.report
+  // Cast report once at trust boundary — responseMapper returns ReportV1 with V2 pass-through fields
+  const report = results?.report as ResultsReport | null | undefined
   const resultsStatus = results?.status
 
   const isLoading = resultsStatus === 'preparing' || resultsStatus === 'connecting' || resultsStatus === 'streaming'
@@ -721,26 +746,52 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
 
   // Find goal node for label and click-to-focus
   const goalNode = useMemo(
-    () => nodes.find((n) => n.type === 'goal' || (n.data as any)?.kind === 'goal'),
+    () => nodes.find((n) => n.type === 'goal' || (n.data as ResultsCanvasNodeData)?.kind === 'goal'),
     [nodes]
   )
 
   // Goal label fallback chain: framing > node label > default
+  // V14.1: Sanitize + guard against short/ambiguous labels that read awkwardly as "To a Cat"
   const goalLabel = useMemo(() => {
-    if (currentScenarioFraming?.goal) return currentScenarioFraming.goal
-    if (goalNode?.data && typeof (goalNode.data as any).label === 'string') {
-      return (goalNode.data as any).label
+    let raw = 'your goal'
+    if (currentScenarioFraming?.goal) {
+      raw = currentScenarioFraming.goal
+    } else if (goalNode?.data && typeof (goalNode.data as ResultsCanvasNodeData).label === 'string') {
+      raw = (goalNode.data as ResultsCanvasNodeData).label
     }
-    return 'your goal'
-  }, [currentScenarioFraming, goalNode])
+    if (raw === 'your goal') return raw
+
+    // Sanitize encoding notation and arrows
+    const cleaned = sanitizeCoachingText(raw)
+    if (!cleaned || cleaned === 'your goal') return 'your goal'
+
+    // Guard: single-word labels or labels that collide with option/factor names
+    // read awkwardly as "To Cat" — prefix with context → "the best outcome for Cat"
+    // Multi-word verb phrases ("increase revenue") read fine as-is.
+    const optionLabels = new Set(
+      nodes.filter(n => (n.data as ResultsCanvasNodeData)?.kind === 'option').map(n => (n.data as ResultsCanvasNodeData)?.label as string).filter(Boolean)
+    )
+    const factorLabels = new Set(
+      nodes.filter(n => (n.data as ResultsCanvasNodeData)?.kind === 'factor').map(n => (n.data as ResultsCanvasNodeData)?.label as string).filter(Boolean)
+    )
+    const wordCount = cleaned.split(/\s+/).length
+    if (wordCount < 2 || optionLabels.has(cleaned) || factorLabels.has(cleaned)) {
+      return `the best outcome for ${cleaned}`
+    }
+
+    return cleaned
+  }, [currentScenarioFraming, goalNode, nodes])
 
   const goalNodeId = goalNode?.id
 
   // Extract outcome unit from goal node for proper formatting (Issue 5 fix)
   // The goal node's observed_state.unit tells us whether values are currency, percent, or count
+  // V11.2 Fix 3: goal_threshold_unit fallback + pass raw unit string for count types
   const { outcomeUnit, outcomeUnitSymbol } = useMemo(() => {
-    const observedState = (goalNode?.data as any)?.observedState ?? (goalNode?.data as any)?.observed_state
+    const observedState = (goalNode?.data as ResultsCanvasNodeData | undefined)?.observedState ?? (goalNode?.data as ResultsCanvasNodeData | undefined)?.observed_state
     const rawUnit = observedState?.unit
+      ?? (goalNode?.data as ResultsCanvasNodeData | undefined)?.goal_threshold_unit
+      ?? ceeAnalysisReady?.goal_threshold_unit
 
     if (!rawUnit) return { outcomeUnit: undefined, outcomeUnitSymbol: undefined }
 
@@ -758,13 +809,43 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     }
 
     // Default to count for numeric units (users, items, etc.)
-    return { outcomeUnit: 'count' as const, outcomeUnitSymbol: undefined }
-  }, [goalNode])
+    // V11.2 Fix 3: Pass raw unit string as symbol for unit-aware tornado axis labels
+    return { outcomeUnit: 'count' as const, outcomeUnitSymbol: String(rawUnit) }
+  }, [goalNode, ceeAnalysisReady?.goal_threshold_unit])
+
+  // P0-1: Extract denormalisation scale from goal node OR ceeAnalysisReady
+  // PLoT returns normalised effect sizes (0–1). goal_threshold_cap is the scale maximum in user units.
+  // Priority: ceeAnalysisReady (most reliable) > goal node data > null
+  const goalThresholdCap = useMemo(() => {
+    // 1. CEE analysis_ready is the canonical source
+    if (typeof ceeAnalysisReady?.goal_threshold_cap === 'number') return ceeAnalysisReady.goal_threshold_cap
+    // 2. Goal node data (spread from CEE node via DraftChat)
+    const data = goalNode?.data as ResultsCanvasNodeData | undefined
+    if (typeof data?.goal_threshold_cap === 'number') return data.goal_threshold_cap
+    if (typeof data?.threshold_cap === 'number') return data.threshold_cap
+    if (typeof data?.scale_max === 'number') return data.scale_max
+    return null
+  }, [goalNode, ceeAnalysisReady])
+
+  // P1-2: Effective goal threshold — canvas store > ceeAnalysisReady > goal node fallback
+  const effectiveGoalThreshold = useMemo(() => {
+    if (goalThreshold != null) return goalThreshold
+    // CEE analysis_ready has goal_threshold_raw in user units
+    if (typeof ceeAnalysisReady?.goal_threshold_raw === 'number') return ceeAnalysisReady.goal_threshold_raw
+    const data = goalNode?.data as ResultsCanvasNodeData | undefined
+    return data?.goal_threshold_raw
+      ?? data?.goal_threshold
+      ?? data?.observedState?.value
+      ?? data?.observed_state?.value
+      ?? data?.success_threshold
+      ?? data?.threshold
+      ?? null
+  }, [goalThreshold, goalNode, ceeAnalysisReady])
 
   const nodeLabelMap = useMemo(() => {
     const map = new Map<string, string>()
     nodes.forEach((node) => {
-      const label = (node.data as any)?.label
+      const label = (node.data as ResultsCanvasNodeData)?.label
       if (typeof label === 'string' && label.trim().length > 0) {
         map.set(node.id, label)
       }
@@ -775,7 +856,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
   // Get outcome node IDs for direction derivation
   const outcomeNodeIds = useMemo(
     () => nodes
-      .filter(n => n.type === 'outcome' || (n.data as any)?.kind === 'outcome')
+      .filter(n => n.type === 'outcome' || (n.data as ResultsCanvasNodeData)?.kind === 'outcome')
       .map(n => n.id),
     [nodes]
   )
@@ -796,20 +877,39 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     }
 
     // Get option probabilities from report
-    const optionProbs = (report as any).option_probabilities || {}
-    const optionNodes = nodes.filter((n) => (n.data as any)?.kind === 'option')
+    const optionProbs = report.option_probabilities || {}
+    const optionNodes = nodes.filter((n) => (n.data as ResultsCanvasNodeData)?.kind === 'option')
 
     // Determine recommended option ID - prefer backend-provided, fall back to deterministic tie-breaker
     // Task 2.4: Primary is robustness.recommended_option_id
     const backendRecommendedId =
-      (report as any)?.robustness?.recommended_option_id ??
-      (report as any)?.recommendation?.option_id ??
-      (report as any)?.recommendation?.selected_option ??
-      (report as any)?.selected_option_id ??
+      report?.robustness?.recommended_option_id ??
+      report?.recommendation?.option_id ??
+      report?.recommendation?.selected_option ??
+      report?.selected_option_id ??
       null
 
     // Build option results with percentile extraction
-    const sharedBands = (report as any).run?.bands
+    const sharedBands = report.run?.bands
+
+    // v7: Pre-scan all options to detect already-denormalized values.
+    // If any option has raw outcome magnitudes > 2, the data is already in user units
+    // even when goalThresholdCap is missing — so we should NOT label as "Relative score".
+    const capValid = goalThresholdCap != null && goalThresholdCap > 0
+    let anyAlreadyDenormalized = false
+    for (const node of optionNodes) {
+      const prob = optionProbs[node.id] || {}
+      const ob = prob.outcome ?? {}
+      const ob2 = prob.bands ?? sharedBands ?? {}
+      const vals = [
+        prob.expected_outcome ?? prob.expected ?? ob.mean ?? ob2.p50,
+        ob.p10 ?? ob2.p10,
+        ob.p90 ?? ob2.p90,
+      ]
+      const maxAbs = Math.max(...vals.map((v) => (typeof v === 'number' && isFinite(v) ? Math.abs(v) : 0)))
+      if (maxAbs > 2) { anyAlreadyDenormalized = true; break }
+    }
+    const isNormalisedResult = !capValid && !anyAlreadyDenormalized
     const unsortedOptions: OptionResult[] = optionNodes.map((node) => {
       const nodeId = node.id
       const prob = optionProbs[nodeId] || {}
@@ -834,29 +934,48 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       // This prevents scale mismatches when expected and p50 have different magnitudes
       const norm = normalizeOutcomeValues(rawP10, rawExpected, rawP50, rawP90)
 
+      // P0-1: Denormalise — convert effect sizes (0–1) to user units
+      // Guards: skip scaling when cap is invalid or values already appear denormalized
+      if (import.meta.env.DEV && nodeId === optionNodes[0]?.id) {
+        console.warn('[Results] Denorm trace:', { goalThresholdCap, rawP10, rawP50, rawP90, normP10: norm.p10, normP90: norm.p90 })
+      }
+      const maxRaw = Math.max(
+        Math.abs(norm.p90 ?? 0), Math.abs(norm.p10 ?? 0), Math.abs(norm.expected ?? 0)
+      )
+      const alreadyDenormalized = maxRaw > 2 // values > 2 are likely already in user units
+      // v7: Track whether denormalisation was applied. When scale=1 and values are small,
+      // they are normalised model scores — UI must label as "Relative score", not user units.
+      const scale = capValid && !alreadyDenormalized ? goalThresholdCap : 1
+      const scaledP10 = norm.p10 != null ? norm.p10 * scale : null
+      const scaledExpected = norm.expected != null ? norm.expected * scale : null
+      const scaledP50 = norm.p50 != null ? norm.p50 * scale : null
+      const scaledP90 = norm.p90 != null ? norm.p90 * scale : null
+
       const goalProbability = typeof prob.goal_probability === 'number'
         ? prob.goal_probability
         : null
 
       return {
         id: nodeId,
-        label: (node.data as any)?.label || nodeId,
+        label: (node.data as ResultsCanvasNodeData)?.label || nodeId,
         // Explicit expected value (mean) — primary value for "Expected" display
-        expected: norm.expected,
+        expected: scaledExpected,
         // Full outcome distribution (mean = expected, for consistency)
         outcome: {
-          mean: norm.expected,
-          p10: norm.p10,
-          p50: norm.p50,  // True median
-          p90: norm.p90,
+          mean: scaledExpected,
+          p10: scaledP10,
+          p50: scaledP50,  // True median
+          p90: scaledP90,
         },
         // Deprecated fields for backward compatibility
-        p10: norm.p10,
-        p50: norm.p50,
-        p90: norm.p90,
+        p10: scaledP10,
+        p50: scaledP50,
+        p90: scaledP90,
         isRecommended: false, // Will be set immutably below
         winProbability: prob.win_probability,
         goalProbability,
+        // Multi-constraint analysis (from ISL when goal_constraints were provided)
+        constraintAnalysis: prob.constraint_analysis,
       }
     })
 
@@ -905,7 +1024,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     const recommendedOption = allOptions.find((o) => o.isRecommended) || null
 
     // Extract recommendation stability from robustness (0-1 score)
-    const robustness = (report as any)?.robustness
+    const robustness = report?.robustness
     const recommendationStability = typeof robustness?.recommendation_stability === 'number'
       ? robustness.recommendation_stability
       : typeof robustness?.recommendationStability === 'number'
@@ -920,7 +1039,13 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     const rawRobustnessLevel = robustness?.level as string | undefined
     const rawRobustnessLabel = robustness?.label as string | undefined
 
-    // Derive level from recommendation_stability if not explicitly provided
+    /**
+     * UI-SEM-005: Robustness level derivation from stability thresholds.
+     * When PLoT omits robustness.level, derives categorical level from
+     * recommendation_stability using hardcoded brackets (0.8/0.5/0.3).
+     * Classification: redundant backstop — PLoT now provides level.
+     * TODO: Remove when PLoT guarantees level field on all responses.
+     */
     function deriveRobustnessLevel(stability: number | undefined): RobustnessLevel | undefined {
       if (stability === undefined) return undefined
       if (stability >= 0.8) return 'high'
@@ -970,6 +1095,27 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     // Task 1.7: Get goal text from framing
     const goalText = currentScenarioFraming?.goal || undefined
 
+    // C2: Defensive adaptor for flip_thresholds — PLoT hasn't confirmed final location.
+    // Check all possible paths. Simplify once PLoT confirms the canonical location.
+    const flipThresholds: FlipThreshold[] = safeArray(
+      report?.flip_thresholds
+      ?? report?.report?.robustness?.flip_thresholds
+      ?? report?.robustness?.flip_thresholds
+    )
+      .map((ft: any) => {
+        const nf = normaliseFactorFields(ft)
+        return {
+          label: nf.label ?? nodeLabelMap.get(nf.node_id ?? '') ?? nf.node_id ?? 'Unknown',
+          node_id: nf.node_id ?? '',
+          current_value: typeof ft.current_value === 'number' ? ft.current_value : 0,
+          flip_value: typeof ft.flip_value === 'number' ? ft.flip_value : null,
+          flip_reason: ft.flip_reason,
+          unit: ft.unit,
+          alternative_winner_label: ft.alternative_winner_label ?? ft.alt_winner_label,
+        }
+      })
+      .filter((ft: FlipThreshold) => ft.flip_reason !== 'timeout' && ft.flip_reason !== 'isl_error')
+
     return {
       recommendedOption,
       allOptions,
@@ -980,7 +1126,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       // Issue 5 fix: Pass through unit for proper outcome formatting
       outcomeUnit,
       outcomeUnitSymbol,
-      goalThreshold,
+      goalThreshold: effectiveGoalThreshold,
       recommendationStability,
       // Task 1.3: Win probability for display
       winProbability,
@@ -996,11 +1142,59 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       baselineOutcome,
       // Near-tie detection: when top options are too close to call
       nearTie,
-      // M1 Coaching fields (Task 2)
-      coachingHeadline: m1Coaching?.executive_summary?.headline,
+      // Task 6: Flip thresholds for tipping points visualisation
+      flipThresholds: flipThresholds.length > 0 ? flipThresholds : undefined,
+      // v7: Whether outcome values are normalised model scores (no goalThresholdCap)
+      isNormalised: isNormalisedResult,
+      // M1 Coaching fields (Task 2) — sanitized at data layer
+      coachingHeadline: m1Coaching?.executive_summary?.headline
+        ? sanitizeCoachingText(m1Coaching.executive_summary.headline) : undefined,
+      coachingParagraph: (() => {
+        const raw = m1Coaching?.executive_summary?.paragraph
+          ?? m1Coaching?.executive_summary?.summary
+        return raw ? sanitizeCoachingText(raw) : undefined
+      })(),
       coachingReadiness: m1Coaching?.readiness,
       coachingReadinessScore: m1Coaching?.readiness_signals?.score,
-      storyHeadlines: m1Coaching?.story_headlines ?? {},
+      coachingReadinessDimensions: (() => {
+        // Defensive: try .dimensions first, then fall back to readiness_signals itself
+        // (some backends nest dimensions, others put them at the top level)
+        const dims = m1Coaching?.readiness_signals?.dimensions
+        const raw = (dims ?? m1Coaching?.readiness_signals) as Record<string, number> | undefined
+        if (!raw) return undefined
+        // Normalise backend key variants to { evidence, robustness, clarity }
+        const evidence = raw.evidence ?? raw.evidence_quality
+        const robustness = raw.robustness ?? raw.model_robustness
+        const clarity = raw.clarity ?? raw.framing_quality
+        if (evidence == null || robustness == null || clarity == null) return undefined
+        return { evidence, robustness, clarity } as { evidence: number; robustness: number; clarity: number }
+      })(),
+      storyHeadlines: (() => {
+        const raw = m1Coaching?.story_headlines ?? {}
+        const sanitized: Record<string, string> = {}
+        for (const [k, v] of Object.entries(raw)) {
+          sanitized[k] = typeof v === 'string' ? sanitizeCoachingText(v) : ''
+        }
+        return sanitized
+      })(),
+      // V12: Executive summary structured fields — sanitized at data layer
+      coachingDecisionStatement: (() => {
+        const raw = m1Coaching?.executive_summary?.decision_statement
+          ?? m1Coaching?.executive_summary?.recommendation
+        return raw ? sanitizeCoachingText(raw) : undefined
+      })(),
+      coachingKeyQualifier: m1Coaching?.executive_summary?.key_qualifier
+        ? sanitizeCoachingText(m1Coaching.executive_summary.key_qualifier) : undefined,
+      coachingActionImplication: (() => {
+        const raw = m1Coaching?.executive_summary?.action_implication
+          ?? m1Coaching?.executive_summary?.readiness_statement
+        return raw ? sanitizeCoachingText(raw) : undefined
+      })(),
+      // V12 C1: M2 narrative summary — gated on review_status === 'complete', sanitized at data layer
+      m2NarrativeSummary: (() => {
+        const raw = reviewStatus === 'complete' ? m1ReviewAssumptions?.narrative_summary : undefined
+        return raw ? sanitizeCoachingText(raw) : undefined
+      })(),
       // M1 Coaching: Dominant factor from key_drivers (factor with >50% influence)
       // Use PLoT's computed dominant_factor if available
       dominantFactorId: m1Coaching?.key_drivers?.dominant_factor,
@@ -1017,35 +1211,35 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       // Check if there are warnings/uncertainties that need attention
       hasWarnings: (() => {
         // Check for warning/blocker critiques
-        const critiques = (report as any)?.run?.critique || []
+        const critiques = report?.run?.critique || []
         const hasWarningCritiques = critiques.some((c: any) =>
           c.severity === 'WARNING' || c.severity === 'BLOCKER' ||
           c.severity === 'warning' || c.severity === 'blocker'
         )
         // Check for fragile edges
-        const fragileEdges = safeArray((report as any)?.robustness?.fragile_edges)
+        const fragileEdges = safeArray(report?.robustness?.fragile_edges)
         const hasFragileEdges = fragileEdges.length > 0
         return hasWarningCritiques || hasFragileEdges
       })(),
     }
-  }, [hasCompletedFirstRun, report, nodes, goalLabel, goalNodeId, outcomeUnit, outcomeUnitSymbol, currentScenarioFraming, m1Coaching, nodeLabelMap, goalThreshold])
+  }, [hasCompletedFirstRun, report, nodes, goalLabel, goalNodeId, outcomeUnit, outcomeUnitSymbol, currentScenarioFraming, m1Coaching, nodeLabelMap, goalThreshold, goalThresholdCap, effectiveGoalThreshold, ceeAnalysisReady, m1ReviewAssumptions])
 
   // ==========================================================================
   // Drivers Section Data (with dynamic normalisation)
   // ==========================================================================
   const drivers = useMemo<DriversSectionData>(() => {
-    const driversStatus = (report as any)?.drivers_status || 'unavailable'
+    const driversStatus = report?.drivers_status || 'unavailable'
 
     // Collect raw factors from multiple sources
     const rawFactors: RawFactorSensitivity[] = []
 
     // Source 1: factor_sensitivity (PLoT v2)
-    const factorSensitivity = (report as any)?.factor_sensitivity || []
+    const factorSensitivity = report?.factor_sensitivity || []
 
     // P0 DIAGNOSTIC: Log raw factor_sensitivity data to verify field mapping
     // Fix 3: Guard window access for SSR, Fix 5: Gate behind debug toggle
     if (typeof window !== 'undefined' && (window as any).__OLUMI_DEBUG && factorSensitivity.length > 0) {
-      console.log('[useResultsSectionData] Raw factor_sensitivity from PLoT:', {
+      console.warn('[useResultsSectionData] Raw factor_sensitivity from PLoT:', {
         count: factorSensitivity.length,
         sample: factorSensitivity[0],
         allFields: factorSensitivity.map((f: any) => ({
@@ -1068,7 +1262,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
 
     // Source 2: drivers array (legacy)
     // Fix 2: Use getFactorKey for canonical de-dupe (not d.nodeId || d.id)
-    const legacyDrivers = (report as any)?.drivers || []
+    const legacyDrivers = report?.drivers || []
     legacyDrivers.forEach((d: any, idx: number) => {
       const candidate: RawFactorSensitivity = {
         node_id: d.nodeId,
@@ -1085,7 +1279,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     })
 
     // Source 3: drivers_payload
-    const driversPayload = (report as any)?.drivers_payload?.drivers || []
+    const driversPayload = report?.drivers_payload?.drivers || []
     driversPayload.forEach((pd: any, idx: number) => {
       const key = getFactorKey(pd, rawFactors.length + idx)
       if (!seenKeys.has(key)) {
@@ -1095,7 +1289,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     })
 
     // Source 4: sensitivity.factors (alternative path)
-    const sensitivityFactors = (report as any)?.sensitivity?.factors || []
+    const sensitivityFactors = report?.sensitivity?.factors || []
     sensitivityFactors.forEach((sf: any, idx: number) => {
       const key = getFactorKey(sf, rawFactors.length + idx)
       if (!seenKeys.has(key)) {
@@ -1105,7 +1299,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     })
 
     // Source 5: factors array (direct)
-    const directFactors = (report as any)?.factors || []
+    const directFactors = report?.factors || []
     directFactors.forEach((df: any, idx: number) => {
       const key = getFactorKey(df, rawFactors.length + idx)
       if (!seenKeys.has(key)) {
@@ -1145,15 +1339,15 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     const edgesForDirection: EdgeForDirection[] = edges.map(e => ({
       source: e.source,
       target: e.target,
-      effect_direction: (e.data as any)?.effect_direction,
-      direction: (e.data as any)?.direction,
+      effect_direction: (e.data as ResultsCanvasEdgeData)?.effect_direction,
+      direction: (e.data as ResultsCanvasEdgeData)?.direction,
     }))
 
     // Step 4b: Build fragile edges lookup for factor-to-goal edges
     // RULE: When a factor has multiple fragile edges, keep the one with highest switchProbability (most risky)
     // - Prefer defined values over undefined (undefined means "no data", not "zero risk")
     // - When both defined, keep the higher value (more risky edge dominates)
-    const fragileEdgesRaw = safeArray((report as any)?.robustness?.fragile_edges)
+    const fragileEdgesRaw = safeArray(report?.robustness?.fragile_edges)
     const fragileEdgesMap = new Map<string, { switchProbability?: number; alternativeWinnerLabel?: string }>()
     fragileEdgesRaw.forEach((fe: any) => {
       const fromId = fe.from_id ?? fe.fromId ?? fe.source
@@ -1184,7 +1378,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
 
     // Step 4c: Build enrichments lookup (CEE-generated insights)
     // Matching rule: Use factor_id only (never match by label)
-    const factorEnrichmentsRaw = safeArray((report as any)?.factor_enrichments)
+    const factorEnrichmentsRaw = safeArray(report?.factor_enrichments)
     const enrichmentsByFactorId = new Map<string, FactorEnrichment>()
     factorEnrichmentsRaw.forEach((e: any) => {
       const factorId = e.factor_id
@@ -1241,7 +1435,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
 
         // Format label for display - prefer canvas node label, then raw label, then formatted key
         const matchedNode = matchedNodeId ? nodes.find(n => n.id === matchedNodeId) : null
-        const canvasLabel = (matchedNode?.data as any)?.label
+        const canvasLabel = (matchedNode?.data as ResultsCanvasNodeData | undefined)?.label
         const displayLabel = canvasLabel || f.raw.label ||
           f.key
             .replace(/^(fac_|out_|goal_|risk_|factor_)/, '')
@@ -1258,7 +1452,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
         const edgeToGoal = goalNodeId
           ? edges.find(e => e.source === factorNodeId && e.target === goalNodeId)
           : undefined
-        const edgeConfidence = (edgeToGoal?.data as any)?.beliefExists ?? undefined
+        const edgeConfidence = (edgeToGoal?.data as ResultsCanvasEdgeData | undefined)?.beliefExists ?? undefined
         // Fix 3: Clamp confidence to [0,1] range
         const rawConfidence = factorConfidence ?? edgeConfidence
         const confidence = typeof rawConfidence === 'number'
@@ -1298,20 +1492,26 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
           flipRiskCategory: f.raw.flipRiskCategory,
           // CEE-generated enrichment (observations, perspectives, confidence question)
           enrichment,
+          // V14.2: Default estimate pill — ISL-sourced confidence with sampling_stability === 0
+          // confidence_source 'isl' or 'isl_default' with sampling_stability === 0 → show pill
+          // confidence_source 'graph' with sampling_stability === null → intentional, no pill
+          isDefaultedConfidence:
+            (f.raw.confidenceSource === 'isl' || f.raw.confidenceSource === 'isl_default')
+            && f.raw.samplingStability === 0,
         }
       })
       .sort((a, b) => a.rank - b.rank) // Sort by rank
 
-    // Task 2: Identify zero-impact factors (influence ≈ 0 AND confidence ≈ 0 or missing)
+    // Task 2: Identify zero-impact factors (influence < 0.01)
+    // v7.2: Filter solely on influence_score, regardless of confidence
     // These are filtered from default view but included in "See all factors"
     const ZERO_IMPACT_THRESHOLD = 0.01
     const isZeroImpact = (d: DriverItem) => {
       const influence = d.influenceScore ?? d.normalisedInfluence
-      const confidence = d.confidence
       // Bug fix: Handle undefined influence - treat as zero if missing
       const effectiveInfluence = typeof influence === 'number' ? influence : 0
-      // Zero impact = both influence and confidence are effectively zero or missing
-      return effectiveInfluence < ZERO_IMPACT_THRESHOLD && (confidence === undefined || confidence < ZERO_IMPACT_THRESHOLD)
+      // v7.2: Zero impact = influence < 0.01 (confidence not checked)
+      return effectiveInfluence < ZERO_IMPACT_THRESHOLD
     }
 
     // Filter non-zero-impact factors for default display
@@ -1324,9 +1524,9 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     // Fix 1: Only set islError when we have NO driver items to show
     // If we have data, prefer showing it even if drivers_status indicates error
     const islErrorMessage = driverItems.length === 0 && (driversStatus === 'error' || driversStatus === 'unavailable')
-      ? ((report as any)?.drivers_error ??
-         (report as any)?.sensitivity?.error ??
-         (report as any)?.isl_error ??
+      ? (report?.drivers_error ??
+         report?.sensitivity?.error ??
+         report?.isl_error ??
          (driversStatus === 'error' ? 'Factor sensitivity service unavailable' : undefined))
       : undefined
 
@@ -1334,7 +1534,8 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       drivers: driverItems,
       driversStatus: driverItems.length > 0 ? 'computed' : driversStatus,
       topDrivers,
-      totalCount: driverItems.length,
+      // v7.2: totalCount reflects non-zero-impact drivers only (visible count)
+      totalCount: nonZeroImpactDrivers.length,
       hasMagnitudeData,
       islError: islErrorMessage,
       // Task 2: Track hidden zero-impact factors
@@ -1387,22 +1588,22 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
   // ==========================================================================
   const confidence = useMemo<ConfidenceSectionData>(() => {
     // Get graph readiness from CEE review V1
-    const ceeReviewV1 = (runMeta as any)?.ceeReviewV1
+    const ceeReviewV1 = runMeta?.ceeReviewV1
     const graphReadiness = ceeReviewV1?.readiness ? {
       readiness_level: ceeReviewV1.readiness.level,
       readiness_score: ceeReviewV1.readiness.score,
     } : undefined
 
     // Get confidence tier with full fallback chain
-    const tier = getConfidenceTier(graphReadiness, report as any)
+    const tier = getConfidenceTier(graphReadiness, report ?? undefined)
 
     // Derive quality score - only use actual computed values, never fabricate
     // When only tier is known, qualityScore remains null and UI shows tier label only
     let qualityScore: number | null = null
     if (typeof graphReadiness?.readiness_score === 'number') {
       qualityScore = graphReadiness.readiness_score
-    } else if (typeof (report as any)?.graph_quality?.score === 'number') {
-      qualityScore = (report as any).graph_quality.score
+    } else if (typeof report?.graph_quality?.score === 'number') {
+      qualityScore = report.graph_quality.score
     }
     // Note: Do NOT fabricate scores from tier (80/50/20) - display tier label only when score is unavailable
 
@@ -1427,35 +1628,48 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     }
 
     // Get warnings as uncertainties from critiques
-    const critiques = (report as any)?.run?.critique || []
+    const critiques = report?.run?.critique || []
     const warnings = critiques.filter((c: any) => c.severity === 'WARNING')
 
-    const uncertainties: UncertaintyItem[] = warnings.map((w: any) => ({
-      code: w.code || 'UNKNOWN',
-      message: w.message,
-      suggestion: w.suggested_fix,
-      affectedNodes: w.node_id ? [w.node_id] : undefined,
-      // Map critique severity: BLOCKER/ERROR/WARNING/INFO → blocker/error/warning/info
-      severity: normaliseSeverity(w.severity),
-    }))
+    // V14.3b: Internal-token guard — messages matching this are NOT safe for JSX render.
+    const CRITIQUE_INTERNAL_PATTERN = /constraint_|observed_state|intercept=|node_id=|edge_id=|fac_[a-z_]+|opt_[a-z_]+|goal_[a-z_]+|blocks_analysis/i
 
-    // Add sensitive assumptions from robustness analysis (formerly "fragile edges")
+    const uncertainties: UncertaintyItem[] = warnings.map((w: any) => {
+      const msg: string = w.message ?? ''
+      const cleaned = stripEncodingNotation(msg)
+      return {
+        code: w.code || 'UNKNOWN',
+        message: msg,
+        // Pass user_message through for humanisation fallback
+        userMessage: typeof w.user_message === 'string' && w.user_message.trim() ? w.user_message.trim() : undefined,
+        // V14.3b: Pre-sanitised text — safe for JSX render fallback (no raw .message in render paths)
+        displayText: CRITIQUE_INTERNAL_PATTERN.test(cleaned)
+          ? 'Check and update this factor\u2019s inputs for more reliable results.'
+          : cleaned,
+        suggestion: w.suggested_fix,
+        affectedNodes: w.node_id ? [w.node_id] : undefined,
+        // Map critique severity: BLOCKER/ERROR/WARNING/INFO → blocker/error/warning/info
+        severity: normaliseSeverity(w.severity),
+      }
+    })
+
+    // UI-SEM-013: Fragile edge filter threshold (0.3). Estimated — PLoT does not provide a visibility gate.
     // Filter to only show high-risk fragile edges (switch_probability > 0.3)
     // P0 Fix: Use safeArray to handle truncated wrapper format
-    const fragileEdgesRaw = safeArray((report as any)?.robustness?.fragile_edges)
-    const firstFragileEdge = fragileEdgesRaw[0] as any
+    const fragileEdgesRaw = safeArray(report?.robustness?.fragile_edges)
+    const firstFragileEdge = fragileEdgesRaw[0] as Record<string, unknown> | undefined
     if (import.meta.env.DEV && typeof window !== 'undefined' && (window as any).__OLUMI_DEBUG) {
-      console.log('[REPORT_SOURCE_DEBUG]', {
+      console.warn('[REPORT_SOURCE_DEBUG]', {
         hasReport: !!report,
         reportKeys: report ? Object.keys(report).slice(0, 10) : [],
-        hasRobustness: !!(report as any)?.robustness,
-        hasFragileEdges: !!(report as any)?.robustness?.fragile_edges,
+        hasRobustness: !!report?.robustness,
+        hasFragileEdges: !!report?.robustness?.fragile_edges,
         fragileEdgesLength: fragileEdgesRaw.length,
-        hasDownstreamCalls: !!(report as any)?.downstream_calls,
+        hasDownstreamCalls: !!report?.downstream_calls,
         firstEdgeKeys: firstFragileEdge ? Object.keys(firstFragileEdge) : [],
         firstEdgeHasFromLabel: !!firstFragileEdge?.from_label,
       })
-      console.log('[FRAGILE_EDGES_SOURCE]', {
+      console.warn('[FRAGILE_EDGES_SOURCE]', {
         source: 'report.robustness.fragile_edges',
         count: fragileEdgesRaw.length,
         firstEdgeKeys: firstFragileEdge ? Object.keys(firstFragileEdge) : [],
@@ -1522,7 +1736,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     // P2 Fix: Build option label lookup from report.option_comparison
     // This provides an additional fallback when PLoT doesn't enrich alternative_winner_label
     // and the canvas node lookup fails
-    const optionComparison = safeArray((report as any)?.option_comparison)
+    const optionComparison = safeArray(report?.option_comparison)
     const optionLabelMap = new Map<string, string>()
     optionComparison.forEach((opt: any) => {
       const optId = opt?.option_id
@@ -1640,7 +1854,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       const isEdgeObject = typeof fe === 'object' && fe !== null
 
       if (import.meta.env.DEV && typeof window !== 'undefined' && (window as any).__OLUMI_DEBUG) {
-        console.log('[UNCERTAINTY_DEBUG]', {
+        console.warn('[UNCERTAINTY_DEBUG]', {
           rawEdge: fe,
           hasFromLabel: isEdgeObject && 'from_label' in fe,
           hasToLabel: isEdgeObject && 'to_label' in fe,
@@ -1652,7 +1866,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       }
 
       if (typeof window !== 'undefined' && (window as any).__OLUMI_DEBUG) {
-        console.log('[FragileEdge:RAW]', {
+        console.warn('[FragileEdge:RAW]', {
           edge_id: fe.edge_id ?? fe.edgeId ?? edgeId,
           from_label: fe.from_label,
           fromLabel: fe.fromLabel,
@@ -1706,7 +1920,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       )
 
       if (typeof window !== 'undefined' && (window as any).__OLUMI_DEBUG) {
-        console.log('[FragileEdge:RESOLVED]', {
+        console.warn('[FragileEdge:RESOLVED]', {
           fromLabel: sourceName,
           toLabel: targetName,
           alternativeLabel: alternativeWinnerLabel,
@@ -1722,10 +1936,8 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       const friendlyMessage = fe.description ||
         `If "${edgeLabel}" changes significantly, "${alternativeWinnerLabel}" could become the better choice`
 
-      // P2 Fix: Derive severity from flip probability
-      // Use switch_probability as primary (direct flip probability from ISL)
-      // > 0.7 = critical assumption (high risk of flipping); > 0.5 = error; > 0.3 = warning
-      // Note: 'blocker' is reserved for genuine pre-run validation blockers (blocks_analysis: true)
+      // UI-SEM-012: Edge severity derived from switch_probability thresholds (>0.7 critical, >0.5 error).
+      // Estimated — PLoT does not provide a severity field for fragile edges.
       let severity: 'critical' | 'error' | 'warning' = 'warning'
       const flipProbability = fe.switch_probability ?? fe.marginal_switch_probability
       if (typeof flipProbability === 'number') {
@@ -1736,12 +1948,29 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
         }
       }
 
+      // Look up factor confidence from driver items for confidence pill display
+      const factorConfidence = (() => {
+        const sourceKey = fromId
+        if (!sourceKey) return null
+        const matchedDriver = drivers.drivers.find(
+          d => d.factorKey === sourceKey || d.matchedNodeId === sourceKey
+        )
+        return matchedDriver?.confidence ?? null
+      })()
+
+      // V14.3b: Pre-sanitised displayText for JSX render fallback
+      const saDisplayText = CRITIQUE_INTERNAL_PATTERN.test(friendlyMessage)
+        ? 'Check and update this factor\u2019s inputs for more reliable results.'
+        : friendlyMessage
+
       uncertainties.push({
         code: 'SENSITIVE_ASSUMPTION',
         message: friendlyMessage,
-        suggestion: 'Validate this assumption',
+        displayText: saDisplayText,
+        suggestion: 'Review this assumption',
         affectedNodes: [fromId, toId].filter(Boolean),
         severity,
+        factorConfidence,
         threshold: fe.threshold ? {
           variable: fe.from_id ?? fe.fromId ?? fe.source,
           direction: normaliseDirection(fe.direction) ?? 'positive',
@@ -1753,7 +1982,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
 
     // Get evidence coverage from multiple sources
     const rawEvidenceQuality = ceeReviewV1?.evidence_quality
-      ?? (report as any)?.evidence_quality
+      ?? report?.evidence_quality
       ?? null
 
     const evidenceCoverage = rawEvidenceQuality ? {
@@ -1762,22 +1991,23 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     } : undefined
 
     // Normalise improvements from multiple sources
-    const biasFindings = (report as any)?.bias_findings || ceeReviewV1?.bias_findings || []
-    const qualityFactors = (report as any)?.quality_factors || ceeReviewV1?.quality_factors || []
-    const improvementGuidance = (report as any)?.improvement_guidance || ceeReviewV1?.improvement_guidance || []
+    const biasFindings = report?.bias_findings || ceeReviewV1?.bias_findings || []
+    const qualityFactors = report?.quality_factors || ceeReviewV1?.quality_factors || []
+    const improvementGuidance = report?.improvement_guidance || ceeReviewV1?.improvement_guidance || []
 
     const improvements = normaliseImprovements(biasFindings, qualityFactors, improvementGuidance)
 
     // Wire status signals from report (not runMeta) for degraded banner
     // P2 Fix: These fields are set by responseMapper from V2 response
-    const analysisStatus = (report as any)?.analysis_state === 'partial' ? 'partial' : 'computed'
-    const driversStatus = (report as any)?.drivers_status ?? 'computed'
+    const analysisStatus = report?.analysis_state === 'partial' ? 'partial' : 'computed'
+    const driversStatus = report?.drivers_status ?? 'computed'
     // Check for robustness data: fragile_edges or robust_edges indicates computed
     // P0 Fix: Use safeArray to handle truncated wrapper format { __truncated: true, items: [...] }
-    const robustness = (report as any)?.robustness
+    const robustness = report?.robustness
     const hasRobustnessData = robustness && (
       safeArray(robustness.fragile_edges).length > 0 ||
       safeArray(robustness.robust_edges).length > 0 ||
+      robustness.recommendation_stability !== undefined ||
       robustness.ranking_stability !== undefined
     )
     const robustnessStatus = hasRobustnessData ? 'computed' : 'unavailable'
@@ -1792,7 +2022,11 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     } : undefined
 
     // Bug 2 fix: Extract robustness level for "Good foundation" logic
-    const robustnessLevel = (report as any)?.robustness?.level as RobustnessLevel | undefined
+    const robustnessLevel = report?.robustness?.level as RobustnessLevel | undefined
+
+    // P0.1: Humanise non-SENSITIVE_ASSUMPTION critiques for attention banner
+    const plotCritiques = uncertainties.filter(u => u.code !== 'SENSITIVE_ASSUMPTION')
+    const humanisedCritiques = plotCritiques.map(item => humaniseCritique(item, nodeLabelMap))
 
     return {
       tier: tierInfo,
@@ -1801,7 +2035,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       topUncertainties: uncertainties.slice(0, 3),
       // Task 1: Track total high-risk edges for disclosure
       totalHighRiskEdges,
-      rankingStability: (report as any)?.robustness?.ranking_stability,
+      rankingStability: report?.robustness?.recommendation_stability ?? report?.robustness?.ranking_stability,
       robustnessLevel,
       evidenceCoverage,
       improvements,
@@ -1812,6 +2046,8 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       filteredFragileEdges,
       // Task 1: Track hidden high-risk edges for disclosure
       hiddenHighRiskCount: hiddenHighRiskCount > 0 ? hiddenHighRiskCount : undefined,
+      // P0.1: Humanised critiques for attention banner
+      humanisedCritiques,
       // P1 Integration: Top fragile edge for HeroSection bullet 3
       topFragileEdge: topFragileEdgeData,
       // Task 4 (M1 Coaching): Evidence gaps - sorted by VOI descending, deduped by factor_id
@@ -1828,19 +2064,19 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
           return true
         })
 
-        // Sort by VOI descending
+        // Sort by VOI descending (defensive: accept both voi_score and voi field names)
         const sortedGaps = uniqueGaps.sort((a: any, b: any) => {
-          const aVoi = typeof a.voi === 'number' ? a.voi : 0
-          const bVoi = typeof b.voi === 'number' ? b.voi : 0
+          const aVoi = typeof a.voi_score === 'number' ? a.voi_score : typeof a.voi === 'number' ? a.voi : 0
+          const bVoi = typeof b.voi_score === 'number' ? b.voi_score : typeof b.voi === 'number' ? b.voi : 0
           return bVoi - aVoi
         })
 
-        // Map to UI format
+        // Map to UI format (defensive: accept both voi_score/voi field names)
         const evidenceGaps = sortedGaps.map((gap: any) => ({
           factorId: gap.factor_id,
           factorLabel: gap.factor_label ?? gap.factor_id,
           confidence: gap.confidence ?? 0,
-          voi: gap.voi ?? 0,
+          voi: gap.voi_score ?? gap.voi ?? 0,
           suggestion: gap.suggestion ?? '',
           targetNodeId: gap.target_node_id,
         }))
@@ -1857,7 +2093,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
 
         // Build a set of fragile edge factor IDs for deduplication
         const fragileFactorIds = new Set<string>()
-        safeArray((report as any)?.robustness?.fragile_edges).forEach((fe: any) => {
+        safeArray(report?.robustness?.fragile_edges).forEach((fe: any) => {
           const factorId = fe.from_id ?? fe.fromId ?? fe.source
           if (factorId) fragileFactorIds.add(factorId)
         })
@@ -1887,18 +2123,48 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
         })
 
         // Map to UI format
-        const nextActions = sortedActions.map((action: any) => ({
-          action: action.action ?? '',
-          rationale: action.rationale ?? '',
+        // V12 B6: For edge targets, extract from-node ID for canvas focus
+        const nextActions = sortedActions.map((action: any) => {
+          const rawTargetId = action.target_id as string | undefined
+          const targetType = action.target_type as 'node' | 'edge' | 'factor' | 'option' | undefined
+          const resolvedTargetId = targetType === 'edge' && rawTargetId?.includes('->')
+            ? rawTargetId.split('->')[0]
+            : rawTargetId
+          return {
+            action: action.action ? sanitizeCoachingText(action.action) : '',
+            rationale: action.rationale ? sanitizeCoachingText(action.rationale) : '',
+            priority: action.priority ?? 999,
+            targetType,
+            targetId: resolvedTargetId,
+            targetLabel: action.target_label ? sanitizeCoachingText(action.target_label) : undefined,
+          }
+        })
+
+        // V14.2: topNextActions for hero coaching line uses ALL actions sorted by
+        // priority (not deduped against fragile edges). The deduped `nextActions` is
+        // used by the "What to do next" section to avoid redundancy.
+        const allSortedActions = [...rawActions].sort((a: any, b: any) => {
+          const aPriority = typeof a.priority === 'number' ? a.priority : 999
+          const bPriority = typeof b.priority === 'number' ? b.priority : 999
+          return aPriority - bPriority
+        }).map((action: any) => ({
+          action: action.action ? sanitizeCoachingText(action.action) : '',
+          rationale: action.rationale ? sanitizeCoachingText(action.rationale) : '',
           priority: action.priority ?? 999,
           targetType: action.target_type as 'node' | 'edge' | 'factor' | 'option' | undefined,
-          targetId: action.target_id,
-          targetLabel: action.target_label,
+          targetId: (() => {
+            const rawTargetId = action.target_id as string | undefined
+            const targetType = action.target_type as string | undefined
+            return targetType === 'edge' && rawTargetId?.includes('->')
+              ? rawTargetId.split('->')[0]
+              : rawTargetId
+          })(),
+          targetLabel: action.target_label ? sanitizeCoachingText(action.target_label) : undefined,
         }))
 
         return {
           nextActions,
-          topNextActions: nextActions.slice(0, 3),
+          topNextActions: allSortedActions.slice(0, 3),
         }
       })(),
       // Task 6 (M1 Coaching): Assumptions ledger - sorted by severity (high → medium → low)
@@ -1917,14 +2183,74 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
         // Map to UI format
         const assumptions = sortedAssumptions.map((assumption: any) => ({
           severity: (assumption.severity ?? 'low') as 'low' | 'medium' | 'high',
-          message: assumption.message ?? '',
+          message: assumption.message ? sanitizeCoachingText(assumption.message) : '',
           target: assumption.target,
         }))
 
         return { assumptions }
       })(),
+      // V12: M1 coaching top fragile edge — parsed from edge_id/label
+      m1CoachingTopFragileEdge: (() => {
+        const tfe = m1Coaching?.top_fragile_edge
+        if (!tfe?.edge_id) return undefined
+        // Parse from_id from edge_id (e.g. "fac_x->out_y" → "fac_x")
+        const fromId = tfe.edge_id.split('->')[0] ?? ''
+        const toId = tfe.edge_id.split('->')[1] ?? ''
+        // Parse from_label from label (e.g. "Product-Market Fit → Customer Acq" → "Product-Market Fit")
+        const labelParts = tfe.label.split(/\s*\u2192\s*|\s*->\s*/)
+        const fromLabel = labelParts[0]?.trim() ?? fromId
+        const toLabel = labelParts[1]?.trim() ?? toId
+        return {
+          fromId,
+          fromLabel,
+          toId,
+          toLabel,
+          switchProbability: tfe.switch_probability,
+          alternativeWinnerLabel: tfe.alternative_winner ?? null,
+        }
+      })(),
+      // V12: Review status for M2 gate
+      reviewStatus,
+      // V12: M2 data (gated on reviewStatus === 'complete' in components)
+      m2BiasFindings: (() => {
+        const findings = safeArray(m1ReviewAssumptions?.bias_findings)
+        if (findings.length === 0) return undefined
+        return findings.map((f: any) => ({
+          type: f.type ?? '',
+          source: f.source ?? '',
+          description: f.description ? sanitizeCoachingText(f.description) : '',
+          affectedElements: safeArray(f.affected_elements),
+          linkedCritiqueCode: f.linked_critique_code ?? '',
+        }))
+      })(),
+      m2DecisionQualityPrompts: (() => {
+        const prompts = safeArray(m1ReviewAssumptions?.decision_quality_prompts)
+        if (prompts.length === 0) return undefined
+        return prompts.map((p: any) => ({
+          principle: p.principle ? sanitizeCoachingText(p.principle) : '',
+          appliesBecause: p.applies_because ? sanitizeCoachingText(p.applies_because) : '',
+          question: p.question ? sanitizeCoachingText(p.question) : '',
+        }))
+      })(),
+      m2EvidenceEnhancements: (() => {
+        const raw = m1ReviewAssumptions?.evidence_enhancements as
+          Record<string, { specific_action: string; decision_hygiene: string }> | undefined
+        if (!raw) return undefined
+        const sanitized: Record<string, { specific_action: string; decision_hygiene: string }> = {}
+        for (const [k, v] of Object.entries(raw)) {
+          sanitized[k] = {
+            specific_action: v.specific_action ? sanitizeCoachingText(v.specific_action) : '',
+            decision_hygiene: v.decision_hygiene ? sanitizeCoachingText(v.decision_hygiene) : '',
+          }
+        }
+        return sanitized
+      })(),
+      m2NarrativeSummary: (() => {
+        const raw = reviewStatus === 'complete' ? m1ReviewAssumptions?.narrative_summary : undefined
+        return raw ? sanitizeCoachingText(raw) : undefined
+      })(),
     }
-  }, [report, m1Coaching])
+  }, [report, m1Coaching, drivers, reviewStatus, m1ReviewAssumptions])
 
   // ==========================================================================
   // Improvements Section Data (Legacy - now merged into confidence)

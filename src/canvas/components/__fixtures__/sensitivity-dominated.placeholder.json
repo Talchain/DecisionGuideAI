@@ -1,0 +1,15 @@
+{
+  "_comment": "TODO Q.2: Replace with real staging response",
+  "_requirements": [
+    "One factor with abs(elasticity) > 0.6",
+    "Other factors with abs(elasticity) < 0.15",
+    "Demonstrates high sensitivity to single driver",
+    "Include fact_objects[]",
+    "Include review_cards[]"
+  ],
+  "_capture_instructions": "Create model with one dominant factor, capture SSE response",
+  "model_card": {
+    "response_hash": "PLACEHOLDER",
+    "seed": 1337
+  }
+}

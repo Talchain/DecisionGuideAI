@@ -213,16 +213,16 @@ export function ParetoChart({
         <div className="flex items-start gap-3">
           <AlertCircle className="w-5 h-5 text-carrot-600 flex-shrink-0 mt-0.5" />
           <div className="flex-1">
-            <p className={`${typography.label} text-carrot-800`}>
+            <p className={`${typography.panelHeader} text-carrot-800`}>
               Pareto analysis unavailable
             </p>
-            <p className={`${typography.caption} text-carrot-600 mt-1`}>
+            <p className={`${typography.panelBody} text-carrot-600 mt-1`}>
               {error.message}
             </p>
             <button
               type="button"
               onClick={() => refetch()}
-              className={`${typography.caption} mt-2 inline-flex items-center gap-1 text-carrot-700 hover:text-carrot-800`}
+              className={`${typography.panelBody} mt-2 inline-flex items-center gap-1 text-carrot-700 hover:text-carrot-800`}
             >
               <RefreshCw className="w-3 h-3" />
               Retry
@@ -240,7 +240,7 @@ export function ParetoChart({
         className={`p-4 bg-sand-50 border border-sand-200 rounded-xl ${className}`}
         data-testid="pareto-chart-empty"
       >
-        <p className={`${typography.body} text-sand-600`}>
+        <p className={`${typography.panelBody} text-sand-600`}>
           {options.length < 3
             ? 'Add more options to see Pareto frontier'
             : 'Need at least 2 criteria for Pareto analysis'}
@@ -261,18 +261,18 @@ export function ParetoChart({
             key={optId}
             type="button"
             onClick={() => handleOptionClick(optId)}
-            className="w-full text-left p-3 rounded-lg bg-teal-50 border border-teal-200 hover:bg-teal-100 transition-colors"
+            className="w-full text-left p-3 rounded-lg bg-panel border border-success/30 hover:opacity-90 transition-colors"
           >
             <div className="flex items-center gap-2">
-              <Award className="w-4 h-4 text-teal-600" />
-              <span className={`${typography.label} text-teal-800`}>
+              <Award className="w-4 h-4 text-success" />
+              <span className={`${typography.panelHeader} text-success`}>
                 {opt.label}
               </span>
-              <span className={`${typography.caption} ml-auto px-2 py-0.5 rounded-full bg-teal-200 text-teal-800`}>
+              <span className={`${typography.panelBody} ml-auto px-2 py-0.5 rounded-full bg-panel text-text-body`}>
                 Frontier
               </span>
             </div>
-            <div className={`${typography.caption} text-teal-600 mt-1 grid grid-cols-2 gap-1`}>
+            <div className={`${typography.panelBody} text-success mt-1 grid grid-cols-2 gap-1`}>
               {criteria.map((c) => (
                 <span key={c}>
                   {c}: {formatScore(opt.scores[c] ?? 0)}
@@ -305,17 +305,17 @@ export function ParetoChart({
               ) : (
                 <ChevronRight className="w-4 h-4 text-sand-500" />
               )}
-              <span className={`${typography.label} text-sand-700`}>
+              <span className={`${typography.panelHeader} text-sand-700`}>
                 {opt.label}
               </span>
-              <span className={`${typography.caption} ml-auto px-2 py-0.5 rounded-full bg-sand-200 text-sand-600`}>
+              <span className={`${typography.panelBody} ml-auto px-2 py-0.5 rounded-full bg-sand-200 text-sand-600`}>
                 Dominated
               </span>
             </button>
 
             {isExpanded && (
               <div className="mt-2 pl-6 space-y-2">
-                <div className={`${typography.caption} text-sand-600 grid grid-cols-2 gap-1`}>
+                <div className={`${typography.panelBody} text-sand-600 grid grid-cols-2 gap-1`}>
                   {criteria.map((c) => (
                     <span key={c}>
                       {c}: {formatScore(opt.scores[c] ?? 0)}
@@ -323,7 +323,7 @@ export function ParetoChart({
                   ))}
                 </div>
                 {dominators.length > 0 && (
-                  <div className={`${typography.caption} text-sand-500`}>
+                  <div className={`${typography.panelBody} text-sand-500`}>
                     <span className="font-medium">Why dominated?</span>
                     <p className="mt-0.5">
                       Outperformed by:{' '}
@@ -347,12 +347,12 @@ export function ParetoChart({
       {/* Axis selectors (when >2 criteria) */}
       {criteria.length > 2 && (
         <div className="flex gap-4 mb-3">
-          <label className={`${typography.caption} text-ink-600`}>
+          <label className={`${typography.panelBody} text-ink-600`}>
             X-Axis:
             <select
               value={effectiveXAxis}
               onChange={(e) => setXAxis(e.target.value)}
-              className="ml-2 px-2 py-1 border border-sand-300 rounded text-sm"
+              className={`ml-2 px-2 py-1 border border-sand-300 rounded ${typography.panelBody}`}
             >
               {criteria.map((c) => (
                 <option key={c} value={c}>
@@ -361,12 +361,12 @@ export function ParetoChart({
               ))}
             </select>
           </label>
-          <label className={`${typography.caption} text-ink-600`}>
+          <label className={`${typography.panelBody} text-ink-600`}>
             Y-Axis:
             <select
               value={effectiveYAxis}
               onChange={(e) => setYAxis(e.target.value)}
-              className="ml-2 px-2 py-1 border border-sand-300 rounded text-sm"
+              className={`ml-2 px-2 py-1 border border-sand-300 rounded ${typography.panelBody}`}
             >
               {criteria.map((c) => (
                 <option key={c} value={c}>
@@ -387,7 +387,7 @@ export function ParetoChart({
         aria-label="Pareto frontier chart"
       >
         {/* Grid lines */}
-        <g className="grid-lines" stroke="#e5e7eb" strokeWidth="1">
+        <g className="grid-lines" stroke="var(--border-default)" strokeWidth="1">
           {[0, 0.25, 0.5, 0.75, 1].map((t) => {
             const x = PADDING.left + t * PLOT_WIDTH
             const y = PADDING.top + t * PLOT_HEIGHT
@@ -401,7 +401,7 @@ export function ParetoChart({
         </g>
 
         {/* Axes */}
-        <g className="axes" stroke="#374151" strokeWidth="2">
+        <g className="axes" stroke="var(--text-body)" strokeWidth="2">
           {/* X axis */}
           <line
             x1={PADDING.left}
@@ -442,7 +442,7 @@ export function ParetoChart({
           <polyline
             points={frontierLine.map((p) => `${p.x},${p.y}`).join(' ')}
             fill="none"
-            stroke="#0d9488"
+            stroke="var(--success)"
             strokeWidth="2"
             strokeDasharray="4,2"
           />
@@ -457,9 +457,9 @@ export function ParetoChart({
                 cx={point.x}
                 cy={point.y}
                 r={DOMINATED_POINT_SIZE}
-                fill="#9ca3af"
+                fill="var(--text-light)"
                 fillOpacity="0.5"
-                stroke="#6b7280"
+                stroke="var(--factor)"
                 strokeWidth="1"
                 className="cursor-pointer transition-all hover:fill-opacity-80"
                 onMouseEnter={() => setHoveredOption(point.id)}
@@ -478,8 +478,8 @@ export function ParetoChart({
                 cx={point.x}
                 cy={point.y}
                 r={FRONTIER_POINT_SIZE}
-                fill="#0d9488"
-                stroke="#065f46"
+                fill="var(--success)"
+                stroke="var(--success-active)"
                 strokeWidth="2"
                 className="cursor-pointer transition-all hover:r-10"
                 onMouseEnter={() => setHoveredOption(point.id)}
@@ -491,7 +491,7 @@ export function ParetoChart({
                 x={point.x}
                 y={point.y - 12}
                 textAnchor="middle"
-                className="text-xs fill-teal-800 font-medium pointer-events-none"
+                className="text-xs fill-success font-medium pointer-events-none"
               >
                 {point.label.length > 15
                   ? point.label.slice(0, 12) + '...'
@@ -529,7 +529,7 @@ export function ParetoChart({
                     width={tooltipWidth}
                     height={tooltipHeight}
                     fill="white"
-                    stroke="#d1d5db"
+                    stroke="var(--border-default)"
                     strokeWidth="1"
                     rx="4"
                     className="drop-shadow-md"
@@ -562,11 +562,11 @@ export function ParetoChart({
 
       {/* Legend */}
       <div className="flex gap-4 mt-2 justify-center">
-        <span className={`${typography.caption} text-ink-600 flex items-center gap-1`}>
-          <span className="w-3 h-3 rounded-full bg-teal-600" />
+        <span className={`${typography.panelBody} text-ink-600 flex items-center gap-1`}>
+          <span className="w-3 h-3 rounded-full bg-success" />
           Pareto optimal ({frontier.length})
         </span>
-        <span className={`${typography.caption} text-ink-500 flex items-center gap-1`}>
+        <span className={`${typography.panelBody} text-ink-500 flex items-center gap-1`}>
           <span className="w-2 h-2 rounded-full bg-gray-400 opacity-50" />
           Dominated ({dominated.length})
         </span>
@@ -579,7 +579,7 @@ export function ParetoChart({
       className={`p-4 bg-paper-50 border border-sand-200 rounded-xl ${className}`}
       data-testid="pareto-chart"
     >
-      <h3 className={`${typography.label} text-ink-800 mb-3`}>
+      <h3 className={`${typography.panelHeader} text-ink-800 mb-3`}>
         Pareto Frontier Analysis
       </h3>
 

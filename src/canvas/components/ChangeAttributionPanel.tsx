@@ -75,17 +75,17 @@ const SOURCE_CONFIG: Record<
   ai: {
     label: 'AI Generated',
     icon: Cpu,
-    className: 'text-violet-700',
+    className: 'text-option',
   },
   template: {
     label: 'From Template',
     icon: FileText,
-    className: 'text-amber-700',
+    className: 'text-warning',
   },
   import: {
     label: 'Imported',
     icon: Download,
-    className: 'text-green-700',
+    className: 'text-success',
   },
   system: {
     label: 'System',

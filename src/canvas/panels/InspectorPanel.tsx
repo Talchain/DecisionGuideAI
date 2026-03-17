@@ -26,6 +26,7 @@ import { Tooltip } from '../components/Tooltip'
 import { FieldLabel } from '../../components/ui/FieldLabel'
 import { EDGE_CONSTRAINTS, clampBelief, trimProvenance, DEFAULT_EDGE_DATA } from '../domain/edges'
 import { EDGE_TERMINOLOGY } from '../../config/terminology'
+import { typography } from '../../styles/typography'
 import {
   beliefToConfidencePercent,
   formatConfidencePercent,
@@ -188,7 +189,7 @@ export function InspectorPanel({ isOpen, onClose }: InspectorPanelProps): JSX.El
         <span className="inline-block">
           <button
             onClick={handleReset}
-            className="px-4 py-2 text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className={`px-4 py-2 ${typography.panelHeader} text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed`}
             type="button"
             disabled={!hasChanges}
           >
@@ -208,7 +209,7 @@ export function InspectorPanel({ isOpen, onClose }: InspectorPanelProps): JSX.El
         <span className="inline-block flex-1">
           <button
             onClick={handleApply}
-            className="w-full px-4 py-2 text-sm font-medium text-white bg-info-600 rounded-lg hover:bg-info-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className={`w-full px-4 py-2 ${typography.panelHeader} text-white bg-info-600 rounded-lg hover:bg-info-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed`}
             type="button"
             disabled={!hasChanges || validationErrors.length > 0}
           >
@@ -249,15 +250,15 @@ export function InspectorPanel({ isOpen, onClose }: InspectorPanelProps): JSX.El
               </div>
               {hasMultipleEdges ? (
                 <>
-                  <p className="text-sm font-medium">Multiple edges selected</p>
-                  <p className="mt-1 text-xs text-ink-900/60">
+                  <p className={typography.panelHeader}>Multiple edges selected</p>
+                  <p className={`mt-1 ${typography.panelMeta} text-ink-900/60`}>
                     Inspector only supports editing one edge at a time. Select a single edge to continue.
                   </p>
                 </>
               ) : (
                 <>
-                  <p className="text-sm font-medium">Select an edge to inspect</p>
-                  <p className="mt-1 text-xs text-ink-900/60">
+                  <p className={typography.panelHeader}>Select an edge to inspect</p>
+                  <p className={`mt-1 ${typography.panelMeta} text-ink-900/60`}>
                     Click an edge on the canvas to view and edit its metadata.
                   </p>
                 </>
@@ -270,23 +271,23 @@ export function InspectorPanel({ isOpen, onClose }: InspectorPanelProps): JSX.El
             <>
               {/* Basic info */}
               <PanelSection title="Edge Details">
-                <div className="space-y-2 text-sm">
+                <div className={`space-y-2 ${typography.panelBody}`}>
                   <div className="flex items-center justify-between">
                     <span className="text-slate-500">ID</span>
-                    <code className="font-mono text-xs bg-slate-100 px-2 py-1 rounded">{selectedEdge.id}</code>
+                    <code className={`font-mono ${typography.panelMeta} bg-slate-100 px-2 py-1 rounded`}>{selectedEdge.id}</code>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-slate-500">From</span>
-                    <code className="font-mono text-xs bg-slate-100 px-2 py-1 rounded">{selectedEdge.source}</code>
+                    <code className={`font-mono ${typography.panelMeta} bg-slate-100 px-2 py-1 rounded`}>{selectedEdge.source}</code>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-slate-500">To</span>
-                    <code className="font-mono text-xs bg-slate-100 px-2 py-1 rounded">{selectedEdge.target}</code>
+                    <code className={`font-mono ${typography.panelMeta} bg-slate-100 px-2 py-1 rounded`}>{selectedEdge.target}</code>
                   </div>
                   {selectedEdge.label && (
                     <div className="flex items-center justify-between">
                       <span className="text-slate-500">Label</span>
-                      <span className="text-xs">{selectedEdge.label}</span>
+                      <span className={typography.panelMeta}>{selectedEdge.label}</span>
                     </div>
                   )}
                 </div>
@@ -311,7 +312,7 @@ export function InspectorPanel({ isOpen, onClose }: InspectorPanelProps): JSX.El
                         const next = parseFloat(e.target.value)
                         setBelief(Number.isFinite(next) ? next : 0)
                       }}
-                      className="w-24 px-2 py-1 text-sm text-right border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-info-600"
+                      className={`w-24 px-2 py-1 ${typography.panelBody} text-right border border-panel-border rounded focus:outline-none focus:ring-2 focus:ring-info focus:ring-offset-2`}
                       min={0}
                       max={1}
                       step={0.01}
@@ -319,7 +320,7 @@ export function InspectorPanel({ isOpen, onClose }: InspectorPanelProps): JSX.El
                   </div>
 
                   <div className="space-y-2">
-                    <div className="flex items-center justify-between text-xs text-slate-500">
+                    <div className={`flex items-center justify-between ${typography.panelMeta} text-slate-500`}>
                       <span>Confidence</span>
                       <span>{formatConfidencePercent(beliefToConfidencePercent(belief))}</span>
                     </div>
@@ -337,7 +338,7 @@ export function InspectorPanel({ isOpen, onClose }: InspectorPanelProps): JSX.El
                       max={1}
                       step={0.01}
                     />
-                    <div className="flex justify-between text-xs text-slate-500">
+                    <div className={`flex justify-between ${typography.panelMeta} text-slate-500`}>
                       <span>0 (Very uncertain)</span>
                       <span>1 (Very certain)</span>
                     </div>
@@ -359,7 +360,7 @@ export function InspectorPanel({ isOpen, onClose }: InspectorPanelProps): JSX.El
                       type="number"
                       value={weight.toFixed(1)}
                       onChange={(e) => setWeight(parseFloat(e.target.value) || 1)}
-                      className="w-20 px-2 py-1 text-sm text-right border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-info-600"
+                      className={`w-20 px-2 py-1 ${typography.panelBody} text-right border border-panel-border rounded focus:outline-none focus:ring-2 focus:ring-info focus:ring-offset-2`}
                       min={EDGE_CONSTRAINTS.weight.min}
                       max={EDGE_CONSTRAINTS.weight.max}
                       step={EDGE_CONSTRAINTS.weight.step}
@@ -392,13 +393,13 @@ export function InspectorPanel({ isOpen, onClose }: InspectorPanelProps): JSX.El
                     value={provenance}
                     onChange={(e) => setProvenance(e.target.value)}
                     placeholder="Source or rationale for this connection..."
-                    className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-info-600 resize-none"
+                    className={`w-full px-3 py-2 ${typography.panelBody} border border-panel-border rounded-lg focus:outline-none focus:ring-2 focus:ring-info focus:ring-offset-2 resize-none`}
                     rows={3}
                     maxLength={EDGE_CONSTRAINTS.provenance.maxLength}
                   />
-                  <div className="flex justify-between text-xs">
+                  <div className={`flex justify-between ${typography.panelMeta}`}>
                     <span className="text-slate-500">Source/rationale</span>
-                    <span className={provenance.length > EDGE_CONSTRAINTS.provenance.maxLength * 0.9 ? 'text-amber-600 font-medium' : 'text-slate-500'}>
+                    <span className={provenance.length > EDGE_CONSTRAINTS.provenance.maxLength * 0.9 ? 'text-warning font-medium' : 'text-slate-500'}>
                       {provenance.length}/{EDGE_CONSTRAINTS.provenance.maxLength}
                     </span>
                   </div>
@@ -407,9 +408,9 @@ export function InspectorPanel({ isOpen, onClose }: InspectorPanelProps): JSX.El
 
               {/* Validation errors */}
               {validationErrors.length > 0 && (
-                <div className="p-3 rounded-lg bg-amber-50 border border-amber-200">
-                  <div className="text-xs font-semibold text-amber-800 mb-2">Validation Issues:</div>
-                  <ul className="space-y-1 text-xs text-amber-700">
+                <div className="p-3 rounded-lg bg-panel border border-warning/30">
+                  <div className={`${typography.panelMeta} text-warning mb-2`}>Validation Issues:</div>
+                  <ul className={`space-y-1 ${typography.panelMeta} text-warning`}>
                     {validationErrors.map((error, i) => (
                       <li key={i} className="flex items-start gap-2">
                         <span>•</span>

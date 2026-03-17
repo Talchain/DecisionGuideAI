@@ -9,7 +9,7 @@
  * - Quality tier badge with color coding
  * - Confidence score display
  * - Improvements list grouped by priority (high → medium → low)
- * - "Analyze Now" action button (gated by can_run_analysis)
+ * - "Analyse now" action button (gated by can_run_analysis)
  */
 
 import { useMemo, useEffect, useCallback } from 'react'
@@ -42,7 +42,7 @@ const nodeTypeLabels: Record<SuggestedNodeType, string> = {
 }
 
 interface PreAnalysisHealthProps {
-  /** Callback when user clicks "Analyze Now" */
+  /** Callback when user clicks "Analyse now" */
   onAnalyze?: () => void
   /** Callback when user clicks an improvement to focus it */
   onFocusImprovement?: (improvement: GraphImprovement) => void
@@ -257,10 +257,10 @@ export function PreAnalysisHealth({
               {isAnalyzing ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin inline mr-1.5" />
-                  Analyzing...
+                  Analysing...
                 </>
               ) : (
-                'Analyze Now'
+                'Analyse now'
               )}
             </button>
           </div>

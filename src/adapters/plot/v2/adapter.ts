@@ -18,16 +18,17 @@ import type {
   V2RunError,
   V2RunResult,
   V2Node,
+  V2ObservedState,
   V2Edge,
   V2Option,
 } from './types'
-import { STD_FLOOR, STD_CEILING_RATIO, STD_CEILING_ABS, DEFAULT_STD, isBlockedResponse } from './types'
+import { STD_FLOOR, STD_CEILING_RATIO, STD_CEILING_ABS, DEFAULT_STD, DEFAULT_EXISTS_PROBABILITY, isBlockedResponse } from './types'
 import {
   normaliseGraphIds,
   translateResponseToUIIds,
 } from '../../../utils/nodeIdNormalisation'
 import type { UIOption, UIInterventionValue } from '../../../types/options'
-import type { CEEAnalysisReady, CEEOptionV3 } from '../../cee/types'
+import type { CEEAnalysisReady, CEEGoalConstraint, CEEOptionV3 } from '../../cee/types'
 import { recordRequestPayload, recordResponsePayload } from '../../../lib/payload-trace-store'
 import { STRENGTH_BOUNDS, clampStrength } from '../../../canvas/domain/edges'
 
@@ -42,13 +43,26 @@ interface CanvasNodeData {
   description?: string
   value?: number
   baseline?: number
+  /**
+   * Observed state from CEE (camelCase in canvas, snake_case in CEE/PLoT).
+   * Includes V3 pass-through fields: raw_value, cap, factor_type, etc.
+   */
   observedState?: {
     value?: number
+    std?: number
     baseline?: number
     unit?: string
     source?: string
+    // V3 pass-through fields from CEE
+    raw_value?: number
+    cap?: number
+    factor_type?: string
+    uncertainty_drivers?: unknown[]
+    extractionType?: string
   }
   interventions?: Record<string, number | UIInterventionValue>
+  /** CEE V12.4: Factor category for controllability display */
+  category?: 'controllable' | 'observable' | 'external'
   [key: string]: unknown
 }
 
@@ -173,12 +187,12 @@ export function uiOptionToV2Option(option: UIOption): V2Option {
 /**
  * Known valid status values for UIOption.
  */
-const KNOWN_OPTION_STATUSES = new Set(['ready', 'needs_user_mapping', 'needs_user_input'])
+const KNOWN_OPTION_STATUSES = new Set(['ready', 'needs_user_mapping', 'needs_user_input', 'needs_encoding'])
 
 /**
  * Normalise CEEOptionV3 status to UIOption status.
  * Defensive alias: 'needs_user_input' -> 'needs_user_mapping'
- * Unknown statuses default to 'needs_user_mapping' with a warning.
+ * Unknown/undefined statuses → 'unknown' (blocks analysis, never silently defaults to a valid status).
  */
 function normaliseOptionStatus(status: CEEOptionV3['status']): UIOption['status'] {
   // Handle known alias
@@ -186,12 +200,10 @@ function normaliseOptionStatus(status: CEEOptionV3['status']): UIOption['status'
     return 'needs_user_mapping'
   }
 
-  // Validate known status
+  // Unknown or undefined → 'unknown' (defense-in-depth; contract validator rejects upstream)
   if (!KNOWN_OPTION_STATUSES.has(status)) {
-    if (import.meta.env.DEV) {
-      console.warn(`[V2Adapter] Unknown option status "${status}", defaulting to 'needs_user_mapping'`)
-    }
-    return 'needs_user_mapping'
+    console.error(`[V2Adapter] Unknown option status "${String(status)}", returning 'unknown'`)
+    return 'unknown'
   }
 
   return status as UIOption['status']
@@ -225,6 +237,7 @@ export function ceeOptionToUIOption(ceeOption: CEEOptionV3): UIOption {
     user_questions: ceeOption.user_questions,
     unresolved_targets: ceeOption.unresolved_targets,
     source: 'cee_generated',
+    ...(ceeOption.raw_interventions ? { raw_interventions: ceeOption.raw_interventions } : {}),
   }
 }
 
@@ -240,7 +253,7 @@ export function ceeOptionToUIOption(ceeOption: CEEOptionV3): UIOption {
  */
 export function ceeOptionToV2Option(ceeOption: CEEOptionV3): V2Option {
   if (import.meta.env.DEV) {
-    console.log('[V2Adapter] ceeOptionToV2Option input:', {
+    console.warn('[V2Adapter] ceeOptionToV2Option input:', {
       id: ceeOption.id,
       label: ceeOption.label,
       interventionKeys: Object.keys(ceeOption.interventions || {}),
@@ -263,7 +276,7 @@ export function ceeOptionToV2Option(ceeOption: CEEOptionV3): V2Option {
   }
 
   if (import.meta.env.DEV) {
-    console.log('[V2Adapter] ceeOptionToV2Option output:', {
+    console.warn('[V2Adapter] ceeOptionToV2Option output:', {
       id: result.id,
       interventionKeys: Object.keys(result.interventions),
       interventions: result.interventions,
@@ -280,35 +293,49 @@ export function ceeOptionToV2Option(ceeOption: CEEOptionV3): V2Option {
 /**
  * Extract observed_state from various canvas node formats.
  * Follows the 8-level fallback chain documented in the brief.
+ *
+ * Naming convention: canvas nodes store `observedState` (camelCase);
+ * CEE/PLoT payloads use `observed_state` (snake_case). This function
+ * reads from camelCase and returns snake_case for the V2 request.
+ *
+ * UI-SEM-002: Observed state default injection — std and baseline are
+ * computed when CEE has not provided them. Adapter concern (legitimate).
+ *
+ * UI-SEM-003: STD floor enforcement (STD_FLOOR constant). Prevents
+ * zero-variance nodes from crashing PLoT. Adapter concern (legitimate).
+ *
+ * V3 pass-through: spreads ALL CEE-provided fields (raw_value, cap,
+ * factor_type, uncertainty_drivers, extractionType) and only adds
+ * std/baseline when CEE hasn't provided them.
  */
-function extractObservedState(data: CanvasNodeData | undefined): V2Node['observed_state'] | undefined {
+function extractObservedState(data: CanvasNodeData | undefined): V2ObservedState | undefined {
   if (!data) return undefined
 
-  // Priority 1: observedState object
+  // Priority 1: observedState object (camelCase — mapped from CEE's snake_case in DraftChat)
   if (data.observedState && typeof data.observedState.value === 'number') {
     const value = data.observedState.value
     const baseline = data.observedState.baseline ?? value
     const delta = Math.abs(value - baseline)
-    const unit = data.observedState.unit
-    const source = data.observedState.source
 
     // Derive std from change magnitude (25% of delta), with floor and proportional ceiling
     // Ceiling scales with value (50% ratio) but has absolute max for safety
     const rawStd = delta > 0
       ? Math.max(STD_FLOOR, delta * 0.25)
       : Math.max(STD_FLOOR, Math.abs(value) * 0.01)
-    const std = Math.min(rawStd, Math.abs(value) * STD_CEILING_RATIO, STD_CEILING_ABS)
+    const computedStd = Math.min(rawStd, Math.abs(value) * STD_CEILING_RATIO, STD_CEILING_ABS)
 
+    // Spread ALL CEE fields, then overlay computed defaults.
+    // This preserves V3 fields: raw_value, cap, factor_type, uncertainty_drivers, extractionType.
+    // std and baseline use CEE's values when present; computed values are fallback only.
     return {
+      ...data.observedState,
       value,
-      std,
+      std: data.observedState.std ?? computedStd,
       baseline,
-      ...(unit ? { unit } : {}),
-      ...(source ? { source } : {}),
     }
   }
 
-  // Priority 2: value + baseline fields (also check for unit/source at top level)
+  // Priority 2: value + baseline fields (top-level on node data — legacy format, no V3 fields)
   if (typeof data.value === 'number') {
     const value = data.value
     const baseline = typeof data.baseline === 'number' ? data.baseline : value
@@ -334,17 +361,62 @@ function extractObservedState(data: CanvasNodeData | undefined): V2Node['observe
   return undefined
 }
 
+/** Valid category values for V2Node */
+const VALID_CATEGORIES = new Set(['controllable', 'observable', 'external'] as const)
+
+/**
+ * Fields to EXCLUDE from V2Node pass-through.
+ * React Flow internals and UI-only display fields that PLoT doesn't need.
+ */
+const V2_NODE_BLOCKLIST = new Set([
+  // React Flow internals (added to node.data by RF)
+  'selected', 'dragging', 'measured', 'resizing',
+  // Canvas UI-only / RF structural fields
+  'position', 'positionAbsolute', 'draggable', 'selectable',
+  'deletable', 'connectable', 'focusable', 'parentId', 'extent',
+  'expandParent', 'ariaLabel', 'zIndex', 'hidden',
+  // Fields handled explicitly below
+  'label', 'kind', 'type', 'observedState', 'category',
+  // Fields that are UI-only (not for PLoT)
+  'uncertainty', 'interventions',
+  // Context menu annotation fields (Hard rule 3: UI-only state not for PLoT)
+  'flagged_as_assumption', '_baseline_snapshot',
+])
+
 /**
  * Transform canvas node to V2Node format.
+ *
+ * Uses a blocklist approach: all node.data fields pass through to PLoT
+ * EXCEPT React Flow internals and UI-only fields. This ensures V3 fields
+ * (goal_threshold_*, prior, etc.) survive without needing explicit forwarding.
+ *
+ * Naming convention: output uses snake_case (`observed_state`) for the
+ * PLoT/CEE payload contract.
  */
 export function transformNodeToV2(node: Node<CanvasNodeData>): V2Node {
   const data = node.data ?? {}
 
+  // CIL 0.2: preserve unknown category values for forward compat
+  // Known values used for UI rendering; unknown values still pass through to PLoT
+  const category = typeof data.category === 'string' && data.category.length > 0 ? data.category : undefined
+
+  // Collect pass-through fields (everything not in blocklist)
+  const passThrough: Record<string, unknown> = {}
+  for (const [key, value] of Object.entries(data)) {
+    if (!V2_NODE_BLOCKLIST.has(key) && value !== undefined) {
+      passThrough[key] = value
+    }
+  }
+
   return {
-    id: node.id,
+    ...passThrough,                              // V3 fields pass through (goal_threshold_*, prior, etc.)
+    id: node.id,                                 // Override: always use node.id
+    // Canonical kind resolution: data.kind (canvas) > data.type (CEE legacy) > 'factor'
+    // NOTE: data.type here is the CEE domain type, NOT ReactFlow's node.type
     kind: data.kind ?? data.type ?? 'factor',
     label: data.label ?? node.id,
-    observed_state: extractObservedState(data),
+    observed_state: extractObservedState(data),   // snake_case for PLoT payload
+    ...(category ? { category } : {}),
   }
 }
 
@@ -481,6 +553,10 @@ export function getStrengthCorrections(): StrengthCorrection[] {
  * Clamps result to CEE-valid range [-1, +1].
  *
  * IMPORTANT: Call validateEdgeData first to ensure fields exist.
+ *
+ * UI-SEM-001: Reclassified as format conversion (not semantic transform).
+ * Canvas stores unsigned weight + direction; wire format requires signed mean.
+ * This is the adapter's legitimate job — PLoT cannot own this.
  */
 function computeSignedMean(data: CanvasEdgeData | undefined, edgeId?: string, from?: string, to?: string): number {
   const magnitude = data?.weight ?? 0.5
@@ -501,7 +577,7 @@ function computeSignedMean(data: CanvasEdgeData | undefined, edgeId?: string, fr
     })
 
     if (import.meta.env.DEV) {
-      console.log('[Adapter] Strength clamped:', {
+      console.warn('[Adapter] Strength clamped:', {
         edge: `${from} → ${to}`,
         original: result.original,
         clamped: result.clamped,
@@ -520,7 +596,9 @@ function computeSignedMean(data: CanvasEdgeData | undefined, edgeId?: string, fr
  */
 function computeDefaultStd(data: CanvasEdgeData | undefined): number {
   const magnitude = data?.weight ?? 0.5
-  const belief = data?.beliefExists ?? data?.confidence ?? data?.belief ?? 0.5
+  // UI-SEM-031: Default exists_probability (0.8) for std computation when belief is missing.
+  // Keep — adapter concern; same class as UI-SEM-002/003.
+  const belief = data?.beliefExists ?? data?.confidence ?? data?.belief ?? DEFAULT_EXISTS_PROBABILITY
   const cv = 0.3 * (1 - belief) + 0.1
   return Math.max(STD_FLOOR, cv * magnitude)
 }
@@ -536,24 +614,24 @@ export function transformEdgeToV2(edge: Edge<CanvasEdgeData>): V2Edge {
   const data = edge.data ?? {}
 
   const std = data.strengthStd ?? computeDefaultStd(data)
-  const existsProb = data.beliefExists ?? data.confidence ?? data.belief ?? 0.5
+  const existsProb = data.beliefExists ?? data.confidence ?? data.belief
   const finalStd = Math.max(STD_FLOOR, std)
 
   // Diagnostic logging for edge uncertainty data flow
   if (import.meta.env.DEV) {
-    console.log('[Adapter] Edge to PLoT:', {
+    console.warn('[Adapter] Edge to PLoT:', {
       edge: `${edge.source} → ${edge.target}`,
       canvas_beliefExists: data.beliefExists,
       canvas_confidence: data.confidence,
       canvas_belief: data.belief,
       canvas_strengthStd: data.strengthStd,
       computed_defaultStd: data.strengthStd === undefined ? computeDefaultStd(data) : 'N/A (used canvas)',
-      output_exists_probability: existsProb,
+      output_exists_probability: existsProb ?? 'omitted (PLoT defaults to 0.8)',
       output_strength_std: finalStd,
       fallback_used: data.beliefExists === undefined
         ? data.confidence === undefined
           ? data.belief === undefined
-            ? '0.5 (default)'
+            ? 'omitted (PLoT applies DEFAULT_EXISTS_PROBABILITY)'
             : 'belief'
           : 'confidence'
         : 'beliefExists',
@@ -567,7 +645,8 @@ export function transformEdgeToV2(edge: Edge<CanvasEdgeData>): V2Edge {
       mean: computeSignedMean(data, edge.id, edge.source, edge.target),
       std: finalStd,
     },
-    exists_probability: existsProb,
+    // When omitted, PLoT applies DEFAULT_EXISTS_PROBABILITY (0.8) with repair logging
+    ...(existsProb !== undefined ? { exists_probability: existsProb } : {}),
   }
 }
 
@@ -582,6 +661,7 @@ export function transformEdgeToV2Strict(edge: Edge<CanvasEdgeData>): V2Edge {
 
   const data = edge.data!
   const std = data.strengthStd ?? computeDefaultStd(data)
+  const existsProb = data.beliefExists ?? data.confidence ?? data.belief
 
   return {
     from: edge.source,
@@ -590,7 +670,8 @@ export function transformEdgeToV2Strict(edge: Edge<CanvasEdgeData>): V2Edge {
       mean: computeSignedMean(data, edge.id, edge.source, edge.target),
       std: Math.max(STD_FLOOR, std),
     },
-    exists_probability: data.beliefExists ?? data.confidence ?? data.belief ?? 0.5,
+    // When omitted, PLoT applies DEFAULT_EXISTS_PROBABILITY (0.8) with repair logging
+    ...(existsProb !== undefined ? { exists_probability: existsProb } : {}),
   }
 }
 
@@ -599,19 +680,28 @@ export function transformEdgeToV2Strict(edge: Edge<CanvasEdgeData>): V2Edge {
 // ============================================================================
 
 /**
+ * Options for buildV2Request fallback path.
+ */
+interface BuildV2RequestFallbackOptions {
+  brief?: string
+}
+
+/**
  * Build V2RunRequest from canvas state.
  *
  * @param nodes - Canvas nodes
  * @param edges - Canvas edges
  * @param options - UIOptions (may come from CEE or extracted from nodes)
  * @param goalNodeId - The outcome/goal node ID
+ * @param fallbackOptions - Optional brief for fallback path
  * @returns V2RunRequest with normalised IDs and reverseIdMap for response translation
  */
 export function buildV2Request(
   nodes: Node<CanvasNodeData>[],
   edges: Edge<CanvasEdgeData>[],
   options: UIOption[],
-  goalNodeId: string
+  goalNodeId: string,
+  fallbackOptions?: BuildV2RequestFallbackOptions
 ): { request: V2RunRequest; reverseIdMap: Map<string, string> } {
   // Step 1: Extract or use provided options
   const validNodeIds = new Set(nodes.map((n) => n.id))
@@ -631,19 +721,22 @@ export function buildV2Request(
   )
 
   if (normalised.hasChanges && import.meta.env.DEV) {
-    console.log('[V2Adapter] Node IDs were normalised:', {
+    console.warn('[V2Adapter] Node IDs were normalised:', {
       changes: [...normalised.idMap.entries()].filter(([a, b]) => a !== b),
     })
   }
 
   // Step 4: Build final request
   // P0 Fix: Derive seed from timestamp instead of hardcoded "42"
+  // Scenario comparison path: does not include goal_constraints, so XOR enforcement not needed
   const request: V2RunRequest = {
     graph: normalised.graph,
     options: normalised.options,
     goal_node_id: normalised.goalNodeId ?? goalNodeId,
     seed: String(Math.floor(Date.now() / 1000) % 1000000),
     detail_level: 'deep',
+    // Audit F-01: framing removed — PLoT rejects it (extra='forbid', 400).
+    ...(fallbackOptions?.brief && { brief: fallbackOptions.brief }),
   }
 
   return { request, reverseIdMap: normalised.reverseIdMap }
@@ -667,15 +760,17 @@ export interface BuildV2RequestOptions {
    * If not provided, falls back to analysisReady.suggested_seed or derives from timestamp.
    */
   seed?: number
+  // Audit F-01: framing removed — PLoT rejects unknown fields (extra='forbid', 400).
   /**
-   * User's decision framing for contextualised CEE responses.
-   * When provided, CEE can generate more relevant headlines and guidance.
+   * Original decision brief from the user.
+   * PLoT uses this for context when generating insights and recommendations.
    */
-  framing?: {
-    title?: string
-    goal?: string
-    constraints?: string
-  }
+  brief?: string
+  /**
+   * Goal constraints for multi-constraint analysis.
+   * Stored separately from analysis_ready (CEE sends at response root).
+   */
+  goalConstraints?: CEEGoalConstraint[] | null
 }
 
 /**
@@ -702,14 +797,14 @@ export function buildV2RequestFromAnalysisReady(
   fallbackGoalNodeId?: string,
   options: BuildV2RequestOptions = {}
 ): { request: V2RunRequest; reverseIdMap: Map<string, string> } {
-  const { strictEdgeValidation = false, framing } = options
+  const { strictEdgeValidation = false, brief, goalConstraints } = options
 
   // Fall back to standard buildV2Request if no analysisReady
   if (!analysisReady) {
     if (!fallbackGoalNodeId) {
       throw new Error('Either analysisReady or fallbackGoalNodeId must be provided')
     }
-    return buildV2Request(nodes, edges, fallbackOptions ?? [], fallbackGoalNodeId)
+    return buildV2Request(nodes, edges, fallbackOptions ?? [], fallbackGoalNodeId, { brief })
   }
 
   // Step 1: Validate edges if strict mode enabled
@@ -750,20 +845,42 @@ export function buildV2RequestFromAnalysisReady(
   )
 
   if (normalised.hasChanges && import.meta.env.DEV) {
-    console.log('[V2Adapter] Node IDs were normalised from analysis_ready:', {
+    console.warn('[V2Adapter] Node IDs were normalised from analysis_ready:', {
       changes: [...normalised.idMap.entries()].filter(([a, b]) => a !== b),
     })
   }
 
   // Step 6: Build final request
+  // ALLOWLIST: Only PLoT-accepted top-level fields may appear here.
+  // PLoT uses extra='forbid' — unknown fields cause 400.
+  // Accepted: graph, options, goal_node_id, goal_threshold, goal_constraints,
+  //           seed, detail_level, brief, request_id
+  // NOT accepted: goal_threshold_raw, goal_threshold_unit, goal_threshold_cap, framing
+  //               (these are CEE display metadata, stored in analysis_ready only)
   const request: V2RunRequest = {
     graph: normalised.graph,
     options: normalised.options,
     goal_node_id: normalised.goalNodeId ?? goalNodeId,
     seed,
     detail_level: 'deep',
-    // Include framing for contextualised CEE responses
-    ...(framing && { framing }),
+    // Audit F-01: Removed framing — PLoT rejects unknown fields (extra='forbid', 400).
+    // Include brief for PLoT context
+    ...(brief && { brief }),
+    // Goal threshold (normalised 0-1) — accepted by PLoT
+    ...(analysisReady.goal_threshold != null && { goal_threshold: analysisReady.goal_threshold }),
+    // Goal constraints for multi-constraint analysis (from CEE response root, not analysis_ready)
+    ...(goalConstraints?.length && { goal_constraints: goalConstraints }),
+  }
+
+  // XOR: goal_constraints take precedence over goal_threshold (PLoT contract §3.3.5).
+  // When constraints are present, ISL uses probability_of_joint_goal instead of probability_of_goal.
+  // delete is safe here: V2RunRequest marks goal_threshold as optional, so removing it
+  // produces a valid request object.
+  if (Array.isArray(request.goal_constraints) && request.goal_constraints.length > 0) {
+    if (request.goal_threshold != null && import.meta.env.DEV) {
+      console.debug('[V2Adapter] XOR: removed goal_threshold (%.2f) — goal_constraints present (%d)', request.goal_threshold, request.goal_constraints.length)
+    }
+    delete request.goal_threshold
   }
 
   return { request, reverseIdMap: normalised.reverseIdMap }
@@ -812,6 +929,8 @@ export { isBlockedResponse }
 export interface V2AdapterConfig {
   baseUrl: string
   timeout?: number
+  /** External abort signal for user-initiated cancellation */
+  signal?: AbortSignal
 }
 
 /**
@@ -822,7 +941,7 @@ export async function runV2(
   config: V2AdapterConfig,
   request: V2RunRequest
 ): Promise<V2RunResult> {
-  const { baseUrl, timeout = 120000 } = config
+  const { baseUrl, timeout = 120000, signal: externalSignal } = config
   const startTime = Date.now()
   const requestId = request.request_id || `v2-${Date.now()}`
   const endpoint = '/v2/run'
@@ -834,6 +953,15 @@ export async function runV2(
   const controller = new AbortController()
   const timeoutId = setTimeout(() => controller.abort(), timeout)
 
+  // Link external abort signal (user cancellation) to internal controller
+  if (externalSignal) {
+    if (externalSignal.aborted) {
+      controller.abort()
+    } else {
+      externalSignal.addEventListener('abort', () => controller.abort(), { once: true })
+    }
+  }
+
   // Build headers, including X-Request-Id if present in request
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
@@ -841,6 +969,10 @@ export async function runV2(
   if (request.request_id) {
     headers['X-Request-Id'] = request.request_id
   }
+
+  // Debug: trace brief field in payload
+  console.debug('[v2/run] payload keys:', Object.keys(request))
+  console.debug('[v2/run] brief in payload:', 'brief' in request, request.brief?.length)
 
   // Record request payload for debug panel
   recordRequestPayload({
@@ -988,7 +1120,7 @@ export async function executeV2Run(
   }
 
   if (import.meta.env.DEV) {
-    console.log('[V2Adapter] Sending request:', {
+    console.warn('[V2Adapter] Sending request:', {
       requestId: request.request_id,
       nodeCount: request.graph.nodes.length,
       edgeCount: request.graph.edges.length,
@@ -1004,7 +1136,7 @@ export async function executeV2Run(
   const translated = translateV2Response(result, reverseIdMap)
 
   if (import.meta.env.DEV) {
-    console.log('[V2Adapter] Response:', {
+    console.warn('[V2Adapter] Response:', {
       requestId: translated.request_id,
       status: translated.analysis_status,
       isBlocked: isBlockedResponse(translated),
@@ -1029,7 +1161,8 @@ export async function executeV2Run(
  * @param requestId - Optional request ID for tracing
  * @param goalThreshold - Optional success threshold for probability_of_goal
  * @param seed - P0 Fix: Optional seed for reproducibility (avoids hardcoded "42")
- * @param framing - User's decision framing for contextualised CEE responses
+ * @param brief - Original decision brief from user for PLoT context
+ * @param goalConstraints - Goal constraints from CEE response root for multi-constraint analysis
  */
 export async function executeV2RunWithAnalysisReady(
   config: V2AdapterConfig,
@@ -1040,7 +1173,8 @@ export async function executeV2RunWithAnalysisReady(
   requestId?: string,
   goalThreshold?: number,
   seed?: number,
-  framing?: { title?: string; goal?: string; constraints?: string }
+  brief?: string,
+  goalConstraints?: CEEGoalConstraint[] | null
 ): Promise<V2RunResult> {
   // Build fallback options from nodes (used when analysisReady not available)
   const validNodeIds = new Set(nodes.map((n) => n.id))
@@ -1048,13 +1182,14 @@ export async function executeV2RunWithAnalysisReady(
 
   // Build request - uses analysisReady if available, falls back to node extraction
   // P0 Fix: Pass seed to avoid hardcoded "42" default
+  // P0 Fix: Pass brief for PLoT context
   const { request, reverseIdMap } = buildV2RequestFromAnalysisReady(
     nodes,
     edges,
     analysisReady,
     fallbackOptions,
     fallbackGoalNodeId,
-    { strictEdgeValidation: false, seed, framing } // Lenient mode for user-edited graphs
+    { strictEdgeValidation: false, seed, brief, goalConstraints } // Lenient mode for user-edited graphs
   )
 
   // Add request ID for tracing
@@ -1067,8 +1202,19 @@ export async function executeV2RunWithAnalysisReady(
     request.goal_threshold = goalThreshold
   }
 
+  // XOR: goal_constraints take precedence over goal_threshold (PLoT contract §3.3.5).
+  // This catches the case where goalThreshold is injected via the function parameter
+  // after the builder already set goal_constraints.
+  // delete is safe: V2RunRequest marks goal_threshold as optional.
+  if (Array.isArray(request.goal_constraints) && request.goal_constraints.length > 0) {
+    if (request.goal_threshold != null && import.meta.env.DEV) {
+      console.debug('[V2Adapter] XOR (execute path): removed goal_threshold (%.2f) — goal_constraints present (%d)', request.goal_threshold, request.goal_constraints.length)
+    }
+    delete request.goal_threshold
+  }
+
   if (import.meta.env.DEV) {
-    console.log('[V2Adapter] Sending request (via analysisReady path):', {
+    console.warn('[V2Adapter] Sending request (via analysisReady path):', {
       requestId: request.request_id,
       nodeCount: request.graph.nodes.length,
       edgeCount: request.graph.edges.length,
@@ -1076,10 +1222,12 @@ export async function executeV2RunWithAnalysisReady(
       goalNodeId: request.goal_node_id,
       goalThreshold: request.goal_threshold,
       usingAnalysisReady: !!analysisReady,
+      hasBrief: !!request.brief,
+      briefLength: request.brief?.length ?? 0,
     })
 
     // Detailed options logging for debugging empty interventions
-    console.log('[V2Adapter] Final request options:', request.options.map((o) => ({
+    console.warn('[V2Adapter] Final request options:', request.options.map((o) => ({
       id: o.id,
       label: o.label,
       interventionKeys: Object.keys(o.interventions),
@@ -1094,7 +1242,7 @@ export async function executeV2RunWithAnalysisReady(
   const translated = translateV2Response(result, reverseIdMap)
 
   if (import.meta.env.DEV) {
-    console.log('[V2Adapter] Response:', {
+    console.warn('[V2Adapter] Response:', {
       requestId: translated.request_id,
       status: translated.analysis_status,
       isBlocked: isBlockedResponse(translated),

@@ -26,7 +26,7 @@ export default function AuthLayout() {
       <button
         onClick={handleClose}
         className="absolute top-4 right-4 p-2 text-gray-400 hover:text-gray-600 
-                 hover:bg-gray-100 rounded-full transition-colors group focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                 hover:bg-gray-100 rounded-full transition-colors group focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-info"
         aria-label="Close"
       >
         <X className="h-5 w-5" />

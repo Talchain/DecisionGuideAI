@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import { useGuideStore } from '../../hooks/useGuideStore'
+import { useGuideStore } from '../../hooks/useCopilotStore'
 
 describe('useGuideStore', () => {
   beforeEach(() => {

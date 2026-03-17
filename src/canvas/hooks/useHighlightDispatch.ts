@@ -53,15 +53,15 @@ interface UseHighlightDispatchReturn {
 export function getHighlightStyleClass(style: Highlight['style'] = 'primary'): string {
   switch (style) {
     case 'primary':
-      return 'border-info-500 shadow-info-500/60 bg-info-500/15'
+      return 'border-info shadow-info/60 bg-info/15'
     case 'secondary':
       return 'border-gray-400 shadow-gray-400/40 bg-gray-400/10'
     case 'warning':
-      return 'border-warning-500 shadow-warning-500/50 bg-warning-500/15'
+      return 'border-warning shadow-warning/50 bg-warning/15'
     case 'error':
-      return 'border-error-500 shadow-error-500/60 bg-error-500/15'
+      return 'border-danger shadow-danger/60 bg-danger/15'
     default:
-      return 'border-info-500 shadow-info-500/60 bg-info-500/15'
+      return 'border-info shadow-info/60 bg-info/15'
   }
 }
 

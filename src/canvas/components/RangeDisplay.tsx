@@ -1,7 +1,7 @@
 /**
  * RangeDisplay Component
  *
- * Visual display for outcome ranges (p10/p50/p90) with progress bar visualization.
+ * Visual display for outcome ranges (p10/p50/p90) with progress bar visualisation.
  * Shows a large primary outcome value with visual range bar and user-friendly labels.
  */
 

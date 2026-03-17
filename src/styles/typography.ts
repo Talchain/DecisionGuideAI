@@ -1,16 +1,8 @@
 /**
- * Olumi Typography System (v1.2 Aligned)
+ * Olumi Typography System (Design System v4)
  *
- * Single font family: Inter for all text
- *
- * Olumi Design Guidelines v1.2 Type Scale:
- * - H1: 48-64px (text-5xl to text-6xl)
- * - H2: 32-40px (text-3xl to text-4xl)
- * - H3: 24-28px (text-2xl)
- * - H4: 20-22px (text-xl)
- * - Body: 16px (text-base)
- * - Label: 14px (text-sm)
- * - Minimum font size: 14px (accessibility)
+ * Single font family: Inter for all text.
+ * Full specification: docs/design/Olumi_Design_System_v4.md
  *
  * Usage:
  * import { typography } from '@/styles/typography'
@@ -51,6 +43,12 @@ export const typography = {
   nodeTitle: 'text-[13px] font-semibold font-sans leading-tight',
   nodeLabel: 'text-[11px] font-sans leading-tight',
   edgeLabel: 'text-[10px] font-sans leading-tight',
+
+  // Results Panel — strict 3-size system for 360px side panel
+  // Only these three tokens should be used inside src/components/results/
+  panelHeader: 'text-sm font-semibold font-sans leading-snug',    // 14px — section titles, winner name, key emphasis
+  panelBody: 'text-xs font-sans leading-relaxed',                 // 12px — body text, descriptions, bullets, card content
+  panelMeta: 'text-[11px] font-sans leading-snug',                // 11px — badges, pills, axis labels, tertiary metadata
 
   // Utility
   screenReaderOnly: 'sr-only',

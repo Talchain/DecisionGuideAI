@@ -138,38 +138,49 @@ describe('UI Semantic Transform Invariants', () => {
     })
   })
 
-  describe('VOI to confidence transform (documented)', () => {
-    it('should multiply value_of_information by 100 for confidence', () => {
+  describe('confidence from confidence field (not VOI)', () => {
+    it('should scale confidence (0-1) to 0-100', () => {
       const rawFactors = [
-        { factor_id: 'f1', label: 'Factor 1', value_of_information: 0.72 },
+        { factor_id: 'f1', label: 'Factor 1', confidence: 0.72 },
       ]
 
       const result = mapFactorSensitivity(rawFactors, { sourcePath: 'enrichment' })
 
-      // DOCUMENTED TRANSFORM: VOI (0-1) × 100 = confidence (0-100)
-      // This is the ONLY semantic scaling allowed
+      // confidence (0-1) × 100 = confidence (0-100)
       expect(result[0].confidence).toBe(72)
     })
 
-    it('should preserve zero VOI as zero confidence', () => {
+    it('should preserve zero confidence as zero', () => {
       const rawFactors = [
-        { factor_id: 'f1', label: 'Factor 1', value_of_information: 0 },
+        { factor_id: 'f1', label: 'Factor 1', confidence: 0 },
       ]
 
       const result = mapFactorSensitivity(rawFactors, { sourcePath: 'enrichment' })
 
-      // VOI 0 → confidence 0 (not undefined)
+      // confidence 0 → 0 (not undefined)
       expect(result[0].confidence).toBe(0)
     })
 
-    it('should return undefined confidence when VOI is missing', () => {
+    it('should return undefined confidence when field is missing', () => {
       const rawFactors = [
         { factor_id: 'f1', label: 'Factor 1' },
       ]
 
       const result = mapFactorSensitivity(rawFactors, { sourcePath: 'enrichment' })
 
-      // Missing VOI → undefined (not 0)
+      // Missing confidence → undefined (not 0)
+      expect(result[0].confidence).toBeUndefined()
+    })
+
+    it('should preserve VOI as separate field, not used for confidence', () => {
+      const rawFactors = [
+        { factor_id: 'f1', label: 'Factor 1', value_of_information: 0.72 },
+      ]
+
+      const result = mapFactorSensitivity(rawFactors, { sourcePath: 'enrichment' })
+
+      // VOI is stored separately, NOT used for confidence
+      expect(result[0].valueOfInformation).toBe(0.72)
       expect(result[0].confidence).toBeUndefined()
     })
   })

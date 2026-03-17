@@ -38,7 +38,7 @@ export function RateLimitChip({ retryAfter, reason, onRetryReady }: RateLimitChi
     <div
       role="status"
       aria-live="polite"
-      className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium bg-amber-50 text-amber-700 border border-amber-200"
+      className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium bg-panel text-warning border border-warning/30"
       title={reason}
     >
       <Clock className="w-3 h-3" />

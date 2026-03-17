@@ -1,7 +1,7 @@
 /**
- * ParetoMiniChart - Compact Pareto frontier visualization
+ * ParetoMiniChart - Compact Pareto frontier visualisation
  *
- * Brief 10.6: Inline Pareto visualization for RobustnessBlock
+ * Brief 10.6: Inline Pareto visualisation for RobustnessBlock
  * Simplified version showing frontier vs dominated with minimal footprint.
  */
 
@@ -27,7 +27,7 @@ const CHART_HEIGHT = 120
 const PADDING = 20
 
 /**
- * Generate mock positions for visualization
+ * Generate mock positions for visualisation
  * In production, these would come from actual multi-criteria scores
  */
 function generateMockPositions(
@@ -97,14 +97,14 @@ export const ParetoMiniChart = memo(function ParetoMiniChart({
             key={optId}
             type="button"
             onClick={() => onOptionClick?.(optId)}
-            className="w-full text-left p-2 rounded-lg bg-teal-50 border border-teal-200 hover:bg-teal-100 transition-colors"
+            className="w-full text-left p-2 rounded-lg bg-panel border border-success/30 hover:opacity-90 transition-colors"
           >
             <div className="flex items-center gap-2">
-              <Award className="w-3.5 h-3.5 text-teal-600" aria-hidden="true" />
-              <span className={`${typography.caption} font-medium text-teal-800`}>
+              <Award className="w-3.5 h-3.5 text-success" aria-hidden="true" />
+              <span className={`${typography.caption} font-medium text-success`}>
                 {optionLabels[optId] || optId}
               </span>
-              <span className={`${typography.caption} ml-auto px-1.5 py-0.5 rounded bg-teal-200 text-teal-700`}>
+              <span className={`${typography.caption} ml-auto px-1.5 py-0.5 rounded bg-panel text-success`}>
                 Optimal
               </span>
             </div>
@@ -199,7 +199,7 @@ export const ParetoMiniChart = memo(function ParetoMiniChart({
       {/* Legend */}
       <div className="flex gap-3 mt-1 justify-center">
         <span className={`${typography.caption} text-ink-600 flex items-center gap-1`}>
-          <span className="w-2 h-2 rounded-full bg-teal-600" />
+          <span className="w-2 h-2 rounded-full bg-success" />
           Optimal ({pareto.frontier.length})
         </span>
         <span className={`${typography.caption} text-ink-500 flex items-center gap-1`}>

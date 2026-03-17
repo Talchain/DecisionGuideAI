@@ -177,7 +177,7 @@ export default function SandboxStreamPanel() {
             </div>
           </div>
           {mobileGuardFlag && caps.message && (
-            <div className="mt-2 text-xs text-amber-700" data-testid="mobile-cap-msg">{caps.message}</div>
+            <div className="mt-2 text-xs text-warning" data-testid="mobile-cap-msg">{caps.message}</div>
           )}
 
       {simplifyFlag && simplifyOn && (
@@ -800,13 +800,13 @@ export default function SandboxStreamPanel() {
       )}
 
       {scenariosFlag && scenarioPreview && (
-        <div data-testid="scenario-import-preview" className="ml-2 text-xs border border-amber-300 bg-amber-50 text-amber-800 rounded px-2 py-1 flex items-center gap-2">
+        <div data-testid="scenario-import-preview" className="ml-2 text-xs border border-warning/30 bg-panel text-warning rounded px-2 py-1 flex items-center gap-2">
           <span aria-hidden="true">Import template '{scenarioPreview.name}' (seed {scenarioPreview.seed || '—'}, budget {scenarioPreview.budget || '—'}, model {scenarioPreview.model || '—'})?</span>
           <div className="flex items-center gap-1">
               <button
                 type="button"
                 data-testid="scenario-import-confirm"
-                className="px-2 py-0.5 rounded border border-amber-400 bg-white"
+                className="px-2 py-0.5 rounded border border-warning bg-white"
                 onClick={() => {
                   const s = String(scenarioPreview.seed || '')
                   const b = String(scenarioPreview.budget || '')
@@ -823,7 +823,7 @@ export default function SandboxStreamPanel() {
               <button
                 type="button"
                 data-testid="scenario-import-dismiss"
-                className="px-2 py-0.5 rounded border border-amber-400 bg-white"
+                className="px-2 py-0.5 rounded border border-warning bg-white"
                 onClick={() => setScenarioPreview(null)}
               >
                 Dismiss
@@ -978,7 +978,7 @@ export default function SandboxStreamPanel() {
               </div>
           </div>
             {mobileGuardFlag && caps.message && (
-              <div className="mt-2 text-xs text-amber-700" data-testid="mobile-cap-msg">{caps.message}</div>
+              <div className="mt-2 text-xs text-warning" data-testid="mobile-cap-msg">{caps.message}</div>
             )}
             {commentsFlag && commentTarget && (
               <div data-testid="comments-panel" className="mt-3 p-2 border rounded bg-white">
@@ -1155,7 +1155,7 @@ export default function SandboxStreamPanel() {
         {replayedFrom && (
           <span
             data-testid="replayed-chip"
-            className="ml-2 text-xs px-2 py-1 rounded-full border border-amber-300 text-amber-800"
+            className="ml-2 text-xs px-2 py-1 rounded-full border border-warning/30 text-warning"
             aria-hidden="true"
             title={`Replayed from ${new Date((globalThis as any).__REPLAY_TS || Date.now()).toLocaleString()}`}
           >
@@ -1166,7 +1166,7 @@ export default function SandboxStreamPanel() {
         {scenariosFlag && scenarioChipText && (
           <span
             data-testid="scenario-chip"
-            className="ml-2 text-xs px-2 py-1 rounded-full border border-emerald-300 text-emerald-800"
+            className="ml-2 text-xs px-2 py-1 rounded-full border border-success/30 text-text-body"
             aria-hidden="true"
           >
             {scenarioChipText}
@@ -1388,7 +1388,7 @@ export default function SandboxStreamPanel() {
         )}
 
         {reconnecting && (
-          <div data-testid="reconnect-hint" className="text-xs text-amber-600 mb-1">Reconnecting…</div>
+          <div data-testid="reconnect-hint" className="text-xs text-warning mb-1">Reconnecting…</div>
         )}
 
         <StreamOutputDisplay
@@ -1464,10 +1464,10 @@ export default function SandboxStreamPanel() {
           try { code = (globalThis as any)?.localStorage?.getItem?.('sandbox.errorType') || undefined } catch {}
           const adv = mapErrorTypeToAdvice(code)
           return (
-            <div data-testid="error-banner" role="status" aria-live="polite" className="mt-2 p-2 rounded border bg-amber-50 text-amber-800 text-xs flex items-center gap-2">
-              <span data-testid="error-type-badge" className="px-2 py-0.5 rounded-full border border-amber-300 bg-white text-amber-700 font-medium">{code || 'UNKNOWN'}</span>
+            <div data-testid="error-banner" role="status" aria-live="polite" className="mt-2 p-2 rounded border bg-panel text-warning text-xs flex items-center gap-2">
+              <span data-testid="error-type-badge" className="px-2 py-0.5 rounded-full border border-warning/30 bg-white text-warning font-medium">{code || 'UNKNOWN'}</span>
               <span className="flex-1">{adv.message}</span>
-              <button type="button" className="text-[11px] px-2 py-0.5 rounded border border-amber-300 bg-white">{adv.primaryAction}</button>
+              <button type="button" className="text-[11px] px-2 py-0.5 rounded border border-warning/30 bg-white">{adv.primaryAction}</button>
             </div>
           )
         })()

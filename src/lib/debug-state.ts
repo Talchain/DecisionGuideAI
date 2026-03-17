@@ -105,6 +105,143 @@ export interface RequestTrace {
   traceReceived?: TraceReceived
 }
 
+export interface UserActionTrace {
+  actionType: string
+  timestamp: string
+  payloadSummary?: Record<string, unknown>
+}
+
+export interface CrossSurfaceEventTrace {
+  eventType: string
+  timestamp: string
+  summary: string
+  payloadSummary?: Record<string, unknown>
+}
+
+export interface RequestContextTrace {
+  requestId: string
+  timestamp: string
+  source: string
+  scenarioId?: string | null
+  clientTurnId?: string | null
+  latestUserVisibleMessageText?: string | null
+  rawMessageSent?: string | null
+  stageSystemEventSummary?: string | null
+  systemEventType?: string | null
+}
+
+export interface ResponseRepairTrace {
+  requestId: string
+  timestamp: string
+  validatorRepairs: string[]
+  emptyTextFallbackInjected: boolean
+  chipsDropped: Array<{ reason: string; count: number }>
+  blocksDropped: Array<{ reason: string; count: number }>
+  unknownBlockTypes: string[]
+  rawChipCount: number
+  cleanedChipCount: number
+  rawBlockCount: number
+  cleanedBlockCount: number
+  renderableCount: number
+  nonRenderableCount: number
+}
+
+export interface ConversationRenderTrace {
+  timestamp: string
+  messagesRenderedCount: number
+  syntheticMessagesCount: number
+  visibleChipsCount: number
+  visibleBlockCountByType: Record<string, number>
+  thinkingIndicatorShown: boolean
+  timeoutOrRetryStateShown: boolean
+}
+
+export interface InteractionStateSnapshot {
+  scenarioId: string | null
+  stagePill: string | null
+  hasGraph: boolean
+  hasAnalysis: boolean
+  hasAnalysisReady: boolean
+  firstDraftControlsVisible: boolean
+  staleFirstDraftGuidanceVisible: boolean
+  aiPanelOpen: boolean
+  composerHasText: boolean
+  composerTextLength: number
+  guidanceItemsVisible: number
+  chatMessagesCount: number
+}
+
+export interface InteractionTimelineEvent {
+  timestamp: string
+  kind: string
+  summary: string
+  requestId?: string
+  payloadSummary?: Record<string, unknown>
+  stateBefore?: InteractionStateSnapshot
+  stateAfter?: InteractionStateSnapshot
+}
+
+export interface InteractionRequestSummary {
+  requestId: string
+  endpoint?: string
+  triggerSurface: string
+  sourceSurface: string
+  initiatedBy: 'user' | 'automatic'
+  visibleTextSubmitted: string | null
+  submittedText: string | null
+  payloadShapeSummary?: Record<string, unknown>
+  responseStatus?: number
+  responseSummary?: Record<string, unknown>
+  responseError?: string | null
+  mutatedGraph?: boolean
+  mutatedAnalysis?: boolean
+  mutatedChat?: boolean
+  triggeredAutoFollowUp?: boolean
+  rightPanelAccidentallySubmittedComposerContent?: boolean
+  stateBefore?: InteractionStateSnapshot
+  stateAfter?: InteractionStateSnapshot
+}
+
+export interface InteractionChain {
+  chainId: string
+  parentChainId?: string | null
+  triggerSurface: string
+  sourceSurface: string
+  initiatedBy: 'user' | 'automatic'
+  visibleTextSubmitted: string | null
+  submittedText: string | null
+  startedAt: string
+  scenarioId: string | null
+  stagePill: string | null
+  requestIds: string[]
+  requests: InteractionRequestSummary[]
+  timeline: InteractionTimelineEvent[]
+  stateBefore?: InteractionStateSnapshot
+  stateAfter?: InteractionStateSnapshot
+  childChainIds: string[]
+}
+
+export interface PendingInteractionContext {
+  chainId: string
+  parentChainId?: string | null
+  triggerSurface: string
+  sourceSurface: string
+  initiatedBy: 'user' | 'automatic'
+  visibleTextSubmitted: string | null
+  submittedText: string | null
+  stateBefore?: InteractionStateSnapshot
+  payloadSummary?: Record<string, unknown>
+}
+
+export interface UiSurfaceDebugState {
+  firstDraftControlsVisible: boolean
+  staleFirstDraftGuidanceVisible: boolean
+  aiPanelOpen: boolean
+  composerHasText: boolean
+  composerTextLength: number
+  guidanceItemsVisible: number
+}
+
 /** Maximum number of traces to keep (expanded from 20 for better debugging during sustained traffic) */
 const MAX_TRACES = 50
 
@@ -113,6 +250,20 @@ const traces: RequestTrace[] = []
 
 /** Map for quick lookup by request ID */
 const traceMap = new Map<string, RequestTrace>()
+const sessionStartedAt = Date.now()
+const sessionId = crypto.randomUUID()
+const userActions: UserActionTrace[] = []
+const crossSurfaceEvents: CrossSurfaceEventTrace[] = []
+const requestContexts = new Map<string, RequestContextTrace>()
+const responseRepairs = new Map<string, ResponseRepairTrace>()
+let conversationRenderTrace: ConversationRenderTrace | null = null
+const MAX_EVENTS = 200
+const interactionChains = new Map<string, InteractionChain>()
+const interactionOrder: string[] = []
+const requestToInteractionChain = new Map<string, string>()
+const uiSurfaceStates = new Map<string, UiSurfaceDebugState>()
+let pendingInteractionContext: PendingInteractionContext | null = null
+let lastAnalysisInteractionChainId: string | null = null
 
 /**
  * Record the start of a request.
@@ -136,7 +287,7 @@ export function recordRequest(params: {
     }
     traceMap.delete(params.requestId)
     if (import.meta.env.DEV) {
-      console.log('[debug-state] Replacing existing trace for retry:', params.requestId)
+      console.warn('[debug-state] Replacing existing trace for retry:', params.requestId)
     }
   }
 
@@ -258,6 +409,372 @@ export function getFailedTraces(): RequestTrace[] {
 export function clearTraces(): void {
   traces.length = 0
   traceMap.clear()
+  userActions.length = 0
+  crossSurfaceEvents.length = 0
+  requestContexts.clear()
+  responseRepairs.clear()
+  conversationRenderTrace = null
+  interactionChains.clear()
+  interactionOrder.length = 0
+  requestToInteractionChain.clear()
+  uiSurfaceStates.clear()
+  pendingInteractionContext = null
+  lastAnalysisInteractionChainId = null
+}
+
+function pushBounded<T>(list: T[], value: T): void {
+  list.push(value)
+  if (list.length > MAX_EVENTS) {
+    list.splice(0, list.length - MAX_EVENTS)
+  }
+}
+
+export function recordUserAction(action: {
+  actionType: string
+  payloadSummary?: Record<string, unknown>
+}): void {
+  pushBounded(userActions, {
+    actionType: action.actionType,
+    timestamp: new Date().toISOString(),
+    payloadSummary: action.payloadSummary,
+  })
+}
+
+export function getUserActions(): UserActionTrace[] {
+  return [...userActions]
+}
+
+export function recordCrossSurfaceEvent(event: {
+  eventType: string
+  summary: string
+  payloadSummary?: Record<string, unknown>
+}): void {
+  pushBounded(crossSurfaceEvents, {
+    eventType: event.eventType,
+    timestamp: new Date().toISOString(),
+    summary: event.summary,
+    payloadSummary: event.payloadSummary,
+  })
+}
+
+export function getCrossSurfaceEvents(): CrossSurfaceEventTrace[] {
+  return [...crossSurfaceEvents]
+}
+
+export function recordRequestContext(context: Omit<RequestContextTrace, 'timestamp'>): void {
+  requestContexts.set(context.requestId, {
+    ...context,
+    timestamp: new Date().toISOString(),
+  })
+}
+
+export function getRequestContext(requestId: string): RequestContextTrace | undefined {
+  return requestContexts.get(requestId)
+}
+
+export function getAllRequestContexts(): RequestContextTrace[] {
+  return [...requestContexts.values()]
+}
+
+export function recordResponseRepair(trace: Omit<ResponseRepairTrace, 'timestamp'>): void {
+  responseRepairs.set(trace.requestId, {
+    ...trace,
+    timestamp: new Date().toISOString(),
+  })
+}
+
+export function getResponseRepair(requestId: string): ResponseRepairTrace | undefined {
+  return responseRepairs.get(requestId)
+}
+
+export function getAllResponseRepairs(): ResponseRepairTrace[] {
+  return [...responseRepairs.values()]
+}
+
+export function recordConversationRenderTrace(trace: Omit<ConversationRenderTrace, 'timestamp'>): void {
+  conversationRenderTrace = {
+    ...trace,
+    timestamp: new Date().toISOString(),
+  }
+}
+
+export function getConversationRenderTrace(): ConversationRenderTrace | null {
+  return conversationRenderTrace
+}
+
+export function getDebugSessionMeta(): {
+  sessionId: string
+  startedAt: string
+  durationMs: number
+} {
+  return {
+    sessionId,
+    startedAt: new Date(sessionStartedAt).toISOString(),
+    durationMs: Math.max(0, Date.now() - sessionStartedAt),
+  }
+}
+
+function trimInteractionChains(): void {
+  while (interactionOrder.length > MAX_TRACES) {
+    const removedId = interactionOrder.shift()
+    if (!removedId) break
+    const removed = interactionChains.get(removedId)
+    if (removed) {
+      for (const request of removed.requests) {
+        requestToInteractionChain.delete(request.requestId)
+      }
+    }
+    interactionChains.delete(removedId)
+  }
+}
+
+function pushInteractionEvent(chain: InteractionChain, event: InteractionTimelineEvent): void {
+  chain.timeline.push(event)
+  if (chain.timeline.length > MAX_EVENTS) {
+    chain.timeline.splice(0, chain.timeline.length - MAX_EVENTS)
+  }
+}
+
+export function beginInteractionChain(input: {
+  chainId?: string
+  parentChainId?: string | null
+  triggerSurface: string
+  sourceSurface: string
+  initiatedBy: 'user' | 'automatic'
+  visibleTextSubmitted?: string | null
+  submittedText?: string | null
+  scenarioId?: string | null
+  stagePill?: string | null
+  stateBefore?: InteractionStateSnapshot
+  payloadSummary?: Record<string, unknown>
+  setPending?: boolean
+}): string {
+  const chainId = input.chainId ?? crypto.randomUUID()
+  const existing = interactionChains.get(chainId)
+
+  if (existing) {
+    if (input.stateBefore) existing.stateBefore = input.stateBefore
+    if (input.setPending) {
+      pendingInteractionContext = {
+        chainId,
+        parentChainId: input.parentChainId,
+        triggerSurface: input.triggerSurface,
+        sourceSurface: input.sourceSurface,
+        initiatedBy: input.initiatedBy,
+        visibleTextSubmitted: input.visibleTextSubmitted ?? null,
+        submittedText: input.submittedText ?? null,
+        stateBefore: input.stateBefore,
+        payloadSummary: input.payloadSummary,
+      }
+    }
+    return chainId
+  }
+
+  const chain: InteractionChain = {
+    chainId,
+    parentChainId: input.parentChainId,
+    triggerSurface: input.triggerSurface,
+    sourceSurface: input.sourceSurface,
+    initiatedBy: input.initiatedBy,
+    visibleTextSubmitted: input.visibleTextSubmitted ?? null,
+    submittedText: input.submittedText ?? null,
+    startedAt: new Date().toISOString(),
+    scenarioId: input.scenarioId ?? input.stateBefore?.scenarioId ?? null,
+    stagePill: input.stagePill ?? input.stateBefore?.stagePill ?? null,
+    requestIds: [],
+    requests: [],
+    timeline: [],
+    stateBefore: input.stateBefore,
+    childChainIds: [],
+  }
+
+  pushInteractionEvent(chain, {
+    timestamp: new Date().toISOString(),
+    kind: 'interaction_started',
+    summary: input.triggerSurface,
+    payloadSummary: input.payloadSummary,
+    stateBefore: input.stateBefore,
+  })
+
+  interactionChains.set(chainId, chain)
+  interactionOrder.push(chainId)
+  trimInteractionChains()
+
+  if (input.parentChainId) {
+    const parent = interactionChains.get(input.parentChainId)
+    if (parent && !parent.childChainIds.includes(chainId)) {
+      parent.childChainIds.push(chainId)
+      const request = parent.requests[parent.requests.length - 1]
+      if (request) request.triggeredAutoFollowUp = true
+      pushInteractionEvent(parent, {
+        timestamp: new Date().toISOString(),
+        kind: 'auto_followup_linked',
+        summary: chainId,
+      })
+    }
+  }
+
+  if (input.setPending) {
+    pendingInteractionContext = {
+      chainId,
+      parentChainId: input.parentChainId,
+      triggerSurface: input.triggerSurface,
+      sourceSurface: input.sourceSurface,
+      initiatedBy: input.initiatedBy,
+      visibleTextSubmitted: input.visibleTextSubmitted ?? null,
+      submittedText: input.submittedText ?? null,
+      stateBefore: input.stateBefore,
+      payloadSummary: input.payloadSummary,
+    }
+  }
+
+  return chainId
+}
+
+export function consumePendingInteractionContext(): PendingInteractionContext | null {
+  const current = pendingInteractionContext
+  pendingInteractionContext = null
+  return current
+}
+
+export function peekPendingInteractionContext(): PendingInteractionContext | null {
+  return pendingInteractionContext
+}
+
+export function recordInteractionEvent(input: {
+  chainId: string
+  kind: string
+  summary: string
+  requestId?: string
+  payloadSummary?: Record<string, unknown>
+  stateBefore?: InteractionStateSnapshot
+  stateAfter?: InteractionStateSnapshot
+}): void {
+  const chain = interactionChains.get(input.chainId)
+  if (!chain) return
+  pushInteractionEvent(chain, {
+    timestamp: new Date().toISOString(),
+    kind: input.kind,
+    summary: input.summary,
+    requestId: input.requestId,
+    payloadSummary: input.payloadSummary,
+    stateBefore: input.stateBefore,
+    stateAfter: input.stateAfter,
+  })
+  if (input.stateAfter) {
+    chain.stateAfter = input.stateAfter
+  }
+}
+
+export function recordUiSurfaceState(surface: string, state: UiSurfaceDebugState): void {
+  uiSurfaceStates.set(surface, state)
+}
+
+export function getUiSurfaceState(surface: string): UiSurfaceDebugState | undefined {
+  return uiSurfaceStates.get(surface)
+}
+
+export function bindRequestToInteraction(requestId: string, summary: {
+  chainId: string
+  endpoint?: string
+  triggerSurface: string
+  sourceSurface: string
+  initiatedBy: 'user' | 'automatic'
+  visibleTextSubmitted: string | null
+  submittedText: string | null
+  payloadShapeSummary?: Record<string, unknown>
+  rightPanelAccidentallySubmittedComposerContent?: boolean
+  stateBefore?: InteractionStateSnapshot
+}): void {
+  const chain = interactionChains.get(summary.chainId)
+  if (!chain) return
+  requestToInteractionChain.set(requestId, summary.chainId)
+  if (!chain.requestIds.includes(requestId)) chain.requestIds.push(requestId)
+  chain.requests.push({
+    requestId,
+    endpoint: summary.endpoint,
+    triggerSurface: summary.triggerSurface,
+    sourceSurface: summary.sourceSurface,
+    initiatedBy: summary.initiatedBy,
+    visibleTextSubmitted: summary.visibleTextSubmitted,
+    submittedText: summary.submittedText,
+    payloadShapeSummary: summary.payloadShapeSummary,
+    rightPanelAccidentallySubmittedComposerContent: summary.rightPanelAccidentallySubmittedComposerContent,
+    stateBefore: summary.stateBefore,
+  })
+  pushInteractionEvent(chain, {
+    timestamp: new Date().toISOString(),
+    kind: 'request_sent',
+    summary: summary.triggerSurface,
+    requestId,
+    payloadSummary: summary.payloadShapeSummary,
+    stateBefore: summary.stateBefore,
+  })
+}
+
+export function updateInteractionResponse(requestId: string, update: {
+  responseStatus?: number
+  responseSummary?: Record<string, unknown>
+  responseError?: string | null
+  mutatedGraph?: boolean
+  mutatedAnalysis?: boolean
+  mutatedChat?: boolean
+  stateAfter?: InteractionStateSnapshot
+}): void {
+  const chainId = requestToInteractionChain.get(requestId)
+  if (!chainId) return
+  const chain = interactionChains.get(chainId)
+  if (!chain) return
+  const request = chain.requests.find((item) => item.requestId === requestId)
+  if (!request) return
+
+  if (update.responseStatus !== undefined) request.responseStatus = update.responseStatus
+  if (update.responseSummary !== undefined) request.responseSummary = update.responseSummary
+  if (update.responseError !== undefined) request.responseError = update.responseError
+  if (update.mutatedGraph !== undefined) request.mutatedGraph = update.mutatedGraph
+  if (update.mutatedAnalysis !== undefined) request.mutatedAnalysis = update.mutatedAnalysis
+  if (update.mutatedChat !== undefined) request.mutatedChat = update.mutatedChat
+  if (update.stateAfter) {
+    request.stateAfter = update.stateAfter
+    chain.stateAfter = update.stateAfter
+  }
+
+  pushInteractionEvent(chain, {
+    timestamp: new Date().toISOString(),
+    kind: update.responseError ? 'request_failed' : 'response_received',
+    summary: update.responseError ?? `status:${update.responseStatus ?? 'unknown'}`,
+    requestId,
+    payloadSummary: update.responseSummary,
+    stateAfter: update.stateAfter,
+  })
+}
+
+export function markInteractionAutoFollowUp(parentChainId: string, childChainId: string): void {
+  const parent = interactionChains.get(parentChainId)
+  if (!parent) return
+  if (!parent.childChainIds.includes(childChainId)) {
+    parent.childChainIds.push(childChainId)
+  }
+  const request = parent.requests[parent.requests.length - 1]
+  if (request) request.triggeredAutoFollowUp = true
+}
+
+export function setLastAnalysisInteractionChainId(chainId: string | null): void {
+  lastAnalysisInteractionChainId = chainId
+}
+
+export function getLastAnalysisInteractionChainId(): string | null {
+  return lastAnalysisInteractionChainId
+}
+
+export function getInteractionChain(chainId: string): InteractionChain | undefined {
+  return interactionChains.get(chainId)
+}
+
+export function getInteractionChains(): InteractionChain[] {
+  return interactionOrder
+    .map((id) => interactionChains.get(id))
+    .filter(Boolean) as InteractionChain[]
 }
 
 /**

@@ -15,6 +15,8 @@ import type { RecommendationSectionData, ConfidenceSectionData, DriversSectionDa
 // Mock canvas helpers
 vi.mock('../../../canvas/utils/focusHelpers', () => ({
   focusNodeById: vi.fn(),
+  focusByTarget: vi.fn(),
+  focusEdgeByEndpoints: vi.fn(),
 }))
 
 /**
@@ -42,6 +44,27 @@ const BANNED_STRINGS = [
   '(0–1 qualitative scale)',  // Task D: encoding pattern that should be stripped
   'simulated scenarios',      // Final polish: use "simulations" instead
   'Scenarios simulated',      // Final polish: use "Simulations run" instead
+  // C8: RTL banned term additions
+  'assumption tests',         // Use "simulations" instead
+  'lower bound',              // Use formatted p10 value instead
+  'upper bound',              // Use formatted p90 value instead
+  'Could flip recommendation',// Use "Could change the recommendation" or "{alt} could become stronger"
+  'Reduce uncertainty',       // Use "Review this assumption"
+  'performs strongest',       // Use "performs best"
+  'WHAT NEEDS',               // All-caps banned — use sentence case
+  'SUCCESS TARGET',           // All-caps banned — use sentence case
+  "WHAT'S INFLUENCING",       // All-caps banned, use sentence case
+  '\u2014',                   // Em-dash banned, use comma or period
+  '\u2013',                   // En-dash banned in user-facing text, use hyphen or comma
+  // V11.2: Internal field names that must never leak to UI
+  'observed_state.value',     // PLoT internal field name
+  'intercept=0',              // PLoT internal parameter
+  'constraint_fac_',          // PLoT internal constraint prefix
+  // V12.1 Fix 2: Discrete encoding notation
+  '0=Developers',             // Discrete encoding leak
+  '0=Tech Lead',              // Discrete encoding leak
+  // V12.1 Fix 3: Removed section heading
+  'Recommended actions',      // Merged into Validate group
 ]
 
 /**
@@ -335,6 +358,7 @@ const confidenceData: ConfidenceSectionData = {
     {
       code: 'SENSITIVE_ASSUMPTION',
       message: 'If "Market Size (0-100) → Revenue" changes, results may shift.',
+      displayText: 'If "Market Size → Revenue" changes, results may shift.',
       suggestion: 'Review estimate',
     },
   ],
@@ -342,6 +366,7 @@ const confidenceData: ConfidenceSectionData = {
     {
       code: 'SENSITIVE_ASSUMPTION',
       message: 'If "Market Size (0-100) → Revenue" changes, results may shift.',
+      displayText: 'If "Market Size → Revenue" changes, results may shift.',
       suggestion: 'Review estimate',
     },
   ],
@@ -361,6 +386,66 @@ const confidenceData: ConfidenceSectionData = {
       gapType: 'missing_evidence',
     },
   ],
+}
+
+/**
+ * Fixture: V14 coaching text with dirty patterns
+ * Tests that sanitizeCoachingText strips arrows, em-dashes, encoding notation
+ * from decision_statement and action_implication fields
+ */
+const fixtureWithCoachingText: RecommendationSectionData = {
+  recommendedOption: {
+    id: 'option-1',
+    label: 'Option A',
+    p10: 20,
+    p50: 50,
+    p90: 80,
+    expected: 50,
+    outcome: { mean: 50, p10: 20, p50: 50, p90: 80 },
+    isRecommended: true,
+    winProbability: 0.72,
+    goalProbability: 0.85,
+    rank: 1,
+  },
+  allOptions: [
+    {
+      id: 'option-1',
+      label: 'Option A',
+      p10: 20,
+      p50: 50,
+      p90: 80,
+      expected: 50,
+      outcome: { mean: 50, p10: 20, p50: 50, p90: 80 },
+      isRecommended: true,
+      winProbability: 0.72,
+      goalProbability: 0.85,
+      rank: 1,
+    },
+    {
+      id: 'option-2',
+      label: 'Option B',
+      p10: 15,
+      p50: 40,
+      p90: 70,
+      expected: 40,
+      outcome: { mean: 40, p10: 15, p50: 40, p90: 70 },
+      isRecommended: false,
+      winProbability: 0.28,
+      goalProbability: 0.65,
+      rank: 2,
+    },
+  ],
+  goalLabel: 'increase revenue',
+  goalThreshold: 100000,
+  isSingleOption: false,
+  analysisStatus: 'computed',
+  outcomeUnit: 'currency',
+  outcomeUnitSymbol: '$',
+  recommendationStability: 0.80,
+  // V14 coaching fields with dirty patterns (arrows, em-dashes, encoding notation)
+  coachingDecisionStatement: 'Option A \u2192 outperforms because Market Size (0/1) \u2014 is the key driver',
+  coachingActionImplication: 'Focus on Market Size (0\u20131 qualitative scale) \u2192 to improve outcomes',
+  coachingParagraph: 'Option A leads due to Market Size -> Revenue pathway \u2013 this is robust',
 }
 
 describe('Banned Strings Integration Test', () => {
@@ -383,25 +468,21 @@ describe('Banned Strings Integration Test', () => {
       }
     })
 
-    it('shows win probability display when probability_of_goal is absent (P2 Task 4)', () => {
+    it('shows win probability in HeroSection when probability_of_goal is absent (P2 Task 4)', () => {
       render(<RecommendationSection data={fixtureNoGoalThreshold} />)
 
-      // Task 3 compact layout: Badge is "Strongest" and probability is compact percentage
-      // Rank labels only show as fallback when winProbability is also absent
-      expect(screen.getByText('Strongest')).toBeInTheDocument()
-      // Compact layout shows just percentages with tooltip
-      expect(screen.getByText('65%')).toBeInTheDocument()
-      expect(screen.getByText('35%')).toBeInTheDocument()
-      expect(screen.getByText('15%')).toBeInTheDocument()
+      // HeroSection headline renders "performs best"
+      expect(screen.getByText(/performs best/)).toBeInTheDocument()
+
+      // V9.2: Win probability now shown via WinGauge inside HeroSection (not per-option text)
+      // OptionCards with "Wins" stat bars are rendered at ResultsBody level, not here
+      expect(screen.getByTestId('hero-section')).toBeInTheDocument()
 
       // Should NOT show "X expected" values
       expect(screen.queryByText(/\d+%? expected/i)).not.toBeInTheDocument()
 
-      // Should NOT show "chance of achieving" in hero
+      // Should NOT show "chance of achieving" in hero (no goal threshold)
       expect(screen.queryByText(/chance of achieving/i)).not.toBeInTheDocument()
-
-      // Hero should show fallback text
-      expect(screen.getByText(/outperforms alternatives most consistently/)).toBeInTheDocument()
     })
 
     it('cleans story headlines and hides Runner-up labels', () => {
@@ -422,14 +503,43 @@ describe('Banned Strings Integration Test', () => {
 
       const html = document.body.innerHTML
 
-      // Story headlines are no longer rendered (Task A removed them)
-      // Verify banned terms don't appear anywhere
+      // Story headlines are no longer rendered inside RecommendationSection
+      // (they render via OptionCards at ResultsBody level)
+      // Verify banned terms don't appear anywhere in HeroSection output
       expect(html).not.toContain('outperforms by')
       expect(html).not.toContain('points')
 
-      // Ensure the component still renders correctly (may have multiple instances)
-      expect(screen.getAllByText('Strategy Alpha').length).toBeGreaterThan(0)
-      expect(screen.getAllByText('Strategy Beta').length).toBeGreaterThan(0)
+      // V9.2: Winner appears in merged headline, other option names only in OptionCards (ResultsBody)
+      expect(screen.getByText(/Strategy Alpha performs best/)).toBeInTheDocument()
+    })
+
+    it('V14: does not contain banned strings in coaching text fields', () => {
+      render(<RecommendationSection data={fixtureWithCoachingText} />)
+
+      const html = document.body.innerHTML
+      for (const banned of BANNED_STRINGS) {
+        expect(html).not.toContain(banned)
+      }
+    })
+
+    it('V14: sanitizes arrows and encoding from decision_statement', () => {
+      render(<RecommendationSection data={fixtureWithCoachingText} />)
+
+      const html = document.body.innerHTML
+      // Arrow chars should be stripped by sanitizeCoachingText
+      expect(html).not.toContain('\u2192') // →
+      expect(html).not.toContain('->')
+      // Encoding notation should be stripped
+      expect(html).not.toContain('(0/1)')
+      expect(html).not.toContain('qualitative scale')
+    })
+
+    it('V14: sanitizes arrows and encoding from action_implication', () => {
+      render(<RecommendationSection data={fixtureWithCoachingText} />)
+
+      // Em-dash and en-dash should be stripped
+      expect(document.body.innerHTML).not.toContain('\u2014')
+      expect(document.body.innerHTML).not.toContain('\u2013')
     })
   })
 
@@ -488,6 +598,36 @@ describe('Banned Strings Integration Test', () => {
     })
   })
 
+  describe('DriversSection confidence method labels', () => {
+    it('does not render confidence_source method labels (graph/isl)', () => {
+      // confidence_source is a diagnostic field only, never user-facing
+      const driversWithConfidence: DriversSectionData = {
+        ...driversData,
+        drivers: driversData.drivers.map((d) => ({
+          ...d,
+          confidence: 0.75,
+          semanticLabel: 'biggest' as const,
+          canFocus: false,
+        })),
+        topDrivers: driversData.topDrivers.map((d) => ({
+          ...d,
+          confidence: 0.75,
+          semanticLabel: 'biggest' as const,
+          canFocus: false,
+        })),
+      }
+      render(<DriversSection data={driversWithConfidence} goalLabel="test goal" />)
+
+      const html = document.body.innerHTML.toLowerCase()
+      // confidence_source values must not appear as method indicator text
+      expect(html).not.toContain('source: graph')
+      expect(html).not.toContain('source: isl')
+      // Method labels must not appear near confidence context
+      expect(html).not.toMatch(/confidence.*\bgraph\b/)
+      expect(html).not.toMatch(/confidence.*\bisl\b/)
+    })
+  })
+
   describe('All fixtures combined check', () => {
     it('ensures BANNED_STRINGS array is comprehensive', () => {
       // Meta-test: verify our banned list covers expected patterns
@@ -510,6 +650,19 @@ describe('Banned Strings Integration Test', () => {
       // Final polish additions
       expect(BANNED_STRINGS).toContain('simulated scenarios')
       expect(BANNED_STRINGS).toContain('Scenarios simulated')
+      // C8: RTL banned term additions
+      expect(BANNED_STRINGS).toContain('assumption tests')
+      expect(BANNED_STRINGS).toContain('lower bound')
+      expect(BANNED_STRINGS).toContain('upper bound')
+      expect(BANNED_STRINGS).toContain('Could flip recommendation')
+      expect(BANNED_STRINGS).toContain('Reduce uncertainty')
+      expect(BANNED_STRINGS).toContain('performs strongest')
+      // V11: em-dash ban
+      expect(BANNED_STRINGS).toContain('\u2014')
+      // V12.2 Fix 2: Internal pattern bans
+      expect(BANNED_STRINGS).toContain('observed_state.value')
+      expect(BANNED_STRINGS).toContain('intercept=0')
+      expect(BANNED_STRINGS).toContain('constraint_fac_')
     })
   })
 })

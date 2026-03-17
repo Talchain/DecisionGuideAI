@@ -189,7 +189,7 @@ describe('S5-BFF: Assist calls are BFF-only', () => {
       expect(headers).not.toHaveProperty('anthropic-api-key')
 
       // Only allowed headers
-      expect(Object.keys(headers)).toEqual(['Content-Type', 'x-correlation-id'])
+      expect(Object.keys(headers)).toEqual(['Content-Type', 'x-correlation-id', 'x-olumi-payload-hash', 'x-olumi-client-build'])
     })
 
     it('should use POST method for all assist calls', async () => {

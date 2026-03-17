@@ -135,7 +135,7 @@ export default function ConfigDrawer({ open, onClose, restoreFocusRef, onApply }
           />
           <span className="text-[11px] text-gray-500">Leave blank to use relative routes.</span>
           {gwInvalid && (
-            <span className="text-[11px] text-amber-600" data-testid="gw-hint">Invalid URL: must start with http:// or https://</span>
+            <span className="text-[11px] text-warning" data-testid="gw-hint">Invalid URL: must start with http:// or https://</span>
           )}
         </label>
         <div className="grid grid-cols-3 gap-2 text-sm">
@@ -147,7 +147,7 @@ export default function ConfigDrawer({ open, onClose, restoreFocusRef, onApply }
             <span>Budget</span>
             <input data-testid="cfg-budget" type="number" step="0.01" className="px-2 py-1 border rounded" value={budget} onChange={(e) => setBudget(e.target.value)} />
             {budgetWarn && (
-              <span className="text-[11px] text-amber-600" data-testid="budget-hint">Budget looks invalid or ≤ 0 (saved anyway).</span>
+              <span className="text-[11px] text-warning" data-testid="budget-hint">Budget looks invalid or ≤ 0 (saved anyway).</span>
             )}
           </label>
           <label className="text-gray-700 flex flex-col gap-1">
@@ -177,7 +177,7 @@ export default function ConfigDrawer({ open, onClose, restoreFocusRef, onApply }
           <button
             type="button"
             data-testid="cfg-save-btn"
-            className="px-3 py-1 border rounded bg-blue-600 text-white"
+            className="px-3 py-1 border rounded bg-primary text-text-on-color"
             onClick={onSave}
           >
             Save

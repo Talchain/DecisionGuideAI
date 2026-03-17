@@ -1,23 +1,37 @@
 /**
- * HeroSection Component (P1 Task 1)
+ * HeroSection Component (Restructured)
  *
- * Restructured hero section for Results Panel with:
- * - M1 deterministic headline with precedence rules
+ * Primary answer section for Results Panel:
+ * - Two-line headline: "{Winner} performs best" + sub-line
  * - 3 data-grounded bullets (comparative, drivers, risk)
- * - Stability label (single line, tiered)
- * - "Learn more" expand with coaching narrative
+ * - Stability label with short text + "More ▸" toggle
+ * - "More" expand: expanded stability text + tier coaching + nested technical detail
  *
  * Design principles:
  * - Never render PLoT story_headlines as user-facing copy
  * - Never show raw normalised values without units
- * - Default hero: no jargon; "Learn more" expand: light technical permitted
+ * - All factor/option names are GraphLinks (or plain text fallback)
+ * - Default hero: no jargon; "More" expand: light technical permitted
  */
 
-import { useState, useCallback, useMemo } from 'react'
-import { ChevronDown, ChevronRight } from 'lucide-react'
+import { useState, useMemo, type ReactNode } from 'react'
+import { AlertTriangle, Info } from 'lucide-react'
+import { getThresholdColour } from './utils/getThresholdColour'
 import { typography } from '../../styles/typography'
 import { stripEncodingNotation } from './utils/cleanFactorLabel'
+import { formatPercent as formatPct } from '../../utils/formatPercent'
+import { GraphLink } from './GraphLink'
+import { linkifyCoachingText, type LinkEntity } from './utils/linkifyCoachingText'
+import { BaselineToggleCard, type BaselineOption } from './BaselineToggleCard'
+import { BaselineTargetRow } from './BaselineTargetRow'
+import { formatTargetValue } from './utils/formatTargetValue'
 import { focusNodeById } from '../../canvas/utils/focusHelpers'
+import { highlightNode, clearHighlight } from '../../canvas/utils/highlightHelpers'
+import { GAP_THRESHOLD } from './buildResultsVM'
+import { DeltaIndicator } from '../shared/DeltaIndicator'
+import { useCanvasStore, selectPreviousReport } from '../../canvas/store'
+import type { DecisionState, HingeInfo, NextActionItem, RobustnessLevel } from './types'
+import type { NearTieInfo } from '../../lib/mappers/types'
 
 // =============================================================================
 // Types
@@ -30,265 +44,394 @@ export type RichSegment =
 
 export type RichText = RichSegment[]
 
-/** M1 bullet data */
-interface M1Bullet {
-  text: string
-  /** Optional refs for clickable elements (M1 uses pre-computed refs) */
-  refs?: Array<{ id: string; label: string }>
+/** Structured headline with main + optional sub-line */
+interface StructuredHeadline {
+  main: string
+  sub: string | null
+}
+
+/** Win probability per option for the win gauge */
+export interface OptionWinShare {
+  id: string
+  label: string
+  winProbability: number
+  isWinner: boolean
+}
+
+/** Goal probability per option for the goal-achievement display */
+export interface OptionGoalProbability {
+  id: string
+  label: string
+  goalProbability: number
 }
 
 /** Props for HeroSection */
 export interface HeroSectionProps {
-  // Recommendation data
   winnerLabel: string
   winnerId: string
   winnerGoalProbability?: number | null
+  winnerWinProbability?: number | null
   runnerUpLabel?: string
   runnerUpId?: string
   runnerUpGoalProbability?: number | null
+  runnerUpWinProbability?: number | null
   optionCount: number
   hasBaseline: boolean
-
-  // Stability/robustness
   recommendationStability?: number
   analysisStatus: 'computed' | 'partial' | 'failed' | 'blocked'
-
-  // Drivers (top 2 for bullet)
   topDrivers?: Array<{ id: string; label: string; direction?: 'positive' | 'negative' }>
-
-  // Fragile edge (top 1 for bullet)
   topFragileEdge?: {
     fromId: string
     fromLabel: string
     toId: string
     toLabel: string
     alternativeWinnerLabel: string
+    alternativeWinnerId?: string
     switchProbability?: number
-    /** Task C: Whether labels were successfully resolved */
     labelsResolved?: boolean
   }
-
-  // Technical details for "Learn more" expand
   nSamples?: number
-  seedUsed?: number
-  responseHash?: string
   fragileEdgeCount?: number
-  robustEdgeCount?: number
-
-  // Goal info
   goalLabel?: string
   goalThreshold?: number | null
-
-  // Readiness data (Task 1: for readiness statement in Learn More)
-  coachingReadiness?: 'ready' | 'close_call' | 'needs_evidence' | 'needs_framing'
+  /** Expected outcome value (mean) for context bullet 2 */
+  expectedOutcome?: number | null
+  /** Unit type for formatting expected outcome */
+  outcomeUnit?: 'currency' | 'percent' | 'count'
+  /** Symbol for currency display */
+  outcomeUnitSymbol?: string
+  /** v7: When true, values are normalised model scores */
+  isNormalised?: boolean
+  /** Win probabilities per option for win gauge */
+  optionWinShares?: OptionWinShare[]
+  coachingReadiness?: 'ready' | 'close_call' | 'needs_evidence' | 'needs_framing' | 'low' | 'not_ready'
   coachingReadinessScore?: number
-
-  // M2 content slots (optional, swaps in after M2 loads)
+  /** M1 coaching narrative headline (1-line summary) */
+  coachingHeadline?: string
+  /** M1 coaching full narrative paragraph (for "More detail" expand) */
+  coachingParagraph?: string
+  /** V12: Executive summary key qualifier */
+  coachingKeyQualifier?: string
+  /** V12 C1: M2 narrative summary for "Full analysis" expandable */
+  m2NarrativeSummary?: string
+  /** V12: Readiness dimensions for tooltip */
+  coachingReadinessDimensions?: { evidence: number; robustness: number; clarity: number }
+  /** V12: Identifiability tag from model card */
+  identifiabilityTag?: string | null
   m2Headline?: string
   m2Bullets?: [RichText, RichText, RichText]
   m2CoachingParagraph?: RichText
   m2BiasInsights?: string[]
-
-  // Callbacks
   onFocusNode?: (nodeId: string) => void
+  /** V9.2 Phase 2.3: Cross-highlight — flash an option card when a GraphLink references it */
+  onFlashOption?: (optionId: string) => void
+  /** Whether an analysis is currently running (for baseline toggle) */
+  isRunning?: boolean
+  /** Callback to add baseline to decision draft */
+  onAddBaseline?: () => void
+  /** Callback to set a specific option as baseline by ID */
+  onSetBaseline?: (optionId: string) => void
+  /** Available options for baseline selection */
+  baselineOptions?: BaselineOption[]
+  /** Currently selected baseline option label */
+  baselineLabel?: string
+  /** V11: Tri-state decision classification */
+  decisionState?: DecisionState
+  /** V11: Deterministic hinge for coaching copy */
+  hinge?: HingeInfo | null
+  /** V11: Robust edge count for "Fragile edges X of Y" display */
+  robustEdgeCount?: number
+  /** V14: Near-tie detection for headline */
+  nearTie?: NearTieInfo
+  /** V14: Top coaching next action */
+  topNextAction?: NextActionItem
+  /** V14.1: Goal node ID for "Add target" focus */
+  goalNodeId?: string
+  /** V16: Robustness level from PLoT for trust summary */
+  robustnessLevel?: RobustnessLevel
+  /** V16: Count of factors using default estimates (ISL-sourced with sampling_stability === 0) */
+  defaultEstimateCount?: number
+  /** V16: Total factor count (for trust reason denominator) */
+  totalFactorCount?: number
+  /** A3: Goal-achievement probabilities for all options (shown when goal threshold set) */
+  allOptionGoalProbabilities?: OptionGoalProbability[]
 }
 
 // =============================================================================
-// Helper Functions
+// Helpers
 // =============================================================================
 
-/**
- * Format probability (0-1) as percentage.
- * Shows one decimal for small values (< 1%) to avoid rounding to 0%.
- */
-function formatPercent(value: number): string {
-  const percent = value * 100
-  if (Math.abs(percent) < 1 && percent !== 0) {
-    return `${percent.toFixed(1)}%`
-  }
-  return `${Math.round(percent)}%`
-}
-
-/**
- * Get stability tier label and color.
- * Per P0 spec:
- * - >= 0.85: "Stable result"
- * - >= 0.70: "Mostly stable"
- * - >= 0.55: "Sensitive to assumptions"
- * - < 0.55: "Highly sensitive"
- */
+/** Stability tier with label, colour, short text, expanded text, and coaching. */
 function getStabilityTier(stability: number | undefined): {
   label: string
   colorClass: string
+  shortText: string
+  expandedText: string
+  coaching: string | null
 } {
   if (stability == null) {
-    return { label: '', colorClass: '' }
+    return { label: '', colorClass: '', shortText: '', expandedText: '', coaching: null }
   }
   if (stability >= 0.85) {
-    return { label: 'Stable result', colorClass: 'text-success' }
+    return {
+      label: 'Stable result',
+      colorClass: 'text-success',
+      shortText: 'Even if estimates are off',
+      expandedText: 'Result stays the same even if estimates are off.',
+      coaching: null, // No coaching for stable results
+    }
   }
   if (stability >= 0.70) {
-    return { label: 'Mostly stable', colorClass: 'text-success' }
+    return {
+      label: 'Mostly stable',
+      colorClass: 'text-success',
+      shortText: 'Under most assumptions',
+      expandedText: 'Result stays the same under most assumptions.',
+      coaching: 'The analysis is consistent under most assumptions. A few edge cases could shift the outcome.',
+    }
   }
   if (stability >= 0.55) {
-    return { label: 'Sensitive to assumptions', colorClass: 'text-warning' }
+    return {
+      label: 'Sensitive to assumptions',
+      colorClass: 'text-warning',
+      shortText: 'Review key inputs',
+      expandedText: 'Result changes under different assumptions. Review key inputs.',
+      coaching: 'Result changes under different assumptions. Small changes could shift the recommendation.',
+    }
   }
-  return { label: 'Highly sensitive', colorClass: 'text-danger' }
+  return {
+    label: 'Highly sensitive',
+    colorClass: 'text-danger',
+    shortText: 'Treat as directional',
+    expandedText: 'Small changes in assumptions change the result. Treat as directional.',
+    coaching: 'Small changes in assumptions change the result. Consider strengthening key assumptions before committing.',
+  }
+}
+
+
+// =============================================================================
+// V16 Helpers
+// =============================================================================
+
+/** Derive trust level from readiness + robustness */
+function deriveTrustLevel(
+  readiness?: string,
+  robustnessLevel?: RobustnessLevel,
+): 'strong' | 'moderate' | 'limited' {
+  if (readiness === 'ready' && robustnessLevel === 'high') return 'strong'
+  if (readiness === 'ready' || robustnessLevel === 'high' || robustnessLevel === 'moderate') return 'moderate'
+  return 'limited'
+}
+
+/** Derive trust reason from available signals */
+function deriveTrustReason(opts: {
+  defaultEstimateCount?: number
+  totalFactorCount?: number
+  fragileEdgeCount?: number
+  robustEdgeCount?: number
+  evidenceQuality?: number
+}): string {
+  const { defaultEstimateCount, totalFactorCount, fragileEdgeCount, robustEdgeCount, evidenceQuality } = opts
+
+  // Priority 1: default estimates
+  if (defaultEstimateCount != null && totalFactorCount != null && defaultEstimateCount > 0) {
+    return `${defaultEstimateCount} of ${totalFactorCount} factors use default estimates`
+  }
+
+  // Priority 2: fragile edges ratio
+  const totalEdges = (fragileEdgeCount ?? 0) + (robustEdgeCount ?? 0)
+  if (totalEdges > 0 && fragileEdgeCount != null && fragileEdgeCount / totalEdges > 0.7) {
+    return 'most causal links are fragile'
+  }
+
+  // Priority 3: evidence quality
+  if (evidenceQuality != null && evidenceQuality < 0.5) {
+    return 'evidence quality is low'
+  }
+
+  return 'review model assumptions'
+}
+
+function getHeroBorderClass(robustnessLevel?: RobustnessLevel, recommendationStability?: number): string {
+  if (robustnessLevel === 'high') return 'border-success/30'
+  if (robustnessLevel === 'moderate') return 'border-info/30'
+  if (robustnessLevel === 'low' || robustnessLevel === 'very_low') return 'border-factor/30'
+  if (recommendationStability != null) {
+    if (recommendationStability >= 0.7) return 'border-success/30'
+    if (recommendationStability >= 0.4) return 'border-info/30'
+    return 'border-factor/30'
+  }
+  return 'border-panel-border'
+}
+
+// UI-SEM-021: Suppress coaching copy that contradicts low robustness (e.g. "robust", "ready to proceed")
+// when the analysis robustness level is low/very_low. Prevents misleading executive-level messaging.
+// Remove when PLoT/CEE provides robustness-conditioned coaching copy directly.
+function shouldSuppressContradictoryExecutiveCopy(
+  text: string | null | undefined,
+  robustnessLevel?: RobustnessLevel,
+): boolean {
+  if (!text || (robustnessLevel !== 'low' && robustnessLevel !== 'very_low')) return false
+  return /\brobust\b|ready to proceed/i.test(text)
+}
+
+/** Extract first sentence from a paragraph (up to 150 chars) */
+function extractFirstSentence(text: string): { first: string; hasMore: boolean } {
+  // Find first sentence boundary: period/exclamation/question followed by whitespace + any next char,
+  // or followed by closing quote + whitespace. Minimum 10 chars to avoid splitting abbreviations.
+  const match = text.match(/^(.{10,150}[.!?]["']?)\s+(?:\S)/s)
+  if (match) {
+    return { first: match[1], hasMore: match[1].length < text.length }
+  }
+  // Fallback: first 150 chars
+  if (text.length > 150) {
+    return { first: text.slice(0, 150).trimEnd() + '…', hasMore: true }
+  }
+  return { first: text, hasMore: false }
 }
 
 // =============================================================================
 // Sub-Components
 // =============================================================================
 
+/** V12.3: Win gauge + option card colours — shared palette for visual continuity */
+export const WIN_GAUGE_COLORS = [
+  'var(--success)',         // Winner — mint-500
+  'var(--info)',            // Runner-up — sky-500
+  'var(--option)',          // Third — lilac-400
+  'var(--border-default)',  // Fourth+ — sand-200
+]
+
+/** V12.3: Indeterminate colours — sky for top two (near-tie signal), muted for rest */
+export const WIN_GAUGE_COLORS_INDETERMINATE = [
+  'var(--info)',            // Top option — sky-500
+  'var(--info-light)',      // Second option — sky-200 (lighter, near-tie signal)
+  'var(--border-default)',  // Third — sand-200
+  'var(--border-default)',  // Fourth — sand-200
+]
+
 /**
- * GraphLink - Clickable element that focuses a node on the canvas.
- * Styling: Inherit text colour, underline on hover, cursor pointer.
+ * Tailwind border classes that correspond 1-to-1 with WIN_GAUGE_COLORS by index.
+ * Option cards use these to match their WinGauge segment colour without string-matching CSS vars.
  */
-function GraphLink({
-  nodeId,
-  label,
-  onFocus,
-  className = '',
-}: {
-  nodeId: string
-  label: string
-  onFocus?: (nodeId: string) => void
-  className?: string
-}) {
-  // Task D guard: Early return for falsy nodeId to avoid broken focus
-  if (!nodeId) {
-    return <span className={className}>{label}</span>
-  }
+export const WIN_GAUGE_BORDER_CLASSES = [
+  'border-2 border-success/60', // Winner — thicker, high-contrast accent
+  'border-info/60',              // Runner-up — mid-contrast, visibly linked to win-bar
+  'border-option/60',            // Third — mid-contrast, ordinal palette
+  'border-panel-border',         // Fourth+ — neutral baseline
+]
 
-  const handleClick = useCallback(() => {
-    if (onFocus) {
-      onFocus(nodeId)
-    } else {
-      focusNodeById(nodeId)
-    }
-  }, [nodeId, onFocus])
+/** Indeterminate palette border classes, parallel to WIN_GAUGE_COLORS_INDETERMINATE. */
+export const WIN_GAUGE_BORDER_CLASSES_INDETERMINATE = [
+  'border-info/30',      // Top option — matches var(--info)
+  'border-info/20',      // Second option — matches var(--info-light)
+  'border-panel-border', // Third — matches var(--border-default)
+  'border-panel-border', // Fourth — matches var(--border-default)
+]
 
-  return (
-    <span
-      role="link"
-      tabIndex={0}
-      onClick={handleClick}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault()
-          handleClick()
-        }
-      }}
-      className={`cursor-pointer hover:underline focus:outline-none focus:ring-2 focus:ring-info focus:ring-offset-1 rounded ${className}`}
-      aria-label={`Focus on ${label} in model`}
-    >
-      {label}
-    </span>
-  )
+/**
+ * Build a border-class map from option ID → Tailwind border class, using the same
+ * sort order as buildSegmentColorMap. Derived from the palette arrays by index so
+ * border and segment colours cannot drift independently.
+ */
+export function buildSegmentBorderClassMap(
+  options: Array<{ id: string; winProbability?: number | null }>,
+  winnerId: string | undefined,
+  decisionState?: DecisionState,
+): Record<string, string> {
+  const classes = decisionState === 'indeterminate'
+    ? WIN_GAUGE_BORDER_CLASSES_INDETERMINATE
+    : WIN_GAUGE_BORDER_CLASSES
+  const sorted = [...options].sort((a, b) => {
+    if (a.id === winnerId && b.id !== winnerId) return -1
+    if (a.id !== winnerId && b.id === winnerId) return 1
+    return (b.winProbability ?? 0) - (a.winProbability ?? 0)
+  })
+  const map: Record<string, string> = {}
+  sorted.forEach((opt, i) => {
+    map[opt.id] = classes[Math.min(i, classes.length - 1)]
+  })
+  return map
 }
 
 /**
- * Render RichText (structured spans from M2).
- * - text segments: plain span
- * - ref segments: GraphLink
+ * Build a colour map from option ID → CSS colour, using the same sort order
+ * as WinGauge (winner first, then winProbability descending). This ensures
+ * OptionCards colours match the corresponding WinGauge segment ordering
+ * regardless of how cards are independently sorted.
  */
-function RichTextRenderer({
-  content,
-  onFocusNode,
-}: {
-  content: RichText
-  onFocusNode?: (nodeId: string) => void
-}) {
-  return (
-    <>
-      {content.map((segment, i) => {
-        if (segment.type === 'text') {
-          return <span key={i}>{segment.text}</span>
-        }
-        return (
-          <GraphLink
-            key={i}
-            nodeId={segment.id}
-            label={segment.label}
-            onFocus={onFocusNode}
-          />
-        )
-      })}
-    </>
-  )
+export function buildSegmentColorMap(
+  options: Array<{ id: string; winProbability?: number | null; isRecommended?: boolean }>,
+  winnerId: string | undefined,
+  decisionState?: DecisionState,
+): Record<string, string> {
+  const colors = decisionState === 'indeterminate' ? WIN_GAUGE_COLORS_INDETERMINATE : WIN_GAUGE_COLORS
+  const sorted = [...options].sort((a, b) => {
+    if (a.id === winnerId && b.id !== winnerId) return -1
+    if (a.id !== winnerId && b.id === winnerId) return 1
+    return (b.winProbability ?? 0) - (a.winProbability ?? 0)
+  })
+  const map: Record<string, string> = {}
+  sorted.forEach((opt, i) => {
+    map[opt.id] = colors[Math.min(i, colors.length - 1)]
+  })
+  return map
 }
 
 /**
- * Render M1 bullet text with clickable GraphLinks for refs.
- * Finds each ref label in the text and wraps it with GraphLink.
+ * WinGauge — stacked horizontal bar showing win probability per option.
+ * "Wins across scenarios" label + segmented bar. Legend removed in V12.4.
  */
-function M1BulletRenderer({
-  bullet,
-  onFocusNode,
+function WinGauge({
+  shares,
+  decisionState,
 }: {
-  bullet: M1Bullet
-  onFocusNode?: (nodeId: string) => void
+  shares: OptionWinShare[]
+  decisionState?: DecisionState
 }) {
-  const { text, refs } = bullet
+  if (shares.length === 0) return null
 
-  // If no refs, render plain text
-  if (!refs || refs.length === 0) {
-    return <>{text}</>
-  }
+  const colors = decisionState === 'indeterminate' ? WIN_GAUGE_COLORS_INDETERMINATE : WIN_GAUGE_COLORS
 
-  // Build a list of segments: text parts and ref parts
-  const segments: Array<{ type: 'text'; text: string } | { type: 'ref'; id: string; label: string }> = []
-
-  let remainingText = text
-  let lastIndex = 0
-
-  // Sort refs by their position in the text to process in order
-  const sortedRefs = [...refs].sort((a, b) => {
-    const posA = text.indexOf(a.label)
-    const posB = text.indexOf(b.label)
-    return posA - posB
+  // Sort: winner first, then by win probability descending
+  const sorted = [...shares].sort((a, b) => {
+    if (a.isWinner && !b.isWinner) return -1
+    if (!a.isWinner && b.isWinner) return 1
+    return b.winProbability - a.winProbability
   })
 
-  for (const ref of sortedRefs) {
-    const index = remainingText.indexOf(ref.label)
-    if (index === -1) continue // Label not found in remaining text
-
-    // Add text before the ref
-    if (index > 0) {
-      segments.push({ type: 'text', text: remainingText.slice(0, index) })
-    }
-
-    // Add the ref
-    segments.push({ type: 'ref', id: ref.id, label: ref.label })
-
-    // Update remaining text
-    remainingText = remainingText.slice(index + ref.label.length)
-    lastIndex = index + ref.label.length
-  }
-
-  // Add any remaining text
-  if (remainingText.length > 0) {
-    segments.push({ type: 'text', text: remainingText })
-  }
+  const isDeemphasised = decisionState === 'indeterminate'
 
   return (
-    <>
-      {segments.map((segment, i) => {
-        if (segment.type === 'text') {
-          return <span key={i}>{segment.text}</span>
-        }
-        return (
-          <GraphLink
-            key={i}
-            nodeId={segment.id}
-            label={segment.label}
-            onFocus={onFocusNode}
-          />
-        )
-      })}
-    </>
+    <div className={`mb-4${isDeemphasised ? ' opacity-70' : ''}`} role="figure" aria-label="Win probability distribution across options">
+      <p className={`${typography.panelMeta} text-text-light mb-1`}>
+        Wins across scenarios
+      </p>
+      {/* Stacked bar — use clamped raw percentage for width to avoid rounding gaps */}
+      <div className={`flex rounded-full overflow-hidden gap-0.5${isDeemphasised ? ' h-2' : ' h-3'}`}>
+        {sorted.map((share, i) => {
+          const clamped = Math.max(0, Math.min(1, share.winProbability))
+          const widthPct = clamped * 100
+          const displayPct = Math.round(widthPct)
+          if (displayPct <= 0) return null
+          return (
+            <div
+              key={share.id}
+              className="h-full rounded-full"
+              style={{
+                width: `${widthPct}%`,
+                backgroundColor: colors[Math.min(i, colors.length - 1)],
+              }}
+              role="img"
+              aria-label={`${stripEncodingNotation(share.label)}: ${displayPct}%`}
+            />
+          )
+        })}
+      </div>
+    </div>
   )
 }
+
 
 // =============================================================================
 // Main Component
@@ -298,441 +441,935 @@ export function HeroSection({
   winnerLabel,
   winnerId,
   winnerGoalProbability,
-  runnerUpLabel,
-  runnerUpId,
-  runnerUpGoalProbability,
+  winnerWinProbability,
   optionCount,
-  hasBaseline,
   recommendationStability,
   analysisStatus,
   topDrivers,
   topFragileEdge,
   nSamples,
-  seedUsed,
-  responseHash,
   fragileEdgeCount,
-  robustEdgeCount,
   goalLabel,
   goalThreshold,
+  outcomeUnit,
+  outcomeUnitSymbol,
+  optionWinShares,
   coachingReadiness,
-  coachingReadinessScore,
+  coachingHeadline,
+  coachingParagraph,
+  coachingKeyQualifier,
+  m2NarrativeSummary,
+  coachingReadinessDimensions,
+  identifiabilityTag,
   m2Headline,
-  m2Bullets,
-  m2CoachingParagraph,
-  m2BiasInsights,
   onFocusNode,
+  isRunning,
+  onAddBaseline,
+  onSetBaseline,
+  baselineOptions,
+  baselineLabel,
+  decisionState,
+  robustEdgeCount,
+  nearTie,
+  topNextAction,
+  goalNodeId,
+  robustnessLevel,
+  defaultEstimateCount,
+  totalFactorCount,
+  allOptionGoalProbabilities,
 }: HeroSectionProps) {
+  // A1: Previous report snapshot for delta indicators
+  const previousReport = useCanvasStore(selectPreviousReport)
+
+  // Always collapsed on first load — user expands via "More ▸" toggle
   const [isExpanded, setIsExpanded] = useState(false)
+  // V16: "Show more" for insight bullet expansion (condition card detail)
+  const [showMoreBullets, setShowMoreBullets] = useState(false)
+  // V16: M2 narrative expansion in "More" panel
+  const [narrativeExpanded, setNarrativeExpanded] = useState(false)
 
   // =========================================================================
-  // M1 Headline (Task 2: Deterministic templates with precedence)
+  // Headline — Objective / Result format
   // =========================================================================
-  const m1Headline = useMemo(() => {
-    // Precedence rule 1: Partial analysis
+
+  const m1Headline = useMemo<StructuredHeadline>(() => {
+    // Precedence 1: Partial analysis
     if (analysisStatus === 'partial') {
-      return 'Some analysis steps did not complete — results are partial'
+      return { main: 'Some analysis steps did not complete', sub: 'Results are partial' }
     }
 
-    // Precedence rule 2: Low stability (< 0.55)
+    // Precedence 2: Low stability (< 0.55) — no clear winner
     if (recommendationStability != null && recommendationStability < 0.55) {
-      return 'No clear winner — results are sensitive to assumptions'
+      return {
+        main: `no clear winner, the result is sensitive to your estimates`,
+        sub: `${winnerLabel} wins slightly more often`,
+      }
     }
 
-    // Precedence rule 3: Goal probability present
-    if (winnerGoalProbability != null && goalThreshold != null) {
-      return `${winnerLabel} performs strongest — ${formatPercent(winnerGoalProbability)} chance of achieving your goal`
+    // Precedence 3: Single option
+    if (optionCount === 1) {
+      return {
+        main: `${winnerLabel} is your only option`,
+        sub: null,
+      }
     }
 
-    // Precedence rule 4: Fallback
-    return `${winnerLabel} performs strongest`
-  }, [analysisStatus, recommendationStability, winnerGoalProbability, goalThreshold, winnerLabel])
+    // Precedence 4: Standard — winner identified
+    return {
+      main: `${winnerLabel} performs best`,
+      sub: null,
+    }
+  }, [analysisStatus, recommendationStability, winnerLabel, optionCount])
 
-  // Use M2 headline if available AND stability is not low (per spec: keep M1 when stability < 0.55)
-  const headline = useMemo(() => {
+  // M2 headline override (only when stability >= 0.55)
+  const headline = useMemo<StructuredHeadline>(() => {
     if (m2Headline && (recommendationStability == null || recommendationStability >= 0.55)) {
-      return m2Headline
+      return { main: m2Headline, sub: m1Headline.sub }
     }
     return m1Headline
   }, [m2Headline, recommendationStability, m1Headline])
 
   // =========================================================================
-  // M1 Bullets (Task 2: Exactly 3 data-grounded bullets)
+  // V9.2: Condition card data (replaces bullets)
   // =========================================================================
-  const m1Bullets = useMemo<M1Bullet[]>(() => {
-    const bullets: M1Bullet[] = []
-
-    // Bullet 1: Comparative
-    // Task 1 fix: Low stability (< 0.55) gets different messaging to avoid contradiction with headline
-    const isLowStability = recommendationStability != null && recommendationStability < 0.55
-
-    if (optionCount === 1) {
-      bullets.push({
-        text: 'Only one option analysed — consider adding alternatives for comparison',
-      })
-    } else if (winnerGoalProbability != null && runnerUpGoalProbability != null && goalThreshold != null) {
-      // Goal probability present - show percentage comparison
-      const suffix = isLowStability ? ' — a narrow gap' : ''
-      bullets.push({
-        text: `${formatPercent(winnerGoalProbability)} vs ${formatPercent(runnerUpGoalProbability)} chance of achieving your goal${suffix}`,
-        refs: [
-          { id: winnerId, label: winnerLabel },
-          ...(runnerUpId && runnerUpLabel ? [{ id: runnerUpId, label: runnerUpLabel }] : []),
-        ],
-      })
-    } else if (isLowStability) {
-      // Low stability without goal probability - use "perform similarly" wording
-      bullets.push({
-        text: `Options perform similarly — ${winnerLabel} wins slightly more often`,
-        refs: [{ id: winnerId, label: winnerLabel }],
-      })
-    } else {
-      // Normal stability without goal probability
-      bullets.push({
-        text: `${winnerLabel} outperforms alternatives most consistently`,
-        refs: [{ id: winnerId, label: winnerLabel }],
-      })
+  const conditionCard = useMemo(() => {
+    if (!topFragileEdge) return null
+    if (topFragileEdge.labelsResolved === false) {
+      return { type: 'generic' as const }
     }
-
-    // Bullet 2: Top drivers
-    if (topDrivers && topDrivers.length >= 2) {
-      const cleanLabel1 = stripEncodingNotation(topDrivers[0].label)
-      const cleanLabel2 = stripEncodingNotation(topDrivers[1].label)
-      bullets.push({
-        text: `${cleanLabel1} and ${cleanLabel2} are the biggest drivers`,
-        refs: [
-          { id: topDrivers[0].id, label: cleanLabel1 },
-          { id: topDrivers[1].id, label: cleanLabel2 },
-        ],
-      })
-    } else if (topDrivers && topDrivers.length === 1) {
-      const cleanLabel = stripEncodingNotation(topDrivers[0].label)
-      bullets.push({
-        text: `${cleanLabel} is the biggest driver`,
-        refs: [{ id: topDrivers[0].id, label: cleanLabel }],
-      })
-    } else {
-      bullets.push({
-        text: 'No dominant drivers identified — outcome is balanced across factors',
-      })
+    return {
+      type: 'specific' as const,
+      fromId: topFragileEdge.fromId,
+      fromLabel: stripEncodingNotation(topFragileEdge.fromLabel),
+      toId: topFragileEdge.toId,
+      toLabel: stripEncodingNotation(topFragileEdge.toLabel),
+      altLabel: stripEncodingNotation(topFragileEdge.alternativeWinnerLabel),
+      altId: topFragileEdge.alternativeWinnerId,
     }
-
-    // Bullet 3: Fragile edge / risk
-    // Task C: Only show stable when NO fragile edges exist
-    // If fragile edges exist but labels unresolved, show generic risk bullet
-    if (topFragileEdge) {
-      const fromLabel = stripEncodingNotation(topFragileEdge.fromLabel)
-      const toLabel = stripEncodingNotation(topFragileEdge.toLabel)
-      const altLabel = stripEncodingNotation(topFragileEdge.alternativeWinnerLabel)
-
-      // Task C: If labels couldn't be resolved, show generic risk bullet
-      if (topFragileEdge.labelsResolved === false) {
-        bullets.push({
-          text: "Some assumptions could change the result — expand 'What needs attention' for details",
-        })
-      } else {
-        bullets.push({
-          text: `If the link between ${fromLabel} and ${toLabel} is weaker than expected, ${altLabel} becomes the stronger option`,
-          refs: [
-            { id: topFragileEdge.fromId, label: fromLabel },
-            { id: topFragileEdge.toId, label: toLabel },
-          ],
-        })
-      }
-    } else {
-      bullets.push({
-        text: 'Result is stable across all assumptions tested',
-      })
-    }
-
-    return bullets
-  }, [
-    optionCount,
-    winnerGoalProbability,
-    runnerUpGoalProbability,
-    goalThreshold,
-    winnerLabel,
-    winnerId,
-    runnerUpLabel,
-    runnerUpId,
-    topDrivers,
-    topFragileEdge,
-    recommendationStability, // Task 1: Include for low-stability bullet variant
-  ])
-
-  // Use M2 bullets if available
-  const bullets = m2Bullets ?? m1Bullets
+  }, [topFragileEdge])
 
   // =========================================================================
-  // Stability label
+  // Stability
   // =========================================================================
-  const stabilityTier = getStabilityTier(recommendationStability)
-
-  // =========================================================================
-  // "Learn more" content (Task 3)
-  // =========================================================================
-  const m1CoachingNarrative = useMemo(() => {
-    if (!nSamples) return null
-
-    const stabilityPct = recommendationStability != null
-      ? `${Math.round(recommendationStability * 100)}%`
-      : 'unknown'
-
-    // Build narrative based on available data
-    let narrative = `Based on ${nSamples.toLocaleString()} simulations, `
-
-    if (winnerGoalProbability != null && runnerUpGoalProbability != null && goalThreshold != null) {
-      narrative += `${winnerLabel} achieves the goal in ${formatPercent(winnerGoalProbability)} of cases compared to ${formatPercent(runnerUpGoalProbability)} for ${runnerUpLabel ?? 'the second option'}. `
-    } else {
-      // Task 1: Apply tiered stability logic (same as headline)
-      if (recommendationStability != null && recommendationStability < 0.55) {
-        narrative += `options perform similarly. ${winnerLabel} wins slightly more often. `
-      } else if (recommendationStability != null && recommendationStability < 0.70) {
-        narrative += `${winnerLabel} performs strongest in more simulations, but the result is sensitive to assumptions. `
-      } else {
-        narrative += `${winnerLabel} outperforms alternatives most consistently. `
-      }
-    }
-
-    narrative += `The result stays the same in ${stabilityPct} of assumption tests.`
-
-    if (topFragileEdge) {
-      const fromLabel = stripEncodingNotation(topFragileEdge.fromLabel)
-      const toLabel = stripEncodingNotation(topFragileEdge.toLabel)
-      narrative += ` The most sensitive assumption is the relationship between ${fromLabel} and ${toLabel}.`
-    }
-
-    return narrative
-  }, [
-    nSamples,
-    recommendationStability,
-    winnerLabel,
-    winnerGoalProbability,
-    runnerUpLabel,
-    runnerUpGoalProbability,
-    goalThreshold,
-    topFragileEdge,
-  ])
+  const rawStabilityTier = getStabilityTier(recommendationStability)
+  // V12.4: Override stability badge when decisionState contradicts rawStabilityTier.
+  // - indeterminate: "No clear winner" headline must not show "Highly sensitive"
+  // - sensitive (readiness downgrade): hero says sensitive but raw stability is green
+  const stabilityTier = decisionState === 'indeterminate'
+    ? { ...rawStabilityTier, label: 'Too close to call', colorClass: 'text-info' }
+    : decisionState === 'sensitive' && rawStabilityTier.colorClass === 'text-success'
+      ? { ...rawStabilityTier, label: 'Sensitive to assumptions', colorClass: 'text-warning' }
+      : rawStabilityTier
+  const stabilityPct = recommendationStability != null
+    ? Math.round(recommendationStability * 100)
+    : null
 
   // =========================================================================
-  // Readiness Statement (Task 1: replaces Analysis summary)
+  // V11: Stats grid for "More detail" expand
   // =========================================================================
-  const readinessStatement = useMemo(() => {
-    // If no readiness data, return null to trigger fallback to m1CoachingNarrative
-    if (!coachingReadiness) return null
-
-    const totalAssumptions = (fragileEdgeCount ?? 0) + (robustEdgeCount ?? 0)
-    const stableCount = robustEdgeCount ?? 0
-    const fragileCount = fragileEdgeCount ?? 0
-
-    switch (coachingReadiness) {
-      case 'ready':
-        // Decision-ready: emphasise stability
-        if (totalAssumptions > 0) {
-          return `This analysis is decision-ready. ${totalAssumptions} assumptions were tested and ${stableCount} held stable.`
-        }
-        return 'This analysis is decision-ready.'
-
-      case 'needs_framing':
-        // Gaps that could affect result - summarise key issues
-        const framingIssues: string[] = []
-        if (fragileCount > 0) {
-          framingIssues.push(`${fragileCount} fragile assumption${fragileCount > 1 ? 's' : ''} identified`)
-        }
-        if (topFragileEdge) {
-          framingIssues.push('key relationships are sensitive to change')
-        }
-        const framingSummary = framingIssues.length > 0
-          ? framingIssues.join(' and ')
-          : 'some gaps detected'
-        return `This analysis has gaps that could affect the result. ${framingSummary.charAt(0).toUpperCase() + framingSummary.slice(1)}. Addressing these would strengthen confidence.`
-
-      case 'needs_evidence':
-        // Missing evidence - emphasise data gathering
-        if (fragileCount > 0) {
-          return `Key evidence is missing. ${fragileCount} uncertain assumption${fragileCount > 1 ? 's' : ''} could change the outcome. Gathering data on the most uncertain factors would improve reliability.`
-        }
-        return 'Key evidence is missing. Gathering data on the most uncertain factors would improve reliability.'
-
-      case 'close_call':
-        // Close decision - similar to needs_framing but with close-call context
-        return `This is a close call — options perform similarly. ${fragileCount > 0 ? `${fragileCount} assumption${fragileCount > 1 ? 's' : ''} could tip the balance. ` : ''}Consider whether any factor could change significantly.`
-
-      default:
-        return null
-    }
-  }, [coachingReadiness, fragileEdgeCount, robustEdgeCount, topFragileEdge])
-
-  // Use M2 coaching paragraph if available
-  const hasM2Coaching = m2CoachingParagraph && m2CoachingParagraph.length > 0
-  const hasBiasInsights = m2BiasInsights && m2BiasInsights.length > 0
+  const totalRobustnessEdges = (fragileEdgeCount ?? 0) + (robustEdgeCount ?? 0)
 
   // =========================================================================
   // Render
   // =========================================================================
+
+  // =========================================================================
+  // V14: Build entity lookup for linkifyCoachingText
+  // =========================================================================
+  // Task 1: option GraphLinks use text-success for winner (non-indeterminate) or text-info for all (indeterminate)
+  const linkEntities = useMemo<LinkEntity[]>(() => {
+    const entities: LinkEntity[] = []
+    // Options — colour by decisionState and winner status
+    if (optionWinShares) {
+      for (const opt of optionWinShares) {
+        if (opt.label) {
+          const isWinner = opt.id === winnerId
+          const optClassName = decisionState === 'indeterminate'
+            ? 'text-info'
+            : isWinner ? 'text-success' : 'text-info'
+          entities.push({ label: opt.label, nodeId: opt.id, className: optClassName })
+        }
+      }
+    }
+    // Top drivers (factors) — always text-info (no winner emphasis for factors)
+    if (topDrivers) {
+      for (const d of topDrivers) {
+        if (d.label && !entities.some(e => e.label === d.label)) {
+          entities.push({ label: d.label, nodeId: d.id })
+        }
+      }
+    }
+    return entities
+  }, [optionWinShares, topDrivers, winnerId, decisionState])
+
+  // =========================================================================
+  // V14 Task 2: Near-tie headline
+  // =========================================================================
+  const v14Headline = useMemo(() => {
+    if (analysisStatus === 'partial') {
+      return { isNearTie: false as const, text: 'Some analysis steps did not complete' }
+    }
+
+    // Near-tie: use nearTie data or derive from win probability gap
+    const resolveNearTie = (): { optA: string; idA: string; optB: string; idB: string } | null => {
+      if (nearTie?.isTie && nearTie.tiedOptionIds.length >= 2) {
+        const idA = nearTie.tiedOptionIds[0]
+        const idB = nearTie.tiedOptionIds[1]
+        const labelA = optionWinShares?.find(o => o.id === idA)?.label
+        const labelB = optionWinShares?.find(o => o.id === idB)?.label
+        if (labelA && labelB) return { optA: labelA, idA, optB: labelB, idB }
+      }
+      // Fallback: derive from option comparison gap using canonical threshold
+      if (!nearTie && optionWinShares && optionWinShares.length >= 2) {
+        const sorted = [...optionWinShares].sort((a, b) => b.winProbability - a.winProbability)
+        const gap = Math.abs(sorted[0].winProbability - sorted[1].winProbability)
+        if (gap < GAP_THRESHOLD) {
+          return { optA: sorted[0].label, idA: sorted[0].id, optB: sorted[1].label, idB: sorted[1].id }
+        }
+      }
+      return null
+    }
+
+    const tie = resolveNearTie()
+    if (tie) {
+      return { isNearTie: true as const, ...tie }
+    }
+
+    if (optionCount === 1) {
+      return { isNearTie: false as const, text: `${winnerLabel} is your only option` }
+    }
+
+    return { isNearTie: false as const, text: null } // standard winner headline
+  }, [analysisStatus, nearTie, optionWinShares, optionCount, winnerLabel])
+
+  // =========================================================================
+  // V14 Task 3: Decision state dot mapping
+  // =========================================================================
+  const decisionStateDot = useMemo(() => {
+    const map: Record<DecisionState, { color: string; text: string }> = {
+      indeterminate: { color: 'bg-warning text-warning', text: 'Too close to call' },
+      sensitive: { color: 'bg-warning text-warning', text: 'Sensitive to assumptions' },
+      robust: { color: 'bg-success text-success', text: 'Stable result' },
+    }
+    return decisionState ? map[decisionState] : null
+  }, [decisionState])
+
+  // =========================================================================
+  // V14 Task 4: Condition card — factor-only, direction-aware
+  // =========================================================================
+  const v14ConditionCard = useMemo(() => {
+    if (!topFragileEdge) return null
+    if ((topFragileEdge.switchProbability ?? 0) <= 0.25) return null
+    if (topFragileEdge.labelsResolved === false) return null
+
+    const fromLabel = stripEncodingNotation(topFragileEdge.fromLabel)
+    const altLabel = stripEncodingNotation(topFragileEdge.alternativeWinnerLabel)
+
+    // Look up direction from topDrivers
+    const driverMatch = topDrivers?.find(d => d.id === topFragileEdge.fromId)
+    const isPositive = driverMatch?.direction === 'positive'
+
+    return {
+      fromId: topFragileEdge.fromId,
+      fromLabel,
+      toId: topFragileEdge.toId,
+      altLabel,
+      altId: topFragileEdge.alternativeWinnerId,
+      isPositive,
+    }
+  }, [topFragileEdge, topDrivers])
+
+  // V16 Task 4: M2 narrative clamped — must be before conditional returns (Rules of Hooks)
+  const m2NarrativeClamped = useMemo(() => {
+    if (!m2NarrativeSummary) return null
+    return extractFirstSentence(m2NarrativeSummary)
+  }, [m2NarrativeSummary])
+
+  // V16 path: structured hero with headline, insight bullets, trust summary, gauge
+  if (decisionState) {
+    // ── V16 Task 1: Build insight bullets ───────────────────────────────────
+    //
+    // Bullet 1: key qualifier from coachingKeyQualifier
+    // Bullet 2: hinge line — "Could change if {factor} shifts" (only when fragile edge exists)
+    // Bullet 3: next action from topNextAction.action (with GraphLink on entity name)
+    //
+    // Task 5: Separate hinge bullet (needs qualifying v14ConditionCard) from
+    // condition detail (any topFragileEdge with resolved labels).
+    // When hinge bullet exists → condition detail goes in "Show more".
+    // When no hinge bullet but condition detail exists → promote to default bullets.
+    const hasHingeBullet = !!v14ConditionCard
+    const hasConditionDetail = !!topFragileEdge
+      && topFragileEdge.labelsResolved !== false
+
+    const bullet1 = shouldSuppressContradictoryExecutiveCopy(coachingKeyQualifier?.trim() || null, robustnessLevel)
+      ? null
+      : coachingKeyQualifier?.trim() || null
+    const bullet2 = hasHingeBullet && v14ConditionCard
+      ? v14ConditionCard.fromLabel
+      : null
+    const bullet3NextAction = topNextAction?.action?.trim() || null
+
+    // Condition card detail lives in "Show more" only when hinge bullet is also present.
+    // Otherwise it gets promoted into the default bullets (Task 5).
+    const showConditionCardInMore = hasHingeBullet && hasConditionDetail
+    const promoteConditionToDefault = !hasHingeBullet && hasConditionDetail
+
+    // Build bullets array — only non-null, max 3
+    const defaultBullets: Array<{ key: string; content: ReactNode }> = []
+
+    if (bullet1) {
+      defaultBullets.push({
+        key: 'qualifier',
+        content: <span>{linkifyCoachingText(bullet1, linkEntities)}</span>,
+      })
+    }
+
+    if (bullet2 && v14ConditionCard) {
+      const hingeAltLabel = v14ConditionCard.altLabel
+      const hingeAltId = v14ConditionCard.altId
+      defaultBullets.push({
+        key: 'hinge',
+        content: (
+          <>
+            {'If '}
+            <GraphLink
+              edgeRef={{ fromId: v14ConditionCard.fromId, toId: v14ConditionCard.toId }}
+              fallbackNodeId={v14ConditionCard.fromId}
+              label={bullet2}
+              className={`${typography.panelBody} inline`}
+            >
+              {bullet2}
+            </GraphLink>
+            {' is weaker, '}
+            {hingeAltId ? (
+              <GraphLink
+                nodeId={hingeAltId}
+                label={hingeAltLabel}
+                className={`${typography.panelBody} inline`}
+              >
+                {hingeAltLabel}
+              </GraphLink>
+            ) : hingeAltLabel}
+            {' overtakes'}
+          </>
+        ),
+      })
+    }
+
+    if (bullet3NextAction && defaultBullets.length < 3) {
+      const targetLabel = topNextAction?.targetLabel
+      const targetId = topNextAction?.targetId
+      // Bullet 3: only render when a target label is available (avoid fabricating text from free-form action string)
+      if (targetLabel) {
+        const scrollToMvs = () => {
+          document.getElementById('mvs-card')?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        }
+        const bulletContent = (
+          <>
+            <button
+              type="button"
+              onClick={scrollToMvs}
+              className={`${typography.panelBody} text-info cursor-pointer [border-bottom:1px_dashed_currentColor] hover:[border-bottom-style:solid]`}
+            >
+              Next step
+            </button>
+            {': gather evidence on '}
+            {targetId ? (
+              <GraphLink
+                nodeId={targetId}
+                label={targetLabel}
+                className={`${typography.panelBody} inline`}
+              >
+                {targetLabel}
+              </GraphLink>
+            ) : (
+              <span>{targetLabel}</span>
+            )}
+          </>
+        )
+        defaultBullets.push({ key: 'action', content: bulletContent })
+      }
+    }
+
+    // Task 5: Promote condition card to default bullets when no hinge bullet
+    if (promoteConditionToDefault && topFragileEdge && defaultBullets.length < 3) {
+      const fromLabel = stripEncodingNotation(topFragileEdge.fromLabel)
+      const altLabel = stripEncodingNotation(topFragileEdge.alternativeWinnerLabel)
+      const driverMatch = topDrivers?.find(d => d.id === topFragileEdge.fromId)
+      const isPositive = driverMatch?.direction === 'positive'
+      defaultBullets.push({
+        key: 'condition-promoted',
+        content: (
+          <>
+            {'If '}
+            <GraphLink
+              edgeRef={{ fromId: topFragileEdge.fromId, toId: topFragileEdge.toId }}
+              fallbackNodeId={topFragileEdge.fromId}
+              label={fromLabel}
+              className={`${typography.panelBody} inline`}
+            >
+              {fromLabel}
+            </GraphLink>
+            {isPositive
+              ? ' is weaker than expected, '
+              : ' differs from your estimate, '}
+            {topFragileEdge.alternativeWinnerId ? (
+              <GraphLink
+                nodeId={topFragileEdge.alternativeWinnerId}
+                label={altLabel}
+                className={`${typography.panelBody} inline ${decisionState === 'indeterminate' ? 'text-info' : 'text-success'}`}
+              >
+                {altLabel}
+              </GraphLink>
+            ) : (
+              altLabel
+            )}
+            {' becomes the stronger option'}
+          </>
+        ),
+      })
+    }
+
+    // ── V16 Task 3: Trust summary ─────────────────────────────────────────
+    const trustLevel = deriveTrustLevel(coachingReadiness, robustnessLevel)
+    const trustReason = deriveTrustReason({
+      defaultEstimateCount,
+      totalFactorCount,
+      fragileEdgeCount,
+      robustEdgeCount,
+      evidenceQuality: coachingReadinessDimensions?.evidence,
+    })
+    const heroBorderClass = getHeroBorderClass(robustnessLevel, recommendationStability)
+
+    const sanitizedParagraphV16 = shouldSuppressContradictoryExecutiveCopy(coachingParagraph || null, robustnessLevel)
+      ? null
+      : coachingParagraph || null
+
+    return (
+      <div className="space-y-4" data-testid="hero-section">
+        <div className={`bg-panel border rounded-lg px-3 py-2 space-y-3 ${heroBorderClass}`}>
+
+          {/* ── Headline: Goal / Result ──────────────────────── */}
+          {v14Headline.isNearTie ? (
+            <div className="space-y-0.5">
+              <div className="flex items-baseline gap-1.5">
+                <span className={`${typography.panelMeta} text-text-light flex-shrink-0`}>Goal</span>
+                {goalNodeId ? (
+                  <button
+                    type="button"
+                    onClick={() => focusNodeById(goalNodeId)}
+                    className={`${typography.panelHeader} text-info cursor-pointer hover:underline focus:outline-none text-left`}
+                  >
+                    {goalLabel || 'your goal'}
+                  </button>
+                ) : (
+                  <span className={`${typography.panelHeader} text-text-header`}>{goalLabel || 'your goal'}</span>
+                )}
+              </div>
+              <div className="flex items-baseline gap-1.5 flex-wrap">
+                <span className={`${typography.panelMeta} text-text-light flex-shrink-0`}>Result</span>
+                <span className={`${typography.panelHeader} text-text-header`}>
+                  <GraphLink nodeId={v14Headline.idA} label={v14Headline.optA} className="text-info">
+                    {v14Headline.optA}
+                  </GraphLink>
+                  {' and '}
+                  <GraphLink nodeId={v14Headline.idB} label={v14Headline.optB} className="text-info">
+                    {v14Headline.optB}
+                  </GraphLink>
+                  {' are too close to call'}
+                </span>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-0.5">
+              <div className="flex items-baseline gap-1.5">
+                <span className={`${typography.panelMeta} text-text-light flex-shrink-0`}>Goal</span>
+                {goalNodeId ? (
+                  <button
+                    type="button"
+                    onClick={() => focusNodeById(goalNodeId)}
+                    className={`${typography.panelHeader} text-info cursor-pointer hover:underline focus:outline-none text-left`}
+                  >
+                    {goalLabel || 'your goal'}
+                  </button>
+                ) : (
+                  <span className={`${typography.panelHeader} text-text-header`}>{goalLabel || 'your goal'}</span>
+                )}
+              </div>
+              <div className="flex items-baseline gap-1.5 flex-wrap">
+                <span className={`${typography.panelMeta} text-text-light flex-shrink-0`}>Result</span>
+                <span className={`${typography.panelHeader} text-text-header`}>
+                  {v14Headline.text ?? (
+                    <>
+                      <GraphLink nodeId={winnerId} label={winnerLabel} className="text-success">
+                        {winnerLabel}
+                      </GraphLink>
+                      {' performs best'}
+                    </>
+                  )}
+                </span>
+              </div>
+            </div>
+          )}
+
+          {/* ── V16 Task 1: Insight bullets ───────────────────── */}
+          {defaultBullets.length > 0 && (
+            <ul
+              className={`list-disc list-outside pl-4 space-y-0.5 ${typography.panelBody} text-text-body`}
+              data-testid="insight-bullets"
+            >
+              {defaultBullets.map(b => (
+                <li key={b.key}>{b.content}</li>
+              ))}
+            </ul>
+          )}
+
+          {/* Show more ▸ / expanded condition card detail */}
+          {showConditionCardInMore && v14ConditionCard && (
+            <div>
+              {!showMoreBullets ? (
+                <button
+                  type="button"
+                  onClick={() => setShowMoreBullets(true)}
+                  className={`${typography.panelBody} text-info hover:underline`}
+                  data-testid="show-more-bullets"
+                >
+                  More ▸
+                </button>
+              ) : (
+                <div data-testid="show-more-expanded">
+                  <ul
+                    className={`list-disc list-outside pl-4 space-y-0.5 ${typography.panelBody} text-text-body mb-1`}
+                    onMouseEnter={() => highlightNode(v14ConditionCard.fromId)}
+                    onMouseLeave={clearHighlight}
+                  >
+                    <li>
+                      {'If '}
+                      <GraphLink
+                        edgeRef={{ fromId: v14ConditionCard.fromId, toId: v14ConditionCard.toId }}
+                        fallbackNodeId={v14ConditionCard.fromId}
+                        label={v14ConditionCard.fromLabel}
+                        className={`${typography.panelBody} inline`}
+                      >
+                        {v14ConditionCard.fromLabel}
+                      </GraphLink>
+                      {v14ConditionCard.isPositive
+                        ? ' is weaker than expected, '
+                        : ' differs from your estimate, '}
+                      {v14ConditionCard.altId ? (
+                        <GraphLink
+                          nodeId={v14ConditionCard.altId}
+                          label={v14ConditionCard.altLabel}
+                          className={`${typography.panelBody} inline ${decisionState === 'indeterminate' ? 'text-info' : 'text-success'}`}
+                        >
+                          {v14ConditionCard.altLabel}
+                        </GraphLink>
+                      ) : (
+                        v14ConditionCard.altLabel
+                      )}
+                      {' becomes the stronger option'}
+                    </li>
+                  </ul>
+                  <button
+                    type="button"
+                    onClick={() => setShowMoreBullets(false)}
+                    className={`${typography.panelBody} text-info hover:underline`}
+                  >
+                    Hide ▾
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ── V16 Task 3: Trust summary ─────────────────────── */}
+          <p className={`${typography.panelMeta} text-text-light truncate`} data-testid="trust-summary">
+            Trust: {trustLevel}. {trustReason.charAt(0).toUpperCase()}{trustReason.slice(1)}
+          </p>
+
+          {/* ── V16 Task 2: Baseline + target row (above gauge) ── */}
+          <BaselineTargetRow
+            baselineOptions={baselineOptions}
+            baselineLabel={baselineLabel}
+            isRunning={isRunning}
+            onAddBaseline={onAddBaseline}
+            onSetBaseline={onSetBaseline}
+            goalThreshold={goalThreshold}
+            outcomeUnit={outcomeUnit}
+            outcomeUnitSymbol={outcomeUnitSymbol}
+            onEditTarget={goalNodeId ? () => focusNodeById(goalNodeId) : undefined}
+          />
+
+          {/* ── Win gauge ────────────────────────────────────── */}
+          {optionWinShares && optionWinShares.length > 1 && (
+            <WinGauge shares={optionWinShares} decisionState={decisionState} />
+          )}
+
+          {/* A3: Goal-achievement probability — comparative display for all options */}
+          {goalThreshold != null && allOptionGoalProbabilities && allOptionGoalProbabilities.length > 0 && (
+            <div className="space-y-0.5" data-testid="goal-probability-display">
+              {allOptionGoalProbabilities.length === 1 ? (
+                <p className={`${typography.panelBody} text-text-body`}>
+                  <span className="inline-block w-1.5 h-1.5 rounded-full mr-1.5 align-middle" style={{ backgroundColor: 'var(--goal)' }} />
+                  {allOptionGoalProbabilities[0].label} has a {formatPct(allOptionGoalProbabilities[0].goalProbability, { fromDecimal: true })} chance of reaching your target of {formatTargetValue(goalThreshold, outcomeUnit, outcomeUnitSymbol)}{' '}
+                  <DeltaIndicator currentValue={allOptionGoalProbabilities[0].goalProbability} previousValue={previousReport?.options[allOptionGoalProbabilities[0].id]?.goalProbability} format="percent" />
+                </p>
+              ) : (
+                allOptionGoalProbabilities.map(opt => (
+                  <p key={opt.id} className={`${typography.panelBody} text-text-body`}>
+                    <span className="inline-block w-1.5 h-1.5 rounded-full mr-1.5 align-middle" style={{ backgroundColor: 'var(--goal)' }} />
+                    {opt.label}: {formatPct(opt.goalProbability, { fromDecimal: true })} chance of reaching your target of {formatTargetValue(goalThreshold, outcomeUnit, outcomeUnitSymbol)}{' '}
+                    <DeltaIndicator currentValue={opt.goalProbability} previousValue={previousReport?.options[opt.id]?.goalProbability} format="percent" />
+                  </p>
+                ))
+              )}
+            </div>
+          )}
+          {/* Fallback: winner-only display when allOptionGoalProbabilities not provided */}
+          {goalThreshold != null && winnerGoalProbability != null && !allOptionGoalProbabilities?.length && (
+            <p className={`${typography.panelBody} text-text-body`}>
+              <span className="inline-block w-1.5 h-1.5 rounded-full mr-1.5 align-middle" style={{ backgroundColor: 'var(--goal)' }} />
+              {winnerLabel} has a {formatPct(winnerGoalProbability, { fromDecimal: true })} chance of reaching your target of {formatTargetValue(goalThreshold, outcomeUnit, outcomeUnitSymbol)}{' '}
+              <DeltaIndicator currentValue={winnerGoalProbability} previousValue={winnerId ? previousReport?.options[winnerId]?.goalProbability : undefined} format="percent" />
+            </p>
+          )}
+
+          {/* ── Stability badge + More / Less toggle ─────────── */}
+          <div className="border-t border-panel-border pt-3">
+            <div className="flex items-center gap-3">
+              {stabilityTier.label && (
+                <span className={`inline-flex items-center gap-1.5 bg-transparent border border-current/30 px-2 py-0.5 rounded-full ${stabilityTier.colorClass}`} data-testid="decision-state-pill">
+                  {decisionStateDot && (
+                    <span className={`w-2 h-2 rounded-full ${decisionStateDot.color.split(' ')[0]} flex-shrink-0`} />
+                  )}
+                  <span className={`${typography.panelMeta} text-text-body`}>
+                    {stabilityTier.label}
+                  </span>
+                </span>
+              )}
+              <span className="flex-1" />
+              <button
+                type="button"
+                onClick={() => setIsExpanded(!isExpanded)}
+                className={`flex items-center gap-1 ${typography.panelBody} text-info hover:text-info-hover flex-shrink-0`}
+                aria-expanded={isExpanded}
+                aria-controls="hero-more-content"
+              >
+                {isExpanded ? 'Hide ▾' : 'More ▸'}
+              </button>
+            </div>
+          </div>
+
+          {/* ── "More" expand ─────────────────────────────────── */}
+          {isExpanded && (
+            <div
+              id="hero-more-content"
+              className="mt-3 pt-3 border-t border-panel-border space-y-3"
+            >
+              {/* V16 Task 4: M2 narrative — clamped to first sentence with Read more toggle */}
+              {m2NarrativeClamped ? (
+                <div>
+                  <p className={`${typography.panelMeta} text-text-light italic mb-1`}>AI-enhanced analysis</p>
+                  <p className={`${typography.panelBody} text-text-body`}>
+                    {narrativeExpanded ? m2NarrativeSummary : m2NarrativeClamped.first}
+                    {m2NarrativeClamped.hasMore && !narrativeExpanded && (
+                      <>
+                        {' '}
+                        <button
+                          type="button"
+                          onClick={() => setNarrativeExpanded(true)}
+                          className={`${typography.panelBody} text-info cursor-pointer`}
+                          data-testid="read-more-narrative"
+                        >
+                          Read more ▾
+                        </button>
+                      </>
+                    )}
+                    {narrativeExpanded && (
+                      <>
+                        {' '}
+                        <button
+                          type="button"
+                          onClick={() => setNarrativeExpanded(false)}
+                          className={`${typography.panelBody} text-info cursor-pointer`}
+                        >
+                          Read less ▴
+                        </button>
+                      </>
+                    )}
+                  </p>
+                </div>
+              ) : sanitizedParagraphV16 ? (
+                <p className={`${typography.panelBody} text-text-body`}>
+                  {sanitizedParagraphV16}
+                </p>
+              ) : null}
+
+              {/* Readiness bars */}
+              {coachingReadinessDimensions && (
+                <div data-testid="readiness-bars">
+                  <p className={`${typography.panelMeta} text-text-header font-medium mb-2`}>Readiness</p>
+                  {(['evidence', 'robustness', 'clarity'] as const).map(dim => {
+                    const value = coachingReadinessDimensions[dim]
+                    if (value == null) return null
+                    const pct = Math.round(value * 100)
+                    const fillColor = getThresholdColour(value)
+                    const label = dim === 'clarity' ? 'Framing' : dim.charAt(0).toUpperCase() + dim.slice(1)
+                    return (
+                      <div key={dim} className="flex items-center gap-2 mb-1">
+                        <span className={`${typography.panelMeta} text-text-light text-right`} style={{ width: 80 }}>
+                          {label}
+                        </span>
+                        <div className="flex-1 bg-panel-border rounded-full" style={{ height: 4 }}>
+                          <div
+                            className={`${fillColor} rounded-full`}
+                            style={{ width: `${pct}%`, height: 4 }}
+                          />
+                        </div>
+                        <span className={`${typography.panelMeta} text-text-light`} style={{ width: 30 }}>
+                          {pct}%
+                        </span>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+
+              {/* Stats grid */}
+              <dl className={`grid grid-cols-2 gap-x-4 gap-y-1 ${typography.panelMeta}`}>
+                {winnerWinProbability != null && (
+                  <>
+                    <dt className="text-text-light">Win likelihood</dt>
+                    <dd className="text-text-header">{Math.round(winnerWinProbability * 100)}%</dd>
+                  </>
+                )}
+                {stabilityPct != null && (
+                  <>
+                    <dt className="text-text-light">Robustness</dt>
+                    <dd className="text-text-header">
+                      {stabilityPct}%{stabilityTier.label && ` (${stabilityTier.label.toLowerCase()})`}
+                    </dd>
+                  </>
+                )}
+                {fragileEdgeCount != null && (
+                  <>
+                    <dt className="text-text-light">Fragile edges</dt>
+                    <dd className="text-text-header">
+                      {fragileEdgeCount}{totalRobustnessEdges > 0 && ` of ${totalRobustnessEdges}`}
+                    </dd>
+                  </>
+                )}
+                {nSamples != null && (
+                  <>
+                    <dt className="text-text-light">Sampling</dt>
+                    <dd className="text-text-header">{nSamples.toLocaleString()} simulations</dd>
+                  </>
+                )}
+              </dl>
+
+              {/* Identifiability advisory */}
+              {(() => {
+                const identMap: Record<string, { label: string; colorClass: string }> = {
+                  partially_identifiable: { label: 'Structural validity: Some limitations', colorClass: 'text-info' },
+                  not_backdoor_identifiable: { label: 'Structural validity: Treat as directional', colorClass: 'text-warning' },
+                }
+                const mapped = identifiabilityTag ? identMap[identifiabilityTag] : null
+                if (!mapped) return null
+                return (
+                  <div className={`flex items-start gap-1.5 ${typography.panelMeta} ${mapped.colorClass}`}>
+                    <Info className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
+                    <span>{mapped.label}</span>
+                  </div>
+                )
+              })()}
+            </div>
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  // =========================================================================
+  // Legacy path: V9.2 layout (when decisionState is not provided)
+  // =========================================================================
   return (
     <div className="space-y-4" data-testid="hero-section">
       {/* Main hero card */}
+      {/* TODO: Legacy V9.2 fallback — use getHeroBorderClass() when decisionState
+          is guaranteed. Low risk: decisionState is always provided in production. */}
       <div className="p-4 bg-panel border border-panel-border rounded-lg">
-        {/* Headline */}
-        <h2 className={`${typography.h3} text-text-header mb-3`}>
-          {headline}
-        </h2>
-
-        {/* 3 Bullets */}
-        <ul className="space-y-2 mb-4">
-          {(Array.isArray(bullets) ? bullets : m1Bullets).map((bullet, index) => {
-            // M2 bullets are RichText arrays
-            const isRichText = Array.isArray(bullet) && bullet.length > 0 && typeof bullet[0] === 'object' && 'type' in bullet[0]
-
-            return (
-              <li
-                key={index}
-                className={`flex items-start gap-2 ${typography.body} text-text-body`}
+        {/* V9.2 Headline — Goal / Result format */}
+        <div className="space-y-0.5">
+          <div className="flex items-baseline gap-1.5">
+            <span className={`${typography.panelMeta} text-text-light flex-shrink-0`}>Goal</span>
+            {goalNodeId ? (
+              <button
+                type="button"
+                onClick={() => focusNodeById(goalNodeId)}
+                className={`${typography.panelHeader} text-info cursor-pointer hover:underline focus:outline-none text-left`}
               >
-                <span className="text-text-light flex-shrink-0 mt-0.5">•</span>
-                <span className="flex-1 min-w-0">
-                  {isRichText ? (
-                    <RichTextRenderer
-                      content={bullet as RichText}
-                      onFocusNode={onFocusNode}
-                    />
-                  ) : (
-                    <M1BulletRenderer
-                      bullet={bullet as M1Bullet}
-                      onFocusNode={onFocusNode}
-                    />
-                  )}
-                </span>
-              </li>
-            )
-          })}
-        </ul>
-
-        {/* Stability label + Learn more link */}
-        <div className="flex items-center justify-between border-t border-panel-border pt-3">
-          {stabilityTier.label && (
-            <span className={`${typography.caption} ${stabilityTier.colorClass}`}>
-              {stabilityTier.label}
-            </span>
-          )}
-          <button
-            type="button"
-            onClick={() => setIsExpanded(!isExpanded)}
-            className={`flex items-center gap-1 ${typography.caption} text-info hover:text-info-hover`}
-            aria-expanded={isExpanded}
-            aria-controls="hero-learn-more"
-          >
-            {isExpanded ? (
-              <>
-                <span>Show less</span>
-                <ChevronDown className="w-3 h-3" />
-              </>
+                {goalLabel || 'your goal'}
+              </button>
             ) : (
-              <>
-                <span>Learn more</span>
-                <ChevronRight className="w-3 h-3" />
-              </>
+              <span className={`${typography.panelHeader} text-text-header`}>{goalLabel || 'your goal'}</span>
             )}
-          </button>
+          </div>
+          <div className="flex items-baseline gap-1.5 flex-wrap">
+            <span className={`${typography.panelMeta} text-text-light flex-shrink-0`}>Result</span>
+            <span className={`${typography.panelHeader} ${recommendationStability != null && recommendationStability < 0.55 ? 'text-text-header' : 'text-success'}`}>{headline.main}</span>
+          </div>
         </div>
-      </div>
+        {headline.sub && (
+          <p className={`${typography.panelBody} text-text-body mt-1`}>
+            {headline.sub}
+          </p>
+        )}
 
-      {/* "Learn more" expand (Task 3) */}
-      {isExpanded && (
-        <div
-          id="hero-learn-more"
-          className="p-4 bg-panel border border-panel-border rounded-lg space-y-4"
-        >
-          {/* Section 1: Readiness assessment (Task 1) or Analysis summary fallback */}
-          {(readinessStatement || hasM2Coaching || m1CoachingNarrative) && (
-            <div className="space-y-2">
-              <h4 className={`${typography.label} text-text-header`}>
-                {readinessStatement ? 'Readiness assessment' : 'Analysis summary'}
-              </h4>
-              <p className={`${typography.body} text-text-body`}>
-                {readinessStatement ? (
-                  readinessStatement
-                ) : hasM2Coaching ? (
-                  <RichTextRenderer
-                    content={m2CoachingParagraph!}
-                    onFocusNode={onFocusNode}
-                  />
-                ) : (
-                  m1CoachingNarrative
-                )}
+        {/* V14: Condition card — factor-only language, no arrow notation */}
+        {conditionCard && conditionCard.type === 'specific' && (
+          <div
+            className="mt-3 mb-3 p-3 border border-danger/30 rounded-lg flex items-start gap-2 results-card-hover"
+            onMouseEnter={() => highlightNode(conditionCard.fromId)}
+            onMouseLeave={clearHighlight}
+          >
+            <AlertTriangle className="w-4 h-4 text-danger flex-shrink-0 mt-0.5" />
+            <p className={`${typography.panelBody} text-text-body`}>
+              {'If '}
+              <GraphLink
+                nodeId={conditionCard.fromId}
+                label={conditionCard.fromLabel}
+                onFocus={onFocusNode}
+                className={`${typography.panelBody} inline`}
+              >
+                {conditionCard.fromLabel}
+              </GraphLink>
+              {' differs from your estimate, '}
+              {conditionCard.altId ? (
+                <GraphLink
+                  nodeId={conditionCard.altId}
+                  label={conditionCard.altLabel}
+                  className={`${typography.panelBody} inline`}
+                >
+                  {conditionCard.altLabel}
+                </GraphLink>
+              ) : (
+                conditionCard.altLabel
+              )}
+              {' becomes the stronger option'}
+            </p>
+          </div>
+        )}
+
+        {/* V9.2: 1-line coaching narrative (hidden when More is expanded) */}
+        {coachingHeadline && !isExpanded && !shouldSuppressContradictoryExecutiveCopy(coachingHeadline, robustnessLevel) && (
+          <p
+            className={`${typography.panelMeta} text-text-light mb-3 line-clamp-1`}
+            style={{ fontSize: 11 }}
+          >
+            {coachingHeadline}
+          </p>
+        )}
+
+        {/* Win gauge — stacked bar showing win probability per option */}
+        {optionWinShares && optionWinShares.length > 1 && (
+          <WinGauge shares={optionWinShares} />
+        )}
+
+        {/* A3: Goal-achievement probability — comparative display for all options */}
+        {goalThreshold != null && allOptionGoalProbabilities && allOptionGoalProbabilities.length > 0 && (
+          <div className="space-y-0.5 mb-3" data-testid="goal-probability-display">
+            {allOptionGoalProbabilities.map(opt => (
+              <p key={opt.id} className={`${typography.panelBody} text-text-body`}>
+                <span className="inline-block w-1.5 h-1.5 rounded-full mr-1.5 align-middle" style={{ backgroundColor: 'var(--goal)' }} />
+                {opt.label}: {formatPct(opt.goalProbability, { fromDecimal: true })} chance of reaching your target of {formatTargetValue(goalThreshold, outcomeUnit, outcomeUnitSymbol)}{' '}
+                <DeltaIndicator currentValue={opt.goalProbability} previousValue={previousReport?.options[opt.id]?.goalProbability} format="percent" />
               </p>
-            </div>
-          )}
+            ))}
+          </div>
+        )}
+        {/* Fallback: winner-only display when allOptionGoalProbabilities not provided */}
+        {goalThreshold != null && winnerGoalProbability != null && !allOptionGoalProbabilities?.length && (
+          <p className={`${typography.panelBody} text-text-body mb-3`}>
+            <span className="inline-block w-1.5 h-1.5 rounded-full mr-1.5 align-middle" style={{ backgroundColor: 'var(--goal)' }} />
+            {winnerLabel} has a {formatPct(winnerGoalProbability, { fromDecimal: true })} chance of reaching your target of {formatTargetValue(goalThreshold, outcomeUnit, outcomeUnitSymbol)}{' '}
+            <DeltaIndicator currentValue={winnerGoalProbability} previousValue={winnerId ? previousReport?.options[winnerId]?.goalProbability : undefined} format="percent" />
+          </p>
+        )}
 
-          {/* Section 2: Bias insights (M2 only) */}
-          {hasBiasInsights && (
-            <div className="space-y-2">
-              <h4 className={`${typography.label} text-text-header`}>
-                Questions to consider
-              </h4>
-              <ul className="space-y-2">
-                {m2BiasInsights!.map((insight, i) => (
-                  <li
-                    key={i}
-                    className="p-3 bg-info-light border border-info/30 rounded-lg"
-                  >
-                    <p className={`${typography.body} text-text-body`}>
-                      {insight}
-                    </p>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
+        {/* V9.2: Baseline row — after win gauge, before "More detail" toggle */}
+        {optionCount > 1 && (
+          <div className="mt-2 pt-2 border-t border-panel-border">
+            <BaselineToggleCard
+              show={true}
+              isRunning={isRunning}
+              onAddBaseline={onAddBaseline}
+              onSetBaseline={onSetBaseline}
+              options={baselineOptions}
+              baselineLabel={baselineLabel}
+            />
+          </div>
+        )}
 
-          {/* Section 3: Technical detail (always present) */}
-          <div className="space-y-2">
-            <h4 className={`${typography.label} text-text-header`}>
-              Technical details
-            </h4>
-            <dl className={`grid grid-cols-2 gap-x-4 gap-y-1 ${typography.caption} text-text-light`}>
-              {recommendationStability != null && (
+        {/* Stability + More toggle */}
+        <div className="border-t border-panel-border pt-3">
+          <div className="flex items-center gap-3">
+            {stabilityTier.label && (
+              <span className={`inline-flex items-center gap-1.5 bg-transparent border border-current/30 px-2 py-0.5 rounded-full ${stabilityTier.colorClass}`}>
+                <span className={`${typography.panelMeta} text-text-body`}>
+                  {stabilityTier.label}
+                </span>
+              </span>
+            )}
+            <span className="flex-1" />
+            <button
+              type="button"
+              onClick={() => setIsExpanded(!isExpanded)}
+              className={`flex items-center gap-1 ${typography.panelBody} text-info hover:text-info-hover flex-shrink-0`}
+              aria-expanded={isExpanded}
+              aria-controls="hero-more-content"
+            >
+              {isExpanded ? 'Hide ▾' : 'More ▸'}
+            </button>
+          </div>
+        </div>
+
+        {/* V9.2: "More detail" expand — narrative + stability summary */}
+        {isExpanded && (
+          <div
+            id="hero-more-content"
+            className="mt-3 pt-3 border-t border-panel-border space-y-3"
+          >
+            {/* Full narrative paragraph from coaching */}
+            {coachingParagraph && (
+              <p className={`${typography.panelBody} text-text-body`}>
+                {coachingParagraph}
+              </p>
+            )}
+
+            {/* 3-row stability summary */}
+            <dl className={`grid grid-cols-2 gap-x-4 gap-y-1 ${typography.panelMeta}`}>
+              {stabilityPct != null && (
                 <>
-                  <dt>Stability</dt>
-                  <dd>{Math.round(recommendationStability * 100)}% of assumption tests</dd>
+                  <dt className="text-text-light">Stability</dt>
+                  <dd className="text-text-header">{stabilityPct}%</dd>
                 </>
               )}
               {fragileEdgeCount != null && (
                 <>
-                  <dt>Fragile assumptions</dt>
-                  <dd>{fragileEdgeCount}</dd>
-                </>
-              )}
-              {robustEdgeCount != null && (
-                <>
-                  <dt>Stable assumptions</dt>
-                  <dd>{robustEdgeCount}</dd>
+                  <dt className="text-text-light">Fragile edges</dt>
+                  <dd className="text-text-header">{fragileEdgeCount}</dd>
                 </>
               )}
               {nSamples != null && (
                 <>
-                  <dt>Simulations run</dt>
-                  <dd>{nSamples.toLocaleString()}</dd>
-                </>
-              )}
-              {seedUsed != null && (
-                <>
-                  <dt>Seed</dt>
-                  <dd className="font-mono">{seedUsed}</dd>
-                </>
-              )}
-              {responseHash && (
-                <>
-                  <dt>Result hash</dt>
-                  <dd className="font-mono truncate" title={responseHash}>
-                    {responseHash.slice(0, 12)}...
-                  </dd>
+                  <dt className="text-text-light">Convergence</dt>
+                  <dd className="text-text-header">{nSamples.toLocaleString()} simulations</dd>
                 </>
               )}
             </dl>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   )
 }

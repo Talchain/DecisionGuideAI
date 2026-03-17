@@ -60,8 +60,8 @@ const SEVERITY_CONFIG = {
     label: 'Critical Issues',
     bgColor: 'bg-paper-50',
     borderColor: 'border-sand-200',
-    iconColor: 'text-red-600',
-    labelColor: 'text-red-700',
+    iconColor: 'text-danger',
+    labelColor: 'text-danger',
     description: 'blocks analysis',
   },
   warning: {
@@ -69,8 +69,8 @@ const SEVERITY_CONFIG = {
     label: 'Warnings',
     bgColor: 'bg-paper-50',
     borderColor: 'border-sand-200',
-    iconColor: 'text-amber-600',
-    labelColor: 'text-amber-700',
+    iconColor: 'text-warning',
+    labelColor: 'text-warning',
     description: 'recommended',
   },
   info: {
@@ -307,9 +307,9 @@ function CritiqueItemRow({
 
   // Determine border color based on fix state
   const borderColorClass = isFixed
-    ? 'border-green-500'
+    ? 'border-success/30'
     : hasFailed
-    ? 'border-red-500'
+    ? 'border-danger'
     : config.borderColor
 
   return (
@@ -355,11 +355,11 @@ function CritiqueItemRow({
             disabled={isFixing || isFixed}
             className={`inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 ${
               isFixed
-                ? 'bg-green-500 text-white cursor-default'
+                ? 'bg-success text-text-on-color cursor-default'
                 : isFixing
-                ? 'bg-amber-400 text-white cursor-wait'
+                ? 'bg-warning text-white cursor-wait'
                 : hasFailed
-                ? 'bg-red-500 text-white hover:bg-red-600'
+                ? 'bg-danger text-text-on-color hover:bg-danger/80'
                 : 'bg-sun-500 text-white hover:bg-sun-600'
             } disabled:opacity-80 disabled:cursor-not-allowed`}
             aria-busy={isFixing}
@@ -404,7 +404,7 @@ function CritiqueItemRow({
 
       {/* Error message */}
       {hasFailed && !isFixing && (
-        <p className={`${typography.caption} text-red-600 mt-2`}>
+        <p className={`${typography.caption} text-danger mt-2`}>
           Fix failed - please try manually or contact support
         </p>
       )}

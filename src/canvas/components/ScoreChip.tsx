@@ -26,43 +26,43 @@ function getColorClass(value: number, type: 'confidence' | 'influence'): {
     // Confidence: 0-100%
     if (value >= 70) {
       return {
-        bg: 'bg-success-50',
-        border: 'border-success-300',
-        text: 'text-success-800',
+        bg: 'bg-panel',
+        border: 'border-success/30',
+        text: 'text-success',
       }
     }
     if (value >= 40) {
       return {
-        bg: 'bg-warning-50',
-        border: 'border-warning-300',
-        text: 'text-warning-800',
+        bg: 'bg-panel',
+        border: 'border-warning/30',
+        text: 'text-warning',
       }
     }
     return {
-      bg: 'bg-danger-50',
-      border: 'border-danger-300',
-      text: 'text-danger-800',
+      bg: 'bg-panel',
+      border: 'border-danger/30',
+      text: 'text-danger',
     }
   } else {
     // Influence: 0-1
     if (value >= 0.7) {
       return {
-        bg: 'bg-success-50',
-        border: 'border-success-300',
-        text: 'text-success-800',
+        bg: 'bg-panel',
+        border: 'border-success/30',
+        text: 'text-success',
       }
     }
     if (value >= 0.4) {
       return {
-        bg: 'bg-warning-50',
-        border: 'border-warning-300',
-        text: 'text-warning-800',
+        bg: 'bg-panel',
+        border: 'border-warning/30',
+        text: 'text-warning',
       }
     }
     return {
-      bg: 'bg-danger-50',
-      border: 'border-danger-300',
-      text: 'text-danger-800',
+      bg: 'bg-panel',
+      border: 'border-danger/30',
+      text: 'text-danger',
     }
   }
 }

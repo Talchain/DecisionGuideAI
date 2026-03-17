@@ -51,7 +51,7 @@ export const ReproduceShareCard = memo<ReproduceShareCardProps>(({
             <span className="text-sm font-mono">{seed}</span>
             <button
               onClick={handleCopySeed}
-              className="text-xs text-blue-600 hover:text-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 rounded px-1"
+              className="text-xs text-info hover:text-info focus:outline-none focus:ring-2 focus:ring-info focus:ring-offset-1 rounded px-1"
               data-testid="copy-seed"
               aria-label="Copy seed"
             >
@@ -69,7 +69,7 @@ export const ReproduceShareCard = memo<ReproduceShareCardProps>(({
               </span>
               <button
                 onClick={handleCopyHash}
-                className="text-xs text-blue-600 hover:text-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 rounded px-1"
+                className="text-xs text-info hover:text-info focus:outline-none focus:ring-2 focus:ring-info focus:ring-offset-1 rounded px-1"
                 data-testid="copy-hash"
                 aria-label="Copy verification hash"
               >
@@ -82,7 +82,7 @@ export const ReproduceShareCard = memo<ReproduceShareCardProps>(({
 
       <button
         onClick={onAddToNote}
-        className="w-full px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+        className="w-full px-4 py-2 bg-primary text-text-on-color rounded hover:bg-primary-hover focus:outline-none focus:ring-2 focus:ring-info focus:ring-offset-2"
         data-testid="add-to-note"
       >
         Add to decision note

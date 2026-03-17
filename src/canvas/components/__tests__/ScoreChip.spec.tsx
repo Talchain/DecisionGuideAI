@@ -12,8 +12,8 @@ describe('ScoreChip', () => {
       expect(screen.getByText(/85%/)).toBeInTheDocument()
 
       const chip = screen.getByTestId('score-chip')
-      expect(chip.className).toContain('bg-success-50')
-      expect(chip.className).toContain('border-success-300')
+      expect(chip.className).toContain('bg-panel')
+      expect(chip.className).toContain('border-success/30')
     })
 
     it('renders moderate confidence with yellow styling', () => {
@@ -23,7 +23,7 @@ describe('ScoreChip', () => {
       expect(screen.getByText(/55%/)).toBeInTheDocument()
 
       const chip = screen.getByTestId('score-chip')
-      expect(chip.className).toContain('bg-warning-50')
+      expect(chip.className).toContain('bg-panel')
     })
 
     it('renders low confidence with red styling', () => {
@@ -33,7 +33,7 @@ describe('ScoreChip', () => {
       expect(screen.getByText(/25%/)).toBeInTheDocument()
 
       const chip = screen.getByTestId('score-chip')
-      expect(chip.className).toContain('bg-danger-50')
+      expect(chip.className).toContain('bg-panel')
     })
 
     it('renders very high confidence label for 90%+', () => {
@@ -55,7 +55,7 @@ describe('ScoreChip', () => {
       expect(screen.getByText(/0\.8/)).toBeInTheDocument()
 
       const chip = screen.getByTestId('score-chip')
-      expect(chip.className).toContain('bg-success-50')
+      expect(chip.className).toContain('bg-panel')
     })
 
     it('renders moderate influence with yellow styling', () => {

@@ -15,8 +15,8 @@ export default function BiasCard({ name, definition, mitigationTip }: BiasCardPr
         {/* Header */}
         <div className="flex items-start gap-3 mb-6">
           <div className="flex-shrink-0">
-            <div className="p-2 bg-indigo-50 rounded-lg">
-              <Brain className="h-5 w-5 text-indigo-600" />
+            <div className="p-2 bg-panel rounded-lg">
+              <Brain className="h-5 w-5 text-info" />
             </div>
           </div>
           <div className="flex-1 min-w-0">
@@ -31,7 +31,7 @@ export default function BiasCard({ name, definition, mitigationTip }: BiasCardPr
           <div className="space-y-6">
             {/* Definition */}
             <div className="flex items-start gap-3">
-              <AlertTriangle className="h-4 w-4 text-amber-500 mt-1 flex-shrink-0" />
+              <AlertTriangle className="h-4 w-4 text-warning mt-1 flex-shrink-0" />
               <div className="flex-1">
                 <h4 className="text-sm font-medium text-gray-700 mb-2">Definition</h4>
                 <p className="text-sm text-gray-600">{definition}</p>
@@ -40,7 +40,7 @@ export default function BiasCard({ name, definition, mitigationTip }: BiasCardPr
 
             {/* Mitigation Tip */}
             <div className="flex items-start gap-3">
-              <Lightbulb className="h-4 w-4 text-green-500 mt-1 flex-shrink-0" />
+              <Lightbulb className="h-4 w-4 text-success mt-1 flex-shrink-0" />
               <div className="flex-1">
                 <h4 className="text-sm font-medium text-gray-700 mb-2">How to Mitigate</h4>
                 <p className="text-sm text-gray-700">{mitigationTip}</p>

@@ -1,14 +1,17 @@
 import { createContext, useContext, useState, ReactNode, useCallback, useMemo } from 'react'
+import { CheckCircle, XCircle, Info, AlertTriangle, X } from 'lucide-react'
+import { typography } from '../styles/typography'
 
 interface Toast {
   id: string
   message: string
   type: 'success' | 'error' | 'info' | 'warning'
+  action?: { label: string; onClick: () => void }
 }
 
 interface ToastContextType {
   toasts: Toast[]
-  showToast: (message: string, type?: Toast['type']) => void
+  showToast: (message: string, type?: Toast['type'], action?: Toast['action']) => void
   removeToast: (id: string) => void
 }
 
@@ -17,25 +20,41 @@ interface ToastContextType {
 // - ToastActionsContext: Never changes (stable refs for showToast/removeToast)
 const ToastStateContext = createContext<Toast[]>([])
 const ToastActionsContext = createContext<{
-  showToast: (message: string, type?: Toast['type']) => void
+  showToast: (message: string, type?: Toast['type'], action?: Toast['action']) => void
   removeToast: (id: string) => void
 } | null>(null)
 
 // Legacy context for backwards compatibility
 const ToastContext = createContext<ToastContextType | null>(null)
 
+// Auto-dismiss duration per severity level (errors persist until manually dismissed)
+const AUTO_DISMISS_MS: Record<Toast['type'], number | null> = {
+  success: 5000,
+  info:    5000,
+  warning: 5000,
+  error:   null, // manual dismiss only
+}
+
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([])
 
-  const showToast = useCallback((message: string, type: Toast['type'] = 'info') => {
-    const id = `toast-${Date.now()}-${Math.random()}`
-    setToasts(prev => [...prev, { id, message, type }])
+  const showToast = useCallback(
+    (message: string, type: Toast['type'] = 'info', action?: Toast['action']) => {
+      const id = `toast-${Date.now()}-${Math.random()}`
+      const newToast: Toast = { id, message, type, action }
 
-    // Auto-dismiss after 3s
-    setTimeout(() => {
-      setToasts(prev => prev.filter(t => t.id !== id))
-    }, 3000)
-  }, [])
+      // Maximum one toast visible at a time — new toast replaces the previous
+      setToasts([newToast])
+
+      const dismissAfter = AUTO_DISMISS_MS[type]
+      if (dismissAfter !== null) {
+        setTimeout(() => {
+          setToasts(prev => prev.filter(t => t.id !== id))
+        }, dismissAfter)
+      }
+    },
+    [],
+  )
 
   const removeToast = useCallback((id: string) => {
     setToasts(prev => prev.filter(t => t.id !== id))
@@ -45,13 +64,13 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   // showToast and removeToast are wrapped in useCallback with []
   const actionsValue = useMemo(
     () => ({ showToast, removeToast }),
-    [showToast, removeToast]
+    [showToast, removeToast],
   )
 
   // Legacy context value (changes when toasts changes)
   const legacyValue = useMemo(
     () => ({ toasts, showToast, removeToast }),
-    [toasts, showToast, removeToast]
+    [toasts, showToast, removeToast],
   )
 
   return (
@@ -85,56 +104,71 @@ export function useShowToast() {
   return context.showToast
 }
 
+const TOAST_ICONS = {
+  success: CheckCircle,
+  error:   XCircle,
+  info:    Info,
+  warning: AlertTriangle,
+} as const
+
+// Maps toast type to the semantic CSS variable for the left border colour
+const TOAST_BORDER_COLOR: Record<Toast['type'], string> = {
+  success: 'var(--success)',
+  error:   'var(--danger)',
+  info:    'var(--info)',
+  warning: 'var(--warning)',
+}
+
+const TOAST_ICON_CLASS: Record<Toast['type'], string> = {
+  success: 'text-success',
+  error:   'text-danger',
+  info:    'text-info',
+  warning: 'text-warning',
+}
+
+const TOAST_ACTION_CLASS: Record<Toast['type'], string> = {
+  success: 'text-success hover:text-success/80',
+  error:   'text-danger hover:text-danger/80',
+  info:    'text-info hover:text-info/80',
+  warning: 'text-warning hover:text-warning/80',
+}
+
 function ToastContainer({ toasts, onRemove }: { toasts: Toast[]; onRemove: (id: string) => void }) {
   if (toasts.length === 0) return null
 
   return (
     <div className="fixed top-6 right-6 z-[9000] space-y-2" role="region" aria-label="Notifications">
-      {toasts.map(toast => (
-        <div
-          key={toast.id}
-          className={`
-            px-4 py-3 rounded-lg shadow-panel border flex items-center gap-3 min-w-[300px] max-w-md
-            animate-[slideIn_0.2s_ease-out]
-            ${toast.type === 'success' ? 'bg-success-50 border-success-200 text-success-900' : ''}
-            ${toast.type === 'error' ? 'bg-danger-50 border-danger-200 text-danger-900' : ''}
-            ${toast.type === 'info' ? 'bg-info-50 border-info-200 text-info-900' : ''}
-            ${toast.type === 'warning' ? 'bg-warning-50 border-warning-200 text-warning-900' : ''}
-          `}
-          role="alert"
-        >
-          {toast.type === 'success' && (
-            <svg className="w-5 h-5 text-green-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-            </svg>
-          )}
-          {toast.type === 'error' && (
-            <svg className="w-5 h-5 text-red-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          )}
-          {toast.type === 'info' && (
-            <svg className="w-5 h-5 text-info-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-          )}
-          {toast.type === 'warning' && (
-            <svg className="w-5 h-5 text-warning-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-            </svg>
-          )}
-          <p className="text-sm font-medium flex-1">{toast.message}</p>
-          <button
-            onClick={() => onRemove(toast.id)}
-            className="p-1 hover:bg-black/5 rounded transition-colors"
-            aria-label="Dismiss"
+      {toasts.map(toast => {
+        const Icon = TOAST_ICONS[toast.type]
+        return (
+          <div
+            key={toast.id}
+            className="bg-panel rounded-lg shadow-2 flex items-center gap-3 px-4 py-3 max-w-[360px] animate-slideDown"
+            style={{ borderLeft: `3px solid ${TOAST_BORDER_COLOR[toast.type]}` }}
+            role="alert"
           >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-      ))}
+            <Icon className={`w-4 h-4 flex-shrink-0 ${TOAST_ICON_CLASS[toast.type]}`} aria-hidden="true" />
+            <p className={`${typography.label} text-text-body flex-1`}>{toast.message}</p>
+            {toast.action && (
+              <button
+                type="button"
+                onClick={toast.action.onClick}
+                className={`${typography.link} flex-shrink-0 ${TOAST_ACTION_CLASS[toast.type]}`}
+              >
+                {toast.action.label}
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => onRemove(toast.id)}
+              className="flex-shrink-0 p-1 hover:bg-black/5 rounded transition-colors text-text-light"
+              aria-label="Dismiss"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        )
+      })}
     </div>
   )
 }

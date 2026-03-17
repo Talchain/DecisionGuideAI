@@ -73,10 +73,10 @@ describe('RangeVisualization', () => {
         />
       )
 
-      // goalProbability of 0.75 = 75%
-      expect(screen.getByText('75%')).toBeInTheDocument()
-      // goalProbability of 0.55 = 55%
-      expect(screen.getByText('55%')).toBeInTheDocument()
+      // goalProbability of 0.75 → "75% hit target"
+      expect(screen.getByText('75% hit target')).toBeInTheDocument()
+      // goalProbability of 0.55 → "55% hit target"
+      expect(screen.getByText('55% hit target')).toBeInTheDocument()
     })
   })
 
@@ -130,8 +130,8 @@ describe('RangeVisualization', () => {
       expect(screen.queryByText('Option D')).not.toBeInTheDocument()
       expect(screen.queryByText('Option E')).not.toBeInTheDocument()
 
-      // Should show "+2 more options" toggle
-      expect(screen.getByText('+2 more options')).toBeInTheDocument()
+      // Should show "+ 2 more" toggle
+      expect(screen.getByText('+ 2 more')).toBeInTheDocument()
     })
 
     it('expands to show all options when toggle clicked', () => {
@@ -159,7 +159,7 @@ describe('RangeVisualization', () => {
 
       render(<RangeVisualization options={manyOptions} winnerId="option-1" />)
 
-      fireEvent.click(screen.getByText('+1 more option'))
+      fireEvent.click(screen.getByText('+ 1 more'))
 
       // All options should now be visible
       expect(screen.getByText('Option A')).toBeInTheDocument()
@@ -191,8 +191,8 @@ describe('RangeVisualization', () => {
         />
       )
 
-      // Threshold label should be visible
-      expect(screen.getAllByText('80').length).toBeGreaterThan(0)
+      // Target label should be visible at section bottom
+      expect(screen.getByText(/Target:\s*80/)).toBeInTheDocument()
     })
 
     it('does not show target line when goalThreshold is null', () => {
@@ -221,7 +221,7 @@ describe('RangeVisualization', () => {
       )
 
       expect(
-        screen.getByText(/If Tech Lead Hired is unfavourable, expect closer to the lower bound/)
+        screen.getByText(/If Tech Lead Hired is unfavourable than estimated, expect closer to the pessimistic end/)
       ).toBeInTheDocument()
     })
 
@@ -234,7 +234,7 @@ describe('RangeVisualization', () => {
       )
 
       expect(
-        screen.queryByText(/expect closer to the lower bound/)
+        screen.queryByText(/expect closer to the pessimistic end/)
       ).not.toBeInTheDocument()
     })
 

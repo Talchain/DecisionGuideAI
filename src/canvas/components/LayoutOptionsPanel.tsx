@@ -61,7 +61,7 @@ export function LayoutOptionsPanel() {
   }
 
   return (
-    <div className="fixed top-24 right-6 w-80 bg-white rounded-2xl shadow-panel border border-gray-200 p-6 z-[2000]">
+    <div className="fixed top-24 right-6 w-80 bg-white rounded-lg shadow-panel border border-panel-border p-6 z-[2000]">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-lg font-semibold text-gray-900">Layout Options</h3>
         <button
@@ -88,7 +88,7 @@ export function LayoutOptionsPanel() {
                 onClick={() => setDirection(dir)}
                 className={`px-3 py-2 rounded-lg ${typography.button} transition-colors ${
                   direction === dir
-                    ? 'bg-primary text-white'
+                    ? 'bg-primary text-text-on-color'
                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                 }`}
               >
@@ -156,7 +156,7 @@ export function LayoutOptionsPanel() {
         <button
           onClick={handleApplyLayout}
           disabled={isApplying}
-          className="w-full px-4 py-3 bg-primary text-white rounded-lg hover:bg-primary-hover transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full px-4 py-3 bg-primary text-text-on-color rounded-lg hover:bg-primary-hover transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {isApplying ? (
             <span className="flex items-center justify-center gap-2">

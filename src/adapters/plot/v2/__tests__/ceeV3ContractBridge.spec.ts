@@ -214,6 +214,19 @@ describe('Status Alias Normalisation', () => {
 
     expect(uiOption.status).toBe('needs_user_mapping')
   })
+
+  it('preserves needs_encoding status (not degraded to needs_user_mapping)', () => {
+    const ceeOption: CEEOptionV3 = {
+      id: 'opt1',
+      label: 'Option needing encoding',
+      status: 'needs_encoding',
+      interventions: {},
+    }
+
+    const uiOption = ceeOptionToUIOption(ceeOption)
+
+    expect(uiOption.status).toBe('needs_encoding')
+  })
 })
 
 // ============================================================================
@@ -277,6 +290,33 @@ describe('ceeOptionToUIOption', () => {
       'What is the target value?',
     ])
     expect(uiOption.unresolved_targets).toEqual(['market share', 'customer satisfaction'])
+  })
+
+  it('preserves raw_interventions when present', () => {
+    const ceeOption: CEEOptionV3 = {
+      id: 'opt_with_raw',
+      label: 'Option with raw interventions',
+      status: 'needs_encoding',
+      interventions: { factor_market: { value: 0.5, source: 'brief_extraction' } },
+      raw_interventions: { factor_market: 'UK' },
+    }
+
+    const uiOption = ceeOptionToUIOption(ceeOption)
+
+    expect(uiOption.raw_interventions).toEqual({ factor_market: 'UK' })
+  })
+
+  it('omits raw_interventions when absent', () => {
+    const ceeOption: CEEOptionV3 = {
+      id: 'opt_no_raw',
+      label: 'Option without raw interventions',
+      status: 'ready',
+      interventions: { factor_price: { value: 100, source: 'brief_extraction' } },
+    }
+
+    const uiOption = ceeOptionToUIOption(ceeOption)
+
+    expect(uiOption.raw_interventions).toBeUndefined()
   })
 })
 
@@ -596,7 +636,8 @@ describe('buildV2RequestFromAnalysisReady', () => {
 
     // Edge should have fallback values
     expect(request.graph.edges[0].strength.mean).toBe(0.5) // Default weight
-    expect(request.graph.edges[0].exists_probability).toBe(0.5) // Default belief
+    // exists_probability omitted — PLoT applies DEFAULT_EXISTS_PROBABILITY (0.8) with repair logging
+    expect(request.graph.edges[0]).not.toHaveProperty('exists_probability')
   })
 
   it('throws EdgeValidationError with strictEdgeValidation=true', () => {
@@ -810,5 +851,383 @@ describe('CEE Option Status Normalisation', () => {
     const uiOptions = getOptionsFromAnalysisReady(analysisReady)
 
     expect(uiOptions[0].status).toBe('needs_user_mapping')
+  })
+})
+
+// ============================================================================
+// Dual-Path goal_threshold_* Tests
+// ============================================================================
+
+describe('goal_threshold_* dual-path preservation', () => {
+  it('path 1: goal_threshold_* on node.data flows through transformNodeToV2 into request graph', () => {
+    // When CEE puts goal_threshold_* directly on the goal node,
+    // DraftChat spreads them into node.data, and transformNodeToV2
+    // passes them through via the blocklist approach.
+    const nodes: Node[] = [
+      makeNode('factor_price', { label: 'Price', kind: 'factor' }),
+      makeNode('goal_growth', {
+        label: 'Reach 800 Customers',
+        kind: 'goal',
+        goal_threshold: 0.8,
+        goal_threshold_raw: 800,
+        goal_threshold_unit: 'count',
+        goal_threshold_cap: 1000,
+      }),
+    ]
+    const edges: Edge[] = [
+      makeEdge('e1', 'factor_price', 'goal_growth', {
+        weight: 0.7,
+        direction: 'positive',
+        beliefExists: 0.8,
+      }),
+    ]
+    const analysisReady: CEEAnalysisReady = {
+      options: [makeCEEOptionV3('opt1', 'ready', { factor_price: { value: 100 } })],
+      goal_node_id: 'goal_growth',
+      // No goal_threshold_* on analysisReady — only on node
+    }
+
+    const { request } = buildV2RequestFromAnalysisReady(nodes, edges, analysisReady)
+
+    // goal_threshold_* should be present on the goal node in the graph
+    const goalNode = request.graph.nodes.find((n) => n.id === 'goal_growth')
+    expect(goalNode).toBeDefined()
+    expect(goalNode!.goal_threshold).toBe(0.8)
+    expect(goalNode!.goal_threshold_raw).toBe(800)
+    expect(goalNode!.goal_threshold_unit).toBe('count')
+    expect(goalNode!.goal_threshold_cap).toBe(1000)
+  })
+
+  it('path 2: only goal_threshold (normalised) flows to request top-level; display metadata is excluded', () => {
+    // PLoT uses extra='forbid' — goal_threshold_raw, _unit, _cap are CEE display
+    // metadata that must NOT appear on the /v2/run request top level.
+    const nodes: Node[] = [
+      makeNode('factor_price', { label: 'Price', kind: 'factor' }),
+      makeNode('goal_growth', { label: 'Reach 800 Customers', kind: 'goal' }),
+    ]
+    const edges: Edge[] = [
+      makeEdge('e1', 'factor_price', 'goal_growth', {
+        weight: 0.7,
+        direction: 'positive',
+        beliefExists: 0.8,
+      }),
+    ]
+    const analysisReady: CEEAnalysisReady = {
+      options: [makeCEEOptionV3('opt1', 'ready', { factor_price: { value: 100 } })],
+      goal_node_id: 'goal_growth',
+      goal_threshold: 0.8,
+      goal_threshold_raw: 800,
+      goal_threshold_unit: 'count',
+      goal_threshold_cap: 1000,
+    }
+
+    const { request } = buildV2RequestFromAnalysisReady(nodes, edges, analysisReady)
+
+    // goal_threshold (normalised 0-1) IS accepted by PLoT
+    expect(request.goal_threshold).toBe(0.8)
+    // Display metadata must NOT be on request top level
+    expect(request).not.toHaveProperty('goal_threshold_raw')
+    expect(request).not.toHaveProperty('goal_threshold_unit')
+    expect(request).not.toHaveProperty('goal_threshold_cap')
+  })
+
+  it('both paths: display metadata on nodes only, not on request top-level', () => {
+    const nodes: Node[] = [
+      makeNode('factor_price', { label: 'Price', kind: 'factor' }),
+      makeNode('goal_growth', {
+        label: 'Reach 800 Customers',
+        kind: 'goal',
+        goal_threshold: 0.8,
+        goal_threshold_raw: 800,
+        goal_threshold_unit: 'count',
+        goal_threshold_cap: 1000,
+      }),
+    ]
+    const edges: Edge[] = [
+      makeEdge('e1', 'factor_price', 'goal_growth', {
+        weight: 0.7,
+        direction: 'positive',
+        beliefExists: 0.8,
+      }),
+    ]
+    const analysisReady: CEEAnalysisReady = {
+      options: [makeCEEOptionV3('opt1', 'ready', { factor_price: { value: 100 } })],
+      goal_node_id: 'goal_growth',
+      goal_threshold: 0.8,
+      goal_threshold_raw: 800,
+      goal_threshold_unit: 'count',
+      goal_threshold_cap: 1000,
+    }
+
+    const { request } = buildV2RequestFromAnalysisReady(nodes, edges, analysisReady)
+
+    // Node-level: display metadata preserved (PLoT accepts on nodes)
+    const goalNode = request.graph.nodes.find((n) => n.id === 'goal_growth')
+    expect(goalNode!.goal_threshold_raw).toBe(800)
+
+    // Request top-level: display metadata excluded (PLoT extra='forbid')
+    expect(request.goal_threshold).toBe(0.8)
+    expect(request).not.toHaveProperty('goal_threshold_raw')
+    expect(request).not.toHaveProperty('goal_threshold_unit')
+    expect(request).not.toHaveProperty('goal_threshold_cap')
+  })
+
+  it('node-level display metadata preserved even when analysisReady has different values', () => {
+    // Node has its own values; analysisReady has authoritative ones.
+    // Node-level values stay on the node. Neither leaks to request top-level.
+    const nodes: Node[] = [
+      makeNode('factor_price', { label: 'Price', kind: 'factor' }),
+      makeNode('goal_growth', {
+        label: 'Reach 800 Customers',
+        kind: 'goal',
+        goal_threshold: 0.5,
+        goal_threshold_raw: 500,
+        goal_threshold_unit: 'users',
+        goal_threshold_cap: 2000,
+      }),
+    ]
+    const edges: Edge[] = [
+      makeEdge('e1', 'factor_price', 'goal_growth', {
+        weight: 0.7,
+        direction: 'positive',
+        beliefExists: 0.8,
+      }),
+    ]
+    const analysisReady: CEEAnalysisReady = {
+      options: [makeCEEOptionV3('opt1', 'ready', { factor_price: { value: 100 } })],
+      goal_node_id: 'goal_growth',
+      goal_threshold: 0.8,
+      goal_threshold_raw: 800,
+      goal_threshold_unit: 'count',
+      goal_threshold_cap: 1000,
+    }
+
+    const { request } = buildV2RequestFromAnalysisReady(nodes, edges, analysisReady)
+
+    // Request top-level: only goal_threshold (normalised), no display metadata
+    expect(request.goal_threshold).toBe(0.8)
+    expect(request).not.toHaveProperty('goal_threshold_raw')
+    expect(request).not.toHaveProperty('goal_threshold_unit')
+    expect(request).not.toHaveProperty('goal_threshold_cap')
+
+    // Node-level in graph: carries the node's own values
+    const goalNode = request.graph.nodes.find((n) => n.id === 'goal_growth')
+    expect(goalNode!.goal_threshold_raw).toBe(500)
+  })
+})
+
+// ============================================================================
+// goal_constraints pass-through Tests
+// ============================================================================
+
+describe('goal_constraints pass-through via buildV2RequestFromAnalysisReady', () => {
+  it('forwards goal_constraints from options to V2RunRequest', () => {
+    const nodes: Node[] = [
+      makeNode('factor_price', { label: 'Price', kind: 'factor' }),
+      makeNode('outcome_revenue', { label: 'Revenue', kind: 'outcome' }),
+    ]
+    const edges: Edge[] = [
+      makeEdge('e1', 'factor_price', 'outcome_revenue', {
+        weight: 0.7,
+        direction: 'positive',
+        beliefExists: 0.8,
+      }),
+    ]
+    const analysisReady: CEEAnalysisReady = {
+      options: [makeCEEOptionV3('opt1', 'ready', { factor_price: { value: 100 } })],
+      goal_node_id: 'outcome_revenue',
+    }
+    const goalConstraints = [
+      { id: 'c1', label: 'MRR', operator: '>=' as const, value: 50000 },
+      { id: 'c2', label: 'Churn rate', operator: '<=' as const, value: 0.05 },
+      { id: 'c3', label: 'NPS', operator: '>=' as const, value: 40 },
+    ]
+
+    const { request } = buildV2RequestFromAnalysisReady(
+      nodes, edges, analysisReady, undefined, undefined,
+      { goalConstraints }
+    )
+
+    expect(request.goal_constraints).toBeDefined()
+    expect(request.goal_constraints).toHaveLength(3)
+    expect(request.goal_constraints![0]).toEqual({
+      id: 'c1',
+      label: 'MRR',
+      operator: '>=',
+      value: 50000,
+    })
+    expect(request.goal_constraints![2].id).toBe('c3')
+  })
+
+  it('omits goal_constraints from request when not provided in options', () => {
+    const nodes: Node[] = [
+      makeNode('factor_price', { label: 'Price', kind: 'factor' }),
+      makeNode('outcome_revenue', { label: 'Revenue', kind: 'outcome' }),
+    ]
+    const edges: Edge[] = [
+      makeEdge('e1', 'factor_price', 'outcome_revenue', {
+        weight: 0.7,
+        direction: 'positive',
+        beliefExists: 0.8,
+      }),
+    ]
+    const analysisReady: CEEAnalysisReady = {
+      options: [makeCEEOptionV3('opt1', 'ready', { factor_price: { value: 100 } })],
+      goal_node_id: 'outcome_revenue',
+    }
+
+    const { request } = buildV2RequestFromAnalysisReady(nodes, edges, analysisReady)
+
+    expect(request.goal_constraints).toBeUndefined()
+  })
+
+  it('omits goal_constraints from request when array is empty', () => {
+    const nodes: Node[] = [
+      makeNode('factor_price', { label: 'Price', kind: 'factor' }),
+      makeNode('outcome_revenue', { label: 'Revenue', kind: 'outcome' }),
+    ]
+    const edges: Edge[] = [
+      makeEdge('e1', 'factor_price', 'outcome_revenue', {
+        weight: 0.7,
+        direction: 'positive',
+        beliefExists: 0.8,
+      }),
+    ]
+    const analysisReady: CEEAnalysisReady = {
+      options: [makeCEEOptionV3('opt1', 'ready', { factor_price: { value: 100 } })],
+      goal_node_id: 'outcome_revenue',
+    }
+
+    const { request } = buildV2RequestFromAnalysisReady(
+      nodes, edges, analysisReady, undefined, undefined,
+      { goalConstraints: [] }
+    )
+
+    // Empty array should be omitted (no constraints = no field)
+    expect(request.goal_constraints).toBeUndefined()
+  })
+
+  it('omits goal_constraints from request when null', () => {
+    const nodes: Node[] = [
+      makeNode('factor_price', { label: 'Price', kind: 'factor' }),
+      makeNode('outcome_revenue', { label: 'Revenue', kind: 'outcome' }),
+    ]
+    const edges: Edge[] = [
+      makeEdge('e1', 'factor_price', 'outcome_revenue', {
+        weight: 0.7,
+        direction: 'positive',
+        beliefExists: 0.8,
+      }),
+    ]
+    const analysisReady: CEEAnalysisReady = {
+      options: [makeCEEOptionV3('opt1', 'ready', { factor_price: { value: 100 } })],
+      goal_node_id: 'outcome_revenue',
+    }
+
+    const { request } = buildV2RequestFromAnalysisReady(
+      nodes, edges, analysisReady, undefined, undefined,
+      { goalConstraints: null }
+    )
+
+    expect(request.goal_constraints).toBeUndefined()
+  })
+})
+
+// ============================================================================
+// V3 observed_state pass-through via analysisReady path
+// ============================================================================
+
+describe('V3 observed_state preservation via buildV2RequestFromAnalysisReady', () => {
+  it('V3 fields survive the full pipeline (canvas node → transformNodeToV2 → normaliseGraphIds → request)', () => {
+    const nodes: Node[] = [
+      makeNode('fac_investment', {
+        label: 'Investment',
+        kind: 'factor',
+        observedState: {
+          value: 0.2,
+          unit: '£',
+          source: 'cee_inference',
+          raw_value: 100000,
+          cap: 500000,
+          factor_type: 'cost',
+          uncertainty_drivers: ['Vendor quotes pending'],
+        },
+      }),
+      makeNode('goal_growth', { label: 'Growth', kind: 'outcome' }),
+    ]
+    const edges: Edge[] = [
+      makeEdge('e1', 'fac_investment', 'goal_growth', {
+        weight: 0.5,
+        direction: 'positive',
+        beliefExists: 0.7,
+      }),
+    ]
+    const analysisReady: CEEAnalysisReady = {
+      options: [makeCEEOptionV3('opt1', 'ready', { fac_investment: { value: 0.3 } })],
+      goal_node_id: 'goal_growth',
+    }
+
+    const { request } = buildV2RequestFromAnalysisReady(nodes, edges, analysisReady)
+
+    const facNode = request.graph.nodes.find((n) => n.id === 'fac_investment')
+    expect(facNode).toBeDefined()
+    expect(facNode!.observed_state).toBeDefined()
+    expect(facNode!.observed_state!.raw_value).toBe(100000)
+    expect(facNode!.observed_state!.cap).toBe(500000)
+    expect(facNode!.observed_state!.factor_type).toBe('cost')
+    expect(facNode!.observed_state!.source).toBe('cee_inference')
+    expect(facNode!.observed_state!.uncertainty_drivers).toEqual(['Vendor quotes pending'])
+  })
+})
+
+// ============================================================================
+// M2: model_adjustments preservation
+// ============================================================================
+
+describe('model_adjustments preservation', () => {
+  it('model_adjustments survives on CEEAnalysisReady through adapter', () => {
+    const analysisReady: CEEAnalysisReady = {
+      options: [makeCEEOptionV3('opt1', 'ready', { factor_price: { value: 100 } })],
+      goal_node_id: 'outcome_revenue',
+      model_adjustments: [
+        { type: 'strp_repair', target: 'edge_e1', detail: 'Restored dropped edge' },
+        { type: 'category_infer', field: 'category', detail: 'Inferred controllable from edges' },
+      ],
+    }
+
+    // model_adjustments is on the type and accessible
+    expect(analysisReady.model_adjustments).toHaveLength(2)
+    expect(analysisReady.model_adjustments![0].type).toBe('strp_repair')
+    expect(analysisReady.model_adjustments![1].detail).toBe('Inferred controllable from edges')
+
+    // Verify it passes through hasAnalysisReady type guard
+    const response = makeCEEv3Response(analysisReady)
+    expect(hasAnalysisReady(response)).toBe(true)
+    expect(response.analysis_ready!.model_adjustments).toHaveLength(2)
+  })
+})
+
+// ============================================================================
+// M3: blockers preservation
+// ============================================================================
+
+describe('blockers preservation', () => {
+  it('blockers survive on CEEAnalysisReady', () => {
+    const analysisReady: CEEAnalysisReady = {
+      options: [makeCEEOptionV3('opt1', 'ready', { factor_price: { value: 100 } })],
+      goal_node_id: 'outcome_revenue',
+      blockers: [
+        { factor_id: 'factor_a', reason: 'Missing observed value', factor_label: 'Factor A' },
+        { factor_id: 'factor_b', reason: 'No causal path', option_id: 'opt1' },
+      ],
+    }
+
+    expect(analysisReady.blockers).toHaveLength(2)
+    expect(analysisReady.blockers![0].factor_id).toBe('factor_a')
+    expect(analysisReady.blockers![1].reason).toBe('No causal path')
+
+    const response = makeCEEv3Response(analysisReady)
+    expect(hasAnalysisReady(response)).toBe(true)
+    expect(response.analysis_ready!.blockers).toHaveLength(2)
   })
 })

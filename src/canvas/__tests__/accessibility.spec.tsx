@@ -242,8 +242,8 @@ describe('S4-A11Y: Focus Management and ARIA', () => {
 
       const warning = container.querySelector('[role="status"]')
 
-      // Should have amber color scheme
-      expect(warning?.classList.toString()).toContain('amber')
+      // Should have warning color scheme (semantic token)
+      expect(warning?.classList.toString()).toContain('warning')
     })
   })
 

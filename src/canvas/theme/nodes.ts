@@ -35,9 +35,9 @@ const LIGHT_THEME: Record<NodeType, NodeThemeTokens> = {
   decision: {
     // Sky-500 accent for decisions
     background: 'var(--info-100, #E1EFF7)',
-    border: 'var(--sky-500, #63ADCF)',
+    border: 'var(--sky-500, #2B7FA2)',
     text: 'var(--text-primary, #262626)',
-    icon: 'var(--sky-500, #63ADCF)',
+    icon: 'var(--sky-500, #2B7FA2)',
     badge: 'var(--info-50, #F0F7FB)',
     badgeText: 'var(--text-secondary, rgba(38, 38, 38, 0.70))',
   },

@@ -23,6 +23,19 @@ export interface FlagConfig {
  * })
  * ```
  */
+// Eagerly snapshot all env vars at module load time. Vite's dev mode may not
+// resolve dynamic property access (`env[key]`) inside closures reliably — the
+// `(import.meta as any)` cast can strip Vite's HMR proxy. By capturing the
+// full object once with a literal `import.meta.env` reference, we guarantee
+// Vite performs its compile-time replacement correctly. Subsequent lookups via
+// `envSnapshot[key]` are plain JS property access on a real object.
+let envSnapshot: Record<string, unknown> = {}
+try {
+  envSnapshot = { ...import.meta.env }
+} catch {
+  // SSR or test environment where import.meta.env is unavailable
+}
+
 export function makeFlag(config: FlagConfig): () => boolean {
   const { envKey, storageKey, defaultValue = false } = config
 
@@ -43,10 +56,10 @@ export function makeFlag(config: FlagConfig): () => boolean {
       // Silently fail if localStorage access throws
     }
 
-    // 2. Environment variable
+    // 2. Environment variable (from eagerly-captured snapshot)
     try {
       if (envKey) {
-        const env = (import.meta as any)?.env?.[envKey]
+        const env = envSnapshot[envKey]
         if (env === '1' || env === 1 || env === true || env === 'true') {
           return true
         }
@@ -61,6 +74,45 @@ export function makeFlag(config: FlagConfig): () => boolean {
     // 3. Return default
     return defaultValue
   }
+}
+
+/**
+ * Returns diagnostic info about how a flag resolved — useful for debugging
+ * staging issues where localStorage overrides may mask the env var.
+ */
+export function diagnoseFlagState(config: FlagConfig): {
+  resolved: boolean
+  source: 'localStorage' | 'env' | 'default'
+  localStorageRaw: string | null
+  envRaw: unknown
+} {
+  const { envKey, storageKey, defaultValue = false } = config
+
+  let localStorageRaw: string | null = null
+  try {
+    if (typeof localStorage !== 'undefined') {
+      localStorageRaw = localStorage.getItem(storageKey)
+    }
+  } catch { /* noop */ }
+
+  const envRaw = envSnapshot[envKey] ?? null
+
+  // Mirror the resolution logic from makeFlag
+  if (localStorageRaw != null) {
+    const resolved = localStorageRaw !== '0' && localStorageRaw !== 'false'
+    return { resolved, source: 'localStorage', localStorageRaw, envRaw }
+  }
+
+  if (envKey && envRaw != null) {
+    if (envRaw === '1' || envRaw === 1 || envRaw === true || envRaw === 'true') {
+      return { resolved: true, source: 'env', localStorageRaw, envRaw }
+    }
+    if (envRaw === '0' || envRaw === 0 || envRaw === false || envRaw === 'false') {
+      return { resolved: false, source: 'env', localStorageRaw, envRaw }
+    }
+  }
+
+  return { resolved: defaultValue, source: 'default', localStorageRaw, envRaw }
 }
 
 /**

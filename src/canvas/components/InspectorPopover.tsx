@@ -1,4 +1,9 @@
 /**
+ * @deprecated Phase 2 (S.1) removed compact inspector routing — single-click
+ * now opens the full 4-section inspector directly. This file is retained
+ * temporarily to avoid import breakage. Safe to delete once all references
+ * are confirmed removed. See commit 8320510e.
+ *
  * Contextual inspector popover - appears next to selected node/edge
  * Handles positioning and viewport boundary adjustments
  * British English: visualisation, colour
@@ -156,7 +161,7 @@ export const InspectorPopover = memo(({ onExpandToFull }: InspectorPopoverProps)
   return (
     <div
       ref={popoverRef}
-      className="fixed z-[4000] transition-opacity duration-150"
+      className="fixed z-[4000] transition-opacity duration-200"
       style={{
         left: position?.x ?? screenAnchor.x + 20,
         top: position?.y ?? screenAnchor.y,

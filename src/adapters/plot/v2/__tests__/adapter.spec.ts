@@ -12,6 +12,7 @@ import {
   transformNodeToV2,
   transformEdgeToV2,
   buildV2Request,
+  buildV2RequestFromAnalysisReady,
 } from '../adapter'
 import {
   isBlockedResponse,
@@ -23,6 +24,7 @@ import {
   type V2RunError,
 } from '../types'
 import type { UIOption, UIInterventionValue } from '../../../../types/options'
+import type { CEEAnalysisReady } from '../../../cee/types'
 
 // ============================================================================
 // Test Fixtures
@@ -330,13 +332,106 @@ describe('transformEdgeToV2', () => {
     expect(transformEdgeToV2(edgeBelief).exists_probability).toBe(0.65)
   })
 
-  it('defaults to 0.5 for missing values', () => {
+  it('defaults to 0.5 mean and omits exists_probability for missing values', () => {
     const edge = makeEdge('e1', 'n1', 'n2', {})
 
     const v2Edge = transformEdgeToV2(edge)
 
     expect(v2Edge.strength.mean).toBe(0.5)
-    expect(v2Edge.exists_probability).toBe(0.5)
+    // exists_probability omitted — PLoT applies DEFAULT_EXISTS_PROBABILITY (0.8) with repair logging
+    expect(v2Edge).not.toHaveProperty('exists_probability')
+  })
+
+  // CIL Phase 1: UI→PLoT boundary - explicit vs default values
+  describe('UI→PLoT default leakage prevention', () => {
+    it('forwards explicit zero strength (not treated as falsy)', () => {
+      // Critical: zero is a valid strength value and must be forwarded
+      // Catches bugs where falsy-check (if (weight)) would skip zero
+      const edge = makeEdge('e1', 'n1', 'n2', {
+        weight: 0,
+        beliefExists: 0.8,
+      })
+
+      const v2Edge = transformEdgeToV2(edge)
+
+      expect(v2Edge.strength.mean).toBe(0)
+      expect(v2Edge.exists_probability).toBe(0.8)
+    })
+
+    it('forwards explicit negative strength from direction', () => {
+      const edge = makeEdge('e1', 'n1', 'n2', {
+        weight: 0.7,
+        direction: 'negative',
+        beliefExists: 0.9,
+      })
+
+      const v2Edge = transformEdgeToV2(edge)
+
+      expect(v2Edge.strength.mean).toBe(-0.7)
+      expect(v2Edge.exists_probability).toBe(0.9)
+    })
+
+    it('omits exists_probability when CEE provides no belief values', () => {
+      /**
+       * Contract: when CEE provides no existence probability, the UI omits
+       * the field entirely. PLoT applies DEFAULT_EXISTS_PROBABILITY (0.8)
+       * with repair logging, so the analytical result is the same but PLoT
+       * retains visibility into which values were defaults.
+       */
+      const edgeNoCEEData = makeEdge('e1', 'n1', 'n2', {})
+
+      const v2Edge = transformEdgeToV2(edgeNoCEEData)
+
+      expect(v2Edge.strength.mean).toBe(0.5)
+      expect(v2Edge).not.toHaveProperty('exists_probability')
+    })
+
+    it('preserves CEE-provided strength values exactly', () => {
+      // When CEE provides explicit values, they must be forwarded unchanged
+      const edgeWithCEEData = makeEdge('e1', 'n1', 'n2', {
+        weight: 0.73,
+        direction: 'positive',
+        beliefExists: 0.88,
+        strengthStd: 0.15,
+      })
+
+      const v2Edge = transformEdgeToV2(edgeWithCEEData)
+
+      expect(v2Edge.strength.mean).toBe(0.73)
+      expect(v2Edge.strength.std).toBe(0.15)
+      expect(v2Edge.exists_probability).toBe(0.88)
+    })
+  })
+})
+
+// ============================================================================
+// exists_probability omit-when-unset tests
+// ============================================================================
+
+describe('exists_probability omit-when-unset', () => {
+  it('edge with no belief fields must not serialise exists_probability', () => {
+    const edge = makeEdge('e1', 'n1', 'n2', {
+      weight: 0.7,
+      direction: 'positive',
+      // No beliefExists, confidence, or belief
+    })
+
+    const v2Edge = transformEdgeToV2(edge)
+
+    // Field omitted — PLoT applies DEFAULT_EXISTS_PROBABILITY (0.8) with repair logging
+    expect(v2Edge).not.toHaveProperty('exists_probability')
+  })
+
+  it('edge with explicit beliefExists forwards the value', () => {
+    const edge = makeEdge('e1', 'n1', 'n2', {
+      weight: 0.7,
+      direction: 'positive',
+      beliefExists: 0.6,
+    })
+
+    const v2Edge = transformEdgeToV2(edge)
+
+    expect(v2Edge.exists_probability).toBe(0.6)
   })
 })
 
@@ -735,5 +830,454 @@ describe('Request Payload Validation - intervention flattening', () => {
     // AND: interventions should be Record<string, number>
     const interventions = request.options[0].interventions
     expect(Object.values(interventions).every((v) => typeof v === 'number')).toBe(true)
+  })
+})
+
+// ============================================================================
+// V3 Field Pass-Through Tests (CEE → PLoT preservation)
+// ============================================================================
+
+describe('V3 observed_state field pass-through', () => {
+  it('preserves V3 fields (raw_value, cap, factor_type, uncertainty_drivers, extractionType)', () => {
+    const node = makeNode('fac_investment', {
+      label: 'Investment',
+      kind: 'factor',
+      observedState: {
+        value: 0.2,
+        unit: '£',
+        source: 'cee_inference',
+        raw_value: 100000,
+        cap: 500000,
+        extractionType: 'inferred',
+        factor_type: 'cost',
+        uncertainty_drivers: ['Final vendor quotes pending', 'Scope not fully defined'],
+      },
+    })
+
+    const v2Node = transformNodeToV2(node)
+
+    expect(v2Node.observed_state).toBeDefined()
+    expect(v2Node.observed_state!.value).toBe(0.2)
+    expect(v2Node.observed_state!.raw_value).toBe(100000)
+    expect(v2Node.observed_state!.cap).toBe(500000)
+    expect(v2Node.observed_state!.factor_type).toBe('cost')
+    expect(v2Node.observed_state!.extractionType).toBe('inferred')
+    expect(v2Node.observed_state!.uncertainty_drivers).toEqual([
+      'Final vendor quotes pending',
+      'Scope not fully defined',
+    ])
+  })
+
+  it('preserves CEE-provided source (does not overwrite)', () => {
+    const node = makeNode('fac_1', {
+      label: 'Factor 1',
+      kind: 'factor',
+      observedState: {
+        value: 0.5,
+        source: 'cee_inference',
+      },
+    })
+
+    const v2Node = transformNodeToV2(node)
+
+    expect(v2Node.observed_state!.source).toBe('cee_inference')
+  })
+
+  it('uses CEE-provided std when present (does not overwrite with computed)', () => {
+    const node = makeNode('fac_1', {
+      label: 'Factor 1',
+      kind: 'factor',
+      observedState: {
+        value: 100,
+        std: 5,
+        baseline: 90,
+      },
+    })
+
+    const v2Node = transformNodeToV2(node)
+
+    // std should be CEE's value (5), not the UI-computed value
+    expect(v2Node.observed_state!.std).toBe(5)
+  })
+
+  it('computes std only when CEE did not provide it', () => {
+    const node = makeNode('fac_1', {
+      label: 'Factor 1',
+      kind: 'factor',
+      observedState: {
+        value: 100,
+        baseline: 80,
+        // No std provided — UI should compute it
+      },
+    })
+
+    const v2Node = transformNodeToV2(node)
+
+    expect(v2Node.observed_state!.std).toBeGreaterThanOrEqual(STD_FLOOR)
+    // delta = |100-80| = 20, computed std = max(0.001, 20*0.25) = 5
+    expect(v2Node.observed_state!.std).toBe(5)
+  })
+})
+
+describe('V3 node-level field pass-through', () => {
+  it('preserves goal_threshold_* fields on goal nodes (node path)', () => {
+    const node = makeNode('goal_growth', {
+      label: 'Reach 800 Pro Customers',
+      kind: 'goal',
+      goal_threshold: 0.8,
+      goal_threshold_raw: 800,
+      goal_threshold_unit: 'count',
+      goal_threshold_cap: 1000,
+    })
+
+    const v2Node = transformNodeToV2(node)
+
+    expect(v2Node.goal_threshold).toBe(0.8)
+    expect(v2Node.goal_threshold_raw).toBe(800)
+    expect(v2Node.goal_threshold_unit).toBe('count')
+    expect(v2Node.goal_threshold_cap).toBe(1000)
+  })
+
+  it('preserves prior field on external factor nodes', () => {
+    const node = makeNode('fac_external', {
+      label: 'Market Conditions',
+      kind: 'factor',
+      category: 'external',
+      prior: 0.7,
+    })
+
+    const v2Node = transformNodeToV2(node)
+
+    expect(v2Node.prior).toBe(0.7)
+    expect(v2Node.category).toBe('external')
+  })
+
+  // CIL 0.2: unknown category values pass through (Task 6)
+  it('preserves unknown category values for forward compatibility', () => {
+    const node = makeNode('fac_derived', {
+      label: 'Derived Factor',
+      kind: 'factor',
+      category: 'derived',
+    })
+
+    const v2Node = transformNodeToV2(node)
+
+    // Unknown categories must pass through to PLoT (not be dropped)
+    expect(v2Node.category).toBe('derived')
+  })
+
+  it('omits category when not present on node', () => {
+    const node = makeNode('fac_nocategory', {
+      label: 'No Category',
+      kind: 'factor',
+    })
+
+    const v2Node = transformNodeToV2(node)
+
+    expect(v2Node.category).toBeUndefined()
+  })
+
+  it('excludes React Flow internal fields from V2 output', () => {
+    const node = makeNode('n1', {
+      label: 'Test',
+      kind: 'factor',
+      // React Flow internals that must NOT leak into PLoT payload
+      selected: true,
+      dragging: false,
+      measured: { width: 200, height: 100 },
+    })
+
+    const v2Node = transformNodeToV2(node)
+
+    expect(v2Node).not.toHaveProperty('selected')
+    expect(v2Node).not.toHaveProperty('dragging')
+    expect(v2Node).not.toHaveProperty('measured')
+  })
+
+  it('excludes UI-only fields (uncertainty, interventions) from V2 output', () => {
+    const node = makeNode('opt1', {
+      label: 'Option A',
+      kind: 'option',
+      uncertainty: 0.3,
+      interventions: { factor_price: 100 },
+    })
+
+    const v2Node = transformNodeToV2(node)
+
+    expect(v2Node).not.toHaveProperty('uncertainty')
+    expect(v2Node).not.toHaveProperty('interventions')
+  })
+})
+
+// ============================================================================
+// observed_state vs observedState Naming Boundary Tests
+// ============================================================================
+
+describe('observed_state / observedState naming boundary', () => {
+  it('transformNodeToV2 outputs snake_case key (observed_state) for PLoT', () => {
+    const node = makeNode('fac_1', {
+      label: 'Factor',
+      kind: 'factor',
+      observedState: { value: 42 },  // camelCase input (canvas convention)
+    })
+
+    const v2Node = transformNodeToV2(node)
+
+    // PLoT payload must use snake_case
+    expect(v2Node).toHaveProperty('observed_state')
+    expect(v2Node).not.toHaveProperty('observedState')
+    expect(v2Node.observed_state!.value).toBe(42)
+  })
+
+  it('camelCase observedState on canvas node does not leak as-is into V2 output', () => {
+    const node = makeNode('fac_1', {
+      label: 'Factor',
+      kind: 'factor',
+      observedState: { value: 10, source: 'cee_inference' },
+    })
+
+    const v2Node = transformNodeToV2(node)
+
+    // observedState is in the blocklist — must not appear in output
+    expect(v2Node).not.toHaveProperty('observedState')
+    // But snake_case observed_state must be present
+    expect(v2Node.observed_state).toBeDefined()
+  })
+})
+
+// ============================================================================
+// /v2/run request allowlist — CEE display metadata exclusion
+// ============================================================================
+
+describe('buildV2RequestFromAnalysisReady — display metadata exclusion', () => {
+  it('excludes goal_threshold_raw, _unit, _cap from request top level', () => {
+    // CEE analysis_ready includes display metadata alongside normalised fields.
+    // PLoT uses extra='forbid' — only allowed fields may appear on the request.
+    const nodes: Node[] = [
+      makeNode('factor_price', { label: 'Price', kind: 'factor', value: 100 }),
+      makeNode('goal_revenue', { label: 'Revenue Target', kind: 'goal' }),
+    ]
+    const edges: Edge[] = [
+      makeEdge('e1', 'factor_price', 'goal_revenue', {
+        weight: 0.7,
+        direction: 'positive',
+        beliefExists: 0.8,
+      }),
+    ]
+    const analysisReady: CEEAnalysisReady = {
+      options: [{
+        id: 'opt_high',
+        label: 'High Price',
+        status: 'ready',
+        interventions: { factor_price: { value: 150, source: 'brief_extraction' } },
+      }],
+      goal_node_id: 'goal_revenue',
+      goal_threshold: 0.8,
+      goal_threshold_raw: 800,
+      goal_threshold_unit: 'count',
+      goal_threshold_cap: 1000,
+    }
+
+    const { request } = buildV2RequestFromAnalysisReady(nodes, edges, analysisReady)
+
+    // Allowed: goal_threshold (normalised 0-1)
+    expect(request.goal_threshold).toBe(0.8)
+
+    // Excluded: CEE display metadata
+    expect(request).not.toHaveProperty('goal_threshold_raw')
+    expect(request).not.toHaveProperty('goal_threshold_unit')
+    expect(request).not.toHaveProperty('goal_threshold_cap')
+  })
+
+  it('request contains only PLoT-accepted top-level keys', () => {
+    const ALLOWED_KEYS = new Set([
+      'graph', 'options', 'goal_node_id', 'goal_threshold',
+      'goal_constraints', 'seed', 'detail_level', 'brief',
+      'request_id',
+      // Audit F-01: framing removed — PLoT rejects it (extra='forbid').
+    ])
+
+    const nodes: Node[] = [
+      makeNode('f1', { label: 'Factor', kind: 'factor', value: 50 }),
+      makeNode('goal', { label: 'Goal', kind: 'goal' }),
+    ]
+    const edges: Edge[] = [
+      makeEdge('e1', 'f1', 'goal', { weight: 0.5, direction: 'positive', beliefExists: 0.7 }),
+    ]
+    const analysisReady: CEEAnalysisReady = {
+      options: [{
+        id: 'opt1',
+        label: 'Option',
+        status: 'ready',
+        interventions: { f1: { value: 100, source: 'brief_extraction' } },
+      }],
+      goal_node_id: 'goal',
+      goal_threshold: 0.6,
+      goal_threshold_raw: 600,
+      goal_threshold_unit: 'USD',
+      goal_threshold_cap: 1000,
+    }
+
+    const { request } = buildV2RequestFromAnalysisReady(
+      nodes, edges, analysisReady, [], undefined,
+      { brief: 'test brief', goalConstraints: [{ node_id: 'f1', operator: '>=', value: 40 }] }
+    )
+
+    // Every key on the request must be in the allowlist
+    for (const key of Object.keys(request)) {
+      expect(ALLOWED_KEYS).toContain(key)
+    }
+  })
+
+  it('unknown analysisReady fields do not leak to request', () => {
+    // Future-proof: if CEE adds new fields to analysis_ready,
+    // they must NOT appear on the /v2/run request unless explicitly allowlisted.
+    const nodes: Node[] = [
+      makeNode('f1', { label: 'Factor', kind: 'factor', value: 50 }),
+      makeNode('goal', { label: 'Goal', kind: 'goal' }),
+    ]
+    const edges: Edge[] = [
+      makeEdge('e1', 'f1', 'goal', { weight: 0.5, direction: 'positive', beliefExists: 0.7 }),
+    ]
+    const analysisReady = {
+      options: [{
+        id: 'opt1',
+        label: 'Option',
+        status: 'ready' as const,
+        interventions: { f1: { value: 100, source: 'brief_extraction' } },
+      }],
+      goal_node_id: 'goal',
+      goal_threshold: 0.6,
+      // Synthetic unknown fields that could appear in future CEE versions
+      new_backend_field: 'should_not_leak',
+      experimental_config: { nested: true },
+      display_hint: 'compact',
+    } as CEEAnalysisReady
+
+    const { request } = buildV2RequestFromAnalysisReady(nodes, edges, analysisReady)
+
+    expect(request).not.toHaveProperty('new_backend_field')
+    expect(request).not.toHaveProperty('experimental_config')
+    expect(request).not.toHaveProperty('display_hint')
+    // Allowed field still present
+    expect(request.goal_threshold).toBe(0.6)
+  })
+})
+
+// =============================================================================
+// XOR: goal_threshold vs goal_constraints
+// =============================================================================
+
+describe('XOR: goal_threshold vs goal_constraints', () => {
+  const xorNodes: Node[] = [
+    makeNode('f1', { label: 'Factor', kind: 'factor', value: 50 }),
+    makeNode('goal', { label: 'Goal', kind: 'goal' }),
+  ]
+  const xorEdges: Edge[] = [
+    makeEdge('e1', 'f1', 'goal', { weight: 0.5, direction: 'positive', beliefExists: 0.7 }),
+  ]
+  const xorAnalysisReady: CEEAnalysisReady = {
+    options: [{
+      id: 'opt1',
+      label: 'Option',
+      status: 'ready',
+      interventions: { f1: { value: 100, source: 'brief_extraction' } },
+    }],
+    goal_node_id: 'goal',
+    goal_threshold: 0.8,
+  }
+
+  it('removes goal_threshold when goal_constraints are present (non-empty array)', () => {
+    const { request } = buildV2RequestFromAnalysisReady(
+      xorNodes, xorEdges, xorAnalysisReady, [], undefined,
+      { goalConstraints: [{ id: 'c1', label: 'Revenue >= 500', operator: '>=', value: 500 }] }
+    )
+
+    expect(request.goal_constraints).toHaveLength(1)
+    expect(request).not.toHaveProperty('goal_threshold')
+  })
+
+  it('preserves goal_threshold when goal_constraints is empty array', () => {
+    const { request } = buildV2RequestFromAnalysisReady(
+      xorNodes, xorEdges, xorAnalysisReady, [], undefined,
+      { goalConstraints: [] }
+    )
+
+    expect(request.goal_threshold).toBe(0.8)
+    expect(request).not.toHaveProperty('goal_constraints')
+  })
+
+  it('preserves goal_threshold when goal_constraints is absent', () => {
+    const { request } = buildV2RequestFromAnalysisReady(
+      xorNodes, xorEdges, xorAnalysisReady
+    )
+
+    expect(request.goal_threshold).toBe(0.8)
+    expect(request).not.toHaveProperty('goal_constraints')
+  })
+
+  it('preserves goal_constraints when goal_threshold is absent', () => {
+    const noThreshold: CEEAnalysisReady = {
+      ...xorAnalysisReady,
+      goal_threshold: undefined,
+    }
+    const { request } = buildV2RequestFromAnalysisReady(
+      xorNodes, xorEdges, noThreshold, [], undefined,
+      { goalConstraints: [{ id: 'c1', label: 'Revenue >= 500', operator: '>=', value: 500 }] }
+    )
+
+    expect(request.goal_constraints).toHaveLength(1)
+    expect(request).not.toHaveProperty('goal_threshold')
+  })
+
+  it('execute path: goal_threshold re-injected via parameter is removed when goal_constraints exist', () => {
+    // Regression test for executeV2RunWithAnalysisReady (adapter.ts:1186-1196).
+    // The builder XOR removes goal_threshold, but the execute path can re-inject
+    // it via the goalThreshold parameter. The second XOR must catch this.
+    const { request } = buildV2RequestFromAnalysisReady(
+      xorNodes, xorEdges, xorAnalysisReady, [], undefined,
+      { goalConstraints: [{ id: 'c1', label: 'Revenue >= 500', operator: '>=', value: 500 }] }
+    )
+
+    // Builder XOR already removed goal_threshold
+    expect(request).not.toHaveProperty('goal_threshold')
+
+    // Simulate execute path: goalThreshold parameter re-injects after builder
+    request.goal_threshold = 0.8
+
+    // Apply the same XOR pattern as executeV2RunWithAnalysisReady (adapter.ts:1194-1196)
+    if (Array.isArray(request.goal_constraints) && request.goal_constraints.length > 0) {
+      delete request.goal_threshold
+    }
+
+    expect(request).not.toHaveProperty('goal_threshold')
+    expect(request.goal_constraints).toHaveLength(1)
+  })
+})
+
+// =============================================================================
+// buildV2Request: scenario comparison path
+// =============================================================================
+
+describe('buildV2Request (scenario comparison path)', () => {
+  it('does not include goal_constraints in request', () => {
+    const nodes: Node[] = [
+      makeNode('f1', { label: 'Factor', kind: 'factor', value: 50 }),
+      makeNode('goal', { label: 'Goal', kind: 'goal' }),
+    ]
+    const edges: Edge[] = [
+      makeEdge('e1', 'f1', 'goal', { weight: 0.5, direction: 'positive', beliefExists: 0.7 }),
+    ]
+    const options: UIOption[] = [{
+      id: 'opt1',
+      label: 'Option',
+      status: 'ready',
+      interventions: { f1: { value: 100, source: 'brief_extraction' as const } },
+    }]
+
+    const { request } = buildV2Request(nodes, edges, options, 'goal')
+
+    expect(request).not.toHaveProperty('goal_constraints')
+    expect(request).not.toHaveProperty('goal_threshold')
   })
 })

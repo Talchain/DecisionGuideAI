@@ -22,22 +22,22 @@ export const ProgressStrip = memo<ProgressStripProps>(({
 
   return (
     <div className="mb-4" data-testid="progress-strip">
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+      <div className="bg-panel border border-info/30 rounded-lg p-3">
         <div className="flex items-center gap-3">
-          <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+          <div className="w-4 h-4 border-2 border-info border-t-transparent rounded-full animate-spin" />
           <div className="flex-1">
             <div className="flex items-center justify-between mb-1">
-              <span className="text-sm text-blue-800" aria-live="polite">
+              <span className="text-sm text-info" aria-live="polite">
                 {message}
               </span>
               {showProgress && (
-                <span className="text-xs text-blue-600 font-medium">{progress}%</span>
+                <span className="text-xs text-info font-medium">{progress}%</span>
               )}
             </div>
             {showProgress && (
-              <div className="w-full h-1.5 bg-blue-200 rounded-full overflow-hidden">
+              <div className="w-full h-1.5 bg-info/20 rounded-full overflow-hidden">
                 <div
-                  className="h-full bg-blue-600 transition-all duration-300 ease-out"
+                  className="h-full bg-primary transition-all duration-300 ease-out"
                   style={{ width: `${progress}%` }}
                   aria-valuenow={progress}
                   aria-valuemin={0}
@@ -50,11 +50,11 @@ export const ProgressStrip = memo<ProgressStripProps>(({
           {canCancel && onCancel && (
             <button
               onClick={onCancel}
-              className="p-1 hover:bg-blue-100 rounded transition-colors focus:outline-none focus:ring-2 focus:ring-blue-600"
+              className="p-1 hover:bg-panel-hover rounded transition-colors focus:outline-none focus:ring-2 focus:ring-info"
               aria-label="Cancel run"
               title="Cancel run"
             >
-              <X className="w-4 h-4 text-blue-600" />
+              <X className="w-4 h-4 text-info" />
             </button>
           )}
         </div>

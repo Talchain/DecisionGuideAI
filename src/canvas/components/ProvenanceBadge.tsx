@@ -30,9 +30,9 @@ const provenanceConfig: Record<ProvenanceType, {
   'ai-suggested': {
     label: 'AI Suggested',
     icon: Sparkles,
-    bg: 'bg-violet-50',
-    text: 'text-violet-700',
-    border: 'border-violet-200',
+    bg: 'bg-panel',
+    text: 'text-option',
+    border: 'border-option/30',
   },
   'user-modified': {
     label: 'User Modified',
@@ -51,9 +51,9 @@ const provenanceConfig: Record<ProvenanceType, {
   'template': {
     label: 'From Template',
     icon: RefreshCw,
-    bg: 'bg-info-50',
-    text: 'text-info-700',
-    border: 'border-info-200',
+    bg: 'bg-panel',
+    text: 'text-info',
+    border: 'border-info/30',
   },
   'inferred': {
     label: 'Inferred',

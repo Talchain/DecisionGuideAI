@@ -91,7 +91,7 @@ export function HelpMenu({ onShowOnboarding, onShowKeyboardLegend, onShowInfluen
           id="canvas-help-menu"
           role="menu"
           aria-label="Canvas help"
-          className="absolute right-0 mt-2 w-72 bg-paper-50 rounded-xl shadow-panel border border-sand-200 py-2 z-[1100]"
+          className="absolute right-0 mt-2 w-72 bg-panel rounded-lg shadow-panel border border-panel-border py-2 z-[1100]"
         >
           <p className={`px-4 pb-2 ${typography.caption} uppercase tracking-wide text-ink-900/70`}>Need a refresher?</p>
           <div className="flex flex-col">
@@ -100,7 +100,7 @@ export function HelpMenu({ onShowOnboarding, onShowKeyboardLegend, onShowInfluen
                 key={item.label}
                 role="menuitem"
                 onClick={() => handleAction(item.action)}
-                className="text-left px-4 py-3 hover:bg-paper-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                className="text-left px-4 py-3 hover:bg-paper-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info"
               >
                 <span className={`block ${typography.label} text-ink-900`}>{item.label}</span>
                 <span className={`block ${typography.caption} text-ink-900/70`}>{item.description}</span>

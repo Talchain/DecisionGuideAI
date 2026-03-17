@@ -84,13 +84,13 @@ function DocumentPreview({ document }: { document: Document }) {
       </div>
 
       {isOversized && (
-        <div className={`mb-2 px-2 py-1.5 bg-danger-50 border border-danger-200 rounded ${typography.caption} text-danger-700`}>
+        <div className={`mb-2 px-2 py-1.5 bg-panel border border-danger/30 rounded ${typography.caption} text-danger`}>
           File exceeds 1 MB limit
         </div>
       )}
 
       {isTruncated && (
-        <div className={`mb-2 px-2 py-1.5 bg-warning-50 border border-warning-200 rounded ${typography.caption} text-warning-700`}>
+        <div className={`mb-2 px-2 py-1.5 bg-panel border border-warning/30 rounded ${typography.caption} text-warning`}>
           Content truncated at {MAX_CHARS_PER_FILE.toLocaleString()} characters
         </div>
       )}

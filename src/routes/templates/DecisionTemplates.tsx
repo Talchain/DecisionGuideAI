@@ -158,7 +158,7 @@ export function DecisionTemplates() {
           <p className="text-gray-500 mb-4">No templates available</p>
           <button
             onClick={() => window.location.reload()}
-            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+            className="px-4 py-2 bg-primary text-text-on-color rounded hover:bg-primary-hover focus:outline-none focus:ring-2 focus:ring-info focus:ring-offset-2"
           >
             Refresh
           </button>
@@ -170,9 +170,9 @@ export function DecisionTemplates() {
               <button
                 key={t.id}
                 onClick={() => setSelectedTemplate(t.id)}
-                className={`p-4 border rounded text-left transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+                className={`p-4 border rounded text-left transition-colors focus:outline-none focus:ring-2 focus:ring-info focus:ring-offset-2 ${
                   selectedTemplate === t.id 
-                    ? 'border-blue-500 bg-blue-50' 
+                    ? 'border-info bg-panel' 
                     : 'border-gray-300 hover:border-gray-400'
                 }`}
                 data-testid={`template-${t.id}`}
@@ -193,8 +193,8 @@ export function DecisionTemplates() {
                 <div className="flex gap-2">
                   <button
                     onClick={() => setMode('strict')}
-                    className={`px-3 py-1 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-2 ${
-                      mode === 'strict' ? 'bg-blue-500 text-white' : 'bg-gray-200'
+                    className={`px-3 py-1 rounded text-sm focus:outline-none focus:ring-2 focus:ring-info focus:ring-offset-2 ${
+                      mode === 'strict' ? 'bg-primary text-text-on-color' : 'bg-gray-200'
                     }`}
                     aria-pressed={mode === 'strict'}
                   >
@@ -202,8 +202,8 @@ export function DecisionTemplates() {
                   </button>
                   <button
                     onClick={() => setMode('real')}
-                    className={`px-3 py-1 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-2 ${
-                      mode === 'real' ? 'bg-blue-500 text-white' : 'bg-gray-200'
+                    className={`px-3 py-1 rounded text-sm focus:outline-none focus:ring-2 focus:ring-info focus:ring-offset-2 ${
+                      mode === 'real' ? 'bg-primary text-text-on-color' : 'bg-gray-200'
                     }`}
                     aria-pressed={mode === 'real'}
                   >
@@ -221,7 +221,7 @@ export function DecisionTemplates() {
                   type="number"
                   value={seed}
                   onChange={e => setSeed(Number(e.target.value))}
-                  className="border rounded px-2 py-1 w-32 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-1"
+                  className="border rounded px-2 py-1 w-32 focus:outline-none focus:ring-2 focus:ring-info focus:ring-offset-1"
                   aria-label="Determinism seed"
                 />
               </div>
@@ -229,7 +229,7 @@ export function DecisionTemplates() {
               <button
                 onClick={handleRun}
                 disabled={loading || !isOnline}
-                className="px-4 py-2 bg-blue-600 text-white rounded disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-2"
+                className="px-4 py-2 bg-primary text-text-on-color rounded disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-info focus:ring-offset-2"
                 data-testid="btn-run-template"
                 aria-disabled={loading || !isOnline}
                 aria-label={loading ? 'Running template' : !isOnline ? 'Offline - cannot run' : 'Run template'}

@@ -288,7 +288,7 @@ describe('ModelQualityScoreCompact', () => {
     const badge = screen.getByTestId('model-quality-compact')
     expect(badge).toBeInTheDocument()
     // Design system: paper-50 background with semantic text color
-    expect(badge).toHaveClass('border-sand-200', 'bg-paper-50', 'text-green-700')
+    expect(badge).toHaveClass('border-sand-200', 'bg-paper-50', 'text-success')
     expect(screen.getByText('85%')).toBeInTheDocument()
   })
 
@@ -297,7 +297,7 @@ describe('ModelQualityScoreCompact', () => {
 
     const badge = screen.getByTestId('model-quality-compact')
     // Design system: paper-50 background, semantic text color only
-    expect(badge).toHaveClass('border-sand-200', 'bg-paper-50', 'text-amber-700')
+    expect(badge).toHaveClass('border-sand-200', 'bg-paper-50', 'text-warning')
     expect(screen.getByText('72%')).toBeInTheDocument()
     expect(screen.getByText('2')).toBeInTheDocument() // issues count
   })

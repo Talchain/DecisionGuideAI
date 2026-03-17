@@ -11,11 +11,10 @@
  * - Collapsible sections by node type
  * - Click-to-focus canvas integration
  * - Node type breakdown with visual bars
- * - Connected vs orphan counts
- * - Edge evidence status summary
+ * - Section-level error boundaries for resilience
  */
 
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, Component, type ReactNode } from 'react'
 import {
   Search,
   Copy,
@@ -28,15 +27,13 @@ import {
   Settings,
   AlertTriangle,
   TrendingUp,
-  Link2,
-  Unlink2,
-  FileText,
 } from 'lucide-react'
 import type { Node, Edge } from '@xyflow/react'
 import { typography } from '../../styles/typography'
 import type { NodeType } from '../domain/nodes'
-import { countEdgesWithEvidence } from '../utils/evidenceCoverage'
 import { getDisplayEdgeId } from '../utils/edgeIdentity'
+import { qualitativeTierLabel, formatInterventionValue, CURRENCY_SYMBOLS } from '../utils/labelUtils'
+import { getProvenanceLabel } from '../ui/inspector-v2/inspectorStrings'
 
 interface GraphTextViewProps {
   nodes: Node[]
@@ -45,6 +42,49 @@ interface GraphTextViewProps {
   onEdgeClick?: (edgeId: string) => void
   fragileEdgeIds?: Set<string>
   robustEdgeIds?: Set<string>
+}
+
+/**
+ * Lightweight error boundary for Structure tab sections.
+ * Catches render errors in individual sections so one broken section
+ * doesn't crash the entire tab.
+ */
+export class SectionErrorBoundary extends Component<
+  { children: ReactNode; section: string },
+  { hasError: boolean; error: Error | null }
+> {
+  constructor(props: { children: ReactNode; section: string }) {
+    super(props)
+    this.state = { hasError: false, error: null }
+  }
+
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error }
+  }
+
+  componentDidCatch(error: Error) {
+    console.error(`[GraphTextView] Error in ${this.props.section}:`, error)
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="p-3 bg-panel border border-warning/30 rounded-md">
+          <p className="text-sm text-warning">
+            Unable to display {this.props.section}.
+          </p>
+          <button
+            type="button"
+            onClick={() => this.setState({ hasError: false, error: null })}
+            className="mt-1 text-xs text-warning hover:text-warning underline"
+          >
+            Retry
+          </button>
+        </div>
+      )
+    }
+    return this.props.children
+  }
 }
 
 interface GroupedNodes {
@@ -57,12 +97,12 @@ interface GroupedNodes {
 }
 
 const NODE_TYPE_CONFIG: Record<NodeType, { icon: typeof Target; label: string; order: number; color: string }> = {
-  goal: { icon: Target, label: 'Goals', order: 0, color: 'bg-amber-500' },
+  goal: { icon: Target, label: 'Goals', order: 0, color: 'bg-warning' },
   decision: { icon: Crosshair, label: 'Decisions', order: 1, color: 'bg-sky-500' },
-  option: { icon: Lightbulb, label: 'Options', order: 2, color: 'bg-purple-500' },
+  option: { icon: Lightbulb, label: 'Options', order: 2, color: 'bg-option' },
   factor: { icon: Settings, label: 'Factors', order: 3, color: 'bg-sand-400' },
-  risk: { icon: AlertTriangle, label: 'Risks', order: 4, color: 'bg-red-500' },
-  outcome: { icon: TrendingUp, label: 'Outcomes', order: 5, color: 'bg-emerald-500' },
+  risk: { icon: AlertTriangle, label: 'Risks', order: 4, color: 'bg-danger' },
+  outcome: { icon: TrendingUp, label: 'Outcomes', order: 5, color: 'bg-success' },
 }
 
 /**
@@ -77,7 +117,8 @@ function getNodeType(node: Node): NodeType {
  * Get the node label
  */
 function getNodeLabel(node: Node): string {
-  return node.data?.label || node.id
+  const label = node.data?.label
+  return typeof label === 'string' ? label : String(label ?? node.id)
 }
 
 /**
@@ -110,25 +151,18 @@ function getOutgoingEdges(nodeId: string, edges: Edge[]): Edge[] {
   return edges.filter(e => e.source === nodeId)
 }
 
-/**
- * Check if a node is an orphan (no connections)
- */
-function isOrphanNode(nodeId: string, edges: Edge[]): boolean {
-  return !edges.some(e => e.source === nodeId || e.target === nodeId)
-}
 
 /**
- * Count orphan nodes
+ * Safe wrapper for getDisplayEdgeId — returns fallback for edges with no id
  */
-function countOrphans(nodes: Node[], edges: Edge[]): number {
-  return nodes.filter(n => isOrphanNode(n.id, edges)).length
+function safeEdgeId(edge: Edge): string {
+  try {
+    return getDisplayEdgeId(edge) || `${edge.source}-${edge.target}`
+  } catch {
+    return `${edge.source ?? 'unknown'}-${edge.target ?? 'unknown'}`
+  }
 }
 
-/**
- * Format edge belief and effect for display
- * Uses beliefStrength for effect magnitude and beliefExists for belief percentage
- * DO NOT display weight - it's visual, not causal
- */
 /**
  * Format edge belief and effect for display
  * Uses beliefStrength for effect magnitude and beliefExists for belief percentage
@@ -136,12 +170,15 @@ function countOrphans(nodes: Node[], edges: Edge[]): number {
  */
 function formatEdgeInfo(edge: Edge): { effect: string; belief: string; strengthStd: string | null } {
   const data = edge.data as any
+  if (!data || typeof data !== 'object') {
+    return { effect: '', belief: '', strengthStd: null }
+  }
 
   // Effect: beliefStrength (magnitude, 0-1)
   const beliefStrength = data?.beliefStrength
   const direction = data?.direction
   let effect = ''
-  if (typeof beliefStrength === 'number') {
+  if (typeof beliefStrength === 'number' && isFinite(beliefStrength)) {
     // Use ± when direction is unknown/missing to avoid misleading display
     const sign = direction === 'negative' ? '-' : direction === 'positive' ? '+' : '±'
     effect = `effect: ${sign}${beliefStrength.toFixed(1)}`
@@ -150,13 +187,13 @@ function formatEdgeInfo(edge: Edge): { effect: string; belief: string; strengthS
   // Belief: beliefExists (probability edge exists, 0-1)
   const beliefExists = data?.beliefExists
   let belief = ''
-  if (typeof beliefExists === 'number') {
+  if (typeof beliefExists === 'number' && isFinite(beliefExists)) {
     belief = `belief: ${Math.round(beliefExists * 100)}%`
   }
 
   // Uncertainty: strengthStd (for tooltip only)
   const strengthStd = data?.strengthStd
-  const strengthStdStr = typeof strengthStd === 'number' ? `Uncertainty: ±${strengthStd.toFixed(2)}` : null
+  const strengthStdStr = typeof strengthStd === 'number' && isFinite(strengthStd) ? `Uncertainty: ±${strengthStd.toFixed(2)}` : null
 
   return { effect, belief, strengthStd: strengthStdStr }
 }
@@ -173,18 +210,32 @@ function getObservedStateInfo(node: Node): { value: string | null; unit: string 
     return { value: null, unit: null, source: null }
   }
 
-  // Support both numeric and string values
+  // Format value for human comprehension (no raw floats)
   let value: string | null = null
-  if (typeof observedState.value === 'number') {
-    value = observedState.value.toString()
-  } else if (typeof observedState.value === 'string' && observedState.value.trim()) {
-    value = observedState.value
+  const rawVal = observedState.raw_value
+  const unit = typeof observedState.unit === 'string' ? observedState.unit : null
+  const numValue = typeof observedState.value === 'number' ? observedState.value : null
+
+  if (rawVal != null && String(rawVal).trim() !== '') {
+    const numeric = Number(rawVal)
+    if (unit && CURRENCY_SYMBOLS.has(unit[0]) && !isNaN(numeric)) {
+      value = formatInterventionValue(numeric, unit, observedState.factor_type)
+    } else {
+      value = unit ? `${rawVal} ${unit}` : String(rawVal)
+    }
+  } else if (numValue !== null) {
+    if (unit) {
+      value = formatInterventionValue(numValue, unit, observedState.factor_type)
+    } else {
+      value = qualitativeTierLabel(numValue)
+    }
   }
 
-  const unit = typeof observedState.unit === 'string' ? observedState.unit : null
-  const source = typeof observedState.source === 'string' ? observedState.source : null
+  // Map raw source token to user-friendly label
+  const rawSource = typeof observedState.source === 'string' ? observedState.source : null
+  const source = rawSource ? getProvenanceLabel(rawSource) : null
 
-  return { value, unit, source }
+  return { value, unit: null, source }
 }
 
 /**
@@ -211,11 +262,6 @@ export function GraphTextView({
 
   // Group and filter nodes
   const groupedNodes = useMemo(() => groupNodesByType(nodes), [nodes])
-
-  // Computed statistics
-  const orphanCount = useMemo(() => countOrphans(nodes, edges), [nodes, edges])
-  const connectedCount = nodes.length - orphanCount
-  const evidenceStats = useMemo(() => countEdgesWithEvidence(edges), [edges])
 
   const filteredGroups = useMemo(() => {
     if (!searchQuery.trim()) return groupedNodes
@@ -358,7 +404,7 @@ export function GraphTextView({
           >
             {copied ? (
               <>
-                <Check className="w-4 h-4 text-green-600" aria-hidden="true" />
+                <Check className="w-4 h-4 text-success" aria-hidden="true" />
                 <span>Copied</span>
               </>
             ) : (
@@ -371,88 +417,53 @@ export function GraphTextView({
         </div>
 
         {/* Enhanced Summary with visual breakdown */}
-        <div className="mt-4 space-y-3">
-          {/* Node type breakdown - mini bar chart */}
-          <div className="space-y-1.5">
-            <div className={`${typography.caption} text-ink-600 font-medium`}>
-              Node breakdown
-            </div>
-            <div className="flex h-2 rounded-full overflow-hidden bg-sand-100">
-              {typeOrder.map(type => {
-                const count = groupedNodes[type].length
-                if (count === 0) return null
-                const percent = (count / nodes.length) * 100
-                const config = NODE_TYPE_CONFIG[type]
-                return (
-                  <div
-                    key={type}
-                    className={`${config.color} transition-all`}
-                    style={{ width: `${percent}%` }}
-                    title={`${config.label}: ${count}`}
-                  />
-                )
-              })}
-            </div>
-            <div className="flex flex-wrap gap-x-3 gap-y-1">
-              {typeOrder.map(type => {
-                const count = groupedNodes[type].length
-                if (count === 0) return null
-                const config = NODE_TYPE_CONFIG[type]
-                const Icon = config.icon
-                return (
-                  <div key={type} className="flex items-center gap-1">
-                    <div className={`w-2 h-2 rounded-sm ${config.color}`} />
-                    <Icon className="w-3 h-3 text-ink-500" aria-hidden="true" />
-                    <span className={`${typography.caption} text-ink-600`}>
-                      {count}
-                    </span>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-
-          {/* Connection and evidence stats */}
-          <div className="grid grid-cols-2 gap-3">
-            {/* Connected vs Orphan */}
-            <div className="flex items-center gap-2 p-2 bg-white rounded border border-sand-200">
-              <Link2 className="w-4 h-4 text-emerald-500" aria-hidden="true" />
-              <div>
-                <div className={`${typography.caption} text-ink-500`}>Connected</div>
-                <div className={`${typography.label} text-ink-900`}>{connectedCount}</div>
+        <SectionErrorBoundary section="node breakdown">
+          <div className="mt-4 space-y-3">
+            {/* Node type breakdown - mini bar chart */}
+            <div className="space-y-1.5">
+              <div className={`${typography.caption} text-ink-600 font-medium`}>
+                Node breakdown
               </div>
-              {orphanCount > 0 && (
-                <>
-                  <div className="w-px h-8 bg-sand-200" />
-                  <Unlink2 className="w-4 h-4 text-amber-500" aria-hidden="true" />
-                  <div>
-                    <div className={`${typography.caption} text-ink-500`}>Orphan</div>
-                    <div className={`${typography.label} text-amber-600`}>{orphanCount}</div>
-                  </div>
-                </>
-              )}
-            </div>
-
-            {/* Evidence coverage */}
-            <div className="flex items-center gap-2 p-2 bg-white rounded border border-sand-200">
-              <FileText className="w-4 h-4 text-sky-500" aria-hidden="true" />
-              <div>
-                <div className={`${typography.caption} text-ink-500`}>Edges with evidence</div>
-                <div className={`${typography.label} text-ink-900`}>
-                  {evidenceStats.evidenced}/{evidenceStats.total}
-                  {evidenceStats.total > 0 && (
-                    <span className="text-ink-500 font-normal ml-1">
-                      ({Math.round((evidenceStats.evidenced / evidenceStats.total) * 100)}%)
-                    </span>
-                  )}
-                </div>
+              <div className="flex h-2 rounded-full overflow-hidden bg-sand-100">
+                {typeOrder.map(type => {
+                  const count = groupedNodes[type].length
+                  if (count === 0) return null
+                  const percent = (count / nodes.length) * 100
+                  const config = NODE_TYPE_CONFIG[type]
+                  return (
+                    <div
+                      key={type}
+                      className={`${config.color} transition-all`}
+                      style={{ width: `${percent}%` }}
+                      title={`${config.label}: ${count}`}
+                    />
+                  )
+                })}
+              </div>
+              <div className="flex flex-wrap gap-x-3 gap-y-1">
+                {typeOrder.map(type => {
+                  const count = groupedNodes[type].length
+                  if (count === 0) return null
+                  const config = NODE_TYPE_CONFIG[type]
+                  const Icon = config.icon
+                  return (
+                    <div key={type} className="flex items-center gap-1">
+                      <div className={`w-2 h-2 rounded-sm ${config.color}`} />
+                      <Icon className="w-3 h-3 text-ink-500" aria-hidden="true" />
+                      <span className={`${typography.caption} text-ink-600`}>
+                        {count}
+                      </span>
+                    </div>
+                  )
+                })}
               </div>
             </div>
           </div>
-        </div>
+        </SectionErrorBoundary>
       </div>
 
       {/* Tree structure */}
+      <SectionErrorBoundary section="graph tree">
       <div className={`p-4 ${typography.code}`} data-testid="graph-text-view-tree">
         {typeOrder.map(type => {
           const nodeList = filteredGroups[type]
@@ -512,13 +523,12 @@ export function GraphTextView({
                           {label}
                         </button>
 
-                        {/* Factor observed state (value, unit, source) */}
+                        {/* Factor observed state — human-readable value + provenance */}
                         {observedInfo && observedInfo.value && (
                           <div className={`ml-4 ${typography.caption} text-ink-500`}>
-                            <span className="text-ink-600">Value: {observedInfo.value}</span>
-                            {observedInfo.unit && <span className="ml-1">({observedInfo.unit})</span>}
+                            <span className="text-ink-600">{observedInfo.value}</span>
                             {observedInfo.source && (
-                              <span className="ml-2 text-ink-400">• Source: {observedInfo.source}</span>
+                              <span className="ml-2 text-ink-400">• {observedInfo.source}</span>
                             )}
                           </div>
                         )}
@@ -530,9 +540,9 @@ export function GraphTextView({
                               const targetNode = nodes.find(n => n.id === edge.target)
                               const targetLabel = targetNode ? getNodeLabel(targetNode) : edge.target
                               const edgeInfo = formatEdgeInfo(edge)
-                              const edgeId = getDisplayEdgeId(edge)
-                              const isFragile = fragileEdgeIds?.has(edgeId)
-                              const isRobust = robustEdgeIds?.has(edgeId)
+                              const edgeId = safeEdgeId(edge)
+                              const isFragile = fragileEdgeIds?.has(edgeId) ?? false
+                              const isRobust = robustEdgeIds?.has(edgeId) ?? false
 
                               // Build display string: effect | belief
                               const displayParts: string[] = []
@@ -568,7 +578,7 @@ export function GraphTextView({
                                   {/* Fragile badge */}
                                   {isFragile && (
                                     <span
-                                      className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-700 border border-amber-200`}
+                                      className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-xs font-medium bg-panel text-warning border border-warning/30`}
                                       title="This edge is fragile - changes here could affect the recommendation"
                                     >
                                       <AlertTriangle className="w-3 h-3" aria-hidden="true" />
@@ -578,7 +588,7 @@ export function GraphTextView({
                                   {/* Robust badge */}
                                   {isRobust && !isFragile && (
                                     <span
-                                      className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-xs font-medium bg-emerald-100 text-emerald-700 border border-emerald-200`}
+                                      className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-xs font-medium bg-panel text-success border border-success/30`}
                                       title="This edge is robust - stable under uncertainty"
                                     >
                                       ✓ Robust
@@ -598,6 +608,7 @@ export function GraphTextView({
           )
         })}
       </div>
+      </SectionErrorBoundary>
     </div>
   )
 }

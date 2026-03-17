@@ -30,7 +30,7 @@ export function ResultsSummary({ report }: ResultsSummaryProps) {
           <div className="w-24 text-sm font-medium text-gray-700">{RANGE_TERMINOLOGY.conservative.userLabel}</div>
           <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
             <div 
-              className="h-full bg-amber-400 transition-all duration-300"
+              className="h-full bg-warning transition-all duration-300"
               style={{ width: `${p10 * 100}%` }}
               role="progressbar"
               aria-valuenow={p10 * 100}
@@ -46,7 +46,7 @@ export function ResultsSummary({ report }: ResultsSummaryProps) {
           <div className="w-24 text-sm font-medium text-gray-700">{RANGE_TERMINOLOGY.likely.userLabel}</div>
           <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
             <div 
-              className="h-full bg-blue-500 transition-all duration-300"
+              className="h-full bg-info transition-all duration-300"
               style={{ width: `${p50 * 100}%` }}
               role="progressbar"
               aria-valuenow={p50 * 100}
@@ -62,7 +62,7 @@ export function ResultsSummary({ report }: ResultsSummaryProps) {
           <div className="w-24 text-sm font-medium text-gray-700">{RANGE_TERMINOLOGY.optimistic.userLabel}</div>
           <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
             <div 
-              className="h-full bg-green-500 transition-all duration-300"
+              className="h-full bg-success transition-all duration-300"
               style={{ width: `${p90 * 100}%` }}
               role="progressbar"
               aria-valuenow={p90 * 100}

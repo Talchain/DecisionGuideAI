@@ -25,7 +25,7 @@ describe('VerificationBadge', () => {
       )
 
       expect(screen.getByText('Verified')).toBeInTheDocument()
-      expect(screen.getByLabelText('Verification: Verified')).toHaveClass('text-green-600')
+      expect(screen.getByLabelText('Verification: Verified')).toHaveClass('text-success')
     })
 
     it('shows review state for medium score (0.80-0.94)', () => {
@@ -41,7 +41,7 @@ describe('VerificationBadge', () => {
 
       expect(screen.getByText('Review Recommended')).toBeInTheDocument()
       expect(screen.getByLabelText('Verification: Review Recommended')).toHaveClass(
-        'text-amber-600'
+        'text-warning'
       )
     })
 
@@ -61,7 +61,7 @@ describe('VerificationBadge', () => {
 
       expect(screen.getByText('Verification Issues')).toBeInTheDocument()
       expect(screen.getByLabelText('Verification: Verification Issues')).toHaveClass(
-        'text-red-600'
+        'text-danger'
       )
     })
 

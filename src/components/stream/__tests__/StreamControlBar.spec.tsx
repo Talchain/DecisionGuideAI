@@ -113,7 +113,7 @@ describe('StreamControlBar', () => {
     const stopBtn = screen.getByTestId('stop-btn')
 
     // Start button should have blue background (brand color)
-    expect(startBtn).toHaveClass('bg-blue-600', 'text-white')
+    expect(startBtn).toHaveClass('bg-primary', 'text-text-on-color')
 
     // Stop button should have gray background
     expect(stopBtn).toHaveClass('bg-gray-200', 'text-gray-900')

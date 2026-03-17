@@ -12,6 +12,7 @@ vi.mock('../debug-state', () => ({
   getRecentTraces: vi.fn(() => []),
   getPendingTraces: vi.fn(() => []),
   getFailedTraces: vi.fn(() => []),
+  getInteractionChains: vi.fn(() => []),
 }))
 
 vi.mock('../gate-state', () => ({
@@ -80,6 +81,7 @@ describe('diagnostic-bundle', () => {
       expect(bundle.diagnostic.version).toBe('1.0')
       expect(bundle.diagnostic.createdAt).toBeDefined()
       expect(bundle.diagnostic.gates).toBeInstanceOf(Array)
+      expect(bundle.diagnostic.interactions).toBeInstanceOf(Array)
     })
 
     it('should include contractTrace with payloads', async () => {

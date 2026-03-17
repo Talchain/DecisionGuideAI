@@ -55,8 +55,8 @@ export function HighlightLayer({ isResultsOpen }: HighlightLayerProps): JSX.Elem
               key={driver.id}
               className={`absolute pointer-events-none transition-all duration-300 rounded-lg ${
                 isHovered
-                  ? 'border-4 border-info-500 shadow-lg shadow-info-500/60 bg-info-500/15'
-                  : 'border-2 border-info-400/40 shadow-md shadow-info-500/30 bg-info-500/8'
+                  ? 'border-4 border-info shadow-3 shadow-info/60 bg-info/15'
+                  : 'border-2 border-info/40 shadow-2 shadow-info/30 bg-info/8'
               }`}
               style={{
                 left: node.position.x,

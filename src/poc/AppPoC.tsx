@@ -12,6 +12,7 @@ import { initMonitoring } from '../lib/monitoring'
 import GraphCanvas from '../components/GraphCanvas'
 import RouteLoadingFallback from '../components/RouteLoadingFallback'
 import { CanvasErrorBoundary } from '../canvas/ErrorBoundary'
+import { AuthProvider } from '../contexts/AuthContext'
 
 // Lazy-loaded routes for code splitting
 const CanvasMVP = lazy(() => import('../routes/CanvasMVP'))
@@ -20,9 +21,16 @@ const PlotShowcase = lazy(() => import('../routes/PlotShowcase'))
 const PlotWorkspace = lazy(() => import('../routes/PlotWorkspace'))
 const PlcLab = lazy(() => import('../routes/PlcLab'))
 const DecisionTemplates = lazy(() => import('../routes/templates/DecisionTemplates').then(m => ({ default: m.DecisionTemplates })))
+
+// C.1a: Scenario persistence routes
+const ScenarioListPage = lazy(() => import('../pages/ScenarioListPage'))
+const SharedBriefPage = lazy(() => import('../pages/SharedBriefPage'))
+const LoginPage = lazy(() => import('../components/auth/LoginPage'))
+const AuthCallback = lazy(() => import('../components/auth/AuthCallback'))
+const AuthGuard = lazy(() => import('../components/auth/AuthGuard'))
+const ProfileSettingsPage = lazy(() => import('../pages/ProfileSettingsPage'))
 import SandboxHeader, { type SandboxMode } from './components/SandboxHeader'
 import OnboardingHints from './components/OnboardingHints'
-import { BottomNav } from '../components/BottomNav'
 import { exportCanvas, formatSandboxPngName } from './export/exportCanvas'
 import { isTypingTarget } from './utils/inputGuards'
 import { initialHistory, push, doUndo, doRedo, type History as SamHistory, type SamState, type Op } from './state/history'
@@ -869,21 +877,36 @@ export default function AppPoC() {
       {/* @ts-expect-error POC: stub may not match exact QueryClientProvider API */}
       <QueryClientProvider client={queryClient}>
         <HashRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-          <Suspense fallback={<RouteLoadingFallback />}>
-            <CanvasErrorBoundary>
-              <Routes>
-              <Route path="/canvas" element={<CanvasMVP />} />
-              <Route path="/templates" element={<DecisionTemplates />} />
-              <Route path="/plot" element={<PlotWorkspace />} />
-              <Route path="/plot-legacy" element={<PlotShowcase />} />
-              <Route path="/plc" element={<PlcLab />} />
-              <Route path="/sandbox-v1" element={<SandboxV1 />} />
-              <Route path="/test" element={<MainSandboxContent />} />
-              <Route path="*" element={<MainSandboxContent />} />
-              </Routes>
-            </CanvasErrorBoundary>
-          </Suspense>
-          <BottomNav />
+          <AuthProvider>
+            <Suspense fallback={<RouteLoadingFallback />}>
+              <CanvasErrorBoundary>
+                <Routes>
+                {/* Public routes */}
+                <Route path="/login" element={<LoginPage />} />
+                <Route path="/auth/callback" element={<AuthCallback />} />
+                <Route path="/brief/:slug" element={<SharedBriefPage />} />
+
+                {/* Auth-guarded routes */}
+                <Route element={<AuthGuard />}>
+                  <Route path="/" element={<ScenarioListPage />} />
+                  <Route path="/scenarios" element={<ScenarioListPage />} />
+                  <Route path="/scenario/:id" element={<CanvasMVP />} />
+                  <Route path="/canvas" element={<CanvasMVP />} />
+                  <Route path="/profile" element={<ProfileSettingsPage />} />
+                  <Route path="/templates" element={<DecisionTemplates />} />
+                </Route>
+
+                {/* Dev/POC routes */}
+                <Route path="/plot" element={<PlotWorkspace />} />
+                <Route path="/plot-legacy" element={<PlotShowcase />} />
+                <Route path="/plc" element={<PlcLab />} />
+                <Route path="/sandbox-v1" element={<SandboxV1 />} />
+                <Route path="/test" element={<MainSandboxContent />} />
+                <Route path="*" element={<MainSandboxContent />} />
+                </Routes>
+              </CanvasErrorBoundary>
+            </Suspense>
+          </AuthProvider>
         </HashRouter>
       </QueryClientProvider>
     </StrictMode>

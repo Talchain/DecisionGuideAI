@@ -1,32 +1,117 @@
-import { memo } from 'react'
+import { memo, useMemo } from 'react'
 import type { NodeProps } from '@xyflow/react'
 import { BaseNode } from './BaseNode'
 import { NODE_REGISTRY } from '../domain/nodes'
 import { useNodeDisplayMetadata } from '../hooks/useNodeDisplayMetadata'
+import { useCanvasStore } from '../store'
+import { typography } from '../../styles/typography'
+import { formatTargetValue } from '../../components/results/utils/formatTargetValue'
 
 export const GoalNode = memo((props: NodeProps) => {
   const metadata = NODE_REGISTRY.goal
-
-  // Decision Graph Display v2 Task 10: Goal achievement probability
   const displayMetadata = useNodeDisplayMetadata(props.id, 'goal')
 
+  // T10: Robustness level + stability from report
+  const report = useCanvasStore(state => state.results.report)
+  const resultsStatus = useCanvasStore(state => state.results.status)
+
+  const robustnessData = useMemo(() => {
+    if (resultsStatus !== 'complete' || !report) return null
+    const robustness = (report as any)?.robustness
+    if (!robustness) return null
+    const stability: number | null = typeof (robustness.recommendation_stability ?? robustness.recommendationStability) === 'number'
+      ? (robustness.recommendation_stability ?? robustness.recommendationStability)
+      : null
+    const level: string | null = robustness.level ?? robustness.robustness_level ?? null
+    return { stability, level }
+  }, [report, resultsStatus])
+
+  // T10: Threshold context from node data
+  const thresholdRaw = props.data?.goal_threshold_raw as string | number | undefined
+  const thresholdUnit = props.data?.goal_threshold_unit as string | undefined
+  const thresholdCap = props.data?.goal_threshold_cap as string | number | undefined
+
+  // T10: Stability bar colour from robustness level
+  const stabilityBarColor = useMemo(() => {
+    switch (robustnessData?.level) {
+      case 'high':     return 'bg-success'
+      case 'moderate': return 'bg-goal'
+      case 'low':      return 'bg-warning'
+      default:         return 'bg-goal'
+    }
+  }, [robustnessData])
+
+  // Prefer report-level stability over displayMetadata fallback
+  const stabilityValue = robustnessData?.stability ?? displayMetadata.stabilityPercentage
+
+  // §11.3: Goal node border reflects confidence/stability level (post-analysis only)
+  // high → solid goal (default, no override), moderate → info dashed, low → danger dashed
+  const goalBorderOverride = useMemo(() => {
+    if (!robustnessData) return undefined
+    switch (robustnessData.level) {
+      case 'moderate': return 'border-info border-dashed'
+      case 'low':      return 'border-danger border-dashed'
+      default:         return undefined // high or unknown → entity colour, solid
+    }
+  }, [robustnessData])
+
   return (
-    <BaseNode {...props} nodeType="goal" icon={metadata.icon}>
-      {/* Decision Graph Display v2 Task 10 + Task B: Achievement probability with fallback */}
+    <BaseNode {...props} nodeType="goal" icon={metadata.icon} borderClassOverride={goalBorderOverride}>
+      {/* Achievement probability */}
       {displayMetadata.achievementProbability !== null && (
-        <div className="text-xs font-semibold mb-1 text-success-600">
+        <div className={`${typography.nodeTitle} mb-1 text-success`}>
           {Math.round(displayMetadata.achievementProbability * 100)}% chance
         </div>
       )}
-      {/* Task B + Fix 5: Fallback to recommendation stability when probability unavailable */}
-      {displayMetadata.achievementProbability === null && displayMetadata.stabilityPercentage !== null && (
-        <div className="text-xs font-semibold mb-1 text-info-500">
+
+      {/* T10: Stability bar + Marginal badge when stability < 60% */}
+      {stabilityValue !== null && (
+        <div className="mt-2 mb-1">
+          <div className="flex items-center gap-1.5 mb-1 flex-wrap">
+            <span className={`${typography.nodeLabel} text-text-light`}>Stability</span>
+            <span className={`${typography.nodeTitle} text-text-body`}>
+              {Math.round(stabilityValue * 100)}%
+            </span>
+            {stabilityValue < 0.6 && (
+              <span className={`${typography.nodeLabel} bg-panel border border-warning/30 text-text-body rounded-full px-1.5 py-0.5 ml-auto`}>
+                Marginal
+              </span>
+            )}
+          </div>
+          <div className="h-1.5 bg-factor-light rounded-full overflow-hidden">
+            <div
+              className={`h-full ${stabilityBarColor} rounded-full transition-all duration-300`}
+              style={{ width: `${Math.round(stabilityValue * 100)}%` }}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Fallback: "Recommended in X% of scenarios" only when no stability bar shown */}
+      {displayMetadata.achievementProbability === null && stabilityValue === null && displayMetadata.stabilityPercentage !== null && (
+        <div className={`${typography.nodeTitle} mb-1 text-info`}>
           Recommended in {Math.round(displayMetadata.stabilityPercentage * 100)}% of scenarios
         </div>
       )}
 
+      {/* T10: Threshold context — formatted via shared formatTargetValue */}
+      {(thresholdRaw !== undefined || thresholdCap !== undefined) && (
+        <div className={`${typography.nodeLabel} text-text-light mt-1`}>
+          Target: {thresholdRaw !== undefined ? (() => {
+            const raw = typeof thresholdRaw === 'number' ? thresholdRaw : Number(thresholdRaw)
+            if (Number.isNaN(raw)) return String(thresholdRaw)
+            const u = typeof thresholdUnit === 'string' ? thresholdUnit.toLowerCase() : ''
+            if (u === '%' || u === 'percent' || u === 'percentage') return formatTargetValue(raw, 'percent')
+            if (u === 'count' || u === '') return formatTargetValue(raw)
+            // Currency-like unit (e.g. "USD", "£", "GBP") — use unit as symbol
+            return formatTargetValue(raw, 'currency', thresholdUnit!)
+          })() : '—'}
+          {thresholdCap !== undefined ? ` of ${typeof thresholdCap === 'number' ? thresholdCap.toLocaleString() : String(thresholdCap)} modelled range` : ''}
+        </div>
+      )}
+
       {props.data?.description && (
-        <div className="text-xs opacity-70">
+        <div className={`${typography.nodeLabel} opacity-70 mt-1`}>
           {props.data.description}
         </div>
       )}

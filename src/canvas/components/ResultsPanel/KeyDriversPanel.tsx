@@ -346,12 +346,12 @@ export function KeyDriversPanel({
               ) : (
                 <ChevronRight className="h-4 w-4 text-ink-500" />
               )}
-              <Lightbulb className="h-4 w-4 text-violet-500" aria-hidden="true" />
+              <Lightbulb className="h-4 w-4 text-option" aria-hidden="true" />
               <span className={`${typography.bodySmall} font-medium text-ink-800`}>
                 Worth Investigating
               </span>
             </div>
-            <span className={`${typography.caption} text-violet-600`}>
+            <span className={`${typography.caption} text-option`}>
               {voiSuggestions.length} suggestion{voiSuggestions.length !== 1 ? 's' : ''}
             </span>
           </button>

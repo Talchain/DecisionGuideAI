@@ -11,6 +11,8 @@
  * Forbidden: Raw error codes, service names (ISL, CEE, PLoT), technical stack traces.
  */
 
+import { sanitiseStatusReason } from '../utils/sanitiseStatusReason'
+
 // =============================================================================
 // Types
 // =============================================================================
@@ -222,10 +224,11 @@ export function getUserFriendlyError(input: ErrorInput): UserFriendlyError {
     baseError = ERROR_MESSAGES[input.code]
 
     // For validation errors, use the backend's specific message if non-empty
+    // Sanitise to strip internal field names — raw text remains in debug panel
     if (input.code === 'VALIDATION_BLOCKED' && input.message?.trim()) {
       baseError = {
         ...baseError,
-        explanation: input.message,
+        explanation: sanitiseStatusReason(input.message),
       }
     }
   } else if (input.status && STATUS_MESSAGES[input.status]) {

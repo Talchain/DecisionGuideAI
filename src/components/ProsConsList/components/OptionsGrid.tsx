@@ -67,8 +67,8 @@ const OptionsGrid = memo(({
 
   if (validOptions.length === 0) {
     return (
-      <div className="p-6 bg-yellow-50 rounded-lg text-center">
-        <p className="text-yellow-700">No valid options available. Please add an option to get started.</p>
+      <div className="p-6 bg-panel rounded-lg text-center">
+        <p className="text-warning">No valid options available. Please add an option to get started.</p>
       </div>
     );
   }

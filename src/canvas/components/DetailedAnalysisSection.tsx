@@ -83,7 +83,7 @@ export function DetailedAnalysisSection({
       <button
         type="button"
         onClick={() => setIsExpanded(!isExpanded)}
-        className="w-full px-4 py-3 flex items-center justify-between hover:bg-sand-50/80 active:bg-sand-100 transition-all duration-150"
+        className="w-full px-4 py-3 flex items-center justify-between hover:bg-sand-50/80 active:bg-sand-100 transition-all duration-200"
         aria-expanded={isExpanded}
       >
         <div className="flex items-center gap-3">
@@ -99,7 +99,7 @@ export function DetailedAnalysisSection({
 
         {/* Collapsed summary - fade out when expanding */}
         <span
-          className={`${typography.caption} text-ink-500 transition-opacity duration-150 ${isExpanded ? 'opacity-0' : 'opacity-100'}`}
+          className={`${typography.caption} text-ink-500 transition-opacity duration-200 ${isExpanded ? 'opacity-0' : 'opacity-100'}`}
         >
           Drivers, outcomes, model quality
         </span>

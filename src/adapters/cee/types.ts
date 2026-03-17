@@ -21,6 +21,8 @@ export type EffectDirection = 'positive' | 'negative'
  */
 export interface ObservedState {
   value: number
+  /** Raw value before normalization (e.g., £100,000 when value is 0.2) */
+  raw_value?: number
   baseline?: number
   unit?: string
   source?: string
@@ -56,6 +58,7 @@ export interface CEEv2Edge {
   strength_std?: number  // Issue 6 fix: Made optional (CEE may not always provide)
   strength_mean?: number // P0 Fix: CEE may provide separate strength mean
   belief_exists?: number // P0 Fix: Structural certainty (0-1), distinct from parametric belief
+  exists_probability?: number // Alt field name used by some CEE versions
   provenance?: string | { source: string; quote: string; location?: string }
   provenance_source?: 'document' | 'metric' | 'hypothesis' | 'engine'
 }
@@ -111,6 +114,8 @@ export interface CEEDraftResponse {
       | { source: string; quote: string; location?: string }
       | string
     provenance_source?: 'document' | 'metric' | 'hypothesis' | 'engine'
+    /** Allow passthrough of unknown/additive CEE edge fields */
+    [key: string]: unknown
   }>
   draft_warnings: {
     structural: CEEStructuralWarning[]
@@ -232,6 +237,19 @@ export type CEEEdgeOrigin = 'user' | 'ai' | 'default'
 // =============================================================================
 
 /**
+ * Goal constraint from CEE for multi-constraint analysis.
+ * Passed through to PLoT /v2/run so ISL can compute joint goal probability.
+ */
+export interface CEEGoalConstraint {
+  /** Constraint-specific identifier (e.g. "c1"), NOT a graph node ID */
+  id: string
+  label: string
+  operator: '>=' | '<=' | '>' | '<' | '='
+  value: number
+  probability?: number | null
+}
+
+/**
  * CEE V3 intervention format.
  */
 export interface CEEInterventionV3 {
@@ -254,10 +272,12 @@ export interface CEEInterventionV3 {
 export interface CEEOptionV3 {
   id: string
   label: string
-  status: 'ready' | 'needs_user_mapping' | 'needs_user_input'
+  status: 'ready' | 'needs_user_mapping' | 'needs_user_input' | 'needs_encoding'
   interventions: Record<string, CEEInterventionV3>
   user_questions?: string[]
   unresolved_targets?: string[]
+  /** Original pre-encoding intervention values (e.g. categorical strings, booleans) */
+  raw_interventions?: Record<string, unknown>
 }
 
 /**
@@ -278,13 +298,75 @@ export interface CEEAnalysisReady {
    * - 'ready': All options resolved, graph is valid, can run analysis
    * - 'needs_encoding': Options have categorical values needing encoding
    * - 'needs_user_mapping': Structural issues (e.g., no causal path to goal)
+   * - 'needs_user_input': Deterministic user action required (hard block, no bypass)
    */
-  status?: 'ready' | 'needs_encoding' | 'needs_user_mapping'
+  status?: 'ready' | 'needs_encoding' | 'needs_user_mapping' | 'needs_user_input'
   /**
    * User-facing questions explaining issues when status is not 'ready'.
    * E.g., "The factor 'Price' doesn't have a path to the goal. Is this correct?"
    */
   user_questions?: string[]
+  /**
+   * Verification prompts for AI-estimated factors, keyed by factor node ID.
+   * E.g., { "factor_price": "Is the conversion rate around 4%?" }
+   * When present, used as detail text for review items instead of raw values.
+   */
+  verification_prompts?: Record<string, string>
+  /**
+   * Goal threshold pre-populated from CEE analysis.
+   * When present, used as successThreshold for the goal.
+   * Priority: goal_threshold from CEE > goal node data > null
+   */
+  goal_threshold?: number | null
+  /** V3: Raw (un-normalised) goal threshold value (e.g. 800 customers) */
+  goal_threshold_raw?: number | null
+  /** V3: Unit for goal threshold (e.g. "count", "USD") */
+  goal_threshold_unit?: string | null
+  /** V3: Cap used to normalise the goal threshold (e.g. 1000) */
+  goal_threshold_cap?: number | null
+  /**
+   * Low-confidence edges that need user review.
+   * Each entry contains edge_id and a user-facing prompt.
+   * E.g., "Is the relationship between Price and Sales strong?"
+   * Max 3 are displayed in the Review assumptions tier.
+   */
+  low_confidence_edges?: Array<{ edge_id: string; prompt: string }>
+  /**
+   * STRP/repair pipeline mutation descriptions.
+   * Each entry describes a model adjustment applied during CEE processing.
+   */
+  model_adjustments?: Array<{
+    /** Legacy type identifier */
+    type?: string
+    /** CEE code identifier (preferred over type) */
+    code?: string
+    field?: string
+    /** Legacy detail text */
+    detail?: string
+    /** CEE reason text (preferred over detail) */
+    reason?: string
+    target?: string
+    /** Allow additional fields from CEE (e.g. edge_id, before, after) */
+    [key: string]: unknown
+  }>
+  /**
+   * CEE-provided blockers for factors needing user input.
+   * Supplements graph-derived blockers in usePreRunValidation.
+   */
+  blockers?: Array<{
+    factor_id: string
+    factor_label?: string
+    option_id?: string
+    reason: string
+    /** CEE blocker classification — e.g. 'constraint_dropped' for phantom constraints */
+    blocker_type?: string
+  }>
+  /**
+   * Decision-specific coaching summary from CEE (coaching.summary).
+   * Used as primary coaching line in pre-analysis panel; falls back to
+   * count-based string when absent.
+   */
+  coaching_summary?: string | null
 }
 
 /**
@@ -298,6 +380,8 @@ export interface CEEAnalysisReady {
  */
 export interface CEEv3Response extends CEEv2Response {
   analysis_ready?: CEEAnalysisReady
+  /** CEE coaching payload — decision-specific guidance generated alongside the draft */
+  coaching?: { summary?: string }
   /** Phase 1b: Extended warnings with dimension codes and Focus CTAs */
   extended_warnings?: CEEDraftWarning[]
   /** Phase 1b: Goal connectivity status */
@@ -306,6 +390,12 @@ export interface CEEv3Response extends CEEv2Response {
   model_quality_factors?: CEEModelQualityFactors
   /** Phase 1b: Intervention hints keyed by factor node ID */
   intervention_hints?: Record<string, CEEInterventionHint>
+  /**
+   * Goal constraints for multi-constraint analysis.
+   * Lives at response root (NOT inside analysis_ready).
+   * When present, PLoT/ISL computes probability_of_joint_goal.
+   */
+  goal_constraints?: CEEGoalConstraint[]
 }
 
 /**
@@ -450,6 +540,26 @@ export interface CeePipelineTrace {
   /** LLM call count - optional, defaults to 1 in raw_output mode */
   llm_call_count?: number
   stages: CeePipelineStage[]
+  /** Pipeline provenance metadata (A/B/unified pipeline path and prompt provenance) */
+  cee_provenance?: {
+    pipeline_path?: string
+    model?: string
+    prompt_version?: string
+    prompt_source?: string
+    [key: string]: unknown
+  }
+  /** Enrichment stage diagnostics */
+  enrich?: {
+    called_count?: number
+    extraction_mode?: string
+    factors_added?: number
+    source?: string
+    [key: string]: unknown
+  }
+  /** Repair stage diagnostics */
+  repair?: Record<string, unknown>
+  /** STRP stage diagnostics */
+  strp?: Record<string, unknown>
   connectivity?: CeeConnectivityDiagnostic
   llm_calls?: CeeLlmCall[]
   final_graph?: CeeFinalGraph

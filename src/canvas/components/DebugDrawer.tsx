@@ -118,7 +118,7 @@ export function DebugDrawer({ isOpen: externalIsOpen, onClose }: DebugDrawerProp
       {/* Header */}
       <div className="flex items-center justify-between px-3 py-2 bg-ink-800 border-b border-ink-700">
         <div className="flex items-center gap-2">
-          <Bug className="w-4 h-4 text-violet-400" />
+          <Bug className="w-4 h-4 text-option" />
           <span className={`${typography.label} text-white`}>Debug Info</span>
         </div>
         <button
@@ -230,7 +230,7 @@ export function DebugDrawer({ isOpen: externalIsOpen, onClose }: DebugDrawerProp
               type="checkbox"
               checked={debugRawCeeOutput}
               onChange={(e) => setDebugRawCeeOutput(e.target.checked)}
-              className="w-4 h-4 rounded border-ink-600 bg-ink-800 text-violet-500 focus:ring-violet-500 focus:ring-offset-0"
+              className="w-4 h-4 rounded border-ink-600 bg-ink-800 text-option focus:ring-option focus:ring-offset-0"
             />
             <span className={`${typography.caption} text-ink-300`}>
               Raw CEE output (bypass repairs)

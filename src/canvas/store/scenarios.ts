@@ -13,6 +13,7 @@
  */
 
 import type { Node, Edge } from '@xyflow/react'
+import type { CEEAnalysisReady } from '../../adapters/cee/types'
 
 export interface ScenarioFraming {
   title?: string          // Decision or question
@@ -39,6 +40,12 @@ export interface Scenario {
   last_run_at?: string // ISO timestamp of last analysis run for this scenario
   last_run_seed?: string // Seed used for last analysis run
   framing?: ScenarioFraming
+
+  // CEE analysis_ready payload for pre-analysis panel state restoration
+  ceeAnalysisReady?: CEEAnalysisReady | null
+
+  // Node ID snapshot when ceeAnalysisReady was created (for staleness detection)
+  ceeAnalysisReadyNodeIds?: string[] | null
 }
 
 const STORAGE_KEY = 'olumi-canvas-scenarios'
@@ -282,6 +289,8 @@ export function createScenario(params: {
   last_result_hash?: string
   last_run_at?: string
   last_run_seed?: string
+  ceeAnalysisReady?: CEEAnalysisReady | null
+  ceeAnalysisReadyNodeIds?: string[] | null
 }): Scenario {
   const now = Date.now()
   const { nodes, edges } = deepCloneGraph(params.nodes, params.edges)
@@ -299,7 +308,9 @@ export function createScenario(params: {
     last_result_hash: params.last_result_hash,
     last_run_at: params.last_run_at,
     last_run_seed: params.last_run_seed,
-    framing: params.framing
+    framing: params.framing,
+    ceeAnalysisReady: params.ceeAnalysisReady ?? null,
+    ceeAnalysisReadyNodeIds: params.ceeAnalysisReadyNodeIds ?? null,
   }
 
   const scenarios = loadScenarios()
@@ -517,7 +528,7 @@ export interface AutosaveData {
     options: Array<{
       id: string
       label: string
-      status: 'ready' | 'needs_user_mapping'
+      status: 'ready' | 'needs_user_mapping' | 'needs_encoding'
       interventions: Record<string, unknown>
       user_questions?: string[]
       unresolved_targets?: string[]

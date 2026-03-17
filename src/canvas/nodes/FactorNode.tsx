@@ -1,46 +1,62 @@
 import { memo, useMemo } from 'react'
 import type { NodeProps } from '@xyflow/react'
 import { BaseNode } from './BaseNode'
+import { EvidenceGapBadge } from './EvidenceGapBadge'
 import { NODE_REGISTRY } from '../domain/nodes'
 import { useCanvasStore } from '../store'
 import { deriveControllability, formatDisplayValue } from '../utils/graphDisplayCalculations'
 import { useNodeDisplayMetadata } from '../hooks/useNodeDisplayMetadata'
+import { hasObservedData } from '../utils/observedStateHelpers'
+import { typography } from '../../styles/typography'
+import { cleanFactorLabel, sensitivityTierLabel, evidenceTierLabel, formatInterventionValue, qualitativeTierLabel, CURRENCY_SYMBOLS } from '../utils/labelUtils'
+import { isGraphBadgesEnabled } from '../../flags'
+import { SlidersHorizontal, Eye, Cloud } from 'lucide-react'
 
-/**
- * Brief v2.2: ObservedState type for factor nodes
- */
 interface ObservedState {
-  value: number
+  value?: number
+  raw_value?: string | number
   baseline?: number
   unit?: string
   source?: string
+  extractionType?: 'explicit' | 'inferred'
+  factor_type?: string
+  cap?: number
 }
 
-/**
- * Factor node component with optional observed value display.
- * Brief v2.2: Displays value and baseline from observedState when available.
- */
+function formatPriorRangeValue(value: number, unit?: string): string {
+  if (unit && CURRENCY_SYMBOLS.has(unit[0])) {
+    return `${unit}${Math.round(value).toLocaleString('en-GB')}`
+  }
+  if (unit === '%') {
+    const pct = Math.abs(value) <= 1 ? Math.round(value * 100) : Math.round(value)
+    return `${pct}%`
+  }
+  const display = Number.isInteger(value) ? String(value) : value.toFixed(2).replace(/\.?0+$/, '')
+  return unit ? `${display} ${unit}` : display
+}
+
 export const FactorNode = memo((props: NodeProps) => {
   const metadata = NODE_REGISTRY.factor
   const observedState = props.data?.observedState as ObservedState | undefined
 
-  // Decision Graph Display v2 Task 11: Check if affected by hovered option
+  // T2: Strip normalisation metadata from label (display-only)
+  const cleanedLabel = cleanFactorLabel((props.data?.label as string | undefined) ?? '')
+  const cleanedData = cleanedLabel ? { ...props.data, label: cleanedLabel } : props.data
+
   const hoveredOptionId = useCanvasStore(state => state.hoveredOptionId)
   const nodes = useCanvasStore(state => state.nodes)
   const edges = useCanvasStore(state => state.edges)
   const ceeAnalysisReady = useCanvasStore(state => state.ceeAnalysisReady)
   const resultsStatus = useCanvasStore(state => state.results.status)
+  const resultsReport = useCanvasStore(state => state.results.report)
 
-  // Task 2: Derive controllability from graph structure or CEE category
-  // CEE V12.4: Use explicit category field if provided, fall back to BFS derivation
+  // Derive controllability from graph structure or CEE category
   const nodeCategory = props.data?.category as string | undefined
   const controllability = useMemo(() => {
-    // Only derive controllability when analysis is complete (Results mode)
     if (resultsStatus !== 'complete') return undefined
     return deriveControllability(props.id, ceeAnalysisReady?.options, edges, nodeCategory)
   }, [props.id, ceeAnalysisReady?.options, edges, resultsStatus, nodeCategory])
 
-  // Task 3: Get influence and confidence from analysis results
   const displayMetadata = useNodeDisplayMetadata(props.id, 'factor')
 
   const interventionValue = useMemo(() => {
@@ -53,8 +69,103 @@ export const FactorNode = memo((props: NodeProps) => {
 
   const isAffectedByHover = interventionValue !== null
 
+  // F2: Category icon + tooltip (replaces text labels)
+  const categoryIcon: { Icon: typeof SlidersHorizontal; tooltip: string } | null = useMemo(() => {
+    switch (nodeCategory) {
+      case 'controllable': return { Icon: SlidersHorizontal, tooltip: 'You control this factor' }
+      case 'observable':   return { Icon: Eye,               tooltip: 'You can measure this'    }
+      case 'external':     return { Icon: Cloud,             tooltip: 'Outside your control'    }
+      default:             return null
+    }
+  }, [nodeCategory])
+
+  // T4: Human-readable value (raw_value + unit preferred, fallback to normalised)
+  const valueDisplay = useMemo(() => {
+    if (!observedState) return null
+    const { raw_value, unit, value } = observedState
+
+    if (raw_value !== undefined && raw_value !== null && String(raw_value).trim() !== '') {
+      const rawStr = String(raw_value).trim()
+      if (!unit) return rawStr
+      // J2: Currency symbols prefix the number.
+      // When raw_value is numeric, delegate to formatInterventionValue to get proper
+      // thousands separators (e.g. £1,200 not £1200). Non-numeric strings fall back
+      // to simple concatenation so text like "approx 50" renders unchanged.
+      const numericRaw = Number(rawStr)
+      if (CURRENCY_SYMBOLS.has(unit[0])) {
+        if (!isNaN(numericRaw) && rawStr !== '') {
+          return formatInterventionValue(numericRaw, unit, observedState?.factor_type)
+        }
+        return `${unit}${rawStr}`
+      }
+      return `${rawStr} ${unit}`
+    }
+
+    if (value === undefined) return null
+
+    // Binary/discrete fallback
+    if (value === 0) return 'None'
+    if (value === 1) return 'Full'
+
+    // P2: When no raw_value and no unit, show qualitative tier label instead of raw float
+    if (!unit) return qualitativeTierLabel(value)
+
+    return formatDisplayValue(value, unit)
+  }, [observedState])
+
+  const priorRangeDisplay = useMemo(() => {
+    const prior = props.data?.prior as { range_min?: number; range_max?: number } | undefined
+    const min = prior?.range_min
+    const max = prior?.range_max
+    if (nodeCategory !== 'external' || min == null || max == null) return null
+    return `Variable: ${formatPriorRangeValue(min, observedState?.unit)}–${formatPriorRangeValue(max, observedState?.unit)}`
+  }, [nodeCategory, observedState?.unit, props.data?.prior])
+
+  const sensitivityBarWidth = useMemo(() => {
+    const influence = displayMetadata.influence
+    if (influence == null) return null
+    const factorSensitivity = (resultsReport as any)?.enrichment?.sensitivity_analysis?.factors
+      ?? (resultsReport as any)?.factor_sensitivity
+      ?? []
+    const rawValues = factorSensitivity
+      .map((factor: any) => factor.elasticity ?? factor.sensitivity_score ?? factor.importance_score)
+      .filter((value: unknown): value is number => typeof value === 'number' && Number.isFinite(value))
+      .map((value: number) => Math.abs(value))
+      .filter((value: number) => value > 0)
+    if (rawValues.length < 2) return Math.round(influence * 100)
+
+    const factorData = factorSensitivity.find((factor: any) =>
+      (factor.factor_id || factor.factorId || factor.node_id || factor.nodeId) === props.id
+    )
+    const rawCurrent = factorData?.elasticity ?? factorData?.sensitivity_score ?? factorData?.importance_score
+    if (typeof rawCurrent !== 'number' || !Number.isFinite(rawCurrent)) return Math.round(influence * 100)
+
+    const min = Math.min(...rawValues)
+    const max = Math.max(...rawValues)
+    if (max <= min) return Math.round(influence * 100)
+
+    const normalised = (Math.abs(rawCurrent) - min) / (max - min)
+    return Math.round((0.25 + normalised * 0.75) * 100)
+  }, [displayMetadata.influence, props.id, resultsReport])
+
+  // T5: Show "estimated" pill only for inferred values
+  const isInferred = observedState?.extractionType === 'inferred'
+
+  /**
+   * Evidence gap badge semantics:
+   * - Badge shows when factor has NO observed data (hasObservedData returns false).
+   * - `observedState.value === 0` is valid data (binary "None") — badge hidden.
+   * - External factors with a prior range set are excluded: prior.range_min/max
+   *   is their form of evidence; they should not show the gap badge.
+   * - Badge is never shown when VITE_FEATURE_GRAPH_BADGES is off.
+   */
+  const externalWithPrior = nodeCategory === 'external' && props.data?.prior != null
+  const showEvidenceGapBadge =
+    isGraphBadgesEnabled() && !hasObservedData(props.data) && !externalWithPrior
+
   return (
     <div style={{ position: 'relative' }}>
+      {showEvidenceGapBadge && <EvidenceGapBadge label={cleanedLabel} />}
       {isAffectedByHover && (
         <div
           className="absolute -inset-1 rounded-xl border-2 border-info pointer-events-none -z-10"
@@ -63,83 +174,99 @@ export const FactorNode = memo((props: NodeProps) => {
       )}
       <BaseNode
         {...props}
-        data={{ ...props.data, controllability }}
+        data={{ ...cleanedData, controllability }}
         nodeType="factor"
         icon={metadata.icon}
-      >
-      {/* Decision Graph Display v2 Task 11: Show intervention value when option hovered */}
-      {isAffectedByHover && (
-        <div className="text-xs font-semibold text-info mb-1 bg-info-light px-1.5 py-0.5 rounded border border-info/30">
-          Intervention: {formatDisplayValue(interventionValue, observedState?.unit)}
-        </div>
-      )}
-      {/* Task 3: Influence & Confidence bars (only in Results mode) */}
-      {/* UI Polish Task 2: Only show bars when value > 0.001 (hide zero bars) */}
-      {/* UI Polish Task 3: Added spacing (mt-2 mb-2, space-y-1.5) */}
-      {displayMetadata.isResultsMode && (
-        (displayMetadata.influence !== null && displayMetadata.influence > 0.001) ||
-        (displayMetadata.confidence !== null && displayMetadata.confidence > 0.001)
-      ) && (
-        <div className="mt-2 mb-2 space-y-1.5">
-          {/* Influence bar - teal/info color (only show if > 0) */}
-          {displayMetadata.influence !== null && displayMetadata.influence > 0.001 && (
-            <div className="flex items-center gap-1.5">
-              <span className="text-[10px] text-text-light w-14 shrink-0 truncate" title="Influence">Influence</span>
-              <div className="flex-1 h-1.5 bg-panel-border rounded-full overflow-hidden max-w-[60px]">
-                <div
-                  className="h-full bg-info rounded-full transition-all duration-300"
-                  style={{ width: `${Math.round(displayMetadata.influence * 100)}%` }}
-                />
-              </div>
-              <span className="text-[10px] text-text-light w-8 text-right shrink-0">
-                {Math.round(displayMetadata.influence * 100)}%
-              </span>
-            </div>
-          )}
-          {/* Confidence bar - slate/muted color (only show if > 0) */}
-          {displayMetadata.confidence !== null && displayMetadata.confidence > 0.001 && (
-            <div className="flex items-center gap-1.5">
-              <span className="text-[10px] text-text-light w-14 shrink-0 truncate" title="Confidence">Confidence</span>
-              <div className="flex-1 h-1.5 bg-panel-border rounded-full overflow-hidden max-w-[60px]">
-                <div
-                  className="h-full bg-factor rounded-full transition-all duration-300"
-                  style={{ width: `${Math.round(displayMetadata.confidence * 100)}%` }}
-                />
-              </div>
-              <span className="text-[10px] text-text-light w-8 text-right shrink-0">
-                {Math.round(displayMetadata.confidence * 100)}%
-              </span>
-            </div>
-          )}
-        </div>
-      )}
-      {/* Brief v2.2: Display observed value if present */}
-      {/* Task 4: Better value display formatting */}
-      {/* UI Polish Task 1 & 3: Fixed unit position (after number for %) and added spacing */}
-      {observedState && typeof observedState.value === 'number' && (
-        <div className="factor-node-value text-xs mt-2 flex items-baseline gap-1">
-          <span className="font-semibold text-info">
-            {/* UI Polish: formatDisplayValue handles % internally, so don't prepend unit for % */}
-            {observedState.unit === '%'
-              ? formatDisplayValue(observedState.value, observedState.unit)
-              : `${observedState.unit ?? ''}${formatDisplayValue(observedState.value, observedState.unit)}`}
+        headerSlot={categoryIcon ? (
+          <span title={categoryIcon.tooltip} aria-label={categoryIcon.tooltip}>
+            <categoryIcon.Icon
+              className="w-3.5 h-3.5 text-text-light"
+              aria-hidden="true"
+            />
           </span>
-          {observedState.baseline !== undefined && observedState.baseline !== observedState.value && (
-            <span className="text-text-light text-[10px]">
-              (was {observedState.unit === '%'
-                ? formatDisplayValue(observedState.baseline, observedState.unit)
-                : `${observedState.unit ?? ''}${formatDisplayValue(observedState.baseline, observedState.unit)}`})
-            </span>
-          )}
-        </div>
-      )}
-      {/* Description (existing) */}
-      {props.data?.description && (
-        <div className={`text-xs opacity-70 ${observedState ? 'mt-0.5' : ''}`}>
-          {props.data.description}
-        </div>
-      )}
-    </BaseNode>
+        ) : undefined}
+      >
+
+        {/* Intervention highlight when option hovered */}
+        {isAffectedByHover && (
+          <div className={`${typography.nodeTitle} text-info mb-1 bg-panel px-1.5 py-0.5 rounded border border-info/30`}>
+            Intervention: {formatInterventionValue(
+              interventionValue,
+              observedState?.unit,
+              observedState?.factor_type,
+              observedState?.cap,
+              observedState?.value,
+              observedState?.raw_value,
+            )}
+          </div>
+        )}
+
+        {/* T4: Human-readable value row + T5: estimated pill */}
+        {(valueDisplay !== null || (observedState != null && observedState.value === undefined) || (!observedState && nodeCategory === 'external')) && (
+          <div className={`${typography.nodeLabel} mt-1.5 flex items-center gap-1.5 flex-wrap`}>
+            {valueDisplay !== null ? (
+              <span className="font-semibold text-text-body">{valueDisplay}</span>
+            ) : priorRangeDisplay ? (
+              <span className="text-text-light">{priorRangeDisplay}</span>
+            ) : (
+              <span className="italic text-text-light">No baseline</span>
+            )}
+            {isInferred && (
+              <span
+                className={`${typography.nodeLabel} bg-panel border border-warning/30 text-text-body rounded-full px-1.5 py-0.5`}
+                title="Estimated by Olumi — verify or update"
+              >
+                estimated
+              </span>
+            )}
+          </div>
+        )}
+
+        {/* T6: Sensitivity & Evidence bars (Results mode) — renamed from Influence/Confidence */}
+        {displayMetadata.isResultsMode && (
+          (displayMetadata.influence !== null && displayMetadata.influence > 0.001) ||
+          (displayMetadata.confidence !== null && displayMetadata.confidence > 0.001)
+        ) && (
+          <div className="mt-2 mb-1 space-y-1.5">
+            {/* Sensitivity bar (was Influence) */}
+            {displayMetadata.influence !== null && displayMetadata.influence > 0.001 && (
+              <div className="flex items-center gap-1.5">
+                <span className={`${typography.nodeLabel} text-text-light w-14 shrink-0 truncate`} title="Sensitivity">Sensitivity</span>
+                <div className="flex-1 h-1.5 bg-panel-border rounded-full overflow-hidden max-w-[60px]">
+                  <div
+                    className="h-full bg-info rounded-full transition-all duration-300"
+                    style={{ width: `${sensitivityBarWidth ?? Math.round(displayMetadata.influence * 100)}%` }}
+                  />
+                </div>
+                <span className={`${typography.nodeLabel} text-text-light w-8 text-right shrink-0`}>
+                  {sensitivityTierLabel(displayMetadata.influence)}
+                </span>
+              </div>
+            )}
+            {/* Evidence bar (was Confidence) */}
+            {displayMetadata.confidence !== null && displayMetadata.confidence > 0.001 && (
+              <div className="flex items-center gap-1.5">
+                <span className={`${typography.nodeLabel} text-text-light w-14 shrink-0 truncate`} title="Evidence">Evidence</span>
+                <div className="flex-1 h-1.5 bg-panel-border rounded-full overflow-hidden max-w-[60px]">
+                  <div
+                    className="h-full bg-info rounded-full transition-all duration-300"
+                    style={{ width: `${Math.round(displayMetadata.confidence * 100)}%` }}
+                  />
+                </div>
+                <span className={`${typography.nodeLabel} text-text-light w-8 text-right shrink-0`}>
+                  {evidenceTierLabel(displayMetadata.confidence)}
+                </span>
+              </div>
+            )}
+          </div>
+        )}
+
+        {typeof props.data?.description === 'string' && props.data.description && (
+          <div className={`${typography.nodeLabel} opacity-70 mt-0.5`}>
+            {props.data.description}
+          </div>
+        )}
+      </BaseNode>
     </div>
   )
 })

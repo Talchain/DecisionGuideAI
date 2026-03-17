@@ -5,9 +5,10 @@
  * Calls /v2/run and maps response to store format.
  */
 
-import { useCallback, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import { useCanvasStore } from '../store'
-import type { Node, Edge } from '@xyflow/react'
+import { useResultsStore } from '../stores/resultsStore'
+import { getEdgeKey } from '../domain/edgeUtils'
 import {
   executeV2RunWithAnalysisReady,
   isBlockedResponse,
@@ -28,6 +29,7 @@ import {
   synthesizeCeeTraceFromV2,
 } from '../../adapters/plot/v2/responseMapper'
 import { trackRunCompleted, trackRunFailed, trackEmptyComputedResults } from '../../lib/resultsInstrumentation'
+import { generateGraphHash } from '../store/runHistory'
 import { trackTypedError } from '../../lib/telemetry'
 import { ApiError, NetworkError, ProcessingError, isApiError } from '../../lib/api-errors'
 import { generateRequestId } from '../../types/requestId'
@@ -35,55 +37,8 @@ import type { CEEAnalysisReady } from '../../adapters/cee/types'
 import type { M1Review, M1Coaching } from '../../types/cee'
 import { useGateStore, updateRobustnessGate, updateRobustnessGateFromV2 } from '../../lib/gate-state'
 import { buildRawErrorData, hashStackTrace } from '../../utils/payloadRedaction'
-
-/**
- * Extract M1 Review data from V2 response.
- * Returns null if CEE status is skipped or no review data present.
- */
-function extractM1ReviewFromV2(response: V2RunResponse): M1Review | null {
-  // If no CEE status or explicitly skipped, return null
-  const ceeStatus = response.cee_status ?? 'skipped'
-  if (ceeStatus === 'skipped') {
-    return null
-  }
-
-  return {
-    cee_status: ceeStatus,
-    decision_quality: response.decision_quality ?? null,
-    insights: response.insights ?? null,
-    improvement_guidance: response.improvement_guidance ?? null,
-    rationale: response.rationale ?? null,
-    robustness_synthesis: response.robustness_synthesis ?? null,
-    ceeTrace: response.cee_trace ? {
-      requestId: response.cee_trace.request_id,
-      latency_ms: response.cee_trace.latency_ms,
-      degraded: response.cee_trace.degraded,
-    } : undefined,
-  }
-}
-
-/**
- * Extract M1 Coaching data from V2 response.
- * Returns null if m1_coaching is not present.
- * These are deterministic fields computed after ISL, not LLM-generated.
- */
-function extractM1CoachingFromV2(response: V2RunResponse): M1Coaching | null {
-  const coaching = response.m1_coaching
-  if (!coaching) {
-    return null
-  }
-
-  return {
-    executive_summary: coaching.executive_summary ?? undefined,
-    story_headlines: coaching.story_headlines ?? {},
-    readiness: coaching.readiness ?? undefined,
-    readiness_signals: coaching.readiness_signals ?? undefined,
-    key_drivers: coaching.key_drivers ?? undefined,
-    evidence_gaps: coaching.evidence_gaps ?? [],
-    next_actions: coaching.next_actions ?? [],
-    assumptions_ledger: coaching.assumptions_ledger ?? [],
-  }
-}
+import { extractM1ReviewFromV2, extractM1CoachingFromV2 } from '../../hooks/hydrateAnalysis'
+import { assembleAnalysisInputsSummary } from '../analysis/assembleAnalysisInputsSummary'
 
 /**
  * P0 Fix: Derive a stable numeric seed from a string.
@@ -162,8 +117,26 @@ function isAnalysisReadyStale(
   return { isStale: false }
 }
 
+/** Optional Supabase persistence callbacks injected by the calling component. */
+export interface V2RunPersistence {
+  setAnalysisRunning: () => Promise<void>
+  persistAnalysisSuccess: (
+    analysis: unknown,
+    graphHash: string,
+    seedUsed: number,
+    responseHash: string,
+    details?: Record<string, unknown>,
+  ) => Promise<void>
+  persistAnalysisFailure: (
+    errorPayload: { code: string; message: string },
+  ) => Promise<void>
+  /** Reset analysis_status to 'none' — called on user-initiated cancel. */
+  resetAnalysisStatus?: () => Promise<void>
+}
+
 interface UseV2RunReturn {
   runV2Analysis: () => Promise<void>
+  cancelRun: () => void
   isRunning: boolean
   error: string | null
 }
@@ -172,34 +145,54 @@ interface UseV2RunReturn {
  * Hook for running V2 analysis.
  *
  * Uses executeV2Run and maps response to store format.
+ * Accepts optional Supabase persistence callbacks (C.1b Task 6).
  */
-export function useV2Run(): UseV2RunReturn {
+export function useV2Run(persistence?: V2RunPersistence): UseV2RunReturn {
   const [isRunning, setIsRunning] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const abortControllerRef = useRef<AbortController | null>(null)
 
-  // Store selectors
-  const nodes = useCanvasStore((s) => s.nodes)
-  const edges = useCanvasStore((s) => s.edges)
-  const outcomeNodeId = useCanvasStore((s) => s.outcomeNodeId)
-  const goalThreshold = useCanvasStore((s) => s.goalThreshold)
-  const framing = useCanvasStore((s) => s.currentScenarioFraming)
-  const ceeAnalysisReady = useCanvasStore((s) => s.ceeAnalysisReady)
-  const ceeAnalysisReadyNodeIds = useCanvasStore((s) => s.ceeAnalysisReadyNodeIds)
-
-  // Store actions
-  const resultsStart = useCanvasStore((s) => s.resultsStart)
-  const resultsComplete = useCanvasStore((s) => s.resultsComplete)
-  const resultsError = useCanvasStore((s) => s.resultsError)
-  const setRunMeta = useCanvasStore((s) => s.setRunMeta)
-  const setCeeAnalysisReady = useCanvasStore((s) => s.setCeeAnalysisReady)
-  const captureErrorDetail = useCanvasStore((s) => s.captureErrorDetail)
+  // Audit F-76: Store selectors moved inside callback to prevent stale closures.
+  // Graph state is now snapshot at analysis trigger time, not render time.
+  // Store actions are stable references — safe to read from getState() inside callback.
 
   const runV2Analysis = useCallback(async () => {
+    // Audit F-76: Snapshot graph state at trigger time (not render time)
+    const {
+      nodes,
+      edges,
+      outcomeNodeId,
+      goalThreshold,
+      currentScenarioFraming: framing,
+      ceeAnalysisReady,
+      ceeAnalysisReadyNodeIds,
+      goalConstraints,
+      lastDraftDescription,
+      resultsStart,
+      resultsComplete,
+      resultsError,
+      resultsCancelled,
+      setRunMeta,
+      setCeeAnalysisReady,
+      setGoalConstraints,
+      captureErrorDetail,
+    } = useCanvasStore.getState()
+
     // Validate goal is selected
     if (!outcomeNodeId) {
       setError('No goal node selected')
       return
     }
+
+    // Audit F-77: Abort any in-progress run before starting a new one.
+    // Prevents orphaned AbortControllers from double-click race conditions.
+    if (abortControllerRef.current && !abortControllerRef.current.signal.aborted) {
+      abortControllerRef.current.abort()
+    }
+
+    // Create a fresh AbortController for this run so the user can cancel
+    const controller = new AbortController()
+    abortControllerRef.current = controller
 
     setIsRunning(true)
     setError(null)
@@ -218,7 +211,7 @@ export function useV2Run(): UseV2RunReturn {
 
     if (seed === undefined && nodes.length > 0) {
       // Derive stable seed from graph structure hash
-      const graphKey = nodes.map(n => n.id).sort().join('|') + '::' + edges.map(e => `${e.source}->${e.target}`).sort().join('|')
+      const graphKey = nodes.map(n => n.id).sort().join('|') + '::' + edges.map(e => getEdgeKey(e)).sort().join('|')
       seed = deriveNumericSeedFromString(graphKey)
     }
 
@@ -234,11 +227,19 @@ export function useV2Run(): UseV2RunReturn {
     const requestId = generateRequestId()
 
     if (import.meta.env.DEV) {
-      console.log('[useV2Run] Request ID:', requestId)
+      console.warn('[useV2Run] Request ID:', requestId)
+    }
+
+    // C.1b: Mark analysis as running in Supabase (fire-and-forget, non-blocking)
+    if (persistence) {
+      persistence.setAnalysisRunning().catch(() => {
+        // Non-critical — UI already shows running state
+      })
     }
 
     // Signal run start
     resultsStart({ seed })
+    useResultsStore.getState().setAnalysisSummary(null)
 
     // Reset run metadata
     setRunMeta({
@@ -258,10 +259,12 @@ export function useV2Run(): UseV2RunReturn {
       const config: V2AdapterConfig = {
         baseUrl: import.meta.env.VITE_PLOT_PROXY_BASE || '/bff/engine',
         timeout: 120000,
+        signal: controller.signal,
       }
 
       // Check if ceeAnalysisReady is stale (graph changed since draft was applied)
       let effectiveAnalysisReady = ceeAnalysisReady
+      let effectiveGoalConstraints = goalConstraints
       const currentNodeIds = new Set(nodes.map((n) => n.id))
 
       if (ceeAnalysisReady) {
@@ -277,14 +280,16 @@ export function useV2Run(): UseV2RunReturn {
               reason: staleCheck.reason,
             })
           }
-          // Clear stale analysis_ready from store
+          // Clear stale analysis_ready and goal_constraints from store
           setCeeAnalysisReady(null)
+          setGoalConstraints(null)
           effectiveAnalysisReady = null
+          effectiveGoalConstraints = null
         }
       }
 
       if (import.meta.env.DEV) {
-        console.log('[useV2Run] Starting V2 analysis', {
+        console.warn('[useV2Run] Starting V2 analysis', {
           nodeCount: nodes.length,
           edgeCount: edges.length,
           goalNodeId: outcomeNodeId,
@@ -295,7 +300,8 @@ export function useV2Run(): UseV2RunReturn {
 
       // Execute V2 run with analysisReady (or fallback to node extraction)
       // P0 Fix: Pass computed seed to avoid hardcoded "42" default
-      // P0 Fix: Include framing for contextualised CEE responses
+      // Audit F-01: framing removed from PLoT request (PLoT rejects it with 400).
+      // P0 Fix: Include brief for PLoT context
       const result = await executeV2RunWithAnalysisReady(
         config,
         nodes,
@@ -305,11 +311,8 @@ export function useV2Run(): UseV2RunReturn {
         requestId,
         goalThreshold ?? undefined,
         seed,
-        framing ? {
-          title: framing.title,
-          goal: framing.goal,
-          constraints: framing.constraints,
-        } : undefined
+        lastDraftDescription || undefined,
+        effectiveGoalConstraints
       )
 
       const elapsed_ms = Date.now() - startTime
@@ -318,7 +321,7 @@ export function useV2Run(): UseV2RunReturn {
       if (isBlockedResponse(result)) {
         const errorResult = result as V2RunError
         if (import.meta.env.DEV) {
-          console.log('[useV2Run] Analysis blocked', {
+          console.warn('[useV2Run] Analysis blocked', {
             requestId,
             serverRequestId: errorResult.request_id,
             reason: errorResult.status_reason,
@@ -339,6 +342,14 @@ export function useV2Run(): UseV2RunReturn {
           canRetry: false, // User needs to fix model first
         })
 
+        // C.1b: Persist failure to Supabase (non-blocking)
+        if (persistence) {
+          persistence.persistAnalysisFailure({
+            code: 'VALIDATION_BLOCKED',
+            message: errorResult.status_reason,
+          }).catch(() => { /* non-critical */ })
+        }
+
         setError(errorResult.status_reason)
         setIsRunning(false)
         return
@@ -348,7 +359,7 @@ export function useV2Run(): UseV2RunReturn {
       if (isFailedAnalysis(result)) {
         const failedResult = result as V2RunResponse
         if (import.meta.env.DEV) {
-          console.log('[useV2Run] Analysis failed', {
+          console.warn('[useV2Run] Analysis failed', {
             requestId,
             serverRequestId: failedResult.request_id,
           })
@@ -373,6 +384,14 @@ export function useV2Run(): UseV2RunReturn {
           hash: failedResult.response_hash,
         })
 
+        // C.1b: Persist failure to Supabase (non-blocking)
+        if (persistence) {
+          persistence.persistAnalysisFailure({
+            code: 'ANALYSIS_FAILED',
+            message: 'Analysis could not complete',
+          }).catch(() => { /* non-critical */ })
+        }
+
         setError('Analysis could not complete')
         setIsRunning(false)
         return
@@ -395,7 +414,7 @@ export function useV2Run(): UseV2RunReturn {
         const successResult = sanitizeV2RunResponse(rawSuccessResult)
 
         if (import.meta.env.DEV) {
-          console.log('[useV2Run] Analysis complete', {
+          console.warn('[useV2Run] Analysis complete', {
             requestId,
             serverRequestId: successResult.request_id,
             status: successResult.analysis_status,
@@ -418,7 +437,7 @@ export function useV2Run(): UseV2RunReturn {
 
         // Debug: Log raw M1 fields from V2 response before extraction
         if (import.meta.env.DEV) {
-          console.log('[useV2Run] Raw M1 Review fields from V2 response:', {
+          console.warn('[useV2Run] Raw M1 Review fields from V2 response:', {
             cee_status: successResult.cee_status,
             has_decision_quality: !!successResult.decision_quality,
             insights_count: successResult.insights?.length ?? 'missing',
@@ -440,8 +459,11 @@ export function useV2Run(): UseV2RunReturn {
         // Extract M1 Coaching data (deterministic coaching fields)
         const m1Coaching = extractM1CoachingFromV2(successResult)
 
+        // Extract M1 Review assumptions (key_assumptions + pre_mortem from PLoT)
+        const m1ReviewAssumptions = successResult.m1_review ?? null
+
         if (import.meta.env.DEV) {
-          console.log('[useV2Run] Extracted M1 Review:', {
+          console.warn('[useV2Run] Extracted M1 Review:', {
             hasCeeReview: !!ceeReviewV1,
             blockCount: ceeReviewV1?.blocks?.length ?? 0,
             readinessLevel: ceeReviewV1?.readiness?.level,
@@ -452,7 +474,7 @@ export function useV2Run(): UseV2RunReturn {
             insightsCount: m1Review?.insights?.length ?? 0,
             guidanceCount: m1Review?.improvement_guidance?.length ?? 0,
           })
-          console.log('[useV2Run] Extracted M1 Coaching:', {
+          console.warn('[useV2Run] Extracted M1 Coaching:', {
             hasM1Coaching: !!m1Coaching,
             hasHeadline: !!m1Coaching?.executive_summary?.headline,
             readiness: m1Coaching?.readiness,
@@ -502,6 +524,34 @@ export function useV2Run(): UseV2RunReturn {
           ceeTraceV1,
         })
 
+        try {
+          useResultsStore.getState().setAnalysisSummary(assembleAnalysisInputsSummary(successResult))
+        } catch {
+          useResultsStore.getState().setAnalysisSummary(null)
+        }
+
+        // C.1b: Persist analysis results to Supabase (non-blocking)
+        if (persistence) {
+          const seedUsed = successResult.meta?.seed_used
+            ? (parseInt(successResult.meta.seed_used, 10) || 0)
+            : (seed ?? 0)
+          const graphHash = generateGraphHash(nodes, edges, seedUsed)
+          persistence.persistAnalysisSuccess(
+            successResult,
+            graphHash,
+            seedUsed,
+            successResult.response_hash,
+            {
+              option_count: successResult.option_comparison?.length ?? 0,
+              analysis_status: successResult.analysis_status,
+            },
+          ).catch((err) => {
+            if (import.meta.env.DEV) {
+              console.warn('[useV2Run] Supabase analysis persistence failed', err)
+            }
+          })
+        }
+
         // Update run metadata with CEE data for debugging/display
         setRunMeta({
           ceeReviewV1,
@@ -509,6 +559,8 @@ export function useV2Run(): UseV2RunReturn {
           ceeErrorV1: null, // No error - synthesis succeeded
           m1Review, // M1 Review enrichment (rationale, robustness synthesis, etc.)
           m1Coaching, // M1 Coaching (deterministic, not LLM-generated)
+          m1ReviewAssumptions, // M1 Review assumptions + pre-mortem from PLoT
+          reviewStatus: successResult.review_status, // V12: M2 gate
         })
 
         // Update gates after successful analysis
@@ -567,6 +619,30 @@ export function useV2Run(): UseV2RunReturn {
       })
       setError('Unexpected response format')
     } catch (err) {
+      // P0 race fix: If this run was superseded (a newer run owns the controller),
+      // no-op — the newer run manages state. Only the active run may mutate status.
+      const isActiveRun = abortControllerRef.current === controller
+
+      // Distinguish user-initiated cancellation from other abort errors
+      if (controller.signal.aborted && err instanceof Error && err.name === 'AbortError') {
+        // Only fire resultsCancelled for user-initiated cancel on the active run.
+        // Superseded runs (aborted by F-77 guard) must not touch state.
+        if (isActiveRun) {
+          resultsCancelled()
+          setIsRunning(false)
+          abortControllerRef.current = null
+          // Reset Supabase analysis_status back to 'none' (fire-and-forget)
+          persistence?.resetAnalysisStatus?.().catch(() => {})
+        }
+        return
+      }
+
+      // P0 race fix: If this run was superseded, do not mutate shared state.
+      // Telemetry tracking (trackRunFailed, trackTypedError) is still safe — it's fire-and-forget.
+      if (!isActiveRun) {
+        return
+      }
+
       const elapsed_ms = Date.now() - startTime
       const message = err instanceof Error ? err.message : 'Unknown error'
 
@@ -614,6 +690,14 @@ export function useV2Run(): UseV2RunReturn {
         canRetry: typedError.retryable,
       })
 
+      // C.1b: Persist failure to Supabase (non-blocking)
+      if (persistence) {
+        persistence.persistAnalysisFailure({
+          code: errorCode,
+          message,
+        }).catch(() => { /* non-critical */ })
+      }
+
       // Capture error detail for debug drawer expansion
       captureErrorDetail({
         timestamp: new Date().toISOString(),
@@ -658,25 +742,27 @@ export function useV2Run(): UseV2RunReturn {
 
       setError(message)
     } finally {
-      setIsRunning(false)
+      // P0 race fix: Only the active run clears shared state.
+      // A superseded run must not reset isRunning or the controller ref,
+      // as a newer run now owns them.
+      if (abortControllerRef.current === controller) {
+        abortControllerRef.current = null
+        setIsRunning(false)
+      }
     }
-  }, [
-    nodes,
-    edges,
-    outcomeNodeId,
-    framing,
-    ceeAnalysisReady,
-    ceeAnalysisReadyNodeIds,
-    setCeeAnalysisReady,
-    resultsStart,
-    resultsComplete,
-    resultsError,
-    setRunMeta,
-    captureErrorDetail,
-  ])
+  // Audit F-76: Dependency array reduced — graph state is read from getState() inside callback.
+  // Only persistence (external prop) can change the callback's behaviour.
+  }, [persistence])
+
+  const cancelRun = useCallback(() => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort()
+    }
+  }, [])
 
   return {
     runV2Analysis,
+    cancelRun,
     isRunning,
     error,
   }

@@ -1,0 +1,135 @@
+{
+  "version": 2,
+  "timestamp": 1700000000000,
+  "nodes": [
+    {
+      "id": "goal-1",
+      "type": "goal",
+      "position": { "x": 400, "y": 50 },
+      "data": {
+        "label": "Increase annual revenue",
+        "type": "goal",
+        "kind": "goal",
+        "description": "Primary business objective"
+      }
+    },
+    {
+      "id": "factor-1",
+      "type": "factor",
+      "position": { "x": 100, "y": 250 },
+      "data": {
+        "label": "Customer satisfaction",
+        "type": "factor",
+        "kind": "factor",
+        "category": "controllable",
+        "observedState": { "value": 72, "baseline": 65, "unit": "%" }
+      }
+    },
+    {
+      "id": "factor-2",
+      "type": "factor",
+      "position": { "x": 400, "y": 250 },
+      "data": {
+        "label": "Market share",
+        "type": "factor",
+        "kind": "factor",
+        "category": "observable",
+        "observedState": { "value": 0.35, "raw_value": 35, "baseline": 0.30 }
+      }
+    },
+    {
+      "id": "factor-3",
+      "type": "factor",
+      "position": { "x": 700, "y": 250 },
+      "data": {
+        "label": "Competitor pricing",
+        "type": "factor",
+        "kind": "factor",
+        "category": "external",
+        "observedState": { "value": 0.6, "baseline": 0.5 }
+      }
+    },
+    {
+      "id": "option-baseline",
+      "type": "option",
+      "position": { "x": 100, "y": 450 },
+      "data": {
+        "label": "Status Quo",
+        "type": "option",
+        "kind": "option",
+        "interventions": {}
+      }
+    },
+    {
+      "id": "option-active",
+      "type": "option",
+      "position": { "x": 400, "y": 450 },
+      "data": {
+        "label": "Hire 3 engineers",
+        "type": "option",
+        "kind": "option",
+        "interventions": { "factor-1": 85, "factor-2": 0.45 }
+      }
+    },
+    {
+      "id": "option-empty",
+      "type": "option",
+      "position": { "x": 700, "y": 450 },
+      "data": {
+        "label": "Expand marketing",
+        "type": "option",
+        "kind": "option",
+        "interventions": {}
+      }
+    },
+    {
+      "id": "decision-1",
+      "type": "decision",
+      "position": { "x": 400, "y": 650 },
+      "data": {
+        "label": "Growth strategy choice",
+        "type": "decision",
+        "kind": "decision"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "e-f1-g1",
+      "source": "factor-1",
+      "target": "goal-1",
+      "data": {
+        "weight": 0.7,
+        "direction": "positive",
+        "belief": 0.8,
+        "label": "Satisfaction drives revenue",
+        "style": "solid",
+        "pathType": "bezier"
+      }
+    },
+    {
+      "id": "e-f2-g1",
+      "source": "factor-2",
+      "target": "goal-1",
+      "data": {
+        "weight": 0.5,
+        "direction": "positive",
+        "belief": 0.6,
+        "style": "solid",
+        "pathType": "bezier"
+      }
+    },
+    {
+      "id": "e-f3-f1",
+      "source": "factor-3",
+      "target": "factor-1",
+      "data": {
+        "weight": 0.3,
+        "direction": "negative",
+        "belief": 0.5,
+        "style": "dashed",
+        "pathType": "bezier"
+      }
+    }
+  ]
+}

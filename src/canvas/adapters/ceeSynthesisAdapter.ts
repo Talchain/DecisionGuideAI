@@ -8,7 +8,7 @@
  * - voi: Value of Information suggestions
  * - tipping_points: Threshold analysis from robustness bounds
  * - robustness: Overall robustness classification
- * - goal_label: The goal being optimized for
+ * - goal_label: The goal being optimised for
  */
 
 import type { RobustnessResult } from '../components/RecommendationCard/types'

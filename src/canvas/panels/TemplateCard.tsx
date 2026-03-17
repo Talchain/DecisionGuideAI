@@ -1,4 +1,5 @@
 import { useRef, useMemo } from 'react'
+import { typography } from '../../styles/typography'
 import { FileText, Plus, GitMerge } from 'lucide-react'
 import type { TemplateMeta, BlueprintNode, BlueprintEdge } from '../../templates/blueprints/types'
 import { generateTemplatePreview } from '../utils/templatePreview'
@@ -24,7 +25,7 @@ export function TemplateCard({ template, nodes, edges, onInsert, onMerge, onLear
   }, [nodes, edges])
 
   return (
-    <div className="border border-gray-200 rounded-lg p-4 hover:shadow-sm hover:border-info-500 transition-all">
+    <div className="border border-panel-border rounded-lg p-4 hover:shadow-1 hover:border-info transition-all">
       {/* P0-5: Mini-layout preview */}
       {previewDataUrl && (
         <div className="mb-3 rounded-md overflow-hidden border border-gray-200">
@@ -42,10 +43,10 @@ export function TemplateCard({ template, nodes, edges, onInsert, onMerge, onLear
           <FileText className="w-5 h-5 text-info-600" />
         </div>
         <div className="flex-1 min-w-0">
-          <h3 className="text-sm font-semibold text-gray-900 mb-1">
+          <h3 className={`${typography.panelHeader} text-gray-900 mb-1`}>
             {template.name}
           </h3>
-          <p className="text-xs text-gray-600 line-clamp-2">
+          <p className={`${typography.panelBody} text-gray-600 line-clamp-2`}>
             {template.description}
           </p>
         </div>
@@ -59,14 +60,14 @@ export function TemplateCard({ template, nodes, edges, onInsert, onMerge, onLear
             const now = Date.now()
             if (now - lastClickTime.current < 500) {
               if (import.meta.env.DEV) {
-                console.log('[TemplateCard] Debounced duplicate click on:', template.name)
+                console.warn('[TemplateCard] Debounced duplicate click on:', template.name)
               }
               return
             }
             lastClickTime.current = now
             onInsert(template.id)
           }}
-          className="w-full flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium text-white bg-info-500 hover:bg-info-600 rounded-md focus:outline-none focus:ring-2 focus:ring-info-500 transition-colors"
+          className={`w-full flex items-center justify-center gap-1.5 px-3 py-2 ${typography.panelBody} text-text-on-color bg-info-500 hover:bg-info-600 rounded-md focus:outline-none focus:ring-2 focus:ring-info-500 transition-colors`}
           aria-label={`Insert ${template.name}`}
         >
           <Plus className="w-3.5 h-3.5" />
@@ -81,14 +82,14 @@ export function TemplateCard({ template, nodes, edges, onInsert, onMerge, onLear
                 const now = Date.now()
                 if (now - lastMergeClickTime.current < 500) {
                   if (import.meta.env.DEV) {
-                    console.log('[TemplateCard] Debounced duplicate merge click on:', template.name)
+                    console.warn('[TemplateCard] Debounced duplicate merge click on:', template.name)
                   }
                   return
                 }
                 lastMergeClickTime.current = now
                 onMerge(template.id)
               }}
-              className="flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 text-xs font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 transition-colors"
+              className={`flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 ${typography.panelBody} text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 transition-colors`}
               aria-label={`Merge ${template.name} into current canvas`}
               title="Add template to current canvas"
             >
@@ -99,7 +100,7 @@ export function TemplateCard({ template, nodes, edges, onInsert, onMerge, onLear
           {onLearnMore && (
             <button
               onClick={() => onLearnMore(template.id)}
-              className="flex-1 px-2 py-1.5 text-xs font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-400 transition-colors"
+              className={`flex-1 px-2 py-1.5 ${typography.panelBody} text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-400 transition-colors`}
             >
               Learn more
             </button>

@@ -93,7 +93,7 @@
   font-size: 14px;
   font-weight: 400;
   padding: 4px 8px;
-  border: 2px solid var(--info, #63ADCF);
+  border: 2px solid var(--info, #2B7FA2);
   border-radius: 6px;
   background: white;
   max-width: 200px;
@@ -178,7 +178,7 @@
 }
 
 .saveButton:hover:not(:disabled) {
-  border-color: var(--info, #63ADCF);
+  border-color: var(--info, #2B7FA2);
   background: var(--info-light, #BAD7E4);
   color: var(--text-header, #262626);
 }
@@ -354,7 +354,7 @@
 .settingsCheckbox {
   width: 14px;
   height: 14px;
-  accent-color: var(--info, #63ADCF);
+  accent-color: var(--info, #2B7FA2);
   cursor: pointer;
 }
 
@@ -372,7 +372,7 @@
   height: 4px;
   border-radius: 2px;
   background: var(--border-default, #EEE6D8);
-  accent-color: var(--info, #63ADCF);
+  accent-color: var(--info, #2B7FA2);
   cursor: pointer;
 }
 
@@ -381,6 +381,22 @@
   justify-content: space-between;
   font-size: 10px;
   color: var(--text-light, #908D8D);
+}
+
+/* A.15: Stage lifecycle pill — true pill shape (999px radius, 2px border) */
+.stagePill {
+  display: flex;
+  align-items: center;
+  padding: 4px 12px;
+  font-size: 14px;
+  font-weight: 500;
+  border-width: 2px;
+  border-style: solid;
+  border-color: var(--border-default, #EEE6D8); /* fallback; overridden inline */
+  border-radius: 999px;
+  background: var(--bg-panel, #FEFEFE);
+  color: var(--text-body, #3F3F3E);
+  white-space: nowrap;
 }
 
 /* Metadata chips for pill design - body font size */
@@ -421,13 +437,13 @@
 }
 
 .metadataChip[data-status="running"] {
-  border-color: var(--info, #63ADCF);
+  border-color: var(--info, #2B7FA2);
   background: var(--info-light, #BAD7E4);
   color: var(--text-header, #262626);
 }
 
 .metadataChip[data-status="running"] svg {
-  color: var(--info, #63ADCF);
+  color: var(--info, #2B7FA2);
 }
 
 .metadataChip[data-status="error"] {

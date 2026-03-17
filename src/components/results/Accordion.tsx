@@ -21,8 +21,14 @@ export interface AccordionProps {
   title: string
   /** Optional badge count (e.g., number of items) */
   badgeCount?: number
-  /** Badge variant for styling */
+  /** Badge state for outlined badge styling; callers can refine based on item resolution state */
+  badgeState?: 'resolved' | 'unresolved' | 'critical'
+  /** Legacy alias for badgeState */
   badgeVariant?: 'default' | 'warning' | 'critical'
+  /** v7.10 T6: Readiness tier label shown as right-aligned pill */
+  tierLabel?: string
+  /** v7.10 T6: Tier variant for pill colour */
+  tierVariant?: 'strong' | 'fair' | 'needs_work'
   /** Whether section starts expanded (uncontrolled mode) */
   defaultExpanded?: boolean
   /** Controlled expansion state - when provided, component becomes controlled */
@@ -37,16 +43,31 @@ export interface AccordionProps {
   className?: string
 }
 
-const badgeVariants = {
-  default: 'bg-slate-100 text-slate-700',
-  warning: 'bg-warning-100 text-warning-700',
-  critical: 'bg-danger-100 text-danger-700',
+const badgeStates = {
+  resolved: 'border-success/30',
+  unresolved: 'border-warning/30',
+  critical: 'border-danger/30',
+}
+
+const legacyBadgeVariantMap = {
+  default: 'unresolved',
+  warning: 'unresolved',
+  critical: 'critical',
+} as const
+
+const tierVariants = {
+  strong: 'bg-panel text-text-header',
+  fair: 'bg-panel text-text-header',
+  needs_work: 'bg-panel text-text-header',
 }
 
 export function Accordion({
   title,
   badgeCount,
+  badgeState,
   badgeVariant = 'default',
+  tierLabel,
+  tierVariant,
   defaultExpanded = false,
   isExpanded: controlledExpanded,
   onExpandChange,
@@ -61,6 +82,9 @@ export function Accordion({
   const [contentHeight, setContentHeight] = useState<number | undefined>(
     defaultExpanded ? undefined : 0
   )
+  const resolvedBadgeState = badgeCount !== undefined && badgeCount > 0
+    ? (badgeState ?? legacyBadgeVariantMap[badgeVariant] ?? 'unresolved')
+    : undefined
   const contentRef = useRef<HTMLDivElement>(null)
   const headingId = useId()
   const contentId = useId()
@@ -102,7 +126,7 @@ export function Accordion({
 
   return (
     <section
-      className={`border border-sand-200 rounded-lg overflow-hidden ${className}`}
+      className={`border border-panel-border rounded-lg overflow-hidden ${className}`}
       data-testid={testId}
       aria-labelledby={headingId}
     >
@@ -112,26 +136,38 @@ export function Accordion({
         onClick={handleToggle}
         aria-expanded={isExpanded}
         aria-controls={contentId}
-        className="w-full px-3 py-2 bg-sand-50 border-b border-sand-200 flex items-center justify-between hover:bg-sand-100 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-info-500 focus-visible:ring-inset"
+        className="w-full px-3 py-2 bg-panel border-b border-panel-border flex items-center justify-between hover:bg-panel-hover transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-inset"
       >
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-1">
           <ChevronRight
-            className={`h-4 w-4 text-ink-500 transition-transform duration-200 ${
+            className={`h-4 w-4 text-text-light transition-transform duration-200 ${
               isExpanded ? 'rotate-90' : ''
             }`}
             aria-hidden="true"
           />
           <h3
             id={headingId}
-            className={`${typography.label} font-medium text-ink-800`}
+            className={`${typography.panelHeader} text-text-header`}
           >
             {title}
           </h3>
           {badgeCount !== undefined && badgeCount > 0 && (
             <span
-              className={`${typography.caption} px-1.5 py-0.5 rounded-full ${badgeVariants[badgeVariant]}`}
+              className={`
+                inline-flex min-w-[22px] items-center justify-center rounded-full border
+                bg-transparent px-1.5 py-0.5 text-text-body
+                ${typography.panelMeta} ${resolvedBadgeState ? badgeStates[resolvedBadgeState] : ''}
+              `}
             >
               {badgeCount}
+            </span>
+          )}
+          {tierLabel && tierVariant && (
+            <span
+              className={`${typography.panelMeta} ml-auto px-2 py-0.5 rounded-full ${tierVariants[tierVariant]}`}
+              title="Based on the confidence levels of your key factors. Improve by gathering data on low-confidence drivers."
+            >
+              {tierLabel}
             </span>
           )}
         </div>

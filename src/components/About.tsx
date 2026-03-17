@@ -7,7 +7,7 @@ export default function About() {
       {/* Hero Section */}
       <div className="text-center space-y-6">
         <div className="inline-flex items-center justify-center p-3 rounded-2xl mb-6 animate-fade-in">
-          <Brain className="h-14 w-14 text-indigo-600" />
+          <Brain className="h-14 w-14 text-info" />
         </div>
         <h1 className="text-4xl md:text-5xl font-bold text-gray-900 leading-tight">
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-purple-600">      Better decisions faster.
@@ -22,8 +22,8 @@ export default function About() {
       <div className="grid md:grid-cols-2 gap-8">
         <div className="bg-white rounded-xl shadow-sm hover:shadow-md transition-shadow p-8 border border-gray-100">
           <div className="flex items-center gap-4 mb-6">
-            <div className="p-3 bg-indigo-50 rounded-lg">
-              <Target className="h-6 w-6 text-indigo-600" />
+            <div className="p-3 bg-panel rounded-lg">
+              <Target className="h-6 w-6 text-info" />
             </div>
             <h3 className="text-xl font-semibold text-gray-900">The Challenge</h3>
           </div>
@@ -36,8 +36,8 @@ export default function About() {
 
         <div className="bg-white rounded-xl shadow-sm hover:shadow-md transition-shadow p-8 border border-gray-100">
           <div className="flex items-center gap-4 mb-6">
-            <div className="p-3 bg-green-50 rounded-lg">
-              <Sparkles className="h-6 w-6 text-green-600" />
+            <div className="p-3 bg-panel rounded-lg">
+              <Sparkles className="h-6 w-6 text-success" />
             </div>
             <h3 className="text-xl font-semibold text-gray-900">Our Solution</h3>
           </div>
@@ -55,8 +55,8 @@ export default function About() {
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
           <div className="p-6 bg-white rounded-xl shadow-sm hover:shadow-md transition-all duration-300 transform hover:-translate-y-1 group">
-            <div className="p-3 bg-indigo-50 rounded-lg w-12 h-12 flex items-center justify-center mb-4">
-              <CodeBranch className="h-6 w-6 text-indigo-600 transition-transform duration-300 ease-in-out group-hover:scale-110 group-hover:rotate-45" />
+            <div className="p-3 bg-panel rounded-lg w-12 h-12 flex items-center justify-center mb-4">
+              <CodeBranch className="h-6 w-6 text-info transition-transform duration-300 ease-in-out group-hover:scale-110 group-hover:rotate-45" />
             </div>
             <h3 className="text-lg font-semibold text-gray-900 mb-2">Science-backed</h3>
             <p className="text-gray-600">
@@ -65,8 +65,8 @@ export default function About() {
           </div>
 
           <div className="p-6 bg-white rounded-xl shadow-sm hover:shadow-md transition-all duration-300 transform hover:-translate-y-1 group">
-            <div className="p-3 bg-green-50 rounded-lg w-12 h-12 flex items-center justify-center mb-4">
-              <Brain className="h-6 w-6 text-green-600 transition-transform duration-300 ease-in-out group-hover:scale-110 group-hover:animate-pulse" />
+            <div className="p-3 bg-panel rounded-lg w-12 h-12 flex items-center justify-center mb-4">
+              <Brain className="h-6 w-6 text-success transition-transform duration-300 ease-in-out group-hover:scale-110 group-hover:animate-pulse" />
             </div>
             <h3 className="text-lg font-semibold text-gray-900 mb-2">Bias mitigation</h3>
             <p className="text-gray-600">
@@ -75,8 +75,8 @@ export default function About() {
           </div>
 
           <div className="p-6 bg-white rounded-xl shadow-sm hover:shadow-md transition-all duration-300 transform hover:-translate-y-1 group">
-            <div className="p-3 bg-purple-50 rounded-lg w-12 h-12 flex items-center justify-center mb-4">
-              <Sparkles className="h-6 w-6 text-purple-600 transition-transform duration-300 ease-in-out group-hover:animate-[sparkle_0.5s_ease-in-out]" />
+            <div className="p-3 bg-panel rounded-lg w-12 h-12 flex items-center justify-center mb-4">
+              <Sparkles className="h-6 w-6 text-option transition-transform duration-300 ease-in-out group-hover:animate-[sparkle_0.5s_ease-in-out]" />
             </div>
             <h3 className="text-lg font-semibold text-gray-900 mb-2">AI-powered</h3>
             <p className="text-gray-600">
@@ -85,8 +85,8 @@ export default function About() {
           </div>
 
           <div className="p-6 bg-white rounded-xl shadow-sm hover:shadow-md transition-all duration-300 transform hover:-translate-y-1 group">
-            <div className="p-3 bg-blue-50 rounded-lg w-12 h-12 flex items-center justify-center mb-4">
-              <UserCog className="h-6 w-6 text-blue-600 transition-transform duration-300 ease-in-out group-hover:animate-[usercog_0.5s_ease-in-out]" />
+            <div className="p-3 bg-panel rounded-lg w-12 h-12 flex items-center justify-center mb-4">
+              <UserCog className="h-6 w-6 text-info transition-transform duration-300 ease-in-out group-hover:animate-[usercog_0.5s_ease-in-out]" />
             </div>
             <h3 className="text-lg font-semibold text-gray-900 mb-2">Personalised guidance</h3>
             <p className="text-gray-600">
@@ -100,7 +100,7 @@ export default function About() {
       <div className="text-center">
         <a 
           href="/decision" 
-          className="inline-flex items-center gap-2 px-6 py-3 text-lg font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition-colors"
+          className="inline-flex items-center gap-2 px-6 py-3 text-lg font-medium text-text-on-color bg-primary rounded-lg hover:bg-primary-hover transition-colors"
         >
           Start Making Better Decisions
           <ArrowRight className="h-5 w-5" />

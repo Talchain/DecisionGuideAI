@@ -63,7 +63,7 @@ export function useCEECoaching() {
   }, [dismissNudge])
 
   const analyzeGraphForCoaching = useCallback(() => {
-    // Don't analyze if not enough nodes
+    // Don't analyse if not enough nodes
     if (nodes.length < MIN_NODES_FOR_COACHING) return
 
     // Don't show too many nudges
@@ -85,7 +85,7 @@ export function useCEECoaching() {
       return
     }
 
-    // Analyze for common issues
+    // Analyse for common issues
 
     // 1. Check for disconnected nodes (missing edges)
     const connectedNodeIds = new Set<string>()

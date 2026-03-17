@@ -77,7 +77,7 @@ export function ProvenanceHub({
                 onClick={() => setFilterType(type)}
                 className={`px-2 py-1 text-xs font-medium rounded transition-colors ${
                   filterType === type
-                    ? 'bg-info-600 text-white'
+                    ? 'bg-info-600 text-text-on-color'
                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                 }`}
                 type="button"
@@ -93,7 +93,7 @@ export function ProvenanceHub({
         {import.meta.env.DEV && (
           <button
             onClick={onToggleRedaction}
-            className="w-full px-3 py-2 text-xs font-medium bg-yellow-50 text-yellow-800 border border-yellow-200 rounded-lg hover:bg-yellow-100 transition-colors"
+            className="w-full px-3 py-2 text-xs font-medium bg-panel text-warning border border-warning/30 rounded-lg hover:bg-panel transition-colors"
             type="button"
             aria-label="Toggle redaction"
           >

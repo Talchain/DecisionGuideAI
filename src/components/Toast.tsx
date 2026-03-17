@@ -1,5 +1,8 @@
 /**
  * Toast - Simple toast notification
+ *
+ * @deprecated Use `useShowToast` from `src/canvas/ToastContext.tsx` instead.
+ * This component is orphaned and conflicts with the canonical toast system.
  */
 import { useEffect, useState } from 'react'
 import { X } from 'lucide-react'

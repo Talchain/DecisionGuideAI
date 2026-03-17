@@ -5,7 +5,7 @@
  * Returns quality tier, improvements list, and analysis eligibility.
  * Falls back to local graph analysis if CEE is unavailable.
  *
- * Optimized for stability:
+ * Optimised for stability:
  * - Uses fingerprint-based change detection to prevent excessive requests
  * - Reads store state inside callback to maintain stable callback reference
  * - Debounces changes effectively (callback doesn't recreate on every render)
@@ -15,6 +15,7 @@ import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useCanvasStore } from '../store'
 import { useShallow } from 'zustand/shallow'
 import type { Node, Edge } from '@xyflow/react'
+import { getEdgeKey } from '../domain/edgeUtils'
 
 const CEE_BASE_URL = (import.meta as any).env?.VITE_CEE_BFF_BASE || '/bff/cee'
 
@@ -25,6 +26,130 @@ const DEBOUNCE_DELAY = 500
 const INITIAL_BACKOFF_MS = 1000
 const MAX_BACKOFF_MS = 30000
 const BACKOFF_MULTIPLIER = 2
+
+// ── Module-level request deduplication ──────────────────────────────
+// Multiple components mount useGraphReadiness independently. Without
+// a shared cache each instance fires its own POST. This singleton
+// ensures identical payloads within DEDUP_WINDOW_MS reuse the same
+// parsed result — not the raw Response (which can only be read once).
+const DEDUP_WINDOW_MS = 250
+
+/**
+ * Pre-parsed response shared between dedup consumers.
+ * The Response body is consumed exactly once; all consumers read from this.
+ */
+export interface DeduplicatedResponse {
+  ok: boolean
+  status: number
+  statusText: string
+  /** Parsed JSON body on success, null on error */
+  data: any
+  /** Text body for error responses */
+  errorBody: string
+  /** Retry-After header value (for 429 handling) */
+  retryAfterHeader: string | null
+}
+
+interface InflightEntry {
+  promise: Promise<DeduplicatedResponse>
+  timestamp: number
+  controller: AbortController
+  /** Number of hook instances sharing this entry */
+  refCount: number
+  /** True once the fetch promise has settled (resolved or rejected) */
+  settled: boolean
+}
+const inflightCache = new Map<string, InflightEntry>()
+
+/**
+ * Deduplicated fetch: reuses an in-flight (or recently resolved) request
+ * for the same endpoint + payload body. Returns a pre-parsed response so
+ * multiple consumers can safely read the result without "body stream already
+ * read" errors. Uses refCount to prevent one consumer's unmount from
+ * aborting a request shared by other consumers.
+ */
+function deduplicatedFetch(
+  url: string,
+  payloadJson: string,
+  correlationId: string,
+): { promise: Promise<DeduplicatedResponse>; entry: InflightEntry; isReused: boolean } {
+  // Key on endpoint + full payload body so distinct payloads never collide
+  const cacheKey = `${url}:${payloadJson}`
+  const existing = inflightCache.get(cacheKey)
+  // Reuse if still in-flight, or if settled within the dedup window
+  if (existing && (!existing.settled || Date.now() - existing.timestamp < DEDUP_WINDOW_MS)) {
+    existing.refCount++
+    return { promise: existing.promise, entry: existing, isReused: true }
+  }
+
+  const controller = new AbortController()
+
+  // Parse the response body exactly once, then share the parsed result
+  const promise = fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Request-ID': correlationId,
+    },
+    body: payloadJson,
+    signal: controller.signal,
+  }).then(async (response): Promise<DeduplicatedResponse> => {
+    if (response.ok) {
+      const data = await response.json()
+      return {
+        ok: true,
+        status: response.status,
+        statusText: response.statusText,
+        data,
+        errorBody: '',
+        retryAfterHeader: null,
+      }
+    }
+    const errorBody = await response.text().catch(() => 'Unable to read response body')
+    return {
+      ok: false,
+      status: response.status,
+      statusText: response.statusText,
+      data: null,
+      errorBody,
+      retryAfterHeader: response.headers.get('Retry-After'),
+    }
+  })
+
+  const entry: InflightEntry = { promise, timestamp: Date.now(), controller, refCount: 1, settled: false }
+  inflightCache.set(cacheKey, entry)
+  promise.finally(() => {
+    entry.settled = true
+    setTimeout(() => {
+      // Only delete if it's still our entry (not replaced by a newer request)
+      if (inflightCache.get(cacheKey) === entry) {
+        inflightCache.delete(cacheKey)
+      }
+    }, DEDUP_WINDOW_MS)
+  })
+
+  return { promise, entry, isReused: false }
+}
+
+/**
+ * Release a ref to a shared inflight entry. Only aborts the underlying
+ * request when the last consumer releases (refCount drops to 0).
+ */
+function releaseInflightEntry(entry: InflightEntry | null): void {
+  if (!entry) return
+  entry.refCount--
+  if (entry.refCount <= 0) {
+    entry.controller.abort()
+  }
+}
+
+/** Clear inflight cache — exposed for testing */
+export function clearInflightCache(): void {
+  inflightCache.clear()
+}
+
+/** @internal — exposed for unit testing dedup logic. Not part of public API. */
+export const __test__ = { deduplicatedFetch, releaseInflightEntry }
 
 export type ReadinessLevel = 'needs_work' | 'fair' | 'strong'
 export type ImprovementPriority = 'high' | 'medium' | 'low'
@@ -133,7 +258,7 @@ function createGraphFingerprint(
   const edgeFingerprint = edges
     .map((e) => {
       const conf = (e.data as any)?.confidence
-      return `${e.source}->${e.target}:${conf !== undefined ? conf.toFixed(3) : 'x'}`
+      return `${getEdgeKey(e)}:${conf !== undefined ? conf.toFixed(3) : 'x'}`
     })
     .sort()
     .join(',')
@@ -149,10 +274,12 @@ export function useGraphReadiness() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const abortControllerRef = useRef<AbortController | null>(null)
+  const inflightEntryRef = useRef<InflightEntry | null>(null)
   const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   // Track last payload hash to prevent duplicate requests
   const lastPayloadHashRef = useRef<string | null>(null)
+  // Guard against concurrent in-flight requests (React StrictMode double-mount)
+  const fetchInFlightRef = useRef(false)
   // Track if we've logged recently to reduce noise
   const lastLogTimeRef = useRef<number>(0)
   // Rate limit backoff state
@@ -172,11 +299,16 @@ export function useGraphReadiness() {
 
   // Stable callback that reads fresh state inside
   const fetchReadiness = useCallback(async () => {
+    // Prevent concurrent in-flight requests (React StrictMode double-mount)
+    if (fetchInFlightRef.current) return
+    fetchInFlightRef.current = true
+
+    try {
     // Check rate limit backoff
     const now = Date.now()
     if (backoffRef.current.until > now) {
       if (import.meta.env.DEV) {
-        console.log(
+        console.warn(
           `[useGraphReadiness] Rate limited, waiting ${Math.ceil((backoffRef.current.until - now) / 1000)}s`
         )
       }
@@ -203,13 +335,9 @@ export function useGraphReadiness() {
       return
     }
 
-    // Cancel previous request
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort()
-    }
-
-    const controller = new AbortController()
-    abortControllerRef.current = controller
+    // Release previous shared entry (only aborts if we're the last consumer)
+    releaseInflightEntry(inflightEntryRef.current)
+    inflightEntryRef.current = null
 
     setLoading(true)
     setError(null)
@@ -238,12 +366,20 @@ export function useGraphReadiness() {
             }
             return baseNode
           }),
+          /**
+           * UI-SEM-011: Default belief injection (belief: 0.7).
+           * Injects default belief=0.7 when edge lacks beliefExists/belief fields.
+           * Flows to CEE /assist/v1/graph-readiness (coaching, not PLoT analysis).
+           * CEE uses as hints for coaching guidance, not ground truth.
+           * Classification: pre-analysis default — low risk, coaching only.
+           */
           // CEE expects 'from'/'to' not 'source'/'target'
           edges: currentEdges.map((e) => ({
             id: e.id,
             from: e.source,
             to: e.target,
-            // Include edge weight/strength data in CEE format
+            // UI-SEM-030: Edge defaults for CEE coaching request (weight 0.5, belief 0.7, direction 'positive').
+            // Keep — pre-analysis defaults; same class as UI-SEM-011.
             weight: (e.data as any)?.weight ?? 0.5,
             belief: (e.data as any)?.beliefExists ?? (e.data as any)?.belief ?? 0.7,
             effect_direction: (e.data as any)?.direction ?? 'positive',
@@ -251,38 +387,43 @@ export function useGraphReadiness() {
         },
       }
 
-      // V3: Include analysis_ready if present so CEE knows about resolved options
-      if (currentCeeAnalysisReady?.options?.length) {
-        payload.analysis_ready = currentCeeAnalysisReady
+      // Include brief text when available so CEE can extract decision elements from prose
+      const briefText = useCanvasStore.getState().currentBriefText
+      if (briefText && briefText.length >= 20) {
+        payload.brief = briefText
       }
 
-      // Create hash for deduplication
-      const edgeDataFingerprint = currentEdges
-        .map((e) => {
-          const conf = (e.data as any)?.confidence
-          return `${e.source}-${e.target}-${conf !== undefined ? conf.toFixed(3) : 'x'}`
-        })
-        .join(',')
-      const analysisReadyFingerprint = currentCeeAnalysisReady?.options?.length ?? 0
-      const payloadHash = `${currentNodes.length}-${currentEdges.length}-${currentNodes.map((n) => n.id).join(',')}-${edgeDataFingerprint}-ar${analysisReadyFingerprint}`
+      // V3: Include analysis_ready if present so CEE knows about resolved options
+      // Strip model_adjustments — CEE produced them and doesn't need them back;
+      // forwarding them can cause 400s if CEE rejects unrecognised adjustment types.
+      if (currentCeeAnalysisReady?.options?.length) {
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const { model_adjustments: _strip, ...analysisReadyForPayload } = currentCeeAnalysisReady
+        payload.analysis_ready = analysisReadyForPayload
+      }
 
-      if (payloadHash === lastPayloadHashRef.current) {
+      // Serialise payload once — used for per-instance skip check AND
+      // module-level dedup key (includes full payload body so distinct
+      // payloads never collide).
+      const payloadJson = JSON.stringify(payload)
+
+      if (payloadJson === lastPayloadHashRef.current) {
         // Same payload, skip request
         setLoading(false)
         return
       }
-      lastPayloadHashRef.current = payloadHash
+      lastPayloadHashRef.current = payloadJson
 
       // Rate-limited logging (max once per 5 seconds)
       const now = Date.now()
       if (import.meta.env.DEV && now - lastLogTimeRef.current > 5000) {
-        console.log('[useGraphReadiness] Fetching readiness:', {
+        console.warn('[useGraphReadiness] Fetching readiness:', {
           nodes: currentNodes.length,
           edges: currentEdges.length,
           hasAnalysisReady: Boolean(currentCeeAnalysisReady?.options?.length),
         })
         // P0 DIAGNOSTIC: Log full payload structure
-        console.log('[useGraphReadiness] Payload being sent:', {
+        console.warn('[useGraphReadiness] Payload being sent:', {
           graphNodes: (payload.graph as any)?.nodes?.length,
           sampleNode: (payload.graph as any)?.nodes?.[0],
           graphEdges: (payload.graph as any)?.edges?.length,
@@ -292,24 +433,21 @@ export function useGraphReadiness() {
         lastLogTimeRef.current = now
       }
 
-      const response = await fetch(`${CEE_BASE_URL}/graph-readiness`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Request-ID': correlationId,
-        },
-        body: JSON.stringify(payload),
-        signal: controller.signal,
-      })
+      const { promise, entry } = deduplicatedFetch(
+        `${CEE_BASE_URL}/graph-readiness`,
+        payloadJson,
+        correlationId,
+      )
+      // Track shared entry so unmount cleanup releases our ref
+      inflightEntryRef.current = entry
+
+      const response = await promise
 
       if (!response.ok) {
-        const errorBody = await response.text().catch(() => 'Unable to read response body')
-
         // Handle rate limiting (429) with exponential backoff
         if (response.status === 429) {
-          const retryAfter = response.headers.get('Retry-After')
-          const backoffDelay = retryAfter
-            ? parseInt(retryAfter, 10) * 1000
+          const backoffDelay = response.retryAfterHeader
+            ? parseInt(response.retryAfterHeader, 10) * 1000
             : Math.min(
                 backoffRef.current.delay > 0
                   ? backoffRef.current.delay * BACKOFF_MULTIPLIER
@@ -349,15 +487,15 @@ export function useGraphReadiness() {
         console.error('[useGraphReadiness] CEE error response:', {
           status: response.status,
           statusText: response.statusText,
-          body: errorBody,
+          body: response.errorBody,
         })
-        throw new Error(`HTTP ${response.status} - ${errorBody}`)
+        throw new Error(`HTTP ${response.status} - ${response.errorBody}`)
       }
 
       // Reset backoff on success
       backoffRef.current = { delay: 0, until: 0 }
 
-      const data = await response.json()
+      const data = response.data
 
       // Validate and normalize response
       const normalized: GraphReadiness = {
@@ -428,6 +566,9 @@ export function useGraphReadiness() {
     } finally {
       setLoading(false)
     }
+    } finally {
+      fetchInFlightRef.current = false
+    }
   }, []) // No dependencies - reads from store directly
 
   // Debounced fetch triggered by fingerprint changes
@@ -450,9 +591,8 @@ export function useGraphReadiness() {
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort()
-      }
+      releaseInflightEntry(inflightEntryRef.current)
+      inflightEntryRef.current = null
       if (debounceTimeoutRef.current) {
         clearTimeout(debounceTimeoutRef.current)
       }

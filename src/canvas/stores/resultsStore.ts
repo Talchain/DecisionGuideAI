@@ -8,6 +8,7 @@ import { create } from 'zustand'
 import type { ReportV1 } from '../../adapters/plot/types'
 import type { CeeDecisionReviewPayload, CeeTraceMeta, CeeErrorViewModel } from '../decisionReview/types'
 import type { CeeDebugHeaders } from '../utils/ceeDebugHeaders'
+import type { AnalysisInputsSummary } from '../../types/analysis-inputs-summary'
 
 // Results panel state machine
 export type ResultsStatus = 'idle' | 'preparing' | 'connecting' | 'streaming' | 'complete' | 'error' | 'cancelled'
@@ -25,6 +26,10 @@ export interface ResultsState {
   startedAt?: number
   finishedAt?: number
   drivers?: Array<{ kind: 'node' | 'edge'; id: string }>
+  /** Assembled analysis summary for turn requests (Task 4, always-on persistence) */
+  analysisSummary?: AnalysisInputsSummary | null
+  /** Snapshot ID from the most recent analysis run (for linking conversation turns) */
+  lastSnapshotId?: string | null
 }
 
 export type SseDiagnostics = {
@@ -69,6 +74,10 @@ export interface ResultsActions {
   setRunMeta: (meta: Partial<RunMetaState>) => void
   setHasCompletedFirstRun: (value: boolean) => void
   setIsDuplicateRun: (value: boolean) => void
+  /** Cache assembled analysis summary for turn request injection */
+  setAnalysisSummary: (summary: AnalysisInputsSummary | null) => void
+  /** Cache snapshot ID from the most recent analysis run */
+  setLastSnapshotId: (id: string | null) => void
 }
 
 const initialResultsState: ResultsStoreState = {
@@ -173,7 +182,9 @@ export const useResultsStore = create<ResultsStoreState & ResultsActions>((set, 
     set({
       results: {
         status: 'idle',
-        progress: 0
+        progress: 0,
+        analysisSummary: undefined,
+        lastSnapshotId: undefined,
       }
     })
   },
@@ -196,6 +207,24 @@ export const useResultsStore = create<ResultsStoreState & ResultsActions>((set, 
       results: {
         ...s.results,
         isDuplicateRun: value
+      }
+    }))
+  },
+
+  setAnalysisSummary: (summary) => {
+    set(s => ({
+      results: {
+        ...s.results,
+        analysisSummary: summary,
+      }
+    }))
+  },
+
+  setLastSnapshotId: (id) => {
+    set(s => ({
+      results: {
+        ...s.results,
+        lastSnapshotId: id,
       }
     }))
   },

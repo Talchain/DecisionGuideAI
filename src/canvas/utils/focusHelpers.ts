@@ -1,11 +1,13 @@
 /**
  * Canvas focus helpers
  *
- * Provides focusNodeById and focusEdgeById for external components (like ResultsPanel)
- * to programmatically focus and center canvas elements.
+ * Provides focusNodeById, focusEdgeById, and focusEdgeByEndpoints for external
+ * components (like ResultsPanel) to programmatically focus and center canvas elements.
  *
  * Uses a singleton pattern to allow ResultsPanel to call focus without tight coupling.
  */
+
+import { useCanvasStore } from '../store'
 
 type FocusNodeFn = (nodeId: string) => void
 type FocusEdgeFn = (edgeId: string) => void
@@ -56,6 +58,27 @@ export function focusEdgeById(edgeId: string): void {
     return
   }
   focusEdgeImpl(edgeId)
+}
+
+/**
+ * V14: Focus an edge by looking up its real ReactFlow ID from source/target endpoints.
+ * Falls back to focusing the node at fallbackNodeId if no matching edge is found.
+ *
+ * Edge IDs in the canvas are auto-generated (e.g. "e1", "e2") and do NOT match
+ * PLoT edge IDs. This function looks up the actual edge by source+target.
+ */
+export function focusEdgeByEndpoints(
+  fromId: string,
+  toId: string,
+  fallbackNodeId: string
+): void {
+  const { edges } = useCanvasStore.getState()
+  const edge = edges.find(e => e.source === fromId && e.target === toId)
+  if (edge) {
+    focusEdgeById(edge.id)
+  } else {
+    focusNodeById(fallbackNodeId)
+  }
 }
 
 /**

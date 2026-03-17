@@ -6,7 +6,7 @@
  */
 
 import { describe, it, expect } from 'vitest'
-import { mapFactorSensitivity } from '../mapFactorSensitivity'
+import { mapFactorSensitivity, normaliseFactorFields } from '../mapFactorSensitivity'
 import type { RawFactor } from '../types'
 
 describe('mapFactorSensitivity', () => {
@@ -341,5 +341,109 @@ describe('mapFactorSensitivity', () => {
 
       expect(result[0].label).toBe('fac_price')
     })
+
+    it('prefers factor_label over label (PLoT V2 field name)', () => {
+      const factors: RawFactor[] = [
+        { factor_id: 'fac_price', factor_label: 'Price (adjusted)', label: 'Price' },
+      ]
+
+      const result = mapFactorSensitivity(factors, defaultOptions)
+
+      expect(result[0].label).toBe('Price (adjusted)')
+    })
+
+    it('falls back to label when factor_label is empty string', () => {
+      const factors: RawFactor[] = [
+        { factor_id: 'fac_price', factor_label: '', label: 'Price' },
+      ]
+
+      const result = mapFactorSensitivity(factors, defaultOptions)
+
+      expect(result[0].label).toBe('Price')
+    })
+  })
+
+  describe('ID fallback with factor_label', () => {
+    it('uses normalised factor_label for ID when no ID fields are present', () => {
+      const factors: RawFactor[] = [
+        { factor_label: 'Market Size' },
+      ]
+
+      const result = mapFactorSensitivity(factors, defaultOptions)
+
+      expect(result[0].factorId).toBe('market_size')
+      expect(result[0].label).toBe('Market Size')
+    })
+
+    it('prefers factor_label over label for ID fallback', () => {
+      const factors: RawFactor[] = [
+        { factor_label: 'Price (adjusted)', label: 'Price' },
+      ]
+
+      const result = mapFactorSensitivity(factors, defaultOptions)
+
+      expect(result[0].factorId).toBe('price_(adjusted)')
+    })
+  })
+})
+
+// =============================================================================
+// normaliseFactorFields (B2.2 — centralised ISL field mapping)
+// =============================================================================
+
+describe('normaliseFactorFields', () => {
+  it('resolves factor_id and factor_label to node_id and label', () => {
+    const result = normaliseFactorFields({
+      factor_id: 'fac_price',
+      factor_label: 'Price',
+    })
+
+    expect(result.node_id).toBe('fac_price')
+    expect(result.label).toBe('Price')
+  })
+
+  it('resolves node_id and label directly (canonical form)', () => {
+    const result = normaliseFactorFields({
+      node_id: 'node_price',
+      label: 'Price',
+    })
+
+    expect(result.node_id).toBe('node_price')
+    expect(result.label).toBe('Price')
+  })
+
+  it('prefers node_id over factor_id', () => {
+    const result = normaliseFactorFields({
+      node_id: 'node_price',
+      factor_id: 'fac_price',
+      label: 'Price',
+    })
+
+    expect(result.node_id).toBe('node_price')
+  })
+
+  it('prefers factor_label over label', () => {
+    const result = normaliseFactorFields({
+      factor_label: 'Price (adjusted)',
+      label: 'Price',
+    })
+
+    expect(result.label).toBe('Price (adjusted)')
+  })
+
+  it('falls back to id when node_id and factor_id are missing', () => {
+    const result = normaliseFactorFields({
+      id: 'generic_id',
+      label: 'Something',
+    })
+
+    expect(result.node_id).toBe('generic_id')
+  })
+
+  it('returns undefined for both when all fields missing', () => {
+    const result = normaliseFactorFields({})
+
+    expect(result.node_id).toBeUndefined()
+    expect(result.label).toBeUndefined()
   })
 })

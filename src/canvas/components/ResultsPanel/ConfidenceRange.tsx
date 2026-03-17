@@ -66,15 +66,8 @@ export function ConfidenceRange({
     baselineComparison = { delta: Math.abs(delta), isPositive }
   }
 
-  // Calculate 70% confidence band (p15-p85) if we have full range
-  let confidenceBand: { p15: number; p85: number } | null = null
-  if (p10 !== null && p50 !== null && p90 !== null) {
-    const p15 = p10 + (p50 - p10) * 0.5
-    const p85 = p50 + (p90 - p50) * 0.5
-    if (Math.abs(p85 - p15) >= 1) {
-      confidenceBand = { p15, p85 }
-    }
-  }
+  // Audit F-55: Removed p15/p85 interpolation (F.6 violation).
+  // ISL only provides p10/p50/p90. UI must not fabricate intermediate percentiles.
 
   if (compact) {
     return (
@@ -124,14 +117,6 @@ export function ConfidenceRange({
         <span className="text-2xl font-bold text-ink-900">
           {formatOutcomeValue(p50!, units, unitSymbol)}
         </span>
-        {/* 70% confidence band */}
-        {confidenceBand && (
-          <span className={`${typography.caption} text-ink-500 block mt-1`}>
-            70% likely: {formatOutcomeValue(confidenceBand.p15, units, unitSymbol)}
-            {' - '}
-            {formatOutcomeValue(confidenceBand.p85, units, unitSymbol)}
-          </span>
-        )}
         {/* Baseline comparison */}
         {baselineComparison && (
           <div className="flex items-center justify-center gap-1 mt-2">

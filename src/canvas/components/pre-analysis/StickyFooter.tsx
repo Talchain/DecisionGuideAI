@@ -2,23 +2,34 @@
  * StickyFooter - 48px bar pinned to bottom of panel
  *
  * Left: CheckCircle/XCircle/Loader icon + "Ready"/"Blocked"/"Checking"
- * Right: CTA button
- *   - #63ADCF background, white text, border-radius: 999px
- *   - States: disabled "Checking..." (when loading) → disabled "Fix {n} issues first" (when hasBlockers) → enabled "Analyse Now" (when ready) → "Analysing..." with spinner (during run)
+ *       · X/Y reviewed (with source-distribution tooltip)
+ * Right: CTA button(s)
+ *   - Primary: "Analyse Now" (brand green, pill shape)
+ *   - Retry: "Retry Draft" appears when blocked due to incomplete draft
+ *   - States: "Checking..." → "Fix N issues" → "Retry Draft" → "Analyse Now" → "Analysing..."
  *
- * Wired to existing run analysis handler.
- * Note: Evidence quality is shown in Header (complementary, not duplicated).
+ * Source-distribution tooltip on reviewed count:
+ *   0% from brief  → "All values estimated by AI"
+ *   <50% from brief → "Most values estimated by AI"
+ *   ≥50% from brief → "Most values from your brief"
+ *   100% from brief → "All values from your brief"
  */
 
-import { CheckCircle, XCircle, Loader2 } from 'lucide-react'
+import { CheckCircle, XCircle, Loader2, AlertTriangle } from 'lucide-react'
 import { Tooltip } from '../Tooltip'
-import type { EvidenceQualityLevel } from './hooks/usePreAnalysisData'
+import { AnalysisFooter } from '../../shared/AnalysisFooter'
 
-/** Evidence level colour mapping per brief spec */
-const EVIDENCE_LEVEL_COLOURS: Record<EvidenceQualityLevel, string> = {
-  low: '#EA7B4B',    // Danger
-  medium: '#FFA656', // Warning
-  high: '#67C89E',   // Success
+/** Derive source distribution tooltip from raw counts */
+function getReviewedTooltip(nonAiCount?: number, totalCount?: number): string {
+  if (totalCount == null || totalCount === 0) {
+    return "Number of factor values you've confirmed or marked as assumptions"
+  }
+  const briefCount = nonAiCount ?? 0
+  const ratio = briefCount / totalCount
+  if (ratio === 0) return 'All values estimated by AI'
+  if (ratio < 0.5) return 'Most values estimated by AI'
+  if (ratio < 1) return 'Most values from your brief'
+  return 'All values from your brief'
 }
 
 interface StickyFooterProps {
@@ -32,10 +43,20 @@ interface StickyFooterProps {
   isAnalysing: boolean
   /** Click handler for analyse button */
   onAnalyse: () => void
-  /** Evidence quality level for display */
-  evidenceLevel?: EvidenceQualityLevel
+  /** Human-readable reason when Analyse is blocked */
+  blockedReason?: string
   /** Whether CEE data is still loading */
   isLoading?: boolean
+  /** Whether retry is in progress */
+  isRetrying?: boolean
+  /** Number of reviewed (user-confirmed) factors */
+  reviewedCount?: number
+  /** Total number of reviewable factors */
+  totalReviewableCount?: number
+  /** Factors NOT from AI sources — used to build source-distribution tooltip */
+  evidenceNonAiCount?: number
+  /** Total factor count — used to build source-distribution tooltip */
+  evidenceTotalCount?: number
 }
 
 export function StickyFooter({
@@ -44,35 +65,17 @@ export function StickyFooter({
   blockerCount,
   isAnalysing,
   onAnalyse,
-  evidenceLevel,
+  blockedReason,
   isLoading = false,
+  isRetrying = false,
+  reviewedCount,
+  totalReviewableCount,
+  evidenceNonAiCount,
+  evidenceTotalCount,
 }: StickyFooterProps) {
-  // Determine button state
-  const isDisabled = !isReady || isAnalysing || isLoading
+  const isDisabled = !isReady || isAnalysing || isLoading || isRetrying
 
-  let buttonLabel: string
-  let buttonStyle: string
-
-  if (isLoading) {
-    buttonLabel = 'Checking...'
-    buttonStyle = 'bg-factor-light text-text-light cursor-wait opacity-40'
-  } else if (isAnalysing) {
-    buttonLabel = 'Analysing...'
-    buttonStyle = 'bg-info text-white cursor-wait'
-  } else if (hasBlockers) {
-    buttonLabel = `Fix ${blockerCount} issue${blockerCount !== 1 ? 's' : ''} first`
-    buttonStyle = 'bg-factor-light text-text-light cursor-not-allowed opacity-40'
-  } else if (!isReady) {
-    // isReady=false but hasBlockers=false (e.g., status !== 'ready')
-    buttonLabel = 'Not ready'
-    buttonStyle = 'bg-factor-light text-text-light cursor-not-allowed opacity-40'
-  } else {
-    buttonLabel = 'Analyse Now'
-    buttonStyle = 'bg-info hover:bg-info-hover text-white'
-  }
-
-  // Status icon and text - loading shows spinner
-  let StatusIcon: typeof CheckCircle | typeof XCircle | typeof Loader2
+  let StatusIcon: typeof CheckCircle | typeof XCircle | typeof Loader2 | typeof AlertTriangle
   let statusIconColor: string
   let statusText: string
 
@@ -80,68 +83,61 @@ export function StickyFooter({
     StatusIcon = Loader2
     statusIconColor = 'text-text-light animate-spin'
     statusText = 'Checking'
+  } else if (isRetrying) {
+    StatusIcon = Loader2
+    statusIconColor = 'text-primary animate-spin'
+    statusText = 'Updating draft'
   } else if (isReady) {
     StatusIcon = CheckCircle
     statusIconColor = 'text-success'
     statusText = 'Ready'
-  } else {
+  } else if (hasBlockers) {
     StatusIcon = XCircle
     statusIconColor = 'text-danger'
     statusText = 'Blocked'
+  } else {
+    StatusIcon = AlertTriangle
+    statusIconColor = 'text-warning'
+    statusText = 'Not ready'
   }
 
-  return (
-    <div
-      className="flex-shrink-0 h-12 px-3 flex items-center justify-between bg-panel border-t border-panel-border"
-      data-testid="sticky-footer"
-    >
-      {/* Left: Status + Evidence */}
-      <div className="flex items-center gap-2 text-sm">
-        <StatusIcon className={`w-4 h-4 ${statusIconColor}`} aria-hidden="true" />
-        <span className="font-medium text-text-body">
-          {statusText}
-        </span>
-        {evidenceLevel && (
-          <>
-            <span className="text-text-light">·</span>
-            <Tooltip content="Based on how many factor values are confirmed vs estimated by AI">
-              <span className="text-text-body cursor-help">
-                Input confidence:{' '}
-                <span style={{ color: EVIDENCE_LEVEL_COLOURS[evidenceLevel] }}>
-                  {evidenceLevel.charAt(0).toUpperCase() + evidenceLevel.slice(1)}
-                </span>
-              </span>
-            </Tooltip>
-          </>
-        )}
-      </div>
+  const allReviewed = totalReviewableCount != null && totalReviewableCount > 0 &&
+    (reviewedCount ?? 0) >= totalReviewableCount
 
-      {/* Right: CTA Button */}
-      <button
-        type="button"
-        onClick={onAnalyse}
-        disabled={isDisabled}
-        aria-disabled={isDisabled ? 'true' : 'false'}
-        className={`
-          px-4 py-2 rounded-full text-[11px] font-medium transition-colors
-          flex items-center gap-2
-          ${buttonStyle}
-        `}
-        aria-label={
-          isAnalysing
+  const reviewedTooltip = getReviewedTooltip(evidenceNonAiCount, evidenceTotalCount)
+  const metaText = !isRetrying && totalReviewableCount != null && totalReviewableCount > 0 ? (
+    <Tooltip content={reviewedTooltip}>
+      <span className="cursor-help">
+        {allReviewed ? 'All reviewed' : `${reviewedCount ?? 0}/${totalReviewableCount} reviewed`}
+      </span>
+    </Tooltip>
+  ) : hasBlockers ? `${blockerCount} to address` : undefined
+
+  return (
+    <AnalysisFooter
+      statusIcon={StatusIcon}
+      statusIconClassName={statusIconColor}
+      statusText={statusText}
+      metaText={metaText}
+      actionLabel={isAnalysing ? 'Analysing...' : 'Analyse now'}
+      onAction={onAnalyse}
+      actionDisabled={isDisabled}
+      actionLoading={isAnalysing || isRetrying}
+      actionAriaLabel={
+        isRetrying
+          ? 'Draft update in progress'
+          : isAnalysing
             ? 'Analysis in progress'
             : hasBlockers
-              ? 'Fix issues before analysing'
+              ? `Fix issues before analysing${blockedReason ? `: ${blockedReason}` : ''}`
               : !isReady
-                ? 'Analysis not ready'
+                ? `Analysis not ready${blockedReason ? `: ${blockedReason}` : ''}`
                 : 'Run analysis'
-        }
-        title={isDisabled && !isAnalysing ? 'Complete required actions before analysing' : undefined}
-      >
-        {isAnalysing && <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />}
-        {buttonLabel}
-      </button>
-    </div>
+      }
+      actionTitle={isDisabled && !isAnalysing && !isLoading && !isRetrying
+        ? (blockedReason || 'Complete required actions before analysing')
+        : undefined}
+    />
   )
 }
 

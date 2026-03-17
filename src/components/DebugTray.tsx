@@ -104,7 +104,7 @@ export function DebugTray({
           {correlationId && (
             <div>
               <div className="text-gray-400 mb-1">Assist Correlation ID:</div>
-              <div className="text-blue-400 break-all">{correlationId}</div>
+              <div className="text-info break-all">{correlationId}</div>
             </div>
           )}
 
@@ -210,7 +210,7 @@ export function DebugTray({
                 )}
                 {ceeDebugHeaders.modelVersion && (
                   <div>
-                    Model: <span className="text-blue-400">{ceeDebugHeaders.modelVersion}</span>
+                    Model: <span className="text-info">{ceeDebugHeaders.modelVersion}</span>
                   </div>
                 )}
                 {ceeDebugHeaders.degraded !== undefined && (
@@ -260,13 +260,13 @@ export function DebugTray({
           {errors && errors.length > 0 && (
             <div>
               <div className="text-gray-400 mb-1 flex items-center gap-1">
-                <AlertCircle className="w-3 h-3 text-red-400" />
+                <AlertCircle className="w-3 h-3 text-danger" />
                 <span>Errors ({errors.length}):</span>
               </div>
               <div className="space-y-2 max-h-40 overflow-y-auto">
                 {errors.slice(0, 5).map((error, idx) => (
-                  <div key={idx} className="bg-red-900/20 border border-red-800/30 rounded p-2">
-                    <div className="text-red-400 text-xs mb-1">
+                  <div key={idx} className="bg-danger/20 border border-danger/30 rounded p-2">
+                    <div className="text-danger text-xs mb-1">
                       {formatTimestamp(error.timestamp)}
                       {error.correlationId && (
                         <span className="text-gray-500 ml-2">
@@ -274,7 +274,7 @@ export function DebugTray({
                         </span>
                       )}
                     </div>
-                    <div className="text-red-300 text-xs break-words">{error.message}</div>
+                    <div className="text-danger text-xs break-words">{error.message}</div>
                     {error.stack && (
                       <details className="mt-1">
                         <summary className="text-gray-500 text-xs cursor-pointer hover:text-gray-400">

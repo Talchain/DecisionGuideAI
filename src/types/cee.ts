@@ -319,7 +319,7 @@ export interface M1Review {
  * M1 Coaching Readiness - actionability estimate based on evidence and model quality.
  * Separate from statistical robustness.
  */
-export type M1CoachingReadiness = 'ready' | 'close_call' | 'needs_evidence' | 'needs_framing'
+export type M1CoachingReadiness = 'ready' | 'close_call' | 'needs_evidence' | 'needs_framing' | 'low' | 'not_ready'
 
 /**
  * Executive Summary - headline coaching content from PLoT.
@@ -327,8 +327,33 @@ export type M1CoachingReadiness = 'ready' | 'close_call' | 'needs_evidence' | 'n
 export interface M1ExecutiveSummary {
   headline: string
   paragraph: string
-  recommendation: string
-  readiness_statement: string
+  /** Concrete recommendation sentence, e.g. "Acquire Competitor is the clear winner..." */
+  decision_statement: string
+  /** Key uncertainty qualifier, e.g. "Key uncertainty: Engineering Capacity..." */
+  key_qualifier: string
+  /** Concrete next step, e.g. "Gather evidence on Engineering Capacity before deciding." */
+  action_implication: string
+  /** @deprecated Use decision_statement. Kept for backwards compat with older payloads. */
+  recommendation?: string
+  /** @deprecated Use key_qualifier. Kept for backwards compat with older payloads. */
+  readiness_statement?: string
+  /** Full paragraph summary (alias for paragraph, some payloads send this) */
+  summary?: string
+}
+
+/**
+ * Top Fragile Edge from M1 coaching - the single most decision-relevant sensitivity.
+ * Parsed from PLoT payload: edge_id is "from_id->to_id", label is "From Label → To Label".
+ */
+export interface M1TopFragileEdge {
+  /** Composite edge ID, e.g. "fac_product_market_fit->out_customer_acquisition" */
+  edge_id: string
+  /** Human-readable edge label, e.g. "Product-Market Fit → Mid-Market Customer Acquisition" */
+  label: string
+  /** Option that would win if this edge shifts */
+  alternative_winner: string
+  /** Probability that this edge flips the recommendation (0-1) */
+  switch_probability: number
 }
 
 /**
@@ -405,4 +430,6 @@ export interface M1Coaching {
   evidence_gaps?: M1EvidenceGap[]
   next_actions?: M1NextAction[]
   assumptions_ledger?: M1Assumption[]
+  /** V12: Coaching's pick for the single most decision-relevant sensitivity */
+  top_fragile_edge?: M1TopFragileEdge
 }

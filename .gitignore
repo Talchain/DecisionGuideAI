@@ -47,3 +47,10 @@ supabase/functions/**/.env.*
 # docs/evidence/unified/**
 tests/p2-1-stream-canary.test.ts
 # Trigger Netlify rebuild - Tue Dec  2 18:49:57 GMT 2025
+
+*storybook.log
+storybook-static
+
+# Claude Code — ignore private config, track shared settings
+.claude/*
+!.claude/settings.json

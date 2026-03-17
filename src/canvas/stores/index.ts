@@ -65,6 +65,24 @@ export {
   selectHasIssues,
 } from './graphHealthStore'
 
+// Guidance focus store (A.2)
+export {
+  useGuidanceStore,
+  type GuidanceState,
+  type GuidanceActions,
+  type GuidanceItem,
+  type GuidanceAction,
+  type GuidanceCategory,
+  type GuidanceSource,
+  type EvidenceStrength,
+  type GuidanceTargetObject,
+  selectGuidanceItems,
+  selectActiveGuidanceItemId,
+  selectActiveItem,
+  selectItemsForTarget,
+  selectTopItem,
+} from './guidanceStore'
+
 /**
  * IMPORTANT: For backward compatibility, the main store.ts still exists
  * and provides the combined useCanvasStore hook. New code should prefer

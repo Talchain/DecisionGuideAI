@@ -48,7 +48,7 @@ export function useKeyboardShortcuts() {
           break
 
         case 'r':
-        case 'R':
+        case 'R': {
           e.preventDefault()
           // Only run if ready
           const blockers = findBlockers({ nodes, edges })
@@ -63,6 +63,7 @@ export function useKeyboardShortcuts() {
             })
           }
           break
+        }
 
         case 'c':
         case 'C':

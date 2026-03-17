@@ -174,7 +174,7 @@ export function mapErrorToUserMessage(error: {
     }
   }
 
-  // Empty canvas (no nodes to analyze)
+  // Empty canvas (no nodes to analyse)
   if (error.code === 'EMPTY_CANVAS' || messageLower.includes('empty_canvas')) {
     return {
       title: 'Empty canvas',

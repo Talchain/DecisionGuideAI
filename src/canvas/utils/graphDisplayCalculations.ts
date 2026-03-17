@@ -99,10 +99,10 @@ export function calculateRiskSeverity(
 
 /**
  * Map existence certainty to SVG dasharray for line style
- * From Decision Graph Display v2 spec:
- * - Solid: >70%
- * - Dashed: 30-70%
- * - Dotted: <30%
+ * From Decision Graph Display v2 spec (D.1 updated thresholds):
+ * - Solid: 70–100% (high confidence)
+ * - Dashed: 40–69% (medium confidence)
+ * - Dotted: 0–39% (low confidence)
  *
  * @param existsProbability - edge.exists_probability (0-1)
  * @returns SVG dasharray string or undefined for solid
@@ -114,11 +114,28 @@ export function existenceCertaintyToLineStyle(
     return undefined // Solid (default)
   }
 
-  if (existsProbability >= 0.3) {
-    return '8,4' // Dashed
+  if (existsProbability >= 0.4) {
+    return '6,4' // Dashed (medium confidence)
   }
 
-  return '2,2' // Dotted
+  return '2,4' // Dotted (low confidence)
+}
+
+/**
+ * D.1: Map weight magnitude to stroke width (pre-run mode).
+ * Calls Math.abs internally — pass the signed mean directly.
+ *
+ * | Magnitude | Width |
+ * |-----------|-------|
+ * | 0.0–0.3   | 1px   |
+ * | 0.3–0.6   | 2px   |
+ * | 0.6–1.0+  | 3px   |
+ */
+export function weightMagnitudeToStrokeWidth(signedMean: number): number {
+  const magnitude = Math.min(Math.abs(signedMean), 1)
+  if (magnitude < 0.3) return 1
+  if (magnitude < 0.6) return 2
+  return 3
 }
 
 /**
@@ -146,15 +163,15 @@ export function getRiskSeverityColors(
       }
     case 'high':
       return {
-        bg: 'bg-red-100',
-        border: 'border-red-500',
-        text: 'text-red-900',
+        bg: 'bg-panel',
+        border: 'border-danger',
+        text: 'text-danger',
       }
     case 'critical':
       return {
-        bg: 'bg-red-200',
-        border: 'border-red-600',
-        text: 'text-red-950',
+        bg: 'bg-panel',
+        border: 'border-danger',
+        text: 'text-danger',
       }
     default:
       return {

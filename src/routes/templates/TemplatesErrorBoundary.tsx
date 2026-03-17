@@ -58,7 +58,7 @@ export class TemplatesErrorBoundary extends Component<Props, State> {
             </p>
             <button
               onClick={this.handleRetry}
-              className="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors"
+              className="w-full px-4 py-2 bg-primary text-text-on-color rounded-md hover:bg-primary-hover focus:outline-none focus:ring-2 focus:ring-info focus:ring-offset-2 transition-colors"
             >
               Retry
             </button>

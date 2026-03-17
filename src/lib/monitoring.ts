@@ -1,8 +1,9 @@
-// Production monitoring: Sentry, Web Vitals, Hotjar
+// Production monitoring: Sentry, Web Vitals, Hotjar, PostHog
 import * as Sentry from '@sentry/react'
 import { onCLS, onLCP, onINP, type Metric } from 'web-vitals'
 import { logger } from './logger'
 import type { MonitoringConfig, HotjarWindow, SentryContext } from '../types/monitoring'
+import { initPostHog } from './posthog'
 
 export function resolveMonitoringConfig(env = import.meta.env): MonitoringConfig {
   const environment = env.MODE || 'production'
@@ -130,10 +131,19 @@ export function initHotjar(): void {
   logger.info('[Monitoring] Hotjar initialized', { id: config.hotjarId })
 }
 
+export function setSentryUser(userId: string, email: string): void {
+  Sentry.setUser({ id: userId, email })
+}
+
+export function clearSentryUser(): void {
+  Sentry.setUser(null)
+}
+
 export function initMonitoring(): void {
   initSentry()
   initWebVitals()
   initHotjar()
+  initPostHog()
 }
 
 export function isMonitoringEnabled(): boolean {

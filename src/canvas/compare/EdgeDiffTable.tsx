@@ -74,11 +74,11 @@ function EdgeSummary({ diffs }: { diffs: EdgeDiffRow[] }) {
 
   return (
     <div
-      className="flex items-center gap-4 px-4 py-3 bg-blue-50 border-b border-blue-200 text-sm"
+      className="flex items-center gap-4 px-4 py-3 bg-panel border-b border-info/30 text-sm"
       role="status"
       aria-label="Edge comparison summary"
     >
-      <span className="font-medium text-blue-900">Edge Summary:</span>
+      <span className="font-medium text-info">Edge Summary:</span>
       <div className="flex items-center gap-3">
         <span className="text-gray-700">
           <span className="font-semibold text-success-700">{added}</span> added
@@ -150,7 +150,7 @@ export function EdgeDiffTable({ runA, runB, limit = 5, onFocusEdge }: EdgeDiffTa
             {diffs.map((row) => (
               <tr
                 key={row.edgeId}
-                className={`hover:bg-blue-50 transition-colors ${onFocusEdge ? 'cursor-pointer' : ''}`}
+                className={`hover:bg-panel-hover transition-colors ${onFocusEdge ? 'cursor-pointer' : ''}`}
                 onClick={() => handleRowClick(row.edgeId)}
                 role={onFocusEdge ? 'button' : undefined}
                 tabIndex={onFocusEdge ? 0 : undefined}

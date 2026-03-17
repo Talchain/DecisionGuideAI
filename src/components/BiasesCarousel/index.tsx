@@ -14,7 +14,7 @@ export default function BiasesCarousel({ biases, isLoading = false, error = null
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    console.log('BiasesCarousel rendered with:', {
+    console.warn('BiasesCarousel rendered with:', {
       biasesCount: biases?.length,
       isLoading,
       error,
@@ -40,7 +40,7 @@ export default function BiasesCarousel({ biases, isLoading = false, error = null
       return (
         <div className="flex items-center justify-center h-[400px] bg-gray-50 rounded-lg">
           <div className="flex items-center gap-2">
-            <Loader className="h-6 w-6 text-indigo-500 animate-spin" />
+            <Loader className="h-6 w-6 text-info animate-spin" />
             <span className="text-gray-600">Loading cognitive biases...</span>
           </div>
         </div>
@@ -49,11 +49,11 @@ export default function BiasesCarousel({ biases, isLoading = false, error = null
 
     if (error) {
       return (
-        <div className="flex items-center gap-3 p-4 h-[400px] bg-red-50 rounded-lg">
-          <AlertCircle className="h-5 w-5 text-red-500 flex-shrink-0" />
+        <div className="flex items-center gap-3 p-4 h-[400px] bg-panel rounded-lg">
+          <AlertCircle className="h-5 w-5 text-danger flex-shrink-0" />
           <div>
-            <p className="text-red-700 font-medium">Error loading cognitive biases</p>
-            <p className="text-red-600 text-sm mt-1">{error}</p>
+            <p className="text-danger font-medium">Error loading cognitive biases</p>
+            <p className="text-danger text-sm mt-1">{error}</p>
           </div>
         </div>
       );
@@ -61,11 +61,11 @@ export default function BiasesCarousel({ biases, isLoading = false, error = null
 
     if (!biases?.length) {
       return (
-        <div className="flex items-center gap-3 p-4 h-[400px] bg-yellow-50 rounded-lg">
-          <AlertCircle className="h-5 w-5 text-yellow-500 flex-shrink-0" />
+        <div className="flex items-center gap-3 p-4 h-[400px] bg-panel rounded-lg">
+          <AlertCircle className="h-5 w-5 text-warning flex-shrink-0" />
           <div>
-            <p className="text-yellow-700 font-medium">No cognitive biases identified</p>
-            <p className="text-yellow-600 text-sm mt-1">
+            <p className="text-warning font-medium">No cognitive biases identified</p>
+            <p className="text-warning text-sm mt-1">
               The analysis did not identify any relevant cognitive biases for this decision.
             </p>
           </div>

@@ -401,10 +401,10 @@ export function InsightsPanel({
             <div className="pt-3">
               <div className="flex items-center gap-1.5 mb-2">
                 <AlertTriangle
-                  className="w-4 h-4 text-amber-600"
+                  className="w-4 h-4 text-warning"
                   aria-hidden="true"
                 />
-                <span className={`${typography.labelSmall} text-amber-700`}>
+                <span className={`${typography.labelSmall} text-warning`}>
                   Risks to Consider
                 </span>
               </div>
@@ -436,10 +436,10 @@ export function InsightsPanel({
             <div className="pt-3">
               <div className="flex items-center gap-1.5 mb-2">
                 <AlertTriangle
-                  className="w-4 h-4 text-amber-500"
+                  className="w-4 h-4 text-warning"
                   aria-hidden="true"
                 />
-                <span className={`${typography.labelSmall} text-amber-600`}>
+                <span className={`${typography.labelSmall} text-warning`}>
                   Caveats
                 </span>
               </div>
@@ -466,10 +466,10 @@ export function InsightsPanel({
             <div className="pt-2">
               <div className="flex items-center gap-1.5 mb-2">
                 <Lightbulb
-                  className="w-4 h-4 text-green-600"
+                  className="w-4 h-4 text-success"
                   aria-hidden="true"
                 />
-                <span className={`${typography.labelSmall} text-green-700`}>
+                <span className={`${typography.labelSmall} text-success`}>
                   Recommended Next Steps
                 </span>
               </div>
@@ -500,14 +500,14 @@ export function InsightsPanel({
                       className="flex items-start gap-2"
                     >
                       <ArrowRight
-                        className="w-3.5 h-3.5 text-green-600 flex-shrink-0 mt-0.5"
+                        className="w-3.5 h-3.5 text-success flex-shrink-0 mt-0.5"
                         aria-hidden="true"
                       />
                       <button
                         type="button"
                         onClick={isInteractive ? handleClick : undefined}
                         className={`${typography.bodySmall} text-ink-900/80 text-left ${
-                          isInteractive ? 'underline decoration-dotted hover:text-green-700' : ''
+                          isInteractive ? 'underline decoration-dotted hover:text-success' : ''
                         }`}
                         disabled={!isInteractive}
                         data-testid="next-step-item"

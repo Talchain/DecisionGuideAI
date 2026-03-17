@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect } from 'vitest'
-import { cleanFactorLabel, stripEncodingNotation } from '../cleanFactorLabel'
+import { cleanFactorLabel, stripEncodingNotation, sanitizeCoachingText } from '../cleanFactorLabel'
 
 describe('cleanFactorLabel', () => {
   describe('binary patterns', () => {
@@ -208,5 +208,98 @@ describe('production payload patterns (P1 Task B)', () => {
     // Should not happen in production, but test defensively
     const result = cleanFactorLabel('Factor A (0/1) Description')
     expect(result.label).toBe('Factor A Description')
+  })
+})
+
+// V12.1 Fix 2: Discrete encoding pattern
+describe('discrete encoding patterns (V12.1 Fix 2)', () => {
+  it('strips (0=Developers, 1=Tech Lead)', () => {
+    const result = cleanFactorLabel('Team Structure (0=Developers, 1=Tech Lead)')
+    expect(result.label).toBe('Team Structure')
+  })
+
+  it('strips (0=Low, 1=Medium, 2=High)', () => {
+    const result = cleanFactorLabel('Priority (0=Low, 1=Medium, 2=High)')
+    expect(result.label).toBe('Priority')
+  })
+
+  it('strips (0=No, 1=Yes)', () => {
+    const result = cleanFactorLabel('Approval (0=No, 1=Yes)')
+    expect(result.label).toBe('Approval')
+  })
+
+  it('preserves labels with parenthetical non-encoding text', () => {
+    // Parenthetical text that does NOT start with digit= should be preserved
+    const result = cleanFactorLabel('Revenue (annual)')
+    expect(result.label).toBe('Revenue (annual)')
+  })
+
+  // V14.1: Decimal encoding patterns
+  it('strips (0=Cat, 0.94=Dog) with decimal keys', () => {
+    const result = cleanFactorLabel('Pet Type (0=Cat, 0.94=Dog)')
+    expect(result.label).toBe('Pet Type')
+  })
+
+  it('strips (0=Low, 0.5=Med, 1=High) with decimal keys', () => {
+    const result = cleanFactorLabel('Risk (0=Low, 0.5=Med, 1=High)')
+    expect(result.label).toBe('Risk')
+  })
+
+  it('strips (0=Off, 1=On) integer case still works', () => {
+    const result = cleanFactorLabel('Status (0=Off, 1=On)')
+    expect(result.label).toBe('Status')
+  })
+})
+
+// V12: sanitizeCoachingText
+describe('sanitizeCoachingText', () => {
+  it('replaces Unicode right arrow (U+2192) with "to"', () => {
+    expect(sanitizeCoachingText('Factor A \u2192 Factor B')).toBe('Factor A to Factor B')
+  })
+
+  it('replaces ASCII arrow (->) with "to"', () => {
+    expect(sanitizeCoachingText('Factor A -> Factor B')).toBe('Factor A to Factor B')
+  })
+
+  it('handles multiple arrows', () => {
+    expect(sanitizeCoachingText('A \u2192 B \u2192 C')).toBe('A to B to C')
+  })
+
+  it('returns empty string for empty input', () => {
+    expect(sanitizeCoachingText('')).toBe('')
+  })
+
+  it('trims whitespace', () => {
+    expect(sanitizeCoachingText('  Factor A  ')).toBe('Factor A')
+  })
+
+  it('leaves non-arrow text unchanged', () => {
+    expect(sanitizeCoachingText('Validate your pricing model')).toBe('Validate your pricing model')
+  })
+
+  // V12.1 Fix 2: sanitizeCoachingText now also strips encoding notation
+  it('strips encoding notation alongside arrows', () => {
+    expect(sanitizeCoachingText('Factor A (0/1) \u2192 Outcome B')).toBe('Factor A to Outcome B')
+  })
+
+  it('strips discrete encoding from coaching text', () => {
+    expect(sanitizeCoachingText('Team Structure (0=Developers, 1=Tech Lead) matters')).toBe('Team Structure matters')
+  })
+
+  it('strips (0-1, share of N) from coaching text', () => {
+    expect(sanitizeCoachingText('Engineering Capacity (0\u20131, share of 20 engineers) is key')).toBe('Engineering Capacity is key')
+  })
+
+  it('V12.5: replaces em dash (\u2014) with comma', () => {
+    expect(sanitizeCoachingText('criteria \u2014 margin')).toBe('criteria, margin')
+  })
+
+  // V14.1: Decimal encoding in coaching text
+  it('strips decimal encoding (0=Cat, 0.94=Dog) from coaching text', () => {
+    expect(sanitizeCoachingText('Pet Type (0=Cat, 0.94=Dog) drives the outcome')).toBe('Pet Type drives the outcome')
+  })
+
+  it('strips multi-entry decimal encoding from coaching text', () => {
+    expect(sanitizeCoachingText('Risk (0=Low, 0.5=Med, 1=High) is uncertain')).toBe('Risk is uncertain')
   })
 })

@@ -97,7 +97,7 @@ export function DraftForm({ onSubmit, isSubmitting }: DraftFormProps) {
           }}
           placeholder="For example: Which supplier strategy should we adopt for next year?"
           rows={4}
-          className="w-full px-3 py-2 min-h-[44px] border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          className="w-full px-3 py-2 min-h-[44px] border border-gray-300 rounded-md focus:ring-2 focus:ring-info focus:border-transparent"
           disabled={isSubmitting}
           required
         />
@@ -113,7 +113,7 @@ export function DraftForm({ onSubmit, isSubmitting }: DraftFormProps) {
           onChange={(e) => setContext(e.target.value)}
           placeholder="Key constraints, timelines, stakeholders, or risks we should consider"
           rows={2}
-          className="w-full px-3 py-2 min-h-[44px] border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          className="w-full px-3 py-2 min-h-[44px] border border-gray-300 rounded-md focus:ring-2 focus:ring-info focus:border-transparent"
           disabled={isSubmitting}
         />
       </div>
@@ -167,7 +167,7 @@ export function DraftForm({ onSubmit, isSubmitting }: DraftFormProps) {
         <div
           role="alert"
           aria-live="polite"
-          className="p-3 bg-red-50 border border-red-200 rounded-md text-sm text-red-700"
+          className="p-3 bg-panel border border-danger/30 rounded-md text-sm text-danger"
         >
           {error}
         </div>
@@ -176,7 +176,7 @@ export function DraftForm({ onSubmit, isSubmitting }: DraftFormProps) {
       <button
         type="submit"
         disabled={isSubmitting || !prompt.trim()}
-        className="w-full px-4 py-2 min-h-[44px] bg-primary text-ink-900 rounded-md hover:bg-primary-hover disabled:bg-primary-disabled disabled:cursor-not-allowed font-medium"
+        className="w-full px-4 py-2 min-h-[44px] bg-primary text-text-on-color rounded-md hover:bg-primary-hover disabled:bg-primary-disabled disabled:cursor-not-allowed font-medium"
       >
         {isSubmitting ? 'Generating draft...' : 'Draft my model'}
       </button>

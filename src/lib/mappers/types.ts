@@ -217,6 +217,7 @@ export interface RawFactor {
   node_id?: string
   id?: string
   label?: string
+  factor_label?: string
   elasticity?: number
   sensitivity_score?: number
   sensitivity?: number
@@ -225,6 +226,11 @@ export interface RawFactor {
   importance_rank?: number
   value_of_information?: number
   confidence?: number
+  /** Breakdown of confidence into structural and sampling components */
+  confidence_components?: {
+    structural_certainty: number
+    sampling_stability: number | null
+  }
 }
 
 /**

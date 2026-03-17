@@ -1,4 +1,5 @@
 import type { DriversPayload } from '../driversAdapter'
+import type { CeeErrorCodeType } from '@talchain/schemas'
 
 export type ConfidenceLevel = 'low' | 'medium' | 'high'
 
@@ -343,15 +344,11 @@ export interface CEETrace {
   engine_version?: string
 }
 
-export type CEEErrorCode =
-  | 'CEE_TEMPORARY'
-  | 'CEE_UNAVAILABLE'
-  | 'CEE_TIMEOUT'
-  | 'CEE_INVALID_INPUT'
-  | 'CEE_QUOTA_EXCEEDED'
+/** @deprecated Use CeeErrorCodeType from @talchain/schemas */
+export type CEEErrorCode = CeeErrorCodeType
 
 export interface CEEError {
-  code: CEEErrorCode
+  code: CeeErrorCodeType
   retryable: boolean
   traceId: string
   suggestedAction: 'retry' | 'contact_support' | 'check_input'

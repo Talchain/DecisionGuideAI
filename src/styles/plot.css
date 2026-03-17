@@ -28,3 +28,11 @@
 #plot-controls {
   pointer-events: auto !important;
 }
+
+/* Task 8: Touch/narrow — assumption action icons always visible */
+@media (hover: none), (max-width: 400px) {
+  .assumption-actions {
+    opacity: 1 !important;
+    pointer-events: auto !important;
+  }
+}

@@ -89,7 +89,7 @@ export default function CriteriaForm() {
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-500"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-info/30"></div>
       </div>
     );
   }
@@ -98,14 +98,14 @@ export default function CriteriaForm() {
     <div className="space-y-6 max-w-2xl mx-auto p-4">
       <h2 className="text-2xl font-bold">Define criteria and weights</h2>
       {error && (
-        <div className="bg-red-50 p-3 rounded">
-          <AlertTriangle className="inline-block mr-2 text-red-500" />
-          <span className="text-red-700">{error}</span>
+        <div className="bg-panel p-3 rounded">
+          <AlertTriangle className="inline-block mr-2 text-danger" />
+          <span className="text-danger">{error}</span>
         </div>
       )}
       <div className="text-right mb-2">
         <span className={`px-2 py-1 rounded ${
-          overweight ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-700'
+          overweight ? 'bg-panel text-danger' : 'bg-gray-100 text-gray-700'
         }`}>
           Total: {total} / 15
         </span>
@@ -134,7 +134,7 @@ export default function CriteriaForm() {
                     key={w}
                     onClick={() => update(c.id, { weight: w })}
                     className={`px-2 py-1 mr-1 rounded ${
-                      c.weight === w ? 'bg-indigo-200' : 'bg-gray-100'
+                      c.weight === w ? 'bg-panel' : 'bg-gray-100'
                     }`}
                   >
                     {w}
@@ -142,7 +142,7 @@ export default function CriteriaForm() {
                 ))}
               </td>
               <td className="text-center">
-                <button onClick={() => remove(c.id)} className="text-gray-400 hover:text-red-600">
+                <button onClick={() => remove(c.id)} className="text-gray-400 hover:text-danger">
                   <Trash2 />
                 </button>
               </td>
@@ -162,7 +162,7 @@ export default function CriteriaForm() {
         <button
           onClick={() => navigate('/decision/options')}
           disabled={saving || overweight || criteria.some(c => !c.name.trim())}
-          className="px-6 py-2 bg-indigo-600 text-white rounded disabled:opacity-50"
+          className="px-6 py-2 bg-primary text-text-on-color rounded disabled:opacity-50"
         >
           {saving
             ? 'Saving…'

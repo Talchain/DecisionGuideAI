@@ -104,7 +104,7 @@ export function GuidedLayoutDialog({ isOpen, onClose }: GuidedLayoutDialogProps)
               onClick={() => setDirection('LR')}
               className={`flex-1 px-3 py-2 ${typography.body} rounded transition-colors ${
                 direction === 'LR'
-                  ? 'bg-primary text-white'
+                  ? 'bg-primary text-text-on-color'
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               }`}
               aria-pressed={direction === 'LR'}
@@ -116,7 +116,7 @@ export function GuidedLayoutDialog({ isOpen, onClose }: GuidedLayoutDialogProps)
               onClick={() => setDirection('TB')}
               className={`flex-1 px-3 py-2 ${typography.body} rounded transition-colors ${
                 direction === 'TB'
-                  ? 'bg-primary text-white'
+                  ? 'bg-primary text-text-on-color'
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               }`}
               aria-pressed={direction === 'TB'}
@@ -139,7 +139,7 @@ export function GuidedLayoutDialog({ isOpen, onClose }: GuidedLayoutDialogProps)
                 onClick={() => setSpacing(preset)}
                 className={`flex-1 px-3 py-2 ${typography.body} rounded transition-colors ${
                   spacing === preset
-                    ? 'bg-primary text-white'
+                    ? 'bg-primary text-text-on-color'
                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                 }`}
                 aria-pressed={spacing === preset}
@@ -190,7 +190,7 @@ export function GuidedLayoutDialog({ isOpen, onClose }: GuidedLayoutDialogProps)
                   onClick={() => setRiskPlacement(placement)}
                   className={`flex-1 px-2 py-1 ${typography.caption} rounded transition-colors ${
                     riskPlacement === placement
-                      ? 'bg-primary text-white'
+                      ? 'bg-primary text-text-on-color'
                       : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                   }`}
                   aria-pressed={riskPlacement === placement}
@@ -238,7 +238,7 @@ export function GuidedLayoutDialog({ isOpen, onClose }: GuidedLayoutDialogProps)
             disabled={!canApply}
             className={`flex-1 px-4 py-2 ${typography.button} rounded transition-colors ${
               canApply
-                ? 'bg-primary text-white hover:bg-primary-hover'
+                ? 'bg-primary text-text-on-color hover:bg-primary-hover'
                 : 'bg-gray-300 text-gray-500 cursor-not-allowed'
             }`}
             data-testid="guided-apply"

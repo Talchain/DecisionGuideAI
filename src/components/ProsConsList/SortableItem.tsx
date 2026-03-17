@@ -139,7 +139,7 @@ const SortableItem = memo(({
       data-type={type}
       data-index={index}
       className={`group relative flex flex-col p-3 rounded-lg bg-white border hover:border-gray-300 ${
-        type === 'pros' ? 'border-green-200' : 'border-red-200'
+        type === 'pros' ? 'border-success/30' : 'border-danger/30'
       } hover:shadow-sm transition-shadow min-h-[120px]`}
     >
       <div className="flex-1">
@@ -150,7 +150,7 @@ const SortableItem = memo(({
             onChange={handleTextareaChange}
             onKeyDown={handleKeyDown}
             onBlur={handleBlur}
-            className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 resize-none overflow-hidden"
+            className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-info focus:border-info/30 resize-none overflow-hidden"
             style={{ minHeight: '24px' }}
             autoFocus
           />
@@ -196,7 +196,7 @@ const SortableItem = memo(({
               <Tooltip content="Delete this item">
                 <button
                   onClick={onDelete}
-                  className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-md focus:outline-none"
+                  className="p-1.5 text-gray-400 hover:text-danger hover:bg-panel-hover rounded-md focus:outline-none"
                   aria-label="Delete item"
                 >
                   <Trash2 className="h-4 w-4" />

@@ -45,8 +45,8 @@ export default function ScoreComparison({ scores, onClose }: ScoreComparisonProp
   const SortIcon = ({ active }: { active: boolean }) => {
     if (!active) return <ArrowUpDown className="h-4 w-4 text-gray-400" />;
     return sortDirection === 'asc' ? 
-      <ChevronUp className="h-4 w-4 text-indigo-500" /> : 
-      <ChevronDown className="h-4 w-4 text-indigo-500" />;
+      <ChevronUp className="h-4 w-4 text-info" /> : 
+      <ChevronDown className="h-4 w-4 text-info" />;
   };
 
   return (
@@ -60,8 +60,8 @@ export default function ScoreComparison({ scores, onClose }: ScoreComparisonProp
       >
         <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between bg-white sticky top-0 z-10">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-indigo-50 rounded-lg">
-              <BarChart2 className="h-5 w-5 text-indigo-600" />
+            <div className="p-2 bg-panel rounded-lg">
+              <BarChart2 className="h-5 w-5 text-info" />
             </div>
             <div>
               <h2 className="text-xl font-semibold text-gray-900">Decision Analysis</h2>
@@ -86,15 +86,15 @@ export default function ScoreComparison({ scores, onClose }: ScoreComparisonProp
                 <div 
                   key={score.name}
                   className={`p-4 rounded-lg border ${
-                    index === 0 ? 'bg-indigo-50 border-indigo-200' : 'bg-white border-gray-200'
+                    index === 0 ? 'bg-panel border-info/30' : 'bg-white border-gray-200'
                   }`}
                 >
                   <div className="flex items-start justify-between mb-2">
                     <h4 className="font-medium text-gray-900">{score.name}</h4>
                     {index === 0 && (
                       <Tooltip content="Highest scoring option">
-                        <div className="p-1 bg-indigo-100 rounded-full">
-                          <Trophy className="h-4 w-4 text-indigo-600" />
+                        <div className="p-1 bg-panel rounded-full">
+                          <Trophy className="h-4 w-4 text-info" />
                         </div>
                       </Tooltip>
                     )}
@@ -103,8 +103,8 @@ export default function ScoreComparison({ scores, onClose }: ScoreComparisonProp
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-gray-600">Total Score</span>
                       <span className={`font-medium ${
-                        score.totalScore > 0 ? 'text-green-600' : 
-                        score.totalScore < 0 ? 'text-red-600' : 
+                        score.totalScore > 0 ? 'text-success' : 
+                        score.totalScore < 0 ? 'text-danger' : 
                         'text-gray-600'
                       }`}>
                         {score.totalScore}
@@ -112,8 +112,8 @@ export default function ScoreComparison({ scores, onClose }: ScoreComparisonProp
                     </div>
                     <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
                       <div
-                        className={`h-full transition-all duration-500 ease-out ${
-                          score.totalScore > 0 ? 'bg-green-500' : 'bg-red-500'
+                        className={`h-full transition-all duration-400 ease-out ${
+                          score.totalScore > 0 ? 'bg-success' : 'bg-danger'
                         }`}
                         style={{
                           width: `${(Math.abs(score.totalScore) / maxScore) * 100}%`
@@ -182,8 +182,8 @@ export default function ScoreComparison({ scores, onClose }: ScoreComparisonProp
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm">
                         <div className={`font-medium ${
-                          score.totalScore > 0 ? 'text-green-600' : 
-                          score.totalScore < 0 ? 'text-red-600' : 
+                          score.totalScore > 0 ? 'text-success' : 
+                          score.totalScore < 0 ? 'text-danger' : 
                           'text-gray-600'
                         }`}>
                           {score.totalScore}
@@ -193,13 +193,13 @@ export default function ScoreComparison({ scores, onClose }: ScoreComparisonProp
                         <div className="flex items-center gap-2">
                           <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
                             <div
-                              className="h-full bg-green-500 transition-all duration-500"
+                              className="h-full bg-success transition-all duration-400"
                               style={{
                                 width: `${(score.prosScore / maxIndividualScore) * 100}%`
                               }}
                             />
                           </div>
-                          <span className="text-sm font-medium text-green-600">
+                          <span className="text-sm font-medium text-success">
                             {score.prosScore}
                           </span>
                         </div>
@@ -208,13 +208,13 @@ export default function ScoreComparison({ scores, onClose }: ScoreComparisonProp
                         <div className="flex items-center gap-2">
                           <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
                             <div
-                              className="h-full bg-red-500 transition-all duration-500"
+                              className="h-full bg-danger transition-all duration-400"
                               style={{
                                 width: `${(score.consScore / maxIndividualScore) * 100}%`
                               }}
                             />
                           </div>
-                          <span className="text-sm font-medium text-red-600">
+                          <span className="text-sm font-medium text-danger">
                             {score.consScore}
                           </span>
                         </div>
@@ -233,11 +233,11 @@ export default function ScoreComparison({ scores, onClose }: ScoreComparisonProp
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-600">
                 <div className="space-y-2">
                   <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full bg-green-500" />
+                    <div className="w-3 h-3 rounded-full bg-success" />
                     <span>Positive impact (pros)</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full bg-red-500" />
+                    <div className="w-3 h-3 rounded-full bg-danger" />
                     <span>Negative impact (cons)</span>
                   </div>
                 </div>

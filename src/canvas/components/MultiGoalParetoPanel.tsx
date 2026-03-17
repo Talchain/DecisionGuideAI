@@ -1,5 +1,5 @@
 /**
- * MultiGoalParetoPanel - Unified multi-goal trade-off visualization
+ * MultiGoalParetoPanel - Unified multi-goal trade-off visualisation
  *
  * Task 5.3: Visualize trade-offs when goals conflict
  *
@@ -209,7 +209,7 @@ export const MultiGoalParetoPanel = memo(function MultiGoalParetoPanel({
           ) : (
             <ChevronDown className="h-4 w-4 text-ink-500" />
           )}
-          <Scale className="h-4 w-4 text-violet-500" aria-hidden="true" />
+          <Scale className="h-4 w-4 text-option" aria-hidden="true" />
           <span className={`${typography.body} font-medium text-ink-800`}>
             Multi-Goal Trade-offs
           </span>
@@ -228,7 +228,7 @@ export const MultiGoalParetoPanel = memo(function MultiGoalParetoPanel({
               Goals aligned
             </span>
           )}
-          <span className={`${typography.caption} px-2 py-0.5 rounded-full bg-teal-100 text-teal-700`}>
+          <span className={`${typography.caption} px-2 py-0.5 rounded-full bg-panel text-text-body`}>
             {frontier.length} optimal
           </span>
         </div>
@@ -320,7 +320,7 @@ export const MultiGoalParetoPanel = memo(function MultiGoalParetoPanel({
               <span className={`${typography.label} text-ink-700`}>
                 Options by Your Priorities
               </span>
-              <Sparkles className="h-3 w-3 text-violet-400 ml-1" />
+              <Sparkles className="h-3 w-3 text-option ml-1" />
             </div>
 
             <div className="space-y-2">
@@ -333,7 +333,7 @@ export const MultiGoalParetoPanel = memo(function MultiGoalParetoPanel({
                     onClick={() => handleOptionClick(opt.optionId)}
                     className={`w-full text-left p-2 rounded-lg border transition-colors ${
                       isFrontier
-                        ? 'bg-teal-50 border-teal-200 hover:bg-teal-100'
+                        ? 'bg-panel border-success/30 hover:opacity-90'
                         : 'bg-sand-50 border-sand-200 hover:bg-sand-100'
                     }`}
                     data-testid={`weighted-option-${opt.optionId}`}
@@ -350,13 +350,13 @@ export const MultiGoalParetoPanel = memo(function MultiGoalParetoPanel({
                       </span>
                       <span
                         className={`${typography.bodySmall} font-medium ${
-                          isFrontier ? 'text-teal-800' : 'text-ink-700'
+                          isFrontier ? 'text-success' : 'text-ink-700'
                         }`}
                       >
                         {opt.label}
                       </span>
                       {isFrontier && (
-                        <Award className="h-3.5 w-3.5 text-teal-600 ml-auto" />
+                        <Award className="h-3.5 w-3.5 text-success ml-auto" />
                       )}
                     </div>
                     <div className={`${typography.caption} text-ink-500 ml-7 mt-1`}>

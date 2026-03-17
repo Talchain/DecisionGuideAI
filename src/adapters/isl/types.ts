@@ -32,7 +32,7 @@ export interface ISLGraphEdge {
 export interface ISLGraphEdgeV2 {
   from: string
   to: string
-  exists_probability: number
+  exists_probability?: number
   strength: {
     mean: number  // SIGNED: negative for negative effects
     std: number

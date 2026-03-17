@@ -127,6 +127,12 @@ export function detectComputedButEmpty(v2Response: V2RunResponse): ComputedButEm
  * - Option node filtering messages (e.g., "Node 'opt_x' has kind='option'. Option nodes are filtered...")
  * - Normalization warnings that are handled internally
  */
+/**
+ * V14.3b: Internal-token regex — matches ISL field names, constraint prefixes, etc.
+ * Warnings matching this contain implementation details not safe for user display.
+ */
+const INTERNAL_WARNING_PATTERN = /constraint_fac_|observed_state\.|intercept\s*=|fac_[a-z_]+|blocks_analysis|node_id\s*=|edge_id\s*=|opt_[a-z_]+|goal_[a-z_]+/i
+
 function isInternalImplementationWarning(message: string): boolean {
   if (!message) return false
   const lowerMessage = message.toLowerCase()
@@ -145,6 +151,12 @@ function isInternalImplementationWarning(message: string): boolean {
 
   // Filter out clamping warnings (internal ISL constraint enforcement)
   if (lowerMessage.includes('clamped')) {
+    return true
+  }
+
+  // V14.3b: Filter out any warning containing internal ISL field names
+  // These are handled through the structured critique → humaniseCritique path
+  if (INTERNAL_WARNING_PATTERN.test(message)) {
     return true
   }
 
@@ -267,6 +279,7 @@ export function pickFactorSensitivityForUi(v2Response: V2RunResponse): FactorSen
         confidence: f.confidence as number | undefined,
         // VOI Fix: Pass through value_of_information for driver confidence display
         value_of_information: f.value_of_information as number | undefined,
+        confidence_components: f.confidence_components as V2FactorSensitivity['confidence_components'],
       }))
       return { factors, _source_path: 'downstream_calls.isl' }
     }
@@ -316,6 +329,7 @@ export function pickFactorSensitivityForUi(v2Response: V2RunResponse): FactorSen
         confidence: f.confidence as number | undefined,
         // VOI Fix: Pass through value_of_information for driver confidence display
         value_of_information: f.value_of_information as number | undefined,
+        confidence_components: f.confidence_components as V2FactorSensitivity['confidence_components'],
       }))
       return { factors, _source_path: 'enrichment' }
     }
@@ -584,6 +598,8 @@ export function mapV2ResponseToReportV1(
             p50,
             p90,
           },
+          // Multi-constraint analysis (when goal_constraints were provided in request)
+          constraint_analysis: opt.constraint_analysis,
         }
         return acc
       },
@@ -598,6 +614,7 @@ export function mapV2ResponseToReportV1(
           p50?: number | null
           p90?: number | null
         }
+        constraint_analysis?: import('../../../types/constraints').ConstraintAnalysis
       }>
     ),
     // Include V2-specific data for components that can use it
@@ -714,10 +731,16 @@ function createDriversPayloadFromV2(v2Response: V2RunResponse): DriversPayload |
         safeNumber(factor.importance_score) ??
         undefined
 
+      // Prefer human-readable label from ISL enrichment (factor_label or label),
+      // fall back to formatting the factor_id as a display name.
+      const factorLabel = safeString(factor.factor_label)
+        ?? safeString(factor.label)
+        ?? formatNodeName(factorId)
+
       driverItems.push({
         id: factorId,
         kind: 'node',
-        label: formatNodeName(factorId),
+        label: factorLabel,
         sensitivity_score: sensitivityValue,
       })
     }
@@ -851,8 +874,14 @@ function mapDriversFromResponse(v2Response: V2RunResponse): ReportV1['drivers'] 
     const rawValue = safeNumber(factor.sensitivity_score) ?? safeNumber(factor.elasticity) ?? safeNumber(factor.sensitivity) ?? safeNumber(factor.importance_score)
     const magnitude = rawValue !== null ? Math.abs(rawValue) : null
 
+    // Prefer human-readable label from ISL enrichment (factor_label or label),
+    // fall back to formatting the factor_id as a display name.
+    const factorLabel = safeString(factor.factor_label)
+      ?? safeString(factor.label)
+      ?? formatNodeName(factorId)
+
     return {
-      label: formatNodeName(factorId),
+      label: factorLabel,
       polarity,
       // P1 Fix: Don't fabricate 'medium' when sensitivity data is missing
       // When magnitude is null, strength should be undefined to indicate missing data

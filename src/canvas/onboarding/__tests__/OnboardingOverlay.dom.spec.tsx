@@ -309,7 +309,7 @@ describe('OnboardingOverlay', () => {
       expect(screen.getByTestId('is-open')).toHaveTextContent('false')
     })
 
-    it('shows overlay when localStorage is empty', () => {
+    it('shows overlay when localStorage is empty', async () => {
       const TestComponent = () => {
         const { shouldShow, isOpen } = useOnboarding()
         return (
@@ -322,11 +322,14 @@ describe('OnboardingOverlay', () => {
 
       render(<TestComponent />)
 
-      expect(screen.getByTestId('should-show')).toHaveTextContent('true')
-      expect(screen.getByTestId('is-open')).toHaveTextContent('true')
+      // Hook sets shouldShow=true via effect but no longer auto-opens
+      await waitFor(() => {
+        expect(screen.getByTestId('should-show')).toHaveTextContent('true')
+      })
+      expect(screen.getByTestId('is-open')).toHaveTextContent('false')
     })
 
-    it('shows overlay when localStorage has wrong version', () => {
+    it('shows overlay when localStorage has wrong version', async () => {
       localStorage.setItem(STORAGE_KEY, 'v0')
 
       const TestComponent = () => {
@@ -341,8 +344,11 @@ describe('OnboardingOverlay', () => {
 
       render(<TestComponent />)
 
-      expect(screen.getByTestId('should-show')).toHaveTextContent('true')
-      expect(screen.getByTestId('is-open')).toHaveTextContent('true')
+      // Hook sets shouldShow=true via effect but no longer auto-opens
+      await waitFor(() => {
+        expect(screen.getByTestId('should-show')).toHaveTextContent('true')
+      })
+      expect(screen.getByTestId('is-open')).toHaveTextContent('false')
     })
 
     it('handles localStorage errors gracefully', () => {
@@ -364,9 +370,9 @@ describe('OnboardingOverlay', () => {
 
       render(<TestComponent />)
 
-      // Should handle errors without crashing; treat as not yet seen so overlay opens
-      expect(screen.getByTestId('should-show')).toHaveTextContent('true')
-      expect(screen.getByTestId('is-open')).toHaveTextContent('true')
+      // On localStorage error, hook catches and doesn't crash
+      // shouldShow may be true from effect re-run; isOpen stays false (no auto-open)
+      expect(screen.getByTestId('is-open')).toHaveTextContent('false')
 
       // Restore
       localStorage.getItem = originalGetItem
@@ -400,20 +406,20 @@ describe('OnboardingOverlay', () => {
 
     it('provides close() function to hide overlay', () => {
       const TestComponent = () => {
-        const { isOpen, close } = useOnboarding()
+        const { isOpen, open, close } = useOnboarding()
         return (
           <div>
             <div data-testid="is-open">{isOpen.toString()}</div>
+            <button onClick={open}>Open</button>
             <button onClick={close}>Close</button>
           </div>
         )
       }
 
-      // Set as not seen (will auto-open)
-      localStorage.removeItem(STORAGE_KEY)
-
       render(<TestComponent />)
 
+      // Hook no longer auto-opens; manually open first
+      fireEvent.click(screen.getByText('Open'))
       expect(screen.getByTestId('is-open')).toHaveTextContent('true')
 
       // Click close

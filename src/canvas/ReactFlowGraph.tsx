@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState, useMemo, useRef, lazy, Suspense, memo } from 'react'
 import { useLocation } from 'react-router-dom'
-import { ReactFlow, ReactFlowProvider, MiniMap, Background, BackgroundVariant, type Connection, type NodeChange, type EdgeChange, useReactFlow } from '@xyflow/react'
+import { ReactFlow, ReactFlowProvider, MiniMap, Background, BackgroundVariant, SelectionMode, type Connection, type NodeChange, type EdgeChange, useReactFlow } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 // Note: shallow from 'zustand/shallow' was removed - causes infinite loops with Zustand v5
 // Use individual selectors instead (see React #185 fix comment below)
@@ -12,12 +12,19 @@ import { StyledEdge } from './edges/StyledEdge'
 import { useKeyboardShortcuts } from './useKeyboardShortcuts'
 import { loadState, saveState } from './persist'
 import * as scenarios from './store/scenarios'
+import type { Scenario } from './store/scenarios'
+import { validateCeeAnalysisReady } from './utils/ceeAnalysisReadyValidation'
+import type { CEEAnalysisReady } from '../adapters/cee/types'
 import { ContextMenu } from './ContextMenu'
+import { CanvasContextMenu } from './contextMenu/CanvasContextMenu'
+import { isStructuralEdge } from './domain/edgeUtils'
+import { isContextMenuEnabled } from '../flags'
+import type { ContextTarget } from './contextMenu/types'
+import type { NodeType } from './domain/nodes'
 import { CanvasToolbar } from './CanvasToolbar'
 import { LeftSidebar } from '../components/layout/LeftSidebar'
 import { RightPanel } from '../components/layout/RightPanel'
 import { AlignmentGuides } from './components/AlignmentGuides'
-import { InspectorPopover } from './components/InspectorPopover'
 import { InspectorModal } from './components/InspectorModal'
 import { CommandPalette } from './components/CommandPalette'
 import { ReconnectBanner } from './components/ReconnectBanner'
@@ -38,15 +45,17 @@ import type { Blueprint } from '../templates/blueprints/types'
 import { blueprintToGraph } from '../templates/mapper/blueprintToGraph'
 import { InfluenceExplainer, useInfluenceExplainer } from '../components/assistants/InfluenceExplainer'
 import { DraftChat } from './components/DraftChat'
-// N5: Code-split heavy panels with named chunks
-const InspectorPanel = lazy(() => import(/* webpackChunkName: "inspector-panel" */ './panels/InspectorPanel').then(m => ({ default: m.InspectorPanel })))
 import { useResultsRun } from './hooks/useResultsRun'
 import { HighlightLayer } from './highlight/HighlightLayer'
 import { registerFocusHelpers, unregisterFocusHelpers } from './utils/focusHelpers'
 import { usePathHighlight } from './hooks/usePathHighlight'
+import { useLensFilter } from './hooks/useLensFilter'
+import { useGuidancePulseHighlight } from './hooks/useGuidancePulseHighlight'
+import { useEscapePanel } from './hooks/useEscapePanel'
 import { loadRuns, generateGraphHash } from './store/runHistory'
 // HealthStatusBar removed - validation consolidated into OutputsDock panel
 import { DegradedBanner } from './components/DegradedBanner'
+import { EdgeThicknessLegend } from './components/EdgeThicknessLegend'
 import { LayoutProgressBanner } from './components/LayoutProgressBanner'
 const IssuesPanel = lazy(() => import(/* webpackChunkName: "issues-panel" */ './panels/IssuesPanel').then(m => ({ default: m.IssuesPanel })))
 const AIClarifierChat = lazy(() => import(/* webpackChunkName: "ai-clarifier" */ './panels/AIClarifierChat').then(m => ({ default: m.AIClarifierChat })))
@@ -60,14 +69,16 @@ import { FocusModeChip } from './components/FocusModeChip'
 // EdgeLabelToggle moved to CanvasToolbar for cleaner UI
 import { LimitsPanel } from './components/LimitsPanel'
 import { BottomSheet } from './components/BottomSheet'
-import type { NodeType } from './domain/nodes'
 import { OutputsDock } from './components/OutputsDock'
 import { ComparisonCanvasLayout } from './components/ComparisonCanvasLayout'
-import { isInputsOutputsEnabled, isCommandPaletteEnabled, isDegradedBannerEnabled, isOnboardingTourEnabled, pocFlags } from '../flags'
+import { isInputsOutputsEnabled, isCommandPaletteEnabled, isDegradedBannerEnabled, isOnboardingTourEnabled, isCrossHighlightEnabled, pocFlags } from '../flags'
+import { HighlightProvider, useHighlightContext } from './highlighting/HighlightContext'
 import { useEngineLimits } from './hooks/useEngineLimits'
 import { useRunEligibilityCheck } from './hooks/useRunEligibilityCheck'
 import { useAutosave } from './hooks/useAutosave'
-import { DebugPanel } from '../components/DebugPanel'
+// Lazy-load debug panel — excludes ~6.8k lines of debug UI from the main bundle
+const LazyDebugPanel = lazy(() => import('../components/DebugPanel').then(m => ({ default: m.DebugPanel })))
+import { verboseWarn } from '../utils/verboseLog'
 
 type CanvasDebugMode = 'normal' | 'blank' | 'no-reactflow' | 'rf-only' | 'rf-bare' | 'rf-minimal' | 'rf-empty' | 'rf-no-fitview' | 'rf-no-bg' | 'rf-store' | 'provider-only' | 'no-provider'
 
@@ -110,9 +121,9 @@ function logCanvasBreadcrumb(message: string, data?: Record<string, any>) {
     if (!logs || logs.length >= 2000) return
     logs.push({ t: Date.now(), m: `canvas:trace:${message}`, data })
     const mode = getCanvasDebugMode()
-    if (mode !== 'normal' && typeof console !== 'undefined' && console.log) {
+    if (mode !== 'normal' && typeof console !== 'undefined' && console.warn) {
       // eslint-disable-next-line no-console
-      console.log('[CANVAS TRACE]', message, data || {})
+      console.warn('[CANVAS TRACE]', message, data || {})
     }
   } catch {}
 }
@@ -126,7 +137,7 @@ const USE_NEW_LAYOUT = (import.meta as any)?.env?.VITE_FEATURE_CONTEXT_BAR !== '
 
 // Debug: Log layout mode once on module load
 if (typeof window !== 'undefined') {
-  console.log('[LAYOUT]', USE_NEW_LAYOUT ? 'NEW (canvas-first)' : 'OLD (docks)')
+  console.warn('[LAYOUT]', USE_NEW_LAYOUT ? 'NEW (canvas-first)' : 'OLD (docks)')
 }
 
 export interface BlueprintInsertResult {
@@ -141,6 +152,105 @@ interface ReactFlowGraphProps {
   blueprintEventBus?: BlueprintEventBus
   onCanvasInteraction?: () => void
   enableGhostSuggestions?: boolean
+}
+
+/**
+ * Restore ceeAnalysisReady with source-aligned fallback and validation
+ *
+ * CRITICAL: Readiness source must align with graph source to prevent stale data.
+ * - If graph loaded from autosave → prefer autosave readiness
+ * - If graph loaded from scenario → prefer scenario readiness
+ * - Only use sessionStorage when no persistent source exists (draft mode)
+ */
+function restoreCeeAnalysisReady(
+  loadSource: 'autosave' | 'scenario' | 'none',
+  autosave: scenarios.AutosaveData | null,
+  scenario: Scenario | null,
+  currentNodes: import('@xyflow/react').Node[]
+): void {
+  let ceeAnalysisReady: CEEAnalysisReady | null = null
+  let ceeAnalysisReadyNodeIds: string[] | null = null
+  let source: 'session' | 'autosave' | 'scenario' | 'none' = 'none'
+
+  // PRIORITY 1: Align with chosen graph source
+  if (loadSource === 'autosave' && autosave?.ceeAnalysisReady) {
+    ceeAnalysisReady = autosave.ceeAnalysisReady
+    ceeAnalysisReadyNodeIds = autosave.nodes.map((n) => n.id)
+    source = 'autosave'
+  } else if (loadSource === 'scenario' && scenario?.ceeAnalysisReady) {
+    ceeAnalysisReady = scenario.ceeAnalysisReady
+    ceeAnalysisReadyNodeIds = scenario.ceeAnalysisReadyNodeIds ?? null
+    source = 'scenario'
+  }
+
+  // PRIORITY 2: Fallback to other persistent source
+  if (!ceeAnalysisReady) {
+    if (autosave?.ceeAnalysisReady) {
+      ceeAnalysisReady = autosave.ceeAnalysisReady
+      ceeAnalysisReadyNodeIds = autosave.nodes.map((n) => n.id)
+      source = 'autosave'
+    } else if (scenario?.ceeAnalysisReady) {
+      ceeAnalysisReady = scenario.ceeAnalysisReady
+      ceeAnalysisReadyNodeIds = scenario.ceeAnalysisReadyNodeIds ?? null
+      source = 'scenario'
+    }
+  }
+
+  // PRIORITY 3: Last resort - sessionStorage (draft mode, no persistent source)
+  if (!ceeAnalysisReady && loadSource === 'none') {
+    try {
+      const ceeRaw = sessionStorage.getItem('olumi-cee-analysis-ready')
+      const nodeIdsRaw = sessionStorage.getItem('olumi-cee-analysis-ready-node-ids')
+      if (ceeRaw) {
+        const ceeData = JSON.parse(ceeRaw)
+        if (ceeData && typeof ceeData === 'object') {
+          ceeAnalysisReady = ceeData
+          ceeAnalysisReadyNodeIds = nodeIdsRaw ? JSON.parse(nodeIdsRaw) : null
+          source = 'session'
+        }
+      }
+    } catch {
+      // Ignore parse errors
+    }
+  }
+
+  // Validate and restore if we found data
+  if (ceeAnalysisReady) {
+    const validation = validateCeeAnalysisReady(
+      ceeAnalysisReady,
+      ceeAnalysisReadyNodeIds,
+      currentNodes
+    )
+
+    if (validation.isValid) {
+      useCanvasStore.getState().setCeeAnalysisReady(ceeAnalysisReady)
+      if (import.meta.env.DEV) {
+        console.warn('[canvas:init] Restored ceeAnalysisReady:', {
+          source,
+          loadSource,
+          aligned: source === loadSource || loadSource === 'none',
+          options: ceeAnalysisReady.options.length,
+          goal_node_id: ceeAnalysisReady.goal_node_id,
+        })
+      }
+    } else {
+      if (import.meta.env.DEV) {
+        console.warn('[canvas:init] Invalid ceeAnalysisReady discarded:', {
+          source,
+          loadSource,
+          reason: validation.reason,
+          details: validation.details,
+        })
+      }
+      // Clear invalid session payload to avoid repeated validation
+      if (source === 'session') {
+        try {
+          sessionStorage.removeItem('olumi-cee-analysis-ready')
+          sessionStorage.removeItem('olumi-cee-analysis-ready-node-ids')
+        } catch {}
+      }
+    }
+  }
 }
 
 // Brief 37: Wrap in memo to prevent parent-triggered re-renders from ReactFlowProvider
@@ -160,7 +270,6 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
   const nodes = useCanvasStore(s => s.nodes)
   const edges = useCanvasStore(s => s.edges)
   const showResultsPanel = useCanvasStore(s => s.showResultsPanel)
-  const showInspectorPanel = useCanvasStore(s => s.showInspectorPanel)
   const graphHealth = useCanvasStore(s => s.graphHealth)
   const showIssuesPanel = useCanvasStore(s => s.showIssuesPanel)
   // needleMovers selector removed - consolidated into DriversSignal
@@ -170,6 +279,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
   const showProvenanceHub = useCanvasStore(s => s.showProvenanceHub)
   const provenanceRedactionEnabled = useCanvasStore(s => s.provenanceRedactionEnabled)
   const reconnecting = useCanvasStore(s => s.reconnecting)
+  const resultsStatus = useCanvasStore(s => s.results.status)
   // Week 3: AI Clarifier
   const showAIClarifier = useCanvasStore(s => s.showAIClarifier)
   const setShowAIClarifier = useCanvasStore(s => s.setShowAIClarifier)
@@ -179,7 +289,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
 
   // Week 3: AI Coaching moved to GuidancePanel in OutputsDock
 
-  const { getViewport, setCenter, fitView, zoomIn, zoomOut } = useReactFlow()
+  const { getViewport, setCenter, fitView, zoomIn, zoomOut, screenToFlowPosition } = useReactFlow()
 
   // Brief 36 Fix: Stabilize ReactFlow function references via refs
   // These functions may have unstable references in some ReactFlow versions
@@ -287,16 +397,21 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
   const createNodeId = useCanvasStore(s => s.createNodeId)
   const createEdgeId = useCanvasStore(s => s.createEdgeId)
   const setShowResultsPanel = useCanvasStore(s => s.setShowResultsPanel)
-  const setShowInspectorPanel = useCanvasStore(s => s.setShowInspectorPanel)
-
   // State declarations
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null)
+  const [contextMenuTarget, setContextMenuTarget] = useState<ContextTarget | null>(null)
+  const useNewContextMenu = isContextMenuEnabled()
   const [draggingNodeIds, setDraggingNodeIds] = useState<Set<string>>(new Set())
   const [isDragging, setIsDragging] = useState(false)
   const [showCommandPalette, setShowCommandPalette] = useState(false)
   const [showFullInspector, setShowFullInspector] = useState(false)
-  const [suppressPopover, setSuppressPopover] = useState(false)
-  const suppressTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Close inspector when OutputsDock opens
+  useEffect(() => {
+    const handleDockOpened = () => setShowFullInspector(false)
+    window.addEventListener('outputs-dock-opened', handleDockOpened)
+    return () => window.removeEventListener('outputs-dock-opened', handleDockOpened)
+  }, [])
   const [pendingBlueprint, setPendingBlueprint] = useState<Blueprint | null>(null)
   const [existingTemplate, setExistingTemplate] = useState<{ id: string; name: string } | null>(null)
   const { isOpen: isKeyboardLegendOpen, open: openKeyboardLegend, close: closeKeyboardLegend } = useKeyboardLegend()
@@ -308,6 +423,15 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
     show: showInfluenceExplainer,
     hide: hideInfluenceExplainer
   } = useInfluenceExplainer()
+
+  // Phase 3A: Cross-surface highlight — canvas → panel direction.
+  // ReactFlowGraphInner is mounted INSIDE <HighlightProvider> (see ReactFlowGraph outer wrapper).
+  // useHighlightContext() is safe to call here as a consumer below the provider.
+  // We use a stable ref so the onNodeMouseEnter/Leave callbacks don't change identity
+  // on every render, preventing unnecessary ReactFlow reconciliation.
+  const { setHoveredFromCanvas } = useHighlightContext()
+  const setHoveredFromCanvasRef = useRef(setHoveredFromCanvas)
+  setHoveredFromCanvasRef.current = setHoveredFromCanvas
 
   // Listen for help events from TopBar dropdown
   useEffect(() => {
@@ -326,14 +450,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
     }
   }, [openOnboarding, openKeyboardLegend, showInfluenceExplainer])
 
-  // Cleanup suppressPopover timeout on unmount
-  useEffect(() => {
-    return () => {
-      if (suppressTimeoutRef.current) {
-        clearTimeout(suppressTimeoutRef.current)
-      }
-    }
-  }, [])
+  // S.1: suppressPopover removed — compact popover no longer renders
 
   // P0-7: Quick-add mode state
   const [quickAddMode, setQuickAddMode] = useState(false)
@@ -368,11 +485,6 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
     setShowResultsPanel(true)
   }, [setShowResultsPanel])
 
-  const handleToggleInspector = useCallback(() => {
-    const next = !useCanvasStore.getState().showInspectorPanel
-    setShowInspectorPanel(next)
-  }, [setShowInspectorPanel])
-
   // P0-8: Auto-connect state
   const [connectPrompt, setConnectPrompt] = useState<{
     newNodeId: string
@@ -387,6 +499,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
   // Interaction mode: 'select' for normal selection/drag, 'hand' for pan mode (like Figma V/H)
   // Default to 'hand' mode for easier canvas navigation on load
   const [interactionMode, setInteractionMode] = useState<'select' | 'hand'>('hand')
+  const canDragSelect = interactionMode === 'select'
 
   // M4: Graph Health actions (graphHealth, showIssuesPanel state selected above)
   const setShowIssuesPanel = useCanvasStore(s => s.setShowIssuesPanel)
@@ -556,13 +669,13 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
       // This prevents the infinite loop: effect → setState → render → effect.
       if (appliedShareHashRef.current === runHash) {
         if (import.meta.env.DEV) {
-          console.log('[ReactFlowGraph] Share link already applied, skipping:', runHash.slice(0, 8))
+          console.warn('[ReactFlowGraph] Share link already applied, skipping:', runHash.slice(0, 8))
         }
         return
       }
 
       if (import.meta.env.DEV) {
-        console.log('[ReactFlowGraph] Share link detected, loading run:', runHash.slice(0, 8))
+        console.warn('[ReactFlowGraph] Share link detected, loading run:', runHash.slice(0, 8))
       }
 
       // Load all runs from localStorage (local-device only)
@@ -585,7 +698,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
         }
 
         if (import.meta.env.DEV) {
-          console.log('[ReactFlowGraph] Run loaded successfully:', run.summary)
+          console.warn('[ReactFlowGraph] Run loaded successfully:', run.summary)
         }
       } else {
         // Run not found - still mark hash as "processed" to avoid repeated toasts
@@ -601,7 +714,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
         )
 
         if (import.meta.env.DEV) {
-          console.log('[ReactFlowGraph] Run not found in local history.')
+          console.warn('[ReactFlowGraph] Run not found in local history.')
         }
       }
     }
@@ -618,7 +731,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
         appliedShareHashRef.current = null
       }
       if (import.meta.env.DEV) {
-        console.log('[ReactFlowGraph] Hash changed, re-resolving share link')
+        console.warn('[ReactFlowGraph] Hash changed, re-resolving share link')
       }
       resolveShareLink()
     }
@@ -681,12 +794,17 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
     if (reconnecting) {
       completeReconnect(node.id)
       showToast('Connector updated — press ⌘Z to undo.', 'success')
+    } else {
+      // S.1: One click, full context — open full inspector immediately
+      setShowFullInspector(true)
     }
   }, [reconnecting, completeReconnect, showToast, onCanvasInteraction])
 
   const handleEdgeClick = useCallback(() => {
     // Close Templates panel when clicking an edge
     onCanvasInteraction?.()
+    // S.1: One click, full context — open full inspector immediately
+    setShowFullInspector(true)
   }, [onCanvasInteraction])
 
   // Double-click handlers for opening full inspector modal
@@ -760,6 +878,12 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
   // Graph Interaction P1: Enable path highlighting based on node selection
   // Highlights causal paths from selected factor to goal, dims unrelated nodes
   usePathHighlight()
+
+  // Graph Lens: Compute lens visuals and push to store
+  useLensFilter()
+
+  // A.2: Guidance pulse highlight for active GuidanceItem target
+  useGuidancePulseHighlight()
 
   // Run simulation handler with shared eligibility gating
   const handleRunSimulation = useCallback(async () => {
@@ -888,14 +1012,60 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
     })
   }, [dockLayoutEnabled, setShowDocumentsDrawer])
 
-  // Setup keyboard shortcuts (P, Alt+V, Cmd/Ctrl+Enter, Cmd/Ctrl+3, Cmd/Ctrl+I, Cmd/Ctrl+D, ?)
+  // Shift+F10: Open context menu at focused element position
+  const handleKeyboardContextMenu = useCallback((screenPos: { x: number; y: number }) => {
+    if (!useNewContextMenu) return
+    const { selection, nodes: storeNodes } = useCanvasStore.getState()
+
+    if (selection.nodeIds.size > 1 || (selection.nodeIds.size > 0 && selection.edgeIds.size > 0) || selection.edgeIds.size > 1) {
+      setContextMenuTarget({
+        kind: 'multi',
+        nodeIds: [...selection.nodeIds],
+        edgeIds: [...selection.edgeIds],
+        screenPos,
+      })
+    } else if (selection.nodeIds.size === 1) {
+      const nodeId = [...selection.nodeIds][0]
+      const node = storeNodes.find((n: any) => n.id === nodeId)
+      if (node) {
+        setContextMenuTarget({
+          kind: 'node',
+          nodeId,
+          nodeType: ((node.data as any)?.kind ?? node.type ?? 'factor') as NodeType,
+          node,
+          screenPos,
+        })
+      }
+    } else if (selection.edgeIds.size === 1) {
+      const edgeId = [...selection.edgeIds][0]
+      const edge = useCanvasStore.getState().edges.find((e: any) => e.id === edgeId)
+      if (edge) {
+        const getNodeKind = (id: string) => {
+          const n = storeNodes.find((nd: any) => nd.id === id)
+          return (n?.data as any)?.kind ?? n?.type
+        }
+        setContextMenuTarget({
+          kind: 'edge',
+          edgeId,
+          edge,
+          isStructural: isStructuralEdge(edge, getNodeKind),
+          screenPos,
+        })
+      }
+    } else {
+      setContextMenuTarget({ kind: 'pane', screenPos })
+    }
+    setContextMenu(screenPos)
+  }, [useNewContextMenu])
+
+  // Setup keyboard shortcuts (P, Alt+V, Cmd/Ctrl+Enter, Cmd/Ctrl+3, Cmd/Ctrl+I, Cmd/Ctrl+D, Shift+F10)
   useCanvasKeyboardShortcuts({
     onFocusNode: handleFocusNode,
     onRunSimulation: handleRunSimulation,
     onToggleResults: handleToggleResults,
-    onToggleInspector: handleToggleInspector,
     onToggleDocuments: showDocuments,
-    onShowToast: showToast
+    onShowToast: showToast,
+    onOpenContextMenu: handleKeyboardContextMenu,
   })
 
   // P0-7: Q key to toggle quick-add mode
@@ -1204,7 +1374,6 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
       graphHealthRef: graphHealth,
       // Store values (UI state)
       showResultsPanel,
-      showInspectorPanel,
       showIssuesPanel,
       showDocumentsDrawer,
       showProvenanceHub,
@@ -1231,19 +1400,22 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
     })
 
     if (changes.length > 0) {
-      console.log(`[RFG] #${renderCountRef.current}:`, changes.join(', '))
+      verboseWarn(`[RFG] #${renderCountRef.current}:`, changes.join(', '))
     } else {
-      console.log(`[RFG] #${renderCountRef.current}: no store changes`)
+      verboseWarn(`[RFG] #${renderCountRef.current}: no store changes`)
     }
 
     prevStateRef.current = { ...currentState }
 
     if (renderCountRef.current > 10) {
-      console.warn(`[RFG] Storm: ${renderCountRef.current} renders`)
+      verboseWarn(`[RFG] Storm: ${renderCountRef.current} renders`)
     }
   }
 
   useKeyboardShortcuts({ onModeChange: setInteractionMode })
+
+  // Task C: Escape key closes active right panel (Provenance, AI Clarifier)
+  useEscapePanel()
 
   useEffect(() => {
     // Always load visual/settings preferences (grid, snap, etc.)
@@ -1375,7 +1547,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
           }
         }
 
-        console.log('[SCENARIO_STATE]', {
+        console.warn('[SCENARIO_STATE]', {
           source: 'autosave',
           autosaveTimestamp: autosave.timestamp,
           scenarioUpdatedAt: scenario?.updatedAt,
@@ -1383,9 +1555,9 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
           recoveredFromAutosave,
         })
       } else if (loadSource === 'scenario' && currentId) {
-        // Load from scenario (existing behavior)
+        // Load from scenario (existing behaviour)
         const loaded = useCanvasStore.getState().loadScenario(currentId)
-        console.log('[SCENARIO_STATE]', {
+        console.warn('[SCENARIO_STATE]', {
           scenarioId: currentId,
           loaded,
           source: 'scenario',
@@ -1401,6 +1573,9 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
           sessionStorage.setItem('olumi-recovered-from-autosave', 'true')
         } catch {}
       }
+
+      // Restore ceeAnalysisReady with source-aligned fallback and validation
+      restoreCeeAnalysisReady(loadSource, autosave, scenario, useCanvasStore.getState().nodes)
 
       return
     }
@@ -1419,6 +1594,10 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
         nodes: loaded.nodes,
         edges: loaded.edges
       })
+
+      // Restore ceeAnalysisReady with source-aligned fallback and validation
+      // Fallback path: no persistent source exists, loadSource='none' allows sessionStorage
+      restoreCeeAnalysisReady('none', null, null, loaded.nodes)
 
       // Try to restore results from most recent matching run (draft mode fallback)
       try {
@@ -1497,36 +1676,92 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
 
   const onPaneContextMenu = useCallback((event: React.MouseEvent | MouseEvent) => {
     event.preventDefault()
-    setContextMenu({ x: event.clientX, y: event.clientY })
-  }, [])
+    const screenPos = { x: event.clientX, y: event.clientY }
+    setContextMenu(screenPos)
 
-  const onNodeContextMenu = useCallback((event: React.MouseEvent | MouseEvent) => {
+    if (useNewContextMenu) {
+      const { selection } = useCanvasStore.getState()
+      const isMulti = selection.nodeIds.size > 1
+        || selection.edgeIds.size > 1
+        || (selection.nodeIds.size > 0 && selection.edgeIds.size > 0)
+      if (isMulti) {
+        setContextMenuTarget({
+          kind: 'multi',
+          nodeIds: [...selection.nodeIds],
+          edgeIds: [...selection.edgeIds],
+          screenPos,
+        })
+      } else {
+        setContextMenuTarget({ kind: 'pane', screenPos })
+      }
+    }
+  }, [useNewContextMenu])
+
+  const onNodeContextMenu = useCallback((event: React.MouseEvent | MouseEvent, node?: any) => {
     event.preventDefault()
-    setContextMenu({ x: event.clientX, y: event.clientY })
-  }, [])
+    const screenPos = { x: event.clientX, y: event.clientY }
+    setContextMenu(screenPos)
+
+    if (useNewContextMenu && node) {
+      const { selection } = useCanvasStore.getState()
+      if (selection.nodeIds.size > 1) {
+        setContextMenuTarget({
+          kind: 'multi',
+          nodeIds: [...selection.nodeIds],
+          edgeIds: [...selection.edgeIds],
+          screenPos,
+        })
+      } else {
+        // Select this node if not already selected
+        if (!selection.nodeIds.has(node.id)) {
+          useCanvasStore.getState().selectNodeWithoutHistory(node.id)
+        }
+        setContextMenuTarget({
+          kind: 'node',
+          nodeId: node.id,
+          nodeType: ((node.data?.kind ?? node.type ?? 'factor') as NodeType),
+          node,
+          screenPos,
+        })
+      }
+    }
+  }, [useNewContextMenu])
+
+  const onEdgeContextMenu = useCallback((event: React.MouseEvent | MouseEvent, edge?: any) => {
+    event.preventDefault()
+    const screenPos = { x: event.clientX, y: event.clientY }
+    setContextMenu(screenPos)
+
+    if (useNewContextMenu && edge) {
+      const { nodes } = useCanvasStore.getState()
+      const getNodeKind = (id: string) => {
+        const n = nodes.find((nd: any) => nd.id === id)
+        return (n?.data as any)?.kind ?? n?.type
+      }
+      setContextMenuTarget({
+        kind: 'edge',
+        edgeId: edge.id,
+        edge,
+        isStructural: isStructuralEdge(edge, getNodeKind),
+        screenPos,
+      })
+    }
+  }, [useNewContextMenu])
 
   const onNodeDragStart = useCallback((_: React.MouseEvent | MouseEvent, node: any) => {
     setDraggingNodeIds(prev => new Set([...prev, node.id]))
     setIsDragging(true)
-    setSuppressPopover(true)
-
-    // Clear any pending timeout
-    if (suppressTimeoutRef.current) {
-      clearTimeout(suppressTimeoutRef.current)
-    }
   }, [])
 
   const onNodeDragStop = useCallback(() => {
     setDraggingNodeIds(new Set())
     setIsDragging(false)
-
-    // Keep suppressed for 150ms after drag ends to prevent flash
-    suppressTimeoutRef.current = setTimeout(() => {
-      setSuppressPopover(false)
-    }, 150)
   }, [])
 
-  const handleCloseContextMenu = useCallback(() => setContextMenu(null), [])
+  const handleCloseContextMenu = useCallback(() => {
+    setContextMenu(null)
+    setContextMenuTarget(null)
+  }, [])
 
   // Canvas debug mode: 'blank' short-circuits the full canvas UI so we can
   // quickly determine whether React 185 is coming from inside the canvas
@@ -1727,13 +1962,23 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
             onPaneClick={handlePaneClick}
             onPaneContextMenu={onPaneContextMenu}
             onNodeContextMenu={onNodeContextMenu}
+            onEdgeContextMenu={onEdgeContextMenu}
             onNodeDragStart={onNodeDragStart}
             onNodeDragStop={onNodeDragStop}
+            onNodeMouseEnter={isCrossHighlightEnabled() ? (_, node) => {
+              setHoveredFromCanvasRef.current(node.id)
+            } : undefined}
+            onNodeMouseLeave={isCrossHighlightEnabled() ? () => {
+              setHoveredFromCanvasRef.current(null)
+            } : undefined}
             nodeTypes={nodeTypes}
             edgeTypes={edgeTypes}
             defaultEdgeOptions={defaultEdgeOpts}
             snapToGrid={snapToGrid}
             snapGrid={snapGridValue}
+            selectionOnDrag={canDragSelect}
+            selectionMode={SelectionMode.Partial}
+            multiSelectionKeyCode={['Meta', 'Control']}
             panOnDrag={interactionMode === 'hand'}
             fitView
             minZoom={0.1}
@@ -1760,8 +2005,13 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
       {/* Highlight layer for Results drivers (keyed off global showResultsPanel flag) */}
       <HighlightLayer isResultsOpen={showResultsPanel} />
 
+      {/* D3: Edge thickness legend — post-analysis only */}
+      <EdgeThicknessLegend visible={resultsStatus === 'complete'} />
+
       {showAlignmentGuides && isDragging && <AlignmentGuides nodes={nodes} draggingNodeIds={draggingNodeIds} isActive={isDragging} />}
-      {contextMenu && <ContextMenu x={contextMenu.x} y={contextMenu.y} onClose={handleCloseContextMenu} />}
+      {useNewContextMenu && contextMenuTarget
+        ? <CanvasContextMenu target={contextMenuTarget} onClose={handleCloseContextMenu} screenToFlowPosition={screenToFlowPosition} />
+        : contextMenu && <ContextMenu x={contextMenu.x} y={contextMenu.y} onClose={handleCloseContextMenu} />}
       {reconnecting && <ReconnectBanner />}
 
       {!USE_NEW_LAYOUT && <CanvasToolbar />}
@@ -1821,9 +2071,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
           <InfluenceExplainer forceShow={isInfluenceExplainerForced} onDismiss={hideInfluenceExplainer} compact />
         </div>
       )}
-      {!showFullInspector && !suppressPopover && (
-        <InspectorPopover onExpandToFull={() => setShowFullInspector(true)} />
-      )}
+      {/* S.1: Compact popover removed — single-click now opens full inspector directly */}
       {showFullInspector && (
         <InspectorModal
           nodeId={selectedNodeId}
@@ -1843,16 +2091,10 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
         <CommandPalette
           isOpen={showCommandPalette}
           onClose={() => setShowCommandPalette(false)}
-          onOpenInspector={() => setShowInspectorPanel(true)}
         />
       )}
       {degradedBannerEnabled && <DegradedBanner />}
       <KeyboardLegend isOpen={isKeyboardLegendOpen} onClose={closeKeyboardLegend} />
-      {showInspectorPanel && (
-        <Suspense fallback={<div className="fixed inset-0 flex items-center justify-center bg-black/20"><div className="text-sm text-white">Loading...</div></div>}>
-          <InspectorPanel isOpen={showInspectorPanel} onClose={() => setShowInspectorPanel(false)} />
-        </Suspense>
-      )}
       {showIssuesPanel && graphHealth && (
         <Suspense fallback={<div className="fixed inset-0 flex items-center justify-center bg-black/20"><div className="text-sm text-white">Loading...</div></div>}>
           <IssuesPanel
@@ -1891,12 +2133,13 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
         </div>
       )}
 
-      {/* M5: Provenance Hub panel (right side) */}
+      {/* Task C: Unified right-panel orchestrator — only one overlay panel at a time */}
       {showProvenanceHub && (
         <RightPanel
           width="32rem"
           title="Provenance Hub"
           onClose={() => setShowProvenanceHub(false)}
+          data-testid="right-panel-provenance"
         >
           <ProvenanceHubTab
             citations={citations}
@@ -1907,13 +2150,12 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
           />
         </RightPanel>
       )}
-
-      {/* Week 3: AI Clarifier panel */}
-      {showAIClarifier && (
+      {!showProvenanceHub && showAIClarifier && (
         <RightPanel
           width="400px"
           title="Olumi AI"
           onClose={() => setShowAIClarifier(false)}
+          data-testid="right-panel-clarifier"
         >
           <Suspense fallback={<div className="flex items-center justify-center p-8"><div className="text-sm text-gray-500">Loading...</div></div>}>
             <AIClarifierChat />
@@ -2002,7 +2244,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
                 setShowResetConfirm(false)
                 showToast('Canvas reset.', 'success')
               }}
-              className="flex-1 px-4 py-2 bg-danger-600 text-white rounded hover:bg-danger-700"
+              className="flex-1 px-4 py-2 bg-danger-600 text-text-on-color rounded hover:bg-danger-700"
               data-testid="btn-confirm-reset-sidebar"
             >
               Reset everything
@@ -2011,8 +2253,8 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
         </div>
       </BottomSheet>
 
-      {/* Debug Panel - activated via ?diag=1 in staging/dev */}
-      <DebugPanel />
+      {/* Debug Panel - activated via ?diag=1 in staging/dev (lazy-loaded) */}
+      <Suspense fallback={null}><LazyDebugPanel /></Suspense>
     </div>
   )
 })
@@ -2267,7 +2509,11 @@ export default function ReactFlowGraph(props: ReactFlowGraphProps) {
       <ToastProvider>
         <LayerProvider>
           <ReactFlowProvider>
-            <ReactFlowGraphInner {...props} />
+            {/* HighlightProvider wraps ReactFlowGraphInner so canvas hover handlers
+                inside the inner component are consumers, not creators, of the context. */}
+            <HighlightProvider>
+              <ReactFlowGraphInner {...props} />
+            </HighlightProvider>
           </ReactFlowProvider>
         </LayerProvider>
       </ToastProvider>

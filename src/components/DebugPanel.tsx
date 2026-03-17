@@ -42,16 +42,15 @@ function shouldShowDebugPanel(): boolean {
   if (!allowedEnvs.includes(env)) return false
 
   // Check URL parameter - handle both regular and HashRouter URLs
-  // For HashRouter: http://localhost:5173/#/canvas?diag=1
-  // For regular: http://localhost:5173/?diag=1
+  // Accepts ?diag (bare param) or ?diag=1
   const searchParams = new URLSearchParams(window.location.search)
-  if (searchParams.get('diag') === '1') return true
+  if (searchParams.has('diag')) return true
 
-  // Check hash for HashRouter query params (e.g., #/canvas?diag=1)
+  // Check hash for HashRouter query params (e.g., #/canvas?diag or #/canvas?diag=1)
   const hashParts = window.location.hash.split('?')
   if (hashParts.length > 1) {
     const hashParams = new URLSearchParams(hashParts[1])
-    if (hashParams.get('diag') === '1') return true
+    if (hashParams.has('diag')) return true
   }
 
   // Check global flag (console: window.__OLUMI_DEBUG = true)

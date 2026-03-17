@@ -14,13 +14,17 @@
  */
 
 import { useState, useCallback, useEffect, useRef } from 'react'
-import type { DriversSectionData, DriverItem } from './types'
+import type { DriversSectionData, DriverItem, FlipThreshold } from './types'
 import { focusNodeById } from '../../canvas/utils/focusHelpers'
+import { useUIStore } from '../../stores/uiStore'
+import { highlightNode, clearHighlight } from '../../canvas/utils/highlightHelpers'
 import { EMPTY_STATES } from './emptyStates'
 import { formatFlipRiskMessage } from './utils/formatScenarioRatio'
 import { FactorInsights, hasEnrichmentContent } from './FactorInsights'
 import { cleanFactorLabel, stripEncodingNotation } from './utils/cleanFactorLabel'
-import { Info, AlertTriangle } from 'lucide-react'
+import { TornadoChart, type TornadoRow } from './TornadoChart'
+import { typography } from '../../styles/typography'
+import { formatPercent } from '../../utils/formatPercent'
 
 interface DriversSectionProps {
   data: DriversSectionData
@@ -32,19 +36,33 @@ interface DriversSectionProps {
   highlightedDriverId?: string | null
   /** Graph Interaction P1: Ref callback to register driver row elements for scroll sync */
   registerDriverRef?: (factorKey: string, element: HTMLDivElement | null) => void
+  /** Tornado chart: expected outcome (mean) for centre line */
+  expectedOutcome?: number | null
+  /** Tornado chart: p10/p90 outcome bounds per factor */
+  tornadoRows?: TornadoRow[]
+  /** Tornado chart: outcome unit type */
+  outcomeUnit?: 'currency' | 'percent' | 'count'
+  /** Tornado chart: outcome unit symbol */
+  outcomeUnitSymbol?: string
+  /** v7: When true, values are normalised model scores */
+  isNormalised?: boolean
+  /** Goal direction for tornado bar colouring — maximize means higher outcome = good */
+  goalDirection?: 'maximize' | 'minimize'
+  /** A4: Flip threshold data for tornado chart markers */
+  flipThresholds?: FlipThreshold[]
 }
 
-// Bar colors (hex values as specified)
+// Bar colors — use design system tokens, no hex literals
 const BAR_COLORS = {
-  green: '#10B981',   // Positive direction
-  orange: '#F97316',  // Negative direction
-  blue: '#3B82F6',    // Confidence (always)
-  neutral: '#94A3B8', // slate-400, for unknown direction (Fix 4)
+  green: 'var(--success)',    // Positive direction
+  orange: 'var(--danger)',    // Negative direction
+  blue: 'var(--info)',        // Confidence (always)
+  neutral: 'var(--text-light)', // Unknown direction
 }
 
 // Grid columns constant - shared between header and rows to avoid alignment drift
-// Two data columns: Sensitivity (direction-colored) + Confidence (always blue)
-const GRID_COLS = 'grid-cols-[minmax(120px,1fr)_85px_85px]'
+// Two data columns: Sensitivity + Confidence (same width), plus icon column for glyphs
+const GRID_COLS = 'grid-cols-[minmax(120px,1fr)_85px_85px_28px]'
 
 // Zero reason display messages - explains why sensitivity is zero
 const ZERO_REASON_MESSAGES: Record<string, string> = {
@@ -71,37 +89,6 @@ function isBinaryFactor(label: string): boolean {
 }
 
 // Note: cleanFactorLabel imported from ./utils/cleanFactorLabel
-
-/**
- * P1 Results Brief Item 7: Get appropriate sensitivity copy for factor type.
- * - Binary factors: "If yes → ~X% shift" (not "10% change")
- * - Continuous factors: "10% change → ~X% shift"
- */
-function getSensitivityCopy(
-  label: string,
-  rawElasticity: number,
-  direction?: 'positive' | 'negative',
-  goalLabel?: string
-): string | null {
-  // Only show copy when we have meaningful elasticity data
-  if (rawElasticity <= 0.001) {
-    // Fallback to direction-only when no elasticity
-    if (direction && goalLabel) {
-      return direction === 'positive' ? `↗ ${goalLabel}` : `↘ ${goalLabel}`
-    }
-    return null
-  }
-
-  const shiftPercent = Math.round(rawElasticity * 10)
-
-  if (isBinaryFactor(label)) {
-    // Binary factor: "If yes → ~X% shift" or "Switching on/off → ~X% shift"
-    return `If yes → ~${shiftPercent}% shift`
-  }
-
-  // Continuous factor: standard copy
-  return `10% change → ~${shiftPercent}% shift`
-}
 
 // Tooltip component for secondary information
 function FactorTooltip({
@@ -153,7 +140,7 @@ function FactorTooltip({
     <div
       ref={tooltipRef}
       id={id}
-      className="absolute z-50 left-0 right-0 mt-1 p-3 bg-white border border-slate-200 rounded-lg shadow-lg text-xs text-slate-600 space-y-1.5"
+      className={`absolute z-50 left-0 right-0 mt-1 p-3 bg-panel border border-panel-border rounded-lg shadow-3 ${typography.panelBody} text-text-body space-y-1.5`}
       role="tooltip"
     >
       {content}
@@ -191,7 +178,7 @@ function ProgressBar({
           style={{ width: `${percent}%`, backgroundColor: BAR_COLORS[color] }}
         />
       </div>
-      <span className="text-xs font-mono text-slate-600 w-9 text-right">
+      <span className={`${typography.panelBody} font-mono text-slate-600 w-9 text-right`}>
         {percent}%
       </span>
     </div>
@@ -212,6 +199,8 @@ function ExpandedDetails({
   const handleFocusClick = useCallback(() => {
     if (driver.canFocus) {
       const nodeId = driver.matchedNodeId ?? driver.factorKey
+      // E1: Switch to Model tab before focusing node
+      useUIStore.getState().setActiveOutputTab('diagnostics')
       if (onFocus) {
         onFocus(nodeId)
       } else {
@@ -220,11 +209,16 @@ function ExpandedDetails({
     }
   }, [driver.canFocus, driver.matchedNodeId, driver.factorKey, onFocus])
 
-  // P1 Results Brief Item 7: Binary-aware elasticity insight copy
+  // v7.5 T7: Softened elasticity copy
   const elasticityInsight = driver.rawElasticity > 0.001
-    ? isBinaryFactor(driver.factorLabel)
-      ? `Switching this on/off shifts your goal by ~${Math.round(driver.rawElasticity * 10)}%`
-      : `A 10% change here shifts your goal by ~${Math.round(driver.rawElasticity * 10)}%`
+    ? (() => {
+        const shiftPct = Math.max(1, Math.round(driver.rawElasticity * 10))
+        const formatted = driver.direction === 'negative' ? formatPercent(-shiftPct, { sign: true }) : formatPercent(shiftPct)
+        if (isBinaryFactor(driver.factorLabel)) {
+          return `When true, outcome tends to shift by ${formatted}`
+        }
+        return `Higher values tend to shift outcome by ${formatted}`
+      })()
     : null
 
   // Task 3.5: Direction-based interpretation fallback when no elasticity data
@@ -259,7 +253,7 @@ function ExpandedDetails({
     // No risk text for negligible factors
     decisionChangeRisk = null
   } else {
-    // Fallback: use existing behavior when category is undefined (old PLoT)
+    // Fallback: use existing behaviour when category is undefined (old PLoT)
     // Uses formatFlipRiskMessage which handles edge cases: p<=0, p>1, NaN, null
     decisionChangeRisk = formatFlipRiskMessage(
       driver.fragileEdgeInfo?.switchProbability,
@@ -267,25 +261,25 @@ function ExpandedDetails({
     )
   }
 
-  // Show "Could benefit from more evidence" when VOI > 0.05 (investigation could change decision)
+  // UI-SEM-014: VOI evidence threshold (0.05). Estimated — PLoT does not provide a visibility gate for VOI hints.
   // VOI = 0 means "even if you gather more data, the decision won't change"
   const showQualityHint = typeof driver.valueOfInformation === 'number' && driver.valueOfInformation > 0.05
 
   return (
-    <div className="px-4 pb-3 pt-1 border-t border-slate-100 bg-slate-50/50 text-xs text-slate-600 space-y-1.5">
+    <div className={`px-4 pb-3 pt-1 border-t border-panel-border/50 bg-panel/50 ${typography.panelBody} text-text-body space-y-1.5`}>
       {elasticityInsight && <p>{elasticityInsight}</p>}
       {/* Task 3.5: Direction-based fallback when no elasticity data */}
       {directionInterpretation && <p className="text-slate-500">{directionInterpretation}</p>}
       {decisionChangeRisk && <p>{decisionChangeRisk}</p>}
       {showQualityHint && (
-        <p className="text-xs text-slate-500 flex items-center gap-1">
+        <p className={`${typography.panelBody} text-slate-500 flex items-center gap-1`}>
           <span aria-hidden="true">⚠️</span>
           Could benefit from more evidence
         </p>
       )}
       {/* Zero reason message - explains why this factor shows zero sensitivity */}
       {driver.zeroReason && ZERO_REASON_MESSAGES[driver.zeroReason] && (
-        <p className="text-xs text-slate-500 flex items-center gap-1">
+        <p className={`${typography.panelBody} text-slate-500 flex items-center gap-1`}>
           <span aria-hidden="true">ℹ️</span>
           {ZERO_REASON_MESSAGES[driver.zeroReason]}
         </p>
@@ -308,6 +302,7 @@ function DriverRow({
   goalLabel,
   isHighlighted,
   registerRef,
+  microlineLabel,
 }: {
   driver: DriverItem
   onFocus?: (nodeId: string) => void
@@ -317,6 +312,8 @@ function DriverRow({
   isHighlighted?: boolean
   /** Graph Interaction P1: Ref callback to register this row for scroll sync */
   registerRef?: (element: HTMLDivElement | null) => void
+  /** V12.2: Microline overtake warning label (only for first driver) */
+  microlineLabel?: string
 }) {
   const [isTooltipOpen, setIsTooltipOpen] = useState(false)
   const infoButtonRef = useRef<HTMLButtonElement>(null)
@@ -345,9 +342,6 @@ function DriverRow({
   const confidenceValue = typeof driver.confidence === 'number'
     ? Math.max(0, Math.min(1, driver.confidence))
     : null
-
-  // P1 Results Brief Item 7: Use binary-aware sensitivity copy
-  const compactImpact = getSensitivityCopy(driver.factorLabel, driver.rawElasticity, driver.direction, goalLabel)
 
   // Determine if we have secondary content for tooltip
   const alternativeWinnerLabel = driver.fragileEdgeInfo?.alternativeWinnerLabel
@@ -380,11 +374,16 @@ function DriverRow({
     setIsTooltipOpen(prev => !prev)
   }, [])
 
-  // P1 Results Brief Item 7: Binary-aware tooltip copy
+  // v7.5 T7: Softened tooltip copy
   const tooltipElasticityCopy = driver.rawElasticity > 0.001
-    ? isBinaryFactor(driver.factorLabel)
-      ? `Switching this on/off shifts your goal by ~${Math.round(driver.rawElasticity * 10)}%`
-      : `A 10% change here shifts your goal by ~${Math.round(driver.rawElasticity * 10)}%`
+    ? (() => {
+        const shiftPercent = Math.max(1, Math.round(driver.rawElasticity * 10))
+        const sign = driver.direction === 'negative' ? '-' : ''
+        if (isBinaryFactor(driver.factorLabel)) {
+          return `When true, outcome tends to shift by ${sign}${shiftPercent}%`
+        }
+        return `Higher values tend to shift outcome by ${sign}${shiftPercent}%`
+      })()
     : null
 
   // Tooltip content
@@ -418,45 +417,55 @@ function DriverRow({
   return (
     <div
       ref={registerRef}
-      className={`rounded-lg border overflow-hidden bg-white relative transition-all duration-200 ${
+      className={`rounded-lg border overflow-hidden bg-panel relative transition-all duration-200 results-card-hover ${
         isHighlighted
-          ? 'border-amber-400 ring-2 ring-amber-300 shadow-lg'
-          : 'border-slate-200'
+          ? 'border-warning ring-2 ring-warning/30 shadow-lg'
+          : 'border-panel-border'
       }`}
+      onMouseEnter={() => highlightNode(driver.matchedNodeId ?? driver.factorKey)}
+      onMouseLeave={clearHighlight}
     >
-      {/* Line 1: Factor name + bars */}
-      <div className={`grid ${GRID_COLS} gap-3 items-center p-3 pb-1`}>
-        {/* Factor name with direction arrow - P1 Item 6: cleaned label */}
-        {/* Task 2: Factor name is clickable instead of separate CTA */}
-        <div className="flex items-start gap-1.5 min-w-0">
+      {/* Single row: Factor name + info icon + bars */}
+      <div className={`grid ${GRID_COLS} gap-2 items-center px-3 py-1.5`}>
+        {/* Factor name with direction arrow and inline info icon */}
+        <div className="flex items-center gap-1.5 min-w-0">
           <span
-            className="text-sm flex-shrink-0 mt-0.5"
+            className={`${typography.panelBody} flex-shrink-0`}
             style={{ color: directionColor }}
             aria-hidden="true"
           >
             {directionIcon}
           </span>
           {driver.canFocus ? (
-            <span
-              role="link"
-              tabIndex={0}
+            <button
+              type="button"
               onClick={handleFocusClick}
-              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleFocusClick(e as unknown as React.MouseEvent) } }}
-              className="text-sm text-text-body break-words leading-snug cursor-pointer hover:underline focus:outline-none focus:ring-2 focus:ring-info-500 focus:ring-offset-1 rounded"
+              className={`${typography.panelBody} text-info hover:text-info-hover hover:underline break-words leading-snug cursor-pointer focus:outline-none focus:ring-2 focus:ring-info focus:ring-offset-1 rounded text-left line-clamp-2`}
               aria-label={`Focus on ${cleanedLabel} in model`}
+              title={cleanedLabel}
             >
               {cleanedLabel}
-              {labelQualifier && (
-                <span className="text-text-light ml-1">({labelQualifier})</span>
-              )}
-            </span>
+            </button>
           ) : (
-            <span className="text-sm text-text-body break-words leading-snug">
+            <span className={`${typography.panelBody} text-text-body break-words leading-snug line-clamp-2`} title={cleanedLabel}>
               {cleanedLabel}
-              {labelQualifier && (
-                <span className="text-text-light ml-1">({labelQualifier})</span>
-              )}
             </span>
+          )}
+          {hasTooltipContent && (
+            <button
+              ref={infoButtonRef}
+              onClick={toggleTooltip}
+              onMouseEnter={() => setIsTooltipOpen(true)}
+              onMouseLeave={() => setIsTooltipOpen(false)}
+              className="p-0.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded transition-colors flex-shrink-0"
+              aria-label="More information"
+              aria-expanded={isTooltipOpen}
+              aria-describedby={isTooltipOpen ? `tooltip-${driver.factorKey}` : undefined}
+            >
+              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M12 16v-4" /><path d="M12 8h.01" />
+              </svg>
+            </button>
           )}
         </div>
 
@@ -468,10 +477,10 @@ function DriverRow({
             aria-label={`${cleanedLabel} sensitivity: ${Math.round(sensitivityValue * 100)}%`}
           />
         ) : (
-          <div className="text-xs font-mono text-slate-400 w-9 text-right">—</div>
+          <div className={`${typography.panelBody} font-mono text-slate-400 w-9 text-right`}>-</div>
         )}
 
-        {/* Confidence bar */}
+        {/* Confidence bar — same width as Sensitivity bar (icons moved to 4th column) */}
         {confidenceValue !== null ? (
           <ProgressBar
             value={confidenceValue}
@@ -479,35 +488,55 @@ function DriverRow({
             aria-label={`${cleanedLabel} confidence: ${Math.round(confidenceValue * 100)}%`}
           />
         ) : (
-          <div className="text-xs font-mono text-slate-400 w-9 text-right">—</div>
+          <div className={`${typography.panelBody} font-mono text-slate-400 w-9 text-right`}>-</div>
         )}
-      </div>
 
-      {/* Line 2: Compact impact + info icon */}
-      <div className="px-3 pb-2 flex items-center justify-between gap-2">
-        <span className="text-xs text-text-light truncate">
-          {compactImpact || '\u00A0'}
-        </span>
-        <div className="flex items-center gap-1 flex-shrink-0">
-          {/* Info icon - reveals tooltip */}
-          {hasTooltipContent && (
-            <button
-              ref={infoButtonRef}
-              onClick={toggleTooltip}
-              onMouseEnter={() => setIsTooltipOpen(true)}
-              onMouseLeave={() => setIsTooltipOpen(false)}
-              className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded transition-colors"
-              style={{ minWidth: '44px', minHeight: '44px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-              aria-label="More information"
-              aria-expanded={isTooltipOpen}
-              aria-describedby={isTooltipOpen ? `tooltip-${driver.factorKey}` : undefined}
+        {/* Icons column: confidence glyph + default-estimate indicator */}
+        <div className="flex items-center gap-1 justify-start">
+          {confidenceValue !== null && (() => {
+            const glyph = confidenceValue >= 0.7 ? '✓' : confidenceValue >= 0.4 ? '~' : '?'
+            const cls = confidenceValue >= 0.7 ? 'text-success' : confidenceValue >= 0.4 ? 'text-info' : 'text-factor'
+            const label = confidenceValue >= 0.7 ? 'High confidence' : confidenceValue >= 0.4 ? 'Moderate confidence' : 'Low confidence'
+            return (
+              <span
+                className={`text-[10px] font-medium flex-shrink-0 w-3 text-center ${cls}`}
+                title={label}
+                data-testid={`confidence-glyph-${driver.factorKey}`}
+              >
+                {glyph}
+              </span>
+            )
+          })()}
+          {driver.isDefaultedConfidence && (
+            <svg
+              width="12"
+              height="12"
+              viewBox="0 0 12 12"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeDasharray="2 2"
+              className="flex-shrink-0 text-text-light"
+              role="img"
+              aria-label="Default estimate — not yet validated with evidence"
+              data-testid="default-estimate-icon"
             >
-              <Info className="w-4 h-4" />
-            </button>
+              <title>Default estimate — not yet validated with evidence</title>
+              <circle cx="6" cy="6" r="4.5" />
+            </svg>
           )}
-          {/* Task 2: Removed standalone Focus icon - factor name is now clickable */}
         </div>
       </div>
+
+      {/* V12.2: Microline overtake warning inside card */}
+      {microlineLabel && (
+        <p
+          className="text-danger text-[10px] px-3 pb-1.5 -mt-0.5"
+          data-testid="driver-microline"
+        >
+          If wrong, {microlineLabel} overtakes
+        </p>
+      )}
 
       {/* Tooltip */}
       <FactorTooltip
@@ -524,15 +553,15 @@ function DriverRow({
 // Error state component
 function ErrorState({ message, onRetry }: { message: string; onRetry?: () => void }) {
   return (
-    <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg text-center">
-      <p className="text-sm text-amber-800 font-medium mb-2">
+    <div className="p-4 bg-panel border border-warning/30 rounded-lg text-center">
+      <p className={`${typography.panelHeader} text-warning mb-2`}>
         Unable to calculate factor sensitivity — service unavailable
       </p>
-      <p className="text-xs text-amber-600 mb-3">{message}</p>
+      <p className={`${typography.panelBody} text-warning mb-3`}>{message}</p>
       {onRetry && (
         <button
           onClick={onRetry}
-          className="px-4 py-2 text-sm font-medium text-amber-700 bg-white border border-amber-300 rounded-lg hover:bg-amber-50 transition-colors"
+          className={`px-4 py-2 ${typography.panelHeader} text-warning bg-white border border-warning/30 rounded-lg hover:bg-panel-hover transition-colors`}
         >
           Retry
         </button>
@@ -548,25 +577,22 @@ export function DriversSection({
   goalLabel,
   highlightedDriverId,
   registerDriverRef,
+  expectedOutcome,
+  tornadoRows,
+  outcomeUnit,
+  outcomeUnitSymbol,
+  isNormalised,
+  goalDirection,
+  flipThresholds,
 }: DriversSectionProps) {
   const [showAll, setShowAll] = useState(false)
-  const { drivers, driversStatus, topDrivers, hasMagnitudeData, islError, hiddenZeroImpactCount, dominantFactorId, dominantFactorLabel } = data
+  const { drivers, driversStatus, topDrivers, hasMagnitudeData, islError, hiddenZeroImpactCount } = data
 
-  // Handle focus on dominant factor
-  const handleDominantFactorFocus = useCallback(() => {
-    if (dominantFactorId) {
-      if (onFocusNode) {
-        onFocusNode(dominantFactorId)
-      } else {
-        focusNodeById(dominantFactorId)
-      }
-    }
-  }, [dominantFactorId, onFocusNode])
 
   // Diagnostic logging for data issues (debug mode only)
   useEffect(() => {
     if (typeof window !== 'undefined' && (window as any).__OLUMI_DEBUG && drivers.length > 0) {
-      console.log('[DriversSection] Data diagnostic:', {
+      console.warn('[DriversSection] Data diagnostic:', {
         driverCount: drivers.length,
         driversStatus,
         hasMagnitudeData,
@@ -583,8 +609,8 @@ export function DriversSection({
   // Unavailable state
   if (driversStatus !== 'computed') {
     return (
-      <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg">
-        <p className="text-sm text-slate-600 flex items-start gap-2">
+      <div className="p-4 bg-panel border border-panel-border rounded-lg">
+        <p className={`${typography.panelBody} text-slate-600 flex items-start gap-2`}>
           <span aria-hidden="true">ℹ️</span>
           {EMPTY_STATES.drivers}
         </p>
@@ -595,8 +621,8 @@ export function DriversSection({
   // No drivers
   if (drivers.length === 0) {
     return (
-      <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg">
-        <p className="text-sm text-slate-600 flex items-start gap-2">
+      <div className="p-4 bg-panel border border-panel-border rounded-lg">
+        <p className={`${typography.panelBody} text-slate-600 flex items-start gap-2`}>
           <span aria-hidden="true">ℹ️</span>
           {EMPTY_STATES.drivers}
         </p>
@@ -604,96 +630,135 @@ export function DriversSection({
     )
   }
 
-  const displayDrivers = showAll ? drivers : topDrivers
-  const hiddenCount = drivers.length - topDrivers.length
+  // v7.5 T3: Single visibleDrivers array filtering on influenceScore >= 0.01
+  // This ensures badge count, card rendering, "Show more/fewer", and tornado all use the same filtered set
+  const INFLUENCE_THRESHOLD = 0.01
+  const visibleDrivers = drivers.filter(d => {
+    const influence = d.influenceScore ?? d.normalisedInfluence
+    return typeof influence === 'number' && influence >= INFLUENCE_THRESHOLD
+  })
+
+  // v7.5 T3 Fix: Use visibleDrivers consistently (not topDrivers from data layer)
+  const TOP_DRIVERS_COUNT = 3
+  const displayDrivers = showAll ? visibleDrivers : visibleDrivers.slice(0, TOP_DRIVERS_COUNT)
+  const hiddenCount = showAll ? 0 : Math.max(0, visibleDrivers.length - TOP_DRIVERS_COUNT)
 
   // Get dominant factor's influence percentage
   // Clamp to [0,1] before converting to percentage to handle out-of-range values
-  const dominantFactorInfluence = dominantFactorId
-    ? (() => {
-        const driver = drivers.find(d => d.factorKey === dominantFactorId)
-        if (!driver) return null
-        const rawInfluence = driver.influenceScore ?? driver.normalisedInfluence
-        const clampedInfluence = Math.max(0, Math.min(1, rawInfluence))
-        return Math.round(clampedInfluence * 100)
-      })()
-    : null
-
   return (
     <div className="space-y-4">
-      {/* M1 Coaching: Dominant factor warning callout */}
-      {/* Note: dominantFactorInfluence uses !== null to handle edge case of 0% (though detection requires >50%) */}
-      {dominantFactorId && dominantFactorLabel && dominantFactorInfluence !== null && (
-        <div className="p-3 bg-panel border border-warning rounded-lg flex items-start gap-2">
-          <AlertTriangle className="w-4 h-4 text-warning flex-shrink-0 mt-0.5" />
-          <div className="flex-1 min-w-0">
-            <p className="text-sm text-text-body">
-              {/* Patch 1: Clean encoding notation from dominant factor label */}
-              <span className="font-medium">{stripEncodingNotation(dominantFactorLabel)}</span> dominates this decision ({dominantFactorInfluence}% influence). Validate this weight carefully.
-            </p>
-            <button
-              onClick={handleDominantFactorFocus}
-              className="text-xs text-info hover:text-info-hover underline mt-1"
-            >
-              Review on canvas
-            </button>
-          </div>
-        </div>
-      )}
-
       {/* Column headers - right-aligned above bars only */}
       {/* NOTE: Panel title rendered by parent (OutputsDock section header) */}
       <div className={`grid ${GRID_COLS} gap-3 px-3`}>
         {/* Empty cell for factor name column */}
         <div />
-        {/* Task 4: Renamed "Influence" → "Sensitivity" */}
+        {/* v7.10 T9: Renamed "Relative influence" → "Influence" for brevity */}
         <div
-          className="text-xs text-slate-500 text-right pr-6 cursor-help"
-          title="How sensitive your goal is to changes in this factor"
+          className={`${typography.panelBody} text-slate-500 text-right pr-6 cursor-help`}
+          title="Scaled so the strongest driver is 100%"
         >
-          Sensitivity
+          Influence
         </div>
         <div
-          className="text-xs text-slate-500 text-right pr-6 cursor-help"
+          className={`${typography.panelBody} text-slate-500 text-right pr-6 cursor-help`}
           title="How certain the model is about this factor's influence, based on edge belief strength and evidence quality"
         >
           Confidence
         </div>
+        {/* Empty cell for icon column */}
+        <div />
       </div>
+
+      {/* v7.10 T9: Equal-influence note when all visible drivers are within ±0.01 */}
+      {visibleDrivers.length >= 2 && (() => {
+        const scores = visibleDrivers.map(d => d.influenceScore ?? d.normalisedInfluence ?? 0)
+        const max = Math.max(...scores)
+        const min = Math.min(...scores)
+        return (max - min) <= 0.01 ? (
+          <p className={`${typography.panelMeta} text-text-light italic px-3`}>
+            Both factors have similar influence on the outcome.
+          </p>
+        ) : null
+      })()}
 
       {/* Driver rows */}
-      <div className="space-y-2">
-        {displayDrivers.map((driver) => (
-          <DriverRow
-            key={driver.factorKey}
-            driver={driver}
-            onFocus={onFocusNode}
-            goalLabel={goalLabel}
-            isHighlighted={highlightedDriverId === driver.factorKey}
-            registerRef={registerDriverRef
-              ? (el) => registerDriverRef(driver.factorKey, el)
-              : undefined
-            }
-          />
-        ))}
+      <div className="space-y-2.5">
+        {displayDrivers.map((driver, index) => {
+          // V11: Driver #1 microline — show overtake warning below first driver
+          const showMicroline = index === 0
+            && driver.fragileEdgeInfo?.switchProbability != null
+            && driver.fragileEdgeInfo.switchProbability > 0
+            && driver.fragileEdgeInfo.alternativeWinnerLabel
+
+          return (
+            <DriverRow
+              key={driver.factorKey}
+              driver={driver}
+              onFocus={onFocusNode}
+              goalLabel={goalLabel}
+              isHighlighted={highlightedDriverId === driver.factorKey}
+              registerRef={registerDriverRef
+                ? (el) => registerDriverRef(driver.factorKey, el)
+                : undefined
+              }
+              microlineLabel={showMicroline ? driver.fragileEdgeInfo!.alternativeWinnerLabel : undefined}
+            />
+          )
+        })}
       </div>
 
-      {/* Expand/collapse */}
-      {hiddenCount > 0 && (
+      {/* Expand/collapse — always show when there are more drivers than the default count */}
+      {visibleDrivers.length > TOP_DRIVERS_COUNT && (
         <button
           onClick={() => setShowAll(!showAll)}
-          className="text-sm text-sky-600 hover:text-sky-700"
+          className={`${typography.panelBody} text-sky-600 hover:text-sky-700`}
         >
-          {showAll ? 'Show fewer factors' : `See all factors (+${hiddenCount} more)`}
+          {showAll ? 'Show fewer factors' : `See all factors (+${visibleDrivers.length - TOP_DRIVERS_COUNT} more)`}
         </button>
+      )}
+
+      {/* V14.1: Default estimate coaching note */}
+      {displayDrivers.some(d => d.isDefaultedConfidence) && (
+        <p className={`${typography.panelMeta} text-text-light italic px-3`}>
+          Some confidence scores reflect default estimates. Gathering evidence will make them more meaningful.
+        </p>
       )}
 
       {/* Zero-impact disclosure - only show when collapsed and there are hidden zero-impact factors */}
       {!showAll && hiddenZeroImpactCount !== undefined && hiddenZeroImpactCount > 0 && (
-        <p className="text-xs text-slate-500 mt-1">
-          {hiddenZeroImpactCount} zero-impact factor{hiddenZeroImpactCount === 1 ? '' : 's'} hidden by default
+        <p className={`${typography.panelMeta} text-text-light italic mt-1`}>
+          Some factors with minimal impact are not shown
         </p>
       )}
+
+      {/* v7.10 T8: Tornado chart — collapsed by default, toggle to expand */}
+      {tornadoRows && tornadoRows.length > 0 && expectedOutcome != null && (() => {
+        // v7.5 T3 Fix: Filter tornado rows to match visibleDrivers only
+        const visibleFactorKeys = new Set(visibleDrivers.map(d => d.factorKey))
+        const filteredTornadoRows = tornadoRows.filter(row => visibleFactorKeys.has(row.factorKey))
+
+        return filteredTornadoRows.length > 0 && (
+          <details className="group" open>
+            <summary className={`${typography.panelHeader} text-text-header cursor-pointer select-none list-none flex items-center justify-between`}>
+              <span>What could change the result</span>
+              <span className={`${typography.panelBody} text-info group-open:hidden`}>Show ˅</span>
+              <span className={`${typography.panelBody} text-info hidden group-open:inline`}>Hide ˄</span>
+            </summary>
+            <div className="mt-2">
+              <TornadoChart
+                rows={filteredTornadoRows}
+                expectedOutcome={expectedOutcome}
+                outcomeUnit={outcomeUnit}
+                outcomeUnitSymbol={outcomeUnitSymbol}
+                onFocusNode={onFocusNode}
+                isNormalised={isNormalised}
+                goalDirection={goalDirection}
+                flipThresholds={flipThresholds}
+              />
+            </div>
+          </details>
+        )
+      })()}
     </div>
   )
 }

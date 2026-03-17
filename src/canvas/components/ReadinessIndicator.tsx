@@ -166,7 +166,7 @@ export const ReadinessIndicator = memo(({
                   : readiness.level === 'needs_review'
                     ? 'bg-sun-400'
                     : 'bg-carrot-400'
-              } transition-all duration-500`}
+              } transition-all duration-400`}
               style={{ width: `${Math.min(100, readiness.score)}%` }}
             />
           </div>

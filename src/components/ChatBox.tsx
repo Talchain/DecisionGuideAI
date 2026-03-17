@@ -54,7 +54,7 @@ export default function ChatBox() {
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}
                 placeholder="Ask DecisionGuide.AI anything"
-                className="w-full px-4 py-2.5 bg-gray-50 hover:bg-gray-100 focus:bg-white border border-gray-200 rounded-full focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all duration-200"
+                className="w-full px-4 py-2.5 bg-gray-50 hover:bg-gray-100 focus:bg-white border border-gray-200 rounded-full focus:outline-none focus:ring-2 focus:ring-info transition-all duration-200"
               />
               <MessageSquare className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
             </div>

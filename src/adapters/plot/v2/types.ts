@@ -4,6 +4,7 @@
  * Types for the /v2/run endpoint request and response.
  */
 
+import type { ConstraintAnalysis } from '../../../types/constraints'
 import type {
   M1ReviewStatus,
   DecisionQualityV3,
@@ -13,10 +14,31 @@ import type {
   RobustnessSynthesisV3,
   M1Coaching,
 } from '../../../types/cee'
+import type { CEEGoalConstraint } from '../../cee/types'
 
 // ============================================================================
 // Request Types
 // ============================================================================
+
+/**
+ * Observed state for a V2 node.
+ *
+ * Convention: snake_case (`observed_state`) in CEE/PLoT payloads.
+ * Canvas nodes use camelCase (`observedState`) — see extractObservedState().
+ */
+export interface V2ObservedState {
+  value: number
+  std?: number
+  baseline?: number
+  unit?: string
+  source?: string
+  // V3 pass-through fields from CEE
+  raw_value?: number
+  cap?: number
+  factor_type?: string
+  uncertainty_drivers?: unknown[]
+  extractionType?: string
+}
 
 /**
  * V2 node in the request graph.
@@ -25,17 +47,23 @@ export interface V2Node {
   id: string
   kind: string
   label: string
-  observed_state?: {
-    value: number
-    std?: number
-    baseline?: number
-    unit?: string
-    source?: string
-  }
+  observed_state?: V2ObservedState
+  category?: 'controllable' | 'observable' | 'external'
+  // V3 pass-through fields from CEE goal nodes
+  goal_threshold?: number
+  goal_threshold_raw?: number
+  goal_threshold_unit?: string
+  goal_threshold_cap?: number
+  // V3 pass-through for external factor nodes
+  prior?: number
 }
 
 /**
  * V2 edge in the request graph.
+ *
+ * exists_probability is optional: when the UI has no explicit value,
+ * the field is omitted and PLoT applies DEFAULT_EXISTS_PROBABILITY (0.8)
+ * with repair logging.
  */
 export interface V2Edge {
   from: string
@@ -44,7 +72,7 @@ export interface V2Edge {
     mean: number
     std: number
   }
-  exists_probability: number
+  exists_probability?: number
 }
 
 /**
@@ -80,15 +108,17 @@ export interface V2RunRequest {
   request_id?: string
   /** Optional success threshold for probability_of_goal calculation */
   goal_threshold?: number
+  // Audit F-01: framing removed — PLoT rejects unknown fields (extra='forbid', 400).
   /**
-   * User's decision framing for contextualised CEE responses.
-   * When provided, CEE can generate more relevant headlines and guidance.
+   * Original decision brief from the user.
+   * PLoT uses this for context when generating insights and recommendations.
    */
-  framing?: {
-    title?: string
-    goal?: string
-    constraints?: string
-  }
+  brief?: string
+  /**
+   * Goal constraints for multi-constraint analysis.
+   * When present, ISL computes probability_of_joint_goal.
+   */
+  goal_constraints?: CEEGoalConstraint[]
 }
 
 // ============================================================================
@@ -131,6 +161,8 @@ export interface V2OptionComparison {
   expected_outcome?: number
   /** Full outcome distribution when available (all fields optional in V2 response) */
   outcome?: Partial<V2Outcome>
+  /** Multi-constraint analysis results (when goal_constraints were provided) */
+  constraint_analysis?: ConstraintAnalysis
 }
 
 /**
@@ -157,6 +189,8 @@ export interface V2FactorSensitivity {
   node_id?: string
   /** Human-readable label (may come from ISL enrichment) */
   label?: string
+  /** PLoT V2 factor label (preferred over label when present) */
+  factor_label?: string
   /** Raw sensitivity value (may be positive or negative) */
   sensitivity?: number
   /** Sensitivity score (PLoT v2 format, 0-1 normalized) */
@@ -173,6 +207,11 @@ export interface V2FactorSensitivity {
   confidence?: number
   /** Value of information score (0-1), used for driver confidence display */
   value_of_information?: number
+  /** Breakdown of confidence into structural and sampling components */
+  confidence_components?: {
+    structural_certainty: number
+    sampling_stability: number | null
+  }
 }
 
 /**
@@ -182,6 +221,8 @@ export interface V2Critique {
   code: string
   severity: 'blocker' | 'warning' | 'info'
   message: string
+  /** Humanised message for user-facing UI (preferred over raw `message`) */
+  user_message?: string
   suggestion?: string
   affected_nodes?: string[]
 }
@@ -228,6 +269,63 @@ export interface V2Meta {
   n_samples: number
   detail_level: string
   latency_ms: number
+}
+
+// ============================================================================
+// M1 Review Types (key assumptions + pre-mortem from PLoT)
+// ============================================================================
+
+/** Pre-mortem analysis from PLoT */
+export interface V2PreMortem {
+  failure_scenario: string
+  warning_signs: string[]
+  mitigation: string
+}
+
+/** M2 decision quality prompt — structured coaching question from PLoT review */
+export interface V2DecisionQualityPrompt {
+  /** Framework principle, e.g. "Pre-mortem (Klein)" */
+  principle: string
+  /** Why this principle applies */
+  applies_because: string
+  /** The coaching question itself */
+  question: string
+}
+
+/** M2 bias finding — cognitive bias risk from PLoT review */
+export interface V2BiasFinding {
+  /** Bias type code, e.g. "ANCHORING_RISK" */
+  type: string
+  /** Source of the finding */
+  source: string
+  /** Human-readable description of the bias risk */
+  description: string
+  /** Factor IDs affected — for graph links */
+  affected_elements: string[]
+  /** Linked critique code for cross-reference */
+  linked_critique_code: string
+}
+
+/** M2 evidence enhancement — per-factor enrichment from PLoT review */
+export interface V2EvidenceEnhancement {
+  /** Concrete action to improve this factor's evidence */
+  specific_action: string
+  /** Decision hygiene tip for this factor */
+  decision_hygiene: string
+}
+
+/** M1 Review: key assumptions and pre-mortem analysis from PLoT /v2/run */
+export interface V2M1Review {
+  key_assumptions: string[]
+  pre_mortem?: V2PreMortem | null
+  /** V12: M2 decision quality prompts (gated on review_status === 'complete') */
+  decision_quality_prompts?: V2DecisionQualityPrompt[]
+  /** V12: M2 bias findings */
+  bias_findings?: V2BiasFinding[]
+  /** V12: M2 evidence enhancements keyed by factor_id */
+  evidence_enhancements?: Record<string, V2EvidenceEnhancement>
+  /** V12: M2 narrative summary paragraph */
+  narrative_summary?: string
 }
 
 /**
@@ -290,6 +388,51 @@ export interface V2RunResponse {
 
   /** M1 Coaching - deterministic coaching fields (not LLM-generated) */
   m1_coaching?: M1Coaching
+
+  // ==========================================================================
+  // M1 Review Fields (key assumptions + pre-mortem from PLoT)
+  // ==========================================================================
+
+  /** M1 Review - key assumptions and pre-mortem analysis */
+  m1_review?: V2M1Review
+
+  // ==========================================================================
+  // Observability Fields (optional, from PLoT response passthrough)
+  // ==========================================================================
+
+  /** Repairs applied by PLoT during processing */
+  repairs_applied?: Array<{
+    code?: string
+    type?: string
+    layer?: string
+    field_path?: string
+    before?: unknown
+    after?: unknown
+    severity?: string
+    node_id?: string
+    value?: unknown
+    source?: string
+    reason?: string
+  }>
+
+  /** PLoT response metadata (filtered constraints, constraint sources) */
+  _meta?: {
+    filtered_constraints?: unknown[]
+    constraint_sources?: Record<string, string>
+    [key: string]: unknown
+  }
+
+  /** Decision review status (FeatureStatus-like: 'complete' | 'failed' | absent) */
+  review_status?: string
+
+  /** Decision review warnings (M1 warning codes) */
+  review_warnings?: string[]
+
+  /** Decision review failure codes */
+  review_failure_codes?: string[]
+
+  /** Constraints pipeline status */
+  constraints_status?: 'computed' | 'unavailable' | 'skipped' | 'error'
 }
 
 /**
@@ -610,32 +753,14 @@ export function sanitizeV2RunResponse(data: V2RunResponse): V2RunResponse {
 }
 
 // ============================================================================
-// Constants
+// Constants — re-exported from @talchain/schemas
 // ============================================================================
 
-/**
- * Minimum standard deviation to avoid ISL validation errors.
- */
-export const STD_FLOOR = 0.001
-
-/**
- * Maximum standard deviation as a ratio of value (50% = std can be at most half of value).
- * ISL expects std << mean; this ratio ensures uncertainty stays proportional.
- */
-export const STD_CEILING_RATIO = 0.5
-
-/**
- * Absolute maximum standard deviation for extreme values.
- * Prevents unbounded std even for very large values.
- */
-export const STD_CEILING_ABS = 10000
-
-/**
- * Default standard deviation when not provided.
- */
-export const DEFAULT_STD = 0.1
-
-/**
- * Default seed value.
- */
-export const DEFAULT_SEED = '42'
+export {
+  STD_FLOOR,
+  STD_CEILING_RATIO,
+  STD_CEILING_ABS,
+  DEFAULT_STD,
+  DEFAULT_EXISTS_PROBABILITY,
+  DEFAULT_SEED,
+} from '@talchain/schemas'

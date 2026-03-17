@@ -197,16 +197,16 @@ export function getRunButtonAriaLabel(result: CanRunAnalysisResult, isRunning: b
 
 /**
  * Get the button label based on graph state
- * Brief: Show "Fix Issues" when blocked, "Analyze Now" otherwise
+ * Brief: Show "Fix issues" when blocked, "Analyse now" otherwise
  */
 export function getRunButtonLabel(result: CanRunAnalysisResult, isRunning: boolean): string {
   if (isRunning) {
-    return 'Analyzing...'
+    return 'Analysing...'
   }
   if (!result.allowed && result.blockingReasons && result.blockingReasons.length > 0) {
-    return 'Fix Issues'
+    return 'Fix issues'
   }
-  return 'Analyze Now'
+  return 'Analyse now'
 }
 
 // =============================================================================

@@ -580,13 +580,13 @@ export function DriversSignal({
 
         {/* Brief C: Value of Information section */}
         {worthInvestigatingVoi.length > 0 && (
-          <div className="px-4 py-3 bg-violet-50/50" data-testid="voi-section">
+          <div className="px-4 py-3 bg-panel/50" data-testid="voi-section">
             <div className="flex items-center gap-2 mb-2">
-              <Lightbulb className="h-4 w-4 text-violet-600" aria-hidden="true" />
+              <Lightbulb className="h-4 w-4 text-option" aria-hidden="true" />
               <span className={`${typography.label} text-ink-700`}>
                 Worth Investigating
               </span>
-              <span className={`${typography.caption} text-violet-600`}>
+              <span className={`${typography.caption} text-option`}>
                 High value of information
               </span>
             </div>
@@ -607,22 +607,22 @@ export function DriversSignal({
                       focusNodeById(voi.node_id)
                       setTimeout(() => setHighlightedNodes([]), 3000)
                     }}
-                    className="w-full text-left p-2.5 rounded-lg bg-violet-100 border border-violet-200 hover:bg-violet-200 transition-colors"
+                    className="w-full text-left p-2.5 rounded-lg bg-panel border border-option/30 hover:bg-panel-hover transition-colors"
                     data-testid={`voi-${voi.node_id}`}
                   >
                     <div className="flex items-center justify-between mb-1">
                       <div className="flex items-center gap-2">
-                        <Search className="h-3.5 w-3.5 text-violet-600" aria-hidden="true" />
+                        <Search className="h-3.5 w-3.5 text-option" aria-hidden="true" />
                         <span className={`${typography.bodySmall} font-medium text-ink-800`}>
                           {voi.label}
                         </span>
                       </div>
-                      <span className={`${typography.caption} font-medium text-violet-700`}>
+                      <span className={`${typography.caption} font-medium text-option`}>
                         Worth {evpiDisplay}
                       </span>
                     </div>
                     {voi.suggested_action && (
-                      <p className={`${typography.caption} text-violet-700`}>
+                      <p className={`${typography.caption} text-option`}>
                         {voi.suggested_action}
                       </p>
                     )}
@@ -654,7 +654,7 @@ export function DriversSignal({
             {/* M1 Review: Robustness Synthesis headline */}
             {robustnessSynthesis?.headline && (
               <div className="mb-4">
-                <h4 className={`${typography.caption} font-medium text-violet-700 mb-1`}>
+                <h4 className={`${typography.caption} font-medium text-option mb-1`}>
                   Robustness Summary
                 </h4>
                 <p className={`${typography.bodySmall} text-ink-700`}>
@@ -662,13 +662,13 @@ export function DriversSignal({
                 </p>
                 {robustnessSynthesis.investigation_suggestions && robustnessSynthesis.investigation_suggestions.length > 0 && (
                   <div className="mt-2">
-                    <span className={`${typography.caption} text-violet-600 font-medium`}>
+                    <span className={`${typography.caption} text-option font-medium`}>
                       Consider investigating:
                     </span>
                     <ul className="mt-1 space-y-1">
                       {robustnessSynthesis.investigation_suggestions.map((suggestion, idx) => (
                         <li key={idx} className={`${typography.caption} text-ink-600 flex items-start gap-1.5`}>
-                          <Search className="w-3 h-3 mt-0.5 text-violet-500 shrink-0" />
+                          <Search className="w-3 h-3 mt-0.5 text-option shrink-0" />
                           <span>{suggestion}</span>
                         </li>
                       ))}

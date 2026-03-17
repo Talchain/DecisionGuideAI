@@ -88,7 +88,7 @@ export function KeyInsight({
 
   return (
     <div
-      className="bg-violet-50 border border-violet-200 rounded-lg overflow-hidden"
+      className="bg-panel border border-option/30 rounded-lg overflow-hidden"
       data-testid="key-insight"
     >
       <button
@@ -101,24 +101,24 @@ export function KeyInsight({
         }}
         disabled={!hasExpandableContent && !onClick}
         className={`w-full px-3 py-2.5 flex items-start gap-3 text-left ${
-          hasExpandableContent || onClick ? 'hover:bg-violet-100 transition-colors' : ''
+          hasExpandableContent || onClick ? 'hover:bg-panel transition-colors' : ''
         }`}
       >
         <div className="flex-shrink-0 mt-0.5">
           {source === 'cee' || source === 'synthesis' ? (
-            <Sparkles className="h-4 w-4 text-violet-600" aria-hidden="true" />
+            <Sparkles className="h-4 w-4 text-option" aria-hidden="true" />
           ) : (
-            <Lightbulb className="h-4 w-4 text-violet-600" aria-hidden="true" />
+            <Lightbulb className="h-4 w-4 text-option" aria-hidden="true" />
           )}
         </div>
 
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
-            <span className={`${typography.caption} font-medium text-violet-700`}>
+            <span className={`${typography.caption} font-medium text-option`}>
               Key Insight
             </span>
             {source && (
-              <span className={`${typography.caption} px-1.5 py-0.5 rounded bg-violet-100 text-violet-600`}>
+              <span className={`${typography.caption} px-1.5 py-0.5 rounded bg-panel text-option`}>
                 {sourceLabels[source] || source}
               </span>
             )}
@@ -140,9 +140,9 @@ export function KeyInsight({
         {hasExpandableContent && (
           <div className="flex-shrink-0 mt-0.5">
             {isExpanded ? (
-              <ChevronDown className="h-4 w-4 text-violet-500" />
+              <ChevronDown className="h-4 w-4 text-option" />
             ) : (
-              <ChevronRight className="h-4 w-4 text-violet-500" />
+              <ChevronRight className="h-4 w-4 text-option" />
             )}
           </div>
         )}
@@ -150,7 +150,7 @@ export function KeyInsight({
 
       {/* Expanded content */}
       {isExpanded && hasExpandableContent && (
-        <div className="px-3 pb-3 pt-0 ml-7 space-y-2 border-t border-violet-100">
+        <div className="px-3 pb-3 pt-0 ml-7 space-y-2 border-t border-option/30">
           {explanation && (
             <p className={`${typography.caption} text-ink-600 pt-2`}>
               {explanation}
@@ -164,7 +164,7 @@ export function KeyInsight({
                   key={index}
                   className={`${typography.caption} text-ink-600 flex items-start gap-2`}
                 >
-                  <span className="text-violet-400 mt-1">-</span>
+                  <span className="text-option mt-1">-</span>
                   <span>{insight}</span>
                 </li>
               ))}

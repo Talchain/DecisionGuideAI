@@ -84,7 +84,8 @@ async function loadTemplateGraph(templateId: string): Promise<any> {
 }
 
 /**
- * Map UI confidence (0-1) to ConfidenceLevel
+ * UI-SEM-017: Confidence level from numeric score (>=0.7 high, >=0.4 medium, else low).
+ * Estimated — PLoT V1 provides numeric confidence; this maps to categorical tier.
  */
 function mapConfidenceLevel(conf: number): ConfidenceLevel {
   if (conf >= 0.7) return 'high'

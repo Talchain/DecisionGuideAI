@@ -222,19 +222,19 @@ function getConfig(status: ConnectivityStatus, isLoading: boolean) {
     case 'ok':
       return {
         label: 'Engine OK',
-        classes: 'bg-success-50 border-success-200 text-success-700',
+        classes: 'bg-panel border-success/30 text-success',
         Icon: Wifi,
       }
     case 'degraded':
       return {
         label: 'Engine Degraded',
-        classes: 'bg-warning-50 border-warning-200 text-warning-700',
+        classes: 'bg-panel border-warning/30 text-warning',
         Icon: AlertTriangle,
       }
     case 'offline':
       return {
         label: 'Engine Offline',
-        classes: 'bg-danger-50 border-danger-200 text-danger-700',
+        classes: 'bg-panel border-danger/30 text-danger',
         Icon: WifiOff,
       }
     case 'unknown':

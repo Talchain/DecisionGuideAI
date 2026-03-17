@@ -26,8 +26,19 @@ import {
   TrendingUp,
 } from 'lucide-react'
 import { Accordion, NodeLink } from './primitives'
+import { stripEncodingNotation } from '../../../components/results/utils/cleanFactorLabel'
 import type { NodesByKind } from './hooks/usePreAnalysisData'
+import type { CeeQualityDimensions } from '../../store'
 import type { Node } from '@xyflow/react'
+import { typography } from '@/styles/typography'
+
+/** Phase 2B: Intervention coverage summary */
+export interface InterventionCoverage {
+  /** Options with at least one mapped effect */
+  mapped: number
+  /** Total options */
+  total: number
+}
 
 interface ModelSnapshotProps {
   /** Nodes grouped by kind */
@@ -40,6 +51,14 @@ interface ModelSnapshotProps {
   onHoverNode?: (type: 'node' | 'edge', id: string) => void
   /** Handler for clearing hover */
   onHoverClear?: () => void
+  /** CEE quality scores (Task 7) */
+  ceeQuality?: CeeQualityDimensions | null
+  /** Phase 2B: Intervention coverage (gated on isPreAnalysisEnrichedEnabled) */
+  interventionCoverage?: InterventionCoverage | null
+  /** Phase 2B: Goal label for measurability row */
+  goalLabel?: string | null
+  /** Phase 2B: Whether the goal has a measurable threshold */
+  goalMeasurable?: boolean
 }
 
 /** Node kind configuration */
@@ -84,25 +103,26 @@ function SnapshotRow({ kind, nodes, onFocusNode, onHoverNode, onHoverClear }: Sn
   }, [])
 
   const getNodeLabel = (node: Node): string => {
-    return (node.data as { label?: string })?.label ?? node.id
+    const raw = (node.data as { label?: string })?.label ?? node.id
+    return kind === 'factor' ? stripEncodingNotation(raw) : raw
   }
 
   return (
-    <div className="flex items-start gap-2 py-1">
-      {/* Icon */}
-      <Icon className={`w-4 h-4 flex-shrink-0 mt-0.5 ${config.colorClass}`} aria-hidden="true" />
+    <div className="py-1">
+      {/* Kind header: icon + label */}
+      <div className="flex items-center gap-2">
+        <Icon className={`w-4 h-4 flex-shrink-0 ${config.colorClass}`} aria-hidden="true" />
+        <span className={`${typography.panelBody} ${config.colorClass}`}>
+          {config.label}
+        </span>
+      </div>
 
-      {/* Kind label - coloured text permitted here */}
-      <span className={`text-sm font-medium w-16 flex-shrink-0 ${config.colorClass}`}>
-        {config.label}
-      </span>
-
-      {/* Node links */}
-      <div className="flex-1 flex flex-wrap items-center gap-x-1 gap-y-0.5">
-        {visibleNodes.map((node, idx) => (
-          <span
+      {/* Node links — one per line, left-aligned */}
+      <div className="ml-6 mt-0.5">
+        {visibleNodes.map((node) => (
+          <div
             key={node.id}
-            className="inline-flex items-center"
+            className="py-0.5"
             onMouseEnter={() => onHoverNode?.('node', node.id)}
             onMouseLeave={() => onHoverClear?.()}
           >
@@ -110,14 +130,11 @@ function SnapshotRow({ kind, nodes, onFocusNode, onHoverNode, onHoverClear }: Sn
               targetId={node.id}
               targetType="node"
               onClick={() => onFocusNode?.(node.id)}
-              className="text-sm"
+              className={typography.panelBody}
             >
               {getNodeLabel(node)}
             </NodeLink>
-            {idx < visibleNodes.length - 1 && (
-              <span className="text-text-light">,</span>
-            )}
-          </span>
+          </div>
         ))}
 
         {/* Expander link */}
@@ -125,23 +142,30 @@ function SnapshotRow({ kind, nodes, onFocusNode, onHoverNode, onHoverClear }: Sn
           <button
             type="button"
             onClick={handleToggleExpand}
-            className="text-xs text-info hover:underline cursor-pointer ml-1"
+            className={`${typography.panelMeta} text-info hover:underline cursor-pointer py-0.5`}
           >
-            (+{hiddenCount})
+            +{hiddenCount} more
           </button>
         )}
         {isExpanded && hiddenCount > 0 && (
           <button
             type="button"
             onClick={handleToggleExpand}
-            className="text-xs text-info hover:underline cursor-pointer ml-1"
+            className={`${typography.panelMeta} text-info hover:underline cursor-pointer py-0.5`}
           >
-            (show less)
+            Show less
           </button>
         )}
       </div>
     </div>
   )
+}
+
+/** Score color: >= 7 success, >= 4 warning, < 4 danger */
+function scoreColor(score: number): string {
+  if (score >= 7) return 'text-success'
+  if (score >= 4) return 'text-warning'
+  return 'text-danger'
 }
 
 export function ModelSnapshot({
@@ -150,6 +174,10 @@ export function ModelSnapshot({
   onFocusNode,
   onHoverNode,
   onHoverClear,
+  ceeQuality,
+  interventionCoverage,
+  goalLabel,
+  goalMeasurable,
 }: ModelSnapshotProps) {
   // Calculate total node count
   const totalNodes = Object.values(nodesByKind).reduce((sum, nodes) => sum + nodes.length, 0)
@@ -159,9 +187,9 @@ export function ModelSnapshot({
 
   return (
     <Accordion
-      title="Model Snapshot"
+      title="Model snapshot"
       defaultExpanded={false}
-      rightContent={`${totalNodes} nodes · ${edgeCount} edges`}
+      rightContent={`${totalNodes} ${totalNodes === 1 ? 'node' : 'nodes'} · ${edgeCount} ${edgeCount === 1 ? 'edge' : 'edges'}`}
       testId="model-snapshot-accordion"
     >
       <div className="space-y-1">
@@ -177,11 +205,61 @@ export function ModelSnapshot({
         ))}
 
         {presentKinds.length === 0 && (
-          <p className="text-sm text-text-light py-2">
+          <p className={`${typography.panelBody} text-text-light py-2`}>
             No nodes in the model yet
           </p>
         )}
       </div>
+
+      {/* Phase 2B: Enrichment rows */}
+      {interventionCoverage != null && interventionCoverage.total > 0 && interventionCoverage.mapped < interventionCoverage.total && (
+        <p className={`${typography.panelMeta} text-text-light mt-1`} data-testid="intervention-coverage">
+          {interventionCoverage.mapped} of {interventionCoverage.total} options have mapped effects
+        </p>
+      )}
+
+      {goalLabel && (
+        <p className={`${typography.panelMeta} text-text-light mt-1`} data-testid="goal-measurability">
+          {goalLabel}
+          {goalMeasurable != null && (
+            <span className={goalMeasurable ? 'text-success' : 'text-warning'}>
+              {' · '}{goalMeasurable ? 'Measurable' : 'Not yet measurable'}
+            </span>
+          )}
+        </p>
+      )}
+
+      {/* Quality scores from CEE (Task 7) */}
+      {ceeQuality && ceeQuality.overall != null && (
+        <div className="mt-2 pt-2 border-t border-panel-border">
+          <p className={`${typography.panelMeta} text-text-body`}>
+            <span>Quality: </span>
+            <span className={scoreColor(ceeQuality.overall)}>
+              {ceeQuality.overall}/10
+            </span>
+            {ceeQuality.structure != null && (
+              <span className="text-text-light">
+                {' · '}Structure <span className={scoreColor(ceeQuality.structure)}>{ceeQuality.structure}</span>
+              </span>
+            )}
+            {ceeQuality.causality != null && (
+              <span className="text-text-light">
+                {' · '}Causality <span className={scoreColor(ceeQuality.causality)}>{ceeQuality.causality}</span>
+              </span>
+            )}
+            {ceeQuality.coverage != null && (
+              <span className="text-text-light">
+                {' · '}Coverage <span className={scoreColor(ceeQuality.coverage)}>{ceeQuality.coverage}</span>
+              </span>
+            )}
+            {ceeQuality.safety != null && (
+              <span className="text-text-light">
+                {' · '}Safety <span className={scoreColor(ceeQuality.safety)}>{ceeQuality.safety}</span>
+              </span>
+            )}
+          </p>
+        </div>
+      )}
     </Accordion>
   )
 }

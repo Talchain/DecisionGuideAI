@@ -1,0 +1,17 @@
+{
+  "_comment": "TODO Q.2: Replace with real staging response",
+  "_requirements": [
+    "Quantitative goal",
+    "2 options with clear winner (>15% win probability separation)",
+    "5 factors",
+    "Moderate robustness (some fragile edges, some robust)",
+    "No constraint violations",
+    "Include fact_objects[]",
+    "Include review_cards[]"
+  ],
+  "_capture_instructions": "Run analysis on staging--olumi.netlify.app, open DevTools Network tab, find SSE response from /v2/run endpoint, copy complete JSON here",
+  "model_card": {
+    "response_hash": "PLACEHOLDER",
+    "seed": 1337
+  }
+}

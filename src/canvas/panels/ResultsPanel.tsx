@@ -46,6 +46,7 @@ import { Tooltip } from '../components/Tooltip'
 import { useEngineLimits } from '../hooks/useEngineLimits'
 import { deriveLimitsStatus } from '../utils/limitsStatus'
 import { useRunEligibilityCheck } from '../hooks/useRunEligibilityCheck'
+import { canRunAnalysis as canRunAnalysisUtil, getRunButtonTooltip } from '../utils/canRunAnalysis'
 import { trackCompareOpened } from '../utils/sandboxTelemetry'
  import { typography } from '../../styles/typography'
  import { buildHealthStrings } from '../utils/graphHealthStrings'
@@ -100,6 +101,21 @@ import { trackCompareOpened } from '../utils/sandboxTelemetry'
   const [isRunning, setIsRunning] = useState(false)
   const [validationErrors, setValidationErrors] = useState<ValidationError[]>([])
   const [validationViolations, setValidationViolations] = useState<ValidationError[]>([]) // v1.2: coaching warnings
+
+  // Unified run gate — same function used by ConversationPanel and OutputsDock
+  const ceeAnalysisReady = useCanvasStore(s => s.ceeAnalysisReady)
+  const hasValidationBlockers = graphHealth?.issues?.some(
+    (i: { severity: string }) => i.severity === 'error' || i.severity === 'blocker'
+  ) ?? false
+  const runGateResult = canRunAnalysisUtil({
+    graphHealth: graphHealth ?? null,
+    readiness: ceeAnalysisReady ? { can_run_analysis: true, readiness_level: 'strong', confidence_explanation: '' } : null,
+    hasBlockers: hasValidationBlockers,
+    nodeCount: nodes.length,
+    isRunning,
+  })
+  const unifiedRunAllowed = runGateResult.allowed
+  const unifiedRunTooltip = getRunButtonTooltip(runGateResult)
 
   // Tab state
   const [activeTab, setActiveTab] = useState<TabId>('latest')
@@ -222,8 +238,9 @@ import { trackCompareOpened } from '../utils/sandboxTelemetry'
   }, [hash, showToast])
 
   const handleRunAnalysis = useCallback(async () => {
-    const eligibility = checkRunEligibility()
-    if (!eligibility.canRun) {
+    // Unified gate — same check used by ChatTopBar and OutputsDock
+    if (!unifiedRunAllowed) {
+      checkRunEligibility() // call for toast side-effect only
       return
     }
 
@@ -273,7 +290,7 @@ import { trackCompareOpened } from '../utils/sandboxTelemetry'
     } finally {
       setIsRunning(false)
     }
-  }, [limits, run, formatErrors, showToast, outcomeNodeId, nodes, edges])
+  }, [limits, run, formatErrors, showToast, outcomeNodeId, nodes, edges, unifiedRunAllowed, checkRunEligibility])
 
   if (!isOpen) return null
 
@@ -318,7 +335,7 @@ import { trackCompareOpened } from '../utils/sandboxTelemetry'
     }
 
     return (
-      <span className={`px-2.5 py-1 rounded-full ${typography.caption} font-medium ${className}`}>
+      <span className={`px-2.5 py-1 rounded-full ${typography.panelMeta} ${className}`}>
         {text}
       </span>
     )
@@ -326,7 +343,7 @@ import { trackCompareOpened } from '../utils/sandboxTelemetry'
 
   // Tabs component
   const tabs = (
-    <div className="flex border-b border-slate-200">
+    <div className="flex border-b border-panel-border">
       <TabButton
         active={activeTab === 'latest'}
         onClick={() => setActiveTab('latest')}
@@ -354,7 +371,7 @@ import { trackCompareOpened } from '../utils/sandboxTelemetry'
     <>
       <button
         onClick={handleRunAgain}
-        className="flex-1 px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors"
+        className={`flex-1 px-4 py-2 ${typography.panelBody} text-text-body bg-panel border border-panel-border rounded-lg hover:bg-panel-hover transition-colors`}
         type="button"
       >
         Analyse again
@@ -362,7 +379,7 @@ import { trackCompareOpened } from '../utils/sandboxTelemetry'
       <Tooltip content={hash ? 'Share this analysis' : 'Share requires a completed analysis'}>
         <button
           onClick={handleShare}
-          className="px-4 py-2 text-sm font-medium text-white bg-info-600 rounded-lg hover:bg-info-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className={`px-4 py-2 ${typography.panelBody} font-medium text-text-on-color bg-info-600 rounded-lg hover:bg-info-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed`}
           type="button"
           disabled={!hash}
         >
@@ -442,11 +459,11 @@ import { trackCompareOpened } from '../utils/sandboxTelemetry'
                     if (blockers.length === 0) return null
 
                     return (
-                      <div className="mb-4 p-4 rounded-lg border border-danger-300 bg-danger-50">
-                        <h3 className="text-sm font-semibold text-danger-700 mb-2">
+                      <div className="mb-4 p-4 rounded-lg border border-danger/30 bg-panel">
+                        <h3 className={`${typography.panelHeader} text-danger-700 mb-2`}>
                           Critical Issues Detected
                         </h3>
-                        <ul className="space-y-1 text-sm text-danger-600">
+                        <ul className={`space-y-1 ${typography.panelBody} text-danger-600`}>
                           {blockers.map((c, i) => (
                             <li key={i}>• {c.message}</li>
                           ))}
@@ -465,7 +482,7 @@ import { trackCompareOpened } from '../utils/sandboxTelemetry'
                         unitSymbol={resultUnitSymbol}
                       />
                       <div className="space-y-2">
-                        <div className="text-xs text-slate-500 font-medium">Range</div>
+                        <div className={`${typography.panelMeta} text-text-light`}>Range</div>
                         <RangeChips
                           conservative={conservativeValue}
                           likely={mostLikelyValue}
@@ -490,7 +507,7 @@ import { trackCompareOpened } from '../utils/sandboxTelemetry'
 
                   {/* Decision story */}
                   <PanelSection title="Decision story">
-                    <div className="space-y-2 text-sm text-slate-700">
+                    <div className={`space-y-2 ${typography.panelBody} text-slate-700`}>
                       <p>
                         {framing && (framing.title || framing.goal || framing.timeline) ? (
                           <>
@@ -541,12 +558,12 @@ import { trackCompareOpened } from '../utils/sandboxTelemetry'
                             <button
                               type="button"
                               onClick={() => setShowIssuesPanel(true)}
-                              className="inline-flex items-center px-2 py-1 rounded border border-info-200 text-info-700 text-xs font-medium hover:bg-info-50"
+                              className={`inline-flex items-center px-2 py-1 rounded border border-info/30 text-info ${typography.panelMeta} hover:bg-info-light`}
                             >
                               Open graph issues
                             </button>
                           </p>
-                          <p className="text-[11px] text-slate-500">
+                          <p className={`${typography.panelMeta} text-slate-500`}>
                             See Graph Issues panel for fixable problems detected here.
                           </p>
                         </>
@@ -578,31 +595,31 @@ import { trackCompareOpened } from '../utils/sandboxTelemetry'
 
               {/* Error */}
               {isError && error && (
-                <div className="p-4 rounded-lg border border-danger-200 bg-danger-50">
-                  <h3 className="text-base font-semibold text-danger-700 mb-2">
+                <div className="p-4 rounded-lg border border-danger/30 bg-panel">
+                  <h3 className={`${typography.panelHeader} text-danger mb-2`}>
                     {error.code}
                   </h3>
-                  <p className="text-sm text-slate-700 mb-3">
+                  <p className={`${typography.panelBody} text-text-body mb-3`}>
                     {error.message}
                   </p>
                   {error.retryAfter && (
-                    <p className="text-xs text-slate-500 mb-2">
+                    <p className={`${typography.panelMeta} text-slate-500 mb-2`}>
                       Retry after {error.retryAfter} seconds
                     </p>
                   )}
                   {error.request_id && (
-                    <p className="text-xs text-slate-600 font-mono mb-2">
+                    <p className={`${typography.panelMeta} text-slate-600 font-mono mb-2`}>
                       PLoT Request ID: {error.request_id}
                     </p>
                   )}
                   {(runMeta.correlationIdHeader || runMeta.diagnostics?.correlation_id) && (
-                    <p className="text-xs text-slate-600 font-mono mb-2">
+                    <p className={`${typography.panelMeta} text-slate-600 font-mono mb-2`}>
                       Correlation ID: {runMeta.correlationIdHeader || runMeta.diagnostics?.correlation_id}
                     </p>
                   )}
                   <button
                     onClick={handleReset}
-                    className="mt-3 px-4 py-2 text-sm rounded-md border-none bg-danger-600 hover:bg-danger-700 text-white cursor-pointer font-medium transition-colors"
+                    className={`mt-3 px-4 py-2 ${typography.panelBody} rounded-md border-none bg-danger-600 hover:bg-danger-700 text-text-on-color cursor-pointer font-medium transition-colors`}
                   >
                     Retry
                   </button>
@@ -611,13 +628,13 @@ import { trackCompareOpened } from '../utils/sandboxTelemetry'
 
               {/* Cancelled */}
               {isCancelled && (
-                <div className="p-4 rounded-lg border border-warning-300 bg-warning-100 text-center">
-                  <p className="text-sm text-warning-700 mb-3">
+                <div className="p-4 rounded-lg border border-warning/30 bg-panel text-center">
+                  <p className={`${typography.panelBody} text-warning-700 mb-3`}>
                     Analysis cancelled
                   </p>
                   <button
                     onClick={handleReset}
-                    className="px-4 py-2 text-sm rounded-md border-none bg-info-500 hover:bg-info-600 text-white cursor-pointer font-medium transition-colors"
+                    className={`px-4 py-2 ${typography.panelBody} rounded-md border-none bg-info-500 hover:bg-info-600 text-text-on-color cursor-pointer font-medium transition-colors`}
                   >
                     Start New Run
                   </button>
@@ -648,10 +665,10 @@ import { trackCompareOpened } from '../utils/sandboxTelemetry'
                         <Play className="w-8 h-8 text-info-600" />
                       </div>
                     </div>
-                    <h3 className="text-lg font-semibold text-slate-900 mb-3">
+                    <h3 className={`${typography.panelHeader} text-slate-900 mb-3`}>
                       Ready to analyse
                     </h3>
-                    <p className="text-sm mb-6 text-slate-400">
+                    <p className={`${typography.panelBody} mb-6 text-slate-400`}>
                       {nodes.length === 0
                         ? 'Add nodes to your canvas to get started.'
                         : !outcomeNodeId
@@ -661,17 +678,15 @@ import { trackCompareOpened } from '../utils/sandboxTelemetry'
                     </p>
                     <Tooltip
                       content={
-                        nodes.length === 0
-                          ? 'Add nodes to canvas to run analysis'
-                          : isRunning
+                        isRunning
                           ? 'Analysis in progress...'
-                          : 'Run analysis on current graph'
+                          : unifiedRunTooltip ?? 'Run analysis on current graph'
                       }
                     >
                       <button
                         onClick={handleRunAnalysis}
-                        disabled={nodes.length === 0 || isRunning}
-                        className="px-6 py-3 text-sm font-medium text-white bg-info rounded-lg hover:bg-info/90 transition-colors focus:outline-none focus:ring-2 focus:ring-info focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2"
+                        disabled={!unifiedRunAllowed}
+                        className={`px-6 py-3 ${typography.panelBody} font-medium text-text-on-color bg-info rounded-lg hover:bg-info/90 transition-colors focus:outline-none focus:ring-2 focus:ring-info focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2`}
                       >
                         {isRunning ? (
                           <>
@@ -758,25 +773,25 @@ function ResultsTrustFooter({ seed, hash, showToast }: ResultsTrustFooterProps) 
   }
 
   return (
-    <div className="mt-6 border-t border-slate-200 pt-3 text-xs text-slate-600" aria-label="Trust and reproducibility details">
+    <div className={`mt-6 border-t border-panel-border pt-3 ${typography.panelMeta} text-text-light`} aria-label="Trust and reproducibility details">
       <div className="flex flex-col gap-2">
         <div className="flex items-center justify-between">
           <span className="text-slate-500">Seed</span>
-          <span className="font-mono text-[11px] bg-slate-50 px-2 py-0.5 rounded text-slate-800">
+          <span className={`font-mono ${typography.panelMeta} bg-slate-50 px-2 py-0.5 rounded text-slate-800`}>
             {seedValue}
           </span>
         </div>
         <div className="flex items-center justify-between gap-2">
           <span className="text-slate-500">Response</span>
           <div className="flex items-center gap-2">
-            <span className="font-mono text-[11px] bg-slate-50 px-2 py-0.5 rounded text-slate-800">
+            <span className={`font-mono ${typography.panelMeta} bg-slate-50 px-2 py-0.5 rounded text-slate-800`}>
               {hashPreview}
             </span>
             {hasHash && (
               <button
                 type="button"
                 onClick={handleCopyHash}
-                className="px-2 py-0.5 text-[11px] font-medium text-info-600 bg-info-50 rounded hover:bg-info-100 transition-colors"
+                className={`px-2 py-0.5 ${typography.panelMeta} text-info bg-panel rounded hover:opacity-80 transition-colors`}
               >
                 Copy full hash
               </button>
@@ -785,7 +800,7 @@ function ResultsTrustFooter({ seed, hash, showToast }: ResultsTrustFooterProps) 
         </div>
         <div className="flex items-center justify-between">
           <span className="text-slate-500">Engine</span>
-          <span className="text-[11px] text-slate-800">{engineLabel}</span>
+          <span className={`${typography.panelMeta} text-slate-800`}>{engineLabel}</span>
         </div>
       </div>
     </div>
@@ -811,8 +826,8 @@ function TabButton({ active, onClick, label, icon, disabled = false, badge }: Ta
       onClick={onClick}
       disabled={disabled}
       className={`
-        flex-1 px-4 py-2 text-sm font-medium transition-colors
-        ${active ? 'text-info-600 border-b-2 border-info-600 bg-info-50' : 'text-slate-600 border-b-2 border-transparent hover:text-slate-900 hover:bg-slate-50'}
+        flex-1 px-4 py-2 ${typography.panelBody} transition-colors
+        ${active ? 'text-info border-b-2 border-info bg-panel' : 'text-text-body border-b-2 border-transparent hover:text-text-header hover:bg-panel-hover'}
         ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
       `}
       type="button"
@@ -821,7 +836,7 @@ function TabButton({ active, onClick, label, icon, disabled = false, badge }: Ta
         {icon}
         {label}
         {badge && (
-          <span className="px-1.5 py-0.5 text-xs font-semibold text-white bg-info-600 rounded-full">
+          <span className={`px-1.5 py-0.5 ${typography.panelMeta} font-semibold text-text-on-color bg-info-600 rounded-full`}>
             {badge}
           </span>
         )}

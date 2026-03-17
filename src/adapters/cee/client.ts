@@ -11,6 +11,7 @@ import { isCEEv2Response, isCEEv3Response, isCeePipelineTrace } from './types'
 import { withObservabilityHeaders, recordBffResponse, recordBffError, recordBffResponsePayload } from '../../lib/observability-headers'
 import { useGateStore } from '../../lib/gate-state'
 import { CEEDraftResponseSchema, warnOnInvalidApiResponse } from '../../lib/api-schemas'
+import { withRetry } from '../../lib/fetchWithRetry'
 
 const CEE_BASE_URL = (import.meta as any).env?.VITE_CEE_BFF_BASE || '/bff/cee'
 // CEE Draft Engine base URL
@@ -35,6 +36,49 @@ export class CEEError extends Error {
   ) {
     super(message)
     this.name = 'CEEError'
+  }
+}
+
+/**
+ * Infer missing `category` on factor nodes from graph edge structure.
+ * Non-breaking: only fills in when category is undefined (never overwrites).
+ *
+ * Logic:
+ * - Factor has incoming edge from an option/decision node → "controllable"
+ * - Factor has no option edges → "observable"
+ *
+ * This handles the LLM omission pattern where GPT-4o non-deterministically
+ * drops the `category` field on factor nodes.
+ */
+function inferMissingCategories(nodes: any[], edges: any[]): void {
+  if (!Array.isArray(nodes) || !Array.isArray(edges)) return
+
+  // Build set of option/decision node IDs
+  const optionIds = new Set<string>()
+  for (const n of nodes) {
+    const kind = n.kind ?? n.type
+    if (kind === 'option' || kind === 'decision') {
+      optionIds.add(n.id)
+    }
+  }
+
+  // Build set of factor IDs that are targets of edges from option nodes
+  const optionTargets = new Set<string>()
+  for (const edge of edges) {
+    const from = edge.from ?? edge.source
+    const to = edge.to ?? edge.target
+    if (from && to && optionIds.has(from)) {
+      optionTargets.add(to)
+    }
+  }
+
+  // Fill missing category on factor nodes
+  for (const node of nodes) {
+    const kind = node.kind ?? node.type
+    if (kind !== 'factor') continue
+    if (node.category) continue // already has category — don't overwrite
+
+    node.category = optionTargets.has(node.id) ? 'controllable' : 'observable'
   }
 }
 
@@ -98,6 +142,9 @@ export function adaptDraftResponse(raw: any): CEEDraftResponse {
       result.pipeline_trace = draft.trace.pipeline
     }
 
+    // LLM omission resilience: infer missing category from graph edges
+    inferMissingCategories(result.nodes, result.edges)
+
     return result
   }
 
@@ -149,27 +196,33 @@ export function adaptDraftResponse(raw: any): CEEDraftResponse {
         : 'factor'
 
     const uncRaw = (n as any).uncertainty
+    // CIL 0.2: reject NaN/Infinity
     const uncertainty =
-      typeof uncRaw === 'number' && uncRaw >= 0 && uncRaw <= 1
+      Number.isFinite(uncRaw) && uncRaw >= 0 && uncRaw <= 1
         ? uncRaw
         : fallbackUncertainty
 
     // Preserve observed_state for factor nodes (Brief I fix)
+    // CIL 0.2: reject NaN/Infinity in observed_state.value
     const observed_state = (n as any).observed_state
     const hasObservedState = observed_state && typeof observed_state === 'object' &&
-      typeof observed_state.value === 'number'
+      Number.isFinite(observed_state.value)
 
+    // CIL 0.2: spread-first preserves unknown CEE node fields
     return {
+      ...n,
       id,
       label,
       type,
       uncertainty,
-      ...(hasObservedState ? { observed_state } : {}),
+      // Override observed_state: keep if valid, remove if invalid
+      ...(hasObservedState ? { observed_state } : { observed_state: undefined }),
     }
   })
 
   const edges = rawEdges
     .map((e) => {
+      // --- Validate required from/to (drop edge if missing) ---
       const fromRaw = (e as any).from
       const toRaw = (e as any).to
       const from =
@@ -186,25 +239,36 @@ export function adaptDraftResponse(raw: any): CEEDraftResponse {
             : null
       if (!from || !to) return null
 
-      const idRaw = (e as any).id
-      const id = typeof idRaw === 'string' && idRaw.trim().length > 0 ? idRaw : undefined
+      // --- Spread-first: preserve all raw fields, then override transformed ones ---
+      // This ensures unknown/additive CEE edge fields (e.g. edge_type, label,
+      // future CIL additions) are not silently dropped.
+      const raw = e as Record<string, unknown>
 
-      const weightRaw = (e as any).weight
+      // Validate/coerce id
+      const idRaw = raw.id
+      const id = typeof idRaw === 'string' && (idRaw as string).trim().length > 0 ? idRaw : undefined
+
+      // UI-SEM-026: CEE edge weight clamped to [0, 1].
+      // Keep — normalises out-of-range CEE values (CIL 0.2: reject NaN/Infinity).
+      const weightRaw = raw.weight
       const weight =
-        typeof weightRaw === 'number' ? Math.max(0, Math.min(1, weightRaw)) : undefined
+        Number.isFinite(weightRaw) ? Math.max(0, Math.min(1, weightRaw as number)) : undefined
 
-      const beliefRaw = (e as any).belief
+      // UI-SEM-027: CEE edge belief clamped to [0, 1].
+      // Keep — normalises out-of-range CEE values.
+      const beliefRaw = raw.belief
       const belief =
-        typeof beliefRaw === 'number' ? Math.max(0, Math.min(1, beliefRaw)) : undefined
+        Number.isFinite(beliefRaw) ? Math.max(0, Math.min(1, beliefRaw as number)) : undefined
 
-      const rawProv = (e as any).provenance
+      // Normalize provenance (object or string)
+      const rawProv = raw.provenance
       let provenance: CEEDraftResponse['edges'][number]['provenance']
       if (rawProv && typeof rawProv === 'object') {
-        const source = rawProv.source != null ? String(rawProv.source) : ''
-        const quote = rawProv.quote != null ? String(rawProv.quote) : ''
+        const source = (rawProv as any).source != null ? String((rawProv as any).source) : ''
+        const quote = (rawProv as any).quote != null ? String((rawProv as any).quote) : ''
         const location =
-          rawProv.location !== undefined && rawProv.location !== null
-            ? String(rawProv.location)
+          (rawProv as any).location !== undefined && (rawProv as any).location !== null
+            ? String((rawProv as any).location)
             : undefined
         if (source || quote || location) {
           provenance = { source, quote, ...(location ? { location } : {}) }
@@ -213,48 +277,61 @@ export function adaptDraftResponse(raw: any): CEEDraftResponse {
         provenance = rawProv
       }
 
-      const rawProvSource = (e as any).provenance_source
+      // Validate provenance_source against allowlist
+      const rawProvSource = raw.provenance_source
       const allowedSources: Array<CEEDraftResponse['edges'][number]['provenance_source']> = [
         'document',
         'metric',
         'hypothesis',
         'engine',
       ]
-      const provenance_source = allowedSources.includes(rawProvSource) ? rawProvSource : undefined
+      const provenance_source = allowedSources.includes(rawProvSource as any) ? rawProvSource : undefined
 
-      // P0-2: Preserve semantic fields for downstream adapters
-      // strength_mean: normalized from nested or flat structure
-      const strengthMeanRaw = (e as any).strength_mean ?? (e as any).strength?.mean
-      const strength_mean = typeof strengthMeanRaw === 'number' ? strengthMeanRaw : undefined
+      // P0-2: Normalize strength_mean from nested or flat structure
+      // CIL 0.2: reject NaN/Infinity — JSON.stringify converts to null
+      const strengthMeanRaw = raw.strength_mean ?? (raw.strength as any)?.mean
+      const strength_mean = Number.isFinite(strengthMeanRaw) ? strengthMeanRaw as number : undefined
 
-      // strength_std: normalized from nested or flat structure
-      const strengthStdRaw = (e as any).strength_std ?? (e as any).strength?.std
-      const strength_std = typeof strengthStdRaw === 'number' && strengthStdRaw > 0 ? strengthStdRaw : undefined
+      // P0-2: Normalize strength_std from nested or flat structure
+      const strengthStdRaw = raw.strength_std ?? (raw.strength as any)?.std
+      const strength_std = Number.isFinite(strengthStdRaw) && (strengthStdRaw as number) > 0 ? strengthStdRaw as number : undefined
 
-      // effect_direction: preserved as-is
-      const effectDirRaw = (e as any).effect_direction
+      // Validate effect_direction against known values
+      const effectDirRaw = raw.effect_direction
       const effect_direction = effectDirRaw === 'positive' || effectDirRaw === 'negative' ? effectDirRaw : undefined
 
-      // P0 Fix: belief_exists - structural certainty (0-1), distinct from parametric belief
-      // CEE returns belief_exists separately from belief; canvas needs it for PLoT exists_probability
-      const beliefExistsRaw = (e as any).belief_exists
+      // UI-SEM-028: CEE belief_exists clamped to [0, 1].
+      // Keep — normalises out-of-range structural certainty (CIL 0.2: reject NaN/Infinity).
+      const beliefExistsRaw = raw.belief_exists
       const belief_exists =
-        typeof beliefExistsRaw === 'number' ? Math.max(0, Math.min(1, beliefExistsRaw)) : undefined
+        Number.isFinite(beliefExistsRaw) ? Math.max(0, Math.min(1, beliefExistsRaw as number)) : undefined
+
+      // Build the result: spread raw first (preserves unknown fields),
+      // then override with validated/transformed values.
+      // Fields that fail validation are explicitly set to undefined
+      // to overwrite the invalid raw value from the spread.
+
+      // CIL 0.2: Remove only mean/std from nested strength, preserve other subfields
+      let strengthRemaining: Record<string, unknown> | undefined
+      if (raw.strength && typeof raw.strength === 'object') {
+        const { mean, std, ...rest } = raw.strength as any
+        strengthRemaining = Object.keys(rest).length > 0 ? rest : undefined
+      }
 
       return {
-        ...(id && { id }),
-        from,
-        to,
-        ...(weight !== undefined && { weight }),
-        ...(belief !== undefined && { belief }),
-        ...(provenance !== undefined && { provenance }),
-        ...(provenance_source && { provenance_source }),
-        // P0-2: Include preserved semantic fields
-        ...(strength_mean !== undefined && { strength_mean }),
-        ...(strength_std !== undefined && { strength_std }),
-        ...(effect_direction !== undefined && { effect_direction }),
-        // P0 Fix: Include belief_exists for PLoT exists_probability
-        ...(belief_exists !== undefined && { belief_exists }),
+        ...raw,                                // spread-first: preserve unknown fields
+        strength: strengthRemaining,           // CIL 0.2: preserve unknown strength.* fields, remove only mean/std
+        id,                                    // coerced id (undefined if invalid)
+        from,                                  // coerced from
+        to,                                    // coerced to
+        weight,                                // clamped weight (undefined if non-numeric)
+        belief,                                // clamped belief (undefined if non-numeric)
+        provenance,                            // normalized provenance (undefined if absent)
+        provenance_source,                     // validated provenance_source (undefined if not in allowlist)
+        strength_mean,                         // normalized strength_mean (undefined if non-numeric)
+        strength_std,                          // normalized strength_std (undefined if non-numeric or ≤0)
+        effect_direction,                      // validated effect_direction (undefined if not positive/negative)
+        belief_exists,                         // clamped belief_exists (undefined if non-numeric)
       }
     })
     .filter((edge): edge is CEEDraftResponse['edges'][number] => edge !== null)
@@ -299,17 +376,22 @@ export function adaptDraftResponse(raw: any): CEEDraftResponse {
     result.pipeline_trace = (raw as any).trace.pipeline
   }
 
+  // LLM omission resilience: infer missing category from graph edges
+  inferMissingCategories(result.nodes, result.edges)
+
   return result
 }
 
 // Endpoint-specific timeouts (ms)
 const ENDPOINT_TIMEOUTS: Record<string, number> = {
-  // draft-graph needs 120s: OpenAI can take 64-71s, plus CEE processing
-  '/draft-graph': 120000,
+  // draft-graph needs 150s: OpenAI can take 64-71s, plus CEE processing
+  '/draft-graph': 150000,
 }
 
-// Default timeout for other CEE endpoints
-const DEFAULT_CEE_TIMEOUT = 60000
+// Audit F-67: Default timeout set to 150s — above CEE's 135s route timeout.
+// Prevents silent hangs while allowing CEE sufficient processing time.
+// Surfaces timeout as user-visible CEEError (408) via AbortController in fetchWithBase.
+const DEFAULT_CEE_TIMEOUT = 150000
 
 export class CEEClient {
   private baseURL: string
@@ -323,6 +405,13 @@ export class CEEClient {
 
   private async fetch<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
     return this.fetchWithBase<T>(this.baseURL, endpoint, options)
+  }
+
+  /** Fetch with retry — use only for idempotent/read-only endpoints (not draft-graph) */
+  private async fetchIdempotent<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+    return withRetry(
+      () => this.fetchWithBase<T>(this.baseURL, endpoint, options),
+    )
   }
 
   private async fetchWithBase<T>(
@@ -464,6 +553,7 @@ export class CEEClient {
     }
 
     // Debug: Log schema version request
+    /* eslint-disable no-restricted-syntax, no-console -- grandfathered DEV diagnostics */
     if (import.meta.env.DEV) {
       console.log('[CEE] draftModel request:', {
         endpoint,
@@ -471,6 +561,7 @@ export class CEEClient {
         raw_output: options?.raw_output ?? false,
       })
     }
+    /* eslint-enable no-restricted-syntax, no-console */
 
     // Intended UI path is same-origin → Plot engine proxy → CEE.
     // In the browser, always prefer the engine proxy for draft-graph to avoid CORS fragility
@@ -486,6 +577,7 @@ export class CEEClient {
     warnOnInvalidApiResponse(CEEDraftResponseSchema, raw, 'CEE draft')
 
     // Debug: Log response schema details
+    /* eslint-disable no-restricted-syntax, no-console -- grandfathered DEV diagnostics */
     if (import.meta.env.DEV) {
       // P0 INVESTIGATION: Check BOTH root-level AND nested graph.edges
       const rootEdges = raw?.edges || []
@@ -570,6 +662,7 @@ export class CEEClient {
       console.log('[CEE] isCEEv2Response result:', isCEEv2Response(raw))
       console.log('[CEE] === END DIAGNOSTIC ===')
     }
+    /* eslint-enable no-restricted-syntax, no-console */
 
     // Update graph_readiness gate on successful response
     useGateStore.getState().setGate('graph_readiness', 'pass', { message: 'Draft graph received' })
@@ -594,6 +687,10 @@ export class CEEClient {
           hasStages: Array.isArray(rawTrace?.stages),
         })
       }
+
+      // LLM omission resilience: infer missing category from graph edges
+      inferMissingCategories(result.nodes, result.edges)
+
       return result
     }
 
@@ -616,6 +713,10 @@ export class CEEClient {
           hasStages: Array.isArray(rawTrace?.stages),
         })
       }
+
+      // LLM omission resilience: infer missing category from graph edges
+      inferMissingCategories(result.nodes, result.edges)
+
       return result
     }
 
@@ -637,7 +738,7 @@ export class CEEClient {
     },
     archetype?: string
   ): Promise<CEEInsightsResponse> {
-    return this.fetch<CEEInsightsResponse>('/bias-check', {
+    return this.fetchIdempotent<CEEInsightsResponse>('/bias-check', {
       method: 'POST',
       body: JSON.stringify({ graph, archetype }),
     })
@@ -657,7 +758,7 @@ export class CEEClient {
     },
     inference: Record<string, unknown>
   ): Promise<CEEInsightsResponse> {
-    return this.fetch<CEEInsightsResponse>('/sensitivity-coach', {
+    return this.fetchIdempotent<CEEInsightsResponse>('/sensitivity-coach', {
       method: 'POST',
       body: JSON.stringify({ graph, inference }),
     })

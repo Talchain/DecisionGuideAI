@@ -9,7 +9,8 @@ import { buildHealthStrings } from '../utils/graphHealthStrings'
 import { typography } from '../../styles/typography'
 import { Collapsible } from '../../components/Collapsible'
 import { EmptyState } from './EmptyState'
-import { useAsk } from '../../hooks/useAsk'
+import { useAsk, composeBriefText } from '../../hooks/useAsk'
+import { BRIEF_MIN_CHARS } from '../../constants/validation'
 
 type InputsDockTab = 'documents' | 'scenarios' | 'limits'
 
@@ -25,34 +26,6 @@ interface InputsDockProps {
   renderDocumentsTab?: () => JSX.Element
 }
 
-// P0 Fix: Minimum brief length for CEE validation
-const MIN_BRIEF_LENGTH = 30
-
-/**
- * Calculate brief length from framing fields
- * Matches logic in useAsk.ts buildBriefFromFraming()
- */
-function calculateBriefLength(framing: {
-  title?: string
-  goal?: string
-  timeline?: string
-  constraints?: string
-  risks?: string
-  uncertainties?: string
-} | null): number {
-  if (!framing) return 0
-
-  const parts: string[] = []
-  if (framing.title) parts.push(`Decision: ${framing.title}`)
-  if (framing.goal) parts.push(`Goal: ${framing.goal}`)
-  if (framing.timeline) parts.push(`Timeline: ${framing.timeline}`)
-  if (framing.constraints) parts.push(`Constraints: ${framing.constraints}`)
-  if (framing.risks) parts.push(`Risks: ${framing.risks}`)
-  if (framing.uncertainties) parts.push(`Uncertainties: ${framing.uncertainties}`)
-
-  return parts.join('\n\n').length
-}
-
 function FramingSection() {
   // React #185 FIX: Use shallow comparison for object selector
   const framing = useCanvasStore(s => s.currentScenarioFraming)
@@ -64,8 +37,8 @@ function FramingSection() {
   const hasCoreFraming = Boolean(framing?.title || framing?.goal || framing?.timeline)
 
   // P0 Fix: Calculate brief length for validation hint
-  const briefLength = useMemo(() => calculateBriefLength(framing), [framing])
-  const showBriefHint = briefLength > 0 && briefLength < MIN_BRIEF_LENGTH
+  const briefLength = useMemo(() => composeBriefText(framing).length, [framing])
+  const showBriefHint = briefLength > 0 && briefLength < BRIEF_MIN_CHARS
 
   const handleChange = (field: 'title' | 'goal' | 'timeline' | 'constraints' | 'risks' | 'uncertainties') =>
     (event: any) => {
@@ -93,7 +66,7 @@ function FramingSection() {
             <input
               id="framing-title"
               type="text"
-              className={`w-full rounded border border-sand-300 px-2 py-1 ${typography.caption} text-ink-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
+              className={`w-full rounded border border-sand-300 px-2 py-1 ${typography.caption} text-ink-900 focus:outline-none focus:ring-2 focus:ring-info focus:border-info`}
               value={framing?.title ?? ''}
               onChange={handleChange('title')}
               placeholder="What decision are you making?"
@@ -107,7 +80,7 @@ function FramingSection() {
             <textarea
               id="framing-goal"
               rows={2}
-              className={`w-full rounded border border-sand-300 px-2 py-1 ${typography.caption} text-ink-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none`}
+              className={`w-full rounded border border-sand-300 px-2 py-1 ${typography.caption} text-ink-900 focus:outline-none focus:ring-2 focus:ring-info focus:border-info resize-none`}
               value={framing?.goal ?? ''}
               onChange={handleChange('goal')}
               placeholder="What does a good outcome look like?"
@@ -121,7 +94,7 @@ function FramingSection() {
             <input
               id="framing-timeline"
               type="text"
-              className={`w-full rounded border border-sand-300 px-2 py-1 ${typography.caption} text-ink-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
+              className={`w-full rounded border border-sand-300 px-2 py-1 ${typography.caption} text-ink-900 focus:outline-none focus:ring-2 focus:ring-info focus:border-info`}
               value={framing?.timeline ?? ''}
               onChange={handleChange('timeline')}
               placeholder="For example: next quarter, 12–18 months."
@@ -133,7 +106,7 @@ function FramingSection() {
           <button
             type="button"
             onClick={() => setShowAdvanced(v => !v)}
-            className={`inline-flex items-center ${typography.code} font-medium text-blue-700 hover:text-blue-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded`}
+            className={`inline-flex items-center ${typography.code} font-medium text-info hover:text-info focus:outline-none focus-visible:ring-2 focus-visible:ring-info rounded`}
             data-testid="framing-toggle-advanced"
           >
             {showAdvanced ? 'Hide extra structure' : 'Add more structure'}
@@ -148,7 +121,7 @@ function FramingSection() {
                 <textarea
                   id="framing-constraints"
                   rows={2}
-                  className={`w-full rounded border border-sand-300 px-2 py-1 ${typography.caption} text-ink-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none`}
+                  className={`w-full rounded border border-sand-300 px-2 py-1 ${typography.caption} text-ink-900 focus:outline-none focus:ring-2 focus:ring-info focus:border-info resize-none`}
                   value={framing?.constraints ?? ''}
                   onChange={handleChange('constraints')}
                   placeholder="Key constraints or non-negotiables."
@@ -162,7 +135,7 @@ function FramingSection() {
                 <textarea
                   id="framing-risks"
                   rows={2}
-                  className={`w-full rounded border border-sand-300 px-2 py-1 ${typography.caption} text-ink-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none`}
+                  className={`w-full rounded border border-sand-300 px-2 py-1 ${typography.caption} text-ink-900 focus:outline-none focus:ring-2 focus:ring-info focus:border-info resize-none`}
                   value={framing?.risks ?? ''}
                   onChange={handleChange('risks')}
                   placeholder="What could go wrong or be costly?"
@@ -176,7 +149,7 @@ function FramingSection() {
                 <textarea
                   id="framing-uncertainties"
                   rows={2}
-                  className={`w-full rounded border border-sand-300 px-2 py-1 ${typography.caption} text-ink-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none`}
+                  className={`w-full rounded border border-sand-300 px-2 py-1 ${typography.caption} text-ink-900 focus:outline-none focus:ring-2 focus:ring-info focus:border-info resize-none`}
                   value={framing?.uncertainties ?? ''}
                   onChange={handleChange('uncertainties')}
                   placeholder="Unknowns, assumptions, or information gaps."
@@ -195,8 +168,8 @@ function FramingSection() {
           data-testid="brief-length-hint"
         >
           <p className={`${typography.caption} text-sun-800`}>
-            <span className="font-medium">Tip:</span> Brief should be at least {MIN_BRIEF_LENGTH} characters for best AI review results.
-            <span className="text-sun-600 ml-1">({MIN_BRIEF_LENGTH - briefLength} more needed)</span>
+            <span className="font-medium">Tip:</span> Brief should be at least {BRIEF_MIN_CHARS} characters for best AI review results.
+            <span className="text-sun-600 ml-1">({BRIEF_MIN_CHARS - briefLength} more needed)</span>
           </p>
         </div>
       )}
@@ -235,7 +208,7 @@ function ScenarioRunSummary() {
         <div className="rounded-lg border border-sand-200 bg-paper-50">
           <EmptyState
             icon={PlayCircle}
-            title="Ready to analyze"
+            title="Ready to analyse"
             description="Run an analysis to see how your decision model performs with current inputs."
             hint="Results will appear in the Outputs panel"
             className="py-4"
@@ -278,7 +251,7 @@ function ScenarioRunSummary() {
       <button
         type="button"
         onClick={() => setShowResultsPanel(true)}
-        className={`mt-1 inline-flex items-center px-2 py-1 rounded border border-blue-200 text-blue-700 ${typography.code} font-medium hover:bg-blue-50`}
+        className={`mt-1 inline-flex items-center px-2 py-1 rounded border border-info/30 text-info ${typography.code} font-medium hover:bg-panel-hover`}
       >
         Open latest results
       </button>
@@ -301,7 +274,7 @@ function LimitsTabBody({ currentNodes, currentEdges }: { currentNodes: number; c
         <button
           type="button"
           onClick={retry}
-          className={`inline-flex items-center px-2 py-1 rounded border border-blue-200 text-blue-700 ${typography.code} font-medium hover:bg-blue-50`}
+          className={`inline-flex items-center px-2 py-1 rounded border border-info/30 text-info ${typography.code} font-medium hover:bg-panel-hover`}
         >
           Retry fetching limits
         </button>
@@ -471,10 +444,10 @@ function AskInput() {
       {/* Preflight error (graph too large) */}
       {isPreflightError && (
         <div
-          className="mb-2 p-2 rounded-lg bg-amber-50 border border-amber-200"
+          className="mb-2 p-2 rounded-lg bg-panel border border-warning/30"
           data-testid="preflight-error"
         >
-          <p className={`${typography.caption} text-amber-700`}>
+          <p className={`${typography.caption} text-warning`}>
             {error.message}
           </p>
         </div>
@@ -678,11 +651,12 @@ export function InputsDock({ onShowDocuments, currentNodes = 0, currentEdges = 0
                 key={tab.id}
                 type="button"
                 onClick={() => handleTabClick(tab.id)}
-                className={`flex-1 px-2 py-1 rounded ${typography.caption} font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-info-500 focus-visible:ring-offset-1 ${
+                className={`flex-1 px-2 py-1 rounded ${typography.caption} font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-1 ${
                   state.activeTab === tab.id
-                    ? 'bg-sky-200 text-sky-600 border-b-2 border-sky-500'
+                    ? 'text-info border-b-2 border-info'
                     : 'text-ink-900/70 hover:bg-paper-50 hover:text-ink-900 border-b-2 border-transparent'
                 }`}
+                style={state.activeTab === tab.id ? { backgroundColor: 'rgba(99,173,207,0.15)' } : undefined}
                 data-testid={tab.id === 'documents' ? 'inputs-dock-tab-documents' : undefined}
               >
                 {tab.label}
@@ -705,11 +679,12 @@ export function InputsDock({ onShowDocuments, currentNodes = 0, currentEdges = 0
                 key={tab.id}
                 type="button"
                 onClick={() => handleTabClick(tab.id)}
-                className={`flex items-center justify-center w-7 h-7 rounded-full border ${typography.caption} focus:outline-none focus-visible:ring-2 focus-visible:ring-info-500 focus-visible:ring-offset-1 ${
+                className={`flex items-center justify-center w-7 h-7 rounded-full border ${typography.caption} focus:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-1 ${
                   state.activeTab === tab.id
-                    ? 'bg-sky-200 text-sky-600 border-sky-500'
+                    ? 'text-info border-info'
                     : 'text-ink-900/70 bg-paper-50 border-sand-200 hover:bg-paper-50 hover:text-ink-900'
                 }`}
+                style={state.activeTab === tab.id ? { backgroundColor: 'rgba(99,173,207,0.15)' } : undefined}
                 aria-label={tab.label}
                 title={tab.label}
               >

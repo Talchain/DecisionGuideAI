@@ -35,7 +35,7 @@ const ONBOARDING_STEPS: OnboardingStep[] = [
     title: 'Welcome to Olumi',
     description:
       'Create → Tweak → Analyse → Compare → Capture. Olumi keeps the whole decision journey in one canvas so you can see causality, document rationale, and replay results with confidence.',
-    icon: <Sparkles className="w-8 h-8 text-blue-600" aria-hidden="true" />,
+    icon: <Sparkles className="w-8 h-8 text-info" aria-hidden="true" />,
     bullets: [
       'Create nodes for goals, options, risks, evidence, and outcomes.',
       'Tweak edges to express influence using weight (effect size) plus belief (confidence).',
@@ -47,7 +47,7 @@ const ONBOARDING_STEPS: OnboardingStep[] = [
     title: 'Templates and merging',
     description:
       'Jump-start with curated templates or merge a template into your current work without overwriting anything.',
-    icon: <Layers className="w-8 h-8 text-purple-600" aria-hidden="true" />,
+    icon: <Layers className="w-8 h-8 text-option" aria-hidden="true" />,
     bullets: [
       'Start from Template: creates a fresh scenario seeded with ready-made nodes and edges.',
       'Merge into current: adds the template alongside your existing graph — safe, non-destructive.',
@@ -59,7 +59,7 @@ const ONBOARDING_STEPS: OnboardingStep[] = [
     title: 'Save and autosave',
     description:
       'Saved by you · just now ✓ — Olumi autosaves locally every 30 seconds and records who last edited each scenario.',
-    icon: <Save className="w-8 h-8 text-emerald-600" aria-hidden="true" />,
+    icon: <Save className="w-8 h-8 text-success" aria-hidden="true" />,
     bullets: [
       'Recovery banners highlight any divergence between autosave and the current canvas.',
       'Export or import .olumi files to back up snapshots or share securely.',
@@ -70,7 +70,7 @@ const ONBOARDING_STEPS: OnboardingStep[] = [
     id: 'editing',
     title: 'Editing Essentials',
     description: 'Stay in flow with quick-add and inline editing controls.',
-    icon: <Edit3 className="w-8 h-8 text-amber-600" aria-hidden="true" />,
+    icon: <Edit3 className="w-8 h-8 text-warning" aria-hidden="true" />,
     bullets: [
       'Press Q for the Radial Quick-Add menu anywhere on the canvas.',
       'Inline edge editor lets you nudge weight/belief with arrow keys or Shift+arrow for coarse changes.',
@@ -94,7 +94,7 @@ const ONBOARDING_STEPS: OnboardingStep[] = [
     title: 'Compare and capture rationale',
     description:
       'Save snapshots (Scenario A, Scenario B, etc.), compare them side-by-side, then capture the decision rationale for auditability.',
-    icon: <GitCompare className="w-8 h-8 text-rose-600" aria-hidden="true" />,
+    icon: <GitCompare className="w-8 h-8 text-danger" aria-hidden="true" />,
     bullets: [
       'Top-5 edge diffs highlight the biggest causal changes between snapshots.',
       'Capture rationale directly in Compare view so reviewers see “why” next to the data.',
@@ -106,7 +106,7 @@ const ONBOARDING_STEPS: OnboardingStep[] = [
     title: 'Share and export safely',
     description:
       'Everything runs locally for single-user mode. Share links stay on your device unless you copy them out.',
-    icon: <Share2 className="w-8 h-8 text-indigo-600" aria-hidden="true" />,
+    icon: <Share2 className="w-8 h-8 text-info" aria-hidden="true" />,
     bullets: [
       'Decision Brief export bundles scenarios, p10/p50/p90 deltas, rationale, and provenance metadata.',
       'Clipboard helpers redact sensitive snippets by default; toggle redaction per viewer.',
@@ -118,7 +118,7 @@ const ONBOARDING_STEPS: OnboardingStep[] = [
     title: 'Know Your Limits',
     description:
       'The toolbar shows a “Using live limits” chip so you always know how much headroom remains.',
-    icon: <ShieldCheck className="w-8 h-8 text-teal-600" aria-hidden="true" />,
+    icon: <ShieldCheck className="w-8 h-8 text-info" aria-hidden="true" />,
     bullets: [
       'Graph size: 50 nodes / 200 edges per run.',
       'Payload guard: 96 KB max body (client-side check before sending).',
@@ -272,7 +272,7 @@ export function OnboardingOverlay({ onClose, isOpen, onShowKeyboardLegend, onSho
             <div
               key={index}
               className={`h-1 flex-1 rounded-full transition-colors ${
-                index <= currentStep ? 'bg-blue-600' : 'bg-gray-200'
+                index <= currentStep ? 'bg-primary' : 'bg-gray-200'
               }`}
               aria-hidden="true"
             />
@@ -299,7 +299,7 @@ export function OnboardingOverlay({ onClose, isOpen, onShowKeyboardLegend, onSho
           <ul className="mt-4 space-y-3 text-gray-700">
             {step.bullets.map((bullet, index) => (
               <li key={index} className="flex items-start gap-3">
-                <span className="mt-1 h-2 w-2 rounded-full bg-blue-500" aria-hidden="true" />
+                <span className="mt-1 h-2 w-2 rounded-full bg-info" aria-hidden="true" />
                 <span>{bullet}</span>
               </li>
             ))}
@@ -310,7 +310,7 @@ export function OnboardingOverlay({ onClose, isOpen, onShowKeyboardLegend, onSho
               {onShowKeyboardLegend && (
                 <button
                   onClick={onShowKeyboardLegend}
-                  className="px-4 py-2 rounded-md border border-blue-200 text-blue-700 hover:bg-blue-50 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none"
+                  className="px-4 py-2 rounded-md border border-info/30 text-info hover:bg-panel-hover focus-visible:ring-2 focus-visible:ring-info focus-visible:outline-none"
                 >
                   Open keyboard shortcuts
                 </button>
@@ -352,7 +352,7 @@ export function OnboardingOverlay({ onClose, isOpen, onShowKeyboardLegend, onSho
             </button>
             <button
               onClick={handleNext}
-              className="flex items-center gap-2 px-6 py-2 bg-blue-600 text-white rounded-md font-medium hover:bg-blue-700 transition-colors"
+              className="flex items-center gap-2 px-6 py-2 bg-primary text-text-on-color rounded-md font-medium hover:bg-primary-hover transition-colors"
               aria-label={isLastStep ? 'Finish onboarding' : 'Next step'}
             >
               {isLastStep ? 'Get Started' : 'Next'}

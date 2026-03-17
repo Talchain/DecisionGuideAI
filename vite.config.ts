@@ -1,6 +1,7 @@
 import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
 import path from 'node:path';
+import { execSync } from 'node:child_process';
 
 // ⚠️  CRITICAL: DO NOT ADD use-sync-external-store shim aliases!
 // The custom shim causes React #185 infinite loops because useCallback dependencies
@@ -57,9 +58,14 @@ export default defineConfig(({ mode, command }) => {
   plugins: [react()],
   define: {
     __BUILD_ID__: JSON.stringify(process.env.BUILD_ID || new Date().toISOString()),
+    __GIT_SHA__: JSON.stringify(
+      (() => { try { return execSync('git rev-parse --short=7 HEAD', { encoding: 'utf-8' }).trim() } catch { return 'unknown' } })()
+    ),
   },
   resolve: {
     alias: [
+      // @ → src/ path alias (used by 60+ files)
+      { find: /^@\//, replacement: path.resolve(__dirname, 'src') + '/' },
       // POC/test stubs for guest mode
       ...(isPoc ? [
         { find: '@supabase/supabase-js', replacement: path.resolve(__dirname, 'src/stubs/supabase-stub.mjs') },
@@ -140,7 +146,7 @@ optimizeDeps: {
         configure: (proxy) => {
           // Only log targets when debug proxy enabled
           if (env.VITE_DEBUG_PROXY === '1') {
-            console.log(`[PROXY] Engine target: ${env.ENGINE_SERVICE_URL}`)
+            console.warn(`[PROXY] Engine target: ${env.ENGINE_SERVICE_URL}`)
           }
 
           proxy.on('error', (err) => {
@@ -156,7 +162,7 @@ optimizeDeps: {
         configure: (proxy, options) => {
           // Only log targets when debug proxy enabled
           if (env.VITE_DEBUG_PROXY === '1') {
-            console.log(`[PROXY] Configured target: ${env.PLOT_API_URL || 'http://localhost:4311'}`)
+            console.warn(`[PROXY] Configured target: ${env.PLOT_API_URL || 'http://localhost:4311'}`)
           }
 
           proxy.on('error', (err, req, res) => {
@@ -166,7 +172,7 @@ optimizeDeps: {
           // Add auth header from server-side env (never expose to browser)
           const apiKey = env.PLOT_API_KEY
           if (env.VITE_DEBUG_PROXY === '1') {
-            console.log(`[PROXY] Auth: PLOT_API_KEY = ${sanitizeKey(apiKey)}`)
+            console.warn(`[PROXY] Auth: PLOT_API_KEY = ${sanitizeKey(apiKey)}`)
           }
           if (apiKey) {
             proxy.on('proxyReq', (proxyReq) => {
@@ -185,7 +191,7 @@ optimizeDeps: {
         configure: (proxy) => {
           // Only log targets when debug proxy enabled
           if (env.VITE_DEBUG_PROXY === '1') {
-            console.log(
+            console.warn(
               `[PROXY] Assist BFF target: ${env.ASSIST_BFF_URL || 'http://127.0.0.1:54321/functions/v1/assist-proxy'}`
             )
           }
@@ -206,8 +212,8 @@ optimizeDeps: {
           const ceeApiKey = env.ASSIST_API_KEY
           // P0-A Security: Only log targets when debug proxy enabled, with sanitized keys
           if (env.VITE_DEBUG_PROXY === '1') {
-            console.log(`[PROXY] CEE target: ${ceeTarget}`)
-            console.log(`[PROXY] CEE auth: X-Olumi-Assist-Key = ${sanitizeKey(ceeApiKey)}`)
+            console.warn(`[PROXY] CEE target: ${ceeTarget}`)
+            console.warn(`[PROXY] CEE auth: X-Olumi-Assist-Key = ${sanitizeKey(ceeApiKey)}`)
           }
           if (!ceeApiKey) {
             console.warn('[PROXY] CEE auth: ASSIST_API_KEY not set - requests may fail with 401')
@@ -220,7 +226,7 @@ optimizeDeps: {
             }
             // P0-A Security: Only log request URLs when explicitly enabled (may contain user content)
             if (env.VITE_DEBUG_PROXY === '1') {
-              console.log(`[PROXY] CEE ${req.method} ${req.url} → ${ceeTarget}${proxyReq.path}`)
+              console.warn(`[PROXY] CEE ${req.method} ${req.url} → ${ceeTarget}${proxyReq.path}`)
             }
           })
 
@@ -246,8 +252,8 @@ optimizeDeps: {
           const islApiKey = env.ISL_API_KEY
           // P0-A Security: Only log targets when debug proxy enabled, with sanitized keys
           if (env.VITE_DEBUG_PROXY === '1') {
-            console.log(`[PROXY] ISL target: ${islTarget}`)
-            console.log(`[PROXY] ISL auth: Authorization Bearer = ${sanitizeKey(islApiKey)}`)
+            console.warn(`[PROXY] ISL target: ${islTarget}`)
+            console.warn(`[PROXY] ISL auth: Authorization Bearer = ${sanitizeKey(islApiKey)}`)
           }
           if (!islApiKey) {
             console.warn('[PROXY] ISL auth: ISL_API_KEY not set - requests may fail with 401')
@@ -264,6 +270,34 @@ optimizeDeps: {
 
           proxy.on('error', (err) => {
             console.error('[PROXY ERROR] /bff/isl', err.message)
+          })
+        }
+      },
+      '/bff/orchestrate': {
+        target: requireProxyEnv('CEE_SERVICE_URL'),
+        changeOrigin: true,
+        secure: false,
+        // Rewrite /bff/orchestrate/* → /orchestrate/* (CEE backend path)
+        rewrite: (path) => path.replace(/^\/bff\/orchestrate/, '/orchestrate'),
+        configure: (proxy) => {
+          const ceeApiKey = env.ASSIST_API_KEY
+          if (env.VITE_DEBUG_PROXY === '1') {
+            console.warn(`[PROXY] Orchestrator target: ${env.CEE_SERVICE_URL}`)
+            console.warn(`[PROXY] Orchestrator auth: X-Olumi-Assist-Key = ${sanitizeKey(ceeApiKey)}`)
+          }
+          if (!ceeApiKey) {
+            console.warn('[PROXY] Orchestrator auth: ASSIST_API_KEY not set - requests may fail with 401')
+          }
+
+          // Inject same auth header as /bff/cee proxy
+          proxy.on('proxyReq', (proxyReq) => {
+            if (ceeApiKey) {
+              proxyReq.setHeader('X-Olumi-Assist-Key', ceeApiKey)
+            }
+          })
+
+          proxy.on('error', (err) => {
+            console.error('[PROXY ERROR] /bff/orchestrate', err.message)
           })
         }
       }
@@ -282,7 +316,7 @@ optimizeDeps: {
         configure: (proxy) => {
           // Only log targets when debug proxy enabled
           if (env.VITE_DEBUG_PROXY === '1') {
-            console.log(`[PROXY] Engine target: ${env.ENGINE_SERVICE_URL}`)
+            console.warn(`[PROXY] Engine target: ${env.ENGINE_SERVICE_URL}`)
           }
 
           proxy.on('error', (err) => {
@@ -299,7 +333,7 @@ optimizeDeps: {
         configure: (proxy) => {
           // Only log targets when debug proxy enabled
           if (env.VITE_DEBUG_PROXY === '1') {
-            console.log(
+            console.warn(
               `[PROXY] Assist BFF target: ${env.ASSIST_BFF_URL || 'http://127.0.0.1:54321/functions/v1/assist-proxy'}`
             )
           }
@@ -320,8 +354,8 @@ optimizeDeps: {
           const ceeApiKey = env.ASSIST_API_KEY
           // P0-A Security: Only log targets when debug proxy enabled, with sanitized keys
           if (env.VITE_DEBUG_PROXY === '1') {
-            console.log(`[PROXY] CEE target: ${ceeTarget}`)
-            console.log(`[PROXY] CEE auth: X-Olumi-Assist-Key = ${sanitizeKey(ceeApiKey)}`)
+            console.warn(`[PROXY] CEE target: ${ceeTarget}`)
+            console.warn(`[PROXY] CEE auth: X-Olumi-Assist-Key = ${sanitizeKey(ceeApiKey)}`)
           }
           if (!ceeApiKey) {
             console.warn('[PROXY] CEE auth: ASSIST_API_KEY not set - requests may fail with 401')
@@ -334,7 +368,7 @@ optimizeDeps: {
             }
             // P0-A Security: Only log request URLs when explicitly enabled (may contain user content)
             if (env.VITE_DEBUG_PROXY === '1') {
-              console.log(`[PROXY] CEE ${req.method} ${req.url} → ${ceeTarget}${proxyReq.path}`)
+              console.warn(`[PROXY] CEE ${req.method} ${req.url} → ${ceeTarget}${proxyReq.path}`)
             }
           })
 
@@ -360,8 +394,8 @@ optimizeDeps: {
           const islApiKey = env.ISL_API_KEY
           // P0-A Security: Only log targets when debug proxy enabled, with sanitized keys
           if (env.VITE_DEBUG_PROXY === '1') {
-            console.log(`[PROXY] ISL target: ${islTarget}`)
-            console.log(`[PROXY] ISL auth: Authorization Bearer = ${sanitizeKey(islApiKey)}`)
+            console.warn(`[PROXY] ISL target: ${islTarget}`)
+            console.warn(`[PROXY] ISL auth: Authorization Bearer = ${sanitizeKey(islApiKey)}`)
           }
           if (!islApiKey) {
             console.warn('[PROXY] ISL auth: ISL_API_KEY not set - requests may fail with 401')
@@ -378,6 +412,32 @@ optimizeDeps: {
 
           proxy.on('error', (err) => {
             console.error('[PROXY ERROR] /bff/isl', err.message)
+          })
+        }
+      },
+      '/bff/orchestrate': {
+        target: requireProxyEnv('CEE_SERVICE_URL'),
+        changeOrigin: true,
+        secure: false,
+        rewrite: (path) => path.replace(/^\/bff\/orchestrate/, '/orchestrate'),
+        configure: (proxy) => {
+          const ceeApiKey = env.ASSIST_API_KEY
+          if (env.VITE_DEBUG_PROXY === '1') {
+            console.warn(`[PROXY] Orchestrator target: ${env.CEE_SERVICE_URL}`)
+            console.warn(`[PROXY] Orchestrator auth: X-Olumi-Assist-Key = ${sanitizeKey(ceeApiKey)}`)
+          }
+          if (!ceeApiKey) {
+            console.warn('[PROXY] Orchestrator auth: ASSIST_API_KEY not set - requests may fail with 401')
+          }
+
+          proxy.on('proxyReq', (proxyReq) => {
+            if (ceeApiKey) {
+              proxyReq.setHeader('X-Olumi-Assist-Key', ceeApiKey)
+            }
+          })
+
+          proxy.on('error', (err) => {
+            console.error('[PROXY ERROR] /bff/orchestrate', err.message)
           })
         }
       }

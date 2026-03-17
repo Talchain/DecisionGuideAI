@@ -22,6 +22,7 @@ import { Tooltip } from './components/Tooltip'
 import { useRunEligibilityCheck } from './hooks/useRunEligibilityCheck'
 import { Spinner } from '../components/Spinner'
 import { EdgeLabelToggle } from './components/EdgeLabelToggle'
+import { isOrchestratorV2Enabled, isLegacyDirectRunEnabled } from '../flags'
 
 // Phase 3: Lazy load heavy components for better performance
 const GoalModePanel = lazy(() => import('./components/GoalModePanel').then(m => ({ default: m.GoalModePanel })))
@@ -133,13 +134,18 @@ export function CanvasToolbar() {
         }
       }
 
-      // Run analysis with default seed and outcome node (if set)
-      await run({
-        template_id: 'canvas-graph',
-        seed: 1337,
-        graph: { nodes, edges },
-        outcome_node: outcomeNodeId || undefined
-      })
+      // Transition flag: flip OFF once orchestrator path is confirmed on staging.
+      // Pilot users should only get results via orchestrator.
+      // When orchestratorV2 is ON and legacyDirectRun is OFF: skip direct PLoT call.
+      const skipDirectRun = isOrchestratorV2Enabled() && !isLegacyDirectRunEnabled()
+      if (!skipDirectRun) {
+        await run({
+          template_id: 'canvas-graph',
+          seed: 1337,
+          graph: { nodes, edges },
+          outcome_node: outcomeNodeId || undefined
+        })
+      }
     } catch (err: any) {
       console.error('[CanvasToolbar] Run failed:', err)
       setValidationErrors([{
@@ -242,7 +248,7 @@ export function CanvasToolbar() {
                 className={`p-1.5 text-sm font-medium rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 flex items-center gap-1.5 ${
                   isAtNodeCapacity
                     ? 'text-gray-400 bg-gray-200 cursor-not-allowed'
-                    : 'text-white bg-info-500 hover:bg-info-600 focus:ring-info-500'
+                    : 'text-text-on-color bg-info-500 hover:bg-info-600 focus:ring-info-500'
                 }`}
                 aria-label={isAtNodeCapacity ? `Node limit reached` : 'Add node to canvas'}
                 aria-expanded={showNodeMenu}
@@ -323,7 +329,7 @@ export function CanvasToolbar() {
             <button
               onClick={runMode === 'goal' ? () => setShowGoalPanel(true) : handleRunAnalysis}
               disabled={isRunning || validationErrors.length > 0}
-              className={`px-3 py-1.5 ${typography.label} text-white bg-info-500 hover:bg-info-600 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-info-500 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed`}
+              className={`px-3 py-1.5 ${typography.label} text-text-on-color bg-info-500 hover:bg-info-600 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-info-500 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed`}
               title={validationErrors.length > 0 ? "Fix issues to run" : isRunning ? "Analysis in progress..." : runMode === 'goal' ? "Set Goal" : "Run Analysis (⌘R)"}
               aria-label={validationErrors.length > 0 ? "Cannot run - fix validation issues first" : isRunning ? "Analysis running - please wait" : runMode === 'goal' ? "Open goal mode" : "Run analysis on current graph"}
               data-testid="btn-run-analysis"
@@ -536,7 +542,7 @@ export function CanvasToolbar() {
                 resetCanvas()
                 setShowResetConfirm(false)
               }}
-              className="flex-1 px-4 py-2 bg-danger-600 text-white rounded hover:bg-danger-700"
+              className="flex-1 px-4 py-2 bg-danger-600 text-text-on-color rounded hover:bg-danger-700"
               data-testid="btn-confirm-reset"
             >
               Reset everything

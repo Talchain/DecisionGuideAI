@@ -93,7 +93,7 @@ export function LimitsPanel({ isOpen, onClose, currentNodes, currentEdges }: Lim
           </p>
           <button
             onClick={retry}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-info-600 text-white rounded-lg hover:bg-info-700 transition-colors"
+            className="inline-flex items-center gap-2 px-4 py-2 bg-info-600 text-text-on-color rounded-lg hover:bg-info-700 transition-colors"
           >
             <RefreshCw className="w-4 h-4" />
             Retry
@@ -105,7 +105,7 @@ export function LimitsPanel({ isOpen, onClose, currentNodes, currentEdges }: Lim
     if (loading || !limits) {
       return (
         <div className="py-12 text-center">
-          <div className="w-8 h-8 mx-auto mb-4 border-4 border-info-200 border-t-info-600 rounded-full animate-spin" />
+          <div className="w-8 h-8 mx-auto mb-4 border-4 border-info/30 border-t-info rounded-full animate-spin" />
           <p className={`${typography.body} text-ink-900/70`}>Loading limits...</p>
         </div>
       )
@@ -130,8 +130,8 @@ export function LimitsPanel({ isOpen, onClose, currentNodes, currentEdges }: Lim
         </div>
 
         {source === 'fallback' && (
-          <div className="p-3 rounded-lg bg-warning-50 border border-warning-200">
-            <p className={`${typography.body} text-warning-800`}>
+          <div className="p-3 rounded-lg bg-panel border border-warning/30">
+            <p className={`${typography.body} text-warning`}>
               Using fallback limits because the live endpoint is unavailable.
             </p>
             <button

@@ -155,7 +155,7 @@ export function CompareView({ onOpenInCanvas, onBack, selectedRunIds, onSelectio
               />
               <button
                 onClick={handleExportBrief}
-                className={`flex items-center gap-2 px-4 py-2 ${typography.button} text-white bg-info-600 rounded-lg hover:bg-info-700 transition-colors`}
+                className={`flex items-center gap-2 px-4 py-2 ${typography.button} text-text-on-color bg-info-600 rounded-lg hover:bg-info-700 transition-colors`}
                 type="button"
                 aria-label="Export decision brief"
               >

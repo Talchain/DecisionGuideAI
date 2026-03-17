@@ -24,15 +24,15 @@ export function HealthStatusBar({ health, onShowIssues, onQuickFix }: HealthStat
 
   // Color based on status
   const statusColors = {
-    healthy: 'bg-green-50 border-green-200 text-green-800',
-    warnings: 'bg-yellow-50 border-yellow-200 text-yellow-800',
-    errors: 'bg-red-50 border-red-200 text-red-800',
+    healthy: 'bg-panel border-success/30 text-success',
+    warnings: 'bg-panel border-warning/30 text-warning',
+    errors: 'bg-panel border-danger/30 text-danger',
   }
 
   const statusIcons = {
-    healthy: <CheckCircle2 className="w-5 h-5 text-green-600" />,
-    warnings: <AlertTriangle className="w-5 h-5 text-yellow-600" />,
-    errors: <AlertCircle className="w-5 h-5 text-red-600" />,
+    healthy: <CheckCircle2 className="w-5 h-5 text-success" />,
+    warnings: <AlertTriangle className="w-5 h-5 text-warning" />,
+    errors: <AlertCircle className="w-5 h-5 text-danger" />,
   }
 
   return (
@@ -73,7 +73,7 @@ export function HealthStatusBar({ health, onShowIssues, onQuickFix }: HealthStat
               {fixableCount > 0 && onQuickFix && (
                 <button
                   onClick={onQuickFix}
-                  className={`flex items-center gap-1 px-3 py-1 bg-blue-600 text-white rounded ${typography.caption} font-medium hover:bg-blue-700`}
+                  className={`flex items-center gap-1 px-3 py-1 bg-primary text-text-on-color rounded ${typography.caption} font-medium hover:bg-primary-hover`}
                 >
                   <Wrench className="w-3 h-3" />
                   Quick Fix ({fixableCount})

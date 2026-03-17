@@ -55,8 +55,8 @@ export function ConnectivityChip() {
       aria-label={isHealthy ? 'Engine online' : 'Engine offline'}
       className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
         isHealthy
-          ? 'bg-green-50 text-green-700 border border-green-200'
-          : 'bg-amber-50 text-amber-700 border border-amber-200'
+          ? 'bg-panel text-success border border-success/30'
+          : 'bg-panel text-warning border border-warning/30'
       }`}
     >
       {isProbing ? (
@@ -72,7 +72,7 @@ export function ConnectivityChip() {
       {!isHealthy && !isProbing && (
         <button
           onClick={handleManualRetry}
-          className="ml-1 text-amber-600 hover:text-amber-800 underline"
+          className="ml-1 text-warning hover:text-warning underline"
           aria-label="Retry connection"
         >
           Retry

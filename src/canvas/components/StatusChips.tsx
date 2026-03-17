@@ -32,7 +32,7 @@ export function StatusChips({ currentNodes = 0, currentEdges = 0, className = ''
     return (
       <button
         onClick={onClick || retry}
-        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border ${typography.caption} font-medium text-danger-700 bg-danger-50 border-danger-200 hover:bg-danger-100 transition-colors cursor-pointer ${className}`}
+        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border ${typography.caption} font-medium text-danger bg-panel border-danger/30 hover:opacity-80 transition-colors cursor-pointer ${className}`}
         title={`Failed to load limits: ${error.message}${timestamp}\nClick to ${onClick ? 'view details' : 'retry'}`}
         aria-label="Limits unavailable - click for details"
       >
@@ -71,9 +71,9 @@ export function StatusChips({ currentNodes = 0, currentEdges = 0, className = ''
   // Determine highest usage to set chip color
   const maxPercent = Math.max(nodesPercent, edgesPercent)
   const getChipColor = () => {
-    if (maxPercent >= 90) return 'text-danger-700 bg-danger-50 border-danger-200 hover:bg-danger-100'
-    if (maxPercent >= 70) return 'text-warning-700 bg-warning-50 border-warning-200 hover:bg-warning-100'
-    return 'text-success-700 bg-success-50 border-success-200 hover:bg-success-100'
+    if (maxPercent >= 90) return 'text-danger bg-panel border-danger/30 hover:opacity-80'
+    if (maxPercent >= 70) return 'text-warning bg-panel border-warning/30 hover:opacity-80'
+    return 'text-success bg-panel border-success/30 hover:opacity-80'
   }
 
   const timestamp = fetchedAt ? formatTimestamp(fetchedAt) : 'Unknown'

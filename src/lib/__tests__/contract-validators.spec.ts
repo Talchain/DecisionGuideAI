@@ -97,7 +97,7 @@ describe('Contract Validators', () => {
 
     describe('status enum', () => {
       it('passes for valid status values', () => {
-        const validStatuses = ['ready', 'needs_encoding', 'needs_user_mapping']
+        const validStatuses = ['ready', 'needs_encoding', 'needs_user_mapping', 'needs_user_input']
 
         for (const status of validStatuses) {
           const response = {
@@ -1099,6 +1099,7 @@ describe('Contract Validators', () => {
       expect(detectService('/bff/cee/draft-graph')).toBe('CEE')
       expect(detectService('/cee/assist')).toBe('CEE')
       expect(detectService('/api/draft-graph')).toBe('CEE')
+      expect(detectService('/bff/orchestrate/v1/turn')).toBe('CEE')
     })
 
     it('detects PLoT endpoints', () => {

@@ -66,7 +66,7 @@ describe('PanelSection', () => {
     )
 
     const section = container.querySelector('section')
-    expect(section).toHaveClass('border', 'border-sand-200', 'rounded-xl', 'p-3', 'bg-paper-50')
+    expect(section).toHaveClass('border', 'border-panel-border', 'rounded-lg', 'p-3', 'bg-panel')
   })
 
   it('title has correct styling', () => {
@@ -78,7 +78,7 @@ describe('PanelSection', () => {
 
     const title = screen.getByText('Test Title')
     expect(title.tagName).toBe('H4')
-    expect(title).toHaveClass('text-[12px]', 'font-medium', 'text-ink-900/70', 'uppercase', 'tracking-wide')
+    expect(title).toHaveClass('text-[11px]', 'font-sans', 'leading-snug', 'text-text-light', 'uppercase', 'tracking-wide')
   })
 
   it('renders multiple children', () => {
@@ -126,6 +126,6 @@ describe('PanelSection', () => {
     const section = container.querySelector('section')
     // Should have both default and custom classes
     expect(section).toHaveClass('my-custom-class')
-    expect(section).toHaveClass('border', 'border-sand-200', 'rounded-xl', 'p-3', 'bg-paper-50')
+    expect(section).toHaveClass('border', 'border-panel-border', 'rounded-lg', 'p-3', 'bg-panel')
   })
 })

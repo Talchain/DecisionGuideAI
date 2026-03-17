@@ -17,8 +17,8 @@ export default function ScoreStars({ score, onChange, type }: ScoreStarsProps) {
           className={`p-0.5 rounded-full hover:bg-gray-100 transition-colors ${
             value <= score
               ? type === 'pros'
-                ? 'text-green-500'
-                : 'text-red-500'
+                ? 'text-success'
+                : 'text-danger'
               : 'text-gray-300'
           }`}
           aria-label={`Rate ${value} stars`}

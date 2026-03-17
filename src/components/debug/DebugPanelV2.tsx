@@ -11,9 +11,9 @@
 
 import { useState, useCallback, useMemo, CSSProperties } from 'react'
 import { useDebugData } from './hooks/useDebugData'
-import { SummaryTab, DataFlowTab, PipelineTab, RawTab } from './tabs'
+import { SummaryTab, DataFlowTab, PipelineTab, RawTab, LLMCallsTab, ContractIntegrityTab } from './tabs'
 import { PayloadLabTab } from './PayloadLabTab'
-import { exportDebugBundle, copyRequestId } from './utils/exportBundle'
+import { exportDebugBundleAsync, copyRequestId } from './utils/exportBundle'
 import type { ISLTestResponse } from './types'
 import { ISLClient } from '../../adapters/isl/client'
 import { useCanvasStore } from '../../canvas/store'
@@ -22,7 +22,7 @@ import { useCanvasStore } from '../../canvas/store'
 // Types
 // =============================================================================
 
-type V2Tab = 'summary' | 'data-flow' | 'pipeline' | 'raw' | 'payload-lab'
+type V2Tab = 'summary' | 'data-flow' | 'pipeline' | 'llm-calls' | 'contracts' | 'raw' | 'payload-lab'
 
 interface TabConfig {
   id: V2Tab
@@ -33,6 +33,8 @@ const V2_TABS: TabConfig[] = [
   { id: 'summary', label: 'Summary' },
   { id: 'data-flow', label: 'Data Flow' },
   { id: 'pipeline', label: 'Pipeline' },
+  { id: 'llm-calls', label: 'LLM Calls' },
+  { id: 'contracts', label: 'Contract Integrity' },
   { id: 'raw', label: 'Captured' },
   { id: 'payload-lab', label: 'Payload Lab' },
 ]
@@ -73,7 +75,7 @@ export function DebugPanelV2({ onClose, width, height, expanded, onToggleExpande
   }, [data.overall.request_id])
 
   // Handle export all (fetch graph data at export time to avoid subscription issues)
-  const handleExportAll = useCallback(() => {
+  const handleExportAll = useCallback(async () => {
     setExporting(true)
     try {
       // Get current graph data from store only when needed for export
@@ -84,10 +86,7 @@ export function DebugPanelV2({ onClose, width, height, expanded, onToggleExpande
           }
         : undefined
 
-      exportDebugBundle(data, {
-        includeFullGraph,
-        graphData,
-      })
+      await exportDebugBundleAsync(data, { includeFullGraph, graphData })
     } finally {
       setExporting(false)
     }
@@ -355,6 +354,8 @@ export function DebugPanelV2({ onClose, width, height, expanded, onToggleExpande
         )}
         {activeTab === 'data-flow' && <DataFlowTab data={data} />}
         {activeTab === 'pipeline' && <PipelineTab data={data} />}
+        {activeTab === 'llm-calls' && <LLMCallsTab data={data} />}
+        {activeTab === 'contracts' && <ContractIntegrityTab data={data} />}
         {activeTab === 'raw' && <RawTab data={data} />}
         {activeTab === 'payload-lab' && <PayloadLabTab onRunTest={handleRunISLTest} />}
       </div>

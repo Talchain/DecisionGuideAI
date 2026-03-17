@@ -58,13 +58,13 @@ export default function InviteCollaborators({ open, onClose, decisionId }: Invit
 
         <form onSubmit={handleSubmit} className="p-4 space-y-4">
           {error && (
-            <div className="bg-red-50 text-red-700 p-3 rounded-lg text-sm">
+            <div className="bg-panel text-danger p-3 rounded-lg text-sm">
               {error}
             </div>
           )}
           
           {success && (
-            <div className="bg-green-50 text-green-700 p-3 rounded-lg text-sm">
+            <div className="bg-panel text-success p-3 rounded-lg text-sm">
               Invitation sent successfully!
             </div>
           )}
@@ -80,7 +80,7 @@ export default function InviteCollaborators({ open, onClose, decisionId }: Invit
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="Enter email address"
-                className="pl-10 w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                className="pl-10 w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-info focus:border-info/30"
                 required
               />
             </div>
@@ -93,7 +93,7 @@ export default function InviteCollaborators({ open, onClose, decisionId }: Invit
             <select
               value={role}
               onChange={(e) => setRole(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-info focus:border-info/30"
             >
               <option value="contributor">Contributor (can edit)</option>
               <option value="viewer">Viewer (read-only)</option>
@@ -103,7 +103,7 @@ export default function InviteCollaborators({ open, onClose, decisionId }: Invit
           <button
             type="submit"
             disabled={loading || !email.trim()}
-            className="w-full flex items-center justify-center px-4 py-2 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
+            className="w-full flex items-center justify-center px-4 py-2 border border-transparent rounded-lg shadow-sm text-sm font-medium text-text-on-color bg-primary hover:bg-primary-hover focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-info disabled:opacity-50"
           >
             {loading ? (
               <>

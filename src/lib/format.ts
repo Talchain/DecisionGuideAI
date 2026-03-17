@@ -57,6 +57,12 @@ export function formatOutcomeValue(
     return `${prefix}${symbol}${absolute.toLocaleString(undefined, { maximumFractionDigits: 0 })}`
   }
 
+  /**
+   * UI-SEM-008: Probability cap at 99%.
+   * Prevents displaying "100%" which implies absolute certainty. Display-only —
+   * does not affect stored or forwarded values. Applied in 3 locations in this file.
+   * Classification: legitimate display formatting.
+   */
   if (units === 'percent') {
     // Auto-detect if value is in 0-1 probability form vs already percentage
     // Values in 0-1 range (inclusive) are treated as probabilities: 0.5 → 50%, 1 → 100%

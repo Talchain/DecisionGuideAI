@@ -132,7 +132,7 @@ export const EdgeFunctionTypeSelector = memo(function EdgeFunctionTypeSelector({
       {/* Loading state for suggestion */}
       {suggestionLoading && !suggestion && (
         <div className="flex items-center gap-2 p-2 rounded-lg bg-sand-50 border border-sand-200">
-          <Sparkles className="w-4 h-4 text-violet-500 animate-pulse" />
+          <Sparkles className="w-4 h-4 text-option animate-pulse" />
           <span className={`${typography.caption} text-ink-500`}>
             Getting AI suggestion...
           </span>

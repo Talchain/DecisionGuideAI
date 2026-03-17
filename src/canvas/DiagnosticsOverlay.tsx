@@ -82,13 +82,13 @@ export function DiagnosticsOverlay() {
       <div className="space-y-1">
         <div className="flex justify-between gap-4">
           <span className="text-white/60">Timers:</span>
-          <span className={metrics.timers > 10 ? 'text-yellow-400' : 'text-green-400'}>
+          <span className={metrics.timers > 10 ? 'text-warning' : 'text-success'}>
             {metrics.timers}
           </span>
         </div>
         <div className="flex justify-between gap-4">
           <span className="text-white/60">Listeners:</span>
-          <span className={metrics.listeners > 50 ? 'text-yellow-400' : 'text-green-400'}>
+          <span className={metrics.listeners > 50 ? 'text-warning' : 'text-success'}>
             {metrics.listeners}
           </span>
         </div>

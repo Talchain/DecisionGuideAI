@@ -77,11 +77,11 @@ function DecisionEditLoader() {
   if (err || !row)
     return (
       <div className="flex flex-col items-center justify-center h-[60vh]">
-        <p className="text-red-600 mb-2">
+        <p className="text-danger mb-2">
           {err || 'Decision not found.'}
         </p>
         <button
-          className="text-indigo-600 underline"
+          className="text-info underline"
           onClick={() => navigate('/decisions')}
         >
           Back to list
@@ -190,18 +190,18 @@ function DecisionEditInner({ row }: InnerProps) {
             Generating analysis…
           </div>
         ) : analysisError ? (
-          <div className="bg-red-50 p-4 rounded-lg">
+          <div className="bg-panel p-4 rounded-lg">
             <div className="flex items-center gap-2 mb-2">
-              <AlertCircle className="h-5 w-5 text-red-500" />
-              <p className="text-red-700 font-medium">
+              <AlertCircle className="h-5 w-5 text-danger" />
+              <p className="text-danger font-medium">
                 Error loading AI analysis
               </p>
             </div>
-            <p className="text-red-600 text-sm pl-7">{analysisError}</p>
+            <p className="text-danger text-sm pl-7">{analysisError}</p>
             {retryCount < 3 && (
               <button
                 onClick={retry}
-                className="mt-2 text-sm text-indigo-600 hover:text-indigo-700 font-medium pl-7"
+                className="mt-2 text-sm text-info hover:text-info font-medium pl-7"
               >
                 Try Again
               </button>

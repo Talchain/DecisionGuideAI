@@ -1,0 +1,44 @@
+{
+  "analysis_status": "computed",
+  "option_comparison_status": "computed",
+  "robustness_status": "computed",
+  "drivers_status": "computed",
+  "option_comparison": [
+    {
+      "option_id": "option_1",
+      "label": "Option A",
+      "goal_probability": 0.72,
+      "rank": 1
+    }
+  ],
+  "critiques": [],
+  "response_hash": "abc123def456",
+  "_meta": {
+    "request_id_chain": {
+      "ui": "66b1742f-aaaa-bbbb-cccc-111111111111",
+      "plot": "66b1742f-aaaa-bbbb-cccc-111111111111",
+      "isl": "66b1742f-aaaa-bbbb-cccc-111111111111",
+      "isl_echoed": "66b1742f-aaaa-bbbb-cccc-111111111111",
+      "all_match": true,
+      "chain_complete": true
+    }
+  },
+  "m1_review": {
+    "key_assumptions": [
+      "Market demand remains stable over the projection period",
+      "Competitor pricing does not change significantly",
+      "Implementation costs are within 10% of estimates",
+      "Team has capacity to deliver by Q3"
+    ],
+    "pre_mortem": {
+      "failure_scenario": "Project fails to deliver ROI within 18 months due to underestimated market volatility",
+      "warning_signs": [
+        "Monthly revenue growth below 5% threshold",
+        "Customer churn rate exceeds 8%",
+        "Implementation costs exceed 120% of budget"
+      ],
+      "mitigation": "Establish quarterly review checkpoints with go/no-go criteria tied to revenue milestones"
+    }
+  },
+  "repairs_applied": []
+}

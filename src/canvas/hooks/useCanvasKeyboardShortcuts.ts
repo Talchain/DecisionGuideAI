@@ -4,6 +4,8 @@
  * Shortcuts:
  * - P: Focus inline probabilities editor for selected decision
  * - T: Open Templates panel
+ * - L: Toggle Graph Lens dropdown
+ * - ArrowLeft/ArrowRight: Cycle lens option (when option isolation active)
  * - Alt+V: Cycle through validation errors
  * - Cmd/Ctrl+Enter: Run simulation
  * - Cmd/Ctrl+3: Open Results view in Outputs dock
@@ -14,6 +16,10 @@
 
 import { useEffect, useCallback } from 'react'
 import { useCanvasStore, getNextInvalidNode } from '../store'
+import { isGraphLensEnabled } from '../../flags'
+
+/** Custom event dispatched by L key — TopBar listens to toggle the lens dropdown */
+export const LENS_TOGGLE_EVENT = 'topbar:toggle-lens'
 
 interface UseCanvasKeyboardShortcutsOptions {
   onFocusNode?: (nodeId: string) => void
@@ -22,6 +28,8 @@ interface UseCanvasKeyboardShortcutsOptions {
   onToggleInspector?: () => void
   onToggleDocuments?: () => void
   onShowToast?: (message: string, type?: 'info' | 'success' | 'warning' | 'error') => void
+  /** Shift+F10: open context menu at the focused element's position */
+  onOpenContextMenu?: (screenPos: { x: number; y: number }) => void
 }
 
 export function useCanvasKeyboardShortcuts({
@@ -30,7 +38,8 @@ export function useCanvasKeyboardShortcuts({
   onToggleResults,
   onToggleInspector,
   onToggleDocuments,
-  onShowToast
+  onShowToast,
+  onOpenContextMenu,
 }: UseCanvasKeyboardShortcutsOptions = {}) {
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     // Ignore plain-key shortcuts when typing in text inputs/areas or editable content
@@ -169,7 +178,60 @@ export function useCanvasKeyboardShortcuts({
 
       return
     }
-  }, [onFocusNode, onRunSimulation, onToggleResults, onToggleInspector, onToggleDocuments, onShowToast])
+
+    // L: Toggle Graph Lens dropdown
+    if (e.key === 'l' && !e.metaKey && !e.ctrlKey && !e.altKey && !e.shiftKey) {
+      if (isGraphLensEnabled()) {
+        e.preventDefault()
+        window.dispatchEvent(new CustomEvent(LENS_TOGGLE_EVENT))
+      }
+      return
+    }
+
+    // ArrowLeft/ArrowRight: Cycle lens option (when option isolation is active)
+    // Only consume the event when lens actually handles it — otherwise let React Flow process arrows
+    if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && !e.metaKey && !e.ctrlKey && !e.altKey && !e.shiftKey) {
+      const state = useCanvasStore.getState()
+      if (isGraphLensEnabled() && state.lens.active === 'option') {
+        e.preventDefault()
+        state.cycleLensOption(e.key === 'ArrowLeft' ? 'prev' : 'next')
+        return
+      }
+    }
+
+    // Shift+F10: Open context menu at selected element position
+    if (e.shiftKey && e.key === 'F10') {
+      e.preventDefault()
+
+      if (onOpenContextMenu) {
+        const state = useCanvasStore.getState()
+        const { selection } = state
+
+        // Find the DOM element for the selected node/edge to get screen position
+        let screenPos = { x: window.innerWidth / 2, y: window.innerHeight / 2 }
+
+        if (selection.nodeIds.size > 0) {
+          const nodeId = [...selection.nodeIds][0]
+          const el = document.querySelector(`[data-id="${nodeId}"]`)
+          if (el) {
+            const rect = el.getBoundingClientRect()
+            screenPos = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 }
+          }
+        } else if (selection.edgeIds.size > 0) {
+          const edgeId = [...selection.edgeIds][0]
+          const el = document.querySelector(`[data-testid="rf__edge-${edgeId}"]`)
+          if (el) {
+            const rect = el.getBoundingClientRect()
+            screenPos = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 }
+          }
+        }
+
+        onOpenContextMenu(screenPos)
+      }
+
+      return
+    }
+  }, [onFocusNode, onRunSimulation, onToggleResults, onToggleInspector, onToggleDocuments, onShowToast, onOpenContextMenu])
 
   useEffect(() => {
     window.addEventListener('keydown', handleKeyDown)

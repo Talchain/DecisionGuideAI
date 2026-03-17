@@ -17,26 +17,32 @@
 
 import { memo, useMemo, useState } from 'react'
 import { BaseEdge, EdgeLabelRenderer, getBezierPath, getSmoothStepPath, getStraightPath, type EdgeProps, useReactFlow } from '@xyflow/react'
-import { Lightbulb, AlertTriangle } from 'lucide-react'
+import { Lightbulb, AlertTriangle, Flag } from 'lucide-react'
 import type { EdgeData, EdgePathType } from '../domain/edges'
 import { applyEdgeVisualProps } from '../theme/edges'
-import { formatConfidence, shouldShowLabel } from '../domain/edges'
+import { formatConfidence, shouldShowLabel, getEdgeConfidence, computeSignedMean } from '../domain/edges'
 import { useIsDark } from '../hooks/useTheme'
 import { getEdgeLabel } from '../domain/edgeLabels'
 import { useEdgeLabelMode } from '../store/edgeLabelMode'
 import { EdgeEditPopover } from './EdgeEditPopover'
 import { useCanvasStore } from '../store'
-import { existenceCertaintyToLineStyle, calculateEdgeImportance, importanceToStrokeWidth } from '../utils/graphDisplayCalculations'
+import { isGraphLensEnabled } from '../../flags'
+import { isEdgeFragile as isEdgeFragileFn } from '../utils/fragileEdgeMatch'
+import { existenceCertaintyToLineStyle, calculateEdgeImportance, importanceToStrokeWidth, weightMagnitudeToStrokeWidth } from '../utils/graphDisplayCalculations'
 import { typography } from '../../styles/typography'
 import { useEdgeEditHint } from '../hooks/useFirstTimeHints'
+import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion'
 
 /**
  * StyledEdge with semantic visual properties
  * Maps weight/style/curvature to SVG rendering
  * v1.2 + P1: Live edge label toggle (human ⇄ numeric)
  */
+// Direction colours (green/red/grey) are pre-existing hex — not changed in this brief.
+// All new styling uses design tokens.
 export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, selected, data }: EdgeProps<EdgeData>) => {
   const isDark = useIsDark()
+  const prefersReducedMotion = usePrefersReducedMotion()
   const { getNode, getEdges } = useReactFlow()
 
   // P1 Polish: Edge label mode from Zustand store (live updates, cross-tab sync)
@@ -65,25 +71,51 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
   // React #185 FIX: Use primitive boolean selector to prevent infinite re-renders
   const isHighlightedEdge = useCanvasStore(state => state.highlightedEdges.has(id))
 
+  // Graph Lens: edge dimming and styling
+  const isLensDimmed = useCanvasStore(s =>
+    isGraphLensEnabled() && s.lens._dimmedEdgeIds.has(id)
+  )
+  const lensMode = useCanvasStore(s => isGraphLensEnabled() ? s.lens.active : 'full')
+  const lensSensWeight = useCanvasStore(s => {
+    if (!isGraphLensEnabled() || s.lens.active !== 'sensitivity') return null
+    return s.lens._sensitivityWeights.get(id) ?? null
+  })
+  const lensQ25 = useCanvasStore(s => {
+    if (!isGraphLensEnabled() || s.lens.active !== 'sensitivity') return null
+    return s.lens._sensitivityQuartiles?.q25 ?? null
+  })
+  const lensQ75 = useCanvasStore(s => {
+    if (!isGraphLensEnabled() || s.lens.active !== 'sensitivity') return null
+    return s.lens._sensitivityQuartiles?.q75 ?? null
+  })
+  const isLensFragile = useCanvasStore(s =>
+    isGraphLensEnabled() && s.lens.active === 'fragile' && s.lens._fragileEdgeIds.has(id)
+  )
+
+  // Graph Lens: alternative winner label for fragile edge hover
+  const lensFragileLabel = useMemo(() => {
+    if (!isLensFragile || !report) return ''
+    const reportAny = report as Record<string, unknown>
+    const robustness = reportAny.robustness as Record<string, unknown> | undefined
+    const fragileEdges = (robustness?.fragile_edges ?? []) as Array<Record<string, unknown>>
+    for (const fe of fragileEdges) {
+      const feEdgeId = (fe.edge_id ?? fe.edgeId) as string | undefined
+      const fromId = (fe.from_id ?? fe.fromId ?? fe.source) as string | undefined
+      const toId = (fe.to_id ?? fe.toId ?? fe.target) as string | undefined
+      if (feEdgeId === id || (fromId === source && toId === target)) {
+        const altLabel = (fe.alternative_winner_label ?? fe.alternativeWinnerLabel) as string | undefined
+        return altLabel ? `If wrong → ${altLabel}` : 'Fragile'
+      }
+    }
+    return 'Fragile'
+  }, [isLensFragile, report, id, source, target])
+
   // Check if this edge is fragile (switch_probability > 0.3)
-  // P0 Fix: Match by from_id/to_id (source/target) OR edge_id
-  // API returns from_id/to_id pairs, not edge_id in most cases
+  // Uses shared utility for consistent matching across StyledEdge, useMenuItems, useLensFilter
   const isFragileEdge = useMemo(() => {
     if (!isResultsMode || !report?.robustness) return false
     const fragileEdges = report.robustness.fragile_edges || []
-    return fragileEdges.some((fe: any) => {
-      const switchProb = fe.switch_probability ?? fe.switchProbability ?? fe.marginal_switch_probability ?? fe.marginalSwitchProbability
-      if (typeof switchProb !== 'number' || switchProb <= 0.3) return false
-
-      // Try matching by edge_id first
-      const edgeId = fe.edge_id || fe.edgeId
-      if (edgeId === id) return true
-
-      // P0 Fix: Match by from_id/to_id (source/target) - primary matching method
-      const fromId = fe.from_id ?? fe.fromId ?? fe.source
-      const toId = fe.to_id ?? fe.toId ?? fe.target
-      return fromId === source && toId === target
-    })
+    return isEdgeFragileFn(id, source, target, fragileEdges)
   }, [isResultsMode, report, id, source, target])
 
   // Extract edge data with defaults
@@ -122,10 +154,11 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
     [weight, style, curvature, selected, isDark]
   )
 
-  // Task A: Edge thickness based on importance (Results mode only)
+  // Task A: Edge thickness based on importance (Results) or weight magnitude (Edit)
   const edgeStrokeWidth = useMemo(() => {
     if (!isResultsMode || !report) {
-      return visualProps.strokeWidth // Edit mode: uniform thickness
+      // D.1: Pre-run mode — stroke width encodes weight magnitude
+      return weightMagnitudeToStrokeWidth(computeSignedMean(edgeData as Record<string, unknown> | undefined))
     }
 
     // Get factor_sensitivity data
@@ -172,23 +205,35 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
 
     // Map to stroke width (1-8px range)
     return importanceToStrokeWidth(importance, maxImportance)
-  }, [isResultsMode, report, source, edgeData?.beliefExists, weight, getEdges, visualProps.strokeWidth])
+  }, [isResultsMode, report, source, edgeData?.beliefExists, weight, getEdges, edgeData?.direction])
 
-  // Decision Graph Display v2: Direction-based stroke colour
-  // positive: green, negative: red (risk color), unknown: grey
+  // F.2: Direction-based stroke colour — applies both pre-run and post-run
+  // Yellow is strictly reserved for truly uninitialised edges (no direction AND no weight).
+  // If weight is defined but direction is not, use grey (not yellow).
   const directionStroke = useMemo(() => {
-    if (!direction) return isDark ? '#a1a1aa' : '#d4d4d8' // Zinc-400/300 for unknown
-    if (direction === 'positive') {
+    const rawWeight = edgeData?.weight
+    // Truly uninitialised: no direction AND weight is undefined → yellow
+    if (direction === undefined && rawWeight === undefined) {
+      return 'var(--goal)'
+    }
+    // Weight defined but direction not yet set → grey (not yellow)
+    if (direction === undefined) {
+      return isDark ? '#a1a1aa' : '#d4d4d8' // Zinc-400/300
+    }
+    // Direction set with positive weight → green
+    if (direction === 'positive' && weight > 0) {
       return isDark ? '#bbf7d0' : '#a7f3d0' // Pastel green-200/emerald-200
     }
-    if (direction === 'negative') {
+    // Direction set with negative weight → red
+    if (direction === 'negative' && weight > 0) {
       return isDark ? '#FF6B6B' : '#ef4444' // Risk red (matches risk node border)
     }
-    return isDark ? '#a1a1aa' : '#d4d4d8' // Zinc fallback
-  }, [direction, isDark])
+    // Neutral: weight === 0 (valid user choice)
+    return isDark ? '#a1a1aa' : '#d4d4d8' // Zinc-400/300 (grey/ink)
+  }, [direction, weight, edgeData?.weight, isDark])
 
   // Decision Graph Display v2: Existence certainty line style
-  // Solid: >70%, Dashed: 30-70%, Dotted: <30%
+  // Solid: >70%, Dashed: 40-70%, Dotted: <40%
   // Use utility function to ensure single source of truth
   // Issue #1 fix: Add fallback for snake_case field names from raw API data
   const beliefExists = edgeData?.beliefExists ??
@@ -202,6 +247,14 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
   // Fix 1: Line style encodes existence certainty ONLY, not direction
   // Direction is already encoded via color (green/red) and sign (+/−)
   const dashArray = existenceCertaintyDash
+
+  // D.1: Unified confidence check via getEdgeConfidence (returns null when missing)
+  const edgeConfidenceValue = getEdgeConfidence(edgeData as Record<string, unknown> | undefined)
+
+  // B.I.10: Pre-run overlay — dashed stroke for edges with NO confidence set.
+  // F.2: Controls dash pattern only; colour is derived from direction.
+  // A confidence of 0 is a valid user choice (low), not "missing".
+  const isPreRunIncompleteEdge = !isResultsMode && edgeConfidenceValue === null
 
   // Determine label visibility and styling
   const labelVisibility = useMemo(
@@ -278,23 +331,45 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
         style={{ pointerEvents: 'stroke' }}
+        {...(isPreRunIncompleteEdge ? { 'data-testid': 'overlay-missing-confidence' } : {})}
       />
       <BaseEdge
         id={id}
         path={edgePath}
         style={{
           // Graph Interaction P1: Highlighted edges get thicker stroke
-          strokeWidth: isHighlightedEdge ? Math.max(edgeStrokeWidth, 3) : edgeStrokeWidth,
+          strokeWidth: (() => {
+            // Graph Lens: sensitivity mode adjusts stroke width by quartile
+            if (lensMode === 'sensitivity' && lensSensWeight !== null && lensQ25 !== null && lensQ75 !== null) {
+              if (lensSensWeight >= lensQ75) return 3
+              if (lensSensWeight <= lensQ25) return 1
+              return 1.5
+            }
+            // Graph Lens: fragile mode thickens fragile edges
+            if (isLensFragile) return 3
+            return isHighlightedEdge ? Math.max(edgeStrokeWidth, 3) : edgeStrokeWidth
+          })(),
           // Fix 1: Use existence certainty for line style, fallback to visual props
-          strokeDasharray: dashArray ?? visualProps.strokeDasharray,
+          // B.I.10: Pre-run incomplete edges get dashed stroke to indicate "needs attention"
+          strokeDasharray: isPreRunIncompleteEdge ? '6 3' : (dashArray ?? visualProps.strokeDasharray),
           // Graph Interaction P1: Highlighted edges get brighter color
-          // Brief v2.2: Use direction-based colour (always applies - grey for unknown)
-          // Use semantic-info token (sky-500) to avoid conflict with fragile edge badges
+          // F.2: Direction colour always applies — yellow only for truly uninitialised edges
+          // Pre-run overlay controls dash pattern only, not colour
           stroke: isHighlightedEdge ? 'var(--semantic-info)' : (directionStroke ?? visualProps.stroke),
+          // Graph Lens: opacity for dimmed edges
+          opacity: isLensDimmed ? 0.2
+            : (lensMode === 'sensitivity' && lensSensWeight !== null && lensQ25 !== null && lensSensWeight <= lensQ25) ? 0.4
+            : undefined,
+          // Graph Lens: subtle glow for high-sensitivity edges
+          filter: (lensMode === 'sensitivity' && lensSensWeight !== null && lensQ75 !== null && lensSensWeight >= lensQ75)
+            ? 'drop-shadow(0 0 2px var(--semantic-info, #3b82f6))'
+            : undefined,
           // Performance: use will-change for frequent updates
-          willChange: selected || isHighlightedEdge ? 'stroke, stroke-width' : undefined,
-          // Graph Interaction P1: Smooth transition for highlighting
-          transition: 'stroke 200ms, stroke-width 200ms',
+          willChange: selected || isHighlightedEdge ? 'stroke, stroke-width, stroke-dasharray' : undefined,
+          // D.1: Smooth transitions for live styling; respect prefers-reduced-motion (§7.4)
+          transition: prefersReducedMotion
+            ? 'none'
+            : 'stroke 200ms ease, stroke-width 200ms ease, stroke-dasharray 200ms ease, opacity 300ms ease',
         }}
       />
       
@@ -334,13 +409,35 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
               padding: '2px 6px',
               borderRadius: '4px',
             }}
-            className={`${isDark ? 'bg-orange-900/90 text-orange-200' : 'bg-orange-100 text-orange-900'} border border-orange-400 shadow-sm`}
+            className="bg-panel text-text-body border border-warning/30 shadow-sm"
             title="Sensitive assumption - outcome may flip if this relationship changes"
           >
             <AlertTriangle size={12} />
             <span style={{ fontSize: '10px', fontWeight: 600 }}>
               Fragile
             </span>
+          </div>
+        </EdgeLabelRenderer>
+      )}
+
+      {/* Graph Lens: Alternative winner label on fragile edges (hover/selection only) */}
+      {/* Correction #2: component-local state, no store update, no rerender of other edges */}
+      {isLensFragile && (isHovered || selected) && (
+        <EdgeLabelRenderer>
+          <div
+            style={{
+              position: 'absolute',
+              transform: `translate(-50%, -50%) translate(${labelX}px,${labelY + 20}px)`,
+              pointerEvents: 'none',
+              padding: '2px 8px',
+              borderRadius: '4px',
+              fontSize: '11px',
+              fontWeight: 500,
+              whiteSpace: 'nowrap',
+            }}
+            className="bg-panel text-text-body border border-warning/30 shadow-sm"
+          >
+            {lensFragileLabel}
           </div>
         </EdgeLabelRenderer>
       )}
@@ -411,7 +508,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
                       }}
                       className={
                         provenance === 'template' ? 'bg-info-500' :
-                        provenance === 'user' ? 'bg-orange-500' :
+                        provenance === 'user' ? 'bg-warning' :
                         'bg-gray-400'
                       }
                       title={`Provenance: ${provenance}`}
@@ -421,6 +518,23 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
                 </>
               )
             })()}
+          </div>
+        </EdgeLabelRenderer>
+      )}
+
+      {/* Context menu: Assumption flag badge on edge */}
+      {data?.flagged_as_assumption && (
+        <EdgeLabelRenderer>
+          <div
+            style={{
+              position: 'absolute',
+              transform: `translate(-50%, -50%) translate(${labelX + 20}px,${labelY - 14}px)`,
+              pointerEvents: 'none',
+            }}
+            title="Flagged as assumption"
+            data-testid="edge-assumption-badge"
+          >
+            <Flag size={12} className="text-warning" />
           </div>
         </EdgeLabelRenderer>
       )}

@@ -79,7 +79,7 @@ export default function HealthIndicator({ pause = false }: { pause?: boolean }) 
   const baseTitle = ok == null ? 'Checking…' : ok ? 'Connected' : 'Offline'
   const secs = lastProbeRef.current ? Math.max(0, Math.round((Date.now() - lastProbeRef.current) / 1000)) : 0
   const title = ok == null ? baseTitle : `${baseTitle} — checked ${secs}s ago`
-  const cls = ok ? 'bg-emerald-500' : 'bg-gray-400'
+  const cls = ok ? 'bg-success' : 'bg-gray-400'
 
   return (
     <span

@@ -35,6 +35,10 @@ type PayloadType =
   | 'plot_response'
   | 'isl_request'
   | 'isl_response'
+  | 'm2_request'
+  | 'm2_response'
+  | 'cee_downstream_request'
+  | 'cee_downstream_response'
   | 'llm_raw'
   | 'full_bundle'
   | 'observability_bundle'
@@ -72,6 +76,10 @@ export function RawTab({ data }: RawTabProps) {
       { id: 'plot_response', label: 'PLoT Response', available: data.payloads.plot_response !== undefined },
       { id: 'isl_request', label: 'ISL Request', available: data.payloads.isl_request !== undefined },
       { id: 'isl_response', label: 'ISL Response', available: data.payloads.isl_response !== undefined },
+      { id: 'm2_request', label: 'M2 Review Request', available: data.payloads.m2_request !== undefined },
+      { id: 'm2_response', label: 'M2 Review Response', available: data.payloads.m2_response !== undefined },
+      { id: 'cee_downstream_request', label: 'CEE Downstream Request', available: data.payloads.cee_downstream_request !== undefined },
+      { id: 'cee_downstream_response', label: 'CEE Downstream Response', available: data.payloads.cee_downstream_response !== undefined },
       { id: 'llm_raw', label: 'LLM Raw', available: data.pipeline.llm_raw !== undefined },
       { id: 'full_bundle', label: 'Full Bundle', available: data.hasData },
     ]
@@ -128,6 +136,14 @@ export function RawTab({ data }: RawTabProps) {
         return data.payloads.isl_request
       case 'isl_response':
         return data.payloads.isl_response
+      case 'm2_request':
+        return data.payloads.m2_request
+      case 'm2_response':
+        return data.payloads.m2_response
+      case 'cee_downstream_request':
+        return data.payloads.cee_downstream_request
+      case 'cee_downstream_response':
+        return data.payloads.cee_downstream_response
       case 'llm_raw':
         return data.pipeline.llm_raw
       case 'full_bundle':
@@ -214,13 +230,12 @@ export function RawTab({ data }: RawTabProps) {
           style={{
             fontSize: 11,
             fontWeight: 700,
-            textTransform: 'uppercase',
             letterSpacing: '0.05em',
             color: '#64748b',
             marginBottom: 8,
           }}
         >
-          Select Payload
+          Select payload
         </div>
         <div style={selectorStyle} role="radiogroup" aria-label="Payload selector">
           {payloadOptions.map((option) => (

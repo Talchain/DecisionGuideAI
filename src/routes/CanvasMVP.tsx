@@ -3,8 +3,10 @@
 
 import '../styles/plot.css'
 import { useEffect, useState, lazy, Suspense, useCallback, useRef } from 'react'
-import ReactFlowGraph, { type BlueprintEventBus, type BlueprintInsertResult } from '../canvas/ReactFlowGraph'
+import { useParams } from 'react-router-dom'
+import ReactFlowGraph from '../canvas/ReactFlowGraph'
 import type { Blueprint } from '../templates/blueprints/types'
+import { blueprintEventBus } from '../canvas/blueprints/eventBus'
 import { useCanvasStore } from '../canvas/store'
 import { useResultsRun } from '../canvas/hooks/useResultsRun'
 import { useDebugShortcut } from '../canvas/hooks/useDebugShortcut'
@@ -13,36 +15,16 @@ import { DebugTray } from '../components/DebugTray'
 import { TopBar } from '../components/layout/TopBar'
 import { getScenario } from '../canvas/store/scenarios'
 import { buildShareLink } from '../canvas/utils/shareLink'
+import { useScenario } from '../hooks/useScenario'
 
 const TemplatesPanel = lazy(() => import('../canvas/panels/TemplatesPanel').then(m => ({ default: m.TemplatesPanel })))
-
-interface LocalBlueprintEventBus extends BlueprintEventBus {
-  listeners: ((blueprint: Blueprint) => BlueprintInsertResult)[]
-  emit: (blueprint: Blueprint) => BlueprintInsertResult
-}
-
-// Event bus for blueprint insertion with result support
-const blueprintEventBus: LocalBlueprintEventBus = {
-  listeners: [] as ((blueprint: Blueprint) => BlueprintInsertResult)[],
-  emit(blueprint: Blueprint): BlueprintInsertResult {
-    // Call all listeners and collect results
-    const results = this.listeners.map(fn => fn(blueprint))
-    // Return first result (should only be one listener in practice)
-    return results[0] || {}
-  },
-  subscribe(fn: (blueprint: Blueprint) => BlueprintInsertResult) {
-    this.listeners.push(fn)
-    return () => {
-      this.listeners = this.listeners.filter(l => l !== fn)
-    }
-  }
-}
 
 export default function CanvasMVP() {
   // Brief 37 Task 3: Render counter to detect if parent is causing re-renders
   const renderCountRef = useRef(0)
   renderCountRef.current++
   if (import.meta.env.DEV) {
+    // eslint-disable-next-line no-console, no-restricted-syntax
     console.log(`[CanvasMVP] Render #${renderCountRef.current}`)
   }
 
@@ -60,13 +42,37 @@ export default function CanvasMVP() {
   // v1.2: Auto-run analysis after template insertion
   const { run } = useResultsRun()
 
+  // C.1a: Supabase scenario persistence
+  const { id: scenarioIdFromRoute } = useParams<{ id: string }>()
+  const {
+    loadScenario: loadSupabaseScenario,
+    saveStatus: supabaseSaveStatus,
+    lastSavedAt: supabaseLastSaved,
+    saveError: supabaseSaveError,
+    isPersistenceActive,
+    createSharedBrief,
+  } = useScenario()
+
+  // C.1a: Hydrate from Supabase when navigating to /scenario/:id
+  const hydratedRef = useRef<string | null>(null)
+  useEffect(() => {
+    if (scenarioIdFromRoute && isPersistenceActive && hydratedRef.current !== scenarioIdFromRoute) {
+      hydratedRef.current = scenarioIdFromRoute
+      loadSupabaseScenario(scenarioIdFromRoute).catch((err) => {
+        if (import.meta.env.DEV) {
+          console.error('[CanvasMVP] Failed to load scenario from Supabase:', err)
+        }
+      })
+    }
+  }, [scenarioIdFromRoute, isPersistenceActive, loadSupabaseScenario])
+
   // Track canvas opened event
   useEffect(() => {
     trackCanvasOpened()
 
     // Dev-only console log
     if (import.meta.env.DEV) {
-      // eslint-disable-next-line no-console
+      // eslint-disable-next-line no-console, no-restricted-syntax
       console.log('[CANVAS]', { route: '/canvas', mode: 'RF+Templates' })
     }
   }, [])
@@ -83,6 +89,7 @@ export default function CanvasMVP() {
       setInsertionError(null)
 
       if (import.meta.env.DEV) {
+        // eslint-disable-next-line no-console, no-restricted-syntax
         console.log('[CanvasMVP] Template inserted:', blueprint.name)
       }
 
@@ -118,6 +125,7 @@ export default function CanvasMVP() {
       })
 
       if (import.meta.env.DEV) {
+        // eslint-disable-next-line no-console, no-restricted-syntax
         console.log('[CanvasMVP] Auto-run started for template:', blueprint.name)
       }
     }
@@ -126,7 +134,7 @@ export default function CanvasMVP() {
   const handlePinToCanvas = useCallback((data: { template_id: string; seed: number; response_hash: string; likely_value: number }) => {
     // TODO: Create result badge node
     if (import.meta.env.DEV) {
-      // eslint-disable-next-line no-console
+      // eslint-disable-next-line no-console, no-restricted-syntax
       console.log('[Canvas] Pin to canvas:', data)
     }
   }, [])
@@ -180,17 +188,36 @@ export default function CanvasMVP() {
     }
   }, [currentScenarioId, saveCurrentScenario, scenarioTitle])
 
-  const handleShare = useCallback(() => {
+  const handleShare = useCallback(async () => {
     try {
+      // C.1b: If Supabase persistence is active, create a shared brief via RPC
+      if (isPersistenceActive) {
+        const result = await createSharedBrief()
+        if (result) {
+          const url = `${window.location.origin}/#/brief/${result.slug}`
+          if (navigator.clipboard?.writeText) {
+            await navigator.clipboard.writeText(url).catch(() => {
+              // eslint-disable-next-line no-alert
+              window.prompt('Copy this link', url)
+            })
+          } else {
+            // eslint-disable-next-line no-alert
+            window.prompt('Copy this link', url)
+          }
+          return
+        }
+        // If createSharedBrief returned null (no scenarioId), fall through to local share
+      }
+
+      // Local share fallback (guest mode)
       const { results } = useCanvasStore.getState()
       const hash = results.hash
       if (!hash) {
-        // eslint-disable-next-line no-console
         console.warn('[CanvasMVP] Cannot share scenario: no results hash available')
         return
       }
       const link = buildShareLink(hash)
-      if (navigator.clipboard && navigator.clipboard.writeText) {
+      if (navigator.clipboard?.writeText) {
         navigator.clipboard.writeText(link).catch(() => {
           // eslint-disable-next-line no-alert
           window.prompt('Copy this link', link)
@@ -200,10 +227,12 @@ export default function CanvasMVP() {
         window.prompt('Copy this link', link)
       }
     } catch (error) {
-      // eslint-disable-next-line no-console
       console.error('[CanvasMVP] Failed to generate share link', error)
+      // User-friendly: if brief creation fails, show a message
+      // eslint-disable-next-line no-alert
+      window.alert('Generate a decision brief first before sharing.')
     }
-  }, [])
+  }, [isPersistenceActive, createSharedBrief])
 
   return (
     <div style={{ height: '100vh', width: '100vw', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
@@ -213,7 +242,10 @@ export default function CanvasMVP() {
         onSave={handleSave}
         onShare={handleShare}
         isDirty={isDirty}
-        lastSaved={lastSaved}
+        lastSaved={isPersistenceActive && supabaseLastSaved ? new Date(supabaseLastSaved) : lastSaved}
+        saveStatus={isPersistenceActive ? supabaseSaveStatus : undefined}
+        saveError={isPersistenceActive ? supabaseSaveError : undefined}
+        isPersisted={isPersistenceActive}
       />
 
       <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
@@ -251,5 +283,3 @@ export default function CanvasMVP() {
     </div>
   )
 }
-
-export { blueprintEventBus }

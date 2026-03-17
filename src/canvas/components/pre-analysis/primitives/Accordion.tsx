@@ -12,6 +12,7 @@
 
 import { useId, useState, useRef, useEffect, type ReactNode } from 'react'
 import { ChevronRight, ChevronDown } from 'lucide-react'
+import { typography } from '@/styles/typography'
 
 interface AccordionProps {
   /** Section title displayed in header */
@@ -30,6 +31,8 @@ interface AccordionProps {
   testId?: string
   /** Additional class for the container */
   className?: string
+  /** Additional class for the title element (overrides default h3 styling) */
+  titleClassName?: string
 }
 
 export function Accordion({
@@ -41,6 +44,7 @@ export function Accordion({
   children,
   testId,
   className = '',
+  titleClassName,
 }: AccordionProps) {
   // Support both controlled and uncontrolled modes
   const [internalExpanded, setInternalExpanded] = useState(defaultExpanded)
@@ -108,13 +112,13 @@ export function Accordion({
           />
           <h3
             id={headingId}
-            className="text-[14px] font-semibold text-text-header"
+            className={titleClassName ?? `${typography.panelHeader} text-text-header`}
           >
             {title}
           </h3>
         </div>
         {rightContent && (
-          <div className="text-xs text-text-light">
+          <div className={`${typography.panelMeta} text-text-light`}>
             {rightContent}
           </div>
         )}
