@@ -215,29 +215,24 @@ describe('computeGapTop2', () => {
 
 // ─── resolveStability ───────────────────────────────────────────────────────
 
+// Audit F-56: resolveStability no longer fabricates numeric values from categorical levels
 describe('resolveStability', () => {
   it('uses recommendationStability when present', () => {
     expect(resolveStability(0.72, 'high')).toBe(0.72)
   })
 
-  it('falls back to robustnessLevel map when stability missing', () => {
-    expect(resolveStability(undefined, 'moderate')).toBe(0.65)
+  it('returns null when only robustnessLevel available (no fabrication)', () => {
+    expect(resolveStability(undefined, 'moderate')).toBeNull()
   })
 
-  it('maps high → 0.85', () => {
-    expect(resolveStability(undefined, 'high')).toBe(0.85)
+  it('returns null for all categorical levels (no fabrication)', () => {
+    expect(resolveStability(undefined, 'high')).toBeNull()
+    expect(resolveStability(undefined, 'low')).toBeNull()
+    expect(resolveStability(undefined, 'very_low')).toBeNull()
   })
 
-  it('maps low → 0.50', () => {
-    expect(resolveStability(undefined, 'low')).toBe(0.50)
-  })
-
-  it('maps very_low → 0.35', () => {
-    expect(resolveStability(undefined, 'very_low')).toBe(0.35)
-  })
-
-  it('defaults to 0.50 when both missing', () => {
-    expect(resolveStability(undefined, undefined)).toBe(0.50)
+  it('returns null when both missing (no fabrication)', () => {
+    expect(resolveStability(undefined, undefined)).toBeNull()
   })
 })
 

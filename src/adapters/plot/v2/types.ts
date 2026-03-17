@@ -108,15 +108,7 @@ export interface V2RunRequest {
   request_id?: string
   /** Optional success threshold for probability_of_goal calculation */
   goal_threshold?: number
-  /**
-   * User's decision framing for contextualised CEE responses.
-   * When provided, CEE can generate more relevant headlines and guidance.
-   */
-  framing?: {
-    title?: string
-    goal?: string
-    constraints?: string
-  }
+  // Audit F-01: framing removed — PLoT rejects unknown fields (extra='forbid', 400).
   /**
    * Original decision brief from the user.
    * PLoT uses this for context when generating insights and recommendations.

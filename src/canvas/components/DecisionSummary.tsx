@@ -29,11 +29,11 @@ import { useCanvasStore } from '../store'
 import { useISLConformal } from '../../hooks/useISLConformal'
 import { useComparisonDetection } from '../hooks/useComparisonDetection'
 import { buildRichGraphPayload, getRecommendedOptionInterventions } from '../utils/graphPayload'
-import { formatOutcomeValue, type OutcomeUnits } from '../../lib/format'
+import { type OutcomeUnits } from '../../lib/format'
 import { typography } from '../../styles/typography'
 import { computeBaselineComparison } from '../utils/baselineComparison'
 // P0.2: Precision display for confidence-aware outcome formatting
-import { getPrecisionDisplay, type PrecisionDisplayResult } from '../../lib/precisionDisplay'
+import { getPrecisionDisplay } from '../../lib/precisionDisplay'
 import { getRationale, type Rationale } from '../utils/ceeDataAdapter'
 import type { ConfidenceLevel } from '../../adapters/plot/types'
 import type { CeeDecisionReviewPayloadV1 } from '../../types/cee'
@@ -235,22 +235,9 @@ export function DecisionSummary({
     const story = runMeta?.ceeReview?.story
     const topDriver = story?.key_drivers?.[0]
 
-    /**
-     * UI-SEM-009: p15/p85 confidence band fabrication.
-     * ISL provides p10/p50/p90; p15 and p85 are linearly interpolated
-     * (p15 = midpoint of p10–p50, p85 = midpoint of p50–p90).
-     * These values were never computed by ISL — they are UI-derived estimates.
-     * Classification: F.6 VIOLATION — fabricates percentiles ISL never calculated.
-     * TODO: F.6 VIOLATION — request p15/p85 from PLoT or remove interpolation.
-     */
-    let confidenceBand = null
-    if (p10 !== undefined && p50 !== undefined && p90 !== undefined) {
-      const p15 = p10 + (p50 - p10) * 0.5
-      const p85 = p50 + (p90 - p50) * 0.5
-      if (Math.abs(p85 - p15) >= 1) { // Only show if range is meaningful
-        confidenceBand = { p15, p85 }
-      }
-    }
+    // Audit F-55: Removed UI-SEM-009 p15/p85 interpolation (F.6 violation).
+    // ISL only provides p10/p50/p90. UI must not fabricate intermediate percentiles.
+    // The 80% confidence band (p10–p90) is displayed via precisionDisplay instead.
 
     // Calculate baseline comparison using unified utility (fixes P0 - consistent logic)
     const units: OutcomeUnits = (report.results.units || 'percent') as OutcomeUnits
@@ -316,7 +303,6 @@ export function DecisionSummary({
       headline: keyInsight,
       topDriver,
       baselineComparison,
-      confidenceBand,
       goalProbability,
       precisionDisplay, // P0.2: Precision-aware display
     }
@@ -447,13 +433,6 @@ export function DecisionSummary({
               </p>
             )}
           </div>
-        )}
-
-        {/* 70% confidence band */}
-        {summaryData.confidenceBand && (
-          <p className={`${typography.caption} text-ink-500 mb-2`}>
-            70% likely (estimated): {formatOutcomeValue(summaryData.confidenceBand.p15, summaryData.units, summaryData.unitSymbol)}–{formatOutcomeValue(summaryData.confidenceBand.p85, summaryData.units, summaryData.unitSymbol)}
-          </p>
         )}
 
         {/* Winner context - shown when NOT the winner but ranking available */}

@@ -683,11 +683,6 @@ export function transformEdgeToV2Strict(edge: Edge<CanvasEdgeData>): V2Edge {
  * Options for buildV2Request fallback path.
  */
 interface BuildV2RequestFallbackOptions {
-  framing?: {
-    title?: string
-    goal?: string
-    constraints?: string
-  }
   brief?: string
 }
 
@@ -698,7 +693,7 @@ interface BuildV2RequestFallbackOptions {
  * @param edges - Canvas edges
  * @param options - UIOptions (may come from CEE or extracted from nodes)
  * @param goalNodeId - The outcome/goal node ID
- * @param fallbackOptions - Optional framing and brief for fallback path
+ * @param fallbackOptions - Optional brief for fallback path
  * @returns V2RunRequest with normalised IDs and reverseIdMap for response translation
  */
 export function buildV2Request(
@@ -740,7 +735,7 @@ export function buildV2Request(
     goal_node_id: normalised.goalNodeId ?? goalNodeId,
     seed: String(Math.floor(Date.now() / 1000) % 1000000),
     detail_level: 'deep',
-    ...(fallbackOptions?.framing && { framing: fallbackOptions.framing }),
+    // Audit F-01: framing removed — PLoT rejects it (extra='forbid', 400).
     ...(fallbackOptions?.brief && { brief: fallbackOptions.brief }),
   }
 
@@ -765,15 +760,7 @@ export interface BuildV2RequestOptions {
    * If not provided, falls back to analysisReady.suggested_seed or derives from timestamp.
    */
   seed?: number
-  /**
-   * User's decision framing for contextualised CEE responses.
-   * When provided, CEE can generate more relevant headlines and guidance.
-   */
-  framing?: {
-    title?: string
-    goal?: string
-    constraints?: string
-  }
+  // Audit F-01: framing removed — PLoT rejects unknown fields (extra='forbid', 400).
   /**
    * Original decision brief from the user.
    * PLoT uses this for context when generating insights and recommendations.
@@ -810,14 +797,14 @@ export function buildV2RequestFromAnalysisReady(
   fallbackGoalNodeId?: string,
   options: BuildV2RequestOptions = {}
 ): { request: V2RunRequest; reverseIdMap: Map<string, string> } {
-  const { strictEdgeValidation = false, framing, brief, goalConstraints } = options
+  const { strictEdgeValidation = false, brief, goalConstraints } = options
 
   // Fall back to standard buildV2Request if no analysisReady
   if (!analysisReady) {
     if (!fallbackGoalNodeId) {
       throw new Error('Either analysisReady or fallbackGoalNodeId must be provided')
     }
-    return buildV2Request(nodes, edges, fallbackOptions ?? [], fallbackGoalNodeId, { framing, brief })
+    return buildV2Request(nodes, edges, fallbackOptions ?? [], fallbackGoalNodeId, { brief })
   }
 
   // Step 1: Validate edges if strict mode enabled
@@ -867,8 +854,8 @@ export function buildV2RequestFromAnalysisReady(
   // ALLOWLIST: Only PLoT-accepted top-level fields may appear here.
   // PLoT uses extra='forbid' — unknown fields cause 400.
   // Accepted: graph, options, goal_node_id, goal_threshold, goal_constraints,
-  //           seed, detail_level, brief, request_id, framing
-  // NOT accepted: goal_threshold_raw, goal_threshold_unit, goal_threshold_cap
+  //           seed, detail_level, brief, request_id
+  // NOT accepted: goal_threshold_raw, goal_threshold_unit, goal_threshold_cap, framing
   //               (these are CEE display metadata, stored in analysis_ready only)
   const request: V2RunRequest = {
     graph: normalised.graph,
@@ -876,8 +863,7 @@ export function buildV2RequestFromAnalysisReady(
     goal_node_id: normalised.goalNodeId ?? goalNodeId,
     seed,
     detail_level: 'deep',
-    // Include framing for contextualised CEE responses
-    ...(framing && { framing }),
+    // Audit F-01: Removed framing — PLoT rejects unknown fields (extra='forbid', 400).
     // Include brief for PLoT context
     ...(brief && { brief }),
     // Goal threshold (normalised 0-1) — accepted by PLoT
@@ -1175,7 +1161,6 @@ export async function executeV2Run(
  * @param requestId - Optional request ID for tracing
  * @param goalThreshold - Optional success threshold for probability_of_goal
  * @param seed - P0 Fix: Optional seed for reproducibility (avoids hardcoded "42")
- * @param framing - User's decision framing for contextualised CEE responses
  * @param brief - Original decision brief from user for PLoT context
  * @param goalConstraints - Goal constraints from CEE response root for multi-constraint analysis
  */
@@ -1188,7 +1173,6 @@ export async function executeV2RunWithAnalysisReady(
   requestId?: string,
   goalThreshold?: number,
   seed?: number,
-  framing?: { title?: string; goal?: string; constraints?: string },
   brief?: string,
   goalConstraints?: CEEGoalConstraint[] | null
 ): Promise<V2RunResult> {
@@ -1205,7 +1189,7 @@ export async function executeV2RunWithAnalysisReady(
     analysisReady,
     fallbackOptions,
     fallbackGoalNodeId,
-    { strictEdgeValidation: false, seed, framing, brief, goalConstraints } // Lenient mode for user-edited graphs
+    { strictEdgeValidation: false, seed, brief, goalConstraints } // Lenient mode for user-edited graphs
   )
 
   // Add request ID for tracing

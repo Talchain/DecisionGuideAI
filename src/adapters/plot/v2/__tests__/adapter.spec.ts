@@ -1093,7 +1093,8 @@ describe('buildV2RequestFromAnalysisReady — display metadata exclusion', () =>
     const ALLOWED_KEYS = new Set([
       'graph', 'options', 'goal_node_id', 'goal_threshold',
       'goal_constraints', 'seed', 'detail_level', 'brief',
-      'request_id', 'framing',
+      'request_id',
+      // Audit F-01: framing removed — PLoT rejects it (extra='forbid').
     ])
 
     const nodes: Node[] = [

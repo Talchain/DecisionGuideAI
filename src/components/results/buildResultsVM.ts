@@ -35,41 +35,47 @@ export const ROBUST_THRESHOLD = 0.80
 /** Below 55% stability → indeterminate */
 export const SENSITIVE_THRESHOLD = 0.55
 
-// ─── Stability Fallback ─────────────────────────────────────────────────────
+// ─── Stability Resolution ───────────────────────────────────────────────────
 
-/**
- * UI-SEM-007: Stability fabrication from categorical robustness level.
- * When PLoT omits numeric recommendation_stability, reverse-engineers an
- * approximate numeric value from the categorical level (high→0.85, etc.).
- * The fabricated value feeds deriveDecisionState (UI-SEM-006) — it is never
- * displayed numerically to users. The categorical label remains primary.
- * Classification: F.6 concern — PLoT should always provide numeric stability.
- * TODO: F.6 — remove when PLoT guarantees numeric recommendation_stability.
- */
-const LEVEL_STABILITY_MAP: Record<string, number> = {
-  high: 0.85,
-  moderate: 0.65,
-  low: 0.50,
-  very_low: 0.35,
-}
+// Audit F-56: Removed UI-SEM-007 numeric stability fabrication from categorical
+// robustness level (F.6 violation). deriveDecisionState now accepts categorical
+// levels directly via deriveDecisionStateFromLevel when numeric stability is absent.
 
 /**
  * Resolve a numeric stability value from available data.
- * Ladder: recommendationStability → robustnessLevel map → default 0.50
- *
- * Note: is_robust is NOT available in ResultsSectionDataReturn (it flows to
- * useAnalysisMetadata for the canvas stability chip). robustnessLevel already
- * covers the equivalent mapping (high→0.85, low→0.50).
+ * Returns the numeric recommendationStability if present, otherwise null.
+ * No longer fabricates numeric values from categorical robustness levels.
  */
 export function resolveStability(
   recommendationStability: number | undefined,
-  robustnessLevel: RobustnessLevel | undefined,
-): number {
+  _robustnessLevel: RobustnessLevel | undefined,
+): number | null {
   if (typeof recommendationStability === 'number') return recommendationStability
-  if (robustnessLevel && robustnessLevel in LEVEL_STABILITY_MAP) {
-    return LEVEL_STABILITY_MAP[robustnessLevel]
-  }
-  return 0.50
+  return null
+}
+
+/**
+ * Map categorical robustness level to decision state directly,
+ * without fabricating a numeric stability value.
+ */
+const LEVEL_TO_DECISION_STATE: Record<RobustnessLevel, DecisionState> = {
+  high: 'robust',
+  moderate: 'sensitive',
+  low: 'indeterminate',
+  very_low: 'indeterminate',
+}
+
+/**
+ * Derive decision state from gap + categorical robustness level.
+ * Used when PLoT omits numeric recommendation_stability.
+ */
+export function deriveDecisionStateFromLevel(
+  gapTop2: number,
+  robustnessLevel: RobustnessLevel | undefined,
+): DecisionState {
+  if (gapTop2 < GAP_THRESHOLD) return 'indeterminate'
+  if (!robustnessLevel) return 'indeterminate'
+  return LEVEL_TO_DECISION_STATE[robustnessLevel]
 }
 
 // ─── Decision State ─────────────────────────────────────────────────────────
@@ -242,17 +248,16 @@ export function buildResultsVM(
   // Gap
   const gapTop2 = computeGapTop2(recommendation.allOptions)
 
-  // Stability
+  // Stability — use numeric if PLoT provides it, otherwise use categorical level directly
   const stability = resolveStability(
     recommendation.recommendationStability,
     recommendation.robustnessLevel,
   )
 
-  // Decision state
-  const decisionState = deriveDecisionState(
-    gapTop2,
-    stability,
-  )
+  // Decision state — numeric stability path or categorical level path
+  const decisionState = stability !== null
+    ? deriveDecisionState(gapTop2, stability)
+    : deriveDecisionStateFromLevel(gapTop2, recommendation.robustnessLevel)
 
   // Hinge
   const hinge = selectHinge(data)

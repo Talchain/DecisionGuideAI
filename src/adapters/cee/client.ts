@@ -384,12 +384,14 @@ export function adaptDraftResponse(raw: any): CEEDraftResponse {
 
 // Endpoint-specific timeouts (ms)
 const ENDPOINT_TIMEOUTS: Record<string, number> = {
-  // draft-graph needs 120s: OpenAI can take 64-71s, plus CEE processing
-  '/draft-graph': 120000,
+  // draft-graph needs 150s: OpenAI can take 64-71s, plus CEE processing
+  '/draft-graph': 150000,
 }
 
-// Default timeout for other CEE endpoints
-const DEFAULT_CEE_TIMEOUT = 60000
+// Audit F-67: Default timeout set to 150s — above CEE's 135s route timeout.
+// Prevents silent hangs while allowing CEE sufficient processing time.
+// Surfaces timeout as user-visible CEEError (408) via AbortController in fetchWithBase.
+const DEFAULT_CEE_TIMEOUT = 150000
 
 export class CEEClient {
   private baseURL: string

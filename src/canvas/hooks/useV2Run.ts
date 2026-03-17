@@ -8,7 +8,6 @@
 import { useCallback, useRef, useState } from 'react'
 import { useCanvasStore } from '../store'
 import { useResultsStore } from '../stores/resultsStore'
-import type { Node, Edge } from '@xyflow/react'
 import { getEdgeKey } from '../domain/edgeUtils'
 import {
   executeV2RunWithAnalysisReady,
@@ -153,32 +152,42 @@ export function useV2Run(persistence?: V2RunPersistence): UseV2RunReturn {
   const [error, setError] = useState<string | null>(null)
   const abortControllerRef = useRef<AbortController | null>(null)
 
-  // Store selectors
-  const nodes = useCanvasStore((s) => s.nodes)
-  const edges = useCanvasStore((s) => s.edges)
-  const outcomeNodeId = useCanvasStore((s) => s.outcomeNodeId)
-  const goalThreshold = useCanvasStore((s) => s.goalThreshold)
-  const framing = useCanvasStore((s) => s.currentScenarioFraming)
-  const ceeAnalysisReady = useCanvasStore((s) => s.ceeAnalysisReady)
-  const ceeAnalysisReadyNodeIds = useCanvasStore((s) => s.ceeAnalysisReadyNodeIds)
-  const goalConstraints = useCanvasStore((s) => s.goalConstraints)
-  const lastDraftDescription = useCanvasStore((s) => s.lastDraftDescription)
-
-  // Store actions
-  const resultsStart = useCanvasStore((s) => s.resultsStart)
-  const resultsComplete = useCanvasStore((s) => s.resultsComplete)
-  const resultsError = useCanvasStore((s) => s.resultsError)
-  const resultsCancelled = useCanvasStore((s) => s.resultsCancelled)
-  const setRunMeta = useCanvasStore((s) => s.setRunMeta)
-  const setCeeAnalysisReady = useCanvasStore((s) => s.setCeeAnalysisReady)
-  const setGoalConstraints = useCanvasStore((s) => s.setGoalConstraints)
-  const captureErrorDetail = useCanvasStore((s) => s.captureErrorDetail)
+  // Audit F-76: Store selectors moved inside callback to prevent stale closures.
+  // Graph state is now snapshot at analysis trigger time, not render time.
+  // Store actions are stable references — safe to read from getState() inside callback.
 
   const runV2Analysis = useCallback(async () => {
+    // Audit F-76: Snapshot graph state at trigger time (not render time)
+    const {
+      nodes,
+      edges,
+      outcomeNodeId,
+      goalThreshold,
+      currentScenarioFraming: framing,
+      ceeAnalysisReady,
+      ceeAnalysisReadyNodeIds,
+      goalConstraints,
+      lastDraftDescription,
+      resultsStart,
+      resultsComplete,
+      resultsError,
+      resultsCancelled,
+      setRunMeta,
+      setCeeAnalysisReady,
+      setGoalConstraints,
+      captureErrorDetail,
+    } = useCanvasStore.getState()
+
     // Validate goal is selected
     if (!outcomeNodeId) {
       setError('No goal node selected')
       return
+    }
+
+    // Audit F-77: Abort any in-progress run before starting a new one.
+    // Prevents orphaned AbortControllers from double-click race conditions.
+    if (abortControllerRef.current && !abortControllerRef.current.signal.aborted) {
+      abortControllerRef.current.abort()
     }
 
     // Create a fresh AbortController for this run so the user can cancel
@@ -291,7 +300,7 @@ export function useV2Run(persistence?: V2RunPersistence): UseV2RunReturn {
 
       // Execute V2 run with analysisReady (or fallback to node extraction)
       // P0 Fix: Pass computed seed to avoid hardcoded "42" default
-      // P0 Fix: Include framing for contextualised CEE responses
+      // Audit F-01: framing removed from PLoT request (PLoT rejects it with 400).
       // P0 Fix: Include brief for PLoT context
       const result = await executeV2RunWithAnalysisReady(
         config,
@@ -302,11 +311,6 @@ export function useV2Run(persistence?: V2RunPersistence): UseV2RunReturn {
         requestId,
         goalThreshold ?? undefined,
         seed,
-        framing ? {
-          title: framing.title,
-          goal: framing.goal,
-          constraints: framing.constraints,
-        } : undefined,
         lastDraftDescription || undefined,
         effectiveGoalConstraints
       )
@@ -615,12 +619,27 @@ export function useV2Run(persistence?: V2RunPersistence): UseV2RunReturn {
       })
       setError('Unexpected response format')
     } catch (err) {
+      // P0 race fix: If this run was superseded (a newer run owns the controller),
+      // no-op — the newer run manages state. Only the active run may mutate status.
+      const isActiveRun = abortControllerRef.current === controller
+
       // Distinguish user-initiated cancellation from other abort errors
       if (controller.signal.aborted && err instanceof Error && err.name === 'AbortError') {
-        resultsCancelled()
-        setIsRunning(false)
-        // Reset Supabase analysis_status back to 'none' (fire-and-forget)
-        persistence?.resetAnalysisStatus?.().catch(() => {})
+        // Only fire resultsCancelled for user-initiated cancel on the active run.
+        // Superseded runs (aborted by F-77 guard) must not touch state.
+        if (isActiveRun) {
+          resultsCancelled()
+          setIsRunning(false)
+          abortControllerRef.current = null
+          // Reset Supabase analysis_status back to 'none' (fire-and-forget)
+          persistence?.resetAnalysisStatus?.().catch(() => {})
+        }
+        return
+      }
+
+      // P0 race fix: If this run was superseded, do not mutate shared state.
+      // Telemetry tracking (trackRunFailed, trackTypedError) is still safe — it's fire-and-forget.
+      if (!isActiveRun) {
         return
       }
 
@@ -723,28 +742,17 @@ export function useV2Run(persistence?: V2RunPersistence): UseV2RunReturn {
 
       setError(message)
     } finally {
-      abortControllerRef.current = null
-      setIsRunning(false)
+      // P0 race fix: Only the active run clears shared state.
+      // A superseded run must not reset isRunning or the controller ref,
+      // as a newer run now owns them.
+      if (abortControllerRef.current === controller) {
+        abortControllerRef.current = null
+        setIsRunning(false)
+      }
     }
-  }, [
-    nodes,
-    edges,
-    outcomeNodeId,
-    framing,
-    ceeAnalysisReady,
-    ceeAnalysisReadyNodeIds,
-    goalConstraints,
-    lastDraftDescription,
-    setCeeAnalysisReady,
-    setGoalConstraints,
-    resultsStart,
-    resultsComplete,
-    resultsError,
-    resultsCancelled,
-    setRunMeta,
-    captureErrorDetail,
-    persistence,
-  ])
+  // Audit F-76: Dependency array reduced — graph state is read from getState() inside callback.
+  // Only persistence (external prop) can change the callback's behaviour.
+  }, [persistence])
 
   const cancelRun = useCallback(() => {
     if (abortControllerRef.current) {
