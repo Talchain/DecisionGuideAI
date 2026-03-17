@@ -29,7 +29,7 @@ import { useShallow } from 'zustand/react/shallow'
 import { useUIStore, type OutputTab } from '../../stores/uiStore'
 import { useDockState } from '../hooks/useDockState'
 import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion'
-import { useCanvasStore, selectResultsStatus, selectReport, selectError, selectResultsSource } from '../store'
+import { useCanvasStore, selectResultsStatus, selectReport, selectError, selectResultsSource, selectPreviousReport } from '../store'
 import { loadRuns, type StoredRun } from '../store/runHistory'
 import * as runsBus from '../store/runsBus'
 import { typography } from '../../styles/typography'
@@ -86,6 +86,7 @@ import type { CritiqueItemV1 } from '../../adapters/plot/types'
 import { verboseDebug } from '../../utils/verboseLog'
 import { AnalysisFooter } from '../shared/AnalysisFooter'
 import { StabilityGauge } from '../../components/shared/StabilityGauge'
+import { DeltaIndicator } from '../../components/shared/DeltaIndicator'
 import { DEFAULT_EDGE_DATA } from '../domain/edges'
 import { useGraphReadiness } from '../hooks/useGraphReadiness'
 
@@ -219,6 +220,8 @@ export function OutputsDock() {
   const setCeeAnalysisReady = useCanvasStore(s => s.setCeeAnalysisReady)
   // P2: Success target affordance - threshold update
   const setGoalThreshold = useCanvasStore(s => s.setGoalThreshold)
+  // A1: Delta indicators between analysis runs
+  const previousReport = useCanvasStore(selectPreviousReport)
 
   // Guidance items for results surface — filter to graph/option/framing targets only
   const allGuidanceItems = useGuidanceStore(s => s.guidanceItems)
@@ -557,7 +560,7 @@ export function OutputsDock() {
       ? { icon: AlertTriangle, iconClass: 'text-warning', label: 'Moderate confidence' }
       : { icon: XCircle, iconClass: 'text-danger', label: 'Fragile result' }
   const postRunMetaText = recommendationStability != null
-    ? <StabilityGauge value={recommendationStability} />
+    ? <><StabilityGauge value={recommendationStability} />{' '}<DeltaIndicator currentValue={recommendationStability} previousValue={previousReport?.rankingStability} format="percent" /></>
     : null
 
   verboseDebug('[TrustSignals] OutputsDock', {

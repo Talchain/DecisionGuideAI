@@ -2021,20 +2021,26 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     let snapshot: PreviousReportSnapshot | null = null
     if (currentReport && get().results.status === 'complete') {
       const options: Record<string, OptionSnapshot> = {}
-      const optionResults = (currentReport as any)?.option_comparison ?? (currentReport as any)?.results ?? []
-      for (const opt of optionResults) {
-        if (opt.option_id || opt.id) {
-          options[opt.option_id ?? opt.id] = {
-            winProbability: opt.win_probability ?? opt.winProbability,
-            outcomeMean: opt.expected_outcome ?? opt.outcome?.mean ?? opt.expected,
-            goalProbability: opt.probability_of_goal ?? opt.goalProbability,
+      // ReportV1.option_probabilities: Record<string, OptionProbability>
+      const optionProbs = currentReport.option_probabilities
+      if (optionProbs) {
+        for (const [optId, prob] of Object.entries(optionProbs)) {
+          options[optId] = {
+            winProbability: prob.win_probability,
+            goalProbability: prob.goal_probability,
           }
         }
       }
-      const robustness = (currentReport as any)?.robustness
+      // Robustness accessed via index signature (not typed on ReportV1)
+      const reportRecord = currentReport as Record<string, unknown>
+      const robustness = reportRecord.robustness as Record<string, unknown> | undefined
+      const rankingStability =
+        typeof robustness?.recommendation_stability === 'number' ? robustness.recommendation_stability :
+        typeof robustness?.ranking_stability === 'number' ? robustness.ranking_stability :
+        undefined
       snapshot = {
         options,
-        rankingStability: robustness?.recommendation_stability ?? robustness?.ranking_stability,
+        rankingStability,
       }
     }
 

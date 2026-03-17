@@ -28,6 +28,8 @@ import { formatTargetValue } from './utils/formatTargetValue'
 import { focusNodeById } from '../../canvas/utils/focusHelpers'
 import { highlightNode, clearHighlight } from '../../canvas/utils/highlightHelpers'
 import { GAP_THRESHOLD } from './buildResultsVM'
+import { DeltaIndicator } from '../shared/DeltaIndicator'
+import { useCanvasStore, selectPreviousReport } from '../../canvas/store'
 import type { DecisionState, HingeInfo, NextActionItem, RobustnessLevel } from './types'
 import type { NearTieInfo } from '../../lib/mappers/types'
 
@@ -476,6 +478,9 @@ export function HeroSection({
   totalFactorCount,
   allOptionGoalProbabilities,
 }: HeroSectionProps) {
+  // A1: Previous report snapshot for delta indicators
+  const previousReport = useCanvasStore(selectPreviousReport)
+
   // Always collapsed on first load — user expands via "More ▸" toggle
   const [isExpanded, setIsExpanded] = useState(false)
   // V16: "Show more" for insight bullet expansion (condition card detail)
@@ -1006,13 +1011,15 @@ export function HeroSection({
               {allOptionGoalProbabilities.length === 1 ? (
                 <p className={`${typography.panelBody} text-text-body`}>
                   <span className="inline-block w-1.5 h-1.5 rounded-full mr-1.5 align-middle" style={{ backgroundColor: 'var(--goal)' }} />
-                  {allOptionGoalProbabilities[0].label} has a {formatPct(allOptionGoalProbabilities[0].goalProbability, { fromDecimal: true })} chance of reaching your target of {formatTargetValue(goalThreshold, outcomeUnit, outcomeUnitSymbol)}
+                  {allOptionGoalProbabilities[0].label} has a {formatPct(allOptionGoalProbabilities[0].goalProbability, { fromDecimal: true })} chance of reaching your target of {formatTargetValue(goalThreshold, outcomeUnit, outcomeUnitSymbol)}{' '}
+                  <DeltaIndicator currentValue={allOptionGoalProbabilities[0].goalProbability} previousValue={previousReport?.options[allOptionGoalProbabilities[0].id]?.goalProbability} format="percent" />
                 </p>
               ) : (
                 allOptionGoalProbabilities.map(opt => (
                   <p key={opt.id} className={`${typography.panelBody} text-text-body`}>
                     <span className="inline-block w-1.5 h-1.5 rounded-full mr-1.5 align-middle" style={{ backgroundColor: 'var(--goal)' }} />
-                    {opt.label}: {formatPct(opt.goalProbability, { fromDecimal: true })} chance of reaching your target of {formatTargetValue(goalThreshold, outcomeUnit, outcomeUnitSymbol)}
+                    {opt.label}: {formatPct(opt.goalProbability, { fromDecimal: true })} chance of reaching your target of {formatTargetValue(goalThreshold, outcomeUnit, outcomeUnitSymbol)}{' '}
+                    <DeltaIndicator currentValue={opt.goalProbability} previousValue={previousReport?.options[opt.id]?.goalProbability} format="percent" />
                   </p>
                 ))
               )}
@@ -1022,7 +1029,8 @@ export function HeroSection({
           {goalThreshold != null && winnerGoalProbability != null && !allOptionGoalProbabilities?.length && (
             <p className={`${typography.panelBody} text-text-body`}>
               <span className="inline-block w-1.5 h-1.5 rounded-full mr-1.5 align-middle" style={{ backgroundColor: 'var(--goal)' }} />
-              {winnerLabel} has a {formatPct(winnerGoalProbability, { fromDecimal: true })} chance of reaching your target of {formatTargetValue(goalThreshold, outcomeUnit, outcomeUnitSymbol)}
+              {winnerLabel} has a {formatPct(winnerGoalProbability, { fromDecimal: true })} chance of reaching your target of {formatTargetValue(goalThreshold, outcomeUnit, outcomeUnitSymbol)}{' '}
+              <DeltaIndicator currentValue={winnerGoalProbability} previousValue={winnerId ? previousReport?.options[winnerId]?.goalProbability : undefined} format="percent" />
             </p>
           )}
 
@@ -1273,7 +1281,8 @@ export function HeroSection({
             {allOptionGoalProbabilities.map(opt => (
               <p key={opt.id} className={`${typography.panelBody} text-text-body`}>
                 <span className="inline-block w-1.5 h-1.5 rounded-full mr-1.5 align-middle" style={{ backgroundColor: 'var(--goal)' }} />
-                {opt.label}: {formatPct(opt.goalProbability, { fromDecimal: true })} chance of reaching your target of {formatTargetValue(goalThreshold, outcomeUnit, outcomeUnitSymbol)}
+                {opt.label}: {formatPct(opt.goalProbability, { fromDecimal: true })} chance of reaching your target of {formatTargetValue(goalThreshold, outcomeUnit, outcomeUnitSymbol)}{' '}
+                <DeltaIndicator currentValue={opt.goalProbability} previousValue={previousReport?.options[opt.id]?.goalProbability} format="percent" />
               </p>
             ))}
           </div>
@@ -1282,7 +1291,8 @@ export function HeroSection({
         {goalThreshold != null && winnerGoalProbability != null && !allOptionGoalProbabilities?.length && (
           <p className={`${typography.panelBody} text-text-body mb-3`}>
             <span className="inline-block w-1.5 h-1.5 rounded-full mr-1.5 align-middle" style={{ backgroundColor: 'var(--goal)' }} />
-            {winnerLabel} has a {formatPct(winnerGoalProbability, { fromDecimal: true })} chance of reaching your target of {formatTargetValue(goalThreshold, outcomeUnit, outcomeUnitSymbol)}
+            {winnerLabel} has a {formatPct(winnerGoalProbability, { fromDecimal: true })} chance of reaching your target of {formatTargetValue(goalThreshold, outcomeUnit, outcomeUnitSymbol)}{' '}
+            <DeltaIndicator currentValue={winnerGoalProbability} previousValue={winnerId ? previousReport?.options[winnerId]?.goalProbability : undefined} format="percent" />
           </p>
         )}
 
