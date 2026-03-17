@@ -2,6 +2,9 @@ name: poc-pr
 on:
   pull_request:
     branches: [ main ]
+permissions:
+  contents: read
+  packages: read
 jobs:
   poc-e2e:
     runs-on: ubuntu-latest
@@ -10,6 +13,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
+          registry-url: https://npm.pkg.github.com
       - run: npm ci
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - run: npx playwright install --with-deps
       - run: npx playwright test "e2e/sandbox.*.spec.ts" --retries=1 --reporter=line
