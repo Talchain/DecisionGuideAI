@@ -64,7 +64,7 @@ jobs:
         if: steps.cache-nm.outputs.cache-hit != 'true'
         run: npm ci
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.PACKAGES_READ_TOKEN }}
 
   # ── Security (no install dependency — runs independently) ──────────────
   secrets-scan:
