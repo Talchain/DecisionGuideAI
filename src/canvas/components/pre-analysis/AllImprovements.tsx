@@ -136,7 +136,9 @@ function TierSection({
   if (isReviewTier && reviewedCount !== undefined && totalCount !== undefined && totalCount > 0) {
     sectionTitle = `${config.title} (${reviewedCount} of ${totalCount} done)`
   } else if (isOptionalTier && items.length > 0) {
-    sectionTitle = `${config.title} (${items.length})`
+    sectionTitle = nonEvidenceItems.length > 0
+      ? `${config.title} (${nonEvidenceItems.length})`
+      : config.title
   }
 
   return (
@@ -152,7 +154,7 @@ function TierSection({
           {!showEmptyState && (
             <span className={`${typography.panelMeta} rounded-full px-1.5 py-0.5 bg-transparent border ${showCompletionState ? 'border-success/30 text-text-body' : isReviewTier ? 'border-warning/30 text-text-body' : isOptionalTier ? 'border-info/30 text-text-body' : 'border-panel-border text-text-light'}`}>
               {showCompletionState ? '✓' : (
-                isReviewTier && totalCount != null ? totalCount : items.length
+                isReviewTier && totalCount != null ? totalCount : nonEvidenceItems.length
               )}
             </span>
           )}

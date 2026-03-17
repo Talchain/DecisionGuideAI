@@ -524,7 +524,8 @@ export function validatePLoTResponse(response: unknown, sentRequestId?: string):
  */
 export function detectService(endpoint: string): 'CEE' | 'PLoT' | 'ISL' | 'BFF' | 'M2' | 'unknown' {
   const lower = endpoint.toLowerCase()
-  if (lower.includes('/cee/') || lower.includes('assist') || lower.includes('draft-graph')) {
+  // CEE / orchestrator endpoints — includes /bff/orchestrate/ proxy path
+  if (lower.includes('/cee/') || lower.includes('assist') || lower.includes('draft-graph') || lower.includes('orchestrate')) {
     return 'CEE'
   }
   if (lower.includes('/plot/') || lower.includes('/engine/') || lower.includes('/v2/run') || lower.includes('/v1/run')) {
@@ -533,12 +534,12 @@ export function detectService(endpoint: string): 'CEE' | 'PLoT' | 'ISL' | 'BFF' 
   if (lower.includes('/isl/') || lower.includes('validate') || lower.includes('robustness')) {
     return 'ISL'
   }
-  if (lower.includes('/bff/')) {
-    return 'BFF'
-  }
   // M2 Decision Review (LLM-enhanced coaching)
   if (lower.includes('/v2/review')) {
     return 'M2'
+  }
+  if (lower.includes('/bff/')) {
+    return 'BFF'
   }
   return 'unknown'
 }

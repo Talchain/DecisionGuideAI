@@ -772,13 +772,17 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
     // Missing baseline — surfaced only in Decision quality (no_baseline check).
     // Not duplicated here to avoid showing the same nudge in two locations.
 
-    // Only 2 options - coaching question
-    if (optionNodes.length === 2) {
+    // Too few options - coaching question
+    if (optionNodes.length <= 1) {
       result.strengthen.push({
-        key: 'only_2_options',
+        key: 'few_options',
         category: 'strengthen',
-        label: 'Have you considered all your options?',
-        detail: 'Having only two choices can lead to binary thinking. What else could you do?',
+        label: optionNodes.length === 0
+          ? 'What options are you considering? Add at least two alternatives to compare.'
+          : 'Have you considered all your options? A single option limits comparison.',
+        detail: optionNodes.length === 0
+          ? 'A decision model needs at least two options to evaluate trade-offs.'
+          : 'Having only one choice means there\u2019s nothing to compare against. What else could you do?',
         action: { label: 'Add Option', kind: 'add_option' },
       })
     }

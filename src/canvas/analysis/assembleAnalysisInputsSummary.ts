@@ -33,8 +33,9 @@ export function assembleAnalysisInputsSummary(
   if (report.option_comparison_status !== 'computed') return null
   if (!Array.isArray(report.option_comparison) || report.option_comparison.length === 0) return null
 
-  // Guard: robustness is a required field
-  if (report.robustness_status !== 'computed' || !report.robustness) return null
+  // Robustness: optional — when PLoT doesn't compute robustness (e.g. simple models),
+  // we still assemble the summary so CEE gets analysis context for post-analysis conversation.
+  const hasRobustness = report.robustness_status === 'computed' && !!report.robustness
 
   // Filter to options with an actual win_probability once — shared by both
   // recommendation selection and options list. Never fabricate 0.
@@ -64,9 +65,8 @@ export function assembleAnalysisInputsSummary(
   // (Derivation: computed robustness + drivers → 'medium'; otherwise 'low')
   const confidenceBand = deriveConfidenceBand(report)
 
-  // Robustness — null when neither stability field is present (no fabrication)
-  const robustness = buildRobustness(report.robustness)
-  if (!robustness) return null
+  // Robustness — null when not computed or neither stability field is present
+  const robustness = hasRobustness ? buildRobustness(report.robustness) : null
 
   // Constraints status — from first option's constraint_analysis
   const constraintsStatus = buildConstraintsStatus(report.option_comparison, MAX_CONSTRAINTS)
@@ -85,7 +85,7 @@ export function assembleAnalysisInputsSummary(
     top_drivers: topDrivers,
     sensitivity_concentration: sensitivityConcentration,
     confidence_band: confidenceBand,
-    robustness,
+    ...(robustness ? { robustness } : {}),
     constraints_status: constraintsStatus,
     run_metadata: runMetadata,
   }

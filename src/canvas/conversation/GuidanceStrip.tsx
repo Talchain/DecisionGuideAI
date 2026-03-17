@@ -85,7 +85,7 @@ function coachingItemType(cat: GuidanceItem['category']): GuidanceEventPayload['
 
 interface GuidanceStripProps {
   /** Send a message to the conversation */
-  onSendMessage: (text: string) => void
+  onSendMessage: (text: string, opts?: { hidden?: boolean; debugSource?: string }) => void
   /** Set active guidance item ID for cross-surface focus */
   onSetActive: (id: string | null) => void
   /** Scroll conversation list to a GraphPatchBlock by patch_id */
@@ -204,7 +204,9 @@ export const GuidanceStrip = memo(function GuidanceStrip({
           stagePill: state.currentStage ?? null,
           setPending: true,
         })
-        onSendMessage(action.prompt)
+        onSendMessage(action.prompt, { hidden: true, debugSource: 'guidance_discuss' })
+        // Dismiss the chip after sending
+        useGuidanceStore.getState().dismissItem(topItem.item_id)
         break
       case 'run_exercise':
         onSendMessage(`/exercise ${action.exercise}`)

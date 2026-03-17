@@ -387,6 +387,12 @@ export function useGraphReadiness() {
         },
       }
 
+      // Include brief text when available so CEE can extract decision elements from prose
+      const briefText = useCanvasStore.getState().currentBriefText
+      if (briefText && briefText.length >= 20) {
+        payload.brief = briefText
+      }
+
       // V3: Include analysis_ready if present so CEE knows about resolved options
       // Strip model_adjustments — CEE produced them and doesn't need them back;
       // forwarding them can cause 400s if CEE rejects unrecognised adjustment types.

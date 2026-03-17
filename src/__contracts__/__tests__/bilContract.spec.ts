@@ -160,11 +160,13 @@ describe('BIL Contract', () => {
     // confidence_band
     expect(['low', 'medium', 'high']).toContain(typed.confidence_band)
 
-    // robustness
-    expect(typed.robustness).toHaveProperty('level')
-    expect(typed.robustness).toHaveProperty('recommendation_stability')
-    expect(['robust', 'moderate', 'fragile']).toContain(typed.robustness.level)
-    expect(typeof typed.robustness.recommendation_stability).toBe('number')
+    // robustness (optional — may be absent when PLoT doesn't compute it)
+    if (typed.robustness) {
+      expect(typed.robustness).toHaveProperty('level')
+      expect(typed.robustness).toHaveProperty('recommendation_stability')
+      expect(['robust', 'moderate', 'fragile']).toContain(typed.robustness.level)
+      expect(typeof typed.robustness.recommendation_stability).toBe('number')
+    }
 
     // constraints_status — max 5
     expect(Array.isArray(typed.constraints_status)).toBe(true)

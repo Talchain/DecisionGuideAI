@@ -378,19 +378,22 @@ export const ConversationPanel = memo(function ConversationPanel({
   // ── Generate model state ────────────────────────────────────────────
   const [briefReadiness, setBriefReadiness] = useState<BriefReadiness | null>(null)
   const [hasText, setHasText] = useState(false)
+  const [textLength, setTextLength] = useState(0)
 
-  const handleBriefStateChange = useCallback((readiness: BriefReadiness | null, ht: boolean) => {
+  const handleBriefStateChange = useCallback((readiness: BriefReadiness | null, ht: boolean, len: number) => {
     setBriefReadiness(readiness)
     setHasText(ht)
+    setTextLength(len)
     // User started typing — cancel any pending brief restore from a failed generate
     if (ht) pendingBriefRef.current = null
   }, [])
 
   const generateState: GenerateState = useMemo(() => {
     if (isThinking) return 'loading'
-    if ((briefReadiness === 'medium' || briefReadiness === 'high') && hasText) return 'active'
+    // Enable when textarea has ≥50 chars — BIL readiness is informational only
+    if (textLength >= 50) return 'active'
     return 'disabled'
-  }, [isThinking, briefReadiness, hasText])
+  }, [isThinking, textLength])
 
   const handleGenerateModel = useCallback(() => {
     const brief = composerRef.current?.consumeBrief()

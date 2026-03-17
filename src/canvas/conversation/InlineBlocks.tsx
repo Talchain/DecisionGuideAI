@@ -697,7 +697,7 @@ function GraphPatchBlockRenderer({
   const canvasNodes = useCanvasStore(s => s.nodes)
   const canvasNodeIds = useMemo(() => new Set(canvasNodes.map((n: { id: string }) => n.id)), [canvasNodes])
   const opSummary = summarisePatchOps(block.operations)
-  const proposalItems = getProposalItems(block)
+  const rawProposalItems = getProposalItems(block)
   const proposalItemsSource = getProposalItemsSource(block)
   const opTargets = extractTargetIdsFromPatch(block.operations)
   const relatedTargets = extractGroundedTargets(block.related_elements)
@@ -714,6 +714,19 @@ function GraphPatchBlockRenderer({
   const hasRevealTargets = !isWholeGraphTarget && !isGenerativeDraft && (uniqueTargetNodeIds.length > 0 || edgeIds.length > 0)
   const isApplied = isAutoApplied || resolvedState === 'accepted'
   const statusLabel = 'Applied'
+  // For generative drafts with no backend proposal items, synthesize from operations
+  // so the "Show details" toggle still works
+  const proposalItems = rawProposalItems.length > 0
+    ? rawProposalItems
+    : isGenerativeDraft
+      ? block.operations
+          .filter(op => op.op === 'add_node')
+          .map(op => ({
+            description: (op.data?.label as string) ?? op.op,
+            elementLabel: (op.data?.kind as string) ?? '',
+            changeLabel: 'Add',
+          }))
+      : []
   const shouldCollapseProposalItems =
     proposalItems.length > 2
     || proposalItemsSource === 'derived_ops'
@@ -724,8 +737,11 @@ function GraphPatchBlockRenderer({
   const primaryActionLabel = showProposalItemsInline ? 'Apply' : 'Accept'
   const secondaryActionLabel = showProposalItemsInline ? 'Not what I meant' : 'Dismiss'
 
-  // Determine which action buttons to render
-  const hasCustomActions = block.actions && block.actions.length > 0
+  // Determine which action buttons to render — filter to only actionable types
+  const customActions = block.actions?.filter(
+    (a: any) => a.action_type === 'accept' || a.action_type === 'dismiss'
+  ) ?? []
+  const hasCustomActions = customActions.length > 0
 
   const getActionClass = (action: BlockAction): string => {
     if (action.variant === 'danger') return styles.graphPatchDanger
@@ -1007,8 +1023,8 @@ function GraphPatchBlockRenderer({
       {!isAutoApplied && !isSettled && !showStalenessWarning && rejectionInfo?.code !== 'NETWORK_ERROR' && (
         <div className={styles.graphPatchActions}>
           {hasCustomActions ? (
-            // Render CEE-provided action buttons
-            (block.actions as BlockAction[]).map((action, i) => (
+            // Render CEE-provided action buttons (filtered to actionable types only)
+            (customActions as BlockAction[]).map((action, i) => (
               <button
                 key={i}
                 type="button"

@@ -230,6 +230,8 @@ interface CanvasState {
   showTemplatesPanel: boolean
   templatesPanelInvoker: HTMLElement | null
   showDraftChat: boolean
+  // Current brief textarea content (synced from ChatComposer for graph-readiness requests)
+  currentBriefText: string | null
   // AI Model Selection (session-only, not persisted to localStorage)
   // Only non-default models are sent to API to keep payloads clean
   selectedGenerationModel: string | null  // null = use default (gpt-4o)
@@ -899,6 +901,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     showInspectorPanel: false,
     showTemplatesPanel: false,
     showDraftChat: false,
+    currentBriefText: null,
     // AI Model Selection (session-only, start with defaults)
     selectedGenerationModel: null,
     selectedRepairModel: null,
@@ -1625,6 +1628,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       history: { past: [], future: [] },
       selection: { nodeIds: new Set(), edgeIds: new Set(), anchorPosition: null },
       showDraftChat: false,
+      currentBriefText: null,
       // Reset model selection on import
       selectedGenerationModel: null,
       selectedRepairModel: null,

@@ -129,6 +129,8 @@ interface GroupedAdjustment extends ModelAdjustment {
   headline?: string
   /** Raw technical detail (shown behind "Details" toggle) */
   technicalDetail?: string
+  /** Per-item details for expanded view (all items in the group) */
+  perItemDetails?: Array<{ target: string; detail: string }>
 }
 
 /** Group adjustments by type/code. Grouped rows show user-facing copy + all target labels. */
@@ -152,6 +154,12 @@ function groupAdjustments(adjustments: ModelAdjustment[]): GroupedAdjustment[] {
       .filter((t): t is string => !!t)
     representative.target = targets.length > 0 ? targets.join(', ') : undefined
     representative.field = undefined
+
+    // Collect per-item details so the expansion shows all items, not just the first
+    const perItemDetails = group
+      .map(a => ({ target: a.target ?? '', detail: sanitiseDetail(a.detail ?? a.reason ?? '') }))
+      .filter(d => d.target || d.detail)
+    representative.perItemDetails = perItemDetails.length > 1 ? perItemDetails : undefined
 
     // Try the user-facing copy map
     const humanCopy = getRepairCopy(key, group.length)
@@ -188,7 +196,7 @@ function AdjustmentRow({ adj }: { adj: GroupedAdjustment }) {
         {adj.target && (
           <p className="text-text-light mt-0.5">{adj.target}</p>
         )}
-        {adj.technicalDetail && (
+        {(adj.technicalDetail || adj.perItemDetails) && (
           <>
             <button
               type="button"
@@ -198,8 +206,21 @@ function AdjustmentRow({ adj }: { adj: GroupedAdjustment }) {
               {showDetail ? 'Hide details' : 'Details'}
             </button>
             {showDetail && (
-              <div className="mt-2 pl-3">
-                <p className={`${typography.panelBody} text-text-light`}>{adj.technicalDetail}</p>
+              <div className="mt-2 pl-3 space-y-1.5">
+                {adj.perItemDetails ? (
+                  adj.perItemDetails.map((item, idx) => (
+                    <div key={idx}>
+                      {item.target && (
+                        <p className={`${typography.panelMeta} text-text-body font-medium`}>{item.target}</p>
+                      )}
+                      {item.detail && (
+                        <p className={`${typography.panelBody} text-text-light`}>{item.detail}</p>
+                      )}
+                    </div>
+                  ))
+                ) : (
+                  <p className={`${typography.panelBody} text-text-light`}>{adj.technicalDetail}</p>
+                )}
               </div>
             )}
           </>

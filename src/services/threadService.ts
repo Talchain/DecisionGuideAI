@@ -137,6 +137,14 @@ export async function createSnapshot(params: {
  * Returns the turn UUID (null if deduplicated or on failure).
  * Best-effort: never throws.
  */
+/** Scenario IDs that returned 403 — suppress further insertConversationTurn calls */
+const _suppressedScenarioIds = new Set<string>()
+
+/** Clear suppression for a scenario (e.g. after successful persistence) */
+export function clearSuppressedScenarioId(id: string): void {
+  _suppressedScenarioIds.delete(id)
+}
+
 export async function insertConversationTurn(params: {
   scenarioId: string
   role: 'user' | 'assistant' | 'system'
@@ -147,6 +155,7 @@ export async function insertConversationTurn(params: {
   clientTurnId?: string
 }): Promise<string | null> {
   if (!params.scenarioId) return null
+  if (_suppressedScenarioIds.has(params.scenarioId)) return null
 
   try {
     const { data, error } = await supabase.rpc('insert_conversation_turn', {
@@ -160,7 +169,15 @@ export async function insertConversationTurn(params: {
     })
 
     if (error) {
-      console.warn('[ThreadService] insert_conversation_turn failed:', error.message)
+      // Suppress future calls for unpersisted scenarios (403/forbidden)
+      if (error.code === '42501' || error.message?.includes('forbidden') || error.message?.includes('not owned')) {
+        _suppressedScenarioIds.add(params.scenarioId)
+        if (import.meta.env.DEV) {
+          console.debug('[ThreadService] Suppressing insertConversationTurn for unpersisted scenario:', params.scenarioId)
+        }
+      } else {
+        console.warn('[ThreadService] insert_conversation_turn failed:', error.message)
+      }
       return null
     }
 

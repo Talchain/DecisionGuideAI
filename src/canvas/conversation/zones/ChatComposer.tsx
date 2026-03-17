@@ -53,7 +53,7 @@ interface ChatComposerProps {
   onScrollToPatch: (patchId: string) => void
   onOpenInspector: (nodeId: string) => void
   onGenerateModel: () => void
-  onBriefStateChange?: (readiness: BriefReadiness | null, hasText: boolean) => void
+  onBriefStateChange?: (readiness: BriefReadiness | null, hasText: boolean, textLength: number) => void
 }
 
 const STAGE_PLACEHOLDERS: Record<ScenarioStage, string> = {
@@ -134,10 +134,19 @@ export const ChatComposer = memo(forwardRef<ChatComposerHandle, ChatComposerProp
 
     // Notify parent of readiness / text state changes (derived booleans, not raw value)
     const currentReadiness = briefSignals?.readiness ?? null
-    const currentHasText = composer.value.trim().length > 0
+    const currentTextLength = composer.value.trim().length
+    const currentHasText = currentTextLength > 0
     useEffect(() => {
-      onBriefStateChange?.(currentReadiness, currentHasText)
-    }, [currentReadiness, currentHasText, onBriefStateChange])
+      onBriefStateChange?.(currentReadiness, currentHasText, currentTextLength)
+    }, [currentReadiness, currentHasText, currentTextLength, onBriefStateChange])
+
+    // Sync brief text to canvas store (debounced) so useGraphReadiness can include it
+    const debouncedBriefText = useDebounce(composer.value.trim(), 500)
+    useEffect(() => {
+      if (typeof useCanvasStore.setState === 'function') {
+        useCanvasStore.setState({ currentBriefText: debouncedBriefText || null })
+      }
+    }, [debouncedBriefText])
 
     // Coaching tip state
     const [activeTip, setActiveTip] = useState<string | null>(null)

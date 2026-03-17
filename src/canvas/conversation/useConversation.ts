@@ -1028,9 +1028,12 @@ export function useConversation(): UseConversationReturn {
       const { analysisSummary } = useResultsStore.getState().results
       const graphIsStale = store.graphEditedSinceLastRun
       const analysisState: ExplainAnalysisStatePayload | undefined =
-        !graphIsStale && analysisStatus === 'complete' && analysisHash && analysisSummary
+        graphIsStale ? undefined
+        : analysisStatus === 'complete' && analysisHash && analysisSummary
           ? { analysis_status: analysisStatus, meta: { response_hash: analysisHash }, results: analysisSummary }
-          : undefined
+        : analysisStatus === 'complete' && analysisHash
+          ? { analysis_status: analysisStatus, meta: { response_hash: analysisHash }, results: {} }
+        : undefined
 
       if (import.meta.env.DEV) {
         const optionCount = analysisState
