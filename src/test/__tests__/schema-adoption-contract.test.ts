@@ -173,9 +173,9 @@ describe('CIL constant alignment: ContractIntegrity tab uses shared codes and th
   })
 
   it('CIL_WARNING_SEVERITY maps all codes', () => {
-    expect(CIL_WARNING_SEVERITY[CIL_WARNING_CODES.STRENGTH_DEFAULT_APPLIED]).toBe('info')
-    expect(CIL_WARNING_SEVERITY[CIL_WARNING_CODES.EDGE_STRENGTH_LOW]).toBe('warning')
-    expect(CIL_WARNING_SEVERITY[CIL_WARNING_CODES.STRENGTH_MEAN_DEFAULT_DOMINANT]).toBe('warning')
+    expect(CIL_WARNING_SEVERITY[CIL_WARNING_CODES.STRENGTH_DEFAULT_APPLIED]).toBe('warn')
+    expect(CIL_WARNING_SEVERITY[CIL_WARNING_CODES.EDGE_STRENGTH_LOW]).toBe('info')
+    expect(CIL_WARNING_SEVERITY[CIL_WARNING_CODES.STRENGTH_MEAN_DEFAULT_DOMINANT]).toBe('warn')
   })
 
   it('CIL_THRESHOLDS matches ContractIntegrity detection parameters', () => {

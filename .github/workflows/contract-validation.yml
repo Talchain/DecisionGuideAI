@@ -58,6 +58,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version-file: .nvmrc
+          registry-url: https://npm.pkg.github.com
           cache: "npm"
 
       - name: Cache node_modules
@@ -70,14 +71,8 @@ jobs:
       - name: Install dependencies
         if: steps.cache-nm.outputs.cache-hit != 'true'
         run: npm ci
-
-      - name: Build schemas
-        run: npm run build:schemas
-
-      - name: Download schemas artifact
-        # The contract tests don't need olumi-schemas dist, but the vitest
-        # setup may reference it. Build step above handles this.
-        run: echo "Schemas built locally"
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Sync CEE contracts (strict when CEE repo available)
         run: |

@@ -3,7 +3,7 @@
 # Safe dummy env vars are provided so no real secrets are needed in CI.
 #
 # Optimisation notes (2026-02):
-# - Shared `install` job caches node_modules + schemas for all downstream jobs
+# - Shared `install` job caches node_modules for all downstream jobs
 # - vitest + coverage merged into a single job (was running tests twice)
 # - build artifact shared with bundle-policy (was building twice)
 # - E2E Chromium sharded across 4 runners (was single-threaded, 90+ specs)
@@ -37,7 +37,7 @@ env:
   VITE_PLOT_LITE_BASE_URL: "/plot-lite"
 
 jobs:
-  # ── Shared install: cache node_modules + schemas for all downstream jobs ──
+  # ── Shared install: cache node_modules for all downstream jobs ──
   install:
     name: Install & Cache
     runs-on: ubuntu-latest
@@ -49,6 +49,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version-file: .nvmrc
+          registry-url: https://npm.pkg.github.com
           cache: "npm"
 
       - name: Cache node_modules
@@ -61,16 +62,8 @@ jobs:
       - name: Install dependencies
         if: steps.cache-nm.outputs.cache-hit != 'true'
         run: npm ci
-
-      - name: Build schemas
-        run: npm run build:schemas
-
-      - name: Upload schemas artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: schemas-dist
-          path: packages/olumi-schemas/dist/
-          retention-days: 1
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   # ── Security (no install dependency — runs independently) ──────────────
   secrets-scan:
@@ -132,11 +125,40 @@ jobs:
           path: node_modules
           key: nm-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
 
-      - name: Download schemas
-        uses: actions/download-artifact@v4
-        with:
-          name: schemas-dist
-          path: packages/olumi-schemas/dist/
+
+      - name: Schema contract gate
+        run: |
+          echo "Checking schema dependency contract..."
+
+          # 1. No file: references for @talchain/schemas
+          if grep -q '"file:' package.json; then
+            echo "FAIL: package.json contains file: dependency links"
+            grep '"file:' package.json
+            exit 1
+          fi
+
+          # 2. No local fork directory
+          if [ -d "packages/olumi-schemas" ]; then
+            echo "FAIL: packages/olumi-schemas/ fork directory exists"
+            exit 1
+          fi
+
+          # 3. @talchain/schemas must be a semver version (not a path)
+          SCHEMA_VER=$(node -p "require('./package.json').dependencies['@talchain/schemas']")
+          if echo "$SCHEMA_VER" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "OK: @talchain/schemas = $SCHEMA_VER (registry version)"
+          else
+            echo "FAIL: @talchain/schemas = $SCHEMA_VER (not a registry version)"
+            exit 1
+          fi
+
+          # 4. No source imports from local schema paths
+          if grep -rn "from.*packages/olumi-schemas" src/ --include='*.ts' --include='*.tsx'; then
+            echo "FAIL: Source files import from local fork path"
+            exit 1
+          fi
+
+          echo "All schema contract checks passed."
 
       - name: Lint
         run: npm run lint
@@ -192,11 +214,6 @@ jobs:
           path: node_modules
           key: nm-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
 
-      - name: Download schemas
-        uses: actions/download-artifact@v4
-        with:
-          name: schemas-dist
-          path: packages/olumi-schemas/dist/
 
       - name: Run unit tests with coverage
         run: npm run test:coverage
@@ -267,11 +284,6 @@ jobs:
           path: node_modules
           key: nm-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
 
-      - name: Download schemas
-        uses: actions/download-artifact@v4
-        with:
-          name: schemas-dist
-          path: packages/olumi-schemas/dist/
 
       - name: Build (with PLC assertion + bundle budget)
         run: npm run build:ci

@@ -44,6 +44,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version-file: .nvmrc
+          registry-url: https://npm.pkg.github.com
           cache: "npm"
 
       - name: Cache node_modules
@@ -56,16 +57,8 @@ jobs:
       - name: Install dependencies
         if: steps.cache-nm.outputs.cache-hit != 'true'
         run: npm ci
-
-      - name: Build schemas
-        run: npm run build:schemas
-
-      - name: Upload schemas artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: schemas-dist
-          path: packages/olumi-schemas/dist/
-          retention-days: 1
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   # ── TypeScript + Lint ────────────────────────────────────────────────
   tsc:
@@ -87,12 +80,6 @@ jobs:
         with:
           path: node_modules
           key: nm-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
-
-      - name: Download schemas
-        uses: actions/download-artifact@v4
-        with:
-          name: schemas-dist
-          path: packages/olumi-schemas/dist/
 
       - name: Lint
         run: npm run lint
@@ -121,12 +108,6 @@ jobs:
           path: node_modules
           key: nm-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
 
-      - name: Download schemas
-        uses: actions/download-artifact@v4
-        with:
-          name: schemas-dist
-          path: packages/olumi-schemas/dist/
-
       - name: Run full test suite
         run: npx vitest run --reporter=verbose --bail=1
         env:
@@ -152,12 +133,6 @@ jobs:
         with:
           path: node_modules
           key: nm-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
-
-      - name: Download schemas
-        uses: actions/download-artifact@v4
-        with:
-          name: schemas-dist
-          path: packages/olumi-schemas/dist/
 
       - name: Build
         run: npm run build

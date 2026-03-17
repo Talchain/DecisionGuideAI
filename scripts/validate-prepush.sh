@@ -157,42 +157,28 @@ fi
 # ─── Check 6: Dependency audit ─────────────────────────────────────────
 header "Check 6 — Dependency audit (file: references)"
 
-# Known intentional file: references (monorepo local packages)
-KNOWN_FILE_REFS="packages/olumi-schemas"
+# Zero tolerance: all dependencies must come from a package registry.
+# No file: links allowed — @talchain/schemas must be a published version.
+FILE_REFS=$(grep -n '"file:' "$REPO_ROOT/package.json" 2>/dev/null || true)
+LOCK_FILE_REFS=$(grep -n '"file:' "$REPO_ROOT/package-lock.json" 2>/dev/null || true)
 
-UNEXPECTED_FILE_REFS=0
-
-check_file_ref() {
-  local file="$1"
-  local line="$2"
-  local known=0
-  for ref in $KNOWN_FILE_REFS; do
-    if echo "$line" | grep -q "$ref"; then
-      known=1
-      break
-    fi
-  done
-  if [ "$known" -eq 0 ]; then
-    echo "    unexpected file: reference in $file:"
-    echo "      $line"
-    UNEXPECTED_FILE_REFS=1
-  fi
-}
-
-# Check package.json
-while IFS= read -r line; do
-  check_file_ref "package.json" "$line"
-done < <(grep -n '"file:' "$REPO_ROOT/package.json" 2>/dev/null || true)
-
-# Check package-lock.json (full scan)
-while IFS= read -r line; do
-  check_file_ref "package-lock.json" "$line"
-done < <(grep -n '"file:' "$REPO_ROOT/package-lock.json" 2>/dev/null || true)
-
-if [ "$UNEXPECTED_FILE_REFS" -eq 1 ]; then
-  fail "Unexpected file: dependency references found"
+if [ -n "$FILE_REFS" ]; then
+  echo "    file: dependency references found in package.json:"
+  echo "$FILE_REFS" | while IFS= read -r line; do echo "      $line"; done
+  fail "All dependencies must use published registry versions (no file: links)"
+elif [ -n "$LOCK_FILE_REFS" ]; then
+  echo "    file: dependency references found in package-lock.json:"
+  echo "$LOCK_FILE_REFS" | head -5 | while IFS= read -r line; do echo "      $line"; done
+  fail "package-lock.json contains file: references — regenerate with npm install"
 else
-  pass "No unexpected file: references (known: @talchain/schemas → packages/olumi-schemas)"
+  pass "No file: dependency references"
+fi
+
+# Also verify the fork directory doesn't exist
+if [ -d "$REPO_ROOT/packages/olumi-schemas" ]; then
+  fail "packages/olumi-schemas/ fork directory still exists — it must be deleted"
+else
+  pass "No local schema fork directory"
 fi
 
 # ─── Summary ──────────────────────────────────────────────────────────
