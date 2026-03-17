@@ -586,6 +586,121 @@ describe('Interactive Actions Hardening', () => {
     })
   })
 
+  describe('Goal Baseline Store Wiring', () => {
+    it('confirm writes observedState.value to goal node via updateNode', () => {
+      const goalNode = {
+        id: 'g1', type: 'goal', position: { x: 0, y: 0 },
+        data: { label: 'Revenue Growth' },
+      }
+
+      mockUsePreAnalysisData.mockReturnValue(createMockData({
+        goalNode: goalNode as any,
+        qualityChecks: [],
+      }))
+
+      render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
+
+      // GoalBaselineInput renders in pill state — click "Set current value"
+      const setCta = screen.getByTestId('goal-baseline-set-cta')
+      fireEvent.click(setCta)
+
+      // Enter a value and confirm
+      const input = screen.getByTestId('goal-baseline-number-input')
+      fireEvent.change(input, { target: { value: '150' } })
+      fireEvent.click(screen.getByTestId('goal-baseline-confirm'))
+
+      // Verify updateNode called with observedState containing the value
+      expect(mockUpdateNode).toHaveBeenCalledWith('g1', expect.objectContaining({
+        data: expect.objectContaining({
+          observedState: expect.objectContaining({ value: 150 }),
+          observed_state: expect.objectContaining({ value: 150 }),
+        }),
+      }))
+
+      // Verify analysis cache is invalidated so stale results cannot be reused
+      expect(mockSetCeeAnalysisReady).toHaveBeenCalledWith(null)
+    })
+
+    it('confirm from display state (edit existing value) also invalidates cache', () => {
+      const goalNode = {
+        id: 'g1', type: 'goal', position: { x: 0, y: 0 },
+        data: { label: 'Revenue', observedState: { value: 100 }, observed_state: { value: 100 } },
+      }
+
+      mockUsePreAnalysisData.mockReturnValue(createMockData({
+        goalNode: goalNode as any,
+        qualityChecks: [],
+      }))
+
+      render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
+
+      // Display state visible — edit and confirm a new value
+      fireEvent.click(screen.getByTestId('goal-baseline-edit'))
+      fireEvent.change(screen.getByTestId('goal-baseline-number-input'), { target: { value: '200' } })
+      fireEvent.click(screen.getByTestId('goal-baseline-confirm'))
+
+      expect(mockUpdateNode).toHaveBeenCalledWith('g1', expect.objectContaining({
+        data: expect.objectContaining({
+          observedState: expect.objectContaining({ value: 200 }),
+        }),
+      }))
+      expect(mockSetCeeAnalysisReady).toHaveBeenCalledWith(null)
+    })
+
+    it('clear (undo to null) calls onClear which removes value and invalidates cache', () => {
+      const goalNode = {
+        id: 'g1', type: 'goal', position: { x: 0, y: 0 },
+        data: { label: 'Revenue' },
+      }
+
+      // Pill state — no baseline set
+      mockUsePreAnalysisData.mockReturnValue(createMockData({
+        goalNode: goalNode as any,
+        qualityChecks: [],
+      }))
+
+      const { rerender } = render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
+
+      // Set a value (previousValue inside GoalBaselineInput will be null)
+      fireEvent.click(screen.getByTestId('goal-baseline-set-cta'))
+      fireEvent.change(screen.getByTestId('goal-baseline-number-input'), { target: { value: '50' } })
+      fireEvent.click(screen.getByTestId('goal-baseline-confirm'))
+
+      // Re-render simulating store update so undo button appears in display state
+      mockUsePreAnalysisData.mockReturnValue(createMockData({
+        goalNode: { ...goalNode, data: { ...goalNode.data, observedState: { value: 50 } } } as any,
+        qualityChecks: [],
+      }))
+      rerender(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
+
+      // Undo — previousValue was null, so GoalBaselineInput calls onClear → handleBaselineClear
+      fireEvent.click(screen.getByTestId('goal-baseline-undo'))
+
+      // updateNode called twice: once to confirm 50, once to clear
+      expect(mockUpdateNode).toHaveBeenCalledTimes(2)
+      // Cache invalidated for both confirm and clear operations
+      expect(mockSetCeeAnalysisReady).toHaveBeenCalledWith(null)
+      expect(mockSetCeeAnalysisReady).toHaveBeenCalledTimes(2)
+    })
+
+    it('highlights goal node on canvas when input opens', () => {
+      const goalNode = {
+        id: 'g1', type: 'goal', position: { x: 0, y: 0 },
+        data: { label: 'Revenue' },
+      }
+
+      mockUsePreAnalysisData.mockReturnValue(createMockData({
+        goalNode: goalNode as any,
+        qualityChecks: [],
+      }))
+
+      render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
+
+      fireEvent.click(screen.getByTestId('goal-baseline-set-cta'))
+      expect(mockSetHighlightedNodes).toHaveBeenCalledWith(['g1'])
+    })
+  })
+
   describe('Edge Data Preservation', () => {
     it('preserves existing edge data when adding evidence', () => {
       const edgeWithData = {
