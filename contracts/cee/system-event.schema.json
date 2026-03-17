@@ -1,0 +1,27 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://olumi.ai/contracts/cee/system-event.v1.json",
+  "title": "CEE System Event",
+  "description": "Wire-safe system event payload sent to CEE to signal UI-side actions.",
+  "type": "object",
+  "required": ["type"],
+  "properties": {
+    "type": {
+      "type": "string",
+      "enum": [
+        "direct_graph_edit",
+        "direct_analysis_run",
+        "patch_accepted",
+        "patch_dismissed",
+        "feedback_submitted"
+      ],
+      "description": "Discriminator for the system event kind"
+    },
+    "payload": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "Event-specific payload (e.g. changed_node_ids for direct_graph_edit)"
+    }
+  },
+  "additionalProperties": false
+}

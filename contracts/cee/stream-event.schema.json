@@ -1,0 +1,90 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://olumi.ai/contracts/cee/stream-event.v1.json",
+  "title": "OrchestratorStreamEvent",
+  "description": "SSE stream events emitted by CEE orchestrator during turn processing.",
+  "type": "object",
+  "required": ["type", "seq"],
+  "properties": {
+    "type": {
+      "type": "string",
+      "enum": ["turn_start", "text_delta", "tool_start", "block", "tool_result", "turn_complete", "error"]
+    },
+    "seq": {
+      "type": "integer",
+      "minimum": 0
+    }
+  },
+  "oneOf": [
+    {
+      "title": "TurnStart",
+      "properties": {
+        "type": { "const": "turn_start" },
+        "turn_id": { "type": "string" },
+        "routing": { "type": "string", "enum": ["deterministic", "llm"] },
+        "stage": { "type": "string" }
+      },
+      "required": ["type", "seq", "turn_id", "routing", "stage"]
+    },
+    {
+      "title": "TextDelta",
+      "properties": {
+        "type": { "const": "text_delta" },
+        "delta": { "type": "string" }
+      },
+      "required": ["type", "seq", "delta"]
+    },
+    {
+      "title": "ToolStart",
+      "properties": {
+        "type": { "const": "tool_start" },
+        "tool_name": { "type": "string" },
+        "long_running": { "type": "boolean" }
+      },
+      "required": ["type", "seq", "tool_name", "long_running"]
+    },
+    {
+      "title": "Block",
+      "properties": {
+        "type": { "const": "block" },
+        "block": { "type": "object", "additionalProperties": true }
+      },
+      "required": ["type", "seq", "block"]
+    },
+    {
+      "title": "ToolResult",
+      "properties": {
+        "type": { "const": "tool_result" },
+        "tool_name": { "type": "string" },
+        "success": { "type": "boolean" },
+        "duration_ms": { "type": "number" }
+      },
+      "required": ["type", "seq", "tool_name", "success"]
+    },
+    {
+      "title": "TurnComplete",
+      "properties": {
+        "type": { "const": "turn_complete" },
+        "envelope": { "type": "object", "additionalProperties": true }
+      },
+      "required": ["type", "seq", "envelope"]
+    },
+    {
+      "title": "Error",
+      "properties": {
+        "type": { "const": "error" },
+        "error": {
+          "type": "object",
+          "required": ["code", "message"],
+          "properties": {
+            "code": { "type": "string" },
+            "message": { "type": "string" }
+          }
+        },
+        "recoverable": { "type": "boolean" }
+      },
+      "required": ["type", "seq", "error", "recoverable"]
+    }
+  ],
+  "additionalProperties": true
+}

@@ -1,0 +1,311 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://olumi.ai/contracts/cee/turn-request.v1.json",
+  "title": "CEE Turn Request",
+  "description": "Discriminated union of all turn request types sent by the UI to the CEE orchestrator via /bff/orchestrate/v1/turn. Per-turn forbidden-field restrictions enforced via oneOf + not.",
+  "type": "object",
+  "required": ["scenario_id", "client_turn_id", "conversation_history"],
+  "properties": {
+    "scenario_id": {
+      "type": "string",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+      "description": "UUID identifying the decision scenario"
+    },
+    "client_turn_id": {
+      "type": "string",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+      "description": "UUID for deduplication and correlation"
+    },
+    "conversation_history": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["role", "content"],
+        "properties": {
+          "role": { "type": "string" },
+          "content": { "type": "string" }
+        }
+      }
+    },
+    "message": {
+      "type": "string",
+      "description": "User message text. Required for conversation, explain, explicit_generate, system_event, clarification_response turns."
+    },
+    "graph_state": { "$ref": "#/definitions/GraphState" },
+    "selected_elements": { "$ref": "#/definitions/SelectedElements" },
+    "analysis_state": { "$ref": "#/definitions/AnalysisState" },
+    "analysis_inputs": { "$ref": "#/definitions/AnalysisInputs" },
+    "generate_model": {
+      "type": "boolean",
+      "const": true,
+      "description": "Flag for explicit_generate turns"
+    },
+    "system_event": { "$ref": "#/definitions/SystemEvent" }
+  },
+  "additionalProperties": false,
+  "oneOf": [
+    {
+      "title": "ConversationOrExplainTurn",
+      "description": "Standard conversation or explain message. Both have identical wire shapes (message + graph_state, optional selected_elements + analysis_state). Discriminated by intent, not structure.",
+      "required": ["message", "graph_state"],
+      "not": {
+        "anyOf": [
+          { "required": ["generate_model"] },
+          { "required": ["analysis_inputs"] },
+          { "required": ["system_event"] }
+        ]
+      }
+    },
+    {
+      "title": "ExplicitGenerateTurn",
+      "description": "User requests explicit model generation. Routes to CEE's deterministic draft pipeline.",
+      "required": ["message", "graph_state", "generate_model"],
+      "not": {
+        "anyOf": [
+          { "required": ["selected_elements"] },
+          { "required": ["analysis_inputs"] },
+          { "required": ["system_event"] }
+        ]
+      }
+    },
+    {
+      "title": "RunAnalysisTurn",
+      "description": "Run analysis with user-selected options via PLoT.",
+      "required": ["graph_state", "analysis_inputs"],
+      "not": {
+        "anyOf": [
+          { "required": ["message"] },
+          { "required": ["selected_elements"] },
+          { "required": ["analysis_state"] },
+          { "required": ["generate_model"] },
+          { "required": ["system_event"] }
+        ]
+      }
+    },
+    {
+      "title": "SystemEventTurn",
+      "description": "Signal CEE about graph edits, patch accept/dismiss, feedback, or direct analysis runs.",
+      "required": ["message", "graph_state", "system_event"],
+      "not": {
+        "anyOf": [
+          { "required": ["selected_elements"] },
+          { "required": ["analysis_inputs"] },
+          { "required": ["generate_model"] }
+        ]
+      }
+    },
+    {
+      "title": "PatchFollowupTurn",
+      "description": "Follow-up after graph patch applied. Graph state changed but no user message.",
+      "required": ["graph_state"],
+      "not": {
+        "anyOf": [
+          { "required": ["message"] },
+          { "required": ["selected_elements"] },
+          { "required": ["analysis_inputs"] },
+          { "required": ["generate_model"] },
+          { "required": ["system_event"] }
+        ]
+      }
+    },
+    {
+      "title": "ClarificationResponseTurn",
+      "description": "Minimal turn for answering CEE's clarification requests.",
+      "required": ["message"],
+      "not": {
+        "anyOf": [
+          { "required": ["graph_state"] },
+          { "required": ["selected_elements"] },
+          { "required": ["analysis_state"] },
+          { "required": ["analysis_inputs"] },
+          { "required": ["generate_model"] },
+          { "required": ["system_event"] }
+        ]
+      }
+    }
+  ],
+  "definitions": {
+    "GraphState": {
+      "type": "object",
+      "required": ["nodes", "edges"],
+      "properties": {
+        "nodes": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/GraphNode" }
+        },
+        "edges": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/GraphEdge" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "GraphNode": {
+      "type": "object",
+      "required": ["id", "kind", "label"],
+      "properties": {
+        "id": { "type": "string" },
+        "kind": {
+          "type": "string",
+          "enum": ["goal", "factor", "outcome", "decision", "risk", "action", "option"]
+        },
+        "label": { "type": "string" },
+        "description": { "type": "string" },
+        "observed_state": { "$ref": "#/definitions/ObservedState" },
+        "category": {
+          "type": "string",
+          "enum": ["controllable", "observable", "external"]
+        },
+        "prior": { "type": "object" },
+        "goal_threshold": { "type": "number" },
+        "goal_threshold_raw": { "type": "number" },
+        "goal_threshold_unit": { "type": "string" },
+        "goal_threshold_cap": { "type": "number" }
+      },
+      "additionalProperties": true
+    },
+    "ObservedState": {
+      "type": "object",
+      "required": ["value"],
+      "properties": {
+        "value": { "type": "number" },
+        "baseline": { "type": "number" },
+        "unit": { "type": "string" },
+        "source": {
+          "type": "string",
+          "enum": ["brief_extraction", "cee_inference"]
+        },
+        "raw_value": { "type": "number" },
+        "cap": { "type": "number" },
+        "extractionType": {
+          "type": "string",
+          "enum": ["explicit", "inferred", "range", "observed"]
+        },
+        "factor_type": {
+          "type": "string",
+          "enum": ["cost", "price", "time", "probability", "revenue", "demand", "quality", "other"]
+        },
+        "uncertainty_drivers": {
+          "type": "array",
+          "items": { "type": "string" },
+          "maxItems": 2
+        }
+      },
+      "additionalProperties": true
+    },
+    "GraphEdge": {
+      "type": "object",
+      "required": ["from", "to"],
+      "properties": {
+        "from": { "type": "string" },
+        "to": { "type": "string" },
+        "strength": {
+          "type": "object",
+          "required": ["mean"],
+          "properties": {
+            "mean": { "type": "number" },
+            "std": { "type": "number" }
+          }
+        },
+        "exists_probability": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "effect_direction": {
+          "type": "string",
+          "enum": ["positive", "negative"]
+        },
+        "origin": { "type": "string" },
+        "edge_type": {
+          "type": "string",
+          "enum": ["directed", "bidirected"]
+        }
+      },
+      "additionalProperties": true
+    },
+    "SelectedElements": {
+      "type": "object",
+      "properties": {
+        "node_ids": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "edge_ids": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "AnalysisState": {
+      "type": "object",
+      "required": ["analysis_status", "meta", "results"],
+      "properties": {
+        "analysis_status": {
+          "type": "string",
+          "minLength": 1
+        },
+        "meta": {
+          "type": "object",
+          "required": ["response_hash"],
+          "properties": {
+            "response_hash": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "additionalProperties": true
+        },
+        "results": {}
+      },
+      "additionalProperties": true
+    },
+    "AnalysisInputs": {
+      "type": "object",
+      "required": ["options", "goal_node_id"],
+      "properties": {
+        "options": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "option_id", "label", "interventions"],
+            "properties": {
+              "id": { "type": "string" },
+              "option_id": { "type": "string" },
+              "label": { "type": "string" },
+              "interventions": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            },
+            "additionalProperties": true
+          }
+        },
+        "goal_node_id": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "SystemEvent": {
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "direct_graph_edit",
+            "direct_analysis_run",
+            "patch_accepted",
+            "patch_dismissed",
+            "feedback_submitted"
+          ]
+        },
+        "payload": {
+          "type": "object",
+          "additionalProperties": true
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

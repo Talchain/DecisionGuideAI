@@ -1,0 +1,100 @@
+# Cross-service contract validation.
+#
+# Validates that UI payloads (turn requests, response consumption) match
+# the CEE orchestrator's boundary schemas. Catches shape mismatches at
+# CI-time instead of staging.
+#
+# Schema source: CEE repo exports JSON Schema files. This workflow checks
+# out the CEE repo's contracts/ directory and copies them locally before
+# running the contract test suite.
+
+name: Contract Validation
+
+on:
+  push:
+    branches: [staging, main]
+  pull_request:
+    branches: [staging, main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  TZ: UTC
+  CI: "1"
+  VITE_OPENAI_API_KEY: "test"
+  VITE_SUPABASE_URL: "http://localhost"
+  VITE_SUPABASE_ANON_KEY: "test"
+  VITE_FEATURE_SSE: "0"
+  VITE_EDGE_GATEWAY_URL: "http://localhost:3001"
+  VITE_PLOT_LITE_BASE_URL: "/plot-lite"
+
+jobs:
+  validate-contracts:
+    name: CEE Contract Validation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout UI repo
+        uses: actions/checkout@v4
+
+      # Attempt to fetch CEE contracts from the CEE repo.
+      # If the CEE repo isn't accessible (private repo, no token), fall back
+      # to the reference copies committed in contracts/cee/.
+      - name: Checkout CEE contracts (optional)
+        uses: actions/checkout@v4
+        with:
+          repository: Olumi/olumi-assistants-service
+          path: cee-repo
+          sparse-checkout: |
+            contracts/
+            schemas/
+        continue-on-error: true
+
+      - name: Use Node.js from .nvmrc
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: "npm"
+
+      - name: Cache node_modules
+        id: cache-nm
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: nm-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
+      - name: Install dependencies
+        if: steps.cache-nm.outputs.cache-hit != 'true'
+        run: npm ci
+
+      - name: Build schemas
+        run: npm run build:schemas
+
+      - name: Download schemas artifact
+        # The contract tests don't need olumi-schemas dist, but the vitest
+        # setup may reference it. Build step above handles this.
+        run: echo "Schemas built locally"
+
+      - name: Sync CEE contracts (strict when CEE repo available)
+        run: |
+          if [ -d "cee-repo/contracts" ] || [ -d "cee-repo/schemas" ]; then
+            CEE_REPO_PATH=./cee-repo STRICT_CONTRACTS=1 bash scripts/fetch-cee-contracts.sh
+          else
+            echo "CEE repo not available — using committed reference schemas"
+            echo "Verifying all 6 expected schemas are present..."
+            actual=$(ls contracts/cee/*.json 2>/dev/null | wc -l | tr -d ' ')
+            if [ "$actual" -ne 6 ]; then
+              echo "ERROR: Expected 6 schemas in contracts/cee/, found $actual"
+              exit 1
+            fi
+            echo "All 6 reference schemas present."
+          fi
+
+      - name: Run contract tests
+        run: npx vitest run tests/contracts/ --reporter=verbose --bail=1
+        env:
+          NODE_OPTIONS: "--max-old-space-size=4096"
