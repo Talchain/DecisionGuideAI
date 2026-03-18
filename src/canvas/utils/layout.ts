@@ -121,11 +121,17 @@ export async function layoutGraph(
   // Run layout
   const layout = await elk.layout(elkGraph)
 
-  // Map positions back to nodes
+  // Map positions and sizes back from ELK output.
+  // ELK returns width/height on each child — use them so the adaptive scale
+  // step can measure the true footprint rather than just origin-to-origin.
   const positionMap = new Map<string, { x: number; y: number }>()
+  const sizeMap = new Map<string, { width: number; height: number }>()
   layout.children?.forEach(child => {
     if (child.x !== undefined && child.y !== undefined) {
       positionMap.set(child.id, { x: child.x, y: child.y })
+    }
+    if (child.width !== undefined && child.height !== undefined) {
+      sizeMap.set(child.id, { width: child.width, height: child.height })
     }
   })
 
@@ -133,7 +139,7 @@ export async function layoutGraph(
   // canvas, scale positions outward from the graph centre so the graph fills
   // the space rather than clustering in a tight ball.  Large graphs are left
   // alone — fitView zoom handles those.
-  applyAdaptiveScale(positionMap)
+  applyAdaptiveScale(positionMap, sizeMap)
 
   // Update unlocked nodes with new positions
   const updatedNodes = nodes.map(node => {
@@ -151,27 +157,35 @@ export async function layoutGraph(
 }
 
 /**
- * If the ELK-computed graph bounding box is much smaller than the available
+ * If the ELK-computed graph footprint is much smaller than the available
  * canvas (< 40% in both axes), scale all positions outward from the graph
  * centre so genuinely tiny graphs make better use of available space.
  *
+ * Bounds are computed from node origins + their rendered widths/heights so
+ * the true footprint is measured rather than just origin-to-origin distance.
+ *
  * Scale is capped at 1.5× to avoid over-expanding graphs that ELK already
  * spaced sensibly. Skipped for single-node graphs (nothing to spread).
+ *
+ * Degenerate axes (graphW or graphH ≈ 0, e.g. a pure vertical chain) are
+ * handled independently — a near-zero axis does not block valid expansion on
+ * the other axis.
  */
 function applyAdaptiveScale(
-  positionMap: Map<string, { x: number; y: number }>
+  positionMap: Map<string, { x: number; y: number }>,
+  sizeMap: Map<string, { width: number; height: number }>
 ): void {
   if (positionMap.size < 2) return
 
-  const positions = Array.from(positionMap.values())
-
+  // Measure true footprint: origin + node dimensions
   let minX = Infinity, maxX = -Infinity
   let minY = Infinity, maxY = -Infinity
-  for (const p of positions) {
-    if (p.x < minX) minX = p.x
-    if (p.x > maxX) maxX = p.x
-    if (p.y < minY) minY = p.y
-    if (p.y > maxY) maxY = p.y
+  for (const [id, pos] of positionMap) {
+    const size = sizeMap.get(id) ?? { width: 0, height: 0 }
+    if (pos.x < minX) minX = pos.x
+    if (pos.x + size.width > maxX) maxX = pos.x + size.width
+    if (pos.y < minY) minY = pos.y
+    if (pos.y + size.height > maxY) maxY = pos.y + size.height
   }
 
   const graphW = maxX - minX
@@ -186,8 +200,11 @@ function applyAdaptiveScale(
   // spacing — fitView zoom handles fitting them into the viewport.
   if (graphW >= effectiveW * 0.4 || graphH >= effectiveH * 0.4) return
 
-  const scaleX = graphW > 0 ? (effectiveW * 0.6) / graphW : 1
-  const scaleY = graphH > 0 ? (effectiveH * 0.6) / graphH : 1
+  // Compute per-axis scale toward 60% fill. Degenerate axes (≤ 1px, e.g. a
+  // pure vertical chain where all nodes share the same x) contribute 1.0 so
+  // they don't block the other axis from scaling.
+  const scaleX = graphW > 1 ? (effectiveW * 0.6) / graphW : 1
+  const scaleY = graphH > 1 ? (effectiveH * 0.6) / graphH : 1
 
   // Use the smaller scale so both axes stay proportional and neither exceeds
   // the canvas. Cap at 1.5× to avoid over-expanding graphs with good spacing.

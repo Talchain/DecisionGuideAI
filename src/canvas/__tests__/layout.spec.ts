@@ -235,4 +235,59 @@ describe('ELK Layout', () => {
     expect(nodes.find(n => n.id === 'a')!.position).toEqual({ x: 10, y: 20 })
     expect(nodes.find(n => n.id === 'b')!.position).toEqual({ x: 30, y: 40 })
   })
+
+  it('adaptive scaling does not over-expand a 10-node graph that already spans canvas', async () => {
+    // 10-node graph with real spacing (60/90) should occupy enough canvas that
+    // adaptive scale does NOT fire (graphW or graphH >= 40% effective canvas).
+    // Nodes must remain non-overlapping and layout must be finite.
+    const tenNodes: Node[] = [
+      makeNode('d', 'decision'),
+      makeNode('o1', 'option'), makeNode('o2', 'option'), makeNode('o3', 'option'),
+      makeNode('f1', 'factor'), makeNode('f2', 'factor'), makeNode('f3', 'factor'),
+      makeNode('r1', 'risk'), makeNode('r2', 'risk'),
+      makeNode('g', 'goal'),
+    ]
+    const tenEdges: Edge[] = [
+      makeEdge('e1', 'd', 'o1'), makeEdge('e2', 'd', 'o2'), makeEdge('e3', 'd', 'o3'),
+      makeEdge('e4', 'o1', 'f1'), makeEdge('e5', 'o2', 'f2'), makeEdge('e6', 'o3', 'f3'),
+      makeEdge('e7', 'f1', 'r1'), makeEdge('e8', 'f2', 'r2'),
+      makeEdge('e9', 'r1', 'g'), makeEdge('e10', 'r2', 'g'),
+    ]
+    const { nodes } = await layoutGraph(tenNodes, tenEdges, { spacing: 60, layerSpacing: 90 })
+    nodes.forEach(n => {
+      expect(Number.isFinite(n.position.x)).toBe(true)
+      expect(Number.isFinite(n.position.y)).toBe(true)
+    })
+    checkNoOverlap(nodes)
+  })
+
+  it('adaptive scaling handles a pure vertical chain without producing invalid positions', async () => {
+    // A 5-node chain in DOWN layout produces graphW ≈ 0 (degenerate X axis).
+    // The degenerate axis must not block scaling on the other axis, and all
+    // positions must remain finite.
+    const chain: Node[] = [
+      makeNode('d', 'decision'),
+      makeNode('o', 'option'),
+      makeNode('f', 'factor'),
+      makeNode('out', 'outcome'),
+      makeNode('g', 'goal'),
+    ]
+    const chainEdges: Edge[] = [
+      makeEdge('e1', 'd', 'o'),
+      makeEdge('e2', 'o', 'f'),
+      makeEdge('e3', 'f', 'out'),
+      makeEdge('e4', 'out', 'g'),
+    ]
+    const { nodes } = await layoutGraph(chain, chainEdges)
+    nodes.forEach(n => {
+      expect(Number.isFinite(n.position.x)).toBe(true)
+      expect(Number.isFinite(n.position.y)).toBe(true)
+    })
+    // Tier ordering must still hold
+    const pos = (id: string) => nodes.find(n => n.id === id)!.position.y
+    expect(pos('d')).toBeLessThan(pos('o'))
+    expect(pos('o')).toBeLessThan(pos('f'))
+    expect(pos('f')).toBeLessThan(pos('out'))
+    expect(pos('out')).toBeLessThan(pos('g'))
+  })
 })

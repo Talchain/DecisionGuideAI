@@ -14,7 +14,9 @@ interface LayoutOptions {
   loadOptions: () => void
 }
 
-const KEY = 'canvas-layout-options-v1'
+// v2: bumped when defaults changed (80/120 → 60/90) so returning users
+// who never customised spacing are migrated to the new values.
+const KEY = 'canvas-layout-options-v2'
 
 export const useLayoutStore = create<LayoutOptions>((set, get) => ({
   direction: 'DOWN',
