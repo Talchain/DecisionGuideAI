@@ -25,7 +25,7 @@ export async function layoutGraph(
 ): Promise<{ nodes: Node[]; edges: Edge[] }> {
   const {
     direction = 'DOWN',
-    spacing = 80,
+    spacing = 60,
     layerSpacing,
     preserveLocked = true
   } = options
@@ -152,11 +152,11 @@ export async function layoutGraph(
 
 /**
  * If the ELK-computed graph bounding box is much smaller than the available
- * canvas (< 60% in both axes), scale all positions outward from the graph
- * centre so the graph makes better use of available space.
+ * canvas (< 40% in both axes), scale all positions outward from the graph
+ * centre so genuinely tiny graphs make better use of available space.
  *
- * Scale is capped at 2× to avoid absurd spacing on very small graphs.
- * Skipped for single-node graphs (nothing to spread).
+ * Scale is capped at 1.5× to avoid over-expanding graphs that ELK already
+ * spaced sensibly. Skipped for single-node graphs (nothing to spread).
  */
 function applyAdaptiveScale(
   positionMap: Map<string, { x: number; y: number }>
@@ -181,17 +181,17 @@ function applyAdaptiveScale(
   const effectiveW = CANVAS_WIDTH * (1 - FIT_VIEW_PADDING * 2)
   const effectiveH = CANVAS_HEIGHT * (1 - FIT_VIEW_PADDING * 2)
 
-  // Only scale up when the graph is meaningfully smaller than the canvas in
-  // both dimensions simultaneously.  If it's already wide or already tall,
-  // the overall layout is fine and fitView zoom handles the rest.
-  if (graphW >= effectiveW * 0.6 || graphH >= effectiveH * 0.6) return
+  // Only scale up for genuinely tiny graphs (< 40% of canvas in both axes).
+  // Graphs that already span 40%+ in either dimension are left at ELK's native
+  // spacing — fitView zoom handles fitting them into the viewport.
+  if (graphW >= effectiveW * 0.4 || graphH >= effectiveH * 0.4) return
 
-  const scaleX = graphW > 0 ? (effectiveW * 0.8) / graphW : 1
-  const scaleY = graphH > 0 ? (effectiveH * 0.8) / graphH : 1
+  const scaleX = graphW > 0 ? (effectiveW * 0.6) / graphW : 1
+  const scaleY = graphH > 0 ? (effectiveH * 0.6) / graphH : 1
 
   // Use the smaller scale so both axes stay proportional and neither exceeds
-  // the canvas. Cap at 2× to prevent absurd spacing on 2–3 node graphs.
-  const scale = Math.min(scaleX, scaleY, 2.0)
+  // the canvas. Cap at 1.5× to avoid over-expanding graphs with good spacing.
+  const scale = Math.min(scaleX, scaleY, 1.5)
   if (scale <= 1.05) return // skip trivial no-op adjustments
 
   const cx = (minX + maxX) / 2
