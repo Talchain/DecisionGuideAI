@@ -1128,16 +1128,25 @@ export function useConversation(): UseConversationReturn {
       const repairsSummary = rawV2?.repairs_applied?.length
         ? { count: rawV2.repairs_applied.length, codes: rawV2.repairs_applied.map(r => r.code).filter(Boolean) }
         : undefined
+      // CEE reads V2 fields (option_comparison, robustness, drivers, etc.) at the
+      // TOP LEVEL of analysis_state — NOT nested inside a `results` wrapper.
+      // `results` is kept to satisfy the ExplainAnalysisStatePayload type guard
+      // (isValidExplainAnalysisState checks results != null) but CEE ignores it.
       const analysisState: ExplainAnalysisStatePayload | undefined =
         graphIsStale ? undefined
         : analysisStatus === 'completed' && analysisHash && v2Results
-          ? { analysis_status: analysisStatus, meta: { response_hash: analysisHash }, results: v2Results, ...(repairsSummary ? { repairs_summary: repairsSummary } : {}) }
+          ? {
+              ...v2Results,
+              // analysis_status and meta MUST come AFTER v2Results spread so they
+              // are not overwritten by rawV2's own analysis_status / meta fields.
+              analysis_status: analysisStatus,
+              meta: { ...v2Results.meta, response_hash: analysisHash },
+              results: analysisSummary ?? true,
+              ...(repairsSummary ? { repairs_summary: repairsSummary } : {}),
+            }
         : undefined
 
       if (import.meta.env.DEV) {
-        const optionComparison = analysisState
-          ? (analysisState.results as Record<string, unknown>)?.option_comparison
-          : undefined
         console.warn('[buildRequest] analysis_state present:', !!analysisState, {
           turnType: opts.turnType,
           analysisStatus,
@@ -1145,8 +1154,8 @@ export function useConversation(): UseConversationReturn {
           hasRawV2: !!rawV2,
           hasSummary: !!analysisSummary,
           graphIsStale,
-          results_has_option_comparison: Array.isArray(optionComparison),
-          option_comparison_length: Array.isArray(optionComparison) ? optionComparison.length : 0,
+          has_option_comparison: Array.isArray(analysisState?.option_comparison),
+          option_comparison_length: Array.isArray(analysisState?.option_comparison) ? (analysisState!.option_comparison as unknown[]).length : 0,
         })
       }
 
