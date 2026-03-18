@@ -1065,8 +1065,10 @@ export function useConversation(): UseConversationReturn {
       const fallbackResults = !analysisSummary && rawV2 ? {
         option_comparison: rawV2.option_comparison,
         robustness: rawV2.robustness ?? null,
-        drivers: rawV2.drivers ?? null,
-        edge_sensitivity: rawV2.edge_sensitivity ?? null,
+        // Guard array fields — raw response is pre-sanitization and may have
+        // non-array shapes if PLoT sent malformed data (sanitizer fixes these).
+        drivers: Array.isArray(rawV2.drivers) ? rawV2.drivers : null,
+        edge_sensitivity: Array.isArray(rawV2.edge_sensitivity) ? rawV2.edge_sensitivity : null,
         constraints_status: rawV2.constraints_status ?? null,
         meta: rawV2.meta ?? null,
         analysis_status: rawV2.analysis_status,

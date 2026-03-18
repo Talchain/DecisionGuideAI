@@ -2245,6 +2245,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       isDirty: false,
       hasCompletedFirstRun: true,
       graphEditedSinceLastRun: false,
+      rawV2Response: null, // Historical runs don't carry raw V2 response
     }))
   },
 
@@ -2283,6 +2284,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       })(),
       hasCompletedFirstRun: true,
       graphEditedSinceLastRun: false,
+      rawV2Response: null, // Supabase hydration doesn't carry raw V2 response
     }))
   },
 
