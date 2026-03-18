@@ -231,6 +231,29 @@ function clamp01(v: number): number {
 // Helpers
 // ---------------------------------------------------------------------------
 
+/**
+ * Strip diagnostics content from assistant_text. Handles two patterns:
+ * 1. XML-wrapped: `<diagnostics>…</diagnostics>` (with optional whitespace/newlines)
+ * 2. Bare preamble: lines starting with "Mode:" followed by stage/intent metadata
+ *    that CEE's internal diagnostics emits (e.g. "Mode: INTERPRET. Stage: IDEATE. …")
+ *
+ * Belt-and-braces defence — CEE strips these server-side, but LLM output variance
+ * can cause leaks.
+ */
+export function stripDiagnostics(text: string): string {
+  // 1. Remove <diagnostics>…</diagnostics> blocks (dotAll for multiline content)
+  let cleaned = text.replace(/<diagnostics>[\s\S]*?<\/diagnostics>\s*/gi, '')
+
+  // 2. Remove bare diagnostics preamble lines: "Mode: <WORD>. Stage: <WORD>."
+  //    followed by optional further sentence(s) on the same line.
+  //    Only strip lines that look like the internal preamble pattern to avoid
+  //    false-positives on user-visible content.
+  cleaned = cleaned.replace(/^Mode:\s+\w+\.\s*Stage:\s+\w+\.[^\n]*$/gm, '')
+
+  // Collapse leading/trailing blank lines left by removals
+  return cleaned.replace(/^\n+/, '').replace(/\n{3,}/g, '\n\n').trimEnd()
+}
+
 /** Build a user-facing error message from a caught error */
 export function buildErrorMessage(err: unknown): string {
   if (!(err instanceof OrchestratorError)) {
@@ -917,7 +940,8 @@ export function useConversation(): UseConversationReturn {
     if (!buf.length || !msgId) return
     frameBufRef.current = []
     streamTextRef.current += buf.join('')
-    updateMessage(msgId, { content: streamTextRef.current })
+    // Strip diagnostics during streaming so preamble never flashes in the bubble
+    updateMessage(msgId, { content: stripDiagnostics(streamTextRef.current) })
   }, [updateMessage])
 
   /** Schedule a RAF-batched flush (prevents duplicate scheduling) */
@@ -1475,11 +1499,16 @@ export function useConversation(): UseConversationReturn {
 
       const orderedBlocks = prioritiseBlocks(normalisedBlocks)
 
+      // Belt-and-braces: strip <diagnostics>…</diagnostics> XML blocks and bare
+      // diagnostics preamble ("Mode: …") that CEE should have removed server-side.
+      // Protects against LLM output variance where diagnostics leak into assistant_text.
+      let assistantText = envelope.assistant_text ?? ''
+      assistantText = stripDiagnostics(assistantText)
+
       // Strip trailing text lines that duplicate chip labels or messages (LLM sometimes
       // echoes suggested actions — either the display label or the raw prompt — as plain
       // text at the end of assistant_text). Only strip lines that look like a list item
       // (bulleted/numbered prefix) to avoid removing semantically valid prose endings.
-      let assistantText = envelope.assistant_text ?? ''
       if (chips.length > 0) {
         const chipLabels = new Set(chips.map(c => c.label.toLowerCase().trim()))
         const chipMessages = new Set(chips.flatMap(c => c.message ? [c.message.toLowerCase().trim()] : []))
