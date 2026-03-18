@@ -18,8 +18,8 @@ const KEY = 'canvas-layout-options-v1'
 
 export const useLayoutStore = create<LayoutOptions>((set, get) => ({
   direction: 'DOWN',
-  nodeSpacing: 50,
-  layerSpacing: 75,
+  nodeSpacing: 80,
+  layerSpacing: 120,
   respectLocked: true,
   
   setDirection: (dir) => {
@@ -45,8 +45,8 @@ export const useLayoutStore = create<LayoutOptions>((set, get) => ({
         const parsed = JSON.parse(saved)
         set({
           direction: parsed.direction ?? 'DOWN',
-          nodeSpacing: parsed.nodeSpacing ?? 50,
-          layerSpacing: parsed.layerSpacing ?? 75,
+          nodeSpacing: parsed.nodeSpacing ?? 80,
+          layerSpacing: parsed.layerSpacing ?? 120,
           respectLocked: parsed.respectLocked ?? true,
         })
       }
