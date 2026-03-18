@@ -721,6 +721,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     m1ReviewAssumptions,
     goalThreshold,
     ceeAnalysisReady,
+    rawV2FlipThresholds,
   } = useCanvasStore(
     useShallow((s) => ({
       results: s.results,
@@ -734,6 +735,9 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       m1ReviewAssumptions: s.runMeta?.m1ReviewAssumptions ?? null,
       goalThreshold: s.goalThreshold,
       ceeAnalysisReady: s.ceeAnalysisReady,
+      // Extract only flip_thresholds from raw V2 response to avoid subscribing to entire object.
+      // Used as fallback in flip_thresholds defensive adaptor when mapped report doesn't carry them.
+      rawV2FlipThresholds: s.rawV2Response?.robustness?.flip_thresholds ?? (s.rawV2Response as Record<string, unknown> | null)?.flip_thresholds ?? null,
     }))
   )
 
@@ -1108,15 +1112,13 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     const goalText = currentScenarioFraming?.goal || undefined
 
     // C2: Defensive adaptor for flip_thresholds — PLoT hasn't confirmed final location.
-    // Check mapped report paths first, then fall back to raw V2 response (top-level
-    // or inside robustness). Simplify once PLoT confirms the canonical location.
-    const rawV2 = useCanvasStore.getState().rawV2Response
+    // Check mapped report paths first, then fall back to rawV2FlipThresholds (extracted
+    // from raw V2 response in the store selector). Simplify once PLoT confirms location.
     const flipThresholds: FlipThreshold[] = safeArray(
       report?.flip_thresholds
       ?? report?.report?.robustness?.flip_thresholds
       ?? report?.robustness?.flip_thresholds
-      ?? rawV2?.robustness?.flip_thresholds
-      ?? (rawV2 as Record<string, unknown> | null)?.flip_thresholds
+      ?? rawV2FlipThresholds
     )
       .map((ft: any) => {
         const nf = normaliseFactorFields(ft)
@@ -1238,7 +1240,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
         return hasWarningCritiques || hasFragileEdges
       })(),
     }
-  }, [hasCompletedFirstRun, report, nodes, goalLabel, goalNodeId, outcomeUnit, outcomeUnitSymbol, currentScenarioFraming, m1Coaching, nodeLabelMap, goalThreshold, goalThresholdCap, effectiveGoalThreshold, ceeAnalysisReady, m1ReviewAssumptions])
+  }, [hasCompletedFirstRun, report, nodes, goalLabel, goalNodeId, outcomeUnit, outcomeUnitSymbol, currentScenarioFraming, m1Coaching, nodeLabelMap, goalThreshold, goalThresholdCap, effectiveGoalThreshold, ceeAnalysisReady, m1ReviewAssumptions, rawV2FlipThresholds])
 
   // ==========================================================================
   // Drivers Section Data (with dynamic normalisation)
