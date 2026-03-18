@@ -15,7 +15,7 @@
  * Required (sent every turn):
  *   conversation_history  ConversationTurnPair[]  — Last 5 user/assistant pairs
  *   graph_state           { nodes: Node[], edges: Edge[] }  — Full canvas graph
- *   analysis_state        { has_results: bool, last_run_hash: string | null }
+ *   analysis_state        { analysis_status: string, meta: { response_hash: string }, results: object }
  *
  * Optional:
  *   selected_elements  { node_ids?: string[], edge_ids?: string[] }

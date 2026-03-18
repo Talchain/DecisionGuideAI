@@ -96,4 +96,20 @@ describe('stripDiagnostics', () => {
     const input = '<diagnostics>internal</diagnostics>\n  \n  '
     expect(stripDiagnostics(input)).toBe('')
   })
+
+  // Regex hardening: variant formats
+  it('strips preamble with leading whitespace', () => {
+    const input = '  Mode: INTERPRET. Stage: IDEATE. User intent.\nVisible.'
+    expect(stripDiagnostics(input)).toBe('Visible.')
+  })
+
+  it('strips preamble with colon separators instead of periods', () => {
+    const input = 'Mode: INTERPRET: Stage: IDEATE: Broadening query.\nVisible.'
+    expect(stripDiagnostics(input)).toBe('Visible.')
+  })
+
+  it('strips preamble with tab indentation', () => {
+    const input = '\tMode: CLARIFY. Stage: FRAME. Context needed.\nVisible.'
+    expect(stripDiagnostics(input)).toBe('Visible.')
+  })
 })

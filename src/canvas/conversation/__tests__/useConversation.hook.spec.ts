@@ -561,6 +561,66 @@ describe('buildRequest payload — RF → CEE graph_state transform', () => {
     expect(results.compact_summary.contract_version).toBe('1.0.0')
   })
 
+  it('coerces null/non-array rawV2 fields to empty arrays in analysis_state.results', async () => {
+    useCanvasStore.setState({
+      results: { status: 'complete', progress: 100, hash: 'hash-malformed' } as any,
+      graphEditedSinceLastRun: false,
+      rawV2Response: {
+        analysis_status: 'computed',
+        option_comparison_status: 'computed',
+        option_comparison: null,        // should coerce to []
+        robustness_status: 'unavailable',
+        robustness: null,
+        drivers_status: 'computed',
+        drivers: 'not-an-array',        // should coerce to []
+        edge_sensitivity: undefined,    // should coerce to []
+        meta: null,
+      } as any,
+    })
+
+    mockCallTurn.mockResolvedValue({
+      assistant_text: 'Acknowledged.',
+      client_turn_id: 'resp-malformed',
+    })
+
+    const { result } = renderHook(() => useConversation())
+    await act(async () => {
+      await result.current.sendMessage('What happened?')
+    })
+
+    const request = mockCallTurn.mock.calls[0][0]
+    expect(request.analysis_state).toBeDefined()
+    const results = request.analysis_state.results as any
+    expect(Array.isArray(results.option_comparison)).toBe(true)
+    expect(results.option_comparison).toHaveLength(0)
+    expect(Array.isArray(results.drivers)).toBe(true)
+    expect(results.drivers).toHaveLength(0)
+    expect(Array.isArray(results.edge_sensitivity)).toBe(true)
+    expect(results.edge_sensitivity).toHaveLength(0)
+    expect(results.robustness).toBeNull()
+  })
+
+  it('omits analysis_state when rawV2Response is null (no analysis run)', async () => {
+    useCanvasStore.setState({
+      results: { status: 'complete', progress: 100, hash: 'hash-no-raw' } as any,
+      graphEditedSinceLastRun: false,
+      rawV2Response: null,
+    })
+
+    mockCallTurn.mockResolvedValue({
+      assistant_text: 'OK.',
+      client_turn_id: 'resp-no-raw',
+    })
+
+    const { result } = renderHook(() => useConversation())
+    await act(async () => {
+      await result.current.sendMessage('What next?')
+    })
+
+    const request = mockCallTurn.mock.calls[0][0]
+    expect(request.analysis_state).toBeUndefined()
+  })
+
   it('system event turn also transforms graph_state correctly', async () => {
     mockCallTurn.mockResolvedValue({
       assistant_text: 'Noted.',

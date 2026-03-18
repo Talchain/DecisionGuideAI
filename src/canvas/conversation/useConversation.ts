@@ -248,7 +248,7 @@ export function stripDiagnostics(text: string): string {
   //    followed by optional further sentence(s) on the same line.
   //    Only strip lines that look like the internal preamble pattern to avoid
   //    false-positives on user-visible content.
-  cleaned = cleaned.replace(/^Mode:\s+\w+\.\s*Stage:\s+\w+\.[^\n]*$/gm, '')
+  cleaned = cleaned.replace(/^\s*Mode:\s+\w+[.:]\s*Stage:\s+\w+[.:][^\n]*$/gm, '')
 
   // Collapse leading/trailing blank lines left by removals
   return cleaned.replace(/^\n+/, '').replace(/\n{3,}/g, '\n\n').trimEnd()
@@ -1089,6 +1089,22 @@ export function useConversation(): UseConversationReturn {
       // The AnalysisInputsSummary used different names (options, top_drivers)
       // which caused CEE to log results_is_array: false / no valid options.
       const rawV2 = store.rawV2Response
+      // Flag when completed analysis has non-array critical fields — likely a PLoT regression.
+      // Still send what we have (CEE benefits from partial context) but warn loudly.
+      const v2ArrayCoercions: string[] = []
+      if (rawV2 && rawV2.analysis_status === 'computed') {
+        if (!Array.isArray(rawV2.option_comparison)) v2ArrayCoercions.push('option_comparison')
+        if (!Array.isArray(rawV2.drivers)) v2ArrayCoercions.push('drivers')
+        if (!Array.isArray(rawV2.edge_sensitivity)) v2ArrayCoercions.push('edge_sensitivity')
+        if (v2ArrayCoercions.length > 0) {
+          console.warn('[buildRequest] rawV2Response has non-array fields coerced to []:', v2ArrayCoercions)
+          recordCrossSurfaceEvent({
+            eventType: 'analysis_state_coercion',
+            summary: `Critical arrays coerced to []: ${v2ArrayCoercions.join(', ')}`,
+            payloadSummary: { fields: v2ArrayCoercions },
+          })
+        }
+      }
       const v2Results = rawV2 ? {
         option_comparison: Array.isArray(rawV2.option_comparison) ? rawV2.option_comparison : [],
         robustness: rawV2.robustness ?? null,
