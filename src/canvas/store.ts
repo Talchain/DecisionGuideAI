@@ -10,6 +10,7 @@ import { mergePolicy } from './layout/policy'
 import { policyToPreset, policyToSpacing } from './layout/adapters'
 import { getInvalidNodes as getInvalidNodesUtil, getNextInvalidNode as getNextInvalidNodeUtil, type InvalidNodeInfo } from './utils/validateOutgoing'
 import type { ReportV1, ErrorV1 } from '../adapters/plot/types'
+import type { V2RunResponse } from '../adapters/plot/v2/types'
 import type { PLoTEnrichment } from '../adapters/plot/enrichment'
 import { trackResultsViewed, trackIssuesOpened } from './utils/sandboxTelemetry'
 import { addRun, generateGraphHash, loadRuns, type StoredRun } from './store/runHistory'
@@ -370,7 +371,9 @@ interface CanvasState {
   // Phase 2A: Analysis metadata for Model Card Lite and trust surfaces
   lastAnalysisSeed: number | null
   lastQualityMode: string | null
-  repairsApplied: Array<{ code?: string; type?: string; layer?: string; field_path?: string; before?: unknown; after?: unknown; severity?: string; node_id?: string; value?: unknown; source?: string; reason?: string }> | null
+  repairsApplied: V2RunResponse['repairs_applied'] | null
+  /** Raw V2RunResponse from PLoT — preserved for debug, analysis_state construction, and typed field access */
+  rawV2Response: V2RunResponse | null
   // Task 2: Signal for AI panel auto-collapse. Set when a full_draft auto_apply patch
   // is applied for the first time. DraftChat watches this to collapse without
   // reacting to every incremental node change.
@@ -454,6 +457,8 @@ interface CanvasState {
     enrichment?: PLoTEnrichment | null // Phase 1B: ISL data bundled from PLoT
     /** A.9: Provenance — 'direct' (Play button) or 'conversation' (envelope path). Defaults to 'direct'. */
     resultsSource?: 'direct' | 'conversation'
+    /** Raw V2RunResponse from PLoT — preserved for typed field access and debug */
+    rawV2Response?: V2RunResponse | null
   }) => void
   resultsError: (params: { code: string; message: string; retryAfter?: number; request_id?: string; canRetry?: boolean }) => void
   /** Capture detailed error information for Debug Panel */
@@ -1013,6 +1018,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   lastAnalysisSeed: null,
   lastQualityMode: null,
   repairsApplied: null,
+  rawV2Response: null,
   fullDraftAppliedAt: null,
   // Debug: Raw CEE output mode (initialized from URL param ?rawCee=1)
   debugRawCeeOutput: getInitialRawCeeMode(),
@@ -1843,6 +1849,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       lastAnalysisSeed: null,
       lastQualityMode: null,
       repairsApplied: null,
+      rawV2Response: null,
       // Graph Lens: reset on canvas clear
       lens: createDefaultLensState(),
     })
@@ -2010,7 +2017,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     }))
   },
 
-  resultsComplete: ({ report, hash, drivers, ceeReview, ceeTrace, ceeError, ceeReviewV1, ceeTraceV1, ceeErrorV1, enrichment, resultsSource }) => {
+  resultsComplete: ({ report, hash, drivers, ceeReview, ceeTrace, ceeError, ceeReviewV1, ceeTraceV1, ceeErrorV1, enrichment, resultsSource, rawV2Response }) => {
     const { nodes, edges, results, currentScenarioId, graphHealth: existingHealth } = get()
 
     const finishedAt = Date.now()
@@ -2076,9 +2083,16 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       hasCompletedFirstRun: true,
       graphEditedSinceLastRun: false,
       // Phase 2A: Persist analysis metadata for Model Card Lite / trust strip
-      lastAnalysisSeed: (report as any)?.meta?.seed_used ?? (report as any)?.meta?.seed ?? null,
-      lastQualityMode: (report as any)?.meta?.detail_level ?? null,
-      repairsApplied: (report as any)?.repairs_applied ?? null,
+      // Read from raw V2RunResponse (typed) instead of casting through ReportV1
+      lastAnalysisSeed: (() => {
+        const raw = rawV2Response?.meta?.seed_used
+        if (raw == null) return null
+        const n = Number(raw)
+        return Number.isFinite(n) ? n : null
+      })(),
+      lastQualityMode: rawV2Response?.meta?.detail_level ?? null,
+      repairsApplied: rawV2Response?.repairs_applied ?? null,
+      rawV2Response: rawV2Response ?? null,
     }))
 
     // Persist last run metadata onto the active scenario record (if any)
@@ -2282,6 +2296,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       // Graph Lens: auto-reset on results clear (prevents stale lens reactivating on next run)
       lens: createDefaultLensState(),
       hoveredOptionId: null,
+      rawV2Response: null,
       // Clear all runMeta including V1 CEE fields to prevent stale Decision Review
       runMeta: {
         diagnostics: undefined,

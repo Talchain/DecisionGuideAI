@@ -1059,12 +1059,22 @@ export function useConversation(): UseConversationReturn {
       const analysisHash = store.results.hash
       const { analysisSummary } = useResultsStore.getState().results
       const graphIsStale = store.graphEditedSinceLastRun
+      // When summary assembly failed but raw V2 response is available, extract
+      // the key fields CEE reads so it still gets structured analysis context.
+      const rawV2 = store.rawV2Response
+      const fallbackResults = !analysisSummary && rawV2 ? {
+        option_comparison: rawV2.option_comparison,
+        robustness: rawV2.robustness ?? null,
+        drivers: rawV2.drivers ?? null,
+        meta: rawV2.meta ?? null,
+        analysis_status: rawV2.analysis_status,
+      } : null
       const analysisState: ExplainAnalysisStatePayload | undefined =
         graphIsStale ? undefined
         : analysisStatus === 'completed' && analysisHash && analysisSummary
           ? { analysis_status: analysisStatus, meta: { response_hash: analysisHash }, results: analysisSummary }
-        : analysisStatus === 'completed' && analysisHash
-          ? { analysis_status: analysisStatus, meta: { response_hash: analysisHash }, results: {} }
+        : analysisStatus === 'completed' && analysisHash && fallbackResults
+          ? { analysis_status: analysisStatus, meta: { response_hash: analysisHash }, results: fallbackResults }
         : undefined
 
       if (import.meta.env.DEV) {
@@ -1254,6 +1264,7 @@ export function useConversation(): UseConversationReturn {
               ceeReviewV1,
               ceeTraceV1,
               resultsSource: 'conversation',
+              rawV2Response: result,
             })
             recordCrossSurfaceEvent({
               eventType: 'analysis_completed',

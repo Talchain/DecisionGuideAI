@@ -1043,8 +1043,9 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
      * UI-SEM-005: Robustness level derivation from stability thresholds.
      * When PLoT omits robustness.level, derives categorical level from
      * recommendation_stability using hardcoded brackets (0.8/0.5/0.3).
-     * Classification: redundant backstop — PLoT now provides level.
-     * TODO: Remove when PLoT guarantees level field on all responses.
+     * Classification: defensive fallback — PLoT now sends level on most responses.
+     * Remains because PLoT does not guarantee level on ALL responses (e.g. partial
+     * analysis, older model versions). Upstream fix: PLoT guarantees level field.
      */
     function deriveRobustnessLevel(stability: number | undefined): RobustnessLevel | undefined {
       if (stability === undefined) return undefined
@@ -1937,7 +1938,8 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
         `If "${edgeLabel}" changes significantly, "${alternativeWinnerLabel}" could become the better choice`
 
       // UI-SEM-012: Edge severity derived from switch_probability thresholds (>0.7 critical, >0.5 error).
-      // Estimated — PLoT does not provide a severity field for fragile edges.
+      // Remains because PLoT does not provide a severity field for fragile edges.
+      // Upstream fix: PLoT returns severity on fragile_edges/edge_sensitivity items.
       let severity: 'critical' | 'error' | 'warning' = 'warning'
       const flipProbability = fe.switch_probability ?? fe.marginal_switch_probability
       if (typeof flipProbability === 'number') {

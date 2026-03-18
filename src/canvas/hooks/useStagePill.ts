@@ -44,8 +44,10 @@ function isKnownStage(stage: string | null): stage is ScenarioStage {
   return stage !== null && Object.prototype.hasOwnProperty.call(STAGE_LABELS, stage)
 }
 
-// UI-SEM-020: Stage derivation from canvas state
-// Remove when orchestrator provides envelope.stage_indicator
+// UI-SEM-020: Stage derivation from canvas state.
+// Fallback only — CEE now sends stage_indicator on envelope responses.
+// Remains because the first render (before any CEE turn) has no envelope data.
+// Upstream fix: eliminate when app always has a stage from session init or SSR.
 export function deriveStageFromState(
   hasNodes: boolean,
   isComplete: boolean,
