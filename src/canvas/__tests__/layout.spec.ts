@@ -37,7 +37,10 @@ function checkNoOverlap(nodes: Node[], nodeW = 264, nodeH = 116): void {
 }
 
 /**
- * Return the bounding box of a set of laid-out nodes.
+ * Return the origin-to-origin bounding box of a set of laid-out nodes.
+ * Note: measures node origin points only, not including node dimensions.
+ * This is intentional for threshold tests — adaptive scaling targets origin
+ * spread, and the fill assertions use the same basis.
  */
 function bounds(nodes: Node[]): { w: number; h: number; minX: number; minY: number; maxX: number; maxY: number } {
   let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity

@@ -177,11 +177,19 @@ function applyAdaptiveScale(
 ): void {
   if (positionMap.size < 2) return
 
-  // Measure true footprint: origin + node dimensions
+  // Measure true footprint: origin to far edge (origin + node dimensions).
+  // Also track origin-only bounds separately — the scale pivot (centroid) is
+  // computed from node origins so that equal-sized nodes scale symmetrically.
   let minX = Infinity, maxX = -Infinity
   let minY = Infinity, maxY = -Infinity
+  let originMinX = Infinity, originMaxX = -Infinity
+  let originMinY = Infinity, originMaxY = -Infinity
   for (const [id, pos] of positionMap) {
     const size = sizeMap.get(id) ?? { width: 0, height: 0 }
+    if (pos.x < originMinX) originMinX = pos.x
+    if (pos.x > originMaxX) originMaxX = pos.x
+    if (pos.y < originMinY) originMinY = pos.y
+    if (pos.y > originMaxY) originMaxY = pos.y
     if (pos.x < minX) minX = pos.x
     if (pos.x + size.width > maxX) maxX = pos.x + size.width
     if (pos.y < minY) minY = pos.y
@@ -211,8 +219,10 @@ function applyAdaptiveScale(
   const scale = Math.min(scaleX, scaleY, 1.5)
   if (scale <= 1.05) return // skip trivial no-op adjustments
 
-  const cx = (minX + maxX) / 2
-  const cy = (minY + maxY) / 2
+  // Pivot around origin centroid (not footprint centroid) so equal-sized nodes
+  // scale symmetrically regardless of their individual widths/heights.
+  const cx = (originMinX + originMaxX) / 2
+  const cy = (originMinY + originMaxY) / 2
 
   for (const [id, pos] of positionMap) {
     positionMap.set(id, {

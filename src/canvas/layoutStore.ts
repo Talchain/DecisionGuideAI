@@ -11,49 +11,59 @@ interface LayoutOptions {
   setNodeSpacing: (spacing: number) => void
   setLayerSpacing: (spacing: number) => void
   setRespectLocked: (respect: boolean) => void
-  loadOptions: () => void
 }
 
 // v2: bumped when defaults changed (80/120 → 60/90) so returning users
 // who never customised spacing are migrated to the new values.
 const KEY = 'canvas-layout-options-v2'
 
+function loadPersistedOptions(): Pick<LayoutOptions, 'direction' | 'nodeSpacing' | 'layerSpacing' | 'respectLocked'> {
+  const defaults = { direction: 'DOWN' as Direction, nodeSpacing: 60, layerSpacing: 90, respectLocked: true }
+  try {
+    const saved = localStorage.getItem(KEY)
+    if (!saved) return defaults
+    const parsed = JSON.parse(saved)
+    return {
+      direction: parsed.direction ?? defaults.direction,
+      nodeSpacing: parsed.nodeSpacing ?? defaults.nodeSpacing,
+      layerSpacing: parsed.layerSpacing ?? defaults.layerSpacing,
+      respectLocked: parsed.respectLocked ?? defaults.respectLocked,
+    }
+  } catch {
+    return defaults
+  }
+}
+
+function persist(state: Pick<LayoutOptions, 'direction' | 'nodeSpacing' | 'layerSpacing' | 'respectLocked'>): void {
+  try {
+    localStorage.setItem(KEY, JSON.stringify({
+      direction: state.direction,
+      nodeSpacing: state.nodeSpacing,
+      layerSpacing: state.layerSpacing,
+      respectLocked: state.respectLocked,
+    }))
+  } catch {
+    // localStorage unavailable (e.g. SSR, private browsing quota) — ignore
+  }
+}
+
 export const useLayoutStore = create<LayoutOptions>((set, get) => ({
-  direction: 'DOWN',
-  nodeSpacing: 60,
-  layerSpacing: 90,
-  respectLocked: true,
-  
+  ...loadPersistedOptions(),
+
   setDirection: (dir) => {
     set({ direction: dir })
-    localStorage.setItem(KEY, JSON.stringify(get()))
+    persist(get())
   },
   setNodeSpacing: (spacing) => {
     set({ nodeSpacing: spacing })
-    localStorage.setItem(KEY, JSON.stringify(get()))
+    persist(get())
   },
   setLayerSpacing: (spacing) => {
     set({ layerSpacing: spacing })
-    localStorage.setItem(KEY, JSON.stringify(get()))
+    persist(get())
   },
   setRespectLocked: (respect) => {
     set({ respectLocked: respect })
-    localStorage.setItem(KEY, JSON.stringify(get()))
-  },
-  loadOptions: () => {
-    try {
-      const saved = localStorage.getItem(KEY)
-      if (saved) {
-        const parsed = JSON.parse(saved)
-        set({
-          direction: parsed.direction ?? 'DOWN',
-          nodeSpacing: parsed.nodeSpacing ?? 60,
-          layerSpacing: parsed.layerSpacing ?? 90,
-          respectLocked: parsed.respectLocked ?? true,
-        })
-      }
-    } catch (e) {
-      console.warn('Failed to load layout options:', e)
-    }
+    persist(get())
   },
 }))
