@@ -1073,12 +1073,17 @@ export function useConversation(): UseConversationReturn {
         meta: rawV2.meta ?? null,
         analysis_status: rawV2.analysis_status,
       } : null
+      // Include repairs_applied in analysis_state so the orchestrator LLM can
+      // mention PLoT's normalisation/clamping/defaulting to users.
+      const repairsSummary = rawV2?.repairs_applied?.length
+        ? { count: rawV2.repairs_applied.length, codes: rawV2.repairs_applied.map(r => r.code).filter(Boolean) }
+        : undefined
       const analysisState: ExplainAnalysisStatePayload | undefined =
         graphIsStale ? undefined
         : analysisStatus === 'completed' && analysisHash && analysisSummary
-          ? { analysis_status: analysisStatus, meta: { response_hash: analysisHash }, results: analysisSummary }
+          ? { analysis_status: analysisStatus, meta: { response_hash: analysisHash }, results: analysisSummary, ...(repairsSummary ? { repairs_summary: repairsSummary } : {}) }
         : analysisStatus === 'completed' && analysisHash && fallbackResults
-          ? { analysis_status: analysisStatus, meta: { response_hash: analysisHash }, results: fallbackResults }
+          ? { analysis_status: analysisStatus, meta: { response_hash: analysisHash }, results: fallbackResults, ...(repairsSummary ? { repairs_summary: repairsSummary } : {}) }
         : undefined
 
       if (import.meta.env.DEV) {

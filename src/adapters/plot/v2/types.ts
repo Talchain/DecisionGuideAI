@@ -259,6 +259,17 @@ export interface V2RobustnessActual {
   ranking_stability?: number
   /** Recommendation stability - how often recommendation stays winner (0-1) */
   recommendation_stability?: number
+  /** Tipping-point analysis: how much each factor must change to flip the recommendation */
+  flip_thresholds?: Array<{
+    node_id?: string
+    factor_id?: string
+    label?: string
+    current_value?: number
+    flip_value?: number | null
+    flip_reason?: string
+    unit?: string
+    alternative_winner_label?: string
+  }>
 }
 
 /**

@@ -16,6 +16,7 @@ import type {
   M1Review,
 } from '../../types/cee'
 import { devWarn } from '../../utils/debugLog'
+import { trackEvent } from '../../lib/posthog'
 import type { CeeDecisionReviewPayload } from '../decisionReview/types'
 import type { ReportV1 } from '../../adapters/plot/types'
 
@@ -126,7 +127,12 @@ export function sanitizeCeeReviewPayload(
   const removedBlocks = originalBlockCount - blocks.length
   const removedFactors = originalFactorCount - (readiness?.factors?.length ?? 0)
 
-  // Log warning if sanitisation was applied
+  // Log warning and emit telemetry if sanitisation was applied.
+  // Telemetry tracks shape failure frequency — needed to justify backend retry
+  // implementation. A frontend retry would require a new orchestrator turn with
+  // a system_event like 'review_shape_failure' so CEE can re-extract the review
+  // with a tighter prompt. Not currently implemented because the LLM extraction
+  // happens entirely on the CEE backend; the frontend only receives the result.
   if (removedBlocks > 0 || removedFactors > 0) {
     devWarn('CEE Sanitisation', 'Applied to CeeReviewPayload', {
       removedBlocks,
@@ -135,6 +141,12 @@ export function sanitizeCeeReviewPayload(
       originalFactorCount,
       finalBlockCount: blocks.length,
       finalFactorCount: readiness?.factors?.length ?? 0,
+    })
+    trackEvent('ui.cee_review.shape_sanitised', {
+      removed_blocks: removedBlocks,
+      removed_factors: removedFactors,
+      original_block_count: originalBlockCount,
+      final_block_count: blocks.length,
     })
   }
 

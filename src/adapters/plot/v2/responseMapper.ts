@@ -532,6 +532,8 @@ export function mapV2ResponseToReportV1(
           robust_truncated: robust.truncated,
           robust_total: robust.totalCount,
         },
+        // Pass through flip_thresholds from PLoT robustness (tipping-point analysis)
+        ...(v2Response.robustness!.flip_thresholds ? { flip_thresholds: v2Response.robustness!.flip_thresholds } : {}),
       }
     })() : undefined,
     // P0 Fix: Pass through robustness_status for gating logic

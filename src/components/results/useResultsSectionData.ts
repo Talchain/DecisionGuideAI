@@ -1108,11 +1108,15 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     const goalText = currentScenarioFraming?.goal || undefined
 
     // C2: Defensive adaptor for flip_thresholds — PLoT hasn't confirmed final location.
-    // Check all possible paths. Simplify once PLoT confirms the canonical location.
+    // Check mapped report paths first, then fall back to raw V2 response (top-level
+    // or inside robustness). Simplify once PLoT confirms the canonical location.
+    const rawV2 = useCanvasStore.getState().rawV2Response
     const flipThresholds: FlipThreshold[] = safeArray(
       report?.flip_thresholds
       ?? report?.report?.robustness?.flip_thresholds
       ?? report?.robustness?.flip_thresholds
+      ?? rawV2?.robustness?.flip_thresholds
+      ?? (rawV2 as Record<string, unknown> | null)?.flip_thresholds
     )
       .map((ft: any) => {
         const nf = normaliseFactorFields(ft)
