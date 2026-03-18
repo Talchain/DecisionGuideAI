@@ -522,7 +522,7 @@ export function useV2Run(persistence?: V2RunPersistence): UseV2RunReturn {
           enrichment,
           ceeReviewV1,
           ceeTraceV1,
-          rawV2Response: successResult,
+          rawV2Response: rawSuccessResult,
         })
 
         try {

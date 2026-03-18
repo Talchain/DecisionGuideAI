@@ -1056,6 +1056,12 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     }
 
     // Normalize robustness level - try explicit value first, then derive from stability
+    const hasExplicitLevel =
+      rawRobustnessLevel === 'high' ||
+      rawRobustnessLevel === 'moderate' ||
+      rawRobustnessLevel === 'low' ||
+      rawRobustnessLevel === 'very_low' ||
+      rawRobustnessLevel === 'medium'
     const robustnessLevel: RobustnessLevel | undefined =
       rawRobustnessLevel === 'high' ||
       rawRobustnessLevel === 'moderate' ||
@@ -1065,6 +1071,11 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
         : rawRobustnessLevel === 'medium'
           ? 'moderate'
           : deriveRobustnessLevel(recommendationStability)
+    // UI-SEM-005 fallback tracking: log when derivation activates so we can
+    // measure how often PLoT omits the level field and prioritise removal.
+    if (!hasExplicitLevel && robustnessLevel !== undefined && import.meta.env.DEV) {
+      console.warn('[useResultsSectionData] UI-SEM-005 fallback: derived robustnessLevel=%s from stability=%s (PLoT omitted level)', robustnessLevel, recommendationStability)
+    }
 
     // Derive label from level if not explicitly provided
     function deriveLabelFromLevel(level: RobustnessLevel | undefined): RobustnessLabel | undefined {

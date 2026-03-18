@@ -1066,6 +1066,8 @@ export function useConversation(): UseConversationReturn {
         option_comparison: rawV2.option_comparison,
         robustness: rawV2.robustness ?? null,
         drivers: rawV2.drivers ?? null,
+        edge_sensitivity: rawV2.edge_sensitivity ?? null,
+        constraints_status: rawV2.constraints_status ?? null,
         meta: rawV2.meta ?? null,
         analysis_status: rawV2.analysis_status,
       } : null
@@ -1264,7 +1266,7 @@ export function useConversation(): UseConversationReturn {
               ceeReviewV1,
               ceeTraceV1,
               resultsSource: 'conversation',
-              rawV2Response: result,
+              rawV2Response: raw,
             })
             recordCrossSurfaceEvent({
               eventType: 'analysis_completed',
