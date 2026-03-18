@@ -931,6 +931,8 @@ export function useConversation(): UseConversationReturn {
   const streamBlocksRef = useRef<ConversationBlock[]>([])
   const frameBufRef = useRef<string[]>([])
   const rafIdRef = useRef<number | null>(null)
+  /** Tracks the analysis hash for which array-coercion was last reported — deduplicates telemetry */
+  const coercionWarnedHashRef = useRef<string | null>(null)
 
   /** Flush accumulated text_delta tokens to the streaming message */
   const flushStreamFrame = useCallback(() => {
@@ -1091,12 +1093,14 @@ export function useConversation(): UseConversationReturn {
       const rawV2 = store.rawV2Response
       // Flag when completed analysis has non-array critical fields — likely a PLoT regression.
       // Still send what we have (CEE benefits from partial context) but warn loudly.
-      const v2ArrayCoercions: string[] = []
-      if (rawV2 && rawV2.analysis_status === 'computed') {
+      // Detect non-array critical fields in rawV2 — warn once per analysis hash.
+      if (rawV2 && rawV2.analysis_status === 'computed' && analysisHash && analysisHash !== coercionWarnedHashRef.current) {
+        const v2ArrayCoercions: string[] = []
         if (!Array.isArray(rawV2.option_comparison)) v2ArrayCoercions.push('option_comparison')
         if (!Array.isArray(rawV2.drivers)) v2ArrayCoercions.push('drivers')
         if (!Array.isArray(rawV2.edge_sensitivity)) v2ArrayCoercions.push('edge_sensitivity')
         if (v2ArrayCoercions.length > 0) {
+          coercionWarnedHashRef.current = analysisHash
           console.warn('[buildRequest] rawV2Response has non-array fields coerced to []:', v2ArrayCoercions)
           recordCrossSurfaceEvent({
             eventType: 'analysis_state_coercion',
