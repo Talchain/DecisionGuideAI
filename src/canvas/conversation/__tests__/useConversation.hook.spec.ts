@@ -413,10 +413,20 @@ describe('buildRequest payload — RF → CEE graph_state transform', () => {
   })
 
   it('includes analysis_state on conversation turns when analysis is complete and graph is fresh', async () => {
-    // Canvas store holds status + hash (set by resultsComplete)
+    // Canvas store holds status + hash + rawV2Response (set by resultsComplete)
     useCanvasStore.setState({
       results: { status: 'complete', progress: 100, hash: 'hash-abc' } as any,
       graphEditedSinceLastRun: false,
+      rawV2Response: {
+        analysis_status: 'computed',
+        option_comparison_status: 'computed',
+        option_comparison: [{ option_id: 'o1', option_label: 'Opt A', win_probability: 0.7 }],
+        robustness_status: 'computed',
+        robustness: null,
+        drivers_status: 'computed',
+        drivers: [],
+        meta: { seed_used: '42' },
+      } as any,
     })
     // resultsStore holds analysisSummary (set by setAnalysisSummary)
     useResultsStore.setState({
@@ -442,6 +452,9 @@ describe('buildRequest payload — RF → CEE graph_state transform', () => {
     expect(request.analysis_state.analysis_status).toBe('completed')
     expect(request.analysis_state.meta.response_hash).toBe('hash-abc')
     expect(request.analysis_state.results).toBeDefined()
+    // CEE reads option_comparison as an array — verify it's present
+    expect(Array.isArray(request.analysis_state.results.option_comparison)).toBe(true)
+    expect(request.analysis_state.results.option_comparison).toHaveLength(1)
   })
 
   it('omits analysis_state when graph has been edited since last analysis (stale guard)', async () => {
@@ -449,6 +462,16 @@ describe('buildRequest payload — RF → CEE graph_state transform', () => {
     useCanvasStore.setState({
       results: { status: 'complete', progress: 100, hash: 'hash-abc' } as any,
       graphEditedSinceLastRun: true,
+      rawV2Response: {
+        analysis_status: 'computed',
+        option_comparison_status: 'computed',
+        option_comparison: [{ option_id: 'o1', option_label: 'Opt A', win_probability: 0.7 }],
+        robustness_status: 'computed',
+        robustness: null,
+        drivers_status: 'computed',
+        drivers: [],
+        meta: { seed_used: '42' },
+      } as any,
     })
     // resultsStore holds analysisSummary
     useResultsStore.setState({
@@ -474,11 +497,24 @@ describe('buildRequest payload — RF → CEE graph_state transform', () => {
   })
 
   it('includes analysis_state with computed status and non-empty option_comparison after V2 analysis completes', async () => {
-    // Simulate post-analysis state: canvas store has complete results,
+    // Simulate post-analysis state: canvas store has complete results + rawV2Response,
     // resultsStore has assembled summary with options (as set by useV2Run).
     useCanvasStore.setState({
       results: { status: 'complete', progress: 100, hash: 'resp-hash-123' } as any,
       graphEditedSinceLastRun: false,
+      rawV2Response: {
+        analysis_status: 'computed',
+        option_comparison_status: 'computed',
+        option_comparison: [
+          { option_id: 'opt-a', option_label: 'Option A', win_probability: 0.65 },
+          { option_id: 'opt-b', option_label: 'Option B', win_probability: 0.35 },
+        ],
+        robustness_status: 'computed',
+        robustness: { recommendation_stability: 0.55 },
+        drivers_status: 'computed',
+        drivers: [{ node_id: 'f1', label: 'Revenue', contribution: 0.4 }],
+        meta: { seed_used: '42', detail_level: 'standard' },
+      } as any,
     })
     useResultsStore.setState({
       results: {
@@ -515,12 +551,14 @@ describe('buildRequest payload — RF → CEE graph_state transform', () => {
     expect(request.analysis_state).toBeDefined()
     expect(request.analysis_state.analysis_status).toBe('completed')
     expect(request.analysis_state.meta.response_hash).toBe('resp-hash-123')
-    // results contains the full AnalysisInputsSummary with options
-    const summary = request.analysis_state.results as any
-    expect(summary.contract_version).toBe('1.0.0')
-    expect(summary.options).toHaveLength(2)
-    expect(summary.options[0].win_probability).toBe(0.65)
-    expect(summary.robustness.level).toBe('moderate')
+    // results now contains V2 field names that CEE expects
+    const results = request.analysis_state.results as any
+    expect(Array.isArray(results.option_comparison)).toBe(true)
+    expect(results.option_comparison).toHaveLength(2)
+    expect(results.option_comparison[0].win_probability).toBe(0.65)
+    expect(results.robustness.recommendation_stability).toBe(0.55)
+    // compact_summary is attached when analysisSummary is available
+    expect(results.compact_summary.contract_version).toBe('1.0.0')
   })
 
   it('system event turn also transforms graph_state correctly', async () => {

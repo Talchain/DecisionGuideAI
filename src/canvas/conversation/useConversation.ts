@@ -1083,19 +1083,25 @@ export function useConversation(): UseConversationReturn {
       const analysisHash = store.results.hash
       const { analysisSummary } = useResultsStore.getState().results
       const graphIsStale = store.graphEditedSinceLastRun
-      // When summary assembly failed but raw V2 response is available, extract
-      // the key fields CEE reads so it still gets structured analysis context.
+
+      // Build results from rawV2Response — CEE expects V2 field names
+      // (option_comparison, robustness, drivers, etc.) directly on results.
+      // The AnalysisInputsSummary used different names (options, top_drivers)
+      // which caused CEE to log results_is_array: false / no valid options.
       const rawV2 = store.rawV2Response
-      const fallbackResults = !analysisSummary && rawV2 ? {
-        option_comparison: rawV2.option_comparison,
+      const v2Results = rawV2 ? {
+        option_comparison: Array.isArray(rawV2.option_comparison) ? rawV2.option_comparison : [],
         robustness: rawV2.robustness ?? null,
-        // Guard array fields — raw response is pre-sanitization and may have
-        // non-array shapes if PLoT sent malformed data (sanitizer fixes these).
-        drivers: Array.isArray(rawV2.drivers) ? rawV2.drivers : null,
-        edge_sensitivity: Array.isArray(rawV2.edge_sensitivity) ? rawV2.edge_sensitivity : null,
+        drivers: Array.isArray(rawV2.drivers) ? rawV2.drivers : [],
+        edge_sensitivity: Array.isArray(rawV2.edge_sensitivity) ? rawV2.edge_sensitivity : [],
         constraints_status: rawV2.constraints_status ?? null,
         meta: rawV2.meta ?? null,
         analysis_status: rawV2.analysis_status,
+        option_comparison_status: rawV2.option_comparison_status,
+        robustness_status: rawV2.robustness_status,
+        drivers_status: rawV2.drivers_status,
+        // Attach compact summary when available — supplementary context for CEE
+        ...(analysisSummary ? { compact_summary: analysisSummary } : {}),
       } : null
       // Include repairs_applied in analysis_state so the orchestrator LLM can
       // mention PLoT's normalisation/clamping/defaulting to users.
@@ -1104,23 +1110,23 @@ export function useConversation(): UseConversationReturn {
         : undefined
       const analysisState: ExplainAnalysisStatePayload | undefined =
         graphIsStale ? undefined
-        : analysisStatus === 'completed' && analysisHash && analysisSummary
-          ? { analysis_status: analysisStatus, meta: { response_hash: analysisHash }, results: analysisSummary, ...(repairsSummary ? { repairs_summary: repairsSummary } : {}) }
-        : analysisStatus === 'completed' && analysisHash && fallbackResults
-          ? { analysis_status: analysisStatus, meta: { response_hash: analysisHash }, results: fallbackResults, ...(repairsSummary ? { repairs_summary: repairsSummary } : {}) }
+        : analysisStatus === 'completed' && analysisHash && v2Results
+          ? { analysis_status: analysisStatus, meta: { response_hash: analysisHash }, results: v2Results, ...(repairsSummary ? { repairs_summary: repairsSummary } : {}) }
         : undefined
 
       if (import.meta.env.DEV) {
-        const optionCount = analysisState
-          ? ((analysisState.results as Record<string, unknown>)?.options as unknown[] | undefined)?.length ?? 0
-          : 0
+        const optionComparison = analysisState
+          ? (analysisState.results as Record<string, unknown>)?.option_comparison
+          : undefined
         console.warn('[buildRequest] analysis_state present:', !!analysisState, {
           turnType: opts.turnType,
           analysisStatus,
           hasHash: !!analysisHash,
+          hasRawV2: !!rawV2,
           hasSummary: !!analysisSummary,
           graphIsStale,
-          optionCount,
+          results_has_option_comparison: Array.isArray(optionComparison),
+          option_comparison_length: Array.isArray(optionComparison) ? optionComparison.length : 0,
         })
       }
 
