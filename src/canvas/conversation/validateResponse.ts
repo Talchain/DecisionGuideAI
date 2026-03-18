@@ -71,10 +71,16 @@ export function validateResponse(
 
   let assistantText = envelope.assistant_text ?? ''
 
-  // Inject fallback when text is empty AND there are no valid blocks
+  // Inject fallback when text is empty AND there are no valid blocks.
+  // Suppress fallback when a graph_patch block is present — silent graph mutations
+  // (draft_graph, edit_graph) are rendered on canvas, not as chat text.
   const hasText = assistantText.trim().length > 0
   const hasBlocks = cleanedBlocks.length > 0
-  if (!hasText && !hasBlocks) {
+  const hasGraphPatch = rawBlocks.some((b) => {
+    const obj = b as Record<string, unknown>
+    return obj?.type === 'graph_patch' || obj?.block_type === 'graph_patch'
+  })
+  if (!hasText && !hasBlocks && !hasGraphPatch) {
     repairs.push(cleanedChips.length > 0 ? 'empty_text' : 'nothing_renderable')
     assistantText = FALLBACK_TEXT
   }

@@ -1055,15 +1055,15 @@ export function useConversation(): UseConversationReturn {
       // status and hash live on the canvas store (set by resultsComplete); analysisSummary
       // lives on useResultsStore (set by setAnalysisSummary after assembly).
       // Omit when graph has been edited since the last analysis — stale results are worse than none.
-      const analysisStatus = store.results.status
+      const analysisStatus = store.results.status === 'complete' ? 'completed' : store.results.status
       const analysisHash = store.results.hash
       const { analysisSummary } = useResultsStore.getState().results
       const graphIsStale = store.graphEditedSinceLastRun
       const analysisState: ExplainAnalysisStatePayload | undefined =
         graphIsStale ? undefined
-        : analysisStatus === 'complete' && analysisHash && analysisSummary
+        : analysisStatus === 'completed' && analysisHash && analysisSummary
           ? { analysis_status: analysisStatus, meta: { response_hash: analysisHash }, results: analysisSummary }
-        : analysisStatus === 'complete' && analysisHash
+        : analysisStatus === 'completed' && analysisHash
           ? { analysis_status: analysisStatus, meta: { response_hash: analysisHash }, results: {} }
         : undefined
 

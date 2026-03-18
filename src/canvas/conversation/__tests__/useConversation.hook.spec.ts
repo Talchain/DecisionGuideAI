@@ -439,7 +439,7 @@ describe('buildRequest payload — RF → CEE graph_state transform', () => {
 
     const request = mockCallTurn.mock.calls[0][0]
     expect(request.analysis_state).toBeDefined()
-    expect(request.analysis_state.analysis_status).toBe('complete')
+    expect(request.analysis_state.analysis_status).toBe('completed')
     expect(request.analysis_state.meta.response_hash).toBe('hash-abc')
     expect(request.analysis_state.results).toBeDefined()
   })
@@ -513,7 +513,7 @@ describe('buildRequest payload — RF → CEE graph_state transform', () => {
 
     const request = mockCallTurn.mock.calls[0][0]
     expect(request.analysis_state).toBeDefined()
-    expect(request.analysis_state.analysis_status).toBe('complete')
+    expect(request.analysis_state.analysis_status).toBe('completed')
     expect(request.analysis_state.meta.response_hash).toBe('resp-hash-123')
     // results contains the full AnalysisInputsSummary with options
     const summary = request.analysis_state.results as any

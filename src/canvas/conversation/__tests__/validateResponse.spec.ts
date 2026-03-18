@@ -205,6 +205,50 @@ describe('validateResponse', () => {
     expect(cleaned.blocks).toHaveLength(1)
     expect(mockTrackEvent).not.toHaveBeenCalled()
   })
+
+  it('does NOT inject fallback when CEE wire-format block_type is graph_patch (no type field)', () => {
+    // CEE V2 sends { block_type: 'graph_patch', block_id, data: {...} } — no 'type' field.
+    // validateResponse must recognise this as a renderable block even though
+    // adaptCEEBlock() hasn't normalised it yet.
+    const wireBlock = {
+      block_type: 'graph_patch',
+      block_id: 'patch-1',
+      data: { operations: [], description: 'Draft model' },
+    } as unknown as ConversationBlock
+    const envelope = makeEnvelope({ assistant_text: null, blocks: [wireBlock] })
+
+    const { cleaned, repairs } = validateResponse(envelope, 'req-wire-patch')
+
+    expect(repairs).toHaveLength(0)
+    expect(cleaned.assistant_text).toBe('')
+    expect(cleaned.blocks).toHaveLength(1)
+    expect(mockTrackEvent).not.toHaveBeenCalled()
+  })
+
+  it('does NOT inject fallback when graph_patch block fails cleanedBlocks filter but is still present', () => {
+    // Edge case: a graph_patch block that somehow lacks both type identifiers
+    // (would be filtered by cleanedBlocks) but another well-formed graph_patch
+    // block IS present in the raw blocks.
+    const malformedBlock = { operations: [] } as unknown as ConversationBlock
+    const goodPatch = {
+      block_type: 'graph_patch',
+      block_id: 'patch-2',
+      data: { operations: [{ op: 'add_node' }] },
+    } as unknown as ConversationBlock
+    const envelope = makeEnvelope({
+      assistant_text: '',
+      blocks: [malformedBlock, goodPatch],
+    })
+
+    const { cleaned, repairs } = validateResponse(envelope, 'req-mixed')
+
+    // malformedBlock is filtered (missing_block_type), but fallback NOT injected
+    // because raw blocks contain a graph_patch
+    expect(repairs).toContain('missing_block_type')
+    expect(repairs).not.toContain('empty_text')
+    expect(repairs).not.toContain('nothing_renderable')
+    expect(cleaned.assistant_text).toBe('')
+  })
 })
 
 // ---------------------------------------------------------------------------
