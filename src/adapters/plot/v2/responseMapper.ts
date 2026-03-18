@@ -254,7 +254,7 @@ export function pickFactorSensitivityForUi(v2Response: V2RunResponse): FactorSen
 
     if (hasRealData) {
       if (import.meta.env.DEV) {
-        console.log('[pickFactorSensitivityForUi] Using downstream_calls.isl.response.factor_sensitivity:', {
+        console.warn('[pickFactorSensitivityForUi] Using downstream_calls.isl.response.factor_sensitivity:', {
           count: islFactors.length,
           sample: islFactors[0],
         })
@@ -304,7 +304,7 @@ export function pickFactorSensitivityForUi(v2Response: V2RunResponse): FactorSen
     if (hasRealData) {
       // Convert enrichment format to V2FactorSensitivity
       if (import.meta.env.DEV) {
-        console.log('[pickFactorSensitivityForUi] Using enrichment factors:', {
+        console.warn('[pickFactorSensitivityForUi] Using enrichment factors:', {
           count: enrichmentFactors.length,
           sample: enrichmentFactors[0],
         })
@@ -338,7 +338,7 @@ export function pickFactorSensitivityForUi(v2Response: V2RunResponse): FactorSen
   // Fall back to top-level factor_sensitivity
   const topLevel = v2Response.factor_sensitivity
   if (import.meta.env.DEV && Array.isArray(topLevel) && topLevel.length > 0) {
-    console.log('[pickFactorSensitivityForUi] Using top-level factor_sensitivity:', {
+    console.warn('[pickFactorSensitivityForUi] Using top-level factor_sensitivity:', {
       count: topLevel.length,
       sample: topLevel[0],
     })
@@ -365,13 +365,13 @@ export function mapV2ResponseToReportV1(
 ): ReportV1 {
   // P0 DIAGNOSTIC: Log input to identify crash source
   if (import.meta.env.DEV) {
-    console.log('[responseMapper] === DIAGNOSTIC ===')
-    console.log('[responseMapper] Input keys:', Object.keys(v2Response || {}))
-    console.log('[responseMapper] option_comparison:', v2Response?.option_comparison)
-    console.log('[responseMapper] edge_sensitivity count:', v2Response?.edge_sensitivity?.length ?? 0)
-    console.log('[responseMapper] robustness:', v2Response?.robustness)
-    console.log('[responseMapper] critiques count:', v2Response?.critiques?.length)
-    console.log('[responseMapper] === END DIAGNOSTIC ===')
+    console.warn('[responseMapper] === DIAGNOSTIC ===')
+    console.warn('[responseMapper] Input keys:', Object.keys(v2Response || {}))
+    console.warn('[responseMapper] option_comparison:', v2Response?.option_comparison)
+    console.warn('[responseMapper] edge_sensitivity count:', v2Response?.edge_sensitivity?.length ?? 0)
+    console.warn('[responseMapper] robustness:', v2Response?.robustness)
+    console.warn('[responseMapper] critiques count:', v2Response?.critiques?.length)
+    console.warn('[responseMapper] === END DIAGNOSTIC ===')
   }
 
   // Defensive: ensure option_comparison is an array
@@ -695,7 +695,7 @@ function createDriversPayloadFromV2(v2Response: V2RunResponse): DriversPayload |
 
   // Debug: Log which source was selected
   if (import.meta.env.DEV && hasFactorSensitivity) {
-    console.log('[createDriversPayloadFromV2] Factor sensitivity source:', _source_path)
+    console.warn('[createDriversPayloadFromV2] Factor sensitivity source:', _source_path)
   }
 
   // Check if we have drivers data (backward compatibility)
@@ -997,7 +997,7 @@ export function createEnrichmentFromV2Response(v2Response: V2RunResponse): {
 
   // DEV: Log raw factor_sensitivity fields to debug "Impact data not available"
   if (import.meta.env.DEV && factorSensitivity.length > 0) {
-    console.log('[createEnrichmentFromV2Response] Raw factor_sensitivity sample:', {
+    console.warn('[createEnrichmentFromV2Response] Raw factor_sensitivity sample:', {
       count: factorSensitivity.length,
       sampleKeys: factorSensitivity[0] ? Object.keys(factorSensitivity[0]) : [],
       sample: factorSensitivity[0],
@@ -1375,7 +1375,7 @@ function buildDriversBlock(v2Response: V2RunResponse): ReviewBlock | null {
 
   // DEV: Log factor fields to debug "Impact data not available" issue
   if (import.meta.env.DEV && sorted.length > 0) {
-    console.log('[buildDriversBlock] Factor sensitivity fields:', {
+    console.warn('[buildDriversBlock] Factor sensitivity fields:', {
       factorCount: sorted.length,
       sampleFactor: sorted[0],
       sampleFields: {
