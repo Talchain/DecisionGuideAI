@@ -195,13 +195,34 @@ describe('FactorNode', () => {
     expect(screen.getByText('85')).toBeDefined()
   })
 
-  it('falls back to None for binary 0 without raw_value', () => {
+  it('falls back to Not used for binary 0 without raw_value (qualitative factor — no unit, no cap)', () => {
     renderFactor({
       label: 'Hired',
       type: 'factor',
       observedState: { value: 0 },
     })
-    expect(screen.getByText('None')).toBeDefined()
+    expect(screen.getByText('Not used')).toBeDefined()
+  })
+
+  // P1.5: value===0 with a unit must NOT show 'Not used' — it means 0% or 0 units
+  it('shows "0%" for value===0 when unit is "%"', () => {
+    renderFactor({
+      label: 'Churn rate',
+      type: 'factor',
+      observedState: { value: 0, unit: '%' },
+    })
+    expect(screen.getByText('0%')).toBeDefined()
+    expect(screen.queryByText('Not used')).toBeNull()
+  })
+
+  // P1.5: qualitative factor_type + no unit — still shows 'Not used'
+  it('shows "Not used" for value===0 with qualitative factor_type and no unit', () => {
+    renderFactor({
+      label: 'Product fit',
+      type: 'factor',
+      observedState: { value: 0, factor_type: 'quality' },
+    })
+    expect(screen.getByText('Not used')).toBeDefined()
   })
 
   it('falls back to Full for binary 1 without raw_value', () => {

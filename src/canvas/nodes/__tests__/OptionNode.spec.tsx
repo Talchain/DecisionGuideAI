@@ -21,6 +21,7 @@ const makeStoreState = (overrides: Record<string, unknown> = {}) => ({
   results: { status: 'idle', report: null },
   highlightedNodes: new Set(),
   dimmedNodeIds: new Set(),
+  lens: { _dimmedNodeIds: new Set() },
   goalThreshold: null,
   goalConstraints: [],
   setHoveredOption: vi.fn(),
@@ -521,6 +522,53 @@ describe('OptionNode', () => {
     // Value span must be font-semibold
     const valueSpan = container.querySelector('span.font-semibold')
     expect(valueSpan).not.toBeNull()
+  })
+
+  // P0.2: Delta uses baseline option's intervention value when available
+  it('uses baseline option intervention value as "from" side in delta display', () => {
+    vi.mocked(useCanvasStore).mockImplementation((selector) =>
+      selector(makeStoreState({
+        ceeAnalysisReady: {
+          options: [
+            {
+              id: 'option-1', // non-baseline
+              interventions: { 'factor-1': 0.59 },
+            },
+            {
+              id: 'option-baseline', // baseline — intervention sets factor to 0.49
+              interventions: { 'factor-1': 0.49 },
+            },
+          ],
+        },
+        nodes: [
+          {
+            id: 'option-1',
+            type: 'option',
+            data: { label: 'Raise price', type: 'option' },
+          },
+          {
+            id: 'option-baseline',
+            type: 'option',
+            data: { label: 'Keep current pricing', type: 'option' },
+          },
+          {
+            id: 'factor-1',
+            data: {
+              label: 'Price',
+              observedState: { unit: '£', cap: 100, value: 0.49, raw_value: 49 },
+            },
+          },
+        ],
+      }) as any)
+    )
+    // option-1 is a non-baseline option (baseProps.id = 'option-1');
+    // baseline option sets factor to 0.49 → £49; target option sets to 0.59 → £59
+    // delta = (59-49)/49 ≈ +20.4%
+    renderOption({ label: 'Raise price' })
+    // The chip should show "£49 → £59 (+20.4%)"
+    expect(screen.getByText(/£49/)).toBeDefined()
+    expect(screen.getByText(/£59/)).toBeDefined()
+    expect(screen.getByText(/\+20\.4%/)).toBeDefined()
   })
 
   // P7: Win bar uses max(8px, X%) for very low win probabilities

@@ -4,13 +4,14 @@ import { BaseNode } from './BaseNode'
 import { EvidenceGapBadge } from './EvidenceGapBadge'
 import { NODE_REGISTRY } from '../domain/nodes'
 import { useCanvasStore } from '../store'
-import { deriveControllability, formatDisplayValue } from '../utils/graphDisplayCalculations'
+import { deriveControllability } from '../utils/graphDisplayCalculations'
 import { useNodeDisplayMetadata } from '../hooks/useNodeDisplayMetadata'
 import { hasObservedData } from '../utils/observedStateHelpers'
 import { typography } from '../../styles/typography'
-import { cleanFactorLabel, sensitivityTierLabel, evidenceTierLabel, formatInterventionValue, qualitativeTierLabel, CURRENCY_SYMBOLS } from '../utils/labelUtils'
+import { cleanFactorLabel, sensitivityTierLabel, evidenceTierLabel, formatInterventionValue, isCurrencyUnit, formatFactorValue, QUALITATIVE_FACTOR_TYPES } from '../utils/labelUtils'
 import { isGraphBadgesEnabled } from '../../flags'
 import { SlidersHorizontal, Eye, Cloud } from 'lucide-react'
+import { DataBar } from '../ui/shared/DataBar'
 
 interface ObservedState {
   value?: number
@@ -24,7 +25,7 @@ interface ObservedState {
 }
 
 function formatPriorRangeValue(value: number, unit?: string): string {
-  if (unit && CURRENCY_SYMBOLS.has(unit[0])) {
+  if (unit && isCurrencyUnit(unit)) {
     return `${unit}${Math.round(value).toLocaleString('en-GB')}`
   }
   if (unit === '%') {
@@ -79,38 +80,25 @@ export const FactorNode = memo((props: NodeProps) => {
     }
   }, [nodeCategory])
 
-  // T4: Human-readable value (raw_value + unit preferred, fallback to normalised)
+  // T4: Human-readable value (raw_value + unit preferred; cap-based denormalisation fallback)
   const valueDisplay = useMemo(() => {
     if (!observedState) return null
-    const { raw_value, unit, value } = observedState
+    const { value } = observedState
 
-    if (raw_value !== undefined && raw_value !== null && String(raw_value).trim() !== '') {
-      const rawStr = String(raw_value).trim()
-      if (!unit) return rawStr
-      // J2: Currency symbols prefix the number.
-      // When raw_value is numeric, delegate to formatInterventionValue to get proper
-      // thousands separators (e.g. £1,200 not £1200). Non-numeric strings fall back
-      // to simple concatenation so text like "approx 50" renders unchanged.
-      const numericRaw = Number(rawStr)
-      if (CURRENCY_SYMBOLS.has(unit[0])) {
-        if (!isNaN(numericRaw) && rawStr !== '') {
-          return formatInterventionValue(numericRaw, unit, observedState?.factor_type)
-        }
-        return `${unit}${rawStr}`
+    // Binary/discrete special cases (shown before formatFactorValue to preserve 'Full').
+    // 'Not used' and 'Full' only apply to qualitative/categorical factors (no unit,
+    // no cap, and either no factor_type or a known qualitative type).
+    if (value !== undefined && observedState.raw_value == null) {
+      const ft = observedState.factor_type?.toLowerCase().trim()
+      const isQualitative = !observedState.unit && observedState.cap == null &&
+        (!ft || QUALITATIVE_FACTOR_TYPES.has(ft))
+      if (isQualitative) {
+        if (value === 0) return 'Not used'
+        if (value === 1) return 'Full'
       }
-      return `${rawStr} ${unit}`
     }
 
-    if (value === undefined) return null
-
-    // Binary/discrete fallback
-    if (value === 0) return 'None'
-    if (value === 1) return 'Full'
-
-    // P2: When no raw_value and no unit, show qualitative tier label instead of raw float
-    if (!unit) return qualitativeTierLabel(value)
-
-    return formatDisplayValue(value, unit)
+    return formatFactorValue(observedState)
   }, [observedState])
 
   const priorRangeDisplay = useMemo(() => {
@@ -232,30 +220,24 @@ export const FactorNode = memo((props: NodeProps) => {
             {displayMetadata.influence !== null && displayMetadata.influence > 0.001 && (
               <div className="flex items-center gap-1.5">
                 <span className={`${typography.nodeLabel} text-text-light w-14 shrink-0 truncate`} title="Sensitivity">Sensitivity</span>
-                <div className="flex-1 h-1.5 bg-panel-border rounded-full overflow-hidden max-w-[60px]">
-                  <div
-                    className="h-full bg-info rounded-full transition-all duration-300"
-                    style={{ width: `${sensitivityBarWidth ?? Math.round(displayMetadata.influence * 100)}%` }}
-                  />
-                </div>
-                <span className={`${typography.nodeLabel} text-text-light w-8 text-right shrink-0`}>
-                  {sensitivityTierLabel(displayMetadata.influence)}
-                </span>
+                <DataBar
+                  value={(sensitivityBarWidth ?? Math.round(displayMetadata.influence * 100)) / 100}
+                  label="Sensitivity"
+                  colour="info"
+                  trailingLabel={sensitivityTierLabel(displayMetadata.influence)}
+                />
               </div>
             )}
             {/* Evidence bar (was Confidence) */}
             {displayMetadata.confidence !== null && displayMetadata.confidence > 0.001 && (
               <div className="flex items-center gap-1.5">
                 <span className={`${typography.nodeLabel} text-text-light w-14 shrink-0 truncate`} title="Evidence">Evidence</span>
-                <div className="flex-1 h-1.5 bg-panel-border rounded-full overflow-hidden max-w-[60px]">
-                  <div
-                    className="h-full bg-info rounded-full transition-all duration-300"
-                    style={{ width: `${Math.round(displayMetadata.confidence * 100)}%` }}
-                  />
-                </div>
-                <span className={`${typography.nodeLabel} text-text-light w-8 text-right shrink-0`}>
-                  {evidenceTierLabel(displayMetadata.confidence)}
-                </span>
+                <DataBar
+                  value={displayMetadata.confidence}
+                  label="Evidence"
+                  colour="info"
+                  trailingLabel={evidenceTierLabel(displayMetadata.confidence)}
+                />
               </div>
             )}
           </div>

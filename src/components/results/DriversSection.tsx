@@ -25,6 +25,7 @@ import { cleanFactorLabel, stripEncodingNotation } from './utils/cleanFactorLabe
 import { TornadoChart, type TornadoRow } from './TornadoChart'
 import { typography } from '../../styles/typography'
 import { formatPercent } from '../../utils/formatPercent'
+import { DataBar } from '../../canvas/ui/shared/DataBar'
 
 interface DriversSectionProps {
   data: DriversSectionData
@@ -144,43 +145,6 @@ function FactorTooltip({
       role="tooltip"
     >
       {content}
-    </div>
-  )
-}
-
-// Progress bar component with inline styles for precise colors
-function ProgressBar({
-  value,
-  color,
-  'aria-label': ariaLabel,
-}: {
-  value: number
-  color: 'green' | 'orange' | 'blue' | 'neutral'
-  'aria-label': string
-}) {
-  // Fix 3: Clamp value to [0,1] range before converting to percent
-  const clampedValue = Math.max(0, Math.min(1, value))
-  const percent = Math.round(clampedValue * 100)
-
-  return (
-    // P0 Fix: Reduced gap from gap-2 (8px) to gap-1 (4px) for tighter bar-percentage spacing
-    <div className="flex items-center gap-1 w-full">
-      <div
-        className="flex-1 h-2 bg-sand-200 rounded-full overflow-hidden"
-        role="progressbar"
-        aria-valuenow={percent}
-        aria-valuemin={0}
-        aria-valuemax={100}
-        aria-label={ariaLabel}
-      >
-        <div
-          className="h-full rounded-full transition-all"
-          style={{ width: `${percent}%`, backgroundColor: BAR_COLORS[color] }}
-        />
-      </div>
-      <span className={`${typography.panelBody} font-mono text-slate-600 w-9 text-right`}>
-        {percent}%
-      </span>
     </div>
   )
 }
@@ -471,10 +435,12 @@ function DriverRow({
 
         {/* Sensitivity bar */}
         {hasSensitivityData ? (
-          <ProgressBar
+          <DataBar
             value={sensitivityValue}
-            color={barColor}
-            aria-label={`${cleanedLabel} sensitivity: ${Math.round(sensitivityValue * 100)}%`}
+            colourVar={BAR_COLORS[barColor]}
+            label={`${cleanedLabel} sensitivity: ${Math.round(sensitivityValue * 100)}%`}
+            size="standard"
+            showPercent
           />
         ) : (
           <div className={`${typography.panelBody} font-mono text-slate-400 w-9 text-right`}>-</div>
@@ -482,10 +448,12 @@ function DriverRow({
 
         {/* Confidence bar — same width as Sensitivity bar (icons moved to 4th column) */}
         {confidenceValue !== null ? (
-          <ProgressBar
+          <DataBar
             value={confidenceValue}
-            color="blue"
-            aria-label={`${cleanedLabel} confidence: ${Math.round(confidenceValue * 100)}%`}
+            colourVar={BAR_COLORS.blue}
+            label={`${cleanedLabel} confidence: ${Math.round(confidenceValue * 100)}%`}
+            size="standard"
+            showPercent
           />
         ) : (
           <div className={`${typography.panelBody} font-mono text-slate-400 w-9 text-right`}>-</div>

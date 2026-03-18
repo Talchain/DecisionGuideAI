@@ -54,7 +54,7 @@ export function evidenceTierLabel(score: number): string {
 }
 
 /** Factor types that use qualitative tier labels (no numeric meaning to users) */
-const QUALITATIVE_FACTOR_TYPES = new Set(['quality', 'demand', 'other'])
+export const QUALITATIVE_FACTOR_TYPES = new Set(['quality', 'demand', 'other'])
 
 /**
  * Map a 0–1 intervention value to a qualitative tier label.
@@ -81,6 +81,16 @@ export const CURRENCY_SYMBOLS = new Set([
   '£', '$', '€', '¥', '₹', '₩', '₽', '฿', '₫', '₪', '₴', '₸', '₺', '₼', '₾',
   'CHF', 'kr', 'R$',
 ])
+
+/**
+ * Returns true if the given unit string represents a currency symbol.
+ * Checks the full string first (for multi-char symbols like 'CHF', 'kr', 'R$'),
+ * then the first character (for single-char symbols like '£', '$', '€').
+ */
+export function isCurrencyUnit(unit: string): boolean {
+  if (!unit) return false
+  return CURRENCY_SYMBOLS.has(unit) || CURRENCY_SYMBOLS.has(unit[0])
+}
 
 function toFiniteNumber(value: unknown): number | null {
   if (typeof value === 'number' && Number.isFinite(value)) return value
@@ -138,6 +148,66 @@ export function denormaliseInterventionValue(
 }
 
 /**
+ * Format a factor's observed state value for display on the factor node card.
+ *
+ * Priority order:
+ *  1. `raw_value` + `unit` — user-stated baseline (e.g. "£49/mo", "12 engineers")
+ *  2. Denormalisation via `cap` — when raw_value absent but value + cap present
+ *  3. Qualitative tier label — last resort when no unit or cap available
+ *
+ * @param observedState - The factor's observed state object
+ * @returns Human-readable value string, or null if no data
+ */
+export function formatFactorValue(observedState: {
+  value?: number
+  raw_value?: string | number
+  unit?: string
+  cap?: number
+  factor_type?: string
+} | undefined | null): string | null {
+  if (!observedState) return null
+
+  const { raw_value, unit, value, cap, factor_type } = observedState
+
+  // 1. raw_value present — preferred path
+  if (raw_value !== undefined && raw_value !== null && String(raw_value).trim() !== '') {
+    const rawStr = String(raw_value).trim()
+    if (!unit) return rawStr
+    const numericRaw = Number(rawStr)
+    if (isCurrencyUnit(unit)) {
+      if (!isNaN(numericRaw) && rawStr !== '') {
+        return formatInterventionValue(numericRaw, unit, factor_type)
+      }
+      return `${unit}${rawStr}`
+    }
+    return `${rawStr} ${unit}`
+  }
+
+  if (value === undefined) return null
+
+  // 2. Denormalise via cap when available
+  if (cap != null && cap > 1) {
+    const denormed = denormaliseInterventionValue(value, cap)
+    if (unit) {
+      if (isCurrencyUnit(unit)) {
+        return `${unit}${Math.round(denormed).toLocaleString('en-GB')}`
+      }
+      if (unit === '%') {
+        const pct = Math.abs(value) <= 1 ? Math.round(value * 100) : Math.round(value)
+        return `${pct}%`
+      }
+      return `${Math.round(denormed)} ${unit}`
+    }
+  }
+
+  // 3. Qualitative fallback (no unit) or percentage of unit-bearing but cap-less value
+  if (!unit) return qualitativeTierLabel(value)
+  // Unit present but no cap — format as percentage of unit scale (e.g. 0.85 = "85%")
+  if (unit === '%') return `${Math.round(value * 100)}%`
+  return null
+}
+
+/**
  * Format an intervention value for display as a human-readable chip.
  * Used in OptionNode intervention chips (T8/J1).
  *
@@ -173,7 +243,7 @@ export function formatInterventionValue(
     return `${display}%`
   }
   // J2: Currency symbols prefix the number
-  if (unit && CURRENCY_SYMBOLS.has(unit[0])) {
+  if (unit && isCurrencyUnit(unit)) {
     const rounded = hasScaleBase ? Math.round(v) : v
     return `${unit}${rounded.toLocaleString('en-GB')}`
   }

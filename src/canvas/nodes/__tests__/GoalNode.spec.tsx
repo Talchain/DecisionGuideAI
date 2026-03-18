@@ -16,6 +16,7 @@ const makeStoreState = (overrides: Record<string, unknown> = {}) => ({
   results: { status: 'idle', report: null },
   highlightedNodes: new Set(),
   dimmedNodeIds: new Set(),
+  lens: { _dimmedNodeIds: new Set() },
   goalThreshold: null,
   goalConstraints: [],
   edges: [],
@@ -174,7 +175,8 @@ describe('GoalNode', () => {
       goal_threshold_raw: '500k',
       goal_threshold_unit: '£',
     })
-    expect(screen.getByText(/Target:/)).toBeDefined()
+    // Displays "≥ £500k" (no "Target:" prefix, no "modelled range")
+    expect(screen.getByText(/≥/)).toBeDefined()
     expect(screen.getByText(/500k/)).toBeDefined()
   })
 
@@ -235,18 +237,55 @@ describe('GoalNode', () => {
 
   it('does not show threshold context when goal_threshold_raw is absent', () => {
     renderGoal()
-    expect(screen.queryByText(/Target:/)).toBeNull()
+    // No ≥ sign, shows coaching prompt instead
+    expect(screen.queryByText(/≥/)).toBeNull()
+    expect(screen.getByText(/Set a success target/)).toBeDefined()
   })
 
   it('shows threshold without unit when goal_threshold_unit is absent', () => {
     renderGoal({ goal_threshold_raw: '200k' })
-    expect(screen.getByText(/Target:/)).toBeDefined()
+    expect(screen.getByText(/≥/)).toBeDefined()
     expect(screen.getByText(/200k/)).toBeDefined()
   })
 
   it('shows threshold when goal_threshold_raw is numeric 0 (falsy)', () => {
     renderGoal({ goal_threshold_raw: 0 })
-    expect(screen.getByText(/Target:/)).toBeDefined()
+    expect(screen.getByText(/≥/)).toBeDefined()
+  })
+
+  // P1.4: null and empty string must NOT display threshold — show coaching prompt instead
+  it('shows coaching prompt when goal_threshold_raw is null', () => {
+    renderGoal({ goal_threshold_raw: null })
+    expect(screen.queryByText(/≥/)).toBeNull()
+    expect(screen.getByText(/Set a success target/)).toBeDefined()
+  })
+
+  it('shows coaching prompt when goal_threshold_raw is empty string', () => {
+    renderGoal({ goal_threshold_raw: '' })
+    expect(screen.queryByText(/≥/)).toBeNull()
+    expect(screen.getByText(/Set a success target/)).toBeDefined()
+  })
+
+  it('shows coaching prompt when goal_threshold_raw is whitespace-only', () => {
+    renderGoal({ goal_threshold_raw: '   ' })
+    expect(screen.queryByText(/≥/)).toBeNull()
+    expect(screen.getByText(/Set a success target/)).toBeDefined()
+  })
+
+  // P0.3: Provenance pill renders for brief_extraction source
+  it('shows provenance pill for brief_extraction source', () => {
+    renderGoal({ observedState: { source: 'brief_extraction' } })
+    expect(screen.getByText('Generated from your brief')).toBeDefined()
+  })
+
+  it('does not show provenance pill for user source', () => {
+    renderGoal({ observedState: { source: 'user' } })
+    expect(screen.queryByText('Generated from your brief')).toBeNull()
+  })
+
+  it('does not show provenance pill when observedState is absent', () => {
+    renderGoal()
+    expect(screen.queryByText('Generated from your brief')).toBeNull()
   })
 
   it('does not show achievement probability when it is null outside results mode', () => {

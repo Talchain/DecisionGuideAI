@@ -6,6 +6,8 @@ import { useNodeDisplayMetadata } from '../hooks/useNodeDisplayMetadata'
 import { useCanvasStore } from '../store'
 import { typography } from '../../styles/typography'
 import { formatTargetValue } from '../../components/results/utils/formatTargetValue'
+import { DataBar, type DataBarColour } from '../ui/shared/DataBar'
+import { getProvenanceLabel } from '../ui/inspector-v2/inspectorStrings'
 
 export const GoalNode = memo((props: NodeProps) => {
   const metadata = NODE_REGISTRY.goal
@@ -27,22 +29,29 @@ export const GoalNode = memo((props: NodeProps) => {
   }, [report, resultsStatus])
 
   // T10: Threshold context from node data
-  const thresholdRaw = props.data?.goal_threshold_raw as string | number | undefined
+  const thresholdRaw = props.data?.goal_threshold_raw as string | number | null | undefined
   const thresholdUnit = props.data?.goal_threshold_unit as string | undefined
-  const thresholdCap = props.data?.goal_threshold_cap as string | number | undefined
 
   // T10: Stability bar colour from robustness level
-  const stabilityBarColor = useMemo(() => {
+  const stabilityBarColour = useMemo((): DataBarColour => {
     switch (robustnessData?.level) {
-      case 'high':     return 'bg-success'
-      case 'moderate': return 'bg-goal'
-      case 'low':      return 'bg-warning'
-      default:         return 'bg-goal'
+      case 'high':     return 'success'
+      case 'moderate': return 'goal'
+      case 'low':      return 'warning'
+      default:         return 'goal'
     }
   }, [robustnessData])
 
   // Prefer report-level stability over displayMetadata fallback
   const stabilityValue = robustnessData?.stability ?? displayMetadata.stabilityPercentage
+
+  // P0.3: Provenance pill — show when goal node has a meaningful source attribution
+  const provenanceLabel = useMemo(() => {
+    const source = (props.data?.observedState as any)?.source as string | undefined
+    if (!source || source === 'user' || source === 'user_calibration' || source === 'default') return null
+    const label = getProvenanceLabel(source)
+    return label === 'No evidence yet' || label === `Source: ${source}` ? null : label
+  }, [props.data?.observedState])
 
   // §11.3: Goal node border reflects confidence/stability level (post-analysis only)
   // high → solid goal (default, no override), moderate → info dashed, low → danger dashed
@@ -78,12 +87,12 @@ export const GoalNode = memo((props: NodeProps) => {
               </span>
             )}
           </div>
-          <div className="h-1.5 bg-factor-light rounded-full overflow-hidden">
-            <div
-              className={`h-full ${stabilityBarColor} rounded-full transition-all duration-300`}
-              style={{ width: `${Math.round(stabilityValue * 100)}%` }}
-            />
-          </div>
+          <DataBar
+            value={stabilityValue}
+            label="Stability"
+            colour={stabilityBarColour}
+            size="standard"
+          />
         </div>
       )}
 
@@ -94,10 +103,10 @@ export const GoalNode = memo((props: NodeProps) => {
         </div>
       )}
 
-      {/* T10: Threshold context — formatted via shared formatTargetValue */}
-      {(thresholdRaw !== undefined || thresholdCap !== undefined) && (
+      {/* T10: Threshold context — show "Target: >= X" or "No target set" coaching prompt */}
+      {thresholdRaw != null && String(thresholdRaw).trim() !== '' ? (
         <div className={`${typography.nodeLabel} text-text-light mt-1`}>
-          Target: {thresholdRaw !== undefined ? (() => {
+          {'\u2265\u00a0'}{(() => {
             const raw = typeof thresholdRaw === 'number' ? thresholdRaw : Number(thresholdRaw)
             if (Number.isNaN(raw)) return String(thresholdRaw)
             const u = typeof thresholdUnit === 'string' ? thresholdUnit.toLowerCase() : ''
@@ -105,8 +114,19 @@ export const GoalNode = memo((props: NodeProps) => {
             if (u === 'count' || u === '') return formatTargetValue(raw)
             // Currency-like unit (e.g. "USD", "£", "GBP") — use unit as symbol
             return formatTargetValue(raw, 'currency', thresholdUnit!)
-          })() : '—'}
-          {thresholdCap !== undefined ? ` of ${typeof thresholdCap === 'number' ? thresholdCap.toLocaleString() : String(thresholdCap)} modelled range` : ''}
+          })()}
+        </div>
+      ) : resultsStatus !== 'complete' && (
+        <div className={`${typography.nodeLabel} italic text-text-light mt-1`}>
+          Set a success target to enable probability calculations
+        </div>
+      )}
+
+      {provenanceLabel && (
+        <div className={`${typography.nodeLabel} mt-1.5`}>
+          <span className="bg-panel border border-info/30 text-text-body rounded-full px-1.5 py-0.5">
+            {provenanceLabel}
+          </span>
         </div>
       )}
 

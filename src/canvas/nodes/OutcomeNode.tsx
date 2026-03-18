@@ -6,6 +6,7 @@ import { useNodeDisplayMetadata } from '../hooks/useNodeDisplayMetadata'
 import { useCanvasStore } from '../store'
 import { typography } from '../../styles/typography'
 import { computeSignedMean, describeEdgeInfluence } from '../domain/edges'
+import { getProvenanceLabel } from '../ui/inspector-v2/inspectorStrings'
 
 export const OutcomeNode = memo((props: NodeProps) => {
   const metadata = NODE_REGISTRY.outcome
@@ -15,6 +16,14 @@ export const OutcomeNode = memo((props: NodeProps) => {
   const edges = useCanvasStore(state => state.edges)
   const nodes = useCanvasStore(state => state.nodes)
   const resultsStatus = useCanvasStore(state => state.results.status)
+
+  // Provenance pill: show when source is a meaningful attribution (not user-set or unknown)
+  const provenanceLabel = useMemo(() => {
+    const source = (props.data?.observedState as any)?.source as string | undefined
+    if (!source || source === 'user' || source === 'user_calibration' || source === 'default') return null
+    const label = getProvenanceLabel(source)
+    return label === 'No evidence yet' || label === `Source: ${source}` ? null : label
+  }, [props.data?.observedState])
 
   const bridgeEdgeData = useMemo(() => {
     if (resultsStatus !== 'complete') return null
@@ -48,6 +57,14 @@ export const OutcomeNode = memo((props: NodeProps) => {
           {bridgeEdgeData.existsProbability !== null && (
             <> · {Math.round(bridgeEdgeData.existsProbability * 100)}% certain</>
           )}
+        </div>
+      )}
+
+      {provenanceLabel && (
+        <div className={`${typography.nodeLabel} mt-1.5`}>
+          <span className="bg-panel border border-info/30 text-text-body rounded-full px-1.5 py-0.5">
+            {provenanceLabel}
+          </span>
         </div>
       )}
 

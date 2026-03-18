@@ -13,6 +13,8 @@ import {
   formatInterventionValue,
   qualitativeTierLabel,
   denormaliseInterventionValue,
+  isCurrencyUnit,
+  formatFactorValue,
 } from '../labelUtils'
 import { describeEdgeInfluence } from '../../domain/edges'
 
@@ -459,5 +461,103 @@ describe('describeEdgeInfluence', () => {
 
   it('returns "Strong negative influence on goal" for strength -0.5', () => {
     expect(describeEdgeInfluence(-0.5)).toBe('Strong negative influence on goal')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// P1.6: isCurrencyUnit — multi-char currency symbol detection
+// ---------------------------------------------------------------------------
+describe('isCurrencyUnit', () => {
+  it('detects single-char symbols (£, $, €)', () => {
+    expect(isCurrencyUnit('£')).toBe(true)
+    expect(isCurrencyUnit('$')).toBe(true)
+    expect(isCurrencyUnit('€')).toBe(true)
+  })
+
+  it('detects multi-char symbols (CHF, kr, R$)', () => {
+    expect(isCurrencyUnit('CHF')).toBe(true)
+    expect(isCurrencyUnit('kr')).toBe(true)
+    expect(isCurrencyUnit('R$')).toBe(true)
+  })
+
+  it('returns false for non-currency units', () => {
+    expect(isCurrencyUnit('engineers')).toBe(false)
+    expect(isCurrencyUnit('months')).toBe(false)
+    expect(isCurrencyUnit('%')).toBe(false)
+    expect(isCurrencyUnit('k')).toBe(false)
+  })
+
+  it('returns false for empty string', () => {
+    expect(isCurrencyUnit('')).toBe(false)
+  })
+})
+
+describe('formatInterventionValue — multi-char currency (P1.6)', () => {
+  it('prefixes CHF correctly', () => {
+    expect(formatInterventionValue(1200, 'CHF')).toBe('CHF1,200')
+  })
+
+  it('prefixes kr correctly', () => {
+    expect(formatInterventionValue(500, 'kr')).toBe('kr500')
+  })
+
+  it('prefixes R$ correctly', () => {
+    expect(formatInterventionValue(2000, 'R$')).toBe('R$2,000')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// P1.6: formatFactorValue — currency unit handling
+// ---------------------------------------------------------------------------
+describe('formatFactorValue — multi-char currency (P1.6)', () => {
+  it('formats CHF raw_value as prefix', () => {
+    expect(formatFactorValue({ raw_value: '1200', unit: 'CHF' })).toBe('CHF1,200')
+  })
+
+  it('formats kr raw_value as prefix', () => {
+    expect(formatFactorValue({ raw_value: '500', unit: 'kr' })).toBe('kr500')
+  })
+
+  it('formats £ raw_value as prefix (single-char still works)', () => {
+    expect(formatFactorValue({ raw_value: '49', unit: '£' })).toBe('£49')
+  })
+
+  it('formats non-currency unit as suffix', () => {
+    expect(formatFactorValue({ raw_value: '10', unit: 'engineers' })).toBe('10 engineers')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// P0.1 parity: formatFactorValue (Task 3 — formatFactorValue core paths)
+// ---------------------------------------------------------------------------
+describe('formatFactorValue', () => {
+  it('returns null for null input', () => {
+    expect(formatFactorValue(null)).toBeNull()
+  })
+
+  it('returns null for undefined input', () => {
+    expect(formatFactorValue(undefined)).toBeNull()
+  })
+
+  it('returns null when value is undefined', () => {
+    expect(formatFactorValue({ unit: 'k' })).toBeNull()
+  })
+
+  it('returns qualitative tier when value present and no unit/cap', () => {
+    expect(formatFactorValue({ value: 0.5 })).toBe('Medium')
+    expect(formatFactorValue({ value: 0 })).toBe('None')
+  })
+
+  it('denormalises via cap when raw_value absent', () => {
+    // 0.3 × 18 = 5.4 → 5
+    expect(formatFactorValue({ value: 0.3, cap: 18, unit: 'months' })).toBe('5 months')
+  })
+
+  it('prefers raw_value over cap denormalisation', () => {
+    expect(formatFactorValue({ raw_value: '12', unit: 'months', value: 0.3, cap: 18 })).toBe('12 months')
+  })
+
+  it('formats % unit from value (no cap)', () => {
+    expect(formatFactorValue({ value: 0.85, unit: '%' })).toBe('85%')
   })
 })

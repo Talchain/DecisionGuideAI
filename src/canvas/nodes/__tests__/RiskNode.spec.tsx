@@ -17,6 +17,7 @@ const makeStoreState = (overrides: Record<string, unknown> = {}) => ({
   results: { status: 'idle', report: null },
   highlightedNodes: new Set(),
   dimmedNodeIds: new Set(),
+  lens: { _dimmedNodeIds: new Set() },
   goalThreshold: null,
   goalConstraints: [],
   edges: [],
