@@ -97,8 +97,8 @@ describe('enforceChipBudget', () => {
   it('caps suggested actions at MAX_SUGGESTED_ACTIONS when no coaching chips', () => {
     const actions = [chip('a1'), chip('a2'), chip('a3'), chip('a4')]
     const result = enforceChipBudget([], actions)
-    expect(result).toHaveLength(MAX_SUGGESTED_ACTIONS)
-    expect(result.map((c) => c.id)).toEqual(['a1', 'a2'])
+    expect(result).toHaveLength(MAX_SUGGESTED_ACTIONS) // 3
+    expect(result.map((c) => c.id)).toEqual(['a1', 'a2', 'a3'])
   })
 
   it('coaching chips take all slots, leaving no room for actions', () => {
@@ -113,7 +113,7 @@ describe('enforceChipBudget', () => {
     const coaching = [chip('c1'), chip('c2')]
     const actions = [chip('a1'), chip('a2'), chip('a3')]
     const result = enforceChipBudget(coaching, actions)
-    // 2 coaching + min(2 remaining slots, MAX_SUGGESTED_ACTIONS=2) = 4
+    // 2 coaching + min(2 remaining slots, MAX_SUGGESTED_ACTIONS=3) = 4 (total cap binds)
     expect(result).toHaveLength(4)
     expect(result.map((c) => c.id)).toEqual(['c1', 'c2', 'a1', 'a2'])
   })
@@ -129,11 +129,11 @@ describe('enforceChipBudget', () => {
 
   it('suggested actions sub-cap constrains even with remaining total budget', () => {
     const coaching = [chip('c1')]
-    const actions = [chip('a1'), chip('a2'), chip('a3')]
+    const actions = [chip('a1'), chip('a2'), chip('a3'), chip('a4')]
     const result = enforceChipBudget(coaching, actions)
-    // 1 coaching + min(3 remaining, 2 sub-cap) = 3
-    expect(result).toHaveLength(3)
-    expect(result.map((c) => c.id)).toEqual(['c1', 'a1', 'a2'])
+    // 1 coaching + min(3 remaining, MAX_SUGGESTED_ACTIONS=3) = 4 (sub-cap=3 < remaining=3)
+    expect(result).toHaveLength(4)
+    expect(result.map((c) => c.id)).toEqual(['c1', 'a1', 'a2', 'a3'])
   })
 })
 

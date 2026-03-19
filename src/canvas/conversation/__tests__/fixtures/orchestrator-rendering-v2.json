@@ -1,0 +1,119 @@
+{
+  "_comment": "Golden test fixtures for Brief A — orchestrator rendering v2.",
+  "_source": "Constructed from v2.1 orchestrator prompt spec (olumi_orchestrator_system_prompt_v21).",
+
+  "envelopes": {
+    "markdownInAssistantText": {
+      "assistant_text": "**Revenue at risk.** The model shows three key factors driving sensitivity.\n\n- Market share erosion (0.28)\n- Price elasticity\n- Competitor response speed",
+      "blocks": [],
+      "suggested_actions": []
+    },
+    "commentaryWithTitle": {
+      "assistant_text": "Here is the breakdown of sensitivity drivers.",
+      "blocks": [
+        {
+          "block_type": "commentary",
+          "block_id": "c-001",
+          "data": {
+            "title": "Sensitivity breakdown",
+            "narrative": "The three highest-impact factors are price elasticity **(0.41)**, market share **(0.28 — moderate)**, and competitor response **(0.19)**.\n\n- Price elasticity dominates\n- Market share is a secondary driver",
+            "tone": "neutral"
+          }
+        }
+      ]
+    },
+    "commentaryWithoutTitle": {
+      "assistant_text": "Analysis complete.",
+      "blocks": [
+        {
+          "block_type": "commentary",
+          "block_id": "c-002",
+          "data": {
+            "narrative": "First line of content used as preview.\n\nSecond paragraph with more detail.",
+            "tone": "neutral"
+          }
+        }
+      ]
+    },
+    "commentaryShortAssistantText": {
+      "assistant_text": "See below.",
+      "blocks": [
+        {
+          "block_type": "commentary",
+          "block_id": "c-003",
+          "data": {
+            "narrative": "The full analysis is here. This is the only place the answer appears.",
+            "tone": "neutral"
+          }
+        }
+      ]
+    },
+    "reviewCardChallenger": {
+      "assistant_text": "There is a structural concern with this model.",
+      "blocks": [
+        {
+          "block_type": "review_card",
+          "block_id": "rv-001",
+          "data": {
+            "title": "Concentration risk",
+            "description": "**The model relies on a single factor** for 78% of its variance. This creates fragility.\n\n- Add at least two more observable factors\n- Consider competitor response as a separate node",
+            "tone": "challenger"
+          }
+        }
+      ]
+    },
+    "reviewCardFacilitator": {
+      "assistant_text": "Here is a suggestion to strengthen your model.",
+      "blocks": [
+        {
+          "block_type": "review_card",
+          "block_id": "rv-002",
+          "data": {
+            "title": "Evidence opportunity",
+            "description": "You could add market research data here to improve confidence.",
+            "tone": "facilitator"
+          }
+        }
+      ]
+    },
+    "reviewCardMissingTone": {
+      "assistant_text": "Coaching insight.",
+      "blocks": [
+        {
+          "block_type": "review_card",
+          "block_id": "rv-003",
+          "data": {
+            "title": "Improvement area",
+            "description": "Consider refining the factor weights."
+          }
+        }
+      ]
+    },
+    "reviewCardUnrecognisedTone": {
+      "assistant_text": "Coaching insight.",
+      "blocks": [
+        {
+          "block_type": "review_card",
+          "block_id": "rv-004",
+          "data": {
+            "title": "Improvement area",
+            "description": "Consider refining the factor weights.",
+            "tone": "scientist"
+          }
+        }
+      ]
+    },
+    "xmlEscapedContent": {
+      "assistant_text": "Entities decoded: &amp; becomes &, &lt; becomes <, &gt; becomes >.",
+      "blocks": [
+        {
+          "block_type": "commentary",
+          "block_id": "c-004",
+          "data": {
+            "narrative": "The formula is a &amp; b where a &lt; b &gt; c. Use &lt;strong&gt; markup."
+          }
+        }
+      ]
+    }
+  }
+}

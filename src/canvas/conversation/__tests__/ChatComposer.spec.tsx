@@ -117,7 +117,6 @@ describe('ChatComposer', () => {
       <ChatComposer
         ref={ref}
         conversation={makeConversation()}
-        generateState="disabled"
         onCollapse={vi.fn()}
         onScrollToPatch={vi.fn()}
         onOpenInspector={vi.fn()}
@@ -134,7 +133,6 @@ describe('ChatComposer', () => {
       <ChatComposer
         ref={ref}
         conversation={makeConversation()}
-        generateState="disabled"
         onCollapse={vi.fn()}
         onScrollToPatch={vi.fn()}
         onOpenInspector={vi.fn()}
@@ -165,7 +163,6 @@ describe('ChatComposer', () => {
       <ChatComposer
         ref={ref}
         conversation={makeConversation()}
-        generateState="disabled"
         onCollapse={vi.fn()}
         onScrollToPatch={vi.fn()}
         onOpenInspector={vi.fn()}
@@ -187,7 +184,6 @@ describe('ChatComposer', () => {
       <ChatComposer
         ref={ref}
         conversation={makeConversation()}
-        generateState="disabled"
         onCollapse={vi.fn()}
         onScrollToPatch={vi.fn()}
         onOpenInspector={vi.fn()}
@@ -219,7 +215,6 @@ describe('ChatComposer', () => {
       <ChatComposer
         ref={ref}
         conversation={makeConversation()}
-        generateState="disabled"
         onCollapse={vi.fn()}
         onScrollToPatch={vi.fn()}
         onOpenInspector={vi.fn()}
@@ -242,7 +237,6 @@ describe('ChatComposer', () => {
       <ChatComposer
         ref={ref}
         conversation={makeConversation()}
-        generateState="disabled"
         onCollapse={vi.fn()}
         onScrollToPatch={vi.fn()}
         onOpenInspector={vi.fn()}
@@ -276,7 +270,6 @@ describe('ChatComposer', () => {
       <ChatComposer
         ref={ref}
         conversation={makeConversation()}
-        generateState="disabled"
         onCollapse={vi.fn()}
         onScrollToPatch={vi.fn()}
         onOpenInspector={vi.fn()}
@@ -308,7 +301,6 @@ describe('ChatComposer', () => {
       <ChatComposer
         ref={ref}
         conversation={makeConversation()}
-        generateState="active"
         onCollapse={vi.fn()}
         onScrollToPatch={vi.fn()}
         onOpenInspector={vi.fn()}
@@ -321,7 +313,7 @@ describe('ChatComposer', () => {
     expect(screen.queryByTestId('inline-generate-btn')).not.toBeInTheDocument()
   })
 
-  it('inline generate button is active when generateState is active', () => {
+  it('inline generate button is active when composer has ≥50 chars', () => {
     mockStage = 'frame'
     mockBriefSignals = {
       elements: [
@@ -341,13 +333,16 @@ describe('ChatComposer', () => {
       <ChatComposer
         ref={ref}
         conversation={makeConversation()}
-        generateState="active"
         onCollapse={vi.fn()}
         onScrollToPatch={vi.fn()}
         onOpenInspector={vi.fn()}
         onGenerateModel={onGenerateModel}
       />,
     )
+
+    // Type ≥50 chars so generateState becomes 'active' locally
+    const textarea = screen.getByLabelText('Message input')
+    fireEvent.change(textarea, { target: { value: 'A'.repeat(51) } })
 
     const btn = screen.getByTestId('inline-generate-btn')
     expect(btn).not.toBeDisabled()
@@ -361,7 +356,6 @@ describe('ChatComposer', () => {
       <ChatComposer
         ref={ref}
         conversation={makeConversation()}
-        generateState="disabled"
         onCollapse={vi.fn()}
         onScrollToPatch={vi.fn()}
         onOpenInspector={vi.fn()}
@@ -388,7 +382,6 @@ describe('ChatComposer', () => {
       <ChatComposer
         ref={ref}
         conversation={makeConversation()}
-        generateState="disabled"
         onCollapse={vi.fn()}
         onScrollToPatch={vi.fn()}
         onOpenInspector={vi.fn()}
@@ -420,7 +413,6 @@ describe('ChatComposer', () => {
       <ChatComposer
         ref={ref}
         conversation={makeConversation()}
-        generateState="disabled"
         onCollapse={vi.fn()}
         onScrollToPatch={vi.fn()}
         onOpenInspector={vi.fn()}
@@ -449,7 +441,6 @@ describe('ChatComposer', () => {
       <ChatComposer
         ref={ref}
         conversation={makeConversation()}
-        generateState="disabled"
         onCollapse={vi.fn()}
         onScrollToPatch={vi.fn()}
         onOpenInspector={vi.fn()}
@@ -470,7 +461,6 @@ describe('ChatComposer', () => {
       <ChatComposer
         ref={ref}
         conversation={makeConversation()}
-        generateState="disabled"
         onCollapse={vi.fn()}
         onScrollToPatch={vi.fn()}
         onOpenInspector={vi.fn()}

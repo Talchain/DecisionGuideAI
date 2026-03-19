@@ -193,7 +193,7 @@
 
 .reviewCardInfo {
   border-left: 3px solid var(--info, #2B7FA2);
-  background: var(--info-light, #BAD7E4);
+  background: var(--bg-panel, #FEFEFE); /* DS v5 §16.2: coaching cards use bg-panel, not bg-info-light */
   padding: 12px;
   border-radius: 8px;
   display: flex;
@@ -792,6 +792,56 @@
   .factBarFill {
     transition: none;
   }
+}
+
+/* ---------------------------------------------------------------------------
+ * § 4g-2 — Commentary collapsible (ORCHESTRATOR_RENDERING_V2)
+ * DS v5 §19: "More" / "Less" toggle with ChevronDown / ChevronUp
+ * ---------------------------------------------------------------------------*/
+
+.commentaryToggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  text-align: left;
+  gap: 8px;
+  min-height: 44px; /* touch target */
+}
+
+.commentaryToggle:focus-visible {
+  outline: 2px solid var(--info, #2B7FA2);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.commentaryPreviewText {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.commentaryToggleControl {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+  font-size: 11px; /* panelMeta */
+  color: var(--info, #2B7FA2);
+  font-weight: 500;
+}
+
+/* Expanded content: DS v5 §19 pattern */
+.commentaryExpandedContent {
+  margin-top: 8px;
+  padding-left: 12px;
+  border-left: 2px solid var(--border-default, #EEE6D8);
 }
 
 /* ---------------------------------------------------------------------------

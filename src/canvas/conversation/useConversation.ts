@@ -10,7 +10,7 @@ import { useState, useCallback, useRef, useEffect } from 'react'
 import { useCanvasStore } from '../store'
 import { generateGraphHash } from '../utils/graphHash'
 import { callOrchestratorTurn, streamOrchestratorTurn, OrchestratorError } from './turnService'
-import { isOrchestratorV2Enabled, isOrchestratorStreamingEnabled, isThreadHydrateEnabled, isThreadPersistEnabled } from '../../flags'
+import { isOrchestratorV2Enabled, isOrchestratorStreamingEnabled, isThreadHydrateEnabled, isThreadPersistEnabled, isOrchestratorRenderingV2Enabled } from '../../flags'
 import { assembleAnalysisInputsSummary } from '../analysis/assembleAnalysisInputsSummary'
 import { useResultsStore } from '../stores/resultsStore'
 import { hydrateMessagesFromThread, formatSessionBoundary } from './utils/hydrateThread'
@@ -249,6 +249,14 @@ export function stripDiagnostics(text: string): string {
   //    Only strip lines that look like the internal preamble pattern to avoid
   //    false-positives on user-visible content.
   cleaned = cleaned.replace(/^\s*Mode:\s+\w+[.:]\s*Stage:\s+\w+[.:][^\n]*$/gm, '')
+
+  // 3. Handle T3 XML envelope: <response><assistant_text>…</assistant_text>…</response>
+  //    CEE staging sometimes wraps the response in this envelope. Extract only
+  //    the content inside <assistant_text>…</assistant_text> when present.
+  const responseEnvelopeMatch = cleaned.match(/<response>[\s\S]*?<assistant_text>([\s\S]*?)<\/assistant_text>[\s\S]*?<\/response>/i)
+  if (responseEnvelopeMatch) {
+    cleaned = responseEnvelopeMatch[1]
+  }
 
   // Collapse leading/trailing blank lines left by removals
   return cleaned.replace(/^\n+/, '').replace(/\n{3,}/g, '\n\n').trimEnd()
@@ -648,17 +656,30 @@ export function adaptCEEBlock(raw: unknown): ConversationBlock {
         return {
           type: 'commentary',
           text: String(dataObj.narrative ?? dataObj.text ?? ''),
+          title: dataObj.title != null ? String(dataObj.title) : undefined,
           citations: Array.isArray(dataObj.citations) ? dataObj.citations as any : undefined,
         }
 
-      case 'review_card':
+      case 'review_card': {
+        // tone field: passed through for use by the renderer (flag-gated visual treatment).
+        const tone = typeof dataObj.tone === 'string' ? dataObj.tone as 'challenger' | 'facilitator' : undefined
+        const variantDirect = dataObj.variant === 'alert' ? 'alert' : dataObj.variant === 'info' ? 'info' : undefined
+        // tone → variant mapping is ONLY applied when ORCHESTRATOR_RENDERING_V2 is on.
+        // Flag off: legacy variant field is used as-is so rollback is end-to-end clean.
+        const v2 = isOrchestratorRenderingV2Enabled()
+        const variantFromTone = v2 && tone === 'challenger' ? 'alert'
+          : v2 && tone === 'facilitator' ? 'info'
+          : undefined
+        const resolvedVariant: 'info' | 'alert' = variantFromTone ?? variantDirect ?? 'info'
         return {
           type: 'review_card',
           title: String(dataObj.title ?? ''),
           body: String(dataObj.description ?? dataObj.body ?? ''),
-          variant: dataObj.variant === 'alert' ? 'alert' : 'info',
+          variant: resolvedVariant,
+          tone,
           priority: dataObj.priority as any ?? undefined,
         }
+      }
 
       case 'brief':
         return {

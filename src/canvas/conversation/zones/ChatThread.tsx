@@ -59,6 +59,10 @@ export const ChatThread = memo(function ChatThread({
   // Get suggested chips from last assistant message
   const lastAssistantMsg = [...messages].reverse().find(m => m.role === 'assistant')
   const suggestedChips = lastAssistantMsg?.actionChips ?? []
+  // Only hide inline chips when SuggestedChips will actually render something.
+  // SuggestedChips filters out chips without a message field (e.g. retry chips),
+  // so hideChips must mirror that filter — otherwise retry chips vanish entirely.
+  const suggestedChipsWillRender = suggestedChips.some(c => !!c.message)
 
   return (
     <div
@@ -73,15 +77,17 @@ export const ChatThread = memo(function ChatThread({
     >
       {showEmpty && <EmptyState />}
 
-      {messages.map((msg, i) =>
-        msg.sessionDivider ? (
+      {messages.map((msg, i) => {
+        const isLastAssistant = msg === lastAssistantMsg
+        return msg.sessionDivider ? (
           <SessionDivider key={msg.id} text={msg.sessionDivider} />
         ) : (
           <ChatMessage
             key={msg.id}
             message={msg}
             isFirst={i === 0}
-            hideChips={!isThinking && msg === lastAssistantMsg && suggestedChips.length > 0}
+            hideChips={isLastAssistant && suggestedChipsWillRender}
+            historicalChips={!isLastAssistant}
             onChipClick={onChipClick}
             onRetry={onRetry}
             patchBlockStates={patchBlockStates}
@@ -90,12 +96,12 @@ export const ChatThread = memo(function ChatThread({
             onPatchDismiss={onPatchDismiss}
             onFeedback={onFeedback}
           />
-        ),
-      )}
+        )
+      })}
 
-      {/* Suggested chips after last assistant message */}
-      {!isThinking && suggestedChips.length > 0 && (
-        <SuggestedChips chips={suggestedChips} onChipClick={onChipClick} />
+      {/* Suggested chips after last assistant message (visible even while thinking; isThinking disables them) */}
+      {suggestedChips.length > 0 && (
+        <SuggestedChips chips={suggestedChips} onChipClick={onChipClick} isThinking={isThinking} />
       )}
 
       {/* Suppress standalone ThinkingIndicator when a streaming message is already visible */}

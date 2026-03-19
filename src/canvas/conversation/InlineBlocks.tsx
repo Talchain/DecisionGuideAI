@@ -33,6 +33,8 @@ import { MAX_VISIBLE_BLOCKS_PER_TURN } from './types'
 import { extractTargetIdsFromPatch } from './utils/extractTargetIds'
 import { generateGraphHash } from '../utils/graphHash'
 import { resolvePatchBlockState } from './selectors'
+import { safeRichText, plainTextPreview } from '../utils/safeRichText'
+import { isOrchestratorRenderingV2Enabled } from '../../flags'
 import styles from './Conversation.module.css'
 
 // ---------------------------------------------------------------------------
@@ -85,6 +87,8 @@ interface InlineBlocksProps {
   patchRejections?: Map<string, PatchRejectionInfo>
   onPatchAccept?: (patchId: string, block: GraphPatchBlockType) => void
   onPatchDismiss?: (patchId: string) => void
+  /** Word count of the turn's assistant_text — used by commentary collapse default logic */
+  assistantTextWordCount?: number
 }
 
 export const InlineBlocks = memo(function InlineBlocks({
@@ -94,6 +98,7 @@ export const InlineBlocks = memo(function InlineBlocks({
   patchRejections,
   onPatchAccept,
   onPatchDismiss,
+  assistantTextWordCount = 0,
 }: InlineBlocksProps) {
   const [showAll, setShowAll] = useState(false)
 
@@ -118,6 +123,7 @@ export const InlineBlocks = memo(function InlineBlocks({
             patchRejections={patchRejections}
             onPatchAccept={onPatchAccept}
             onPatchDismiss={onPatchDismiss}
+            assistantTextWordCount={assistantTextWordCount}
           />
         </div>
       ))}
@@ -145,6 +151,7 @@ interface BlockRendererProps {
   patchRejections?: Map<string, PatchRejectionInfo>
   onPatchAccept?: (patchId: string, block: GraphPatchBlockType) => void
   onPatchDismiss?: (patchId: string) => void
+  assistantTextWordCount?: number
 }
 
 function BlockRenderer({
@@ -154,10 +161,11 @@ function BlockRenderer({
   patchRejections,
   onPatchAccept,
   onPatchDismiss,
+  assistantTextWordCount = 0,
 }: BlockRendererProps) {
   switch (block.type) {
     case 'commentary':
-      return <CommentaryBlockRenderer block={block} />
+      return <CommentaryBlockRenderer block={block} assistantTextWordCount={assistantTextWordCount} />
 
     case 'review_card':
       return (
@@ -210,11 +218,17 @@ function BlockRenderer({
 // CommentaryBlock
 // ---------------------------------------------------------------------------
 
+
 const CommentaryBlockRenderer = memo(function CommentaryBlockRenderer({
   block,
+  assistantTextWordCount = 0,
 }: {
   block: CommentaryBlockType
+  /** Word count of the assistant_text in the same turn — used for default expand logic */
+  assistantTextWordCount?: number
 }) {
+  const renderingV2 = isOrchestratorRenderingV2Enabled()
+
   const handleCitationClick = useCallback((index: number) => {
     // Scroll to the referenced block element by citation index
     const target = document.querySelector(`[data-citation-target="${index}"]`)
@@ -236,35 +250,110 @@ const CommentaryBlockRenderer = memo(function CommentaryBlockRenderer({
         ? styles.commentaryBlockPositive
         : styles.commentaryBlock
 
+  // ---------------------------------------------------------------------------
+  // Collapsible logic (v2 only)
+  // Default collapsed UNLESS assistant_text is thin (< 20 words), meaning the
+  // commentary IS the essential finding and must default to expanded.
+  // ---------------------------------------------------------------------------
+  const defaultExpanded = assistantTextWordCount < 20
+  const [expanded, setExpanded] = useState(defaultExpanded)
+
+  // title is already a plain string; fallback uses plainTextPreview to decode entities
+  // and strip markdown markers so the toggle reads naturally (e.g. "Lead phrase" not "**Lead phrase**")
+  const previewLabel = block.title ?? plainTextPreview(block.text)
+
+  const contentHtml = safeRichText(block.text)
+
+  if (!renderingV2) {
+    // Flag OFF — current behaviour unchanged
+    return (
+      <div>
+        <div
+          className={`${typography.panelBody} ${toneClass} ${styles.markdownContent}`}
+          // eslint-disable-next-line no-restricted-syntax -- sanitised by safeRichText (allowlist: strong, br, ul, li)
+          dangerouslySetInnerHTML={{ __html: contentHtml }}
+        />
+        {block.citations && block.citations.length > 0 && (
+          <CitationLegend citations={block.citations} onCitationClick={handleCitationClick} />
+        )}
+      </div>
+    )
+  }
+
   return (
     <div>
-      <p className={`${typography.panelBody} ${toneClass}`}>{block.text}</p>
-      {block.citations && block.citations.length > 0 && (
-        <div className={styles.citationLegend} aria-label="Citations">
-          {block.citations.map((c) => (
-            <span
-              key={c.index}
-              className={styles.citationEntry}
-              role="button"
-              tabIndex={0}
-              onClick={() => handleCitationClick(c.index)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  e.preventDefault()
-                  handleCitationClick(c.index)
-                }
-              }}
-              aria-label={`Citation ${c.index}: ${c.source}`}
-            >
-              <span className={styles.citationIndex}>[{c.index}]</span>
-              <span>{c.source}</span>
-            </span>
-          ))}
+      {/* Collapsible toggle — DS v5 §19: "More" / "Less" with ChevronDown/Up */}
+      <button
+        type="button"
+        className={styles.commentaryToggle}
+        onClick={() => setExpanded((v) => !v)}
+        aria-expanded={expanded}
+        aria-label={expanded ? 'Collapse commentary' : 'Expand commentary'}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault()
+            setExpanded((v) => !v)
+          }
+        }}
+      >
+        <span className={`${typography.panelBody} ${toneClass} ${styles.commentaryPreviewText}`}>
+          {previewLabel}
+        </span>
+        <span className={styles.commentaryToggleControl} aria-hidden="true">
+          {expanded
+            ? <><ChevronUp size={14} aria-hidden="true" /> Less</>
+            : <><ChevronDown size={14} aria-hidden="true" /> More</>}
+        </span>
+      </button>
+
+      {expanded && (
+        <div className={styles.commentaryExpandedContent}>
+          <div
+            className={`${typography.panelBody} ${toneClass} ${styles.markdownContent}`}
+            // eslint-disable-next-line no-restricted-syntax -- sanitised by safeRichText (allowlist: strong, br, ul, li)
+            dangerouslySetInnerHTML={{ __html: contentHtml }}
+          />
+          {block.citations && block.citations.length > 0 && (
+            <CitationLegend citations={block.citations} onCitationClick={handleCitationClick} />
+          )}
         </div>
       )}
     </div>
   )
 })
+
+/** Citation legend — shared between expanded and non-v2 paths */
+function CitationLegend({
+  citations,
+  onCitationClick,
+}: {
+  citations: CommentaryBlockType['citations'] & {}
+  onCitationClick: (index: number) => void
+}) {
+  return (
+    <div className={styles.citationLegend} aria-label="Citations">
+      {citations!.map((c) => (
+        <span
+          key={c.index}
+          className={styles.citationEntry}
+          role="button"
+          tabIndex={0}
+          onClick={() => onCitationClick(c.index)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault()
+              onCitationClick(c.index)
+            }
+          }}
+          aria-label={`Citation ${c.index}: ${c.source}`}
+        >
+          <span className={styles.citationIndex}>[{c.index}]</span>
+          <span>{c.source}</span>
+        </span>
+      ))}
+    </div>
+  )
+}
 
 // ---------------------------------------------------------------------------
 // ReviewCardBlock
@@ -277,6 +366,12 @@ const ReviewCardBlockRenderer = memo(function ReviewCardBlockRenderer({
   block: ReviewCardBlockType
   'data-testid'?: string
 }) {
+  const renderingV2 = isOrchestratorRenderingV2Enabled()
+
+  // block.variant is already resolved by adaptCEEBlock (tone→variant mapping
+  // applied flag-gated). Renderer just uses it directly.
+  const effectiveVariant = block.variant
+
   const priorityClass =
     block.priority === 'critical' ? styles.priorityBadgeCritical
     : block.priority === 'high' ? styles.priorityBadgeHigh
@@ -293,10 +388,10 @@ const ReviewCardBlockRenderer = memo(function ReviewCardBlockRenderer({
 
   return (
     <div
-      className={block.variant === 'info' ? styles.reviewCardInfo : styles.reviewCardAlert}
+      className={effectiveVariant === 'info' ? styles.reviewCardInfo : styles.reviewCardAlert}
       data-testid={rest['data-testid']}
     >
-      {block.variant === 'info' ? (
+      {effectiveVariant === 'info' ? (
         <Lightbulb className={styles.reviewCardIcon} />
       ) : (
         <AlertTriangle className={styles.reviewCardIcon} />
@@ -310,7 +405,15 @@ const ReviewCardBlockRenderer = memo(function ReviewCardBlockRenderer({
             </span>
           )}
         </div>
-        <p className={typography.panelBody}>{block.body}</p>
+        {renderingV2 ? (
+          <div
+            className={`${typography.panelBody} ${styles.markdownContent}`}
+            // eslint-disable-next-line no-restricted-syntax -- sanitised by safeRichText (allowlist: strong, br, ul, li)
+            dangerouslySetInnerHTML={{ __html: safeRichText(block.body) }}
+          />
+        ) : (
+          <p className={typography.panelBody}>{block.body}</p>
+        )}
       </div>
     </div>
   )

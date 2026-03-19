@@ -17,7 +17,7 @@ import type { UseConversationReturn } from './useConversation'
 import { applyAutoApplyPatch } from './utils/applyPatch'
 import { extractTargetIdsFromPatch } from './utils/extractTargetIds'
 import { plot } from '../../adapters/plot'
-import { ChatTopBar, type GenerateState } from './zones/ChatTopBar'
+import { ChatTopBar } from './zones/ChatTopBar'
 import { ChatThread } from './zones/ChatThread'
 import { ChatComposer, type ChatComposerHandle } from './zones/ChatComposer'
 import type { BriefReadiness } from './hooks/useBriefSignals'
@@ -376,24 +376,13 @@ export const ConversationPanel = memo(function ConversationPanel({
   }, [])
 
   // ── Generate model state ────────────────────────────────────────────
-  const [briefReadiness, setBriefReadiness] = useState<BriefReadiness | null>(null)
-  const [hasText, setHasText] = useState(false)
-  const [textLength, setTextLength] = useState(0)
+  // Note: generateState is derived in ChatComposer directly from composer.value
+  // to avoid the useEffect lag that caused first-click silently disabled.
 
-  const handleBriefStateChange = useCallback((readiness: BriefReadiness | null, ht: boolean, len: number) => {
-    setBriefReadiness(readiness)
-    setHasText(ht)
-    setTextLength(len)
+  const handleBriefStateChange = useCallback((readiness: BriefReadiness | null, ht: boolean, _len: number) => {
     // User started typing — cancel any pending brief restore from a failed generate
     if (ht) pendingBriefRef.current = null
   }, [])
-
-  const generateState: GenerateState = useMemo(() => {
-    if (isThinking) return 'loading'
-    // Enable when textarea has ≥50 chars — BIL readiness is informational only
-    if (textLength >= 50) return 'active'
-    return 'disabled'
-  }, [isThinking, textLength])
 
   const handleGenerateModel = useCallback(() => {
     const brief = composerRef.current?.consumeBrief()
@@ -463,7 +452,6 @@ export const ConversationPanel = memo(function ConversationPanel({
       <ChatComposer
         ref={composerRef}
         conversation={conversation}
-        generateState={generateState}
         onCollapse={onCollapse}
         onScrollToPatch={handleScrollToPatch}
         onOpenInspector={handleOpenInspector}

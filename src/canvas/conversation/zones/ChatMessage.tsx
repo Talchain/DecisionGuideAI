@@ -38,6 +38,8 @@ interface ChatMessageProps {
   isFirst: boolean
   /** When true, suppress inline ActionChipRow (chips rendered externally by SuggestedChips) */
   hideChips?: boolean
+  /** When true, inline chips are visible but non-interactive (historical turn) */
+  historicalChips?: boolean
   onChipClick: (chip: ActionChip) => Promise<void>
   onRetry: () => void
   patchBlockStates?: Map<string, PatchBlockState>
@@ -51,6 +53,7 @@ export const ChatMessage = memo(function ChatMessage({
   message,
   isFirst,
   hideChips,
+  historicalChips,
   onChipClick,
   onRetry,
   patchBlockStates,
@@ -89,6 +92,7 @@ export const ChatMessage = memo(function ChatMessage({
       <MessageBubble
         message={message}
         hideChips={hideChips}
+        historicalChips={historicalChips}
         onChipClick={onChipClick}
         patchBlockStates={patchBlockStates}
         patchRejections={patchRejections}

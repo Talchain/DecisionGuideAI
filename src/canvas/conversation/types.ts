@@ -73,6 +73,8 @@ export interface CommentaryBlock {
   type: 'commentary'
   text: string
   tone?: 'neutral' | 'warning' | 'positive'
+  /** Optional title — shown as header when commentary is collapsed */
+  title?: string
   /** Optional citation markers; rendered as numbered legend below text */
   citations?: CitationRef[]
 }
@@ -81,8 +83,15 @@ export interface ReviewCardBlock {
   type: 'review_card'
   title: string
   body: string
-  /** 'info' = coaching (left 3px info border), 'alert' = danger (top 3px danger border) */
+  /** 'info' = coaching/facilitator (left 3px info border), 'alert' = challenger/danger (top 3px danger border) */
   variant: 'info' | 'alert'
+  /**
+   * Orchestrator tone from v2.1 prompt.
+   * 'challenger' → alert variant (top danger border).
+   * 'facilitator' → info variant (left info border, coaching default).
+   * Takes precedence over variant when present.
+   */
+  tone?: 'challenger' | 'facilitator'
   /** Optional priority badge — sentence case */
   priority?: 'critical' | 'high' | 'medium' | 'low'
 }
@@ -249,13 +258,19 @@ export interface ActionChip {
   intent: 'primary' | 'secondary' | 'undo'
   /** Message sent to orchestrator when chip is tapped */
   message?: string
+  /**
+   * v2.1 chip role from <role> tag in orchestrator output.
+   * Determines the colour dot rendered inside the chip.
+   * Missing or unrecognised values render chip without a dot (graceful fallback).
+   */
+  role?: 'facilitator' | 'challenger' | 'scientist' | string
 }
 
 /** Max chips per assistant turn (coaching + suggested actions combined) */
 export const MAX_CHIPS_PER_TURN = 4
 
-/** Max suggested-action chips within the total budget (coaching fills first) */
-export const MAX_SUGGESTED_ACTIONS = 2
+/** Max suggested-action chips within the total budget (coaching fills first). v2.1: 0-3 default, 4 max. */
+export const MAX_SUGGESTED_ACTIONS = 3
 
 /** Max visible blocks per assistant turn before "Show more" toggle */
 export const MAX_VISIBLE_BLOCKS_PER_TURN = 4

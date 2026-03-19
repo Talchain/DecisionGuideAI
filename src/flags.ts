@@ -364,6 +364,13 @@ const FLAGS_CONFIG = {
     envKey: 'VITE_FEATURE_GRAPH_LENS',
     storageKey: 'feature.graphLens',
   },
+  // Brief A: Orchestrator rendering v2 — SafeRichText, commentary collapse, review card tone styling
+  // When ON: markdown rendering, collapsible commentary, tone-driven review cards
+  // When OFF: current behaviour unchanged (no contract changes)
+  orchestratorRenderingV2: {
+    envKey: 'VITE_FEATURE_ORCHESTRATOR_RENDERING_V2',
+    storageKey: 'feature.orchestratorRenderingV2',
+  },
 } as const
 
 // ============================================================================
@@ -445,6 +452,7 @@ const flags = {
   nodeIntelligence: makeFlag(FLAGS_CONFIG.nodeIntelligence),
   crossHighlight: makeFlag(FLAGS_CONFIG.crossHighlight),
   graphLens: makeFlag(FLAGS_CONFIG.graphLens),
+  orchestratorRenderingV2: makeFlag(FLAGS_CONFIG.orchestratorRenderingV2),
 }
 
 // Export with original naming convention for backward compatibility
@@ -521,6 +529,7 @@ export const isGraphBadgesEnabled = flags.graphBadges
 export const isNodeIntelligenceEnabled = flags.nodeIntelligence
 export const isCrossHighlightEnabled = flags.crossHighlight
 export const isGraphLensEnabled = flags.graphLens
+export const isOrchestratorRenderingV2Enabled = flags.orchestratorRenderingV2
 
 
 // ============================================================================

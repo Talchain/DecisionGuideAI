@@ -14,7 +14,7 @@
 
 import { memo, useState, useRef, useEffect } from 'react'
 import { typography } from '../../styles/typography'
-import { sanitizeMarkdown } from '../utils/markdown'
+import { safeRichText } from '../utils/safeRichText'
 import { InlineBlocks } from './InlineBlocks'
 import { ActionChipRow } from './ActionChipRow'
 import { FeedbackRow } from './FeedbackRow'
@@ -28,8 +28,10 @@ const CLAMP_CHAR_THRESHOLD = 300
 
 interface MessageBubbleProps {
   message: ConversationMessage
-  /** When true, suppress inline ActionChipRow (chips rendered externally) */
+  /** When true, suppress inline ActionChipRow (chips rendered externally by SuggestedChips) */
   hideChips?: boolean
+  /** When true, inline ActionChipRow is visible but non-interactive (historical turn) */
+  historicalChips?: boolean
   onChipClick: (chip: ActionChip) => Promise<void>
   patchBlockStates?: Map<string, PatchBlockState>
   patchRejections?: Map<string, PatchRejectionInfo>
@@ -41,6 +43,7 @@ interface MessageBubbleProps {
 export const MessageBubble = memo(function MessageBubble({
   message,
   hideChips,
+  historicalChips = false,
   onChipClick,
   patchBlockStates,
   patchRejections,
@@ -101,9 +104,9 @@ export const MessageBubble = memo(function MessageBubble({
           needsClamp && !expanded ? styles.markdownContentClamped : ''
         } ${isProvisional ? styles.provisionalText : ''}`}
         data-streaming={isStreaming || undefined}
-        // eslint-disable-next-line no-restricted-syntax -- sanitised via DOMPurify (sanitizeMarkdown)
+        // eslint-disable-next-line no-restricted-syntax -- sanitised by safeRichText (allowlist: strong, br, ul, li)
         dangerouslySetInnerHTML={{
-          __html: sanitizeMarkdown(message.content) + (isStreaming ? '<span class="streaming-cursor" aria-hidden="true">|</span>' : ''),
+          __html: safeRichText(message.content) + (isStreaming ? '<span class="streaming-cursor" aria-hidden="true">|</span>' : ''),
         }}
       />
       {hasToolLoading && (
@@ -130,10 +133,11 @@ export const MessageBubble = memo(function MessageBubble({
           patchRejections={patchRejections}
           onPatchAccept={onPatchAccept}
           onPatchDismiss={onPatchDismiss}
+          assistantTextWordCount={message.content.trim().split(/\s+/).filter(Boolean).length}
         />
       )}
       {!hideChips && message.actionChips && message.actionChips.length > 0 && (
-        <ActionChipRow chips={message.actionChips} onChipClick={onChipClick} />
+        <ActionChipRow chips={message.actionChips} onChipClick={onChipClick} disabled={historicalChips} />
       )}
       {!isUser && !message.synthetic && onFeedback && (
         <FeedbackRow turnId={message.clientTurnId} onFeedback={onFeedback} />

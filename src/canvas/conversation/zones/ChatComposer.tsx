@@ -48,7 +48,6 @@ export interface ChatComposerHandle {
 
 interface ChatComposerProps {
   conversation: UseConversationReturn
-  generateState: GenerateState
   onCollapse: () => void
   onScrollToPatch: (patchId: string) => void
   onOpenInspector: (nodeId: string) => void
@@ -65,7 +64,7 @@ const STAGE_PLACEHOLDERS: Record<ScenarioStage, string> = {
 }
 
 export const ChatComposer = memo(forwardRef<ChatComposerHandle, ChatComposerProps>(
-  function ChatComposer({ conversation, generateState, onCollapse, onScrollToPatch, onOpenInspector, onGenerateModel, onBriefStateChange }, ref) {
+  function ChatComposer({ conversation, onCollapse, onScrollToPatch, onOpenInspector, onGenerateModel, onBriefStateChange }, ref) {
     const { sendMessage, isThinking } = conversation
     const { stage } = useStagePill()
     const setActiveGuidanceItem = useGuidanceStore(s => s.setActiveGuidanceItem)
@@ -85,6 +84,11 @@ export const ChatComposer = memo(forwardRef<ChatComposerHandle, ChatComposerProp
       onCollapse,
       disabled: isThinking,
     })
+
+    // Derive generateState locally — avoids the useEffect lag from onBriefStateChange
+    const generateState: GenerateState = isThinking ? 'loading'
+      : composer.value.trim().length >= 50 ? 'active'
+      : 'disabled'
 
     // Expose replaceText and consumeBrief to parent via ref
     useImperativeHandle(ref, () => ({
