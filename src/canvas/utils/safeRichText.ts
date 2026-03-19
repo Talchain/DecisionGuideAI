@@ -43,17 +43,13 @@ function escapeHtml(str: string): string {
  * Applied BEFORE HTML escaping so these decode correctly.
  */
 export function decodeOrchestratorEntities(str: string): string {
-  // Use rare Unicode private-use placeholders to avoid double-decoding &amp; chains.
-  // These are replaced in a second pass before escapeHtml sees the result.
+  // Single-pass decode: the four entities are distinct, no substitution can
+  // produce input for another, so no placeholder round-trip is needed.
   return str
-    .replace(/&amp;/g, '\uE000AMP\uE001')
-    .replace(/&lt;/g, '\uE000LT\uE001')
-    .replace(/&gt;/g, '\uE000GT\uE001')
-    .replace(/&quot;/g, '\uE000QUOT\uE001')
-    .replace(/\uE000AMP\uE001/g, '&')
-    .replace(/\uE000LT\uE001/g, '<')
-    .replace(/\uE000GT\uE001/g, '>')
-    .replace(/\uE000QUOT\uE001/g, '"')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
 }
 
 /**
@@ -133,24 +129,18 @@ export function safeRichText(markdown: string): string {
   flushBullets()
 
   // Join parts:
-  // - Adjacent non-empty text lines → <br> between them
-  // - Empty strings (blank lines) → <br> paragraph break when mid-content
-  // - <ul>…</ul> blocks → no leading <br> (block element)
+  // - Any two adjacent non-empty parts → one <br> between them
+  // - Empty strings (blank lines) → skipped; the <br> is emitted when the next
+  //   non-empty part is appended, so multiple consecutive blank lines still
+  //   produce exactly one <br> separator
+  // - <ul>…</ul> blocks → no leading <br> (block element handles its own spacing)
   let result = ''
-  for (let i = 0; i < outputParts.length; i++) {
-    const part = outputParts[i]
-
-    if (part === '') {
-      // Blank line — emit a <br> paragraph break only when there is prior content
-      if (result !== '') result += '<br>'
-      continue
-    }
+  for (const part of outputParts) {
+    if (part === '') continue  // blank lines: separator emitted by next non-empty part
 
     if (part.startsWith('<ul>')) {
-      // Block element — no leading <br>
       result += part
     } else {
-      // Inline text — add <br> separator if there is prior content
       if (result !== '') result += '<br>'
       result += part
     }

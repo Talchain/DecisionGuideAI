@@ -237,10 +237,9 @@ const CommentaryBlockRenderer = memo(function CommentaryBlockRenderer({
       target.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
     }
     target.classList.add(styles.citationHighlightPulse)
-    const timer = setTimeout(() => {
+    setTimeout(() => {
       target.classList.remove(styles.citationHighlightPulse)
     }, 1000)
-    return () => clearTimeout(timer)
   }, [])
 
   const toneClass =

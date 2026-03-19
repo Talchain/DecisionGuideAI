@@ -666,9 +666,8 @@ export function adaptCEEBlock(raw: unknown): ConversationBlock {
         const variantDirect = dataObj.variant === 'alert' ? 'alert' : dataObj.variant === 'info' ? 'info' : undefined
         // tone → variant mapping is ONLY applied when ORCHESTRATOR_RENDERING_V2 is on.
         // Flag off: legacy variant field is used as-is so rollback is end-to-end clean.
-        const v2 = isOrchestratorRenderingV2Enabled()
-        const variantFromTone = v2 && tone === 'challenger' ? 'alert'
-          : v2 && tone === 'facilitator' ? 'info'
+        const variantFromTone: 'info' | 'alert' | undefined = isOrchestratorRenderingV2Enabled()
+          ? (tone === 'challenger' ? 'alert' : tone === 'facilitator' ? 'info' : undefined)
           : undefined
         const resolvedVariant: 'info' | 'alert' = variantFromTone ?? variantDirect ?? 'info'
         return {

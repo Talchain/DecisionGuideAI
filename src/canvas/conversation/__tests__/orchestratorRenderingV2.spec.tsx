@@ -639,15 +639,14 @@ describe('Flag OFF rollback — adaptCEEBlock + fixture (end-to-end)', () => {
     expect(block.variant).toBe('info')
   })
 
-  it('challenger envelope + flag off → renders as info card (Lightbulb, not AlertTriangle)', () => {
+  it('challenger envelope + flag off → renders as info card (data-testid=block-review-info)', () => {
     const raw = fixtureData.envelopes.reviewCardChallenger.blocks[0]
     const block = adaptCEEBlock(raw) as ReviewCardBlock
-    // Render the adapted block — must show info treatment (left border, Lightbulb)
     render(<InlineBlocks blocks={[block]} />)
-    expect(screen.getByText('Concentration risk')).toBeDefined()
-    // variant=info → info card container class (left info border, not top danger border)
-    // We can't directly inspect CSS classes, but block.variant=info is asserted above
-    // and we verify the title renders (smoke check — no crash into alert path)
+    // BlockRenderer passes data-testid="block-review-{variant}" — with variant=info the
+    // wrapper must have data-testid="block-review-info", not "block-review-alert"
+    expect(screen.getByTestId('block-review-info')).toBeDefined()
+    expect(screen.queryByTestId('block-review-alert')).toBeNull()
   })
 })
 
