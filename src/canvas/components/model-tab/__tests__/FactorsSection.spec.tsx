@@ -2,10 +2,15 @@
  * FactorsSection — unit tests
  */
 
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, beforeAll } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { FactorsSection } from '../FactorsSection'
 import type { Node } from '@xyflow/react'
+
+// jsdom does not implement scrollIntoView
+beforeAll(() => {
+  Element.prototype.scrollIntoView = vi.fn()
+})
 
 const mockUpdateNode = vi.fn()
 
@@ -174,5 +179,19 @@ describe('FactorsSection', () => {
     render(<FactorsSection factorNodes={nodes} synthesisedPriorMap={priorMap} />)
     expect(screen.getByTestId('factor-ef3-prior-min-display')).toBeInTheDocument()
     expect(screen.getByText(/from model repair/)).toBeInTheDocument()
+  })
+
+  it('applies selection ring when node id is in selectedNodeIds', () => {
+    const nodes = [makeFactorNode('f1', 'Selected')]
+    render(<FactorsSection factorNodes={nodes} selectedNodeIds={new Set(['f1'])} />)
+    const card = screen.getByTestId('factor-card-f1')
+    expect(card.className).toMatch(/ring-1/)
+  })
+
+  it('does not apply selection ring when node is not selected', () => {
+    const nodes = [makeFactorNode('f1', 'Not selected')]
+    render(<FactorsSection factorNodes={nodes} selectedNodeIds={new Set()} />)
+    const card = screen.getByTestId('factor-card-f1')
+    expect(card.className).not.toMatch(/ring-1/)
   })
 })

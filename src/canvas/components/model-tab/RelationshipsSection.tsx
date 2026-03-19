@@ -13,7 +13,7 @@
  * "Show full detail" expansion: std, signed effect, node IDs, provenance raw value.
  */
 
-import { useCallback, useContext, useMemo } from 'react'
+import { useCallback, useContext, useEffect, useMemo, useRef } from 'react'
 import type { Edge, Node } from '@xyflow/react'
 import { AlertTriangle } from 'lucide-react'
 import { typography } from '../../../styles/typography'
@@ -34,6 +34,8 @@ interface RelationshipsSectionProps {
   fragileEdgeIds?: Set<string>
   /** Map of edge ID → switch probability */
   fragileEdgeSwitchProbMap?: Map<string, number>
+  /** Set of selected edge IDs (from canvas store) — triggers scroll-into-view */
+  selectedEdgeIds?: Set<string>
 }
 
 // ── Edge card ──────────────────────────────────────────────────────────────────
@@ -43,12 +45,20 @@ function EdgeCard({
   nodes,
   isFragile,
   switchProbability,
+  isSelected,
 }: {
   edge: Edge
   nodes: Node[]
   isFragile: boolean
   switchProbability: number | undefined
+  isSelected?: boolean
 }) {
+  const cardRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (isSelected) {
+      cardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+    }
+  }, [isSelected])
   const { showDetail } = useContext(DetailToggleContext)
   const updateEdge = useCanvasStore(s => s.updateEdge)
 
@@ -115,7 +125,8 @@ function EdgeCard({
 
   return (
     <div
-      className="bg-panel-hover rounded-lg p-2.5 mb-2 last:mb-0"
+      ref={cardRef}
+      className={`bg-panel-hover rounded-lg p-2.5 mb-2 last:mb-0 transition-shadow${isSelected ? ' ring-1 ring-info/50' : ''}`}
       data-testid={`edge-card-${edgeId}`}
     >
       {/* Label row */}
@@ -294,6 +305,7 @@ function RelationshipsSectionInner({
   nodes,
   fragileEdgeIds = new Set(),
   fragileEdgeSwitchProbMap = new Map(),
+  selectedEdgeIds,
 }: RelationshipsSectionProps) {
   // Only causal edges (exclude hierarchy/structural types)
   const causalEdges = useMemo(() =>
@@ -348,6 +360,7 @@ function RelationshipsSectionInner({
             nodes={nodes}
             isFragile={fragileEdgeIds.has(edgeId)}
             switchProbability={fragileEdgeSwitchProbMap.get(edgeId)}
+            isSelected={selectedEdgeIds?.has(edgeId)}
           />
         )
       })}

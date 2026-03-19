@@ -2,10 +2,15 @@
  * RelationshipsSection — unit tests
  */
 
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, beforeAll } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { RelationshipsSection } from '../RelationshipsSection'
 import type { Edge, Node } from '@xyflow/react'
+
+// jsdom does not implement scrollIntoView
+beforeAll(() => {
+  Element.prototype.scrollIntoView = vi.fn()
+})
 
 const mockUpdateEdge = vi.fn()
 
@@ -83,13 +88,49 @@ describe('RelationshipsSection', () => {
   it('shows semantic strength label for positive effect', () => {
     const edges = [makeEdge('e1', 'f1', 'f2', { weight: 0.5, direction: 'positive' })]
     render(<RelationshipsSection edges={edges} nodes={nodes} />)
-    expect(screen.getByText('Moderate positive')).toBeInTheDocument()
+    expect(screen.getByText('Moderate positive effect')).toBeInTheDocument()
   })
 
   it('shows semantic strength label for strong negative effect', () => {
     const edges = [makeEdge('e1', 'f1', 'f2', { weight: 0.8, direction: 'negative' })]
     render(<RelationshipsSection edges={edges} nodes={nodes} />)
-    expect(screen.getByText('Strong negative')).toBeInTheDocument()
+    expect(screen.getByText('Strong negative effect')).toBeInTheDocument()
+  })
+
+  it('shows "unset" button for edge with no weight', () => {
+    const edgeNoWeight: Edge = { id: 'e-uw', source: 'f1', target: 'f2', data: { direction: 'positive' } }
+    render(<RelationshipsSection edges={[edgeNoWeight]} nodes={nodes} />)
+    expect(screen.getByTestId('edge-e-uw-weight-unset')).toBeInTheDocument()
+  })
+
+  it('shows "unset" button for edge with no likelihood', () => {
+    const edgeNoLikelihood: Edge = { id: 'e-ul', source: 'f1', target: 'f2', data: { weight: 0.5, direction: 'positive' } }
+    render(<RelationshipsSection edges={[edgeNoLikelihood]} nodes={nodes} />)
+    expect(screen.getByTestId('edge-e-ul-likelihood-unset')).toBeInTheDocument()
+  })
+
+  it('pre-fills weight 0.5 when unset button clicked', () => {
+    const edgeNoWeight: Edge = { id: 'e-uw', source: 'f1', target: 'f2', data: { direction: 'positive' } }
+    render(<RelationshipsSection edges={[edgeNoWeight]} nodes={nodes} />)
+    fireEvent.click(screen.getByTestId('edge-e-uw-weight-unset'))
+    expect(mockUpdateEdge).toHaveBeenCalledWith(
+      'e-uw',
+      expect.objectContaining({ data: expect.objectContaining({ weight: 0.5, direction: 'positive' }) })
+    )
+  })
+
+  it('applies selection ring when edge id is in selectedEdgeIds', () => {
+    const edges = [makeEdge('e1', 'f1', 'f2')]
+    render(<RelationshipsSection edges={edges} nodes={nodes} selectedEdgeIds={new Set(['e1'])} />)
+    const card = screen.getByTestId('edge-card-e1')
+    expect(card.className).toMatch(/ring-1/)
+  })
+
+  it('does not apply selection ring when edge is not selected', () => {
+    const edges = [makeEdge('e1', 'f1', 'f2')]
+    render(<RelationshipsSection edges={edges} nodes={nodes} selectedEdgeIds={new Set()} />)
+    const card = screen.getByTestId('edge-card-e1')
+    expect(card.className).not.toMatch(/ring-1/)
   })
 
   it('shows likelihood percentage', () => {

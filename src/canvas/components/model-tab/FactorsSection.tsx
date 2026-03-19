@@ -12,7 +12,7 @@
  * "Show full detail" expansion: normalised value, cap, uncertainty drivers, node ID.
  */
 
-import { useCallback, useContext, useMemo } from 'react'
+import { useCallback, useContext, useEffect, useMemo, useRef } from 'react'
 import type { Node } from '@xyflow/react'
 import { typography } from '../../../styles/typography'
 import { useCanvasStore } from '../../store'
@@ -59,11 +59,19 @@ function FactorCard({
   node,
   influence,
   synthesisedPrior,
+  isSelected,
 }: {
   node: Node
   influence: number | undefined
   synthesisedPrior?: SynthesisedPrior
+  isSelected?: boolean
 }) {
+  const cardRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (isSelected) {
+      cardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+    }
+  }, [isSelected])
   const { showDetail } = useContext(DetailToggleContext)
   const updateNode = useCanvasStore(s => s.updateNode)
 
@@ -137,7 +145,8 @@ function FactorCard({
 
   return (
     <div
-      className="bg-panel-hover rounded-lg p-2.5 mb-2 last:mb-0"
+      ref={cardRef}
+      className={`bg-panel-hover rounded-lg p-2.5 mb-2 last:mb-0 transition-shadow${isSelected ? ' ring-1 ring-info/50' : ''}`}
       data-testid={`factor-card-${node.id}`}
     >
       {/* Header row: label + category badge */}
@@ -323,9 +332,10 @@ interface FactorsSectionProps {
   factorNodes: Node[]
   factorInfluence?: FactorInfluenceMap
   synthesisedPriorMap?: Map<string, SynthesisedPrior>
+  selectedNodeIds?: Set<string>
 }
 
-function FactorsSectionInner({ factorNodes, factorInfluence, synthesisedPriorMap }: FactorsSectionProps) {
+function FactorsSectionInner({ factorNodes, factorInfluence, synthesisedPriorMap, selectedNodeIds }: FactorsSectionProps) {
   if (factorNodes.length === 0) return null
 
   const sorted = useMemo(() => {
@@ -362,19 +372,21 @@ function FactorsSectionInner({ factorNodes, factorInfluence, synthesisedPriorMap
           node={node}
           influence={factorInfluence?.get(node.id)}
           synthesisedPrior={synthesisedPriorMap?.get(node.id)}
+          isSelected={selectedNodeIds?.has(node.id)}
         />
       ))}
     </div>
   )
 }
 
-export function FactorsSection({ factorNodes, factorInfluence, synthesisedPriorMap }: FactorsSectionProps) {
+export function FactorsSection({ factorNodes, factorInfluence, synthesisedPriorMap, selectedNodeIds }: FactorsSectionProps) {
   return (
     <SectionErrorBoundary section="factors">
       <FactorsSectionInner
         factorNodes={factorNodes}
         factorInfluence={factorInfluence}
         synthesisedPriorMap={synthesisedPriorMap}
+        selectedNodeIds={selectedNodeIds}
       />
     </SectionErrorBoundary>
   )

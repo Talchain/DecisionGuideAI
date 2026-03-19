@@ -165,9 +165,8 @@ describe('Source mapping — canonical value preserved', () => {
   it('shows "Not set" pill when source is absent', () => {
     const nodes = [makeFactorNode('f1', 'Cost', { source: undefined })]
     render(<ModelTabBody {...DEFAULT_PROPS} nodes={nodes} edges={[]} />)
-    // SourceProvenancePill with showWhenAbsent=false — not shown for factors
-    // Source provenance pill is hidden when absent (showWhenAbsent=false)
-    expect(screen.queryByText('Not set')).not.toBeInTheDocument()
+    // P0.5: showWhenAbsent defaults to true — "Not set" is shown to surface missing sources
+    expect(screen.getByText('Not set')).toBeInTheDocument()
   })
 })
 
@@ -738,8 +737,8 @@ describe('DS-1: All pills use outlined style (no filled backgrounds)', () => {
       makeEdge('e1', 'f1', 'f2', { direction: 'positive', weight: 0.5, strengthStd: 0.1 }),
     ]
     render(<ModelTabBody {...DEFAULT_PROPS} nodes={nodes} edges={edges} />)
-    // Semantic label for weight=0.5 positive = "Moderate positive"
-    expect(screen.getByText('Moderate positive')).toBeInTheDocument()
+    // Semantic label for weight=0.5 positive = "Moderate positive effect"
+    expect(screen.getByText('Moderate positive effect')).toBeInTheDocument()
   })
 })
 

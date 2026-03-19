@@ -23,7 +23,7 @@ import { StaleGuardBanner } from '../shared/StaleGuardBanner'
 import { TechnicalDisclosure } from '../shared/TechnicalDisclosure'
 import { DataBar } from '../../shared/DataBar'
 import type { InspectorPanelProps } from '../types'
-import { COACHING, resolveCoaching } from '../coachingConfig'
+import { resolveCoaching } from '../coachingConfig'
 
 export const FactorObservablePanel = memo(function FactorObservablePanel({
   nodeId,
