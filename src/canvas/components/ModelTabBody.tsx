@@ -21,17 +21,13 @@ import {
   useState,
   useMemo,
   useCallback,
-  useRef,
   useEffect,
-  type KeyboardEvent,
-  type ChangeEvent,
 } from 'react'
 import { AlertTriangle } from 'lucide-react'
 import type { Node, Edge } from '@xyflow/react'
 import { typography } from '../../styles/typography'
 import { useCanvasStore } from '../store'
 import { getDisplayEdgeId, buildFragileEdgeLookup } from '../utils/edgeIdentity'
-import { NON_EVIDENCE_PROVENANCE } from '../utils/evidenceCoverage'
 import { SectionErrorBoundary } from './GraphTextView'
 import type { MappedRobustness } from '../../lib/mappers/types'
 import type { CritiqueItemV1 } from '../../adapters/plot/types'
@@ -74,15 +70,6 @@ interface ModelTabBodyProps {
   ceeQuality?: import('../store').CeeQualityDimensions | null
 }
 
-interface ObservedState {
-  value?: number
-  raw_value?: number
-  baseline?: number
-  unit?: string
-  source?: string
-  cap?: number
-}
-
 // ── Source mapping ────────────────────────────────────────────────────────────
 
 const SOURCE_LABELS: Record<string, string> = {
@@ -91,41 +78,9 @@ const SOURCE_LABELS: Record<string, string> = {
   user: 'User edited',
 }
 
-const SOURCE_TOOLTIPS: Record<string, string> = {
-  brief_extraction: 'Source: brief_extraction',
-  cee_inference: 'Source: cee_inference',
-  user: 'Source: user',
-}
-
 function mapSourceToDisplay(source: string | undefined): string | null {
   if (!source) return null
   return SOURCE_LABELS[source] ?? source
-}
-
-function mapSourceToTooltip(source: string | undefined): string | undefined {
-  if (!source) return undefined
-  return SOURCE_TOOLTIPS[source] ?? `Source: ${source}`
-}
-
-// ── Value formatting ─────────────────────────────────────────────────────────
-
-const CURRENCY_SYMBOLS = new Set(['£', '$', '€', '¥', '₹', '₩', '₽', '₺', '₴', '₦', '₫', '₿'])
-
-/** Format value+unit: currency symbols prefix ("£49"), everything else suffixes ("9 months") */
-function formatValueWithUnit(rawValue: number, unit: string): string {
-  const trimmedUnit = unit.trim()
-  if (CURRENCY_SYMBOLS.has(trimmedUnit) || /^[A-Z]{3}$/.test(trimmedUnit)) {
-    return `${trimmedUnit}${formatSmartNumber(rawValue)}`
-  }
-  return `${formatSmartNumber(rawValue)} ${trimmedUnit}`
-}
-
-/** Smart number formatting: integers stay integer, decimals use minimal precision (max 2dp, no trailing zeros) */
-function formatSmartNumber(n: number): string {
-  if (Number.isInteger(n)) return String(n)
-  // Up to 2 decimal places, strip trailing zeros
-  const fixed = n.toFixed(2)
-  return fixed.replace(/\.?0+$/, '')
 }
 
 const KIND_ORDER = ['goal', 'decision', 'option', 'factor', 'risk', 'outcome'] as const
@@ -246,10 +201,6 @@ export function ModelTabBody({
     }),
     [nodes, edges, currentGraphHash, lastAnalysisSeed, lastQualityMode, repairsApplied, results, hasCompletedFirstRun],
   )
-  const highlightedNodes = useCanvasStore(s => s.highlightedNodes)
-  const highlightedEdges = useCanvasStore(s => s.highlightedEdges)
-  const setHighlightedNodes = useCanvasStore(s => s.setHighlightedNodes)
-  const setHighlightedEdges = useCanvasStore(s => s.setHighlightedEdges)
   const selectionNodeIds = useCanvasStore(s => s.selection?.nodeIds ?? EMPTY_NODE_IDS)
   const selectionEdgeIds = useCanvasStore(s => s.selection?.edgeIds ?? EMPTY_EDGE_IDS)
 
@@ -385,38 +336,10 @@ export function ModelTabBody({
     })
   }, [causalEdges, fragileEdgeSwitchProbMap])
 
-  // ── Search filter ─────────────────────────────────────────────────────────
-
-  const query = searchQuery.trim().toLowerCase()
-
-  const visibleFactors = useMemo(() => {
-    if (!query) return sortedFactors
-    return sortedFactors.filter(n =>
-      String((n.data as any)?.label ?? n.id).toLowerCase().includes(query)
-    )
-  }, [sortedFactors, query])
-
-  const visibleEdges = useMemo(() => {
-    if (!query) return sortedEdges
-    return sortedEdges.filter(e => {
-      const src = nodes.find(n => n.id === e.source)
-      const tgt = nodes.find(n => n.id === e.target)
-      const fromLabel = String((src?.data as any)?.label ?? e.source).toLowerCase()
-      const toLabel = String((tgt?.data as any)?.label ?? e.target).toLowerCase()
-      return fromLabel.includes(query) || toLabel.includes(query)
-    })
-  }, [sortedEdges, query, nodes])
-
   // ── Goal headline ─────────────────────────────────────────────────────────
 
   const goalNode = grouped.goal[0]
   const goalLabel = goalNode ? String((goalNode.data as any)?.label ?? goalNode.id) : null
-
-  // ── Hover highlight dispatch (bidirectional: Model tab ↔ canvas) ──────────
-  const handleNodeHover = useCallback((id: string) => setHighlightedNodes([id]), [setHighlightedNodes])
-  const handleEdgeHover = useCallback((id: string) => setHighlightedEdges([id]), [setHighlightedEdges])
-  const handleNodeLeave = useCallback(() => setHighlightedNodes([]), [setHighlightedNodes])
-  const handleEdgeLeave = useCallback(() => setHighlightedEdges([]), [setHighlightedEdges])
 
   const handleCopyText = useCallback(() => {
     const lines: string[] = []
