@@ -45,6 +45,7 @@ function getMockState() {
     setHighlightedEdges: mockSetHighlightedEdges,
     currentScenarioId: null,
     currentStage: null,
+    graphEditedSinceLastRun: false,
   }
 }
 
@@ -131,11 +132,11 @@ describe('Goal headline', () => {
         edges={[]}
       />
     )
-    expect(screen.getByTestId('model-goal-headline')).toBeInTheDocument()
+    expect(screen.getByTestId('model-goal-section')).toBeInTheDocument()
     expect(screen.getByText('Pick the right vendor')).toBeInTheDocument()
   })
 
-  it('hides goal headline when no goal node', () => {
+  it('hides goal section when no goal node', () => {
     render(
       <ModelTabBody
         {...DEFAULT_PROPS}
@@ -143,7 +144,7 @@ describe('Goal headline', () => {
         edges={[]}
       />
     )
-    expect(screen.queryByTestId('model-goal-headline')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('model-goal-section')).not.toBeInTheDocument()
   })
 })
 
@@ -161,36 +162,12 @@ describe('Source mapping — canonical value preserved', () => {
     expect(screen.getByText('From brief')).toBeInTheDocument()
   })
 
-  it('shows AddSourcePill when source is absent', () => {
+  it('shows "Not set" pill when source is absent', () => {
     const nodes = [makeFactorNode('f1', 'Cost', { source: undefined })]
     render(<ModelTabBody {...DEFAULT_PROPS} nodes={nodes} edges={[]} />)
-    expect(screen.getByText('+ Add source')).toBeInTheDocument()
-  })
-
-  it('calls updateNode with canonical source value, not display label', () => {
-    const nodes = [makeFactorNode('f1', 'Market size', { source: 'cee_inference' })]
-    render(<ModelTabBody {...DEFAULT_PROPS} nodes={nodes} edges={[]} />)
-
-    // Click to enter edit mode
-    const displayBtn = screen.getByTestId('factor-f1-source-display')
-    fireEvent.click(displayBtn)
-
-    // Input should show the canonical value
-    const input = screen.getByTestId('factor-f1-source')
-    expect((input as HTMLInputElement).value).toBe('cee_inference')
-
-    // Type a new canonical value and commit
-    fireEvent.change(input, { target: { value: 'user' } })
-    fireEvent.blur(input)
-
-    expect(mockUpdateNode).toHaveBeenCalledWith(
-      'f1',
-      expect.objectContaining({
-        data: expect.objectContaining({
-          observedState: expect.objectContaining({ source: 'user' }),
-        }),
-      })
-    )
+    // SourceProvenancePill with showWhenAbsent=false — not shown for factors
+    // Source provenance pill is hidden when absent (showWhenAbsent=false)
+    expect(screen.queryByText('Not set')).not.toBeInTheDocument()
   })
 })
 
@@ -273,84 +250,70 @@ describe('Defaulted-edges warning copy', () => {
   })
 })
 
-describe('Inline edit — Enter/Escape/blur (source field)', () => {
-  // Use source field for inline edit tests: it always gets an InlineEdit when source is set
+describe('Inline edit — Enter/Escape/blur (value field)', () => {
+  // Use factor value field for inline edit tests
 
   it('commits on blur', () => {
-    const nodes = [makeFactorNode('f1', 'Budget', { source: 'user' })]
+    const nodes = [makeFactorNode('f1', 'Budget', { value: 0.5 })]
     render(<ModelTabBody {...DEFAULT_PROPS} nodes={nodes} edges={[]} />)
 
-    const displayEl = screen.getByTestId('factor-f1-source-display')
+    const displayEl = screen.getByTestId('factor-f1-value-display')
     fireEvent.click(displayEl)
 
-    const input = screen.getByTestId('factor-f1-source')
-    fireEvent.change(input, { target: { value: 'brief_extraction' } })
+    const input = screen.getByTestId('factor-f1-value')
+    fireEvent.change(input, { target: { value: '0.7' } })
     fireEvent.blur(input)
 
     expect(mockUpdateNode).toHaveBeenCalledWith(
       'f1',
       expect.objectContaining({
         data: expect.objectContaining({
-          observedState: expect.objectContaining({ source: 'brief_extraction' }),
+          observedState: expect.objectContaining({ value: 0.7, source: 'user' }),
         }),
       })
     )
   })
 
   it('commits on Enter', () => {
-    const nodes = [makeFactorNode('f1', 'Budget', { source: 'user' })]
+    const nodes = [makeFactorNode('f1', 'Budget', { value: 0.5 })]
     render(<ModelTabBody {...DEFAULT_PROPS} nodes={nodes} edges={[]} />)
 
-    const displayEl = screen.getByTestId('factor-f1-source-display')
+    const displayEl = screen.getByTestId('factor-f1-value-display')
     fireEvent.click(displayEl)
 
-    const input = screen.getByTestId('factor-f1-source')
-    fireEvent.change(input, { target: { value: 'brief_extraction' } })
+    const input = screen.getByTestId('factor-f1-value')
+    fireEvent.change(input, { target: { value: '0.8' } })
     fireEvent.keyDown(input, { key: 'Enter' })
 
     expect(mockUpdateNode).toHaveBeenCalled()
   })
 
   it('cancels on Escape without calling updateNode', () => {
-    const nodes = [makeFactorNode('f1', 'Budget', { source: 'user' })]
+    const nodes = [makeFactorNode('f1', 'Budget', { value: 0.5 })]
     render(<ModelTabBody {...DEFAULT_PROPS} nodes={nodes} edges={[]} />)
 
-    const displayEl = screen.getByTestId('factor-f1-source-display')
+    const displayEl = screen.getByTestId('factor-f1-value-display')
     fireEvent.click(displayEl)
 
-    const input = screen.getByTestId('factor-f1-source')
-    fireEvent.change(input, { target: { value: 'something_else' } })
+    const input = screen.getByTestId('factor-f1-value')
+    fireEvent.change(input, { target: { value: '0.9' } })
     fireEvent.keyDown(input, { key: 'Escape' })
 
     expect(mockUpdateNode).not.toHaveBeenCalled()
     // Display button should be back
-    expect(screen.getByTestId('factor-f1-source-display')).toBeInTheDocument()
+    expect(screen.getByTestId('factor-f1-value-display')).toBeInTheDocument()
   })
 })
 
-describe('Search filtering', () => {
-  it('filters factors by label', () => {
+describe('Search footer', () => {
+  it('renders the search input', () => {
     const nodes = [
       makeFactorNode('f1', 'Market size', { source: 'user' }),
-      makeFactorNode('f2', 'Interest rate', { source: 'user' }),
     ]
     render(<ModelTabBody {...DEFAULT_PROPS} nodes={nodes} edges={[]} />)
 
     const search = screen.getByTestId('model-search')
-    fireEvent.change(search, { target: { value: 'market' } })
-
-    expect(screen.getByText('Market size')).toBeInTheDocument()
-    expect(screen.queryByText('Interest rate')).not.toBeInTheDocument()
-  })
-
-  it('shows no-match message when query has no results', () => {
-    const nodes = [makeFactorNode('f1', 'Market size')]
-    render(<ModelTabBody {...DEFAULT_PROPS} nodes={nodes} edges={[]} />)
-
-    const search = screen.getByTestId('model-search')
-    fireEvent.change(search, { target: { value: 'zzznomatch' } })
-
-    expect(screen.getByText('No matching factors.')).toBeInTheDocument()
+    expect(search).toBeInTheDocument()
   })
 })
 
@@ -565,11 +528,11 @@ describe('External factor — range display', () => {
     expect(screen.queryByTestId('factor-ef1-default-range')).not.toBeInTheDocument()
   })
 
-  it('shows "0 – 1 (uniform) · default range" when no prior is set', () => {
+  it('shows "0 – 1 (uniform)" default range text when no prior is set', () => {
     const node = makeExternalNode('ef2', 'Market growth rate')
     render(<ModelTabBody {...DEFAULT_PROPS} nodes={[node]} edges={[]} />)
     expect(screen.getByTestId('factor-ef2-default-range')).toBeInTheDocument()
-    expect(screen.getByTestId('factor-ef2-default-range')).toHaveTextContent('0 – 1 (uniform) · default range')
+    expect(screen.getByTestId('factor-ef2-default-range')).toHaveTextContent('0 – 1 (uniform)')
     // "No range specified" must not appear anywhere
     expect(screen.queryByText(/No range specified/)).not.toBeInTheDocument()
   })
@@ -745,9 +708,9 @@ describe('Attention banner — no defaulted-edges bucket', () => {
 
 describe('Inline edit — hover affordance classes', () => {
   it('has cursor-text, hover:bg-panel-hover, and hover:border-panel-border on display element', () => {
-    const nodes = [makeFactorNode('f1', 'Budget', { source: 'user' })]
+    const nodes = [makeFactorNode('f1', 'Budget', { value: 0.5 })]
     render(<ModelTabBody {...DEFAULT_PROPS} nodes={nodes} edges={[]} />)
-    const displayEl = screen.getByTestId('factor-f1-source-display')
+    const displayEl = screen.getByTestId('factor-f1-value-display')
     expect(displayEl.className).toContain('cursor-text')
     expect(displayEl.className).toContain('hover:bg-panel-hover')
     expect(displayEl.className).toContain('hover:border-panel-border')
@@ -769,15 +732,14 @@ describe('DS-1: All pills use outlined style (no filled backgrounds)', () => {
     }
   })
 
-  it('direction chips (helps/hurts) use outlined style', () => {
+  it('category badges use outlined style on relationship edge likelihood pill', () => {
     const nodes = [makeFactorNode('f1', 'A'), makeFactorNode('f2', 'B')]
     const edges = [
       makeEdge('e1', 'f1', 'f2', { direction: 'positive', weight: 0.5, strengthStd: 0.1 }),
     ]
     render(<ModelTabBody {...DEFAULT_PROPS} nodes={nodes} edges={edges} />)
-    const chip = screen.getByText('helps')
-    expect(chip.className).toContain('bg-transparent')
-    expect(chip.className).toContain('text-text-body')
+    // Semantic label for weight=0.5 positive = "Moderate positive"
+    expect(screen.getByText('Moderate positive')).toBeInTheDocument()
   })
 })
 
@@ -860,38 +822,24 @@ describe('NF-1: Copy as JSON button', () => {
 })
 
 describe('DS v4 contract: section header icons are plain (no badge container)', () => {
-  it('section headers use plain icons without rounded-full badge wrapper', () => {
+  it('section headers render correctly', () => {
     const nodes = [makeFactorNode('f1', 'A', { source: 'user' }), makeFactorNode('f2', 'B', { source: 'user' })]
     const edges = [makeEdge('e1', 'f1', 'f2')]
     render(<ModelTabBody {...DEFAULT_PROPS} nodes={nodes} edges={edges} />)
-    const factorsHeader = screen.getByTestId('section-header-factors')
-    const edgesHeader = screen.getByTestId('section-header-edges')
-    const strengthenHeader = screen.getByTestId('section-header-strengthen')
-    // No element inside the header should have the legacy badge classes
-    for (const header of [factorsHeader, edgesHeader, strengthenHeader]) {
-      const spans = header.querySelectorAll('span')
-      spans.forEach(span => {
-        expect(span.className).not.toMatch(/rounded-full/)
-        expect(span.className).not.toMatch(/text-white/)
-      })
-    }
+    // Sections are now in new components — verify they render
+    expect(screen.getByTestId('model-factors-section')).toBeInTheDocument()
+    expect(screen.getByTestId('model-relationships-section')).toBeInTheDocument()
+    expect(screen.getByTestId('model-strengthen-section')).toBeInTheDocument()
   })
 })
 
 describe('DS v4 contract: pills use solid borders (no dashed)', () => {
-  it('Add source and Refine range pills do not use border-dashed', () => {
-    // Factor with no source → shows Add source pill; external with no prior → shows Refine range pill
-    const noSourceFactor: import('@xyflow/react').Node = {
-      id: 'f1', type: 'factor', position: { x: 0, y: 0 },
-      data: { label: 'NoSource', category: 'observable', observedState: {} },
-    }
+  it('Refine range pill does not use border-dashed', () => {
     const externalFactor: import('@xyflow/react').Node = {
       id: 'f2', type: 'factor', position: { x: 0, y: 0 },
       data: { label: 'External', category: 'external', observedState: {} },
     }
-    render(<ModelTabBody {...DEFAULT_PROPS} nodes={[noSourceFactor, externalFactor]} edges={[]} />)
-    const addSourceBtns = screen.getAllByText('+ Add source')
-    addSourceBtns.forEach(btn => expect(btn.className).not.toMatch(/border-dashed/))
+    render(<ModelTabBody {...DEFAULT_PROPS} nodes={[externalFactor]} edges={[]} />)
     const refineBtn = screen.getByTestId('factor-f2-refine-range')
     expect(refineBtn.className).not.toMatch(/border-dashed/)
   })

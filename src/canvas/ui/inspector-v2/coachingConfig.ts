@@ -3,6 +3,11 @@
  *
  * Each entry is keyed by panel/context so callers can import exactly what they need.
  * Moving these here prevents coaching copy from drifting silently across 8 files.
+ *
+ * § Contextual templates
+ * Some entries have a `template` variant that accepts placeholder substitutions.
+ * Use `resolveCoaching(key, context)` to get the best available text.
+ * Supported placeholders: {factorName}, {sensitivityRank}, {evidenceTier}, {sourceName}, {targetName}
  */
 
 export const COACHING = {
@@ -38,3 +43,48 @@ export const COACHING = {
 } as const
 
 export type CoachingKey = keyof typeof COACHING
+
+/** Context values for template substitution */
+export interface CoachingContext {
+  factorName?: string
+  sensitivityRank?: number | null
+  evidenceTier?: string
+  sourceName?: string
+  targetName?: string
+}
+
+/**
+ * Template overrides for contextual coaching.
+ * Each entry maps a CoachingKey to a template string with `{placeholder}` slots.
+ * `resolveCoaching` uses these when all required placeholders are available,
+ * falling back to the static COACHING text otherwise.
+ */
+const COACHING_TEMPLATES: Partial<Record<CoachingKey, string>> = {
+  factorControllableEvidence: '{factorName} may benefit from an industry benchmark — even a rough anchor would improve confidence.',
+  factorExternalUncertainty: '{factorName} is a source of uncertainty. Even a rough estimate would significantly sharpen the analysis.',
+  factorObservableData: 'If you have more recent data for {factorName}, updating it would sharpen the analysis.',
+}
+
+/**
+ * Resolve the best coaching text for a given key and context.
+ * Uses the contextual template when all required placeholders are available,
+ * falls back to the static text when any placeholder is missing.
+ */
+export function resolveCoaching(key: CoachingKey, context: CoachingContext = {}): string {
+  const template = COACHING_TEMPLATES[key]
+  if (!template) return COACHING[key]
+
+  // Replace all placeholders, returning null for any that are unavailable
+  let resolved = template
+  const placeholders: Array<keyof CoachingContext> = ['factorName', 'sensitivityRank', 'evidenceTier', 'sourceName', 'targetName']
+
+  for (const placeholder of placeholders) {
+    const marker = `{${placeholder}}`
+    if (!resolved.includes(marker)) continue
+    const value = context[placeholder]
+    if (value == null || value === '') return COACHING[key] // fallback: placeholder required but missing
+    resolved = resolved.replace(marker, String(value))
+  }
+
+  return resolved
+}

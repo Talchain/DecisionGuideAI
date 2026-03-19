@@ -10,14 +10,23 @@ import type { EdgeData } from '../../domain/edges'
 // Mocks
 // ---------------------------------------------------------------------------
 
-vi.mock('../../store', () => ({
-  useCanvasStore: vi.fn((selector: any) => {
-    const state = {
-      clipboard: null,
-    }
-    return selector(state)
-  }),
-}))
+vi.mock('../../store', () => {
+  const mockState = {
+    clipboard: null,
+    nodes: [],
+    edges: [],
+    selection: { nodeIds: new Set(), edgeIds: new Set(), anchorPosition: null },
+    results: { status: 'idle', report: null },
+  }
+  const mockStore = vi.fn((selector: any) => selector(mockState))
+  mockStore.getState = () => mockState
+  mockStore.setState = (_partial: any) => {}
+  return {
+    useCanvasStore: mockStore,
+    selectResultsStatus: (state: any) => state.results.status,
+    selectReport: (state: any) => state.results.report,
+  }
+})
 
 vi.mock('../actions', () => ({
   deleteAction: vi.fn(),

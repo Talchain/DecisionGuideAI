@@ -40,16 +40,20 @@ export interface WorthInvestigatingProps {
 // ---------------------------------------------------------------------------
 
 /**
- * Heuristic ranking by graph connectivity. Replace with pipeline VOI when available.
- *
  * Derives evidence gaps from factor nodes missing observed data.
- * Sorted by in-degree (number of edges targeting the factor), then alphabetically
- * by label for stability.
+ *
+ * Ranking priority:
+ *   1. VoI score (when voiMap is provided) — higher VoI first.
+ *   2. Fallback: in-degree (number of edges targeting the factor).
+ *   3. Alphabetical label for stable tie-breaking.
+ *
+ * @param voiMap  Optional map of factorId → value_of_information score (0-1).
+ *                When provided, factors with VoI scores are ranked above those without.
  */
-export function deriveEvidenceGaps(nodes: Node[], edges: Edge[]): EvidenceGap[] {
+export function deriveEvidenceGaps(nodes: Node[], edges: Edge[], voiMap?: Map<string, number>): EvidenceGap[] {
   const factorNodes = nodes.filter(n => (n.data?.kind ?? n.type) === 'factor')
 
-  // Build in-degree map
+  // Build in-degree map (fallback ranking)
   const inDegree = new Map<string, number>()
   for (const e of edges) {
     inDegree.set(e.target, (inDegree.get(e.target) ?? 0) + 1)
@@ -69,11 +73,18 @@ export function deriveEvidenceGaps(nodes: Node[], edges: Edge[]): EvidenceGap[] 
     })
   }
 
-  // Heuristic ranking by graph connectivity. Replace with pipeline VOI when available.
+  const hasVoi = voiMap != null && voiMap.size > 0
+
   gaps.sort((a, b) => {
+    if (hasVoi) {
+      const aVoi = voiMap!.get(a.factorId) ?? -1
+      const bVoi = voiMap!.get(b.factorId) ?? -1
+      if (aVoi !== bVoi) return bVoi - aVoi // Higher VoI first
+    }
+    // Fallback: connectivity (in-degree)
     const diff = b.connectivityScore - a.connectivityScore
     if (diff !== 0) return diff
-    return a.factorLabel.localeCompare(b.factorLabel) // Secondary sort for stability
+    return a.factorLabel.localeCompare(b.factorLabel) // Stable tie-break
   })
 
   return gaps

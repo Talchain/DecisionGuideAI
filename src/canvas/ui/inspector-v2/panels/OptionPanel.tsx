@@ -3,7 +3,7 @@
  * Phase 1 priority. Primary editing surface: intervention inputs MUST be editable.
  */
 
-import { memo, useState, useMemo, useCallback } from 'react'
+import { memo, useState, useMemo, useCallback, useRef, useEffect } from 'react'
 import { useCanvasStore } from '../../../store'
 import type { NodeType } from '../../../domain/nodes'
 import { InspectorGuidanceSection } from '../../inspector/InspectorGuidanceSection'
@@ -15,6 +15,7 @@ import {
   SECTION_TITLES,
   EMPTY_STATES,
 } from '../inspectorStrings'
+import { formatFactorValue } from '../../../utils/labelUtils'
 import { SectionTitle } from '../shared/SectionTitle'
 import { InterventionRow } from '../shared/InterventionRow'
 import { CoachingCard } from '../shared/CoachingCard'
@@ -45,6 +46,22 @@ export const OptionPanel = memo(function OptionPanel({
   // Description
   const [description, setDescription] = useState(String(node?.data?.description ?? ''))
 
+  // Dropdown state for "Add a change"
+  const [showDropdown, setShowDropdown] = useState(false)
+  const dropdownRef = useRef<HTMLDivElement>(null)
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    if (!showDropdown) return
+    function handleClick(e: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setShowDropdown(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [showDropdown])
+
   // Interventions
   const interventions = useMemo(() => {
     const raw = (node?.data as Record<string, unknown>)?.interventions as Record<string, number> | undefined
@@ -62,6 +79,33 @@ export const OptionPanel = memo(function OptionPanel({
       }
     })
   }, [node?.data, nodes])
+
+  // Set of already-intervened factor IDs for the dropdown
+  const interventionIds = useMemo(() => {
+    const raw = (node?.data as Record<string, unknown>)?.interventions as Record<string, number> | undefined
+    return new Set(raw ? Object.keys(raw) : [])
+  }, [node?.data])
+
+  // Controllable factors available to add
+  const controllableFactors = useMemo(() => {
+    return nodes
+      .filter(n => (n.data?.category as string | undefined) === 'controllable' && n.id !== nodeId)
+      .map(n => {
+        const obs = (n.data as Record<string, unknown>)?.observedState as Record<string, unknown> | undefined
+        const valueDisplay = formatFactorValue(obs as Parameters<typeof formatFactorValue>[0])
+        return {
+          id: n.id,
+          label: String(n.data?.label ?? n.id),
+          valueDisplay,
+          baseline: obs?.value as number | undefined,
+        }
+      })
+  }, [nodes, nodeId])
+
+  const handleAddFactor = useCallback((factorId: string, baseline: number | undefined) => {
+    mutations.setIntervention(factorId, baseline ?? 0)
+    setShowDropdown(false)
+  }, [mutations])
 
   // All option results for comparison bars
   const allOptions = useMemo(() => {
@@ -122,13 +166,48 @@ export const OptionPanel = memo(function OptionPanel({
         ))
       )}
 
-      {/* Add a change button */}
-      <button
-        type="button"
-        className={`${typography.panelMeta} w-full py-2 rounded-lg border border-dashed border-panel-border bg-transparent text-info hover:bg-panel-hover transition-colors mt-1`}
-      >
-        + Add a change
-      </button>
+      {/* Add a change button + dropdown */}
+      <div className="relative mt-1" ref={dropdownRef}>
+        <button
+          type="button"
+          onClick={() => setShowDropdown(v => !v)}
+          className={`${typography.panelMeta} w-full py-2 rounded-lg border border-dashed border-panel-border bg-transparent text-info hover:bg-panel-hover transition-colors`}
+        >
+          + Add a change
+        </button>
+
+        {showDropdown && (
+          <div className="absolute left-0 right-0 top-full mt-1 z-50 bg-panel border border-panel-border rounded-lg shadow-lg overflow-hidden max-h-48 overflow-y-auto">
+            {controllableFactors.length === 0 ? (
+              <div className={`${typography.panelMeta} text-text-light px-3 py-2`}>
+                No controllable factors in this model
+              </div>
+            ) : (
+              controllableFactors.map(f => {
+                const alreadySet = interventionIds.has(f.id)
+                return (
+                  <button
+                    key={f.id}
+                    type="button"
+                    disabled={alreadySet}
+                    onClick={() => !alreadySet && handleAddFactor(f.id, f.baseline)}
+                    className={`w-full flex items-center justify-between px-3 py-2 text-left transition-colors ${
+                      alreadySet
+                        ? 'opacity-40 cursor-not-allowed'
+                        : 'hover:bg-panel-hover cursor-pointer'
+                    }`}
+                  >
+                    <span className={`${typography.panelBody} text-text-body truncate`}>{f.label}</span>
+                    <span className={`${typography.panelMeta} text-text-light ml-2 shrink-0`}>
+                      {alreadySet ? 'Already set' : (f.valueDisplay ?? '—')}
+                    </span>
+                  </button>
+                )
+              })
+            )}
+          </div>
+        )}
+      </div>
 
       {/* §6.3 Impact (post-analysis, StaleGuard-wrapped) */}
       <SectionTitle icon={SECTION_TITLES.impact.icon} label={SECTION_TITLES.impact.label} />

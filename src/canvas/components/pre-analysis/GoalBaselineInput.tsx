@@ -163,7 +163,7 @@ export function GoalBaselineInput({
               }}
               autoFocus
               placeholder={unit ? `Value (${unit})` : 'Enter value'}
-              className={`flex-1 min-w-0 min-h-[44px] px-3 py-2 text-sm bg-panel border ${
+              className={`flex-1 min-w-0 min-h-[44px] px-3 py-2 ${typography.panelBody} bg-panel border ${
                 error ? 'border-danger' : 'border-panel-border'
               } rounded-lg text-text-body focus:outline-none focus:ring-2 focus:ring-info focus:ring-offset-1`}
               data-testid="goal-baseline-number-input"
@@ -248,7 +248,7 @@ export function GoalBaselineInput({
           <button
             type="button"
             onClick={openInput}
-            className={`${typography.panelMeta} text-info border border-info/40 rounded-md px-2.5 py-0.5 bg-transparent hover:border-success/40 hover:text-success cursor-pointer`}
+            className={`${typography.panelMeta} text-info border border-info/40 rounded-full px-2.5 py-0.5 bg-transparent hover:border-success/40 hover:text-success cursor-pointer`}
             data-testid="goal-baseline-set-cta"
           >
             Set current value

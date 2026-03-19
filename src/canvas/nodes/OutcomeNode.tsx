@@ -5,8 +5,9 @@ import { NODE_REGISTRY } from '../domain/nodes'
 import { useNodeDisplayMetadata } from '../hooks/useNodeDisplayMetadata'
 import { useCanvasStore } from '../store'
 import { typography } from '../../styles/typography'
-import { computeSignedMean, describeEdgeInfluence } from '../domain/edges'
+import { computeSignedMean } from '../domain/edges'
 import { getProvenanceLabel } from '../ui/inspector-v2/inspectorStrings'
+import { InfluenceIndicator } from '../ui/shared/InfluenceIndicator'
 
 export const OutcomeNode = memo((props: NodeProps) => {
   const metadata = NODE_REGISTRY.outcome
@@ -26,7 +27,6 @@ export const OutcomeNode = memo((props: NodeProps) => {
   }, [props.data?.observedState])
 
   const bridgeEdgeData = useMemo(() => {
-    if (resultsStatus !== 'complete') return null
     // Find the goal node
     const goalNode = nodes.find(n => n.data?.type === 'goal' || n.type === 'goal')
     if (!goalNode) return null
@@ -34,10 +34,15 @@ export const OutcomeNode = memo((props: NodeProps) => {
     const edge = edges.find(e => e.source === props.id && e.target === goalNode.id)
     if (!edge) return null
 
+    const weight = (edge.data as any)?.weight as number | undefined
     const signedMean = computeSignedMean(edge.data as Record<string, unknown> | undefined)
     const existsProbability = (edge.data as any)?.exists_probability ?? (edge.data as any)?.beliefExists ?? (edge.data as any)?.belief
-    return { signedMean, existsProbability: typeof existsProbability === 'number' ? existsProbability : null }
-  }, [edges, nodes, resultsStatus, props.id])
+    return {
+      signedMean,
+      contributionPct: weight != null ? Math.round(weight * 100) : null,
+      existsProbability: typeof existsProbability === 'number' ? existsProbability : null,
+    }
+  }, [edges, nodes, props.id])
 
   return (
     <BaseNode {...props} nodeType="outcome" icon={metadata.icon}>
@@ -48,12 +53,48 @@ export const OutcomeNode = memo((props: NodeProps) => {
         </div>
       )}
 
-      {/* T9: Bridge edge data */}
-      {bridgeEdgeData && (
+      {/* Post-analysis: contribution % + predicted range */}
+      {resultsStatus === 'complete' && bridgeEdgeData && (
+        <div className={`${typography.nodeLabel} mt-1.5`}>
+          {bridgeEdgeData.contributionPct != null && (
+            <div className="text-success font-semibold">
+              {bridgeEdgeData.contributionPct}% contribution to goal
+            </div>
+          )}
+          {displayMetadata.predictedOutcome ? (
+            <div className="text-text-light mt-0.5">
+              {displayMetadata.predictedOutcome.mean != null && (
+                <span>~{displayMetadata.predictedOutcome.mean.toFixed(2)}</span>
+              )}
+              {displayMetadata.predictedOutcome.p10 != null && displayMetadata.predictedOutcome.p90 != null && (
+                <span className="ml-1">
+                  ({displayMetadata.predictedOutcome.p10.toFixed(2)}–{displayMetadata.predictedOutcome.p90.toFixed(2)})
+                </span>
+              )}
+            </div>
+          ) : (
+            <InfluenceIndicator
+              strength={bridgeEdgeData.signedMean}
+              variant="canvas"
+              className={`${typography.nodeTitle} font-semibold text-success`}
+            />
+          )}
+          {bridgeEdgeData.existsProbability !== null && (
+            <div className="text-text-light mt-0.5">
+              {Math.round(bridgeEdgeData.existsProbability * 100)}% certain
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Pre-analysis: bridge edge influence indicator */}
+      {resultsStatus !== 'complete' && bridgeEdgeData && (
         <div className={`${typography.nodeLabel} mt-2 text-text-light`}>
-          <span className={`${typography.nodeTitle} font-semibold text-success`}>
-            {describeEdgeInfluence(bridgeEdgeData.signedMean)}
-          </span>
+          <InfluenceIndicator
+            strength={bridgeEdgeData.signedMean}
+            variant="canvas"
+            className={`${typography.nodeTitle} font-semibold text-success`}
+          />
           {bridgeEdgeData.existsProbability !== null && (
             <> · {Math.round(bridgeEdgeData.existsProbability * 100)}% certain</>
           )}

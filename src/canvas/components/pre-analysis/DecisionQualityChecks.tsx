@@ -52,7 +52,7 @@ function CheckRow({
           <button
             type="button"
             onClick={() => onAction?.(check.ctaAction)}
-            className={`${typography.panelMeta} text-info border border-info/40 rounded-md px-2.5 py-0.5 bg-transparent hover:border-success/40 hover:text-success cursor-pointer`}
+            className={`${typography.panelMeta} text-info border border-info/40 rounded-full px-2.5 py-0.5 bg-transparent hover:border-success/40 hover:text-success cursor-pointer`}
           >
             {check.cta}
           </button>

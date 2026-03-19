@@ -125,10 +125,23 @@ export function PreAnalysisPanel({
 
   // Phase 2B: Evidence gaps + model notes (enriched pre-analysis)
   const ceeAnalysisReady = useCanvasStore(s => s.ceeAnalysisReady)
-  const evidenceGaps = useMemo(
-    () => isPreAnalysisEnrichedEnabled() ? deriveEvidenceGaps(nodes, edges) : [],
-    [nodes, edges],
-  )
+  const resultsReport = useCanvasStore(s => s.results?.report)
+  const evidenceGaps = useMemo(() => {
+    if (!isPreAnalysisEnrichedEnabled()) return []
+    // Build VoI map from post-analysis report when available
+    const voiMap = new Map<string, number>()
+    if (resultsReport) {
+      const sensitivityFactors: Array<Record<string, unknown>> =
+        (resultsReport as any)?.enrichment?.sensitivity_analysis?.factors ??
+        (resultsReport as any)?.factor_sensitivity ?? []
+      for (const f of sensitivityFactors) {
+        const id = (f.factor_id ?? f.factorId ?? f.node_id ?? f.nodeId) as string | undefined
+        const voi = (f.value_of_information ?? f.valueOfInformation) as number | undefined
+        if (id && typeof voi === 'number' && voi > 0) voiMap.set(id, voi)
+      }
+    }
+    return deriveEvidenceGaps(nodes, edges, voiMap.size > 0 ? voiMap : undefined)
+  }, [nodes, edges, resultsReport])
   const modelNotes = useMemo<ModelNote[]>(() => {
     if (!isPreAnalysisEnrichedEnabled()) return []
     const critiques = (ceeAnalysisReady as any)?.model_critiques as Array<{ message: string; severity?: string; suggested_action?: string }> | undefined

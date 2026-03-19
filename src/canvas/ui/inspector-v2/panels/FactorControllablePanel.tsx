@@ -25,8 +25,9 @@ import { ConnectionRow } from '../shared/ConnectionRow'
 import { CoachingCard } from '../shared/CoachingCard'
 import { StaleGuardBanner } from '../shared/StaleGuardBanner'
 import { TechnicalDisclosure } from '../shared/TechnicalDisclosure'
+import { DataBar } from '../../shared/DataBar'
 import type { InspectorPanelProps } from '../types'
-import { COACHING } from '../coachingConfig'
+import { COACHING, resolveCoaching } from '../coachingConfig'
 
 export const FactorControllablePanel = memo(function FactorControllablePanel({
   nodeId,
@@ -187,6 +188,34 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
         )}
       </StaleGuardBanner>
 
+      {/* Investigation value (post-analysis, VoI) */}
+      {isResultsMode && displayMetadata.valueOfInformation !== null && (
+        <div className="mt-2">
+          <div className={`${typography.panelMeta} text-text-light mb-1`}>Investigation value</div>
+          <div className="flex items-center gap-2">
+            <div className="flex-1">
+              <DataBar
+                value={displayMetadata.valueOfInformation}
+                label="Investigation value"
+                colour="info"
+                trailingLabel={
+                  displayMetadata.valueOfInformation >= 0.7 ? 'High'
+                  : displayMetadata.valueOfInformation >= 0.4 ? 'Medium'
+                  : 'Low'
+                }
+              />
+            </div>
+          </div>
+          <p className={`${typography.panelMeta} text-text-light mt-0.5`}>
+            {displayMetadata.valueOfInformation >= 0.7
+              ? 'Gathering more evidence here could significantly improve confidence.'
+              : displayMetadata.valueOfInformation >= 0.4
+              ? 'Additional evidence here would moderately sharpen the analysis.'
+              : 'Further investigation here is unlikely to change the outcome.'}
+          </p>
+        </div>
+      )}
+
       {/* §7.5 Connections */}
       <SectionTitle icon={SECTION_TITLES.connections.icon} label={SECTION_TITLES.connections.label} />
       {setByOptions.length > 0 && (
@@ -226,7 +255,7 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
 
       {/* Coaching */}
       <CoachingCard
-        text={COACHING.factorControllableEvidence}
+        text={resolveCoaching('factorControllableEvidence', { factorName: String(node.data?.label ?? '') })}
         action={{ label: 'Ask about this', onClick: () => {} }}
       />
 

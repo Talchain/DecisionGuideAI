@@ -23,17 +23,15 @@ import {
   useCallback,
   useRef,
   useEffect,
-  type ReactNode,
   type KeyboardEvent,
   type ChangeEvent,
 } from 'react'
-import { ChevronDown, ChevronRight, AlertTriangle, Settings, ArrowUpRight, GitBranch, Lightbulb, Link, Copy, ClipboardCopy } from 'lucide-react'
+import { AlertTriangle } from 'lucide-react'
 import type { Node, Edge } from '@xyflow/react'
 import { typography } from '../../styles/typography'
 import { useCanvasStore } from '../store'
 import { getDisplayEdgeId, buildFragileEdgeLookup } from '../utils/edgeIdentity'
-import { focusNodeById, focusEdgeById } from '../utils/focusHelpers'
-import { countEdgesWithEvidence, NON_EVIDENCE_PROVENANCE } from '../utils/evidenceCoverage'
+import { NON_EVIDENCE_PROVENANCE } from '../utils/evidenceCoverage'
 import { SectionErrorBoundary } from './GraphTextView'
 import type { MappedRobustness } from '../../lib/mappers/types'
 import type { CritiqueItemV1 } from '../../adapters/plot/types'
@@ -41,6 +39,17 @@ import { isModelCardLiteEnabled } from '../../flags'
 import { ModelCardLite } from './ModelCardLite'
 import { selectModelCardData } from '../adapters/modelCardAdapter'
 import { trackGuidance } from '../../telemetry/guidanceEvents'
+import { GoalSection } from './model-tab/GoalSection'
+import { OptionsSection } from './model-tab/OptionsSection'
+import { FactorsSection } from './model-tab/FactorsSection'
+import { RelationshipsSection } from './model-tab/RelationshipsSection'
+import { RisksSection } from './model-tab/RisksSection'
+import { ModelHealthSection } from './model-tab/ModelHealthSection'
+import { ModelTabHeader } from './model-tab/ModelTabHeader'
+import { ReanalyseBar } from './model-tab/ReanalyseBar'
+import { StrengthenSection } from './model-tab/StrengthenSection'
+import { ModelSummaryBar } from './model-tab/ModelSummaryBar'
+import { ModelFooter } from './model-tab/ModelFooter'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -57,6 +66,12 @@ interface ModelTabBodyProps {
   robustness: MappedRobustness | null
   /** PLoT critique items — used to surface constraint warnings in Strengthen */
   critique?: CritiqueItemV1[] | null
+  /** Factor influence map from PLoT enrichment — keyed by node ID */
+  factorInfluence?: Map<string, number>
+  /** Trigger analysis re-run */
+  onReanalyse?: () => void
+  /** CEE quality dimensions from store */
+  ceeQuality?: import('../store').CeeQualityDimensions | null
 }
 
 interface ObservedState {
@@ -73,7 +88,7 @@ interface ObservedState {
 const SOURCE_LABELS: Record<string, string> = {
   brief_extraction: 'From brief',
   cee_inference: 'AI estimate',
-  user: 'User provided',
+  user: 'User edited',
 }
 
 const SOURCE_TOOLTIPS: Record<string, string> = {
@@ -830,231 +845,6 @@ function EdgeCard({
   )
 }
 
-// ── Node breakdown bar ────────────────────────────────────────────────────────
-
-function NodeBreakdownBar({ grouped, totalCount }: {
-  grouped: Record<KindKey, Node[]>
-  totalCount: number
-}) {
-  if (totalCount === 0) return null
-
-  return (
-    <div>
-      {/* Bar */}
-      <div className="flex h-[6px] rounded-[3px] overflow-hidden" style={{ gap: '1px' }}>
-        {KIND_ORDER.map(kind => {
-          const count = grouped[kind].length
-          if (count === 0) return null
-          const pct = (count / totalCount) * 100
-          return (
-            <div
-              key={kind}
-              style={{ width: `${pct}%`, backgroundColor: SEGMENT_COLOURS[kind] }}
-              className="shrink-0"
-              title={`${KIND_LABELS[kind]}s: ${count}`}
-            />
-          )
-        })}
-      </div>
-      {/* Legend */}
-      <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1.5">
-        {KIND_ORDER.map(kind => {
-          const count = grouped[kind].length
-          if (count === 0) return null
-          return (
-            <div key={kind} className="flex items-center gap-1">
-              <div
-                className={`w-2 h-2 rounded-full ${DOT_CLASSES[kind]}`}
-                aria-hidden="true"
-              />
-              <span className={`${typography.panelMeta} text-text-light`}>
-                {count} {KIND_LABELS[kind].toLowerCase()}{count !== 1 ? 's' : ''}
-              </span>
-            </div>
-          )
-        })}
-      </div>
-    </div>
-  )
-}
-
-// ── Health summary cards ──────────────────────────────────────────────────────
-
-function HealthCard({
-  label,
-  value,
-  subtext,
-  subtextColour = 'text-text-light',
-  progressPct,
-  progressColour,
-}: {
-  label: string
-  value: string
-  subtext: string
-  subtextColour?: string
-  progressPct: number
-  progressColour: string
-}) {
-  return (
-    <div className="flex-1 min-w-0 bg-panel border border-panel-border rounded-xl px-2.5 py-2">
-      <div className={`${typography.panelMeta} text-text-light mb-0.5`}>{label}</div>
-      <div className={`${typography.panelHeader} text-text-header`}>{value}</div>
-      <div className={`${typography.panelMeta} ${subtextColour} mt-0.5 mb-1`}>{subtext}</div>
-      <div className="h-1 bg-panel-border rounded-full overflow-hidden">
-        <div
-          className={`h-full rounded-full transition-all ${progressColour}`}
-          style={{ width: `${Math.min(100, Math.max(0, progressPct))}%` }}
-        />
-      </div>
-    </div>
-  )
-}
-
-function HealthCards({ nodes, causalEdges }: { nodes: Node[]; causalEdges: Edge[] }) {
-  // Connectivity: reachable from any root (depth-first from nodes with no incoming edges)
-  const { connectedCount, totalCount: nodeTotal } = useMemo(() => {
-    const allIds = new Set(nodes.map(n => n.id))
-    // Build adjacency from edges in the full node list
-    // We don't have edges here — caller passes causalEdges
-    // Simple heuristic: nodes mentioned in any edge are "connected"
-    const mentioned = new Set<string>()
-    for (const e of causalEdges) {
-      mentioned.add(e.source)
-      mentioned.add(e.target)
-    }
-    // Nodes not in any edge are disconnected (unless total nodes = 0)
-    const connected = nodes.filter(n => mentioned.has(n.id) || nodes.length === 1).length
-    void allIds
-    return { connectedCount: connected, totalCount: nodes.length }
-  }, [nodes, causalEdges])
-
-  const connectivityPct = nodeTotal > 0 ? Math.round((connectedCount / nodeTotal) * 100) : 0
-  const disconnectedCount = nodeTotal - connectedCount
-  const connectivitySub = disconnectedCount === 0
-    ? 'All nodes connected'
-    : `${disconnectedCount} disconnected from goal`
-  const connectivitySubColour = disconnectedCount === 0 ? 'text-success' : 'text-warning'
-
-  // Evidence coverage
-  const { evidenced, total: edgeTotal } = useMemo(
-    () => countEdgesWithEvidence(causalEdges),
-    [causalEdges]
-  )
-  const evidencePct = edgeTotal > 0 ? Math.round((evidenced / edgeTotal) * 100) : 0
-  const evidenceProgressColour = evidencePct >= 50
-    ? 'bg-success'
-    : evidencePct > 0
-      ? 'bg-warning'
-      : 'bg-panel'
-  const evidenceSub = edgeTotal === 0
-    ? 'No edges yet'
-    : evidencePct === 0
-      ? 'No edges with user evidence'
-      : `${evidencePct}% of edges have user evidence`
-
-  return (
-    <div className="flex gap-2">
-      <HealthCard
-        label="Connectivity"
-        value={`${connectedCount} of ${nodeTotal}`}
-        subtext={connectivitySub}
-        subtextColour={connectivitySubColour}
-        progressPct={connectivityPct}
-        progressColour={disconnectedCount === 0 ? 'bg-success' : 'bg-warning'}
-      />
-      <HealthCard
-        label="Evidence coverage"
-        value={`${evidenced} of ${edgeTotal}`}
-        subtext={evidenceSub}
-        progressPct={evidencePct}
-        progressColour={evidenceProgressColour}
-      />
-    </div>
-  )
-}
-
-// ── Collapsible section ───────────────────────────────────────────────────────
-
-function CollapsibleSection({
-  title,
-  defaultOpen = false,
-  children,
-  testId,
-}: {
-  title: string
-  defaultOpen?: boolean
-  children: React.ReactNode
-  testId?: string
-}) {
-  const [open, setOpen] = useState(defaultOpen)
-  return (
-    <div data-testid={testId}>
-      <button
-        type="button"
-        onClick={() => setOpen(o => !o)}
-        className="flex items-center gap-1.5 w-full text-left py-1 hover:bg-sand-50 rounded px-1 -mx-1 transition-colors"
-        aria-expanded={open}
-      >
-        {open
-          ? <ChevronDown className="w-3.5 h-3.5 text-text-light shrink-0" aria-hidden="true" />
-          : <ChevronRight className="w-3.5 h-3.5 text-text-light shrink-0" aria-hidden="true" />}
-        <span className={`${typography.panelHeader} text-text-header`}>{title}</span>
-      </button>
-      {open && <div className="mt-1 pl-4">{children}</div>}
-    </div>
-  )
-}
-
-// ── Reference node list ───────────────────────────────────────────────────────
-
-function ReferenceNodeList({ nodes: nodeList, label }: { nodes: Node[]; label: string }) {
-  if (nodeList.length === 0) return null
-  return (
-    <div className="mb-2">
-      <div className={`${typography.panelMeta} text-text-light mb-1`}>{label}</div>
-      <div className="space-y-0.5">
-        {nodeList.map(n => (
-          <button
-            key={n.id}
-            type="button"
-            onClick={() => focusNodeById(n.id)}
-            className="flex items-center gap-1.5 w-full text-left hover:bg-sand-50 rounded px-1 py-0.5"
-          >
-            <span className={`${typography.panelBody} text-text-header flex-1 truncate`}>
-              {String((n.data as any)?.label ?? n.id)}
-            </span>
-            <ArrowUpRight className="w-3 h-3 text-info shrink-0" aria-hidden="true" />
-          </button>
-        ))}
-      </div>
-    </div>
-  )
-}
-
-// ── Section header with coloured circle icon ──────────────────────────────────
-
-function SectionHeader({
-  iconColour,
-  icon,
-  title,
-}: {
-  iconColour: string
-  icon: ReactNode
-  title: string
-}) {
-  return (
-    <div className="flex items-center gap-2 mb-2" data-testid={`section-header-${title.split(' ')[0].toLowerCase()}`}>
-      <span className={`w-4 h-4 shrink-0 ${iconColour}`} aria-hidden="true">
-        {icon}
-      </span>
-      <span className={`${typography.panelHeader} text-text-header`}>{title}</span>
-    </div>
-  )
-}
-
-// ── Constraint critique codes (module-level to avoid react-hooks/exhaustive-deps warning)
-const CONSTRAINT_CRITIQUE_CODES = ['MISSING_BASELINE', 'CONSTRAINT_NO_BASELINE', 'CONSTRAINT_INTERCEPT_DEFAULT', 'constraint_missing_baseline', 'CONSTRAINT_TARGET_NO_OBSERVED_VALUE']
-
 // ── Main component ────────────────────────────────────────────────────────────
 
 export function ModelTabBody({
@@ -1069,6 +859,9 @@ export function ModelTabBody({
   edges,
   robustness,
   critique,
+  factorInfluence,
+  onReanalyse,
+  ceeQuality,
 }: ModelTabBodyProps) {
   const [searchQuery, setSearchQuery] = useState('')
 
@@ -1184,15 +977,6 @@ export function ModelTabBody({
     }).length
   }, [grouped.factor])
 
-  const defaultedEdgeCount = useMemo(() => {
-    return edges.filter(e => {
-      const d = e.data as any
-      const w = d?.weight
-      const std = d?.strengthStd ?? d?.strength_std
-      return w !== undefined && Math.abs(w - 0.5) < 0.01 && std !== undefined && Math.abs(std - 0.125) < 0.01
-    }).length
-  }, [edges])
-
   const fragileEdgeCount = hasRobustnessData ? fragileEdgeIds.size : 0
 
   const showAttentionBanner = hasRobustnessData && (
@@ -1246,49 +1030,6 @@ export function ModelTabBody({
     })
   }, [causalEdges, fragileEdgeSwitchProbMap])
 
-  // ── Evidence gaps (canonical) ─────────────────────────────────────────────
-
-  const edgesWithoutEvidence = useMemo(() => {
-    return causalEdges.filter(edge => {
-      const provenance = (edge.data as any)?.provenance
-      return !provenance || NON_EVIDENCE_PROVENANCE.includes(provenance)
-    })
-  }, [causalEdges])
-
-  // Edges without evidence, excluding those already shown under Fragile edges
-  const nonFragileEdgesWithoutEvidence = useMemo(() => {
-    return edgesWithoutEvidence.filter(e => !fragileEdgeIds.has(getDisplayEdgeId(e)))
-  }, [edgesWithoutEvidence, fragileEdgeIds])
-
-  // Fragile edges sorted by switch_probability descending (for Strengthen section)
-  const fragileSortedEdges = useMemo(() => {
-    return [...fragileEdgeIds].map(rfId => {
-      const edge = causalEdges.find(e => getDisplayEdgeId(e) === rfId)
-      const switchProb = fragileEdgeSwitchProbMap.get(rfId) ?? 0
-      return { edge, rfId, switchProb }
-    }).filter((x): x is { edge: Edge; rfId: string; switchProb: number } => x.edge !== undefined)
-      .sort((a, b) => b.switchProb - a.switchProb)
-  }, [fragileEdgeIds, causalEdges, fragileEdgeSwitchProbMap])
-
-  // Constraint warnings from PLoT critique — codes related to missing baseline or constraint issues
-  const constraintWarnings = useMemo(() => {
-    if (!critique?.length) return []
-    return critique.filter(c =>
-      CONSTRAINT_CRITIQUE_CODES.some(code => c.code?.toUpperCase().includes(code.toUpperCase())) ||
-      c.message?.toLowerCase().includes('constraint') && c.message?.toLowerCase().includes('baseline')
-    )
-  }, [critique])
-
-  // Factors truly missing source (for Strengthen — separate from AI-estimated)
-  const factorsTrulyMissingSourceList = useMemo(() => {
-    return grouped.factor.filter(n => {
-      const obs = (n.data as any)?.observedState ?? (n.data as any)?.observed_state
-      return !obs?.source
-    })
-  }, [grouped.factor])
-
-  const showDefaultedWarning = defaultedEdgeCount > 2
-
   // ── Search filter ─────────────────────────────────────────────────────────
 
   const query = searchQuery.trim().toLowerCase()
@@ -1316,15 +1057,11 @@ export function ModelTabBody({
   const goalNode = grouped.goal[0]
   const goalLabel = goalNode ? String((goalNode.data as any)?.label ?? goalNode.id) : null
 
-  // ── Copy as text ──────────────────────────────────────────────────────────
-
   // ── Hover highlight dispatch (bidirectional: Model tab ↔ canvas) ──────────
   const handleNodeHover = useCallback((id: string) => setHighlightedNodes([id]), [setHighlightedNodes])
   const handleEdgeHover = useCallback((id: string) => setHighlightedEdges([id]), [setHighlightedEdges])
   const handleNodeLeave = useCallback(() => setHighlightedNodes([]), [setHighlightedNodes])
   const handleEdgeLeave = useCallback(() => setHighlightedEdges([]), [setHighlightedEdges])
-
-  const [copied, setCopied] = useState<'text' | 'json' | false>(false)
 
   const handleCopyText = useCallback(() => {
     const lines: string[] = []
@@ -1347,10 +1084,7 @@ export function ModelTabBody({
       lines.push(`  • ${fromLbl} → ${toLbl}`)
     }
     const text = lines.join('\n')
-    navigator.clipboard?.writeText(text).then(() => {
-      setCopied('text')
-      setTimeout(() => setCopied(false), 2000)
-    }).catch(() => {})
+    navigator.clipboard?.writeText(text).catch(() => {})
   }, [goalLabel, sortedFactors, sortedEdges, nodes])
 
   const handleCopyJson = useCallback(() => {
@@ -1374,10 +1108,7 @@ export function ModelTabBody({
       })),
     }
     const json = JSON.stringify(payload, null, 2)
-    navigator.clipboard?.writeText(json).then(() => {
-      setCopied('json')
-      setTimeout(() => setCopied(false), 2000)
-    }).catch(() => {})
+    navigator.clipboard?.writeText(json).catch(() => {})
   }, [goalLabel, sortedFactors, sortedEdges])
 
   // ── Render ────────────────────────────────────────────────────────────────
@@ -1392,27 +1123,54 @@ export function ModelTabBody({
         </SectionErrorBoundary>
       )}
 
-      {/* ── Goal headline ─────────────────────────────────────────────────── */}
-      {goalLabel && (
-        <div className="flex items-center gap-1.5" data-testid="model-goal-headline">
-          <div className="w-2.5 h-2.5 rounded-full bg-goal shrink-0" aria-hidden="true" />
-          <span className={`${typography.panelHeader} text-text-header truncate`}>{goalLabel}</span>
+      {/* ── Header: factor/edge counts + "Show full detail" toggle ─────────── */}
+      <ModelTabHeader
+        factorCount={grouped.factor.length}
+        edgeCount={causalEdges.length}
+        fragileCount={fragileEdgeCount > 0 ? fragileEdgeCount : undefined}
+      >
+        {/* ── Goal section ──────────────────────────────────────────────── */}
+        <div className="space-y-4">
+          <GoalSection goalNode={grouped.goal[0]} />
+
+          {/* ── Options section ─────────────────────────────────────────── */}
+          <OptionsSection optionNodes={grouped.option} allNodes={nodes} />
+
+          {/* ── Factors section ─────────────────────────────────────────── */}
+          <FactorsSection
+            factorNodes={grouped.factor}
+            factorInfluence={factorInfluence}
+            synthesisedPriorMap={synthesisedPriorMap}
+          />
+
+          {/* ── Relationships section ───────────────────────────────────── */}
+          <RelationshipsSection
+            edges={causalEdges}
+            nodes={nodes}
+            fragileEdgeIds={fragileEdgeIds}
+            fragileEdgeSwitchProbMap={fragileEdgeSwitchProbMap}
+          />
+
+          {/* ── Risks section ───────────────────────────────────────────── */}
+          <RisksSection riskNodes={grouped.risk} allNodes={nodes} edges={edges} />
+
+          {/* ── Model health section (collapsed) ────────────────────────── */}
+          <ModelHealthSection
+            nodes={causalNodes}
+            edges={causalEdges}
+            fragileEdgeCount={fragileEdgeCount}
+            ceeQuality={ceeQuality}
+          />
         </div>
-      )}
+      </ModelTabHeader>
 
-      {/* ── Node breakdown bar ─────────────────────────────────────────────── */}
-      {nodes.length > 0 && (
-        <SectionErrorBoundary section="node breakdown">
-          <NodeBreakdownBar grouped={grouped} totalCount={nodes.length} />
-        </SectionErrorBoundary>
-      )}
-
-      {/* ── Health cards ──────────────────────────────────────────────────── */}
-      {nodes.length > 0 && (
-        <SectionErrorBoundary section="health cards">
-          <HealthCards nodes={causalNodes} causalEdges={causalEdges} />
-        </SectionErrorBoundary>
-      )}
+      {/* ── Model summary bar (breakdown + health cards) ─────────────────────── */}
+      <ModelSummaryBar
+        nodes={nodes}
+        causalEdges={causalEdges}
+        causalNodes={causalNodes}
+        grouped={grouped}
+      />
 
       {/* ── Attention banner (post-analysis only) ─────────────────────────── */}
       {showAttentionBanner && (
@@ -1449,258 +1207,15 @@ export function ModelTabBody({
         </div>
       )}
 
-      {/* ── Factors section ───────────────────────────────────────────────── */}
-      {sortedFactors.length > 0 && (
-        <SectionErrorBoundary section="factors">
-          <div data-testid="model-factors-section">
-            <SectionHeader
-              iconColour="text-text-light"
-              icon={<Settings className="w-4 h-4" />}
-              title={`Factors (${sortedFactors.length})`}
-            />
-            <div>
-              {visibleFactors.map(n => (
-                <FactorCard
-                  key={n.id}
-                  node={n}
-                  synthesisedPrior={synthesisedPriorMap.get(n.id)}
-                  isHighlighted={highlightedNodes.has(n.id)}
-                  onHover={handleNodeHover}
-                  onLeave={handleNodeLeave}
-                />
-              ))}
-              {query && visibleFactors.length === 0 && (
-                <p className={`${typography.panelMeta} text-text-light`}>No matching factors.</p>
-              )}
-            </div>
-          </div>
-        </SectionErrorBoundary>
-      )}
-
-      {/* ── Edges section ─────────────────────────────────────────────────── */}
-      {sortedEdges.length > 0 && (
-        <SectionErrorBoundary section="edges">
-          <div data-testid="model-edges-section">
-            <SectionHeader
-              iconColour="text-text-light"
-              icon={<GitBranch className="w-4 h-4" />}
-              title={`Edges (${sortedEdges.length})`}
-            />
-            <div>
-              {visibleEdges.map(e => (
-                <EdgeCard
-                  key={getDisplayEdgeId(e)}
-                  edge={e}
-                  nodes={nodes}
-                  fragileEdgeIds={fragileEdgeIds}
-                  fragileEdgeSwitchProbMap={fragileEdgeSwitchProbMap}
-                  hasRobustnessData={hasRobustnessData}
-                  isHighlighted={highlightedEdges.has(getDisplayEdgeId(e))}
-                  onHover={handleEdgeHover}
-                  onLeave={handleEdgeLeave}
-                />
-              ))}
-              {query && visibleEdges.length === 0 && (
-                <p className={`${typography.panelMeta} text-text-light`}>No matching edges.</p>
-              )}
-            </div>
-          </div>
-        </SectionErrorBoundary>
-      )}
-
-      {/* ── Options / Risks / Outcomes (collapsed reference) ──────────────── */}
-      {(grouped.option.length > 0 || grouped.risk.length > 0 || grouped.outcome.length > 0) && (
-        <CollapsibleSection
-          title={[
-            grouped.option.length > 0 ? `Options (${grouped.option.length})` : '',
-            grouped.risk.length > 0 ? `Risks (${grouped.risk.length})` : '',
-            grouped.outcome.length > 0 ? `Outcomes (${grouped.outcome.length})` : '',
-          ].filter(Boolean).join(' · ')}
-          defaultOpen={false}
-          testId="model-reference-section"
-        >
-          <ReferenceNodeList nodes={grouped.option} label="Options" />
-          <ReferenceNodeList nodes={grouped.risk} label="Risks" />
-          <ReferenceNodeList nodes={grouped.outcome} label="Outcomes" />
-        </CollapsibleSection>
-      )}
-
       {/* ── Strengthen section ────────────────────────────────────────────── */}
-      <div id="model-strengthen" className="border-t border-panel-border pt-3" data-testid="model-strengthen-section">
-        <SectionHeader
-          iconColour="text-info"
-          icon={<Lightbulb className="w-4 h-4" />}
-          title="Strengthen"
-        />
-        <div className={`${typography.panelMeta} text-text-light mb-3`}>
-          Improve your model with evidence and refinements
-        </div>
-
-        {showDefaultedWarning && (
-          <div
-            className={`${typography.panelBody} text-text-body mb-3 px-2 py-2 bg-panel rounded border border-warning/30`}
-            data-testid="model-defaulted-warning"
-          >
-            {defaultedEdgeCount} edge{defaultedEdgeCount !== 1 ? 's' : ''} use default AI-generated parameters. Adding evidence to these edges will have the greatest impact on analysis reliability.
-          </div>
-        )}
-
-        {/* ── Needs attention: constraint warnings ── */}
-        {constraintWarnings.length > 0 && (
-          <div className="mb-3" data-testid="strengthen-constraint-warnings">
-            <div className={`${typography.panelMeta} text-text-light mb-1`}>
-              Needs attention ({constraintWarnings.length})
-            </div>
-            <div className="space-y-1">
-              {constraintWarnings.map((c, i) => {
-                const factorNode = c.node_id ? nodes.find(n => n.id === c.node_id) : undefined
-                const factorLabel = factorNode
-                  ? String((factorNode.data as any)?.label ?? c.node_id)
-                  : (c.node_id ?? 'Unknown factor')
-                return (
-                  <div
-                    key={c.code ?? i}
-                    className="flex items-center gap-2 p-1.5 bg-panel border border-panel-border rounded-sm"
-                    data-testid={`strengthen-constraint-${c.code ?? i}`}
-                  >
-                    <AlertTriangle className="w-3.5 h-3.5 text-danger shrink-0" aria-hidden="true" />
-                    <span className={`${typography.panelBody} text-text-header flex-1 min-w-0`}>
-                      {factorLabel} has a constraint but no baseline value — add an estimate
-                    </span>
-                    {c.node_id && (
-                      <button
-                        type="button"
-                        onClick={() => focusNodeById(c.node_id!)}
-                        className={`inline-flex items-center px-3 py-1 rounded-full bg-transparent border border-warning/30 text-text-body ${typography.panelMeta} font-medium hover:bg-panel-hover transition-colors shrink-0`}
-                      >
-                        Add estimate
-                      </button>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* ── Fragile edges (post-analysis only) ── */}
-        {hasRobustnessData && fragileSortedEdges.length > 0 && (
-          <div className="mb-3" data-testid="strengthen-fragile-edges">
-            <div className={`${typography.panelMeta} text-text-light mb-1`}>
-              Fragile edges ({fragileSortedEdges.length})
-            </div>
-            <div className="space-y-1">
-              {fragileSortedEdges.map(({ edge, rfId, switchProb }) => {
-                const srcNode = nodes.find(n => n.id === edge.source)
-                const tgtNode = nodes.find(n => n.id === edge.target)
-                const edgeLabel = srcNode && tgtNode
-                  ? `${String((srcNode.data as any)?.label ?? edge.source)} → ${String((tgtNode.data as any)?.label ?? edge.target)}`
-                  : rfId
-                return (
-                  <div
-                    key={rfId}
-                    className="flex items-center gap-2 p-1.5 bg-panel border border-panel-border rounded-sm"
-                  >
-                    <AlertTriangle className="w-3.5 h-3.5 text-warning shrink-0" aria-hidden="true" />
-                    <span className={`${typography.panelBody} text-text-header flex-1 min-w-0 truncate`}>
-                      {edgeLabel}
-                    </span>
-                    {switchProb > 0 && (
-                      <span className={`${typography.panelMeta} text-warning shrink-0`}>
-                        {Math.round(switchProb * 100)}%
-                      </span>
-                    )}
-                    <button
-                      type="button"
-                      onClick={() => focusEdgeById(rfId)}
-                      className={`inline-flex items-center px-3 py-1 rounded-full bg-transparent border border-info/30 text-text-body ${typography.panelMeta} font-medium hover:bg-panel-hover transition-colors shrink-0`}
-                    >
-                      Add evidence
-                    </button>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* ── Missing evidence: factors + remaining edges (excludes fragile edges shown above) ── */}
-        {(factorsTrulyMissingSourceList.length > 0 || nonFragileEdgesWithoutEvidence.length > 0) ? (
-          <div data-testid="strengthen-missing-evidence">
-            <div className={`${typography.panelMeta} text-text-light mb-1`}>
-              Missing evidence ({factorsTrulyMissingSourceList.length + nonFragileEdgesWithoutEvidence.length})
-            </div>
-            <div className="space-y-1">
-              {factorsTrulyMissingSourceList.map(n => {
-                const lbl = String((n.data as any)?.label ?? n.id)
-                return (
-                  <div
-                    key={n.id}
-                    className="flex items-center gap-2 p-1.5 bg-panel border border-panel-border rounded-sm"
-                  >
-                    <Link className="w-3.5 h-3.5 text-text-light shrink-0" aria-hidden="true" />
-                    <span className={`${typography.panelBody} text-text-header flex-1 min-w-0 truncate`}>
-                      {lbl}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => focusNodeById(n.id)}
-                      className={`inline-flex items-center px-3 py-1 rounded-full bg-transparent border border-info/30 text-text-body ${typography.panelMeta} font-medium hover:bg-panel-hover transition-colors shrink-0`}
-                    >
-                      Add source
-                    </button>
-                  </div>
-                )
-              })}
-              {nonFragileEdgesWithoutEvidence.slice(0, 5).map(edge => {
-                const edgeId = getDisplayEdgeId(edge)
-                const srcNode = nodes.find(n => n.id === edge.source)
-                const tgtNode = nodes.find(n => n.id === edge.target)
-                const edgeLabel = srcNode && tgtNode
-                  ? `${String((srcNode.data as any)?.label ?? edge.source)} → ${String((tgtNode.data as any)?.label ?? edge.target)}`
-                  : edgeId
-                return (
-                  <div
-                    key={edgeId}
-                    className="flex items-center gap-2 p-1.5 bg-panel border border-panel-border rounded-sm"
-                  >
-                    <Link className="w-3.5 h-3.5 text-text-light shrink-0" aria-hidden="true" />
-                    <span className={`${typography.panelBody} text-text-header flex-1 min-w-0 truncate`}>
-                      {edgeLabel}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => focusEdgeById(edgeId)}
-                      className={`inline-flex items-center px-3 py-1 rounded-full bg-transparent border border-info/30 text-text-body ${typography.panelMeta} font-medium hover:bg-panel-hover transition-colors shrink-0`}
-                    >
-                      Add evidence
-                    </button>
-                  </div>
-                )
-              })}
-              {nonFragileEdgesWithoutEvidence.length > 5 && (
-                <p className={`${typography.panelMeta} text-text-light pl-1`}>
-                  +{nonFragileEdgesWithoutEvidence.length - 5} more edges without evidence
-                </p>
-              )}
-            </div>
-            {/* Warning when all causal edges lack user evidence */}
-            {nonFragileEdgesWithoutEvidence.length === causalEdges.length && causalEdges.length > 0 && (
-              <div
-                className={`${typography.panelBody} text-text-body bg-panel-hover rounded-sm px-2.5 py-2 mt-2.5 leading-relaxed`}
-              >
-                All edges currently rely on AI-generated parameters. Adding evidence to fragile edges first will have the greatest impact on analysis reliability.
-              </div>
-            )}
-          </div>
-        ) : (
-          constraintWarnings.length === 0 && fragileSortedEdges.length === 0 && (
-            <p className={`${typography.panelBody} text-text-light`}>
-              All edges have supporting evidence.
-            </p>
-          )
-        )}
-      </div>
+      <StrengthenSection
+        nodes={nodes}
+        causalEdges={causalEdges}
+        fragileEdgeIds={fragileEdgeIds}
+        fragileEdgeSwitchProbMap={fragileEdgeSwitchProbMap}
+        hasRobustnessData={hasRobustnessData}
+        critique={critique}
+      />
 
       {/* ── Streaming diagnostics (Shift+D) ───────────────────────────────── */}
       {showDebug && (
@@ -1769,35 +1284,16 @@ export function ModelTabBody({
         </p>
       )}
 
+      {/* ── Reanalyse bar (shown when graph edited since last run) ─────────── */}
+      <ReanalyseBar onReanalyse={onReanalyse} />
+
       {/* ── Footer: search + copy ─────────────────────────────────────────── */}
-      <div className="border-t border-panel-border pt-3 flex items-center gap-2" data-testid="model-footer">
-        <input
-          type="search"
-          value={searchQuery}
-          onChange={(e: ChangeEvent<HTMLInputElement>) => setSearchQuery(e.target.value)}
-          placeholder="Search factors and edges…"
-          className={`flex-1 ${typography.panelBody} text-text-header px-2 py-1 rounded-sm border border-panel-border bg-panel focus:outline-none focus:ring-1 focus:ring-info/50 placeholder:text-text-light`}
-          data-testid="model-search"
-        />
-        <button
-          type="button"
-          onClick={handleCopyText}
-          className={`inline-flex items-center gap-1 px-2 py-1 rounded border border-panel-border ${typography.panelMeta} text-text-body hover:bg-panel-hover transition-colors shrink-0`}
-          data-testid="model-copy"
-        >
-          <Copy className="w-3 h-3 shrink-0" aria-hidden="true" />
-          {copied === 'text' ? 'Copied!' : 'Text'}
-        </button>
-        <button
-          type="button"
-          onClick={handleCopyJson}
-          className={`inline-flex items-center gap-1 px-2 py-1 rounded border border-panel-border ${typography.panelMeta} text-text-body hover:bg-panel-hover transition-colors shrink-0`}
-          data-testid="model-copy-json"
-        >
-          <ClipboardCopy className="w-3 h-3 shrink-0" aria-hidden="true" />
-          {copied === 'json' ? 'Copied!' : 'JSON'}
-        </button>
-      </div>
+      <ModelFooter
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
+        onCopyText={handleCopyText}
+        onCopyJson={handleCopyJson}
+      />
     </div>
   )
 }

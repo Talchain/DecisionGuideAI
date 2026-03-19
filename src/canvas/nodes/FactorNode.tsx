@@ -10,7 +10,7 @@ import { hasObservedData } from '../utils/observedStateHelpers'
 import { typography } from '../../styles/typography'
 import { cleanFactorLabel, sensitivityTierLabel, evidenceTierLabel, formatInterventionValue, isCurrencyUnit, formatFactorValue, QUALITATIVE_FACTOR_TYPES, isSuppressedUnit } from '../utils/labelUtils'
 import { isGraphBadgesEnabled } from '../../flags'
-import { SlidersHorizontal, Eye, Cloud } from 'lucide-react'
+import { SlidersHorizontal, Eye, Cloud, Search } from 'lucide-react'
 import { DataBar } from '../ui/shared/DataBar'
 import { getProvenanceLabel } from '../ui/inspector-v2/inspectorStrings'
 
@@ -272,6 +272,18 @@ export const FactorNode = memo((props: NodeProps) => {
                 </div>
               </div>
             )}
+          </div>
+        )}
+
+        {/* VoI badge: Search icon for top-3 factors by investigation value (post-analysis) */}
+        {displayMetadata.isResultsMode && displayMetadata.voiRank !== null && (
+          <div className="mt-1">
+            <Search
+              size={14}
+              className="text-info shrink-0"
+              title={`Worth investigating (#${displayMetadata.voiRank} by investigation value)`}
+              aria-label={`Worth investigating — rank ${displayMetadata.voiRank} by investigation value`}
+            />
           </div>
         )}
 

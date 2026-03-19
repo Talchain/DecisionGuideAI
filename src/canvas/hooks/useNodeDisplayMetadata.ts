@@ -27,6 +27,12 @@ interface NodeDisplayMetadata {
   stabilityPercentage: number | null
   /** Win rate for options (0-1) */
   winRate: number | null
+  /** Predicted outcome range from recommended option (post-analysis, outcome nodes only) */
+  predictedOutcome: { mean: number | null; p10: number | null; p90: number | null } | null
+  /** Value of information score (0-1), post-analysis factor nodes only */
+  valueOfInformation: number | null
+  /** VoI rank (1-3 for top factors by VoI, null otherwise) */
+  voiRank: number | null
   /** Whether we're in Results mode */
   isResultsMode: boolean
 }
@@ -58,6 +64,9 @@ export function useNodeDisplayMetadata(
         achievementProbability: null,
         stabilityPercentage: null,
         winRate: null,
+        predictedOutcome: null,
+        valueOfInformation: null,
+        voiRank: null,
         isResultsMode: false,
       }
     }
@@ -67,6 +76,8 @@ export function useNodeDisplayMetadata(
     let influence: number | null = null
     let confidence: number | null = null
     let inSensitivityAnalysis = false
+    let valueOfInformation: number | null = null
+    let voiRank: number | null = null
     if (nodeType === 'factor') {
       // Get factor_sensitivity array and rank by elasticity
       const factorSensitivity = report.enrichment?.sensitivity_analysis?.factors ||
@@ -92,7 +103,18 @@ export function useNodeDisplayMetadata(
       const rank = ranked.findIndex(f => f.id === nodeId) + 1
       sensitivityRank = rank > 0 && rank <= 3 ? rank : null
 
-      // Task 3: Extract influence and confidence for this factor
+      // VoI rank: top-3 factors by value_of_information
+      const rankedByVoi = [...factorSensitivity]
+        .map((f: any) => ({
+          id: (f.factor_id || f.factorId || f.node_id || f.nodeId) as string,
+          voi: (f.value_of_information ?? f.valueOfInformation ?? 0) as number,
+        }))
+        .filter(f => typeof f.voi === 'number' && f.voi > 0)
+        .sort((a, b) => b.voi - a.voi)
+      const voiPos = rankedByVoi.findIndex(f => f.id === nodeId) + 1
+      if (voiPos > 0 && voiPos <= 3) voiRank = voiPos
+
+      // Task 3: Extract influence, confidence, and VoI for this factor
       const factorData = factorSensitivity.find((f: any) =>
         (f.factor_id || f.factorId || f.node_id || f.nodeId) === nodeId
       )
@@ -100,6 +122,12 @@ export function useNodeDisplayMetadata(
       if (factorData) {
         // Factor found in sensitivity analysis
         inSensitivityAnalysis = true
+
+        // VoI: value_of_information is a direct 0-1 score
+        const rawVoi = (factorData.value_of_information ?? factorData.valueOfInformation) as number | undefined
+        if (typeof rawVoi === 'number' && rawVoi >= 0 && rawVoi <= 1) {
+          valueOfInformation = rawVoi
+        }
 
         // Influence: Use influence_score if available, otherwise normalize elasticity
         const rawInfluence = factorData.influence_score ??
@@ -168,6 +196,26 @@ export function useNodeDisplayMetadata(
       }
     }
 
+    // Task 3: Predicted outcome range for outcome nodes — from recommended option's distribution
+    let predictedOutcome: { mean: number | null; p10: number | null; p90: number | null } | null = null
+    if (nodeType === 'outcome') {
+      const recommendedOptionId = report.robustness?.recommended_option_id ??
+                                  report.robustness?.recommendedOptionId
+      if (recommendedOptionId) {
+        const optionProbabilities = report.option_probabilities ?? {}
+        const rec = optionProbabilities[recommendedOptionId] as any
+        const outcomeData = rec?.outcome
+        if (outcomeData) {
+          const mean = (rec.expected ?? outcomeData.mean ?? null) as number | null
+          const p10 = (outcomeData.p10 ?? null) as number | null
+          const p90 = (outcomeData.p90 ?? null) as number | null
+          if (mean !== null || p10 !== null || p90 !== null) {
+            predictedOutcome = { mean, p10, p90 }
+          }
+        }
+      }
+    }
+
     return {
       sensitivityRank,
       influence,
@@ -176,6 +224,9 @@ export function useNodeDisplayMetadata(
       achievementProbability,
       stabilityPercentage,
       winRate,
+      predictedOutcome,
+      valueOfInformation,
+      voiRank,
       isResultsMode: true,
     }
   }, [isResultsMode, report, nodeId, nodeType])
