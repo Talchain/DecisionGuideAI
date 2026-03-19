@@ -24,6 +24,7 @@ vi.mock('../../store', () => ({
     selector({
       highlightedNodes: new Set(),
       dimmedNodeIds: new Set(),
+      lens: { _dimmedNodeIds: new Set() },
       results: { status: 'idle' },
       goalThreshold: null,
       goalConstraints: [],

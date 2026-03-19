@@ -26,9 +26,18 @@ export function LayoutOptionsPanel() {
 
     // Capture actual canvas dimensions before layout so viewport-constrained
     // sizing uses real available space rather than the fallback constants.
-    if (typeof window !== 'undefined') {
+    // Read the React Flow container directly so measurement is accurate
+    // regardless of whether the right panel is open or collapsed.
+    const rfEl = document.querySelector('.react-flow') as HTMLElement | null
+    if (rfEl) {
+      const { width, height } = rfEl.getBoundingClientRect()
       setCanvasSize({
-        width: Math.max(600, window.innerWidth - 48 - 40),
+        width: Math.max(600, width),
+        height: Math.max(400, height),
+      })
+    } else if (typeof window !== 'undefined') {
+      setCanvasSize({
+        width: Math.max(600, window.innerWidth - 48),
         height: Math.max(400, window.innerHeight - 57 - 72),
       })
     }

@@ -32,6 +32,12 @@ vi.mock('../../store', () => ({
   useCanvasStore: vi.fn((selector) => selector(makeStoreState())),
 }))
 
+vi.mock('../../layoutStore', () => ({
+  useLayoutStore: vi.fn((selector: (s: { layoutNodeWidth: number | null }) => unknown) =>
+    selector({ layoutNodeWidth: null })
+  ),
+}))
+
 vi.mock('../../hooks/useNodeDisplayMetadata', () => ({
   useNodeDisplayMetadata: vi.fn(() => ({
     sensitivityRank: null,
@@ -55,6 +61,7 @@ vi.mock('../../../hooks/useISLValidation', () => ({
 
 import { useCanvasStore } from '../../store'
 import { useNodeDisplayMetadata } from '../../hooks/useNodeDisplayMetadata'
+import { useLayoutStore } from '../../layoutStore'
 
 const baseProps = {
   id: 'option-1',
@@ -89,6 +96,9 @@ describe('OptionNode', () => {
       winRate: null,
       isResultsMode: false,
     })
+    vi.mocked(useLayoutStore).mockImplementation((selector: (s: { layoutNodeWidth: number | null }) => unknown) =>
+      selector({ layoutNodeWidth: null }) as any
+    )
   })
 
   it('renders label', () => {
@@ -214,6 +224,32 @@ describe('OptionNode', () => {
 
   it('has displayName set', () => {
     expect(OptionNode.displayName).toBe('OptionNode')
+  })
+
+  // P1-4: layoutNodeWidth propagation — OptionNode must not override layoutNodeWidth
+  // with a hardcoded maxWidth prop, so the store-driven width governs BaseNode sizing.
+  it('P1-4: OptionNode respects layoutNodeWidth from store (no hardcoded 238px override)', () => {
+    vi.mocked(useLayoutStore).mockImplementation((selector: (s: { layoutNodeWidth: number | null }) => unknown) =>
+      selector({ layoutNodeWidth: 180 }) as any
+    )
+    const { container } = renderOption()
+    // BaseNode's root div carries the maxWidth style.
+    // When no explicit maxWidth prop is passed, it falls back to layoutNodeWidth (180).
+    const nodeEl = container.firstChild as HTMLElement
+    // The style may be on the first child (the BaseNode div), not the wrapper div.
+    // Walk the DOM to find the node div with a maxWidth style.
+    const findMaxWidth = (el: HTMLElement): string | null => {
+      if (el.style?.maxWidth) return el.style.maxWidth
+      for (const child of Array.from(el.children)) {
+        const found = findMaxWidth(child as HTMLElement)
+        if (found) return found
+      }
+      return null
+    }
+    const mw = findMaxWidth(nodeEl)
+    // Must be 180px (from store) — NOT 238px (the old hardcoded value)
+    expect(mw).toBe('180px')
+    expect(mw).not.toBe('238px')
   })
 
   // V2: Win probability number always uses text-option regardless of position
@@ -601,6 +637,9 @@ describe('OptionNode — QA Brief C-series', () => {
       sensitivityRank: null, influence: null, confidence: null, inSensitivityAnalysis: false,
       achievementProbability: null, stabilityPercentage: null, winRate: null, isResultsMode: false,
     })
+    vi.mocked(useLayoutStore).mockImplementation((selector: (s: { layoutNodeWidth: number | null }) => unknown) =>
+      selector({ layoutNodeWidth: null }) as any
+    )
   })
 
   // C2: Baseline option shows absolute value, no delta

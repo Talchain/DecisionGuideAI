@@ -99,33 +99,54 @@ export async function layoutGraph(
   // and visual margins. This matches the brief's 85% factor.
   const availableWidth = canvasSize.width * 0.85
 
-  // Solve for node width: all nodes in widest tier must fit with MIN_GAP spacing.
-  // nodeW * N + gap * (N-1) <= availableWidth  →  nodeW = (availableWidth - gap*(N-1)) / N
-  let nodeW = maxTierCount > 1
-    ? Math.floor((availableWidth - (maxTierCount - 1) * MIN_GAP) / maxTierCount)
-    : MAX_NODE_W
-  nodeW = Math.max(MIN_NODE_W, Math.min(MAX_NODE_W, nodeW))
+  // Solve for ELK box width (content + padding) and gap so the widest tier fits.
+  //
+  // ELK receives elkBoxW = nodeW + sizePaddingX per node.
+  // ELK places N nodes with gap spacing between them:
+  //   N * elkBoxW + (N-1) * gap <= availableWidth
+  //   elkBoxW = (availableWidth - (N-1) * MIN_GAP) / N
+  //
+  // We solve for elkBoxW directly so the actual ELK footprint matches the budget.
+  // nodeW (content width exposed to callers) = elkBoxW - sizePaddingX.
+  //
+  // When direction != DOWN the widest-tier constraint applies to the X axis for
+  // DOWN layouts only.  For other directions we skip the constraint and use
+  // the default spacing.  Multi-row splitting is also DOWN-only (see below).
+  const isDownLayout = direction === 'DOWN'
 
-  // Compute gap from solved nodeW (distribute remaining space evenly)
-  let gap = maxTierCount > 1
-    ? Math.floor((availableWidth - maxTierCount * nodeW) / (maxTierCount - 1))
-    : effectiveNodeSpacing
-  gap = Math.max(MIN_GAP, gap)
-
-  // When nodeW < MIN_NODE_W (too many nodes for the canvas), multi-row splitting
-  // is applied after ELK. Compute how many nodes fit per row.
+  let elkBoxW: number
+  let gap: number
   let nodesPerRow: number | null = null
-  if (maxTierCount > 1) {
-    const unclamped = Math.floor((availableWidth - (maxTierCount - 1) * MIN_GAP) / maxTierCount)
-    if (unclamped < MIN_NODE_W) {
-      nodesPerRow = Math.max(1, Math.floor((availableWidth + MIN_GAP) / (MIN_NODE_W + MIN_GAP)))
-      nodeW = MIN_NODE_W
+
+  if (isDownLayout && maxTierCount > 1) {
+    const unclampedElkBoxW = Math.floor((availableWidth - (maxTierCount - 1) * MIN_GAP) / maxTierCount)
+
+    if (unclampedElkBoxW >= MIN_NODE_W + sizePaddingX) {
+      // Normal case: all nodes fit in one row at the computed width
+      elkBoxW = Math.min(MAX_NODE_W + sizePaddingX, unclampedElkBoxW)
+      gap = maxTierCount > 1
+        ? Math.max(MIN_GAP, Math.floor((availableWidth - maxTierCount * elkBoxW) / (maxTierCount - 1)))
+        : effectiveNodeSpacing
+    } else {
+      // Too many nodes: clamp to MIN_NODE_W and use multi-row splitting
+      elkBoxW = MIN_NODE_W + sizePaddingX
+      nodesPerRow = Math.max(1, Math.floor((availableWidth + MIN_GAP) / (elkBoxW + MIN_GAP)))
       gap = nodesPerRow > 1
-        ? Math.floor((availableWidth - nodesPerRow * nodeW) / (nodesPerRow - 1))
-        : 0
-      gap = Math.max(MIN_GAP, gap)
+        ? Math.max(MIN_GAP, Math.floor((availableWidth - nodesPerRow * elkBoxW) / (nodesPerRow - 1)))
+        : MIN_GAP
     }
+  } else {
+    // Non-DOWN layout or single-node tier: use default sizing
+    elkBoxW = Math.min(MAX_NODE_W + sizePaddingX, Math.max(MIN_NODE_W + sizePaddingX,
+      maxTierCount > 1
+        ? Math.floor((availableWidth - (maxTierCount - 1) * MIN_GAP) / maxTierCount)
+        : MAX_NODE_W + sizePaddingX
+    ))
+    gap = effectiveNodeSpacing
   }
+
+  // Content width returned to callers (what the node renders at)
+  const nodeW = elkBoxW - sizePaddingX
 
   // ---------------------------------------------------------------------------
   // Step 3 — Run ELK with uniform node width
@@ -138,12 +159,13 @@ export async function layoutGraph(
       ? NODE_REGISTRY[fallbackType].defaultSize
       : { width: 220, height: 100 }
 
-    // Use computed nodeW for width so ELK spaces with the constrained width.
+    // Use computed elkBoxW for width so ELK uses the exact same footprint
+    // assumed in the constraint solve.
     // For height, keep the measured/default value.
     const rawHeight = measured?.height ?? node.height ?? defaultSize.height
     const height = Math.max(40, Math.round(rawHeight) + sizePaddingY)
 
-    return { width: nodeW + sizePaddingX, height }
+    return { width: elkBoxW, height }
   }
 
   // P1 Polish: Lazy-load ELK only when needed (code-splitting)
@@ -155,7 +177,9 @@ export async function layoutGraph(
     layoutOptions: {
       'elk.algorithm': 'layered',
       'elk.direction': direction,
-      'elk.spacing.nodeNode': String(Math.max(gap, effectiveNodeSpacing)),
+      // Use the solved gap directly (not max with effectiveNodeSpacing) so the
+      // constraint solve and ELK's actual spacing are consistent.
+      'elk.spacing.nodeNode': String(gap),
       'elk.layered.spacing.nodeNodeBetweenLayers': String(effectiveLayerSpacing),
       // Minimise edge crossings between layers
       'elk.layered.crossingMinimization.strategy': 'LAYER_SWEEP',

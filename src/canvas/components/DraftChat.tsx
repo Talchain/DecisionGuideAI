@@ -628,11 +628,20 @@ export function DraftChat() {
       })
     }
     // Pass actual canvas dimensions so layoutGraph can size nodes to fit.
-    // Fixed chrome: left sidebar 48px, right dock collapsed 40px, top bar 57px,
-    // canvas toolbar 72px. Subtract from window dimensions for available area.
-    if (typeof window !== 'undefined') {
+    // Read the React Flow container directly so the measurement is accurate
+    // regardless of whether the right panel is open or collapsed.
+    const rfEl = document.querySelector('.react-flow') as HTMLElement | null
+    if (rfEl) {
+      const { width, height } = rfEl.getBoundingClientRect()
       setCanvasSize({
-        width: Math.max(600, window.innerWidth - 48 - 40),
+        width: Math.max(600, width),
+        height: Math.max(400, height),
+      })
+    } else if (typeof window !== 'undefined') {
+      // Fallback: subtract known fixed chrome (left sidebar 48px, top bar 57px,
+      // canvas toolbar 72px). No right-panel deduction — panel width varies.
+      setCanvasSize({
+        width: Math.max(600, window.innerWidth - 48),
         height: Math.max(400, window.innerHeight - 57 - 72),
       })
     }

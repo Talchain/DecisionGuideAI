@@ -153,9 +153,9 @@ export const OptionNode = memo((props: NodeProps) => {
     <div
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
-      style={{ height: '100%', width: '100%', minWidth: '238px' }}
+      style={{ height: '100%', width: '100%' }}
     >
-      <BaseNode {...props} nodeType="option" icon={metadata.icon} maxWidth={238}>
+      <BaseNode {...props} nodeType="option" icon={metadata.icon}>
         {/* T7b: Win probability — only in results mode */}
         {displayMetadata.isResultsMode && displayMetadata.winRate !== null && (
           <div className="mt-2 mb-2">
