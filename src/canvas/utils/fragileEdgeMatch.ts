@@ -46,3 +46,28 @@ export function isEdgeFragile(
     return from === edgeSource && to === edgeTarget
   })
 }
+
+/**
+ * Return the switch_probability for a matching fragile edge, or null if not found.
+ * Used to display the numeric sensitivity detail (Task 7).
+ */
+export function getFragileEdgeSwitchProbability(
+  edgeId: string,
+  edgeSource: string,
+  edgeTarget: string,
+  fragileEdges: FragileEdgeCandidate[],
+): number | null {
+  for (const fe of fragileEdges) {
+    const switchProb = fe.switch_probability ?? fe.switchProbability ??
+                       fe.marginal_switch_probability ?? fe.marginalSwitchProbability
+    if (typeof switchProb !== 'number' || switchProb <= 0.3) continue
+
+    const feEdgeId = fe.edge_id ?? fe.edgeId
+    if (feEdgeId === edgeId) return switchProb
+
+    const from = fe.from_id ?? fe.fromId ?? fe.source
+    const to = fe.to_id ?? fe.toId ?? fe.target
+    if (from === edgeSource && to === edgeTarget) return switchProb
+  }
+  return null
+}

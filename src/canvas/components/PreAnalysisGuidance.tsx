@@ -13,7 +13,7 @@
  */
 
 import { useMemo, useCallback, useState, useRef, useEffect } from 'react'
-import { CheckCircle, AlertTriangle, Lightbulb, TrendingUp } from 'lucide-react'
+import { CheckCircle, AlertTriangle, Lightbulb, TrendingUp, Database } from 'lucide-react'
 import { useCanvasStore } from '../store'
 import { useCEECoaching } from '../hooks/useCEECoaching'
 import { useGraphReadiness } from '../hooks/useGraphReadiness'
@@ -123,6 +123,8 @@ export function PreAnalysisGuidance({ onBlockersChange }: PreAnalysisGuidancePro
   const nodes = useCanvasStore((s) => s.nodes)
   const edges = useCanvasStore((s) => s.edges)
   const applyAutoFixChanges = useCanvasStore((s) => s.applyAutoFixChanges)
+  const isResultsMode = results?.status === 'complete'
+  const selectNodeWithoutHistory = useCanvasStore((s) => s.selectNodeWithoutHistory)
 
   // Hover highlight state
   const [hoveredItemId, setHoveredItemId] = useState<string | null>(null)
@@ -475,6 +477,88 @@ export function PreAnalysisGuidance({ onBlockersChange }: PreAnalysisGuidancePro
     }
   }, [activeNudge, dismissNudge, graphHealth, results, runMeta, readiness, preRunValidation.blockers, preRunValidation.warnings])
 
+  // T2+T3: Cross-cutting gap summary — missing baselines, no success target, unconfirmed estimates
+  // Post-analysis: ranked by VoI score when available; pre-analysis: ranked by edge connectivity
+  const gapItems = useMemo(() => {
+    interface GapItem {
+      id: string
+      label: string
+      gapType: 'no-baseline' | 'no-target' | 'unconfirmed'
+      nodeId: string
+      edgeCount: number
+      voiScore: number | null
+      // T3: escalate to warning severity post-analysis for no-baseline
+      escalated: boolean
+    }
+    const items: GapItem[] = []
+
+    // Build VoI map from report sensitivity analysis (post-analysis only)
+    const voiMap = new Map<string, number>()
+    if (isResultsMode && results?.report) {
+      const sensitivityFactors: Array<Record<string, unknown>> =
+        (results.report as any)?.enrichment?.sensitivity_analysis?.factors ??
+        (results.report as any)?.factor_sensitivity ?? []
+      for (const f of sensitivityFactors) {
+        const nodeId = (f.factor_id ?? f.factorId ?? f.node_id ?? f.nodeId) as string | undefined
+        const voi = (f.value_of_information ?? f.valueOfInformation) as number | undefined
+        if (nodeId && typeof voi === 'number') voiMap.set(nodeId, voi)
+      }
+    }
+
+    for (const node of nodes) {
+      const nodeType = node.type || (node.data as Record<string, unknown>)?.kind
+      const label = String((node.data as Record<string, unknown>)?.label ?? node.id)
+      const edgeCount = edges.filter(e => e.source === node.id || e.target === node.id).length
+      const observedState = (node.data as Record<string, unknown>)?.observedState as Record<string, unknown> | undefined
+      const voiScore = voiMap.get(node.id) ?? null
+
+      if (nodeType === 'factor') {
+        const category = (node.data as Record<string, unknown>)?.category as string | undefined
+        // External factors use prior range, not baseline — skip
+        if (category === 'external') continue
+        const hasValue = observedState?.value !== undefined && observedState.value !== null
+        const hasRawValue = observedState?.raw_value !== undefined && observedState.raw_value !== null
+        if (!hasValue && !hasRawValue) {
+          items.push({
+            id: `gap-no-baseline-${node.id}`, label, gapType: 'no-baseline',
+            nodeId: node.id, edgeCount, voiScore,
+            // T3: escalate missing baseline post-analysis
+            escalated: isResultsMode,
+          })
+        } else {
+          const src = observedState?.source as string | undefined
+          // Include inferred, CEE-inferred, and engine-generated as unconfirmed
+          if (src === 'inferred' || src === 'cee_inference' || src === 'engine') {
+            items.push({
+              id: `gap-unconfirmed-${node.id}`, label, gapType: 'unconfirmed',
+              nodeId: node.id, edgeCount, voiScore, escalated: false,
+            })
+          }
+        }
+      } else if (nodeType === 'goal') {
+        const thresholdRaw = (node.data as Record<string, unknown>)?.goal_threshold_raw
+        const hasTarget = thresholdRaw !== null && thresholdRaw !== undefined && String(thresholdRaw).trim() !== ''
+        if (!hasTarget) {
+          items.push({
+            id: `gap-no-target-${node.id}`, label, gapType: 'no-target',
+            nodeId: node.id, edgeCount, voiScore: null, escalated: false,
+          })
+        }
+      }
+    }
+
+    // Sort: escalated first, then by type order, then by VoI (post) or edgeCount (pre)
+    const typeOrder = { 'no-target': 0, 'no-baseline': 1, 'unconfirmed': 2 }
+    return items.sort((a, b) => {
+      if (a.escalated !== b.escalated) return a.escalated ? -1 : 1
+      const typeDiff = typeOrder[a.gapType] - typeOrder[b.gapType]
+      if (typeDiff !== 0) return typeDiff
+      // VoI-based ranking when available, edge count otherwise
+      if (a.voiScore !== null && b.voiScore !== null) return b.voiScore - a.voiScore
+      return b.edgeCount - a.edgeCount
+    })
+  }, [nodes, edges, isResultsMode, results?.report])
+
   // Notify parent about blocker state (moved from useMemo to useEffect)
   useEffect(() => {
     onBlockersChange?.(blockers.length > 0)
@@ -482,8 +566,8 @@ export function PreAnalysisGuidance({ onBlockersChange }: PreAnalysisGuidancePro
 
   const totalCount = blockers.length + improvements.length + coaching.length
 
-  // Empty state - no validation issues
-  if (totalCount === 0) {
+  // Empty state — no validation issues AND no data gaps
+  if (totalCount === 0 && gapItems.length === 0) {
     // Different messaging for empty canvas vs populated canvas
     const hasNodes = nodes.length > 0
     return (
@@ -503,6 +587,55 @@ export function PreAnalysisGuidance({ onBlockersChange }: PreAnalysisGuidancePro
 
   return (
     <div className="space-y-4" data-testid="pre-analysis-guidance">
+      {/* T2+T3: Data gaps section — missing baselines, targets, unconfirmed estimates */}
+      {gapItems.length > 0 && (
+        <section aria-labelledby="gaps-heading">
+          <div className="flex items-center gap-2 mb-3">
+            <Database className="h-4 w-4 text-text-light" aria-hidden="true" />
+            <h3 id="gaps-heading" className={`${typography.label} text-text-body`}>
+              Data gaps
+              <span className="ml-2 text-text-light">({gapItems.length})</span>
+            </h3>
+          </div>
+          <div className="space-y-2">
+            {gapItems.map((gap) => (
+              <button
+                key={gap.id}
+                type="button"
+                className={`w-full text-left flex items-start gap-2 px-2.5 py-1.5 bg-panel border rounded-lg hover:border-warning/40 transition-colors ${
+                  gap.escalated ? 'border-warning/30' : 'border-panel-border'
+                }`}
+                onClick={() => {
+                  selectNodeWithoutHistory(gap.nodeId)
+                  setHighlightedNodes([gap.nodeId])
+                  focusNodeById(gap.nodeId)
+                  setTimeout(() => setHighlightedNodes([]), 3000)
+                }}
+              >
+                {gap.escalated && (
+                  <AlertTriangle className="h-3.5 w-3.5 text-warning mt-0.5 shrink-0" aria-hidden="true" />
+                )}
+                <div className="flex-1 min-w-0">
+                  <span className={`${typography.panelBody} font-medium text-text-body block truncate`}>
+                    {gap.label}
+                  </span>
+                  <span className={`${typography.panelMeta} block ${
+                    // T3: escalate "no-baseline" to warning colour post-analysis
+                    gap.gapType === 'no-baseline' && isResultsMode
+                      ? 'text-warning'
+                      : 'text-text-light'
+                  }`}>
+                    {gap.gapType === 'no-baseline' && 'No baseline set'}
+                    {gap.gapType === 'no-target' && 'No success target'}
+                    {gap.gapType === 'unconfirmed' && 'Estimated — verify or update'}
+                  </span>
+                </div>
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
+
       {/* Critical Issues Section */}
       {blockers.length > 0 && (
         <section aria-labelledby="blockers-heading">

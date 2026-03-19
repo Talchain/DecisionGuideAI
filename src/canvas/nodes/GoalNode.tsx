@@ -9,6 +9,7 @@ import { formatTargetValue } from '../../components/results/utils/formatTargetVa
 import { DataBar, type DataBarColour } from '../ui/shared/DataBar'
 import { getProvenanceLabel } from '../ui/inspector-v2/inspectorStrings'
 import { isCurrencyUnit } from '../utils/labelUtils'
+import type { CEEGoalConstraint } from '../../adapters/cee/types'
 
 export const GoalNode = memo((props: NodeProps) => {
   const metadata = NODE_REGISTRY.goal
@@ -45,6 +46,15 @@ export const GoalNode = memo((props: NodeProps) => {
 
   // Prefer report-level stability over displayMetadata fallback
   const stabilityValue = robustnessData?.stability ?? displayMetadata.stabilityPercentage
+
+  // T5: Constraint badges — pre-analysis from goalConstraints store, post-analysis from report
+  const preAnalysisConstraints = useCanvasStore(state => state.goalConstraints)
+  const postAnalysisConstraints = useCanvasStore(state =>
+    (state.results?.report as any)?.goal_constraints as Array<CEEGoalConstraint & { probability?: number }> | null | undefined
+  )
+  // Prefer post-analysis (has probability) over pre-analysis (preview only)
+  const activeConstraints: Array<CEEGoalConstraint & { probability?: number }> | null =
+    resultsStatus === 'complete' ? (postAnalysisConstraints ?? preAnalysisConstraints) : preAnalysisConstraints
 
   // P0.3: Provenance pill — show when goal node has a meaningful source attribution
   const provenanceLabel = useMemo(() => {
@@ -124,6 +134,31 @@ export const GoalNode = memo((props: NodeProps) => {
       ) : resultsStatus !== 'complete' && (
         <div className={`${typography.nodeLabel} italic text-text-light mt-1`}>
           Set a success target to enable probability calculations
+        </div>
+      )}
+
+      {/* T5: Constraint badges — pre-analysis preview + post-analysis probability */}
+      {activeConstraints && activeConstraints.length > 0 && (
+        <div className="mt-1.5 flex flex-col gap-0.5">
+          {activeConstraints.map((c, i) => {
+            const prob = typeof c.probability === 'number' ? c.probability : null
+            // Post-analysis colour: ≥0.7 success, ≥0.4 warning, else danger
+            const colourClass = prob === null
+              ? 'border-info/30 text-text-body'
+              : prob >= 0.7 ? 'border-success/40 text-success'
+              : prob >= 0.4 ? 'border-warning/40 text-warning'
+              : 'border-danger/40 text-danger'
+            return (
+              <div key={c.id ?? i} className={`flex items-center justify-between gap-1 px-1.5 py-0.5 bg-panel border rounded-full ${colourClass}`}>
+                <span className={`${typography.nodeLabel} truncate`} title={c.label}>
+                  {c.operator} {c.label}
+                </span>
+                {prob !== null && (
+                  <span className={`${typography.nodeLabel} font-mono shrink-0`}>{Math.round(prob * 100)}%</span>
+                )}
+              </div>
+            )
+          })}
         </div>
       )}
 

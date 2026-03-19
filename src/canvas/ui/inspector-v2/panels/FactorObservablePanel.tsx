@@ -22,6 +22,7 @@ import { CoachingCard } from '../shared/CoachingCard'
 import { StaleGuardBanner } from '../shared/StaleGuardBanner'
 import { TechnicalDisclosure } from '../shared/TechnicalDisclosure'
 import type { InspectorPanelProps } from '../types'
+import { COACHING } from '../coachingConfig'
 
 export const FactorObservablePanel = memo(function FactorObservablePanel({
   nodeId,
@@ -137,7 +138,7 @@ export const FactorObservablePanel = memo(function FactorObservablePanel({
 
       {/* Coaching */}
       <CoachingCard
-        text="If you have more recent data for this measurement, updating it would sharpen the analysis."
+        text={COACHING.factorObservableData}
         action={{ label: 'Ask about this', onClick: () => {} }}
       />
 

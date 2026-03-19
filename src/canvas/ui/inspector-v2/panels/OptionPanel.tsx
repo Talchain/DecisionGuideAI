@@ -22,6 +22,7 @@ import { StaleGuardBanner } from '../shared/StaleGuardBanner'
 import { TechnicalDisclosure } from '../shared/TechnicalDisclosure'
 import { ProbabilityArc } from '../shared/ProbabilityArc'
 import type { InspectorPanelProps } from '../types'
+import { COACHING } from '../coachingConfig'
 
 export const OptionPanel = memo(function OptionPanel({
   nodeId,
@@ -186,7 +187,7 @@ export const OptionPanel = memo(function OptionPanel({
       {/* Coaching */}
       {interventions.length > 0 && (
         <CoachingCard
-          text="Consider whether this option changes enough factors to differentiate from alternatives."
+          text={COACHING.optionCoverage}
           action={{ label: 'Ask about this', onClick: () => {} }}
         />
       )}

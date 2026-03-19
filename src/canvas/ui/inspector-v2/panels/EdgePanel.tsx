@@ -29,6 +29,8 @@ import type { InspectorPanelProps } from '../types'
 import { isCausalClaimsEnabled } from '../../../../flags'
 import { extractCausalClaims, claimTypeLabel } from '../../../adapters/causalClaimsAdapter'
 import { trackGuidance } from '../../../../telemetry/guidanceEvents'
+import { getFragileEdgeSwitchProbability } from '../../../utils/fragileEdgeMatch'
+import { COACHING } from '../coachingConfig'
 
 // ─── Slider component for confidence and uncertainty ───────────────
 function InspectorSlider({
@@ -164,6 +166,17 @@ export const EdgePanel = memo(function EdgePanel({
       return fromId === edge?.source && toId === edge?.target
     })
   }, [robustness, edgeId, edge?.source, edge?.target])
+
+  // T7: Switch probability for fragile edge detail
+  const fragileEdgeSwitchProb = useMemo(() => {
+    if (!isFragile || !robustness?.fragile_edges) return null
+    return getFragileEdgeSwitchProbability(
+      edgeId ?? '',
+      edge?.source ?? '',
+      edge?.target ?? '',
+      robustness.fragile_edges as unknown[],
+    )
+  }, [isFragile, robustness, edgeId, edge?.source, edge?.target])
 
   // Provenance
   const provenance = edge?.data?.provenance as string | undefined
@@ -333,10 +346,16 @@ export const EdgePanel = memo(function EdgePanel({
                   <div className={`${typography.panelBody} font-medium text-danger flex items-center gap-1`}>
                     <AlertTriangle size={13} className="text-danger" />
                     Fragile connection
+                    {/* T7: Switch probability */}
+                    {fragileEdgeSwitchProb !== null && (
+                      <span className={`${typography.panelMeta} ml-1 text-warning font-mono`}>
+                        {Math.round(fragileEdgeSwitchProb * 100)}% flip risk
+                      </span>
+                    )}
                   </div>
                   <p className={`${typography.panelMeta} text-text-light mt-1`}>
                     {techMode
-                      ? 'If strength changes significantly, the recommendation may flip.'
+                      ? `If strength changes significantly, the recommendation may flip.${fragileEdgeSwitchProb !== null ? ` switch_probability: ${fragileEdgeSwitchProb.toFixed(2)}` : ''}`
                       : 'Small changes here could change the recommendation. If this effect weakens significantly, the alternative option may overtake the current leader.'}
                   </p>
                 </div>
@@ -346,7 +365,7 @@ export const EdgePanel = memo(function EdgePanel({
 
           {/* Coaching */}
           <CoachingCard
-            text="This value was generated automatically. Even a rough calibration \u2014 is the effect strong, moderate, or weak? \u2014 would improve the analysis."
+            text={COACHING.edgeWeight}
             action={{ label: 'Ask about this', onClick: () => {} }}
           />
         </>

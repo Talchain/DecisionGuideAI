@@ -20,6 +20,7 @@ import { CoachingCard } from '../shared/CoachingCard'
 import { StaleGuardBanner } from '../shared/StaleGuardBanner'
 import { TechnicalDisclosure } from '../shared/TechnicalDisclosure'
 import type { InspectorPanelProps } from '../types'
+import { COACHING } from '../coachingConfig'
 
 // Quick-set presets
 const QUICK_SET = {
@@ -237,7 +238,7 @@ export const FactorExternalPanel = memo(function FactorExternalPanel({
 
       {/* Coaching */}
       <CoachingCard
-        text="This is a source of uncertainty. Even a rough estimate would significantly sharpen the analysis."
+        text={COACHING.factorExternalUncertainty}
         action={{ label: 'Narrow the range', onClick: () => {} }}
       />
 

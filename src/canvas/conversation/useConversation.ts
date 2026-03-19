@@ -46,7 +46,7 @@ import { MAX_CHIPS_PER_TURN, MAX_SUGGESTED_ACTIONS } from './types'
 import { applyAutoApplyPatch, synthesiseCeeAnalysisReady } from './utils/applyPatch'
 import { validateAnalysisReadyContract } from './validateAnalysisReadyContract'
 import { validateResponse } from './validateResponse'
-import type { CEEAnalysisReady } from '../../adapters/cee/types'
+import type { CEEAnalysisReady, CEEGoalConstraint } from '../../adapters/cee/types'
 import {
   beginInteractionChain,
   bindRequestToInteraction,
@@ -624,6 +624,9 @@ export function adaptCEEBlock(raw: unknown): ConversationBlock {
           actions: Array.isArray(actions) ? actions as any : undefined,
           block_id: typeof block_id === 'string' ? block_id : undefined,
           analysis_ready: normaliseAnalysisReady(dataObj.analysis_ready),
+          goal_constraints: Array.isArray(dataObj.goal_constraints) && dataObj.goal_constraints.length > 0
+            ? dataObj.goal_constraints as CEEGoalConstraint[]
+            : undefined,
           related_elements: normaliseRelatedElements(dataObj.related_elements),
           proposal_items: proposalItems,
           ...(proposalItems.length > 0 ? { proposal_items_source: 'backend' as const } : {}),
@@ -1026,6 +1029,9 @@ export function useConversation(): UseConversationReturn {
                 interventions: opt.interventions,
               })),
               goal_node_id: ceeReady.goal_node_id,
+              ...(store.goalConstraints && store.goalConstraints.length > 0
+                ? { constraints: store.goalConstraints }
+                : {}),
             }
           : undefined
 
@@ -1439,6 +1445,7 @@ export function useConversation(): UseConversationReturn {
       // setState, ELK layout, and post-apply invalidation.
       const autoApplyModifiedIds: string[] = []
       let ceeProvidedAnalysisReady: CEEAnalysisReady | undefined
+      let ceeProvidedGoalConstraints: CEEGoalConstraint[] | undefined
 
       for (const block of normalisedBlocks) {
         if (block.type === 'graph_patch' && (block as GraphPatchBlock).auto_apply === true) {
@@ -1452,10 +1459,11 @@ export function useConversation(): UseConversationReturn {
             const patchResult = applyAutoApplyPatch(patchBlock)
             autoApplyModifiedIds.push(...patchResult.modifiedIds)
 
-            // Track analysis_ready from the last applied block.
-            // Reset on each block so only the final block's analysis_ready
-            // (or synthesis fallback) matches the post-mutation graph state.
+            // Track analysis_ready and goal_constraints from the last applied block.
+            // Reset on each block so only the final block's values match the
+            // post-mutation graph state.
             ceeProvidedAnalysisReady = patchBlock.analysis_ready
+            ceeProvidedGoalConstraints = patchBlock.goal_constraints
 
             // Task 2: Signal full_draft to DraftChat for auto-collapse.
             // A "full draft" is a patch that adds ≥3 nodes — distinguishes initial
@@ -1494,6 +1502,13 @@ export function useConversation(): UseConversationReturn {
       // FALLBACK: Edge synthesis used only when CEE block lacks analysis_ready.
       // Remove fallback once all CEE paths guaranteed to include it.
       if (autoApplyModifiedIds.length > 0) {
+        // Store goal_constraints from the auto-applied patch block.
+        // Mirrors the DraftChat path: clear stale constraints when CEE omits them.
+        useCanvasStore.getState().setGoalConstraints(ceeProvidedGoalConstraints ?? null)
+        if (import.meta.env.DEV) {
+          console.warn('[handleEnvelope] goal_constraints:', ceeProvidedGoalConstraints?.length ?? 0)
+        }
+
         if (ceeProvidedAnalysisReady) {
           useCanvasStore.getState().setCeeAnalysisReady(ceeProvidedAnalysisReady)
           if (import.meta.env.DEV) {

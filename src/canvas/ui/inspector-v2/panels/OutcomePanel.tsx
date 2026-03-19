@@ -17,6 +17,7 @@ import { CoachingCard } from '../shared/CoachingCard'
 import { StaleGuardBanner } from '../shared/StaleGuardBanner'
 import { TechnicalDisclosure } from '../shared/TechnicalDisclosure'
 import type { InspectorPanelProps } from '../types'
+import { COACHING } from '../coachingConfig'
 
 export const OutcomePanel = memo(function OutcomePanel({
   nodeId,
@@ -132,7 +133,7 @@ export const OutcomePanel = memo(function OutcomePanel({
       )}
 
       <CoachingCard
-        text="Consider whether all the relevant factors driving this outcome are captured in the model."
+        text={COACHING.outcomeCompleteness}
         action={{ label: 'Ask about this', onClick: () => {} }}
       />
 

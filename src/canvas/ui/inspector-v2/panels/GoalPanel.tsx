@@ -21,7 +21,10 @@ import { StaleGuardBanner } from '../shared/StaleGuardBanner'
 import { TechnicalDisclosure } from '../shared/TechnicalDisclosure'
 import { ConnectionRow } from '../shared/ConnectionRow'
 import { ProbabilityArc } from '../shared/ProbabilityArc'
+import { DataBar } from '../../shared/DataBar'
 import type { InspectorPanelProps } from '../types'
+import type { CEEGoalConstraint } from '../../../../adapters/cee/types'
+import { COACHING } from '../coachingConfig'
 
 export const GoalPanel = memo(function GoalPanel({
   nodeId,
@@ -36,7 +39,12 @@ export const GoalPanel = memo(function GoalPanel({
   const goalThreshold = useCanvasStore(s => s.goalThreshold)
   const probGoal = useCanvasStore(s => s.results?.report?.probability_of_goal)
   const probJoint = useCanvasStore(s => s.results?.report?.probability_of_joint_goal)
-  const goalConstraints = useCanvasStore(s => s.results?.report?.goal_constraints)
+  const postAnalysisConstraints = useCanvasStore(s => (s.results?.report as any)?.goal_constraints as Array<CEEGoalConstraint & { probability?: number }> | null | undefined)
+  const preAnalysisConstraints = useCanvasStore(s => s.goalConstraints)
+  const setGoalConstraints = useCanvasStore(s => s.setGoalConstraints)
+  // Prefer post-analysis (has probability scores) over pre-analysis preview
+  const goalConstraints: Array<CEEGoalConstraint & { probability?: number }> | null =
+    isResultsMode ? (postAnalysisConstraints ?? preAnalysisConstraints) : preAnalysisConstraints
 
   const node = nodeId ? nodes.find(n => n.id === nodeId) : undefined
   const mutations = useNodeMutations(nodeId ?? '')
@@ -96,23 +104,69 @@ export const GoalPanel = memo(function GoalPanel({
       ) : (
         <div className="mt-1">
           <GoalThresholdEditor unit={thresholdUnit} />
-          <CoachingCard text="Adding a specific target unlocks probability calculations" action={{ label: 'Add target', onClick: () => {} }} />
+          <CoachingCard text={COACHING.goalNoTarget} action={{ label: 'Add target', onClick: () => {} }} />
         </div>
       )}
 
-      {/* §4.3 Constraints summary (if available) */}
+      {/* §4.3 Constraints — pre-analysis preview or post-analysis with probability DataBars */}
       {goalConstraints && Array.isArray(goalConstraints) && goalConstraints.length > 0 && (
-        <div className="mt-2">
-          {(goalConstraints as Array<{ label?: string; threshold?: number; probability?: number }>).map((c, i) => (
-            <div key={i} className="flex items-center justify-between px-2.5 py-1.5 bg-panel border border-success/30 rounded-lg mb-1">
-              <span className={`${typography.panelBody} text-text-body`}>{c.label ?? `Constraint ${i + 1}`}</span>
-              {c.probability != null && (
-                <span className={`${typography.panelMeta} text-text-light`}>{Math.round(c.probability * 100)}% met</span>
-              )}
-            </div>
-          ))}
+        <div className="mt-2 space-y-1.5">
+          {!isResultsMode && (
+            <p className={`${typography.panelMeta} text-text-light mb-1`}>
+              {goalConstraints.length} constraint{goalConstraints.length !== 1 ? 's' : ''} extracted from your brief
+            </p>
+          )}
+          {goalConstraints.map((c, i) => {
+            const prob = typeof c.probability === 'number' ? c.probability : null
+            const colourClass = prob === null
+              ? 'border-info/30'
+              : prob >= 0.7 ? 'border-success/30' : prob >= 0.4 ? 'border-warning/30' : 'border-danger/30'
+            return (
+              <div key={c.id ?? i} className={`px-2.5 py-1.5 bg-panel border ${colourClass} rounded-lg`}>
+                <div className="flex items-center justify-between gap-2">
+                  <span className={`${typography.panelBody} text-text-body truncate`}>{c.label ?? `Constraint ${i + 1}`}</span>
+                  {prob !== null && (
+                    <span className={`${typography.panelMeta} shrink-0 ${
+                      prob >= 0.7 ? 'text-success' : prob >= 0.4 ? 'text-warning' : 'text-danger'
+                    }`}>{Math.round(prob * 100)}%</span>
+                  )}
+                </div>
+                {prob !== null && (
+                  <div className="mt-1">
+                    <DataBar
+                      value={prob}
+                      label={c.label ?? `Constraint ${i + 1}`}
+                      size="standard"
+                    />
+                  </div>
+                )}
+                {prob === null && (
+                  <div className="flex items-center gap-1.5 mt-0.5">
+                    <span className={`${typography.panelMeta} text-text-light shrink-0`}>{c.operator}</span>
+                    <input
+                      type="number"
+                      defaultValue={c.value}
+                      onBlur={e => {
+                        const parsed = parseFloat(e.target.value)
+                        if (Number.isNaN(parsed) || parsed === c.value) return
+                        const base = preAnalysisConstraints ?? []
+                        const updated = base.map((pc, idx) =>
+                          // Match by id when available, fall back to index position
+                          (c.id !== undefined ? pc.id === c.id : idx === i)
+                            ? { ...pc, value: parsed }
+                            : pc
+                        )
+                        setGoalConstraints(updated)
+                      }}
+                      className={`${typography.panelMeta} w-20 border border-panel-border rounded px-1.5 py-0.5 bg-panel text-text-body`}
+                    />
+                  </div>
+                )}
+              </div>
+            )
+          })}
           {typeof probJoint === 'number' && (
-            <p className={`${typography.panelBody} text-text-body mt-2`}>
+            <p className={`${typography.panelBody} text-text-body mt-1`}>
               Chance of hitting every target: <strong>{Math.round(probJoint * 100)}%</strong>
             </p>
           )}
@@ -169,7 +223,7 @@ export const GoalPanel = memo(function GoalPanel({
 
       {/* Coaching */}
       <CoachingCard
-        text="Consider whether all relevant outcomes and risks are connected to your goal."
+        text={COACHING.goalConnections}
         action={{ label: 'Ask about this', onClick: () => {} }}
       />
 

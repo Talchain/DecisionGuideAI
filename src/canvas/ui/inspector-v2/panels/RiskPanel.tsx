@@ -18,6 +18,7 @@ import { CoachingCard } from '../shared/CoachingCard'
 import { StaleGuardBanner } from '../shared/StaleGuardBanner'
 import { TechnicalDisclosure } from '../shared/TechnicalDisclosure'
 import type { InspectorPanelProps } from '../types'
+import { COACHING } from '../coachingConfig'
 
 export const RiskPanel = memo(function RiskPanel({
   nodeId,
@@ -118,7 +119,7 @@ export const RiskPanel = memo(function RiskPanel({
       )}
 
       <CoachingCard
-        text="Consider which factors you control that most affect this risk, and whether options address them."
+        text={COACHING.riskControlLevers}
         action={{ label: 'Explore trade-off', onClick: () => {} }}
       />
 

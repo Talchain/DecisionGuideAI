@@ -26,6 +26,7 @@ import { CoachingCard } from '../shared/CoachingCard'
 import { StaleGuardBanner } from '../shared/StaleGuardBanner'
 import { TechnicalDisclosure } from '../shared/TechnicalDisclosure'
 import type { InspectorPanelProps } from '../types'
+import { COACHING } from '../coachingConfig'
 
 export const FactorControllablePanel = memo(function FactorControllablePanel({
   nodeId,
@@ -225,7 +226,7 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
 
       {/* Coaching */}
       <CoachingCard
-        text="This factor's evidence quality could be improved. Consider anchoring with an industry benchmark."
+        text={COACHING.factorControllableEvidence}
         action={{ label: 'Ask about this', onClick: () => {} }}
       />
 

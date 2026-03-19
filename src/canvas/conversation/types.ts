@@ -6,7 +6,7 @@
  */
 
 import type { ScenarioStage } from '../../types/scenario'
-import type { CEEAnalysisReady, CEEInterventionV3 } from '../../adapters/cee/types'
+import type { CEEAnalysisReady, CEEGoalConstraint, CEEInterventionV3 } from '../../adapters/cee/types'
 
 // ---------------------------------------------------------------------------
 // § 1 — Conversation messages
@@ -183,6 +183,11 @@ export interface GraphPatchBlock {
    * edge-based synthesis fallback.
    */
   analysis_ready?: CEEAnalysisReady
+  /**
+   * Goal constraints from CEE response root, forwarded via graph_patch block.
+   * Passed to PLoT /v2/run for multi-constraint analysis.
+   */
+  goal_constraints?: CEEGoalConstraint[]
   related_elements?: RelatedElementRef[]
   proposal_items?: ProposalReviewItem[]
   proposal_items_source?: 'backend' | 'derived_ops'

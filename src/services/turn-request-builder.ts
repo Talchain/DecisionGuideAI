@@ -47,6 +47,7 @@ export type SelectedElementsPayload = {
 export type AnalysisInputsPayload = {
   options: AnalysisInputOption[]
   goal_node_id: string
+  constraints?: import('../adapters/cee/types').CEEGoalConstraint[]
 }
 
 export type ExplainAnalysisStatePayload = {

@@ -15,7 +15,7 @@
  * - negative: Red stroke (increase → decrease)
  */
 
-import { memo, useMemo, useState } from 'react'
+import { memo, useMemo, useState, useRef, useEffect } from 'react'
 import { BaseEdge, EdgeLabelRenderer, getBezierPath, getSmoothStepPath, getStraightPath, type EdgeProps, useReactFlow } from '@xyflow/react'
 import { Lightbulb, AlertTriangle, Flag } from 'lucide-react'
 import type { EdgeData, EdgePathType } from '../domain/edges'
@@ -27,9 +27,10 @@ import { useEdgeLabelMode } from '../store/edgeLabelMode'
 import { EdgeEditPopover } from './EdgeEditPopover'
 import { useCanvasStore } from '../store'
 import { isGraphLensEnabled } from '../../flags'
-import { isEdgeFragile as isEdgeFragileFn } from '../utils/fragileEdgeMatch'
+import { isEdgeFragile as isEdgeFragileFn, getFragileEdgeSwitchProbability } from '../utils/fragileEdgeMatch'
 import { existenceCertaintyToLineStyle, calculateEdgeImportance, importanceToStrokeWidth, weightMagnitudeToStrokeWidth } from '../utils/graphDisplayCalculations'
 import { typography } from '../../styles/typography'
+import { getStrengthDescription, getProvenanceLabel } from '../ui/inspector-v2/inspectorStrings'
 import { useEdgeEditHint } from '../hooks/useFirstTimeHints'
 import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion'
 
@@ -59,6 +60,12 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
 
   // C1: Hover state for edge label visibility
   const [isHovered, setIsHovered] = useState(false)
+  // T1: Hover popover — delayed 300ms to avoid flicker on pass-through mouse movements
+  const [showHoverPopover, setShowHoverPopover] = useState(false)
+  const hoverPopoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(() => () => {
+    if (hoverPopoverTimerRef.current) clearTimeout(hoverPopoverTimerRef.current)
+  }, [])
   const updateEdgeData = useCanvasStore(state => state.updateEdgeData)
   const ceeReview = useCanvasStore(state => state.runMeta.ceeReview)
 
@@ -117,6 +124,13 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
     const fragileEdges = report.robustness.fragile_edges || []
     return isEdgeFragileFn(id, source, target, fragileEdges)
   }, [isResultsMode, report, id, source, target])
+
+  // T7: Switch probability for fragile edge badge tooltip + hover popover
+  const fragileEdgeSwitchProb = useMemo(() => {
+    if (!isFragileEdge || !report?.robustness) return null
+    const fragileEdges = report.robustness.fragile_edges || []
+    return getFragileEdgeSwitchProbability(id, source, target, fragileEdges)
+  }, [isFragileEdge, report, id, source, target])
 
   // Extract edge data with defaults
   const edgeData = data as EdgeData | undefined
@@ -313,9 +327,19 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
     updateEdgeData(edgeId, updatedData)
   }
 
-  // C1: Handle hover for edge label visibility
-  const handleMouseEnter = () => setIsHovered(true)
-  const handleMouseLeave = () => setIsHovered(false)
+  // C1: Handle hover for edge label visibility + T1: delayed hover popover
+  const handleMouseEnter = () => {
+    setIsHovered(true)
+    hoverPopoverTimerRef.current = setTimeout(() => setShowHoverPopover(true), 300)
+  }
+  const handleMouseLeave = () => {
+    setIsHovered(false)
+    setShowHoverPopover(false)
+    if (hoverPopoverTimerRef.current) {
+      clearTimeout(hoverPopoverTimerRef.current)
+      hoverPopoverTimerRef.current = null
+    }
+  }
 
   // C1: Only show label when selected, hovered, has suggestion, or is first edge with hint
   const showLabel = selected || isHovered || hasSuggestion || (isFirstEdge && showEdgeHint)
@@ -410,11 +434,13 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
               borderRadius: '4px',
             }}
             className="bg-panel text-text-body border border-warning/30 shadow-sm"
-            title="Sensitive assumption - outcome may flip if this relationship changes"
+            title={fragileEdgeSwitchProb !== null
+              ? `Sensitive assumption — ${Math.round(fragileEdgeSwitchProb * 100)}% chance the recommendation flips if this relationship changes`
+              : 'Sensitive assumption — outcome may flip if this relationship changes'}
           >
             <AlertTriangle size={12} />
             <span style={{ fontSize: '10px', fontWeight: 600 }}>
-              Fragile
+              Fragile{fragileEdgeSwitchProb !== null ? ` · ${Math.round(fragileEdgeSwitchProb * 100)}%` : ''}
             </span>
           </div>
         </EdgeLabelRenderer>
@@ -538,6 +564,73 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
           </div>
         </EdgeLabelRenderer>
       )}
+
+      {/* T1: Edge hover popover — all edge types, 300ms delay */}
+      {showHoverPopover && !selected && (() => {
+        const sourceKind = sourceNode?.type || (sourceNode?.data as Record<string,unknown>)?.kind
+        const targetKind = targetNode?.type || (targetNode?.data as Record<string,unknown>)?.kind
+        const isOrganisationalEdge = sourceKind === 'decision' && targetKind === 'option'
+        const isInterventionEdge = sourceKind === 'option' && targetKind === 'factor'
+        const popoverStyle: React.CSSProperties = {
+          position: 'absolute',
+          transform: `translate(-50%, calc(-100% - 8px)) translate(${labelX}px,${labelY}px)`,
+          pointerEvents: 'none',
+          zIndex: 100,
+          minWidth: '140px',
+          maxWidth: '200px',
+        }
+        // Simplified popover for structural/intervention edges
+        if (isOrganisationalEdge || isInterventionEdge) {
+          return (
+            <EdgeLabelRenderer>
+              <div
+                data-testid="edge-hover-popover"
+                style={popoverStyle}
+                className="bg-panel border border-panel-border rounded-lg shadow-panel px-2.5 py-2"
+              >
+                <div className={`${typography.panelMeta} text-text-light`}>
+                  {isOrganisationalEdge ? 'Structural link — not analysed' : 'Intervention link — sets factor value'}
+                </div>
+              </div>
+            </EdgeLabelRenderer>
+          )
+        }
+        const signedVal = direction === 'negative' ? -weight : weight
+        return (
+          <EdgeLabelRenderer>
+            <div
+              data-testid="edge-hover-popover"
+              style={popoverStyle}
+              className="bg-panel border border-panel-border rounded-lg shadow-panel px-2.5 py-2 space-y-1"
+            >
+              {/* Direction + strength */}
+              <div className={`${typography.panelMeta} font-medium text-text-body flex items-center gap-1`}>
+                <span>{signedVal >= 0 ? '\u2191' : '\u2193'}</span>
+                <span>{getStrengthDescription(signedVal)}</span>
+              </div>
+              {/* Confidence */}
+              {beliefExists != null && (
+                <div className={`${typography.panelMeta} text-text-light`}>
+                  Confidence: {Math.round(beliefExists * 100)}%
+                </div>
+              )}
+              {/* Provenance */}
+              {provenance && (
+                <div className={`${typography.panelMeta} text-text-light`}>
+                  {getProvenanceLabel(provenance)}
+                </div>
+              )}
+              {/* Fragile warning with switch probability */}
+              {isFragileEdge && (
+                <div className={`${typography.panelMeta} text-warning flex items-center gap-1`}>
+                  <AlertTriangle size={10} />
+                  Fragile{fragileEdgeSwitchProb !== null ? ` — ${Math.round(fragileEdgeSwitchProb * 100)}% flip risk` : ' — sensitive to change'}
+                </div>
+              )}
+            </div>
+          </EdgeLabelRenderer>
+        )
+      })()}
 
       {/* P0-9: Inline edge edit popover */}
       {showEditPopover && (

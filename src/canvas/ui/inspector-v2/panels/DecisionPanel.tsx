@@ -18,6 +18,7 @@ import { SectionTitle } from '../shared/SectionTitle'
 import { CoachingCard } from '../shared/CoachingCard'
 import { TechnicalDisclosure } from '../shared/TechnicalDisclosure'
 import type { InspectorPanelProps } from '../types'
+import { COACHING } from '../coachingConfig'
 
 export const DecisionPanel = memo(function DecisionPanel({
   nodeId,
@@ -143,7 +144,7 @@ export const DecisionPanel = memo(function DecisionPanel({
 
       {/* Coaching */}
       <CoachingCard
-        text="Consider options that pull different levers to increase differentiation."
+        text={COACHING.decisionOptions}
         action={{ label: 'Ask about this', onClick: () => {} }}
       />
 
