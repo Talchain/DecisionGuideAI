@@ -92,10 +92,8 @@ export function NodeShapeIndicator({ nodeKind, size = 12, className, fillOverrid
       )
 
     case 'constraint':
-    // NOTE: 'constraint' shape is rendered for completeness but CEE never emits constraint canvas nodes.
-    // See NodeTypeEnum JSDoc in domain/nodes.ts.
     default:
-      // Small square
+      // Small square (constraint falls through: shape exists but CEE never emits constraint nodes — see NodeTypeEnum JSDoc)
       return (
         <svg width={size} height={size} viewBox="0 0 12 12" fill="none" aria-hidden="true" className={className} style={{ flexShrink: 0 }}>
           <rect x="1" y="1" width="10" height="10" rx="2" fill={fill} />
