@@ -148,8 +148,9 @@ export const GoalNode = memo((props: NodeProps) => {
               : prob >= 0.7 ? 'border-success/40 text-success'
               : prob >= 0.4 ? 'border-warning/40 text-warning'
               : 'border-danger/40 text-danger'
+            const badgeAriaLabel = `Constraint: ${c.operator} ${c.label}${prob !== null ? `, ${Math.round(prob * 100)}% probability` : ''}`
             return (
-              <div key={c.id ?? i} className={`flex items-center justify-between gap-1 px-1.5 py-0.5 bg-panel border rounded-full ${colourClass}`}>
+              <div key={c.id ?? i} className={`flex items-center justify-between gap-1 px-1.5 py-0.5 bg-panel border rounded-full ${colourClass}`} aria-label={badgeAriaLabel}>
                 <span className={`${typography.nodeLabel} truncate`} title={c.label}>
                   {c.operator} {c.label}
                 </span>

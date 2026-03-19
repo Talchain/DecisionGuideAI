@@ -12,6 +12,7 @@ import { cleanFactorLabel, sensitivityTierLabel, evidenceTierLabel, formatInterv
 import { isGraphBadgesEnabled } from '../../flags'
 import { SlidersHorizontal, Eye, Cloud } from 'lucide-react'
 import { DataBar } from '../ui/shared/DataBar'
+import { getProvenanceLabel } from '../ui/inspector-v2/inspectorStrings'
 
 interface ObservedState {
   value?: number
@@ -143,6 +144,16 @@ export const FactorNode = memo((props: NodeProps) => {
   // T5: Show "estimated" pill only for inferred values
   const isInferred = observedState?.extractionType === 'inferred'
 
+  // A14/A15: Provenance pill — show when source is meaningful (mirrors GoalNode)
+  // 'user' and 'user_calibration' are silent (user set it themselves, no attribution needed).
+  // 'inferred' source is already covered by the isInferred / "estimated" pill above — skip to avoid duplication.
+  const provenanceLabel = useMemo(() => {
+    const source = observedState?.source
+    if (!source || source === 'user' || source === 'user_calibration' || source === 'default' || source === 'inferred') return null
+    const label = getProvenanceLabel(source)
+    return label === 'No evidence yet' || label === `Source: ${source}` ? null : label
+  }, [observedState?.source])
+
   /**
    * Evidence gap badge semantics:
    * - Badge shows when factor has NO observed data (hasObservedData returns false).
@@ -215,6 +226,15 @@ export const FactorNode = memo((props: NodeProps) => {
                 </span>
               </div>
             )}
+          </div>
+        )}
+
+        {/* A14/A15: Provenance pill — source attribution when meaningful */}
+        {provenanceLabel && (
+          <div className={`${typography.nodeLabel} mt-1`}>
+            <span className="bg-panel border border-info/30 text-text-body rounded-full px-1.5 py-0.5">
+              {provenanceLabel}
+            </span>
           </div>
         )}
 

@@ -77,3 +77,38 @@ describe('getFragileEdgeSwitchProbability', () => {
     expect(getFragileEdgeSwitchProbability('e1', 'a', 'b', [])).toBeNull()
   })
 })
+
+// ---------------------------------------------------------------------------
+// QA Brief G-series — fragile edge threshold boundary cases
+// ---------------------------------------------------------------------------
+
+describe('fragileEdgeMatch — QA Brief G-series boundary cases', () => {
+  // G5: switch_probability=0.3 → NOT fragile (strictly >0.3)
+  it('G5: switch_probability=0.3 is NOT treated as fragile (boundary)', () => {
+    const fragile: FragileEdgeCandidate[] = [{ edge_id: 'e1', switch_probability: 0.3 }]
+    expect(isEdgeFragile('e1', 'a', 'b', fragile)).toBe(false)
+    expect(getFragileEdgeSwitchProbability('e1', 'a', 'b', fragile)).toBeNull()
+  })
+
+  // G6: switch_probability=0.31 → fragile
+  it('G6: switch_probability=0.31 IS treated as fragile', () => {
+    const fragile: FragileEdgeCandidate[] = [{ edge_id: 'e1', switch_probability: 0.31 }]
+    expect(isEdgeFragile('e1', 'a', 'b', fragile)).toBe(true)
+    expect(getFragileEdgeSwitchProbability('e1', 'a', 'b', fragile)).toBeCloseTo(0.31)
+  })
+
+  // G4: Non-fragile edge (below threshold) — not treated as fragile
+  it('G4: switch_probability=0.2 is not fragile', () => {
+    const fragile: FragileEdgeCandidate[] = [{ edge_id: 'e1', switch_probability: 0.2 }]
+    expect(isEdgeFragile('e1', 'a', 'b', fragile)).toBe(false)
+  })
+
+  // G1: Actual fragile edge badge shows correct percentage
+  it('G1: switch_probability=0.42 returns 0.42 for display', () => {
+    const fragile: FragileEdgeCandidate[] = [{ edge_id: 'e1', switch_probability: 0.42 }]
+    const prob = getFragileEdgeSwitchProbability('e1', 'a', 'b', fragile)
+    expect(prob).toBeCloseTo(0.42)
+    // Display would be Math.round(0.42 * 100) = 42%
+    expect(Math.round((prob ?? 0) * 100)).toBe(42)
+  })
+})

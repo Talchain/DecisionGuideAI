@@ -218,6 +218,10 @@ export function formatFactorValue(observedState: {
       }
       return `${unit}${rawStr}`
     }
+    // % unit: no space between value and symbol (e.g. "0%" not "0 %")
+    if (unit === '%') {
+      return `${rawStr}%`
+    }
     return `${rawStr} ${unit}`
   }
 

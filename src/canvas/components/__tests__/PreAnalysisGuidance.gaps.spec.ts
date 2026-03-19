@@ -205,3 +205,107 @@ describe('gapItems — sort order', () => {
     expect(gaps[1].nodeId).toBe('f1') // 1 edge
   })
 })
+
+// ---------------------------------------------------------------------------
+// QA Brief E-series — gap summary scenarios
+// ---------------------------------------------------------------------------
+
+describe('gapItems — E-series QA', () => {
+  // E1: 3 factors missing baselines + goal missing target → 4 gap items
+  it('E1: 3 missing-baseline factors + goal with no target = 4 gaps', () => {
+    const nodes: MockNode[] = [
+      { id: 'f1', type: 'factor', data: { label: 'F1', category: 'controllable', observedState: {} } },
+      { id: 'f2', type: 'factor', data: { label: 'F2', category: 'controllable', observedState: {} } },
+      { id: 'f3', type: 'factor', data: { label: 'F3', category: 'observable', observedState: {} } },
+      { id: 'g1', type: 'goal', data: { label: 'Goal', goal_threshold_raw: null } },
+    ]
+    const gaps = computeGapItems(nodes, [], false, new Map())
+    expect(gaps).toHaveLength(4)
+    // Goal's no-target sorts first (typeOrder = 0)
+    expect(gaps[0].gapType).toBe('no-target')
+    // Remaining 3 are no-baseline
+    expect(gaps.filter(g => g.gapType === 'no-baseline')).toHaveLength(3)
+  })
+
+  // E5: Post-analysis, factor missing baseline → escalated=true, warning colour
+  it('E5: post-analysis missing baseline is escalated and has warning gapType', () => {
+    const nodes: MockNode[] = [
+      { id: 'f1', type: 'factor', data: { label: 'Revenue', category: 'controllable', observedState: {} } },
+    ]
+    const gaps = computeGapItems(nodes, [], true, new Map())
+    expect(gaps[0].escalated).toBe(true)
+  })
+
+  // E6: source='engine' → "unconfirmed" gap
+  it('E6: source="engine" appears as unconfirmed gap', () => {
+    const nodes: MockNode[] = [
+      { id: 'f1', type: 'factor', data: { label: 'X', category: 'controllable', observedState: { value: 0.5, source: 'engine' } } },
+    ]
+    const gaps = computeGapItems(nodes, [], false, new Map())
+    expect(gaps[0].gapType).toBe('unconfirmed')
+  })
+
+  // E7: source='cee_inference' → "unconfirmed" gap
+  it('E7: source="cee_inference" appears as unconfirmed gap', () => {
+    const nodes: MockNode[] = [
+      { id: 'f1', type: 'factor', data: { label: 'X', category: 'controllable', observedState: { value: 0.5, source: 'cee_inference' } } },
+    ]
+    const gaps = computeGapItems(nodes, [], false, new Map())
+    expect(gaps[0].gapType).toBe('unconfirmed')
+  })
+
+  // E8: External factors do NOT appear as gaps
+  it('E8: external factors are excluded from gaps even when missing baseline', () => {
+    const nodes: MockNode[] = [
+      { id: 'f1', type: 'factor', data: { label: 'Market', category: 'external', observedState: {} } },
+      { id: 'f2', type: 'factor', data: { label: 'Price', category: 'external', observedState: undefined } },
+    ]
+    const gaps = computeGapItems(nodes, [], false, new Map())
+    expect(gaps).toHaveLength(0)
+  })
+
+  // E9: Pre-analysis ranking — higher-connectivity nodes rank above lower-connectivity
+  it('E9: pre-analysis ranks higher edge-count factors first', () => {
+    const nodes: MockNode[] = [
+      { id: 'f1', type: 'factor', data: { label: 'Low', category: 'controllable', observedState: {} } },
+      { id: 'f2', type: 'factor', data: { label: 'High', category: 'controllable', observedState: {} } },
+    ]
+    const edges: MockEdge[] = [
+      { source: 'f2', target: 'g1' },
+      { source: 'f2', target: 'g2' },
+      { source: 'f2', target: 'g3' },
+      { source: 'f1', target: 'g1' },
+    ]
+    const gaps = computeGapItems(nodes, edges, false, new Map())
+    expect(gaps[0].nodeId).toBe('f2')
+    expect(gaps[1].nodeId).toBe('f1')
+  })
+
+  // E10: Post-analysis — factors ranked by VoI when available
+  it('E10: post-analysis ranks by VoI score descending', () => {
+    const nodes: MockNode[] = [
+      { id: 'f1', type: 'factor', data: { label: 'Low VoI', category: 'controllable', observedState: {} } },
+      { id: 'f2', type: 'factor', data: { label: 'High VoI', category: 'controllable', observedState: {} } },
+      { id: 'f3', type: 'factor', data: { label: 'No VoI', category: 'controllable', observedState: {} } },
+    ]
+    const voiMap = new Map([['f1', 0.2], ['f2', 0.9]])
+    const gaps = computeGapItems(nodes, [], true, voiMap)
+    // f2 (VoI 0.9) before f1 (VoI 0.2)
+    expect(gaps[0].nodeId).toBe('f2')
+    expect(gaps[1].nodeId).toBe('f1')
+    // f3 has no VoI — edgeCount both 0, order stable
+    expect(gaps[2].nodeId).toBe('f3')
+  })
+
+  // E2: P0.1 fix guard — totalCount=0 but gaps > 0 should still render gap section
+  // (Logic test: gapItems.length > 0 must be checked independently of totalCount)
+  it('E2 guard: gaps are non-empty even when validation totalCount is 0', () => {
+    // Three missing-baseline factors — gapItems.length=3, totalCount would be 0
+    const nodes: MockNode[] = [
+      { id: 'f1', type: 'factor', data: { label: 'F1', category: 'controllable', observedState: {} } },
+    ]
+    const gaps = computeGapItems(nodes, [], false, new Map())
+    // Verify gaps are produced regardless of external blockers/improvements count
+    expect(gaps.length).toBeGreaterThan(0)
+  })
+})

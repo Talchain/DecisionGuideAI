@@ -585,6 +585,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
             <EdgeLabelRenderer>
               <div
                 data-testid="edge-hover-popover"
+                role="tooltip"
                 style={popoverStyle}
                 className="bg-panel border border-panel-border rounded-lg shadow-panel px-2.5 py-2"
               >
@@ -600,6 +601,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
           <EdgeLabelRenderer>
             <div
               data-testid="edge-hover-popover"
+              role="tooltip"
               style={popoverStyle}
               className="bg-panel border border-panel-border rounded-lg shadow-panel px-2.5 py-2 space-y-1"
             >

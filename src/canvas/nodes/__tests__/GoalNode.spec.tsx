@@ -422,5 +422,186 @@ describe('GoalNode', () => {
       expect(el.textContent).toContain('100')
       expect(el.textContent).not.toContain('count')
     })
+
+    // B1: £20,000 with thousands separator
+    it('B1: £ currency with 20000 — renders thousands separator', () => {
+      renderGoal({ goal_threshold_raw: 20000, goal_threshold_unit: '£' })
+      const el = screen.getByText(/≥/)
+      expect(el.textContent).toContain('£')
+      expect(el.textContent).toContain('20,000')
+    })
+
+    // B2: "≥ 200 customers"
+    it('B2: "≥ 200 customers" — number first then unit', () => {
+      renderGoal({ goal_threshold_raw: 200, goal_threshold_unit: 'customers' })
+      const el = screen.getByText(/≥/)
+      expect(el.textContent).toMatch(/200\s+customers/)
+    })
+
+    // B3: "≥ 95%" — no space before %
+    it('B3: "≥ 95%" — percent format with no space', () => {
+      renderGoal({ goal_threshold_raw: 95, goal_threshold_unit: '%' })
+      const el = screen.getByText(/≥/)
+      expect(el.textContent).toContain('95%')
+      expect(el.textContent).not.toContain('95 %')
+    })
+
+    // B4: no unit → "≥ 200"
+    it('B4: no unit renders plain number', () => {
+      renderGoal({ goal_threshold_raw: 200 })
+      const el = screen.getByText(/≥/)
+      expect(el.textContent).toContain('200')
+      // No unit suffix
+      expect(el.textContent?.trim().endsWith('200')).toBe(true)
+    })
+  })
+
+  // B7: threshold_raw=0 is a valid zero target, not a coaching prompt
+  it('B7: threshold_raw=0 renders threshold display not coaching prompt', () => {
+    renderGoal({ goal_threshold_raw: 0 })
+    // Already covered above, but named explicitly for brief traceability
+    expect(screen.getByText(/≥/)).toBeDefined()
+    expect(screen.queryByText(/Set a success target/)).toBeNull()
+  })
+
+  // B9: Constraint badges pre-analysis — info/neutral styling
+  it('B9: constraint badges render pre-analysis with info styling', () => {
+    vi.mocked(useCanvasStore).mockImplementation((selector) =>
+      selector(makeStoreState({
+        goalConstraints: [
+          { id: 'c1', label: '4 months', operator: '≤', confidence: null },
+        ],
+      }) as any)
+    )
+    const { container } = renderGoal()
+    // Badge should render
+    expect(screen.getByText(/4 months/)).toBeDefined()
+    // Pre-analysis: info styling (border-info/30 text-text-body)
+    const badge = container.querySelector('.border-info\\/30')
+    expect(badge).not.toBeNull()
+  })
+
+  // B10: Constraint badges post-analysis — colour-coded by probability
+  it('B10: constraint badge ≥0.7 probability uses success colour', () => {
+    vi.mocked(useCanvasStore).mockImplementation((selector) =>
+      selector(makeStoreState({
+        results: {
+          status: 'complete',
+          report: {
+            goal_constraints: [
+              { id: 'c1', label: '4 months', operator: '≤', probability: 0.75 },
+            ],
+          },
+        },
+        goalConstraints: [],
+      }) as any)
+    )
+    const { container } = renderGoal()
+    expect(screen.getByText(/4 months/)).toBeDefined()
+    const badge = container.querySelector('.border-success\\/40')
+    expect(badge).not.toBeNull()
+  })
+
+  it('B10: constraint badge 0.4-0.69 probability uses warning colour', () => {
+    vi.mocked(useCanvasStore).mockImplementation((selector) =>
+      selector(makeStoreState({
+        results: {
+          status: 'complete',
+          report: {
+            goal_constraints: [
+              { id: 'c1', label: 'constraint', operator: '≤', probability: 0.55 },
+            ],
+          },
+        },
+        goalConstraints: [],
+      }) as any)
+    )
+    const { container } = renderGoal()
+    const badge = container.querySelector('.border-warning\\/40')
+    expect(badge).not.toBeNull()
+  })
+
+  it('B10: constraint badge <0.4 probability uses danger colour', () => {
+    vi.mocked(useCanvasStore).mockImplementation((selector) =>
+      selector(makeStoreState({
+        results: {
+          status: 'complete',
+          report: {
+            goal_constraints: [
+              { id: 'c1', label: 'constraint', operator: '≤', probability: 0.25 },
+            ],
+          },
+        },
+        goalConstraints: [],
+      }) as any)
+    )
+    const { container } = renderGoal()
+    const badge = container.querySelector('.border-danger\\/40')
+    expect(badge).not.toBeNull()
+  })
+
+  // B11: Multiple constraints — all render without overflow
+  it('B11: multiple constraints all render', () => {
+    vi.mocked(useCanvasStore).mockImplementation((selector) =>
+      selector(makeStoreState({
+        goalConstraints: [
+          { id: 'c1', label: '4 months', operator: '≤' },
+          { id: 'c2', label: '£20,000', operator: '≥' },
+          { id: 'c3', label: '95%', operator: '≥' },
+        ],
+      }) as any)
+    )
+    renderGoal()
+    expect(screen.getByText(/4 months/)).toBeDefined()
+    expect(screen.getByText(/£20,000/)).toBeDefined()
+    expect(screen.getByText(/95%/)).toBeDefined()
+  })
+
+  // J7: Constraint badge containers have descriptive aria-label
+  it('J7: constraint badge container has aria-label describing operator and label', () => {
+    vi.mocked(useCanvasStore).mockImplementation((selector) =>
+      selector(makeStoreState({
+        goalConstraints: [
+          { id: 'c1', label: '4 months', operator: '≤', confidence: null },
+        ],
+      }) as any)
+    )
+    const { container } = renderGoal()
+    const badge = container.querySelector('[aria-label*="4 months"]')
+    expect(badge).not.toBeNull()
+    expect(badge?.getAttribute('aria-label')).toContain('≤')
+    expect(badge?.getAttribute('aria-label')).toContain('4 months')
+  })
+
+  it('J7: post-analysis constraint badge aria-label includes probability', () => {
+    vi.mocked(useCanvasStore).mockImplementation((selector) =>
+      selector(makeStoreState({
+        results: {
+          status: 'complete',
+          report: {
+            goal_constraints: [
+              { id: 'c1', label: 'budget', operator: '≤', probability: 0.82 },
+            ],
+          },
+        },
+        goalConstraints: [],
+      }) as any)
+    )
+    const { container } = renderGoal()
+    const badge = container.querySelector('[aria-label*="budget"]')
+    expect(badge).not.toBeNull()
+    // Should include probability percentage
+    expect(badge?.getAttribute('aria-label')).toContain('82%')
+  })
+
+  // B5/B6: null and empty string both show coaching prompt
+  it('B5: threshold_raw=null → coaching prompt (already covered, regression guard)', () => {
+    renderGoal({ goal_threshold_raw: null })
+    expect(screen.getByText(/Set a success target/)).toBeDefined()
+  })
+
+  it('B6: threshold_raw="" → coaching prompt', () => {
+    renderGoal({ goal_threshold_raw: '' })
+    expect(screen.getByText(/Set a success target/)).toBeDefined()
   })
 })

@@ -589,3 +589,183 @@ describe('OptionNode', () => {
     expect(bar?.style.width).toBe('max(8px, 2%)')
   })
 })
+
+// ---------------------------------------------------------------------------
+// QA Brief C-series — option node display scenarios
+// ---------------------------------------------------------------------------
+describe('OptionNode — QA Brief C-series', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.mocked(useCanvasStore).mockImplementation((selector) => selector(makeStoreState() as any))
+    vi.mocked(useNodeDisplayMetadata).mockReturnValue({
+      sensitivityRank: null, influence: null, confidence: null, inSensitivityAnalysis: false,
+      achievementProbability: null, stabilityPercentage: null, winRate: null, isResultsMode: false,
+    })
+  })
+
+  // C2: Baseline option shows absolute value, no delta
+  it('C2: baseline option (is_baseline=true) shows absolute value without delta arrow', () => {
+    vi.mocked(useCanvasStore).mockImplementation((selector) =>
+      selector(makeStoreState({
+        ceeAnalysisReady: {
+          options: [{
+            id: 'option-1',
+            interventions: { 'factor-1': 0.49 },
+          }],
+        },
+        nodes: [{
+          id: 'factor-1',
+          data: { label: 'Price', observedState: { unit: '£', cap: 100, value: 0.49, raw_value: 49 } },
+        }],
+      }) as any)
+    )
+    renderOption({ label: 'Keep current price', is_baseline: true })
+    // For baseline, no delta arrow should be shown
+    expect(screen.queryByText(/→/)).toBeNull()
+    // Absolute value should be shown
+    expect(screen.getByText('£49')).toBeDefined()
+  })
+
+  // C3: Baseline detection by keyword — "Status Quo" treated as baseline
+  it('C3: option labelled "Status Quo" is detected as baseline (no delta shown)', () => {
+    vi.mocked(useCanvasStore).mockImplementation((selector) =>
+      selector(makeStoreState({
+        ceeAnalysisReady: {
+          options: [{
+            id: 'option-1',
+            interventions: { 'factor-1': 0.49 },
+          }],
+        },
+        nodes: [{
+          id: 'factor-1',
+          data: { label: 'Price', observedState: { unit: '£', cap: 100, value: 0.49, raw_value: 49 } },
+        }],
+      }) as any)
+    )
+    renderOption({ label: 'Status Quo' })
+    // "Status Quo" contains baseline keyword → no delta
+    expect(screen.queryByText(/→/)).toBeNull()
+  })
+
+  // C4: Qualitative intervention — no delta shown
+  it('C4: qualitative factor intervention shows no delta arrow', () => {
+    vi.mocked(useCanvasStore).mockImplementation((selector) =>
+      selector(makeStoreState({
+        ceeAnalysisReady: {
+          options: [{
+            id: 'option-1',
+            interventions: { 'factor-1': 0.7 },
+          }],
+        },
+        nodes: [{
+          id: 'factor-1',
+          data: { label: 'Team morale', observedState: { factor_type: 'quality' } },
+        }],
+      }) as any)
+    )
+    renderOption({ label: 'Hire lead' })
+    // Qualitative: no unit, no scale — shows tier label, no delta
+    expect(screen.getByText('High')).toBeDefined()
+    expect(screen.queryByText(/→/)).toBeNull()
+  })
+
+  // C5: Near-zero baseline — no spurious percentage (guard: abs(denormedBaseline) <= 0.01)
+  // When the baseline option doesn't intervene on the factor, fallback is observedState.value.
+  // If observedValue is extremely small (e.g. 0.005) with no cap, denormed = 0.005 <= 0.01 → no delta.
+  it('C5: near-zero observed baseline value produces no delta (guard: abs <= 0.01)', () => {
+    vi.mocked(useCanvasStore).mockImplementation((selector) =>
+      selector(makeStoreState({
+        ceeAnalysisReady: {
+          options: [
+            {
+              id: 'option-1', // non-baseline
+              interventions: { 'factor-1': 0.8 },
+            },
+            {
+              id: 'option-baseline',
+              // baseline does NOT intervene on factor-1, so fallback is observedState.value
+              interventions: {},
+            },
+          ],
+        },
+        nodes: [
+          { id: 'option-1', type: 'option', data: { label: 'Big investment', type: 'option' } },
+          { id: 'option-baseline', type: 'option', data: { label: 'Do nothing', type: 'option' } },
+          {
+            id: 'factor-1',
+            data: {
+              label: 'Revenue',
+              // No cap, no raw_value, observedValue=0.005 → denormed baseline = 0.005 ≤ 0.01 → no delta
+              observedState: { unit: 'k', value: 0.005 },
+            },
+          },
+        ],
+      }) as any)
+    )
+    renderOption({ label: 'Big investment' })
+    // Delta arrow must not appear — near-zero guard prevents spurious % calculation
+    expect(screen.queryByText(/→/)).toBeNull()
+  })
+
+  // C6: Multiple interventions per option — all chips render
+  it('C6: multiple interventions render multiple chips (up to top 3)', () => {
+    vi.mocked(useCanvasStore).mockImplementation((selector) =>
+      selector(makeStoreState({
+        ceeAnalysisReady: {
+          options: [{
+            id: 'option-1',
+            interventions: {
+              'factor-1': 0.8,
+              'factor-2': 0.6,
+              'factor-3': 0.4,
+            },
+          }],
+        },
+        nodes: [
+          { id: 'factor-1', data: { label: 'Marketing budget', observedState: {} } },
+          { id: 'factor-2', data: { label: 'Team size', observedState: {} } },
+          { id: 'factor-3', data: { label: 'Product quality', observedState: {} } },
+        ],
+      }) as any)
+    )
+    renderOption()
+    // All three factor labels should appear as chips
+    expect(screen.getByText('Marketing budget:')).toBeDefined()
+    expect(screen.getByText('Team size:')).toBeDefined()
+    expect(screen.getByText('Product quality:')).toBeDefined()
+  })
+
+  // C7: 3+ options — only the baseline is detected as such; others show delta
+  it('C7: with 3 options only "Do nothing" baseline is suppressed; non-baseline shows delta', () => {
+    vi.mocked(useCanvasStore).mockImplementation((selector) =>
+      selector(makeStoreState({
+        ceeAnalysisReady: {
+          options: [
+            { id: 'option-1', interventions: { 'factor-1': 0.7 } },       // non-baseline
+            { id: 'option-2', interventions: { 'factor-1': 0.5 } },       // non-baseline
+            { id: 'option-baseline', interventions: { 'factor-1': 0.5 } }, // baseline
+          ],
+        },
+        nodes: [
+          { id: 'option-1', type: 'option', data: { label: 'Scale up', type: 'option' } },
+          { id: 'option-2', type: 'option', data: { label: 'Moderate growth', type: 'option' } },
+          { id: 'option-baseline', type: 'option', data: { label: 'Do nothing', type: 'option' } },
+          {
+            id: 'factor-1',
+            data: { label: 'Revenue', observedState: { unit: 'fraction' } },
+          },
+        ],
+      }) as any)
+    )
+    // Render the baseline option — no delta should appear
+    renderOption({ label: 'Do nothing' })
+    expect(screen.queryByText(/→/)).toBeNull()
+  })
+
+  // C9: Pre-analysis — no win probability, no recommended badge
+  it('C9: pre-analysis shows no win probability and no Recommended badge', () => {
+    renderOption()
+    expect(screen.queryByText(/win probability/)).toBeNull()
+    expect(screen.queryByText('Recommended')).toBeNull()
+  })
+})

@@ -553,6 +553,151 @@ describe('FactorNode', () => {
 })
 
 // ---------------------------------------------------------------------------
+// QA Brief: A-series — factor node display scenarios
+// ---------------------------------------------------------------------------
+describe('FactorNode — QA Brief A-series', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  // A1: raw_value=49, unit="£"  → "£49"
+  it('A1: raw_value=49 with unit="£" renders "£49"', () => {
+    renderFactor({ label: 'Price', type: 'factor', observedState: { raw_value: 49, unit: '£', value: 0.49 } })
+    expect(screen.getByText('£49')).toBeDefined()
+  })
+
+  // A2: raw_value=20, unit="engineers" → "20 engineers"
+  it('A2: raw_value=20 with unit="engineers" renders "20 engineers"', () => {
+    renderFactor({ label: 'Team size', type: 'factor', observedState: { raw_value: 20, unit: 'engineers' } })
+    expect(screen.getByText('20 engineers')).toBeDefined()
+  })
+
+  // A3: raw_value=4.5, unit="months" → "4.5 months"
+  it('A3: raw_value=4.5 with unit="months" renders "4.5 months"', () => {
+    renderFactor({ label: 'Duration', type: 'factor', observedState: { raw_value: '4.5', unit: 'months' } })
+    expect(screen.getByText('4.5 months')).toBeDefined()
+  })
+
+  // A4: value=0.5, no raw_value, cap=100, unit="£" → "£50" (denormalised)
+  it('A4: value=0.5 with cap=100 and unit="£" renders "£50"', () => {
+    renderFactor({ label: 'Price', type: 'factor', observedState: { value: 0.5, cap: 100, unit: '£' } })
+    expect(screen.getByText('£50')).toBeDefined()
+  })
+
+  // A5: value=1.0, no raw_value, no cap, no unit → "Very high"
+  it('A5: value=1.0 with no raw_value, cap, or unit renders "Very high"', () => {
+    renderFactor({ label: 'Quality', type: 'factor', observedState: { value: 1.0 } })
+    expect(screen.getByText('Very high')).toBeDefined()
+  })
+
+  // A6: value=0, factor_type="binary", no unit → "Not used"
+  it('A6: binary factor value=0 without unit renders "Not used"', () => {
+    renderFactor({ label: 'Hired', type: 'factor', observedState: { value: 0, factor_type: 'binary' } })
+    expect(screen.getByText('Not used')).toBeDefined()
+  })
+
+  // A7: value=0, unit="%", raw_value=0 → "0%" (not "Not used")
+  it('A7: value=0 with unit="%" renders "0%" not "Not used"', () => {
+    renderFactor({ label: 'Churn', type: 'factor', observedState: { value: 0, unit: '%', raw_value: 0 } })
+    expect(screen.getByText('0%')).toBeDefined()
+    expect(screen.queryByText('Not used')).toBeNull()
+  })
+
+  // A8: factor_type="normalized", no unit → no "normalized" suffix
+  it('A8: factor_type="normalized" with no unit shows value without type suffix', () => {
+    renderFactor({ label: 'Score', type: 'factor', observedState: { value: 0.3, factor_type: 'normalized' } })
+    // "normalized" must not appear in rendered output
+    expect(screen.queryByText(/normalized/i)).toBeNull()
+    // Should show qualitative tier (no unit, normalised treated as no-unit qualitative)
+    expect(screen.getByText('Low')).toBeDefined()
+  })
+
+  // A9: factor_type="binary", no unit → no "binary" suffix in value display
+  it('A9: factor_type="binary" with no unit shows value without type suffix', () => {
+    renderFactor({ label: 'Decision', type: 'factor', observedState: { value: 0.5, factor_type: 'binary' } })
+    expect(screen.queryByText(/binary/i)).toBeNull()
+  })
+
+  // A10: unit="CHF", raw_value=500 → "CHF500" (multi-char currency prefix, no space)
+  it('A10: unit="CHF" with raw_value=500 renders "CHF500"', () => {
+    renderFactor({ label: 'Cost', type: 'factor', observedState: { raw_value: '500', unit: 'CHF' } })
+    expect(screen.getByText('CHF500')).toBeDefined()
+  })
+
+  // A14: source='cee_inference' → provenance pill shows "Generated from your brief"
+  it('A14: source="cee_inference" renders provenance pill "Generated from your brief"', () => {
+    renderFactor({
+      label: 'Market rate',
+      type: 'factor',
+      observedState: { value: 0.5, source: 'cee_inference' },
+    })
+    expect(screen.getByText('Generated from your brief')).toBeDefined()
+  })
+
+  // A15: source='brief_extraction' → provenance pill (also "Generated from your brief")
+  it('A15: source="brief_extraction" renders provenance pill', () => {
+    renderFactor({
+      label: 'Revenue',
+      type: 'factor',
+      observedState: { value: 0.6, source: 'brief_extraction' },
+    })
+    // getProvenanceLabel('brief_extraction') = 'Generated from your brief'
+    expect(screen.getByText('Generated from your brief')).toBeDefined()
+  })
+
+  // A16: source='user' → no provenance pill
+  it('A16: source="user" renders no provenance pill', () => {
+    renderFactor({
+      label: 'Budget',
+      type: 'factor',
+      observedState: { value: 0.7, source: 'user' },
+    })
+    expect(screen.queryByText('Generated from your brief')).toBeNull()
+    expect(screen.queryByText('Estimated by Olumi')).toBeNull()
+    expect(screen.queryByText('Set by you')).toBeNull()
+  })
+
+  // A17: "Not used" value + provenance pill rendered on separate lines (not merged as phrase)
+  it('A17: "Not used" and provenance pill are separate elements (not "Not used generated" phrase)', () => {
+    renderFactor({
+      label: 'Item',
+      type: 'factor',
+      observedState: { value: 0, source: 'cee_inference' },
+    })
+    // Both elements should exist
+    expect(screen.getByText('Not used')).toBeDefined()
+    expect(screen.getByText('Generated from your brief')).toBeDefined()
+    // Should not appear as a joined phrase
+    expect(screen.queryByText(/Not used.*generated/i)).toBeNull()
+    expect(screen.queryByText(/Not usedGenerated/)).toBeNull()
+  })
+
+  // A18: Tier label thresholds — verify exact boundaries (0-0.2, 0.2-0.4, 0.4-0.6, 0.6-0.8, 0.8-1.0)
+  it('A18: value=0.2 → "Very low" (upper boundary of very low band)', () => {
+    renderFactor({ label: 'Q', type: 'factor', observedState: { value: 0.2 } })
+    expect(screen.getByText('Very low')).toBeDefined()
+  })
+  it('A18: value=0.21 → "Low"', () => {
+    renderFactor({ label: 'Q', type: 'factor', observedState: { value: 0.21 } })
+    expect(screen.getByText('Low')).toBeDefined()
+  })
+  it('A18: value=0.4 → "Low" (upper boundary of low band)', () => {
+    renderFactor({ label: 'Q', type: 'factor', observedState: { value: 0.4 } })
+    expect(screen.getByText('Low')).toBeDefined()
+  })
+  it('A18: value=0.41 → "Medium"', () => {
+    renderFactor({ label: 'Q', type: 'factor', observedState: { value: 0.41 } })
+    expect(screen.getByText('Medium')).toBeDefined()
+  })
+  it('A18: value=0.8 → "High" (upper boundary of high band)', () => {
+    renderFactor({ label: 'Q', type: 'factor', observedState: { value: 0.8 } })
+    expect(screen.getByText('High')).toBeDefined()
+  })
+  it('A18: value=0.81 → "Very high"', () => {
+    renderFactor({ label: 'Q', type: 'factor', observedState: { value: 0.81 } })
+    expect(screen.getByText('Very high')).toBeDefined()
+  })
+})
+
+// ---------------------------------------------------------------------------
 // Evidence gap badge (Phase 3A)
 // ---------------------------------------------------------------------------
 
