@@ -273,6 +273,14 @@ describe('GoalNode', () => {
     expect(screen.getByText(/≥/)).toBeDefined()
   })
 
+  // Assessment fix: float percent thresholds must be rounded to integer
+  it('rounds float percent threshold to integer: 85.5% → 86%', () => {
+    renderGoal({ goal_threshold_raw: 85.5, goal_threshold_unit: '%' })
+    const el = screen.getByText(/≥/)
+    expect(el.textContent).toContain('86%')
+    expect(el.textContent).not.toContain('85.5%')
+  })
+
   // P1.4: null and empty string must NOT display threshold — show coaching prompt instead
   it('shows coaching prompt when goal_threshold_raw is null', () => {
     renderGoal({ goal_threshold_raw: null })

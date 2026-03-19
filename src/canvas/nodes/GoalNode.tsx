@@ -111,7 +111,7 @@ export const GoalNode = memo((props: NodeProps) => {
             const raw = typeof thresholdRaw === 'number' ? thresholdRaw : Number(thresholdRaw)
             if (Number.isNaN(raw)) return String(thresholdRaw)
             const u = typeof thresholdUnit === 'string' ? thresholdUnit.toLowerCase() : ''
-            if (u === '%' || u === 'percent' || u === 'percentage') return formatTargetValue(raw, 'percent')
+            if (u === '%' || u === 'percent' || u === 'percentage') return formatTargetValue(Math.round(raw), 'percent')
             if (u === 'count' || u === '') return formatTargetValue(raw)
             if (thresholdUnit && isCurrencyUnit(thresholdUnit)) {
               // Currency symbol — prefix (e.g. "≥ £20,000")

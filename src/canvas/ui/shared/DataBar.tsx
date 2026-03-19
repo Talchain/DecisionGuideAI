@@ -36,7 +36,11 @@ interface DataBarProps {
   size?: DataBarSize
   /** Optional right-aligned text label (e.g. tier label "High", "Fair") */
   trailingLabel?: string
-  /** When true, always show a numeric percentage suffix (e.g. DriversSection). */
+  /**
+   * When true (and size='standard'), show a numeric percentage suffix (e.g. DriversSection).
+   * Silently ignored in compact mode — use trailingLabel for suffixes on compact bars.
+   * showPercent and trailingLabel are mutually exclusive; showPercent takes precedence.
+   */
   showPercent?: boolean
 }
 
