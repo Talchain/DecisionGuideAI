@@ -20,6 +20,15 @@ import { Check, Pencil, Plus, HelpCircle, ChevronDown, ChevronRight } from 'luci
 import type { ImprovementItem, ImprovementCategory, TiersData } from './hooks/usePreAnalysisData'
 import { typography } from '@/styles/typography'
 
+function SubgroupDivider({ label }: { label: string }) {
+  return (
+    <div className="flex items-center gap-2 pt-1">
+      <span className={`${typography.panelMeta} text-text-light whitespace-nowrap`}>{label}</span>
+      <div className="flex-1 h-px bg-panel-border" />
+    </div>
+  )
+}
+
 /** Action handlers for improvement items */
 export interface ImprovementActionHandlers {
   /** Confirm action - mark factor as user-confirmed */
@@ -153,7 +162,11 @@ function TierSection({
         <div className="flex items-center gap-2">
           {!showEmptyState && (
             <span className={`${typography.panelMeta} rounded-full px-1.5 py-0.5 bg-transparent border ${showCompletionState ? 'border-success/30 text-text-body' : isReviewTier ? 'border-warning/30 text-text-body' : isOptionalTier ? 'border-info/30 text-text-body' : 'border-panel-border text-text-light'}`}>
-              {showCompletionState ? '✓' : (
+              {showCompletionState ? (
+                <span className="inline-flex items-center justify-center">
+                  <Check size={12} className="text-success" />
+                </span>
+              ) : (
                 isReviewTier && totalCount != null ? totalCount : nonEvidenceItems.length
               )}
             </span>
@@ -190,23 +203,41 @@ function TierSection({
           ) : (
             <>
               {/* Non-evidence items render normally */}
-              {nonEvidenceItems.map((item, index) => (
-                <div
-                  key={item.key}
-                  style={index > 0 ? {
-                    borderTop: '1px solid rgba(238, 230, 216, 0.5)',
-                    paddingTop: '8px',
-                  } : undefined}
-                >
-                  <ImprovementRow
-                    item={item}
-                    onFocus={onFocus}
-                    actionHandlers={actionHandlers}
-                    onHoverEnter={onHoverEnter}
-                    onHoverLeave={onHoverLeave}
-                  />
-                </div>
-              ))}
+              {(() => {
+                // Precompute per-subgroup counts for divider labels
+                const subgroupCounts: Record<string, number> = {}
+                nonEvidenceItems.forEach(i => {
+                  if (i.subgroup) subgroupCounts[i.subgroup] = (subgroupCounts[i.subgroup] ?? 0) + 1
+                })
+                return nonEvidenceItems.map((item, index) => {
+                  const prevItem = index > 0 ? nonEvidenceItems[index - 1] : undefined
+                  const subgroupChanged = item.subgroup != null && item.subgroup !== prevItem?.subgroup
+                  const count = item.subgroup ? subgroupCounts[item.subgroup] : undefined
+                  const dividerLabel = item.subgroup === 'cee_inference' ? `AI estimates${count != null ? ` (${count})` : ''}`
+                    : item.subgroup === 'brief_extraction' ? `From your brief${count != null ? ` (${count})` : ''}`
+                    : item.subgroup === 'user_reviewed' ? `Reviewed${count != null ? ` (${count})` : ''}` : null
+                  return (
+                    <div
+                      key={item.key}
+                      style={!subgroupChanged && index > 0 ? {
+                        borderTop: '1px solid rgba(238, 230, 216, 0.5)',
+                        paddingTop: '8px',
+                      } : undefined}
+                    >
+                      {subgroupChanged && dividerLabel && (
+                        <SubgroupDivider label={dividerLabel} />
+                      )}
+                      <ImprovementRow
+                        item={item}
+                        onFocus={onFocus}
+                        actionHandlers={actionHandlers}
+                        onHoverEnter={onHoverEnter}
+                        onHoverLeave={onHoverLeave}
+                      />
+                    </div>
+                  )
+                })
+              })()}
 
               {/* Evidence items: summary always visible, individual items behind toggle */}
               {evidenceItems.length > 0 && (
@@ -544,7 +575,7 @@ function ImprovementRow({ item, onFocus, actionHandlers, isRemoving, onHoverEnte
         <button
           type="button"
           onClick={() => setIsReviewedExpanded(!isReviewedExpanded)}
-          className="w-full flex items-center gap-2 text-left cursor-pointer hover:bg-black/[0.02] rounded-md py-0.5"
+          className="w-full flex items-center gap-2 text-left cursor-pointer hover:bg-black/[0.02] rounded-full py-0.5"
         >
           {isReviewedExpanded ? (
             <ChevronDown className="w-3.5 h-3.5 text-text-light shrink-0" />
@@ -603,7 +634,7 @@ function ImprovementRow({ item, onFocus, actionHandlers, isRemoving, onHoverEnte
               type="button"
               onClick={handleActionClick}
               disabled={!actionEnabled}
-              className={`${typography.panelMeta} text-info border border-info/40 rounded-md px-2.5 py-0.5 bg-transparent hover:border-success/40 hover:text-success disabled:opacity-50 cursor-pointer`}
+              className={`${typography.panelMeta} text-info border border-info/40 rounded-full px-2.5 py-0.5 bg-transparent hover:border-success/40 hover:text-success disabled:opacity-50 cursor-pointer`}
             >
               {item.action.label}
             </button>
@@ -617,7 +648,7 @@ function ImprovementRow({ item, onFocus, actionHandlers, isRemoving, onHoverEnte
                   actionHandlers.onEdit(item.focus.id)
                 }
               }}
-              className={`${typography.panelMeta} text-info border border-info/40 rounded-md px-2.5 py-0.5 bg-transparent hover:border-success/40 hover:text-success cursor-pointer`}
+              className={`${typography.panelMeta} text-info border border-info/40 rounded-full px-2.5 py-0.5 bg-transparent hover:border-success/40 hover:text-success cursor-pointer`}
             >
               Add a negative relationship
             </button>
@@ -802,7 +833,7 @@ function ImprovementRow({ item, onFocus, actionHandlers, isRemoving, onHoverEnte
             onChange={(e) => setEvidenceValue(e.target.value)}
             placeholder="Enter evidence source (URL or description)"
             maxLength={500}
-            className="flex-1 px-2 py-1 text-xs border border-panel-border rounded bg-panel text-text-body focus:outline-none focus:ring-1 focus:ring-info"
+            className={`flex-1 px-2 py-1 ${typography.panelMeta} border border-panel-border rounded bg-panel text-text-body focus:outline-none focus:ring-1 focus:ring-info`}
             autoFocus
             onKeyDown={(e) => {
               if (e.key === 'Enter') handleEvidenceSubmit()

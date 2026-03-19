@@ -90,7 +90,7 @@ export function IconBtn({
             disabled
             aria-disabled="true"
             className={`
-              w-7 h-7 flex items-center justify-center rounded-md transition-colors opacity-40
+              w-7 h-7 flex items-center justify-center rounded-full transition-colors opacity-40
               ${buttonStyle}
               ${className}
             `}
@@ -109,7 +109,7 @@ export function IconBtn({
         onClick={handleClick}
         aria-label={ariaLabel ?? tooltip}
         className={`
-          w-7 h-7 flex items-center justify-center rounded-md transition-colors
+          w-7 h-7 flex items-center justify-center rounded-full transition-colors
           ${buttonStyle}
           ${className}
         `}

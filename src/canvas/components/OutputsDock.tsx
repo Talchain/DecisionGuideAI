@@ -49,6 +49,7 @@ import { RANGE_TERMINOLOGY } from '../../config/terminology'
 import { IdentifiabilityBadge, normalizeIdentifiabilityTag } from './IdentifiabilityBadge'
 import { ValidationPanel, type CritiqueItem } from './ValidationPanel'
 import { PreAnalysisPanel } from './pre-analysis'
+import { useConversation } from '../conversation/useConversation'
 import { canRunAnalysis as canRunAnalysisUtil, getRunButtonTooltip } from '../utils/canRunAnalysis'
 import { WarningBanner } from './WarningBanner'
 import { DegradedStateBanner } from './DegradedStateBanner'
@@ -135,6 +136,7 @@ export function OutputsDock() {
     isOpen: true,
     activeTab: 'results',
   })
+  const { sendMessage } = useConversation()
 
   // Journey tab guard: if persisted tab is 'journey' but flag is off, reset to 'results'
   useEffect(() => {
@@ -578,6 +580,23 @@ export function OutputsDock() {
     const raw = (report as any)?.robustness
     if (!raw) return null
     return mapRobustness(raw, { sourcePath: 'top_level' })
+  }, [report])
+
+  const ceeQuality = useCanvasStore(s => s.ceeQuality)
+
+  const factorInfluenceMap = useMemo(() => {
+    const factors =
+      (report as any)?.enrichment?.sensitivity_analysis?.factors ??
+      (report as any)?.factor_sensitivity ??
+      []
+    if (!Array.isArray(factors) || factors.length === 0) return undefined
+    const map = new Map<string, number>()
+    for (const f of factors) {
+      const id: string | undefined = f.factor_id ?? f.factorId ?? f.node_id ?? f.nodeId
+      const score: number | undefined = f.elasticity ?? f.sensitivity_score ?? f.importance_score
+      if (id && score !== undefined) map.set(id, score)
+    }
+    return map.size > 0 ? map : undefined
   }, [report])
 
   useEffect(() => {
@@ -1108,6 +1127,7 @@ export function OutputsDock() {
                       onAnalyse={handleRunAnalysis}
                       isAnalysing={isRunning}
                       blockedReason={runBlockedTooltip}
+                      onSendMessage={sendMessage}
                     />
                   </div>
                 )}
@@ -1325,6 +1345,9 @@ export function OutputsDock() {
                 edges={edges}
                 robustness={mappedRobustness}
                 critique={report?.run?.critique}
+                factorInfluence={factorInfluenceMap}
+                onReanalyse={handleRunAnalysis}
+                ceeQuality={ceeQuality}
               />
             )}
             {state.activeTab === 'journey' && (

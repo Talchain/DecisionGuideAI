@@ -26,6 +26,10 @@ export interface ObservedState {
   baseline?: number
   unit?: string
   source?: string
+  /** Cap value used to normalise this factor (e.g. 12 for "months up to 12") */
+  cap?: number
+  /** Drivers of uncertainty provided by CEE (displayed as detail text in verify items) */
+  uncertainty_drivers?: string[]
 }
 
 /**

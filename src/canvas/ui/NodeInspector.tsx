@@ -312,7 +312,7 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
       {/* E.4: Goal threshold — inline editor when unset, read-only when set */}
       {isGoalNode && goalThreshold == null && (
         <div className="mt-2">
-          <GoalThresholdEditor />
+          <GoalThresholdEditor nodeId={nodeId} />
         </div>
       )}
       {isGoalNode && goalThreshold != null && (
@@ -565,7 +565,7 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
 
       {/* B.I.8 + E.4: Goal threshold editor — only in Assumptions when threshold is already set */}
       {isGoalNode && goalThreshold != null && (
-        <GoalThresholdEditor />
+        <GoalThresholdEditor nodeId={nodeId} />
       )}
 
       {/* Factor value editor */}

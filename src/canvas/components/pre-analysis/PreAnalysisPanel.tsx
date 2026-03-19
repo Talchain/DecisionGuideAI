@@ -38,6 +38,7 @@ import { RefreshCw, Copy, Pencil, ChevronDown, ChevronRight, AlertTriangle } fro
 import { typography } from '@/styles/typography'
 import { isPreAnalysisEnrichedEnabled } from '../../../flags'
 import { WorthInvestigating, deriveEvidenceGaps } from './WorthInvestigating'
+import { EdgeAssumptionsTable } from './EdgeAssumptionsTable'
 import { ModelNotes, type ModelNote } from './ModelNotes'
 import { formatRepairs } from '../../adapters/modelCardAdapter'
 import { DEFAULT_EDGE_DATA } from '../../domain/edges'
@@ -93,12 +94,15 @@ interface PreAnalysisPanelProps {
   isAnalysing?: boolean
   /** Shared blocked reason for the Analyse CTA */
   blockedReason?: string
+  /** Callback to send a message in the conversation panel */
+  onSendMessage?: (text: string) => void
 }
 
 export function PreAnalysisPanel({
   onAnalyse,
   isAnalysing = false,
   blockedReason,
+  onSendMessage,
 }: PreAnalysisPanelProps) {
   // Get all panel data from hook (includes derived progress counts)
   const data = usePreAnalysisData()
@@ -152,6 +156,7 @@ export function PreAnalysisPanel({
 
   // Phase 2B: One-click fix — "Set value" opens the inspector for a factor (non-destructive)
   const selectNodeWithoutHistory = useCanvasStore(s => s.selectNodeWithoutHistory)
+  const selectEdgeWithoutHistory = useCanvasStore(s => s.selectEdgeWithoutHistory)
   const handleSetValueForGap = useCallback((factorId: string) => {
     // Note: FIX_CLICKED is also fired in GapRow.handleClick; PreAnalysisPanel is the
     // logical orchestrator so we skip double-firing here.
@@ -159,6 +164,10 @@ export function PreAnalysisPanel({
     selectNodeWithoutHistory(factorId)
     focusNodeById(factorId)
   }, [selectNodeWithoutHistory])
+
+  const handleAskAI = useCallback((factorId: string, factorLabel: string) => {
+    onSendMessage?.(`Can you research ${factorLabel} and suggest a reasonable estimate with sources?`)
+  }, [onSendMessage])
 
   // Retry handler with toast feedback
   const handleRetryDraft = useCallback(async () => {
@@ -184,21 +193,23 @@ export function PreAnalysisPanel({
   const setHighlightedEdges = useCanvasStore(s => s.setHighlightedEdges)
 
   const handleFocusNode = useCallback((nodeId: string) => {
-    // Highlight and focus the node on canvas
+    selectNodeWithoutHistory(nodeId)
     setHighlightedNodes([nodeId])
     focusNodeById(nodeId)
-    // Clear highlight after 3 seconds
     setTimeout(() => setHighlightedNodes([]), 3000)
-  }, [setHighlightedNodes])
+  }, [setHighlightedNodes, selectNodeWithoutHistory])
 
   const handleFocusEdge = useCallback((type: 'node' | 'edge', id: string) => {
     if (type === 'edge') {
+      selectEdgeWithoutHistory(id)  // opens edge inspector
+      setHighlightedEdges([id])
       focusEdgeById(id)
+      setTimeout(() => setHighlightedEdges([]), 3000)
     } else {
       // For nodes, use the node focus handler
       handleFocusNode(id)
     }
-  }, [handleFocusNode])
+  }, [handleFocusNode, selectEdgeWithoutHistory, setHighlightedEdges])
 
   // Hover handlers - highlight graph elements on panel item hover
   const handleHoverElement = useCallback((type: 'node' | 'edge', id: string) => {
@@ -239,23 +250,12 @@ export function PreAnalysisPanel({
 
   // Threshold change handler - update both goal node data AND goalThreshold store field
   const handleThresholdChange = useCallback((value: number | null) => {
-    const { updateNode, setGoalThreshold } = useCanvasStore.getState()
+    const { setGoalThresholdAndUpdateNode, setGoalThreshold } = useCanvasStore.getState()
     const goalNode = data.goalNode
-
-    // Update goalThreshold for run pipeline (useV2Run reads this)
-    setGoalThreshold(value)
-
-    // Also update goal node data for persistence
     if (goalNode) {
-      updateNode(goalNode.id, {
-        data: {
-          ...goalNode.data,
-          success_threshold: value,
-          threshold_source: value !== null ? 'user' : undefined,
-          // Clear confirmed status when value changes
-          threshold_confirmed: false,
-        },
-      })
+      setGoalThresholdAndUpdateNode(goalNode.id, value)
+    } else {
+      setGoalThreshold(value)
     }
   }, [data.goalNode])
 
@@ -651,6 +651,9 @@ export function PreAnalysisPanel({
           goalThresholdRaw={data.goalThresholdRaw}
           goalThresholdUnit={data.goalThresholdUnit}
           thresholdSourceBadge={data.thresholdSourceBadge}
+          onFocusNode={handleFocusNode}
+          onHoverEnter={(id) => handleHoverElement('node', id)}
+          onHoverLeave={handleHoverClear}
         />
 
         {/* Draft error card */}
@@ -671,7 +674,7 @@ export function PreAnalysisPanel({
                 <button
                   type="button"
                   onClick={handleEditBrief}
-                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 ${typography.panelMeta} text-info bg-transparent border border-info/40 rounded-md hover:border-success/40 hover:text-success transition-colors`}
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 ${typography.panelMeta} text-info bg-transparent border border-info/40 rounded-full hover:border-success/40 hover:text-success transition-colors`}
                   data-testid="draft-error-edit-brief"
                 >
                   <Pencil size={12} />
@@ -682,7 +685,7 @@ export function PreAnalysisPanel({
                   type="button"
                   onClick={handleRetryDraft}
                   disabled={isRetrying}
-                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 ${typography.panelMeta} text-info bg-transparent border border-info/40 rounded-md hover:border-success/40 hover:text-success disabled:opacity-50 disabled:cursor-not-allowed transition-colors`}
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 ${typography.panelMeta} text-info bg-transparent border border-info/40 rounded-full hover:border-success/40 hover:text-success disabled:opacity-50 disabled:cursor-not-allowed transition-colors`}
                   data-testid="draft-error-retry"
                 >
                   <RefreshCw size={12} className={isRetrying ? 'animate-spin' : ''} />
@@ -701,7 +704,7 @@ export function PreAnalysisPanel({
                   copyTextToClipboard(JSON.stringify(diagnostics, null, 2))
                   showToast('Diagnostics copied', 'success')
                 }}
-                className={`inline-flex items-center gap-1.5 px-2.5 py-1 ${typography.panelMeta} text-text-light bg-panel border border-panel-border rounded-md hover:bg-panel-hover transition-colors`}
+                className={`inline-flex items-center gap-1.5 px-2.5 py-1 ${typography.panelMeta} text-text-light bg-panel border border-panel-border rounded-full hover:bg-panel-hover transition-colors`}
               >
                 <Copy size={12} />
                 Copy diagnostics
@@ -801,14 +804,14 @@ export function PreAnalysisPanel({
                   <button
                     type="button"
                     onClick={onAnalyse}
-                    className={`${typography.panelMeta} text-info border border-info/40 rounded-md px-2.5 py-0.5 bg-transparent hover:border-success/40 hover:text-success cursor-pointer`}
+                    className={`${typography.panelMeta} text-info border border-info/40 rounded-full px-2.5 py-0.5 bg-transparent hover:border-success/40 hover:text-success cursor-pointer`}
                   >
                     Run with estimates
                   </button>
                   <button
                     type="button"
                     onClick={() => improvementsRef.current?.scrollIntoView({ behavior: 'smooth' })}
-                    className={`${typography.panelMeta} text-info border border-info/40 rounded-md px-2.5 py-0.5 bg-transparent hover:border-success/40 hover:text-success cursor-pointer`}
+                    className={`${typography.panelMeta} text-info border border-info/40 rounded-full px-2.5 py-0.5 bg-transparent hover:border-success/40 hover:text-success cursor-pointer`}
                   >
                     Review in structure
                   </button>
@@ -823,6 +826,7 @@ export function PreAnalysisPanel({
           <WorthInvestigating
             gaps={evidenceGaps}
             onSetValue={handleSetValueForGap}
+            onAskAI={handleAskAI}
           />
         )}
 
@@ -844,6 +848,13 @@ export function PreAnalysisPanel({
         {data.preMortem && (
           <PreMortemSection preMortem={data.preMortem} />
         )}
+
+        {/* Edge assumptions table — collapsible, hidden when 0 causal edges */}
+        <EdgeAssumptionsTable
+          edges={edges}
+          nodes={nodes}
+          onSelectEdge={(edgeId) => handleFocusEdge('edge', edgeId)}
+        />
 
         {/* 6. Model Snapshot accordion */}
         <ModelSnapshot

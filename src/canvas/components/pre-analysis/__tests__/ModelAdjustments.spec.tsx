@@ -2,6 +2,106 @@ import { render, screen, fireEvent } from '@testing-library/react'
 import { describe, it, expect } from 'vitest'
 import { ModelAdjustments } from '../ModelAdjustments'
 
+describe('ModelAdjustments — sub-section grouping (Task 8)', () => {
+  it('shows "N model adjustments applied" header for multiple adjustments', () => {
+    render(
+      <ModelAdjustments
+        adjustments={[
+          { code: 'risk_coefficient_corrected', reason: 'Direction mismatch' },
+          { code: 'factor_reclassified', reason: 'Moved to external' },
+        ]}
+      />,
+    )
+
+    expect(screen.getByText(/2 model adjustments applied/)).toBeInTheDocument()
+  })
+
+  it('renders Constraints applied sub-label when constraint codes are present', () => {
+    render(
+      <ModelAdjustments
+        adjustments={[
+          { code: 'risk_coefficient_corrected', reason: 'Direction mismatch' },
+          { code: 'edge_strength_clamped', reason: 'Clamped to [0,1]' },
+          { code: 'factor_reclassified', reason: 'Moved to external' },
+        ]}
+      />,
+    )
+
+    // Expand the section
+    fireEvent.click(screen.getByText(/3 model adjustments applied/))
+
+    expect(screen.getByText('Constraints applied (2)')).toBeInTheDocument()
+  })
+
+  it('renders Auto-fixes applied sub-label when non-constraint codes are present', () => {
+    render(
+      <ModelAdjustments
+        adjustments={[
+          { code: 'risk_coefficient_corrected', reason: 'Direction mismatch' },
+          { code: 'factor_reclassified', reason: 'Moved to external' },
+        ]}
+      />,
+    )
+
+    fireEvent.click(screen.getByText(/2 model adjustments applied/))
+
+    expect(screen.getByText('Auto-fixes applied (1)')).toBeInTheDocument()
+  })
+
+  it('shows only Constraints applied when all codes are constraint type', () => {
+    render(
+      <ModelAdjustments
+        adjustments={[
+          { code: 'risk_coefficient_corrected', reason: 'Direction mismatch' },
+          { code: 'edge_strength_clamped', reason: 'Clamped' },
+        ]}
+      />,
+    )
+
+    fireEvent.click(screen.getByText(/2 model adjustments applied/))
+
+    expect(screen.getByText('Constraints applied (2)')).toBeInTheDocument()
+    expect(screen.queryByText(/Auto-fixes applied/)).not.toBeInTheDocument()
+  })
+
+  it('shows only Auto-fixes applied when no constraint codes are present', () => {
+    render(
+      <ModelAdjustments
+        adjustments={[
+          { code: 'factor_reclassified', reason: 'Moved to external' },
+          { code: 'edge_added', reason: 'Added missing edge' },
+        ]}
+      />,
+    )
+
+    fireEvent.click(screen.getByText(/2 model adjustments applied/))
+
+    expect(screen.queryByText(/Constraints applied/)).not.toBeInTheDocument()
+    expect(screen.getByText('Auto-fixes applied (2)')).toBeInTheDocument()
+  })
+
+  it('collapses and re-expands correctly', () => {
+    render(
+      <ModelAdjustments
+        adjustments={[
+          { code: 'risk_coefficient_corrected', reason: 'Direction mismatch' },
+          { code: 'factor_reclassified', reason: 'Moved to external' },
+        ]}
+      />,
+    )
+
+    const toggle = screen.getByText(/2 model adjustments applied/)
+
+    // Expand
+    fireEvent.click(toggle)
+    expect(screen.getByText('Constraints applied (1)')).toBeInTheDocument()
+
+    // Collapse
+    fireEvent.click(toggle)
+    expect(screen.queryByText('Constraints applied (1)')).not.toBeInTheDocument()
+  })
+})
+
 describe('ModelAdjustments — detail sanitisation (Task 4)', () => {
   it('strips "with synthesised prior [X, Y]" from technicalDetail', () => {
     render(

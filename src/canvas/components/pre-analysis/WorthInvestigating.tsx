@@ -32,6 +32,7 @@ export interface EvidenceGap {
 export interface WorthInvestigatingProps {
   gaps: EvidenceGap[]
   onSetValue?: (factorId: string) => void
+  onAskAI?: (factorId: string, factorLabel: string) => void
 }
 
 // ---------------------------------------------------------------------------
@@ -84,7 +85,7 @@ export function deriveEvidenceGaps(nodes: Node[], edges: Edge[]): EvidenceGap[] 
 
 const MAX_VISIBLE = 3
 
-export const WorthInvestigating = memo(function WorthInvestigating({ gaps, onSetValue }: WorthInvestigatingProps) {
+export const WorthInvestigating = memo(function WorthInvestigating({ gaps, onSetValue, onAskAI }: WorthInvestigatingProps) {
   const [expanded, setExpanded] = useState(false)
 
   // Hide entirely if zero gaps
@@ -106,6 +107,7 @@ export const WorthInvestigating = memo(function WorthInvestigating({ gaps, onSet
             key={gap.factorId}
             gap={gap}
             onSetValue={onSetValue}
+            onAskAI={onAskAI}
           />
         ))}
       </ul>
@@ -139,7 +141,7 @@ export const WorthInvestigating = memo(function WorthInvestigating({ gaps, onSet
 // § 4 — Individual gap row
 // ---------------------------------------------------------------------------
 
-function GapRow({ gap, onSetValue }: { gap: EvidenceGap; onSetValue?: (id: string) => void }) {
+function GapRow({ gap, onSetValue, onAskAI }: { gap: EvidenceGap; onSetValue?: (id: string) => void; onAskAI?: (factorId: string, factorLabel: string) => void }) {
   const { setHoveredFromPanel, hoveredElementId } = useHighlightContext()
   const crossHighlight = isCrossHighlightEnabled()
 
@@ -204,7 +206,7 @@ function GapRow({ gap, onSetValue }: { gap: EvidenceGap; onSetValue?: (id: strin
       onMouseEnter={crossHighlight ? () => setHoveredFromPanel(gap.factorId) : undefined}
       onMouseLeave={crossHighlight ? () => setHoveredFromPanel(null) : undefined}
     >
-      <p className={`${typography.panelBody} font-medium text-text-body`}>
+      <p className={`${typography.panelBody} text-text-body`}>
         {gap.factorLabel}
       </p>
       <p className={`${typography.panelMeta} text-text-light`}>
@@ -228,6 +230,15 @@ function GapRow({ gap, onSetValue }: { gap: EvidenceGap; onSetValue?: (id: strin
           className={`${typography.buttonSmall} text-info border border-info/30 bg-transparent px-2 py-1 rounded hover:bg-info/5 transition-colors`}
         >
           Set value
+        </button>
+      )}
+      {onAskAI && (
+        <button
+          type="button"
+          onClick={() => onAskAI(gap.factorId, gap.factorLabel)}
+          className={`${typography.panelMeta} text-info border border-info/30 bg-transparent px-2 py-1 rounded-full hover:bg-info/5 transition-colors`}
+        >
+          Ask AI to research
         </button>
       )}
     </li>

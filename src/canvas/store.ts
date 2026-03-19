@@ -400,6 +400,7 @@ interface CanvasState {
   onEdgesChange: (changes: EdgeChange[]) => void
   onSelectionChange: (params: { nodes: Node[]; edges: Edge<EdgeData>[] }) => void
   selectNodeWithoutHistory: (nodeId: string) => void
+  selectEdgeWithoutHistory: (edgeId: string) => void
   selectNodes: (nodeIds: string[]) => void
   clearSelection: () => void
   addEdge: (edge: Omit<Edge<EdgeData>, 'id'>) => void
@@ -438,6 +439,8 @@ interface CanvasState {
   setOutcomeNode: (nodeId: string | null) => void
   // Goal threshold for probability_of_goal
   setGoalThreshold: (threshold: number | null) => void
+  /** Unified threshold + node data update. Prefer over calling setGoalThreshold + updateNode separately. */
+  setGoalThresholdAndUpdateNode: (goalNodeId: string, value: number | null) => void
   // Results actions
   resultsStart: (params: { seed: number; wasForced?: boolean }) => void
   resultsConnecting: (runId: string) => void
@@ -1293,6 +1296,18 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     }))
   },
 
+  selectEdgeWithoutHistory: (edgeId) => {
+    set(s => ({
+      nodes: s.nodes.map(n => ({ ...n, selected: false })),
+      edges: s.edges.map(e => ({ ...e, selected: e.id === edgeId })),
+      selection: {
+        nodeIds: new Set(),
+        edgeIds: new Set([edgeId]),
+        anchorPosition: null,
+      }
+    }))
+  },
+
   // Select multiple nodes (for probability editor navigation)
   selectNodes: (nodeIds) => {
     const { nodes } = get()
@@ -1974,6 +1989,26 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
 
   setGoalThreshold: (threshold) => {
     set({ goalThreshold: threshold })
+  },
+
+  setGoalThresholdAndUpdateNode: (goalNodeId, value) => {
+    set({ goalThreshold: value })
+    pushToHistory(get, set)
+    set((s) => ({
+      nodes: s.nodes.map(n =>
+        n.id === goalNodeId
+          ? {
+              ...n,
+              data: {
+                ...n.data,
+                success_threshold: value,
+                threshold_source: value !== null ? 'user' : undefined,
+                threshold_confirmed: false,
+              },
+            }
+          : n
+      ),
+    }))
   },
 
   // Results actions

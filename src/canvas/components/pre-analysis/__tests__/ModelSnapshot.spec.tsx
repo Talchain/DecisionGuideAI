@@ -153,3 +153,50 @@ describe('ModelSnapshot', () => {
     expect(screen.getByText('Reach 200 customers (mid-market)')).toBeInTheDocument()
   })
 })
+
+describe('ModelSnapshot — click-to-inspector', () => {
+  it('calls onFocusNode with the node id when a factor label is clicked', () => {
+    const onFocusNode = vi.fn()
+    const nodesByKind = makeNodesByKind({
+      factor: [
+        {
+          id: 'fac_runway',
+          type: 'factor',
+          position: { x: 0, y: 0 },
+          data: { label: 'Cash Runway' },
+        } as Node,
+      ],
+    })
+
+    render(<ModelSnapshot nodesByKind={nodesByKind} edgeCount={1} onFocusNode={onFocusNode} />)
+
+    // Expand accordion first
+    fireEvent.click(screen.getByTestId('model-snapshot-accordion'))
+
+    // Click the factor label — should call onFocusNode with its id
+    fireEvent.click(screen.getByText('Cash Runway'))
+    expect(onFocusNode).toHaveBeenCalledTimes(1)
+    expect(onFocusNode).toHaveBeenCalledWith('fac_runway')
+  })
+
+  it('calls onFocusNode with the goal node id when a goal label is clicked', () => {
+    const onFocusNode = vi.fn()
+    const nodesByKind = makeNodesByKind({
+      goal: [
+        {
+          id: 'goal_revenue',
+          type: 'goal',
+          position: { x: 0, y: 0 },
+          data: { label: 'Revenue Target' },
+        } as Node,
+      ],
+    })
+
+    render(<ModelSnapshot nodesByKind={nodesByKind} edgeCount={0} onFocusNode={onFocusNode} />)
+
+    fireEvent.click(screen.getByTestId('model-snapshot-accordion'))
+
+    fireEvent.click(screen.getByText('Revenue Target'))
+    expect(onFocusNode).toHaveBeenCalledWith('goal_revenue')
+  })
+})

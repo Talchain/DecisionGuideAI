@@ -52,6 +52,7 @@ export const GoalPanel = memo(function GoalPanel({
   const displayMetadata = useNodeDisplayMetadata(nodeId ?? '', 'goal')
 
   const thresholdUnit = (node?.data as Record<string, unknown>)?.goal_threshold_unit as string | undefined
+  const thresholdRaw = (node?.data as Record<string, unknown>)?.goal_threshold_raw as string | number | null | undefined
   const [description, setDescription] = useState(String(node?.data?.description ?? ''))
 
   // Inbound connections (outcomes/risks → goal)
@@ -103,7 +104,7 @@ export const GoalPanel = memo(function GoalPanel({
         </div>
       ) : (
         <div className="mt-1">
-          <GoalThresholdEditor unit={thresholdUnit} />
+          <GoalThresholdEditor unit={thresholdUnit} nodeId={nodeId} thresholdRaw={thresholdRaw} />
           <CoachingCard text={COACHING.goalNoTarget} action={{ label: 'Add target', onClick: () => {} }} />
         </div>
       )}

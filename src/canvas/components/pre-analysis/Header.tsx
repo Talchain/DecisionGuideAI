@@ -18,6 +18,7 @@
  * while Footer shows context-appropriate state. This split is intentional.
  */
 
+import { Check } from 'lucide-react'
 import { typography } from '@/styles/typography'
 
 interface HeaderProps {
@@ -80,8 +81,11 @@ export function Header({
   const suffix = parts.length > 0 ? ` · ${parts.join(' · ')}` : ''
 
   return (
-    <p className={`${typography.panelHeader} text-success`}>
-      ✓ Ready{suffix}
+    <p className={`${typography.panelHeader} text-success flex items-center gap-1`}>
+      <span className="inline-flex items-center gap-1">
+        <Check size={14} className="text-success" />
+        <span>Ready{suffix}</span>
+      </span>
     </p>
   )
 }

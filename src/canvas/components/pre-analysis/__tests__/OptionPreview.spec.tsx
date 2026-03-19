@@ -1,5 +1,5 @@
-import { render, screen } from '@testing-library/react'
-import { describe, it, expect } from 'vitest'
+import { render, screen, fireEvent } from '@testing-library/react'
+import { describe, it, expect, vi } from 'vitest'
 import { OptionPreview } from '../OptionPreview'
 import type { OptionPreviewData } from '../hooks/usePreAnalysisData'
 
@@ -149,5 +149,49 @@ describe('OptionPreview — intervention display', () => {
     )
 
     expect(screen.getByText('to 9 months')).toBeInTheDocument()
+  })
+})
+
+describe('OptionPreview — click-to-inspector', () => {
+  it('calls onFocusNode with the factor node id when a factor label is clicked', () => {
+    const onFocusNode = vi.fn()
+    render(
+      <OptionPreview
+        options={[makeOption({
+          interventions: [{
+            factorId: 'fac_market',
+            factorLabel: 'Market Size',
+            interventionValue: 0.7,
+            currentValue: null,
+            direction: 'up',
+            cap: null,
+            unit: null,
+            currentRawValue: null,
+          }],
+        })]}
+        onFocusNode={onFocusNode}
+      />,
+    )
+
+    // Click the factor label button — should fire with the factor's id, not the option id
+    fireEvent.click(screen.getByText('Market Size'))
+    expect(onFocusNode).toHaveBeenCalledTimes(1)
+    expect(onFocusNode).toHaveBeenCalledWith('fac_market')
+  })
+
+  it('calls onFocusNode with the option id when the option name is clicked', () => {
+    const onFocusNode = vi.fn()
+    const option = makeOption({
+      id: 'opt_expand',
+      label: 'Expand Now',
+      interventions: [],
+    })
+    render(
+      <OptionPreview options={[option]} onFocusNode={onFocusNode} />,
+    )
+
+    // The option header/name should be clickable
+    fireEvent.click(screen.getByText('Expand Now'))
+    expect(onFocusNode).toHaveBeenCalledWith('opt_expand')
   })
 })

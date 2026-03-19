@@ -195,8 +195,8 @@ describe('PreAnalysisPanel', () => {
       }))
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
-      // New header format: "✓ Ready · {review} to review · Improvements available"
-      expect(screen.getByText(/✓ Ready · 3 to review · Improvements available/)).toBeInTheDocument()
+      // Header now renders Check icon + text span: "Ready · {review} to review · Improvements available"
+      expect(screen.getByText(/Ready · 3 to review · Improvements available/)).toBeInTheDocument()
     })
 
     it('shows blocked status in header when isReady is false', () => {
@@ -555,9 +555,9 @@ describe('PreAnalysisPanel', () => {
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
 
-      // New inline status uses semantic colours: text-success for ready
-      const statusText = screen.getByText(/✓ Ready/)
-      expect(statusText).toHaveClass('text-success')
+      // Header renders Check icon + text span inside a <p class="text-success">
+      const readySpan = screen.getByText(/Ready · 3 to review/)
+      expect(readySpan.closest('p')).toHaveClass('text-success')
     })
   })
 
@@ -579,7 +579,7 @@ describe('PreAnalysisPanel', () => {
 
       // Header should show "Not ready" instead of "Ready"
       expect(screen.getByText(/◌ Not ready/)).toBeInTheDocument()
-      expect(screen.queryByText(/✓ Ready/)).not.toBeInTheDocument()
+      expect(screen.queryByText(/^Ready/)).not.toBeInTheDocument()
     })
 
     it('Review assumptions tier shows completion state when all items reviewed', () => {
@@ -624,8 +624,9 @@ describe('PreAnalysisPanel', () => {
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
 
-      // Should show checkmark badge instead of count
-      expect(screen.getByText('✓')).toBeInTheDocument()
+      // Should show completion state — badge shows Lucide Check icon (SVG), not raw '✓' text
+      // The tier section shows the completion state text instead of items
+      expect(screen.getAllByText('All reviewed').length).toBeGreaterThan(0)
     })
 
     it('shows Ready and enables button when only optional improvements present', () => {
@@ -664,7 +665,7 @@ describe('PreAnalysisPanel', () => {
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
 
       // Header should show Ready with improvements available, not Blocked
-      expect(screen.getByText(/✓ Ready · Improvements available/)).toBeInTheDocument()
+      expect(screen.getByText(/Ready · Improvements available/)).toBeInTheDocument()
       expect(screen.queryByText(/Blocked/)).not.toBeInTheDocument()
 
       // Button should be enabled with "Analyse Now"
@@ -897,7 +898,7 @@ describe('PreAnalysisPanel', () => {
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
 
       expect(screen.getByTestId('model-adjustments')).toBeInTheDocument()
-      expect(screen.getByText('2 auto-fixes applied')).toBeInTheDocument()
+      expect(screen.getByText('2 model adjustments applied')).toBeInTheDocument()
     })
 
     it('does not render model-adjustments section when adjustments are empty', () => {

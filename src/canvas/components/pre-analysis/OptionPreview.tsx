@@ -35,6 +35,31 @@ function pluraliseUnit(unit: string, count: number): string {
 }
 
 /**
+ * Format the current (before) raw value for display alongside the intervention target.
+ * Uses the same formatting rules as formatInterventionDisplay.
+ * Returns null when currentRawValue is absent (AI estimate with no grounding).
+ */
+function formatBeforeValue(
+  currentRawValue: number | null,
+  cap: number | null,
+  unit: string | null,
+): string | null {
+  if (currentRawValue == null) return null
+  // Qualitative: no unit and no meaningful cap — mirror formatInterventionDisplay qualitative path
+  if (!unit && (cap == null || cap === 1)) {
+    const v = currentRawValue
+    const level = v < 0.2 ? 'very low' : v < 0.4 ? 'low' : v < 0.6 ? 'moderate' : v < 0.8 ? 'high' : 'very high'
+    return level
+  }
+  const isDiscrete = cap != null && Number.isInteger(cap) && Number.isInteger(currentRawValue)
+  const display = isDiscrete ? Math.round(currentRawValue) : +currentRawValue.toFixed(1)
+  if (unit === '$' || unit === '£') return `${unit}${display.toLocaleString()}`
+  if (unit === '%') return `${display}%`
+  if (unit) return `${display} ${pluraliseUnit(unit, display)}`
+  return `${display}`
+}
+
+/**
  * Presentation-layer denormalisation (UI-PRES-004 debt).
  * Converts normalised intervention value to human-readable using cap + unit.
  * When CEE emits raw_interventions this helper becomes a pass-through.
@@ -185,11 +210,21 @@ export function OptionPreview({
                 ) : (
                   opt.interventions.map(iv => {
                     const display = formatInterventionDisplay(iv.interventionValue, iv.cap, iv.unit, iv.direction, iv.currentRawValue)
+                    const before = formatBeforeValue(iv.currentRawValue, iv.cap, iv.unit)
                     return (
                       <span key={iv.factorId} className={`inline-flex items-center gap-1 ${typography.panelMeta} text-text-body`}>
                         <InterventionArrow direction={iv.direction} />
-                        <span>{iv.factorLabel}</span>
-                        <span className="text-text-light">{display}</span>
+                        <button
+                          type="button"
+                          onClick={() => onFocusNode?.(iv.factorId)}
+                          className="hover:underline cursor-pointer"
+                        >
+                          {iv.factorLabel}
+                        </button>
+                        {before != null && display !== 'unchanged'
+                          ? <span className="text-text-light">{before} → {display.replace(/^to /, '')}</span>
+                          : <span className="text-text-light">{display}</span>
+                        }
                       </span>
                     )
                   })

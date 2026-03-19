@@ -38,6 +38,9 @@ interface SuccessTargetProps {
   onThresholdEdit?: () => void
   /** Callback when goal selection changes */
   onGoalChange?: (goalId: string) => void
+  onFocusNode?: (nodeId: string) => void
+  onHoverEnter?: (nodeId: string) => void
+  onHoverLeave?: () => void
   /** Raw goal threshold from CEE (user-facing value, e.g. 200) */
   goalThresholdRaw?: number | null
   /** Goal threshold unit from CEE (e.g. "customers") */
@@ -55,6 +58,9 @@ export function SuccessTarget({
   onThresholdConfirm,
   onThresholdEdit,
   onGoalChange,
+  onFocusNode,
+  onHoverEnter,
+  onHoverLeave,
   goalThresholdRaw,
   goalThresholdUnit,
   thresholdSourceBadge,
@@ -143,7 +149,16 @@ export function SuccessTarget({
       )
     }
     return (
-      <p className={`${typography.panelHeader} text-text-header line-clamp-2`} title={goalLabel}>{goalLabel}</p>
+      <button
+        type="button"
+        onClick={() => goalNode && onFocusNode?.(goalNode.id)}
+        onMouseEnter={() => goalNode && onHoverEnter?.(goalNode.id)}
+        onMouseLeave={onHoverLeave}
+        className={`${typography.panelHeader} text-text-header line-clamp-2 text-left${onFocusNode ? ' hover:underline cursor-pointer' : ''}`}
+        title={goalLabel}
+      >
+        {goalLabel}
+      </button>
     )
   }
 
@@ -219,12 +234,12 @@ export function SuccessTarget({
                   // Clear confirmed status when editing
                   onThresholdEdit?.()
                 }}
-                className="flex-1 min-w-0 px-2 py-1.5 text-sm border border-panel-border rounded-lg bg-panel text-text-body focus:outline-none focus:ring-2 focus:ring-info"
+                className={`flex-1 min-w-0 px-2 py-1.5 ${typography.panelBody} border border-panel-border rounded-lg bg-panel text-text-body focus:outline-none focus:ring-2 focus:ring-info`}
               />
               <button
                 type="button"
                 onClick={onThresholdConfirm}
-                className={`px-3 py-1.5 ${typography.panelMeta} text-text-on-color bg-info rounded-lg hover:bg-success shrink-0`}
+                className={`px-3 py-1.5 ${typography.panelMeta} text-text-on-color bg-info rounded-full hover:bg-success shrink-0`}
               >
                 Confirm
               </button>
@@ -256,13 +271,13 @@ export function SuccessTarget({
                     setInputValue('')
                   }
                 }}
-                className="flex-1 min-w-0 px-2 py-1.5 text-sm border border-panel-border rounded-lg bg-panel text-text-body focus:outline-none focus:ring-2 focus:ring-info"
+                className={`flex-1 min-w-0 px-2 py-1.5 ${typography.panelBody} border border-panel-border rounded-lg bg-panel text-text-body focus:outline-none focus:ring-2 focus:ring-info`}
               />
               <button
                 type="button"
                 onClick={handleSubmit}
                 disabled={!inputValue.trim()}
-                className={`px-3 py-1.5 ${typography.panelMeta} text-text-on-color bg-primary rounded-lg hover:bg-primary-hover disabled:opacity-50 shrink-0`}
+                className={`px-3 py-1.5 ${typography.panelMeta} text-text-on-color bg-primary rounded-full hover:bg-primary-hover disabled:opacity-50 shrink-0`}
               >
                 Save
               </button>
@@ -367,7 +382,7 @@ export function SuccessTarget({
                 }
               }}
               autoFocus
-              className="flex-1 min-w-0 px-2 py-1.5 text-sm border border-panel-border rounded-lg bg-panel text-text-body focus:outline-none focus:ring-2 focus:ring-info"
+              className={`flex-1 min-w-0 px-2 py-1.5 ${typography.panelBody} border border-panel-border rounded-lg bg-panel text-text-body focus:outline-none focus:ring-2 focus:ring-info`}
             />
             <button
               type="button"
@@ -375,7 +390,7 @@ export function SuccessTarget({
                 setIsExpanded(false)
                 onThresholdConfirm?.()
               }}
-              className={`px-3 py-1.5 ${typography.panelMeta} text-text-on-color bg-info rounded-lg hover:bg-success shrink-0`}
+              className={`px-3 py-1.5 ${typography.panelMeta} text-text-on-color bg-info rounded-full hover:bg-success shrink-0`}
             >
               Confirm
             </button>

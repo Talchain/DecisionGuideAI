@@ -79,6 +79,8 @@ export interface ImprovementItem {
   sourceBadge?: 'brief' | 'ai'
   /** Secondary hint text (e.g. verification_prompt from CEE) */
   hint?: string
+  /** Subgroup key for divider rows within the reviewAssumptions tier */
+  subgroup?: 'cee_inference' | 'brief_extraction' | 'user_reviewed'
 }
 
 /** Option preview data for Task 3 */
@@ -696,6 +698,16 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
       // Verification prompt demoted to secondary hint (never overrides raw_value)
       const hint = verificationPrompt || undefined
 
+      // Subgroup for divider rows within reviewAssumptions tier
+      let subgroup: ImprovementItem['subgroup']
+      if (source === 'brief_extraction') {
+        subgroup = 'brief_extraction'
+      } else if (['ai', 'cee_inference', 'inferred', 'engine', 'ai_estimate'].includes(source ?? '')) {
+        subgroup = 'cee_inference'
+      } else if (['user_confirmed', 'user_assumption'].includes(source ?? '')) {
+        subgroup = 'user_reviewed'
+      }
+
       result.verify.push({
         key: `verify_${factor.id}`,
         category: 'verify',
@@ -707,6 +719,7 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
         uncertaintyDrivers,
         sourceBadge,
         hint,
+        subgroup,
       })
     }
 
@@ -744,6 +757,15 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
         bias: 'confidence',
       })
     }
+
+    // Sort verify items by subgroup: cee_inference → brief_extraction → user_reviewed → ungrouped
+    const SUBGROUP_ORDER: Record<string, number> = { cee_inference: 0, brief_extraction: 1, user_reviewed: 2 }
+    result.verify.sort((a, b) => {
+      const ao = a.subgroup != null ? (SUBGROUP_ORDER[a.subgroup] ?? 3) : 3
+      const bo = b.subgroup != null ? (SUBGROUP_ORDER[b.subgroup] ?? 3) : 3
+      if (ao !== bo) return ao - bo
+      return 0
+    })
 
     // === ADD EVIDENCE CATEGORY ===
     // Edges with no evidence metadata

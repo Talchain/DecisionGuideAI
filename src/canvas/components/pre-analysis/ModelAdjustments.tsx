@@ -78,6 +78,15 @@ const REPAIR_COPY: Record<string, { singular: string; plural: string }> = {
 /** Generic fallback for unmapped repair codes */
 const GENERIC_REPAIR_FALLBACK = 'We corrected an internal inconsistency. Your intent hasn\u2019t changed.'
 
+/** Repair codes that are parameter-constraint adjustments (vs structural auto-fixes) */
+const CONSTRAINT_CODES = new Set([
+  'risk_coefficient_corrected',
+  'edge_strength_clamped',
+  'exists_probability_defaulted',
+  'strength_defaulted',
+  'observed_state_defaulted',
+])
+
 /** Get user-facing headline for a repair type, or null if unmapped */
 function getRepairCopy(type: string, count: number): string | null {
   const entry = REPAIR_COPY[type]
@@ -211,7 +220,7 @@ function AdjustmentRow({ adj }: { adj: GroupedAdjustment }) {
                   adj.perItemDetails.map((item, idx) => (
                     <div key={idx}>
                       {item.target && (
-                        <p className={`${typography.panelMeta} text-text-body font-medium`}>{item.target}</p>
+                        <p className={`${typography.panelMeta} text-text-body`}>{item.target}</p>
                       )}
                       {item.detail && (
                         <p className={`${typography.panelBody} text-text-light`}>{item.detail}</p>
@@ -238,6 +247,8 @@ export function ModelAdjustments({ adjustments, repairActions = [], postRunRepai
 
   const grouped = groupAdjustments(adjustments)
   const totalCount = grouped.length + repairActions.length
+  const constraintAdj = grouped.filter(a => CONSTRAINT_CODES.has(a.type ?? a.code ?? ''))
+  const autoFixAdj = grouped.filter(a => !CONSTRAINT_CODES.has(a.type ?? a.code ?? ''))
 
   // Single fix: compact inline row — no collapsible wrapper
   if (totalCount === 1) {
@@ -270,7 +281,7 @@ export function ModelAdjustments({ adjustments, repairActions = [], postRunRepai
         <Wrench size={14} className="text-text-light flex-shrink-0" />
         <div className="flex-1 min-w-0">
           <span className={`${typography.panelHeader} text-text-body`}>
-            {totalCount} auto-fixes applied
+            {totalCount} model {totalCount === 1 ? 'adjustment' : 'adjustments'} applied
           </span>
           <p className={`${typography.panelMeta} text-text-light leading-tight`}>
             We fixed small issues without changing your intent.
@@ -285,12 +296,29 @@ export function ModelAdjustments({ adjustments, repairActions = [], postRunRepai
 
       {isExpanded && (
         <div className="px-3 pb-2 space-y-1.5">
-          {grouped.map((adj, idx) => {
-            const displayType = adj.type ?? adj.code
-            return (
-              <AdjustmentRow key={`${displayType ?? 'adj'}-${idx}`} adj={adj} />
-            )
-          })}
+          {constraintAdj.length > 0 && (
+            <>
+              <p className={`${typography.panelMeta} text-text-light`}>
+                Constraints applied ({constraintAdj.length})
+              </p>
+              {constraintAdj.map((adj, idx) => {
+                const displayType = adj.type ?? adj.code
+                return <AdjustmentRow key={`${displayType ?? 'adj'}-${idx}`} adj={adj} />
+              })}
+            </>
+          )}
+          {autoFixAdj.length > 0 && (
+            <>
+              {constraintAdj.length > 0 && <div className="border-t border-panel-border my-1" />}
+              <p className={`${typography.panelMeta} text-text-light`}>
+                Auto-fixes applied ({autoFixAdj.length})
+              </p>
+              {autoFixAdj.map((adj, idx) => {
+                const displayType = adj.type ?? adj.code
+                return <AdjustmentRow key={`${displayType ?? 'adj'}-${idx}`} adj={adj} />
+              })}
+            </>
+          )}
 
           {/* Repair actions from trace.pipeline.repair_summary */}
           {repairActions.length > 0 && (
