@@ -18,9 +18,13 @@ import type { LucideIcon } from 'lucide-react'
  * ⚡ Action: Concrete step or task to execute
  * 🛡️ Constraint: Boundary or limit (budget, time, resource)
  */
-// NOTE: 'constraint' is schema-defined but intentionally unimplemented as a canvas node type.
-// Constraints are modelled as badge data on GoalNode (goalConstraints store field + results.report.goal_constraints),
-// not as standalone nodes. Do not render a ConstraintNode component — the concept renders as inline badges.
+/**
+ * NOTE: 'constraint' is schema-defined and has a ConstraintNode renderer + registry entry,
+ * but CEE/PLoT never emits canvas nodes with type 'constraint'. Constraints surface as
+ * badge data on GoalNode (store.goalConstraints + results.report.goal_constraints), not as
+ * standalone canvas nodes. The ConstraintNode rendering path is dead in production.
+ * Do not add CEE-driven constraint node emission without a design review.
+ */
 export const NodeTypeEnum = z.enum(['goal', 'decision', 'option', 'factor', 'risk', 'outcome', 'action', 'constraint'])
 export type NodeType = z.infer<typeof NodeTypeEnum>
 

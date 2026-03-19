@@ -92,6 +92,8 @@ export function NodeShapeIndicator({ nodeKind, size = 12, className, fillOverrid
       )
 
     case 'constraint':
+    // NOTE: 'constraint' shape is rendered for completeness but CEE never emits constraint canvas nodes.
+    // See NodeTypeEnum JSDoc in domain/nodes.ts.
     default:
       // Small square
       return (

@@ -678,6 +678,30 @@ describe('FactorNode — QA Brief A-series', () => {
     expect(pillEl.closest('div')).not.toBe(valueEl.closest('div'))
   })
 
+  // A17b: "Not used" + "estimated" pill — inferred source (extractionType='inferred')
+  // Shows "estimated" pill, NOT a provenance pill (source='inferred' is suppressed to avoid double-pill).
+  // Both "Not used" text and "estimated" pill must be in separate container elements.
+  it('A17b: value=0 + extractionType=inferred shows "Not used" and "estimated" pill in separate containers, no provenance pill', () => {
+    renderFactor({
+      label: 'Item',
+      type: 'factor',
+      observedState: { value: 0, source: 'inferred', extractionType: 'inferred' },
+    })
+    // "Not used" (value display) must appear
+    expect(screen.getByText('Not used')).toBeDefined()
+    // "estimated" pill must appear (extractionType='inferred')
+    expect(screen.getByText('estimated')).toBeDefined()
+    // "Generated from your brief" / "Estimated by Olumi" provenance pill must NOT appear
+    // (source='inferred' is suppressed to avoid double-pill with the "estimated" badge)
+    expect(screen.queryByText('Estimated by Olumi')).toBeNull()
+    expect(screen.queryByText('Generated from your brief')).toBeNull()
+    // Value text and estimated pill must be in separate container elements
+    const valueEl = screen.getByText('Not used')
+    const pillEl = screen.getByText('estimated')
+    expect(valueEl.parentElement).not.toBe(pillEl.parentElement)
+    expect(pillEl.closest('div')).not.toBe(valueEl.closest('div'))
+  })
+
   // A18: Tier label thresholds — verify exact boundaries (0-0.2, 0.2-0.4, 0.4-0.6, 0.6-0.8, 0.8-1.0)
   it('A18: value=0.2 → "Very low" (upper boundary of very low band)', () => {
     renderFactor({ label: 'Q', type: 'factor', observedState: { value: 0.2 } })

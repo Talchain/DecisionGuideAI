@@ -26,5 +26,8 @@ export const nodeTypes: NodeTypes = {
   risk: RiskNode,
   outcome: OutcomeNode,
   action: ActionNode,
+  // NOTE: ConstraintNode is registered but CEE/PLoT never emits type:'constraint' canvas nodes.
+  // This entry prevents a ReactFlow "unknown node type" warning if stale data arrives.
+  // Constraints render as GoalNode badge data, not as standalone nodes. See NodeTypeEnum JSDoc.
   constraint: ConstraintNode,
 }

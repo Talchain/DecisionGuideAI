@@ -31,8 +31,7 @@ export function cleanFactorLabel(label: string): string {
  * | 0.4–0.69| "Med"  |
  * | < 0.4   | "Low"  |
  *
- * UI-SEM-015: These thresholds (0.7 / 0.4) are heuristic — PLoT does not yet provide
- * canonical tier labels for sensitivity scores. Remove when PLoT provides tier thresholds.
+ * @see UI-SEM-015 — score-based tier fallback. Remove when PLoT provides tier thresholds.
  */
 export function sensitivityTierLabel(score: number): string {
   if (score >= 0.7) return 'High'
@@ -50,8 +49,7 @@ export function sensitivityTierLabel(score: number): string {
  * | 0.4–0.69| "Fair"   |
  * | < 0.4   | "Weak"   |
  *
- * UI-SEM-015: These thresholds (0.7 / 0.4) are heuristic — PLoT does not yet provide
- * canonical tier labels for evidence/confidence scores. Remove when PLoT provides tier thresholds.
+ * @see UI-SEM-015 — score-based tier fallback. Remove when PLoT provides tier thresholds.
  */
 export function evidenceTierLabel(score: number): string {
   if (score >= 0.7) return 'Strong'
