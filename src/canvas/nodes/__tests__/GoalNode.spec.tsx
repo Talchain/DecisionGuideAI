@@ -248,6 +248,26 @@ describe('GoalNode', () => {
     expect(screen.getByText(/200k/)).toBeDefined()
   })
 
+  // Task 2: Non-currency units must suffix, not prefix
+  it('formats non-currency unit as suffix: "≥ 200 customers"', () => {
+    renderGoal({ goal_threshold_raw: 200, goal_threshold_unit: 'customers' })
+    const el = screen.getByText(/≥/)
+    expect(el.textContent).toContain('200')
+    expect(el.textContent).toContain('customers')
+    // Ensure it's "200 customers" not "customers200"
+    expect(el.textContent).toMatch(/200\s+customers/)
+  })
+
+  it('formats currency unit as prefix: "≥ £200"', () => {
+    renderGoal({ goal_threshold_raw: 200, goal_threshold_unit: '£' })
+    const el = screen.getByText(/≥/)
+    // "£200" prefix style (no space between symbol and number)
+    expect(el.textContent).toContain('£')
+    expect(el.textContent).toContain('200')
+    // Must not be "200 £"
+    expect(el.textContent).not.toMatch(/200\s+£/)
+  })
+
   it('shows threshold when goal_threshold_raw is numeric 0 (falsy)', () => {
     renderGoal({ goal_threshold_raw: 0 })
     expect(screen.getByText(/≥/)).toBeDefined()

@@ -204,6 +204,29 @@ describe('FactorNode', () => {
     expect(screen.getByText('Not used')).toBeDefined()
   })
 
+  // Task 4: factor_type descriptor must never appear as a display unit
+  it('does not show "binary" as unit when unit field contains "binary"', () => {
+    renderFactor({
+      label: 'Hire decision',
+      type: 'factor',
+      observedState: { value: 0, unit: 'binary' },
+    })
+    // Should show qualitative tier (no unit), not "0 binary"
+    expect(screen.queryByText(/binary/)).toBeNull()
+    expect(screen.getByText('Not used')).toBeDefined()
+  })
+
+  it('does not show "normalized" as unit when unit field contains "normalized"', () => {
+    renderFactor({
+      label: 'Fit score',
+      type: 'factor',
+      observedState: { value: 0.3, unit: 'normalized' },
+    })
+    // Should show qualitative tier (no unit), not "0.3 normalized"
+    expect(screen.queryByText(/normalized/)).toBeNull()
+    expect(screen.getByText('Low')).toBeDefined()
+  })
+
   // P1.5: value===0 with a unit must NOT show 'Not used' — it means 0% or 0 units
   it('shows "0%" for value===0 when unit is "%"', () => {
     renderFactor({
@@ -225,13 +248,13 @@ describe('FactorNode', () => {
     expect(screen.getByText('Not used')).toBeDefined()
   })
 
-  it('falls back to Full for binary 1 without raw_value', () => {
+  it('falls back to Very high for binary 1 without raw_value', () => {
     renderFactor({
       label: 'Hired',
       type: 'factor',
       observedState: { value: 1 },
     })
-    expect(screen.getByText('Full')).toBeDefined()
+    expect(screen.getByText('Very high')).toBeDefined()
   })
 
   // T4: External factor with no observedState shows "No baseline"
@@ -268,8 +291,8 @@ describe('FactorNode', () => {
     expect(screen.queryByText('estimated')).toBeNull()
   })
 
-  // T6: Sensitivity/Evidence tiers (results mode)
-  it('shows Sensitivity and Evidence tiers in results mode', () => {
+  // T6: Influence/Confidence tiers (results mode)
+  it('shows Influence and Confidence tiers in results mode', () => {
     vi.mocked(useNodeDisplayMetadata).mockReturnValue({
       sensitivityRank: null,
       influence: 0.8,
@@ -281,16 +304,16 @@ describe('FactorNode', () => {
       isResultsMode: true,
     })
     renderFactor({ label: 'Salary', type: 'factor' })
-    expect(screen.getByText('Sensitivity')).toBeDefined()
+    expect(screen.getByText('Influence')).toBeDefined()
     expect(screen.getByText('High')).toBeDefined()
-    expect(screen.getByText('Evidence')).toBeDefined()
+    expect(screen.getByText('Confidence')).toBeDefined()
     expect(screen.getByText('Fair')).toBeDefined()
   })
 
-  it('hides Sensitivity/Evidence bars outside results mode', () => {
+  it('hides Influence/Confidence bars outside results mode', () => {
     renderFactor({ label: 'Salary', type: 'factor' })
-    expect(screen.queryByText('Sensitivity')).toBeNull()
-    expect(screen.queryByText('Evidence')).toBeNull()
+    expect(screen.queryByText('Influence')).toBeNull()
+    expect(screen.queryByText('Confidence')).toBeNull()
   })
 
   it('has displayName set', () => {
@@ -321,7 +344,7 @@ describe('FactorNode', () => {
     expect(screen.getByText('No baseline')).toBeDefined()
   })
 
-  it('does not show Sensitivity/Evidence bars in results mode when both influence and confidence are null', () => {
+  it('does not show Influence/Confidence bars in results mode when both influence and confidence are null', () => {
     vi.mocked(useNodeDisplayMetadata).mockReturnValue({
       sensitivityRank: null,
       influence: null,
@@ -333,11 +356,11 @@ describe('FactorNode', () => {
       isResultsMode: true,
     })
     renderFactor({ label: 'X', type: 'factor' })
-    expect(screen.queryByText('Sensitivity')).toBeNull()
-    expect(screen.queryByText('Evidence')).toBeNull()
+    expect(screen.queryByText('Influence')).toBeNull()
+    expect(screen.queryByText('Confidence')).toBeNull()
   })
 
-  it('does not show Sensitivity bar when influence is exactly 0', () => {
+  it('does not show Influence bar when influence is exactly 0', () => {
     vi.mocked(useNodeDisplayMetadata).mockReturnValue({
       sensitivityRank: null,
       influence: 0,
@@ -349,7 +372,7 @@ describe('FactorNode', () => {
       isResultsMode: true,
     })
     renderFactor({ label: 'X', type: 'factor' })
-    expect(screen.queryByText('Sensitivity')).toBeNull()
+    expect(screen.queryByText('Influence')).toBeNull()
   })
 
   it('omits category label when category is an unrecognised string', () => {

@@ -561,3 +561,72 @@ describe('formatFactorValue', () => {
     expect(formatFactorValue({ value: 0.85, unit: '%' })).toBe('85%')
   })
 })
+
+// ---------------------------------------------------------------------------
+// Task 4: factor_type descriptor must never leak as a display unit
+// ---------------------------------------------------------------------------
+describe('factor_type descriptor suppression (Task 4)', () => {
+  it('formatInterventionValue — suppresses "binary" as unit, falls back to qualitative tier', () => {
+    // CEE erroneously sets unit="binary" — should be treated as no unit
+    expect(formatInterventionValue(0, 'binary')).toBe('None')
+    expect(formatInterventionValue(1, 'binary')).toBe('Very high')
+    expect(formatInterventionValue(0.3, 'binary')).toBe('Low')
+  })
+
+  it('formatInterventionValue — suppresses "normalized" as unit', () => {
+    expect(formatInterventionValue(0.3, 'normalized')).toBe('Low')
+  })
+
+  it('formatInterventionValue — suppresses "normalised" (British spelling) as unit', () => {
+    expect(formatInterventionValue(0.3, 'normalised')).toBe('Low')
+  })
+
+  it('formatInterventionValue — suppresses "continuous" as unit (no factorType → qualitative fallback)', () => {
+    // "continuous" unit is suppressed; without factorType context, falls back to qualitative tier
+    expect(formatInterventionValue(0.75, 'continuous')).toBe('High')
+    // With explicit non-qualitative factorType, numeric display is used
+    expect(formatInterventionValue(0.75, 'continuous', 'continuous')).toBe('0.75')
+  })
+
+  it('formatInterventionValue — suppresses "cost" as unit (no factorType → qualitative fallback)', () => {
+    // "cost" unit is suppressed; without factorType context, falls back to qualitative tier
+    expect(formatInterventionValue(0.5, 'cost')).toBe('Medium')
+    // With explicit "cost" factorType, numeric display is used
+    expect(formatInterventionValue(0.5, 'cost', 'cost')).toBe('0.5')
+  })
+
+  it('formatFactorValue — suppresses "binary" as unit, falls back to qualitative tier', () => {
+    expect(formatFactorValue({ value: 0, unit: 'binary' })).toBe('None')
+    expect(formatFactorValue({ value: 1, unit: 'binary' })).toBe('Very high')
+  })
+
+  it('formatFactorValue — suppresses "normalized" as unit', () => {
+    expect(formatFactorValue({ value: 0.3, unit: 'normalized' })).toBe('Low')
+  })
+
+  it('formatFactorValue — still shows real units normally', () => {
+    expect(formatFactorValue({ raw_value: '10', unit: 'engineers' })).toBe('10 engineers')
+    expect(formatFactorValue({ raw_value: '500', unit: '£' })).toBe('£500')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Task 5: top-tier label is "Very high" not "Full"
+// ---------------------------------------------------------------------------
+describe('top-tier label is Very high (Task 5)', () => {
+  it('qualitativeTierLabel(1.0) returns "Very high"', () => {
+    expect(qualitativeTierLabel(1.0)).toBe('Very high')
+  })
+
+  it('formatInterventionValue(1, undefined) returns "Very high" (no unit, no factorType)', () => {
+    expect(formatInterventionValue(1)).toBe('Very high')
+  })
+
+  it('formatInterventionValue(0.9, undefined, "quality") returns "Very high"', () => {
+    expect(formatInterventionValue(0.9, undefined, 'quality')).toBe('Very high')
+  })
+
+  it('formatFactorValue({ value: 1.0 }) returns "Very high"', () => {
+    expect(formatFactorValue({ value: 1.0 })).toBe('Very high')
+  })
+})

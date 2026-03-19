@@ -8,6 +8,7 @@ import { typography } from '../../styles/typography'
 import { formatTargetValue } from '../../components/results/utils/formatTargetValue'
 import { DataBar, type DataBarColour } from '../ui/shared/DataBar'
 import { getProvenanceLabel } from '../ui/inspector-v2/inspectorStrings'
+import { isCurrencyUnit } from '../utils/labelUtils'
 
 export const GoalNode = memo((props: NodeProps) => {
   const metadata = NODE_REGISTRY.goal
@@ -112,8 +113,12 @@ export const GoalNode = memo((props: NodeProps) => {
             const u = typeof thresholdUnit === 'string' ? thresholdUnit.toLowerCase() : ''
             if (u === '%' || u === 'percent' || u === 'percentage') return formatTargetValue(raw, 'percent')
             if (u === 'count' || u === '') return formatTargetValue(raw)
-            // Currency-like unit (e.g. "USD", "£", "GBP") — use unit as symbol
-            return formatTargetValue(raw, 'currency', thresholdUnit!)
+            if (thresholdUnit && isCurrencyUnit(thresholdUnit)) {
+              // Currency symbol — prefix (e.g. "≥ £20,000")
+              return formatTargetValue(raw, 'currency', thresholdUnit)
+            }
+            // Non-currency unit — suffix (e.g. "≥ 200 customers")
+            return `${raw.toLocaleString()} ${thresholdUnit}`
           })()}
         </div>
       ) : resultsStatus !== 'complete' && (

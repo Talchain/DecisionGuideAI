@@ -57,6 +57,16 @@ export function evidenceTierLabel(score: number): string {
 export const QUALITATIVE_FACTOR_TYPES = new Set(['quality', 'demand', 'other'])
 
 /**
+ * Internal CEE factor_type descriptor values that must never appear as display units.
+ * If the `unit` field contains one of these values it is a data model error —
+ * treat it as "no unit" rather than displaying the descriptor to the user.
+ */
+const INTERNAL_FACTOR_TYPE_DESCRIPTORS = new Set([
+  'binary', 'normalized', 'normalised', 'continuous', 'quality',
+  'demand', 'cost', 'time', 'other',
+])
+
+/**
  * Map a 0–1 intervention value to a qualitative tier label.
  * Used when a factor has no unit and its type is qualitative.
  *
@@ -90,6 +100,24 @@ export const CURRENCY_SYMBOLS = new Set([
 export function isCurrencyUnit(unit: string): boolean {
   if (!unit) return false
   return CURRENCY_SYMBOLS.has(unit) || CURRENCY_SYMBOLS.has(unit[0])
+}
+
+/**
+ * Returns true if the unit is an internal factor_type descriptor that must
+ * never appear in user-facing display (e.g. "binary", "normalized").
+ */
+export function isSuppressedUnit(unit: string | undefined): boolean {
+  if (!unit) return false
+  return INTERNAL_FACTOR_TYPE_DESCRIPTORS.has(unit.toLowerCase().trim())
+}
+
+/**
+ * Returns the unit string if it is safe for user-facing display, or undefined
+ * if it is an internal factor_type descriptor that should never be shown.
+ */
+function sanitiseUnit(unit: string | undefined): string | undefined {
+  if (!unit) return undefined
+  return isSuppressedUnit(unit) ? undefined : unit
 }
 
 function toFiniteNumber(value: unknown): number | null {
@@ -167,7 +195,8 @@ export function formatFactorValue(observedState: {
 } | undefined | null): string | null {
   if (!observedState) return null
 
-  const { raw_value, unit, value, cap, factor_type } = observedState
+  const { raw_value, value, cap, factor_type } = observedState
+  const unit = sanitiseUnit(observedState.unit)
 
   // 1. raw_value present — preferred path
   if (raw_value !== undefined && raw_value !== null && String(raw_value).trim() !== '') {
@@ -229,6 +258,8 @@ export function formatInterventionValue(
   observedValue?: number | null,
   observedRawValue?: string | number | null,
 ): string {
+  // Sanitise unit — never display internal factor_type descriptor strings as units
+  unit = sanitiseUnit(unit)
   // J1: Denormalise using cap before any formatting
   const v = denormaliseInterventionValue(value, cap, observedValue, observedRawValue)
   const scaleBase = inferInterventionScaleBase(cap, observedValue, observedRawValue)

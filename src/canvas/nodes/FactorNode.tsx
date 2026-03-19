@@ -8,7 +8,7 @@ import { deriveControllability } from '../utils/graphDisplayCalculations'
 import { useNodeDisplayMetadata } from '../hooks/useNodeDisplayMetadata'
 import { hasObservedData } from '../utils/observedStateHelpers'
 import { typography } from '../../styles/typography'
-import { cleanFactorLabel, sensitivityTierLabel, evidenceTierLabel, formatInterventionValue, isCurrencyUnit, formatFactorValue, QUALITATIVE_FACTOR_TYPES } from '../utils/labelUtils'
+import { cleanFactorLabel, sensitivityTierLabel, evidenceTierLabel, formatInterventionValue, isCurrencyUnit, formatFactorValue, QUALITATIVE_FACTOR_TYPES, isSuppressedUnit } from '../utils/labelUtils'
 import { isGraphBadgesEnabled } from '../../flags'
 import { SlidersHorizontal, Eye, Cloud } from 'lucide-react'
 import { DataBar } from '../ui/shared/DataBar'
@@ -85,16 +85,18 @@ export const FactorNode = memo((props: NodeProps) => {
     if (!observedState) return null
     const { value } = observedState
 
-    // Binary/discrete special cases (shown before formatFactorValue to preserve 'Full').
-    // 'Not used' and 'Full' only apply to qualitative/categorical factors (no unit,
+    // Binary/discrete special cases (shown before formatFactorValue).
+    // 'Not used' and 'Very high' only apply to qualitative/categorical factors (no unit,
     // no cap, and either no factor_type or a known qualitative type).
     if (value !== undefined && observedState.raw_value == null) {
       const ft = observedState.factor_type?.toLowerCase().trim()
-      const isQualitative = !observedState.unit && observedState.cap == null &&
+      // Treat suppressed/internal unit descriptors (e.g. "binary", "normalized") as "no unit"
+      const effectiveUnit = isSuppressedUnit(observedState.unit) ? undefined : observedState.unit
+      const isQualitative = !effectiveUnit && observedState.cap == null &&
         (!ft || QUALITATIVE_FACTOR_TYPES.has(ft))
       if (isQualitative) {
         if (value === 0) return 'Not used'
-        if (value === 1) return 'Full'
+        if (value === 1) return 'Very high'
       }
     }
 
@@ -191,21 +193,25 @@ export const FactorNode = memo((props: NodeProps) => {
 
         {/* T4: Human-readable value row + T5: estimated pill */}
         {(valueDisplay !== null || (observedState != null && observedState.value === undefined) || (!observedState && nodeCategory === 'external')) && (
-          <div className={`${typography.nodeLabel} mt-1.5 flex items-center gap-1.5 flex-wrap`}>
-            {valueDisplay !== null ? (
-              <span className="font-semibold text-text-body">{valueDisplay}</span>
-            ) : priorRangeDisplay ? (
-              <span className="text-text-light">{priorRangeDisplay}</span>
-            ) : (
-              <span className="italic text-text-light">No baseline</span>
-            )}
+          <div className={`${typography.nodeLabel} mt-1.5`}>
+            <div>
+              {valueDisplay !== null ? (
+                <span className="font-semibold text-text-body">{valueDisplay}</span>
+              ) : priorRangeDisplay ? (
+                <span className="text-text-light">{priorRangeDisplay}</span>
+              ) : (
+                <span className="italic text-text-light">No baseline</span>
+              )}
+            </div>
             {isInferred && (
-              <span
-                className={`${typography.nodeLabel} bg-panel border border-warning/30 text-text-body rounded-full px-1.5 py-0.5`}
-                title="Estimated by Olumi — verify or update"
-              >
-                estimated
-              </span>
+              <div className="mt-1">
+                <span
+                  className={`${typography.nodeLabel} bg-panel border border-warning/30 text-text-body rounded-full px-1.5 py-0.5`}
+                  title="Estimated by Olumi — verify or update"
+                >
+                  estimated
+                </span>
+              </div>
             )}
           </div>
         )}
@@ -216,28 +222,32 @@ export const FactorNode = memo((props: NodeProps) => {
           (displayMetadata.confidence !== null && displayMetadata.confidence > 0.001)
         ) && (
           <div className="mt-2 mb-1 space-y-1.5">
-            {/* Sensitivity bar (was Influence) */}
+            {/* Influence bar */}
             {displayMetadata.influence !== null && displayMetadata.influence > 0.001 && (
               <div className="flex items-center gap-1.5">
-                <span className={`${typography.nodeLabel} text-text-light w-14 shrink-0 truncate`} title="Sensitivity">Sensitivity</span>
-                <DataBar
-                  value={(sensitivityBarWidth ?? Math.round(displayMetadata.influence * 100)) / 100}
-                  label="Sensitivity"
-                  colour="info"
-                  trailingLabel={sensitivityTierLabel(displayMetadata.influence)}
-                />
+                <span className={`${typography.nodeLabel} text-text-light w-14 shrink-0 truncate`} title="Influence">Influence</span>
+                <div className="flex-1 min-w-0">
+                  <DataBar
+                    value={(sensitivityBarWidth ?? Math.round(displayMetadata.influence * 100)) / 100}
+                    label="Influence"
+                    colour="info"
+                    trailingLabel={sensitivityTierLabel(displayMetadata.influence)}
+                  />
+                </div>
               </div>
             )}
-            {/* Evidence bar (was Confidence) */}
+            {/* Confidence bar */}
             {displayMetadata.confidence !== null && displayMetadata.confidence > 0.001 && (
               <div className="flex items-center gap-1.5">
-                <span className={`${typography.nodeLabel} text-text-light w-14 shrink-0 truncate`} title="Evidence">Evidence</span>
-                <DataBar
-                  value={displayMetadata.confidence}
-                  label="Evidence"
-                  colour="info"
-                  trailingLabel={evidenceTierLabel(displayMetadata.confidence)}
-                />
+                <span className={`${typography.nodeLabel} text-text-light w-14 shrink-0 truncate`} title="Confidence">Confidence</span>
+                <div className="flex-1 min-w-0">
+                  <DataBar
+                    value={displayMetadata.confidence}
+                    label="Confidence"
+                    colour="info"
+                    trailingLabel={evidenceTierLabel(displayMetadata.confidence)}
+                  />
+                </div>
               </div>
             )}
           </div>
