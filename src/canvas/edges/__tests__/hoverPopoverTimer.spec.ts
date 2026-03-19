@@ -7,47 +7,44 @@
  * These tests validate the timer-cleanup contract in isolation, without a full
  * ReactFlow render, by exercising the same ref + useEffect pattern the component uses.
  */
-import { describe, it, expect, vi, afterEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 
 describe('Edge hover popover timer cleanup (Task 5)', () => {
-  afterEach(() => {
-    vi.restoreAllMocks()
+  beforeEach(() => {
+    vi.useFakeTimers()
   })
 
-  it('clearTimeout is called when the cleanup function runs before the timer fires', () => {
-    vi.useFakeTimers()
-    const clearTimeoutSpy = vi.spyOn(globalThis, 'clearTimeout')
-
-    // Simulate StyledEdge mount + mouseEnter
-    let timerRef: ReturnType<typeof setTimeout> | null = null
-    timerRef = setTimeout(() => { /* setShowHoverPopover(true) */ }, 300)
-
-    // Simulate unmount — useEffect cleanup fires before the 300ms elapses
-    if (timerRef) clearTimeout(timerRef)
-
-    expect(clearTimeoutSpy).toHaveBeenCalledWith(timerRef)
+  afterEach(() => {
+    vi.restoreAllMocks()
     vi.useRealTimers()
   })
 
+  it('clearTimeout is called when the cleanup function runs before the timer fires', () => {
+    const clearTimeoutSpy = vi.spyOn(globalThis, 'clearTimeout')
+
+    // Simulate StyledEdge mount + mouseEnter
+    const timerRef = setTimeout(() => { /* setShowHoverPopover(true) */ }, 300)
+
+    // Simulate unmount — useEffect cleanup fires before the 300ms elapses
+    clearTimeout(timerRef)
+
+    expect(clearTimeoutSpy).toHaveBeenCalledWith(timerRef)
+  })
+
   it('timer callback does NOT run when cleanup fires before 300ms', () => {
-    vi.useFakeTimers()
     const callback = vi.fn()
 
-    let timerRef: ReturnType<typeof setTimeout> | null = null
-    timerRef = setTimeout(callback, 300)
+    const timerRef = setTimeout(callback, 300)
 
     // Unmount before timer fires — cleanup clears the timer
-    if (timerRef) clearTimeout(timerRef)
+    clearTimeout(timerRef)
 
     // Advance past the delay — callback must not have been called
     vi.advanceTimersByTime(400)
     expect(callback).not.toHaveBeenCalled()
-
-    vi.useRealTimers()
   })
 
   it('timer callback runs normally when unmount occurs after 300ms', () => {
-    vi.useFakeTimers()
     const callback = vi.fn()
 
     const timerRef = setTimeout(callback, 300)
@@ -60,7 +57,5 @@ describe('Edge hover popover timer cleanup (Task 5)', () => {
     clearTimeout(timerRef)
     vi.advanceTimersByTime(400)
     expect(callback).toHaveBeenCalledTimes(1) // still only once
-
-    vi.useRealTimers()
   })
 })

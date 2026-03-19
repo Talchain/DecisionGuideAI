@@ -7,7 +7,7 @@ import { z } from 'zod'
 import { Target, Crosshair, Lightbulb, Settings, AlertTriangle, TrendingUp, Zap, Shield } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
-/**
+/*
  * Node type taxonomy for decision trees
  * 🎯 Goal: Target outcome or objective
  * 🔀 Decision: Choice point requiring evaluation
@@ -19,7 +19,9 @@ import type { LucideIcon } from 'lucide-react'
  * 🛡️ Constraint: Boundary or limit (budget, time, resource)
  */
 /**
- * NOTE: 'constraint' is schema-defined and has a ConstraintNode renderer + registry entry,
+ * All canvas node type identifiers.
+ *
+ * NOTE — 'constraint': schema-defined and has a ConstraintNode renderer + registry entry,
  * but CEE/PLoT never emits canvas nodes with type 'constraint'. Constraints surface as
  * badge data on GoalNode (store.goalConstraints + results.report.goal_constraints), not as
  * standalone canvas nodes. The ConstraintNode rendering path is dead in production.

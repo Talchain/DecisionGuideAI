@@ -17,7 +17,8 @@ vi.mock('@xyflow/react', async () => {
   const actual = await vi.importActual('@xyflow/react')
   return {
     ...actual,
-    BaseEdge: (props: any) => <path data-testid="base-edge" {...props} />,
+    // Render a minimal element — do NOT spread edge props onto DOM elements (unknown prop warnings)
+    BaseEdge: () => <path data-testid="base-edge" />,
     EdgeLabelRenderer: ({ children }: any) => <div>{children}</div>,
     getBezierPath: () => ['M0 0 L100 100', 50, 50],
     getSmoothStepPath: () => ['M0 0 L100 100', 50, 50],
@@ -127,9 +128,9 @@ describe('StyledEdge — hover popover timer cleanup (component-level)', () => {
 
     const { container, unmount } = render(<StyledEdge {...defaultEdgeProps as any} />)
 
-    // StyledEdge renders an invisible <path> with onMouseEnter as the hitbox.
-    // It is the first <path> in the fragment (before the mocked BaseEdge path).
-    const hitPath = container.querySelector('path:not([data-testid="base-edge"])')
+    // StyledEdge renders an invisible hit-path with stroke="transparent" carrying onMouseEnter.
+    // This attribute is stable — use it rather than relying on DOM order.
+    const hitPath = container.querySelector('path[stroke="transparent"]')
     expect(hitPath).not.toBeNull()
 
     // Trigger mouseEnter — starts the 300ms timer inside the component
