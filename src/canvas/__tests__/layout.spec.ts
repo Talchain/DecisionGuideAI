@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { layoutGraph } from '../utils/layout'
+import type { CanvasSize } from '../utils/layout'
 import type { Node, Edge } from '@xyflow/react'
 
 // ---------------------------------------------------------------------------
@@ -37,10 +38,8 @@ function checkNoOverlap(nodes: Node[], nodeW = 264, nodeH = 116): void {
 }
 
 /**
- * Return the origin-to-origin bounding box of a set of laid-out nodes.
+ * Return the bounding box of a set of laid-out nodes.
  * Note: measures node origin points only, not including node dimensions.
- * This is intentional for threshold tests — adaptive scaling targets origin
- * spread, and the fill assertions use the same basis.
  */
 function bounds(nodes: Node[]): { w: number; h: number; minX: number; minY: number; maxX: number; maxY: number } {
   let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity
@@ -53,8 +52,13 @@ function bounds(nodes: Node[]): { w: number; h: number; minX: number; minY: numb
   return { minX, maxX, minY, maxY, w: maxX - minX, h: maxY - minY }
 }
 
+// Standard test canvas — reference viewport minus fixed chrome
+const TEST_CANVAS: CanvasSize = { width: 1300, height: 750 }
+// Narrow canvas simulating right panel open (1440 - 48 - 416 - 40 ≈ 936px)
+const NARROW_CANVAS: CanvasSize = { width: 936, height: 750 }
+
 // ---------------------------------------------------------------------------
-// Original tests (updated assertions)
+// Core layout tests
 // ---------------------------------------------------------------------------
 
 describe('ELK Layout', () => {
@@ -74,8 +78,7 @@ describe('ELK Layout', () => {
 
     expect(nodes).toHaveLength(3)
 
-    // Positions may be negative after centroid-based adaptive scaling —
-    // assert finite rather than >= 0
+    // Positions may be negative — assert finite rather than >= 0
     nodes.forEach(node => {
       expect(Number.isFinite(node.position.x)).toBe(true)
       expect(Number.isFinite(node.position.y)).toBe(true)
@@ -87,12 +90,17 @@ describe('ELK Layout', () => {
     expect(node1.position.y).toBeLessThan(node2.position.y)
   })
 
+  it('returns layoutNodeWidth', async () => {
+    const { layoutNodeWidth } = await layoutGraph(mockNodes, mockEdges, {}, TEST_CANVAS)
+    expect(layoutNodeWidth).toBeGreaterThanOrEqual(140)
+    expect(layoutNodeWidth).toBeLessThanOrEqual(240)
+  })
+
   it('preserves locked node positions', async () => {
     const lockedNodes: Node[] = [
       makeNode('1', 'decision', { locked: true, label: 'Locked' }),
       makeNode('2', 'decision', { label: 'Unlocked' }),
     ]
-    // Override starting position for locked node
     lockedNodes[0].position = { x: 100, y: 100 }
 
     const { nodes } = await layoutGraph(lockedNodes, [], { preserveLocked: true })
@@ -124,16 +132,14 @@ describe('ELK Layout', () => {
     expect(downNodes).toHaveLength(3)
     expect(rightNodes).toHaveLength(3)
 
-    // Positions must differ between directions
     expect(downNodes[0].position).not.toEqual(rightNodes[0].position)
   })
 
   // ---------------------------------------------------------------------------
-  // New acceptance-criteria tests
+  // Non-overlap and tier ordering
   // ---------------------------------------------------------------------------
 
   it('nodes do not overlap in a 5-node decision graph', async () => {
-    // decision → 2 options → 2 factors → goal (5 tiers)
     const fiveNodes: Node[] = [
       makeNode('decision', 'decision'),
       makeNode('optA', 'option'),
@@ -147,7 +153,7 @@ describe('ELK Layout', () => {
       makeEdge('e3', 'optA', 'factorA'),
       makeEdge('e4', 'factorA', 'goal'),
     ]
-    const { nodes } = await layoutGraph(fiveNodes, fiveEdges)
+    const { nodes } = await layoutGraph(fiveNodes, fiveEdges, {}, TEST_CANVAS)
     checkNoOverlap(nodes)
   })
 
@@ -165,12 +171,11 @@ describe('ELK Layout', () => {
       makeEdge('e7', 'f1', 'r1'), makeEdge('e8', 'f2', 'r2'),
       makeEdge('e9', 'r1', 'g'), makeEdge('e10', 'r2', 'g'),
     ]
-    const { nodes } = await layoutGraph(tenNodes, tenEdges)
+    const { nodes } = await layoutGraph(tenNodes, tenEdges, {}, TEST_CANVAS)
     checkNoOverlap(nodes)
   })
 
   it('linear chain lays out with strict tier ordering', async () => {
-    // decision → option → factor → outcome → goal
     const chain: Node[] = [
       makeNode('d', 'decision'),
       makeNode('o', 'option'),
@@ -184,7 +189,7 @@ describe('ELK Layout', () => {
       makeEdge('e3', 'f', 'out'),
       makeEdge('e4', 'out', 'g'),
     ]
-    const { nodes } = await layoutGraph(chain, chainEdges)
+    const { nodes } = await layoutGraph(chain, chainEdges, {}, TEST_CANVAS)
 
     const pos = (id: string) => nodes.find(n => n.id === id)!.position.y
     expect(pos('d')).toBeLessThan(pos('o'))
@@ -193,19 +198,9 @@ describe('ELK Layout', () => {
     expect(pos('out')).toBeLessThan(pos('g'))
   })
 
-  it('adaptive scaling expands a small graph to use available canvas', async () => {
-    // 3-node graph without adaptive scaling would produce a very small bounding box;
-    // with scaling it should occupy > 40% of effective canvas width or height
-    const { nodes } = await layoutGraph(mockNodes, mockEdges)
-    const { w, h } = bounds(nodes)
-
-    // Effective canvas: 1352 * 0.6 = 811w, 771 * 0.6 = 463h
-    // The graph is small (3 nodes) so adaptive scaling should push at least one
-    // dimension to >= 40% of effective canvas. We use a conservative threshold.
-    const effectiveW = 1352 * 0.6
-    const effectiveH = 771 * 0.6
-    expect(w >= effectiveW * 0.4 || h >= effectiveH * 0.4).toBe(true)
-  })
+  // ---------------------------------------------------------------------------
+  // Locked node behaviour
+  // ---------------------------------------------------------------------------
 
   it('locked nodes are unchanged after a re-layout with new unlocked nodes', async () => {
     const nodesWithLocked: Node[] = [
@@ -213,16 +208,13 @@ describe('ELK Layout', () => {
       makeNode('d', 'decision'),
       makeNode('o', 'option'),
     ]
-    const edgesForLocked: Edge[] = [
-      makeEdge('e1', 'd', 'o'),
-    ]
+    const edgesForLocked: Edge[] = [makeEdge('e1', 'd', 'o')]
 
     const { nodes } = await layoutGraph(nodesWithLocked, edgesForLocked, { preserveLocked: true })
 
     const lockedNode = nodes.find(n => n.id === 'locked')!
     expect(lockedNode.position).toEqual({ x: 500, y: 500 })
 
-    // Unlocked nodes must have been repositioned by ELK
     const d = nodes.find(n => n.id === 'd')!
     const o = nodes.find(n => n.id === 'o')!
     expect(Number.isFinite(d.position.x)).toBe(true)
@@ -239,58 +231,112 @@ describe('ELK Layout', () => {
     expect(nodes.find(n => n.id === 'b')!.position).toEqual({ x: 30, y: 40 })
   })
 
-  it('adaptive scaling does not over-expand a 10-node graph that already spans canvas', async () => {
-    // 10-node graph with real spacing (60/90) should occupy enough canvas that
-    // adaptive scale does NOT fire (graphW or graphH >= 40% effective canvas).
-    // Nodes must remain non-overlapping and layout must be finite.
-    const tenNodes: Node[] = [
+  // ---------------------------------------------------------------------------
+  // Viewport-constrained sizing
+  // ---------------------------------------------------------------------------
+
+  it('nodeW stays within [140, 240] for small graphs on a wide canvas', async () => {
+    // 8-node graph: widest tier = 3 options. Should produce generous nodeW near MAX.
+    const nodes: Node[] = [
       makeNode('d', 'decision'),
       makeNode('o1', 'option'), makeNode('o2', 'option'), makeNode('o3', 'option'),
-      makeNode('f1', 'factor'), makeNode('f2', 'factor'), makeNode('f3', 'factor'),
-      makeNode('r1', 'risk'), makeNode('r2', 'risk'),
-      makeNode('g', 'goal'),
-    ]
-    const tenEdges: Edge[] = [
-      makeEdge('e1', 'd', 'o1'), makeEdge('e2', 'd', 'o2'), makeEdge('e3', 'd', 'o3'),
-      makeEdge('e4', 'o1', 'f1'), makeEdge('e5', 'o2', 'f2'), makeEdge('e6', 'o3', 'f3'),
-      makeEdge('e7', 'f1', 'r1'), makeEdge('e8', 'f2', 'r2'),
-      makeEdge('e9', 'r1', 'g'), makeEdge('e10', 'r2', 'g'),
-    ]
-    const { nodes } = await layoutGraph(tenNodes, tenEdges, { spacing: 60, layerSpacing: 90 })
-    nodes.forEach(n => {
-      expect(Number.isFinite(n.position.x)).toBe(true)
-      expect(Number.isFinite(n.position.y)).toBe(true)
-    })
-    checkNoOverlap(nodes)
-  })
-
-  it('adaptive scaling handles a pure vertical chain without producing invalid positions', async () => {
-    // A 5-node chain in DOWN layout produces graphW ≈ 0 (degenerate X axis).
-    // The degenerate axis must not block scaling on the other axis, and all
-    // positions must remain finite.
-    const chain: Node[] = [
-      makeNode('d', 'decision'),
-      makeNode('o', 'option'),
-      makeNode('f', 'factor'),
+      makeNode('f1', 'factor'), makeNode('f2', 'factor'),
       makeNode('out', 'outcome'),
       makeNode('g', 'goal'),
     ]
-    const chainEdges: Edge[] = [
-      makeEdge('e1', 'd', 'o'),
-      makeEdge('e2', 'o', 'f'),
-      makeEdge('e3', 'f', 'out'),
-      makeEdge('e4', 'out', 'g'),
+    const edges: Edge[] = [
+      makeEdge('e1', 'd', 'o1'), makeEdge('e2', 'd', 'o2'), makeEdge('e3', 'd', 'o3'),
+      makeEdge('e4', 'o1', 'f1'), makeEdge('e5', 'o2', 'f2'),
+      makeEdge('e6', 'f1', 'out'), makeEdge('e7', 'f2', 'out'),
+      makeEdge('e8', 'out', 'g'),
     ]
-    const { nodes } = await layoutGraph(chain, chainEdges)
-    nodes.forEach(n => {
+    const { nodes: laid, layoutNodeWidth } = await layoutGraph(nodes, edges, {}, TEST_CANVAS)
+    expect(layoutNodeWidth).toBeGreaterThanOrEqual(140)
+    expect(layoutNodeWidth).toBeLessThanOrEqual(240)
+    // All positions must be finite
+    laid.forEach(n => {
       expect(Number.isFinite(n.position.x)).toBe(true)
       expect(Number.isFinite(n.position.y)).toBe(true)
     })
-    // Tier ordering must still hold
-    const pos = (id: string) => nodes.find(n => n.id === id)!.position.y
-    expect(pos('d')).toBeLessThan(pos('o'))
-    expect(pos('o')).toBeLessThan(pos('f'))
-    expect(pos('f')).toBeLessThan(pos('out'))
-    expect(pos('out')).toBeLessThan(pos('g'))
+  })
+
+  it('nodeW is clamped to MIN_NODE_W (140) when tier is too wide for canvas', async () => {
+    // 14-node graph: 7 factors in tier 2. On a 936px narrow canvas,
+    // 7 * 140 + 6 * 30 = 1160px > 936 * 0.85 = 795px, so multi-row fires.
+    // layoutNodeWidth must equal 140.
+    const nodes: Node[] = [
+      makeNode('d', 'decision'),
+      makeNode('o1', 'option'), makeNode('o2', 'option'), makeNode('o3', 'option'),
+      makeNode('f1', 'factor'), makeNode('f2', 'factor'), makeNode('f3', 'factor'),
+      makeNode('f4', 'factor'), makeNode('f5', 'factor'), makeNode('f6', 'factor'), makeNode('f7', 'factor'),
+      makeNode('out', 'outcome'),
+      makeNode('r1', 'risk'),
+      makeNode('g', 'goal'),
+    ]
+    const edges: Edge[] = [
+      makeEdge('e1', 'd', 'o1'), makeEdge('e2', 'd', 'o2'), makeEdge('e3', 'd', 'o3'),
+      makeEdge('e4', 'o1', 'f1'), makeEdge('e5', 'o1', 'f2'), makeEdge('e6', 'o2', 'f3'),
+      makeEdge('e7', 'o2', 'f4'), makeEdge('e8', 'o3', 'f5'), makeEdge('e9', 'o3', 'f6'),
+      makeEdge('e10', 'o3', 'f7'),
+      makeEdge('e11', 'f1', 'out'), makeEdge('e12', 'f2', 'out'),
+      makeEdge('e13', 'out', 'r1'), makeEdge('e14', 'r1', 'g'),
+    ]
+    const { nodes: laid, layoutNodeWidth } = await layoutGraph(nodes, edges, {}, NARROW_CANVAS)
+    expect(layoutNodeWidth).toBe(140)
+    // All positions must be finite and non-overlapping (using MIN_NODE_W for overlap check)
+    laid.forEach(n => {
+      expect(Number.isFinite(n.position.x)).toBe(true)
+      expect(Number.isFinite(n.position.y)).toBe(true)
+    })
+  })
+
+  it('multi-row splitting produces no overlapping nodes for a 7-factor tier', async () => {
+    // Same 14-node graph as above, verify non-overlap using MIN_NODE_W = 140px box
+    const nodes: Node[] = [
+      makeNode('d', 'decision'),
+      makeNode('o1', 'option'), makeNode('o2', 'option'), makeNode('o3', 'option'),
+      makeNode('f1', 'factor'), makeNode('f2', 'factor'), makeNode('f3', 'factor'),
+      makeNode('f4', 'factor'), makeNode('f5', 'factor'), makeNode('f6', 'factor'), makeNode('f7', 'factor'),
+      makeNode('out', 'outcome'),
+      makeNode('r1', 'risk'),
+      makeNode('g', 'goal'),
+    ]
+    const edges: Edge[] = [
+      makeEdge('e1', 'd', 'o1'), makeEdge('e2', 'd', 'o2'), makeEdge('e3', 'd', 'o3'),
+      makeEdge('e4', 'o1', 'f1'), makeEdge('e5', 'o1', 'f2'), makeEdge('e6', 'o2', 'f3'),
+      makeEdge('e7', 'o2', 'f4'), makeEdge('e8', 'o3', 'f5'), makeEdge('e9', 'o3', 'f6'),
+      makeEdge('e10', 'o3', 'f7'),
+      makeEdge('e11', 'f1', 'out'), makeEdge('e12', 'f2', 'out'),
+      makeEdge('e13', 'out', 'r1'), makeEdge('e14', 'r1', 'g'),
+    ]
+    const { nodes: laid } = await layoutGraph(nodes, edges, {}, NARROW_CANVAS)
+    checkNoOverlap(laid, 140 + 24, 100 + 16) // MIN_NODE_W + ELK padding
+  })
+
+  it('decision node is always above options which are above factors', async () => {
+    // Verify tier ordering is preserved even with multi-row splitting
+    const nodes: Node[] = [
+      makeNode('d', 'decision'),
+      makeNode('o1', 'option'), makeNode('o2', 'option'),
+      makeNode('f1', 'factor'), makeNode('f2', 'factor'), makeNode('f3', 'factor'),
+      makeNode('f4', 'factor'), makeNode('f5', 'factor'),
+      makeNode('g', 'goal'),
+    ]
+    const edges: Edge[] = [
+      makeEdge('e1', 'd', 'o1'), makeEdge('e2', 'd', 'o2'),
+      makeEdge('e3', 'o1', 'f1'), makeEdge('e4', 'o1', 'f2'), makeEdge('e5', 'o1', 'f3'),
+      makeEdge('e6', 'o2', 'f4'), makeEdge('e7', 'o2', 'f5'),
+      makeEdge('e8', 'f1', 'g'), makeEdge('e9', 'f5', 'g'),
+    ]
+    const { nodes: laid } = await layoutGraph(nodes, edges, {}, NARROW_CANVAS)
+
+    const dY = laid.find(n => n.id === 'd')!.position.y
+    const o1Y = laid.find(n => n.id === 'o1')!.position.y
+    const f1Y = laid.find(n => n.id === 'f1')!.position.y
+    const gY = laid.find(n => n.id === 'g')!.position.y
+
+    expect(dY).toBeLessThan(o1Y)
+    expect(o1Y).toBeLessThan(f1Y)
+    expect(f1Y).toBeLessThan(gY)
   })
 })

@@ -17,15 +17,25 @@ export function LayoutOptionsPanel() {
     setNodeSpacing,
     setLayerSpacing,
     setRespectLocked,
+    setCanvasSize,
   } = useLayoutStore()
   const { showToast } = useToast()
 
   const handleApplyLayout = async () => {
     setIsApplying(true)
-    
+
+    // Capture actual canvas dimensions before layout so viewport-constrained
+    // sizing uses real available space rather than the fallback constants.
+    if (typeof window !== 'undefined') {
+      setCanvasSize({
+        width: Math.max(600, window.innerWidth - 48 - 40),
+        height: Math.max(400, window.innerHeight - 57 - 72),
+      })
+    }
+
     // Show loading toast for first-time ELK load
     showToast('Loading layout engine...', 'info')
-    
+
     try {
       const ok = await runLayoutWithProgress()
       if (ok) {

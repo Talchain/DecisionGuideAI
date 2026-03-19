@@ -1684,13 +1684,20 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     pushToHistory(get, set)
     
     try {
-      const { nodes: layoutedNodes } = await layoutGraph(nodes, edges, {
-        direction: layoutOptions.direction,
-        spacing: layoutOptions.nodeSpacing,
-        layerSpacing: layoutOptions.layerSpacing,
-        preserveLocked: layoutOptions.respectLocked
-      })
-      
+      const canvasSize = layoutOptions.canvasSize ?? undefined
+      const { nodes: layoutedNodes, layoutNodeWidth } = await layoutGraph(
+        nodes,
+        edges,
+        {
+          direction: layoutOptions.direction,
+          spacing: layoutOptions.nodeSpacing,
+          layerSpacing: layoutOptions.layerSpacing,
+          preserveLocked: layoutOptions.respectLocked,
+        },
+        canvasSize
+      )
+
+      layoutOptions.setLayoutNodeWidth(layoutNodeWidth)
       set({ nodes: layoutedNodes })
     } catch (err) {
       console.error('[CANVAS] Layout failed:', err)

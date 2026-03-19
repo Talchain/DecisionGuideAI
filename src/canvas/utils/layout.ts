@@ -3,6 +3,33 @@ import type { ElkNode, ElkExtendedEdge } from 'elkjs/lib/elk.bundled.js'
 import { Node, Edge } from '@xyflow/react'
 import { NODE_REGISTRY } from '../domain/nodes'
 
+// Node types mapped to semantic tiers (0 = top in DOWN layout).
+// Nodes whose type is not in this map are placed in tier 2 (factor tier).
+const TIER_BY_KIND: Record<string, number> = {
+  decision: 0,
+  option:   1,
+  factor:   2,
+  action:   2,
+  constraint: 2,
+  outcome:  3,
+  risk:     3,
+  goal:     4,
+}
+
+export interface CanvasSize {
+  width: number
+  height: number
+}
+
+// Fallback canvas size (1440×900 viewport minus fixed chrome).
+// Used when the caller does not supply actual runtime dimensions.
+const FALLBACK_CANVAS: CanvasSize = { width: 1300, height: 750 }
+
+// Node width constraints for viewport-constrained sizing.
+const MIN_NODE_W = 140  // BaseNode minWidth
+const MAX_NODE_W = 240  // NODE_REGISTRY maximum (goal/decision)
+const MIN_GAP    = 30   // Minimum horizontal gap between nodes in same tier
+
 interface LayoutOptions {
   direction?: 'DOWN' | 'RIGHT' | 'UP' | 'LEFT'
   spacing?: number
@@ -10,19 +37,12 @@ interface LayoutOptions {
   preserveLocked?: boolean
 }
 
-// Available canvas dimensions based on fixed chrome:
-//   left sidebar: 48px, right dock collapsed: 40px
-//   top bar: 57px, canvas toolbar: 72px
-//   1440x900 reference viewport
-const CANVAS_WIDTH = 1352
-const CANVAS_HEIGHT = 771
-const FIT_VIEW_PADDING = 0.2 // must match fitView call in ReactFlowGraph.tsx
-
 export async function layoutGraph(
   nodes: Node[],
   edges: Edge[],
-  options: LayoutOptions = {}
-): Promise<{ nodes: Node[]; edges: Edge[] }> {
+  options: LayoutOptions = {},
+  canvasSize: CanvasSize = FALLBACK_CANVAS
+): Promise<{ nodes: Node[]; edges: Edge[]; layoutNodeWidth: number }> {
   const {
     direction = 'DOWN',
     spacing = 60,
@@ -36,25 +56,9 @@ export async function layoutGraph(
   const sizePaddingX = 24
   const sizePaddingY = 16
 
-  const getNodeDimensions = (node: Node): { width: number; height: number } => {
-    const measured = (node as any).measured as { width?: number; height?: number } | undefined
-
-    const fallbackType = (node.type ?? (node.data as any)?.kind) as keyof typeof NODE_REGISTRY | undefined
-    const defaultSize = fallbackType && NODE_REGISTRY[fallbackType]
-      ? NODE_REGISTRY[fallbackType].defaultSize
-      : { width: 220, height: 100 }
-
-    const rawWidth = measured?.width ?? node.width ?? defaultSize.width
-    const rawHeight = measured?.height ?? node.height ?? defaultSize.height
-
-    const width = Math.max(40, Math.round(rawWidth) + sizePaddingX)
-    const height = Math.max(40, Math.round(rawHeight) + sizePaddingY)
-
-    return { width, height }
-  }
-
-  // Separate locked and unlocked nodes.
-  //
+  // ---------------------------------------------------------------------------
+  // Step 1 — Separate locked and unlocked nodes
+  // ---------------------------------------------------------------------------
   // Tradeoff: ELK's `layered` algorithm does not support pinning individual
   // nodes in place. The alternative (`elk.fixed`) requires pre-specified
   // positions for all nodes and does not do hierarchical routing.  We therefore
@@ -70,20 +74,88 @@ export async function layoutGraph(
     : nodes
 
   if (unlocked.length === 0) {
-    return { nodes, edges }
+    return { nodes, edges, layoutNodeWidth: MAX_NODE_W }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Step 2 — Assign nodes to tiers and compute viewport-constrained node width
+  // ---------------------------------------------------------------------------
+  const tierOf = (node: Node): number => {
+    const kind = (node.type ?? (node.data as any)?.kind) as string | undefined
+    return kind !== undefined && TIER_BY_KIND[kind] !== undefined
+      ? TIER_BY_KIND[kind]
+      : 2 // default to factor tier
+  }
+
+  // Count nodes per tier (only unlocked nodes participate in layout)
+  const tierCounts = new Map<number, number>()
+  for (const node of unlocked) {
+    const t = tierOf(node)
+    tierCounts.set(t, (tierCounts.get(t) ?? 0) + 1)
+  }
+  const maxTierCount = Math.max(...tierCounts.values())
+
+  // Available width = canvas width minus 15% breathing room for fitView padding
+  // and visual margins. This matches the brief's 85% factor.
+  const availableWidth = canvasSize.width * 0.85
+
+  // Solve for node width: all nodes in widest tier must fit with MIN_GAP spacing.
+  // nodeW * N + gap * (N-1) <= availableWidth  →  nodeW = (availableWidth - gap*(N-1)) / N
+  let nodeW = maxTierCount > 1
+    ? Math.floor((availableWidth - (maxTierCount - 1) * MIN_GAP) / maxTierCount)
+    : MAX_NODE_W
+  nodeW = Math.max(MIN_NODE_W, Math.min(MAX_NODE_W, nodeW))
+
+  // Compute gap from solved nodeW (distribute remaining space evenly)
+  let gap = maxTierCount > 1
+    ? Math.floor((availableWidth - maxTierCount * nodeW) / (maxTierCount - 1))
+    : effectiveNodeSpacing
+  gap = Math.max(MIN_GAP, gap)
+
+  // When nodeW < MIN_NODE_W (too many nodes for the canvas), multi-row splitting
+  // is applied after ELK. Compute how many nodes fit per row.
+  let nodesPerRow: number | null = null
+  if (maxTierCount > 1) {
+    const unclamped = Math.floor((availableWidth - (maxTierCount - 1) * MIN_GAP) / maxTierCount)
+    if (unclamped < MIN_NODE_W) {
+      nodesPerRow = Math.max(1, Math.floor((availableWidth + MIN_GAP) / (MIN_NODE_W + MIN_GAP)))
+      nodeW = MIN_NODE_W
+      gap = nodesPerRow > 1
+        ? Math.floor((availableWidth - nodesPerRow * nodeW) / (nodesPerRow - 1))
+        : 0
+      gap = Math.max(MIN_GAP, gap)
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Step 3 — Run ELK with uniform node width
+  // ---------------------------------------------------------------------------
+  const getNodeDimensions = (node: Node): { width: number; height: number } => {
+    const measured = (node as any).measured as { width?: number; height?: number } | undefined
+
+    const fallbackType = (node.type ?? (node.data as any)?.kind) as keyof typeof NODE_REGISTRY | undefined
+    const defaultSize = fallbackType && NODE_REGISTRY[fallbackType]
+      ? NODE_REGISTRY[fallbackType].defaultSize
+      : { width: 220, height: 100 }
+
+    // Use computed nodeW for width so ELK spaces with the constrained width.
+    // For height, keep the measured/default value.
+    const rawHeight = measured?.height ?? node.height ?? defaultSize.height
+    const height = Math.max(40, Math.round(rawHeight) + sizePaddingY)
+
+    return { width: nodeW + sizePaddingX, height }
   }
 
   // P1 Polish: Lazy-load ELK only when needed (code-splitting)
   const ELK = (await import('elkjs/lib/elk.bundled.js')).default
   const elk = new ELK()
 
-  // Convert to ELK format
   const elkGraph: ElkNode = {
     id: 'root',
     layoutOptions: {
       'elk.algorithm': 'layered',
       'elk.direction': direction,
-      'elk.spacing.nodeNode': String(effectiveNodeSpacing),
+      'elk.spacing.nodeNode': String(Math.max(gap, effectiveNodeSpacing)),
       'elk.layered.spacing.nodeNodeBetweenLayers': String(effectiveLayerSpacing),
       // Minimise edge crossings between layers
       'elk.layered.crossingMinimization.strategy': 'LAYER_SWEEP',
@@ -100,11 +172,7 @@ export async function layoutGraph(
     },
     children: unlocked.map(node => {
       const { width, height } = getNodeDimensions(node)
-      return {
-        id: node.id,
-        width,
-        height,
-      }
+      return { id: node.id, width, height }
     }),
     edges: edges
       .filter(e =>
@@ -118,12 +186,11 @@ export async function layoutGraph(
       } as ElkExtendedEdge)),
   }
 
-  // Run layout
   const layout = await elk.layout(elkGraph)
 
-  // Map positions and sizes back from ELK output.
-  // ELK returns width/height on each child — use them so the adaptive scale
-  // step can measure the true footprint rather than just origin-to-origin.
+  // ---------------------------------------------------------------------------
+  // Step 4 — Map ELK positions back; apply multi-row splitting if needed
+  // ---------------------------------------------------------------------------
   const positionMap = new Map<string, { x: number; y: number }>()
   const sizeMap = new Map<string, { width: number; height: number }>()
   layout.children?.forEach(child => {
@@ -135,99 +202,114 @@ export async function layoutGraph(
     }
   })
 
-  // Adaptive scaling: if the laid-out graph is much smaller than the available
-  // canvas, scale positions outward from the graph centre so the graph fills
-  // the space rather than clustering in a tight ball.  Large graphs are left
-  // alone — fitView zoom handles those.
-  applyAdaptiveScale(positionMap, sizeMap)
+  // Apply multi-row splitting when a tier has more nodes than fit in one row
+  if (nodesPerRow !== null) {
+    const tierAssignments = new Map<number, string[]>()
+    for (const node of unlocked) {
+      const t = tierOf(node)
+      if (!tierAssignments.has(t)) tierAssignments.set(t, [])
+      tierAssignments.get(t)!.push(node.id)
+    }
+    applyTierRowSplitting(
+      positionMap,
+      sizeMap,
+      tierAssignments,
+      nodesPerRow,
+      nodeW,
+      gap,
+      effectiveLayerSpacing
+    )
+  }
 
-  // Update unlocked nodes with new positions
+  // ---------------------------------------------------------------------------
+  // Step 5 — Apply positions to nodes
+  // ---------------------------------------------------------------------------
   const updatedNodes = nodes.map(node => {
     const newPos = positionMap.get(node.id)
     if (newPos && !((node.data as any)?.locked === true)) {
-      return {
-        ...node,
-        position: newPos,
-      }
+      return { ...node, position: newPos }
     }
     return node
   })
 
-  return { nodes: updatedNodes, edges }
+  return { nodes: updatedNodes, edges, layoutNodeWidth: nodeW }
 }
 
-/**
- * If the ELK-computed graph footprint is much smaller than the available
- * canvas (< 40% in both axes), scale all positions outward from the graph
- * centre so genuinely tiny graphs make better use of available space.
- *
- * Bounds are computed from node origins + their rendered widths/heights so
- * the true footprint is measured rather than just origin-to-origin distance.
- *
- * Scale is capped at 1.5× to avoid over-expanding graphs that ELK already
- * spaced sensibly. Skipped for single-node graphs (nothing to spread).
- *
- * Degenerate axes (graphW or graphH ≈ 0, e.g. a pure vertical chain) are
- * handled independently — a near-zero axis does not block valid expansion on
- * the other axis.
- */
-function applyAdaptiveScale(
+// ---------------------------------------------------------------------------
+// Multi-row tier splitting
+// ---------------------------------------------------------------------------
+// After ELK places nodes in a single wide row per tier, reposition tiers that
+// exceed `nodesPerRow` into multiple sub-rows.  ELK's crossing-minimisation
+// order is preserved (nodes sorted by ELK x-position before splitting).
+// Lower tiers are pushed down to prevent overlap with the expanded tier.
+function applyTierRowSplitting(
   positionMap: Map<string, { x: number; y: number }>,
-  sizeMap: Map<string, { width: number; height: number }>
+  sizeMap: Map<string, { width: number; height: number }>,
+  tierAssignments: Map<number, string[]>,
+  nodesPerRow: number,
+  nodeW: number,
+  gap: number,
+  layerSpacing: number
 ): void {
-  if (positionMap.size < 2) return
+  // Sub-row vertical spacing: tighter than between-tier spacing
+  const subRowSpacing = Math.round(layerSpacing * 0.6)
 
-  // Measure true footprint: origin to far edge (origin + node dimensions).
-  // Also track origin-only bounds separately — the scale pivot (centroid) is
-  // computed from node origins so that equal-sized nodes scale symmetrically.
-  let minX = Infinity, maxX = -Infinity
-  let minY = Infinity, maxY = -Infinity
-  let originMinX = Infinity, originMaxX = -Infinity
-  let originMinY = Infinity, originMaxY = -Infinity
-  for (const [id, pos] of positionMap) {
-    const size = sizeMap.get(id) ?? { width: 0, height: 0 }
-    if (pos.x < originMinX) originMinX = pos.x
-    if (pos.x > originMaxX) originMaxX = pos.x
-    if (pos.y < originMinY) originMinY = pos.y
-    if (pos.y > originMaxY) originMaxY = pos.y
-    if (pos.x < minX) minX = pos.x
-    if (pos.x + size.width > maxX) maxX = pos.x + size.width
-    if (pos.y < minY) minY = pos.y
-    if (pos.y + size.height > maxY) maxY = pos.y + size.height
-  }
+  // Process tiers in order so that Y-offset accumulation is correct
+  const sortedTiers = Array.from(tierAssignments.keys()).sort((a, b) => a - b)
 
-  const graphW = maxX - minX
-  const graphH = maxY - minY
+  // Track extra Y added to each tier's base so lower tiers are pushed down
+  // when upper tiers expand into multiple rows.
+  let cumulativeExtraY = 0
 
-  // Effective canvas area after fitView padding is subtracted
-  const effectiveW = CANVAS_WIDTH * (1 - FIT_VIEW_PADDING * 2)
-  const effectiveH = CANVAS_HEIGHT * (1 - FIT_VIEW_PADDING * 2)
+  for (const tier of sortedTiers) {
+    const nodeIds = tierAssignments.get(tier)!
 
-  // Only scale up for genuinely tiny graphs (< 40% of canvas in both axes).
-  // Graphs that already span 40%+ in either dimension are left at ELK's native
-  // spacing — fitView zoom handles fitting them into the viewport.
-  if (graphW >= effectiveW * 0.4 || graphH >= effectiveH * 0.4) return
+    // Apply any accumulated Y shift from expanded tiers above
+    if (cumulativeExtraY > 0) {
+      for (const id of nodeIds) {
+        const p = positionMap.get(id)
+        if (p) positionMap.set(id, { x: p.x, y: p.y + cumulativeExtraY })
+      }
+    }
 
-  // Compute per-axis scale toward 60% fill. Degenerate axes (≤ 1px, e.g. a
-  // pure vertical chain where all nodes share the same x) contribute 1.0 so
-  // they don't block the other axis from scaling.
-  const scaleX = graphW > 1 ? (effectiveW * 0.6) / graphW : 1
-  const scaleY = graphH > 1 ? (effectiveH * 0.6) / graphH : 1
+    // Only split tiers that exceed nodesPerRow
+    if (nodeIds.length <= nodesPerRow) continue
 
-  // Use the smaller scale so both axes stay proportional and neither exceeds
-  // the canvas. Cap at 1.5× to avoid over-expanding graphs with good spacing.
-  const scale = Math.min(scaleX, scaleY, 1.5)
-  if (scale <= 1.05) return // skip trivial no-op adjustments
-
-  // Pivot around origin centroid (not footprint centroid) so equal-sized nodes
-  // scale symmetrically regardless of their individual widths/heights.
-  const cx = (originMinX + originMaxX) / 2
-  const cy = (originMinY + originMaxY) / 2
-
-  for (const [id, pos] of positionMap) {
-    positionMap.set(id, {
-      x: cx + (pos.x - cx) * scale,
-      y: cy + (pos.y - cy) * scale,
+    // Sort by ELK x-position to preserve crossing-minimisation order
+    const sorted = [...nodeIds].sort((a, b) => {
+      const ax = positionMap.get(a)?.x ?? 0
+      const bx = positionMap.get(b)?.x ?? 0
+      return ax - bx
     })
+
+    // Build rows
+    const rows: string[][] = []
+    for (let i = 0; i < sorted.length; i += nodesPerRow) {
+      rows.push(sorted.slice(i, i + nodesPerRow))
+    }
+
+    // Base Y for this tier (already shifted by cumulativeExtraY above)
+    const baseY = positionMap.get(sorted[0])?.y ?? 0
+    // Node height from first node's size
+    const nodeH = sizeMap.get(sorted[0])?.height ?? 116
+
+    // Reposition each node into its row, centred horizontally
+    for (let r = 0; r < rows.length; r++) {
+      const row = rows[r]
+      const rowWidth = row.length * nodeW + (row.length - 1) * gap
+      const startX = -(rowWidth / 2)
+      const rowY = baseY + r * (nodeH + subRowSpacing)
+
+      for (let i = 0; i < row.length; i++) {
+        positionMap.set(row[i], {
+          x: startX + i * (nodeW + gap),
+          y: rowY,
+        })
+      }
+    }
+
+    // Extra height added by this tier's row expansion
+    const extraH = (rows.length - 1) * (nodeH + subRowSpacing)
+    cumulativeExtraY += extraH
   }
 }

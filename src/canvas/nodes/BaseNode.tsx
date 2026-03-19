@@ -19,6 +19,7 @@ import { NodeBadge } from '../components/NodeBadge'
 import { useCEEInsights } from '../../hooks/useCEEInsights'
 import { useISLValidation } from '../../hooks/useISLValidation'
 import { useCanvasStore } from '../store'
+import { useLayoutStore } from '../layoutStore'
 import { nodeColors } from './colors'
 import { typography } from '../../styles/typography'
 import { getControllabilityBorderStyle } from '../utils/graphDisplayCalculations'
@@ -73,6 +74,10 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
   const isLensDimmed = useCanvasStore(s =>
     isGraphLensEnabled() && s.lens._dimmedNodeIds.has(id)
   )
+
+  // Layout-computed node width: when a layout has run, use its computed width
+  // so the rendered node matches ELK's sizing assumptions.
+  const layoutNodeWidth = useLayoutStore(s => s.layoutNodeWidth)
 
   // Decision Graph Display v2: Get Results-mode display metadata
   const displayMetadata = useNodeDisplayMetadata(id, nodeType)
@@ -194,7 +199,7 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
         backgroundColor: '#FEFEFE', // Panel background color
         padding: '12px',
         minWidth: '140px',
-        maxWidth: isExpanded ? '300px' : (maxWidth ? `${maxWidth}px` : '200px'),
+        maxWidth: isExpanded ? '300px' : `${maxWidth ?? layoutNodeWidth ?? 200}px`,
         minHeight: isExpanded ? '120px' : undefined,
       }}
     >

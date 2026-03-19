@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import type { CanvasSize } from './utils/layout'
 
 type Direction = 'DOWN' | 'RIGHT' | 'UP' | 'LEFT'
 
@@ -7,10 +8,20 @@ interface LayoutOptions {
   nodeSpacing: number
   layerSpacing: number
   respectLocked: boolean
+  /** Runtime canvas pixel dimensions, set by the UI before triggering layout. */
+  canvasSize: CanvasSize | null
+  /**
+   * Node width (px) used in the most recent layout pass.
+   * BaseNode reads this to size itself to match ELK's assumptions.
+   * null = no layout has run yet; BaseNode uses its own default.
+   */
+  layoutNodeWidth: number | null
   setDirection: (dir: Direction) => void
   setNodeSpacing: (spacing: number) => void
   setLayerSpacing: (spacing: number) => void
   setRespectLocked: (respect: boolean) => void
+  setCanvasSize: (size: CanvasSize) => void
+  setLayoutNodeWidth: (width: number) => void
 }
 
 // v2: bumped when defaults changed (80/120 → 60/90) so returning users
@@ -49,6 +60,8 @@ function persist(state: Pick<LayoutOptions, 'direction' | 'nodeSpacing' | 'layer
 
 export const useLayoutStore = create<LayoutOptions>((set, get) => ({
   ...loadPersistedOptions(),
+  canvasSize: null,
+  layoutNodeWidth: null,
 
   setDirection: (dir) => {
     set({ direction: dir })
@@ -65,5 +78,11 @@ export const useLayoutStore = create<LayoutOptions>((set, get) => ({
   setRespectLocked: (respect) => {
     set({ respectLocked: respect })
     persist(get())
+  },
+  setCanvasSize: (size) => {
+    set({ canvasSize: size })
+  },
+  setLayoutNodeWidth: (width) => {
+    set({ layoutNodeWidth: width })
   },
 }))

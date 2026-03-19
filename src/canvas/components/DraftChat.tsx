@@ -4,6 +4,7 @@ import { useCEEDraft } from '../../hooks/useCEEDraft'
 import { DraftLoadingAnimation } from './DraftLoadingAnimation'
 import { ErrorAlert } from '../../components/ErrorAlert'
 import { useCanvasStore } from '../store'
+import { useLayoutStore } from '../layoutStore'
 import { typography } from '../../styles/typography'
 import { CEEError } from '../../adapters/cee/client'
 import { DraftGuidancePanel } from './DraftGuidancePanel'
@@ -114,6 +115,7 @@ export function DraftChat() {
   const setLastDraftDescription = useCanvasStore(s => s.setLastDraftDescription)
   const pushHistory = useCanvasStore(s => s.pushHistory)
   const applyLayout = useCanvasStore(s => s.applyLayout)
+  const setCanvasSize = useLayoutStore(s => s.setCanvasSize)
   const setPendingFitView = useCanvasStore(s => s.setPendingFitView)
   const resetCanvas = useCanvasStore(s => s.resetCanvas)
   const captureErrorDetail = useCanvasStore(s => s.captureErrorDetail)
@@ -623,6 +625,15 @@ export function DraftChat() {
         addedEdges: edges.length,
         totalNodes: useCanvasStore.getState().nodes.length,
         totalEdges: useCanvasStore.getState().edges.length,
+      })
+    }
+    // Pass actual canvas dimensions so layoutGraph can size nodes to fit.
+    // Fixed chrome: left sidebar 48px, right dock collapsed 40px, top bar 57px,
+    // canvas toolbar 72px. Subtract from window dimensions for available area.
+    if (typeof window !== 'undefined') {
+      setCanvasSize({
+        width: Math.max(600, window.innerWidth - 48 - 40),
+        height: Math.max(400, window.innerHeight - 57 - 72),
       })
     }
     void applyLayout()
