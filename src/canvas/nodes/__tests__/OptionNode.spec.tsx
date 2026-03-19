@@ -233,23 +233,18 @@ describe('OptionNode', () => {
       selector({ layoutNodeWidth: 180 }) as any
     )
     const { container } = renderOption()
-    // BaseNode's root div carries the maxWidth style.
-    // When no explicit maxWidth prop is passed, it falls back to layoutNodeWidth (180).
-    const nodeEl = container.firstChild as HTMLElement
-    // The style may be on the first child (the BaseNode div), not the wrapper div.
-    // Walk the DOM to find the node div with a maxWidth style.
-    const findMaxWidth = (el: HTMLElement): string | null => {
-      if (el.style?.maxWidth) return el.style.maxWidth
-      for (const child of Array.from(el.children)) {
-        const found = findMaxWidth(child as HTMLElement)
-        if (found) return found
-      }
-      return null
-    }
-    const mw = findMaxWidth(nodeEl)
-    // Must be 180px (from store) — NOT 238px (the old hardcoded value)
-    expect(mw).toBe('180px')
-    expect(mw).not.toBe('238px')
+    // BaseNode's root div carries an inline maxWidth style. In this test no
+    // intervention chips are rendered (ceeAnalysisReady is null), so the only
+    // element with an inline max-width is BaseNode's root div.
+    // Use querySelectorAll('[style*="max-width"]') to find it precisely without
+    // fragile DOM-walking that could match chip child elements.
+    const maxWidthEls = container.querySelectorAll<HTMLElement>('[style*="max-width"]')
+    expect(maxWidthEls.length).toBeGreaterThan(0)
+    // The BaseNode root is the element with the layout-governed maxWidth.
+    // Collect all found values and verify none is the old hardcoded 238px.
+    const widths = Array.from(maxWidthEls).map(el => el.style.maxWidth)
+    expect(widths).toContain('180px')
+    expect(widths).not.toContain('238px')
   })
 
   // V2: Win probability number always uses text-option regardless of position

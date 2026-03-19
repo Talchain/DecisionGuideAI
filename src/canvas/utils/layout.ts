@@ -317,16 +317,22 @@ function applyTierRowSplitting(
     // Node height from first node's size
     const nodeH = sizeMap.get(sorted[0])?.height ?? 116
 
+    // ELK box width for this tier — derive from sizeMap (ELK returns the exact
+    // elkBoxW we gave it, so this is nodeW + sizePaddingX).  Using the ELK
+    // width (not the caller's content nodeW) keeps stride and row centering
+    // consistent with what ELK assumed when it placed the nodes.
+    const elkW = sizeMap.get(sorted[0])?.width ?? nodeW
+
     // Reposition each node into its row, centred horizontally
     for (let r = 0; r < rows.length; r++) {
       const row = rows[r]
-      const rowWidth = row.length * nodeW + (row.length - 1) * gap
+      const rowWidth = row.length * elkW + (row.length - 1) * gap
       const startX = -(rowWidth / 2)
       const rowY = baseY + r * (nodeH + subRowSpacing)
 
       for (let i = 0; i < row.length; i++) {
         positionMap.set(row[i], {
-          x: startX + i * (nodeW + gap),
+          x: startX + i * (elkW + gap),
           y: rowY,
         })
       }
