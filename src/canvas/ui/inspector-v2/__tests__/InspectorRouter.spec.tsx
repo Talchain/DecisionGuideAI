@@ -162,4 +162,89 @@ describe('InspectorRouter', () => {
     render(<InspectorRouter nodeId="out1" edgeId={null} onClose={onClose} />)
     expect(screen.queryByText('Contributes to your goal')).toBeNull()
   })
+
+  // ─── Regression: outcome contribution bar pre/post-analysis copy ──
+  it('shows "Based on model structure" helper pre-analysis when contribution bar is visible', () => {
+    setStoreState(
+      [
+        { id: 'out1', type: 'outcome', data: { label: 'Revenue', kind: 'outcome' }, position: { x: 0, y: 0 } },
+        { id: 'g1', type: 'goal', data: { label: 'Target', kind: 'goal' }, position: { x: 100, y: 0 } },
+      ],
+      [
+        { id: 'e1', source: 'out1', target: 'g1', data: { weight: 0.5, direction: 'positive' } },
+      ],
+    )
+    // results status is 'idle' — pre-analysis
+    render(<InspectorRouter nodeId="out1" edgeId={null} onClose={onClose} />)
+    expect(screen.getByText('Based on model structure')).toBeTruthy()
+  })
+
+  it('hides "Based on model structure" helper post-analysis', () => {
+    setStoreState(
+      [
+        { id: 'out1', type: 'outcome', data: { label: 'Revenue', kind: 'outcome' }, position: { x: 0, y: 0 } },
+        { id: 'g1', type: 'goal', data: { label: 'Target', kind: 'goal' }, position: { x: 100, y: 0 } },
+      ],
+      [
+        { id: 'e1', source: 'out1', target: 'g1', data: { weight: 0.5, direction: 'positive' } },
+      ],
+    )
+    useCanvasStore.setState({ results: { status: 'complete' } } as never)
+    render(<InspectorRouter nodeId="out1" edgeId={null} onClose={onClose} />)
+    expect(screen.queryByText('Based on model structure')).toBeNull()
+  })
+
+  // ─── Regression: currency value display in controllable factor inspector ──
+  it('renders GBP currency symbol adjacent to input for controllable factor (£49 — no space)', () => {
+    setStoreState([
+      {
+        id: 'f1', type: 'factor',
+        data: { label: 'Price', kind: 'factor', category: 'controllable', observedState: { raw_value: 49, value: 0.49, unit: '\u00A3' } },
+        position: { x: 0, y: 0 },
+      },
+    ])
+    const { container } = render(<InspectorRouter nodeId="f1" edgeId={null} onClose={onClose} />)
+    // Symbol span and input must be in the same gap-0 flex container (no visual space)
+    const symbolSpan = container.querySelector('span.text-xl')
+    expect(symbolSpan?.textContent).toBe('\u00A3')
+    const valueInput = container.querySelector('input[type="number"]') as HTMLInputElement | null
+    expect(valueInput).not.toBeNull()
+    expect(valueInput!.value).toBe('49')
+    // Symbol and input must be siblings in the same flex wrapper — no intermediate gap element
+    expect(symbolSpan?.nextElementSibling?.tagName).toBe('INPUT')
+  })
+
+  it('renders USD currency symbol adjacent to input ($500 — no space)', () => {
+    setStoreState([
+      {
+        id: 'f2', type: 'factor',
+        data: { label: 'Cost', kind: 'factor', category: 'controllable', observedState: { raw_value: 500, value: 0.5, unit: '$' } },
+        position: { x: 0, y: 0 },
+      },
+    ])
+    const { container } = render(<InspectorRouter nodeId="f2" edgeId={null} onClose={onClose} />)
+    const symbolSpan = container.querySelector('span.text-xl')
+    expect(symbolSpan?.textContent).toBe('$')
+    const valueInput = container.querySelector('input[type="number"]') as HTMLInputElement | null
+    expect(valueInput!.value).toBe('500')
+    expect(symbolSpan?.nextElementSibling?.tagName).toBe('INPUT')
+  })
+
+  it('renders non-currency unit after input (CHF 1000 — unit appears after)', () => {
+    setStoreState([
+      {
+        id: 'f3', type: 'factor',
+        data: { label: 'Reserve', kind: 'factor', category: 'controllable', observedState: { raw_value: 1000, value: 0.5, unit: 'CHF' } },
+        position: { x: 0, y: 0 },
+      },
+    ])
+    const { container } = render(<InspectorRouter nodeId="f3" edgeId={null} onClose={onClose} />)
+    // No prefix symbol span for CHF
+    const symbolSpan = container.querySelector('span.text-xl')
+    expect(symbolSpan).toBeNull()
+    // Unit appears as trailing label
+    expect(screen.getByText('CHF')).toBeTruthy()
+    const valueInput = container.querySelector('input[type="number"]') as HTMLInputElement | null
+    expect(valueInput!.value).toBe('1000')
+  })
 })

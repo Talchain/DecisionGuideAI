@@ -90,12 +90,17 @@ export const OutcomePanel = memo(function OutcomePanel({
 
       {/* Goal contribution bar — sourced from outcome→goal edge weight */}
       {goalContribution != null && (
-        <div className="flex items-center gap-2 mt-3 px-3 py-2 bg-panel border border-success/30 rounded-lg">
-          <span className={`${typography.panelHeader} text-xs`}>Contributes to your goal</span>
-          <div className="flex-1 h-1.5 bg-panel-border rounded-full overflow-hidden">
-            <div className="h-full bg-success rounded-full" style={{ width: `${Math.min(goalContribution, 100)}%` }} />
+        <div className="mt-3 px-3 py-2 bg-panel border border-success/30 rounded-lg">
+          <div className="flex items-center gap-2">
+            <span className={`${typography.panelHeader} text-xs`}>Contributes to your goal</span>
+            <div className="flex-1 h-1.5 bg-panel-border rounded-full overflow-hidden">
+              <div className="h-full bg-success rounded-full" style={{ width: `${Math.min(goalContribution, 100)}%` }} />
+            </div>
+            <span className={`${typography.panelHeader} text-sm`}>{goalContribution}%</span>
           </div>
-          <span className={`${typography.panelHeader} text-sm`}>{goalContribution}%</span>
+          {!isResultsMode && (
+            <p className={`${typography.panelMeta} text-text-light mt-1`}>Based on model structure</p>
+          )}
         </div>
       )}
 

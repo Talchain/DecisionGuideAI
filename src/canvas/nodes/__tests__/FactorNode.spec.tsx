@@ -291,6 +291,41 @@ describe('FactorNode', () => {
     expect(screen.queryByText('estimated')).toBeNull()
   })
 
+  // Provenance combinations — brief acceptance criteria
+  // Combination 1: extractionType='inferred' + source='brief_extraction'
+  //   → source pill "Generated from your brief" shows; "estimated" pill suppressed
+  it('shows source pill (not estimated) when extractionType=inferred and source=brief_extraction', () => {
+    renderFactor({
+      label: 'Salary',
+      type: 'factor',
+      observedState: { value: 0.5, extractionType: 'inferred', source: 'brief_extraction' },
+    })
+    expect(screen.getByText('Generated from your brief')).toBeDefined()
+    expect(screen.queryByText('estimated')).toBeNull()
+  })
+
+  // Combination 2: extractionType='inferred' + no source → "estimated" pill shows
+  it('shows estimated pill when extractionType=inferred and no source', () => {
+    renderFactor({
+      label: 'Salary',
+      type: 'factor',
+      observedState: { value: 0.5, extractionType: 'inferred' },
+    })
+    expect(screen.getByText('estimated')).toBeDefined()
+    expect(screen.queryByText('Generated from your brief')).toBeNull()
+  })
+
+  // Combination 3: source='cee_inference' → "Estimated by Olumi" source pill shows; "estimated" pill suppressed
+  it('shows "Estimated by Olumi" source pill (not estimated) when source=cee_inference', () => {
+    renderFactor({
+      label: 'Salary',
+      type: 'factor',
+      observedState: { value: 0.5, extractionType: 'inferred', source: 'cee_inference' },
+    })
+    expect(screen.getByText('Estimated by Olumi')).toBeDefined()
+    expect(screen.queryByText('estimated')).toBeNull()
+  })
+
   // T6: Influence/Confidence tiers (results mode)
   it('shows Influence and Confidence tiers in results mode', () => {
     vi.mocked(useNodeDisplayMetadata).mockReturnValue({
@@ -622,14 +657,14 @@ describe('FactorNode — QA Brief A-series', () => {
     expect(screen.getByText('CHF500')).toBeDefined()
   })
 
-  // A14: source='cee_inference' → provenance pill shows "Generated from your brief"
-  it('A14: source="cee_inference" renders provenance pill "Generated from your brief"', () => {
+  // A14: source='cee_inference' → provenance pill shows "Estimated by Olumi" (AI inference, not brief extraction)
+  it('A14: source="cee_inference" renders provenance pill "Estimated by Olumi"', () => {
     renderFactor({
       label: 'Market rate',
       type: 'factor',
       observedState: { value: 0.5, source: 'cee_inference' },
     })
-    expect(screen.getByText('Generated from your brief')).toBeDefined()
+    expect(screen.getByText('Estimated by Olumi')).toBeDefined()
   })
 
   // A15: source='brief_extraction' → provenance pill (also "Generated from your brief")
@@ -656,7 +691,7 @@ describe('FactorNode — QA Brief A-series', () => {
   })
 
   // A17: "Not used" value + provenance pill rendered on separate lines (not merged as phrase)
-  it('A17: "Not used" and provenance pill are separate elements (not "Not used generated" phrase)', () => {
+  it('A17: "Not used" and provenance pill are separate elements (not "Not used Estimated" phrase)', () => {
     const { container } = renderFactor({
       label: 'Item',
       type: 'factor',
@@ -665,13 +700,13 @@ describe('FactorNode — QA Brief A-series', () => {
     void container
     // Both elements should exist
     expect(screen.getByText('Not used')).toBeDefined()
-    expect(screen.getByText('Generated from your brief')).toBeDefined()
+    expect(screen.getByText('Estimated by Olumi')).toBeDefined()
     // Should not appear as a joined phrase
-    expect(screen.queryByText(/Not used.*generated/i)).toBeNull()
-    expect(screen.queryByText(/Not usedGenerated/)).toBeNull()
+    expect(screen.queryByText(/Not used.*estimated/i)).toBeNull()
+    expect(screen.queryByText(/Not usedEstimated/)).toBeNull()
     // Value text and provenance pill must be in separate container elements
     const valueEl = screen.getByText('Not used')
-    const pillEl = screen.getByText('Generated from your brief')
+    const pillEl = screen.getByText('Estimated by Olumi')
     // They must not share the same parent element
     expect(valueEl.parentElement).not.toBe(pillEl.parentElement)
     // The pill div must be a different div from the value div

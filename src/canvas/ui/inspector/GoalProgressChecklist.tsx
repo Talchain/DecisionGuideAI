@@ -59,7 +59,7 @@ export function GoalProgressChecklist({ nodeId, onExpandAssumptions }: GoalProgr
             <Check size={10} className="text-success flex-shrink-0" />
           ) : (
             <span className={`w-2.5 h-2.5 flex items-center justify-center flex-shrink-0 text-text-light ${typography.panelMeta}`}>
-              \u2013
+              –
             </span>
           )}
           <span className={`${typography.panelMeta} ${item.passed ? 'text-text-body' : 'text-text-light'}`}>

@@ -71,7 +71,7 @@ export function getProvenanceLabel(source?: string): string {
   switch (source) {
     case 'brief_extraction': return 'Generated from your brief'
     case 'explicit':         return 'From your brief'
-    case 'cee_inference':    return 'Generated from your brief'
+    case 'cee_inference':    return 'Estimated by Olumi'
     case 'inferred':         return 'Estimated by Olumi'
     case 'cee_repair':       return 'Generated from your brief (adjusted during validation)'
     case 'user':             return 'Set by you'

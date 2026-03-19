@@ -216,7 +216,7 @@ export const FactorNode = memo((props: NodeProps) => {
                 <span className="italic text-text-light">No baseline</span>
               )}
             </div>
-            {isInferred && (
+            {isInferred && !provenanceLabel && (
               <div className="mt-1">
                 <span
                   className={`${typography.nodeLabel} bg-panel border border-warning/30 text-text-body rounded-full px-1.5 py-0.5`}

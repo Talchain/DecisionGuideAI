@@ -121,7 +121,7 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
       {/* §7.2 Value — editable */}
       <SectionTitle icon={SECTION_TITLES.value.icon} label={SECTION_TITLES.value.label} />
       <div className="bg-panel border border-panel-border rounded-lg p-3">
-        <div className="flex items-center gap-1.5">
+        <div className={`flex items-center ${unit && (unit === '\u00A3' || unit === '$' || unit === '\u20AC') ? 'gap-0' : 'gap-1.5'}`}>
           {unit && (unit === '\u00A3' || unit === '$' || unit === '\u20AC') && (
             <span className={`${typography.panelHeader} text-xl`}>{unit}</span>
           )}
