@@ -657,17 +657,25 @@ describe('FactorNode — QA Brief A-series', () => {
 
   // A17: "Not used" value + provenance pill rendered on separate lines (not merged as phrase)
   it('A17: "Not used" and provenance pill are separate elements (not "Not used generated" phrase)', () => {
-    renderFactor({
+    const { container } = renderFactor({
       label: 'Item',
       type: 'factor',
       observedState: { value: 0, source: 'cee_inference' },
     })
+    void container
     // Both elements should exist
     expect(screen.getByText('Not used')).toBeDefined()
     expect(screen.getByText('Generated from your brief')).toBeDefined()
     // Should not appear as a joined phrase
     expect(screen.queryByText(/Not used.*generated/i)).toBeNull()
     expect(screen.queryByText(/Not usedGenerated/)).toBeNull()
+    // Value text and provenance pill must be in separate container elements
+    const valueEl = screen.getByText('Not used')
+    const pillEl = screen.getByText('Generated from your brief')
+    // They must not share the same parent element
+    expect(valueEl.parentElement).not.toBe(pillEl.parentElement)
+    // The pill div must be a different div from the value div
+    expect(pillEl.closest('div')).not.toBe(valueEl.closest('div'))
   })
 
   // A18: Tier label thresholds — verify exact boundaries (0-0.2, 0.2-0.4, 0.4-0.6, 0.6-0.8, 0.8-1.0)

@@ -799,6 +799,64 @@ describe('Canvas Store', () => {
     })
   })
 
+  describe('F8: Goal constraint persistence across re-analysis', () => {
+    it('goalConstraints (pre-analysis) is not overwritten when results.report.goal_constraints arrives', () => {
+      const { setGoalConstraints, resultsStart, resultsComplete } = useCanvasStore.getState()
+
+      const preConstraints = [{ id: 'c1', label: '4 months', operator: '≤' }]
+      setGoalConstraints(preConstraints as any)
+
+      expect(useCanvasStore.getState().goalConstraints).toEqual(preConstraints)
+
+      resultsStart({ seed: 1 } as any)
+      resultsComplete({
+        report: {
+          schema: 'report.v1',
+          meta: { seed: 1, response_id: 'r1', elapsed_ms: 100 },
+          model_card: { response_hash: 'h1', response_hash_algo: 'sha256', normalized: true },
+          results: { conservative: 0.1, likely: 0.5, optimistic: 0.9 },
+          confidence: { level: 'high', why: 'test' },
+          drivers: [],
+          goal_constraints: [{ id: 'c2', label: '6 months', operator: '≤', probability: 0.82 }],
+        },
+        hash: 'h1',
+      } as any)
+
+      const state = useCanvasStore.getState()
+      // Pre-analysis goalConstraints must survive resultsComplete unchanged
+      expect(state.goalConstraints).toEqual(preConstraints)
+      // Post-analysis constraints arrive via results.report
+      expect((state.results.report as any)?.goal_constraints).toEqual([
+        { id: 'c2', label: '6 months', operator: '≤', probability: 0.82 },
+      ])
+    })
+
+    it('goalConstraints remains null when never set, even after resultsComplete with report constraints', () => {
+      const { resultsStart, resultsComplete, setGoalConstraints } = useCanvasStore.getState()
+      // Explicitly clear any state left by the previous test (reset() does not clear goalConstraints)
+      setGoalConstraints(null)
+
+      expect(useCanvasStore.getState().goalConstraints).toBeNull()
+
+      resultsStart({ seed: 2 } as any)
+      resultsComplete({
+        report: {
+          schema: 'report.v1',
+          meta: { seed: 2, response_id: 'r2', elapsed_ms: 100 },
+          model_card: { response_hash: 'h2', response_hash_algo: 'sha256', normalized: true },
+          results: { conservative: 0.1, likely: 0.5, optimistic: 0.9 },
+          confidence: { level: 'high', why: 'test' },
+          drivers: [],
+          goal_constraints: [{ id: 'c3', label: '12 months', operator: '≤', probability: 0.6 }],
+        },
+        hash: 'h2',
+      } as any)
+
+      // goalConstraints was never set — must still be null
+      expect(useCanvasStore.getState().goalConstraints).toBeNull()
+    })
+  })
+
   describe('Telemetry panel events', () => {
     it('tracks sandbox.results.viewed only on false→true transitions', () => {
       try {

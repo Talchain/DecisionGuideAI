@@ -49,6 +49,10 @@ export const OptionNode = memo((props: NodeProps) => {
   const setHoveredOption = useCanvasStore(state => state.setHoveredOption)
 
   // T8: Readable intervention chips with cleaned labels and formatted values
+  // CIL 0.2 TODO: OptionNode has no provenance display because `provenance_source` is
+  // stripped from canvas edge data by DraftChat when mapping CEE edges → canvas nodes.
+  // Once DraftChat preserves `provenance_source` on option nodes, add a pill here
+  // mirroring the FactorNode / GoalNode pattern (getProvenanceLabel + suppression list).
   const interventionChips = useMemo<InterventionChip[]>(() => {
     const ceeOption = ceeAnalysisReady?.options?.find(opt => opt.id === props.id)
     const interventions = ceeOption?.interventions

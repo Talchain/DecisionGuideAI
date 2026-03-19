@@ -30,6 +30,9 @@ export function cleanFactorLabel(label: string): string {
  * | ≥ 0.7   | "High" |
  * | 0.4–0.69| "Med"  |
  * | < 0.4   | "Low"  |
+ *
+ * UI-SEM-015: These thresholds (0.7 / 0.4) are heuristic — PLoT does not yet provide
+ * canonical tier labels for sensitivity scores. Remove when PLoT provides tier thresholds.
  */
 export function sensitivityTierLabel(score: number): string {
   if (score >= 0.7) return 'High'
@@ -46,6 +49,9 @@ export function sensitivityTierLabel(score: number): string {
  * | ≥ 0.7   | "Strong" |
  * | 0.4–0.69| "Fair"   |
  * | < 0.4   | "Weak"   |
+ *
+ * UI-SEM-015: These thresholds (0.7 / 0.4) are heuristic — PLoT does not yet provide
+ * canonical tier labels for evidence/confidence scores. Remove when PLoT provides tier thresholds.
  */
 export function evidenceTierLabel(score: number): string {
   if (score >= 0.7) return 'Strong'
@@ -65,6 +71,12 @@ export const QUALITATIVE_FACTOR_TYPES = new Set(['quality', 'demand', 'other', '
  * Internal CEE factor_type descriptor values that must never appear as display units.
  * If the `unit` field contains one of these values it is a data model error —
  * treat it as "no unit" rather than displaying the descriptor to the user.
+ *
+ * This is the explicit guard for Brief 1b Task 4 (factor_type leak fix).
+ * Both `formatFactorValue` and `formatInterventionValue` pass `unit` through
+ * `sanitiseUnit()` (which calls `isSuppressedUnit()`) before any formatting.
+ * Any unit string present in this set is silently dropped and the no-unit
+ * formatting path is used instead.
  */
 const INTERNAL_FACTOR_TYPE_DESCRIPTORS = new Set([
   'binary', 'normalized', 'normalised', 'continuous', 'quality',
