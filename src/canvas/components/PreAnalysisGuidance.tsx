@@ -348,7 +348,7 @@ export function PreAnalysisGuidance({ onBlockersChange }: PreAnalysisGuidancePro
               ? {
                   label: c.suggested_action,
                   onClick: () => {
-                    console.log('[PreAnalysisGuidance] Apply weight:', c)
+                    console.warn('[PreAnalysisGuidance] Apply weight (not yet implemented):', c)
                   },
                 }
               : undefined,
