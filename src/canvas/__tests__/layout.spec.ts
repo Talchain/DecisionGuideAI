@@ -37,21 +37,6 @@ function checkNoOverlap(nodes: Node[], nodeW = 264, nodeH = 116): void {
   }
 }
 
-/**
- * Return the bounding box of a set of laid-out nodes.
- * Note: measures node origin points only, not including node dimensions.
- */
-function bounds(nodes: Node[]): { w: number; h: number; minX: number; minY: number; maxX: number; maxY: number } {
-  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity
-  for (const n of nodes) {
-    if (n.position.x < minX) minX = n.position.x
-    if (n.position.x > maxX) maxX = n.position.x
-    if (n.position.y < minY) minY = n.position.y
-    if (n.position.y > maxY) maxY = n.position.y
-  }
-  return { minX, maxX, minY, maxY, w: maxX - minX, h: maxY - minY }
-}
-
 // Standard test canvas — reference viewport minus fixed chrome
 const TEST_CANVAS: CanvasSize = { width: 1300, height: 750 }
 // Narrow canvas simulating right panel open (1440 - 48 - 416 - 40 ≈ 936px)
