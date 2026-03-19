@@ -41,7 +41,7 @@ import { selectModelCardData } from '../adapters/modelCardAdapter'
 import { trackGuidance } from '../../telemetry/guidanceEvents'
 import { GoalSection } from './model-tab/GoalSection'
 import { OptionsSection } from './model-tab/OptionsSection'
-import { FactorsSection } from './model-tab/FactorsSection'
+import { FactorsSection, type SynthesisedPrior } from './model-tab/FactorsSection'
 import { RelationshipsSection } from './model-tab/RelationshipsSection'
 import { RisksSection } from './model-tab/RisksSection'
 import { ModelHealthSection } from './model-tab/ModelHealthSection'
@@ -134,11 +134,6 @@ const EMPTY_EDGE_IDS = new Set<string>()
 type KindKey = typeof KIND_ORDER[number]
 
 // ── Synthesised prior helpers ─────────────────────────────────────────────────
-
-interface SynthesisedPrior {
-  rangeMin: number
-  rangeMax: number
-}
 
 /**
  * Parse repair actions from ceePipelineTrace to find synthesised priors.
