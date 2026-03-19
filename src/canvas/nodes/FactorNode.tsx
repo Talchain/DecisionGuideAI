@@ -24,7 +24,9 @@ interface ObservedState {
   cap?: number
 }
 
-function formatPriorRangeValue(value: number, unit?: string): string {
+function formatPriorRangeValue(value: number, rawUnit?: string): string {
+  // Suppress internal factor_type descriptor strings (e.g. "binary", "normalized")
+  const unit = isSuppressedUnit(rawUnit) ? undefined : rawUnit
   if (unit && isCurrencyUnit(unit)) {
     return `${unit}${Math.round(value).toLocaleString('en-GB')}`
   }

@@ -53,8 +53,13 @@ export function evidenceTierLabel(score: number): string {
   return 'Weak'
 }
 
-/** Factor types that use qualitative tier labels (no numeric meaning to users) */
-export const QUALITATIVE_FACTOR_TYPES = new Set(['quality', 'demand', 'other'])
+/**
+ * Factor types that use qualitative tier labels (no numeric meaning to users).
+ * 'binary' is included: a binary factor encodes a yes/no state, and its 0/1
+ * values map to 'Not used'/'Very high' via the FactorNode special case and
+ * to 'Very low'/'Very high' in intervention chips via qualitativeTierLabel.
+ */
+export const QUALITATIVE_FACTOR_TYPES = new Set(['quality', 'demand', 'other', 'binary'])
 
 /**
  * Internal CEE factor_type descriptor values that must never appear as display units.
@@ -70,19 +75,23 @@ const INTERNAL_FACTOR_TYPE_DESCRIPTORS = new Set([
  * Map a 0–1 intervention value to a qualitative tier label.
  * Used when a factor has no unit and its type is qualitative.
  *
- * | Value      | Label     |
- * |------------|-----------|
- * | 0          | "None"    |
- * | 0.01–0.30  | "Low"     |
- * | 0.31–0.60  | "Medium"  |
- * | 0.61–0.89  | "High"    |
- * | 0.90–1.0   | "Very high"|
+ * | Value     | Label      |
+ * |-----------|------------|
+ * | 0–0.20    | "Very low" |
+ * | 0.21–0.40 | "Low"      |
+ * | 0.41–0.60 | "Medium"   |
+ * | 0.61–0.80 | "High"     |
+ * | 0.81–1.0  | "Very high"|
+ *
+ * Note: FactorNode renders 'Not used' for binary value=0 via its own special
+ * case before reaching this function. Intervention chips (OptionNode) show
+ * 'Very low' for value=0 on qualitative factors.
  */
 export function qualitativeTierLabel(value: number): string {
-  if (value === 0) return 'None'
-  if (value <= 0.3) return 'Low'
+  if (value <= 0.2) return 'Very low'
+  if (value <= 0.4) return 'Low'
   if (value <= 0.6) return 'Medium'
-  if (value < 0.9) return 'High'
+  if (value <= 0.8) return 'High'
   return 'Very high'
 }
 

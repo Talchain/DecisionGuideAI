@@ -145,46 +145,59 @@ describe('evidenceTierLabel', () => {
 // qualitativeTierLabel (G2)
 // ---------------------------------------------------------------------------
 describe('qualitativeTierLabel', () => {
-  it('returns "None" for 0', () => {
-    expect(qualitativeTierLabel(0)).toBe('None')
+  // 0.2-step scale: Very low / Low / Medium / High / Very high
+  it('returns "Very low" for 0', () => {
+    expect(qualitativeTierLabel(0)).toBe('Very low')
   })
 
-  it('returns "Low" for values 0.01–0.30', () => {
-    expect(qualitativeTierLabel(0.01)).toBe('Low')
-    expect(qualitativeTierLabel(0.2)).toBe('Low')
+  it('returns "Very low" for values 0.01–0.20', () => {
+    expect(qualitativeTierLabel(0.01)).toBe('Very low')
+    expect(qualitativeTierLabel(0.1)).toBe('Very low')
+    expect(qualitativeTierLabel(0.2)).toBe('Very low')
+  })
+
+  it('returns "Low" for values 0.21–0.40', () => {
+    expect(qualitativeTierLabel(0.21)).toBe('Low')
     expect(qualitativeTierLabel(0.3)).toBe('Low')
+    expect(qualitativeTierLabel(0.4)).toBe('Low')
   })
 
-  it('returns "Medium" for values 0.31–0.60', () => {
-    expect(qualitativeTierLabel(0.31)).toBe('Medium')
+  it('returns "Medium" for values 0.41–0.60', () => {
+    expect(qualitativeTierLabel(0.41)).toBe('Medium')
     expect(qualitativeTierLabel(0.5)).toBe('Medium')
     expect(qualitativeTierLabel(0.6)).toBe('Medium')
   })
 
-  it('returns "High" for values 0.61–0.89', () => {
+  it('returns "High" for values 0.61–0.80', () => {
     expect(qualitativeTierLabel(0.61)).toBe('High')
     expect(qualitativeTierLabel(0.75)).toBe('High')
-    expect(qualitativeTierLabel(0.89)).toBe('High')
+    expect(qualitativeTierLabel(0.8)).toBe('High')
   })
 
-  it('returns "Very high" for values 0.90–1.0', () => {
+  it('returns "Very high" for values 0.81–1.0', () => {
+    expect(qualitativeTierLabel(0.81)).toBe('Very high')
     expect(qualitativeTierLabel(0.9)).toBe('Very high')
     expect(qualitativeTierLabel(1.0)).toBe('Very high')
   })
 
-  it('boundary: 0.3 → "Low", 0.31 → "Medium"', () => {
-    expect(qualitativeTierLabel(0.3)).toBe('Low')
-    expect(qualitativeTierLabel(0.31)).toBe('Medium')
+  it('boundary: 0.20 → "Very low", 0.21 → "Low"', () => {
+    expect(qualitativeTierLabel(0.2)).toBe('Very low')
+    expect(qualitativeTierLabel(0.21)).toBe('Low')
   })
 
-  it('boundary: 0.6 → "Medium", 0.61 → "High"', () => {
+  it('boundary: 0.40 → "Low", 0.41 → "Medium"', () => {
+    expect(qualitativeTierLabel(0.4)).toBe('Low')
+    expect(qualitativeTierLabel(0.41)).toBe('Medium')
+  })
+
+  it('boundary: 0.60 → "Medium", 0.61 → "High"', () => {
     expect(qualitativeTierLabel(0.6)).toBe('Medium')
     expect(qualitativeTierLabel(0.61)).toBe('High')
   })
 
-  it('boundary: 0.89 → "High", 0.9 → "Very high"', () => {
-    expect(qualitativeTierLabel(0.89)).toBe('High')
-    expect(qualitativeTierLabel(0.9)).toBe('Very high')
+  it('boundary: 0.80 → "High", 0.81 → "Very high"', () => {
+    expect(qualitativeTierLabel(0.8)).toBe('High')
+    expect(qualitativeTierLabel(0.81)).toBe('Very high')
   })
 })
 
@@ -265,13 +278,17 @@ describe('formatInterventionValue', () => {
     })
   })
 
-  describe('no unit, no factorType — qualitative tier labels (default)', () => {
-    it('returns "None" for 0', () => {
-      expect(formatInterventionValue(0)).toBe('None')
+  describe('no unit, no factorType — qualitative tier labels (default, 0.2-step scale)', () => {
+    it('returns "Very low" for 0', () => {
+      expect(formatInterventionValue(0)).toBe('Very low')
     })
 
-    it('returns "Low" for 0.2', () => {
-      expect(formatInterventionValue(0.2)).toBe('Low')
+    it('returns "Very low" for 0.2', () => {
+      expect(formatInterventionValue(0.2)).toBe('Very low')
+    })
+
+    it('returns "Low" for 0.3', () => {
+      expect(formatInterventionValue(0.3)).toBe('Low')
     })
 
     it('returns "Medium" for 0.5', () => {
@@ -298,6 +315,11 @@ describe('formatInterventionValue', () => {
 
     it('uses tier labels for factorType "other"', () => {
       expect(formatInterventionValue(0.5, undefined, 'other')).toBe('Medium')
+    })
+
+    it('uses tier labels for factorType "binary"', () => {
+      expect(formatInterventionValue(0, undefined, 'binary')).toBe('Very low')
+      expect(formatInterventionValue(1, undefined, 'binary')).toBe('Very high')
     })
   })
 
@@ -422,8 +444,8 @@ describe('observed value formatting (no raw data)', () => {
     expect(qualitativeTierLabel(0.5)).toBe('Medium')
   })
 
-  it('qualitativeTierLabel(0) returns "None"', () => {
-    expect(qualitativeTierLabel(0)).toBe('None')
+  it('qualitativeTierLabel(0) returns "Very low" (not "None")', () => {
+    expect(qualitativeTierLabel(0)).toBe('Very low')
   })
 
   it('qualitativeTierLabel(1) returns "Very high"', () => {
@@ -545,7 +567,7 @@ describe('formatFactorValue', () => {
 
   it('returns qualitative tier when value present and no unit/cap', () => {
     expect(formatFactorValue({ value: 0.5 })).toBe('Medium')
-    expect(formatFactorValue({ value: 0 })).toBe('None')
+    expect(formatFactorValue({ value: 0 })).toBe('Very low')
   })
 
   it('denormalises via cap when raw_value absent', () => {
@@ -568,7 +590,7 @@ describe('formatFactorValue', () => {
 describe('factor_type descriptor suppression (Task 4)', () => {
   it('formatInterventionValue — suppresses "binary" as unit, falls back to qualitative tier', () => {
     // CEE erroneously sets unit="binary" — should be treated as no unit
-    expect(formatInterventionValue(0, 'binary')).toBe('None')
+    expect(formatInterventionValue(0, 'binary')).toBe('Very low')
     expect(formatInterventionValue(1, 'binary')).toBe('Very high')
     expect(formatInterventionValue(0.3, 'binary')).toBe('Low')
   })
@@ -596,7 +618,7 @@ describe('factor_type descriptor suppression (Task 4)', () => {
   })
 
   it('formatFactorValue — suppresses "binary" as unit, falls back to qualitative tier', () => {
-    expect(formatFactorValue({ value: 0, unit: 'binary' })).toBe('None')
+    expect(formatFactorValue({ value: 0, unit: 'binary' })).toBe('Very low')
     expect(formatFactorValue({ value: 1, unit: 'binary' })).toBe('Very high')
   })
 

@@ -370,4 +370,49 @@ describe('GoalNode', () => {
     expect(badge?.className).toContain('text-text-body')
     expect(badge?.className).not.toContain('text-warning')
   })
+
+  // P1.3 (feedback): full goal threshold unit matrix — all specified unit permutations
+  describe('goal threshold unit matrix', () => {
+    it('$ currency — prefix format: "≥ $200"', () => {
+      renderGoal({ goal_threshold_raw: 200, goal_threshold_unit: '$' })
+      const el = screen.getByText(/≥/)
+      expect(el.textContent).toContain('$')
+      expect(el.textContent).toContain('200')
+      expect(el.textContent).not.toMatch(/200\s+\$/)
+    })
+
+    it('% — percent format: "≥ 85%"', () => {
+      renderGoal({ goal_threshold_raw: 85, goal_threshold_unit: '%' })
+      const el = screen.getByText(/≥/)
+      expect(el.textContent).toContain('85%')
+    })
+
+    it('months — suffix format: "≥ 6 months"', () => {
+      renderGoal({ goal_threshold_raw: 6, goal_threshold_unit: 'months' })
+      const el = screen.getByText(/≥/)
+      expect(el.textContent).toMatch(/6\s+months/)
+      expect(el.textContent).not.toContain('months6')
+    })
+
+    it('engineers — suffix format: "≥ 10 engineers"', () => {
+      renderGoal({ goal_threshold_raw: 10, goal_threshold_unit: 'engineers' })
+      const el = screen.getByText(/≥/)
+      expect(el.textContent).toMatch(/10\s+engineers/)
+    })
+
+    it('unitless — plain number: "≥ 500"', () => {
+      renderGoal({ goal_threshold_raw: 500 })
+      const el = screen.getByText(/≥/)
+      expect(el.textContent).toContain('500')
+      // No stray unit text
+      expect(el.textContent).not.toMatch(/500\s+\w/)
+    })
+
+    it('count unit (explicit) — plain number format', () => {
+      renderGoal({ goal_threshold_raw: 100, goal_threshold_unit: 'count' })
+      const el = screen.getByText(/≥/)
+      expect(el.textContent).toContain('100')
+      expect(el.textContent).not.toContain('count')
+    })
+  })
 })

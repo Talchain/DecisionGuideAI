@@ -501,6 +501,55 @@ describe('FactorNode', () => {
     const nodeEl = container.querySelector('[role="group"]')
     expect(nodeEl?.className).not.toContain('border-goal')
   })
+
+  // P0 (feedback): binary factor_type + value=0 must show "Not used", not "Very low"
+  it('shows "Not used" for value===0 with factor_type "binary" and no unit', () => {
+    renderFactor({
+      label: 'Hire decision',
+      type: 'factor',
+      observedState: { value: 0, factor_type: 'binary' },
+    })
+    expect(screen.getByText('Not used')).toBeDefined()
+    expect(screen.queryByText('Very low')).toBeNull()
+  })
+
+  it('shows "Very high" for value===1 with factor_type "binary" and no unit', () => {
+    renderFactor({
+      label: 'Hire decision',
+      type: 'factor',
+      observedState: { value: 1, factor_type: 'binary' },
+    })
+    expect(screen.getByText('Very high')).toBeDefined()
+  })
+
+  // P1.3 (feedback): compact DataBar progressbar elements must be present in results mode
+  it('renders progressbar elements for Influence and Confidence bars in results mode', () => {
+    vi.mocked(useNodeDisplayMetadata).mockReturnValue({
+      sensitivityRank: null,
+      influence: 0.8,
+      confidence: 0.6,
+      inSensitivityAnalysis: true,
+      achievementProbability: null,
+      stabilityPercentage: null,
+      winRate: null,
+      isResultsMode: true,
+    })
+    const { container } = renderFactor({ label: 'Revenue', type: 'factor' })
+    const progressbars = container.querySelectorAll('[role="progressbar"]')
+    // Two bars: Influence + Confidence
+    expect(progressbars.length).toBeGreaterThanOrEqual(2)
+    // Each bar has a valid aria-valuenow between 0 and 100
+    progressbars.forEach(bar => {
+      const valuenow = Number(bar.getAttribute('aria-valuenow'))
+      expect(valuenow).toBeGreaterThanOrEqual(0)
+      expect(valuenow).toBeLessThanOrEqual(100)
+    })
+  })
+
+  it('renders no progressbar elements outside results mode', () => {
+    const { container } = renderFactor({ label: 'Revenue', type: 'factor' })
+    expect(container.querySelectorAll('[role="progressbar"]').length).toBe(0)
+  })
 })
 
 // ---------------------------------------------------------------------------
