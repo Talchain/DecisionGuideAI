@@ -278,7 +278,8 @@ describe('ChatComposer', () => {
     )
 
     expect(screen.getByTestId('inline-generate-btn')).toBeInTheDocument()
-    expect(screen.getByTestId('inline-generate-btn')).toBeDisabled()
+    // Button is never DOM-disabled — it's always clickable, handler guards internally
+    expect(screen.getByTestId('inline-generate-btn')).not.toBeDisabled()
   })
 
   it('hides first-draft guidance and generate controls once a graph exists', () => {
@@ -313,7 +314,7 @@ describe('ChatComposer', () => {
     expect(screen.queryByTestId('inline-generate-btn')).not.toBeInTheDocument()
   })
 
-  it('inline generate button is active when composer has ≥50 chars', () => {
+  it('clicking generate button with ≥50 chars calls onGenerateModel exactly once', () => {
     mockStage = 'frame'
     mockBriefSignals = {
       elements: [
@@ -340,12 +341,45 @@ describe('ChatComposer', () => {
       />,
     )
 
-    // Type ≥50 chars so generateState becomes 'active' locally
+    // Type ≥50 chars, then click once — should fire immediately without a second click
     const textarea = screen.getByLabelText('Message input')
     fireEvent.change(textarea, { target: { value: 'A'.repeat(51) } })
+    fireEvent.click(screen.getByTestId('inline-generate-btn'))
 
-    const btn = screen.getByTestId('inline-generate-btn')
-    expect(btn).not.toBeDisabled()
+    expect(onGenerateModel).toHaveBeenCalledTimes(1)
+  })
+
+  it('clicking generate button with <50 chars still calls onGenerateModel (handler guards internally)', () => {
+    mockStage = 'frame'
+    mockBriefSignals = {
+      elements: [
+        { kind: 'goal', detected: true, label: 'Goal', coachingTip: 'State your goal.' },
+        { kind: 'options', detected: false, label: 'Options', coachingTip: 'List options.' },
+        { kind: 'metric', detected: false, label: 'Metric', coachingTip: 'Add a metric.' },
+        { kind: 'constraints', detected: false, label: 'Constraints', coachingTip: 'Note constraints.' },
+        { kind: 'risks', detected: false, label: 'Risks', coachingTip: 'Note risks.' },
+      ],
+      readiness: 'low',
+      bias: null,
+    }
+
+    const onGenerateModel = vi.fn()
+    const ref = createRef<ChatComposerHandle>()
+    render(
+      <ChatComposer
+        ref={ref}
+        conversation={makeConversation()}
+        onCollapse={vi.fn()}
+        onScrollToPatch={vi.fn()}
+        onOpenInspector={vi.fn()}
+        onGenerateModel={onGenerateModel}
+      />,
+    )
+
+    // Button is visible (brief strip shown) but text is short — click fires the prop, guard is in handler
+    fireEvent.click(screen.getByTestId('inline-generate-btn'))
+
+    expect(onGenerateModel).toHaveBeenCalledTimes(1)
   })
 
   // ── consumeBrief contract ──────────────────────────────────────────────

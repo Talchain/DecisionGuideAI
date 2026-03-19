@@ -52,7 +52,7 @@ interface ChatComposerProps {
   onScrollToPatch: (patchId: string) => void
   onOpenInspector: (nodeId: string) => void
   onGenerateModel: () => void
-  onBriefStateChange?: (readiness: BriefReadiness | null, hasText: boolean, textLength: number) => void
+  onBriefStateChange?: (readiness: BriefReadiness | null, hasText: boolean) => void
 }
 
 const STAGE_PLACEHOLDERS: Record<ScenarioStage, string> = {
@@ -136,13 +136,12 @@ export const ChatComposer = memo(forwardRef<ChatComposerHandle, ChatComposerProp
       return [detected, missingText].filter(Boolean).join(' ')
     }, [bilResult])
 
-    // Notify parent of readiness / text state changes (derived booleans, not raw value)
+    // Notify parent of readiness / text state changes
     const currentReadiness = briefSignals?.readiness ?? null
-    const currentTextLength = composer.value.trim().length
-    const currentHasText = currentTextLength > 0
+    const currentHasText = composer.value.trim().length > 0
     useEffect(() => {
-      onBriefStateChange?.(currentReadiness, currentHasText, currentTextLength)
-    }, [currentReadiness, currentHasText, currentTextLength, onBriefStateChange])
+      onBriefStateChange?.(currentReadiness, currentHasText)
+    }, [currentReadiness, currentHasText, onBriefStateChange])
 
     // Sync brief text to canvas store (debounced) so useGraphReadiness can include it
     const debouncedBriefText = useDebounce(composer.value.trim(), 500)
@@ -329,8 +328,8 @@ function InlineGenerateButton({ state, onClick }: { state: GenerateState; onClic
   return (
     <button
       type="button"
-      disabled={!isActive}
-      onClick={isActive ? onClick : undefined}
+      onClick={onClick}
+      data-active={isActive || undefined}
       className="inline-gen-btn flex-shrink-0"
       style={{
         display: 'inline-flex',
@@ -362,7 +361,7 @@ function InlineGenerateButton({ state, onClick }: { state: GenerateState; onClic
       <span>Generate model</span>
 
       <style>{`
-        .inline-gen-btn:not(:disabled):hover {
+        .inline-gen-btn[data-active]:hover {
           background: var(--primary-hover, #67C89E) !important;
           transform: translateY(-1px);
         }

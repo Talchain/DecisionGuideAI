@@ -379,14 +379,16 @@ export const ConversationPanel = memo(function ConversationPanel({
   // Note: generateState is derived in ChatComposer directly from composer.value
   // to avoid the useEffect lag that caused first-click silently disabled.
 
-  const handleBriefStateChange = useCallback((readiness: BriefReadiness | null, ht: boolean, _len: number) => {
+  const handleBriefStateChange = useCallback((readiness: BriefReadiness | null, ht: boolean) => {
     // User started typing — cancel any pending brief restore from a failed generate
     if (ht) pendingBriefRef.current = null
   }, [])
 
   const handleGenerateModel = useCallback(() => {
+    if (isThinking) return
     const brief = composerRef.current?.consumeBrief()
-    if (brief) {
+    // consumeBrief returns null if empty; also guard <50 chars to match activation threshold
+    if (brief && brief.length >= 50) {
       pendingBriefRef.current = brief // save for restore if CEE returns no draft
       beginInteractionChain({
         triggerSurface: 'generate_model',
@@ -407,7 +409,7 @@ export const ConversationPanel = memo(function ConversationPanel({
         debugSourceSurface: 'ai_panel',
       })
     }
-  }, [messages.length, sendMessage])
+  }, [isThinking, messages.length, sendMessage])
 
   // Restore brief text if Generate Model completed without producing a graph
   useEffect(() => {
