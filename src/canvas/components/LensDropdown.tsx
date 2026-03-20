@@ -3,7 +3,7 @@
  *
  * Displays in the TopBar as an outlined pill chip (icon-only at rest).
  * Opens a dropdown with lens modes: Full model, option isolation (per option),
- * sensitivity, and fragile edges.
+ * sensitivity, fragile edges, causal graph, evidence quality, robustness.
  *
  * Design system: Lucide icons only, bg-panel dropdown, outlined pill,
  * sentence case, neutral backgrounds. No emoji.
@@ -91,14 +91,17 @@ export function LensDropdown({ isOpen, onClose, onToggle }: LensDropdownProps) {
     ?.option_comparison as Array<{ option_id: string; option_label: string }> | undefined
 
   const isActive = lensMode !== 'full'
-  const isVisible = resultsStatus === 'complete' && !comparisonActive
+  const hasResults = resultsStatus === 'complete'
+  // Expanded lenses (causal, evidence) are available pre-analysis; others require results
+  const hasNodes = useCanvasStore(s => s.nodes.length > 0)
+  const isVisible = !comparisonActive && (hasResults || hasNodes)
 
   // Position dropdown below the chip, clamped to viewport
   useEffect(() => {
     if (!isOpen || !chipRef.current) return
     const r = chipRef.current.getBoundingClientRect()
-    const dropdownHeight = 280 // approximate max height
-    const dropdownWidth = 200  // minWidth from style
+    const dropdownHeight = 400 // approximate max height (increased for new items)
+    const dropdownWidth = 220  // minWidth from style
 
     let top = r.bottom + 6
     let left = r.left
@@ -167,7 +170,7 @@ export function LensDropdown({ isOpen, onClose, onToggle }: LensDropdownProps) {
           onKeyDown={(e) => {
             if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
               e.preventDefault()
-              const items = popoverRef.current?.querySelectorAll('[role="menuitem"]')
+              const items = popoverRef.current?.querySelectorAll('[role="menuitem"]:not([aria-disabled="true"])')
               if (!items?.length) return
               const focused = document.activeElement
               const idx = Array.from(items).indexOf(focused as Element)
@@ -184,7 +187,7 @@ export function LensDropdown({ isOpen, onClose, onToggle }: LensDropdownProps) {
             left: pos.left,
             zIndex: 9000,
             padding: '4px 0',
-            minWidth: 200,
+            minWidth: 220,
             animation: 'thinkingModeIn 150ms cubic-bezier(0.0, 0, 0.2, 1) both',
           }}
           data-testid="lens-dropdown"
@@ -220,6 +223,8 @@ export function LensDropdown({ isOpen, onClose, onToggle }: LensDropdownProps) {
             label="Sensitivity"
             isActive={lensMode === 'sensitivity'}
             onClick={() => handleSelect('sensitivity')}
+            disabled={!hasResults}
+            disabledTooltip="Run analysis first"
           />
 
           {/* Fragile edges */}
@@ -227,6 +232,37 @@ export function LensDropdown({ isOpen, onClose, onToggle }: LensDropdownProps) {
             label="Fragile edges"
             isActive={lensMode === 'fragile'}
             onClick={() => handleSelect('fragile')}
+            disabled={!hasResults}
+            disabledTooltip="Run analysis first"
+          />
+
+          {/* Separator — Analytical lenses */}
+          <div className="h-px my-1" style={{ background: 'var(--border-default, #EEE6D8)' }} />
+
+          {/* Causal graph */}
+          <LensMenuItem
+            label="Causal graph"
+            description="Pure causal structure"
+            isActive={lensMode === 'causal'}
+            onClick={() => handleSelect('causal')}
+          />
+
+          {/* Evidence quality */}
+          <LensMenuItem
+            label="Evidence quality"
+            description="What's grounded vs assumed"
+            isActive={lensMode === 'evidence'}
+            onClick={() => handleSelect('evidence')}
+          />
+
+          {/* Robustness — disabled when no results */}
+          <LensMenuItem
+            label="Robustness"
+            description="Where the result is vulnerable"
+            isActive={lensMode === 'robustness'}
+            onClick={() => handleSelect('robustness')}
+            disabled={!hasResults}
+            disabledTooltip="Run analysis first"
           />
         </div>,
         document.body,
@@ -239,17 +275,22 @@ export function LensDropdown({ isOpen, onClose, onToggle }: LensDropdownProps) {
 
 interface LensMenuItemProps {
   label: string
+  description?: string
   isActive: boolean
   onClick: () => void
   dotColor?: string
+  disabled?: boolean
+  disabledTooltip?: string
 }
 
-function LensMenuItem({ label, isActive, onClick, dotColor }: LensMenuItemProps) {
+function LensMenuItem({ label, description, isActive, onClick, dotColor, disabled, disabledTooltip }: LensMenuItemProps) {
   return (
     <button
       type="button"
       role="menuitem"
-      onClick={onClick}
+      onClick={disabled ? undefined : onClick}
+      title={disabled ? disabledTooltip : undefined}
+      aria-disabled={disabled || undefined}
       style={{
         display: 'flex',
         alignItems: 'center',
@@ -258,14 +299,17 @@ function LensMenuItem({ label, isActive, onClick, dotColor }: LensMenuItemProps)
         padding: '8px 12px',
         background: 'transparent',
         border: 'none',
-        cursor: 'pointer',
+        cursor: disabled ? 'not-allowed' : 'pointer',
         fontSize: 12,
         fontWeight: isActive ? 500 : 400,
-        color: isActive ? 'var(--semantic-info, #3b82f6)' : 'var(--text-body, #3F3F3E)',
+        color: disabled
+          ? 'var(--text-disabled, #C5C0B8)'
+          : isActive ? 'var(--semantic-info, #3b82f6)' : 'var(--text-body, #3F3F3E)',
         textAlign: 'left',
         transition: 'background 100ms ease',
+        opacity: disabled ? 0.6 : 1,
       }}
-      className="hover:bg-panel-hover"
+      className={disabled ? '' : 'hover:bg-panel-hover'}
       data-testid={`lens-item-${label.toLowerCase().replace(/\s+/g, '-')}`}
       data-active={isActive ? 'true' : undefined}
     >
@@ -281,7 +325,22 @@ function LensMenuItem({ label, isActive, onClick, dotColor }: LensMenuItemProps)
           aria-hidden="true"
         />
       )}
-      <span style={{ flex: 1 }}>{label}</span>
+      <span style={{ flex: 1 }}>
+        {label}
+        {description && (
+          <span
+            style={{
+              display: 'block',
+              fontSize: 11,
+              fontWeight: 400,
+              color: disabled ? 'var(--text-disabled, #C5C0B8)' : 'var(--text-light, #908D8D)',
+              marginTop: 1,
+            }}
+          >
+            {description}
+          </span>
+        )}
+      </span>
       {isActive && <Check size={16} strokeWidth={2} aria-hidden="true" />}
     </button>
   )

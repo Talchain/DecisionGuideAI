@@ -75,6 +75,17 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
     isGraphLensEnabled() && s.lens._dimmedNodeIds.has(id)
   )
 
+  // Expanded lenses: hidden (causal), evidence classification, active mode
+  // Defensive ?.has/?.get — test mocks may not include expanded lens fields
+  const isLensHidden = useCanvasStore(s =>
+    isGraphLensEnabled() && s.lens._hiddenNodeIds?.has(id) === true
+  )
+  const lensMode = useCanvasStore(s => isGraphLensEnabled() ? s.lens.active : 'full')
+  const evidenceClass = useCanvasStore(s => {
+    if (!isGraphLensEnabled() || s.lens.active !== 'evidence') return null
+    return s.lens._evidenceNodeClass?.get(id) ?? null
+  })
+
   // Layout-computed node width: when a layout has run, use its computed width
   // so the rendered node matches ELK's sizing assumptions.
   const layoutNodeWidth = useLayoutStore(s => s.layoutNodeWidth)
@@ -180,6 +191,28 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
     return 'border-2'
   })()
 
+  // Causal lens: hide organisational nodes entirely
+  if (isLensHidden) return null
+
+  // Evidence lens: node fill colour based on evidence classification
+  const evidenceBgStyle = (() => {
+    if (lensMode !== 'evidence' || !evidenceClass) return undefined
+    switch (evidenceClass) {
+      case 'grounded': return 'var(--semantic-success-light, #dcfce7)'
+      case 'assumed': return 'var(--semantic-warning-light, #fef9c3)'
+      case 'none': return 'var(--semantic-danger-light, #fee2e2)'
+      case 'na': return undefined
+    }
+  })()
+
+  // Causal lens: strip all type-specific styling, render as neutral node
+  const isCausalLens = lensMode === 'causal'
+  // Evidence lens: suppress detail — show label + provenance pill only
+  const isEvidenceLens = lensMode === 'evidence'
+  const causalBorderClass = isCausalLens
+    ? (nodeType === 'goal' ? 'border-text-light border-dashed' : 'border-text-light')
+    : undefined
+
   return (
     <div
       role="group"
@@ -187,8 +220,8 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
       aria-expanded={description ? isExpanded : undefined}
       {...(isIncomplete ? { 'data-testid': nodeType === 'goal' ? 'overlay-missing-threshold-node' : 'overlay-missing-value' } : {})}
       className={`
-        relative rounded-lg ${borderWidth} shadow-1
-        ${isIncomplete ? (nodeType === 'goal' ? 'border-goal border-dashed' : `${colors.border} border-dashed`) : borderClassOverride ?? `${colors.border} ${borderStyle}`}
+        relative rounded-lg ${isCausalLens ? 'border' : borderWidth} shadow-1
+        ${isCausalLens ? (causalBorderClass ?? '') : isIncomplete ? (nodeType === 'goal' ? 'border-goal border-dashed' : `${colors.border} border-dashed`) : borderClassOverride ?? `${colors.border} ${borderStyle}`}
         transition-all duration-200
         cursor-default
         ${selected ? 'ring-2 ring-info ring-offset-2' : ''}
@@ -196,7 +229,7 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
         ${isLensDimmed ? 'opacity-20' : isDimmed ? 'opacity-40' : ''}
       `}
       style={{
-        backgroundColor: '#FEFEFE', // Panel background color
+        backgroundColor: evidenceBgStyle ?? '#FEFEFE',
         padding: '12px',
         minWidth: '140px',
         maxWidth: isExpanded ? '300px' : `${maxWidth ?? layoutNodeWidth ?? 200}px`,
@@ -246,7 +279,8 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
         aria-label="Input connection"
       />
       
-      {/* Node header */}
+      {/* Node header — stripped in causal lens; simplified in evidence lens */}
+      {!isCausalLens && (
       <div
         style={{
           display: 'flex',
@@ -300,14 +334,15 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
           </button>
         )}
       </div>
-      
+      )}
+
       {/* Node label */}
       <div className={`${typography.nodeTitle} text-text-body break-words`}>
         {label}
       </div>
 
-      {/* Expanded description (markdown) */}
-      {isExpanded && description && (
+      {/* Expanded description (markdown) — hidden in causal/evidence lens */}
+      {!isCausalLens && !isEvidenceLens && isExpanded && description && (
         <div
           className={`${typography.nodeLabel} text-text-body opacity-85 mt-3 max-h-[200px] overflow-y-auto node-description`}
           // eslint-disable-next-line no-restricted-syntax -- sanitised via DOMPurify (sanitizeMarkdown)
@@ -317,8 +352,8 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
         />
       )}
 
-      {/* Optional children (description, metrics, etc.) */}
-      {children ? (
+      {/* Optional children (description, metrics, etc.) — hidden in causal/evidence lens */}
+      {!isCausalLens && !isEvidenceLens && children ? (
         <div className={`${typography.nodeLabel} text-text-body opacity-80 mt-2`}>
           {children as ReactNode}
         </div>

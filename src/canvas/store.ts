@@ -68,6 +68,12 @@ function createDefaultLensState() {
     _sensitivityWeights: new Map<string, number>(),
     _sensitivityQuartiles: null as { q25: number; q75: number } | null,
     _fragileEdgeIds: new Set<string>(),
+    // Expanded lenses (Brief 5)
+    _hiddenNodeIds: new Set<string>(),
+    _hiddenEdgeIds: new Set<string>(),
+    _causalEdgeParams: new Map<string, { mean: number; std: number | null; existsProb: number | null }>(),
+    _evidenceNodeClass: new Map<string, 'grounded' | 'assumed' | 'none' | 'na'>(),
+    _evidenceEdgeClass: new Map<string, 'evidence' | 'assumed' | 'unknown'>(),
   }
 }
 
@@ -310,7 +316,7 @@ interface CanvasState {
   hoveredOptionId: string | null
   // Graph Lens: ephemeral canvas filtering state (post-analysis only)
   lens: {
-    active: 'full' | 'option' | 'sensitivity' | 'fragile'
+    active: 'full' | 'option' | 'sensitivity' | 'fragile' | 'causal' | 'evidence' | 'robustness'
     selectedOptionId: string | null
     // Computed sets — written by useLensFilter, read by BaseNode/StyledEdge
     _dimmedNodeIds: Set<string>
@@ -318,6 +324,12 @@ interface CanvasState {
     _sensitivityWeights: Map<string, number>
     _sensitivityQuartiles: { q25: number; q75: number } | null
     _fragileEdgeIds: Set<string>
+    // Expanded lenses (Brief 5)
+    _hiddenNodeIds: Set<string>
+    _hiddenEdgeIds: Set<string>
+    _causalEdgeParams: Map<string, { mean: number; std: number | null; existsProb: number | null }>
+    _evidenceNodeClass: Map<string, 'grounded' | 'assumed' | 'none' | 'na'>
+    _evidenceEdgeClass: Map<string, 'evidence' | 'assumed' | 'unknown'>
   }
   // M5: Grounding & Provenance
   documents: Document[]
@@ -530,7 +542,7 @@ interface CanvasState {
   // Decision Graph Display v2 Task 11: Option hover for intervention highlighting
   setHoveredOption: (optionId: string | null) => void
   // Graph Lens actions
-  setLens: (mode: 'full' | 'option' | 'sensitivity' | 'fragile', optionId?: string | null) => void
+  setLens: (mode: LensMode, optionId?: string | null) => void
   cycleLensOption: (direction: 'next' | 'prev') => void
   resetLens: () => void
   /** Update computed lens visuals (called by useLensFilter effect) */
@@ -540,6 +552,11 @@ interface CanvasState {
     sensitivityWeights: Map<string, number>
     sensitivityQuartiles: { q25: number; q75: number } | null
     fragileEdgeIds: Set<string>
+    hiddenNodeIds?: Set<string>
+    hiddenEdgeIds?: Set<string>
+    causalEdgeParams?: Map<string, { mean: number; std: number | null; existsProb: number | null }>
+    evidenceNodeClass?: Map<string, 'grounded' | 'assumed' | 'none' | 'na'>
+    evidenceEdgeClass?: Map<string, 'evidence' | 'assumed' | 'unknown'>
   }) => void
   // M5: Provenance actions
   addDocument: (document: Omit<Document, 'id' | 'uploadedAt'>) => string
@@ -3085,6 +3102,10 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
 
   setLensVisuals: (visuals) => {
     const { lens } = get()
+    const EMPTY = new Set<string>()
+    const EMPTY_CEP = new Map<string, { mean: number; std: number | null; existsProb: number | null }>()
+    const EMPTY_ENC = new Map<string, 'grounded' | 'assumed' | 'none' | 'na'>()
+    const EMPTY_EEC = new Map<string, 'evidence' | 'assumed' | 'unknown'>()
     // Skip no-op updates to avoid re-renders (use setsEqual/mapsEqual for collection comparison)
     if (
       setsEqual(lens._dimmedNodeIds, visuals.dimmedNodeIds) &&
@@ -3092,7 +3113,12 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       setsEqual(lens._fragileEdgeIds, visuals.fragileEdgeIds) &&
       mapsEqual(lens._sensitivityWeights, visuals.sensitivityWeights) &&
       lens._sensitivityQuartiles?.q25 === visuals.sensitivityQuartiles?.q25 &&
-      lens._sensitivityQuartiles?.q75 === visuals.sensitivityQuartiles?.q75
+      lens._sensitivityQuartiles?.q75 === visuals.sensitivityQuartiles?.q75 &&
+      setsEqual(lens._hiddenNodeIds, visuals.hiddenNodeIds ?? EMPTY) &&
+      setsEqual(lens._hiddenEdgeIds, visuals.hiddenEdgeIds ?? EMPTY) &&
+      mapsEqual(lens._causalEdgeParams, visuals.causalEdgeParams ?? EMPTY_CEP) &&
+      mapsEqual(lens._evidenceNodeClass, visuals.evidenceNodeClass ?? EMPTY_ENC) &&
+      mapsEqual(lens._evidenceEdgeClass, visuals.evidenceEdgeClass ?? EMPTY_EEC)
     ) {
       return
     }
@@ -3104,6 +3130,11 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
         _sensitivityWeights: visuals.sensitivityWeights,
         _sensitivityQuartiles: visuals.sensitivityQuartiles,
         _fragileEdgeIds: visuals.fragileEdgeIds,
+        _hiddenNodeIds: visuals.hiddenNodeIds ?? EMPTY,
+        _hiddenEdgeIds: visuals.hiddenEdgeIds ?? EMPTY,
+        _causalEdgeParams: visuals.causalEdgeParams ?? EMPTY_CEP,
+        _evidenceNodeClass: visuals.evidenceNodeClass ?? EMPTY_ENC,
+        _evidenceEdgeClass: visuals.evidenceEdgeClass ?? EMPTY_EEC,
       },
     })
   },
@@ -3745,6 +3776,6 @@ export const selectPreviousReport = (state: CanvasState): PreviousReportSnapshot
 /**
  * Graph Lens selectors
  */
-export type LensMode = 'full' | 'option' | 'sensitivity' | 'fragile'
+export type LensMode = 'full' | 'option' | 'sensitivity' | 'fragile' | 'causal' | 'evidence' | 'robustness'
 export const selectLensMode = (state: CanvasState): LensMode => state.lens.active
 export const selectLensOptionId = (state: CanvasState): string | null => state.lens.selectedOptionId

@@ -42,6 +42,7 @@ import {
 } from '../utils/sandboxTelemetry'
 import { DeltaInterpretation } from './DeltaInterpretation'
 import { isJourneyTabEnabled } from '../../flags'
+import { ModelHealthBadge } from './ModelHealthSection'
 import { getObjectiveText, getGoalDirection } from '../utils/getObjectiveText'
 import { computeDelta, deriveVerdict } from '../utils/interpretOutcome'
 import { useDebugShortcut } from '../hooks/useDebugShortcut'
@@ -952,7 +953,11 @@ export function OutputsDock() {
                   }`}
                   style={state.activeTab === tab.id ? { backgroundColor: 'rgba(99,173,207,0.15)' } : undefined}
                 >
-                  {tab.label}
+                  <span className="inline-flex items-center gap-1">
+                    {tab.label}
+                    {/* Model health ambient indicator (Brief 5 Task 5) */}
+                    {tab.id === 'diagnostics' && <ModelHealthBadge />}
+                  </span>
                 </button>
               ))}
             </nav>

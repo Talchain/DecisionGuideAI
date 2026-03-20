@@ -70,6 +70,7 @@ import { FocusModeChip } from './components/FocusModeChip'
 import { LimitsPanel } from './components/LimitsPanel'
 import { BottomSheet } from './components/BottomSheet'
 import { OutputsDock } from './components/OutputsDock'
+import { LensInfoPanel } from './components/LensInfoPanel'
 import { ComparisonCanvasLayout } from './components/ComparisonCanvasLayout'
 import { isInputsOutputsEnabled, isCommandPaletteEnabled, isDegradedBannerEnabled, isOnboardingTourEnabled, isCrossHighlightEnabled, pocFlags } from '../flags'
 import { HighlightProvider, useHighlightContext } from './highlighting/HighlightContext'
@@ -2205,6 +2206,9 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
 
       {/* OutputsDock (Results panel) - render in both old and new layouts */}
       <OutputsDock />
+
+      {/* Expanded lenses: contextual info panel overlay */}
+      <LensInfoPanel />
       <LimitsPanel
         isOpen={showLimits}
         onClose={() => setShowLimits(false)}

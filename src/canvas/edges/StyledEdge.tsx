@@ -96,8 +96,22 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
     return s.lens._sensitivityQuartiles?.q75 ?? null
   })
   const isLensFragile = useCanvasStore(s =>
-    isGraphLensEnabled() && s.lens.active === 'fragile' && s.lens._fragileEdgeIds.has(id)
+    isGraphLensEnabled() && (s.lens.active === 'fragile' || s.lens.active === 'robustness') && s.lens._fragileEdgeIds.has(id)
   )
+
+  // Expanded lenses: hidden edges (causal), evidence classification, causal edge params
+  // Defensive ?.has/?.get — test mocks may not include expanded lens fields
+  const isLensHidden = useCanvasStore(s =>
+    isGraphLensEnabled() && s.lens._hiddenEdgeIds?.has(id) === true
+  )
+  const causalEdgeParams = useCanvasStore(s => {
+    if (!isGraphLensEnabled() || s.lens.active !== 'causal') return null
+    return s.lens._causalEdgeParams?.get(id) ?? null
+  })
+  const evidenceEdgeClass = useCanvasStore(s => {
+    if (!isGraphLensEnabled() || s.lens.active !== 'evidence') return null
+    return s.lens._evidenceEdgeClass?.get(id) ?? null
+  })
 
   // Graph Lens: alternative winner label for fragile edge hover
   const lensFragileLabel = useMemo(() => {
@@ -365,6 +379,9 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
   // C1: Only show label when selected, hovered, has suggestion, or is first edge with hint
   const showLabel = selected || isHovered || hasSuggestion || (isFirstEdge && showEdgeHint)
 
+  // Causal lens: hide structural edges entirely
+  if (isLensHidden) return null
+
   return (
     <>
       {/* Invisible hitbox for hover detection - wider than visual edge */}
@@ -384,6 +401,16 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
         style={{
           // Graph Interaction P1: Highlighted edges get thicker stroke
           strokeWidth: (() => {
+            // Causal lens: thickness encodes |strength.mean|
+            if (lensMode === 'causal' && causalEdgeParams) {
+              return weightMagnitudeToStrokeWidth(causalEdgeParams.mean)
+            }
+            // Evidence lens: uniform thickness (not importance-weighted)
+            if (lensMode === 'evidence') return 1.5
+            // Robustness lens: thicken fragile, thin non-fragile
+            if (lensMode === 'robustness') {
+              return isLensFragile ? 3 : 1
+            }
             // Graph Lens: sensitivity mode adjusts stroke width by quartile
             if (lensMode === 'sensitivity' && lensSensWeight !== null && lensQ25 !== null && lensQ75 !== null) {
               if (lensSensWeight >= lensQ75) return 3
@@ -401,9 +428,24 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
           // Graph Interaction P1: Highlighted edges get brighter color
           // F.2: Direction colour always applies — yellow only for truly uninitialised edges
           // Pre-run overlay controls dash pattern only, not colour
-          stroke: isContested
-            ? (needsUserInput ? 'var(--semantic-info)' : 'color-mix(in srgb, var(--semantic-info) 70%, transparent)')
-            : isHighlightedEdge ? 'var(--semantic-info)' : (directionStroke ?? visualProps.stroke),
+          stroke: (() => {
+            // Causal lens: neutral colour, danger for negative edges
+            if (lensMode === 'causal' && causalEdgeParams) {
+              return causalEdgeParams.mean < 0 ? 'var(--semantic-danger, #ef4444)' : 'var(--text-body, #3F3F3E)'
+            }
+            // Evidence lens: colour by provenance classification
+            if (lensMode === 'evidence' && evidenceEdgeClass) {
+              switch (evidenceEdgeClass) {
+                case 'evidence': return 'var(--semantic-success, #22c55e)'
+                case 'assumed': return 'var(--semantic-warning, #eab308)'
+                case 'unknown': return 'var(--semantic-danger, #ef4444)'
+              }
+            }
+            if (isContested) {
+              return needsUserInput ? 'var(--semantic-info)' : 'color-mix(in srgb, var(--semantic-info) 70%, transparent)'
+            }
+            return isHighlightedEdge ? 'var(--semantic-info)' : (directionStroke ?? visualProps.stroke)
+          })(),
           // Graph Lens: opacity for dimmed edges
           opacity: isLensDimmed ? 0.2
             : (lensMode === 'sensitivity' && lensSensWeight !== null && lensQ25 !== null && lensSensWeight <= lensQ25) ? 0.4
@@ -421,8 +463,58 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
         }}
       />
       
+      {/* Causal lens: numeric parameter label (strength.mean + exists_probability) */}
+      {lensMode === 'causal' && causalEdgeParams && (
+        <EdgeLabelRenderer>
+          <div
+            style={{
+              position: 'absolute',
+              transform: `translate(-50%, -50%) translate(${labelX}px,${labelY}px)`,
+              pointerEvents: 'none',
+              padding: '2px 6px',
+              borderRadius: '4px',
+              fontSize: '11px',
+              fontWeight: 500,
+              fontFamily: 'ui-monospace, monospace',
+              whiteSpace: 'nowrap',
+            }}
+            className="bg-panel text-text-body border border-panel-border shadow-sm"
+            data-testid="causal-edge-label"
+          >
+            {causalEdgeParams.mean >= 0 ? '+' : ''}{causalEdgeParams.mean.toFixed(2)}
+            {causalEdgeParams.existsProb !== null && (
+              <span style={{ color: 'var(--text-light, #908D8D)' }}>
+                {' '}({Math.round(causalEdgeParams.existsProb * 100)}%)
+              </span>
+            )}
+          </div>
+        </EdgeLabelRenderer>
+      )}
+
+      {/* Evidence lens: provenance label */}
+      {lensMode === 'evidence' && evidenceEdgeClass && (
+        <EdgeLabelRenderer>
+          <div
+            style={{
+              position: 'absolute',
+              transform: `translate(-50%, -50%) translate(${labelX}px,${labelY}px)`,
+              pointerEvents: 'none',
+              padding: '2px 6px',
+              borderRadius: '4px',
+              fontSize: '10px',
+              fontWeight: 500,
+              whiteSpace: 'nowrap',
+            }}
+            className="bg-panel text-text-body border border-panel-border shadow-sm"
+            data-testid="evidence-edge-label"
+          >
+            {evidenceEdgeClass === 'evidence' ? 'Evidence-backed' : evidenceEdgeClass === 'assumed' ? 'Assumed' : 'Unknown basis'}
+          </div>
+        </EdgeLabelRenderer>
+      )}
+
       {/* Decision Graph Display v2 Task 3 + Task D: Direction sign indicator (single, near target) */}
-      {direction && (
+      {direction && lensMode !== 'causal' && (
         <EdgeLabelRenderer>
           <div
             style={{
@@ -644,6 +736,12 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
               {provenance && (
                 <div className={`${typography.panelMeta} text-text-light`}>
                   {getProvenanceLabel(provenance)}
+                </div>
+              )}
+              {/* Causal lens: show strength.std on hover */}
+              {lensMode === 'causal' && causalEdgeParams?.std !== null && causalEdgeParams?.std !== undefined && (
+                <div className={`${typography.panelMeta} text-text-light`} style={{ fontFamily: 'ui-monospace, monospace' }}>
+                  std: {causalEdgeParams.std.toFixed(3)}
                 </div>
               )}
               {/* Fragile warning with switch probability */}

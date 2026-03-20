@@ -10,6 +10,7 @@
 import { useMemo, useEffect, useRef } from 'react'
 import { useCanvasStore } from '../store'
 import { computeOptionPaths } from '../utils/computeOptionPaths'
+import { computeSignedMean } from '../domain/edges'
 import type { FragileEdgeCandidate } from '../utils/fragileEdgeMatch'
 
 // ─── Sensitivity helpers ─────────────────────────────────────────────────────
@@ -89,6 +90,12 @@ interface LensVisuals {
   sensitivityWeights: Map<string, number>
   sensitivityQuartiles: { q25: number; q75: number } | null
   fragileEdgeIds: Set<string>
+  // Expanded lenses (Brief 5)
+  hiddenNodeIds?: Set<string>
+  hiddenEdgeIds?: Set<string>
+  causalEdgeParams?: Map<string, { mean: number; std: number | null; existsProb: number | null }>
+  evidenceNodeClass?: Map<string, 'grounded' | 'assumed' | 'none' | 'na'>
+  evidenceEdgeClass?: Map<string, 'evidence' | 'assumed' | 'unknown'>
 }
 
 const EMPTY_SET = new Set<string>()
@@ -100,6 +107,9 @@ const EMPTY_VISUALS: LensVisuals = {
   sensitivityQuartiles: null,
   fragileEdgeIds: EMPTY_SET,
 }
+
+/** Node kinds filtered before inference — Platform Contract v4 §3.3.1 */
+const ORGANISATIONAL_KINDS = new Set(['decision', 'option', 'constraint'])
 
 // ─── Main hook ───────────────────────────────────────────────────────────────
 
@@ -114,7 +124,9 @@ export function useLensFilter(): void {
   const setLensVisuals = useCanvasStore(s => s.setLensVisuals)
 
   const visuals = useMemo((): LensVisuals => {
-    if (lensActive === 'full' || resultsStatus !== 'complete' || !report) {
+    // Causal + evidence lenses work without results; all others require them
+    const needsResults = lensActive !== 'causal' && lensActive !== 'evidence'
+    if (lensActive === 'full' || (needsResults && (resultsStatus !== 'complete' || !report))) {
       return EMPTY_VISUALS
     }
 
@@ -194,6 +206,106 @@ export function useLensFilter(): void {
       }
 
       return { dimmedNodeIds: EMPTY_SET, dimmedEdgeIds, sensitivityWeights: EMPTY_MAP, sensitivityQuartiles: null, fragileEdgeIds: fragileIds }
+    }
+
+    // ── Causal Graph ──
+    if (lensActive === 'causal') {
+      const hiddenNodeIds = new Set<string>()
+      const hiddenEdgeIds = new Set<string>()
+      const causalEdgeParams = new Map<string, { mean: number; std: number | null; existsProb: number | null }>()
+
+      // Hide organisational nodes (decision, option, constraint) — they don't participate in inference
+      for (const node of nodes) {
+        const kind = (node.type ?? (node.data as Record<string, unknown>)?.kind) as string | undefined
+        if (kind && ORGANISATIONAL_KINDS.has(kind)) {
+          hiddenNodeIds.add(node.id)
+        }
+      }
+
+      for (const edge of edges) {
+        // Hide structural edges (those connected to hidden nodes)
+        if (hiddenNodeIds.has(edge.source) || hiddenNodeIds.has(edge.target)) {
+          hiddenEdgeIds.add(edge.id)
+          continue
+        }
+
+        // P0-5 fix: use canonical values from graph store only — null when absent (no synthetic defaults)
+        const edgeData = edge.data as Record<string, unknown> | undefined
+        const mean = computeSignedMean(edgeData)
+        const std = typeof edgeData?.strengthStd === 'number' ? (edgeData.strengthStd as number) : null
+        const existsProb = typeof edgeData?.beliefExists === 'number' ? (edgeData.beliefExists as number) : null
+        causalEdgeParams.set(edge.id, { mean, std, existsProb })
+      }
+
+      return {
+        dimmedNodeIds: EMPTY_SET, dimmedEdgeIds: EMPTY_SET,
+        sensitivityWeights: EMPTY_MAP, sensitivityQuartiles: null, fragileEdgeIds: EMPTY_SET,
+        hiddenNodeIds, hiddenEdgeIds, causalEdgeParams,
+      }
+    }
+
+    // ── Evidence Quality ──
+    if (lensActive === 'evidence') {
+      const evidenceNodeClass = new Map<string, 'grounded' | 'assumed' | 'none' | 'na'>()
+      const evidenceEdgeClass = new Map<string, 'evidence' | 'assumed' | 'unknown'>()
+
+      for (const node of nodes) {
+        const kind = (node.type ?? (node.data as Record<string, unknown>)?.kind) as string | undefined
+        if (kind === 'factor') {
+          const obs = (node.data as Record<string, unknown>)?.observedState as Record<string, unknown> | undefined
+          const source = obs?.source as string | undefined
+          if (source === 'brief_extraction' || source === 'user' || source === 'document' || source === 'metric') {
+            evidenceNodeClass.set(node.id, 'grounded')
+          } else if (source === 'cee_inference' || source === 'engine' || source === 'inferred') {
+            evidenceNodeClass.set(node.id, 'assumed')
+          } else if (obs && (obs.value !== undefined || obs.baseline !== undefined)) {
+            evidenceNodeClass.set(node.id, 'assumed')
+          } else {
+            evidenceNodeClass.set(node.id, 'none')
+          }
+        } else {
+          evidenceNodeClass.set(node.id, 'na')
+        }
+      }
+
+      for (const edge of edges) {
+        const edgeData = edge.data as Record<string, unknown> | undefined
+        const provenance = (edgeData?.provenance ?? edgeData?.provenance_source) as string | undefined
+        if (provenance === 'document' || provenance === 'metric' || provenance === 'evidence' || provenance === 'brief_extraction') {
+          evidenceEdgeClass.set(edge.id, 'evidence')
+        } else if (provenance === 'hypothesis' || provenance === 'engine' || provenance === 'template' || provenance === 'user' || provenance === 'inferred') {
+          evidenceEdgeClass.set(edge.id, 'assumed')
+        } else {
+          evidenceEdgeClass.set(edge.id, 'unknown')
+        }
+      }
+
+      return {
+        dimmedNodeIds: EMPTY_SET, dimmedEdgeIds: EMPTY_SET,
+        sensitivityWeights: EMPTY_MAP, sensitivityQuartiles: null, fragileEdgeIds: EMPTY_SET,
+        evidenceNodeClass, evidenceEdgeClass,
+      }
+    }
+
+    // ── Robustness (post-analysis only) ──
+    if (lensActive === 'robustness') {
+      const reportAny = report as Record<string, unknown>
+      const robustness = reportAny?.robustness as Record<string, unknown> | undefined
+      const rawFragile = robustness?.fragile_edges
+      const fragileEdgesData: FragileEdgeCandidate[] = Array.isArray(rawFragile) ? rawFragile : []
+      const graphEdges = edges.map(e => ({ id: e.id, source: e.source, target: e.target }))
+      const fragileIds = buildFragileEdgeSet(fragileEdgesData, graphEdges)
+
+      const dimmedEdgeIds = new Set<string>()
+      for (const id of allEdgeIds) {
+        if (!fragileIds.has(id)) dimmedEdgeIds.add(id)
+      }
+
+      return {
+        dimmedNodeIds: EMPTY_SET, dimmedEdgeIds,
+        sensitivityWeights: EMPTY_MAP, sensitivityQuartiles: null,
+        fragileEdgeIds: fragileIds,
+      }
     }
 
     return EMPTY_VISUALS
