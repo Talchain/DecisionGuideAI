@@ -258,9 +258,28 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
     [beliefExists]
   )
 
+  // Contested edge styling — dashed info-colour stroke scaled by max_divergence
+  // Resolved or absent validation: revert to normal rendering
+  const validation = edgeData?.validation
+  const isContested = validation?.status === 'contested' && validation?.user_action === 'pending'
+  const needsUserInput = isContested && (validation?.pass2?.needs_user_input === true)
+
+  // Contested dash: gap scales with max_divergence (0→1 maps to 4→8px gap)
+  // needs_user_input gets a tighter dash for stronger visual signal
+  const contestedDashArray = isContested
+    ? (() => {
+        const divergence = validation?.max_divergence ?? 0.5
+        const gap = needsUserInput ? 3 : Math.round(4 + divergence * 4)
+        // Dash width scales between 1.5px and 3px: 1.5 + divergence * 1.5
+        const dashWidth = Number((1.5 + divergence * 1.5).toFixed(1))
+        return `${dashWidth} ${gap}`
+      })()
+    : null
+
   // Fix 1: Line style encodes existence certainty ONLY, not direction
   // Direction is already encoded via color (green/red) and sign (+/−)
-  const dashArray = existenceCertaintyDash
+  // Contested edges override the dash pattern
+  const dashArray = isContested ? contestedDashArray : existenceCertaintyDash
 
   // D.1: Unified confidence check via getEdgeConfidence (returns null when missing)
   const edgeConfidenceValue = getEdgeConfidence(edgeData as Record<string, unknown> | undefined)
@@ -379,7 +398,9 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
           // Graph Interaction P1: Highlighted edges get brighter color
           // F.2: Direction colour always applies — yellow only for truly uninitialised edges
           // Pre-run overlay controls dash pattern only, not colour
-          stroke: isHighlightedEdge ? 'var(--semantic-info)' : (directionStroke ?? visualProps.stroke),
+          stroke: isContested
+            ? (needsUserInput ? 'var(--semantic-info)' : 'color-mix(in srgb, var(--semantic-info) 70%, transparent)')
+            : isHighlightedEdge ? 'var(--semantic-info)' : (directionStroke ?? visualProps.stroke),
           // Graph Lens: opacity for dimmed edges
           opacity: isLensDimmed ? 0.2
             : (lensMode === 'sensitivity' && lensSensWeight !== null && lensQ25 !== null && lensSensWeight <= lensQ25) ? 0.4

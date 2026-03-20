@@ -39,6 +39,7 @@ import { GoalSection } from './model-tab/GoalSection'
 import { OptionsSection } from './model-tab/OptionsSection'
 import { FactorsSection, type SynthesisedPrior } from './model-tab/FactorsSection'
 import { RelationshipsSection } from './model-tab/RelationshipsSection'
+import type { UserAction } from '../domain/validation'
 import { RisksSection } from './model-tab/RisksSection'
 import { ModelHealthSection } from './model-tab/ModelHealthSection'
 import { ModelTabHeader } from './model-tab/ModelTabHeader'
@@ -203,6 +204,7 @@ export function ModelTabBody({
   )
   const selectionNodeIds = useCanvasStore(s => s.selection?.nodeIds ?? EMPTY_NODE_IDS)
   const selectionEdgeIds = useCanvasStore(s => s.selection?.edgeIds ?? EMPTY_EDGE_IDS)
+  const updateEdge = useCanvasStore(s => s.updateEdge)
 
   // ── Synthesised prior lookup from repair summary ───────────────────────────
 
@@ -341,6 +343,51 @@ export function ModelTabBody({
   const goalNode = grouped.goal[0]
   const goalLabel = goalNode ? String((goalNode.data as any)?.label ?? goalNode.id) : null
 
+  // ── Contested edge resolution ─────────────────────────────────────────────
+
+  const handleResolveContested = useCallback((edgeId: string, action: UserAction, customMean?: number) => {
+    const edge = edges.find(e => e.id === edgeId)
+    if (!edge) return
+
+    const data = edge.data as Record<string, unknown>
+    const vm = data?.validation as Record<string, unknown> | undefined
+    if (!vm) return
+
+    // Build updated validation as a plain object — spread preserves all ValidationMetadata fields
+    const updatedValidation: Record<string, unknown> = { ...vm, user_action: action, resolved_by: 'user' }
+
+    // Helper: cast a plain patch object to EdgeData — safe because EdgeDataSchema uses .passthrough()
+    const asEdgeData = (patch: Record<string, unknown>) => patch as unknown as import('../domain/edges').EdgeData
+
+    if (action === 'accepted_pass2') {
+      // Update edge weight+direction to match pass2 values — explicit user choice
+      const pass2 = vm.pass2 as Record<string, unknown> | undefined
+      if (pass2) {
+        const mean = pass2.strength_mean as number
+        updateEdge(edgeId, {
+          data: asEdgeData({ ...data, weight: Math.abs(mean), direction: mean >= 0 ? 'positive' : 'negative', validation: updatedValidation }),
+        })
+        return
+      }
+    }
+
+    if (action === 'overridden' && customMean !== undefined) {
+      // Store the user's custom value both as edge weight/direction and as resolved_value
+      updateEdge(edgeId, {
+        data: asEdgeData({
+          ...data,
+          weight: Math.abs(customMean),
+          direction: customMean >= 0 ? 'positive' : 'negative',
+          validation: { ...updatedValidation, resolved_value: { strength_mean: customMean } },
+        }),
+      })
+      return
+    }
+
+    // accepted_pass1 or dismissed — mark user_action only, no edge data change
+    updateEdge(edgeId, { data: asEdgeData({ ...data, validation: updatedValidation }) })
+  }, [edges, updateEdge])
+
   const handleCopyText = useCallback(() => {
     const lines: string[] = []
     if (goalLabel) lines.push(`Goal: ${goalLabel}`)
@@ -429,6 +476,7 @@ export function ModelTabBody({
             fragileEdgeIds={fragileEdgeIds}
             fragileEdgeSwitchProbMap={fragileEdgeSwitchProbMap}
             selectedEdgeIds={selectionEdgeIds}
+            onResolveContested={handleResolveContested}
           />
 
           {/* ── Risks section ───────────────────────────────────────────── */}

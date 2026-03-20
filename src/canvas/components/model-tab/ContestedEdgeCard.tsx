@@ -1,0 +1,422 @@
+/**
+ * ContestedEdgeCard — renders a contested edge with both AI estimates,
+ * plain-language explanation, and quick-resolve actions.
+ *
+ * Rendering rules (from validation_ui_data_contract_v1.md):
+ *  - Basis label ALWAYS precedes pass2.reasoning (mandatory contract rule)
+ *  - evoi_impact: show only when not null, never a placeholder
+ *  - Resolved state: success border, reduced opacity, confirmation text + tick
+ *  - "Show full detail" expansion controlled by DetailToggleContext
+ */
+
+import { useCallback, useContext, useRef, useEffect, useState } from 'react'
+import type { Edge, Node } from '@xyflow/react'
+import { AlertTriangle, Check } from 'lucide-react'
+import { typography } from '../../../styles/typography'
+import { DetailToggleContext } from './DetailToggleContext'
+import { InlineEdit } from './InlineEdit'
+import { focusNodeById } from '../../utils/focusHelpers'
+import { NON_EVIDENCE_PROVENANCE } from '../../utils/evidenceCoverage'
+import type { ValidationMetadata, UserAction } from '../../domain/validation'
+import {
+  getStrengthLabel,
+  getStrengthBand,
+  getConfidenceLabel,
+  getExistenceLabel,
+  getBasisLabel,
+  getContestedReasonLabel,
+} from './strengthBands'
+
+// ── Props ─────────────────────────────────────────────────────────────────────
+
+interface ContestedEdgeCardProps {
+  edge: Edge
+  nodes: Node[]
+  validation: ValidationMetadata
+  isFragile: boolean
+  isSelected?: boolean
+  /** Called when user resolves the edge. */
+  onResolve: (edgeId: string, action: UserAction, customMean?: number) => void
+}
+
+// ── Resolved confirmation copy ────────────────────────────────────────────────
+
+function resolvedLabel(action: UserAction): string {
+  switch (action) {
+    case 'accepted_pass1': return 'Kept current model value'
+    case 'accepted_pass2': return 'Accepted independent review'
+    case 'overridden':     return 'Custom value entered'
+    case 'dismissed':      return 'Dismissed'
+    default:               return 'Resolved'
+  }
+}
+
+// ── Component ─────────────────────────────────────────────────────────────────
+
+export function ContestedEdgeCard({
+  edge,
+  nodes,
+  validation,
+  isFragile,
+  isSelected,
+  onResolve,
+}: ContestedEdgeCardProps) {
+  const cardRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (isSelected) {
+      cardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+    }
+  }, [isSelected])
+
+  const { showDetail } = useContext(DetailToggleContext)
+
+  // Custom-value override state
+  const [showCustomInput, setShowCustomInput] = useState(false)
+  const [customMean, setCustomMean] = useState(
+    String(Math.abs(validation.pass1.strength_mean).toFixed(2))
+  )
+  const [customDir, setCustomDir] = useState<'positive' | 'negative'>(
+    validation.pass1.strength_mean >= 0 ? 'positive' : 'negative'
+  )
+
+  const edgeId = edge.id
+  const data = edge.data as Record<string, unknown>
+
+  const sourceNode = nodes.find(n => n.id === edge.source)
+  const targetNode = nodes.find(n => n.id === edge.target)
+  const fromLabel = String((sourceNode?.data as Record<string, unknown>)?.label ?? edge.source)
+  const toLabel   = String((targetNode?.data as Record<string, unknown>)?.label ?? edge.target)
+
+  const isResolved = validation.user_action !== 'pending'
+
+  // ── Handlers ───────────────────────────────────────────────────────────────
+
+  const handleAcceptPass1 = useCallback(() => {
+    onResolve(edgeId, 'accepted_pass1')
+  }, [edgeId, onResolve])
+
+  const handleAcceptPass2 = useCallback(() => {
+    onResolve(edgeId, 'accepted_pass2')
+  }, [edgeId, onResolve])
+
+  const handleDismiss = useCallback(() => {
+    onResolve(edgeId, 'dismissed')
+  }, [edgeId, onResolve])
+
+  const handleEnterOwn = useCallback(() => {
+    setShowCustomInput(true)
+  }, [])
+
+  const handleCustomSave = useCallback((val: string) => {
+    const n = parseFloat(val)
+    if (isNaN(n) || n < 0 || n > 2) return
+    const signedMean = customDir === 'negative' ? -n : n
+    onResolve(edgeId, 'overridden', signedMean)
+    setShowCustomInput(false)
+  }, [edgeId, customDir, onResolve])
+
+  const validateCustom = useCallback((s: string) => {
+    const n = parseFloat(s)
+    return !isNaN(n) && n >= 0 && n <= 2
+  }, [])
+
+  // ── Derived display values ─────────────────────────────────────────────────
+
+  const pass1Mean   = validation.pass1.strength_mean
+  const pass2Mean   = validation.pass2.strength_mean
+  const pass1Label  = getStrengthLabel(pass1Mean)
+  const pass2Label  = getStrengthLabel(pass2Mean)
+  const pass1Band   = getStrengthBand(pass1Mean)
+  const pass2Band   = getStrengthBand(pass2Mean)
+
+  // Basis label + reasoning (mandatory: basis label always precedes reasoning)
+  const basisLabel  = getBasisLabel(validation.pass2.basis)
+  const reasoning   = validation.pass2.reasoning
+
+  // Reason labels (first one only in main card; full list in detail)
+  const primaryReason = validation.contested_reasons[0]
+    ? getContestedReasonLabel(validation.contested_reasons[0])
+    : null
+
+  // evoi_impact: show only when not null
+  const hasEvoiImpact = validation.evoi_impact !== null && validation.evoi_impact !== undefined
+
+  // Provenance for detail panel
+  const provenance = data?.provenance as string | undefined
+  const hasEvidence = provenance && !NON_EVIDENCE_PROVENANCE.includes(provenance)
+
+  // ── Card border class ──────────────────────────────────────────────────────
+
+  const cardClass = [
+    'rounded-lg p-2.5 mb-2 last:mb-0 border transition-all',
+    isResolved
+      ? 'border-success/50 opacity-65 bg-panel'
+      : 'border-info/30 bg-panel',
+    isSelected ? 'ring-1 ring-info/50' : '',
+  ].filter(Boolean).join(' ')
+
+  return (
+    <div
+      ref={cardRef}
+      className={cardClass}
+      data-testid={`contested-card-${edgeId}`}
+    >
+      {/* ── Header row ──────────────────────────────────────────────────────── */}
+      <div className="flex items-start gap-1.5 mb-1.5 flex-wrap">
+        <span className={`${typography.panelBody} font-medium text-text-header flex-1 min-w-0 leading-snug`}>
+          {fromLabel}
+          <span className="text-text-light mx-1" aria-hidden="true">→</span>
+          {toLabel}
+        </span>
+        {/* contested pill */}
+        <span
+          className={`inline-flex items-center px-2 py-0.5 rounded-full ${typography.panelMeta} bg-transparent border border-info/30 text-text-body shrink-0`}
+          data-testid={`contested-pill-${edgeId}`}
+        >
+          {isResolved ? resolvedLabel(validation.user_action) : 'contested'}
+        </span>
+        {/* fragile pill */}
+        {isFragile && (
+          <span className={`inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full ${typography.panelMeta} bg-transparent border border-warning/30 text-text-body shrink-0`}>
+            <AlertTriangle className="w-2.5 h-2.5 shrink-0" aria-hidden="true" />
+            fragile
+          </span>
+        )}
+      </div>
+
+      {/* ── Contested reason ────────────────────────────────────────────────── */}
+      {primaryReason && !isResolved && (
+        <p className={`${typography.panelMeta} text-text-light mb-1`}>
+          {primaryReason}
+        </p>
+      )}
+
+      {/* ── EVOI impact statement (only when not null) ───────────────────────── */}
+      {hasEvoiImpact && !isResolved && (
+        <p className={`${typography.panelBody} text-text-body mb-2`} data-testid={`contested-evoi-${edgeId}`}>
+          Resolving this is worth ~{validation.evoi_impact} percentage points of confidence in the recommendation.
+        </p>
+      )}
+
+      {/* ── Estimate block ───────────────────────────────────────────────────── */}
+      {!isResolved && (
+        <div className="bg-panel-hover rounded-lg p-2 mb-2">
+          <p className={`${typography.panelMeta} text-text-light mb-1.5`}>
+            How strongly does {fromLabel} affect {toLabel}?
+          </p>
+
+          {/* Current model estimate */}
+          <div className="flex items-center gap-1.5 mb-1" data-testid={`contested-pass1-${edgeId}`}>
+            <span className="w-1.5 h-1.5 rounded-full bg-info shrink-0" aria-hidden="true" />
+            <span className={`${typography.panelMeta} text-text-light`}>Current model:</span>
+            <span className={`${typography.panelMeta} font-medium text-text-header`}>
+              {pass1Label} ({pass1Mean >= 0 ? '+' : ''}{pass1Mean.toFixed(2)})
+            </span>
+          </div>
+
+          {/* Independent review estimate */}
+          <div className="flex items-center gap-1.5 mb-2" data-testid={`contested-pass2-${edgeId}`}>
+            <span className="w-1.5 h-1.5 rounded-full bg-option shrink-0" aria-hidden="true" />
+            <span className={`${typography.panelMeta} text-text-light`}>Independent review:</span>
+            <span className={`${typography.panelMeta} font-medium text-text-header`}>
+              {pass2Label} ({pass2Mean >= 0 ? '+' : ''}{pass2Mean.toFixed(2)})
+            </span>
+          </div>
+
+          {/* Basis label THEN reasoning — mandatory contract order */}
+          <div data-testid={`contested-basis-reasoning-${edgeId}`}>
+            <p
+              className={`${typography.panelMeta} font-medium text-info mb-0.5`}
+              data-testid={`contested-basis-label-${edgeId}`}
+            >
+              {basisLabel}
+            </p>
+            <p
+              className={`${typography.panelMeta} text-text-body leading-relaxed`}
+              data-testid={`contested-reasoning-${edgeId}`}
+            >
+              {reasoning}
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* ── Custom value input (when "Enter your own" is active) ────────────── */}
+      {showCustomInput && !isResolved && (
+        <div className="bg-panel-hover rounded-lg p-2 mb-2">
+          <p className={`${typography.panelMeta} text-text-light mb-1.5`}>Your estimate (0–2)</p>
+          <div className="flex items-center gap-2 flex-wrap">
+            <InlineEdit
+              value={customMean}
+              onSave={(v) => setCustomMean(v)}
+              validate={validateCustom}
+              maxWidth="max-w-[60px]"
+              numeric
+              testId={`contested-custom-input-${edgeId}`}
+            />
+            {/* Direction toggle */}
+            <div className="inline-flex rounded overflow-hidden border border-panel-border" role="group" aria-label="Direction">
+              <button
+                type="button"
+                onClick={() => setCustomDir('positive')}
+                className={`px-2 py-0.5 ${typography.panelMeta} transition-colors ${
+                  customDir === 'positive'
+                    ? 'bg-success/20 text-success border-r border-panel-border'
+                    : 'text-text-light hover:bg-panel border-r border-panel-border'
+                }`}
+              >+</button>
+              <button
+                type="button"
+                onClick={() => setCustomDir('negative')}
+                className={`px-2 py-0.5 ${typography.panelMeta} transition-colors ${
+                  customDir === 'negative'
+                    ? 'bg-danger/20 text-danger'
+                    : 'text-text-light hover:bg-panel'
+                }`}
+              >−</button>
+            </div>
+            <button
+              type="button"
+              onClick={() => handleCustomSave(customMean)}
+              className={`px-3 py-0.5 rounded-lg border border-info/30 ${typography.panelMeta} text-info hover:bg-panel-hover transition-colors`}
+              data-testid={`contested-custom-confirm-${edgeId}`}
+            >
+              Confirm
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowCustomInput(false)}
+              className={`${typography.panelMeta} text-text-light hover:text-text-body transition-colors`}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Resolve actions (pending only) ───────────────────────────────────── */}
+      {!isResolved && (
+        <div className="flex gap-1.5 flex-wrap" data-testid={`contested-actions-${edgeId}`}>
+          <button
+            type="button"
+            onClick={handleAcceptPass1}
+            className={`px-2.5 py-1 rounded-lg border border-panel-border bg-panel ${typography.panelMeta} text-text-body hover:border-info/30 hover:bg-panel-hover transition-colors`}
+            data-testid={`contested-accept-pass1-${edgeId}`}
+          >
+            Accept current ({pass1Band})
+          </button>
+          <button
+            type="button"
+            onClick={handleAcceptPass2}
+            className={`px-2.5 py-1 rounded-lg border border-panel-border bg-panel ${typography.panelMeta} text-text-body hover:border-info/30 hover:bg-panel-hover transition-colors`}
+            data-testid={`contested-accept-pass2-${edgeId}`}
+          >
+            Accept review ({pass2Band})
+          </button>
+          {!showCustomInput && (
+            <button
+              type="button"
+              onClick={handleEnterOwn}
+              className={`px-2.5 py-1 rounded-lg border border-panel-border bg-panel ${typography.panelMeta} text-text-body hover:border-info/30 hover:bg-panel-hover transition-colors`}
+              data-testid={`contested-enter-own-${edgeId}`}
+            >
+              Enter your own
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={handleDismiss}
+            className={`px-2.5 py-1 rounded-lg border border-transparent ${typography.panelMeta} text-text-light hover:text-text-body transition-colors`}
+            data-testid={`contested-dismiss-${edgeId}`}
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
+
+      {/* ── Resolved confirmation ────────────────────────────────────────────── */}
+      {isResolved && (
+        <div
+          className={`flex items-center gap-1.5 ${typography.panelMeta} text-success`}
+          data-testid={`contested-resolved-${edgeId}`}
+        >
+          <Check className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+          {resolvedLabel(validation.user_action)}
+        </div>
+      )}
+
+      {/* ── Full detail expansion ────────────────────────────────────────────── */}
+      {showDetail && (
+        <div className="mt-2 pt-2 border-t border-panel-border" data-testid={`contested-detail-${edgeId}`}>
+          <div className={`${typography.panelMeta} text-text-light font-mono mb-1`}>
+            Strength mean (β coefficient) / epistemic uncertainty
+          </div>
+          <div className="grid grid-cols-2 gap-x-3 gap-y-0.5">
+            <span className={`${typography.panelMeta} text-text-light`}>Strength mean</span>
+            <span className={`${typography.panelMeta} text-text-body font-mono text-right`}>
+              {pass1Mean >= 0 ? '+' : ''}{pass1Mean.toFixed(3)}
+            </span>
+            <span className={`${typography.panelMeta} text-text-light`}>Strength std</span>
+            <span className={`${typography.panelMeta} text-text-body font-mono text-right`}>
+              ±{validation.pass1.strength_std.toFixed(3)}
+            </span>
+            <span className={`${typography.panelMeta} text-text-light`}>Exists probability</span>
+            <span className={`${typography.panelMeta} text-text-body font-mono text-right`}>
+              {validation.pass1.exists_probability.toFixed(2)}
+            </span>
+            <span className={`${typography.panelMeta} text-text-light`}>Effect direction</span>
+            <span className={`${typography.panelMeta} text-text-body text-right`}>
+              {pass1Mean >= 0 ? 'positive' : 'negative'}
+            </span>
+            <span className={`${typography.panelMeta} text-text-light`}>Confidence</span>
+            <span className={`${typography.panelMeta} text-text-body text-right`}>
+              {getConfidenceLabel(validation.pass1.strength_std)}
+            </span>
+            <span className={`${typography.panelMeta} text-text-light`}>Existence</span>
+            <span className={`${typography.panelMeta} text-text-body text-right`}>
+              {getExistenceLabel(validation.pass1.exists_probability)}
+            </span>
+            {hasEvidence && (
+              <>
+                <span className={`${typography.panelMeta} text-text-light`}>Evidence</span>
+                <span className={`${typography.panelMeta} text-text-body text-right`}>{provenance}</span>
+              </>
+            )}
+            <span className={`${typography.panelMeta} text-text-light`}>Edge ID</span>
+            <span className={`${typography.panelMeta} text-[10px] text-text-body font-mono text-right truncate`}>
+              {edgeId}
+            </span>
+          </div>
+          {/* Contested reasons full list */}
+          {validation.contested_reasons.length > 0 && (
+            <div className="mt-2">
+              <span className={`${typography.panelMeta} text-text-light`}>
+                Reasons: {validation.contested_reasons.map(getContestedReasonLabel).join('; ')}
+              </span>
+            </div>
+          )}
+          {/* Node reference badges */}
+          <div className="flex items-center gap-2 mt-2">
+            <button
+              type="button"
+              onClick={() => sourceNode && focusNodeById(sourceNode.id)}
+              className={`${typography.panelMeta} px-2 py-0.5 rounded-full border border-panel-border text-text-body hover:bg-panel-hover transition-colors`}
+              data-testid={`contested-node-ref-source-${edgeId}`}
+            >
+              {fromLabel}
+            </button>
+            <span className={`${typography.panelMeta} text-text-light`} aria-hidden="true">→</span>
+            <button
+              type="button"
+              onClick={() => targetNode && focusNodeById(targetNode.id)}
+              className={`${typography.panelMeta} px-2 py-0.5 rounded-full border border-panel-border text-text-body hover:bg-panel-hover transition-colors`}
+              data-testid={`contested-node-ref-target-${edgeId}`}
+            >
+              {toLabel}
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}

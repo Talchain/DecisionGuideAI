@@ -4,6 +4,7 @@
  */
 
 import { z } from 'zod'
+import type { ValidationMetadata } from './validation'
 
 /**
  * Edge style options for visualisation
@@ -228,12 +229,24 @@ export const EdgeDataSchema = z.object({
   // Template tracking
   templateId: z.string().optional(),
 
+  // Multi-pass validation metadata (additive, from CEE validation pipeline)
+  // The schema uses z.unknown() so Zod passes it through without parsing internals.
+  // The full typed shape is in src/canvas/domain/validation.ts.
+  validation: z.unknown().optional(),
+
   // Schema version for migrations
   // Accept legacy v2, v3, and current v4 values for backwards-compatible imports
   schemaVersion: z.union([z.literal(2), z.literal(3), z.literal(4)]).default(4),
 }).passthrough() // CIL 0.2: passthrough preserves additive CIL fields through Zod parse
 
-export type EdgeData = z.infer<typeof EdgeDataSchema>
+/**
+ * EdgeData with typed validation metadata overlay.
+ * The Zod infer type carries validation as `unknown`; this intersection
+ * provides the concrete type for UI code.
+ */
+export type EdgeData = z.infer<typeof EdgeDataSchema> & {
+  validation?: ValidationMetadata
+}
 
 /**
  * Default edge data for new edges
