@@ -46,6 +46,8 @@ interface RelationshipsSectionProps {
   fragileEdgeSwitchProbMap?: Map<string, number>
   /** Set of selected edge IDs (from canvas store) — triggers scroll-into-view */
   selectedEdgeIds?: Set<string>
+  /** Whether robustness data is available (analysis has run) */
+  hasRobustnessData?: boolean
   /** Called when user resolves a contested edge. Provided by ModelTabBody. */
   onResolveContested?: (edgeId: string, action: UserAction, customMean?: number) => void
 }
@@ -338,14 +340,18 @@ function applyOnePerTargetCap(
     const bVm = bv?.validation as ValidationMetadata | undefined
     if (!aVm || !bVm) return 0
 
-    // Post-analysis: sort by evoi_impact desc when available
-    const aImpact = aVm.evoi_impact
-    const bImpact = bVm.evoi_impact
-    if (aImpact !== null && bImpact !== null && aImpact !== undefined && bImpact !== undefined) {
-      return bImpact - aImpact
+    // Post-analysis: evoi_rank !== null on both edges means analysis has run.
+    // Sort by evoi_impact desc; null evoi_impact sorts last (deterministic).
+    const aPostAnalysis = aVm.evoi_rank !== null && aVm.evoi_rank !== undefined
+    const bPostAnalysis = bVm.evoi_rank !== null && bVm.evoi_rank !== undefined
+    if (aPostAnalysis && bPostAnalysis) {
+      const aImpact = aVm.evoi_impact ?? -Infinity
+      const bImpact = bVm.evoi_impact ?? -Infinity
+      if (aImpact !== bImpact) return bImpact - aImpact
+      // Tie on evoi_impact: fall through to max_divergence
     }
 
-    // Pre-analysis: max_divergence desc
+    // Pre-analysis (or evoi_impact tie): max_divergence desc
     if (aVm.max_divergence !== bVm.max_divergence) {
       return bVm.max_divergence - aVm.max_divergence
     }
@@ -384,6 +390,7 @@ function RelationshipsSectionInner({
   fragileEdgeIds = new Set(),
   fragileEdgeSwitchProbMap = new Map(),
   selectedEdgeIds,
+  hasRobustnessData,
   onResolveContested,
 }: RelationshipsSectionProps) {
   // Only causal edges (exclude hierarchy/structural types)
@@ -490,6 +497,7 @@ function RelationshipsSectionInner({
             nodes={nodes}
             validation={vm}
             isFragile={fragileEdgeIds.has(edgeId)}
+            hasRobustnessData={hasRobustnessData}
             isSelected={selectedEdgeIds?.has(edgeId)}
             onResolve={onResolveContested ?? (() => {})}
           />

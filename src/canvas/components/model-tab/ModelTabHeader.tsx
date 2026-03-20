@@ -16,6 +16,8 @@ interface ModelTabHeaderProps {
   factorCount: number
   edgeCount: number
   fragileCount?: number
+  /** Number of contested edges still pending resolution */
+  contestedCount?: number
   children: ReactNode
 }
 
@@ -23,6 +25,7 @@ export function ModelTabHeader({
   factorCount,
   edgeCount,
   fragileCount,
+  contestedCount,
   children,
 }: ModelTabHeaderProps) {
   const [showDetail, setShowDetail] = useState(false)
@@ -38,6 +41,9 @@ export function ModelTabHeader({
             {edgeCount} relationship{edgeCount !== 1 ? 's' : ''}
             {fragileCount !== undefined && fragileCount > 0 && (
               <span className="text-warning"> · {fragileCount} fragile</span>
+            )}
+            {contestedCount !== undefined && contestedCount > 0 && (
+              <span className="text-info" data-testid="header-contested-count"> · {contestedCount} contested</span>
             )}
           </span>
         </div>

@@ -14,10 +14,10 @@ import type { Edge, Node } from '@xyflow/react'
 import { AlertTriangle, Check } from 'lucide-react'
 import { typography } from '../../../styles/typography'
 import { DetailToggleContext } from './DetailToggleContext'
-import { InlineEdit } from './InlineEdit'
 import { focusNodeById } from '../../utils/focusHelpers'
 import { NON_EVIDENCE_PROVENANCE } from '../../utils/evidenceCoverage'
 import type { ValidationMetadata, UserAction } from '../../domain/validation'
+import { SignedStrengthSlider } from '../../ui/inspector/SignedStrengthSlider'
 import {
   getStrengthLabel,
   getStrengthBand,
@@ -34,6 +34,8 @@ interface ContestedEdgeCardProps {
   nodes: Node[]
   validation: ValidationMetadata
   isFragile: boolean
+  /** Whether robustness data is available (analysis has run) — enables robustness row in detail */
+  hasRobustnessData?: boolean
   isSelected?: boolean
   /** Called when user resolves the edge. */
   onResolve: (edgeId: string, action: UserAction, customMean?: number) => void
@@ -58,6 +60,7 @@ export function ContestedEdgeCard({
   nodes,
   validation,
   isFragile,
+  hasRobustnessData,
   isSelected,
   onResolve,
 }: ContestedEdgeCardProps) {
@@ -70,14 +73,9 @@ export function ContestedEdgeCard({
 
   const { showDetail } = useContext(DetailToggleContext)
 
-  // Custom-value override state
+  // Custom-value override state — slider outputs signed mean directly
   const [showCustomInput, setShowCustomInput] = useState(false)
-  const [customMean, setCustomMean] = useState(
-    String(Math.abs(validation.pass1.strength_mean).toFixed(2))
-  )
-  const [customDir, setCustomDir] = useState<'positive' | 'negative'>(
-    validation.pass1.strength_mean >= 0 ? 'positive' : 'negative'
-  )
+  const [customSignedMean, setCustomSignedMean] = useState(validation.pass1.strength_mean)
 
   const edgeId = edge.id
   const data = edge.data as Record<string, unknown>
@@ -86,6 +84,9 @@ export function ContestedEdgeCard({
   const targetNode = nodes.find(n => n.id === edge.target)
   const fromLabel = String((sourceNode?.data as Record<string, unknown>)?.label ?? edge.source)
   const toLabel   = String((targetNode?.data as Record<string, unknown>)?.label ?? edge.target)
+
+  // Edge label takes precedence over from → to when present
+  const edgeLabel = (data?.label as string | undefined) || null
 
   const isResolved = validation.user_action !== 'pending'
 
@@ -107,18 +108,10 @@ export function ContestedEdgeCard({
     setShowCustomInput(true)
   }, [])
 
-  const handleCustomSave = useCallback((val: string) => {
-    const n = parseFloat(val)
-    if (isNaN(n) || n < 0 || n > 2) return
-    const signedMean = customDir === 'negative' ? -n : n
-    onResolve(edgeId, 'overridden', signedMean)
+  const handleSliderConfirm = useCallback(() => {
+    onResolve(edgeId, 'overridden', customSignedMean)
     setShowCustomInput(false)
-  }, [edgeId, customDir, onResolve])
-
-  const validateCustom = useCallback((s: string) => {
-    const n = parseFloat(s)
-    return !isNaN(n) && n >= 0 && n <= 2
-  }, [])
+  }, [edgeId, customSignedMean, onResolve])
 
   // ── Derived display values ─────────────────────────────────────────────────
 
@@ -164,9 +157,13 @@ export function ContestedEdgeCard({
       {/* ── Header row ──────────────────────────────────────────────────────── */}
       <div className="flex items-start gap-1.5 mb-1.5 flex-wrap">
         <span className={`${typography.panelBody} font-medium text-text-header flex-1 min-w-0 leading-snug`}>
-          {fromLabel}
-          <span className="text-text-light mx-1" aria-hidden="true">→</span>
-          {toLabel}
+          {edgeLabel ?? (
+            <>
+              {fromLabel}
+              <span className="text-text-light mx-1" aria-hidden="true">→</span>
+              {toLabel}
+            </>
+          )}
         </span>
         {/* contested pill */}
         <span
@@ -241,43 +238,19 @@ export function ContestedEdgeCard({
         </div>
       )}
 
-      {/* ── Custom value input (when "Enter your own" is active) ────────────── */}
+      {/* ── Custom value slider (when "Enter your own" is active) ────────────── */}
       {showCustomInput && !isResolved && (
-        <div className="bg-panel-hover rounded-lg p-2 mb-2">
-          <p className={`${typography.panelMeta} text-text-light mb-1.5`}>Your estimate (0–2)</p>
-          <div className="flex items-center gap-2 flex-wrap">
-            <InlineEdit
-              value={customMean}
-              onSave={(v) => setCustomMean(v)}
-              validate={validateCustom}
-              maxWidth="max-w-[60px]"
-              numeric
-              testId={`contested-custom-input-${edgeId}`}
-            />
-            {/* Direction toggle */}
-            <div className="inline-flex rounded overflow-hidden border border-panel-border" role="group" aria-label="Direction">
-              <button
-                type="button"
-                onClick={() => setCustomDir('positive')}
-                className={`px-2 py-0.5 ${typography.panelMeta} transition-colors ${
-                  customDir === 'positive'
-                    ? 'bg-success/20 text-success border-r border-panel-border'
-                    : 'text-text-light hover:bg-panel border-r border-panel-border'
-                }`}
-              >+</button>
-              <button
-                type="button"
-                onClick={() => setCustomDir('negative')}
-                className={`px-2 py-0.5 ${typography.panelMeta} transition-colors ${
-                  customDir === 'negative'
-                    ? 'bg-danger/20 text-danger'
-                    : 'text-text-light hover:bg-panel'
-                }`}
-              >−</button>
-            </div>
+        <div className="bg-panel-hover rounded-lg p-2 mb-2" data-testid={`contested-custom-slider-${edgeId}`}>
+          <p className={`${typography.panelMeta} text-text-light mb-1.5`}>Drag to set your estimate</p>
+          <SignedStrengthSlider
+            value={customSignedMean}
+            onChange={setCustomSignedMean}
+            debounceMs={80}
+          />
+          <div className="flex items-center gap-2 mt-2">
             <button
               type="button"
-              onClick={() => handleCustomSave(customMean)}
+              onClick={handleSliderConfirm}
               className={`px-3 py-0.5 rounded-lg border border-info/30 ${typography.panelMeta} text-info hover:bg-panel-hover transition-colors`}
               data-testid={`contested-custom-confirm-${edgeId}`}
             >
@@ -386,6 +359,17 @@ export function ContestedEdgeCard({
             <span className={`${typography.panelMeta} text-[10px] text-text-body font-mono text-right truncate`}>
               {edgeId}
             </span>
+            {hasRobustnessData && (
+              <>
+                <span className={`${typography.panelMeta} text-text-light`}>Robustness</span>
+                <span
+                  className={`${typography.panelMeta} text-right ${isFragile ? 'text-warning' : 'text-success'}`}
+                  data-testid={`contested-robustness-${edgeId}`}
+                >
+                  {isFragile ? 'Fragile' : 'Stable'}
+                </span>
+              </>
+            )}
           </div>
           {/* Contested reasons full list */}
           {validation.contested_reasons.length > 0 && (

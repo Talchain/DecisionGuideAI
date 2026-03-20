@@ -49,6 +49,8 @@ vi.mock('../../../../utils/clipboard', () => ({
 // Mock useCanvasStore — return ceeAnalysisReady.status via selector
 let mockCeeStatus: string | undefined = undefined
 let mockLastDraftError: any = null
+const mockSelectNodeWithoutHistory = vi.fn()
+const mockSelectEdgeWithoutHistory = vi.fn()
 vi.mock('../../../store', () => ({
   useCanvasStore: Object.assign(
     (selector: (state: any) => any) => {
@@ -57,6 +59,8 @@ vi.mock('../../../store', () => ({
         lastDraftError: mockLastDraftError,
         setHighlightedNodes: vi.fn(),
         setHighlightedEdges: vi.fn(),
+        selectNodeWithoutHistory: mockSelectNodeWithoutHistory,
+        selectEdgeWithoutHistory: mockSelectEdgeWithoutHistory,
       }
       return selector(state)
     },
@@ -66,8 +70,11 @@ vi.mock('../../../store', () => ({
         lastDraftError: mockLastDraftError,
         setHighlightedNodes: vi.fn(),
         setHighlightedEdges: vi.fn(),
+        selectNodeWithoutHistory: mockSelectNodeWithoutHistory,
+        selectEdgeWithoutHistory: mockSelectEdgeWithoutHistory,
         updateNode: vi.fn(),
         setGoalThreshold: vi.fn(),
+        setGoalThresholdAndUpdateNode: vi.fn(),
         setCeeAnalysisReady: vi.fn(),
         setOutcomeNode: vi.fn(),
         nodes: [],
@@ -901,6 +908,25 @@ describe('PreAnalysisPanel', () => {
       expect(screen.getByText('2 model adjustments applied')).toBeInTheDocument()
     })
 
+    it('shows grouped Constraints applied / Auto-fixes applied sub-labels when expanded', () => {
+      mockUsePreAnalysisData.mockReturnValue(createMockData({
+        modelAdjustments: [
+          { code: 'risk_coefficient_corrected', reason: 'Direction mismatch' },
+          { code: 'edge_strength_clamped', reason: 'Clamped to [0,1]' },
+          { code: 'factor_reclassified', reason: 'Moved to external' },
+        ],
+      }))
+
+      render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
+
+      // Expand the section
+      fireEvent.click(screen.getByText(/3 model adjustments applied/))
+
+      // Sub-group labels should render with counts
+      expect(screen.getByText('Constraints applied (2)')).toBeInTheDocument()
+      expect(screen.getByText('Auto-fixes applied (1)')).toBeInTheDocument()
+    })
+
     it('does not render model-adjustments section when adjustments are empty', () => {
       mockUsePreAnalysisData.mockReturnValue(createMockData({
         modelAdjustments: [],
@@ -1032,6 +1058,57 @@ describe('PreAnalysisPanel', () => {
       // Check the first Framing pill (from the quality check) has correct styling
       expect(pills[0].className).toContain('border')
       expect(pills[0].className).not.toContain('bg-option-light')
+    })
+  })
+
+  describe('Factor click integration (OptionPreview → inspector)', () => {
+    it('clicking a factor label in an option card calls selectNodeWithoutHistory with the factor ID', () => {
+      mockSelectNodeWithoutHistory.mockClear()
+      mockUsePreAnalysisData.mockReturnValue(createMockData({
+        optionPreviews: [{
+          id: 'opt_expand',
+          label: 'Expand Now',
+          status: 'ready',
+          isBaseline: false,
+          interventions: [{
+            factorId: 'fac_ad_spend',
+            factorLabel: 'Ad spend',
+            interventionValue: 0.8,
+            currentValue: null,
+            direction: 'up' as const,
+            cap: null,
+            unit: null,
+            currentRawValue: null,
+          }],
+        }],
+      }))
+
+      render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
+
+      // Click the factor label "Ad spend" — should target the factor node, not the option
+      fireEvent.click(screen.getByText('Ad spend'))
+
+      expect(mockSelectNodeWithoutHistory).toHaveBeenCalledTimes(1)
+      expect(mockSelectNodeWithoutHistory).toHaveBeenCalledWith('fac_ad_spend')
+    })
+
+    it('clicking the option name calls selectNodeWithoutHistory with the option ID', () => {
+      mockSelectNodeWithoutHistory.mockClear()
+      mockUsePreAnalysisData.mockReturnValue(createMockData({
+        optionPreviews: [{
+          id: 'opt_expand',
+          label: 'Expand Now',
+          status: 'ready',
+          isBaseline: false,
+          interventions: [],
+        }],
+      }))
+
+      render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
+
+      fireEvent.click(screen.getByText('Expand Now'))
+
+      expect(mockSelectNodeWithoutHistory).toHaveBeenCalledWith('opt_expand')
     })
   })
 })

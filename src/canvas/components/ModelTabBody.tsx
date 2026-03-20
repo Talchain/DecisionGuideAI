@@ -39,7 +39,8 @@ import { GoalSection } from './model-tab/GoalSection'
 import { OptionsSection } from './model-tab/OptionsSection'
 import { FactorsSection, type SynthesisedPrior } from './model-tab/FactorsSection'
 import { RelationshipsSection } from './model-tab/RelationshipsSection'
-import type { UserAction } from '../domain/validation'
+import type { UserAction, ValidationMetadata } from '../domain/validation'
+import type { EdgeData } from '../domain/edges'
 import { RisksSection } from './model-tab/RisksSection'
 import { ModelHealthSection } from './model-tab/ModelHealthSection'
 import { ModelTabHeader } from './model-tab/ModelTabHeader'
@@ -343,49 +344,58 @@ export function ModelTabBody({
   const goalNode = grouped.goal[0]
   const goalLabel = goalNode ? String((goalNode.data as any)?.label ?? goalNode.id) : null
 
+  // ── Contested pending count (reactive — updates after each resolution) ───
+
+  const contestedPendingCount = useMemo(() => {
+    let count = 0
+    for (const e of causalEdges) {
+      const vm = (e.data as EdgeData | undefined)?.validation
+      if (vm?.status === 'contested' && vm.user_action === 'pending') count++
+    }
+    return count
+  }, [causalEdges])
+
   // ── Contested edge resolution ─────────────────────────────────────────────
 
   const handleResolveContested = useCallback((edgeId: string, action: UserAction, customMean?: number) => {
     const edge = edges.find(e => e.id === edgeId)
-    if (!edge) return
+    if (!edge?.data) return
 
-    const data = edge.data as Record<string, unknown>
-    const vm = data?.validation as Record<string, unknown> | undefined
+    const edgeData = edge.data as EdgeData
+    const vm = edgeData.validation
     if (!vm) return
 
-    // Build updated validation as a plain object — spread preserves all ValidationMetadata fields
-    const updatedValidation: Record<string, unknown> = { ...vm, user_action: action, resolved_by: 'user' }
+    // Spread preserves all ValidationMetadata fields; overlay user_action + resolved_by
+    const updatedValidation: ValidationMetadata = { ...vm, user_action: action, resolved_by: 'user' }
 
-    // Helper: cast a plain patch object to EdgeData — safe because EdgeDataSchema uses .passthrough()
-    const asEdgeData = (patch: Record<string, unknown>) => patch as unknown as import('../domain/edges').EdgeData
+    // updateEdge merges { ...e.data, ...updates.data }, so we only provide changed fields.
+    // Casting the partial patch to EdgeData is safe: the store merge fills in the rest.
+    type DataPatch = Partial<EdgeData>
 
     if (action === 'accepted_pass2') {
-      // Update edge weight+direction to match pass2 values — explicit user choice
-      const pass2 = vm.pass2 as Record<string, unknown> | undefined
-      if (pass2) {
-        const mean = pass2.strength_mean as number
-        updateEdge(edgeId, {
-          data: asEdgeData({ ...data, weight: Math.abs(mean), direction: mean >= 0 ? 'positive' : 'negative', validation: updatedValidation }),
-        })
-        return
+      const mean = vm.pass2.strength_mean
+      const patch: DataPatch = {
+        weight: Math.abs(mean),
+        direction: mean >= 0 ? 'positive' : 'negative',
+        validation: updatedValidation,
       }
+      updateEdge(edgeId, { data: patch as EdgeData })
+      return
     }
 
     if (action === 'overridden' && customMean !== undefined) {
-      // Store the user's custom value both as edge weight/direction and as resolved_value
-      updateEdge(edgeId, {
-        data: asEdgeData({
-          ...data,
-          weight: Math.abs(customMean),
-          direction: customMean >= 0 ? 'positive' : 'negative',
-          validation: { ...updatedValidation, resolved_value: { strength_mean: customMean } },
-        }),
-      })
+      const patch: DataPatch = {
+        weight: Math.abs(customMean),
+        direction: customMean >= 0 ? 'positive' : 'negative',
+        validation: { ...updatedValidation, resolved_value: { strength_mean: customMean } },
+      }
+      updateEdge(edgeId, { data: patch as EdgeData })
       return
     }
 
     // accepted_pass1 or dismissed — mark user_action only, no edge data change
-    updateEdge(edgeId, { data: asEdgeData({ ...data, validation: updatedValidation }) })
+    const patch: DataPatch = { validation: updatedValidation }
+    updateEdge(edgeId, { data: patch as EdgeData })
   }, [edges, updateEdge])
 
   const handleCopyText = useCallback(() => {
@@ -453,6 +463,7 @@ export function ModelTabBody({
         factorCount={grouped.factor.length}
         edgeCount={causalEdges.length}
         fragileCount={fragileEdgeCount > 0 ? fragileEdgeCount : undefined}
+        contestedCount={contestedPendingCount > 0 ? contestedPendingCount : undefined}
       >
         {/* ── Goal section ──────────────────────────────────────────────── */}
         <div className="space-y-4">
@@ -476,6 +487,7 @@ export function ModelTabBody({
             fragileEdgeIds={fragileEdgeIds}
             fragileEdgeSwitchProbMap={fragileEdgeSwitchProbMap}
             selectedEdgeIds={selectionEdgeIds}
+            hasRobustnessData={hasRobustnessData}
             onResolveContested={handleResolveContested}
           />
 

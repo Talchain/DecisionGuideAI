@@ -33,6 +33,10 @@ vi.mock('../../GraphTextView', () => ({
   SectionErrorBoundary: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }))
 
+vi.mock('../../../ui/inspector/SignedStrengthSlider', () => ({
+  SignedStrengthSlider: () => <input type="range" data-testid="mock-strength-slider" />,
+}))
+
 function makeNode(id: string, label: string): Node {
   return { id, type: 'factor', position: { x: 0, y: 0 }, data: { label } }
 }

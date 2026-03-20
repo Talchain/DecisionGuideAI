@@ -3,10 +3,11 @@
  */
 
 import { describe, it, expect, vi, beforeAll } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, act } from '@testing-library/react'
 import { ContestedEdgeCard } from '../ContestedEdgeCard'
 import type { Edge, Node } from '@xyflow/react'
 import type { ValidationMetadata } from '../../../domain/validation'
+import { DetailToggleContext } from '../DetailToggleContext'
 
 beforeAll(() => {
   Element.prototype.scrollIntoView = vi.fn()
@@ -19,6 +20,22 @@ vi.mock('../../../utils/focusHelpers', () => ({
 
 vi.mock('../../../utils/evidenceCoverage', () => ({
   NON_EVIDENCE_PROVENANCE: ['assumption', 'template', 'ai-suggested'],
+}))
+
+// Mock SignedStrengthSlider — renders a range input so tests can drive slider value
+let sliderOnChange: ((v: number) => void) | undefined
+vi.mock('../../../ui/inspector/SignedStrengthSlider', () => ({
+  SignedStrengthSlider: ({ value, onChange }: { value: number; onChange: (v: number) => void }) => {
+    sliderOnChange = onChange
+    return (
+      <input
+        type="range"
+        data-testid="mock-strength-slider"
+        defaultValue={value}
+        onChange={(e) => onChange(parseFloat(e.target.value))}
+      />
+    )
+  },
 }))
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -253,7 +270,7 @@ describe('ContestedEdgeCard', () => {
     expect(onResolve).toHaveBeenCalledWith('e1', 'dismissed')
   })
 
-  it('shows "Enter your own" custom input when button clicked', () => {
+  it('shows strength slider when "Enter your own" clicked', () => {
     render(
       <ContestedEdgeCard
         edge={makeEdge('e1', 'n1', 'n2', makeValidation())}
@@ -264,10 +281,11 @@ describe('ContestedEdgeCard', () => {
       />
     )
     fireEvent.click(screen.getByTestId('contested-enter-own-e1'))
-    expect(screen.getByTestId('contested-custom-input-e1-display')).toBeInTheDocument()
+    expect(screen.getByTestId('contested-custom-slider-e1')).toBeInTheDocument()
+    expect(screen.getByTestId('mock-strength-slider')).toBeInTheDocument()
   })
 
-  it('calls onResolve with overridden + signed custom mean when custom confirmed', () => {
+  it('calls onResolve with overridden + slider value when confirmed', () => {
     const onResolve = vi.fn()
     render(
       <ContestedEdgeCard
@@ -279,13 +297,10 @@ describe('ContestedEdgeCard', () => {
       />
     )
     fireEvent.click(screen.getByTestId('contested-enter-own-e1'))
-    // Input starts in display mode; click to edit
-    fireEvent.click(screen.getByTestId('contested-custom-input-e1-display'))
-    const input = screen.getByTestId('contested-custom-input-e1')
-    fireEvent.change(input, { target: { value: '0.45' } })
-    fireEvent.blur(input)
+    // Drive the slider to -0.45 via the captured onChange; wrap in act to flush state
+    act(() => { sliderOnChange!(-0.45) })
     fireEvent.click(screen.getByTestId('contested-custom-confirm-e1'))
-    expect(onResolve).toHaveBeenCalledWith('e1', 'overridden', 0.45)
+    expect(onResolve).toHaveBeenCalledWith('e1', 'overridden', -0.45)
   })
 
   it('shows resolved confirmation with check icon when resolved', () => {
@@ -387,5 +402,95 @@ describe('ContestedEdgeCard', () => {
     expect(
       screen.getByText('Our reviews disagree on whether this effect is positive or negative')
     ).toBeInTheDocument()
+  })
+
+  // ── P0.4: edge.label rendering ──────────────────────────────────────────────
+
+  it('renders edge.data.label in header when present', () => {
+    const edgeWithLabel: Edge = {
+      id: 'e1', source: 'n1', target: 'n2',
+      data: { weight: 0.6, direction: 'positive', label: 'Drives ROI', validation: makeValidation() },
+    }
+    render(
+      <ContestedEdgeCard
+        edge={edgeWithLabel}
+        nodes={nodes}
+        validation={makeValidation()}
+        isFragile={false}
+        onResolve={mockResolve}
+      />
+    )
+    // Header should show the edge label, not the from → to
+    expect(screen.getByText('Drives ROI')).toBeInTheDocument()
+  })
+
+  it('falls back to from → to when edge.data.label is absent', () => {
+    render(
+      <ContestedEdgeCard
+        edge={makeEdge('e1', 'n1', 'n2', makeValidation())}
+        nodes={nodes}
+        validation={makeValidation()}
+        isFragile={false}
+        onResolve={mockResolve}
+      />
+    )
+    // Header should show "Factor A → Factor B" (from → to fallback)
+    const card = screen.getByTestId('contested-card-e1')
+    expect(card.textContent).toContain('Factor A')
+    expect(card.textContent).toContain('Factor B')
+    // Should NOT have the edge label
+    expect(card.textContent).not.toContain('Drives ROI')
+  })
+
+  // ── P1.2: robustness status in detail panel ─────────────────────────────────
+
+  it('shows Fragile robustness status when isFragile + hasRobustnessData', () => {
+    render(
+      <DetailToggleContext.Provider value={{ showDetail: true }}>
+        <ContestedEdgeCard
+          edge={makeEdge('e1', 'n1', 'n2', makeValidation())}
+          nodes={nodes}
+          validation={makeValidation()}
+          isFragile={true}
+          hasRobustnessData={true}
+          onResolve={mockResolve}
+        />
+      </DetailToggleContext.Provider>
+    )
+    const robustness = screen.getByTestId('contested-robustness-e1')
+    expect(robustness).toHaveTextContent('Fragile')
+  })
+
+  it('shows Stable robustness status when not fragile + hasRobustnessData', () => {
+    render(
+      <DetailToggleContext.Provider value={{ showDetail: true }}>
+        <ContestedEdgeCard
+          edge={makeEdge('e1', 'n1', 'n2', makeValidation())}
+          nodes={nodes}
+          validation={makeValidation()}
+          isFragile={false}
+          hasRobustnessData={true}
+          onResolve={mockResolve}
+        />
+      </DetailToggleContext.Provider>
+    )
+    const robustness = screen.getByTestId('contested-robustness-e1')
+    expect(robustness).toHaveTextContent('Stable')
+  })
+
+  it('omits robustness row when hasRobustnessData is false', () => {
+    render(
+      <DetailToggleContext.Provider value={{ showDetail: true }}>
+        <ContestedEdgeCard
+          edge={makeEdge('e1', 'n1', 'n2', makeValidation())}
+          nodes={nodes}
+          validation={makeValidation()}
+          isFragile={false}
+          hasRobustnessData={false}
+          onResolve={mockResolve}
+        />
+      </DetailToggleContext.Provider>
+    )
+    expect(screen.queryByTestId('contested-robustness-e1')).not.toBeInTheDocument()
   })
 })

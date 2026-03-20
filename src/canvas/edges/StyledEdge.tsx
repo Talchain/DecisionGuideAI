@@ -259,16 +259,21 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
   )
 
   // Contested edge styling — dashed info-colour stroke scaled by max_divergence
-  // Resolved or absent validation: revert to normal rendering
+  // Resolved or absent validation: revert to normal rendering.
+  // If max_divergence is absent, treat as non-contested (no inferred divergence).
   const validation = edgeData?.validation
-  const isContested = validation?.status === 'contested' && validation?.user_action === 'pending'
+  const hasContestedDivergence = validation?.status === 'contested'
+    && validation?.user_action === 'pending'
+    && validation?.max_divergence !== undefined
+    && validation?.max_divergence !== null
+  const isContested = hasContestedDivergence
   const needsUserInput = isContested && (validation?.pass2?.needs_user_input === true)
 
   // Contested dash: gap scales with max_divergence (0→1 maps to 4→8px gap)
   // needs_user_input gets a tighter dash for stronger visual signal
   const contestedDashArray = isContested
     ? (() => {
-        const divergence = validation?.max_divergence ?? 0.5
+        const divergence = validation!.max_divergence
         const gap = needsUserInput ? 3 : Math.round(4 + divergence * 4)
         // Dash width scales between 1.5px and 3px: 1.5 + divergence * 1.5
         const dashWidth = Number((1.5 + divergence * 1.5).toFixed(1))
@@ -278,8 +283,6 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
 
   // Fix 1: Line style encodes existence certainty ONLY, not direction
   // Direction is already encoded via color (green/red) and sign (+/−)
-  // Contested edges override the dash pattern
-  const dashArray = isContested ? contestedDashArray : existenceCertaintyDash
 
   // D.1: Unified confidence check via getEdgeConfidence (returns null when missing)
   const edgeConfidenceValue = getEdgeConfidence(edgeData as Record<string, unknown> | undefined)
@@ -394,7 +397,8 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
           })(),
           // Fix 1: Use existence certainty for line style, fallback to visual props
           // B.I.10: Pre-run incomplete edges get dashed stroke to indicate "needs attention"
-          strokeDasharray: isPreRunIncompleteEdge ? '6 3' : (dashArray ?? visualProps.strokeDasharray),
+          // Priority: contested dash > pre-run incomplete dash > existence certainty > visual props
+          strokeDasharray: isContested ? contestedDashArray : isPreRunIncompleteEdge ? '6 3' : (existenceCertaintyDash ?? visualProps.strokeDasharray),
           // Graph Interaction P1: Highlighted edges get brighter color
           // F.2: Direction colour always applies — yellow only for truly uninitialised edges
           // Pre-run overlay controls dash pattern only, not colour
