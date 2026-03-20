@@ -218,14 +218,12 @@ function EdgeCard({
               <StrengthBar weight={rawWeight!} direction={safeDirection} />
             </>
           ) : (
-            <button
-              type="button"
-              onClick={() => updateEdge(edgeId, { data: { ...data, weight: 0.5, direction: 'positive' } })}
-              className={`inline-flex items-center px-2 py-0.5 rounded-full border border-panel-border text-text-light hover:bg-panel-hover transition-colors ${typography.panelMeta}`}
-              data-testid={`edge-${edgeId}-weight-unset`}
+            <span
+              className={`${typography.panelMeta} text-text-light`}
+              data-testid={`edge-${edgeId}-strength-notset`}
             >
-              unset — click to add
-            </button>
+              Not set
+            </span>
           )}
         </div>
         {signedMean !== undefined && (
@@ -266,14 +264,12 @@ function EdgeCard({
             </div>
           </>
         ) : (
-          <button
-            type="button"
-            onClick={() => updateEdge(edgeId, { data: { ...data, beliefExists: 0.7 } })}
-            className={`inline-flex items-center px-2 py-0.5 rounded-full border border-panel-border text-text-light hover:bg-panel-hover transition-colors ${typography.panelMeta}`}
-            data-testid={`edge-${edgeId}-likelihood-unset`}
+          <span
+            className={`${typography.panelMeta} text-text-light`}
+            data-testid={`edge-${edgeId}-likelihood-notset`}
           >
-            unset — click to add
-          </button>
+            Not set
+          </span>
         )}
       </div>
 
@@ -441,8 +437,9 @@ function RelationshipsSectionInner({
 
       const aData = a.data as Record<string, unknown>
       const bData = b.data as Record<string, unknown>
-      const aWeight = (aData?.weight as number | undefined) ?? 0.5
-      const bWeight = (bData?.weight as number | undefined) ?? 0.5
+      // Missing weight → sort last (-Infinity in descending order)
+      const aWeight = aData?.weight != null ? (aData.weight as number) : -Infinity
+      const bWeight = bData?.weight != null ? (bData.weight as number) : -Infinity
       return bWeight - aWeight
     })
   }, [nonContestedEdges, capOutEdges, fragileEdgeSwitchProbMap])

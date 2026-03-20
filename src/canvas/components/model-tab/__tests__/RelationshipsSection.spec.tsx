@@ -106,26 +106,28 @@ describe('RelationshipsSection', () => {
     expect(screen.getByText('Strong negative effect')).toBeInTheDocument()
   })
 
-  it('shows "unset" button for edge with no weight', () => {
+  it('renders "Not set" for edge with no weight', () => {
     const edgeNoWeight: Edge = { id: 'e-uw', source: 'f1', target: 'f2', data: { direction: 'positive' } }
     render(<RelationshipsSection edges={[edgeNoWeight]} nodes={nodes} />)
-    expect(screen.getByTestId('edge-e-uw-weight-unset')).toBeInTheDocument()
+    expect(screen.getByTestId('edge-e-uw-strength-notset')).toHaveTextContent('Not set')
+    // No actionable button — no default injection
+    expect(screen.queryByTestId('edge-e-uw-weight-unset')).not.toBeInTheDocument()
   })
 
-  it('shows "unset" button for edge with no likelihood', () => {
+  it('renders "Not set" for edge with no likelihood', () => {
     const edgeNoLikelihood: Edge = { id: 'e-ul', source: 'f1', target: 'f2', data: { weight: 0.5, direction: 'positive' } }
     render(<RelationshipsSection edges={[edgeNoLikelihood]} nodes={nodes} />)
-    expect(screen.getByTestId('edge-e-ul-likelihood-unset')).toBeInTheDocument()
+    expect(screen.getByTestId('edge-e-ul-likelihood-notset')).toHaveTextContent('Not set')
+    // No actionable button — no default injection
+    expect(screen.queryByTestId('edge-e-ul-likelihood-unset')).not.toBeInTheDocument()
   })
 
-  it('pre-fills weight 0.5 when unset button clicked', () => {
-    const edgeNoWeight: Edge = { id: 'e-uw', source: 'f1', target: 'f2', data: { direction: 'positive' } }
-    render(<RelationshipsSection edges={[edgeNoWeight]} nodes={nodes} />)
-    fireEvent.click(screen.getByTestId('edge-e-uw-weight-unset'))
-    expect(mockUpdateEdge).toHaveBeenCalledWith(
-      'e-uw',
-      expect.objectContaining({ data: expect.objectContaining({ weight: 0.5, direction: 'positive' }) })
-    )
+  it('does not write defaults when rendering missing values', () => {
+    mockUpdateEdge.mockClear()
+    const edgeMissing: Edge = { id: 'e-m', source: 'f1', target: 'f2', data: { direction: 'positive' } }
+    render(<RelationshipsSection edges={[edgeMissing]} nodes={nodes} />)
+    // Simply rendering should not trigger any store writes
+    expect(mockUpdateEdge).not.toHaveBeenCalled()
   })
 
   it('applies selection ring when edge id is in selectedEdgeIds', () => {

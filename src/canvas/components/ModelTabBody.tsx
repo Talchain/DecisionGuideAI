@@ -261,12 +261,16 @@ export function ModelTabBody({
 
       const aData = a.data as any
       const bData = b.data as any
-      const aConf = aData?.beliefExists ?? aData?.exists_probability ?? aData?.confidence ?? 0.7
-      const bConf = bData?.beliefExists ?? bData?.exists_probability ?? bData?.confidence ?? 0.7
-      if (Math.abs(aConf - bConf) > 0.001) return aConf - bConf
+      // Missing confidence → sort last (Infinity in ascending order)
+      const aConf = aData?.beliefExists ?? aData?.exists_probability ?? aData?.confidence
+      const bConf = bData?.beliefExists ?? bData?.exists_probability ?? bData?.confidence
+      const aConfVal = aConf != null ? aConf : Infinity
+      const bConfVal = bConf != null ? bConf : Infinity
+      if (Math.abs(aConfVal - bConfVal) > 0.001) return aConfVal - bConfVal
 
-      const aWeight = aData?.weight ?? 0.5
-      const bWeight = bData?.weight ?? 0.5
+      // Missing weight → sort last (-Infinity in descending order)
+      const aWeight = aData?.weight != null ? aData.weight : -Infinity
+      const bWeight = bData?.weight != null ? bData.weight : -Infinity
       return bWeight - aWeight
     })
   }, [causalEdges, fragileEdgeSwitchProbMap])

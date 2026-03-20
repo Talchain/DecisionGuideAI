@@ -843,3 +843,38 @@ describe('DS v4 contract: pills use solid borders (no dashed)', () => {
     expect(refineBtn.className).not.toMatch(/border-dashed/)
   })
 })
+
+describe('Cross-section full-detail toggle integration', () => {
+  it('toggling "Show full detail" reveals detail panels across goal, factors, and relationships simultaneously', () => {
+    const goal = makeGoalNode('g1', 'Revenue target')
+    const factor = makeFactorNode('f1', 'Budget', { source: 'user', value: 0.6 })
+    const edge = makeEdge('e1', 'f1', 'g1', { weight: 0.5, direction: 'positive' })
+    render(
+      <ModelTabBody
+        {...DEFAULT_PROPS}
+        nodes={[goal, factor]}
+        edges={[edge]}
+      />
+    )
+
+    // Detail panels should be absent by default
+    expect(screen.queryByText('Goal threshold')).not.toBeInTheDocument()
+    expect(screen.queryByText('Factor detail')).not.toBeInTheDocument()
+    expect(screen.queryByText('Edge detail')).not.toBeInTheDocument()
+
+    // Toggle "Show full detail"
+    const toggle = screen.getByTestId('model-tab-show-detail-toggle')
+    fireEvent.click(toggle)
+
+    // All sections should now show their detail panels simultaneously
+    expect(screen.getByText('Goal threshold')).toBeInTheDocument()
+    expect(screen.getByText('Factor detail')).toBeInTheDocument()
+    expect(screen.getByText('Edge detail')).toBeInTheDocument()
+
+    // Toggle off — all detail panels should hide again
+    fireEvent.click(toggle)
+    expect(screen.queryByText('Goal threshold')).not.toBeInTheDocument()
+    expect(screen.queryByText('Factor detail')).not.toBeInTheDocument()
+    expect(screen.queryByText('Edge detail')).not.toBeInTheDocument()
+  })
+})
