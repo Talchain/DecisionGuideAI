@@ -18,9 +18,11 @@ interface TooltipProps {
   children: React.ReactNode;
   content: React.ReactNode;
   className?: string;
+  /** Hover delay in ms before showing (default: 0, DS v5 recommends 300) */
+  delay?: number;
 }
 
-export default function Tooltip({ children, content, className = '' }: TooltipProps) {
+export default function Tooltip({ children, content, className = '', delay }: TooltipProps) {
   const [isOpen, setIsOpen] = React.useState(false);
   const arrowRef = React.useRef(null);
 
@@ -45,7 +47,7 @@ export default function Tooltip({ children, content, className = '' }: TooltipPr
     whileElementsMounted: autoUpdate,
   });
 
-  const hover = useHover(context, { move: false });
+  const hover = useHover(context, { move: false, delay: delay != null ? { open: delay } : undefined });
   const focus = useFocus(context);
   const dismiss = useDismiss(context);
   const role = useRole(context, { role: 'tooltip' });

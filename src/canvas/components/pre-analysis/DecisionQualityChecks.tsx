@@ -159,7 +159,7 @@ export function DecisionQualityChecks({ checks, onAction, onDirectAdd, goalBasel
         <div className="flex items-center gap-2">
           <Shield className="w-4 h-4 text-option" />
           <span className={`${typography.panelHeader} text-text-body`}>Decision quality</span>
-          <Tooltip content="Structural checks that improve the reliability of your analysis. Addressing these leads to more trustworthy results.">
+          <Tooltip delay={300} content="Structural checks that improve the reliability of your analysis. Addressing these leads to more trustworthy results.">
             <Info size={14} className="text-text-light" />
           </Tooltip>
         </div>

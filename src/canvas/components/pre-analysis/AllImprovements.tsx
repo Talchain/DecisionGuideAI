@@ -48,6 +48,8 @@ export interface ImprovementActionHandlers {
   onAddRisk?: () => void
   /** Reset source action - revert factor source back to AI for re-review */
   onResetSource?: (nodeId: string) => void
+  /** Inline value edit — update factor observed state with user-provided raw value */
+  onInlineEditValue?: (nodeId: string, rawValue: number, cap: number | null) => void
 }
 
 interface AllImprovementsProps {
@@ -168,7 +170,7 @@ function TierSection({
         <div className="flex items-center gap-1.5">
           <span className={`${typography.panelHeader} text-text-body`}>{sectionTitle}</span>
           {TIER_INFO_TOOLTIP[tierKey] && (
-            <Tooltip content={TIER_INFO_TOOLTIP[tierKey]}>
+            <Tooltip delay={300} content={TIER_INFO_TOOLTIP[tierKey]}>
               <Info size={14} className="text-text-light" />
             </Tooltip>
           )}

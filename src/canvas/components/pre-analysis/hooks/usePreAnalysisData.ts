@@ -311,7 +311,7 @@ function isAiSource(node: Node): boolean {
 /**
  * Check if a factor has been reviewed by user (confirmed or marked as assumption)
  */
-const REVIEWED_SOURCES = new Set(['user_confirmed', 'user_assumption'])
+const REVIEWED_SOURCES = new Set(['user_confirmed', 'user_assumption', 'user_override'])
 
 function isReviewedByUser(node: Node): boolean {
   const data = node.data as { observed_state?: { source?: string }; observedState?: { source?: string }; source?: string }
@@ -710,7 +710,7 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
         subgroup = 'brief_extraction'
       } else if (['ai', 'cee_inference', 'inferred', 'engine', 'ai_estimate'].includes(source ?? '')) {
         subgroup = 'cee_inference'
-      } else if (['user_confirmed', 'user_assumption'].includes(source ?? '')) {
+      } else if (['user_confirmed', 'user_assumption', 'user_override'].includes(source ?? '')) {
         subgroup = 'user_reviewed'
       }
 

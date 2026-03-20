@@ -5,6 +5,11 @@
  * Shows direction arrows by comparing intervention values to current observed_state.
  *
  * Data source: ceeAnalysisReady.options[] via usePreAnalysisData().optionPreviews
+ *
+ * Note: Intervention target values are read-only. They originate from the CEE
+ * response (ceeAnalysisReady.options[].interventions) and there is no safe store
+ * mutation pathway to edit individual intervention targets. Inline editing of
+ * these values was intentionally skipped (collaboration enhancements Task 4).
  */
 
 import { useState } from 'react'
@@ -162,7 +167,7 @@ export function OptionPreview({
         <div className="flex items-center gap-2">
           <ClipboardList className="w-4 h-4 text-text-light" />
           <span className={`${typography.panelHeader} text-text-body`}>Your options</span>
-          <Tooltip content="The strategies you're choosing between. Each changes different factors by different amounts. Click any value to adjust.">
+          <Tooltip delay={300} content="The strategies you're choosing between. Each changes different factors by different amounts. Click any value to adjust.">
             <Info size={14} className="text-text-light" />
           </Tooltip>
         </div>

@@ -136,7 +136,7 @@ export const KeyRelationships = memo(function KeyRelationships({
           </button>
 
           {/* Strength quick-select */}
-          <Tooltip content="How strongly does this affect the outcome? Your expertise matters here">
+          <Tooltip delay={300} content="How strongly does this affect the outcome? Your expertise matters here">
             <div className="flex items-center gap-1.5 mt-1">
               {STRENGTH_BANDS.map(band => (
                 <button

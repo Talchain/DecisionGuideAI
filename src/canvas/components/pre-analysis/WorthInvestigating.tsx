@@ -112,7 +112,7 @@ export const WorthInvestigating = memo(function WorthInvestigating({ gaps, onSet
         <Search className="w-3.5 h-3.5 text-info" aria-hidden="true" />
         <h3 className={`${typography.panelHeader} flex items-center gap-1.5`}>
           Worth investigating
-          <Tooltip content="Factors that influence your decision but have no data. Even a rough estimate is better than none.">
+          <Tooltip delay={300} content="Factors that influence your decision but have no data. Even a rough estimate is better than none.">
             <Info size={14} className="text-text-light" />
           </Tooltip>
         </h3>
