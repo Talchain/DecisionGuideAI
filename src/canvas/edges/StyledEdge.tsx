@@ -262,11 +262,10 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
   // Resolved or absent validation: revert to normal rendering.
   // If max_divergence is absent, treat as non-contested (no inferred divergence).
   const validation = edgeData?.validation
-  const hasContestedDivergence = validation?.status === 'contested'
+  const isContested = validation?.status === 'contested'
     && validation?.user_action === 'pending'
     && validation?.max_divergence !== undefined
     && validation?.max_divergence !== null
-  const isContested = hasContestedDivergence
   const needsUserInput = isContested && (validation?.pass2?.needs_user_input === true)
 
   // Contested dash: gap scales with max_divergence (0→1 maps to 4→8px gap)

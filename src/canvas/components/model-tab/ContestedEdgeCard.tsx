@@ -74,8 +74,11 @@ export function ContestedEdgeCard({
   const { showDetail } = useContext(DetailToggleContext)
 
   // Custom-value override state — slider outputs signed mean directly
+  // Clamp initial value to [-1, 1] to stay within slider range
   const [showCustomInput, setShowCustomInput] = useState(false)
-  const [customSignedMean, setCustomSignedMean] = useState(validation.pass1.strength_mean)
+  const [customSignedMean, setCustomSignedMean] = useState(
+    Math.max(-1, Math.min(1, validation.pass1.strength_mean))
+  )
 
   const edgeId = edge.id
   const data = edge.data as Record<string, unknown>
