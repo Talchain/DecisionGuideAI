@@ -16,7 +16,8 @@
 
 import { useState, useCallback } from 'react'
 import { Accordion, Pill, NodeLink, IconBtn, BiasIcon } from './primitives'
-import { Check, Pencil, Plus, HelpCircle, ChevronDown, ChevronRight } from 'lucide-react'
+import { Check, Pencil, Plus, HelpCircle, ChevronDown, ChevronRight, Info } from 'lucide-react'
+import Tooltip from '../../../components/Tooltip'
 import type { ImprovementItem, ImprovementCategory, TiersData } from './hooks/usePreAnalysisData'
 import { typography } from '@/styles/typography'
 
@@ -76,6 +77,12 @@ interface TierConfig {
   defaultExpanded: boolean
 }
 
+/** Info tooltip text for each tier */
+const TIER_INFO_TOOLTIP: Record<string, string> = {
+  reviewAssumptions: 'Values the AI used to build your model. Updating them with your knowledge significantly improves accuracy.',
+  optional: 'Lower-priority suggestions to strengthen your model. Address the most influential ones first.',
+}
+
 /** Tier display configs */
 const tierConfig: Record<string, TierConfig> = {
   mustAddress: {
@@ -83,7 +90,7 @@ const tierConfig: Record<string, TierConfig> = {
     defaultExpanded: true,
   },
   reviewAssumptions: {
-    title: 'Review assumptions',
+    title: 'Your expertise',
     defaultExpanded: true,
   },
   optional: {
@@ -143,7 +150,7 @@ function TierSection({
   // For optional tier, show count in title instead of status bar headline
   let sectionTitle = config.title
   if (isReviewTier && reviewedCount !== undefined && totalCount !== undefined && totalCount > 0) {
-    sectionTitle = `${config.title} (${reviewedCount} of ${totalCount} done)`
+    sectionTitle = `${config.title} (contributed to ${reviewedCount} of ${totalCount})`
   } else if (isOptionalTier && items.length > 0) {
     sectionTitle = nonEvidenceItems.length > 0
       ? `${config.title} (${nonEvidenceItems.length})`
@@ -158,7 +165,14 @@ function TierSection({
         onClick={onToggleExpand}
         className="w-full flex items-center justify-between px-3 py-2 cursor-pointer hover:bg-black/[0.02]"
       >
-        <span className={`${typography.panelHeader} text-text-body`}>{sectionTitle}</span>
+        <div className="flex items-center gap-1.5">
+          <span className={`${typography.panelHeader} text-text-body`}>{sectionTitle}</span>
+          {TIER_INFO_TOOLTIP[tierKey] && (
+            <Tooltip content={TIER_INFO_TOOLTIP[tierKey]}>
+              <Info size={14} className="text-text-light" />
+            </Tooltip>
+          )}
+        </div>
         <div className="flex items-center gap-2">
           {!showEmptyState && (
             <span className={`${typography.panelMeta} rounded-full px-1.5 py-0.5 bg-transparent border ${showCompletionState ? 'border-success/30 text-text-body' : isReviewTier ? 'border-warning/30 text-text-body' : isOptionalTier ? 'border-info/30 text-text-body' : 'border-panel-border text-text-light'}`}>
@@ -423,6 +437,28 @@ function ImprovementRow({ item, onFocus, actionHandlers, isRemoving, onHoverEnte
   const [reviewedState, setReviewedState] = useState<'confirmed' | 'assumption' | null>(null)
   // Whether the reviewed item is expanded (to change response)
   const [isReviewedExpanded, setIsReviewedExpanded] = useState(false)
+  // Inline value editor for verify items
+  const [showValueEditor, setShowValueEditor] = useState(false)
+  const [editValue, setEditValue] = useState('')
+
+  const handleOpenValueEditor = () => {
+    setEditValue(item.rawValue != null ? String(item.rawValue) : '')
+    setShowValueEditor(true)
+  }
+  const handleValueSave = () => {
+    const trimmed = editValue.trim()
+    if (!trimmed) return
+    const parsed = parseFloat(trimmed)
+    if (isNaN(parsed)) return
+    if (item.action?.targetId && actionHandlers?.onInlineEditValue) {
+      actionHandlers.onInlineEditValue(item.action.targetId, parsed, item.cap ?? null)
+    }
+    setShowValueEditor(false)
+  }
+  const handleValueCancel = () => {
+    setShowValueEditor(false)
+    setEditValue('')
+  }
 
   const handleFocusClick = () => {
     if (item.focus && onFocus) {
@@ -688,19 +724,36 @@ function ImprovementRow({ item, onFocus, actionHandlers, isRemoving, onHoverEnte
                 item.label
               )}
             </span>
-            {/* Value never collapses */}
+            {/* Value — clickable to open inline editor for verify items with onInlineEditValue */}
             {item.detail && (
-              <span className="shrink-0 text-text-light"> · {item.detail}</span>
+              actionHandlers?.onInlineEditValue && item.action?.targetType === 'node' ? (
+                <button
+                  type="button"
+                  onClick={handleOpenValueEditor}
+                  className="shrink-0 text-text-light hover:text-info hover:underline cursor-pointer"
+                  title="Click to update with your own figure"
+                >
+                  {' · '}{item.detail}
+                </button>
+              ) : (
+                <span className="shrink-0 text-text-light"> · {item.detail}</span>
+              )
             )}
             {/* Source badge (Task 5) */}
             {item.sourceBadge === 'brief' && (
-              <span className={`shrink-0 inline-flex items-center gap-1 ${typography.panelMeta} text-text-body bg-transparent border border-success/30 rounded-full px-2 py-0.5 ml-1`}>
+              <span
+                className={`shrink-0 inline-flex items-center gap-1 ${typography.panelMeta} text-text-body bg-transparent border border-success/30 rounded-full px-2 py-0.5 ml-1`}
+                title="Extracted from your decision brief"
+              >
                 <span className="w-1.5 h-1.5 rounded-full bg-success flex-shrink-0" aria-hidden="true" />
                 From brief
               </span>
             )}
             {item.sourceBadge === 'ai' && (
-              <span className={`shrink-0 inline-flex items-center gap-1 ${typography.panelMeta} text-text-body bg-transparent border border-warning/30 rounded-full px-2 py-0.5 ml-1`}>
+              <span
+                className={`shrink-0 inline-flex items-center gap-1 ${typography.panelMeta} text-text-body bg-transparent border border-warning/30 rounded-full px-2 py-0.5 ml-1`}
+                title="Olumi estimated this because your brief didn't specify it"
+              >
                 <span className="w-1.5 h-1.5 rounded-full bg-warning flex-shrink-0" aria-hidden="true" />
                 AI estimate
               </span>
@@ -739,14 +792,16 @@ function ImprovementRow({ item, onFocus, actionHandlers, isRemoving, onHoverEnte
                 {actionHandlers?.onEdit && (
                   <IconBtn
                     icon={Pencil}
-                    tooltip="Edit on canvas"
+                    tooltip="Edit this value"
                     variant="edit"
                     onClick={() => {
                       if (item.action?.targetId) {
                         // For edges, use onFocus to focus the edge on canvas
-                        // For nodes, use onEdit to focus the node
+                        // For nodes with inline edit, open inline editor; otherwise open inspector
                         if (item.action?.targetType === 'edge' && onFocus) {
                           onFocus('edge', item.action.targetId)
+                        } else if (actionHandlers?.onInlineEditValue && item.action?.targetType === 'node') {
+                          handleOpenValueEditor()
                         } else {
                           actionHandlers.onEdit(item.action.targetId)
                         }
@@ -769,6 +824,43 @@ function ImprovementRow({ item, onFocus, actionHandlers, isRemoving, onHoverEnte
           <p className={`${typography.panelMeta} text-text-light mt-0.5 ml-0.5`}>
             {item.hint}
           </p>
+        )}
+
+        {/* Inline value editor */}
+        {showValueEditor && (
+          <div className="flex items-center gap-2 mt-2">
+            <input
+              type="number"
+              step="any"
+              value={editValue}
+              onChange={(e) => setEditValue(e.target.value)}
+              placeholder={item.rawValue != null ? String(item.rawValue) : 'Enter value'}
+              className={`flex-1 px-2 py-1 ${typography.panelBody} border border-panel-border rounded-lg bg-panel text-text-body focus:outline-none focus:ring-1 focus:ring-info max-w-[120px]`}
+              autoFocus
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleValueSave()
+                if (e.key === 'Escape') handleValueCancel()
+              }}
+            />
+            {item.unit && (
+              <span className={`${typography.panelMeta} text-text-light`}>{item.unit}</span>
+            )}
+            <button
+              type="button"
+              onClick={handleValueSave}
+              disabled={!editValue.trim() || isNaN(parseFloat(editValue.trim()))}
+              className={`px-3 py-1 ${typography.panelMeta} bg-primary text-text-on-color rounded-full hover:opacity-90 disabled:opacity-40 transition-colors`}
+            >
+              Save
+            </button>
+            <button
+              type="button"
+              onClick={handleValueCancel}
+              className={`${typography.panelMeta} text-text-light hover:text-text-body`}
+            >
+              Cancel
+            </button>
+          </div>
         )}
       </div>
     )

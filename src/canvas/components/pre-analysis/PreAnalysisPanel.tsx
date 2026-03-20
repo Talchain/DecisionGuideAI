@@ -42,6 +42,9 @@ import { EdgeAssumptionsTable } from './EdgeAssumptionsTable'
 import { ModelNotes, type ModelNote } from './ModelNotes'
 import { formatRepairs } from '../../adapters/modelCardAdapter'
 import { DEFAULT_EDGE_DATA } from '../../domain/edges'
+import { ModelHealthSection } from '../ModelHealthSection'
+import { KeyRelationships } from './KeyRelationships'
+import { MissingKnowledgePrompt } from './MissingKnowledgePrompt'
 
 /** Collapsible pre-mortem section from PLoT m1_review */
 function PreMortemSection({ preMortem }: { preMortem: { failure_scenario: string; warning_signs: string[]; mitigation: string } }) {
@@ -345,6 +348,36 @@ export function PreAnalysisPanel({
     })
   }, [])
 
+  // Inline value edit — update factor observed state with user-provided raw value
+  const handleInlineEditValue = useCallback((nodeId: string, rawValue: number, cap: number | null) => {
+    const { nodes, updateNode } = useCanvasStore.getState()
+    const node = nodes.find(n => n.id === nodeId)
+    if (!node) return
+
+    const normalised = cap != null && cap > 0 ? rawValue / cap : rawValue
+    updateNode(nodeId, {
+      data: withObservedStateUpdate(node.data, {
+        raw_value: rawValue,
+        value: normalised,
+        source: 'user_override',
+      }),
+    })
+  }, [])
+
+  // Edge strength quick-select — update edge weight from qualitative selection
+  const handleUpdateEdgeStrength = useCallback((edgeId: string, value: number) => {
+    const { updateEdgeData } = useCanvasStore.getState()
+    updateEdgeData(edgeId, { weight: value })
+  }, [])
+
+  // Focus edge for KeyRelationships (simplified — always edge type)
+  const handleFocusEdgeById = useCallback((edgeId: string) => {
+    selectEdgeWithoutHistory(edgeId)
+    setHighlightedEdges([edgeId])
+    focusEdgeById(edgeId)
+    setTimeout(() => setHighlightedEdges([]), 3000)
+  }, [selectEdgeWithoutHistory, setHighlightedEdges])
+
   // Add evidence action - store evidence on edge metadata
   const handleAddEvidence = useCallback((edgeId: string, evidence: string) => {
     const { updateEdgeData } = useCanvasStore.getState()
@@ -501,6 +534,34 @@ export function PreAnalysisPanel({
   }, [setHighlightedNodes])
 
 
+  // Direct add from quality checks — creates a labelled node inline
+  const handleDirectAdd = useCallback((kind: 'risk' | 'factor', label: string) => {
+    const { nodes, addNode, updateNode, setCeeAnalysisReady } = useCanvasStore.getState()
+    const goalNode = nodes.find(n => n.type === 'goal')
+    const anchorNode = goalNode || nodes[0]
+    const pos = {
+      x: (anchorNode?.position?.x || 200) + 200 + Math.random() * 50,
+      y: (anchorNode?.position?.y || 200) + 100 + Math.random() * 50,
+    }
+
+    const nodeType = kind === 'risk' ? 'risk' : 'factor'
+    addNode(pos, nodeType)
+
+    const newNode = useCanvasStore.getState().nodes[useCanvasStore.getState().nodes.length - 1]
+    if (newNode) {
+      const dataUpdate: Record<string, unknown> = { label, kind: nodeType }
+      if (kind === 'factor') {
+        dataUpdate.category = 'external'
+      }
+      updateNode(newNode.id, { data: { ...newNode.data, ...dataUpdate } })
+      setHighlightedNodes([newNode.id])
+      focusNodeById(newNode.id)
+      setTimeout(() => setHighlightedNodes([]), 3000)
+    }
+
+    setCeeAnalysisReady(null)
+  }, [setHighlightedNodes])
+
   // Quality check CTA handler — routes action strings to existing handlers
   const handleQualityCheckAction = useCallback((action: string) => {
     switch (action) {
@@ -608,7 +669,8 @@ export function PreAnalysisPanel({
     onAddOption: handleAddOption,
     onAddRisk: handleAddRisk,
     onResetSource: handleResetSource,
-  }), [handleConfirm, handleAssumption, handleEdit, handleAddEvidence, handleAddBaseline, handleAddOption, handleAddRisk, handleResetSource])
+    onInlineEditValue: handleInlineEditValue,
+  }), [handleConfirm, handleAssumption, handleEdit, handleAddEvidence, handleAddBaseline, handleAddOption, handleAddRisk, handleResetSource, handleInlineEditValue])
 
   // Don't show panel if canvas is empty
   if (data.nodesByKind.goal.length === 0 &&
@@ -619,6 +681,9 @@ export function PreAnalysisPanel({
 
   return (
     <div className="flex flex-col flex-1 min-h-0 overflow-hidden" data-testid="pre-analysis-panel">
+      {/* Model health — persistent structural checks (Brief 5 Task 5) */}
+      <ModelHealthSection />
+
       {/* Scrollable content area */}
       <div className="olumi-scrollbar flex-1 min-h-0 overflow-y-auto px-2 py-3 space-y-4">
         {/* 1. Header with tier counts */}
@@ -765,6 +830,7 @@ export function PreAnalysisPanel({
           <DecisionQualityChecks
             checks={data.qualityChecks}
             onAction={handleQualityCheckAction}
+            onDirectAdd={handleDirectAdd}
             totalCheckCount={data.qualityChecks.length}
             goalBaselineSlot={
               data.goalNode ? (
@@ -796,7 +862,18 @@ export function PreAnalysisPanel({
             reviewedCount={data.reviewedFactorsCount}
             totalReviewableCount={data.totalReviewableFactorsCount}
           />
+          <KeyRelationships
+            edges={edges}
+            nodes={nodes}
+            onFocusEdge={handleFocusEdgeById}
+            onHoverEnter={handleHoverElement}
+            onHoverLeave={handleHoverClear}
+            onUpdateEdgeStrength={handleUpdateEdgeStrength}
+          />
         </div>
+
+        {/* "What's missing?" prompt */}
+        <MissingKnowledgePrompt onSendMessage={onSendMessage} />
 
         {/* Strength warning (Pattern C, Task 8) — between assumptions and draft notes */}
         {data.hasDefaultStrengths && (

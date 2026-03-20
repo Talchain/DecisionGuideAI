@@ -81,6 +81,12 @@ export interface ImprovementItem {
   hint?: string
   /** Subgroup key for divider rows within the reviewAssumptions tier */
   subgroup?: 'cee_inference' | 'brief_extraction' | 'user_reviewed'
+  /** Factor's current raw value (for inline editing) */
+  rawValue?: number | null
+  /** Factor's cap for normalisation (for inline editing) */
+  cap?: number | null
+  /** Factor's display unit (for inline editing) */
+  unit?: string | null
 }
 
 /** Option preview data for Task 3 */
@@ -720,6 +726,9 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
         sourceBadge,
         hint,
         subgroup,
+        rawValue: os.raw_value ?? null,
+        cap: os.cap ?? null,
+        unit: os.unit ?? null,
       })
     }
 

@@ -8,8 +8,9 @@
  */
 
 import { useState } from 'react'
-import { ChevronDown, ChevronRight, ClipboardList, ArrowUp, ArrowDown, Minus } from 'lucide-react'
+import { ChevronDown, ChevronRight, ClipboardList, ArrowUp, ArrowDown, Minus, Info } from 'lucide-react'
 import { Pill } from './primitives'
+import Tooltip from '../../../components/Tooltip'
 import type { OptionPreviewData } from './hooks/usePreAnalysisData'
 import { typography } from '@/styles/typography'
 
@@ -161,6 +162,9 @@ export function OptionPreview({
         <div className="flex items-center gap-2">
           <ClipboardList className="w-4 h-4 text-text-light" />
           <span className={`${typography.panelHeader} text-text-body`}>Your options</span>
+          <Tooltip content="The strategies you're choosing between. Each changes different factors by different amounts. Click any value to adjust.">
+            <Info size={14} className="text-text-light" />
+          </Tooltip>
         </div>
         <div className="flex items-center gap-2">
           <Pill size="small" variant="success">{options.length}</Pill>

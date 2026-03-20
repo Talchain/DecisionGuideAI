@@ -376,7 +376,7 @@ describe('PreAnalysisPanel', () => {
       }))
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
-      expect(screen.getByText(/Review assumptions/)).toBeInTheDocument()
+      expect(screen.getByText(/Your expertise/)).toBeInTheDocument()
       expect(screen.getByText('Test Factor')).toBeInTheDocument()
     })
   })
@@ -612,7 +612,7 @@ describe('PreAnalysisPanel', () => {
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
 
       // Should show completion state with "3 of 3 done"
-      expect(screen.getByText(/Review assumptions \(3 of 3 done\)/)).toBeInTheDocument()
+      expect(screen.getByText(/Your expertise \(contributed to 3 of 3\)/)).toBeInTheDocument()
       // Should show "All reviewed" message when expanded (may also appear in footer)
       expect(screen.getAllByText('All reviewed').length).toBeGreaterThan(0)
     })
@@ -720,7 +720,7 @@ describe('PreAnalysisPanel', () => {
         render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
 
         // Review tier should be visible with empty state message
-        expect(screen.getByText('Review assumptions')).toBeInTheDocument()
+        expect(screen.getByText('Your expertise')).toBeInTheDocument()
         expect(screen.getByText(/Nothing needs review/)).toBeInTheDocument()
       })
 
@@ -738,10 +738,10 @@ describe('PreAnalysisPanel', () => {
 
         render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
 
-        // Should NOT show "(0 of 0 done)"
-        expect(screen.queryByText(/\(0 of 0 done\)/)).not.toBeInTheDocument()
-        // Should show plain "Review assumptions"
-        expect(screen.getByText('Review assumptions')).toBeInTheDocument()
+        // Should NOT show "(contributed to 0 of 0)"
+        expect(screen.queryByText(/\(contributed to 0 of 0\)/)).not.toBeInTheDocument()
+        // Should show plain "Your expertise"
+        expect(screen.getByText('Your expertise')).toBeInTheDocument()
       })
 
       it('hides badge entirely when no assumptions to review', () => {

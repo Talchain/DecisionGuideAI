@@ -8,7 +8,8 @@
  */
 
 import { memo, useEffect, useRef, useState } from 'react'
-import { ChevronDown, ChevronRight, Search } from 'lucide-react'
+import { ChevronDown, ChevronRight, Search, Info } from 'lucide-react'
+import Tooltip from '../../../components/Tooltip'
 import { typography } from '../../../styles/typography'
 import { useHighlightContext } from '../../highlighting/HighlightContext'
 import { isCrossHighlightEnabled } from '../../../flags'
@@ -109,7 +110,12 @@ export const WorthInvestigating = memo(function WorthInvestigating({ gaps, onSet
     <section className="space-y-2" aria-label="Worth investigating">
       <div className="flex items-center gap-1.5">
         <Search className="w-3.5 h-3.5 text-info" aria-hidden="true" />
-        <h3 className={typography.panelHeader}>Worth investigating</h3>
+        <h3 className={`${typography.panelHeader} flex items-center gap-1.5`}>
+          Worth investigating
+          <Tooltip content="Factors that influence your decision but have no data. Even a rough estimate is better than none.">
+            <Info size={14} className="text-text-light" />
+          </Tooltip>
+        </h3>
       </div>
 
       <ul className="space-y-2" role="list">
