@@ -47,6 +47,7 @@ import { applyAutoApplyPatch, synthesiseCeeAnalysisReady } from './utils/applyPa
 import { validateAnalysisReadyContract } from './validateAnalysisReadyContract'
 import { validateResponse } from './validateResponse'
 import type { CEEAnalysisReady, CEEGoalConstraint } from '../../adapters/cee/types'
+import type { PLoTEnrichment } from '../../adapters/plot/enrichment'
 import {
   beginInteractionChain,
   bindRequestToInteraction,
@@ -1347,7 +1348,10 @@ export function useConversation(): UseConversationReturn {
             const result = sanitizeV2RunResponse(raw)
             const seedUsed = typeof store.results.seed === 'number' ? store.results.seed : 0
             const report = mapV2ResponseToReportV1(result, { seed: seedUsed })
-            const enrichment = createEnrichmentFromV2Response(result) as any
+            // SAFETY: V2-derived enrichment has sensitivity_analysis.edges/factors with
+            // {elasticity, importance_rank} instead of PLoTEdgeSensitivity shape.
+            // Downstream accesses duck-type these fields so the cast is safe at runtime.
+            const enrichment = createEnrichmentFromV2Response(result) as PLoTEnrichment | null
             const ceeReviewV1 = synthesizeCeeReviewFromV2(result)
             const ceeTraceV1 = synthesizeCeeTraceFromV2(result, result.response_hash, 0)
 
