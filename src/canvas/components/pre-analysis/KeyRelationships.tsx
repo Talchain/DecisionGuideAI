@@ -71,9 +71,8 @@ function deriveTopEdges(edges: Edge[], nodes: Node[]): EdgeRow[] {
     const targetNode = nodeMap.get(e.target)
     const sourceLabel = String((sourceNode?.data as Record<string, unknown>)?.label ?? e.source)
     const targetLabel = String((targetNode?.data as Record<string, unknown>)?.label ?? e.target)
-    const basis = (data?.validation as Record<string, unknown>)?.pass2
-      ? String(((data?.validation as Record<string, unknown>)?.pass2 as Record<string, unknown>)?.basis ?? '')
-      : undefined
+    const basisRaw = ((data?.validation as Record<string, unknown>)?.pass2 as Record<string, unknown> | undefined)?.basis
+    const basis = basisRaw ? String(basisRaw) : undefined
 
     const score = (degree.get(e.source) ?? 0) + (degree.get(e.target) ?? 0)
 

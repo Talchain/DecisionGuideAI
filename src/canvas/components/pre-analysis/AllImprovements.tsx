@@ -728,7 +728,7 @@ function ImprovementRow({ item, onFocus, actionHandlers, isRemoving, onHoverEnte
             </span>
             {/* Value — clickable to open inline editor for verify items with onInlineEditValue */}
             {item.detail && (
-              actionHandlers?.onInlineEditValue && item.action?.targetType === 'node' ? (
+              (actionHandlers?.onInlineEditValue && item.action?.targetType === 'node') ? (
                 <button
                   type="button"
                   onClick={handleOpenValueEditor}
