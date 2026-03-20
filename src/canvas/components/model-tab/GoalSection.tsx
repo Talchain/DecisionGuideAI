@@ -118,7 +118,7 @@ function GoalSectionInner({ goalNode }: GoalSectionProps) {
               </>
             )}
             <span className={`${typography.panelMeta} text-text-light`}>Node ID</span>
-            <span className={`${typography.panelMeta} text-[10px] text-text-body font-mono text-right truncate`}>
+            <span className={`${typography.panelMeta} text-text-body font-mono text-right truncate`}>
               {goalNode.id}
             </span>
           </div>

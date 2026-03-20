@@ -96,4 +96,32 @@ describe('GoalSection', () => {
       })
     )
   })
+
+  it('persists goal_threshold_raw as the raw numeric value without conversion', () => {
+    mockUpdateNode.mockClear()
+    render(<GoalSection goalNode={makeGoalNode({
+      goal_threshold_raw: 500000,
+      goal_threshold_unit: '£',
+    })} />)
+
+    const displayEl = screen.getByTestId('goal-threshold-display')
+    fireEvent.click(displayEl)
+
+    const input = screen.getByTestId('goal-threshold')
+    fireEvent.change(input, { target: { value: '750000' } })
+    fireEvent.blur(input)
+
+    expect(mockUpdateNode).toHaveBeenCalledWith(
+      'goal-1',
+      expect.objectContaining({
+        data: expect.objectContaining({
+          goal_threshold_raw: 750000,
+          threshold_source: 'user',
+        }),
+      })
+    )
+    // Verify no unit conversion happened — raw value is exactly what user entered
+    const writtenData = mockUpdateNode.mock.calls[0][1].data
+    expect(writtenData.goal_threshold_raw).toBe(750000)
+  })
 })

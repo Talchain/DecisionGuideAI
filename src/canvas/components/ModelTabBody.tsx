@@ -23,9 +23,7 @@ import {
   useCallback,
   useEffect,
 } from 'react'
-import { AlertTriangle } from 'lucide-react'
 import type { Node, Edge } from '@xyflow/react'
-import { typography } from '../../styles/typography'
 import { useCanvasStore } from '../store'
 import { getDisplayEdgeId, buildFragileEdgeLookup } from '../utils/edgeIdentity'
 import { SectionErrorBoundary } from './GraphTextView'
@@ -37,7 +35,7 @@ import { selectModelCardData } from '../adapters/modelCardAdapter'
 import { trackGuidance } from '../../telemetry/guidanceEvents'
 import { GoalSection } from './model-tab/GoalSection'
 import { OptionsSection } from './model-tab/OptionsSection'
-import { FactorsSection, type SynthesisedPrior } from './model-tab/FactorsSection'
+import { FactorsSection } from './model-tab/FactorsSection'
 import { RelationshipsSection } from './model-tab/RelationshipsSection'
 import type { UserAction, ValidationMetadata } from '../domain/validation'
 import type { EdgeData } from '../domain/edges'
@@ -48,6 +46,9 @@ import { ReanalyseBar } from './model-tab/ReanalyseBar'
 import { StrengthenSection } from './model-tab/StrengthenSection'
 import { ModelSummaryBar } from './model-tab/ModelSummaryBar'
 import { ModelFooter } from './model-tab/ModelFooter'
+import { AttentionBanner } from './model-tab/AttentionBanner'
+import { StreamingDiagnostics } from './model-tab/StreamingDiagnostics'
+import { buildSynthesisedPriorMap } from './model-tab/synthesisedPriorHelpers'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -89,71 +90,6 @@ const KIND_ORDER = ['goal', 'decision', 'option', 'factor', 'risk', 'outcome'] a
 const EMPTY_NODE_IDS = new Set<string>()
 const EMPTY_EDGE_IDS = new Set<string>()
 type KindKey = typeof KIND_ORDER[number]
-
-// ── Synthesised prior helpers ─────────────────────────────────────────────────
-
-/**
- * Parse repair actions from ceePipelineTrace to find synthesised priors.
- * Actions look like: 'Reclassified unreachable factor "X" to external with synthesised prior [0, 0.14]'
- * Returns a map from node ID → { rangeMin, rangeMax }.
- */
-function buildSynthesisedPriorMap(
-  ceePipelineTrace: unknown,
-  nodes: Node[],
-): Map<string, SynthesisedPrior> {
-  const map = new Map<string, SynthesisedPrior>()
-  if (!ceePipelineTrace || typeof ceePipelineTrace !== 'object') return map
-
-  const trace = ceePipelineTrace as Record<string, unknown>
-  const repairSummary = trace.repair_summary ?? trace.repair
-  if (!repairSummary || typeof repairSummary !== 'object') return map
-
-  const summary = repairSummary as Record<string, unknown>
-  const repairs = summary.deterministic_repairs
-  if (!Array.isArray(repairs)) return map
-
-  // Build label→id lookup for matching
-  const labelToId = new Map<string, string>()
-  for (const n of nodes) {
-    const label = String((n.data as any)?.label ?? '').toLowerCase()
-    if (label) labelToId.set(label, n.id)
-  }
-
-  for (const r of repairs) {
-    if (!r || typeof r !== 'object') continue
-    const repair = r as Record<string, unknown>
-
-    // Structured fields (if CEE provides them)
-    if (repair.node_id && repair.synthesised_range && Array.isArray(repair.synthesised_range)) {
-      const [min, max] = repair.synthesised_range as number[]
-      if (typeof min === 'number' && typeof max === 'number') {
-        map.set(String(repair.node_id), { rangeMin: min, rangeMax: max })
-        continue
-      }
-    }
-
-    // Fallback: parse from action text
-    const action = typeof repair.action === 'string' ? repair.action : ''
-    const match = action.match(/synthesised prior\s*\[([^\]]+)\]/i)
-    if (!match) continue
-    const parts = match[1].split(',').map(s => parseFloat(s.trim()))
-    if (parts.length !== 2 || parts.some(isNaN)) continue
-
-    // Try to match by node_id first, then by quoted label in action text
-    let nodeId = repair.node_id ? String(repair.node_id) : undefined
-    if (!nodeId) {
-      const labelMatch = action.match(/"([^"]+)"/)
-      if (labelMatch) {
-        nodeId = labelToId.get(labelMatch[1].toLowerCase())
-      }
-    }
-    if (nodeId) {
-      map.set(nodeId, { rangeMin: parts[0], rangeMax: parts[1] })
-    }
-  }
-
-  return map
-}
 
 // ── Main component ────────────────────────────────────────────────────────────
 
@@ -287,10 +223,6 @@ export function ModelTabBody({
   }, [grouped.factor])
 
   const fragileEdgeCount = hasRobustnessData ? fragileEdgeIds.size : 0
-
-  const showAttentionBanner = hasRobustnessData && (
-    fragileEdgeCount > 0 || factorsTrulyMissingSource > 0 || factorsAiEstimated > 0
-  )
 
   // ── Factor sort: needs-attention first, then alpha ─────────────────────────
 
@@ -513,38 +445,12 @@ export function ModelTabBody({
       />
 
       {/* ── Attention banner (post-analysis only) ─────────────────────────── */}
-      {showAttentionBanner && (
-        <div
-          className="flex items-start gap-2 px-3 py-2 rounded-sm bg-warning/[0.08] border border-warning/[0.18]"
-          data-testid="model-attention-banner"
-        >
-          <AlertTriangle className="w-3.5 h-3.5 text-warning shrink-0 mt-0.5" aria-hidden="true" />
-          <div className="flex-1 min-w-0">
-            <div className={`${typography.panelBody} text-text-body`}>
-              {[
-                factorsTrulyMissingSource > 0
-                  ? `${factorsTrulyMissingSource} factor${factorsTrulyMissingSource !== 1 ? 's' : ''} missing source`
-                  : null,
-                factorsAiEstimated > 0
-                  ? `${factorsAiEstimated} AI-estimated`
-                  : null,
-                fragileEdgeCount > 0
-                  ? `${fragileEdgeCount} fragile edge${fragileEdgeCount !== 1 ? 's' : ''}`
-                  : null,
-              ].filter(Boolean).join(' · ')}
-            </div>
-            <a
-              href="#strengthen"
-              className={`${typography.panelMeta} text-info hover:underline`}
-              onClick={(e) => {
-                e.preventDefault()
-                document.getElementById('model-strengthen')?.scrollIntoView({ behavior: 'smooth' })
-              }}
-            >
-              Review in Strengthen ↓
-            </a>
-          </div>
-        </div>
+      {hasRobustnessData && (
+        <AttentionBanner
+          factorsTrulyMissingSource={factorsTrulyMissingSource}
+          factorsAiEstimated={factorsAiEstimated}
+          fragileEdgeCount={fragileEdgeCount}
+        />
       )}
 
       {/* ── Strengthen section ────────────────────────────────────────────── */}
@@ -558,71 +464,15 @@ export function ModelTabBody({
       />
 
       {/* ── Streaming diagnostics (Shift+D) ───────────────────────────────── */}
-      {showDebug && (
-        <div className="border-t border-panel-border pt-3 space-y-1" data-testid="model-streaming-diagnostics">
-          <div className={`${typography.panelHeader} text-text-header mb-2`}>
-            Streaming diagnostics
-          </div>
-          <div className="flex items-center justify-between">
-            <span className={`${typography.panelBody} text-text-light`}>Resumes</span>
-            <span className={`${typography.panelBody} text-text-header tabular-nums`} data-testid="diag-resumes">
-              {hasDiagnostics ? diagnostics?.resumes ?? 0 : 0}
-            </span>
-          </div>
-          <div className="flex items-center justify-between">
-            <span className={`${typography.panelBody} text-text-light`}>Recovered events</span>
-            <span className={`${typography.panelBody} text-text-header tabular-nums`} data-testid="diag-recovered">
-              {hasDiagnostics ? diagnostics?.recovered_events ?? 0 : 0}
-            </span>
-          </div>
-          <div className="flex items-center justify-between" data-testid="diag-trims">
-            <span className={`${typography.panelBody} text-text-light`}>Buffer trimmed</span>
-            <span className={`${typography.panelMeta} inline-flex items-center px-1.5 py-0.5 rounded border`}>
-              {hasTrim
-                ? <span className="bg-sun-50 text-sun-800 border-sun-200 px-1.5 py-0.5 rounded">Yes</span>
-                : <span className="text-text-light border-panel-border px-1.5 py-0.5 rounded">No</span>}
-            </span>
-          </div>
-          <div className="flex items-center justify-between pt-2 border-t border-panel-border">
-            <span className={`${typography.panelBody} text-text-light`}>Correlation ID</span>
-            <div className="flex items-center gap-2">
-              <span
-                className={`font-mono ${typography.code} text-text-header max-w-[10rem] truncate`}
-                data-testid="diag-correlation-value"
-              >
-                {effectiveCorrelationId ?? '—'}
-              </span>
-              {effectiveCorrelationId && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    try { navigator.clipboard?.writeText(effectiveCorrelationId) } catch {}
-                  }}
-                  className={`inline-flex items-center px-1.5 py-0.5 rounded border border-panel-border ${typography.code} text-text-light hover:bg-sand-50`}
-                  data-testid="diag-correlation-copy"
-                >
-                  Copy
-                </button>
-              )}
-            </div>
-          </div>
-          {correlationMismatch && (
-            <p className={`${typography.code} text-sun-700`} data-testid="diag-correlation-mismatch">
-              Correlation ID in diagnostics ({diagnostics?.correlation_id}) does not match header ({correlationIdHeader}).
-            </p>
-          )}
-          <p className={`${typography.code} text-text-light`}>
-            For deeper engine instrumentation, use the on-canvas diagnostics overlay via
-            <code className="mx-1">?diag=1</code>.
-          </p>
-        </div>
-      )}
-
-      {!showDebug && (
-        <p className={`${typography.panelMeta} text-text-light border-t border-panel-border pt-2`}>
-          Press <kbd className={`px-1.5 py-0.5 bg-sand-100 rounded ${typography.panelMeta} font-mono`}>Shift+D</kbd> for streaming diagnostics
-        </p>
-      )}
+      <StreamingDiagnostics
+        showDebug={showDebug}
+        hasDiagnostics={hasDiagnostics}
+        diagnostics={diagnostics}
+        hasTrim={hasTrim}
+        effectiveCorrelationId={effectiveCorrelationId}
+        correlationMismatch={correlationMismatch}
+        correlationIdHeader={correlationIdHeader}
+      />
 
       {/* ── Reanalyse bar (shown when graph edited since last run) ─────────── */}
       <ReanalyseBar onReanalyse={onReanalyse} />
