@@ -42,8 +42,7 @@ import styles from './Conversation.module.css'
 // Helpers
 // ---------------------------------------------------------------------------
 
-// eslint-disable-next-line @typescript-eslint/no-empty-function
-const artefactNoop = () => {}
+const artefactNoop = () => { /* intentionally empty */ }
 
 /** Human-readable one-line summary of patch operations (e.g. "3 factors, 2 options, 1 goal"). */
 function summarisePatchOps(operations: { op: string; data?: Record<string, unknown> }[]): string {

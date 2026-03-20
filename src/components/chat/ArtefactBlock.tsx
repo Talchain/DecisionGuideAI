@@ -167,7 +167,6 @@ export const ArtefactBlock = memo(function ArtefactBlock({
           onClick={handleCloseMaximised}
           data-testid="artefact-maximised-overlay"
         >
-          {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events -- Escape handled via keydown listener */}
           <div
             role="dialog"
             aria-modal="true"
