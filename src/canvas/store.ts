@@ -3,7 +3,7 @@ import { create } from 'zustand'
 import { Node, Edge, applyNodeChanges, applyEdgeChanges, NodeChange, EdgeChange } from '@xyflow/react'
 import { saveSnapshot as persistSnapshot, importCanvas as persistImport, exportCanvas as persistExport } from './persist'
 import { setsEqual, mapsEqual } from './store/utils'
-import { DEFAULT_EDGE_DATA, type EdgeData } from './domain/edges'
+import { DEFAULT_EDGE_DATA, USER_EDGE_DEFAULTS, type EdgeData } from './domain/edges'
 import { NODE_REGISTRY, type NodeType } from './domain/nodes'
 import { applyLayout, applyLayoutWithPolicy } from './layout'
 import { mergePolicy } from './layout/policy'
@@ -38,6 +38,14 @@ import { loadSearchQuery, loadSortPreferences, saveSearchQuery, saveSortPreferen
 import { loadUIPreferences, saveUIPreference } from './store/uiPreferences'
 import { validateCeeAnalysisReady } from './utils/ceeAnalysisReadyValidation'
 import { recordCrossSurfaceEvent, recordUserAction } from '../lib/debug-state'
+import {
+  isSelfLoop,
+  isDuplicateEdge,
+  wouldCreateCycle,
+  wouldExceedLimits,
+  limitExceededMessage,
+  type LimitExceeded,
+} from './validation/graphGuardrails'
 // Task C: Panel coordination — opening one right panel closes others
 import { useUIStore } from '../stores/uiStore'
 
@@ -52,6 +60,13 @@ export interface PreviousReportSnapshot {
   options: Record<string, OptionSnapshot>
   rankingStability?: number
   driverInfluences?: Record<string, number>
+}
+
+/** Result of addEdge — indicates whether the edge was created and why it was blocked */
+export type AddEdgeBlockReason = 'self_loop' | 'duplicate' | 'cycle' | 'node_not_found' | 'edge_limit'
+export interface AddEdgeResult {
+  created: boolean
+  reason?: AddEdgeBlockReason
 }
 
 // Brief 37 Optimization: Stable empty array to prevent re-renders
@@ -221,7 +236,8 @@ interface ReconnectState {
 interface CanvasState {
   nodes: Node[]
   edges: Edge<EdgeData>[]
-  history: { past: { nodes: Node[]; edges: Edge<EdgeData>[] }[]; future: { nodes: Node[]; edges: Edge<EdgeData>[] }[] }
+  /** Graph Editing Experience Task 8: history entries now carry optional labels for undo toast */
+  history: { past: { nodes: Node[]; edges: Edge<EdgeData>[]; label?: string }[]; future: { nodes: Node[]; edges: Edge<EdgeData>[]; label?: string }[] }
   selection: { nodeIds: Set<string>; edgeIds: Set<string>; anchorPosition: { x: number; y: number } | null }
   clipboard: ClipboardData | null
   reconnecting: ReconnectState | null
@@ -396,14 +412,14 @@ interface CanvasState {
   debugRawCeeOutput: boolean
   setDebugRawCeeOutput: (value: boolean) => void
   updateScenarioFraming: (partial: ScenarioFraming) => void
-  addNode: (pos?: { x: number; y: number }, type?: NodeType) => void
+  addNode: (pos?: { x: number; y: number }, type?: NodeType) => LimitExceeded | null
   /** Create a new node with an edge connecting it to an existing node. Returns the new node ID. */
   addNodeWithEdge: (
     pos: { x: number; y: number },
     type: NodeType,
     connectTo: string,
     edgeDirection: 'to-target' | 'from-target',
-  ) => string
+  ) => string | LimitExceeded
   updateNodeLabel: (id: string, label: string) => void
   updateNode: (id: string, updates: Partial<Node>) => void
   updateEdge: (id: string, updates: Partial<Edge<EdgeData>>) => void
@@ -415,7 +431,7 @@ interface CanvasState {
   selectEdgeWithoutHistory: (edgeId: string) => void
   selectNodes: (nodeIds: string[]) => void
   clearSelection: () => void
-  addEdge: (edge: Omit<Edge<EdgeData>, 'id'>) => void
+  addEdge: (edge: Omit<Edge<EdgeData>, 'id'>) => AddEdgeResult
   pushHistory: (debounced?: boolean) => void
   undo: () => void
   redo: () => void
@@ -664,7 +680,7 @@ function historyHash(nodes: Node[], edges: Edge[]): string {
   return `${n}#${e}`
 }
 
-function pushToHistory(get: () => CanvasState, set: (fn: (s: CanvasState) => Partial<CanvasState>) => void) {
+function pushToHistory(get: () => CanvasState, set: (fn: (s: CanvasState) => Partial<CanvasState>) => void, label?: string) {
   // Skip history during batched external mutations (e.g. auto-apply patches)
   if (get()._suppressHistory) return
 
@@ -684,7 +700,7 @@ function pushToHistory(get: () => CanvasState, set: (fn: (s: CanvasState) => Par
   const cleanNodes = nodes.map(n => ({ ...n, selected: undefined }))
   const cleanEdges = edges.map(e => ({ ...e, selected: undefined }))
 
-  const past = [...history.past, { nodes: cleanNodes, edges: cleanEdges }].slice(-MAX_HISTORY)
+  const past = [...history.past, { nodes: cleanNodes, edges: cleanEdges, label }].slice(-MAX_HISTORY)
   set(() => ({
     history: { past, future: [] },
     _internal: { lastHistoryHash: h },
@@ -1065,15 +1081,26 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   },
 
   addNode: (pos, type = 'decision') => {
-    pushToHistory(get, set)
+    // Node limit check (PRD guardrail)
+    const { nodes, edges } = get()
+    const limitKind = wouldExceedLimits(nodes.length, edges.length, 1, 0)
+    if (limitKind) return limitKind
+
+    pushToHistory(get, set, `Added ${type}`)
     // Note: Adding nodes does NOT invalidate ceeAnalysisReady
     // Only deletion of critical nodes (goal, option, intervention targets) invalidates
     const id = get().createNodeId()
     set((s) => ({ nodes: [...s.nodes, { id, type, position: pos || { x: 200, y: 200 }, data: { label: `Node ${id}` } }] }))
+    return null
   },
 
   addNodeWithEdge: (pos, type, connectTo, edgeDirection) => {
-    pushToHistory(get, set)
+    // Limit check: adding 1 node + 1 edge
+    const { nodes, edges } = get()
+    const limitKind = wouldExceedLimits(nodes.length, edges.length, 1, 1)
+    if (limitKind) return limitKind
+
+    pushToHistory(get, set, `Added connected ${type}`)
     const nodeId = get().createNodeId()
     const edgeId = get().createEdgeId()
     const [source, target] =
@@ -1085,7 +1112,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
           id: nodeId,
           type,
           position: pos,
-          data: { label: `New ${type}`, kind: type, category: 'controllable' },
+          data: { label: `New ${type}`, kind: type, category: 'external' },
         },
       ],
       edges: [
@@ -1095,7 +1122,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
           source,
           target,
           type: 'styled' as const,
-          data: { ...DEFAULT_EDGE_DATA },
+          data: { ...USER_EDGE_DEFAULTS },
         },
       ],
       selection: { nodeIds: new Set([nodeId]), edgeIds: new Set<string>(), anchorPosition: null },
@@ -1368,19 +1395,46 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   },
 
   addEdge: (edge) => {
-    // Validate source/target nodes exist to prevent dangling edges
-    const { nodes } = get()
-    const nodeIds = new Set(nodes.map(n => n.id))
-    if (!nodeIds.has(edge.source)) {
+    // --- Structural guardrails (Brief: Graph Editing Experience Task 2b) ---
+    const { nodes, edges } = get()
+    const nodeIdSet = new Set(nodes.map(n => n.id))
+
+    // Validate source/target nodes exist
+    if (!nodeIdSet.has(edge.source)) {
       if (import.meta.env.DEV) console.warn(`[Canvas] addEdge: source node "${edge.source}" not found`)
-      return
+      return { created: false, reason: 'node_not_found' as const }
     }
-    if (!nodeIds.has(edge.target)) {
+    if (!nodeIdSet.has(edge.target)) {
       if (import.meta.env.DEV) console.warn(`[Canvas] addEdge: target node "${edge.target}" not found`)
-      return
+      return { created: false, reason: 'node_not_found' as const }
     }
 
-    pushToHistory(get, set)
+    // Self-loop prevention
+    if (isSelfLoop(edge.source, edge.target)) {
+      return { created: false, reason: 'self_loop' as const }
+    }
+
+    // Duplicate edge prevention
+    if (isDuplicateEdge(edges, edge.source, edge.target)) {
+      return { created: false, reason: 'duplicate' as const }
+    }
+
+    // Cycle detection
+    const nodeIds = nodes.map(n => n.id)
+    if (wouldCreateCycle(nodeIds, edges, edge.source, edge.target)) {
+      return { created: false, reason: 'cycle' as const }
+    }
+
+    // Edge limit check (PRD guardrail)
+    const limitKind = wouldExceedLimits(nodes.length, edges.length, 0, 1)
+    if (limitKind === 'edge_limit') {
+      return { created: false, reason: 'edge_limit' as const }
+    }
+
+    // Build label from node labels for undo toast
+    const sourceLabel = (nodes.find(n => n.id === edge.source)?.data as Record<string, unknown>)?.label as string ?? edge.source
+    const targetLabel = (nodes.find(n => n.id === edge.target)?.data as Record<string, unknown>)?.label as string ?? edge.target
+    pushToHistory(get, set, `Connected ${sourceLabel} \u2192 ${targetLabel}`)
     // Note: Adding edges does NOT invalidate ceeAnalysisReady
     // Only deletion of critical nodes (goal, option, intervention targets) invalidates
     const id = get().createEdgeId()
@@ -1397,6 +1451,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
         touchedNodeIds
       }
     })
+    return { created: true }
   },
 
   pushHistory: (debounced = false) => {
@@ -1413,7 +1468,8 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     if (history.past.length === 0) return
     const prev = history.past[history.past.length - 1]
     const past = history.past.slice(0, -1)
-    const future = [{ nodes, edges }, ...history.future]
+    // Preserve label from the entry being undone so redo can show it
+    const future = [{ nodes, edges, label: prev.label }, ...history.future]
     // Invalidate ceeAnalysisReady so panel re-evaluates from restored graph state
     // Graph Lens: auto-reset on undo (graph shape changed)
     set({ nodes: prev.nodes, edges: prev.edges, history: { past, future }, ceeAnalysisReady: null, goalConstraints: null, lens: createDefaultLensState() })
@@ -1426,7 +1482,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     const { history, nodes, edges } = get()
     if (history.future.length === 0) return
     const next = history.future[0]
-    const past = [...history.past, { nodes, edges }]
+    const past = [...history.past, { nodes, edges, label: next.label }]
     const future = history.future.slice(1)
     // Invalidate ceeAnalysisReady so panel re-evaluates from restored graph state
     // Graph Lens: auto-reset on redo (graph shape changed)
@@ -1440,8 +1496,9 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   canRedo: () => get().history.future.length > 0,
 
   deleteSelected: () => {
-    pushToHistory(get, set)
     const { selection, outcomeNodeId, edges, ceeAnalysisReady } = get()
+    const count = selection.nodeIds.size + selection.edgeIds.size
+    pushToHistory(get, set, `Deleted ${count} element${count !== 1 ? 's' : ''}`)
     // P0.5 Fix: Clear outcomeNodeId if the outcome node is being deleted
     const shouldClearOutcome = outcomeNodeId && selection.nodeIds.has(outcomeNodeId)
 
@@ -1474,7 +1531,8 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   },
 
   deleteNodeById: (nodeId: string) => {
-    pushToHistory(get, set)
+    const nodeLabel = (get().nodes.find(n => n.id === nodeId)?.data as Record<string, unknown>)?.label as string ?? nodeId
+    pushToHistory(get, set, `Deleted ${nodeLabel}`)
     const { outcomeNodeId } = get()
     // P0.5 Fix: Clear outcomeNodeId if this is the outcome node
     const shouldClearOutcome = outcomeNodeId === nodeId
@@ -1497,7 +1555,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     const edge = edges.find(e => e.id === edgeId)
     if (!edge) return
 
-    pushToHistory(get, set)
+    pushToHistory(get, set, 'Deleted connection')
     set((s) => ({
       edges: s.edges.filter(e => e.id !== edgeId),
       // Clear selection if deleted edge was selected
@@ -1511,7 +1569,8 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   },
 
   duplicateSelected: () => {
-    pushToHistory(get, set)
+    const count = get().selection.nodeIds.size
+    pushToHistory(get, set, `Duplicated ${count} element${count !== 1 ? 's' : ''}`)
     const { nodes, edges, selection } = get()
     const selectedNodes = nodes.filter(n => selection.nodeIds.has(n.id))
     if (selectedNodes.length === 0) return
@@ -1556,7 +1615,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     const { clipboard } = get()
     if (!clipboard || clipboard.nodes.length === 0) return
 
-    pushToHistory(get, set)
+    pushToHistory(get, set, `Pasted ${clipboard.nodes.length} element${clipboard.nodes.length !== 1 ? 's' : ''}`)
     const idMap: Record<string, string> = {}
     const newNodes: Node[] = []
 
@@ -1899,7 +1958,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     const edge = edges.find(e => e.id === id)
     if (!edge) return
 
-    pushToHistory(get, set)
+    pushToHistory(get, set, 'Deleted connection')
 
     const newEdges = edges.filter(e => e.id !== id)
     const newEdgeIds = new Set(selection.edgeIds)

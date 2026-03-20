@@ -123,19 +123,12 @@ export function existenceCertaintyToLineStyle(
 
 /**
  * D.1: Map weight magnitude to stroke width (pre-run mode).
+ * Graph Editing Experience Task 9a: Linear scale 1-5px from |strength.mean|.
  * Calls Math.abs internally — pass the signed mean directly.
- *
- * | Magnitude | Width |
- * |-----------|-------|
- * | 0.0–0.3   | 1px   |
- * | 0.3–0.6   | 2px   |
- * | 0.6–1.0+  | 3px   |
  */
 export function weightMagnitudeToStrokeWidth(signedMean: number): number {
   const magnitude = Math.min(Math.abs(signedMean), 1)
-  if (magnitude < 0.3) return 1
-  if (magnitude < 0.6) return 2
-  return 3
+  return 1 + magnitude * 4
 }
 
 /**

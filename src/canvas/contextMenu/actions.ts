@@ -8,7 +8,18 @@
 
 import { useCanvasStore } from '../store'
 import { useGuidanceStore } from '../stores/guidanceStore'
+import { useConfirmDialogStore } from '../stores/confirmDialogStore'
 import { commitValidatedMutation } from '../mutations/commitValidatedMutation'
+import { USER_EDGE_DEFAULTS } from '../domain/edges'
+import {
+  assessNodeDeletion,
+  assessEdgeDeletion,
+  isSignificantImpact,
+  buildDeletionMessage,
+  wouldExceedLimits,
+  wouldCreateCycle,
+  limitExceededMessage,
+} from '../validation/graphGuardrails'
 import type { PatchOperation } from '../conversation/types'
 import type { ContextTarget, NodeTarget, EdgeTarget, MultiTarget } from './types'
 import type { NodeType } from '../domain/nodes'
@@ -16,34 +27,127 @@ import type { NodeType } from '../domain/nodes'
 type ShowToastFn = (message: string, type: 'error' | 'info' | 'success' | 'warning') => void
 
 // ---------------------------------------------------------------------------
-// Delete
+// Delete (with structural guardrails — Graph Editing Experience Task 2d)
 // ---------------------------------------------------------------------------
+
+/** Execute the raw deletion through commitValidatedMutation */
+async function executeNodeDelete(nodeId: string, showToast: ShowToastFn): Promise<void> {
+  const store = useCanvasStore.getState()
+  const connectedEdgeOps: PatchOperation[] = store.edges
+    .filter((e) => e.source === nodeId || e.target === nodeId)
+    .map((e) => ({ op: 'remove_edge' as const, target_id: e.id, data: {} }))
+  const ops: PatchOperation[] = [
+    ...connectedEdgeOps,
+    { op: 'remove_node', target_id: nodeId, data: {} },
+  ]
+  await commitValidatedMutation(ops, () => store.deleteNodeById(nodeId), showToast)
+}
+
+async function executeEdgeDelete(edgeId: string, showToast: ShowToastFn): Promise<void> {
+  const store = useCanvasStore.getState()
+  const ops: PatchOperation[] = [{ op: 'remove_edge', target_id: edgeId, data: {} }]
+  await commitValidatedMutation(ops, () => store.deleteEdge(edgeId), showToast)
+}
+
+async function executeMultiDelete(nodeIds: string[], edgeIds: string[], showToast: ShowToastFn): Promise<void> {
+  const store = useCanvasStore.getState()
+  const ops: PatchOperation[] = [
+    ...edgeIds.map((id) => ({ op: 'remove_edge' as const, target_id: id, data: {} })),
+    ...nodeIds.map((id) => ({ op: 'remove_node' as const, target_id: id, data: {} })),
+  ]
+  await commitValidatedMutation(ops, () => store.deleteSelected(), showToast)
+}
 
 export async function deleteAction(
   target: ContextTarget,
   showToast: ShowToastFn,
 ): Promise<void> {
   const store = useCanvasStore.getState()
+  const { nodes, edges } = store
+  const confirmStore = useConfirmDialogStore.getState()
 
   if (target.kind === 'edge') {
-    const ops: PatchOperation[] = [{ op: 'remove_edge', target_id: target.edgeId, data: {} }]
-    await commitValidatedMutation(ops, () => store.deleteEdge(target.edgeId), showToast)
+    const impact = assessEdgeDeletion(nodes, edges, target.edgeId)
+    if (isSignificantImpact(impact)) {
+      const edge = edges.find(e => e.id === target.edgeId)
+      const edgeLabel = edge
+        ? `${(nodes.find(n => n.id === edge.source)?.data as Record<string, unknown>)?.label ?? edge.source} → ${(nodes.find(n => n.id === edge.target)?.data as Record<string, unknown>)?.label ?? edge.target}`
+        : 'this connection'
+      const { title, message, blocked } = buildDeletionMessage(impact, edgeLabel)
+      if (blocked) {
+        showToast(message, 'warning')
+        return
+      }
+      confirmStore.show({
+        title,
+        message,
+        confirmLabel: 'Remove',
+        onConfirm: () => { executeEdgeDelete(target.edgeId, showToast) },
+      })
+      return
+    }
+    await executeEdgeDelete(target.edgeId, showToast)
   } else if (target.kind === 'node') {
-    // Include connected edge removals in patch for explicitness (local cascades automatically)
-    const connectedEdgeOps: PatchOperation[] = store.edges
-      .filter((e) => e.source === target.nodeId || e.target === target.nodeId)
-      .map((e) => ({ op: 'remove_edge' as const, target_id: e.id, data: {} }))
-    const ops: PatchOperation[] = [
-      ...connectedEdgeOps,
-      { op: 'remove_node', target_id: target.nodeId, data: {} },
-    ]
-    await commitValidatedMutation(ops, () => store.deleteNodeById(target.nodeId), showToast)
+    const impact = assessNodeDeletion(nodes, edges, target.nodeId)
+    if (isSignificantImpact(impact)) {
+      const node = nodes.find(n => n.id === target.nodeId)
+      const nodeLabel = (node?.data as Record<string, unknown>)?.label as string ?? target.nodeId
+      const { title, message, blocked } = buildDeletionMessage(impact, nodeLabel)
+      if (blocked) {
+        showToast(message, 'warning')
+        return
+      }
+      confirmStore.show({
+        title,
+        message,
+        confirmLabel: 'Remove',
+        onConfirm: () => { executeNodeDelete(target.nodeId, showToast) },
+      })
+      return
+    }
+    await executeNodeDelete(target.nodeId, showToast)
   } else if (target.kind === 'multi') {
-    const ops: PatchOperation[] = [
-      ...target.edgeIds.map((id) => ({ op: 'remove_edge' as const, target_id: id, data: {} })),
-      ...target.nodeIds.map((id) => ({ op: 'remove_node' as const, target_id: id, data: {} })),
-    ]
-    await commitValidatedMutation(ops, () => store.deleteSelected(), showToast)
+    // Aggregate impacts for batch deletion
+    const aggregated = {
+      disconnectsOptions: [] as Array<{ optionId: string; optionLabel: string }>,
+      orphansNodes: [] as Array<{ nodeId: string; nodeLabel: string }>,
+      removesLastGoal: false,
+      removesLastDecision: false,
+    }
+    for (const nodeId of target.nodeIds) {
+      const impact = assessNodeDeletion(nodes, edges, nodeId)
+      aggregated.disconnectsOptions.push(...impact.disconnectsOptions)
+      aggregated.orphansNodes.push(...impact.orphansNodes)
+      if (impact.removesLastGoal) aggregated.removesLastGoal = true
+      if (impact.removesLastDecision) aggregated.removesLastDecision = true
+    }
+    // Deduplicate
+    const seenOptions = new Set<string>()
+    aggregated.disconnectsOptions = aggregated.disconnectsOptions.filter(o => {
+      if (seenOptions.has(o.optionId)) return false
+      seenOptions.add(o.optionId)
+      return true
+    })
+    // Don't warn about nodes being orphaned if they're also being deleted
+    const deletingIds = new Set(target.nodeIds)
+    aggregated.orphansNodes = aggregated.orphansNodes.filter(o => !deletingIds.has(o.nodeId))
+
+    if (isSignificantImpact(aggregated)) {
+      const label = `${target.nodeIds.length} element${target.nodeIds.length > 1 ? 's' : ''}`
+      const { title, message, blocked } = buildDeletionMessage(aggregated, label)
+      if (blocked) {
+        showToast(message, 'warning')
+        return
+      }
+      confirmStore.show({
+        title,
+        message,
+        confirmLabel: 'Remove',
+        onConfirm: () => { executeMultiDelete(target.nodeIds, target.edgeIds, showToast) },
+      })
+      return
+    }
+    await executeMultiDelete(target.nodeIds, target.edgeIds, showToast)
   }
 }
 
@@ -57,6 +161,38 @@ export async function addNodeAction(
   showToast: ShowToastFn,
 ): Promise<void> {
   const store = useCanvasStore.getState()
+
+  // Task 6b: Auto-connect option to decision node
+  if (type === 'option') {
+    const decisionNode = store.nodes.find(n => n.type === 'decision')
+    if (decisionNode) {
+      const limitKind = wouldExceedLimits(store.nodes.length, store.edges.length, 1, 1)
+      if (limitKind) {
+        showToast(limitExceededMessage(limitKind, limitKind === 'node_limit' ? store.nodes.length : store.edges.length), 'warning')
+        return
+      }
+      const nodeId = store.createNodeId()
+      const edgeId = store.createEdgeId()
+      const ops: PatchOperation[] = [
+        { op: 'add_node', target_id: nodeId, data: { kind: 'option', label: 'New option' } },
+        { op: 'add_edge', target_id: edgeId, data: { from: decisionNode.id, to: nodeId } },
+      ]
+      await commitValidatedMutation(
+        ops,
+        () => store.addNodeWithEdge(flowPos, 'option', decisionNode.id, 'from-target'),
+        showToast,
+      )
+      return
+    }
+  }
+
+  // PRD guardrail: check node limit before creating
+  const limitKind = wouldExceedLimits(store.nodes.length, store.edges.length, 1, 0)
+  if (limitKind) {
+    showToast(limitExceededMessage(limitKind, store.nodes.length), 'warning')
+    return
+  }
+
   const nodesBefore = store.nodes.length
   const ops: PatchOperation[] = [{
     op: 'add_node',
@@ -122,6 +258,13 @@ export async function addConnectedFactorAction(
   const targetNode = store.nodes.find((n) => n.id === target.nodeId)
   if (!targetNode) return
 
+  // PRD guardrail: adding 1 node + 1 edge
+  const limitKind = wouldExceedLimits(store.nodes.length, store.edges.length, 1, 1)
+  if (limitKind) {
+    showToast(limitExceededMessage(limitKind, limitKind === 'node_limit' ? store.nodes.length : store.edges.length), 'warning')
+    return
+  }
+
   const kind = (targetNode.data?.kind as string) ?? targetNode.type ?? 'factor'
   const edgeDirection = getEdgeDirectionForKind(kind)
   const pos = computeConnectedNodePos(targetNode)
@@ -133,7 +276,7 @@ export async function addConnectedFactorAction(
     : [target.nodeId, nodeId]
 
   const ops: PatchOperation[] = [
-    { op: 'add_node', target_id: nodeId, data: { kind: 'factor', label: 'New factor', category: 'controllable' } },
+    { op: 'add_node', target_id: nodeId, data: { kind: 'factor', label: 'New factor', category: 'external' } },
     { op: 'add_edge', target_id: edgeId, data: { from: source, to: target_ } },
   ]
 
@@ -143,6 +286,168 @@ export async function addConnectedFactorAction(
     showToast,
   )
   // addNodeWithEdge already selects the new node
+}
+
+// ---------------------------------------------------------------------------
+// Add connected outcome (Graph Editing Experience Task 3a)
+// ---------------------------------------------------------------------------
+
+export async function addConnectedOutcomeAction(
+  target: NodeTarget,
+  showToast: ShowToastFn,
+): Promise<void> {
+  const store = useCanvasStore.getState()
+  const targetNode = store.nodes.find((n) => n.id === target.nodeId)
+  if (!targetNode) return
+
+  const limitKind = wouldExceedLimits(store.nodes.length, store.edges.length, 1, 1)
+  if (limitKind) {
+    showToast(limitExceededMessage(limitKind, limitKind === 'node_limit' ? store.nodes.length : store.edges.length), 'warning')
+    return
+  }
+
+  const pos = computeConnectedNodePos(targetNode)
+  const nodeId = store.createNodeId()
+  const edgeId = store.createEdgeId()
+  // Edge: FROM clicked node → TO new outcome (outcome is downstream)
+  const ops: PatchOperation[] = [
+    { op: 'add_node', target_id: nodeId, data: { kind: 'outcome', label: 'New outcome' } },
+    { op: 'add_edge', target_id: edgeId, data: { from: target.nodeId, to: nodeId } },
+  ]
+  await commitValidatedMutation(
+    ops,
+    () => store.addNodeWithEdge(pos, 'outcome', target.nodeId, 'from-target'),
+    showToast,
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Add connected risk (Graph Editing Experience Task 3a)
+// ---------------------------------------------------------------------------
+
+export async function addConnectedRiskAction(
+  target: NodeTarget,
+  showToast: ShowToastFn,
+): Promise<void> {
+  const store = useCanvasStore.getState()
+  const targetNode = store.nodes.find((n) => n.id === target.nodeId)
+  if (!targetNode) return
+
+  const limitKind = wouldExceedLimits(store.nodes.length, store.edges.length, 1, 1)
+  if (limitKind) {
+    showToast(limitExceededMessage(limitKind, limitKind === 'node_limit' ? store.nodes.length : store.edges.length), 'warning')
+    return
+  }
+
+  const pos = computeConnectedNodePos(targetNode)
+  const nodeId = store.createNodeId()
+  const edgeId = store.createEdgeId()
+  // Edge: FROM clicked node → TO new risk (risk is downstream)
+  const ops: PatchOperation[] = [
+    { op: 'add_node', target_id: nodeId, data: { kind: 'risk', label: 'New risk' } },
+    { op: 'add_edge', target_id: edgeId, data: { from: target.nodeId, to: nodeId } },
+  ]
+  await commitValidatedMutation(
+    ops,
+    () => store.addNodeWithEdge(pos, 'risk', target.nodeId, 'from-target'),
+    showToast,
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Reverse edge direction (Graph Editing Experience Task 3b)
+// ---------------------------------------------------------------------------
+
+export async function reverseEdgeAction(
+  edgeId: string,
+  showToast: ShowToastFn,
+): Promise<void> {
+  const store = useCanvasStore.getState()
+  const edge = store.edges.find(e => e.id === edgeId)
+  if (!edge) return
+
+  // Cycle check: would reversing create a cycle?
+  const nodeIds = store.nodes.map(n => n.id)
+  const otherEdges = store.edges.filter(e => e.id !== edgeId)
+  if (wouldCreateCycle(nodeIds, otherEdges, edge.target, edge.source)) {
+    showToast('Reversing this would create a circular dependency.', 'warning')
+    return
+  }
+
+  const ops: PatchOperation[] = [{
+    op: 'update_edge',
+    target_id: edgeId,
+    data: { from: edge.target, to: edge.source },
+  }]
+  await commitValidatedMutation(
+    ops,
+    () => store.updateEdgeEndpoints(edgeId, { source: edge.target, target: edge.source }),
+    showToast,
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Insert factor between (Graph Editing Experience Task 3b)
+// ---------------------------------------------------------------------------
+
+export async function insertFactorBetweenAction(
+  edgeId: string,
+  showToast: ShowToastFn,
+): Promise<void> {
+  const store = useCanvasStore.getState()
+  const edge = store.edges.find(e => e.id === edgeId)
+  if (!edge) return
+
+  // Need 1 new node + 2 new edges - 1 old edge = net +1 node, +1 edge
+  const limitKind = wouldExceedLimits(store.nodes.length, store.edges.length, 1, 1)
+  if (limitKind) {
+    showToast(limitExceededMessage(limitKind, limitKind === 'node_limit' ? store.nodes.length : store.edges.length), 'warning')
+    return
+  }
+
+  const sourceNode = store.nodes.find(n => n.id === edge.source)
+  const targetNode = store.nodes.find(n => n.id === edge.target)
+  if (!sourceNode || !targetNode) return
+
+  // Position at midpoint of source and target
+  const midPos = {
+    x: (sourceNode.position.x + targetNode.position.x) / 2,
+    y: (sourceNode.position.y + targetNode.position.y) / 2,
+  }
+
+  const newNodeId = store.createNodeId()
+  const newEdgeId1 = store.createEdgeId()
+  const newEdgeId2 = store.createEdgeId()
+
+  const ops: PatchOperation[] = [
+    { op: 'add_node', target_id: newNodeId, data: { kind: 'factor', label: 'New factor', category: 'external' } },
+    { op: 'remove_edge', target_id: edgeId, data: {} },
+    { op: 'add_edge', target_id: newEdgeId1, data: { from: edge.source, to: newNodeId } },
+    { op: 'add_edge', target_id: newEdgeId2, data: { from: newNodeId, to: edge.target } },
+  ]
+
+  await commitValidatedMutation(
+    ops,
+    () => {
+      // Atomic: push one history frame, then batch all mutations in a single setState
+      store.pushHistory()
+      useCanvasStore.setState(s => ({
+        nodes: [...s.nodes, {
+          id: newNodeId,
+          type: 'factor' as const,
+          position: midPos,
+          data: { label: 'New factor', kind: 'factor', category: 'external' },
+        }],
+        edges: [
+          ...s.edges.filter(e => e.id !== edgeId),
+          { id: newEdgeId1, source: edge.source, target: newNodeId, type: 'styled', data: { ...USER_EDGE_DEFAULTS } },
+          { id: newEdgeId2, source: newNodeId, target: edge.target, type: 'styled', data: { ...USER_EDGE_DEFAULTS } },
+        ],
+        selection: { nodeIds: new Set([newNodeId]), edgeIds: new Set<string>(), anchorPosition: null },
+      }))
+    },
+    showToast,
+  )
 }
 
 // ---------------------------------------------------------------------------
@@ -497,4 +802,67 @@ export async function duplicateAction(showToast: ShowToastFn): Promise<void> {
       data: { from: `dup-${e.source}`, to: `dup-${e.target}` },
     }))
   await commitValidatedMutation([...nodeOps, ...edgeOps], () => store.duplicateSelected(), showToast)
+}
+
+// ---------------------------------------------------------------------------
+// Select path to goal (Graph Editing Experience Task 7c)
+// ---------------------------------------------------------------------------
+
+export function selectPathToGoalAction(
+  nodeId: string,
+  showToast: ShowToastFn,
+): void {
+  const store = useCanvasStore.getState()
+  const { nodes, edges } = store
+  const goalNodes = nodes.filter(n => n.type === 'goal')
+  if (goalNodes.length === 0) {
+    showToast('No goal node found in the model.', 'warning')
+    return
+  }
+
+  // BFS from nodeId through forward edges to find path to any goal
+  const adj = new Map<string, Array<{ target: string; edgeId: string }>>()
+  for (const n of nodes) adj.set(n.id, [])
+  for (const e of edges) {
+    adj.get(e.source)?.push({ target: e.target, edgeId: e.id })
+  }
+
+  const goalIdSet = new Set(goalNodes.map(n => n.id))
+  const visited = new Map<string, { parent: string | null; edgeId: string | null }>()
+  const queue = [nodeId]
+  visited.set(nodeId, { parent: null, edgeId: null })
+
+  let foundGoal: string | null = null
+  while (queue.length > 0 && !foundGoal) {
+    const current = queue.shift()!
+    for (const neighbour of adj.get(current) ?? []) {
+      if (visited.has(neighbour.target)) continue
+      visited.set(neighbour.target, { parent: current, edgeId: neighbour.edgeId })
+      if (goalIdSet.has(neighbour.target)) {
+        foundGoal = neighbour.target
+        break
+      }
+      queue.push(neighbour.target)
+    }
+  }
+
+  if (!foundGoal) {
+    showToast('No path found from this node to the goal.', 'info')
+    return
+  }
+
+  // Trace back to build path
+  const pathNodeIds = new Set<string>()
+  const pathEdgeIds = new Set<string>()
+  let current: string | null = foundGoal
+  while (current) {
+    pathNodeIds.add(current)
+    const entry = visited.get(current)
+    if (entry?.edgeId) pathEdgeIds.add(entry.edgeId)
+    current = entry?.parent ?? null
+  }
+
+  // Set selection
+  store.selectNodes([...pathNodeIds])
+  showToast(`Selected ${pathNodeIds.size} nodes on path to goal.`, 'info')
 }

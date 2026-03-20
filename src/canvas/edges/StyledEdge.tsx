@@ -376,8 +376,64 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
     }
   }
 
-  // C1: Only show label when selected, hovered, has suggestion, or is first edge with hint
-  const showLabel = selected || isHovered || hasSuggestion || (isFirstEdge && showEdgeHint)
+  // Graph Editing Experience Task 9c: Persistent labels on top 3 edges
+  // Pre-analysis: rank by |strength.mean|. Post-analysis: rank by composite importance.
+  const isTopStrengthEdge = useMemo(() => {
+    const allEdges = getEdges()
+    if (allEdges.length <= 3) return true // Show all labels if 3 or fewer edges
+
+    if (isResultsMode && report) {
+      // Post-analysis: use composite importance (same formula as stroke width)
+      const factorSensitivity = (report as any).enrichment?.sensitivity_analysis?.factors ||
+                                (report as any).factor_sensitivity || []
+      const scores = allEdges.map(e => {
+        const ed = e.data as EdgeData | undefined
+        const src = factorSensitivity.find((f: any) =>
+          (f.factor_id || f.factorId || f.node_id || f.nodeId) === e.source)
+        const goalSens = src ? Math.abs(src.elasticity ?? src.sensitivity_score ?? src.importance_score ?? 0) : 1.0
+        return {
+          id: e.id,
+          score: calculateEdgeImportance(ed?.beliefExists, ed?.weight ?? 1.0, goalSens),
+        }
+      })
+      scores.sort((a, b) => b.score - a.score)
+      return new Set(scores.slice(0, 3).map(s => s.id)).has(id)
+    }
+
+    // Pre-analysis: rank by |strength.mean|
+    const strengths = allEdges.map(e => ({
+      id: e.id,
+      strength: Math.abs(computeSignedMean(e.data as Record<string, unknown> | undefined)),
+    }))
+    strengths.sort((a, b) => b.strength - a.strength)
+    return new Set(strengths.slice(0, 3).map(s => s.id)).has(id)
+  }, [id, getEdges, isResultsMode, report])
+
+  // Task 9c: Offset persistent labels away from nodes to avoid overlap
+  const persistentLabelOffset = useMemo(() => {
+    if (!isTopStrengthEdge) return { dx: 0, dy: 0 }
+    const sn = getNode(source)
+    const tn = getNode(target)
+    if (!sn || !tn) return { dx: 0, dy: 0 }
+    // Check if midpoint is within 40px of source or target center
+    const snCx = sn.position.x + ((sn.measured?.width ?? sn.width ?? 200) / 2)
+    const snCy = sn.position.y + ((sn.measured?.height ?? sn.height ?? 80) / 2)
+    const tnCx = tn.position.x + ((tn.measured?.width ?? tn.width ?? 200) / 2)
+    const tnCy = tn.position.y + ((tn.measured?.height ?? tn.height ?? 80) / 2)
+    const distToSource = Math.sqrt((labelX - snCx) ** 2 + (labelY - snCy) ** 2)
+    const distToTarget = Math.sqrt((labelX - tnCx) ** 2 + (labelY - tnCy) ** 2)
+    if (distToSource < 40 || distToTarget < 40) {
+      // Offset perpendicular to the edge direction
+      const edgeDx = targetX - sourceX
+      const edgeDy = targetY - sourceY
+      const len = Math.sqrt(edgeDx * edgeDx + edgeDy * edgeDy) || 1
+      return { dx: (-edgeDy / len) * 20, dy: (edgeDx / len) * 20 }
+    }
+    return { dx: 0, dy: 0 }
+  }, [isTopStrengthEdge, source, target, getNode, labelX, labelY, sourceX, sourceY, targetX, targetY])
+
+  // C1: Only show label when selected, hovered, has suggestion, is first edge with hint, or is top-strength edge
+  const showLabel = selected || isHovered || hasSuggestion || (isFirstEdge && showEdgeHint) || isTopStrengthEdge
 
   // Causal lens: hide structural edges entirely
   if (isLensHidden) return null
@@ -447,9 +503,17 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
             return isHighlightedEdge ? 'var(--semantic-info)' : (directionStroke ?? visualProps.stroke)
           })(),
           // Graph Lens: opacity for dimmed edges
+          // Graph Editing Experience Task 9b: Confidence opacity layered on top
           opacity: isLensDimmed ? 0.2
             : (lensMode === 'sensitivity' && lensSensWeight !== null && lensQ25 !== null && lensSensWeight <= lensQ25) ? 0.4
-            : undefined,
+            : (() => {
+                // Task 9b: Encode exists_probability as opacity
+                const ep = beliefExists
+                if (ep === undefined || ep === null) return undefined
+                if (ep >= 0.8) return undefined // full opacity (1.0)
+                if (ep >= 0.5) return 0.7
+                return 0.4
+              })(),
           // Graph Lens: subtle glow for high-sensitivity edges
           filter: (lensMode === 'sensitivity' && lensSensWeight !== null && lensQ75 !== null && lensSensWeight >= lensQ75)
             ? 'drop-shadow(0 0 2px var(--semantic-info, #3b82f6))'

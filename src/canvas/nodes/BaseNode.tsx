@@ -12,7 +12,8 @@
 import { memo, useState, useCallback, type ReactNode } from 'react'
 import { Handle, Position, type NodeProps, useUpdateNodeInternals } from '@xyflow/react'
 import type { NodeType, Controllability } from '../domain/nodes'
-import { ChevronDown, ChevronUp, Flag as FlagIcon, type LucideIcon } from 'lucide-react'
+import { ChevronDown, ChevronUp, Flag as FlagIcon, ArrowUp, ArrowDown, Minus, type LucideIcon } from 'lucide-react'
+import { useEditPreviewStore } from '../stores/editPreviewStore'
 import { sanitizeMarkdown } from '../../lib/renderSafeRichText'
 import { UnknownKindWarning } from '../components/UnknownKindWarning'
 import { NodeBadge } from '../components/NodeBadge'
@@ -191,6 +192,9 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
     return 'border-2'
   })()
 
+  // Graph Editing Experience Task 5: Edit impact preview indicator
+  const impactDirection = useEditPreviewStore(s => s.impactMap.get(id))
+
   // Causal lens: hide organisational nodes entirely
   if (isLensHidden) return null
 
@@ -279,6 +283,22 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
         aria-label="Input connection"
       />
       
+      {/* Graph Editing Experience Task 5: Impact preview indicator */}
+      {impactDirection && (
+        <div
+          className="absolute -top-3 -right-3 z-20 rounded-full w-5 h-5 flex items-center justify-center shadow-sm"
+          style={{
+            backgroundColor: impactDirection === 'increase' ? 'var(--semantic-success, #22c55e)'
+              : impactDirection === 'decrease' ? 'var(--semantic-danger, #ef4444)'
+              : 'var(--text-muted, #9ca3af)',
+          }}
+        >
+          {impactDirection === 'increase' && <ArrowUp className="w-3 h-3 text-white" />}
+          {impactDirection === 'decrease' && <ArrowDown className="w-3 h-3 text-white" />}
+          {impactDirection === 'mixed' && <Minus className="w-3 h-3 text-white" />}
+        </div>
+      )}
+
       {/* Node header — stripped in causal lens; simplified in evidence lens */}
       {!isCausalLens && (
       <div

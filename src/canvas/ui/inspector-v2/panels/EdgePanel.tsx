@@ -31,6 +31,7 @@ import { extractCausalClaims, claimTypeLabel } from '../../../adapters/causalCla
 import { trackGuidance } from '../../../../telemetry/guidanceEvents'
 import { getFragileEdgeSwitchProbability } from '../../../utils/fragileEdgeMatch'
 import { COACHING } from '../coachingConfig'
+import { useEditImpactPreview } from '../../../hooks/useEditImpactPreview'
 
 // ─── Slider component for confidence and uncertainty ───────────────
 function InspectorSlider({
@@ -112,6 +113,9 @@ function thresholdTrackVar(v: number): string {
   return 'var(--danger)'
 }
 
+// Graph Editing Experience Task 9e: localStorage key for one-time edge education
+const EDGE_EDUCATION_DISMISSED_KEY = 'olumi:edge-education-dismissed'
+
 export const EdgePanel = memo(function EdgePanel({
   edgeId,
   techMode,
@@ -167,6 +171,15 @@ export const EdgePanel = memo(function EdgePanel({
     })
   }, [robustness, edgeId, edge?.source, edge?.target])
 
+  // Graph Editing Experience Task 9e: First-interaction edge education
+  const [showEdgeEducation, setShowEdgeEducation] = useState(() => {
+    try { return localStorage.getItem(EDGE_EDUCATION_DISMISSED_KEY) !== 'true' } catch { return true }
+  })
+  const dismissEdgeEducation = useCallback(() => {
+    setShowEdgeEducation(false)
+    try { localStorage.setItem(EDGE_EDUCATION_DISMISSED_KEY, 'true') } catch { /* noop */ }
+  }, [])
+
   // T7: Switch probability for fragile edge detail
   const fragileEdgeSwitchProb = useMemo(() => {
     if (!isFragile || !robustness?.fragile_edges) return null
@@ -181,11 +194,22 @@ export const EdgePanel = memo(function EdgePanel({
   // Provenance
   const provenance = edge?.data?.provenance as string | undefined
 
+  // Graph Editing Experience Task 5: Edit impact preview
+  const { previewEdit, clearPreview } = useEditImpactPreview()
+  const origStrengthRef = useRef(signedValue)
+
   // Handlers
   const handleStrengthChange = useCallback((v: number) => {
     setLocalStrength(v)
     mutations.setStrength(v)
-  }, [mutations])
+    // Trigger impact preview (debounced 150ms)
+    if (edgeId) previewEdit(edgeId, v - origStrengthRef.current)
+  }, [mutations, edgeId, previewEdit])
+
+  const handleStrengthBlur = useCallback(() => {
+    clearPreview()
+    origStrengthRef.current = localStrength
+  }, [clearPreview, localStrength])
 
   const handleBeliefChange = useCallback((v: number) => {
     setLocalBelief(v)
@@ -226,12 +250,20 @@ export const EdgePanel = memo(function EdgePanel({
         </div>
       ) : (
         <>
+          {/* Graph Editing Experience Task 9e: First-interaction edge education */}
+          {showEdgeEducation && (
+            <CoachingCard
+              text={`Three numbers control this relationship:\n\u2022 Strength \u2014 how much ${sourceLabel} affects ${targetLabel}\n\u2022 Confidence \u2014 how sure you are this connection exists\n\u2022 Uncertainty \u2014 how precisely you know the strength\n\nAdjusting these changes your simulation results.`}
+              action={{ label: 'Got it', onClick: dismissEdgeEducation }}
+            />
+          )}
+
           {/* §10.2 How strong is this effect */}
           <SectionTitle icon={SECTION_TITLES.howStrong.icon} label={SECTION_TITLES.howStrong.label} />
           <div className="px-1">
             <div className="relative mb-2">
               <UncertaintyBand strength={localStrength} std={localStd} />
-              <SignedStrengthSlider value={localStrength} onChange={handleStrengthChange} std={localStd} />
+              <SignedStrengthSlider value={localStrength} onChange={handleStrengthChange} onBlur={handleStrengthBlur} std={localStd} />
             </div>
             <div className="flex justify-between mt-1">
               {techMode ? (

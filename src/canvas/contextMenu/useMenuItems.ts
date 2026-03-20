@@ -9,7 +9,7 @@ import { useMemo } from 'react'
 import {
   Sparkles, Zap, Crosshair, SlidersHorizontal, ArrowUpToLine, ArrowDownToLine,
   RotateCcw, Pencil, Plus, Flag, Scissors, Copy, ClipboardPaste, CopyPlus,
-  Trash2, MessageSquare, Layers,
+  Trash2, MessageSquare, Layers, TrendingUp, AlertTriangle, ArrowLeftRight,
 } from 'lucide-react'
 import type { ComponentType } from 'react'
 import { useCanvasStore, selectResultsStatus, selectReport } from '../store'
@@ -21,6 +21,11 @@ import {
   deleteAction,
   addNodeAction,
   addConnectedFactorAction,
+  addConnectedOutcomeAction,
+  addConnectedRiskAction,
+  reverseEdgeAction,
+  insertFactorBetweenAction,
+  selectPathToGoalAction,
   markAsAssumption,
   traceToGoal,
   askAI,
@@ -245,6 +250,14 @@ function buildNodeMenu(
           enabled: true,
           action: wrap(() => traceToGoal(target.nodeId, showToast)),
         },
+        {
+          id: 'select-path-to-goal',
+          label: 'Select path to goal',
+          icon: Layers,
+          tooltip: 'Select all nodes and edges on the path from here to the goal',
+          enabled: true,
+          action: wrap(() => selectPathToGoalAction(target.nodeId, showToast)),
+        },
       ],
       action: () => {},
     })
@@ -309,7 +322,7 @@ function buildNodeMenu(
 
   items.push(DIV)
 
-  // --- Add connected factor (not on constraint) ---
+  // --- Add connected nodes (not on constraint) ---
   if (kind !== 'constraint') {
     items.push({
       id: 'add-connected-factor',
@@ -318,6 +331,23 @@ function buildNodeMenu(
       tooltip: 'Create a new factor linked to this node',
       enabled: true,
       action: wrap(() => addConnectedFactorAction(target, showToast)),
+    })
+    // Graph Editing Experience Task 3a: Add outcome/risk from node
+    items.push({
+      id: 'add-connected-outcome',
+      label: 'Add outcome from this',
+      icon: TrendingUp,
+      tooltip: 'Create an outcome caused by this node',
+      enabled: true,
+      action: wrap(() => addConnectedOutcomeAction(target, showToast)),
+    })
+    items.push({
+      id: 'add-connected-risk',
+      label: 'Add risk from this',
+      icon: AlertTriangle,
+      tooltip: 'Create a risk caused by this node',
+      enabled: true,
+      action: wrap(() => addConnectedRiskAction(target, showToast)),
     })
   }
 
@@ -497,6 +527,29 @@ function buildEdgeMenu(
       }
     }
   }
+
+  // Graph Editing Experience Task 3b: Edge manipulation actions
+  if (!target.isStructural) {
+    items.push(DIV)
+    items.push({
+      id: 'reverse-edge',
+      label: 'Reverse direction',
+      icon: ArrowLeftRight,
+      tooltip: 'Swap source and target of this relationship',
+      enabled: true,
+      action: wrap(() => reverseEdgeAction(target.edgeId, showToast)),
+    })
+    items.push({
+      id: 'insert-factor-between',
+      label: 'Insert factor between',
+      icon: Plus,
+      tooltip: 'Create a new factor on this edge, splitting it into two',
+      enabled: true,
+      action: wrap(() => insertFactorBetweenAction(target.edgeId, showToast)),
+    })
+  }
+
+  items.push(DIV)
 
   // Delete
   items.push({

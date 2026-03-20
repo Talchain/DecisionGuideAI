@@ -5,7 +5,7 @@ import '@xyflow/react/dist/style.css'
 // Note: shallow from 'zustand/shallow' was removed - causes infinite loops with Zustand v5
 // Use individual selectors instead (see React #185 fix comment below)
 import { useCanvasStore } from './store'
-import { DEFAULT_EDGE_DATA } from './domain/edges'
+import { DEFAULT_EDGE_DATA, USER_EDGE_DEFAULTS } from './domain/edges'
 import { parseRunHash } from './utils/shareLink'
 import { nodeTypes } from './nodes/registry'
 import { StyledEdge } from './edges/StyledEdge'
@@ -19,6 +19,7 @@ import { ContextMenu } from './ContextMenu'
 import { CanvasContextMenu } from './contextMenu/CanvasContextMenu'
 import { isStructuralEdge } from './domain/edgeUtils'
 import { isContextMenuEnabled } from '../flags'
+import { isSelfLoop, isDuplicateEdge, wouldCreateCycle, wouldExceedLimits, limitExceededMessage } from './validation/graphGuardrails'
 import type { ContextTarget } from './contextMenu/types'
 import type { NodeType } from './domain/nodes'
 import { CanvasToolbar } from './CanvasToolbar'
@@ -36,6 +37,8 @@ import { CanvasErrorBoundary } from './ErrorBoundary'
 import { ToastProvider, useShowToast } from './ToastContext'
 // DiagnosticsOverlay removed - use ?diag=1 URL param if needed for debugging
 import { ConfirmDialog } from './components/ConfirmDialog'
+import { useConfirmDialogStore } from './stores/confirmDialogStore'
+import { useHistoryToast } from './hooks/useHistoryToast'
 // ValidationChip removed - validation consolidated into OutputsDock panel
 import { LayerProvider } from './components/LayerProvider'
 import { OnboardingOverlay } from './onboarding/OnboardingOverlay'
@@ -252,6 +255,23 @@ function restoreCeeAnalysisReady(
       }
     }
   }
+}
+
+// Graph Editing Experience Task 2d: Store-driven confirm dialog for deletion warnings
+function StoreConfirmDialog() {
+  const pending = useConfirmDialogStore(s => s.pending)
+  const dismiss = useConfirmDialogStore(s => s.dismiss)
+  if (!pending) return null
+  return (
+    <ConfirmDialog
+      title={pending.title}
+      message={pending.message}
+      confirmLabel={pending.confirmLabel}
+      cancelLabel={pending.cancelLabel ?? 'Cancel'}
+      onConfirm={() => { pending.onConfirm(); dismiss() }}
+      onCancel={dismiss}
+    />
+  )
 }
 
 // Brief 37: Wrap in memo to prevent parent-triggered re-renders from ReactFlowProvider
@@ -593,6 +613,9 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
   // }, [])
 
   // Auto-open behaviour for Results is now handled by OutputsDock based on results.status.
+
+  // Graph Editing Experience Task 8d: Show undo toast after labelled history pushes
+  useHistoryToast()
 
   const handleSelectionChange = useCallback((params: { nodes: any[]; edges: any[] }) => {
     useCanvasStore.getState().onSelectionChange(params)
@@ -1111,8 +1134,13 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
       const state = useCanvasStore.getState()
       const beforeNodeCount = state.nodes.length
 
-      addNode({ x: canvasX, y: canvasY }, nodeType)
+      const limitResult = addNode({ x: canvasX, y: canvasY }, nodeType)
       setRadialMenuPosition(null)
+      if (limitResult) {
+        // addNode returned a limit kind — creation was blocked
+        showToast(limitExceededMessage(limitResult, state.nodes.length), 'warning')
+        return
+      }
       showToast(`Added ${nodeType} node`, 'success')
 
       // P0-8: Check for nearby nodes within 300px
@@ -1170,12 +1198,18 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
   // P0-8: Confirm connection to nearby node
   const handleConfirmConnect = useCallback(() => {
     if (connectPrompt) {
-      addEdge({
+      const result = addEdge({
         source: connectPrompt.newNodeId,
         target: connectPrompt.targetNodeId,
         data: { ...DEFAULT_EDGE_DATA, weight: 0.5, belief: 0.5 }
       })
-      showToast(`Connected to ${connectPrompt.targetNodeLabel}`, 'success')
+      if (result.created) {
+        showToast(`Connected to ${connectPrompt.targetNodeLabel}`, 'success')
+      } else if (result.reason === 'cycle') {
+        showToast('This would create a circular dependency.', 'warning')
+      } else if (result.reason === 'duplicate') {
+        showToast('This relationship already exists.', 'warning')
+      }
       setConnectPrompt(null)
     }
   }, [connectPrompt, addEdge, showToast])
@@ -1672,8 +1706,70 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
   }, [])
 
   const onConnect = useCallback((connection: Connection) => {
-    useCanvasStore.getState().addEdge({ ...connection, data: DEFAULT_EDGE_DATA })
+    connectSucceededRef.current = true // Task 4b: Mark success before processing
+    // Task 6a: Use user-specific defaults for manually created edges
+    const result = useCanvasStore.getState().addEdge({ ...connection, data: USER_EDGE_DEFAULTS })
+    if (!result.created && result.reason) {
+      const messages: Record<string, string> = {
+        cycle: 'This would create a circular dependency. Causal models require one-way relationships.',
+        duplicate: 'This relationship already exists. Click it to adjust its strength.',
+        edge_limit: 'Your model has reached the edge limit. Consider simplifying before adding more.',
+      }
+      const msg = messages[result.reason]
+      if (msg) showToast(msg, 'warning')
+    }
+  }, [showToast])
+
+  // Graph Editing Experience Task 2c: Validate connections during drag
+  const isValidConnection = useCallback((connection: Connection) => {
+    if (!connection.source || !connection.target) return false
+    if (isSelfLoop(connection.source, connection.target)) return false
+    const { nodes, edges } = useCanvasStore.getState()
+    if (isDuplicateEdge(edges, connection.source, connection.target)) return false
+    if (wouldExceedLimits(nodes.length, edges.length, 0, 1)) return false
+    if (wouldCreateCycle(nodes.map(n => n.id), edges, connection.source, connection.target)) return false
+    return true
   }, [])
+
+  // Graph Editing Experience Task 4b: Track connection start/end for drop feedback
+  const connectSucceededRef = useRef(false)
+  const connectSourceRef = useRef<string | null>(null)
+
+  const onConnectStart = useCallback((_: unknown, params: { nodeId: string | null }) => {
+    connectSucceededRef.current = false
+    connectSourceRef.current = params.nodeId
+  }, [])
+
+  const onConnectEnd = useCallback((event: MouseEvent | TouchEvent) => {
+    // If onConnect already fired, the connection succeeded — skip
+    if (connectSucceededRef.current) {
+      connectSourceRef.current = null
+      return
+    }
+    // The connection failed (dropped on invalid target or canvas)
+    const targetEl = (event.target as HTMLElement)
+    const nodeEl = targetEl?.closest?.('.react-flow__node')
+    if (nodeEl && connectSourceRef.current) {
+      // Re-run validation to determine the specific reason for rejection
+      const targetNodeId = nodeEl.getAttribute('data-id')
+      const sourceId = connectSourceRef.current
+      if (targetNodeId && sourceId) {
+        const { nodes, edges } = useCanvasStore.getState()
+        if (isSelfLoop(sourceId, targetNodeId)) {
+          // silent — self-loops are obvious
+        } else if (isDuplicateEdge(edges, sourceId, targetNodeId)) {
+          showToast('This relationship already exists. Click it to adjust its strength.', 'warning')
+        } else if (wouldExceedLimits(nodes.length, edges.length, 0, 1)) {
+          showToast(limitExceededMessage('edge_limit', edges.length), 'warning')
+        } else if (wouldCreateCycle(nodes.map(n => n.id), edges, sourceId, targetNodeId)) {
+          showToast('This would create a circular dependency. Causal models require one-way relationships.', 'warning')
+        } else {
+          showToast('This connection is not allowed.', 'warning')
+        }
+      }
+    }
+    connectSourceRef.current = null
+  }, [showToast])
 
   const onPaneContextMenu = useCallback((event: React.MouseEvent | MouseEvent) => {
     event.preventDefault()
@@ -1955,6 +2051,9 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
             onNodesChange={handleNodesChange}
             onEdgesChange={handleEdgesChange}
             onConnect={onConnect}
+            onConnectStart={onConnectStart}
+            onConnectEnd={onConnectEnd}
+            isValidConnection={isValidConnection}
             onSelectionChange={handleSelectionChange}
             onNodeClick={handleNodeClick}
             onNodeDoubleClick={handleNodeDoubleClick}
@@ -2174,6 +2273,9 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
           onCancel={handleCancelReplace}
         />
       )}
+
+      {/* Graph Editing Experience Task 2d: Store-driven confirm dialog for deletion warnings */}
+      <StoreConfirmDialog />
 
       {/* P0-7: Radial quick-add menu */}
       {radialMenuPosition && (

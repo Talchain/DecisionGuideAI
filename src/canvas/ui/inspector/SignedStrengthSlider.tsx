@@ -24,6 +24,8 @@ interface SignedStrengthSliderProps {
   disabled?: boolean
   /** C1: Standard deviation for uncertainty band overlay */
   std?: number
+  /** Graph Editing Experience Task 5: Called on slider release/blur to clear impact preview */
+  onBlur?: () => void
 }
 
 export function SignedStrengthSlider({
@@ -32,6 +34,7 @@ export function SignedStrengthSlider({
   debounceMs = 120,
   disabled = false,
   std,
+  onBlur,
 }: SignedStrengthSliderProps) {
   const [localValue, setLocalValue] = useState(value)
   const timerRef = useRef<ReturnType<typeof setTimeout>>()
@@ -123,6 +126,9 @@ export function SignedStrengthSlider({
           step={0.01}
           value={localValue}
           onChange={handleChange}
+          onBlur={onBlur}
+          onMouseUp={onBlur}
+          onTouchEnd={onBlur}
           disabled={disabled}
           className="relative w-full h-6 appearance-none bg-transparent cursor-pointer z-10
             [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4

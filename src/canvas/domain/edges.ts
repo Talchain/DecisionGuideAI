@@ -249,7 +249,8 @@ export type EdgeData = z.infer<typeof EdgeDataSchema> & {
 }
 
 /**
- * Default edge data for new edges
+ * Default edge data for new edges (used by adapters, CEE, PLoT as fallback).
+ * Keep weight at 0.5 for backward compatibility with downstream services.
  */
 export const DEFAULT_EDGE_DATA: EdgeData = {
   weight: 0.5,
@@ -261,6 +262,25 @@ export const DEFAULT_EDGE_DATA: EdgeData = {
   // Brief 5.1: Default dual beliefs indicate moderate confidence in relationship existence
   beliefExists: 0.7,      // Default: moderately confident this relationship exists
   beliefStrength: 0.5,    // Default: moderate effect magnitude
+  schemaVersion: 4,
+}
+
+/**
+ * Graph Editing Experience Task 6a: Defaults for user-created edges only.
+ * More conservative starting point that encourages calibration.
+ * Not used by adapters/CEE/PLoT (those keep DEFAULT_EDGE_DATA for compatibility).
+ */
+export const USER_EDGE_DEFAULTS: EdgeData = {
+  weight: 0.3,            // Moderate starting strength (encourages calibration)
+  direction: 'positive',  // Default positive causal direction
+  style: 'solid',
+  curvature: 0.15,
+  pathType: 'bezier',
+  kind: 'decision-probability',
+  functionType: 'linear',
+  beliefExists: 0.7,
+  beliefStrength: 0.5,
+  strengthStd: 0.15,      // Moderate uncertainty
   schemaVersion: 4,
 }
 

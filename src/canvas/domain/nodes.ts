@@ -242,3 +242,27 @@ export const NODE_REGISTRY: Record<NodeType, NodeMetadata> = {
     defaultSize: { width: 220, height: 100 },
   },
 }
+
+// ---------------------------------------------------------------------------
+// Graph Editing Experience Task 6c: Category auto-suggestion
+// ---------------------------------------------------------------------------
+
+const CATEGORY_KEYWORDS: Record<string, string[]> = {
+  controllable: ['cost', 'price', 'budget', 'revenue', 'spend', 'invest', 'hire', 'salary', 'fee', 'funding'],
+  external: ['market', 'regulation', 'weather', 'competitor', 'economy', 'policy', 'demand', 'inflation', 'interest'],
+  observable: ['satisfaction', 'quality', 'performance', 'retention', 'churn', 'engagement', 'nps', 'rating'],
+}
+
+/**
+ * Suggest a category for a factor node based on keyword matching in the label.
+ * Returns null if no keyword match is found.
+ */
+export function suggestCategory(label: string): 'controllable' | 'observable' | 'external' | null {
+  const lower = label.toLowerCase()
+  for (const [category, keywords] of Object.entries(CATEGORY_KEYWORDS)) {
+    if (keywords.some(kw => lower.includes(kw))) {
+      return category as 'controllable' | 'observable' | 'external'
+    }
+  }
+  return null
+}

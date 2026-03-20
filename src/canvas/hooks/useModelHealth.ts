@@ -16,6 +16,7 @@
 
 import { useMemo } from 'react'
 import { useCanvasStore } from '../store'
+import { detectCycles, bfsReachable } from '../validation/graphGuardrails'
 
 /** Severity levels for model health issues */
 export type HealthSeverity = 'blocker' | 'warning'
@@ -29,70 +30,6 @@ export interface HealthIssue {
   description: string
   /** Affected node or edge IDs (clickable to select on canvas) */
   affectedIds: string[]
-}
-
-/**
- * Detect cycles via Kahn's algorithm (topological sort).
- * Returns the set of node IDs that participate in at least one cycle.
- */
-function detectCycles(
-  nodeIds: string[],
-  edges: Array<{ source: string; target: string }>,
-): Set<string> {
-  const inDegree = new Map<string, number>()
-  const adj = new Map<string, string[]>()
-  for (const id of nodeIds) {
-    inDegree.set(id, 0)
-    adj.set(id, [])
-  }
-  for (const e of edges) {
-    if (!inDegree.has(e.source) || !inDegree.has(e.target)) continue
-    adj.get(e.source)!.push(e.target)
-    inDegree.set(e.target, (inDegree.get(e.target) ?? 0) + 1)
-  }
-
-  const queue: string[] = []
-  for (const [id, deg] of inDegree) {
-    if (deg === 0) queue.push(id)
-  }
-
-  const sorted = new Set<string>()
-  while (queue.length > 0) {
-    const node = queue.shift()!
-    sorted.add(node)
-    for (const neighbor of adj.get(node) ?? []) {
-      const newDeg = (inDegree.get(neighbor) ?? 1) - 1
-      inDegree.set(neighbor, newDeg)
-      if (newDeg === 0) queue.push(neighbor)
-    }
-  }
-
-  // Nodes not in sorted result are part of a cycle
-  const cycleNodes = new Set<string>()
-  for (const id of nodeIds) {
-    if (!sorted.has(id)) cycleNodes.add(id)
-  }
-  return cycleNodes
-}
-
-/**
- * BFS reachability from a set of start nodes.
- */
-function bfsReachable(
-  startIds: Set<string>,
-  adj: Map<string, string[]>,
-): Set<string> {
-  const visited = new Set<string>()
-  const queue = [...startIds]
-  while (queue.length > 0) {
-    const node = queue.shift()!
-    if (visited.has(node)) continue
-    visited.add(node)
-    for (const neighbor of adj.get(node) ?? []) {
-      if (!visited.has(neighbor)) queue.push(neighbor)
-    }
-  }
-  return visited
 }
 
 /** Main hook: computes model health issues from current graph state */

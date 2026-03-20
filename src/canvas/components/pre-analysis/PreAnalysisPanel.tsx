@@ -43,6 +43,7 @@ import { ModelNotes, type ModelNote } from './ModelNotes'
 import { formatRepairs } from '../../adapters/modelCardAdapter'
 import { DEFAULT_EDGE_DATA } from '../../domain/edges'
 import { ModelHealthSection } from '../ModelHealthSection'
+import { EdgeSummarySection } from './EdgeSummarySection'
 import { KeyRelationships } from './KeyRelationships'
 import { MissingKnowledgePrompt } from './MissingKnowledgePrompt'
 
@@ -942,6 +943,12 @@ export function PreAnalysisPanel({
         {data.preMortem && (
           <PreMortemSection preMortem={data.preMortem} />
         )}
+
+        {/* Graph Editing Experience Task 9d: Edge summary section */}
+        <EdgeSummarySection
+          onSelectEdge={(edgeId) => handleFocusEdge('edge', edgeId)}
+          onFocusNode={(nodeId) => handleFocusNode(nodeId)}
+        />
 
         {/* Edge assumptions table — collapsible, hidden when 0 causal edges */}
         <EdgeAssumptionsTable

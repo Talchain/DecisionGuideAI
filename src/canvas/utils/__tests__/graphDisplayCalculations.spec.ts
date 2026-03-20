@@ -202,38 +202,34 @@ describe('graphDisplayCalculations', () => {
   })
 
   describe('weightMagnitudeToStrokeWidth', () => {
+    // Graph Editing Experience Task 9a: Linear 1-5px scale (1 + |mean| * 4)
     it('returns 1px for magnitude 0', () => {
       expect(weightMagnitudeToStrokeWidth(0)).toBe(1)
     })
 
-    it('returns 1px for magnitude < 0.3', () => {
-      expect(weightMagnitudeToStrokeWidth(0.29)).toBe(1)
+    it('returns linear scale for magnitude 0.25', () => {
+      expect(weightMagnitudeToStrokeWidth(0.25)).toBe(2)
     })
 
-    it('returns 2px for magnitude 0.3', () => {
-      expect(weightMagnitudeToStrokeWidth(0.3)).toBe(2)
+    it('returns linear scale for magnitude 0.5', () => {
+      expect(weightMagnitudeToStrokeWidth(0.5)).toBe(3)
     })
 
-    it('returns 2px for magnitude < 0.6', () => {
-      expect(weightMagnitudeToStrokeWidth(0.59)).toBe(2)
+    it('returns linear scale for magnitude 0.75', () => {
+      expect(weightMagnitudeToStrokeWidth(0.75)).toBe(4)
     })
 
-    it('returns 3px for magnitude 0.6', () => {
-      expect(weightMagnitudeToStrokeWidth(0.6)).toBe(3)
+    it('returns 5px for magnitude 1.0', () => {
+      expect(weightMagnitudeToStrokeWidth(1.0)).toBe(5)
     })
 
-    it('returns 3px for magnitude 1.0', () => {
-      expect(weightMagnitudeToStrokeWidth(1.0)).toBe(3)
-    })
-
-    it('clamps magnitude > 1 to 3px', () => {
-      expect(weightMagnitudeToStrokeWidth(1.5)).toBe(3)
+    it('clamps magnitude > 1 to 5px', () => {
+      expect(weightMagnitudeToStrokeWidth(1.5)).toBe(5)
     })
 
     it('handles negative values via internal Math.abs', () => {
-      expect(weightMagnitudeToStrokeWidth(-0.8)).toBe(3)
-      expect(weightMagnitudeToStrokeWidth(-0.2)).toBe(1)
-      expect(weightMagnitudeToStrokeWidth(-0.45)).toBe(2)
+      expect(weightMagnitudeToStrokeWidth(-0.5)).toBe(3)
+      expect(weightMagnitudeToStrokeWidth(-1.0)).toBe(5)
     })
   })
 

@@ -64,15 +64,20 @@ describe('Canvas Store', () => {
     expect(parseInt(id2.slice(1), 10)).toBeGreaterThan(parseInt(id1.slice(1), 10))
   })
 
-  it('supports multiple edges between same nodes', () => {
+  it('prevents duplicate edges between same nodes', () => {
     seedDemoGraph()
     const { addEdge } = useCanvasStore.getState()
-    addEdge({ source: '1', target: '2' })
-    addEdge({ source: '1', target: '2' })
+    const result1 = addEdge({ source: '1', target: '2' })
+    const result2 = addEdge({ source: '1', target: '2' })
+    // addEdge now blocks duplicates (Graph Editing Experience Task 2b)
+    expect(result1.created).toBe(false)
+    expect(result1.reason).toBe('duplicate')
+    expect(result2.created).toBe(false)
+    expect(result2.reason).toBe('duplicate')
     const { edges } = useCanvasStore.getState()
     const between1and2 = edges.filter(e => e.source === '1' && e.target === '2')
-    // seedDemoGraph already has one edge from 1→2, plus 2 new ones = 3
-    expect(between1and2.length).toBeGreaterThanOrEqual(3)
+    // Only the original edge from seedDemoGraph should remain
+    expect(between1and2.length).toBe(1)
   })
 
   it('reseeds IDs on hydrate', () => {
