@@ -28,6 +28,7 @@ import type {
 } from './types'
 import { isPreAnalysisEnrichedEnabled } from '../../flags'
 import { ModelReceiptBlock } from './ModelReceiptBlock'
+import { ArtefactBlock as ArtefactBlockComponent } from '../../components/chat/ArtefactBlock'
 import type { PatchBlockState, PatchRejectionInfo } from './useConversation'
 import { MAX_VISIBLE_BLOCKS_PER_TURN } from './types'
 import { extractTargetIdsFromPatch } from './utils/extractTargetIds'
@@ -40,6 +41,9 @@ import styles from './Conversation.module.css'
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+
+// eslint-disable-next-line @typescript-eslint/no-empty-function
+const artefactNoop = () => {}
 
 /** Human-readable one-line summary of patch operations (e.g. "3 factors, 2 options, 1 goal"). */
 function summarisePatchOps(operations: { op: string; data?: Record<string, unknown> }[]): string {
@@ -87,6 +91,7 @@ interface InlineBlocksProps {
   patchRejections?: Map<string, PatchRejectionInfo>
   onPatchAccept?: (patchId: string, block: GraphPatchBlockType) => void
   onPatchDismiss?: (patchId: string) => void
+  onArtefactMessage?: (message: string) => void
   /** Word count of the turn's assistant_text — used by commentary collapse default logic */
   assistantTextWordCount?: number
 }
@@ -98,6 +103,7 @@ export const InlineBlocks = memo(function InlineBlocks({
   patchRejections,
   onPatchAccept,
   onPatchDismiss,
+  onArtefactMessage,
   assistantTextWordCount = 0,
 }: InlineBlocksProps) {
   const [showAll, setShowAll] = useState(false)
@@ -123,6 +129,7 @@ export const InlineBlocks = memo(function InlineBlocks({
             patchRejections={patchRejections}
             onPatchAccept={onPatchAccept}
             onPatchDismiss={onPatchDismiss}
+            onArtefactMessage={onArtefactMessage}
             assistantTextWordCount={assistantTextWordCount}
           />
         </div>
@@ -151,6 +158,7 @@ interface BlockRendererProps {
   patchRejections?: Map<string, PatchRejectionInfo>
   onPatchAccept?: (patchId: string, block: GraphPatchBlockType) => void
   onPatchDismiss?: (patchId: string) => void
+  onArtefactMessage?: (message: string) => void
   assistantTextWordCount?: number
 }
 
@@ -161,6 +169,7 @@ function BlockRenderer({
   patchRejections,
   onPatchAccept,
   onPatchDismiss,
+  onArtefactMessage,
   assistantTextWordCount = 0,
 }: BlockRendererProps) {
   switch (block.type) {
@@ -202,6 +211,14 @@ function BlockRenderer({
 
     case 'evidence':
       return <EvidenceBlockRenderer block={block} />
+
+    case 'artefact':
+      return (
+        <ArtefactBlockComponent
+          block={block}
+          onSendMessage={onArtefactMessage ?? artefactNoop}
+        />
+      )
 
     default: {
       // Unknown block type — suppress from user view, log for dev diagnostics

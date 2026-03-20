@@ -48,6 +48,23 @@ export interface ConversationMessage {
 // § 2 — Inline blocks (rendered inside assistant messages)
 // ---------------------------------------------------------------------------
 
+/** Action chip rendered below an artefact block */
+export interface ArtefactAction {
+  label: string
+  message: string
+}
+
+/** AI-generated interactive HTML content rendered in a sandboxed iframe */
+export interface ArtefactBlock {
+  type: 'artefact'
+  artefact_type: string
+  title: string
+  description?: string
+  /** Raw HTML string rendered inside a sandboxed iframe */
+  content: string
+  actions?: ArtefactAction[]
+}
+
 export type ConversationBlock =
   | CommentaryBlock
   | ReviewCardBlock
@@ -57,6 +74,7 @@ export type ConversationBlock =
   | BriefBlock
   | ModelReceiptBlockType
   | EvidenceBlock
+  | ArtefactBlock
 
 // ---------------------------------------------------------------------------
 // Citation marker (optional on CommentaryBlock)

@@ -103,6 +103,14 @@ export const ConversationPanel = memo(function ConversationPanel({
     [sendChip, retryLast, messages, onChipTaken],
   )
 
+  // ── Artefact action handler ─────────────────────────────────────────
+  const handleArtefactMessage = useCallback(
+    (text: string) => {
+      void sendMessage(text, { debugSource: 'artefact_action' })
+    },
+    [sendMessage],
+  )
+
   // ── Patch handlers (unchanged from previous version) ──────────────────
   const handlePatchAccept = useCallback(
     async (stateKey: string, block: GraphPatchBlock) => {
@@ -449,6 +457,7 @@ export const ConversationPanel = memo(function ConversationPanel({
         onPatchDismiss={handlePatchDismiss}
         onFeedback={handleFeedback}
         onRetry={retryLast}
+        onArtefactMessage={handleArtefactMessage}
       />
 
       <ChatComposer

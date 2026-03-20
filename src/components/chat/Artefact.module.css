@@ -1,0 +1,235 @@
+/* ---------------------------------------------------------------------------
+ * ArtefactBlock — AI-generated interactive content
+ *
+ * Design System v5: bg-panel, border-panel-border, rounded-lg, Inter font,
+ * semantic colour tokens. No em dashes, sentence case only.
+ * ---------------------------------------------------------------------------*/
+
+/* § 1 — Container */
+
+.artefactBlock {
+  border: 1px solid var(--border-default, #EEE6D8);
+  border-radius: 8px;
+  background: var(--bg-panel, #FEFEFE);
+  overflow: hidden;
+  margin-top: 8px;
+}
+
+/* § 2 — Header */
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  cursor: pointer;
+  user-select: none;
+  transition: background 150ms;
+}
+
+.header:hover {
+  background: var(--bg-panel-hover, #FEF9F3);
+}
+
+.headerLeft {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex: 1;
+}
+
+.headerCollapseIcon {
+  color: var(--text-light, #908D8D);
+  flex-shrink: 0;
+}
+
+.headerIcon {
+  color: var(--primary, #63ADCF);
+  flex-shrink: 0;
+}
+
+.headerTitle {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-header, #262626);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.headerDescription {
+  font-size: 12px;
+  color: var(--text-light, #908D8D);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.headerExpandBtn {
+  all: unset;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  color: var(--text-light, #908D8D);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 150ms, color 150ms;
+}
+
+.headerExpandBtn:hover {
+  background: var(--bg-canvas, #F4F0EA);
+  color: var(--text-body, #3F3F3E);
+}
+
+.headerExpandBtn:focus-visible {
+  outline: 2px solid var(--info, #2B7FA2);
+  outline-offset: 2px;
+}
+
+.header:focus-visible {
+  outline: 2px solid var(--info, #2B7FA2);
+  outline-offset: -2px;
+}
+
+/* § 3 — Iframe wrapper */
+
+.iframeWrapper {
+  overflow: auto;
+  border-top: 1px solid var(--border-default, #EEE6D8);
+}
+
+.iframe {
+  width: 100%;
+  height: 100%;
+  border: none;
+  display: block;
+}
+
+/* § 4 — Action chips */
+
+.actionsRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 10px 12px;
+  border-top: 1px solid var(--border-default, #EEE6D8);
+}
+
+.actionChip {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--border-default, #EEE6D8);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  background: var(--bg-panel, #FEFEFE);
+  color: var(--text-body, #3F3F3E);
+  transition: background 150ms, color 150ms;
+}
+
+.actionChip:hover {
+  background: var(--bg-panel-hover, #FEF9F3);
+}
+
+.actionChip:focus-visible {
+  outline: 2px solid var(--info, #2B7FA2);
+  outline-offset: 2px;
+}
+
+.actionChip:active {
+  transform: scale(0.97);
+  opacity: 0.85;
+}
+
+/* § 5 — Maximised overlay */
+
+.maximisedOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(4px);
+}
+
+.maximisedPanel {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 800px;
+  max-height: 80vh;
+  background: var(--bg-panel, #FEFEFE);
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.16);
+}
+
+.maximisedHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border-default, #EEE6D8);
+}
+
+.maximisedTitle {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-header, #262626);
+}
+
+.maximisedCloseBtn {
+  all: unset;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  color: var(--text-light, #908D8D);
+  cursor: pointer;
+  transition: background 150ms, color 150ms;
+}
+
+.maximisedCloseBtn:hover {
+  background: var(--bg-canvas, #F4F0EA);
+  color: var(--text-body, #3F3F3E);
+}
+
+.maximisedCloseBtn:focus-visible {
+  outline: 2px solid var(--info, #2B7FA2);
+  outline-offset: 2px;
+}
+
+.maximisedContent {
+  flex: 1;
+  overflow: auto;
+}
+
+.maximisedIframe {
+  width: 100%;
+  height: 100%;
+  min-height: 400px;
+  border: none;
+  display: block;
+}
+
+.maximisedActions {
+  border-top: 1px solid var(--border-default, #EEE6D8);
+}
+
+/* § 6 — Reduced motion */
+
+@media (prefers-reduced-motion: reduce) {
+  .actionChip:active {
+    transform: none;
+  }
+}

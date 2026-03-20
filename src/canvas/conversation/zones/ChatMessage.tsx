@@ -47,6 +47,7 @@ interface ChatMessageProps {
   onPatchAccept?: (patchId: string, block: GraphPatchBlock) => void
   onPatchDismiss?: (patchId: string) => void
   onFeedback?: (turnId: string, rating: 'up' | 'down') => void
+  onArtefactMessage?: (message: string) => void
 }
 
 export const ChatMessage = memo(function ChatMessage({
@@ -61,6 +62,7 @@ export const ChatMessage = memo(function ChatMessage({
   onPatchAccept,
   onPatchDismiss,
   onFeedback,
+  onArtefactMessage,
 }: ChatMessageProps) {
   const category = getMessageCategory(message)
   const borderClass = CATEGORY_BORDER[category]
@@ -99,6 +101,7 @@ export const ChatMessage = memo(function ChatMessage({
         onPatchAccept={onPatchAccept}
         onPatchDismiss={onPatchDismiss}
         onFeedback={onFeedback}
+        onArtefactMessage={onArtefactMessage}
       />
     </div>
   )

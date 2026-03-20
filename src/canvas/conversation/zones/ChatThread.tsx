@@ -30,6 +30,7 @@ interface ChatThreadProps {
   onPatchDismiss: (key: string) => void
   onFeedback: (turnId: string, rating: 'up' | 'down') => void
   onRetry: () => void
+  onArtefactMessage?: (message: string) => void
 }
 
 /** Derive a thinking label from the hint. */
@@ -50,6 +51,7 @@ export const ChatThread = memo(function ChatThread({
   onPatchDismiss,
   onFeedback,
   onRetry,
+  onArtefactMessage,
 }: ChatThreadProps) {
   const { listRef, listEndRef, showNewMessageIndicator, handleScroll, scrollToBottom } =
     useSmartScroll({ messageCount: messages.length, isThinking })
@@ -95,6 +97,7 @@ export const ChatThread = memo(function ChatThread({
             onPatchAccept={onPatchAccept}
             onPatchDismiss={onPatchDismiss}
             onFeedback={onFeedback}
+            onArtefactMessage={onArtefactMessage}
           />
         )
       })}
