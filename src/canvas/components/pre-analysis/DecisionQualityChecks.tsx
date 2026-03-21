@@ -74,6 +74,10 @@ function CheckRow({
             <span className={`inline-flex items-center rounded-full px-2 py-0.5 ${typography.panelMeta} border border-option/30 text-text-body bg-transparent`}>
               Framing
             </span>
+          ) : check.pill === 'bias' ? (
+            <span className={`inline-flex items-center rounded-full px-2 py-0.5 ${typography.panelMeta} border border-warning/30 text-text-body bg-transparent`}>
+              Bias
+            </span>
           ) : (
             <Pill size="small" variant="info">Verify</Pill>
           )}

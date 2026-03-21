@@ -30,6 +30,7 @@ import type {
   CEEGoalConnectivity,
   CEEModelQualityFactors,
   CEEInterventionHint,
+  PreAnalysisSensitivity,
 } from '../adapters/cee/types'
 import type { LimitsV1 } from '../adapters/plot/types'
 import type { ScenarioStage } from '../types/scenario'
@@ -312,6 +313,8 @@ interface CanvasState {
   ceeModelQualityFactors: CEEModelQualityFactors | null
   // Phase 1b: Intervention hints keyed by factor node ID
   ceeInterventionHints: Record<string, CEEInterventionHint> | null
+  // Pre-analysis sensitivity data from CEE (factor/edge influence on goal)
+  preAnalysisSensitivity: PreAnalysisSensitivity | null
   // Engine limits (session-scoped singleton — NOT cleared in resetCanvas)
   engineLimits: LimitsV1 | null
   engineLimitsSource: 'live' | 'fallback' | null
@@ -540,6 +543,7 @@ interface CanvasState {
   setCeeGoalConnectivity: (connectivity: CEEGoalConnectivity | null) => void
   setCeeModelQualityFactors: (factors: CEEModelQualityFactors | null) => void
   setCeeInterventionHints: (hints: Record<string, CEEInterventionHint> | null) => void
+  setPreAnalysisSensitivity: (sensitivity: PreAnalysisSensitivity | null) => void
   setEngineLimits: (limits: LimitsV1 | null, source: 'live' | 'fallback' | null, fetchedAt: number | null, error?: Error | null) => void
   setEngineLimitsLoading: (loading: boolean) => void
   // M4: Graph Health actions
@@ -784,6 +788,7 @@ function invalidateAnalysisReady(
       ceeGoalConnectivity: null,
       ceeModelQualityFactors: null,
       ceeInterventionHints: null,
+      preAnalysisSensitivity: null,
     }))
   }
 }
@@ -991,6 +996,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   ceeGoalConnectivity: null,
   ceeModelQualityFactors: null,
   ceeInterventionHints: null,
+  preAnalysisSensitivity: null,
   // Engine limits (session-scoped singleton)
   engineLimits: null,
   engineLimitsSource: null,
@@ -1916,6 +1922,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       ceeGoalConnectivity: null,
       ceeModelQualityFactors: null,
       ceeInterventionHints: null,
+      preAnalysisSensitivity: null,
       // Clear results and analysis state
       previousReport: null, // A1: Clear stale deltas on canvas reset
       results: { status: 'idle', progress: 0 },
@@ -2885,6 +2892,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
         ceeGoalConnectivity: null,
         ceeModelQualityFactors: null,
         ceeInterventionHints: null,
+        preAnalysisSensitivity: null,
       })
       try {
         sessionStorage.removeItem('olumi-cee-analysis-ready')
@@ -2943,6 +2951,15 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       console.warn('[Canvas] setCeeInterventionHints:', Object.keys(hints).length, 'hints')
     }
     set({ ceeInterventionHints: hints })
+  },
+
+  setPreAnalysisSensitivity: (sensitivity: PreAnalysisSensitivity | null) => {
+    if (import.meta.env.DEV && sensitivity) {
+      console.warn('[Canvas] setPreAnalysisSensitivity:', sensitivity.method,
+        Object.keys(sensitivity.factor_influence).length, 'factors',
+        Object.keys(sensitivity.edge_influence).length, 'edges')
+    }
+    set({ preAnalysisSensitivity: sensitivity })
   },
 
   setEngineLimits: (limits, source, fetchedAt, error) => {

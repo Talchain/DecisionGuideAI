@@ -743,6 +743,17 @@ export function DraftChat() {
       }
     }
 
+    // Store pre-analysis sensitivity from CEE analysis_ready for influence-based sorting
+    const rawSensitivity = (draftData as any).analysis_ready?.pre_analysis_sensitivity
+      ?? (draftData as any).pre_analysis_sensitivity
+    if (rawSensitivity && typeof rawSensitivity.factor_influence === 'object') {
+      const { setPreAnalysisSensitivity } = useCanvasStore.getState()
+      setPreAnalysisSensitivity(rawSensitivity)
+    } else {
+      const { setPreAnalysisSensitivity } = useCanvasStore.getState()
+      setPreAnalysisSensitivity(null)
+    }
+
   }, [pushHistory, applyLayout, setPendingFitView])
 
   // Handle panel resize via drag

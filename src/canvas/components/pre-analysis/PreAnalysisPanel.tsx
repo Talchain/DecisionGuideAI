@@ -46,6 +46,8 @@ import { ModelHealthSection } from '../ModelHealthSection'
 import { EdgeSummarySection } from './EdgeSummarySection'
 import { KeyRelationships } from './KeyRelationships'
 import { MissingKnowledgePrompt } from './MissingKnowledgePrompt'
+import { DecisionHealthRing } from './DecisionHealthRing'
+import type { ValidationMetadata, UserAction, ResolvedValue } from '../../domain/validation'
 
 /** Collapsible pre-mortem section from PLoT m1_review */
 function PreMortemSection({ preMortem }: { preMortem: { failure_scenario: string; warning_signs: string[]; mitigation: string } }) {
@@ -305,6 +307,62 @@ export function PreAnalysisPanel({
       })
     }
   }, [data.goalNode])
+
+  // === CONTESTED EDGE RESOLVE HANDLER (Task 2c) ===
+  const handleResolveContestedEdge = useCallback((edgeId: string, action: UserAction, customMean?: number) => {
+    const { edges: storeEdges, updateEdge } = useCanvasStore.getState()
+    const edge = storeEdges.find(e => e.id === edgeId)
+    if (!edge) return
+    const edgeData = edge.data as Record<string, unknown>
+    const validation = edgeData?.validation as ValidationMetadata | undefined
+    if (!validation) return
+
+    let resolvedValue: ResolvedValue | null = null
+    const updates: Record<string, unknown> = {
+      ...edgeData,
+      validation: {
+        ...validation,
+        user_action: action,
+        resolved_by: 'user' as const,
+        was_shown: true,
+        resolved_value: null as ResolvedValue | null,
+      },
+    }
+
+    if (action === 'accepted_pass2') {
+      resolvedValue = {
+        strength_mean: validation.pass2.strength_mean,
+        strength_std: validation.pass2.strength_std,
+        exists_probability: validation.pass2.exists_probability,
+      }
+      ;(updates.validation as Record<string, unknown>).resolved_value = resolvedValue
+      updates.weight = Math.abs(validation.pass2.strength_mean)
+      updates.direction = validation.pass2.strength_mean >= 0 ? 'positive' : 'negative'
+    } else if (action === 'overridden' && customMean !== undefined) {
+      resolvedValue = { strength_mean: customMean }
+      ;(updates.validation as Record<string, unknown>).resolved_value = resolvedValue
+      updates.weight = Math.abs(customMean)
+      updates.direction = customMean >= 0 ? 'positive' : 'negative'
+    } else {
+      // accepted_pass1 or dismissed — no value changes
+      ;(updates.validation as Record<string, unknown>).resolved_value = null
+    }
+
+    updateEdge(edgeId, { data: updates })
+  }, [])
+
+  // === SENSITIVITY MAPS (Task 4) ===
+  const preAnalysisSensitivity = useCanvasStore(s => s.preAnalysisSensitivity)
+  const factorInfluenceMap = useMemo(() => {
+    if (!preAnalysisSensitivity?.factor_influence) return undefined
+    const entries = Object.entries(preAnalysisSensitivity.factor_influence)
+    return entries.length > 0 ? new Map(entries) : undefined
+  }, [preAnalysisSensitivity])
+  const edgeInfluenceMap = useMemo(() => {
+    if (!preAnalysisSensitivity?.edge_influence) return undefined
+    const entries = Object.entries(preAnalysisSensitivity.edge_influence)
+    return entries.length > 0 ? new Map(entries) : undefined
+  }, [preAnalysisSensitivity])
 
   // === INTERACTIVE ACTION HANDLERS ===
 
@@ -596,9 +654,19 @@ export function PreAnalysisPanel({
         }
         break
       default:
+        // Handle bias CTA: "Ask AI about this" for bias findings (Task 3d)
+        if (action.startsWith('ask_ai_bias_')) {
+          const biasId = action.replace('ask_ai_bias_', '')
+          const finding = ceeAnalysisReady?.bias_findings?.find(
+            (f: { id: string }) => f.id === biasId
+          )
+          if (finding) {
+            onSendMessage?.(`I may have a ${(finding as { type: string }).type} bias in my model: ${(finding as { description: string }).description}. Can you help me think about this differently?`)
+          }
+        }
         break
     }
-  }, [data.goalNode, handleAddRisk, handleAddBaseline, handleAddOption, handleFocusNode])
+  }, [data.goalNode, handleAddRisk, handleAddBaseline, handleAddOption, handleFocusNode, ceeAnalysisReady, onSendMessage])
 
   // Goal baseline inline input handlers
   const handleBaselineConfirm = useCallback((value: number) => {
@@ -698,6 +766,20 @@ export function PreAnalysisPanel({
           reviewCount={data.tiers.reviewAssumptions.count}
           optionalCount={data.tiers.optional.count}
         />
+
+        {/* Decision health ring — top of panel, above goal card */}
+        {(data.ceeQuality || data.nodesByKind.goal.length > 0) && (
+          <DecisionHealthRing
+            completeness={data.ceeQuality
+              ? (data.ceeQuality.structure ?? 5) / 10
+              : (['goal', 'option', 'factor'] as const).filter(k => data.nodesByKind[k].length > 0).length / 3}
+            evidence={data.evidenceQuality.ratio}
+            balance={data.balanceScore}
+            calibration={data.totalReviewableFactorsCount > 0
+              ? data.reviewedFactorsCount / data.totalReviewableFactorsCount
+              : 0}
+          />
+        )}
 
         {/* Coaching summary — one-line text below header */}
         {data.coachingSummary && (
@@ -865,6 +947,10 @@ export function PreAnalysisPanel({
             onHoverLeave={handleHoverClear}
             reviewedCount={data.reviewedFactorsCount}
             totalReviewableCount={data.totalReviewableFactorsCount}
+            contestedEdges={data.contestedEdges}
+            nodes={nodes}
+            onResolveEdge={handleResolveContestedEdge}
+            factorInfluenceMap={factorInfluenceMap}
           />
           <KeyRelationships
             edges={edges}
@@ -873,6 +959,7 @@ export function PreAnalysisPanel({
             onHoverEnter={handleHoverElement}
             onHoverLeave={handleHoverClear}
             onUpdateEdgeStrength={handleUpdateEdgeStrength}
+            edgeInfluenceMap={edgeInfluenceMap}
           />
         </div>
 
@@ -921,6 +1008,7 @@ export function PreAnalysisPanel({
             gaps={evidenceGaps}
             onSetValue={handleSetValueForGap}
             onAskAI={handleAskAI}
+            factorInfluenceMap={factorInfluenceMap}
           />
         )}
 

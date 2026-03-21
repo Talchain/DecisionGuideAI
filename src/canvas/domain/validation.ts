@@ -86,6 +86,10 @@ export interface ValidationMetadata {
   /** Percentage points of goal probability; null pre-analysis */
   evoi_impact: number | null
 
+  // Visibility control (CEE applies one-per-target-node cap)
+  /** Whether CEE selected this contested edge for user review */
+  surfaced: boolean
+
   // User interaction tracking
   was_shown: boolean
   user_action: UserAction

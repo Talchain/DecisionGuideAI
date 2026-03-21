@@ -314,7 +314,7 @@ describe('ContestedEdgeCard', () => {
       />
     )
     expect(screen.getByTestId('contested-resolved-e1')).toBeInTheDocument()
-    expect(screen.getByTestId('contested-resolved-e1')).toHaveTextContent('Kept current model value')
+    expect(screen.getByTestId('contested-resolved-e1')).toHaveTextContent('Kept current value')
     // Resolve actions should be gone
     expect(screen.queryByTestId('contested-actions-e1')).not.toBeInTheDocument()
   })
@@ -329,7 +329,7 @@ describe('ContestedEdgeCard', () => {
         onResolve={mockResolve}
       />
     )
-    expect(screen.getByTestId('contested-pill-e1')).toHaveTextContent('Dismissed')
+    expect(screen.getByTestId('contested-pill-e1')).toHaveTextContent('Skipped')
   })
 
   it('hides estimate block when resolved', () => {

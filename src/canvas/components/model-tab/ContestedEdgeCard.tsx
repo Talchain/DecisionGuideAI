@@ -14,7 +14,8 @@ import type { Edge, Node } from '@xyflow/react'
 import { AlertTriangle, Check } from 'lucide-react'
 import { typography } from '../../../styles/typography'
 import { DetailToggleContext } from './DetailToggleContext'
-import { focusNodeById } from '../../utils/focusHelpers'
+import { focusNodeById, focusEdgeById } from '../../utils/focusHelpers'
+import { useCanvasStore } from '../../store'
 import { NON_EVIDENCE_PROVENANCE } from '../../utils/evidenceCoverage'
 import type { ValidationMetadata, UserAction } from '../../domain/validation'
 import { SignedStrengthSlider } from '../../ui/inspector/SignedStrengthSlider'
@@ -45,10 +46,10 @@ interface ContestedEdgeCardProps {
 
 function resolvedLabel(action: UserAction): string {
   switch (action) {
-    case 'accepted_pass1': return 'Kept current model value'
-    case 'accepted_pass2': return 'Accepted independent review'
+    case 'accepted_pass1': return 'Kept current value'
+    case 'accepted_pass2': return 'Used review value'
     case 'overridden':     return 'Custom value entered'
-    case 'dismissed':      return 'Dismissed'
+    case 'dismissed':      return 'Skipped'
     default:               return 'Resolved'
   }
 }
@@ -147,7 +148,7 @@ export function ContestedEdgeCard({
     'rounded-lg p-2.5 mb-2 last:mb-0 border transition-all',
     isResolved
       ? 'border-success/50 opacity-65 bg-panel'
-      : 'border-info/30 bg-panel',
+      : 'border-warning/30 bg-panel',
     isSelected ? 'ring-1 ring-info/50' : '',
   ].filter(Boolean).join(' ')
 
@@ -159,7 +160,14 @@ export function ContestedEdgeCard({
     >
       {/* ── Header row ──────────────────────────────────────────────────────── */}
       <div className="flex items-start gap-1.5 mb-1.5 flex-wrap">
-        <span className={`${typography.panelBody} font-medium text-text-header flex-1 min-w-0 leading-snug`}>
+        <button
+          type="button"
+          onClick={() => {
+            useCanvasStore.getState().selectEdgeWithoutHistory(edgeId)
+            focusEdgeById(edgeId)
+          }}
+          className={`${typography.panelBody} font-medium text-info hover:underline cursor-pointer flex-1 min-w-0 leading-snug text-left`}
+        >
           {edgeLabel ?? (
             <>
               {fromLabel}
@@ -167,7 +175,7 @@ export function ContestedEdgeCard({
               {toLabel}
             </>
           )}
-        </span>
+        </button>
         {/* contested pill */}
         <span
           className={`inline-flex items-center px-2 py-0.5 rounded-full ${typography.panelMeta} bg-transparent border border-info/30 text-text-body shrink-0`}
@@ -223,21 +231,16 @@ export function ContestedEdgeCard({
             </span>
           </div>
 
-          {/* Basis label THEN reasoning — mandatory contract order */}
-          <div data-testid={`contested-basis-reasoning-${edgeId}`}>
-            <p
-              className={`${typography.panelMeta} font-medium text-info mb-0.5`}
-              data-testid={`contested-basis-label-${edgeId}`}
-            >
-              {basisLabel}
-            </p>
-            <p
-              className={`${typography.panelMeta} text-text-body leading-relaxed`}
-              data-testid={`contested-reasoning-${edgeId}`}
-            >
-              {reasoning}
-            </p>
-          </div>
+          {/* Basis prefix + reasoning — mandatory contract format: "Based on {basis}: {reasoning}" */}
+          <p
+            className={`${typography.panelMeta} text-text-body leading-relaxed`}
+            data-testid={`contested-basis-reasoning-${edgeId}`}
+          >
+            <span className="font-medium text-info" data-testid={`contested-basis-label-${edgeId}`}>
+              {basisLabel}:
+            </span>{' '}
+            <span data-testid={`contested-reasoning-${edgeId}`}>{reasoning}</span>
+          </p>
         </div>
       )}
 
@@ -279,7 +282,7 @@ export function ContestedEdgeCard({
             className={`px-2.5 py-1 rounded-lg border border-panel-border bg-panel ${typography.panelMeta} text-text-body hover:border-info/30 hover:bg-panel-hover transition-colors`}
             data-testid={`contested-accept-pass1-${edgeId}`}
           >
-            Accept current ({pass1Band})
+            Keep current ({pass1Band})
           </button>
           <button
             type="button"
@@ -287,7 +290,7 @@ export function ContestedEdgeCard({
             className={`px-2.5 py-1 rounded-lg border border-panel-border bg-panel ${typography.panelMeta} text-text-body hover:border-info/30 hover:bg-panel-hover transition-colors`}
             data-testid={`contested-accept-pass2-${edgeId}`}
           >
-            Accept review ({pass2Band})
+            Use review ({pass2Band})
           </button>
           {!showCustomInput && (
             <button
@@ -305,7 +308,7 @@ export function ContestedEdgeCard({
             className={`px-2.5 py-1 rounded-lg border border-transparent ${typography.panelMeta} text-text-light hover:text-text-body transition-colors`}
             data-testid={`contested-dismiss-${edgeId}`}
           >
-            Dismiss
+            Skip
           </button>
         </div>
       )}

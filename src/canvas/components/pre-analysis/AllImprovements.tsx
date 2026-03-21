@@ -20,6 +20,10 @@ import { Check, Pencil, Plus, HelpCircle, ChevronDown, ChevronRight, Info } from
 import Tooltip from '../../../components/Tooltip'
 import type { ImprovementItem, ImprovementCategory, TiersData } from './hooks/usePreAnalysisData'
 import { typography } from '@/styles/typography'
+import { ContestedEdgeCard } from '../model-tab/ContestedEdgeCard'
+import { DetailToggleContext } from '../model-tab/DetailToggleContext'
+import type { ValidationMetadata, UserAction } from '../../domain/validation'
+import type { Edge, Node } from '@xyflow/react'
 
 function SubgroupDivider({ label }: { label: string }) {
   return (
@@ -71,6 +75,14 @@ interface AllImprovementsProps {
   reviewedCount?: number
   /** Total count of reviewable factors (derived from node data) */
   totalReviewableCount?: number
+  /** Contested edges with full validation metadata for calibration card rendering */
+  contestedEdges?: Array<{ edge: Edge; validation: ValidationMetadata }>
+  /** All graph nodes for edge card label resolution */
+  nodes?: Node[]
+  /** Handler for resolving a contested edge */
+  onResolveEdge?: (edgeId: string, action: UserAction, customMean?: number) => void
+  /** Pre-analysis sensitivity factor influence map for "Drives N%" labels */
+  factorInfluenceMap?: Map<string, number>
 }
 
 /** Tier configuration for three-tier hierarchy */
@@ -115,6 +127,14 @@ interface TierSectionProps {
   /** For review assumptions tier: progress tracking (derived from node data) */
   reviewedCount?: number
   totalCount?: number
+  /** Contested edges for calibration card rendering */
+  contestedEdges?: Array<{ edge: Edge; validation: ValidationMetadata }>
+  /** All graph nodes for edge card label resolution */
+  nodes?: Node[]
+  /** Handler for resolving contested edges */
+  onResolveEdge?: (edgeId: string, action: UserAction, customMean?: number) => void
+  /** Factor influence map for "Drives N%" labels */
+  factorInfluenceMap?: Map<string, number>
 }
 
 /** Tier section component with accordion */
@@ -130,6 +150,10 @@ function TierSection({
   onHoverLeave,
   reviewedCount,
   totalCount,
+  contestedEdges,
+  nodes,
+  onResolveEdge,
+  factorInfluenceMap,
 }: TierSectionProps) {
   // For optional tier: collapse add_evidence items into summary row
   const [evidenceExpanded, setEvidenceExpanded] = useState(false)
@@ -231,9 +255,16 @@ function TierSection({
                   const prevItem = index > 0 ? nonEvidenceItems[index - 1] : undefined
                   const subgroupChanged = item.subgroup != null && item.subgroup !== prevItem?.subgroup
                   const count = item.subgroup ? subgroupCounts[item.subgroup] : undefined
-                  const dividerLabel = item.subgroup === 'cee_inference' ? `AI estimates${count != null ? ` (${count})` : ''}`
+                  const dividerLabel = item.subgroup === 'contested' ? `Contested relationships${count != null ? ` (${count})` : ''}`
+                    : item.subgroup === 'cee_inference' ? `AI estimates${count != null ? ` (${count})` : ''}`
                     : item.subgroup === 'brief_extraction' ? `From your brief${count != null ? ` (${count})` : ''}`
                     : item.subgroup === 'user_reviewed' ? `Reviewed${count != null ? ` (${count})` : ''}` : null
+                  // For contested subgroup items, render ContestedEdgeCard instead of ImprovementRow
+                  const isContestedItem = item.subgroup === 'contested'
+                  const contestedMatch = isContestedItem && contestedEdges
+                    ? contestedEdges.find(ce => `contested_${ce.edge.id}` === item.key)
+                    : undefined
+
                   return (
                     <div
                       key={item.key}
@@ -245,13 +276,26 @@ function TierSection({
                       {subgroupChanged && dividerLabel && (
                         <SubgroupDivider label={dividerLabel} />
                       )}
-                      <ImprovementRow
-                        item={item}
-                        onFocus={onFocus}
-                        actionHandlers={actionHandlers}
-                        onHoverEnter={onHoverEnter}
-                        onHoverLeave={onHoverLeave}
-                      />
+                      {contestedMatch && nodes && onResolveEdge ? (
+                        <DetailToggleContext.Provider value={{ showDetail: false, setShowDetail: () => {} }}>
+                          <ContestedEdgeCard
+                            edge={contestedMatch.edge}
+                            nodes={nodes}
+                            validation={contestedMatch.validation}
+                            isFragile={false}
+                            onResolve={onResolveEdge}
+                          />
+                        </DetailToggleContext.Provider>
+                      ) : (
+                        <ImprovementRow
+                          item={item}
+                          onFocus={onFocus}
+                          actionHandlers={actionHandlers}
+                          onHoverEnter={onHoverEnter}
+                          onHoverLeave={onHoverLeave}
+                          factorInfluence={factorInfluenceMap?.get(item.focus?.id ?? '')}
+                        />
+                      )}
                     </div>
                   )
                 })
@@ -431,9 +475,11 @@ interface ImprovementRowProps {
   onHoverEnter?: (type: 'node' | 'edge', id: string) => void
   /** Handler for clearing hover */
   onHoverLeave?: () => void
+  /** Factor influence score (0–1) for "Drives N%" label */
+  factorInfluence?: number
 }
 
-function ImprovementRow({ item, onFocus, actionHandlers, isRemoving, onHoverEnter, onHoverLeave }: ImprovementRowProps) {
+function ImprovementRow({ item, onFocus, actionHandlers, isRemoving, onHoverEnter, onHoverLeave, factorInfluence }: ImprovementRowProps) {
   const [showEvidenceInput, setShowEvidenceInput] = useState(false)
   const [evidenceValue, setEvidenceValue] = useState('')
   const [exitLabel, setExitLabel] = useState<string | null>(null)
@@ -761,6 +807,12 @@ function ImprovementRow({ item, onFocus, actionHandlers, isRemoving, onHoverEnte
               </span>
               </Tooltip>
             )}
+            {/* Influence label from pre-analysis sensitivity (Task 4b) */}
+            {factorInfluence != null && factorInfluence > 0 && (
+              <span className={`shrink-0 ${typography.panelMeta} text-text-light ml-1`}>
+                Drives {Math.round(factorInfluence * 100)}%
+              </span>
+            )}
           </div>
 
           {/* Fixed action column - always visible on touch/narrow (Task 8) */}
@@ -970,6 +1022,10 @@ export function AllImprovements({
   onHoverLeave,
   reviewedCount,
   totalReviewableCount,
+  contestedEdges,
+  nodes,
+  onResolveEdge,
+  factorInfluenceMap,
 }: AllImprovementsProps) {
   // Track expanded state for each tier
   const [mustAddressExpanded, setMustAddressExpanded] = useState(tierConfig.mustAddress.defaultExpanded)
@@ -1004,6 +1060,10 @@ export function AllImprovements({
         onHoverLeave={onHoverLeave}
         reviewedCount={reviewedCount ?? 0}
         totalCount={totalReviewableCount ?? 0}
+        contestedEdges={contestedEdges}
+        nodes={nodes}
+        onResolveEdge={onResolveEdge}
+        factorInfluenceMap={factorInfluenceMap}
       />
 
       {/* Optional improvements tier */}

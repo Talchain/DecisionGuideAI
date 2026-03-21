@@ -65,6 +65,8 @@ export interface CEEv2Edge {
   exists_probability?: number // Alt field name used by some CEE versions
   provenance?: string | { source: string; quote: string; location?: string }
   provenance_source?: 'document' | 'metric' | 'hypothesis' | 'engine'
+  /** Multi-pass validation metadata (contested vs agreed) */
+  validation?: import('../../canvas/domain/validation').ValidationMetadata
 }
 
 /**
@@ -371,6 +373,23 @@ export interface CEEAnalysisReady {
    * count-based string when absent.
    */
   coaching_summary?: string | null
+  /** CEE bias findings surfaced at pre-analysis stage */
+  bias_findings?: CEEBiasFinding[]
+  /** Pre-analysis sensitivity data from CEE (factor/edge influence on goal) */
+  pre_analysis_sensitivity?: PreAnalysisSensitivity
+}
+
+/**
+ * Pre-analysis sensitivity data from CEE.
+ * Provides factor and edge influence scores before full MC analysis.
+ */
+export interface PreAnalysisSensitivity {
+  /** Factor influence on goal variance, keyed by node ID (0–1) */
+  factor_influence: Record<string, number>
+  /** Edge influence on goal variance, keyed by edge ID (0–1) */
+  edge_influence: Record<string, number>
+  /** Method used to compute sensitivity */
+  method: 'linear' | 'reduced_mc'
 }
 
 /**

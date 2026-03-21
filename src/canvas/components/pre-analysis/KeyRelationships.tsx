@@ -18,6 +18,8 @@ interface KeyRelationshipsProps {
   onHoverEnter?: (type: 'node' | 'edge', id: string) => void
   onHoverLeave?: () => void
   onUpdateEdgeStrength?: (edgeId: string, signedMean: number) => void
+  /** Edge influence map for sensitivity-based sorting (Task 4c) */
+  edgeInfluenceMap?: Map<string, number>
 }
 
 interface EdgeRow {
@@ -50,8 +52,8 @@ const BASIS_LABELS: Record<string, string> = {
   weak_guess: 'Uncertain, your input would help',
 }
 
-/** Derive top 3 edges by connectivity (in-degree + out-degree) */
-function deriveTopEdges(edges: Edge[], nodes: Node[]): EdgeRow[] {
+/** Derive top 3 edges by influence (when available) or connectivity (in-degree + out-degree) */
+function deriveTopEdges(edges: Edge[], nodes: Node[], edgeInfluenceMap?: Map<string, number>): EdgeRow[] {
   if (!edges || !nodes || edges.length === 0) return []
 
   const nodeMap = new Map(nodes.map(n => [n.id, n]))
@@ -103,7 +105,16 @@ function deriveTopEdges(edges: Edge[], nodes: Node[]): EdgeRow[] {
     }
   })
 
-  scored.sort((a, b) => b.score - a.score)
+  scored.sort((a, b) => {
+    // Primary: edge influence from sensitivity data when available
+    if (edgeInfluenceMap && edgeInfluenceMap.size > 0) {
+      const aInfluence = edgeInfluenceMap.get(a.edgeId) ?? -1
+      const bInfluence = edgeInfluenceMap.get(b.edgeId) ?? -1
+      if (aInfluence !== bInfluence) return bInfluence - aInfluence
+    }
+    // Fallback: connectivity score
+    return b.score - a.score
+  })
   return scored.slice(0, 3)
 }
 
@@ -114,8 +125,9 @@ export const KeyRelationships = memo(function KeyRelationships({
   onHoverEnter,
   onHoverLeave,
   onUpdateEdgeStrength,
+  edgeInfluenceMap,
 }: KeyRelationshipsProps) {
-  const topEdges = deriveTopEdges(edges, nodes)
+  const topEdges = deriveTopEdges(edges, nodes, edgeInfluenceMap)
 
   const handleStrengthSelect = useCallback((edgeId: string, value: number) => {
     onUpdateEdgeStrength?.(edgeId, value)

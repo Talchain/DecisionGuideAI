@@ -498,7 +498,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
               }
             }
             if (isContested) {
-              return needsUserInput ? 'var(--semantic-info)' : 'color-mix(in srgb, var(--semantic-info) 70%, transparent)'
+              return needsUserInput ? 'var(--semantic-warning)' : 'color-mix(in srgb, var(--semantic-warning) 70%, transparent)'
             }
             return isHighlightedEdge ? 'var(--semantic-info)' : (directionStroke ?? visualProps.stroke)
           })(),
@@ -523,7 +523,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
           // D.1: Smooth transitions for live styling; respect prefers-reduced-motion (§7.4)
           transition: prefersReducedMotion
             ? 'none'
-            : 'stroke 200ms ease, stroke-width 200ms ease, stroke-dasharray 200ms ease, opacity 300ms ease',
+            : 'stroke 200ms ease, stroke-width 200ms ease, stroke-dasharray 300ms ease-out, opacity 300ms ease',
         }}
       />
       

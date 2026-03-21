@@ -34,6 +34,8 @@ export interface WorthInvestigatingProps {
   gaps: EvidenceGap[]
   onSetValue?: (factorId: string) => void
   onAskAI?: (factorId: string, factorLabel: string) => void
+  /** Factor influence map for "Drives N%" labels (Task 4b) */
+  factorInfluenceMap?: Map<string, number>
 }
 
 // ---------------------------------------------------------------------------
@@ -97,7 +99,7 @@ export function deriveEvidenceGaps(nodes: Node[], edges: Edge[], voiMap?: Map<st
 
 const MAX_VISIBLE = 3
 
-export const WorthInvestigating = memo(function WorthInvestigating({ gaps, onSetValue, onAskAI }: WorthInvestigatingProps) {
+export const WorthInvestigating = memo(function WorthInvestigating({ gaps, onSetValue, onAskAI, factorInfluenceMap }: WorthInvestigatingProps) {
   const [expanded, setExpanded] = useState(false)
 
   // Hide entirely if zero gaps
@@ -125,6 +127,7 @@ export const WorthInvestigating = memo(function WorthInvestigating({ gaps, onSet
             gap={gap}
             onSetValue={onSetValue}
             onAskAI={onAskAI}
+            factorInfluence={factorInfluenceMap?.get(gap.factorId)}
           />
         ))}
       </ul>
@@ -158,7 +161,7 @@ export const WorthInvestigating = memo(function WorthInvestigating({ gaps, onSet
 // § 4 — Individual gap row
 // ---------------------------------------------------------------------------
 
-function GapRow({ gap, onSetValue, onAskAI }: { gap: EvidenceGap; onSetValue?: (id: string) => void; onAskAI?: (factorId: string, factorLabel: string) => void }) {
+function GapRow({ gap, onSetValue, onAskAI, factorInfluence }: { gap: EvidenceGap; onSetValue?: (id: string) => void; onAskAI?: (factorId: string, factorLabel: string) => void; factorInfluence?: number }) {
   const { setHoveredFromPanel, hoveredElementId } = useHighlightContext()
   const crossHighlight = isCrossHighlightEnabled()
 
@@ -227,7 +230,9 @@ function GapRow({ gap, onSetValue, onAskAI }: { gap: EvidenceGap; onSetValue?: (
         {gap.factorLabel}
       </p>
       <p className={`${typography.panelMeta} text-text-light`}>
-        {gap.description}
+        {factorInfluence != null && factorInfluence > 0
+          ? `Drives ${Math.round(factorInfluence * 100)}% of outcome variance. ${gap.description}`
+          : gap.description}
       </p>
 
       {gap.techniqueSuggestion && (

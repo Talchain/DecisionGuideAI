@@ -35,6 +35,8 @@ import { detectBaseline } from '../../../utils/baselineDetection'
 import { getObservedState } from '../../../utils/observedStateHelpers'
 // Import quality dimensions type from store
 import type { CeeQualityDimensions } from '../../../store'
+// Import validation types for contested edge support
+import type { ValidationMetadata } from '../../../domain/validation'
 
 // ============================================================================
 // Types
@@ -80,7 +82,7 @@ export interface ImprovementItem {
   /** Secondary hint text (e.g. verification_prompt from CEE) */
   hint?: string
   /** Subgroup key for divider rows within the reviewAssumptions tier */
-  subgroup?: 'cee_inference' | 'brief_extraction' | 'user_reviewed'
+  subgroup?: 'contested' | 'cee_inference' | 'brief_extraction' | 'user_reviewed'
   /** Factor's current raw value (for inline editing) */
   rawValue?: number | null
   /** Factor's cap for normalisation (for inline editing) */
@@ -121,8 +123,8 @@ export interface QualityCheck {
   cta: string
   /** CTA action kind (matches improvement action kinds or custom) */
   ctaAction: string
-  /** Pill label: Framing or Verify */
-  pill: 'framing' | 'verify'
+  /** Pill label: Framing, Verify, or Bias */
+  pill: 'framing' | 'verify' | 'bias'
 }
 
 /** Evidence quality level */
@@ -240,6 +242,10 @@ export interface PreAnalysisData {
   defaultStrengthPercent: number
   /** One-line coaching summary synthesising model readiness */
   coachingSummary: string | null
+  /** Contested edges with full validation metadata for calibration cards */
+  contestedEdges: Array<{ edge: Edge; validation: import('../../../../canvas/domain/validation').ValidationMetadata }>
+  /** Balance score for decision health ring (0–1) */
+  balanceScore: number
 }
 
 // ============================================================================
@@ -561,6 +567,8 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
   const ceeQuality = useCanvasStore(s => s.ceeQuality)
   // Task 6: Pipeline trace for repair_summary
   const ceePipelineTrace = useCanvasStore(s => s.ceePipelineTrace)
+  // Pre-analysis sensitivity data for influence-based sorting
+  const preAnalysisSensitivity = useCanvasStore(s => s.preAnalysisSensitivity)
 
   // Group nodes by kind
   const nodesByKind = useMemo<NodesByKind>(() => {
@@ -755,6 +763,32 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
       }
     }
 
+    // === CONTESTED EDGES (highest priority in reviewAssumptions) ===
+    // Filter edges with contested validation that CEE surfaced for user review
+    for (const edge of edges) {
+      const data = edge.data as { validation?: ValidationMetadata; label?: string } | undefined
+      const validation = data?.validation
+      if (!validation) continue
+      if (validation.status !== 'contested') continue
+      if (!validation.surfaced) continue
+      if (validation.user_action !== 'pending') continue
+
+      const sourceNode = nodes.find(n => n.id === edge.source)
+      const targetNode = nodes.find(n => n.id === edge.target)
+      const sourceLabel = sourceNode ? cleanFactorLabel(getNodeLabel(sourceNode)).label : edge.source
+      const targetLabel = targetNode ? cleanFactorLabel(getNodeLabel(targetNode)).label : edge.target
+      const edgeLabel = data?.label || `${sourceLabel} → ${targetLabel}`
+
+      result.verify.push({
+        key: `contested_${edge.id}`,
+        category: 'verify',
+        label: edgeLabel,
+        detail: `Contested: two AI passes disagree (divergence ${Math.round(validation.max_divergence * 100)}%)`,
+        focus: { type: 'edge', id: edge.id, label: edgeLabel },
+        subgroup: 'contested',
+      })
+    }
+
     // PLoT m1_review.key_assumptions — each is a plain string to display in Review assumptions tier
     const keyAssumptions = m1ReviewAssumptions?.key_assumptions ?? []
     for (const assumption of keyAssumptions) {
@@ -767,12 +801,42 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
       })
     }
 
-    // Sort verify items by subgroup: cee_inference → brief_extraction → user_reviewed → ungrouped
-    const SUBGROUP_ORDER: Record<string, number> = { cee_inference: 0, brief_extraction: 1, user_reviewed: 2 }
+    // Sort verify items by subgroup: contested → cee_inference → brief_extraction → user_reviewed → ungrouped
+    // Within each subgroup, sort by factor_influence desc when sensitivity data available
+    const SUBGROUP_ORDER: Record<string, number> = { contested: -1, cee_inference: 0, brief_extraction: 1, user_reviewed: 2 }
+    const factorInfluence = preAnalysisSensitivity?.factor_influence
     result.verify.sort((a, b) => {
       const ao = a.subgroup != null ? (SUBGROUP_ORDER[a.subgroup] ?? 3) : 3
       const bo = b.subgroup != null ? (SUBGROUP_ORDER[b.subgroup] ?? 3) : 3
       if (ao !== bo) return ao - bo
+      // Within contested subgroup, sort by evoi_impact desc (post-analysis) or max_divergence desc (pre-analysis)
+      if (a.subgroup === 'contested' && b.subgroup === 'contested') {
+        const aEdge = edges.find(e => e.id === a.focus?.id)
+        const bEdge = edges.find(e => e.id === b.focus?.id)
+        const aVal = (aEdge?.data as { validation?: ValidationMetadata } | undefined)?.validation
+        const bVal = (bEdge?.data as { validation?: ValidationMetadata } | undefined)?.validation
+        if (aVal && bVal) {
+          // Items with evoi_impact rank above those without
+          const aHasEvoi = aVal.evoi_impact != null
+          const bHasEvoi = bVal.evoi_impact != null
+          if (aHasEvoi !== bHasEvoi) return aHasEvoi ? -1 : 1
+          // Post-analysis: sort by evoi_impact desc
+          if (aHasEvoi && bHasEvoi) {
+            return bVal.evoi_impact! - aVal.evoi_impact!
+          }
+          // Pre-analysis: max_divergence desc, then distance_to_goal asc
+          if (aVal.max_divergence !== bVal.max_divergence) {
+            return bVal.max_divergence - aVal.max_divergence
+          }
+          return aVal.distance_to_goal - bVal.distance_to_goal
+        }
+      }
+      // Within other subgroups, sort by factor_influence desc when available
+      if (factorInfluence && a.focus?.type === 'node' && b.focus?.type === 'node') {
+        const aInfluence = factorInfluence[a.focus.id] ?? -1
+        const bInfluence = factorInfluence[b.focus.id] ?? -1
+        if (aInfluence !== bInfluence) return bInfluence - aInfluence
+      }
       return 0
     })
 
@@ -849,7 +913,20 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
     }
 
     return result
-  }, [nodes, edges, nodesByKind, ceeAnalysisReady?.options, ceeAnalysisReady?.verification_prompts, ceeAnalysisReady?.low_confidence_edges, m1ReviewAssumptions])
+  }, [nodes, edges, nodesByKind, ceeAnalysisReady?.options, ceeAnalysisReady?.verification_prompts, ceeAnalysisReady?.low_confidence_edges, m1ReviewAssumptions, preAnalysisSensitivity])
+
+  // Contested edges with full validation metadata for calibration card rendering
+  const contestedEdges = useMemo(() => {
+    return edges
+      .filter(e => {
+        const v = (e.data as { validation?: ValidationMetadata } | undefined)?.validation
+        return v?.status === 'contested' && v?.surfaced && v?.user_action === 'pending'
+      })
+      .map(e => ({
+        edge: e,
+        validation: (e.data as { validation: ValidationMetadata }).validation,
+      }))
+  }, [edges])
 
   // Total improvements
   const totalImprovements = useMemo(() => {
@@ -1453,8 +1530,27 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
       })
     }
 
+    // 7. CEE bias findings — append after deterministic checks, deduplicate
+    const biasFindings = ceeAnalysisReady?.bias_findings ?? []
+    for (const finding of biasFindings) {
+      // Deduplicate: skip if a deterministic check with similar scope already fired
+      const isDuplicate =
+        (finding.type === 'confirmation' && checks.some(c => c.id === 'all_positive_edges')) ||
+        (finding.type === 'anchoring' && checks.some(c => c.id === 'many_ai_estimates'))
+      if (isDuplicate) continue
+
+      checks.push({
+        id: `bias_${finding.id}`,
+        message: finding.description,
+        detail: finding.mechanism ?? undefined,
+        cta: 'Ask AI about this',
+        ctaAction: `ask_ai_bias_${finding.id}`,
+        pill: 'bias',
+      })
+    }
+
     return checks
-  }, [nodesByKind, edges, ceeAnalysisReady?.options, successThreshold, goalNode, totalReviewableFactorsCount])
+  }, [nodesByKind, edges, ceeAnalysisReady?.options, ceeAnalysisReady?.bias_findings, successThreshold, goalNode, totalReviewableFactorsCount])
 
   // =========================================================================
   // Task 6: Model adjustments with resolved labels + repair actions from trace
@@ -1525,6 +1621,31 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
     }
   }, [edges])
 
+  // Balance score for decision health ring (Task 5)
+  const balanceScore = useMemo(() => {
+    let score = 0
+    const optionNodes = [...nodesByKind.option, ...nodesByKind.decision]
+    // 1. Has negative edges
+    if (edges.some(hasNegativeStrength)) score += 0.25
+    // 2. Has risk nodes
+    if (nodesByKind.risk.length > 0) score += 0.25
+    // 3. Has baseline option
+    const hasBaseline = optionNodes.some(n => {
+      const explicit = (n.data as { is_baseline?: boolean })?.is_baseline === true
+      const label = (n.data as { label?: string })?.label ?? ''
+      return explicit || detectBaseline(label).isBaseline
+    })
+    if (hasBaseline) score += 0.25
+    // 4. Option diversity (2+ non-baseline options)
+    const nonBaselineCount = optionNodes.filter(n => {
+      const explicit = (n.data as { is_baseline?: boolean })?.is_baseline === true
+      const label = (n.data as { label?: string })?.label ?? ''
+      return !explicit && !detectBaseline(label).isBaseline
+    }).length
+    if (nonBaselineCount >= 2) score += 0.25
+    return score
+  }, [edges, nodesByKind])
+
   // Coaching summary — one-line text synthesising the model's readiness state.
   // Primary: CEE coaching.summary (decision-specific). Fallback: count-based string.
   const coachingSummary = useMemo<string | null>(() => {
@@ -1592,6 +1713,8 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
     hasDefaultStrengths,
     defaultStrengthPercent,
     coachingSummary,
+    contestedEdges,
+    balanceScore,
   }
 }
 
