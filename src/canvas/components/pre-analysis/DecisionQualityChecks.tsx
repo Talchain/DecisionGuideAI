@@ -49,10 +49,11 @@ function CheckRow({
   const [showInput, setShowInput] = useState(false)
   const [inputValue, setInputValue] = useState('')
   const [showSuccess, setShowSuccess] = useState(false)
+  const [validationError, setValidationError] = useState(false)
 
   const handleDirectSubmit = useCallback(() => {
     const trimmed = inputValue.trim()
-    if (!trimmed) return
+    if (!trimmed) { setValidationError(true); return }
     const kind = check.id === 'no_risks' ? 'risk' as const : 'factor' as const
     onDirectAdd?.(kind, trimmed)
     setInputValue('')
@@ -101,28 +102,32 @@ function CheckRow({
 
         {/* Inline input for direct add */}
         {showInput && (
-          <div className="flex items-center gap-2 mt-1">
-            <input
-              type="text"
-              value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
-              placeholder={directAction?.placeholder}
-              className={`flex-1 px-2 py-1 ${typography.panelBody} border border-panel-border rounded-lg bg-panel text-text-body focus:outline-none focus:ring-1 focus:ring-info`}
-              autoFocus
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') handleDirectSubmit()
-                if (e.key === 'Escape') { setShowInput(false); setInputValue('') }
-              }}
-            />
-            <button
-              type="button"
-              onClick={handleDirectSubmit}
-              disabled={!inputValue.trim()}
-              className={`px-3 py-1 ${typography.panelMeta} bg-primary text-text-on-color rounded-full hover:opacity-90 disabled:opacity-40`}
-            >
-              Add
-            </button>
-          </div>
+          <>
+            <div className="flex items-center gap-2 mt-1">
+              <input
+                type="text"
+                value={inputValue}
+                onChange={(e) => { setInputValue(e.target.value); setValidationError(false) }}
+                placeholder={directAction?.placeholder}
+                className={`flex-1 px-2 py-1 ${typography.panelBody} border ${validationError ? 'border-danger' : 'border-panel-border'} rounded-lg bg-panel text-text-body focus:outline-none focus:ring-1 focus:ring-info`}
+                autoFocus
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleDirectSubmit()
+                  if (e.key === 'Escape') { setShowInput(false); setInputValue(''); setValidationError(false) }
+                }}
+              />
+              <button
+                type="button"
+                onClick={handleDirectSubmit}
+                className={`px-3 py-1 ${typography.panelMeta} bg-primary text-text-on-color rounded-full hover:opacity-90 disabled:opacity-40`}
+              >
+                Add
+              </button>
+            </div>
+            {validationError && (
+              <p className={`${typography.panelMeta} text-danger mt-0.5`}>Enter a name</p>
+            )}
+          </>
         )}
       </div>
     </div>

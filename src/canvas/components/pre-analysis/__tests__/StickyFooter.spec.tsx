@@ -10,8 +10,8 @@ const baseProps = {
   onAnalyse: () => {},
 }
 
-describe('StickyFooter — reviewed count display', () => {
-  it('shows X/Y reviewed when totalReviewableCount > 0', () => {
+describe('StickyFooter — contributed count display', () => {
+  it('shows X/Y contributed when totalReviewableCount > 0', () => {
     render(
       <StickyFooter
         {...baseProps}
@@ -19,10 +19,10 @@ describe('StickyFooter — reviewed count display', () => {
         totalReviewableCount={5}
       />,
     )
-    expect(screen.getByText('2/5 reviewed')).toBeInTheDocument()
+    expect(screen.getByText('2/5 contributed')).toBeInTheDocument()
   })
 
-  it('shows "All reviewed" when reviewedCount equals totalReviewableCount', () => {
+  it('shows "All contributed" when reviewedCount equals totalReviewableCount', () => {
     render(
       <StickyFooter
         {...baseProps}
@@ -30,10 +30,10 @@ describe('StickyFooter — reviewed count display', () => {
         totalReviewableCount={3}
       />,
     )
-    expect(screen.getByText('All reviewed')).toBeInTheDocument()
+    expect(screen.getByText('All contributed')).toBeInTheDocument()
   })
 
-  it('does not show reviewed count when totalReviewableCount is 0', () => {
+  it('does not show contributed count when totalReviewableCount is 0', () => {
     render(
       <StickyFooter
         {...baseProps}
@@ -41,7 +41,7 @@ describe('StickyFooter — reviewed count display', () => {
         totalReviewableCount={0}
       />,
     )
-    expect(screen.queryByText(/reviewed/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/contributed/)).not.toBeInTheDocument()
   })
 })
 
@@ -61,8 +61,8 @@ describe('StickyFooter — no quality/evidence tier label', () => {
   })
 })
 
-describe('StickyFooter — reviewed count tooltip (source distribution)', () => {
-  it('reviewed count element has cursor-help class (tooltip trigger) when totalReviewableCount > 0', () => {
+describe('StickyFooter — contributed count tooltip (source distribution)', () => {
+  it('contributed count element has cursor-help class (tooltip trigger) when totalReviewableCount > 0', () => {
     render(
       <StickyFooter
         {...baseProps}
@@ -72,12 +72,12 @@ describe('StickyFooter — reviewed count tooltip (source distribution)', () => 
         evidenceTotalCount={5}
       />,
     )
-    const reviewedEl = screen.getByText('0/5 reviewed')
-    expect(reviewedEl).toBeInTheDocument()
-    expect(reviewedEl).toHaveClass('cursor-help')
+    const contributedEl = screen.getByText('0/5 contributed')
+    expect(contributedEl).toBeInTheDocument()
+    expect(contributedEl).toHaveClass('cursor-help')
   })
 
-  it('shows reviewed count when some from brief and some AI', () => {
+  it('shows contributed count when some from brief and some AI', () => {
     render(
       <StickyFooter
         {...baseProps}
@@ -87,10 +87,10 @@ describe('StickyFooter — reviewed count tooltip (source distribution)', () => 
         evidenceTotalCount={5}
       />,
     )
-    expect(screen.getByText('2/5 reviewed')).toBeInTheDocument()
+    expect(screen.getByText('2/5 contributed')).toBeInTheDocument()
   })
 
-  it('shows "All reviewed" when all factors reviewed', () => {
+  it('shows "All contributed" when all factors contributed', () => {
     render(
       <StickyFooter
         {...baseProps}
@@ -100,10 +100,10 @@ describe('StickyFooter — reviewed count tooltip (source distribution)', () => 
         evidenceTotalCount={5}
       />,
     )
-    expect(screen.getByText('All reviewed')).toBeInTheDocument()
+    expect(screen.getByText('All contributed')).toBeInTheDocument()
   })
 
-  it('does not show reviewed count when totalReviewableCount is 0', () => {
+  it('does not show contributed count when totalReviewableCount is 0', () => {
     render(
       <StickyFooter
         {...baseProps}
@@ -113,7 +113,7 @@ describe('StickyFooter — reviewed count tooltip (source distribution)', () => 
         evidenceTotalCount={0}
       />,
     )
-    expect(screen.queryByText(/reviewed/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/contributed/)).not.toBeInTheDocument()
   })
 
   it('tooltip shows "All values estimated by AI" when 0% from brief', () => {
@@ -126,7 +126,7 @@ describe('StickyFooter — reviewed count tooltip (source distribution)', () => 
         evidenceTotalCount={5}
       />,
     )
-    const trigger = screen.getByText('0/5 reviewed')
+    const trigger = screen.getByText('0/5 contributed')
     fireEvent.mouseEnter(trigger)
     expect(screen.getByRole('tooltip')).toHaveTextContent('All values estimated by AI')
   })
@@ -141,7 +141,7 @@ describe('StickyFooter — reviewed count tooltip (source distribution)', () => 
         evidenceTotalCount={5}
       />,
     )
-    const trigger = screen.getByText('1/5 reviewed')
+    const trigger = screen.getByText('1/5 contributed')
     fireEvent.mouseEnter(trigger)
     expect(screen.getByRole('tooltip')).toHaveTextContent('Most values estimated by AI')
   })
@@ -156,7 +156,7 @@ describe('StickyFooter — reviewed count tooltip (source distribution)', () => 
         evidenceTotalCount={5}
       />,
     )
-    const trigger = screen.getByText('3/5 reviewed')
+    const trigger = screen.getByText('3/5 contributed')
     fireEvent.mouseEnter(trigger)
     expect(screen.getByRole('tooltip')).toHaveTextContent('Most values from your brief')
   })
@@ -171,7 +171,7 @@ describe('StickyFooter — reviewed count tooltip (source distribution)', () => 
         evidenceTotalCount={5}
       />,
     )
-    const trigger = screen.getByText('All reviewed')
+    const trigger = screen.getByText('All contributed')
     fireEvent.mouseEnter(trigger)
     expect(screen.getByRole('tooltip')).toHaveTextContent('All values from your brief')
   })

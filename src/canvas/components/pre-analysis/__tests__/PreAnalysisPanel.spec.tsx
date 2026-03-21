@@ -376,7 +376,7 @@ describe('PreAnalysisPanel', () => {
       }))
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
-      expect(screen.getByText(/Your expertise/)).toBeInTheDocument()
+      expect(screen.getAllByText(/Your expertise/).length).toBeGreaterThan(0)
       expect(screen.getByText('Test Factor')).toBeInTheDocument()
     })
   })
@@ -390,7 +390,7 @@ describe('PreAnalysisPanel', () => {
       }))
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
-      expect(screen.getByText('0/5 reviewed')).toBeInTheDocument()
+      expect(screen.getByText('0/5 contributed')).toBeInTheDocument()
     })
 
     it('shows "All reviewed" in footer when all factors reviewed', () => {
@@ -402,7 +402,7 @@ describe('PreAnalysisPanel', () => {
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
       const footer = screen.getByTestId('sticky-footer')
-      expect(footer).toHaveTextContent('All reviewed')
+      expect(footer).toHaveTextContent('All contributed')
     })
 
     it('does not show Quality tier label in footer', () => {
@@ -697,7 +697,7 @@ describe('PreAnalysisPanel', () => {
         render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
 
         // Shows reviewed count in footer — no quality tier label
-        expect(screen.getByText('2/4 reviewed')).toBeInTheDocument()
+        expect(screen.getByText('2/4 contributed')).toBeInTheDocument()
         expect(screen.queryByText(/Quality:/)).not.toBeInTheDocument()
         expect(screen.queryByText(/Data confidence:/)).not.toBeInTheDocument()
         expect(screen.queryByText(/Input confidence:/)).not.toBeInTheDocument()

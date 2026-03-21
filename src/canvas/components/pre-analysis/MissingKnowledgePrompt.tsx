@@ -41,7 +41,7 @@ export function MissingKnowledgePrompt({ onSendMessage }: MissingKnowledgePrompt
         <X size={14} />
       </button>
       <p className={`${typography.panelBody} text-text-light pr-4`}>
-        Know something the model doesn't capture?
+        Know something the model doesn't capture? Your expertise could improve the analysis.
       </p>
 
       {!showInput ? (

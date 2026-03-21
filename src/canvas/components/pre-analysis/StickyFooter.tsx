@@ -108,7 +108,7 @@ export function StickyFooter({
   const metaText = !isRetrying && totalReviewableCount != null && totalReviewableCount > 0 ? (
     <Tooltip content={reviewedTooltip}>
       <span className="cursor-help">
-        {allReviewed ? 'All reviewed' : `${reviewedCount ?? 0}/${totalReviewableCount} reviewed`}
+        {allReviewed ? 'All contributed' : `${reviewedCount ?? 0}/${totalReviewableCount} contributed`}
       </span>
     </Tooltip>
   ) : hasBlockers ? `${blockerCount} to address` : undefined

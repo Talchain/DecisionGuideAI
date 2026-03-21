@@ -197,6 +197,7 @@ function TierSection({
 
       {/* Progress bar for reviewAssumptions tier (v1.1) */}
       {isReviewTier && reviewedCount !== undefined && totalCount !== undefined && totalCount > 0 && (
+        <Tooltip delay={300} content="Track your contributions to the model">
         <div className="px-3 pb-1">
           <div className="w-full h-1.5 bg-panel-border rounded-full overflow-hidden">
             <div
@@ -205,6 +206,7 @@ function TierSection({
             />
           </div>
         </div>
+        </Tooltip>
       )}
 
       {/* Section content */}
@@ -729,36 +731,35 @@ function ImprovementRow({ item, onFocus, actionHandlers, isRemoving, onHoverEnte
             {/* Value — clickable to open inline editor for verify items with onInlineEditValue */}
             {item.detail && (
               (actionHandlers?.onInlineEditValue && item.action?.targetType === 'node') ? (
+                <Tooltip delay={300} content="Click to update with your own figure">
                 <button
                   type="button"
                   onClick={handleOpenValueEditor}
-                  className="shrink-0 text-text-light hover:text-info hover:underline cursor-pointer"
-                  title="Click to update with your own figure"
+                  className="shrink-0 text-text-light hover:text-info cursor-pointer border-b border-dashed border-panel-border hover:border-info"
                 >
                   {' · '}{item.detail}
                 </button>
+                </Tooltip>
               ) : (
                 <span className="shrink-0 text-text-light"> · {item.detail}</span>
               )
             )}
-            {/* Source badge (Task 5) */}
+            {/* Source badge */}
             {item.sourceBadge === 'brief' && (
-              <span
-                className={`shrink-0 inline-flex items-center gap-1 ${typography.panelMeta} text-text-body bg-transparent border border-success/30 rounded-full px-2 py-0.5 ml-1`}
-                title="Extracted from your decision brief"
-              >
+              <Tooltip delay={300} content="Extracted from your decision brief">
+              <span className={`shrink-0 inline-flex items-center gap-1 ${typography.panelMeta} text-text-body bg-transparent border border-success/30 rounded-full px-2 py-0.5 ml-1`}>
                 <span className="w-1.5 h-1.5 rounded-full bg-success flex-shrink-0" aria-hidden="true" />
                 From brief
               </span>
+              </Tooltip>
             )}
             {item.sourceBadge === 'ai' && (
-              <span
-                className={`shrink-0 inline-flex items-center gap-1 ${typography.panelMeta} text-text-body bg-transparent border border-warning/30 rounded-full px-2 py-0.5 ml-1`}
-                title="Olumi estimated this because your brief didn't specify it"
-              >
+              <Tooltip delay={300} content="Olumi estimated this because your brief didn't specify it">
+              <span className={`shrink-0 inline-flex items-center gap-1 ${typography.panelMeta} text-text-body bg-transparent border border-warning/30 rounded-full px-2 py-0.5 ml-1`}>
                 <span className="w-1.5 h-1.5 rounded-full bg-warning flex-shrink-0" aria-hidden="true" />
                 AI estimate
               </span>
+              </Tooltip>
             )}
           </div>
 

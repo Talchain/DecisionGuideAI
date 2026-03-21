@@ -42,14 +42,30 @@ function getBand(weight: number): 'weak' | 'moderate' | 'strong' {
   return 'strong'
 }
 
+/** Map CEE basis codes to human-readable labels */
+const BASIS_LABELS: Record<string, string> = {
+  brief_explicit: 'Based on your brief',
+  structural_inference: 'Inferred from model structure',
+  domain_prior: 'Based on general domain knowledge',
+  weak_guess: 'Uncertain, your input would help',
+}
+
 /** Derive top 3 edges by connectivity (in-degree + out-degree) */
 function deriveTopEdges(edges: Edge[], nodes: Node[]): EdgeRow[] {
   if (!edges || !nodes || edges.length === 0) return []
-  // Only include causal edges with a set direction
+
+  const nodeMap = new Map(nodes.map(n => [n.id, n]))
+
+  // Only include causal edges with a set direction; exclude decision→option edges
   const causalEdges = edges.filter(e => {
     const data = e.data as Record<string, unknown> | undefined
     const dir = data?.direction ?? data?.effect_direction
-    return dir === 'positive' || dir === 'negative'
+    if (dir !== 'positive' && dir !== 'negative') return false
+    // Exclude structural decision→option edges
+    const sourceType = (nodeMap.get(e.source)?.data as Record<string, unknown>)?.kind ?? nodeMap.get(e.source)?.type
+    const targetType = (nodeMap.get(e.target)?.data as Record<string, unknown>)?.kind ?? nodeMap.get(e.target)?.type
+    if (sourceType === 'decision' && targetType === 'option') return false
+    return true
   })
 
   if (causalEdges.length === 0) return []
@@ -61,8 +77,6 @@ function deriveTopEdges(edges: Edge[], nodes: Node[]): EdgeRow[] {
     degree.set(e.target, (degree.get(e.target) ?? 0) + 1)
   }
 
-  const nodeMap = new Map(nodes.map(n => [n.id, n]))
-
   const scored = causalEdges.map(e => {
     const data = e.data as Record<string, unknown> | undefined
     const weight = typeof data?.weight === 'number' ? data.weight : 0.5
@@ -72,7 +86,8 @@ function deriveTopEdges(edges: Edge[], nodes: Node[]): EdgeRow[] {
     const sourceLabel = String((sourceNode?.data as Record<string, unknown>)?.label ?? e.source)
     const targetLabel = String((targetNode?.data as Record<string, unknown>)?.label ?? e.target)
     const basisRaw = ((data?.validation as Record<string, unknown>)?.pass2 as Record<string, unknown> | undefined)?.basis
-    const basis = basisRaw ? String(basisRaw) : undefined
+    const basisKey = basisRaw ? String(basisRaw) : undefined
+    const basis = basisKey ? (BASIS_LABELS[basisKey] ?? basisKey) : undefined
 
     const score = (degree.get(e.source) ?? 0) + (degree.get(e.target) ?? 0)
 
@@ -154,10 +169,10 @@ export const KeyRelationships = memo(function KeyRelationships({
             </div>
           </Tooltip>
 
-          {/* Basis line */}
+          {/* Basis line — label already includes full phrase from BASIS_LABELS */}
           {row.basis && (
             <p className={`${typography.panelMeta} text-text-light mt-0.5`}>
-              Based on {row.basis}
+              {row.basis}
             </p>
           )}
         </div>
