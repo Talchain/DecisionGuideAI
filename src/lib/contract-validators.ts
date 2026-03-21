@@ -662,7 +662,7 @@ export function validatePLoTErrorResponse(response: unknown): ContractValidation
               'critique has valid severity',
               false,
               'warning',
-              `invalid severity: ${critique.severity}`,
+              `invalid severity: ${critique?.severity}`,
               `critiques[${i}].severity`
             )
           )
