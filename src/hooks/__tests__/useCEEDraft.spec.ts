@@ -169,6 +169,92 @@ describe('useCEEDraft', () => {
     expect(result.current.guidance?.hint).toContain('Please add more detail')
   })
 
+  // ── P2.3: Request deduplication race-condition tests ──
+
+  it('cancels previous in-flight request when a new one fires (rapid re-fire)', async () => {
+    const { draftModel } = getMock()
+
+    // First call: slow (300ms), second call: fast (50ms)
+    let firstResolve: (v: any) => void
+    const firstPromise = new Promise(r => { firstResolve = r })
+    const secondResponse = {
+      quality_overall: 8,
+      nodes: [{ id: 'n2', label: 'Second', type: 'factor', uncertainty: 0.1 }],
+      edges: [],
+      draft_warnings: { structural: [], completeness: [] },
+    }
+
+    draftModel.mockReturnValueOnce(firstPromise)
+    draftModel.mockResolvedValueOnce(secondResponse)
+
+    const { result } = renderHook(() => useCEEDraft())
+
+    // Fire first request (don't await)
+    let firstResult: any
+    act(() => {
+      result.current.draft('First').catch(() => {}).then(r => { firstResult = r })
+    })
+
+    // Fire second request immediately (supersedes first)
+    await act(async () => {
+      await result.current.draft('Second')
+    })
+
+    // Resolve first after second already completed
+    await act(async () => {
+      firstResolve!({
+        quality_overall: 5,
+        nodes: [{ id: 'n1', label: 'Stale', type: 'factor', uncertainty: 0.5 }],
+        edges: [],
+        draft_warnings: { structural: [], completeness: [] },
+      })
+    })
+
+    // State should show second response, not first (stale) response
+    expect(result.current.data).toEqual(secondResponse)
+    expect(result.current.loading).toBe(false)
+    // First call should return null (aborted)
+    expect(firstResult).toBeNull()
+  })
+
+  it('does not update state from aborted request on error path (stale error suppression)', async () => {
+    const { draftModel } = getMock()
+    const { CEEError } = ceeModule as any
+
+    // First call: rejects slowly, second call: succeeds fast
+    let firstReject: (e: any) => void
+    const firstPromise = new Promise((_, rej) => { firstReject = rej })
+    const secondResponse = {
+      quality_overall: 7,
+      nodes: [{ id: 'n1', label: 'Good', type: 'factor', uncertainty: 0.2 }],
+      edges: [],
+      draft_warnings: { structural: [], completeness: [] },
+    }
+
+    draftModel.mockReturnValueOnce(firstPromise)
+    draftModel.mockResolvedValueOnce(secondResponse)
+
+    const { result } = renderHook(() => useCEEDraft())
+
+    // Fire first, then immediately fire second
+    act(() => {
+      result.current.draft('Will fail').catch(() => {})
+    })
+    await act(async () => {
+      await result.current.draft('Will succeed')
+    })
+
+    // Reject the first request after second succeeded
+    await act(async () => {
+      firstReject!(new CEEError('Stale error', 500))
+    })
+
+    // State should show second response success, NOT the stale error
+    expect(result.current.data).toEqual(secondResponse)
+    expect(result.current.error).toBeNull()
+    expect(result.current.loading).toBe(false)
+  })
+
   it('captures retryAfterSeconds when status is 429 and details include retry_after_seconds', async () => {
     const { draftModel } = getMock()
     const { CEEError } = ceeModule as any

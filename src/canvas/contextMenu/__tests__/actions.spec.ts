@@ -69,6 +69,22 @@ vi.mock('../../mutations/commitValidatedMutation', () => ({
   }),
 }))
 
+vi.mock('../../stores/confirmDialogStore', () => ({
+  useConfirmDialogStore: {
+    getState: () => ({ show: vi.fn() }),
+  },
+}))
+
+vi.mock('../../validation/graphGuardrails', () => ({
+  assessNodeDeletion: vi.fn(() => ({ disconnectsOptions: [], orphansNodes: [], removesLastGoal: false, removesLastDecision: false })),
+  assessEdgeDeletion: vi.fn(() => ({ disconnectsOptions: [], orphansNodes: [], removesLastGoal: false, removesLastDecision: false })),
+  isSignificantImpact: vi.fn(() => false),
+  buildDeletionMessage: vi.fn(() => ({ title: '', message: '', blocked: false })),
+  wouldExceedLimits: vi.fn(() => false),
+  wouldCreateCycle: vi.fn(() => false),
+  limitExceededMessage: vi.fn(() => ''),
+}))
+
 const showToast = vi.fn()
 
 // ---------------------------------------------------------------------------

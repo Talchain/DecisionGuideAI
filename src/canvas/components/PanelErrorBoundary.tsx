@@ -1,5 +1,6 @@
 import { Component, type ReactNode } from 'react'
 import { AlertTriangle, RotateCcw } from 'lucide-react'
+import { captureError } from '../../lib/monitoring'
 
 interface Props {
   children: ReactNode
@@ -29,6 +30,7 @@ export class PanelErrorBoundary extends Component<Props, State> {
 
   componentDidCatch(error: Error, info: React.ErrorInfo) {
     console.error(`[PanelErrorBoundary] ${this.props.panel}:`, error, info.componentStack)
+    captureError(error, { label: `PanelErrorBoundary:${this.props.panel}`, componentStack: info.componentStack ?? undefined })
   }
 
   private handleRetry = () => {
