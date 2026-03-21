@@ -444,9 +444,10 @@ describe('OutcomesSignal', () => {
 
       render(<OutcomesSignal defaultExpanded={true} />)
 
-      // p90=1.0 should be capped at 0.99 → displayed as "99.0%"
-      // (not "100.0%")
+      // p90=1.0 should be capped at 0.99 → displayed as "99.0%" (not "100.0%")
       expect(screen.queryByText('100.0%')).not.toBeInTheDocument()
+      // Positive assertion: the capped value must appear in rendered output
+      expect(document.body.textContent).toContain('99')
     })
   })
 })

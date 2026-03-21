@@ -609,17 +609,12 @@ describe('useRobustness', () => {
   // Error handling
   // =========================================================================
 
-  describe('Error handling', () => {
-    it('sets error and generates fallback when extraction throws', async () => {
-      // Provide enrichment that will cause extractRobustnessFromEnrichment to
-      // succeed but trigger an error somewhere in the hook logic.
-      // A simulated error scenario: enrichment is a non-null but badly shaped object
-      // that passes the initial check but fails downstream.
-      // The simplest way: override the store to return enrichment that triggers an error
-      // in the hook's try/catch.
+  describe('Degraded enrichment shapes', () => {
+    it('produces robustness from partial enrichment without crashing', async () => {
+      // Enrichment with sensitivity_analysis but minimal fields —
+      // verifies the extraction path handles sparse data gracefully.
       mockStoreState.results.enrichment = {
         sensitivity_analysis: {
-          // Provide edges so hasSensitivityAnalysis passes
           edges: [{ edge_id: 'e1', from: 'f1', to: 'g1', sensitivity_score: 0.5 }],
           fragile_edges: ['e1'],
           robust_edges: [],
@@ -631,7 +626,6 @@ describe('useRobustness', () => {
       }
       mockStoreState.results.report = makeReport()
 
-      // This should succeed normally — extractRobustnessFromEnrichment handles it
       const { result } = renderHook(() =>
         useRobustness({ runId: 'run-err', autoFetch: true })
       )
@@ -640,8 +634,9 @@ describe('useRobustness', () => {
         expect(result.current.loading).toBe(false)
       })
 
-      // Should have either enrichment data or fallback
+      // Should have extracted robustness (not null, not error)
       expect(result.current.robustness).not.toBeNull()
+      expect(result.current.error).toBeNull()
     })
   })
 

@@ -15,12 +15,10 @@
  * then-current telemetry and run-eligibility wiring.
  */
 
-import { describe, it, expect } from 'vitest'
+import { describe, it } from 'vitest'
 
-describe('ResultsPanel gating (deprecated)', () => {
-  it('is documented as deprecated — see src/canvas/panels/ResultsPanel.tsx header comment', () => {
-    // This test exists solely to document that the legacy ResultsPanel gating
-    // tests were intentionally retired when the component was deprecated.
-    expect(true).toBe(true)
+describe.skip('ResultsPanel gating (deprecated — canonical UX is OutputsDock)', () => {
+  it('tests retired — telemetry wiring moved, see src/canvas/panels/ResultsPanel.tsx header', () => {
+    // Intentionally empty: if ResultsPanel is resurrected, re-add gating tests
   })
 })

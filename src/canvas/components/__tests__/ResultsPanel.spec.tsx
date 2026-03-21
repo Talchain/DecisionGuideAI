@@ -15,12 +15,10 @@
  * that match the then-current formatting and rendering behaviour.
  */
 
-import { describe, it, expect } from 'vitest'
+import { describe, it } from 'vitest'
 
-describe('ResultsPanel (deprecated)', () => {
-  it('is documented as deprecated — see src/canvas/panels/ResultsPanel.tsx header comment', () => {
-    // This test exists solely to document that the legacy ResultsPanel is not
-    // in active use and its original test suite was intentionally retired.
-    expect(true).toBe(true)
+describe.skip('ResultsPanel (deprecated — canonical UX is OutputsDock)', () => {
+  it('tests retired — component marked NOT in use, see src/canvas/panels/ResultsPanel.tsx header', () => {
+    // Intentionally empty: if ResultsPanel is resurrected, re-add tests
   })
 })
