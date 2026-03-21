@@ -19,13 +19,10 @@ export default defineConfig({
       'src/canvas/__tests__/canvas.run-gating.dom.spec.tsx', // toast rendering requires full canvas pipeline
       'src/canvas/components/__tests__/OutputsDock.dom.spec.tsx', // needs network mock (fetch /bff/cee); CI-only
       // ── Deep logic divergence: source code changed substantially, tests need rewrite ──
-      'src/canvas/__tests__/store.validation.spec.ts', // 10/15 fail — validation selector logic rewritten
       'src/canvas/components/__tests__/OutcomesSignal.spec.tsx', // 10/28 fail — outcome labels/UI restructured
       'src/canvas/components/__tests__/ResultsPanel.gating.spec.tsx', // telemetry counter wiring changed
       'src/canvas/components/__tests__/ResultsPanel.spec.tsx', // 3/42 fail — value formatting changed
-      'src/canvas/components/__tests__/ValidationChip.spec.tsx', // 8/9 fail — component API rewritten
       'src/canvas/hooks/__tests__/useRobustness.spec.ts', // 12/16 fail — ISL→fallback source logic changed
-      'src/canvas/utils/__tests__/validateOutgoing.spec.ts', // 8/16 fail — validation logic divergence
       'src/pages/sandbox-guide/components/shared/__tests__/InsightItem.test.tsx', // 12/16 fail — component API rewritten
     ],
     environment: 'jsdom',

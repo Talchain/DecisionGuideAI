@@ -57,6 +57,11 @@ function isNonEmptyString(value: unknown): value is string {
   return typeof value === 'string' && value.length > 0
 }
 
+/** Narrow unknown to Record for safe nested property access (replaces `as any`) */
+function asRecord(value: unknown): Record<string, unknown> | undefined {
+  return isObject(value) ? value : undefined
+}
+
 // ============================================================================
 // CEE Response Validators
 // ============================================================================
@@ -72,7 +77,7 @@ function validateInterventionsShape(response: unknown): ContractCheck {
     return createCheck('interventions shape', false, 'error', 'Response is not an object')
   }
 
-  const analysisReady = (response as any).analysis_ready
+  const analysisReady = asRecord(response.analysis_ready)
   if (!analysisReady?.options) {
     // No options to validate - pass vacuously
     return createCheck('interventions shape', true, 'error')
@@ -84,7 +89,7 @@ function validateInterventionsShape(response: unknown): ContractCheck {
   }
 
   for (let i = 0; i < options.length; i++) {
-    const option = options[i]
+    const option = asRecord(options[i])
     if (!option?.interventions) continue
 
     const interventions = option.interventions
@@ -100,7 +105,7 @@ function validateInterventionsShape(response: unknown): ContractCheck {
 
     for (const [key, value] of Object.entries(interventions)) {
       // V3 allows either number or object with value property
-      const numericValue = typeof value === 'number' ? value : (value as any)?.value
+      const numericValue = typeof value === 'number' ? value : asRecord(value)?.value
       if (typeof numericValue !== 'number') {
         return createCheck(
           'interventions shape',
@@ -124,14 +129,14 @@ function validateCEEStatus(response: unknown): ContractCheck {
     return createCheck('status enum', false, 'error', 'Response is not an object')
   }
 
-  const analysisReady = (response as any).analysis_ready
+  const analysisReady = asRecord(response.analysis_ready)
   if (!analysisReady?.status) {
     // Status is optional at top level
     return createCheck('status enum', true, 'error')
   }
 
   const status = analysisReady.status
-  if (!VALID_CEE_STATUSES.includes(status)) {
+  if (typeof status !== 'string' || !VALID_CEE_STATUSES.includes(status as typeof VALID_CEE_STATUSES[number])) {
     return createCheck(
       'status enum',
       false,
@@ -152,7 +157,7 @@ function validateGoalNodeId(response: unknown): ContractCheck {
     return createCheck('goal_node_id present', false, 'warning', 'Response is not an object')
   }
 
-  const analysisReady = (response as any).analysis_ready
+  const analysisReady = asRecord(response.analysis_ready)
   if (!analysisReady) {
     return createCheck('goal_node_id present', true, 'warning')
   }
@@ -179,15 +184,15 @@ function validateNodeKinds(response: unknown): ContractCheck {
     return createCheck('node kinds valid', false, 'error', 'Response is not an object')
   }
 
-  const nodes = (response as any).nodes || (response as any).graph?.nodes
+  const nodes = response.nodes ?? asRecord(response.graph)?.nodes
   if (!nodes || !Array.isArray(nodes)) {
     return createCheck('node kinds valid', true, 'error')
   }
 
   for (let i = 0; i < nodes.length; i++) {
-    const node = nodes[i]
+    const node = asRecord(nodes[i])
     const kind = node?.kind || node?.type
-    if (kind && !VALID_NODE_KINDS.includes(kind)) {
+    if (kind && typeof kind === 'string' && !VALID_NODE_KINDS.includes(kind as typeof VALID_NODE_KINDS[number])) {
       return createCheck(
         'node kinds valid',
         false,
@@ -209,14 +214,16 @@ function validateEdgeStd(response: unknown): ContractCheck {
     return createCheck('edge std > 0', false, 'error', 'Response is not an object')
   }
 
-  const edges = (response as any).edges || (response as any).graph?.edges
+  const edges = response.edges ?? asRecord(response.graph)?.edges
   if (!edges || !Array.isArray(edges)) {
     return createCheck('edge std > 0', true, 'error')
   }
 
   for (let i = 0; i < edges.length; i++) {
-    const edge = edges[i]
-    const std = edge?.strength?.std ?? edge?.data?.strength?.std ?? edge?.data?.strengthStd
+    const edge = asRecord(edges[i])
+    const edgeData = asRecord(edge?.data)
+    const strength = asRecord(edge?.strength) ?? asRecord(edgeData?.strength)
+    const std = strength?.std ?? edgeData?.strengthStd
     if (typeof std === 'number' && std <= 0) {
       return createCheck(
         'edge std > 0',
@@ -239,14 +246,16 @@ function validateEdgeMean(response: unknown): ContractCheck {
     return createCheck('edge mean in [-1, 1]', false, 'warning', 'Response is not an object')
   }
 
-  const edges = (response as any).edges || (response as any).graph?.edges
+  const edges = response.edges ?? asRecord(response.graph)?.edges
   if (!edges || !Array.isArray(edges)) {
     return createCheck('edge mean in [-1, 1]', true, 'warning')
   }
 
   for (let i = 0; i < edges.length; i++) {
-    const edge = edges[i]
-    const mean = edge?.strength?.mean ?? edge?.data?.strength?.mean ?? edge?.data?.confidence
+    const edge = asRecord(edges[i])
+    const edgeData = asRecord(edge?.data)
+    const strength = asRecord(edge?.strength) ?? asRecord(edgeData?.strength)
+    const mean = strength?.mean ?? edgeData?.confidence
     if (typeof mean === 'number' && (mean < -1 || mean > 1)) {
       return createCheck(
         'edge mean in [-1, 1]',
@@ -299,12 +308,12 @@ function validateAnalysisStatus(response: unknown): ContractCheck {
     return createCheck('analysis_status enum', false, 'error', 'Response is not an object')
   }
 
-  const status = (response as any).analysis_status
+  const status = response.analysis_status
   if (!status) {
     return createCheck('analysis_status enum', false, 'error', 'analysis_status is missing')
   }
 
-  if (!VALID_ANALYSIS_STATUSES.includes(status)) {
+  if (typeof status !== 'string' || !VALID_ANALYSIS_STATUSES.includes(status as typeof VALID_ANALYSIS_STATUSES[number])) {
     return createCheck(
       'analysis_status enum',
       false,
@@ -327,8 +336,8 @@ function validateSeedUsed(response: unknown): ContractCheck {
   }
 
   // PLoT returns seed in meta.seed_used
-  const meta = (response as any).meta
-  const seedUsed = meta?.seed_used ?? (response as any).seed_used
+  const meta = asRecord(response.meta)
+  const seedUsed = meta?.seed_used ?? response.seed_used
   if (seedUsed === undefined) {
     return createCheck('seed_used valid', false, 'error', 'seed_used is missing (check meta.seed_used)')
   }
@@ -355,13 +364,13 @@ function validateResultsPresent(response: unknown): ContractCheck {
     return createCheck('results present', false, 'error', 'Response is not an object')
   }
 
-  const status = (response as any).analysis_status
+  const status = response.analysis_status
   if (status !== 'computed' && status !== 'partial') {
     return createCheck('results present', true, 'error')
   }
 
   // PLoT returns option_comparison (not results or options)
-  const optionComparison = (response as any).option_comparison
+  const optionComparison = response.option_comparison
   if (!Array.isArray(optionComparison) || optionComparison.length === 0) {
     return createCheck(
       'results present',
@@ -384,13 +393,13 @@ function validateOutcomeShape(response: unknown): ContractCheck {
   }
 
   // PLoT returns option_comparison with confidence_interval
-  const optionComparison = (response as any).option_comparison
+  const optionComparison = response.option_comparison
   if (!Array.isArray(optionComparison)) {
     return createCheck('outcome shape', true, 'error')
   }
 
   for (let i = 0; i < optionComparison.length; i++) {
-    const option = optionComparison[i]
+    const option = asRecord(optionComparison[i])
     const ci = option?.confidence_interval
 
     if (!ci) {
@@ -435,7 +444,7 @@ function validateRobustnessShape(response: unknown): ContractCheck {
     return createCheck('robustness shape', false, 'error', 'Response is not an object')
   }
 
-  const robustness = (response as any).robustness
+  const robustness = asRecord(response.robustness)
   if (!robustness) {
     // Robustness is optional
     return createCheck('robustness shape', true, 'error')
@@ -473,8 +482,8 @@ function validateRequestIdMatch(response: unknown, sentRequestId?: string): Cont
     return createCheck('request_id matches', true, 'warning')
   }
 
-  const responseRequestId = (response as any).request_id
-  if (!responseRequestId) {
+  const responseRequestId = response.request_id
+  if (typeof responseRequestId !== 'string') {
     return createCheck('request_id matches', true, 'warning')
   }
 
@@ -559,7 +568,7 @@ export function validateResponse(
       return validateCEEResponse(response)
     case 'PLoT':
       // Check if this is an error response (blocked/failed)
-      if (isObject(response) && ['blocked', 'failed'].includes((response as any).analysis_status)) {
+      if (isObject(response) && typeof response.analysis_status === 'string' && ['blocked', 'failed'].includes(response.analysis_status)) {
         return validatePLoTErrorResponse(response)
       }
       return validatePLoTResponse(response, requestId)
@@ -597,18 +606,19 @@ export function validatePLoTErrorResponse(response: unknown): ContractValidation
   }
 
   // Check analysis_status is blocked or failed
-  const analysisStatus = (response as any).analysis_status
+  const analysisStatus = response.analysis_status
+  const analysisStatusStr = typeof analysisStatus === 'string' ? analysisStatus : undefined
   checks.push(
     createCheck(
       'analysis_status is error type',
-      ['blocked', 'failed'].includes(analysisStatus),
+      !!analysisStatusStr && ['blocked', 'failed'].includes(analysisStatusStr),
       'error',
-      analysisStatus ? `status is "${analysisStatus}"` : 'analysis_status missing'
+      analysisStatusStr ? `status is "${analysisStatusStr}"` : 'analysis_status missing'
     )
   )
 
   // Check status_reason present
-  const statusReason = (response as any).status_reason
+  const statusReason = response.status_reason
   checks.push(
     createCheck(
       'status_reason present',
@@ -619,8 +629,8 @@ export function validatePLoTErrorResponse(response: unknown): ContractValidation
   )
 
   // Check critiques array (for blocked responses)
-  if (analysisStatus === 'blocked') {
-    const critiques = (response as any).critiques
+  if (analysisStatusStr === 'blocked') {
+    const critiques = response.critiques
     const hasCritiques = Array.isArray(critiques) && critiques.length > 0
     checks.push(
       createCheck(
@@ -632,10 +642,10 @@ export function validatePLoTErrorResponse(response: unknown): ContractValidation
     )
 
     // Validate critique structure
-    if (hasCritiques) {
+    if (hasCritiques && Array.isArray(critiques)) {
       for (let i = 0; i < critiques.length; i++) {
-        const critique = critiques[i]
-        if (!critique.code || typeof critique.code !== 'string') {
+        const critique = asRecord(critiques[i])
+        if (!critique?.code || typeof critique.code !== 'string') {
           checks.push(
             createCheck(
               'critique has code',
@@ -646,7 +656,7 @@ export function validatePLoTErrorResponse(response: unknown): ContractValidation
             )
           )
         }
-        if (!critique.severity || !['error', 'warning', 'info'].includes(critique.severity)) {
+        if (!critique?.severity || typeof critique.severity !== 'string' || !['error', 'warning', 'info'].includes(critique.severity)) {
           checks.push(
             createCheck(
               'critique has valid severity',
@@ -662,7 +672,7 @@ export function validatePLoTErrorResponse(response: unknown): ContractValidation
   }
 
   // Check request_id echoed
-  const requestId = (response as any).request_id
+  const requestId = response.request_id
   checks.push(
     createCheck(
       'request_id present',
@@ -702,20 +712,20 @@ export function validatePLoTRequest(request: unknown): ContractValidationResult 
     }
   }
 
-  const req = request as Record<string, unknown>
+  // After isObject guard, request is Record<string, unknown>
 
   // Check goal_node_id present
   checks.push(
     createCheck(
       'goal_node_id present',
-      typeof req.goal_node_id === 'string' && req.goal_node_id.length > 0,
+      typeof request.goal_node_id === 'string' && request.goal_node_id.length > 0,
       'error',
-      req.goal_node_id ? undefined : 'goal_node_id is missing or empty'
+      request.goal_node_id ? undefined : 'goal_node_id is missing or empty'
     )
   )
 
   // Check options non-empty
-  const options = req.options as any[] | undefined
+  const options = request.options
   const hasOptions = Array.isArray(options) && options.length > 0
   checks.push(
     createCheck(
@@ -732,7 +742,7 @@ export function validatePLoTRequest(request: unknown): ContractValidationResult 
     let invalidPath: string | undefined
 
     for (let i = 0; i < options.length; i++) {
-      const opt = options[i]
+      const opt = asRecord(options[i])
       const interventions = opt?.interventions
       if (!isObject(interventions)) {
         interventionsValid = false
@@ -761,8 +771,8 @@ export function validatePLoTRequest(request: unknown): ContractValidationResult 
   }
 
   // Check graph structure
-  const graph = req.graph as { nodes?: any[]; edges?: any[] } | undefined
-  const hasGraph = isObject(graph) && Array.isArray(graph?.nodes) && Array.isArray(graph?.edges)
+  const graph = asRecord(request.graph)
+  const hasGraph = !!graph && Array.isArray(graph.nodes) && Array.isArray(graph.edges)
   checks.push(
     createCheck(
       'graph structure valid',
@@ -773,11 +783,11 @@ export function validatePLoTRequest(request: unknown): ContractValidationResult 
   )
 
   // Check causal path from interventions to goal
-  if (hasGraph && hasOptions && typeof req.goal_node_id === 'string') {
+  if (hasGraph && hasOptions && typeof request.goal_node_id === 'string') {
     const pathResult = checkCausalPath(
-      graph as { nodes: any[]; edges: any[] },
+      { nodes: graph.nodes as unknown[], edges: graph.edges as unknown[] },
       options,
-      req.goal_node_id as string
+      request.goal_node_id
     )
     checks.push(
       createCheck(
@@ -816,8 +826,8 @@ interface CausalPathResult {
  * This validates that interventions can actually affect the goal.
  */
 export function checkCausalPath(
-  graph: { nodes: any[]; edges: any[] },
-  options: any[],
+  graph: { nodes: unknown[]; edges: unknown[] },
+  options: unknown[],
   goalNodeId: string
 ): CausalPathResult {
   if (!graph || !options || !goalNodeId) {
@@ -826,18 +836,20 @@ export function checkCausalPath(
 
   // Build adjacency list (directed graph)
   const adjacency = new Map<string, string[]>()
-  for (const edge of graph.edges) {
-    const from = edge.from || edge.source
-    const to = edge.to || edge.target
-    if (!from || !to) continue
+  for (const edgeRaw of graph.edges) {
+    const edge = asRecord(edgeRaw)
+    const from = edge?.from || edge?.source
+    const to = edge?.to || edge?.target
+    if (typeof from !== 'string' || typeof to !== 'string') continue
     if (!adjacency.has(from)) adjacency.set(from, [])
     adjacency.get(from)!.push(to)
   }
 
   // Get all intervention target nodes
   const interventionTargets = new Set<string>()
-  for (const option of options) {
-    for (const nodeId of Object.keys(option.interventions || {})) {
+  for (const optionRaw of options) {
+    const option = asRecord(optionRaw)
+    for (const nodeId of Object.keys((isObject(option?.interventions) ? option.interventions : {}) as Record<string, unknown>)) {
       interventionTargets.add(nodeId)
     }
   }
@@ -847,7 +859,7 @@ export function checkCausalPath(
   }
 
   // Check if goal node exists in graph
-  const nodeIds = new Set(graph.nodes.map((n) => n.id))
+  const nodeIds = new Set(graph.nodes.map((n) => asRecord(n)?.id).filter((id): id is string => typeof id === 'string'))
   if (!nodeIds.has(goalNodeId)) {
     return { hasPath: false, reason: `Goal node "${goalNodeId}" not in graph` }
   }

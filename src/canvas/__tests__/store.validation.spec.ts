@@ -1,24 +1,67 @@
 /**
  * Canvas Store - Validation Selectors Tests
  * Tests getInvalidNodes, hasValidationErrors, and getNextInvalidNode
+ *
+ * Validation rules (from validateOutgoing.ts):
+ * - ONLY validates decision→option edges (probability distribution semantics)
+ * - A decision node is invalid if it has ≥2 outgoing edges to options with non-zero confidence
+ *   and the sum of those non-zero confidences ≠ 100% ± tolerance
+ * - Pristine nodes (all zeros, never edited) are NOT invalid
  */
 
 import { describe, it, expect, beforeEach } from 'vitest'
 import { useCanvasStore, getInvalidNodes, hasValidationErrors, getNextInvalidNode } from '../store'
-import { DEFAULT_EDGE_DATA } from '../domain/edges'
 
-// Helper to create edge with confidence
-function createEdgeWithConfidence(source: string, target: string, confidence: number) {
-  return {
+/**
+ * Helper: add a node with a specific kind (decision/option/factor/etc.)
+ * Uses addNode (which defaults to type='decision') then updateNode to set data.kind
+ */
+function addTypedNode(kind: string, pos = { x: 0, y: 0 }): string {
+  const store = useCanvasStore.getState()
+  store.addNode(pos, kind as any)
+  // addNode sets data: { label: `Node ${id}` } but NOT data.kind
+  // We need to patch data.kind for the validation to recognise it
+  const nodes = useCanvasStore.getState().nodes
+  const lastNode = nodes[nodes.length - 1]
+  store.updateNode(lastNode.id, { data: { kind } })
+  return lastNode.id
+}
+
+/**
+ * Helper: add an edge from source→target with a given confidence probability
+ */
+function addEdgeWithConfidence(source: string, target: string, confidence: number) {
+  const store = useCanvasStore.getState()
+  store.addEdge({
     source,
     target,
-    data: { ...DEFAULT_EDGE_DATA, confidence, label: `${Math.round(confidence * 100)}%` }
-  }
+    data: {
+      weight: 0.5,
+      style: 'solid' as const,
+      curvature: 0.15,
+      pathType: 'bezier' as const,
+      kind: 'decision-probability' as const,
+      functionType: 'linear' as const,
+      beliefExists: 0.7,
+      beliefStrength: 0.5,
+      schemaVersion: 4 as const,
+      confidence,
+      label: `${Math.round(confidence * 100)}%`,
+    },
+  })
 }
 
 describe('Canvas Store - Validation Selectors', () => {
   beforeEach(() => {
     useCanvasStore.getState().resetCanvas()
+    // resetCanvas is a no-op if canvas is already empty, so force clean state
+    useCanvasStore.setState({
+      nodes: [],
+      edges: [],
+      touchedNodeIds: new Set(),
+      nextNodeId: 1,
+      nextEdgeId: 1,
+    })
   })
 
   describe('getInvalidNodes', () => {
@@ -29,15 +72,11 @@ describe('Canvas Store - Validation Selectors', () => {
       expect(invalidNodes).toEqual([])
     })
 
-    it('returns empty array when nodes have 0-1 outgoing edges', () => {
-      const { resetCanvas, addNode, addEdge } = useCanvasStore.getState()
-
-      resetCanvas()
-
-      // Add nodes with single outgoing edge (no validation needed)
-      addNode({ x: 0, y: 0 })
-      addNode({ x: 100, y: 100 })
-      addEdge(createEdgeWithConfidence('1', '2', 0.5))
+    it('returns empty array when decision has 0-1 outgoing edges to options', () => {
+      // Single decision → single option edge: no validation needed
+      const decId = addTypedNode('decision', { x: 0, y: 0 })
+      const optId = addTypedNode('option', { x: 100, y: 100 })
+      addEdgeWithConfidence(decId, optId, 0.5)
 
       const state = useCanvasStore.getState()
       const invalidNodes = getInvalidNodes(state)
@@ -45,62 +84,79 @@ describe('Canvas Store - Validation Selectors', () => {
       expect(invalidNodes).toEqual([])
     })
 
-    it('detects node with 2+ edges summing to less than 100%', () => {
-      const { resetCanvas, addNode, addEdge } = useCanvasStore.getState()
+    it('returns empty array for non-decision source nodes', () => {
+      // Factor→option edges are NOT subject to probability validation
+      const factorId = addTypedNode('factor', { x: 0, y: 0 })
+      const opt1 = addTypedNode('option', { x: 100, y: 0 })
+      const opt2 = addTypedNode('option', { x: 100, y: 100 })
 
-      resetCanvas()
+      addEdgeWithConfidence(factorId, opt1, 0.4)
+      addEdgeWithConfidence(factorId, opt2, 0.5)
 
-      // Add decision node with 2 outgoing edges
-      addNode({ x: 0, y: 0 })
-      addNode({ x: 100, y: 0 })
-      addNode({ x: 100, y: 100 })
+      const state = useCanvasStore.getState()
+      const invalidNodes = getInvalidNodes(state)
 
-      // Add edges with probabilities summing to 90% (invalid)
-      addEdge(createEdgeWithConfidence('1', '2', 0.4))
-      addEdge(createEdgeWithConfidence('1', '3', 0.5))
+      expect(invalidNodes).toEqual([])
+    })
+
+    it('returns empty array for decision→non-option edges', () => {
+      // Decision→factor edges don't have probability distribution semantics
+      const decId = addTypedNode('decision', { x: 0, y: 0 })
+      const f1 = addTypedNode('factor', { x: 100, y: 0 })
+      const f2 = addTypedNode('factor', { x: 100, y: 100 })
+
+      addEdgeWithConfidence(decId, f1, 0.4)
+      addEdgeWithConfidence(decId, f2, 0.5)
+
+      const state = useCanvasStore.getState()
+      const invalidNodes = getInvalidNodes(state)
+
+      expect(invalidNodes).toEqual([])
+    })
+
+    it('detects decision with 2+ option edges summing to less than 100%', () => {
+      const decId = addTypedNode('decision', { x: 0, y: 0 })
+      const opt1 = addTypedNode('option', { x: 100, y: 0 })
+      const opt2 = addTypedNode('option', { x: 100, y: 100 })
+
+      // 40% + 50% = 90% (invalid)
+      addEdgeWithConfidence(decId, opt1, 0.4)
+      addEdgeWithConfidence(decId, opt2, 0.5)
 
       const state = useCanvasStore.getState()
       const invalidNodes = getInvalidNodes(state)
 
       expect(invalidNodes).toHaveLength(1)
-      expect(invalidNodes[0].nodeId).toBe('1')
+      expect(invalidNodes[0].nodeId).toBe(decId)
       expect(invalidNodes[0].sum).toBeCloseTo(0.9, 2)
       expect(invalidNodes[0].edgeCount).toBe(2)
     })
 
-    it('detects node with 2+ edges summing to more than 100%', () => {
-      const { resetCanvas, addNode, addEdge } = useCanvasStore.getState()
+    it('detects decision with 2+ option edges summing to more than 100%', () => {
+      const decId = addTypedNode('decision', { x: 0, y: 0 })
+      const opt1 = addTypedNode('option', { x: 100, y: 0 })
+      const opt2 = addTypedNode('option', { x: 100, y: 100 })
 
-      resetCanvas()
-
-      addNode({ x: 0, y: 0 })
-      addNode({ x: 100, y: 0 })
-      addNode({ x: 100, y: 100 })
-
-      // Set probabilities to 60% + 50% = 110% (invalid)
-      addEdge(createEdgeWithConfidence('1', '2', 0.6))
-      addEdge(createEdgeWithConfidence('1', '3', 0.5))
+      // 60% + 50% = 110% (invalid)
+      addEdgeWithConfidence(decId, opt1, 0.6)
+      addEdgeWithConfidence(decId, opt2, 0.5)
 
       const state = useCanvasStore.getState()
       const invalidNodes = getInvalidNodes(state)
 
       expect(invalidNodes).toHaveLength(1)
-      expect(invalidNodes[0].nodeId).toBe('1')
+      expect(invalidNodes[0].nodeId).toBe(decId)
       expect(invalidNodes[0].sum).toBeCloseTo(1.1, 2)
     })
 
-    it('accepts nodes with probabilities within ±1% tolerance', () => {
-      const { resetCanvas, addNode, addEdge } = useCanvasStore.getState()
+    it('accepts decision with option probabilities within ±1% tolerance', () => {
+      const decId = addTypedNode('decision', { x: 0, y: 0 })
+      const opt1 = addTypedNode('option', { x: 100, y: 0 })
+      const opt2 = addTypedNode('option', { x: 100, y: 100 })
 
-      resetCanvas()
-
-      addNode({ x: 0, y: 0 })
-      addNode({ x: 100, y: 0 })
-      addNode({ x: 100, y: 100 })
-
-      // Set probabilities to 49.5% + 50.5% = 100% (valid, within tolerance)
-      addEdge(createEdgeWithConfidence('1', '2', 0.495))
-      addEdge(createEdgeWithConfidence('1', '3', 0.505))
+      // 49.5% + 50.5% = 100% (valid, within tolerance)
+      addEdgeWithConfidence(decId, opt1, 0.495)
+      addEdgeWithConfidence(decId, opt2, 0.505)
 
       const state = useCanvasStore.getState()
       const invalidNodes = getInvalidNodes(state)
@@ -108,47 +164,42 @@ describe('Canvas Store - Validation Selectors', () => {
       expect(invalidNodes).toEqual([])
     })
 
-    it('detects multiple invalid nodes', () => {
-      const { resetCanvas, addNode, addEdge } = useCanvasStore.getState()
+    it('detects multiple invalid decision nodes', () => {
+      // Decision 1 with 2 options (invalid)
+      const dec1 = addTypedNode('decision', { x: 0, y: 0 })
+      const opt1 = addTypedNode('option', { x: 100, y: 0 })
+      const opt2 = addTypedNode('option', { x: 200, y: 0 })
 
-      resetCanvas()
+      // Decision 2 with 2 options (invalid)
+      const dec2 = addTypedNode('decision', { x: 0, y: 100 })
+      const opt3 = addTypedNode('option', { x: 100, y: 100 })
+      const opt4 = addTypedNode('option', { x: 200, y: 100 })
 
-      // Add two decision nodes, each with 2 outgoing edges
-      addNode({ x: 0, y: 0 })    // Node 1
-      addNode({ x: 100, y: 0 })  // Node 2
-      addNode({ x: 200, y: 0 })  // Node 3
-      addNode({ x: 0, y: 100 })  // Node 4
-      addNode({ x: 100, y: 100 }) // Node 5
+      // dec1 -> opt1, opt2 (40% + 50% = 90%, invalid)
+      addEdgeWithConfidence(dec1, opt1, 0.4)
+      addEdgeWithConfidence(dec1, opt2, 0.5)
 
-      // Node 1 -> 2, 3 (invalid: 40% + 50% = 90%)
-      addEdge(createEdgeWithConfidence('1', '2', 0.4))
-      addEdge(createEdgeWithConfidence('1', '3', 0.5))
-
-      // Node 4 -> 2, 5 (invalid: 40% + 50% = 90%)
-      addEdge(createEdgeWithConfidence('4', '2', 0.4))
-      addEdge(createEdgeWithConfidence('4', '5', 0.5))
+      // dec2 -> opt3, opt4 (40% + 50% = 90%, invalid)
+      addEdgeWithConfidence(dec2, opt3, 0.4)
+      addEdgeWithConfidence(dec2, opt4, 0.5)
 
       const state = useCanvasStore.getState()
       const invalidNodes = getInvalidNodes(state)
 
       expect(invalidNodes).toHaveLength(2)
-      expect(invalidNodes.map(n => n.nodeId)).toContain('1')
-      expect(invalidNodes.map(n => n.nodeId)).toContain('4')
+      expect(invalidNodes.map(n => n.nodeId)).toContain(dec1)
+      expect(invalidNodes.map(n => n.nodeId)).toContain(dec2)
     })
 
     it('includes node label in invalid node result', () => {
-      const { resetCanvas, addNode, updateNodeLabel, addEdge } = useCanvasStore.getState()
+      const decId = addTypedNode('decision', { x: 0, y: 0 })
+      const opt1 = addTypedNode('option', { x: 100, y: 0 })
+      const opt2 = addTypedNode('option', { x: 100, y: 100 })
 
-      resetCanvas()
+      useCanvasStore.getState().updateNodeLabel(decId, 'My Decision')
 
-      addNode({ x: 0, y: 0 })
-      addNode({ x: 100, y: 0 })
-      addNode({ x: 100, y: 100 })
-
-      updateNodeLabel('1', 'My Decision')
-
-      addEdge(createEdgeWithConfidence('1', '2', 0.4))
-      addEdge(createEdgeWithConfidence('1', '3', 0.5))
+      addEdgeWithConfidence(decId, opt1, 0.4)
+      addEdgeWithConfidence(decId, opt2, 0.5)
 
       const state = useCanvasStore.getState()
       const invalidNodes = getInvalidNodes(state)
@@ -156,20 +207,16 @@ describe('Canvas Store - Validation Selectors', () => {
       expect(invalidNodes[0].nodeLabel).toBe('My Decision')
     })
 
-    it('validates nodes with 3+ outgoing edges', () => {
-      const { resetCanvas, addNode, addEdge } = useCanvasStore.getState()
+    it('validates decision nodes with 3+ outgoing option edges', () => {
+      const decId = addTypedNode('decision', { x: 0, y: 0 })
+      const opt1 = addTypedNode('option', { x: 100, y: 0 })
+      const opt2 = addTypedNode('option', { x: 100, y: 100 })
+      const opt3 = addTypedNode('option', { x: 100, y: 200 })
 
-      resetCanvas()
-
-      addNode({ x: 0, y: 0 })
-      addNode({ x: 100, y: 0 })
-      addNode({ x: 100, y: 100 })
-      addNode({ x: 100, y: 200 })
-
-      // Set to 30% + 30% + 30% = 90% (invalid)
-      addEdge(createEdgeWithConfidence('1', '2', 0.3))
-      addEdge(createEdgeWithConfidence('1', '3', 0.3))
-      addEdge(createEdgeWithConfidence('1', '4', 0.3))
+      // 30% + 30% + 30% = 90% (invalid)
+      addEdgeWithConfidence(decId, opt1, 0.3)
+      addEdgeWithConfidence(decId, opt2, 0.3)
+      addEdgeWithConfidence(decId, opt3, 0.3)
 
       const state = useCanvasStore.getState()
       const invalidNodes = getInvalidNodes(state)
@@ -177,6 +224,35 @@ describe('Canvas Store - Validation Selectors', () => {
       expect(invalidNodes).toHaveLength(1)
       expect(invalidNodes[0].edgeCount).toBe(3)
       expect(invalidNodes[0].sum).toBeCloseTo(0.9, 2)
+    })
+
+    it('returns nonZeroEdgeCount in result', () => {
+      const decId = addTypedNode('decision', { x: 0, y: 0 })
+      const opt1 = addTypedNode('option', { x: 100, y: 0 })
+      const opt2 = addTypedNode('option', { x: 100, y: 100 })
+
+      addEdgeWithConfidence(decId, opt1, 0.4)
+      addEdgeWithConfidence(decId, opt2, 0.5)
+
+      const state = useCanvasStore.getState()
+      const invalidNodes = getInvalidNodes(state)
+
+      expect(invalidNodes[0].nonZeroEdgeCount).toBe(2)
+    })
+
+    it('does not flag pristine decision nodes with zero-confidence edges', () => {
+      const decId = addTypedNode('decision', { x: 0, y: 0 })
+      const opt1 = addTypedNode('option', { x: 100, y: 0 })
+      const opt2 = addTypedNode('option', { x: 100, y: 100 })
+
+      // Zero-confidence edges on a pristine (untouched) node
+      addEdgeWithConfidence(decId, opt1, 0)
+      addEdgeWithConfidence(decId, opt2, 0)
+
+      const state = useCanvasStore.getState()
+      const invalidNodes = getInvalidNodes(state)
+
+      expect(invalidNodes).toEqual([])
     })
   })
 
@@ -188,16 +264,12 @@ describe('Canvas Store - Validation Selectors', () => {
     })
 
     it('returns true when validation errors exist', () => {
-      const { resetCanvas, addNode, addEdge } = useCanvasStore.getState()
+      const decId = addTypedNode('decision', { x: 0, y: 0 })
+      const opt1 = addTypedNode('option', { x: 100, y: 0 })
+      const opt2 = addTypedNode('option', { x: 100, y: 100 })
 
-      resetCanvas()
-
-      addNode({ x: 0, y: 0 })
-      addNode({ x: 100, y: 0 })
-      addNode({ x: 100, y: 100 })
-
-      addEdge(createEdgeWithConfidence('1', '2', 0.4))
-      addEdge(createEdgeWithConfidence('1', '3', 0.5))
+      addEdgeWithConfidence(decId, opt1, 0.4)
+      addEdgeWithConfidence(decId, opt2, 0.5)
 
       const state = useCanvasStore.getState()
 
@@ -213,95 +285,83 @@ describe('Canvas Store - Validation Selectors', () => {
     })
 
     it('returns first invalid node when currentNodeId not provided', () => {
-      const { resetCanvas, addNode, addEdge } = useCanvasStore.getState()
+      const decId = addTypedNode('decision', { x: 0, y: 0 })
+      const opt1 = addTypedNode('option', { x: 100, y: 0 })
+      const opt2 = addTypedNode('option', { x: 100, y: 100 })
 
-      resetCanvas()
-
-      addNode({ x: 0, y: 0 })
-      addNode({ x: 100, y: 0 })
-      addNode({ x: 100, y: 100 })
-
-      addEdge(createEdgeWithConfidence('1', '2', 0.4))
-      addEdge(createEdgeWithConfidence('1', '3', 0.5))
+      addEdgeWithConfidence(decId, opt1, 0.4)
+      addEdgeWithConfidence(decId, opt2, 0.5)
 
       const state = useCanvasStore.getState()
       const next = getNextInvalidNode(state)
 
       expect(next).not.toBeNull()
-      expect(next?.nodeId).toBe('1')
+      expect(next?.nodeId).toBe(decId)
     })
 
     it('returns next invalid node after currentNodeId', () => {
-      const { resetCanvas, addNode, addEdge } = useCanvasStore.getState()
+      // Two invalid decision nodes
+      const dec1 = addTypedNode('decision', { x: 0, y: 0 })
+      const opt1 = addTypedNode('option', { x: 100, y: 0 })
+      const opt2 = addTypedNode('option', { x: 200, y: 0 })
 
-      resetCanvas()
+      const dec2 = addTypedNode('decision', { x: 0, y: 100 })
+      const opt3 = addTypedNode('option', { x: 100, y: 100 })
+      const opt4 = addTypedNode('option', { x: 200, y: 100 })
 
-      // Add two invalid nodes
-      addNode({ x: 0, y: 0 })    // Node 1
-      addNode({ x: 100, y: 0 })  // Node 2
-      addNode({ x: 200, y: 0 })  // Node 3
-      addNode({ x: 0, y: 100 })  // Node 4
-      addNode({ x: 100, y: 100 }) // Node 5
+      // dec1 -> opt1, opt2 (invalid: 40% + 50%)
+      addEdgeWithConfidence(dec1, opt1, 0.4)
+      addEdgeWithConfidence(dec1, opt2, 0.5)
 
-      // Node 1 -> 2, 3 (invalid)
-      addEdge(createEdgeWithConfidence('1', '2', 0.4))
-      addEdge(createEdgeWithConfidence('1', '3', 0.5))
-
-      // Node 4 -> 2, 5 (invalid)
-      addEdge(createEdgeWithConfidence('4', '2', 0.4))
-      addEdge(createEdgeWithConfidence('4', '5', 0.5))
+      // dec2 -> opt3, opt4 (invalid: 40% + 50%)
+      addEdgeWithConfidence(dec2, opt3, 0.4)
+      addEdgeWithConfidence(dec2, opt4, 0.5)
 
       const state = useCanvasStore.getState()
 
-      // Get next after node 1 (should be node 4)
-      const next = getNextInvalidNode(state, '1')
+      // Get next after dec1 (should be dec2)
+      const next = getNextInvalidNode(state, dec1)
 
-      expect(next?.nodeId).toBe('4')
+      expect(next?.nodeId).toBe(dec2)
     })
 
     it('wraps around to first invalid node when at end of list', () => {
-      const { resetCanvas, addNode, addEdge } = useCanvasStore.getState()
+      // Two invalid decision nodes
+      const dec1 = addTypedNode('decision', { x: 0, y: 0 })
+      const opt1 = addTypedNode('option', { x: 100, y: 0 })
+      const opt2 = addTypedNode('option', { x: 200, y: 0 })
 
-      resetCanvas()
+      const dec2 = addTypedNode('decision', { x: 0, y: 100 })
+      const opt3 = addTypedNode('option', { x: 100, y: 100 })
+      const opt4 = addTypedNode('option', { x: 200, y: 100 })
 
-      // Add two invalid nodes
-      addNode({ x: 0, y: 0 })
-      addNode({ x: 100, y: 0 })
-      addNode({ x: 200, y: 0 })
-      addNode({ x: 0, y: 100 })
-      addNode({ x: 100, y: 100 })
-
-      addEdge(createEdgeWithConfidence('1', '2', 0.4))
-      addEdge(createEdgeWithConfidence('1', '3', 0.5))
-      addEdge(createEdgeWithConfidence('4', '2', 0.4))
-      addEdge(createEdgeWithConfidence('4', '5', 0.5))
+      addEdgeWithConfidence(dec1, opt1, 0.4)
+      addEdgeWithConfidence(dec1, opt2, 0.5)
+      addEdgeWithConfidence(dec2, opt3, 0.4)
+      addEdgeWithConfidence(dec2, opt4, 0.5)
 
       const state = useCanvasStore.getState()
 
-      // Get next after node 4 (last invalid) -> should wrap to node 1 (first)
-      const next = getNextInvalidNode(state, '4')
+      // Get next after dec2 (last invalid) -> should wrap to dec1 (first)
+      const next = getNextInvalidNode(state, dec2)
 
-      expect(next?.nodeId).toBe('1')
+      expect(next?.nodeId).toBe(dec1)
     })
 
     it('returns first invalid node when currentNodeId not in invalid list', () => {
-      const { resetCanvas, addNode, addEdge } = useCanvasStore.getState()
+      const decId = addTypedNode('decision', { x: 0, y: 0 })
+      const opt1 = addTypedNode('option', { x: 100, y: 0 })
+      const opt2 = addTypedNode('option', { x: 100, y: 100 })
 
-      resetCanvas()
-
-      addNode({ x: 0, y: 0 })
-      addNode({ x: 100, y: 0 })
-      addNode({ x: 100, y: 100 })
-
-      addEdge(createEdgeWithConfidence('1', '2', 0.4))
-      addEdge(createEdgeWithConfidence('1', '3', 0.5))
+      addEdgeWithConfidence(decId, opt1, 0.4)
+      addEdgeWithConfidence(decId, opt2, 0.5)
 
       const state = useCanvasStore.getState()
 
-      // Query with a valid node ID (node 2) that's not in the invalid list
-      const next = getNextInvalidNode(state, '2')
+      // Query with an option node ID (not in the invalid list)
+      const next = getNextInvalidNode(state, opt1)
 
-      expect(next?.nodeId).toBe('1')
+      expect(next?.nodeId).toBe(decId)
     })
   })
 })

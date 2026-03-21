@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from 'react'
+import { useState, useCallback, useMemo, useRef } from 'react'
 import { CEEClient, CEEError } from '../adapters/cee/client'
 import type { CEEDraftResponse, CEEv2Response, CEEv3Response } from '../adapters/cee/types'
 import { isSchemaV2Enabled } from '../flags'
@@ -29,8 +29,18 @@ export function useCEEDraft() {
 
   const client = useMemo(() => new CEEClient(), [])
 
+  // P2.3: AbortController dedup — cancel previous in-flight request when a new one fires
+  const inflightRef = useRef<AbortController | null>(null)
+
   const draft = useCallback(
     async (description: string) => {
+      // Abort any in-flight request to prevent race conditions
+      if (inflightRef.current) {
+        inflightRef.current.abort()
+      }
+      const controller = new AbortController()
+      inflightRef.current = controller
+
       setState({ data: null, loading: true, error: null, guidance: null, retryAfterSeconds: null })
 
       try {
@@ -54,6 +64,9 @@ export function useCEEDraft() {
           enrichment_model: selectedEnrichmentModel || undefined,
         })
 
+        // If this request was superseded by a newer one, discard silently
+        if (controller.signal.aborted) return null
+
         if (!data?.nodes || data.nodes.length === 0) {
           throw new CEEError(
             'Draft graph is empty; unable to construct model',
@@ -68,9 +81,14 @@ export function useCEEDraft() {
           )
         }
 
-        setState({ data, loading: false, error: null, guidance: null, retryAfterSeconds: null })
+        // Only update state if this is still the active request
+        if (!controller.signal.aborted) {
+          setState({ data, loading: false, error: null, guidance: null, retryAfterSeconds: null })
+        }
         return data
       } catch (error) {
+        // Silently ignore abort errors from superseded requests
+        if (controller.signal.aborted) return null
         const ceeError = error instanceof CEEError
           ? error
           : new CEEError((error as Error).message || 'Draft failed', 500)
@@ -219,17 +237,20 @@ export function useCEEDraft() {
           }
         }
 
-        setState({
-          data: null,
-          loading: false,
-          error: ceeError,
-          guidance,
-          retryAfterSeconds,
-        })
+        // Only update state if this is still the active request
+        if (!controller.signal.aborted) {
+          setState({
+            data: null,
+            loading: false,
+            error: ceeError,
+            guidance,
+            retryAfterSeconds,
+          })
+        }
         throw ceeError
       }
     },
-    []
+    [client]
   )
 
   const reset = useCallback(() => {

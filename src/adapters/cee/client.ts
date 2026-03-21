@@ -39,6 +39,13 @@ export class CEEError extends Error {
   }
 }
 
+/** Narrow unknown to Record for safe nested access (replaces `as any` on external data) */
+function asRec(value: unknown): Record<string, unknown> | undefined {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : undefined
+}
+
 /**
  * Infer missing `category` on factor nodes from graph edge structure.
  * Non-breaking: only fills in when category is undefined (never overwrites).
@@ -50,7 +57,7 @@ export class CEEError extends Error {
  * This handles the LLM omission pattern where GPT-4o non-deterministically
  * drops the `category` field on factor nodes.
  */
-function inferMissingCategories(nodes: any[], edges: any[]): void {
+function inferMissingCategories(nodes: Record<string, unknown>[], edges: Record<string, unknown>[]): void {
   if (!Array.isArray(nodes) || !Array.isArray(edges)) return
 
   // Build set of option/decision node IDs
@@ -85,7 +92,7 @@ function inferMissingCategories(nodes: any[], edges: any[]): void {
 // Adapt the raw /draft-graph response into the CEEDraftResponse
 // shape expected by the UI. This is defensive so partially malformed
 // responses can still yield a reasonable graph.
-export function adaptDraftResponse(raw: any): CEEDraftResponse {
+export function adaptDraftResponse(raw: unknown): CEEDraftResponse {
   const empty: CEEDraftResponse = {
     quality_overall: 5,
     nodes: [],
@@ -98,19 +105,23 @@ export function adaptDraftResponse(raw: any): CEEDraftResponse {
 
   if (!raw || typeof raw !== 'object') return empty
 
+  // After the guard above, raw is `object`. Cast to Record for indexed access.
+  const r = raw as Record<string, unknown>
+
   // If it already looks like CEEDraftResponse, normalise lightly and return.
-  if (Array.isArray((raw as any).nodes) && Array.isArray((raw as any).edges)) {
-    const draft = raw as any
+  if (Array.isArray(r.nodes) && Array.isArray(r.edges)) {
+    const draft = r
     const quality =
       typeof draft.quality_overall === 'number'
         ? Math.max(1, Math.min(10, Math.round(draft.quality_overall)))
         : empty.quality_overall
 
-    const structural = Array.isArray(draft.draft_warnings?.structural)
-      ? (draft.draft_warnings.structural as CEEStructuralWarning[])
+    const draftWarnings = asRec(draft.draft_warnings)
+    const structural = Array.isArray(draftWarnings?.structural)
+      ? (draftWarnings.structural as CEEStructuralWarning[])
       : []
-    const completeness = Array.isArray(draft.draft_warnings?.completeness)
-      ? draft.draft_warnings.completeness.map((m: unknown) => String(m))
+    const completeness = Array.isArray(draftWarnings?.completeness)
+      ? (draftWarnings.completeness as unknown[]).map((m: unknown) => String(m))
       : []
 
     // P0 FIX: Preserve analysis_ready if present in raw response
@@ -138,8 +149,9 @@ export function adaptDraftResponse(raw: any): CEEDraftResponse {
 
     // Pass through pipeline trace if present (for debug panel)
     // Backend sends trace.pipeline (nested), not pipeline_trace (top-level)
-    if (isCeePipelineTrace(draft.trace?.pipeline)) {
-      result.pipeline_trace = draft.trace.pipeline
+    const draftTrace = asRec(draft.trace)
+    if (draftTrace && isCeePipelineTrace(draftTrace.pipeline)) {
+      result.pipeline_trace = draftTrace.pipeline as CeePipelineTrace
     }
 
     // LLM omission resilience: infer missing category from graph edges
@@ -148,16 +160,15 @@ export function adaptDraftResponse(raw: any): CEEDraftResponse {
     return result
   }
 
-  const graph =
-    (raw as any).graph && typeof (raw as any).graph === 'object' ? ((raw as any).graph as any) : {}
-  const rawNodes: any[] = Array.isArray(graph.nodes) ? graph.nodes : []
-  const rawEdges: any[] = Array.isArray(graph.edges) ? graph.edges : []
+  const graph = asRec(r.graph) ?? {}
+  const rawNodes: unknown[] = Array.isArray(graph.nodes) ? graph.nodes : []
+  const rawEdges: unknown[] = Array.isArray(graph.edges) ? graph.edges : []
 
-  const qualityMeta =
-    (raw as any).quality && typeof (raw as any).quality === 'object' ? ((raw as any).quality as any) : {}
+  const qualityMeta = asRec(r.quality) ?? {}
   const rawOverall = typeof qualityMeta.overall === 'number' ? qualityMeta.overall : undefined
-  const rawConf = typeof qualityMeta.details?.raw_confidence === 'number'
-    ? qualityMeta.details.raw_confidence
+  const qualityDetails = asRec(qualityMeta.details)
+  const rawConf = typeof qualityDetails?.raw_confidence === 'number'
+    ? qualityDetails.raw_confidence
     : undefined
 
   const confidence =
@@ -174,8 +185,9 @@ export function adaptDraftResponse(raw: any): CEEDraftResponse {
 
   const fallbackUncertainty = Math.max(0, Math.min(1, 1 - confidence))
 
-  const nodes = rawNodes.map((n, index) => {
-    const idRaw = (n as any).id
+  const nodes = rawNodes.map((rawNode, index) => {
+    const n = (rawNode && typeof rawNode === 'object' ? rawNode : {}) as Record<string, unknown>
+    const idRaw = n.id
     const id =
       typeof idRaw === 'string' && idRaw.trim().length > 0
         ? idRaw
@@ -183,30 +195,30 @@ export function adaptDraftResponse(raw: any): CEEDraftResponse {
           ? String(idRaw)
           : `node-${index}`
 
-    const labelSource = (n as any).label ?? (n as any).body
+    const labelSource = n.label ?? n.body
     const label =
       typeof labelSource === 'string' && labelSource.trim().length > 0
         ? labelSource
         : 'Untitled'
 
-    const kind = (n as any).kind ?? (n as any).type
+    const kind = n.kind ?? n.type
     const type =
       typeof kind === 'string' && kind.trim().length > 0
         ? kind
         : 'factor'
 
-    const uncRaw = (n as any).uncertainty
+    const uncRaw = n.uncertainty
     // CIL 0.2: reject NaN/Infinity
     const uncertainty =
-      Number.isFinite(uncRaw) && uncRaw >= 0 && uncRaw <= 1
+      Number.isFinite(uncRaw) && (uncRaw as number) >= 0 && (uncRaw as number) <= 1
         ? uncRaw
         : fallbackUncertainty
 
     // Preserve observed_state for factor nodes (Brief I fix)
     // CIL 0.2: reject NaN/Infinity in observed_state.value
-    const observed_state = (n as any).observed_state
-    const hasObservedState = observed_state && typeof observed_state === 'object' &&
-      Number.isFinite(observed_state.value)
+    const observed_state = n.observed_state
+    const obsRec = asRec(observed_state)
+    const hasObservedState = !!obsRec && Number.isFinite(obsRec.value)
 
     // CIL 0.2: spread-first preserves unknown CEE node fields
     return {
@@ -221,10 +233,11 @@ export function adaptDraftResponse(raw: any): CEEDraftResponse {
   })
 
   const edges = rawEdges
-    .map((e) => {
+    .map((rawEdge) => {
       // --- Validate required from/to (drop edge if missing) ---
-      const fromRaw = (e as any).from
-      const toRaw = (e as any).to
+      const e = (rawEdge && typeof rawEdge === 'object' ? rawEdge : {}) as Record<string, unknown>
+      const fromRaw = e.from
+      const toRaw = e.to
       const from =
         typeof fromRaw === 'string' && fromRaw.trim().length > 0
           ? fromRaw
@@ -242,33 +255,33 @@ export function adaptDraftResponse(raw: any): CEEDraftResponse {
       // --- Spread-first: preserve all raw fields, then override transformed ones ---
       // This ensures unknown/additive CEE edge fields (e.g. edge_type, label,
       // future CIL additions) are not silently dropped.
-      const raw = e as Record<string, unknown>
 
       // Validate/coerce id
-      const idRaw = raw.id
-      const id = typeof idRaw === 'string' && (idRaw as string).trim().length > 0 ? idRaw : undefined
+      const idRaw = e.id
+      const id = typeof idRaw === 'string' && idRaw.trim().length > 0 ? idRaw : undefined
 
       // UI-SEM-026: CEE edge weight clamped to [0, 1].
       // Keep — normalises out-of-range CEE values (CIL 0.2: reject NaN/Infinity).
-      const weightRaw = raw.weight
+      const weightRaw = e.weight
       const weight =
         Number.isFinite(weightRaw) ? Math.max(0, Math.min(1, weightRaw as number)) : undefined
 
       // UI-SEM-027: CEE edge belief clamped to [0, 1].
       // Keep — normalises out-of-range CEE values.
-      const beliefRaw = raw.belief
+      const beliefRaw = e.belief
       const belief =
         Number.isFinite(beliefRaw) ? Math.max(0, Math.min(1, beliefRaw as number)) : undefined
 
       // Normalize provenance (object or string)
-      const rawProv = raw.provenance
+      const rawProv = e.provenance
       let provenance: CEEDraftResponse['edges'][number]['provenance']
       if (rawProv && typeof rawProv === 'object') {
-        const source = (rawProv as any).source != null ? String((rawProv as any).source) : ''
-        const quote = (rawProv as any).quote != null ? String((rawProv as any).quote) : ''
+        const prov = rawProv as Record<string, unknown>
+        const source = prov.source != null ? String(prov.source) : ''
+        const quote = prov.quote != null ? String(prov.quote) : ''
         const location =
-          (rawProv as any).location !== undefined && (rawProv as any).location !== null
-            ? String((rawProv as any).location)
+          prov.location !== undefined && prov.location !== null
+            ? String(prov.location)
             : undefined
         if (source || quote || location) {
           provenance = { source, quote, ...(location ? { location } : {}) }
@@ -278,48 +291,49 @@ export function adaptDraftResponse(raw: any): CEEDraftResponse {
       }
 
       // Validate provenance_source against allowlist
-      const rawProvSource = raw.provenance_source
+      const rawProvSource = e.provenance_source
       const allowedSources: Array<CEEDraftResponse['edges'][number]['provenance_source']> = [
         'document',
         'metric',
         'hypothesis',
         'engine',
       ]
-      const provenance_source = allowedSources.includes(rawProvSource as any) ? rawProvSource : undefined
+      const provenance_source = typeof rawProvSource === 'string' && allowedSources.includes(rawProvSource as typeof allowedSources[number]) ? rawProvSource : undefined
 
       // P0-2: Normalize strength_mean from nested or flat structure
       // CIL 0.2: reject NaN/Infinity — JSON.stringify converts to null
-      const strengthMeanRaw = raw.strength_mean ?? (raw.strength as any)?.mean
+      const strengthObj = asRec(e.strength)
+      const strengthMeanRaw = e.strength_mean ?? strengthObj?.mean
       const strength_mean = Number.isFinite(strengthMeanRaw) ? strengthMeanRaw as number : undefined
 
       // P0-2: Normalize strength_std from nested or flat structure
-      const strengthStdRaw = raw.strength_std ?? (raw.strength as any)?.std
+      const strengthStdRaw = e.strength_std ?? strengthObj?.std
       const strength_std = Number.isFinite(strengthStdRaw) && (strengthStdRaw as number) > 0 ? strengthStdRaw as number : undefined
 
       // Validate effect_direction against known values
-      const effectDirRaw = raw.effect_direction
+      const effectDirRaw = e.effect_direction
       const effect_direction = effectDirRaw === 'positive' || effectDirRaw === 'negative' ? effectDirRaw : undefined
 
       // UI-SEM-028: CEE belief_exists clamped to [0, 1].
       // Keep — normalises out-of-range structural certainty (CIL 0.2: reject NaN/Infinity).
-      const beliefExistsRaw = raw.belief_exists
+      const beliefExistsRaw = e.belief_exists
       const belief_exists =
         Number.isFinite(beliefExistsRaw) ? Math.max(0, Math.min(1, beliefExistsRaw as number)) : undefined
 
-      // Build the result: spread raw first (preserves unknown fields),
+      // Build the result: spread e first (preserves unknown fields),
       // then override with validated/transformed values.
       // Fields that fail validation are explicitly set to undefined
-      // to overwrite the invalid raw value from the spread.
+      // to overwrite the invalid e value from the spread.
 
       // CIL 0.2: Remove only mean/std from nested strength, preserve other subfields
       let strengthRemaining: Record<string, unknown> | undefined
-      if (raw.strength && typeof raw.strength === 'object') {
-        const { mean, std, ...rest } = raw.strength as any
+      if (strengthObj) {
+        const { mean: _m, std: _s, ...rest } = strengthObj
         strengthRemaining = Object.keys(rest).length > 0 ? rest : undefined
       }
 
       return {
-        ...raw,                                // spread-first: preserve unknown fields
+        ...e,                                  // spread-first: preserve unknown fields
         strength: strengthRemaining,           // CIL 0.2: preserve unknown strength.* fields, remove only mean/std
         id,                                    // coerced id (undefined if invalid)
         from,                                  // coerced from
@@ -337,14 +351,15 @@ export function adaptDraftResponse(raw: any): CEEDraftResponse {
     .filter((edge): edge is CEEDraftResponse['edges'][number] => edge !== null)
 
   const completeness: string[] = []
-  if (Array.isArray((raw as any).issues)) {
-    for (const issue of (raw as any).issues) {
+  if (Array.isArray(r.issues)) {
+    for (const issue of r.issues) {
       completeness.push(String(issue))
     }
   }
-  if (Array.isArray((raw as any).validation_issues)) {
-    for (const v of (raw as any).validation_issues) {
-      const msg = (v as any).message ?? (v as any).code ?? 'validation_issue'
+  if (Array.isArray(r.validation_issues)) {
+    for (const v of r.validation_issues) {
+      const vRec = asRec(v)
+      const msg = vRec?.message ?? vRec?.code ?? 'validation_issue'
       completeness.push(String(msg))
     }
   }
@@ -361,19 +376,20 @@ export function adaptDraftResponse(raw: any): CEEDraftResponse {
   }
 
   // Pass through analysis_ready if present (CEE V3)
-  if ((raw as any).analysis_ready && typeof (raw as any).analysis_ready === 'object') {
-    result.analysis_ready = (raw as any).analysis_ready
+  if (r.analysis_ready && typeof r.analysis_ready === 'object') {
+    result.analysis_ready = r.analysis_ready
   }
 
   // Pass through schema_version if present
-  if (typeof (raw as any).schema_version === 'string') {
-    result.schema_version = (raw as any).schema_version
+  if (typeof r.schema_version === 'string') {
+    result.schema_version = r.schema_version
   }
 
   // Pass through pipeline trace if present (for debug panel)
   // Backend sends trace.pipeline (nested), not pipeline_trace (top-level)
-  if (isCeePipelineTrace((raw as any).trace?.pipeline)) {
-    result.pipeline_trace = (raw as any).trace.pipeline
+  const rawTrace = asRec(r.trace)
+  if (rawTrace && isCeePipelineTrace(rawTrace.pipeline)) {
+    result.pipeline_trace = rawTrace.pipeline as CeePipelineTrace
   }
 
   // LLM omission resilience: infer missing category from graph edges
@@ -672,14 +688,15 @@ export class CEEClient {
       const result = raw as CEEv3Response & { pipeline_trace?: CeePipelineTrace }
 
       // Extract trace.pipeline to top-level pipeline_trace for consistency with V1 path
-      const rawTrace = (raw as any).trace?.pipeline
+      const traceObj = asRec((raw as Record<string, unknown>).trace)
+      const rawTrace = traceObj?.pipeline
       if (isCeePipelineTrace(rawTrace)) {
-        result.pipeline_trace = rawTrace
-      } else if (import.meta.env.DEV && (raw as any).trace) {
+        result.pipeline_trace = rawTrace as CeePipelineTrace
+      } else if (import.meta.env.DEV && traceObj) {
         // Log why trace extraction failed
         console.warn('[CEE] Pipeline trace extraction failed for V3 response:', {
-          hasTrace: !!(raw as any).trace,
-          hasPipeline: !!(raw as any).trace?.pipeline,
+          hasTrace: !!traceObj,
+          hasPipeline: !!traceObj?.pipeline,
           pipelineKeys: rawTrace ? Object.keys(rawTrace) : 'undefined',
           hasStatus: typeof rawTrace?.status === 'string',
           hasDuration: typeof rawTrace?.total_duration_ms === 'number',
@@ -698,19 +715,20 @@ export class CEEClient {
     if (isCEEv2Response(raw)) {
       const result = raw as CEEv2Response & { pipeline_trace?: CeePipelineTrace }
       // Extract trace.pipeline to top-level pipeline_trace for consistency with V1 path
-      const rawTrace = (raw as any).trace?.pipeline
-      if (isCeePipelineTrace(rawTrace)) {
-        result.pipeline_trace = rawTrace
-      } else if (import.meta.env.DEV && (raw as any).trace) {
+      const traceObj2 = asRec((raw as Record<string, unknown>).trace)
+      const rawTrace2 = traceObj2?.pipeline
+      if (isCeePipelineTrace(rawTrace2)) {
+        result.pipeline_trace = rawTrace2 as CeePipelineTrace
+      } else if (import.meta.env.DEV && traceObj2) {
         // Log why trace extraction failed
         console.warn('[CEE] Pipeline trace extraction failed for V2 response:', {
-          hasTrace: !!(raw as any).trace,
-          hasPipeline: !!(raw as any).trace?.pipeline,
-          pipelineKeys: rawTrace ? Object.keys(rawTrace) : 'undefined',
-          hasStatus: typeof rawTrace?.status === 'string',
-          hasDuration: typeof rawTrace?.total_duration_ms === 'number',
-          hasCallCount: typeof rawTrace?.llm_call_count === 'number',
-          hasStages: Array.isArray(rawTrace?.stages),
+          hasTrace: !!traceObj2,
+          hasPipeline: !!traceObj2?.pipeline,
+          pipelineKeys: rawTrace2 && typeof rawTrace2 === 'object' ? Object.keys(rawTrace2 as Record<string, unknown>) : 'undefined',
+          hasStatus: typeof asRec(rawTrace2)?.status === 'string',
+          hasDuration: typeof asRec(rawTrace2)?.total_duration_ms === 'number',
+          hasCallCount: typeof asRec(rawTrace2)?.llm_call_count === 'number',
+          hasStages: Array.isArray(asRec(rawTrace2)?.stages),
         })
       }
 

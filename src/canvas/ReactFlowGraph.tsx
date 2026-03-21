@@ -73,6 +73,7 @@ import { FocusModeChip } from './components/FocusModeChip'
 import { LimitsPanel } from './components/LimitsPanel'
 import { BottomSheet } from './components/BottomSheet'
 import { OutputsDock } from './components/OutputsDock'
+import { PanelErrorBoundary } from './components/PanelErrorBoundary'
 import { LensInfoPanel } from './components/LensInfoPanel'
 import { ComparisonCanvasLayout } from './components/ComparisonCanvasLayout'
 import { isInputsOutputsEnabled, isCommandPaletteEnabled, isDegradedBannerEnabled, isOnboardingTourEnabled, isCrossHighlightEnabled, pocFlags } from '../flags'
@@ -2173,11 +2174,13 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
       )}
       {/* S.1: Compact popover removed — single-click now opens full inspector directly */}
       {showFullInspector && (
-        <InspectorModal
-          nodeId={selectedNodeId}
-          edgeId={selectedEdgeId}
-          onClose={() => setShowFullInspector(false)}
-        />
+        <PanelErrorBoundary panel="Inspector">
+          <InspectorModal
+            nodeId={selectedNodeId}
+            edgeId={selectedEdgeId}
+            onClose={() => setShowFullInspector(false)}
+          />
+        </PanelErrorBoundary>
       )}
       {/* SettingsPanel moved to TopBar dropdown menu */}
       {/* ValidationChip removed - consolidated into OutputsDock */}
@@ -2307,7 +2310,9 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
       )}
 
       {/* OutputsDock (Results panel) - render in both old and new layouts */}
-      <OutputsDock />
+      <PanelErrorBoundary panel="Results">
+        <OutputsDock />
+      </PanelErrorBoundary>
 
       {/* Expanded lenses: contextual info panel overlay */}
       <LensInfoPanel />
@@ -2319,7 +2324,9 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
       />
 
       {/* R1: Draft My Model chat loop (bottom overlay above toolbar) */}
-      <DraftChat />
+      <PanelErrorBoundary panel="Draft Chat">
+        <DraftChat />
+      </PanelErrorBoundary>
 
       {/* Week 3: AI Coaching nudges moved to GuidancePanel in OutputsDock */}
 
