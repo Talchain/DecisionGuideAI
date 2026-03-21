@@ -314,6 +314,10 @@ function normalizeFactorSensitivity(raw: unknown, nodeLabelMap: Map<string, stri
     flipRiskCategory,
     confidenceSource,
     samplingStability,
+    attributionStability: (typed.attribution_stability === 'high' || typed.attribution_stability === 'moderate' || typed.attribution_stability === 'low' || typed.attribution_stability === 'negligible') ? typed.attribution_stability : undefined,
+    rankFlipRate: typeof typed.rank_flip_rate === 'number' ? typed.rank_flip_rate : undefined,
+    evpi: typeof typed.evpi === 'number' ? typed.evpi : undefined,
+    evpiPercentagePoints: typeof typed.evpi_percentage_points === 'number' ? typed.evpi_percentage_points : undefined,
   }
 }
 
@@ -1510,6 +1514,11 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
           flipRiskCategory: f.raw.flipRiskCategory,
           // CEE-generated enrichment (observations, perspectives, confidence question)
           enrichment,
+          // ISL bootstrap stability — gated on field presence
+          attributionStability: f.raw.attributionStability,
+          rankFlipRate: f.raw.rankFlipRate,
+          evpi: f.raw.evpi,
+          evpiPercentagePoints: f.raw.evpiPercentagePoints,
           // V14.2: Default estimate pill — ISL-sourced confidence with sampling_stability === 0
           // confidence_source 'isl' or 'isl_default' with sampling_stability === 0 → show pill
           // confidence_source 'graph' with sampling_stability === null → intentional, no pill
@@ -1863,6 +1872,14 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       return {}
     }
 
+    // Build E-value lookup from edge_e_values array (ISL) — gated on field presence
+    const eValueMap = new Map<string, number>()
+    for (const ev of safeArray(report?.robustness?.edge_e_values)) {
+      if (typeof ev?.edge_id === 'string' && typeof ev?.e_value === 'number') {
+        eValueMap.set(ev.edge_id, ev.e_value)
+      }
+    }
+
     sensitiveAssumptions.forEach((fe: any) => {
       const edgeId = typeof fe === 'string' ? fe : fe.edge_id ?? fe.edgeId
       const parsed = parseEdgeId(edgeId)
@@ -1982,6 +1999,9 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
         ? 'Check and update this factor\u2019s inputs for more reliable results.'
         : friendlyMessage
 
+      // E-value: from fragile edge entry directly, or from separate edge_e_values array
+      const rawEValue = typeof fe.e_value === 'number' ? fe.e_value : edgeId ? eValueMap.get(edgeId) : undefined
+
       uncertainties.push({
         code: 'SENSITIVE_ASSUMPTION',
         message: friendlyMessage,
@@ -1990,6 +2010,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
         affectedNodes: [fromId, toId].filter(Boolean),
         severity,
         factorConfidence,
+        eValue: rawEValue,
         threshold: fe.threshold ? {
           variable: fe.from_id ?? fe.fromId ?? fe.source,
           direction: normaliseDirection(fe.direction) ?? 'positive',
@@ -2083,8 +2104,11 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
           return true
         })
 
-        // Sort by VOI descending (defensive: accept both voi_score and voi field names)
+        // Sort by EVPI when available (ISL), otherwise by VOI
         const sortedGaps = uniqueGaps.sort((a: any, b: any) => {
+          const aEvpi = typeof a.evpi === 'number' ? a.evpi : -1
+          const bEvpi = typeof b.evpi === 'number' ? b.evpi : -1
+          if (aEvpi >= 0 && bEvpi >= 0) return bEvpi - aEvpi
           const aVoi = typeof a.voi_score === 'number' ? a.voi_score : typeof a.voi === 'number' ? a.voi : 0
           const bVoi = typeof b.voi_score === 'number' ? b.voi_score : typeof b.voi === 'number' ? b.voi : 0
           return bVoi - aVoi
@@ -2096,6 +2120,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
           factorLabel: gap.factor_label ?? gap.factor_id,
           confidence: gap.confidence ?? 0,
           voi: gap.voi_score ?? gap.voi ?? 0,
+          evpi: typeof gap.evpi === 'number' ? gap.evpi : undefined,
           suggestion: gap.suggestion ?? '',
           targetNodeId: gap.target_node_id,
         }))

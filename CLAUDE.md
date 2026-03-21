@@ -179,6 +179,10 @@ npm run build
 | UI-SEM-032 | `src/canvas/adapters/islRequestAdapter.ts:169` | Default exists_probability (0.8) for std computation — mirrors UI-SEM-031 | Keep — adapter concern |
 | UI-SEM-033 | `src/canvas/components/ModelTabBody.tsx:683` | Edge display defaults (weight 0.5, direction 'positive', belief 0.7) | Keep — display-only fallback |
 | UI-SEM-034 | `src/adapters/plot/v1/mapper.ts:207` | V1 adapter belief clamped to [0, 1] | Keep — normalisation |
+| UI-SEM-035 | `src/canvas/conversation/useConversation.ts:1086` | Weight clamp to [-1,+1] for CEE signed mean | Keep — format conversion |
+| UI-SEM-036 | `src/canvas/adapters/ceeSynthesisAdapter.ts:75` | Robustness label-to-score default 0.5 for CEE synthesis | Keep — contextual, not inference |
+| UI-SEM-037 | `src/canvas/adapters/islRobustnessAdapter.ts:171` | Default current_value/flip_threshold/sensitivity = 0.5 | Keep — display-only fallback |
+| UI-SEM-038 | `src/canvas/utils/applyDraftResult.ts:74` | Duplicate of UI-SEM-023/024/025 on alternate ingestion path | Keep — normalisation |
 
 - Check for stale `.js` files co-located with `.ts`/`.tsx` source files in `src/` when debugging unexpected behaviour.
 - This is a React app — check for stale component state, missing dependency arrays in hooks, and incorrect memoisation when debugging rendering issues.

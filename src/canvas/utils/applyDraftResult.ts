@@ -71,6 +71,7 @@ export function applyDraftResult(
     const direction: EffectDirection =
       directionFromEdge ?? (rawWeight < 0 ? 'negative' : 'positive')
 
+    // UI-SEM-038: Duplicate of UI-SEM-023/024/025 on alternate ingestion path.
     const weight = Math.max(0, Math.min(2, Math.abs(rawWeight)))
     const confidence =
       typeof e.belief === 'number'

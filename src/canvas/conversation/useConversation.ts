@@ -1083,9 +1083,10 @@ export function useConversation(): UseConversationReturn {
         const weightValue = d.weight
         const directionValue = d.direction
         const strengthStdValue = d.strengthStd
-        const weight = typeof weightValue === 'number' ? clamp01(weightValue / 2) * 2 : 0.5
+        // UI-SEM-035: Canvas weight [0,2] + direction → signed mean clamped to [-1,+1] for CEE.
+        const weight = typeof weightValue === 'number' ? Math.max(0, Math.min(weightValue, 1.0)) : 0.5
         const direction = directionValue === 'negative' ? -1 : 1
-        const mean = direction * weight
+        const mean = Math.max(-1, Math.min(1, direction * weight))
         const std = typeof strengthStdValue === 'number' ? Math.max(0, strengthStdValue) : undefined
         const rawExistsProb = d.beliefExists ?? d.confidence ?? d.belief
         const existsProb = typeof rawExistsProb === 'number' ? clamp01(rawExistsProb) : undefined

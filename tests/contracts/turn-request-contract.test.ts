@@ -628,9 +628,9 @@ describe('RF → CEE node/edge transform contract', () => {
     const weightValue = d.weight as number | undefined
     const directionValue = d.direction as string | undefined
     const strengthStdValue = d.strengthStd as number | undefined
-    const weight = typeof weightValue === 'number' ? clamp01(weightValue / 2) * 2 : 0.5
+    const weight = typeof weightValue === 'number' ? Math.max(0, Math.min(weightValue, 1.0)) : 0.5
     const direction = directionValue === 'negative' ? -1 : 1
-    const mean = direction * weight
+    const mean = Math.max(-1, Math.min(1, direction * weight))
     const std = typeof strengthStdValue === 'number' ? Math.max(0, strengthStdValue) : undefined
     const rawExistsProb = (d.beliefExists ?? d.confidence ?? d.belief) as number | undefined
     const existsProb = typeof rawExistsProb === 'number' ? clamp01(rawExistsProb) : undefined
@@ -698,7 +698,8 @@ describe('RF → CEE node/edge transform contract', () => {
     const ceeEdge = transformRFEdgeToCEE(rfEdge)
     expect(ceeEdge.from).toBe('fac_price')
     expect(ceeEdge.to).toBe('goal_revenue')
-    expect(ceeEdge.strength.mean).toBeCloseTo(1.2)
+    // Weight 1.2 clamped to 1.0 ([-1,+1] range standardisation)
+    expect(ceeEdge.strength.mean).toBeCloseTo(1.0)
     expect(ceeEdge.strength.std).toBe(0.15)
     expect(ceeEdge.exists_probability).toBe(0.9)
     expect(ceeEdge.effect_direction).toBe('positive')

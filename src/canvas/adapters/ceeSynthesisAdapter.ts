@@ -70,7 +70,8 @@ function mapDirection(direction: string | undefined): string {
 }
 
 /**
- * Convert robustness label to numeric score
+ * UI-SEM-036: Convert robustness label to numeric score for CEE synthesis.
+ * Default 0.5 when unrecognised. Classification: outbound, low risk.
  */
 function robustnessLabelToScore(label: string): number {
   const scoreMap: Record<string, number> = {

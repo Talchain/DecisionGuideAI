@@ -14,6 +14,7 @@
  */
 
 import { useState, useCallback, useEffect, useRef } from 'react'
+import { ShieldCheck, ShieldAlert, AlertTriangle as TriangleAlert } from 'lucide-react'
 import type { DriversSectionData, DriverItem, FlipThreshold } from './types'
 import { focusNodeById } from '../../canvas/utils/focusHelpers'
 import { useUIStore } from '../../stores/uiStore'
@@ -149,6 +150,37 @@ function FactorTooltip({
   )
 }
 
+/** Bootstrap stability indicator — shows when ISL provides attribution_stability. */
+function BootstrapStabilityIndicator({
+  stability,
+  rankFlipRate,
+}: {
+  stability: 'high' | 'moderate' | 'low' | 'negligible'
+  rankFlipRate?: number
+}) {
+  const config = {
+    high:       { icon: ShieldCheck,   colour: 'text-success',  label: 'Solid ranking' },
+    moderate:   { icon: ShieldCheck,   colour: 'text-info',     label: 'Fairly stable ranking' },
+    low:        { icon: ShieldAlert,   colour: 'text-warning',  label: "This driver's ranking is less stable across model variations" },
+    negligible: { icon: TriangleAlert, colour: 'text-danger',   label: 'Ranking is unstable across model variations' },
+  } as const
+  const { icon: Icon, colour, label } = config[stability]
+
+  return (
+    <div className="flex flex-col gap-0.5">
+      <p className={`${typography.panelBody} ${colour} flex items-center gap-1`}>
+        <Icon size={14} className="shrink-0" />
+        {label}
+      </p>
+      {typeof rankFlipRate === 'number' && rankFlipRate > 0.3 && (
+        <p className={`${typography.panelBody} text-text-secondary ml-5`}>
+          Ranking may shift under different assumptions
+        </p>
+      )}
+    </div>
+  )
+}
+
 // Expanded row details
 function ExpandedDetails({
   driver,
@@ -250,6 +282,21 @@ function ExpandedDetails({
       )}
 
       {/* Task 2: Removed standalone "Focus on canvas" CTA - factor name is now clickable */}
+
+      {/* Bootstrap stability indicator — gated on field presence (ISL) */}
+      {driver.attributionStability && (
+        <BootstrapStabilityIndicator
+          stability={driver.attributionStability}
+          rankFlipRate={driver.rankFlipRate}
+        />
+      )}
+
+      {/* EVPI display — gated on field presence (ISL) */}
+      {typeof driver.evpiPercentagePoints === 'number' && driver.evpiPercentagePoints > 0 && (
+        <p className={`${typography.panelBody} text-text-secondary flex items-center gap-1`}>
+          Resolving this could improve confidence by up to {driver.evpiPercentagePoints.toFixed(1)}pp
+        </p>
+      )}
 
       {/* CEE-generated insights (observations, perspectives, confidence question) */}
       {driver.enrichment && hasEnrichmentContent(driver.enrichment) && (

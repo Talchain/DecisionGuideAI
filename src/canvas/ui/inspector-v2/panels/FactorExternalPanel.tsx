@@ -19,6 +19,7 @@ import { ConnectionRow } from '../shared/ConnectionRow'
 import { CoachingCard } from '../shared/CoachingCard'
 import { StaleGuardBanner } from '../shared/StaleGuardBanner'
 import { TechnicalDisclosure } from '../shared/TechnicalDisclosure'
+import { RangeDerivationPill } from '../shared/RangeDerivationPill'
 import { DataBar } from '../../shared/DataBar'
 import type { InspectorPanelProps } from '../types'
 import { resolveCoaching } from '../coachingConfig'
@@ -281,6 +282,7 @@ export const FactorExternalPanel = memo(function FactorExternalPanel({
         <div>System: kind: factor (external)</div>
         {rangeMin != null && <div>System: prior.range_min: {rangeMin}</div>}
         {rangeMax != null && <div>System: prior.range_max: {rangeMax}</div>}
+        <RangeDerivationPill source={((node?.data as Record<string, unknown>)?.observedState as Record<string, unknown> | undefined)?.range_derivation_source as string | undefined} />
       </TechnicalDisclosure>
     </div>
   )

@@ -21,6 +21,7 @@ import { ConnectionRow } from '../shared/ConnectionRow'
 import { CoachingCard } from '../shared/CoachingCard'
 import { StaleGuardBanner } from '../shared/StaleGuardBanner'
 import { TechnicalDisclosure } from '../shared/TechnicalDisclosure'
+import { RangeDerivationPill } from '../shared/RangeDerivationPill'
 import { DataBar } from '../../shared/DataBar'
 import type { InspectorPanelProps } from '../types'
 import { resolveCoaching } from '../coachingConfig'
@@ -180,6 +181,7 @@ export const FactorObservablePanel = memo(function FactorObservablePanel({
         <div>System: node_id: {nodeId}</div>
         <div>System: kind: factor (observable)</div>
         {value != null && <div>System: observed_state.value: {value}</div>}
+        <RangeDerivationPill source={obs?.range_derivation_source as string | undefined} />
       </TechnicalDisclosure>
     </div>
   )

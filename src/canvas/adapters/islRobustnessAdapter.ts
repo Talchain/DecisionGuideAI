@@ -166,7 +166,8 @@ export function inferRobustnessLabel(
 }
 
 /**
- * Adapt ISL sensitive parameter to UI format
+ * UI-SEM-037: Default current_value/flip_threshold/sensitivity = 0.5 when ISL omits.
+ * Classification: inbound (ISL → display); display-only fallback.
  */
 function adaptSensitiveParameter(raw: ISLSensitivityParameter): SensitiveParameter {
   return {

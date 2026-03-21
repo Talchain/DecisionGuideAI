@@ -299,10 +299,14 @@ export function ceeOptionToV2Option(ceeOption: CEEOptionV3): V2Option {
  * reads from camelCase and returns snake_case for the V2 request.
  *
  * UI-SEM-002: Observed state default injection — std and baseline are
- * computed when CEE has not provided them. Adapter concern (legitimate).
+ * computed when CEE has not provided them. PLoT now performs this transform
+ * canonically (confirmed by PLoT audit March 2026). UI transform is retained
+ * as defence-in-depth but is no longer the primary semantic owner.
  *
  * UI-SEM-003: STD floor enforcement (STD_FLOOR constant). Prevents
- * zero-variance nodes from crashing PLoT. Adapter concern (legitimate).
+ * zero-variance nodes from crashing PLoT. PLoT now performs this transform
+ * canonically (confirmed by PLoT audit March 2026). UI transform is retained
+ * as defence-in-depth but is no longer the primary semantic owner.
  *
  * V3 pass-through: spreads ALL CEE-provided fields (raw_value, cap,
  * factor_type, uncertainty_drivers, extractionType) and only adds
@@ -554,9 +558,10 @@ export function getStrengthCorrections(): StrengthCorrection[] {
  *
  * IMPORTANT: Call validateEdgeData first to ensure fields exist.
  *
- * UI-SEM-001: Reclassified as format conversion (not semantic transform).
- * Canvas stores unsigned weight + direction; wire format requires signed mean.
- * This is the adapter's legitimate job — PLoT cannot own this.
+ * UI-SEM-001: Format conversion (not semantic transform). Canvas stores unsigned
+ * weight + direction; wire format requires signed mean. PLoT now performs this
+ * transform canonically (confirmed by PLoT audit March 2026). UI transform is
+ * retained as defence-in-depth but is no longer the primary semantic owner.
  */
 function computeSignedMean(data: CanvasEdgeData | undefined, edgeId?: string, from?: string, to?: string): number {
   const magnitude = data?.weight ?? 0.5
@@ -597,7 +602,7 @@ function computeSignedMean(data: CanvasEdgeData | undefined, edgeId?: string, fr
 function computeDefaultStd(data: CanvasEdgeData | undefined): number {
   const magnitude = data?.weight ?? 0.5
   // UI-SEM-031: Default exists_probability (0.8) for std computation when belief is missing.
-  // Keep — adapter concern; same class as UI-SEM-002/003.
+  // Keep — adapter concern; same class as UI-SEM-002/003 (defence-in-depth, PLoT is primary owner).
   const belief = data?.beliefExists ?? data?.confidence ?? data?.belief ?? DEFAULT_EXISTS_PROBABILITY
   const cv = 0.3 * (1 - belief) + 0.1
   return Math.max(STD_FLOOR, cv * magnitude)

@@ -649,7 +649,7 @@ export function buildISLConformalRequest(
      * When an edge lacks signed strength_mean and effect_direction, auto-negates
      * the coefficient for risk→goal/outcome edges. Same class as UI-SEM-001
      * (adapter concern: translating causal semantics to ISL wire format).
-     * Classification: adapter concern — legitimate.
+     * PLoT now owns sign computation canonically (March 2026); this is defence-in-depth.
      */
     // P0-4: Priority order for sign handling (canonical rule: direction encoded via signed strength_mean)
     // 1. Use signed strength_mean if present (canonical source of truth)

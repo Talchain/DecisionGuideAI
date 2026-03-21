@@ -145,6 +145,20 @@ const TIER_CONFIG: Record<ConfidenceTier, {
  * v7.4 Task 7: Group-based styling - danger for Group 1, warning for Group 2
  */
 
+/**
+ * E-value indicator for fragile edge cards — gated on field presence (ISL).
+ * Shows how many times wrong an assumption must be to flip the recommendation.
+ * Colour tiers: > 3 = success (robust), 1.5-3 = warning (moderate), < 1.5 = danger (fragile).
+ */
+function EValueIndicator({ eValue }: { eValue: number }) {
+  const colour = eValue > 3 ? 'text-success' : eValue >= 1.5 ? 'text-warning' : 'text-danger'
+  return (
+    <p className={`${typography.panelBody} ${colour} ml-6 mt-0.5`}>
+      This assumption would need to be {eValue.toFixed(1)}x wrong to change the recommendation
+    </p>
+  )
+}
+
 /** Internal-string blocklist — used for data-layer guards (edge title extraction, filter predicates). */
 const INTERNAL_PATTERN = /constraint_|observed_state|intercept=|node_id=|edge_id=|fac_[a-z_]+|opt_[a-z_]+|goal_[a-z_]+|blocks_analysis/i
 
@@ -274,6 +288,7 @@ function UncertaintyRow({
             )}
           </div>
           {/* v7.10 T7: Per-card consequence line removed — section intro already explains risk level */}
+          {typeof item.eValue === 'number' && <EValueIndicator eValue={item.eValue} />}
         </>
       ) : (
         // Full format for non-edge uncertainties
@@ -321,6 +336,7 @@ function UncertaintyRow({
                   )}
                 </div>
               )}
+              {typeof item.eValue === 'number' && <EValueIndicator eValue={item.eValue} />}
               {/* Suggestion as text when no action nodes */}
               {!isClickable && (humanisedSuggestion || item.suggestion) && (
                 <p className={`${typography.panelBody} text-text-light mt-1`}>{humanisedSuggestion || item.suggestion}</p>

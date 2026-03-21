@@ -255,7 +255,13 @@ export function groupActionItems(input: GroupActionItemsInput): ActionGroup[] {
   // Exclude evidence gaps whose dedup key matches Group 1 OR excluded factors
   const group2Items: ActionItem[] = evidenceGaps
     .filter(gap => !group1Keys.has(gap.factorId) && !excludeSet.has(gap.factorId))
-    .sort((a, b) => b.voi - a.voi)
+    .sort((a, b) => {
+      // Prefer EVPI sort when available (ISL), fallback to VOI
+      const aEvpi = (a as any).evpi as number | undefined
+      const bEvpi = (b as any).evpi as number | undefined
+      if (typeof aEvpi === 'number' && typeof bEvpi === 'number') return bEvpi - aEvpi
+      return b.voi - a.voi
+    })
     .map((gap, voiRank) => {
       // V12: Enrich with M2 evidence enhancements when available
       const enhancement = evidenceEnhancements?.[gap.factorId]

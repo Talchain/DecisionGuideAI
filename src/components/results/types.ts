@@ -269,6 +269,14 @@ export interface DriverItem {
   enrichment?: FactorEnrichment
   /** V14.1: confidence is a default estimate (isl_default), not user-provided */
   isDefaultedConfidence?: boolean
+  /** ISL bootstrap: stability of this factor's attribution across model variations */
+  attributionStability?: 'high' | 'moderate' | 'low' | 'negligible'
+  /** ISL bootstrap: fraction of bootstrap samples where this factor's rank flips (0-1) */
+  rankFlipRate?: number
+  /** ISL EVPI: expected value of perfect information */
+  evpi?: number
+  /** ISL EVPI: expected improvement in percentage points */
+  evpiPercentagePoints?: number
 }
 
 export interface DriversSectionData {
@@ -313,6 +321,8 @@ export interface UncertaintyItem {
   severity?: CritiqueSeverity
   /** Factor confidence (0-1) for confidence pill display. Derived from edge exists_probability. */
   factorConfidence?: number | null
+  /** ISL E-value: how many times wrong the assumption must be to flip the recommendation */
+  eValue?: number
   /** For sensitivity thresholds (when small changes flip the recommendation) */
   threshold?: {
     variable: string
@@ -358,6 +368,8 @@ export interface EvidenceGapItem {
   confidence: number
   /** Value of Information (0-1) - higher = more impactful to investigate */
   voi: number
+  /** ISL EVPI: expected value of perfect information (absolute units) — gated on presence */
+  evpi?: number
   suggestion: string
   /** Node ID for canvas focus (may differ from factorId) */
   targetNodeId?: string
@@ -527,6 +539,11 @@ export interface RawFactorSensitivity {
     structural_certainty: number
     sampling_stability: number | null
   }
+  /** ISL bootstrap stability */
+  attribution_stability?: 'high' | 'moderate' | 'low' | 'negligible'
+  rank_flip_rate?: number
+  evpi?: number
+  evpi_percentage_points?: number
 }
 
 export interface UiFactorSensitivity {
@@ -544,6 +561,10 @@ export interface UiFactorSensitivity {
   valueOfInformation?: number
   /** PLoT flip_risk_category - how this factor contributes to decision uncertainty */
   flipRiskCategory?: FlipRiskCategory
+  attributionStability?: 'high' | 'moderate' | 'low' | 'negligible'
+  rankFlipRate?: number
+  evpi?: number
+  evpiPercentagePoints?: number
 }
 
 // =============================================================================

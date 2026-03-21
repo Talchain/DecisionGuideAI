@@ -261,6 +261,7 @@ export function ModelTabBody({
 
       const aData = a.data as any
       const bData = b.data as any
+      // Display-only defaults for edge sort order — below UI-SEM tagging threshold.
       // Missing confidence → sort last (Infinity in ascending order)
       const aConf = aData?.beliefExists ?? aData?.exists_probability ?? aData?.confidence
       const bConf = bData?.beliefExists ?? bData?.exists_probability ?? bData?.confidence
