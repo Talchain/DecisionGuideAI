@@ -79,4 +79,50 @@ describe('KeyRelationships', () => {
     const strongBtn = screen.getByText('Strongly')
     expect(strongBtn.className).toContain('bg-info/10')
   })
+
+  it('excludes decision-to-option structural edges', () => {
+    const nodes = [
+      { id: 'd1', type: 'decision', position: { x: 0, y: 0 }, data: { label: 'Decision', kind: 'decision' } } as any,
+      { id: 'o1', type: 'option', position: { x: 0, y: 0 }, data: { label: 'Option', kind: 'option' } } as any,
+      makeNode('f1', 'Factor A'),
+      makeNode('f2', 'Factor B'),
+    ]
+    const edges = [
+      makeEdge('e_dec', 'd1', 'o1', 0.5, 'positive'), // structural — should be excluded
+      makeEdge('e_causal', 'f1', 'f2', 0.5, 'positive'), // causal — should be included
+    ]
+
+    render(<KeyRelationships edges={edges} nodes={nodes} />)
+
+    expect(screen.getByText('Factor A → Factor B')).toBeInTheDocument()
+    expect(screen.queryByText('Decision → Option')).not.toBeInTheDocument()
+  })
+
+  it('maps basis codes to human-readable labels', () => {
+    const nodes = [makeNode('f1', 'Cost'), makeNode('f2', 'Revenue')]
+    const edges = [{
+      id: 'e1',
+      source: 'f1',
+      target: 'f2',
+      data: { weight: 0.5, direction: 'positive', validation: { pass2: { basis: 'domain_prior' } } },
+    } as any]
+
+    render(<KeyRelationships edges={edges} nodes={nodes} />)
+
+    expect(screen.getByText('Based on general domain knowledge')).toBeInTheDocument()
+  })
+
+  it('passes correct mapped values for each strength level', () => {
+    const onUpdate = vi.fn()
+    const nodes = [makeNode('f1', 'A'), makeNode('f2', 'B')]
+    const edges = [makeEdge('e1', 'f1', 'f2', 0.5, 'positive')]
+
+    render(<KeyRelationships edges={edges} nodes={nodes} onUpdateEdgeStrength={onUpdate} />)
+
+    fireEvent.click(screen.getByText('Moderately'))
+    expect(onUpdate).toHaveBeenCalledWith('e1', 0.40)
+
+    fireEvent.click(screen.getByText('Strongly'))
+    expect(onUpdate).toHaveBeenCalledWith('e1', 0.70)
+  })
 })

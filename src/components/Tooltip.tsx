@@ -68,7 +68,7 @@ export default function Tooltip({ children, content, className = '', delay }: To
         {isOpen && (
           <div
             ref={refs.setFloating}
-            className={`z-[9999] px-3 py-2 text-sm bg-gray-900 text-white rounded-lg max-w-xs ${className}`}
+            className={`z-[9999] px-2.5 py-1.5 text-xs bg-text-header text-text-on-color rounded-md max-w-[200px] ${className}`}
             style={{
               position: strategy,
               top: y ?? 0,
@@ -79,7 +79,7 @@ export default function Tooltip({ children, content, className = '', delay }: To
             {content}
             <div
               ref={arrowRef}
-              className="absolute w-2 h-2 bg-gray-900 rotate-45"
+              className="absolute w-2 h-2 bg-text-header rotate-45"
               style={{
                 left: arrowX != null ? `${arrowX}px` : '',
                 top: arrowY != null ? `${arrowY}px` : '',

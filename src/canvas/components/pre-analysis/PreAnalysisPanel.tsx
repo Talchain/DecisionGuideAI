@@ -366,14 +366,12 @@ export function PreAnalysisPanel({
     setCeeAnalysisReady(null)
   }, [])
 
-  // Edge strength quick-select — update edge weight from qualitative selection
+  // Edge strength quick-select — update edge weight via canonical updateEdgeData (clamps [0,2])
   const handleUpdateEdgeStrength = useCallback((edgeId: string, value: number) => {
-    const { updateEdge, edges } = useCanvasStore.getState()
-    const edge = edges.find(e => e.id === edgeId)
-    if (!edge) return
-    // Clear strength_mean so computeSignedMean falls through to weight + direction
-    const data = { ...(edge.data ?? {}), weight: value, strength_mean: undefined }
-    updateEdge(edgeId, { data })
+    const { updateEdgeData } = useCanvasStore.getState()
+    // Write weight through updateEdgeData (clamped). Clear strength_mean so
+    // computeSignedMean falls through to weight + direction (the canvas schema path).
+    updateEdgeData(edgeId, { weight: value, strength_mean: undefined } as any)
   }, [])
 
   // Focus edge for KeyRelationships (simplified — always edge type)

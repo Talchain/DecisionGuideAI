@@ -1,5 +1,5 @@
 import { render, screen, fireEvent } from '@testing-library/react'
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { DecisionQualityChecks } from '../DecisionQualityChecks'
 import type { QualityCheck } from '../hooks/usePreAnalysisData'
 
@@ -94,5 +94,53 @@ describe('DecisionQualityChecks — max visible cards', () => {
   it('renders nothing when checks array is empty', () => {
     const { container } = render(<DecisionQualityChecks checks={[]} />)
     expect(container.firstChild).toBeNull()
+  })
+})
+
+describe('DecisionQualityChecks — direct add CTA', () => {
+  it('shows "Add a risk" button for no_risks check when onDirectAdd provided', () => {
+    const onDirectAdd = vi.fn()
+    render(<DecisionQualityChecks checks={[makeCheck({ id: 'no_risks' })]} onDirectAdd={onDirectAdd} />)
+    expect(screen.getByText('Add a risk')).toBeInTheDocument()
+  })
+
+  it('calls onDirectAdd with risk kind on submit', () => {
+    const onDirectAdd = vi.fn()
+    render(<DecisionQualityChecks checks={[makeCheck({ id: 'no_risks' })]} onDirectAdd={onDirectAdd} />)
+
+    fireEvent.click(screen.getByText('Add a risk'))
+    const input = screen.getByPlaceholderText(/churn/)
+    fireEvent.change(input, { target: { value: 'Supply chain disruption' } })
+    fireEvent.click(screen.getByText('Add'))
+
+    expect(onDirectAdd).toHaveBeenCalledWith('risk', 'Supply chain disruption')
+  })
+
+  it('shows validation error on empty submit', () => {
+    const onDirectAdd = vi.fn()
+    render(<DecisionQualityChecks checks={[makeCheck({ id: 'no_risks' })]} onDirectAdd={onDirectAdd} />)
+
+    fireEvent.click(screen.getByText('Add a risk'))
+    fireEvent.click(screen.getByText('Add'))
+
+    expect(screen.getByText('Enter a name')).toBeInTheDocument()
+    expect(onDirectAdd).not.toHaveBeenCalled()
+  })
+
+  it('Cancel closes input and clears validation', () => {
+    render(<DecisionQualityChecks checks={[makeCheck({ id: 'no_risks' })]} onDirectAdd={vi.fn()} />)
+
+    fireEvent.click(screen.getByText('Add a risk'))
+    fireEvent.click(screen.getByText('Add')) // trigger validation
+    expect(screen.getByText('Enter a name')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByText('Cancel'))
+    expect(screen.queryByText('Enter a name')).not.toBeInTheDocument()
+    expect(screen.getByText('Add a risk')).toBeInTheDocument()
+  })
+
+  it('does not show direct add button when onDirectAdd is not provided', () => {
+    render(<DecisionQualityChecks checks={[makeCheck({ id: 'no_risks' })]} />)
+    expect(screen.queryByText('Add a risk')).not.toBeInTheDocument()
   })
 })

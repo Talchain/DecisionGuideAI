@@ -6,10 +6,8 @@
  *
  * Data source: ceeAnalysisReady.options[] via usePreAnalysisData().optionPreviews
  *
- * Note: Intervention target values are read-only. They originate from the CEE
- * response (ceeAnalysisReady.options[].interventions) and there is no safe store
- * mutation pathway to edit individual intervention targets. Inline editing of
- * these values was intentionally skipped (collaboration enhancements Task 4).
+ * Intervention target values are read-only from CEE. Inline editing deferred
+ * until intervention mutation pathway is established.
  */
 
 import { useState } from 'react'

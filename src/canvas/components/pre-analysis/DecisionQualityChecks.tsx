@@ -123,6 +123,13 @@ function CheckRow({
               >
                 Add
               </button>
+              <button
+                type="button"
+                onClick={() => { setShowInput(false); setInputValue(''); setValidationError(false) }}
+                className={`${typography.panelMeta} text-text-light hover:text-text-body`}
+              >
+                Cancel
+              </button>
             </div>
             {validationError && (
               <p className={`${typography.panelMeta} text-danger mt-0.5`}>Enter a name</p>
