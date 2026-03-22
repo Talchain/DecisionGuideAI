@@ -927,6 +927,22 @@ describe('PreAnalysisPanel', () => {
       expect(screen.getByText('Auto-fixes applied (1)')).toBeInTheDocument()
     })
 
+    it('shows only Auto-fixes sub-label when no constraints present', () => {
+      mockUsePreAnalysisData.mockReturnValue(createMockData({
+        modelAdjustments: [
+          { code: 'factor_reclassified', reason: 'Moved to external' },
+          { code: 'edge_reversed', reason: 'Reversed causal direction' },
+        ],
+      }))
+
+      render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
+      fireEvent.click(screen.getByText(/2 model adjustments applied/))
+
+      // Only auto-fixes sub-group should appear (no constraints)
+      expect(screen.getByText('Auto-fixes applied (2)')).toBeInTheDocument()
+      expect(screen.queryByText(/Constraints applied/)).not.toBeInTheDocument()
+    })
+
     it('does not render model-adjustments section when adjustments are empty', () => {
       mockUsePreAnalysisData.mockReturnValue(createMockData({
         modelAdjustments: [],

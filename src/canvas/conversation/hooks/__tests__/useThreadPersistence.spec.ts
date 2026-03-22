@@ -28,6 +28,13 @@ vi.mock('../../../../services/threadService', () => ({
   insertConversationTurn: (...args: unknown[]) => mockInsertConversationTurn(...args),
 }))
 
+// Mock canvas store (scenarioPersistedToDb gates normalised persistence path)
+vi.mock('../../../store', () => ({
+  useCanvasStore: {
+    getState: () => ({ scenarioPersistedToDb: true }),
+  },
+}))
+
 // Mock results store (used by normalised persistence path)
 vi.mock('../../../stores/resultsStore', () => ({
   useResultsStore: {

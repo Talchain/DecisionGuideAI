@@ -220,6 +220,99 @@ describe('adaptCEEBlock — wrapped CEE format', () => {
 })
 
 // ---------------------------------------------------------------------------
+// adaptCEEBlock — negative paths (malformed input resilience)
+// ---------------------------------------------------------------------------
+
+describe('adaptCEEBlock — malformed input resilience', () => {
+  it('handles undefined input without throwing', () => {
+    const result = adaptCEEBlock(undefined)
+    expect(result).toBeDefined()
+    expect(result.type).toBe('commentary')
+  })
+
+  it('handles primitive string input without throwing', () => {
+    const result = adaptCEEBlock('just a string')
+    expect(result).toBeDefined()
+    expect(result.type).toBe('commentary')
+  })
+
+  it('handles number input without throwing', () => {
+    const result = adaptCEEBlock(42)
+    expect(result).toBeDefined()
+    expect(result.type).toBe('commentary')
+  })
+
+  it('handles empty object without throwing', () => {
+    const result = adaptCEEBlock({})
+    expect(result).toBeDefined()
+  })
+
+  it('handles wrapped format with null data gracefully', () => {
+    const result = adaptCEEBlock({ block_type: 'commentary', data: null })
+    expect(result).toBeDefined()
+    expect(result.type).toBe('commentary')
+  })
+
+  it('handles wrapped format with non-object data gracefully', () => {
+    const result = adaptCEEBlock({ block_type: 'fact', data: 'invalid' })
+    expect(result).toBeDefined()
+    expect(result.type).toBe('fact')
+  })
+
+  it('handles graph_patch with non-array operations gracefully', () => {
+    const result = adaptCEEBlock({
+      block_type: 'graph_patch',
+      data: { operations: 'not-an-array', patch_id: 'p1', summary: 'test' },
+    })
+    expect(result).toBeDefined()
+    expect(result.type).toBe('graph_patch')
+    // operations should be an empty array when input is non-array
+    expect((result as any).operations).toEqual([])
+  })
+
+  it('handles evidence block with empty findings array', () => {
+    const result = adaptCEEBlock({
+      block_type: 'evidence',
+      data: { findings: [], query: 'test query' },
+    })
+    expect(result).toBeDefined()
+    expect(result.type).toBe('evidence')
+    expect((result as any).findings).toEqual([])
+    expect((result as any).query).toBe('test query')
+  })
+
+  it('handles evidence block with missing findings field', () => {
+    const result = adaptCEEBlock({
+      block_type: 'evidence',
+      data: { query: 'no findings' },
+    })
+    expect(result).toBeDefined()
+    expect(result.type).toBe('evidence')
+    expect((result as any).findings).toEqual([])
+  })
+
+  it('preserves unknown fields in default fallback path', () => {
+    const result = adaptCEEBlock({
+      block_type: 'future_block',
+      data: { custom_field: 'preserved', nested: { deep: true } },
+    }) as any
+    expect(result.type).toBe('future_block')
+    expect(result.custom_field).toBe('preserved')
+    expect(result.nested).toEqual({ deep: true })
+  })
+
+  it('coerces non-string title/text to string in commentary', () => {
+    const result = adaptCEEBlock({
+      block_type: 'commentary',
+      data: { text: 12345, title: true },
+    })
+    expect(result.type).toBe('commentary')
+    expect((result as any).text).toBe('12345')
+    expect((result as any).title).toBe('true')
+  })
+})
+
+// ---------------------------------------------------------------------------
 // prioritiseBlocks
 // ---------------------------------------------------------------------------
 
