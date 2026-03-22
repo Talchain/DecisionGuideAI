@@ -21,7 +21,7 @@ const TEMPLATE_PREFIX = `<!DOCTYPE html>
       --text-header: #262626;
       --text-body: #3F3F3E;
       --text-light: #908D8D;
-      --primary: #63ADCF;
+      --primary: #2B7FA2;
       --primary-hover: #67C89E;
       --danger: #EA7B4B;
       --success: #67C89E;

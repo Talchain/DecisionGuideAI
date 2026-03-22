@@ -663,8 +663,19 @@ const BriefBlockRenderer = memo(function BriefBlockRenderer({
 // EvidenceBlock
 // ---------------------------------------------------------------------------
 
+/** CEE findings may include fallback text fields beyond the typed EvidenceFinding interface */
+interface RawFinding {
+  text?: string
+  summary?: string
+  content?: string
+  description?: string
+  source_url?: string
+  confidence?: number
+  [key: string]: unknown
+}
+
 /** Task 5: Normalise a raw finding object — CEE may use text, summary, content, or description */
-function normaliseFindingText(f: Record<string, unknown>): string | null {
+function normaliseFindingText(f: RawFinding): string | null {
   const raw = f.text ?? f.summary ?? f.content ?? f.description
   if (typeof raw === 'string' && raw.trim().length > 0) return raw.trim()
   return null
@@ -685,7 +696,7 @@ const EvidenceBlockRenderer = memo(function EvidenceBlockRenderer({
   const normalisedFindings = Array.isArray(block.findings)
     ? block.findings
         .map((f) => {
-          const text = normaliseFindingText(f as unknown as Record<string, unknown>)
+          const text = normaliseFindingText(f as RawFinding)
           return text ? { ...f, text } : null
         })
         .filter(Boolean) as Array<EvidenceBlockType['findings'][number]>
@@ -698,7 +709,7 @@ const EvidenceBlockRenderer = memo(function EvidenceBlockRenderer({
     const summary = findings
       .slice(0, 3)
       .map(f => {
-        const raw = (f as unknown as Record<string, unknown>)
+        const raw = f as RawFinding
         const text = raw.text ?? raw.summary ?? raw.content ?? raw.description
         return typeof text === 'string' && text.trim() ? `- ${text.trim()}` : null
       })

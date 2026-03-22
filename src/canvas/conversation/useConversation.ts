@@ -698,8 +698,11 @@ export function adaptCEEBlock(raw: unknown): ConversationBlock {
         }
 
       default:
-        // Unknown block_type — pass raw type through for InlineBlocks fallback
-        return { type: block_type as any, ...dataObj } as unknown as ConversationBlock
+        // Unknown block_type — pass raw type through for InlineBlocks fallback.
+        // The type string is outside the ConversationBlock union but InlineBlocks
+        // renders a generic card for unrecognised types. Single assertion is safe
+        // because the spread preserves all fields the renderer may inspect.
+        return { type: block_type, ...dataObj } as ConversationBlock
     }
   }
 
@@ -718,7 +721,7 @@ export function adaptCEEBlock(raw: unknown): ConversationBlock {
       ...(status ? { status } : {}),
       ...(relatedElements ? { related_elements: relatedElements } : {}),
       ...(proposalItems.length > 0 ? { proposal_items: proposalItems } : {}),
-    } as unknown as ConversationBlock
+    } as GraphPatchBlock
   }
   return raw as ConversationBlock
 }
