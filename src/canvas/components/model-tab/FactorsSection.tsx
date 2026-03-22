@@ -21,7 +21,7 @@ import { focusNodeById } from '../../utils/focusHelpers'
 import { formatSmartNumber, formatValueWithUnit, getPrimaryValue } from './utils'
 import { InlineEdit } from './InlineEdit'
 import { SourceProvenancePill } from './SourceProvenancePill'
-import { InfluenceBar } from './InfluenceBar'
+import { DataBar } from '../../ui/shared/DataBar'
 import { DetailToggleContext } from './DetailToggleContext'
 import type { ObservedState, FactorInfluenceMap } from './types'
 
@@ -280,7 +280,7 @@ function FactorCard({
           {influence !== undefined && (
             <div className="flex items-center gap-1.5 flex-wrap">
               <span className={`${typography.panelMeta} text-text-light w-12 shrink-0`}>Influence</span>
-              <InfluenceBar influence={influence} />
+              <DataBar value={influence} label="Influence" colour="info" trailingLabel={`${Math.round(influence * 100)}%`} />
             </div>
           )}
         </div>

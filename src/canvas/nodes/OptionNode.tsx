@@ -149,6 +149,15 @@ export const OptionNode = memo((props: NodeProps) => {
     setHoveredOption(null)
   }, [setHoveredOption])
 
+  // UI-SEM-048: Option provenance inferred from creation context.
+  // CEE schema gap: provenance_source not emitted on option nodes (DraftChat CIL 0.2
+  // strips it). Workaround: if the option ID appears in ceeAnalysisReady.options, it
+  // was generated from the user's brief; otherwise it was user-created or from a template.
+  // Remove when CEE provides provenance_source on option nodes.
+  const isOptionFromCee = useMemo(() =>
+    ceeAnalysisReady?.options?.some(opt => opt.id === props.id) ?? false,
+  [ceeAnalysisReady, props.id])
+
   return (
     <div
       onMouseEnter={handleMouseEnter}
@@ -242,9 +251,13 @@ export const OptionNode = memo((props: NodeProps) => {
           </div>
         )}
 
-        {/* TODO(CIL): provenance_source stripped by DraftChat CIL 0.2 — reinstate when edge data carries provenance.
-            OptionNode has no provenance pill because DraftChat does not preserve provenance_source on option nodes.
-            Once DraftChat maps provenance_source through, add a pill here mirroring FactorNode / GoalNode pattern. */}
+        {isOptionFromCee && (
+          <div className={`${typography.nodeLabel} mt-1`}>
+            <span className="bg-panel border border-info/30 text-text-body rounded-full px-1.5 py-0.5">
+              Generated from your brief
+            </span>
+          </div>
+        )}
 
         {typeof props.data?.description === 'string' && props.data.description && (
           <div className={`${typography.nodeLabel} opacity-70 mt-1`}>

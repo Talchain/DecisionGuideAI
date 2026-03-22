@@ -172,6 +172,7 @@ function BootstrapStabilityIndicator({
         <Icon size={14} className="shrink-0" />
         {label}
       </p>
+      {/* UI-SEM-045: Rank flip warning gate (>0.3). Remove when PLoT provides visibility gate. */}
       {typeof rankFlipRate === 'number' && rankFlipRate > 0.3 && (
         <p className={`${typography.panelBody} text-text-secondary ml-5`}>
           Ranking may shift under different assumptions
@@ -208,6 +209,7 @@ function ExpandedDetails({
   // v7.5 T7: Softened elasticity copy
   const elasticityInsight = driver.rawElasticity > 0.001
     ? (() => {
+        // UI-SEM-046: Elasticity display scaling (x10, floor 1). Remove when PLoT provides shift percentage.
         const shiftPct = Math.max(1, Math.round(driver.rawElasticity * 10))
         const formatted = driver.direction === 'negative' ? formatPercent(-shiftPct, { sign: true }) : formatPercent(shiftPct)
         if (isBinaryFactor(driver.factorLabel)) {
@@ -351,6 +353,7 @@ function DriverRow({
 
   // Confidence value (0-1)
   const confidenceValue = typeof driver.confidence === 'number'
+    // UI-SEM-047: Confidence clamped to [0, 1]. Keep — normalisation.
     ? Math.max(0, Math.min(1, driver.confidence))
     : null
 

@@ -16,8 +16,120 @@ import { ConnectionRow } from '../shared/ConnectionRow'
 import { CoachingCard } from '../shared/CoachingCard'
 import { StaleGuardBanner } from '../shared/StaleGuardBanner'
 import { TechnicalDisclosure } from '../shared/TechnicalDisclosure'
+import { DataBar } from '../../shared/DataBar'
 import type { InspectorPanelProps } from '../types'
 import { COACHING } from '../coachingConfig'
+
+/** Check if option comparison analysis failed (used to hide entire section) */
+function isOptionComparisonFailed(report: unknown): boolean {
+  const r = report as Record<string, unknown> | null
+  const status = r?.option_comparison_status as string | undefined
+  return status === 'error' || status === 'failed'
+}
+
+// ─── Option comparison sub-component (A.3) ────────────────────────
+interface OptionComparisonEntry {
+  option_id: string
+  option_label?: string
+  win_probability?: number
+  expected_outcome?: number
+  outcome?: { mean?: number; p10?: number; p50?: number; p90?: number }
+}
+
+function OptionComparisonSection({
+  report,
+  techMode,
+  onNavigate,
+}: {
+  report: unknown
+  techMode: boolean
+  onNavigate: (id: string) => void
+}) {
+  const r = report as Record<string, unknown> | null
+  const status = r?.option_comparison_status as string | undefined
+  const comparisons = r?.option_comparison as OptionComparisonEntry[] | undefined
+
+  // Failed analysis: hide section
+  if (status === 'error' || status === 'failed') return null
+
+  // Not computed or empty
+  if (!comparisons || !Array.isArray(comparisons) || comparisons.length === 0) {
+    if (status === 'pending' || status === 'running') {
+      return (
+        <div className="bg-panel border border-panel-border rounded-lg p-3">
+          <p className={`${typography.panelMeta} text-text-light`}>
+            Analysis in progress...
+          </p>
+        </div>
+      )
+    }
+    return (
+      <div className="bg-panel border border-panel-border rounded-lg p-3">
+        <p className={`${typography.panelMeta} text-text-light`}>
+          No per-option predictions available.
+        </p>
+      </div>
+    )
+  }
+
+  // Sort by win probability descending
+  const sorted = [...comparisons].sort((a, b) =>
+    (b.win_probability ?? 0) - (a.win_probability ?? 0)
+  )
+
+  return (
+    <div className="space-y-1.5" data-testid="option-comparison-section">
+      {sorted.map(opt => {
+        const outcome = opt.outcome
+        const hasPrediction = outcome && (outcome.mean != null || outcome.p10 != null)
+        return (
+          <button
+            key={opt.option_id}
+            type="button"
+            onClick={() => onNavigate(opt.option_id)}
+            className="w-full text-left bg-panel border border-panel-border rounded-lg p-2.5 hover:bg-panel-hover transition-colors"
+          >
+            <div className="flex items-center justify-between gap-2">
+              <span className={`${typography.panelBody} text-text-body truncate`}>
+                {opt.option_label ?? opt.option_id}
+              </span>
+              {opt.win_probability != null && (
+                <span className={`${typography.panelMeta} shrink-0 text-option font-medium`}>
+                  {Math.round(opt.win_probability * 100)}% win
+                </span>
+              )}
+            </div>
+            {hasPrediction && (
+              <div className={`${typography.panelMeta} text-text-light mt-1`}>
+                {outcome!.mean != null && (
+                  <span>~{outcome!.mean.toFixed(1)}</span>
+                )}
+                {outcome!.p10 != null && outcome!.p90 != null && (
+                  <span className="ml-1">
+                    ({outcome!.p10.toFixed(1)} – {outcome!.p90.toFixed(1)})
+                  </span>
+                )}
+              </div>
+            )}
+            {!hasPrediction && (
+              <div className={`${typography.panelMeta} text-text-light mt-1`}>—</div>
+            )}
+            {opt.win_probability != null && (
+              <div className="mt-1">
+                <DataBar value={opt.win_probability} label="Win probability" colour="info" />
+              </div>
+            )}
+            {techMode && opt.expected_outcome != null && (
+              <div className={`${typography.panelMeta} text-text-light mt-0.5`}>
+                expected_outcome: {opt.expected_outcome.toFixed(2)}
+              </div>
+            )}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
 
 export const OutcomePanel = memo(function OutcomePanel({
   nodeId,
@@ -28,6 +140,7 @@ export const OutcomePanel = memo(function OutcomePanel({
   const nodes = useCanvasStore(s => s.nodes)
   const edges = useCanvasStore(s => s.edges)
   const resultsStatus = useCanvasStore(s => s.results?.status)
+  const resultsReport = useCanvasStore(s => s.results?.report)
   const isResultsMode = resultsStatus === 'complete'
 
   const node = nodeId ? nodes.find(n => n.id === nodeId) : undefined
@@ -76,17 +189,23 @@ export const OutcomePanel = memo(function OutcomePanel({
         <p className={`${typography.panelBody} text-text-body mt-3`}>{description}</p>
       )}
 
-      {/* Predicted range by option */}
-      <SectionTitle icon={SECTION_TITLES.predictedRange.icon} label={SECTION_TITLES.predictedRange.label} />
-      <StaleGuardBanner isStale={isStale} hasResults={isResultsMode}>
-        {isResultsMode ? (
-          <div className="bg-panel border border-panel-border rounded-lg p-3">
-            <p className={`${typography.panelMeta} text-text-light`}>
-              Distribution data will be displayed here when available from analysis results.
-            </p>
-          </div>
-        ) : null}
-      </StaleGuardBanner>
+      {/* Predicted range by option — hidden entirely when analysis failed */}
+      {!(isResultsMode && isOptionComparisonFailed(resultsReport)) && (
+        <>
+          <SectionTitle icon={SECTION_TITLES.predictedRange.icon} label={SECTION_TITLES.predictedRange.label} />
+          <StaleGuardBanner isStale={isStale} hasResults={isResultsMode}>
+            {isResultsMode ? (
+              <OptionComparisonSection report={resultsReport} techMode={techMode} onNavigate={onNavigate} />
+            ) : (
+              <div className="bg-panel border border-panel-border rounded-lg p-3">
+                <p className={`${typography.panelMeta} text-text-light`}>
+                  Run analysis to see predicted outcome ranges per option.
+                </p>
+              </div>
+            )}
+          </StaleGuardBanner>
+        </>
+      )}
 
       {/* Goal contribution bar — sourced from outcome→goal edge weight */}
       {goalContribution != null && (

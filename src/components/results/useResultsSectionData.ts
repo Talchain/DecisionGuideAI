@@ -535,7 +535,8 @@ function getSemanticLabel(rank: number, normalisedValue: number): DriverSemantic
   // Rank 1 always gets "Biggest factor"
   if (rank === 1) return 'biggest'
 
-  // Ranks 2+ use threshold-based labels
+  // UI-SEM-039: Driver semantic label thresholds (0.50 strong, 0.20 moderate).
+  // Remove when PLoT provides semantic labels per driver.
   if (normalisedValue >= 0.50) return 'strong'
   if (normalisedValue >= 0.20) return 'moderate'
   return 'minor'
@@ -1597,7 +1598,8 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
         const top2 = nonZeroImpactDrivers[1]
         const top1Influence = top1.influenceScore ?? top1.normalisedInfluence
         const top2Influence = top2.influenceScore ?? top2.normalisedInfluence
-        // Check >50% influence AND ratio > 2:1
+        // UI-SEM-040: Dominance detection heuristic (>0.5 influence AND ratio >2:1).
+        // Remove when PLoT provides dominant_factor in all responses.
         const isDominant = top1Influence > 0.5 && (top2Influence > 0 ? top1Influence / top2Influence > 2 : true)
         if (isDominant) {
           return {

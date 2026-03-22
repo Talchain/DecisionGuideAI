@@ -2,6 +2,8 @@ import { memo, useMemo } from 'react'
 import type { NodeProps } from '@xyflow/react'
 import { BaseNode } from './BaseNode'
 import { EvidenceGapBadge } from './EvidenceGapBadge'
+import type { EvidenceGapEscalation } from './EvidenceGapBadge'
+import { ConstraintBadge } from './ConstraintBadge'
 import { NODE_REGISTRY } from '../domain/nodes'
 import { useCanvasStore } from '../store'
 import { deriveControllability } from '../utils/graphDisplayCalculations'
@@ -166,9 +168,44 @@ export const FactorNode = memo((props: NodeProps) => {
   const showEvidenceGapBadge =
     isGraphBadgesEnabled() && !hasObservedData(props.data) && !externalWithPrior
 
+  // A.9: Post-analysis gap escalation based on VoI
+  const gapEscalation: EvidenceGapEscalation = useMemo(() => {
+    if (!displayMetadata.isResultsMode) return 'none'
+    const voi = displayMetadata.valueOfInformation
+    if (voi == null) return 'none'
+    // Critical: top-3 VoI factor with high score
+    if (voi > 0.20 && displayMetadata.voiRank !== null && displayMetadata.voiRank <= 3) return 'critical'
+    // Warning: moderate VoI (matches UI-SEM-014 threshold)
+    if (voi > 0.05) return 'warning'
+    return 'none'
+  }, [displayMetadata.isResultsMode, displayMetadata.valueOfInformation, displayMetadata.voiRank])
+
+  // A.6: Constraint badge — match factor label against goal constraint labels
+  const goalConstraints = useCanvasStore(state => state.goalConstraints)
+  const constraintTooltip = useMemo(() => {
+    if (!isGraphBadgesEnabled() || !goalConstraints?.length) return null
+    const matching = goalConstraints.filter(c =>
+      c.label.toLowerCase().trim() === cleanedLabel.toLowerCase().trim()
+    )
+    if (matching.length === 0) return null
+    return matching.map(c => `Constrained: ${c.label} ${c.operator} ${c.value ?? '—'}`).join('; ')
+  }, [goalConstraints, cleanedLabel])
+
+  // B.1b: "Assumed" pill — for default/missing source values (mutually exclusive with "Estimated")
+  const isAssumed = useMemo(() => {
+    if (isInferred) return false // "Estimated" takes precedence
+    if (provenanceLabel) return false // provenance pill shown instead
+    if (!observedState) return false
+    if (observedState.value === undefined) return false
+    // Default source = assumed by the model
+    const source = observedState.source
+    return source === 'default' || (!source && !observedState.extractionType)
+  }, [isInferred, provenanceLabel, observedState])
+
   return (
     <div style={{ position: 'relative' }}>
-      {showEvidenceGapBadge && <EvidenceGapBadge label={cleanedLabel} />}
+      {showEvidenceGapBadge && <EvidenceGapBadge label={cleanedLabel} escalation={gapEscalation} />}
+      {constraintTooltip && <ConstraintBadge tooltip={constraintTooltip} />}
       {isAffectedByHover && (
         <div
           className="absolute -inset-1 rounded-xl border-2 border-info pointer-events-none -z-10"
@@ -180,12 +217,24 @@ export const FactorNode = memo((props: NodeProps) => {
         data={{ ...cleanedData, controllability }}
         nodeType="factor"
         icon={metadata.icon}
-        headerSlot={categoryIcon ? (
-          <span title={categoryIcon.tooltip} aria-label={categoryIcon.tooltip}>
-            <categoryIcon.Icon
-              className="w-3.5 h-3.5 text-text-light"
-              aria-hidden="true"
-            />
+        headerSlot={(categoryIcon || (displayMetadata.isResultsMode && displayMetadata.voiRank !== null)) ? (
+          <span className="inline-flex items-center gap-0.5">
+            {categoryIcon && (
+              <span title={categoryIcon.tooltip} aria-label={categoryIcon.tooltip}>
+                <categoryIcon.Icon
+                  className="w-3.5 h-3.5 text-text-light"
+                  aria-hidden="true"
+                />
+              </span>
+            )}
+            {displayMetadata.isResultsMode && displayMetadata.voiRank !== null && (
+              <Search
+                size={14}
+                className="text-info shrink-0"
+                title={`Worth investigating (#${displayMetadata.voiRank} by investigation value${displayMetadata.valueOfInformation != null ? `, score ${Math.round(displayMetadata.valueOfInformation * 100)}%` : ''}) — gathering better evidence could improve decision confidence`}
+                aria-label={`Worth investigating — rank ${displayMetadata.voiRank} by investigation value${displayMetadata.valueOfInformation != null ? `, score ${Math.round(displayMetadata.valueOfInformation * 100)}%` : ''}`}
+              />
+            )}
           </span>
         ) : undefined}
       >
@@ -220,9 +269,19 @@ export const FactorNode = memo((props: NodeProps) => {
               <div className="mt-1">
                 <span
                   className={`${typography.nodeLabel} bg-panel border border-warning/30 text-text-body rounded-full px-1.5 py-0.5`}
-                  title="Estimated by Olumi — verify or update"
+                  title="Value inferred by the model from your brief"
                 >
                   estimated
+                </span>
+              </div>
+            )}
+            {isAssumed && (
+              <div className="mt-1">
+                <span
+                  className={`${typography.nodeLabel} bg-panel border border-warning/30 text-text-body rounded-full px-1.5 py-0.5`}
+                  title="Default value assumed by the model — verify or update with your own estimate"
+                >
+                  assumed
                 </span>
               </div>
             )}
@@ -272,18 +331,6 @@ export const FactorNode = memo((props: NodeProps) => {
                 </div>
               </div>
             )}
-          </div>
-        )}
-
-        {/* VoI badge: Search icon for top-3 factors by investigation value (post-analysis) */}
-        {displayMetadata.isResultsMode && displayMetadata.voiRank !== null && (
-          <div className="mt-1">
-            <Search
-              size={14}
-              className="text-info shrink-0"
-              title={`Worth investigating (#${displayMetadata.voiRank} by investigation value)`}
-              aria-label={`Worth investigating — rank ${displayMetadata.voiRank} by investigation value`}
-            />
           </div>
         )}
 

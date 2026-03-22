@@ -172,6 +172,8 @@ function getStabilityTier(stability: number | undefined): {
   if (stability == null) {
     return { label: '', colorClass: '', shortText: '', expandedText: '', coaching: null }
   }
+  // UI-SEM-041: Stability UI label thresholds (0.85 stable, 0.70 mostly stable, 0.55 sensitive).
+  // Remove when PLoT provides stability labels directly.
   if (stability >= 0.85) {
     return {
       label: 'Stable result',
@@ -238,13 +240,15 @@ function deriveTrustReason(opts: {
     return `${defaultEstimateCount} of ${totalFactorCount} factors use default estimates`
   }
 
-  // Priority 2: fragile edges ratio
+  // UI-SEM-042: Fragility ratio threshold (>0.7) for trust reason derivation.
+  // Remove when PLoT provides trust reason directly.
   const totalEdges = (fragileEdgeCount ?? 0) + (robustEdgeCount ?? 0)
   if (totalEdges > 0 && fragileEdgeCount != null && fragileEdgeCount / totalEdges > 0.7) {
     return 'most causal links are fragile'
   }
 
-  // Priority 3: evidence quality
+  // UI-SEM-043: Evidence quality threshold (<0.5) for trust reason derivation.
+  // Remove when PLoT provides trust reason directly.
   if (evidenceQuality != null && evidenceQuality < 0.5) {
     return 'evidence quality is low'
   }
@@ -252,6 +256,8 @@ function deriveTrustReason(opts: {
   return 'review model assumptions'
 }
 
+// UI-SEM-044: Border colour classification from stability score (0.7 success, 0.4 info).
+// Fallback when robustnessLevel is missing. Remove when PLoT guarantees robustnessLevel.
 function getHeroBorderClass(robustnessLevel?: RobustnessLevel, recommendationStability?: number): string {
   if (robustnessLevel === 'high') return 'border-success/30'
   if (robustnessLevel === 'moderate') return 'border-info/30'

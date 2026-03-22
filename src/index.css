@@ -545,6 +545,28 @@
   }
 }
 
+/* A.9: Evidence gap badge pulse — escalated post-analysis when VoI is high */
+.evidence-gap-pulse {
+  animation: evidence-gap-pulse 2s ease-in-out infinite;
+}
+
+@keyframes evidence-gap-pulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.15);
+    opacity: 0.75;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .evidence-gap-pulse {
+    animation-duration: 0.01ms;
+  }
+}
+
 /* Streaming cursor — injected via dangerouslySetInnerHTML in MessageBubble */
 .streaming-cursor {
   display: inline;

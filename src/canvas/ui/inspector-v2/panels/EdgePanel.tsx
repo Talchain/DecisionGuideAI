@@ -32,6 +32,7 @@ import { trackGuidance } from '../../../../telemetry/guidanceEvents'
 import { getFragileEdgeSwitchProbability } from '../../../utils/fragileEdgeMatch'
 import { COACHING } from '../coachingConfig'
 import { useEditImpactPreview } from '../../../hooks/useEditImpactPreview'
+import { StrengthBandButtons } from '../shared/StrengthBandButtons'
 
 // ─── Slider component for confidence and uncertainty ───────────────
 function InspectorSlider({
@@ -261,6 +262,8 @@ export const EdgePanel = memo(function EdgePanel({
           {/* §10.2 How strong is this effect */}
           <SectionTitle icon={SECTION_TITLES.howStrong.icon} label={SECTION_TITLES.howStrong.label} />
           <div className="px-1">
+            {/* B.4: Quick-select strength band buttons */}
+            <StrengthBandButtons value={localStrength} onChange={handleStrengthChange} />
             <div className="relative mb-2">
               <UncertaintyBand strength={localStrength} std={localStd} />
               <SignedStrengthSlider value={localStrength} onChange={handleStrengthChange} onBlur={handleStrengthBlur} std={localStd} />

@@ -60,20 +60,5 @@ export function mapSourceToTooltip(source: string | undefined): string | undefin
 }
 
 // ── Strength semantic labels ──────────────────────────────────────────────────
-
-/**
- * Derive a human-readable strength label from signed mean.
- * Bands: |mean| >= 0.6 → Strong, 0.25–0.6 → Moderate, 0.05–0.25 → Weak, <0.05 → Negligible
- * Combined with sign: "Strong positive effect", "Moderate negative effect", etc.
- */
-export function strengthSemanticLabel(signedMean: number): string {
-  const abs = Math.abs(signedMean)
-  let magnitude: string
-  if (abs >= 0.6) magnitude = 'Strong'
-  else if (abs >= 0.25) magnitude = 'Moderate'
-  else if (abs >= 0.05) magnitude = 'Weak'
-  else return 'Negligible effect'
-
-  const direction = signedMean >= 0 ? 'positive' : 'negative'
-  return `${magnitude} ${direction} effect`
-}
+// Re-export from strengthBands.ts (canonical thresholds from validation_ui_data_contract_v1.1).
+export { getStrengthLabel as strengthSemanticLabel } from './strengthBands'

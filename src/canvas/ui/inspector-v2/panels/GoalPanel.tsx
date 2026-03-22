@@ -3,7 +3,7 @@
  * Phase 2 priority.
  */
 
-import { memo, useState, useMemo } from 'react'
+import { memo, useState, useMemo, useCallback } from 'react'
 import { useCanvasStore } from '../../../store'
 import { InspectorGuidanceSection } from '../../inspector/InspectorGuidanceSection'
 import { GoalThresholdEditor } from '../../inspector/GoalThresholdEditor'
@@ -54,6 +54,52 @@ export const GoalPanel = memo(function GoalPanel({
   const thresholdUnit = (node?.data as Record<string, unknown>)?.goal_threshold_unit as string | undefined
   const thresholdRaw = (node?.data as Record<string, unknown>)?.goal_threshold_raw as string | number | null | undefined
   const [description, setDescription] = useState(String(node?.data?.description ?? ''))
+
+  // B.5: Add constraint form state
+  const [showAddConstraint, setShowAddConstraint] = useState(false)
+  const [newConstraintLabel, setNewConstraintLabel] = useState('')
+  const [newConstraintOperator, setNewConstraintOperator] = useState<'>=' | '<=' | '='>('>=')
+  const [newConstraintValue, setNewConstraintValue] = useState('')
+  const [constraintError, setConstraintError] = useState('')
+
+  // Factor nodes for the constraint target dropdown
+  const factorNodes = useMemo(() =>
+    nodes.filter(n => n.type === 'factor').map(n => ({
+      id: n.id,
+      label: String(n.data?.label ?? n.id),
+    })),
+  [nodes])
+
+  // Already-constrained factor labels (case-insensitive)
+  const constrainedLabels = useMemo(() => {
+    if (!goalConstraints?.length) return new Set<string>()
+    return new Set(goalConstraints.map(c => c.label.toLowerCase().trim()))
+  }, [goalConstraints])
+
+  const handleAddConstraint = useCallback(() => {
+    const value = parseFloat(newConstraintValue)
+    if (!newConstraintLabel) {
+      setConstraintError('Select a factor')
+      return
+    }
+    if (Number.isNaN(value)) {
+      setConstraintError('Enter a valid number')
+      return
+    }
+    const base = preAnalysisConstraints ?? []
+    const newConstraint: CEEGoalConstraint = {
+      id: `c${base.length + 1}`,
+      label: newConstraintLabel,
+      operator: newConstraintOperator,
+      value,
+    }
+    setGoalConstraints([...base, newConstraint])
+    setShowAddConstraint(false)
+    setNewConstraintLabel('')
+    setNewConstraintOperator('>=')
+    setNewConstraintValue('')
+    setConstraintError('')
+  }, [newConstraintLabel, newConstraintOperator, newConstraintValue, preAnalysisConstraints, setGoalConstraints])
 
   // Inbound connections (outcomes/risks → goal)
   const inboundConnections = useMemo(() => {
@@ -171,6 +217,83 @@ export const GoalPanel = memo(function GoalPanel({
               Chance of hitting every target: <strong>{Math.round(probJoint * 100)}%</strong>
             </p>
           )}
+        </div>
+      )}
+
+      {/* B.5: Add constraint button + inline form.
+          Disabled in results mode — mutations write to preAnalysisConstraints but
+          results mode renders postAnalysisConstraints, causing state mismatch. */}
+      {isResultsMode ? null : !showAddConstraint ? (
+        <button
+          type="button"
+          onClick={() => setShowAddConstraint(true)}
+          className={`${typography.panelMeta} w-full mt-2 py-2 rounded-lg border border-dashed border-panel-border bg-transparent text-info hover:bg-panel-hover transition-colors`}
+          data-testid="add-constraint-button"
+        >
+          + Add constraint
+        </button>
+      ) : (
+        <div className="mt-2 p-2.5 bg-panel border border-panel-border rounded-lg space-y-2" data-testid="add-constraint-form">
+          {/* Factor dropdown */}
+          <select
+            value={newConstraintLabel}
+            onChange={e => { setNewConstraintLabel(e.target.value); setConstraintError('') }}
+            className={`${typography.panelBody} w-full border border-panel-border rounded-lg px-2.5 py-1.5 bg-panel text-text-body`}
+            aria-label="Constraint target factor"
+          >
+            <option value="">Select a factor...</option>
+            {factorNodes.map(f => {
+              const alreadyConstrained = constrainedLabels.has(f.label.toLowerCase().trim())
+              return (
+                <option key={f.id} value={f.label} disabled={alreadyConstrained}>
+                  {f.label}{alreadyConstrained ? ' (already constrained)' : ''}
+                </option>
+              )
+            })}
+          </select>
+          {/* Operator + value row */}
+          <div className="flex items-center gap-1.5">
+            <select
+              value={newConstraintOperator}
+              onChange={e => setNewConstraintOperator(e.target.value as '>=' | '<=' | '=')}
+              className={`${typography.panelMeta} w-16 border border-panel-border rounded-lg px-1.5 py-1.5 bg-panel text-text-body`}
+              aria-label="Constraint operator"
+            >
+              <option value=">=">{'\u2265'}</option>
+              <option value="<=">{'\u2264'}</option>
+              <option value="=">=</option>
+            </select>
+            <input
+              type="number"
+              value={newConstraintValue}
+              onChange={e => { setNewConstraintValue(e.target.value); setConstraintError('') }}
+              placeholder="Target value"
+              className={`${typography.panelMeta} flex-1 border border-panel-border rounded px-1.5 py-1.5 bg-panel text-text-body`}
+              aria-label="Constraint target value"
+            />
+          </div>
+          {/* Error message */}
+          {constraintError && (
+            <p className={`${typography.panelMeta} text-danger`}>{constraintError}</p>
+          )}
+          {/* Action buttons */}
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleAddConstraint}
+              className={`${typography.panelMeta} bg-primary text-text-on-color rounded-lg px-3 py-1 font-medium`}
+              data-testid="confirm-add-constraint"
+            >
+              Add
+            </button>
+            <button
+              type="button"
+              onClick={() => { setShowAddConstraint(false); setConstraintError('') }}
+              className={`${typography.panelMeta} text-text-light hover:text-text-body`}
+            >
+              Cancel
+            </button>
+          </div>
         </div>
       )}
 
