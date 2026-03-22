@@ -22,7 +22,7 @@ vi.mock('../../lib/supabase', () => ({
   },
 }))
 
-import { appendThreadEntries, updateThreadBlockState, createSnapshot, insertConversationTurn } from '../threadService'
+import { appendThreadEntries, updateThreadBlockState, createSnapshot, insertConversationTurn, clearSuppressedScenarioId } from '../threadService'
 import { isThreadPersistEnabled } from '../../flags'
 import type { ThreadEntryInput } from '../../canvas/journey/threadTypes'
 
@@ -43,6 +43,8 @@ describe('threadService', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.mocked(isThreadPersistEnabled).mockReturnValue(true)
+    // Clear scenario suppression between tests (forbidden scenarios are cached)
+    clearSuppressedScenarioId('scenario-1')
   })
 
   describe('appendThreadEntries', () => {
@@ -298,7 +300,8 @@ describe('threadService', () => {
     })
 
     it('returns null on RPC error (no throw)', async () => {
-      mockRpc.mockResolvedValue({ data: null, error: { message: 'forbidden' } })
+      // Use a non-forbidden error so it goes through the console.warn path
+      mockRpc.mockResolvedValue({ data: null, error: { message: 'timeout' } })
       const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
 
       const result = await insertConversationTurn({
@@ -310,9 +313,36 @@ describe('threadService', () => {
       expect(result).toBeNull()
       expect(warnSpy).toHaveBeenCalledWith(
         '[ThreadService] insert_conversation_turn failed:',
-        'forbidden',
+        'timeout',
       )
       warnSpy.mockRestore()
+    })
+
+    it('suppresses future calls for forbidden scenarios', async () => {
+      mockRpc.mockResolvedValue({ data: null, error: { message: 'forbidden', code: '42501' } })
+      const debugSpy = vi.spyOn(console, 'debug').mockImplementation(() => {})
+
+      // First call: forbidden error → scenario suppressed
+      const result1 = await insertConversationTurn({
+        scenarioId: 'scenario-1',
+        role: 'user',
+        content: 'Hello',
+      })
+      expect(result1).toBeNull()
+
+      // Second call: suppressed (RPC not called again)
+      mockRpc.mockClear()
+      const result2 = await insertConversationTurn({
+        scenarioId: 'scenario-1',
+        role: 'user',
+        content: 'World',
+      })
+      expect(result2).toBeNull()
+      expect(mockRpc).not.toHaveBeenCalled()
+
+      debugSpy.mockRestore()
+      // Clean up suppression for other tests
+      clearSuppressedScenarioId('scenario-1')
     })
 
     it('returns null for empty scenarioId', async () => {
