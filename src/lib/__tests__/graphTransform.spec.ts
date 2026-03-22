@@ -134,6 +134,33 @@ describe('graphTransform', () => {
       expect(result.edges[0].belief).toBe(0.5)
     })
 
+    it('defaults edge_type to "directed" when absent', () => {
+      const edges: Edge[] = [
+        { id: 'e1', source: 'node_1', target: 'node_2', data: { confidence: 0.8 } },
+      ]
+
+      const result = prepareGraphSnapshot(mockNodes, edges)
+      expect(result.edges[0].edge_type).toBe('directed')
+    })
+
+    it('preserves edge_type when present in data', () => {
+      const edges: Edge[] = [
+        { id: 'e1', source: 'node_1', target: 'node_2', data: { confidence: 0.8, edge_type: 'bidirected' } },
+      ]
+
+      const result = prepareGraphSnapshot(mockNodes, edges)
+      expect(result.edges[0].edge_type).toBe('bidirected')
+    })
+
+    it('defaults edge_type to "directed" for non-string values', () => {
+      const edges: Edge[] = [
+        { id: 'e1', source: 'node_1', target: 'node_2', data: { confidence: 0.8, edge_type: 42 } },
+      ]
+
+      const result = prepareGraphSnapshot(mockNodes, edges)
+      expect(result.edges[0].edge_type).toBe('directed')
+    })
+
     it('truncates body to 200 chars', () => {
       const longBody = 'x'.repeat(300)
       const nodesWithLongBody: Node[] = [

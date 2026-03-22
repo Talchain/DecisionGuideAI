@@ -43,6 +43,7 @@ export interface GraphEdge {
   belief: number
   effect_direction?: 'positive' | 'negative' | 'unknown'
   strength_std?: number
+  edge_type?: string
 }
 
 export interface GraphMeta {
@@ -101,6 +102,10 @@ function transformEdge(edge: Edge): GraphEdge {
   if (data?.strength_std !== undefined) {
     graphEdge.strength_std = data.strength_std as number
   }
+
+  // Preserve edge_type (e.g. 'directed', 'bidirected'); default to 'directed' when absent
+  const rawEdgeType = data?.edge_type
+  graphEdge.edge_type = typeof rawEdgeType === 'string' ? rawEdgeType : 'directed'
 
   return graphEdge
 }

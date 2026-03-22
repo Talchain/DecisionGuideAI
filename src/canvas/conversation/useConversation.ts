@@ -1094,12 +1094,14 @@ export function useConversation(): UseConversationReturn {
         const rawExistsProb = d.beliefExists ?? d.confidence ?? d.belief
         const existsProb = typeof rawExistsProb === 'number' ? clamp01(rawExistsProb) : undefined
         const effectDir = directionValue === 'positive' || directionValue === 'negative' ? directionValue : undefined
+        const edgeType = typeof d.edge_type === 'string' ? d.edge_type : 'directed'
         return {
           from: e.source,
           to: e.target,
           strength: { mean, ...(std !== undefined ? { std } : {}) },
           ...(existsProb !== undefined ? { exists_probability: existsProb } : {}),
           ...(effectDir ? { effect_direction: effectDir } : {}),
+          edge_type: edgeType,
         }
       })
 

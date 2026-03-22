@@ -271,12 +271,14 @@ function transformEdgeToCEE(e: { source: string; target: string; data?: Record<s
   const mean = direction * weight
   const std = typeof d.strengthStd === 'number' ? d.strengthStd : undefined
   const existsProb = d.beliefExists ?? d.confidence ?? d.belief
+  const edgeType = typeof d.edge_type === 'string' ? d.edge_type : 'directed'
   return {
     from: e.source,
     to: e.target,
     strength: { mean, ...(std !== undefined ? { std } : {}) },
     ...(existsProb !== undefined ? { exists_probability: existsProb } : {}),
     ...(d.direction ? { effect_direction: d.direction } : {}),
+    edge_type: edgeType,
   }
 }
 
@@ -466,6 +468,22 @@ describe('graph_state edge transformation (RF → CEE)', () => {
     expect(edge).not.toHaveProperty('id')
     expect(edge).not.toHaveProperty('type')
   })
+
+  it('preserves edge_type when present (e.g. bidirected)', () => {
+    const edge = transformEdgeToCEE({
+      source: 'a', target: 'b',
+      data: { weight: 0.5, edge_type: 'bidirected' },
+    })
+    expect(edge.edge_type).toBe('bidirected')
+  })
+
+  it('defaults edge_type to "directed" when absent', () => {
+    const edge = transformEdgeToCEE({
+      source: 'a', target: 'b',
+      data: { weight: 0.5 },
+    })
+    expect(edge.edge_type).toBe('directed')
+  })
 })
 
 // ---------------------------------------------------------------------------
@@ -607,6 +625,7 @@ describe('CEE schema conformance', () => {
     expect(ceeEdge.strength.std).toBe(0.1)
     expect(ceeEdge.exists_probability).toBe(0.9)
     expect(ceeEdge.effect_direction).toBe('negative')
+    expect(ceeEdge.edge_type).toBe('directed') // defaulted when absent from data
     expect(ceeEdge).not.toHaveProperty('source')
     expect(ceeEdge).not.toHaveProperty('target')
     expect(ceeEdge).not.toHaveProperty('weight')
