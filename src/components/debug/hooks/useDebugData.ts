@@ -805,6 +805,9 @@ export interface DebugData {
 
   /** CEE operation metadata (model, prompt info per operation) */
   cee_operations: CeeOperationMetadata | null
+
+  /** CEE diagnostic trace from _diagnostic_trace envelope field. Passthrough — UI must not transform. */
+  diagnostic_trace: Record<string, unknown> | null
 }
 
 /**
@@ -3281,6 +3284,14 @@ export function useDebugData(): DebugData {
     // CEE operation metadata (model, prompt info per operation)
     const cee_operations = extractCeeOperations(payloadBundle.cee_response, ceeFromPlot)
 
+    // CEE diagnostic trace — passthrough from envelope._diagnostic_trace.
+    // Priority: canvas store (streaming path) > CEE response body (non-streaming path)
+    const diagnostic_trace: Record<string, unknown> | null =
+      runMeta?.ceeDiagnosticTrace
+      ?? (payloadBundle.cee_response && typeof payloadBundle.cee_response === 'object'
+        ? ((payloadBundle.cee_response as Record<string, unknown>)._diagnostic_trace as Record<string, unknown> | undefined) ?? null
+        : null)
+
     return {
       overall: {
         status: overallStatus,
@@ -3343,6 +3354,9 @@ export function useDebugData(): DebugData {
 
       // CEE Operations metadata
       cee_operations,
+
+      // CEE diagnostic trace (passthrough)
+      diagnostic_trace,
     }
   }, [ceePipelineTrace, nodes, edges, runMeta, tracedPayloads, gatesMap])
 }

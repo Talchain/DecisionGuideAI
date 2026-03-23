@@ -82,6 +82,7 @@ function makeDebugData(overrides: Partial<DebugData> = {}): DebugData {
     m2_review: null,
     cee_downstream: null,
     cee_operations: null,
+    diagnostic_trace: null,
     ...overrides,
   }
 }
@@ -140,6 +141,8 @@ function makeGraphData(): FullGraphData {
 describe('Debug Bundle V1.5', () => {
   beforeEach(() => {
     mockUserActions.length = 0
+    // Force v1.5 mode — these tests verify the v1.5 bundle format
+    import.meta.env.VITE_DEBUG_BUNDLE_V2 = 'false'
   })
 
   it('always produces v1.5 with correct meta', () => {

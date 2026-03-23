@@ -105,6 +105,7 @@ const defaultMockData = {
 vi.mock('../utils/exportBundle', () => ({
   exportDebugBundleAsync: vi.fn().mockResolvedValue(undefined),
   copyRequestId: vi.fn().mockResolvedValue(true),
+  isDebugBundleV2Enabled: () => false, // Default OFF for existing v1.5 tests
 }))
 
 describe('DebugPanelV2', () => {

@@ -216,6 +216,8 @@ export type RunMetaState = {
   }
   // Error details for Debug Panel (captures upstream service failures)
   errorDetails?: ErrorDetail[]
+  /** CEE diagnostic trace from envelope._diagnostic_trace. Passthrough — UI must not transform. */
+  ceeDiagnosticTrace?: Record<string, unknown> | null
 }
 
 const initialNodes: Node[] = []

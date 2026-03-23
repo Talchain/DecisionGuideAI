@@ -252,6 +252,8 @@ export function useV2Run(persistence?: V2RunPersistence): UseV2RunReturn {
       ceeReviewV1: null,
       ceeTraceV1: null,
       ceeErrorV1: null,
+      // v2.0 diagnostic trace — clear stale data from prior runs
+      ceeDiagnosticTrace: null,
     })
 
     try {

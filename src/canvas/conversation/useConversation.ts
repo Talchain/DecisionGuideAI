@@ -77,6 +77,7 @@ import {
   type TurnRequestPayload,
   type TurnType,
 } from '../../services/turn-request-builder'
+import { isDebugBundleV2Enabled } from '../../components/debug/utils/exportBundle'
 
 /** Sentinel message content used for system events — must never render as a user bubble */
 export const SYSTEM_MESSAGE_SENTINEL = '[system]'
@@ -1332,6 +1333,17 @@ export function useConversation(): UseConversationReturn {
         if (stage) {
           useCanvasStore.getState().setCurrentStage(stage)
         }
+      }
+
+      // Capture _diagnostic_trace from CEE envelope for debug bundle v2.0.
+      // Passthrough only — store as-is without transformation.
+      // Always write (even null) so stale traces from prior runs don't leak.
+      if (isDebugBundleV2Enabled()) {
+        const cs = useCanvasStore.getState()
+        cs.setRunMeta({
+          ...cs.runMeta,
+          ceeDiagnosticTrace: (envelope._diagnostic_trace as Record<string, unknown>) ?? null,
+        })
       }
 
       // NOTE: guidance items are set AFTER auto-apply patches (below) so that

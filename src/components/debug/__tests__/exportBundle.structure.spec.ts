@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi, beforeEach } from 'vitest'
 import type { DebugData, RequestIdChain } from '../hooks/useDebugData'
 import { buildDebugBundle } from '../utils/exportBundle'
 
@@ -116,11 +116,17 @@ function makeDebugData(overrides: Partial<DebugData> = {}): DebugData {
     m2_review: null,
     cee_downstream: null,
     cee_operations: null,
+    diagnostic_trace: null,
     ...overrides,
   }
 }
 
 describe('buildDebugBundle structured debug sections', () => {
+  beforeEach(() => {
+    // Force v1.5 mode for structure tests
+    import.meta.env.VITE_DEBUG_BUNDLE_V2 = 'false'
+  })
+
   it('adds structured sections derived only from DebugData while preserving existing fields', () => {
     const bundle = buildDebugBundle(makeDebugData())
 
@@ -273,6 +279,9 @@ describe('buildDebugBundle structured debug sections', () => {
 // ---------------------------------------------------------------------------
 
 describe('buildDebugBundle — cee_trace model fields', () => {
+  beforeEach(() => {
+    import.meta.env.VITE_DEBUG_BUNDLE_V2 = 'false'
+  })
   it('includes resolved_model and resolved_provider from _route_metadata (primary source)', () => {
     const bundle = buildDebugBundle(makeDebugData({
       ceeTrace: {

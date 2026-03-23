@@ -9,6 +9,7 @@ import { useMemo, useState, Fragment, CSSProperties } from 'react'
 import { JsonViewer } from '../components'
 import type { DebugData, LLMCallRecord } from '../hooks/useDebugData'
 import { formatDuration } from '../utils'
+import { isDebugBundleV2Enabled } from '../utils/exportBundle'
 
 export interface LLMCallsTabProps {
   /** Debug data from useDebugData hook */
@@ -24,6 +25,8 @@ interface LLMCallRow {
     input: number
     output: number
     total: number
+    cache_read?: number
+    cache_create?: number
   } | null
   duration_ms: number | null
   status: 'success' | 'error' | 'pending'
@@ -31,6 +34,10 @@ interface LLMCallRow {
   error?: string
   raw?: LLMCallRecord
   isM2?: boolean
+  /** Extra fields from _diagnostic_trace */
+  stop_reason?: string
+  thinking_enabled?: boolean
+  error_detail?: { status?: number; type?: string; message?: string }
 }
 
 export function LLMCallsTab({ data }: LLMCallsTabProps) {
@@ -40,8 +47,43 @@ export function LLMCallsTab({ data }: LLMCallsTabProps) {
   const allCalls = useMemo((): LLMCallRow[] => {
     const calls: LLMCallRow[] = []
 
-    // CEE LLM calls from observability
-    if (data.cee_observability?.llm_calls && data.cee_observability.llm_calls.length > 0) {
+    // Priority 1: CEE diagnostic trace llm_calls (v2.0 — richest data, flag-gated)
+    const traceLlmCalls = isDebugBundleV2Enabled() ? data.diagnostic_trace?.llm_calls : undefined
+    if (Array.isArray(traceLlmCalls) && traceLlmCalls.length > 0) {
+      traceLlmCalls.forEach((rawCall: unknown, i: number) => {
+        const call = rawCall as Record<string, unknown>
+        const tokens = call.tokens as Record<string, number> | undefined
+        calls.push({
+          id: `trace-${i}`,
+          stage: typeof call.role === 'string' ? call.role : typeof call.step === 'string' ? `CEE: ${call.step}` : `Call ${i + 1}`,
+          model: typeof call.model === 'string' ? call.model : '—',
+          provider: typeof call.provider === 'string' ? call.provider : '—',
+          tokens: tokens ? {
+            input: tokens.input ?? tokens.prompt_tokens ?? 0,
+            output: tokens.output ?? tokens.completion_tokens ?? 0,
+            total: tokens.total ?? tokens.total_tokens ?? ((tokens.input ?? 0) + (tokens.output ?? 0)),
+            cache_read: tokens.cache_read ?? tokens.cache_read_tokens,
+            cache_create: tokens.cache_create ?? tokens.cache_creation_tokens,
+          } : null,
+          duration_ms: typeof call.latency_ms === 'number' ? call.latency_ms : null,
+          status: call.error ? 'error' : call.success === false ? 'error' : 'success',
+          timestamp: typeof call.started_at === 'string' ? call.started_at : null,
+          error: typeof call.error === 'string'
+            ? call.error
+            : (call.error && typeof call.error === 'object' && typeof (call.error as Record<string, unknown>).message === 'string')
+              ? (call.error as Record<string, unknown>).message as string
+              : undefined,
+          stop_reason: typeof call.stop_reason === 'string' ? call.stop_reason : undefined,
+          thinking_enabled: typeof call.thinking_enabled === 'boolean' ? call.thinking_enabled : undefined,
+          error_detail: call.error && typeof call.error === 'object'
+            ? call.error as { status?: number; type?: string; message?: string }
+            : undefined,
+          raw: undefined, // Diagnostic trace calls don't map to LLMCallRecord
+        })
+      })
+    }
+    // Priority 2: CEE LLM calls from observability
+    else if (data.cee_observability?.llm_calls && data.cee_observability.llm_calls.length > 0) {
       data.cee_observability.llm_calls.forEach((call, i) => {
         calls.push({
           id: `cee-${i}`,
@@ -108,7 +150,7 @@ export function LLMCallsTab({ data }: LLMCallsTabProps) {
       if (!b.timestamp) return -1
       return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
     })
-  }, [data.cee_observability, data.m2_review, data.cee_operations, data.pipeline.llm_metadata])
+  }, [data.diagnostic_trace, data.cee_observability, data.m2_review, data.cee_operations, data.pipeline.llm_metadata])
 
   // Totals
   const totals = useMemo(() => {
@@ -310,6 +352,12 @@ export function LLMCallsTab({ data }: LLMCallsTabProps) {
                           <span style={{ color: '#059669' }}>{call.tokens.input.toLocaleString()}</span>
                           <span style={{ color: '#94a3b8' }}> / </span>
                           <span style={{ color: '#3b82f6' }}>{call.tokens.output.toLocaleString()}</span>
+                          {(call.tokens.cache_read != null || call.tokens.cache_create != null) && (
+                            <div style={{ fontSize: 10, color: '#94a3b8', marginTop: 1 }}>
+                              {call.tokens.cache_read != null && <span>cache read: {call.tokens.cache_read.toLocaleString()} </span>}
+                              {call.tokens.cache_create != null && <span>cache create: {call.tokens.cache_create.toLocaleString()}</span>}
+                            </div>
+                          )}
                         </div>
                       ) : (
                         <span style={{ color: '#94a3b8' }}>—</span>
@@ -341,7 +389,14 @@ export function LLMCallsTab({ data }: LLMCallsTabProps) {
                           borderBottom: '1px solid #e2e8f0',
                         }}
                       >
-                        {call.error && (
+                        {/* V2.0 extra fields */}
+                        {(call.stop_reason || call.thinking_enabled != null) && (
+                          <div style={{ display: 'flex', gap: 16, marginBottom: 12, fontSize: 12, color: '#475569' }}>
+                            {call.stop_reason && <span><strong>Stop reason:</strong> {call.stop_reason}</span>}
+                            {call.thinking_enabled != null && <span><strong>Thinking:</strong> {call.thinking_enabled ? 'yes' : 'no'}</span>}
+                          </div>
+                        )}
+                        {(call.error || call.error_detail) && (
                           <div
                             style={{
                               padding: 8,
@@ -353,7 +408,16 @@ export function LLMCallsTab({ data }: LLMCallsTabProps) {
                               fontSize: 12,
                             }}
                           >
-                            <strong>Error:</strong> {call.error}
+                            {call.error && <div><strong>Error:</strong> {call.error}</div>}
+                            {call.error_detail && (
+                              <div style={{ marginTop: call.error ? 4 : 0, fontSize: 11 }}>
+                                {call.error_detail.status != null && <div>Status: {call.error_detail.status}</div>}
+                                {call.error_detail.type && <div>Type: {call.error_detail.type}</div>}
+                                {call.error_detail.message && call.error_detail.message !== call.error && (
+                                  <div>Message: {call.error_detail.message}</div>
+                                )}
+                              </div>
+                            )}
                           </div>
                         )}
                         {call.raw && (

@@ -9,6 +9,7 @@ import { useState, useMemo, CSSProperties } from 'react'
 import { KpiCard, ServiceChain, type ChainNode, type ChainNodeStatus, type KpiStatus, type PipelineStepData } from '../components'
 import type { DebugData, ValidationIssue } from '../hooks/useDebugData'
 import { formatDuration } from '../utils'
+import { isDebugBundleV2Enabled } from '../utils/exportBundle'
 import { getErrorInfo } from '../constants/errorCodes'
 
 type SeverityFilter = 'all' | 'error' | 'warning' | 'info'
@@ -831,7 +832,14 @@ export function SummaryTab({
         >
           <span>
             <strong style={{ color: '#1e293b' }}>Model:</strong>{' '}
-            {data.pipeline.llm_metadata?.model ?? '—'}
+            {(() => {
+              if (data.pipeline.llm_metadata?.model) return data.pipeline.llm_metadata.model
+              if (!isDebugBundleV2Enabled()) return '—'
+              const provRes = data.diagnostic_trace?.provider_resolution
+              if (!Array.isArray(provRes) || provRes.length === 0) return '—'
+              const model = (provRes[0] as Record<string, unknown>).resolved_model
+              return typeof model === 'string' ? model : '—'
+            })()}
           </span>
           {data.pipeline.llm_metadata?.prompt_version && (() => {
             const diagnostics = data.pipeline.llm_metadata.prompt_diagnostics
@@ -935,6 +943,108 @@ export function SummaryTab({
           <span>ISL {data.builds.isl ?? '—'}</span>
         </div>
       </div>
+
+      {/* V2.0: Provider & Prompt config (from _diagnostic_trace) */}
+      {isDebugBundleV2Enabled() && data.diagnostic_trace && (
+        <div style={sectionStyle}>
+          <div style={sectionTitleStyle}>CEE config (from diagnostic trace)</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {/* Prompt identity */}
+            {Array.isArray(data.diagnostic_trace.prompt_identity) && data.diagnostic_trace.prompt_identity.length > 0 && (
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 600, color: '#475569', marginBottom: 4 }}>Prompt identity</div>
+                {(data.diagnostic_trace.prompt_identity as Array<Record<string, unknown>>).map((entry, i) => (
+                  <div key={i} style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 16px', fontSize: 12, color: '#334155', marginBottom: 2 }}>
+                    {entry.task && <span><strong>Task:</strong> {String(entry.task)}</span>}
+                    {entry.version && <span><strong>Version:</strong> {String(entry.version)}</span>}
+                    {entry.hash && <span style={{ fontFamily: 'monospace' }}><strong>Hash:</strong> {String(entry.hash).slice(0, 8)}</span>}
+                    {entry.source && <span><strong>Source:</strong> {String(entry.source)}</span>}
+                    {entry.staging != null && <span><strong>Staging:</strong> {entry.staging ? 'yes' : 'no'}</span>}
+                  </div>
+                ))}
+              </div>
+            )}
+            {/* Provider resolution */}
+            {Array.isArray(data.diagnostic_trace.provider_resolution) && data.diagnostic_trace.provider_resolution.length > 0 && (
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 600, color: '#475569', marginBottom: 4 }}>Provider resolution</div>
+                {(data.diagnostic_trace.provider_resolution as Array<Record<string, unknown>>).map((entry, i) => (
+                  <div key={i} style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 16px', fontSize: 12, color: '#334155', marginBottom: 2 }}>
+                    {entry.task && <span><strong>Task:</strong> {String(entry.task)}</span>}
+                    {entry.resolved_model && <span style={{ fontFamily: 'monospace' }}><strong>Model:</strong> {String(entry.resolved_model)}</span>}
+                    {entry.resolved_provider && <span><strong>Provider:</strong> {String(entry.resolved_provider)}</span>}
+                    {entry.switch_reason && <span style={{ color: '#d97706' }}><strong>Switch:</strong> {String(entry.switch_reason)}</span>}
+                  </div>
+                ))}
+              </div>
+            )}
+            {/* Structured outputs */}
+            {data.diagnostic_trace.structured_output_config && typeof data.diagnostic_trace.structured_output_config === 'object' && (
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 600, color: '#475569', marginBottom: 4 }}>Structured outputs</div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 16px', fontSize: 12, color: '#334155' }}>
+                  {(() => {
+                    const cfg = data.diagnostic_trace.structured_output_config as Record<string, unknown>
+                    return (
+                      <>
+                        <span><strong>Enabled:</strong> {cfg.enabled ? 'yes' : 'no'}</span>
+                        {cfg.api_shape && <span><strong>API shape:</strong> {String(cfg.api_shape)}</span>}
+                        {cfg.beta_header && <span style={{ fontFamily: 'monospace' }}><strong>Beta header:</strong> {String(cfg.beta_header)}</span>}
+                      </>
+                    )
+                  })()}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* V2.0: Fallback trace warning (from _diagnostic_trace) */}
+      {(() => {
+        const fallbacks = isDebugBundleV2Enabled() && Array.isArray(data.diagnostic_trace?.fallback_trace)
+          ? data.diagnostic_trace!.fallback_trace as Array<Record<string, unknown>>
+          : []
+        if (fallbacks.length === 0) return null
+        return (
+        <div style={{
+          ...sectionStyle,
+          background: '#fffbeb',
+          border: '1px solid #fde68a',
+        }}>
+          <div style={{ ...sectionTitleStyle, color: '#92400e' }}>Fallback triggered</div>
+          {fallbacks.map((entry, i) => (
+            <div key={i} style={{
+              padding: '8px 12px',
+              background: '#fef3c7',
+              borderRadius: 6,
+              marginBottom: i < fallbacks.length - 1 ? 8 : 0,
+              fontSize: 12,
+            }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                {entry.stage && (
+                  <div><strong style={{ color: '#92400e' }}>Stage:</strong> {String(entry.stage)}</div>
+                )}
+                {entry.reason && (
+                  <div><strong style={{ color: '#92400e' }}>Reason:</strong> {String(entry.reason)}</div>
+                )}
+                {entry.action && (
+                  <div><strong style={{ color: '#92400e' }}>Action:</strong> {String(entry.action)}</div>
+                )}
+                {entry.succeeded != null && (
+                  <div>
+                    <strong style={{ color: '#92400e' }}>Succeeded:</strong>{' '}
+                    <span style={{ color: entry.succeeded ? '#166534' : '#dc2626', fontWeight: 600 }}>
+                      {entry.succeeded ? 'yes' : 'no'}
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+        )
+      })()}
 
       {/* No data placeholder */}
       {!data.hasData && (

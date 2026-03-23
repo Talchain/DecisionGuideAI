@@ -29,6 +29,28 @@ import { DEBUG_LLM_RAW_MAX_CHARS } from '../../../utils/payloadRedaction'
 import { getUserActions } from '../../../lib/debug-state'
 
 // =============================================================================
+// Feature Flag
+// =============================================================================
+
+/**
+ * Check if Debug Bundle v2.0 is enabled.
+ * Default: ON in development/staging, OFF in production.
+ */
+export function isDebugBundleV2Enabled(): boolean {
+  try {
+    const explicit = import.meta.env.VITE_DEBUG_BUNDLE_V2
+    if (explicit !== undefined) {
+      return explicit === 'true' || explicit === '1' || explicit === true
+    }
+    // Default: ON in dev/staging, OFF in production
+    const env = import.meta.env.VITE_APP_ENV || import.meta.env.MODE || 'development'
+    return env !== 'production'
+  } catch {
+    return false
+  }
+}
+
+// =============================================================================
 // Types
 // =============================================================================
 
@@ -255,7 +277,7 @@ export interface PanelStateV1_5 {
 interface DebugBundle {
   /** Bundle metadata */
   meta: {
-    version: '1.5'
+    version: '1.5' | '2.0'
     created_at: string
     request_id: string | null
     client_build: string | null
@@ -438,6 +460,29 @@ interface DebugBundle {
 
   /** Display state snapshot — what the UI actually rendered at export time */
   display_state: DisplayState | null
+
+  // =========================================================================
+  // V2.0 sections — present only when VITE_DEBUG_BUNDLE_V2 is ON
+  // =========================================================================
+
+  /** CEE diagnostic trace: LLM call records. Null when trace absent or v2 disabled. */
+  llm_calls?: unknown[] | null
+  /** CEE diagnostic trace: prompt identity per task. */
+  prompt_identity?: unknown[] | null
+  /** CEE diagnostic trace: zone2 assembly metadata. */
+  zone2_assembly?: unknown | null
+  /** CEE diagnostic trace: tool policy configuration. */
+  tool_policy?: unknown | null
+  /** CEE diagnostic trace: provider resolution per task. */
+  provider_resolution?: unknown[] | null
+  /** CEE diagnostic trace: structured output configuration. */
+  structured_output_config?: unknown | null
+  /** CEE diagnostic trace: streaming metrics. */
+  streaming_metrics?: unknown | null
+  /** CEE diagnostic trace: fallback trace entries. */
+  fallback_trace?: unknown[] | null
+  /** Reason when all v2.0 sections are null (CEE hasn't deployed trace support). */
+  _unavailable_reason?: string
 }
 
 // =============================================================================
@@ -562,7 +607,7 @@ function generateReadme(data: DebugData): string {
 Generated: ${timestamp}
 Request ID: ${requestId}
 Environment: ${environment}
-Version: 1.5
+Version: ${isDebugBundleV2Enabled() ? '2.0' : '1.5'}
 
 ## Contents
 
@@ -1063,17 +1108,92 @@ function buildGatesPostPipeline(data: DebugData): DebugBundle['gates'] {
 }
 
 // =============================================================================
+// V2.0 Helpers — Wire existing null sections from _diagnostic_trace
+// =============================================================================
+
+/**
+ * Wire cee_trace fields from _diagnostic_trace.provider_resolution when
+ * existing values are null. Does not fabricate — only fills from actual trace data.
+ */
+function wireCeeTrace(
+  existing: CeeTraceData | null,
+  diagnosticTrace: Record<string, unknown> | null,
+): CeeTraceData | null {
+  if (!existing && !diagnosticTrace) return null
+
+  const base: CeeTraceData = existing ?? {
+    degraded: false,
+  }
+
+  // Wire resolved_model and resolved_provider from provider_resolution
+  // Find the orchestrator task entry (first entry, or task='orchestrator')
+  if (diagnosticTrace?.provider_resolution && Array.isArray(diagnosticTrace.provider_resolution)) {
+    const orchestratorEntry = diagnosticTrace.provider_resolution.find(
+      (entry: unknown) => {
+        const e = entry as Record<string, unknown> | undefined
+        return e?.task === 'orchestrator'
+      }
+    ) ?? diagnosticTrace.provider_resolution[0]
+
+    if (orchestratorEntry && typeof orchestratorEntry === 'object') {
+      const entry = orchestratorEntry as Record<string, unknown>
+      if (base.resolved_model == null && typeof entry.resolved_model === 'string') {
+        base.resolved_model = entry.resolved_model
+      }
+      if (base.resolved_provider == null && typeof entry.resolved_provider === 'string') {
+        base.resolved_provider = entry.resolved_provider
+      }
+    }
+  }
+
+  return base
+}
+
+/**
+ * Extract cee_pipeline_path from _diagnostic_trace.provider_resolution[0].pipeline_path.
+ * Returns null when trace data is absent or field not found.
+ */
+function extractPipelinePathFromTrace(
+  diagnosticTrace: Record<string, unknown> | null,
+): 'unified' | 'legacy' | null {
+  if (!diagnosticTrace?.provider_resolution || !Array.isArray(diagnosticTrace.provider_resolution)) return null
+  const first = diagnosticTrace.provider_resolution[0]
+  if (!first || typeof first !== 'object') return null
+  return getPipelinePath((first as Record<string, unknown>).pipeline_path)
+}
+
+/**
+ * Wire pipeline.llm_metadata from _diagnostic_trace.llm_calls[0] when
+ * existing pipeline.llm_metadata is null.
+ */
+function wirePipelineLlmMetadata(
+  existing: unknown,
+  diagnosticTrace: Record<string, unknown> | null,
+): unknown {
+  if (existing != null) return existing
+  if (!diagnosticTrace?.llm_calls || !Array.isArray(diagnosticTrace.llm_calls)) return null
+
+  const firstCall = diagnosticTrace.llm_calls[0]
+  if (!firstCall || typeof firstCall !== 'object') return null
+
+  // Passthrough the first LLM call record as llm_metadata
+  return firstCall
+}
+
+// =============================================================================
 // Export Functions
 // =============================================================================
 
 /**
  * Build a complete debug bundle from DebugData.
- * Always produces v1.5 bundles with enriched data.
+ * Produces v1.5 or v2.0 bundles depending on VITE_DEBUG_BUNDLE_V2 flag.
  */
 export function buildDebugBundle(data: DebugData, options: ExportOptions = {}): DebugBundle {
   const timestamp = formatTimestamp()
   const versionInfo = getVersionInfo()
   const clientBuild = getClientBuild()
+  const v2Enabled = isDebugBundleV2Enabled()
+  const diagnosticTrace = v2Enabled ? (data.diagnostic_trace ?? null) : null
   const requestSummary = buildRequestSummaries(data)
   const responseSummary = buildResponseSummaries(data)
   const repairAndFilterSummary = buildRepairSummaries(data)
@@ -1106,7 +1226,7 @@ export function buildDebugBundle(data: DebugData, options: ExportOptions = {}): 
 
   return {
     meta: {
-      version: '1.5',
+      version: v2Enabled ? '2.0' : '1.5',
       created_at: timestamp,
       request_id: data.overall.request_id,
       client_build: clientBuild,
@@ -1173,9 +1293,10 @@ export function buildDebugBundle(data: DebugData, options: ExportOptions = {}): 
     pipeline: {
       status: data.pipeline.status,
       total_duration_ms: data.pipeline.total_duration_ms ?? null,
-      llm_metadata: data.pipeline.llm_metadata ?? null,
+      llm_metadata: wirePipelineLlmMetadata(data.pipeline.llm_metadata, diagnosticTrace),
       llm_raw: data.pipeline.llm_raw ?? null,
-      cee_pipeline_path: pipelineQuickFields.cee_pipeline_path,
+      cee_pipeline_path: pipelineQuickFields.cee_pipeline_path
+        ?? extractPipelinePathFromTrace(diagnosticTrace),
       cee_strp_mutations_count: pipelineQuickFields.cee_strp_mutations_count,
       causal_claims_diagnostic: causalClaimsDiagnostic,
       node_extraction: data.pipeline.node_extraction ?? null,
@@ -1255,7 +1376,8 @@ export function buildDebugBundle(data: DebugData, options: ExportOptions = {}): 
     schema_versions: schemaVersions,
 
     // CEE routing + trace metadata (resolved model/provider from _route_metadata)
-    cee_trace: data.ceeTrace ?? null,
+    // Task 3: Wire resolved_model/resolved_provider from _diagnostic_trace when available
+    cee_trace: wireCeeTrace(data.ceeTrace, diagnosticTrace),
 
     // CEE Observability (sanitized - raw I/O always stripped for security)
     cee_observability: data.cee_observability
@@ -1276,6 +1398,21 @@ export function buildDebugBundle(data: DebugData, options: ExportOptions = {}): 
 
     // Display state (provided by caller at export time)
     display_state: options.displayState ?? null,
+
+    // V2.0 sections — CEE diagnostic trace (passthrough, only when flag is ON)
+    ...(v2Enabled ? {
+      llm_calls: diagnosticTrace?.llm_calls ?? null,
+      prompt_identity: diagnosticTrace?.prompt_identity ?? null,
+      zone2_assembly: diagnosticTrace?.zone2_assembly ?? null,
+      tool_policy: diagnosticTrace?.tool_policy ?? null,
+      provider_resolution: diagnosticTrace?.provider_resolution ?? null,
+      structured_output_config: diagnosticTrace?.structured_output_config ?? null,
+      streaming_metrics: diagnosticTrace?.streaming_metrics ?? null,
+      fallback_trace: diagnosticTrace?.fallback_trace ?? null,
+      ...(!diagnosticTrace ? {
+        _unavailable_reason: 'CEE diagnostic trace not present in response',
+      } : {}),
+    } : {}),
   }
 }
 

@@ -437,6 +437,23 @@ export interface OrchestratorResponseEnvelopeV2 {
     resolved_provider?: string | null
     [key: string]: unknown
   }
+  /**
+   * CEE diagnostic trace — present when CEE_DIAGNOSTIC_TRACE_ENABLED is on.
+   * Contains LLM call details, prompt identity, provider resolution, fallback
+   * traces, and streaming metrics. Passthrough only — UI must not transform.
+   * Read-only debug metadata; never displayed to users or sent back to CEE.
+   */
+  _diagnostic_trace?: {
+    llm_calls?: unknown[]
+    prompt_identity?: unknown[]
+    zone2_assembly?: unknown
+    tool_policy?: unknown
+    provider_resolution?: unknown[]
+    structured_output_config?: unknown
+    streaming_metrics?: unknown
+    fallback_trace?: unknown[]
+    [key: string]: unknown
+  } | null
 }
 
 // ---------------------------------------------------------------------------

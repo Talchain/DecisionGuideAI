@@ -60,6 +60,8 @@ export function useResultsRun(): UseResultsRunReturn {
       ceeReviewV1: null,
       ceeTraceV1: null,
       ceeErrorV1: null,
+      // v2.0 diagnostic trace — clear stale data from prior runs
+      ceeDiagnosticTrace: null,
     })
 
     // Decide whether to attach an Idempotency-Key for this run. In
