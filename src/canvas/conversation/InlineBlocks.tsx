@@ -285,7 +285,7 @@ const CommentaryBlockRenderer = memo(function CommentaryBlockRenderer({
       <div>
         <div
           className={`${typography.panelBody} ${toneClass} ${styles.markdownContent}`}
-          // eslint-disable-next-line no-restricted-syntax -- sanitised by safeRichText (allowlist: strong, br, ul, li)
+          // eslint-disable-next-line security/no-unsafe-innerhtml -- sanitised by safeRichText (allowlist: strong, br, ul, li)
           dangerouslySetInnerHTML={{ __html: contentHtml }}
         />
         {block.citations && block.citations.length > 0 && (
@@ -325,7 +325,7 @@ const CommentaryBlockRenderer = memo(function CommentaryBlockRenderer({
         <div className={styles.commentaryExpandedContent}>
           <div
             className={`${typography.panelBody} ${toneClass} ${styles.markdownContent}`}
-            // eslint-disable-next-line no-restricted-syntax -- sanitised by safeRichText (allowlist: strong, br, ul, li)
+            // eslint-disable-next-line security/no-unsafe-innerhtml -- sanitised by safeRichText (allowlist: strong, br, ul, li)
             dangerouslySetInnerHTML={{ __html: contentHtml }}
           />
           {block.citations && block.citations.length > 0 && (
@@ -423,7 +423,7 @@ const ReviewCardBlockRenderer = memo(function ReviewCardBlockRenderer({
         {renderingV2 ? (
           <div
             className={`${typography.panelBody} ${styles.markdownContent}`}
-            // eslint-disable-next-line no-restricted-syntax -- sanitised by safeRichText (allowlist: strong, br, ul, li)
+            // eslint-disable-next-line security/no-unsafe-innerhtml -- sanitised by safeRichText (allowlist: strong, br, ul, li)
             dangerouslySetInnerHTML={{ __html: safeRichText(block.body) }}
           />
         ) : (

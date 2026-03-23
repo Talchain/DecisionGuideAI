@@ -52,7 +52,7 @@ describe('sanitiseStatusReason', () => {
 
   it('collapses multiple spaces after stripping', () => {
     const result = sanitiseStatusReason('error in  constraint_fac_x_y_z  processing')
-    expect(result).not.toMatch(/  /)
+    expect(result).not.toMatch(/ {2}/)
   })
 
   it('adds trailing period when missing', () => {

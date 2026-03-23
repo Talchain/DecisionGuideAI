@@ -95,13 +95,15 @@ describe('Trust boundary — cast budget', () => {
 // =============================================================================
 describe('ESLint dangerouslySetInnerHTML rule', () => {
   const eslintConfig = readFileSync(join(process.cwd(), 'eslint.config.js'), 'utf-8')
+  const ruleFile = readFileSync(join(process.cwd(), 'eslint-rules/no-unsafe-innerhtml.js'), 'utf-8')
 
-  it('eslint.config.js contains dangerouslySetInnerHTML restriction', () => {
-    expect(eslintConfig).toContain('dangerouslySetInnerHTML')
-    expect(eslintConfig).toContain('DOMPurify')
+  it('security/no-unsafe-innerhtml rule enforces dangerouslySetInnerHTML restriction', () => {
+    expect(eslintConfig).toContain('no-unsafe-innerhtml')
+    expect(ruleFile).toContain('dangerouslySetInnerHTML')
+    expect(ruleFile).toContain('DOMPurify')
   })
 
-  it('mitigated usages have eslint-disable comments', () => {
+  it('mitigated usages have eslint-disable comments with sanitisation reference', () => {
     const mitigatedFiles = [
       'src/canvas/nodes/BaseNode.tsx',
       'src/canvas/conversation/MessageBubble.tsx',
@@ -111,7 +113,9 @@ describe('ESLint dangerouslySetInnerHTML rule', () => {
       const fileContent = readFileSync(join(process.cwd(), relPath), 'utf-8')
       if (fileContent.includes('dangerouslySetInnerHTML')) {
         expect(fileContent).toContain('eslint-disable')
-        expect(fileContent).toContain('DOMPurify')
+        // Each usage must document its sanitisation method (DOMPurify or safeRichText)
+        const hasSanitiser = fileContent.includes('DOMPurify') || fileContent.includes('safeRichText')
+        expect(hasSanitiser).toBe(true)
       }
     }
   })
