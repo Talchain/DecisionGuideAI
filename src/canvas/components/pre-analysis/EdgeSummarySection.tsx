@@ -16,6 +16,7 @@ import { useCanvasStore } from '../../store'
 import { computeSignedMean } from '../../domain/edges'
 import { isStructuralEdge } from '../../domain/edgeUtils'
 import { typography } from '@/styles/typography'
+import { getStrengthLabel } from '../../ui/inspector-v2/inspectorStrings'
 
 interface EdgeSummarySectionProps {
   onSelectEdge: (edgeId: string) => void
@@ -62,7 +63,7 @@ export function EdgeSummarySection({ onSelectEdge, onFocusNode }: EdgeSummarySec
     }
 
     const strengthBand = strongest
-      ? strongest.strength >= 0.6 ? 'strong' : strongest.strength >= 0.25 ? 'moderate' : 'weak'
+      ? getStrengthLabel(strongest.strength).toLowerCase()
       : null
 
     // Post-analysis: find most fragile edge

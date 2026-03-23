@@ -113,7 +113,7 @@ export const OptionPanel = memo(function OptionPanel({
     return (optionComparison as Array<{ option_id: string; win_probability?: number; label?: string }>).map(o => ({
       id: o.option_id,
       label: String(nodes.find(n => n.id === o.option_id)?.data?.label ?? o.label ?? o.option_id),
-      winPct: typeof o.win_probability === 'number' ? Math.round(o.win_probability * 100) : 0,
+      winPct: typeof o.win_probability === 'number' ? Math.round(o.win_probability * 100) : null,
       isCurrent: o.option_id === nodeId,
     }))
   }, [optionComparison, nodes, nodeId])
@@ -234,7 +234,7 @@ export const OptionPanel = memo(function OptionPanel({
             )}
 
             {/* Comparison bars */}
-            {allOptions.length > 1 && (
+            {allOptions.length > 1 && allOptions.some(o => o.winPct != null) && (
               <div className="mt-2">
                 {allOptions.map(o => (
                   <div key={o.id} className="flex items-center gap-2 py-0.5">
@@ -247,13 +247,13 @@ export const OptionPanel = memo(function OptionPanel({
                       <div
                         className="h-full rounded-full"
                         style={{
-                          width: `${o.winPct}%`,
+                          width: `${o.winPct ?? 0}%`,
                           background: o.isCurrent ? 'var(--color-option)' : 'var(--color-text-light)',
                         }}
                       />
                     </div>
                     <span className={`${typography.panelMeta} w-7 text-right ${o.isCurrent ? 'font-semibold' : ''} text-text-light`}>
-                      {o.winPct}%
+                      {o.winPct != null ? `${o.winPct}%` : '—'}
                     </span>
                   </div>
                 ))}

@@ -8,6 +8,7 @@ import { typography } from '../../styles/typography'
 import { formatTargetValue } from '../../components/results/utils/formatTargetValue'
 import { DataBar, type DataBarColour } from '../ui/shared/DataBar'
 import { getProvenanceLabel } from '../ui/inspector-v2/inspectorStrings'
+import { getStabilityClassification } from '../../lib/stability'
 import { isCurrencyUnit } from '../utils/labelUtils'
 import type { CEEGoalConstraint } from '../../adapters/cee/types'
 
@@ -34,15 +35,21 @@ export const GoalNode = memo((props: NodeProps) => {
   const thresholdRaw = props.data?.goal_threshold_raw as string | number | null | undefined
   const thresholdUnit = props.data?.goal_threshold_unit as string | undefined
 
-  // T10: Stability bar colour from robustness level
+  // T10: Stability bar colour from robustness level (or canonical derivation)
+  const stabilityClassification = useMemo(() =>
+    getStabilityClassification(robustnessData?.stability),
+    [robustnessData?.stability]
+  )
   const stabilityBarColour = useMemo((): DataBarColour => {
-    switch (robustnessData?.level) {
+    const level = robustnessData?.level ?? stabilityClassification?.level
+    switch (level) {
       case 'high':     return 'success'
       case 'moderate': return 'goal'
-      case 'low':      return 'warning'
+      case 'low':
+      case 'very_low': return 'warning'
       default:         return 'goal'
     }
-  }, [robustnessData])
+  }, [robustnessData, stabilityClassification])
 
   // Prefer report-level stability over displayMetadata fallback
   const stabilityValue = robustnessData?.stability ?? displayMetadata.stabilityPercentage
@@ -84,7 +91,7 @@ export const GoalNode = memo((props: NodeProps) => {
         </div>
       )}
 
-      {/* T10: Stability bar + Marginal badge when stability < 60% */}
+      {/* T10: Stability bar + UI-SEM-048 Marginal badge (canonical level low/very_low) */}
       {stabilityValue !== null && (
         <div className="mt-2 mb-1">
           <div className="flex items-center gap-1.5 mb-1 flex-wrap">
@@ -92,7 +99,8 @@ export const GoalNode = memo((props: NodeProps) => {
             <span className={`${typography.nodeTitle} text-text-body`}>
               {Math.round(stabilityValue * 100)}%
             </span>
-            {stabilityValue < 0.6 && (
+            {/* UI-SEM-048: Marginal badge shown when canonical level is low/very_low (stability < 0.55) */}
+            {(stabilityClassification?.level === 'low' || stabilityClassification?.level === 'very_low') && (
               <span className={`${typography.nodeLabel} bg-panel border border-warning/30 text-text-body rounded-full px-1.5 py-0.5 ml-auto`}>
                 Marginal
               </span>

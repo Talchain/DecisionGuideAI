@@ -23,16 +23,19 @@ import type {
   RobustnessLevel,
 } from './types'
 import { sanitizeCoachingText } from './utils/cleanFactorLabel'
+import { getStabilityClassification } from '../../lib/stability'
 
 // ─── Thresholds ─────────────────────────────────────────────────────────────
 
 /** 10pp gap required to distinguish winner from runner-up */
 export const GAP_THRESHOLD = 0.10
 
-/** Stability must be >= 80% for robust classification */
+/**
+ * UI-SEM-006 (consolidated): DecisionState thresholds derived from canonical
+ * stability utility (src/lib/stability.ts). ROBUST = 'high' boundary (0.80),
+ * SENSITIVE = 'moderate' boundary (0.55).
+ */
 export const ROBUST_THRESHOLD = 0.80
-
-/** Below 55% stability → indeterminate */
 export const SENSITIVE_THRESHOLD = 0.55
 
 // ─── Stability Resolution ───────────────────────────────────────────────────

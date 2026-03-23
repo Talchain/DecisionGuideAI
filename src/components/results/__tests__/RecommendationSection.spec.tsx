@@ -367,7 +367,7 @@ describe('RecommendationSection', () => {
       expect(screen.getByText('Stable result')).toBeInTheDocument()
     })
 
-    it('shows "Sensitive to assumptions" label for medium stability (0.65)', () => {
+    it('shows "Mostly stable" label for moderate stability (0.65)', () => {
       const mediumStabilityData: RecommendationSectionData = {
         ...mockData,
         recommendationStability: 0.65,
@@ -376,11 +376,11 @@ describe('RecommendationSection', () => {
 
       render(<RecommendationSection data={mediumStabilityData} />)
 
-      // 0.65 is >= 0.55 but < 0.70, so "Sensitive to assumptions"
-      expect(screen.getByText('Sensitive to assumptions')).toBeInTheDocument()
+      // 0.65 is >= 0.55 but < 0.80, so "Mostly stable" (consolidated thresholds)
+      expect(screen.getByText('Mostly stable')).toBeInTheDocument()
     })
 
-    it('shows "Highly sensitive" label for low stability (0.35)', () => {
+    it('shows "Sensitive to assumptions" label for low stability (0.35)', () => {
       const lowStabilityData: RecommendationSectionData = {
         ...mockData,
         recommendationStability: 0.35,
@@ -389,8 +389,8 @@ describe('RecommendationSection', () => {
 
       render(<RecommendationSection data={lowStabilityData} />)
 
-      // 0.35 is < 0.55, so "Highly sensitive"
-      expect(screen.getByText('Highly sensitive')).toBeInTheDocument()
+      // 0.35 is >= 0.30 but < 0.55, so "Sensitive to assumptions" (consolidated thresholds)
+      expect(screen.getByText('Sensitive to assumptions')).toBeInTheDocument()
     })
 
     it('does not show stability badge when recommendationStability is undefined', () => {
@@ -751,8 +751,8 @@ describe('RecommendationSection', () => {
       render(<RecommendationSection data={sameValueData} />)
 
       // P1: Stability now shows in HeroSection
-      // 0.60 is >= 0.55 && < 0.70 → "Sensitive to assumptions"
-      expect(screen.getByText('Sensitive to assumptions')).toBeInTheDocument()
+      // 0.60 is >= 0.55 && < 0.80 → "Mostly stable" (consolidated thresholds)
+      expect(screen.getByText('Mostly stable')).toBeInTheDocument()
       // "scenarios" is banned language - should not appear
       expect(screen.queryByText(/scenarios tested/)).not.toBeInTheDocument()
     })

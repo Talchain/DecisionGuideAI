@@ -77,13 +77,12 @@ export const RiskPanel = memo(function RiskPanel({
         ) : null}
       </StaleGuardBanner>
 
-      {/* Goal drag bar — TODO: wire width to real risk exposure from results */}
-      <div className="flex items-center gap-2 mt-3 px-3 py-2 bg-panel border border-danger/30 rounded-lg">
-        <span className={`${typography.panelHeader} text-xs`}>Reduces goal</span>
-        <div className="flex-1 h-1.5 bg-panel-border rounded-full overflow-hidden">
-          <div className="h-full bg-danger rounded-full" style={{ width: '15%' }} />
-        </div>
-      </div>
+      {/* Goal drag — shows only when analysis provides real risk data */}
+      {!isResultsMode && (
+        <p className={`${typography.panelMeta} text-text-light mt-3 px-3`}>
+          Run analysis to see how this risk affects the goal.
+        </p>
+      )}
 
       {/* What drives this (behind disclosure for PoC) */}
       <button

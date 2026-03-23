@@ -28,9 +28,9 @@ describe('graphDisplayCalculations', () => {
       expect(importance).toBe(1.0 * 2.0 * 0.8)
     })
 
-    it('uses defaults for undefined strength (1.0)', () => {
+    it('uses defaults for undefined strength (0.5)', () => {
       const importance = calculateEdgeImportance(0.9, undefined, 0.8)
-      expect(importance).toBe(0.9 * 1.0 * 0.8)
+      expect(importance).toBe(0.9 * 0.5 * 0.8)
     })
 
     it('uses defaults for undefined goal sensitivity (1.0)', () => {
@@ -40,9 +40,9 @@ describe('graphDisplayCalculations', () => {
     })
 
     it('uses all defaults when all values undefined', () => {
-      // Per Issue #2 fix: Use 1.0 fallback for all undefined values
+      // Strength defaults to 0.5 (aligned with DEFAULT_EDGE_DATA.weight), belief/sensitivity default to 1.0
       const importance = calculateEdgeImportance(undefined, undefined, undefined)
-      expect(importance).toBe(1.0 * 1.0 * 1.0)
+      expect(importance).toBe(1.0 * 0.5 * 1.0)
     })
 
     it('handles negative strength by taking absolute value', () => {

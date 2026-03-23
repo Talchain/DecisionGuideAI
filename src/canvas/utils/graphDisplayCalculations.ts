@@ -31,8 +31,8 @@ export function calculateEdgeImportance(
   goalSensitivity: number | undefined
 ): number {
   const beliefValue = belief ?? 1.0
-  const strengthValue = Math.abs(strength ?? 1.0)
-  // Issue #2 fix: Use 1.0 fallback for non-factor edges (aligns with StyledEdge)
+  const strengthValue = Math.abs(strength ?? 0.5) // Aligned with DEFAULT_EDGE_DATA.weight
+  // Issue #2 fix: Use 1.0 fallback for non-factor edges
   const sensitivityValue = goalSensitivity ?? 1.0
 
   return beliefValue * strengthValue * sensitivityValue

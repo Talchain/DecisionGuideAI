@@ -54,7 +54,6 @@ export const FactorNode = memo((props: NodeProps) => {
   const edges = useCanvasStore(state => state.edges)
   const ceeAnalysisReady = useCanvasStore(state => state.ceeAnalysisReady)
   const resultsStatus = useCanvasStore(state => state.results.status)
-  const resultsReport = useCanvasStore(state => state.results.report)
 
   // Derive controllability from graph structure or CEE category
   const nodeCategory = props.data?.category as string | undefined
@@ -116,32 +115,13 @@ export const FactorNode = memo((props: NodeProps) => {
     return `Variable: ${formatPriorRangeValue(min, observedState?.unit)}–${formatPriorRangeValue(max, observedState?.unit)}`
   }, [nodeCategory, observedState?.unit, props.data?.prior])
 
+  // Use displayMetadata.influence directly — max-based proportional normalisation
+  // consistent with computeNormalisedInfluences() in the driver list.
   const sensitivityBarWidth = useMemo(() => {
     const influence = displayMetadata.influence
     if (influence == null) return null
-    const factorSensitivity = (resultsReport as any)?.enrichment?.sensitivity_analysis?.factors
-      ?? (resultsReport as any)?.factor_sensitivity
-      ?? []
-    const rawValues = factorSensitivity
-      .map((factor: any) => factor.elasticity ?? factor.sensitivity_score ?? factor.importance_score)
-      .filter((value: unknown): value is number => typeof value === 'number' && Number.isFinite(value))
-      .map((value: number) => Math.abs(value))
-      .filter((value: number) => value > 0)
-    if (rawValues.length < 2) return Math.round(influence * 100)
-
-    const factorData = factorSensitivity.find((factor: any) =>
-      (factor.factor_id || factor.factorId || factor.node_id || factor.nodeId) === props.id
-    )
-    const rawCurrent = factorData?.elasticity ?? factorData?.sensitivity_score ?? factorData?.importance_score
-    if (typeof rawCurrent !== 'number' || !Number.isFinite(rawCurrent)) return Math.round(influence * 100)
-
-    const min = Math.min(...rawValues)
-    const max = Math.max(...rawValues)
-    if (max <= min) return Math.round(influence * 100)
-
-    const normalised = (Math.abs(rawCurrent) - min) / (max - min)
-    return Math.round((0.25 + normalised * 0.75) * 100)
-  }, [displayMetadata.influence, props.id, resultsReport])
+    return Math.round(influence * 100)
+  }, [displayMetadata.influence])
 
   // T5: Show "estimated" pill only for inferred values
   const isInferred = observedState?.extractionType === 'inferred'

@@ -29,7 +29,7 @@ import type { InspectorPanelProps } from '../types'
 import { isCausalClaimsEnabled } from '../../../../flags'
 import { extractCausalClaims, claimTypeLabel } from '../../../adapters/causalClaimsAdapter'
 import { trackGuidance } from '../../../../telemetry/guidanceEvents'
-import { getFragileEdgeSwitchProbability } from '../../../utils/fragileEdgeMatch'
+import { isEdgeFragile, getFragileEdgeSwitchProbability } from '../../../utils/fragileEdgeMatch'
 import { COACHING } from '../coachingConfig'
 import { useEditImpactPreview } from '../../../hooks/useEditImpactPreview'
 import { StrengthBandButtons } from '../shared/StrengthBandButtons'
@@ -126,6 +126,7 @@ export const EdgePanel = memo(function EdgePanel({
   const edges = useCanvasStore(s => s.edges)
   const nodes = useCanvasStore(s => s.nodes)
   const robustness = useCanvasStore(s => (s.results?.report as any)?.robustness)
+  const edgeEValues = useCanvasStore(s => (s.results?.report as any)?.robustness?.edge_e_values as Array<{ edge_id: string; e_value: number }> | undefined)
   const resultsStatus = useCanvasStore(s => s.results?.status)
   const isResultsMode = resultsStatus === 'complete'
 
@@ -158,18 +159,15 @@ export const EdgePanel = memo(function EdgePanel({
   const [localBelief, setLocalBelief] = useState(beliefExists)
   const [localStd, setLocalStd] = useState(strengthStd)
 
-  // Fragility check
+  // Fragility check — uses canonical isEdgeFragile (UI-SEM-013 threshold applied)
   const isFragile = useMemo(() => {
     if (!robustness?.fragile_edges) return false
-    return (robustness.fragile_edges as unknown[]).some((fe: unknown) => {
-      if (typeof fe === 'string') return fe === edgeId
-      const obj = fe as Record<string, unknown>
-      const feId = obj.edge_id ?? obj.edgeId ?? obj
-      if (feId === edgeId) return true
-      const fromId = obj.from_id ?? obj.fromId ?? obj.source
-      const toId = obj.to_id ?? obj.toId ?? obj.target
-      return fromId === edge?.source && toId === edge?.target
-    })
+    return isEdgeFragile(
+      edgeId ?? '',
+      edge?.source ?? '',
+      edge?.target ?? '',
+      robustness.fragile_edges as import('../../../utils/fragileEdgeMatch').FragileEdgeCandidate[],
+    )
   }, [robustness, edgeId, edge?.source, edge?.target])
 
   // Graph Editing Experience Task 9e: First-interaction edge education
@@ -180,6 +178,13 @@ export const EdgePanel = memo(function EdgePanel({
     setShowEdgeEducation(false)
     try { localStorage.setItem(EDGE_EDUCATION_DISMISSED_KEY, 'true') } catch { /* noop */ }
   }, [])
+
+  // E-value for this edge from ISL edge_e_values (gated on field presence)
+  const edgeEValue = useMemo(() => {
+    if (!edgeEValues || !edgeId) return null
+    const entry = edgeEValues.find(ev => ev.edge_id === edgeId)
+    return entry?.e_value ?? null
+  }, [edgeEValues, edgeId])
 
   // T7: Switch probability for fragile edge detail
   const fragileEdgeSwitchProb = useMemo(() => {
@@ -367,6 +372,53 @@ export const EdgePanel = memo(function EdgePanel({
             )}
           </div>
 
+          {/* §10.5a Calibration — contested edge validation (L2 parity) */}
+          {(() => {
+            const validation = (edge?.data as Record<string, unknown>)?.validation as
+              import('../../../../canvas/domain/validation').ValidationMetadata | undefined
+            if (!validation || validation.status !== 'contested') return null
+            return (
+              <div className="mt-3">
+                <SectionTitle icon={SECTION_TITLES.evidence.icon} label="Calibration" />
+                <div className="bg-panel border border-warning/30 rounded-lg p-2.5">
+                  <div className={`${typography.panelBody} font-medium text-warning flex items-center gap-1`}>
+                    <AlertTriangle size={13} className="text-warning" />
+                    Contested
+                  </div>
+                  {validation.contested_reasons?.length > 0 && (
+                    <p className={`${typography.panelMeta} text-text-light mt-1`}>
+                      {validation.contested_reasons.join(', ')}
+                    </p>
+                  )}
+                  <div className="mt-2 grid grid-cols-2 gap-2">
+                    <div className="bg-panel border border-panel-border rounded p-2">
+                      <div className={`${typography.panelMeta} text-text-light mb-1`}>Pass 1 (current)</div>
+                      <div className={typography.panelMeta}>Strength: {validation.pass1.strength_mean.toFixed(2)}</div>
+                      <div className={typography.panelMeta}>Std: {validation.pass1.strength_std.toFixed(2)}</div>
+                      <div className={typography.panelMeta}>Exists: {Math.round(validation.pass1.exists_probability * 100)}%</div>
+                    </div>
+                    <div className="bg-panel border border-panel-border rounded p-2">
+                      <div className={`${typography.panelMeta} text-text-light mb-1`}>Pass 2 (review)</div>
+                      <div className={typography.panelMeta}>Strength: {validation.pass2.strength_mean.toFixed(2)}</div>
+                      <div className={typography.panelMeta}>Std: {validation.pass2.strength_std.toFixed(2)}</div>
+                      <div className={typography.panelMeta}>Exists: {Math.round(validation.pass2.exists_probability * 100)}%</div>
+                    </div>
+                  </div>
+                  {validation.pass2.reasoning && (
+                    <p className={`${typography.panelMeta} text-text-light mt-2 italic`}>
+                      &ldquo;{validation.pass2.reasoning}&rdquo;
+                    </p>
+                  )}
+                  {validation.pass2.basis && (
+                    <span className={`${typography.panelMeta} inline-block mt-1 px-1.5 py-0.5 rounded-full bg-transparent border border-info/30 text-text-body`}>
+                      {validation.pass2.basis}
+                    </span>
+                  )}
+                </div>
+              </div>
+            )
+          })()}
+
           {/* §10.5b Scientific basis — causal claims from pipeline */}
           {isCausalClaimsEnabled() && (
             <CausalClaimsSection edgeId={edge.id} edgeData={edge.data as Record<string, unknown>} />
@@ -393,6 +445,13 @@ export const EdgePanel = memo(function EdgePanel({
                       ? `If strength changes significantly, the recommendation may flip.${fragileEdgeSwitchProb !== null ? ` switch_probability: ${fragileEdgeSwitchProb.toFixed(2)}` : ''}`
                       : 'Small changes here could change the recommendation. If this effect weakens significantly, the alternative option may overtake the current leader.'}
                   </p>
+                  {/* E-value: assumption robustness indicator (ISL, gated on presence) */}
+                  {edgeEValue != null && (
+                    <p className={`${typography.panelMeta} mt-1.5 ${edgeEValue > 3 ? 'text-success' : edgeEValue >= 1.5 ? 'text-warning' : 'text-danger'}`}>
+                      Assumption robustness: {edgeEValue.toFixed(1)}x
+                      {techMode ? '' : ' — this assumption would need to be ' + edgeEValue.toFixed(1) + 'x wrong to change the recommendation'}
+                    </p>
+                  )}
                 </div>
               </StaleGuardBanner>
             </>

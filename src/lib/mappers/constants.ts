@@ -17,10 +17,7 @@
 export const THRESHOLDS = {
   /** Switch probability threshold for filtering fragile edges (>=0.3 shown) */
   FRAGILE_EDGE_FILTER: 0.3,
-  /** High stability threshold (>=0.8 = robust) */
-  STABILITY_HIGH: 0.8,
-  /** Moderate stability threshold (>=0.6 = moderate) */
-  STABILITY_MODERATE: 0.6,
+  // Stability thresholds removed — canonical source is src/lib/stability.ts
   /** Epsilon for baseline delta display (|delta| < 0.05 = "Same as baseline") */
   BASELINE_DELTA_EPSILON: 0.05,
   /** Task 2: Below this value = effectively zero impact */

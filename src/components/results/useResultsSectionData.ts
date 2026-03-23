@@ -48,6 +48,7 @@ import type { FactorEnrichment, NearTieInfo } from '../../lib/mappers/types'
 import { normaliseFactorFields } from '../../lib/mappers/mapFactorSensitivity'
 import { stripEncodingNotation, sanitizeCoachingText } from './utils/cleanFactorLabel'
 import { humaniseCritique } from './utils/humaniseCritique'
+import { deriveStabilityLevel } from '../../lib/stability'
 
 // =============================================================================
 // Winner Selection Helper
@@ -1048,23 +1049,8 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     const rawRobustnessLevel = robustness?.level as string | undefined
     const rawRobustnessLabel = robustness?.label as string | undefined
 
-    /**
-     * UI-SEM-005: Robustness level derivation from stability thresholds.
-     * When PLoT omits robustness.level, derives categorical level from
-     * recommendation_stability using hardcoded brackets (0.8/0.5/0.3).
-     * Classification: defensive fallback — PLoT now sends level on most responses.
-     * Remains because PLoT does not guarantee level on ALL responses (e.g. partial
-     * analysis, older model versions). Upstream fix: PLoT guarantees level field.
-     */
-    function deriveRobustnessLevel(stability: number | undefined): RobustnessLevel | undefined {
-      if (stability === undefined) return undefined
-      if (stability >= 0.8) return 'high'
-      if (stability >= 0.5) return 'moderate'
-      if (stability >= 0.3) return 'low'
-      return 'very_low'
-    }
-
-    // Normalize robustness level - try explicit value first, then derive from stability
+    // UI-SEM-005 (consolidated): Robustness level from canonical stability utility.
+    // Prefers explicit PLoT level; falls back to deriveStabilityLevel() from src/lib/stability.ts.
     const hasExplicitLevel =
       rawRobustnessLevel === 'high' ||
       rawRobustnessLevel === 'moderate' ||
@@ -1079,7 +1065,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
         ? rawRobustnessLevel
         : rawRobustnessLevel === 'medium'
           ? 'moderate'
-          : deriveRobustnessLevel(recommendationStability)
+          : deriveStabilityLevel(recommendationStability)
     // UI-SEM-005 fallback tracking: log when derivation activates so we can
     // measure how often PLoT omits the level field and prioritise removal.
     if (!hasExplicitLevel && robustnessLevel !== undefined && import.meta.env.DEV) {
@@ -2294,6 +2280,36 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       m2NarrativeSummary: (() => {
         const raw = reviewStatus === 'complete' ? m1ReviewAssumptions?.narrative_summary : undefined
         return raw ? sanitizeCoachingText(raw) : undefined
+      })(),
+
+      // New ISL fields (gated on presence)
+      conditionalWinners: (() => {
+        const raw = safeArray((report as any)?.conditional_winners ?? (report as any)?.robustness?.conditional_winners)
+        if (raw.length === 0) return undefined
+        return raw.map((w: any) => ({
+          factor_label: String(w.factor_label ?? w.label ?? ''),
+          factor_id: String(w.factor_id ?? w.node_id ?? ''),
+          split_value: Number(w.split_value ?? 0),
+          split_unit: w.split_unit ?? w.unit ?? undefined,
+          high_bucket: {
+            winner_label: String(w.high_bucket?.winner_label ?? w.high_bucket?.label ?? ''),
+            win_probability: Number(w.high_bucket?.win_probability ?? 0),
+          },
+          low_bucket: {
+            winner_label: String(w.low_bucket?.winner_label ?? w.low_bucket?.label ?? ''),
+            win_probability: Number(w.low_bucket?.win_probability ?? 0),
+          },
+        }))
+      })(),
+      inferenceWarnings: (() => {
+        const raw = safeArray((report as any)?.inference_warnings ?? (report as any)?.robustness?.inference_warnings)
+        const relevant = raw.filter((w: any) => w.code === 'MISSING_ROOT_VALUE')
+        if (relevant.length === 0) return undefined
+        return relevant.map((w: any) => ({
+          code: String(w.code ?? ''),
+          affected_nodes: safeArray(w.affected_nodes ?? w.affectedNodes),
+          message: w.message ? String(w.message) : undefined,
+        }))
       })(),
     }
   }, [report, m1Coaching, drivers, reviewStatus, m1ReviewAssumptions])

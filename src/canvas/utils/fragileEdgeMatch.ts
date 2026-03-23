@@ -3,8 +3,10 @@
  *
  * Used by StyledEdge (per-edge memo), useMenuItems (context menu), and useLensFilter.
  * Centralises the dual-format matching logic (edge_id vs from_id/to_id) and the
- * 0.3 switch_probability threshold. See UI-SEM-013.
+ * canonical switch_probability threshold from THRESHOLDS.FRAGILE_EDGE_FILTER. See UI-SEM-013.
  */
+
+import { THRESHOLDS } from '../../lib/mappers/constants'
 
 export interface FragileEdgeCandidate {
   edge_id?: string
@@ -34,7 +36,7 @@ export function isEdgeFragile(
   return fragileEdges.some(fe => {
     const switchProb = fe.switch_probability ?? fe.switchProbability ??
                        fe.marginal_switch_probability ?? fe.marginalSwitchProbability
-    if (typeof switchProb !== 'number' || switchProb <= 0.3) return false
+    if (typeof switchProb !== 'number' || switchProb <= THRESHOLDS.FRAGILE_EDGE_FILTER) return false
 
     // Try matching by edge_id first
     const feEdgeId = fe.edge_id ?? fe.edgeId
@@ -60,7 +62,7 @@ export function getFragileEdgeSwitchProbability(
   for (const fe of fragileEdges) {
     const switchProb = fe.switch_probability ?? fe.switchProbability ??
                        fe.marginal_switch_probability ?? fe.marginalSwitchProbability
-    if (typeof switchProb !== 'number' || switchProb <= 0.3) continue
+    if (typeof switchProb !== 'number' || switchProb <= THRESHOLDS.FRAGILE_EDGE_FILTER) continue
 
     const feEdgeId = fe.edge_id ?? fe.edgeId
     if (feEdgeId === edgeId) return switchProb

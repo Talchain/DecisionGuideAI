@@ -345,29 +345,18 @@ describe('HeroSection', () => {
   })
 
   describe('Stability Label', () => {
-    it('shows "Stable result" for stability >= 0.85', () => {
+    it('shows "Stable result" for stability >= 0.80', () => {
       render(
         <HeroSection
           {...baseProps}
-          recommendationStability={0.92}
+          recommendationStability={0.85}
         />
       )
 
       expect(screen.getByText('Stable result')).toBeInTheDocument()
     })
 
-    it('shows "Mostly stable" for stability >= 0.70', () => {
-      render(
-        <HeroSection
-          {...baseProps}
-          recommendationStability={0.75}
-        />
-      )
-
-      expect(screen.getByText('Mostly stable')).toBeInTheDocument()
-    })
-
-    it('shows "Sensitive to assumptions" for stability >= 0.55', () => {
+    it('shows "Mostly stable" for stability >= 0.55', () => {
       render(
         <HeroSection
           {...baseProps}
@@ -375,14 +364,25 @@ describe('HeroSection', () => {
         />
       )
 
-      expect(screen.getByText('Sensitive to assumptions')).toBeInTheDocument()
+      expect(screen.getByText('Mostly stable')).toBeInTheDocument()
     })
 
-    it('shows "Highly sensitive" for stability < 0.55', () => {
+    it('shows "Sensitive to assumptions" for stability >= 0.30', () => {
       render(
         <HeroSection
           {...baseProps}
           recommendationStability={0.40}
+        />
+      )
+
+      expect(screen.getByText('Sensitive to assumptions')).toBeInTheDocument()
+    })
+
+    it('shows "Highly sensitive" for stability < 0.30', () => {
+      render(
+        <HeroSection
+          {...baseProps}
+          recommendationStability={0.20}
         />
       )
 

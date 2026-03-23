@@ -159,7 +159,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
     if (edgeData?.provenance === 'ai-suggested') return false
     return true
   }, [ceeReview?.weight_suggestions, id, edgeData?.provenance])
-  const weight = edgeData?.weight ?? 1.0
+  const weight = edgeData?.weight ?? 0.5 // Aligned with DEFAULT_EDGE_DATA.weight and computeSignedMean default
   const style = edgeData?.style ?? 'solid'
   const curvature = edgeData?.curvature ?? 0.15
   const pathType: EdgePathType = edgeData?.pathType ?? 'bezier'
@@ -226,7 +226,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
         Math.abs(sourceFactor.elasticity ?? sourceFactor.sensitivity_score ?? sourceFactor.importance_score ?? 0) :
         1.0 // Fix 4: Fallback for non-factor edges
       const belief = edgeData?.beliefExists
-      const strength = edgeData?.weight ?? 1.0
+      const strength = edgeData?.weight ?? 0.5 // Aligned with DEFAULT_EDGE_DATA.weight
       return calculateEdgeImportance(belief, strength, goalSens)
     })
     const maxImportance = Math.max(...importances, 0)
@@ -393,7 +393,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
         const goalSens = src ? Math.abs(src.elasticity ?? src.sensitivity_score ?? src.importance_score ?? 0) : 1.0
         return {
           id: e.id,
-          score: calculateEdgeImportance(ed?.beliefExists, ed?.weight ?? 1.0, goalSens),
+          score: calculateEdgeImportance(ed?.beliefExists, ed?.weight ?? 0.5, goalSens),
         }
       })
       scores.sort((a, b) => b.score - a.score)

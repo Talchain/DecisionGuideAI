@@ -125,12 +125,16 @@ export const DecisionPanel = memo(function DecisionPanel({
               <ChevronRight size={12} className="text-text-light" />
             </div>
           </div>
-          {isResultsMode && opt.winPct != null && (
+          {isResultsMode && (
             <div className="flex items-center gap-2 mt-1.5">
               <div className="flex-1 h-1 bg-panel-border rounded-full overflow-hidden">
-                <div className="h-full rounded-full" style={{ width: `${opt.winPct}%`, background: 'var(--color-option)' }} />
+                {opt.winPct != null && (
+                  <div className="h-full rounded-full" style={{ width: `${opt.winPct}%`, background: 'var(--color-option)' }} />
+                )}
               </div>
-              <span className={`${typography.panelMeta} text-text-light`}>{opt.winPct}%</span>
+              <span className={`${typography.panelMeta} text-text-light`}>
+                {opt.winPct != null ? `${opt.winPct}%` : '—'}
+              </span>
             </div>
           )}
         </div>

@@ -32,6 +32,7 @@ import { DeltaIndicator } from '../shared/DeltaIndicator'
 import { useCanvasStore, selectPreviousReport } from '../../canvas/store'
 import type { DecisionState, HingeInfo, NextActionItem, RobustnessLevel } from './types'
 import type { NearTieInfo } from '../../lib/mappers/types'
+import { getStabilityClassification, getStabilityBorderClass } from '../../lib/stability'
 
 // =============================================================================
 // Types
@@ -161,7 +162,10 @@ export interface HeroSectionProps {
 // Helpers
 // =============================================================================
 
-/** Stability tier with label, colour, short text, expanded text, and coaching. */
+/** Stability tier with label, colour, short text, expanded text, and coaching.
+ * UI-SEM-041 (consolidated): Now delegates to canonical getStabilityClassification()
+ * from src/lib/stability.ts for consistent thresholds across all surfaces.
+ */
 function getStabilityTier(stability: number | undefined): {
   label: string
   colorClass: string
@@ -169,44 +173,16 @@ function getStabilityTier(stability: number | undefined): {
   expandedText: string
   coaching: string | null
 } {
-  if (stability == null) {
+  const classification = getStabilityClassification(stability)
+  if (!classification) {
     return { label: '', colorClass: '', shortText: '', expandedText: '', coaching: null }
   }
-  // UI-SEM-041: Stability UI label thresholds (0.85 stable, 0.70 mostly stable, 0.55 sensitive).
-  // Remove when PLoT provides stability labels directly.
-  if (stability >= 0.85) {
-    return {
-      label: 'Stable result',
-      colorClass: 'text-success',
-      shortText: 'Even if estimates are off',
-      expandedText: 'Result stays the same even if estimates are off.',
-      coaching: null, // No coaching for stable results
-    }
-  }
-  if (stability >= 0.70) {
-    return {
-      label: 'Mostly stable',
-      colorClass: 'text-success',
-      shortText: 'Under most assumptions',
-      expandedText: 'Result stays the same under most assumptions.',
-      coaching: 'The analysis is consistent under most assumptions. A few edge cases could shift the outcome.',
-    }
-  }
-  if (stability >= 0.55) {
-    return {
-      label: 'Sensitive to assumptions',
-      colorClass: 'text-warning',
-      shortText: 'Review key inputs',
-      expandedText: 'Result changes under different assumptions. Review key inputs.',
-      coaching: 'Result changes under different assumptions. Small changes could shift the recommendation.',
-    }
-  }
   return {
-    label: 'Highly sensitive',
-    colorClass: 'text-danger',
-    shortText: 'Treat as directional',
-    expandedText: 'Small changes in assumptions change the result. Treat as directional.',
-    coaching: 'Small changes in assumptions change the result. Consider strengthening key assumptions before committing.',
+    label: classification.heroLabel,
+    colorClass: classification.colorClass,
+    shortText: classification.heroShortText,
+    expandedText: classification.heroExpandedText,
+    coaching: classification.coaching,
   }
 }
 
@@ -256,18 +232,10 @@ function deriveTrustReason(opts: {
   return 'review model assumptions'
 }
 
-// UI-SEM-044: Border colour classification from stability score (0.7 success, 0.4 info).
-// Fallback when robustnessLevel is missing. Remove when PLoT guarantees robustnessLevel.
+// UI-SEM-044 (consolidated): Border colour now delegates to canonical
+// getStabilityBorderClass() from src/lib/stability.ts for consistent thresholds.
 function getHeroBorderClass(robustnessLevel?: RobustnessLevel, recommendationStability?: number): string {
-  if (robustnessLevel === 'high') return 'border-success/30'
-  if (robustnessLevel === 'moderate') return 'border-info/30'
-  if (robustnessLevel === 'low' || robustnessLevel === 'very_low') return 'border-factor/30'
-  if (recommendationStability != null) {
-    if (recommendationStability >= 0.7) return 'border-success/30'
-    if (recommendationStability >= 0.4) return 'border-info/30'
-    return 'border-factor/30'
-  }
-  return 'border-panel-border'
+  return getStabilityBorderClass(robustnessLevel, recommendationStability)
 }
 
 // UI-SEM-021: Suppress coaching copy that contradicts low robustness (e.g. "robust", "ready to proceed")
@@ -914,6 +882,23 @@ export function HeroSection({
                     </>
                   )}
                 </span>
+              </div>
+            </div>
+          )}
+
+          {/* ── Near-tie coaching callout ────────────────────── */}
+          {nearTie?.isTie && (
+            <div
+              className="bg-panel border-l-[3px] border-info rounded-lg px-4 py-3"
+              data-testid="near-tie-callout"
+            >
+              <div className="flex items-start gap-2">
+                <Info size={14} className="text-info flex-shrink-0 mt-0.5" />
+                <p className={`${typography.panelBody} text-text-body`}>
+                  {nearTie.gap != null && nearTie.gap > 0
+                    ? `These two options are very close (${Math.round(nearTie.gap * 100)} percentage points apart). Small changes in assumptions could flip the recommendation.`
+                    : 'These two options are very close. Small changes in assumptions could flip the recommendation.'}
+                </p>
               </div>
             </div>
           )}
