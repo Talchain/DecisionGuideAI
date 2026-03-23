@@ -24,6 +24,12 @@ const DIRECT_ACTIONS: Record<string, { label: string; action: string; placeholde
   zero_external_factors: { label: 'Add a factor', action: 'add_factor_inline', placeholder: 'e.g. Customer acquisition cost' },
 }
 
+/** Assumption from M1 coaching ledger */
+interface AssumptionLedgerItem {
+  severity: 'low' | 'medium' | 'high'
+  message: string
+}
+
 interface DecisionQualityChecksProps {
   checks: QualityCheck[]
   /** CTA action handler — routes action string to parent */
@@ -34,6 +40,8 @@ interface DecisionQualityChecksProps {
   goalBaselineSlot?: ReactNode
   /** Total count including replaced checks (for header pill) */
   totalCheckCount?: number
+  /** Assumptions ledger from M1 coaching (gated on presence) */
+  assumptionsLedger?: AssumptionLedgerItem[] | null
 }
 
 function CheckRow({
@@ -145,7 +153,7 @@ function CheckRow({
   )
 }
 
-export function DecisionQualityChecks({ checks, onAction, onDirectAdd, goalBaselineSlot, totalCheckCount }: DecisionQualityChecksProps) {
+export function DecisionQualityChecks({ checks, onAction, onDirectAdd, goalBaselineSlot, totalCheckCount, assumptionsLedger }: DecisionQualityChecksProps) {
   const [isExpanded, setIsExpanded] = useState(true)
   const [showAll, setShowAll] = useState(false)
 
@@ -229,6 +237,62 @@ export function DecisionQualityChecks({ checks, onAction, onDirectAdd, goalBasel
               Show less
             </button>
           )}
+
+          {/* Assumptions ledger from M1 coaching (gated on presence) */}
+          {assumptionsLedger && assumptionsLedger.length > 0 && (
+            <AssumptionsLedgerRow assumptions={assumptionsLedger} />
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+/**
+ * AssumptionsLedgerRow — expandable summary of M1 coaching assumptions.
+ * Shows total count + high-impact count, with expandable list.
+ */
+function AssumptionsLedgerRow({ assumptions }: { assumptions: AssumptionLedgerItem[] }) {
+  const [expanded, setExpanded] = useState(false)
+  const highCount = assumptions.filter(a => a.severity === 'high').length
+
+  const SEVERITY_BADGE: Record<string, { cls: string; label: string }> = {
+    high: { cls: 'border-danger/30 text-text-body', label: 'High' },
+    medium: { cls: 'border-warning/30 text-text-body', label: 'Medium' },
+    low: { cls: 'border-panel-border text-text-body', label: 'Low' },
+  }
+
+  return (
+    <div className="border-t border-panel-border pt-2 mt-1" data-testid="assumptions-ledger">
+      <button
+        type="button"
+        onClick={() => setExpanded(!expanded)}
+        className="w-full flex items-center gap-2 py-1 cursor-pointer hover:bg-black/[0.02] rounded"
+      >
+        <Pill size="small" variant="default">Verify</Pill>
+        <span className={`${typography.panelBody} text-text-body flex-1 text-left`}>
+          {assumptions.length} assumption{assumptions.length !== 1 ? 's' : ''}
+          {highCount > 0 && <span className="text-danger ml-1">{'\u00B7'} {highCount} high-impact</span>}
+        </span>
+        {expanded ? (
+          <ChevronDown className="w-3.5 h-3.5 text-text-light" />
+        ) : (
+          <ChevronRight className="w-3.5 h-3.5 text-text-light" />
+        )}
+      </button>
+      {expanded && (
+        <div className="space-y-1.5 mt-1.5">
+          {assumptions.map((a, i) => {
+            const badge = SEVERITY_BADGE[a.severity] ?? SEVERITY_BADGE.low
+            return (
+              <div key={i} className="flex items-start gap-2 px-1">
+                <span className={`${typography.panelMeta} font-medium inline-flex items-center px-2 py-0.5 rounded-full bg-transparent border ${badge.cls} flex-shrink-0`}>
+                  {badge.label}
+                </span>
+                <p className={`${typography.panelBody} text-text-body`}>{a.message}</p>
+              </div>
+            )
+          })}
         </div>
       )}
     </div>

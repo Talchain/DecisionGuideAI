@@ -370,6 +370,8 @@ export interface EvidenceGapItem {
   voi: number
   /** ISL EVPI: expected value of perfect information (absolute units) — gated on presence */
   evpi?: number
+  /** ISL EVPI: expected improvement in percentage points — for display text */
+  evpiPp?: number
   suggestion: string
   /** Node ID for canvas focus (may differ from factorId) */
   targetNodeId?: string
@@ -391,6 +393,34 @@ export interface AssumptionItem {
   severity: 'low' | 'medium' | 'high'
   message: string
   target?: string
+}
+
+/** Conditional winner entry from ISL (factor-dependent recommendation splits) */
+export interface ConditionalWinner {
+  /** Factor label driving the split */
+  factor_label: string
+  /** Factor node ID */
+  factor_id: string
+  /** Split value where winner changes */
+  split_value: number
+  /** Unit for display */
+  split_unit?: string
+  /** Winner label when factor is above split */
+  high_bucket: { winner_label: string; win_probability: number }
+  /** Winner label when factor is below split */
+  low_bucket: { winner_label: string; win_probability: number }
+}
+
+/** Inference warning from ISL (model gaps) */
+export interface InferenceWarning {
+  /** Warning code (e.g. 'MISSING_ROOT_VALUE') */
+  code: string
+  /** Affected node IDs */
+  affected_nodes: string[]
+  /** Affected node labels (resolved from canvas) */
+  affected_labels?: string[]
+  /** Human-readable message */
+  message?: string
 }
 
 export interface ConfidenceSectionData {
@@ -483,6 +513,15 @@ export interface ConfidenceSectionData {
   m2EvidenceEnhancements?: Record<string, { specific_action: string; decision_hygiene: string }>
   /** V12: M2 narrative summary paragraph */
   m2NarrativeSummary?: string
+
+  // ==========================================================================
+  // New ISL Fields (gated on presence)
+  // ==========================================================================
+
+  /** ISL conditional_winners — factor-dependent recommendation splits */
+  conditionalWinners?: ConditionalWinner[]
+  /** ISL inference_warnings — model gap warnings */
+  inferenceWarnings?: InferenceWarning[]
 }
 
 // =============================================================================

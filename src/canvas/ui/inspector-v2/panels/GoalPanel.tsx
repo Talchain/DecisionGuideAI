@@ -24,6 +24,7 @@ import { ProbabilityArc } from '../shared/ProbabilityArc'
 import { DataBar } from '../../shared/DataBar'
 import type { InspectorPanelProps } from '../types'
 import type { CEEGoalConstraint } from '../../../../adapters/cee/types'
+import type { ConditionalProbability } from '../../../../types/constraints'
 import { COACHING } from '../coachingConfig'
 
 export const GoalPanel = memo(function GoalPanel({
@@ -40,6 +41,7 @@ export const GoalPanel = memo(function GoalPanel({
   const probGoal = useCanvasStore(s => s.results?.report?.probability_of_goal)
   const probJoint = useCanvasStore(s => s.results?.report?.probability_of_joint_goal)
   const postAnalysisConstraints = useCanvasStore(s => (s.results?.report as any)?.goal_constraints as Array<CEEGoalConstraint & { probability?: number }> | null | undefined)
+  const conditionalProbabilities = useCanvasStore(s => (s.results?.report as any)?.conditional_probabilities as ConditionalProbability[] | null | undefined)
   const preAnalysisConstraints = useCanvasStore(s => s.goalConstraints)
   const setGoalConstraints = useCanvasStore(s => s.setGoalConstraints)
   // Prefer post-analysis (has probability scores) over pre-analysis preview
@@ -187,6 +189,23 @@ export const GoalPanel = memo(function GoalPanel({
                     />
                   </div>
                 )}
+                {/* Conditional probabilities — show when P(B|A) differs >5pp from marginal */}
+                {prob !== null && conditionalProbabilities && conditionalProbabilities.length > 0 && (() => {
+                  const related = conditionalProbabilities.filter(
+                    cp => (cp.constraint_a_label === (c.label ?? ''))
+                      && Math.abs(cp.conditional_probability - cp.marginal_probability) > 0.05
+                  )
+                  if (related.length === 0) return null
+                  return (
+                    <div className="mt-1 space-y-0.5">
+                      {related.map(cp => (
+                        <p key={`${cp.constraint_a_id}-${cp.constraint_b_id}`} className={`${typography.panelMeta} text-text-light`}>
+                          If {cp.constraint_a_label} is met, probability of {cp.constraint_b_label} changes to {Math.round(cp.conditional_probability * 100)}%
+                        </p>
+                      ))}
+                    </div>
+                  )
+                })()}
                 {prob === null && (
                   <div className="flex items-center gap-1.5 mt-0.5">
                     <span className={`${typography.panelMeta} text-text-light shrink-0`}>{c.operator}</span>

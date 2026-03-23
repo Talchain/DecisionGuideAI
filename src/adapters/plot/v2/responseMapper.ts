@@ -534,6 +534,13 @@ export function mapV2ResponseToReportV1(
         },
         // Pass through flip_thresholds from PLoT robustness (tipping-point analysis)
         ...(v2Response.robustness!.flip_thresholds ? { flip_thresholds: v2Response.robustness!.flip_thresholds } : {}),
+        // Pass through near_tie, edge_e_values for trust/hero section and edge inspector
+        ...((robustnessRaw?.near_tie != null) ? { near_tie: robustnessRaw.near_tie } : {}),
+        ...((robustnessRaw?.nearTie != null) ? { nearTie: robustnessRaw.nearTie } : {}),
+        ...(Array.isArray(robustnessRaw?.edge_e_values) ? { edge_e_values: robustnessRaw.edge_e_values } : {}),
+        // Pass through new ISL fields when present (gated on field presence)
+        ...(Array.isArray(robustnessRaw?.conditional_winners) ? { conditional_winners: robustnessRaw.conditional_winners } : {}),
+        ...(Array.isArray(robustnessRaw?.inference_warnings) ? { inference_warnings: robustnessRaw.inference_warnings } : {}),
       }
     })() : undefined,
     // P0 Fix: Pass through robustness_status for gating logic

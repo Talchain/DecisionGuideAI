@@ -34,6 +34,22 @@ export interface ConstraintAnalysis {
   joint_probability: number
 }
 
+/** Pairwise conditional probability between constraints (from PLoT) */
+export interface ConditionalProbability {
+  /** ID of the conditioning constraint */
+  constraint_a_id: string
+  /** Label of the conditioning constraint */
+  constraint_a_label: string
+  /** ID of the dependent constraint */
+  constraint_b_id: string
+  /** Label of the dependent constraint */
+  constraint_b_label: string
+  /** P(B | A met) — probability of B given A is satisfied */
+  conditional_probability: number
+  /** P(B) — marginal probability for comparison */
+  marginal_probability: number
+}
+
 /**
  * UI-SEM-010: Constraint confidence colour thresholds.
  * Maps constraint satisfaction probability to colour encoding for display.

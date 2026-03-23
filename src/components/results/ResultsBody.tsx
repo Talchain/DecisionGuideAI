@@ -347,6 +347,7 @@ export function ResultsBody({
                   excludeFactorIds={hingeExcludeIds}
                   coachingReadiness={resultsSectionData.recommendation.coachingReadiness}
                   hasWinnerAbove50={resultsSectionData.recommendation.allOptions.some(o => (o.winProbability ?? 0) > 0.5)}
+                  flipThresholds={resultsSectionData.recommendation.flipThresholds}
                 />
               </Accordion>
               {/* V11: Robust compact VOI affordance — below collapsed accordion */}

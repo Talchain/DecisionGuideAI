@@ -932,6 +932,7 @@ export function PreAnalysisPanel({
                 />
               ) : undefined
             }
+            assumptionsLedger={data.assumptionsLedger}
           />
         )}
 

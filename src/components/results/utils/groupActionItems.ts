@@ -37,6 +37,8 @@ export interface ActionItem {
   whatToDo?: string
   /** V12 B4: Node IDs for graph links (from M2 bias finding affected_elements) */
   affectedNodeIds?: string[]
+  /** ISL EVPI: expected improvement in percentage points (gated on presence) */
+  evpiPp?: number
 }
 
 export interface ActionGroup {
@@ -256,7 +258,10 @@ export function groupActionItems(input: GroupActionItemsInput): ActionGroup[] {
   const group2Items: ActionItem[] = evidenceGaps
     .filter(gap => !group1Keys.has(gap.factorId) && !excludeSet.has(gap.factorId))
     .sort((a, b) => {
-      // Prefer EVPI sort when available (ISL), fallback to VOI
+      // Prefer evpi_percentage_points, then evpi (absolute), then VOI
+      const aPp = (a as any).evpiPp as number | undefined
+      const bPp = (b as any).evpiPp as number | undefined
+      if (typeof aPp === 'number' && typeof bPp === 'number') return bPp - aPp
       const aEvpi = (a as any).evpi as number | undefined
       const bEvpi = (b as any).evpi as number | undefined
       if (typeof aEvpi === 'number' && typeof bEvpi === 'number') return bEvpi - aEvpi
@@ -278,6 +283,7 @@ export function groupActionItems(input: GroupActionItemsInput): ActionGroup[] {
         source: 'model' as const,
         whatCouldHappen: enhancement?.decision_hygiene,
         whatToDo: enhancement?.specific_action,
+        evpiPp: typeof gap.evpiPp === 'number' ? gap.evpiPp : undefined,
       }
     })
 

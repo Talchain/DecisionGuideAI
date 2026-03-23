@@ -145,6 +145,11 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
             System: model value: {value.toFixed(3)}
           </div>
         )}
+        {techMode && obs?.cap != null && (
+          <div className={`${typography.panelMeta} text-text-light mt-0.5`}>
+            Cap: {typeof obs.cap === 'number' ? obs.cap.toLocaleString() : String(obs.cap)}{unit ? ` ${unit}` : ''}
+          </div>
+        )}
       </div>
 
       {/* §7.3 Where this comes from */}

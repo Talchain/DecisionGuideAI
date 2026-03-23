@@ -2109,6 +2109,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
           confidence: gap.confidence ?? 0,
           voi: gap.voi_score ?? gap.voi ?? 0,
           evpi: typeof gap.evpi === 'number' ? gap.evpi : undefined,
+          evpiPp: typeof gap.evpi_percentage_points === 'number' ? gap.evpi_percentage_points : undefined,
           suggestion: gap.suggestion ?? '',
           targetNodeId: gap.target_node_id,
         }))
@@ -2305,14 +2306,18 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
         const raw = safeArray((report as any)?.inference_warnings ?? (report as any)?.robustness?.inference_warnings)
         const relevant = raw.filter((w: any) => w.code === 'MISSING_ROOT_VALUE')
         if (relevant.length === 0) return undefined
-        return relevant.map((w: any) => ({
-          code: String(w.code ?? ''),
-          affected_nodes: safeArray(w.affected_nodes ?? w.affectedNodes),
-          message: w.message ? String(w.message) : undefined,
-        }))
+        return relevant.map((w: any) => {
+          const nodeIds: string[] = safeArray(w.affected_nodes ?? w.affectedNodes)
+          return {
+            code: String(w.code ?? ''),
+            affected_nodes: nodeIds,
+            affected_labels: nodeIds.map(id => nodeLabelMap.get(id) ?? id),
+            message: w.message ? String(w.message) : undefined,
+          }
+        })
       })(),
     }
-  }, [report, m1Coaching, drivers, reviewStatus, m1ReviewAssumptions])
+  }, [report, m1Coaching, drivers, reviewStatus, m1ReviewAssumptions, nodeLabelMap])
 
   // ==========================================================================
   // Improvements Section Data (Legacy - now merged into confidence)

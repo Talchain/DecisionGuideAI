@@ -14,7 +14,7 @@
  */
 
 import { useState, useCallback, useMemo } from 'react'
-import type { ConfidenceSectionData, UncertaintyItem, CritiqueSeverity, ConfidenceTier, EvidenceGapItem, AssumptionItem, DecisionState, HingeInfo, TopAction } from './types'
+import type { ConfidenceSectionData, UncertaintyItem, CritiqueSeverity, ConfidenceTier, EvidenceGapItem, AssumptionItem, DecisionState, HingeInfo, TopAction, FlipThreshold, ConditionalWinner, InferenceWarning } from './types'
 import type { ConstraintAnalysis } from '../../types/constraints'
 import { focusNodeById, focusByTarget, type FocusTargetType } from '../../canvas/utils/focusHelpers'
 import { highlightNode, clearHighlight } from '../../canvas/utils/highlightHelpers'
@@ -23,7 +23,7 @@ import { typography } from '../../styles/typography'
 import { MIN_STABLE_RECOMMENDATION_STABILITY, isStableRobustnessLevel } from './constants'
 import { stripEncodingNotation } from './utils/cleanFactorLabel'
 import { groupActionItems, type ActionGroup, type ActionItem } from './utils/groupActionItems'
-import { AlertTriangle, Lightbulb, Search } from 'lucide-react'
+import { AlertTriangle, Lightbulb, Search, ArrowLeftRight, GitBranch } from 'lucide-react'
 
 interface ConfidenceSectionProps {
   data: ConfidenceSectionData
@@ -48,6 +48,8 @@ interface ConfidenceSectionProps {
   coachingReadiness?: 'ready' | 'close_call' | 'needs_evidence' | 'needs_framing' | 'low' | 'not_ready'
   /** V14.1: Whether any option has winProbability > 0.5 */
   hasWinnerAbove50?: boolean
+  /** Flip thresholds: tipping points where recommendation changes (from PLoT robustness) */
+  flipThresholds?: FlipThreshold[]
 }
 
 const SEVERITY_CONFIG: Record<CritiqueSeverity, {
@@ -362,6 +364,7 @@ export function ConfidenceSection({
   excludeFactorIds,
   coachingReadiness,
   hasWinnerAbove50,
+  flipThresholds,
 }: ConfidenceSectionProps) {
   const [showAllUncertainties, setShowAllUncertainties] = useState(false)
   const [showAssumptions, setShowAssumptions] = useState(false)
@@ -391,6 +394,9 @@ export function ConfidenceSection({
     humanisedCritiques,
     // V12: M2 evidence enhancements
     m2EvidenceEnhancements,
+    // New ISL fields (gated on presence)
+    conditionalWinners,
+    inferenceWarnings,
   } = data
 
   // P0.1: Build lookup map for humanised critique display
@@ -793,6 +799,11 @@ export function ConfidenceSection({
                                   {actionItem.subtitle}
                                 </p>
                               )}
+                              {typeof actionItem.evpiPp === 'number' && actionItem.evpiPp > 0 && (
+                                <p className={`${typography.panelMeta} text-info mt-0.5`}>
+                                  Resolving could improve confidence by up to {Math.round(actionItem.evpiPp)}pp
+                                </p>
+                              )}
                             </div>
                           </div>
                         )
@@ -880,6 +891,20 @@ export function ConfidenceSection({
 
       {/* V12.1 Fix 3: "Recommended actions" section removed — next_actions merged into Validate group above */}
 
+      {/* Flip threshold cards — tipping points where recommendation changes */}
+      {flipThresholds && flipThresholds.length > 0 && (
+        <FlipThresholdCards thresholds={flipThresholds} onFocusNode={onFocusNode} />
+      )}
+
+      {/* Conditional winners — factor-dependent recommendation splits (ISL) */}
+      {conditionalWinners && conditionalWinners.length > 0 && (
+        <ConditionalWinnerCards winners={conditionalWinners} onFocusNode={onFocusNode} />
+      )}
+
+      {/* Inference warnings — model gaps (ISL) */}
+      {inferenceWarnings && inferenceWarnings.length > 0 && (
+        <InferenceWarningCard warnings={inferenceWarnings} onFocusNode={onFocusNode} />
+      )}
 
       {/* Task 6 (M1 Coaching): Assumptions transparency link and disclosure */}
       {assumptions && assumptions.length > 0 && (
@@ -945,6 +970,255 @@ export function ConfidenceSection({
           )}
         </div>
       )}
+    </div>
+  )
+}
+
+// =============================================================================
+// FlipThresholdCards — tipping points where recommendation changes
+// =============================================================================
+
+const MAX_FLIP_CARDS = 3
+
+/**
+ * Renders flip threshold cards showing how much each factor must change
+ * to flip the recommendation. Sorted by |margin| ascending (closest to flipping first).
+ * Gated on flip_thresholds being non-empty.
+ */
+function FlipThresholdCards({
+  thresholds,
+  onFocusNode,
+}: {
+  thresholds: FlipThreshold[]
+  onFocusNode?: (nodeId: string) => void
+}) {
+  const [showAll, setShowAll] = useState(false)
+
+  // Sort by |margin| ascending — closest to flipping first
+  const sorted = useMemo(() => {
+    return [...thresholds]
+      .filter(ft => ft.flip_value != null)
+      .sort((a, b) => {
+        const marginA = Math.abs((a.flip_value ?? a.current_value) - a.current_value)
+        const marginB = Math.abs((b.flip_value ?? b.current_value) - b.current_value)
+        return marginA - marginB
+      })
+  }, [thresholds])
+
+  if (sorted.length === 0) return null
+
+  const visible = showAll ? sorted : sorted.slice(0, MAX_FLIP_CARDS)
+  const hiddenCount = Math.max(0, sorted.length - MAX_FLIP_CARDS)
+
+  return (
+    <div className="space-y-2 pt-2 border-t border-panel-border/50" data-testid="flip-threshold-cards">
+      <div className="flex items-center gap-2 mb-1">
+        <ArrowLeftRight className="w-4 h-4 text-warning flex-shrink-0" />
+        <h4 className={`${typography.panelHeader} text-text-header`}>
+          Tipping points
+        </h4>
+        <span className={`${typography.panelMeta} text-text-light`}>
+          {sorted.length}
+        </span>
+      </div>
+      <p className={`${typography.panelMeta} text-text-light mb-2`}>
+        Changes that would flip the recommendation
+      </p>
+      {visible.map((ft, idx) => {
+        const margin = ft.flip_value != null ? Math.abs(ft.flip_value - ft.current_value) : null
+        // Progress: how far current_value is from flip_value on a 0-100 scale.
+        // Uses the range [min(current,flip), max(current,flip)] to avoid negative/zero issues.
+        const progressPct = (() => {
+          if (ft.flip_value == null || margin == null || margin === 0) return 50
+          const lo = Math.min(ft.current_value, ft.flip_value)
+          const hi = Math.max(ft.current_value, ft.flip_value)
+          const range = hi - lo
+          if (range === 0) return 50
+          return Math.min(100, Math.max(0, ((ft.current_value - lo) / range) * 100))
+        })()
+        const canFocus = !!ft.node_id
+        const handleFocus = () => {
+          if (ft.node_id) {
+            if (onFocusNode) onFocusNode(ft.node_id)
+            else focusNodeById(ft.node_id)
+          }
+        }
+        const formatVal = (v: number) => {
+          if (ft.unit === '$' || ft.unit === '\u00A3' || ft.unit === '\u20AC') return `${ft.unit}${v.toLocaleString()}`
+          if (ft.unit === '%') return `${v.toLocaleString()}%`
+          return ft.unit ? `${v.toLocaleString()} ${ft.unit}` : v.toLocaleString()
+        }
+
+        return (
+          <div
+            key={`${ft.node_id}-${idx}`}
+            className={`p-3 bg-panel border border-warning/30 rounded-lg ${canFocus ? 'cursor-pointer hover:-translate-y-0.5 hover:shadow-md transition-all' : ''}`}
+            onClick={canFocus ? handleFocus : undefined}
+            role={canFocus ? 'button' : undefined}
+            tabIndex={canFocus ? 0 : undefined}
+            onKeyDown={canFocus ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleFocus() } } : undefined}
+          >
+            <p className={`${typography.panelHeader} text-text-header`}>
+              {ft.label}: changes from {formatVal(ft.current_value)} to {formatVal(ft.flip_value!)} would flip the recommendation
+            </p>
+            {ft.alternative_winner_label && (
+              <p className={`${typography.panelMeta} text-text-light mt-0.5`}>
+                {ft.alternative_winner_label} becomes the better option
+              </p>
+            )}
+            {/* Progress bar: current position relative to flip point */}
+            <div className="mt-2 h-1.5 bg-panel-border rounded-full overflow-hidden">
+              <div
+                className="h-full bg-warning rounded-full transition-all"
+                style={{ width: `${progressPct}%` }}
+              />
+            </div>
+            {margin != null && (
+              <p className={`${typography.panelMeta} text-text-light mt-1`}>
+                Margin: {formatVal(margin)}
+              </p>
+            )}
+          </div>
+        )
+      })}
+      {hiddenCount > 0 && (
+        <button
+          type="button"
+          onClick={() => setShowAll(!showAll)}
+          className={`${typography.panelBody} text-info hover:underline`}
+        >
+          {showAll ? 'Show fewer' : `See all ${sorted.length}`}
+        </button>
+      )}
+    </div>
+  )
+}
+
+// =============================================================================
+// ConditionalWinnerCards — factor-dependent recommendation splits (ISL)
+// =============================================================================
+
+const MAX_CONDITIONAL_CARDS = 3
+
+/**
+ * Renders conditional winner cards showing where the recommendation changes
+ * based on factor values. Gated on conditional_winners[] being non-empty.
+ */
+function ConditionalWinnerCards({
+  winners,
+  onFocusNode,
+}: {
+  winners: ConditionalWinner[]
+  onFocusNode?: (nodeId: string) => void
+}) {
+  const visible = winners.slice(0, MAX_CONDITIONAL_CARDS)
+
+  return (
+    <div className="space-y-2 pt-2 border-t border-panel-border/50" data-testid="conditional-winner-cards">
+      <div className="flex items-center gap-2 mb-1">
+        <GitBranch className="w-4 h-4 text-info flex-shrink-0" />
+        <h4 className={`${typography.panelHeader} text-text-header`}>
+          Conditional recommendations
+        </h4>
+      </div>
+      {visible.map((w, idx) => {
+        const canFocus = !!w.factor_id
+        const handleFocus = () => {
+          if (w.factor_id) {
+            if (onFocusNode) onFocusNode(w.factor_id)
+            else focusNodeById(w.factor_id)
+          }
+        }
+        return (
+          <div
+            key={`${w.factor_id}-${idx}`}
+            className={`p-3 bg-panel border border-info/30 rounded-lg ${canFocus ? 'cursor-pointer hover:-translate-y-0.5 hover:shadow-md transition-all' : ''}`}
+            onClick={canFocus ? handleFocus : undefined}
+            role={canFocus ? 'button' : undefined}
+            tabIndex={canFocus ? 0 : undefined}
+            onKeyDown={canFocus ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleFocus() } } : undefined}
+          >
+            <p className={`${typography.panelHeader} text-text-header`}>
+              When {w.factor_label} rises above {w.split_value.toLocaleString()}{w.split_unit ?? ''}, {w.high_bucket.winner_label} overtakes {w.low_bucket.winner_label}
+            </p>
+            <div className={`${typography.panelMeta} text-text-light mt-1 flex gap-4`}>
+              <span>Above: {w.high_bucket.winner_label} ({Math.round(w.high_bucket.win_probability * 100)}%)</span>
+              <span>Below: {w.low_bucket.winner_label} ({Math.round(w.low_bucket.win_probability * 100)}%)</span>
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+// =============================================================================
+// InferenceWarningCard — model gap warnings (ISL)
+// =============================================================================
+
+/**
+ * Renders inference warning card when ISL reports MISSING_ROOT_VALUE entries.
+ * Shows count of affected factors with action chip to navigate.
+ */
+function InferenceWarningCard({
+  warnings,
+  onFocusNode,
+}: {
+  warnings: InferenceWarning[]
+  onFocusNode?: (nodeId: string) => void
+}) {
+  // Only show MISSING_ROOT_VALUE warnings
+  const relevant = warnings.filter(w => w.code === 'MISSING_ROOT_VALUE')
+  if (relevant.length === 0) return null
+
+  // Build ID→label map from all warnings
+  const labelMap = useMemo(() => {
+    const map = new Map<string, string>()
+    for (const w of relevant) {
+      const ids = w.affected_nodes ?? []
+      const labels = w.affected_labels ?? []
+      ids.forEach((id, i) => {
+        if (!map.has(id)) map.set(id, labels[i] ?? id)
+      })
+    }
+    return map
+  }, [relevant])
+  const allLabels = [...labelMap.entries()].map(([id, label]) => ({ id, label }))
+
+  return (
+    <div className="pt-2 border-t border-panel-border/50" data-testid="inference-warnings">
+      <div
+        className="p-3 bg-panel border border-warning/30 rounded-lg"
+      >
+        <div className="flex items-start gap-2">
+          <AlertTriangle className="w-4 h-4 text-warning flex-shrink-0 mt-0.5" />
+          <div className="flex-1 min-w-0">
+            <p className={`${typography.panelHeader} text-text-header`}>
+              Model gaps: {uniqueNodes.length} factor{uniqueNodes.length !== 1 ? 's' : ''} used default values
+            </p>
+            {/* List affected factor labels with focus action */}
+            {allLabels.length > 0 && (
+              <ul className={`${typography.panelMeta} text-text-light mt-1 space-y-0.5`}>
+                {allLabels.map((entry, i) => (
+                  <li key={entry.id} className="flex items-center gap-1">
+                    <span className="text-warning">{'\u2022'}</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (onFocusNode) onFocusNode(entry.id)
+                        else focusNodeById(entry.id)
+                      }}
+                      className="text-info hover:underline text-left"
+                    >
+                      {entry.label}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
+      </div>
     </div>
   )
 }

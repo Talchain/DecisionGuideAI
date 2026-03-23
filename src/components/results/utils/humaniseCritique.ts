@@ -108,6 +108,16 @@ const CODE_TEMPLATES: Record<string, TemplateFactory> = {
     description: 'Constraint results may be less precise. Set a value to sharpen the analysis.',
     suggestion: 'Set estimate',
   }),
+  INBOUND_STRENGTH_SUM_EXCEEDED: (label) => ({
+    title: `The factors driving ${label} may be over-weighted`,
+    description: 'The combined strength of connections into this node exceeds the expected range. Consider reducing some edge strengths.',
+    suggestion: 'Review connection strengths',
+  }),
+  MIXED_RANGE_DERIVATION: () => ({
+    title: 'Some factor ranges use estimates rather than confirmed values',
+    description: 'Not all factor ranges are derived from the same source. Results may be less consistent.',
+    suggestion: 'Review factor data sources',
+  }),
 }
 
 // ─── Internal token detection ────────────────────────────────────────────────

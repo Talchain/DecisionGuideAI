@@ -246,6 +246,8 @@ export interface PreAnalysisData {
   contestedEdges: Array<{ edge: Edge; validation: import('../../../../canvas/domain/validation').ValidationMetadata }>
   /** Balance score for decision health ring (0–1) */
   balanceScore: number
+  /** Assumptions ledger from M1 coaching (post-analysis, gated on presence) */
+  assumptionsLedger: Array<{ severity: 'low' | 'medium' | 'high'; message: string }> | null
 }
 
 // ============================================================================
@@ -563,6 +565,15 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
   const edges = useCanvasStore(useShallow(s => s.edges))
   const ceeAnalysisReady = useCanvasStore(s => s.ceeAnalysisReady)
   const m1ReviewAssumptions = useCanvasStore(s => s.runMeta?.m1ReviewAssumptions)
+  const m1AssumptionsLedger = useCanvasStore(s => s.runMeta?.m1Coaching?.assumptions_ledger as Array<{ severity: string; message: string }> | undefined)
+  // PLoT critiques from previous run (for structural checks)
+  // Mapper puts them at report.run.critique; also check top-level report.critiques as fallback
+  const plotCritiques = useCanvasStore(s => {
+    const report = s.results?.report as any
+    const fromRun = report?.run?.critique as Array<{ code: string; message?: string; affected_nodes?: string[]; affectedNodes?: string[] }> | undefined
+    const fromTopLevel = report?.critiques as Array<{ code: string; message?: string; affected_nodes?: string[]; affectedNodes?: string[] }> | undefined
+    return fromRun ?? fromTopLevel ?? undefined
+  })
   // Task 7: Quality scores from CEE draft
   const ceeQuality = useCanvasStore(s => s.ceeQuality)
   // Task 6: Pipeline trace for repair_summary
@@ -1549,8 +1560,41 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
       })
     }
 
+    // PLoT structural critiques from previous run (gated on presence, deduped by code+node)
+    if (plotCritiques) {
+      const seenCritiques = new Set<string>()
+      for (const c of plotCritiques) {
+        if (c.code === 'INBOUND_STRENGTH_SUM_EXCEEDED') {
+          const affectedNodes = c.affected_nodes ?? (c as any).affectedNodes ?? []
+          const dedup = `${c.code}_${affectedNodes[0] ?? ''}`
+          if (seenCritiques.has(dedup)) continue
+          seenCritiques.add(dedup)
+          const nodeLabel = affectedNodes[0]
+            ? nodes.find(n => n.id === affectedNodes[0])?.data?.label as string ?? affectedNodes[0]
+            : 'a node'
+          checks.push({
+            id: `plot_${c.code}_${affectedNodes[0] ?? ''}`,
+            message: `The factors driving ${nodeLabel} may be over-weighted`,
+            cta: 'Review strengths',
+            ctaAction: affectedNodes[0] ? `focus_node_${affectedNodes[0]}` : 'review_model',
+            pill: 'verify',
+          })
+        }
+        if (c.code === 'MIXED_RANGE_DERIVATION' && !seenCritiques.has(c.code)) {
+          seenCritiques.add(c.code)
+          checks.push({
+            id: `plot_${c.code}`,
+            message: 'Some factor ranges use estimates rather than confirmed values',
+            cta: 'Review sources',
+            ctaAction: 'review_model',
+            pill: 'verify',
+          })
+        }
+      }
+    }
+
     return checks
-  }, [nodesByKind, edges, ceeAnalysisReady?.options, ceeAnalysisReady?.bias_findings, successThreshold, goalNode, totalReviewableFactorsCount])
+  }, [nodesByKind, edges, ceeAnalysisReady?.options, ceeAnalysisReady?.bias_findings, successThreshold, goalNode, totalReviewableFactorsCount, plotCritiques, nodes])
 
   // =========================================================================
   // Task 6: Model adjustments with resolved labels + repair actions from trace
@@ -1715,6 +1759,12 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
     coachingSummary,
     contestedEdges,
     balanceScore,
+    assumptionsLedger: m1AssumptionsLedger?.length
+      ? m1AssumptionsLedger.map(a => ({
+          severity: (a.severity === 'high' || a.severity === 'medium' || a.severity === 'low' ? a.severity : 'low') as 'low' | 'medium' | 'high',
+          message: String(a.message ?? ''),
+        }))
+      : null,
   }
 }
 
