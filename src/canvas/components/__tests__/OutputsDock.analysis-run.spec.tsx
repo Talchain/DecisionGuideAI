@@ -195,8 +195,8 @@ describe('OutputsDock analyse convergence', () => {
 
     const footer = screen.getByTestId('results-analysis-footer')
     expect(footer).toBeInTheDocument()
-    expect(footer).toHaveTextContent('Robust result')
-    expect(footer).toHaveTextContent('87% stability')
+    expect(footer).toHaveTextContent('Stable result')
+    expect(footer).toHaveTextContent('87%')
     expect(screen.queryByText('Compare available in the tab bar')).not.toBeInTheDocument()
   })
 })

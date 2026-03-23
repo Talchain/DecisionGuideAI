@@ -76,13 +76,13 @@ function ImprovementRow({ item }: { item: ImprovementItem }) {
 
           {/* Reason (if different from action) */}
           {item.reason && item.reason !== item.action && (
-            <p className={`${typography.panelBody} text-slate-600 mt-1`}>{item.reason}</p>
+            <p className={`${typography.panelBody} text-text-body mt-1`}>{item.reason}</p>
           )}
 
           {/* Effort estimate and potential improvement */}
           <div className="flex items-center gap-3 mt-2">
             {item.effortMinutes && (
-              <span className={`${typography.panelBody} text-slate-500`}>~{item.effortMinutes} min</span>
+              <span className={`${typography.panelBody} text-text-light`}>~{item.effortMinutes} min</span>
             )}
             {item.potentialImprovement && (
               <span className={`${typography.panelBody} text-success`}>{item.potentialImprovement}</span>
@@ -124,16 +124,16 @@ export function ImprovementsSection({
         className="w-full flex items-center justify-between text-left"
       >
         <div className="flex items-center gap-2">
-          <h3 className={`${typography.panelHeader} text-slate-700`}>Strengthen your analysis</h3>
+          <h3 className={`${typography.panelHeader} text-text-body`}>Strengthen your analysis</h3>
           <span
             className={`${typography.panelBody} px-2 py-0.5 rounded-full ${
-              hasHighPriority ? 'bg-panel text-option' : 'bg-slate-100 text-slate-600'
+              hasHighPriority ? 'bg-panel text-option' : 'bg-panel text-text-body'
             }`}
           >
             {count} {count === 1 ? 'way' : 'ways'} to improve
           </span>
         </div>
-        <span className={`text-slate-400 ${typography.panelBody}`}>{isExpanded ? '▼' : '▶'}</span>
+        <span className={`text-text-light ${typography.panelBody}`}>{isExpanded ? '▼' : '▶'}</span>
       </button>
 
       {/* Improvements list */}

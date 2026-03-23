@@ -911,7 +911,7 @@ export function ConfidenceSection({
         <div className="space-y-2 pt-2 border-t border-panel-border/50">
           <button
             onClick={() => setShowAssumptions(!showAssumptions)}
-            className={`${typography.panelBody} text-slate-500 hover:text-slate-700 flex items-center gap-1`}
+            className={`${typography.panelBody} text-text-light hover:text-text-body flex items-center gap-1`}
           >
             <span>{showAssumptions ? '▼' : '▶'}</span>
             View transparency log ({assumptions.length} assumption{assumptions.length === 1 ? '' : 's'})

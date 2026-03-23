@@ -267,17 +267,17 @@ function ExpandedDetails({
     <div className={`px-4 pb-3 pt-1 border-t border-panel-border/50 bg-panel/50 ${typography.panelBody} text-text-body space-y-1.5`}>
       {elasticityInsight && <p>{elasticityInsight}</p>}
       {/* Task 3.5: Direction-based fallback when no elasticity data */}
-      {directionInterpretation && <p className="text-slate-500">{directionInterpretation}</p>}
+      {directionInterpretation && <p className="text-text-light">{directionInterpretation}</p>}
       {decisionChangeRisk && <p>{decisionChangeRisk}</p>}
       {showQualityHint && (
-        <p className={`${typography.panelBody} text-slate-500 flex items-center gap-1`}>
+        <p className={`${typography.panelBody} text-text-light flex items-center gap-1`}>
           <span aria-hidden="true">⚠️</span>
           Could benefit from more evidence
         </p>
       )}
       {/* Zero reason message - explains why this factor shows zero sensitivity */}
       {driver.zeroReason && ZERO_REASON_MESSAGES[driver.zeroReason] && (
-        <p className={`${typography.panelBody} text-slate-500 flex items-center gap-1`}>
+        <p className={`${typography.panelBody} text-text-light flex items-center gap-1`}>
           <span aria-hidden="true">ℹ️</span>
           {ZERO_REASON_MESSAGES[driver.zeroReason]}
         </p>
@@ -471,7 +471,7 @@ function DriverRow({
               onClick={toggleTooltip}
               onMouseEnter={() => setIsTooltipOpen(true)}
               onMouseLeave={() => setIsTooltipOpen(false)}
-              className="p-0.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded transition-colors flex-shrink-0"
+              className="p-0.5 text-text-light hover:text-text-body hover:bg-panel rounded transition-colors flex-shrink-0"
               aria-label="More information"
               aria-expanded={isTooltipOpen}
               aria-describedby={isTooltipOpen ? `tooltip-${driver.factorKey}` : undefined}
@@ -493,7 +493,7 @@ function DriverRow({
             showPercent
           />
         ) : (
-          <div className={`${typography.panelBody} font-mono text-slate-400 w-9 text-right`}>-</div>
+          <div className={`${typography.panelBody} font-mono text-text-light w-9 text-right`}>-</div>
         )}
 
         {/* Confidence bar — same width as Sensitivity bar (icons moved to 4th column) */}
@@ -506,7 +506,7 @@ function DriverRow({
             showPercent
           />
         ) : (
-          <div className={`${typography.panelBody} font-mono text-slate-400 w-9 text-right`}>-</div>
+          <div className={`${typography.panelBody} font-mono text-text-light w-9 text-right`}>-</div>
         )}
 
         {/* Icons column: confidence glyph + default-estimate indicator */}
@@ -628,7 +628,7 @@ export function DriversSection({
   if (driversStatus !== 'computed') {
     return (
       <div className="p-4 bg-panel border border-panel-border rounded-lg">
-        <p className={`${typography.panelBody} text-slate-600 flex items-start gap-2`}>
+        <p className={`${typography.panelBody} text-text-body flex items-start gap-2`}>
           <span aria-hidden="true">ℹ️</span>
           {EMPTY_STATES.drivers}
         </p>
@@ -640,7 +640,7 @@ export function DriversSection({
   if (drivers.length === 0) {
     return (
       <div className="p-4 bg-panel border border-panel-border rounded-lg">
-        <p className={`${typography.panelBody} text-slate-600 flex items-start gap-2`}>
+        <p className={`${typography.panelBody} text-text-body flex items-start gap-2`}>
           <span aria-hidden="true">ℹ️</span>
           {EMPTY_STATES.drivers}
         </p>
@@ -672,13 +672,13 @@ export function DriversSection({
         <div />
         {/* v7.10 T9: Renamed "Relative influence" → "Influence" for brevity */}
         <div
-          className={`${typography.panelBody} text-slate-500 text-right pr-6 cursor-help`}
+          className={`${typography.panelBody} text-text-light text-right pr-6 cursor-help`}
           title="Scaled so the strongest driver is 100%"
         >
           Influence
         </div>
         <div
-          className={`${typography.panelBody} text-slate-500 text-right pr-6 cursor-help`}
+          className={`${typography.panelBody} text-text-light text-right pr-6 cursor-help`}
           title="How certain the model is about this factor's influence, based on edge belief strength and evidence quality"
         >
           Confidence
@@ -729,7 +729,7 @@ export function DriversSection({
       {visibleDrivers.length > TOP_DRIVERS_COUNT && (
         <button
           onClick={() => setShowAll(!showAll)}
-          className={`${typography.panelBody} text-sky-600 hover:text-sky-700`}
+          className={`${typography.panelBody} text-info hover:text-info`}
         >
           {showAll ? 'Show fewer factors' : `See all factors (+${visibleDrivers.length - TOP_DRIVERS_COUNT} more)`}
         </button>

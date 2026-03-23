@@ -96,7 +96,7 @@ function FlipThresholdRow({
       />
 
       {/* Track with current (●) and flip (╳) markers */}
-      <div className="relative h-1 bg-slate-200 rounded-full">
+      <div className="relative h-1 bg-panel-border/30 rounded-full">
         {/* Current value marker (●) */}
         <div
           className="absolute w-2.5 h-2.5 -top-[3px] bg-info rounded-full border border-white"

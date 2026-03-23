@@ -1088,7 +1088,7 @@ export function useConversation(): UseConversationReturn {
         const directionValue = d.direction
         const strengthStdValue = d.strengthStd
         // UI-SEM-035: Canvas weight [0,2] + direction → signed mean clamped to [-1,+1] for CEE.
-        const weight = typeof weightValue === 'number' ? Math.max(0, Math.min(weightValue, 1.0)) : 0.5
+        const weight = typeof weightValue === 'number' ? Math.max(0, Math.min(weightValue, 2.0)) : 0.5
         const direction = directionValue === 'negative' ? -1 : 1
         const mean = Math.max(-1, Math.min(1, direction * weight))
         const std = typeof strengthStdValue === 'number' ? Math.max(0, strengthStdValue) : undefined
@@ -1149,6 +1149,7 @@ export function useConversation(): UseConversationReturn {
         drivers: Array.isArray(rawV2.drivers) ? rawV2.drivers : [],
         edge_sensitivity: Array.isArray(rawV2.edge_sensitivity) ? rawV2.edge_sensitivity : [],
         constraints_status: rawV2.constraints_status ?? null,
+        critiques: Array.isArray(rawV2.critiques) ? rawV2.critiques : [],
         meta: rawV2.meta ?? null,
         analysis_status: rawV2.analysis_status,
         option_comparison_status: rawV2.option_comparison_status,

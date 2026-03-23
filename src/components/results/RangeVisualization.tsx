@@ -138,7 +138,7 @@ function OptionRangeBar({
       </div>
 
       {/* Range bar container */}
-      <div className="relative h-2 bg-slate-100 rounded-full overflow-visible">
+      <div className="relative h-2 bg-panel-border/30 rounded-full overflow-visible">
         {/* p10-p90 range bar */}
         <div
           className={`absolute h-2 rounded-full ${barColor}`}

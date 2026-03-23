@@ -25,6 +25,7 @@
 
 import { useEffect, useState, useRef, useMemo, useCallback, type ChangeEvent } from 'react'
 import { BarChart3, Shuffle, Activity, Clock, AlertTriangle, XCircle, MessageCircle, CheckCircle } from 'lucide-react'
+import { getStabilityClassification } from '../../lib/stability'
 import { useShallow } from 'zustand/react/shallow'
 import { useUIStore, type OutputTab } from '../../stores/uiStore'
 import { useDockState } from '../hooks/useDockState'
@@ -557,11 +558,16 @@ export function OutputsDock() {
 
   const decisionReadiness = report?.decision_readiness || readinessFromConfidence
   const recommendationStability = (report as any)?.robustness?.recommendation_stability ?? (report as any)?.robustness?.ranking_stability
-  const postRunFooter = recommendationStability != null && recommendationStability >= 0.7
-    ? { icon: CheckCircle, iconClass: 'text-success', label: 'Robust result' }
-    : recommendationStability != null && recommendationStability >= 0.4
-      ? { icon: AlertTriangle, iconClass: 'text-warning', label: 'Moderate confidence' }
-      : { icon: XCircle, iconClass: 'text-danger', label: 'Fragile result' }
+  const stabilityClass = getStabilityClassification(recommendationStability)
+  const postRunFooter = stabilityClass
+    ? stabilityClass.level === 'high'
+      ? { icon: CheckCircle, iconClass: 'text-success', label: stabilityClass.heroLabel }
+      : stabilityClass.level === 'moderate'
+        ? { icon: CheckCircle, iconClass: 'text-info', label: stabilityClass.heroLabel }
+        : stabilityClass.level === 'low'
+          ? { icon: AlertTriangle, iconClass: 'text-warning', label: stabilityClass.heroLabel }
+          : { icon: XCircle, iconClass: 'text-danger', label: stabilityClass.heroLabel }
+    : { icon: XCircle, iconClass: 'text-danger', label: 'Fragile result' }
   const postRunMetaText = recommendationStability != null
     ? <><StabilityGauge value={recommendationStability} />{' '}<DeltaIndicator currentValue={recommendationStability} previousValue={previousReport?.rankingStability} format="percent" /></>
     : null

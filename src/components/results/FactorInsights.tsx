@@ -62,7 +62,7 @@ export function FactorInsights({ enrichment }: FactorInsightsProps) {
         onClick={() => setIsExpanded(!isExpanded)}
         aria-expanded={isExpanded}
         aria-controls={contentId}
-        className={`flex items-center gap-1 ${typography.panelBody} text-slate-500 hover:text-slate-700 transition-colors w-full text-left`}
+        className={`flex items-center gap-1 ${typography.panelBody} text-text-light hover:text-text-body transition-colors w-full text-left`}
       >
         {isExpanded ? (
           <ChevronDown size={14} className="shrink-0" />
@@ -76,12 +76,12 @@ export function FactorInsights({ enrichment }: FactorInsightsProps) {
       {isExpanded && (
         <div
           id={contentId}
-          className={`mt-2 space-y-3 ${typography.panelBody} text-slate-600`}
+          className={`mt-2 space-y-3 ${typography.panelBody} text-text-body`}
         >
           {/* Observations */}
           {hasObservations && (
             <div>
-              <div className="text-slate-500 mb-1">Observations</div>
+              <div className="text-text-light mb-1">Observations</div>
               <ul className="list-disc list-inside space-y-0.5 pl-1">
                 {enrichment.observations.map((obs, idx) => (
                   <li key={idx} className="leading-relaxed">{stripEncodingNotation(obs)}</li>
@@ -93,7 +93,7 @@ export function FactorInsights({ enrichment }: FactorInsightsProps) {
           {/* Perspectives */}
           {hasPerspectives && (
             <div>
-              <div className="text-slate-500 mb-1">Perspectives</div>
+              <div className="text-text-light mb-1">Perspectives</div>
               <ul className="list-disc list-inside space-y-0.5 pl-1">
                 {enrichment.perspectives.map((persp, idx) => (
                   <li key={idx} className="leading-relaxed">{stripEncodingNotation(persp)}</li>

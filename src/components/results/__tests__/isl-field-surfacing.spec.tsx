@@ -127,17 +127,20 @@ describe('RangeDerivationPill', () => {
 // --- Weight standardisation ---
 
 describe('CEE weight clamp standardisation', () => {
-  it('clamps weight to [0, 1] and signed mean to [-1, +1]', () => {
-    // Simulates the new useConversation logic
+  it('clamps weight to [0, 2] (canvas domain) and signed mean to [-1, +1]', () => {
+    // Mirrors useConversation.ts UI-SEM-035:
+    //   weight clamped to canvas range [0, 2], then direction * weight clamped to [-1, +1]
     const cases = [
       { weight: 0.5, dir: 'positive', expected: 0.5 },
-      { weight: 1.5, dir: 'positive', expected: 1.0 },  // clamped from 1.5 to 1.0
+      { weight: 1.5, dir: 'positive', expected: 1.0 },   // 1.5 stays in [0,2]; direction*1.5=1.5 → clamped to 1.0
       { weight: 0.8, dir: 'negative', expected: -0.8 },
-      { weight: 2.0, dir: 'negative', expected: -1.0 },  // clamped from 2.0 to 1.0, then negated
+      { weight: 2.0, dir: 'negative', expected: -1.0 },   // 2.0 stays in [0,2]; direction*2.0=-2.0 → clamped to -1.0
+      { weight: 2.5, dir: 'positive', expected: 1.0 },    // 2.5 clamped to 2.0; direction*2.0=2.0 → clamped to 1.0
+      { weight: -0.3, dir: 'positive', expected: 0.0 },   // negative weight clamped to 0
     ] as const
 
     for (const { weight: w, dir, expected } of cases) {
-      const clampedWeight = Math.min(w, 1.0)
+      const clampedWeight = Math.max(0, Math.min(w, 2.0))
       const direction = dir === 'negative' ? -1 : 1
       const mean = Math.max(-1, Math.min(1, direction * clampedWeight))
       expect(mean).toBeCloseTo(expected, 5)

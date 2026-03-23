@@ -123,7 +123,7 @@ function StatBar({
       <span className={`${typography.panelMeta} text-text-light w-[72px] flex-shrink-0`}>
         {label}
       </span>
-      <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
+      <div className="flex-1 h-2 bg-panel-border/30 rounded-full overflow-hidden">
         <div
           className={`h-2 rounded-full transition-all ${barColorClass}`}
           style={{

@@ -77,6 +77,9 @@ const RAW_V2_RESPONSE = {
     { edge_id: 'e1', from: 'opt_a', to: 'goal_1', switch_probability: 0.12 },
   ],
   constraints_status: null,
+  critiques: [
+    { code: 'INBOUND_STRENGTH_SUM_EXCEEDED', severity: 'warning', message: 'Factors driving goal may be over-weighted' },
+  ],
   meta: { seed_used: 42, detail_level: 'full' },
 }
 
@@ -92,6 +95,7 @@ function buildAnalysisState(
     drivers: Array.isArray(rawV2.drivers) ? rawV2.drivers : [],
     edge_sensitivity: Array.isArray(rawV2.edge_sensitivity) ? rawV2.edge_sensitivity : [],
     constraints_status: rawV2.constraints_status ?? null,
+    critiques: Array.isArray(rawV2.critiques) ? rawV2.critiques : [],
     meta: { ...rawV2.meta, response_hash: analysisHash },
     analysis_status: 'completed',
     option_comparison_status: rawV2.option_comparison_status,
@@ -509,6 +513,21 @@ describe('T5b — Explain turn (after analysis)', () => {
       expect(r).not.toHaveProperty('drivers')
       expect(r).not.toHaveProperty('edge_sensitivity')
     }
+  })
+
+  it('analysis_state.critiques is passed through from V2 response (regression guard)', () => {
+    const state = req.analysis_state as Record<string, unknown>
+    expect(Array.isArray(state.critiques)).toBe(true)
+    const critiques = state.critiques as Array<{ code: string }>
+    expect(critiques.length).toBeGreaterThan(0)
+    expect(critiques[0].code).toBe('INBOUND_STRENGTH_SUM_EXCEEDED')
+  })
+
+  it('analysis_state.critiques defaults to empty array when absent from V2 response', () => {
+    const rawWithoutCritiques = { ...RAW_V2_RESPONSE, critiques: undefined }
+    const stateNoCritiques = buildAnalysisState(rawWithoutCritiques as any)
+    expect(Array.isArray(stateNoCritiques.critiques)).toBe(true)
+    expect((stateNoCritiques.critiques as unknown[]).length).toBe(0)
   })
 
   it('analysis_inputs is absent on explain turns', () => {
