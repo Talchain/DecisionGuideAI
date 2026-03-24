@@ -187,6 +187,7 @@ export function YourExpertise({
               />
               <MissingData
                 items={groups.missingData}
+                onFocusNode={onFocusNode}
                 onSetValue={onSetValue}
                 onSendMessage={onSendMessage}
                 factorInfluenceMap={factorInfluenceMap}

@@ -10,6 +10,7 @@ import type { ImprovementItem } from '../hooks/usePreAnalysisData'
 
 interface MissingDataProps {
   items: ImprovementItem[]
+  onFocusNode?: (nodeId: string) => void
   onSetValue?: (nodeId: string) => void
   onSendMessage?: (text: string) => void
   factorInfluenceMap?: Map<string, number>
@@ -32,6 +33,7 @@ function getTechniqueHint(label: string): { text: string; tooltip: string } {
 
 export function MissingData({
   items,
+  onFocusNode,
   onSetValue,
   onSendMessage,
   factorInfluenceMap,
@@ -50,16 +52,17 @@ export function MissingData({
         const technique = getTechniqueHint(item.label)
 
         return (
-          <div
-            key={item.key}
-            className="px-1 py-1.5 space-y-1"
-            onMouseEnter={() => nodeId && onHoverEnter?.('node', nodeId)}
-            onMouseLeave={() => onHoverLeave?.()}
-          >
+          <div key={item.key} className="px-1 py-1.5 space-y-1">
             <div className="flex items-center gap-2">
-              <span className={`${typography.panelBody} text-text-body truncate flex-1 min-w-0`}>
+              <button
+                type="button"
+                onClick={() => nodeId && onFocusNode?.(nodeId)}
+                onMouseEnter={() => nodeId && onHoverEnter?.('node', nodeId)}
+                onMouseLeave={() => onHoverLeave?.()}
+                className={`${typography.panelBody} text-info hover:underline cursor-pointer text-left truncate flex-1 min-w-0`}
+              >
                 {item.label}
-              </span>
+              </button>
               <span className={`${typography.panelMeta} text-text-light`}>No data</span>
               {influencePct != null && (
                 <div className="flex items-center gap-1 shrink-0" style={{ width: 60 }}>

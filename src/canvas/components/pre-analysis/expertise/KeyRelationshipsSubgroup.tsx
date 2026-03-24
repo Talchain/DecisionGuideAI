@@ -58,11 +58,14 @@ export function KeyRelationshipsSubgroup({
           {expanded ? 'Hide' : `Show key relationships`}
         </span>
       </button>
-      {/* Strongest influence hint when collapsed */}
-      {!expanded && strongest && (
-        <p className={`${typography.panelMeta} text-text-light pl-4`}>
-          Strongest influence: {strongest.sourceLabel} → {strongest.targetLabel}
-        </p>
+      {/* Causal count + strongest influence hint when collapsed */}
+      {!expanded && (
+        <div className={`${typography.panelMeta} text-text-light pl-4 space-y-0.5`}>
+          <p>{items.length} causal relationship{items.length !== 1 ? 's' : ''}</p>
+          {strongest && (
+            <p>Strongest influence: {strongest.sourceLabel} → {strongest.targetLabel}</p>
+          )}
+        </div>
       )}
       {expanded && items.slice(0, 10).map(rel => {
         const confBand = getConfidenceBand(rel.std)

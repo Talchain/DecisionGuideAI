@@ -36,15 +36,12 @@ export function FromBrief({ items, onFocusNode, onHoverEnter, onHoverLeave }: Fr
         </span>
       </button>
       {expanded && items.map(item => (
-        <div
-          key={item.key}
-          className="flex items-center gap-2 py-0.5 px-1"
-          onMouseEnter={() => item.focus?.id && onHoverEnter?.('node', item.focus.id)}
-          onMouseLeave={() => onHoverLeave?.()}
-        >
+        <div key={item.key} className="flex items-center gap-2 py-0.5 px-1">
           <button
             type="button"
             onClick={() => item.focus?.id && onFocusNode?.(item.focus.id)}
+            onMouseEnter={() => item.focus?.id && onHoverEnter?.('node', item.focus.id)}
+            onMouseLeave={() => onHoverLeave?.()}
             className={`${typography.panelBody} text-info hover:underline cursor-pointer text-left truncate flex-1 min-w-0`}
           >
             {item.label}

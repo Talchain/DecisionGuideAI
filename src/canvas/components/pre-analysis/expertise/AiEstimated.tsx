@@ -40,15 +40,12 @@ export function AiEstimated({
         const influencePct = influence != null ? Math.round(influence * 100) : null
 
         return (
-          <div
-            key={item.key}
-            className="flex items-center gap-2 py-1 px-1"
-            onMouseEnter={() => nodeId && onHoverEnter?.('node', nodeId)}
-            onMouseLeave={() => onHoverLeave?.()}
-          >
+          <div key={item.key} className="flex items-center gap-2 py-1 px-1">
             <button
               type="button"
               onClick={() => nodeId && onFocusNode?.(nodeId)}
+              onMouseEnter={() => nodeId && onHoverEnter?.('node', nodeId)}
+              onMouseLeave={() => onHoverLeave?.()}
               className={`${typography.panelBody} text-info hover:underline cursor-pointer text-left truncate flex-1 min-w-0`}
             >
               {item.label}
