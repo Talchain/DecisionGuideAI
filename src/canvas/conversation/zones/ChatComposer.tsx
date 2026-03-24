@@ -164,8 +164,8 @@ export const ChatComposer = memo(forwardRef<ChatComposerHandle, ChatComposerProp
     }, [briefSignals])
 
     const showBriefStrip = Boolean(!hasGraph && isFramingStage(stage) && briefSignals && briefSignals.elements.some(e => e.detected))
-    // Show Generate Model CTA when brief strip is visible OR when user has typed enough prose
-    const showGenerateCta = showBriefStrip || Boolean(!hasGraph && isFramingStage(stage) && composer.value.trim().length >= 50)
+    // Show Generate Model CTA when brief strip is visible, user has typed enough, OR request is in flight (loading)
+    const showGenerateCta = showBriefStrip || generateState === 'loading' || Boolean(!hasGraph && isFramingStage(stage) && composer.value.trim().length >= 50)
     useEffect(() => {
       recordUiSurfaceState('conversation', {
         firstDraftControlsVisible: showGenerateCta,
@@ -324,13 +324,14 @@ export const ChatComposer = memo(forwardRef<ChatComposerHandle, ChatComposerProp
 /** Inline Generate model button — 26px height, matches readiness pill. */
 function InlineGenerateButton({ state, onClick }: { state: GenerateState; onClick: () => void }) {
   const isActive = state === 'active'
+  const isLoading = state === 'loading'
 
   return (
     <button
       type="button"
-      disabled={!isActive}
       onClick={onClick}
       data-active={isActive || undefined}
+      data-loading={isLoading || undefined}
       className="inline-gen-btn flex-shrink-0"
       style={{
         display: 'inline-flex',
@@ -344,22 +345,30 @@ function InlineGenerateButton({ state, onClick }: { state: GenerateState; onClic
         fontWeight: 600,
         whiteSpace: 'nowrap' as const,
         transition: 'all 200ms cubic-bezier(0.4, 0, 0.2, 1)',
-        background: isActive ? 'var(--primary, #2B7FA2)' : 'transparent',
-        border: isActive ? 'none' : '1px solid rgba(176,168,153,0.3)',
-        color: isActive ? 'var(--text-on-color, #FFFFFF)' : 'var(--text-light, #908D8D)',
-        boxShadow: isActive ? '0 1px 2px rgba(38,38,38,0.06)' : 'none',
-        opacity: isActive ? 1 : 0.55,
-        cursor: isActive ? 'pointer' : 'default',
+        background: (isActive || isLoading) ? 'var(--primary, #2B7FA2)' : 'transparent',
+        border: (isActive || isLoading) ? 'none' : '1px solid rgba(176,168,153,0.3)',
+        color: (isActive || isLoading) ? 'var(--text-on-color, #FFFFFF)' : 'var(--text-light, #908D8D)',
+        boxShadow: (isActive || isLoading) ? '0 1px 2px rgba(38,38,38,0.06)' : 'none',
+        opacity: (isActive || isLoading) ? 1 : 0.55,
+        cursor: isActive ? 'pointer' : isLoading ? 'wait' : 'default',
+        pointerEvents: isLoading ? 'none' : undefined,
       }}
       data-testid="inline-generate-btn"
     >
-      <Play
-        className="w-[11px] h-[11px] flex-shrink-0"
-        strokeWidth={2}
-        style={{ stroke: isActive ? 'var(--text-on-color, #FFFFFF)' : 'var(--text-light, #908D8D)' }}
-        aria-hidden="true"
-      />
-      <span>Generate model</span>
+      {isLoading ? (
+        <span
+          className="w-[11px] h-[11px] flex-shrink-0 rounded-full border-2 border-white/30 border-t-white animate-spin"
+          aria-hidden="true"
+        />
+      ) : (
+        <Play
+          className="w-[11px] h-[11px] flex-shrink-0"
+          strokeWidth={2}
+          style={{ stroke: isActive ? 'var(--text-on-color, #FFFFFF)' : 'var(--text-light, #908D8D)' }}
+          aria-hidden="true"
+        />
+      )}
+      <span>{isLoading ? 'Generating…' : 'Generate model'}</span>
 
       <style>{`
         .inline-gen-btn[data-active]:hover {
