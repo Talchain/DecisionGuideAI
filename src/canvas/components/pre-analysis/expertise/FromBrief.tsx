@@ -11,9 +11,11 @@ import type { ImprovementItem } from '../hooks/usePreAnalysisData'
 interface FromBriefProps {
   items: ImprovementItem[]
   onFocusNode?: (nodeId: string) => void
+  onHoverEnter?: (type: 'node' | 'edge', id: string) => void
+  onHoverLeave?: () => void
 }
 
-export function FromBrief({ items, onFocusNode }: FromBriefProps) {
+export function FromBrief({ items, onFocusNode, onHoverEnter, onHoverLeave }: FromBriefProps) {
   const [expanded, setExpanded] = useState(false)
   if (items.length === 0) return null
 
@@ -34,7 +36,12 @@ export function FromBrief({ items, onFocusNode }: FromBriefProps) {
         </span>
       </button>
       {expanded && items.map(item => (
-        <div key={item.key} className="flex items-center gap-2 py-0.5 px-1">
+        <div
+          key={item.key}
+          className="flex items-center gap-2 py-0.5 px-1"
+          onMouseEnter={() => item.focus?.id && onHoverEnter?.('node', item.focus.id)}
+          onMouseLeave={() => onHoverLeave?.()}
+        >
           <button
             type="button"
             onClick={() => item.focus?.id && onFocusNode?.(item.focus.id)}

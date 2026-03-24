@@ -172,6 +172,8 @@ export function YourExpertise({
                 onFocusEdge={onFocusEdge}
                 onResolveEdge={onResolveEdge}
                 factorInfluenceMap={factorInfluenceMap}
+                onHoverEnter={onHoverEnter}
+                onHoverLeave={onHoverLeave}
               />
               <AiEstimated
                 items={groups.aiEstimated}
@@ -188,20 +190,28 @@ export function YourExpertise({
                 onSetValue={onSetValue}
                 onSendMessage={onSendMessage}
                 factorInfluenceMap={factorInfluenceMap}
+                onHoverEnter={onHoverEnter}
+                onHoverLeave={onHoverLeave}
               />
               <FromBrief
                 items={groups.fromBrief}
                 onFocusNode={onFocusNode}
+                onHoverEnter={onHoverEnter}
+                onHoverLeave={onHoverLeave}
               />
               <KeyRelationshipsSubgroup
                 items={groups.keyRelationships}
                 onFocusEdge={onFocusEdge}
                 onUpdateEdgeStrength={onUpdateEdgeStrength}
+                onHoverEnter={onHoverEnter}
+                onHoverLeave={onHoverLeave}
               />
               <EdgeEvidenceGaps
                 items={groups.edgeGaps}
                 onFocusEdge={onFocusEdge}
                 onAddEvidence={onAddEvidence}
+                onHoverEnter={onHoverEnter}
+                onHoverLeave={onHoverLeave}
               />
             </>
           )}

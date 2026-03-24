@@ -12,12 +12,16 @@ interface EdgeEvidenceGapsProps {
   items: EdgeRelationship[]
   onFocusEdge?: (edgeId: string) => void
   onAddEvidence?: (edgeId: string, evidence: string) => void
+  onHoverEnter?: (type: 'node' | 'edge', id: string) => void
+  onHoverLeave?: () => void
 }
 
 export function EdgeEvidenceGaps({
   items,
   onFocusEdge,
   onAddEvidence,
+  onHoverEnter,
+  onHoverLeave,
 }: EdgeEvidenceGapsProps) {
   const [expanded, setExpanded] = useState(false)
   if (items.length === 0) return null
@@ -45,6 +49,8 @@ export function EdgeEvidenceGaps({
             <button
               type="button"
               onClick={() => onFocusEdge?.(rel.edgeId)}
+              onMouseEnter={() => onHoverEnter?.('edge', rel.edgeId)}
+              onMouseLeave={() => onHoverLeave?.()}
               className={`${typography.panelBody} text-info hover:underline cursor-pointer text-left truncate flex-1 min-w-0`}
             >
               {rel.sourceLabel} → {rel.targetLabel}

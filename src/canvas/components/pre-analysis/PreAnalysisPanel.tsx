@@ -958,6 +958,9 @@ export function PreAnalysisPanel({
           onSendMessage={onSendMessage}
         />
 
+        {/* EdgeSummarySection removed in v6 alignment. Relationship count in Model snapshot,
+            influence ranking in Your expertise (Key relationships subgroup shows "Strongest influence" hint). */}
+
         {/* Pre-mortem section (collapsible, from PLoT m1_review) */}
         {data.preMortem && (
           <PreMortemSection preMortem={data.preMortem} />

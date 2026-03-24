@@ -12,6 +12,8 @@ interface KeyRelationshipsSubgroupProps {
   items: EdgeRelationship[]
   onFocusEdge?: (edgeId: string) => void
   onUpdateEdgeStrength?: (edgeId: string, value: number) => void
+  onHoverEnter?: (type: 'node' | 'edge', id: string) => void
+  onHoverLeave?: () => void
 }
 
 const STRENGTH_BANDS = [
@@ -31,9 +33,14 @@ export function KeyRelationshipsSubgroup({
   items,
   onFocusEdge,
   onUpdateEdgeStrength,
+  onHoverEnter,
+  onHoverLeave,
 }: KeyRelationshipsSubgroupProps) {
   const [expanded, setExpanded] = useState(false)
   if (items.length === 0) return null
+
+  // Strongest influence context (top item when sorted by influence)
+  const strongest = items[0]
 
   return (
     <div className="space-y-1">
@@ -51,6 +58,12 @@ export function KeyRelationshipsSubgroup({
           {expanded ? 'Hide' : `Show key relationships`}
         </span>
       </button>
+      {/* Strongest influence hint when collapsed */}
+      {!expanded && strongest && (
+        <p className={`${typography.panelMeta} text-text-light pl-4`}>
+          Strongest influence: {strongest.sourceLabel} → {strongest.targetLabel}
+        </p>
+      )}
       {expanded && items.slice(0, 10).map(rel => {
         const confBand = getConfidenceBand(rel.std)
         const existsPct = rel.beliefExists != null ? `${Math.round(rel.beliefExists * 100)}%` : null
@@ -60,6 +73,8 @@ export function KeyRelationshipsSubgroup({
             <button
               type="button"
               onClick={() => onFocusEdge?.(rel.edgeId)}
+              onMouseEnter={() => onHoverEnter?.('edge', rel.edgeId)}
+              onMouseLeave={() => onHoverLeave?.()}
               className={`${typography.panelBody} text-info hover:underline cursor-pointer text-left`}
             >
               {rel.sourceLabel} → {rel.targetLabel}

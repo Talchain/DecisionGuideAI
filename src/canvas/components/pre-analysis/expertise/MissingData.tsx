@@ -13,6 +13,8 @@ interface MissingDataProps {
   onSetValue?: (nodeId: string) => void
   onSendMessage?: (text: string) => void
   factorInfluenceMap?: Map<string, number>
+  onHoverEnter?: (type: 'node' | 'edge', id: string) => void
+  onHoverLeave?: () => void
 }
 
 function getTechniqueHint(label: string): { text: string; tooltip: string } {
@@ -33,6 +35,8 @@ export function MissingData({
   onSetValue,
   onSendMessage,
   factorInfluenceMap,
+  onHoverEnter,
+  onHoverLeave,
 }: MissingDataProps) {
   if (items.length === 0) return null
 
@@ -46,7 +50,12 @@ export function MissingData({
         const technique = getTechniqueHint(item.label)
 
         return (
-          <div key={item.key} className="px-1 py-1.5 space-y-1">
+          <div
+            key={item.key}
+            className="px-1 py-1.5 space-y-1"
+            onMouseEnter={() => nodeId && onHoverEnter?.('node', nodeId)}
+            onMouseLeave={() => onHoverLeave?.()}
+          >
             <div className="flex items-center gap-2">
               <span className={`${typography.panelBody} text-text-body truncate flex-1 min-w-0`}>
                 {item.label}

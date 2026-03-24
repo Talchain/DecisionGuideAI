@@ -20,6 +20,8 @@ interface ContestedRelationshipsProps {
   onFocusEdge?: (edgeId: string) => void
   onResolveEdge?: (edgeId: string, action: string, customMean?: number) => void
   factorInfluenceMap?: Map<string, number>
+  onHoverEnter?: (type: 'node' | 'edge', id: string) => void
+  onHoverLeave?: () => void
 }
 
 const MAX_VISIBLE = 5
@@ -43,6 +45,8 @@ export function ContestedRelationships({
   onFocusEdge,
   onResolveEdge,
   factorInfluenceMap,
+  onHoverEnter,
+  onHoverLeave,
 }: ContestedRelationshipsProps) {
   const [showAll, setShowAll] = useState(false)
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
@@ -87,6 +91,8 @@ export function ContestedRelationships({
               <button
                 type="button"
                 onClick={() => onFocusEdge?.(edge.id)}
+                onMouseEnter={() => onHoverEnter?.('edge', edge.id)}
+                onMouseLeave={() => onHoverLeave?.()}
                 className={`${typography.panelBody} text-info hover:underline cursor-pointer text-left truncate`}
               >
                 {sourceLabel} → {targetLabel}
