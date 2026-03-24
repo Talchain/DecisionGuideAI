@@ -376,17 +376,38 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
     }
   }
 
+  // Detect non-causal edges — no causal label should be shown.
+  // Covers both structural (decision→option) and intervention (option→factor) edges.
+  const isNonCausalEdge = useMemo(() => {
+    const srcKind = sourceNode?.type || (sourceNode?.data as Record<string, unknown>)?.kind
+    const tgtKind = targetNode?.type || (targetNode?.data as Record<string, unknown>)?.kind
+    return (srcKind === 'decision' && tgtKind === 'option') ||
+           (srcKind === 'option' && tgtKind === 'factor')
+  }, [sourceNode, targetNode])
+
   // Graph Editing Experience Task 9c: Persistent labels on top 3 edges
   // Pre-analysis: rank by |strength.mean|. Post-analysis: rank by composite importance.
+  // Structural edges (decision→option) are excluded from ranking.
   const isTopStrengthEdge = useMemo(() => {
+    if (isNonCausalEdge) return false
     const allEdges = getEdges()
-    if (allEdges.length <= 3) return true // Show all labels if 3 or fewer edges
+    // Filter out non-causal edges (structural + intervention) before ranking
+    const causalEdges = allEdges.filter(e => {
+      const sn = getNode(e.source)
+      const tn = getNode(e.target)
+      const sk = sn?.type || (sn?.data as Record<string, unknown>)?.kind
+      const tk = tn?.type || (tn?.data as Record<string, unknown>)?.kind
+      if (sk === 'decision' && tk === 'option') return false // structural
+      if (sk === 'option' && tk === 'factor') return false   // intervention
+      return true
+    })
+    if (causalEdges.length <= 3) return true // Show all labels if 3 or fewer causal edges
 
     if (isResultsMode && report) {
       // Post-analysis: use composite importance (same formula as stroke width)
       const factorSensitivity = (report as any).enrichment?.sensitivity_analysis?.factors ||
                                 (report as any).factor_sensitivity || []
-      const scores = allEdges.map(e => {
+      const scores = causalEdges.map(e => {
         const ed = e.data as EdgeData | undefined
         const src = factorSensitivity.find((f: any) =>
           (f.factor_id || f.factorId || f.node_id || f.nodeId) === e.source)
@@ -401,13 +422,13 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
     }
 
     // Pre-analysis: rank by |strength.mean|
-    const strengths = allEdges.map(e => ({
+    const strengths = causalEdges.map(e => ({
       id: e.id,
       strength: Math.abs(computeSignedMean(e.data as Record<string, unknown> | undefined)),
     }))
     strengths.sort((a, b) => b.strength - a.strength)
     return new Set(strengths.slice(0, 3).map(s => s.id)).has(id)
-  }, [id, getEdges, isResultsMode, report])
+  }, [id, isNonCausalEdge, getEdges, isResultsMode, report])
 
   // Task 9c: Offset persistent labels away from nodes to avoid overlap
   const persistentLabelOffset = useMemo(() => {
@@ -432,8 +453,9 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
     return { dx: 0, dy: 0 }
   }, [isTopStrengthEdge, source, target, getNode, labelX, labelY, sourceX, sourceY, targetX, targetY])
 
-  // C1: Only show label when selected, hovered, has suggestion, is first edge with hint, or is top-strength edge
-  const showLabel = selected || isHovered || hasSuggestion || (isFirstEdge && showEdgeHint) || isTopStrengthEdge
+  // C1: Only show causal label when selected, hovered, has suggestion, is first edge with hint, or is top-strength edge
+  // Structural edges (decision→option) never show causal labels
+  const showLabel = !isNonCausalEdge && (selected || isHovered || hasSuggestion || (isFirstEdge && showEdgeHint) || isTopStrengthEdge)
 
   // Causal lens: hide structural edges entirely
   if (isLensHidden) return null

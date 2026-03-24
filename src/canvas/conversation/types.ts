@@ -428,6 +428,12 @@ export interface OrchestratorResponseEnvelopeV2 {
    */
   analysis_error?: { code: string; message: string }
   /**
+   * Goal constraints from CEE response root.
+   * The orchestrator may forward these at the envelope root level
+   * when the CEE draft includes goal_constraints outside block.data.
+   */
+  goal_constraints?: import('../../adapters/cee/types').CEEGoalConstraint[]
+  /**
    * CEE routing metadata — present when CEE lands support.
    * Includes the resolved LLM model and provider used to serve the request.
    * Read-only debug metadata; never displayed to users.

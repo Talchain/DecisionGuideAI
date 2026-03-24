@@ -241,6 +241,8 @@ export const FactorNode = memo((props: NodeProps) => {
                 <span className="font-semibold text-text-body">{valueDisplay}</span>
               ) : priorRangeDisplay ? (
                 <span className="text-text-light">{priorRangeDisplay}</span>
+              ) : observedState?.source === 'default' || observedState?.source === 'cee_inference' ? (
+                <span className="italic text-text-light">Estimated by Olumi</span>
               ) : (
                 <span className="italic text-text-light">No baseline</span>
               )}

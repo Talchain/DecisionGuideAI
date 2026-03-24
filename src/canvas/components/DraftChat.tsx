@@ -673,12 +673,14 @@ export function DraftChat() {
       console.error('[DraftChat] Immediate autosave failed:', err)
     }
 
+    // Batch post-graph metadata updates into a single setState to minimise re-renders.
+    // Previously these were 6+ separate setState calls, each triggering a render cycle.
+    const metadataPatch: Record<string, unknown> = {}
+
     // P0: Auto-select goal node if exactly one goal exists
-    // This enables immediate "Run Analysis" without manual selection
     const goalNodes = nodes.filter((n: any) => n.type === 'goal')
     if (goalNodes.length === 1) {
-      const { setOutcomeNode } = useCanvasStore.getState()
-      setOutcomeNode(goalNodes[0].id)
+      metadataPatch.outcomeNodeId = goalNodes[0].id
       if (import.meta.env.DEV) {
         console.warn('[DraftChat] Auto-selected goal node:', goalNodes[0].id)
       }
@@ -686,15 +688,16 @@ export function DraftChat() {
       console.warn('[DraftChat] Multiple goal nodes found, user must select:', goalNodes.map((n: any) => n.id))
     }
 
-    // CEE V3: Store analysis_ready payload for V2 run if present
-    // This enables using CEE's resolved options in the analysis
+    // CEE V3: Store analysis_ready payload for V2 run if present.
+    // Must use the canonical setCeeAnalysisReady action (not raw setState)
+    // because it also captures ceeAnalysisReadyNodeIds for staleness detection
+    // and persists to sessionStorage for tab-refresh survival.
+    let resolvedAnalysisReady: typeof draftData.analysis_ready | null = null
     if (hasAnalysisReady(draftData)) {
-      const { setCeeAnalysisReady } = useCanvasStore.getState()
       const coachingSummary = (draftData as any).coaching?.summary
-      const analysisReadyWithCoaching = coachingSummary
+      resolvedAnalysisReady = coachingSummary
         ? { ...draftData.analysis_ready, coaching_summary: coachingSummary }
         : draftData.analysis_ready
-      setCeeAnalysisReady(analysisReadyWithCoaching)
       if (import.meta.env.DEV) {
         console.warn('[DraftChat] Stored analysis_ready:', {
           options: draftData.analysis_ready.options.length,
@@ -704,54 +707,51 @@ export function DraftChat() {
     }
 
     // Store goal_constraints from CEE response root (NOT inside analysis_ready)
-    // These get passed to PLoT /v2/run for multi-constraint analysis
     const rawGoalConstraints = (draftData as any).goal_constraints
-    const { setGoalConstraints } = useCanvasStore.getState()
     if (Array.isArray(rawGoalConstraints) && rawGoalConstraints.length > 0) {
-      setGoalConstraints(rawGoalConstraints)
+      metadataPatch.goalConstraints = rawGoalConstraints
       if (import.meta.env.DEV) {
         console.warn('[DraftChat] Stored goal_constraints:', rawGoalConstraints.length)
       }
     } else {
-      // Clear stale constraints when CEE omits or returns empty goal_constraints
-      setGoalConstraints(null)
+      metadataPatch.goalConstraints = null
     }
 
-    // Store pipeline trace for debug panel if present (using proper type guard)
-    // Client extracts trace.pipeline to top-level pipeline_trace for all schema versions
-    // Check pipeline_trace first (V1/V2/V3 after extraction), fallback to trace.pipeline (raw V2/V3)
+    // Store pipeline trace for debug panel if present
     const pipelineTrace = (draftData as any).pipeline_trace ?? (draftData as any).trace?.pipeline
     if (isCeePipelineTrace(pipelineTrace)) {
-      const { setCeePipelineTrace } = useCanvasStore.getState()
-      setCeePipelineTrace(pipelineTrace)
+      metadataPatch.ceePipelineTrace = pipelineTrace
     }
 
-    // Store quality dimensions from CEE response for pre-analysis readiness display
-    // V3 responses include quality object with dimension scores
+    // Store quality dimensions from CEE response
     const rawQuality = (draftData as any).quality
     if (rawQuality && typeof rawQuality.overall === 'number') {
-      const { setCeeQuality } = useCanvasStore.getState()
-      setCeeQuality({
+      metadataPatch.ceeQuality = {
         overall: rawQuality.overall ?? 5,
         structure: rawQuality.structure ?? rawQuality.overall ?? 5,
         coverage: rawQuality.coverage ?? rawQuality.overall ?? 5,
         causality: rawQuality.causality ?? rawQuality.overall ?? 5,
         safety: rawQuality.safety ?? rawQuality.overall ?? 5,
-      })
+      }
       if (import.meta.env.DEV) {
         console.warn('[DraftChat] Stored CEE quality dimensions:', rawQuality)
       }
     }
 
-    // Store pre-analysis sensitivity from CEE analysis_ready for influence-based sorting
+    // Store pre-analysis sensitivity from CEE analysis_ready
     const rawSensitivity = (draftData as any).analysis_ready?.pre_analysis_sensitivity
       ?? (draftData as any).pre_analysis_sensitivity
-    if (rawSensitivity && typeof rawSensitivity.factor_influence === 'object') {
-      const { setPreAnalysisSensitivity } = useCanvasStore.getState()
-      setPreAnalysisSensitivity(rawSensitivity)
-    } else {
-      const { setPreAnalysisSensitivity } = useCanvasStore.getState()
-      setPreAnalysisSensitivity(null)
+    metadataPatch.preAnalysisSensitivity = rawSensitivity?.factor_influence
+      ? rawSensitivity
+      : null
+
+    // Single batched setState for non-side-effect metadata — avoids 6+ separate render cycles
+    useCanvasStore.setState(metadataPatch)
+
+    // ceeAnalysisReady must go through the canonical setter (not raw setState)
+    // because it also captures ceeAnalysisReadyNodeIds and persists to sessionStorage.
+    if (resolvedAnalysisReady) {
+      useCanvasStore.getState().setCeeAnalysisReady(resolvedAnalysisReady)
     }
 
   }, [pushHistory, applyLayout, setPendingFitView])

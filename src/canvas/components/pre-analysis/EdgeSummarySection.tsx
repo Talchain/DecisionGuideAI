@@ -33,12 +33,12 @@ export function EdgeSummarySection({ onSelectEdge, onFocusNode }: EdgeSummarySec
   const summary = useMemo(() => {
     if (!edges || edges.length === 0) return null
 
+    const nodeMap = new Map(nodes.map(n => [n.id, n]))
+
     // Filter to causal edges only (exclude decision→option structural edges)
     const getNodeKind = (id: string) => (nodeMap.get(id)?.type ?? (nodeMap.get(id)?.data as Record<string, unknown>)?.kind) as string | undefined
     const causalEdges = edges.filter(e => !isStructuralEdge(e as any, getNodeKind))
     if (causalEdges.length === 0) return null
-
-    const nodeMap = new Map(nodes.map(n => [n.id, n]))
     const getLabel = (id: string) =>
       (nodeMap.get(id)?.data as Record<string, unknown>)?.label as string ?? id
 

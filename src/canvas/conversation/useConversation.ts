@@ -1540,20 +1540,49 @@ export function useConversation(): UseConversationReturn {
         }
       }
 
+      // Store goal_constraints — check block data first, then fall back to
+      // envelope root. CEE places goal_constraints at the response root, but
+      // the orchestrator may not nest them inside block.data.
+      // IMPORTANT: Not gated on autoApplyModifiedIds — constraints can arrive
+      // on any envelope, even without auto-apply patches.
+      {
+        const envelopeGoalConstraints = Array.isArray(envelope.goal_constraints) && envelope.goal_constraints.length > 0
+          ? envelope.goal_constraints
+          : undefined
+        // Also check raw envelope with duck-typing for untyped pass-through
+        const rawEnvelopeConstraints = !envelopeGoalConstraints
+          ? (() => {
+              const raw = (envelope as Record<string, unknown>).goal_constraints
+              return Array.isArray(raw) && raw.length > 0 ? raw as CEEGoalConstraint[] : undefined
+            })()
+          : undefined
+        const resolvedGoalConstraints = ceeProvidedGoalConstraints ?? envelopeGoalConstraints ?? rawEnvelopeConstraints
+        if (resolvedGoalConstraints) {
+          useCanvasStore.setState({ goalConstraints: resolvedGoalConstraints })
+          if (import.meta.env.DEV) {
+            console.warn('[handleEnvelope] goal_constraints:', resolvedGoalConstraints.length, {
+              fromBlock: ceeProvidedGoalConstraints?.length ?? 0,
+              fromEnvelope: envelopeGoalConstraints?.length ?? rawEnvelopeConstraints?.length ?? 0,
+            })
+          }
+        } else if (autoApplyModifiedIds.length > 0) {
+          // Only clear stale constraints when a graph patch was applied (new draft),
+          // not on every conversational turn which may lack constraints.
+          useCanvasStore.setState({ goalConstraints: null })
+          if (import.meta.env.DEV) {
+            console.warn('[handleEnvelope] goal_constraints: 0 (cleared — new draft with no constraints)')
+          }
+        }
+      }
+
       // Set ceeAnalysisReady from the auto-applied blocks.
       // Primary path: use CEE-provided analysis_ready directly.
       // FALLBACK: Edge synthesis used only when CEE block lacks analysis_ready.
       // Remove fallback once all CEE paths guaranteed to include it.
       if (autoApplyModifiedIds.length > 0) {
-        // Store goal_constraints from the auto-applied patch block.
-        // Mirrors the DraftChat path: clear stale constraints when CEE omits them.
-        useCanvasStore.getState().setGoalConstraints(ceeProvidedGoalConstraints ?? null)
-        if (import.meta.env.DEV) {
-          console.warn('[handleEnvelope] goal_constraints:', ceeProvidedGoalConstraints?.length ?? 0)
-        }
-
+        let resolvedAnalysisReady: CEEAnalysisReady | null = null
         if (ceeProvidedAnalysisReady) {
-          useCanvasStore.getState().setCeeAnalysisReady(ceeProvidedAnalysisReady)
+          resolvedAnalysisReady = ceeProvidedAnalysisReady
           if (import.meta.env.DEV) {
             console.warn('[handleEnvelope] Using CEE-provided analysis_ready', {
               options: ceeProvidedAnalysisReady.options.length,
@@ -1561,13 +1590,11 @@ export function useConversation(): UseConversationReturn {
             })
           }
         } else {
-          // FALLBACK: Edge synthesis used only when CEE block lacks analysis_ready.
-          // Remove once all CEE paths guaranteed to include it.
           const synthesised = synthesiseCeeAnalysisReady()
           if (synthesised) {
             const validated = validateAnalysisReadyContract(synthesised)
             if (validated) {
-              useCanvasStore.getState().setCeeAnalysisReady(validated)
+              resolvedAnalysisReady = validated
               if (import.meta.env.DEV) {
                 console.warn('[handleEnvelope] Fallback: synthesised ceeAnalysisReady from graph', {
                   options: validated.options.length,
@@ -1578,6 +1605,12 @@ export function useConversation(): UseConversationReturn {
               console.warn('[handleEnvelope] Synthesised ceeAnalysisReady failed validation — skipping')
             }
           }
+        }
+
+        // ceeAnalysisReady must go through the canonical setter (not raw setState)
+        // because it also captures ceeAnalysisReadyNodeIds and persists to sessionStorage.
+        if (resolvedAnalysisReady) {
+          useCanvasStore.getState().setCeeAnalysisReady(resolvedAnalysisReady)
         }
       }
 
