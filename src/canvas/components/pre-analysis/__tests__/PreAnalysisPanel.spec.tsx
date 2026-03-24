@@ -1101,6 +1101,9 @@ describe('PreAnalysisPanel', () => {
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
 
+      // Expand interventions (collapsed by default)
+      fireEvent.click(screen.getByText('Show interventions'))
+
       // Click the factor label "Ad spend" — should target the factor node, not the option
       fireEvent.click(screen.getByText('Ad spend'))
 

@@ -135,6 +135,9 @@ export function ContestedEdgeCard({
     ? getContestedReasonLabel(validation.contested_reasons[0])
     : null
 
+  // Delta magnitude between the two estimates
+  const deltaMagnitude = Math.abs(pass1Mean - pass2Mean)
+
   // evoi_impact: show only when not null
   const hasEvoiImpact = validation.evoi_impact !== null && validation.evoi_impact !== undefined
 
@@ -192,10 +195,13 @@ export function ContestedEdgeCard({
         )}
       </div>
 
-      {/* ── Contested reason ────────────────────────────────────────────────── */}
+      {/* ── Contested reason + delta magnitude ────────────────────────────── */}
       {primaryReason && !isResolved && (
         <p className={`${typography.panelMeta} text-text-light mb-1`}>
           {primaryReason}
+          <span className={`${typography.panelMeta} font-semibold text-warning ml-1`}>
+            Δ {deltaMagnitude.toFixed(2)}
+          </span>
         </p>
       )}
 
@@ -311,6 +317,20 @@ export function ContestedEdgeCard({
             Skip
           </button>
         </div>
+      )}
+
+      {/* ── "Why this was flagged" expandable detail ──────────────────────── */}
+      {!isResolved && (
+        <details className="mt-1.5 mb-1" data-testid={`contested-why-${edgeId}`}>
+          <summary className={`${typography.panelMeta} text-text-light cursor-pointer hover:text-info inline-flex items-center gap-1`}>
+            Why this was flagged
+          </summary>
+          <div className={`${typography.panelMeta} text-text-light leading-relaxed mt-1.5 p-2 bg-panel-hover rounded-lg`}>
+            Pass 1 estimated {pass1Label} ({pass1Mean >= 0 ? '+' : ''}{pass1Mean.toFixed(2)}),
+            review estimated {pass2Label} ({pass2Mean >= 0 ? '+' : ''}{pass2Mean.toFixed(2)}).
+            Delta: {deltaMagnitude.toFixed(2)}{pass1Band !== pass2Band ? ' crosses the strength band boundary' : ''}.
+          </div>
+        </details>
       )}
 
       {/* ── Resolved confirmation ────────────────────────────────────────────── */}

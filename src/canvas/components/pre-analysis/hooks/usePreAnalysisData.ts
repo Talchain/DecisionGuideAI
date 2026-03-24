@@ -39,6 +39,26 @@ import type { CeeQualityDimensions } from '../../../store'
 import type { ValidationMetadata } from '../../../domain/validation'
 
 // ============================================================================
+// ISL inference warning labels (Task 8)
+// ============================================================================
+
+/** Maps ISL critique codes to user-facing labels for Decision quality section */
+const ISL_CRITIQUE_LABELS: Record<string, { title: string; description: string }> = {
+  IDENTIFIABILITY_WARNING: {
+    title: 'Causal identification concern',
+    description: 'Some effects in the model may not be uniquely identifiable from the available data.',
+  },
+  UNMEASURED_CONFOUNDING_WARNING: {
+    title: 'Potential unmeasured confounders',
+    description: 'Some causal paths may share hidden common causes, affecting reliability.',
+  },
+  WEAK_INSTRUMENT_WARNING: {
+    title: 'Weak causal pathway',
+    description: 'A causal path has low statistical power, making its effect estimate unreliable.',
+  },
+}
+
+// ============================================================================
 // Types
 // ============================================================================
 
@@ -125,6 +145,8 @@ export interface QualityCheck {
   ctaAction: string
   /** Pill label: Framing, Verify, or Bias */
   pill: 'framing' | 'verify' | 'bias'
+  /** Subgroup category for rendering dividers */
+  category: 'structure' | 'bias' | 'validity'
 }
 
 /** Evidence quality level */
@@ -574,6 +596,8 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
     const fromTopLevel = report?.critiques as Array<{ code: string; message?: string; affected_nodes?: string[]; affectedNodes?: string[] }> | undefined
     return fromRun ?? fromTopLevel ?? undefined
   })
+  // Results report for ISL inference warnings (Task 8)
+  const resultsReport = useCanvasStore(s => s.results?.report)
   // Task 7: Quality scores from CEE draft
   const ceeQuality = useCanvasStore(s => s.ceeQuality)
   // Task 6: Pipeline trace for repair_summary
@@ -1407,6 +1431,7 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
         cta: 'Add risk',
         ctaAction: 'add_risk',
         pill: 'framing',
+        category: 'structure',
       })
     }
 
@@ -1423,6 +1448,7 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
         cta: 'Add baseline',
         ctaAction: 'add_baseline',
         pill: 'framing',
+        category: 'structure',
       })
     }
 
@@ -1439,6 +1465,7 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
           cta: 'Set current value',
           ctaAction: 'set_goal_baseline',
           pill: 'framing',
+          category: 'structure',
         })
       }
     }
@@ -1452,6 +1479,7 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
         cta: 'Review structure',
         ctaAction: 'review_structure',
         pill: 'framing',
+        category: 'structure',
       })
     }
 
@@ -1477,6 +1505,7 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
             cta: 'Review options',
             ctaAction: 'review_options',
             pill: 'verify',
+            category: 'structure',
           })
         }
       }
@@ -1498,6 +1527,7 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
           cta: 'Review structure',
           ctaAction: 'review_structure',
           pill: 'framing',
+          category: 'structure',
         })
       }
     }
@@ -1516,6 +1546,7 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
           cta: 'Review assumptions',
           ctaAction: 'review_assumptions',
           pill: 'verify',
+          category: 'structure',
         })
       }
     }
@@ -1538,6 +1569,7 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
         cta: 'Set target',
         ctaAction: 'set_target',
         pill: 'framing',
+        category: 'structure',
       })
     }
 
@@ -1557,6 +1589,7 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
         cta: 'Ask AI about this',
         ctaAction: `ask_ai_bias_${finding.id}`,
         pill: 'bias',
+        category: 'bias',
       })
     }
 
@@ -1578,6 +1611,7 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
             cta: 'Review strengths',
             ctaAction: affectedNodes[0] ? `focus_node_${affectedNodes[0]}` : 'review_model',
             pill: 'verify',
+            category: 'validity',
           })
         }
         if (c.code === 'MIXED_RANGE_DERIVATION' && !seenCritiques.has(c.code)) {
@@ -1588,13 +1622,34 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
             cta: 'Review sources',
             ctaAction: 'review_model',
             pill: 'verify',
+            category: 'validity',
           })
         }
       }
     }
 
+    // ISL inference warnings → validity category
+    const islWarnings = (resultsReport as Record<string, unknown> | undefined)?.run as Record<string, unknown> | undefined
+    const inferenceWarnings = (islWarnings?.inference_warnings ?? []) as Array<{ code: string; message?: string; affected_nodes?: string[] }>
+    for (const w of inferenceWarnings) {
+      const mapping = ISL_CRITIQUE_LABELS[w.code]
+      checks.push({
+        id: `isl_${w.code}`,
+        message: mapping?.title ?? w.code,
+        detail: mapping?.description ?? 'Scientific concern detected',
+        cta: 'Ask AI to explain',
+        ctaAction: `ask_ai_isl_${w.code}`,
+        pill: 'verify',
+        category: 'validity',
+      })
+    }
+
+    // Sort by category: structure → bias → validity
+    const CATEGORY_ORDER: Record<string, number> = { structure: 0, bias: 1, validity: 2 }
+    checks.sort((a, b) => (CATEGORY_ORDER[a.category] ?? 9) - (CATEGORY_ORDER[b.category] ?? 9))
+
     return checks
-  }, [nodesByKind, edges, ceeAnalysisReady?.options, ceeAnalysisReady?.bias_findings, successThreshold, goalNode, totalReviewableFactorsCount, plotCritiques, nodes])
+  }, [nodesByKind, edges, ceeAnalysisReady?.options, ceeAnalysisReady?.bias_findings, successThreshold, goalNode, totalReviewableFactorsCount, plotCritiques, nodes, resultsReport])
 
   // =========================================================================
   // Task 6: Model adjustments with resolved labels + repair actions from trace

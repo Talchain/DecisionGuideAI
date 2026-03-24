@@ -144,6 +144,74 @@ function InterventionArrow({ direction }: { direction: 'up' | 'down' | 'same' })
   return <Minus className="w-3 h-3 text-text-light" />
 }
 
+/** Per-option collapsible intervention rows — collapsed by default */
+function OptionInterventions({ option: opt, onFocusNode }: { option: OptionPreviewData; onFocusNode?: (id: string) => void }) {
+  const [expanded, setExpanded] = useState(false)
+
+  // Baseline with interventions = "no changes"
+  if (opt.isBaseline && opt.interventions.length > 0) {
+    return (
+      <div className={`${typography.panelMeta} text-text-light mt-1`}>
+        No changes — compare against current state
+      </div>
+    )
+  }
+
+  // No interventions at all
+  if (opt.interventions.length === 0) {
+    return opt.isBaseline ? null : (
+      <div className={`${typography.panelMeta} text-text-light mt-1`}>No factor changes</div>
+    )
+  }
+
+  return (
+    <div className="mt-1">
+      {!expanded && (
+        <button
+          type="button"
+          onClick={() => setExpanded(true)}
+          className={`${typography.panelMeta} text-info hover:underline cursor-pointer`}
+        >
+          Show interventions
+        </button>
+      )}
+      {expanded && (
+        <>
+          <div className="flex flex-wrap gap-x-3 gap-y-1">
+            {opt.interventions.map(iv => {
+              const display = formatInterventionDisplay(iv.interventionValue, iv.cap, iv.unit, iv.direction, iv.currentRawValue)
+              const before = formatBeforeValue(iv.currentRawValue, iv.cap, iv.unit)
+              return (
+                <span key={iv.factorId} className={`inline-flex items-center gap-1 ${typography.panelMeta} text-text-body`}>
+                  <InterventionArrow direction={iv.direction} />
+                  <button
+                    type="button"
+                    onClick={() => onFocusNode?.(iv.factorId)}
+                    className="hover:underline cursor-pointer"
+                  >
+                    {iv.factorLabel}
+                  </button>
+                  {before != null && display !== 'unchanged'
+                    ? <span className="text-text-light">{before} → {display.replace(/^to /, '')}</span>
+                    : <span className="text-text-light">{display}</span>
+                  }
+                </span>
+              )
+            })}
+          </div>
+          <button
+            type="button"
+            onClick={() => setExpanded(false)}
+            className={`${typography.panelMeta} text-info hover:underline cursor-pointer mt-1`}
+          >
+            Hide
+          </button>
+        </>
+      )}
+    </div>
+  )
+}
+
 export function OptionPreview({
   options,
   onFocusNode,
@@ -208,38 +276,11 @@ export function OptionPreview({
                 )}
               </div>
 
-              {/* Interventions */}
-              <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1">
-                {opt.isBaseline && opt.interventions.length > 0 ? (
-                  <span className={`${typography.panelMeta} text-text-light`}>
-                    No changes — compare against current state
-                  </span>
-                ) : (
-                  opt.interventions.map(iv => {
-                    const display = formatInterventionDisplay(iv.interventionValue, iv.cap, iv.unit, iv.direction, iv.currentRawValue)
-                    const before = formatBeforeValue(iv.currentRawValue, iv.cap, iv.unit)
-                    return (
-                      <span key={iv.factorId} className={`inline-flex items-center gap-1 ${typography.panelMeta} text-text-body`}>
-                        <InterventionArrow direction={iv.direction} />
-                        <button
-                          type="button"
-                          onClick={() => onFocusNode?.(iv.factorId)}
-                          className="hover:underline cursor-pointer"
-                        >
-                          {iv.factorLabel}
-                        </button>
-                        {before != null && display !== 'unchanged'
-                          ? <span className="text-text-light">{before} → {display.replace(/^to /, '')}</span>
-                          : <span className="text-text-light">{display}</span>
-                        }
-                      </span>
-                    )
-                  })
-                )}
-                {opt.interventions.length === 0 && !opt.isBaseline && (
-                  <span className={`${typography.panelMeta} text-text-light`}>No factor changes</span>
-                )}
-              </div>
+              {/* Interventions — collapsed by default */}
+              <OptionInterventions
+                option={opt}
+                onFocusNode={onFocusNode}
+              />
             </div>
           ))}
         </div>

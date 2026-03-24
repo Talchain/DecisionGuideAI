@@ -150,13 +150,23 @@ export function PreAnalysisPanel({
   }, [nodes, edges, resultsReport])
   const modelNotes = useMemo<ModelNote[]>(() => {
     if (!isPreAnalysisEnrichedEnabled()) return []
-    const critiques = (ceeAnalysisReady as any)?.model_critiques as Array<{ message: string; severity?: string; suggested_action?: string }> | undefined
+    const critiques = ceeAnalysisReady?.model_critiques
     if (!critiques || critiques.length === 0) return []
     return critiques.map(c => ({
       message: c.message,
       severity: (c.severity === 'warning' ? 'warning' : 'info') as 'warning' | 'info',
       suggestedAction: c.suggested_action,
     }))
+  }, [ceeAnalysisReady])
+
+  // Constraint feasibility warning — from CEE model_critiques
+  const hasConstraintFeasibilityWarning = useMemo(() => {
+    const critiques = ceeAnalysisReady?.model_critiques
+    if (!critiques) return false
+    return critiques.some(c =>
+      c.code === 'CONSTRAINT_MISSING_RANGE' ||
+      (c.message && /near.*range.*limit|range.*limit|threshold.*near/i.test(c.message))
+    )
   }, [ceeAnalysisReady])
 
   // Phase 2B: Post-run repairs from store (populated in resultsComplete)
@@ -363,6 +373,28 @@ export function PreAnalysisPanel({
     const entries = Object.entries(preAnalysisSensitivity.edge_influence)
     return entries.length > 0 ? new Map(entries) : undefined
   }, [preAnalysisSensitivity])
+
+  // Weighted influence reviewed — fraction of total influence covered by user-reviewed factors
+  const weightedInfluenceReviewed = useMemo(() => {
+    if (!factorInfluenceMap || factorInfluenceMap.size === 0) return undefined
+    const reviewedIds = new Set<string>()
+    for (const node of nodes) {
+      const nd = node.data as Record<string, unknown>
+      if (nd.kind !== 'factor' && node.type !== 'factor') continue
+      const os = (nd.observedState ?? nd.observed_state) as Record<string, unknown> | undefined
+      const source = os?.source as string | undefined
+      if (source === 'user_confirmed' || source === 'user_assumption' || source === 'user_override') {
+        reviewedIds.add(node.id)
+      }
+    }
+    let reviewedSum = 0
+    let totalSum = 0
+    for (const [id, influence] of factorInfluenceMap) {
+      totalSum += influence
+      if (reviewedIds.has(id)) reviewedSum += influence
+    }
+    return totalSum > 0 ? reviewedSum / totalSum : 0
+  }, [factorInfluenceMap, nodes])
 
   // === INTERACTIVE ACTION HANDLERS ===
 
@@ -818,6 +850,7 @@ export function PreAnalysisPanel({
           onFocusNode={handleFocusNode}
           onHoverEnter={(id) => handleHoverElement('node', id)}
           onHoverLeave={handleHoverClear}
+          constraintFeasibilityWarning={hasConstraintFeasibilityWarning}
         />
 
         {/* Draft error card */}
@@ -1075,6 +1108,7 @@ export function PreAnalysisPanel({
         totalReviewableCount={data.totalReviewableFactorsCount}
         evidenceNonAiCount={data.evidenceQuality.nonAiCount}
         evidenceTotalCount={data.evidenceQuality.totalCount}
+        weightedInfluenceReviewed={weightedInfluenceReviewed}
       />
     </div>
   )

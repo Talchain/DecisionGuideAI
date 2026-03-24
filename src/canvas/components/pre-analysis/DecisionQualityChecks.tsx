@@ -209,14 +209,40 @@ export function DecisionQualityChecks({ checks, onAction, onDirectAdd, goalBasel
             </div>
           )}
 
-          {visibleChecks.map((check, idx) => (
-            <div
-              key={check.id}
-              className={(idx > 0 || goalBaselineSlot) ? 'border-t border-panel-border' : ''}
-            >
-              <CheckRow check={check} onAction={onAction} onDirectAdd={onDirectAdd} />
-            </div>
-          ))}
+          {(() => {
+            // Precompute per-category counts for divider labels
+            const categoryCounts: Record<string, number> = {}
+            filteredChecks.forEach(c => {
+              if (c.category) categoryCounts[c.category] = (categoryCounts[c.category] ?? 0) + 1
+            })
+            const CATEGORY_LABELS: Record<string, string> = {
+              structure: 'Model structure',
+              bias: 'Thinking patterns',
+              validity: 'Scientific notes',
+            }
+            return visibleChecks.map((check, idx) => {
+              const prevCheck = idx > 0 ? visibleChecks[idx - 1] : undefined
+              const categoryChanged = check.category != null && check.category !== prevCheck?.category
+              const categoryLabel = CATEGORY_LABELS[check.category] ?? check.category
+              const categoryCount = categoryCounts[check.category] ?? 0
+              return (
+                <div
+                  key={check.id}
+                  className={(idx > 0 || goalBaselineSlot) ? 'border-t border-panel-border' : ''}
+                >
+                  {categoryChanged && (
+                    <div className="flex items-center gap-2 pt-2 pb-1">
+                      <span className={`${typography.panelMeta} text-text-light whitespace-nowrap`}>
+                        {categoryLabel} ({categoryCount})
+                      </span>
+                      <div className="flex-1 h-px bg-panel-border" />
+                    </div>
+                  )}
+                  <CheckRow check={check} onAction={onAction} onDirectAdd={onDirectAdd} />
+                </div>
+              )
+            })
+          })()}
 
           {/* Show more / show less toggle */}
           {hiddenCount > 0 && !showAll && (

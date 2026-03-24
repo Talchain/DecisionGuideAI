@@ -34,6 +34,69 @@ function SubgroupDivider({ label }: { label: string }) {
   )
 }
 
+/**
+ * ConfidenceSpectrum — gradient bar with positioned dots per factor.
+ * Hollow ring = factor uses default range (no explicit cap / range_derivation_source).
+ * Filled dot = factor has explicit range.
+ */
+function ConfidenceSpectrum({ items }: { items: ImprovementItem[] }) {
+  // Only show factor items (nodes), not edge items
+  const factorItems = items.filter(i => i.focus?.type === 'node')
+  if (factorItems.length === 0) return null
+
+  // Position dots by subgroup: AI estimate left, brief middle, reviewed right
+  // Within each zone, spread evenly
+  const zones: Record<string, { start: number; end: number; color: string; borderColor: string }> = {
+    contested: { start: 5, end: 20, color: 'bg-warning', borderColor: 'border-warning' },
+    cee_inference: { start: 10, end: 30, color: 'bg-warning', borderColor: 'border-warning' },
+    brief_extraction: { start: 45, end: 70, color: 'bg-info', borderColor: 'border-info' },
+    user_reviewed: { start: 78, end: 95, color: 'bg-success', borderColor: 'border-success' },
+  }
+
+  const dots = factorItems.map((item, idx) => {
+    const zone = zones[item.subgroup ?? ''] ?? zones.cee_inference
+    const groupItems = factorItems.filter(i => (i.subgroup ?? '') === (item.subgroup ?? ''))
+    const groupIdx = groupItems.indexOf(item)
+    const spread = zone.end - zone.start
+    const position = groupItems.length === 1
+      ? (zone.start + zone.end) / 2
+      : zone.start + (spread * groupIdx) / (groupItems.length - 1)
+
+    // Detect default range: use range_derivation_source if available, fall back to cap
+    // range_derivation_source is the authoritative signal; cap is an acceptable fallback
+    const hasExplicitRange = item.cap != null // TODO: use range_derivation_source when available on ImprovementItem
+
+    return (
+      <Tooltip key={item.key} delay={200} content={`${item.label}${hasExplicitRange ? '' : ' · default range'}`}>
+        <span
+          className={`absolute top-1/2 -translate-x-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full cursor-pointer transition-transform hover:scale-[1.4] ${
+            hasExplicitRange
+              ? `${zone.color}`
+              : `bg-transparent border-2 ${zone.borderColor}`
+          }`}
+          style={{ left: `${position}%` }}
+        />
+      </Tooltip>
+    )
+  })
+
+  return (
+    <div className="px-3 pb-1">
+      <div className="flex justify-between mb-1.5">
+        <span className={`${typography.panelMeta} text-text-light`}>AI estimate</span>
+        <span className={`${typography.panelMeta} text-text-light`}>From brief</span>
+        <span className={`${typography.panelMeta} text-text-light`}>Verified</span>
+      </div>
+      <div
+        className="relative h-4 rounded-lg border border-panel-border"
+        style={{ background: 'linear-gradient(to right, rgba(255,166,86,0.12), rgba(99,173,207,0.12), rgba(103,200,158,0.12))' }}
+      >
+        {dots}
+      </div>
+    </div>
+  )
+}
+
 /** Action handlers for improvement items */
 export interface ImprovementActionHandlers {
   /** Confirm action - mark factor as user-confirmed */
@@ -157,6 +220,8 @@ function TierSection({
 }: TierSectionProps) {
   // For optional tier: collapse add_evidence items into summary row
   const [evidenceExpanded, setEvidenceExpanded] = useState(false)
+  // For reviewAssumptions: collapse brief_extraction items by default
+  const [briefExpanded, setBriefExpanded] = useState(false)
 
   // For reviewAssumptions: always show tier (even when empty) to display state
   // For other tiers: hide when no items
@@ -233,6 +298,11 @@ function TierSection({
         </Tooltip>
       )}
 
+      {/* Confidence spectrum for reviewAssumptions tier — factor dots by source */}
+      {isReviewTier && isExpanded && nonEvidenceItems.length > 0 && (
+        <ConfidenceSpectrum items={nonEvidenceItems} />
+      )}
+
       {/* Section content */}
       {isExpanded && (
         <div className="px-3 pb-3 space-y-2">
@@ -251,8 +321,11 @@ function TierSection({
                 nonEvidenceItems.forEach(i => {
                   if (i.subgroup) subgroupCounts[i.subgroup] = (subgroupCounts[i.subgroup] ?? 0) + 1
                 })
-                return nonEvidenceItems.map((item, index) => {
-                  const prevItem = index > 0 ? nonEvidenceItems[index - 1] : undefined
+                // In reviewAssumptions tier: separate brief_extraction items for collapsible rendering
+                const briefItems = isReviewTier ? nonEvidenceItems.filter(i => i.subgroup === 'brief_extraction') : []
+                const visibleItems = isReviewTier ? nonEvidenceItems.filter(i => i.subgroup !== 'brief_extraction') : nonEvidenceItems
+                const rendered = visibleItems.map((item, index) => {
+                  const prevItem = index > 0 ? visibleItems[index - 1] : undefined
                   const subgroupChanged = item.subgroup != null && item.subgroup !== prevItem?.subgroup
                   const count = item.subgroup ? subgroupCounts[item.subgroup] : undefined
                   const dividerLabel = item.subgroup === 'contested' ? `Contested relationships${count != null ? ` (${count})` : ''}`
@@ -299,6 +372,54 @@ function TierSection({
                     </div>
                   )
                 })
+
+                // Add brief_extraction collapsible section after visible items
+                if (briefItems.length > 0) {
+                  rendered.push(
+                    <div key="brief-collapsible">
+                      <SubgroupDivider label={`From your brief (${briefItems.length})`} />
+                      {!briefExpanded ? (
+                        <button
+                          type="button"
+                          onClick={() => setBriefExpanded(true)}
+                          className={`${typography.panelMeta} text-info hover:underline cursor-pointer mt-1`}
+                        >
+                          Show {briefItems.length} confirmed value{briefItems.length !== 1 ? 's' : ''}
+                        </button>
+                      ) : (
+                        <>
+                          {briefItems.map((item, bi) => (
+                            <div
+                              key={item.key}
+                              style={bi > 0 ? {
+                                borderTop: '1px solid rgba(238, 230, 216, 0.5)',
+                                paddingTop: '8px',
+                              } : undefined}
+                            >
+                              <ImprovementRow
+                                item={item}
+                                onFocus={onFocus}
+                                actionHandlers={actionHandlers}
+                                onHoverEnter={onHoverEnter}
+                                onHoverLeave={onHoverLeave}
+                                factorInfluence={factorInfluenceMap?.get(item.focus?.id ?? '')}
+                              />
+                            </div>
+                          ))}
+                          <button
+                            type="button"
+                            onClick={() => setBriefExpanded(false)}
+                            className={`${typography.panelMeta} text-info hover:underline cursor-pointer mt-1`}
+                          >
+                            Hide
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  )
+                }
+
+                return rendered
               })()}
 
               {/* Evidence items: summary always visible, individual items behind toggle */}

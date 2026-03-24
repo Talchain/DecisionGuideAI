@@ -377,6 +377,8 @@ export interface CEEAnalysisReady {
   bias_findings?: CEEBiasFinding[]
   /** Pre-analysis sensitivity data from CEE (factor/edge influence on goal) */
   pre_analysis_sensitivity?: PreAnalysisSensitivity
+  /** CEE model critiques — structural or feasibility warnings */
+  model_critiques?: Array<{ message: string; severity?: string; suggested_action?: string; code?: string }>
 }
 
 /**

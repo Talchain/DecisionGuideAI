@@ -10,9 +10,10 @@
  */
 
 import { useState, useCallback, useEffect } from 'react'
-import { Check, ChevronDown, ChevronRight, Pencil } from 'lucide-react'
+import { Check, ChevronDown, ChevronRight, Pencil, AlertTriangle } from 'lucide-react'
 import type { Node } from '@xyflow/react'
 import { CURRENCY_SYMBOLS } from '../../utils/labelUtils'
+import Tooltip from '../../../components/Tooltip'
 import { typography } from '@/styles/typography'
 
 interface SuccessTargetProps {
@@ -45,6 +46,8 @@ interface SuccessTargetProps {
   goalThresholdRaw?: number | null
   /** Goal threshold unit from CEE (e.g. "customers") */
   goalThresholdUnit?: string | null
+  /** Whether CEE flagged a constraint feasibility warning for the goal target */
+  constraintFeasibilityWarning?: boolean
 }
 
 export function SuccessTarget({
@@ -64,6 +67,7 @@ export function SuccessTarget({
   goalThresholdRaw,
   goalThresholdUnit,
   thresholdSourceBadge,
+  constraintFeasibilityWarning,
 }: SuccessTargetProps) {
   // Local state for inline input
   const [showInput, setShowInput] = useState(false)
@@ -335,6 +339,14 @@ export function SuccessTarget({
             <span className="w-1.5 h-1.5 rounded-full bg-warning flex-shrink-0" aria-hidden="true" />
             AI estimate
           </span>
+        )}
+        {constraintFeasibilityWarning && (
+          <Tooltip delay={300} content="Target is near the upper range of what the model predicts. Consider whether this is achievable.">
+            <span className={`inline-flex items-center gap-1 ${typography.panelMeta} text-text-body bg-transparent border border-warning/30 rounded-full px-2 py-0.5 shrink-0`}>
+              <AlertTriangle size={10} className="text-warning shrink-0" />
+              Near range limit
+            </span>
+          </Tooltip>
         )}
         <div className="flex items-center gap-1 ml-auto shrink-0">
           <button

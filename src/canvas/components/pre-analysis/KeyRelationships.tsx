@@ -6,7 +6,7 @@
  * Moderately, Strongly) without opening the edge inspector.
  */
 
-import { memo, useCallback } from 'react'
+import { memo, useCallback, useState } from 'react'
 import type { Edge, Node } from '@xyflow/react'
 import { typography } from '@/styles/typography'
 import Tooltip from '../../../components/Tooltip'
@@ -30,6 +30,16 @@ interface EdgeRow {
   direction: 'positive' | 'negative'
   weight: number
   basis?: string
+  strengthStd?: number
+  beliefExists?: number
+}
+
+/** Confidence band from strength std */
+function getConfidenceBand(std: number | undefined): { label: string; color: string } | null {
+  if (std == null) return null
+  if (std < 0.10) return { label: 'High confidence', color: 'bg-success' }
+  if (std < 0.20) return { label: 'Moderate confidence', color: 'bg-warning' }
+  return { label: 'Low confidence', color: 'bg-danger' }
 }
 
 const STRENGTH_BANDS = [
@@ -91,6 +101,12 @@ function deriveTopEdges(edges: Edge[], nodes: Node[], edgeInfluenceMap?: Map<str
     const basisKey = basisRaw ? String(basisRaw) : undefined
     const basis = basisKey ? (BASIS_LABELS[basisKey] ?? basisKey) : undefined
 
+    // Multi-field fallback — matches EdgeSummarySection pattern for robustness across data sources
+    const strengthStdRaw = data?.strengthStd ?? data?.strength_std
+    const strengthStd = typeof strengthStdRaw === 'number' ? strengthStdRaw : undefined
+    const beliefExistsRaw = data?.beliefExists ?? data?.belief_exists ?? data?.exists_probability
+    const beliefExists = typeof beliefExistsRaw === 'number' ? beliefExistsRaw : undefined
+
     const score = (degree.get(e.source) ?? 0) + (degree.get(e.target) ?? 0)
 
     return {
@@ -101,6 +117,8 @@ function deriveTopEdges(edges: Edge[], nodes: Node[], edgeInfluenceMap?: Map<str
       direction,
       weight,
       basis: basis || undefined,
+      strengthStd,
+      beliefExists,
       score,
     }
   })
@@ -128,6 +146,7 @@ export const KeyRelationships = memo(function KeyRelationships({
   edgeInfluenceMap,
 }: KeyRelationshipsProps) {
   const topEdges = deriveTopEdges(edges, nodes, edgeInfluenceMap)
+  const [expanded, setExpanded] = useState(false)
 
   const handleStrengthSelect = useCallback((edgeId: string, value: number) => {
     onUpdateEdgeStrength?.(edgeId, value)
@@ -145,7 +164,17 @@ export const KeyRelationships = memo(function KeyRelationships({
         <div className="flex-1 h-px bg-panel-border" />
       </div>
 
-      {topEdges.map(row => (
+      {!expanded && (
+        <button
+          type="button"
+          onClick={() => setExpanded(true)}
+          className={`${typography.panelMeta} text-info hover:underline cursor-pointer`}
+        >
+          Show {topEdges.length} key relationship{topEdges.length !== 1 ? 's' : ''}
+        </button>
+      )}
+
+      {expanded && topEdges.map(row => (
         <div
           key={row.edgeId}
           className="rounded-md px-1 py-1 -mx-1"
@@ -160,6 +189,27 @@ export const KeyRelationships = memo(function KeyRelationships({
           >
             {row.sourceLabel} → {row.targetLabel}
           </button>
+
+          {/* Edge meta: strength + confidence band + exists_probability */}
+          {(() => {
+            const band = getConfidenceBand(row.strengthStd)
+            return (band || row.beliefExists != null) ? (
+              <div className={`${typography.panelMeta} text-text-light mt-1 flex items-center gap-1.5 flex-wrap`}>
+                <span>{row.direction === 'negative' ? 'Negatively' : 'Positively'} ({row.weight.toFixed(2)})</span>
+                {band && (
+                  <span className="inline-flex items-center gap-1">
+                    <span className={`w-[5px] h-[5px] rounded-full ${band.color} shrink-0`} />
+                    {band.label}
+                  </span>
+                )}
+                {row.beliefExists != null && (
+                  <Tooltip delay={300} content={`Probability this relationship exists in your decision. ${Math.round(row.beliefExists * 100)}% means ${Math.round((1 - row.beliefExists) * 100)}% of simulations will ignore it.`}>
+                    <span className="cursor-help">· {Math.round(row.beliefExists * 100)}% likely</span>
+                  </Tooltip>
+                )}
+              </div>
+            ) : null
+          })()}
 
           {/* Strength quick-select */}
           <Tooltip delay={300} content="How strongly does this affect the outcome? Your expertise matters here">
@@ -189,6 +239,15 @@ export const KeyRelationships = memo(function KeyRelationships({
           )}
         </div>
       ))}
+      {expanded && (
+        <button
+          type="button"
+          onClick={() => setExpanded(false)}
+          className={`${typography.panelMeta} text-info hover:underline cursor-pointer`}
+        >
+          Hide
+        </button>
+      )}
     </div>
   )
 })

@@ -57,6 +57,8 @@ interface StickyFooterProps {
   evidenceNonAiCount?: number
   /** Total factor count — used to build source-distribution tooltip */
   evidenceTotalCount?: number
+  /** Fraction (0–1) of total factor influence covered by user-reviewed factors */
+  weightedInfluenceReviewed?: number
 }
 
 export function StickyFooter({
@@ -72,6 +74,7 @@ export function StickyFooter({
   totalReviewableCount,
   evidenceNonAiCount,
   evidenceTotalCount,
+  weightedInfluenceReviewed,
 }: StickyFooterProps) {
   const isDisabled = !isReady || isAnalysing || isLoading || isRetrying
 
@@ -105,12 +108,24 @@ export function StickyFooter({
     (reviewedCount ?? 0) >= totalReviewableCount
 
   const reviewedTooltip = getReviewedTooltip(evidenceNonAiCount, evidenceTotalCount)
+  // Show "0% of influence reviewed" when sensitivity data exists but nothing reviewed yet;
+  // hide only when influence data is unavailable (undefined)
+  const influenceText = weightedInfluenceReviewed != null
+    ? ` · ${Math.round(weightedInfluenceReviewed * 100)}% of influence reviewed`
+    : ''
   const metaText = !isRetrying && totalReviewableCount != null && totalReviewableCount > 0 ? (
-    <Tooltip content={reviewedTooltip}>
-      <span className="cursor-help">
-        {allReviewed ? 'All contributed' : `${reviewedCount ?? 0}/${totalReviewableCount} contributed`}
-      </span>
-    </Tooltip>
+    <>
+      <Tooltip content={reviewedTooltip}>
+        <span className="cursor-help">
+          {allReviewed ? 'All contributed' : `${reviewedCount ?? 0}/${totalReviewableCount} contributed`}
+        </span>
+      </Tooltip>
+      {influenceText && (
+        <Tooltip content="Weighted by how much each item affects the outcome">
+          <span className="cursor-help">{influenceText}</span>
+        </Tooltip>
+      )}
+    </>
   ) : hasBlockers ? `${blockerCount} to address` : undefined
 
   return (

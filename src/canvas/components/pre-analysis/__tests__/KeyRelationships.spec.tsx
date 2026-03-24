@@ -20,8 +20,14 @@ function makeNode(id: string, label: string) {
   return { id, type: 'factor', position: { x: 0, y: 0 }, data: { label } } as any
 }
 
+/** Expand the collapsed key relationships section */
+function expandRelationships(count = 2) {
+  const toggle = screen.getByText(new RegExp(`Show ${count} key relationship`))
+  fireEvent.click(toggle)
+}
+
 describe('KeyRelationships', () => {
-  it('renders top edges by connectivity', () => {
+  it('is collapsed by default and shows toggle', () => {
     const nodes = [makeNode('f1', 'Cost'), makeNode('f2', 'Revenue'), makeNode('f3', 'Profit')]
     const edges = [
       makeEdge('e1', 'f1', 'f3', 0.5, 'negative'),
@@ -31,6 +37,21 @@ describe('KeyRelationships', () => {
     render(<KeyRelationships edges={edges} nodes={nodes} />)
 
     expect(screen.getByText(/Key relationships/)).toBeInTheDocument()
+    // Edge labels should NOT be visible until expanded
+    expect(screen.queryByText('Cost → Profit')).not.toBeInTheDocument()
+    expect(screen.getByText(/Show 2 key relationship/)).toBeInTheDocument()
+  })
+
+  it('renders top edges by connectivity after expanding', () => {
+    const nodes = [makeNode('f1', 'Cost'), makeNode('f2', 'Revenue'), makeNode('f3', 'Profit')]
+    const edges = [
+      makeEdge('e1', 'f1', 'f3', 0.5, 'negative'),
+      makeEdge('e2', 'f2', 'f3', 0.3, 'positive'),
+    ]
+
+    render(<KeyRelationships edges={edges} nodes={nodes} />)
+
+    expandRelationships(2)
     expect(screen.getByText('Cost → Profit')).toBeInTheDocument()
     expect(screen.getByText('Revenue → Profit')).toBeInTheDocument()
   })
@@ -55,6 +76,7 @@ describe('KeyRelationships', () => {
 
     render(<KeyRelationships edges={edges} nodes={nodes} onUpdateEdgeStrength={onUpdate} />)
 
+    expandRelationships(1)
     fireEvent.click(screen.getByText('Weakly'))
     expect(onUpdate).toHaveBeenCalledWith('e1', 0.15)
   })
@@ -66,6 +88,7 @@ describe('KeyRelationships', () => {
 
     render(<KeyRelationships edges={edges} nodes={nodes} onFocusEdge={onFocus} />)
 
+    expandRelationships(1)
     fireEvent.click(screen.getByText('A → B'))
     expect(onFocus).toHaveBeenCalledWith('e1')
   })
@@ -76,6 +99,7 @@ describe('KeyRelationships', () => {
 
     render(<KeyRelationships edges={edges} nodes={nodes} />)
 
+    expandRelationships(1)
     const strongBtn = screen.getByText('Strongly')
     expect(strongBtn.className).toContain('bg-info/10')
   })
@@ -94,6 +118,7 @@ describe('KeyRelationships', () => {
 
     render(<KeyRelationships edges={edges} nodes={nodes} />)
 
+    expandRelationships(1)
     expect(screen.getByText('Factor A → Factor B')).toBeInTheDocument()
     expect(screen.queryByText('Decision → Option')).not.toBeInTheDocument()
   })
@@ -109,6 +134,7 @@ describe('KeyRelationships', () => {
 
     render(<KeyRelationships edges={edges} nodes={nodes} />)
 
+    expandRelationships(1)
     expect(screen.getByText('Based on general domain knowledge')).toBeInTheDocument()
   })
 
@@ -119,6 +145,7 @@ describe('KeyRelationships', () => {
 
     render(<KeyRelationships edges={edges} nodes={nodes} onUpdateEdgeStrength={onUpdate} />)
 
+    expandRelationships(1)
     fireEvent.click(screen.getByText('Moderately'))
     expect(onUpdate).toHaveBeenCalledWith('e1', 0.40)
 
