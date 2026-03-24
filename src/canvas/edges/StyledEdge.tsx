@@ -18,6 +18,7 @@
 import { memo, useMemo, useState, useRef, useEffect } from 'react'
 import { BaseEdge, EdgeLabelRenderer, getBezierPath, getSmoothStepPath, getStraightPath, type EdgeProps, useReactFlow } from '@xyflow/react'
 import { Lightbulb, AlertTriangle, Flag } from 'lucide-react'
+import { useShallow } from 'zustand/react/shallow'
 import type { EdgeData, EdgePathType } from '../domain/edges'
 import { applyEdgeVisualProps } from '../theme/edges'
 import { formatConfidence, shouldShowLabel, getEdgeConfidence, computeSignedMean } from '../domain/edges'
@@ -66,52 +67,50 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
   useEffect(() => () => {
     if (hoverPopoverTimerRef.current) clearTimeout(hoverPopoverTimerRef.current)
   }, [])
-  const updateEdgeData = useCanvasStore(state => state.updateEdgeData)
-  const ceeReview = useCanvasStore(state => state.runMeta.ceeReview)
-
-  // Decision Graph Display v2 Task 4: Get fragile edges from results (Results mode only)
-  const resultsStatus = useCanvasStore(state => state.results.status)
+  // ── Consolidated store selectors (2 subscriptions instead of 13) ──
+  // Group 1: Core store data (results, review, actions)
+  const { updateEdgeData, ceeReview, resultsStatus, report, isHighlightedEdge } = useCanvasStore(
+    useShallow(s => ({
+      updateEdgeData: s.updateEdgeData,
+      ceeReview: s.runMeta.ceeReview,
+      resultsStatus: s.results.status,
+      report: s.results.report,
+      isHighlightedEdge: s.highlightedEdges.has(id),
+    })),
+  )
   const isResultsMode = resultsStatus === 'complete'
-  const report = useCanvasStore(state => state.results.report)
 
-  // Graph Interaction P1: Path highlighting for selected node
-  // React #185 FIX: Use primitive boolean selector to prevent infinite re-renders
-  const isHighlightedEdge = useCanvasStore(state => state.highlightedEdges.has(id))
-
-  // Graph Lens: edge dimming and styling
-  const isLensDimmed = useCanvasStore(s =>
-    isGraphLensEnabled() && s.lens._dimmedEdgeIds.has(id)
+  // Group 2: Lens data — all 8 lens selectors collapsed into one subscription
+  const lensEnabled = isGraphLensEnabled()
+  const {
+    isLensDimmed, lensMode, lensSensWeight, lensQ25, lensQ75,
+    isLensFragile, isLensHidden, causalEdgeParams, evidenceEdgeClass,
+  } = useCanvasStore(
+    useShallow(s => {
+      if (!lensEnabled) {
+        return {
+          isLensDimmed: false, lensMode: 'full' as const,
+          lensSensWeight: null as number | null,
+          lensQ25: null as number | null, lensQ75: null as number | null,
+          isLensFragile: false, isLensHidden: false,
+          causalEdgeParams: null as { mean: number; std: number | null; existsProb: number | null } | null,
+          evidenceEdgeClass: null as string | null,
+        }
+      }
+      const active = s.lens.active
+      return {
+        isLensDimmed: s.lens._dimmedEdgeIds.has(id),
+        lensMode: active,
+        lensSensWeight: active === 'sensitivity' ? (s.lens._sensitivityWeights.get(id) ?? null) : null,
+        lensQ25: active === 'sensitivity' ? (s.lens._sensitivityQuartiles?.q25 ?? null) : null,
+        lensQ75: active === 'sensitivity' ? (s.lens._sensitivityQuartiles?.q75 ?? null) : null,
+        isLensFragile: (active === 'fragile' || active === 'robustness') && s.lens._fragileEdgeIds.has(id),
+        isLensHidden: s.lens._hiddenEdgeIds?.has(id) === true,
+        causalEdgeParams: active === 'causal' ? (s.lens._causalEdgeParams?.get(id) ?? null) : null,
+        evidenceEdgeClass: active === 'evidence' ? (s.lens._evidenceEdgeClass?.get(id) ?? null) : null,
+      }
+    }),
   )
-  const lensMode = useCanvasStore(s => isGraphLensEnabled() ? s.lens.active : 'full')
-  const lensSensWeight = useCanvasStore(s => {
-    if (!isGraphLensEnabled() || s.lens.active !== 'sensitivity') return null
-    return s.lens._sensitivityWeights.get(id) ?? null
-  })
-  const lensQ25 = useCanvasStore(s => {
-    if (!isGraphLensEnabled() || s.lens.active !== 'sensitivity') return null
-    return s.lens._sensitivityQuartiles?.q25 ?? null
-  })
-  const lensQ75 = useCanvasStore(s => {
-    if (!isGraphLensEnabled() || s.lens.active !== 'sensitivity') return null
-    return s.lens._sensitivityQuartiles?.q75 ?? null
-  })
-  const isLensFragile = useCanvasStore(s =>
-    isGraphLensEnabled() && (s.lens.active === 'fragile' || s.lens.active === 'robustness') && s.lens._fragileEdgeIds.has(id)
-  )
-
-  // Expanded lenses: hidden edges (causal), evidence classification, causal edge params
-  // Defensive ?.has/?.get — test mocks may not include expanded lens fields
-  const isLensHidden = useCanvasStore(s =>
-    isGraphLensEnabled() && s.lens._hiddenEdgeIds?.has(id) === true
-  )
-  const causalEdgeParams = useCanvasStore(s => {
-    if (!isGraphLensEnabled() || s.lens.active !== 'causal') return null
-    return s.lens._causalEdgeParams?.get(id) ?? null
-  })
-  const evidenceEdgeClass = useCanvasStore(s => {
-    if (!isGraphLensEnabled() || s.lens.active !== 'evidence') return null
-    return s.lens._evidenceEdgeClass?.get(id) ?? null
-  })
 
   // Graph Lens: alternative winner label for fragile edge hover
   const lensFragileLabel = useMemo(() => {

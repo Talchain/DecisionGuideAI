@@ -195,7 +195,7 @@ describe('LLMCallsTab with diagnostic trace', () => {
 
     render(<LLMCallsTab data={data} />)
 
-    expect(screen.getByText(/No LLM calls recorded/)).toBeTruthy()
+    expect(screen.getByText(/Diagnostic trace not available/)).toBeTruthy()
   })
 
   it('prefers diagnostic trace over cee_observability when both present', () => {

@@ -466,7 +466,11 @@ export function LLMCallsTab({ data }: LLMCallsTabProps) {
               fontSize: 12,
             }}
           >
-            No LLM calls recorded. Run an analysis to see LLM interactions.
+            Diagnostic trace not available for this request.
+            <br />
+            <span style={{ fontSize: 11, color: '#94a3b8' }}>
+              Ensure CEE_DIAGNOSTIC_TRACE_ENABLED is set on the backend.
+            </span>
           </div>
         )}
       </div>

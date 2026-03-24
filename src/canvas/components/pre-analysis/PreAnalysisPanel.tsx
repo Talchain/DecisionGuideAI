@@ -47,6 +47,7 @@ import { EdgeSummarySection } from './EdgeSummarySection'
 import { KeyRelationships } from './KeyRelationships'
 import { MissingKnowledgePrompt } from './MissingKnowledgePrompt'
 import { DecisionHealthRing } from './DecisionHealthRing'
+import { SectionErrorBoundary } from '../SectionErrorBoundary'
 import type { ValidationMetadata, UserAction, ResolvedValue } from '../../domain/validation'
 
 /** Collapsible pre-mortem section from PLoT m1_review */
@@ -801,16 +802,18 @@ export function PreAnalysisPanel({
 
         {/* Decision health ring — top of panel, above goal card */}
         {(data.ceeQuality || data.nodesByKind.goal.length > 0) && (
-          <DecisionHealthRing
-            completeness={data.ceeQuality
-              ? (data.ceeQuality.structure ?? 5) / 10
-              : (['goal', 'option', 'factor'] as const).filter(k => data.nodesByKind[k].length > 0).length / 3}
-            evidence={data.evidenceQuality.ratio}
-            balance={data.balanceScore}
-            calibration={data.totalReviewableFactorsCount > 0
-              ? data.reviewedFactorsCount / data.totalReviewableFactorsCount
-              : 0}
-          />
+          <SectionErrorBoundary section="Decision health">
+            <DecisionHealthRing
+              completeness={data.ceeQuality
+                ? (data.ceeQuality.structure ?? 5) / 10
+                : (['goal', 'option', 'factor'] as const).filter(k => data.nodesByKind[k].length > 0).length / 3}
+              evidence={data.evidenceQuality.ratio}
+              balance={data.balanceScore}
+              calibration={data.totalReviewableFactorsCount > 0
+                ? data.reviewedFactorsCount / data.totalReviewableFactorsCount
+                : 0}
+            />
+          </SectionErrorBoundary>
         )}
 
         {/* Coaching summary — one-line text below header */}
@@ -923,15 +926,17 @@ export function PreAnalysisPanel({
         {/* Blockers section — structured cards from usePreRunValidation */}
         {/* Show when: blocking items exist (not ready), OR informational items exist (notes) */}
         {((!data.isReady && data.enrichedBlockers.length > 0) || data.informationalBlockers.length > 0) && (
-          <BlockersSection
-            blockers={data.isReady ? [] : data.enrichedBlockers}
-            informationalBlockers={data.informationalBlockers}
-            canRetryDraft={canRetryDraft}
-            isRetrying={isRetrying}
-            lastDraftRetryable={lastDraftError?.retryable}
-            onRetryDraft={handleRetryDraft}
-            onEditBrief={handleEditBrief}
-          />
+          <SectionErrorBoundary section="Blockers">
+            <BlockersSection
+              blockers={data.isReady ? [] : data.enrichedBlockers}
+              informationalBlockers={data.informationalBlockers}
+              canRetryDraft={canRetryDraft}
+              isRetrying={isRetrying}
+              lastDraftRetryable={lastDraftError?.retryable}
+              onRetryDraft={handleRetryDraft}
+              onEditBrief={handleEditBrief}
+            />
+          </SectionErrorBoundary>
         )}
 
         {/* 5. Option preview section (Task 3) */}
@@ -986,15 +991,17 @@ export function PreAnalysisPanel({
             onResolveEdge={handleResolveContestedEdge}
             factorInfluenceMap={factorInfluenceMap}
           />
-          <KeyRelationships
-            edges={edges}
-            nodes={nodes}
-            onFocusEdge={handleFocusEdgeById}
-            onHoverEnter={handleHoverElement}
-            onHoverLeave={handleHoverClear}
-            onUpdateEdgeStrength={handleUpdateEdgeStrength}
-            edgeInfluenceMap={edgeInfluenceMap}
-          />
+          <SectionErrorBoundary section="Key relationships">
+            <KeyRelationships
+              edges={edges}
+              nodes={nodes}
+              onFocusEdge={handleFocusEdgeById}
+              onHoverEnter={handleHoverElement}
+              onHoverLeave={handleHoverClear}
+              onUpdateEdgeStrength={handleUpdateEdgeStrength}
+              edgeInfluenceMap={edgeInfluenceMap}
+            />
+          </SectionErrorBoundary>
         </div>
 
         {/* "What's missing?" prompt */}
@@ -1038,12 +1045,14 @@ export function PreAnalysisPanel({
 
         {/* Phase 2B: Worth investigating — evidence gaps */}
         {isPreAnalysisEnrichedEnabled() && (
-          <WorthInvestigating
-            gaps={evidenceGaps}
-            onSetValue={handleSetValueForGap}
-            onAskAI={handleAskAI}
-            factorInfluenceMap={factorInfluenceMap}
-          />
+          <SectionErrorBoundary section="Worth investigating">
+            <WorthInvestigating
+              gaps={evidenceGaps}
+              onSetValue={handleSetValueForGap}
+              onAskAI={handleAskAI}
+              factorInfluenceMap={factorInfluenceMap}
+            />
+          </SectionErrorBoundary>
         )}
 
         {/* Phase 2B: Model notes — pipeline critiques */}
@@ -1066,10 +1075,12 @@ export function PreAnalysisPanel({
         )}
 
         {/* Graph Editing Experience Task 9d: Edge summary section */}
-        <EdgeSummarySection
-          onSelectEdge={(edgeId) => handleFocusEdge('edge', edgeId)}
-          onFocusNode={(nodeId) => handleFocusNode(nodeId)}
-        />
+        <SectionErrorBoundary section="Edge summary">
+          <EdgeSummarySection
+            onSelectEdge={(edgeId) => handleFocusEdge('edge', edgeId)}
+            onFocusNode={(nodeId) => handleFocusNode(nodeId)}
+          />
+        </SectionErrorBoundary>
 
         {/* Edge assumptions table — collapsible, hidden when 0 causal edges */}
         <EdgeAssumptionsTable
@@ -1079,17 +1090,19 @@ export function PreAnalysisPanel({
         />
 
         {/* 6. Model Snapshot accordion */}
-        <ModelSnapshot
-          nodesByKind={data.nodesByKind}
-          edgeCount={data.edgeCount}
-          onFocusNode={handleFocusNode}
-          onHoverNode={handleHoverElement}
-          onHoverClear={handleHoverClear}
-          ceeQuality={data.ceeQuality}
-          interventionCoverage={isPreAnalysisEnrichedEnabled() ? interventionCoverage : null}
-          goalLabel={isPreAnalysisEnrichedEnabled() ? (data.goalNode?.data as { label?: string })?.label ?? null : null}
-          goalMeasurable={isPreAnalysisEnrichedEnabled() ? (data.successThreshold != null) : undefined}
-        />
+        <SectionErrorBoundary section="Model snapshot">
+          <ModelSnapshot
+            nodesByKind={data.nodesByKind}
+            edgeCount={data.edgeCount}
+            onFocusNode={handleFocusNode}
+            onHoverNode={handleHoverElement}
+            onHoverClear={handleHoverClear}
+            ceeQuality={data.ceeQuality}
+            interventionCoverage={isPreAnalysisEnrichedEnabled() ? interventionCoverage : null}
+            goalLabel={isPreAnalysisEnrichedEnabled() ? (data.goalNode?.data as { label?: string })?.label ?? null : null}
+            goalMeasurable={isPreAnalysisEnrichedEnabled() ? (data.successThreshold != null) : undefined}
+          />
+        </SectionErrorBoundary>
 
         {/* Goal selector now lives in SuccessTarget hero — AnalysisSettings removed */}
       </div>

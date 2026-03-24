@@ -22,6 +22,7 @@ import {
   useMemo,
   useCallback,
   useEffect,
+  memo,
 } from 'react'
 import type { Node, Edge } from '@xyflow/react'
 import { useCanvasStore } from '../store'
@@ -93,7 +94,7 @@ type KindKey = typeof KIND_ORDER[number]
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-export function ModelTabBody({
+export const ModelTabBody = memo(function ModelTabBody({
   showDebug,
   hasDiagnostics,
   diagnostics,
@@ -492,4 +493,4 @@ export function ModelTabBody({
       />
     </div>
   )
-}
+})

@@ -9,7 +9,7 @@
  * - Storybook stories (with fixture data)
  */
 
-import { useRef, useCallback, useMemo } from 'react'
+import { useRef, useCallback, useMemo, memo } from 'react'
 import { typography } from '../../styles/typography'
 import type { ResultsSectionDataReturn } from './useResultsSectionData'
 import { buildResultsVM } from './buildResultsVM'
@@ -28,6 +28,7 @@ import { AttentionBanner } from './AttentionBanner'
 import { ChallengeSection } from './ChallengeSection'
 import { groupActionItems, type ActionItem } from './utils/groupActionItems'
 import type { EvidenceGapItem } from './types'
+import { SectionErrorBoundary } from '../../canvas/components/SectionErrorBoundary'
 
 export interface StrengthCorrectionDisplay {
   edgeId: string
@@ -70,7 +71,7 @@ export interface ResultsBodyProps {
   onActivateGuidanceItem?: (itemId: string) => void
 }
 
-export function ResultsBody({
+export const ResultsBody = memo(function ResultsBody({
   resultsSectionData,
   tornadoData,
   highlightedDriverId,
@@ -123,76 +124,82 @@ export function ResultsBody({
 
       {/* ── ATTENTION BANNER ──────────────────────────────────────── */}
       {/* P0.1: Humanised critique items — coaching tone, no raw field names */}
-      <AttentionBanner
-        items={(resultsSectionData.confidence.humanisedCritiques ?? []).filter(
-          c => c.displayText != null && c.suggestion != null && c.factorId != null
-        )}
-        onFocusNode={onFocusNode}
-      />
+      <SectionErrorBoundary section="Attention banner">
+        <AttentionBanner
+          items={(resultsSectionData.confidence.humanisedCritiques ?? []).filter(
+            c => c.displayText != null && c.suggestion != null && c.factorId != null
+          )}
+          onFocusNode={onFocusNode}
+        />
+      </SectionErrorBoundary>
 
       {/* ── SECTION 1: HERO ─────────────────────────────────────── */}
       {/* V11: Structured hero rows driven by decisionState from VM */}
-      <div>
-        <RecommendationSection
-          data={resultsSectionData.recommendation}
-          onFocusNode={onFocusNode}
-          onAddStatusQuoBaseline={onAddStatusQuoBaseline}
-          topDrivers={resultsSectionData.drivers.topDrivers}
-          topFragileEdge={resultsSectionData.confidence.topFragileEdge}
-          topNextAction={hasGuidanceItems ? undefined : resultsSectionData.confidence.topNextActions?.[0]}
-          nSamples={nSamples ?? undefined}
-          seedUsed={seedUsed ?? undefined}
-          fragileEdgeCount={fragileEdgeCount}
-          robustEdgeCount={robustEdgeCount}
-          responseHash={responseHash}
-          onApplyThreshold={onApplyThreshold}
-          isRunning={isRunning}
-          onAddBaseline={onAddBaseline}
-          onSetBaseline={onSetBaseline}
-          onFlashOption={flashOptionCard}
-          decisionState={vm.decisionState}
-          hinge={vm.hinge}
-          identifiabilityTag={identifiability}
-          defaultEstimateCount={resultsSectionData.drivers.drivers.length > 0
-            ? resultsSectionData.drivers.drivers.filter(d => d.isDefaultedConfidence).length
-            : undefined}
-          totalFactorCount={resultsSectionData.drivers.drivers.length > 0
-            ? resultsSectionData.drivers.drivers.length
-            : undefined}
-        />
-      </div>
+      <SectionErrorBoundary section="Recommendation">
+        <div>
+          <RecommendationSection
+            data={resultsSectionData.recommendation}
+            onFocusNode={onFocusNode}
+            onAddStatusQuoBaseline={onAddStatusQuoBaseline}
+            topDrivers={resultsSectionData.drivers.topDrivers}
+            topFragileEdge={resultsSectionData.confidence.topFragileEdge}
+            topNextAction={hasGuidanceItems ? undefined : resultsSectionData.confidence.topNextActions?.[0]}
+            nSamples={nSamples ?? undefined}
+            seedUsed={seedUsed ?? undefined}
+            fragileEdgeCount={fragileEdgeCount}
+            robustEdgeCount={robustEdgeCount}
+            responseHash={responseHash}
+            onApplyThreshold={onApplyThreshold}
+            isRunning={isRunning}
+            onAddBaseline={onAddBaseline}
+            onSetBaseline={onSetBaseline}
+            onFlashOption={flashOptionCard}
+            decisionState={vm.decisionState}
+            hinge={vm.hinge}
+            identifiabilityTag={identifiability}
+            defaultEstimateCount={resultsSectionData.drivers.drivers.length > 0
+              ? resultsSectionData.drivers.drivers.filter(d => d.isDefaultedConfidence).length
+              : undefined}
+            totalFactorCount={resultsSectionData.drivers.drivers.length > 0
+              ? resultsSectionData.drivers.drivers.length
+              : undefined}
+          />
+        </div>
+      </SectionErrorBoundary>
 
       {/* ── SECTION 2: OPTIONS COMPARISON ────────────────────────── */}
       {!resultsSectionData.recommendation.isSingleOption &&
        resultsSectionData.recommendation.allOptions.length > 1 && (
-        <div className="space-y-2">
-          <SectionHeader
-            title="How the options compare"
-            testId="section-header-options"
-          />
-          <OptionCards
-            options={resultsSectionData.recommendation.allOptions}
-            winnerId={resultsSectionData.recommendation.recommendedOption?.id}
-            hasGoalThreshold={resultsSectionData.recommendation.goalThreshold != null}
-            storyHeadlines={resultsSectionData.recommendation.storyHeadlines}
-            cardRefMap={optionCardRefs}
-            decisionState={vm.decisionState}
-            hinge={vm.hinge}
-            runnerId={
-              // V12.2 Fix 1: Runner-up is highest by win_probability excluding winner
-              [...resultsSectionData.recommendation.allOptions]
-                .filter(o => o.id !== resultsSectionData.recommendation.recommendedOption?.id)
-                .sort((a, b) => (b.winProbability ?? 0) - (a.winProbability ?? 0))[0]?.id
-            }
-          />
-          {/* Tipping points below option cards (kept until Phase 3.4 ships) */}
-          <TippingPoints
-            flipThresholds={resultsSectionData.recommendation.flipThresholds}
-            drivers={resultsSectionData.drivers.topDrivers}
-            outcomeUnit={resultsSectionData.recommendation.outcomeUnit}
-            outcomeUnitSymbol={resultsSectionData.recommendation.outcomeUnitSymbol}
-          />
-        </div>
+        <SectionErrorBoundary section="Options comparison">
+          <div className="space-y-2">
+            <SectionHeader
+              title="How the options compare"
+              testId="section-header-options"
+            />
+            <OptionCards
+              options={resultsSectionData.recommendation.allOptions}
+              winnerId={resultsSectionData.recommendation.recommendedOption?.id}
+              hasGoalThreshold={resultsSectionData.recommendation.goalThreshold != null}
+              storyHeadlines={resultsSectionData.recommendation.storyHeadlines}
+              cardRefMap={optionCardRefs}
+              decisionState={vm.decisionState}
+              hinge={vm.hinge}
+              runnerId={
+                // V12.2 Fix 1: Runner-up is highest by win_probability excluding winner
+                [...resultsSectionData.recommendation.allOptions]
+                  .filter(o => o.id !== resultsSectionData.recommendation.recommendedOption?.id)
+                  .sort((a, b) => (b.winProbability ?? 0) - (a.winProbability ?? 0))[0]?.id
+              }
+            />
+            {/* Tipping points below option cards (kept until Phase 3.4 ships) */}
+            <TippingPoints
+              flipThresholds={resultsSectionData.recommendation.flipThresholds}
+              drivers={resultsSectionData.drivers.topDrivers}
+              outcomeUnit={resultsSectionData.recommendation.outcomeUnit}
+              outcomeUnitSymbol={resultsSectionData.recommendation.outcomeUnitSymbol}
+            />
+          </div>
+        </SectionErrorBoundary>
       )}
 
       {/* ── SECTION 3: DRIVERS ──────────────────────────────────── */}
@@ -204,24 +211,27 @@ export function ResultsBody({
           badgeState={resultsSectionData.drivers.totalCount > 0 ? 'unresolved' : undefined}
           testId="section-header-drivers"
         />
-        <DriversSection
-          data={resultsSectionData.drivers}
-          onFocusNode={onFocusNode}
-          goalLabel={resultsSectionData.goalLabel}
-          highlightedDriverId={highlightedDriverId}
-          registerDriverRef={registerDriverRef}
-          expectedOutcome={tornadoData.expectedOutcome}
-          tornadoRows={tornadoData.rows}
-          outcomeUnit={resultsSectionData.recommendation.outcomeUnit}
-          outcomeUnitSymbol={resultsSectionData.recommendation.outcomeUnitSymbol}
-          isNormalised={resultsSectionData.recommendation.isNormalised}
-          goalDirection={goalDirection}
-          flipThresholds={resultsSectionData.recommendation.flipThresholds}
-        />
+        <SectionErrorBoundary section="Drivers">
+          <DriversSection
+            data={resultsSectionData.drivers}
+            onFocusNode={onFocusNode}
+            goalLabel={resultsSectionData.goalLabel}
+            highlightedDriverId={highlightedDriverId}
+            registerDriverRef={registerDriverRef}
+            expectedOutcome={tornadoData.expectedOutcome}
+            tornadoRows={tornadoData.rows}
+            outcomeUnit={resultsSectionData.recommendation.outcomeUnit}
+            outcomeUnitSymbol={resultsSectionData.recommendation.outcomeUnitSymbol}
+            isNormalised={resultsSectionData.recommendation.isNormalised}
+            goalDirection={goalDirection}
+            flipThresholds={resultsSectionData.recommendation.flipThresholds}
+          />
+        </SectionErrorBoundary>
       </div>
 
       {/* ── SECTION 4: WHAT TO DO NEXT ───────────────────────────── */}
       {/* V11: Collapse behaviour driven by decisionState, not robustness level */}
+      <SectionErrorBoundary section="What to do next">
       {(() => {
         // V12.5: Badge count mirrors ConfidenceSection's rendered item count
         // Uses groupActionItems for dedup parity — badge can never diverge from content.
@@ -385,8 +395,10 @@ export function ResultsBody({
           </>
         )
       })()}
+      </SectionErrorBoundary>
 
       {/* ── SECTION 5: ADVANCED ───────────────────────────────── */}
+      <SectionErrorBoundary section="Advanced">
       <div>
         <AdvancedSection
           stability={resultsSectionData.recommendation.recommendationStability}
@@ -400,21 +412,24 @@ export function ResultsBody({
           responseHash={responseHash}
         />
       </div>
+      </SectionErrorBoundary>
 
       {/* Adjustments Made: Show any strength corrections applied during this run */}
       {strengthCorrections.length > 0 && (
-        <details className="border border-sand-200 rounded-lg overflow-hidden">
-          <summary className={`px-3 py-2 bg-sand-50 cursor-pointer hover:bg-sand-100 ${typography.caption} text-ink-600`}>
-            {strengthCorrections.length} edge strength{strengthCorrections.length > 1 ? 's' : ''} adjusted
-          </summary>
-          <div className="p-3 space-y-1">
-            {strengthCorrections.map((c, idx) => (
-              <div key={idx} className={`${typography.code} text-ink-500 text-xs`}>
-                &quot;{c.from} → {c.to}&quot;: {c.original.toFixed(2)} → {c.clamped.toFixed(1)}
-              </div>
-            ))}
-          </div>
-        </details>
+        <SectionErrorBoundary section="Adjustments">
+          <details className="border border-sand-200 rounded-lg overflow-hidden">
+            <summary className={`px-3 py-2 bg-sand-50 cursor-pointer hover:bg-sand-100 ${typography.caption} text-ink-600`}>
+              {strengthCorrections.length} edge strength{strengthCorrections.length > 1 ? 's' : ''} adjusted
+            </summary>
+            <div className="p-3 space-y-1">
+              {strengthCorrections.map((c, idx) => (
+                <div key={idx} className={`${typography.code} text-ink-500 text-xs`}>
+                  &quot;{c.from} → {c.to}&quot;: {c.original.toFixed(2)} → {c.clamped.toFixed(1)}
+                </div>
+              ))}
+            </div>
+          </details>
+        </SectionErrorBoundary>
       )}
 
       {/* 56px spacer for sticky footer clearance */}
@@ -428,4 +443,4 @@ export function ResultsBody({
       )}
     </div>
   )
-}
+})
