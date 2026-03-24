@@ -25,6 +25,19 @@ interface DraftNotesProps {
   onSendMessage?: (text: string) => void
 }
 
+/** Format raw adjustment/repair text for display:
+ * - Truncate floats > 2dp
+ * - "synthesised prior [0.20, 0.60]" → "with estimated range 0.20 to 0.60"
+ * - "Reclassified unreachable factor" → "Moved outside your control"
+ */
+function formatDraftText(text: string): string {
+  let out = text
+    .replace(/\d+\.\d{3,}/g, m => parseFloat(m).toFixed(2))
+    .replace(/with synthesised prior \[([^,]+),\s*([^\]]+)\]/gi, 'with estimated range $1 to $2')
+    .replace(/Reclassified unreachable factor\s+(\S+)/gi, 'Moved $1 outside your control (reclassified to external)')
+  return out
+}
+
 export function DraftNotes({
   modelAdjustments,
   repairActions,
@@ -93,7 +106,7 @@ export function DraftNotes({
                   {onSendMessage && (
                     <button
                       type="button"
-                      onClick={() => onSendMessage(`I'd like to add a factor for this constraint: ${c.text ?? c.label ?? ''}`)}
+                      onClick={() => onSendMessage(`I'd like to add a factor for this constraint: ${c.label}`)}
                       className={`${typography.panelMeta} text-info hover:underline cursor-pointer shrink-0`}
                     >
                       Add factor
@@ -109,7 +122,7 @@ export function DraftNotes({
               <p className={`${typography.panelMeta} text-text-light`}>Auto-fixes</p>
               {modelAdjustments.map((adj, i) => (
                 <p key={i} className={`${typography.panelMeta} text-text-body pl-2`}>
-                  {adj.reason ?? adj.code ?? 'Adjustment applied'}
+                  {formatDraftText(adj.reason ?? adj.code ?? 'Adjustment applied')}
                 </p>
               ))}
             </div>
@@ -119,7 +132,7 @@ export function DraftNotes({
             <div className="space-y-0.5">
               <p className={`${typography.panelMeta} text-text-light`}>Repairs</p>
               {allRepairs.map((r, i) => (
-                <p key={i} className={`${typography.panelMeta} text-text-body pl-2`}>{r}</p>
+                <p key={i} className={`${typography.panelMeta} text-text-body pl-2`}>{formatDraftText(r)}</p>
               ))}
             </div>
           )}

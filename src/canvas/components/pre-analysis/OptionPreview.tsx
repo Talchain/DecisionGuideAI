@@ -231,9 +231,8 @@ function OptionInterventions({ option: opt, onFocusNode }: { option: OptionPrevi
 
 /** Strategy summary for collapsed state */
 function getStrategySummary(opt: OptionPreviewData): string {
-  if (opt.isBaseline || opt.interventions.length === 0) {
-    return 'No changes to any factors'
-  }
+  if (opt.isBaseline) return 'No changes to any factors'
+  if (opt.interventions.length === 0) return 'No mapped interventions yet'
   const changed = opt.interventions.filter(iv => iv.direction !== 'same')
   if (changed.length === 0) return 'No changes to any factors'
   const parts = changed.slice(0, 2).map(iv => {

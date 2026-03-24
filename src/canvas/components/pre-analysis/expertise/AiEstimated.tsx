@@ -33,7 +33,7 @@ export function AiEstimated({
 
   return (
     <div className="space-y-1">
-      <SubgroupDivider label={`Estimated by AI (${items.length})`} />
+      <SubgroupDivider label={`Estimated (${items.length})`} />
       {items.map(item => {
         const nodeId = item.focus?.id
         const influence = nodeId ? factorInfluenceMap?.get(nodeId) : undefined

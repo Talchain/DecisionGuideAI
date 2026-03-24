@@ -892,7 +892,7 @@ export function PreAnalysisPanel({
           />
         )}
 
-        {/* Model quality checks (v6: renamed from Decision quality) */}
+        {/* Model quality checks */}
         {(data.qualityChecks.length > 0 || data.goalNode) && (
           <DecisionQualityChecks
             checks={data.qualityChecks}

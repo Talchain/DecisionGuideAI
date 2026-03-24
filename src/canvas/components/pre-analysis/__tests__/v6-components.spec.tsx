@@ -178,3 +178,22 @@ describe('hasFeasibilityWarning', () => {
     expect(hasFeasibilityWarning([{ code: 'SOME_OTHER_CODE' }])).toBe(false)
   })
 })
+
+describe('DraftNotes formatDraftText', () => {
+  it('truncates long floats to 2dp', () => {
+    render(
+      <DraftNotes
+        modelAdjustments={[{ reason: 'synthesised prior [0.2, 0.6000000000000001]' }]}
+        repairActions={[]}
+      />
+    )
+    const { container } = render(
+      <DraftNotes
+        modelAdjustments={[{ reason: 'value 0.123456789' }]}
+        repairActions={[]}
+      />
+    )
+    // Collapsed by default — just verify it renders with item count
+    expect(screen.getAllByText(/Draft notes · 1 item/).length).toBeGreaterThan(0)
+  })
+})

@@ -2,14 +2,14 @@
  * YourExpertise — Unified section replacing AllImprovements, EdgeAssumptionsTable,
  * WorthInvestigating, and EdgeSummarySection (v6 wireframe).
  *
- * 6 subgroups: Contested relationships, Estimated by AI, Missing data,
+ * 6 subgroups: Contested relationships, Estimated, Missing data,
  * From your brief (collapsed), Key relationships (collapsed), Edge evidence gaps (collapsed).
  *
- * Progress bar denominator is fixed at the count when panel first renders for a given graph.
- * Resolved items stay in total. Items removed from graph reduce both numerator and denominator.
+ * Badge and progress denominator = contested + AI-estimated + missing-data (actionable items).
+ * Edge gaps, brief items, and key relationships are sub-counts but don't inflate the badge.
  */
 
-import { useState, useMemo, useRef, useEffect } from 'react'
+import { useState, useMemo } from 'react'
 import { ChevronDown, ChevronRight, Info } from 'lucide-react'
 import { Pill } from '../primitives'
 import Tooltip from '../../../../components/Tooltip'
@@ -74,26 +74,7 @@ export function YourExpertise({
 }: YourExpertiseProps) {
   const [isExpanded, setIsExpanded] = useState(true)
 
-  // Fixed denominator — captured per graph identity.
-  // Reset when graph changes (detected by sorted node ID string changing).
-  // Items removed from graph reduce both numerator and denominator.
-  const graphIdentity = useMemo(
-    () => nodes.map(n => n.id).sort().join(','),
-    [nodes],
-  )
-  const fixedDenomRef = useRef<{ graphId: string; value: number } | null>(null)
-  useEffect(() => {
-    if (fixedDenomRef.current === null || fixedDenomRef.current.graphId !== graphIdentity) {
-      // New graph or first render — capture the denominator
-      if (totalReviewableCount > 0) {
-        fixedDenomRef.current = { graphId: graphIdentity, value: totalReviewableCount }
-      }
-    }
-  }, [graphIdentity, totalReviewableCount])
-  // Items removed from graph reduce both — use min of fixed and current
-  const denominator = fixedDenomRef.current != null
-    ? Math.min(fixedDenomRef.current.value, totalReviewableCount)
-    : totalReviewableCount
+  // Denominator is derived from groups.actionableCount after groups are computed below
 
   const groups: ExpertiseGroups = useMemo(() =>
     deriveExpertiseGroups(
@@ -107,7 +88,9 @@ export function YourExpertise({
     [improvementsByCategory, contestedEdges, nodes, edges, factorInfluenceMap, edgeInfluenceMap],
   )
 
-  const badgeCount = groups.totalCount
+  // Badge and progress use actionableCount: contested + AI-estimated + missing-data
+  const badgeCount = groups.actionableCount
+  const denominator = groups.actionableCount
   const allEmpty = groups.contestedCount === 0 &&
     groups.aiEstimated.length === 0 &&
     groups.missingData.length === 0 &&

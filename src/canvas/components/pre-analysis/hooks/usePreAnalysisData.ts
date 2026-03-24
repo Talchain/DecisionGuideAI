@@ -742,7 +742,7 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
         undefined
 
       // Build context line: raw_value + unit always primary, verification_prompt → hint
-      const contextLine = formatObservedStateDetail(os) || (isAi ? 'Estimated by AI' : '')
+      const contextLine = formatObservedStateDetail(os) || (isAi ? 'Estimated' : '')
 
       // Verification prompt demoted to secondary hint (never overrides raw_value)
       const hint = verificationPrompt || undefined

@@ -557,17 +557,27 @@ describe('PreAnalysisPanel', () => {
       expect(screen.getByTestId('model-health-card')).toBeInTheDocument()
     })
 
-    it('Your expertise shows progress bar when items reviewed', () => {
+    it('Your expertise shows progress bar when actionable items exist', () => {
       mockUsePreAnalysisData.mockReturnValue(createMockData({
         isReady: true,
-        reviewedFactorsCount: 3,
+        reviewedFactorsCount: 2,
         totalReviewableFactorsCount: 3,
+        improvementsByCategory: {
+          fix: [],
+          verify: [
+            { key: 'v1', category: 'verify', label: 'F1', detail: '', subgroup: 'cee_inference', focus: { type: 'node', id: 'n1', label: 'F1' } },
+            { key: 'v2', category: 'verify', label: 'F2', detail: '', subgroup: 'cee_inference', focus: { type: 'node', id: 'n2', label: 'F2' } },
+            { key: 'v3', category: 'verify', label: 'F3', detail: '', subgroup: 'cee_inference', focus: { type: 'node', id: 'n3', label: 'F3' } },
+          ],
+          add_evidence: [],
+          strengthen: [],
+        },
       }))
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
 
-      // YourExpertise shows progress bar "contributed to 3 of 3"
-      expect(screen.getByText(/contributed to 3 of 3/)).toBeInTheDocument()
+      // YourExpertise shows progress bar with actionable denominator
+      expect(screen.getByText(/contributed to 2 of 3/)).toBeInTheDocument()
     })
 
     it('Your expertise shows well-calibrated message when all empty', () => {

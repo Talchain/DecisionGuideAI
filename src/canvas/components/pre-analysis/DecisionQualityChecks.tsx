@@ -18,6 +18,28 @@ import Tooltip from '../../../components/Tooltip'
 import type { QualityCheck } from './hooks/usePreAnalysisData'
 import { typography } from '@/styles/typography'
 
+/** "Why this matters" expandable detail toggle */
+function WhyThisMattersToggle({ detail }: { detail: string }) {
+  const [open, setOpen] = useState(false)
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        className={`flex items-center gap-1 ${typography.panelMeta} text-text-light hover:text-text-body cursor-pointer`}
+      >
+        {open ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
+        Why this matters
+      </button>
+      {open && (
+        <div className="bg-panel-hover rounded-md px-2.5 py-[10px] leading-relaxed mt-1">
+          <p className={`${typography.panelMeta} text-text-light`}>{detail}</p>
+        </div>
+      )}
+    </div>
+  )
+}
+
 /** Map of check IDs to their direct-action config (secondary CTA) */
 const DIRECT_ACTIONS: Record<string, { label: string; action: string; placeholder: string; tooltip?: string }> = {
   no_risks: { label: 'Add a risk', action: 'add_risk_inline', placeholder: 'e.g. Increased churn risk' },
@@ -82,39 +104,40 @@ function CheckRow({
     setTimeout(() => setShowSuccess(false), 2000)
   }, [inputValue, check.id, onDirectAdd])
 
+  // Category pill element (right-aligned in title row)
+  const categoryPill = check.pill === 'framing' ? (
+    <Tooltip delay={300} content="How the decision is structured could affect results">
+      <span className={`inline-flex items-center rounded-full px-2 py-0.5 ${typography.panelMeta} border border-option/30 text-text-body bg-transparent shrink-0`}>
+        Framing
+      </span>
+    </Tooltip>
+  ) : check.pill === 'bias' ? (
+    <Tooltip delay={300} content="Cognitive pattern that may skew your thinking">
+      <span className={`inline-flex items-center rounded-full px-2 py-0.5 ${typography.panelMeta} border border-warning/30 text-text-body bg-transparent shrink-0`}>
+        Bias
+      </span>
+    </Tooltip>
+  ) : check.pill === 'validity' ? (
+    <Tooltip delay={300} content="Scientific concern about the analysis method">
+      <Pill size="small" variant="danger">Validity</Pill>
+    </Tooltip>
+  ) : (
+    <Tooltip delay={300} content="Missing elements that would strengthen the model">
+      <Pill size="small" variant="info">Coverage</Pill>
+    </Tooltip>
+  )
+
   return (
-    <div className="flex items-start gap-2 py-1.5">
-      <div className="flex-1 min-w-0 space-y-1">
-        <p className={`${typography.panelBody} text-text-body`}>{ACTION_TITLES[check.id] ?? check.message}</p>
-        {check.detail && (
-          <div className="bg-panel-hover rounded-md px-2.5 py-[10px] leading-relaxed">
-            <p className={`${typography.panelMeta} text-text-light`}>{check.detail}</p>
-          </div>
-        )}
-        <div className="flex items-center gap-2 flex-wrap">
-          <div className="ml-auto flex items-center gap-2">
-          {check.pill === 'framing' ? (
-            <Tooltip delay={300} content="How the decision is structured could affect results">
-              <span className={`inline-flex items-center rounded-full px-2 py-0.5 ${typography.panelMeta} border border-option/30 text-text-body bg-transparent`}>
-                Framing
-              </span>
-            </Tooltip>
-          ) : check.pill === 'bias' ? (
-            <Tooltip delay={300} content="Cognitive pattern that may skew your thinking">
-              <span className={`inline-flex items-center rounded-full px-2 py-0.5 ${typography.panelMeta} border border-warning/30 text-text-body bg-transparent`}>
-                Bias
-              </span>
-            </Tooltip>
-          ) : check.pill === 'validity' ? (
-            <Tooltip delay={300} content="Scientific concern about the analysis method">
-              <Pill size="small" variant="danger">Validity</Pill>
-            </Tooltip>
-          ) : (
-            <Tooltip delay={300} content="Missing elements that would strengthen the model">
-              <Pill size="small" variant="info">Coverage</Pill>
-            </Tooltip>
-          )}
-          </div>
+    <div className="py-1.5 space-y-1">
+      {/* Title row with right-aligned category pill */}
+      <div className="flex items-center gap-2">
+        <p className={`${typography.panelBody} text-text-body flex-1 min-w-0`}>{ACTION_TITLES[check.id] ?? check.message}</p>
+        {categoryPill}
+      </div>
+      {check.detail && (
+        <WhyThisMattersToggle detail={check.detail} />
+      )}
+      <div className="flex items-center gap-2 flex-wrap">
           <button
             type="button"
             onClick={() => onAction?.(check.ctaAction)}
@@ -190,7 +213,6 @@ function CheckRow({
             )}
           </>
         )}
-      </div>
     </div>
   )
 }

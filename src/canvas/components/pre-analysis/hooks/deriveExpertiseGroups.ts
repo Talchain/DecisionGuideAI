@@ -17,6 +17,8 @@ export interface ExpertiseGroups {
   keyRelationships: EdgeRelationship[]
   edgeGaps: EdgeRelationship[]
   totalCount: number
+  /** Contested + AI-estimated + missing-data — the items users can meaningfully contribute to */
+  actionableCount: number
 }
 
 export interface EdgeRelationship {
@@ -143,6 +145,9 @@ export function deriveExpertiseGroups(
   const totalCount = contestedCount + aiEstimated.length + sortedMissing.length +
     fromBrief.length + sortedRelationships.length + edgeGaps.length
 
+  // Actionable = items the user can meaningfully contribute to
+  const actionableCount = contestedCount + aiEstimated.length + sortedMissing.length
+
   return {
     contestedCount,
     aiEstimated,
@@ -151,5 +156,6 @@ export function deriveExpertiseGroups(
     keyRelationships: sortedRelationships,
     edgeGaps,
     totalCount,
+    actionableCount,
   }
 }

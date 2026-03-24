@@ -91,9 +91,21 @@ export function StickyFooter({
     statusIconColor = 'text-primary animate-spin'
     statusText = 'Updating draft'
   } else if (isReady) {
+    // Calibration-aware qualifier: model is always runnable, but signal user input quality
+    const calibrationRatio = (totalReviewableCount != null && totalReviewableCount > 0)
+      ? (reviewedCount ?? 0) / totalReviewableCount
+      : null
     StatusIcon = CheckCircle
-    statusIconColor = 'text-success'
-    statusText = 'Ready'
+    if (calibrationRatio === null || calibrationRatio >= 0.5) {
+      statusIconColor = 'text-success'
+      statusText = 'Ready'
+    } else if (calibrationRatio > 0) {
+      statusIconColor = 'text-warning'
+      statusText = 'Ready · could improve'
+    } else {
+      statusIconColor = 'text-warning'
+      statusText = 'Ready · not yet calibrated'
+    }
   } else if (hasBlockers) {
     StatusIcon = XCircle
     statusIconColor = 'text-danger'
