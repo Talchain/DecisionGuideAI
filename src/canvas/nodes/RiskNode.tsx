@@ -42,7 +42,8 @@ export const RiskNode = memo((props: NodeProps) => {
     if (!edge) return null
 
     const signedMean = computeSignedMean(edge.data as Record<string, unknown> | undefined)
-    const existsProbability = (edge.data as any)?.exists_probability ?? (edge.data as any)?.beliefExists ?? (edge.data as any)?.belief
+    // Canvas store canonical name — CEE ingestion normalises to camelCase
+    const existsProbability = (edge.data as any)?.beliefExists as number | undefined
     return { signedMean, existsProbability: typeof existsProbability === 'number' ? existsProbability : null }
   }, [edges, nodes, resultsStatus, props.id])
 

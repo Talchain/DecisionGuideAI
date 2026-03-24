@@ -151,7 +151,7 @@ describe('OutcomeNode', () => {
     expect(screen.getByText(/80% certain/)).toBeDefined()
   })
 
-  it('shows certainty from exists_probability (PLoT wire format)', () => {
+  it('shows certainty from beliefExists when set to non-default value', () => {
     vi.mocked(useCanvasStore).mockImplementation((selector) =>
       selector(makeStoreState({
         results: { status: 'complete', report: null },
@@ -164,7 +164,7 @@ describe('OutcomeNode', () => {
             id: 'e1',
             source: 'outcome-1',
             target: 'goal-1',
-            data: { weight: 0.5, direction: 'positive', exists_probability: 0.65 },
+            data: { weight: 0.5, direction: 'positive', beliefExists: 0.65 },
           },
         ],
       }) as any)

@@ -186,12 +186,12 @@ describe('RelationshipsSection', () => {
     expect(cards[0]).toHaveAttribute('data-testid', 'edge-card-e2')
   })
 
-  it('reads exists_probability fallback when beliefExists is absent', () => {
-    const edgeWithExistsProb: Edge = {
+  it('reads beliefExists (canonical store name)', () => {
+    const edgeWithBelief: Edge = {
       id: 'e-ep', source: 'f1', target: 'f2',
-      data: { weight: 0.7, direction: 'positive', exists_probability: 0.73, provenance: 'assumption' },
+      data: { weight: 0.7, direction: 'positive', beliefExists: 0.73, provenance: 'assumption' },
     }
-    render(<RelationshipsSection edges={[edgeWithExistsProb]} nodes={nodes} />)
+    render(<RelationshipsSection edges={[edgeWithBelief]} nodes={nodes} />)
     expect(screen.getByTestId('edge-e-ep-likelihood-display')).toHaveTextContent('73')
   })
 })

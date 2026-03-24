@@ -457,11 +457,11 @@ describe('Golden UI test — headline numbers regression guard', () => {
     expect(screen.getByTestId('edge-e2-likelihood-display')).toHaveTextContent('90')
   })
 
-  it('edge likelihood % reads exists_probability when beliefExists is absent', () => {
-    // Edges hydrated outside DraftChat (e.g. scenario restore) may carry only exists_probability
+  it('edge likelihood % reads beliefExists correctly', () => {
+    // Canvas store canonical name — CEE ingestion normalises to beliefExists
     const edgeWithExistsProb: Edge = {
       id: 'e-ep', source: 'f1', target: 'g1',
-      data: { weight: 0.7, strengthStd: 0.1, provenance: 'assumption', direction: 'positive', exists_probability: 0.73 },
+      data: { weight: 0.7, strengthStd: 0.1, provenance: 'assumption', direction: 'positive', beliefExists: 0.73 },
     }
     render(
       <ModelTabBody

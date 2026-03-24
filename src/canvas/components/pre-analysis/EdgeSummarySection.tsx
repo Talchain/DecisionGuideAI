@@ -50,7 +50,8 @@ export function EdgeSummarySection({ onSelectEdge, onFocusNode }: EdgeSummarySec
       const data = e.data as Record<string, unknown> | undefined
       const signedMean = computeSignedMean(data)
       const mean = Math.abs(signedMean)
-      const ep = (data?.beliefExists ?? data?.belief_exists ?? data?.exists_probability) as number | undefined
+      // Canvas store canonical name — CEE ingestion normalises to camelCase
+      const ep = data?.beliefExists as number | undefined
       // P1-1 Fix: Read direction from edge data, not node data
       const edgeDirection = (data?.direction as string) ?? (signedMean < 0 ? 'negative' : 'positive')
 

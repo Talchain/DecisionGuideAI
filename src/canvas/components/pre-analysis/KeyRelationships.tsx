@@ -101,11 +101,10 @@ function deriveTopEdges(edges: Edge[], nodes: Node[], edgeInfluenceMap?: Map<str
     const basisKey = basisRaw ? String(basisRaw) : undefined
     const basis = basisKey ? (BASIS_LABELS[basisKey] ?? basisKey) : undefined
 
-    // Multi-field fallback — matches EdgeSummarySection pattern for robustness across data sources
-    const strengthStdRaw = data?.strengthStd ?? data?.strength_std
-    const strengthStd = typeof strengthStdRaw === 'number' ? strengthStdRaw : undefined
-    const beliefExistsRaw = data?.beliefExists ?? data?.belief_exists ?? data?.exists_probability
-    const beliefExists = typeof beliefExistsRaw === 'number' ? beliefExistsRaw : undefined
+    // Canvas store canonical names — CEE ingestion (DraftChat, applyDraftResult, applyPatch)
+    // normalises to camelCase before data reaches the store
+    const strengthStd = typeof data?.strengthStd === 'number' ? data.strengthStd : undefined
+    const beliefExists = typeof data?.beliefExists === 'number' ? data.beliefExists : undefined
 
     const score = (degree.get(e.source) ?? 0) + (degree.get(e.target) ?? 0)
 

@@ -36,7 +36,8 @@ export const OutcomeNode = memo((props: NodeProps) => {
 
     const weight = (edge.data as any)?.weight as number | undefined
     const signedMean = computeSignedMean(edge.data as Record<string, unknown> | undefined)
-    const existsProbability = (edge.data as any)?.exists_probability ?? (edge.data as any)?.beliefExists ?? (edge.data as any)?.belief
+    // Canvas store canonical name — CEE ingestion normalises to camelCase
+    const existsProbability = (edge.data as any)?.beliefExists as number | undefined
     return {
       signedMean,
       contributionPct: weight != null ? Math.round(weight * 100) : null,

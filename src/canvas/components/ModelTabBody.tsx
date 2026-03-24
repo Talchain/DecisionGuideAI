@@ -263,8 +263,9 @@ export function ModelTabBody({
       const bData = b.data as any
       // Display-only defaults for edge sort order — below UI-SEM tagging threshold.
       // Missing confidence → sort last (Infinity in ascending order)
-      const aConf = aData?.beliefExists ?? aData?.exists_probability ?? aData?.confidence
-      const bConf = bData?.beliefExists ?? bData?.exists_probability ?? bData?.confidence
+      // Canvas store canonical name — CEE ingestion normalises to beliefExists
+      const aConf = aData?.beliefExists ?? aData?.confidence
+      const bConf = bData?.beliefExists ?? bData?.confidence
       const aConfVal = aConf != null ? aConf : Infinity
       const bConfVal = bConf != null ? bConf : Infinity
       if (Math.abs(aConfVal - bConfVal) > 0.001) return aConfVal - bConfVal
@@ -375,7 +376,7 @@ export function ModelTabBody({
         target: e.target,
         weight: (e.data as any)?.weight ?? null,
         direction: (e.data as any)?.direction ?? null,
-        beliefExists: (e.data as any)?.beliefExists ?? (e.data as any)?.exists_probability ?? null,
+        beliefExists: (e.data as any)?.beliefExists ?? null,
         provenance: (e.data as any)?.provenance ?? null,
       })),
     }

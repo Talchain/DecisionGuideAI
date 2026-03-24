@@ -98,7 +98,8 @@ function EdgeCard({
   const signedMean = hasStrength ? (safeDirection === 'negative' ? -rawWeight! : rawWeight!) : undefined
 
   // Likelihood — absent means unset, not 70%
-  const rawBelief = data?.beliefExists ?? data?.exists_probability ?? data?.confidence ?? data?.belief
+  // Canvas store canonical name — CEE ingestion normalises to beliefExists
+  const rawBelief = data?.beliefExists ?? data?.confidence ?? data?.belief
   const hasLikelihood = rawBelief !== undefined
   const beliefExists = hasLikelihood ? (rawBelief as number) : undefined
   const likelihoodPct = hasLikelihood ? Math.round(beliefExists! * 100) : undefined
