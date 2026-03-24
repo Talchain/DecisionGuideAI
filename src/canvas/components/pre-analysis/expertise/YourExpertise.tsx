@@ -33,7 +33,6 @@ interface YourExpertiseProps {
   factorInfluenceMap?: Map<string, number>
   edgeInfluenceMap?: Map<string, number>
   reviewedCount: number
-  totalReviewableCount: number
   /** All improvement items for the confidence spectrum */
   allItems: ImprovementItem[]
   // Action handlers
@@ -58,7 +57,6 @@ export function YourExpertise({
   factorInfluenceMap,
   edgeInfluenceMap,
   reviewedCount,
-  totalReviewableCount,
   allItems,
   onFocusNode,
   onFocusEdge,

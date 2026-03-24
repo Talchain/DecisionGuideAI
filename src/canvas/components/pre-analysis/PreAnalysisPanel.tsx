@@ -927,7 +927,6 @@ export function PreAnalysisPanel({
             factorInfluenceMap={factorInfluenceMap}
             edgeInfluenceMap={edgeInfluenceMap}
             reviewedCount={data.reviewedFactorsCount}
-            totalReviewableCount={data.totalReviewableFactorsCount}
             allItems={[
               ...(data.improvementsByCategory.verify ?? []),
               ...(data.improvementsByCategory.add_evidence ?? []),

@@ -187,7 +187,7 @@ describe('DraftNotes formatDraftText', () => {
         repairActions={[]}
       />
     )
-    const { container } = render(
+    render(
       <DraftNotes
         modelAdjustments={[{ reason: 'value 0.123456789' }]}
         repairActions={[]}
