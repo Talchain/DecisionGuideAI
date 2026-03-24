@@ -12,16 +12,28 @@
  */
 
 import { useState, useCallback, type ReactNode } from 'react'
-import { ChevronDown, ChevronRight, Shield, Check, Info } from 'lucide-react'
+import { ChevronDown, ChevronRight, Check, Info } from 'lucide-react'
 import { Pill } from './primitives'
 import Tooltip from '../../../components/Tooltip'
 import type { QualityCheck } from './hooks/usePreAnalysisData'
 import { typography } from '@/styles/typography'
 
 /** Map of check IDs to their direct-action config (secondary CTA) */
-const DIRECT_ACTIONS: Record<string, { label: string; action: string; placeholder: string }> = {
+const DIRECT_ACTIONS: Record<string, { label: string; action: string; placeholder: string; tooltip?: string }> = {
   no_risks: { label: 'Add a risk', action: 'add_risk_inline', placeholder: 'e.g. Increased churn risk' },
   zero_external_factors: { label: 'Add a factor', action: 'add_factor_inline', placeholder: 'e.g. Customer acquisition cost' },
+  all_positive_edges: { label: 'Add a negative relationship', action: 'review_structure', placeholder: '', tooltip: 'Add a relationship where increasing one factor hurts another' },
+  anchoring: { label: 'Expand other options', action: 'review_options', placeholder: '', tooltip: 'Scroll to the options section to diversify your strategies' },
+}
+
+/** Action-oriented title overrides (v6 wireframe) */
+const ACTION_TITLES: Record<string, string> = {
+  no_risks: 'Add risks to capture what could go wrong',
+  all_positive_edges: 'Add trade-offs to capture real-world costs',
+  no_baseline: 'Set a current baseline to measure improvement from today',
+  same_levers: 'Consider whether your options represent genuinely different strategies',
+  anchoring: 'Consider whether other options are equally explored',
+  confounders: 'Some factors may share hidden causes',
 }
 
 /** Assumption from M1 coaching ledger */
@@ -73,22 +85,36 @@ function CheckRow({
   return (
     <div className="flex items-start gap-2 py-1.5">
       <div className="flex-1 min-w-0 space-y-1">
-        <p className={`${typography.panelBody} text-text-body`}>{check.message}</p>
+        <p className={`${typography.panelBody} text-text-body`}>{ACTION_TITLES[check.id] ?? check.message}</p>
         {check.detail && (
-          <p className={`${typography.panelMeta} text-text-light`}>{check.detail}</p>
+          <div className="bg-panel-hover rounded-md px-2.5 py-[10px] leading-relaxed">
+            <p className={`${typography.panelMeta} text-text-light`}>{check.detail}</p>
+          </div>
         )}
         <div className="flex items-center gap-2 flex-wrap">
+          <div className="ml-auto flex items-center gap-2">
           {check.pill === 'framing' ? (
-            <span className={`inline-flex items-center rounded-full px-2 py-0.5 ${typography.panelMeta} border border-option/30 text-text-body bg-transparent`}>
-              Framing
-            </span>
+            <Tooltip delay={300} content="How the decision is structured could affect results">
+              <span className={`inline-flex items-center rounded-full px-2 py-0.5 ${typography.panelMeta} border border-option/30 text-text-body bg-transparent`}>
+                Framing
+              </span>
+            </Tooltip>
           ) : check.pill === 'bias' ? (
-            <span className={`inline-flex items-center rounded-full px-2 py-0.5 ${typography.panelMeta} border border-warning/30 text-text-body bg-transparent`}>
-              Bias
-            </span>
+            <Tooltip delay={300} content="Cognitive pattern that may skew your thinking">
+              <span className={`inline-flex items-center rounded-full px-2 py-0.5 ${typography.panelMeta} border border-warning/30 text-text-body bg-transparent`}>
+                Bias
+              </span>
+            </Tooltip>
+          ) : check.pill === 'validity' ? (
+            <Tooltip delay={300} content="Scientific concern about the analysis method">
+              <Pill size="small" variant="danger">Validity</Pill>
+            </Tooltip>
           ) : (
-            <Pill size="small" variant="info">Verify</Pill>
+            <Tooltip delay={300} content="Missing elements that would strengthen the model">
+              <Pill size="small" variant="info">Coverage</Pill>
+            </Tooltip>
           )}
+          </div>
           <button
             type="button"
             onClick={() => onAction?.(check.ctaAction)}
@@ -96,14 +122,30 @@ function CheckRow({
           >
             {check.cta}
           </button>
-          {directAction && onDirectAdd && !showSuccess && (
-            <button
-              type="button"
-              onClick={() => setShowInput(!showInput)}
-              className={`${typography.panelMeta} text-text-body border border-panel-border rounded-full px-2.5 py-0.5 bg-transparent hover:border-info/30 cursor-pointer`}
-            >
-              {directAction.label}
-            </button>
+          {directAction && !showSuccess && (
+            directAction.placeholder ? (
+              // Inline input pattern (e.g. "Add a risk")
+              onDirectAdd && (
+                <button
+                  type="button"
+                  onClick={() => setShowInput(!showInput)}
+                  className={`${typography.panelMeta} text-text-body border border-panel-border rounded-full px-2.5 py-0.5 bg-transparent hover:border-info/30 cursor-pointer`}
+                >
+                  {directAction.label}
+                </button>
+              )
+            ) : (
+              // Action-only pattern (e.g. "Expand other options" → scroll)
+              <Tooltip delay={300} content={directAction.tooltip ?? ''}>
+                <button
+                  type="button"
+                  onClick={() => onAction?.(directAction.action)}
+                  className={`${typography.panelMeta} text-text-body border border-panel-border rounded-full px-2.5 py-0.5 bg-transparent hover:border-info/30 cursor-pointer`}
+                >
+                  {directAction.label}
+                </button>
+              </Tooltip>
+            )
           )}
           {showSuccess && (
             <span className={`${typography.panelMeta} text-success inline-flex items-center gap-1`}>
@@ -165,24 +207,20 @@ export function DecisionQualityChecks({ checks, onAction, onDirectAdd, goalBasel
   // Use totalCheckCount for the header pill when provided (accounts for replaced checks)
   const displayCount = totalCheckCount ?? filteredChecks.length
 
-  // Hide section only when no checks AND no baseline slot
-  if (filteredChecks.length === 0 && !goalBaselineSlot) return null
-
   const maxVisible = 3
   const visibleChecks = showAll ? filteredChecks : filteredChecks.slice(0, maxVisible)
   const hiddenCount = filteredChecks.length - maxVisible
 
   return (
-    <div className="rounded-lg border border-panel-border" data-testid="decision-quality-checks">
-      {/* Header */}
+    <div className="rounded-lg border border-panel-border" data-testid="model-quality-checks">
+      {/* Header — no decorative icon per v6 wireframe */}
       <button
         type="button"
         onClick={() => setIsExpanded(!isExpanded)}
         className="w-full flex items-center justify-between px-3 py-2 cursor-pointer hover:bg-black/[0.02]"
       >
         <div className="flex items-center gap-2">
-          <Shield className="w-4 h-4 text-option" />
-          <span className={`${typography.panelHeader} text-text-body`}>Decision quality</span>
+          <span className={`${typography.panelHeader} text-text-body`}>Model quality</span>
           <Tooltip delay={300} content="Structural checks that improve the reliability of your analysis. Addressing these leads to more trustworthy results.">
             <Info size={14} className="text-text-light" />
           </Tooltip>
@@ -207,6 +245,13 @@ export function DecisionQualityChecks({ checks, onAction, onDirectAdd, goalBasel
             <div data-testid="goal-baseline-slot">
               {goalBaselineSlot}
             </div>
+          )}
+
+          {/* Empty state when no checks fire */}
+          {filteredChecks.length === 0 && !goalBaselineSlot && (
+            <p className={`${typography.panelBody} text-text-light py-2`}>
+              No issues detected. Your model structure looks good.
+            </p>
           )}
 
           {(() => {

@@ -81,7 +81,7 @@ describe('usePreAnalysisData', () => {
   }
 
   describe('Improvement Categorisation', () => {
-    it('baseline nudge appears only in Decision quality, not duplicated in Strengthen', () => {
+    it('baseline nudge appears only in Model quality, not duplicated in Strengthen', () => {
       mockUseCanvasStore.mockImplementation(createMockStore({
         nodes: [
           { id: 'opt1', type: 'option', position: { x: 0, y: 0 }, data: { label: 'Option 1' } },

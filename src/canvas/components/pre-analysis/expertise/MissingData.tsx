@@ -1,0 +1,95 @@
+/**
+ * MissingData — Subgroup 3: Factors with no observed data.
+ * Factor name, "No data" greyed, influence bar, "Set value" + "Ask AI to research" CTAs.
+ */
+
+import { SubgroupDivider } from '../primitives/SubgroupDivider'
+import Tooltip from '../../../../components/Tooltip'
+import { typography } from '@/styles/typography'
+import type { ImprovementItem } from '../hooks/usePreAnalysisData'
+
+interface MissingDataProps {
+  items: ImprovementItem[]
+  onSetValue?: (nodeId: string) => void
+  onSendMessage?: (text: string) => void
+  factorInfluenceMap?: Map<string, number>
+}
+
+function getTechniqueHint(label: string): { text: string; tooltip: string } {
+  if (/rate|churn/i.test(label)) {
+    return {
+      text: 'Try: reference class forecasting',
+      tooltip: 'Estimate by finding similar situations and using their outcomes as a baseline',
+    }
+  }
+  return {
+    text: 'Try: outside view technique',
+    tooltip: 'Step back from the specifics and consider base rates from comparable cases',
+  }
+}
+
+export function MissingData({
+  items,
+  onSetValue,
+  onSendMessage,
+  factorInfluenceMap,
+}: MissingDataProps) {
+  if (items.length === 0) return null
+
+  return (
+    <div className="space-y-1">
+      <SubgroupDivider label={`Missing data (${items.length})`} />
+      {items.map(item => {
+        const nodeId = item.focus?.id
+        const influence = nodeId ? factorInfluenceMap?.get(nodeId) : undefined
+        const influencePct = influence != null ? Math.round(influence * 100) : null
+        const technique = getTechniqueHint(item.label)
+
+        return (
+          <div key={item.key} className="px-1 py-1.5 space-y-1">
+            <div className="flex items-center gap-2">
+              <span className={`${typography.panelBody} text-text-body truncate flex-1 min-w-0`}>
+                {item.label}
+              </span>
+              <span className={`${typography.panelMeta} text-text-light`}>No data</span>
+              {influencePct != null && (
+                <div className="flex items-center gap-1 shrink-0" style={{ width: 60 }}>
+                  <div className="flex-1 h-1 bg-panel-border rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-danger rounded-full"
+                      style={{ width: `${Math.min(100, influencePct)}%` }}
+                    />
+                  </div>
+                  <span className={`${typography.panelMeta} text-text-light`}>{influencePct}%</span>
+                </div>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => nodeId && onSetValue?.(nodeId)}
+                className={`${typography.panelMeta} text-info border border-info/30 rounded-full px-2 py-0.5 bg-transparent hover:bg-panel-hover cursor-pointer`}
+              >
+                Set value
+              </button>
+              {onSendMessage && (
+                <button
+                  type="button"
+                  onClick={() => onSendMessage(`Can you research ${item.label} and suggest a reasonable estimate with sources?`)}
+                  className={`${typography.panelMeta} text-info border border-info/30 rounded-full px-2 py-0.5 bg-transparent hover:bg-panel-hover cursor-pointer`}
+                >
+                  Ask AI to research
+                </button>
+              )}
+              <Tooltip delay={300} content={technique.tooltip}>
+                <span className={`${typography.panelMeta} text-text-light cursor-help`}>
+                  {technique.text}
+                </span>
+              </Tooltip>
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
+}

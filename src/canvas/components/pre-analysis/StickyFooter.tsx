@@ -111,17 +111,17 @@ export function StickyFooter({
   // Show "0% of influence reviewed" when sensitivity data exists but nothing reviewed yet;
   // hide only when influence data is unavailable (undefined)
   const influenceText = weightedInfluenceReviewed != null
-    ? ` · ${Math.round(weightedInfluenceReviewed * 100)}% of influence reviewed`
+    ? ` · ${Math.round(weightedInfluenceReviewed * 100)}% of influence`
     : ''
   const metaText = !isRetrying && totalReviewableCount != null && totalReviewableCount > 0 ? (
     <>
       <Tooltip content={reviewedTooltip}>
         <span className="cursor-help">
-          {allReviewed ? 'All contributed' : `${reviewedCount ?? 0}/${totalReviewableCount} contributed`}
+          {allReviewed ? 'All addressed' : `${reviewedCount ?? 0}/${totalReviewableCount} addressed`}
         </span>
       </Tooltip>
       {influenceText && (
-        <Tooltip content="Weighted by how much each item affects the outcome">
+        <Tooltip content="Weighted by impact on the decision outcome">
           <span className="cursor-help">{influenceText}</span>
         </Tooltip>
       )}
@@ -151,7 +151,7 @@ export function StickyFooter({
       }
       actionTitle={isDisabled && !isAnalysing && !isLoading && !isRetrying
         ? (blockedReason || 'Complete required actions before analysing')
-        : undefined}
+        : 'Run 1,000 Monte Carlo simulations with uncertainty margins to compare your options'}
     />
   )
 }

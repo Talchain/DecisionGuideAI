@@ -42,7 +42,7 @@ import type { ValidationMetadata } from '../../../domain/validation'
 // ISL inference warning labels (Task 8)
 // ============================================================================
 
-/** Maps ISL critique codes to user-facing labels for Decision quality section */
+/** Maps ISL critique codes to user-facing labels for Model quality section */
 const ISL_CRITIQUE_LABELS: Record<string, { title: string; description: string }> = {
   IDENTIFIABILITY_WARNING: {
     title: 'Causal identification concern',
@@ -132,7 +132,7 @@ export interface OptionPreviewData {
   }>
 }
 
-/** Decision quality check for Task 4 */
+/** Model quality check for Task 4 */
 export interface QualityCheck {
   id: string
   /** One-sentence nudge text */
@@ -252,7 +252,7 @@ export interface PreAnalysisData {
   isGoalConfirmed: boolean
   /** Task 3: Option preview data */
   optionPreviews: OptionPreviewData[]
-  /** Task 4: Decision quality checks that fired */
+  /** Task 4: Model quality checks that fired */
   qualityChecks: QualityCheck[]
   /** Task 6: Repair actions from trace.pipeline.repair_summary */
   repairActions: string[]
@@ -899,7 +899,7 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
     // === STRENGTHEN CATEGORY ===
     // Coaching question format: question + why line + CTA actions
 
-    // Missing baseline — surfaced only in Decision quality (no_baseline check).
+    // Missing baseline — surfaced only in Model quality (no_baseline check).
     // Not duplicated here to avoid showing the same nudge in two locations.
 
     // Too few options - coaching question
@@ -1417,7 +1417,7 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
   }, [ceeAnalysisReady?.options, nodes])
 
   // =========================================================================
-  // Task 4: Decision quality checks (6 client-side heuristics)
+  // Task 4: Model quality checks (6 client-side heuristics)
   // =========================================================================
   const qualityChecks = useMemo<QualityCheck[]>(() => {
     const checks: QualityCheck[] = []

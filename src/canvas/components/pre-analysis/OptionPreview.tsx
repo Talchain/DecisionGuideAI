@@ -11,17 +11,28 @@
  */
 
 import { useState } from 'react'
-import { ChevronDown, ChevronRight, ClipboardList, ArrowUp, ArrowDown, Minus, Info } from 'lucide-react'
+import { ChevronDown, ChevronRight, ArrowUp, ArrowDown, Minus, Info } from 'lucide-react'
 import { Pill } from './primitives'
 import Tooltip from '../../../components/Tooltip'
 import type { OptionPreviewData } from './hooks/usePreAnalysisData'
 import { typography } from '@/styles/typography'
+
+/** Option square shape — purple, rounded-[2px], per DS v5 §10.1 */
+function OptionSquare() {
+  return (
+    <span
+      className="inline-block flex-shrink-0 w-4 h-4 rounded-[2px] bg-option/20 border border-option/40"
+      aria-hidden="true"
+    />
+  )
+}
 
 interface OptionPreviewProps {
   options: OptionPreviewData[]
   onFocusNode?: (nodeId: string) => void
   onHoverEnter?: (type: 'node' | 'edge', id: string) => void
   onHoverLeave?: () => void
+  onSendMessage?: (text: string) => void
 }
 
 /**
@@ -144,7 +155,8 @@ function InterventionArrow({ direction }: { direction: 'up' | 'down' | 'same' })
   return <Minus className="w-3 h-3 text-text-light" />
 }
 
-/** Per-option collapsible intervention rows — collapsed by default */
+/** Per-option collapsible intervention rows — collapsed by default.
+ * Shows strategy summary when collapsed, full interventions when expanded. */
 function OptionInterventions({ option: opt, onFocusNode }: { option: OptionPreviewData; onFocusNode?: (id: string) => void }) {
   const [expanded, setExpanded] = useState(false)
 
@@ -167,13 +179,18 @@ function OptionInterventions({ option: opt, onFocusNode }: { option: OptionPrevi
   return (
     <div className="mt-1">
       {!expanded && (
-        <button
-          type="button"
-          onClick={() => setExpanded(true)}
-          className={`${typography.panelMeta} text-info hover:underline cursor-pointer`}
-        >
-          Show interventions
-        </button>
+        <>
+          <p className={`${typography.panelMeta} text-text-light`}>
+            {getStrategySummary(opt)}
+          </p>
+          <button
+            type="button"
+            onClick={() => setExpanded(true)}
+            className={`${typography.panelMeta} text-info hover:underline cursor-pointer`}
+          >
+            Show interventions
+          </button>
+        </>
       )}
       {expanded && (
         <>
@@ -212,26 +229,45 @@ function OptionInterventions({ option: opt, onFocusNode }: { option: OptionPrevi
   )
 }
 
+/** Strategy summary for collapsed state */
+function getStrategySummary(opt: OptionPreviewData): string {
+  if (opt.isBaseline || opt.interventions.length === 0) {
+    return 'No changes to any factors'
+  }
+  const changed = opt.interventions.filter(iv => iv.direction !== 'same')
+  if (changed.length === 0) return 'No changes to any factors'
+  const parts = changed.slice(0, 2).map(iv => {
+    const sign = iv.direction === 'up' ? '+' : iv.direction === 'down' ? '' : ''
+    return `${iv.factorLabel} (${sign}${iv.deltaPercent != null ? `${Math.round(iv.deltaPercent)}%` : '...'})`
+  })
+  const suffix = changed.length > 2 ? `, +${changed.length - 2} more` : ''
+  return `Changes ${changed.length} factors: ${parts.join(', ')}${suffix}`
+}
+
 export function OptionPreview({
   options,
   onFocusNode,
   onHoverEnter,
   onHoverLeave,
+  onSendMessage,
 }: OptionPreviewProps) {
   const [isExpanded, setIsExpanded] = useState(true)
 
   if (options.length === 0) return null
 
+  // Suppress "Ready" pills when all options share the same status
+  const allSameStatus = options.length > 0 && options.every(o => o.status === options[0].status)
+
   return (
     <div className="rounded-lg border border-panel-border" data-testid="option-preview">
-      {/* Header */}
+      {/* Header — option square shape, no decorative icon */}
       <button
         type="button"
         onClick={() => setIsExpanded(!isExpanded)}
         className="w-full flex items-center justify-between px-3 py-2 cursor-pointer hover:bg-black/[0.02]"
       >
         <div className="flex items-center gap-2">
-          <ClipboardList className="w-4 h-4 text-text-light" />
+          <OptionSquare />
           <span className={`${typography.panelHeader} text-text-body`}>Your options</span>
           <Tooltip delay={300} content="The strategies you're choosing between. Each changes different factors by different amounts. Click any value to adjust.">
             <Info size={14} className="text-text-light" />
@@ -249,7 +285,7 @@ export function OptionPreview({
 
       {/* Content */}
       {isExpanded && (
-        <div className="px-3 pb-3">
+        <div className="px-3 pb-3 space-y-0">
           {options.map((opt, idx) => (
             <div
               key={opt.id}
@@ -257,7 +293,7 @@ export function OptionPreview({
               onMouseEnter={() => onHoverEnter?.('node', opt.id)}
               onMouseLeave={() => onHoverLeave?.()}
             >
-              {/* Option label + status badge */}
+              {/* Option label + status badge (suppressed when all same) */}
               <div className="flex items-center justify-between">
                 <button
                   type="button"
@@ -266,23 +302,33 @@ export function OptionPreview({
                 >
                   {opt.label}
                 </button>
-                {opt.status === 'ready' ? (
-                  <span className={`inline-flex items-center gap-1 ${typography.panelMeta} text-text-body bg-transparent border border-success/30 rounded-full px-2 py-0.5`}>
-                    <span className="w-1.5 h-1.5 rounded-full bg-success flex-shrink-0" aria-hidden="true" />
-                    Ready
-                  </span>
-                ) : (
-                  <Pill size="small" variant="danger">Needs mapping</Pill>
+                {!allSameStatus && (
+                  opt.status === 'ready' ? (
+                    <Pill size="small" variant="success">Ready</Pill>
+                  ) : (
+                    <Pill size="small" variant="danger">Needs mapping</Pill>
+                  )
                 )}
               </div>
 
-              {/* Interventions — collapsed by default */}
+              {/* Interventions — collapsed by default, shows strategy summary when collapsed */}
               <OptionInterventions
                 option={opt}
                 onFocusNode={onFocusNode}
               />
             </div>
           ))}
+
+          {/* Ideation CTA */}
+          {onSendMessage && (
+            <button
+              type="button"
+              onClick={() => onSendMessage("Can you suggest alternative strategies I haven't considered for this decision?")}
+              className={`${typography.panelMeta} text-info hover:underline cursor-pointer mt-2`}
+            >
+              ◎ Explore other strategies
+            </button>
+          )}
         </div>
       )}
     </div>

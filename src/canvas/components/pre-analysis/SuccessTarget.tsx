@@ -1,53 +1,72 @@
 /**
- * SuccessTarget - Success target section for Pre-Analysis Panel
+ * SuccessTarget - Goal and constraints card for Pre-Analysis Panel (v6 wireframe)
  *
- * Shows goal label and success threshold value. States:
- * - No target set: "No target set" + [Add target] CTA with inline input
- * - Value present: "{goal_label}: {value}" + [Edit] + [Confirm]
- * - Confirmed: "{goal_label}: {value} · Confirmed ✓" collapsed, expandable to edit
- *
- * Persistence: Uses goal node data field for confirmed status to survive undo/redo.
+ * Layout: Goal diamond shape (18px) left-aligned. Beside it: goal label (clickable → inspector),
+ * success target row with value + "Brief" pill + feasibility pill + confirm/edit actions.
+ * Below: constraint rows. Below: CTAs.
  */
 
 import { useState, useCallback, useEffect } from 'react'
 import { Check, ChevronDown, ChevronRight, Pencil, AlertTriangle } from 'lucide-react'
 import type { Node } from '@xyflow/react'
 import { CURRENCY_SYMBOLS } from '../../utils/labelUtils'
+import { Pill } from './primitives'
 import Tooltip from '../../../components/Tooltip'
 import { typography } from '@/styles/typography'
 
+/** Goal constraint — accepts CEEGoalConstraint shape */
+interface GoalConstraint {
+  id: string
+  label: string
+  operator?: string
+  value?: number | string
+}
+
 interface SuccessTargetProps {
-  /** Currently selected goal node */
   goalNode: Node | null
-  /** All goal nodes (for dropdown when multiple) */
   goalNodes?: Node[]
-  /** Success threshold value */
   successThreshold: number | null
-  /** Whether threshold was auto-derived */
   isThresholdAutoDerived: boolean
-  /** Whether threshold is confirmed by user */
   isThresholdConfirmed: boolean
-  /** Source text explaining where threshold came from */
   thresholdProvenance?: string | null
-  /** Source badge type: 'brief' or 'ai' */
   thresholdSourceBadge?: 'brief' | 'ai' | null
-  /** Callback when threshold changes */
   onThresholdChange?: (value: number | null) => void
-  /** Callback when threshold is confirmed */
   onThresholdConfirm?: () => void
-  /** Callback to clear confirmed status (for editing) */
   onThresholdEdit?: () => void
-  /** Callback when goal selection changes */
   onGoalChange?: (goalId: string) => void
   onFocusNode?: (nodeId: string) => void
   onHoverEnter?: (nodeId: string) => void
   onHoverLeave?: () => void
-  /** Raw goal threshold from CEE (user-facing value, e.g. 200) */
   goalThresholdRaw?: number | null
-  /** Goal threshold unit from CEE (e.g. "customers") */
   goalThresholdUnit?: string | null
-  /** Whether CEE flagged a constraint feasibility warning for the goal target */
   constraintFeasibilityWarning?: boolean
+  /** Goal constraints from CEE */
+  goalConstraints?: GoalConstraint[]
+  /** Callback to send message to conversation panel */
+  onSendMessage?: (text: string) => void
+}
+
+/** 18px diamond shape for goal nodes */
+function GoalDiamond() {
+  return (
+    <span
+      className="inline-block flex-shrink-0 text-goal"
+      style={{ width: 18, height: 18 }}
+      aria-hidden="true"
+    >
+      <svg width="18" height="18" viewBox="0 0 18 18">
+        <rect
+          x="9" y="1" width="11.3" height="11.3"
+          rx="2"
+          transform="rotate(45 9 1)"
+          fill="currentColor"
+          opacity={0.15}
+          stroke="currentColor"
+          strokeWidth={1.5}
+        />
+      </svg>
+    </span>
+  )
 }
 
 export function SuccessTarget({
@@ -68,49 +87,41 @@ export function SuccessTarget({
   goalThresholdUnit,
   thresholdSourceBadge,
   constraintFeasibilityWarning,
+  goalConstraints,
+  onSendMessage,
 }: SuccessTargetProps) {
-  // Local state for inline input
   const [showInput, setShowInput] = useState(false)
   const [inputValue, setInputValue] = useState('')
-  // Expanded state for confirmed target
   const [isExpanded, setIsExpanded] = useState(false)
-  // Local draft value for edit input — prevents snapping back to stale goalThresholdRaw
   const [editDraft, setEditDraft] = useState<string>('')
+  const [showConstraintInput, setShowConstraintInput] = useState(false)
+  const [constraintInput, setConstraintInput] = useState('')
 
   const goalLabel = goalNode ? ((goalNode.data as { label?: string })?.label ?? goalNode.id) : 'Goal'
 
-  // Full border colour: danger (no goal), success (confirmed), info (unconfirmed)
   const borderColor = !goalNode
     ? 'border-danger/30'
     : isThresholdConfirmed
       ? 'border-success/30'
       : 'border-info/30'
 
-  // Raw→normalised conversion factor: normalised = raw × factor
-  // e.g. raw=200, normalised=0.2 → factor=0.001
   const rawToNormFactor = (goalThresholdRaw != null && goalThresholdRaw !== 0 && successThreshold != null && successThreshold !== 0)
     ? successThreshold / goalThresholdRaw
     : null
 
-  // Initial display value for edit inputs — raw when available, normalised as fallback
   const editDisplayValue = goalThresholdRaw ?? successThreshold
 
-  // Seed editDraft from display value when edit section opens
   useEffect(() => {
     if (isExpanded) {
       setEditDraft(editDisplayValue != null ? String(editDisplayValue) : '')
     }
   }, [isExpanded]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Convert user-entered raw value back to normalised for the store
   const toNormalised = (raw: number): number =>
     rawToNormFactor != null ? raw * rawToNormFactor : raw
 
-  // Format threshold value for display — prefer raw + unit for user-facing values
-  // CURRENCY_SYMBOLS imported from '../../utils/labelUtils'
   const formatValue = (value: number | null): string => {
     if (value === null) return ''
-    // If we have a raw value + unit from CEE, show with correct position
     if (goalThresholdRaw != null && goalThresholdUnit) {
       const isCurrency = CURRENCY_SYMBOLS.has(goalThresholdUnit)
       const formatted = goalThresholdRaw.toLocaleString()
@@ -122,12 +133,10 @@ export function SuccessTarget({
     return value.toLocaleString()
   }
 
-  // Placeholder text for input — show unit hint when available
   const inputPlaceholder = goalThresholdUnit
     ? `Enter target (${goalThresholdUnit})`
     : 'Enter target value'
 
-  // Label for edit inputs — include unit when available
   const editLabel = goalThresholdUnit
     ? `Target value (${goalThresholdUnit})`
     : 'Target value'
@@ -136,75 +145,87 @@ export function SuccessTarget({
   const getNodeLabel = (node: Node): string =>
     (node.data as { label?: string })?.label ?? node.id
 
-  // Render goal name: dropdown when multiple goals, static text when single
-  const renderGoalName = () => {
-    if (hasMultipleGoals && onGoalChange) {
-      return (
-        <select
-          value={goalNode?.id ?? ''}
-          onChange={(e) => onGoalChange(e.target.value)}
-          title={goalLabel}
-          className={`${typography.panelHeader} text-text-header bg-transparent border-none p-0 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-1 truncate max-w-full`}
-        >
-          {goalNodes.map(g => (
-            <option key={g.id} value={g.id}>{getNodeLabel(g)}</option>
-          ))}
-        </select>
-      )
-    }
-    return (
-      <button
-        type="button"
-        onClick={() => goalNode && onFocusNode?.(goalNode.id)}
-        onMouseEnter={() => goalNode && onHoverEnter?.(goalNode.id)}
-        onMouseLeave={onHoverLeave}
-        className={`${typography.panelHeader} text-text-header line-clamp-2 text-left${onFocusNode ? ' hover:underline cursor-pointer' : ''}`}
-        title={goalLabel}
-      >
-        {goalLabel}
-      </button>
-    )
-  }
-
-  // Handle input submission
   const handleSubmit = useCallback(() => {
     const trimmed = inputValue.trim()
     if (!trimmed) return
-
     const parsed = parseFloat(trimmed)
     if (Number.isNaN(parsed)) return
-
     onThresholdChange?.(parsed)
     setShowInput(false)
     setInputValue('')
   }, [inputValue, onThresholdChange])
 
-  // Handle edit click - clear confirmed and show edit input
   const handleEditClick = useCallback(() => {
     onThresholdEdit?.()
     setIsExpanded(true)
   }, [onThresholdEdit])
 
-  // No goal node - show missing-goal card
+  const handleAddConstraint = useCallback(() => {
+    const trimmed = constraintInput.trim()
+    if (!trimmed) return
+    onSendMessage?.(`I'd like to add a constraint: ${trimmed}`)
+    setConstraintInput('')
+    setShowConstraintInput(false)
+  }, [constraintInput, onSendMessage])
+
+  const constraints = goalConstraints ?? []
+
+  // Render goal name with diamond shape
+  const renderGoalHeader = () => {
+    const goalNameEl = hasMultipleGoals && onGoalChange ? (
+      <select
+        value={goalNode?.id ?? ''}
+        onChange={(e) => onGoalChange(e.target.value)}
+        title={goalLabel}
+        className={`${typography.panelHeader} text-text-header bg-transparent border-none p-0 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-1 truncate max-w-full`}
+      >
+        {goalNodes.map(g => (
+          <option key={g.id} value={g.id}>{getNodeLabel(g)}</option>
+        ))}
+      </select>
+    ) : (
+      <button
+        type="button"
+        onClick={() => goalNode && onFocusNode?.(goalNode.id)}
+        onMouseEnter={() => goalNode && onHoverEnter?.(goalNode.id)}
+        onMouseLeave={onHoverLeave}
+        className={`${typography.panelHeader} text-info line-clamp-2 text-left hover:underline cursor-pointer`}
+        title={goalLabel}
+      >
+        {goalLabel}
+      </button>
+    )
+
+    return (
+      <div className="flex items-center gap-2">
+        <GoalDiamond />
+        {goalNameEl}
+      </div>
+    )
+  }
+
+  // No goal node
   if (!goalNode) {
     return (
-      <div className={`rounded-lg border ${borderColor} bg-panel p-3 hover:bg-panel-hover transition-colors`}>
-        <div className="flex items-center justify-between">
+      <div className={`rounded-lg border ${borderColor} bg-panel p-3`}>
+        <div className="flex items-center gap-2">
+          <GoalDiamond />
           <span className={`${typography.panelBody} text-text-light`}>No goal selected</span>
         </div>
       </div>
     )
   }
 
-  // Confirmed state - compact single line, expandable for editing
+  // Confirmed state — compact single line, expandable
   if (isThresholdConfirmed && successThreshold !== null) {
     return (
-      <div className={`rounded-lg border ${borderColor} bg-panel p-3 hover:bg-panel-hover transition-colors`}>
+      <div className={`rounded-lg border ${borderColor} bg-panel p-3 space-y-2`}>
         <button
           type="button"
           onClick={() => setIsExpanded(!isExpanded)}
           className="w-full flex items-center gap-2 text-left cursor-pointer"
         >
+          <GoalDiamond />
           {isExpanded ? (
             <ChevronDown className="w-3.5 h-3.5 text-text-light shrink-0" />
           ) : (
@@ -216,9 +237,8 @@ export function SuccessTarget({
           <Check className="w-3.5 h-3.5 text-success shrink-0" />
         </button>
 
-        {/* Expanded content - edit option */}
         {isExpanded && (
-          <div className="mt-3 pt-3 border-t border-panel-border flex flex-col gap-2">
+          <div className="mt-2 pt-2 border-t border-panel-border flex flex-col gap-2">
             <label className={`${typography.panelBody} text-text-light`}>{editLabel}</label>
             <div className="flex items-center gap-2">
               <input
@@ -235,14 +255,16 @@ export function SuccessTarget({
                       onThresholdChange?.(toNormalised(parsed))
                     }
                   }
-                  // Clear confirmed status when editing
                   onThresholdEdit?.()
                 }}
                 className={`flex-1 min-w-0 px-2 py-1.5 ${typography.panelBody} border border-panel-border rounded-lg bg-panel text-text-body focus:outline-none focus:ring-2 focus:ring-info`}
               />
               <button
                 type="button"
-                onClick={onThresholdConfirm}
+                onClick={() => {
+                  setIsExpanded(false)
+                  onThresholdConfirm?.()
+                }}
                 className={`px-3 py-1.5 ${typography.panelMeta} text-text-on-color bg-info rounded-full hover:bg-success shrink-0`}
               >
                 Confirm
@@ -250,14 +272,28 @@ export function SuccessTarget({
             </div>
           </div>
         )}
+
+        {/* Constraints */}
+        {constraints.length > 0 && (
+          <div className="space-y-1">
+            {constraints.map((c, i) => (
+              <div key={c.id ?? i} className="flex items-center justify-between gap-2">
+                <span className={`${typography.panelMeta} text-text-body`}>
+                  Constraint: {c.label}{c.operator && c.value != null ? ` ${c.operator} ${c.value}` : ''}
+                </span>
+                <Pill size="small" variant="success">Brief</Pill>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     )
   }
 
-  // No target set - show add target CTA with hint
+  // No target set — show add target CTA
   if (successThreshold === null) {
     return (
-      <div className={`rounded-lg border ${borderColor} bg-panel p-3 hover:bg-panel-hover transition-colors`}>
+      <div className={`rounded-lg border ${borderColor} bg-panel p-3`}>
         {showInput ? (
           <div className="flex flex-col gap-2">
             <label className={`${typography.panelBody} text-text-light`}>Target for {goalLabel}</label>
@@ -287,10 +323,7 @@ export function SuccessTarget({
               </button>
               <button
                 type="button"
-                onClick={() => {
-                  setShowInput(false)
-                  setInputValue('')
-                }}
+                onClick={() => { setShowInput(false); setInputValue('') }}
                 className={`px-2 py-1.5 ${typography.panelMeta} text-text-light hover:text-text-body shrink-0`}
               >
                 Cancel
@@ -300,7 +333,7 @@ export function SuccessTarget({
         ) : (
           <div>
             <div className="flex items-center justify-between">
-              {renderGoalName()}
+              {renderGoalHeader()}
               <button
                 type="button"
                 onClick={() => setShowInput(true)}
@@ -318,27 +351,21 @@ export function SuccessTarget({
     )
   }
 
-  // Value present but not confirmed - show edit and confirm CTAs
+  // Value present but not confirmed
   return (
-    <div className={`rounded-lg border ${borderColor} bg-panel p-3`}>
-      {/* Goal name — dropdown when multiple, static when single */}
-      {renderGoalName()}
+    <div className={`rounded-lg border ${borderColor} bg-panel p-3 space-y-2`}>
+      {/* Goal header with diamond */}
+      {renderGoalHeader()}
 
       {/* Success target line */}
-      <div className="flex items-center gap-2 mt-1">
+      <div className="flex items-center gap-2 flex-wrap">
         <span className={`${typography.panelBody} text-text-light shrink-0`}>Success target:</span>
         <span className={`${typography.panelHeader} text-text-header`}>{formatValue(successThreshold)}</span>
         {thresholdSourceBadge === 'brief' && (
-          <span className={`inline-flex items-center gap-1 ${typography.panelMeta} text-text-body bg-transparent border border-success/30 rounded-full px-2 py-0.5 shrink-0`}>
-            <span className="w-1.5 h-1.5 rounded-full bg-success flex-shrink-0" aria-hidden="true" />
-            From brief
-          </span>
+          <Pill size="small" variant="success">Brief</Pill>
         )}
         {thresholdSourceBadge === 'ai' && (
-          <span className={`inline-flex items-center gap-1 ${typography.panelMeta} text-text-body bg-transparent border border-warning/30 rounded-full px-2 py-0.5 shrink-0`}>
-            <span className="w-1.5 h-1.5 rounded-full bg-warning flex-shrink-0" aria-hidden="true" />
-            AI estimate
-          </span>
+          <Pill size="small" variant="warning">Estimated</Pill>
         )}
         {constraintFeasibilityWarning && (
           <Tooltip delay={300} content="Target is near the upper range of what the model predicts. Consider whether this is achievable.">
@@ -352,7 +379,7 @@ export function SuccessTarget({
           <button
             type="button"
             onClick={onThresholdConfirm}
-            className="w-[22px] h-[22px] flex items-center justify-center rounded-full border border-success/30 text-success hover:bg-success-light cursor-pointer"
+            className="w-[22px] h-[22px] flex items-center justify-center rounded-full border border-success/30 text-success hover:bg-panel-hover cursor-pointer"
             title="Confirm target"
           >
             <Check className="w-3 h-3" />
@@ -368,14 +395,14 @@ export function SuccessTarget({
         </div>
       </div>
 
-      {/* Provenance text - only shown when threshold is auto-derived (not user-edited) */}
+      {/* Provenance */}
       {thresholdProvenance && isThresholdAutoDerived && (
-        <p className={`${typography.panelMeta} text-text-light mt-1`}>Source: {thresholdProvenance}</p>
+        <p className={`${typography.panelMeta} text-text-light`}>Source: {thresholdProvenance}</p>
       )}
 
       {/* Inline edit when expanded */}
       {isExpanded && (
-        <div className="mt-3 pt-3 border-t border-panel-border flex flex-col gap-2">
+        <div className="pt-2 border-t border-panel-border flex flex-col gap-2">
           <label className={`${typography.panelBody} text-text-light`}>{editLabel}</label>
           <div className="flex items-center gap-2">
             <input
@@ -409,6 +436,77 @@ export function SuccessTarget({
           </div>
         </div>
       )}
+
+      {/* Constraints */}
+      {constraints.length > 0 && (
+        <div className="space-y-1 pt-1">
+          {constraints.map((c, i) => (
+            <div key={c.id ?? i} className="flex items-center justify-between gap-2">
+              <span className={`${typography.panelMeta} text-text-body`}>
+                Constraint: {c.label}{c.operator && c.value != null ? ` ${c.operator} ${c.value}` : ''}
+              </span>
+              <Pill size="small" variant="success">Brief</Pill>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* CTAs */}
+      <div className="flex items-center gap-2 pt-1">
+        {showConstraintInput ? (
+          <div className="flex-1 flex items-center gap-2">
+            <input
+              type="text"
+              value={constraintInput}
+              onChange={(e) => setConstraintInput(e.target.value)}
+              placeholder="e.g. Budget must stay under $50k"
+              autoFocus
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleAddConstraint()
+                if (e.key === 'Escape') {
+                  setShowConstraintInput(false)
+                  setConstraintInput('')
+                }
+              }}
+              className={`flex-1 min-w-0 px-2 py-1 ${typography.panelMeta} border border-panel-border rounded-lg bg-panel text-text-body focus:outline-none focus:ring-2 focus:ring-info`}
+            />
+            <button
+              type="button"
+              onClick={handleAddConstraint}
+              disabled={!constraintInput.trim()}
+              className={`px-2 py-1 ${typography.panelMeta} text-text-on-color bg-primary rounded-full hover:bg-primary-hover disabled:opacity-50 shrink-0`}
+            >
+              Add
+            </button>
+            <button
+              type="button"
+              onClick={() => { setShowConstraintInput(false); setConstraintInput('') }}
+              className={`${typography.panelMeta} text-text-light hover:text-text-body shrink-0`}
+            >
+              Cancel
+            </button>
+          </div>
+        ) : (
+          <>
+            <button
+              type="button"
+              onClick={() => setShowConstraintInput(true)}
+              className={`${typography.panelMeta} text-info hover:underline cursor-pointer`}
+            >
+              Add constraint
+            </button>
+            {onSendMessage && (
+              <button
+                type="button"
+                onClick={() => onSendMessage('Can you help me reconsider whether this goal is framed correctly?')}
+                className={`${typography.panelMeta} text-info hover:underline cursor-pointer`}
+              >
+                Reframe goal with AI
+              </button>
+            )}
+          </>
+        )}
+      </div>
     </div>
   )
 }

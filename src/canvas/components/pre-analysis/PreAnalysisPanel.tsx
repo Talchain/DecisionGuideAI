@@ -17,14 +17,13 @@
 
 import { useCallback, useRef, useMemo, useState } from 'react'
 import { usePreAnalysisData } from './hooks/usePreAnalysisData'
-import { Header } from './Header'
+import { ModelHealthCard } from './ModelHealthCard'
 import { SuccessTarget } from './SuccessTarget'
 import { BlockersSection } from './BlockersSection'
 import { OptionPreview } from './OptionPreview'
 import { DecisionQualityChecks } from './DecisionQualityChecks'
 import { GoalBaselineInput } from './GoalBaselineInput'
-import { ModelAdjustments } from './ModelAdjustments'
-import { AllImprovements, type ImprovementActionHandlers } from './AllImprovements'
+import { YourExpertise } from './expertise'
 import { ModelSnapshot } from './ModelSnapshot'
 import { StickyFooter } from './StickyFooter'
 import { focusNodeById, focusEdgeById } from '../../utils/focusHelpers'
@@ -37,16 +36,11 @@ import { copyTextToClipboard } from '../../../utils/clipboard'
 import { RefreshCw, Copy, Pencil, ChevronDown, ChevronRight, AlertTriangle } from 'lucide-react'
 import { typography } from '@/styles/typography'
 import { isPreAnalysisEnrichedEnabled } from '../../../flags'
-import { WorthInvestigating, deriveEvidenceGaps } from './WorthInvestigating'
-import { EdgeAssumptionsTable } from './EdgeAssumptionsTable'
-import { ModelNotes, type ModelNote } from './ModelNotes'
 import { formatRepairs } from '../../adapters/modelCardAdapter'
 import { DEFAULT_EDGE_DATA } from '../../domain/edges'
-import { ModelHealthSection } from '../ModelHealthSection'
-import { EdgeSummarySection } from './EdgeSummarySection'
-import { KeyRelationships } from './KeyRelationships'
 import { MissingKnowledgePrompt } from './MissingKnowledgePrompt'
-import { DecisionHealthRing } from './DecisionHealthRing'
+import { DraftNotes } from './DraftNotes'
+import { hasFeasibilityWarning } from './utils/hasFeasibilityWarning'
 import { SectionErrorBoundary } from '../SectionErrorBoundary'
 import type { ValidationMetadata, UserAction, ResolvedValue } from '../../domain/validation'
 
@@ -130,45 +124,14 @@ export function PreAnalysisPanel({
   // Draft error state for error card
   const lastDraftError = useCanvasStore(s => s.lastDraftError)
 
-  // Phase 2B: Evidence gaps + model notes (enriched pre-analysis)
+  // CEE analysis ready for feasibility + constraints
   const ceeAnalysisReady = useCanvasStore(s => s.ceeAnalysisReady)
-  const resultsReport = useCanvasStore(s => s.results?.report)
-  const evidenceGaps = useMemo(() => {
-    if (!isPreAnalysisEnrichedEnabled()) return []
-    // Build VoI map from post-analysis report when available
-    const voiMap = new Map<string, number>()
-    if (resultsReport) {
-      const sensitivityFactors: Array<Record<string, unknown>> =
-        (resultsReport as any)?.enrichment?.sensitivity_analysis?.factors ??
-        (resultsReport as any)?.factor_sensitivity ?? []
-      for (const f of sensitivityFactors) {
-        const id = (f.factor_id ?? f.factorId ?? f.node_id ?? f.nodeId) as string | undefined
-        const voi = (f.value_of_information ?? f.valueOfInformation) as number | undefined
-        if (id && typeof voi === 'number' && voi > 0) voiMap.set(id, voi)
-      }
-    }
-    return deriveEvidenceGaps(nodes, edges, voiMap.size > 0 ? voiMap : undefined)
-  }, [nodes, edges, resultsReport])
-  const modelNotes = useMemo<ModelNote[]>(() => {
-    if (!isPreAnalysisEnrichedEnabled()) return []
-    const critiques = ceeAnalysisReady?.model_critiques
-    if (!critiques || critiques.length === 0) return []
-    return critiques.map(c => ({
-      message: c.message,
-      severity: (c.severity === 'warning' ? 'warning' : 'info') as 'warning' | 'info',
-      suggestedAction: c.suggested_action,
-    }))
-  }, [ceeAnalysisReady])
 
-  // Constraint feasibility warning — from CEE model_critiques
-  const hasConstraintFeasibilityWarning = useMemo(() => {
-    const critiques = ceeAnalysisReady?.model_critiques
-    if (!critiques) return false
-    return critiques.some(c =>
-      c.code === 'CONSTRAINT_MISSING_RANGE' ||
-      (c.message && /near.*range.*limit|range.*limit|threshold.*near/i.test(c.message))
-    )
-  }, [ceeAnalysisReady])
+  // Constraint feasibility warning — from CEE model_critiques (shared helper)
+  const hasConstraintFeasibilityWarning = useMemo(
+    () => hasFeasibilityWarning(ceeAnalysisReady?.model_critiques),
+    [ceeAnalysisReady],
+  )
 
   // Phase 2B: Post-run repairs from store (populated in resultsComplete)
   const repairsApplied = useCanvasStore(s => s.repairsApplied)
@@ -764,21 +727,12 @@ export function PreAnalysisPanel({
     return (data.goalNode.data as { goal_threshold_unit?: string })?.goal_threshold_unit ?? null
   }, [data.goalNode])
 
-  // Memoize action handlers object to prevent unnecessary re-renders
-  const actionHandlers: ImprovementActionHandlers = useMemo(() => ({
-    onConfirm: handleConfirm,
-    onAssumption: handleAssumption,
-    onEdit: handleEdit,
-    onAddEvidence: handleAddEvidence,
-    onAddBaseline: handleAddBaseline,
-    onAddOption: handleAddOption,
-    onAddRisk: handleAddRisk,
-    onResetSource: handleResetSource,
-    onInlineEditValue: handleInlineEditValue,
-  }), [handleConfirm, handleAssumption, handleEdit, handleAddEvidence, handleAddBaseline, handleAddOption, handleAddRisk, handleResetSource, handleInlineEditValue])
+  // Action handlers are passed directly to YourExpertise (v6)
 
-  // Don't show panel if canvas is empty
-  if (data.nodesByKind.goal.length === 0 &&
+  // Don't show panel if canvas is empty AND not loading
+  // When loading, show the "Generating..." placeholder via ModelHealthCard
+  if (!data.isLoading &&
+      data.nodesByKind.goal.length === 0 &&
       data.nodesByKind.option.length === 0 &&
       data.nodesByKind.factor.length === 0) {
     return null
@@ -786,40 +740,26 @@ export function PreAnalysisPanel({
 
   return (
     <div className="flex flex-col flex-1 min-h-0 overflow-hidden" data-testid="pre-analysis-panel">
-      {/* Model health — persistent structural checks (Brief 5 Task 5) */}
-      <ModelHealthSection />
-
       {/* Scrollable content area */}
       <div className="olumi-scrollbar flex-1 min-h-0 overflow-y-auto px-2 py-3 space-y-4">
-        {/* 1. Header with tier counts */}
-        <Header
-          isReady={data.isReady}
-          isLoading={data.isLoading}
-          mustAddressCount={data.tiers.mustAddress.count}
-          reviewCount={data.tiers.reviewAssumptions.count}
-          optionalCount={data.tiers.optional.count}
-        />
-
-        {/* Decision health ring — top of panel, above goal card */}
-        {(data.ceeQuality || data.nodesByKind.goal.length > 0) && (
-          <SectionErrorBoundary section="Decision health">
-            <DecisionHealthRing
-              completeness={data.ceeQuality
-                ? (data.ceeQuality.structure ?? 5) / 10
-                : (['goal', 'option', 'factor'] as const).filter(k => data.nodesByKind[k].length > 0).length / 3}
-              evidence={data.evidenceQuality.ratio}
-              balance={data.balanceScore}
-              calibration={data.totalReviewableFactorsCount > 0
-                ? data.reviewedFactorsCount / data.totalReviewableFactorsCount
-                : 0}
-            />
-          </SectionErrorBoundary>
-        )}
-
-        {/* Coaching summary — one-line text below header */}
-        {data.coachingSummary && (
-          <p className={`${typography.panelBody} text-text-light -mt-2 line-clamp-1`} title={data.coachingSummary}>{data.coachingSummary}</p>
-        )}
+        {/* 1. Model Health Card (v6 wireframe) */}
+        <SectionErrorBoundary section="Model health">
+          <ModelHealthCard
+            completeness={data.ceeQuality
+              ? (data.ceeQuality.structure ?? 5) / 10
+              : (['goal', 'option', 'factor'] as const).filter(k => data.nodesByKind[k].length > 0).length / 3}
+            evidence={data.evidenceQuality.ratio}
+            balance={data.balanceScore}
+            calibration={data.totalReviewableFactorsCount > 0
+              ? data.reviewedFactorsCount / data.totalReviewableFactorsCount
+              : 0}
+            optionCount={data.optionPreviews.length}
+            goalLabel={data.goalNode ? ((data.goalNode.data as { label?: string })?.label ?? null) : null}
+            coachingSummary={data.coachingSummary}
+            isLoading={data.isLoading}
+            hasGoalNode={data.nodesByKind.goal.length > 0}
+          />
+        </SectionErrorBoundary>
 
         {/* Task P.3.2: Minimal graph coaching (pre-run guidance, not blocker) */}
         {isMinimalGraph && (
@@ -854,6 +794,8 @@ export function PreAnalysisPanel({
           onHoverEnter={(id) => handleHoverElement('node', id)}
           onHoverLeave={handleHoverClear}
           constraintFeasibilityWarning={hasConstraintFeasibilityWarning}
+          goalConstraints={ceeAnalysisReady?.goal_constraints}
+          onSendMessage={onSendMessage}
         />
 
         {/* Draft error card */}
@@ -946,10 +888,11 @@ export function PreAnalysisPanel({
             onFocusNode={handleFocusNode}
             onHoverEnter={handleHoverElement}
             onHoverLeave={handleHoverClear}
+            onSendMessage={onSendMessage}
           />
         )}
 
-        {/* 6. Decision quality checks (Task 4) — with inline goal baseline input */}
+        {/* Model quality checks (v6: renamed from Decision quality) */}
         {(data.qualityChecks.length > 0 || data.goalNode) && (
           <DecisionQualityChecks
             checks={data.qualityChecks}
@@ -974,120 +917,51 @@ export function PreAnalysisPanel({
           />
         )}
 
-        {/* 3-5. Three-tier improvement sections */}
-        <div ref={improvementsRef}>
-          <AllImprovements
+        {/* Your expertise — unified section (v6 wireframe) */}
+        <SectionErrorBoundary section="Your expertise">
+          <YourExpertise
             improvementsByCategory={data.improvementsByCategory}
-            tiers={data.tiers}
-            totalImprovements={data.totalImprovements}
-            onFocus={handleFocusEdge}
-            actionHandlers={actionHandlers}
-            onHoverEnter={handleHoverElement}
-            onHoverLeave={handleHoverClear}
-            reviewedCount={data.reviewedFactorsCount}
-            totalReviewableCount={data.totalReviewableFactorsCount}
             contestedEdges={data.contestedEdges}
             nodes={nodes}
-            onResolveEdge={handleResolveContestedEdge}
+            edges={edges}
             factorInfluenceMap={factorInfluenceMap}
+            edgeInfluenceMap={edgeInfluenceMap}
+            reviewedCount={data.reviewedFactorsCount}
+            totalReviewableCount={data.totalReviewableFactorsCount}
+            allItems={[
+              ...(data.improvementsByCategory.verify ?? []),
+              ...(data.improvementsByCategory.add_evidence ?? []),
+            ]}
+            onFocusNode={handleFocusNode}
+            onFocusEdge={handleFocusEdgeById}
+            onConfirm={handleConfirm}
+            onEdit={handleEdit}
+            onSetValue={handleSetValueForGap}
+            onSendMessage={onSendMessage}
+            onResolveEdge={handleResolveContestedEdge}
+            onUpdateEdgeStrength={handleUpdateEdgeStrength}
+            onAddEvidence={handleAddEvidence}
+            onHoverEnter={handleHoverElement}
+            onHoverLeave={handleHoverClear}
           />
-          <SectionErrorBoundary section="Key relationships">
-            <KeyRelationships
-              edges={edges}
-              nodes={nodes}
-              onFocusEdge={handleFocusEdgeById}
-              onHoverEnter={handleHoverElement}
-              onHoverLeave={handleHoverClear}
-              onUpdateEdgeStrength={handleUpdateEdgeStrength}
-              edgeInfluenceMap={edgeInfluenceMap}
-            />
-          </SectionErrorBoundary>
-        </div>
+        </SectionErrorBoundary>
 
         {/* "What's missing?" prompt */}
         <MissingKnowledgePrompt onSendMessage={onSendMessage} />
 
-        {/* Strength warning (Pattern C, Task 8) — between assumptions and draft notes */}
-        {data.hasDefaultStrengths && (
-          <div
-            className="rounded-md bg-panel border border-panel-border border-t-[3px] border-t-warning px-3 py-2.5"
-            data-testid="strength-warning-card"
-          >
-            <div className="flex items-start gap-2">
-              <AlertTriangle size={16} className="mt-0.5 flex-shrink-0 text-warning" />
-              <div className="flex-1 min-w-0">
-                <p className={`${typography.panelHeader} text-warning`}>
-                  Relationship strengths are estimated
-                </p>
-                <p className={`${typography.panelBody} text-text-body mt-0.5`}>
-                  {data.defaultStrengthPercent}% of edges use default strength values. Results may be less precise.
-                </p>
-                <div className="flex items-center gap-2 mt-2">
-                  <button
-                    type="button"
-                    onClick={onAnalyse}
-                    className={`${typography.panelMeta} text-info border border-info/40 rounded-full px-2.5 py-0.5 bg-transparent hover:border-success/40 hover:text-success cursor-pointer`}
-                  >
-                    Run with estimates
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => improvementsRef.current?.scrollIntoView({ behavior: 'smooth' })}
-                    className={`${typography.panelMeta} text-info border border-info/40 rounded-full px-2.5 py-0.5 bg-transparent hover:border-success/40 hover:text-success cursor-pointer`}
-                  >
-                    Review in structure
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Phase 2B: Worth investigating — evidence gaps */}
-        {isPreAnalysisEnrichedEnabled() && (
-          <SectionErrorBoundary section="Worth investigating">
-            <WorthInvestigating
-              gaps={evidenceGaps}
-              onSetValue={handleSetValueForGap}
-              onAskAI={handleAskAI}
-              factorInfluenceMap={factorInfluenceMap}
-            />
-          </SectionErrorBoundary>
-        )}
-
-        {/* Phase 2B: Model notes — pipeline critiques */}
-        {isPreAnalysisEnrichedEnabled() && (
-          <ModelNotes notes={modelNotes} />
-        )}
-
-        {/* Model adjustments — transparency for CEE automatic fixes */}
-        {(data.modelAdjustments.length > 0 || data.repairActions.length > 0 || postRunRepairs.length > 0) && (
-          <ModelAdjustments
-            adjustments={data.modelAdjustments}
-            repairActions={data.repairActions}
-            postRunRepairs={postRunRepairs}
-          />
-        )}
+        {/* Draft notes — constraints, auto-fixes, repairs */}
+        <DraftNotes
+          modelAdjustments={data.modelAdjustments}
+          repairActions={data.repairActions}
+          postRunRepairs={postRunRepairs}
+          goalConstraints={ceeAnalysisReady?.goal_constraints}
+          onSendMessage={onSendMessage}
+        />
 
         {/* Pre-mortem section (collapsible, from PLoT m1_review) */}
         {data.preMortem && (
           <PreMortemSection preMortem={data.preMortem} />
         )}
-
-        {/* Graph Editing Experience Task 9d: Edge summary section */}
-        <SectionErrorBoundary section="Edge summary">
-          <EdgeSummarySection
-            onSelectEdge={(edgeId) => handleFocusEdge('edge', edgeId)}
-            onFocusNode={(nodeId) => handleFocusNode(nodeId)}
-          />
-        </SectionErrorBoundary>
-
-        {/* Edge assumptions table — collapsible, hidden when 0 causal edges */}
-        <EdgeAssumptionsTable
-          edges={edges}
-          nodes={nodes}
-          onSelectEdge={(edgeId) => handleFocusEdge('edge', edgeId)}
-        />
 
         {/* 6. Model Snapshot accordion */}
         <SectionErrorBoundary section="Model snapshot">
