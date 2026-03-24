@@ -102,7 +102,7 @@ export const MessageBubble = memo(function MessageBubble({
     >
       <div
         ref={needsClamp ? contentRef : undefined}
-        className={`${typography.panelBody} ${styles.markdownContent} ${
+        className={`${typography.bodySmall} ${styles.markdownContent} ${
           needsClamp && !expanded ? styles.markdownContentClamped : ''
         } ${isProvisional ? styles.provisionalText : ''}`}
         data-streaming={isStreaming || undefined}

@@ -80,6 +80,7 @@ export const ConversationPanel = memo(function ConversationPanel({
   const composerRef = useRef<ChatComposerHandle>(null)
   const pendingBriefRef = useRef<string | null>(null)
   const generateInFlightRef = useRef(false)
+  const wasThinkingRef = useRef(false)
   const { runV2Analysis } = useV2Run()
   const { readiness } = useGraphReadiness()
 
@@ -421,9 +422,15 @@ export const ConversationPanel = memo(function ConversationPanel({
     }
   }, [isThinking, sendMessage])
 
-  // Restore brief text if Generate Model completed without producing a graph
+  // Restore brief text if Generate Model completed without producing a graph.
+  // Only triggers on the falling edge of isThinking (true → false), not when
+  // isThinking is already false — prevents premature restore before the
+  // request has set isThinking=true.
   useEffect(() => {
-    if (!isThinking && pendingBriefRef.current) {
+    if (isThinking) {
+      wasThinkingRef.current = true
+    } else if (wasThinkingRef.current && pendingBriefRef.current) {
+      wasThinkingRef.current = false
       const savedBrief = pendingBriefRef.current
       pendingBriefRef.current = null
       // Graph still empty → CEE didn't draft; restore so user can retry

@@ -28,9 +28,9 @@ function getMessageCategory(msg: ConversationMessage): MessageCategory {
 
 const CATEGORY_BORDER: Record<MessageCategory, string> = {
   answer: '',
-  action: 'border-l-2 border-l-info',
-  research: 'border-l-2 border-l-success',
-  error: 'border-l-2 border-l-danger',
+  action: '',
+  research: '',
+  error: '',
 }
 
 interface ChatMessageProps {

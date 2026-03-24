@@ -71,13 +71,13 @@ export const ModelReceiptBlock = memo(function ModelReceiptBlock({ data }: Model
       </div>
 
       {/* Model size */}
-      <p className={`${typography.panelBody} text-text-body`}>
+      <p className={`${typography.bodySmall} text-text-body`}>
         {modelLine}{targetLine}
       </p>
 
       {/* Top insight */}
       {data.topInsight && (
-        <p className={`${typography.panelBody} text-text-body`}>
+        <p className={`${typography.bodySmall} text-text-body`}>
           {data.topInsight}
         </p>
       )}

@@ -254,7 +254,7 @@ export const GuidanceStrip = memo(function GuidanceStrip({
       </span>
 
       {/* Title — truncated */}
-      <span className={`${styles.guidanceStripTitle} ${typography.panelBody}`}>
+      <span className={`${styles.guidanceStripTitle} ${typography.bodySmall}`}>
         {topItem.title}
       </span>
 

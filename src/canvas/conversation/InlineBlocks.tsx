@@ -284,7 +284,7 @@ const CommentaryBlockRenderer = memo(function CommentaryBlockRenderer({
     return (
       <div>
         <div
-          className={`${typography.panelBody} ${toneClass} ${styles.markdownContent}`}
+          className={`${typography.bodySmall} ${toneClass} ${styles.markdownContent}`}
           // eslint-disable-next-line security/no-unsafe-innerhtml -- sanitised by safeRichText (allowlist: strong, br, ul, li)
           dangerouslySetInnerHTML={{ __html: contentHtml }}
         />
@@ -311,7 +311,7 @@ const CommentaryBlockRenderer = memo(function CommentaryBlockRenderer({
           }
         }}
       >
-        <span className={`${typography.panelBody} ${toneClass} ${styles.commentaryPreviewText}`}>
+        <span className={`${typography.bodySmall} ${toneClass} ${styles.commentaryPreviewText}`}>
           {previewLabel}
         </span>
         <span className={styles.commentaryToggleControl} aria-hidden="true">
@@ -324,7 +324,7 @@ const CommentaryBlockRenderer = memo(function CommentaryBlockRenderer({
       {expanded && (
         <div className={styles.commentaryExpandedContent}>
           <div
-            className={`${typography.panelBody} ${toneClass} ${styles.markdownContent}`}
+            className={`${typography.bodySmall} ${toneClass} ${styles.markdownContent}`}
             // eslint-disable-next-line security/no-unsafe-innerhtml -- sanitised by safeRichText (allowlist: strong, br, ul, li)
             dangerouslySetInnerHTML={{ __html: contentHtml }}
           />
@@ -422,12 +422,12 @@ const ReviewCardBlockRenderer = memo(function ReviewCardBlockRenderer({
         </div>
         {renderingV2 ? (
           <div
-            className={`${typography.panelBody} ${styles.markdownContent}`}
+            className={`${typography.bodySmall} ${styles.markdownContent}`}
             // eslint-disable-next-line security/no-unsafe-innerhtml -- sanitised by safeRichText (allowlist: strong, br, ul, li)
             dangerouslySetInnerHTML={{ __html: safeRichText(block.body) }}
           />
         ) : (
-          <p className={typography.panelBody}>{block.body}</p>
+          <p className={typography.bodySmall}>{block.body}</p>
         )}
       </div>
     </div>
@@ -729,11 +729,11 @@ const EvidenceBlockRenderer = memo(function EvidenceBlockRenderer({
         {block.title || 'Research findings'}
       </div>
       {!hasFindings && (
-        <p className={typography.panelBody}>Research findings available</p>
+        <p className={typography.bodySmall}>Research findings available</p>
       )}
       {normalisedFindings.map((f, i) => (
         <div key={i} className={styles.evidenceFinding}>
-          <p className={typography.panelBody}>{f.text}</p>
+          <p className={typography.bodySmall}>{f.text}</p>
           {f.source_url && (
             <a
               href={f.source_url}
@@ -967,7 +967,7 @@ function GraphPatchBlockRenderer({
           {proposalItems.map((item, index) => (
             <div key={`${item.description}-${index}`} className={styles.graphPatchProposalItem}>
               <div className={styles.graphPatchProposalCopy}>
-                <span className={`${typography.panelBody} ${styles.graphPatchProposalDescription}`}>
+                <span className={`${typography.bodySmall} ${styles.graphPatchProposalDescription}`}>
                   {item.description}
                 </span>
                 {item.elementLabel && (
@@ -1002,7 +1002,7 @@ function GraphPatchBlockRenderer({
               {proposalItems.map((item, index) => (
                 <div key={`${item.description}-${index}`} className={styles.graphPatchProposalItem}>
                   <div className={styles.graphPatchProposalCopy}>
-                    <span className={`${typography.panelBody} ${styles.graphPatchProposalDescription}`}>
+                    <span className={`${typography.bodySmall} ${styles.graphPatchProposalDescription}`}>
                       {item.description}
                     </span>
                     {item.elementLabel && (

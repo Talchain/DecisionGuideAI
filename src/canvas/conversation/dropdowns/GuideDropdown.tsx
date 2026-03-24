@@ -152,7 +152,7 @@ export function GuideDropdown({ isOpen, onClose, onInsertText, anchorRef }: Guid
             onClick={item.action}
             className={`
               w-full flex items-center gap-3 px-3 py-2 text-left
-              ${typography.panelBody} text-text-body
+              ${typography.bodySmall} text-text-body
               hover:bg-panel-hover focus-visible:bg-panel-hover
               focus-visible:outline-none transition-colors duration-100
               min-h-[44px]

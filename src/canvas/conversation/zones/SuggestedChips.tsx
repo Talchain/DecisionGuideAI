@@ -97,7 +97,7 @@ export function SuggestedChips({
               key={chip.id ?? `chip-${i}`}
               type="button"
               onClick={() => handleClick(chip)}
-              className={`suggested-chip chip-stagger-in bg-transparent border border-panel-border hover:bg-panel-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-info text-text-body cursor-pointer ${typography.panelBody}`}
+              className={`suggested-chip chip-stagger-in bg-transparent border border-panel-border hover:bg-panel-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-info text-text-body cursor-pointer ${typography.bodySmall}`}
               style={{
                 padding: '5px 12px',
                 borderRadius: 999,
@@ -114,7 +114,7 @@ export function SuggestedChips({
 
         {chipError && (
           <p
-            className={`${typography.panelBody} text-danger`}
+            className={`${typography.bodySmall} text-danger`}
             style={{ margin: 0, paddingLeft: 2 }}
             data-testid="chip-error"
           >
@@ -175,7 +175,7 @@ export function SuggestedChips({
                 'hover:bg-panel-hover',
                 'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-info',
                 'text-text-body cursor-pointer',
-                typography.panelBody,
+                typography.bodySmall,
                 disabled ? 'opacity-40 cursor-not-allowed disabled:hover:bg-panel' : '',
               ].join(' ')}
               style={{
@@ -204,7 +204,7 @@ export function SuggestedChips({
 
       {chipError && (
         <p
-          className={`${typography.panelBody} text-danger`}
+          className={`${typography.bodySmall} text-danger`}
           style={{ margin: 0, paddingLeft: 2 }}
           data-testid="chip-error"
         >
