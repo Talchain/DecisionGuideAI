@@ -4,8 +4,8 @@
  * Uses Tailwind `group` + `group-hover:opacity-100` to show MessageActions
  * on hover. Keyboard accessible via `focus-within`.
  *
- * Visual distinction: left border accent based on message category
- * (action=info, research=success, error=danger, answer=none).
+ * Messages are categorised (action, research, error, answer) via
+ * data-message-category for test/automation selectors.
  */
 
 import { memo } from 'react'

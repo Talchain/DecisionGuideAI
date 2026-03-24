@@ -24,7 +24,7 @@ vi.mock('../Conversation.module.css', () => ({
 
 // Mock dependencies
 vi.mock('../../styles/typography', () => ({
-  typography: { panelBody: 'panelBody' },
+  typography: { bodySmall: 'bodySmall' },
 }))
 
 vi.mock('../utils/markdown', () => ({
