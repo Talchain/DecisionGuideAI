@@ -172,7 +172,7 @@ function OptionInterventions({ option: opt, onFocusNode }: { option: OptionPrevi
   // No interventions at all
   if (opt.interventions.length === 0) {
     return opt.isBaseline ? null : (
-      <div className={`${typography.panelMeta} text-text-light mt-1`}>No factor changes</div>
+      <div className={`${typography.panelMeta} text-text-light mt-1`}>No mapped interventions yet</div>
     )
   }
 

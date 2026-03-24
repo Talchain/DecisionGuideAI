@@ -122,16 +122,16 @@ export function YourExpertise({
 
       {isExpanded && (
         <div className="px-3 pb-3 space-y-3">
-          {/* Progress bar */}
+          {/* Progress bar — numerator counts resolved items within the actionable set */}
           {denominator > 0 && (
             <div className="space-y-1">
               <p className={`${typography.panelMeta} text-text-light`}>
-                You've contributed to {reviewedCount} of {denominator}
+                You've contributed to {Math.min(reviewedCount, denominator)} of {denominator}
               </p>
               <div className="w-full h-1.5 bg-panel-border rounded-full overflow-hidden">
                 <div
                   className="h-full bg-success rounded-full transition-all duration-300"
-                  style={{ width: `${Math.min(100, denominator > 0 ? (reviewedCount / denominator) * 100 : 0)}%` }}
+                  style={{ width: `${denominator > 0 ? Math.min(100, (Math.min(reviewedCount, denominator) / denominator) * 100) : 0}%` }}
                 />
               </div>
             </div>

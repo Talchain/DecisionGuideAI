@@ -180,20 +180,40 @@ describe('hasFeasibilityWarning', () => {
 })
 
 describe('DraftNotes formatDraftText', () => {
-  it('truncates long floats to 2dp', () => {
-    render(
-      <DraftNotes
-        modelAdjustments={[{ reason: 'synthesised prior [0.2, 0.6000000000000001]' }]}
-        repairActions={[]}
-      />
-    )
+  it('renders with item count', () => {
     render(
       <DraftNotes
         modelAdjustments={[{ reason: 'value 0.123456789' }]}
         repairActions={[]}
       />
     )
-    // Collapsed by default — just verify it renders with item count
-    expect(screen.getAllByText(/Draft notes · 1 item/).length).toBeGreaterThan(0)
+    expect(screen.getByText(/Draft notes · 1 item/)).toBeInTheDocument()
+  })
+})
+
+describe('deriveExpertiseGroups actionableCount', () => {
+  it('actionableCount excludes fromBrief, keyRelationships, edgeGaps', () => {
+    const groups = deriveExpertiseGroups(
+      {
+        fix: [],
+        verify: [
+          { key: 'v1', category: 'verify', label: 'AI Factor', detail: '', subgroup: 'cee_inference', focus: { type: 'node', id: 'f1', label: 'AI Factor' } },
+          { key: 'v2', category: 'verify', label: 'Brief Factor', detail: '', subgroup: 'brief_extraction', focus: { type: 'node', id: 'f2', label: 'Brief Factor' } },
+        ],
+        add_evidence: [],
+        strengthen: [],
+      },
+      [{ edge: { id: 'e1', source: 's1', target: 't1' } as any, validation: {} }],
+      [
+        { id: 'f3', type: 'factor', position: { x: 0, y: 0 }, data: { kind: 'factor', label: 'Missing', observedState: { value: null } } },
+      ] as any,
+      [{ id: 'e2', source: 's2', target: 't2', data: {} }] as any,
+      undefined,
+      undefined,
+    )
+    // actionableCount = 1 contested + 1 AI-estimated + 1 missing = 3
+    // fromBrief (1) and edgeGaps are NOT included
+    expect(groups.actionableCount).toBe(3)
+    expect(groups.totalCount).toBeGreaterThan(groups.actionableCount)
   })
 })

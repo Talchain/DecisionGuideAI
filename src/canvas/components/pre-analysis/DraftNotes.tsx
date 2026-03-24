@@ -31,11 +31,22 @@ interface DraftNotesProps {
  * - "Reclassified unreachable factor" → "Moved outside your control"
  */
 function formatDraftText(text: string): string {
-  let out = text
+  return text
+    // Truncate all floats to 2dp first
     .replace(/\d+\.\d{3,}/g, m => parseFloat(m).toFixed(2))
-    .replace(/with synthesised prior \[([^,]+),\s*([^\]]+)\]/gi, 'with estimated range $1 to $2')
-    .replace(/Reclassified unreachable factor\s+(\S+)/gi, 'Moved $1 outside your control (reclassified to external)')
-  return out
+    // "synthesised prior [X, Y]" → "estimated range X to Y" with both values normalised to 2dp
+    .replace(
+      /with synthesised prior \[([^,]+),\s*([^\]]+)\]/gi,
+      (_match, a, b) => {
+        const va = parseFloat(a)
+        const vb = parseFloat(b)
+        const fa = Number.isFinite(va) ? va.toFixed(2) : a.trim()
+        const fb = Number.isFinite(vb) ? vb.toFixed(2) : b.trim()
+        return `with estimated range ${fa} to ${fb}`
+      },
+    )
+    // "Reclassified unreachable factor X ..." → "Moved X outside your control"
+    .replace(/Reclassified unreachable factor\s+(.+?)(?:\s+to\s+external|\s*$)/gi, 'Moved $1 outside your control (reclassified to external)')
 }
 
 export function DraftNotes({
