@@ -328,6 +328,7 @@ function InlineGenerateButton({ state, onClick }: { state: GenerateState; onClic
   return (
     <button
       type="button"
+      disabled={!isActive}
       onClick={onClick}
       data-active={isActive || undefined}
       className="inline-gen-btn flex-shrink-0"

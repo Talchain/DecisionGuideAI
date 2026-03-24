@@ -278,8 +278,8 @@ describe('ChatComposer', () => {
     )
 
     expect(screen.getByTestId('inline-generate-btn')).toBeInTheDocument()
-    // Button is never DOM-disabled — it's always clickable, handler guards internally
-    expect(screen.getByTestId('inline-generate-btn')).not.toBeDisabled()
+    // Button is disabled when composer text is below 50 chars (generateState = 'disabled')
+    expect(screen.getByTestId('inline-generate-btn')).toBeDisabled()
   })
 
   it('hides first-draft guidance and generate controls once a graph exists', () => {
@@ -349,7 +349,7 @@ describe('ChatComposer', () => {
     expect(onGenerateModel).toHaveBeenCalledTimes(1)
   })
 
-  it('clicking generate button with <50 chars still calls onGenerateModel (handler guards internally)', () => {
+  it('generate button is disabled with <50 chars — click does not fire onGenerateModel', () => {
     mockStage = 'frame'
     mockBriefSignals = {
       elements: [
@@ -376,10 +376,11 @@ describe('ChatComposer', () => {
       />,
     )
 
-    // Button is visible (brief strip shown) but text is short — click fires the prop, guard is in handler
+    // Button is disabled when text is below 50 chars — click does not propagate
+    expect(screen.getByTestId('inline-generate-btn')).toBeDisabled()
     fireEvent.click(screen.getByTestId('inline-generate-btn'))
 
-    expect(onGenerateModel).toHaveBeenCalledTimes(1)
+    expect(onGenerateModel).toHaveBeenCalledTimes(0)
   })
 
   // ── consumeBrief contract ──────────────────────────────────────────────

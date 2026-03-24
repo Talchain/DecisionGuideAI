@@ -79,6 +79,7 @@ export const ConversationPanel = memo(function ConversationPanel({
   const { stage } = useStagePill()
   const composerRef = useRef<ChatComposerHandle>(null)
   const pendingBriefRef = useRef<string | null>(null)
+  const generateInFlightRef = useRef(false)
   const { runV2Analysis } = useV2Run()
   const { readiness } = useGraphReadiness()
 
@@ -393,10 +394,11 @@ export const ConversationPanel = memo(function ConversationPanel({
   }, [])
 
   const handleGenerateModel = useCallback(() => {
-    if (isThinking) return
+    if (isThinking || generateInFlightRef.current) return
     const brief = composerRef.current?.consumeBrief()
     // consumeBrief returns null if empty; also guard <50 chars to match activation threshold
     if (brief && brief.length >= 50) {
+      generateInFlightRef.current = true
       pendingBriefRef.current = brief // save for restore if CEE returns no draft
       beginInteractionChain({
         triggerSurface: 'generate_model',
@@ -415,9 +417,9 @@ export const ConversationPanel = memo(function ConversationPanel({
         turnType: 'explicit_generate',
         debugSource: 'generate_model',
         debugSourceSurface: 'ai_panel',
-      })
+      }).finally(() => { generateInFlightRef.current = false })
     }
-  }, [isThinking, messages.length, sendMessage])
+  }, [isThinking, sendMessage])
 
   // Restore brief text if Generate Model completed without producing a graph
   useEffect(() => {
