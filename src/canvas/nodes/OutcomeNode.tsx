@@ -54,7 +54,7 @@ export const OutcomeNode = memo((props: NodeProps) => {
         </div>
       )}
 
-      {/* Post-analysis: contribution % + predicted range */}
+      {/* Post-analysis: contribution % + direction indicator */}
       {resultsStatus === 'complete' && bridgeEdgeData && (
         <div className={`${typography.nodeLabel} mt-1.5`}>
           {bridgeEdgeData.contributionPct != null && (
@@ -62,24 +62,11 @@ export const OutcomeNode = memo((props: NodeProps) => {
               {bridgeEdgeData.contributionPct}% contribution to goal
             </div>
           )}
-          {displayMetadata.predictedOutcome ? (
-            <div className="text-text-light mt-0.5">
-              {displayMetadata.predictedOutcome.mean != null && (
-                <span>~{displayMetadata.predictedOutcome.mean.toFixed(2)}</span>
-              )}
-              {displayMetadata.predictedOutcome.p10 != null && displayMetadata.predictedOutcome.p90 != null && (
-                <span className="ml-1">
-                  ({displayMetadata.predictedOutcome.p10.toFixed(2)}–{displayMetadata.predictedOutcome.p90.toFixed(2)})
-                </span>
-              )}
-            </div>
-          ) : (
-            <InfluenceIndicator
-              strength={bridgeEdgeData.signedMean}
-              variant="canvas"
-              className={`${typography.nodeTitle} font-semibold text-success`}
-            />
-          )}
+          <InfluenceIndicator
+            strength={bridgeEdgeData.signedMean}
+            variant="canvas"
+            className={`${typography.nodeTitle} font-semibold text-success`}
+          />
           {bridgeEdgeData.existsProbability !== null && (
             <div className="text-text-light mt-0.5">
               {Math.round(bridgeEdgeData.existsProbability * 100)}% certain

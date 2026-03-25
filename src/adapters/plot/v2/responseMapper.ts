@@ -594,6 +594,8 @@ export function mapV2ResponseToReportV1(
           // Fix A: Only use actual probability_of_goal from V2 (when threshold was provided)
           // Never fall back to computed values - undefined means "not available"
           goal_probability: safeNumber(opt.probability_of_goal),
+          // T6 P0-3: Map joint goal probability (constrained version) when available
+          probability_of_joint_goal: safeNumber(opt.probability_of_joint_goal),
           confidence: 0.5, // Default confidence
           // Include win_probability when available (pairwise comparison)
           win_probability: safeNumber(opt.win_probability) ?? undefined,
@@ -614,6 +616,7 @@ export function mapV2ResponseToReportV1(
       },
       {} as Record<string, {
         goal_probability?: number
+        probability_of_joint_goal?: number
         confidence: number
         win_probability?: number
         expected?: number

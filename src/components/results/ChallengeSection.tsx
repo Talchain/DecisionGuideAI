@@ -198,6 +198,28 @@ function RootNodeWarningCard({ warning }: { warning: ChallengeInferenceWarning }
   )
 }
 
+/* ── Constraint default base warning card ─────────────────────────────────── */
+
+function ConstraintDefaultBaseCard({ warning }: { warning: ChallengeInferenceWarning }) {
+  const label = warning.affected_labels?.[0] ?? warning.affected_nodes[0] ?? 'Goal node'
+  return (
+    <div className="border border-panel-border rounded-lg px-3 py-2 space-y-1.5">
+      <div className="flex items-center gap-2">
+        <AlertTriangle className="w-3.5 h-3.5 text-warning flex-shrink-0" aria-hidden="true" />
+        <p className={`${typography.panelBody} text-text-body flex-1`}>
+          Goal probability may be unreliable
+        </p>
+        <span className="rounded-full border border-warning/30 bg-transparent px-2 py-0.5 text-[10px] font-medium text-text-body leading-none">
+          Validity
+        </span>
+      </div>
+      <p className={`${typography.panelMeta} text-text-light`}>
+        {label} has no baseline expectation set. The model defaulted to 0, which makes the target probability calculation unreliable.
+      </p>
+    </div>
+  )
+}
+
 /* ── Identifiability card ─────────────────────────────────────────────────── */
 
 function IdentifiabilityCard() {
@@ -233,8 +255,10 @@ export function ChallengeSection({
 }: ChallengeSectionProps) {
   // ── Model structure items ──────────────────────────────────────────────
   const fragileEdges = (edgeEValues ?? []).filter(e => e.e_value < 3.0)
-  const rootWarnings = inferenceWarnings ?? []
-  const modelStructureCount = fragileEdges.length + rootWarnings.length
+  const allWarnings = inferenceWarnings ?? []
+  const rootWarnings = allWarnings.filter(w => w.code === 'MISSING_ROOT_VALUE')
+  const constraintDefaultWarnings = allWarnings.filter(w => w.code === 'CONSTRAINT_NODE_DEFAULT_BASE')
+  const modelStructureCount = fragileEdges.length + rootWarnings.length + constraintDefaultWarnings.length
 
   // ── Thinking patterns items ────────────────────────────────────────────
   const thinkingPatternsCount = biasFindings.length + preMortemItems.length
@@ -259,6 +283,9 @@ export function ChallengeSection({
           ))}
           {rootWarnings.map((warning, i) => (
             <RootNodeWarningCard key={`root-warn-${warning.affected_nodes[0] ?? i}`} warning={warning} />
+          ))}
+          {constraintDefaultWarnings.map((warning, i) => (
+            <ConstraintDefaultBaseCard key={`constraint-warn-${warning.affected_nodes[0] ?? i}`} warning={warning} />
           ))}
         </div>
       )}

@@ -172,12 +172,20 @@ export function inferInterventionScaleBase(
 }
 
 /**
- * Denormalise a 0–1 intervention value using the factor's cap.
- * When cap > 1, the CEE normalised the value to [0, 1] — multiply back.
- * Returns the raw value unchanged when cap is absent or ≤ 1.
+ * Denormalise a 0–1 intervention value using the factor's raw scale.
  *
- * @param value - Normalised 0–1 value
- * @param cap   - Factor cap (the ceiling of the original scale)
+ * T3 fix: When `raw_value` and `observedValue` (baseline normalised) are both
+ * available, use proportional mapping through the raw scale:
+ *   - Baseline case (value ≈ observedValue): return raw_value directly
+ *   - Non-baseline: return raw_value × (value / observedValue)
+ * This avoids the `value × cap` rounding error (e.g. 0.69 × 70 = 48.3 instead of 49).
+ *
+ * Falls back to `value × cap` when raw_value is absent.
+ *
+ * @param value            - Normalised 0–1 value
+ * @param cap              - Factor cap (the ceiling of the original scale)
+ * @param observedValue    - Baseline normalised value (factor's current observedState.value)
+ * @param observedRawValue - Baseline raw value (factor's observedState.raw_value)
  * @returns Denormalised value
  */
 export function denormaliseInterventionValue(
@@ -191,6 +199,21 @@ export function denormaliseInterventionValue(
   // Guard: if value is an integer > 1 and within the scale, it's likely already denormalised.
   // Values ≤ 1 (including 0 and 1.0) are always treated as normalised — note Number.isInteger(1.0) === true in JS.
   if (Number.isInteger(value) && value > 1 && value <= scaleBase) return value
+
+  // T3 fix: When raw_value and baseline normalised value are both known,
+  // use proportional mapping through the raw scale for higher accuracy.
+  // Guard: raw must be > 0 — a zero raw_value would collapse all interventions to 0.
+  const raw = toFiniteNumber(observedRawValue)
+  const baselineNorm = typeof observedValue === 'number' && Number.isFinite(observedValue) && observedValue > 0
+    ? observedValue
+    : null
+  if (raw != null && raw > 0 && baselineNorm != null) {
+    // Baseline case: value is (close to) the baseline normalised value → return raw_value
+    if (Math.abs(value - baselineNorm) < 1e-6) return raw
+    // Non-baseline: proportional mapping through raw scale
+    return raw * (value / baselineNorm)
+  }
+
   return value * scaleBase
 }
 

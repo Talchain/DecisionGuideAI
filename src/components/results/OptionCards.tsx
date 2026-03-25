@@ -323,6 +323,19 @@ function OptionCard({
             color="info"
             neutralised={neutralised}
           />
+          {/* T6 fix: Warning badge when goal probability is very low (<10%) */}
+          {typeof option.goalProbability === 'number' && option.goalProbability < 0.10 && (
+            <div className="flex items-center gap-1.5">
+              <span
+                className={`${typography.panelMeta} font-medium inline-flex items-center px-2 py-0.5 rounded-full bg-transparent border border-danger/30 text-text-body`}
+                data-testid={`low-goal-warning-${option.id}`}
+              >
+                {option.goalProbability < 0.01
+                  ? '< 1% likely to reach target'
+                  : `${Math.round(option.goalProbability * 100)}% likely to reach target`}
+              </span>
+            </div>
+          )}
         </div>
       )}
 

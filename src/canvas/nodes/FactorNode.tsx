@@ -302,7 +302,7 @@ export const FactorNode = memo((props: NodeProps) => {
             {/* Confidence bar */}
             {displayMetadata.confidence !== null && displayMetadata.confidence > 0.001 && (
               <div className="flex items-center gap-1.5">
-                <span className={`${typography.nodeLabel} text-text-light w-14 shrink-0 truncate`} title="Confidence">Confidence</span>
+                <span className={`${typography.nodeLabel} text-text-light w-[72px] shrink-0 truncate`} title="Confidence">Confidence</span>
                 <div className="flex-1 min-w-0">
                   <DataBar
                     value={displayMetadata.confidence}

@@ -961,9 +961,18 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       const scaledP50 = norm.p50 != null ? norm.p50 * scale : null
       const scaledP90 = norm.p90 != null ? norm.p90 * scale : null
 
-      const goalProbability = typeof prob.goal_probability === 'number'
+      // T6 P0-3: Prefer probability_of_joint_goal (constrained) when constraints exist,
+      // fall back to goal_probability (unconstrained)
+      const jointGoalProb = typeof (prob as any).probability_of_joint_goal === 'number'
+        ? (prob as any).probability_of_joint_goal as number
+        : null
+      const unconstrained = typeof prob.goal_probability === 'number'
         ? prob.goal_probability
         : null
+      const hasConstraints = prob.constraint_analysis?.constraints?.length > 0
+      const goalProbability = hasConstraints && jointGoalProb != null
+        ? jointGoalProb
+        : unconstrained
 
       return {
         id: nodeId,
@@ -2304,7 +2313,9 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       })(),
       inferenceWarnings: (() => {
         const raw = safeArray((report as any)?.inference_warnings ?? (report as any)?.robustness?.inference_warnings)
-        const relevant = raw.filter((w: any) => w.code === 'MISSING_ROOT_VALUE')
+        // T6 fix: surface CONSTRAINT_NODE_DEFAULT_BASE alongside MISSING_ROOT_VALUE
+        const SURFACED_CODES = new Set(['MISSING_ROOT_VALUE', 'CONSTRAINT_NODE_DEFAULT_BASE'])
+        const relevant = raw.filter((w: any) => SURFACED_CODES.has(w.code))
         if (relevant.length === 0) return undefined
         return relevant.map((w: any) => {
           const nodeIds: string[] = safeArray(w.affected_nodes ?? w.affectedNodes)

@@ -71,6 +71,14 @@ export const GoalNode = memo((props: NodeProps) => {
     return label === 'No evidence yet' || label === `Source: ${source}` ? null : label
   }, [props.data?.observedState])
 
+  // T6 fix: Check for CONSTRAINT_NODE_DEFAULT_BASE inference warning — goal probability unreliable
+  const hasConstraintDefaultWarning = useMemo(() => {
+    if (resultsStatus !== 'complete' || !report) return false
+    const warnings = (report as any)?.inference_warnings ?? (report as any)?.robustness?.inference_warnings
+    if (!Array.isArray(warnings)) return false
+    return warnings.some((w: any) => w.code === 'CONSTRAINT_NODE_DEFAULT_BASE')
+  }, [report, resultsStatus])
+
   // §11.3: Goal node border reflects confidence/stability level (post-analysis only)
   // high → solid goal (default, no override), moderate → info dashed, low → danger dashed
   const goalBorderOverride = useMemo(() => {
@@ -84,10 +92,34 @@ export const GoalNode = memo((props: NodeProps) => {
 
   return (
     <BaseNode {...props} nodeType="goal" icon={metadata.icon} borderClassOverride={goalBorderOverride}>
-      {/* Achievement probability */}
+      {/* Achievement probability — evaluative colour per §11.6: >=0.70 success, >=0.40 warning, <0.40 danger */}
       {displayMetadata.achievementProbability !== null && (
-        <div className={`${typography.nodeTitle} mb-1 text-success`}>
-          {Math.round(displayMetadata.achievementProbability * 100)}% chance
+        <div className={`${typography.nodeTitle} mb-1 flex items-center gap-1 ${
+          displayMetadata.achievementProbability >= 0.70 ? 'text-success'
+          : displayMetadata.achievementProbability >= 0.40 ? 'text-warning'
+          : 'text-danger'
+        }`}>
+          {Math.round(displayMetadata.achievementProbability * 100)}% chance of target
+          {hasConstraintDefaultWarning && (
+            <span
+              className={`${typography.nodeLabel} bg-panel border border-factor/30 text-text-body rounded-full w-4 h-4 flex items-center justify-center flex-shrink-0`}
+              title="Goal probability may be unreliable — baseline expectation defaulted to zero"
+            >
+              ?
+            </span>
+          )}
+        </div>
+      )}
+      {/* T6 P1-4: Show "?" badge independently when probability is null but warning exists */}
+      {displayMetadata.achievementProbability === null && hasConstraintDefaultWarning && (
+        <div className={`${typography.nodeTitle} mb-1 flex items-center gap-1 text-warning`}>
+          <span
+            className={`${typography.nodeLabel} bg-panel border border-factor/30 text-text-body rounded-full w-4 h-4 flex items-center justify-center flex-shrink-0`}
+            title="Goal probability may be unreliable — baseline expectation defaulted to zero"
+          >
+            ?
+          </span>
+          <span className={`${typography.nodeLabel} text-text-light`}>Target probability unavailable</span>
         </div>
       )}
 
@@ -95,7 +127,7 @@ export const GoalNode = memo((props: NodeProps) => {
       {stabilityValue !== null && (
         <div className="mt-2 mb-1">
           <div className="flex items-center gap-1.5 mb-1 flex-wrap">
-            <span className={`${typography.nodeLabel} text-text-light`}>Stability</span>
+            <span className={`${typography.nodeLabel} text-text-light`}>Decision stability</span>
             <span className={`${typography.nodeTitle} text-text-body`}>
               {Math.round(stabilityValue * 100)}%
             </span>

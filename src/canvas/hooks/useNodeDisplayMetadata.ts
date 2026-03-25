@@ -27,7 +27,11 @@ interface NodeDisplayMetadata {
   stabilityPercentage: number | null
   /** Win rate for options (0-1) */
   winRate: number | null
-  /** Predicted outcome range from recommended option (post-analysis, outcome nodes only) */
+  /**
+   * Predicted outcome range (post-analysis, outcome nodes only).
+   * Currently null — PLoT does not provide per-outcome distributions.
+   * Gated on per-node data; re-enable when PLoT adds per-outcome distributions.
+   */
   predictedOutcome: { mean: number | null; p10: number | null; p90: number | null } | null
   /** Value of information score (0-1), post-analysis factor nodes only */
   valueOfInformation: number | null
@@ -169,9 +173,16 @@ export function useNodeDisplayMetadata(
                                   report.robustness?.recommendedOptionId
 
       if (recommendedOptionId) {
-        const rec = optionProbabilities[recommendedOptionId]
+        const rec = optionProbabilities[recommendedOptionId] as any
         if (rec) {
-          achievementProbability = rec.goal_probability ?? null
+          // T6 P0-3: Prefer probability_of_joint_goal (constrained) when available,
+          // fall back to goal_probability (unconstrained)
+          const jointProb = typeof rec.probability_of_joint_goal === 'number'
+            ? rec.probability_of_joint_goal : null
+          const hasConstraints = rec.constraint_analysis?.constraints?.length > 0
+          achievementProbability = hasConstraints && jointProb != null
+            ? jointProb
+            : (rec.goal_probability ?? null)
         }
       }
 
@@ -196,25 +207,12 @@ export function useNodeDisplayMetadata(
       }
     }
 
-    // Task 3: Predicted outcome range for outcome nodes — from recommended option's distribution
-    let predictedOutcome: { mean: number | null; p10: number | null; p90: number | null } | null = null
-    if (nodeType === 'outcome') {
-      const recommendedOptionId = report.robustness?.recommended_option_id ??
-                                  report.robustness?.recommendedOptionId
-      if (recommendedOptionId) {
-        const optionProbabilities = report.option_probabilities ?? {}
-        const rec = optionProbabilities[recommendedOptionId] as any
-        const outcomeData = rec?.outcome
-        if (outcomeData) {
-          const mean = (rec.expected ?? outcomeData.mean ?? null) as number | null
-          const p10 = (outcomeData.p10 ?? null) as number | null
-          const p90 = (outcomeData.p90 ?? null) as number | null
-          if (mean !== null || p10 !== null || p90 !== null) {
-            predictedOutcome = { mean, p10, p90 }
-          }
-        }
-      }
-    }
+    // T4 fix: predictedOutcome removed — the previous code read the goal-level
+    // distribution (optionProbabilities[recId].outcome) which is the SAME object for
+    // every outcome node, causing identical ranges on all outcome/risk nodes.
+    // PLoT does not provide per-outcome distributions. When it does, re-enable this
+    // code path keyed on the individual outcome node ID.
+    const predictedOutcome: { mean: number | null; p10: number | null; p90: number | null } | null = null
 
     return {
       sensitivityRank,

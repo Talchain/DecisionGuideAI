@@ -234,6 +234,52 @@ describe('denormaliseInterventionValue', () => {
   it('passes through integer value > 1 within scale (already denormalised)', () => {
     expect(denormaliseInterventionValue(49, 100)).toBe(49)
   })
+
+  // T3 fix: raw-value proportional mapping
+  describe('raw-value proportional mapping (T3)', () => {
+    it('returns raw_value directly when value matches baseline (baseline case)', () => {
+      // raw_value: 49, cap: 70, value (baseline): 0.69
+      // Intervention value = 0.69 (same as baseline) → should return 49, not 0.69 * 70 = 48.3
+      expect(denormaliseInterventionValue(0.69, 70, 0.69, 49)).toBe(49)
+    })
+
+    it('proportionally maps non-baseline value through raw scale', () => {
+      // raw_value: 49, cap: 70, baseline: 0.69, target: 0.83
+      // Should return 49 * (0.83 / 0.69) ≈ 58.94, not 0.83 * 70 = 58.1
+      expect(denormaliseInterventionValue(0.83, 70, 0.69, 49)).toBeCloseTo(58.94, 1)
+    })
+
+    it('falls back to value * cap when baseline normalised value is 0 (zero-division guard)', () => {
+      // Binary factor: baseline is off (value=0), cap=1 → baselineNorm check fails (> 0)
+      // Falls through to value * scaleBase
+      expect(denormaliseInterventionValue(0.5, 10, 0, 5)).toBe(5)
+    })
+
+    it('falls back to value * cap when raw_value is absent', () => {
+      // No raw_value → old behaviour (value * cap)
+      expect(denormaliseInterventionValue(0.5, 100, 0.5, null)).toBe(50)
+      expect(denormaliseInterventionValue(0.5, 100, 0.5, undefined)).toBe(50)
+    })
+
+    it('percentage factor: raw-value path produces same result as cap path', () => {
+      // raw_value: 50, cap: 100, value: 0.5
+      // raw path: 50 (baseline match) ✓; cap path would give 0.5 * 100 = 50 ✓
+      expect(denormaliseInterventionValue(0.5, 100, 0.5, 50)).toBe(50)
+      // target 0.8: raw path: 50 * (0.8 / 0.5) = 80; cap path: 0.8 * 100 = 80
+      expect(denormaliseInterventionValue(0.8, 100, 0.5, 50)).toBe(80)
+    })
+
+    it('handles string raw_value (from CEE)', () => {
+      // CEE sometimes sends raw_value as string
+      expect(denormaliseInterventionValue(0.69, 70, 0.69, '49')).toBe(49)
+    })
+
+    it('falls back to value * cap when raw_value is 0 (prevents collapsing all interventions to zero)', () => {
+      // raw_value: 0, cap: 10, baselineNorm: 0.01 — raw path would give 0 * (anything) = 0
+      // Must fall through to value * cap instead
+      expect(denormaliseInterventionValue(0.5, 10, 0.01, 0)).toBe(5)
+    })
+  })
 })
 
 // ---------------------------------------------------------------------------

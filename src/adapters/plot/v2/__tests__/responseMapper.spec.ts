@@ -211,6 +211,7 @@ describe('mapV2ResponseToReportV1', () => {
     expect(report.option_probabilities).toEqual({
       opt1: {
         goal_probability: null, // No probability_of_goal in input (Fix A: no CI midpoint fallback)
+        probability_of_joint_goal: null, // T6 P0-3: mapped from V2 response
         confidence: 0.5,
         constraint_analysis: undefined,
         win_probability: undefined,
@@ -224,6 +225,7 @@ describe('mapV2ResponseToReportV1', () => {
       },
       opt2: {
         goal_probability: null, // No probability_of_goal in input
+        probability_of_joint_goal: null, // T6 P0-3: mapped from V2 response
         confidence: 0.5,
         constraint_analysis: undefined,
         win_probability: undefined,
