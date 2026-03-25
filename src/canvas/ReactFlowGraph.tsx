@@ -1064,7 +1064,6 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
     } else {
       setContextMenuTarget({ kind: 'pane', screenPos })
     }
-
   }, [])
 
   // Setup keyboard shortcuts (P, Alt+V, Cmd/Ctrl+Enter, Cmd/Ctrl+3, Cmd/Ctrl+I, Cmd/Ctrl+D, Shift+F10)
@@ -1656,8 +1655,6 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
   const onPaneContextMenu = useCallback((event: React.MouseEvent | MouseEvent) => {
     event.preventDefault()
     const screenPos = { x: event.clientX, y: event.clientY }
-
-
     const { selection } = useCanvasStore.getState()
     const isMulti = selection.nodeIds.size > 1
       || selection.edgeIds.size > 1
@@ -1677,8 +1674,6 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
   const onNodeContextMenu = useCallback((event: React.MouseEvent | MouseEvent, node?: any) => {
     event.preventDefault()
     const screenPos = { x: event.clientX, y: event.clientY }
-
-
     if (node) {
       const { selection } = useCanvasStore.getState()
       if (selection.nodeIds.size > 1) {
@@ -1707,8 +1702,6 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
   const onEdgeContextMenu = useCallback((event: React.MouseEvent | MouseEvent, edge?: any) => {
     event.preventDefault()
     const screenPos = { x: event.clientX, y: event.clientY }
-
-
     if (edge) {
       const { nodes } = useCanvasStore.getState()
       const getNodeKind = (id: string) => {
