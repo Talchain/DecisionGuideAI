@@ -25,9 +25,9 @@ const STRENGTH_BANDS = [
 
 function getConfidenceBand(std: number | undefined): { label: string; dot: string } | null {
   if (std == null) return null
-  if (std < 0.10) return { label: 'High confidence', dot: 'text-success' }
-  if (std < 0.20) return { label: 'Moderate confidence', dot: 'text-warning' }
-  return { label: 'Low confidence', dot: 'text-danger' }
+  if (std < 0.10) return { label: 'High confidence', dot: 'bg-success' }
+  if (std < 0.20) return { label: 'Moderate confidence', dot: 'bg-warning' }
+  return { label: 'Low confidence', dot: 'bg-danger' }
 }
 
 /** Qualitative strength label from weight magnitude */
@@ -95,7 +95,7 @@ export function KeyRelationshipsSubgroup({
           segments.push({
             key: 'exists',
             node: (
-              <Tooltip delay={300} content={`Probability this relationship exists. ${existsPct}% means ${100 - existsPct}% of simulations will ignore it.`}>
+              <Tooltip delay={300} content={`Probability this relationship exists in your decision. ${existsPct}% means ${100 - existsPct}% of simulations will ignore it.`}>
                 <span>{existsPct}% likely</span>
               </Tooltip>
             ),
