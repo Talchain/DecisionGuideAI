@@ -873,7 +873,18 @@ export function useConversation(): UseConversationReturn {
   const prevScenarioRef = useRef(scenarioId)
   useEffect(() => {
     if (scenarioId !== prevScenarioRef.current) {
+      const wasNull = prevScenarioRef.current === null || prevScenarioRef.current === undefined
       prevScenarioRef.current = scenarioId
+
+      // When the previous ID was null/undefined, this is the initial lazy UUID
+      // assignment from buildRequest — not a real scenario switch. Clearing
+      // messages here would wipe the in-flight conversation and kill isThinking.
+      if (wasNull && scenarioId) {
+        if (import.meta.env.DEV) {
+          console.debug('[useConversation] Skipping reset — initial scenario_id assignment:', scenarioId)
+        }
+        return
+      }
 
       // Track 3: Hydrate conversation from persisted thread on scenario resume
       if (isThreadHydrateEnabled() && scenarioId) {
