@@ -392,13 +392,11 @@ export const ResultsBody = memo(function ResultsBody({
 
             {/* ── SECTION 4b: BEFORE YOU COMMIT (M2) ──────────────── */}
             {(() => {
-              const eValueEdges = (resultsSectionData.confidence.edgeEValues ?? []).filter(ev => ev.e_value < 3.0)
-              const eValueCount = eValueEdges.length
-              // When E-values are absent, count fragile edges (capped at 3) instead
-              const fragileEdgeCount_ = eValueCount > 0 ? 0 : Math.min(3, (resultsSectionData.confidence.challengeFragileEdges ?? []).length)
+              // Merged fragile cards: capped at 3 (matches ChallengeSection logic)
+              const mergedFragileCount = Math.min(3, (resultsSectionData.confidence.challengeFragileEdges ?? []).length)
               const warningCount = (resultsSectionData.confidence.inferenceWarnings ?? []).length
               const identCount = identifiability ? 1 : 0
-              const challengeTotal = biasFindings.length + preMortemItems.length + eValueCount + fragileEdgeCount_ + warningCount + identCount
+              const challengeTotal = biasFindings.length + preMortemItems.length + mergedFragileCount + warningCount + identCount
               if (challengeTotal === 0) return null
               return (
               <div>

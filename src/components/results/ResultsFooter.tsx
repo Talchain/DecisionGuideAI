@@ -14,7 +14,7 @@ export interface ResultsFooterProps {
   stability?: number | null
   /** Number of resolved action items */
   resolvedCount: number
-  /** Total must_fix + should_fix items */
+  /** Total addressable action items */
   totalCount: number
   /** Cumulative normalised influence of resolved factors (0-1), omit when unavailable */
   influencePct?: number | null
@@ -32,6 +32,7 @@ export function ResultsFooter({
   const parts: string[] = []
   if (stabilityLabel) parts.push(stabilityLabel)
   if (totalCount > 0) parts.push(`${resolvedCount}/${totalCount} addressed`)
+  if (influencePct != null) parts.push(`${Math.round(influencePct * 100)}% of influence`)
   if (stabilityPct != null) parts.push(`${stabilityPct}%`)
 
   return (
