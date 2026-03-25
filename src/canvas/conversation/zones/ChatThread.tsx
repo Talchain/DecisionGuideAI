@@ -69,6 +69,11 @@ export const ChatThread = memo(function ChatThread({
   const streamingMsg = showEmptyState ? messages.find(m => m.isStreaming) : undefined
   const streamingText = streamingMsg?.content || null
 
+  if (import.meta.env.DEV) {
+    console.debug('[ChatThread] showEmptyState=%s isThinking=%s nodeCount=%d hasFinalizedAssistant=%s msgs=%d streamingText=%s',
+      showEmptyState, isThinking, nodeCount, hasFinalizedAssistant, messages.length, !!streamingText)
+  }
+
   // Get suggested chips from last assistant message
   const lastAssistantMsg = [...messages].reverse().find(m => m.role === 'assistant')
   const suggestedChips = lastAssistantMsg?.actionChips ?? []

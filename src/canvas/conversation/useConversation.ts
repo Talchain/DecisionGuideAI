@@ -812,6 +812,12 @@ export interface UseConversationReturn {
 export function useConversation(): UseConversationReturn {
   const [messages, setMessages] = useState<ConversationMessage[]>([])
   const [isThinking, setIsThinking] = useState(false)
+  // Mirror isThinking in a ref so sendTurn can read it without being in the
+  // useCallback dependency array. Including the state value in deps caused the
+  // callback to be recreated on every isThinking toggle, breaking the async
+  // streaming loop (the old closure's finally block fired immediately).
+  const isThinkingRef = useRef(false)
+  useEffect(() => { isThinkingRef.current = isThinking }, [isThinking])
   const [longRunningHint, setLongRunningHint] = useState<string | null>(null)
   const [lastFailedInput, setLastFailedInput] = useState<string | null>(null)
   const [patchBlockStates, setPatchBlockStates] = useState<Map<string, PatchBlockState>>(new Map())
@@ -1787,7 +1793,7 @@ export function useConversation(): UseConversationReturn {
       })
 
       if (mode === 'user') {
-        if (!message.trim() || isThinking) {
+        if (!message.trim() || isThinkingRef.current) {
           if (import.meta.env.DEV) console.warn('[sendTurn] Blocked:', !message.trim() ? 'empty message' : 'isThinking=true')
           inFlightRef.current = false; return
         }
@@ -1830,7 +1836,7 @@ export function useConversation(): UseConversationReturn {
         // System events: no user bubble, but still guard against concurrent sends.
         // Note: '[system]' sentinel turns must be excluded when conversation persistence
         // is implemented. They are infrastructure turns, not user content.
-        if (isThinking) {
+        if (isThinkingRef.current) {
           if (import.meta.env.DEV) console.warn('[sendTurn] System event blocked: isThinking=true')
           inFlightRef.current = false; return
         }
@@ -2180,7 +2186,7 @@ export function useConversation(): UseConversationReturn {
         inFlightRef.current = false
       }
     },
-    [isThinking, addMessage, updateMessage, buildRequest, handleEnvelope, scheduleStreamFlush, cleanupStreamRefs],
+    [addMessage, updateMessage, buildRequest, handleEnvelope, scheduleStreamFlush, cleanupStreamRefs],
   )
 
   // ---------------------------------------------------------------------------
