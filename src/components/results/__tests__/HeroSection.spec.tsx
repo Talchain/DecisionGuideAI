@@ -1018,7 +1018,7 @@ describe('HeroSection', () => {
     // V14: Both the stability badge and decision-state-dot render the same text,
     // so we use getAllByText and check specific containers.
 
-    it('shows "Sensitive result" in trust-one-liner when decisionState is indeterminate (stability=0.40)', () => {
+    it('shows "Sensitive to assumptions" in trust-one-liner when decisionState is indeterminate (stability=0.40)', () => {
       render(
         <HeroSection
           {...baseProps}
@@ -1030,10 +1030,10 @@ describe('HeroSection', () => {
         />
       )
 
-      // TrustOneLiner uses stability thresholds: 0.40 → "Sensitive result"
+      // TrustOneLiner delegates to getStabilityClassification: 0.40 → low → "Sensitive to assumptions"
       const trustEl = screen.getByTestId('trust-one-liner')
       expect(trustEl).toBeInTheDocument()
-      expect(trustEl.textContent).toContain('Sensitive result')
+      expect(trustEl.textContent).toContain('Sensitive to assumptions')
     })
 
     it('preserves "Stable result" in trust-one-liner for robust state', () => {
@@ -1049,21 +1049,21 @@ describe('HeroSection', () => {
       expect(trustEl.textContent).toContain('Stable result')
     })
 
-    it('preserves "Sensitive result" in trust-one-liner for sensitive state (stability=0.60)', () => {
+    it('preserves "Sensitive to assumptions" in trust-one-liner for sensitive state (stability=0.40)', () => {
       render(
         <HeroSection
           {...baseProps}
           decisionState="sensitive"
-          recommendationStability={0.60}
+          recommendationStability={0.40}
         />
       )
 
-      // stability=0.60 is >= 0.40, < 0.70 → "Sensitive result"
+      // stability=0.40 is >= 0.30, < 0.55 → "Sensitive to assumptions" (canonical thresholds)
       const trustEl = screen.getByTestId('trust-one-liner')
-      expect(trustEl.textContent).toContain('Sensitive result')
+      expect(trustEl.textContent).toContain('Sensitive to assumptions')
     })
 
-    it('trust-one-liner shows "Sensitive result" for indeterminate (stability=0.40)', () => {
+    it('trust-one-liner shows "Sensitive to assumptions" for indeterminate (stability=0.40)', () => {
       render(
         <HeroSection
           {...baseProps}
@@ -1073,7 +1073,7 @@ describe('HeroSection', () => {
       )
 
       const trustEl = screen.getByTestId('trust-one-liner')
-      expect(trustEl.textContent).toContain('Sensitive result')
+      expect(trustEl.textContent).toContain('Sensitive to assumptions')
       // decision-state-pill is removed from V16 path
       expect(screen.queryByTestId('decision-state-pill')).not.toBeInTheDocument()
     })
@@ -1119,7 +1119,7 @@ describe('HeroSection', () => {
       expect(screen.queryByTestId('decision-state-pill')).not.toBeInTheDocument()
     })
 
-    it('trust-one-liner shows "Sensitive result" for stability=0.60 (natural tier)', () => {
+    it('trust-one-liner shows "Mostly stable" for stability=0.60 (natural tier)', () => {
       render(
         <HeroSection
           {...baseProps}
@@ -1128,8 +1128,9 @@ describe('HeroSection', () => {
         />
       )
 
+      // stability=0.60 is >= 0.55, < 0.80 → "Mostly stable" (canonical thresholds)
       const trustEl = screen.getByTestId('trust-one-liner')
-      expect(trustEl.textContent).toContain('Sensitive result')
+      expect(trustEl.textContent).toContain('Mostly stable')
     })
   })
 
@@ -1358,7 +1359,7 @@ describe('HeroSection', () => {
       expect(trust.textContent).toContain('Stable result')
     })
 
-    it('shows "Sensitive result" for low stability (needs_evidence, low robustness)', () => {
+    it('shows "Sensitive to assumptions" for low stability (needs_evidence, low robustness)', () => {
       render(
         <HeroSection
           {...baseProps}
@@ -1369,8 +1370,9 @@ describe('HeroSection', () => {
         />
       )
 
+      // stability=0.50 is >= 0.30, < 0.55 → "Sensitive to assumptions" (canonical thresholds)
       const trust = screen.getByTestId('trust-one-liner')
-      expect(trust.textContent).toContain('Sensitive result')
+      expect(trust.textContent).toContain('Sensitive to assumptions')
     })
 
     it('shows evidence suffix when default estimates dominate', () => {
