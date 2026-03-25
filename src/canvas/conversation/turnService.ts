@@ -671,13 +671,16 @@ export async function* streamOrchestratorTurn(
     // Skip when we fell back to callOrchestratorTurn, which records its own payloads.
     if (completionStatus !== 'fallback') {
       const elapsedMs = Math.max(1, Date.now() - startTime)
+      const isFailure = completionStatus === 'error'
+        || completionStatus === 'timeout'
+        || completionStatus === 'disconnect'
       recordResponsePayload({
         id: requestId,
         status: finalEnvelope ? 200 : 0,
-        headers: {},
+        headers: Object.fromEntries(response.headers.entries()),
         body: finalEnvelope,
         duration: elapsedMs,
-        ...(completionStatus === 'error' ? { error: 'Stream completed with error' } : {}),
+        ...(isFailure ? { error: `Stream ${completionStatus}` } : {}),
       })
     }
   }
