@@ -16,7 +16,6 @@
 
 import { useState, useMemo, type ReactNode } from 'react'
 import { AlertTriangle, Info } from 'lucide-react'
-import { getThresholdColour } from './utils/getThresholdColour'
 import { typography } from '../../styles/typography'
 import { stripEncodingNotation } from './utils/cleanFactorLabel'
 import { formatPercent as formatPct } from '../../utils/formatPercent'
@@ -24,6 +23,9 @@ import { GraphLink } from './GraphLink'
 import { linkifyCoachingText, type LinkEntity } from './utils/linkifyCoachingText'
 import { BaselineToggleCard, type BaselineOption } from './BaselineToggleCard'
 import { BaselineTargetRow } from './BaselineTargetRow'
+import { TrustOneLiner } from './TrustOneLiner'
+import { TargetProbabilityBars } from './TargetProbabilityBars'
+import { WinGauge } from './WinGauge'
 import { formatTargetValue } from './utils/formatTargetValue'
 import { focusNodeById } from '../../canvas/utils/focusHelpers'
 import { highlightNode, clearHighlight } from '../../canvas/utils/highlightHelpers'
@@ -49,14 +51,6 @@ export type RichText = RichSegment[]
 interface StructuredHeadline {
   main: string
   sub: string | null
-}
-
-/** Win probability per option for the win gauge */
-export interface OptionWinShare {
-  id: string
-  label: string
-  winProbability: number
-  isWinner: boolean
 }
 
 /** Goal probability per option for the goal-achievement display */
@@ -156,6 +150,8 @@ export interface HeroSectionProps {
   totalFactorCount?: number
   /** A3: Goal-achievement probabilities for all options (shown when goal threshold set) */
   allOptionGoalProbabilities?: OptionGoalProbability[]
+  /** Constraint analysis from the winning option (for target probability bars) */
+  winnerConstraintAnalysis?: import('../../types/constraints').ConstraintAnalysis
 }
 
 // =============================================================================
@@ -265,146 +261,18 @@ function extractFirstSentence(text: string): { first: string; hasMore: boolean }
 }
 
 // =============================================================================
-// Sub-Components
+// Re-exports — WinGauge extracted to WinGauge.tsx, still exported from here
+// for backwards compatibility with existing imports.
 // =============================================================================
-
-/** V12.3: Win gauge + option card colours — shared palette for visual continuity */
-export const WIN_GAUGE_COLORS = [
-  'var(--success)',         // Winner — mint-500
-  'var(--info)',            // Runner-up — sky-500
-  'var(--option)',          // Third — lilac-400
-  'var(--border-default)',  // Fourth+ — sand-200
-]
-
-/** V12.3: Indeterminate colours — sky for top two (near-tie signal), muted for rest */
-export const WIN_GAUGE_COLORS_INDETERMINATE = [
-  'var(--info)',            // Top option — sky-500
-  'var(--info-light)',      // Second option — sky-200 (lighter, near-tie signal)
-  'var(--border-default)',  // Third — sand-200
-  'var(--border-default)',  // Fourth — sand-200
-]
-
-/**
- * Tailwind border classes that correspond 1-to-1 with WIN_GAUGE_COLORS by index.
- * Option cards use these to match their WinGauge segment colour without string-matching CSS vars.
- */
-export const WIN_GAUGE_BORDER_CLASSES = [
-  'border-2 border-success/60', // Winner — thicker, high-contrast accent
-  'border-info/60',              // Runner-up — mid-contrast, visibly linked to win-bar
-  'border-option/60',            // Third — mid-contrast, ordinal palette
-  'border-panel-border',         // Fourth+ — neutral baseline
-]
-
-/** Indeterminate palette border classes, parallel to WIN_GAUGE_COLORS_INDETERMINATE. */
-export const WIN_GAUGE_BORDER_CLASSES_INDETERMINATE = [
-  'border-info/30',      // Top option — matches var(--info)
-  'border-info/20',      // Second option — matches var(--info-light)
-  'border-panel-border', // Third — matches var(--border-default)
-  'border-panel-border', // Fourth — matches var(--border-default)
-]
-
-/**
- * Build a border-class map from option ID → Tailwind border class, using the same
- * sort order as buildSegmentColorMap. Derived from the palette arrays by index so
- * border and segment colours cannot drift independently.
- */
-export function buildSegmentBorderClassMap(
-  options: Array<{ id: string; winProbability?: number | null }>,
-  winnerId: string | undefined,
-  decisionState?: DecisionState,
-): Record<string, string> {
-  const classes = decisionState === 'indeterminate'
-    ? WIN_GAUGE_BORDER_CLASSES_INDETERMINATE
-    : WIN_GAUGE_BORDER_CLASSES
-  const sorted = [...options].sort((a, b) => {
-    if (a.id === winnerId && b.id !== winnerId) return -1
-    if (a.id !== winnerId && b.id === winnerId) return 1
-    return (b.winProbability ?? 0) - (a.winProbability ?? 0)
-  })
-  const map: Record<string, string> = {}
-  sorted.forEach((opt, i) => {
-    map[opt.id] = classes[Math.min(i, classes.length - 1)]
-  })
-  return map
-}
-
-/**
- * Build a colour map from option ID → CSS colour, using the same sort order
- * as WinGauge (winner first, then winProbability descending). This ensures
- * OptionCards colours match the corresponding WinGauge segment ordering
- * regardless of how cards are independently sorted.
- */
-export function buildSegmentColorMap(
-  options: Array<{ id: string; winProbability?: number | null; isRecommended?: boolean }>,
-  winnerId: string | undefined,
-  decisionState?: DecisionState,
-): Record<string, string> {
-  const colors = decisionState === 'indeterminate' ? WIN_GAUGE_COLORS_INDETERMINATE : WIN_GAUGE_COLORS
-  const sorted = [...options].sort((a, b) => {
-    if (a.id === winnerId && b.id !== winnerId) return -1
-    if (a.id !== winnerId && b.id === winnerId) return 1
-    return (b.winProbability ?? 0) - (a.winProbability ?? 0)
-  })
-  const map: Record<string, string> = {}
-  sorted.forEach((opt, i) => {
-    map[opt.id] = colors[Math.min(i, colors.length - 1)]
-  })
-  return map
-}
-
-/**
- * WinGauge — stacked horizontal bar showing win probability per option.
- * "Wins across scenarios" label + segmented bar. Legend removed in V12.4.
- */
-function WinGauge({
-  shares,
-  decisionState,
-}: {
-  shares: OptionWinShare[]
-  decisionState?: DecisionState
-}) {
-  if (shares.length === 0) return null
-
-  const colors = decisionState === 'indeterminate' ? WIN_GAUGE_COLORS_INDETERMINATE : WIN_GAUGE_COLORS
-
-  // Sort: winner first, then by win probability descending
-  const sorted = [...shares].sort((a, b) => {
-    if (a.isWinner && !b.isWinner) return -1
-    if (!a.isWinner && b.isWinner) return 1
-    return b.winProbability - a.winProbability
-  })
-
-  const isDeemphasised = decisionState === 'indeterminate'
-
-  return (
-    <div className={`mb-4${isDeemphasised ? ' opacity-70' : ''}`} role="figure" aria-label="Win probability distribution across options">
-      <p className={`${typography.panelMeta} text-text-light mb-1`}>
-        Wins across scenarios
-      </p>
-      {/* Stacked bar — use clamped raw percentage for width to avoid rounding gaps */}
-      <div className={`flex rounded-full overflow-hidden gap-0.5${isDeemphasised ? ' h-2' : ' h-3'}`}>
-        {sorted.map((share, i) => {
-          const clamped = Math.max(0, Math.min(1, share.winProbability))
-          const widthPct = clamped * 100
-          const displayPct = Math.round(widthPct)
-          if (displayPct <= 0) return null
-          return (
-            <div
-              key={share.id}
-              className="h-full rounded-full"
-              style={{
-                width: `${widthPct}%`,
-                backgroundColor: colors[Math.min(i, colors.length - 1)],
-              }}
-              role="img"
-              aria-label={`${stripEncodingNotation(share.label)}: ${displayPct}%`}
-            />
-          )
-        })}
-      </div>
-    </div>
-  )
-}
+export {
+  WIN_GAUGE_COLORS,
+  WIN_GAUGE_COLORS_INDETERMINATE,
+  WIN_GAUGE_BORDER_CLASSES,
+  WIN_GAUGE_BORDER_CLASSES_INDETERMINATE,
+  buildSegmentBorderClassMap,
+  buildSegmentColorMap,
+} from './WinGauge'
+export type { OptionWinShare } from './WinGauge'
 
 
 // =============================================================================
@@ -451,6 +319,7 @@ export function HeroSection({
   defaultEstimateCount,
   totalFactorCount,
   allOptionGoalProbabilities,
+  winnerConstraintAnalysis,
 }: HeroSectionProps) {
   // A1: Previous report snapshot for delta indicators
   const previousReport = useCanvasStore(selectPreviousReport)
@@ -973,12 +842,20 @@ export function HeroSection({
             </div>
           )}
 
-          {/* ── V16 Task 3: Trust summary ─────────────────────── */}
-          <p className={`${typography.panelMeta} text-text-light truncate`} data-testid="trust-summary">
-            Trust: {trustLevel}. {trustReason.charAt(0).toUpperCase()}{trustReason.slice(1)}
-          </p>
+          {/* ── Inline trust one-liner (replaces separate trust section) ── */}
+          <TrustOneLiner
+            recommendationStability={recommendationStability}
+            defaultEstimateCount={defaultEstimateCount}
+            totalFactorCount={totalFactorCount}
+          />
 
-          {/* ── V16 Task 2: Baseline + target row (above gauge) ── */}
+          {/* ── Target probability bars (per-constraint) ─────── */}
+          <TargetProbabilityBars
+            constraintAnalysis={winnerConstraintAnalysis}
+            goalThreshold={goalThreshold}
+          />
+
+          {/* ── Baseline + target status row ──────────────────── */}
           <BaselineTargetRow
             baselineOptions={baselineOptions}
             baselineLabel={baselineLabel}
@@ -991,190 +868,38 @@ export function HeroSection({
             onEditTarget={goalNodeId ? () => focusNodeById(goalNodeId) : undefined}
           />
 
-          {/* ── Win gauge ────────────────────────────────────── */}
-          {optionWinShares && optionWinShares.length > 1 && (
-            <WinGauge shares={optionWinShares} decisionState={decisionState} />
-          )}
-
-          {/* A3: Goal-achievement probability — comparative display for all options */}
-          {goalThreshold != null && allOptionGoalProbabilities && allOptionGoalProbabilities.length > 0 && (
-            <div className="space-y-0.5" data-testid="goal-probability-display">
-              {allOptionGoalProbabilities.length === 1 ? (
-                <p className={`${typography.panelBody} text-text-body`}>
-                  <span className="inline-block w-1.5 h-1.5 rounded-full mr-1.5 align-middle" style={{ backgroundColor: 'var(--goal)' }} />
-                  {allOptionGoalProbabilities[0].label} has a {formatPct(allOptionGoalProbabilities[0].goalProbability, { fromDecimal: true })} chance of reaching your target of {formatTargetValue(goalThreshold, outcomeUnit, outcomeUnitSymbol)}{' '}
-                  <DeltaIndicator currentValue={allOptionGoalProbabilities[0].goalProbability} previousValue={previousReport?.options[allOptionGoalProbabilities[0].id]?.goalProbability} format="percent" />
-                </p>
-              ) : (
-                allOptionGoalProbabilities.map(opt => (
-                  <p key={opt.id} className={`${typography.panelBody} text-text-body`}>
-                    <span className="inline-block w-1.5 h-1.5 rounded-full mr-1.5 align-middle" style={{ backgroundColor: 'var(--goal)' }} />
-                    {opt.label}: {formatPct(opt.goalProbability, { fromDecimal: true })} chance of reaching your target of {formatTargetValue(goalThreshold, outcomeUnit, outcomeUnitSymbol)}{' '}
-                    <DeltaIndicator currentValue={opt.goalProbability} previousValue={previousReport?.options[opt.id]?.goalProbability} format="percent" />
-                  </p>
-                ))
+          {/* ── M2 narrative inline (2-line clamp, "Read more" links to Advanced) ── */}
+          {m2NarrativeClamped ? (
+            <p className={`${typography.panelBody} text-text-light line-clamp-2`} data-testid="hero-m2-narrative">
+              {m2NarrativeClamped.first}
+              {m2NarrativeClamped.hasMore && (
+                <>
+                  {' '}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const el = document.getElementById('trust-narrative')
+                      if (el) {
+                        el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                        const accordion = el.closest('[data-testid="accordion-advanced"]')
+                        if (accordion) {
+                          const trigger = accordion.querySelector('button[aria-expanded="false"]') as HTMLButtonElement | null
+                          trigger?.click()
+                        }
+                      }
+                    }}
+                    className={`${typography.panelBody} text-info hover:underline`}
+                  >
+                    Read more
+                  </button>
+                </>
               )}
-            </div>
-          )}
-          {/* Fallback: winner-only display when allOptionGoalProbabilities not provided */}
-          {goalThreshold != null && winnerGoalProbability != null && !allOptionGoalProbabilities?.length && (
-            <p className={`${typography.panelBody} text-text-body`}>
-              <span className="inline-block w-1.5 h-1.5 rounded-full mr-1.5 align-middle" style={{ backgroundColor: 'var(--goal)' }} />
-              {winnerLabel} has a {formatPct(winnerGoalProbability, { fromDecimal: true })} chance of reaching your target of {formatTargetValue(goalThreshold, outcomeUnit, outcomeUnitSymbol)}{' '}
-              <DeltaIndicator currentValue={winnerGoalProbability} previousValue={winnerId ? previousReport?.options[winnerId]?.goalProbability : undefined} format="percent" />
             </p>
-          )}
-
-          {/* ── Stability badge + More / Less toggle ─────────── */}
-          <div className="border-t border-panel-border pt-3">
-            <div className="flex items-center gap-3">
-              {stabilityTier.label && (
-                <span className={`inline-flex items-center gap-1.5 bg-transparent border border-current/30 px-2 py-0.5 rounded-full ${stabilityTier.colorClass}`} data-testid="decision-state-pill">
-                  {decisionStateDot && (
-                    <span className={`w-2 h-2 rounded-full ${decisionStateDot.color.split(' ')[0]} flex-shrink-0`} />
-                  )}
-                  <span className={`${typography.panelMeta} text-text-body`}>
-                    {stabilityTier.label}
-                  </span>
-                </span>
-              )}
-              <span className="flex-1" />
-              <button
-                type="button"
-                onClick={() => setIsExpanded(!isExpanded)}
-                className={`flex items-center gap-1 ${typography.panelBody} text-info hover:text-info-hover flex-shrink-0`}
-                aria-expanded={isExpanded}
-                aria-controls="hero-more-content"
-              >
-                {isExpanded ? 'Hide ▾' : 'More ▸'}
-              </button>
-            </div>
-          </div>
-
-          {/* ── "More" expand ─────────────────────────────────── */}
-          {isExpanded && (
-            <div
-              id="hero-more-content"
-              className="mt-3 pt-3 border-t border-panel-border space-y-3"
-            >
-              {/* V16 Task 4: M2 narrative — clamped to first sentence with Read more toggle */}
-              {m2NarrativeClamped ? (
-                <div>
-                  <p className={`${typography.panelMeta} text-text-light italic mb-1`}>AI-enhanced analysis</p>
-                  <p className={`${typography.panelBody} text-text-body`}>
-                    {narrativeExpanded ? m2NarrativeSummary : m2NarrativeClamped.first}
-                    {m2NarrativeClamped.hasMore && !narrativeExpanded && (
-                      <>
-                        {' '}
-                        <button
-                          type="button"
-                          onClick={() => setNarrativeExpanded(true)}
-                          className={`${typography.panelBody} text-info cursor-pointer`}
-                          data-testid="read-more-narrative"
-                        >
-                          Read more ▾
-                        </button>
-                      </>
-                    )}
-                    {narrativeExpanded && (
-                      <>
-                        {' '}
-                        <button
-                          type="button"
-                          onClick={() => setNarrativeExpanded(false)}
-                          className={`${typography.panelBody} text-info cursor-pointer`}
-                        >
-                          Read less ▴
-                        </button>
-                      </>
-                    )}
-                  </p>
-                </div>
-              ) : sanitizedParagraphV16 ? (
-                <p className={`${typography.panelBody} text-text-body`}>
-                  {sanitizedParagraphV16}
-                </p>
-              ) : null}
-
-              {/* Readiness bars */}
-              {coachingReadinessDimensions && (
-                <div data-testid="readiness-bars">
-                  <p className={`${typography.panelMeta} text-text-header font-medium mb-2`}>Readiness</p>
-                  {(['evidence', 'robustness', 'clarity'] as const).map(dim => {
-                    const value = coachingReadinessDimensions[dim]
-                    if (value == null) return null
-                    const pct = Math.round(value * 100)
-                    const fillColor = getThresholdColour(value)
-                    const label = dim === 'clarity' ? 'Framing' : dim.charAt(0).toUpperCase() + dim.slice(1)
-                    return (
-                      <div key={dim} className="flex items-center gap-2 mb-1">
-                        <span className={`${typography.panelMeta} text-text-light text-right`} style={{ width: 80 }}>
-                          {label}
-                        </span>
-                        <div className="flex-1 bg-panel-border rounded-full" style={{ height: 4 }}>
-                          <div
-                            className={`${fillColor} rounded-full`}
-                            style={{ width: `${pct}%`, height: 4 }}
-                          />
-                        </div>
-                        <span className={`${typography.panelMeta} text-text-light`} style={{ width: 30 }}>
-                          {pct}%
-                        </span>
-                      </div>
-                    )
-                  })}
-                </div>
-              )}
-
-              {/* Stats grid */}
-              <dl className={`grid grid-cols-2 gap-x-4 gap-y-1 ${typography.panelMeta}`}>
-                {winnerWinProbability != null && (
-                  <>
-                    <dt className="text-text-light">Win likelihood</dt>
-                    <dd className="text-text-header">{Math.round(winnerWinProbability * 100)}%</dd>
-                  </>
-                )}
-                {stabilityPct != null && (
-                  <>
-                    <dt className="text-text-light">Robustness</dt>
-                    <dd className="text-text-header">
-                      {stabilityPct}%{stabilityTier.label && ` (${stabilityTier.label.toLowerCase()})`}
-                    </dd>
-                  </>
-                )}
-                {fragileEdgeCount != null && (
-                  <>
-                    <dt className="text-text-light">Fragile edges</dt>
-                    <dd className="text-text-header">
-                      {fragileEdgeCount}{totalRobustnessEdges > 0 && ` of ${totalRobustnessEdges}`}
-                    </dd>
-                  </>
-                )}
-                {nSamples != null && (
-                  <>
-                    <dt className="text-text-light">Sampling</dt>
-                    <dd className="text-text-header">{nSamples.toLocaleString()} simulations</dd>
-                  </>
-                )}
-              </dl>
-
-              {/* Identifiability advisory */}
-              {(() => {
-                const identMap: Record<string, { label: string; colorClass: string }> = {
-                  partially_identifiable: { label: 'Structural validity: Some limitations', colorClass: 'text-info' },
-                  not_backdoor_identifiable: { label: 'Structural validity: Treat as directional', colorClass: 'text-warning' },
-                }
-                const mapped = identifiabilityTag ? identMap[identifiabilityTag] : null
-                if (!mapped) return null
-                return (
-                  <div className={`flex items-start gap-1.5 ${typography.panelMeta} ${mapped.colorClass}`}>
-                    <Info className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
-                    <span>{mapped.label}</span>
-                  </div>
-                )
-              })()}
-            </div>
-          )}
+          ) : sanitizedParagraphV16 ? (
+            <p className={`${typography.panelBody} text-text-light line-clamp-2`}>
+              {sanitizedParagraphV16}
+            </p>
+          ) : null}
         </div>
       </div>
     )

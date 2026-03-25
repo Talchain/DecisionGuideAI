@@ -26,7 +26,8 @@ import {
   constraintConfidenceColour,
   jointProbabilityLabel,
 } from '../../types/constraints'
-import { buildSegmentBorderClassMap } from './HeroSection'
+import { buildSegmentBorderClassMap } from './WinGauge'
+import Tooltip from '../Tooltip'
 
 export interface OptionCardsProps {
   options: OptionResult[]
@@ -139,6 +140,69 @@ function StatBar({
   )
 }
 
+/**
+ * OptionRangeBar — thin 4px bar showing p10-to-p90 range with dot at median.
+ *
+ * All option range bars share the same [globalMin, globalMax] scale
+ * for visual comparability between options. The bar fill width
+ * represents each option's range within the shared scale.
+ */
+function OptionRangeBar({
+  p10,
+  p50,
+  p90,
+  globalMin,
+  globalMax,
+}: {
+  p10: number
+  p50?: number
+  p90: number
+  globalMin: number
+  globalMax: number
+}) {
+  const span = globalMax - globalMin
+  if (span <= 0) return null
+
+  const leftPct = ((p10 - globalMin) / span) * 100
+  const widthPct = ((p90 - p10) / span) * 100
+  const dotPct = p50 != null ? ((p50 - globalMin) / span) * 100 : undefined
+
+  return (
+    <div data-testid="option-range-bar">
+      <div className="relative" style={{ height: 4, background: 'var(--border-default)', borderRadius: 2 }}>
+        <div
+          className="absolute top-0 h-full rounded-sm"
+          style={{
+            left: `${leftPct}%`,
+            width: `${Math.max(2, widthPct)}%`,
+            background: 'rgba(99,173,207,0.3)',
+          }}
+        />
+        {dotPct != null && (
+          <div
+            className="absolute top-1/2 -translate-y-1/2 rounded-full"
+            style={{
+              left: `${dotPct}%`,
+              width: 8,
+              height: 8,
+              background: 'var(--info)',
+              border: '1.5px solid var(--bg-panel)',
+              transform: `translate(-50%, -50%)`,
+            }}
+          />
+        )}
+      </div>
+      <div className="flex justify-between mt-0.5" style={{ fontSize: 10 }}>
+        <span className="text-text-light">{p10.toLocaleString()}</span>
+        {p50 != null && (
+          <span className="font-semibold text-text-header">{p50.toLocaleString()}</span>
+        )}
+        <span className="text-text-light">{p90.toLocaleString()}</span>
+      </div>
+    </div>
+  )
+}
+
 /** Single option card */
 function OptionCard({
   option,
@@ -151,6 +215,8 @@ function OptionCard({
   sortedRank,
   segmentBorderClass,
   onClick,
+  globalMin = 0,
+  globalMax = 1,
 }: {
   option: OptionResult
   isWinner: boolean
@@ -165,6 +231,10 @@ function OptionCard({
   /** Ordinal border class matching this option's WinGauge segment colour */
   segmentBorderClass?: string
   onClick?: () => void
+  /** Global min p10 across all options for shared range bar scale */
+  globalMin?: number
+  /** Global max p90 across all options for shared range bar scale */
+  globalMax?: number
 }) {
   const borderClass = neutralised
     ? 'border-panel-border'
@@ -198,19 +268,28 @@ function OptionCard({
       tabIndex={onClick ? 0 : undefined}
       style={onClick ? { cursor: 'pointer' } : undefined}
     >
-      {/* Header: name + rank badge + win percentage */}
+      {/* Header: leading rank · option name | win percentage right-aligned */}
       <div className="flex items-center gap-2">
-        <span className={`${typography.panelHeader} text-text-header`}>
-          {stripEncodingNotation(option.label)}
-        </span>
         {rank != null && totalOptions > 1 && (
-          <span
-            className={`${typography.panelMeta} px-1.5 py-0.5 rounded-full leading-none flex-shrink-0 ${rankBadgeClass}`}
-            data-testid={`rank-badge-${option.id}`}
-          >
-            {rankBadgeContent}
-          </span>
+          <Tooltip content={`Win probability ranking across ${totalOptions} scenarios`}>
+            <span
+              className="text-[12px] font-semibold text-text-light flex-shrink-0"
+              data-testid={`rank-badge-${option.id}`}
+            >
+              {neutralised && option.winProbability != null
+                ? formatPct(option.winProbability, { fromDecimal: true })
+                : `#${rank} of ${totalOptions}`}
+            </span>
+          </Tooltip>
         )}
+        {rank != null && totalOptions > 1 && (
+          <span className="text-text-light flex-shrink-0" aria-hidden="true">&middot;</span>
+        )}
+        <Tooltip content="Hover highlights on canvas. Click opens inspector.">
+          <span className={`${typography.panelHeader} text-text-header`}>
+            {stripEncodingNotation(option.label)}
+          </span>
+        </Tooltip>
         {option.isBaseline && (
           <span className={`${typography.panelMeta} text-text-light flex-shrink-0`}>
             Baseline
@@ -218,12 +297,14 @@ function OptionCard({
         )}
         <span className="flex-1" />
         {option.winProbability != null && (
-          <span
-            className={`${typography.panelMeta} text-text-body tabular-nums flex-shrink-0`}
-            data-testid={`win-pct-${option.id}`}
-          >
-            {formatPct(option.winProbability, { fromDecimal: true })}
-          </span>
+          <Tooltip content={`Wins in ${Math.round(option.winProbability * 100)}% of simulated scenarios`}>
+            <span
+              className="text-[14px] font-semibold text-text-header tabular-nums flex-shrink-0"
+              data-testid={`win-pct-${option.id}`}
+            >
+              {formatPct(option.winProbability, { fromDecimal: true })}
+            </span>
+          </Tooltip>
         )}
       </div>
 
@@ -244,6 +325,21 @@ function OptionCard({
           />
         </div>
       )}
+
+      {/* Range bar: p10 / p50 / p90 visual — rendered via parent OptionRangeBar */}
+      {option.outcome && typeof option.outcome.p10 === 'number' && typeof option.outcome.p90 === 'number' ? (
+        <OptionRangeBar
+          p10={option.outcome.p10}
+          p50={option.outcome.p50 ?? option.outcome.mean ?? undefined}
+          p90={option.outcome.p90}
+          globalMin={globalMin}
+          globalMax={globalMax}
+        />
+      ) : option.outcome?.mean != null ? (
+        <p className={`${typography.panelMeta} text-text-light`}>
+          Expected: {option.outcome.mean.toLocaleString()}
+        </p>
+      ) : null}
 
       {/* Multi-constraint joint probability line */}
       {option.constraintAnalysis != null &&
@@ -285,6 +381,15 @@ export function OptionCards({
   const sorted = [...options].sort((a, b) => {
     return (b.winProbability ?? 0) - (a.winProbability ?? 0)
   })
+
+  // Range bar global scale: shared [globalMin, globalMax] across all options
+  // so bar widths are visually comparable. Falls back to mean when percentiles absent.
+  const globalMin = Math.min(
+    ...options.map(o => o.outcome?.p10 ?? o.outcome?.mean ?? 0),
+  )
+  const globalMax = Math.max(
+    ...options.map(o => o.outcome?.p90 ?? o.outcome?.mean ?? 0),
+  )
 
   // Ordinal border class map: derived from same palette arrays as WinGauge by index
   const segmentBorderClassMap = buildSegmentBorderClassMap(options, winnerId, decisionState)
@@ -342,6 +447,8 @@ export function OptionCards({
             neutralised={neutralised}
             sortedRank={index + 1}
             segmentBorderClass={segmentBorderClass}
+            globalMin={globalMin}
+            globalMax={globalMax}
             onClick={lensEnabled && resultsComplete ? () => handleLensClick(option.id) : undefined}
             cardRef={(el) => {
               const currentMap = refMap.current

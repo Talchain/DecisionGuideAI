@@ -302,7 +302,7 @@ describe('OptionCards', () => {
       expect(screen.queryByText('#1 of 2')).not.toBeInTheDocument()
     })
 
-    it('uses stone badge styling (bg-factor-light text-factor) when indeterminate', () => {
+    it('uses text-light styling for rank badge when indeterminate', () => {
       render(
         <OptionCards
           options={mockOptions}
@@ -311,10 +311,8 @@ describe('OptionCards', () => {
         />
       )
 
-      // §8.5: neutralised badge uses outlined variant (border-factor/30 text-text-body)
       const badge = screen.getByTestId('rank-badge-option-1')
-      expect(badge.className).toContain('border-factor/30')
-      expect(badge.className).toContain('text-text-body')
+      expect(badge.className).toContain('text-text-light')
       expect(badge.className).not.toContain('text-success')
     })
 

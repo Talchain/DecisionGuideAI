@@ -652,7 +652,7 @@ describe('TornadoChart', () => {
     )
 
     expect(screen.getByTestId('tornado-pp-clarification')).toBeInTheDocument()
-    expect(screen.getByText('Values show % relative change from expected outcome.')).toBeInTheDocument()
+    expect(screen.getByText('Numbers show percentage point change in win likelihood when each factor varies across its plausible range')).toBeInTheDocument()
   })
 
   it('V14.2: shows pp clarification with count unit (bars show relative, not absolute)', () => {
@@ -668,7 +668,7 @@ describe('TornadoChart', () => {
     expect(screen.getByTestId('tornado-pp-clarification')).toBeInTheDocument()
   })
 
-  it('V14.2: no pp clarification when currency unit (bars show absolute values)', () => {
+  it('shows clarification line even with currency unit (explains win likelihood change)', () => {
     render(
       <TornadoChart
         rows={[positiveRow]}
@@ -678,6 +678,7 @@ describe('TornadoChart', () => {
       />
     )
 
-    expect(screen.queryByTestId('tornado-pp-clarification')).not.toBeInTheDocument()
+    // Clarification always shown — explains percentage point change in win likelihood
+    expect(screen.getByTestId('tornado-pp-clarification')).toBeInTheDocument()
   })
 })

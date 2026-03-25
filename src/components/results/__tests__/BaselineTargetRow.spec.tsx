@@ -22,7 +22,7 @@ describe('BaselineTargetRow', () => {
         goalThreshold={null}
       />
     )
-    expect(screen.getByText('No target set')).toBeTruthy()
+    expect(screen.getByTestId('baseline-target-row').textContent).toContain('not set').toBeTruthy()
   })
 
   it('renders target value when goalThreshold is set', () => {
@@ -66,8 +66,9 @@ describe('BaselineTargetRow', () => {
         goalThreshold={null}
       />
     )
-    expect(screen.getByText('No target set')).toBeTruthy()
-    expect(screen.getByText('No baseline set')).toBeTruthy()
+    expect(screen.getByTestId('baseline-target-row').textContent).toContain('not set').toBeTruthy()
+    // BaselineToggleCard renders "No baseline set" when no label selected
+    expect(screen.getByTestId('baseline-target-row').textContent).toContain('baseline')
   })
 
   it('renders both set state', () => {

@@ -1,12 +1,18 @@
 /**
- * ChallengeSection — "Challenge your assumptions"
+ * ChallengeSection — "Before you commit"
  *
- * V11 Phase E: Separate section after "What to do next" containing M2
+ * V11 Phase E: Separate section after "Your next steps" containing M2
  * decision quality prompts as expandable cards. Gated on M2 data presence.
  * V12: Max 2 items per group with CappedList, affected_elements as graph links.
  *
+ * Task 6: Restructured into 3 subgroups:
+ * - Model structure (E-value cards, inference warnings)
+ * - Thinking patterns (bias findings, pre-mortem items)
+ * - Scientific notes (identifiability advisory)
+ *
  * Data sources:
  * - Groups 3 (bias findings) and 4 (pre-mortem) from groupActionItems
+ * - edgeEValues, inferenceWarnings, identifiabilityTag from ISL/PLoT
  */
 
 import { type ReactNode } from 'react'
@@ -14,9 +20,23 @@ import { typography } from '../../styles/typography'
 import type { ActionItem } from './utils/groupActionItems'
 import { CappedList } from './CappedList'
 import { GraphLink } from './GraphLink'
-import { EyeOff, HelpCircle, Shield } from 'lucide-react'
+import { EyeOff, HelpCircle, Shield, AlertTriangle, Info } from 'lucide-react'
 import { stripEncodingNotation } from './utils/cleanFactorLabel'
 import type { EvidenceGapItem, DriverItem } from './types'
+
+/** E-value entry for an edge */
+export interface EdgeEValue {
+  edge_id: string
+  e_value: number
+}
+
+/** Inference warning from ISL */
+export interface ChallengeInferenceWarning {
+  code: string
+  affected_nodes: string[]
+  affected_labels?: string[]
+  message?: string
+}
 
 export interface ChallengeSectionProps {
   /** M2 bias findings (Group 3: "Worth reflecting on") */
@@ -28,13 +48,19 @@ export interface ChallengeSectionProps {
   /** V12.2: Factor lookup data for resolving IDs to labels */
   evidenceGaps?: EvidenceGapItem[]
   drivers?: DriverItem[]
+  /** Task 6: E-value data per edge — cards shown when e_value < 3.0 */
+  edgeEValues?: EdgeEValue[]
+  /** Task 6: Inference warnings (root node defaults, etc.) */
+  inferenceWarnings?: ChallengeInferenceWarning[]
+  /** Task 6: Identifiability tag from ISL — shown in Scientific notes */
+  identifiabilityTag?: string | null
 }
 
 /**
  * V12.2: Resolve factor ID to display label.
  * Resolution chain:
- * 1. Evidence gaps by factorId → factorLabel
- * 2. Drivers by factorKey → factorLabel
+ * 1. Evidence gaps by factorId -> factorLabel
+ * 2. Drivers by factorKey -> factorLabel
  * 3. Strip fac_ prefix, replace underscores with spaces, title case
  */
 function resolveFactorLabel(
@@ -116,74 +142,199 @@ function ChallengeCard({
   )
 }
 
+/* ── Subgroup divider ─────────────────────────────────────────────────────── */
+
+function SubgroupDivider({ label, count }: { label: string; count: number }) {
+  return (
+    <div className="flex items-center gap-2 mt-1">
+      <span className="text-[10px] font-semibold text-text-light tracking-wider whitespace-nowrap">
+        {label} ({count})
+      </span>
+      <div className="flex-1 h-px bg-panel-border" />
+    </div>
+  )
+}
+
+/* ── E-value card ─────────────────────────────────────────────────────────── */
+
+function EValueCard({ edgeId, eValue }: { edgeId: string; eValue: number }) {
+  return (
+    <div className="border border-panel-border rounded-lg px-3 py-2 space-y-1.5">
+      <div className="flex items-center gap-2">
+        <AlertTriangle className="w-3.5 h-3.5 text-danger flex-shrink-0" aria-hidden="true" />
+        <p className={`${typography.panelBody} text-text-body flex-1`}>
+          Fragile result, verify key assumptions
+        </p>
+        <span className="rounded-full border border-danger/30 bg-transparent px-2 py-0.5 text-[10px] font-medium text-text-body leading-none">
+          Stability
+        </span>
+      </div>
+      <p className={`${typography.panelMeta} text-text-light`}>
+        The relationship {edgeId} would only need to be {eValue.toFixed(1)}x wrong to flip the recommendation.
+      </p>
+    </div>
+  )
+}
+
+/* ── Root node warning card ───────────────────────────────────────────────── */
+
+function RootNodeWarningCard({ warning }: { warning: ChallengeInferenceWarning }) {
+  const label = warning.affected_labels?.[0] ?? warning.affected_nodes[0] ?? 'Unknown node'
+  return (
+    <div className="border border-panel-border rounded-lg px-3 py-2 space-y-1.5">
+      <div className="flex items-center gap-2">
+        <AlertTriangle className="w-3.5 h-3.5 text-danger flex-shrink-0" aria-hidden="true" />
+        <p className={`${typography.panelBody} text-text-body flex-1`}>
+          Root node using default value
+        </p>
+        <span className="rounded-full border border-danger/30 bg-transparent px-2 py-0.5 text-[10px] font-medium text-text-body leading-none">
+          Validity
+        </span>
+      </div>
+      <p className={`${typography.panelMeta} text-text-light`}>
+        {label} has no value set. The analysis used 0.0 as a default, reducing overall confidence.
+      </p>
+    </div>
+  )
+}
+
+/* ── Identifiability card ─────────────────────────────────────────────────── */
+
+function IdentifiabilityCard() {
+  return (
+    <div className="border border-panel-border rounded-lg px-3 py-2 space-y-1.5">
+      <div className="flex items-center gap-2">
+        <Info className="w-3.5 h-3.5 text-info flex-shrink-0" aria-hidden="true" />
+        <p className={`${typography.panelBody} text-text-body flex-1`}>
+          The success target relies on a default baseline
+        </p>
+        <span className="rounded-full border border-info/30 bg-transparent px-2 py-0.5 text-[10px] font-medium text-text-body leading-none">
+          Validity
+        </span>
+      </div>
+      <p className={`${typography.panelMeta} text-text-light`}>
+        Does this inadvertently anchor expectations? Consider setting an observed baseline.
+      </p>
+    </div>
+  )
+}
+
+/* ── Main component ───────────────────────────────────────────────────────── */
+
 export function ChallengeSection({
   biasFindings,
   preMortemItems,
   onFocusNode,
   evidenceGaps,
   drivers,
+  edgeEValues,
+  inferenceWarnings,
+  identifiabilityTag,
 }: ChallengeSectionProps) {
-  if (biasFindings.length === 0 && preMortemItems.length === 0) return null
+  // ── Model structure items ──────────────────────────────────────────────
+  const fragileEdges = (edgeEValues ?? []).filter(e => e.e_value < 3.0)
+  const rootWarnings = inferenceWarnings ?? []
+  const modelStructureCount = fragileEdges.length + rootWarnings.length
+
+  // ── Thinking patterns items ────────────────────────────────────────────
+  const thinkingPatternsCount = biasFindings.length + preMortemItems.length
+
+  // ── Scientific notes items ─────────────────────────────────────────────
+  const hasIdentifiability = identifiabilityTag != null && identifiabilityTag !== ''
+  const scientificNotesCount = hasIdentifiability ? 1 : 0
+
+  // If all 3 subgroups empty, parent accordion handles hiding
+  if (modelStructureCount === 0 && thinkingPatternsCount === 0 && scientificNotesCount === 0) {
+    return null
+  }
 
   return (
     <div className="space-y-3" data-testid="challenge-section">
-      {/* Bias findings — expandable cards, max 2 visible */}
-      {biasFindings.length > 0 && (
+      {/* ── Subgroup 1: Model structure ─────────────────────────────────── */}
+      {modelStructureCount > 0 && (
         <div className="space-y-2">
-          <div className="flex items-center gap-2 mb-1">
-            <EyeOff className="w-4 h-4 text-text-light flex-shrink-0" />
-            <h4 className={`${typography.panelHeader} text-text-header`}>
-              Worth reflecting on
-            </h4>
-            <span className={`${typography.panelMeta} text-text-light`}>
-              {biasFindings.length}
-            </span>
-          </div>
-          <CappedList<ActionItem>
-            items={biasFindings}
-            maxVisible={2}
-            getKey={(item) => item.id}
-            renderItem={(item) => (
-              <ChallengeCard
-                item={item}
-                onFocusNode={onFocusNode}
-                evidenceGaps={evidenceGaps}
-                drivers={drivers}
-              />
-            )}
-            overflowLabel={(n) => `See ${n} more`}
-            expandButtonAriaLabel="Show more bias findings"
-          />
+          <SubgroupDivider label="MODEL STRUCTURE" count={modelStructureCount} />
+          {fragileEdges.map(edge => (
+            <EValueCard key={edge.edge_id} edgeId={edge.edge_id} eValue={edge.e_value} />
+          ))}
+          {rootWarnings.map((warning, i) => (
+            <RootNodeWarningCard key={`root-warn-${warning.affected_nodes[0] ?? i}`} warning={warning} />
+          ))}
         </div>
       )}
 
-      {/* Pre-mortem — expandable cards, max 2 visible */}
-      {preMortemItems.length > 0 && (
+      {/* ── Subgroup 2: Thinking patterns ──────────────────────────────── */}
+      {thinkingPatternsCount > 0 && (
         <div className="space-y-2">
-          <div className="flex items-center gap-2 mb-1">
-            <Shield className="w-4 h-4 text-danger flex-shrink-0" />
-            <h4 className={`${typography.panelHeader} text-text-header`}>
-              What could go wrong
-            </h4>
-            <span className={`${typography.panelMeta} text-text-light`}>
-              {preMortemItems.length}
-            </span>
-          </div>
-          <CappedList<ActionItem>
-            items={preMortemItems}
-            maxVisible={2}
-            getKey={(item) => item.id}
-            renderItem={(item) => (
-              <ChallengeCard
-                item={item}
-                onFocusNode={onFocusNode}
-                evidenceGaps={evidenceGaps}
-                drivers={drivers}
+          <SubgroupDivider label="THINKING PATTERNS" count={thinkingPatternsCount} />
+
+          {/* Bias findings -- expandable cards, max 2 visible */}
+          {biasFindings.length > 0 && (
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 mb-1">
+                <EyeOff className="w-4 h-4 text-text-light flex-shrink-0" />
+                <h4 className={`${typography.panelHeader} text-text-header`}>
+                  Worth reflecting on
+                </h4>
+                <span className={`${typography.panelMeta} text-text-light`}>
+                  {biasFindings.length}
+                </span>
+              </div>
+              <CappedList<ActionItem>
+                items={biasFindings}
+                maxVisible={2}
+                getKey={(item) => item.id}
+                renderItem={(item) => (
+                  <ChallengeCard
+                    item={item}
+                    onFocusNode={onFocusNode}
+                    evidenceGaps={evidenceGaps}
+                    drivers={drivers}
+                  />
+                )}
+                overflowLabel={(n) => `See ${n} more`}
+                expandButtonAriaLabel="Show more bias findings"
               />
-            )}
-            overflowLabel={(n) => `See ${n} more`}
-            expandButtonAriaLabel="Show more pre-mortem items"
-          />
+            </div>
+          )}
+
+          {/* Pre-mortem -- expandable cards, max 2 visible */}
+          {preMortemItems.length > 0 && (
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 mb-1">
+                <Shield className="w-4 h-4 text-danger flex-shrink-0" />
+                <h4 className={`${typography.panelHeader} text-text-header`}>
+                  What could go wrong
+                </h4>
+                <span className={`${typography.panelMeta} text-text-light`}>
+                  {preMortemItems.length}
+                </span>
+              </div>
+              <CappedList<ActionItem>
+                items={preMortemItems}
+                maxVisible={2}
+                getKey={(item) => item.id}
+                renderItem={(item) => (
+                  <ChallengeCard
+                    item={item}
+                    onFocusNode={onFocusNode}
+                    evidenceGaps={evidenceGaps}
+                    drivers={drivers}
+                  />
+                )}
+                overflowLabel={(n) => `See ${n} more`}
+                expandButtonAriaLabel="Show more pre-mortem items"
+              />
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Subgroup 3: Scientific notes ───────────────────────────────── */}
+      {scientificNotesCount > 0 && (
+        <div className="space-y-2">
+          <SubgroupDivider label="SCIENTIFIC NOTES" count={scientificNotesCount} />
+          <IdentifiabilityCard />
         </div>
       )}
     </div>

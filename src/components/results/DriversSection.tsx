@@ -13,7 +13,7 @@
  * - ISL unavailable error state with retry
  */
 
-import { useState, useCallback, useEffect, useRef } from 'react'
+import { useState, useCallback, useEffect, useRef, type ChangeEvent } from 'react'
 import { ShieldCheck, ShieldAlert, AlertTriangle as TriangleAlert } from 'lucide-react'
 import type { DriversSectionData, DriverItem, FlipThreshold } from './types'
 import { focusNodeById } from '../../canvas/utils/focusHelpers'
@@ -27,6 +27,7 @@ import { TornadoChart, type TornadoRow } from './TornadoChart'
 import { typography } from '../../styles/typography'
 import { formatPercent } from '../../utils/formatPercent'
 import { DataBar } from '../../canvas/ui/shared/DataBar'
+import Tooltip from '../../components/Tooltip'
 
 interface DriversSectionProps {
   data: DriversSectionData
@@ -308,6 +309,75 @@ function ExpandedDetails({
   )
 }
 
+// Preset options for contested driver quick-select
+const CONTESTED_PRESETS = [
+  { label: 'Weakly', value: 0.3 },
+  { label: 'Moderately', value: 0.5 },
+  { label: 'Strongly', value: 0.8 },
+] as const
+
+/** Quick-select pill row for contested (isolated/correlated) drivers. */
+function ContestedDriverQuickSelect({ driver }: { driver: DriverItem }) {
+  const [selectedIndex, setSelectedIndex] = useState<number | null>(null)
+  const [customValue, setCustomValue] = useState(() => {
+    const conf = typeof driver.confidence === 'number' ? driver.confidence : 0.5
+    return String(Math.round(Math.max(0, Math.min(1, conf)) * 100))
+  })
+
+  const handlePresetClick = useCallback((index: number) => {
+    setSelectedIndex(index)
+    setCustomValue(String(Math.round(CONTESTED_PRESETS[index].value * 100)))
+    // TODO: wire to edge update in future
+  }, [])
+
+  const handleInputChange = useCallback((e: ChangeEvent<HTMLInputElement>) => {
+    setSelectedIndex(null)
+    setCustomValue(e.target.value)
+    // TODO: wire to edge update in future
+  }, [])
+
+  return (
+    <div className="flex items-center gap-1.5 px-3 pb-2">
+      {CONTESTED_PRESETS.map((preset, i) => (
+        <button
+          key={preset.label}
+          type="button"
+          onClick={() => handlePresetClick(i)}
+          style={{
+            fontFamily: 'inherit',
+            fontSize: '11px',
+            fontWeight: selectedIndex === i ? 600 : 500,
+            padding: '4px 10px',
+            borderRadius: '999px',
+            border: `1px solid ${selectedIndex === i ? 'var(--info)' : 'var(--border-default)'}`,
+            background: selectedIndex === i ? 'rgba(99,173,207,0.1)' : 'transparent',
+            cursor: 'pointer',
+          }}
+        >
+          {preset.label}
+        </button>
+      ))}
+      <input
+        type="text"
+        value={customValue}
+        onChange={handleInputChange}
+        aria-label="Custom confidence value"
+        style={{
+          fontSize: '11px',
+          fontWeight: 600,
+          width: '44px',
+          padding: '3px 6px',
+          border: '1px solid var(--border-default)',
+          borderRadius: '8px',
+          textAlign: 'center',
+          fontFamily: 'inherit',
+          background: 'transparent',
+        }}
+      />
+    </div>
+  )
+}
+
 // Individual driver row - Compact 2-line structure
 function DriverRow({
   driver,
@@ -498,13 +568,25 @@ function DriverRow({
 
         {/* Confidence bar — same width as Sensitivity bar (icons moved to 4th column) */}
         {confidenceValue !== null ? (
-          <DataBar
-            value={confidenceValue}
-            colourVar={BAR_COLORS.blue}
-            label={`${cleanedLabel} confidence: ${Math.round(confidenceValue * 100)}%`}
-            size="standard"
-            showPercent
-          />
+          <button
+            type="button"
+            className="cursor-pointer [border-bottom:1px_dashed_currentColor] bg-transparent p-0 border-0 w-full"
+            onClick={(e) => {
+              e.stopPropagation()
+              if (onFocus) {
+                onFocus(driver.matchedNodeId ?? driver.factorKey)
+              }
+            }}
+            aria-label={`${cleanedLabel} confidence: ${Math.round(confidenceValue * 100)}%. Click to update.`}
+          >
+            <DataBar
+              value={confidenceValue}
+              colourVar={BAR_COLORS.blue}
+              label={`${cleanedLabel} confidence: ${Math.round(confidenceValue * 100)}%`}
+              size="standard"
+              showPercent
+            />
+          </button>
         ) : (
           <div className={`${typography.panelBody} font-mono text-text-light w-9 text-right`}>-</div>
         )}
@@ -554,6 +636,43 @@ function DriverRow({
         >
           If wrong, {microlineLabel} overtakes
         </p>
+      )}
+
+      {/* Combined attribution stability + exists_probability metadata line */}
+      {(() => {
+        const stabilityWarn = driver.attributionStability === 'low' || driver.attributionStability === 'negligible'
+        const confidenceWarn = typeof driver.confidence === 'number' && driver.confidence < 0.9
+        if (!stabilityWarn && !confidenceWarn) return null
+        const confidencePct = typeof driver.confidence === 'number'
+          ? Math.round(Math.max(0, Math.min(1, driver.confidence)) * 100)
+          : null
+        return (
+          <p className={`${typography.panelMeta} text-warning px-3 pb-1.5 flex items-center gap-1`}>
+            <span className="inline-block w-1.5 h-1.5 rounded-full bg-warning flex-shrink-0" aria-hidden="true" />
+            Ranking may shift
+            {confidencePct !== null && <span> &middot; {confidencePct}% likely</span>}
+          </p>
+        )
+      })()}
+
+      {/* Technique recommendation for high-influence, low-confidence drivers */}
+      {(() => {
+        const influence = driver.influenceScore ?? driver.normalisedInfluence
+        const conf = typeof driver.confidence === 'number' ? driver.confidence : null
+        if (typeof influence !== 'number' || conf === null) return null
+        if (influence > 0.6 && conf < 0.5) {
+          return (
+            <p className={`${typography.panelMeta} text-info px-3 pb-1.5`}>
+              Try: reference class forecasting
+            </p>
+          )
+        }
+        return null
+      })()}
+
+      {/* Quick-select for contested drivers */}
+      {(driver.flipRiskCategory === 'isolated' || driver.flipRiskCategory === 'correlated') && (
+        <ContestedDriverQuickSelect driver={driver} />
       )}
 
       {/* Tooltip */}
@@ -671,18 +790,20 @@ export function DriversSection({
         {/* Empty cell for factor name column */}
         <div />
         {/* v7.10 T9: Renamed "Relative influence" → "Influence" for brevity */}
-        <div
-          className={`${typography.panelBody} text-text-light text-right pr-6 cursor-help`}
-          title="Scaled so the strongest driver is 100%"
-        >
-          Influence
-        </div>
-        <div
-          className={`${typography.panelBody} text-text-light text-right pr-6 cursor-help`}
-          title="How certain the model is about this factor's influence, based on edge belief strength and evidence quality"
-        >
-          Confidence
-        </div>
+        <Tooltip content="Influence: how much this factor affects the outcome">
+          <div
+            className={`${typography.panelBody} text-text-light text-right pr-6 cursor-help`}
+          >
+            Influence
+          </div>
+        </Tooltip>
+        <Tooltip content="Confidence: how stable this factor's ranking is under model variations. Click the value to update.">
+          <div
+            className={`${typography.panelBody} text-text-light text-right pr-6 cursor-help`}
+          >
+            Confidence
+          </div>
+        </Tooltip>
         {/* Empty cell for icon column */}
         <div />
       </div>
@@ -772,6 +893,9 @@ export function DriversSection({
                 isNormalised={isNormalised}
                 goalDirection={goalDirection}
                 flipThresholds={flipThresholds}
+                contestedFactorIds={visibleDrivers
+                  .filter(d => d.flipRiskCategory === 'isolated' || d.flipRiskCategory === 'correlated')
+                  .map(d => d.factorKey)}
               />
             </div>
           </details>

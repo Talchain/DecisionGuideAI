@@ -213,7 +213,7 @@ describe('Accordion', () => {
     it('renders tierLabel when tierLabel and tierVariant are provided', () => {
       render(
         <Accordion
-          title="What to do next"
+          title="Your next steps"
           tierLabel="Evidence: Good"
           tierVariant="strong"
         >
@@ -227,7 +227,7 @@ describe('Accordion', () => {
     it('renders tierLabel for "fair" variant', () => {
       render(
         <Accordion
-          title="What to do next"
+          title="Your next steps"
           tierLabel="Evidence: Fair"
           tierVariant="fair"
         >
@@ -241,7 +241,7 @@ describe('Accordion', () => {
     it('renders tierLabel for "needs_work" variant', () => {
       render(
         <Accordion
-          title="What to do next"
+          title="Your next steps"
           tierLabel="Evidence: Needs work"
           tierVariant="needs_work"
         >
@@ -255,7 +255,7 @@ describe('Accordion', () => {
     it('does NOT render tierLabel when tierVariant is absent', () => {
       render(
         <Accordion
-          title="What to do next"
+          title="Your next steps"
           tierLabel="Evidence: Good"
         >
           <p>Content</p>

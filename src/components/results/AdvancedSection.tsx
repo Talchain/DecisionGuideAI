@@ -38,6 +38,24 @@ export interface AdvancedSectionProps {
   responseHash?: string | null
   /** Callback when risk profile changes (triggers re-weight) */
   onRiskProfileChange?: (preset: RiskPresetKey) => void
+  /** Trust narrative: full M2 narrative summary */
+  m2NarrativeSummary?: string
+  /** Trust narrative: trust level label */
+  trustLevel?: string
+  /** Trust narrative: trust reason */
+  trustReason?: string
+  /** Readiness dimensions for trust section bars */
+  coachingReadinessDimensions?: { evidence: number; robustness: number; clarity: number }
+  /** Identifiability tag for trust advisory */
+  identifiabilityTag?: string | null
+  /** Winner win probability for stats */
+  winnerWinProbability?: number | null
+  /** Count of factors using default estimates */
+  defaultEstimateCount?: number
+  /** Total factor count */
+  totalFactorCount?: number
+  /** Robustness level for stats */
+  robustnessLevel?: string
 }
 
 const PRESET_ORDER: RiskPresetKey[] = ['risk_averse', 'neutral', 'risk_seeking']
@@ -53,6 +71,15 @@ export function AdvancedSection({
   identifiability,
   responseHash,
   onRiskProfileChange,
+  m2NarrativeSummary,
+  trustLevel,
+  trustReason,
+  coachingReadinessDimensions,
+  identifiabilityTag,
+  winnerWinProbability,
+  defaultEstimateCount,
+  totalFactorCount,
+  robustnessLevel,
 }: AdvancedSectionProps) {
   const { profile, selectPreset, loading } = useRiskProfile()
   const [copiedHash, setCopiedHash] = useState(false)
@@ -121,6 +148,71 @@ export function AdvancedSection({
                 </button>
               )
             })}
+          </div>
+        </div>
+
+        {/* ── Trust Narrative (scroll target for hero "more" link) ── */}
+        <div id="trust-narrative">
+          <h4 className={`${typography.panelHeader} text-text-header mb-1`}>
+            Trust narrative
+          </h4>
+          <div className={`${typography.panelMeta} text-text-light space-y-2`} style={{ lineHeight: 1.5 }}>
+            {/* Trust reason summary */}
+            {(trustLevel || trustReason) && (
+              <p>
+                {trustLevel && <>{trustLevel.charAt(0).toUpperCase()}{trustLevel.slice(1)} confidence. </>}
+                {trustReason && <>{trustReason.charAt(0).toUpperCase()}{trustReason.slice(1)}. </>}
+                {defaultEstimateCount != null && totalFactorCount != null && defaultEstimateCount > 0 && (
+                  <>{defaultEstimateCount} of {totalFactorCount} factors use default confidence values. </>
+                )}
+              </p>
+            )}
+
+            {/* M2 full narrative */}
+            {m2NarrativeSummary && (
+              <p>{m2NarrativeSummary}</p>
+            )}
+
+            {/* Readiness bars */}
+            {coachingReadinessDimensions && (
+              <div className="mt-2" data-testid="advanced-readiness-bars">
+                {(['evidence', 'robustness', 'clarity'] as const).map(dim => {
+                  const value = coachingReadinessDimensions[dim]
+                  if (value == null) return null
+                  const pct = Math.round(value * 100)
+                  const label = dim === 'clarity' ? 'Framing' : dim.charAt(0).toUpperCase() + dim.slice(1)
+                  return (
+                    <div key={dim} className="flex items-center gap-2 mb-1">
+                      <span className="text-text-light text-right" style={{ width: 80 }}>
+                        {label}
+                      </span>
+                      <div className="flex-1 bg-panel-border rounded-full" style={{ height: 4 }}>
+                        <div
+                          className="bg-info rounded-full"
+                          style={{ width: `${pct}%`, height: 4 }}
+                        />
+                      </div>
+                      <span className="text-text-light" style={{ width: 30 }}>
+                        {pct}%
+                      </span>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+
+            {/* Identifiability advisory */}
+            {identifiabilityTag === 'partially_identifiable' && (
+              <p>Structural validity: Some limitations detected.</p>
+            )}
+            {identifiabilityTag === 'not_backdoor_identifiable' && (
+              <p className="text-warning">Structural validity: Treat results as directional only.</p>
+            )}
+
+            {/* Science limitations line */}
+            <p>
+              This analysis uses a simplified structural causal model. Some uncertainty sources (intercepts, node-level noise) are not yet captured.
+            </p>
           </div>
         </div>
 

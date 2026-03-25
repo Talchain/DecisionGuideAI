@@ -272,6 +272,7 @@ export function RecommendationSection({
         robustnessLevel={robustnessLevel}
         defaultEstimateCount={defaultEstimateCount}
         totalFactorCount={totalFactorCount}
+        winnerConstraintAnalysis={recommendedOption.constraintAnalysis}
       />
 
       {/* Single option CTA */}

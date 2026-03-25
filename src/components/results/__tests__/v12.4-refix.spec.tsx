@@ -3,7 +3,7 @@
  *
  * Task 1: Internal critique pattern filtering (AttentionBanner + ConfidenceSection)
  * Task 2: Tornado chart label truncation (already implemented — minimal verification)
- * Task 3: Evidence badge removed from "What to do next" accordion
+ * Task 3: Evidence badge removed from "Your next steps" accordion
  * Task 4: Per-card "Wins" bars removed from OptionCards
  * Task 5: WinGauge legend removed from HeroSection
  * Task 6: Banned copy verification
@@ -159,7 +159,7 @@ describe('V12.4 Task 1: Internal critique filtering', () => {
 describe('V12.4 Task 3: Evidence badge removed', () => {
   it('Accordion without tierLabel/tierVariant does not show evidence badge', () => {
     render(
-      <Accordion title="What to do next" testId="accordion-test" badgeCount={3} badgeVariant="warning">
+      <Accordion title="Your next steps" testId="accordion-test" badgeCount={3} badgeVariant="warning">
         <p>Content</p>
       </Accordion>
     )
@@ -172,7 +172,7 @@ describe('V12.4 Task 3: Evidence badge removed', () => {
 
   it('Accordion renders badge count without tier label', () => {
     render(
-      <Accordion title="What to do next" testId="accordion-test" badgeCount={5} badgeVariant="critical">
+      <Accordion title="Your next steps" testId="accordion-test" badgeCount={5} badgeVariant="critical">
         <p>Content</p>
       </Accordion>
     )
@@ -244,24 +244,8 @@ describe('V12.4 Task 4: Wins bars removed from OptionCards', () => {
 // Task 5: WinGauge legend removed
 // ===========================================================================
 
-describe('V12.4 Task 5: WinGauge legend removed', () => {
-  it('stacked bar renders (role="img" segments present)', () => {
-    render(
-      <HeroSection
-        {...heroBase}
-        decisionState="robust"
-        optionWinShares={[
-          { id: 'a', label: 'Option A', winProbability: 0.55, isWinner: true },
-          { id: 'b', label: 'Option B', winProbability: 0.30, isWinner: false },
-          { id: 'c', label: 'Option C', winProbability: 0.15, isWinner: false },
-        ]}
-      />
-    )
-    const segments = screen.getAllByRole('img')
-    expect(segments.length).toBeGreaterThanOrEqual(3)
-  })
-
-  it('no legend dots rendered below the stacked bar', () => {
+describe('WinGauge removed from hero (moved to options section)', () => {
+  it('hero does not render WinGauge bar segments', () => {
     const { container } = render(
       <HeroSection
         {...heroBase}
@@ -273,9 +257,8 @@ describe('V12.4 Task 5: WinGauge legend removed', () => {
         ]}
       />
     )
-    // Legend used rounded dots (w-2.5 h-2.5 rounded-full) — should be absent
-    const legendDots = container.querySelectorAll('.rounded-full.w-2\\.5')
-    expect(legendDots.length).toBe(0)
+    // WinGauge uses role="figure" — should not be in hero
+    expect(container.querySelector('[role="figure"]')).toBeNull()
   })
 })
 

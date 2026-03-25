@@ -49,8 +49,8 @@ export function BaselineTargetRow({
 
   return (
     <div className="flex items-start gap-4 flex-wrap" data-testid="baseline-target-row">
-      {/* Baseline section — reuses BaselineToggleCard */}
-      {hasBaselineOptions && (
+      {/* Baseline section — always visible with appropriate state */}
+      {hasBaselineOptions ? (
         <BaselineToggleCard
           show={true}
           isRunning={isRunning}
@@ -59,23 +59,39 @@ export function BaselineTargetRow({
           options={baselineOptions}
           baselineLabel={baselineLabel}
         />
+      ) : (
+        <div className="flex items-center gap-1.5 py-1">
+          <span className={`${typography.panelMeta} text-text-light`}>
+            Baseline: <span className="text-text-body">not set</span>
+          </span>
+          {onAddBaseline && (
+            <>
+              <span className={`${typography.panelMeta} text-text-light`} aria-hidden="true">&middot;</span>
+              <button
+                type="button"
+                onClick={onAddBaseline}
+                className={`${typography.panelMeta} text-info hover:underline`}
+              >
+                Set
+              </button>
+            </>
+          )}
+        </div>
       )}
 
-      {/* Separator */}
-      {hasBaselineOptions && (
-        <div className="w-px bg-panel-border self-stretch my-0.5" aria-hidden="true" />
-      )}
+      {/* Separator — always shown */}
+      <div className="w-px bg-panel-border self-stretch my-0.5" aria-hidden="true" />
 
       {/* Target section */}
       <div className="flex items-center gap-1.5 py-1">
         {hasTarget ? (
           <>
             <span className={`${typography.panelMeta} text-text-light`}>
-              Target: <span className="text-text-body">≥ {formatTargetValue(goalThreshold!, outcomeUnit, outcomeUnitSymbol)}</span>
+              Target: <span className="text-text-body font-medium">{formatTargetValue(goalThreshold!, outcomeUnit, outcomeUnitSymbol)}</span>
             </span>
             {onEditTarget && (
               <>
-                <span className={`${typography.panelMeta} text-text-light`} aria-hidden="true">·</span>
+                <span className={`${typography.panelMeta} text-text-light`} aria-hidden="true">&middot;</span>
                 <button
                   type="button"
                   onClick={onEditTarget}
@@ -89,11 +105,11 @@ export function BaselineTargetRow({
         ) : (
           <>
             <span className={`${typography.panelMeta} text-text-light`}>
-              No target set
+              Target: <span className="text-text-body">not set</span>
             </span>
             {onEditTarget && (
               <>
-                <span className={`${typography.panelMeta} text-text-light`} aria-hidden="true">·</span>
+                <span className={`${typography.panelMeta} text-text-light`} aria-hidden="true">&middot;</span>
                 <button
                   type="button"
                   onClick={onEditTarget}

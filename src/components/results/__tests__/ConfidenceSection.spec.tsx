@@ -1,7 +1,7 @@
 /**
  * ConfidenceSection Tests
  *
- * Tests for the "What to do next" panel — grouped action items layout.
+ * Tests for the "Your next steps" panel — grouped action items layout.
  * V9.2 Phase 4: Replaces two-tier uncertainty display with grouped layout.
  */
 

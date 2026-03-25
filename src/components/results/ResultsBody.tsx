@@ -22,6 +22,7 @@ import { ConfidenceSection } from './ConfidenceSection'
 import { Accordion } from './Accordion'
 import { SectionHeader } from './SectionHeader'
 import { OptionCards } from './OptionCards'
+import { WinGauge } from './WinGauge'
 import { TippingPoints } from './TippingPoints'
 import { AdvancedSection } from './AdvancedSection'
 import { AttentionBanner } from './AttentionBanner'
@@ -29,6 +30,9 @@ import { ChallengeSection } from './ChallengeSection'
 import { groupActionItems, type ActionItem } from './utils/groupActionItems'
 import type { EvidenceGapItem } from './types'
 import { SectionErrorBoundary } from '../../canvas/components/SectionErrorBoundary'
+import { ProgressBar } from './ProgressBar'
+import { CoachingPrompt } from './CoachingPrompt'
+import { ResultsFooter } from './ResultsFooter'
 
 export interface StrengthCorrectionDisplay {
   edgeId: string
@@ -62,7 +66,7 @@ export interface ResultsBodyProps {
   goalDirection?: 'maximize' | 'minimize'
   /**
    * Orchestrator guidance items for the results surface.
-   * When present (length > 0), replaces NextActionItem list in "What to do next".
+   * When present (length > 0), replaces NextActionItem list in "Your next steps".
    * Only items with target_object.type in {graph, option, framing} or no target_object
    * are passed here — node/edge items are filtered out by the caller.
    */
@@ -175,6 +179,19 @@ export const ResultsBody = memo(function ResultsBody({
             <SectionHeader
               title="How the options compare"
               testId="section-header-options"
+              icon="option"
+            />
+            {/* WinGauge — moved from hero to top of options section */}
+            <WinGauge
+              shares={resultsSectionData.recommendation.allOptions
+                .filter((o): o is typeof o & { winProbability: number } => typeof o.winProbability === 'number')
+                .map(o => ({
+                  id: o.id,
+                  label: o.label,
+                  winProbability: o.winProbability,
+                  isWinner: o.isRecommended,
+                }))}
+              decisionState={vm.decisionState}
             />
             <OptionCards
               options={resultsSectionData.recommendation.allOptions}
@@ -229,9 +246,9 @@ export const ResultsBody = memo(function ResultsBody({
         </SectionErrorBoundary>
       </div>
 
-      {/* ── SECTION 4: WHAT TO DO NEXT ───────────────────────────── */}
+      {/* ── SECTION 4: YOUR NEXT STEPS ──────────────────────────── */}
       {/* V11: Collapse behaviour driven by decisionState, not robustness level */}
-      <SectionErrorBoundary section="What to do next">
+      <SectionErrorBoundary section="Your next steps">
       {(() => {
         // V12.5: Badge count mirrors ConfidenceSection's rendered item count
         // Uses groupActionItems for dedup parity — badge can never diverge from content.
@@ -315,12 +332,12 @@ export const ResultsBody = memo(function ResultsBody({
           <>
             <div>
               <Accordion
-                title="What to do next"
+                title="Your next steps"
                 defaultExpanded={
                   vm.decisionState === 'sensitive' || vm.decisionState === 'indeterminate'
                   || (vm.decisionState === 'robust' && badgeCount > 0)
                 }
-                testId="accordion-strengthen"
+                testId="accordion-next-steps"
                 badgeCount={hasGuidanceItems ? (guidanceItems?.length ?? 0) : badgeCount}
                 badgeState={
                   vm.decisionState === 'indeterminate'
@@ -342,6 +359,7 @@ export const ResultsBody = memo(function ResultsBody({
                     ))}
                   </div>
                 ) : null}
+                <ProgressBar resolved={0} total={hasGuidanceItems ? (guidanceItems?.length ?? 0) : badgeCount} />
                 <ConfidenceSection
                   data={hasGuidanceItems
                     ? { ...resultsSectionData.confidence, nextActions: undefined, topNextActions: undefined }
@@ -372,15 +390,21 @@ export const ResultsBody = memo(function ResultsBody({
               )}
             </div>
 
-            {/* ── SECTION 4b: CHALLENGE YOUR ASSUMPTIONS (M2) ──────── */}
-            {(biasFindings.length > 0 || preMortemItems.length > 0) && (
+            {/* ── SECTION 4b: BEFORE YOU COMMIT (M2) ──────────────── */}
+            {(() => {
+              const eValueCount = (resultsSectionData.confidence.edgeEValues ?? []).filter(ev => ev.e_value < 3.0).length
+              const warningCount = (resultsSectionData.confidence.inferenceWarnings ?? []).length
+              const identCount = identifiability ? 1 : 0
+              const challengeTotal = biasFindings.length + preMortemItems.length + eValueCount + warningCount + identCount
+              if (challengeTotal === 0) return null
+              return (
               <div>
                 <Accordion
-                  title="Challenge your assumptions"
+                  title="Before you commit"
                   defaultExpanded={false}
-                  testId="accordion-challenge"
-                  badgeCount={biasFindings.length + preMortemItems.length}
-                  badgeState={biasFindings.length + preMortemItems.length > 0 ? 'unresolved' : undefined}
+                  testId="accordion-before-commit"
+                  badgeCount={challengeTotal}
+                  badgeState={challengeTotal > 0 ? 'unresolved' : undefined}
                 >
                   <ChallengeSection
                     biasFindings={biasFindings}
@@ -388,14 +412,21 @@ export const ResultsBody = memo(function ResultsBody({
                     onFocusNode={onFocusNode}
                     evidenceGaps={resultsSectionData.confidence.evidenceGaps as EvidenceGapItem[] | undefined}
                     drivers={resultsSectionData.drivers.drivers}
+                    edgeEValues={resultsSectionData.confidence.edgeEValues}
+                    inferenceWarnings={resultsSectionData.confidence.inferenceWarnings}
+                    identifiabilityTag={identifiability}
                   />
                 </Accordion>
               </div>
-            )}
+              )
+            })()}
           </>
         )
       })()}
       </SectionErrorBoundary>
+
+      {/* ── COACHING PROMPT ────────────────────────────────────── */}
+      <CoachingPrompt />
 
       {/* ── SECTION 5: ADVANCED ───────────────────────────────── */}
       <SectionErrorBoundary section="Advanced">
@@ -410,6 +441,11 @@ export const ResultsBody = memo(function ResultsBody({
           edgeCount={edgeCount}
           identifiability={identifiability}
           responseHash={responseHash}
+          m2NarrativeSummary={resultsSectionData.recommendation.m2NarrativeSummary}
+          coachingReadinessDimensions={resultsSectionData.recommendation.coachingReadinessDimensions}
+          identifiabilityTag={identifiability}
+          winnerWinProbability={resultsSectionData.recommendation.recommendedOption?.winProbability}
+          robustnessLevel={resultsSectionData.recommendation.robustnessLevel}
         />
       </div>
       </SectionErrorBoundary>
@@ -432,8 +468,14 @@ export const ResultsBody = memo(function ResultsBody({
         </SectionErrorBoundary>
       )}
 
-      {/* 56px spacer for sticky footer clearance */}
-      <div style={{ height: 56 }} aria-hidden="true" />
+      {/* Footer metadata — replaces the 56px spacer */}
+      <ResultsFooter
+        stability={resultsSectionData.recommendation.recommendationStability}
+        resolvedCount={0}
+        totalCount={hasGuidanceItems
+          ? (guidanceItems?.length ?? 0)
+          : resultsSectionData.confidence.nextActions?.length ?? 0}
+      />
 
       {/* V14.3b: Dev-only build marker for deploy verification */}
       {import.meta.env.DEV && (

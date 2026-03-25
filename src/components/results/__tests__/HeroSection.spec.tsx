@@ -724,8 +724,8 @@ describe('HeroSection', () => {
     })
   })
 
-  describe('V11: Stats Grid (More Detail)', () => {
-    it('shows V11 labels: Win likelihood, Robustness, Fragile edges X of Y, Sampling', () => {
+  describe('V11: Trust One-Liner (replaces stats grid)', () => {
+    it('shows inline trust one-liner with stability score instead of More expand', () => {
       render(
         <HeroSection
           {...baseProps}
@@ -738,24 +738,18 @@ describe('HeroSection', () => {
         />
       )
 
-      // Expand More
-      const expandButton = screen.getByRole('button', { name: /More/i })
-      fireEvent.click(expandButton)
-
-      expect(screen.getByText('Win likelihood')).toBeInTheDocument()
-      expect(screen.getByText('62%')).toBeInTheDocument()
-      expect(screen.getByText('Robustness')).toBeInTheDocument()
-      expect(screen.getByText(/90%.*stable result/i)).toBeInTheDocument()
-      expect(screen.getByText('Fragile edges')).toBeInTheDocument()
-      expect(screen.getByText('2 of 10')).toBeInTheDocument()
-      expect(screen.getByText('Sampling')).toBeInTheDocument()
-      expect(screen.getByText(/10,000 simulations/)).toBeInTheDocument()
+      // Trust one-liner should be present
+      expect(screen.getByTestId('trust-one-liner')).toBeInTheDocument()
+      // Should show "Stable result" for stability >= 0.85
+      expect(screen.getByText('Stable result')).toBeInTheDocument()
+      // No "More ▸" expand/collapse toggle in the hero (trust "more" link is different)
+      expect(screen.queryByRole('button', { name: /More ▸/i })).not.toBeInTheDocument()
     })
   })
 
-  describe('V11: Win Gauge Colour Swap', () => {
-    it('V12.3: uses success/info colours for robust state', () => {
-      render(
+  describe('Win Gauge removed from hero (moved to options section)', () => {
+    it('does not render WinGauge inside the hero', () => {
+      const { container } = render(
         <HeroSection
           {...baseProps}
           decisionState="robust"
@@ -766,46 +760,8 @@ describe('HeroSection', () => {
         />
       )
 
-      const bars = screen.getAllByRole('img')
-      expect(bars[0]).toHaveStyle({ backgroundColor: 'var(--success)' })
-      expect(bars[1]).toHaveStyle({ backgroundColor: 'var(--info)' })
-    })
-
-    it('V12.3: uses info/info-light colours for indeterminate state', () => {
-      render(
-        <HeroSection
-          {...baseProps}
-          decisionState="indeterminate"
-          optionWinShares={[
-            { id: 'a', label: 'Option A', winProbability: 0.5, isWinner: true },
-            { id: 'b', label: 'Option B', winProbability: 0.45, isWinner: false },
-          ]}
-        />
-      )
-
-      const bars = screen.getAllByRole('img')
-      expect(bars[0]).toHaveStyle({ backgroundColor: 'var(--info)' })
-      expect(bars[1]).toHaveStyle({ backgroundColor: 'var(--info-light)' })
-    })
-
-    it('applies de-emphasis (reduced height, opacity) for indeterminate state', () => {
-      const { container } = render(
-        <HeroSection
-          {...baseProps}
-          decisionState="indeterminate"
-          optionWinShares={[
-            { id: 'a', label: 'Option A', winProbability: 0.5, isWinner: true },
-            { id: 'b', label: 'Option B', winProbability: 0.45, isWinner: false },
-          ]}
-        />
-      )
-
-      const gauge = container.querySelector('[role="figure"]')!
-      expect(gauge).toHaveClass('opacity-70')
-      // Bar container should use h-2 (smaller) instead of h-3
-      const barContainer = gauge.querySelector('.flex.rounded-full')!
-      expect(barContainer).toHaveClass('h-2')
-      expect(barContainer).not.toHaveClass('h-3')
+      // WinGauge uses role="figure" — should not be in the hero
+      expect(container.querySelector('[role="figure"]')).toBeNull()
     })
   })
 
@@ -972,7 +928,7 @@ describe('HeroSection', () => {
       expect(screen.queryByTestId('insight-bullets')).not.toBeInTheDocument()
     })
 
-    it('coachingParagraph renders in More expand (not in default view)', () => {
+    it('coachingParagraph renders inline (2-line clamp, no More expand)', () => {
       render(
         <HeroSection
           {...baseProps}
@@ -982,14 +938,8 @@ describe('HeroSection', () => {
         />
       )
 
-      // Not visible by default
-      expect(screen.queryByText('General coaching paragraph.')).not.toBeInTheDocument()
-      // Expand More
-      const moreButton = screen.getByRole('button', { name: /more/i })
-      fireEvent.click(moreButton)
+      // Coaching paragraph shown inline (no More expand needed)
       expect(screen.getByText('General coaching paragraph.')).toBeInTheDocument()
-      // No structured-executive
-      expect(screen.queryByTestId('structured-executive')).not.toBeInTheDocument()
     })
 
     it('suppresses contradictory executive copy when robustness is low', () => {
@@ -1014,9 +964,9 @@ describe('HeroSection', () => {
     })
   })
 
-  // V12: Identifiability advisory
-  describe('V12: Identifiability advisory', () => {
-    it('shows advisory for partially_identifiable', () => {
+  // V12: Identifiability advisory (moved to Advanced section in Task 7b)
+  describe('V12: Identifiability advisory (moved to Advanced)', () => {
+    it('does not show identifiability advisory in hero (moved to Advanced)', () => {
       render(
         <HeroSection
           {...baseProps}
@@ -1026,26 +976,7 @@ describe('HeroSection', () => {
         />
       )
 
-      const moreButton = screen.getByRole('button', { name: /more/i })
-      fireEvent.click(moreButton)
-
-      expect(screen.getByText('Structural validity: Some limitations')).toBeInTheDocument()
-    })
-
-    it('shows advisory for not_backdoor_identifiable', () => {
-      render(
-        <HeroSection
-          {...baseProps}
-          decisionState="robust"
-          recommendationStability={0.85}
-          identifiabilityTag="not_backdoor_identifiable"
-        />
-      )
-
-      const moreButton = screen.getByRole('button', { name: /more/i })
-      fireEvent.click(moreButton)
-
-      expect(screen.getByText('Structural validity: Treat as directional')).toBeInTheDocument()
+      expect(screen.queryByText('Structural validity: Some limitations')).not.toBeInTheDocument()
     })
 
     it('does not show advisory for identifiable', () => {
@@ -1087,7 +1018,7 @@ describe('HeroSection', () => {
     // V14: Both the stability badge and decision-state-dot render the same text,
     // so we use getAllByText and check specific containers.
 
-    it('shows "Too close to call" instead of "Highly sensitive" when decisionState is indeterminate', () => {
+    it('shows "Sensitive result" in trust-one-liner when decisionState is indeterminate (stability=0.40)', () => {
       render(
         <HeroSection
           {...baseProps}
@@ -1099,11 +1030,13 @@ describe('HeroSection', () => {
         />
       )
 
-      expect(screen.getAllByText('Too close to call').length).toBeGreaterThanOrEqual(1)
-      expect(screen.queryByText('Highly sensitive')).not.toBeInTheDocument()
+      // TrustOneLiner uses stability thresholds: 0.40 → "Sensitive result"
+      const trustEl = screen.getByTestId('trust-one-liner')
+      expect(trustEl).toBeInTheDocument()
+      expect(trustEl.textContent).toContain('Sensitive result')
     })
 
-    it('preserves "Stable result" for robust state', () => {
+    it('preserves "Stable result" in trust-one-liner for robust state', () => {
       render(
         <HeroSection
           {...baseProps}
@@ -1112,11 +1045,11 @@ describe('HeroSection', () => {
         />
       )
 
-      expect(screen.getAllByText('Stable result').length).toBeGreaterThanOrEqual(1)
-      expect(screen.queryByText('Too close to call')).not.toBeInTheDocument()
+      const trustEl = screen.getByTestId('trust-one-liner')
+      expect(trustEl.textContent).toContain('Stable result')
     })
 
-    it('preserves "Sensitive to assumptions" for sensitive state', () => {
+    it('preserves "Sensitive result" in trust-one-liner for sensitive state (stability=0.60)', () => {
       render(
         <HeroSection
           {...baseProps}
@@ -1125,12 +1058,13 @@ describe('HeroSection', () => {
         />
       )
 
-      expect(screen.getAllByText('Sensitive to assumptions').length).toBeGreaterThanOrEqual(1)
-      expect(screen.queryByText('Too close to call')).not.toBeInTheDocument()
+      // stability=0.60 is >= 0.40, < 0.70 → "Sensitive result"
+      const trustEl = screen.getByTestId('trust-one-liner')
+      expect(trustEl.textContent).toContain('Sensitive result')
     })
 
-    it('uses text-info colour for indeterminate stability badge', () => {
-      const { container } = render(
+    it('trust-one-liner shows "Sensitive result" for indeterminate (stability=0.40)', () => {
+      render(
         <HeroSection
           {...baseProps}
           decisionState="indeterminate"
@@ -1138,16 +1072,15 @@ describe('HeroSection', () => {
         />
       )
 
-      // Pill wrapper carries the semantic colour class; inner span uses text-text-body
-      const pill = screen.getByTestId('decision-state-pill')
-      expect(pill.textContent).toContain('Too close to call')
-      expect(pill.className).toContain('text-info')
-      expect(pill.className).not.toContain('text-danger')
+      const trustEl = screen.getByTestId('trust-one-liner')
+      expect(trustEl.textContent).toContain('Sensitive result')
+      // decision-state-pill is removed from V16 path
+      expect(screen.queryByTestId('decision-state-pill')).not.toBeInTheDocument()
     })
 
-    it('overrides "Stable result" to "Sensitive to assumptions" when readiness downgraded to sensitive', () => {
-      // stability=0.90 → getStabilityTier returns "Stable result" (text-success)
-      // but decisionState='sensitive' due to readiness downgrade
+    it('trust-one-liner shows "Stable result" when decisionState=sensitive but stability=0.90', () => {
+      // stability=0.90 → TrustOneLiner shows "Stable result" based on pure stability thresholds
+      // (decisionState no longer overrides the trust one-liner label)
       render(
         <HeroSection
           {...baseProps}
@@ -1156,13 +1089,11 @@ describe('HeroSection', () => {
         />
       )
 
-      expect(screen.getAllByText('Sensitive to assumptions').length).toBeGreaterThanOrEqual(1)
-      expect(screen.queryByText('Stable result')).not.toBeInTheDocument()
+      const trustEl = screen.getByTestId('trust-one-liner')
+      expect(trustEl.textContent).toContain('Stable result')
     })
 
-    it('overrides "Mostly stable" to "Sensitive to assumptions" when readiness downgraded to sensitive', () => {
-      // stability=0.75 → getStabilityTier returns "Mostly stable" (text-success)
-      // but decisionState='sensitive' due to readiness downgrade
+    it('trust-one-liner shows "Mostly stable" for stability=0.75', () => {
       render(
         <HeroSection
           {...baseProps}
@@ -1171,11 +1102,11 @@ describe('HeroSection', () => {
         />
       )
 
-      expect(screen.getAllByText('Sensitive to assumptions').length).toBeGreaterThanOrEqual(1)
-      expect(screen.queryByText('Mostly stable')).not.toBeInTheDocument()
+      const trustEl = screen.getByTestId('trust-one-liner')
+      expect(trustEl.textContent).toContain('Mostly stable')
     })
 
-    it('uses text-warning colour for readiness-downgraded sensitive stability badge', () => {
+    it('trust-one-liner renders in V16 path (no decision-state-pill)', () => {
       render(
         <HeroSection
           {...baseProps}
@@ -1184,16 +1115,11 @@ describe('HeroSection', () => {
         />
       )
 
-      // Pill wrapper carries the semantic colour class; inner span uses text-text-body
-      const pill = screen.getByTestId('decision-state-pill')
-      expect(pill.textContent).toContain('Sensitive to assumptions')
-      expect(pill.className).toContain('text-warning')
-      expect(pill.className).not.toContain('text-success')
+      expect(screen.getByTestId('trust-one-liner')).toBeInTheDocument()
+      expect(screen.queryByTestId('decision-state-pill')).not.toBeInTheDocument()
     })
 
-    it('does NOT override when sensitive state matches natural stability tier', () => {
-      // stability=0.60 → getStabilityTier returns "Sensitive to assumptions" (text-warning)
-      // decisionState='sensitive' — no contradiction, no override needed
+    it('trust-one-liner shows "Sensitive result" for stability=0.60 (natural tier)', () => {
       render(
         <HeroSection
           {...baseProps}
@@ -1202,10 +1128,8 @@ describe('HeroSection', () => {
         />
       )
 
-      // Pill wrapper carries the semantic colour class; inner span uses text-text-body
-      const pill = screen.getByTestId('decision-state-pill')
-      expect(pill.textContent).toContain('Sensitive to assumptions')
-      expect(pill.className).toContain('text-warning')
+      const trustEl = screen.getByTestId('trust-one-liner')
+      expect(trustEl.textContent).toContain('Sensitive result')
     })
   })
 
@@ -1388,8 +1312,8 @@ describe('HeroSection', () => {
     })
   })
 
-  describe('V16: Trust summary', () => {
-    it('always renders trust-summary in V16 path', () => {
+  describe('V16: Trust summary (via TrustOneLiner)', () => {
+    it('always renders trust-one-liner in V16 path', () => {
       render(
         <HeroSection
           {...baseProps}
@@ -1398,12 +1322,13 @@ describe('HeroSection', () => {
         />
       )
 
-      const trust = screen.getByTestId('trust-summary')
+      const trust = screen.getByTestId('trust-one-liner')
       expect(trust).toBeInTheDocument()
-      expect(trust.textContent).toMatch(/Trust: \w+/)
+      // TrustOneLiner shows stability label, not "Trust: level" format
+      expect(trust.textContent).toContain('Stable result')
     })
 
-    it('trust level is "strong" when readiness is ready and robustness is high', () => {
+    it('shows "Stable result" when stability is high (readiness=ready, robustness=high)', () => {
       render(
         <HeroSection
           {...baseProps}
@@ -1414,53 +1339,57 @@ describe('HeroSection', () => {
         />
       )
 
-      const trust = screen.getByTestId('trust-summary')
-      expect(trust.textContent).toContain('Trust: strong')
+      const trust = screen.getByTestId('trust-one-liner')
+      expect(trust.textContent).toContain('Stable result')
     })
 
-    it('trust level is "moderate" when readiness is ready (any robustness)', () => {
+    it('shows "Stable result" when stability is high (readiness=ready, robustness=moderate)', () => {
       render(
         <HeroSection
           {...baseProps}
           decisionState="robust"
+          recommendationStability={0.90}
           coachingReadiness="ready"
           robustnessLevel="moderate"
         />
       )
 
-      const trust = screen.getByTestId('trust-summary')
-      expect(trust.textContent).toContain('Trust: moderate')
+      const trust = screen.getByTestId('trust-one-liner')
+      expect(trust.textContent).toContain('Stable result')
     })
 
-    it('trust level is "limited" when neither ready nor moderate/high robustness', () => {
+    it('shows "Sensitive result" for low stability (needs_evidence, low robustness)', () => {
       render(
         <HeroSection
           {...baseProps}
           decisionState="sensitive"
+          recommendationStability={0.50}
           coachingReadiness="needs_evidence"
           robustnessLevel="low"
         />
       )
 
-      const trust = screen.getByTestId('trust-summary')
-      expect(trust.textContent).toContain('Trust: limited')
+      const trust = screen.getByTestId('trust-one-liner')
+      expect(trust.textContent).toContain('Sensitive result')
     })
 
-    it('trust reason uses default estimate count when provided', () => {
+    it('shows evidence suffix when default estimates dominate', () => {
       render(
         <HeroSection
           {...baseProps}
           decisionState="sensitive"
-          defaultEstimateCount={3}
+          recommendationStability={0.50}
+          defaultEstimateCount={4}
           totalFactorCount={5}
         />
       )
 
-      const trust = screen.getByTestId('trust-summary')
-      expect(trust.textContent).toContain('3 of 5 factors use default estimates')
+      const trust = screen.getByTestId('trust-one-liner')
+      // ratio 4/5 = 0.8 > 0.75 → "most values are AI estimates"
+      expect(trust.textContent).toContain('most values are AI estimates')
     })
 
-    it('trust reason falls back to "review model assumptions"', () => {
+    it('shows "Stable result" with "more" link for high stability', () => {
       render(
         <HeroSection
           {...baseProps}
@@ -1471,8 +1400,9 @@ describe('HeroSection', () => {
         />
       )
 
-      const trust = screen.getByTestId('trust-summary')
-      expect(trust.textContent).toContain('Review model assumptions')
+      const trust = screen.getByTestId('trust-one-liner')
+      expect(trust.textContent).toContain('Stable result')
+      expect(screen.getByTestId('trust-more-link')).toBeInTheDocument()
     })
   })
 
@@ -1635,55 +1565,58 @@ describe('HeroSection', () => {
     })
   })
 
-  describe('V16: Trust summary — all reason branches', () => {
-    it('shows fragile edge ratio reason when > 70% fragile', () => {
+  describe('V16: TrustOneLiner — evidence suffix branches', () => {
+    it('shows "most values are AI estimates" when default ratio > 75%', () => {
       render(
         <HeroSection
           {...baseProps}
           decisionState="sensitive"
+          recommendationStability={0.50}
           coachingReadiness="needs_evidence"
           robustnessLevel="low"
-          fragileEdgeCount={8}
-          robustEdgeCount={2}
+          defaultEstimateCount={8}
+          totalFactorCount={10}
         />
       )
 
-      const trust = screen.getByTestId('trust-summary')
-      expect(trust.textContent).toContain('Most causal links are fragile')
+      const trust = screen.getByTestId('trust-one-liner')
+      expect(trust.textContent).toContain('most values are AI estimates')
     })
 
-    it('shows evidence quality reason when quality < 0.5', () => {
+    it('shows "evidence is limited" when default ratio > 50% but <= 75%', () => {
       render(
         <HeroSection
           {...baseProps}
           decisionState="sensitive"
+          recommendationStability={0.50}
           coachingReadiness="needs_evidence"
           robustnessLevel="low"
-          coachingReadinessDimensions={{ evidence: 0.3, robustness: 0.6, clarity: 0.7 }}
+          defaultEstimateCount={3}
+          totalFactorCount={5}
         />
       )
 
-      const trust = screen.getByTestId('trust-summary')
-      expect(trust.textContent).toContain('Evidence quality is low')
+      const trust = screen.getByTestId('trust-one-liner')
+      expect(trust.textContent).toContain('evidence is limited')
     })
 
-    it('default estimate reason takes priority over fragile edge ratio', () => {
+    it('no evidence suffix when default ratio <= 50%', () => {
       render(
         <HeroSection
           {...baseProps}
           decisionState="sensitive"
+          recommendationStability={0.50}
           defaultEstimateCount={2}
           totalFactorCount={4}
-          fragileEdgeCount={8}
-          robustEdgeCount={2}
         />
       )
 
-      const trust = screen.getByTestId('trust-summary')
-      expect(trust.textContent).toContain('2 of 4 factors use default estimates')
+      const trust = screen.getByTestId('trust-one-liner')
+      expect(trust.textContent).not.toContain('AI estimates')
+      expect(trust.textContent).not.toContain('evidence is limited')
     })
 
-    it('trust line has truncate class for single-line constraint', () => {
+    it('trust-one-liner is always present in V16 path', () => {
       render(
         <HeroSection
           {...baseProps}
@@ -1692,13 +1625,13 @@ describe('HeroSection', () => {
         />
       )
 
-      const trust = screen.getByTestId('trust-summary')
-      expect(trust.className).toContain('truncate')
+      const trust = screen.getByTestId('trust-one-liner')
+      expect(trust).toBeInTheDocument()
     })
   })
 
   describe('V16: Layout order', () => {
-    it('baseline/target row renders before gauge', () => {
+    it('baseline/target row renders in hero (gauge moved to options section)', () => {
       render(
         <HeroSection
           {...baseProps}
@@ -1712,16 +1645,14 @@ describe('HeroSection', () => {
         />
       )
 
+      // Baseline/target row exists in hero
+      expect(screen.getByTestId('baseline-target-row')).toBeInTheDocument()
+      // Win gauge is NOT in the hero (moved to options section)
       const heroSection = screen.getByTestId('hero-section')
-      const html = heroSection.innerHTML
-      const baselineIdx = html.indexOf('baseline-target-row')
-      const gaugeIdx = html.indexOf('Wins across scenarios')
-      expect(baselineIdx).toBeGreaterThan(-1)
-      expect(gaugeIdx).toBeGreaterThan(-1)
-      expect(baselineIdx).toBeLessThan(gaugeIdx)
+      expect(heroSection.querySelector('[role="figure"]')).toBeNull()
     })
 
-    it('decision-state pill has coloured dot', () => {
+    it('trust-one-liner replaces decision-state-pill in V16 path', () => {
       render(
         <HeroSection
           {...baseProps}
@@ -1730,9 +1661,9 @@ describe('HeroSection', () => {
         />
       )
 
-      const pill = screen.getByTestId('decision-state-pill')
-      const dot = pill.querySelector('.w-2.h-2.rounded-full')
-      expect(dot).toBeInTheDocument()
+      // decision-state-pill is removed; trust-one-liner is used instead
+      expect(screen.queryByTestId('decision-state-pill')).not.toBeInTheDocument()
+      expect(screen.getByTestId('trust-one-liner')).toBeInTheDocument()
     })
   })
 
@@ -1762,9 +1693,9 @@ describe('HeroSection', () => {
     )
   })
 
-  describe('V14 Task 5: More detail readiness bars', () => {
-    it('renders readiness bars when dimensions provided and expanded', () => {
-      const { container } = render(
+  describe('V14 Task 5: Readiness bars + narrative (moved to Advanced)', () => {
+    it('readiness bars NOT present in hero (moved to Advanced section)', () => {
+      render(
         <HeroSection
           {...baseProps}
           decisionState="sensitive"
@@ -1773,27 +1704,11 @@ describe('HeroSection', () => {
         />
       )
 
-      // Expand "More" to see readiness bars
-      const moreButton = screen.getByRole('button', { name: /more/i })
-      fireEvent.click(moreButton)
-      const bars = screen.getByTestId('readiness-bars')
-      expect(bars).toBeInTheDocument()
-      expect(bars.textContent).toContain('Evidence')
-      expect(bars.textContent).toContain('78%')
-      expect(bars.textContent).toContain('Robustness')
-      expect(bars.textContent).toContain('45%')
-      expect(bars.textContent).toContain('Framing')
-      expect(bars.textContent).toContain('30%')
-
-      // Check semantic fill colours: evidence >= 0.7 = success, robustness 0.4-0.69 = warning, clarity < 0.4 = danger
-      const fills = container.querySelectorAll('[class*="rounded-full"]')
-      const fillClasses = Array.from(fills).map(el => el.className)
-      expect(fillClasses.some(c => c.includes('bg-success'))).toBe(true)
-      expect(fillClasses.some(c => c.includes('bg-warning'))).toBe(true)
-      expect(fillClasses.some(c => c.includes('bg-danger'))).toBe(true)
+      // Readiness bars are gone from hero entirely
+      expect(screen.queryByTestId('readiness-bars')).not.toBeInTheDocument()
     })
 
-    it('skips readiness bars when dimensions not provided', () => {
+    it('readiness bars NOT present when dimensions not provided', () => {
       render(
         <HeroSection
           {...baseProps}
@@ -1805,7 +1720,7 @@ describe('HeroSection', () => {
       expect(screen.queryByTestId('readiness-bars')).toBeNull()
     })
 
-    it('renders M2 narrative with label when available', () => {
+    it('renders M2 narrative inline with line-clamp-2', () => {
       render(
         <HeroSection
           {...baseProps}
@@ -1815,12 +1730,13 @@ describe('HeroSection', () => {
         />
       )
 
-      fireEvent.click(screen.getByRole('button', { name: /more/i }))
-      expect(screen.getByText('AI-enhanced analysis')).toBeInTheDocument()
-      expect(screen.getByText(/M2 enhanced analysis/)).toBeInTheDocument()
+      // M2 narrative is inline (data-testid="hero-m2-narrative"), not inside a "More" expand
+      const narrative = screen.getByTestId('hero-m2-narrative')
+      expect(narrative).toBeInTheDocument()
+      expect(narrative.textContent).toContain('M2 enhanced analysis')
     })
 
-    it('falls back to M1 paragraph when M2 absent', () => {
+    it('falls back to M1 paragraph inline when M2 absent', () => {
       render(
         <HeroSection
           {...baseProps}
@@ -1830,15 +1746,13 @@ describe('HeroSection', () => {
         />
       )
 
-      expect(screen.queryByText('AI-enhanced analysis')).toBeNull()
-      // V16: M1 paragraph appears in "More" expand — click to open
-      fireEvent.click(screen.getByRole('button', { name: /more/i }))
-      expect(screen.getAllByText(/M1 deterministic coaching/).length).toBeGreaterThanOrEqual(1)
+      // M1 paragraph appears inline (line-clamp-2), no "More" expand needed
+      expect(screen.getByText(/M1 deterministic coaching/)).toBeInTheDocument()
     })
   })
 
-  describe('V14 Task 6: Win gauge no legend', () => {
-    it('renders win gauge without legend row', () => {
+  describe('V14 Task 6: Win gauge removed from hero', () => {
+    it('does not render WinGauge in hero (moved to options section)', () => {
       const { container } = render(
         <HeroSection
           {...baseProps}
@@ -1851,14 +1765,9 @@ describe('HeroSection', () => {
         />
       )
 
-      // Win gauge label exists
-      expect(screen.getByText('Wins across scenarios')).toBeInTheDocument()
-      // No legend labels below the bar (option labels only appear in gauge aria-labels)
-      const figure = container.querySelector('[role="figure"]')
-      expect(figure).toBeTruthy()
-      // Legend items would be plain text with option labels — ensure they're only in aria
-      const figureText = figure!.querySelector('p')
-      expect(figureText?.textContent).toBe('Wins across scenarios')
+      // WinGauge uses role="figure" — should NOT be in the hero
+      expect(container.querySelector('[role="figure"]')).toBeNull()
+      expect(screen.queryByText('Wins across scenarios')).not.toBeInTheDocument()
     })
   })
 
@@ -2195,8 +2104,8 @@ describe('HeroSection', () => {
     })
   })
 
-  describe('V16 Task 4: M2 narrative clamping in More expand', () => {
-    it('clamps long M2 narrative to first sentence with Read more button', () => {
+  describe('V16 Task 4: M2 narrative inline with line-clamp-2', () => {
+    it('renders M2 narrative inline with "Read more" link for long text', () => {
       render(
         <HeroSection
           {...baseProps}
@@ -2206,17 +2115,20 @@ describe('HeroSection', () => {
         />
       )
 
-      // Open More section first
-      fireEvent.click(screen.getByRole('button', { name: /more/i }))
-      expect(screen.getByText('AI-enhanced analysis')).toBeInTheDocument()
-      expect(screen.getByTestId('read-more-narrative')).toBeInTheDocument()
+      // M2 narrative is inline (data-testid="hero-m2-narrative"), not inside a "More" expand
+      const narrative = screen.getByTestId('hero-m2-narrative')
+      expect(narrative).toBeInTheDocument()
       // First sentence visible
-      expect(screen.getByText(/This is the first sentence/)).toBeInTheDocument()
-      // Full text not yet visible
-      expect(screen.queryByText(/additional context that should be hidden/)).not.toBeInTheDocument()
+      expect(narrative.textContent).toContain('This is the first sentence')
+      // "Read more" button exists inline (scrolls to #trust-narrative)
+      expect(screen.getByRole('button', { name: /Read more/ })).toBeInTheDocument()
     })
 
-    it('expands to full paragraph when Read more clicked', () => {
+    it('Read more link scrolls to #trust-narrative', () => {
+      const scrollIntoView = vi.fn()
+      const mockEl = { scrollIntoView, closest: vi.fn(() => null) } as unknown as HTMLElement
+      vi.spyOn(document, 'getElementById').mockReturnValue(mockEl)
+
       render(
         <HeroSection
           {...baseProps}
@@ -2226,9 +2138,11 @@ describe('HeroSection', () => {
         />
       )
 
-      fireEvent.click(screen.getByRole('button', { name: /more/i }))
-      fireEvent.click(screen.getByTestId('read-more-narrative'))
-      expect(screen.getByText(/additional context that should be hidden/)).toBeInTheDocument()
+      fireEvent.click(screen.getByRole('button', { name: /Read more/ }))
+      expect(document.getElementById).toHaveBeenCalledWith('trust-narrative')
+      expect(scrollIntoView).toHaveBeenCalledWith({ behavior: 'smooth', block: 'start' })
+
+      vi.restoreAllMocks()
     })
 
     it('no Read more button for short single-sentence narrative', () => {
@@ -2241,7 +2155,10 @@ describe('HeroSection', () => {
         />
       )
 
-      expect(screen.queryByTestId('read-more-narrative')).not.toBeInTheDocument()
+      // Short narrative should not have "Read more"
+      const narrative = screen.getByTestId('hero-m2-narrative')
+      expect(narrative).toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: /Read more/ })).not.toBeInTheDocument()
     })
   })
 })

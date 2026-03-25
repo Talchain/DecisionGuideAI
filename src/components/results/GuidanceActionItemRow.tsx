@@ -1,7 +1,7 @@
 /**
  * GuidanceActionItemRow — renders a GuidanceItem in the results panel style.
  *
- * Used in the "What to do next" section to display orchestrator coaching items
+ * Used in the "Your next steps" section to display orchestrator coaching items
  * when the guidance store has items. Falls back to NextActionItem when empty.
  */
 

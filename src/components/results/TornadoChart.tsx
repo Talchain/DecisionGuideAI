@@ -62,6 +62,8 @@ export interface TornadoChartProps {
   onApplyAndRerun?: () => void
   /** A4: Flip threshold data for marker annotations */
   flipThresholds?: FlipThreshold[]
+  /** Task 4: Factor IDs with contested inbound edges — highlighted with dashed border */
+  contestedFactorIds?: string[]
 }
 
 /** Whether structured unit data is available (not just normalised model scores). */
@@ -209,7 +211,9 @@ export function TornadoChart({
   goalDirection,
   onApplyAndRerun,
   flipThresholds,
+  contestedFactorIds,
 }: TornadoChartProps) {
+  const contestedSet = new Set(contestedFactorIds ?? [])
   // P0.2: Use relative % change when no structured unit is available
   const useRelativePct = !isNormalised && !hasStructuredUnit(outcomeUnit, outcomeUnitSymbol)
 
@@ -432,8 +436,18 @@ export function TornadoChart({
             }
           }
 
+          const isContested = contestedSet.has(row.factorKey)
+
           return (
-            <div key={row.factorKey} className="flex items-center gap-3 py-2 first:pt-0 last:pb-0">
+            <div key={row.factorKey} className={`flex items-center gap-3 py-2 first:pt-0 last:pb-0 relative${isContested ? ' border border-dashed border-warning/60 rounded-lg px-1' : ''}`}>
+              {/* Contested warning dot */}
+              {isContested && (
+                <div
+                  className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-warning"
+                  style={{ border: '1.5px solid var(--bg-panel)' }}
+                  aria-label="Contested estimate"
+                />
+              )}
               {/* Label */}
               <div className="w-[150px] flex-shrink-0 text-right">
                 {row.canFocus ? (
@@ -578,14 +592,28 @@ export function TornadoChart({
         </span>
       </div>
 
-      {/* V14.2: Clarification — unit shown once in axis text, not per row */}
-      {useRelativePct && (
-        <p
-          className={`${typography.panelMeta} text-text-light italic mt-1 ml-[158px]`}
-          data-testid="tornado-pp-clarification"
+      {/* Clarification line — updated per Task 4 */}
+      <p
+        className={`${typography.panelMeta} text-text-light mt-1 ml-[158px]`}
+        data-testid="tornado-pp-clarification"
+      >
+        Numbers show percentage point change in win likelihood when each factor varies across its plausible range
+      </p>
+
+      {/* Interaction strip — drag-to-preview guidance */}
+      {rows.length > 0 && (
+        <div
+          className="mt-2 px-2.5 py-1.5 bg-panel border border-info/20 rounded-lg flex items-center gap-2"
+          data-testid="tornado-interaction-strip"
         >
-          Values show % relative change from expected outcome.
-        </p>
+          <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="var(--info)" strokeWidth={2} className="flex-shrink-0">
+            <circle cx={12} cy={12} r={10} />
+            <polyline points="12 6 12 12 16 14" />
+          </svg>
+          <span className={`${typography.panelMeta} text-text-light`}>
+            Drag bars to preview, then <strong className="text-text-header">apply and rerun</strong> for confirmed results
+          </span>
+        </div>
       )}
 
       {/* Preview disclaimer + action buttons */}

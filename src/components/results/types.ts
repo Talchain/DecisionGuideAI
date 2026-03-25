@@ -522,6 +522,8 @@ export interface ConfidenceSectionData {
   conditionalWinners?: ConditionalWinner[]
   /** ISL inference_warnings — model gap warnings */
   inferenceWarnings?: InferenceWarning[]
+  /** ISL edge_e_values — sensitivity measure per edge */
+  edgeEValues?: Array<{ edge_id: string; e_value: number }>
 }
 
 // =============================================================================

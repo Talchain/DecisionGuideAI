@@ -94,7 +94,7 @@ describe('Visual contract: Indeterminate state', () => {
     expect(container.querySelectorAll('.border-success')).toHaveLength(0)
   })
 
-  it('all rank badges use stone tokens', () => {
+  it('all rank badges use text-light styling', () => {
     render(
       <OptionCards
         options={twoOptions}
@@ -107,11 +107,9 @@ describe('Visual contract: Indeterminate state', () => {
     const badgeA = screen.getByTestId('rank-badge-opt-a')
     const badgeB = screen.getByTestId('rank-badge-opt-b')
 
-    // §8.5: outlined variant for metadata badges (border-factor/30 text-text-body)
-    expect(badgeA.className).toContain('border-factor/30')
-    expect(badgeA.className).toContain('text-text-body')
-    expect(badgeB.className).toContain('border-factor/30')
-    expect(badgeB.className).toContain('text-text-body')
+    // Leading rank uses text-text-light font-semibold (no pill border)
+    expect(badgeA.className).toContain('text-text-light')
+    expect(badgeB.className).toContain('text-text-light')
   })
 
   it('rank badges show percentage not "#N of N"', () => {
@@ -199,10 +197,10 @@ describe('Visual contract: Robust state', () => {
       />
     )
 
-    // §8.5: outlined variant for metadata badges (border-success/30 text-text-body)
+    // Leading rank uses text-text-light font-semibold (no pill border)
     const badge = screen.getByTestId('rank-badge-opt-a')
-    expect(badge.className).toContain('border-success/30')
-    expect(badge.className).toContain('text-text-body')
+    expect(badge.className).toContain('text-text-light')
+    expect(badge.className).toContain('font-semibold')
   })
 
   it('V16.2: VOI block shown for robust state (scroll-link target)', () => {

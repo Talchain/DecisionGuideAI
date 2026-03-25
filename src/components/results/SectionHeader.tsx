@@ -21,6 +21,8 @@ export interface SectionHeaderProps {
   countState?: 'complete' | 'warning' | 'critical'
   /** Test ID for testing */
   testId?: string
+  /** Optional entity shape icon before the title */
+  icon?: 'option'
 }
 
 const badgeStateClasses = {
@@ -35,7 +37,7 @@ const legacyCountStateMap = {
   critical: 'critical',
 } as const
 
-export function SectionHeader({ title, count, badgeState, countState, testId }: SectionHeaderProps) {
+export function SectionHeader({ title, count, badgeState, countState, testId, icon }: SectionHeaderProps) {
   const resolvedBadgeState = count != null && count > 0
     ? (badgeState ?? (countState ? legacyCountStateMap[countState] : 'unresolved'))
     : undefined
@@ -45,6 +47,11 @@ export function SectionHeader({ title, count, badgeState, countState, testId }: 
       className="flex items-center gap-2 mb-2.5"
       data-testid={testId}
     >
+      {icon === 'option' && (
+        <svg width={16} height={16} viewBox="0 0 14 14" className="flex-shrink-0">
+          <rect x={1} y={1} width={12} height={12} rx={2} fill="var(--option-light)" stroke="var(--option)" strokeWidth={1.5} />
+        </svg>
+      )}
       <h3
         className={`${typography.panelHeader} text-text-header`}
       >

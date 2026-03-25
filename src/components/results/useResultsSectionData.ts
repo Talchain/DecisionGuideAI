@@ -2175,7 +2175,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
 
         // V14.2: topNextActions for hero coaching line uses ALL actions sorted by
         // priority (not deduped against fragile edges). The deduped `nextActions` is
-        // used by the "What to do next" section to avoid redundancy.
+        // used by the "Your next steps" section to avoid redundancy.
         const allSortedActions = [...rawActions].sort((a: any, b: any) => {
           const aPriority = typeof a.priority === 'number' ? a.priority : 999
           const bPriority = typeof b.priority === 'number' ? b.priority : 999
@@ -2315,6 +2315,11 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
             message: w.message ? String(w.message) : undefined,
           }
         })
+      })(),
+      edgeEValues: (() => {
+        const raw = safeArray((report as any)?.robustness?.edge_e_values)
+        const valid = raw.filter((ev: any) => typeof ev?.edge_id === 'string' && typeof ev?.e_value === 'number')
+        return valid.length > 0 ? valid.map((ev: any) => ({ edge_id: String(ev.edge_id), e_value: Number(ev.e_value) })) : undefined
       })(),
     }
   }, [report, m1Coaching, drivers, reviewStatus, m1ReviewAssumptions, nodeLabelMap])

@@ -25,6 +25,41 @@ import { stripEncodingNotation } from './utils/cleanFactorLabel'
 import { groupActionItems, type ActionGroup, type ActionItem } from './utils/groupActionItems'
 import { AlertTriangle, Lightbulb, Search, ArrowLeftRight, GitBranch } from 'lucide-react'
 
+/**
+ * Expandable "Why this matters" section for action items with whatCouldHappen / whatToDo data.
+ * Renders a clickable text link that toggles an explanation panel.
+ */
+function WhyThisMatters({ whatCouldHappen, whatToDo }: { whatCouldHappen?: string; whatToDo?: string }) {
+  const [expanded, setExpanded] = useState(false)
+  if (!whatCouldHappen && !whatToDo) return null
+  return (
+    <div className="mt-1.5">
+      <button
+        type="button"
+        onClick={(e) => { e.stopPropagation(); setExpanded(!expanded) }}
+        className={`${typography.panelMeta} text-info hover:underline flex items-center gap-1`}
+      >
+        <svg className={`w-2.5 h-2.5 transition-transform ${expanded ? 'rotate-90' : ''}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><polyline points="9 18 15 12 9 6" /></svg>
+        Why this matters
+      </button>
+      {expanded && (
+        <div className="mt-1.5 bg-panel-hover rounded-lg p-2 space-y-1">
+          {whatCouldHappen && (
+            <p className={`${typography.panelMeta} text-text-body`}>
+              <strong className="text-text-header">Impact:</strong> {whatCouldHappen}
+            </p>
+          )}
+          {whatToDo && (
+            <p className={`${typography.panelMeta} text-text-body`}>
+              <strong className="text-text-header">Recommendation:</strong> {whatToDo}
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 interface ConfidenceSectionProps {
   data: ConfidenceSectionData
   onFocusNode?: (nodeId: string) => void
@@ -702,6 +737,12 @@ export function ConfidenceSection({
                                 {actionItem.subtitle && (
                                   <p className={`${typography.panelBody} text-text-light mt-0.5`}>{actionItem.subtitle}</p>
                                 )}
+                                {(actionItem.whatCouldHappen || actionItem.whatToDo) && (
+                                  <WhyThisMatters
+                                    whatCouldHappen={actionItem.whatCouldHappen}
+                                    whatToDo={actionItem.whatToDo}
+                                  />
+                                )}
                               </div>
                               {canFocus && (
                                 <span className="text-text-light flex-shrink-0" aria-hidden="true">{'\u2192'}</span>
@@ -759,7 +800,6 @@ export function ConfidenceSection({
                             }
                           : null
 
-                        const hasEnrichment = actionItem.whatToDo || actionItem.whatCouldHappen
                         const investigateBorderClass = actionItem.confidenceLevel === 'low'
                           ? 'border-warning/30'
                           : 'border-panel-border'
@@ -804,32 +844,15 @@ export function ConfidenceSection({
                                   Resolving could improve confidence by up to {Math.round(actionItem.evpiPp)}pp
                                 </p>
                               )}
+                              {(actionItem.whatCouldHappen || actionItem.whatToDo) && (
+                                <WhyThisMatters
+                                  whatCouldHappen={actionItem.whatCouldHappen}
+                                  whatToDo={actionItem.whatToDo}
+                                />
+                              )}
                             </div>
                           </div>
                         )
-
-                        if (hasEnrichment) {
-                          return (
-                            <details
-                              key={actionItem.id}
-                              className={`bg-panel border ${investigateBorderClass} rounded-lg overflow-hidden results-card-hover`}
-                              onMouseEnter={() => actionItem.targetId && highlightNode(actionItem.targetId)}
-                              onMouseLeave={clearHighlight}
-                            >
-                              <summary className="p-3 cursor-pointer hover:bg-panel-hover">
-                                {cardContent}
-                              </summary>
-                              <div className="px-3 pb-3 space-y-1 border-t border-panel-border pt-2">
-                                {actionItem.whatToDo && (
-                                  <p className={`${typography.panelBody} text-text-body`}>{actionItem.whatToDo}</p>
-                                )}
-                                {actionItem.whatCouldHappen && (
-                                  <p className={`${typography.panelMeta} text-text-light italic`}>{actionItem.whatCouldHappen}</p>
-                                )}
-                              </div>
-                            </details>
-                          )
-                        }
 
                         return (
                           <div
