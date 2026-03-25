@@ -48,6 +48,7 @@ const NODE_TYPE_ITEMS: { type: NodeType; label: string; glyph?: string; icon?: C
   { type: 'factor', label: 'Factor', glyph: '\u25CF', color: 'text-factor', tooltip: 'Causal variable that can be measured or influenced' },
   { type: 'risk', label: 'Risk', glyph: '\u25BC', color: 'text-danger', tooltip: 'Potential negative outcome' },
   { type: 'outcome', label: 'Outcome', glyph: '\u25B2', color: 'text-success', tooltip: 'Observable result or measurement' },
+  { type: 'option', label: 'Option', glyph: '\u25A0', color: 'text-option', tooltip: 'Alternative choice under a decision' },
   { type: 'goal', label: 'Goal', glyph: '\u25C6', color: 'text-goal', tooltip: 'Target outcome for optimisation' },
   { type: 'decision', label: 'Decision', glyph: '\u2B22', color: 'text-info', tooltip: 'Choice point between options' },
 ]
