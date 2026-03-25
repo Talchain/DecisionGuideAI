@@ -1139,7 +1139,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
       setRadialMenuPosition(null)
       if (limitResult) {
         // addNode returned a limit kind — creation was blocked
-        showToast(limitExceededMessage(limitResult, state.nodes.length), 'warning')
+        showToast(limitExceededMessage(limitResult, limitResult === 'node_limit' ? state.nodes.length : state.edges.length), 'warning')
         return
       }
       showToast(`Added ${nodeType} node`, 'success')
