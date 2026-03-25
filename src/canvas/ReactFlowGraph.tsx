@@ -15,10 +15,8 @@ import * as scenarios from './store/scenarios'
 import type { Scenario } from './store/scenarios'
 import { validateCeeAnalysisReady } from './utils/ceeAnalysisReadyValidation'
 import type { CEEAnalysisReady } from '../adapters/cee/types'
-import { ContextMenu } from './ContextMenu'
 import { CanvasContextMenu } from './contextMenu/CanvasContextMenu'
 import { isStructuralEdge } from './domain/edgeUtils'
-import { isContextMenuEnabled } from '../flags'
 import { isSelfLoop, isDuplicateEdge, wouldCreateCycle, wouldExceedLimits, limitExceededMessage } from './validation/graphGuardrails'
 import type { ContextTarget } from './contextMenu/types'
 import type { NodeType } from './domain/nodes'
@@ -66,7 +64,6 @@ const AIClarifierChat = lazy(() => import(/* webpackChunkName: "ai-clarifier" */
 // CoachingNudge and useCEECoaching removed - coaching now in GuidancePanel (OutputsDock)
 import { DocumentsManager } from './components/DocumentsManager'
 import { ProvenanceHubTab } from './components/ProvenanceHubTab'
-import { RadialQuickAddMenu } from './components/RadialQuickAddMenu'
 import { ConnectPrompt } from './components/ConnectPrompt'
 import { FocusModeChip } from './components/FocusModeChip'
 // EdgeLabelToggle moved to CanvasToolbar for cleaner UI
@@ -422,7 +419,6 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
   // State declarations
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null)
   const [contextMenuTarget, setContextMenuTarget] = useState<ContextTarget | null>(null)
-  const useNewContextMenu = isContextMenuEnabled()
   const [draggingNodeIds, setDraggingNodeIds] = useState<Set<string>>(new Set())
   const [isDragging, setIsDragging] = useState(false)
   const [showCommandPalette, setShowCommandPalette] = useState(false)
@@ -473,11 +469,6 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
   }, [openOnboarding, openKeyboardLegend, showInfluenceExplainer])
 
   // S.1: suppressPopover removed — compact popover no longer renders
-
-  // P0-7: Quick-add mode state
-  const [quickAddMode, setQuickAddMode] = useState(false)
-  const [radialMenuPosition, setRadialMenuPosition] = useState<{ x: number; y: number } | null>(null)
-  const addNode = useCanvasStore(s => s.addNode)
 
   // Phase 3: Empty state actions
   // Use store selectors directly - Zustand actions are stable references
@@ -626,11 +617,6 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
   const completeReconnect = useCanvasStore(s => s.completeReconnect)
   // Brief 37 Task 4: Use stable useShowToast to prevent re-renders on toast changes
   const showToast = useShowToast()
-  const handleQuickAddClick = useCallback(() => {
-    setQuickAddMode(true)
-    setRadialMenuPosition(null)
-    showToast('Quick-add mode enabled. Click canvas to add nodes.', 'info')
-  }, [showToast])
   const handleOpenCompare = useCallback(() => {
     // Check if we have runs to compare (need at least 2)
     // Use loadRuns() which reads from localStorage (store.runHistory doesn't exist)
@@ -1039,7 +1025,6 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
 
   // Shift+F10: Open context menu at focused element position
   const handleKeyboardContextMenu = useCallback((screenPos: { x: number; y: number }) => {
-    if (!useNewContextMenu) return
     const { selection, nodes: storeNodes } = useCanvasStore.getState()
 
     if (selection.nodeIds.size > 1 || (selection.nodeIds.size > 0 && selection.edgeIds.size > 0) || selection.edgeIds.size > 1) {
@@ -1081,7 +1066,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
       setContextMenuTarget({ kind: 'pane', screenPos })
     }
     setContextMenu(screenPos)
-  }, [useNewContextMenu])
+  }, [])
 
   // Setup keyboard shortcuts (P, Alt+V, Cmd/Ctrl+Enter, Cmd/Ctrl+3, Cmd/Ctrl+I, Cmd/Ctrl+D, Shift+F10)
   useCanvasKeyboardShortcuts({
@@ -1092,109 +1077,6 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
     onShowToast: showToast,
     onOpenContextMenu: handleKeyboardContextMenu,
   })
-
-  // P0-7: Q key to toggle quick-add mode
-  // Brief 36 Fix: Use ref to avoid re-attaching listener on quickAddMode change
-  const quickAddModeRef = useRef(quickAddMode)
-  quickAddModeRef.current = quickAddMode
-
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'q' && !e.metaKey && !e.ctrlKey && !e.altKey && !e.shiftKey) {
-        e.preventDefault()
-        const wasEnabled = quickAddModeRef.current
-        setQuickAddMode(prev => !prev)
-        setRadialMenuPosition(null) // Close menu if open
-        if (!wasEnabled) {
-          showToast('Quick-add mode enabled. Click canvas to add nodes.', 'info')
-        }
-      }
-    }
-
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [showToast]) // Brief 36: Removed quickAddMode from deps
-
-  // P0-7: Handle pane click to show radial menu in quick-add mode
-  const handlePaneClick = useCallback((event: React.MouseEvent) => {
-    if (quickAddMode) {
-      setRadialMenuPosition({ x: event.clientX, y: event.clientY })
-    }
-  }, [quickAddMode])
-
-  // P0-7: Handle node type selection from radial menu
-  // Brief 36 Fix: Use ref for getViewport to prevent dependency re-renders
-  const handleRadialMenuSelect = useCallback((nodeType: NodeType) => {
-    if (radialMenuPosition) {
-      const viewport = getViewportRef.current()
-      // Convert screen coordinates to canvas coordinates
-      const canvasX = (radialMenuPosition.x - viewport.x) / viewport.zoom
-      const canvasY = (radialMenuPosition.y - viewport.y) / viewport.zoom
-
-      // Get current node ID before adding (to identify new node)
-      const state = useCanvasStore.getState()
-      const beforeNodeCount = state.nodes.length
-
-      const limitResult = addNode({ x: canvasX, y: canvasY }, nodeType)
-      setRadialMenuPosition(null)
-      if (limitResult) {
-        // addNode returned a limit kind — creation was blocked
-        showToast(limitExceededMessage(limitResult, limitResult === 'node_limit' ? state.nodes.length : state.edges.length), 'warning')
-        return
-      }
-      showToast(`Added ${nodeType} node`, 'success')
-
-      // P0-8: Check for nearby nodes within 300px
-      setTimeout(() => {
-        const newState = useCanvasStore.getState()
-        if (newState.nodes.length > beforeNodeCount) {
-          // Find the newly added node (last node)
-          const newNode = newState.nodes[newState.nodes.length - 1]
-
-          // Find nearby nodes within 300px
-          const nearbyNodes = newState.nodes.filter(n => {
-            if (n.id === newNode.id) return false
-            const dx = n.position.x - newNode.position.x
-            const dy = n.position.y - newNode.position.y
-            const distance = Math.sqrt(dx * dx + dy * dy)
-            return distance <= 300
-          })
-
-          if (nearbyNodes.length > 0) {
-            // Show prompt for the closest node
-            const closest = nearbyNodes.reduce((prev, curr) => {
-              const prevDist = Math.sqrt(
-                Math.pow(prev.position.x - newNode.position.x, 2) +
-                Math.pow(prev.position.y - newNode.position.y, 2)
-              )
-              const currDist = Math.sqrt(
-                Math.pow(curr.position.x - newNode.position.x, 2) +
-                Math.pow(curr.position.y - newNode.position.y, 2)
-              )
-              return currDist < prevDist ? curr : prev
-            })
-
-            // Convert target node's canvas position to screen coordinates
-            const viewport = getViewportRef.current()
-            const screenX = closest.position.x * viewport.zoom + viewport.x
-            const screenY = closest.position.y * viewport.zoom + viewport.y
-
-            setConnectPrompt({
-              newNodeId: newNode.id,
-              targetNodeId: closest.id,
-              targetNodeLabel: (closest.data as any)?.label || closest.id,
-              position: { x: screenX, y: screenY }
-            })
-          }
-        }
-      }, 50) // Small delay to ensure node is added to store
-    }
-  }, [radialMenuPosition, addNode, showToast]) // Brief 36: Removed getViewport - using ref
-
-  // P0-7: Cancel radial menu
-  const handleRadialMenuCancel = useCallback(() => {
-    setRadialMenuPosition(null)
-  }, [])
 
   // P0-8: Confirm connection to nearby node
   const handleConfirmConnect = useCallback(() => {
@@ -1777,30 +1659,28 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
     const screenPos = { x: event.clientX, y: event.clientY }
     setContextMenu(screenPos)
 
-    if (useNewContextMenu) {
-      const { selection } = useCanvasStore.getState()
-      const isMulti = selection.nodeIds.size > 1
-        || selection.edgeIds.size > 1
-        || (selection.nodeIds.size > 0 && selection.edgeIds.size > 0)
-      if (isMulti) {
-        setContextMenuTarget({
-          kind: 'multi',
-          nodeIds: [...selection.nodeIds],
-          edgeIds: [...selection.edgeIds],
-          screenPos,
-        })
-      } else {
-        setContextMenuTarget({ kind: 'pane', screenPos })
-      }
+    const { selection } = useCanvasStore.getState()
+    const isMulti = selection.nodeIds.size > 1
+      || selection.edgeIds.size > 1
+      || (selection.nodeIds.size > 0 && selection.edgeIds.size > 0)
+    if (isMulti) {
+      setContextMenuTarget({
+        kind: 'multi',
+        nodeIds: [...selection.nodeIds],
+        edgeIds: [...selection.edgeIds],
+        screenPos,
+      })
+    } else {
+      setContextMenuTarget({ kind: 'pane', screenPos })
     }
-  }, [useNewContextMenu])
+  }, [])
 
   const onNodeContextMenu = useCallback((event: React.MouseEvent | MouseEvent, node?: any) => {
     event.preventDefault()
     const screenPos = { x: event.clientX, y: event.clientY }
     setContextMenu(screenPos)
 
-    if (useNewContextMenu && node) {
+    if (node) {
       const { selection } = useCanvasStore.getState()
       if (selection.nodeIds.size > 1) {
         setContextMenuTarget({
@@ -1823,14 +1703,14 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
         })
       }
     }
-  }, [useNewContextMenu])
+  }, [])
 
   const onEdgeContextMenu = useCallback((event: React.MouseEvent | MouseEvent, edge?: any) => {
     event.preventDefault()
     const screenPos = { x: event.clientX, y: event.clientY }
     setContextMenu(screenPos)
 
-    if (useNewContextMenu && edge) {
+    if (edge) {
       const { nodes } = useCanvasStore.getState()
       const getNodeKind = (id: string) => {
         const n = nodes.find((nd: any) => nd.id === id)
@@ -1844,7 +1724,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
         screenPos,
       })
     }
-  }, [useNewContextMenu])
+  }, [])
 
   const onNodeDragStart = useCallback((_: React.MouseEvent | MouseEvent, node: any) => {
     setDraggingNodeIds(prev => new Set([...prev, node.id]))
@@ -2008,7 +1888,6 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
         width: '100%',
         height: '100%',
         position: 'relative',
-        cursor: quickAddMode ? 'crosshair' : undefined,
       }}
     >
       <div
@@ -2060,7 +1939,6 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
             onNodeDoubleClick={handleNodeDoubleClick}
             onEdgeClick={handleEdgeClick}
             onEdgeDoubleClick={handleEdgeDoubleClick}
-            onPaneClick={handlePaneClick}
             onPaneContextMenu={onPaneContextMenu}
             onNodeContextMenu={onNodeContextMenu}
             onEdgeContextMenu={onEdgeContextMenu}
@@ -2110,16 +1988,13 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
       <EdgeThicknessLegend visible={resultsStatus === 'complete'} />
 
       {showAlignmentGuides && isDragging && <AlignmentGuides nodes={nodes} draggingNodeIds={draggingNodeIds} isActive={isDragging} />}
-      {useNewContextMenu && contextMenuTarget
-        ? <CanvasContextMenu target={contextMenuTarget} onClose={handleCloseContextMenu} screenToFlowPosition={screenToFlowPosition} />
-        : contextMenu && <ContextMenu x={contextMenu.x} y={contextMenu.y} onClose={handleCloseContextMenu} />}
+      {contextMenuTarget && <CanvasContextMenu target={contextMenuTarget} onClose={handleCloseContextMenu} screenToFlowPosition={screenToFlowPosition} />}
       {reconnecting && <ReconnectBanner />}
 
       {!USE_NEW_LAYOUT && <CanvasToolbar />}
       <LeftSidebar
         interactionMode={interactionMode}
         onModeChange={setInteractionMode}
-        onAddNodeClick={handleQuickAddClick}
         onTemplatesClick={handleEmptyStateTemplate}
         onRunClick={handleRunSimulation}
         onCompareClick={handleOpenCompare}
@@ -2279,15 +2154,6 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
 
       {/* Graph Editing Experience Task 2d: Store-driven confirm dialog for deletion warnings */}
       <StoreConfirmDialog />
-
-      {/* P0-7: Radial quick-add menu */}
-      {radialMenuPosition && (
-        <RadialQuickAddMenu
-          position={radialMenuPosition}
-          onSelect={handleRadialMenuSelect}
-          onCancel={handleRadialMenuCancel}
-        />
-      )}
 
       {/* P0-8: Auto-connect prompt */}
       {connectPrompt && (

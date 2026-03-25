@@ -10,7 +10,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { EdgeEditPopover } from '../edges/EdgeEditPopover'
-import { RadialQuickAddMenu } from '../components/RadialQuickAddMenu'
 import { UnknownKindWarning } from '../components/UnknownKindWarning'
 
 describe('S4-A11Y: Focus Management and ARIA', () => {
@@ -86,54 +85,6 @@ describe('S4-A11Y: Focus Management and ARIA', () => {
       expect(weightSlider.max).toBe('1')
       expect(weightSlider.step).toBe('0.01')
       expect(weightSlider.type).toBe('range')
-    })
-  })
-
-  describe('RadialQuickAddMenu Accessibility', () => {
-    const mockProps = {
-      position: { x: 400, y: 300 },
-      onSelect: () => {},
-      onCancel: () => {}
-    }
-
-    it('should have appropriate z-index for overlay', () => {
-      const { container } = render(<RadialQuickAddMenu {...mockProps} />)
-
-      const wrapper = container.firstChild as HTMLElement
-      expect(wrapper.className).toContain('z-[4000]')
-    })
-
-    it('should have text labels for each segment', () => {
-      const { container } = render(<RadialQuickAddMenu {...mockProps} />)
-
-      const labels = container.querySelectorAll('text')
-      expect(labels.length).toBe(6) // 6 node types
-
-      // All labels should have text content
-      labels.forEach(label => {
-        expect(label.textContent).toBeTruthy()
-        expect(label.textContent!.length).toBeGreaterThan(0)
-      })
-    })
-
-    it('should have clickable segments with pointer cursor', () => {
-      const { container } = render(<RadialQuickAddMenu {...mockProps} />)
-
-      const paths = container.querySelectorAll('path')
-      expect(paths.length).toBe(6)
-
-      paths.forEach(path => {
-        expect((path as SVGPathElement).style.cursor).toBe('pointer')
-      })
-    })
-
-    it('should not allow text selection on labels', () => {
-      const { container } = render(<RadialQuickAddMenu {...mockProps} />)
-
-      const labels = container.querySelectorAll('text')
-      labels.forEach(label => {
-        expect((label as SVGTextElement).getAttribute('pointer-events')).toBe('none')
-      })
     })
   })
 
