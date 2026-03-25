@@ -213,8 +213,8 @@ export const EdgeDataSchema = z.object({
   // V3 edge metadata (preserved from CEE for round-trip fidelity)
   /** V3 edge type: "directed", "bidirected", etc. */
   edge_type: z.string().optional(),
-  /** V3 provenance source classification */
-  provenance_source: z.enum(['document', 'metric', 'hypothesis', 'engine']).optional(),
+  /** V3 provenance source classification (string, not enum — CEE may add new values) */
+  provenance_source: z.string().optional(),
   /** Raw exists probability from CEE V3 (preserved alongside beliefExists) */
   exists_probability: z.number().min(0).max(1).optional(),
 

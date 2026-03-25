@@ -225,6 +225,44 @@ describe('applyDraftResult', () => {
     expect(edgeData.exists_probability).toBe(0.9)
   })
 
+  it('falls back beliefExists from exists_probability when belief_exists is absent', () => {
+    const draftData = {
+      nodes: [
+        { id: 'f1', kind: 'factor', label: 'A' },
+        { id: 'g1', kind: 'goal', label: 'Goal' },
+      ],
+      edges: [
+        {
+          from: 'f1',
+          to: 'g1',
+          weight: 0.5,
+          exists_probability: 0.75,
+          // no belief_exists, no belief
+        },
+      ],
+    } as any
+
+    applyDraftResult(draftData)
+
+    expect(storeEdges[0].data.beliefExists).toBe(0.75)
+  })
+
+  it('derives interventionKeys on option nodes with inline interventions', () => {
+    const draftData = {
+      nodes: [
+        { id: 'o1', kind: 'option', label: 'Option A', interventions: { f1: { value: 10 } } },
+        { id: 'g1', kind: 'goal', label: 'Goal' },
+      ],
+      edges: [],
+    } as any
+
+    applyDraftResult(draftData)
+
+    const optionNode = storeNodes.find((n: any) => n.id === 'o1')
+    expect(optionNode.data.interventions).toEqual({ f1: { value: 10 } })
+    expect(optionNode.data.interventionKeys).toEqual(['f1'])
+  })
+
   it('omits V3 fields when not present in CEE response', () => {
     const draftData = {
       nodes: [

@@ -168,4 +168,54 @@ describe('applyAutoApplyPatch — V3 edge field preservation', () => {
     expect(storeEdges[0].data.weight).toBe(0.65)
     expect(storeEdges[0].data.direction).toBe('positive')
   })
+
+  it('falls back beliefExists from exists_probability when belief_exists is absent', () => {
+    const patchBlock: GraphPatchBlock = {
+      block_type: 'graph_patch',
+      auto_apply: true,
+      operations: [
+        {
+          op: 'add_edge',
+          target_id: 'e1',
+          data: {
+            from: 'f1',
+            to: 'g1',
+            weight: 0.5,
+            exists_probability: 0.75,
+            // no belief_exists, no belief
+          },
+        },
+      ],
+    }
+
+    applyAutoApplyPatch(patchBlock)
+
+    expect(storeEdges[0].data.beliefExists).toBe(0.75)
+    expect(storeEdges[0].data.exists_probability).toBe(0.75)
+  })
+
+  it('derives interventionKeys on option nodes with inline interventions', () => {
+    const patchBlock: GraphPatchBlock = {
+      block_type: 'graph_patch',
+      auto_apply: true,
+      operations: [
+        {
+          op: 'add_node',
+          target_id: 'o1',
+          data: {
+            kind: 'option',
+            label: 'Option A',
+            interventions: { f1: { value: 10 }, f2: { value: -5 } },
+          },
+        },
+      ],
+    }
+
+    applyAutoApplyPatch(patchBlock)
+
+    const optionNode = storeNodes.find((n: any) => n.id === 'o1')
+    expect(optionNode).toBeDefined()
+    expect(optionNode.data.interventions).toEqual({ f1: { value: 10 }, f2: { value: -5 } })
+    expect(optionNode.data.interventionKeys).toEqual(['f1', 'f2'])
+  })
 })

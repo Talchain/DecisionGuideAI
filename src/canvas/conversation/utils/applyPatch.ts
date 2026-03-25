@@ -59,6 +59,13 @@ function buildNode(op: PatchOperation) {
   const kind = (d.kind as string) || (d.type as string) || 'decision'
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { kind: _k, type: _t, observed_state, ...rest } = d as Record<string, unknown>
+
+  // Derive interventionKeys when interventions object is present (e.g. from CEE add_node)
+  const interventions = rest.interventions as Record<string, unknown> | undefined
+  const interventionKeys = interventions && typeof interventions === 'object' && !Array.isArray(interventions)
+    ? Object.keys(interventions)
+    : undefined
+
   return {
     id: op.target_id,
     type: kind,
@@ -68,6 +75,7 @@ function buildNode(op: PatchOperation) {
       label: (d.label as string) ?? 'Untitled',
       kind,
       ...(observed_state ? { observedState: observed_state } : {}),
+      ...(interventionKeys ? { interventionKeys } : {}),
     },
   }
 }
@@ -108,7 +116,9 @@ function buildEdge(op: PatchOperation) {
   const beliefExists =
     typeof d.belief_exists === 'number'
       ? Math.max(0, Math.min(1, d.belief_exists as number))
-      : confidence
+      : typeof d.exists_probability === 'number'
+        ? Math.max(0, Math.min(1, d.exists_probability as number))
+        : confidence
   const strengthStd: number | undefined =
     typeof strength?.std === 'number'
       ? (strength.std as number)

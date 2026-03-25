@@ -262,6 +262,10 @@ export interface EnrichedGraphEdge {
   weight?: number
   direction?: string
   beliefStrength?: number
+  // V3 edge metadata
+  edge_type?: string
+  provenance_source?: string
+  exists_probability?: number
 }
 
 /** V1.5: Enriched full_graph with _meta */
@@ -749,12 +753,16 @@ function transformGraphDataEnriched(graphData: FullGraphData): EnrichedFullGraph
     label: edge.data?.label ?? edge.label,
     strength: edge.data?.strength_mean ?? edge.data?.strength ?? edge.data?.confidence,
     strength_mean: edge.data?.strength_mean,
-    strength_std: edge.data?.strength_std,
+    strength_std: edge.data?.strength_std ?? edge.data?.strengthStd,
     belief_exists: edge.data?.belief_exists ?? edge.data?.beliefExists,
     effect_direction: edge.data?.effect_direction ?? edge.data?.direction,
     weight: edge.data?.weight,
     direction: edge.data?.direction,
     beliefStrength: edge.data?.beliefStrength,
+    // V3 edge metadata
+    edge_type: edge.data?.edge_type,
+    provenance_source: edge.data?.provenance_source,
+    exists_probability: edge.data?.exists_probability ?? edge.data?.beliefExists,
   }))
 
   return {

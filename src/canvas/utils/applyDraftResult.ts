@@ -35,6 +35,13 @@ export function applyDraftResult(
   // --- Map nodes ---
   const nodes = rawNodes.map((n: any) => {
     const { id, kind, type: nodeType, label, observed_state, ...rest } = n
+
+    // Derive interventionKeys when interventions object is present (e.g. from CEE add_node)
+    const interventions = rest.interventions as Record<string, unknown> | undefined
+    const interventionKeys = interventions && typeof interventions === 'object' && !Array.isArray(interventions)
+      ? Object.keys(interventions)
+      : undefined
+
     return {
       id,
       type: kind || nodeType,
@@ -44,6 +51,7 @@ export function applyDraftResult(
         label,
         kind: kind || nodeType,
         ...(observed_state ? { observedState: observed_state } : {}),
+        ...(interventionKeys ? { interventionKeys } : {}),
       },
     }
   })
@@ -80,7 +88,9 @@ export function applyDraftResult(
     const beliefExists =
       typeof e.belief_exists === 'number'
         ? Math.max(0, Math.min(1, e.belief_exists))
-        : confidence
+        : typeof e.exists_probability === 'number'
+          ? Math.max(0, Math.min(1, e.exists_probability))
+          : confidence
     const strengthStd: number | undefined =
       typeof e.strength?.std === 'number'
         ? e.strength.std
@@ -202,8 +212,8 @@ export function applyDraftResult(
  * graph_patch add_node operations. The debug bundle export reads
  * node.data.interventions, so we need to populate it here.
  *
- * Idempotent: only writes to store when at least one node's data actually
- * changes (shallow equality on interventions keys), avoiding unnecessary
+ * Idempotent: only writes to store when at least one node's interventions
+ * actually differ (deep equality via JSON serialisation), avoiding unnecessary
  * re-renders on repeated calls.
  */
 export function backfillInterventionsOntoOptionNodes(
@@ -221,15 +231,15 @@ export function backfillInterventionsOntoOptionNodes(
     const optEntry = analysisReady.options!.find((o) => o.id === n.id)
     if (!optEntry?.interventions || Object.keys(optEntry.interventions).length === 0) return n
 
-    // Idempotent guard: skip if interventions are already the same reference or same keys
-    const existingKeys = n.data?.interventionKeys as string[] | undefined
+    // Idempotent guard: skip if interventions are already identical (keys + values)
+    const existing = n.data?.interventions as Record<string, unknown> | undefined
     const newKeys = Object.keys(optEntry.interventions)
-    if (
-      existingKeys &&
-      existingKeys.length === newKeys.length &&
-      existingKeys.every((k: string) => newKeys.includes(k))
-    ) {
-      return n
+    if (existing) {
+      try {
+        if (JSON.stringify(existing) === JSON.stringify(optEntry.interventions)) return n
+      } catch {
+        // Fall through to update if serialisation fails
+      }
     }
 
     needsUpdate = true
