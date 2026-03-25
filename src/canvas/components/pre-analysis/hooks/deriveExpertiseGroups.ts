@@ -78,7 +78,7 @@ export function deriveExpertiseGroups(
   const verifyItems = improvementItems.verify ?? []
   const contestedCount = contestedEdges.length
 
-  // 2. AI estimated — factors with source AI/cee_inference
+  // 2. Estimated — factors with source AI/cee_inference
   const aiEstimated = sortByInfluenceDesc(
     verifyItems.filter(i => i.subgroup === 'cee_inference' && i.focus?.type === 'node'),
     factorInfluenceMap,
@@ -106,7 +106,7 @@ export function deriveExpertiseGroups(
   }
   const sortedMissing = sortByInfluenceDesc(missingData, factorInfluenceMap)
 
-  // 4. From brief — factors with brief_extraction or user_confirmed source
+  // 4. Brief — factors with brief_extraction or user_confirmed source
   const fromBrief = sortByInfluenceDesc(
     verifyItems.filter(i => i.subgroup === 'brief_extraction' && i.focus?.type === 'node'),
     factorInfluenceMap,
@@ -129,7 +129,7 @@ export function deriveExpertiseGroups(
       weight: d?.weight as number | undefined,
       direction: d?.direction as string | undefined,
       beliefExists: d?.beliefExists as number | undefined,
-      std: d?.strength_std as number | undefined,
+      std: d?.strengthStd as number | undefined,
       influence: edgeInfluenceMap?.get(e.id),
       hasEvidence: !!(d?.evidence as Record<string, unknown> | undefined)?.source,
     }

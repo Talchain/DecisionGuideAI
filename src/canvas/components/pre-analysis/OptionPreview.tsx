@@ -52,7 +52,7 @@ function pluraliseUnit(unit: string, count: number): string {
 /**
  * Format the current (before) raw value for display alongside the intervention target.
  * Uses the same formatting rules as formatInterventionDisplay.
- * Returns null when currentRawValue is absent (AI estimate with no grounding).
+ * Returns null when currentRawValue is absent (estimated value with no grounding).
  */
 function formatBeforeValue(
   currentRawValue: number | null,
@@ -240,7 +240,7 @@ function getStrategySummary(opt: OptionPreviewData): string {
     return `${iv.factorLabel} (${sign}${iv.deltaPercent != null ? `${Math.round(iv.deltaPercent)}%` : '...'})`
   })
   const suffix = changed.length > 2 ? `, +${changed.length - 2} more` : ''
-  return `Changes ${changed.length} factors: ${parts.join(', ')}${suffix}`
+  return `Changes ${changed.length} ${changed.length === 1 ? 'factor' : 'factors'}: ${parts.join(', ')}${suffix}`
 }
 
 export function OptionPreview({

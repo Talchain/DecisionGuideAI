@@ -1532,7 +1532,7 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
       }
     }
 
-    // 5. Many AI estimates (AI-sourced > brief_extraction count)
+    // 5. Many estimated values (AI-sourced > brief_extraction count)
     // Fire whenever AI-sourced factors outnumber brief-sourced ones, regardless of whether
     // those factors have observed_state.value set. Factors without a value are still AI
     // estimates the user should validate.
@@ -1574,6 +1574,14 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
     }
 
     // 7. CEE bias findings — append after deterministic checks, deduplicate
+    // Fallback titles when CEE returns empty description
+    const BIAS_TYPE_TITLES: Record<string, string> = {
+      anchoring: 'Consider whether other options are equally explored',
+      confirmation: 'Check for confirming-only evidence',
+      framing: 'Consider how the framing might influence the result',
+      confidence: 'Check for overconfidence in estimates',
+      blind_spots: 'Look for factors you might have overlooked',
+    }
     const biasFindings = ceeAnalysisReady?.bias_findings ?? []
     for (const finding of biasFindings) {
       // Deduplicate: skip if a deterministic check with similar scope already fired
@@ -1584,7 +1592,7 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
 
       checks.push({
         id: `bias_${finding.id}`,
-        message: finding.description,
+        message: finding.description || BIAS_TYPE_TITLES[finding.type] || `Potential ${finding.type ?? 'cognitive'} bias detected`,
         detail: finding.mechanism ?? undefined,
         cta: 'Ask AI about this',
         ctaAction: `ask_ai_bias_${finding.id}`,
