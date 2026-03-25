@@ -18,6 +18,8 @@ export interface StagePillData {
   borderColor: string
   /** Whether the value came from the store or was derived locally */
   source: 'store' | 'fallback'
+  /** True while a conversation turn is in flight */
+  isGenerating: boolean
 }
 
 const STAGE_LABELS: Record<ScenarioStage, string> = {
@@ -62,6 +64,7 @@ export function useStagePill(): StagePillData {
   const nodeCount = useCanvasStore((s) => s.nodes.length)
   const resultsStatus = useCanvasStore((s) => s.results.status)
   const hasCompletedFirstRun = useCanvasStore((s) => s.hasCompletedFirstRun)
+  const isGenerating = useCanvasStore((s) => s.isGenerating)
 
   return useMemo(() => {
     const hasNodes = nodeCount > 0
@@ -71,15 +74,21 @@ export function useStagePill(): StagePillData {
       && !(currentStage === 'frame' && hasNodes)
       && !((currentStage === 'frame' || currentStage === 'ideate') && isComplete)
 
+    // When generating, override label + border but preserve the underlying stage
+    const generatingOverlay = isGenerating
+      ? { label: 'Generating\u2026', borderColor: 'var(--info, #2B7FA2)', isGenerating: true as const }
+      : { isGenerating: false as const }
+
     if (shouldTrustStoredStage && isKnownStage(currentStage)) {
       if (import.meta.env.DEV) {
-        console.debug('[useStagePill] source=store stage=%s', currentStage)
+        console.debug('[useStagePill] source=store stage=%s generating=%s', currentStage, isGenerating)
       }
       return {
         stage: currentStage,
         label: STAGE_LABELS[currentStage],
         borderColor: STAGE_BORDER[currentStage],
         source: 'store' as const,
+        ...generatingOverlay,
       }
     }
 
@@ -87,7 +96,7 @@ export function useStagePill(): StagePillData {
     const derived = deriveStageFromState(hasNodes, isComplete)
 
     if (import.meta.env.DEV) {
-      console.debug('[useStagePill] source=fallback stage=%s (nodes=%d, complete=%s)', derived, nodeCount, isComplete)
+      console.debug('[useStagePill] source=fallback stage=%s (nodes=%d, complete=%s) generating=%s', derived, nodeCount, isComplete, isGenerating)
     }
 
     return {
@@ -95,6 +104,7 @@ export function useStagePill(): StagePillData {
       label: STAGE_LABELS[derived],
       borderColor: STAGE_BORDER[derived],
       source: 'fallback' as const,
+      ...generatingOverlay,
     }
-  }, [currentStage, nodeCount, resultsStatus, hasCompletedFirstRun])
+  }, [currentStage, nodeCount, resultsStatus, hasCompletedFirstRun, isGenerating])
 }

@@ -269,6 +269,7 @@ interface CanvasState {
   isDirty: boolean  // Has unsaved changes
   isSaving: boolean  // P0-2: Currently saving
   lastSavedAt: number | null  // P0-2: Timestamp of last successful save
+  isGenerating: boolean  // True while conversation turn is in flight (for stage pill overlay)
   // Panel visibility
   showResultsPanel: boolean
   showInspectorPanel: boolean
@@ -531,6 +532,7 @@ interface CanvasState {
   resetModelToDefault: (operation: 'generation' | 'repair' | 'enrichment') => void
   // A.15: Stage setter
   setCurrentStage: (stage: ScenarioStage | null) => void
+  setIsGenerating: (v: boolean) => void
   // A.5+: Draft snapshot + undo
   setDraftChatPreDraftSnapshot: (snapshot: { nodes: Node[]; edges: Edge<EdgeData>[] } | null) => void
   undoDraft: () => void
@@ -964,6 +966,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   isDirty: false,
   isSaving: false,  // P0-2: Initially not saving
   lastSavedAt: null,  // P0-2: No save yet
+  isGenerating: false,
   // Phase 3: Panel visibility with persistence
   ...{
     showResultsPanel: false,
@@ -2824,6 +2827,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
 
   // A.15: Stage setter
   setCurrentStage: (stage) => set({ currentStage: stage }),
+  setIsGenerating: (v) => set({ isGenerating: v }),
 
   // A.5+: Draft snapshot + undo
   setDraftChatPreDraftSnapshot: (snapshot) => set({ draftChatPreDraftSnapshot: snapshot }),

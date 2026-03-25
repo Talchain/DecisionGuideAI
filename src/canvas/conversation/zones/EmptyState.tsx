@@ -1,12 +1,16 @@
 /**
- * EmptyState — shown when no messages and no graph nodes.
+ * EmptyState — centred shape pipeline, welcome text, and loading hub.
  *
  * Six node shapes (Goal → Decision → Option → Factor → Risk → Outcome)
- * in a pipeline with dashed arrows. Each shape displays in its main brand
- * colour and flashes to its light variant in a left-to-right wave.
+ * in a pipeline with dashed arrows. Three visual modes:
+ *
+ * 1. **Idle** — static shapes, "What's on your mind?" heading
+ * 2. **Thinking** — wave animation plays, heading replaced by status label
+ * 3. **Streaming** — wave animation plays, streaming text shown below shapes
  */
 
 import { NodeShape } from '../primitives/NodeShape'
+import { typography } from '../../../styles/typography'
 import type { NodeType } from '../../domain/nodes'
 
 const SHAPES: NodeType[] = ['goal', 'decision', 'option', 'factor', 'risk', 'outcome']
@@ -47,10 +51,21 @@ function DashedArrow() {
   )
 }
 
-export function EmptyState() {
+interface EmptyStateProps {
+  /** When true the shape-wave animation plays (waiting for LLM). Default: static. */
+  animate?: boolean
+  /** Status label shown below shapes when thinking (e.g. "Building your decision model..."). */
+  statusLabel?: string | null
+  /** Streaming text from the LLM, shown below the shapes when available. */
+  streamingText?: string | null
+}
+
+export function EmptyState({ animate = false, statusLabel, streamingText }: EmptyStateProps) {
   // Wave period and per-shape stagger
   const PERIOD = 3   // seconds for one full wave cycle
   const STAGGER = 0.45 // seconds between each shape's flash
+
+  const isActive = animate || !!streamingText
 
   return (
     <div
@@ -58,13 +73,22 @@ export function EmptyState() {
       style={{ gap: 24, padding: '40px 20px' }}
       data-testid="empty-state"
     >
-      {/* Welcome heading */}
-      <h2
-        className="text-text-body text-center"
-        style={{ fontSize: 24, fontWeight: 600, margin: 0 }}
-      >
-        What&rsquo;s on your mind?
-      </h2>
+      {/* Heading: welcome text when idle, status label when active */}
+      {!isActive ? (
+        <h2
+          className="text-text-body text-center"
+          style={{ fontSize: 24, fontWeight: 600, margin: 0 }}
+        >
+          What&rsquo;s on your mind?
+        </h2>
+      ) : statusLabel && !streamingText ? (
+        <span
+          className={`text-text-light text-center ${typography.panelMeta}`}
+          data-testid="empty-state-status"
+        >
+          {statusLabel}
+        </span>
+      ) : null}
 
       {/* Shape pipeline — main colours with left-to-right flash wave */}
       <div className="flex items-center" style={{ gap: 0 }}>
@@ -79,15 +103,15 @@ export function EmptyState() {
               >
                 {/* Main colour layer — fades out during flash */}
                 <div
-                  className="absolute inset-0 flex items-center justify-center empty-state-main"
-                  style={{ animationDelay: delay }}
+                  className={`absolute inset-0 flex items-center justify-center${isActive ? ' empty-state-main' : ''}`}
+                  style={isActive ? { animationDelay: delay } : undefined}
                 >
                   <NodeShape kind={kind} size={size} fill={MAIN_FILLS[kind]} />
                 </div>
                 {/* Light colour layer — fades in during flash */}
                 <div
-                  className="absolute inset-0 flex items-center justify-center empty-state-light"
-                  style={{ opacity: 0, animationDelay: delay }}
+                  className={`absolute inset-0 flex items-center justify-center${isActive ? ' empty-state-light' : ''}`}
+                  style={isActive ? { opacity: 0, animationDelay: delay } : { opacity: 0 }}
                 >
                   <NodeShape kind={kind} size={size} fill={LIGHT_FILLS[kind]} />
                 </div>
@@ -97,6 +121,17 @@ export function EmptyState() {
           )
         })}
       </div>
+
+      {/* Streaming text — shown below shapes as LLM text arrives */}
+      {streamingText && (
+        <p
+          className="text-text-body text-center"
+          style={{ fontSize: 14, lineHeight: 1.5, margin: 0, maxWidth: 480, whiteSpace: 'pre-wrap' }}
+          data-testid="empty-state-streaming"
+        >
+          {streamingText}
+        </p>
+      )}
 
       <style>{`
         @keyframes emptyStateMain {

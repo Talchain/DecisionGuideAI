@@ -399,6 +399,19 @@
   white-space: nowrap;
 }
 
+.stagePillGenerating {
+  animation: stagePillPulse 2s ease-in-out infinite;
+}
+
+@keyframes stagePillPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stagePillGenerating { animation: none; }
+}
+
 /* Metadata chips for pill design - body font size */
 .metadataChip {
   display: flex;

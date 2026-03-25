@@ -895,6 +895,7 @@ export function useConversation(): UseConversationReturn {
             setMessages(hydrated)
             setPatchBlockStates(result.blockStates)
             setIsThinking(false)
+            useCanvasStore.getState().setIsGenerating(false)
             setLongRunningHint(null)
             setLastFailedInput(null)
 
@@ -918,6 +919,7 @@ export function useConversation(): UseConversationReturn {
             messagesRef.current = []
             setMessages([])
             setIsThinking(false)
+            useCanvasStore.getState().setIsGenerating(false)
             setLongRunningHint(null)
             setLastFailedInput(null)
           } finally {
@@ -931,6 +933,7 @@ export function useConversation(): UseConversationReturn {
       messagesRef.current = []
       setMessages([])
       setIsThinking(false)
+      useCanvasStore.getState().setIsGenerating(false)
       setLongRunningHint(null)
       setLastFailedInput(null)
     }
@@ -1835,7 +1838,7 @@ export function useConversation(): UseConversationReturn {
 
       // Start thinking state
       setIsThinking(true)
-      setLongRunningHint(null)
+      useCanvasStore.getState().setIsGenerating(true)
 
       // Abort any previous request
       abortRef.current?.abort()
@@ -1848,11 +1851,11 @@ export function useConversation(): UseConversationReturn {
         : resolveUserTurnType(source, hidden, turnType)
       const dynamicTimeout = getTimeoutMs(resolvedTurnType, triggerSurface)
 
-      // 15s → task-specific hint, then update every 5s with elapsed time
+      // Show task-specific hint immediately; append elapsed counter after 15s
       const hint = inferLoadingHint(message, useCanvasStore.getState().nodes.length, turnType)
       const sendStartTime = Date.now()
+      setLongRunningHint(hint)
       longRunningTimerRef.current = setTimeout(() => {
-        setLongRunningHint(hint)
         // Update hint with elapsed time every 5s
         elapsedIntervalRef.current = setInterval(() => {
           const elapsed = Math.round((Date.now() - sendStartTime) / 1000)
@@ -1867,6 +1870,7 @@ export function useConversation(): UseConversationReturn {
         clearTimeout(longRunningTimerRef.current)
         clearInterval(elapsedIntervalRef.current)
         setIsThinking(false)
+        useCanvasStore.getState().setIsGenerating(false)
         setLongRunningHint(null)
         if (inputForRestore) setLastFailedInput(inputForRestore)
         // Only visible user sends show a timeout error bubble.
@@ -1947,10 +1951,11 @@ export function useConversation(): UseConversationReturn {
           for await (const event of streamOrchestratorTurn(request, controller.signal)) {
             switch (event.type) {
               case 'turn_start':
-                // Stream is live — clear progressive loading hints
+                // Stream is live — stop the elapsed-time counter but keep the
+                // current hint visible so the status label doesn't flash to
+                // generic "Thinking…" before text_delta arrives.
                 clearTimeout(longRunningTimerRef.current)
                 clearInterval(elapsedIntervalRef.current)
-                setLongRunningHint(null)
                 break
 
               case 'text_delta':
@@ -2170,6 +2175,7 @@ export function useConversation(): UseConversationReturn {
         }
         cleanupStreamRefs()
         setIsThinking(false)
+        useCanvasStore.getState().setIsGenerating(false)
         setLongRunningHint(null)
         inFlightRef.current = false
       }
@@ -2325,6 +2331,7 @@ export function useConversation(): UseConversationReturn {
     messagesRef.current = []
     setMessages([])
     setIsThinking(false)
+    useCanvasStore.getState().setIsGenerating(false)
     setLongRunningHint(null)
     setLastFailedInput(null)
     setPatchBlockStates(new Map())

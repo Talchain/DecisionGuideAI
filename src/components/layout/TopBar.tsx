@@ -299,7 +299,7 @@ export const TopBar = ({
         {/* A.15: Stage lifecycle pill */}
         <Tooltip content={`Decision stage: ${stagePill.label}`}>
           <div
-            className={styles.stagePill}
+            className={`${styles.stagePill}${stagePill.isGenerating ? ` ${styles.stagePillGenerating}` : ''}`}
             style={{ borderColor: stagePill.borderColor }}
             data-stage={stagePill.stage}
             data-stage-source={stagePill.source}

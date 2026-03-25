@@ -56,7 +56,18 @@ export const ChatThread = memo(function ChatThread({
   const { listRef, listEndRef, showNewMessageIndicator, handleScroll, scrollToBottom } =
     useSmartScroll({ messageCount: messages.length, isThinking })
 
-  const showEmpty = messages.length === 0 && nodeCount === 0
+  // Has the conversation produced any finalized (non-streaming) assistant messages?
+  const hasFinalizedAssistant = messages.some(m => m.role === 'assistant' && !m.isStreaming)
+
+  // EmptyState stays visible when no graph nodes exist and no finalized assistant
+  // response has arrived. This keeps the shape pipeline on screen during the first
+  // turn (Generate Model or first chat message) so it can serve as the loading hub.
+  const showEmptyState = nodeCount === 0 && !hasFinalizedAssistant
+
+  // While EmptyState is showing, extract streaming text from the first streaming
+  // message so it can be displayed below the shapes instead of in a message bubble.
+  const streamingMsg = showEmptyState ? messages.find(m => m.isStreaming) : undefined
+  const streamingText = streamingMsg?.content || null
 
   // Get suggested chips from last assistant message
   const lastAssistantMsg = [...messages].reverse().find(m => m.role === 'assistant')
@@ -77,9 +88,17 @@ export const ChatThread = memo(function ChatThread({
       aria-live="polite"
       data-testid="chat-thread"
     >
-      {showEmpty && <EmptyState />}
+      {showEmptyState && (
+        <EmptyState
+          animate={isThinking}
+          statusLabel={isThinking ? thinkingLabel(longRunningHint) : null}
+          streamingText={streamingText}
+        />
+      )}
 
       {messages.map((msg, i) => {
+        // Hide user messages and the streaming placeholder while EmptyState is the loading hub
+        if (showEmptyState && (msg.role === 'user' || msg.isStreaming)) return null
         const isLastAssistant = msg === lastAssistantMsg
         return msg.sessionDivider ? (
           <SessionDivider key={msg.id} text={msg.sessionDivider} />
@@ -107,8 +126,8 @@ export const ChatThread = memo(function ChatThread({
         <SuggestedChips chips={suggestedChips} onChipClick={onChipClick} isThinking={isThinking} />
       )}
 
-      {/* Suppress standalone ThinkingIndicator when a streaming message is already visible */}
-      {isThinking && !messages.some(m => m.isStreaming) && (
+      {/* ThinkingIndicator: only when EmptyState is NOT handling the loading display */}
+      {isThinking && !showEmptyState && !messages.some(m => m.isStreaming) && (
         <ThinkingIndicator label={thinkingLabel(longRunningHint)} />
       )}
 
