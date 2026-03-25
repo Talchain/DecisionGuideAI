@@ -335,5 +335,31 @@ describe('CanvasContextMenu', () => {
       const factorBtn = screen.getByText('Factor').closest('button')!
       expect(factorBtn.hasAttribute('aria-disabled')).toBe(false)
     })
+
+    it('Option appears between Outcome and Goal with square glyph and text-option color', () => {
+      render(
+        <CanvasContextMenu target={paneTarget} onClose={onClose} screenToFlowPosition={screenToFlowPosition} />,
+      )
+      fireEvent.click(screen.getByText('Add node'))
+
+      // Option entry exists with square glyph
+      const optionBtn = screen.getByText('Option').closest('button')!
+      expect(optionBtn.textContent).toContain('\u25A0')
+
+      // Glyph span uses text-option color class
+      const glyphSpan = optionBtn.querySelector('span[style]')
+      expect(glyphSpan).not.toBeNull()
+      expect(glyphSpan!.className).toContain('text-option')
+
+      // Order: Outcome before Option before Goal
+      const menus = screen.getAllByRole('menu')
+      const submenu = menus.find((m) => m.classList.contains('z-[101]'))!
+      const labels = Array.from(submenu.querySelectorAll('button')).map((b) => b.textContent ?? '')
+      const outcomeIdx = labels.findIndex((l) => l.includes('Outcome'))
+      const optionIdx = labels.findIndex((l) => l.includes('Option'))
+      const goalIdx = labels.findIndex((l) => l.includes('Goal'))
+      expect(outcomeIdx).toBeLessThan(optionIdx)
+      expect(optionIdx).toBeLessThan(goalIdx)
+    })
   })
 })

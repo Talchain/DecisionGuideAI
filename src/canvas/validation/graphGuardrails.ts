@@ -18,7 +18,7 @@ import type { Node, Edge } from '@xyflow/react'
 export const MAX_NODES = 25
 
 /** Maximum number of edges allowed in the graph */
-export const MAX_EDGES = 40
+export const MAX_EDGES = 20
 
 // ---------------------------------------------------------------------------
 // Primitive checks
