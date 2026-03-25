@@ -88,6 +88,14 @@ export function applyDraftResult(
           ? e.strength_std
           : undefined
 
+    // V3 edge metadata — explicitly extract known fields (no blind spread)
+    const edgeType = typeof e.edge_type === 'string' ? e.edge_type : undefined
+    const provenanceSource = typeof e.provenance_source === 'string' ? e.provenance_source : undefined
+    const existsProbability =
+      typeof e.exists_probability === 'number'
+        ? Math.max(0, Math.min(1, e.exists_probability))
+        : undefined
+
     return {
       id,
       source: e.from,
@@ -101,6 +109,9 @@ export function applyDraftResult(
         beliefExists,
         ...(direction ? { direction } : {}),
         ...(strengthStd !== undefined ? { strengthStd } : {}),
+        ...(edgeType !== undefined ? { edge_type: edgeType } : {}),
+        ...(provenanceSource !== undefined ? { provenance_source: provenanceSource } : {}),
+        ...(existsProbability !== undefined ? { exists_probability: existsProbability } : {}),
       },
     }
   })
@@ -145,6 +156,13 @@ export function applyDraftResult(
       ? { ...draftData.analysis_ready, coaching_summary: coachingSummary }
       : draftData.analysis_ready
     useCanvasStore.getState().setCeeAnalysisReady(analysisReadyWithCoaching)
+
+    // Backfill interventions onto option nodes for debug bundle capture.
+    // CEE sends interventions on analysis_ready.options, not on graph_patch add_node data.
+    // TODO: Remove backfill when CEE includes interventions in graph_patch add_node ops.
+    // Timing: runs synchronously after setCeeAnalysisReady; nodes are already in store
+    // from the setState call above. If option nodes don't exist yet, this is a no-op.
+    backfillInterventionsOntoOptionNodes(analysisReadyWithCoaching)
   }
 
   // Store quality dimensions
@@ -171,4 +189,67 @@ export function applyDraftResult(
   }
 
   return { nodeCount: nodes.length, edgeCount: edges.length }
+}
+
+// ---------------------------------------------------------------------------
+// Intervention backfill — shared between applyDraftResult and handleEnvelope
+// ---------------------------------------------------------------------------
+
+/**
+ * Backfill interventions from analysis_ready onto option nodes in the store.
+ *
+ * CEE sends intervention data on analysis_ready.options, not on individual
+ * graph_patch add_node operations. The debug bundle export reads
+ * node.data.interventions, so we need to populate it here.
+ *
+ * Idempotent: only writes to store when at least one node's data actually
+ * changes (shallow equality on interventions keys), avoiding unnecessary
+ * re-renders on repeated calls.
+ */
+export function backfillInterventionsOntoOptionNodes(
+  analysisReady: { options?: Array<{ id: string; interventions?: Record<string, unknown> }> } | null
+): void {
+  if (!analysisReady?.options?.length) return
+
+  // TODO: type narrowing — useCanvasStore.getState().nodes typed as Node[]
+  // but node.type/data shape varies by kind. Cast to any for now.
+  const currentNodes = useCanvasStore.getState().nodes as any[]
+  let needsUpdate = false
+
+  const updatedNodes = currentNodes.map((n) => {
+    if (n.type !== 'option') return n
+    const optEntry = analysisReady.options!.find((o) => o.id === n.id)
+    if (!optEntry?.interventions || Object.keys(optEntry.interventions).length === 0) return n
+
+    // Idempotent guard: skip if interventions are already the same reference or same keys
+    const existingKeys = n.data?.interventionKeys as string[] | undefined
+    const newKeys = Object.keys(optEntry.interventions)
+    if (
+      existingKeys &&
+      existingKeys.length === newKeys.length &&
+      existingKeys.every((k: string) => newKeys.includes(k))
+    ) {
+      return n
+    }
+
+    needsUpdate = true
+    return {
+      ...n,
+      data: {
+        ...n.data,
+        interventions: optEntry.interventions,
+        interventionKeys: newKeys,
+      },
+    }
+  })
+
+  if (needsUpdate) {
+    useCanvasStore.setState({ nodes: updatedNodes as any })
+    if (import.meta.env.DEV) {
+      const backfilledCount = updatedNodes.filter(
+        (n, i) => n !== currentNodes[i]
+      ).length
+      console.warn('[backfillInterventionsOntoOptionNodes]', backfilledCount, 'option nodes updated')
+    }
+  }
 }

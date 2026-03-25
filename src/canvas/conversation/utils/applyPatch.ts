@@ -116,6 +116,14 @@ function buildEdge(op: PatchOperation) {
         ? (d.strength_std as number)
         : undefined
 
+  // V3 edge metadata — explicitly extract known fields (no blind spread)
+  const edgeType = typeof d.edge_type === 'string' ? d.edge_type : undefined
+  const provenanceSource = typeof d.provenance_source === 'string' ? d.provenance_source : undefined
+  const existsProbability =
+    typeof d.exists_probability === 'number'
+      ? Math.max(0, Math.min(1, d.exists_probability as number))
+      : undefined
+
   return {
     id: op.target_id,
     source,
@@ -129,6 +137,9 @@ function buildEdge(op: PatchOperation) {
       beliefExists,
       ...(direction ? { direction } : {}),
       ...(strengthStd !== undefined ? { strengthStd } : {}),
+      ...(edgeType !== undefined ? { edge_type: edgeType } : {}),
+      ...(provenanceSource !== undefined ? { provenance_source: provenanceSource } : {}),
+      ...(existsProbability !== undefined ? { exists_probability: existsProbability } : {}),
     },
   }
 }

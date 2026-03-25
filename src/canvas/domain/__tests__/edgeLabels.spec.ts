@@ -241,6 +241,29 @@ describe('edgeLabels', () => {
     })
   })
 
+  describe('V3 strength.mean → weight → label consistency', () => {
+    it('strength.mean = 0.65 produces weight = 0.65 and "Moderate boost" label', () => {
+      // V3 edges: weight = abs(strength.mean), so 0.65 → 0.65
+      // Strength band: 0.3 ≤ 0.65 < 0.7 → "Moderate"
+      // Direction: positive → "boost"
+      const weight = 0.65 // as derived from abs(strength.mean)
+      const result = describeEdge(weight, 0.85)
+      expect(result.label).toBe('Moderate boost')
+    })
+
+    it('strength.mean = 0.70 crosses into "Strong" band', () => {
+      const result = describeEdge(0.70, 0.85)
+      expect(result.label).toBe('Strong boost')
+    })
+
+    it('negative strength.mean = -0.65 produces "Moderate drag"', () => {
+      // In canvas store: weight = abs(-0.65) = 0.65, direction = 'negative'
+      // describeEdge receives the signed weight for label purposes
+      const result = describeEdge(-0.65, 0.85)
+      expect(result.label).toBe('Moderate drag')
+    })
+  })
+
   describe('Real-world examples', () => {
     it('handles typical template edge weights', () => {
       // Strong positive influence

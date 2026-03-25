@@ -27,10 +27,39 @@ export type RepairType =
   | 'missing_chip_label'
   | 'missing_block_type'
   | 'nothing_renderable'
+  | 'repair_log_stripped'
 
 export interface ValidateResponseResult {
   cleaned: OrchestratorResponseEnvelopeV2
   repairs: RepairType[]
+}
+
+/**
+ * Patterns matching PLoT internal repair log lines that must never be shown to users.
+ * Each pattern matches a full line (after trimming). Lines matching any pattern are removed.
+ */
+const REPAIR_LOG_PATTERNS: RegExp[] = [
+  /^\[DEFAULT_EXISTS_PROBABILITY\]/,
+  /^\[STD_FLOOR\]/,
+  /^\[CLAMP_/,
+  /^\[MISSING_/,
+  /^\[FALLBACK_/,
+  /^\[REPAIR:/,
+]
+
+/**
+ * Strip internal PLoT repair log lines from assistant_text.
+ * Returns the cleaned text with repair lines removed.
+ * If all lines are repair logs, returns empty string.
+ */
+export function stripRepairLogLines(text: string): string {
+  const lines = text.split('\n')
+  const cleaned = lines.filter((line) => {
+    const trimmed = line.trim()
+    if (trimmed === '') return true // preserve blank lines
+    return !REPAIR_LOG_PATTERNS.some((p) => p.test(trimmed))
+  })
+  return cleaned.join('\n').trim()
 }
 
 const FALLBACK_TEXT =
@@ -55,9 +84,18 @@ export function validateResponse(
     return true
   })
 
-  // Filter chips missing label or message
+  // Normalise chips: CEE serialises the dispatch text as `prompt` but the UI
+  // ActionChip interface uses `message`. Map `prompt` → `message` when present.
+  // Then filter chips missing label or message.
   const rawChips = envelope.suggested_actions ?? []
-  const cleanedChips = rawChips.filter((c) => {
+  const cleanedChips = rawChips.map((c) => {
+    const wire = c as ActionChip & { prompt?: string }
+    if (!wire.message && wire.prompt) {
+      const { prompt: _prompt, ...rest } = wire
+      return { ...rest, message: wire.prompt } as ActionChip
+    }
+    return c
+  }).filter((c) => {
     if (!c.label) {
       repairs.push('missing_chip_label')
       return false
@@ -70,6 +108,17 @@ export function validateResponse(
   })
 
   let assistantText = envelope.assistant_text ?? ''
+
+  // Strip PLoT repair log lines that leak into assistant_text.
+  // These are internal messages like "[DEFAULT_EXISTS_PROBABILITY] Missing value, using default"
+  // repeated many times. Users must never see internal repair logs.
+  if (assistantText) {
+    const stripped = stripRepairLogLines(assistantText)
+    if (stripped !== assistantText) {
+      repairs.push('repair_log_stripped')
+      assistantText = stripped
+    }
+  }
 
   // Inject fallback when text is empty AND there are no valid blocks.
   // Suppress fallback when a graph_patch block is present — silent graph mutations

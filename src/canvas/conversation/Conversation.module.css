@@ -192,7 +192,7 @@
 }
 
 .reviewCardInfo {
-  border-left: none;
+  border-left: 3px solid var(--info, #63ADCF); /* DS v5 §16.2: facilitator/coaching — left 3px info */
   background: var(--bg-panel, #FEFEFE); /* DS v5 §16.2: coaching cards use bg-panel, not bg-info-light */
   padding: 12px;
   border-radius: 8px;
@@ -282,8 +282,10 @@
   gap: 8px;
 }
 
+/* DS v5 §21.2: GraphPatchBlock uses goal colour top border in ALL states.
+   Applied state is signalled by status badge, not border colour change. */
 .graphPatchBlockApplied {
-  border-top-color: var(--success, #67C89E);
+  border-top-color: var(--goal, #F5C433);
 }
 
 .graphPatchHeader {
@@ -837,11 +839,35 @@
   font-weight: 500;
 }
 
-/* Expanded content: DS v5 §19 pattern */
+/* Expanded content: DS v5 §19 pattern — mt-2 pl-3 border-l-2 border-panel-border */
 .commentaryExpandedContent {
   margin-top: 8px;
   padding-left: 12px;
-  border-left: none;
+  border-left: 2px solid var(--border-default, #EEE6D8);
+}
+
+/* ---------------------------------------------------------------------------
+ * § 4g-3 — Block type badge dots (DS v5 §21.2)
+ * 8px diameter, main colour fill, positioned top-left of block cards.
+ * ---------------------------------------------------------------------------*/
+
+.blockBadgeDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  position: absolute;
+  top: 8px;
+  left: 8px;
+}
+
+.blockBadgeDotDanger { composes: blockBadgeDot; background: var(--danger, #EA7B4B); }
+.blockBadgeDotInfo { composes: blockBadgeDot; background: var(--info, #63ADCF); }
+.blockBadgeDotGoal { composes: blockBadgeDot; background: var(--goal, #F5C433); }
+.blockBadgeDotSuccess { composes: blockBadgeDot; background: var(--success, #67C89E); }
+
+.blockWithBadge {
+  position: relative;
 }
 
 /* ---------------------------------------------------------------------------

@@ -44,6 +44,24 @@ import styles from './Conversation.module.css'
 
 const artefactNoop = () => { /* intentionally empty */ }
 
+/**
+ * DS v5 §21.2: resolve block type badge dot CSS class. Returns null for types with no dot.
+ * Only the five block types explicitly listed in Brief A Task 6 get dots.
+ */
+function resolveBlockBadgeDotClass(block: ConversationBlock): string | null {
+  switch (block.type) {
+    case 'review_card': {
+      const rc = block as ReviewCardBlockType
+      return rc.variant === 'alert' ? styles.blockBadgeDotDanger : styles.blockBadgeDotInfo
+    }
+    case 'graph_patch': return styles.blockBadgeDotGoal
+    case 'fact': return styles.blockBadgeDotSuccess
+    case 'framing': return styles.blockBadgeDotInfo
+    case 'commentary': return null // no dot per DS v5 §21.2
+    default: return null
+  }
+}
+
 /** Human-readable one-line summary of patch operations (e.g. "3 factors, 2 options, 1 goal"). */
 function summarisePatchOps(operations: { op: string; data?: Record<string, unknown> }[]): string {
   const counts: Record<string, number> = {}
@@ -110,29 +128,35 @@ export const InlineBlocks = memo(function InlineBlocks({
   const visible = showAll ? blocks : blocks.slice(0, MAX_VISIBLE_BLOCKS_PER_TURN)
   const hasOverflow = blocks.length > MAX_VISIBLE_BLOCKS_PER_TURN
   const hiddenCount = blocks.length - MAX_VISIBLE_BLOCKS_PER_TURN
+  const showBadgeDots = isOrchestratorRenderingV2Enabled()
 
   return (
     <div className={styles.blockContainer}>
-      {visible.map((block, i) => (
-        // data-citation-target is 1-based; CitationRef.index matches this
-        // data-patch-id enables scroll-to-patch from GuidanceStrip approve_patch action
-        <div
-          key={i}
-          data-citation-target={i + 1}
-          {...(block.type === 'graph_patch' ? { 'data-patch-id': block.patch_id } : {})}
-        >
-          <BlockRenderer
-            block={block}
-            turnId={turnId}
-            patchBlockStates={patchBlockStates}
-            patchRejections={patchRejections}
-            onPatchAccept={onPatchAccept}
-            onPatchDismiss={onPatchDismiss}
-            onArtefactMessage={onArtefactMessage}
-            assistantTextWordCount={assistantTextWordCount}
-          />
-        </div>
-      ))}
+      {visible.map((block, i) => {
+        const badgeDotClass = showBadgeDots ? resolveBlockBadgeDotClass(block) : null
+        return (
+          // data-citation-target is 1-based; CitationRef.index matches this
+          // data-patch-id enables scroll-to-patch from GuidanceStrip approve_patch action
+          <div
+            key={i}
+            data-citation-target={i + 1}
+            className={badgeDotClass ? styles.blockWithBadge : undefined}
+            {...(block.type === 'graph_patch' ? { 'data-patch-id': block.patch_id } : {})}
+          >
+            {badgeDotClass && <span className={badgeDotClass} data-testid="block-badge-dot" aria-hidden="true" />}
+            <BlockRenderer
+              block={block}
+              turnId={turnId}
+              patchBlockStates={patchBlockStates}
+              patchRejections={patchRejections}
+              onPatchAccept={onPatchAccept}
+              onPatchDismiss={onPatchDismiss}
+              onArtefactMessage={onArtefactMessage}
+              assistantTextWordCount={assistantTextWordCount}
+            />
+          </div>
+        )
+      })}
       {hasOverflow && (
         <button
           type="button"

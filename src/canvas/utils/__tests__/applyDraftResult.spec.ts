@@ -188,6 +188,88 @@ describe('applyDraftResult', () => {
     expect(storeEdges[0].data.weight).toBe(0.7) // absolute value
   })
 
+  it('preserves V3 edge_type, provenance_source, and exists_probability', () => {
+    const draftData = {
+      nodes: [
+        { id: 'f1', kind: 'factor', label: 'A' },
+        { id: 'g1', kind: 'goal', label: 'Goal' },
+      ],
+      edges: [
+        {
+          from: 'f1',
+          to: 'g1',
+          strength: { mean: 0.65, std: 0.12 },
+          effect_direction: 'positive',
+          belief_exists: 0.85,
+          edge_type: 'directed',
+          provenance_source: 'document',
+          exists_probability: 0.9,
+        },
+      ],
+    } as any
+
+    applyDraftResult(draftData)
+
+    expect(storeEdges).toHaveLength(1)
+    const edgeData = storeEdges[0].data
+
+    // Core fields
+    expect(edgeData.weight).toBe(0.65)
+    expect(edgeData.strengthStd).toBe(0.12)
+    expect(edgeData.direction).toBe('positive')
+    expect(edgeData.beliefExists).toBe(0.85)
+
+    // V3 fields
+    expect(edgeData.edge_type).toBe('directed')
+    expect(edgeData.provenance_source).toBe('document')
+    expect(edgeData.exists_probability).toBe(0.9)
+  })
+
+  it('omits V3 fields when not present in CEE response', () => {
+    const draftData = {
+      nodes: [
+        { id: 'f1', kind: 'factor', label: 'A' },
+        { id: 'g1', kind: 'goal', label: 'Goal' },
+      ],
+      edges: [
+        { from: 'f1', to: 'g1', weight: 0.5, effect_direction: 'positive' },
+      ],
+    } as any
+
+    applyDraftResult(draftData)
+
+    expect(storeEdges[0].data).not.toHaveProperty('edge_type')
+    expect(storeEdges[0].data).not.toHaveProperty('provenance_source')
+    expect(storeEdges[0].data).not.toHaveProperty('exists_probability')
+  })
+
+  it('backfills interventions onto option nodes from analysis_ready', () => {
+    const interventions = { f1: { value: 10, source: 'cee_hypothesis' } }
+    const draftData = {
+      nodes: [
+        { id: 'g1', kind: 'goal', label: 'Revenue' },
+        { id: 'o1', kind: 'option', label: 'Option A' },
+        { id: 'f1', kind: 'factor', label: 'Price' },
+      ],
+      edges: [],
+      analysis_ready: {
+        options: [{ id: 'o1', status: 'ready', interventions }],
+        goal_node_id: 'g1',
+        status: 'ready',
+      },
+    } as any
+
+    applyDraftResult(draftData)
+
+    expect(mockSetCeeAnalysisReady).toHaveBeenCalled()
+
+    // Option node should have interventions backfilled
+    const optionNode = storeNodes.find((n: any) => n.id === 'o1')
+    expect(optionNode).toBeDefined()
+    expect(optionNode.data.interventions).toEqual(interventions)
+    expect(optionNode.data.interventionKeys).toEqual(['f1'])
+  })
+
   it('clamps weight to [0, 2] range', () => {
     const draftData = {
       nodes: [

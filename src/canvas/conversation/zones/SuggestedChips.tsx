@@ -77,7 +77,9 @@ export function SuggestedChips({
     return () => clearTimeout(timer)
   }, [chipError])
 
-  const disabled = isThinking || isHistorical
+  // In-flight disable is a v2 feature. Legacy path must remain clickable
+  // during isThinking to preserve current behaviour when the flag is off.
+  const disabled = v2 ? (isThinking || isHistorical) : false
 
   function handleClick(chip: ActionChip) {
     if (disabled) return

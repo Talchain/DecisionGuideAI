@@ -779,3 +779,205 @@ describe('CommentaryBlockRenderer — focus and tabIndex', () => {
     expect(toggle.getAttribute('aria-label')).toBeTruthy()
   })
 })
+
+// ---------------------------------------------------------------------------
+// § 12 — Null assistant_text with commentary — must default to expanded
+// ---------------------------------------------------------------------------
+
+describe('Null assistant_text → commentary defaults to expanded', () => {
+  beforeEach(() => {
+    vi.mocked(isOrchestratorRenderingV2Enabled).mockReturnValue(true)
+  })
+
+  it('null assistant_text fixture: commentary defaults to expanded (word count = 0)', () => {
+    const raw = fixtureData.envelopes.nullAssistantTextWithCommentary.blocks[0]
+    const block = adaptCEEBlock(raw) as CommentaryBlock
+    render(<InlineBlocks blocks={[block]} assistantTextWordCount={0} />)
+    // Should be expanded since assistant_text word count < 20
+    const toggle = screen.getByRole('button', { name: /collapse commentary/i })
+    expect(toggle.getAttribute('aria-expanded')).toBe('true')
+  })
+
+  it('null assistant_text fixture: commentary text is rendered (in both preview and expanded)', () => {
+    const raw = fixtureData.envelopes.nullAssistantTextWithCommentary.blocks[0]
+    const block = adaptCEEBlock(raw) as CommentaryBlock
+    render(<InlineBlocks blocks={[block]} assistantTextWordCount={0} />)
+    // When expanded, text appears in both the toggle preview and expanded content
+    const matches = screen.getAllByText('This commentary IS the answer when assistant_text is null.')
+    expect(matches.length).toBeGreaterThan(0)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// § 13 — Graceful degradation of unsupported markdown
+// ---------------------------------------------------------------------------
+
+describe('safeRichText — unsupported markdown degradation', () => {
+  it('headers render as plain text (no raw ## visible as markdown syntax)', () => {
+    const html = safeRichText('# Heading one\n## Heading two')
+    const container = renderHtml(html)
+    // No h1/h2 elements
+    expect(container.querySelector('h1')).toBeNull()
+    expect(container.querySelector('h2')).toBeNull()
+    // Text content preserved
+    expect(container.textContent).toContain('# Heading one')
+    expect(container.textContent).toContain('## Heading two')
+  })
+
+  it('tables render as plain text (no raw | syntax as table structure)', () => {
+    const html = safeRichText('| Col A | Col B |\n|-------|-------|\n| 1     | 2     |')
+    const container = renderHtml(html)
+    // No table elements
+    expect(container.querySelector('table')).toBeNull()
+    // Text is preserved — pipe characters visible
+    expect(container.textContent).toContain('Col A')
+    expect(container.textContent).toContain('Col B')
+  })
+
+  it('horizontal rules render as plain text', () => {
+    const html = safeRichText('Before\n\n---\n\nAfter')
+    const container = renderHtml(html)
+    expect(container.querySelector('hr')).toBeNull()
+    expect(container.textContent).toContain('---')
+  })
+
+  it('code blocks render as plain text', () => {
+    const html = safeRichText('```code block```')
+    const container = renderHtml(html)
+    expect(container.querySelector('code')).toBeNull()
+    expect(container.querySelector('pre')).toBeNull()
+  })
+
+  it('uses golden fixture for unsupported markdown', () => {
+    const env = fixtureData.envelopes.unsupportedMarkdown
+    const html = safeRichText(env.assistant_text)
+    const container = renderHtml(html)
+    // Bold still works
+    expect(container.querySelector('strong')).not.toBeNull()
+    expect(container.querySelector('strong')!.textContent).toBe('Bold still works.')
+    // No structured markdown elements
+    expect(container.querySelector('h1')).toBeNull()
+    expect(container.querySelector('h2')).toBeNull()
+    expect(container.querySelector('table')).toBeNull()
+    expect(container.querySelector('hr')).toBeNull()
+  })
+})
+
+// ---------------------------------------------------------------------------
+// § 14 — Block type badges (DS v5 §21.2)
+// ---------------------------------------------------------------------------
+
+describe('Block type badges — flag ON', () => {
+  beforeEach(() => {
+    vi.mocked(isOrchestratorRenderingV2Enabled).mockReturnValue(true)
+  })
+
+  it('review card (alert) renders a badge dot', () => {
+    const block = makeReviewBlock({ variant: 'alert', tone: 'challenger' })
+    render(<InlineBlocks blocks={[block]} />)
+    const dot = screen.getByTestId('block-badge-dot')
+    expect(dot).toBeDefined()
+  })
+
+  it('review card (info) renders a badge dot', () => {
+    const block = makeReviewBlock({ variant: 'info', tone: 'facilitator' })
+    render(<InlineBlocks blocks={[block]} />)
+    const dot = screen.getByTestId('block-badge-dot')
+    expect(dot).toBeDefined()
+  })
+
+  it('commentary block does NOT render a badge dot', () => {
+    const block = makeCommentaryBlock({ title: 'T' })
+    render(<InlineBlocks blocks={[block]} assistantTextWordCount={30} />)
+    expect(screen.queryByTestId('block-badge-dot')).toBeNull()
+  })
+
+  it('badge dot is aria-hidden', () => {
+    const block = makeReviewBlock({ variant: 'alert', tone: 'challenger' })
+    render(<InlineBlocks blocks={[block]} />)
+    const dot = screen.getByTestId('block-badge-dot')
+    expect(dot.getAttribute('aria-hidden')).toBe('true')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// § 15 — Block type badges — flag OFF (no dots)
+// ---------------------------------------------------------------------------
+
+describe('Block type badges — flag OFF', () => {
+  beforeEach(() => {
+    vi.mocked(isOrchestratorRenderingV2Enabled).mockReturnValue(false)
+  })
+
+  afterEach(() => {
+    vi.mocked(isOrchestratorRenderingV2Enabled).mockReturnValue(true)
+  })
+
+  it('no badge dots when flag is off', () => {
+    const block = makeReviewBlock({ variant: 'alert', tone: 'challenger' })
+    render(<InlineBlocks blocks={[block]} />)
+    expect(screen.queryByTestId('block-badge-dot')).toBeNull()
+  })
+})
+
+// ---------------------------------------------------------------------------
+// § 16 — Suggested actions fixture shape
+// ---------------------------------------------------------------------------
+
+describe('Fixture golden-path — suggested actions with roles', () => {
+  it('suggestedActionsWithRoles fixture has three chips with distinct roles', () => {
+    const env = fixtureData.envelopes.suggestedActionsWithRoles
+    expect(env.suggested_actions).toHaveLength(3)
+    const roles = env.suggested_actions.map((a: { role?: string }) => a.role)
+    expect(roles).toContain('facilitator')
+    expect(roles).toContain('challenger')
+    expect(roles).toContain('scientist')
+  })
+
+  it('suggested actions have message field for orchestrator dispatch', () => {
+    const env = fixtureData.envelopes.suggestedActionsWithRoles
+    // All actions must have a message (the field the UI sends)
+    for (const action of env.suggested_actions) {
+      expect(action.message).toBeTruthy()
+    }
+  })
+})
+
+// ---------------------------------------------------------------------------
+// § 17 — CEE wire format: prompt field normalisation (Brief B, Task 1)
+// ---------------------------------------------------------------------------
+
+describe('Fixture golden-path — CEE prompt field', () => {
+  it('suggestedActionsWithPromptField fixture uses prompt (not message)', () => {
+    const env = fixtureData.envelopes.suggestedActionsWithPromptField
+    expect(env.suggested_actions).toHaveLength(3)
+    for (const action of env.suggested_actions) {
+      expect((action as Record<string, unknown>).prompt).toBeTruthy()
+      expect((action as Record<string, unknown>).message).toBeUndefined()
+    }
+  })
+
+  it('suggestedActionsWithPromptField has three distinct roles', () => {
+    const env = fixtureData.envelopes.suggestedActionsWithPromptField
+    const roles = env.suggested_actions.map((a: { role?: string }) => a.role)
+    expect(roles).toContain('facilitator')
+    expect(roles).toContain('challenger')
+    expect(roles).toContain('scientist')
+  })
+
+  it('mixed prompt/message fixture has both field types', () => {
+    const env = fixtureData.envelopes.suggestedActionsMixedPromptAndMessage
+    expect(env.suggested_actions).toHaveLength(2)
+    const first = env.suggested_actions[0] as Record<string, unknown>
+    const second = env.suggested_actions[1] as Record<string, unknown>
+    expect(first.message).toBeTruthy()
+    expect(first.prompt).toBeUndefined()
+    expect(second.prompt).toBeTruthy()
+    expect(second.message).toBeUndefined()
+  })
+
+  it('five-chip fixture exceeds prompt spec max of 4', () => {
+    const env = fixtureData.envelopes.suggestedActionsFiveChips
+    expect(env.suggested_actions).toHaveLength(5)
+  })
+})

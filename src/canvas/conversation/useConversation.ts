@@ -44,8 +44,9 @@ import type {
 } from './types'
 import { MAX_CHIPS_PER_TURN, MAX_SUGGESTED_ACTIONS } from './types'
 import { applyAutoApplyPatch, synthesiseCeeAnalysisReady } from './utils/applyPatch'
+import { backfillInterventionsOntoOptionNodes } from '../utils/applyDraftResult'
 import { validateAnalysisReadyContract } from './validateAnalysisReadyContract'
-import { validateResponse } from './validateResponse'
+import { validateResponse, stripRepairLogLines } from './validateResponse'
 import type { CEEAnalysisReady, CEEGoalConstraint } from '../../adapters/cee/types'
 import type { PLoTEnrichment } from '../../adapters/plot/enrichment'
 import {
@@ -990,8 +991,8 @@ export function useConversation(): UseConversationReturn {
     if (!buf.length || !msgId) return
     frameBufRef.current = []
     streamTextRef.current += buf.join('')
-    // Strip diagnostics during streaming so preamble never flashes in the bubble
-    updateMessage(msgId, { content: stripDiagnostics(streamTextRef.current) })
+    // Strip diagnostics and repair logs during streaming so internal text never flashes in the bubble
+    updateMessage(msgId, { content: stripRepairLogLines(stripDiagnostics(streamTextRef.current)) })
   }, [updateMessage])
 
   /** Schedule a RAF-batched flush (prevents duplicate scheduling) */
@@ -1631,6 +1632,13 @@ export function useConversation(): UseConversationReturn {
         // because it also captures ceeAnalysisReadyNodeIds and persists to sessionStorage.
         if (resolvedAnalysisReady) {
           useCanvasStore.getState().setCeeAnalysisReady(resolvedAnalysisReady)
+
+          // Backfill interventions onto option nodes for debug bundle capture.
+          // CEE sends interventions on analysis_ready.options, not on graph_patch add_node data.
+          // TODO: Remove backfill when CEE includes interventions in graph_patch add_node ops.
+          // Timing assumption: applyAutoApplyPatch ran synchronously above, so option nodes
+          // are already in the store. If they aren't (shouldn't happen), this is a silent no-op.
+          backfillInterventionsOntoOptionNodes(resolvedAnalysisReady)
         }
       }
 

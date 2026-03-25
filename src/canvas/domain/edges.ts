@@ -210,6 +210,14 @@ export const EdgeDataSchema = z.object({
   /** Parametric uncertainty (standard deviation) from CEE */
   strengthStd: z.number().positive().optional(),
 
+  // V3 edge metadata (preserved from CEE for round-trip fidelity)
+  /** V3 edge type: "directed", "bidirected", etc. */
+  edge_type: z.string().optional(),
+  /** V3 provenance source classification */
+  provenance_source: z.enum(['document', 'metric', 'hypothesis', 'engine']).optional(),
+  /** Raw exists probability from CEE V3 (preserved alongside beliefExists) */
+  exists_probability: z.number().min(0).max(1).optional(),
+
   // Phase 3: Non-linear edge functions
   functionType: EdgeFunctionTypeEnum.default('linear'),   // How input transforms to output
   functionParams: EdgeFunctionParamsSchema.optional(),    // Parameters for non-linear functions

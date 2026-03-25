@@ -6,7 +6,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { validateResponse, validateEnvelopeShape, validateStreamEventShape } from '../validateResponse'
+import { validateResponse, validateEnvelopeShape, validateStreamEventShape, stripRepairLogLines } from '../validateResponse'
 import type { OrchestratorResponseEnvelopeV2, ActionChip, ConversationBlock } from '../types'
 
 // ---------------------------------------------------------------------------
@@ -122,6 +122,84 @@ describe('validateResponse', () => {
       request_id: 'req-5',
       repairs: ['missing_chip_message'],
     })
+  })
+
+  // -----------------------------------------------------------------------
+  // prompt → message normalisation (Brief B, Task 1)
+  // CEE serialises the chip dispatch text as `prompt`; the UI uses `message`.
+  // -----------------------------------------------------------------------
+
+  it('normalises chip with prompt field into message field', () => {
+    const wireChip = { id: 'p1', label: 'Calibrate', prompt: 'Help me calibrate', intent: 'primary' } as unknown as ActionChip
+    const envelope = makeEnvelope({
+      assistant_text: 'Try this',
+      suggested_actions: [wireChip],
+    })
+
+    const { cleaned, repairs } = validateResponse(envelope, 'req-prompt')
+
+    expect(repairs).toHaveLength(0)
+    expect(cleaned.suggested_actions).toHaveLength(1)
+    expect(cleaned.suggested_actions![0].message).toBe('Help me calibrate')
+    // prompt field should not leak through to ActionChip
+    expect((cleaned.suggested_actions![0] as Record<string, unknown>).prompt).toBeUndefined()
+    expect(mockTrackEvent).not.toHaveBeenCalled()
+  })
+
+  it('preserves message field when both prompt and message are present', () => {
+    const wireChip = { id: 'both', label: 'Go', message: 'use message', prompt: 'use prompt', intent: 'primary' } as unknown as ActionChip
+    const envelope = makeEnvelope({
+      assistant_text: 'Try this',
+      suggested_actions: [wireChip],
+    })
+
+    const { cleaned, repairs } = validateResponse(envelope, 'req-both')
+
+    expect(repairs).toHaveLength(0)
+    expect(cleaned.suggested_actions![0].message).toBe('use message')
+  })
+
+  it('handles mixed prompt and message chips in the same envelope', () => {
+    const messageChip = makeChip({ id: 'c-msg', label: 'A', message: 'msg text' })
+    const promptChip = { id: 'c-prompt', label: 'B', prompt: 'prompt text', intent: 'secondary' } as unknown as ActionChip
+    const envelope = makeEnvelope({
+      assistant_text: 'Options',
+      suggested_actions: [messageChip, promptChip],
+    })
+
+    const { cleaned, repairs } = validateResponse(envelope, 'req-mixed-fields')
+
+    expect(repairs).toHaveLength(0)
+    expect(cleaned.suggested_actions).toHaveLength(2)
+    expect(cleaned.suggested_actions![0].message).toBe('msg text')
+    expect(cleaned.suggested_actions![1].message).toBe('prompt text')
+  })
+
+  it('still filters chip when neither prompt nor message is present', () => {
+    const noDispatch = { id: 'x', label: 'Empty', intent: 'primary' } as unknown as ActionChip
+    const envelope = makeEnvelope({
+      assistant_text: 'Try',
+      suggested_actions: [noDispatch],
+    })
+
+    const { cleaned, repairs } = validateResponse(envelope, 'req-no-dispatch')
+
+    expect(repairs).toContain('missing_chip_message')
+    expect(cleaned.suggested_actions).toBeUndefined()
+  })
+
+  it('normalises prompt with role field preserved', () => {
+    const wireChip = { id: 'r1', label: 'Push back', prompt: 'Challenge the risk', intent: 'secondary', role: 'challenger' } as unknown as ActionChip
+    const envelope = makeEnvelope({
+      assistant_text: 'Here',
+      suggested_actions: [wireChip],
+    })
+
+    const { cleaned } = validateResponse(envelope, 'req-role')
+
+    expect(cleaned.suggested_actions![0].message).toBe('Challenge the risk')
+    expect(cleaned.suggested_actions![0].role).toBe('challenger')
+    expect(cleaned.suggested_actions![0].label).toBe('Push back')
   })
 
   it('filters chip missing label and emits telemetry', () => {
@@ -248,6 +326,63 @@ describe('validateResponse', () => {
     expect(repairs).not.toContain('empty_text')
     expect(repairs).not.toContain('nothing_renderable')
     expect(cleaned.assistant_text).toBe('')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// stripRepairLogLines (Brief A, Task 3)
+// ---------------------------------------------------------------------------
+
+describe('stripRepairLogLines', () => {
+  it('strips [DEFAULT_EXISTS_PROBABILITY] lines', () => {
+    const input = '[DEFAULT_EXISTS_PROBABILITY] Missing value, using default\n[DEFAULT_EXISTS_PROBABILITY] Missing value, using default\nActual text.'
+    expect(stripRepairLogLines(input)).toBe('Actual text.')
+  })
+
+  it('strips all known repair log patterns', () => {
+    const input = '[STD_FLOOR] Applied floor\n[CLAMP_WEIGHT] Clamped\n[MISSING_FIELD] Added default\n[FALLBACK_VALUE] Used fallback\n[REPAIR:001] Fixed\nReal content.'
+    expect(stripRepairLogLines(input)).toBe('Real content.')
+  })
+
+  it('returns empty string when all lines are repair logs', () => {
+    const input = '[DEFAULT_EXISTS_PROBABILITY] Missing value, using default\n[DEFAULT_EXISTS_PROBABILITY] Missing value, using default'
+    expect(stripRepairLogLines(input)).toBe('')
+  })
+
+  it('preserves normal text unchanged', () => {
+    const input = 'Here is a normal response.\n\n- With bullets\n- And more'
+    expect(stripRepairLogLines(input)).toBe(input)
+  })
+
+  it('preserves blank lines between real content', () => {
+    const input = 'First paragraph.\n\nSecond paragraph.'
+    expect(stripRepairLogLines(input)).toBe(input)
+  })
+})
+
+describe('validateResponse — repair log stripping', () => {
+  it('strips repair log lines from assistant_text', () => {
+    const envelope = makeEnvelope({
+      assistant_text: '[DEFAULT_EXISTS_PROBABILITY] Missing value, using default\n[DEFAULT_EXISTS_PROBABILITY] Missing value, using default',
+      blocks: [{ type: 'graph_patch', block_type: 'graph_patch', operations: [] } as unknown as ConversationBlock],
+    })
+
+    const { cleaned, repairs } = validateResponse(envelope, 'req-repair')
+
+    expect(repairs).toContain('repair_log_stripped')
+    expect(cleaned.assistant_text).toBe('')
+  })
+
+  it('strips repair log lines but preserves real text', () => {
+    const envelope = makeEnvelope({
+      assistant_text: '[DEFAULT_EXISTS_PROBABILITY] Missing value, using default\nActual response text here.',
+      blocks: [{ type: 'commentary', text: 'ok' } as unknown as ConversationBlock],
+    })
+
+    const { cleaned, repairs } = validateResponse(envelope, 'req-repair-partial')
+
+    expect(repairs).toContain('repair_log_stripped')
+    expect(cleaned.assistant_text).toBe('Actual response text here.')
   })
 })
 

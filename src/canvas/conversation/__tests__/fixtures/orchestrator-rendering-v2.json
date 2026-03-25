@@ -114,6 +114,92 @@
           }
         }
       ]
+    },
+
+    "nullAssistantTextWithCommentary": {
+      "assistant_text": null,
+      "blocks": [
+        {
+          "block_type": "commentary",
+          "block_id": "c-005",
+          "data": {
+            "narrative": "This commentary IS the answer when assistant_text is null.",
+            "tone": "neutral"
+          }
+        }
+      ]
+    },
+
+    "suggestedActionsWithRoles": {
+      "assistant_text": "Here are some actions you can take.",
+      "blocks": [],
+      "suggested_actions": [
+        { "id": "sa-1", "label": "Add more factors", "message": "Add more factors to improve coverage", "intent": "primary", "role": "facilitator" },
+        { "id": "sa-2", "label": "Challenge assumptions", "message": "Challenge the current assumptions", "intent": "secondary", "role": "challenger" },
+        { "id": "sa-3", "label": "Run sensitivity", "message": "Run a sensitivity analysis", "intent": "secondary", "role": "scientist" }
+      ]
+    },
+
+    "suggestedActionsWithPromptField": {
+      "_comment": "CEE wire format uses 'prompt' not 'message'. validateResponse normalises prompt → message.",
+      "assistant_text": "Here are some actions you can take.",
+      "blocks": [],
+      "suggested_actions": [
+        { "id": "sa-p1", "label": "Calibrate top 3 uncertainties", "prompt": "Help me calibrate the three most uncertain assumptions in my model", "intent": "primary", "role": "facilitator" },
+        { "id": "sa-p2", "label": "Stress test the winner", "prompt": "Run a stress test on the leading option", "intent": "secondary", "role": "challenger" },
+        { "id": "sa-p3", "label": "Check data sources", "prompt": "Review the evidence quality of my factor estimates", "intent": "secondary", "role": "scientist" }
+      ]
+    },
+
+    "suggestedActionsMixedPromptAndMessage": {
+      "_comment": "Mixed: some chips use prompt, others use message. Both should work.",
+      "assistant_text": "Try one of these.",
+      "blocks": [],
+      "suggested_actions": [
+        { "id": "sa-m1", "label": "Option A", "message": "Expand option A", "intent": "primary", "role": "facilitator" },
+        { "id": "sa-m2", "label": "Option B", "prompt": "Expand option B in detail", "intent": "secondary", "role": "challenger" }
+      ]
+    },
+
+    "suggestedActionsFiveChips": {
+      "_comment": "CEE sends 5 chips despite prompt spec max of 4. Budget enforcement caps at 4.",
+      "assistant_text": "Many options available.",
+      "blocks": [],
+      "suggested_actions": [
+        { "id": "sa-5a", "label": "Action 1", "prompt": "Do action 1", "intent": "primary", "role": "facilitator" },
+        { "id": "sa-5b", "label": "Action 2", "prompt": "Do action 2", "intent": "secondary", "role": "challenger" },
+        { "id": "sa-5c", "label": "Action 3", "prompt": "Do action 3", "intent": "secondary", "role": "scientist" },
+        { "id": "sa-5d", "label": "Action 4", "prompt": "Do action 4", "intent": "secondary", "role": "facilitator" },
+        { "id": "sa-5e", "label": "Action 5", "prompt": "Do action 5", "intent": "secondary", "role": "challenger" }
+      ]
+    },
+
+    "unsupportedMarkdown": {
+      "assistant_text": "# Heading should degrade\n\n## Subheading too\n\n| Col A | Col B |\n|-------|-------|\n| 1     | 2     |\n\n---\n\nNormal text after HR.\n\n```code block```\n\n**Bold still works.**",
+      "blocks": [],
+      "suggested_actions": []
+    },
+
+    "repairLogLeak": {
+      "assistant_text": "[DEFAULT_EXISTS_PROBABILITY] Missing value, using default\n[DEFAULT_EXISTS_PROBABILITY] Missing value, using default\n[DEFAULT_EXISTS_PROBABILITY] Missing value, using default",
+      "blocks": [
+        {
+          "block_type": "graph_patch",
+          "block_id": "gp-repair",
+          "data": {
+            "patch_id": "p-repair",
+            "description": "Applied changes",
+            "operations": [],
+            "auto_apply": true
+          }
+        }
+      ]
+    },
+
+    "patchAcceptedNullText": {
+      "assistant_text": null,
+      "blocks": [],
+      "suggested_actions": []
     }
   }
 }
