@@ -460,6 +460,11 @@ export interface OrchestratorResponseEnvelopeV2 {
     fallback_trace?: unknown[]
     [key: string]: unknown
   } | null
+  /**
+   * CEE pipeline outcome — present when CEE includes pipeline metadata.
+   * Read-only debug metadata; passthrough to debug bundle.
+   */
+  _pipeline_outcome?: unknown
 }
 
 // ---------------------------------------------------------------------------

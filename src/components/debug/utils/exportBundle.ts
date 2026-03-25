@@ -102,6 +102,42 @@ function extractIslRawFields(islResponse: unknown) {
   }
 }
 
+/**
+ * Extract goal_constraints from graph_patch blocks in the envelope.
+ * Falls back to searching blocks when not present at envelope root.
+ */
+function extractGoalConstraintsFromBlocks(envelope: Record<string, unknown> | null): unknown[] | null {
+  if (!envelope) return null
+  const blocks = Array.isArray(envelope.blocks) ? envelope.blocks : []
+  for (const block of blocks) {
+    const b = asRecord(block)
+    if (!b) continue
+    const data = asRecord(b.data)
+    if (data && Array.isArray(data.goal_constraints) && data.goal_constraints.length > 0) {
+      return data.goal_constraints as unknown[]
+    }
+  }
+  return null
+}
+
+/**
+ * Extract analysis_ready from graph_patch blocks in the envelope.
+ * Falls back to searching blocks when not present at envelope root.
+ */
+function extractAnalysisReadyFromBlocks(envelope: Record<string, unknown> | null): unknown | null {
+  if (!envelope) return null
+  const blocks = Array.isArray(envelope.blocks) ? envelope.blocks : []
+  for (const block of blocks) {
+    const b = asRecord(block)
+    if (!b) continue
+    const data = asRecord(b.data)
+    if (data && data.analysis_ready != null) {
+      return data.analysis_ready
+    }
+  }
+  return null
+}
+
 function extractCausalClaimsDiagnostic(ceeResponse: unknown): DebugBundle['pipeline']['causal_claims_diagnostic'] {
   const cee = asRecord(ceeResponse)
   const trace = asRecord(cee?.trace)
@@ -483,6 +519,17 @@ interface DebugBundle {
   fallback_trace?: unknown[] | null
   /** Reason when all v2.0 sections are null (CEE hasn't deployed trace support). */
   _unavailable_reason?: string
+
+  // =========================================================================
+  // Envelope-level fields — extracted from cee_response (the orchestrator envelope)
+  // =========================================================================
+
+  /** CEE pipeline outcome from envelope._pipeline_outcome. Passthrough. */
+  pipeline_outcome?: unknown | null
+  /** Goal constraints from envelope.goal_constraints. Count + data. */
+  goal_constraints?: { count: number; items: unknown[] } | null
+  /** CEE analysis readiness from envelope.analysis_ready. */
+  analysis_ready?: unknown | null
 }
 
 // =============================================================================
@@ -1212,6 +1259,28 @@ export function buildDebugBundle(data: DebugData, options: ExportOptions = {}): 
   const causalClaimsDiagnostic = extractCausalClaimsDiagnostic(data.payloads.cee_response)
   const islRawFields = extractIslRawFields(data.payloads.isl_response)
 
+  // Extract envelope-level fields from cee_response (the orchestrator envelope).
+  // These are top-level fields on the envelope that the debug bundle surfaces directly.
+  const envelopeRecord = asRecord(data.payloads.cee_response)
+  const envelopePipelineOutcome = envelopeRecord?._pipeline_outcome ?? null
+
+  // goal_constraints: check envelope root first, then graph_patch block data
+  const envelopeGcArray = Array.isArray(envelopeRecord?.goal_constraints)
+    ? envelopeRecord!.goal_constraints as unknown[]
+    : null
+  const blockGcArray = !envelopeGcArray
+    ? extractGoalConstraintsFromBlocks(envelopeRecord)
+    : null
+  const gcItems = envelopeGcArray ?? blockGcArray
+  const envelopeGoalConstraints = gcItems
+    ? { count: gcItems.length, items: gcItems }
+    : null
+
+  // analysis_ready: on graph_patch block data or envelope root (CEE may place it either way)
+  const envelopeAnalysisReady = envelopeRecord?.analysis_ready
+    ?? extractAnalysisReadyFromBlocks(envelopeRecord)
+    ?? null
+
   // User actions from debug-state ring buffer
   const userActions = collectUserActions()
 
@@ -1413,6 +1482,11 @@ export function buildDebugBundle(data: DebugData, options: ExportOptions = {}): 
         _unavailable_reason: 'CEE diagnostic trace not present in response',
       } : {}),
     } : {}),
+
+    // Envelope-level fields — extracted from cee_response (orchestrator envelope)
+    pipeline_outcome: envelopePipelineOutcome,
+    goal_constraints: envelopeGoalConstraints,
+    analysis_ready: envelopeAnalysisReady,
   }
 }
 

@@ -420,6 +420,15 @@ export async function* streamOrchestratorTurn(
   const requestBody = JSON.stringify(wireRequest)
   const requestId = request.client_turn_id
 
+  // Record request payload for debug bundle capture (mirrors non-streaming path)
+  recordRequestPayload({
+    id: requestId,
+    endpoint: ORCHESTRATOR_STREAM_URL,
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: wireRequest,
+  })
+
   // Telemetry bookkeeping
   let firstByteMs: number | null = null
   let firstTokenMs: number | null = null
@@ -430,6 +439,7 @@ export async function* streamOrchestratorTurn(
   let completionStatus: StreamCompletionStatus = 'disconnect'
   let fallbackReason: string | undefined
   let finalAssistantText: string | null = null
+  let finalEnvelope: OrchestratorResponseEnvelopeV2 | null = null
 
   // Heartbeat timer
   let heartbeatTimeout: ReturnType<typeof setTimeout> | null = null
@@ -539,8 +549,17 @@ export async function* streamOrchestratorTurn(
     const rawJson = await response.json()
     const envelope = validateEnvelopeShape(rawJson)
     completionStatus = 'complete'
+    finalEnvelope = envelope
     fallbackReason = 'json_cache_hit'
     logTelemetry()
+    // Record response for debug bundle (pre-try/finally, so record here)
+    recordResponsePayload({
+      id: requestId,
+      status: response.status,
+      headers: Object.fromEntries(response.headers.entries()),
+      body: envelope,
+      duration: Math.max(1, Date.now() - startTime),
+    })
     yield { type: 'turn_complete', seq: 0, envelope }
     return
   }
@@ -601,7 +620,9 @@ export async function* streamOrchestratorTurn(
         firstBlockMs = Date.now() - startTime
       } else if (event.type === 'turn_complete') {
         completionStatus = 'complete'
-        finalAssistantText = (event as { envelope: OrchestratorResponseEnvelopeV2 }).envelope.assistant_text
+        const envelope = (event as { envelope: OrchestratorResponseEnvelopeV2 }).envelope
+        finalAssistantText = envelope.assistant_text
+        finalEnvelope = envelope
       } else if (event.type === 'error') {
         completionStatus = 'error'
       }
@@ -644,5 +665,20 @@ export async function* streamOrchestratorTurn(
     clearHeartbeat()
     try { reader.releaseLock() } catch { /* already released */ }
     logTelemetry()
+
+    // Record response payload for debug bundle capture (mirrors non-streaming path).
+    // The envelope is the full CEE response — same shape as callOrchestratorTurn returns.
+    // Skip when we fell back to callOrchestratorTurn, which records its own payloads.
+    if (completionStatus !== 'fallback') {
+      const elapsedMs = Math.max(1, Date.now() - startTime)
+      recordResponsePayload({
+        id: requestId,
+        status: finalEnvelope ? 200 : 0,
+        headers: {},
+        body: finalEnvelope,
+        duration: elapsedMs,
+        ...(completionStatus === 'error' ? { error: 'Stream completed with error' } : {}),
+      })
+    }
   }
 }

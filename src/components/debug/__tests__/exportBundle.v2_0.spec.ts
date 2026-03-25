@@ -462,4 +462,220 @@ describe('Debug Bundle v2.0', () => {
       }
     })
   })
+
+  // ===========================================================================
+  // Envelope-level field extraction (streaming path debug bundle capture)
+  // ===========================================================================
+
+  describe('envelope-level fields from cee_response', () => {
+    it('extracts _pipeline_outcome from envelope', () => {
+      const pipelineOutcome = { path: 'unified', mutations: 3, status: 'complete' }
+      const bundle = buildDebugBundle(makeDebugData({
+        payloads: {
+          cee_request: null,
+          cee_response: { _pipeline_outcome: pipelineOutcome, assistant_text: 'ok' },
+          plot_request: null,
+          plot_response: null,
+          isl_request: null,
+          isl_response: null,
+        },
+      }))
+
+      expect(bundle.pipeline_outcome).toEqual(pipelineOutcome)
+    })
+
+    it('pipeline_outcome is null when cee_response has no _pipeline_outcome', () => {
+      const bundle = buildDebugBundle(makeDebugData({
+        payloads: {
+          cee_request: null,
+          cee_response: { assistant_text: 'ok' },
+          plot_request: null,
+          plot_response: null,
+          isl_request: null,
+          isl_response: null,
+        },
+      }))
+
+      expect(bundle.pipeline_outcome).toBeNull()
+    })
+
+    it('pipeline_outcome is null when cee_response is null', () => {
+      const bundle = buildDebugBundle(makeDebugData())
+
+      expect(bundle.pipeline_outcome).toBeNull()
+    })
+
+    it('extracts goal_constraints from envelope root', () => {
+      const constraints = [
+        { constraint_id: 'c1', type: 'min', field: 'cost', value: 100 },
+        { constraint_id: 'c2', type: 'max', field: 'time', value: 30 },
+      ]
+      const bundle = buildDebugBundle(makeDebugData({
+        payloads: {
+          cee_request: null,
+          cee_response: { goal_constraints: constraints, assistant_text: 'ok' },
+          plot_request: null,
+          plot_response: null,
+          isl_request: null,
+          isl_response: null,
+        },
+      }))
+
+      expect(bundle.goal_constraints).toEqual({ count: 2, items: constraints })
+    })
+
+    it('extracts goal_constraints from graph_patch block when not at envelope root', () => {
+      const constraints = [{ constraint_id: 'c1', type: 'min', field: 'cost', value: 100 }]
+      const bundle = buildDebugBundle(makeDebugData({
+        payloads: {
+          cee_request: null,
+          cee_response: {
+            assistant_text: 'ok',
+            blocks: [
+              { type: 'graph_patch', data: { goal_constraints: constraints, nodes: [] } },
+            ],
+          },
+          plot_request: null,
+          plot_response: null,
+          isl_request: null,
+          isl_response: null,
+        },
+      }))
+
+      expect(bundle.goal_constraints).toEqual({ count: 1, items: constraints })
+    })
+
+    it('goal_constraints is null when absent everywhere', () => {
+      const bundle = buildDebugBundle(makeDebugData({
+        payloads: {
+          cee_request: null,
+          cee_response: { assistant_text: 'ok' },
+          plot_request: null,
+          plot_response: null,
+          isl_request: null,
+          isl_response: null,
+        },
+      }))
+
+      expect(bundle.goal_constraints).toBeNull()
+    })
+
+    it('extracts analysis_ready from envelope root', () => {
+      const analysisReady = { status: 'ready', factor_count: 5, edge_count: 3 }
+      const bundle = buildDebugBundle(makeDebugData({
+        payloads: {
+          cee_request: null,
+          cee_response: { analysis_ready: analysisReady, assistant_text: 'ok' },
+          plot_request: null,
+          plot_response: null,
+          isl_request: null,
+          isl_response: null,
+        },
+      }))
+
+      expect(bundle.analysis_ready).toEqual(analysisReady)
+    })
+
+    it('extracts analysis_ready from graph_patch block data', () => {
+      const analysisReady = { status: 'ready', factor_count: 5, edge_count: 3 }
+      const bundle = buildDebugBundle(makeDebugData({
+        payloads: {
+          cee_request: null,
+          cee_response: {
+            assistant_text: 'ok',
+            blocks: [
+              { type: 'graph_patch', data: { analysis_ready: analysisReady, nodes: [] } },
+            ],
+          },
+          plot_request: null,
+          plot_response: null,
+          isl_request: null,
+          isl_response: null,
+        },
+      }))
+
+      expect(bundle.analysis_ready).toEqual(analysisReady)
+    })
+
+    it('analysis_ready is null when cee_response is null', () => {
+      const bundle = buildDebugBundle(makeDebugData())
+
+      expect(bundle.analysis_ready).toBeNull()
+    })
+
+    it('llm_calls populated from _diagnostic_trace when cee_response has trace', () => {
+      const trace = makeDiagnosticTrace()
+      const bundle = buildDebugBundle(makeDebugData({
+        payloads: {
+          cee_request: null,
+          cee_response: { _diagnostic_trace: trace, assistant_text: 'ok' },
+          plot_request: null,
+          plot_response: null,
+          isl_request: null,
+          isl_response: null,
+        },
+        // Also set diagnostic_trace (primary path from canvas store)
+        diagnostic_trace: trace,
+      }))
+
+      expect(bundle.llm_calls).toEqual(trace.llm_calls)
+      expect(bundle.prompt_identity).toEqual(trace.prompt_identity)
+    })
+
+    it('cee_response is non-null when streaming envelope is captured', () => {
+      const envelope = {
+        assistant_text: 'Draft complete',
+        blocks: [{ type: 'graph_patch', data: { nodes: [] } }],
+        _pipeline_outcome: { path: 'unified' },
+        goal_constraints: [{ constraint_id: 'c1' }],
+        _diagnostic_trace: makeDiagnosticTrace(),
+      }
+      const bundle = buildDebugBundle(makeDebugData({
+        payloads: {
+          cee_request: { scenario_id: 's1' },
+          cee_response: envelope,
+          plot_request: null,
+          plot_response: null,
+          isl_request: null,
+          isl_response: null,
+        },
+        diagnostic_trace: makeDiagnosticTrace(),
+      }))
+
+      // cee_response is the full envelope
+      expect(bundle.payloads.cee_response).not.toBeNull()
+      // Envelope-level fields are extracted
+      expect(bundle.pipeline_outcome).toEqual({ path: 'unified' })
+      expect(bundle.goal_constraints).toEqual({ count: 1, items: [{ constraint_id: 'c1' }] })
+      // V2.0 sections populated from _diagnostic_trace
+      expect(bundle.llm_calls).not.toBeNull()
+      expect((bundle.llm_calls as unknown[]).length).toBeGreaterThan(0)
+    })
+
+    it('regression: non-streaming path still works (envelope from payload trace)', () => {
+      // When non-streaming, cee_response comes from payload trace store
+      // This test ensures the extraction works with the same shape
+      const envelope = {
+        assistant_text: 'ok',
+        _pipeline_outcome: { path: 'legacy' },
+        analysis_ready: { status: 'needs_edges' },
+        goal_constraints: [],
+      }
+      const bundle = buildDebugBundle(makeDebugData({
+        payloads: {
+          cee_request: null,
+          cee_response: envelope,
+          plot_request: null,
+          plot_response: null,
+          isl_request: null,
+          isl_response: null,
+        },
+      }))
+
+      expect(bundle.pipeline_outcome).toEqual({ path: 'legacy' })
+      expect(bundle.analysis_ready).toEqual({ status: 'needs_edges' })
+      // Empty array → { count: 0, items: [] } (present but empty)
+      expect(bundle.goal_constraints).toEqual({ count: 0, items: [] })
+    })
+  })
 })
