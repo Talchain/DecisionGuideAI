@@ -5,6 +5,7 @@ import { NODE_REGISTRY } from '../domain/nodes'
 import { useNodeDisplayMetadata } from '../hooks/useNodeDisplayMetadata'
 import { useCanvasStore } from '../store'
 import { typography } from '../../styles/typography'
+import { FileText, Cpu } from 'lucide-react'
 import { computeSignedMean } from '../domain/edges'
 import { getProvenanceLabel } from '../ui/inspector-v2/inspectorStrings'
 import { InfluenceIndicator } from '../ui/shared/InfluenceIndicator'
@@ -49,23 +50,23 @@ export const OutcomeNode = memo((props: NodeProps) => {
     <BaseNode {...props} nodeType="outcome" icon={metadata.icon}>
       {/* Achievement probability (pre-existing) */}
       {displayMetadata.achievementProbability !== null && (
-        <div className={`${typography.nodeTitle} mb-1 text-success`}>
+        <div className={`${typography.nodeTitle} mb-1 text-text-body`}>
           {Math.round(displayMetadata.achievementProbability * 100)}% chance
         </div>
       )}
 
-      {/* Post-analysis: contribution % + direction indicator */}
+      {/* Post-analysis: contribution % + direction indicator — neutral colours */}
       {resultsStatus === 'complete' && bridgeEdgeData && (
-        <div className={`${typography.nodeLabel} mt-1.5`}>
+        <div className={`${typography.nodeLabel} mt-1.5 text-text-body`}>
           {bridgeEdgeData.contributionPct != null && (
-            <div className="text-success font-semibold">
+            <div>
               {bridgeEdgeData.contributionPct}% contribution to goal
             </div>
           )}
           <InfluenceIndicator
             strength={bridgeEdgeData.signedMean}
             variant="canvas"
-            className={`${typography.nodeTitle} font-semibold text-success`}
+            className={`${typography.nodeLabel} text-text-light`}
           />
           {bridgeEdgeData.existsProbability !== null && (
             <div className="text-text-light mt-0.5">
@@ -81,7 +82,7 @@ export const OutcomeNode = memo((props: NodeProps) => {
           <InfluenceIndicator
             strength={bridgeEdgeData.signedMean}
             variant="canvas"
-            className={`${typography.nodeTitle} font-semibold text-success`}
+            className={`${typography.nodeLabel} text-text-light`}
           />
           {bridgeEdgeData.existsProbability !== null && (
             <> · {Math.round(bridgeEdgeData.existsProbability * 100)}% certain</>
@@ -90,10 +91,12 @@ export const OutcomeNode = memo((props: NodeProps) => {
       )}
 
       {provenanceLabel && (
-        <div className={`${typography.nodeLabel} mt-1.5`}>
-          <span className="bg-panel border border-info/30 text-text-body rounded-full px-1.5 py-0.5">
-            {provenanceLabel}
-          </span>
+        <div className="flex justify-end mt-1.5">
+          {provenanceLabel.includes('Olumi') ? (
+            <Cpu size={12} className="text-text-light" aria-hidden="true" title={provenanceLabel} />
+          ) : (
+            <FileText size={12} className="text-text-light" aria-hidden="true" title={provenanceLabel} />
+          )}
         </div>
       )}
 

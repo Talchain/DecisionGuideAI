@@ -7,6 +7,7 @@ import { useCanvasStore } from '../store'
 import { typography } from '../../styles/typography'
 import { formatTargetValue } from '../../components/results/utils/formatTargetValue'
 import { DataBar, type DataBarColour } from '../ui/shared/DataBar'
+import { FileText, Cpu } from 'lucide-react'
 import { getProvenanceLabel } from '../ui/inspector-v2/inspectorStrings'
 import { getStabilityClassification } from '../../lib/stability'
 import { isCurrencyUnit } from '../utils/labelUtils'
@@ -103,7 +104,7 @@ export const GoalNode = memo((props: NodeProps) => {
           {hasConstraintDefaultWarning && (
             <span
               className={`${typography.nodeLabel} bg-panel border border-factor/30 text-text-body rounded-full w-4 h-4 flex items-center justify-center flex-shrink-0`}
-              title="Goal probability may be unreliable — baseline expectation defaulted to zero"
+              title="Some model inputs are missing. Goal probability may be less reliable."
             >
               ?
             </span>
@@ -115,7 +116,7 @@ export const GoalNode = memo((props: NodeProps) => {
         <div className={`${typography.nodeTitle} mb-1 flex items-center gap-1 text-warning`}>
           <span
             className={`${typography.nodeLabel} bg-panel border border-factor/30 text-text-body rounded-full w-4 h-4 flex items-center justify-center flex-shrink-0`}
-            title="Goal probability may be unreliable — baseline expectation defaulted to zero"
+            title="Some model inputs are missing. Goal probability may be less reliable."
           >
             ?
           </span>
@@ -128,7 +129,7 @@ export const GoalNode = memo((props: NodeProps) => {
         <div className="mt-2 mb-1">
           <div className="flex items-center gap-1.5 mb-1 flex-wrap">
             <span className={`${typography.nodeLabel} text-text-light`}>Decision stability</span>
-            <span className={`${typography.nodeTitle} text-text-body`}>
+            <span className={`${typography.nodeLabel} text-text-body`}>
               {Math.round(stabilityValue * 100)}%
             </span>
             {/* UI-SEM-048: Marginal badge shown when canonical level is low/very_low (stability < 0.55) */}
@@ -157,7 +158,7 @@ export const GoalNode = memo((props: NodeProps) => {
       {/* T10: Threshold context — show "Target: >= X" or "No target set" coaching prompt */}
       {thresholdRaw != null && String(thresholdRaw).trim() !== '' ? (
         <div className={`${typography.nodeLabel} text-text-light mt-1`}>
-          {'\u2265\u00a0'}{(() => {
+          Target:\u00a0{(() => {
             const raw = typeof thresholdRaw === 'number' ? thresholdRaw : Number(thresholdRaw)
             if (Number.isNaN(raw)) return String(thresholdRaw)
             const u = typeof thresholdUnit === 'string' ? thresholdUnit.toLowerCase() : ''
@@ -204,10 +205,12 @@ export const GoalNode = memo((props: NodeProps) => {
       )}
 
       {provenanceLabel && (
-        <div className={`${typography.nodeLabel} mt-1.5`}>
-          <span className="bg-panel border border-info/30 text-text-body rounded-full px-1.5 py-0.5">
-            {provenanceLabel}
-          </span>
+        <div className="flex justify-end mt-1.5">
+          {provenanceLabel.includes('Olumi') ? (
+            <Cpu size={12} className="text-text-light" aria-hidden="true" title={provenanceLabel} />
+          ) : (
+            <FileText size={12} className="text-text-light" aria-hidden="true" title={provenanceLabel} />
+          )}
         </div>
       )}
 

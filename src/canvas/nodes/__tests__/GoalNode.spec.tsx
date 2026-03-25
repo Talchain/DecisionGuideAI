@@ -300,20 +300,20 @@ describe('GoalNode', () => {
     expect(screen.getByText(/Set a success target/)).toBeDefined()
   })
 
-  // P0.3: Provenance pill renders for brief_extraction source
-  it('shows provenance pill for brief_extraction source', () => {
+  // P0.3: Provenance icon renders for brief_extraction source
+  it('shows provenance icon for brief_extraction source', () => {
     renderGoal({ observedState: { source: 'brief_extraction' } })
-    expect(screen.getByText('Generated from your brief')).toBeDefined()
+    expect(screen.getByTitle('Generated from your brief')).toBeDefined()
   })
 
-  it('does not show provenance pill for user source', () => {
+  it('does not show provenance icon for user source', () => {
     renderGoal({ observedState: { source: 'user' } })
-    expect(screen.queryByText('Generated from your brief')).toBeNull()
+    expect(screen.queryByTitle('Generated from your brief')).toBeNull()
   })
 
-  it('does not show provenance pill when observedState is absent', () => {
+  it('does not show provenance icon when observedState is absent', () => {
     renderGoal()
-    expect(screen.queryByText('Generated from your brief')).toBeNull()
+    expect(screen.queryByTitle('Generated from your brief')).toBeNull()
   })
 
   it('does not show achievement probability when it is null outside results mode', () => {

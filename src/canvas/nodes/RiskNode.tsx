@@ -6,6 +6,7 @@ import type { RiskImpact } from '../domain/nodes'
 import { calculateRiskSeverity, getRiskSeverityColors, cleanDisplayLabel } from '../utils/graphDisplayCalculations'
 import { useCanvasStore } from '../store'
 import { typography } from '../../styles/typography'
+import { FileText, Cpu } from 'lucide-react'
 import { computeSignedMean } from '../domain/edges'
 import { getProvenanceLabel } from '../ui/inspector-v2/inspectorStrings'
 import { InfluenceIndicator } from '../ui/shared/InfluenceIndicator'
@@ -41,10 +42,15 @@ export const RiskNode = memo((props: NodeProps) => {
     const edge = edges.find(e => e.source === props.id && e.target === goalNode.id)
     if (!edge) return null
 
+    const weight = (edge.data as any)?.weight as number | undefined
     const signedMean = computeSignedMean(edge.data as Record<string, unknown> | undefined)
     // Canvas store canonical name — CEE ingestion normalises to camelCase
     const existsProbability = (edge.data as any)?.beliefExists as number | undefined
-    return { signedMean, existsProbability: typeof existsProbability === 'number' ? existsProbability : null }
+    return {
+      signedMean,
+      contributionPct: weight != null ? Math.round(weight * 100) : null,
+      existsProbability: typeof existsProbability === 'number' ? existsProbability : null,
+    }
   }, [edges, nodes, resultsStatus, props.id])
 
   return (
@@ -58,25 +64,34 @@ export const RiskNode = memo((props: NodeProps) => {
         </div>
       )}
 
-      {/* T9: Bridge edge data */}
+      {/* T9: Bridge edge data — contribution % + direction, neutral colours */}
       {bridgeEdgeData && (
-        <div className={`${typography.nodeLabel} mt-1 text-text-light`}>
+        <div className={`${typography.nodeLabel} mt-1 text-text-body`}>
+          {bridgeEdgeData.contributionPct != null && (
+            <div>
+              {bridgeEdgeData.contributionPct}% contribution to goal
+            </div>
+          )}
           <InfluenceIndicator
             strength={bridgeEdgeData.signedMean}
             variant="canvas"
-            className={`${typography.nodeTitle} font-semibold text-danger`}
+            className={`${typography.nodeLabel} text-text-light`}
           />
           {bridgeEdgeData.existsProbability !== null && (
-            <> · {Math.round(bridgeEdgeData.existsProbability * 100)}% certain</>
+            <div className="text-text-light mt-0.5">
+              {Math.round(bridgeEdgeData.existsProbability * 100)}% certain
+            </div>
           )}
         </div>
       )}
 
       {provenanceLabel && (
-        <div className={`${typography.nodeLabel} mt-1.5`}>
-          <span className="bg-panel border border-info/30 text-text-body rounded-full px-1.5 py-0.5">
-            {provenanceLabel}
-          </span>
+        <div className="flex justify-end mt-1.5">
+          {provenanceLabel.includes('Olumi') ? (
+            <Cpu size={12} className="text-text-light" aria-hidden="true" title={provenanceLabel} />
+          ) : (
+            <FileText size={12} className="text-text-light" aria-hidden="true" title={provenanceLabel} />
+          )}
         </div>
       )}
 

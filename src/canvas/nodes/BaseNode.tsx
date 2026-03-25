@@ -283,10 +283,10 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
         aria-label="Input connection"
       />
       
-      {/* Graph Editing Experience Task 5: Impact preview indicator */}
+      {/* Graph Editing Experience Task 5: Impact preview indicator (top-left to avoid rank badge collision) */}
       {impactDirection && (
         <div
-          className="absolute -top-3 -right-3 z-20 rounded-full w-5 h-5 flex items-center justify-center shadow-sm"
+          className="absolute -top-3 -left-3 z-20 rounded-full w-5 h-5 flex items-center justify-center shadow-sm"
           style={{
             backgroundColor: impactDirection === 'increase' ? 'var(--semantic-success, #22c55e)'
               : impactDirection === 'decrease' ? 'var(--semantic-danger, #ef4444)'
@@ -297,6 +297,17 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
           {impactDirection === 'decrease' && <ArrowDown className="w-3 h-3 text-white" />}
           {impactDirection === 'mixed' && <Minus className="w-3 h-3 text-white" />}
         </div>
+      )}
+
+      {/* Sensitivity rank badge — top-right (Results mode, top 3 factors) */}
+      {typeof displayMetadata.sensitivityRank === 'number' && (
+        <span
+          className={`absolute -top-2 -right-2 z-10 ${typography.nodeLabel} font-semibold text-text-body bg-panel-border rounded-full flex items-center justify-center shadow-sm`}
+          style={{ minWidth: '20px', height: '20px', padding: '0 4px', pointerEvents: 'none' }}
+          title={`Key driver #${displayMetadata.sensitivityRank}: ranked by influence on the outcome`}
+        >
+          #{displayMetadata.sensitivityRank}
+        </span>
       )}
 
       {/* Node header — stripped in causal lens; simplified in evidence lens */}
@@ -311,16 +322,6 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
       >
         {/* T1: Shape indicator (Design System v4 §10.1) + sentence-case type label */}
         <NodeShapeIndicator nodeKind={nodeType} size={12} />
-        {/* Decision Graph Display v2 Task 5: Sensitivity rank badge (Results mode, top 3 factors) */}
-        {typeof displayMetadata.sensitivityRank === 'number' && (
-          <span
-            className={`${typography.nodeLabel} font-semibold text-text-body bg-panel-border rounded-full flex items-center justify-center`}
-            style={{ minWidth: '20px', height: '20px', padding: '0 4px', pointerEvents: 'none' }}
-            title={`Key driver #${displayMetadata.sensitivityRank}: ranked by influence on the outcome`}
-          >
-            #{displayMetadata.sensitivityRank}
-          </span>
-        )}
         <span
           className={`${typography.nodeLabel} ${colors.text} font-semibold leading-none`}
         >

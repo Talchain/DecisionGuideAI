@@ -294,13 +294,14 @@ describe('FactorNode', () => {
   // Provenance combinations — brief acceptance criteria
   // Combination 1: extractionType='inferred' + source='brief_extraction'
   //   → source pill "Generated from your brief" shows; "estimated" pill suppressed
-  it('shows source pill (not estimated) when extractionType=inferred and source=brief_extraction', () => {
+  it('shows provenance icon (not estimated) when extractionType=inferred and source=brief_extraction', () => {
     renderFactor({
       label: 'Salary',
       type: 'factor',
       observedState: { value: 0.5, extractionType: 'inferred', source: 'brief_extraction' },
     })
-    expect(screen.getByText('Generated from your brief')).toBeDefined()
+    // Provenance is now an icon with title attribute, not visible text
+    expect(screen.getByTitle('Generated from your brief')).toBeDefined()
     expect(screen.queryByText('estimated')).toBeNull()
   })
 
@@ -312,17 +313,17 @@ describe('FactorNode', () => {
       observedState: { value: 0.5, extractionType: 'inferred' },
     })
     expect(screen.getByText('estimated')).toBeDefined()
-    expect(screen.queryByText('Generated from your brief')).toBeNull()
+    expect(screen.queryByTitle('Generated from your brief')).toBeNull()
   })
 
-  // Combination 3: source='cee_inference' → "Estimated by Olumi" source pill shows; "estimated" pill suppressed
-  it('shows "Estimated by Olumi" source pill (not estimated) when source=cee_inference', () => {
+  // Combination 3: source='cee_inference' → "Estimated by Olumi" source icon shows; "estimated" pill suppressed
+  it('shows "Estimated by Olumi" source icon (not estimated) when source=cee_inference', () => {
     renderFactor({
       label: 'Salary',
       type: 'factor',
       observedState: { value: 0.5, extractionType: 'inferred', source: 'cee_inference' },
     })
-    expect(screen.getByText('Estimated by Olumi')).toBeDefined()
+    expect(screen.getByTitle('Estimated by Olumi')).toBeDefined()
     expect(screen.queryByText('estimated')).toBeNull()
   })
 
@@ -436,25 +437,13 @@ describe('FactorNode', () => {
     // Badge renders with expected text
     const badge = screen.getByText('#1')
     expect(badge).toBeDefined()
-    // Badge must NOT use position:absolute (was old style — absolute top-1 right-1)
-    expect(badge.className).not.toContain('absolute')
-    // Category icon still present alongside the badge (right-aligned via ml-auto parent)
+    // Badge uses absolute positioning (top-right corner of node)
+    expect(badge.className).toContain('absolute')
+    expect(badge.className).toContain('-top-2')
+    expect(badge.className).toContain('-right-2')
+    // Category icon still present
     const icon = container.querySelector('[title="You control this factor"]')
     expect(icon).not.toBeNull()
-    // Verify DOM order in the header row: SVG (shape) → badge span → type label span
-    // The header row is the flex div that contains NodeShapeIndicator
-    const svg = container.querySelector('svg[aria-hidden="true"]')
-    expect(svg).not.toBeNull()
-    const headerRow = svg?.parentElement
-    expect(headerRow).not.toBeNull()
-    const children = Array.from(headerRow!.children)
-    const svgIdx = children.indexOf(svg as Element)
-    const badgeIdx = children.indexOf(badge)
-    const labelSpan = children.find(el => el.textContent === 'Factor')
-    const labelIdx = labelSpan ? children.indexOf(labelSpan) : -1
-    // Shape comes before badge, badge comes before type label
-    expect(svgIdx).toBeLessThan(badgeIdx)
-    expect(badgeIdx).toBeLessThan(labelIdx)
   })
 
   // P2: Qualitative value display — no raw_value, no unit → tier label
@@ -657,41 +646,41 @@ describe('FactorNode — QA Brief A-series', () => {
     expect(screen.getByText('CHF500')).toBeDefined()
   })
 
-  // A14: source='cee_inference' → provenance pill shows "Estimated by Olumi" (AI inference, not brief extraction)
-  it('A14: source="cee_inference" renders provenance pill "Estimated by Olumi"', () => {
+  // A14: source='cee_inference' → provenance icon shows "Estimated by Olumi" (AI inference, not brief extraction)
+  it('A14: source="cee_inference" renders provenance icon "Estimated by Olumi"', () => {
     renderFactor({
       label: 'Market rate',
       type: 'factor',
       observedState: { value: 0.5, source: 'cee_inference' },
     })
-    expect(screen.getByText('Estimated by Olumi')).toBeDefined()
+    expect(screen.getByTitle('Estimated by Olumi')).toBeDefined()
   })
 
-  // A15: source='brief_extraction' → provenance pill (also "Generated from your brief")
-  it('A15: source="brief_extraction" renders provenance pill', () => {
+  // A15: source='brief_extraction' → provenance icon (also "Generated from your brief")
+  it('A15: source="brief_extraction" renders provenance icon', () => {
     renderFactor({
       label: 'Revenue',
       type: 'factor',
       observedState: { value: 0.6, source: 'brief_extraction' },
     })
     // getProvenanceLabel('brief_extraction') = 'Generated from your brief'
-    expect(screen.getByText('Generated from your brief')).toBeDefined()
+    expect(screen.getByTitle('Generated from your brief')).toBeDefined()
   })
 
-  // A16: source='user' → no provenance pill
-  it('A16: source="user" renders no provenance pill', () => {
+  // A16: source='user' → no provenance icon
+  it('A16: source="user" renders no provenance icon', () => {
     renderFactor({
       label: 'Budget',
       type: 'factor',
       observedState: { value: 0.7, source: 'user' },
     })
-    expect(screen.queryByText('Generated from your brief')).toBeNull()
-    expect(screen.queryByText('Estimated by Olumi')).toBeNull()
+    expect(screen.queryByTitle('Generated from your brief')).toBeNull()
+    expect(screen.queryByTitle('Estimated by Olumi')).toBeNull()
     expect(screen.queryByText('Set by you')).toBeNull()
   })
 
-  // A17: "Not used" value + provenance pill rendered on separate lines (not merged as phrase)
-  it('A17: "Not used" and provenance pill are separate elements (not "Not used Estimated" phrase)', () => {
+  // A17: "Not used" value + provenance icon rendered on separate lines (not merged as phrase)
+  it('A17: "Not used" and provenance icon are separate elements (not "Not used Estimated" phrase)', () => {
     const { container } = renderFactor({
       label: 'Item',
       type: 'factor',
@@ -700,17 +689,17 @@ describe('FactorNode — QA Brief A-series', () => {
     void container
     // Both elements should exist
     expect(screen.getByText('Not used')).toBeDefined()
-    expect(screen.getByText('Estimated by Olumi')).toBeDefined()
+    expect(screen.getByTitle('Estimated by Olumi')).toBeDefined()
     // Should not appear as a joined phrase
     expect(screen.queryByText(/Not used.*estimated/i)).toBeNull()
     expect(screen.queryByText(/Not usedEstimated/)).toBeNull()
-    // Value text and provenance pill must be in separate container elements
+    // Value text and provenance icon must be in separate container elements
     const valueEl = screen.getByText('Not used')
-    const pillEl = screen.getByText('Estimated by Olumi')
+    const iconEl = screen.getByTitle('Estimated by Olumi')
     // They must not share the same parent element
-    expect(valueEl.parentElement).not.toBe(pillEl.parentElement)
-    // The pill div must be a different div from the value div
-    expect(pillEl.closest('div')).not.toBe(valueEl.closest('div'))
+    expect(valueEl.parentElement).not.toBe(iconEl.parentElement)
+    // The icon div must be a different div from the value div
+    expect(iconEl.closest('div')).not.toBe(valueEl.closest('div'))
   })
 
   // A17b: "Not used" + "estimated" pill — inferred source (extractionType='inferred')
@@ -726,10 +715,10 @@ describe('FactorNode — QA Brief A-series', () => {
     expect(screen.getByText('Not used')).toBeDefined()
     // "estimated" pill must appear (extractionType='inferred')
     expect(screen.getByText('estimated')).toBeDefined()
-    // "Generated from your brief" / "Estimated by Olumi" provenance pill must NOT appear
+    // "Generated from your brief" / "Estimated by Olumi" provenance icon must NOT appear
     // (source='inferred' is suppressed to avoid double-pill with the "estimated" badge)
-    expect(screen.queryByText('Estimated by Olumi')).toBeNull()
-    expect(screen.queryByText('Generated from your brief')).toBeNull()
+    expect(screen.queryByTitle('Estimated by Olumi')).toBeNull()
+    expect(screen.queryByTitle('Generated from your brief')).toBeNull()
     // Value text and estimated pill must be in separate container elements
     const valueEl = screen.getByText('Not used')
     const pillEl = screen.getByText('estimated')

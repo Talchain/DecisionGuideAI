@@ -1,11 +1,12 @@
 import { memo, useMemo } from 'react'
 import type { NodeProps } from '@xyflow/react'
 import { BaseNode } from './BaseNode'
+import { FileText, Cpu } from 'lucide-react'
 import { NODE_REGISTRY } from '../domain/nodes'
 import { useNodeDisplayMetadata } from '../hooks/useNodeDisplayMetadata'
 import { useCanvasStore } from '../store'
 import { typography } from '../../styles/typography'
-import { cleanFactorLabel, formatInterventionValue, denormaliseInterventionValue, inferInterventionScaleBase } from '../utils/labelUtils'
+import { cleanFactorLabel, formatInterventionValue, denormaliseInterventionValue, inferInterventionScaleBase, isSuppressedUnit, QUALITATIVE_FACTOR_TYPES } from '../utils/labelUtils'
 import { detectBaseline } from '../utils/baselineDetection'
 
 interface InterventionChip {
@@ -141,6 +142,31 @@ export const OptionNode = memo((props: NodeProps) => {
     )
   }, [isBaselineOption, ceeAnalysisReady, nodes, props.id])
 
+  // Binary factor detection: a factor is truly binary if ALL its intervention values
+  // across ALL options are exactly 0 or 1 (no intermediate values like 0.5).
+  const binaryFactorIds = useMemo<Set<string>>(() => {
+    const options = ceeAnalysisReady?.options
+    if (!options) return new Set()
+    // Collect all intervention values per factor across all options
+    const valuesPerFactor = new Map<string, number[]>()
+    for (const opt of options) {
+      if (!opt.interventions) continue
+      for (const [fid, rv] of Object.entries(opt.interventions)) {
+        const v = typeof rv === 'number' ? rv :
+          (rv && typeof rv === 'object' && 'value' in rv) ? Number((rv as { value: unknown }).value) : null
+        if (v == null) continue
+        const arr = valuesPerFactor.get(fid)
+        if (arr) arr.push(v)
+        else valuesPerFactor.set(fid, [v])
+      }
+    }
+    const result = new Set<string>()
+    for (const [fid, vals] of valuesPerFactor) {
+      if (vals.every(v => v === 0 || v === 1)) result.add(fid)
+    }
+    return result
+  }, [ceeAnalysisReady])
+
   const handleMouseEnter = useMemo(() => () => {
     if (hasInterventions) setHoveredOption(props.id)
   }, [props.id, hasInterventions, setHoveredOption])
@@ -162,22 +188,23 @@ export const OptionNode = memo((props: NodeProps) => {
     <div
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
-      style={{ height: '100%', width: '100%' }}
+      style={{ height: '100%', width: '100%', position: 'relative' }}
     >
+      {/* Winner badge — absolute top-right, outside node body */}
+      {isRecommended && (
+        <span className={`absolute -top-2 -right-2 z-10 ${typography.nodeLabel} bg-panel border border-success/30 text-text-body rounded-full px-1.5 py-0.5`}>
+          Winner
+        </span>
+      )}
       <BaseNode {...props} nodeType="option" icon={metadata.icon}>
         {/* T7b: Win probability — only in results mode */}
         {displayMetadata.isResultsMode && displayMetadata.winRate !== null && (
           <div className="mt-2 mb-2">
             <div className="flex items-baseline gap-1.5 mb-1 flex-wrap">
-              <span className={`${typography.nodeTitle} font-semibold text-option`}>
+              <span className={`${typography.nodeTitle} font-semibold text-text-body`}>
                 {Math.round(displayMetadata.winRate * 100)}%
               </span>
               <span className={`${typography.nodeLabel} text-text-light`}>win probability</span>
-              {isRecommended && (
-                <span className={`${typography.nodeLabel} bg-panel border border-success/30 text-text-body rounded-full px-1.5 py-0.5 ml-auto`}>
-                  Recommended
-                </span>
-              )}
             </div>
             <div className="h-1.5 bg-panel-border rounded-full overflow-hidden">
               <div
@@ -189,73 +216,91 @@ export const OptionNode = memo((props: NodeProps) => {
         )}
 
         {/* T8: Readable intervention chips with delta for non-baseline options */}
-        {interventionChips.length > 0 && (
-          <div className={`${typography.nodeLabel} mt-1 flex flex-col gap-1`}>
-            {interventionChips.map((chip, idx) => {
-              const targetFormatted = formatInterventionValue(
-                chip.value,
-                chip.unit,
-                chip.factorType,
-                chip.cap,
-                chip.observedValue,
-                chip.observedRawValue,
-              )
+        {interventionChips.length > 0 && (() => {
+          // Determine which chips represent no change (baseline = intervention).
+          // A chip is "no change" when its value matches the baseline value within tolerance.
+          const chipsWithMeta = interventionChips.map(chip => {
+            const baselineNorm = baselineOptionInterventions?.[chip.factorId] ?? chip.observedValue
+            const isNoChange = !isBaselineOption && baselineNorm !== undefined &&
+              Math.abs(chip.value - baselineNorm) < 1e-6
+            return { chip, isNoChange }
+          })
+          // Guard: if hiding no-change chips would remove ALL chips, keep them all dimmed instead
+          const allNoChange = chipsWithMeta.length > 0 && chipsWithMeta.every(c => c.isNoChange)
 
-              // Delta display: show "baseline → target (+X%)" for non-baseline options.
-              // Priority: baseline option's intervention value for this factor (P0.2 fix);
-              // fallback to the factor's own observed state value when no baseline option exists.
-              let deltaDisplay: string | null = null
-              if (!isBaselineOption) {
-                // Prefer the baseline option's intervention value; fall back to observedState
-                const baselineNorm = baselineOptionInterventions?.[chip.factorId] ?? chip.observedValue
-                if (baselineNorm !== undefined) {
-                  const scaleBase = inferInterventionScaleBase(chip.cap, chip.observedValue, chip.observedRawValue)
-                  const hasUnit = !!chip.unit && chip.unit !== 'fraction' && chip.unit !== 'proportion'
-                  const isQualitative = !chip.factorType || ['quality', 'demand', 'other'].includes(chip.factorType.toLowerCase())
+          return (
+            <div className={`${typography.nodeLabel} mt-1 flex flex-col gap-1`}>
+              {chipsWithMeta.map(({ chip, isNoChange }, idx) => {
+                // Skip no-change chips unless we're keeping all (dimmed)
+                if (isNoChange && !allNoChange) return null
 
-                  if ((hasUnit || !isQualitative) && scaleBase != null) {
-                    // Denormalise both sides to the same real-world scale for delta %
-                    const denormedBaseline = denormaliseInterventionValue(baselineNorm, chip.cap, chip.observedValue, chip.observedRawValue)
-                    const denormedTarget = denormaliseInterventionValue(chip.value, chip.cap, chip.observedValue, chip.observedRawValue)
-                    if (Math.abs(denormedBaseline) > 0.01) {
-                      const pct = ((denormedTarget - denormedBaseline) / Math.abs(denormedBaseline)) * 100
-                      const sign = pct >= 0 ? '+' : ''
-                      const baselineFormatted = formatInterventionValue(
-                        baselineNorm,
-                        chip.unit,
-                        chip.factorType,
-                        chip.cap,
-                        chip.observedValue,
-                        chip.observedRawValue,
-                      )
-                      deltaDisplay = `${baselineFormatted} \u2192 ${targetFormatted} (${sign}${pct.toFixed(1)}%)`
+                // Binary qualitative On/Off display
+                const effectiveUnit = chip.unit && !isSuppressedUnit(chip.unit) ? chip.unit : undefined
+                const ft = chip.factorType?.toLowerCase().trim()
+                const isQualitativeFactor = !effectiveUnit && chip.cap == null &&
+                  (!ft || QUALITATIVE_FACTOR_TYPES.has(ft))
+                const isBinary = isQualitativeFactor && binaryFactorIds.has(chip.factorId)
+
+                let targetFormatted: string
+                if (isBinary) {
+                  targetFormatted = chip.value === 1 ? 'On' : chip.value === 0 ? 'Off' : formatInterventionValue(
+                    chip.value, chip.unit, chip.factorType, chip.cap, chip.observedValue, chip.observedRawValue,
+                  )
+                } else {
+                  targetFormatted = formatInterventionValue(
+                    chip.value, chip.unit, chip.factorType, chip.cap, chip.observedValue, chip.observedRawValue,
+                  )
+                }
+
+                // Delta display: show "baseline → target (+X%)" for non-baseline options
+                let deltaDisplay: string | null = null
+                if (!isBaselineOption) {
+                  const baselineNorm = baselineOptionInterventions?.[chip.factorId] ?? chip.observedValue
+                  if (baselineNorm !== undefined) {
+                    const scaleBase = inferInterventionScaleBase(chip.cap, chip.observedValue, chip.observedRawValue)
+                    const hasUnit = !!chip.unit && chip.unit !== 'fraction' && chip.unit !== 'proportion'
+                    const isQualitative = !chip.factorType || ['quality', 'demand', 'other'].includes(chip.factorType.toLowerCase())
+
+                    if ((hasUnit || !isQualitative) && scaleBase != null) {
+                      const denormedBaseline = denormaliseInterventionValue(baselineNorm, chip.cap, chip.observedValue, chip.observedRawValue)
+                      const denormedTarget = denormaliseInterventionValue(chip.value, chip.cap, chip.observedValue, chip.observedRawValue)
+                      if (Math.abs(denormedBaseline) > 0.01) {
+                        const pct = ((denormedTarget - denormedBaseline) / Math.abs(denormedBaseline)) * 100
+                        const sign = pct >= 0 ? '+' : ''
+                        const baselineFormatted = isBinary
+                          ? (baselineNorm === 1 ? 'On' : baselineNorm === 0 ? 'Off' : formatInterventionValue(
+                              baselineNorm, chip.unit, chip.factorType, chip.cap, chip.observedValue, chip.observedRawValue,
+                            ))
+                          : formatInterventionValue(
+                              baselineNorm, chip.unit, chip.factorType, chip.cap, chip.observedValue, chip.observedRawValue,
+                            )
+                        deltaDisplay = `${baselineFormatted} \u2192 ${targetFormatted} (${sign}${pct.toFixed(1)}%)`
+                      }
                     }
                   }
                 }
-              }
 
-              return (
-                <div
-                  key={idx}
-                  className="text-text-body inline-flex items-baseline gap-1 flex-wrap"
-                >
-                  <span className="text-text-light truncate" style={{ maxWidth: '150px' }} title={chip.label}>
-                    {chip.label}:
-                  </span>
-                  <span className="font-semibold shrink-0">
-                    {deltaDisplay ?? targetFormatted}
-                  </span>
-                </div>
-              )
-            })}
-          </div>
-        )}
+                return (
+                  <div
+                    key={idx}
+                    className={`inline-flex items-baseline gap-1 flex-wrap ${isNoChange ? 'text-text-light' : 'text-text-body'}`}
+                  >
+                    <span className="text-text-light truncate" style={{ maxWidth: '150px' }} title={chip.label}>
+                      {chip.label}:
+                    </span>
+                    <span className={`${isNoChange ? '' : 'font-semibold'} shrink-0`}>
+                      {deltaDisplay ?? targetFormatted}
+                    </span>
+                  </div>
+                )
+              })}
+            </div>
+          )
+        })()}
 
         {isOptionFromCee && (
-          <div className={`${typography.nodeLabel} mt-1`}>
-            <span className="bg-panel border border-info/30 text-text-body rounded-full px-1.5 py-0.5">
-              Generated from your brief
-            </span>
+          <div className="flex justify-end mt-1">
+            <FileText size={12} className="text-text-light" aria-hidden="true" title="Values from your brief" />
           </div>
         )}
 

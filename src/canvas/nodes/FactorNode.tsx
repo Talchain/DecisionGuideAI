@@ -12,7 +12,7 @@ import { hasObservedData } from '../utils/observedStateHelpers'
 import { typography } from '../../styles/typography'
 import { cleanFactorLabel, sensitivityTierLabel, evidenceTierLabel, formatInterventionValue, isCurrencyUnit, formatFactorValue, QUALITATIVE_FACTOR_TYPES, isSuppressedUnit } from '../utils/labelUtils'
 import { isGraphBadgesEnabled } from '../../flags'
-import { SlidersHorizontal, Eye, Cloud, Search } from 'lucide-react'
+import { SlidersHorizontal, Eye, Cloud, Search, FileText, Cpu } from 'lucide-react'
 import { DataBar } from '../ui/shared/DataBar'
 import { getProvenanceLabel } from '../ui/inspector-v2/inspectorStrings'
 
@@ -84,6 +84,23 @@ export const FactorNode = memo((props: NodeProps) => {
     }
   }, [nodeCategory])
 
+  // Binary factor detection: a factor is truly binary if ALL intervention values
+  // across ALL options are exactly 0 or 1 (no intermediate values).
+  const isTrulyBinary = useMemo(() => {
+    const options = ceeAnalysisReady?.options
+    if (!options) return false
+    const vals: number[] = []
+    for (const opt of options) {
+      if (!opt.interventions) continue
+      const rv = opt.interventions[props.id]
+      if (rv == null) continue
+      const v = typeof rv === 'number' ? rv :
+        (rv && typeof rv === 'object' && 'value' in rv) ? Number((rv as { value: unknown }).value) : null
+      if (v != null) vals.push(v)
+    }
+    return vals.length > 0 && vals.every(v => v === 0 || v === 1)
+  }, [ceeAnalysisReady, props.id])
+
   // T4: Human-readable value (raw_value + unit preferred; cap-based denormalisation fallback)
   const valueDisplay = useMemo(() => {
     if (!observedState) return null
@@ -99,21 +116,33 @@ export const FactorNode = memo((props: NodeProps) => {
       const isQualitative = !effectiveUnit && observedState.cap == null &&
         (!ft || QUALITATIVE_FACTOR_TYPES.has(ft))
       if (isQualitative) {
-        if (value === 0) return 'Not used'
-        if (value === 1) return 'Very high'
+        if (isTrulyBinary) {
+          if (value === 0) return 'Off'
+          if (value === 1) return 'On'
+        } else {
+          if (value === 0) return 'Not used'
+          if (value === 1) return 'Very high'
+        }
       }
     }
 
     return formatFactorValue(observedState)
-  }, [observedState])
+  }, [observedState, isTrulyBinary])
 
   const priorRangeDisplay = useMemo(() => {
     const prior = props.data?.prior as { range_min?: number; range_max?: number } | undefined
     const min = prior?.range_min
     const max = prior?.range_max
     if (nodeCategory !== 'external' || min == null || max == null) return null
-    return `Variable: ${formatPriorRangeValue(min, observedState?.unit)}–${formatPriorRangeValue(max, observedState?.unit)}`
-  }, [nodeCategory, observedState?.unit, props.data?.prior])
+    // When factor has a real-world unit, denormalise range to real units; otherwise just "Variable"
+    const hasUnit = observedState?.unit && !isSuppressedUnit(observedState.unit)
+    if (!hasUnit) return 'Variable'
+    // Denormalise using cap (same scale logic as intervention formatting)
+    const cap = observedState?.cap
+    const denormMin = cap != null && cap > 1 ? min * cap : min
+    const denormMax = cap != null && cap > 1 ? max * cap : max
+    return `Variable: ${formatPriorRangeValue(denormMin, observedState?.unit)}–${formatPriorRangeValue(denormMax, observedState?.unit)}`
+  }, [nodeCategory, observedState?.unit, observedState?.cap, props.data?.prior])
 
   // Use displayMetadata.influence directly — max-based proportional normalisation
   // consistent with computeNormalisedInfluences() in the driver list.
@@ -242,7 +271,10 @@ export const FactorNode = memo((props: NodeProps) => {
               ) : priorRangeDisplay ? (
                 <span className="text-text-light">{priorRangeDisplay}</span>
               ) : observedState?.source === 'default' || observedState?.source === 'cee_inference' ? (
-                <span className="italic text-text-light">Estimated by Olumi</span>
+                <span className="inline-flex items-center gap-1 italic text-text-light">
+                  <Cpu size={12} className="text-text-light shrink-0" aria-hidden="true" title="Estimated by Olumi" />
+                  Estimated
+                </span>
               ) : (
                 <span className="italic text-text-light">No baseline</span>
               )}
@@ -270,12 +302,14 @@ export const FactorNode = memo((props: NodeProps) => {
           </div>
         )}
 
-        {/* A14/A15: Provenance pill — source attribution when meaningful */}
+        {/* A14/A15: Provenance icon — source attribution when meaningful */}
         {provenanceLabel && (
-          <div className={`${typography.nodeLabel} mt-1`}>
-            <span className="bg-panel border border-info/30 text-text-body rounded-full px-1.5 py-0.5">
-              {provenanceLabel}
-            </span>
+          <div className="flex justify-end mt-1">
+            {provenanceLabel.includes('Olumi') ? (
+              <Cpu size={12} className="text-text-light" aria-hidden="true" title={provenanceLabel} />
+            ) : (
+              <FileText size={12} className="text-text-light" aria-hidden="true" title={provenanceLabel} />
+            )}
           </div>
         )}
 
