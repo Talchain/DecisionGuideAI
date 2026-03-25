@@ -18,6 +18,8 @@ interface ModelTabHeaderProps {
   fragileCount?: number
   /** Number of contested edges still pending resolution */
   contestedCount?: number
+  /** Post-analysis sort note, e.g. "ranked by EVPI" */
+  sortNote?: string
   children: ReactNode
 }
 
@@ -26,6 +28,7 @@ export function ModelTabHeader({
   edgeCount,
   fragileCount,
   contestedCount,
+  sortNote,
   children,
 }: ModelTabHeaderProps) {
   const [showDetail, setShowDetail] = useState(false)
@@ -46,6 +49,11 @@ export function ModelTabHeader({
               <span className="text-info" data-testid="header-contested-count"> · {contestedCount} contested</span>
             )}
           </span>
+          {sortNote && (
+            <span className={`${typography.panelMeta} text-text-light`} data-testid="header-sort-note">
+              {sortNote}
+            </span>
+          )}
         </div>
 
         {/* Show full detail toggle */}

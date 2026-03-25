@@ -7,7 +7,7 @@
  * "Show full detail" expansion: normalised before/after values, ready status.
  */
 
-import { useCallback, useContext } from 'react'
+import { useCallback, useContext, useMemo } from 'react'
 import type { Node } from '@xyflow/react'
 import { ArrowRight } from 'lucide-react'
 import { typography } from '../../../styles/typography'
@@ -17,10 +17,25 @@ import { focusNodeById } from '../../utils/focusHelpers'
 import { formatValueWithUnit, formatSmartNumber } from './utils'
 import { InlineEdit } from './InlineEdit'
 import { DetailToggleContext } from './DetailToggleContext'
+import { CoachingCard } from './CoachingCard'
+
+/** Conditional winner entry from ISL */
+export interface ConditionalWinner {
+  factorLabel: string
+  factorId: string
+  splitValue: number
+  splitUnit?: string
+  highBucket: { winnerId: string; winnerLabel: string; winProbability?: number }
+  lowBucket: { winnerId: string; winnerLabel: string; winProbability?: number }
+}
 
 interface OptionsSectionProps {
   optionNodes: Node[]
   allNodes: Node[]
+  /** Conditional winners from ISL analysis */
+  conditionalWinners?: ConditionalWinner[]
+  /** Whether post-analysis data is available */
+  hasAnalysisData?: boolean
 }
 
 interface InterventionItem {
@@ -69,7 +84,12 @@ function DeltaChip({ baseline, current, unit }: { baseline: number | undefined; 
   )
 }
 
-function OptionCard({ option, allNodes }: { option: Node; allNodes: Node[] }) {
+function OptionCard({ option, allNodes, conditionalWinners, hasAnalysisData }: {
+  option: Node
+  allNodes: Node[]
+  conditionalWinners?: ConditionalWinner[]
+  hasAnalysisData?: boolean
+}) {
   const { showDetail } = useContext(DetailToggleContext)
   const updateNode = useCanvasStore(s => s.updateNode)
 
@@ -99,8 +119,39 @@ function OptionCard({ option, allNodes }: { option: Node; allNodes: Node[] }) {
         {label}
       </button>
 
+      {/* Conditional winner card (post-analysis only).
+          Cards are attached to the lowBucket winner (overall winner).
+          The highBucket winner is who takes over when the factor exceeds splitValue. */}
+      {hasAnalysisData && conditionalWinners && conditionalWinners.map((cw, i) => {
+        // Determine which option takes over: it's the one NOT on this card
+        const takesOverLabel = cw.lowBucket.winnerId === option.id
+          ? cw.highBucket.winnerLabel
+          : cw.lowBucket.winnerLabel
+        if (!takesOverLabel) return null
+        return (
+          <div
+            key={`cw-${i}`}
+            className="p-2 rounded-lg mb-1.5 bg-warning/[0.06] border border-warning/20"
+            data-testid={`conditional-winner-${option.id}`}
+          >
+            <span className={`${typography.panelMeta} text-warning leading-relaxed`}>
+              Wins overall, but when {cw.factorLabel} exceeds {cw.splitUnit ? formatValueWithUnit(cw.splitValue, cw.splitUnit) : formatSmartNumber(cw.splitValue)}, {takesOverLabel} takes over
+            </span>
+          </div>
+        )
+      })}
+
+      {/* Pre-analysis coaching */}
+      {!hasAnalysisData && (
+        <p className={`${typography.panelMeta} text-text-light italic`}>
+          Run analysis to see when each option wins and loses
+        </p>
+      )}
+
       {interventions.length === 0 && (
-        <p className={`${typography.panelMeta} text-text-light`}>No interventions set</p>
+        <p className={`${typography.panelMeta} text-text-light italic`}>
+          The AI hasn't mapped how this option changes your factors yet. Continue the conversation to refine.
+        </p>
       )}
 
       {interventions.length > 0 && (
@@ -169,8 +220,25 @@ function OptionCard({ option, allNodes }: { option: Node; allNodes: Node[] }) {
   )
 }
 
-function OptionsSectionInner({ optionNodes, allNodes }: OptionsSectionProps) {
+function OptionsSectionInner({ optionNodes, allNodes, conditionalWinners, hasAnalysisData }: OptionsSectionProps) {
   if (optionNodes.length === 0) return null
+
+  // Build per-option conditional winner lookup (match on option ID, not label)
+  const optionWinnerMap = useMemo(() => {
+    if (!conditionalWinners) return new Map<string, ConditionalWinner[]>()
+    const map = new Map<string, ConditionalWinner[]>()
+    for (const cw of conditionalWinners) {
+      // Attach to the option that wins in the low bucket (the "default" winner)
+      const winnerOptionId = cw.lowBucket.winnerId
+      if (winnerOptionId) {
+        const existing = map.get(winnerOptionId) ?? []
+        existing.push(cw)
+        map.set(winnerOptionId, existing)
+      }
+    }
+    return map
+  }, [conditionalWinners])
+
   return (
     <div className="bg-panel border border-panel-border rounded-xl p-3" data-testid="model-options-section">
       {/* Section header */}
@@ -183,16 +251,26 @@ function OptionsSectionInner({ optionNodes, allNodes }: OptionsSectionProps) {
       </div>
 
       {optionNodes.map(option => (
-        <OptionCard key={option.id} option={option} allNodes={allNodes} />
+        <OptionCard
+          key={option.id}
+          option={option}
+          allNodes={allNodes}
+          conditionalWinners={optionWinnerMap.get(option.id)}
+          hasAnalysisData={hasAnalysisData}
+        />
       ))}
+
+      <CoachingCard sectionId="options">
+        Your knowledge of how these budgets perform in your market improves the analysis
+      </CoachingCard>
     </div>
   )
 }
 
-export function OptionsSection({ optionNodes, allNodes }: OptionsSectionProps) {
+export function OptionsSection(props: OptionsSectionProps) {
   return (
     <SectionErrorBoundary section="options">
-      <OptionsSectionInner optionNodes={optionNodes} allNodes={allNodes} />
+      <OptionsSectionInner {...props} />
     </SectionErrorBoundary>
   )
 }

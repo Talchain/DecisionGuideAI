@@ -212,6 +212,12 @@ export interface V2FactorSensitivity {
     structural_certainty: number
     sampling_stability: number | null
   }
+  /** EVPI in percentage points (from PLoT, when available) */
+  evpi_percentage_points?: number
+  /** Attribution stability label from PLoT bootstrap */
+  attribution_stability?: string
+  /** Rank flip rate from PLoT bootstrap */
+  rank_flip_rate?: number
 }
 
 /**

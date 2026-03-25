@@ -68,6 +68,14 @@ export interface MappedFactor {
   valueOfInformation: number | undefined
   /** CEE-generated enrichment (observations, perspectives, confidence question) */
   enrichment?: FactorEnrichment
+  /** Raw elasticity value preserved from source (separate from rawInfluence fallback chain) */
+  elasticity?: number
+  /** EVPI in percentage points from PLoT (when present) */
+  evpiPercentagePoints?: number
+  /** Attribution stability label from PLoT bootstrap (when present) */
+  attributionStability?: string
+  /** Rank flip rate from PLoT bootstrap (when present) */
+  rankFlipRate?: number
 }
 
 export interface FactorSensitivityResult {
@@ -231,6 +239,12 @@ export interface RawFactor {
     structural_certainty: number
     sampling_stability: number | null
   }
+  /** EVPI in percentage points (from PLoT, when available) */
+  evpi_percentage_points?: number
+  /** Attribution stability label from PLoT bootstrap */
+  attribution_stability?: string
+  /** Rank flip rate from PLoT bootstrap */
+  rank_flip_rate?: number
 }
 
 /**

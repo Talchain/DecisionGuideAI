@@ -15,6 +15,7 @@ export interface ObservedState {
   source?: string
   cap?: number
   uncertainty_drivers?: string[]
+  range_derivation_source?: string
 }
 
 /** Factor influence data keyed by node ID — from PLoT enrichment factor_sensitivity */

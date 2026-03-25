@@ -179,6 +179,10 @@ export function mapFactorSensitivity(
     const confidence = getConfidence(factor)
     const importanceRank = asOptionalNumber(factor.importance_rank) ?? 0
     const valueOfInformation = asOptionalNumber(factor.value_of_information)
+    const elasticity = asOptionalNumber(factor.elasticity)
+    const evpiPercentagePoints = asOptionalNumber(factor.evpi_percentage_points)
+    const attributionStability = asOptionalString(factor.attribution_stability) || undefined
+    const rankFlipRate = asOptionalNumber(factor.rank_flip_rate)
 
     return {
       factorId,
@@ -188,6 +192,10 @@ export function mapFactorSensitivity(
       confidence,
       importanceRank,
       valueOfInformation,
+      elasticity,
+      evpiPercentagePoints,
+      attributionStability,
+      rankFlipRate,
     }
   })
 }

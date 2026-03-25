@@ -56,10 +56,10 @@ describe('OptionsSection', () => {
     expect(screen.getByText('Option Alpha')).toBeInTheDocument()
   })
 
-  it('shows "No interventions set" when option has no interventions', () => {
+  it('shows coaching message when option has no interventions', () => {
     const options = [makeOptionNode('opt1', 'Option A')]
     render(<OptionsSection optionNodes={options} allNodes={[]} />)
-    expect(screen.getByText('No interventions set')).toBeInTheDocument()
+    expect(screen.getByText(/AI hasn't mapped how this option changes/)).toBeInTheDocument()
   })
 
   it('shows intervention rows with factor labels and values', () => {

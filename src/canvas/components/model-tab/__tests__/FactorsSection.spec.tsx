@@ -28,6 +28,17 @@ vi.mock('../../GraphTextView', () => ({
   SectionErrorBoundary: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }))
 
+// Mock sessionStorage for CoachingCard
+const mockStorage = new Map<string, string>()
+vi.stubGlobal('sessionStorage', {
+  getItem: (key: string) => mockStorage.get(key) ?? null,
+  setItem: (key: string, value: string) => mockStorage.set(key, value),
+  removeItem: (key: string) => mockStorage.delete(key),
+  clear: () => mockStorage.clear(),
+  length: 0,
+  key: () => null,
+})
+
 function makeFactorNode(
   id: string,
   label: string,
@@ -193,5 +204,107 @@ describe('FactorsSection', () => {
     render(<FactorsSection factorNodes={nodes} selectedNodeIds={new Set()} />)
     const card = screen.getByTestId('factor-card-f1')
     expect(card.className).not.toMatch(/ring-1/)
+  })
+
+  // ── EVPI chip tests ─────────────────────────────────────────────────────────
+
+  it('renders EVPI chip when evpiMap has data and hasAnalysisData is true', () => {
+    const nodes = [makeFactorNode('f1', 'Ad spend')]
+    const evpiMap = new Map([['f1', 8]])
+    render(<FactorsSection factorNodes={nodes} evpiMap={evpiMap} hasAnalysisData />)
+    expect(screen.getByTestId('factor-f1-evpi')).toBeInTheDocument()
+    expect(screen.getByText(/Worth 8pp if resolved/)).toBeInTheDocument()
+  })
+
+  it('does not render EVPI chip when evpiMap is empty', () => {
+    const nodes = [makeFactorNode('f1', 'Ad spend')]
+    render(<FactorsSection factorNodes={nodes} evpiMap={new Map()} hasAnalysisData />)
+    expect(screen.queryByTestId('factor-f1-evpi')).not.toBeInTheDocument()
+  })
+
+  it('does not render EVPI chip pre-analysis', () => {
+    const nodes = [makeFactorNode('f1', 'Ad spend')]
+    const evpiMap = new Map([['f1', 8]])
+    render(<FactorsSection factorNodes={nodes} evpiMap={evpiMap} hasAnalysisData={false} />)
+    expect(screen.queryByTestId('factor-f1-evpi')).not.toBeInTheDocument()
+  })
+
+  it('sorts by EVPI descending when evpiMap has data', () => {
+    const nodes = [
+      makeFactorNode('f1', 'Low EVPI'),
+      makeFactorNode('f2', 'High EVPI'),
+    ]
+    const evpiMap = new Map([['f1', 3], ['f2', 12]])
+    render(<FactorsSection factorNodes={nodes} evpiMap={evpiMap} hasAnalysisData />)
+    const cards = screen.getAllByTestId(/^factor-card-/)
+    expect(cards[0]).toHaveAttribute('data-testid', 'factor-card-f2')
+    expect(cards[1]).toHaveAttribute('data-testid', 'factor-card-f1')
+  })
+
+  // ── Attribution stability tests ─────────────────────────────────────────────
+
+  it('renders attribution stability pill when data is present post-analysis', () => {
+    const nodes = [makeFactorNode('f1', 'Ad spend')]
+    const influence = new Map([['f1', 0.5]])
+    const stabilityMap = new Map([['f1', 'high']])
+    render(
+      <FactorsSection
+        factorNodes={nodes}
+        factorInfluence={influence}
+        attributionStabilityMap={stabilityMap}
+        hasAnalysisData
+      />
+    )
+    expect(screen.getByText('High stability')).toBeInTheDocument()
+  })
+
+  it('does not render stability pill when attributionStabilityMap is empty', () => {
+    const nodes = [makeFactorNode('f1', 'Ad spend')]
+    const influence = new Map([['f1', 0.5]])
+    render(<FactorsSection factorNodes={nodes} factorInfluence={influence} hasAnalysisData />)
+    expect(screen.queryByTestId('attribution-stability-pill')).not.toBeInTheDocument()
+  })
+
+  // ── Range derivation badge tests ────────────────────────────────────────────
+
+  it('shows Estimated range badge for inferred_baseline source', () => {
+    const node: Node = {
+      id: 'f1',
+      type: 'factor',
+      position: { x: 0, y: 0 },
+      data: {
+        label: 'Test factor',
+        kind: 'factor',
+        category: 'observable',
+        observedState: {
+          value: 0.5,
+          source: 'cee_inference',
+          range_derivation_source: 'inferred_baseline',
+        },
+      },
+    }
+    render(<FactorsSection factorNodes={[node]} />)
+    expect(screen.getByTestId('range-derivation-badge')).toBeInTheDocument()
+    expect(screen.getByText('Estimated range')).toBeInTheDocument()
+  })
+
+  it('does not show range badge for explicit source', () => {
+    const node: Node = {
+      id: 'f1',
+      type: 'factor',
+      position: { x: 0, y: 0 },
+      data: {
+        label: 'Test factor',
+        kind: 'factor',
+        category: 'observable',
+        observedState: {
+          value: 0.5,
+          source: 'user',
+          range_derivation_source: 'explicit',
+        },
+      },
+    }
+    render(<FactorsSection factorNodes={[node]} />)
+    expect(screen.queryByTestId('range-derivation-badge')).not.toBeInTheDocument()
   })
 })

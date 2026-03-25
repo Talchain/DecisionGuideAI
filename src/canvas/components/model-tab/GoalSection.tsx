@@ -9,6 +9,7 @@
 
 import { useCallback, useContext } from 'react'
 import type { Node } from '@xyflow/react'
+import { AlertTriangle } from 'lucide-react'
 import { typography } from '../../../styles/typography'
 import { useCanvasStore } from '../../store'
 import { SectionErrorBoundary } from '../GraphTextView'
@@ -36,11 +37,19 @@ function GoalSectionInner({ goalNode }: GoalSectionProps) {
   const thresholdNorm = data.success_threshold as number | undefined ?? data.goal_threshold as number | undefined
   const thresholdSource = data.threshold_source as string | undefined
 
+  const thresholdCap = data.goal_threshold_cap as number | undefined
+
   const displayThreshold = rawThreshold !== undefined && thresholdUnit
     ? formatValueWithUnit(rawThreshold, thresholdUnit)
     : thresholdNorm !== undefined
       ? `${formatSmartNumber(thresholdNorm * 100)}% likelihood`
       : null
+
+  // Feasibility warning: shown when target is within 15% of the model's upper bound.
+  // This is a presentation heuristic (not a semantic transform) — no UI-SEM tag.
+  // Rationale: targets near the cap are harder to achieve and may yield unreliable results.
+  const showFeasibilityWarning = rawThreshold !== undefined && thresholdCap !== undefined
+    && thresholdCap > 0 && rawThreshold > thresholdCap * 0.85
 
   const handleThresholdSave = useCallback((val: string) => {
     const num = parseFloat(val)
@@ -98,6 +107,19 @@ function GoalSectionInner({ goalNode }: GoalSectionProps) {
         )}
         <SourceProvenancePill source={thresholdSource} />
       </div>
+
+      {/* Feasibility warning */}
+      {showFeasibilityWarning && (
+        <div
+          className="flex items-center gap-1.5 mt-1.5"
+          data-testid="goal-feasibility-warning"
+        >
+          <AlertTriangle className="w-3.5 h-3.5 text-danger shrink-0" aria-hidden="true" />
+          <span className={`${typography.panelMeta} text-danger`}>
+            Near range limit: target is close to the model's upper bound
+          </span>
+        </div>
+      )}
 
       {/* Full detail expansion */}
       {showDetail && (

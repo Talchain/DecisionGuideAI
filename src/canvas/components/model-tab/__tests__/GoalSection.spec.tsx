@@ -124,4 +124,33 @@ describe('GoalSection', () => {
     const writtenData = mockUpdateNode.mock.calls[0][1].data
     expect(writtenData.goal_threshold_raw).toBe(750000)
   })
+
+  // ── Goal feasibility warning tests ──────────────────────────────────────────
+
+  it('shows feasibility warning when threshold is near cap', () => {
+    render(<GoalSection goalNode={makeGoalNode({
+      goal_threshold_raw: 90,
+      goal_threshold_unit: '%',
+      goal_threshold_cap: 100,
+    })} />)
+    expect(screen.getByTestId('goal-feasibility-warning')).toBeInTheDocument()
+    expect(screen.getByText(/Near range limit/)).toBeInTheDocument()
+  })
+
+  it('does not show feasibility warning when threshold is well below cap', () => {
+    render(<GoalSection goalNode={makeGoalNode({
+      goal_threshold_raw: 50,
+      goal_threshold_unit: '%',
+      goal_threshold_cap: 100,
+    })} />)
+    expect(screen.queryByTestId('goal-feasibility-warning')).not.toBeInTheDocument()
+  })
+
+  it('does not show feasibility warning when cap is missing', () => {
+    render(<GoalSection goalNode={makeGoalNode({
+      goal_threshold_raw: 90,
+      goal_threshold_unit: '%',
+    })} />)
+    expect(screen.queryByTestId('goal-feasibility-warning')).not.toBeInTheDocument()
+  })
 })

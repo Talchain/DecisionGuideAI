@@ -192,6 +192,7 @@ npm run build
 | UI-SEM-045 | `src/components/results/DriversSection.tsx:175` | Rank flip warning gate (>0.3) | Remove when PLoT provides visibility gate |
 | UI-SEM-046 | `src/components/results/DriversSection.tsx:212` | Elasticity display scaling (x10, floor 1) | Remove when PLoT provides shift percentage |
 | UI-SEM-047 | `src/components/results/DriversSection.tsx:356` | Confidence clamped to [0, 1] | Keep — normalisation |
+| UI-SEM-049 | `src/canvas/components/ModelTabBody.tsx` | VOI fallback: value_of_information * 100 as pp when evpi_percentage_points absent | Remove when PLoT guarantees evpi_percentage_points |
 
 - Check for stale `.js` files co-located with `.ts`/`.tsx` source files in `src/` when debugging unexpected behaviour.
 - This is a React app — check for stale component state, missing dependency arrays in hooks, and incorrect memoisation when debugging rendering issues.

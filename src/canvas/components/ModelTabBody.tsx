@@ -30,6 +30,7 @@ import { getDisplayEdgeId, buildFragileEdgeLookup } from '../utils/edgeIdentity'
 import { SectionErrorBoundary } from './GraphTextView'
 import type { MappedRobustness } from '../../lib/mappers/types'
 import type { CritiqueItemV1 } from '../../adapters/plot/types'
+import { typography } from '../../styles/typography'
 import { isModelCardLiteEnabled } from '../../flags'
 import { ModelCardLite } from './ModelCardLite'
 import { selectModelCardData } from '../adapters/modelCardAdapter'
@@ -143,6 +144,137 @@ export const ModelTabBody = memo(function ModelTabBody({
   const selectionNodeIds = useCanvasStore(s => s.selection?.nodeIds ?? EMPTY_NODE_IDS)
   const selectionEdgeIds = useCanvasStore(s => s.selection?.edgeIds ?? EMPTY_EDGE_IDS)
   const updateEdge = useCanvasStore(s => s.updateEdge)
+  const rawV2Response = useCanvasStore(s => s.rawV2Response)
+
+  // ── Scientific enrichment data from PLoT response ───────────────────────────
+  // Single-pass extraction of all per-factor enrichment maps from factor_sensitivity.
+  // Each map is keyed by factor node_id. Fields are only set when present in the response.
+
+  const { evpiMap, attributionStabilityMap, elasticityMap, rankFlipRateMap, factorConfidenceMap } = useMemo(() => {
+    const evpi = new Map<string, number>()
+    const stability = new Map<string, string>()
+    const elasticity = new Map<string, number>()
+    const flipRate = new Map<string, number>()
+    const confidence = new Map<string, number>()
+
+    const factors = (rawV2Response as any)?.factor_sensitivity ??
+      (rawV2Response as any)?.downstream_calls?.isl?.response?.factor_sensitivity ?? []
+    if (!Array.isArray(factors)) {
+      return { evpiMap: evpi, attributionStabilityMap: stability, elasticityMap: elasticity, rankFlipRateMap: flipRate, factorConfidenceMap: confidence }
+    }
+
+    for (const f of factors) {
+      const id = f?.node_id ?? f?.factor_id
+      if (!id) continue
+
+      // EVPI: prefer evpi_percentage_points; fall back to VOI * 100 (UI-SEM-049)
+      const evpiPp = typeof f?.evpi_percentage_points === 'number' && Number.isFinite(f.evpi_percentage_points)
+        ? f.evpi_percentage_points : null
+      const voi = typeof f?.value_of_information === 'number' && Number.isFinite(f.value_of_information)
+        ? f.value_of_information : null
+      const pp = evpiPp ?? (voi != null ? Math.round(voi * 100) : null)
+      if (pp != null) evpi.set(id, pp)
+
+      // Attribution stability (from PLoT, when present — no UI derivation)
+      if (typeof f?.attribution_stability === 'string') stability.set(id, f.attribution_stability)
+
+      // Elasticity
+      if (typeof f?.elasticity === 'number') elasticity.set(id, f.elasticity)
+
+      // Rank flip rate
+      if (typeof f?.rank_flip_rate === 'number') flipRate.set(id, f.rank_flip_rate)
+
+      // Confidence (0-1)
+      if (typeof f?.confidence === 'number') confidence.set(id, f.confidence)
+    }
+
+    return { evpiMap: evpi, attributionStabilityMap: stability, elasticityMap: elasticity, rankFlipRateMap: flipRate, factorConfidenceMap: confidence }
+  }, [rawV2Response])
+
+  // Edge E-value map from ISL edge_e_values (already passed through in response mapper)
+  const edgeEValueMap = useMemo(() => {
+    const map = new Map<string, number>()
+    const eValues = (results?.report as any)?.robustness?.edge_e_values
+    if (!Array.isArray(eValues)) return map
+    for (const ev of eValues) {
+      if (typeof ev?.edge_id === 'string' && typeof ev?.e_value === 'number') {
+        map.set(ev.edge_id, ev.e_value)
+      }
+    }
+    return map
+  }, [results])
+
+  // Conditional winners from ISL (already passed through in response mapper)
+  // Only include entries where required fields are present — no defaulting to 0 or ''
+  const conditionalWinners = useMemo(() => {
+    const raw = (results?.report as any)?.conditional_winners ??
+      (results?.report as any)?.robustness?.conditional_winners
+    if (!Array.isArray(raw) || raw.length === 0) return undefined
+    const mapped = raw
+      .filter((w: any) => {
+        // Require factor label, split_value, and at least one bucket with a winner
+        const hasLabel = w.factor_label || w.label
+        const hasSplit = typeof w.split_value === 'number'
+        const hasHigh = w.high_bucket?.winner_id || w.high_bucket?.option_id
+        const hasLow = w.low_bucket?.winner_id || w.low_bucket?.option_id
+        return hasLabel && hasSplit && (hasHigh || hasLow)
+      })
+      .map((w: any) => ({
+        factorLabel: String(w.factor_label ?? w.label),
+        factorId: String(w.factor_id ?? w.node_id ?? ''),
+        splitValue: w.split_value as number,
+        splitUnit: w.split_unit ?? w.unit ?? undefined,
+        highBucket: {
+          winnerId: String(w.high_bucket?.winner_id ?? w.high_bucket?.option_id ?? ''),
+          winnerLabel: String(w.high_bucket?.winner_label ?? w.high_bucket?.label ?? ''),
+          winProbability: typeof w.high_bucket?.win_probability === 'number' ? w.high_bucket.win_probability : undefined,
+        },
+        lowBucket: {
+          winnerId: String(w.low_bucket?.winner_id ?? w.low_bucket?.option_id ?? ''),
+          winnerLabel: String(w.low_bucket?.winner_label ?? w.low_bucket?.label ?? ''),
+          winProbability: typeof w.low_bucket?.win_probability === 'number' ? w.low_bucket.win_probability : undefined,
+        },
+      }))
+    return mapped.length > 0 ? mapped : undefined
+  }, [results])
+
+  // Audit trail for ModelHealthSection
+  const auditTrail = useMemo(() => ({
+    seedUsed: rawV2Response?.meta?.seed_used ?? null,
+    responseHash: rawV2Response?.response_hash ?? null,
+    nSamples: rawV2Response?.meta?.n_samples ?? null,
+    repairsApplied: repairsApplied ?? null,
+    inferenceWarnings: (() => {
+      const raw = (results?.report as any)?.robustness?.inference_warnings
+      return Array.isArray(raw) ? raw : null
+    })(),
+    recommendationStability: robustness?.recommendationStability ?? null,
+    autoNoiseApplied: (rawV2Response as any)?.auto_noise_applied ?? (rawV2Response as any)?._meta?.auto_noise_applied ?? null,
+    stabilityPenaltyFactor: (rawV2Response as any)?.stability_penalty_factor ?? null,
+  }), [rawV2Response, repairsApplied, results, robustness])
+
+  // Edge repairs map: filter repairs_applied by field_path containing edge identifiers
+  const edgeRepairsMap = useMemo(() => {
+    const map = new Map<string, Array<{ code: string; reason: string; before?: unknown; after?: unknown }>>()
+    if (!repairsApplied || !Array.isArray(repairsApplied)) return map
+    for (const r of repairsApplied) {
+      if (!r?.field_path) continue
+      // Match repairs with field_path containing "edge" or matching edge IDs
+      const path = String(r.field_path)
+      const match = path.match(/edges?\[([^\]]+)\]/) ?? path.match(/edge[_.](.+?)\./)
+      if (!match) continue
+      const edgeId = match[1]
+      const existing = map.get(edgeId) ?? []
+      existing.push({
+        code: String(r.code ?? ''),
+        reason: String(r.reason ?? ''),
+        before: r.before,
+        after: r.after,
+      })
+      map.set(edgeId, existing)
+    }
+    return map
+  }, [repairsApplied])
 
   // ── Synthesised prior lookup from repair summary ───────────────────────────
 
@@ -403,13 +535,19 @@ export const ModelTabBody = memo(function ModelTabBody({
         edgeCount={causalEdges.length}
         fragileCount={fragileEdgeCount > 0 ? fragileEdgeCount : undefined}
         contestedCount={contestedPendingCount > 0 ? contestedPendingCount : undefined}
+        sortNote={hasRobustnessData && evpiMap.size > 0 ? 'ranked by EVPI' : hasRobustnessData ? undefined : 'alphabetical'}
       >
         {/* ── Goal section ──────────────────────────────────────────────── */}
         <div className="space-y-4">
           <GoalSection goalNode={grouped.goal[0]} />
 
           {/* ── Options section ─────────────────────────────────────────── */}
-          <OptionsSection optionNodes={grouped.option} allNodes={nodes} />
+          <OptionsSection
+            optionNodes={grouped.option}
+            allNodes={nodes}
+            conditionalWinners={conditionalWinners}
+            hasAnalysisData={hasRobustnessData}
+          />
 
           {/* ── Factors section ─────────────────────────────────────────── */}
           <FactorsSection
@@ -417,6 +555,12 @@ export const ModelTabBody = memo(function ModelTabBody({
             factorInfluence={factorInfluence}
             synthesisedPriorMap={synthesisedPriorMap}
             selectedNodeIds={selectionNodeIds}
+            evpiMap={evpiMap}
+            attributionStabilityMap={attributionStabilityMap}
+            elasticityMap={elasticityMap}
+            rankFlipRateMap={rankFlipRateMap}
+            factorConfidenceMap={factorConfidenceMap}
+            hasAnalysisData={hasRobustnessData}
           />
 
           {/* ── Relationships section ───────────────────────────────────── */}
@@ -428,6 +572,8 @@ export const ModelTabBody = memo(function ModelTabBody({
             selectedEdgeIds={selectionEdgeIds}
             hasRobustnessData={hasRobustnessData}
             onResolveContested={handleResolveContested}
+            edgeEValueMap={edgeEValueMap}
+            edgeRepairsMap={edgeRepairsMap}
           />
 
           {/* ── Risks section ───────────────────────────────────────────── */}
@@ -439,7 +585,26 @@ export const ModelTabBody = memo(function ModelTabBody({
             edges={causalEdges}
             fragileEdgeCount={fragileEdgeCount}
             ceeQuality={ceeQuality}
+            auditTrail={auditTrail}
+            critique={critique}
           />
+
+          {/* ── "Something missing?" CTA ──────────────────────────────── */}
+          <div className="bg-panel-hover border border-panel-border rounded-lg p-3 flex items-center gap-3">
+            <span className={`${typography.panelBody} text-text-body flex-1`}>
+              Missing a factor or relationship?
+            </span>
+            <button
+              type="button"
+              onClick={() => {
+                const input = document.querySelector<HTMLElement>('[data-testid="chat-input"]')
+                if (input) input.focus()
+              }}
+              className={`inline-flex items-center px-3.5 py-1.5 rounded-full border border-info/30 bg-transparent text-info ${typography.panelMeta} font-medium hover:bg-panel transition-colors whitespace-nowrap`}
+            >
+              Tell the AI
+            </button>
+          </div>
         </div>
       </ModelTabHeader>
 

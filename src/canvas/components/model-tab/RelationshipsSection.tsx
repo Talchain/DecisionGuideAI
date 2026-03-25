@@ -21,7 +21,7 @@
  * "Show full detail" expansion: std, signed effect, node IDs, provenance raw value.
  */
 
-import { useCallback, useContext, useEffect, useMemo, useRef } from 'react'
+import { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import type { Edge, Node } from '@xyflow/react'
 import { AlertTriangle } from 'lucide-react'
 import { typography } from '../../../styles/typography'
@@ -37,6 +37,14 @@ import { StrengthBar } from '../../ui/inspector/StrengthBar'
 import { ContestedEdgeCard } from './ContestedEdgeCard'
 import type { ValidationMetadata, UserAction } from '../../domain/validation'
 
+/** Repair display entry for edge detail */
+export interface EdgeRepairDisplay {
+  code: string
+  reason: string
+  before?: unknown
+  after?: unknown
+}
+
 interface RelationshipsSectionProps {
   edges: Edge[]
   nodes: Node[]
@@ -50,6 +58,10 @@ interface RelationshipsSectionProps {
   hasRobustnessData?: boolean
   /** Called when user resolves a contested edge. Provided by ModelTabBody. */
   onResolveContested?: (edgeId: string, action: UserAction, customMean?: number) => void
+  /** Map of edge ID → E-value from ISL robustness */
+  edgeEValueMap?: Map<string, number>
+  /** Map of edge ID → repairs applied from PLoT */
+  edgeRepairsMap?: Map<string, EdgeRepairDisplay[]>
 }
 
 // ── Edge card ──────────────────────────────────────────────────────────────────
@@ -61,6 +73,8 @@ function EdgeCard({
   switchProbability,
   isSelected,
   isContested,
+  eValue,
+  repairs,
 }: {
   edge: Edge
   nodes: Node[]
@@ -69,6 +83,10 @@ function EdgeCard({
   isSelected?: boolean
   /** Edge has validation data but was capped out of the contested group */
   isContested?: boolean
+  /** E-value from ISL robustness (minimum perturbation to flip winner) */
+  eValue?: number
+  /** Repairs applied to this edge from PLoT */
+  repairs?: EdgeRepairDisplay[]
 }) {
   const cardRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
@@ -170,6 +188,15 @@ function EdgeCard({
           >
             <AlertTriangle className="w-2.5 h-2.5 shrink-0" aria-hidden="true" />
             fragile
+          </span>
+        )}
+        {eValue != null && (
+          <span
+            className={`${typography.panelMeta} text-text-body font-mono shrink-0`}
+            title={`This assumption would need to be ${eValue.toFixed(1)}x wrong to change the recommendation`}
+            data-testid={`edge-${edgeId}-evalue`}
+          >
+            {eValue.toFixed(1)}x
           </span>
         )}
       </div>
@@ -306,11 +333,34 @@ function EdgeCard({
             <span className={`${typography.panelMeta} text-text-body text-right`}>
               {(provenance as string | undefined) ?? '—'}
             </span>
+            {eValue != null && (
+              <>
+                <span className={`${typography.panelMeta} text-text-light`}>E-value</span>
+                <span className={`${typography.panelMeta} text-text-body font-mono text-right`}>
+                  {eValue.toFixed(2)}x
+                </span>
+              </>
+            )}
             <span className={`${typography.panelMeta} text-text-light`}>Edge ID</span>
             <span className={`${typography.panelMeta} text-text-body font-mono text-right truncate`}>
               {edgeId}
             </span>
           </div>
+          {/* Repairs applied to this edge */}
+          {repairs && repairs.length > 0 && (
+            <div className="mt-2">
+              <div className={`${typography.panelMeta} text-text-light font-mono mb-1`}>Repairs applied</div>
+              {repairs.map((r, i) => (
+                <div key={i} className={`${typography.panelMeta} text-text-body`}>
+                  <span className="font-mono">{r.code}</span>
+                  {r.reason && <span className="text-text-light"> {r.reason}</span>}
+                  {r.before != null && r.after != null && (
+                    <span className="text-text-light font-mono"> {String(r.before)} → {String(r.after)}</span>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -389,7 +439,10 @@ function RelationshipsSectionInner({
   selectedEdgeIds,
   hasRobustnessData,
   onResolveContested,
+  edgeEValueMap = new Map(),
+  edgeRepairsMap = new Map(),
 }: RelationshipsSectionProps) {
+  const [showAllEdges, setShowAllEdges] = useState(false)
   // Only causal edges (exclude hierarchy/structural types)
   const causalEdges = useMemo(() =>
     edges.filter(e => {
@@ -512,22 +565,43 @@ function RelationshipsSectionInner({
         </div>
       )}
 
-      {/* ── Remainder edge cards ─────────────────────────────────────────── */}
-      {sortedRemainder.map(edge => {
-        const edgeId = getDisplayEdgeId(edge)
-        const isContestedCapOut = capOutIds.has(edgeId)
+      {/* ── Remainder edge cards (with collapse when > 8) ─────────────── */}
+      {(() => {
+        const shouldCollapse = sortedRemainder.length > 8 && !showAllEdges
+        const visible = shouldCollapse ? sortedRemainder.slice(0, 5) : sortedRemainder
+        const hiddenCount = sortedRemainder.length - 5
         return (
-          <EdgeCard
-            key={edgeId}
-            edge={edge}
-            nodes={nodes}
-            isFragile={fragileEdgeIds.has(edgeId)}
-            switchProbability={fragileEdgeSwitchProbMap.get(edgeId)}
-            isSelected={selectedEdgeIds?.has(edgeId)}
-            isContested={isContestedCapOut}
-          />
+          <>
+            {visible.map(edge => {
+              const edgeId = getDisplayEdgeId(edge)
+              const isContestedCapOut = capOutIds.has(edgeId)
+              return (
+                <EdgeCard
+                  key={edgeId}
+                  edge={edge}
+                  nodes={nodes}
+                  isFragile={fragileEdgeIds.has(edgeId)}
+                  switchProbability={fragileEdgeSwitchProbMap.get(edgeId)}
+                  isSelected={selectedEdgeIds?.has(edgeId)}
+                  isContested={isContestedCapOut}
+                  eValue={edgeEValueMap.get(edgeId)}
+                  repairs={edgeRepairsMap.get(edgeId)}
+                />
+              )
+            })}
+            {shouldCollapse && (
+              <button
+                type="button"
+                onClick={() => setShowAllEdges(true)}
+                className={`${typography.panelMeta} text-text-light hover:text-info transition-colors py-1.5`}
+                data-testid="relationships-show-more"
+              >
+                + {hiddenCount} more relationships
+              </button>
+            )}
+          </>
         )
-      })}
+      })()}
     </div>
   )
 }
