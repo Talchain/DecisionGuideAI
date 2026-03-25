@@ -417,7 +417,6 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
   const createEdgeId = useCanvasStore(s => s.createEdgeId)
   const setShowResultsPanel = useCanvasStore(s => s.setShowResultsPanel)
   // State declarations
-  const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null)
   const [contextMenuTarget, setContextMenuTarget] = useState<ContextTarget | null>(null)
   const [draggingNodeIds, setDraggingNodeIds] = useState<Set<string>>(new Set())
   const [isDragging, setIsDragging] = useState(false)
@@ -1065,7 +1064,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
     } else {
       setContextMenuTarget({ kind: 'pane', screenPos })
     }
-    setContextMenu(screenPos)
+
   }, [])
 
   // Setup keyboard shortcuts (P, Alt+V, Cmd/Ctrl+Enter, Cmd/Ctrl+3, Cmd/Ctrl+I, Cmd/Ctrl+D, Shift+F10)
@@ -1657,7 +1656,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
   const onPaneContextMenu = useCallback((event: React.MouseEvent | MouseEvent) => {
     event.preventDefault()
     const screenPos = { x: event.clientX, y: event.clientY }
-    setContextMenu(screenPos)
+
 
     const { selection } = useCanvasStore.getState()
     const isMulti = selection.nodeIds.size > 1
@@ -1678,7 +1677,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
   const onNodeContextMenu = useCallback((event: React.MouseEvent | MouseEvent, node?: any) => {
     event.preventDefault()
     const screenPos = { x: event.clientX, y: event.clientY }
-    setContextMenu(screenPos)
+
 
     if (node) {
       const { selection } = useCanvasStore.getState()
@@ -1708,7 +1707,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
   const onEdgeContextMenu = useCallback((event: React.MouseEvent | MouseEvent, edge?: any) => {
     event.preventDefault()
     const screenPos = { x: event.clientX, y: event.clientY }
-    setContextMenu(screenPos)
+
 
     if (edge) {
       const { nodes } = useCanvasStore.getState()
@@ -1737,7 +1736,6 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
   }, [])
 
   const handleCloseContextMenu = useCallback(() => {
-    setContextMenu(null)
     setContextMenuTarget(null)
   }, [])
 
