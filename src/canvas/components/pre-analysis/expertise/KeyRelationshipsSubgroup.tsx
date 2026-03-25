@@ -5,6 +5,7 @@
 
 import { useState } from 'react'
 import { ChevronDown, ChevronRight } from 'lucide-react'
+import Tooltip from '../../../../components/Tooltip'
 import { typography } from '@/styles/typography'
 import type { EdgeRelationship } from '../hooks/deriveExpertiseGroups'
 
@@ -22,11 +23,19 @@ const STRENGTH_BANDS = [
   { label: 'Strongly', value: 0.70 },
 ]
 
-function getConfidenceBand(std: number | undefined): string {
-  if (std == null) return ''
-  if (std < 0.10) return 'High confidence'
-  if (std < 0.20) return 'Moderate confidence'
-  return 'Low confidence'
+function getConfidenceBand(std: number | undefined): { label: string; dot: string } | null {
+  if (std == null) return null
+  if (std < 0.10) return { label: 'High confidence', dot: 'text-success' }
+  if (std < 0.20) return { label: 'Moderate confidence', dot: 'text-warning' }
+  return { label: 'Low confidence', dot: 'text-danger' }
+}
+
+/** Qualitative strength label from weight magnitude */
+function getStrengthLabel(weight: number | undefined, direction: string | undefined): string {
+  if (weight == null) return ''
+  const mag = weight >= 0.60 ? 'Strong' : weight >= 0.25 ? 'Moderate' : weight >= 0.05 ? 'Weak' : 'Slight'
+  const dir = direction === 'negative' ? 'negative' : 'positive'
+  return `${mag} ${dir}`
 }
 
 export function KeyRelationshipsSubgroup({
@@ -68,8 +77,30 @@ export function KeyRelationshipsSubgroup({
         </div>
       )}
       {expanded && items.slice(0, 10).map(rel => {
+        const strengthLabel = getStrengthLabel(rel.weight, rel.direction)
         const confBand = getConfidenceBand(rel.std)
-        const existsPct = rel.beliefExists != null ? `${Math.round(rel.beliefExists * 100)}%` : null
+        const existsPct = rel.beliefExists != null ? Math.round(rel.beliefExists * 100) : null
+
+        // Build meta segments with dot separators
+        const segments: Array<{ key: string; node: React.ReactNode }> = []
+        if (strengthLabel && rel.weight != null) {
+          segments.push({ key: 'strength', node: <>{strengthLabel} ({rel.weight.toFixed(2)})</> })
+        } else if (rel.weight != null) {
+          segments.push({ key: 'weight', node: <>{rel.direction === 'negative' ? '−' : '+'}{rel.weight.toFixed(2)}</> })
+        }
+        if (confBand) {
+          segments.push({ key: 'conf', node: <><span className={`inline-block w-1.5 h-1.5 rounded-full ${confBand.dot}`} /> {confBand.label}</> })
+        }
+        if (existsPct != null) {
+          segments.push({
+            key: 'exists',
+            node: (
+              <Tooltip delay={300} content={`Probability this relationship exists. ${existsPct}% means ${100 - existsPct}% of simulations will ignore it.`}>
+                <span>{existsPct}% likely</span>
+              </Tooltip>
+            ),
+          })
+        }
 
         return (
           <div key={rel.edgeId} className="px-1 py-1 space-y-1">
@@ -82,12 +113,13 @@ export function KeyRelationshipsSubgroup({
             >
               {rel.sourceLabel} → {rel.targetLabel}
             </button>
-            <div className={`${typography.panelMeta} text-text-light flex items-center gap-2 flex-wrap`}>
-              {rel.weight != null && (
-                <span>{rel.direction === 'negative' ? '−' : '+'}{rel.weight.toFixed(2)}</span>
-              )}
-              {confBand && <span>{confBand}</span>}
-              {existsPct && <span>{existsPct} likely</span>}
+            <div className={`${typography.panelMeta} text-text-light flex items-center gap-1.5 flex-wrap`}>
+              {segments.map((seg, i) => (
+                <span key={seg.key} className="inline-flex items-center gap-1">
+                  {i > 0 && <span className="text-text-light/50">·</span>}
+                  {seg.node}
+                </span>
+              ))}
             </div>
             {onUpdateEdgeStrength && (
               <div className="flex items-center gap-1.5">

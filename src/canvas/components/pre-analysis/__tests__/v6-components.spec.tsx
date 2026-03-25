@@ -1,12 +1,15 @@
 /**
  * Targeted tests for v6 wireframe components.
- * Covers: ModelHealthCard, DraftNotes, deriveExpertiseGroups, YourExpertise empty state.
+ * Covers: ModelHealthCard, DraftNotes, deriveExpertiseGroups, YourExpertise empty state,
+ * KeyRelationshipsSubgroup collapsed default + meta line, EdgeEvidenceGaps collapsed default.
  */
 
 import { describe, it, expect } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { ModelHealthCard } from '../ModelHealthCard'
 import { DraftNotes } from '../DraftNotes'
+import { KeyRelationshipsSubgroup } from '../expertise/KeyRelationshipsSubgroup'
+import { EdgeEvidenceGaps } from '../expertise/EdgeEvidenceGaps'
 import { deriveExpertiseGroups } from '../hooks/deriveExpertiseGroups'
 import { hasFeasibilityWarning } from '../utils/hasFeasibilityWarning'
 
@@ -215,5 +218,64 @@ describe('deriveExpertiseGroups actionableCount', () => {
     // fromBrief (1) and edgeGaps are NOT included
     expect(groups.actionableCount).toBe(3)
     expect(groups.totalCount).toBeGreaterThan(groups.actionableCount)
+  })
+})
+
+describe('KeyRelationshipsSubgroup', () => {
+  const testItems = [
+    {
+      edgeId: 'e1',
+      sourceLabel: 'Factor A',
+      targetLabel: 'Goal',
+      weight: 0.45,
+      direction: 'positive',
+      beliefExists: 0.8,
+      std: 0.15,
+      influence: 0.6,
+    },
+  ]
+
+  it('renders collapsed by default — shows toggle text, hides edge detail rows', () => {
+    render(<KeyRelationshipsSubgroup items={testItems} />)
+    expect(screen.getByText('Show key relationships')).toBeInTheDocument()
+    // Collapsed hint visible
+    expect(screen.getByText(/1 causal relationship/)).toBeInTheDocument()
+    // Strength quick-select buttons NOT visible when collapsed (expanded-only content)
+    expect(screen.queryByText('Weakly')).not.toBeInTheDocument()
+    expect(screen.queryByText('Moderately')).not.toBeInTheDocument()
+    // Meta line NOT visible when collapsed
+    expect(screen.queryByText(/Moderate confidence/)).not.toBeInTheDocument()
+  })
+
+  it('shows meta line with strength label, confidence band, and beliefExists when expanded', async () => {
+    const { default: userEvent } = await import('@testing-library/user-event')
+    const user = userEvent.setup()
+    render(<KeyRelationshipsSubgroup items={testItems} />)
+    // Expand
+    await user.click(screen.getByText('Show key relationships'))
+    // Edge label visible
+    expect(screen.getByText('Factor A → Goal')).toBeInTheDocument()
+    // Strength label: Moderate positive (0.45)
+    expect(screen.getByText(/Moderate positive/)).toBeInTheDocument()
+    expect(screen.getByText(/0\.45/)).toBeInTheDocument()
+    // Confidence band: std=0.15 → Moderate confidence
+    expect(screen.getByText(/Moderate confidence/)).toBeInTheDocument()
+    // Exists probability: 80% likely
+    expect(screen.getByText(/80% likely/)).toBeInTheDocument()
+  })
+})
+
+describe('EdgeEvidenceGaps', () => {
+  const testItems = [
+    { edgeId: 'e1', sourceLabel: 'X', targetLabel: 'Y', influence: 0.4 },
+    { edgeId: 'e2', sourceLabel: 'A', targetLabel: 'B', influence: 0.2 },
+  ]
+
+  it('renders collapsed by default — shows toggle text, hides edge rows', () => {
+    render(<EdgeEvidenceGaps items={testItems} />)
+    expect(screen.getByText('Show 2 edge improvements')).toBeInTheDocument()
+    // Edge labels NOT visible when collapsed
+    expect(screen.queryByText('X → Y')).not.toBeInTheDocument()
+    expect(screen.queryByText('A → B')).not.toBeInTheDocument()
   })
 })
