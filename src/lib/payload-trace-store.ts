@@ -39,6 +39,9 @@ export interface TracedPayload {
   /** HTTP status code (set after response) */
   status?: number
 
+  /** Turn type from request builder (preserved before stripTurnType removes it from wire payload) */
+  turnType?: string
+
   /** Request data */
   request: {
     headers: Record<string, string>
@@ -80,6 +83,7 @@ export interface PayloadTraceStore {
     method: string
     headers: Record<string, string>
     body: unknown
+    turnType?: string
   }) => void
 
   recordResponsePayload: (params: {
@@ -135,6 +139,7 @@ export const usePayloadTraceStore = create<PayloadTraceStore>((set, get) => ({
       endpoint: params.endpoint,
       method: params.method,
       timestamp: Date.now(),
+      ...(params.turnType ? { turnType: params.turnType } : {}),
       request: {
         headers: redactPayload(params.headers, PAYLOAD_REDACTION_OPTIONS) as Record<string, string>,
         body: redactPayload(params.body, PAYLOAD_REDACTION_OPTIONS),
@@ -335,6 +340,7 @@ export function recordRequestPayload(params: {
   method: string
   headers: Record<string, string>
   body: unknown
+  turnType?: string
 }): void {
   usePayloadTraceStore.getState().recordRequestPayload(params)
 }

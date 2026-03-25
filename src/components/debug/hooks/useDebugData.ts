@@ -1323,14 +1323,21 @@ function countNodesByKind(nodes: Array<{ data?: { kind?: string } }>): {
 /**
  * Find the most recent payload for a service, preferring completed over in-flight.
  * Falls back to most recent incomplete only if no completed payload exists.
+ *
+ * Skips system_event turns (e.g. direct_graph_edit acknowledgements) which carry
+ * no graph_patch, analysis_ready, or _pipeline_outcome — their response would
+ * make the debug bundle useless for diagnosing draft quality.
  */
 function findBestPayload(payloads: TracedPayload[], service: string): TracedPayload | undefined {
-  // First try: most recent completed payload for this service
-  const completed = payloads.find((p) => p.service === service && p.completed)
+  const isUsable = (p: TracedPayload) =>
+    p.service === service && p.turnType !== 'system_event'
+
+  // First try: most recent completed non-system-event payload for this service
+  const completed = payloads.find((p) => isUsable(p) && p.completed)
   if (completed) return completed
 
-  // Fallback: most recent incomplete payload for this service
-  return payloads.find((p) => p.service === service)
+  // Fallback: most recent incomplete non-system-event payload
+  return payloads.find(isUsable)
 }
 
 /**

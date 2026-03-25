@@ -147,6 +147,7 @@ export async function callOrchestratorTurn(
   }
 
   validateTurnRequestBoundary(request)
+  const turnType = request._turn_type
   const wireRequest = stripTurnType(request)
   const requestBody = JSON.stringify(wireRequest)
   const requestId = request.client_turn_id
@@ -165,6 +166,7 @@ export async function callOrchestratorTurn(
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: wireRequest,
+    turnType,
   })
 
   // Log request diagnostics (shape only — no user content)
@@ -416,6 +418,7 @@ export async function* streamOrchestratorTurn(
   }
 
   validateTurnRequestBoundary(request)
+  const turnType = request._turn_type
   const wireRequest = stripTurnType(request)
   const requestBody = JSON.stringify(wireRequest)
   const requestId = request.client_turn_id
@@ -427,6 +430,7 @@ export async function* streamOrchestratorTurn(
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: wireRequest,
+    turnType,
   })
 
   // Telemetry bookkeeping
