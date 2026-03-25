@@ -141,6 +141,17 @@ function StatBar({
 }
 
 /**
+ * Format range bar values with reasonable precision.
+ * No decimal places for values > 100, 1 dp for values > 10, 2 dp otherwise.
+ * TODO: PLoT should provide outcome_unit for proper display.
+ */
+function formatRangeValue(v: number): string {
+  const abs = Math.abs(v)
+  const decimals = abs > 100 ? 0 : abs > 10 ? 1 : 2
+  return v.toLocaleString(undefined, { maximumFractionDigits: decimals, minimumFractionDigits: 0 })
+}
+
+/**
  * OptionRangeBar — thin 4px bar showing p10-to-p90 range with dot at median.
  *
  * All option range bars share the same [globalMin, globalMax] scale
@@ -193,11 +204,11 @@ function OptionRangeBar({
         )}
       </div>
       <div className="flex justify-between mt-0.5" style={{ fontSize: 10 }}>
-        <span className="text-text-light">{p10.toLocaleString()}</span>
+        <span className="text-text-light">{formatRangeValue(p10)}</span>
         {p50 != null && (
-          <span className="font-semibold text-text-header">{p50.toLocaleString()}</span>
+          <span className="font-semibold text-text-header">{formatRangeValue(p50)}</span>
         )}
-        <span className="text-text-light">{p90.toLocaleString()}</span>
+        <span className="text-text-light">{formatRangeValue(p90)}</span>
       </div>
     </div>
   )

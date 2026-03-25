@@ -392,10 +392,13 @@ export const ResultsBody = memo(function ResultsBody({
 
             {/* ── SECTION 4b: BEFORE YOU COMMIT (M2) ──────────────── */}
             {(() => {
-              const eValueCount = (resultsSectionData.confidence.edgeEValues ?? []).filter(ev => ev.e_value < 3.0).length
+              const eValueEdges = (resultsSectionData.confidence.edgeEValues ?? []).filter(ev => ev.e_value < 3.0)
+              const eValueCount = eValueEdges.length
+              // When E-values are absent, count fragile edges (capped at 3) instead
+              const fragileEdgeCount_ = eValueCount > 0 ? 0 : Math.min(3, (resultsSectionData.confidence.challengeFragileEdges ?? []).length)
               const warningCount = (resultsSectionData.confidence.inferenceWarnings ?? []).length
               const identCount = identifiability ? 1 : 0
-              const challengeTotal = biasFindings.length + preMortemItems.length + eValueCount + warningCount + identCount
+              const challengeTotal = biasFindings.length + preMortemItems.length + eValueCount + fragileEdgeCount_ + warningCount + identCount
               if (challengeTotal === 0) return null
               return (
               <div>
@@ -413,6 +416,7 @@ export const ResultsBody = memo(function ResultsBody({
                     evidenceGaps={resultsSectionData.confidence.evidenceGaps as EvidenceGapItem[] | undefined}
                     drivers={resultsSectionData.drivers.drivers}
                     edgeEValues={resultsSectionData.confidence.edgeEValues}
+                    fragileEdges={resultsSectionData.confidence.challengeFragileEdges}
                     inferenceWarnings={resultsSectionData.confidence.inferenceWarnings}
                     identifiabilityTag={identifiability}
                   />

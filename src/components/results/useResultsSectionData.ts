@@ -1508,6 +1508,13 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
           fragileEdgeInfo,
           // PLoT flip_risk_category - how this factor contributes to decision uncertainty
           flipRiskCategory: f.raw.flipRiskCategory,
+          // Contested edge detection: check canvas edges targeting this factor's node
+          hasContestedEdge: (() => {
+            const targetId = matchedNodeId ?? f.key
+            return edges.some((e: any) =>
+              e.target === targetId && e.data?.validation?.status === 'contested'
+            )
+          })(),
           // CEE-generated enrichment (observations, perspectives, confidence question)
           enrichment,
           // ISL bootstrap stability — gated on field presence
@@ -2313,9 +2320,8 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       })(),
       inferenceWarnings: (() => {
         const raw = safeArray((report as any)?.inference_warnings ?? (report as any)?.robustness?.inference_warnings)
-        // T6 fix: surface CONSTRAINT_NODE_DEFAULT_BASE alongside MISSING_ROOT_VALUE
-        const SURFACED_CODES = new Set(['MISSING_ROOT_VALUE', 'CONSTRAINT_NODE_DEFAULT_BASE'])
-        const relevant = raw.filter((w: any) => SURFACED_CODES.has(w.code))
+        // Surface all inference warnings (previously gated on specific codes)
+        const relevant = raw.filter((w: any) => typeof w?.code === 'string')
         if (relevant.length === 0) return undefined
         return relevant.map((w: any) => {
           const nodeIds: string[] = safeArray(w.affected_nodes ?? w.affectedNodes)
@@ -2331,6 +2337,20 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
         const raw = safeArray((report as any)?.robustness?.edge_e_values)
         const valid = raw.filter((ev: any) => typeof ev?.edge_id === 'string' && typeof ev?.e_value === 'number')
         return valid.length > 0 ? valid.map((ev: any) => ({ edge_id: String(ev.edge_id), e_value: Number(ev.e_value) })) : undefined
+      })(),
+      // Fragile edges for ChallengeSection "Model structure" subgroup (used when edge_e_values absent)
+      challengeFragileEdges: (() => {
+        const raw = safeArray(report?.robustness?.fragile_edges)
+        const valid = raw.filter((fe: any) =>
+          typeof fe?.from_label === 'string' && typeof fe?.to_label === 'string' &&
+          typeof fe?.switch_probability === 'number'
+        )
+        if (valid.length === 0) return undefined
+        return valid.map((fe: any) => ({
+          from_label: String(fe.from_label),
+          to_label: String(fe.to_label),
+          switch_probability: Number(fe.switch_probability),
+        }))
       })(),
     }
   }, [report, m1Coaching, drivers, reviewStatus, m1ReviewAssumptions, nodeLabelMap])

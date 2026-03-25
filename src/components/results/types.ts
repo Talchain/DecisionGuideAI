@@ -271,6 +271,8 @@ export interface DriverItem {
   isDefaultedConfidence?: boolean
   /** ISL bootstrap: stability of this factor's attribution across model variations */
   attributionStability?: 'high' | 'moderate' | 'low' | 'negligible'
+  /** True when at least one inbound edge has validation.status === 'contested' */
+  hasContestedEdge?: boolean
   /** ISL bootstrap: fraction of bootstrap samples where this factor's rank flips (0-1) */
   rankFlipRate?: number
   /** ISL EVPI: expected value of perfect information */
@@ -524,6 +526,8 @@ export interface ConfidenceSectionData {
   inferenceWarnings?: InferenceWarning[]
   /** ISL edge_e_values — sensitivity measure per edge */
   edgeEValues?: Array<{ edge_id: string; e_value: number }>
+  /** Fragile edges from robustness — for ChallengeSection when edge_e_values absent */
+  challengeFragileEdges?: Array<{ from_label: string; to_label: string; switch_probability: number }>
 }
 
 // =============================================================================

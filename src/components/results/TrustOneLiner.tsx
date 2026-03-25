@@ -9,6 +9,7 @@
  */
 
 import { typography } from '../../styles/typography'
+import { getStabilityClassification } from '../../lib/stability'
 import Tooltip from '../Tooltip'
 
 export interface TrustOneLinerProps {
@@ -22,14 +23,10 @@ export interface TrustOneLinerProps {
 
 /**
  * Deterministic copy mapping for trust summary label.
- * Matches the brief's specified thresholds exactly.
+ * Delegates to canonical getStabilityClassification() in lib/stability.ts.
  */
 function getStabilityLabel(stability: number | undefined): string {
-  if (stability == null) return 'Unknown stability'
-  if (stability >= 0.85) return 'Stable result'
-  if (stability >= 0.70) return 'Mostly stable'
-  if (stability >= 0.40) return 'Sensitive result'
-  return 'Highly sensitive'
+  return getStabilityClassification(stability ?? null)?.heroLabel ?? 'Unknown stability'
 }
 
 /**
@@ -46,13 +43,17 @@ function getEvidenceSuffix(defaultCount?: number, totalCount?: number): string |
 
 /**
  * SVG arc ring colour based on stability value.
+ * Uses canonical classification from lib/stability.ts.
  */
 function getRingColour(stability: number | undefined): string {
-  if (stability == null) return 'var(--factor)'
-  if (stability >= 0.85) return 'var(--success)'
-  if (stability >= 0.70) return 'var(--warning)'
-  if (stability >= 0.40) return 'var(--warning)'
-  return 'var(--danger)'
+  const cls = getStabilityClassification(stability ?? null)
+  if (!cls) return 'var(--factor)'
+  switch (cls.level) {
+    case 'high': return 'var(--success)'
+    case 'moderate': return 'var(--success)'
+    case 'low': return 'var(--warning)'
+    case 'very_low': return 'var(--danger)'
+  }
 }
 
 export function TrustOneLiner({

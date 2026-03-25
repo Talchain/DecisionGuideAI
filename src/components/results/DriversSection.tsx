@@ -670,8 +670,8 @@ function DriverRow({
         return null
       })()}
 
-      {/* Quick-select for contested drivers */}
-      {(driver.flipRiskCategory === 'isolated' || driver.flipRiskCategory === 'correlated') && (
+      {/* Quick-select for contested drivers — only when inbound edge has validation.status === 'contested' */}
+      {driver.hasContestedEdge && (
         <ContestedDriverQuickSelect driver={driver} />
       )}
 

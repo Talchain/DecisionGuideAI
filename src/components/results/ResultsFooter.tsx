@@ -6,6 +6,7 @@
  */
 
 import { typography } from '../../styles/typography'
+import { getStabilityClassification } from '../../lib/stability'
 import Tooltip from '../Tooltip'
 
 export interface ResultsFooterProps {
@@ -26,11 +27,12 @@ export function ResultsFooter({
   influencePct,
 }: ResultsFooterProps) {
   const stabilityPct = stability != null ? Math.round(stability * 100) : null
+  const stabilityLabel = getStabilityClassification(stability ?? null)?.heroLabel
 
   const parts: string[] = []
-  if (stabilityPct != null) parts.push(`${stabilityPct}% stability`)
-  parts.push(`${resolvedCount}/${totalCount} addressed`)
-  if (influencePct != null) parts.push(`${Math.round(influencePct * 100)}% of influence`)
+  if (stabilityLabel) parts.push(stabilityLabel)
+  if (totalCount > 0) parts.push(`${resolvedCount}/${totalCount} addressed`)
+  if (stabilityPct != null) parts.push(`${stabilityPct}%`)
 
   return (
     <div

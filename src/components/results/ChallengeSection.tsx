@@ -30,6 +30,13 @@ export interface EdgeEValue {
   e_value: number
 }
 
+/** Fragile edge from robustness.fragile_edges (used when edge_e_values absent) */
+export interface ChallengeFragileEdge {
+  from_label: string
+  to_label: string
+  switch_probability: number
+}
+
 /** Inference warning from ISL */
 export interface ChallengeInferenceWarning {
   code: string
@@ -50,6 +57,8 @@ export interface ChallengeSectionProps {
   drivers?: DriverItem[]
   /** Task 6: E-value data per edge — cards shown when e_value < 3.0 */
   edgeEValues?: EdgeEValue[]
+  /** Fragile edges from robustness — shown in Model structure when edgeEValues absent */
+  fragileEdges?: ChallengeFragileEdge[]
   /** Task 6: Inference warnings (root node defaults, etc.) */
   inferenceWarnings?: ChallengeInferenceWarning[]
   /** Task 6: Identifiability tag from ISL — shown in Scientific notes */
@@ -147,7 +156,7 @@ function ChallengeCard({
 function SubgroupDivider({ label, count }: { label: string; count: number }) {
   return (
     <div className="flex items-center gap-2 mt-1">
-      <span className="text-[10px] font-semibold text-text-light tracking-wider whitespace-nowrap">
+      <span className="text-[10px] font-semibold text-text-light whitespace-nowrap">
         {label} ({count})
       </span>
       <div className="flex-1 h-px bg-panel-border" />
@@ -171,6 +180,27 @@ function EValueCard({ edgeId, eValue }: { edgeId: string; eValue: number }) {
       </div>
       <p className={`${typography.panelMeta} text-text-light`}>
         The relationship {edgeId} would only need to be {eValue.toFixed(1)}x wrong to flip the recommendation.
+      </p>
+    </div>
+  )
+}
+
+/* ── Fragile edge card (no E-value available) ────────────────────────────── */
+
+function FragileEdgeCard({ edge }: { edge: ChallengeFragileEdge }) {
+  return (
+    <div className="border border-panel-border rounded-lg px-3 py-2 space-y-1.5">
+      <div className="flex items-center gap-2">
+        <AlertTriangle className="w-3.5 h-3.5 text-warning flex-shrink-0" aria-hidden="true" />
+        <p className={`${typography.panelBody} text-text-body flex-1`}>
+          Fragile relationship
+        </p>
+        <span className="rounded-full border border-warning/30 bg-transparent px-2 py-0.5 text-[10px] font-medium text-text-body leading-none">
+          Stability
+        </span>
+      </div>
+      <p className={`${typography.panelMeta} text-text-light`}>
+        The relationship {edge.from_label} &rarr; {edge.to_label} is fragile. A shift here could change the recommendation.
       </p>
     </div>
   )
@@ -220,6 +250,25 @@ function ConstraintDefaultBaseCard({ warning }: { warning: ChallengeInferenceWar
   )
 }
 
+/* ── Generic inference warning card (Scientific notes) ────────────────────── */
+
+function InferenceWarningCard({ warning }: { warning: ChallengeInferenceWarning }) {
+  const message = warning.message ?? `Inference warning: ${warning.code}`
+  return (
+    <div className="border border-panel-border rounded-lg px-3 py-2 space-y-1.5">
+      <div className="flex items-center gap-2">
+        <AlertTriangle className="w-3.5 h-3.5 text-warning flex-shrink-0" aria-hidden="true" />
+        <p className={`${typography.panelBody} text-text-body flex-1`}>
+          {message}
+        </p>
+        <span className="rounded-full border border-info/30 bg-transparent px-2 py-0.5 text-[10px] font-medium text-text-body leading-none">
+          Scientific
+        </span>
+      </div>
+    </div>
+  )
+}
+
 /* ── Identifiability card ─────────────────────────────────────────────────── */
 
 function IdentifiabilityCard() {
@@ -250,22 +299,30 @@ export function ChallengeSection({
   evidenceGaps,
   drivers,
   edgeEValues,
+  fragileEdges: fragileEdgesProp,
   inferenceWarnings,
   identifiabilityTag,
 }: ChallengeSectionProps) {
   // ── Model structure items ──────────────────────────────────────────────
-  const fragileEdges = (edgeEValues ?? []).filter(e => e.e_value < 3.0)
+  const fragileEValueEdges = (edgeEValues ?? []).filter(e => e.e_value < 3.0)
+  // When E-values are absent, fall back to fragile edges (capped at 3, sorted by switch_probability desc)
+  const fragileEdgeCards = fragileEValueEdges.length > 0
+    ? [] // E-value cards take precedence
+    : [...(fragileEdgesProp ?? [])].sort((a, b) => b.switch_probability - a.switch_probability).slice(0, 3)
   const allWarnings = inferenceWarnings ?? []
   const rootWarnings = allWarnings.filter(w => w.code === 'MISSING_ROOT_VALUE')
   const constraintDefaultWarnings = allWarnings.filter(w => w.code === 'CONSTRAINT_NODE_DEFAULT_BASE')
-  const modelStructureCount = fragileEdges.length + rootWarnings.length + constraintDefaultWarnings.length
+  const modelStructureCount = fragileEValueEdges.length + fragileEdgeCards.length + rootWarnings.length + constraintDefaultWarnings.length
 
   // ── Thinking patterns items ────────────────────────────────────────────
   const thinkingPatternsCount = biasFindings.length + preMortemItems.length
 
   // ── Scientific notes items ─────────────────────────────────────────────
+  // Warnings not handled by Model structure go to Scientific notes
+  const MODEL_STRUCTURE_CODES = new Set(['MISSING_ROOT_VALUE', 'CONSTRAINT_NODE_DEFAULT_BASE'])
+  const otherWarnings = allWarnings.filter(w => !MODEL_STRUCTURE_CODES.has(w.code))
   const hasIdentifiability = identifiabilityTag != null && identifiabilityTag !== ''
-  const scientificNotesCount = hasIdentifiability ? 1 : 0
+  const scientificNotesCount = otherWarnings.length + (hasIdentifiability ? 1 : 0)
 
   // If all 3 subgroups empty, parent accordion handles hiding
   if (modelStructureCount === 0 && thinkingPatternsCount === 0 && scientificNotesCount === 0) {
@@ -277,9 +334,12 @@ export function ChallengeSection({
       {/* ── Subgroup 1: Model structure ─────────────────────────────────── */}
       {modelStructureCount > 0 && (
         <div className="space-y-2">
-          <SubgroupDivider label="MODEL STRUCTURE" count={modelStructureCount} />
-          {fragileEdges.map(edge => (
+          <SubgroupDivider label="Model structure" count={modelStructureCount} />
+          {fragileEValueEdges.map(edge => (
             <EValueCard key={edge.edge_id} edgeId={edge.edge_id} eValue={edge.e_value} />
+          ))}
+          {fragileEdgeCards.map((edge, i) => (
+            <FragileEdgeCard key={`fragile-${edge.from_label}-${edge.to_label}-${i}`} edge={edge} />
           ))}
           {rootWarnings.map((warning, i) => (
             <RootNodeWarningCard key={`root-warn-${warning.affected_nodes[0] ?? i}`} warning={warning} />
@@ -293,7 +353,7 @@ export function ChallengeSection({
       {/* ── Subgroup 2: Thinking patterns ──────────────────────────────── */}
       {thinkingPatternsCount > 0 && (
         <div className="space-y-2">
-          <SubgroupDivider label="THINKING PATTERNS" count={thinkingPatternsCount} />
+          <SubgroupDivider label="Thinking patterns" count={thinkingPatternsCount} />
 
           {/* Bias findings -- expandable cards, max 2 visible */}
           {biasFindings.length > 0 && (
@@ -360,8 +420,11 @@ export function ChallengeSection({
       {/* ── Subgroup 3: Scientific notes ───────────────────────────────── */}
       {scientificNotesCount > 0 && (
         <div className="space-y-2">
-          <SubgroupDivider label="SCIENTIFIC NOTES" count={scientificNotesCount} />
-          <IdentifiabilityCard />
+          <SubgroupDivider label="Scientific notes" count={scientificNotesCount} />
+          {otherWarnings.map((warning, i) => (
+            <InferenceWarningCard key={`warn-${warning.code}-${i}`} warning={warning} />
+          ))}
+          {hasIdentifiability && <IdentifiabilityCard />}
         </div>
       )}
     </div>
