@@ -36,22 +36,19 @@ export const RiskNode = memo((props: NodeProps) => {
   }, [props.data?.observedState])
 
   const bridgeEdgeData = useMemo(() => {
-    if (resultsStatus !== 'complete') return null
     const goalNode = nodes.find(n => n.data?.type === 'goal' || n.type === 'goal')
     if (!goalNode) return null
     const edge = edges.find(e => e.source === props.id && e.target === goalNode.id)
     if (!edge) return null
 
     const weight = (edge.data as any)?.weight as number | undefined
-    const signedMean = computeSignedMean(edge.data as Record<string, unknown> | undefined)
-    // Canvas store canonical name — CEE ingestion normalises to camelCase
-    const existsProbability = (edge.data as any)?.beliefExists as number | undefined
+    const hasStrength = typeof (edge.data as any)?.strength_mean === 'number' || weight != null
+    const signedMean = hasStrength ? computeSignedMean(edge.data as Record<string, unknown> | undefined) : null
     return {
       signedMean,
       contributionPct: weight != null ? Math.round(weight * 100) : null,
-      existsProbability: typeof existsProbability === 'number' ? existsProbability : null,
     }
-  }, [edges, nodes, resultsStatus, props.id])
+  }, [edges, nodes, props.id])
 
   return (
     <BaseNode {...props} data={cleanedData} nodeType="risk" icon={metadata.icon}>
@@ -65,32 +62,40 @@ export const RiskNode = memo((props: NodeProps) => {
       )}
 
       {/* T9: Bridge edge data — contribution % + direction, neutral colours */}
-      {bridgeEdgeData && (
+      {resultsStatus === 'complete' && bridgeEdgeData && (bridgeEdgeData.contributionPct != null || bridgeEdgeData.signedMean !== null) && (
         <div className={`${typography.nodeLabel} mt-1 text-text-body`}>
           {bridgeEdgeData.contributionPct != null && (
             <div>
               {bridgeEdgeData.contributionPct}% contribution to goal
             </div>
           )}
+          {bridgeEdgeData.signedMean !== null && (
+            <InfluenceIndicator
+              strength={bridgeEdgeData.signedMean}
+              variant="canvas"
+              className={`${typography.nodeLabel} text-text-light`}
+            />
+          )}
+        </div>
+      )}
+
+      {/* Pre-analysis: bridge edge influence indicator */}
+      {resultsStatus !== 'complete' && bridgeEdgeData && bridgeEdgeData.signedMean !== null && (
+        <div className={`${typography.nodeLabel} mt-2 text-text-light`}>
           <InfluenceIndicator
             strength={bridgeEdgeData.signedMean}
             variant="canvas"
             className={`${typography.nodeLabel} text-text-light`}
           />
-          {bridgeEdgeData.existsProbability !== null && (
-            <div className="text-text-light mt-0.5">
-              {Math.round(bridgeEdgeData.existsProbability * 100)}% certain
-            </div>
-          )}
         </div>
       )}
 
       {provenanceLabel && (
         <div className="flex justify-end mt-1.5">
           {provenanceLabel.includes('Olumi') ? (
-            <Cpu size={12} className="text-text-light" aria-hidden="true" title={provenanceLabel} />
+            <Cpu size={14} className="text-text-light" aria-hidden="true" title={provenanceLabel} />
           ) : (
-            <FileText size={12} className="text-text-light" aria-hidden="true" title={provenanceLabel} />
+            <FileText size={14} className="text-text-light" aria-hidden="true" title={provenanceLabel} />
           )}
         </div>
       )}

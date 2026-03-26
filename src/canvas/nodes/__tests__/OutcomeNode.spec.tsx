@@ -1,6 +1,6 @@
 /**
  * OutcomeNode render tests
- * T9: Bridge edge data — impact on goal + certainty
+ * T9: Bridge edge data — contribution % + qualitative direction
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
@@ -126,10 +126,11 @@ describe('OutcomeNode', () => {
       }) as any)
     )
     renderOutcome()
-    expect(screen.getByText('Strong positive influence on goal')).toBeDefined()
+    expect(screen.getByText('75% contribution to goal')).toBeDefined()
+    expect(screen.getByText(/Very strong/)).toBeDefined()
   })
 
-  it('shows certainty when beliefExists is present', () => {
+  it('does not show certainty even when beliefExists is present', () => {
     vi.mocked(useCanvasStore).mockImplementation((selector) =>
       selector(makeStoreState({
         results: { status: 'complete', report: null },
@@ -143,50 +144,6 @@ describe('OutcomeNode', () => {
             source: 'outcome-1',
             target: 'goal-1',
             data: { weight: 0.5, direction: 'positive', beliefExists: 0.8 },
-          },
-        ],
-      }) as any)
-    )
-    renderOutcome()
-    expect(screen.getByText(/80% certain/)).toBeDefined()
-  })
-
-  it('shows certainty from beliefExists when set to non-default value', () => {
-    vi.mocked(useCanvasStore).mockImplementation((selector) =>
-      selector(makeStoreState({
-        results: { status: 'complete', report: null },
-        nodes: [
-          { id: 'outcome-1', type: 'outcome', data: { type: 'outcome' } },
-          { id: 'goal-1', data: { type: 'goal' } },
-        ],
-        edges: [
-          {
-            id: 'e1',
-            source: 'outcome-1',
-            target: 'goal-1',
-            data: { weight: 0.5, direction: 'positive', beliefExists: 0.65 },
-          },
-        ],
-      }) as any)
-    )
-    renderOutcome()
-    expect(screen.getByText(/65% certain/)).toBeDefined()
-  })
-
-  it('does not show certainty when no certainty fields are present', () => {
-    vi.mocked(useCanvasStore).mockImplementation((selector) =>
-      selector(makeStoreState({
-        results: { status: 'complete', report: null },
-        nodes: [
-          { id: 'outcome-1', type: 'outcome', data: { type: 'outcome' } },
-          { id: 'goal-1', data: { type: 'goal' } },
-        ],
-        edges: [
-          {
-            id: 'e1',
-            source: 'outcome-1',
-            target: 'goal-1',
-            data: { weight: 0.5, direction: 'positive' },
           },
         ],
       }) as any)

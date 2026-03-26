@@ -109,7 +109,7 @@ describe('GoalNode', () => {
       isResultsMode: true,
     })
     renderGoal()
-    expect(screen.getByText('73% chance')).toBeDefined()
+    expect(screen.getByText(/73.*% chance of target/)).toBeDefined()
   })
 
   // T10: Stability bar
@@ -128,8 +128,8 @@ describe('GoalNode', () => {
       }) as any)
     )
     renderGoal()
-    expect(screen.getByText('Stability')).toBeDefined()
-    expect(screen.getByText('82%')).toBeDefined()
+    expect(screen.getByText('Decision stability')).toBeDefined()
+    expect(screen.getByRole('progressbar', { name: 'Stability' })).toBeDefined()
   })
 
   // T10: Marginal badge when stability < 60%

@@ -306,9 +306,9 @@ export const FactorNode = memo((props: NodeProps) => {
         {provenanceLabel && (
           <div className="flex justify-end mt-1">
             {provenanceLabel.includes('Olumi') ? (
-              <Cpu size={12} className="text-text-light" aria-hidden="true" title={provenanceLabel} />
+              <Cpu size={14} className="text-text-light" aria-hidden="true" title={provenanceLabel} />
             ) : (
-              <FileText size={12} className="text-text-light" aria-hidden="true" title={provenanceLabel} />
+              <FileText size={14} className="text-text-light" aria-hidden="true" title={provenanceLabel} />
             )}
           </div>
         )}

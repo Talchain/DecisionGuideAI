@@ -1,6 +1,6 @@
 /**
  * RiskNode render tests
- * T9: Bridge edge data — impact on goal + certainty
+ * T9: Bridge edge data — contribution % + qualitative direction
  * Severity badge rendering
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
@@ -133,10 +133,11 @@ describe('RiskNode', () => {
       }) as any)
     )
     renderRisk()
-    expect(screen.getByText('Strong negative influence on goal')).toBeDefined()
+    expect(screen.getByText('60% contribution to goal')).toBeDefined()
+    expect(screen.getByText(/Very strong/)).toBeDefined()
   })
 
-  it('shows certainty when beliefExists is present', () => {
+  it('does not show certainty even when beliefExists is present', () => {
     vi.mocked(useCanvasStore).mockImplementation((selector) =>
       selector(makeStoreState({
         results: { status: 'complete', report: null },
@@ -150,50 +151,6 @@ describe('RiskNode', () => {
             source: 'risk-1',
             target: 'goal-1',
             data: { weight: 0.4, direction: 'negative', beliefExists: 0.9 },
-          },
-        ],
-      }) as any)
-    )
-    renderRisk()
-    expect(screen.getByText(/90% certain/)).toBeDefined()
-  })
-
-  it('shows certainty from beliefExists when set to non-default value', () => {
-    vi.mocked(useCanvasStore).mockImplementation((selector) =>
-      selector(makeStoreState({
-        results: { status: 'complete', report: null },
-        nodes: [
-          { id: 'risk-1', type: 'risk', data: { type: 'risk' } },
-          { id: 'goal-1', data: { type: 'goal' } },
-        ],
-        edges: [
-          {
-            id: 'e1',
-            source: 'risk-1',
-            target: 'goal-1',
-            data: { weight: 0.4, direction: 'negative', beliefExists: 0.55 },
-          },
-        ],
-      }) as any)
-    )
-    renderRisk()
-    expect(screen.getByText(/55% certain/)).toBeDefined()
-  })
-
-  it('does not show certainty when no certainty fields are present', () => {
-    vi.mocked(useCanvasStore).mockImplementation((selector) =>
-      selector(makeStoreState({
-        results: { status: 'complete', report: null },
-        nodes: [
-          { id: 'risk-1', type: 'risk', data: { type: 'risk' } },
-          { id: 'goal-1', data: { type: 'goal' } },
-        ],
-        edges: [
-          {
-            id: 'e1',
-            source: 'risk-1',
-            target: 'goal-1',
-            data: { weight: 0.4, direction: 'negative' },
           },
         ],
       }) as any)

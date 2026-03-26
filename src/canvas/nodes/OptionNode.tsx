@@ -228,11 +228,19 @@ export const OptionNode = memo((props: NodeProps) => {
           // Guard: if hiding no-change chips would remove ALL chips, keep them all dimmed instead
           const allNoChange = chipsWithMeta.length > 0 && chipsWithMeta.every(c => c.isNoChange)
 
+          if (allNoChange) {
+            return (
+              <div className={`${typography.nodeLabel} mt-1 text-text-light`}>
+                No changes from current state
+              </div>
+            )
+          }
+
           return (
             <div className={`${typography.nodeLabel} mt-1 flex flex-col gap-1`}>
               {chipsWithMeta.map(({ chip, isNoChange }, idx) => {
-                // Skip no-change chips unless we're keeping all (dimmed)
-                if (isNoChange && !allNoChange) return null
+                // Skip no-change chips
+                if (isNoChange) return null
 
                 // Binary qualitative On/Off display
                 const effectiveUnit = chip.unit && !isSuppressedUnit(chip.unit) ? chip.unit : undefined
@@ -283,12 +291,12 @@ export const OptionNode = memo((props: NodeProps) => {
                 return (
                   <div
                     key={idx}
-                    className={`inline-flex items-baseline gap-1 flex-wrap ${isNoChange ? 'text-text-light' : 'text-text-body'}`}
+                    className="inline-flex items-baseline gap-1 flex-wrap text-text-body"
                   >
                     <span className="text-text-light truncate" style={{ maxWidth: '150px' }} title={chip.label}>
                       {chip.label}:
                     </span>
-                    <span className={`${isNoChange ? '' : 'font-semibold'} shrink-0`}>
+                    <span className="font-semibold shrink-0">
                       {deltaDisplay ?? targetFormatted}
                     </span>
                   </div>
@@ -300,7 +308,7 @@ export const OptionNode = memo((props: NodeProps) => {
 
         {isOptionFromCee && (
           <div className="flex justify-end mt-1">
-            <FileText size={12} className="text-text-light" aria-hidden="true" title="Values from your brief" />
+            <FileText size={14} className="text-text-light" aria-hidden="true" title="Values from your brief" />
           </div>
         )}
 

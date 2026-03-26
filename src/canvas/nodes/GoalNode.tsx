@@ -158,7 +158,7 @@ export const GoalNode = memo((props: NodeProps) => {
       {/* T10: Threshold context — show "Target: >= X" or "No target set" coaching prompt */}
       {thresholdRaw != null && String(thresholdRaw).trim() !== '' ? (
         <div className={`${typography.nodeLabel} text-text-light mt-1`}>
-          Target:\u00a0{(() => {
+          Target:{'\u00a0'}{(() => {
             const raw = typeof thresholdRaw === 'number' ? thresholdRaw : Number(thresholdRaw)
             if (Number.isNaN(raw)) return String(thresholdRaw)
             const u = typeof thresholdUnit === 'string' ? thresholdUnit.toLowerCase() : ''
@@ -207,9 +207,9 @@ export const GoalNode = memo((props: NodeProps) => {
       {provenanceLabel && (
         <div className="flex justify-end mt-1.5">
           {provenanceLabel.includes('Olumi') ? (
-            <Cpu size={12} className="text-text-light" aria-hidden="true" title={provenanceLabel} />
+            <Cpu size={14} className="text-text-light" aria-hidden="true" title={provenanceLabel} />
           ) : (
-            <FileText size={12} className="text-text-light" aria-hidden="true" title={provenanceLabel} />
+            <FileText size={14} className="text-text-light" aria-hidden="true" title={provenanceLabel} />
           )}
         </div>
       )}
