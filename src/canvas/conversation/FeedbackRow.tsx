@@ -60,7 +60,7 @@ export const FeedbackRow = memo(function FeedbackRow({ turnId, onFeedback }: Fee
           borderRadius: '6px',
           cursor: voted !== null ? 'default' : 'pointer',
           opacity: voted !== null && voted !== 'up' ? 0.3 : 1,
-          color: voted === 'up' ? 'var(--color-success, #22c55e)' : 'var(--color-text-muted, #6b7280)',
+          color: voted === 'up' ? 'var(--success, #67C89E)' : 'var(--text-light, #908D8D)',
           transition: 'none',
         }}
       >
@@ -87,7 +87,7 @@ export const FeedbackRow = memo(function FeedbackRow({ turnId, onFeedback }: Fee
           borderRadius: '6px',
           cursor: voted !== null ? 'default' : 'pointer',
           opacity: voted !== null && voted !== 'down' ? 0.3 : 1,
-          color: voted === 'down' ? 'var(--color-danger, #ef4444)' : 'var(--color-text-muted, #6b7280)',
+          color: voted === 'down' ? 'var(--danger, #EA7B4B)' : 'var(--text-light, #908D8D)',
           transition: 'none',
         }}
       >

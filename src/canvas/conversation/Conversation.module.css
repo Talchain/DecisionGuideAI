@@ -47,7 +47,7 @@
   background: var(--bg-panel-hover, #FEF9F3);
   padding: 1px 5px;
   border-radius: 4px;
-  font-size: 0.9em;
+  font-size: 12px; /* code token */
   font-family: ui-monospace, 'SF Mono', 'Cascadia Code', 'Segoe UI Mono', Menlo, monospace;
 }
 .markdownContent pre {
@@ -57,7 +57,7 @@
   padding: 10px 12px;
   margin: 6px 0;
   overflow-x: auto;
-  font-size: 0.9em;
+  font-size: 12px; /* code token */
 }
 .markdownContent pre code {
   background: none;
@@ -537,8 +537,8 @@
 .framingOptionPill {
   padding: 3px 10px;
   border-radius: 999px;
-  background: var(--info-light, #BAD7E4);
-  color: var(--info, #2B7FA2);
+  background: transparent;
+  color: var(--text-body, #3F3F3E);
   font-size: 12px; /* panelBody */
   font-weight: 500;
   border: 1px solid color-mix(in srgb, var(--info, #2B7FA2) 30%, transparent);
@@ -695,8 +695,9 @@
   font-weight: 600;
   padding: 2px 6px;
   border-radius: 4px;
-  background: var(--success-light, #B8E2D0);
-  color: var(--success, #67C89E);
+  background: transparent;
+  color: var(--text-body, #3F3F3E);
+  border: 1px solid color-mix(in srgb, var(--success, #67C89E) 30%, transparent);
   display: inline-flex;
   align-items: center;
 }
@@ -706,8 +707,9 @@
   font-weight: 600;
   padding: 2px 6px;
   border-radius: 4px;
-  background: var(--danger-light, #FFB393);
-  color: var(--danger, #EA7B4B);
+  background: transparent;
+  color: var(--text-body, #3F3F3E);
+  border: 1px solid color-mix(in srgb, var(--danger, #EA7B4B) 30%, transparent);
   display: inline-flex;
   align-items: center;
 }
@@ -997,14 +999,13 @@
 
 .chipPrimary {
   composes: chip;
-  background: var(--info-light, #BAD7E4);
-  color: var(--info, #2B7FA2);
+  background: transparent;
+  color: var(--text-body, #3F3F3E);
   border-color: color-mix(in srgb, var(--info, #2B7FA2) 30%, transparent);
 }
 
 .chipPrimary:hover {
-  background: var(--info, #2B7FA2);
-  color: var(--text-on-color, #FFFFFF);
+  background: var(--bg-panel-hover, #FEF9F3);
 }
 
 .chipSecondary {
@@ -1020,14 +1021,13 @@
 
 .chipUndo {
   composes: chip;
-  background: var(--warning-light, #FCC798);
-  color: var(--warning, #FFA656);
+  background: transparent;
+  color: var(--text-body, #3F3F3E);
   border-color: color-mix(in srgb, var(--warning, #FFA656) 30%, transparent);
 }
 
 .chipUndo:hover {
-  background: var(--warning, #FFA656);
-  color: var(--text-on-color, #FFFFFF);
+  background: var(--bg-panel-hover, #FEF9F3);
 }
 
 /* ---------------------------------------------------------------------------
@@ -1120,26 +1120,30 @@
   flex-shrink: 0;
 }
 
-/* Category badge colour variants */
+/* Category badge colour variants — DS v5 §3.2: outlined pills, text-text-body */
 .guidanceBadgeDanger {
-  background: var(--danger-light, #F8D5C5);
-  color: var(--danger, #EA7B4B);
+  background: transparent;
+  color: var(--text-body, #3F3F3E);
+  border: 1px solid color-mix(in srgb, var(--danger, #EA7B4B) 30%, transparent);
 }
 
 .guidanceBadgeInfo {
-  background: var(--info-light, #BAD7E4);
-  color: var(--info, #2B7FA2);
+  background: transparent;
+  color: var(--text-body, #3F3F3E);
+  border: 1px solid color-mix(in srgb, var(--info, #2B7FA2) 30%, transparent);
 }
 
 .guidanceBadgeInfoLight {
-  background: var(--info-light, #BAD7E4);
-  color: var(--info, #2B7FA2);
+  background: transparent;
+  color: var(--text-body, #3F3F3E);
+  border: 1px solid color-mix(in srgb, var(--info, #2B7FA2) 30%, transparent);
   opacity: 0.85;
 }
 
 .guidanceBadgeOptionLight {
-  background: var(--option-light, #E5EDDA);
-  color: var(--option, #7BAD55);
+  background: transparent;
+  color: var(--text-body, #3F3F3E);
+  border: 1px solid color-mix(in srgb, var(--option, #7BAD55) 30%, transparent);
 }
 
 .guidanceStripTitle {
@@ -1169,7 +1173,7 @@
 }
 
 .guidanceStripAction:hover {
-  background: var(--info-light, #BAD7E4);
+  background: var(--bg-panel-hover, #FEF9F3);
 }
 
 .guidanceStripAction:focus-visible {
@@ -1472,7 +1476,7 @@
   align-items: center;
   gap: 6px;
   padding: 4px 0;
-  font-size: 0.8125rem;
+  font-size: 12px; /* panelBody token */
   color: var(--text-muted, #9CA3AF);
 }
 
