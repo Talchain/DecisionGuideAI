@@ -586,6 +586,12 @@
   }
 }
 
+/* SafeRichText gap spacer — horizontal rule degradation (injected via dangerouslySetInnerHTML) */
+.md-gap {
+  display: block;
+  margin: 8px 0;
+}
+
 /* Graph Editing Experience Task 4a: Edge drag feedback */
 /* During connection, valid target handles glow; invalid ones dim */
 .react-flow .connecting .react-flow__handle.connectingto {

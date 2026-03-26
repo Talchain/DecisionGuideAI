@@ -18,6 +18,7 @@ import { safeRichText } from '../utils/safeRichText'
 import { InlineBlocks } from './InlineBlocks'
 import { ActionChipRow } from './ActionChipRow'
 import { FeedbackRow } from './FeedbackRow'
+import { isOrchestratorRenderingV2Enabled } from '../../flags'
 import { SYSTEM_MESSAGE_SENTINEL } from './useConversation'
 import type { ConversationMessage, ActionChip, GraphPatchBlock } from './types'
 import type { PatchBlockState, PatchRejectionInfo } from './useConversation'
@@ -104,9 +105,11 @@ export const MessageBubble = memo(function MessageBubble({
         ref={needsClamp ? contentRef : undefined}
         className={`${typography.bodySmall} ${styles.markdownContent} ${
           needsClamp && !expanded ? styles.markdownContentClamped : ''
-        } ${isProvisional ? styles.provisionalText : ''}`}
+        } ${isProvisional ? styles.provisionalText : ''} ${
+          !isUser && isOrchestratorRenderingV2Enabled() ? styles.v2AssistantText : ''
+        }`}
         data-streaming={isStreaming || undefined}
-        // eslint-disable-next-line security/no-unsafe-innerhtml -- sanitised by safeRichText (allowlist: strong, br, ul, li)
+        // eslint-disable-next-line security/no-unsafe-innerhtml -- sanitised by safeRichText (allowlist: strong, br, ul, li; br.md-gap for rule degradation)
         dangerouslySetInnerHTML={{
           __html: safeRichText(message.content) + (isStreaming ? '<span class="streaming-cursor" aria-hidden="true">|</span>' : ''),
         }}

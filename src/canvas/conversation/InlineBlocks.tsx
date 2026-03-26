@@ -885,8 +885,9 @@ function GraphPatchBlockRenderer({
     proposalItems.length > 2
     || proposalItemsSource === 'derived_ops'
     || isApplied
-  const showProposalItemsInline = proposalItems.length > 0 && !shouldCollapseProposalItems
-  const showProposalDisclosure = proposalItems.length > 0 && shouldCollapseProposalItems
+  const v2Rendering = isOrchestratorRenderingV2Enabled()
+  const showProposalItemsInline = proposalItems.length > 0 && !shouldCollapseProposalItems && !v2Rendering
+  const showProposalDisclosure = proposalItems.length > 0 && (shouldCollapseProposalItems || v2Rendering)
   // Action labels: only use proposal-aware labels when items are inline-visible to the user
   const primaryActionLabel = showProposalItemsInline ? 'Apply' : 'Accept'
   const secondaryActionLabel = showProposalItemsInline ? 'Not what I meant' : 'Dismiss'
@@ -1019,7 +1020,9 @@ function GraphPatchBlockRenderer({
             aria-expanded={showProposalDetails}
             data-testid="patch-proposal-details-toggle"
           >
-            {showProposalDetails ? 'Hide details' : 'Show details'}
+            {showProposalDetails
+              ? <><ChevronUp size={12} aria-hidden="true" /> Hide details</>
+              : <><ChevronDown size={12} aria-hidden="true" /> Show details</>}
           </button>
           {showProposalDetails && (
             <div className={styles.graphPatchProposalList} data-testid="patch-proposal-list">

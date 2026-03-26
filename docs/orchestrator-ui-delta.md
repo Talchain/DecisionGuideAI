@@ -288,3 +288,75 @@ When both `prompt` and `message` are present, `message` takes precedence (defens
 5 new tests in `validateResponse.spec.ts`, 4 new tests in `orchestratorRenderingV2.spec.tsx`, 3 new fixture envelopes — all passing.
 
 See CI for full suite results.
+
+---
+
+## Brief C — Content Layout and SafeRichText Degradation
+
+### DS v5 values applied
+
+| # | Token / value | Usage |
+|---|---------------|-------|
+| C-1 | `line-height: 1.65` | Assistant text vertical rhythm (§2.4) |
+| C-2 | `max-width: 65ch` | Assistant text line length cap (§2.4: 65–75 characters) |
+| C-3 | `bg-panel-hover` / `#FEF9F3` | Commentary expanded content background |
+| C-4 | `border-panel-border` | Commentary left border (kept from existing) |
+| C-5 | Spacing: 16px / 12px / 8px | Bullet gap, list-top margin, chip/rule gap (§4 spacing scale) |
+| C-6 | ChevronDown / ChevronUp size 12 | GraphPatchBlock disclosure toggle (§20 pattern) |
+
+### Changed files
+
+| File | Change |
+|------|--------|
+| `src/canvas/conversation/Conversation.module.css` | Added `.v2AssistantText` class (line-height 1.65, max-width 65ch, 16px bullet gaps, 12px list-top margin, `li > p` margin collapse). Modified `.commentaryExpandedContent` to add `bg-panel-hover` background, 12px padding, 4px border-radius |
+| `src/canvas/conversation/MessageBubble.tsx` | Import `isOrchestratorRenderingV2Enabled`; conditionally apply `v2AssistantText` CSS class on assistant messages |
+| `src/canvas/conversation/zones/SuggestedChips.tsx` | Both paths: chip container `marginTop` 10→16, added `marginBottom: 8` to outer wrapper |
+| `src/canvas/conversation/InlineBlocks.tsx` | v2: force all proposal items behind disclosure toggle. Added ChevronDown/ChevronUp icons to "Show details"/"Hide details" button (both paths) |
+| `src/canvas/utils/safeRichText.ts` | Graceful degradation: headings (`#`) → bold, horizontal rules (`---`/`***`) → `<br class="md-gap">` gap, table rows → structured text, table separators → stripped, emoji → stripped (conservative BMP + astral range allowlist) |
+| `src/index.css` | Added global `.md-gap` class for SafeRichText horizontal rule degradation (8px vertical gap) |
+| `docs/orchestrator-ui-delta.md` | This section |
+
+### SafeRichText degradation behaviour
+
+| Input syntax | Rendered output |
+|-------------|-----------------|
+| `### Heading text` | **Heading text** (bold) |
+| `---` or `***` | 8px vertical gap (no visible line) |
+| `\| Header1 \| Header2 \|` (first row) | Captured as column headers |
+| `\| val1 \| val2 \|` (2-col data row) | **Header1:** val1, **Header2:** val2 |
+| `\| a \| b \| c \|` (3+ col data row) | a, b, c |
+| `\|---\|---\|` (separator) | Stripped entirely |
+| Emoji (checkmark, warning, lock, pin, chart, magnifier) | Stripped; double spaces collapsed |
+
+### Feature flag behaviour
+
+| Behaviour | `ORCHESTRATOR_RENDERING_V2` OFF | `ORCHESTRATOR_RENDERING_V2` ON |
+|-----------|-------------------------------|-------------------------------|
+| Assistant text line-height | Default (inherited) | 1.65 |
+| Assistant text max-width | 100% (bubbles) | 65ch |
+| Bullet item spacing | 2px margin-bottom | 16px margin-bottom |
+| List top margin | 4px | 12px |
+| GraphPatchBlock 1–2 items | Shown inline (no toggle) | Behind "Show details" toggle |
+| Chip container top margin | 16px (both paths) | 16px (both paths) |
+| Commentary expanded bg | Existing (no bg) | `bg-panel-hover` (#FEF9F3) |
+
+Non-gated changes (apply to both flag states):
+- Chip container `marginBottom: 8` (both paths, including ActionChipRow `.chipRow`)
+- ActionChipRow `.chipRow` `margin-top` 8→16 for parity with SuggestedChips
+- Chevron icons on GraphPatchBlock disclosure toggle
+- SafeRichText graceful degradation (headings, rules, tables, emoji)
+- `.md-gap` global CSS class
+- Bold-lead paragraph spacing: consecutive `**Lead.**` lines get `<br class="md-gap">` (16px gap)
+
+### Post-review fixes (Brief C addendum)
+
+| # | Issue | Fix |
+|---|-------|-----|
+| C-R1 | Bold-lead paragraphs outside lists had no 16px separation | Join phase detects consecutive bold-lead parts and emits `<br class="md-gap">` instead of plain `<br>` |
+| C-R2 | Table without separator row silently suppressed first row | Added `tableHeaderConfirmed` flag; headers only used structurally when separator row follows. Without separator, all rows render as comma-separated data |
+| C-R3 | ActionChipRow `.chipRow` had `margin-top: 8px` (not aligned with SuggestedChips) | Changed to `margin-top: 16px; margin-bottom: 8px` |
+| C-R4 | Emoji strip collapsed all double spaces globally | Replaced global `/ +/g` with sentinel approach: emoji → `\x00`, then `\s*\x00+\s*` → single space. Only whitespace adjacent to emoji is collapsed |
+
+### DS v5 values that may need manual update
+
+None identified. All values use existing DS v5 tokens or the §4 spacing scale.

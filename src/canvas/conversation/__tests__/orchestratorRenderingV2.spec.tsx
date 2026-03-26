@@ -813,32 +813,44 @@ describe('Null assistant_text → commentary defaults to expanded', () => {
 // ---------------------------------------------------------------------------
 
 describe('safeRichText — unsupported markdown degradation', () => {
-  it('headers render as plain text (no raw ## visible as markdown syntax)', () => {
+  it('headers render as bold text (no raw # visible)', () => {
     const html = safeRichText('# Heading one\n## Heading two')
     const container = renderHtml(html)
     // No h1/h2 elements
     expect(container.querySelector('h1')).toBeNull()
     expect(container.querySelector('h2')).toBeNull()
-    // Text content preserved
-    expect(container.textContent).toContain('# Heading one')
-    expect(container.textContent).toContain('## Heading two')
+    // Text content preserved as bold, # prefix stripped
+    const strongs = container.querySelectorAll('strong')
+    expect(strongs.length).toBe(2)
+    expect(strongs[0].textContent).toBe('Heading one')
+    expect(strongs[1].textContent).toBe('Heading two')
+    expect(container.textContent).not.toContain('#')
   })
 
-  it('tables render as plain text (no raw | syntax as table structure)', () => {
+  it('tables render as structured text (no raw | syntax)', () => {
     const html = safeRichText('| Col A | Col B |\n|-------|-------|\n| 1     | 2     |')
     const container = renderHtml(html)
     // No table elements
     expect(container.querySelector('table')).toBeNull()
-    // Text is preserved — pipe characters visible
-    expect(container.textContent).toContain('Col A')
-    expect(container.textContent).toContain('Col B')
+    // Header row captured, data row rendered as structured text
+    expect(container.textContent).toContain('Col A:')
+    expect(container.textContent).toContain('Col B:')
+    expect(container.textContent).toContain('1')
+    expect(container.textContent).toContain('2')
+    // No raw pipe characters
+    expect(container.textContent).not.toContain('|')
   })
 
-  it('horizontal rules render as plain text', () => {
+  it('horizontal rules render as vertical gap (no raw --- visible)', () => {
     const html = safeRichText('Before\n\n---\n\nAfter')
     const container = renderHtml(html)
     expect(container.querySelector('hr')).toBeNull()
-    expect(container.textContent).toContain('---')
+    // --- stripped, replaced with gap spacer
+    expect(container.textContent).not.toContain('---')
+    expect(container.textContent).toContain('Before')
+    expect(container.textContent).toContain('After')
+    // Gap spacer is a <br> with md-gap class
+    expect(container.querySelector('br.md-gap')).not.toBeNull()
   })
 
   it('code blocks render as plain text', () => {
@@ -852,9 +864,14 @@ describe('safeRichText — unsupported markdown degradation', () => {
     const env = fixtureData.envelopes.unsupportedMarkdown
     const html = safeRichText(env.assistant_text)
     const container = renderHtml(html)
-    // Bold still works
-    expect(container.querySelector('strong')).not.toBeNull()
-    expect(container.querySelector('strong')!.textContent).toBe('Bold still works.')
+    // Headings degrade to bold; explicit **bold** also works
+    const strongs = container.querySelectorAll('strong')
+    expect(strongs.length).toBeGreaterThanOrEqual(3) // heading + subheading + bold
+    expect(strongs[0].textContent).toBe('Heading should degrade')
+    expect(strongs[1].textContent).toBe('Subheading too')
+    // Explicit bold still present
+    const boldTexts = Array.from(strongs).map(s => s.textContent)
+    expect(boldTexts).toContain('Bold still works.')
     // No structured markdown elements
     expect(container.querySelector('h1')).toBeNull()
     expect(container.querySelector('h2')).toBeNull()

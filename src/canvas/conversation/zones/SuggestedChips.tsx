@@ -92,8 +92,8 @@ export function SuggestedChips({
   if (!v2) {
     // Legacy layout: vertical flex, no role dots, no in-flight disable
     return (
-      <div className="flex flex-col self-start" style={{ gap: 4 }}>
-        <div className="flex flex-wrap" style={{ gap: 6, marginTop: 10 }} data-testid="suggested-chips">
+      <div className="flex flex-col self-start" style={{ gap: 4, marginBottom: 8 }}>
+        <div className="flex flex-wrap" style={{ gap: 6, marginTop: 16 }} data-testid="suggested-chips">
           {visible.map((chip, i) => (
             <button
               key={chip.id ?? `chip-${i}`}
@@ -147,10 +147,10 @@ export function SuggestedChips({
 
   // v2 layout: horizontal flex-wrap, role dots, in-flight disable
   return (
-    <div className="flex flex-col self-start" style={{ gap: 4 }}>
+    <div className="flex flex-col self-start" style={{ gap: 4, marginBottom: 8 }}>
       <div
         className="flex flex-wrap"
-        style={{ gap: 8, marginTop: 10 }}
+        style={{ gap: 8, marginTop: 16 }}
         data-testid="suggested-chips"
       >
         {visible.map((chip, i) => {

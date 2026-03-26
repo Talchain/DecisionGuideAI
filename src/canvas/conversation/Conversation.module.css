@@ -99,6 +99,25 @@
   color: var(--text-body, #3F3F3E);
 }
 
+/* § 2b — V2 assistant text rhythm (ORCHESTRATOR_RENDERING_V2) */
+.v2AssistantText {
+  line-height: 1.65;
+  max-width: 65ch;
+}
+.v2AssistantText li {
+  margin-bottom: 16px;
+}
+.v2AssistantText li:last-child {
+  margin-bottom: 0;
+}
+.v2AssistantText li > p {
+  margin: 0;
+}
+.v2AssistantText ul,
+.v2AssistantText ol {
+  margin-top: 12px;
+}
+
 /* Progressive disclosure — clamp long assistant text to ~6 lines */
 .markdownContentClamped {
   display: -webkit-box;
@@ -842,8 +861,10 @@
 /* Expanded content: DS v5 §19 pattern — mt-2 pl-3 border-l-2 border-panel-border */
 .commentaryExpandedContent {
   margin-top: 8px;
-  padding-left: 12px;
+  padding: 12px;
   border-left: 2px solid var(--border-default, #EEE6D8);
+  background: var(--bg-panel-hover, #FEF9F3);
+  border-radius: 4px;
 }
 
 /* ---------------------------------------------------------------------------
@@ -956,7 +977,8 @@
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  margin-top: 8px;
+  margin-top: 16px;
+  margin-bottom: 8px;
 }
 
 .chip {
