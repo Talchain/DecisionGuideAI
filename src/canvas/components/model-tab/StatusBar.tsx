@@ -7,7 +7,6 @@
  * Each segment scrolls to the relevant section on click.
  */
 
-import { useCallback } from 'react'
 import { typography } from '../../../styles/typography'
 
 interface StatusBarProps {
@@ -98,10 +97,6 @@ export function StatusBar({
     }
   }
 
-  const handleClick = useCallback((target: string) => {
-    scrollToSection(target)
-  }, [])
-
   if (segments.length === 0) return null
 
   return (
@@ -113,7 +108,7 @@ export function StatusBar({
         <button
           key={seg.key}
           type="button"
-          onClick={() => handleClick(seg.scrollTarget)}
+          onClick={() => scrollToSection(seg.scrollTarget)}
           className={`inline-flex items-center gap-1.5 ${typography.panelMeta} text-text-body hover:text-info transition-colors`}
           data-testid={`status-${seg.key}`}
         >

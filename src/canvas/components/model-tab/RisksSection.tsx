@@ -1,12 +1,8 @@
 /**
- * RisksSection — risk nodes with trigger context.
+ * RisksSection — compact risk rows, collapsed by default.
  *
- * Each risk card shows:
- *   - Risk label (clickable → canvas focus)
- *   - Trigger factors: list of factor nodes that have edges pointing into this risk
- *   - Probability if available on the node
- *
- * "Show full detail" expansion: node ID, probability value.
+ * Each row: risk label (clickable → canvas focus) + "Triggered by: factor1, factor2"
+ * "Show full detail" expansion: node ID.
  */
 
 import { useContext, useMemo } from 'react'
