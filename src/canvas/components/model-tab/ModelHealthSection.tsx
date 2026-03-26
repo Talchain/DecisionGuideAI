@@ -1,25 +1,19 @@
 /**
- * ModelHealthSection — model quality summary, collapsed by default.
+ * ModelHealthSection — "Audit" section, collapsed by default.
  *
- * Collapsed state: "Model health" header with count of potential issues.
- * Expanded state:
- *   - Connectivity count (connected / total nodes)
- *   - Evidence coverage (edges with evidence / total edges)
- *   - Fragile edge count (post-analysis only)
- *   - CEE quality sub-scores (overall, structure, causality, coverage, safety) — 1–10 scale
- *   - Root node warnings (from inference_warnings)
- *   - Audit trail (seed, response hash, n_samples, repairs summary)
+ * Collapsed view: stability %, overall quality score.
+ * Expanded view: root node warnings, CEE quality sub-scores, audit trail
+ *   (seed, hash, simulations, stability, auto-noise, penalty, repairs, warnings).
+ *
+ * Connectivity and evidence health cards removed — live in Analysis tab.
  */
 
 import { useContext, useMemo } from 'react'
-import type { Node, Edge } from '@xyflow/react'
 import { AlertTriangle } from 'lucide-react'
 import { typography } from '../../../styles/typography'
 import { SectionErrorBoundary } from '../GraphTextView'
 import { Accordion } from '../../../components/results/Accordion'
-import { countEdgesWithEvidence } from '../../utils/evidenceCoverage'
 import type { CeeQualityDimensions } from '../../store'
-import type { CritiqueItemV1 } from '../../../adapters/plot/types'
 import { DetailToggleContext } from './DetailToggleContext'
 
 /** Audit trail data from PLoT response */
@@ -35,14 +29,9 @@ export interface AuditTrailData {
 }
 
 interface ModelHealthSectionProps {
-  nodes: Node[]
-  edges: Edge[]
-  fragileEdgeCount?: number
   ceeQuality?: CeeQualityDimensions | null
   /** Audit trail from PLoT response metadata */
   auditTrail?: AuditTrailData
-  /** PLoT critique items */
-  critique?: CritiqueItemV1[] | null
 }
 
 // ── Quality score row ──────────────────────────────────────────────────────────
@@ -90,30 +79,10 @@ function StatRow({ label, value, subtext, colour }: {
 // ── Section inner ──────────────────────────────────────────────────────────────
 
 function ModelHealthSectionInner({
-  nodes,
-  edges,
-  fragileEdgeCount = 0,
   ceeQuality,
   auditTrail,
-  critique,
 }: ModelHealthSectionProps) {
   const { showDetail } = useContext(DetailToggleContext)
-
-  // Connectivity: nodes mentioned in at least one edge
-  const { connectedCount, totalCount } = useMemo(() => {
-    const mentioned = new Set<string>()
-    for (const e of edges) {
-      mentioned.add(e.source)
-      mentioned.add(e.target)
-    }
-    const connected = nodes.filter(n => mentioned.has(n.id) || nodes.length === 1).length
-    return { connectedCount: connected, totalCount: nodes.length }
-  }, [nodes, edges])
-
-  const { evidenced, total: edgeTotal } = useMemo(
-    () => countEdgesWithEvidence(edges),
-    [edges]
-  )
 
   // Root node default value warnings from inference_warnings
   const rootNodeWarningCount = useMemo(() => {
@@ -136,20 +105,33 @@ function ModelHealthSectionInner({
     ).join(', ')
   }, [auditTrail?.repairsApplied])
 
-  // Issue count for badge: disconnected nodes + fragile edges + unevidenced edges + root node warnings
-  const disconnectedCount = totalCount - connectedCount
-  const unevidencedCount = edgeTotal - evidenced
-  const issueCount = disconnectedCount + fragileEdgeCount + (unevidencedCount > 0 ? 1 : 0) + rootNodeWarningCount
+  // Collapsed summary: stability + overall quality
+  const stabilityPct = auditTrail?.recommendationStability != null
+    ? `${Math.round(auditTrail.recommendationStability * 100)}%`
+    : null
+  const overallQuality = ceeQuality?.overall != null
+    ? `${ceeQuality.overall.toFixed(1)} / 10`
+    : null
 
   return (
     <Accordion
-      title="Model health"
-      badgeCount={issueCount > 0 ? issueCount : undefined}
-      badgeState={issueCount > 0 ? 'unresolved' : undefined}
+      title="Audit"
       defaultExpanded={false}
       testId="model-health-section"
     >
       <div className="space-y-2.5">
+        {/* Collapsed summary metrics (always visible when expanded) */}
+        {(stabilityPct || overallQuality) && (
+          <div className="flex gap-4">
+            {stabilityPct && (
+              <StatRow label="Stability" value={stabilityPct} />
+            )}
+            {overallQuality && (
+              <StatRow label="Quality" value={overallQuality} />
+            )}
+          </div>
+        )}
+
         {/* Root node warnings */}
         {rootNodeWarningCount > 0 && (
           <div
@@ -166,36 +148,10 @@ function ModelHealthSectionInner({
           </div>
         )}
 
-        {/* Connectivity */}
-        <StatRow
-          label="Connected nodes"
-          value={`${connectedCount} / ${totalCount}`}
-          subtext={disconnectedCount > 0 ? `${disconnectedCount} disconnected` : 'All connected'}
-          colour={disconnectedCount > 0 ? 'text-warning' : 'text-success'}
-        />
-
-        {/* Evidence coverage */}
-        <StatRow
-          label="Evidence coverage"
-          value={`${evidenced} / ${edgeTotal}`}
-          subtext={edgeTotal === 0 ? undefined : `${unevidencedCount} without evidence`}
-          colour={unevidencedCount > 0 ? 'text-warning' : 'text-success'}
-        />
-
-        {/* Fragile edges (post-analysis) */}
-        {fragileEdgeCount > 0 && (
-          <StatRow
-            label="Fragile edges"
-            value={String(fragileEdgeCount)}
-            subtext="sensitive to assumptions"
-            colour="text-warning"
-          />
-        )}
-
-        {/* CEE quality scores */}
-        {ceeQuality && (
+        {/* CEE quality sub-scores (full detail) */}
+        {showDetail && ceeQuality && (
           <div>
-            <div className={`${typography.panelMeta} text-text-light font-mono mb-1.5`}>CEE quality scores (1-10)</div>
+            <div className={`${typography.panelMeta} text-text-light font-mono mb-1.5`}>Quality sub-scores (1-10)</div>
             <div className="space-y-1.5">
               <QualityRow label="Overall" score={ceeQuality.overall} />
               <QualityRow label="Structure" score={ceeQuality.structure} />

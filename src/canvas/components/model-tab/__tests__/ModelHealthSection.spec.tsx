@@ -1,5 +1,5 @@
 /**
- * ModelHealthSection — unit tests
+ * ModelHealthSection (Audit) — unit tests
  */
 
 import { describe, it, expect, vi } from 'vitest'
@@ -7,7 +7,6 @@ import { render, screen } from '@testing-library/react'
 import { ModelHealthSection } from '../ModelHealthSection'
 import type { AuditTrailData } from '../ModelHealthSection'
 import { DetailToggleContext } from '../DetailToggleContext'
-import type { Node, Edge } from '@xyflow/react'
 
 vi.mock('../../GraphTextView', () => ({
   SectionErrorBoundary: ({ children }: { children: React.ReactNode }) => <>{children}</>,
@@ -22,27 +21,27 @@ vi.mock('../../../../components/results/Accordion', () => ({
   ),
 }))
 
-vi.mock('../../../utils/evidenceCoverage', () => ({
-  countEdgesWithEvidence: () => ({ evidenced: 0, total: 0 }),
-}))
-
-const makeNode = (id: string): Node => ({
-  id,
-  type: 'factor',
-  position: { x: 0, y: 0 },
-  data: { label: id },
-})
-
-const makeEdge = (id: string, source: string, target: string): Edge => ({
-  id,
-  source,
-  target,
-})
-
 describe('ModelHealthSection', () => {
-  it('renders without crashing', () => {
-    render(<ModelHealthSection nodes={[]} edges={[]} />)
+  it('renders with Audit title', () => {
+    render(<ModelHealthSection />)
     expect(screen.getByTestId('model-health-section')).toBeInTheDocument()
+    expect(screen.getByText('Audit')).toBeInTheDocument()
+  })
+
+  it('shows stability and quality in collapsed view', () => {
+    const auditTrail: AuditTrailData = {
+      seedUsed: null,
+      responseHash: null,
+      nSamples: null,
+      repairsApplied: null,
+      inferenceWarnings: null,
+      recommendationStability: 0.71,
+      autoNoiseApplied: null,
+      stabilityPenaltyFactor: null,
+    }
+    render(<ModelHealthSection auditTrail={auditTrail} ceeQuality={{ overall: 7.2, structure: 8, causality: 6.5, coverage: 7, safety: 7.5 }} />)
+    expect(screen.getByText('71%')).toBeInTheDocument()
+    expect(screen.getByText('7.2 / 10')).toBeInTheDocument()
   })
 
   it('shows root node warning when inference_warnings contain ROOT_NODE_DEFAULT_VALUE', () => {
@@ -59,9 +58,26 @@ describe('ModelHealthSection', () => {
       autoNoiseApplied: null,
       stabilityPenaltyFactor: null,
     }
-    render(<ModelHealthSection nodes={[makeNode('n1')]} edges={[]} auditTrail={auditTrail} />)
+    render(<ModelHealthSection auditTrail={auditTrail} />)
     expect(screen.getByTestId('root-node-warning')).toBeInTheDocument()
     expect(screen.getByText(/2 factors have no value set/)).toBeInTheDocument()
+  })
+
+  it('shows penalty text when stabilityPenaltyFactor < 1.0', () => {
+    const auditTrail: AuditTrailData = {
+      seedUsed: null,
+      responseHash: null,
+      nSamples: null,
+      repairsApplied: null,
+      inferenceWarnings: [
+        { code: 'ROOT_NODE_DEFAULT_VALUE', severity: 'warning', message: 'test' },
+      ],
+      recommendationStability: null,
+      autoNoiseApplied: null,
+      stabilityPenaltyFactor: 0.90,
+    }
+    render(<ModelHealthSection auditTrail={auditTrail} />)
+    expect(screen.getByText(/Penalty: 0.90x stability/)).toBeInTheDocument()
   })
 
   it('does not show root node warning when no inference warnings', () => {
@@ -75,12 +91,11 @@ describe('ModelHealthSection', () => {
       autoNoiseApplied: null,
       stabilityPenaltyFactor: null,
     }
-    render(<ModelHealthSection nodes={[makeNode('n1')]} edges={[]} auditTrail={auditTrail} />)
+    render(<ModelHealthSection auditTrail={auditTrail} />)
     expect(screen.queryByTestId('root-node-warning')).not.toBeInTheDocument()
   })
 
   it('shows audit trail in detail mode', () => {
-    // The DetailToggleContext needs to be provided — our Accordion mock renders children directly
     const auditTrail: AuditTrailData = {
       seedUsed: '325022',
       responseHash: '4d11687e9836abcdef',
@@ -96,12 +111,31 @@ describe('ModelHealthSection', () => {
     }
     render(
       <DetailToggleContext.Provider value={{ showDetail: true }}>
-        <ModelHealthSection nodes={[makeNode('n1')]} edges={[]} auditTrail={auditTrail} />
+        <ModelHealthSection auditTrail={auditTrail} />
       </DetailToggleContext.Provider>
     )
     expect(screen.getByTestId('model-health-audit')).toBeInTheDocument()
     expect(screen.getByText('325022')).toBeInTheDocument()
     expect(screen.getByText('4d11687e9836')).toBeInTheDocument()
     expect(screen.getByText(/DEFAULT_EXISTS_PROBABILITY \(x2\)/)).toBeInTheDocument()
+  })
+
+  it('shows quality sub-scores in detail mode', () => {
+    render(
+      <DetailToggleContext.Provider value={{ showDetail: true }}>
+        <ModelHealthSection ceeQuality={{ overall: 7.2, structure: 8, causality: 6.5, coverage: 7, safety: 7.5 }} />
+      </DetailToggleContext.Provider>
+    )
+    expect(screen.getByTestId('quality-row-overall')).toBeInTheDocument()
+    expect(screen.getByTestId('quality-row-structure')).toBeInTheDocument()
+  })
+
+  it('hides quality sub-scores when detail is off', () => {
+    render(
+      <DetailToggleContext.Provider value={{ showDetail: false }}>
+        <ModelHealthSection ceeQuality={{ overall: 7.2, structure: 8, causality: 6.5, coverage: 7, safety: 7.5 }} />
+      </DetailToggleContext.Provider>
+    )
+    expect(screen.queryByTestId('quality-row-structure')).not.toBeInTheDocument()
   })
 })

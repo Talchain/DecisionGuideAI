@@ -13,11 +13,11 @@ import { ArrowRight } from 'lucide-react'
 import { typography } from '../../../styles/typography'
 import { useCanvasStore } from '../../store'
 import { SectionErrorBoundary } from '../GraphTextView'
+import { Accordion } from '../../../components/results/Accordion'
 import { focusNodeById } from '../../utils/focusHelpers'
 import { formatValueWithUnit, formatSmartNumber } from './utils'
 import { InlineEdit } from './InlineEdit'
 import { DetailToggleContext } from './DetailToggleContext'
-import { CoachingCard } from './CoachingCard'
 
 /** Conditional winner entry from ISL */
 export interface ConditionalWinner {
@@ -240,16 +240,12 @@ function OptionsSectionInner({ optionNodes, allNodes, conditionalWinners, hasAna
   }, [conditionalWinners])
 
   return (
-    <div className="bg-panel border border-panel-border rounded-xl p-3" data-testid="model-options-section">
-      {/* Section header */}
-      <div className="flex items-center gap-2 mb-2">
-        <div className="w-3 h-3 bg-option rounded-sm shrink-0" aria-hidden="true" />
-        <span className={`${typography.panelHeader} text-text-header`}>Options</span>
-        <span className={`inline-flex items-center px-2 py-0.5 rounded-full bg-transparent border border-panel-border text-text-body ${typography.panelMeta} font-medium`}>
-          {optionNodes.length}
-        </span>
-      </div>
-
+    <Accordion
+      title="Options"
+      badgeCount={optionNodes.length}
+      defaultExpanded={false}
+      testId="model-options-section"
+    >
       {optionNodes.map(option => (
         <OptionCard
           key={option.id}
@@ -259,11 +255,7 @@ function OptionsSectionInner({ optionNodes, allNodes, conditionalWinners, hasAna
           hasAnalysisData={hasAnalysisData}
         />
       ))}
-
-      <CoachingCard sectionId="options">
-        Your knowledge of how these budgets perform in your market improves the analysis
-      </CoachingCard>
-    </div>
+    </Accordion>
   )
 }
 

@@ -170,84 +170,8 @@ describe('Source mapping — canonical value preserved', () => {
   })
 })
 
-describe('Attention banner conditions', () => {
-  const fragileEdge = makeEdge('e1', 'f1', 'f2')
-  const robustnessWithFragile = {
-    fragileEdges: [{ edgeId: 'e1', switchProbability: 0.8 }],
-    robustEdges: [],
-    stabilityScore: 0.5,
-  }
-
-  it('is hidden pre-analysis (robustness null)', () => {
-    const nodes = [makeFactorNode('f1', 'Factor'), makeFactorNode('f2', 'Factor 2')]
-    const edges = [fragileEdge]
-    render(<ModelTabBody {...DEFAULT_PROPS} nodes={nodes} edges={edges} robustness={null} />)
-    expect(screen.queryByTestId('model-attention-banner')).not.toBeInTheDocument()
-  })
-
-  it('shows when there are fragile edges post-analysis', () => {
-    const nodes = [makeFactorNode('f1', 'Factor'), makeFactorNode('f2', 'Factor 2')]
-    render(
-      <ModelTabBody
-        {...DEFAULT_PROPS}
-        nodes={nodes}
-        edges={[fragileEdge]}
-        robustness={robustnessWithFragile}
-      />
-    )
-    expect(screen.getByTestId('model-attention-banner')).toBeInTheDocument()
-    expect(screen.getByText(/1 fragile edge/)).toBeInTheDocument()
-  })
-
-  it('shows when factors are missing source post-analysis', () => {
-    const nodes = [makeFactorNode('f1', 'Factor', { source: undefined })]
-    render(
-      <ModelTabBody
-        {...DEFAULT_PROPS}
-        nodes={nodes}
-        edges={[]}
-        robustness={{ fragileEdges: [], robustEdges: [], stabilityScore: 0.9 }}
-      />
-    )
-    expect(screen.getByTestId('model-attention-banner')).toBeInTheDocument()
-    expect(screen.getByText(/1 factor missing source/)).toBeInTheDocument()
-  })
-})
-
-describe('Defaulted-edges warning copy', () => {
-  it('shows accurate count (not "All edges")', () => {
-    // 3 edges with default weight=0.5 + strengthStd=0.125 triggers warning (> 2)
-    const nodes = [
-      makeFactorNode('f1', 'A'),
-      makeFactorNode('f2', 'B'),
-      makeFactorNode('f3', 'C'),
-      makeFactorNode('f4', 'D'),
-    ]
-    const edges = [
-      makeEdge('e1', 'f1', 'f2', { weight: 0.5, strengthStd: 0.125 }),
-      makeEdge('e2', 'f2', 'f3', { weight: 0.5, strengthStd: 0.125 }),
-      makeEdge('e3', 'f3', 'f4', { weight: 0.5, strengthStd: 0.125 }),
-    ]
-    render(
-      <ModelTabBody
-        {...DEFAULT_PROPS}
-        nodes={nodes}
-        edges={edges}
-      />
-    )
-    const warning = screen.getByTestId('model-defaulted-warning')
-    expect(warning.textContent).toMatch(/3 edges use default AI-generated parameters/)
-    // Ensure "All edges" phrase is NOT present
-    expect(warning.textContent).not.toMatch(/All edges/)
-  })
-
-  it('is hidden when defaultedEdgeCount <= 2', () => {
-    const nodes = [makeFactorNode('f1', 'A'), makeFactorNode('f2', 'B')]
-    const edges = [makeEdge('e1', 'f1', 'f2', { weight: 0.5, strengthStd: 0.125 })]
-    render(<ModelTabBody {...DEFAULT_PROPS} nodes={nodes} edges={edges} />)
-    expect(screen.queryByTestId('model-defaulted-warning')).not.toBeInTheDocument()
-  })
-})
+// Attention banner and defaulted-edges warning tests removed —
+// AttentionBanner and StrengthenSection were moved to Analysis tab in tightening brief.
 
 describe('Inline edit — Enter/Escape/blur (value field)', () => {
   // Use factor value field for inline edit tests
@@ -411,36 +335,7 @@ describe('Golden UI test — headline numbers regression guard', () => {
   const allNodes = [goalNode, f1, f2, f3, decision, optA, optB]
   const allEdges = [e1, e2, e3]
 
-  it('connectivity card shows causal node count only (excludes decision + options)', () => {
-    render(
-      <ModelTabBody
-        {...DEFAULT_PROPS}
-        nodes={allNodes}
-        edges={allEdges}
-      />
-    )
-    // Causal nodes: g1, f1, f2, f3 = 4 nodes
-    // Decision + options are excluded from denominator
-    // f3 has no edges → 3 of 4 connected
-    const connectCard = screen.getByText(/of 4/)
-    expect(connectCard).toBeInTheDocument()
-    // Ensure "of 7" (full count) is NOT shown
-    expect(screen.queryByText(/of 7/)).not.toBeInTheDocument()
-  })
-
-  it('evidence coverage count reflects only causal edges', () => {
-    render(
-      <ModelTabBody
-        {...DEFAULT_PROPS}
-        nodes={allNodes}
-        edges={allEdges}
-      />
-    )
-    // e1 has provenance 'user_study' (evidence) — e2 is 'assumption' (no evidence)
-    // e3 is an organisational edge, excluded
-    // So: 1 of 2 causal edges have evidence
-    expect(screen.getByText('1 of 2')).toBeInTheDocument()
-  })
+  // Connectivity and evidence coverage tests removed — ModelSummaryBar replaced by EntityBar.
 
   it('edge likelihood % matches beliefExists * 100', () => {
     render(
@@ -475,33 +370,7 @@ describe('Golden UI test — headline numbers regression guard', () => {
   })
 })
 
-describe('Attention banner — source category split', () => {
-  const postAnalysis = { fragileEdges: [], robustEdges: [], stabilityScore: 0.9 }
-
-  it('shows "AI-estimated" for cee_inference source, not "missing source"', () => {
-    const nodes = [makeFactorNode('f1', 'Revenue', { source: 'cee_inference' })]
-    render(<ModelTabBody {...DEFAULT_PROPS} nodes={nodes} edges={[]} robustness={postAnalysis} />)
-    expect(screen.getByTestId('model-attention-banner')).toBeInTheDocument()
-    expect(screen.getByText(/1 AI-estimated/)).toBeInTheDocument()
-    expect(screen.queryByText(/missing source/)).not.toBeInTheDocument()
-  })
-
-  it('shows "missing source" for truly absent source', () => {
-    const nodes = [makeFactorNode('f1', 'Revenue', { source: undefined })]
-    render(<ModelTabBody {...DEFAULT_PROPS} nodes={nodes} edges={[]} robustness={postAnalysis} />)
-    expect(screen.getByText(/1 factor missing source/)).toBeInTheDocument()
-    expect(screen.queryByText(/AI-estimated/)).not.toBeInTheDocument()
-  })
-
-  it('shows both categories when mixed', () => {
-    const nodes = [
-      makeFactorNode('f1', 'Revenue', { source: undefined }),
-      makeFactorNode('f2', 'Churn', { source: 'cee_inference' }),
-    ]
-    render(<ModelTabBody {...DEFAULT_PROPS} nodes={nodes} edges={[]} robustness={postAnalysis} />)
-    expect(screen.getByText(/1 factor missing source.*1 AI-estimated/)).toBeInTheDocument()
-  })
-})
+// Attention banner source category split tests removed — component moved to Analysis tab.
 
 describe('External factor — range display', () => {
   function makeExternalNode(id: string, label: string, priorMin?: number, priorMax?: number): Node {
@@ -588,122 +457,7 @@ describe('External factor — range display', () => {
   })
 })
 
-describe('Strengthen section — sub-headers and constraint warnings', () => {
-  const fragileRobustness = {
-    fragileEdges: [{ edgeId: 'e1', fromId: 'f1', toId: 'f2', switchProbability: 0.85 }],
-    robustEdges: [],
-    stabilityScore: 0.4,
-  }
-
-  it('shows fragile edges sub-header post-analysis', () => {
-    const nodes = [makeFactorNode('f1', 'Factor A'), makeFactorNode('f2', 'Factor B')]
-    const edges = [makeEdge('e1', 'f1', 'f2')]
-    render(<ModelTabBody {...DEFAULT_PROPS} nodes={nodes} edges={edges} robustness={fragileRobustness} />)
-    expect(screen.getByTestId('strengthen-fragile-edges')).toBeInTheDocument()
-    expect(screen.getByText(/Fragile edges \(1\)/)).toBeInTheDocument()
-  })
-
-  it('shows constraint warning when critique has baseline issue', () => {
-    const nodes = [makeFactorNode('f1', 'Customer churn')]
-    const critique = [
-      { severity: 'WARNING' as const, message: 'constraint targets Customer churn which has no baseline', code: 'CONSTRAINT_NO_BASELINE', node_id: 'f1' },
-    ]
-    render(<ModelTabBody {...DEFAULT_PROPS} nodes={nodes} edges={[]} robustness={null} critique={critique} />)
-    expect(screen.getByTestId('strengthen-constraint-warnings')).toBeInTheDocument()
-    expect(screen.getByText(/Needs attention \(1\)/)).toBeInTheDocument()
-    expect(screen.getByText(/has a constraint but no baseline/)).toBeInTheDocument()
-  })
-
-  it('shows no constraint warnings section when critique is empty', () => {
-    const nodes = [makeFactorNode('f1', 'Factor')]
-    render(<ModelTabBody {...DEFAULT_PROPS} nodes={nodes} edges={[]} robustness={null} critique={[]} />)
-    expect(screen.queryByTestId('strengthen-constraint-warnings')).not.toBeInTheDocument()
-  })
-
-  it('excludes fragile edges from Missing evidence (no double-listing)', () => {
-    const nodes = [
-      makeFactorNode('f1', 'Factor A', { source: 'user' }),
-      makeFactorNode('f2', 'Factor B', { source: 'user' }),
-      makeFactorNode('f3', 'Factor C', { source: 'user' }),
-    ]
-    // e1 is fragile AND lacks evidence; e2 only lacks evidence
-    const edges = [
-      makeEdge('e1', 'f1', 'f2', { provenance: 'assumption' }),
-      makeEdge('e2', 'f2', 'f3', { provenance: 'assumption' }),
-    ]
-    const robustness = {
-      fragileEdges: [{ edgeId: 'e1', fromId: 'f1', toId: 'f2', switchProbability: 0.75 }],
-      robustEdges: [],
-      stabilityScore: 0.4,
-    }
-    render(<ModelTabBody {...DEFAULT_PROPS} nodes={nodes} edges={edges} robustness={robustness} />)
-
-    // e1 should appear in fragile edges section
-    expect(screen.getByTestId('strengthen-fragile-edges')).toBeInTheDocument()
-
-    // Missing evidence should only show e2, not e1
-    const missingEvidence = screen.getByTestId('strengthen-missing-evidence')
-    expect(missingEvidence).toBeInTheDocument()
-    // Count should reflect de-duplication: only e2 (1 edge), not e1+e2 (2 edges)
-    expect(missingEvidence).toHaveTextContent('Missing evidence (1)')
-  })
-
-  it('renders Strengthen sections in priority order: constraint → fragile → missing evidence', () => {
-    const nodes = [
-      makeFactorNode('f1', 'Factor A', { source: undefined }),
-      makeFactorNode('f2', 'Factor B'),
-      makeFactorNode('f3', 'Factor C'),
-    ]
-    const edges = [
-      makeEdge('e1', 'f1', 'f2', { provenance: 'assumption' }),
-      makeEdge('e2', 'f2', 'f3', { provenance: 'assumption' }),
-    ]
-    const robustness = {
-      fragileEdges: [{ edgeId: 'e2', fromId: 'f2', toId: 'f3', switchProbability: 0.8 }],
-      robustEdges: [],
-      stabilityScore: 0.4,
-    }
-    const critique = [
-      { severity: 'WARNING' as const, message: 'constraint no baseline', code: 'CONSTRAINT_NO_BASELINE', node_id: 'f2' },
-    ]
-    render(<ModelTabBody {...DEFAULT_PROPS} nodes={nodes} edges={edges} robustness={robustness} critique={critique} />)
-
-    const strengthenSection = screen.getByTestId('model-strengthen-section')
-    const html = strengthenSection.innerHTML
-
-    // Constraint warnings should appear before fragile edges, which should appear before missing evidence
-    const constraintPos = html.indexOf('strengthen-constraint-warnings')
-    const fragilePos = html.indexOf('strengthen-fragile-edges')
-    const missingPos = html.indexOf('strengthen-missing-evidence')
-
-    expect(constraintPos).toBeGreaterThan(-1)
-    expect(fragilePos).toBeGreaterThan(-1)
-    expect(missingPos).toBeGreaterThan(-1)
-    expect(constraintPos).toBeLessThan(fragilePos)
-    expect(fragilePos).toBeLessThan(missingPos)
-  })
-})
-
-describe('Attention banner — no defaulted-edges bucket', () => {
-  it('does not show "edges with default values" in the attention banner', () => {
-    const nodes = [
-      makeFactorNode('f1', 'A', { source: 'user' }),
-      makeFactorNode('f2', 'B', { source: 'user' }),
-      makeFactorNode('f3', 'C', { source: 'user' }),
-      makeFactorNode('f4', 'D', { source: 'user' }),
-    ]
-    // 3 defaulted edges (weight=0.5, strengthStd=0.125)
-    const edges = [
-      makeEdge('e1', 'f1', 'f2', { weight: 0.5, strengthStd: 0.125 }),
-      makeEdge('e2', 'f2', 'f3', { weight: 0.5, strengthStd: 0.125 }),
-      makeEdge('e3', 'f3', 'f4', { weight: 0.5, strengthStd: 0.125 }),
-    ]
-    const robustness = { fragileEdges: [], robustEdges: [], stabilityScore: 0.9 }
-    render(<ModelTabBody {...DEFAULT_PROPS} nodes={nodes} edges={edges} robustness={robustness} />)
-    // Banner should NOT appear (no missing source, no AI-estimated, no fragile edges)
-    expect(screen.queryByTestId('model-attention-banner')).not.toBeInTheDocument()
-  })
-})
+// Strengthen section and attention banner tests removed — components moved to Analysis tab.
 
 describe('Inline edit — hover affordance classes', () => {
   it('has cursor-text, hover:bg-panel-hover, and hover:border-panel-border on display element', () => {
@@ -828,7 +582,6 @@ describe('DS v4 contract: section header icons are plain (no badge container)', 
     // Sections are now in new components — verify they render
     expect(screen.getByTestId('model-factors-section')).toBeInTheDocument()
     expect(screen.getByTestId('model-relationships-section')).toBeInTheDocument()
-    expect(screen.getByTestId('model-strengthen-section')).toBeInTheDocument()
   })
 })
 

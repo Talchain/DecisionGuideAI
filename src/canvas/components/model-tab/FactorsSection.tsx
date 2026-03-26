@@ -24,7 +24,6 @@ import { InlineEdit } from './InlineEdit'
 import { SourceProvenancePill } from './SourceProvenancePill'
 import { DataBar } from '../../ui/shared/DataBar'
 import { DetailToggleContext } from './DetailToggleContext'
-import { CoachingCard } from './CoachingCard'
 import type { ObservedState, FactorInfluenceMap } from './types'
 
 // ── Category badge ─────────────────────────────────────────────────────────────
@@ -346,20 +345,15 @@ function FactorCard({
 
           {/* EVPI chip (post-analysis only) */}
           {hasAnalysisData && evpiPp != null && (
-            <>
-              <div
-                className="flex items-start gap-1.5 mt-1.5 p-2 rounded-lg bg-info/[0.06] border border-info/25"
-                data-testid={`factor-${node.id}-evpi`}
-              >
-                <Info className="w-3.5 h-3.5 text-info shrink-0 mt-0.5" aria-hidden="true" />
-                <span className={`${typography.panelMeta} text-info leading-relaxed`}>
-                  Worth {evpiPp}pp if resolved: your knowledge of {label} would improve confidence by {evpiPp} percentage points
-                </span>
-              </div>
-              <CoachingCard sectionId={`factor-${node.id}`}>
-                What's your best estimate of {label}? Your experience is more reliable than the AI's assumption.
-              </CoachingCard>
-            </>
+            <div
+              className="flex items-start gap-1.5 mt-1.5 p-2 rounded-lg bg-info/[0.06] border border-info/25"
+              data-testid={`factor-${node.id}-evpi`}
+            >
+              <Info className="w-3.5 h-3.5 text-info shrink-0 mt-0.5" aria-hidden="true" />
+              <span className={`${typography.panelMeta} text-info leading-relaxed`}>
+                Worth {evpiPp}pp if resolved: your knowledge of {label} would improve confidence by {evpiPp} percentage points
+              </span>
+            </div>
           )}
         </div>
       )}

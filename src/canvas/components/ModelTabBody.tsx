@@ -1,17 +1,8 @@
 /**
- * ModelTabBody — redesigned "Model" tab for the outputs dock (v2)
+ * ModelTabBody — "Model" tab for the outputs dock.
  *
- * Tasks implemented:
- *  1. Goal headline at top
- *  2. Node breakdown colour bar (6px, 1px gaps)
- *  3. Health summary cards (connectivity + evidence coverage)
- *  4. Attention banner (post-analysis only, fragile/missing-source/default)
- *  5. Factor cards — human-readable values, source mapping, external prior
- *  6. Edge cards — Likelihood label, helps/hurts chips, provenance row, clickable labels
- *  7. Options/Risks/Outcomes collapsed reference section
- *  8. Strengthen section with canonical evidence counting
- *  9. Footer: search + Copy as text
- * 10. Inline editing mechanics (click → edit, blur/Enter saves, Escape cancels)
+ * Sections: Goal · Options (collapsed) · Factors · Relationships · Risks (collapsed) · Audit (collapsed)
+ * Above sections: StatusBar (actionable counts) + EntityBar (node composition).
  *
  * Typography: panelHeader (14px/600) · panelBody (12px/400) · panelMeta (11px/400)
  * British English throughout. Sentence case.
@@ -29,7 +20,6 @@ import { useCanvasStore } from '../store'
 import { getDisplayEdgeId, buildFragileEdgeLookup } from '../utils/edgeIdentity'
 import { SectionErrorBoundary } from './GraphTextView'
 import type { MappedRobustness } from '../../lib/mappers/types'
-import type { CritiqueItemV1 } from '../../adapters/plot/types'
 import { typography } from '../../styles/typography'
 import { isModelCardLiteEnabled } from '../../flags'
 import { ModelCardLite } from './ModelCardLite'
@@ -45,10 +35,9 @@ import { RisksSection } from './model-tab/RisksSection'
 import { ModelHealthSection } from './model-tab/ModelHealthSection'
 import { ModelTabHeader } from './model-tab/ModelTabHeader'
 import { ReanalyseBar } from './model-tab/ReanalyseBar'
-import { StrengthenSection } from './model-tab/StrengthenSection'
-import { ModelSummaryBar } from './model-tab/ModelSummaryBar'
 import { ModelFooter } from './model-tab/ModelFooter'
-import { AttentionBanner } from './model-tab/AttentionBanner'
+import { StatusBar } from './model-tab/StatusBar'
+import { EntityBar } from './model-tab/EntityBar'
 import { StreamingDiagnostics } from './model-tab/StreamingDiagnostics'
 import { buildSynthesisedPriorMap } from './model-tab/synthesisedPriorHelpers'
 
@@ -65,8 +54,6 @@ interface ModelTabBodyProps {
   nodes: Node[]
   edges: Edge[]
   robustness: MappedRobustness | null
-  /** PLoT critique items — used to surface constraint warnings in Strengthen */
-  critique?: CritiqueItemV1[] | null
   /** Factor influence map from PLoT enrichment — keyed by node ID */
   factorInfluence?: Map<string, number>
   /** Trigger analysis re-run */
@@ -106,7 +93,6 @@ export const ModelTabBody = memo(function ModelTabBody({
   nodes,
   edges,
   robustness,
-  critique,
   factorInfluence,
   onReanalyse,
   ceeQuality,
@@ -309,14 +295,6 @@ export const ModelTabBody = memo(function ModelTabBody({
     [edges, decisionOptionIds]
   )
 
-  // ── Causal nodes (exclude organisational: decision, option) ───────────────
-  // Used for connectivity card — these are the nodes that participate in analysis
-
-  const causalNodes = useMemo(
-    () => nodes.filter(n => !decisionOptionIds.has(n.id)),
-    [nodes, decisionOptionIds]
-  )
-
   // ── Robustness data ───────────────────────────────────────────────────────
 
   const hasRobustnessData = robustness !== null
@@ -337,25 +315,15 @@ export const ModelTabBody = memo(function ModelTabBody({
     return map
   }, [fragileLookup])
 
-  // ── Attention banner (post-analysis only) ─────────────────────────────────
-
-  // Truly missing: null/undefined/empty string (excludes AI-estimated)
-  const factorsTrulyMissingSource = useMemo(() => {
-    return grouped.factor.filter(n => {
-      const obs = (n.data as any)?.observedState ?? (n.data as any)?.observed_state
-      return !obs?.source
-    }).length
-  }, [grouped.factor])
-
-  // AI-estimated: source is 'cee_inference' — less severe than truly missing
-  const factorsAiEstimated = useMemo(() => {
-    return grouped.factor.filter(n => {
-      const obs = (n.data as any)?.observedState ?? (n.data as any)?.observed_state
-      return obs?.source === 'cee_inference'
-    }).length
-  }, [grouped.factor])
-
   const fragileEdgeCount = hasRobustnessData ? fragileEdgeIds.size : 0
+
+  // Count factors needing verification (cee_inference or no source)
+  const factorsToVerify = useMemo(() => {
+    return grouped.factor.filter(n => {
+      const obs = (n.data as any)?.observedState ?? (n.data as any)?.observed_state
+      return !obs?.source || obs?.source === 'cee_inference'
+    }).length
+  }, [grouped.factor])
 
   // ── Factor sort: needs-attention first, then alpha ─────────────────────────
 
@@ -537,11 +505,23 @@ export const ModelTabBody = memo(function ModelTabBody({
         contestedCount={contestedPendingCount > 0 ? contestedPendingCount : undefined}
         sortNote={hasRobustnessData && evpiMap.size > 0 ? 'ranked by EVPI' : hasRobustnessData ? undefined : 'alphabetical'}
       >
-        {/* ── Goal section ──────────────────────────────────────────────── */}
+        {/* ── Status bar ─────────────────────────────────────────────── */}
+        <StatusBar
+          factorsToVerify={factorsToVerify}
+          fragileEdgeCount={fragileEdgeCount}
+          contestedCount={contestedPendingCount}
+          evpiMap={evpiMap}
+          recommendationStability={robustness?.recommendationStability}
+          hasAnalysisData={hasRobustnessData}
+        />
+
+        {/* ── Entity composition bar ─────────────────────────────────── */}
+        <EntityBar grouped={grouped} totalCount={nodes.length} />
+
+        {/* ── Sections ───────────────────────────────────────────────── */}
         <div className="space-y-4">
           <GoalSection goalNode={grouped.goal[0]} />
 
-          {/* ── Options section ─────────────────────────────────────────── */}
           <OptionsSection
             optionNodes={grouped.option}
             allNodes={nodes}
@@ -549,7 +529,6 @@ export const ModelTabBody = memo(function ModelTabBody({
             hasAnalysisData={hasRobustnessData}
           />
 
-          {/* ── Factors section ─────────────────────────────────────────── */}
           <FactorsSection
             factorNodes={grouped.factor}
             factorInfluence={factorInfluence}
@@ -563,7 +542,6 @@ export const ModelTabBody = memo(function ModelTabBody({
             hasAnalysisData={hasRobustnessData}
           />
 
-          {/* ── Relationships section ───────────────────────────────────── */}
           <RelationshipsSection
             edges={causalEdges}
             nodes={nodes}
@@ -576,64 +554,14 @@ export const ModelTabBody = memo(function ModelTabBody({
             edgeRepairsMap={edgeRepairsMap}
           />
 
-          {/* ── Risks section ───────────────────────────────────────────── */}
           <RisksSection riskNodes={grouped.risk} allNodes={nodes} edges={edges} />
 
-          {/* ── Model health section (collapsed) ────────────────────────── */}
           <ModelHealthSection
-            nodes={causalNodes}
-            edges={causalEdges}
-            fragileEdgeCount={fragileEdgeCount}
             ceeQuality={ceeQuality}
             auditTrail={auditTrail}
-            critique={critique}
           />
-
-          {/* ── "Something missing?" CTA ──────────────────────────────── */}
-          <div className="bg-panel-hover border border-panel-border rounded-lg p-3 flex items-center gap-3">
-            <span className={`${typography.panelBody} text-text-body flex-1`}>
-              Missing a factor or relationship?
-            </span>
-            <button
-              type="button"
-              onClick={() => {
-                const input = document.querySelector<HTMLElement>('[data-testid="chat-input"]')
-                if (input) input.focus()
-              }}
-              className={`inline-flex items-center px-3.5 py-1.5 rounded-full border border-info/30 bg-transparent text-info ${typography.panelMeta} font-medium hover:bg-panel transition-colors whitespace-nowrap`}
-            >
-              Tell the AI
-            </button>
-          </div>
         </div>
       </ModelTabHeader>
-
-      {/* ── Model summary bar (breakdown + health cards) ─────────────────────── */}
-      <ModelSummaryBar
-        nodes={nodes}
-        causalEdges={causalEdges}
-        causalNodes={causalNodes}
-        grouped={grouped}
-      />
-
-      {/* ── Attention banner (post-analysis only) ─────────────────────────── */}
-      {hasRobustnessData && (
-        <AttentionBanner
-          factorsTrulyMissingSource={factorsTrulyMissingSource}
-          factorsAiEstimated={factorsAiEstimated}
-          fragileEdgeCount={fragileEdgeCount}
-        />
-      )}
-
-      {/* ── Strengthen section ────────────────────────────────────────────── */}
-      <StrengthenSection
-        nodes={nodes}
-        causalEdges={causalEdges}
-        fragileEdgeIds={fragileEdgeIds}
-        fragileEdgeSwitchProbMap={fragileEdgeSwitchProbMap}
-        hasRobustnessData={hasRobustnessData}
-        critique={critique}
-      />
 
       {/* ── Streaming diagnostics (Shift+D) ───────────────────────────────── */}
       <StreamingDiagnostics
