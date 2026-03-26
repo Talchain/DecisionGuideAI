@@ -11,7 +11,6 @@
 
 import { useContext, useMemo } from 'react'
 import type { Node, Edge } from '@xyflow/react'
-import { AlertTriangle } from 'lucide-react'
 import { typography } from '../../../styles/typography'
 import { SectionErrorBoundary } from '../GraphTextView'
 import { Accordion } from '../../../components/results/Accordion'

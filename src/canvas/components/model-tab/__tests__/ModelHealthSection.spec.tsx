@@ -13,9 +13,10 @@ vi.mock('../../GraphTextView', () => ({
 }))
 
 vi.mock('../../../../components/results/Accordion', () => ({
-  Accordion: ({ children, title, testId }: { children: React.ReactNode; title: string; testId?: string }) => (
+  Accordion: ({ children, title, tierLabel, testId }: { children: React.ReactNode; title: string; tierLabel?: string; testId?: string }) => (
     <div data-testid={testId}>
       <span>{title}</span>
+      {tierLabel && <span data-testid="accordion-tier-label">{tierLabel}</span>}
       {children}
     </div>
   ),
@@ -28,7 +29,7 @@ describe('ModelHealthSection', () => {
     expect(screen.getByText('Audit')).toBeInTheDocument()
   })
 
-  it('shows stability and quality in collapsed view', () => {
+  it('shows stability and quality in accordion header (visible when collapsed)', () => {
     const auditTrail: AuditTrailData = {
       seedUsed: null,
       responseHash: null,
@@ -40,8 +41,9 @@ describe('ModelHealthSection', () => {
       stabilityPenaltyFactor: null,
     }
     render(<ModelHealthSection auditTrail={auditTrail} ceeQuality={{ overall: 7.2, structure: 8, causality: 6.5, coverage: 7, safety: 7.5 }} />)
-    expect(screen.getByText('71%')).toBeInTheDocument()
-    expect(screen.getByText('7.2 / 10')).toBeInTheDocument()
+    const tierLabel = screen.getByTestId('accordion-tier-label')
+    expect(tierLabel).toHaveTextContent('71% stability')
+    expect(tierLabel).toHaveTextContent('7.2 / 10')
   })
 
   it('shows root node warning when inference_warnings contain ROOT_NODE_DEFAULT_VALUE', () => {
@@ -120,14 +122,18 @@ describe('ModelHealthSection', () => {
     expect(screen.getByText(/DEFAULT_EXISTS_PROBABILITY \(x2\)/)).toBeInTheDocument()
   })
 
-  it('shows quality sub-scores in detail mode', () => {
+  it('shows quality sub-scores (without Overall) in detail mode', () => {
     render(
       <DetailToggleContext.Provider value={{ showDetail: true }}>
         <ModelHealthSection ceeQuality={{ overall: 7.2, structure: 8, causality: 6.5, coverage: 7, safety: 7.5 }} />
       </DetailToggleContext.Provider>
     )
-    expect(screen.getByTestId('quality-row-overall')).toBeInTheDocument()
+    // Overall is in the accordion header, not in the detail sub-scores
+    expect(screen.queryByTestId('quality-row-overall')).not.toBeInTheDocument()
     expect(screen.getByTestId('quality-row-structure')).toBeInTheDocument()
+    expect(screen.getByTestId('quality-row-causality')).toBeInTheDocument()
+    expect(screen.getByTestId('quality-row-coverage')).toBeInTheDocument()
+    expect(screen.getByTestId('quality-row-safety')).toBeInTheDocument()
   })
 
   it('hides quality sub-scores when detail is off', () => {

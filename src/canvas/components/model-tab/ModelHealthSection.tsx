@@ -105,32 +105,25 @@ function ModelHealthSectionInner({
     ).join(', ')
   }, [auditTrail?.repairsApplied])
 
-  // Collapsed summary: stability + overall quality
-  const stabilityPct = auditTrail?.recommendationStability != null
-    ? `${Math.round(auditTrail.recommendationStability * 100)}%`
+  // Collapsed summary visible in accordion header via tierLabel
+  const stabilityLabel = auditTrail?.recommendationStability != null
+    ? `${Math.round(auditTrail.recommendationStability * 100)}% stability`
     : null
-  const overallQuality = ceeQuality?.overall != null
+  const qualityLabel = ceeQuality?.overall != null
     ? `${ceeQuality.overall.toFixed(1)} / 10`
     : null
+  // Combine into a single header summary: "71% stability · 7.2 / 10"
+  const headerSummary = [stabilityLabel, qualityLabel].filter(Boolean).join(' · ') || undefined
 
   return (
     <Accordion
       title="Audit"
+      tierLabel={headerSummary}
+      tierVariant={headerSummary ? 'fair' : undefined}
       defaultExpanded={false}
       testId="model-health-section"
     >
       <div className="space-y-2.5">
-        {/* Collapsed summary metrics (always visible when expanded) */}
-        {(stabilityPct || overallQuality) && (
-          <div className="flex gap-4">
-            {stabilityPct && (
-              <StatRow label="Stability" value={stabilityPct} />
-            )}
-            {overallQuality && (
-              <StatRow label="Quality" value={overallQuality} />
-            )}
-          </div>
-        )}
 
         {/* Root node warnings */}
         {rootNodeWarningCount > 0 && (
@@ -148,12 +141,11 @@ function ModelHealthSectionInner({
           </div>
         )}
 
-        {/* CEE quality sub-scores (full detail) */}
+        {/* CEE quality sub-scores (full detail — Overall is in the header) */}
         {showDetail && ceeQuality && (
           <div>
             <div className={`${typography.panelMeta} text-text-light font-mono mb-1.5`}>Quality sub-scores (1-10)</div>
             <div className="space-y-1.5">
-              <QualityRow label="Overall" score={ceeQuality.overall} />
               <QualityRow label="Structure" score={ceeQuality.structure} />
               <QualityRow label="Causality" score={ceeQuality.causality} />
               <QualityRow label="Coverage" score={ceeQuality.coverage} />
