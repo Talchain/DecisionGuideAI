@@ -55,27 +55,6 @@ function QualityRow({ label, score }: { label: string; score: number }) {
   )
 }
 
-// ── Stat row ───────────────────────────────────────────────────────────────────
-
-function StatRow({ label, value, subtext, colour }: {
-  label: string
-  value: string
-  subtext?: string
-  colour?: string
-}) {
-  return (
-    <div className="flex items-center justify-between gap-2">
-      <span className={`${typography.panelMeta} text-text-light`}>{label}</span>
-      <div className="flex items-center gap-1.5">
-        {subtext && (
-          <span className={`${typography.panelMeta} ${colour ?? 'text-text-light'}`}>{subtext}</span>
-        )}
-        <span className={`${typography.panelMeta} text-text-body font-medium`}>{value}</span>
-      </div>
-    </div>
-  )
-}
-
 // ── Section inner ──────────────────────────────────────────────────────────────
 
 function ModelHealthSectionInner({
