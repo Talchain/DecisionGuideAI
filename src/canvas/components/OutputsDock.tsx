@@ -1367,8 +1367,7 @@ export function OutputsDock() {
                     actionLabel="Confirm decision"
                     onAction={() => {
                       // Placeholder: decision brief generation endpoint not yet available
-                      // eslint-disable-next-line no-alert
-                      window.alert('Decision confirmed. Decision brief coming soon.')
+                      window.alert('Decision confirmed. Decision brief coming soon.') // eslint-disable-line no-alert
                     }}
                     actionDisabled={(() => {
                       const stability = resultsSectionData?.recommendation?.recommendationStability ?? 0
