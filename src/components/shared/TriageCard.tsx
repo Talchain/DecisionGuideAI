@@ -72,7 +72,7 @@ function CompactTriageCard({ title, ordinal, category, influence, evoiImpact, on
 
   return (
     <div
-      className="flex items-center gap-2 px-3 py-2 rounded-lg border border-panel-border hover:bg-panel-hover cursor-pointer"
+      className="flex items-center gap-2 px-3 min-h-[44px] rounded-lg border border-panel-border hover:bg-panel-hover cursor-pointer"
       onMouseEnter={() => {
         if (action?.targetId && onHoverEnter) {
           onHoverEnter(action.targetType ?? 'node', action.targetId)
@@ -80,7 +80,7 @@ function CompactTriageCard({ title, ordinal, category, influence, evoiImpact, on
       }}
       onMouseLeave={() => onHoverLeave?.()}
     >
-      <span className={`flex-shrink-0 w-4 h-4 rounded-full ${BADGE_COLORS[category]} text-white ${typography.panelMeta} flex items-center justify-center`} style={{ fontSize: '9px' }}>
+      <span className={`flex-shrink-0 w-4 h-4 rounded-full ${BADGE_COLORS[category]} text-white flex items-center justify-center ${typography.panelMeta}`}>
         {ordinal}
       </span>
       <span className={`flex-1 min-w-0 truncate ${typography.panelBody} text-text-body`}>{title}</span>
@@ -183,7 +183,7 @@ export function TriageCard(props: TriageCardProps) {
             <button
               type="button"
               onClick={() => onConfirm(action.targetId!)}
-              className={`px-2 py-1 rounded ${typography.panelMeta} text-success border border-success/30 hover:bg-panel-hover cursor-pointer`}
+              className={`min-h-[44px] px-3 rounded ${typography.panelMeta} text-success border border-success/30 hover:bg-panel-hover cursor-pointer`}
             >
               <span className="flex items-center gap-1"><Check size={12} /> Confirm</span>
             </button>
@@ -192,7 +192,7 @@ export function TriageCard(props: TriageCardProps) {
             <button
               type="button"
               onClick={() => onEdit(action.targetId!)}
-              className={`px-2 py-1 rounded ${typography.panelMeta} text-info border border-info/30 hover:bg-panel-hover cursor-pointer`}
+              className={`min-h-[44px] px-3 rounded ${typography.panelMeta} text-info border border-info/30 hover:bg-panel-hover cursor-pointer`}
             >
               <span className="flex items-center gap-1"><Pencil size={12} /> Edit</span>
             </button>
@@ -201,7 +201,7 @@ export function TriageCard(props: TriageCardProps) {
             <button
               type="button"
               onClick={() => setIsEditing(true)}
-              className={`px-2 py-1 rounded ${typography.panelMeta} text-info border border-info/30 hover:bg-panel-hover cursor-pointer`}
+              className={`min-h-[44px] px-3 rounded ${typography.panelMeta} text-info border border-info/30 hover:bg-panel-hover cursor-pointer`}
             >
               Set value
             </button>
