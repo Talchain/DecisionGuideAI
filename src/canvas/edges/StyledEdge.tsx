@@ -456,7 +456,8 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
 
   // C1: Only show causal label when selected, hovered, has suggestion, is first edge with hint, or is top-strength edge
   // Structural edges (decision→option) never show causal labels
-  const showLabel = !isNonCausalEdge && (selected || isHovered || hasSuggestion || (isFirstEdge && showEdgeHint) || isTopStrengthEdge)
+  // Decision view: no labels (Phase 1 — edges show colour only)
+  const showLabel = viewMode !== 'decision' && !isNonCausalEdge && (selected || isHovered || hasSuggestion || (isFirstEdge && showEdgeHint) || isTopStrengthEdge)
 
   // Causal lens: hide structural edges entirely
   if (isLensHidden) return null
@@ -601,7 +602,8 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
       )}
 
       {/* Decision Graph Display v2 Task 3 + Task D: Direction sign indicator (single, near target) */}
-      {direction && lensMode !== 'causal' && (
+      {/* Decision view: hidden — direction conveyed by edge colour only (Phase 1) */}
+      {viewMode !== 'decision' && direction && lensMode !== 'causal' && (
         <EdgeLabelRenderer>
           <div
             style={{
@@ -622,8 +624,9 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
         </EdgeLabelRenderer>
       )}
 
-      {/* Decision Graph Display v2 Task 4: Fragile edge warning badge (Results mode only) */}
-      {isFragileEdge && (
+      {/* Decision Graph Display v2 Task 4: Fragile edge warning badge (Results mode, Model view only) */}
+      {/* Decision view: no fragile badges (Phase 1) */}
+      {viewMode !== 'decision' && isFragileEdge && (
         <EdgeLabelRenderer>
           <div
             style={{

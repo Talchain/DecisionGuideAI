@@ -104,17 +104,6 @@ export const OptionNode = memo((props: NodeProps) => {
     return !!(ceeOption?.interventions && Object.keys(ceeOption.interventions).length > 0)
   }, [ceeAnalysisReady, props.id])
 
-  // Decision view pre-analysis: brief summary of what changes
-  const decisionViewSummary = useMemo(() => {
-    if (viewMode !== 'decision' || interventionChips.length === 0) return null
-    const changed = interventionChips.filter(c => {
-      // Show factors that differ from baseline (non-zero for binary, non-trivial otherwise)
-      return true // all top-3 chips are meaningful
-    })
-    if (changed.length === 0) return null
-    return changed.map(c => c.label).join(', ')
-  }, [viewMode, interventionChips])
-
   // T: Detect if this option is the baseline (status quo). Baseline options show
   // absolute values; non-baseline options show "baseline → target (+X%)" deltas.
   const isBaselineOption = useMemo(() => {
@@ -179,6 +168,27 @@ export const OptionNode = memo((props: NodeProps) => {
     }
     return result
   }, [ceeAnalysisReady])
+
+  // Decision view pre-analysis: brief summary of what changes
+  // Brief: "list factors where intervention differs from baseline, show factor name + short value"
+  const decisionViewSummary = useMemo(() => {
+    if (viewMode !== 'decision' || interventionChips.length === 0) return null
+    // Filter to only factors that differ from baseline
+    const changed = interventionChips.filter(c => {
+      const baselineVal = baselineOptionInterventions?.[c.factorId] ?? c.observedValue
+      if (baselineVal === undefined) return true // no baseline to compare — show it
+      return Math.abs(c.value - baselineVal) >= 1e-6
+    })
+    if (changed.length === 0) return null
+    // Format as "Label value, Label value"
+    return changed.map(c => {
+      const isBinary = binaryFactorIds.has(c.factorId)
+      const shortVal = isBinary
+        ? (c.value === 1 ? 'on' : c.value === 0 ? 'off' : formatInterventionValue(c.value, c.unit, c.factorType, c.cap, c.observedValue, c.observedRawValue))
+        : formatInterventionValue(c.value, c.unit, c.factorType, c.cap, c.observedValue, c.observedRawValue)
+      return `${c.label} ${shortVal}`
+    }).join(', ')
+  }, [viewMode, interventionChips, baselineOptionInterventions, binaryFactorIds])
 
   const handleMouseEnter = useMemo(() => () => {
     if (hasInterventions) setHoveredOption(props.id)
@@ -332,8 +342,8 @@ export const OptionNode = memo((props: NodeProps) => {
           </div>
         )}
 
-        {/* Coaching: winner chips (post-analysis) */}
-        {displayMetadata.isResultsMode && isRecommended && (
+        {/* Coaching: winner chips (post-analysis, Model view only) */}
+        {viewMode === 'model' && displayMetadata.isResultsMode && isRecommended && (
           <CoachingCard
             severity="info"
             message=""
@@ -344,8 +354,8 @@ export const OptionNode = memo((props: NodeProps) => {
           />
         )}
 
-        {/* Coaching: non-winner chip (post-analysis) */}
-        {displayMetadata.isResultsMode && !isRecommended && displayMetadata.winRate !== null && (
+        {/* Coaching: non-winner chip (post-analysis, Model view only) */}
+        {viewMode === 'model' && displayMetadata.isResultsMode && !isRecommended && displayMetadata.winRate !== null && (
           <CoachingCard
             severity="info"
             message=""

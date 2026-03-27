@@ -252,7 +252,7 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
         cursor-default
         ${selected ? 'ring-2 ring-info ring-offset-2' : ''}
         ${isHighlighted ? 'ring-4 ring-goal/50' : ''}
-        ${isLensDimmed ? 'opacity-20' : isDimmed ? 'opacity-40' : viewMode === 'decision' && nodeType === 'factor' && (typeof displayMetadata.sensitivityRank !== 'number' || displayMetadata.sensitivityRank > 3) ? 'opacity-40' : ''}
+        ${isLensDimmed ? 'opacity-20' : isDimmed ? 'opacity-40' : viewMode === 'decision' && nodeType === 'factor' && ((data?.category as string) === 'external' || typeof displayMetadata.sensitivityRank !== 'number' || displayMetadata.sensitivityRank > 3) ? 'opacity-40' : ''}
       `}
       style={{
         backgroundColor: evidenceBgStyle ?? '#FEFEFE',

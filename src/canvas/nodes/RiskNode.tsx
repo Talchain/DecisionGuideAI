@@ -52,25 +52,47 @@ export const RiskNode = memo((props: NodeProps) => {
     }
   }, [edges, nodes, props.id])
 
+  const report = useCanvasStore(state => state.results.report)
+
   // Phase 4: "Driven by" — top 2 factors by inbound edge weight (Model view, post-analysis)
+  // Include sensitivity rank when available, e.g. "Feature release (#1), Pro price (#2)"
   const drivenBy = useMemo(() => {
     if (viewMode !== 'model' || resultsStatus !== 'complete') return null
+    // Build rank lookup from factor_sensitivity (aligned with useNodeDisplayMetadata ranking)
+    const sensitivity = (report as any)?.enrichment?.sensitivity_analysis?.factors
+      ?? (report as any)?.factor_sensitivity ?? []
+    const rankById = new Map<string, number>()
+    if (Array.isArray(sensitivity)) {
+      const sorted = [...sensitivity]
+        .map((f: any) => ({
+          id: (f.factor_id || f.factorId || f.node_id || f.nodeId) as string | undefined,
+          elasticity: Math.abs(f.elasticity ?? f.sensitivity_score ?? f.importance_score ?? 0),
+        }))
+        .sort((a, b) => b.elasticity !== a.elasticity
+          ? b.elasticity - a.elasticity
+          : (a.id ?? '').localeCompare(b.id ?? ''))
+      sorted.forEach((f, i) => { if (f.id) rankById.set(f.id, i + 1) })
+    }
     const inbound = edges
       .filter(e => e.target === props.id)
       .map(e => {
         const sourceNode = nodes.find(n => n.id === e.source)
         const w = (e.data as any)?.weight as number | undefined
-        return { label: (sourceNode?.data?.label as string | undefined) ?? null, weight: w ?? 0 }
+        const rank = rankById.get(e.source)
+        return { label: (sourceNode?.data?.label as string | undefined) ?? null, weight: w ?? 0, rank }
       })
       .filter(e => e.label)
       .sort((a, b) => Math.abs(b.weight) - Math.abs(a.weight))
       .slice(0, 2)
-    return inbound.length > 0 ? inbound.map(e => e.label!).join(', ') : null
-  }, [viewMode, resultsStatus, edges, nodes, props.id])
+    return inbound.length > 0
+      ? inbound.map(e => e.rank ? `${e.label} (#${e.rank})` : e.label!).join(', ')
+      : null
+  }, [viewMode, resultsStatus, edges, nodes, props.id, report])
 
   return (
     <BaseNode {...props} data={cleanedData} nodeType="risk" icon={metadata.icon}>
-      {severity && (
+      {/* Severity pill (Model view only — Decision view shows name + contribution % only) */}
+      {viewMode === 'model' && severity && (
         <div
           className={`${severityColors.bg} ${severityColors.border} ${severityColors.text} border rounded px-2 py-1 ${typography.nodeTitle} mb-2`}
           style={{ textAlign: 'center' }}
