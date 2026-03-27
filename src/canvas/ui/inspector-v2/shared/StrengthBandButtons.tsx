@@ -6,7 +6,7 @@
  * preserving the current direction sign. The active band is highlighted.
  *
  * Thresholds align with inspectorStrings.ts getStrengthLabel():
- *   Very strong >= 0.60, Strong >= 0.25, Moderate >= 0.05, Slight < 0.05
+ *   Very strong >= 0.70, Strong >= 0.40, Moderate >= 0.20, Slight < 0.20
  */
 
 import { memo, useMemo, useCallback } from 'react'
@@ -66,7 +66,7 @@ export const StrengthBandButtons = memo(function StrengthBandButtons({
             onClick={() => handleClick(band.midpoint)}
             className={`${typography.panelMeta} px-2 py-0.5 rounded-full bg-transparent border transition-colors
               ${isActive
-                ? 'border-info/50 text-info font-medium'
+                ? 'border-primary/50 text-primary font-medium'
                 : 'border-panel-border text-text-body hover:border-text-light'
               }`}
             aria-pressed={isActive}

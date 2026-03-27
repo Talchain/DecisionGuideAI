@@ -94,7 +94,80 @@ export function useNodeMutations(nodeId: string) {
     })
   }, [nodeId, updateNode, getNode])
 
-  return { setLabel, setDescription, setThreshold, setObservedValue, setIntervention, removeIntervention, setPriorRange }
+  // ── observedState sub-field mutations ──
+
+  const setObservedField = useCallback((field: string, val: unknown) => {
+    const node = getNode()
+    if (!node) return
+    const existing = (node.data as Record<string, unknown>)?.observedState as Record<string, unknown> | undefined
+    updateNode(nodeId, {
+      data: { ...node.data, observedState: { ...existing, [field]: val } },
+    })
+  }, [nodeId, updateNode, getNode])
+
+  const setObservedRawValue = useCallback((v: number) => setObservedField('raw_value', v), [setObservedField])
+  const setObservedUnit = useCallback((v: string) => setObservedField('unit', v || undefined), [setObservedField])
+  const setObservedCap = useCallback((v: number) => setObservedField('cap', v), [setObservedField])
+  const setObservedBaseline = useCallback((v: number) => setObservedField('baseline', v), [setObservedField])
+  const setObservedStd = useCallback((v: number) => setObservedField('std', v), [setObservedField])
+  const setObservedSource = useCallback((v: string) => setObservedField('source', v || undefined), [setObservedField])
+
+  // ── classification mutations ──
+
+  const setCategory = useCallback((category: 'controllable' | 'observable' | 'external') => {
+    const node = getNode()
+    if (!node) return
+    updateNode(nodeId, { data: { ...node.data, category } })
+  }, [nodeId, updateNode, getNode])
+
+  const setExtractionType = useCallback((extractionType: 'explicit' | 'inferred') => {
+    const node = getNode()
+    if (!node) return
+    updateNode(nodeId, { data: { ...node.data, extractionType } })
+  }, [nodeId, updateNode, getNode])
+
+  const setFactorType = useCallback((factor_type: string) => {
+    const node = getNode()
+    if (!node) return
+    updateNode(nodeId, { data: { ...node.data, factor_type: factor_type || undefined } })
+  }, [nodeId, updateNode, getNode])
+
+  // ── normalisation range ──
+
+  const setStateSpaceRange = useCallback((min: number, max: number) => {
+    const node = getNode()
+    if (!node) return
+    const existing = (node.data as Record<string, unknown>)?.state_space as Record<string, unknown> | undefined
+    const range = (existing?.range as Record<string, unknown>) ?? {}
+    updateNode(nodeId, {
+      data: { ...node.data, state_space: { ...existing, range: { ...range, min, max } } },
+    })
+  }, [nodeId, updateNode, getNode])
+
+  // ── uncertainty drivers ──
+
+  const setUncertaintyDrivers = useCallback((drivers: string[]) => {
+    const node = getNode()
+    if (!node) return
+    updateNode(nodeId, { data: { ...node.data, uncertainty_drivers: drivers } })
+  }, [nodeId, updateNode, getNode])
+
+  // ── goal cap ──
+
+  const setGoalCap = useCallback((cap: number) => {
+    const node = getNode()
+    if (!node) return
+    updateNode(nodeId, { data: { ...node.data, goal_threshold_cap: cap } })
+  }, [nodeId, updateNode, getNode])
+
+  return {
+    setLabel, setDescription, setThreshold, setObservedValue,
+    setIntervention, removeIntervention, setPriorRange,
+    setObservedRawValue, setObservedUnit, setObservedCap,
+    setObservedBaseline, setObservedStd, setObservedSource,
+    setCategory, setExtractionType, setFactorType,
+    setStateSpaceRange, setUncertaintyDrivers, setGoalCap,
+  }
 }
 
 // ─── Edge mutations ────────────────────────────────────────────────
@@ -130,5 +203,11 @@ export function useEdgeMutations(edgeId: string) {
     updateEdge(edgeId, { data: { ...edge.data, label: value || undefined } })
   }, [edgeId, updateEdge, getEdge])
 
-  return { setStrength, setStd, setExistsProbability, setLabel }
+  const setDirection = useCallback((direction: 'positive' | 'negative') => {
+    const edge = getEdge()
+    if (!edge) return
+    updateEdge(edgeId, { data: { ...edge.data, direction } })
+  }, [edgeId, updateEdge, getEdge])
+
+  return { setStrength, setStd, setExistsProbability, setLabel, setDirection }
 }

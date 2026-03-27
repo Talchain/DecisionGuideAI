@@ -43,9 +43,9 @@ export function CoachingCard({ text, action }: CoachingCardProps) {
         {action && (
           <button
             onClick={action.onClick}
-            className={`${typography.panelMeta} mt-2 ml-5 px-3 py-1 rounded-full border border-info/30 bg-transparent text-text-body hover:bg-panel-hover transition-colors inline-flex items-center gap-1`}
+            className={`${typography.panelMeta} mt-2 ml-5 px-3 py-1 rounded-full border border-primary/30 bg-transparent text-text-body hover:bg-panel-hover transition-colors inline-flex items-center gap-1`}
           >
-            <Sparkles size={11} className="text-info" aria-hidden="true" />
+            <Sparkles size={11} className="text-primary" aria-hidden="true" />
             {action.label}
           </button>
         )}

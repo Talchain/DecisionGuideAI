@@ -19,6 +19,7 @@ import { StaleGuardBanner } from '../shared/StaleGuardBanner'
 import { TechnicalDisclosure } from '../shared/TechnicalDisclosure'
 import type { InspectorPanelProps } from '../types'
 import { COACHING } from '../coachingConfig'
+import { RiskAdvancedEditor } from '../editors/RiskAdvancedEditor'
 
 export const RiskPanel = memo(function RiskPanel({
   nodeId,
@@ -124,10 +125,9 @@ export const RiskPanel = memo(function RiskPanel({
 
       <InspectorGuidanceSection elementId={nodeId} />
 
+      {/* Technical disclosure — structured advanced editor */}
       <TechnicalDisclosure visible={techMode}>
-        <div>System: node_id: {nodeId}</div>
-        <div>System: kind: risk</div>
-        <div>System: inbound_factors: {inboundFactors.length}</div>
+        <RiskAdvancedEditor nodeId={nodeId} />
       </TechnicalDisclosure>
     </div>
   )

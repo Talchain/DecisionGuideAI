@@ -32,6 +32,7 @@ import { isEdgeFragile, getFragileEdgeSwitchProbability } from '../../../utils/f
 import { COACHING } from '../coachingConfig'
 import { useEditImpactPreview } from '../../../hooks/useEditImpactPreview'
 import { StrengthBandButtons } from '../shared/StrengthBandButtons'
+import { EdgeAdvancedEditor } from '../editors/EdgeAdvancedEditor'
 
 // ─── Slider component for confidence and uncertainty ───────────────
 function InspectorSlider({
@@ -440,17 +441,9 @@ export const EdgePanel = memo(function EdgePanel({
       {/* Guidance */}
       <InspectorGuidanceSection elementId={edgeId} />
 
-      {/* Technical disclosure */}
+      {/* Technical disclosure — structured advanced editor */}
       <TechnicalDisclosure visible={techMode}>
-        <div>System: edge_key: {edge.source}\u2192{edge.target}</div>
-        <div>System: strength.mean: {localStrength.toFixed(2)} \u00B7 strength.std: {localStd.toFixed(2)}</div>
-        <div>System: exists_probability: {localBelief.toFixed(2)}</div>
-        {provenance && <div>System: provenance: {provenance}</div>}
-        {(() => {
-          const claims = extractCausalClaims(edge.data as Record<string, unknown>)
-          if (claims.length === 0) return null
-          return <div>System: causal_claims: {claims.length} ({claims.map(c => c.claim_type).join(', ')})</div>
-        })()}
+        <EdgeAdvancedEditor edgeId={edgeId} />
       </TechnicalDisclosure>
 
       {/* Live region for announcements */}

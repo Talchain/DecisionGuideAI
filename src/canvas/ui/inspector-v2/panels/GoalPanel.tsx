@@ -26,6 +26,7 @@ import type { InspectorPanelProps } from '../types'
 import type { CEEGoalConstraint } from '../../../../adapters/cee/types'
 import type { ConditionalProbability } from '../../../../types/constraints'
 import { COACHING } from '../coachingConfig'
+import { GoalAdvancedEditor } from '../editors/GoalAdvancedEditor'
 
 export const GoalPanel = memo(function GoalPanel({
   nodeId,
@@ -373,12 +374,9 @@ export const GoalPanel = memo(function GoalPanel({
       {/* Guidance */}
       <InspectorGuidanceSection elementId={nodeId} />
 
-      {/* Technical disclosure */}
+      {/* Technical disclosure — structured advanced editor */}
       <TechnicalDisclosure visible={techMode}>
-        <div>System: node_id: {nodeId}</div>
-        <div>System: kind: goal</div>
-        {goalThreshold != null && <div>System: goal_threshold: {goalThreshold}</div>}
-        <div>System: inbound_edges: {inboundConnections.length}</div>
+        <GoalAdvancedEditor nodeId={nodeId} />
       </TechnicalDisclosure>
     </div>
   )

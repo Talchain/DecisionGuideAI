@@ -94,12 +94,12 @@ export function getExtractionLabel(source?: string): string {
 }
 
 // ─── Strength human labels (validation_ui_data_contract_v1.1 thresholds) ─────
-// Canonical thresholds: Strong ≥ 0.6, Moderate ≥ 0.25, Weak ≥ 0.05, Negligible < 0.05
-// Aligned with strengthBands.ts (model tab) — same thresholds, inspector-specific vocabulary.
+// Canonical thresholds: Very strong ≥ 0.70, Strong ≥ 0.40, Moderate ≥ 0.20, Slight < 0.20
+// Aligned with DS v4 reference artefact.
 export function getStrengthLabel(absValue: number): string {
-  if (absValue >= 0.60) return 'Very strong'
-  if (absValue >= 0.25) return 'Strong'
-  if (absValue >= 0.05) return 'Moderate'
+  if (absValue >= 0.70) return 'Very strong'
+  if (absValue >= 0.40) return 'Strong'
+  if (absValue >= 0.20) return 'Moderate'
   return 'Slight'
 }
 

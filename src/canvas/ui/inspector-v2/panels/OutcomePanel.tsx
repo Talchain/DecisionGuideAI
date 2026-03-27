@@ -19,6 +19,7 @@ import { TechnicalDisclosure } from '../shared/TechnicalDisclosure'
 import { DataBar } from '../../shared/DataBar'
 import type { InspectorPanelProps } from '../types'
 import { COACHING } from '../coachingConfig'
+import { OutcomeAdvancedEditor } from '../editors/OutcomeAdvancedEditor'
 
 /** Check if option comparison analysis failed (used to hide entire section) */
 function isOptionComparisonFailed(report: unknown): boolean {
@@ -263,10 +264,9 @@ export const OutcomePanel = memo(function OutcomePanel({
 
       <InspectorGuidanceSection elementId={nodeId} />
 
+      {/* Technical disclosure — structured advanced editor */}
       <TechnicalDisclosure visible={techMode}>
-        <div>System: node_id: {nodeId}</div>
-        <div>System: kind: outcome</div>
-        <div>System: inbound_factors: {inboundFactors.length}</div>
+        <OutcomeAdvancedEditor nodeId={nodeId} />
       </TechnicalDisclosure>
     </div>
   )

@@ -56,6 +56,8 @@ export interface InspectorShellProps {
   typePillColor?: string
   /** Confidence badge — optional, not all panels show this */
   confidenceBadge?: ReactNode
+  /** Confidence level for full-border colouring (success/warning/danger at 30%) */
+  confidenceLevel?: 'high' | 'medium' | 'low'
   /** Tech detail toggle */
   techMode: boolean
   onTechToggleChange: (v: boolean) => void

@@ -24,6 +24,7 @@ import { TechnicalDisclosure } from '../shared/TechnicalDisclosure'
 import { ProbabilityArc } from '../shared/ProbabilityArc'
 import type { InspectorPanelProps } from '../types'
 import { COACHING } from '../coachingConfig'
+import { OptionAdvancedEditor } from '../editors/OptionAdvancedEditor'
 
 export const OptionPanel = memo(function OptionPanel({
   nodeId,
@@ -274,14 +275,9 @@ export const OptionPanel = memo(function OptionPanel({
       {/* Guidance */}
       <InspectorGuidanceSection elementId={nodeId} />
 
-      {/* Technical disclosure */}
+      {/* Technical disclosure — structured advanced editor */}
       <TechnicalDisclosure visible={techMode}>
-        <div>System: node_id: {nodeId}</div>
-        <div>System: kind: option</div>
-        <div>System: interventions: {interventions.length}</div>
-        {interventions.map(iv => (
-          <div key={iv.factorId}>System: {iv.factorId} = {iv.value}</div>
-        ))}
+        <OptionAdvancedEditor nodeId={nodeId} />
       </TechnicalDisclosure>
     </div>
   )

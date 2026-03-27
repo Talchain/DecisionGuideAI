@@ -19,6 +19,7 @@ import { CoachingCard } from '../shared/CoachingCard'
 import { TechnicalDisclosure } from '../shared/TechnicalDisclosure'
 import type { InspectorPanelProps } from '../types'
 import { COACHING } from '../coachingConfig'
+import { DecisionAdvancedEditor } from '../editors/DecisionAdvancedEditor'
 
 export const DecisionPanel = memo(function DecisionPanel({
   nodeId,
@@ -155,11 +156,9 @@ export const DecisionPanel = memo(function DecisionPanel({
       {/* Guidance */}
       <InspectorGuidanceSection elementId={nodeId} />
 
-      {/* Technical disclosure */}
+      {/* Technical disclosure — structured advanced editor */}
       <TechnicalDisclosure visible={techMode}>
-        <div>System: node_id: {nodeId}</div>
-        <div>System: kind: decision</div>
-        <div>System: connected_options: {connectedOptions.length}</div>
+        <DecisionAdvancedEditor nodeId={nodeId} />
       </TechnicalDisclosure>
     </div>
   )

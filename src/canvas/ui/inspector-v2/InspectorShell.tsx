@@ -20,6 +20,7 @@ export const InspectorShell = memo(function InspectorShell({
   typePill,
   typePillColor,
   confidenceBadge,
+  confidenceLevel,
   techMode,
   onTechToggleChange,
   onClose,
@@ -36,9 +37,20 @@ export const InspectorShell = memo(function InspectorShell({
   const isDragging = dragHandlers?.isDragging ?? false
   const entityColor = typePillColor ?? topBarColor ?? 'var(--color-factor)'
 
+  // Confidence-coded border colour (30% opacity) — falls back to panel-border
+  const borderColorMap = {
+    high: 'rgba(103,200,158,0.30)',   // success at 30%
+    medium: 'rgba(255,166,86,0.30)',  // warning at 30%
+    low: 'rgba(234,123,75,0.30)',     // danger at 30%
+  } as const
+  const shellBorder = confidenceLevel
+    ? `1px solid ${borderColorMap[confidenceLevel]}`
+    : undefined
+
   return (
     <div
-      className="w-[340px] bg-panel rounded-xl border border-panel-border shadow-1 overflow-hidden font-sans"
+      className={`w-[340px] bg-panel rounded-xl shadow-1 overflow-hidden font-sans ${!confidenceLevel ? 'border border-panel-border' : ''}`}
+      style={shellBorder ? { border: shellBorder } : undefined}
       role="region"
       aria-label="Inspector panel"
       onKeyDown={handleKeyDown}
@@ -58,9 +70,9 @@ export const InspectorShell = memo(function InspectorShell({
         {/* Type row: shape icon + type label — top of header */}
         <div className="flex items-center gap-1.5 mb-2">
           {nodeKind ? (
-            <NodeShapeIndicator nodeKind={nodeKind} size={16} />
+            <NodeShapeIndicator nodeKind={nodeKind} size={22} />
           ) : (
-            <Spline size={16} style={{ color: entityColor }} aria-hidden="true" />
+            <Spline size={22} style={{ color: entityColor }} aria-hidden="true" />
           )}
           <span
             className={`${typography.panelMeta} font-semibold`}
@@ -110,8 +122,8 @@ export const InspectorShell = memo(function InspectorShell({
         </div>
       </div>
 
-      {/* Body */}
-      <div className="px-4 pb-4">
+      {/* Body — scrollable when content exceeds panel max height */}
+      <div className="px-4 pb-4 overflow-y-auto" style={{ maxHeight: 560 }}>
         {children}
       </div>
     </div>

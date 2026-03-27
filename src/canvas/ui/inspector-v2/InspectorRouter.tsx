@@ -139,7 +139,7 @@ export const InspectorRouter = memo(function InspectorRouter({
 
     // Edge confidence from beliefExists
     const ep = getEdgeConfidence(edge.data as Record<string, unknown> | undefined)
-    const confidenceLevel = ep !== null ? (ep >= 0.7 ? 'high' : ep >= 0.4 ? 'medium' : 'low') : undefined
+    const edgeConfidenceLevel = ep !== null ? (ep >= 0.7 ? 'high' as const : ep >= 0.4 ? 'medium' as const : 'low' as const) : undefined
     const confidencePct = ep !== null ? Math.round(ep * 100) : undefined
 
     // Top bar inherits source node type colour
@@ -152,10 +152,11 @@ export const InspectorRouter = memo(function InspectorRouter({
         typePill={EDGE_TYPE_LABEL}
         typePillColor={PILL_COLORS[sourceKind]}
         confidenceBadge={
-          confidenceLevel ? (
-            <ConfidenceBadge level={confidenceLevel} value={confidencePct} />
+          edgeConfidenceLevel ? (
+            <ConfidenceBadge level={edgeConfidenceLevel} value={confidencePct} />
           ) : undefined
         }
+        confidenceLevel={edgeConfidenceLevel}
         techMode={techMode}
         onTechToggleChange={setTechMode}
         onClose={onClose}
@@ -187,6 +188,7 @@ export const InspectorRouter = memo(function InspectorRouter({
 
   // Confidence badge — only for specific node types
   let confidenceBadge: React.ReactNode | undefined
+  let nodeConfidenceLevel: 'high' | 'medium' | 'low' | undefined
   if (nodeType === 'goal' || nodeType === 'outcome' || nodeType === 'risk') {
     // Derive from inbound edge confidence average
     const inboundEdges = edges.filter(e => e.target === nodeId)
@@ -196,7 +198,8 @@ export const InspectorRouter = memo(function InspectorRouter({
         .filter((v): v is number => v !== null)
       if (confidences.length > 0) {
         const avg = confidences.reduce((a, b) => a + b, 0) / confidences.length
-        const level = avg >= 0.7 ? 'high' : avg >= 0.4 ? 'medium' : 'low'
+        const level = (avg >= 0.7 ? 'high' : avg >= 0.4 ? 'medium' : 'low') as const
+        nodeConfidenceLevel = level
         confidenceBadge = <ConfidenceBadge level={level} value={Math.round(avg * 100)} />
       }
     }
@@ -231,6 +234,7 @@ export const InspectorRouter = memo(function InspectorRouter({
       typePill={typePill}
       typePillColor={pillColor}
       confidenceBadge={confidenceBadge}
+      confidenceLevel={nodeConfidenceLevel}
       techMode={techMode}
       onTechToggleChange={setTechMode}
       onClose={onClose}

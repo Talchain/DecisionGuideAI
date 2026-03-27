@@ -9,7 +9,6 @@ import { Link } from 'lucide-react'
 import { useCanvasStore } from '../../../store'
 import type { NodeType } from '../../../domain/nodes'
 import { InspectorGuidanceSection } from '../../inspector/InspectorGuidanceSection'
-import { useNodeConnectivity } from '../shared/IntelligenceSection'
 import { useNodeDisplayMetadata } from '../../../hooks/useNodeDisplayMetadata'
 import { typography } from '../../../../styles/typography'
 import { useStaleGuard } from '../useStaleGuard'
@@ -20,10 +19,10 @@ import { ConnectionRow } from '../shared/ConnectionRow'
 import { CoachingCard } from '../shared/CoachingCard'
 import { StaleGuardBanner } from '../shared/StaleGuardBanner'
 import { TechnicalDisclosure } from '../shared/TechnicalDisclosure'
-import { RangeDerivationPill } from '../shared/RangeDerivationPill'
 import { DataBar } from '../../shared/DataBar'
 import type { InspectorPanelProps } from '../types'
 import { resolveCoaching } from '../coachingConfig'
+import { FactorObservableEditor } from '../editors/FactorObservableEditor'
 
 export const FactorObservablePanel = memo(function FactorObservablePanel({
   nodeId,
@@ -37,7 +36,6 @@ export const FactorObservablePanel = memo(function FactorObservablePanel({
   const isResultsMode = resultsStatus === 'complete'
 
   const node = nodeId ? nodes.find(n => n.id === nodeId) : undefined
-  const connectivity = useNodeConnectivity(nodeId ?? '')
   const { isStale } = useStaleGuard()
   const displayMetadata = useNodeDisplayMetadata(nodeId ?? '', 'factor')
 
@@ -177,12 +175,9 @@ export const FactorObservablePanel = memo(function FactorObservablePanel({
 
       <InspectorGuidanceSection elementId={nodeId} />
 
+      {/* Technical disclosure — structured advanced editor */}
       <TechnicalDisclosure visible={techMode}>
-        <div>System: node_id: {nodeId}</div>
-        <div>System: kind: factor (observable)</div>
-        {value != null && <div>System: observed_state.value: {value}</div>}
-        <RangeDerivationPill source={obs?.range_derivation_source as string | undefined} />
-        <div>System: influences: {connectivity.outgoing} out / {connectivity.incoming} in</div>
+        <FactorObservableEditor nodeId={nodeId} />
       </TechnicalDisclosure>
     </div>
   )

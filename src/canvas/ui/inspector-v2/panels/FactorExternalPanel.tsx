@@ -7,7 +7,6 @@ import { memo, useState, useMemo, useCallback } from 'react'
 import { useCanvasStore } from '../../../store'
 import type { NodeType } from '../../../domain/nodes'
 import { InspectorGuidanceSection } from '../../inspector/InspectorGuidanceSection'
-import { useNodeConnectivity } from '../shared/IntelligenceSection'
 import { useNodeDisplayMetadata } from '../../../hooks/useNodeDisplayMetadata'
 import { typography } from '../../../../styles/typography'
 import { useNodeMutations } from '../useInspectorMutations'
@@ -18,10 +17,10 @@ import { ConnectionRow } from '../shared/ConnectionRow'
 import { CoachingCard } from '../shared/CoachingCard'
 import { StaleGuardBanner } from '../shared/StaleGuardBanner'
 import { TechnicalDisclosure } from '../shared/TechnicalDisclosure'
-import { RangeDerivationPill } from '../shared/RangeDerivationPill'
 import { DataBar } from '../../shared/DataBar'
 import type { InspectorPanelProps } from '../types'
 import { resolveCoaching } from '../coachingConfig'
+import { FactorExternalEditor } from '../editors/FactorExternalEditor'
 
 // Quick-set presets
 const QUICK_SET = {
@@ -45,7 +44,6 @@ export const FactorExternalPanel = memo(function FactorExternalPanel({
   const isResultsMode = resultsStatus === 'complete'
 
   const node = nodeId ? nodes.find(n => n.id === nodeId) : undefined
-  const connectivity = useNodeConnectivity(nodeId ?? '')
   const mutations = useNodeMutations(nodeId ?? '')
   const { isStale } = useStaleGuard()
   const displayMetadata = useNodeDisplayMetadata(nodeId ?? '', 'factor')
@@ -142,7 +140,7 @@ export const FactorExternalPanel = memo(function FactorExternalPanel({
               onClick={() => handleQuickSet(key)}
               className={`${typography.panelMeta} px-2.5 py-1 rounded-full cursor-pointer capitalize transition-colors ${
                 selected === key
-                  ? 'border border-info text-info font-semibold bg-panel'
+                  ? 'border border-primary text-primary font-semibold bg-panel'
                   : 'border border-panel-border text-text-light bg-panel hover:bg-panel-hover'
               }`}
             >
@@ -272,13 +270,9 @@ export const FactorExternalPanel = memo(function FactorExternalPanel({
 
       <InspectorGuidanceSection elementId={nodeId} />
 
+      {/* Technical disclosure — structured advanced editor */}
       <TechnicalDisclosure visible={techMode}>
-        <div>System: node_id: {nodeId}</div>
-        <div>System: kind: factor (external)</div>
-        {rangeMin != null && <div>System: prior.range_min: {rangeMin}</div>}
-        {rangeMax != null && <div>System: prior.range_max: {rangeMax}</div>}
-        <RangeDerivationPill source={((node?.data as Record<string, unknown>)?.observedState as Record<string, unknown> | undefined)?.range_derivation_source as string | undefined} />
-        <div>System: influences: {connectivity.outgoing} out / {connectivity.incoming} in</div>
+        <FactorExternalEditor nodeId={nodeId} />
       </TechnicalDisclosure>
     </div>
   )
