@@ -37,6 +37,8 @@ export interface TriageHealthHeaderProps {
   headline?: string | null
   /** Optional coaching line — dismissible per session */
   coaching?: string | null
+  /** Override the centre ring score (0-100) instead of computing from dimensions */
+  overrideScore?: number | null
   /** Test ID for the container */
   testId?: string
 }
@@ -69,6 +71,7 @@ export const TriageHealthHeader = memo(function TriageHealthHeader({
   dimensions,
   headline,
   coaching,
+  overrideScore,
   testId = 'triage-health-header',
 }: TriageHealthHeaderProps) {
   const [coachingDismissed, setCoachingDismissed] = useState(false)
@@ -81,7 +84,7 @@ export const TriageHealthHeader = memo(function TriageHealthHeader({
 
       {/* Ring + headline + dimensions layout */}
       <div className="flex items-start gap-3">
-        <DecisionHealthRing dimensions={ringDimensions} size={54} centerLabel={ringLabel} />
+        <DecisionHealthRing dimensions={ringDimensions} size={54} centerLabel={ringLabel} overrideScore={overrideScore} />
 
         <div className="flex-1 min-w-0 space-y-2">
           {headline && (

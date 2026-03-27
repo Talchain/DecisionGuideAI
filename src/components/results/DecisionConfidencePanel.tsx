@@ -40,6 +40,10 @@ interface DecisionConfidencePanelProps {
   onHoverLeave?: () => void
   /** Handler for setting a factor value via inline editor */
   onSetValue?: (nodeId: string, rawValue: number) => void
+  /** Handler for confirming a factor value */
+  onConfirm?: (nodeId: string) => void
+  /** Handler for sending a message to the conversation panel */
+  onSendMessage?: (text: string) => void
 }
 
 // ── Dimension computation (same 4 labels as pre-analysis) ───────────────────
@@ -108,6 +112,14 @@ interface MappedActionItem {
   action: TriageCardAction | undefined
   targetNodeId: string | undefined
   editorConfig: ScientificEditorProps | null
+  sourcePill: { label: string; borderClass: string } | null
+}
+
+// Source pill mapping based on confidence level
+function getSourcePill(confidence: number): { label: string; borderClass: string } {
+  if (confidence <= 0) return { label: 'No data', borderClass: 'border-danger/30' }
+  if (confidence < 40) return { label: 'AI estimate', borderClass: 'border-info/30' }
+  return { label: 'Estimated', borderClass: 'border-warning/30' }
 }
 
 function mapEvidenceGapsToActions(
@@ -139,6 +151,7 @@ function mapEvidenceGapsToActions(
         onSave: (rawValue: number) => onSetValue(targetId, rawValue),
         onCancel: () => {},
       } : null,
+      sourcePill: getSourcePill(gap.confidence),
     }
   })
 }
@@ -160,6 +173,7 @@ function mapNextActionsToCards(data: ResultsSectionDataReturn): MappedActionItem
     } : undefined,
     targetNodeId: action.targetId,
     editorConfig: null,
+    sourcePill: null,
   }))
 }
 
@@ -327,6 +341,8 @@ export const DecisionConfidencePanel = memo(function DecisionConfidencePanel({
   onHoverEnter,
   onHoverLeave,
   onSetValue,
+  onConfirm,
+  onSendMessage,
 }: DecisionConfidencePanelProps) {
   const { ringDimensions, dimensionBars } = useMemo(
     () => computePostAnalysisDimensions(data),
@@ -363,13 +379,16 @@ export const DecisionConfidencePanel = memo(function DecisionConfidencePanel({
       {/* Transition bridge */}
       <TransitionBridge verifiedCount={verifiedCount} influenceCoverage={influenceCoverage} />
 
-      {/* 1. Health header */}
+      {/* 1. Health header — ring shows ISL recommendation_stability directly */}
       <TriageHealthHeader
         title="Decision confidence"
         ringLabel="trust"
         ringDimensions={ringDimensions}
         dimensions={dimensionBars}
         headline={headline}
+        overrideScore={data.recommendation.recommendationStability != null
+          ? Math.round(data.recommendation.recommendationStability * 100)
+          : undefined}
         testId="confidence-health-header"
       />
 
@@ -394,7 +413,10 @@ export const DecisionConfidencePanel = memo(function DecisionConfidencePanel({
               evoiImpact={item.evoiImpact}
               action={item.action}
               editorConfig={item.editorConfig}
+              sourcePill={item.sourcePill}
+              onConfirm={onConfirm}
               onEdit={onFocusNode}
+              onSendMessage={onSendMessage}
               onHoverEnter={onHoverEnter}
               onHoverLeave={onHoverLeave}
             />

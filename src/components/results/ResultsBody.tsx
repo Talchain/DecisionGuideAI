@@ -149,50 +149,7 @@ export const ResultsBody = memo(function ResultsBody({
         />
       </SectionErrorBoundary>
 
-      {/* ── ATTENTION BANNER ──────────────────────────────────────── */}
-      {/* P0.1: Humanised critique items — coaching tone, no raw field names */}
-      <SectionErrorBoundary section="Attention banner">
-        <AttentionBanner
-          items={(resultsSectionData.confidence.humanisedCritiques ?? []).filter(
-            c => c.displayText != null && c.suggestion != null && c.factorId != null
-          )}
-          onFocusNode={onFocusNode}
-        />
-      </SectionErrorBoundary>
-
-      {/* ── SECTION 1: HERO ─────────────────────────────────────── */}
-      {/* V11: Structured hero rows driven by decisionState from VM */}
-      <SectionErrorBoundary section="Recommendation">
-        <div>
-          <RecommendationSection
-            data={resultsSectionData.recommendation}
-            onFocusNode={onFocusNode}
-            onAddStatusQuoBaseline={onAddStatusQuoBaseline}
-            topDrivers={resultsSectionData.drivers.topDrivers}
-            topFragileEdge={resultsSectionData.confidence.topFragileEdge}
-            topNextAction={hasGuidanceItems ? undefined : resultsSectionData.confidence.topNextActions?.[0]}
-            nSamples={nSamples ?? undefined}
-            seedUsed={seedUsed ?? undefined}
-            fragileEdgeCount={fragileEdgeCount}
-            robustEdgeCount={robustEdgeCount}
-            responseHash={responseHash}
-            onApplyThreshold={onApplyThreshold}
-            isRunning={isRunning}
-            onAddBaseline={onAddBaseline}
-            onSetBaseline={onSetBaseline}
-            onFlashOption={flashOptionCard}
-            decisionState={vm.decisionState}
-            hinge={vm.hinge}
-            identifiabilityTag={identifiability}
-            defaultEstimateCount={resultsSectionData.drivers.drivers.length > 0
-              ? resultsSectionData.drivers.drivers.filter(d => d.isDefaultedConfidence).length
-              : undefined}
-            totalFactorCount={resultsSectionData.drivers.drivers.length > 0
-              ? resultsSectionData.drivers.drivers.length
-              : undefined}
-          />
-        </div>
-      </SectionErrorBoundary>
+      {/* Old hero suppressed — DecisionConfidencePanel replaces it (v4 spec) */}
 
       {/* ── SECTION 2: OPTIONS COMPARISON ────────────────────────── */}
       {!resultsSectionData.recommendation.isSingleOption &&

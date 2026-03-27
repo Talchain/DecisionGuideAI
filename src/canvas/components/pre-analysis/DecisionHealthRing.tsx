@@ -28,6 +28,9 @@ interface DecisionHealthRingProps {
   size?: number
   /** Centre label below the score (default "ready") */
   centerLabel?: string
+  /** Override the centre score (0-100) instead of computing from dimensions.
+   *  Used post-analysis to display ISL recommendation_stability directly. */
+  overrideScore?: number | null
 }
 
 // Arc geometry: 270 degree arc
@@ -63,6 +66,7 @@ export const DecisionHealthRing = memo(function DecisionHealthRing({
   dimensions,
   size = DEFAULT_SIZE,
   centerLabel = 'ready',
+  overrideScore,
 }: DecisionHealthRingProps) {
   const clamp = (v: number) => Math.max(0, Math.min(1, v))
   const s = clamp(dimensions.structure)
@@ -70,10 +74,11 @@ export const DecisionHealthRing = memo(function DecisionHealthRing({
   const cov = clamp(dimensions.coverage)
   const v = clamp(dimensions.verified)
 
-  // Overall score: equal-weighted average (0.25 each), always integer.
-  // Brief specifies "weighted average" but no per-dimension weights — using equal weights
-  // as default. Update weights here when product defines differentiated weighting.
-  const overallScore = Math.round((s + e + cov + v) / 4 * 100)
+  // When overrideScore is provided (post-analysis), use it directly.
+  // Otherwise compute equal-weighted average from dimensions (pre-analysis).
+  const overallScore = overrideScore != null
+    ? Math.round(overrideScore)
+    : Math.round((s + e + cov + v) / 4 * 100)
 
   // Scale radii proportionally to size (base: 54px → 24/19/14)
   const scale = size / DEFAULT_SIZE

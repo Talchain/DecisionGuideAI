@@ -12,6 +12,7 @@
 import { useState, useCallback } from 'react'
 import { Copy, Check } from 'lucide-react'
 import { typography } from '../../styles/typography'
+import { evaluativeVar } from '../../styles/evaluative'
 import { Accordion } from './Accordion'
 import { useRiskProfile, RISK_PRESETS } from '../../canvas/hooks/useRiskProfile'
 
@@ -183,16 +184,16 @@ export function AdvancedSection({
                   const label = dim === 'clarity' ? 'Framing' : dim.charAt(0).toUpperCase() + dim.slice(1)
                   return (
                     <div key={dim} className="flex items-center gap-2 mb-1">
-                      <span className="text-text-light text-right" style={{ width: 80 }}>
+                      <span className={`${typography.panelMeta} text-text-light text-right`} style={{ width: 80 }}>
                         {label}
                       </span>
-                      <div className="flex-1 bg-panel-border rounded-full" style={{ height: 4 }}>
+                      <div className="flex-1 rounded-sm overflow-hidden" style={{ height: 5, backgroundColor: 'var(--border-default, #EEE6D8)' }}>
                         <div
-                          className="bg-info rounded-full"
-                          style={{ width: `${pct}%`, height: 4 }}
+                          className="rounded-sm transition-all duration-300"
+                          style={{ width: `${pct}%`, height: 5, backgroundColor: evaluativeVar(value) }}
                         />
                       </div>
-                      <span className="text-text-light" style={{ width: 30 }}>
+                      <span className={`${typography.panelMeta} text-text-light`} style={{ width: 30 }}>
                         {pct}%
                       </span>
                     </div>

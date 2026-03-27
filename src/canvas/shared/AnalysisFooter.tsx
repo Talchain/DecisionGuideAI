@@ -13,6 +13,11 @@ export interface AnalysisFooterProps {
   actionLoading?: boolean
   actionAriaLabel?: string
   actionTitle?: string
+  /** Optional secondary action (e.g. "Rerun analysis") rendered as outlined button */
+  secondaryActionLabel?: string
+  secondaryOnAction?: () => void
+  secondaryDisabled?: boolean
+  secondaryTitle?: string
   testId?: string
 }
 
@@ -27,6 +32,10 @@ export function AnalysisFooter({
   actionLoading = false,
   actionAriaLabel,
   actionTitle,
+  secondaryActionLabel,
+  secondaryOnAction,
+  secondaryDisabled,
+  secondaryTitle,
   testId = 'sticky-footer',
 }: AnalysisFooterProps) {
   return (
@@ -45,25 +54,45 @@ export function AnalysisFooter({
             </>
           ) : null}
         </div>
-        <button
-          type="button"
-          onClick={onAction}
-          disabled={actionDisabled}
-          aria-disabled={actionDisabled ? 'true' : 'false'}
-          aria-label={actionAriaLabel ?? actionLabel}
-          title={actionTitle}
-          className={`
-            min-h-11 rounded-full px-4 ${typography.panelBody}
-            inline-flex items-center justify-center gap-2
-            bg-primary text-text-on-color transition-colors
-            hover:bg-primary-hover focus:outline-none focus-visible:ring-2
-            focus-visible:ring-info focus-visible:ring-offset-2
-            disabled:cursor-not-allowed disabled:opacity-40
-          `}
-        >
-          {actionLoading ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : null}
-          {actionLabel}
-        </button>
+        <div className="flex items-center gap-2 shrink-0">
+          {secondaryActionLabel && secondaryOnAction && (
+            <button
+              type="button"
+              onClick={secondaryOnAction}
+              disabled={secondaryDisabled}
+              title={secondaryTitle}
+              className={`
+                min-h-11 rounded-full px-4 ${typography.panelBody}
+                inline-flex items-center justify-center
+                bg-transparent border border-panel-border text-text-body transition-colors
+                hover:bg-panel-hover focus-visible:outline-none focus-visible:ring-2
+                focus-visible:ring-info focus-visible:ring-offset-2
+                disabled:cursor-not-allowed disabled:opacity-40
+              `}
+            >
+              {secondaryActionLabel}
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={onAction}
+            disabled={actionDisabled}
+            aria-disabled={actionDisabled ? 'true' : 'false'}
+            aria-label={actionAriaLabel ?? actionLabel}
+            title={actionTitle}
+            className={`
+              min-h-11 rounded-full px-4 ${typography.panelBody}
+              inline-flex items-center justify-center gap-2
+              bg-primary text-text-on-color transition-colors
+              hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2
+              focus-visible:ring-info focus-visible:ring-offset-2
+              disabled:cursor-not-allowed disabled:opacity-40
+            `}
+          >
+            {actionLoading ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : null}
+            {actionLabel}
+          </button>
+        </div>
       </div>
     </div>
   )

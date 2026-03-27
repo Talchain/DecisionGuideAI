@@ -1364,12 +1364,27 @@ export function OutputsDock() {
                     statusIconClassName={postRunFooter.iconClass}
                     statusText={postRunFooter.label}
                     metaText={postRunMetaText}
-                    actionLabel={isRunning ? 'Analysing...' : 'Rerun analysis'}
-                    onAction={handleRunAnalysis}
-                    actionDisabled={isRunning || !canRunAnalysis}
-                    actionLoading={isRunning}
-                    actionAriaLabel={isRunning ? 'Analysis in progress' : 'Rerun analysis'}
-                    actionTitle={!canRunAnalysis && !isRunning ? runBlockedTooltip : undefined}
+                    actionLabel="Confirm decision"
+                    onAction={() => {
+                      // Placeholder: decision brief generation endpoint not yet available
+                      // eslint-disable-next-line no-alert
+                      window.alert('Decision confirmed. Decision brief coming soon.')
+                    }}
+                    actionDisabled={(() => {
+                      const stability = resultsSectionData?.recommendation?.recommendationStability ?? 0
+                      return stability < 0.4 && transitionBridgeRef.current.verifiedCount === 0
+                    })()}
+                    actionTitle={(() => {
+                      const stability = resultsSectionData?.recommendation?.recommendationStability ?? 0
+                      return stability < 0.4 && transitionBridgeRef.current.verifiedCount === 0
+                        ? 'Address at least one item before confirming'
+                        : undefined
+                    })()}
+                    actionAriaLabel="Confirm decision"
+                    secondaryActionLabel={isRunning ? 'Analysing...' : 'Rerun analysis'}
+                    secondaryOnAction={handleRunAnalysis}
+                    secondaryDisabled={isRunning || !canRunAnalysis}
+                    secondaryTitle={!canRunAnalysis && !isRunning ? runBlockedTooltip : undefined}
                     testId="results-analysis-footer"
                   />
                 )}

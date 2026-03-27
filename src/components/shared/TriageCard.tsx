@@ -48,9 +48,12 @@ export interface TriageCardProps {
   action?: TriageCardAction
   /** Editor config for inline editing (when null, no editor available) */
   editorConfig?: ScientificEditorProps | null
+  /** Source provenance pill (e.g. "AI estimate", "Brief", "No data") */
+  sourcePill?: { label: string; borderClass: string } | null
   /** Callbacks */
   onConfirm?: (targetId: string) => void
   onEdit?: (targetId: string) => void
+  onSendMessage?: (text: string) => void
   onHoverEnter?: (type: 'node' | 'edge', id: string) => void
   onHoverLeave?: () => void
 }
@@ -118,8 +121,10 @@ export function TriageCard(props: TriageCardProps) {
     variant = 'default',
     action,
     editorConfig,
+    sourcePill,
     onConfirm,
     onEdit,
+    onSendMessage,
     onHoverEnter,
     onHoverLeave,
   } = props
@@ -152,7 +157,14 @@ export function TriageCard(props: TriageCardProps) {
           {ordinal}
         </span>
         <div className="flex-1 min-w-0 flex items-start justify-between gap-2">
-          <p className={`${typography.panelHeader} text-text-header`}>{title}</p>
+          <div className="flex items-center gap-2 min-w-0">
+            <p className={`${typography.panelHeader} text-text-header truncate`}>{title}</p>
+            {sourcePill && (
+              <span className={`shrink-0 px-1.5 py-0.5 rounded-full border ${sourcePill.borderClass} ${typography.panelMeta} text-text-body bg-transparent`}>
+                {sourcePill.label}
+              </span>
+            )}
+          </div>
           {evoiImpact != null && (
             <span className={`shrink-0 px-1.5 py-0.5 rounded-full border border-info/30 ${typography.panelMeta} text-text-body`}>
               {evoiImpact.toFixed(1)}pp impact
@@ -204,6 +216,15 @@ export function TriageCard(props: TriageCardProps) {
               className={`min-h-[44px] px-3 rounded ${typography.panelMeta} text-info border border-info/30 hover:bg-panel-hover cursor-pointer`}
             >
               Set value
+            </button>
+          )}
+          {onSendMessage && action?.targetId && (
+            <button
+              type="button"
+              onClick={() => onSendMessage(`Can you research ${title} and suggest a reasonable estimate with sources?`)}
+              className={`min-h-[44px] px-3 rounded ${typography.panelMeta} text-info border border-info/30 hover:bg-panel-hover cursor-pointer`}
+            >
+              Ask AI to research
             </button>
           )}
         </div>
