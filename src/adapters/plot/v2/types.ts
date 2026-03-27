@@ -155,6 +155,8 @@ export interface V2OptionComparison {
   confidence_interval: [number, number]
   /** Probability of exceeding goal_threshold (only when threshold provided) */
   probability_of_goal?: number
+  /** Joint probability of goal when constraints present (preferred over probability_of_goal) */
+  probability_of_joint_goal?: number
   /** Probability this option wins vs others (pairwise comparison) */
   win_probability?: number
   /** Expected outcome value (mean of outcome distribution) */

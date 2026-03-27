@@ -199,7 +199,7 @@ export const FactorNode = memo((props: NodeProps) => {
       c.label.toLowerCase().trim() === cleanedLabel.toLowerCase().trim()
     )
     if (matching.length === 0) return null
-    return matching.map(c => `Constrained: ${c.label} ${c.operator} ${c.value ?? '—'}`).join('; ')
+    return matching.map(c => `Constrained: ${c.label} ${c.operator} ${c.value ?? '-'}`).join('; ')
   }, [goalConstraints, cleanedLabel])
 
   // B.1b: "Assumed" pill — for default/missing source values (mutually exclusive with "Estimated")
@@ -301,7 +301,7 @@ export const FactorNode = memo((props: NodeProps) => {
                 <span className="text-text-light">{priorRangeDisplay}</span>
               ) : observedState?.source === 'default' || observedState?.source === 'cee_inference' ? (
                 <span className="inline-flex items-center gap-1 italic text-text-light">
-                  <Cpu size={12} className="text-text-light shrink-0" aria-hidden="true" title="Estimated by Olumi" />
+                  <Cpu size={14} className="text-text-light shrink-0" aria-hidden="true" title="Estimated by Olumi" />
                   Estimated
                 </span>
               ) : (
@@ -310,7 +310,7 @@ export const FactorNode = memo((props: NodeProps) => {
             </div>
             {viewMode === 'model' && isInferred && !provenanceLabel && (
               <div className="mt-1 flex items-center gap-1 flex-wrap">
-                <Cpu size={12} className="text-warning shrink-0" aria-hidden="true" />
+                <Cpu size={14} className="text-warning shrink-0" aria-hidden="true" />
                 <span className={`${typography.nodeLabel} text-text-light`}>
                   Olumi estimated{valueDisplay ? `: ${valueDisplay}` : ''}
                 </span>

@@ -161,7 +161,7 @@ export const GoalNode = memo((props: NodeProps) => {
       {/* Fallback: "Recommended in X% of scenarios" only when no stability bar shown */}
       {displayMetadata.achievementProbability === null && stabilityValue === null && displayMetadata.stabilityPercentage !== null && (
         <div className={`${typography.nodeTitle} mb-1 text-info`}>
-          Recommended in {Math.round(displayMetadata.stabilityPercentage * 100)}% of scenarios
+          Winner in {Math.round(displayMetadata.stabilityPercentage * 100)}% of scenarios
         </div>
       )}
 
