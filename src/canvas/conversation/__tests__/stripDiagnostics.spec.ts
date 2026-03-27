@@ -112,4 +112,31 @@ describe('stripDiagnostics', () => {
     const input = '\tMode: CLARIFY. Stage: FRAME. Context needed.\nVisible.'
     expect(stripDiagnostics(input)).toBe('Visible.')
   })
+
+  // T3 XML envelope: complete envelope
+  it('extracts assistant_text from complete T3 envelope', () => {
+    const input = '<response><assistant_text>Hello world</assistant_text><blocks></blocks></response>'
+    expect(stripDiagnostics(input)).toBe('Hello world')
+  })
+
+  // T3 XML envelope: partial streaming — only opening tags arrived
+  it('extracts content from partial T3 envelope during streaming', () => {
+    const input = '<response><assistant_text>Here are four techniques'
+    expect(stripDiagnostics(input)).toBe('Here are four techniques')
+  })
+
+  it('extracts content from partial envelope with closing assistant_text but no response close', () => {
+    const input = '<response><assistant_text>Content here</assistant_text><blocks><block>'
+    expect(stripDiagnostics(input)).toBe('Content here')
+  })
+
+  it('handles partial envelope with whitespace before tags', () => {
+    const input = '  <response>  <assistant_text>Some text'
+    expect(stripDiagnostics(input)).toBe('Some text')
+  })
+
+  it('does not treat mid-text angle brackets as partial envelope', () => {
+    const input = 'Use <response> tags for XML formatting.'
+    expect(stripDiagnostics(input)).toBe('Use <response> tags for XML formatting.')
+  })
 })

@@ -256,9 +256,20 @@ export function stripDiagnostics(text: string): string {
   // 3. Handle T3 XML envelope: <response><assistant_text>…</assistant_text>…</response>
   //    CEE staging sometimes wraps the response in this envelope. Extract only
   //    the content inside <assistant_text>…</assistant_text> when present.
+  //    Also handles PARTIAL envelopes during streaming (opening tags arrived,
+  //    closing tags not yet received).
   const responseEnvelopeMatch = cleaned.match(/<response>[\s\S]*?<assistant_text>([\s\S]*?)<\/assistant_text>[\s\S]*?<\/response>/i)
   if (responseEnvelopeMatch) {
     cleaned = responseEnvelopeMatch[1]
+  } else {
+    // Partial envelope during streaming: opening tags present but closing tags haven't arrived.
+    // Extract content after <assistant_text> and strip any trailing incomplete XML.
+    const partialMatch = cleaned.match(/^\s*<response>\s*<assistant_text>([\s\S]*)$/i)
+    if (partialMatch) {
+      cleaned = partialMatch[1]
+      // If a closing </assistant_text> has arrived but </response> hasn't yet, strip it
+      cleaned = cleaned.replace(/<\/assistant_text>[\s\S]*$/i, '')
+    }
   }
 
   // Collapse leading/trailing blank lines left by removals
@@ -1684,6 +1695,29 @@ export function useConversation(): UseConversationReturn {
         assistantText = lines.join('\n').trimEnd()
       }
 
+      // Coaching dedup: when an auto-applied graph_patch block is present, the
+      // assistant_text often duplicates the coaching prose shown inside the card.
+      // Suppress assistant_text when its content substantially overlaps with a
+      // graph_patch block summary to prevent visual duplication.
+      const autoApplyPatch = orderedBlocks.find(
+        (b): b is GraphPatchBlock => b.type === 'graph_patch' && b.auto_apply === true,
+      )
+      if (autoApplyPatch && assistantText.trim()) {
+        const patchSummary = (autoApplyPatch.summary || '').toLowerCase().trim()
+        const textLower = assistantText.toLowerCase().trim()
+        // Suppress when: text matches summary, text is contained in summary, or
+        // summary is contained in text (coaching prose wraps the summary).
+        if (
+          patchSummary && (
+            textLower === patchSummary
+            || patchSummary.includes(textLower)
+            || textLower.includes(patchSummary)
+          )
+        ) {
+          assistantText = ''
+        }
+      }
+
       // Task 4 (defensive): Intercept raw structural violation text that CEE should
       // not send. Replace with a safe, neutral message and log for CEE-side tracking.
       const STRUCTURAL_VIOLATION_PATTERNS = [
@@ -1697,6 +1731,19 @@ export function useConversation(): UseConversationReturn {
           console.warn('[useConversation] Task4: Suppressed raw structural violation text:', assistantText.slice(0, 200))
         }
         assistantText = "I wasn't able to make that change safely. Let me try a simpler approach."
+      }
+
+      // Suppress stock acknowledgement phrases that duplicate patch card status.
+      // Orchestrator sometimes responds to patch_accepted/patch_dismissed system events
+      // with a bare "Changes applied." or similar — the graph_patch card already shows this.
+      const STOCK_ACK_PATTERNS = [
+        /^\s*changes\s+applied\.?\s*$/i,
+        /^\s*got\s+it[.!]?\s*$/i,
+        /^\s*understood[.!]?\s*$/i,
+        /^\s*noted[.!]?\s*$/i,
+      ]
+      if (STOCK_ACK_PATTERNS.some((p) => p.test(assistantText))) {
+        assistantText = ''
       }
 
       // Guard: skip empty assistant messages (no visible content and no blocks)
@@ -1902,14 +1949,30 @@ export function useConversation(): UseConversationReturn {
         // Only visible user sends show a timeout error bubble.
         // Hidden sends and system events time out silently (matches catch block).
         if (mode === 'user' && !hidden) {
-          addMessage({
-            id: crypto.randomUUID(),
-            role: 'assistant',
-            content: 'This is taking longer than expected. Try again or rephrase your message.',
-            synthetic: true,
-            actionChips: [{ id: 'retry', label: 'Try again', intent: 'primary' }],
-            timestamp: new Date(),
-          })
+          const timeoutContent = 'This is taking longer than expected. Try again or rephrase your message.'
+          const timeoutChips: ActionChip[] = [{ id: 'retry', label: 'Try again', intent: 'primary' }]
+          // If a streaming message was pre-created, update it instead of adding a
+          // second bubble — prevents cascading error messages in the chat.
+          if (streamingMsgIdRef.current) {
+            updateMessage(streamingMsgIdRef.current, {
+              content: timeoutContent,
+              isStreaming: false,
+              isProvisional: false,
+              toolLoadingState: null,
+              synthetic: true,
+              actionChips: timeoutChips,
+            })
+            streamingMsgIdRef.current = null
+          } else {
+            addMessage({
+              id: crypto.randomUUID(),
+              role: 'assistant',
+              content: timeoutContent,
+              synthetic: true,
+              actionChips: timeoutChips,
+              timestamp: new Date(),
+            })
+          }
         }
       }, dynamicTimeout)
 
