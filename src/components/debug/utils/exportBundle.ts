@@ -416,6 +416,8 @@ interface DebugBundle {
     edges: Array<Record<string, unknown>>
     options: Array<Record<string, unknown>>
   }
+  /** CEE option interventions (ceeAnalysisReady.options) — real intervention data */
+  cee_options?: Array<Record<string, unknown>> | null
 
   // Enhancement sections (Debug Panel V2.1)
 
@@ -581,6 +583,8 @@ export interface ExportOptions {
   includeFullGraph?: boolean
   /** Graph data from canvas store */
   graphData?: FullGraphData
+  /** CEE option interventions (ceeAnalysisReady.options) — real intervention data */
+  ceeOptions?: Array<Record<string, unknown>> | null
   /** V1.5: Display state captured at export time */
   displayState?: DisplayState | null
 }
@@ -1259,6 +1263,9 @@ export function buildDebugBundle(data: DebugData, options: ExportOptions = {}): 
     fullGraph = transformGraphDataEnriched(options.graphData)
   }
 
+  // Capture ceeAnalysisReady.options — real intervention data that node.data.interventions misses
+  const ceeOptions: DebugBundle['cee_options'] = options.ceeOptions ?? null
+
   // Detect if any payloads or full_graph were truncated during capture
   const payloadsTruncated = detectTruncation(data.payloads)
   const graphTruncated = fullGraph ? detectTruncation(fullGraph) : false
@@ -1415,6 +1422,7 @@ export function buildDebugBundle(data: DebugData, options: ExportOptions = {}): 
     diagnostic_checks: data.diagnostics,
     readme: generateReadme(data),
     ...(fullGraph && { full_graph: fullGraph }),
+    ...(ceeOptions && { cee_options: ceeOptions }),
     session: {
       timestamp,
       request_id: data.overall.request_id,

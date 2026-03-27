@@ -19,7 +19,9 @@ const makeStoreState = (overrides: Record<string, unknown> = {}) => ({
   lens: { _dimmedNodeIds: new Set() },
   goalThreshold: null,
   goalConstraints: [],
+  nodes: [],
   edges: [],
+  ceeAnalysisReady: null,
   viewMode: 'model',
   ...overrides,
 })
@@ -176,8 +178,8 @@ describe('GoalNode', () => {
       goal_threshold_raw: '500k',
       goal_threshold_unit: '£',
     })
-    // Displays "≥ £500k" (no "Target:" prefix, no "modelled range")
-    expect(screen.getByText(/≥/)).toBeDefined()
+    // Displays "Target: 500k" (threshold with non-numeric raw as string)
+    expect(screen.getByText(/Target:/)).toBeDefined()
     expect(screen.getByText(/500k/)).toBeDefined()
   })
 
@@ -238,21 +240,21 @@ describe('GoalNode', () => {
 
   it('does not show threshold context when goal_threshold_raw is absent', () => {
     renderGoal()
-    // No ≥ sign, shows coaching prompt instead
-    expect(screen.queryByText(/≥/)).toBeNull()
+    // No threshold display, shows coaching prompt instead
+    expect(screen.queryByText(/Target:/)).toBeNull()
     expect(screen.getByText(/Set a success target/)).toBeDefined()
   })
 
   it('shows threshold without unit when goal_threshold_unit is absent', () => {
     renderGoal({ goal_threshold_raw: '200k' })
-    expect(screen.getByText(/≥/)).toBeDefined()
+    expect(screen.getByText(/Target:/)).toBeDefined()
     expect(screen.getByText(/200k/)).toBeDefined()
   })
 
   // Task 2: Non-currency units must suffix, not prefix
   it('formats non-currency unit as suffix: "≥ 200 customers"', () => {
     renderGoal({ goal_threshold_raw: 200, goal_threshold_unit: 'customers' })
-    const el = screen.getByText(/≥/)
+    const el = screen.getByText(/Target:/)
     expect(el.textContent).toContain('200')
     expect(el.textContent).toContain('customers')
     // Ensure it's "200 customers" not "customers200"
@@ -261,7 +263,7 @@ describe('GoalNode', () => {
 
   it('formats currency unit as prefix: "≥ £200"', () => {
     renderGoal({ goal_threshold_raw: 200, goal_threshold_unit: '£' })
-    const el = screen.getByText(/≥/)
+    const el = screen.getByText(/Target:/)
     // "£200" prefix style (no space between symbol and number)
     expect(el.textContent).toContain('£')
     expect(el.textContent).toContain('200')
@@ -271,13 +273,13 @@ describe('GoalNode', () => {
 
   it('shows threshold when goal_threshold_raw is numeric 0 (falsy)', () => {
     renderGoal({ goal_threshold_raw: 0 })
-    expect(screen.getByText(/≥/)).toBeDefined()
+    expect(screen.getByText(/Target:/)).toBeDefined()
   })
 
   // Assessment fix: float percent thresholds must be rounded to integer
   it('rounds float percent threshold to integer: 85.5% → 86%', () => {
     renderGoal({ goal_threshold_raw: 85.5, goal_threshold_unit: '%' })
-    const el = screen.getByText(/≥/)
+    const el = screen.getByText(/Target:/)
     expect(el.textContent).toContain('86%')
     expect(el.textContent).not.toContain('85.5%')
   })
@@ -285,19 +287,19 @@ describe('GoalNode', () => {
   // P1.4: null and empty string must NOT display threshold — show coaching prompt instead
   it('shows coaching prompt when goal_threshold_raw is null', () => {
     renderGoal({ goal_threshold_raw: null })
-    expect(screen.queryByText(/≥/)).toBeNull()
+    expect(screen.queryByText(/Target:/)).toBeNull()
     expect(screen.getByText(/Set a success target/)).toBeDefined()
   })
 
   it('shows coaching prompt when goal_threshold_raw is empty string', () => {
     renderGoal({ goal_threshold_raw: '' })
-    expect(screen.queryByText(/≥/)).toBeNull()
+    expect(screen.queryByText(/Target:/)).toBeNull()
     expect(screen.getByText(/Set a success target/)).toBeDefined()
   })
 
   it('shows coaching prompt when goal_threshold_raw is whitespace-only', () => {
     renderGoal({ goal_threshold_raw: '   ' })
-    expect(screen.queryByText(/≥/)).toBeNull()
+    expect(screen.queryByText(/Target:/)).toBeNull()
     expect(screen.getByText(/Set a success target/)).toBeDefined()
   })
 
@@ -384,7 +386,7 @@ describe('GoalNode', () => {
   describe('goal threshold unit matrix', () => {
     it('$ currency — prefix format: "≥ $200"', () => {
       renderGoal({ goal_threshold_raw: 200, goal_threshold_unit: '$' })
-      const el = screen.getByText(/≥/)
+      const el = screen.getByText(/Target:/)
       expect(el.textContent).toContain('$')
       expect(el.textContent).toContain('200')
       expect(el.textContent).not.toMatch(/200\s+\$/)
@@ -392,26 +394,26 @@ describe('GoalNode', () => {
 
     it('% — percent format: "≥ 85%"', () => {
       renderGoal({ goal_threshold_raw: 85, goal_threshold_unit: '%' })
-      const el = screen.getByText(/≥/)
+      const el = screen.getByText(/Target:/)
       expect(el.textContent).toContain('85%')
     })
 
     it('months — suffix format: "≥ 6 months"', () => {
       renderGoal({ goal_threshold_raw: 6, goal_threshold_unit: 'months' })
-      const el = screen.getByText(/≥/)
+      const el = screen.getByText(/Target:/)
       expect(el.textContent).toMatch(/6\s+months/)
       expect(el.textContent).not.toContain('months6')
     })
 
     it('engineers — suffix format: "≥ 10 engineers"', () => {
       renderGoal({ goal_threshold_raw: 10, goal_threshold_unit: 'engineers' })
-      const el = screen.getByText(/≥/)
+      const el = screen.getByText(/Target:/)
       expect(el.textContent).toMatch(/10\s+engineers/)
     })
 
     it('unitless — plain number: "≥ 500"', () => {
       renderGoal({ goal_threshold_raw: 500 })
-      const el = screen.getByText(/≥/)
+      const el = screen.getByText(/Target:/)
       expect(el.textContent).toContain('500')
       // No stray unit text
       expect(el.textContent).not.toMatch(/500\s+\w/)
@@ -419,7 +421,7 @@ describe('GoalNode', () => {
 
     it('count unit (explicit) — plain number format', () => {
       renderGoal({ goal_threshold_raw: 100, goal_threshold_unit: 'count' })
-      const el = screen.getByText(/≥/)
+      const el = screen.getByText(/Target:/)
       expect(el.textContent).toContain('100')
       expect(el.textContent).not.toContain('count')
     })
@@ -427,7 +429,7 @@ describe('GoalNode', () => {
     // B1: £20,000 with thousands separator
     it('B1: £ currency with 20000 — renders thousands separator', () => {
       renderGoal({ goal_threshold_raw: 20000, goal_threshold_unit: '£' })
-      const el = screen.getByText(/≥/)
+      const el = screen.getByText(/Target:/)
       expect(el.textContent).toContain('£')
       expect(el.textContent).toContain('20,000')
     })
@@ -435,14 +437,14 @@ describe('GoalNode', () => {
     // B2: "≥ 200 customers"
     it('B2: "≥ 200 customers" — number first then unit', () => {
       renderGoal({ goal_threshold_raw: 200, goal_threshold_unit: 'customers' })
-      const el = screen.getByText(/≥/)
+      const el = screen.getByText(/Target:/)
       expect(el.textContent).toMatch(/200\s+customers/)
     })
 
     // B3: "≥ 95%" — no space before %
     it('B3: "≥ 95%" — percent format with no space', () => {
       renderGoal({ goal_threshold_raw: 95, goal_threshold_unit: '%' })
-      const el = screen.getByText(/≥/)
+      const el = screen.getByText(/Target:/)
       expect(el.textContent).toContain('95%')
       expect(el.textContent).not.toContain('95 %')
     })
@@ -450,7 +452,7 @@ describe('GoalNode', () => {
     // B4: no unit → "≥ 200"
     it('B4: no unit renders plain number', () => {
       renderGoal({ goal_threshold_raw: 200 })
-      const el = screen.getByText(/≥/)
+      const el = screen.getByText(/Target:/)
       expect(el.textContent).toContain('200')
       // No unit suffix
       expect(el.textContent?.trim().endsWith('200')).toBe(true)
@@ -461,7 +463,7 @@ describe('GoalNode', () => {
   it('B7: threshold_raw=0 renders threshold display not coaching prompt', () => {
     renderGoal({ goal_threshold_raw: 0 })
     // Already covered above, but named explicitly for brief traceability
-    expect(screen.getByText(/≥/)).toBeDefined()
+    expect(screen.getByText(/Target:/)).toBeDefined()
     expect(screen.queryByText(/Set a success target/)).toBeNull()
   })
 

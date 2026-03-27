@@ -77,6 +77,7 @@ export function AiEstimated({
                 type="button"
                 onClick={() => nodeId && onConfirm?.(nodeId)}
                 className={`${typography.panelMeta} text-success border border-success/30 rounded-full px-1.5 py-0.5 bg-transparent hover:bg-panel-hover cursor-pointer`}
+                aria-label="Confirm value"
                 title="Confirm value"
               >
                 <Check className="w-3 h-3" aria-hidden="true" />

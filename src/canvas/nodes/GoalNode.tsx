@@ -110,7 +110,9 @@ export const GoalNode = memo((props: NodeProps) => {
           : displayMetadata.achievementProbability >= 0.40 ? 'text-warning'
           : 'text-danger'
         }`}>
-          {Math.round(displayMetadata.achievementProbability * 100)}% chance of target
+          {displayMetadata.achievementProbability > 0 && displayMetadata.achievementProbability < 0.01
+            ? '< 1'
+            : Math.round(displayMetadata.achievementProbability * 100)}% chance of target
           {hasConstraintDefaultWarning && (
             <span
               className={`${typography.nodeLabel} bg-panel border border-factor/30 text-text-body rounded-full w-4 h-4 flex items-center justify-center flex-shrink-0`}

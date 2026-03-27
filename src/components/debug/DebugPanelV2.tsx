@@ -79,14 +79,13 @@ export function DebugPanelV2({ onClose, width, height, expanded, onToggleExpande
     setExporting(true)
     try {
       // Get current graph data from store only when needed for export
+      const state = useCanvasStore.getState()
       const graphData = includeFullGraph
-        ? {
-            nodes: useCanvasStore.getState().nodes,
-            edges: useCanvasStore.getState().edges,
-          }
+        ? { nodes: state.nodes, edges: state.edges }
         : undefined
+      const ceeOptions = (state.ceeAnalysisReady as { options?: Array<Record<string, unknown>> } | null)?.options ?? null
 
-      await exportDebugBundleAsync(data, { includeFullGraph, graphData })
+      await exportDebugBundleAsync(data, { includeFullGraph, graphData, ceeOptions })
     } finally {
       setExporting(false)
     }
