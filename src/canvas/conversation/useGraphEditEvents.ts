@@ -56,6 +56,28 @@ interface DiffAccumulator {
   /** Per-element operation for deterministic change_type in scenario events */
   nodeOps: Map<string, ElementOp>
   edgeOps: Map<string, ElementOp>
+  /** Changed field names per element (top-level data keys that differ) */
+  fieldsChanged: Map<string, Set<string>>
+}
+
+/** Extract top-level data keys that differ between two serialised JSON strings */
+function extractChangedFields(prevJson: string, currJson: string): string[] {
+  try {
+    const prev = JSON.parse(prevJson)
+    const curr = JSON.parse(currJson)
+    const prevData = prev.data ?? {}
+    const currData = curr.data ?? {}
+    const keys = new Set([...Object.keys(prevData), ...Object.keys(currData)])
+    const changed: string[] = []
+    for (const key of keys) {
+      if (JSON.stringify(prevData[key]) !== JSON.stringify(currData[key])) {
+        changed.push(key)
+      }
+    }
+    return changed
+  } catch {
+    return []
+  }
 }
 
 function diffSnapshots(prev: GraphSnapshot, curr: GraphSnapshot): DiffAccumulator | null {
@@ -65,6 +87,7 @@ function diffSnapshots(prev: GraphSnapshot, curr: GraphSnapshot): DiffAccumulato
     operations: new Set(),
     nodeOps: new Map(),
     edgeOps: new Map(),
+    fieldsChanged: new Map(),
   }
 
   // Node diffs
@@ -77,6 +100,7 @@ function diffSnapshots(prev: GraphSnapshot, curr: GraphSnapshot): DiffAccumulato
       diff.changedNodeIds.add(id)
       diff.operations.add('update')
       diff.nodeOps.set(id, 'update')
+      diff.fieldsChanged.set(id, new Set(extractChangedFields(prev.nodes.get(id)!, data)))
     }
   }
   for (const id of prev.nodes.keys()) {
@@ -97,6 +121,7 @@ function diffSnapshots(prev: GraphSnapshot, curr: GraphSnapshot): DiffAccumulato
       diff.changedEdgeIds.add(id)
       diff.operations.add('update')
       diff.edgeOps.set(id, 'update')
+      diff.fieldsChanged.set(id, new Set(extractChangedFields(prev.edges.get(id)!, data)))
     }
   }
   for (const id of prev.edges.keys()) {
@@ -203,6 +228,7 @@ export function useGraphEditEvents(
           operations: new Set(),
           nodeOps: new Map(),
           edgeOps: new Map(),
+          fieldsChanged: new Map(),
         }
       }
       const acc = accRef.current
@@ -211,6 +237,11 @@ export function useGraphEditEvents(
       for (const op of diff.operations) acc.operations.add(op)
       for (const [id, op] of diff.nodeOps) acc.nodeOps.set(id, op)
       for (const [id, op] of diff.edgeOps) acc.edgeOps.set(id, op)
+      for (const [id, fields] of diff.fieldsChanged) {
+        const existing = acc.fieldsChanged.get(id)
+        if (existing) { for (const f of fields) existing.add(f) }
+        else acc.fieldsChanged.set(id, new Set(fields))
+      }
 
       // Update snapshot for next comparison
       snapshotRef.current = currSnapshot
@@ -229,12 +260,19 @@ export function useGraphEditEvents(
         const changedEdgeIds = [...batchAcc.changedEdgeIds].sort().slice(0, MAX_IDS_PER_BATCH)
         const operations = [...batchAcc.operations].sort()
 
+        // Per-element fields_changed map (id → sorted field names)
+        const fieldsChangedMap: Record<string, string[]> = {}
+        for (const [id, fields] of batchAcc.fieldsChanged) {
+          if (fields.size > 0) fieldsChangedMap[id] = [...fields].sort()
+        }
+
         sendSystemEvent({
           type: 'direct_graph_edit',
           payload: {
             changed_node_ids: changedNodeIds,
             changed_edge_ids: changedEdgeIds,
             operations,
+            fields_changed: fieldsChangedMap,
             summary: buildSummary(batchAcc),
           },
         })

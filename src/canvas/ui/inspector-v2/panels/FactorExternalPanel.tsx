@@ -6,7 +6,7 @@
 import { memo, useState, useMemo, useCallback } from 'react'
 import { useCanvasStore } from '../../../store'
 import type { NodeType } from '../../../domain/nodes'
-import { InspectorGuidanceSection } from '../../inspector/InspectorGuidanceSection'
+import { InspectorCoaching } from '../shared/InspectorCoaching'
 import { useNodeDisplayMetadata } from '../../../hooks/useNodeDisplayMetadata'
 import { typography } from '../../../../styles/typography'
 import { useNodeMutations } from '../useInspectorMutations'
@@ -14,7 +14,6 @@ import { useStaleGuard } from '../useStaleGuard'
 import { SECTION_TITLES } from '../inspectorStrings'
 import { SectionTitle } from '../shared/SectionTitle'
 import { ConnectionRow } from '../shared/ConnectionRow'
-import { CoachingCard } from '../shared/CoachingCard'
 import { StaleGuardBanner } from '../shared/StaleGuardBanner'
 import { TechnicalDisclosure } from '../shared/TechnicalDisclosure'
 import { DataBar } from '../../shared/DataBar'
@@ -262,13 +261,14 @@ export const FactorExternalPanel = memo(function FactorExternalPanel({
         />
       ))}
 
-      {/* Coaching */}
-      <CoachingCard
-        text={resolveCoaching('factorExternalUncertainty', { factorName: String(node.data?.label ?? '') })}
-        action={{ label: 'Narrow the range', onClick: () => {} }}
+      {/* Coaching + Guidance */}
+      <InspectorCoaching
+        elementId={nodeId}
+        panelType="factor-external"
+        fallbackText={resolveCoaching('factorExternalUncertainty', { factorName: String(node.data?.label ?? '') })}
+        labelContext={{ label: String(node.data?.label ?? '') }}
+        actionLabel="Narrow the range"
       />
-
-      <InspectorGuidanceSection elementId={nodeId} />
 
       {/* Technical disclosure — structured advanced editor */}
       <TechnicalDisclosure visible={techMode}>

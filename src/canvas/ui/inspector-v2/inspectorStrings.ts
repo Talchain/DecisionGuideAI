@@ -116,3 +116,43 @@ export const EMPTY_STATES = {
   noThreshold:      'Adding a specific target unlocks probability calculations',
   noEvidence:       'No calibration or external data. Providing evidence would improve trust in this connection.',
 } as const
+
+// ─── "Ask about this" question templates (Task 2) ────────────────────
+export const ASK_TEMPLATES: Record<string, string> = {
+  goal:                  'Tell me about the chances of achieving {label}',
+  'factor-controllable': 'How important is {label} to the outcome?',
+  'factor-observable':   'What would happen if {label} changed?',
+  'factor-external':     'How sensitive are the results to {label}?',
+  edge:                  'Explain the relationship between {sourceLabel} and {targetLabel}',
+  option:                'How does {label} compare to the other options?',
+  outcome:               'What drives {label} the most?',
+  risk:                  'How can we reduce {label}?',
+  decision:              'What are the key trade-offs in {label}?',
+}
+
+/**
+ * Resolve an "Ask about this" question template with element labels.
+ * Returns null if no template matches or required placeholders are missing.
+ */
+export function resolveAskTemplate(
+  panelType: string,
+  context: { label?: string; sourceLabel?: string; targetLabel?: string },
+): string | null {
+  const template = ASK_TEMPLATES[panelType]
+  if (!template) return null
+
+  let resolved = template
+  if (resolved.includes('{label}')) {
+    if (!context.label) return null
+    resolved = resolved.replace('{label}', context.label)
+  }
+  if (resolved.includes('{sourceLabel}')) {
+    if (!context.sourceLabel) return null
+    resolved = resolved.replace('{sourceLabel}', context.sourceLabel)
+  }
+  if (resolved.includes('{targetLabel}')) {
+    if (!context.targetLabel) return null
+    resolved = resolved.replace('{targetLabel}', context.targetLabel)
+  }
+  return resolved
+}

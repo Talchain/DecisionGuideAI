@@ -6,7 +6,7 @@
 import { memo, useState, useMemo, useCallback, useRef, useEffect } from 'react'
 import { useCanvasStore } from '../../../store'
 import type { NodeType } from '../../../domain/nodes'
-import { InspectorGuidanceSection } from '../../inspector/InspectorGuidanceSection'
+import { InspectorCoaching } from '../shared/InspectorCoaching'
 import { useNodeDisplayMetadata } from '../../../hooks/useNodeDisplayMetadata'
 import { typography } from '../../../../styles/typography'
 import { useNodeMutations } from '../useInspectorMutations'
@@ -18,13 +18,13 @@ import {
 import { formatFactorValue } from '../../../utils/labelUtils'
 import { SectionTitle } from '../shared/SectionTitle'
 import { InterventionRow } from '../shared/InterventionRow'
-import { CoachingCard } from '../shared/CoachingCard'
 import { StaleGuardBanner } from '../shared/StaleGuardBanner'
 import { TechnicalDisclosure } from '../shared/TechnicalDisclosure'
 import { ProbabilityArc } from '../shared/ProbabilityArc'
 import type { InspectorPanelProps } from '../types'
 import { COACHING } from '../coachingConfig'
 import { OptionAdvancedEditor } from '../editors/OptionAdvancedEditor'
+import { ResultsLink } from '../shared/ResultsLink'
 
 export const OptionPanel = memo(function OptionPanel({
   nodeId,
@@ -223,6 +223,7 @@ export const OptionPanel = memo(function OptionPanel({
                     {Math.round(displayMetadata.winRate * 100)}%
                   </div>
                   <div className={`${typography.panelMeta} text-text-light`}>Chance of winning</div>
+                  <ResultsLink label="Compare all options" tab="compare" />
                 </div>
               </div>
             )}
@@ -264,16 +265,15 @@ export const OptionPanel = memo(function OptionPanel({
         )}
       </StaleGuardBanner>
 
-      {/* Coaching */}
+      {/* Coaching + Guidance */}
       {interventions.length > 0 && (
-        <CoachingCard
-          text={COACHING.optionCoverage}
-          action={{ label: 'Ask about this', onClick: () => {} }}
+        <InspectorCoaching
+          elementId={nodeId}
+          panelType="option"
+          fallbackText={COACHING.optionCoverage}
+          labelContext={{ label: String(node.data?.label ?? '') }}
         />
       )}
-
-      {/* Guidance */}
-      <InspectorGuidanceSection elementId={nodeId} />
 
       {/* Technical disclosure — structured advanced editor */}
       <TechnicalDisclosure visible={techMode}>

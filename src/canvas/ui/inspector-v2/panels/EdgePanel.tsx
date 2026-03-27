@@ -10,7 +10,7 @@ import { getEdgeConfidence, EDGE_CONSTRAINTS, DEFAULT_EDGE_DATA } from '../../..
 import type { NodeType } from '../../../domain/nodes'
 import { NodeShapeIndicator } from '../../../nodes/NodeShapeIndicator'
 import { SignedStrengthSlider } from '../../inspector/SignedStrengthSlider'
-import { InspectorGuidanceSection } from '../../inspector/InspectorGuidanceSection'
+import { InspectorCoaching } from '../shared/InspectorCoaching'
 import { typography } from '../../../../styles/typography'
 import { useEdgeMutations } from '../useInspectorMutations'
 import { useStaleGuard } from '../useStaleGuard'
@@ -21,7 +21,6 @@ import {
   EMPTY_STATES,
 } from '../inspectorStrings'
 import { SectionTitle } from '../shared/SectionTitle'
-import { CoachingCard } from '../shared/CoachingCard'
 import { StaleGuardBanner } from '../shared/StaleGuardBanner'
 import { TechnicalDisclosure } from '../shared/TechnicalDisclosure'
 import { UncertaintyBand } from '../shared/UncertaintyBand'
@@ -430,16 +429,15 @@ export const EdgePanel = memo(function EdgePanel({
             </>
           )}
 
-          {/* Coaching */}
-          <CoachingCard
-            text={COACHING.edgeWeight}
-            action={{ label: 'Ask about this', onClick: () => {} }}
+          {/* Coaching — orchestrator guidance takes priority over static */}
+          <InspectorCoaching
+            elementId={edgeId}
+            panelType="edge"
+            fallbackText={COACHING.edgeWeight}
+            labelContext={{ sourceLabel, targetLabel }}
           />
         </>
       )}
-
-      {/* Guidance */}
-      <InspectorGuidanceSection elementId={edgeId} />
 
       {/* Technical disclosure — structured advanced editor */}
       <TechnicalDisclosure visible={techMode}>

@@ -5,7 +5,7 @@
 
 import { memo, useState, useMemo, useCallback } from 'react'
 import { useCanvasStore } from '../../../store'
-import { InspectorGuidanceSection } from '../../inspector/InspectorGuidanceSection'
+import { InspectorCoaching } from '../shared/InspectorCoaching'
 import { GoalThresholdEditor } from '../../inspector/GoalThresholdEditor'
 import { GoalProgressChecklist } from '../../inspector/GoalProgressChecklist'
 import { useNodeDisplayMetadata } from '../../../hooks/useNodeDisplayMetadata'
@@ -27,6 +27,7 @@ import type { CEEGoalConstraint } from '../../../../adapters/cee/types'
 import type { ConditionalProbability } from '../../../../types/constraints'
 import { COACHING } from '../coachingConfig'
 import { GoalAdvancedEditor } from '../editors/GoalAdvancedEditor'
+import { ResultsLink } from '../shared/ResultsLink'
 
 export const GoalPanel = memo(function GoalPanel({
   nodeId,
@@ -333,6 +334,7 @@ export const GoalPanel = memo(function GoalPanel({
             <div>
               <div className={`${typography.panelHeader}`}>{Math.round(probGoal * 100)}% chance of success</div>
               <div className={`${typography.panelMeta} text-text-light mt-0.5`}>Based on 1,000 simulations</div>
+              <div className="mt-1"><ResultsLink label="View full results" tab="results" /></div>
               {typeof probJoint === 'number' && (
                 <div className={`${typography.panelBody} text-text-body mt-1.5`}>
                   Chance of hitting every target: <strong>{Math.round(probJoint * 100)}%</strong>
@@ -365,14 +367,13 @@ export const GoalPanel = memo(function GoalPanel({
         <p className={`${typography.panelMeta} text-text-light py-2`}>No contributing factors connected yet</p>
       )}
 
-      {/* Coaching */}
-      <CoachingCard
-        text={COACHING.goalConnections}
-        action={{ label: 'Ask about this', onClick: () => {} }}
+      {/* Coaching + Guidance */}
+      <InspectorCoaching
+        elementId={nodeId}
+        panelType="goal"
+        fallbackText={COACHING.goalConnections}
+        labelContext={{ label: String(node.data?.label ?? '') }}
       />
-
-      {/* Guidance */}
-      <InspectorGuidanceSection elementId={nodeId} />
 
       {/* Technical disclosure — structured advanced editor */}
       <TechnicalDisclosure visible={techMode}>

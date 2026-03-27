@@ -370,14 +370,16 @@ export const ConversationPanel = memo(function ConversationPanel({
   useEffect(() => {
     const sendChipByLabelMessage = (label: string, message: string) =>
       sendChip({ id: `evidence-apply-${Date.now()}`, label, message, intent: 'primary' })
+    const prefillChat = (text: string) => composerRef.current?.replaceText(text)
     useGuidanceStore.getState().registerConversationCallbacks(
       sendMessage,
       handleScrollToPatch,
       sendChipByLabelMessage,
       handleRunAnalysis,
+      prefillChat,
     )
     return () => {
-      useGuidanceStore.setState({ _sendMessage: null, _runAnalysis: null, _sendChip: null, _scrollToPatch: null })
+      useGuidanceStore.setState({ _sendMessage: null, _runAnalysis: null, _sendChip: null, _scrollToPatch: null, _prefillChat: null })
     }
   }, [sendMessage, handleScrollToPatch, sendChip, handleRunAnalysis])
 

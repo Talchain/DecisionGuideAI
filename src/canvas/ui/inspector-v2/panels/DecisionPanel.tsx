@@ -8,14 +8,13 @@ import { ChevronRight } from 'lucide-react'
 import { useCanvasStore } from '../../../store'
 import type { NodeType } from '../../../domain/nodes'
 import { NodeShapeIndicator } from '../../../nodes/NodeShapeIndicator'
-import { InspectorGuidanceSection } from '../../inspector/InspectorGuidanceSection'
+import { InspectorCoaching } from '../shared/InspectorCoaching'
 import { useNodeDisplayMetadata } from '../../../hooks/useNodeDisplayMetadata'
 import { typography } from '../../../../styles/typography'
 import { useNodeMutations } from '../useInspectorMutations'
 import { detectBaseline } from '../../../utils/baselineDetection'
 import { SECTION_TITLES } from '../inspectorStrings'
 import { SectionTitle } from '../shared/SectionTitle'
-import { CoachingCard } from '../shared/CoachingCard'
 import { TechnicalDisclosure } from '../shared/TechnicalDisclosure'
 import type { InspectorPanelProps } from '../types'
 import { COACHING } from '../coachingConfig'
@@ -147,14 +146,13 @@ export const DecisionPanel = memo(function DecisionPanel({
         + Add option
       </button>
 
-      {/* Coaching */}
-      <CoachingCard
-        text={COACHING.decisionOptions}
-        action={{ label: 'Ask about this', onClick: () => {} }}
+      {/* Coaching + Guidance */}
+      <InspectorCoaching
+        elementId={nodeId}
+        panelType="decision"
+        fallbackText={COACHING.decisionOptions}
+        labelContext={{ label: String(node.data?.label ?? '') }}
       />
-
-      {/* Guidance */}
-      <InspectorGuidanceSection elementId={nodeId} />
 
       {/* Technical disclosure — structured advanced editor */}
       <TechnicalDisclosure visible={techMode}>

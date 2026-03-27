@@ -8,13 +8,12 @@ import { memo, useMemo, useState } from 'react'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 import { useCanvasStore } from '../../../store'
 import type { NodeType } from '../../../domain/nodes'
-import { InspectorGuidanceSection } from '../../inspector/InspectorGuidanceSection'
+import { InspectorCoaching } from '../shared/InspectorCoaching'
 import { typography } from '../../../../styles/typography'
 import { useStaleGuard } from '../useStaleGuard'
 import { SECTION_TITLES } from '../inspectorStrings'
 import { SectionTitle } from '../shared/SectionTitle'
 import { ConnectionRow } from '../shared/ConnectionRow'
-import { CoachingCard } from '../shared/CoachingCard'
 import { StaleGuardBanner } from '../shared/StaleGuardBanner'
 import { TechnicalDisclosure } from '../shared/TechnicalDisclosure'
 import type { InspectorPanelProps } from '../types'
@@ -118,12 +117,13 @@ export const RiskPanel = memo(function RiskPanel({
         </div>
       )}
 
-      <CoachingCard
-        text={COACHING.riskControlLevers}
-        action={{ label: 'Explore trade-off', onClick: () => {} }}
+      <InspectorCoaching
+        elementId={nodeId}
+        panelType="risk"
+        fallbackText={COACHING.riskControlLevers}
+        labelContext={{ label: String(node.data?.label ?? '') }}
+        actionLabel="Explore trade-off"
       />
-
-      <InspectorGuidanceSection elementId={nodeId} />
 
       {/* Technical disclosure — structured advanced editor */}
       <TechnicalDisclosure visible={techMode}>

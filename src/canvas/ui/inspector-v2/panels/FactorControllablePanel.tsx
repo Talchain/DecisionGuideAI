@@ -7,7 +7,7 @@ import { memo, useState, useMemo, useCallback } from 'react'
 import { Link } from 'lucide-react'
 import { useCanvasStore } from '../../../store'
 import type { NodeType } from '../../../domain/nodes'
-import { InspectorGuidanceSection } from '../../inspector/InspectorGuidanceSection'
+import { InspectorCoaching } from '../shared/InspectorCoaching'
 import { useNodeDisplayMetadata } from '../../../hooks/useNodeDisplayMetadata'
 import { typography } from '../../../../styles/typography'
 import { useNodeMutations } from '../useInspectorMutations'
@@ -20,13 +20,13 @@ import {
 } from '../inspectorStrings'
 import { SectionTitle } from '../shared/SectionTitle'
 import { ConnectionRow } from '../shared/ConnectionRow'
-import { CoachingCard } from '../shared/CoachingCard'
 import { StaleGuardBanner } from '../shared/StaleGuardBanner'
 import { TechnicalDisclosure } from '../shared/TechnicalDisclosure'
 import { DataBar } from '../../shared/DataBar'
 import type { InspectorPanelProps } from '../types'
 import { resolveCoaching } from '../coachingConfig'
 import { FactorControllableEditor } from '../editors/FactorControllableEditor'
+import { ResultsLink } from '../shared/ResultsLink'
 
 export const FactorControllablePanel = memo(function FactorControllablePanel({
   nodeId,
@@ -186,6 +186,7 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
                     : `${displayMetadata.sensitivityRank}th`}
                 </div>
                 <div className={`${typography.panelMeta} text-text-light`}>most influential</div>
+                <ResultsLink label="See all drivers" tab="results" />
               </div>
             )}
           </div>
@@ -257,14 +258,13 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
         </>
       )}
 
-      {/* Coaching */}
-      <CoachingCard
-        text={resolveCoaching('factorControllableEvidence', { factorName: String(node.data?.label ?? '') })}
-        action={{ label: 'Ask about this', onClick: () => {} }}
+      {/* Coaching + Guidance */}
+      <InspectorCoaching
+        elementId={nodeId}
+        panelType="factor-controllable"
+        fallbackText={resolveCoaching('factorControllableEvidence', { factorName: String(node.data?.label ?? '') })}
+        labelContext={{ label: String(node.data?.label ?? '') }}
       />
-
-      {/* Guidance */}
-      <InspectorGuidanceSection elementId={nodeId} />
 
       {/* Technical disclosure — structured advanced editor */}
       <TechnicalDisclosure visible={techMode}>

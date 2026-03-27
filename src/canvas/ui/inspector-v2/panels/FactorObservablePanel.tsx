@@ -8,7 +8,7 @@ import { memo, useMemo } from 'react'
 import { Link } from 'lucide-react'
 import { useCanvasStore } from '../../../store'
 import type { NodeType } from '../../../domain/nodes'
-import { InspectorGuidanceSection } from '../../inspector/InspectorGuidanceSection'
+import { InspectorCoaching } from '../shared/InspectorCoaching'
 import { useNodeDisplayMetadata } from '../../../hooks/useNodeDisplayMetadata'
 import { typography } from '../../../../styles/typography'
 import { useStaleGuard } from '../useStaleGuard'
@@ -16,7 +16,6 @@ import { shouldShowNormalised } from '../normalisedDisplay'
 import { SECTION_TITLES, getExtractionLabel, getProvenanceLabel } from '../inspectorStrings'
 import { SectionTitle } from '../shared/SectionTitle'
 import { ConnectionRow } from '../shared/ConnectionRow'
-import { CoachingCard } from '../shared/CoachingCard'
 import { StaleGuardBanner } from '../shared/StaleGuardBanner'
 import { TechnicalDisclosure } from '../shared/TechnicalDisclosure'
 import { DataBar } from '../../shared/DataBar'
@@ -167,13 +166,13 @@ export const FactorObservablePanel = memo(function FactorObservablePanel({
         />
       ))}
 
-      {/* Coaching */}
-      <CoachingCard
-        text={resolveCoaching('factorObservableData', { factorName: String(node.data?.label ?? '') })}
-        action={{ label: 'Ask about this', onClick: () => {} }}
+      {/* Coaching + Guidance */}
+      <InspectorCoaching
+        elementId={nodeId}
+        panelType="factor-observable"
+        fallbackText={resolveCoaching('factorObservableData', { factorName: String(node.data?.label ?? '') })}
+        labelContext={{ label: String(node.data?.label ?? '') }}
       />
-
-      <InspectorGuidanceSection elementId={nodeId} />
 
       {/* Technical disclosure — structured advanced editor */}
       <TechnicalDisclosure visible={techMode}>
