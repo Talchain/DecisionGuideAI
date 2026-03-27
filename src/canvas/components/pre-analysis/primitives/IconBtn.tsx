@@ -1,5 +1,8 @@
 /**
- * IconBtn - 28×28 icon button with tooltip
+ * IconBtn - icon button with tooltip
+ *
+ * Visual size: 28×28 (w-7 h-7). Touch target: 44×44 min via transparent
+ * padding area around the visual button (DS v5 §6 minimum touch target).
  *
  * Variants:
  * - default: Standard icon button
@@ -79,6 +82,10 @@ export function IconBtn({
     }
   }
 
+  // Touch target: visual stays w-7 h-7 (28px), but an absolutely positioned
+  // ::before pseudo-element extends the clickable area to 44×44 px.
+  const touchTarget = 'relative before:absolute before:inset-[-8px] before:content-[""]'
+
   // Wrap disabled buttons in a span so tooltip hover events still fire
   // (disabled buttons don't receive pointer events)
   if (disabled) {
@@ -90,7 +97,7 @@ export function IconBtn({
             disabled
             aria-disabled="true"
             className={`
-              w-7 h-7 flex items-center justify-center rounded-full transition-colors opacity-40
+              ${touchTarget} w-7 h-7 flex items-center justify-center rounded-full transition-colors opacity-40
               ${buttonStyle}
               ${className}
             `}
@@ -109,7 +116,7 @@ export function IconBtn({
         onClick={handleClick}
         aria-label={ariaLabel ?? tooltip}
         className={`
-          w-7 h-7 flex items-center justify-center rounded-full transition-colors
+          ${touchTarget} w-7 h-7 flex items-center justify-center rounded-full transition-colors
           ${buttonStyle}
           ${className}
         `}

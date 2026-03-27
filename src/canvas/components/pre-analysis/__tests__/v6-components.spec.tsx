@@ -46,7 +46,7 @@ describe('ModelHealthCard', () => {
       />
     )
     // Score = Math.round((0.33 + 0.5 + 0.25 + 0.8) / 4 * 100) = Math.round(47) = 47
-    expect(screen.getByText('Model health')).toBeInTheDocument()
+    expect(screen.getByText('Decision readiness')).toBeInTheDocument()
   })
 
   it('shows 0 when all dimensions are 0', () => {

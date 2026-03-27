@@ -214,9 +214,9 @@ describe('PreAnalysisPanel', () => {
       }))
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
-      // ModelHealthCard replaces Header — shows "Model health" title
+      // ModelHealthCard replaces Header — shows "Decision readiness" title
       expect(screen.getByTestId('model-health-card')).toBeInTheDocument()
-      expect(screen.getByText('Model health')).toBeInTheDocument()
+      expect(screen.getByText('Decision readiness')).toBeInTheDocument()
     })
 
     it('shows model health card when blocked', () => {
@@ -533,7 +533,7 @@ describe('PreAnalysisPanel', () => {
 
       // ModelHealthCard always present — status moved to footer
       expect(screen.getByTestId('model-health-card')).toBeInTheDocument()
-      expect(screen.getByText('Model health')).toBeInTheDocument()
+      expect(screen.getByText('Decision readiness')).toBeInTheDocument()
     })
   })
 
