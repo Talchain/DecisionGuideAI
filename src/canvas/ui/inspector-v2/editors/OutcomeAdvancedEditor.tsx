@@ -5,10 +5,10 @@
 
 import { useMemo } from 'react'
 import { useCanvasStore } from '../../../store'
+import { useOptionComparison } from '../useAnalysisResults'
 import { useNodeMutations } from '../useInspectorMutations'
 import { AdvancedField } from '../shared/AdvancedField'
 import { AdvancedFieldGroup } from '../shared/AdvancedFieldGroup'
-import { typography } from '../../../../styles/typography'
 
 interface OutcomeAdvancedEditorProps {
   nodeId: string
@@ -19,8 +19,7 @@ export function OutcomeAdvancedEditor({ nodeId }: OutcomeAdvancedEditorProps) {
   const mutations = useNodeMutations(nodeId)
   const edges = useCanvasStore(s => s.edges)
   const resultsStatus = useCanvasStore(s => s.results?.status)
-  const optionComparison = useCanvasStore(s => (s.results?.report as any)?.option_comparison) as
-    Array<{ option_id: string; option_label?: string; outcome?: { mean?: number }; win_probability?: number; p10?: number; p90?: number }> | undefined
+  const optionComparison = useOptionComparison()
 
   const data = node?.data as Record<string, unknown> | undefined
   const inboundCount = edges.filter(e => e.target === nodeId).length

@@ -11,7 +11,7 @@ import type { NodeType } from '../../../domain/nodes'
 import { InspectorCoaching } from '../shared/InspectorCoaching'
 import { typography } from '../../../../styles/typography'
 import { useStaleGuard } from '../useStaleGuard'
-import { SECTION_TITLES } from '../inspectorStrings'
+import { SECTION_TITLES, getTypeLabel } from '../inspectorStrings'
 import { SectionTitle } from '../shared/SectionTitle'
 import { ConnectionRow } from '../shared/ConnectionRow'
 import { StaleGuardBanner } from '../shared/StaleGuardBanner'
@@ -103,10 +103,7 @@ export const RiskPanel = memo(function RiskPanel({
               label={conn.label}
               badge={conn.category ? (
                 <span className={`${typography.panelMeta} font-medium px-2 py-0.5 rounded-full bg-transparent text-text-body border border-factor/30`}>
-                  {conn.category === 'controllable' ? 'You can change this'
-                    : conn.category === 'observable' ? 'You measure this'
-                    : conn.category === 'external' ? 'Outside your control'
-                    : ''}
+                  {getTypeLabel('factor', conn.category)}
                 </span>
               ) : undefined}
               strength={conn.strength}

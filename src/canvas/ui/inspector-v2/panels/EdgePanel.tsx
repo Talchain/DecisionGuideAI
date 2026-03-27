@@ -6,6 +6,7 @@
 import { memo, useState, useMemo, useCallback, useRef, useEffect } from 'react'
 import { ArrowRight, AlertTriangle, Beaker, ChevronDown, ChevronRight } from 'lucide-react'
 import { useCanvasStore } from '../../../store'
+import { useRobustness, useEdgeEValues } from '../useAnalysisResults'
 import { getEdgeConfidence, EDGE_CONSTRAINTS, DEFAULT_EDGE_DATA } from '../../../domain/edges'
 import type { NodeType } from '../../../domain/nodes'
 import { NodeShapeIndicator } from '../../../nodes/NodeShapeIndicator'
@@ -121,8 +122,8 @@ export const EdgePanel = memo(function EdgePanel({
 }: InspectorPanelProps) {
   const edges = useCanvasStore(s => s.edges)
   const nodes = useCanvasStore(s => s.nodes)
-  const robustness = useCanvasStore(s => (s.results?.report as any)?.robustness)
-  const edgeEValues = useCanvasStore(s => (s.results?.report as any)?.robustness?.edge_e_values as Array<{ edge_id: string; e_value: number }> | undefined)
+  const robustness = useRobustness()
+  const edgeEValues = useEdgeEValues()
   const resultsStatus = useCanvasStore(s => s.results?.status)
   const isResultsMode = resultsStatus === 'complete'
 

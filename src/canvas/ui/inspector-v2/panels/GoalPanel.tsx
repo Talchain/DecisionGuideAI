@@ -5,6 +5,7 @@
 
 import { memo, useState, useMemo, useCallback } from 'react'
 import { useCanvasStore } from '../../../store'
+import { useGoalConstraints, useConditionalProbabilities } from '../useAnalysisResults'
 import { InspectorCoaching } from '../shared/InspectorCoaching'
 import { GoalThresholdEditor } from '../../inspector/GoalThresholdEditor'
 import { GoalProgressChecklist } from '../../inspector/GoalProgressChecklist'
@@ -42,8 +43,8 @@ export const GoalPanel = memo(function GoalPanel({
   const goalThreshold = useCanvasStore(s => s.goalThreshold)
   const probGoal = useCanvasStore(s => s.results?.report?.probability_of_goal)
   const probJoint = useCanvasStore(s => s.results?.report?.probability_of_joint_goal)
-  const postAnalysisConstraints = useCanvasStore(s => (s.results?.report as any)?.goal_constraints as Array<CEEGoalConstraint & { probability?: number }> | null | undefined)
-  const conditionalProbabilities = useCanvasStore(s => (s.results?.report as any)?.conditional_probabilities as ConditionalProbability[] | null | undefined)
+  const postAnalysisConstraints = useGoalConstraints()
+  const conditionalProbabilities = useConditionalProbabilities()
   const preAnalysisConstraints = useCanvasStore(s => s.goalConstraints)
   const setGoalConstraints = useCanvasStore(s => s.setGoalConstraints)
   // Prefer post-analysis (has probability scores) over pre-analysis preview

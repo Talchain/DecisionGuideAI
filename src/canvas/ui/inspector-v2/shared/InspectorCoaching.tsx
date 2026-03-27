@@ -11,10 +11,7 @@
  */
 
 import { useMemo, useCallback } from 'react'
-import {
-  useGuidanceStore,
-  selectItemsForTarget,
-} from '../../../stores/guidanceStore'
+import { useGuidanceStore } from '../../../stores/guidanceStore'
 import { CoachingCard } from './CoachingCard'
 import { resolveAskTemplate } from '../inspectorStrings'
 
@@ -44,7 +41,7 @@ export function InspectorCoaching({
   // Get guidance items for this element (sorted by priority, take top 1)
   const guidanceItems = useGuidanceStore(s => s.guidanceItems)
   const topGuidanceItem = useMemo(() => {
-    const items = selectItemsForTarget({ guidanceItems } as any, elementId)
+    const items = guidanceItems.filter(i => i.target_object?.id === elementId)
     if (items.length === 0) return null
     // Highest priority first
     return [...items].sort((a, b) => b.priority - a.priority)[0]

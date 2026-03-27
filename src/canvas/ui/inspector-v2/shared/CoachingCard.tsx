@@ -1,6 +1,6 @@
 /**
  * CoachingCard — DS v4 §15
- * bg-panel, 3px left border info, rounded-r-lg
+ * bg-panel, full thin info border (1px solid rgba(99,173,207,0.30)), rounded-lg
  * Lightbulb icon + panelBody text + dismiss + optional action chip
  * Absent (not rendered) when no coaching data — parent controls visibility
  */
